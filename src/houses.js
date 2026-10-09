@@ -515,6 +515,37 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     (save.citadelBattles ||= {})[key] = { startedAt: now, guardIds: [] };
     return true;
   }
+  // A SHARED BATTLE (multiplayer.js): a nearby player's battle at a castle
+  // arrives as its key and the epoch-ms it started. A castle key is the
+  // footprint's anchor cell (worldgen.js ownerKeys: `b_<x>_<y>`), and only a
+  // citadel (CastleStyles guards) holds a battle, so anything else off the
+  // wire is refused. Adopting copies the START, never a fresh one, so every
+  // participant's deadline is the same wall-clock instant and every save
+  // expires — and undoes its guards' deaths — together. Two starts for one
+  // castle merge to the EARLIER (deterministic whichever arrives first). A
+  // castle this save has claimed takes no battle; one that has already run
+  // out, or starts further ahead than clocks plausibly drift
+  // (CITADEL_BATTLE_SKEW_MS), is refused.
+  // Returns 'adopted' (no battle here before), 'earlier' (ours moved back to
+  // theirs) or false (nothing changed — ours is the same or earlier).
+  const CASTLE_KEY_RE = /^b_-?\d{1,9}_-?\d{1,9}$/;   // mirrored in server/index.js
+  const CITADEL_BATTLE_SKEW_MS = 60 * 1000;
+  function isCitadelKey(key) {
+    return typeof key === 'string' && CASTLE_KEY_RE.test(key) && CastleStyles.get(key).guards === true;
+  }
+  function adoptCitadelBattle(save, key, startedAt, now = Date.now()) {
+    if (!isCitadelKey(key) || isCastleClaimed(save, { castle: key })) return false;
+    if (!Number.isSafeInteger(startedAt) || startedAt <= 0
+        || startedAt > now + CITADEL_BATTLE_SKEW_MS || now >= startedAt + CITADEL_BATTLE_MS) return false;
+    const cur = save.citadelBattles?.[key];
+    if (!cur) {
+      (save.citadelBattles ||= {})[key] = { startedAt, guardIds: [] };
+      return 'adopted';
+    }
+    if (!(startedAt < cur.startedAt)) return false;
+    cur.startedAt = startedAt;
+    return 'earlier';
+  }
   function expireCitadelBattles(save, now = Date.now()) {
     const expired = [];
     for (const [key, battle] of Object.entries(save.citadelBattles || {})) {
@@ -563,6 +594,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     isHouseWreck, wreckRestoreCost,
     fortUnlockCost, isFortLocked,
     castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle, citadelBattleActive, startCitadelBattle, expireCitadelBattles, CITADEL_BATTLE_MS,
+    CASTLE_KEY_RE, CITADEL_BATTLE_SKEW_MS, isCitadelKey, adoptCitadelBattle,
     CASTLE_SERVICE_MS, castleServiceWaitMs, castleServiceUsed, markCastleServiceUsed,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

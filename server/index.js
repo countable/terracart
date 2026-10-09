@@ -2,36 +2,46 @@
 //
 // One tiny WebSocket server that lets players SEE each other. It holds no game
 // state: every client keeps its own save, and the server only fans out
-// "where I am" messages, plus three enemy frames (hit, seen, dead) so nearby
-// players' copies of the same deterministic enemy take the same damage and
-// die together. What it does own is the roster — it assigns ids, pins each
+// "where I am" messages, plus five enemy frames (hit, seen, dead, battle,
+// aggro) so nearby players' copies of the same deterministic enemy take the
+// same damage, die together, fight the same castle battle and chase the same
+// player. What it does own is the roster — it assigns ids, pins each
 // socket's name + colour from its hello, and tells everyone when a player
 // arrives or leaves — so a client can never impersonate another.
 //
 // Wire protocol (JSON text frames, one object per frame):
 //   client → server
-//     { t:'hello', name, color, x, y, fx, fy, m, d }  first frame; name required
-//     { t:'p', x, y, fx, fy, m, d }                   position update (≤ MAX_MSGS_PER_S)
+//     { t:'hello', name, color, x, y, fx, fy, m, d, e, g, v }  first frame; name required
+//     { t:'p', x, y, fx, fy, m, d, e, g, v }          position update (≤ MAX_MSGS_PER_S)
 //     { t:'ping', x, y, label }                       "look here" (≤ 1 per PING_GAP_MS)
-//     { t:'hit', id, f, left, d, k? }                 my side damaged enemy `id`   ┐ ≤ MAX_ENEMY_FRAMES_PER_S
-//     { t:'seen', ids:[id...], d }                    these enemies are alive here │ together; extras
-//     { t:'dead', ids:[id...], d }                    these enemies are dead (reply)┘ dropped, not fatal
+//     { t:'hit', id, f, left, d, k? }                 my side damaged enemy `id`   ┐
+//     { t:'seen', ids:[id...], d }                    these enemies are alive here │ ≤ MAX_ENEMY_FRAMES_PER_S
+//     { t:'dead', ids:[id...], d }                    these enemies are dead (reply)│ together; extras
+//     { t:'battle', key, startedAt, d }               my castle battle is on       │ dropped, not fatal
+//     { t:'aggro', eid, pid, d }                      enemy `eid` is after player `pid` ┘
 //   server → client
 //     { t:'welcome', id, peers:[<peer>...] }          reply to hello; peers = everyone else
 //     { t:'join',  ...<peer> }                        someone new said hello
-//     { t:'p',     id, x, y, fx, fy, m, d }           a peer moved (within INTEREST_PX only)
+//     { t:'p',     id, x, y, fx, fy, m, d, e, g, v }  a peer moved (within INTEREST_PX only)
 //     { t:'ping',  id, name, color, x, y, label }     a peer pinged a spot (within INTEREST_PX)
 //     { t:'hit',   id, eid, f, left, d, k? }          a peer damaged enemy `eid` (within INTEREST_PX)
 //     { t:'seen',  id, ids, d }                       a peer has these enemies loaded, alive (within INTEREST_PX)
 //     { t:'dead',  id, ids, d }                       a peer knows these enemies are dead (within INTEREST_PX)
+//     { t:'battle', id, key, startedAt, d }           a peer's castle battle (within INTEREST_PX)
+//     { t:'aggro', id, eid, pid, d }                  a peer's copy of `eid` targets `pid` (within INTEREST_PX)
 //     { t:'leave', id }                               a peer's socket closed
 //     { t:'error', reason }                           then the socket is closed
-//   <peer> = { id, name, color, x, y, fx, fy, m, d }
+//   <peer> = { id, name, color, x, y, fx, fy, m, d, e, g, v }
 //
 // Coordinates are z=14 Web-Mercator world PIXELS (WorldGen.lonLatToWorldPx) —
 // absolute, so two saves anchored at different homes still agree on where a
 // player stands. fx/fy is the facing vector, m = 1 while walking, d = cave
 // depth (0 = surface). Clients only draw peers at their own depth.
+// e is the player's energy (their health) as a fraction of its cap, clamped to
+// [0, 1] (1 when absent — an old client); g the targeting flags the enemy AI
+// reads about a player (src/multiplayer.js TARGET_FLAGS: downed, hidden, kerb,
+// warded, fireside), an integer 0..MAX_FLAGS (0 when malformed); v the cells
+// the player's gear takes off an enemy's vision, an integer 0..MAX_VISION_CUT.
 // A hit's `id`/`eid` is the enemy's deterministic creature id, `f` the damage
 // as a fraction of its max HP (0 < f ≤ 1), `left` the sender's resulting HP
 // fraction, and `k: 1` says the sender's side KILLED it — authoritative: every
@@ -42,6 +52,10 @@
 // `seen` / `dead` carry 1..MAX_IDS enemy ids (same charset): a client
 // announces the enemies it has newly loaded, and any peer that knows one is
 // dead answers to everyone nearby, so a player who missed a kill learns it.
+// `battle` names a castle (CASTLE_KEY_RE — src/houses.js CASTLE_KEY_RE) and
+// the epoch-ms its battle started; receivers adopt or merge it (the earlier
+// start wins). `aggro` says the sender's copy of enemy `eid` chose player
+// `pid` (a relay id) as its target.
 //
 // Run: node index.js            (PORT env, default 8787)
 // Test: node test.js
@@ -65,14 +79,20 @@ const PING_GAP_MS = 2000;
 // Inbound frames per second per socket before we cut it off — the client
 // sends at ≤ 10 Hz plus a 5 s heartbeat, so 30 is generous.
 const MAX_MSGS_PER_S = 30;
-// Enemy frames (hit, seen, dead) are a share of that budget, capped on their
-// own: a client batches its damage per enemy and sends ≤ 12 hits, 1 seen and
-// ≤ 2 dead replies a second (src/multiplayer.js), so frames past this cap are
-// dropped silently rather than closing the socket. 8 Hz positions + 20 stays
-// inside MAX_MSGS_PER_S.
+// Enemy frames (hit, seen, dead, battle, aggro) are a share of that budget,
+// capped on their own: a client batches its damage per enemy and sends ≤ 12
+// hits, 1 seen, ≤ 2 dead replies, ≤ 1 battle and ≤ 4 aggro frames a second
+// (src/multiplayer.js), so frames past this cap are dropped silently rather
+// than closing the socket. 8 Hz positions + 20 stays inside MAX_MSGS_PER_S.
 const MAX_ENEMY_FRAMES_PER_S = 20;
 const ENEMY_ID_RE = /^[A-Za-z0-9_:.%-]{1,96}$/;   // src/enemy_spawns.js SHARED_ID_RE
 const MAX_IDS = 32;
+// A full seen/dead batch can contain 32 × 96-character IDs (over 3 KiB
+// including JSON). Keep the transport bound above that legal protocol size.
+const MAX_PAYLOAD_BYTES = 4096;
+const CASTLE_KEY_RE = /^b_-?\d{1,9}_-?\d{1,9}$/;    // src/houses.js CASTLE_KEY_RE
+const MAX_FLAGS = 255;        // presence `g`: a byte of targeting flags
+const MAX_VISION_CUT = 15;    // presence `v`: cells off an enemy's sight
 // A socket that has not answered a ping in this long is dead (phone locked,
 // tunnel dropped) — close it so its ghost leaves the roster.
 const PING_MS = 20000;
@@ -118,6 +138,29 @@ function cleanColor(raw) {
 function num(v, fallback = 0) {
   return Number.isFinite(v) ? v : fallback;
 }
+// Presence extras: a malformed value falls back rather than failing the frame.
+function cleanEnergy(v, fallback = 1) {
+  return Number.isFinite(v) ? Math.round(Math.min(1, Math.max(0, v)) * 100) / 100 : fallback;
+}
+function cleanSmallInt(v, max, fallback = 0) {
+  return Number.isInteger(v) && v >= 0 ? Math.min(max, v) : fallback;
+}
+// A well-formed battle's relayed fields, or null to drop it.
+function cleanBattle(msg) {
+  const { key, startedAt, d } = msg;
+  if (typeof key !== 'string' || !CASTLE_KEY_RE.test(key)) return null;
+  if (!Number.isSafeInteger(startedAt) || startedAt <= 0) return null;
+  if (!Number.isInteger(d) || d < 0) return null;
+  return { key, startedAt, d };
+}
+// A well-formed aggro's relayed fields, or null to drop it.
+function cleanAggro(msg) {
+  const { eid, pid, d } = msg;
+  if (typeof eid !== 'string' || !ENEMY_ID_RE.test(eid)) return null;
+  if (!Number.isSafeInteger(pid) || pid <= 0) return null;
+  if (!Number.isInteger(d) || d < 0) return null;
+  return { eid, pid, d };
+}
 // A well-formed hit's relayed fields, or null to drop it.
 function cleanHit(msg) {
   const { id, f, left, d, k } = msg;
@@ -138,18 +181,25 @@ function cleanIds(msg) {
   return { ids, d };
 }
 
+// The enemy frames: one shared budget, each with its own cleaner.
+// A Map, not an object literal: `constructor` or `__proto__` is no frame type.
+const ENEMY_FRAMES = new Map([['hit', cleanHit], ['seen', cleanIds], ['dead', cleanIds],
+                              ['battle', cleanBattle], ['aggro', cleanAggro]]);
+
 function createRelay(server) {
-  const wss = new WebSocketServer({ server, maxPayload: 1024 });
-  const clients = new Map();   // id → { ws, id, name, color, x, y, fx, fy, m, d, lastPingAt }
+  const wss = new WebSocketServer({ server, maxPayload: MAX_PAYLOAD_BYTES });
+  const clients = new Map();   // id → { ws, id, name, color, x, y, fx, fy, m, d, e, g, v, lastPingAt }
                                // (the liveness flag + frame budget live on ws itself: ws.alive / ws.budget)
   let nextId = 1;
 
-  const peerView = (c) => ({ id: c.id, name: c.name, color: c.color, x: c.x, y: c.y, fx: c.fx, fy: c.fy, m: c.m, d: c.d });
+  const peerView = (c) => ({ id: c.id, name: c.name, color: c.color, x: c.x, y: c.y, fx: c.fx, fy: c.fy, m: c.m, d: c.d,
+                             e: c.e, g: c.g, v: c.v });
   const broadcast = (msg, except) => { for (const c of clients.values()) if (c !== except) sendFrame(c.ws, msg); };
   const applyPos = (c, msg) => {
     c.x = num(msg.x, c.x); c.y = num(msg.y, c.y);
     c.fx = num(msg.fx, c.fx); c.fy = num(msg.fy, c.fy);
     c.m = msg.m ? 1 : 0; c.d = Math.max(0, num(msg.d, c.d) | 0);
+    c.e = cleanEnergy(msg.e); c.g = cleanSmallInt(msg.g, MAX_FLAGS); c.v = cleanSmallInt(msg.v, MAX_VISION_CUT);
   };
   const fail = (ws, reason) => { sendFrame(ws, { t: 'error', reason }); if (ws.readyState === ws.OPEN) ws.close(1008, reason); };
   // Fan a frame out to everyone within earshot of `me` (never back to me).
@@ -179,7 +229,7 @@ function createRelay(server) {
         if (msg.t !== 'hello') return fail(ws, 'hello-first');
         const name = cleanName(msg.name);
         if (!name) return fail(ws, 'name');
-        me = { ws, id: nextId++, name, color: cleanColor(msg.color), x: 0, y: 0, fx: 0, fy: 1, m: 0, d: 0 };
+        me = { ws, id: nextId++, name, color: cleanColor(msg.color), x: 0, y: 0, fx: 0, fy: 1, m: 0, d: 0, e: 1, g: 0, v: 0 };
         applyPos(me, msg);
         clients.set(me.id, me);
         sendFrame(ws, { t: 'welcome', id: me.id, peers: [...clients.values()].filter(c => c !== me).map(peerView) });
@@ -188,7 +238,7 @@ function createRelay(server) {
       }
       if (msg.t === 'p') {
         applyPos(me, msg);
-        nearby(me, { t: 'p', id: me.id, x: me.x, y: me.y, fx: me.fx, fy: me.fy, m: me.m, d: me.d });
+        nearby(me, { t: 'p', id: me.id, x: me.x, y: me.y, fx: me.fx, fy: me.fy, m: me.m, d: me.d, e: me.e, g: me.g, v: me.v });
         return;
       }
       if (msg.t === 'ping') {
@@ -199,8 +249,8 @@ function createRelay(server) {
                      x: num(msg.x), y: num(msg.y), label: cleanLabel(msg.label) });
         return;
       }
-      if (msg.t === 'hit' || msg.t === 'seen' || msg.t === 'dead') {
-        const body = msg.t === 'hit' ? cleanHit(msg) : cleanIds(msg);
+      if (ENEMY_FRAMES.has(msg.t)) {
+        const body = ENEMY_FRAMES.get(msg.t)(msg);
         if (!body || --ws.enemyBudget < 0) return;
         nearby(me, { t: msg.t, id: me.id, ...body });
         return;
@@ -256,5 +306,6 @@ if (require.main === module) {
 }
 
 // What server/test.js drives; nothing else requires this module.
-module.exports = { createServer, cleanName, cleanLabel, cleanHit, cleanIds, INTEREST_PX, MAX_MSGS_PER_S, MAX_ENEMY_FRAMES_PER_S, MAX_IDS,
+module.exports = { createServer, cleanName, cleanLabel, cleanHit, cleanIds, cleanBattle, cleanAggro, cleanEnergy, cleanSmallInt,
+                   INTEREST_PX, MAX_MSGS_PER_S, MAX_ENEMY_FRAMES_PER_S, MAX_IDS, MAX_FLAGS, MAX_VISION_CUT,
                    sendFrame, checkSlowConsumer, POSITION_BUFFER_BYTES, MAX_OUTBOUND_BYTES, SLOW_PING_LIMIT };

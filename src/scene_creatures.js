@@ -1824,7 +1824,17 @@ class SceneCreatures {
       // stops where it is. One more reason in the wander-off lane, never a
       // "frozen while you are on the road" rule — that one would lure a
       // player INTO the road.
-      const kerbTurn = kerbLeash && !isTame && (enemy || enraged);
+      // ANOTHER PLAYER'S FOE (Multiplayer.enemyTarget): a shared foe that
+      // the target rule set on a nearby peer — the same pick their device
+      // makes. Null offline, or whenever the pick is you, which leaves every
+      // line below exactly as it is for a single player. A peer body rides
+      // the npcTarget lane: the stalk goes at the peer's spot, and the blow
+      // is a feint here (rosterEnemyAttack → peerFeint) — on the peer's own
+      // device the same foe hurts them. Its pursuit is theirs, so your kerb
+      // does not turn it, and a garrison hunts the peer it noticed.
+      const peerTarget = enemy && !isTame && !haunts && typeof Multiplayer !== 'undefined'
+        ? Multiplayer.enemyTarget(this, c, px, py) : null;
+      const kerbTurn = kerbLeash && !peerTarget && !isTame && (enemy || enraged);
       // ROUTED: turned onto an away angle at the flee pace — by Home's ward, or
       // by wandering off. Two reasons, one pace; the angle chain says away from
       // WHAT (Home, or the player).
@@ -1854,7 +1864,8 @@ class SceneCreatures {
       //            does NOT bite on the way — the player got clear, and a
       //            guard still leeching on its walk home would mean they had
       //            not.
-      const lairState = c.lair && !frightened && !psychotic ? Lairs.guardState(c, { x: px, y: py }, this.cellM, !unnoticed && !kerbTurn) : null;
+      const lairState = c.lair && !frightened && !psychotic ? Lairs.guardState(c, peerTarget || { x: px, y: py }, this.cellM,
+        !!peerTarget || (!unnoticed && !kerbTurn)) : null;
       c._hunting = lairState === 'hunt';
       // ONE READ FOR "THIS FOE IS NOT ATTACKING YOU RIGHT NOW", the way
       // `unnoticed` is one read for "no hostile takes an interest in you".
@@ -1867,8 +1878,10 @@ class SceneCreatures {
       // are two mechanisms, not one, whatever they have in common here.
       const standDown = frightened || psychotic || warded || wanderOff || kerbTurn || sated || (!!lairState && lairState !== 'hunt');
       const rosterRow = !isTame ? EnemyRoster.get(c.kind) : null;
+      // A neighbour nearer than the peer it is after still wins its attention.
       const npcTarget = rosterRow && !standDown
-        ? NPC.enemyTarget(this, c, rosterRow, px, py, unnoticed) : null;
+        ? (peerTarget ? NPC.enemyTarget(this, c, rosterRow, peerTarget.x, peerTarget.y, false) || peerTarget
+          : NPC.enemyTarget(this, c, rosterRow, px, py, unnoticed)) : null;
       const enemyDt = c._enemyTickT == null ? 0 : Math.min(0.1, Math.max(0, (now - c._enemyTickT) / 1000));
       c._enemyTickT = now;
       // A HUNTED DEER CHARGES: enraged, and neither warded nor ignoring you

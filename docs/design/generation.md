@@ -312,6 +312,23 @@ access or tile lifecycle mechanics.
   mushrooms using stable plant IDs and the enemy spawn gate. Approaching one
   reveals it and releases a burst; remaining nearby permits another burst after
   sixteen foreground seconds. Picking or burning the plant stops its emission.
+- A party meets bigger groups. Zone encounter groups
+  (`EnemyHabitats.surfaceEncounterProfileSteps`) record how to make member
+  `n` (kind, seat, body); `EnemyHabitats.scaleEncounters` grows them on each
+  device to P, the local player plus near peers on this depth
+  (`Multiplayer.partyCount`; P = 1 offline, which changes nothing). A group
+  of c ≥ 2 grows to c × (1 + 0.5 × (P − 1)), its fraction rounded up when
+  `unit(`${id}:mp:${P}`)` falls under it; a single draws per extra player k
+  on `unit(`${id}:mp:${k}`)`: under 0.5 it becomes the world's elite (shiny
+  plus `Combat.rollEliteRank`) unless already one or ineligible, else it gains
+  a member. Extras are `${id}_${n}` for n ≥ c, seated by the base members'
+  own rule against the tile's finished generated occupancy plus the group's
+  own extras (never other groups', whose extras arrive in any order), pass the
+  spawn gate, are shared-marked and stay dead once caught. The count is sticky
+  upward while the tile's entry lives; a rebuild starts from the solo world.
+  Garrisons (authored sizes), cave packs and roamers (two-pass canonical cave
+  seating) and per-device mints do not scale
+  (`test/node/multiplayer_shared.test.js`).
 - Nexus coverage: `ZoneCoverage` owns the union of the influence footprint and the
   associated park footprint plus park fringe. Its ground and declarative layout
   (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary terrain paint and

@@ -5,8 +5,8 @@
 //     (Combat.isSharedHit), summed per enemy, as a fraction of its max HP.
 //  2. An own-side kill announces itself with `k: 1`, exactly once.
 //  3. A received hit lands on the copy with that id at this depth, by the
-//     same fraction of THIS copy's pool; unknown ids and other depths are
-//     dropped; `k: 1` kills even a full-HP copy.
+//     same fraction of THIS copy's pool; unloaded ids and other depths wait
+//     briefly for their tile; `k: 1` kills even a full-HP copy.
 //  4. A peer's hit is never sent on, and its kill pays nothing here — no
 //     coin, drop, elite roll or quest credit (Macros.slainByPlayer false).
 //
@@ -70,7 +70,7 @@ function withRelay(scene, fn) {
     body: { appendChild() {} },
   };
   Object.assign(scene.save, { multiplayer: true, playerName: 'Ada', playerColor: 0x9fd8ff });
-  scene.add = { container() { return { setDepth() { return this; }, add() {} }; }, graphics() { return { clear() {} }; } };
+  scene.add = { container() { return { setDepth() { return this; }, add() {} }; }, graphics() { return { clear() {}, fillStyle() { return this; }, fillCircle() { return this; } }; } };
   // One test clock for the client's timers (hit flush, seen scan, dead jitter).
   const realNow = performance.now;
   performance.now = () => clock;
@@ -275,7 +275,7 @@ test('multiplayer hits: offline, nothing is sent or applied', () => {
 // ── seen / dead ────────────────────────────────────────────────────────────
 const nearMe = (scene) => { scene.playerToWorldCell = () => ({ tx: TX, ty: TY }); };
 
-test('multiplayer seen: newly loaded shared enemies are announced in batches of ≤ 32, each once', () => {
+test('multiplayer seen: newly loaded shared enemies are batched, then retried fairly', () => {
   withTile((entry) => {
     const { scene } = harness();
     online(scene); nearMe(scene);
@@ -295,11 +295,15 @@ test('multiplayer seen: newly loaded shared enemies are announced in batches of 
       const all = of('seen').flatMap((m) => m.ids);
       assert.eq(new Set(all).size, 40, 'every live shared foe, once');
       assert.falsy(all.some((id) => !id.startsWith('enemy_mp_seen_') || id.endsWith('_dead') || id.endsWith('_pet')));
-      flush(scene); flush(scene);
-      assert.eq(of('seen').length, 2, 'nothing re-announced');
+      flush(scene);
+      assert.eq(of('seen').length, 2, 'not repeated before the retry interval');
       foe(entry, { id: 'enemy_mp_seen_new' });
       flush(scene);
       assert.eq(of('seen').length, 3); assert.eq(of('seen')[2].ids.join(), 'enemy_mp_seen_new');
+      clock += Multiplayer.SEEN_RETRY_MS;
+      flush(scene); flush(scene);
+      const retried = of('seen').slice(3).flatMap(m => m.ids);
+      assert.eq(new Set(retried).size, 41, 'all previously announced foes retry, including the tail');
     });
   });
 });
@@ -376,6 +380,130 @@ test('multiplayer dead: an answer another peer already gave is not repeated', ()
   });
 });
 
+test('multiplayer reconciliation: already connected peers meet after their initial scans', () => {
+  withTile(entry => {
+    const { scene } = harness(); online(scene); nearMe(scene);
+    withRelay(scene, ({ of, recv }) => {
+      const c = foe(entry, { id: 'enemy_mp_meet' });
+      flush(scene);
+      assert.eq(of('seen').length, 1);
+      // Both clients can be connected outside relay range on their first scan.
+      clock += Multiplayer.SEEN_RETRY_MS;
+      flush(scene);
+      assert.eq(of('seen').length, 2, 'a new encounter can learn the same id without reconnecting');
+      recv({ t: 'dead', ids: of('seen')[1].ids, d: 0 });
+      assert.includes(scene.save.caught, c.id);
+    });
+  });
+});
+
+test('multiplayer edge groups: unloaded hits and deaths land once when the neighbouring tile arrives', () => {
+  withTile(entry => {
+    const { scene, paid } = harness(); online(scene); nearMe(scene);
+    withRelay(scene, ({ recv, of }) => {
+      recv({ t: 'hit', eid: 'enemy_mp_late_hit', f: 0.2, d: 0 });
+      recv({ t: 'hit', eid: 'enemy_mp_late_hit', f: 0.3, d: 0 });
+      recv({ t: 'hit', eid: 'enemy_mp_late_kill', f: 0, k: 1, d: 0 });
+      recv({ t: 'dead', ids: ['enemy_mp_late_dead'], d: 0 });
+      const hit = foe(entry, { id: 'enemy_mp_late_hit' });
+      const kill = foe(entry, { id: 'enemy_mp_late_kill' });
+      const dead = foe(entry, { id: 'enemy_mp_late_dead', _surfaceInactive: true });
+      flush(scene);
+      assert.inRange(Combat.hpFraction(hit), 0.4999, 0.5001);
+      assert.includes(scene.save.caught, kill.id);
+      assert.includes(scene.save.caught, dead.id);
+      assert.eq((entry.coinDrops || []).length, 0, 'unseen deaths pay no loot');
+      assert.falsy(of('seen').some(m => m.ids.includes(kill.id) || m.ids.includes(dead.id)), 'deferred deaths apply before announcing');
+      flush(scene);
+      assert.inRange(Combat.hpFraction(hit), 0.4999, 0.5001, 'queued delta consumed once');
+      // Wrong-depth damage must not touch a surface body with the same id.
+      recv({ t: 'hit', eid: hit.id, f: 0.25, d: 2 });
+      flush(scene);
+      assert.inRange(Combat.hpFraction(hit), 0.4999, 0.5001);
+      scene.depth = 2;
+      flush(scene);
+      assert.inRange(Combat.hpFraction(hit), 0.2499, 0.2501, 'applies after entering its depth');
+      assert.eq(paid.quests, 0);
+    });
+  });
+});
+
+test('multiplayer edge groups: stale unseen damage expires and local or tame bodies reject deferred kills', () => {
+  withTile(entry => {
+    const { scene } = harness(); online(scene);
+    withRelay(scene, ({ recv }) => {
+      recv({ t: 'hit', eid: 'enemy_mp_expired', f: 0.5, d: 0 });
+      clock += 31000;
+      const c = foe(entry, { id: 'enemy_mp_expired' });
+      recv({ t: 'dead', ids: ['enemy_mp_private', 'enemy_mp_tame'], d: 0 });
+      const local = foe(entry, { id: 'enemy_mp_private' });
+      delete local._sharedId;
+      const tame = foe(entry, { id: 'enemy_mp_tame', pet: true });
+      flush(scene);
+      for (const body of [c, local, tame]) {
+        assert.eq(Combat.hpFraction(body), 1);
+        assert.falsy(scene.save.caught.includes(body.id));
+      }
+    });
+  });
+});
+
+test('multiplayer edge groups: hidden garrisons reconcile, and leaving and returning to a depth reannounces', () => {
+  withTile(entry => {
+    const { scene } = harness(); online(scene); nearMe(scene);
+    withRelay(scene, ({ of }) => {
+      const c = foe(entry, { id: 'enemy_mp_hidden', _surfaceInactive: true });
+      flush(scene);
+      assert.includes(of('seen')[0].ids, c.id, 'a hidden foe is still a shared world body');
+      scene.depth = 2;
+      flush(scene);
+      scene.depth = 0;
+      flush(scene);
+      assert.eq(of('seen').filter(m => m.d === 0 && m.ids.includes(c.id)).length, 2);
+    });
+  });
+});
+
+test('multiplayer group kills: an 80-enemy burst stays inside the hit budget and eventually sends every kill', () => {
+  withTile(entry => {
+    const { scene } = harness(); online(scene);
+    withRelay(scene, ({ hits }) => {
+      for (let i = 0; i < 80; i++) scene.resolveDefeat(foe(entry, { id: `enemy_mp_burst_${i}` }), 'player');
+      assert.eq(hits().length, Multiplayer.HIT_MAX_PER_S, 'overflow kills queue');
+      // A frame on the old boundary must not release another entire burst.
+      clock += 999;
+      Multiplayer.tick(scene);
+      assert.eq(hits().length, Multiplayer.HIT_MAX_PER_S);
+      for (let i = 0; i < 10; i++) flush(scene);
+      assert.eq(hits().length, 80, 'no kill lost to rate limiting');
+      assert.eq(new Set(hits().map(h => h.id)).size, 80);
+      assert.truthy(hits().every(h => h.k === 1));
+    });
+  });
+});
+
+test('multiplayer split encounters: original and halves stay local before and after splitting', () => {
+  withTile(entry => {
+    const { scene } = harness(); online(scene); nearMe(scene);
+    withRelay(scene, ({ hits, of, recv }) => {
+      const original = foe(entry, { kind: 'split_slime', id: 'enemy_mp_split' });
+      assert.falsy(EnemySpawns.isSharedId(original), 'even an unsplit root is excluded');
+      Multiplayer.reportHit(scene, original, 1, 'player');
+      recv({ t: 'hit', eid: original.id, f: 1, k: 1, d: 0 });
+      assert.eq(Combat.hpFraction(original), 1, 'a peer cannot kill the private encounter');
+      original._splitRoot = original.id; original._splitShare = 0.5; original._hp = 12;
+      const twin = foe(entry, { kind: 'split_slime', id: original.id + '_s1', _sharedId: false, _hp: 12 });
+      recv({ t: 'dead', ids: [original.id, twin.id], d: 0 });
+      assert.eq(Combat.hp(original), 12); assert.eq(Combat.hp(twin), 12);
+      scene.resolveDefeat(original, 'player');
+      flush(scene);
+      assert.eq(hits().length, 0);
+      assert.eq(of('seen').length, 0);
+      assert.falsy(scene.save.caught.includes(twin.id), 'the twin lives on');
+    });
+  });
+});
+
 // ── which ids are world-shared ─────────────────────────────────────────────
 test('shared ids: only creatures marked where the world makes them; every per-device mint is not', () => {
   const world = EnemySpawns.markShared(WorldGen.makeCreature('goblin', 0, 0, EnemySpawns.surfaceId(1, -2, 3, 4)));
@@ -405,7 +533,8 @@ test('shared ids: only creatures marked where the world makes them; every per-de
   assert.falsy(Lairs.GARRISON_INHERIT.includes('_sharedId'), 'a split half (per-device serial) is not shared');
   // The mark lives only where world-derived creatures are made.
   const marking = Object.keys(ALL_SRC).filter((f) => /markShared\(|_sharedId: true/.test(ALL_SRC[f])).sort();
-  assert.eq(marking.join(), ['creature_ai.js', 'enemy_spawns.js', 'lairs.js', 'scene_creatures.js'].join(),
+  // (enemy_habitats.js: a party's extra encounter members, scaleEncounters.)
+  assert.eq(marking.join(), ['creature_ai.js', 'enemy_habitats.js', 'enemy_spawns.js', 'lairs.js', 'scene_creatures.js'].join(),
     'a new marking site is a deliberate, reviewed choice');
 });
 })();
