@@ -46,11 +46,15 @@
   // ── What a trap costs ────────────────────────────────────────────────────
   // Stepping on a hidden one is a BITE: a tenth of a full bar (STARTING_ENERGY
   // is 100) in one go, the same order as a bare-handed rock break. Standing on
-  // the sprung one is a bleed the player is meant to walk out of — three a
-  // second is faster than any passive rest can refill (Home is 2⚡/s), so
-  // waiting it out is never the answer; stepping off is.
+  // the sprung one is a bleed the player is meant to walk out of, at the
+  // mode's rate (Difficulty trapBleedPerS — standEnergyPerS): on hard three a
+  // second, faster than any passive rest can refill (Home is 2⚡/s), so waiting
+  // it out is never the answer; on easy a gentler one a second (owner, Oct
+  // 2026), since the jaw's pin already holds the player for a while.
   const STEP_ENERGY = 10;
-  const STAND_ENERGY_PER_S = 3;
+  function standEnergyPerS() {
+    return root.Difficulty?.get?.().trapBleedPerS ?? 1;
+  }
 
   // ── How many, and where ──────────────────────────────────────────────────
   // A tile is ~236 cells (≈1.65 km) on an edge — about 21 screens across — so
@@ -499,7 +503,7 @@
   }
 
   // How hard a trap bites, as a multiplier on STEP_ENERGY and
-  // STAND_ENERGY_PER_S: its trapper's power for a laid snare, 1 for every
+  // standEnergyPerS(): its trapper's power for a laid snare, 1 for every
   // generated trap (the world's own, nobody's hand behind it).
   function trapPower(t) {
     return (t && Number.isFinite(t._power) && t._power > 0) ? t._power : 1;
@@ -603,7 +607,7 @@
   }
 
   root.Traps = {
-    STEP_ENERGY, STAND_ENERGY_PER_S,
+    STEP_ENERGY, standEnergyPerS,
     SURFACE_TRAP_MIN, SURFACE_TRAP_SPAN, TRAP_GROUND_SAMPLE, DANGER_MIN, DANGER_MAX, tileDanger,
     CAVE_TRAP_MIN, CAVE_TRAP_SPAN, CAVE_TRAP_PER_DEPTH, CAVE_TRAP_DEPTH_CAP, CAVE_SPAWN_R,
     DUNGEON_DENSITY_MUL,

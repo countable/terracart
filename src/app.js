@@ -1843,7 +1843,7 @@ class MapScene extends Phaser.Scene {
   // Two costs, one cell. Walking onto a HIDDEN trap springs it: it is revealed
   // for good (save.sprungTraps — the only thing about a trap that is ever
   // stored) and takes Traps.STEP_ENERGY in one bite, with the pain effect.
-  // Staying on the sprung one bleeds Traps.STAND_ENERGY_PER_S — faster than any
+  // Staying on the sprung one bleeds Traps.standEnergyPerS() — faster than any
   // passive rest can refill, so waiting it out is never the answer and stepping
   // off is.
   //
@@ -2089,7 +2089,7 @@ class MapScene extends Phaser.Scene {
       this._warnIfTiring(before);
       if (this.updateEnergyDOM) this.updateEnergyDOM();
       const ps = this.playerScreen ? this.playerScreen() : null;
-      const bleed = +Combat.playerDamage(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap), { boots: this.save.armor?.boots }).toFixed(1);
+      const bleed = +Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }).toFixed(1);
       this.flash(`🪤 a trap! −${bleed}⚡/s — step off`,
         ps ? ps.x : undefined, ps ? ps.y - ENERGY_POP_HEAD_PX - 22 : undefined);
       // The reveal has to survive a reload, so it is written now rather than
@@ -2118,7 +2118,7 @@ class MapScene extends Phaser.Scene {
     // loss joins the drain roll-up (_bankDrain) — a number a second stacks
     // into an unreadable column.
     const pips = bankWhole(this, '_trapDrainAccum',
-      Combat.playerDamage(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt);
+      Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt);
     if (pips > 0 && (this.save.energy ?? 0) > 0) this._bankDrain('trap', -this._losePlayerEnergy(pips), { ix, iy, label: '🪤 trap' });
   }
 

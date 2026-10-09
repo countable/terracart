@@ -72,6 +72,7 @@
                                  // Cave traps aren't here: they're flat-scaled by
                                  // Traps.DUNGEON_DENSITY_MUL regardless of mode.
       trapBiteMul: 1,           // recipient penalty applies centrally after armour
+      trapBleedPerS: 1,         // ⚡/s while standing on a sprung trap (Traps.standEnergyPerS)
       // ── The doorstep ──
       // The one creature GUARANTEED beside the starting trailer, whatever the
       // biome roll gave the tile (app.js `_placeHomeGreeter`). It is the first
@@ -119,6 +120,7 @@
       trapCountMul: 25,         // hard means it — 100 read as a minefield; halved twice (Sep 2026).
                                  // Per tile it spreads 0.3..1.7x around this (Traps.tileDanger)
       trapBiteMul: 1,           // receiving-player penalty is applied after armour
+      trapBleedPerS: 3,         // out-drains the Home rest (2⚡/s): step off, don't wait
       homeGreeter: 'slime',     // "the slimes are in your yard from the first minute" — literally
       // …the whole yard. One on each side, ten cells out: a slime leeches on
       // contact and Hard increases damage taken, so seated at the easy chicken's 2

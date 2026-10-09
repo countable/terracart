@@ -488,9 +488,11 @@ test('traps: the deeper you go the more of them there are', () => {
 
 // ─── The costs ───────────────────────────────────────────────────────────────
 
-test('traps: the bite is a tenth of a full bar and the bleed is 3⚡/s', () => {
+test('traps: the bite is a tenth of a full bar; the bleed is 1⚡/s on easy, 3⚡/s on hard', () => {
   assert.eq(Traps.STEP_ENERGY, 10, 'stepping on a hidden trap');
-  assert.eq(Traps.STAND_ENERGY_PER_S, 3, 'standing on the sprung one');
+  assert.eq(Difficulty.PROFILES.easy.trapBleedPerS, 1, 'standing on the sprung one, easy');
+  assert.eq(Difficulty.PROFILES.hard.trapBleedPerS, 3, 'standing on the sprung one, hard');
+  assert.eq(Traps.standEnergyPerS(), Difficulty.get().trapBleedPerS, 'read off the active mode');
   assert.eq(Traps.STEP_ENERGY, STARTING_ENERGY / 10,
     'the bite is stated against the bar it comes out of');
 });
@@ -504,18 +506,20 @@ test('traps: hard mode penalizes the player after boots mitigate the shared bite
   assert.eq(Combat.playerDamage(Traps.STEP_ENERGY, bootsPool, 1, 'hard'),
     Combat.playerDamage(Traps.STEP_ENERGY, bootsPool, 1, 'easy') * 2.5,
     'penalty follows mitigation');
-  assert.eq(Combat.playerDamage(Traps.STAND_ENERGY_PER_S, 0, 1, 'hard'), 7.5,
+  assert.eq(Combat.playerDamage(Difficulty.PROFILES.hard.trapBleedPerS, 0, 1, 'hard'), 7.5,
     'the receiving player also takes the penalty on bleed');
 });
 
-test('traps: standing on one out-drains the fastest passive rest in the game', () => {
+test('traps: on hard, standing on one out-drains the fastest passive rest in the game', () => {
   // Lifted from app.js, not restated: the Home rest is maxE over
   // HOME_FULL_REST_S, which is the quickest energy comes back without eating.
   const m = SCENE_SRC.match(/const HOME_FULL_REST_S = (\d+);/);
   assert.truthy(m, 'HOME_FULL_REST_S is a plain literal');
   const homeRestPerS = STARTING_ENERGY / Number(m[1]);
-  assert.gt(Traps.STAND_ENERGY_PER_S, homeRestPerS,
-    `the bleed (${Traps.STAND_ENERGY_PER_S}⚡/s) must beat the Home rest `
+  // Easy's gentler 1⚡/s is deliberately under it (owner, Oct 2026).
+  const bleed = Difficulty.PROFILES.hard.trapBleedPerS;
+  assert.gt(bleed, homeRestPerS,
+    `the hard bleed (${bleed}⚡/s) must beat the Home rest `
     + `(${homeRestPerS.toFixed(2)}⚡/s) — otherwise standing still is a way to win`);
 });
 
@@ -624,7 +628,7 @@ test('traps: the tick asks where the PLAYER is, never where the camera is', () =
   assert.truthy(/persistSave\(this\.save\)/.test(block),
     'and it is written straight away, so a discovered trap stays discovered');
   assert.truthy(/this\._painFlash\(spent\)/.test(block), 'the bite carries the pain effect');
-  assert.truthy(/Combat\.playerDamage\(Traps\.STAND_ENERGY_PER_S \* Traps\.trapPower\(trap\), \{ boots: this\.save\.armor\?\.boots \}\) \* dt/.test(block),
+  assert.truthy(/Combat\.playerDamage\(Traps\.standEnergyPerS\(\) \* Traps\.trapPower\(trap\), \{ boots: this\.save\.armor\?\.boots \}\) \* dt/.test(block),
     'the bleed is per SECOND, accumulated off the frame delta');
 });
 
@@ -789,7 +793,7 @@ test('traps: a trapper\'s snare bites at its trapper\'s power — the Home nerf 
   assert.truthy(/Traps\.layTrap\([\s\S]*?Combat\.powerMul\(c\)\);/.test(SCENE_SRC), 'the trapper hands over its powerMul');
   assert.truthy(/Traps\.STEP_ENERGY \* Difficulty\.get\(\)\.trapBiteMul \* Traps\.trapPower\(trap\)/.test(SCENE_SRC),
     'the bite scales by it');
-  assert.truthy(/Combat\.playerDamage\(Traps\.STAND_ENERGY_PER_S \* Traps\.trapPower\(trap\), \{ boots: this\.save\.armor\?\.boots \}\) \* dt/.test(SCENE_SRC), 'and the bleed');
+  assert.truthy(/Combat\.playerDamage\(Traps\.standEnergyPerS\(\) \* Traps\.trapPower\(trap\), \{ boots: this\.save\.armor\?\.boots \}\) \* dt/.test(SCENE_SRC), 'and the bleed');
 });
 
 // ── Danger: the per-tile spread ─────────────────────────────────────────────
