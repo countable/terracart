@@ -3429,7 +3429,7 @@ function seatShadow(s, look, w, x, y, h = w * SHADOW_LOOK[look].aspect) {
 // The elite rune circle's width at a kind's ordinary size (px), and how fast
 // its two bands turn (degrees per second; the inner one against the outer).
 // The bakes (scene_create.js) step ELITE_RING_STEP_DEG per frame.
-const ELITE_RING_PX = 48;
+const ELITE_RING_PX = 42;
 const ELITE_RING_STEP_DEG = 3;
 const ELITE_RING_SPIN = { outer: 360 / 14, inner: -1.6 * 360 / 14 };
 const CRITTER_SHADOW_W = {
