@@ -1944,7 +1944,8 @@ for (const [raw, c] of Object.entries(COOKED_FOODS)) {
   FOOD_ENERGY[c.id] = Math.round(FOOD_ENERGY[raw] * GRILL_ENERGY_MUL);
 }
 const ENERGY_COST = {
-  till: 2,
+  till: 5,               // bare-handed; any Hoe works off tillHoe instead
+  tillHoe: 2,            // a Hoe's till before its tier discount (effectiveTillCost)
   plant: 1,
   harvest: 1,
   rockBreak: 9,          // bare-handed; Wood pick → 3, Frost pick → 1 (effectivePickCost).
@@ -2134,7 +2135,7 @@ const RELIC_DEFS = {
              effectKey: 'waterJump',     blurb: 'Green shoots hurry toward its falling water.' },
   // Hoe — the tilling tool, and the one that sets a BED'S QUALITY. Three
   // effects, all per tier: the till wheel shortens on the shared tool ladder;
-  // the energy cost drops (floor(tier/3) off the base 2, floored at 1) with a
+  // the energy cost drops (bare hands 5; a Hoe pays 2 less floor(tier/3), floored at 1) with a
   // 12%-per-tier chance of costing nothing at all (effectiveTillCost); and the
   // tier is banked on the tilled cell as its produce quality, which the crop
   // planted there carries to harvest (Crops.bedQuality — every quality tier is
@@ -2497,14 +2498,15 @@ function spotFish(id) {
 function effectiveFishCost(relics, rng) {
   return probEnergy(FISH_COST_MULT * toolEnergyExpected(relics?.fishing_rod?.tier || 0), rng);
 }
-// Hoe relic: each tier (1-7) gives a 12% chance of FREE tilling AND shaves
-// floor(tier/3) energy off the base 2-cost (floored at 1). Tier 7 ≈ 84% free
+// Hoe relic: bare hands pay ENERGY_COST.till; any Hoe drops to tillHoe, then
+// each tier (1-7) gives a 12% chance of FREE tilling AND shaves floor(tier/3)
+// energy off that (floored at 1). Tier 7 ≈ 84% free
 // + 1 energy when not free (avg ~0.16 per till). `rng` is injected so tests
 // can hold the roll fixed.
 function effectiveTillCost(relics, rng) {
   const eq = relics?.hoe;
-  const base = ENERGY_COST.till;
-  if (!eq) return base;
+  if (!eq) return ENERGY_COST.till;
+  const base = ENERGY_COST.tillHoe;
   const random = rng || Math.random;
   if (random() < eq.tier * 0.12) return 0;
   return Math.max(1, base - Math.floor(eq.tier / 3));
