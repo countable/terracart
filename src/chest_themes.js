@@ -29,7 +29,7 @@
     // available above ground. Lower-tier magic remains useful in larger stacks.
     magic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry).map(i => i.id), mixedTiers: true, fallback: 'antidote' },
     travelMagic: { ids: ['reach_potion', 'speed_potion', 'shadow_powder', 'treasure_map'], mixedTiers: true, fallback: 'antidote' },
-    combatMagic: { ids: ['protection_potion', 'immortal_potion', 'fire_resistance_potion', 'flight_potion', 'giant_potion', 'shielding_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll', 'blight_potion', 'thunder_scroll', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'explosive_flask', 'fear_scroll', 'sleep_powder', 'psychosis_powder', 'poison_flask', 'taming_potion'], mixedTiers: true, fallback: 'antidote' },
+    combatMagic: { ids: ['protection_potion', 'immortal_potion', 'fire_resistance_potion', 'flight_potion', 'giant_potion', 'shielding_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll', 'blight_potion', 'thunder_scroll', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'explosive_flask', 'fear_scroll', 'sleep_powder', 'psychosis_powder', 'grip_potion', 'poison_flask', 'taming_potion'], mixedTiers: true, fallback: 'antidote' },
     medicalMagic: { ids: { healing_potion: 3, revival_potion: 3, protection_potion: 2, shielding_potion: 2, resurrection_potion: 2, elixir: 1,
       regeneration_amulet: 0.3, vigor_amulet: 0.3 }, mixedTiers: true, fallback: 'antidote' },
     recovery: { ids: ['healing_potion', 'elixir'], fallback: 'restorative' },

@@ -508,6 +508,9 @@ const MINERAL_ICON_SHEET = {
   psychosis_powder: { sheet: 'icon_potions', frame: 1 },
   // Potion of Hardworking — the sparkling blue round flask (row 2, frame 14).
   hardworking_potion: { sheet: 'icon_potions', frame: 14 },
+  // Potion of Grip — the round sparkling flask (frame 12) recoloured to the
+  // Rust totem's light (tools/export_grip_potion_icon.py).
+  grip_potion: { sheet: 'icon_grip_potion', frame: 0 },
   // Poison Flask — the wide violet flask (row 4, frame 23), poison's ink.
   poison_flask: { sheet: 'icon_potions', frame: 23 },
   // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
@@ -697,6 +700,9 @@ const BASE_TIER = {
   // Hardworking is the T1 farm potion: the Harvest Idol's boon (work at
   // Shrines.WORK_SPEED_MUL) for a third of the idol's time, bottled.
   hardworking_potion: 1,
+  // Grip is the T1 fighting potion: the Rust totem's boon (+5 melee and
+  // ranged damage, Combat.TRAINING_KINDS drill) for a short spell, bottled.
+  grip_potion: 1,
   // The Poison Flask: the purple slime's minute of poison, thrown or drunk —
   // a T2 utility like the protection potion, under the T3 explosive flask.
   poison_flask: 2,
@@ -879,6 +885,8 @@ const ITEMS = [
   { id: 'psychosis_powder', name: 'Powder of Psychosis', kind: 'magic' },
   // Drunk, never thrown (no `potion` flag): a creature has no work to hurry.
   { id: 'hardworking_potion', name: 'Potion of Hardworking', kind: 'magic' },
+  // Drunk, never thrown: the boon is the player's training drill.
+  { id: 'grip_potion', name: 'Potion of Grip', kind: 'magic' },
   // Thrown like a potion (it lands Combat.poison on whatever it strikes) or
   // drunk (the player's own poison row).
   { id: 'poison_flask', name: 'Poison Flask', kind: 'magic', potion: true },
@@ -1203,6 +1211,17 @@ const CONSUMABLE_SPEC = {
     verb: 'Drink', title: 'Drink the Potion of Hardworking?',
     get: 'Your weariness lifts, and your hands move swiftly through their work.',
     used: { title: 'You drink the Potion of Hardworking', body: (scene, spec) => spec.get },
+  },
+  // Potion of Grip: the Rust totem's boon (shrines.js `melee` lever — the
+  // melee and archery drill bonus, Combat.trainingBonus) for durationMs,
+  // pulled through the same lever, so a bottle on top of a totem visit
+  // extends the one "Grip" countdown and never stacks.
+  grip_potion: {
+    durationMs: 2 * _CONSUMABLE_MINUTE_MS, buff: 'melee',
+    verb: 'Drink', title: 'Drink the Potion of Grip?',
+    get: 'Your hands close hard as iron around your weapon.',
+    used: { title: 'You drink the Potion of Grip',
+      body: (scene, spec) => `+${Combat.TRAINING_KINDS.melee.drill} melee and archery damage for ${shortDuration(spec.durationMs)}.` },
   },
   // Poison Flask: whoever it touches carries the `poison` row of
   // Conditions.DEFINITIONS for its minute — a struck creature through
@@ -1596,6 +1615,7 @@ const PRICES = {
   sleep_powder: 100,
   psychosis_powder: 15, // T1 — ten seconds of foes running every which way
   hardworking_potion: 15, // T1 — the Harvest Idol's quick hands for five minutes
+  grip_potion: 15, // T1 — the Rust totem's +5 damage for two minutes
   poison_flask: 45, // T2 — a minute of the purple slime's poison on whatever it touches
   reach_potion:  45,   // T4 — full-screen reach for 1 min is a strong utility pop
   antidote:     12,
@@ -1855,6 +1875,7 @@ const ITEM_EFFECTS = {
   sleep_powder: CONSUMABLE_SPEC.sleep_powder.get,
   psychosis_powder: CONSUMABLE_SPEC.psychosis_powder.get,
   hardworking_potion: CONSUMABLE_SPEC.hardworking_potion.get,
+  grip_potion: CONSUMABLE_SPEC.grip_potion.get,
   poison_flask: 'Bottled venom. A purple chill creeps into whoever it touches, thrown or drunk.',
   reach_potion: 'The far horizon trembles close to the rim of this bottle.',
   antidote: 'A bitter draught to wash every affliction away.',

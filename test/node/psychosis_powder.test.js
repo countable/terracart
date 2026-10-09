@@ -54,7 +54,7 @@ test('psychosis powder: a T1 magic item — the Antidote is no longer the only o
   assert.truthy(ITEM_EFFECTS[ID], 'a description');
   assert.truthy(!('icon' in it), 'no emoji icon field (QC_RULES §1)');
   const t1 = ITEMS.filter(i => i.kind === 'magic' && i.baseTier === 1).map(i => i.id).sort().join(',');
-  assert.eq(t1, 'antidote,hardworking_potion,psychosis_powder', 'the T1 magic items');
+  assert.eq(t1, 'antidote,grip_potion,hardworking_potion,psychosis_powder', 'the T1 magic items');
   // The green mortar on the potion sheet (row 0), a frame of its own.
   const src = MINERAL_ICON_SHEET[ID];
   assert.eq(src.sheet, MINERAL_ICON_SHEET.sleep_powder.sheet, 'the potion sheet, like the sleep dust');
