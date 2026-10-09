@@ -46,6 +46,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   row. Ambient site light persists after a visit; the availability pulse does not.
   Successful visits show their story painting each time. `tools/idols.html`
   reads the same rows for the design sheet.
+- Home crafting uses a direct picker of learned recipes. Show each ingredient's
+  held and required quantities, its shortfall in text, and a visible reason
+  when Craft is disabled. Keep the chosen recipe after crafting and refresh
+  counts and the existing receipt. Recipe selection never spends ingredients;
+  acceptance still rechecks unlocks, bag room, and ingredients before spending.
 - Dialogs use `makeModalShell` with a kind, which supplies a scene painting.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
