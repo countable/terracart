@@ -331,19 +331,21 @@
     }
     return { elite, extras };
   }
-  // Grow every group on `entry` to `players` (sticky). Returns the NEW
+  // Grow every group on `entry` to `players` (a number or per-group resolver,
+  // sticky). Returns the NEW
   // creatures to add (shared-marked, minus `caught`; ids `${group}_${n}`
   // continuing the numbering) and the base members upgraded to elite in place.
   function scaleEncounters(entry, players, caught) {
     const added = [], upgraded = [];
     for (const g of GROUP_RECORDS.get(entry) || []) {
-      if (!(players > g.players)) continue;
-      g.players = players;
+      const size = typeof players === 'function' ? players(g) : players;
+      if (!Number.isInteger(size) || !(size > g.players)) continue;
+      g.players = size;
       let want;
-      if (g.count >= 2) want = partySize(g.id, g.count, players) - g.count;
+      if (g.count >= 2) want = partySize(g.id, g.count, size) - g.count;
       else {
         const base = (entry.creatures || []).find(c => c.id === `${g.id}_0`);
-        const draws = singleDraws(g.id, g.baseKind, players);
+        const draws = singleDraws(g.id, g.baseKind, size);
         want = draws.extras;
         if (draws.elite && !g.elite) {
           g.elite = true;

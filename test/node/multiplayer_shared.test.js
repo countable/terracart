@@ -910,9 +910,11 @@ test('multiplayer castle deferral: a queued old battle kill cannot defeat a new 
   });
 });
 
-test('multiplayer traffic: hits, scans, deaths, battles and targeting share one rolling enemy budget', () => {
+test('multiplayer traffic: hits, scans, deaths, battles, groups and targeting share one rolling enemy budget', () => {
   withTile(entry => {
     const { scene } = harness(); online(scene, SPOT);
+    entry._spawned = true;
+    EnemyHabitats.groupsOf(entry).push(...EnemyHabitats.groupsOf(built(TX, TY)).map(g => ({ ...g, players: 2 })));
     const startedAt = Date.now();
     scene.save.citadelBattles = {};
     for (let i = 1; i < 200 && Object.keys(scene.save.citadelBattles).length < 24; i++) {
@@ -927,7 +929,7 @@ test('multiplayer traffic: hits, scans, deaths, battles and targeting share one 
       }
       recv({ t: 'seen', id: 2, ids: ['enemy_mp_mixed_0'], d: 0 });
       Multiplayer.tick(scene);
-      const enemy = () => sent.filter(m => ['hit', 'seen', 'dead', 'battle', 'aggro'].includes(m.t));
+      const enemy = () => sent.filter(m => ['hit', 'seen', 'dead', 'battle', 'aggro', 'group'].includes(m.t));
       assert.lte(enemy().length, 20, 'hit and battle timers share one cap');
       const first = enemy().length;
       clock += 999;
@@ -938,8 +940,8 @@ test('multiplayer traffic: hits, scans, deaths, battles and targeting share one 
       flush(scene, 1000); flush(scene, 1000);
       assert.eq(of('hit').length, 24, 'every queued kill is sent');
       assert.eq(new Set(of('battle').map(m => m.key)).size, 24, 'every pending battle is sent');
-      for (const type of ['hit', 'seen', 'dead', 'battle', 'aggro']) assert.gt(of(type).length, 0, `${type} is exercised`);
-      const times = sentTimes.filter((_, i) => ['hit', 'seen', 'dead', 'battle', 'aggro'].includes(sent[i].t));
+      for (const type of ['hit', 'seen', 'dead', 'battle', 'aggro', 'group']) assert.gt(of(type).length, 0, `${type} is exercised`);
+      const times = sentTimes.filter((_, i) => ['hit', 'seen', 'dead', 'battle', 'aggro', 'group'].includes(sent[i].t));
       for (const at of times) assert.lte(times.filter(t => t >= at && t < at + 1000).length, 20, 'every rolling second fits');
     }, { peers: [peer(2, SPOT.x + 20, SPOT.y)] });
   });
@@ -975,6 +977,206 @@ test('party groups: a neighbour tile finishes its sliced spawn before scaling ca
   } finally {
     if (had) WorldGen.tileCache.set(key, had); else WorldGen.tileCache.delete(key);
   }
+});
+
+
+// Each replica uses a finished generated tile and the real client wire handler.
+// Starting a fresh client session prevents another replica's retained packets
+// from substituting for the relay exchange this test is meant to exercise.
+function withPartyTile(entry, fn) {
+  const key = WorldGen.tileKey(TX, TY), had = WorldGen.tileCache.get(key);
+  WorldGen.tileCache.set(key, entry);
+  const { scene } = harness();
+  const at = { x: TX * PEDGE + 100, y: TY * PEDGE + 100 };
+  online(scene, at);
+  try { return fn(scene, at); }
+  finally { if (had) WorldGen.tileCache.set(key, had); else WorldGen.tileCache.delete(key); }
+}
+const groupFrame = (entry, p, d = 0) => ({ t: 'group', id: 2, d,
+  groups: EnemyHabitats.groupsOf(entry).map(g => ({ id: g.id, p })) });
+function partyReplica(entry, count, incoming = []) {
+  return withPartyTile(entry, (scene, at) => withRelay(scene, ({ recv, of }) => {
+    for (const frame of incoming) recv(frame);
+    flush(scene, Multiplayer.GROUP_RETRY_MS + Multiplayer.PARTY_SCAN_MS);
+    return of('group').map(frame => ({ ...frame, id: 2 }));
+  }, { peers: Array.from({ length: count - 1 }, (_, i) => peer(i + 2, at.x + 20 + i, at.y)) }));
+}
+
+test('party coordination: asymmetric 2 / 3 / 2 clients converge through relayed announcements', () => {
+  const a = built(TX, TY), b = built(TX, TY), c = built(TX, TY);
+  partyReplica(a, 2);
+  partyReplica(c, 2);
+  const middle = partyReplica(b, 3);
+  assert.gt(middle.length, 0, 'middle publishes its larger encounter input');
+  assert.falsy(sig(a.creatures) === sig(b.creatures), 'different local counts really produced different groups');
+  const forwarded = partyReplica(a, 2, middle);
+  partyReplica(c, 2, forwarded);
+  assert.eq(sig(a.creatures), sig(b.creatures), 'left device adopts the middle device count');
+  assert.eq(sig(c.creatures), sig(b.creatures), 'right device can converge through a forwarding peer');
+  for (const entry of [a, b, c]) {
+    assert.truthy(EnemyHabitats.groupsOf(entry).every(g => g.players === 3));
+    assert.eq(new Set(entry.creatures.map(c => c.id)).size, entry.creatures.length);
+  }
+});
+
+test('party coordination: duplicate, reordered and lower announcements never shrink or duplicate a group', () => {
+  const entry = built(TX, TY);
+  withPartyTile(entry, (scene) => withRelay(scene, ({ recv }) => {
+    recv(groupFrame(entry, 4));
+    flush(scene);
+    const grown = sig(entry.creatures);
+    for (const p of [2, 4, 3, 2, 4]) { recv(groupFrame(entry, p)); flush(scene); }
+    assert.eq(sig(entry.creatures), grown);
+    assert.truthy(EnemyHabitats.groupsOf(entry).every(g => g.players === 4));
+    assert.eq(new Set(entry.creatures.map(c => c.id)).size, entry.creatures.length);
+  }));
+});
+
+test('party coordination: group IDs and depth isolate scaling and invalid player counts are ignored', () => {
+  const entry = built(TX, TY), groups = EnemyHabitats.groupsOf(entry);
+  assert.gt(groups.length, 1);
+  withPartyTile(entry, scene => withRelay(scene, ({ recv }) => {
+    const frame = (id, p, d = 0) => ({ t: 'group', id: 2, d, groups: [{ id, p }] });
+    recv(frame(groups[0].id, 5, 1));
+    recv(frame('zone_encounter_999_999_0_0', 5));
+    for (const p of [0, 1, -2, 2.5, '3', Multiplayer.GROUP_MAX_PLAYERS + 1]) recv(frame(groups[0].id, p));
+    flush(scene);
+    assert.truthy(groups.every(g => g.players === 1), 'unrelated or malformed packets do not change this tile');
+    recv(frame(groups[0].id, 3));
+    flush(scene);
+    assert.eq(groups[0].players, 3);
+    assert.truthy(groups.slice(1).every(g => g.players === 1), 'only the named encounter grows');
+  }));
+});
+
+test('party coordination: an announcement before tile load waits for final spawn publication', () => {
+  const entry = built(TX, TY), base = sig(entry.creatures);
+  withPartyTile(entry, scene => withRelay(scene, ({ recv, of }) => {
+    const key = WorldGen.tileKey(TX, TY);
+    WorldGen.tileCache.delete(key);
+    recv(groupFrame(entry, 3));
+    flush(scene);
+    entry._spawned = false;
+    WorldGen.tileCache.set(key, entry);
+    flush(scene);
+    assert.eq(sig(entry.creatures), base, 'partial generator state stays untouched');
+    assert.truthy(EnemyHabitats.groupsOf(entry).every(g => g.players === 1));
+    assert.eq(of('group').length, 0, 'no partially generated groups are published');
+    entry._spawned = true;
+    flush(scene);
+    assert.truthy(EnemyHabitats.groupsOf(entry).every(g => g.players === 3), 'retained input applies after tile completion');
+  }));
+});
+
+test('party coordination: retained deaths and wounds apply when remote count creates extras', () => {
+  const entry = built(TX, TY), remote = built(TX, TY);
+  const extras = EnemyHabitats.scaleEncounters(remote, 3, new Set()).added;
+  assert.gt(extras.length, 1);
+  withPartyTile(entry, scene => withRelay(scene, ({ recv }) => {
+    recv({ t: 'dead', id: 2, ids: [extras[0].id], d: 0 });
+    recv({ t: 'hit', id: 2, eid: extras[1].id, f: 0.25, d: 0 });
+    recv(groupFrame(entry, 3));
+    flush(scene);
+    assert.includes(scene.save.caught, extras[0].id, 'dead extra cannot be resurrected by coordination');
+    const wounded = entry.creatures.find(c => c.id === extras[1].id);
+    assert.truthy(wounded);
+    assert.inRange(Combat.hpFraction(wounded), 0.7499, 0.7501);
+    recv(groupFrame(entry, 3));
+    flush(scene);
+    assert.inRange(Combat.hpFraction(wounded), 0.7499, 0.7501, 'duplicate announcements do not replay retained damage');
+  }));
+});
+
+test('party coordination: periodic repeats reach late peers and reconnect republishes sticky counts', () => {
+  const entry = built(TX, TY);
+  withPartyTile(entry, (scene, at) => withRelay(scene, ({ recv, of }) => {
+    flush(scene);
+    const initial = of('group').length;
+    assert.gt(initial, 0);
+    recv({ t: 'join', ...peer(9, at.x + 30, at.y) });
+    flush(scene, Multiplayer.GROUP_RETRY_MS + 1);
+    assert.gt(of('group').length, initial, 'late peer receives a repeated group input');
+  }, { peers: [peer(2, at.x + 20, at.y)] }));
+  const reconnected = partyReplica(entry, 1);
+  assert.gt(reconnected.length, 0, 'reconnecting alone still announces previously enlarged groups');
+  assert.truthy(reconnected.flatMap(m => m.groups).every(g => g.p >= 2));
+});
+
+test('party coordination: more than one packet of groups is advertised fairly', () => {
+  const entry = built(TX, TY), groups = EnemyHabitats.groupsOf(entry);
+  // Repeat the real record shape with distinct legal encounter IDs; these
+  // already-scaled records need publication, not another generation pass.
+  const template = groups[0];
+  groups.length = 0;
+  for (let i = 0; i < 70; i++) groups.push({ ...template,
+    id: `zone_encounter_${TX}_${TY}_${i}_0`, players: 2 });
+  withPartyTile(entry, scene => withRelay(scene, ({ of }) => {
+    for (let i = 0; i < 5; i++) flush(scene, Multiplayer.GROUP_RETRY_MS + 1);
+    const messages = of('group');
+    assert.truthy(messages.every(m => m.groups.length <= 32), 'each frame fits the relay batch limit');
+    assert.eq(new Set(messages.flatMap(m => m.groups.map(g => g.id))).size, 70,
+      'oldest-first publication cannot starve groups beyond the first packet');
+  }));
+});
+
+
+test('party coordination: a full traffic budget leaves group announcements pending for the next slot', () => {
+  const entry = built(TX, TY);
+  withPartyTile(entry, (scene, at) => withRelay(scene, ({ of }) => {
+    entry._spawned = false;
+    flush(scene);
+    const startedAt = Date.now();
+    scene.save.citadelBattles = {};
+    for (let i = 1; Object.keys(scene.save.citadelBattles).length < 20; i++) {
+      const key = `b_${1462600 + i}_823800`;
+      if (CastleStyles.get(key).guards) scene.save.citadelBattles[key] = { startedAt, guardIds: [] };
+    }
+    flush(scene, 750);
+    assert.eq(of('battle').length, 20, 'battle announcements filled the current send window');
+    entry._spawned = true;
+    clock += Multiplayer.PARTY_SCAN_MS - 750 + 1;
+    Multiplayer.scaleParty(scene, clock);
+    assert.eq(of('group').length, 0, 'group publication respects combat traffic');
+    flush(scene, Multiplayer.PARTY_SCAN_MS + 1);
+    assert.gt(of('group').length, 0, 'a refused send was not marked sent for the ten-second retry delay');
+  }, { peers: [peer(2, at.x + 20, at.y)] }));
+});
+
+test('party coordination: expired unloaded announcements cannot enlarge a newly visited encounter', () => {
+  const entry = built(TX, TY);
+  withPartyTile(entry, scene => withRelay(scene, ({ recv }) => {
+    const key = WorldGen.tileKey(TX, TY);
+    WorldGen.tileCache.delete(key);
+    recv(groupFrame(entry, 3));
+    flush(scene, 5 * 60 * 1000 + 1);
+    WorldGen.tileCache.set(key, entry);
+    flush(scene);
+    assert.truthy(EnemyHabitats.groupsOf(entry).every(g => g.players === 1));
+  }));
+});
+
+
+test('party coordination: cache churn and repeated joins cannot starve a large loaded encounter set', () => {
+  const entry = built(TX, TY), groups = EnemyHabitats.groupsOf(entry);
+  const template = groups[0];
+  groups.length = 0;
+  for (let i = 0; i < 2050; i++) groups.push({ ...template,
+    id: `zone_encounter_${TX}_${TY}_${i}_0`, players: 2, extra: () => null });
+  withPartyTile(entry, (scene, at) => withRelay(scene, ({ recv, of }) => {
+    // Fill the separate remote cache, then keep replacing its oldest entries
+    // while new peers arrive faster than the ordinary repeat interval.
+    for (let i = 0; i < 70; i++) recv({ t: 'group', id: 2, d: 0,
+      groups: Array.from({ length: 32 }, (_, j) => ({ id: `zone_encounter_999_999_${i * 32 + j}_0`, p: 2 })) });
+    for (let i = 0; i < 70; i++) {
+      recv({ t: 'group', id: 2, d: 0,
+        groups: [{ id: `zone_encounter_999_998_${i}_0`, p: 2 }] });
+      recv({ t: 'join', ...peer(i + 10, at.x + 1000, at.y) });
+      flush(scene, Multiplayer.PARTY_SCAN_MS + 1);
+    }
+    const published = new Set(of('group').flatMap(m => m.groups.map(g => g.id)));
+    assert.eq(published.size, 2050, 'all loaded groups get a turn despite bounded remote-cache eviction and joins');
+    assert.truthy(groups.every(g => published.has(g.id)));
+  }));
 });
 
 })();

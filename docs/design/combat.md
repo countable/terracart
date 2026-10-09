@@ -167,7 +167,14 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
   the player's claimed turrets) as a fraction of the foe's max HP, and every
   own-side kill as an authoritative `k: 1`. Lava, light, obstacles and
   foe-on-foe blows run on every client already and are never sent. Each client
-  still runs its own enemy AI. The wire protocol lives atop `server/index.js`.
+  still runs its own enemy AI. World-derived enemies use `enemyMovementRandom`
+  for movement decisions: enemy ID plus independent named decision counters
+  seed idle headings, avoidance, roadside jitter, retreat, psychosis, bat
+  flights and burrowing. Unrelated RNG calls and other creatures cannot alter
+  those choices. Counters advance at the existing decision points and restart
+  when a creature is recreated; different targets, terrain, simulation timing
+  or frozen intervals can still diverge. Private creatures retain their RNG.
+  The wire protocol lives atop `server/index.js`.
 - A received hit is source `Combat.PEER_SOURCE`: it goes through
   `_damageEnemy` with `exact` damage (no armour or potion shield twice), shows
   its number, never splits a slime and is never sent on. A peer's kill goes
@@ -243,13 +250,14 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
   (`TARGET_FLAGS`) and `v`. A peer below full energy wears the enemy health
   bar (`_drawEnemyHealthBar`) under its name tag; at full it shows none.
 
-- Zone encounter groups grow with the near players on each device
-  (`EnemyHabitats.scaleEncounters`; rule and stickiness in
-  [generation](generation.md)). Extras are ordinary shared foes. Groups
-  scale only after a tile finishes its sliced spawn and publishes its base
-  population. Devices with different local party counts can lack each other's
-  extras; sticky counts can preserve that difference after players leave.
-  Hits or deaths for an ID a device has not made yet wait in the bounded
-  deferred queue until that device creates the extra or the record expires.
+- Zone encounter groups share their highest observed party-size input through
+  repeated `group` frames (`EnemyHabitats.scaleEncounters`; limits and stickiness
+  in [generation](generation.md)). Given the same generated tile, devices with
+  different nearby-player counts converge on the same deterministic extras
+  and elite upgrades. Groups scale only after the tile's base spawn finishes.
+  Hits or deaths for an extra not made yet wait in the bounded deferred queue;
+  scaling runs before that queue is applied. Repeated count announcements
+  recover missed messages, while a live group's count never shrinks.
 
-Tests: `multiplayer_hits`, `multiplayer_shared`, `server/test.js`.
+Tests: `multiplayer_hits`, `multiplayer_shared`, `enemy_movement_determinism`,
+`server/test.js`.
