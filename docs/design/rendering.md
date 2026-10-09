@@ -105,7 +105,8 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   lighting and fog, clipped to the world viewport. `GasRender` eases density
   changes over 320 ms while the simulation diffuses once per second. Drawing
   reads a cached field snapshot and performs no texture creation or readback.
-  Mushroom projectiles use the same cloud painter and lilac palette, at
+  Confusion gas is yellow; mushroom projectiles use the same cloud painter
+  and palette, at
   three-quarters of a cell wide.
 
 - `lighting.js` owns the sole lighting pass: additive source cookies on a 2D
