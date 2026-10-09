@@ -698,7 +698,38 @@ class SceneModals {
     const getDiv = document.createElement('div');
     getDiv.style.cssText = 'font-size:16px;font-weight:700;margin:2px 0;color:#ffe066';
     getDiv.innerHTML = get ?? '';
-    if (pager && pager.count > 1) {
+    if (pager?.options?.length) {
+      // Recipe counters can jump straight to any known recipe, including
+      // unavailable ones whose ingredient requirements the player wants to see.
+      const picker = document.createElement('div');
+      picker.className = 'recipe-picker';
+      picker.style.cssText = 'display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:10px;margin:8px 0;';
+      const icon = document.createElement('span');
+      icon.style.cssText = 'line-height:0;text-align:center;';
+      icon.innerHTML = pager.iconHTML || '';
+      const select = document.createElement('select');
+      select.setAttribute('aria-label', 'Recipe');
+      select.setAttribute('aria-describedby', 'offer-recipe-caption');
+      select.style.cssText = 'width:100%;min-width:0;min-height:44px;padding:8px;border:1px solid #8c7950;border-radius:6px;background:#211c15;color:#ffe066;font:700 15px var(--font-ui);';
+      pager.options.forEach((option, index) => {
+        const node = document.createElement('option');
+        node.value = String(index); node.textContent = option.label;
+        select.appendChild(node);
+      });
+      select.value = String(pager.index);
+      select.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const selected = pager.options[Number(select.value)];
+        if (!selected || Number(select.value) === pager.index) return;
+        wrap.remove(); selected.onSelect();
+      });
+      picker.appendChild(icon); picker.appendChild(select); box.appendChild(picker);
+      const caption = document.createElement('div');
+      caption.id = 'offer-recipe-caption';
+      caption.style.cssText = 'font-size:12px;color:#c9c1af;margin:0 0 8px;';
+      caption.textContent = pager.caption || `${pager.index + 1} / ${pager.count}`;
+      box.appendChild(caption);
+    } else if (pager && pager.count > 1) {
       const pageRow = document.createElement('div');
       pageRow.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:8px;';
       const mkArrow = (glyph, aria, fn) => {

@@ -2,6 +2,7 @@
 import asyncio, json, sys, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 from playwright.async_api import async_playwright
+from viewer_smoke import check_viewers
 
 URL = "http://127.0.0.1:7731/test/harness.html"
 TIMEOUT_MS = 60_000   # 60 s for full suite
@@ -39,6 +40,7 @@ async def main():
             return { cases, summary };
         }""")
 
+        viewer_failures = await check_viewers(browser, "http://127.0.0.1:7731")
         await browser.close()
 
         # Print
@@ -58,6 +60,6 @@ async def main():
                 print(" ", e)
 
         failed = sum(1 for c in results["cases"] if not c["pass"])
-        sys.exit(0 if failed == 0 else 1)
+        sys.exit(0 if failed == 0 and viewer_failures == 0 else 1)
 
 asyncio.run(main())

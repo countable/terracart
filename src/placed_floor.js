@@ -59,7 +59,22 @@
     return -1;
   }
 
-  const api = { placedDepth, stampDepth, onDepth, forDepth, isSurface, indexAt };
+  // Barricades use the existing wildplant art, damage, axe and fire rules.
+  // Restore saved overlays after generated scenery and Home have settled.
+  function restoreBarricades(scene, entry, tx, ty, depth = scene.depth) {
+    const spent = spentSets(scene, scene.save);
+    const owned = [];
+    for (const b of scene.save.barricades || []) {
+      if (!onDepth(b, depth) || Math.floor(b.x / scene.tileEdgeM) !== tx
+          || Math.floor(b.y / scene.tileEdgeM) !== ty || isSpent(b, spent)) continue;
+      entry.wildplants ||= [];
+      if (!entry.wildplants.some(o => o.id === b.id)) entry.wildplants.push({ ...b });
+      owned.push(b);
+    }
+    if (owned.length) SpawnOwnership.reconcileEntry(scene, entry, owned);
+  }
+
+  const api = { placedDepth, stampDepth, onDepth, forDepth, isSurface, indexAt, restoreBarricades };
   root.PlacedFloor = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -133,3 +133,42 @@ test('egg: losing the last egg clears incubation before another egg arrives', ()
   Inventory.add(save, 'egg');
   assert.eq(EggHatch.remaining(save), EggHatch.METERS);
 });
+
+test('shiny egg: separate stack hatches a non-shiny green dragon baby', () => {
+  const save = eggSave(2);
+  Inventory.add(save, 'shiny_egg', 2);
+  save.eggHatchM = 123;
+  save.shinyEggHatchM = EggHatch.METERS;
+  const result = EggHatch.hatch(save, () => 0, { x: 1, y: 2, tx: 0, ty: 0 }, 'shiny_egg');
+  assert.truthy(result.ok);
+  assert.eq(result.petId, 'baby_green_dragon');
+  assert.eq(result.creature.kind, 'green_dragon');
+  assert.eq(result.creature.shiny, false);
+  assert.truthy(SpriteLayout.isBabyPet(result.creature));
+  assert.truthy(Pets.canCatch(save, result.creature));
+  assert.truthy(Pets.likes(result.creature, 'meat'));
+  assert.eq(Inventory.count(save, 'egg'), 2);
+  assert.eq(Inventory.count(save, 'shiny_egg'), 1);
+  assert.eq(save.eggHatchM, 123);
+  assert.eq(save.shinyEggHatchM, 0);
+});
+
+test('shiny egg: walking, reload and reacquisition keep incubation independent', () => {
+  const save = eggSave();
+  let result = EggHatch.trackAll(save, null, eggFix(0, 0), 0);
+  Inventory.add(save, 'shiny_egg');
+  result = EggHatch.trackAll(save, result.tracker, eggFix(10, 10000), 10000);
+  assert.inRange(save.eggHatchM, 9.9, 10.1);
+  assert.eq(save.shinyEggHatchM, 0);
+  result = EggHatch.trackAll(save, result.tracker, eggFix(20, 20000), 20000);
+  assert.inRange(save.shinyEggHatchM, 9.9, 10.1);
+  const restored = JSON.parse(JSON.stringify(save));
+  EggHatch.trackAll(restored, null, eggFix(30, 30000), 30000);
+  assert.eq(restored.shinyEggHatchM, save.shinyEggHatchM);
+  Inventory.remove(save, 'shiny_egg');
+  assert.eq(save.shinyEggHatchM, 0);
+  Inventory.add(save, 'shiny_egg');
+  EggHatch.trackAll(save, result.tracker, eggFix(30, 30000), 30000);
+  assert.eq(save.shinyEggHatchM, 0);
+  assert.inRange(save.eggHatchM, 29.9, 30.1);
+});

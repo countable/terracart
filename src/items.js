@@ -523,6 +523,7 @@ const MINERAL_ICON_SHEET = {
   // The existing sprung-jaw drawing in the placed magic trap's magenta.
   // Inventory shows the mechanism; placed traps remain a discreet ground scuff.
   magic_trap:    { sheet: 'icon_magic_trap', frame: 0 },
+  barricade:     { sheet: 'icon_barricade', frame: 0 },
   // MiniWorld spear: frame 0 points right; frame 1 points down.
   throwing_spear:        { sheet: 'icon_throwing_spear', frame: 0 },
   javelin:      { sheet: 'icon_javelin', frame: 0 },
@@ -714,6 +715,7 @@ const BASE_TIER = {
   trap_disarm_kit: 2,
   // Magic Trap — a tier-3 supply sold by shops and dropped by goblin trappers.
   magic_trap: 3,
+  barricade: 2,
   // Spear — a T1 supply like the torch (owner, Oct 2026: it was T2, so the
   // first Supply Shop could not sell it): one thrown shot, a staple of the
   // first cave trips, so the initial supply shop stocks it beside the torch.
@@ -819,6 +821,9 @@ const ITEMS = [
   // longgrass for an egg / milk. Repeatable until either you run out of
   // longgrass or the animal is caught.
   { id: 'egg',  name: 'Egg',  kind: 'produce' },
+  { id: 'shiny_egg', name: 'Shiny Egg', kind: 'produce', base: 'egg', shiny: true, baseTier: Math.min(7, BASE_TIER.egg + SHINY_TIER_UP) },
+  { id: 'green_dragon', name: 'Green Dragon', kind: 'animal', baseTier: 7 },
+  { id: 'baby_green_dragon', name: 'Baby Green Dragon', kind: 'animal', base: 'green_dragon', baby: true, baseTier: 7 },
   { id: 'milk', name: 'Milk', kind: 'produce' },
   // Wild-only produce — grows in grasslands, picked as debris. Not plantable.
   // Display name 'Long grass'; id stays 'longgrass' for save / loot-table
@@ -983,6 +988,7 @@ const ITEMS = [
   // crop raiders) steer around it (4-cell aversion radius in wanderCreatures).
   // Stack of N can be deployed across the farm.
   { id: 'scarecrow',    name: 'Scarecrow',    kind: 'supply' },
+  { id: 'barricade', name: 'Barricade', kind: 'supply' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
   // Fish (caught by Fishing Rod on water tiles). dropWeight: 0.4 trims their
@@ -1228,6 +1234,13 @@ const CONSUMABLE_SPEC = {
     label: scene => EggHatch.ready(scene.save) ? 'Hatch' : `Hatch · ${EggHatch.remaining(scene.save)} m left`,
     disabled: scene => !EggHatch.ready(scene.save),
     usable: scene => EggHatch.ready(scene.save),
+  },
+  shiny_egg: {
+    verb: 'Hatch', method: 'hatchEgg', title: 'Hatch the shiny egg?',
+    get: 'A green dragon baby stirs inside the shell.',
+    label: scene => EggHatch.ready(scene.save, 'shiny_egg') ? 'Hatch' : `Hatch · ${EggHatch.remaining(scene.save, 'shiny_egg')} m left`,
+    disabled: scene => !EggHatch.ready(scene.save, 'shiny_egg'),
+    usable: scene => EggHatch.ready(scene.save, 'shiny_egg'),
   },
   book: { verb: 'Read', method: 'readBook', title: 'Read the book?', get: 'An elder has left a few words for you.' },
   tome_reach: { verb: 'Read', title: 'Read the Tome of Reach?',
@@ -1562,6 +1575,9 @@ const PRICES = {
 
   // ── Animal produce (longgrass-feeding output) ────────────
   egg:  4,
+  shiny_egg: 40,
+  baby_green_dragon: 360,
+  green_dragon: 120,
   milk: 18,
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
@@ -1618,6 +1634,7 @@ const PRICES = {
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
   renovation_permit: 180,   // T4 — one rank on one building, forever; a hammer's neighbour
+  barricade: 12,   // T2 — three wood at Home; deploys the existing wooden obstacle
   scarecrow: 20,   // crow/deer ward — crafted at Home (HOME_RECIPES) or sold by a Supply Shop
   acorn: 5,
 
@@ -1723,6 +1740,7 @@ const FEATHER_REVIVE_ENERGY = 1;
 const TRAP_KIT_KEEP_CHANCE = 0.8;
 
 const ITEM_GUIDE_TIPS = {
+  barricade: 'I lashed the spare timber into a barricade at home, then carried it down to the cave. The narrow passage needed less wood than I feared.',
   crow_feather: 'My legs failed on the long road. I pressed the black feather to my lips. Just enough strength to rise. Sometimes that is all a mercy needs to be.',
   scarecrow: 'The deer have kept to the tree line since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
   trap_disarm_kit: 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.',
@@ -1748,6 +1766,10 @@ const ITEM_GUIDE_TIPS = {
 // physical detail or sensation; keep effect lists and exact numbers out.
 
 const EGG_HATCH_METERS = 500;
+const EGG_HATCH_SPEC = Object.freeze({
+  egg: { progress: 'eggHatchM', session: 'eggHatchSession', shiny: true },
+  shiny_egg: { progress: 'shinyEggHatchM', session: 'shinyEggHatchSession', babies: ['baby_green_dragon'], shiny: false },
+});
 
 const ITEM_EFFECTS = {
   pet_collar: 'A broad, soft collar for a companion with a long road ahead.',
@@ -1765,6 +1787,8 @@ const ITEM_EFFECTS = {
   smiths_guild_badge: 'Smiths nod at the little hammer and go easier on your ore.',
   marketeers_guild_badge: 'Shopkeepers see the coin on it and knock a little off.',
   traders_guild_badge: 'Traders spot the crossed arrows and ask a little less.',
+  shiny_egg: 'A warm gleam hides a tiny green dragon.',
+  baby_green_dragon: 'Small green wings unfold from a shining shell.',
   egg: 'A tiny heartbeat keeps time with your footsteps.',
   ...Object.fromEntries(BABY_KINDS.map(k => [babyItemId(k),
     'Too small to be left in the bag for long. Set it down on soft ground and let it grow.'])),
@@ -1856,6 +1880,7 @@ const ITEM_EFFECTS = {
   magic_trap: 'A hungry knot of magic waits for a foe’s footfall.',
   throwing_spear: CONSUMABLE_SPEC.throwing_spear.get,
   javelin: CONSUMABLE_SPEC.javelin.get,
+  barricade: 'Rough timber waits to bar a path. Select it, then tap empty ground to place it.',
   scarecrow: 'An empty coat watches the beds, and hungry mouths turn away.',
   acorn: 'A young timber tree waits beneath this little cap for earth and time.',
   flint_shard: 'A spark wakes a small fire inside its black heart.',
@@ -1925,7 +1950,8 @@ for (const [raw, c] of Object.entries(COOKED_FOODS)) {
   FOOD_ENERGY[c.id] = Math.round(FOOD_ENERGY[raw] * GRILL_ENERGY_MUL);
 }
 const ENERGY_COST = {
-  till: 2,
+  till: 5,               // bare-handed; any Hoe works off tillHoe instead
+  tillHoe: 2,            // a Hoe's till before its tier discount (effectiveTillCost)
   plant: 1,
   harvest: 1,
   rockBreak: 9,          // bare-handed; Wood pick → 3, Frost pick → 1 (effectivePickCost).
@@ -1947,6 +1973,7 @@ const ANIMAL_FOOD = {
   // so the array can stay empty. (Was ['rainberry'] before seeds replaced
   // berries as the canonical feed.)
   chicken: [],
+  green_dragon: ['meat'],
   rabbit: ['cress'],
   deer: ['apple'],
   crow: ['potato_seed'],
@@ -2114,7 +2141,7 @@ const RELIC_DEFS = {
              effectKey: 'waterJump',     blurb: 'Green shoots hurry toward its falling water.' },
   // Hoe — the tilling tool, and the one that sets a BED'S QUALITY. Three
   // effects, all per tier: the till wheel shortens on the shared tool ladder;
-  // the energy cost drops (floor(tier/3) off the base 2, floored at 1) with a
+  // the energy cost drops (bare hands 5; a Hoe pays 2 less floor(tier/3), floored at 1) with a
   // 12%-per-tier chance of costing nothing at all (effectiveTillCost); and the
   // tier is banked on the tilled cell as its produce quality, which the crop
   // planted there carries to harvest (Crops.bedQuality — every quality tier is
@@ -2477,14 +2504,15 @@ function spotFish(id) {
 function effectiveFishCost(relics, rng) {
   return probEnergy(FISH_COST_MULT * toolEnergyExpected(relics?.fishing_rod?.tier || 0), rng);
 }
-// Hoe relic: each tier (1-7) gives a 12% chance of FREE tilling AND shaves
-// floor(tier/3) energy off the base 2-cost (floored at 1). Tier 7 ≈ 84% free
+// Hoe relic: bare hands pay ENERGY_COST.till; any Hoe drops to tillHoe, then
+// each tier (1-7) gives a 12% chance of FREE tilling AND shaves floor(tier/3)
+// energy off that (floored at 1). Tier 7 ≈ 84% free
 // + 1 energy when not free (avg ~0.16 per till). `rng` is injected so tests
 // can hold the roll fixed.
 function effectiveTillCost(relics, rng) {
   const eq = relics?.hoe;
-  const base = ENERGY_COST.till;
-  if (!eq) return base;
+  if (!eq) return ENERGY_COST.till;
+  const base = ENERGY_COST.tillHoe;
   const random = rng || Math.random;
   if (random() < eq.tier * 0.12) return 0;
   return Math.max(1, base - Math.floor(eq.tier / 3));
@@ -2647,6 +2675,7 @@ const HOME_RECIPES = [
   // sold at the first Supply Shop, never crafted.
   { id: 'throwing_spear',     cost: [{ id: 'rubble', qty: 1 }, { id: 'wood', qty: 1 }] },
   { id: 'scarecrow', cost: [{ id: 'wood', qty: 3 }] },
+  { id: 'barricade', cost: [{ id: 'wood', qty: 3 }] },
   // Five strands of long grass twist into one rope — the way back up a cave
   // without buying one or finding one in a shallow cave chest.
   { id: 'rope',      cost: [{ id: 'longgrass', qty: 5 }] },

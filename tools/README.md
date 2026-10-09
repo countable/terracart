@@ -13,6 +13,7 @@ scripts, imports and documentation continue to work. The game has no build step.
 | `npm run assets:inventory` | Report runtime-reference evidence and unused-image candidates; never deletes files. |
 | `npm run assets:inventory -- --json` | Machine-readable inventory including file sizes and Git status. |
 | `npm run test:browser` | Run the browser harness against a local server on port 7731. |
+| `npm run test:viewers -- http://localhost:8000` | Smoke-test the main live design viewers and floor viewer against a running server. |
 | `npm run test:browser:docker` | Build the browser-test container and run its server and harness. |
 | `npm run test:relay` | Run the relay's own test suite. |
 
@@ -28,6 +29,15 @@ An inventory candidate may still be a generator input. Follow
   and its Chromium installation (`python3 -m playwright install chromium`).
   Start `python3 -m http.server 7731` separately before running it. The Docker
   wrapper provides these dependencies and starts its own server.
+- The browser harness also checks startup of the eight live design viewers:
+  monsters, world art, chests, map distribution, treasure, items, map review
+  and floors. Each must render its content without JavaScript or console
+  errors. Optional tile-fetch fallbacks and generated review snapshots are
+  outside this startup check; chests must render sources and reward tables,
+  without waiting for the four-city background report. Run
+  `npm run test:viewers -- http://localhost:8765` to check the artifact server
+  too, including stale mounts. Set `PW_CHROMIUM` for a custom Chromium path
+  when running the standalone viewer checks.
 - Both browser-harness routes use MVT fixtures under `test/fixtures/`.
   `sh test/fetch_fixtures.sh` fetches them from OpenFreeMap when needed and
   requires network access; it rewrites the fixture files.
@@ -57,6 +67,16 @@ the normal seeded picks. Surface choices apply to the matching nexus kind;
 cave choices come from that floor’s profile. Floors without authored nexus
 variants disable the buttons. Proposed mode uses the displayed source floor’s
 catalog. Placement still obeys the live spawn gates and available space.
+The seed field and New seed button rebuild the region with different review
+rolls; Reset restores seed 0, the original generation. The URL retains the
+seed for sharing and reloading, and floor/variant changes keep it. This viewer
+explicitly builds building garrisons, which gameplay normally wakes near the
+player. The preview-only Home safety slider defaults to 50 m, draws a ring
+around the labelled Home, and hides enemies seated inside it on the surface.
+Set it to 0 to inspect every generated seat; caves are unaffected. It redraws
+without rerolling and keeps its radius in the `safetyM` URL parameter. This
+simple preview filter does not simulate the game's tier bands, Easy-mode
+quiet Home, or daylight rules.
 The visible region is 60×35 square cells, backed by the generator’s square tile;
 all authored sites lie inside that window. Labels are shown above the canvas
 and can be toggled. Cave floors without visible authored areas label the

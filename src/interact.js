@@ -47,7 +47,8 @@ function consumeSelected(save, n = 1) {
   sel.count -= n;
   if (sel.count > 0) return;
   save.inv.splice(save.selSlot, 1);
-  if (sel.id === 'egg' && Inventory.count(save, 'egg') === 0) save.eggHatchM = 0;
+  const egg = EGG_HATCH_SPEC[sel.id];
+  if (egg && Inventory.count(save, sel.id) === 0) save[egg.progress] = 0;
   save.selSlot = -1;
 }
 
@@ -848,7 +849,7 @@ const TAP_HANDLERS = [
       // are one row of the creature table (`produce`) — so "is this a
       // producer" above, the item here and the verb below can't disagree.
       const produce = SpriteLayout.creatureProduce(target.kind);
-      const yieldId = produce ? produce.item : null;
+      const yieldId = produce ? (target.shiny && produce.shinyItem || produce.item) : null;
       if (yieldId) {
         const now = Date.now();
         const lastT = Ledger.until(save.lastProduce, target.id) || target._lastProduceT || 0;
@@ -1358,6 +1359,38 @@ const TAP_HANDLERS = [
     ctx.dirty = true;
     scene.buildInventoryDOM();
     scene.flash('✨ The trap is set.', sx, sy);
+    return true;
+  }},
+
+  // A crafted barricade is the same obstacle as a road barricade. It may
+  // occupy safe ground on its own level, with no other placement on the cell.
+  { name: 'place-barricade', try: (ctx) => {
+    const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
+    const sel = getSelectedSlot(save);
+    if (!(sel?.id === 'barricade' && sel.count > 0)) return false;
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+    const at = occupantsOf(ctx), spent = spentSets(scene, save);
+    const id = WorldGen.cellId(`placed_barricade_d${scene.depth || 0}`, cell.tx, cell.ty, cell.ix, cell.iy);
+    const piece = WorldGen.makeWildplant('barricade', cwmx, cwmy, id,
+      { playerOwned: true, placed: true, depth: scene.depth || 0 });
+    const blocked = ['objects', 'wildplants'].some(list =>
+      WorldGen.forEachItem(list, o => !isSpent(o, spent) && SpawnOwnership.overlaps(scene, piece, o)));
+    const free = !!entry && typeof Traps !== 'undefined' && Traps.canLay(entry, cell.ix, cell.iy)
+      && !spent.burnedGround?.(piece) && !blocked
+      && !(PlacedFloor.isSurface(scene.depth) && (scene.tilledSet?.has(cellKey) || scene.placedRockSet?.has(cellKey)))
+      && at.plantedIdx < 0 && at.fireIdx < 0 && at.scarecrowIdx < 0 && at.magicTrapIdx < 0;
+    if (!free) { scene.flash("Can't place a barricade here.", sx, sy); return true; }
+    // A cleared cell can be built on again; its stable id starts a new life.
+    save.picked = save.picked.filter(old => old !== id);
+    save.burnedObjects = (save.burnedObjects || []).filter(old => old !== id);
+    save.barricades = save.barricades.filter(old => old.id !== id);
+    save.barricades.push(piece);
+    entry.wildplants = (entry.wildplants || []).filter(old => old.id !== id);
+    entry.wildplants.push(WorldGen.makeWildplant(piece.crop, piece.x, piece.y, piece.id, piece));
+    consumeSelected(save);
+    ctx.dirty = true;
+    scene.buildInventoryDOM();
+    scene.flash('Barricade placed.', sx, sy);
     return true;
   }},
 

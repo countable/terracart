@@ -1569,6 +1569,7 @@ const ICON_SHEETS = {
   // Torch — single 16×16 stick-and-flame icon (hand-drawn, like the rope).
   icon_torch:    { url: 'assets/Icons/Items/Torch.png',                      cols: 1,  srcW: 16,  srcH: 16 },
   icon_kit:      { url: 'assets/Icons/Items/TrapDisarmKit.png',             cols: 1,  srcW: 16, srcH: 16 },
+  icon_barricade: { url: 'assets/Objects/Approved/barricade.png', cols: 1, srcW: 24, srcH: 24 },
   icon_magic_trap: { url: 'assets/Icons/Items/MagicTrap.png',                cols: 1,  srcW: 16, srcH: 16 },
   icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
   // The campfire's dishes — one 16px frame per items.js COOKED_FOODS row,
@@ -8634,7 +8635,7 @@ class MapScene extends Phaser.Scene {
   // Callers (interact.js handlers) refuse the action when this returns false.
   // `cell` ({ ix, iy }, absolute) is the cell the price is shown on; without
   // it the cell under the tap (sx, sy) is used — every interact.js handler
-  // hands the tap through, so a till pops its "−2⚡" on the plot it tilled. A
+  // hands the tap through, so a till pops its "−N⚡" on the plot it tilled. A
   // spend with neither (the staff's per-bolt cost) is silent, exactly as its
   // "too tired" is: an auto-firing weapon must not spam the map.
   spendEnergy(cost, sx, sy, cell = null) {
@@ -10270,7 +10271,7 @@ class MapScene extends Phaser.Scene {
   hatchEgg() {
     const selectedId = this.save.inv?.[this.save.selSlot]?.id;
     const at = playerWorldM(this), cell = this.playerToWorldCell();
-    const result = EggHatch.hatch(this.save, Math.random, { ...at, tx: cell.tx, ty: cell.ty, depth: this.depth || 0 });
+    const result = EggHatch.hatch(this.save, Math.random, { ...at, tx: cell.tx, ty: cell.ty, depth: this.depth || 0 }, selectedId);
     if (!result.ok) {
       if (result.reason === 'full') this.flash('Make room for a pet first.');
       return false;
@@ -10328,7 +10329,7 @@ class MapScene extends Phaser.Scene {
       button.style.opacity = button.disabled ? '0.55' : '1';
       button.style.cursor = button.disabled ? 'default' : 'pointer';
       // Eggs keep Eat and Hatch available without overlapping the controls.
-      button.style.bottom = sel.id === 'egg'
+      button.style.bottom = EggHatch.isEgg(sel.id)
         ? 'calc(46px + env(safe-area-inset-bottom, 0px))'
         : 'calc(4px + env(safe-area-inset-bottom, 0px))';
     };

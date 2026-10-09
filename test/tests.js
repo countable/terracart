@@ -1534,7 +1534,8 @@ test('useHoney consumes one Honey and re-anchors nearby creatures', (scene) => {
 });
 
 test('hoe relic: effectiveTillCost shape', () => {
-  assert.eq(effectiveTillCost(null), ENERGY_COST.till, 'no hoe = base cost');
+  assert.eq(effectiveTillCost(null), 5, 'no hoe = bare-hand cost 5');
+  assert.eq(ENERGY_COST.tillHoe, 2, 'a Hoe starts from 2');
   const noFree = () => 0.99;
   assert.eq(effectiveTillCost({ hoe: { tier: 1 } }, noFree), 2, 'T1 cost stays 2');
   assert.eq(effectiveTillCost({ hoe: { tier: 3 } }, noFree), 1, 'T3 shaves to 1');

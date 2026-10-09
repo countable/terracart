@@ -69,6 +69,21 @@ const ASSETS = {
   // keeps the visual footprint comparable to the cow. Frames {0, 1} on
   // the top row form the idle animation pair.
   chicken: { kind: 'spritesheet', path: 'assets/Farm Animals/Chicken Red.png',        frameWidth: 16, frameHeight: 16 },
+  green_dragon: {
+    kind: 'spritesheet', path: 'assets/Enemy/Dragons/RedDragon.png', frameWidth: 32, frameHeight: 32,
+    onLoad: scene => {
+      const src = scene.textures.get('green_dragon').getSourceImage();
+      const canvas = document.createElement('canvas');
+      canvas.width = src.width; canvas.height = src.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(src, 0, 0);
+      const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      recolorEnemyPixels(image.data, { shadow: '#163c28', mid: '#58a84b', highlight: '#d5ed9b' });
+      ctx.putImageData(image, 0, 0);
+      scene.textures.remove('green_dragon');
+      scene.textures.addSpriteSheet('green_dragon', canvas, { frameWidth: 32, frameHeight: 32 });
+    },
+  },
   cow:     { kind: 'spritesheet', path: 'assets/Farm Animals/Female Cow Brown.png',   frameWidth: 32, frameHeight: 32 },
   // Pet body sheets — 32×32 RPG-Maker-style anim grids (4 cols × 12-13 rows).
   // Row 0 is the down-walk cycle, which we loop as the idle anim. Source
