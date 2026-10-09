@@ -282,13 +282,11 @@
     // Appended LAST so no older row's code (index + 1) moves; the roll walks
     // the minor rows in order, so a street that rolled an older minor row
     // still does — only plain streets can become a toadstool lane.
-    // The paving is a fly agaric: red cap, cream spots. The restored red is
-    // kept SATURATED (owner, Sep 2026 — the earlier #9a5943 read as dusty
-    // pink against the dim wetland verge); the weathered stone stays muted
-    // like every unrestored surface. Its lamps burn torch orange, not the
-    // caps' glow — the mushrooms carry that themselves after dark.
+    // Weathered paving keeps the fly-agaric red and cream spots. Restored
+    // setts turn near-black with a red undertone, so the common bevel lights
+    // read as polished stone like the default repaired road. Lamps stay orange.
     { id: 'toadstool', terrain: 'WETLAND', affinities: ['damp', 'woodland'], size: 'minor', share: 0.05, rung: 'uncommon',
-      stone: { weathered: '#6d412c', restored: '#ad4e2e', pattern: 'spots', accent: '#f0dfb4' }, lampDensity: 1,
+      stone: { weathered: '#6d412c', restored: '#180d0c', pattern: 'spots', accent: '#f0dfb4' }, lampDensity: 1,
       words: /(mushroom|toadstool|fung|pilz|fairy|\bring|moss|damp|mycel|spore|schwamm|elfen|feen)/i,
       lampGlow: '#ff8c2a', fauna: { butterfly: [2, 5] },
       story: 'street_toadstool', title: 'Toadstool Lane',
@@ -330,7 +328,7 @@
       body: 'Green coins lie scattered in the grass on both sides of the road. You spot more with every step.',
       flash: 'The verges glitter with coins.' },
     { id: 'snare', terrain: 'WASTELAND', affinities: ['ruined'], size: 'minor', share: 0.03, rung: 'rare',
-      stone: { weathered: '#594a3f', restored: '#2a221b' }, lampDensity: 1,
+      stone: { weathered: '#594a3f', restored: '#100e0b' }, lampDensity: 1,
       lampGlow: '#d58b52', story: 'street_snare', art: 'street_snare', title: 'Snare Lane',
       body: 'A chest sits beside the lane, surrounded by iron traps. Open jaws stretch across the road and both verges.',
       flash: 'Iron teeth around a chest.' },

@@ -4,8 +4,8 @@
   'use strict';
   const FAUNA_PER_TILE = 160, ENEMIES_PER_TILE = 50;
   const LAND_FAUNA = {
-    GRASS: { chicken: 5, cow: 4, butterfly: 4, rabbit: 3, horse: .4 },
-    RESIDENTIAL: { cat: 4, dog: 4, chicken: 3, deer: 2, cow: .5, raven: .5 },
+    GRASS: { chicken: 5, cow: 4, butterfly: 4, rabbit: 3, crow: 2, horse: .4 },
+    RESIDENTIAL: { cat: 4, dog: 4, chicken: 3, deer: 2, raven: 2, cow: .5 },
     FOREST: { deer: 6, rabbit: 3, dog: 1 },
     FARMLAND: { chicken: 6, cow: 5, rabbit: 2, horse: 1 },
     WASTELAND: { dog: 5, rabbit: 2, chicken: 1 },
@@ -174,7 +174,9 @@
     if (kind === 'cat' && name === 'WASTELAND') return false;
     if (kind === 'deer') return name === 'FOREST' || name === 'RESIDENTIAL';
     if (kind === 'butterfly' && (name === 'FOREST' || name === 'ORCHARD')) return false;
-    if (kind === 'crow') return name === 'PARK' || name === 'GROVE'
+    // Crows are the open country's corvid (GRASS; a park is always a Nexus,
+    // so the grove profiles carry them there); ravens are the houses'.
+    if (kind === 'crow') return name === 'GRASS' || name === 'PARK' || name === 'GROVE'
       || ((profile?.owner === 'road' || (profile?.owner === 'zone' && profile.kind === 'grove'))
         && faunaRows(profile).some(row => row.kind === kind));
     if (kind === 'raven') return name === 'RESIDENTIAL';

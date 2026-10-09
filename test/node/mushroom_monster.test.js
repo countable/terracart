@@ -86,4 +86,34 @@
     rosterEnemyAttack(s,c,row,18000,14,0,false,.1);
     assert.eq(s._shots.length,0,'walls stop the puff wind-up');
   });
+  test('mushroom monster: a grove resident stands down until struck or its grove is harvested', () => {
+    const n=8, edge=n*7, tx=9101, ty=9102, key=WorldGen.tileKey(tx,ty), previous=WorldGen.tileCache.get(key);
+    const coverage=new Uint8Array(n*n).fill(1); for (let i=0;i<n;i++) coverage[i*n+n-1]=2;
+    const at=(cx,cy)=>({x:tx*edge+(cx+.5)*7,y:ty*edge+(cy+.5)*7});
+    const mk=(id,cx,zoneVariant='mushroom_grove')=>{const p=at(cx,1);
+      return {kind:'mushroom_monster',id,...p,zoneVariant,_surfaceSpawn:{tx,ty,cx,cy:1,...p}};};
+    const grove=mk('grove_a',1), other=mk('grove_b',n-1), cave={kind:'mushroom_monster',id:'cave',x:0,y:0};
+    WorldGen.tileCache.set(key,{cellsPerEdge:n,tileEdgeM:edge,depth:0,creatures:[grove,other],
+      zone:{coverage,anchors:[{kind:'grove',gx:1,gy:1,variant:'mushroom_grove'},{kind:'grove',gx:2,gy:2,variant:'mushroom_grove'}]}});
+    try {
+      assert.truthy(EnemyHabitats.unprovoked(grove),'a grove mushroom starts peaceful');
+      assert.falsy(EnemyHabitats.unprovoked(cave),'a cave mushroom is hostile as ever');
+      const p=at(2,3);
+      assert.eq(EnemyHabitats.provokeZone(edge,p.x,p.y,'rainberry'),0,'other crops do not provoke');
+      assert.eq(EnemyHabitats.provokeZone(edge,p.x,p.y,'giant_mushroom'),1,'chopping provokes its own grove only');
+      assert.falsy(EnemyHabitats.unprovoked(grove));
+      assert.truthy(EnemyHabitats.unprovoked(other),'a neighbouring grove stays calm');
+      // The real damage handler: a world blow leaves it calm, a player's blow provokes.
+      const start=SCENE_SRC.indexOf("  _damageEnemy(c, amount, source = 'player'");
+      const end=SCENE_SRC.indexOf('\n  }\n',start)+'\n  }'.length;
+      const damageEnemy=new Function('ENEMY_HEALTH_RING_MS','DMG_POPUP_BEAT_MS',
+        'return ({'+SCENE_SRC.slice(start,end)+'})._damageEnemy;')(1000,100);
+      const s={save:{boonUntil:{},relics:{}},_popDamageNumber(){},resolveDefeat(){}};
+      damageEnemy.call(s,other,1,'burn');
+      assert.truthy(EnemyHabitats.unprovoked(other),'the ground\'s own damage does not provoke');
+      damageEnemy.call(s,other,1,'player');
+      assert.falsy(EnemyHabitats.unprovoked(other),'a player\'s blow provokes');
+      assert.truthy(/const standDown = [^;]*\bunprovoked\b/.test(SCENE_SRC),'unprovoked is a standDown reason');
+    } finally { if (previous) WorldGen.tileCache.set(key,previous); else WorldGen.tileCache.delete(key); }
+  });
 })();

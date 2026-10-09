@@ -94,7 +94,11 @@
     const ordinary = run(null), graced = run({ has: () => true });
     const signature = creatures => creatures.map(c => `${c.id}:${c.kind}@${c.x},${c.y}`).join('|');
     assert.gt(ordinary.creatures.filter(c => c._surfaceSpawn).length, 0);
-    assert.eq(signature(graced.creatures), signature(ordinary.creatures), 'grace hides enemies without rerolling seats');
+    // Grass has crows, which pest-free ground also hides (a crop raider):
+    // compare the rest, and the hidden crows' absence is the overlay itself.
+    const notCrow = cs => cs.filter(c => c.kind !== 'crow');
+    assert.eq(signature(notCrow(graced.creatures)), signature(notCrow(ordinary.creatures)), 'grace hides enemies without rerolling seats');
+    assert.eq(graced.creatures.filter(c => c.kind === 'crow').length, 0, 'and pest-free ground hides its crows');
     assert.eq(JSON.stringify(graced.population), JSON.stringify(ordinary.population), 'personal grace never changes raw habitat allocation');
     assert.truthy(graced.creatures.filter(c => c._surfaceSpawn).every(c => c._surfaceInactive), 'the grace overlay actually hides the shared enemies');
   });

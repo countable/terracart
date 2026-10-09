@@ -4686,6 +4686,9 @@ class MapScene extends Phaser.Scene {
     if (source === 'player' && dealt > 0 && Shrines.leverActive(this.save, 'hidden')) {
       c._mossProvokedUntil = this.save.boonUntil.hidden;
     }
+    // A provoked-only zone's foe (EnemyHabitats.PROVOKED_ONLY — the mushroom
+    // grove) turns on whoever's side struck it: the player's, or a peer's.
+    if (dealt > 0 && (Combat.isSharedHit(source) || Combat.isPeerHit(source))) c._provoked = true;
     // Asked BEFORE the stamp below, which is what makes it "was it already
     // charging" rather than "is it a slime".
     const wasCharging = slimeCharging(c);

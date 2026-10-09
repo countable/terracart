@@ -342,6 +342,8 @@ test('tile rows: pest-free ground does not reroll habitat population seats', () 
   const signature = creatures => creatures.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
   const ordinary = run(null), graced = run({ has: () => true });
   assert.gt(ordinary.length, 0);
-  assert.eq(signature(graced), signature(ordinary), 'amnesty is a visibility overlay');
+  // Crows (grass's crop raiders) are hidden by amnesty itself; the rest keep their seats.
+  const notCrow = cs => cs.filter(c => c.kind !== 'crow');
+  assert.eq(signature(notCrow(graced)), signature(notCrow(ordinary)), 'amnesty is a visibility overlay');
 });
 })();

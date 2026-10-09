@@ -238,6 +238,19 @@ function launchStep(c, tx, ty, now, clockField = '_stepT0') {
 function tileCellCentre(tileEdgeM, tx, ty, cellM, cx, cy) {
   return { x: tx * tileEdgeM + (cx + 0.5) * cellM, y: ty * tileEdgeM + (cy + 0.5) * cellM };
 }
+// World-derived creatures have a stable identity before multiplayer connects.
+// Keep independent decision streams so a roadside check, another creature, or
+// unrelated visual/loot randomness cannot change the next idle/bat choice.
+// Session-local counters deliberately do not claim to synchronize clocks,
+// targets or terrain; recreating a creature restarts its decision sequence.
+function enemyMovementRandom(c, decision) {
+  if (c._sharedId !== true || typeof c.id !== 'string') return Math.random();
+  const counters = c._movementDecisions ||= Object.create(null);
+  const turn = counters[decision] || 0;
+  counters[decision] = turn + 1;
+  return u01(avalanche32(fnv1a(`movement:${c.id}:${decision}:${turn}`)));
+}
+
 // WHERE A SHOVED ANIMAL RUNS TO: `distM` away along its flee angle
 // (`c._fleeAngle` — away from what hit it), bent onto the roadside among
 // houses (roadsideRunAngle; a ±0.3 rad jitter only on an unbent angle), the
@@ -294,7 +307,7 @@ function roadsideRunAngle(scene, c, away) {
   if (nx * -near.dx + ny * -near.dy < 0) { nx = -nx; ny = -ny; }
   const tx = (near.dx + dx * ROADSIDE_AHEAD_CELLS + nx * ROADSIDE_VERGE_CELLS) * cm;
   const ty = (near.dy + dy * ROADSIDE_AHEAD_CELLS + ny * ROADSIDE_VERGE_CELLS) * cm;
-  return Math.atan2(ty, tx) + (Math.random() - 0.5) * ROADSIDE_JITTER;
+  return Math.atan2(ty, tx) + (enemyMovementRandom(c, 'roadside') - 0.5) * ROADSIDE_JITTER;
 }
 // The bend for a per-frame mover (rosterEnemyMove runs every frame, the
 // step chain every few hundred ms): the same answer, re-asked at most every
@@ -922,7 +935,7 @@ function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
 // How long a departing crow keeps flying away (_crowDepart): [base, spread]
 // ms, so ~2.5–4 minutes — once the player starts hunting it.
 const CROW_DEPART_MS = [150000, 90000];
-// How far a CROP RAIDER (the deer or the crow — SpriteLayout `raidsCrops`) notices a
+// How far a CROP RAIDER (the deer, the crow or the raven — SpriteLayout `raidsCrops`) notices a
 // planted crop it may eat, in cells (wanderCreatures raidStep): the on-screen
 // sim range, so it spots a field from across the viewport but not from the
 // next street. It does not teleport in — every step is its own gait's — so a
@@ -1012,7 +1025,7 @@ function monsterRout(c, now, cellM) {
   c._wanderOffInMs = null;
   c._wanderOffUntilT = now + WANDER_OFF_TIMEOUT_MS;
   c._wanderOffDistM = CREATURE_SIM_CELLS * cellM * Combat.retreatMul(c.kind)
-    * (1 + Math.random() * (WANDER_OFF_MAX_MUL - 1));
+    * (1 + enemyMovementRandom(c, 'rout-distance') * (WANDER_OFF_MAX_MUL - 1));
   // Turn NOW rather than finishing a hop at the player. (A creature that has
   // never chosen a step is seeded by the loop's own init; leave it to that.)
   if (c._nextChooseT != null) c._nextChooseT = now;
@@ -1031,7 +1044,7 @@ function monsterWanderingOff(c, now, distM, cellM) {
     c._wanderOffDistM = null;
     c._wanderOffInMs = null;             // and the next one is rolled below
   }
-  if (c._wanderOffInMs == null) c._wanderOffInMs = WANDER_OFF_MIN_MS + Math.random() * WANDER_OFF_SPREAD_MS;
+  if (c._wanderOffInMs == null) c._wanderOffInMs = WANDER_OFF_MIN_MS + enemyMovementRandom(c, 'rout-delay') * WANDER_OFF_SPREAD_MS;
   c._wanderOffInMs -= dt;
   if (c._wanderOffInMs > 0) return false;
   monsterRout(c, now, cellM);
@@ -1941,10 +1954,10 @@ function enemyBurrowTick(scene, c, row, now) {
     return true;
   }
   if (m.pattern !== 'burrow') return false;
-  const duration = range => (range[0] + Math.random() * (range[1] - range[0])) * 1000;
+  const duration = (range, decision) => (range[0] + enemyMovementRandom(c, decision) * (range[1] - range[0])) * 1000;
   if (c._burrowNextT == null || (!c._burrowed && now >= c._burrowNextT)) {
     c._burrowed = true;
-    c._burrowNextT = now + duration(m.burrowSeconds);
+    c._burrowNextT = now + duration(m.burrowSeconds, 'burrow-delay');
     c._attackWindupUntil = null;
     c._walkHazardPrevious = null;
   }
@@ -1954,14 +1967,14 @@ function enemyBurrowTick(scene, c, row, now) {
   for (let attempt = 0; attempt < 16; attempt++) {
     let x = c.homeX ?? c.x, y = c.homeY ?? c.y;
     if (cells?.length) {
-      const point = cells[Math.floor(Math.random() * cells.length)];
+      const point = cells[Math.floor(enemyMovementRandom(c, 'burrow-seat') * cells.length)];
       x = point.x; y = point.y;
     }
     if (!enemyCanStep(scene, c, row, x, y)) continue;
     c.x = x; c.y = y;
     c._burrowed = false;
     enemyStartEmerging(scene, c, row, now);
-    c._burrowNextT = c._emergeUntil + duration(m.surfacedSeconds);
+    c._burrowNextT = c._emergeUntil + duration(m.surfacedSeconds, 'surface-delay');
     c._attackNextT = c._emergeUntil;
     return true;
   }
@@ -2049,7 +2062,7 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
     // ward (_wardFrom) still drives it out of the ring.
     if (!c._wardFrom && Combat.isPsychotic(c, now)) {
       if (now >= (c._madTurnT || 0)) {
-        c._madAngle = Math.random() * Math.PI * 2; c._madTurnT = now + PSYCHOSIS_TURN_MS;
+        c._madAngle = enemyMovementRandom(c, 'psychosis') * Math.PI * 2; c._madTurnT = now + PSYCHOSIS_TURN_MS;
       }
       angle = c._madAngle;
     }
@@ -2066,7 +2079,7 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
     c._lungeUntil = null; c._lungeWindupUntil = null;
     if (now >= (c._idleTurnT || 0)) {
       // An idle wander among houses keeps to the street too.
-      const idle = Math.random() * Math.PI * 2;
+      const idle = enemyMovementRandom(c, 'idle') * Math.PI * 2;
       c._idleAngle = roadsideRunAngle(scene, c, idle) ?? idle; c._idleTurnT = now + 3000;
     }
     angle = c._idleAngle; maxDistance = Infinity;
@@ -2148,7 +2161,7 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
     // Slide around a blocked approach without spending a second frame's
     // movement budget. Stable handedness prevents left/right jitter.
     const remaining = Math.max(0, step - Math.hypot(c.x - sx, c.y - sy));
-    if (c._avoidSide == null) c._avoidSide = Math.random() < 0.5 ? -1 : 1;
+    if (c._avoidSide == null) c._avoidSide = enemyMovementRandom(c, 'avoidance') < 0.5 ? -1 : 1;
     for (const side of [c._avoidSide, -c._avoidSide]) {
       const a = angle + side * Math.PI / 2;
       const x = c.x + Math.cos(a) * remaining, y = c.y + Math.sin(a) * remaining;
@@ -2167,7 +2180,7 @@ function enemyBatMove(scene, c, row, now, px, py) {
     if (!clear || now >= f.start + f.duration) {
       c._batFlight = null;
       c._batPauseUntil = now + (m.pauseSeconds[0]
-        + Math.random() * (m.pauseSeconds[1] - m.pauseSeconds[0])) * 1000;
+        + enemyMovementRandom(c, 'bat-pause') * (m.pauseSeconds[1] - m.pauseSeconds[0])) * 1000;
       // Contact remains eligible at the end of a swoop during its recovery,
       // but _batHit permits just one blow on that leg.
     }
@@ -2178,13 +2191,13 @@ function enemyBatMove(scene, c, row, now, px, py) {
   c._batSwooping = (c._batSwooping && !c._batHit) || c._batLeg % m.swoopEveryLegs === 0;
   c._batHit = false;
   const radius = c._batSwooping ? m.swoopTargetRadiusCells
-    : m.orbitRadiusCells[0] + Math.random() * (m.orbitRadiusCells[1] - m.orbitRadiusCells[0]);
-  const a = Math.atan2(c.y - py, c.x - px) + 0.7 + Math.random() * 0.7;
+    : m.orbitRadiusCells[0] + enemyMovementRandom(c, 'bat-radius') * (m.orbitRadiusCells[1] - m.orbitRadiusCells[0]);
+  const a = Math.atan2(c.y - py, c.x - px) + 0.7 + enemyMovementRandom(c, 'bat-angle') * 0.7;
   const tx = px + Math.cos(a) * radius * scene.cellM;
   const ty = py + Math.sin(a) * radius * scene.cellM;
   const distance = Math.hypot(tx - c.x, ty - c.y);
   const paceMul = Combat.paceMul(c);
-  const duration = (m.flightSeconds[0] + Math.random() * (m.flightSeconds[1] - m.flightSeconds[0])) / paceMul;
+  const duration = (m.flightSeconds[0] + enemyMovementRandom(c, 'bat-duration') * (m.flightSeconds[1] - m.flightSeconds[0])) / paceMul;
   const leg = Math.min(distance, m.maxLegCells * scene.cellM,
     m.speedMetersPerSecond * paceMul * duration / 2);
   const scale = distance > 0 ? leg / distance : 0;

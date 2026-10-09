@@ -932,6 +932,47 @@ test('building overlay: angled castle sections sort by their lowest masonry base
   assert.eq(first.groundY, ground, 'camera movement never changes its world ground anchor');
 });
 
+test('building overlay: angled house and palisade (fort) edges carry base lines, and players / booths seat against them', () => {
+  // A diamond footprint: its south-east edge runs (20,10)→(10,20) — a slanted
+  // wall long enough to cut into several pieces, as a house or a palisade fort.
+  const ring = [10, 0, 20, 10, 10, 20, 0, 10];
+  for (const tier of [T.BUILDING, T.BUILDING_MED]) {
+    clearTiles();
+    putShapes(0, 0, [{ ring: Float32Array.from(ring), tier, areaM2: 200, key: 'house_' + tier }]);
+    const { scene } = makeWallScene();
+    BuildingOverlay.draw(scene);
+    const pieces = scene._buildingUprightPieces;
+    assert.gt(pieces.length, 4, `tier ${tier}: the slanted edges are cut into pieces`);
+    for (const piece of pieces) {
+      const b = piece.base;
+      assert.truthy(b && [b.x0, b.y0, b.x1, b.y1, b.wx0, b.wx1].every(Number.isFinite), `tier ${tier}: every piece carries its base line`);
+      // The line meets the piece's own foot at the low end of its segment.
+      if (Math.abs(b.x1 - b.x0) > 1e-6) {
+        const at = (x) => b.y0 + (b.y1 - b.y0) * (x - b.x0) / (b.x1 - b.x0);
+        assert.lt(Math.abs(Math.max(at(b.wx0), at(b.wx1)) - piece.groundY), 1e-6, `tier ${tier}: base line meets the foot`);
+      }
+    }
+    // A wide booth just outside the south-east edge (in front of it), and a
+    // player just inside it (behind): each lands on the right side of every
+    // piece of that edge it overlaps.
+    const se = pieces.filter(p => p.base && p.base.x1 < p.base.x0 && p.base.y1 > p.base.y0);
+    assert.gt(se.length, 1, `tier ${tier}: the south-east edge has several pieces`);
+    const lineAt = (x) => { const b = se[0].base; return b.y0 + (b.y1 - b.y0) * (x - b.x0) / (b.x1 - b.x0); };
+    const x = 15;   // the middle of the south-east edge, world m
+    const booth = { groundY: lineAt(x) + 0.2, rank: 1, wallSeat: { x, halfW: 6 },
+      sprite: { depth: 0, setDepth(d) { this.depth = d; } } };
+    const player = { groundY: lineAt(x) - 0.2, rank: 3, wallSeat: { x, halfW: 2.5 },
+      sprite: { depth: 0, setDepth(d) { this.depth = d; } } };
+    Render.seatAgainstWalls([booth, player], pieces, scene.cellM * 3);
+    Render.sortWorldDepth([...pieces, booth, player]);
+    for (const p of se) {
+      if (p.base.wx1 >= x - 6 && p.base.wx0 <= x + 6) assert.gt(booth.sprite.depth, p.sprite.depth, `tier ${tier}: the booth in front of the wall is drawn over it`);
+      if (p.base.wx1 >= x - 2.5 && p.base.wx0 <= x + 2.5) assert.lt(player.sprite.depth, p.sprite.depth, `tier ${tier}: the player behind the wall is hidden by it`);
+    }
+  }
+  clearTiles();
+});
+
 test('building overlay: a cell crossing reuses baked wall pieces instead of rebaking them', () => {
   clearTiles();
   putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_MED)]);

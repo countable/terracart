@@ -4,8 +4,8 @@
 
 const assert = require('assert');
 const WebSocket = require('ws');
-const { createServer, cleanName, cleanLabel, cleanHit, cleanIds, cleanBattle, cleanAggro, cleanEnergy, cleanSmallInt,
-        INTEREST_PX, MAX_MSGS_PER_S, MAX_ENEMY_FRAMES_PER_S, MAX_IDS, MAX_FLAGS, MAX_VISION_CUT,
+const { createServer, cleanName, cleanLabel, cleanHit, cleanIds, cleanBattle, cleanAggro, cleanGroups, cleanEnergy, cleanSmallInt,
+        INTEREST_PX, MAX_MSGS_PER_S, MAX_ENEMY_FRAMES_PER_S, MAX_IDS, MAX_GROUP_PARTY, MAX_FLAGS, MAX_VISION_CUT,
         sendFrame, checkSlowConsumer, POSITION_BUFFER_BYTES, MAX_OUTBOUND_BYTES, SLOW_PING_LIMIT } = require('./index.js');
 
 const tests = [];
@@ -240,6 +240,68 @@ test('cleanIds keeps a well-formed seen/dead list and drops malformed ones', () 
     { ids: ['ok'], d: 0.5 },
     { ids: ['ok'] },
   ]) assert.strictEqual(cleanIds(bad), null, JSON.stringify(bad));
+});
+
+test('group batches validate every row, bounds and depth, and strip unsolicited fields', () => {
+  assert.deepStrictEqual(cleanGroups({ groups: [{ id: 'zone_1:2%3.-4', p: 2, owner: 7 }], d: 3, id: 99 }),
+    { groups: [{ id: 'zone_1:2%3.-4', p: 2 }], d: 3 });
+  const good = { id: 'encounter', p: MAX_GROUP_PARTY };
+  for (const groups of [undefined, null, {}, [], [null], [7], ['id'], [[]],
+    Array(MAX_IDS + 1).fill(good),
+    ...['', 'bad id', 'x'.repeat(97), 5, undefined].map(id => [good, { id, p: 2 }]),
+    ...[undefined, 1, 33, 2.5, '2', NaN, Infinity, -Infinity].map(p => [good, { id: 'other', p }])]) {
+    assert.strictEqual(cleanGroups({ groups, d: 0 }), null, JSON.stringify(groups));
+  }
+  for (const d of [undefined, null, -1, 0.5, '0', NaN, Infinity]) {
+    assert.strictEqual(cleanGroups({ groups: [good], d }), null, String(d));
+  }
+});
+
+test('group relay pins sender, respects interest boundary and forwards depth for client filtering', async () => {
+  const s = await boot();
+  try {
+    const a = await hello(s.url, 'Ada');
+    const edge = await hello(s.url, 'Edge', { x: INTEREST_PX, y: 0, d: 1 });
+    const far = await hello(s.url, 'Far', { x: INTEREST_PX + 1, y: 0 });
+    await a.next(); await a.next(); await edge.next();
+    a.send({ t: 'group', id: far.welcome.id, groups: [{ id: 'encounter', p: 3, extra: 1 }], d: 0 });
+    assert.deepStrictEqual(await edge.next(), { t: 'group', id: a.welcome.id, groups: [{ id: 'encounter', p: 3 }], d: 0 });
+    await far.none(); await a.none();
+    // A malformed second row must not let the valid first row escape.
+    a.send({ t: 'group', groups: [{ id: 'encounter', p: 32 }, { id: 'bad id', p: 2 }], d: 0 });
+    a.send({ t: 'group', groups: Array(MAX_IDS + 1).fill({ id: 'e', p: 2 }), d: 0 });
+    await edge.none();
+    a.send({ t: 'group', groups: [{ id: 'encounter', p: 2 }], d: 2 });
+    assert.deepStrictEqual(await edge.next(), { t: 'group', id: a.welcome.id, groups: [{ id: 'encounter', p: 2 }], d: 2 });
+    assert.strictEqual(a.ws.readyState, WebSocket.OPEN, 'bad batches do not close the sender');
+    a.ws.close(); edge.ws.close(); far.ws.close();
+  } finally { await s.close(); }
+});
+
+test('maximum group batch fits the transport and excess group frames share the enemy budget', async () => {
+  const s = await boot();
+  try {
+    const a = await hello(s.url, 'Ada');
+    const b = await hello(s.url, 'Bob');
+    await a.next();
+    const groups = Array.from({ length: MAX_IDS }, (_, i) => ({ id: `encounter_${i}_`.padEnd(96, 'x'), p: MAX_GROUP_PARTY }));
+    const d = Number.MAX_SAFE_INTEGER;
+    a.send({ t: 'group', groups, d });
+    assert.deepStrictEqual(await b.next(), { t: 'group', id: a.welcome.id, groups, d });
+    // The just-opened server has a fresh one-second window. Mixed frames
+    // exhaust one shared allowance; a position acts as the receive barrier.
+    for (let i = 1; i < MAX_ENEMY_FRAMES_PER_S + 4; i++) {
+      a.send(i % 2 ? { t: 'seen', ids: ['e'], d: 0 }
+        : { t: 'group', groups: [{ id: 'encounter', p: 2 }], d: 0 });
+    }
+    a.send({ t: 'p', x: 1, y: 0 });
+    const got = [];
+    for (;;) { const m = await b.next(); if (m.t === 'p') break; got.push(m); }
+    assert.strictEqual(got.length, MAX_ENEMY_FRAMES_PER_S - 1, 'group and seen use the same budget');
+    assert.ok(got.some(m => m.t === 'group') && got.some(m => m.t === 'seen'));
+    assert.strictEqual(a.ws.readyState, WebSocket.OPEN);
+    a.ws.close(); b.ws.close();
+  } finally { await s.close(); }
 });
 
 test('seen and dead relay to nearby peers with the sender id, never echoed; malformed ones are dropped, not fatal', async () => {
