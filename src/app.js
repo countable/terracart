@@ -329,6 +329,11 @@ const PEEK_RETURN_MS = 90;
 // Underground is exempt: down there the body mines its way to the target no
 // matter how far, and a snap would drop the player inside solid rock.
 const GPS_SNAP_M = 200;
+// After confusion the body walks itself back to the GPS at walking pace, with
+// no catch-up ramp and no snap (_confusedRecover) — for at most this long
+// after the condition ends. Walking pace never closes the gap on a player
+// who is walking, so an open-ended recovery left the body off the GPS for good.
+const CONFUSED_RECOVER_MS = 6000;
 // The SNAP's own cut — a placement past GPS_SNAP_M moves the body somewhere
 // the player never walked, so it earns a transition rather than the world
 // just resetting under them mid-frame: a small burst where they're standing,
@@ -3113,6 +3118,7 @@ class MapScene extends Phaser.Scene {
     // second reason — a cap on the follow step rather than a hold.
     const bodyHold = this._bodyHold();
     if (this._confusedLoop && !Conditions.active(this.save, 'confused')) this._endConfusedWalk();
+    this._expireConfusedRecover?.(performance.now());
     if (bodyHold.pinned) {
       // Held still, but sharp ground continues hurting.
       const { x, y } = playerWorldM(this);
@@ -6466,6 +6472,13 @@ class MapScene extends Phaser.Scene {
     this._playDirected(this.player, 'walk', this.facing.x, this.facing.y);
   }
 
+  // Recovery's clock starts when the condition ends (CONFUSED_RECOVER_MS),
+  // whether or not the body ever took a confused step.
+  _expireConfusedRecover(now) {
+    if (!this._confusedRecover || Conditions.active(this.save, 'confused')) { this._confusedRecoverUntil = null; return; }
+    this._confusedRecoverUntil ??= now + CONFUSED_RECOVER_MS;
+    if (now >= this._confusedRecoverUntil) { this._confusedRecover = false; this._confusedRecoverUntil = null; }
+  }
   _endConfusedWalk() {
     // Sensor samples continue smoothing privately during confusion. Restore
     // their latest heading, or the pre-effect fallback on devices without one.
