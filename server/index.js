@@ -2,8 +2,8 @@
 //
 // One tiny WebSocket server that lets players SEE each other. It holds no game
 // state: every client keeps its own save, and the server only fans out
-// "where I am" messages, plus six enemy frames (hit, seen, dead, battle,
-// aggro, group) so nearby players' copies of the same deterministic enemy take the
+// "where I am" messages, plus enemy frames (hit, damage, state, seen, dead,
+// battle, aggro, group) so nearby players' copies of the same deterministic enemy take the
 // same damage, die together, agree on encounter sizes, fight the same castle
 // battle and chase the same player. What it does own is the roster — it assigns
 // ids, pins each socket's name + colour from its hello, and tells everyone when a player
@@ -15,6 +15,8 @@
 //     { t:'p', x, y, fx, fy, m, d, e, g, v }          position update (≤ MAX_MSGS_PER_S)
 //     { t:'ping', x, y, label }                       "look here" (≤ 1 per PING_GAP_MS)
 //     { t:'hit', id, f, left, d, k? }                 my side damaged enemy `id`   ┐
+//     { t:'damage', id, f, left, d, o, u, gen, k? }  cumulative retry/world damage │
+//     { t:'state', id, d, gen, s }                  elected publisher's snapshot │
 //     { t:'seen', ids:[id...], d }                    these enemies are alive here │ ≤ MAX_ENEMY_FRAMES_PER_S
 //     { t:'dead', ids:[id...], d }                    these enemies are dead (reply)│ together; extras
 //     { t:'battle', key, startedAt, d }               my castle battle is on       │ dropped, not fatal
@@ -26,6 +28,8 @@
 //     { t:'p',     id, x, y, fx, fy, m, d, e, g, v }  a peer moved (within INTEREST_PX only)
 //     { t:'ping',  id, name, color, x, y, label }     a peer pinged a spot (within INTEREST_PX)
 //     { t:'hit',   id, eid, f, left, d, k? }          a peer damaged enemy `eid` (within INTEREST_PX)
+//     { t:'damage', id, eid, f, left, d, o, u, gen, k? } cumulative damage evidence
+//     { t:'state', id, eid, d, gen, s }              event-driven enemy snapshot
 //     { t:'seen',  id, ids, d }                       a peer has these enemies loaded, alive (within INTEREST_PX)
 //     { t:'dead',  id, ids, d }                       a peer knows these enemies are dead (within INTEREST_PX)
 //     { t:'battle', id, key, startedAt, d }           a peer's castle battle (within INTEREST_PX)
@@ -62,6 +66,17 @@
 // merge each encounter's size upward; the relay stores no encounter state.
 // Depth is carried unchanged, as for other enemy frames; clients filter it.
 //
+// New clients advertise enemySync:1 in hello; welcome advertises server
+// support, and peer views carry each client's capability. Upgraded hits also
+// carry o (stable page-session origin), u (cumulative normalized damage), gen
+// (0 or the castle battle start), and optional s. Retries and world damage
+// use `damage`, which old clients ignore instead of applying duplicate deltas.
+// State s={q,h,x,y,v,m,pid?}: publisher sequence, current HP fraction, world
+// pixel position, complete origin/total vector, bounded movement fields and
+// target. Timer fields in m are relative milliseconds. The relay validates
+// these fields; clients elect the publisher and enforce depth/life/sequence.
+// State is sent on hits and seen requests, with no position heartbeat.
+//
 // Run: node index.js            (PORT env, default 8787)
 // Test: node test.js
 
@@ -84,7 +99,7 @@ const PING_GAP_MS = 2000;
 // Inbound frames per second per socket before we cut it off — the client
 // sends at ≤ 10 Hz plus a 5 s heartbeat, so 30 is generous.
 const MAX_MSGS_PER_S = 30;
-// Enemy frames (hit, seen, dead, battle, aggro, group) share that budget.
+// All enemy frames, including state and damage retries, share that budget.
 // The client reserves at most 12 frames for batched damage and coordinates
 // its other channels within the remaining allowance (src/multiplayer.js).
 // Frames past this cap are dropped silently rather
@@ -167,6 +182,69 @@ function cleanAggro(msg) {
   if (!Number.isInteger(d) || d < 0) return null;
   return { eid, pid, d };
 }
+// Event-driven enemy state. Keep the complete damage vector or reject it:
+// truncating it would make a receiver count acknowledged damage again.
+const SYNC_ORIGIN_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const SYNC_MAX_ORIGINS = 32;
+const SYNC_MAX_TOTAL = 1e6;
+function cleanEnemyState(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const { q, h, x, y, v, m, pid } = raw;
+  const coordinate = n => Number.isFinite(n) && n >= 0 && n <= 4194304;
+  if (!Number.isSafeInteger(q) || q < 1 || !Number.isFinite(h) || h < 0 || h > 1 || !coordinate(x) || !coordinate(y)) return null;
+  if (!Array.isArray(v) || v.length > SYNC_MAX_ORIGINS) return null;
+  const origins = new Set();
+  for (const row of v) {
+    if (!Array.isArray(row) || row.length !== 2 || typeof row[0] !== 'string' || !SYNC_ORIGIN_RE.test(row[0]) ||
+        !Number.isFinite(row[1]) || row[1] < 0 || row[1] > SYNC_MAX_TOTAL || origins.has(row[0])) return null;
+    origins.add(row[0]);
+  }
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return null;
+  const movement = {};
+  for (const key of ['_idleAngle', '_avoidSide', '_hopMs', '_batLeg', '_lungeAngle', '_idleTurnT', '_nextChooseT', '_stepT0',
+    '_batPauseUntil', '_lungeUntil', '_lungeWindupUntil', '_lungeRecoverUntil', '_lungeNextT', '_burrowNextT', '_emergeUntil']) {
+    if (m[key] === undefined) continue;
+    if (!Number.isFinite(m[key]) || Math.abs(m[key]) > 300000) return null;
+    movement[key] = m[key];
+  }
+  for (const key of ['_batSwooping', '_batHit', '_lungeHit', '_burrowed', '_hasEmerged']) {
+    if (m[key] === undefined) continue;
+    if (typeof m[key] !== 'boolean') return null;
+    movement[key] = m[key];
+  }
+  if (m._batFlight !== undefined) {
+    const f = m._batFlight;
+    if (f === null) movement._batFlight = null;
+    else {
+      if (!f || typeof f !== 'object' || Array.isArray(f) || ![f.x, f.y, f.tx, f.ty].every(coordinate) ||
+          !Number.isFinite(f.start) || Math.abs(f.start) > 300000 || !Number.isFinite(f.duration) || f.duration <= 0 || f.duration > 300000) return null;
+      movement._batFlight = { x: f.x, y: f.y, tx: f.tx, ty: f.ty, start: f.start, duration: f.duration };
+    }
+  }
+  for (const [kx, ky] of [['_startX', '_startY'], ['_targetX', '_targetY']]) {
+    if (m[kx] === undefined && m[ky] === undefined) continue;
+    if (!coordinate(m[kx]) || !coordinate(m[ky])) return null;
+    movement[kx] = m[kx]; movement[ky] = m[ky];
+  }
+  if (m._movementDecisions !== undefined) {
+    const decisions = m._movementDecisions;
+    if (!decisions || typeof decisions !== 'object' || Array.isArray(decisions) || Object.keys(decisions).length > 32) return null;
+    const copy = {};
+    for (const [key, n] of Object.entries(decisions)) {
+      if (!/^[a-z][a-z0-9-]{0,39}$/.test(key) || !Number.isSafeInteger(n) || n < 0 || n > 1e9) return null;
+      copy[key] = n;
+    }
+    movement._movementDecisions = copy;
+  }
+  if (pid !== undefined && (!Number.isSafeInteger(pid) || pid < 1)) return null;
+  return { q, h, x, y, v: v.map(row => [...row]), m: movement, ...(pid === undefined ? {} : { pid }) };
+}
+function cleanState(msg) {
+  if (typeof msg.id !== 'string' || !ENEMY_ID_RE.test(msg.id) || !Number.isInteger(msg.d) || msg.d < 0 ||
+      !Number.isSafeInteger(msg.gen) || msg.gen < 0) return null;
+  const s = cleanEnemyState(msg.s);
+  return s ? { eid: msg.id, d: msg.d, gen: msg.gen, s } : null;
+}
 // A well-formed hit's relayed fields, or null to drop it.
 function cleanHit(msg) {
   const { id, f, left, d, k } = msg;
@@ -176,7 +254,18 @@ function cleanHit(msg) {
   if (!Number.isFinite(f) || f < 0 || f > 1 || (f === 0 && !kill)) return null;
   if (!Number.isFinite(left) || left < 0 || left > 1) return null;
   if (!Number.isInteger(d) || d < 0) return null;
-  return kill ? { eid: id, f, left, d, k: 1 } : { eid: id, f, left, d };
+  const out = kill ? { eid: id, f, left, d, k: 1 } : { eid: id, f, left, d };
+  if (msg.o !== undefined || msg.u !== undefined || msg.gen !== undefined || msg.s !== undefined) {
+    if (typeof msg.o !== 'string' || !SYNC_ORIGIN_RE.test(msg.o) || !Number.isFinite(msg.u) || msg.u < 0 || msg.u > SYNC_MAX_TOTAL ||
+        !Number.isSafeInteger(msg.gen) || msg.gen < 0) return null;
+    Object.assign(out, { o: msg.o, u: msg.u, gen: msg.gen });
+    if (msg.s !== undefined) {
+      const s = cleanEnemyState(msg.s);
+      if (!s) return null;
+      out.s = s;
+    }
+  }
+  return out;
 }
 // A well-formed seen / dead list's relayed fields, or null to drop it.
 function cleanIds(msg) {
@@ -200,7 +289,7 @@ function cleanGroups(msg) {
 
 // The enemy frames: one shared budget, each with its own cleaner.
 // A Map, not an object literal: `constructor` or `__proto__` is no frame type.
-const ENEMY_FRAMES = new Map([['hit', cleanHit], ['seen', cleanIds], ['dead', cleanIds],
+const ENEMY_FRAMES = new Map([['hit', cleanHit], ['damage', msg => msg.o === undefined ? null : cleanHit(msg)], ['state', cleanState], ['seen', cleanIds], ['dead', cleanIds],
                               ['battle', cleanBattle], ['aggro', cleanAggro], ['group', cleanGroups]]);
 
 function createRelay(server) {
@@ -210,7 +299,7 @@ function createRelay(server) {
   let nextId = 1;
 
   const peerView = (c) => ({ id: c.id, name: c.name, color: c.color, x: c.x, y: c.y, fx: c.fx, fy: c.fy, m: c.m, d: c.d,
-                             e: c.e, g: c.g, v: c.v });
+                             e: c.e, g: c.g, v: c.v, ...(c.enemySync ? { enemySync: 1 } : {}) });
   const broadcast = (msg, except) => { for (const c of clients.values()) if (c !== except) sendFrame(c.ws, msg); };
   const applyPos = (c, msg) => {
     c.x = num(msg.x, c.x); c.y = num(msg.y, c.y);
@@ -247,9 +336,10 @@ function createRelay(server) {
         const name = cleanName(msg.name);
         if (!name) return fail(ws, 'name');
         me = { ws, id: nextId++, name, color: cleanColor(msg.color), x: 0, y: 0, fx: 0, fy: 1, m: 0, d: 0, e: 1, g: 0, v: 0 };
+        me.enemySync = msg.enemySync === 1;
         applyPos(me, msg);
         clients.set(me.id, me);
-        sendFrame(ws, { t: 'welcome', id: me.id, peers: [...clients.values()].filter(c => c !== me).map(peerView) });
+        sendFrame(ws, { t: 'welcome', id: me.id, enemySync: 1, peers: [...clients.values()].filter(c => c !== me).map(peerView) });
         broadcast({ t: 'join', ...peerView(me) }, me);
         return;
       }
@@ -323,6 +413,7 @@ if (require.main === module) {
 }
 
 // What server/test.js drives; nothing else requires this module.
-module.exports = { createServer, cleanName, cleanLabel, cleanHit, cleanIds, cleanBattle, cleanAggro, cleanGroups, cleanEnergy, cleanSmallInt,
+module.exports = { createServer, cleanName, cleanLabel, cleanHit, cleanIds, cleanBattle, cleanAggro, cleanGroups, cleanEnemyState, cleanState, cleanEnergy, cleanSmallInt,
+                   SYNC_MAX_ORIGINS, SYNC_MAX_TOTAL,
                    INTEREST_PX, MAX_MSGS_PER_S, MAX_ENEMY_FRAMES_PER_S, MAX_IDS, MAX_GROUP_PARTY, MAX_FLAGS, MAX_VISION_CUT,
                    sendFrame, checkSlowConsumer, POSITION_BUFFER_BYTES, MAX_OUTBOUND_BYTES, SLOW_PING_LIMIT };

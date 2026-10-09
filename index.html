@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=076179b9" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=3d7ca41e" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -2955,7 +2955,7 @@
   <script src="src/spawn_ownership.js?v=d5742249"></script>
   <script src="src/starter.js?v=6091e091"></script>
   <script src="src/ground_fire.js?v=5db34ead"></script>
-  <script src="src/combat.js?v=6ed2abda"></script>
+  <script src="src/combat.js?v=9053426f"></script>
   <script src="src/pirates.js?v=07b1386a"></script>
   <script src="src/pets.js?v=c1ed57f9"></script>
   <script src="src/companions.js?v=a9ca22bf"></script>
@@ -2973,7 +2973,7 @@
   <script src="src/safety.js?v=f101b236"></script>
   <script src="src/render.js?v=85a12836"></script>
   <script src="src/gas_render.js?v=5e124492"></script>
-  <script src="src/multiplayer.js?v=e71bac15"></script>
+  <script src="src/multiplayer.js?v=84d3b0a4"></script>
   <script src="src/road_overlay.js?v=f66e6df1"></script>
   <script src="src/temple_art.js?v=e92e8263"></script>
   <script src="src/building_overlay.js?v=067a0edf"></script>
@@ -2986,7 +2986,7 @@
   <script src="src/modal_shell.js?v=2560f37c"></script>
   <script src="src/scene_geo.js?v=d45e34bb"></script>
   <script src="src/npc.js?v=9008cf6b"></script>
-  <script src="src/scene_creatures.js?v=5110c305"></script>
+  <script src="src/scene_creatures.js?v=2de93331"></script>
   <script src="src/scene_fire.js?v=0dfbecec"></script>
   <script src="src/scene_shops.js?v=80ca7951"></script>
   <script src="src/scene_create.js?v=27d5c39e"></script>
@@ -3065,7 +3065,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=076179b9';
+      const APP_SRC = 'src/app.js?v=3d7ca41e';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

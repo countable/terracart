@@ -4677,10 +4677,13 @@ class MapScene extends Phaser.Scene {
   // resolveDefeat (Combat.isPlayerKill): 'player' unless a shot says otherwise.
   _damageEnemy(c, amount, source = 'player', options = {}) {
     if (!(amount > 0)) return false;
+    // Replicated world damage belongs to one nearby publisher. Gate before
+    // HP, wake-up, provocation and death side effects on the other copies.
+    if (typeof Multiplayer !== 'undefined' && !Multiplayer.shouldApplyDamage(this, c, source)) return false;
     const dealt = Combat.damageDealt(c, amount, Combat.isEnvironmentSource(source) ? { bypassArmor: true } : options);
     const left = Combat.hp(c);
-    // Nearby players' copies of this foe take the same blow (own side only;
-    // a peer's hit is never passed on).
+    // Publish own-side hits and the elected client's world damage;
+    // a peer's hit is never passed on.
     if (dealt > 0 && typeof Multiplayer !== 'undefined') Multiplayer.reportHit(this, c, dealt, source);
     // Moss hides us until we strike this creature. Environmental damage and
     // allied attacks do not reveal us; a fresh blessing hides us again.

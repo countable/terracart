@@ -2146,7 +2146,7 @@ class SceneCreatures {
           const fd2 = (tgt.x - c.x) ** 2 + (tgt.y - c.y) ** 2;
           const fightRange = Combat.petReachCells(c);
           const FIGHT_R2 = (fightRange * this.cellM) ** 2;
-          if (fd2 <= FIGHT_R2) {
+          if (fd2 <= FIGHT_R2 && (typeof Multiplayer === 'undefined' || Multiplayer.shouldApplyDamage(this, tgt, 'pet'))) {
             // One HP table for every fight (combat.js): the bite is Combat.petBite (a
             // point for a tame pet, the slime's own blow for the spirit raven). The prey
             // bites back a point either way.

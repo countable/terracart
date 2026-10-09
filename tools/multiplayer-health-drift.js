@@ -34,18 +34,41 @@ function pair(fn) {
     a.online(sa); b.online(sb); a.near(sa); b.near(sb);
     return a.withRelay(sa, wa => b.withRelay(sb, wb => {
       const fa = a.foe(ea), fb = b.foe(eb);
-      const side = (ctx, h, scene, wire, enemy, entry) => ({ ctx, h, scene, wire, enemy, entry,
+      // Real peer rosters are essential: publisher selection must not see two
+      // independent clients both claiming relay id 1. Rendering stays stubbed.
+      const art = () => {
+        const obj = new Proxy({ anims: { currentAnim: null } }, {
+          get(target, key) { return key in target ? target[key] : () => obj; },
+        });
+        return obj;
+      };
+      for (const scene of [sa, sb]) {
+        scene.startWorldM = { x: fa.x, y: fa.y };
+        scene.mPerPx = 10;
+        scene.save.energy = 100;
+        scene.cellAt = () => ({ loaded: true, type: ca.WorldGen.T.GRASS });
+        scene._cellBlocked = () => false;
+        scene._nearAny = () => false;
+        scene.worldContainer = scene.shadowContainer = { add() {} };
+        for (const kind of ['image', 'sprite', 'text']) scene.add[kind] = art;
+      }
+      sb.startWorldM = { x: fa.x - 1000, y: fa.y + 2000 };
+      sb.playerM = { x: 1040, y: -2000 };
+      const roster = (id, x) => ({ id, x: x / sa.mPerPx, y: fa.y / sa.mPerPx, d: 0, name: `Client ${id}`, color: 0x9fd8ff, e: 1, enemySync: 1 });
+      wa.recv({ t: 'welcome', id: 1, enemySync: 1, peers: [roster(2, fa.x + 40)] });
+      wb.recv({ t: 'welcome', id: 2, enemySync: 1, peers: [roster(1, fa.x)] });
+      const side = (ctx, h, scene, wire, enemy, entry, id) => ({ ctx, h, scene, wire, enemy, entry, id,
         tick(ms = 1000) { h.advance(scene, ms); },
         damage(fraction, source = 'player') { scene._damageEnemy(enemy, ctx.Combat.maxHp(enemy) * fraction, source, { exact: true }); },
         hp() { return ctx.Combat.hpFraction(enemy); },
         dead() { return scene.save.caught.includes(enemy.id); },
         receive(frame, sender) {
           const msg = { ...frame, id: sender };
-          if (frame.t === 'hit') msg.eid = frame.id;
+          if (['hit', 'damage', 'state'].includes(frame.t)) msg.eid = frame.id;
           wire.recv(msg);
         },
       });
-      return fn(side(ca, a, sa, wa, fa, ea), side(cb, b, sb, wb, fb, eb));
+      return fn(side(ca, a, sa, wa, fa, ea, 1), side(cb, b, sb, wb, fb, eb, 2));
     }));
   }));
 }
@@ -68,7 +91,7 @@ function run() {
     for (let i = 0; i < 100; i++) {
       a.damage(0.003349); a.tick(250); b.receive(a.wire.hits().at(-1), 1);
     }
-    close(record('100_separate_rounding_sensitive_hits', a, b, { hits: 100, fraction_per_hit: 0.003349 }), 0.49);
+    close(record('100_separate_rounding_sensitive_hits', a, b, { hits: 100, fraction_per_hit: 0.003349 }), 0);
   });
   pair((a, b) => {
     for (let i = 0; i < 100; i++) a.damage(0.003349);
@@ -83,7 +106,7 @@ function run() {
   pair((a, b) => {
     a.damage(0.25); a.tick(250);
     b.receive(a.wire.hits()[0], 1); b.receive(a.wire.hits()[0], 1);
-    close(record('duplicate_nonlethal_frame', a, b, { fault: 'application-level replay, not normal TCP behavior' }), 25);
+    close(record('duplicate_nonlethal_frame', a, b, { fault: 'application-level replay, not normal TCP behavior' }), 0);
   });
   pair((a, b) => {
     a.damage(0.2); a.tick(250); a.damage(0.3); a.tick(250);
@@ -106,12 +129,12 @@ function run() {
     a.damage(0.25); a.tick(250); // Wire drops this frame.
     for (let i = 0; i < 6; i++) { a.tick(10000); b.tick(10000); }
     close(record('dropped_nonlethal_hit_after_60s', a, b), 25);
-    // An explicit disconnect/rejoin also has no live-HP reconciliation.
+    // Keep omitting responses through reconnect; requesting repair alone cannot deliver it.
     b.ctx.Multiplayer.stop(b.scene); b.ctx.Multiplayer.start(b.scene);
-    b.wire.recv({ t: 'welcome', id: 2, peers: [] }); b.tick(10000);
+    b.wire.recv({ t: 'welcome', id: 2, enemySync: 1, peers: [{ id: 1, enemySync: 1, x: a.enemy.x / a.scene.mPerPx, y: a.enemy.y / a.scene.mPerPx, d: 0, e: 1 }] }); b.tick(10000);
     close(record('dropped_nonlethal_hit_after_reconnect', a, b), 25);
     a.damage(0.25); a.tick(1000); b.receive(a.wire.hits().at(-1), 1);
-    close(record('later_nonlethal_hit_does_not_repair', a, b), 25);
+    close(record('later_nonlethal_hit_repairs_omission', a, b), 0);
     a.damage(1); b.receive(a.wire.hits().at(-1), 1);
     close(record('later_kill_repairs_hp_and_alive', a, b), 0);
     assert(a.dead() && b.dead());
@@ -146,11 +169,13 @@ function run() {
   });
   pair((a, b) => {
     a.damage(0.25, 'lava'); a.tick(1000); b.tick(1000);
-    close(record('asymmetric_environment_damage', a, b, { sent_hit_frames: a.wire.hits().length }), 25);
-    assert.equal(a.wire.hits().length, 0);
+    const frames = a.wire.of('damage');
+    assert(frames.length >= 1);
+    for (const frame of frames) b.receive(frame, a.id);
+    close(record('asymmetric_environment_damage_delivered', a, b, { sent_damage_frames: frames.length }), 0);
   });
-  return { methodology: 'Two isolated VM clients, production Multiplayer/Combat and lifted scene damage/defeat methods; mocked WebSocket, rendering and local clocks. HP difference is percentage points of each copy max HP. No relay-server, browser, movement, or automatic passive-heal simulation (rest cases explicitly invoke Combat.healIfRested). Dropped and duplicated frames model application omission/replay or connection gaps, not random TCP loss. The 60s idle checks tick Multiplayer only.',
+  return { methodology: 'Two isolated VM clients, production Multiplayer/Combat and lifted scene damage/defeat methods; mocked WebSocket, rendering and local clocks. HP difference is percentage points of each copy max HP. No relay-server, browser, movement, or automatic passive-heal simulation (rest cases explicitly invoke Combat.healIfRested). Dropped and duplicated frames model application omission/replay or connection gaps, not random TCP loss. The 60s idle and reconnect checks tick Multiplayer but intentionally deliver no repair traffic; the companion sync probe exercises those repairs.',
     cases: results.length, results };
 }
 if (require.main === module) console.log(JSON.stringify(run(), null, 2));
-module.exports = { run };
+module.exports = { run, pair };

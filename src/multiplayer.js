@@ -13,8 +13,10 @@
 // Shared hits work because enemies are deterministic too: the same id on the
 // same seat for everyone (Combat.maxHp is the same pool on every client up to
 // a thrown potion, which is why a hit travels as a FRACTION of max HP). Each
-// client still runs its own enemy AI; only its own side's damage is sent
-// (Combat.isSharedHit), batched per enemy, and an own-side kill is announced
+// client still runs its own enemy AI. Own-side damage is batched per enemy;
+// with a capable relay one elected nearby simulator also publishes world
+// damage. Per-origin cumulative totals suppress replay and repair lost hits.
+// Hit/seen-triggered snapshots gently correct positions. A local kill is announced
 // with `k: 1`, which kills every receiver's copy whatever HP it shows. A
 // received hit lands as source Combat.PEER_SOURCE: shown like any blow, never
 // sent on, and its kill pays nothing here (app.js resolveDefeat). Only a
@@ -269,6 +271,8 @@ const Multiplayer = (function () {
     groupSizes: new Map(), // received encounter id → { p, until }; surface only
     groupSent: new WeakMap(), // loaded group → { p, at, epoch }; cannot be evicted by remote reports
     groupEpoch: 0,
+    enemySync: false, stateSeq: 0, stateQueue: new Map(), repairs: new Map(),
+    origin: `p${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`,
   };
 
   function serverUrl() {
@@ -372,7 +376,7 @@ const Multiplayer = (function () {
     setStatus('connecting');
     ws.onopen = () => {
       const sc = S.scene;
-      send({ t: 'hello', name: cleanName(sc.save.playerName), color: sc.save.playerColor, ...posFrame(sc) });
+      send({ t: 'hello', enemySync: 1, name: cleanName(sc.save.playerName), color: sc.save.playerColor, ...posFrame(sc) });
     };
     ws.onmessage = (ev) => {
       let msg; try { msg = JSON.parse(ev.data); } catch { return; }
@@ -401,16 +405,19 @@ const Multiplayer = (function () {
     const now = performance.now();
     switch (msg.t) {
       case 'welcome':
+        S.enemySync = msg.enemySync === 1;
+        for (const r of records(S.scene).values()) r.seq.clear();
         S.id = msg.id; S.backoff = RECONNECT_MIN_MS; S.everOnline = true;
         S.groupEpoch++;
         S.seenIds.clear(); S.seenScanT = 0;   // announce what we see again to whoever is here now
         for (const p of msg.peers || []) upsertPeer(p, now, false);
         setStatus('online'); // one HUD count after the whole roster is ready
+        queueOwnEvidence(S.scene);
         break;
       case 'join':
         S.seenIds.clear();
         S.groupEpoch++;
-        upsertPeer(msg, now); break;
+        upsertPeer(msg, now); queueOwnEvidence(S.scene); break;
       case 'p': {
         const p = S.peers.get(msg.id);
         if (p) { Object.assign(p, { x: msg.x, y: msg.y, fx: msg.fx, fy: msg.fy, m: msg.m, d: msg.d }, presenceExtras(msg)); p.seenAt = now; }
@@ -421,7 +428,8 @@ const Multiplayer = (function () {
       case 'aggro': onAggro(S.scene, msg, now); break;
       case 'group': onGroup(msg, now); break;
       case 'ping': addPing(msg, now); break;
-      case 'hit': applyHit(S.scene, msg); break;
+      case 'hit': case 'damage': applyHit(S.scene, msg); break;
+      case 'state': applyState(S.scene, msg); break;
       case 'seen': onSeen(S.scene, msg, now); break;
       case 'dead': onDead(S.scene, msg, now); break;
       case 'error': setStatus('error'); break;
@@ -430,7 +438,7 @@ const Multiplayer = (function () {
   function upsertPeer(p, now, repaint = true) {
     let cur = S.peers.get(p.id);
     if (!cur) { cur = { id: p.id, dx: null, dy: null }; S.peers.set(p.id, cur); }
-    Object.assign(cur, { name: p.name, color: p.color, x: p.x, y: p.y, fx: p.fx, fy: p.fy, m: p.m, d: p.d, seenAt: now }, presenceExtras(p));
+    Object.assign(cur, { name: p.name, color: p.color, enemySync: p.enemySync === 1, x: p.x, y: p.y, fx: p.fx, fy: p.fy, m: p.m, d: p.d, seenAt: now }, presenceExtras(p));
     if (repaint) paintButton();
   }
   // A peer's health and target flags, as the relay clamps them; an old
@@ -472,9 +480,9 @@ const Multiplayer = (function () {
   function clearPeers() { for (const id of [...S.peers.keys()]) dropPeer(id); clearEnemySync(); }
 
   // ── shared enemies: hits, kills, "seen" and "dead" ───────────────────────
-  // Lost frames (a reconnect, the relay's cap) are accepted: hits are deltas,
-  // so two players striking at once both land; a kill is its own frame, and a
-  // death anyone missed is learnt again through seen → dead.
+  // Cumulative evidence makes simultaneous hits additive and replays harmless.
+  // A pending origin retries until the publisher acknowledges its total. Old
+  // relays retain the delta protocol; seen → dead works with either version.
   // Only a world-shared creature (EnemySpawns.isSharedId) is ever sent or
   // touched — both ends ask the same predicate, with their own save (a
   // citadel guard is shared only while that save's battle for it is live).
@@ -483,6 +491,7 @@ const Multiplayer = (function () {
   const validId = (id) => typeof id === 'string' && EnemySpawns.SHARED_ID_RE.test(id);
   const round4 = (v) => Math.round(v * 1e4) / 1e4;
   function clearEnemySync() {
+    S.stateQueue.clear(); S.repairs.clear();
     S.hits.clear(); S.hitTimes = []; S.enemyTimes = []; S.hitFlushT = 0;
     S.seenIds.clear(); S.seenScanT = 0; S.seenDepth = null;
     S.deadPending.clear(); S.deadHeard.clear(); S.deadReplyAt = 0; S.received.clear();
@@ -504,9 +513,22 @@ const Multiplayer = (function () {
   }
   function reportHit(scene, c, dealt, source) {
     if (dealt > 0 && c && Combat.isSharedHit(source)) c._ownHitAt = Date.now();
-    if (S.status !== 'online' || !(dealt > 0) || !Combat.isSharedHit(source) || !shareable(c, scene.save)) return false;
+    // The tab may keep playing through a dropped socket. Retain its own
+    // hits for the next welcome, but never adopt independently simulated
+    // world damage while there is no elected publisher.
+    const retainDisconnected = S.enemySync && !S.stopped && scene === S.scene
+      && scene.save.multiplayer && Combat.isSharedHit(source);
+    if ((S.status !== 'online' && !retainDisconnected) || !(dealt > 0)
+        || !publishDamage(scene, c, source) || !sharedEnemy(c, scene.save)) return false;
+    if (S.enemySync) {
+      const r = enemyRecord(scene, c);
+      r.v.set(S.origin, (r.v.get(S.origin) || 0) + dealt / (Combat.maxHp(c) || 1));
+      r.hp = Combat.hpFraction(c);
+      if (S.repairs.size < 2048 || S.repairs.has(recordKey(scene, c))) S.repairs.set(recordKey(scene, c), { c, d: scene.depth || 0, gen: generation(scene, c), at: performance.now() });
+    }
+    if (S.status !== 'online') return false;
     let h = S.hits.get(c.id);
-    if (!h) S.hits.set(c.id, h = { c, f: 0, d: scene.depth || 0 });
+    if (!h) S.hits.set(c.id, h = { c, f: 0, d: scene.depth || 0, gen: generation(scene, c), world: !Combat.isSharedHit(source) });
     h.f += dealt / (Combat.maxHp(c) || 1);
     return true;
   }
@@ -514,9 +536,9 @@ const Multiplayer = (function () {
   // shared enemy announces itself (`k: 1`, authoritative for every receiver),
   // carrying whatever of its damage was still unsent.
   function reportKill(scene, c, source) {
-    if (S.status !== 'online' || !Combat.isSharedHit(source) || !shareable(c, scene.save)) return false;
+    if (S.status !== 'online' || !publishDamage(scene, c, source) || !sharedEnemy(c, scene.save)) return false;
     const h = S.hits.get(c.id);
-    S.hits.set(c.id, { c, f: h ? h.f : 0, d: scene.depth || 0, kill: true });
+    S.hits.set(c.id, { c, f: h ? h.f : 0, d: scene.depth || 0, gen: generation(scene, c), kill: true, world: !Combat.isSharedHit(source) });
     flushHits(performance.now(), true);
     return true;
   }
@@ -529,13 +551,260 @@ const Multiplayer = (function () {
     const pending = [...S.hits].sort((a, b) => Number(!!b[1].kill) - Number(!!a[1].kill));
     for (const [id, h] of pending) {
       if (S.hitTimes.length >= HIT_MAX_PER_S) break;
-      if (!sharedEnemy(h.c, S.scene?.save)) { S.hits.delete(id); continue; }
+      if (h.d !== (S.scene?.depth || 0) || h.gen !== generation(S.scene, h.c) || !sharedEnemy(h.c, S.scene?.save)) { S.hits.delete(id); continue; }
       if (!h.kill && h.f < HIT_F_MIN) continue;
-      if (!sendEnemy(hitFrame(id, h.f, h.kill ? 0 : Combat.hpFraction(h.c), h.d, h.kill), now)) break;
+      const frame = hitFrame(id, h.f, h.kill ? 0 : Combat.hpFraction(h.c), h.d, h.kill);
+      if (S.enemySync) {
+        const r = enemyRecord(S.scene, h.c);
+        Object.assign(frame, { o: S.origin, u: r.v.get(S.origin) || 0, gen: generation(S.scene, h.c) });
+        if (h.world) frame.t = 'damage';
+        if (publisher(S.scene, h.c) === S.id) frame.s = snapshot(S.scene, h.c);
+      }
+      if (!sendEnemy(frame, now)) break;
       S.hits.delete(id);
       S.hitTimes.push(now);
     }
   }
+  // Evidence belongs to an enemy life, not a relay connection. Retain it on
+  // the scene and creature so a reconnect or tile replacement cannot replay a
+  // hit. Memory is bounded; exceptionally crowded histories stop emitting
+  // snapshots rather than sending a truncated vector that invents damage.
+  const enemyLedgers = new WeakMap();
+  const enemyBodies = new WeakMap();
+  const ORIGIN_RE = /^[A-Za-z0-9_-]{1,64}$/;
+  const MOVE_NUMBERS = ['_idleAngle', '_avoidSide', '_hopMs', '_batLeg', '_lungeAngle'];
+  const MOVE_FLAGS = ['_batSwooping', '_batHit', '_lungeHit', '_burrowed', '_hasEmerged'];
+  const MOVE_TIMERS = ['_idleTurnT', '_nextChooseT', '_stepT0', '_batPauseUntil', '_lungeUntil',
+    '_lungeWindupUntil', '_lungeRecoverUntil', '_lungeNextT', '_burrowNextT', '_emergeUntil'];
+  const MOVE_POINTS = [['_startX', '_startY'], ['_targetX', '_targetY']];
+  function generation(scene, c) { return c.castle ? scene.save.citadelBattles?.[c.castle]?.startedAt || 0 : 0; }
+  function recordKey(scene, c) { return `${scene.depth || 0}:${c.id}:${generation(scene, c)}`; }
+  function records(scene) {
+    let rs = enemyLedgers.get(scene);
+    if (!rs) enemyLedgers.set(scene, rs = new Map());
+    return rs;
+  }
+  function enemyRecord(scene, c) {
+    const key = recordKey(scene, c), rs = records(scene);
+    const body = enemyBodies.get(c);
+    let r = rs.get(key) || (body?.key === key ? body : null);
+    if (!r) r = { key, d: scene.depth || 0, gen: generation(scene, c), v: new Map(), seq: new Map(), hp: Combat.hpFraction(c), c };
+    if (r.c !== c) {
+      // A freshly loaded object must not forget damage already accepted for it,
+      // including a heal that occurred since the last outgoing snapshot.
+      r.hp = Combat.hpFraction(r.c);
+      if (Combat.hp(c) > 0) c._hp = Math.min(Combat.hp(c), r.hp * Combat.maxHp(c));
+      r.c = c;
+      const repair = S.repairs.get(key); if (repair) repair.c = c;
+      const state = S.stateQueue.get(c.id); if (state?.d === (scene.depth || 0)) state.c = c;
+      const hit = S.hits.get(c.id); if (hit?.d === (scene.depth || 0)) hit.c = c;
+    }
+    enemyBodies.set(c, r);
+    rs.delete(key); rs.set(key, r);
+    while (rs.size > 2048) rs.delete(rs.keys().next().value);
+    return r;
+  }
+  function publisher(scene, c, now = performance.now()) {
+    if (!S.enemySync || S.status !== 'online' || !S.id) return null;
+    const radius = (typeof CREATURE_SIM_CELLS === 'number' ? CREATURE_SIM_CELLS : 16) * scene.cellM;
+    const me = playerWorldM(scene);
+    let id = Math.hypot(c.x - me.x, c.y - me.y) <= radius ? S.id : Infinity;
+    for (const p of S.peers.values()) {
+      if (!p.enemySync || p.d !== (scene.depth || 0) || !isNear(p, now)
+          || Math.hypot(c.x - p.x * scene.mPerPx, c.y - p.y * scene.mPerPx) > radius
+          || (c.castle && !battleShared(scene.save, p.id, c.castle))) continue;
+      if (p.id < id) id = p.id;
+    }
+    return Number.isFinite(id) ? id : S.id;
+  }
+  function shouldApplyDamage(scene, c, source) {
+    if (S.enemySync && scene?.save && sharedEnemy(c, scene.save)) enemyRecord(scene, c);
+    return source === Combat.PEER_SOURCE || Combat.isSharedHit(source) || !S.enemySync
+      || S.status !== 'online' || !scene?.save?.multiplayer || !sharedEnemy(c, scene.save)
+      || publisher(scene, c) === S.id;
+  }
+  function publishDamage(scene, c, source) {
+    return source !== Combat.PEER_SOURCE && (Combat.isSharedHit(source)
+      || (S.enemySync && publisher(scene, c) === S.id));
+  }
+  function validEvidence(msg) {
+    return typeof msg.o === 'string' && ORIGIN_RE.test(msg.o)
+      && Number.isFinite(msg.u) && msg.u >= 0 && msg.u <= 1e6
+      && Number.isSafeInteger(msg.gen) && msg.gen >= 0;
+  }
+  function snapshot(scene, c) {
+    const r = enemyRecord(scene, c);
+    if (r.v.size > 32 || !(scene.mPerPx > 0)) return undefined;
+    r.hp = Combat.hpFraction(c);
+    const now = performance.now(), m = {};
+    for (const k of MOVE_FLAGS) m[k] = !!c[k];
+    m._batFlight = c._batFlight ? { x: c._batFlight.x / scene.mPerPx, y: c._batFlight.y / scene.mPerPx,
+      tx: c._batFlight.tx / scene.mPerPx, ty: c._batFlight.ty / scene.mPerPx,
+      start: Math.max(-300000, Math.min(300000, c._batFlight.start - now)), duration: c._batFlight.duration } : null;
+    for (const k of MOVE_NUMBERS) if (Number.isFinite(c[k])) m[k] = c[k];
+    for (const k of MOVE_TIMERS) if (Number.isFinite(c[k])) m[k] = Math.min(300000, Math.max(-300000, c[k] - now));
+    for (const [x, y] of MOVE_POINTS) if (Number.isFinite(c[x]) && Number.isFinite(c[y])) {
+      m[x] = c[x] / scene.mPerPx; m[y] = c[y] / scene.mPerPx;
+    }
+    if (c._movementDecisions) m._movementDecisions = { ...c._movementDecisions };
+    const s = { q: ++S.stateSeq, h: Combat.hpFraction(c), x: c.x / scene.mPerPx, y: c.y / scene.mPerPx,
+      v: [...r.v], m };
+    const pid = S.aggro.get(c.id)?.pid;
+    if (Number.isSafeInteger(pid) && pid > 0) s.pid = pid;
+    if (!validState(s)) return undefined;
+    if (JSON.stringify(s).length > 3500) s.m = {};
+    return JSON.stringify(s).length <= 3500 ? s : undefined;
+  }
+  function validState(s) {
+    if (!s || !Number.isSafeInteger(s.q) || s.q < 1 || !Number.isFinite(s.h) || s.h < 0 || s.h > 1
+        || ![s.x, s.y].every(n => Number.isFinite(n) && n >= 0 && n <= 4194304)
+        || !Array.isArray(s.v) || s.v.length > 32 || !s.m || typeof s.m !== 'object' || Array.isArray(s.m)
+        || (s.pid !== undefined && (!Number.isSafeInteger(s.pid) || s.pid < 1))) return false;
+    const seen = new Set();
+    for (const pair of s.v) {
+      if (!Array.isArray(pair) || pair.length !== 2 || typeof pair[0] !== 'string' || !ORIGIN_RE.test(pair[0])
+          || seen.has(pair[0]) || !Number.isFinite(pair[1]) || pair[1] < 0 || pair[1] > 1e6) return false;
+      seen.add(pair[0]);
+    }
+    const points = MOVE_POINTS.flat();
+    for (const [k, value] of Object.entries(s.m)) {
+      if (MOVE_FLAGS.includes(k)) { if (typeof value !== 'boolean') return false; }
+      else if (k === '_batFlight') {
+        if (value !== null && (!value || typeof value !== 'object' || Array.isArray(value)
+            || Object.keys(value).length !== 6 || !['x', 'y', 'tx', 'ty'].every(p => Number.isFinite(value[p]) && value[p] >= 0 && value[p] <= 4194304)
+            || !Number.isFinite(value.start) || Math.abs(value.start) > 300000
+            || !Number.isFinite(value.duration) || value.duration <= 0 || value.duration > 300000)) return false;
+      }
+      else if (MOVE_NUMBERS.includes(k)) { if (!Number.isFinite(value) || Math.abs(value) > 300000) return false; }
+      else if (MOVE_TIMERS.includes(k)) { if (!Number.isFinite(value) || Math.abs(value) > 300000) return false; }
+      else if (points.includes(k)) { if (!Number.isFinite(value) || value < 0 || value > 4194304) return false; }
+      else if (k === '_movementDecisions') {
+        if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length > 32) return false;
+        for (const [key, n] of Object.entries(value)) if (!/^[a-z][a-z0-9-]{0,39}$/.test(key)
+            || !Number.isSafeInteger(n) || n < 0 || n > 1e9) return false;
+      } else return false;
+    }
+    for (const [x, y] of MOVE_POINTS) if ((s.m[x] === undefined) !== (s.m[y] === undefined)) return false;
+    return true;
+  }
+  function queueState(scene, c) {
+    if (S.stateQueue.size < 128 || S.stateQueue.has(c.id)) S.stateQueue.set(c.id, { c, d: scene.depth || 0, gen: generation(scene, c) });
+  }
+  function queueOwnEvidence(scene) {
+    if (!scene || !S.enemySync) return;
+    for (const r of records(scene).values()) if (r.v.has(S.origin) && S.repairs.size < 2048) {
+      S.repairs.set(r.key, { c: r.c, d: r.d, gen: r.gen, at: 0 });
+    }
+  }
+  function flushState(scene, now) {
+    if (!S.enemySync) return;
+    let sent = 0;
+    for (const [key, r] of S.stateQueue) {
+      if (r.d !== (scene.depth || 0) || r.gen !== generation(scene, r.c) || publisher(scene, r.c) !== S.id) {
+        S.stateQueue.delete(key); continue;
+      }
+      const s = snapshot(scene, r.c);
+      if (!s) { S.stateQueue.delete(key); continue; }
+      if (sent >= 4 || !sendEnemy({ t: 'state', id: r.c.id, d: r.d, gen: r.gen, s }, now)) break;
+      S.stateQueue.delete(key); sent++;
+    }
+    for (const [key, repair] of S.repairs) {
+      const c = repair.c;
+      if (repair.d !== (scene.depth || 0)) continue;
+      if (repair.gen !== generation(scene, c) || !sharedEnemy(c, scene.save)) { S.repairs.delete(key); continue; }
+      // A solo publisher keeps its evidence for future seen replies. When a
+      // peer joins it is queued again, including damage sent before they arrived.
+      if (!S.peers.size) { S.repairs.delete(key); continue; }
+      if (now - repair.at < 3000) continue;
+      const r = enemyRecord(scene, c), u = r.v.get(S.origin) || 0;
+      const frame = { t: 'damage', id: c.id, d: repair.d, gen: repair.gen, o: S.origin, u, f: Math.min(1, u), left: Combat.hpFraction(c) };
+      if (Combat.hp(c) <= 0) frame.k = 1;
+      if (sent >= 4 || !sendEnemy(frame, now)) break;
+      repair.at = now; sent++;
+      if (publisher(scene, c) === S.id) S.repairs.delete(key);
+    }
+  }
+  function applyState(scene, msg, c = null) {
+    if (!S.enemySync || !scene?.save || !validId(msg?.eid) || msg.d !== (scene.depth || 0)
+        || !Number.isSafeInteger(msg.gen) || msg.gen < 0 || !validState(msg.s)
+        || scene.save.caught?.includes(msg.eid)) return false;
+    c ||= findCreatures(new Set([msg.eid])).get(msg.eid);
+    if (!c || !sharedEnemy(c, scene.save) || !(Combat.hp(c) > 0)
+        || msg.gen !== generation(scene, c) || msg.id !== publisher(scene, c)
+        || (c.castle && !battleShared(scene.save, msg.id, c.castle))) return false;
+    const r = enemyRecord(scene, c), s = msg.s;
+    if (!(Combat.hp(c) > 0)) return false;
+    if (s.q <= (r.seq.get(msg.id) || 0)) return false;
+    const incoming = new Map(s.v);
+    if (new Set([...incoming.keys(), ...r.v.keys()]).size > 256) return false;
+    let unseen = 0;
+    for (const [o, u] of r.v) unseen += Math.max(0, u - (incoming.get(o) || 0));
+    r.seq.set(msg.id, s.q);
+    for (const [o, u] of incoming) r.v.set(o, Math.max(u, r.v.get(o) || 0));
+    const hp = Math.max(0, s.h - unseen) * Combat.maxHp(c);
+    if (hp < Combat.hp(c)) {
+      const amount = Combat.hp(c) - hp;
+      if (c._surfaceInactive) {
+        Combat.damageDealt(c, amount, { exact: true });
+        if (Combat.hp(c) <= 0) scene.resolveDefeat(c, Combat.PEER_SOURCE);
+      } else scene._damageEnemy(c, amount, Combat.PEER_SOURCE, { exact: true });
+    }
+    else if (hp > Combat.hp(c)) c._hp = hp; // an alive authority may have healed between encounters
+    r.hp = Combat.hpFraction(c);
+    if ((incoming.get(S.origin) || 0) >= (r.v.get(S.origin) || 0)) S.repairs.delete(r.key);
+    if (!(Combat.hp(c) > 0)) { r.correction = null; return true; }
+    const x = s.x * scene.mPerPx, y = s.y * scene.mPerPx;
+    const dx = x - c.x, dy = y - c.y, distance = Math.hypot(dx, dy);
+    // Translate the remote hop to the current local feet, then move its
+    // endpoints along with the correction; the next AI tick cannot snap back.
+    for (const k of MOVE_FLAGS) c[k] = s.m[k] ?? false;
+    c._batFlight = s.m._batFlight ? {
+      x: s.m._batFlight.x * scene.mPerPx - dx, y: s.m._batFlight.y * scene.mPerPx - dy,
+      tx: s.m._batFlight.tx * scene.mPerPx - dx, ty: s.m._batFlight.ty * scene.mPerPx - dy,
+      start: performance.now() + s.m._batFlight.start, duration: s.m._batFlight.duration } : null;
+    for (const k of MOVE_NUMBERS) c[k] = s.m[k] ?? null;
+    for (const k of MOVE_TIMERS) c[k] = s.m[k] === undefined ? null : performance.now() + s.m[k];
+    for (const [mx, my] of MOVE_POINTS) {
+      c[mx] = s.m[mx] === undefined ? c.x : s.m[mx] * scene.mPerPx - dx;
+      c[my] = s.m[my] === undefined ? c.y : s.m[my] * scene.mPerPx - dy;
+    }
+    c._movementDecisions = { ...s.m._movementDecisions };
+    if (s.pid !== undefined) S.aggro.set(c.id, { pid: s.pid, at: performance.now(), seq: ++S.aggroSeq, own: false, d: msg.d });
+    r.correction = distance <= scene.cellM * 0.1 ? null : { dx, dy, left: 0.4, d: msg.d, gen: msg.gen, publisher: msg.id };
+    if (distance > scene.cellM * 3) correctRecord(scene, r, 0.4);
+    return true;
+  }
+  function correctRecord(scene, r, dt) {
+    const c = r.c, p = r.correction;
+    if (!p) return;
+    if (publisher(scene, c) !== p.publisher || p.d !== (scene.depth || 0) || p.gen !== generation(scene, c) || !(Combat.hp(c) > 0)
+        || scene.save.caught?.includes(c.id)) { r.correction = null; return; }
+    const k = Math.min(1, Math.max(0, dt) / p.left), dx = p.dx * k, dy = p.dy * k;
+    const x = c.x + dx, y = c.y + dy;
+    const cell = scene.cellAt?.(x, y);
+    const row = typeof EnemyRoster !== 'undefined' ? EnemyRoster.get(c.kind) : null;
+    if (!cell?.loaded || (typeof creatureStepRefused === 'function' && creatureStepRefused(scene, c, x, y, { row }))) {
+      r.correction = null; return;
+    }
+    // Correction has no traversed gameplay path: it must not create trail,
+    // trap or environmental hits on either side of a reconciliation.
+    c.x = x; c.y = y;
+    for (const [mx, my] of MOVE_POINTS) {
+      if (Number.isFinite(c[mx])) c[mx] += dx;
+      if (Number.isFinite(c[my])) c[my] += dy;
+    }
+    if (c._batFlight) {
+      c._batFlight.x += dx; c._batFlight.y += dy;
+      c._batFlight.tx += dx; c._batFlight.ty += dy;
+    }
+    c._walkHazardPrevious = null;
+    p.dx -= dx; p.dy -= dy; p.left -= Math.max(0, dt);
+    if (k >= 1 || p.left <= 0) r.correction = null;
+  }
+  function correctEnemies(scene, dt) {
+    for (const r of records(scene).values()) if (r.correction) correctRecord(scene, r, dt);
+  }
+
   // The loaded creatures (this level's tile cache) with any of `ids`.
   function findCreatures(ids) {
     const out = new Map();
@@ -567,7 +836,15 @@ const Multiplayer = (function () {
     if (!sharedEnemy(c, scene.save)) return false;
     if (c.castle && !battleShared(scene.save, msg.id, c.castle)) return false;
     const peer = Combat.PEER_SOURCE;
-    const amount = f * Combat.maxHp(c);
+    let fraction = f;
+    if (msg.o !== undefined || msg.u !== undefined || msg.gen !== undefined) {
+      if (!validEvidence(msg) || msg.gen !== generation(scene, c)) return false;
+      const r = enemyRecord(scene, c);
+      if (!r.v.has(msg.o) && r.v.size >= 256) return false;
+      fraction = Math.max(0, msg.u - (r.v.get(msg.o) || 0));
+      r.v.set(msg.o, Math.max(msg.u, r.v.get(msg.o) || 0));
+    }
+    const amount = fraction * Combat.maxHp(c);
     let dead = false;
     if (amount > 0) {
       if (c._surfaceInactive) {
@@ -579,17 +856,24 @@ const Multiplayer = (function () {
       }
     }
     if (msg.k === 1 && !dead) { c._hp = 0; scene.resolveDefeat(c, peer); }
+    if (S.enemySync) {
+      enemyRecord(scene, c).hp = Combat.hpFraction(c);
+      if (msg.s) applyState(scene, msg, c);
+      if (publisher(scene, c) === S.id) queueState(scene, c);
+    }
     return true;
   }
 
   function rememberHit(msg, now) {
     const battles = new Map(S.peerBattles.get(msg.id) || []);
     const generation = JSON.stringify([...battles]);
-    const key = `${msg.d}:${msg.eid}:${msg.id}:${generation}`, old = S.received.get(key);
+    const key = `${msg.d}:${msg.eid}:${msg.o || msg.id}:${msg.gen ?? generation}`, old = S.received.get(key);
+    if (msg.o !== undefined && !validEvidence(msg)) return;
     const kill = msg.k === 1 || old?.k === 1;
     S.received.delete(key);
     S.received.set(key, { id: msg.id, eid: msg.eid, d: msg.d,
-      battles, f: Math.min(1, (old?.f || 0) + Number(msg.f)),
+      battles, ...(msg.o !== undefined ? { o: msg.o, u: Math.max(old?.u || 0, msg.u), gen: msg.gen, s: msg.s } : {}),
+      f: Math.min(1, (old?.f || 0) + Number(msg.f)),
       k: kill ? 1 : 0, until: now + (kill ? RECEIVED_DEAD_TTL_MS : RECEIVED_HIT_TTL_MS) });
     while (S.received.size > RECEIVED_MAX) S.received.delete(S.received.keys().next().value);
   }
@@ -646,6 +930,12 @@ const Multiplayer = (function () {
   function onSeen(scene, msg, now) {
     if (!scene || !scene.save || !Array.isArray(msg.ids) || !Number.isInteger(msg.d)) return;
     const caught = setOf(scene.save.caught);
+    if (S.enemySync && msg.d === (scene.depth || 0)) {
+      for (const c of findCreatures(new Set(msg.ids.slice(0, SEEN_MAX_IDS))).values()) {
+        if (!caught.has(c.id) && shareable(c, scene.save) && publisher(scene, c) === S.id
+            && (!c.castle || battleShared(scene.save, msg.id, c.castle))) queueState(scene, c);
+      }
+    }
     let any = false;
     for (const id of msg.ids) {
       const key = `${msg.d}:${id}`;
@@ -1217,6 +1507,8 @@ const Multiplayer = (function () {
       flushDead(now);
       flushBattles(scene, now);
       flushAggro(now);
+      flushState(scene, now);
+      correctEnemies(scene, dt);
     }
     drawPeers(scene, now, dt);
     drawPings(scene, now);
@@ -1239,7 +1531,7 @@ const Multiplayer = (function () {
     return true;
   }
 
-  return { start, stop, tick, assisted, ASSIST_MS, consumeTap, setName, reportHit, reportKill, applyHit,
+  return { start, stop, tick, shouldApplyDamage, applyState, correctEnemies, assisted, ASSIST_MS, consumeTap, setName, reportHit, reportKill, applyHit,
            enemyTarget, pickTarget, localTargetState, onBattle, onAggro, battleShared, partyCount, scaleParty, onGroup, PARTY_SCAN_MS, GROUP_RETRY_MS, GROUP_MAX_PLAYERS,
            TARGET_FLAGS, TARGET_TIE_CELLS, TARGET_STICKY_CELLS, TARGET_KEEP_CELLS,
            BATTLE_MS, BATTLE_REPLY_MS, AGGRO_MAX_PER_S, AGGRO_TIE_MS,
