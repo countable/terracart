@@ -140,6 +140,9 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   entry or replacement `layers` array invalidates the geometry, so a cell move
   rejects distant lines without walking their vertices.
   Feather only the restored band's edge, with a hard-edge fallback.
+- Restored Toadstool (Mushroom) and Snare lanes use near-black setts close to
+  the default restored road. Retain their red/brown undertones and mushroom
+  spots; the shared clean-stone bevel supplies the polished highlights.
 - Generate lamps from `Streets.lampSpacingM()` (independent of restoration ladder goals).
   One list and `lit` flag feed art and lighting. Derive verge offset from road
   width and lamp footprint; art and light share the same world point. Lantern
