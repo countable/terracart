@@ -4664,6 +4664,9 @@ class MapScene extends Phaser.Scene {
     if (!(amount > 0)) return false;
     const dealt = Combat.damageDealt(c, amount, Combat.isEnvironmentSource(source) ? { bypassArmor: true } : options);
     const left = Combat.hp(c);
+    // Nearby players' copies of this foe take the same blow (own side only;
+    // a peer's hit is never passed on).
+    if (dealt > 0 && typeof Multiplayer !== 'undefined') Multiplayer.reportHit(this, c, dealt, source);
     // Moss hides us until we strike this creature. Environmental damage and
     // allied attacks do not reveal us; a fresh blessing hides us again.
     if (source === 'player' && dealt > 0 && Shrines.leverActive(this.save, 'hidden')) {
@@ -4711,7 +4714,9 @@ class MapScene extends Phaser.Scene {
       // not, or a burning slime would divide itself every tick. The striker's
       // side is whoever dealt it: a shot's origin when the caller says, else
       // the player's feet.
-      if (dealt > 0 && !Combat.isEnvironmentSource(source)) {
+      // A peer's hit divides nothing here: its halves would be ids only this
+      // client minted, seated off this player's feet.
+      if (dealt > 0 && !Combat.isEnvironmentSource(source) && !Combat.isPeerHit(source)) {
         const from = options.from || this.playerM || { x: c.x - 1, y: c.y };
         if (enemySplit(this, c, from.x, from.y, now) && now >= (this._splitFlashT || 0)) {
           this._splitFlashT = now + 2500;
@@ -4778,6 +4783,13 @@ class MapScene extends Phaser.Scene {
     save.caught = save.caught || [];
     if (save.caught.includes(victim.id)) return;
     save.caught.push(victim.id);
+    // An own-side kill is announced to nearby players, whose copies die with
+    // it whatever HP they show (Multiplayer.reportKill; a no-op offline).
+    if (typeof Multiplayer !== 'undefined') Multiplayer.reportKill(this, victim, source);
+    // A PEER'S KILL (Combat.isPeerHit) is marked dead and nothing more: no
+    // coin, drop, elite roll or ledger credit — the killer's client paid
+    // those. The one place to pay an assist, should one ever be wanted.
+    if (Combat.isPeerHit(source)) { persistSave(save); return; }
     const mine = Combat.isPlayerKill(source);
     // WHAT A KILL DROPS is the kind's own row (SpriteLayout.CREATURE_BEHAVIOUR
     // `drop`), not a ternary here: game drops a body part, and an ENEMY pays a

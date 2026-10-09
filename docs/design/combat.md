@@ -150,3 +150,26 @@ mechanics.
 
 Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_ward`,
 `pet_pickup`.
+
+## Shared enemies (multiplayer)
+
+- Nearby players fight the same enemies: `src/multiplayer.js` sends this
+  client's own-side damage (`Combat.isSharedHit`: player, pet, charmed ally,
+  the player's claimed turrets) as a fraction of the foe's max HP, and every
+  own-side kill as an authoritative `k: 1`. Lava, light, obstacles and
+  foe-on-foe blows run on every client already and are never sent. Each client
+  still runs its own enemy AI. The wire protocol lives atop `server/index.js`.
+- A received hit is source `Combat.PEER_SOURCE`: it goes through
+  `_damageEnemy` with `exact` damage (no armour or potion shield twice), shows
+  its number, never splits a slime and is never sent on. A peer's kill goes
+  through `resolveDefeat`, which marks it in `save.caught` and pays nothing:
+  no coin, drop, elite roll or ledger credit. The peer-kill early return in
+  `resolveDefeat` is the one place to add an assist reward.
+- Only world-shared creatures take part (`EnemySpawns.isSharedId`): a positive
+  mark stamped where world-derived creatures are made. Clock-, random- or
+  serial-minted creatures (ghosts, fished slimes, pest deer, guild foes, dev
+  spawns, story encounters, split-slime halves) stay local. Citadel guards are
+  excluded because their defeat expires with the battle.
+- Late arrivals learn deaths through `seen` → `dead`. Each newly loaded shared
+  enemy is announced once per connection. A peer whose `save.caught` holds it
+  answers everyone near after a jitter, unless another peer already answered.

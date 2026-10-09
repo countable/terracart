@@ -1198,6 +1198,7 @@
       const shiny = eligible && (spec.elite === true
         || root.EnemySpawns.rollsElite(entry, kind, id, seat.x, seat.y, cellM));
       const g = WG.makeCreature(kind, seat.x, seat.y, id, {
+        _sharedId: true,   // the world's garrison (EnemySpawns.isSharedId)
         shiny,
         ...(root.EnemyHabitats?.emergesFromGround(kind,
           root.EnemyHabitats.variantAt(entry, seat.ix, seat.iy) || cand.variant)

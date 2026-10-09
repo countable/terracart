@@ -1,7 +1,9 @@
 # Dragon Hood relay — deploy
 
 `server/index.js` is a tiny Node WebSocket relay: players connected to it see
-each other move (the client is `src/multiplayer.js`). The package, systemd
+each other move, and nearby players' copies of an enemy take each other's
+hits (the client is `src/multiplayer.js`; the wire protocol is the comment at
+the top of `server/index.js`). The package, systemd
 unit, user and install path keep the old `terracart` name on purpose
 (`terracart-relay`, `/opt/terracart`). It holds no game state. One process,
 one port (`PORT`, default 8787): `GET /` answers `{"ok":true,"online":N}` and WebSocket upgrades share the port.

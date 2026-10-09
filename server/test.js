@@ -4,7 +4,7 @@
 
 const assert = require('assert');
 const WebSocket = require('ws');
-const { createServer, cleanName, cleanLabel, INTEREST_PX, MAX_MSGS_PER_S,
+const { createServer, cleanName, cleanLabel, cleanHit, cleanIds, INTEREST_PX, MAX_MSGS_PER_S, MAX_ENEMY_FRAMES_PER_S, MAX_IDS,
         sendFrame, checkSlowConsumer, POSITION_BUFFER_BYTES, MAX_OUTBOUND_BYTES, SLOW_PING_LIMIT } = require('./index.js');
 
 const tests = [];
@@ -191,6 +191,121 @@ test('pings reach nearby peers with the sender\'s name + colour; a second ping i
     await b.none();
     await a.none();
     a.ws.close(); b.ws.close(); far.ws.close();
+  } finally { await s.close(); }
+});
+
+test('cleanHit keeps a well-formed hit and drops malformed ones', () => {
+  assert.deepStrictEqual(cleanHit({ id: 'enemy_12_-3_4_5', f: 0.25, left: 0.5, d: 0 }),
+    { eid: 'enemy_12_-3_4_5', f: 0.25, left: 0.5, d: 0 });
+  assert.deepStrictEqual(cleanHit({ id: 'lair_cafe:a%2Fb_1', f: 1, left: 0, d: 3 }).left, 0);
+  // The kill flag rides through, and only a kill may carry f = 0.
+  assert.deepStrictEqual(cleanHit({ id: 'e', f: 0, left: 0, d: 1, k: 1 }), { eid: 'e', f: 0, left: 0, d: 1, k: 1 });
+  assert.deepStrictEqual(cleanHit({ id: 'e', f: 0.5, left: 0.5, d: 0, k: 0 }), { eid: 'e', f: 0.5, left: 0.5, d: 0 });
+  for (const bad of [
+    { id: 7, f: 0.1, left: 0.5, d: 0 },
+    { id: '', f: 0.1, left: 0.5, d: 0 },
+    { id: 'x'.repeat(97), f: 0.1, left: 0.5, d: 0 },
+    { id: 'a b', f: 0.1, left: 0.5, d: 0 },
+    { id: '<script>', f: 0.1, left: 0.5, d: 0 },
+    { id: 'e', f: 0, left: 0.5, d: 0 },
+    { id: 'e', f: -0.1, left: 0.5, d: 0 },
+    { id: 'e', f: 1.01, left: 0.5, d: 0 },
+    { id: 'e', f: '0.5', left: 0.5, d: 0 },
+    { id: 'e', f: NaN, left: 0.5, d: 0 },
+    { id: 'e', f: 0.1, left: -0.01, d: 0 },
+    { id: 'e', f: 0.1, left: 1.5, d: 0 },
+    { id: 'e', f: 0.1, d: 0 },
+    { id: 'e', f: 0.1, left: 0.5, d: -1 },
+    { id: 'e', f: 0.1, left: 0.5, d: 1.5 },
+    { id: 'e', f: 0.1, left: 0.5 },
+    { id: 'e', f: 0.1, left: 0.5, d: 0, k: 2 },
+    { id: 'e', f: 0.1, left: 0.5, d: 0, k: true },
+    { id: 'e', f: 0, left: 0.5, d: 0, k: 0 },
+  ]) assert.strictEqual(cleanHit(bad), null, JSON.stringify(bad));
+});
+
+test('cleanIds keeps a well-formed seen/dead list and drops malformed ones', () => {
+  assert.deepStrictEqual(cleanIds({ ids: ['enemy_1_2_3_4', 'lair_x_1'], d: 2, extra: 1 }), { ids: ['enemy_1_2_3_4', 'lair_x_1'], d: 2 });
+  assert.deepStrictEqual(cleanIds({ ids: Array.from({ length: MAX_IDS }, (_, i) => `e${i}`), d: 0 }).ids.length, MAX_IDS);
+  for (const bad of [
+    { ids: [], d: 0 },
+    { ids: 'enemy_1', d: 0 },
+    { ids: Array.from({ length: MAX_IDS + 1 }, (_, i) => `e${i}`), d: 0 },
+    { ids: ['ok', 'bad id'], d: 0 },
+    { ids: ['ok', 7], d: 0 },
+    { ids: ['x'.repeat(97)], d: 0 },
+    { ids: ['ok'], d: -1 },
+    { ids: ['ok'], d: 0.5 },
+    { ids: ['ok'] },
+  ]) assert.strictEqual(cleanIds(bad), null, JSON.stringify(bad));
+});
+
+test('seen and dead relay to nearby peers with the sender id, never echoed; malformed ones are dropped, not fatal', async () => {
+  const s = await boot();
+  try {
+    const a = await hello(s.url, 'Ada');
+    const b = await hello(s.url, 'Bob', { x: 10, y: 10 });
+    const far = await hello(s.url, 'Far', { x: INTEREST_PX * 3, y: 0 });
+    await a.next(); await a.next(); await b.next();
+    a.send({ t: 'seen', ids: ['enemy_1_2_3_4', 'enemy_1_2_3_5'], d: 0 });
+    assert.deepStrictEqual(await b.next(), { t: 'seen', id: a.welcome.id, ids: ['enemy_1_2_3_4', 'enemy_1_2_3_5'], d: 0 });
+    b.send({ t: 'dead', ids: ['enemy_1_2_3_4'], d: 0 });
+    assert.deepStrictEqual(await a.next(), { t: 'dead', id: b.welcome.id, ids: ['enemy_1_2_3_4'], d: 0 });
+    await far.none();
+    a.send({ t: 'seen', ids: ['bad id'], d: 0 });
+    a.send({ t: 'dead', ids: [], d: 0 });
+    a.send({ t: 'dead', ids: ['ok'], d: -2 });
+    await b.none();
+    await a.none();
+    a.send({ t: 'dead', ids: ['ok'], d: 1 });
+    assert.deepStrictEqual(await b.next(), { t: 'dead', id: a.welcome.id, ids: ['ok'], d: 1 }, 'still connected');
+    a.ws.close(); b.ws.close(); far.ws.close();
+  } finally { await s.close(); }
+});
+
+test('hits relay to nearby peers with the sender id, never echoed; malformed hits are dropped, not fatal', async () => {
+  const s = await boot();
+  try {
+    const a = await hello(s.url, 'Ada');
+    const b = await hello(s.url, 'Bob', { x: 10, y: 10 });
+    const far = await hello(s.url, 'Far', { x: INTEREST_PX * 3, y: 0 });
+    await a.next(); await a.next(); await b.next();
+    a.send({ t: 'hit', id: 'enemy_1_2_3_4', f: 0.2, left: 0.8, d: 0, extra: 'dropped' });
+    assert.deepStrictEqual(await b.next(), { t: 'hit', id: a.welcome.id, eid: 'enemy_1_2_3_4', f: 0.2, left: 0.8, d: 0 });
+    await far.none();
+    await a.none();
+    // Malformed: dropped silently, and the socket stays up.
+    a.send({ t: 'hit', id: 'bad id', f: 0.2, left: 0.8, d: 0 });
+    a.send({ t: 'hit', id: 'e', f: 2, left: 0.8, d: 0 });
+    a.send({ t: 'hit', id: 'e', f: 0.2, left: 0.8, d: -1 });
+    await b.none();
+    a.send({ t: 'hit', id: 'enemy_1_2_3_4', f: 0.8, left: 0, d: 0, k: 1 });
+    assert.deepStrictEqual(await b.next(), { t: 'hit', id: a.welcome.id, eid: 'enemy_1_2_3_4', f: 0.8, left: 0, d: 0, k: 1 });
+    a.ws.close(); b.ws.close(); far.ws.close();
+  } finally { await s.close(); }
+});
+
+test('enemy frames past MAX_ENEMY_FRAMES_PER_S in a second are dropped without closing the socket', async () => {
+  const s = await boot();
+  try {
+    const a = await hello(s.url, 'Ada');
+    const b = await hello(s.url, 'Bob');
+    await a.next();
+    assert.ok(MAX_ENEMY_FRAMES_PER_S < MAX_MSGS_PER_S, 'the hit cap sits inside the frame budget');
+    const burst = MAX_ENEMY_FRAMES_PER_S + 5;
+    // Hits, seen and dead share the one enemy-frame cap.
+    for (let i = 0; i < burst; i++) {
+      a.send(i % 3 === 0 ? { t: 'hit', id: `e${i}`, f: 0.01, left: 0.5, d: 0 }
+        : { t: i % 3 === 1 ? 'seen' : 'dead', ids: [`e${i}`], d: 0 });
+    }
+    a.send({ t: 'p', x: 1, y: 1 });       // still connected: the position goes through
+    const got = [];
+    for (;;) { const m = await b.next(); if (m.t === 'p') break; got.push(m); }
+    // A budget refill can land mid-burst, so allow up to two windows' worth.
+    assert.ok(got.length >= 1 && got.length <= 2 * MAX_ENEMY_FRAMES_PER_S, `relayed ${got.length}`);
+    assert.ok(got.length < burst || burst > 2 * MAX_ENEMY_FRAMES_PER_S, 'some were dropped');
+    assert.ok(got.every(m => ['hit', 'seen', 'dead'].includes(m.t)));
+    a.ws.close(); b.ws.close();
   } finally { await s.close(); }
 });
 
