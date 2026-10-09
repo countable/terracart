@@ -23,6 +23,11 @@
 //  HEALTH
 //  8. Presence frames carry e (energy fraction), g (TARGET_FLAGS), v; a hurt
 //     peer gets the enemy health bar over their head.
+//  PARTY GROUPS
+//  9. Zone encounter groups grow with the near players (EnemyHabitats.
+//     scaleEncounters): unchanged alone; +50% per extra player for a group,
+//     elite-or-member for a single, all off the group id; extras numbered,
+//     seated alike on every device, shared, dead when caught; sticky upward.
 
 (function () {
 const lift = (sig) => {
@@ -695,5 +700,159 @@ test('health: a hurt peer wears the enemy health bar over the head; a whole one 
       assert.eq(bars.length, 1);
     }, { peers: [peer(2, 30, 0)] });
   });
+});
+
+// ── a party's bigger groups ────────────────────────────────────────────────
+// The zone encounter fixture enemy_habitats.test.js uses: an orchard park.
+const PN = 64, PEDGE = PN * 7;
+const orchard = () => ({ cellsPerEdge: PN, tileEdgeM: PEDGE,
+  grid: new Array(PN * PN).fill(WorldGen.T.PARK), objects: [],
+  zone: { coverage: new Uint8Array(PN * PN).fill(1), anchors: [{ variant: 'orchard' }] } });
+const sig = (cs) => cs.map((c) => `${c.id}:${c.kind}:${c.x},${c.y}:${!!c.shiny}`).sort().join('|');
+// A built tile: its creatures, as the spawn pass keeps them.
+function built(tx = 0, ty = 0) {
+  const e = orchard();
+  e.creatures = EnemyHabitats.surfaceEncounters(e, tx, ty, new Set());
+  return e;
+}
+
+test('party groups: one player changes nothing — the world is the single-player world', () => {
+  const e = built(), before = sig(e.creatures);
+  assert.gt(EnemyHabitats.groupsOf(e).length, 0, 'the fixture has groups');
+  const r = EnemyHabitats.scaleEncounters(e, 1, new Set());
+  assert.eq(r.added.length + r.upgraded.length, 0);
+  assert.eq(sig(e.creatures), before);
+  assert.eq(sig(e.creatures), sig(built().creatures), 'recording groups changes no draw');
+  for (const id of ['a', 'b', 'zone_encounter_0_0_8_8']) for (const c of [1, 2, 3, 5]) {
+    assert.eq(EnemyHabitats.partySize(id, c, 1, 'goblin'), c);
+  }
+});
+
+test('party groups: groups of two and three grow by half per extra player, fractions rounded off the group id', () => {
+  const ids = Array.from({ length: 400 }, (_, i) => `zone_encounter_9_9_${i}_0`);
+  for (const id of ids) {
+    assert.eq(EnemyHabitats.partySize(id, 2, 2), 3);
+    assert.eq(EnemyHabitats.partySize(id, 2, 3), 4);
+    assert.eq(EnemyHabitats.partySize(id, 3, 3), 6);
+    assert.eq(EnemyHabitats.partySize(id, 3, 2), EnemyHabitats.partySize(id, 3, 2), 'deterministic');
+    assert.includes([4, 5], EnemyHabitats.partySize(id, 3, 2));
+    assert.eq(EnemyHabitats.partySize(id, 3, 2) === 5, EnemyHabitats.unit(`${id}:mp:2`) < 0.5, 'the rounding draw');
+  }
+  const up = ids.filter((id) => EnemyHabitats.partySize(id, 3, 2) === 5).length / ids.length;
+  assert.inRange(up, 0.4, 0.6, 'a half rounds up about half the time');
+});
+
+test('party groups: a single becomes an elite or gains a member, about evenly, the same on every device', () => {
+  const ids = Array.from({ length: 600 }, (_, i) => `zone_encounter_3_4_${i}_8`);
+  let elite = 0;
+  for (const id of ids) {
+    const a = EnemyHabitats.singleDraws(id, 'goblin', 2), b = EnemyHabitats.singleDraws(id, 'goblin', 2);
+    assert.eq(JSON.stringify(a), JSON.stringify(b), 'two devices draw alike');
+    assert.eq(Number(a.elite) + a.extras, 1, 'one extra player: one upgrade or one member');
+    if (a.elite) elite++;
+    // Three players: at most one upgrade — an elite already drawn adds a member instead.
+    const c = EnemyHabitats.singleDraws(id, 'goblin', 3);
+    assert.eq(Number(c.elite) + c.extras, 2);
+    assert.eq(EnemyHabitats.partySize(id, 1, 3, 'goblin'), 1 + c.extras);
+  }
+  assert.inRange(elite / ids.length, 0.42, 0.58);
+  // A kind that cannot be an elite always gains a member.
+  const ineligible = EnemyRoster.ROWS.find((r) => r.eliteEligible === false && Combat.isEnemyKind(r.id));
+  if (ineligible) for (const id of ids.slice(0, 50)) assert.eq(EnemyHabitats.singleDraws(id, ineligible.id, 2).elite, false);
+});
+
+test('party groups: extras continue the numbering, seat the same on two devices, are shared, and stay dead', () => {
+  const a = built(), b = built(), c = built();
+  const groups = EnemyHabitats.groupsOf(a);
+  // Device A sees three players at once; device B two and then three.
+  const ra = EnemyHabitats.scaleEncounters(a, 3, new Set());
+  const rb2 = EnemyHabitats.scaleEncounters(b, 2, new Set());
+  const rb3 = EnemyHabitats.scaleEncounters(b, 3, new Set());
+  assert.gt(ra.added.length, 0);
+  assert.eq(sig(ra.added), sig([...rb2.added, ...rb3.added]), 'the same extras, whatever the path to three');
+  assert.eq(sig(ra.upgraded), sig([...rb2.upgraded, ...rb3.upgraded]), 'and the same elites');
+  const base = new Set(a.creatures.filter((x) => !ra.added.includes(x)).map((x) => `${x.x},${x.y}`));
+  for (const x of ra.added) {
+    const g = groups.find((r) => x.id.startsWith(r.id + '_'));
+    assert.truthy(g, `${x.id} belongs to a group`);
+    assert.gte(Number(x.id.slice(g.id.length + 1)), g.count, 'numbered after the base members');
+    assert.truthy(EnemySpawns.isSharedId(x), 'world-shared');
+    assert.falsy(base.has(`${x.x},${x.y}`), 'never on a generated seat');
+    assert.truthy(x._surfaceSpawn, 'a surface foe like its group');
+  }
+  for (const g of groups) {
+    const want = EnemyHabitats.partySize(g.id, g.count, 3, g.baseKind) - g.count;
+    const got = ra.added.filter((x) => x.id.startsWith(g.id + '_')).length;
+    assert.lte(got, want, `${g.id}: no more than the rule asks (fewer only where no seat is left)`);
+  }
+  // A defeated extra stays dead; the rest keep their seats.
+  const dead = ra.added[0].id;
+  const rc = EnemyHabitats.scaleEncounters(c, 3, new Set([dead]));
+  assert.eq(sig(rc.added), sig(ra.added.filter((x) => x.id !== dead)));
+});
+
+test('party groups: sticky upward — a friend stepping away leaves the extras, a return adds nothing twice', () => {
+  const e = built();
+  const first = EnemyHabitats.scaleEncounters(e, 2, new Set());
+  assert.gt(first.added.length + first.upgraded.length, 0);
+  assert.eq(EnemyHabitats.scaleEncounters(e, 1, new Set()).added.length, 0, 'never shrinks');
+  assert.eq(EnemyHabitats.scaleEncounters(e, 2, new Set()).added.length, 0, 'never repeats');
+  assert.gt(EnemyHabitats.scaleEncounters(e, 3, new Set()).added.length, 0, 'grows again for a third');
+  // A rebuilt tile is a new entry: it starts again from the single-player world.
+  assert.eq(EnemyHabitats.groupsOf(built()).every((g) => g.players === 1), true);
+});
+
+test('party groups: an upgraded single is the world\'s elite — shiny, its rank roll, its wounds kept as a share', () => {
+  let found = 0;
+  for (let tx = 0; tx < 12 && found < 3; tx++) {
+    const e = built(tx, 0);
+    const r = EnemyHabitats.scaleEncounters(e, 2, new Set());
+    for (const c of r.upgraded) {
+      found++;
+      assert.truthy(Combat.isElite(c));
+      assert.eq(c.eliteRank ?? null, Combat.rollEliteRank(c.kind, c.id) ?? null);
+      assert.eq(c.id.endsWith('_0'), true, 'the group\'s own member');
+    }
+  }
+  assert.gt(found, 0, 'the fixture rolls at least one upgrade');
+  const wounded = { kind: 'goblin', id: 'zone_encounter_w_0', _hp: 24 };
+  const half = wounded._hp / Combat.maxHp(wounded);
+  const e = { creatures: [wounded] };
+  // Through a group record, as scaleEncounters does it.
+  const id = Array.from({ length: 200 }, (_, i) => `zone_encounter_w${i}`)
+    .find((g) => EnemyHabitats.singleDraws(g, 'goblin', 2).elite);
+  wounded.id = `${id}_0`;
+  EnemyHabitats.groupsOf(e).push({ id, count: 1, baseKind: 'goblin', players: 1, extras: 0, elite: false,
+    seated: new Set(), extra: () => null });
+  const r = EnemyHabitats.scaleEncounters(e, 2, new Set());
+  assert.eq(r.upgraded[0], wounded);
+  assert.inRange(wounded._hp / Combat.maxHp(wounded) - half, -0.02, 0.02, 'the same share of a bigger pool');
+});
+
+test('party groups: the client counts near players on this depth and grows the groups round it', () => {
+  const key = WorldGen.tileKey(TX, TY), had = WorldGen.tileCache.get(key);
+  const e = built(TX, TY);
+  e.cellsPerEdge = PN; e.tileEdgeM = PEDGE;
+  WorldGen.tileCache.set(key, e);
+  try {
+    const { scene } = harness();
+    const at = { x: TX * PEDGE + 100, y: TY * PEDGE + 100 };
+    online(scene, at);
+    scene.playerToWorldCell = () => ({ tx: TX, ty: TY });
+    const before = e.creatures.length;
+    withRelay(scene, () => {
+      assert.eq(Multiplayer.partyCount(scene, clock), 3, 'two near peers here, one in a cave');
+      flush(scene, Multiplayer.PARTY_SCAN_MS);
+      assert.gt(e.creatures.length, before, 'the groups grew');
+      const n = e.creatures.length;
+      flush(scene, Multiplayer.PARTY_SCAN_MS);
+      assert.eq(e.creatures.length, n, 'once');
+      assert.eq(new Set(e.creatures.map((c) => c.id)).size, n, 'no duplicate ids');
+    }, { peers: [peer(2, at.x + 20, at.y), peer(3, at.x, at.y + 30), peer(4, at.x, at.y, { d: 2 })] });
+    Multiplayer.stop(scene);
+    assert.eq(Multiplayer.partyCount(scene, clock), 1, 'offline: one');
+  } finally {
+    if (had) WorldGen.tileCache.set(key, had); else WorldGen.tileCache.delete(key);
+  }
 });
 })();

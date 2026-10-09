@@ -405,7 +405,8 @@ test('shared ids: only creatures marked where the world makes them; every per-de
   assert.falsy(Lairs.GARRISON_INHERIT.includes('_sharedId'), 'a split half (per-device serial) is not shared');
   // The mark lives only where world-derived creatures are made.
   const marking = Object.keys(ALL_SRC).filter((f) => /markShared\(|_sharedId: true/.test(ALL_SRC[f])).sort();
-  assert.eq(marking.join(), ['creature_ai.js', 'enemy_spawns.js', 'lairs.js', 'scene_creatures.js'].join(),
+  // (enemy_habitats.js: a party's extra encounter members, scaleEncounters.)
+  assert.eq(marking.join(), ['creature_ai.js', 'enemy_habitats.js', 'enemy_spawns.js', 'lairs.js', 'scene_creatures.js'].join(),
     'a new marking site is a deliberate, reviewed choice');
 });
 })();

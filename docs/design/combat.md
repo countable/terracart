@@ -218,4 +218,10 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
   (`TARGET_FLAGS`) and `v`. A peer below full energy wears the enemy health
   bar (`_drawEnemyHealthBar`) under its name tag; at full it shows none.
 
+- Zone encounter groups grow with the near players on each device
+  (`EnemyHabitats.scaleEncounters`; rule and stickiness in
+  [generation](generation.md)). Extras are ordinary shared foes. Devices that
+  briefly disagree on P simply lack the other's extras for a moment, and hits
+  or deaths for an id a device has not made yet are dropped.
+
 Tests: `multiplayer_hits`, `multiplayer_shared`, `server/test.js`.

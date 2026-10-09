@@ -43,6 +43,10 @@
 // `g` (TARGET_FLAGS), `v` (gear's cut to enemy sight) and `e`, the player's
 // energy as a fraction of its cap — also drawn as a bar over a hurt peer.
 //
+// A PARTY MEETS BIGGER GROUPS: the zone encounter groups round this player
+// grow with the number of near players (scaleParty → EnemyHabitats.
+// scaleEncounters), on every device alike, by draws off the group id.
+//
 // Why players can talk about places at all: the world is the same for
 // everyone. Rocks, trees and wild plants are placed by worldgen.js from the
 // map data and fixed hashes (WorldGen.makeRng over tile / OSM ids), not from
@@ -61,7 +65,9 @@
 //   coords.js — sameAbsCell
 //   worldgen.js — WorldGen.forEachItem / forEachItemNear (ping labels, shared enemies)
 //   combat.js — Combat (shared hits: isSharedHit, PEER_SOURCE, maxHp, hpFraction)
-//   enemy_spawns.js — EnemySpawns.isSharedId / SHARED_ID_RE
+//   enemy_spawns.js — EnemySpawns.isSharedId / SHARED_ID_RE, surfaceActive
+//   enemy_habitats.js — EnemyHabitats.scaleEncounters (a party's bigger groups)
+//   coords.js — eachTile3x3
 //   houses.js — Houses (citadel battles: isCitadelKey, adoptCitadelBattle, citadelBattleActive)
 //   castle_styles.js — CastleStyles (a battle toast's castle name)
 //   energy.js — Energy.maxEnergy (published health)
@@ -155,6 +161,9 @@ const Multiplayer = (function () {
   // Gear's cut to enemy sight (jewelryVisionReduction) rides as presence `v`.
   const TARGET_FLAGS = Object.freeze({ downed: 1, hidden: 2, kerb: 4, warded: 8, fireside: 16 });
   const VISION_CUT_MAX = 15;          // server/index.js MAX_VISION_CUT
+  // Party size: how often the zone encounter groups round this player are
+  // grown to the number of players here (EnemyHabitats.scaleEncounters).
+  const PARTY_SCAN_MS = 1000;
   // Light tints so the farmer's art stays readable: a tint multiplies, so the
   // sprite's whites take the colour and its darks barely move.
   const COLORS = [0xffd28a, 0x9fd8ff, 0xb8ffb0, 0xffb3e6, 0xe0c3ff, 0xfff59f, 0xffb38a, 0x9ff5e6, 0xd0d0d0, 0xc8ff8a];
@@ -247,6 +256,7 @@ const Multiplayer = (function () {
     aggroQueue: new Map(),    // enemy id → { pid, d }: our picks waiting for a send slot
     aggroSeq: 0, aggroWindowT: 0, aggroSent: 0,
     local: null,              // { e, g, v }: this player's published health and target flags
+    partyScanT: 0,
   };
 
   function serverUrl() {
@@ -793,6 +803,42 @@ const Multiplayer = (function () {
     return true;
   }
 
+  // ── a party's encounters ────────────────────────────────────────────────
+  // P, the players fighting here: this one plus every NEAR peer (isNear —
+  // the HUD chip's own count) on this depth. 1 offline.
+  function partyCount(scene, now) {
+    if (S.status !== 'online') return 1;
+    let n = 1;
+    for (const p of S.peers.values()) if ((p.d || 0) === (scene.depth || 0) && isNear(p, now)) n++;
+    return n;
+  }
+  // Grow the zone encounter groups on the loaded tiles round this player to
+  // P (EnemyHabitats.scaleEncounters — the rule, its draws, its stickiness).
+  // Each peer runs the same on its own device; extras are ordinary world-
+  // shared foes from then on (hits, kills, seen / dead). Surface only: that
+  // is where the groups stand. Nothing happens alone.
+  function scaleParty(scene, now) {
+    if (now - S.partyScanT < PARTY_SCAN_MS) return;
+    S.partyScanT = now;
+    if ((scene.depth || 0) !== 0 || typeof EnemyHabitats === 'undefined') return;
+    const players = partyCount(scene, now);
+    const pc = players > 1 && scene.playerToWorldCell?.();
+    if (!pc) return;
+    const caught = setOf(scene.save.caught);
+    eachTile3x3(pc.tx, pc.ty, (tx, ty) => {
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+      if (!entry) return;
+      const { added } = EnemyHabitats.scaleEncounters(entry, players, caught);
+      if (!added.length) return;
+      const have = new Set((entry.creatures ||= []).map(c => c.id));
+      for (const c of added) {
+        if (have.has(c.id)) continue;
+        EnemySpawns.surfaceActive(scene, c);
+        entry.creatures.push(c);
+      }
+    });
+  }
+
   // ── drawing ──────────────────────────────────────────────────────────────
   // Names, pings and edge dots remain in the masked annotation layer. Peer
   // bodies join the world painter pass; their contact shadows stay on ground.
@@ -1064,6 +1110,7 @@ const Multiplayer = (function () {
       flushDead(now);
       flushBattles(scene, now);
       flushAggro(now);
+      scaleParty(scene, now);
     }
     drawPeers(scene, now, dt);
     drawPings(scene, now);
@@ -1087,7 +1134,7 @@ const Multiplayer = (function () {
   }
 
   return { start, stop, tick, assisted, ASSIST_MS, consumeTap, setName, reportHit, reportKill, applyHit,
-           enemyTarget, pickTarget, localTargetState, onBattle, onAggro, battleShared,
+           enemyTarget, pickTarget, localTargetState, onBattle, onAggro, battleShared, partyCount, scaleParty, PARTY_SCAN_MS,
            TARGET_FLAGS, TARGET_TIE_CELLS, TARGET_STICKY_CELLS, TARGET_KEEP_CELLS,
            BATTLE_MS, BATTLE_REPLY_MS, AGGRO_MAX_PER_S, AGGRO_TIE_MS,
            HIT_FLUSH_MS, HIT_MAX_PER_S, SEEN_MS, SEEN_MAX_IDS, DEAD_JITTER_MAX_MS, DEAD_HEARD_MS,

@@ -187,13 +187,14 @@
       });
       if (!kinds.length) continue;
       const count = root.CreatureSpawns.frequencyCount({ pairAt: cfg.pairAt, trioAt: cfg.trioAt }, () => unit(id + ':size'));
-      let anchor = null;
-      out.push(...yield* root.CreatureSpawns.generateSteps(rule, {
-        count,
-        member: n => ({ kind: root.CreatureSpawns.pickWeighted(kinds, unit(`${id}:${n}:kind`), () => 1), id: `${id}_${n}` }),
-        seat: ({ kind }, n) => {
-          const rows = seatsFor(slot, kind).filter(p => !occupied.has(p.cy * N + p.cx));
+      // Member n of this group: its kind, its seat, its body — the base
+      // members below and a party's extras (scaleEncounters) alike.
+      const group = { anchor: null };
+      const member = n => ({ kind: root.CreatureSpawns.pickWeighted(kinds, unit(`${id}:${n}:kind`), () => 1), id: `${id}_${n}` });
+      const seatFor = (taken, anchorOf) => ({ kind }, n) => {
+          const rows = seatsFor(slot, kind).filter(p => !taken(p.cy * N + p.cx));
           if (!rows.length) return null;
+          const anchor = anchorOf.anchor;
           const origin = anchor || owner;
           // Prefer nearby legal ground so ordinary groups stay together. Distance
           // bands retain variety instead of always filling the same nearest cell.
@@ -207,20 +208,127 @@
             nearby = rows.filter(p => distance(p) === radius);
           }
           const seat = nearby[Math.floor(unit(`${id}:${n}:seat`) * nearby.length)];
-          anchor ||= seat;
+          anchorOf.anchor ||= seat;
           return seat;
-        },
-        create: ({ kind, id: memberId }, seat) => seatCreature(entry, tx, ty, seat.cx, seat.cy, kind, memberId, (x, y) => ({
+        };
+      const create = (claimed) => ({ kind, id: memberId }, seat) => seatCreature(entry, tx, ty, seat.cx, seat.cy, kind, memberId, (x, y) => ({
           zoneVariant, shiny: false,
           ...root.EnemySpawns.concealment(kind, memberId, zoneVariant),
           ...(emergesFromGround(kind, zoneVariant)
             ? { emergeFromGround: true, _burrowed: true } : {}),
           _surfaceSpawn: { x, y, tx, ty, cx: seat.cx, cy: seat.cy },
-        }), occupied),
+        }), claimed);
+      out.push(...yield* root.CreatureSpawns.generateSteps(rule, {
+        count, member, seat: seatFor(i => occupied.has(i), group), create: create(occupied),
       }));
+      // A PARTY'S EXTRAS (scaleEncounters) are this group's members n ≥ count,
+      // made by the same member / seat / create, against the tile's finished
+      // generated occupancy (`occupied`, complete once the pass is over) plus
+      // the group's own extras — never another group's, whose extras may
+      // arrive in any order — so every device seats extra n on the same cell.
+      if (count >= 1) groupsOf(entry).push({
+        id, count, baseKind: member(0).kind, players: 1, extras: 0, elite: false, seated: new Set(),
+        extra(n) {
+          // Extras come in n order on every device, so they share one anchor.
+          const anchorOf = this.anchorOf ||= { anchor: group.anchor };
+          const own = this.seated;
+          const m = member(n);
+          const seat = seatFor(i => occupied.has(i) || own.has(i), anchorOf)(m, n);
+          return seat ? create(own)(m, seat) : null;
+        },
+      });
     }
 
     return out;
+  }
+
+  // ── MORE PLAYERS, BIGGER GROUPS ─────────────────────────────────────────
+  // A zone encounter group (surfaceEncounterProfileSteps) grows with the
+  // number of players fighting near it, on each player's device: Multiplayer
+  // counts P (this player plus peers near on this depth) and calls
+  // scaleEncounters; offline P = 1 and nothing here runs. Only these groups
+  // scale: a garrison has its own authored size (Lairs.GROUPS), a cave pack
+  // or roamer is placed by the cave pass's two-step canonical seating, and
+  // ghosts and other per-device mints are not shared at all.
+  //   A group of c ≥ 2 grows to c × (1 + PARTY_GROWTH × (P − 1)), its
+  // fraction rounded up when unit(`${id}:mp:${P}`) falls under it. A single
+  // (c = 1) draws once per extra player k: under PARTY_ELITE_CHANCE on
+  // unit(`${id}:mp:${k}`) it becomes an elite (the shiny flag and its rank
+  // roll, Combat.rollEliteRank — the world's own elite) if it is not one
+  // already and its kind may be; otherwise it gains a member. Every draw is
+  // off the group id, so devices that agree on P agree on everything.
+  //   STICKY: a group remembers the most players it has seen while its tile
+  // is loaded and never shrinks — extras do not vanish when a friend steps
+  // away mid-fight. A rebuilt tile is a new entry and starts again.
+  const PARTY_GROWTH = 0.5;
+  const PARTY_ELITE_CHANCE = 0.5;
+  // Group records live beside the entry, not on it: the tile cache may be
+  // serialised, and a record holds the group's seating closures.
+  const GROUP_RECORDS = new WeakMap();
+  function groupsOf(entry) {
+    let list = GROUP_RECORDS.get(entry);
+    if (!list) GROUP_RECORDS.set(entry, list = []);
+    return list;
+  }
+  // The size a group of base `count` (its first member `kind`) reaches with
+  // `players` players (pure).
+  function partySize(id, count, players, kind) {
+    if (!(players > 1)) return count;
+    if (count < 2) return count + singleDraws(id, kind, players).extras;
+    const exact = count * (1 + PARTY_GROWTH * (players - 1));
+    const whole = Math.floor(exact);
+    return whole + (unit(`${id}:mp:${players}`) < exact - whole ? 1 : 0);
+  }
+  // A single's draws for players 2..P: { elite, extras } (pure). `kind`
+  // decides whether an upgrade is possible at all.
+  function singleDraws(id, kind, players) {
+    const C = root.Combat;
+    const eligible = typeof kind === 'string' && !!C && C.isEnemyKind(kind) && C.monster(kind)?.eliteEligible !== false;
+    let elite = false, extras = 0;
+    for (let k = 1; k < players; k++) {
+      if (unit(`${id}:mp:${k}`) < PARTY_ELITE_CHANCE && !elite && eligible) elite = true;
+      else extras++;
+    }
+    return { elite, extras };
+  }
+  // Grow every group on `entry` to `players` (sticky). Returns the NEW
+  // creatures to add (shared-marked, minus `caught`; ids `${group}_${n}`
+  // continuing the numbering) and the base members upgraded to elite in place.
+  function scaleEncounters(entry, players, caught) {
+    const added = [], upgraded = [];
+    for (const g of GROUP_RECORDS.get(entry) || []) {
+      if (!(players > g.players)) continue;
+      g.players = players;
+      let want;
+      if (g.count >= 2) want = partySize(g.id, g.count, players) - g.count;
+      else {
+        const base = (entry.creatures || []).find(c => c.id === `${g.id}_0`);
+        const draws = singleDraws(g.id, g.baseKind, players);
+        want = draws.extras;
+        if (draws.elite && !g.elite) {
+          g.elite = true;
+          if (base && !base.shiny && !caught?.has(base.id)) { upgradeElite(base); upgraded.push(base); }
+        }
+      }
+      for (let n = g.count + g.extras; n < g.count + want; n++) {
+        g.extras++;
+        const c = g.extra(n);
+        if (!c) continue;
+        if (caught?.has(c.id)) continue;
+        added.push(root.EnemySpawns.markShared(c));
+      }
+    }
+    return { added, upgraded };
+  }
+  // The world's elite, granted: the shiny flag and the rank its id rolls
+  // (worldgen.js makeCreature's own roll), its wounds kept as a share.
+  function upgradeElite(c) {
+    const C = root.Combat;
+    const before = C.maxHp(c), hp = c._hp;
+    c.shiny = true;
+    const rank = C.rollEliteRank(c.kind, c.id);
+    if (rank) c.eliteRank = rank;
+    if (Number.isFinite(hp)) c._hp = Math.max(1, Math.round(hp * C.maxHp(c) / before));
   }
   function buildingKinds(entry, cand) {
     const castle = cand.tier === 12 && root.CastleStyles?.get(cand.key);
@@ -319,6 +427,7 @@
     return out;
   }
   root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, CASTLE_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS, SURFACE_ENCOUNTER_PROFILES, NEXUS_RULES, HABITAT_TIER,
-    unit, caveAt, surfaceAt, shoreWater, surfaceSeat, surfaceEncounters, surfaceEncountersSteps, variantAt, emergesFromGround, buildingKinds, habitatLairs, caveSites };
+    unit, caveAt, surfaceAt, shoreWater, surfaceSeat, surfaceEncounters, surfaceEncountersSteps, variantAt,
+    PARTY_GROWTH, PARTY_ELITE_CHANCE, partySize, singleDraws, scaleEncounters, groupsOf, emergesFromGround, buildingKinds, habitatLairs, caveSites };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.EnemyHabitats;
 })(typeof window !== 'undefined' ? window : globalThis);
