@@ -5962,6 +5962,15 @@ class MapScene extends Phaser.Scene {
   // about: cheap steering close to home, a darkening character further out, and
   // the walk back when you let go. Measured body-to-fix when there's a fix; with
   // no GPS at all the accumulated stick offset is the only notion of "away".
+  // Is the player's REAL position (the GPS fix) near Home — the shared
+  // near-home test (HomeArea.isNear, NEAR_M) about the live Home? True with
+  // no fix to ask, so a desktop or sandbox session keeps the body's answer.
+  _gpsNearHome() {
+    if (!this.gpsM || !this.startWorldM) return true;
+    const home = this.homeWorldPos?.();
+    if (!home) return false;
+    return HomeArea.isNear(this.startWorldM.x + this.gpsM.x, this.startWorldM.y + this.gpsM.y, HomeArea.NEAR_M, home);
+  }
   _gpsAwayM() {
     if (this.gpsM) {
       return Math.hypot(this.playerM.x - this.gpsM.x, this.playerM.y - this.gpsM.y);
@@ -7850,10 +7859,16 @@ class MapScene extends Phaser.Scene {
   // under 'revive'; a busy screen leaves it unmarked for the next revival,
   // the _storySplashOnce rule. It tells no numbers: the energy the revival
   // gave is the on-screen pop's (_splashEnergyGain), not the story's.
+  // It tells of being carried HOME, so it waits for a revival the player is
+  // really at Home for: the stick can walk the body into Home's ring while the
+  // phone is elsewhere, so the GPS fix must be near Home too (HomeArea.isNear).
+  // Without a fix (desktop, sandbox) the body's word is all there is. Left
+  // unmarked, the next revival at Home asks again.
   _reviveStoryboard() {
     const seen = this.save.storySeen = this.save.storySeen || {};
     if (seen.revive) return;
     if (this._dialogOpen()) return;
+    if (!this._gpsNearHome()) return;
     seen.revive = 1;
     persistSave(this.save);
     const PANELS = [

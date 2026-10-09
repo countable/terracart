@@ -15,6 +15,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   player takes no damage (`Conditions.setDialogShield`, read through
   `damageImmune`) and hostiles hold still. Shops, trades and other dialogs
   do not pause; a foe's blow still closes a shop.
+- The revival storyboard (`_reviveStoryboard`) tells of being carried home,
+  so it plays only when the GPS fix is near Home too (`_gpsNearHome`,
+  `HomeArea.NEAR_M`), not just a body stick-walked into Home's ring; otherwise
+  it stays unmarked for the next revival.
 - Feedback is visual; there is no vibration setting or device vibration.
 - `RoadSafety` owns the two location warnings. The first night entry into the
   MD/LG kerb buffer shows `road:night` once per save through the story ledger.

@@ -11,7 +11,7 @@ const lift = (sig) => {
   assert.truthy(i > 0, `found ${sig}`);
   return app.slice(i + 1, app.indexOf('\n  }\n', i) + 4);
 };
-const SRC = lift('_reviveStoryboard() {') + '\n' + lift('_dialogOpen() {');
+const SRC = lift('_reviveStoryboard() {') + '\n' + lift('_dialogOpen() {') + '\n' + lift('_gpsNearHome() {');
 
 function mkScene() {
   const K = new Function('persistSave', 'Energy', `return class { ${SRC} }`)(() => {}, { REVIVE_FRAC: 0.25 });
@@ -75,6 +75,24 @@ test('revive story: three panels in order, Next between them, once per save', ()
     for (const m of s.modals) assert.eq(m.kind, 'story');
     s._reviveStoryboard();
     assert.eq(s.modals.length, 3, 'a second revival tells nothing');
+  } finally { globalThis.document.body = real; }
+});
+
+test('revive story: only when the player is REALLY near Home — the GPS fix, not a stick-walked body', () => {
+  const real = globalThis.document.body;
+  globalThis.document.body = { classList: { contains: () => false } };
+  try {
+    const s = mkScene();
+    s.startWorldM = { x: 1000, y: 2000 };
+    s.homeWorldPos = () => ({ x: 1000, y: 2000 });
+    s.gpsM = { x: HomeArea.NEAR_M + 50, y: 0 };   // the phone is a street away
+    s._reviveStoryboard();
+    assert.eq(s.modals.length, 0, 'the body was walked home by hand: no story');
+    assert.falsy(s.save.storySeen.revive, 'not burned — the next real revival at Home tells it');
+    s.gpsM = { x: 10, y: -5 };
+    s._reviveStoryboard();
+    assert.eq(s.modals.length, 1, 'at Home for real: the story plays');
+    assert.eq(s.save.storySeen.revive, 1);
   } finally { globalThis.document.body = real; }
 });
 
