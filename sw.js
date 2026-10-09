@@ -872,13 +872,9 @@ async function immutableResource(req, key) {
   let resp;
   try { resp = await fetch(key === req.url ? req : new Request(key, req)); } catch (_) {}
   if (resp?.ok) { try { await cache.put(key, resp.clone()); } catch (_) {} return resp; }
-  // Preserve the established offline script fallback. Never substitute old
-  // unversioned image bytes: a changed atlas can have a different frame layout.
-  if (new URL(req.url).pathname.endsWith('.js')) {
-    const stale = await cache.match(req, { ignoreSearch: true })
-      || await previousShellMatch(req, { ignoreSearch: true });
-    if (stale) return stale;
-  }
+  // Only the requested version is safe: substituting an older script can
+  // mix incompatible globals while reporting a successful load. Let the
+  // page recover a missing dependency by restarting its ordered script chain.
   return resp || new Response('', { status: 504, statusText: 'offline' });
 }
 self.addEventListener('install', (event) => {

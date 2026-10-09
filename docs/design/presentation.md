@@ -6,6 +6,13 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- Interrupted startup script downloads show a recovery screen and retry the
+  whole page at most twice per tab, preserving script order and saved progress.
+  Offline startup waits for connectivity; exhausted retries offer **Try again**.
+  Successful map startup resets this budget. Runtime exceptions remain visible
+  as diagnostics and do not trigger automatic reloads. Versioned scripts only
+  fall back to an exact cached version, never an older incompatible module.
+
 - Dungeon arrival splashes select their story ID through
   `WorldGen.floorProfile(depth).arrivalStory`; presentation owns the copy and
   art, while the existing story ledger owns one-time delivery.
