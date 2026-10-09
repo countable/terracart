@@ -2,7 +2,7 @@
   const N = 32, E = 4096, tx = 4, ty = 5, tileEdgeM = N * WorldGen.CELL_M;
   const p = (x, y) => ({ x: x * E / N + E / (2 * N), y: y * E / N + E / (2 * N) });
   const line = [p(0, 16), p(N - 1, 16)];
-  const park = [p(0, 0), p(N - 1, 0), p(N - 1, N - 1), p(0, N - 1)];
+  const meadow = [p(0, 0), p(N - 1, 0), p(N - 1, N - 1), p(0, N - 1)];
   const name = (() => {
     for (let i = 0; i < 2000; i++) {
       const s = `Orchard Lane ${i}`;
@@ -11,7 +11,7 @@
     throw new Error('no special street');
   })();
   const layers = (streetName) => [
-    { name: 'landuse', extent: E, features: [{ type: 3, tags: { class: 'park' }, geom: [park] }] },
+    { name: 'landcover', extent: E, features: [{ type: 3, tags: { class: 'meadow' }, geom: [meadow] }] },
     { name: 'transportation', extent: E,
       features: [{ type: 2, tags: { class: streetName ? 'minor' : 'service' }, geom: [line] }] },
     { name: 'transportation_name', extent: E,

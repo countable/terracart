@@ -38,6 +38,12 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   per-cell variation (`wildplantFrame`); do not use id length or transient indices.
   When art depicts quantity, rendering and drops share the variant table
   (`PLAIN_ROCK_VARIANTS`); loot messages report the actual quantity rolled.
+- Procedural wildplant backgrounds carry the shared layout's `_terrainScale`
+  into the normal crop renderer as a size multiplier; cell positions, crop art
+  and harvest rewards remain owned by their existing records and tables.
+- Revealed gas-emitting mushrooms use separate small and giant context art;
+  the renderer carries `gasEmitter` into the crop view without changing crop
+  identity, harvest rewards or inventory icons.
 - A creature's contact shadow centres 3 px above its ground point
   (`SHADOW_LOOK.creature.dy`), so its feet stand on the ellipse's middle; the
   elite's rune circle shares that centre.
@@ -51,9 +57,10 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   The shine sweep and a warping rank's space warp (`Render.setEliteWarp`, a
   camera post pass attached only while one is on screen) need the device's
   graphics-FX opt-in (`Render.canShine`).
-- Centre work wheels in the target cell, including net captures. Use a small,
-  solid disc at 50% opacity. Seat enemy health bars from `CREATURE_ART` helpers,
-  not fixed pixel offsets. Work tools animate at the target cell.
+- Centre a static target's work wheel in its cell; a creature's (a net
+  capture, a hunt) rides the creature, on its body (`creatureWheelDy`). Use a
+  small, solid disc at 50% opacity. Seat enemy health bars from `CREATURE_ART`
+  helpers, not fixed pixel offsets. Work tools animate at the wheel.
 - Bake repeated cell geometry into textures (e.g. tilled beds). Reset mutable
   properties such as watered tint whenever pooled sprites are reused.
 - Respect `FPS_LIMIT` and its elapsed-time cadence adapter. The default stays

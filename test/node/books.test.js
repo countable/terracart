@@ -391,7 +391,7 @@ test('mechanics: vendors never offer unique jewelry as gear', () => {
   const rng = bookRng(0x21C0);
   for (let i = 0; i < 2000; i++) {
     const offer = Gear.buildRelicOffer(save, rng);
-    assert.truthy(!offer || !['ring', 'amulet'].includes(offer.slot), 'no jewelry gear slot remains');
+    assert.truthy(!offer || offer.slot !== 'ring', 'no ring gear slot remains (the amulet is tiered gear again)');
   }
 });
 
@@ -416,7 +416,8 @@ test('mechanics: gathering luck remains absent and Keen Eye favours chests', () 
 
 test('mechanics: snares hurt on entry and while standing on them', () => {
   assert.eq(Traps.STEP_ENERGY, 10, 'treading on one bites 10⚡');
-  assert.eq(Traps.STAND_ENERGY_PER_S, 3, 'and standing on it bleeds 3 a second');
+  assert.eq(Difficulty.PROFILES.easy.trapBleedPerS, 1, 'and standing on it bleeds 1 a second on easy');
+  assert.eq(Difficulty.PROFILES.hard.trapBleedPerS, 3, 'and 3 a second on hard');
 });
 
 test('mechanics: street restoration retains its dwell and reward ladder', () => {

@@ -338,9 +338,10 @@ test('carried shields: reduction follows potion, bundled armour and difficulty',
 test('boots: protect against the trap bite and ongoing bleed', () => {
   const boots = { boots: { tier: 3 } };
   assert.lt(Combat.playerDamage(Traps.STEP_ENERGY, boots), Traps.STEP_ENERGY);
-  assert.lt(Combat.playerDamage(Traps.STAND_ENERGY_PER_S, boots), Traps.STAND_ENERGY_PER_S);
+  const hardBleed = Difficulty.PROFILES.hard.trapBleedPerS;
+  assert.lt(Combat.playerDamage(hardBleed, boots, 1, 'easy'), hardBleed);
   assert.truthy(SCENE_SRC.includes('Combat.playerDamage(bite, { boots: this.save.armor?.boots })'));
-  assert.truthy(SCENE_SRC.includes('Combat.playerDamage(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt'));
+  assert.truthy(SCENE_SRC.includes('Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt'));
 });
 
 test('armor: enemy armour uses the player mitigation engine and returns actual damage', () => {

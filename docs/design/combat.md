@@ -6,6 +6,13 @@ mechanics.
 
 ## Combat, energy and Home
 
+- A Residential Thief uses the roster's `hitAndRun` contract: after a landed
+  player blow, take up to the configured coin amount through the normal purse
+  writer, toast the amount actually taken, and record the generated enemy ID
+  in `save.enemyRaids`. It flees thereafter, including after reloads. An empty
+  purse still spends the one hit; a warded, downed or fully prevented blow
+  does not. The ordinary damage/armour path remains the only damage writer.
+
 - Giant reapers belong exclusively to the awakened Old Stones temple challenge,
   never ambient churchyard or building encounters. Visiting the awakened temple
   opens a seven-cell marble platform on floor +1 and pauses the surface. Its
@@ -17,7 +24,11 @@ mechanics.
   temple gift only once, even after re-entry or reload.
 
 - Confusing mushroom gas refreshes the shared `confused` condition to five
-  seconds on contact, preserving any longer confusion already active. Gas
+  seconds on contact, preserving any longer confusion already active. A single
+  outdoor puff carries 0.3 mass: natural diffusion and the thin-gas threshold
+  limit it to the source and four neighbours, dissipating in about five seconds
+  (at most about ten seconds of confusion from that puff). Overlapping or repeated
+  puffs can extend exposure; sources can puff again after eight seconds. Gas
   spreads to cardinal neighbours once per foreground second; rock, masonry and
   intact stronghold walls block it. Thin gas disappears only when its connected
   region reaches open terrain beyond the loaded area; sealed rooms conserve it.
@@ -71,6 +82,12 @@ mechanics.
   the row's `tome` column (`_readTome`); an "every foe in sight" spell is a
   `CAST_ROWS` row (`_castOnFoes`); the slot guard is `_selectedConsumable`,
   the spend `_spendScroll` / `_consumeSelected`. Never a hand-written handler.
+- SPELL SLOTS: each tome rests on its own `cooldownMs` (`save.tomeMagicCd`;
+  `TOME_COOLDOWN_MS`, one hour, unless its row names another), and a tome may
+  be read while at most the worn amulet's tier of tomes rest (`Gear.spellSlots`
+  = 1 + tier). `_tomeWait` is the one gate; nowhere waives it, Home included.
+  The amulet is forged like the staff: its tier's gem (`gemForTier`) × tier,
+  plus one bar.
 - Potion of Flight lasts one minute, timed by the Flight buff. `Conditions.flying`
   skips harmful floor contact (including holes, flames and traps), while gases,
   attacks and existing conditions still affect the flyer. A second dose adds a minute.
@@ -97,6 +114,11 @@ mechanics.
 - Melee strikes resolve individually in the combat tick, using the shared scene
   cooldown and a fresh reach/allegiance check each time. They never enter the
   work queue or hold movement. Ordinary work retains priority over auto-melee.
+  A live hostile in melee reach pauses automatic fire from the selected ranged
+  weapon throughout close combat, including between swings. Close attacks use
+  the selected melee weapon, or an owned sword/bare hands while a ranged weapon
+  stays selected. Ranged fire resumes when melee reach clears; paused fire spends
+  no ammunition or energy, and already launched shots keep flying.
 - Death cancels current work without completion or refund, clears the swing and
   staff charge, and blocks new melee and ranged attacks. Revival does not resume
   the cancelled job. Already launched projectiles continue their flight.

@@ -329,33 +329,19 @@ test('tile rows: cave spawns ignore a player\'s _synthetic stairs', () => {
   assert.eq(ids(legacy), ids(plain), 'a synthetic stair is never an anchor, snapshot or not');
 });
 
-// ── The pest amnesty takes no extra draws (task: shared stream). A pest drawn
-// into the zone is DROPPED after its attempt, so the draws that follow are
-// the ones every other player's world makes.
-test('tile rows: the pest-free zone leaves the tile\'s later draws unchanged', () => {
-  const N = 16;
-  const entry = { grid: new Array(N * N).fill(0) };
-  const drawsWith = (pestFree) => {
-    let n = 0;
-    const seq = [0.1, 0.1, 0.9, 0.9, 0.5, 0.5, 0.3, 0.7];
-    const rng = () => seq[(n++) % seq.length];
-    const creatures = [];
-    const factory = new Function(
-      'rng', 'N', 'pestFree', 'entry', '_spawnOpts', 'tx', 'ty', 'caughtSet', 'creatures',
-      'cellM', 'genGrid',
-      'const enemyGroundSeats = new Set(); const faunaSpawnOpts = { ..._spawnOpts, occupied: null }; const unseated = []; return (kindWant, classesOK, idx, kindStr) => {\n' + TRY_PLACE_SRC + '\n};');
-    const tryPlace = factory.call({ tileEdgeM: N * 7 }, rng, N, pestFree, entry, {}, 0, 0,
-      new Set(), creatures, 7, entry.grid);
-    tryPlace('slime', new Set([0]), 0, 'slime');
-    const after = n;
-    tryPlace('slime', new Set([0]), 1, 'slime');
-    return { first: after, total: n, creatures };
+// Personal amnesty hides shared world candidates after placement.
+test('tile rows: pest-free ground does not reroll habitat population seats', () => {
+  const body = SPAWN_IN_TILE_SRC.slice(0, SPAWN_IN_TILE_SRC.indexOf('    // (Starter-cow'));
+  const generate = spawnPassFn(body + '\nreturn creatures;');
+  const run = pestFree => {
+    const N = 64;
+    const scene = Object.assign(new SceneCreatures(), { tileEdgeM: 640, cellM: 10,
+      save: { caught: [] }, startWorldM: { x: -5000, y: 0 }, _pestFreeZone: () => pestFree });
+    return generate.call(scene, { cellsPerEdge: N, grid: new Uint8Array(N * N).fill(WorldGen.T.GRASS), objects: [] }, 0, 0);
   };
-  const zone = { has: (ix, iy) => ix === 1 && iy === 1 };   // the first draw's cell
-  const free = drawsWith(null), graced = drawsWith(zone);
-  assert.eq(graced.first, free.first, 'the pest in the zone took exactly the draws it takes anywhere');
-  assert.eq(graced.total, free.total, 'and every later draw is the one everyone else makes');
-  assert.eq(free.creatures.length, 2, 'without the zone both slimes stand');
-  assert.eq(graced.creatures.length, 2, 'enemy candidates stay shared; EnemySpawns applies the personal visibility overlay');
+  const signature = creatures => creatures.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
+  const ordinary = run(null), graced = run({ has: () => true });
+  assert.gt(ordinary.length, 0);
+  assert.eq(signature(graced), signature(ordinary), 'amnesty is a visibility overlay');
 });
 })();

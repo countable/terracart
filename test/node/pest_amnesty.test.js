@@ -81,26 +81,22 @@
     assert.falsy(PEST_FREE_GUARD_SRC.includes('continue'), 'never re-rolled onto another cell');
   });
 
-  test('pest amnesty: the zone never changes the tile\'s draw count', () => {
-    // The guard sits AFTER the attempt has drawn its cell and passed every
-    // world rule — the same place the caught-id check culls — so a player
-    // inside a grace takes exactly the draws everyone else takes, and every
-    // later tryPlace / treasure roll on the tile lands where it does for them.
-    const src = SPAWN_IN_TILE_SRC;
-    const tp = src.indexOf('const tryPlace =');
-    const guardAt = src.indexOf(PEST_FREE_GUARD_SRC, tp);
-    assert.gt(tp, -1, 'tryPlace found');
-    assert.gt(guardAt, -1, 'the guard is inside tryPlace');
-    const drawY = src.indexOf('const cy = Math.floor(rng() * N);', tp);
-    const spawnRule = src.indexOf('WorldGen.isSpawnCell(', tp);
-    const caught = src.indexOf('if (caughtSet.has(id)) return;', tp);
-    assert.lt(drawY, guardAt, 'after the cell is drawn');
-    assert.lt(spawnRule, guardAt, 'after the shared spawn rule accepts it');
-    assert.lt(drawY, caught, 'defeat filtering also follows the deterministic draw');
-    assert.falsy(/rng\(\)/.test(src.slice(Math.min(caught, guardAt), Math.max(caught, guardAt))), 'moving the defeat filter past provenance recording adds no random draws');
-    // And nothing between the draw and the push re-draws on the zone's say.
-    const body = src.slice(tp, src.indexOf('creatures.push(', tp));
-    assert.eq((body.match(/pestFree\.has\(/g) || []).length, 1, 'the zone is asked once, in the guard');
+  test('pest amnesty: personal grace leaves generated identities, seats and budgets unchanged', () => {
+    const marker = SPAWN_IN_TILE_SRC.indexOf('    // (Starter-cow');
+    const spawn = spawnPassFn(SPAWN_IN_TILE_SRC.slice(0, marker) + '\nreturn creatures;');
+    const run = pestFree => {
+      const N = 64, entry = { cellsPerEdge: N, tileEdgeM: 640,
+        grid: new Uint8Array(N * N).fill(WorldGen.T.GRASS), objects: [] };
+      const scene = Object.assign(new SceneCreatures(), { cellM: 10, tileEdgeM: 640,
+        save: { caught: [] }, startWorldM: { x: -5000, y: 0 }, _pestFreeZone: () => pestFree });
+      return { creatures: spawn.call(scene, entry, 0, 0), population: entry.habitatPopulation };
+    };
+    const ordinary = run(null), graced = run({ has: () => true });
+    const signature = creatures => creatures.map(c => `${c.id}:${c.kind}@${c.x},${c.y}`).join('|');
+    assert.gt(ordinary.creatures.filter(c => c._surfaceSpawn).length, 0);
+    assert.eq(signature(graced.creatures), signature(ordinary.creatures), 'grace hides enemies without rerolling seats');
+    assert.eq(JSON.stringify(graced.population), JSON.stringify(ordinary.population), 'personal grace never changes raw habitat allocation');
+    assert.truthy(graced.creatures.filter(c => c._surfaceSpawn).every(c => c._surfaceInactive), 'the grace overlay actually hides the shared enemies');
   });
 
   test('pest amnesty: the pest pump is off in the mode that has the grace', () => {

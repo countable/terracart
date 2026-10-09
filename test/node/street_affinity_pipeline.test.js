@@ -4,7 +4,7 @@ const SV = StreetVariants, N = 64, tx = 5, ty = 7, edge = N * 7;
 const line = [{ x: 600, y: 2048 }, { x: 3000, y: 2048 }];
 function layers(name) {
   return [
-    { name: 'landuse', features: [{ type: 3, tags: { class: 'park' }, geom: [[
+    { name: 'landcover', features: [{ type: 3, tags: { class: 'meadow' }, geom: [[
       { x: 0, y: 0 }, { x: 4096, y: 0 }, { x: 4096, y: 4096 }, { x: 0, y: 4096 },
     ]] }] },
     { name: 'transportation', extent: 4096,

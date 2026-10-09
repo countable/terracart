@@ -11,12 +11,11 @@
       flashAtCell(message) { this.flashes.push(message); },
       flashAtPlayer(message) { this.flashes.push(message); },
     }, overrides);
-    // Exercise the shared activation lock and own cooldown of the other tomes.
+    // Exercise the own cooldown and the spell slots shared with the other tomes.
     for (const name of ['_tomeWait', '_tomeReady', '_tomeSpent', '_selectedConsumable']) {
       const match = SCENE_SRC.match(new RegExp(`\\n  ${name}\\(id\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n`));
-      const cooldown = SCENE_SRC.match(/const TOME_COOLDOWN_MS = ([^;]+);/)[1];
-      s[name] = new Function('TOME_COOLDOWN_MS', 'shortDuration',
-        'return function(id) {' + match[1] + '}')(new Function('return ' + cooldown)(), ms => String(ms));
+      s[name] = new Function('shortDuration',
+        'return function(id) {' + match[1] + '}')(ms => String(ms));
     }
     s.playerScreen = () => ({ x: 0, y: 0 });
     s.playerBodyDy = () => 0;
@@ -34,8 +33,7 @@
       }
       assert.falsy(s.save.groundFire[GroundFire.key(2, 31, 31)], 'player cell stays clear');
       assert.eq(s.save.inv[0].count, 1, 'the tome is reusable');
-      assert.inRange(s.save.tomeReadyAt - Date.now(), 3600e3 - 1000, 3600e3);
-      assert.inRange(s.save.tomeMagicCd.tome_fire_wall - Date.now(), 8 * 3600e3 - 1000, 8 * 3600e3);
+      assert.inRange(s.save.tomeMagicCd.tome_fire_wall - Date.now(), 3600e3 - 1000, 3600e3);
       assert.falsy(s.readTomeFirewall(), 'second reading waits for cooldown');
     }
   });
@@ -48,7 +46,6 @@
     }
     assert.falsy(s.readTomeFirewall());
     assert.falsy(s.save.tomeMagicCd?.tome_fire_wall);
-    assert.falsy(s.save.tomeReadyAt);
     assert.eq(s.flashes[0], 'No fresh ground — tome kept');
     s.facing = { x: 1, y: 0 };
     assert.truthy(s.readTomeFirewall(), 'a partly scorched wall can light the fresh cells');
@@ -63,8 +60,7 @@
       const s = scene(overrides);
       assert.falsy(s.readTomeFirewall());
       assert.falsy(s.save.tomeMagicCd?.tome_fire_wall);
-      assert.falsy(s.save.tomeReadyAt);
-      assert.falsy(s.save.groundFire);
+        assert.falsy(s.save.groundFire);
     }
   });
   test('wall of fire tome: caster cell stays clear at fractional positions and tile edges', () => {

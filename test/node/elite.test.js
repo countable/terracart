@@ -76,7 +76,7 @@ test('elite: the treasure pool is biased to relics and pays a real reward', () =
     if (r.kind === 'relic') {
       relics++;
       assert.lte(r.tier, ctx.relicCap - 1, 'relic tier under the cap');
-      assert.falsy(['ring', 'amulet'].includes(r.slot), 'elite drops contain no retired jewelry gear');
+      assert.falsy(r.slot === 'ring', 'elite drops contain no retired ring gear');
     }
   }
   assert.gt(relics, 0, 'the sample reaches the relic branch');
@@ -100,7 +100,7 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   const app = SCENE_SRC;
   assert.inRange(SHINY_RATE.monster, 0.001, 0.5, 'monsters have a shiny rate');
   const spawn = app.slice(app.indexOf('spawnCaveCreatures(entry, tx, ty, depth) {'));
-  assert.truthy(/creatures\.push\(WorldGen\.makeCreature\(kind, wmx, wmy, id,\s*\{ shiny: EnemySpawns\.rollsElite\(entry, kind, id, wmx, wmy, cellSizeM\), habitat: habitat\.theme \}\)\)/.test(spawn),
+  assert.truthy(/creatures\.push\(WorldGen\.makeCreature\(kind, wmx, wmy, id,\s*\{ shiny: EnemySpawns\.rollsElite\(entry, kind, id, wmx, wmy, cellSizeM\), habitat: habitat\.theme,/.test(spawn),
     'spawnCaveCreatures stamps shiny off the stable id at the monster rate (EnemySpawns.rollsElite)');
   // The melee formula is typed ONCE (Combat.meleeBlow: the row's dmg × powerMul
   // — elite × lair — plus the Giant bonus, times the Shrinking multiplier).

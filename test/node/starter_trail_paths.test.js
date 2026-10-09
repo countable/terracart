@@ -24,9 +24,10 @@
     assert.eq(Starter.trailRoute(cell(0, 0), cell(1, 1), c => ['0,0', '1,1'].includes(key(c)), next).length, 0, 'diagonally touching cells are disconnected');
   });
   test('chest trails: optional origins are stable, nearby and connected to their chest', () => {
-    const pass = c => Math.abs(c.cellIX) < 10 && Math.abs(c.cellIY) < 10 && !(c.cellIX === 1 && c.cellIY >= 0);
+    const pass = c => Math.abs(c.cellIX) < 20 && Math.abs(c.cellIY) < 20 && !(c.cellIX === 1 && c.cellIY >= 0);
     const route = Starter.trailRoute(cell(0, 0), null, pass, next, 678);
-    assert.inRange(route.length, 5, 8);
+    const [near, far] = Starter.TRAIL_STYLE.startCells;
+    assert.inRange(route.length, near + 1, far + 1, 'starts startCells walking cells out');
     assert.eq(key(route[route.length - 1]), '0,0');
     assert.eq(route.map(key).join('|'), Starter.trailRoute(cell(0, 0), null, pass, next, 678).map(key).join('|'));
     assert.truthy(route.every(pass));

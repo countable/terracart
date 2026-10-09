@@ -403,11 +403,6 @@
   // of LAMP_BRIGHT_STEPS is LAMP_FADE_MS / 16 = 90 min, so a minute's lag on
   // a step is invisible; the quantised value is what the lightmap keys on.
   const LAMP_REFRESH_MS = 60 * 1000;
-  // What pulls a species to a walking path's lamps — the `attracts` column
-  // of the ground those lamps stand on (scene_creatures.js
-  // _seatFaunaOnFavouriteGround, cells beside each path lamp). The owner
-  // draws only a seeded small quota of the nearest existing cats.
-  const PATH_LAMP_ATTRACTS = { cat: [2, 5] };
 
   function lampFade(lastMs, now) {
     if (!Number.isFinite(lastMs)) return 1;
@@ -738,7 +733,7 @@
     LAMP_SPACING_M, lampSpacingM, lampsAlong, lampOffsetM, covers,
     LAMP_PATH_SPACING_DIV, LAMP_PATH_SPACING_M, LAMP_PATH_MIN_LEN_M, isWalkingPath, lampLayFor,
     LAMP_DIM_FLOOR, LAMP_BRIGHT_PEAK, LAMP_FADE_MS, LAMP_BRIGHT_STEPS, LAMP_VISITS_MAX, LAMP_REFRESH_MS,
-    PATH_LAMP_ATTRACTS, LAMP_CREDIT_SHARE, lampFade, quantBrightness, lampBrightness, lampCreditM, lampCredit,
+    LAMP_CREDIT_SHARE, lampFade, quantBrightness, lampBrightness, lampCreditM, lampCredit,
     lampVisitAt, pruneLampVisits, visitLamp,
     mergeIntervals, intersect, subtract, union, totalM, flatten, unflatten,
     createSight, restoredList, restore, epoch,

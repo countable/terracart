@@ -35,19 +35,19 @@ test('large enemies: forest bear, cave troll and citadel guards keep their habit
   assert.falsy(EnemySpawns.surfaceRows('FOREST').some(r => ['bugbear', 'giant_reaper', 'troll'].includes(r.id)));
 });
 
-test('large enemies: ogres require residential minor-road frontage and remain outside Home safety', () => {
+test('large enemies: Residential supplies Ogres without ordinary road preferences and retains Home safety', () => {
   const N = 16, grid = new Array(N * N).fill(WorldGen.T.RESIDENTIAL);
   const e = { cellsPerEdge: N, grid, roadClass: new Uint8Array(N * N) };
   const eligible = () => EnemySpawns.surfaceRows('RESIDENTIAL', EnemyHabitats.surfaceAt(e, 8, 8)).some(r => r.id === 'ogre');
-  assert.falsy(eligible(), 'residential land alone is insufficient');
+  assert.truthy(eligible(), 'Residential landcover owns the Ogre pool');
   grid[8 * N + 10] = WorldGen.T.ROAD;
-  assert.truthy(eligible(), 'nearby small road admits the species');
+  assert.truthy(eligible(), 'a nearby Small road does not alter the pool');
   assert.falsy(EnemySpawns.surfaceRows('FOREST', { nearMinorRoad: true }).some(r => r.id === 'ogre'));
   grid[8 * N + 10] = WorldGen.T.ROAD_MD;
-  assert.falsy(eligible(), 'major roads do not substitute for minor streets');
+  assert.truthy(eligible(), 'road size does not alter the Residential pool');
   grid[8 * N + 10] = WorldGen.T.ROAD;
   e.roadClass[8 * N + 8] = WorldGen.ROAD_CLASS_MAJOR_BUFFER;
-  assert.falsy(eligible(), 'major-road verge is not the residential ogre habitat');
+  assert.truthy(eligible(), 'a safety exclusion changes seats rather than species selection');
   for (const kind of ['ogre', 'giant_bear', 'giant_reaper', 'bugbear']) {
     assert.falsy(EnemySpawns.homeAllows(kind, 749), kind + ' stays outside the safe area');
     assert.truthy(EnemySpawns.homeAllows(kind, 750));

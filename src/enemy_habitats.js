@@ -42,7 +42,7 @@
     formal_garden: ['slime', 'plant'],
     flint_field: ['club_goblin', 'spear_goblin'], broken_depot: ['skeleton', 'club_goblin'],
     seep: ['slime', 'plant', 'golden_slime'], work_yard: ['club_goblin'],
-    black_ring: ['skeleton', 'skeleton_soldier'], shellwater_strand: ['giant_crab', 'slime', 'jellyfish'],
+    black_ring: ['skeleton', 'skeleton_soldier'], shellwater_strand: ['giant_crab', 'jellyfish'],
   };
   // One encounter roll per ~84 m square at the usual 7 m cell size.
   // Most are solitary; 25% are pairs and 10% are trios. No per-kind budget.
@@ -51,6 +51,12 @@
   const SURFACE_ENCOUNTER_PROFILES = {
     mushroom_grove: { ...SURFACE_ENCOUNTERS, blockCells: 6, pairAt: 1, trioAt: 1 },
   };
+  // Public rules for the Nexus encounter lane. The existing family rows and
+  // per-block frequency profiles remain their single tuning owners.
+  const NEXUS_RULES = Object.fromEntries(Object.entries(SURFACE_FAMILIES).map(([id, kinds]) => [id, {
+    id, category: 'nexus', allowed: { kinds },
+    frequency: SURFACE_ENCOUNTER_PROFILES[id] || SURFACE_ENCOUNTERS,
+  }]));
   // Avalanche FNV (util.js avalanche32 over fnv1a): nearby spatial keys
   // must not form long same-theme runs.
   function unit(key) { return u01(avalanche32(root.EnemySpawns.hash(key))); }
@@ -90,23 +96,34 @@
     return site?.theme || null;
   }
   function surfaceAt(entry, cx, cy) {
-    const WG = root.WorldGen, N = entry.cellsPerEdge, i = cy * N + cx;
-    const grid = entry.baseGrid || entry.grid;
-    let nearMinorRoad = false;
-    // This is a habitat preference, not permission to stand on a road or lot.
-    // The caller's ordinary spawn gate still owns private yards and road bands.
-    if (grid[i] === WG.T.RESIDENTIAL && !WG.inMajorBuffer(entry.roadClass, N, cx, cy)) {
-      const radius = WG.SPAWN_FRONTAGE;
-      for (let y = Math.max(0, cy - radius); y <= Math.min(N - 1, cy + radius) && !nearMinorRoad; y++) {
-        for (let x = Math.max(0, cx - radius); x <= Math.min(N - 1, cx + radius); x++) {
-          if (grid[y * N + x] === WG.T.ROAD && !WG.onMajorBand(entry.roadClass, N, x, y)) {
-            nearMinorRoad = true;
-            break;
-          }
-        }
-      }
+    const N = entry.cellsPerEdge, i = cy * N + cx;
+    return { theme: variantAt(entry, cx, cy), beach: !!entry.scenic?.shore?.mask?.[i] };
+  }
+
+  // Aquatic foes stay in the first water cell alongside walkable land. The
+  // same geometry owns generated seats and movement along the water's edge.
+  function shoreWater(typeAt, cx, cy) {
+    const WG = root.WorldGen;
+    return typeAt(cx, cy) === WG.T.WATER && [[-1, 0], [1, 0], [0, -1], [0, 1]]
+      .some(([dx, dy]) => { const type = typeAt(cx + dx, cy + dy); return type != null && WG.isWalkable(type); });
+  }
+  function surfaceSeat(entry, cx, cy, kind, opts) {
+    const WG = root.WorldGen, N = entry.cellsPerEdge, grid = entry.baseGrid || entry.grid;
+    const movement = root.EnemyRoster.get(kind)?.movement;
+    if (!movement?.waterOnly) return root.CreatureSpawns.isSpawnCell(grid, N, N, cx, cy, opts, kind) ? { cx, cy } : null;
+    const typeAt = (x, y) => x < 0 || y < 0 || x >= N || y >= N ? null : grid[y * N + x];
+    const waterOpts = { ...opts, waterOnly: true };
+    // A shore candidate can be several cells inland. Search nearest-first;
+    // a denied water seat is lost, never given permission by its dry neighbour.
+    const radius = root.Scenic?.SCENIC_SHORE_CELLS || 3;
+    for (let r = 0; r <= radius; r++) for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) {
+      if (Math.max(Math.abs(x - cx), Math.abs(y - cy)) !== r) continue;
+      if (movement.shoreOnly && !shoreWater(typeAt, x, y)) continue;
+      const owner = WG.variantOwnerAt(entry, y * N + x);
+      if (owner && !(owner === 'zone' && opts.zoneSlot === entry.zone?.coverage?.[y * N + x])) continue;
+      if (root.CreatureSpawns.isSpawnCell(grid, N, N, x, y, waterOpts, kind)) return { cx: x, cy: y };
     }
-    return { theme: variantAt(entry, cx, cy), beach: !!entry.scenic?.shore?.mask?.[i], nearMinorRoad };
+    return null;
   }
   function surfaceEncounters(entry, tx, ty, occupied) {
     return root.WorldGen.runSteps(surfaceEncountersSteps(entry, tx, ty, occupied));
@@ -128,47 +145,81 @@
     const opts = { ...entry._spawnOpts, roadMask: entry.roadMask, spawnWhy: entry.spawnWhy,
       roadClass: entry.roadClass, occupied };
     if (!entry.zone?.coverage) return out;
+    // Population rolls use coverage before safety exclusions. Legal seats are
+    // cached by owning Nexus and kind, then occupied seats are removed at use
+    // time. A blocked block can borrow ground from its own Nexus, never another.
+    const seats = new Map();
+    const seatsFor = (slot, kind) => {
+      const key = `${slot}:${kind}`;
+      if (seats.has(key)) return seats.get(key);
+      const rows = [], seen = new Set();
+      for (let i = 0; i < N * N; i++) {
+        if (entry.zone.coverage[i] !== slot || WG.variantOwnerAt(entry, i) !== 'zone') continue;
+        const seat = surfaceSeat(entry, i % N, Math.floor(i / N), kind,
+          { ...opts, occupied: null, zoneSlot: slot });
+        if (!seat) continue;
+        const at = seat.cy * N + seat.cx;
+        if (entry.zone.coverage[at] !== slot || seen.has(at)) continue;
+        seen.add(at); rows.push(seat);
+      }
+      seats.set(key, rows); return rows;
+    };
     for (let by = 0; by < N; by += cfg.blockCells) for (let bx = 0; bx < N; bx += cfg.blockCells) {
       yield 'spawn habitat encounter blocks';
       const id = WG.cellId(theme ? `zone_encounter_${theme}` : 'zone_encounter', tx, ty, bx, by);
       if (unit(id + ':present') >= cfg.chance) continue;
-      const size = unit(id + ':size'), count = size >= cfg.trioAt ? 3 : size >= cfg.pairAt ? 2 : 1;
-      let anchor = null;
-      for (let n = 0; n < count; n++) {
-        for (let k = 0; k < cfg.tries; k++) {
-          const key = `${id}:${n}:${k}`;
-          const cx = anchor ? anchor.cx + Math.floor(unit(key + ':x') * 5) - 2
-            : bx + Math.floor(unit(key + ':x') * Math.min(cfg.blockCells, N - bx));
-          const cy = anchor ? anchor.cy + Math.floor(unit(key + ':y') * 5) - 2
-            : by + Math.floor(unit(key + ':y') * Math.min(cfg.blockCells, N - by));
-          if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
-          const slot = entry.zone.coverage[cy * N + cx];
-          if (!slot || (anchor && slot !== anchor.slot)) continue;
-          const zoneVariant = entry.zone.anchors[slot - 1]?.variant;
-          if ((SURFACE_ENCOUNTER_PROFILES[zoneVariant] ? zoneVariant : null) !== theme) continue;
-          const family = SURFACE_FAMILIES[zoneVariant];
-          if (!family) continue;
-          const kinds = family.filter(kind => {
-            const row = root.EnemyRoster.get(kind);
-            return row?.surface && !row.retired && row.tier <= 3;
-          });
-          if (!kinds.length) continue;
-          const kind = kinds[Math.floor(unit(`${id}:${n}:kind`) * kinds.length)];
-          const cls = root.creatureSpawnClass(kind);
-          if (!WG.isSpawnCell(grid, N, N, cx, cy, opts, cls)) continue;
-          anchor ||= { cx, cy, slot };
-          out.push(seatCreature(entry, tx, ty, cx, cy, kind, `${id}_${n}`, (x, y) => ({
-            zoneVariant, shiny: false,
-            ...root.EnemySpawns.concealment(kind, `${id}_${n}`, zoneVariant),
-            ...(emergesFromGround(kind, zoneVariant)
-              ? { emergeFromGround: true, _burrowed: true } : {}),
-            _surfaceSpawn: { x, y, tx, ty, cx, cy },
-          }), occupied));
-          break;
+      const coverage = [];
+      for (let y = by; y < Math.min(N, by + cfg.blockCells); y++)
+        for (let x = bx; x < Math.min(N, bx + cfg.blockCells); x++) {
+          const slot = entry.zone.coverage[y * N + x];
+          const variant = entry.zone.anchors[slot - 1]?.variant;
+          if (slot && SURFACE_FAMILIES[variant]
+              && (SURFACE_ENCOUNTER_PROFILES[variant] ? variant : null) === theme)
+            coverage.push({ cx: x, cy: y, slot, zoneVariant: variant });
         }
-        if (!anchor) break;
-      }
+      if (!coverage.length) continue;
+      const owner = coverage[Math.floor(unit(id + ':owner') * coverage.length)];
+      const { slot, zoneVariant } = owner;
+      const rule = NEXUS_RULES[zoneVariant];
+      const kinds = rule.allowed.kinds.filter(kind => {
+        const row = root.EnemyRoster.get(kind);
+        return row?.surface && !row.retired && row.tier <= 3;
+      });
+      if (!kinds.length) continue;
+      const count = root.CreatureSpawns.frequencyCount({ pairAt: cfg.pairAt, trioAt: cfg.trioAt }, () => unit(id + ':size'));
+      let anchor = null;
+      out.push(...yield* root.CreatureSpawns.generateSteps(rule, {
+        count,
+        member: n => ({ kind: root.CreatureSpawns.pickWeighted(kinds, unit(`${id}:${n}:kind`), () => 1), id: `${id}_${n}` }),
+        seat: ({ kind }, n) => {
+          const rows = seatsFor(slot, kind).filter(p => !occupied.has(p.cy * N + p.cx));
+          if (!rows.length) return null;
+          const origin = anchor || owner;
+          // Prefer nearby legal ground so ordinary groups stay together. Distance
+          // bands retain variety instead of always filling the same nearest cell.
+          const distance = p => Math.max(Math.abs(p.cx - origin.cx), Math.abs(p.cy - origin.cy));
+          let radius = 2;
+          let nearby = anchor ? rows.filter(p => distance(p) <= radius)
+            : rows.filter(p => p.cx >= bx && p.cx < bx + cfg.blockCells
+              && p.cy >= by && p.cy < by + cfg.blockCells);
+          if (!nearby.length) {
+            radius = Math.min(...rows.map(distance));
+            nearby = rows.filter(p => distance(p) === radius);
+          }
+          const seat = nearby[Math.floor(unit(`${id}:${n}:seat`) * nearby.length)];
+          anchor ||= seat;
+          return seat;
+        },
+        create: ({ kind, id: memberId }, seat) => seatCreature(entry, tx, ty, seat.cx, seat.cy, kind, memberId, (x, y) => ({
+          zoneVariant, shiny: false,
+          ...root.EnemySpawns.concealment(kind, memberId, zoneVariant),
+          ...(emergesFromGround(kind, zoneVariant)
+            ? { emergeFromGround: true, _burrowed: true } : {}),
+          _surfaceSpawn: { x, y, tx, ty, cx: seat.cx, cy: seat.cy },
+        }), occupied),
+      }));
     }
+
     return out;
   }
   function buildingKinds(entry, cand) {
@@ -267,7 +318,7 @@
     }
     return out;
   }
-  root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, CASTLE_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS, HABITAT_TIER,
-    unit, caveAt, surfaceAt, surfaceEncounters, surfaceEncountersSteps, variantAt, emergesFromGround, buildingKinds, habitatLairs, caveSites };
+  root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, CASTLE_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS, SURFACE_ENCOUNTER_PROFILES, NEXUS_RULES, HABITAT_TIER,
+    unit, caveAt, surfaceAt, shoreWater, surfaceSeat, surfaceEncounters, surfaceEncountersSteps, variantAt, emergesFromGround, buildingKinds, habitatLairs, caveSites };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.EnemyHabitats;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -2024,7 +2024,10 @@
 
   // Ground hints only: the route uses the placement gate (including suppressed
   // land), never changes terrain, reach, fog, or where the player can walk.
-  const TRAIL_STYLE = Object.freeze({ colour: 0xf5dda2, alpha: 0.75, width: 2, dash: 6, gap: 5, bendCells: 0.28 });
+  // A chest trail is a faint hint (alpha) that begins startCells walking
+  // cells out from its chest — [nearest, farthest], seeded per chest.
+  const TRAIL_STYLE = Object.freeze({ colour: 0xf5dda2, alpha: 0.45, width: 2, dash: 6, gap: 5, bendCells: 0.28,
+    startCells: Object.freeze([8, 12]) });
   const trailCellKey = c => `${c.cellIX},${c.cellIY}`;
   const TRAIL_STEPS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
@@ -2041,10 +2044,11 @@
     for (let head = 0; head < queue.length && head < 1200; head++) {
       const c = queue[head], ck = trailCellKey(c), distance = steps.get(ck);
       if (ck === gk) return unwind(ck).reverse();
-      // An extra trail begins at a seeded reachable point 4–7 walking cells
-      // from its chest. One reverse flood chooses it; no repeated pathfinding.
-      if (!goal && distance >= 4) candidates.push(ck);
-      if (!goal && distance >= 7) continue;
+      // An extra trail begins at a seeded reachable point TRAIL_STYLE.startCells
+      // walking cells from its chest. One reverse flood chooses it; no
+      // repeated pathfinding.
+      if (!goal && distance >= TRAIL_STYLE.startCells[0]) candidates.push(ck);
+      if (!goal && distance >= TRAIL_STYLE.startCells[1]) continue;
       for (const [dx, dy] of TRAIL_STEPS) {
         const next = neighbour(c, dx, dy), nk = trailCellKey(next);
         if (parents.has(nk) || !passable(next)) continue;

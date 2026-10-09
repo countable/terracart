@@ -50,7 +50,7 @@
     const zoneVariantName=id=>ZoneVariantData.variants.find(z=>z.id===id)?.name||id.replaceAll('_',' ');
     function habitatMemberships(e) {
       const memberships=table=>Object.entries(table).filter(([,kinds])=>kinds.includes(e.id)).map(([id])=>zoneVariantName(id));
-      return [['Zone encounters',memberships(EnemyHabitats.SURFACE_FAMILIES)],['Building habitats',memberships(EnemyHabitats.BUILDING_FAMILIES)],['Cave habitats',memberships(EnemyHabitats.FAMILIES)],['Zone guards',ZoneVariantData.variants.filter(z=>z.guards?.kind===e.id||z.guards?.choices?.includes(e.id)).map(z=>z.name)],['Street affinity',StreetVariants.STREET_VARIANTS.filter(row=>row.attracts?.[e.id]).map(row=>row.title||row.id)],['Authored garrisons',Object.values(Lairs.GROUPS).filter(group=>group.members.some(member=>member.kind===e.id)).map(group=>`${group.label}: ${group.story}`)]];
+      return [['Zone encounters',memberships(EnemyHabitats.SURFACE_FAMILIES)],['Building habitats',memberships(EnemyHabitats.BUILDING_FAMILIES)],['Cave habitats',memberships(EnemyHabitats.FAMILIES)],['Zone guards',ZoneVariantData.variants.filter(z=>z.guards?.kind===e.id||z.guards?.choices?.includes(e.id)).map(z=>z.name)],['Road Variant residents',StreetVariants.STREET_VARIANTS.filter(row=>row.fauna?.[e.id]).map(row=>row.title||row.id)],['Authored garrisons',Object.values(Lairs.GROUPS).filter(group=>group.members.some(member=>member.kind===e.id)).map(group=>`${group.label}: ${group.story}`)]];
     }
     function hasSurface(e) { const m=habitatMemberships(e);return !!e.surface||m.some(([label,names])=>label!=='Cave habitats'&&names.length); }
     function hasCave(e) {return !!e.cave||e.id==='red_dragon'||habitatMemberships(e)[2][1].length>0;}

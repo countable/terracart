@@ -138,6 +138,8 @@ function wildplantVariantHash(p) {
 // Mushroom Grove and Mushroom Lane can select the approved red mushroom
 // atlas frame; ordinary surface and cave mushrooms retain their base art.
 const WILDPLANT_CONTEXT_ART = {
+  gas_mushroom_small: { crop: 'mushroom', sheet: 'gas_mushroom_small', custom: true, frame: 0, scale: CROP_SPRITE.mushroom.scale },
+  gas_mushroom_large: { crop: 'giant_mushroom', sheet: 'gas_mushroom_large', custom: true, frame: 0, scale: CROP_SPRITE.giant_mushroom.scale, seat: CROP_SPRITE.giant_mushroom.seat },
   zone_rock_stone_garden: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 64, scale: 4 / 3 },
   zone_rock_broken_masonry: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 65, scale: 1.1 },
   zone_rock_flint_field: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 66, scale: 4 / 3 },
@@ -152,6 +154,12 @@ const WILDPLANT_CONTEXT_ART = {
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
 function wildplantSprite(p) {
+  if (p?.gasEmitter) {
+    const gasArt = p.crop === 'giant_mushroom' || (p.crop === 'mushroom' && p._zoneObjectFrame === 40)
+      ? WILDPLANT_CONTEXT_ART.gas_mushroom_large
+      : p.crop === 'mushroom' ? WILDPLANT_CONTEXT_ART.gas_mushroom_small : null;
+    if (gasArt) return gasArt;
+  }
   if (p && !p._cave && p._zoneObjectFrame === 40 && ['mushroom', 'giant_mushroom'].includes(p.crop))
     return { custom: true, sheet: 'zone_objects', frame: 40, scale: 4 / 3 };
   const base = CROP_SPRITE[p && p.crop];
@@ -1223,43 +1231,43 @@ const CONSUMABLE_SPEC = {
   },
   book: { verb: 'Read', method: 'readBook', title: 'Read the book?', get: 'An elder has left a few words for you.' },
   tome_reach: { verb: 'Read', title: 'Read the Tome of Reach?',
-    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_reach'),
+    usable: scene => scene.tomeUsable('tome_reach'),
     tome: { of: 'reach_potion', mul: TOME_MUL, flash: '✨ The sight tome opens' },
     get: 'The far edge of the world leans closer with every page.' },
   tome_raven: { verb: 'Read', title: 'Read the Tome of the Raven?',
-    cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_raven'),
+    usable: scene => scene.tomeUsable('tome_raven'),
     tome: { of: 'raven_scroll', mul: TOME_MUL, flash: '✨ A raven leaves the page' },
     get: 'A raven of smoke and starlight waits between the lines.' },
   tome_thunder: { verb: 'Read', title: 'Read the Tome of Thunder?',
-    cooldownMs: 24 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_thunder'),
+    usable: scene => scene.tomeUsable('tome_thunder'),
     tome: { of: 'thunder_scroll', mul: TOME_MUL, flash: '⚡ The storm tome speaks' },
     get: 'Storm writings. The sky leans in to listen.' },
   tome_speed: { verb: 'Read', title: 'Read the Tome of Speed?',
-    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_speed'),
+    usable: scene => scene.tomeUsable('tome_speed'),
     tome: { of: 'speed_potion', mul: TOME_MUL, flash: '✨ The speed tome opens' },
     get: 'Every line quickens. The road unwinds faster beneath you.' },
   tome_shielding: { verb: 'Read', title: 'Read the Tome of Shielding?',
-    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_shielding'),
+    usable: scene => scene.tomeUsable('tome_shielding'),
     tome: { of: 'shielding_potion', mul: TOME_MUL, flash: '✨ The shield tome opens' },
     get: 'The words settle around you like layered plates.' },
   tome_healing: { verb: 'Read', title: 'Read the Tome of Healing?',
-    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_healing'),
+    usable: scene => scene.tomeUsable('tome_healing'),
     tome: { of: 'healing_potion', mul: TOME_MUL, flash: '✨ The healing tome opens' },
     get: 'A warmth gathers where the page is worn softest.' },
   tome_blight: { verb: 'Read', title: 'Read the Tome of Blight?',
-    cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_blight'),
+    usable: scene => scene.tomeUsable('tome_blight'),
     tome: { of: 'blight_potion', mul: TOME_MUL, flash: '✨ The blight tome opens' },
     get: 'The margin ink crawls. What it touches sickens.' },
   // An aura-only tome has its own timed buff; no corresponding potion.
   tome_frost_aura: { verb: 'Read', title: 'Read the Tome of Frost Aura?',
-    cooldownMs: 24 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_frost_aura'),
+    usable: scene => scene.tomeUsable('tome_frost_aura'),
     buff: 'frostAura', durationMs: _CONSUMABLE_MINUTE_MS * TOME_MUL,
     aura: { texture: 'aura_frost' },
     tome: { flash: '❄ Cold gathers around you' },
     get: 'Cold spills from the pages, sparing the hands that hold them.' },
   tome_fire_wall: { lengthCells: 5,
     verb: 'Read', method: 'readTomeFirewall', title: 'Read the Wall of Fire Tome?',
-    cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_fire_wall'),
+    usable: scene => scene.tomeUsable('tome_fire_wall'),
     get: 'A wall of flame rises across the ground ahead.' },
   // THE SUGAR POTION (T2, two berries at Home): an ANIMAL it reaches stays
   // put for durationMs — the `calm` status (Combat.calm): it does not bolt
@@ -1469,9 +1477,16 @@ for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
   row.disabled = scene => !scene.canThrowItem(id);
   row.label = scene => scene.throwActionLabel();
 }
+// Every tome rests TOME_COOLDOWN_MS after a reading (owner, Oct 2026) unless
+// its row names its own `cooldownMs`; how many may rest at once is
+// Gear.spellSlots (the amulet).
+const TOME_COOLDOWN_MS = 60 * 60 * 1000;
+for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
+  if (id.startsWith('tome_')) row.cooldownMs ??= TOME_COOLDOWN_MS;
+}
 // The tomes' button (a `cooldownMs` row read with the Read verb): a tap reads
-// it outright, no confirm (owner, Oct 2026); while either tome lock holds
-// (scene._tomeWait) the button greys and counts the wait down in place.
+// it outright, no confirm (owner, Oct 2026); while its rest or full spell
+// slots hold (scene._tomeWait) the button greys and counts the wait down in place.
 for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
   if (!(row.cooldownMs > 0 && row.verb === 'Read')) continue;
   row.immediate = true;
@@ -2060,7 +2075,13 @@ const RELIC_DEFS = {
              effectKey: 'rockSpeed',     blurb: 'Its pointed head finds the seams in stone.' },
   axe:     { slot: 'axe',    name: 'Axe',     icon: 'Axe.png',     baseCost:  80,
              effectKey: 'chopSpeed',     blurb: 'Its keen edge bites deep into timber.' },
-  // Ring and amulet names belong to unique carried jewelry; this table contains tools only.
+  // The AMULET — the one worn jewelry slot: each tier is one more SPELL
+  // SLOT, a tome that may rest on its own cooldown at once (Gear.spellSlots:
+  // 1 + tier). Forged like the staff (gear.js blacksmithRecipe). Its art is
+  // one frame of the Extras amulet sheet per tier (AMULET_FRAME_BY_TIER); the
+  // named Amulets of Regeneration / Vigour are carried unique jewelry, not this.
+  amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
+             effectKey: 'spellSlots',    blurb: 'Its charm keeps one more spell close at hand.' },
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
   // are ranged — they fire on their own while an enemy is on screen, each on
@@ -2182,13 +2203,20 @@ function gearPrice(kind, slot, tier) {
 for (const item of ITEMS.filter(i => i.kind === 'unique_relic')) {
   PRICES[item.id] = gearPrice('relic', 'sword', item.baseTier);
 }
+// The tiered amulet's frame on the 6×4 Extras amulet sheet, by the gem
+// colour of its tier (quartz pink … diamond pale). Frames 0-3 are the pet
+// collars and 10 / 17 the unique amulets (INVENTORY_ICON_SHEET).
+const AMULET_FRAME_BY_TIER = Object.freeze({ 1: 14, 2: 6, 3: 13, 4: 12, 5: 8, 6: 18, 7: 7 });
 function gearAssetPath(kind, slot, tier) {
   const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];
   if (!def || !t) return null;
   if (def.tiers) {
     return def.tiers.includes(tier) ? `assets/Icons/AltWeapons/${tier}/${def.icon}` : null;
   }
-  // Bags live under Extras; tools and armor are per-tier.
+  // Bags and the amulet live under Extras; tools and armor are per-tier.
+  if (kind === 'relic' && slot === 'amulet') {
+    return AMULET_FRAME_BY_TIER[tier] != null ? `assets/Icons/RPG icons/Extras/${def.icon}` : null;
+  }
   if (kind === 'relic' && slot === 'bag') {
     return `assets/Icons/RPG icons/Extras/${def.icon}`;
   }

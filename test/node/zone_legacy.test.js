@@ -111,13 +111,15 @@
     assert.truthy(poi, 'real Windermere Park fixture');
     assert.eq(poi.kind, 'grove_shrine', 'park POI is the shrine');
     assert.falsy(r.objects.some(o => o.kind === 'chest' && o._poiAt === poi._poiAt));
-    // (A churchyard or tar yard on the tile may stand its own shrine kind.)
-    assert.falsy(r.zoneDress.objects.some(o => o.kind === 'grove_shrine' && o.zoneKind === 'grove'), 'no second shrine beside the POI');
     const anchor = r.zone.anchors.find(a => `${a.lx},${a.ly}` === poi._poiAt);
     assert.truthy(anchor, 'park anchor');
     const slot = r.zone.anchors.indexOf(anchor) + 1;
     const cell = o => Math.floor((o.y - ty * edge) / (edge / N)) * N + Math.floor((o.x - tx * edge) / (edge / N));
     const inside = o => r.zone.coverage[cell(o)] === slot;
+    // Other parks on this tile now have their own complete Grove Nexus.
+    // Windermere itself still has only its existing POI shrine.
+    assert.falsy(r.zoneDress.objects.some(o => o.kind === 'grove_shrine' && o.zoneKind === 'grove' && inside(o)),
+      'no second shrine beside the Windermere POI');
     assert.eq([...r.objects, ...r.wildplants].filter(o => inside(o) && isLegacy(o)).length, 0,
       'old random flora and rows no longer compete with the declarative pattern');
     assert.gt(r.zone.legacyRemoved, 0, 'the fixture exercises replacement');

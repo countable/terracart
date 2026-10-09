@@ -130,10 +130,10 @@ test('CREATURE_ART entries are complete and sane', () => {
   }
 });
 
-// Work targets now use the centre of the occupied cell, including captures.
-// The legacy crown helper above remains available to other sprite consumers.
+// A static work target's wheel snaps to its cell centre; a creature's (a
+// catch's flee, a hunt's track) rides the creature, lifted onto its body.
 // Exercise the actual placement block with intentionally off-centre anchors.
-test('work wheel: static and creature targets snap to the occupied cell centre', () => {
+test('work wheel: static targets snap to the cell, creature targets ride the creature', () => {
   const start = SCENE_SRC.indexOf('    const progress = elapsed / dur;');
   const end = SCENE_SRC.indexOf('    const g = this._workProgressGfx;', start);
   assert.truthy(start >= 0 && end > start, 'found work wheel placement');
@@ -142,11 +142,14 @@ test('work wheel: static and creature targets snap to the occupied cell centre',
   const scene = { worldMetersToScreen: (x, y) => ({ x: x * 2, y: y * 3 }) };
   const cell = (_scene, x, y) => ({ cellIX: Math.floor(x / 10), cellIY: Math.floor(y / 10) });
   const center = (_scene, x, y) => ({ x: x * 10 + 5, y: y * 10 + 5 });
-  for (const kind of [null, 'butterfly', 'cow', 'crow']) {
-    const wp = { worldX: 22, worldY: 34 };
-    if (kind) wp.flee = { kind, x: 22, y: 34 };
-    const result = place.call(scene, wp, 50, 100, cell, center);
-    assert.eq(result.cx, 50, `${kind || 'static'} cell centre x`);
-    assert.eq(result.cy, 105, `${kind || 'static'} cell centre y without crown lift`);
+  const fixed = place.call(scene, { worldX: 22, worldY: 34 }, 50, 100, cell, center);
+  assert.eq(fixed.cx, 50, 'static cell centre x');
+  assert.eq(fixed.cy, 105, 'static cell centre y');
+  for (const [kind, lane] of [['butterfly', 'flee'], ['cow', 'flee'], ['crow', 'track']]) {
+    const c = { kind, x: 22, y: 34 };
+    const result = place.call(scene, { worldX: 0, worldY: 0, [lane]: c }, 50, 100, cell, center);
+    assert.eq(result.cx, 44, `${kind}: on the creature's x, not its cell's`);
+    assert.eq(result.cy, Math.round(102 + SpriteLayout.creatureWheelDy(kind, SpriteLayout.creatureInstScale(c))),
+      `${kind}: on its body`);
   }
 });

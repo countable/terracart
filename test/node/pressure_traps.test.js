@@ -25,6 +25,46 @@
       W.privateVetoAt = veto; W.makeRng = rng;
     }
   }
+  test('grove plates: visible, grounded one-shot ghost, saved depression survives recreation', () => fixture((s, entries) => {
+    const original = globalThis.raiseGhostAt;
+    let raised = 0;
+    globalThis.raiseGhostAt = () => { raised++; return { kind: 'ghost' }; };
+    try {
+      s.depth = 0; s.playerM = { x: 28, y: 28 };
+      entries[0].grid.fill(WorldGen.T.PARK);
+      const plate = { id: 'grove_plate_3_3', kind: 'pressure_plate', effect: 'ghost', x: 28, y: 28, depth: 0 };
+      entries[0].objects.push(plate);
+      assert.eq(PressureTraps.lists(s).plates.length, 1);
+      assert.eq(plate.frame, 2);
+      const originalFlight = Conditions.flying;
+      Conditions.flying = () => true;
+      try { PressureTraps.tick(s, .1); } finally { Conditions.flying = originalFlight; }
+      assert.eq(raised, 0); assert.falsy(plate.pressed);
+      PressureTraps.tick(s, .1);
+      assert.eq(raised, 1); assert.eq(plate.frame, 3);
+      assert.truthy(s.save.pressedPlates[plate.id]);
+      PressureTraps.tick(s, .1); assert.eq(raised, 1);
+      entries[0].objects = [{ ...plate, pressed: false, frame: 2 }];
+      s.save = JSON.parse(JSON.stringify(s.save));
+      assert.eq(PressureTraps.lists(s).plates[0].frame, 3, 'saved state owns regenerated plate appearance');
+      PressureTraps.tick(s, .1); assert.eq(raised, 1, 'reload never resummons');
+      s.depth = 2; assert.eq(PressureTraps.lists(s).plates.length, 0);
+    } finally { globalThis.raiseGhostAt = original; }
+  }));
+  test('grove plates: exclusions and full ghost budget do not spend a plate', () => fixture((s, entries) => {
+    s.depth = 0; entries[0].grid.fill(WorldGen.T.PARK);
+    const original = globalThis.raiseGhostAt;
+    const plate = { id: 'blocked', effect: 'ghost', x: 28, y: 28 };
+    let raised = 0;
+    globalThis.raiseGhostAt = () => { raised++; return null; };
+    try {
+      assert.falsy(PressureTraps.pressGrove(s, plate));
+      assert.eq(raised, 1); assert.falsy(s.save.pressedPlates);
+      entries[0]._spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+      assert.falsy(PressureTraps.pressGrove(s, plate));
+      assert.eq(raised, 1, 'shared gate rejects before ghost spawn');
+    } finally { globalThis.raiseGhostAt = original; }
+  }));
   test('pressure traps: only L1 visits seed a gated plate and a launcher two to four cells away', () => fixture((s, entries) => {
     WorldGen.makeRng = () => () => 0;
     for (const depth of [0, 2, 3]) { s.depth = depth; PressureTraps.observe(s); assert.eq(PressureTraps.lists(s).plates.length, 0); }

@@ -567,7 +567,7 @@ const TOAST_TIER = {
 // INV_CAT_BY_KEY / invCatForItem) is a map over item KINDS, so it lives with
 // the catalog in items.js.
 // Slot draw order within each gear tab (owned slots only are rendered).
-const INV_RELIC_ORDER = ['pickaxe', 'axe', 'sword', 'dagger', 'lance', 'bow', 'musket', 'staff', 'watering_can', 'hoe', 'net', 'fishing_rod', 'bag'];
+const INV_RELIC_ORDER = ['pickaxe', 'axe', 'sword', 'dagger', 'lance', 'bow', 'musket', 'staff', 'amulet', 'watering_can', 'hoe', 'net', 'fishing_rod', 'bag'];
 const INV_ARMOR_ORDER = ['helmet', 'chestplate', 'leggings', 'boots'];
 // Only the active weapon auto-engages or auto-fires in _combatTick;
 // the others sit inert until switched to (the Equip button under the Relics
@@ -936,11 +936,10 @@ const WALK_HOME_HINT_IDLE_MS = 6500;
 // Runtime names derive from items.js's CONSUMABLE_SPEC, the one owner read by
 // gameplay, item copy and the Drink / Use button. A TIMED consumable's length
 // is read off its row at the use (_useTimedBuff) — no alias of it lives here.
-// The SHARED tome-button lock: reading any tome locks every tome's button
-// for an hour (food's eat lock is Energy's 10 s). Each tome's own magic
-// cooldown is CONSUMABLE_SPEC[id].cooldownMs, scaled to the spell's power.
+// Each tome's own cooldown is CONSUMABLE_SPEC[id].cooldownMs (an hour unless
+// its row says otherwise — items.js TOME_COOLDOWN_MS); how many may rest at
+// once is Gear.spellSlots (the amulet).
 // A tome's spell is HALF its potion's (items.js TOME_MUL, the row's `tome`).
-const TOME_COOLDOWN_MS = 60 * 60 * 1000;
 const GROWTH_POWDER_R_M = CONSUMABLE_SPEC.growth_powder.radiusM;
 // The Scroll of Thunder's flash (CAST_ROWS.thunder_scroll) — long enough to
 // read as lightning, short enough not to blind the next tap. Its damage is
@@ -1844,7 +1843,7 @@ class MapScene extends Phaser.Scene {
   // Two costs, one cell. Walking onto a HIDDEN trap springs it: it is revealed
   // for good (save.sprungTraps — the only thing about a trap that is ever
   // stored) and takes Traps.STEP_ENERGY in one bite, with the pain effect.
-  // Staying on the sprung one bleeds Traps.STAND_ENERGY_PER_S — faster than any
+  // Staying on the sprung one bleeds Traps.standEnergyPerS() — faster than any
   // passive rest can refill, so waiting it out is never the answer and stepping
   // off is.
   //
@@ -2090,7 +2089,7 @@ class MapScene extends Phaser.Scene {
       this._warnIfTiring(before);
       if (this.updateEnergyDOM) this.updateEnergyDOM();
       const ps = this.playerScreen ? this.playerScreen() : null;
-      const bleed = +Combat.playerDamage(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap), { boots: this.save.armor?.boots }).toFixed(1);
+      const bleed = +Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }).toFixed(1);
       this.flash(`🪤 a trap! −${bleed}⚡/s — step off`,
         ps ? ps.x : undefined, ps ? ps.y - ENERGY_POP_HEAD_PX - 22 : undefined);
       // The reveal has to survive a reload, so it is written now rather than
@@ -2119,7 +2118,7 @@ class MapScene extends Phaser.Scene {
     // loss joins the drain roll-up (_bankDrain) — a number a second stacks
     // into an unreadable column.
     const pips = bankWhole(this, '_trapDrainAccum',
-      Combat.playerDamage(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt);
+      Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt);
     if (pips > 0 && (this.save.energy ?? 0) > 0) this._bankDrain('trap', -this._losePlayerEnergy(pips), { ix, iy, label: '🪤 trap' });
   }
 
@@ -3738,7 +3737,9 @@ class MapScene extends Phaser.Scene {
         // ring it is derived from. Handed to the spawn below as well, so the
         // bolt flies exactly as far as the check that loosed it.
         const reach = reachCells(this);
-        const heading = Combat.shotHeading(slot, px, py, this.facing, enemies, this.cellM, reach);
+        // Confused, the staff can't pick a foe: it fires where you face.
+        const heading = Combat.shotHeading(slot, px, py, this.facing, enemies, this.cellM, reach,
+          { confused: Conditions.active(this.save, 'confused') });
         if (!heading) continue;
         // The staff draws energy per bolt (Combat.SHOT.staff.energyCost — the
         // price of its pierce + double punch). No energy → no bolt, SILENTLY:
@@ -5160,12 +5161,21 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const progress = elapsed / dur;
-    // Every work wheel, including a fleeing net target, stays in its cell.
-    const ac = worldMetersToAbsCell(this, wp.worldX, wp.worldY);
-    const cc = absCellCenterMeters(this, ac.cellIX, ac.cellIY);
-    const ax = cc.x, ay = cc.y;
-    const screen = this.worldMetersToScreen(ax, ay);
-    const cx = Math.round(screen.x), cy = Math.round(screen.y);
+    // A static work wheel stays in its cell; a CREATURE's (a catch's fleeing
+    // animal, a hunt's quarry) rides the creature itself, on its body
+    // (SpriteLayout.creatureWheelDy), so it never lags a cell behind.
+    const mover = wp.flee || wp.track;
+    let cx, cy;
+    if (mover) {
+      const screen = this.worldMetersToScreen(mover.x, mover.y);
+      cx = Math.round(screen.x);
+      cy = Math.round(screen.y + SpriteLayout.creatureWheelDy(mover.kind, SpriteLayout.creatureInstScale(mover)));
+    } else {
+      const ac = worldMetersToAbsCell(this, wp.worldX, wp.worldY);
+      const cc = absCellCenterMeters(this, ac.cellIX, ac.cellIY);
+      const screen = this.worldMetersToScreen(cc.x, cc.y);
+      cx = Math.round(screen.x); cy = Math.round(screen.y);
+    }
     const g = this._workProgressGfx;
     g.clear();
     this._workProgressIcon?.setVisible(false);
@@ -9413,11 +9423,14 @@ class MapScene extends Phaser.Scene {
     // frame to show so we never squish a multi-frame strip into one cell or
     // crop a single-frame icon:
     //   bags        — 7×1 strip (one bag per tier), frame = tier-1
+    //   amulet      — 6×4 sheet, frame = AMULET_FRAME_BY_TIER[tier]
     //   bug net     — single 16×16 icon
     //   everything else (tools/armor) — 32×16 two-frame sheet, show frame 0
     let sheetCols, sheetRows, frame;
     if (kind === 'relic' && slot === 'bag') {
       sheetCols = 7; sheetRows = 1; frame = tier - 1;
+    } else if (kind === 'relic' && slot === 'amulet') {
+      sheetCols = 6; sheetRows = 4; frame = AMULET_FRAME_BY_TIER[tier];
     } else if (kind === 'relic' && slot === 'net') {
       sheetCols = 1; sheetRows = 1; frame = 0;
     } else {

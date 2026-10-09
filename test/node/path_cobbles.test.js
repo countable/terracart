@@ -122,7 +122,7 @@ test('path cells: a stub that barely enters a cell paints nothing', () => {
   // it was drawn over — it stays tillable and spawnable, because no path runs
   // through it. This is the whole point: those cells used to become PATH.
   const { grid } = pcRasterize();
-  assert.eq(grid[50 * CPE + 30], T.PARK, 'the clipped cell is still parkland');
+  assert.eq(grid[50 * CPE + 30], T.GROVE, 'the clipped cell keeps the park Nexus ground');
 });
 
 test('path cells: a diagonal path stays 4-connected', () => {
@@ -156,7 +156,7 @@ test('path cells: a diagonal path stays 4-connected', () => {
 
 test('path cells: nothing off the line becomes path', () => {
   const { grid } = pcRasterize();
-  assert.eq(grid[2 * CPE + 2], T.PARK, 'a far corner of the park is untouched');
+  assert.eq(grid[2 * CPE + 2], T.GROVE, 'a far corner keeps the park Nexus ground');
   // Neither row either side of the crossing path picks up stray cells.
   for (let cx = 12; cx <= 52; cx++) {
     assert.truthy(grid[18 * CPE + cx] !== T.PATH, `row 18 col ${cx} is not path`);
@@ -217,7 +217,7 @@ test('short paths: a run one cell under the floor is dissolved', () => {
   const e = runOf(under);
   assert.eq(pathCells(e), 0, 'no path cell survives the stub');
   for (let cx = 20; cx < 20 + under; cx++) {
-    assert.eq(e.grid[20 * CPE + cx], T.PARK, `cell ${cx} is parkland again`);
+    assert.eq(e.grid[20 * CPE + cx], T.GROVE, `cell ${cx} returns to park Nexus ground`);
     assert.falsy(e.pathUnder[`${cx}_20`], 'and its stale under record is gone');
   }
 });

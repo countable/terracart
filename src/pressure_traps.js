@@ -1,4 +1,4 @@
-// First-floor pressure plates launch a single slow trap along its chosen line.
+// Cave plates launch slow traps; authored grove plates awaken a ghost once.
 (function (root) {
   'use strict';
   const CONFIG = Object.freeze({ chance: .065, maxPresent: 8, retainRadiusCells: 24,
@@ -9,7 +9,43 @@
     [0, 1], [-Math.SQRT1_2, Math.SQRT1_2], [-1, 0], [-Math.SQRT1_2, -Math.SQRT1_2]];
   function lists(scene) {
     scene._pressureTraps ||= { plates: [], traps: [], visits: new Set() };
-    return root.WorldGen.floorProfile(scene.depth).pressureTraps ? scene._pressureTraps : { plates: [], traps: [] };
+    if (root.WorldGen.floorProfile(scene.depth).pressureTraps) return scene._pressureTraps;
+    return { plates: grovePlates(scene), traps: [] };
+  }
+  function grovePlates(scene) {
+    if ((scene.depth || 0) !== 0 || !scene.startWorldM || !scene.playerM) return [];
+    const p = feet(scene), cell = scene.cellAt(p.x, p.y), plates = [];
+    const radius = CONFIG.retainRadiusCells * scene.cellM;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const entry = root.WorldGen.tileCache.get(root.WorldGen.tileKey(cell.tx + dx, cell.ty + dy));
+      if (!entry) continue;
+      root.WorldGen.forEachItemInBox(entry, 'objects', p.x - radius, p.y - radius, p.x + radius, p.y + radius, o => {
+        if (o.kind !== 'pressure_plate' || (o.depth || 0) !== (scene.depth || 0)) return;
+        Object.assign(o, worldMetersToAbsCell(scene, o.x, o.y));
+        o.pressed = !!scene.save.pressedPlates?.[o.id];
+        o.frame = o.pressed ? 3 : 2;
+        plates.push(o);
+      });
+    }
+    return plates;
+  }
+  function pressGrove(scene, plate) {
+    if (plate.pressed || scene.save.pressedPlates?.[plate.id] || root.Conditions.flying(scene.save)) return false;
+    const cell = scene.cellAt(plate.x, plate.y), W = root.WorldGen;
+    const entry = W.tileCache.get(W.tileKey(cell.tx, cell.ty));
+    const opts = entry?._spawnOpts;
+    const cls = typeof root.creatureSpawnClass === 'function' ? root.creatureSpawnClass('ghost') : 'fastEnemy';
+    if (!cell.loaded || !opts || !W.isSpawnCell(entry.grid, entry.cellsPerEdge, entry.cellsPerEdge,
+        cell.ix, cell.iy, { ...opts, occupied: null, spawnWhy: entry.spawnWhy || opts.spawnWhy,
+          roadMask: entry.roadMask || opts.roadMask, roadClass: entry.roadClass || opts.roadClass }, cls)
+        || W.privateVetoAt(cell.tx, cell.ty, cell.ix, cell.iy)) return false;
+    // A temporarily full ghost budget leaves the plate available on a later step.
+    if (!root.raiseGhostAt(scene, plate.x, plate.y, scene.time?.now ?? 0, plate.id)) return false;
+    (scene.save.pressedPlates ||= {})[plate.id] = true;
+    plate.pressed = true;
+    plate.frame = 3;
+    persistSave(scene.save);
+    return true;
   }
   function feet(scene) {
     return { x: scene.startWorldM.x + scene.playerM.x,
@@ -127,12 +163,13 @@
     root.Whirlwinds.displacePlayer(scene, { x: end.x, y: end.y - (scene.feetOffsetM || 0) });
   }
   function tick(scene, dt) {
-    if (!root.WorldGen.floorProfile(scene.depth).pressureTraps || !scene.startWorldM || !Number.isFinite(dt) || dt <= 0) return;
+    if (!scene.startWorldM || !Number.isFinite(dt) || dt <= 0) return;
     dt = Math.min(CONFIG.maxStepSeconds, dt);
     observe(scene);
     const s = lists(scene), p = feet(scene), cell = scene.cellAt(p.x, p.y);
     for (const plate of s.plates) {
       if (!root.Conditions.flying(scene.save) && plate.cellIX === cell.cellIX && plate.cellIY === cell.cellIY && !plate.pressed) {
+        if (plate.effect === 'ghost') { pressGrove(scene, plate); continue; }
         plate.pressed = true;
         plate.frame = 3;
         const trap = s.traps.find(h => h.id === plate.trapId);
@@ -155,6 +192,6 @@
       contact(scene, h, dt);
     }
   }
-  root.PressureTraps = { CONFIG, DIRECTIONS, lists, feet, ground, clearSegment, create, observe,
+  root.PressureTraps = { CONFIG, DIRECTIONS, lists, grovePlates, pressGrove, feet, ground, clearSegment, create, observe,
     trigger, ballFrame, touching, contact, tick };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

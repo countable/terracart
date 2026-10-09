@@ -86,7 +86,7 @@ function seat(b, caught = new Set(), order) {
   const was = globalThis.SHORE_FAUNA_ORDER;
   if (order) globalThis.SHORE_FAUNA_ORDER = order;
   try {
-    fn.call({ tileEdgeM: NB * CM }, creatures, b.shore, b.pierCells, NB, 3, 4, CM, b.grid, {spawnWhy:new Uint16Array(NB*NB)}, {spawnWhy:new Uint16Array(NB*NB)}, caught, b.coverage);
+    fn.call({ tileEdgeM: NB * CM }, creatures, b.shore, b.pierCells, NB, 3, 4, CM, b.grid, {spawnWhy:b.spawnWhy || new Uint16Array(NB*NB)}, {spawnWhy:b.spawnWhy || new Uint16Array(NB*NB)}, caught, b.coverage, b.entry || null, b.authored || []);
   } finally { globalThis.SHORE_FAUNA_ORDER = was; }
   return creatures;
 }
@@ -120,10 +120,12 @@ test('shore fauna: crabs on shore sand only, gulls on the beach only, counted of
   }
   for (const g of gulls) assert.truthy(shore.has(cellOf(g)), `gull ${g.id} on the beach`);
   for (const c of out) {
-    const i = cellOf(c);
-    assert.eq(c.id, WorldGen.cellId(c.kind, 3, 4, i % NB, Math.floor(i / NB)), 'the id is the seat cell');
+    const at = c._habitatSpawn;
+    assert.eq(c.id, WorldGen.cellId(c.kind, 3, 4, at.sourceCx, at.sourceCy), 'the canonical cell keeps the saved identity when occupancy relocates its seat');
+    assert.truthy(shore.has(at.sourceCy * NB + at.sourceCx) || pier.has(at.sourceCy * NB + at.sourceCx), 'the identity belongs to its raw shore habitat');
   }
-  assert.eq(new Set(out.map((c) => c.id)).size, out.length, 'no two on one cell');
+  assert.eq(new Set(out.map((c) => c.id)).size, out.length, 'each canonical identity is unique');
+  assert.eq(new Set(out.map(cellOf)).size, out.length, 'all shore species share physical seat reservations');
 });
 
 test('shore fauna: no shore, no crabs — inland sand and a tile without water hold none', () => {
@@ -167,6 +169,76 @@ test('shore fauna: beach nexus coverage excludes ambient shore and pier animals'
   const animals = seat(b);
   assert.gt(animals.length, 0);
   assert.truthy(animals.every(c => !b.coverage[cellOf(c)]));
+});
+
+// The shoreline length owns abundance; safety removes destinations only.
+test('shore fauna: restricted shore holes preserve population counts when legal fringe remains', () => {
+  const baseline = seat(beach()), b = beach();
+  b.spawnWhy = new Uint16Array(NB * NB);
+  for (const i of [...b.shore.cells, ...b.pierCells]) if (Math.floor(i / NB) < 70)
+    b.spawnWhy[i] = WorldGen.SPAWN_WHY.RESTRICTED;
+  const relocated = seat(b);
+  for (const kind of SHORE_FAUNA_ORDER)
+    assert.eq(relocated.filter(c => c.kind === kind).length, baseline.filter(c => c.kind === kind).length,
+      `${kind}: holes do not suppress the shoreline budget`);
+  for (const c of relocated) assert.eq(b.spawnWhy[cellOf(c)], 0, 'shore fauna choose a legal seat');
+});
+
+function nativeBeach() {
+  const b = beach(); b.coverage = new Uint16Array(NB * NB);
+  for (const i of [...b.shore.cells, ...b.pierCells]) b.coverage[i] = 1;
+  b.entry = { cellsPerEdge: NB, tileEdgeM: NB * CM, grid: b.grid,
+    zone: { coverage: b.coverage, anchors: [
+      { key: 'native_beach', kind: 'beach', variant: 'shellwater_strand', gx: 10, gy: 10 }] } };
+  return b;
+}
+test('shore fauna: Beach Nexus supplies native Crabs and Sea Turtles without ordinary shoreline duplication', () => {
+  const b = nativeBeach(), creatures = seat(b);
+  assert.truthy(creatures.some(c => c.kind === 'sea_turtle'));
+  assert.truthy(creatures.some(c => c.kind === 'crab'));
+  assert.truthy(creatures.every(c => ['crab', 'sea_turtle'].includes(c.kind)));
+  assert.truthy(creatures.every(c => c.id.startsWith('shore_habitat_') && c.zoneVariant === 'shellwater_strand'));
+  assert.truthy(b.entry.shorePopulation.every(row => row.key.startsWith('zone:')));
+});
+test('shore fauna: authored native Crabs satisfy the owner budget even after their saved capture', () => {
+  const baseline = seat(nativeBeach()).filter(c => c.kind === 'crab');
+  assert.gt(baseline.length, 0);
+  const b = nativeBeach();
+  b.authored = [{ ...baseline[0], id: 'authored_native_crab' }];
+  const generated = seat(b), afterCapture = seat(b, new Set(['authored_native_crab']));
+  assert.eq(generated.filter(c => c.kind === 'crab').length, baseline.length - 1);
+  assert.eq(generated.map(c => `${c.id}@${c.x},${c.y}`).join('|'),
+    afterCapture.map(c => `${c.id}@${c.x},${c.y}`).join('|'), 'capturing the authored animal does not supply a replacement');
+  const row = b.entry.shorePopulation.find(row => row.kind === 'crab');
+  assert.eq(row.authored, 1);
+  assert.eq(row.requested, baseline.length);
+});
+
+
+test('shore fauna: safety relocation preserves canonical identities and captured animals stay gone', () => {
+  const original = seat(beach());
+  const holes = beach(); holes.spawnWhy = new Uint16Array(NB * NB);
+  for (const i of [...holes.shore.cells, ...holes.pierCells]) if (Math.floor(i / NB) < 70)
+    holes.spawnWhy[i] = WorldGen.SPAWN_WHY.RESTRICTED;
+  const relocated = seat(holes);
+  assert.eq(relocated.map(c => c.id).join('|'), original.map(c => c.id).join('|'),
+    'safety may move seats, but cannot mint different animal identities');
+  const caught = original.find(c => c._habitatSpawn.sourceCy < 70).id;
+  const after = seat(holes, new Set([caught]));
+  assert.eq(after.map(c => `${c.id}@${c.x},${c.y}`).join('|'),
+    relocated.filter(c => c.id !== caught).map(c => `${c.id}@${c.x},${c.y}`).join('|'),
+    'an original captured animal stays gone without releasing its relocated seat');
+});
+
+
+test('shore fauna: foreign cave and unresolved Road Variant owners cannot receive ordinary shore populations', () => {
+  for (const owner of ['cave', 'road']) {
+    const b = nativeBeach(); delete b.entry.zone; b.coverage = null;
+    if (owner === 'cave') b.entry.caveAreas = { reserved: new Set([...b.shore.cells, ...b.pierCells]) };
+    else b.entry.streetArea = new Uint8Array(NB * NB).fill(1);
+    const out = seat(b);
+    assert.eq(out.length, 0, `${owner}: absence of a population profile cannot reopen a claimed shore`);
+  }
 });
 
 })();

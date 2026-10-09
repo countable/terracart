@@ -434,8 +434,11 @@ FISHING
 ================================================================================
 CREATURES
 ================================================================================
- - spawned per tile, seeded, biased to fitting biomes (`BIOME_FAUNA`); only
-   simulated near the player. Domestic, wild and pest kinds; behaviour is a
+ - spawned per tile from winning landcover/Nexus/Road Variant profiles
+   (`HabitatSpawns`); ordinary roads and paths add no population. Safety
+   excludes seats; creatures use other legal ground in the same habitat.
+   Evening busy-road suppression hides ambient inhabitants without replacement.
+   Only simulated near the player. Domestic, wild and pest kinds; behaviour is a
    row of `SpriteLayout.CREATURE_BEHAVIOUR`.
  - Inside the surface Home circle (250 m from the starter anchor), wild
    animals are limited to chickens and at most one living deer. Owned pets

@@ -8,8 +8,7 @@
 //
 // What is pinned:
 //   · each reason on a synthetic tile: ROAD = the roadMask exactly, water /
-//     buildings, restricted and kindergarten land (hard), farmland (fully
-//     excluded), orchards (edge open, interior hard), commercial / industrial ground by its nearest POI
+//     buildings, restricted and kindergarten land (hard), farmland and orchards (edge open, interior hard), commercial / industrial ground by its nearest POI
 //     (public open, private or none within reach PRIVATE), behind-a-house, private
 //     ways, golf, the kerb (fast movers only), sensitive ground, churchyards,
 //     quiet land;
@@ -20,8 +19,7 @@
 //     paint and keeps RESTRICTED;
 //   · (Sep 2026: HOUSE — the 40 m house buffer — and SCHOOL — school /
 //     college grounds plus its school-hours timing — are both dropped.
-//     KINDERGARTEN stays hard. FARMLAND now excludes whole source footprints;
-//     orchard edges retain their existing access rule.)
+//     KINDERGARTEN stays hard. Orchard and farmland outer rims stay open.)
 //   · the class table, and the POI lift of PRIVATE;
 //   · every spawner in src/ passes a class (a source sweep);
 //   · cave entrances only ever stand on cave ground (the fixture tiles);
@@ -181,8 +179,8 @@ test('spawn gate: COMMERCIAL ground welcomes visitors — RESTRICTED / KINDERGAR
   assert.eq(at(r, 45, 15), INV, 'a hospital stays off-limits');
 });
 
-test('spawn gate: orchard edges remain open while orchard interiors are hard', () => {
-  for (const tags of [{ class: 'farmland', subclass: 'orchard' }]) {
+test('spawn gate: orchard and farmland rims remain open while interiors are hard', () => {
+  for (const tags of [{ class: 'farmland', subclass: 'orchard' }, { class: 'farmland' }]) {
     const r = build([{ name: 'landcover', features: [
       { type: 3, tags: { class: 'grass', subclass: 'grass' }, geom: [whole()] },
       { type: 3, tags, geom: [box(10, 10, 50, 50)] }] }]);
@@ -205,80 +203,68 @@ test('spawn gate: orchard edges remain open while orchard interiors are hard', (
   }
 });
 
-test('spawn gate: source orchard interiors stay closed across road and POI paint', () => {
-  const r = build([
-    { name: 'landcover', features: [
-      { type: 3, tags: { class: 'grass' }, geom: [whole()] },
-      { type: 3, tags: { class: 'farmland', subclass: 'orchard' }, geom: [box(10,10,50,50)] },
-    ] },
-    { name: 'transportation', features: [
-      { type: 2, tags: { class: 'path' }, geom: [line([[0,30],[63,30]])] },
-    ] },
-    poiLayer({ type: 1, tags: { class: 'park', name: 'Orchard interior' }, geom: [[pt(30,20)]] }),
-  ]);
-  assert.eq(r.grid[30*CPE+30], T.PATH, 'a path repaints the source orchard');
-  assert.truthy(r.grid[20*CPE+30] !== T.ORCHARD, 'POI pad repaints the source orchard');
-  for (const [x,y] of [[30,30],[30,29],[30,20],[30,22]]) {
-    const i = y*CPE+x;
-    assert.truthy(has(r,x,y,WHY.FARM_INTERIOR), 'source interior stays excluded, including road shoulders');
-    r.grid[i] = T.PARK; // later nexus repaint cannot reopen the source footprint
-    for (const cls of W.SPAWN_CLASSES) {
-      assert.falsy(W.isSpawnCell(r.grid,CPE,CPE,x,y,{spawnWhy:r.spawnWhy},cls), `${cls}: later paint remains excluded`);
-    }
-  }
-  assert.falsy(has(r,11,20,WHY.FARM_INTERIOR), 'true outer edge stays eligible');
-  assert.falsy(r.objects.some(o => {
-    const x = Math.floor(o.x), y = Math.floor(o.y);
-    return x >= 14 && x <= 46 && y >= 14 && y <= 46;
-  }), 'no objects in the source orchard interior');
-});
-
-test('spawn gate: buffered orchard geometry does not invent tile-boundary edges', () => {
-  const r = build([{ name: 'landcover', features: [
-    { type: 3, tags: { class: 'farmland', subclass: 'orchard' }, geom: [box(-8,-8,72,72)] },
-  ] }]);
-  for (const [x,y] of [[0,0],[0,30],[63,30],[30,0],[30,63],[63,63]]) {
-    assert.truthy(has(r,x,y,WHY.FARM_INTERIOR), 'orchard continues beyond the tile; seam is interior');
-  }
-});
-
-test('spawn gate: farmland edges reject every class, even without a generated mask', () => {
-  const r = build([{name:'landcover',features:[
-    {type:3,tags:{class:'grass'},geom:[whole()]},
-    {type:3,tags:{class:'farmland'},geom:[box(10,10,50,50)]},
-  ]}]);
-  for (const x of [11,30,49]) {
-    assert.truthy(has(r,x,30,WHY.FARMLAND),'whole farm, including edges, is excluded');
-    for (const cls of W.SPAWN_CLASSES) {
-      for (const opts of [{},{spawnWhy:r.spawnWhy,pois:[{ix:x,iy:30}]}]) {
-        assert.falsy(W.isSpawnCell(r.grid,CPE,CPE,x,30,opts,cls),`${cls}: farmland never hosts spawns`);
+test('spawn gate: source field interiors stay closed across road and POI paint', () => {
+  for (const fieldTags of [{ class: 'farmland', subclass: 'orchard' }, { class: 'farmland' }]) {
+    const r = build([
+      { name: 'landcover', features: [
+        { type: 3, tags: { class: 'grass' }, geom: [whole()] },
+        { type: 3, tags: fieldTags, geom: [box(10,10,50,50)] },
+      ] },
+      { name: 'transportation', features: [
+        { type: 2, tags: { class: 'path' }, geom: [line([[0,30],[63,30]])] },
+      ] },
+      poiLayer({ type: 1, tags: { class: 'park', name: 'Orchard interior' }, geom: [[pt(30,20)]] }),
+    ]);
+    assert.eq(r.grid[30*CPE+30], T.PATH, 'a path repaints the source field');
+    assert.truthy(r.grid[20*CPE+30] !== T.ORCHARD, 'POI pad repaints the source field');
+    for (const [x,y] of [[30,30],[30,29],[30,20],[30,22]]) {
+      const i = y*CPE+x;
+      assert.truthy(has(r,x,y,WHY.FARM_INTERIOR), 'source interior stays excluded, including road shoulders');
+      r.grid[i] = T.PARK; // later nexus repaint cannot reopen the source footprint
+      for (const cls of W.SPAWN_CLASSES) {
+        assert.falsy(W.isSpawnCell(r.grid,CPE,CPE,x,y,{spawnWhy:r.spawnWhy},cls), `${cls}: later paint remains excluded`);
       }
     }
+    assert.falsy(has(r,11,20,WHY.FARM_INTERIOR), 'true outer edge stays eligible');
+    assert.falsy(r.objects.some(o => {
+      const x = Math.floor(o.x / W.CELL_M), y = Math.floor(o.y / W.CELL_M);
+      return x >= 14 && x <= 46 && y >= 14 && y <= 46;
+    }), 'no objects in the source field interior');
   }
-  assert.falsy(has(r,8,30,WHY.FARMLAND),'adjacent public ground remains available');
 });
 
-test('spawn gate: mapped farmland and golf survive public paint and POI frontage without rewards', () => {
+test('spawn gate: buffered field geometry does not invent tile-boundary edges', () => {
+  for (const fieldTags of [{ class: 'farmland', subclass: 'orchard' }, { class: 'farmland' }]) {
+    const r = build([{ name: 'landcover', features: [
+      { type: 3, tags: fieldTags, geom: [box(-8,-8,72,72)] },
+    ] }]);
+    for (const [x,y] of [[0,0],[0,30],[63,30],[30,0],[30,63],[63,63]]) {
+      assert.truthy(has(r,x,y,WHY.FARM_INTERIOR), 'field continues beyond the tile; seam is interior');
+    }
+  }
+});
+
+test('spawn gate: field interiors and golf survive public paint and POI frontage without rewards', () => {
   for (const [layer,tags,why] of [
-    ['landcover',{class:'farmland'},WHY.FARMLAND], ['landuse',{class:'farmland'},WHY.FARMLAND],
+    ['landcover',{class:'farmland'},WHY.FARM_INTERIOR], ['landuse',{class:'farmland'},WHY.FARM_INTERIOR],
     ['landcover',{class:'grass',subclass:'golf_course'},WHY.GOLF], ['landuse',{class:'golf_course'},WHY.GOLF],
   ]) {
     const layers=[{name:layer,features:[{type:3,tags,geom:[box(10,10,50,50)]}]},
-      {name:'poi',features:[{type:1,tags:{class:'park',subclass:'park',name:'Farm park'},geom:[[pt(11,30)]]}]}];
-    const r=build(layers), i=30*CPE+11;
-    assert.truthy(has(r,11,30,why),`${layer}: original source blocks POI-painted farm edge`);
-    assert.truthy(W.landRefused(r.spawnWhy,i,[{ix:11,iy:30}],11,30),'POI frontage cannot reopen farmland');
+      {name:'poi',features:[{type:1,tags:{class:'park',subclass:'park',name:'Field interior park'},geom:[[pt(30,30)]]}]}];
+    const r=build(layers), i=30*CPE+30;
+    assert.truthy(has(r,30,30,why),`${layer}: original source blocks POI-painted interior`);
+    assert.truthy(W.landRefused(r.spawnWhy,i,[{ix:30,iy:30}],30,30),'POI frontage cannot reopen farmland');
     for (const terrain of [T.GROVE,T.PATH,T.ORCHARD]) {
       const grid=r.grid.slice(); grid[i]=terrain;
-      for (const cls of W.SPAWN_CLASSES) assert.falsy(W.isSpawnCell(grid,CPE,CPE,11,30,
-        {spawnWhy:r.spawnWhy,pois:[{ix:11,iy:30}]},cls),'later zone/street/orchard paint stays excluded');
+      for (const cls of W.SPAWN_CLASSES) assert.falsy(W.isSpawnCell(grid,CPE,CPE,30,30,
+        {spawnWhy:r.spawnWhy,pois:[{ix:30,iy:30}]},cls),'later zone/street/orchard paint stays excluded');
     }
     for (const o of [...r.objects,...r.wildplants,...(r.zoneDress?.objects||[]),...(r.zoneDress?.wildplants||[])]) {
       const x=Math.floor(o.x/7),y=Math.floor(o.y/7);
       if(x>=0&&y>=0&&x<CPE&&y<CPE) assert.falsy(r.spawnWhy[y*CPE+x]&why,
         `${layer}: ${o.kind||o.crop} does not spawn on farmland`);
     }
-    assert.falsy(r.objects.some(o=>o.kind==='chest'&&o.poiName==='Farm park'),'farm POI reward is removed');
+    assert.falsy(r.objects.some(o=>o.kind==='chest'&&o.poiName==='Field interior park'),'farm POI reward is removed');
   }
 });
 
@@ -559,7 +545,7 @@ test('spawn gate: every isSpawnCell / relocateToSpawnCell call in src/ passes a 
     if (cur.trim()) out.push(cur.trim());
     return out;
   };
-  const CLASS_ARG = new RegExp(`^(?:'(?:${W.SPAWN_CLASSES.join('|')})'|cls|classOf\\(what\\)|spClass|guardClass|creatureSpawnClass\\((?:kind|kindStr)\\))$`);
+  const CLASS_ARG = new RegExp(`^(?:'(?:${W.SPAWN_CLASSES.join('|')})'|cls|classOf\\(what\\)|spClass|guardClass|creatureSpawnClass\\((?:kind|kindStr|'ghost'|'deer')\\))$`);
   let calls = 0;
   const bad = [];
   for (const [file, src] of Object.entries(ALL_SRC)) {
@@ -573,7 +559,11 @@ test('spawn gate: every isSpawnCell / relocateToSpawnCell call in src/ passes a 
         if (/\/\/.*$/.test(src.slice(lineStart, m.index))) continue;   // inside a trailing comment
         const args = callArgs(src, m.index + name.length);
         calls++;
-        if (args.length !== argN || !CLASS_ARG.test(args[argN - 1])) bad.push(`${file}: ${lineText.trim()}`);
+        // CreatureSpawns accepts a creature kind because the wrapper derives
+        // its class before it delegates to WorldGen's one gate.
+        const creatureWrapper = /CreatureSpawns\.$/.test(src.slice(Math.max(0, m.index - 40), m.index));
+        const namesClass = CLASS_ARG.test(args[argN - 1]) || (creatureWrapper && args[argN - 1] === 'kind');
+        if (args.length !== argN || !namesClass) bad.push(`${file}: ${lineText.trim()}`);
       }
     }
   }

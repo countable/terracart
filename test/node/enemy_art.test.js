@@ -37,6 +37,21 @@ test('enemy art: timed attacks do not change existing idle cycles without attack
 });
 
 // The approved roster supplies every enemy surface with the same art source.
+test('enemy art: residential thief keeps pirate poses under its own palette', () => {
+  const thief = EnemyRoster.get('thief'), pirate = EnemyRoster.get('pirate_grunt');
+  assert.eq(thief.art.path, pirate.art.path);
+  assert.eq(JSON.stringify(thief.art.directions), JSON.stringify(pirate.art.directions));
+  assert.eq(SpriteLayout.creatureArt('thief').sheet, 'thief');
+  assert.eq(SpriteLayout.creatureScale('thief'), SpriteLayout.creatureScale('pirate_grunt'));
+  assert.falsy(thief.pirate, 'reusing artwork does not grant pirate parley');
+});
+
+test('enemy art: regular shore crab is twenty percent smaller and has shell armour', () => {
+  assert.lt(Math.abs(SpriteLayout.creatureScale('crab') - 1.2 * 0.8), 1e-9);
+  assert.eq(SpriteLayout.creatureScale('giant_crab'), 1.5);
+  assert.eq(Combat.monster('crab').armor, 2);
+});
+
 test('enemy art: all roster rows resolve complete sheets and variant geometry', () => {
   const assets = new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC + '\nreturn ASSETS;')({}, EnemyRoster, SpriteLayout);
   for (const row of EnemyRoster.ROWS) {

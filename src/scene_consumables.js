@@ -326,23 +326,23 @@ class SceneConsumables {
   // below the tome, never consumed. Every tome but the Wall of Fire is its
   // row's `tome` column — _readTome gives its own buff or `mul` of `of`'s effect
   // (a timed buff's dose, the heal's energy, the storm's damage) and says
-  // `flash`. TWO cooldowns: the SHARED activation lock (TOME_COOLDOWN_MS,
-  // save.tomeReadyAt - food's eat-cooldown shape, but one hour and spanning
-  // every tome: reading any one locks the button for all), and each tome's
-  // OWN magic cooldown (CONSUMABLE_SPEC cooldownMs, save.tomeMagicCd[id])
-  // scaled to the spell's power. HOME IS THE LIBRARY: inside Home's ring
-  // (isRestingAtHome - the one predicate behind every Home-ring effect)
-  // both are considered refreshed. A refused reading shows its wait
-  // (Macros.waitLine - a timed gate needs a visible wait).
-  // The wait on a tome — { ms, line } for the longer of the two locks, or
-  // null when it may be read. _tomeReady flashes it; tomeUsable greys on it.
+  // `flash`. Each tome rests on its OWN cooldown (CONSUMABLE_SPEC cooldownMs,
+  // an hour by default — items.js TOME_COOLDOWN_MS; save.tomeMagicCd[id]),
+  // and only Gear.spellSlots tomes may rest at once — one bare, plus the worn
+  // amulet's tier: with every slot taken, no other tome may be read until one
+  // wakes. Nowhere skips the rest, Home included (owner, Oct 2026: Home's
+  // ring used to waive it, which read as tomes having no cooldown at all).
+  // A refused reading shows its wait (Macros.waitLine - a timed gate needs a
+  // visible wait).
+  // The wait on a tome — { ms, line }: its own rest, else the soonest slot to
+  // free — or null when it may be read. _tomeReady flashes it; tomeUsable
+  // greys on it.
   _tomeWait(id) {
-    const { x, y } = playerWorldM(this);
-    if (this.isRestingAtHome(x, y)) return null;
     const now = Date.now();
-    const shared = (this.save.tomeReadyAt ?? 0) - now, own = (this.save.tomeMagicCd?.[id] ?? 0) - now;
-    if (shared > 0) return { ms: shared, line: 'The tomes rest' };
+    const own = (this.save.tomeMagicCd?.[id] ?? 0) - now;
     if (own > 0) return { ms: own, line: 'This tome rests' };
+    const resting = Object.values(this.save.tomeMagicCd || {}).map(t => t - now).filter(ms => ms > 0);
+    if (resting.length >= Gear.spellSlots(this.save, now)) return { ms: Math.min(...resting), line: 'Spell slots full' };
     return null;
   }
   _tomeReady(id) {
@@ -365,11 +365,10 @@ class SceneConsumables {
     return true;
   }
   _tomeSpent(id) {
-    // THE ENCHANTER'S EDGE (wizard.js CLASSES): half-length cooldowns, both
-    // the shared lock and the tome's own magic - the calling's whole benefit.
+    // THE ENCHANTER'S EDGE (wizard.js CLASSES): half-length tome cooldowns,
+    // so its slots free twice as fast - the calling's whole benefit.
     const mul = (typeof Wizard !== 'undefined' && Wizard.isClass(this.save, 'enchanter')) ? 0.5 : 1;
     const now = Date.now();
-    this.save.tomeReadyAt = now + TOME_COOLDOWN_MS * mul;
     (this.save.tomeMagicCd ||= {})[id] = now + (CONSUMABLE_SPEC[id]?.cooldownMs || 0) * mul;
     persistSave(this.save);
   }

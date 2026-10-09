@@ -1,12 +1,12 @@
 // Central per-biome "feel" registry — the single source of truth for what each
 // terrain/biome looks and plays like beyond its flat colour: its prominent
 // wild flora (kinds + densities) and its dominant fauna. Worldgen reads
-// flora() + allows(), and the fauna spawner reads BIOME_FAUNA.
+// flora() + allows(); HabitatSpawns owns current creature populations.
 //
 // WHY a registry: several biomes (commercial / wetland / farmland) used to
 // fall through every scattered per-biome table and generate NOTHING. Here every
 // walkable biome has an explicit profile AND a base-family FALLBACK, so an
-// unwired types retain family defaults; farmland and golf are explicitly empty.
+// unwired types retain family defaults; farmland grows only its rim crops.
 //
 // Load order: BEFORE worldgen.js (worldgen calls flora()/allows() at rasterize
 // time). textures.js owns its own BIOME_TEX (texture draws are a render
@@ -186,7 +186,11 @@
               fix('starflower', 0.003, 0.009, S.STARFLOWER)],
     },
     [T.SAND]: { ...FAMILY_PROFILE.sand, staticObjects: { plainRockFrame: 34, plainRockVariant: 3 } },
-    [T.FARMLAND]: { flora: [] },
+    // Wild field-edge crops: five equal independent scatters, together about
+    // 8% of eligible rim cells. The shared farm-interior gate removes the rest.
+    // These are ground wildplants, with static stages, never player dirt beds.
+    [T.FARMLAND]: { flora: ['potato', 'cress', 'berry', 'nut', 'onion'].map((crop, i) =>
+      ({ ...fix(crop, 0.016, 0.016, S.FARM_LG + i), sourceTerrainOnly: true, stageCount: 5 })) },
     // Mushrooms remain on residential frontage; its yard lane grows shrubs.
     [T.RESIDENTIAL]: { flora: FAMILY_PROFILE.urban.flora, blockedFlora: ['longgrass'],
       yard: { ...FAMILY_PROFILE.urban.yard, min: 1, span: 1,
@@ -359,7 +363,8 @@
     T.FARMLAND, T.ROCK, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.WETLAND, T.GOLF,
     T.ORCHARD, T.COMMERCIAL, T.INDUSTRIAL, T.GROVE, T.CHURCHYARD, T.TAR_YARD]);
   const allows = (crop, type) => {
-    if (type === T.FARMLAND || type === T.GOLF || get(type).blockedFlora?.includes(crop)) return false;
+    if (type === T.GOLF || get(type).blockedFlora?.includes(crop)) return false;
+    if (type === T.FARMLAND && !flora(type).some(fl => fl.crop === crop)) return false;
     if (EXCLUSIVE_TYPES[crop]) return EXCLUSIVE_TYPES[crop].has(type);
     if (ALLOWED_TYPES[crop] && ALLOWED_TYPES[crop].has(type)) return true;
     const fams = ALLOWED_FAMILIES[crop];
@@ -454,16 +459,10 @@
   };
 
   // ── Fauna ───────────────────────────────────────────────────────────────────
-  // Per-species spawn config consumed by scene_creatures.js spawnInTile. Each species has a
-  // PRIMARY biome set (its dominant home, ~`share` of its count) and a wider
-  // FALLBACK set (the rest), so animals read correct (cows in fields, butterflies
-  // in parks) while still scattering everywhere. Extending fallback sets to the
-  // newly-wired biomes is what finally puts fauna in wetland / commercial /
-  // industrial zones. count = base + floor(rng()*range).
-  // The RAVEN and HORSE are last: a species appended after every other draws
-  // off the tile stream AFTER them, so no earlier animal's seat moved when they
-  // arrived. (The raven is a roster foe seated here like an animal because it
-  // lives where animals live.)
+  // Species placement limits and historical draw inputs. HabitatSpawns owns
+  // current populations; these original counts/primary/fallback lists only
+  // replay the prior tile stream for treasure stability and defeat aliases.
+  // Preserve this snapshot when tuning the live habitat profiles.
   const FAUNA_ORDER = ['chicken', 'cow', 'cat', 'dog', 'deer', 'crow', 'butterfly', 'slime', 'raven', 'horse'];
   // Lot land (residential + the wasteland that used to be painted as it) —
   // shared by ordinary urban fauna; cats and deer have narrower habitat limits.
@@ -473,6 +472,10 @@
   const ALL_NATURAL = [T.GRASS, T.FOREST, T.SAND, T.FARMLAND, ...LOT,
     T.PARK, T.ROCK, T.SCHOOL, T.COMMERCIAL, T.INDUSTRIAL, T.PLAYGROUND, T.PITCH,
     T.WETLAND, T.GOLF, T.ORCHARD, T.GROVE, T.CHURCHYARD, T.TAR_YARD];
+  // Fixed historical enemy-ground bag for the compatibility replay. Live
+  // roster additions must not reshuffle unrelated treasure draws or aliases.
+  const LEGACY_ENEMY_TERRAINS = Object.freeze([T.GRASS, T.FOREST, T.SAND,
+    T.FARMLAND, T.RESIDENTIAL, T.ROCK, T.COMMERCIAL, T.INDUSTRIAL, T.WETLAND, T.ORCHARD]);
   const BIOME_FAUNA = {
     chicken:   { base: 30, range: 15, share: 0.80, primary: [T.FARMLAND, T.GRASS], fallback: [T.GRASS, T.FARMLAND, ...LOT, T.PARK, T.GROVE, T.SCHOOL] },
     cow:       { base: 12, range: 12, share: 0.90, primary: [T.GRASS], fallback: [T.GRASS, T.FARMLAND, ...LOT, T.PARK, T.GROVE, T.PITCH, T.GOLF] },
@@ -509,9 +512,6 @@
   // bunker, a sandpit) holds none. Seated through the spawn gate with the
   // kind's own class (creatureSpawnClass — the gull, a fast flier, is a
   // 'fastEnemy' and keeps off the kerb).
-  // What this is NOT: an `attracts` pull — that moves a tile's existing
-  // spawns of a species onto favourite ground; these species have no spawns
-  // anywhere else to move.
   const SHORE_FAUNA_ORDER = ['crab', 'gull', 'metal_slime', 'sea_turtle'];
   const SHORE_FAUNA = {
     metal_slime: { perShoreM: 300, max: 2, pier: true, salt: 'shorefauna|metal_slime' },
@@ -519,15 +519,6 @@
     gull: { perShoreM: 90, max: 6,  pier: false, only: [T.SAND],  salt: 'shorefauna|gull' },
     // The sea turtle: the rabbit's habits on the sand, fewer than the crabs.
     sea_turtle: { perShoreM: 70, max: 8, pier: false, salt: 'shorefauna|turtle' },
-  };
-
-  // The FAUNA ATTRACTOR column for GROUND (terrain → { species: [min, max] }):
-  // a seeded small quota of the nearest existing animals moves onto this
-  // ground (scene_creatures.js _seatFaunaOnFavouriteGround — the same
-  // lane the street variants' and zones' `attracts` rows feed). The LAND's
-  // class: waste ground a zone halo repainted still counts.
-  const BIOME_ATTRACTS = {
-    [T.WASTELAND]: { slime: [2, 5] },
   };
 
   // The accessors. The raw tables reach app.js as the bare globals below
@@ -538,7 +529,7 @@
   global.BIOME_PROFILES = BIOME_PROFILES;
   global.BIOME_FAUNA = BIOME_FAUNA;
   global.FAUNA_ORDER = FAUNA_ORDER;
-  global.BIOME_ATTRACTS = BIOME_ATTRACTS;
+  global.LEGACY_ENEMY_TERRAINS = LEGACY_ENEMY_TERRAINS;
   global.SHORE_FAUNA = SHORE_FAUNA;
   global.SHORE_FAUNA_ORDER = SHORE_FAUNA_ORDER;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

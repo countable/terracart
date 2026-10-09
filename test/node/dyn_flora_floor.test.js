@@ -24,10 +24,12 @@ test('basic flora: approved exclusions survive overlapping source polygons', () 
   assert.falsy(BiomeProfiles.yardAllows('longgrass',T.RESIDENTIAL));
   assert.truthy(BiomeProfiles.allows('mushroom',T.RESIDENTIAL));
   assert.truthy(BiomeProfiles.flora(T.RESIDENTIAL).some(f => f.crop === 'mushroom'));
-  for (const type of [T.FARMLAND,T.GOLF]) {
+  for (const type of [T.GOLF]) {
     assert.eq(BiomeProfiles.flora(type).length,0);
     assert.falsy(BiomeProfiles.allows('longgrass',type));
   }
+  assert.falsy(BiomeProfiles.allows('longgrass', T.FARMLAND));
+  assert.eq(BiomeProfiles.flora(T.FARMLAND).length, 5);
   // Special motifs are authored directly; the basic profile filter must not
   // remove their declared fungi or flower beds.
   assert.truthy(Object.values(ZoneVariants.materials).some(m => m.crop === 'mushroom'));

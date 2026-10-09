@@ -258,6 +258,9 @@ const SHEETS = {
   ...Object.fromEntries(GROVE_SHRINE_ART.map(({ key, frame }) => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [frame],
   }])),
+  ...Object.fromEntries(['gas_mushroom_small', 'gas_mushroom_large'].map(key => [key, {
+    file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [0],
+  }])),
   zone_objects: { file: ASSETS.zone_objects.path, fw: 24, fh: 24, frames: [1,4,5,6,7,34,37,38,39,40,54,58,59,61,64,65,66,67,68,69,70,71] },
   zone_berry_bush: { file: ASSETS.zone_berry_bush.path, fw: 24, fh: 24, frames: [0] },
   reef_coral:    { file: 'assets/Objects/Reef/coral.png', fw: 24, fh: 24, frames: [0,1,2,3,4,5,6,7] },
@@ -281,6 +284,9 @@ const SHEETS = {
 const t = (species, size) => treeScale({ species, size });
 const SEAT_ANCHOR = [0.5, 0.5];
 const SCENARIOS = [
+  ...['gas_mushroom_small', 'gas_mushroom_large'].map(key => ({
+    name: key.replaceAll('_', ' '), key, frameIdx: 0, scale: itemsCtx.WILDPLANT_CONTEXT_ART[key].scale,
+  })),
   { name: 'drill shrine', key: 'cave_props', frameIdx: 6, scale: 4 / 3 },
   ...GEM_ROCKS.map(row => ({ name: row.item + ' deposit', key: row.art.sheet, frameIdx: row.art.frame, scale: row.art.scale })),
   { name: 'maple sprout',    key: 'trees',         frameIdx: 1, scale: t('maple', 'small') },

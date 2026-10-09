@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
   const CONFIG = Object.freeze({ contactMs: 1000, damage: 8, maxStepMs: 100,
-    vent: Object.freeze({ texture: 'vent_cycle', chance: .12, inactiveMs: 5000, warningMs: 3000, activeMs: 3000,
+    vent: Object.freeze({ texture: 'vent_cycle', chance: .12, craterChance: .08, inactiveMs: 5000, warningMs: 3000, activeMs: 3000,
       frameSize: 24, renderAnchor: [0.5, 18.5 / 24], widthCells: 1, heightCells: 1, maxPresent: 24, retainRadiusCells: 24 }),
     cavein: Object.freeze({ texture: 'cavein', chance: .08, warningMs: 5000, crackStages: 3, openTexture: 'cave_chasm', openFrame: 15, frameSize: 24, renderAnchor: [0.5, 0.5],
       widthCells: 1, heightCells: 1, clusterMinCells: 2, clusterMaxCells: 5, dungeonDepth: 1 }),
@@ -44,7 +44,8 @@
   }
   function eligible(scene, h, checkCharacters = true) {
     const W = root.WorldGen;
-    if (h.depth !== scene.depth || (h.type === 'vent' && !scene.depth)) return false;
+    if (h.depth !== scene.depth) return false;
+    if (h.type === 'vent' && !scene.depth && h.kind !== 'fire') return false;
     const arenaDepth = W.ARENA_DEPTH;
     if (h.type !== 'vent' && (h.depth === arenaDepth || h.depth + 1 === arenaDepth)) return false;
     // Nothing falls out of a sealed floor (DungeonProgression.ROPE_SEALED_FLOORS,
@@ -54,6 +55,9 @@
       if (!p.loaded || !suitable(p.type, scene.depth)) return false;
       const e = W.tileCache.get(W.tileKey(p.tx, p.ty));
       if (!e?._spawnOpts) return false;
+      // Surface fire vents belong to the destroyed crater's dry ground;
+      // the central lava pool is a separate permanent terrain hazard.
+      if (h.type === 'vent' && !scene.depth && quarryVariant(e, p.ix, p.iy) !== 'quarry-crater') return false;
       const opts = { ...e._spawnOpts, spawnWhy: e.spawnWhy || e._spawnOpts.spawnWhy,
         roadMask: e.roadMask || e._spawnOpts.roadMask, roadClass: e.roadClass || e._spawnOpts.roadClass };
       if (!W.isSpawnCell(e.grid, e.cellsPerEdge, e.cellsPerEdge, p.ix, p.iy, opts, 'enemy')) return false;
@@ -213,7 +217,7 @@
       return keep;
     });
     for (const type of ['vent', 'sinkhole']) {
-      if (type === 'vent' && !scene.depth) continue;
+      if (type === 'vent' && !scene.depth && quarry !== 'quarry-crater') continue;
       if (type === 'sinkhole' && (quarry || scene.depth === CONFIG.cavein.dungeonDepth)) continue;
       const visitKey = `${type}:${key}`;
       if (s.visits.has(visitKey)) continue;
@@ -221,8 +225,9 @@
       if (list.length >= cfg.maxPresent) continue;
       s.visits.add(visitKey);
       const id = `environment:${type}:${key}`, rng = root.WorldGen.makeRng(fnv1a(id));
-      if (rng() >= cfg.chance) continue;
-      const kind = Object.keys(VENTS)[Math.min(2, Math.floor(rng() * 3))];
+      if (rng() >= (type === 'vent' && !scene.depth ? cfg.craterChance : cfg.chance)) continue;
+      const kind = type === 'vent' && !scene.depth ? 'fire'
+        : Object.keys(VENTS)[Math.min(2, Math.floor(rng() * 3))];
       for (let attempt = 0; attempt < 12; attempt++) {
         const cell = absCellOffset(scene, at.cellIX, at.cellIY, Math.floor(rng() * 5) - 2, Math.floor(rng() * 5) - 2);
         const h = create(scene, type, cell, id, rng, kind);

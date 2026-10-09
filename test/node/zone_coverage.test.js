@@ -183,11 +183,13 @@
     assert.eq(ownerAt(f, 27, 20).gx, 700, 'park-only ties use stable global point');
   });
 
-  test('zone coverage: an unrelated park or cemetery cannot extend a grove', () => {
+  test('zone coverage: an unrelated park receives its own grove while cemetery stays excluded', () => {
     const parks = [{ rings: [rect(2700, 2700, 3500, 3500)] },
       { rings: [rect(500, 500, 1500, 1500)], cemetery: true }];
     const f = build([anchor(1000, 1000)], parks).field;
-    assert.falsy(f.coverage.some(Boolean));
+    assert.eq(ownerAt(f, 48, 48).kind, 'grove');
+    assert.truthy(ownerAt(f, 48, 48).polygonAnchor);
+    assert.falsy(ownerAt(f, 15, 15), 'cemetery does not gain park coverage');
   });
 
   test('zone coverage: buffered source polygons extend into neighbouring tiles without halo cells', () => {
@@ -365,5 +367,89 @@
     assert.falsy(ownerAt(plain, 32, 32), 'unanchored beach is not a grove motif');
     const before = grid[32 * N + 32]; paint(out, grid);
     assert.eq(grid[32 * N + 32], before, 'beach sand retains its terrain');
+  });
+  test('unlabelled parks: rasterization paints the entire park as Nexus ground and owns one shrine', () => {
+    const park = { type: 3, id: 771, tags: { class: 'park', name: 'Unnamed POI park' },
+      geom: [rect(800, 800, 3200, 3200)] };
+    const out = WorldGen.rasterizeTile([{ name: 'landuse', features: [park] }], N, 0, 0, N * WorldGen.CELL_M);
+    assert.truthy(out.zone);
+    assert.eq(out.grid.filter(t => t === WorldGen.T.PARK).length, 0, 'plain park terrain no longer survives');
+    const a = out.zone.anchors.find(a => a.polygonAnchor);
+    assert.truthy(a); assert.eq(a.gx, 2000); assert.eq(a.gy, 2000);
+    assert.truthy(a.owned); assert.falsy(a.generated, 'ordinary finite encounter lane');
+    const shrines = out.zoneDress.objects.filter(o => o.kind === 'grove_shrine' && o.poiName === park.tags.name);
+    assert.eq(shrines.length, 1); assert.eq(shrines[0].zoneVariant, a.variant);
+    assert.truthy(shrines[0].id.startsWith('zpsh_'));
+  });
+
+  test('unlabelled parks: concave and holed source centres choose an interior point', () => {
+    for (const rings of [
+      [rect(100, 100, 3900, 3900), rect(1300, 1300, 2700, 2700)],
+      [[{ x: 100, y: 100 }, { x: 3900, y: 100 }, { x: 3900, y: 800 },
+        { x: 800, y: 800 }, { x: 800, y: 3900 }, { x: 100, y: 3900 }]],
+    ]) {
+      const point = ZoneCoverage.parkCentre(rings);
+      assert.truthy(WorldGen.pointInRings(rings, point.x, point.y));
+      const reverse = rings.map(r => r.slice().reverse());
+      assert.eq(JSON.stringify(point), JSON.stringify(ZoneCoverage.parkCentre(reverse)), 'ring direction cannot move the centre');
+    }
+  });
+
+  test('unlabelled parks: buffered geometry shares one centre and one finite shrine/guard budget', () => {
+    const rings = [rect(3000, 800, 5000, 3200)];
+    const left = build([], [{ id: 772, rings }]).field;
+    const shifted = rings.map(r => r.map(p => ({ x: p.x - EXT, y: p.y })));
+    const right = build([], [{ id: 772, rings: shifted }], { tx: 1 }).field;
+    const a = left.anchors[0], b = right.anchors[0];
+    assert.eq(a.gx, b.gx); assert.eq(a.gy, b.gy); assert.eq(a.key, b.key);
+    assert.eq(a.variant, b.variant); assert.truthy(a.owned); assert.falsy(b.owned);
+    assert.eq(a.generated, undefined); assert.gt(right.coverage.filter(Boolean).length, 0);
+    a.variant = b.variant = 'ancient_grove';
+    const dress = (field, tx) => ZoneDressing.dress({ field, N, tx, ty: 0,
+      tileEdgeM: N * WorldGen.CELL_M, grid: new Uint8Array(N * N).fill(WorldGen.T.GROVE),
+      chests: [], spawnOpts: { occupied: new Set(), spawnWhy: new Uint16Array(N * N) } });
+    const owner = dress(left, 0), observer = dress(right, 1);
+    assert.eq(owner.objects.filter(o => o.id.startsWith('zpsh_')).length, 1);
+    assert.gt(owner.guards.length, 0);
+    assert.eq(observer.guards.filter(g => g.id.startsWith('zg_')).length, 0, 'finite guards remain owner-only');
+    assert.eq(observer.objects.filter(o => o.id.startsWith('zpsh_')).length, 0);
+  });
+
+  test('unlabelled parks: clipped copies retain shared source appearance without finite rewards', () => {
+    const left = build([], [{ id: 773, rings: [rect(3000, 800, EXT + 64, 3200)] }]).field;
+    const right = build([], [{ id: 773, rings: [rect(-64, 800, 1500, 3200)] }], { tx: 1 }).field;
+    const a = left.anchors[0], b = right.anchors[0];
+    assert.truthy(a.clipped); assert.truthy(b.clipped);
+    assert.falsy(a.owned); assert.falsy(b.owned);
+    assert.eq(a.variant, b.variant); assert.eq(a.rotation, b.rotation); assert.eq(a.key, b.key);
+    assert.eq(a.originGX, b.originGX); assert.eq(a.originGY, b.originGY);
+    assert.gt(left.coverage.filter(Boolean).length, 0); assert.gt(right.coverage.filter(Boolean).length, 0);
+    const out = ZoneDressing.dress({ field: left, N, tx: 0, ty: 0,
+      tileEdgeM: N * WorldGen.CELL_M, grid: new Uint8Array(N * N).fill(WorldGen.T.GROVE),
+      chests: [], spawnOpts: { occupied: new Set(), spawnWhy: new Uint16Array(N * N) } });
+    assert.eq(out.guards.filter(g => g.id.startsWith('zg_')).length, 0); assert.eq(out.objects.filter(o => o.kind === 'grove_shrine').length, 0);
+    assert.gt(out.objects.length + out.wildplants.length, 0, 'background remains populated');
+  });
+
+  test('unlabelled parks: sensitive polygons cannot mint a Nexus anchor', () => {
+    const rings = [rect(800, 800, 3200, 3200)];
+    const result = WorldGen.runSteps(ZoneCoverage.buildSteps({ parks: [{ rings, tags: { class: 'cemetery' } }], N, tx: 0, ty: 0 }));
+    assert.eq(result, null);
+  });
+  test('zone coverage: protected source land keeps its appearance under a park union', () => {
+    const T = WorldGen.T, W = WorldGen.SPAWN_WHY;
+    const reasons = [W.QUIET, W.RESTRICTED, W.KINDERGARTEN, W.SENSITIVE_SITE,
+      W.SENSITIVE, W.GOLF, W.PIER_ACCESS, W.FARM_INTERIOR];
+    const grid = new Uint8Array(N * N).fill(T.WASTELAND);
+    const under = new Uint8Array(N * N), coverage = new Uint16Array(N * N).fill(1);
+    const spawnWhy = new Uint16Array(N * N);
+    reasons.forEach((why, i) => { spawnWhy[i] = why; under[i] = T.WASTELAND; grid[i] = T.GROVE; });
+    const field = { anchors: [anchor(1000, 1000)], coverage, under };
+    paint(field, grid, {}, null, spawnWhy);
+    reasons.forEach((why, i) => {
+      assert.eq(grid[i], T.WASTELAND, `protected reason ${why} restores source look`);
+      assert.eq(spawnWhy[i], why, 'the source access reason remains intact');
+    });
+    assert.eq(grid[reasons.length], T.GROVE, 'ordinary ground still converts');
   });
 })();

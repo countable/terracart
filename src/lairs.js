@@ -139,9 +139,7 @@
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
   // ── A TAR YARD — the same reason again (src/zones.js): the fire slimes at
   // a fuel station's pumps, seated about its chest. Fixed and always held
-  // like a barricade, woken in EVERY mode, and the one tier whose count scales
-  // with the mode (MODE_SCALED_TIERS: Difficulty.slimeCountMul — 1 in both
-  // modes today), because what holds it is slimes.
+  // like a barricade, with the same fixed count in every mode.
   const ZONE_TIER_GUARDS = { tar: 2 };
   Object.assign(TIER_GUARDS, ZONE_TIER_GUARDS);
   // ── A GATE — the same reason again (Sep 2026): an OSM barrier=gate is no
@@ -171,7 +169,6 @@
   Object.assign(TIER_GUARDS, HABITAT_TIER_GUARDS);
   const FIXED_GUARD_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS, ...Object.keys(HABITAT_TIER_GUARDS)]);
   const ALWAYS_AWAKE_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS, ...Object.keys(HABITAT_TIER_GUARDS)]);
-  const MODE_SCALED_TIERS = new Set(Object.keys(ZONE_TIER_GUARDS));
   // The strength multiplier — NOT a tuned number. It is exactly what carries
   // the biggest structure from its t = 0 figure to the ceiling, so the ceiling
   // and the tier table are the only things to change.
@@ -264,12 +261,13 @@
   // held structure takes a group, and which, is ONE draw of its own stream
   // (groupFor), after "held at all?" and its strength and before the count,
   // so it is the world's like everything else here: the same ruin is the
-  // same ambush for every player. GROUP_RATE is the share of held structures
-  // that take one; the rest roll the plain garrison as before.
+  // same ambush for every player. A row's explicit `chance` reserves that
+  // share of held structures first; GROUP_RATE applies to the remaining
+  // ticket for ordinary rows, and the rest roll the plain garrison.
   //
   // A GROUP IS A HOUSE'S OR A CASTLE'S, never both and never a fort's
-  // (owner): a wrecked house's groups are SMALL — one or two, a flock at
-  // most — and sit round the walls as a wreck's slimes do; a castle's are
+  // (owner): most wrecked-house groups are one or two; occasional grunt
+  // gangs contain three to eight — and sit round the walls as a wreck's slimes do; a castle's are
   // the big ones and start INSIDE THE KEEP like every castle garrison
   // (CORE_SEATED_TIERS: walking past is safe, walking in is the fight).
   //
@@ -278,7 +276,9 @@
   // ruin's), `coastal` (only a structure by the shore — the gulls), and
   // `members` in ORDER (easy wakes only the first lairGuardMax of a garrison,
   // so what matters most comes first: the decoy before its orcs, the elite
-  // before its minions). A member: its `kind` (a registered enemy), `n`, its
+  // before its minions). `modeCap: false` preserves an authored full group
+  // in both modes. A member: its `kind` (a registered enemy), `n` or inclusive
+  // `nRange` (one seeded count draw), its
   // `place` (seatPolar — where in the formation), and what it is told:
   //   `aggroCells`      its own notice ring past the ruin's knot (guardState;
   //                     the decoy sees you from six cells, the orcs at the
@@ -302,6 +302,9 @@
   // pool: an authored garrison is the only thing that seats them.
   const GROUPS = {
     // ── A wrecked house: small ──
+    grunt_gang: { label: 'Goblin grunt gang', tiers: [9], minT: 0, chance: .1, modeCap: false,
+      story: 'Three to eight weak goblins crowd around the wreck. Each falls quickly; the gang comes together.',
+      members: [{ kind: 'goblin_runt', nRange: [3, 8], place: 'ring' }] },
     splitter: { label: 'Splitting slime', tiers: [9], minT: 0,
       story: 'Strike it and it divides, half its health to each side. Finish a half before it divides again.',
       members: [{ kind: 'split_slime', n: 1, place: 'ring' }] },
@@ -367,15 +370,17 @@
   // night rule) — so a hidden summoner never leaves its minions standing.
   const GARRISON_INHERIT = ['castle', 'lair', 'immobile', 'lairX', 'lairY', 'lairR', 'keepHW', 'keepHH', 'aggroCells',
     'homeX', 'homeY', '_surfaceSpawn', 'habitat', 'zoneVariant', '_hunting'];
-  // The share of HELD structures of each tier that take a group at all (the
-  // rest roll the plain garrison). A castle is where the interesting fight
-  // belongs; a wreck is still mostly slimes; a fort takes none.
+  // The ordinary-group share after explicit fixed chances are reserved.
+  // A castle is where the interesting fight belongs; a wreck is still mostly
+  // slimes; a fort takes none.
   const GROUP_RATE = { 9: 0.3, 12: 0.5 };
   const TAU = Math.PI * 2;
-  // A member's count at this tier (a number, or a map by tier).
-  function memberCount(m, tier) {
+  // A member's fixed/tier count or inclusive seeded range. Without an RNG,
+  // return the range's minimum for table inspection; runtime/preview pass one.
+  function memberCount(m, tier, rng) {
     const n = m.n;
-    return (n && typeof n === 'object') ? (n[tier] || 0) : (n || 0);
+    const count = m.nRange || (n && typeof n === 'object' ? n[tier] || 0 : n || 0);
+    return root.CreatureSpawns.frequencyCount({ count }, rng || (() => 0));
   }
   // The groups a structure of `tier` at strength `t` may take, in table order.
   function groupRows(tier, t, coastal) {
@@ -388,31 +393,40 @@
     }
     return out;
   }
-  // Which group this structure takes, or null for the plain garrison — ONE
-  // draw: the rate decides whether, and the same number's remainder decides
-  // which, so a caller can reason about the stream. The draw is taken for a
-  // tier with no rate too (a fort), so every tier's seats start at the same
-  // point of the stream.
+  // ONE draw selects explicit fixed shares first. The remaining ticket is
+  // normalized before GROUP_RATE selects among ordinary eligible rows. A tier
+  // with no rows still takes the draw so its existing seat stream is stable.
   function groupFor(tier, t, rng, coastal) {
-    const rate = GROUP_RATE[tier] || 0;
-    const r = rng();
-    if (!(rate > 0) || r >= rate) return null;
     const rows = groupRows(tier, t, coastal);
-    if (!rows.length) return null;
-    return rows[Math.min(rows.length - 1, Math.floor((r / rate) * rows.length))];
+    let ticket = rng(), remaining = 1;
+    for (const name of rows) {
+      const chance = GROUPS[name].chance;
+      if (!(chance > 0)) continue;
+      if (ticket < chance) return name;
+      ticket -= chance; remaining -= chance;
+    }
+    const rate = GROUP_RATE[tier] || 0;
+    const ordinary = rows.filter(name => GROUPS[name].chance == null);
+    const r = remaining > 0 ? ticket / remaining : 1;
+    if (!(rate > 0) || r >= rate || !ordinary.length) return null;
+    return root.CreatureSpawns.pickWeighted(ordinary, r / rate, () => 1);
   }
   // A group laid out as per-guard specs, in member order: each with its
   // index within its member row (idx) and that row's count (of), which is what
   // seatPolar spaces by.
-  function expandGroup(name, tier) {
+  function expandGroup(name, tier, rng) {
     const g = GROUPS[name];
     if (!g) return [];
-    const out = [];
-    for (const m of g.members) {
-      const n = memberCount(m, tier);
-      for (let i = 0; i < n; i++) out.push({ ...m, n, group: name, idx: i, of: n });
-    }
-    return out;
+    const members = g.members.map(m => ({ ...m,
+      n: m.n && typeof m.n === 'object' ? m.n[tier] || 0 : m.n }));
+    const expanded = root.CreatureSpawns.expandMembers({ members }, rng || (() => 0));
+    const counts = new Map(), indices = new Map();
+    for (const m of expanded) counts.set(m.memberIndex, (counts.get(m.memberIndex) || 0) + 1);
+    return expanded.map(m => {
+      const idx = indices.get(m.memberIndex) || 0, n = counts.get(m.memberIndex);
+      indices.set(m.memberIndex, idx + 1);
+      return { ...g.members[m.memberIndex], n, group: name, idx, of: n };
+    });
   }
   // Where one guard stands, in polar terms about the ruin: the angle, and the
   // radius as a multiple of the BASE the placement names (`base`, one of the
@@ -482,7 +496,7 @@
     const facing = rng() * TAU;
     const radii = seatRadii(halfW, halfH, 1);
     const out = [];
-    for (const spec of expandGroup(name, tier)) {
+    for (const spec of expandGroup(name, tier, rng)) {
       let seat = null;
       for (let a = 0; a < LAIR_SEAT_TRIES && !seat; a++) {
         const p = seatPolar(spec, a, facing, rng);
@@ -529,6 +543,25 @@
     habitat_marsh: { rate: 1, thinned: false },      // a habitat site — always held
     habitat_stronghold: { rate: 1, thinned: false },
   };
+
+  // Focus adapters expose their authored group references and existing
+  // frequency/lifecycle data to the common spawn registry. Strength/count,
+  // thinning and seats remain this geometry provider's deterministic stream.
+  const FOCUS_RULES = Object.fromEntries(Object.keys(TIER_GUARDS).map(key => {
+    const tier = /^\d+$/.test(key) ? Number(key) : key;
+    return [key, {
+      id: `lair_focus_${key}`, scope: 'focus',
+      focus: tier === 9 ? 'house' : TIERS.includes(tier) ? 'building'
+        : Object.hasOwn(STREET_TIER_GUARDS, tier) ? 'street'
+        : Object.hasOwn(ZONE_TIER_GUARDS, tier) ? 'nexus'
+        : Object.hasOwn(HABITAT_TIER_GUARDS, tier) ? 'habitat' : 'gate',
+      groups: Object.fromEntries(Object.entries(GROUPS).filter(([, row]) => row.tiers.includes(tier))),
+      frequency: { chance: OCCUPANCY[key]?.rate || 0, baseCount: TIER_GUARDS[key],
+        groupRate: GROUP_RATE[key] || 0, thinned: !!OCCUPANCY[key]?.thinned },
+      lifecycle: { residency: true, ownerOnly: true, daily: DAILY_TIERS.has(tier),
+        modeCap: true, alwaysAwake: ALWAYS_AWAKE_TIERS.has(tier) },
+    }];
+  }));
 
   // ── The per-tile budget ──────────────────────────────────────────────────
   // A tile is ~1.6 km on a side (~2.5 km² at mid-latitudes) and a dense urban
@@ -737,10 +770,9 @@
   // building footing, and a guard drawn over a roof reads as a bug however it
   // got there. One cell out is close enough to read as "this ruin is held".
   const LAIR_RING_PAD_CELLS = 1;
-  // Seats attempted per guard before it is given up on. A ruin ringed by
-  // water, road or another building simply holds fewer than its figure —
-  // which is the same answer the fauna spawner gives, and better than
-  // pushing a guard somewhere it does not belong.
+  // Preserve the original polar draws first, then exhaust legal seats in
+  // the same feature ring. Core/floor/cloud formations retain exact authored
+  // placement: their geometry is part of the building encounter.
   const LAIR_SEAT_TRIES = 8;
 
   // The nominal garrison for a structure of `tier` at strength `t` (0..1,
@@ -749,11 +781,6 @@
   function capFor(tier, t) {
     const base = TIER_GUARDS[tier];
     if (!base) return 0;
-    if (MODE_SCALED_TIERS.has(tier)) {
-      const D = root.Difficulty;
-      const mul = (D && D.get && D.get().slimeCountMul) || 1;
-      return Math.max(1, Math.round(base * mul));
-    }
     if (FIXED_GUARD_TIERS.has(tier)) return base;
     const u = clamp01(Number.isFinite(t) ? t : 0);
     return Math.min(LAIR_MAX_PER_STRUCTURE,
@@ -948,8 +975,8 @@
   //   2. t, its strength       (0..1 → cap and kind ladder)
   //   3. a group, or not       (groupFor, exactly one draw — GROUPS)
   //   4. the group's facing    (one draw, taken on every path)
-  //   5. the count             (countFor, exactly one draw — plain path only;
-  //                             a group's count is its composition)
+  //   5. the count             (countFor: one plain-path draw; authored
+  //                             fixed compositions: none; nRange: one draw)
   //   then per guard: its kind (kindFor, exactly one draw), then its seat
   //   tries (seatPolar, two draws each).
   // NOTHING about the player — Home, save, frame — reaches a draw. Home is
@@ -1006,7 +1033,7 @@
     const group = TIERS.includes(cand.tier) ? groupFor(cand.tier, t, rng, nearShore(entry, cand, N, cellM))
       : (TIER_GROUP[cand.tier] || null);
     const facing = rng() * TAU;
-    const plan = group ? expandGroup(group, cand.tier) : null;
+    const plan = group ? expandGroup(group, cand.tier, rng) : null;
     const baseCount = plan ? plan.length : countFor(cap, rng);
     // Hard barricades introduce ranged support, capped at a two-member team.
     const nWorld = cand.tier === 'barricade' && root.Difficulty?.mode() === 'hard' ? 2 : baseCount;
@@ -1016,9 +1043,9 @@
     // same for everyone and easy simply wakes the first `lairGuardMax` of it:
     // guard i's id, kind and seat draws in the loop below are the same in
     // both modes, hard just keeps going. Never a second roll, never a
-    // different pair.
+    // different pair. An authored modeCap:false row keeps its full formation.
     const modeMax = root.Difficulty?.get?.().lairGuardMax;
-    const n = modeMax > 0 ? Math.min(nWorld, modeMax) : nWorld;
+    const n = modeMax > 0 && GROUPS[group]?.modeCap !== false ? Math.min(nWorld, modeMax) : nWorld;
     // A BUILDING's garrison comes out after you, so its themed family drops
     // the rooted kinds (EnemyRoster.isRooted — the plants); a road variant's
     // stretch (a street tier) keeps them. The kind is picked off the filtered
@@ -1059,6 +1086,15 @@
     const seatR = core ? radii.core : radii.ring;
     const plainSpec = { place: core ? 'core' : 'ring', of: nWorld };
     const C = root.Combat;
+    const reservedSeats = new Set();
+    const sourceCell = cand.iy * N + cand.ix;
+    const sourceOwner = WG.variantOwnerAt(entry, sourceCell);
+    const sameOwner = at => {
+      if (WG.variantOwnerAt(entry, at) !== sourceOwner) return false;
+      if (sourceOwner === 'zone') return entry.zone.coverage[at] === entry.zone.coverage[sourceCell];
+      if (sourceOwner === 'road') return entry.streetArea[at] === entry.streetArea[sourceCell];
+      return true;
+    };
     const out = [];
     // A DAILY tier's guard carries the UTC day in its id (see DAILY_TIERS).
     const day = DAILY_TIERS.has(cand.tier)
@@ -1075,6 +1111,9 @@
       // Its seat class (the spawn gate): a fast guard also keeps off the kerb.
       const guardClass = Object.hasOwn(STREET_TIER_GUARDS, cand.tier) ? 'fastEnemy' : (typeof root.creatureSpawnClass === 'function')
         ? root.creatureSpawnClass(kind) : 'fastEnemy';
+      const guardCell = (ix, iy) => Object.hasOwn(STREET_TIER_GUARDS, cand.tier)
+        ? WG.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, guardClass)
+        : root.CreatureSpawns.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, kind);
       let seat = null;
       let inKeep = false;
       for (let a = 0; a < LAIR_SEAT_TRIES && !seat; a++) {
@@ -1110,12 +1149,32 @@
         // reading of "is this a road" is how the two drift. Only the VERDICT
         // changed: the draws are the same, so every seat that passes both rules is
         // the seat it always was.
-        if (!WG.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, guardClass)) continue;
+        if (!guardCell(ix, iy)) continue;
         seat = (p.core || p.over) ? { x: ox + lx, y: oy + ly, ix, iy }   // a knot, not a stack
           : { x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM, ix, iy };
         inKeep = !!p.core;
       }
-      if (!seat) continue;                    // ringed by water / road / building
+      if (!seat && (!spec.place || spec.place === 'ring')) {
+        const band = spec.band || [1, 1.35], outer = radii.ring * band[1];
+        const r = Math.ceil(outer / cellM + 1), centreX = Math.floor(cand.lx / cellM), centreY = Math.floor(cand.ly / cellM);
+        let best = null, rank = Infinity;
+        for (let iy = Math.max(0, centreY - r); iy <= Math.min(N - 1, centreY + r); iy++)
+          for (let ix = Math.max(0, centreX - r); ix <= Math.min(N - 1, centreX + r); ix++) {
+            const at = iy * N + ix, lx = (ix + .5) * cellM, ly = (iy + .5) * cellM;
+            const distance = Math.hypot(lx - cand.lx, ly - cand.ly);
+            // Cell centres approximate continuous polar seats by at most half
+            // a cell diagonal. Never widen the feature's declared ring.
+            if (distance < radii.ring * band[0] - cellM * Math.SQRT1_2
+                || distance > outer + cellM * Math.SQRT1_2
+                || reservedSeats.has(at) || !sameOwner(at)
+                || !guardCell(ix, iy)) continue;
+            const score = hashKey(`${id}:fallback:${ix}:${iy}`);
+            if (score < rank) { rank = score; best = { x: ox + lx, y: oy + ly, ix, iy }; }
+          }
+        seat = best;
+      }
+      if (!seat) continue;                    // no ground in the authored feature
+      reservedSeats.add(seat.iy * N + seat.ix);
       if (liveBlocks(seat.ix, seat.iy)) continue; // player overlay: drop, never reroll
       if (citadelIds) citadelIds.push(id);
       // Already killed. The draws above ran anyway — see the note below.
@@ -1465,10 +1524,10 @@
     LAIR_RING_PAD_CELLS, CORE_SEATED_TIERS, LAIR_CORE_SPREAD_CELLS, LAIR_CORE_AGGRO_CELLS, inOwnKeep, LAIR_SEAT_TRIES, LAIR_INDEX_CHUNK,
     LAIR_AGGRO_CELLS, LAIR_LEASH_CELLS, LAIR_SEAT_EPS_CELLS,
     OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, tileHeldExpected, guardState,
-    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, GATE_TIER_GUARDS, HABITAT_TIER_GUARDS, DAILY_TIERS, dailyGuardDay, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, MODE_SCALED_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
+    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, GATE_TIER_GUARDS, HABITAT_TIER_GUARDS, DAILY_TIERS, dailyGuardDay, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
     TIER_GROUP, GARRISON_INHERIT,
     capFor, countFor, kindsAt, kindFor, structureKey, tileCellM,
-    GROUPS, GROUP_RATE, NEAR_SHORE_CELLS, memberCount, groupRows, groupFor, expandGroup, seatPolar, seatRadii, flies, nearShore, groupLayout,
+    GROUPS, GROUP_RATE, FOCUS_RULES, NEAR_SHORE_CELLS, memberCount, groupRows, groupFor, expandGroup, seatPolar, seatRadii, flies, nearShore, groupLayout,
     hashKey, ringBox,
     bucketKey,
     newIndex, indexChunk, buildIndex, indexFor, garrisonFor, stepResidency, claimClearedCitadels, resetCitadel,

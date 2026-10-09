@@ -5,7 +5,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const root = path.resolve(__dirname, '..'), ctx = { console, performance, addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'sprite_layout', 'util', 'coords', 'zone_variant_data', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'items', 'loot', 'macros', 'interactables', 'zones', 'zone_coverage', 'quarry_layout', 'zone_dressing', 'worldgen', 'scenic', 'road_overlay']) {
+for (const name of ['enemy_roster', 'sprite_layout', 'util', 'coords', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'items', 'loot', 'macros', 'interactables', 'zones', 'zone_coverage', 'quarry_layout', 'zone_dressing', 'worldgen', 'scenic', 'road_overlay']) {
   vm.runInContext(fs.readFileSync(path.join(root, 'src', name + '.js'), 'utf8'), ctx, { filename: name + '.js' });
 }
 // Select a runtime row for comparison while retaining the real generator,
