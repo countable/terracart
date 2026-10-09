@@ -51,6 +51,46 @@
   const SURFACE_ENCOUNTER_PROFILES = {
     mushroom_grove: { ...SURFACE_ENCOUNTERS, blockCells: 6, pairAt: 1, trioAt: 1 },
   };
+  // PROVOKED ONLY: a zone whose native foes leave the player alone until
+  // provoked — struck by the player's side (app.js _damageEnemy), or one of
+  // the zone's `crops` picked or chopped inside the same zone (interact.js
+  // 'wildplant' → provokeZone). Until then wanderCreatures counts them among
+  // `standDown`: no chase, no puff, no blow. `_provoked` is session state on
+  // the creature, like `_hp`; a reload calms the grove again.
+  const PROVOKED_ONLY = { mushroom_grove: { crops: ['mushroom', 'giant_mushroom'] } };
+  function provokedOnly(c) {
+    const kinds = PROVOKED_ONLY[c?.zoneVariant] && SURFACE_FAMILIES[c.zoneVariant];
+    return !!kinds && kinds.includes(root.EnemyRoster.get(c.kind)?.variantOf || c.kind);
+  }
+  function unprovoked(c) { return !c._provoked && provokedOnly(c); }
+  // The zone anchor covering a world point on the surface: `{ key, variant }`,
+  // the key global across tiles (a grove that straddles a tile edge is one).
+  function zoneAnchorAt(tileEdgeM, x, y) {
+    const WG = root.WorldGen, tx = Math.floor(x / tileEdgeM), ty = Math.floor(y / tileEdgeM);
+    const entry = WG.tileCache.get(WG.tileKey(tx, ty));
+    if (!entry?.zone?.coverage || entry.depth > 0) return null;
+    const N = entry.cellsPerEdge, cellM = entry.tileEdgeM / N;
+    const ix = Math.floor((x - tx * entry.tileEdgeM) / cellM), iy = Math.floor((y - ty * entry.tileEdgeM) / cellM);
+    if (ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
+    const a = entry.zone.anchors?.[entry.zone.coverage[iy * N + ix] - 1];
+    return a ? { key: `${a.kind}|${a.gx}|${a.gy}`, variant: a.variant } : null;
+  }
+  // A harvest of `crop` at (x, y): if that point lies in a provoked-only zone
+  // that guards this crop, every native foe seated in the same zone (its
+  // spawn seat's anchor) is provoked. Returns how many were newly provoked.
+  function provokeZone(tileEdgeM, x, y, crop) {
+    const zone = zoneAnchorAt(tileEdgeM, x, y);
+    if (!zone || !PROVOKED_ONLY[zone.variant]?.crops.includes(crop)) return 0;
+    let n = 0;
+    const tx = Math.floor(x / tileEdgeM), ty = Math.floor(y / tileEdgeM);
+    root.WorldGen.forEachItemNear('creatures', tx, ty, c => {
+      if (!unprovoked(c) || c.zoneVariant !== zone.variant) return;
+      const seat = c._surfaceSpawn || c._habitatSpawn || c;
+      if (zoneAnchorAt(tileEdgeM, seat.x, seat.y)?.key !== zone.key) return;
+      c._provoked = true; n++;
+    });
+    return n;
+  }
   // Public rules for the Nexus encounter lane. The existing family rows and
   // per-block frequency profiles remain their single tuning owners.
   const NEXUS_RULES = Object.fromEntries(Object.entries(SURFACE_FAMILIES).map(([id, kinds]) => [id, {
@@ -430,6 +470,7 @@
   }
   root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, CASTLE_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS, SURFACE_ENCOUNTER_PROFILES, NEXUS_RULES, HABITAT_TIER,
     unit, caveAt, surfaceAt, shoreWater, surfaceSeat, surfaceEncounters, surfaceEncountersSteps, variantAt,
-    PARTY_GROWTH, PARTY_ELITE_CHANCE, partySize, singleDraws, scaleEncounters, groupsOf, emergesFromGround, buildingKinds, habitatLairs, caveSites };
+    PARTY_GROWTH, PARTY_ELITE_CHANCE, partySize, singleDraws, scaleEncounters, groupsOf, emergesFromGround, buildingKinds, habitatLairs, caveSites,
+    PROVOKED_ONLY, provokedOnly, unprovoked, zoneAnchorAt, provokeZone };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.EnemyHabitats;
 })(typeof window !== 'undefined' ? window : globalThis);

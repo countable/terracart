@@ -1879,7 +1879,11 @@ class SceneCreatures {
       // growing a second condition each. The MOVEMENT chain still asks
       // `warded` by name: an away-from-the-ward angle and a walk back to a seat
       // are two mechanisms, not one, whatever they have in common here.
-      const standDown = frightened || psychotic || warded || wanderOff || kerbTurn || sated || (!!lairState && lairState !== 'hunt');
+      // A foe of a provoked-only zone (the mushroom grove) not yet struck, nor
+      // its zone's crops harvested, is one more reason (EnemyHabitats.unprovoked).
+      const unprovoked = enemy && EnemyHabitats.unprovoked(c);
+      const standDown = frightened || psychotic || warded || wanderOff || kerbTurn || sated || unprovoked
+        || (!!lairState && lairState !== 'hunt');
       const rosterRow = !isTame ? EnemyRoster.get(c.kind) : null;
       // A neighbour nearer than the peer it is after still wins its attention.
       const npcTarget = rosterRow && !standDown

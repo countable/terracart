@@ -1024,6 +1024,9 @@ const TAP_HANDLERS = [
         scene.flash(`Dismantled. Kit ${kept ? 'kept' : 'used'}.`, sx, sy);
         return true;
       }
+      // Picking or starting to chop a grove's own mushroom wakes that grove's
+      // foes (EnemyHabitats.PROVOKED_ONLY).
+      EnemyHabitats.provokeZone(scene.tileEdgeM, wp.x, wp.y, wp.crop);
       if (rule?.timber) return runWildplantTimber(ctx, wp);
       if (reqRelic) {
         // Bare-hand duration belongs to the plant; equipped tools keep their ladder.
