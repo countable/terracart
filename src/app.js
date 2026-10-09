@@ -3737,7 +3737,9 @@ class MapScene extends Phaser.Scene {
         // ring it is derived from. Handed to the spawn below as well, so the
         // bolt flies exactly as far as the check that loosed it.
         const reach = reachCells(this);
-        const heading = Combat.shotHeading(slot, px, py, this.facing, enemies, this.cellM, reach);
+        // Confused, the staff can't pick a foe: it fires where you face.
+        const heading = Combat.shotHeading(slot, px, py, this.facing, enemies, this.cellM, reach,
+          { confused: Conditions.active(this.save, 'confused') });
         if (!heading) continue;
         // The staff draws energy per bolt (Combat.SHOT.staff.energyCost — the
         // price of its pierce + double punch). No energy → no bolt, SILENTLY:

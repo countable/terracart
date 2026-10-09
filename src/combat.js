@@ -1271,10 +1271,12 @@
 
   // The heading a slot fires along: compass `facing` for 'compass' slots, the
   // line to the nearest foe for 'nearest' ones; null when nothing to fire at.
-  function shotHeading(slot, x, y, facing, enemies, cellM, reachCells) {
+  // A CONFUSED caster (Conditions 'confused') cannot pick a target: a
+  // homing weapon looses along the facing like the bow (`opts.confused`).
+  function shotHeading(slot, x, y, facing, enemies, cellM, reachCells, opts = {}) {
     const spec = SHOT[slot];
     if (!spec) return null;
-    if (spec.aim === 'nearest') return aimAtNearest(x, y, enemies, rangeCellsFor(slot, reachCells) * cellM);
+    if (spec.aim === 'nearest' && !opts.confused) return aimAtNearest(x, y, enemies, rangeCellsFor(slot, reachCells) * cellM);
     return facing || null;
   }
 
