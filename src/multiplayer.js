@@ -168,6 +168,10 @@ const Multiplayer = (function () {
   // Party size: how often the zone encounter groups round this player are
   // grown to the number of players here (EnemyHabitats.scaleEncounters).
   const PARTY_SCAN_MS = 1000;
+  const GROUP_RETRY_MS = 10000;
+  const GROUP_MAX_PLAYERS = 32;   // server/index.js MAX_GROUP_PARTY
+  const GROUP_MAX_RECORDS = 2048;
+  const GROUP_TTL_MS = 5 * 60 * 1000;
   // Light tints so the farmer's art stays readable: a tint multiplies, so the
   // sprite's whites take the colour and its darks barely move.
   const COLORS = [0xffd28a, 0x9fd8ff, 0xb8ffb0, 0xffb3e6, 0xe0c3ff, 0xfff59f, 0xffb38a, 0x9ff5e6, 0xd0d0d0, 0xc8ff8a];
@@ -262,6 +266,9 @@ const Multiplayer = (function () {
     aggroSeq: 0, aggroWindowT: 0, aggroSent: 0,
     local: null,              // { e, g, v }: this player's published health and target flags
     partyScanT: 0,
+    groupSizes: new Map(), // received encounter id → { p, until }; surface only
+    groupSent: new WeakMap(), // loaded group → { p, at, epoch }; cannot be evicted by remote reports
+    groupEpoch: 0,
   };
 
   function serverUrl() {
@@ -395,11 +402,15 @@ const Multiplayer = (function () {
     switch (msg.t) {
       case 'welcome':
         S.id = msg.id; S.backoff = RECONNECT_MIN_MS; S.everOnline = true;
+        S.groupEpoch++;
         S.seenIds.clear(); S.seenScanT = 0;   // announce what we see again to whoever is here now
         for (const p of msg.peers || []) upsertPeer(p, now, false);
         setStatus('online'); // one HUD count after the whole roster is ready
         break;
-      case 'join': S.seenIds.clear(); upsertPeer(msg, now); break;
+      case 'join':
+        S.seenIds.clear();
+        S.groupEpoch++;
+        upsertPeer(msg, now); break;
       case 'p': {
         const p = S.peers.get(msg.id);
         if (p) { Object.assign(p, { x: msg.x, y: msg.y, fx: msg.fx, fy: msg.fy, m: msg.m, d: msg.d }, presenceExtras(msg)); p.seenAt = now; }
@@ -408,6 +419,7 @@ const Multiplayer = (function () {
       case 'leave': dropPeer(msg.id); S.peerBattles.delete(msg.id); break;
       case 'battle': onBattle(S.scene, msg); break;
       case 'aggro': onAggro(S.scene, msg, now); break;
+      case 'group': onGroup(msg, now); break;
       case 'ping': addPing(msg, now); break;
       case 'hit': applyHit(S.scene, msg); break;
       case 'seen': onSeen(S.scene, msg, now); break;
@@ -475,7 +487,7 @@ const Multiplayer = (function () {
     S.seenIds.clear(); S.seenScanT = 0; S.seenDepth = null;
     S.deadPending.clear(); S.deadHeard.clear(); S.deadReplyAt = 0; S.received.clear();
     S.battleSent.clear(); S.battleDue.clear(); S.peerBattles.clear();
-    S.aggro.clear(); S.aggroQueue.clear(); S.local = null; S.partyScanT = 0;
+    S.aggro.clear(); S.aggroQueue.clear(); S.local = null; S.partyScanT = 0; S.groupSizes.clear(); S.groupSent = new WeakMap(); S.groupEpoch = 0;
   }
   function hitFrame(id, f, left, d, kill) {
     const frame = { t: 'hit', id, f: round4(Math.min(1, Math.max(0, f))), left: round4(Math.min(1, Math.max(0, left))), d };
@@ -868,34 +880,67 @@ const Multiplayer = (function () {
     for (const p of S.peers.values()) if ((p.d || 0) === (scene.depth || 0) && isNear(p, now)) n++;
     return n;
   }
-  // Grow the zone encounter groups on the loaded tiles round this player to
-  // P (EnemyHabitats.scaleEncounters — the rule, its draws, its stickiness).
-  // Each peer runs the same on its own device; extras are ordinary world-
-  // shared foes from then on (hits, kills, seen / dead). Surface only: that
-  // is where the groups stand. Nothing happens alone.
+  // A max-register per encounter: lower, duplicate and reordered reports
+  // cannot shrink a live fight. Keep early reports until its tile has spawned;
+  // loaded groups renew and periodically reannounce their high-water mark.
+  function rememberGroup(id, p, now) {
+    let record = S.groupSizes.get(id);
+    if (!record || record.until <= now) record = { p, until: 0 };
+    else if (p > record.p) record.p = p;
+    record.until = now + GROUP_TTL_MS;
+    S.groupSizes.delete(id);
+    S.groupSizes.set(id, record);
+    while (S.groupSizes.size > GROUP_MAX_RECORDS) S.groupSizes.delete(S.groupSizes.keys().next().value);
+    return record;
+  }
+  function onGroup(msg, now = performance.now()) {
+    if (msg.d !== 0 || !Array.isArray(msg.groups) || !msg.groups.length || msg.groups.length > SEEN_MAX_IDS) return false;
+    if (msg.groups.some(g => !g || !validId(g.id) || !Number.isInteger(g.p) || g.p < 2 || g.p > GROUP_MAX_PLAYERS)) return false;
+    for (const g of msg.groups) rememberGroup(g.id, g.p, now);
+    return true;
+  }
+  // Each device proposes its local party size, then grows each group to the
+  // largest proposal it knows. ID-seeded generation supplies the same extras;
+  // no member list travels. This is eventual agreement, not a shared AI tick.
   function scaleParty(scene, now) {
-    if (now - S.partyScanT < PARTY_SCAN_MS) return;
+    if (S.status !== 'online' || now - S.partyScanT < PARTY_SCAN_MS) return;
     S.partyScanT = now;
+    for (const [id, g] of S.groupSizes) if (g.until <= now) S.groupSizes.delete(id);
     if ((scene.depth || 0) !== 0 || typeof EnemyHabitats === 'undefined') return;
-    const players = partyCount(scene, now);
-    const pc = players > 1 && scene.playerToWorldCell?.();
+    const players = Math.min(GROUP_MAX_PLAYERS, partyCount(scene, now));
+    const pc = scene.playerToWorldCell?.();
     if (!pc) return;
-    const caught = setOf(scene.save.caught);
+    const caught = setOf(scene.save.caught), due = [];
     eachTile3x3(pc.tx, pc.ty, (tx, ty) => {
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-      // Neighbour tiles spawn in slices. Their group records exist before
-      // the final creature array and occupancy publish; growing now can
-      // replace that array or consume an elite upgrade before its base exists.
+      // Group records precede the final base population during sliced spawn.
       if (!entry?._spawned) return;
-      const { added } = EnemyHabitats.scaleEncounters(entry, players, caught);
+      const { added } = EnemyHabitats.scaleEncounters(entry, g => {
+        const p = Math.max(players, g.players, S.groupSizes.get(g.id)?.p || 1);
+        if (p > 1) {
+          const sent = S.groupSent.get(g);
+          if (!sent || p > sent.p || sent.epoch !== S.groupEpoch || now - sent.at >= GROUP_RETRY_MS) {
+            due.push({ id: g.id, p, g, at: sent?.at ?? -Infinity });
+          }
+        }
+        return p;
+      }, caught);
       if (!added.length) return;
       const have = new Set((entry.creatures ||= []).map(c => c.id));
       for (const c of added) {
         if (have.has(c.id)) continue;
         EnemySpawns.surfaceActive(scene, c);
         entry.creatures.push(c);
+        have.add(c.id);
       }
     });
+    // Oldest first: dense tiles finish before already-announced groups retry.
+    // A busy combat budget leaves these due for the next scan, never lost.
+    due.sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));
+    const batch = due.slice(0, SEEN_MAX_IDS);
+    if (batch.length && sendEnemy({ t: 'group', groups: batch.map(({ id, p }) => ({ id, p })), d: 0 }, now)) {
+      for (const row of batch) S.groupSent.set(row.g, { p: row.p, at: now, epoch: S.groupEpoch });
+    }
   }
 
   // ── drawing ──────────────────────────────────────────────────────────────
@@ -1195,7 +1240,7 @@ const Multiplayer = (function () {
   }
 
   return { start, stop, tick, assisted, ASSIST_MS, consumeTap, setName, reportHit, reportKill, applyHit,
-           enemyTarget, pickTarget, localTargetState, onBattle, onAggro, battleShared, partyCount, scaleParty, PARTY_SCAN_MS,
+           enemyTarget, pickTarget, localTargetState, onBattle, onAggro, battleShared, partyCount, scaleParty, onGroup, PARTY_SCAN_MS, GROUP_RETRY_MS, GROUP_MAX_PLAYERS,
            TARGET_FLAGS, TARGET_TIE_CELLS, TARGET_STICKY_CELLS, TARGET_KEEP_CELLS,
            BATTLE_MS, BATTLE_REPLY_MS, AGGRO_MAX_PER_S, AGGRO_TIE_MS,
            HIT_FLUSH_MS, HIT_MAX_PER_S, SEEN_MS, SEEN_RETRY_MS, SEEN_MAX_IDS, DEAD_JITTER_MAX_MS, DEAD_HEARD_MS,

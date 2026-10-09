@@ -145,7 +145,7 @@ test('psychosis: one more reason in the rout lane of wanderCreatures, with a ran
   assert.truthy(/if \(c\.immobile && !frightened && !psychotic && lairState/.test(w), 'and an immobile one still runs about');
   // The roster mover (every foe's) rolls the random heading inside its routed
   // branch: below the ward (Home still drives it out — `_wardFrom` wins).
-  assert.truthy(/if \(!c\._wardFrom && Combat\.isPsychotic\(c, now\)\) \{[\s\S]{0,300}?c\._madAngle = Math\.random\(\) \* Math\.PI \* 2;/.test(CREATURE_AI_SRC), 'rosterEnemyMove: mad, and not warded — a fresh random heading');
+  assert.truthy(/if \(!c\._wardFrom && Combat\.isPsychotic\(c, now\)\) \{[\s\S]{0,300}?c\._madAngle = enemyMovementRandom\(c, 'psychosis'\) \* Math\.PI \* 2;/.test(CREATURE_AI_SRC), 'rosterEnemyMove: mad, and not warded — a fresh random heading');
   assert.truthy(/if \(!charmed && \(c\._fearUntilT > now \|\| Combat\.isPsychotic\(c, now\)\)\) return false;/.test(CREATURE_AI_SRC),
     'flowerCreatureTick hands a mad foe to the ordinary lanes like a frightened one');
 });
