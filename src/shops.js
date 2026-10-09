@@ -146,7 +146,7 @@
     // The seeds any shop may sell (BUY_LIST: T1..T3 crops — the magical
     // flowers stay find-only).
     seed:   () => (typeof BUY_LIST !== 'undefined' ? BUY_LIST.slice() : []),
-    supply: () => ['wood', 'rubble', 'torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'javelin', 'scarecrow', 'magic_trap', 'sugar_potion', 'renovation_permit'],
+    supply: () => ['wood', 'rubble', 'torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'javelin', 'scarecrow', 'barricade', 'magic_trap', 'sugar_potion', 'renovation_permit'],
     potion: () => ITEMS.filter(item => item.kind === 'magic' && !item.uniqueJewelry).map(item => item.id),
     pet:    () => ITEMS.filter(it => it.petAccessory).map(it => it.id),
     // The bookshop's line: only the Book, at the price ladder (shops_math.js listPrice).

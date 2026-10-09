@@ -122,6 +122,13 @@ access or tile lifecycle mechanics.
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
   Each spawner owns a seeded RNG stream so adding one does not reroll others.
+  Barricades are tier-2 supplies found in supply/field loot or supply shops.
+  Finding one unlocks its Home recipe: three wood makes one barricade. Select
+  it and tap an empty safe cell to place it on the current floor. Saved
+  barricades reuse the wild obstacle's art, slowing, damage and axe/fire/kit
+  clearing rules; floor-tagged records survive reloads without reappearing
+  after removal. Chopping a crafted barricade returns its recipe wood cost
+  without a shiny bonus.
 - A POI chest's tier is its tile's QUOTA SEAT (`WorldGen.seedChestTiers`):
   each tile seeds ~1 T5, 5 T4, 11 T3, 18 T2 (x1..x2 over 100..1000
   budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),

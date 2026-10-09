@@ -523,6 +523,7 @@ const MINERAL_ICON_SHEET = {
   // The existing sprung-jaw drawing in the placed magic trap's magenta.
   // Inventory shows the mechanism; placed traps remain a discreet ground scuff.
   magic_trap:    { sheet: 'icon_magic_trap', frame: 0 },
+  barricade:     { sheet: 'icon_barricade', frame: 0 },
   // MiniWorld spear: frame 0 points right; frame 1 points down.
   throwing_spear:        { sheet: 'icon_throwing_spear', frame: 0 },
   javelin:      { sheet: 'icon_javelin', frame: 0 },
@@ -714,6 +715,7 @@ const BASE_TIER = {
   trap_disarm_kit: 2,
   // Magic Trap — a tier-3 supply sold by shops and dropped by goblin trappers.
   magic_trap: 3,
+  barricade: 2,
   // Spear — a T1 supply like the torch (owner, Oct 2026: it was T2, so the
   // first Supply Shop could not sell it): one thrown shot, a staple of the
   // first cave trips, so the initial supply shop stocks it beside the torch.
@@ -986,6 +988,7 @@ const ITEMS = [
   // crop raiders) steer around it (4-cell aversion radius in wanderCreatures).
   // Stack of N can be deployed across the farm.
   { id: 'scarecrow',    name: 'Scarecrow',    kind: 'supply' },
+  { id: 'barricade', name: 'Barricade', kind: 'supply' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
   // Fish (caught by Fishing Rod on water tiles). dropWeight: 0.4 trims their
@@ -1631,6 +1634,7 @@ const PRICES = {
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
   renovation_permit: 180,   // T4 — one rank on one building, forever; a hammer's neighbour
+  barricade: 12,   // T2 — three wood at Home; deploys the existing wooden obstacle
   scarecrow: 20,   // crow/deer ward — crafted at Home (HOME_RECIPES) or sold by a Supply Shop
   acorn: 5,
 
@@ -1736,6 +1740,7 @@ const FEATHER_REVIVE_ENERGY = 1;
 const TRAP_KIT_KEEP_CHANCE = 0.8;
 
 const ITEM_GUIDE_TIPS = {
+  barricade: 'I lashed the spare timber into a barricade at home, then carried it down to the cave. The narrow passage needed less wood than I feared.',
   crow_feather: 'My legs failed on the long road. I pressed the black feather to my lips. Just enough strength to rise. Sometimes that is all a mercy needs to be.',
   scarecrow: 'The deer have kept to the tree line since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
   trap_disarm_kit: 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.',
@@ -1875,6 +1880,7 @@ const ITEM_EFFECTS = {
   magic_trap: 'A hungry knot of magic waits for a foe’s footfall.',
   throwing_spear: CONSUMABLE_SPEC.throwing_spear.get,
   javelin: CONSUMABLE_SPEC.javelin.get,
+  barricade: 'Rough timber waits to bar a path. Select it, then tap empty ground to place it.',
   scarecrow: 'An empty coat watches the beds, and hungry mouths turn away.',
   acorn: 'A young timber tree waits beneath this little cap for earth and time.',
   flint_shard: 'A spark wakes a small fire inside its black heart.',
@@ -2667,6 +2673,7 @@ const HOME_RECIPES = [
   // sold at the first Supply Shop, never crafted.
   { id: 'throwing_spear',     cost: [{ id: 'rubble', qty: 1 }, { id: 'wood', qty: 1 }] },
   { id: 'scarecrow', cost: [{ id: 'wood', qty: 3 }] },
+  { id: 'barricade', cost: [{ id: 'wood', qty: 3 }] },
   // Five strands of long grass twist into one rope — the way back up a cave
   // without buying one or finding one in a shallow cave chest.
   { id: 'rope',      cost: [{ id: 'longgrass', qty: 5 }] },

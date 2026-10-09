@@ -1569,6 +1569,7 @@ const ICON_SHEETS = {
   // Torch — single 16×16 stick-and-flame icon (hand-drawn, like the rope).
   icon_torch:    { url: 'assets/Icons/Items/Torch.png',                      cols: 1,  srcW: 16,  srcH: 16 },
   icon_kit:      { url: 'assets/Icons/Items/TrapDisarmKit.png',             cols: 1,  srcW: 16, srcH: 16 },
+  icon_barricade: { url: 'assets/Objects/Approved/barricade.png', cols: 1, srcW: 24, srcH: 24 },
   icon_magic_trap: { url: 'assets/Icons/Items/MagicTrap.png',                cols: 1,  srcW: 16, srcH: 16 },
   icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
   // The campfire's dishes — one 16px frame per items.js COOKED_FOODS row,

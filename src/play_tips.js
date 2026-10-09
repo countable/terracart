@@ -159,6 +159,7 @@ const PLAY_TIPS = [
   "Every creature under the stone covets a gem, and it knows its own worth. A common thing will sit for a scrap of quartz. The great ones want a stone you would hesitate to part with.",
   "Want one alive? Hold out the gem it wants, then put your weapon away. It will run. Keep close until it gives up. Its friends will not stop fighting, so mind them.",
   "A creature at the end of a long quarrel is easier to persuade. Mine had lost most of its temper, and a good deal of its strength, before it took the stone and stayed.",
+  ITEM_GUIDE_TIPS.barricade,
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -405,6 +406,7 @@ const PLAY_TIP_VOLUMES = [
   "miner",
   "brann",
   "scholar",
+  "builder",
 ];
 
 // Narrator observations sit outside the quoted excerpt.

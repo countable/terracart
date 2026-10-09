@@ -84,6 +84,31 @@ test('home craft: crafting spends the wood and hands over the item', () => {
   assert.eq(Inventory.count(s.save, 'throwing_spear'), 2, 'two spears');
 });
 
+test('home craft: tier-2 barricades cost exactly three wood after discovery', () => {
+  assert.eq(ITEM_BY_ID.barricade.baseTier, 2);
+  assert.includes(ITEMS_BY_CLASS_TIER.supply[2], 'barricade');
+  assert.falsy(ITEMS_BY_CLASS_TIER.supply[1].includes('barricade'));
+  for (const group of ['supplies', 'field']) {
+    assert.includes(ChestThemes.resolve(group, 2).ids, 'barricade');
+    assert.falsy(ChestThemes.resolve(group, 1).ids.includes('barricade'));
+  }
+  assert.includes(Shops.themedStock('supply', 2), 'barricade');
+  assert.falsy(Shops.themedStock('supply', 1).includes('barricade'));
+  assert.truthy(homeRecipeLocked({}, 'barricade'));
+  const s = scene([['wood', 5]]);
+  s.save.foundWild = { barricade: 1 };
+  s.presentHomeCraft(0, 0, 'barricade');
+  assert.truthy(last(s).canAfford);
+  last(s).onAccept();
+  assert.eq(Inventory.count(s.save, 'wood'), 2);
+  assert.eq(Inventory.count(s.save, 'barricade'), 1);
+  s.presentHomeCraft(0, 0, 'barricade');
+  assert.falsy(last(s).canAfford);
+  last(s).onAccept();
+  assert.eq(Inventory.count(s.save, 'wood'), 2);
+  assert.eq(Inventory.count(s.save, 'barricade'), 1);
+});
+
 test('home craft: bag room disables Craft and is rechecked before ingredients are spent', () => {
   const s = scene([['wood', 5], ['rubble', 5], ['throwing_spear', 8]]);
   s.presentHomeCraft(0, 0, 'throwing_spear');

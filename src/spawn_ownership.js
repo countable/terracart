@@ -7,7 +7,9 @@
     const ids = new Set();
     if (!save) return ids;
     for (const rec of ((save.starterHome && save.starterHome.placed) || [])) if (rec.id) ids.add(rec.id);
-    for (const rec of (save.fruittrees || [])) if (rec.id) ids.add(rec.id);
+    for (const list of [save.fruittrees, save.barricades]) {
+      for (const rec of (list || [])) if (rec.id) ids.add(rec.id);
+    }
     if (save.starterTrailer && save.starterTrailer.id) ids.add(save.starterTrailer.id);
     return ids;
   }

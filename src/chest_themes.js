@@ -9,8 +9,8 @@
   const cropSeeds = () => ITEMS.filter(i => i.kind === 'seed' && !i.plants && foodIds().includes(i.grows)).map(i => i.id);
   const groups = {
     uniqueRelics: { ids: () => ITEMS.filter(i => i.kind === 'unique_relic' && !isTome(i.id) && !i.progressionOnly).map(i => i.id), mixedTiers: true, fallback: 'magic' },
-    supplies: { ids: { torch: 3, rope: 1, trap_disarm_kit: 1, throwing_spear: 1, sugar_potion: 1, blank_scroll: 1 }, starterWeapons: ['dagger', 'lance', 'musket'], starterWeaponChance: 0.25, fallback: 'torch' },
-    field: { ids: ['torch', 'rope', 'trap_disarm_kit', 'throwing_spear'], fallback: 'torch' },
+    supplies: { ids: { torch: 3, rope: 1, trap_disarm_kit: 1, throwing_spear: 1, barricade: 1, sugar_potion: 1, blank_scroll: 1 }, starterWeapons: ['dagger', 'lance', 'musket'], starterWeaponChance: 0.25, fallback: 'torch' },
+    field: { ids: ['torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'barricade'], fallback: 'torch' },
     farmSupplies: { ids: ['scarecrow', 'sugar_potion'], fallback: 'torch' },
     materials: { ids: ['wood', 'rubble', 'flint_shard', ...Object.values(MINERAL_TIERS).map(row => row.barId)] },
     cash: { kind: 'cash' },
