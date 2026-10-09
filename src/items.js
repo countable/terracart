@@ -1951,7 +1951,7 @@ const ANIMAL_FOOD = {
   deer: ['apple'],
   crow: ['potato_seed'],
   butterfly: ['flowers'],
-  sea_turtle: ['cress'],
+  sea_turtle: ['shell'],  // a beach animal's favourite is a beach find (owner, Oct 2026)
   cow:     ['pairy'],      // pears to munch
   horse:   ['pairy'],      // the cow's favourite
   // Cats love milk AND any kind of fish.

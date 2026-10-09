@@ -200,3 +200,8 @@ test('favourite: a hunt (deer, empty hand, weapon active) starts the hunt wheel,
   assert.eq(Inventory.count(save2, fav), 0, 'the favourite is given');
 });
 })();
+
+test('favourite: a sea turtle favours a shell', () => {
+  assert.eq(JSON.stringify(favouriteOverride('sea_turtle')), JSON.stringify(['shell']));
+  assert.truthy(ITEM_BY_ID.shell, 'the shell is a real item');
+});
