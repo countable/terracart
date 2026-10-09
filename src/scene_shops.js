@@ -1192,13 +1192,28 @@ class SceneShops {
   _presentRecipeOffer(sx, sy, { recipe, produce, refuse, canAfford = true, ...modal }) {
     const held = (id) => Inventory.count(this.save, id);
     const short = () => recipe.find(r => held(r.id) < r.qty);
-    const cost = recipe.map(r => `<span style="color:${held(r.id) >= r.qty ? UI_GREEN : UI_DANGER_INK}">`
-      + `${r.qty}× ${this.iconSpanHTML(r.id)} ${itemName(r.id)}</span>`).join(' + ');
+    const craft = modal.kind === 'craft';
+    const cost = craft
+      ? '<div class="recipe-ingredients" style="text-align:left;font-size:13px;font-weight:400">'
+        + '<div style="text-align:right;color:#bdb5a4;font-size:11px;margin-bottom:4px">Have / Need</div>'
+        + recipe.map(r => {
+          const have = held(r.id), missing = Math.max(0, r.qty - have);
+          return '<div class="recipe-ingredient" style="display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #ffffff1f">'
+            + `<span style="line-height:0">${this.iconSpanHTML(r.id, 24)}</span>`
+            + `<span style="color:#eee">${itemName(r.id)}</span>`
+            + `<span style="text-align:right;color:${missing ? UI_DANGER_INK : UI_GREEN}">`
+            + `<strong>${have} / ${r.qty}</strong>`
+            + (missing ? `<small style="display:block;font-size:11px;margin-top:2px">Need ${missing} more</small>` : '')
+            + '</span></div>';
+        }).join('') + '</div>'
+      : recipe.map(r => `<span style="color:${held(r.id) >= r.qty ? UI_GREEN : UI_DANGER_INK}">`
+        + `${r.qty}× ${this.iconSpanHTML(r.id)} ${itemName(r.id)}</span>`).join(' + ');
     this.showOfferModal({
       kind: 'forge',
       costLabel: 'You give',
       ...modal,
       cost,
+      disabledReason: modal.disabledReason || (craft && short() ? 'Missing ingredients' : undefined),
       canAfford: canAfford && !short(),
       onAccept: () => {
         if (refuse && refuse()) return;

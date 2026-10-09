@@ -481,8 +481,7 @@ class SceneVenues {
   }
 
   // CRAFT page: one recipe of HOME_RECIPES (items.js) at a time, with a
-  // Craft button and the ‹ › pager that walks the rest — the smithy's
-  // Smelt page, pointed at Home. `targetId` defaults to the first recipe the
+  // direct recipe picker. `targetId` defaults to the first recipe the
   // bag can make, so the page opens on something usable.
   presentHomeCraft(sx, sy, targetId = null) {
     const held = (id) => Inventory.count(this.save, id);
@@ -503,16 +502,19 @@ class SceneVenues {
       recipe: rec.cost,
       kind: 'craft', kindIcon: this._homeKindIcon(),
       tabs: this._homeTabs('craft', sx, sy),
-      title: 'Make something at home:',
       cancelLabel: 'Leave',
       get: `1× ${this.iconSpanHTML(rec.id)} ${outName}`,
-      blurb: ITEM_EFFECTS[rec.id] ? `✦ ${ITEM_EFFECTS[rec.id]}` : undefined,
+      blurb: ITEM_EFFECTS[rec.id] || undefined,
       canAfford: this.invRoomFor(rec.id) >= 1,
       acceptLabel: 'Craft',
-      getLabel: 'You make', costLabel: 'You use',
+      costLabel: 'Ingredients',
+      disabledReason: this.invRoomFor(rec.id) < 1 ? bagFullFor(rec.id) : undefined,
       repeat: () => this.presentHomeCraft(sx, sy, rec.id),
       pager: {
         index: idx, count: n, showIndex: false,
+        options: recipes.map(r => ({ label: itemName(r.id), onSelect: pageTo(r) })),
+        iconHTML: this.iconSpanHTML(rec.id, 32),
+        caption: `Makes 1 · In bag: ${held(rec.id)}`,
         onPrev: pageTo(recipes[(idx - 1 + n) % n]),
         onNext: pageTo(recipes[(idx + 1) % n]),
       },
