@@ -5159,12 +5159,21 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const progress = elapsed / dur;
-    // Every work wheel, including a fleeing net target, stays in its cell.
-    const ac = worldMetersToAbsCell(this, wp.worldX, wp.worldY);
-    const cc = absCellCenterMeters(this, ac.cellIX, ac.cellIY);
-    const ax = cc.x, ay = cc.y;
-    const screen = this.worldMetersToScreen(ax, ay);
-    const cx = Math.round(screen.x), cy = Math.round(screen.y);
+    // A static work wheel stays in its cell; a CREATURE's (a catch's fleeing
+    // animal, a hunt's quarry) rides the creature itself, on its body
+    // (SpriteLayout.creatureWheelDy), so it never lags a cell behind.
+    const mover = wp.flee || wp.track;
+    let cx, cy;
+    if (mover) {
+      const screen = this.worldMetersToScreen(mover.x, mover.y);
+      cx = Math.round(screen.x);
+      cy = Math.round(screen.y + SpriteLayout.creatureWheelDy(mover.kind, SpriteLayout.creatureInstScale(mover)));
+    } else {
+      const ac = worldMetersToAbsCell(this, wp.worldX, wp.worldY);
+      const cc = absCellCenterMeters(this, ac.cellIX, ac.cellIY);
+      const screen = this.worldMetersToScreen(cc.x, cc.y);
+      cx = Math.round(screen.x); cy = Math.round(screen.y);
+    }
     const g = this._workProgressGfx;
     g.clear();
     this._workProgressIcon?.setVisible(false);
