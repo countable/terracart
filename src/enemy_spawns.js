@@ -273,6 +273,24 @@
   }
   function surfaceId(tx, ty, cx, cy) { return root.WorldGen.cellId('enemy', tx, ty, cx, cy); }
   function caveId(depth, tx, ty, cx, cy) { return root.WorldGen.cellId(`enemy_cave_${depth}`, tx, ty, cx, cy); }
+  // WORLD-SHARED IDS: is this creature the SAME creature, under the same id,
+  // on every device with the same tile data, so another player's hit, kill
+  // or "it's dead" may be applied to it (multiplayer.js)? A positive mark,
+  // stamped where world-derived creatures are made (the tile spawn passes,
+  // lair garrisons, a shared summoner's summons, hive bees, nest fauna, a
+  // bone cache's skeleton, a revealed mimic). Anything minted off a clock,
+  // Math.random or a per-device serial (ghosts, the fished slime, pest deer,
+  // guild bounty foes, dev spawns, story encounters, a split slime's halves,
+  // whose `${root}_s${n}` counts per device) is never marked, so never shared.
+  // A CITADEL guard (`castle`) is excluded too: its defeat expires with the
+  // battle that killed it (_expireCitadelBattles), so another player's kill
+  // must not become a permanent death in this save.
+  // SHARED_ID_RE is the wire's id charset (mirrored in server/index.js).
+  const SHARED_ID_RE = /^[A-Za-z0-9_:.%-]{1,96}$/;
+  function markShared(c, on = true) { if (c && on) c._sharedId = true; return c; }
+  function isSharedId(c) {
+    return !!c && c._sharedId === true && !c.castle && typeof c.id === 'string' && SHARED_ID_RE.test(c.id);
+  }
   // Legacy IDs encode ordinal seats (pack) or cells (roamers). Match either
   // suffix without tying a persistent defeat to the newly selected species.
   function legacyCaveDefeats(caught, depth, tx, ty) {
@@ -303,7 +321,7 @@
       && Math.hypot(o.x - x, o.y - y) <= clearM);
   }
   const caveContextAt = (entry, tx, ty, cx, cy, depth) => root.EnemyHabitats.caveAt(entry, tx, ty, cx, cy, depth);
-  const api = { CONCEALMENT, concealment, HOME_FAUNA_RADIUS_M, homeFaunaSubject, homeFaunaAllows, refreshHomeFauna, caveContextAt, SURFACE_NIGHT_DAYLIGHT, hash, roll, surfaceRows, surfaceActive, busyRoadAllows, isSurfaceResident, homeEligible, maxTierAt, homeAllows, caveRows, caveKind, surfaceId, caveId, legacyCaveDefeats, ELITE_STAIR_CLEAR_CELLS, rollsElite };
+  const api = { CONCEALMENT, concealment, HOME_FAUNA_RADIUS_M, homeFaunaSubject, homeFaunaAllows, refreshHomeFauna, caveContextAt, SURFACE_NIGHT_DAYLIGHT, hash, roll, surfaceRows, surfaceActive, busyRoadAllows, isSurfaceResident, homeEligible, maxTierAt, homeAllows, caveRows, caveKind, surfaceId, caveId, SHARED_ID_RE, markShared, isSharedId, legacyCaveDefeats, ELITE_STAIR_CLEAR_CELLS, rollsElite };
   root.EnemySpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

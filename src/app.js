@@ -1843,7 +1843,7 @@ class MapScene extends Phaser.Scene {
   // Two costs, one cell. Walking onto a HIDDEN trap springs it: it is revealed
   // for good (save.sprungTraps — the only thing about a trap that is ever
   // stored) and takes Traps.STEP_ENERGY in one bite, with the pain effect.
-  // Staying on the sprung one bleeds Traps.STAND_ENERGY_PER_S — faster than any
+  // Staying on the sprung one bleeds Traps.standEnergyPerS() — faster than any
   // passive rest can refill, so waiting it out is never the answer and stepping
   // off is.
   //
@@ -2089,7 +2089,7 @@ class MapScene extends Phaser.Scene {
       this._warnIfTiring(before);
       if (this.updateEnergyDOM) this.updateEnergyDOM();
       const ps = this.playerScreen ? this.playerScreen() : null;
-      const bleed = +Combat.playerDamage(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap), { boots: this.save.armor?.boots }).toFixed(1);
+      const bleed = +Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }).toFixed(1);
       this.flash(`🪤 a trap! −${bleed}⚡/s — step off`,
         ps ? ps.x : undefined, ps ? ps.y - ENERGY_POP_HEAD_PX - 22 : undefined);
       // The reveal has to survive a reload, so it is written now rather than
@@ -2118,7 +2118,7 @@ class MapScene extends Phaser.Scene {
     // loss joins the drain roll-up (_bankDrain) — a number a second stacks
     // into an unreadable column.
     const pips = bankWhole(this, '_trapDrainAccum',
-      Combat.playerDamage(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt);
+      Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt);
     if (pips > 0 && (this.save.energy ?? 0) > 0) this._bankDrain('trap', -this._losePlayerEnergy(pips), { ix, iy, label: '🪤 trap' });
   }
 
@@ -3737,7 +3737,9 @@ class MapScene extends Phaser.Scene {
         // ring it is derived from. Handed to the spawn below as well, so the
         // bolt flies exactly as far as the check that loosed it.
         const reach = reachCells(this);
-        const heading = Combat.shotHeading(slot, px, py, this.facing, enemies, this.cellM, reach);
+        // Confused, the staff can't pick a foe: it fires where you face.
+        const heading = Combat.shotHeading(slot, px, py, this.facing, enemies, this.cellM, reach,
+          { confused: Conditions.active(this.save, 'confused') });
         if (!heading) continue;
         // The staff draws energy per bolt (Combat.SHOT.staff.energyCost — the
         // price of its pierce + double punch). No energy → no bolt, SILENTLY:
@@ -4402,7 +4404,7 @@ class MapScene extends Phaser.Scene {
       if (s.projectile === 'confusion_puff') {
         const phase = (s.travelledM || 0) * 3;
         const size = CELL_PX * 0.75;
-        // A travelling puff of the same translucent lilac gas as the ground cloud.
+        // A travelling puff of the same yellow confusion gas as the ground cloud.
         GasRender.paintCell(g, hx - size / 2, hy - size / 2, size, 2, 0, phase);
         continue;
       }
@@ -4662,6 +4664,9 @@ class MapScene extends Phaser.Scene {
     if (!(amount > 0)) return false;
     const dealt = Combat.damageDealt(c, amount, Combat.isEnvironmentSource(source) ? { bypassArmor: true } : options);
     const left = Combat.hp(c);
+    // Nearby players' copies of this foe take the same blow (own side only;
+    // a peer's hit is never passed on).
+    if (dealt > 0 && typeof Multiplayer !== 'undefined') Multiplayer.reportHit(this, c, dealt, source);
     // Moss hides us until we strike this creature. Environmental damage and
     // allied attacks do not reveal us; a fresh blessing hides us again.
     if (source === 'player' && dealt > 0 && Shrines.leverActive(this.save, 'hidden')) {
@@ -4709,7 +4714,9 @@ class MapScene extends Phaser.Scene {
       // not, or a burning slime would divide itself every tick. The striker's
       // side is whoever dealt it: a shot's origin when the caller says, else
       // the player's feet.
-      if (dealt > 0 && !Combat.isEnvironmentSource(source)) {
+      // A peer's hit divides nothing here: its halves would be ids only this
+      // client minted, seated off this player's feet.
+      if (dealt > 0 && !Combat.isEnvironmentSource(source) && !Combat.isPeerHit(source)) {
         const from = options.from || this.playerM || { x: c.x - 1, y: c.y };
         if (enemySplit(this, c, from.x, from.y, now) && now >= (this._splitFlashT || 0)) {
           this._splitFlashT = now + 2500;
@@ -4776,7 +4783,19 @@ class MapScene extends Phaser.Scene {
     save.caught = save.caught || [];
     if (save.caught.includes(victim.id)) return;
     save.caught.push(victim.id);
-    const mine = Combat.isPlayerKill(source);
+    // An own-side kill is announced to nearby players, whose copies die with
+    // it whatever HP they show (Multiplayer.reportKill; a no-op offline).
+    if (typeof Multiplayer !== 'undefined') Multiplayer.reportKill(this, victim, source);
+    // A PEER'S KILL (Combat.isPeerHit) is marked dead and nothing more —
+    // the killer's client paid the coin and the rest — UNLESS this client's
+    // own side helped (Multiplayer.assisted: an own-side blow within
+    // ASSIST_MS). An assist spawns the kill's loot here too (coin, drop,
+    // elite / treasure roll) but never its ledger credit: KILL_LEDGERS below
+    // are told only of this client's own kills.
+    const peer = Combat.isPeerHit(source);
+    const assist = peer && typeof Multiplayer !== 'undefined' && Multiplayer.assisted(victim);
+    if (peer && !assist) { persistSave(save); return; }
+    const mine = Combat.isPlayerKill(source) || assist;
     // WHAT A KILL DROPS is the kind's own row (SpriteLayout.CREATURE_BEHAVIOUR
     // `drop`), not a ternary here: game drops a body part, and an ENEMY pays a
     // bounty instead — which is Combat's question, asked just below.
@@ -4801,7 +4820,7 @@ class MapScene extends Phaser.Scene {
       if (coins > 0) this._dropBountyCoin(victim, coins);
       const name = Combat.monster(victim.kind)?.name || 'Slime';
       const elite = Combat.isElite(victim);
-      if (mine) this.flashAtWorld(`⚔️ ${name} slain`, victim.x, victim.y);
+      if (mine) this.flashAtWorld(assist ? `🤝 ${name} slain — assist` : `⚔️ ${name} slain`, victim.x, victim.y);
       if (!mine) {
         // A turret's (or any non-player) kill: the coin is the whole payout.
       } else if (elite) {
@@ -4836,7 +4855,7 @@ class MapScene extends Phaser.Scene {
     // Who is told (KILL_LEDGERS): Maud's archer, the fire-breath demon, the
     // castle's board, the guild bounty — each judging the credit by
     // Macros.slainByPlayer (the wage above was paid either way).
-    for (const tell of KILL_LEDGERS) tell(this, victim, source);
+    if (!peer) for (const tell of KILL_LEDGERS) tell(this, victim, source);
     persistSave(save);
     // Rare shiny deer / crow — hunted fauna drop their product (meat /
     // feather), so there's no live shiny animal to keep, but the shiny find
@@ -5159,12 +5178,21 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const progress = elapsed / dur;
-    // Every work wheel, including a fleeing net target, stays in its cell.
-    const ac = worldMetersToAbsCell(this, wp.worldX, wp.worldY);
-    const cc = absCellCenterMeters(this, ac.cellIX, ac.cellIY);
-    const ax = cc.x, ay = cc.y;
-    const screen = this.worldMetersToScreen(ax, ay);
-    const cx = Math.round(screen.x), cy = Math.round(screen.y);
+    // A static work wheel stays in its cell; a CREATURE's (a catch's fleeing
+    // animal, a hunt's quarry) rides the creature itself, on its body
+    // (SpriteLayout.creatureWheelDy), so it never lags a cell behind.
+    const mover = wp.flee || wp.track;
+    let cx, cy;
+    if (mover) {
+      const screen = this.worldMetersToScreen(mover.x, mover.y);
+      cx = Math.round(screen.x);
+      cy = Math.round(screen.y + SpriteLayout.creatureWheelDy(mover.kind, SpriteLayout.creatureInstScale(mover)));
+    } else {
+      const ac = worldMetersToAbsCell(this, wp.worldX, wp.worldY);
+      const cc = absCellCenterMeters(this, ac.cellIX, ac.cellIY);
+      const screen = this.worldMetersToScreen(cc.x, cc.y);
+      cx = Math.round(screen.x); cy = Math.round(screen.y);
+    }
     const g = this._workProgressGfx;
     g.clear();
     this._workProgressIcon?.setVisible(false);

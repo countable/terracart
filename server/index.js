@@ -2,20 +2,28 @@
 //
 // One tiny WebSocket server that lets players SEE each other. It holds no game
 // state: every client keeps its own save, and the server only fans out
-// "where I am" messages. What it does own is the roster — it assigns ids,
-// pins each socket's name + colour from its hello, and tells everyone when a
-// player arrives or leaves — so a client can never impersonate another.
+// "where I am" messages, plus three enemy frames (hit, seen, dead) so nearby
+// players' copies of the same deterministic enemy take the same damage and
+// die together. What it does own is the roster — it assigns ids, pins each
+// socket's name + colour from its hello, and tells everyone when a player
+// arrives or leaves — so a client can never impersonate another.
 //
 // Wire protocol (JSON text frames, one object per frame):
 //   client → server
 //     { t:'hello', name, color, x, y, fx, fy, m, d }  first frame; name required
 //     { t:'p', x, y, fx, fy, m, d }                   position update (≤ MAX_MSGS_PER_S)
 //     { t:'ping', x, y, label }                       "look here" (≤ 1 per PING_GAP_MS)
+//     { t:'hit', id, f, left, d, k? }                 my side damaged enemy `id`   ┐ ≤ MAX_ENEMY_FRAMES_PER_S
+//     { t:'seen', ids:[id...], d }                    these enemies are alive here │ together; extras
+//     { t:'dead', ids:[id...], d }                    these enemies are dead (reply)┘ dropped, not fatal
 //   server → client
 //     { t:'welcome', id, peers:[<peer>...] }          reply to hello; peers = everyone else
 //     { t:'join',  ...<peer> }                        someone new said hello
 //     { t:'p',     id, x, y, fx, fy, m, d }           a peer moved (within INTEREST_PX only)
 //     { t:'ping',  id, name, color, x, y, label }     a peer pinged a spot (within INTEREST_PX)
+//     { t:'hit',   id, eid, f, left, d, k? }          a peer damaged enemy `eid` (within INTEREST_PX)
+//     { t:'seen',  id, ids, d }                       a peer has these enemies loaded, alive (within INTEREST_PX)
+//     { t:'dead',  id, ids, d }                       a peer knows these enemies are dead (within INTEREST_PX)
 //     { t:'leave', id }                               a peer's socket closed
 //     { t:'error', reason }                           then the socket is closed
 //   <peer> = { id, name, color, x, y, fx, fy, m, d }
@@ -24,6 +32,16 @@
 // absolute, so two saves anchored at different homes still agree on where a
 // player stands. fx/fy is the facing vector, m = 1 while walking, d = cave
 // depth (0 = surface). Clients only draw peers at their own depth.
+// A hit's `id`/`eid` is the enemy's deterministic creature id, `f` the damage
+// as a fraction of its max HP (0 < f ≤ 1), `left` the sender's resulting HP
+// fraction, and `k: 1` says the sender's side KILLED it — authoritative: every
+// receiver kills its copy whatever HP it shows (a kill may carry f = 0, e.g.
+// when the killing damage was already sent). A malformed enemy frame is
+// dropped, never fatal; a client that does not know a frame type ignores it,
+// so old clients keep working.
+// `seen` / `dead` carry 1..MAX_IDS enemy ids (same charset): a client
+// announces the enemies it has newly loaded, and any peer that knows one is
+// dead answers to everyone nearby, so a player who missed a kill learns it.
 //
 // Run: node index.js            (PORT env, default 8787)
 // Test: node test.js
@@ -47,6 +65,14 @@ const PING_GAP_MS = 2000;
 // Inbound frames per second per socket before we cut it off — the client
 // sends at ≤ 10 Hz plus a 5 s heartbeat, so 30 is generous.
 const MAX_MSGS_PER_S = 30;
+// Enemy frames (hit, seen, dead) are a share of that budget, capped on their
+// own: a client batches its damage per enemy and sends ≤ 12 hits, 1 seen and
+// ≤ 2 dead replies a second (src/multiplayer.js), so frames past this cap are
+// dropped silently rather than closing the socket. 8 Hz positions + 20 stays
+// inside MAX_MSGS_PER_S.
+const MAX_ENEMY_FRAMES_PER_S = 20;
+const ENEMY_ID_RE = /^[A-Za-z0-9_:.%-]{1,96}$/;   // src/enemy_spawns.js SHARED_ID_RE
+const MAX_IDS = 32;
 // A socket that has not answered a ping in this long is dead (phone locked,
 // tunnel dropped) — close it so its ghost leaves the roster.
 const PING_MS = 20000;
@@ -92,6 +118,25 @@ function cleanColor(raw) {
 function num(v, fallback = 0) {
   return Number.isFinite(v) ? v : fallback;
 }
+// A well-formed hit's relayed fields, or null to drop it.
+function cleanHit(msg) {
+  const { id, f, left, d, k } = msg;
+  if (k !== undefined && k !== 0 && k !== 1) return null;
+  const kill = k === 1;
+  if (typeof id !== 'string' || !ENEMY_ID_RE.test(id)) return null;
+  if (!Number.isFinite(f) || f < 0 || f > 1 || (f === 0 && !kill)) return null;
+  if (!Number.isFinite(left) || left < 0 || left > 1) return null;
+  if (!Number.isInteger(d) || d < 0) return null;
+  return kill ? { eid: id, f, left, d, k: 1 } : { eid: id, f, left, d };
+}
+// A well-formed seen / dead list's relayed fields, or null to drop it.
+function cleanIds(msg) {
+  const { ids, d } = msg;
+  if (!Array.isArray(ids) || ids.length < 1 || ids.length > MAX_IDS) return null;
+  if (!ids.every((id) => typeof id === 'string' && ENEMY_ID_RE.test(id))) return null;
+  if (!Number.isInteger(d) || d < 0) return null;
+  return { ids, d };
+}
 
 function createRelay(server) {
   const wss = new WebSocketServer({ server, maxPayload: 1024 });
@@ -118,6 +163,7 @@ function createRelay(server) {
   wss.on('connection', (ws) => {
     let me = null;
     ws.budget = MAX_MSGS_PER_S;   // inbound frames left this second (refilled below)
+    ws.enemyBudget = MAX_ENEMY_FRAMES_PER_S;
     ws.alive = true;
     ws.on('pong', () => { ws.alive = true; });
     const helloTimer = setTimeout(() => { if (!me) ws.terminate(); }, HELLO_DEADLINE_MS);
@@ -151,6 +197,13 @@ function createRelay(server) {
         me.lastPingAt = now;
         nearby(me, { t: 'ping', id: me.id, name: me.name, color: me.color,
                      x: num(msg.x), y: num(msg.y), label: cleanLabel(msg.label) });
+        return;
+      }
+      if (msg.t === 'hit' || msg.t === 'seen' || msg.t === 'dead') {
+        const body = msg.t === 'hit' ? cleanHit(msg) : cleanIds(msg);
+        if (!body || --ws.enemyBudget < 0) return;
+        nearby(me, { t: msg.t, id: me.id, ...body });
+        return;
       }
       // Unknown frames are ignored, not fatal.
     });
@@ -166,7 +219,7 @@ function createRelay(server) {
   });
 
   // Refill everyone's per-second frame budget; ping to reap dead sockets.
-  const budgetTimer = setInterval(() => { for (const c of wss.clients) c.budget = MAX_MSGS_PER_S; }, 1000);
+  const budgetTimer = setInterval(() => { for (const c of wss.clients) { c.budget = MAX_MSGS_PER_S; c.enemyBudget = MAX_ENEMY_FRAMES_PER_S; } }, 1000);
   const pingTimer = setInterval(() => {
     for (const c of wss.clients) {
       if (checkSlowConsumer(c)) continue;
@@ -203,5 +256,5 @@ if (require.main === module) {
 }
 
 // What server/test.js drives; nothing else requires this module.
-module.exports = { createServer, cleanName, cleanLabel, INTEREST_PX, MAX_MSGS_PER_S,
+module.exports = { createServer, cleanName, cleanLabel, cleanHit, cleanIds, INTEREST_PX, MAX_MSGS_PER_S, MAX_ENEMY_FRAMES_PER_S, MAX_IDS,
                    sendFrame, checkSlowConsumer, POSITION_BUFFER_BYTES, MAX_OUTBOUND_BYTES, SLOW_PING_LIMIT };

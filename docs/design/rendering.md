@@ -57,10 +57,10 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   The shine sweep and a warping rank's space warp (`Render.setEliteWarp`, a
   camera post pass attached only while one is on screen) need the device's
   graphics-FX opt-in (`Render.canShine`).
->>>>>>> origin/main
-- Centre work wheels in the target cell, including net captures. Use a small,
-  solid disc at 50% opacity. Seat enemy health bars from `CREATURE_ART` helpers,
-  not fixed pixel offsets. Work tools animate at the target cell.
+- Centre a static target's work wheel in its cell; a creature's (a net
+  capture, a hunt) rides the creature, on its body (`creatureWheelDy`). Use a
+  small, solid disc at 50% opacity. Seat enemy health bars from `CREATURE_ART`
+  helpers, not fixed pixel offsets. Work tools animate at the wheel.
 - Bake repeated cell geometry into textures (e.g. tilled beds). Reset mutable
   properties such as watered tint whenever pooled sprites are reused.
 - Respect `FPS_LIMIT` and its elapsed-time cadence adapter. The default stays
@@ -105,7 +105,8 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   lighting and fog, clipped to the world viewport. `GasRender` eases density
   changes over 320 ms while the simulation diffuses once per second. Drawing
   reads a cached field snapshot and performs no texture creation or readback.
-  Mushroom projectiles use the same cloud painter and lilac palette, at
+  Confusion gas is yellow; mushroom projectiles use the same cloud painter
+  and palette, at
   three-quarters of a cell wide.
 
 - `lighting.js` owns the sole lighting pass: additive source cookies on a 2D

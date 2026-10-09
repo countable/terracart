@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
   const CONFIG = Object.freeze({ sourceChance: .18, triggerCells: 1.25, burstMass: .3,
-    cooldownMs: 8000, observeMs: 200, contactMs: 1000, confusionMs: 5000, maxFrameMs: 100 });
+    cooldownMs: 16000, observeMs: 200, contactMs: 1000, confusionMs: 5000, maxFrameMs: 100 });
   const SOURCE_CROPS = new Set(['mushroom', 'giant_mushroom']);
   const DIRECTIONS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 

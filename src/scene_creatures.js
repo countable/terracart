@@ -76,8 +76,8 @@ class SceneCreatures {
     const tx = Math.floor(o.x / this.tileEdgeM), ty = Math.floor(o.y / this.tileEdgeM);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry?.creatures || entry.creatures.some(c => c.id === id)) return;
-    entry.creatures.push(WorldGen.makeCreature('skeleton', o.x, o.y, id,
-      { depth: o.depth, shiny: false, _hunting: true }));
+    entry.creatures.push(EnemySpawns.markShared(WorldGen.makeCreature('skeleton', o.x, o.y, id,
+      { depth: o.depth, shiny: false, _hunting: true })));
   }
 
   _revealMimic(o) {
@@ -89,9 +89,9 @@ class SceneCreatures {
     const revealed = (this.save.revealedMimics ||= []);
     if (!revealed.some(c => c.id === id)) revealed.push({ id, chestId: o.id, x: o.x, y: o.y });
     if (!entry.creatures.some(c => c.id === id)) {
-      entry.creatures.push(WorldGen.makeCreature('mimic', o.x, o.y, id, {
+      entry.creatures.push(EnemySpawns.markShared(WorldGen.makeCreature('mimic', o.x, o.y, id, {
         depth: 0, shiny: false, _hunting: true,
-      }));
+      })));
     }
     return true;
   }
@@ -103,9 +103,9 @@ class SceneCreatures {
       if (!Number.isFinite(c.x) || !Number.isFinite(c.y) || !c.id
           || Math.floor(c.x / this.tileEdgeM) !== tx || Math.floor(c.y / this.tileEdgeM) !== ty
           || caught.has(c.id) || liveIds.has(c.id)) continue;
-      entry.creatures.push(WorldGen.makeCreature('mimic', c.x, c.y, c.id, {
+      entry.creatures.push(EnemySpawns.markShared(WorldGen.makeCreature('mimic', c.x, c.y, c.id, {
         depth: 0, shiny: false, _hunting: true,
-      }));
+      })));
       liveIds.add(c.id);
     }
   }
@@ -459,6 +459,9 @@ class SceneCreatures {
       if (caughtSet.has(guard.id)) continue;
       creatures.push(creature);
     }
+    // Everything drawn above is the world's (EnemySpawns.isSharedId); the
+    // player's own pets and saved animals below are not.
+    for (const c of creatures) EnemySpawns.markShared(c);
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Owned and individually saved wild animals retain their state across tile rebuilds.
     for (const r of [...Pets.list(this.save), ...(this.save.wildAnimals || [])]) {
@@ -1426,7 +1429,7 @@ class SceneCreatures {
         anchors, occupiedIdx, Traps.DUNGEON_DENSITY_MUL)
         .filter(t => !heldByPlayer.has(t._iy * N + t._ix));
     }
-    for (const c of creatures) c._discovered = !HiddenObjects.isHidden(this.save, c);
+    for (const c of creatures) { c._discovered = !HiddenObjects.isHidden(this.save, c); EnemySpawns.markShared(c); }
     entry._spawned = true;
     entry.creatures = entry.creatures || creatures;
     for (const o of genObjects) {
@@ -2126,7 +2129,10 @@ class SceneCreatures {
             // point for a tame pet, the slime's own blow for the spirit raven). The prey
             // bites back a point either way.
             Pirates.say(this, c);
+            const tgtHpBefore = Combat.hp(tgt);
             tgt._hp = Combat.damage(tgt, Combat.petBlow(c));
+            // The bite is this player's side's blow: nearby players feel it too.
+            if (typeof Multiplayer !== 'undefined') Multiplayer.reportHit(this, tgt, tgtHpBefore - tgt._hp, 'pet');
             c._hp   = Combat.damage(c, 1);
             creatureMeleeSwing(c, tgt.x, tgt.y, fightRange);
             creatureMeleeSwing(tgt, c.x, c.y, fightRange);

@@ -1,9 +1,25 @@
-// Multiplayer presence — other players on the map, and location pings.
+// Multiplayer presence — other players on the map, location pings, and
+// shared damage to the enemies nearby players fight.
 //
 // A thin client for server/index.js (the relay). Nothing here touches the
-// save except playerName / playerColor: each player keeps their own resources
-// and progress, the relay only fans out "where I am" frames, and the only
-// things another player can put on YOUR screen are their farmer and a ping.
+// save except playerName / playerColor and, through resolveDefeat, a foe a
+// peer killed: each player keeps their own resources and progress, the relay
+// only fans out "where I am" and "I hit that enemy" frames, and the only
+// things another player can put on YOUR screen are their farmer, a ping, and
+// the blows they land on the enemies you both see.
+//
+// Shared hits work because enemies are deterministic too: the same id on the
+// same seat for everyone (Combat.maxHp is the same pool on every client up to
+// a thrown potion, which is why a hit travels as a FRACTION of max HP). Each
+// client still runs its own enemy AI; only its own side's damage is sent
+// (Combat.isSharedHit), batched per enemy, and an own-side kill is announced
+// with `k: 1`, which kills every receiver's copy whatever HP it shows. A
+// received hit lands as source Combat.PEER_SOURCE: shown like any blow, never
+// sent on, and its kill pays nothing here (app.js resolveDefeat). Only a
+// world-shared creature takes part (EnemySpawns.isSharedId: not a ghost, a
+// split half or anything else minted per device). A player who missed a
+// death learns it: each newly loaded shared enemy is announced in a `seen`
+// frame, and a peer whose save holds it dead answers `dead` to everyone near.
 //
 // Why players can talk about places at all: the world is the same for
 // everyone. Rocks, trees and wild plants are placed by worldgen.js from the
@@ -21,7 +37,10 @@
 //               (SpriteLayout.PLAYER_ART.farmer — every peer wears it).
 //   render.js — worldMetersToScreen, screenToWorldMeters
 //   coords.js — sameAbsCell
-//   worldgen.js — WorldGen.forEachItem (ping labels)
+//   worldgen.js — WorldGen.forEachItem / forEachItemNear (ping labels, shared enemies)
+//   combat.js — Combat (shared hits: isSharedHit, PEER_SOURCE, maxHp, hpFraction)
+//   enemy_spawns.js — EnemySpawns.isSharedId / SHARED_ID_RE
+//   util.js   — setOf
 //   items.js  — ITEM_BY_ID, TIER_BY_NUM (ping labels)
 //   save.js   — persistSave
 //
@@ -33,6 +52,10 @@
 //   consumeTap(scene, sx, sy) — true when ping mode ate the tap
 //   ping(scene, wmx, wmy)     — ping a world-metre spot
 //   setName(scene, name)      — rename (reconnects if online)
+//   reportHit(scene, c, dealt, source) — own-side damage to an enemy (app.js _damageEnemy, the pet bite)
+//   reportKill(scene, c, source)       — own-side kill (app.js resolveDefeat)
+//   applyHit(scene, msg)               — a peer's hit frame onto this client's copy
+//   (seen / dead run inside tick and the socket handler: see "shared enemies")
 //   cleanName / pickColor / toWorldPx / fromWorldPx / describeAt / edgeDot — pure, tested headlessly
 
 const Multiplayer = (function () {
@@ -54,6 +77,21 @@ const Multiplayer = (function () {
   const PEER_DOT_R = 3;          // dot radius, px
   const RECONNECT_MIN_MS = 2000, RECONNECT_MAX_MS = 30000;
   const NAME_MAX = 16;
+  // Shared hits: damage to one enemy is summed and sent at most every
+  // HIT_FLUSH_MS (an aura or a burn lands every frame), ≤ HIT_MAX_PER_S frames
+  // a second in all — inside the relay's own MAX_HITS_PER_S. A kill goes at once.
+  const HIT_FLUSH_MS = 250;
+  const HIT_MAX_PER_S = 12;
+  const HIT_F_MIN = 1e-4;        // the wire's resolution: f is rounded to 4 places
+  // Seen / dead: newly loaded shared enemies are announced at most once a
+  // SEEN_MS, ≤ SEEN_MAX_IDS ids a frame (the relay's cap); a knower answers
+  // after DEAD_JITTER_MIN..MAX_MS unless another peer answered for that id
+  // within DEAD_HEARD_MS. All of it stays inside the relay's
+  // MAX_ENEMY_FRAMES_PER_S with the hits.
+  const SEEN_MS = 1000;
+  const SEEN_MAX_IDS = 32;
+  const DEAD_JITTER_MIN_MS = 100, DEAD_JITTER_MAX_MS = 600;
+  const DEAD_HEARD_MS = 2000;
   // Light tints so the farmer's art stays readable: a tint multiplies, so the
   // sprite's whites take the colour and its darks barely move.
   const COLORS = [0xffd28a, 0x9fd8ff, 0xb8ffb0, 0xffb3e6, 0xe0c3ff, 0xfff59f, 0xffb38a, 0x9ff5e6, 0xd0d0d0, 0xc8ff8a];
@@ -132,6 +170,13 @@ const Multiplayer = (function () {
     backoff: RECONNECT_MIN_MS, retryTimer: null, stopped: false,
     container: null, pingMode: false, btn: null,
     everOnline: false,    // the HUD chip stays hidden until the relay has answered once
+    hits: new Map(),      // enemy id → { c, f, d }: own-side damage not yet sent
+    hitFlushT: 0, hitWindowT: 0, hitSent: 0,
+    seenIds: new Set(),   // `${depth}:${id}` announced on this connection
+    seenQueue: [], seenScanT: 0, seenDepth: null,
+    deadPending: new Map(),   // id → depth: our answer to a peer's `seen`, waiting out the jitter
+    deadHeard: new Map(),     // id → when a peer last said it was dead
+    deadReplyAt: 0,
   };
 
   function serverUrl() {
@@ -232,6 +277,7 @@ const Multiplayer = (function () {
     switch (msg.t) {
       case 'welcome':
         S.id = msg.id; S.backoff = RECONNECT_MIN_MS; S.everOnline = true;
+        S.seenIds.clear(); S.seenScanT = 0;   // announce what we see again to whoever is here now
         for (const p of msg.peers || []) upsertPeer(p, now, false);
         setStatus('online'); // one HUD count after the whole roster is ready
         break;
@@ -243,6 +289,9 @@ const Multiplayer = (function () {
       }
       case 'leave': dropPeer(msg.id); break;
       case 'ping': addPing(msg, now); break;
+      case 'hit': applyHit(S.scene, msg); break;
+      case 'seen': onSeen(S.scene, msg, now); break;
+      case 'dead': onDead(S.scene, msg, now); break;
       case 'error': setStatus('error'); break;
     }
   }
@@ -278,7 +327,179 @@ const Multiplayer = (function () {
   // The chip, the edge dot and the ping arrow all agree on the same distance.
   const isNear = (p, now) => now - p.seenAt < PEER_STALE_MS && peerDistM(p) <= PEER_NEAR_M;
   function nearCount(now) { let n = 0; for (const p of S.peers.values()) if (isNear(p, now)) n++; return n; }
-  function clearPeers() { for (const id of [...S.peers.keys()]) dropPeer(id); }
+  function clearPeers() { for (const id of [...S.peers.keys()]) dropPeer(id); clearEnemySync(); }
+
+  // ── shared enemies: hits, kills, "seen" and "dead" ───────────────────────
+  // Lost frames (a reconnect, the relay's cap) are accepted: hits are deltas,
+  // so two players striking at once both land; a kill is its own frame, and a
+  // death anyone missed is learnt again through seen → dead.
+  // Only a world-shared creature (EnemySpawns.isSharedId) is ever sent or
+  // touched — both ends ask the same predicate.
+  const sharedEnemy = (c) => EnemySpawns.isSharedId(c) && Combat.isEnemyKind(c.kind) && !Combat.isTame(c);
+  const shareable = (c) => sharedEnemy(c) && Combat.isEnemy(c);
+  const validId = (id) => typeof id === 'string' && EnemySpawns.SHARED_ID_RE.test(id);
+  const round4 = (v) => Math.round(v * 1e4) / 1e4;
+  function clearEnemySync() {
+    S.hits.clear(); S.seenQueue = []; S.deadPending.clear();
+  }
+  function hitFrame(id, f, left, d, kill) {
+    const frame = { t: 'hit', id, f: round4(Math.min(1, Math.max(0, f))), left: round4(Math.min(1, Math.max(0, left))), d };
+    if (kill) frame.k = 1;
+    return frame;
+  }
+  // AN ASSIST (owner, Oct 2026): a peer's kill of a foe this client's own
+  // side damaged within ASSIST_MS pays this client the kill's loot too
+  // (resolveDefeat) — never its ledger credit. Stamped on every own-side
+  // blow, online or not, so a reconnect mid-fight still counts.
+  const ASSIST_MS = 60000;
+  function assisted(c, now = Date.now()) {
+    return Number.isFinite(c?._ownHitAt) && now - c._ownHitAt <= ASSIST_MS;
+  }
+  function reportHit(scene, c, dealt, source) {
+    if (dealt > 0 && c && Combat.isSharedHit(source)) c._ownHitAt = Date.now();
+    if (S.status !== 'online' || !(dealt > 0) || !Combat.isSharedHit(source) || !shareable(c)) return false;
+    let h = S.hits.get(c.id);
+    if (!h) S.hits.set(c.id, h = { c, f: 0, d: scene.depth || 0 });
+    h.f += dealt / (Combat.maxHp(c) || 1);
+    return true;
+  }
+  // Called from resolveDefeat for every death; only an own-side kill of a
+  // shared enemy announces itself (`k: 1`, authoritative for every receiver),
+  // carrying whatever of its damage was still unsent.
+  function reportKill(scene, c, source) {
+    if (S.status !== 'online' || !Combat.isSharedHit(source) || !shareable(c)) return false;
+    const h = S.hits.get(c.id);
+    S.hits.delete(c.id);
+    send(hitFrame(c.id, h ? h.f : 0, 0, scene.depth || 0, true));
+    S.hitSent++;
+    return true;
+  }
+  function flushHits(now) {
+    if (!S.hits.size || now - S.hitFlushT < HIT_FLUSH_MS) return;
+    S.hitFlushT = now;
+    if (now - S.hitWindowT >= 1000) { S.hitWindowT = now; S.hitSent = 0; }
+    for (const [id, h] of S.hits) {
+      if (S.hitSent >= HIT_MAX_PER_S) break;          // the rest wait, still summing
+      if (h.f < HIT_F_MIN) continue;
+      S.hits.delete(id);
+      send(hitFrame(id, h.f, Combat.hpFraction(h.c), h.d, false));
+      S.hitSent++;
+    }
+  }
+  // The loaded creatures (this level's tile cache) with any of `ids`.
+  function findCreatures(ids) {
+    const out = new Map();
+    WorldGen.forEachItem('creatures', (o) => {
+      if (ids.has(o.id) && !out.has(o.id)) out.set(o.id, o);
+      return out.size === ids.size;
+    });
+    return out;
+  }
+  // A peer's hit onto this client's copy: the shared enemy with that id at
+  // this depth among the loaded tiles, else nothing (not loaded here, so
+  // dropped). A visible foe takes it through _damageEnemy (bar, number); one
+  // a per-player overlay hides (_surfaceInactive) takes it silently. `k`
+  // kills the copy outright, whatever HP it shows, as a peer's kill
+  // (resolveDefeat pays nothing for it and announces nothing).
+  function applyHit(scene, msg, c = null) {
+    if (!scene || !scene.save || !msg || !validId(msg.eid)) return false;
+    if (msg.d !== (scene.depth || 0)) return false;
+    const f = Number(msg.f);
+    if (!(f >= 0 && f <= 1)) return false;
+    if ((scene.save.caught || []).includes(msg.eid)) return false;
+    c = c || findCreatures(new Set([msg.eid])).get(msg.eid);
+    if (!sharedEnemy(c)) return false;
+    const peer = Combat.PEER_SOURCE;
+    const amount = f * Combat.maxHp(c);
+    let dead = false;
+    if (amount > 0) {
+      if (c._surfaceInactive) {
+        Combat.damageDealt(c, amount, { exact: true });
+        c._lastDamagedT = Date.now();
+        if (Combat.hp(c) <= 0) { scene.resolveDefeat(c, peer); dead = true; }
+      } else {
+        dead = !!scene._damageEnemy(c, amount, peer, { exact: true });
+      }
+    }
+    if (msg.k === 1 && !dead) { c._hp = 0; scene.resolveDefeat(c, peer); }
+    return true;
+  }
+
+  // SEEN: every shared enemy that comes into this player's loaded tiles
+  // around them, alive, is announced once per connection (a reconnect
+  // announces again — new peers may know more), batched ≤ SEEN_MAX_IDS a
+  // frame, ≤ 1 frame per SEEN_MS. Whoever knows one of them is dead answers.
+  function scanSeen(scene, now) {
+    if (now - S.seenScanT < SEEN_MS) return;
+    S.seenScanT = now;
+    const d = scene.depth || 0;
+    if (S.seenDepth !== d) { S.seenDepth = d; S.seenQueue = []; }
+    const pc = scene.playerToWorldCell?.();
+    if (pc) {
+      const caught = setOf(scene.save.caught);
+      WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, (c) => {
+        const key = `${d}:${c.id}`;
+        if (S.seenIds.has(key) || caught.has(c.id) || !shareable(c) || !(Combat.hp(c) > 0)) return;
+        S.seenIds.add(key);
+        S.seenQueue.push(c.id);
+      });
+    }
+    if (!S.seenQueue.length) return;
+    send({ t: 'seen', ids: S.seenQueue.splice(0, SEEN_MAX_IDS), d });
+  }
+  // DEAD: a peer saw ids this save holds dead (save.caught: a world-shared
+  // id is dead for good once there; the defeats that can come back, a
+  // citadel guard's, never pass isSharedId on the asking end). The answer
+  // goes to every nearby peer, after a small jitter, and is dropped for any
+  // id another peer answered meanwhile (DEAD_HEARD_MS).
+  function onSeen(scene, msg, now) {
+    if (!scene || !scene.save || !Array.isArray(msg.ids) || !Number.isInteger(msg.d)) return;
+    const caught = setOf(scene.save.caught);
+    let any = false;
+    for (const id of msg.ids) {
+      if (!validId(id) || !caught.has(id) || S.deadPending.has(id)) continue;
+      if (now - (S.deadHeard.get(id) ?? -Infinity) < DEAD_HEARD_MS) continue;
+      S.deadPending.set(id, msg.d);
+      any = true;
+    }
+    if (any && !(S.deadReplyAt > now)) {
+      S.deadReplyAt = now + DEAD_JITTER_MIN_MS + Math.random() * (DEAD_JITTER_MAX_MS - DEAD_JITTER_MIN_MS);
+    }
+  }
+  function flushDead(now) {
+    if (!S.deadPending.size || now < S.deadReplyAt) return;
+    for (const [id] of S.deadPending) {
+      if (now - (S.deadHeard.get(id) ?? -Infinity) < DEAD_HEARD_MS) S.deadPending.delete(id);
+    }
+    if (!S.deadPending.size) return;
+    // One depth per frame (the asker's); others wait for the next reply slot.
+    const d = S.deadPending.values().next().value;
+    const ids = [];
+    for (const [id, dd] of S.deadPending) {
+      if (dd !== d) continue;
+      ids.push(id);
+      if (ids.length >= SEEN_MAX_IDS) break;
+    }
+    for (const id of ids) { S.deadPending.delete(id); S.deadHeard.set(id, now); }
+    send({ t: 'dead', ids, d });
+    S.deadReplyAt = S.deadPending.size ? now + DEAD_JITTER_MAX_MS : 0;
+  }
+  // A peer says these are dead: each loaded shared copy dies as a peer's
+  // kill (pays nothing, announces nothing), and our own pending answer for
+  // them stands down.
+  function onDead(scene, msg, now) {
+    if (!scene || !scene.save || !Array.isArray(msg.ids) || msg.d !== (scene.depth || 0)) {
+      if (Array.isArray(msg.ids)) for (const id of msg.ids) if (validId(id)) { S.deadHeard.set(id, now); S.deadPending.delete(id); }
+      return;
+    }
+    const ids = new Set(msg.ids.filter(validId));
+    for (const id of ids) { S.deadHeard.set(id, now); S.deadPending.delete(id); }
+    if (S.deadHeard.size > 512) {
+      for (const [id, t] of S.deadHeard) if (now - t >= DEAD_HEARD_MS) S.deadHeard.delete(id);
+    }
+    const found = findCreatures(ids);
+    for (const [id, c] of found) applyHit(scene, { eid: id, f: 0, left: 0, d: msg.d, k: 1 }, c);
+  }
 
   // ── drawing ──────────────────────────────────────────────────────────────
   // Names, pings and edge dots remain in the masked annotation layer. Peer
@@ -530,6 +751,9 @@ const Multiplayer = (function () {
       if ((changed && now - S.lastSend >= 1000 / SEND_HZ) || now - S.lastSend >= HEARTBEAT_MS) {
         send({ t: 'p', ...f }); S.lastSend = now; S.lastSent = f;
       }
+      flushHits(now);
+      scanSeen(scene, now);
+      flushDead(now);
     }
     drawPeers(scene, now, dt);
     drawPings(scene, now);
@@ -552,7 +776,8 @@ const Multiplayer = (function () {
     return true;
   }
 
-  return { start, stop, tick, consumeTap, setName,
+  return { start, stop, tick, assisted, ASSIST_MS, consumeTap, setName, reportHit, reportKill, applyHit,
+           HIT_FLUSH_MS, HIT_MAX_PER_S, SEEN_MS, SEEN_MAX_IDS, DEAD_JITTER_MAX_MS, DEAD_HEARD_MS,
            cleanName, pickColor, toWorldPx, fromWorldPx, describeAt, edgeDot,
            COLORS, NAME_MAX, PEER_NEAR_M, PEER_DOT_INSET };
 })();

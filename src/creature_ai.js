@@ -813,8 +813,8 @@ function spawnNestBushCreature(scene, bush, type) {
   if (creatures.some(c => c.id === id)) return null;
   const generated = WorldGen.runSteps(CreatureSpawns.generateSteps(CreatureSpawnEvents.nest, {
     member: () => ({ kind, id }), seat: () => point,
-    create: () => WorldGen.makeCreature(kind, point.x, point.y, id, { shiny: false,
-      ...(enemy ? { _surfaceSpawn: { x: point.x, y: point.y, tx: point.tx, ty: point.ty, cx: point.ix, cy: point.iy } } : {}) }),
+    create: () => EnemySpawns.markShared(WorldGen.makeCreature(kind, point.x, point.y, id, { shiny: false,
+      ...(enemy ? { _surfaceSpawn: { x: point.x, y: point.y, tx: point.tx, ty: point.ty, cx: point.ix, cy: point.iy } } : {}) })),
     onPlaced: creature => creatures.push(creature),
   }));
   return generated[0] || null;
@@ -836,8 +836,8 @@ function planHiveBees(scene, hive) {
     });
     if (!point) return [];
     seats.add(`${point.x},${point.y}`);
-    out.push({ entry: point.entry, creature: WorldGen.makeCreature('bee', point.x, point.y, id,
-      { shiny: false, homeX: hive.x, homeY: hive.y }) });
+    out.push({ entry: point.entry, creature: EnemySpawns.markShared(WorldGen.makeCreature('bee', point.x, point.y, id,
+      { shiny: false, homeX: hive.x, homeY: hive.y })) });
   }
   return out;
 }
@@ -1485,7 +1485,8 @@ function enemySummon(scene, c, ability) {
     if (!seat) return false;
     {
       const { x, y } = seat;
-      const child = WorldGen.makeCreature(kind, x, y, id);
+      // Its id extends its summoner's, so it is world-shared when they are.
+      const child = EnemySpawns.markShared(WorldGen.makeCreature(kind, x, y, id), c._sharedId === true);
       // A garrison's escort inherits its leash, its ground and its
       // difficulty (GARRISON_INHERIT — the one list a split twin reads too),
       // not a new lair: quiet-home and the amnesty hide the skeletons with

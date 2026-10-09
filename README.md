@@ -66,7 +66,7 @@ data/       Static data sidecars (satextract_osm.geojson and its sources).
 docs/       Design, rules, drafts and historical reports — see docs/README.md.
 tools/      Dev/debug pages and audit scripts (not shipped); cachebust.js lives here.
 test/       node/ (headless suite) and the browser harness.
-server/     Multiplayer presence relay (Node WebSocket) — see server/deploy/README.md.
+server/     Multiplayer relay: presence, pings, shared enemy hits (Node WebSocket) — see server/deploy/README.md.
 satextract/ Offline satellite/OSM feature extraction for the data sidecar.
 ```
 

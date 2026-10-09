@@ -606,6 +606,18 @@ test('combat: the staff aims at the nearest foe, the bow along the compass', () 
     'the staff turns its back on the compass and lines up on the nearest foe');
 });
 
+test('combat: a confused staff fires where you face, not at the nearest foe', () => {
+  const near = { kind: 'goblin', id: 'near', x: 0,  y: -14 };
+  const far  = { kind: 'goblin', id: 'far',  x: 28, y: 0 };
+  const facing = { x: 1, y: 0 };
+  assert.eq(Combat.shotHeading('staff', 0, 0, facing, [far, near], COMBAT_CELL_M, undefined, { confused: true }), facing,
+    'confused: the bolt follows the facing');
+  const clear = Combat.shotHeading('staff', 0, 0, facing, [far, near], COMBAT_CELL_M, undefined, { confused: false });
+  assert.truthy(clear.x === 0 && clear.y === -14, 'clear-headed: it still picks the nearest');
+  assert.truthy(/Combat\.shotHeading\(slot, px, py, this\.facing, enemies, this\.cellM, reach,\s*\{ confused: Conditions\.active\(this\.save, 'confused'\) \}\)/.test(SCENE_SRC),
+    'the fight tick passes the confused condition');
+});
+
 test('combat: a staff bolt lands on the nearest foe, not the one you face', () => {
   const near = { kind: 'goblin', id: 'near', x: 0,  y: -14 };
   const far  = { kind: 'goblin', id: 'far',  x: 28, y: 0 };
@@ -860,7 +872,7 @@ test('staff range: the trigger and the flight are the same number', () => {
   assert.eq(shot.rangeM, rangeM, 'and the bolt flies exactly the range that loosed it');
   // The same reach, at both call sites, in the shipping loop.
   assert.truthy(/const reach = reachCells\(this\);/.test(SCENE_SRC), 'app.js reads the live reach');
-  assert.truthy(/Combat\.shotHeading\(slot, px, py, this\.facing, enemies, this\.cellM, reach\)/.test(SCENE_SRC),
+  assert.truthy(/Combat\.shotHeading\(slot, px, py, this\.facing, enemies, this\.cellM, reach[,)]/.test(SCENE_SRC),
     'and hands it to the trigger');
   assert.truthy(/relics\[slot\]\.tier, reach\);/.test(SCENE_SRC), 'and to the spawn');
 });

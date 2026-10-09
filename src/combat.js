@@ -496,6 +496,19 @@
   // and read back through shotSource.
   const PLAYER_KILL_SOURCES = new Set(['player', 'pet', 'ally']);
   function isPlayerKill(source) { return PLAYER_KILL_SOURCES.has(source); }
+  // SHARED WITH NEARBY PLAYERS (multiplayer.js reportHit / reportKill): the
+  // blows of this client's own side — the player, their pet or charmed ally,
+  // and their claimed castle's turrets. Those exist only on this client, so a
+  // peer's copy of the foe would never feel them otherwise. The world's own
+  // damage (lava, light, obstacles) and foe-on-foe blows run on every client
+  // already and are never shared.
+  const SHARED_HIT_SOURCES = new Set([...PLAYER_KILL_SOURCES, 'turret']);
+  function isSharedHit(source) { return SHARED_HIT_SOURCES.has(source); }
+  // A PEER'S HIT, applied to this client's copy of the foe: shown like any
+  // blow, never shared on, and its kill pays nothing here (resolveDefeat) —
+  // the killer's own client paid the coin and the rest.
+  const PEER_SOURCE = 'peer';
+  function isPeerHit(source) { return source === PEER_SOURCE; }
   // THE GROUND'S OWN DAMAGE: lava, a burning light, a burn's tick, thorns
   // and spikes. No armour against the world (app.js _damageEnemy passes
   // bypassArmor for these) and no blow to divide a splitting slime under.
@@ -812,8 +825,10 @@
   function damageDealt(c, amount, options = {}) {
     const before = hp(c);
     if (isConcealed(c) || (root.Pets && root.Pets.isDown(c))) return 0;
-    const raw = Math.max(0, amount) * (root.PotionEffects ? root.PotionEffects.damageMul(c) : 1);
-    const hit = options.bypassArmor ? raw : mitigate(raw, (monster(c.kind)?.armor || 0) + (isTame(c) && root.Pets ? root.Pets.stats(c).armor : 0));
+    // `exact` (a peer's hit, already mitigated on the striker's copy) skips
+    // this copy's potion shields and armour alike.
+    const raw = Math.max(0, amount) * (root.PotionEffects && !options.exact ? root.PotionEffects.damageMul(c) : 1);
+    const hit = options.bypassArmor || options.exact ? raw : mitigate(raw, (monster(c.kind)?.armor || 0) + (isTame(c) && root.Pets ? root.Pets.stats(c).armor : 0));
     if (hit > 0 && before > 0) c._sleepUntil = 0;
     c._hp = Math.max(0, before - hit);
     return before - c._hp;
@@ -1271,10 +1286,12 @@
 
   // The heading a slot fires along: compass `facing` for 'compass' slots, the
   // line to the nearest foe for 'nearest' ones; null when nothing to fire at.
-  function shotHeading(slot, x, y, facing, enemies, cellM, reachCells) {
+  // A CONFUSED caster (Conditions 'confused') cannot pick a target: a
+  // homing weapon looses along the facing like the bow (`opts.confused`).
+  function shotHeading(slot, x, y, facing, enemies, cellM, reachCells, opts = {}) {
     const spec = SHOT[slot];
     if (!spec) return null;
-    if (spec.aim === 'nearest') return aimAtNearest(x, y, enemies, rangeCellsFor(slot, reachCells) * cellM);
+    if (spec.aim === 'nearest' && !opts.confused) return aimAtNearest(x, y, enemies, rangeCellsFor(slot, reachCells) * cellM);
     return facing || null;
   }
 
@@ -1657,7 +1674,7 @@
     registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
     SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow, meleeBlow, petReachCells,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
-    PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
+    PLAYER_KILL_SOURCES, isPlayerKill, shotSource, isSharedHit, PEER_SOURCE, isPeerHit,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
     FLOWER_STATUS_MS, isSleeping, isParalyzed, paralyze, isCharmed, calm, isCalm, isPacified, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
