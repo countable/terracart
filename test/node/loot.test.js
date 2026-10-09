@@ -569,3 +569,21 @@ test('courier\'s post: the rack\'s name and flash say walk, never ride', () => {
   assert.falsy(/pedal|bike|cycl|ride/i.test(line + POI_CLASS_FALLBACK.bicycle_parking), 'no bicycle in the copy');
   assert.eq(chestLook({ kind: 'chest', poiClass: 'bicycle_parking', x: 0, y: 0 }).texKey, 'bike_rack', 'the key is unchanged');
 });
+
+// The road's magic card is drawn mostly from LOOT_CONTEXTS['treasure:road']
+// .favourite, which is tier-capped for magic. A narrow set left one or two
+// potions (speed, healing) on nearly every early magic card; it has to stay
+// a real spread from the first prize on.
+test('road: the magic card offers a spread of finds, not one potion every time', () => {
+  for (const n of [1, 3, 8]) {
+    const counts = {}; const N = 3000;
+    for (let i = 0; i < N; i++) {
+      const r = pickReward(Trail.PRIZE_CONTEXT, { relics: {}, armor: {} }, seeded(i * 31 + n),
+        { rollBonus: Trail.rollBonusFor(n - 1), classes: ['magic'], classMaxTier: { boots: 0 } });
+      if (r && r.id) counts[r.id] = (counts[r.id] || 0) + 1;
+    }
+    const shares = Object.values(counts).map(c => c / N);
+    assert.lt(Math.max(...shares), 0.2, `prize ${n}: no single item dominates the magic card`);
+    assert.gt(shares.filter(s => s >= 0.03).length, 7, `prize ${n}: at least eight items turn up regularly`);
+  }
+});
