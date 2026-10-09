@@ -98,7 +98,7 @@
       const shore = SHORE_VARIANTS.has(id);
       variantCache.set(key, Object.freeze({ id, owner: 'zone', kind, fauna: weightedRows(mix),
         faunaBudget: Object.freeze(shore || id === 'quarry-crater' ? [0, 0] : kind === 'quarry' ? [2, 4] : [3, 8]),
-        ...(shore ? { shoreFauna: Object.freeze([Object.freeze({ kind: 'crab' }), Object.freeze({ kind: 'sea_turtle' })]) } : {}),
+        ...(shore ? { shoreFauna: Object.freeze(['crab', 'sea_turtle', 'gull'].map(kind => Object.freeze({ kind }))) } : {}),
         haunting: HAUNTED_VARIANTS.has(id) }));
     }
     return variantCache.get(key);
