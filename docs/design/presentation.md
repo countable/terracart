@@ -154,6 +154,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   is assigned them — wait just outside Home's ring, beyond a stroll of the door
   (`homeWaitBand`);
   a named zone's keeper stays. The warden's home plea is a tap, never a splash.
+  The stranger (Ayo in human form) is such a role, flagged `transient` so a
+  talk never houses her; the lane's gossip about her is one extra page per
+  neighbour per round (`MemoryStory.STRANGER_RUMOURS`, recorded in
+  `save.memoryStory.strangerRumours`), not a line of its own.
 
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,
-`item_descriptions`, `books`, `story_neighbours`, `buffs`.
+`item_descriptions`, `books`, `story_neighbours`, `stranger`, `buffs`.

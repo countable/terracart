@@ -278,6 +278,11 @@ const NPC = (() => {
   // (SpriteLayout.creatureInstScale — the sprite, its shadow, the tap box and
   // the bar seats all read it): the wanderer is a child, drawn at
   // CHILD_SCALE of a grown neighbour.
+  //   THE STRANGER is Ayo in human form (story bible §2): white hair, no
+  // name given — the lane calls her the white-haired woman — in town from
+  // eleven memories. She is `transient`: passing through, so no talk ever
+  // moves her into a restored house (meetHomeNeighbour). No painting yet:
+  // her portrait is her sprite's (portrait() without `art`).
   const CHILD_SCALE = 0.7;
   const STORY_ROLES = {
     warden: { label: 'Warden', name: 'Bryn', art: 'npc_bryn', minMemories: 3 },
@@ -285,6 +290,7 @@ const NPC = (() => {
     wanderer: { label: 'Wanderer', name: 'Tilly', art: 'npc_tilly', housedArt: 'npc_tilly_happy', artScale: CHILD_SCALE, minMemories: 0 },
     believer: { label: 'Believer', name: 'Edda', art: 'npc_edda', minMemories: 9 },
     archaeologist: { label: 'Dragon Archaeologist', name: 'Orrin', art: 'npc_orrin', minMemories: 0, radiusM: 250 },
+    stranger: { label: 'Newcomer', name: 'White-haired woman', minMemories: 11, transient: true },
   };
   const STORY_NEIGHBOURS = Object.keys(STORY_ROLES);
   function storyNeighbour(id, role) {
@@ -431,7 +437,8 @@ const NPC = (() => {
   // itself waits until both the speaker and the new seat are off screen (the
   // arrivals rule), so nobody vanishes from in front of the player mid-talk.
   function meetHomeNeighbour(scene, c) {
-    if ((scene.depth || 0) !== 0 || c?.kind !== 'npc' || c._homeAnchor !== '' || isDormant(c)) return false;
+    if ((scene.depth || 0) !== 0 || c?.kind !== 'npc' || c._homeAnchor !== '' || isDormant(c)
+      || STORY_ROLES[c.role]?.transient) return false;
     const homes = scene.save.npcHomes ||= {};
     if (!homes[c.id]) {
       homes[c.id] = { role: c.role, culture: c.culture, zoneKind: c.zoneKind,

@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-9552d500';
+const SHELL_VERSION = 'shell-9376d81e';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -145,6 +145,7 @@ const ASSET_HASHES = {
   "assets/Icons/Food Icons/Peach.png": "5c7a1774",
   "assets/Icons/Food Icons/Small Cow Milk.png": "e58d30f5",
   "assets/Icons/Items/GiantMushroom.png": "8600fbd1",
+  "assets/Icons/Items/GripPotion.png": "80652b43",
   "assets/Icons/Items/Honey.png": "6f39df63",
   "assets/Icons/Items/MagicHammer.png": "bf8c71bc",
   "assets/Icons/Items/MagicTrap.png": "0a07da15",
@@ -264,6 +265,8 @@ const ASSET_HASHES = {
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Staff.png": "b2484a06",
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Sword.png": "232136a0",
   "assets/Icons/coin.png": "c56d5e86",
+  "assets/NPC/Ayo_human_idle.png": "39297eca",
+  "assets/NPC/Ayo_human_walk.png": "ba53a101",
   "assets/NPC/Citizen_woman01_idle.png": "8ab400ca",
   "assets/NPC/Citizen_woman01_walk.png": "15bfcd0f",
   "assets/NPC/Citizen_woman02_idle.png": "d4a645a4",

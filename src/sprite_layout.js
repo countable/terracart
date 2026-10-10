@@ -388,6 +388,9 @@
     { role: 'witness', idle: 'npc_1_idle', walk: 'npc_1_walk', path: 'assets/NPC/Citizen_woman02_idle.png', tint: 0xffffff },
     { role: 'believer', idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png', tint: 0xffffff },
     { role: 'wanderer', idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png', tint: 0xffffff },
+    // Ayo in human form (the stranger): white hair, slate cloth, baked by
+    // tools/art/import_ayo_human.py from the citizen sheet.
+    { role: 'stranger', idle: 'npc_ayo_human_idle', walk: 'npc_ayo_human_walk', path: 'assets/NPC/Ayo_human_idle.png', tint: 0xffffff },
     { role: 'archaeologist', idle: 'orrin_idle', walk: 'orrin_walk', path: 'assets/NPC/Orrin_old_man_idle.png', cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY: 90 },
     // Every neighbour role has its own look: one sheet per label, so a role
     // shown in several cultures (Peddler, Lamplighter) looks the same in each.

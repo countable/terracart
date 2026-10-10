@@ -61,6 +61,44 @@ const MemoryStory = (() => {
       moved: '“They say he keeps a new tower now, out among the wrecks.”\n<em>Presses a candle stub into your hand, then takes it back.</em>\n“Tell him we still light one for him. Every night.”',
     },
   };
+  // THE STRANGER — Ayo in human form (NPC.STORY_ROLES.stranger; the story
+  // bible §2): in town from eleven memories, white-haired, nameless. She
+  // knows the Hood and will not admit it; her tells are the slips she
+  // corrects ("you never used to"), never a word of what either of them is.
+  // `first` is her first talk; then her lines rotate, the `cold` set once the
+  // first tower has gone cold (LEAVE_MEMORIES).
+  const STRANGER = {
+    first: ['<em>Turns from the well as you pass, and goes very still.</em>\n“Sorry. For a moment I thought you were someone I knew.”',
+      '<em>Her eyes rest on your hood a little too long.</em>\n“My name? I don’t give it. I am only passing through, and names are for people who stay.”'],
+    warm: [
+      '<em>Watches you work.</em>\n“You were never patient with small things.”\n<em>A pause.</em>\n“You don’t look as if you would be, I mean.”',
+      '<em>Tucks a white strand back under her cap.</em>\n“It went white young. Everyone stares. You never used to.”\n<em>She frowns at her own words.</em>\n“Don’t mind me.”',
+      '“Do you know me? No. How could you. I only got here.”\n<em>She laughs, a little too quickly.</em>',
+      '“You keep to the road after dark. Good.”\n<em>She looks along the lamps.</em>\n“Somebody taught you that, once.”',
+      '“Do you dream much?”\n<em>She studies the shadow under your hood.</em>\n“No. Don’t tell me. It is better if you don’t.”',
+    ],
+    cold: [
+      '<em>Does not look toward the tower.</em>\n“I heard the old man has gone. Was anyone hurt?”\n<em>She waits for your answer as if it matters more than it should.</em>',
+      '“The old man in the tower. Did you trust him?”\n<em>She does not wait for an answer.</em>\n“Be careful what you remember for him.”',
+      '<em>Holds out a hand as if to take your arm, then lets it fall.</em>\n“You look tired. You always carried too much.”\n“Everyone does, these days.”',
+    ],
+  };
+  // THE LANE TALKS ABOUT HER. Once she is in town each neighbour passes on
+  // one piece of gossip, once (save.memoryStory.strangerRumours), as an
+  // extra page after their own line; a second round starts when the first
+  // tower goes cold. Gossip, never knowledge: nobody knows who she is.
+  const STRANGER_RUMOURS = {
+    arrival: {
+      warden: '“That white-haired woman. Nobody saw her come up the road. One morning she was just there at the well.”\n<em>Lowers her voice.</em>\n“She asks after you. Never anyone else.”',
+      witness: '<em>Watches the newcomer across the lane.</em>\n“Hair that white on a face that young. I have seen hair go white in one night. I saw a lot of it, fifty years back.”',
+      believer: '“The newcomer will not light a candle for Tim. Not one. A woman who won’t light a candle has something to hide.”',
+      wanderer: '“The lady with the white hair gave me a honey cake.”\n“Then she asked if you ever take your hood down. I said no. She smiled like she already knew.”',
+    },
+    cold: {
+      warden: '“Since the tower went cold, folk look at the white-haired woman sideways. As if she would know something about it.”',
+      witness: '“She was not at the well the night the wizard left his tower. First morning she missed.”\n<em>Shrugs, not quite easily.</em>\n“Could be nothing.”',
+    },
+  };
   const SCENES = {
     3: { art: 'story_wrecks', title: 'The name in the smoke',
       body: 'You hear a bell through the smoke. Someone clutches a child and whispers, “Warmonger.”' },
@@ -402,6 +440,40 @@ const MemoryStory = (() => {
   }
 
   function npcDialogue(scene, c) {
+    const line = storyLine(scene, c);
+    return line && STRANGER_RUMOURS.arrival[c.role] ? withStrangerRumour(scene.save, c.role, line) : line;
+  }
+  function strangerHere(save) { return total(save) >= NPC.STORY_ROLES.stranger.minMemories; }
+  function strangerLine(save) {
+    const s = state(save), st = s.stranger && typeof s.stranger === 'object' ? s.stranger : (s.stranger = {});
+    if (!st.met) {
+      st.met = true;
+      Save.persist(save);
+      return STRANGER.first;
+    }
+    const pool = total(save) >= LEAVE_MEMORIES ? STRANGER.cold : STRANGER.warm;
+    const talks = Number.isFinite(st.talks) ? st.talks : 0;
+    st.talks = talks + 1;
+    Save.persist(save);
+    return pool[talks % pool.length];
+  }
+  // One rumour per talk, each heard once: the arrival round, then the cold one.
+  function withStrangerRumour(save, role, line) {
+    if (!strangerHere(save)) return line;
+    const s = state(save), heard = s.strangerRumours && typeof s.strangerRumours === 'object'
+      ? s.strangerRumours : (s.strangerRumours = {});
+    for (const round of ['arrival', 'cold']) {
+      if (round === 'cold' && total(save) < LEAVE_MEMORIES) continue;
+      const rumour = STRANGER_RUMOURS[round][role], key = `${round}:${role}`;
+      if (!rumour || heard[key]) continue;
+      heard[key] = true;
+      Save.persist(save);
+      return [...(Array.isArray(line) ? line : [line]), rumour];
+    }
+    return line;
+  }
+  function storyLine(scene, c) {
+    if (c.role === 'stranger') return strangerLine(scene.save);
     if (c.role === 'archaeologist') return archaeologistConversation(scene.save).body;
     if (c.role === 'warden') {
       const repaired = Houses.restoredCount(scene.save);
@@ -565,7 +637,7 @@ const MemoryStory = (() => {
     });
   }
   return { START_MEMORIES, LEAVE_MEMORIES, REVEAL_MEMORIES, ABANDONED_NOTE, HALF_FORMED, LOCKED, ABANDONED, EMPTY,
-    HOME, FIRST_ROOF, RUMOUR, NEIGHBOURS, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
+    HOME, FIRST_ROOF, RUMOUR, NEIGHBOURS, STRANGER, STRANGER_RUMOURS, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
     state, total, enqueue, panel, drain, dialogOpen, drainPanel, showPages, npcDialogue, wandererLine, wandererHoused, believerLine, survivorLine, act, towerAccess, objective,
     eligibleBeats, wizardSequence, pagesFor, visitWizard, archaeologistConversation, acknowledgeArchaeologist };
 })();

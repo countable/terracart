@@ -1,6 +1,6 @@
 DRAGON HOOD — THE STORY (basis document)
 ================================================================================
-Status: v6 (Oct 2026), the dragon archaeologist relationship added.
+Status: v7 (Oct 2026), Ayo walks the town in human form from memory 11.
 This file is the story bible the game is written against. Where it disagrees with copy in src/
 (memory_story.js, play_tips.js, books, item text), THIS FILE wins and the copy
 is to be brought in line. Numbers (which memory, which restoration, which cave
@@ -99,9 +99,21 @@ AYO — THE SISTER
   Ayo is an ENEMY the player can fight and an ALLY the player can reach: she
   is the terror of the deep until the player learns what she is protecting,
   and she is the whole of two of the three endings.
-  [OPEN: does Ayo know the Hood survived, and where? Draft: she knows the
-  spell spared the Hood's life but not where the body went; she has looked
-  for fifty years, under the earth, in the wrong direction.]
+  SHE HAS FOUND THE HOOD. From memory 11 she walks Mending Lane in human
+  form: a woman with white hair, by the trailer with the other neighbours,
+  who gives no name ("names are for people who stay"); the lane calls her
+  the white-haired woman, or the newcomer. She knows the Hood at once and
+  will not admit it. Her tells are slips she corrects ("everyone stares;
+  you never used to"), a question too many about the hood, a warning about
+  what the Hood remembers for the old man in the tower. She never says what
+  either of them is, or that they are family. The villagers gossip: nobody
+  saw her come up the road, her hair is too white for her face, she will
+  not light a candle for Tim, she asks after the Hood and no one else; once
+  the first tower goes cold, people look at her sideways. Gossip, never
+  knowledge: nobody connects her to the white one aloud. She is passing
+  through and never takes a restored house.
+  [OPEN: why she stays in the lane rather than taking the Hood below, and
+  whether she is in town the night the white one strikes the tower.]
 
 THE HOOD — THE PLAYER
   A RED dragon. Six hundred years old of a fifteen-hundred-year span; fifty
@@ -170,7 +182,9 @@ AYO hides and hunts. Her dragons are deep. Her visits to the surface are rare
 and terrible and dominate the survivors' dragon stories. Orrin offers a
 competing account from older evidence. The night's ghosts and the
 cave's demons are NOT hers: they are the world's own creeps, incidental, and
-some of them are Tim's. She is met in person only at the end.
+some of them are Tim's. From memory 11 she also walks the lane in human
+form, nameless and white-haired (see §2); she is met AS HERSELF, the white
+dragon, only at the end.
 
 THE SURVIVORS believe: the Warmonger burned the world (true), dragons are
 vicious (half true), the wise wizard is their hope (false), and the hooded
@@ -375,6 +389,7 @@ TWO ROUGHLY PARALLEL TIMELINES
   Believer appears            3                     Neighbour by the trailer
   Survivor appears            6                     Neighbour by the trailer
   Child appears               9                     Homeless when first met
+  White-haired stranger       11                    Neighbour by the trailer
   Child has a home            Child already met     First restoration after meeting
   First tower / Tim           At least 9            Raised from the 30th restoration on; visit tower
   First-tower lessons         12, 15, 18            First tower and earlier lessons
@@ -556,7 +571,10 @@ Hard rules, enforced by the tests (memory_arc, story_neighbours, books):
   His tells are omissions: he never asks the Hood's name; he never looks at
   the hood; he never says "sister".
 - Ayo is spoken of only as "the white one", "the thing under the hill", "what
-  took the hunters". No one has her name before Act 3.
+  took the hunters". No one has her name before Act 3. In human form she
+  gives none; she is "the white-haired woman", "the newcomer". She may slip
+  and correct herself, but she never names herself, the Hood or Tim's
+  family, and no line ties her to the white one.
 - The five colours are known lore ("five heads, five fires", a nursery rhyme
   [OPEN: write one, or let the books invent it]). Historical accounts may name
   Tiamat and his marriage and war with the Frost Dragon Queen. Orrin shares
@@ -615,7 +633,8 @@ Hard rules, enforced by the tests (memory_arc, story_neighbours, books):
 - A name for the planet, if any.
 - The Frost Dragon Queen's name, cause of her war with Tiamat, circumstances
   of her death, and whether she was the Hood and Ayo's mother.
-- Whether Ayo knows the Hood survived, and where.
+- Why Ayo stays in the lane in human form, and whether she is in town the
+  night the white one strikes the tower.
 - Why the children turned on this world and not the five before.
 - What becomes of Tim in the sister ending.
 - The "five heads, five fires" rhyme.

@@ -14,7 +14,12 @@
   const cheb = (a, b) => Math.max(Math.abs(a.cx - b.cx), Math.abs(a.cy - b.cy));
   const person = (role, id = `npc_${role}_0_0`) => ({ id, kind: 'npc', x: 0, y: 0, ...NPC.storyNeighbour(id, role) });
   const towerSave = (memories, { second = false, restored = 15 } = {}) => {
-    const save = { discovered: {}, restoredHouses: {}, wizardTowers: { firstId: 'tower_1', secondId: second ? 'tower_2' : null } };
+    // The lane's gossip about the stranger (stranger.test.js) is marked heard,
+    // so these read each neighbour's own line alone.
+    const strangerRumours = Object.fromEntries(Object.entries(MemoryStory.STRANGER_RUMOURS)
+      .flatMap(([round, rows]) => Object.keys(rows).map(role => [`${round}:${role}`, true])));
+    const save = { discovered: {}, restoredHouses: {}, wizardTowers: { firstId: 'tower_1', secondId: second ? 'tower_2' : null },
+      memoryStory: { strangerRumours } };
     for (let i = 0; i < memories; i++) save.discovered[`m${i}`] = 1;
     for (let i = 0; i < restored; i++) save.restoredHouses[`h${i}`] = i === 14 ? 'wizard' : 'plain';
     save.restoredHouses.tower_1 = 'wizard';
@@ -29,7 +34,7 @@
     const remember = (n) => { for (let i = Object.keys(save.discovered).length; i < n; i++) save.discovered[`m${i}`] = 1; };
     const present = () => NPC.STORY_NEIGHBOURS.filter(role => entry.creatures.some(c => c.id === `npc_${role}_0_0`));
     const at = role => entry.creatures.find(c => c.id === `npc_${role}_0_0`);
-    assert.eq(JSON.stringify(NPC.STORY_NEIGHBOURS), JSON.stringify(['warden', 'witness', 'wanderer', 'believer', 'archaeologist']), 'existing neighbours retain their order');
+    assert.eq(JSON.stringify(NPC.STORY_NEIGHBOURS), JSON.stringify(['warden', 'witness', 'wanderer', 'believer', 'archaeologist', 'stranger']), 'existing neighbours retain their order');
     // The gates, in the owner's order (Oct 2026): Tilly, then Bryn at three,
     // Maud at six (through the goblin-archer rescue, never the trailer), Edda at nine.
     assert.eq(NPC.STORY_ROLES.wanderer.minMemories, 0);
@@ -53,7 +58,9 @@
     remember(NPC.STORY_ROLES.believer.minMemories);
     Starter.placeSafeAreaWarden(s, entry, 0, 0);
     assert.eq(present().join(','), 'warden,wanderer,believer', 'nine: Edda joins them');
-    const placed = NPC.STORY_NEIGHBOURS.filter(role => !NPC.STORY_ROLES[role].radiusM && !NPC.STORY_ROLES[role].arrives).map(at);
+    const placed = NPC.STORY_NEIGHBOURS.filter(role => !NPC.STORY_ROLES[role].radiusM && !NPC.STORY_ROLES[role].arrives
+      && NPC.STORY_ROLES[role].minMemories <= NPC.STORY_ROLES.believer.minMemories).map(at);
+    assert.falsy(at('stranger'), 'the stranger is not in town at nine');
     assert.truthy(placed.every(Boolean), 'all three are here in the end');
     assert.eq(JSON.stringify(cellOf(at('warden'))), bryn, 'Bryn never moved');
     assert.eq(JSON.stringify(cellOf(at('wanderer'))), tilly, 'Tilly never moved');
@@ -97,11 +104,12 @@
     assert.eq(act2.pages.length, 2, 'two panels');
     assert.eq(act2.body, act2.pages.join('\n\n'), 'body is the pages joined');
     assert.truthy(/not changed a day/.test(act2.pages[1]), 'the elder notices the Hood has not aged');
-    const late = towerSave(30, { second: true }); late.memoryStory = { act3Started: true };
+    const late = towerSave(30, { second: true }); late.memoryStory.act3Started = true;
     assert.eq(NPC.dialogue(scene(late), w).body, MemoryStory.NEIGHBOURS.witness[3].join('\n\n'));
     assert.truthy(/· Survivor$/.test(NPC.dialogue(scene(), w).title));
     const every = [...Object.values(MemoryStory.NEIGHBOURS.witness).flat(), ...Object.values(MemoryStory.NEIGHBOURS.wanderer), ...Object.values(MemoryStory.NEIGHBOURS.believer),
-      ...MemoryStory.SURVIVORS, MemoryStory.HOME.body, MemoryStory.FIRST_ROOF, MemoryStory.RUMOUR,
+      ...MemoryStory.SURVIVORS, ...Object.values(MemoryStory.STRANGER).flat(),
+      ...Object.values(MemoryStory.STRANGER_RUMOURS).flatMap(Object.values), MemoryStory.HOME.body, MemoryStory.FIRST_ROOF, MemoryStory.RUMOUR,
       ...Object.values(Zones.ZONE_KINDS).flatMap(k => k.keeper || []), ...NPC.KEEPER_DEFAULT].join(' ');
     assert.falsy(/dragon|conquer|scales|wings|fire breath|sister|father|Tiamat|Ayo/i.test(every), 'no neighbour spoils the second tower');
     // The copy convention: an action is <em> on its own line, speech is in
@@ -129,7 +137,7 @@
     const stamped = scene({ restoredHouses: { first: 'plain', second: 'plain' }, memoryStory: { met: { [w.id]: 1 }, childHomeAt: { [w.id]: 3 } } });
     assert.eq(NPC.dialogue(stamped, w).body, MemoryStory.NEIGHBOURS.wanderer.housed, 'the target derives from the meeting, so a child met under the old rule moves in too');
     assert.eq(NPC.portrait(stamped, w), 'npc_tilly_happy');
-    const later = scene(towerSave(12)); later.save.memoryStory = { met: { [w.id]: 3 } };
+    const later = scene(towerSave(12)); later.save.memoryStory.met = { [w.id]: 3 };
     assert.eq(NPC.dialogue(later, w).body, MemoryStory.NEIGHBOURS.wanderer.settled, 'settled by the second act');
     assert.truthy(/· Wanderer$/.test(NPC.dialogue(s, w).title));
   });
@@ -160,7 +168,7 @@
   });
 
   test('story neighbours: named dialogue uses paintings and ordinary residents keep their sprite portraits', () => {
-    for (const role of NPC.STORY_NEIGHBOURS) {
+    for (const role of NPC.STORY_NEIGHBOURS.filter(r => NPC.STORY_ROLES[r].art)) {
       const c = person(role);
       c._portrait = 'data:image/png;base64,old-sprite';
       assert.eq(NPC.portrait({}, c), `npc_${c.name.toLowerCase()}`, `${c.name} uses the painting even after a cached sprite portrait`);
@@ -210,7 +218,7 @@
     assert.eq(NPC.dialogue(scene(towerSave(12)), b).body, L.open);
     assert.eq(NPC.dialogue(scene(towerSave(24)), b).body, L.abandoned);
     assert.eq(NPC.dialogue(scene(towerSave(30, { second: true })), b).body, L.moved);
-    const late = towerSave(30, { second: true }); late.memoryStory = { act3Started: true };
+    const late = towerSave(30, { second: true }); late.memoryStory.act3Started = true;
     assert.eq(NPC.dialogue(scene(late), b).body, L.moved, 'never learns what the player learns');
     assert.truthy(/· Believer$/.test(NPC.dialogue(scene(), b).title));
   });
