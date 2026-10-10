@@ -270,7 +270,7 @@ test('magical flowers: a jumping Frost can and four powders bypass the waits', (
     }
     assert.truthy(Crops.isMature(p), 'two waits mature the crop');
     p.stage = 0;
-    for (let i = 0; i < 4; i++) assert.eq(Crops.advanceWithin(save, 0, 0, 1), 1);
+    for (let i = 0; i < 4; i++) assert.eq(Crops.completeStageWithin(save, 0, 0, 1), 1);
     assert.truthy(Crops.isMature(p), 'powder needs neither water nor a timer');
     assert.eq(p.watered_t, 0);
   }
