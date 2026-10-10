@@ -165,6 +165,45 @@ mechanics.
 Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_ward`,
 `pet_pickup`.
 
+## Boss encounters
+
+- Every boss fight is one routine: a row of `BossEncounters.KINDS`
+  (`src/boss_encounters.js`) — today the citadel's garrison and the serpent a
+  Serpent Idol raises. A trigger starts a record (`start`, kept in the kind's
+  `store` on the save); it is live for the row's `durationMs` of wall time.
+- It RESETS — the foes despawn, their defeats are forgotten, and the trigger
+  can be used again later — when its clock runs out, or when the player who
+  started it (`own`) goes down or leaves its floor (`abandon`). A battle
+  adopted from another player (multiplayer) is not theirs to end. The scene
+  side is `_tickBossEncounters` (`src/scene_boss.js`), every frame; each live
+  fight shows its clock as a status-row chip.
+- WINNING spends the trigger for good: a citadel is claimed; the idol is
+  consumed and leaves a T4 boss chest (`chestThemeFor` → the `boss` theme:
+  equipment or a unique relic), kept as `save.bossChests` until opened.
+- THE SERPENT: one creature per piece (`serpent_head` / `_body` / `_tail`
+  roster rows, `boss: 'serpent'`), moved and biting only by its encounter's
+  tick, never `rosterEnemyMove`. The head snakes about the player within the
+  row's `leashCells`; the coils and tail tip follow its trail. Each coil
+  touching the player bites for the row's `dmg` once a `damageIntervalSeconds`
+  through `foeBlowLands`. Only coils can be struck (the head and tail are
+  `untargetable`, read by `Combat.isConcealed`); a slain coil shortens it, and
+  with only head and tail left it dies. Body and gait numbers are the
+  `KINDS.serpent` row. The Serpent Idol is the road ladder's fourth prize, alone
+  (`Trail.FIXED_PRIZES`), `progressionOnly` (no loot pool or sale), and cannot
+  be raised on the Major-and-Medium road group's kerb or junctions.
+- SHARED: once one player starts a boss fight, every nearby player is in it.
+  A citadel battle travels as `battle` frames (below). A serpent's starter
+  drives its head and sends the pose as `boss` frames every `feedMs`; a
+  nearby player adopts the fight (`_adoptSerpent`: same key, start and piece
+  ids, `own: false`) and their copy follows the feed, while its coils, trail
+  and bites run on their device. The coils are shared enemies only while a
+  save holds the fight live (`EnemySpawns.isSharedId`), so hits and kills land
+  on every copy. Every player who sees it die gets their own hoard; only the
+  starter's idol is spent. When the feed has been silent for `staleMs` (the
+  starter won, reset or walked away) the adopted copy resets.
+
+Tests: `boss_encounters`, `castle_quest_flow`, `lairs`, `trail`, server `test.js`.
+
 ## Shared enemies (multiplayer)
 
 - Nearby players fight the same enemies: `src/multiplayer.js` sends this

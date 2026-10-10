@@ -116,7 +116,7 @@ test('pickReward: a roll bonus lifts the average TIER', () => {
     return n ? sum / n : 0;
   };
   const base = meanTier(0);
-  const bonused = meanTier(Trail.PRIZE_ROLL_BONUS);
+  const bonused = meanTier(1);
   assert.gt(bonused, base, `bonused ${bonused} > base ${base}`);
 });
 
@@ -227,7 +227,9 @@ test('tier luck: the carried key adds one luck tier and never stacks', () => {
 test('pickReward: a carried key improves treasure rolls like one luck upgrade', () => {
   let changed = 0;
   for (let s = 1; s <= 600; s++) {
-    const roll = save => pickReward('treasure:road', save, seeded(s * 2654435761));
+    // A chest roll: luck works on chain steps, and the road prize takes none
+    // of its own now (its tier is the walk's ladder, Trail.rollBonusFor).
+    const roll = save => pickReward('chest:lowtier', save, seeded(s * 2654435761), { tier: 4 });
     const base = roll({});
     const keyed = roll({ inv: [{ id: 'lucky_key', count: 1 }] });
     const upgraded = roll({ luckUpgrades: 1 });
@@ -583,7 +585,10 @@ test('road: the magic card offers a spread of finds, not one potion every time',
       if (r && r.id) counts[r.id] = (counts[r.id] || 0) + 1;
     }
     const shares = Object.values(counts).map(c => c / N);
-    assert.lt(Math.max(...shares), 0.2, `prize ${n}: no single item dominates the magic card`);
-    assert.gt(shares.filter(s => s >= 0.03).length, 7, `prize ${n}: at least eight items turn up regularly`);
+    // The ladder starts at T1, where the magic shelf is five tonics (the road
+    // favourites' T1 rows); from the third prize on it is the full spread.
+    const early = n === 1;
+    assert.lt(Math.max(...shares), early ? 0.3 : 0.2, `prize ${n}: no single item dominates the magic card`);
+    assert.gt(shares.filter(s => s >= 0.03).length, early ? 4 : 7, `prize ${n}: ${early ? 'all five T1 tonics' : 'at least eight items'} turn up regularly`);
   }
 });

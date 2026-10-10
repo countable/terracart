@@ -1551,6 +1551,7 @@ const ICON_SHEETS = {
   // Consumables + wilderness drops.
   icon_thunder_scroll: { url: 'assets/Icons/Items/ThunderScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_raven_scroll: { url: 'assets/Icons/Items/RavenScroll.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_serpent_idol: { url: 'assets/Icons/Items/SerpentIdol.png', cols: 1, srcW: 16, srcH: 16 },
   icon_bones_scroll: { url: 'assets/Icons/Items/SkeletonScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_grip_potion: { url: 'assets/Icons/Items/GripPotion.png', cols: 1, srcW: 16, srcH: 16 },
   icon_wraith_scroll: { url: 'assets/Icons/Items/WraithScroll.png', cols: 1, srcW: 16, srcH: 16 },
@@ -3500,7 +3501,8 @@ class MapScene extends Phaser.Scene {
       this.advanceGrowth();
     }
 
-    this._expireCitadelBattles();
+    // Every boss fight's clock, resets and serpents (scene_boss.js).
+    this._tickBossEncounters();
 
     // DERELICT LAIRS — the ruins are hard mode's; the STREET structures (a
     // a barricade, a café's hoard — lairs.js ALWAYS_AWAKE_TIERS)
@@ -4096,6 +4098,11 @@ class MapScene extends Phaser.Scene {
     }
     for (const b of Buffs.active(this.save, this)) {
       chips.push({ id: b.id, action: b.action, ink: b.color, bg: b.stroke + 'e8', text: `${b.name} · ${shortDuration(b.remainingMs)}` });
+    }
+    // A live boss fight's clock (BossEncounters — the citadel's, the serpent's).
+    for (const e of BossEncounters.list(this.save)) {
+      const chip = BossEncounters.KINDS[e.kind].chip;
+      chips.push({ id: `boss_${e.key}`, ink: chip.ink, bg: chip.bg, text: `${chip.label} · ${shortDuration(e.remainingMs)}` });
     }
     const order = chips.map((c) => c.id).join(',');
     if (this._statusRowDOM !== order) {
@@ -10424,6 +10431,7 @@ installSceneMixin(MapScene, SceneElevators);
 installSceneMixin(MapScene, SceneArena);
 installSceneMixin(MapScene, SceneVenues);
 installSceneMixin(MapScene, SceneStreets);
+installSceneMixin(MapScene, SceneBoss);
 
 const game = window.__game = new Phaser.Game({
   type: Phaser.AUTO,

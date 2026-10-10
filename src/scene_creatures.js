@@ -1752,6 +1752,8 @@ class SceneCreatures {
       // attack lane, including pets and neighbours.
       if (Combat.isParalyzed(c)) { Combat.cancelCreatureAction(c); return; }
       if (c.kind === 'npc') { NPC.tick(this, c, now, npcDt); return; }
+      // A boss's pieces move and bite by their encounter's tick (scene_boss.js).
+      if (EnemyRoster.get(c.kind)?.boss) return;
       const unnoticed = this.isUnnoticed(c);
       const isTame = Combat.isTame(c);
       // Read ONCE per creature per tick: is it a hostile right now, and how

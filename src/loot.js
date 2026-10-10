@@ -234,7 +234,10 @@ function chestThemeForPoi(poiClass) {
 // poiClass's ordinary theme ('park', src/loot.js POI_CATEGORY.vista) — only
 // the grail gets its own row. Interactables reads this, never
 // chestThemeForPoi(o.poiClass) directly, for any chest.
+// A BOSS's hoard (o.bossChest — scene_boss.js) is the 'boss' theme:
+// equipment or a unique relic.
 function chestThemeFor(o) {
+  if (o && o.bossChest) return 'boss';
   return (o && o.vista === 'grail') ? 'vista' : chestThemeForPoi(o && o.poiClass);
 }
 

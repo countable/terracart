@@ -168,6 +168,17 @@
     return { kind: 'item', id: FIRST_PRIZE_ID, qty: FIRST_PRIZE_QTY,
              tier: 2, cls: 'seed', jackpot: 0, consolation: 0 };
   }
+  // ── THE FIXED RUNGS ──────────────────────────────────────────────────────
+  // A rung that always pays one named thing. Rung one is the onion seed (a
+  // card in the rolled row); rung FOUR is the Serpent Idol (scene_boss.js),
+  // offered ALONE (`sole`): a boss's trigger the player could pick past would
+  // be lost for good — the idol is progressionOnly, found nowhere else.
+  const FIXED_PRIZES = {
+    4: { kind: 'item', id: 'serpent_idol', qty: 1, tier: 4, cls: 'magic', jackpot: 0, consolation: 0, sole: true },
+  };
+  function fixedPrize(n) {
+    return firstPrize(n) || (FIXED_PRIZES[n | 0] ? { ...FIXED_PRIZES[n | 0] } : null);
+  }
 
   // ── The prize is a CHOICE ────────────────────────────────────────────────
   // A prize pays PRIZE_CHOICES rolls and the player keeps ONE. Walking is the
@@ -197,10 +208,12 @@
   const PRIZE_ROLL_TRIES = 3 * PRIZE_CHOICES;
 
   // ── The prize gets BETTER as the walks get longer ────────────────────────
-  // Extra boost-chain steps the roll gets over a plain chest of the same tier
-  // (app.js hands it to pickReward as opts.rollBonus): one to begin with, and
-  // one more for every prize already won, so the tenth prize — two kilometres
-  // of restored street — is visibly a better find than the first.
+  // Extra tier steps the roll gets (app.js hands them to pickReward as
+  // opts.rollBonus). THE GRADUAL LADDER (owner, Oct 2026): the road's own curve
+  // takes no chain step ('treasure:road' chainSteps 0), so the first prize
+  // rolls T1, and each prize already won adds PRIZE_TIER_PER_PRIZE of a tier
+  // — the fraction a seeded coin (rng) — so prize 4 is mostly T2, prize 7
+  // mostly T3, and by prize 10 (~2.7 steps) T4 is the common find.
   //
   // BETTER, NOT BIGGER. A bonus step buys TIER only (see the bonus loop in
   // rarity.js pickReward). As an ordinary chain step it fell through to a
@@ -214,11 +227,14 @@
   // ceiling is reached and turns into consolation coins after that; past
   // PRIZE_ROLL_BONUS_MAX the ladder would be paying in small change and
   // pretending it was an upgrade.
-  const PRIZE_ROLL_BONUS = 1;
+  const PRIZE_ROLL_BONUS = 0;
+  const PRIZE_TIER_PER_PRIZE = 0.3;
   const PRIZE_ROLL_BONUS_MAX = 6;
 
-  function rollBonusFor(prizes) {
-    return Math.min(PRIZE_ROLL_BONUS + Math.max(0, prizes | 0), PRIZE_ROLL_BONUS_MAX);
+  function rollBonusFor(prizes, rng = Math.random) {
+    const steps = Math.min(PRIZE_ROLL_BONUS + PRIZE_TIER_PER_PRIZE * Math.max(0, prizes | 0), PRIZE_ROLL_BONUS_MAX);
+    const whole = Math.floor(steps + 1e-9), frac = steps - whole;
+    return whole + (frac > 1e-9 && rng() < frac ? 1 : 0);
   }
 
   // What makes two rewards the same OFFER. Null for a reward with no shape we
@@ -287,8 +303,8 @@
   root.Trail = {
     STICK_METRES_MUL, PRIZE_CARDS, BOOTS_M_PER_TIER, bootsTierCap, prizeCardClasses, rollCardRow,
     GOAL_STEP_M, RUNNER_GOAL_DIV, goalDiv, goalFor, totalMetres, restoredMetres, distanceLabel, progress, bank, readout, label,
-    PRIZE_CONTEXT, FIRST_PRIZE_ID, FIRST_PRIZE_QTY, firstPrize,
+    PRIZE_CONTEXT, FIRST_PRIZE_ID, FIRST_PRIZE_QTY, firstPrize, FIXED_PRIZES, fixedPrize,
     PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey,
-    PRIZE_ROLL_BONUS, PRIZE_ROLL_BONUS_MAX, rollBonusFor,
+    PRIZE_ROLL_BONUS, PRIZE_TIER_PER_PRIZE, PRIZE_ROLL_BONUS_MAX, rollBonusFor,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
