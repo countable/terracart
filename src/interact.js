@@ -823,12 +823,8 @@ const TAP_HANDLERS = [
       // left when you tapped (creature_ai.js CROW_DEPART_HOP: a wood net at
       // point blank is a coin flip, decided by timing).
       if (victim.kind === 'crow') scene._crowDepart?.(victim, performance.now(), 'hunted');
-      // A kind that FIGHTS BACK (the deer — SpriteLayout.creatureFightsBack)
-      // turns on the hunter instead: enraged for its rageMs, it charges and
-      // butts (scene_creatures.js wanderCreatures). Wall clock, like
-      // _lastDamagedT.
-      const fb = SpriteLayout.creatureFightsBack(victim.kind);
-      if (fb) victim._rageUntil = Date.now() + fb.rageMs;
+      // A hunted deer bolts as any near player spooks it (its row's `flee`);
+      // it never fights back, and the wheel fails if it runs out of reach.
       return true;
     }
     const selItem = sel ? ITEM_BY_ID[sel.id] : null;

@@ -344,15 +344,15 @@
   });
 
   // ── The paces ────────────────────────────────────────────────────────────
-  test('guard groups: goblins and orcs run at twice their old pace; the bats sit on the ceiling', () => {
+  test('guard groups: orcs run at twice their old pace, goblins 20% under that; the bats sit on the ceiling', () => {
     const mps = (k) => EnemyRoster.get(k).movement.speedMetersPerSecond;
-    assert.eq(mps('goblin'), 7); assert.eq(mps('goblin_archer'), 5.6); assert.eq(mps('goblin_trapper'), 5.4);
-    assert.eq(mps('farmer_goblin'), 4.4); assert.eq(mps('club_goblin'), 5); assert.eq(mps('spear_goblin'), 3.6);
-    assert.eq(mps('archer_goblin'), 4); assert.eq(mps('bomb_goblin'), 5.2);
+    assert.eq(mps('goblin'), 5.8); assert.eq(mps('goblin_archer'), 4.7); assert.eq(mps('goblin_trapper'), 4.5);
+    assert.eq(mps('farmer_goblin'), 3.7); assert.eq(mps('club_goblin'), 4.2); assert.eq(mps('spear_goblin'), 3);
+    assert.eq(mps('archer_goblin'), 3.3); assert.eq(mps('bomb_goblin'), 4.3);
     assert.eq(mps('orc'), 3); assert.eq(mps('orc_mage'), 3); assert.eq(mps('orc_shaman'), 3);
     assert.eq(mps('bat'), WILD_SPEED_CEILING_MPS, 'twice 5.5 would clear the ceiling: the bat sits on it');
     assert.eq(mps('vampire_bat'), WILD_SPEED_CEILING_MPS);
-    assert.eq(mps('goblin_runt'), 5, 'a runt runs as a club goblin');
+    assert.eq(mps('goblin_runt'), 4.2, 'a runt runs as a club goblin');
     for (const k of ['goblin', 'orc', 'goblin_runt', 'bat', 'storm_gull']) {
       assert.eq(creatureSpawnClass(k), 'fastEnemy', `${k} is a fast foe: kept off the kerb`);
     }

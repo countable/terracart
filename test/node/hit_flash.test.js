@@ -30,7 +30,7 @@ test('hit flash: every drain on the body flinches at the instant it lands, with 
   const sites = app.match(/this\._losePlayerEnergy\(/g) || [];
   assert.eq(sites.length, 4, 'standing on a sprung trap, a night road, lava, or thorns and spikes (the arrow lands through foeBlowLands)');
   // Every foe's CONTACT — its melee and aura, a slime trail, a ghost's touch,
-  // a hunted deer's butt, a thrown Blight — lands through the one writer in
+  // a thrown Blight — lands through the one writer in
   // creature_ai.js (foeBlowLands), which banks it through the same method.
   assert.truthy(/const lost = scene\._losePlayerEnergy\(dmg, \{ closeShop: true \}\);/.test(CREATURE_AI_SRC), 'foeBlowLands banks through it');
   assert.eq((CREATURE_AI_SRC.match(/scene\._losePlayerEnergy\(/g) || []).length, 1, 'once');

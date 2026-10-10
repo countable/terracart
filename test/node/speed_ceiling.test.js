@@ -160,15 +160,15 @@ test('speed ceiling: a bolting, struck, or struck-and-bolting deer — plain or 
   }
 });
 
-test('shiny deer: the live charging hit deals twice the damage', () => {
-  const losses = [false, true].map(shiny => {
-    const deer = { kind: 'deer', id: 'deer_charge', shiny, x: 32.5 * CM, y: 32.5 * CM, _rageUntil: Date.now() + 60000 };
-    const scene = mkScene(deer, { x: deer.x, y: deer.y });
-    tick(scene);
-    return 80 - scene.save.energy;
-  });
-  assert.gt(losses[0], 0);
-  assert.eq(losses[1], 2 * losses[0]);
+test('deer: one hunted at arm\'s length runs off and never lands a blow (owner, Oct 2026)', () => {
+  for (const id of [ids.plain, ids.shiny]) {
+    const deer = { kind: 'deer', id, shiny: isShiny(id, SHINY_RATE.animal), x: 33 * CM, y: 32.5 * CM };
+    const feet = { x: 32.5 * CM, y: 32.5 * CM };
+    const scene = mkScene(deer, feet);
+    for (let ms = 0; ms < 10000; ms += TICK_MS) tick(scene);
+    assert.eq(scene.save.energy, 80, 'no butt, no blow');
+    assert.gt(Math.hypot(deer.x - feet.x, deer.y - feet.y), 3 * CM, 'it bolted away from the hunter');
+  }
 });
 test('shiny crow: panic and retreat flights use the 1.3 escape modifier', () => {
   const random = Math.random;

@@ -25,7 +25,7 @@
       slime:'Surface pest: drifts at you and leeches energy. Kept away from Home until the first harvest (pest amnesty).',
       crow:'Hard mode dispatches pest crows at planted fields. Scarecrows turn them back; a wild crow is game, not a pest.',
     };
-    for(const [id,row] of Object.entries(B))if(row.raidsCrops&&!PESTS[id])PESTS[id]=`Raids planted crops${row.avoids?.includes('scarecrow')?'; scarecrows turn it back':''}.${row.fightsBack?' Fights back when hunted.':''}`;
+    for(const [id,row] of Object.entries(B))if(row.raidsCrops&&!PESTS[id])PESTS[id]=`Raids planted crops${row.avoids?.includes('scarecrow')?'; scarecrows turn it back':''}.`;
     const summoners={};
     for(const e of enemies)if(e.ability?.type==='summon')(summoners[e.ability.kind]??=[]).push(e.name);
     const ROLES=[['all','All combatants'],['monster','Monsters'],['pest','Pests'],['summon','Summons'],['pet','Pets'],['mercenary','Mercenaries']];
@@ -129,7 +129,7 @@ function roleOk(e){return role==='all'||e.roles.includes(role)}
 // Habitat, tier and spawn filters describe the monster roster only; while any is set the non-monster rows step aside.
 function monsterFiltersActive(){return ['habitat','tier','variant','biome','time'].some(id=>$(id).value!=='all')||$('distance').value!==''||$('depth').value!==''}
 function extraRole(x){return x.roles.map(r=>ROLES.find(([id])=>id===r)[1].replace(/s$/,'')).join(' · ')}
-function extraAttack(x){const b=x.behaviour;if(b.summoned)return {dmg:Combat.petBite(x.id),label:`${fmt(Combat.petBite(x.id))} per bite every ${fmt((b.stepMs||Combat.MELEE_INTERVAL_MS)/1000)} s`,note:'Hunts every foe and pest crow'};if(b.prey)return {dmg:Combat.PET_BITE,label:`${Combat.PET_BITE} per bite once tame`,note:`Hunts ${[...b.prey].join(', ')}`};if(b.fightsBack)return {dmg:b.fightsBack.dmg,label:`${b.fightsBack.dmg} per butt every ${fmt(b.fightsBack.hitMs/1000)} s`,note:`Enraged ${fmt(b.fightsBack.rageMs/1000)} s when hunted`};return {dmg:null,label:'Does not attack',note:''}}
+function extraAttack(x){const b=x.behaviour;if(b.summoned)return {dmg:Combat.petBite(x.id),label:`${fmt(Combat.petBite(x.id))} per bite every ${fmt((b.stepMs||Combat.MELEE_INTERVAL_MS)/1000)} s`,note:'Hunts every foe and pest crow'};if(b.prey)return {dmg:Combat.PET_BITE,label:`${Combat.PET_BITE} per bite once tame`,note:`Hunts ${[...b.prey].join(', ')}`};return {dmg:null,label:'Does not attack',note:''}}
 function extraFacts(x){const b=x.behaviour,f=[];
   if(PESTS[x.id])f.push(PESTS[x.id]);
   if(b.summoned){const id=x.id==='spirit_raven'?'raven_scroll':Object.keys(CONSUMABLE_SPEC).find(id=>CONSUMABLE_SPEC[id].summonKind===x.id);f.push(id?`Summoned by the ${esc(ITEM_BY_ID[id].name)} for ${shortDuration(CONSUMABLE_SPEC[id].durationMs)}. Follows its summoner; never a tap target.`:'A hired ally. Follows its employer; never a tap target.');}

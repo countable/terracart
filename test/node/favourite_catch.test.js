@@ -141,7 +141,7 @@ test('sugar: the T2 Sugar Potion calms an animal — offered or thrown — and a
   assert.truthy(Combat.isCalm(hen));
   assert.falsy(PotionEffects.apply(scene, foe('goblin'), 'sugar_potion'), 'and does nothing to a foe');
   // Every escape lane reads the one predicate.
-  assert.truthy(/const bolting = !!bolt && !gameCharge && !Combat\.isCalm\(c\)/.test(SCENE_SRC), 'no bolt');
+  assert.truthy(/const bolting = !!bolt && !Combat\.isCalm\(c\)/.test(SCENE_SRC), 'no bolt');
   assert.truthy(/c\._fleeUntilT > now && Combat\.isCalm\(c\)\) c\._fleeUntilT = 0;/.test(SCENE_SRC), 'no flight from a blow');
   assert.truthy(/!Shrines\.leverActive\(this\.save, 'hidden'\) && !Combat\.isCalm\(c\)/.test(SCENE_SRC), 'no run from the net');
 });
