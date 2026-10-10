@@ -75,7 +75,6 @@ test('downed: every hostile-interest branch reads `unnoticed`, never `shadowed`'
     [/rosterEnemyAttack\(this, c, rosterRow, now, px, py, unnoticed \|\| standDown, enemyDt\)/, "every roster foe's blow, arrow and snare"],
     [/\(npcTarget \? NPC\.isDormant\(npcTarget\) : unnoticed\) \|\| standDown,\s*routed \|\| \(kerbTurn && !c\.lair\), lairState, enemyDt\)/, "every roster foe's stalk"],
     [/\(npcTarget \? NPC\.isDormant\(npcTarget\) : unnoticed\) \|\| kerbTurn, warded, pace\)/, "the ghost's rush"],
-    [/const gameCharge = enraged && !standDown && !unnoticed;/, "the hunted deer's charge and butt"],
   ];
   for (const [re, what] of gates) {
     assert.truthy(re.test(code), `${what} is gated on unnoticed`);
@@ -172,9 +171,6 @@ test('downed: pursuit and incoming damage agree on whether the player is down', 
     && /const dmg = mitigated \? raw : Combat\.incomingDamage\(scene\.save, raw\);/.test(CREATURE_AI_SRC),
     "the foe's melee uses the shared incoming damage guard (through the one blow writer)");
   assert.truthy(/Combat\.playerDamageRate\(/.test(attack), 'and so does the aura');
-  const butt = wander.indexOf('c._nextStealT = now + fightsBack.hitMs;');
-  assert.truthy(butt > 0 && /foeBlowLands\(this, c, Combat\.meleeBlow\(c, fightsBack\.dmg\)\);/.test(wander.slice(butt, butt + 200)),
-    "the deer's butt uses the shared incoming damage guard (the one blow writer)");
   const arrow = methodBody('_shotHitsPlayer');
   assert.truthy(/Combat\.incomingProjectileDamage\(this\.save, shot\.damage/.test(arrow),
     'an arrow already in flight uses the same damage guard');

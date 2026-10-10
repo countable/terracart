@@ -107,8 +107,7 @@ const attacks = (s) => (1e6 - s.save.energy) + s._shots.length + s._webLaunches 
 // encounter budget, authored zone enemies, the night's ghost), every kind on a
 // Lairs.KIND_ORDER ladder (ruins, gates, cafés, barricades, the burned row's
 // fire slime), the wild slime, every hostile the fauna spawner seats (the
-// raven) — plus a hunted deer while it is angry, as a free foe, a lair guard
-// and a bounty foe.
+// raven) — plus a lair guard and a bounty foe.
 const KINDS = [...new Set(['slime',
   ...EnemyRoster.ROWS.filter((row) => row.surface).map((row) => row.id),
   // …and every hostile the SHORE seats by its own rule (the gull), and every
@@ -118,7 +117,6 @@ const KINDS = [...new Set(['slime',
   ...Object.values(Lairs.KIND_ORDER).flat()])];
 function foes() {
   const out = KINDS.map((kind) => ({ label: kind, make: (p) => ({ kind, id: `${kind}_0_0_1`, x: p.x, y: p.y }) }));
-  out.push({ label: 'hunted deer', make: (p) => ({ kind: 'deer', id: 'deer_0_0_1', x: p.x, y: p.y, _rageUntil: Date.now() + 1e9 }) });
   out.push({ label: 'lair goblin', make: (p) => ({ kind: 'goblin', id: 'lair_x_0', x: p.x, y: p.y, immobile: true,
     lair: 'x', lairX: p.x, lairY: p.y, lairR: 0, seatX: p.x, seatY: p.y }) });
   out.push({ label: 'bounty goblin', make: (p) => ({ kind: 'goblin', id: 'guildfoe_0_0_1_0', x: p.x, y: p.y, bounty: 'b' }) });
@@ -245,7 +243,7 @@ test('kerb: the fast kinds are the ones that out-run a walk, off the roster\'s o
   assert.gt(pace('goblin'), BRISK_WALK_MPS, 'a goblin runs');
   assert.gt(pace('bat'), BRISK_WALK_MPS, 'a bat swoops');
   assert.eq(pace('ghost'), Combat.GHOST_SPEED_MPS, 'a ghost glides at its row\'s mps');
-  assert.gt(pace('deer'), BRISK_WALK_MPS, 'a hunted deer charges');
+  assert.eq(pace('deer'), 0, 'a hunted deer never comes at you');
   // FAUNA: fast off their own gait / bolt rows (faunaTopMps) — the spawn
   // class follows (creatureSpawnClass), never a list of kinds.
   assert.gt(faunaTopMps('deer', CELL), BRISK_WALK_MPS, 'a deer bolts');
