@@ -168,6 +168,17 @@
     return { kind: 'item', id: FIRST_PRIZE_ID, qty: FIRST_PRIZE_QTY,
              tier: 2, cls: 'seed', jackpot: 0, consolation: 0 };
   }
+  // ── THE FIXED RUNGS ──────────────────────────────────────────────────────
+  // A rung that always pays one named thing. Rung one is the onion seed (a
+  // card in the rolled row); rung FOUR is the Serpent Idol (scene_boss.js),
+  // offered ALONE (`sole`): a boss's trigger the player could pick past would
+  // be lost for good — the idol is progressionOnly, found nowhere else.
+  const FIXED_PRIZES = {
+    4: { kind: 'item', id: 'serpent_idol', qty: 1, tier: 4, cls: 'magic', jackpot: 0, consolation: 0, sole: true },
+  };
+  function fixedPrize(n) {
+    return firstPrize(n) || (FIXED_PRIZES[n | 0] ? { ...FIXED_PRIZES[n | 0] } : null);
+  }
 
   // ── The prize is a CHOICE ────────────────────────────────────────────────
   // A prize pays PRIZE_CHOICES rolls and the player keeps ONE. Walking is the
@@ -287,7 +298,7 @@
   root.Trail = {
     STICK_METRES_MUL, PRIZE_CARDS, BOOTS_M_PER_TIER, bootsTierCap, prizeCardClasses, rollCardRow,
     GOAL_STEP_M, RUNNER_GOAL_DIV, goalDiv, goalFor, totalMetres, restoredMetres, distanceLabel, progress, bank, readout, label,
-    PRIZE_CONTEXT, FIRST_PRIZE_ID, FIRST_PRIZE_QTY, firstPrize,
+    PRIZE_CONTEXT, FIRST_PRIZE_ID, FIRST_PRIZE_QTY, firstPrize, FIXED_PRIZES, fixedPrize,
     PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey,
     PRIZE_ROLL_BONUS, PRIZE_ROLL_BONUS_MAX, rollBonusFor,
   };

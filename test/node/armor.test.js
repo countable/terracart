@@ -303,8 +303,8 @@ test('armor: every enemy blow uses shared incoming damage before reaching the ba
     'a roster foe\'s melee lands through it');
   assert.eq((CREATURE_AI_SRC.match(/foeBlowLands\(scene, [^,]+, Combat\.playerDamageRate\(|foeBlowLands\(scene, c, loss, \{ mitigated: true \}\)/g) || []).length, 2,
     'the aura and the slime trail hand over packet-mitigated rates');
-  assert.eq((SCENE_SRC.match(/foeBlowLands\(this, c, /g) || []).length, 2,
-    'retaliating fauna and ghost touches land through it');
+  assert.eq((SCENE_SRC.match(/foeBlowLands\(this, c, /g) || []).length, 3,
+    'retaliating fauna, ghost touches and the serpent\'s coils land through it');
   assert.falsy(/Combat\.incomingDamage\(this\.save, (?:raw|dmg|slimeBite)\)/.test(SCENE_SRC), 'no second mitigation site in the sim loop');
   assert.truthy(/Combat\.incomingProjectileDamage\(this\.save, shot\.damage, shot\.hits(?: \|\| 1)?\)/.test(SCENE_SRC),
     'arrows pass their bundled hit count through shared mitigation');

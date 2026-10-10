@@ -104,7 +104,7 @@ const FILES = [
   'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',
-  'hidden_objects.js', 'temple_puzzles.js', 'temple_layout.js', 'temple_scene.js', 'temples.js', 'interactables.js', 'houses.js',
+  'hidden_objects.js', 'temple_puzzles.js', 'temple_layout.js', 'temple_scene.js', 'temples.js', 'interactables.js', 'boss_encounters.js', 'houses.js',
   // The starter-area placers. They read the scene they are handed plus app.js's
   // starter constants as GLOBALS at call time; run.js injects those below (STARTER_CONSTS).
   'spawn_ownership.js', 'starter.js',
@@ -138,7 +138,7 @@ const FILES = [
   'scene_geo.js',
   'scene_creatures.js',
   'scene_fire.js', 'scene_shops.js',
-  'scene_create.js', 'scene_consumables.js', 'scene_venues.js', 'scene_streets.js',
+  'scene_create.js', 'scene_consumables.js', 'scene_venues.js', 'scene_streets.js', 'scene_boss.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE

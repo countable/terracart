@@ -395,10 +395,22 @@ test('trail prize: the ceremony rolls the ROAD pool, and rung one skips the roll
   assert.truthy(/pickReward\(Trail\.PRIZE_CONTEXT, this\.save, undefined,\s*\{ rollBonus: bonus, classes, classMaxTier: \{ boots: bootsCap \} \}\)/.test(body),
     'the pool is trail.js\'s, never a chest context named here, one card group at a time');
   assert.falsy(/chest:lowtier/.test(body), 'the ladder no longer borrows the lowtier chest curve');
-  assert.truthy(/const fixed = Trail\.firstPrize \? Trail\.firstPrize\(n\) : null;/.test(body),
-    'rung one is asked for first');
-  assert.truthy(/Trail\.rollCardRow\(rollFor, fixed \? \[fixed\] : \[\]\)/.test(body),
-    'and takes its card in the rolled row rather than replacing it');
+  assert.truthy(/const fixed = Trail\.fixedPrize\(n\);/.test(body),
+    'a fixed rung is asked for first');
+  assert.truthy(/fixed\?\.sole \? \[fixed\] : Trail\.rollCardRow\(rollFor, fixed \? \[fixed\] : \[\]\)/.test(body),
+    'rung one takes its card in the rolled row; a sole rung stands alone');
+});
+
+test('trail prize: rung four is the Serpent Idol, alone, and nowhere else', () => {
+  const p = Trail.fixedPrize(4);
+  assert.eq(p.id, 'serpent_idol');
+  assert.eq(p.qty, 1);
+  assert.truthy(p.sole, 'offered alone: it cannot be picked past');
+  assert.eq(Trail.fixedPrize(1).id, Trail.FIRST_PRIZE_ID, 'rung one is unchanged');
+  for (const n of [2, 3, 5, 8]) assert.eq(Trail.fixedPrize(n), null);
+  assert.truthy(ITEM_BY_ID.serpent_idol.progressionOnly, 'never a find, a ware or a trailer sale');
+  Trail.fixedPrize(4).qty = 9;
+  assert.eq(Trail.fixedPrize(4).qty, 1, 'callers get a copy');
 });
 
 test('trail prize: rung one offers the onion seed AND a full row to pick from', () => {

@@ -15,8 +15,9 @@ test('chest themes: T2 acorns fill the budget with a stack while fruit saplings 
 test('chest themes: every authored path terminates and conserves probability', () => {
   assert.truthy(ChestThemes.validate());
   // Memorials mint no chest, and the unused pets theme is gone because
-  // OpenMapTiles represents pet stores as shop/pet commerce POIs.
-  assert.eq(Object.keys(ChestThemes.themes).length, 13);
+  // OpenMapTiles represents pet stores as shop/pet commerce POIs. `boss` is
+  // a slain boss's hoard (scene_boss.js), never a POI's.
+  assert.eq(Object.keys(ChestThemes.themes).length, 14);
   assert.falsy(ChestThemes.themes.memorial, 'no memorial theme');
   for (const theme of Object.keys(ChestThemes.themes)) for (let tier = 1; tier <= 7; tier++) {
     for (const depth of [0, 1]) {

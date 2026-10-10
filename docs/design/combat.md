@@ -165,6 +165,35 @@ mechanics.
 Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_ward`,
 `pet_pickup`.
 
+## Boss encounters
+
+- Every boss fight is one routine: a row of `BossEncounters.KINDS`
+  (`src/boss_encounters.js`) — today the citadel's garrison and the serpent a
+  Serpent Idol raises. A trigger starts a record (`start`, kept in the kind's
+  `store` on the save); it is live for the row's `durationMs` of wall time.
+- It RESETS — the foes despawn, their defeats are forgotten, and the trigger
+  can be used again later — when its clock runs out, or when the player who
+  started it (`own`) goes down or leaves its floor (`abandon`). A battle
+  adopted from another player (multiplayer) is not theirs to end. The scene
+  side is `_tickBossEncounters` (`src/scene_boss.js`), every frame; each live
+  fight shows its clock as a status-row chip.
+- WINNING spends the trigger for good: a citadel is claimed; the idol is
+  consumed and leaves a T4 boss chest (`chestThemeFor` → the `boss` theme:
+  equipment or a unique relic), kept as `save.bossChests` until opened.
+- THE SERPENT: one creature per piece (`serpent_head` / `_body` / `_tail`
+  roster rows, `boss: 'serpent'`), moved and biting only by its encounter's
+  tick, never `rosterEnemyMove`. The head snakes about the player within the
+  row's `leashCells`; the coils and tail tip follow its trail. Each coil
+  touching the player bites for the row's `dmg` once a `damageIntervalSeconds`
+  through `foeBlowLands`. Only coils can be struck (the head and tail are
+  `untargetable`, read by `Combat.isConcealed`); a slain coil shortens it, and
+  with only head and tail left it dies. Body and gait numbers are the
+  `KINDS.serpent` row. The Serpent Idol is the road ladder's fourth prize, alone
+  (`Trail.FIXED_PRIZES`), `progressionOnly` (no loot pool or sale), and cannot
+  be raised on the Major-and-Medium road group's kerb or junctions.
+
+Tests: `boss_encounters`, `castle_quest_flow`, `lairs`, `trail`.
+
 ## Shared enemies (multiplayer)
 
 - Nearby players fight the same enemies: `src/multiplayer.js` sends this

@@ -557,6 +557,9 @@
         // at the full 2× a pest stood as tall as a goblin).
         fw, fh, scale: 2 * (row.artScale ?? 1), foot: maxY / fh, minY, maxY,
         ...(row.art.attackFrames ? { attackFrames: row.art.attackFrames } : {}),
+        // An EIGHT-WAY parts atlas (the serpent's): the frame is the row's
+        // column for the creature's heading (creatureAppearance).
+        ...(row.art.octantRow != null ? { octantRow: row.art.octantRow, octantFlip: !!row.art.octantFlip } : {}),
         float: flying ? 6 : 0, airborne: flying,
         ...(ghost ? { hop: true, hopMs: 1600, hopPx: 3,
           alpha: GHOST_ALPHA, glow: GHOST_GLOW } : {}) };
@@ -889,6 +892,12 @@
   }
   function creatureAppearance(c, now) {
     const art = creatureArt(c.kind);
+    // Columns E, SE, S, SW, W, NW, N, NE off `_heading` (radians, world
+    // metres, y to the south); a tail tip is drawn pointing back (octantFlip).
+    if (art?.octantRow != null) {
+      const o = Math.round((Number.isFinite(c._heading) ? c._heading : 0) / (Math.PI / 4));
+      return { frame: art.octantRow * 8 + ((((o + (art.octantFlip ? 4 : 0)) % 8) + 8) % 8), flipX: false };
+    }
     const facing = c._facing || 'down';
     const side = facing === 'left' || facing === 'right';
     const explicitSide = side && art?.directions?.[facing];

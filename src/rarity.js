@@ -246,6 +246,8 @@
       if (it.caveOnly) continue;
       // Made at a campfire, never found (items.js CAMPFIRE_MAKES).
       if (it.cooked) continue;
+      // A ladder's own prize (items.js `progressionOnly` — the Serpent Idol).
+      if (it.progressionOnly) continue;
       const cls = it.kind;
       const t = it.baseTier;
       if (!cls || typeof t !== 'number') continue;
@@ -325,7 +327,7 @@
   function pickItemInClass(cls, tier, rng) {
     if (cls === 'relic') return null;            // handled by reconcileRelicOffer
     if (cls === 'consumable') {
-      const items = _ITEMS.filter(i => ['magic', 'supply'].includes(i.kind) && !i.caveOnly && !i.uniqueJewelry && !i.cooked && !i.shiny && i.baseTier <= tier);
+      const items = _ITEMS.filter(i => ['magic', 'supply'].includes(i.kind) && !i.caveOnly && !i.uniqueJewelry && !i.cooked && !i.shiny && !i.progressionOnly && i.baseTier <= tier);
       if (!items.length) return null;
       const top = Math.max(...items.map(i => i.baseTier));
       return weightedPickBy(items.filter(i => i.baseTier === top), i => i.dropWeight || 1, rng).id;

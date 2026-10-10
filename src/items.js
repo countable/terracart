@@ -471,6 +471,7 @@ const MINERAL_ICON_SHEET = {
   bones_scroll: { sheet: 'icon_bones_scroll', frame: 0 },
   wraith_scroll: { sheet: 'icon_wraith_scroll', frame: 0 },
   raven_scroll:  { sheet: 'icon_raven_scroll', frame: 0 },
+  serpent_idol:  { sheet: 'icon_serpent_idol', frame: 0 },
   // Potion of Blight — the red flask of the next row down (row 3, y=48:
   // frame 17), so it doesn't read as the Speed potion's red beside it.
   blight_potion: { sheet: 'icon_potions', frame: 17 },
@@ -681,6 +682,7 @@ const BASE_TIER = {
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_scroll: 2,
+  serpent_idol: 4,
   bones_scroll: 3, wraith_scroll: 4,
   dragon_powder: 4, flight_potion: 4, shrinking_potion: 4, giant_potion: 4, fire_resistance_potion: 4,
   // Revival: getting up where you fell instead of walking Home at a crawl.
@@ -912,6 +914,9 @@ const ITEMS = [
   { id: 'bones_scroll', name: 'Scroll of Bones', kind: 'magic', scroll: true },
   { id: 'wraith_scroll', name: 'Scroll of the Wraith', kind: 'magic', scroll: true },
   { id: 'raven_scroll',  name: 'Scroll of the Raven', kind: 'magic', scroll: true },
+  // The trail's fourth prize (trail.js FIXED_PRIZES), never a find or a
+  // ware: `progressionOnly` keeps it out of every loot pool and the trailer.
+  { id: 'serpent_idol', name: 'Serpent Idol', kind: 'magic', progressionOnly: true },
   // Drunk while DOWN (zero energy) to get back up on the spot — see
   // REVIVE_POTION_FRAC and drinkRevivePotion in app.js.
   { id: 'revival_potion',       name: 'Potion of Revival',       kind: 'magic', potion: true },
@@ -1411,6 +1416,14 @@ const CONSUMABLE_SPEC = {
     get: 'A cold shade slips from the ink to hunt your foes.',
     used: { title: 'You read the Scroll of the Wraith', body: (scene, spec) => spec.get },
   },
+  // THE SERPENT IDOL raises a boss (scene_boss.js, BossEncounters kind
+  // 'serpent'). Raising it does not spend it: a fight that resets leaves the
+  // idol in the bag; only the serpent's death consumes it.
+  serpent_idol: {
+    method: '_useSerpentIdol',
+    verb: 'Raise', title: 'Raise the Serpent Idol?',
+    get: 'A great serpent coils out of the earth. Cut it down coil by coil before it slips away.',
+  },
   raven_scroll: {
     durationMs: _CONSUMABLE_MINUTE_MS, buff: 'raven',
     verb: 'Read', title: 'Read the Scroll of the Raven?',
@@ -1635,6 +1648,7 @@ const PRICES = {
   shielding_potion: 250,  // T5 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura at app.js's BLIGHT_DPS
   raven_scroll: 55, // T2 — one minute of a slime-strength ally
+  serpent_idol: 180, // T4 — a boss and its hoard; never sold (progressionOnly)
   bones_scroll: 90, // T3 — one minute of a skeleton-strength ally
   wraith_scroll: 160, // T4 — one minute of a ghost-strength ally
   revival_potion: 40,   // T3 — get up where you fell with 30% of the bar
@@ -1889,6 +1903,7 @@ const ITEM_EFFECTS = {
   bones_scroll: 'The skull-marked parchment rattles softly in your hand.',
   wraith_scroll: 'Cold gathers around the shade stamped into the parchment.',
   raven_scroll: 'A pale wing stirs beneath the raven-marked ink.',
+  serpent_idol: 'A stone serpent, cold and heavy. Something vast sleeps in it, and it is not friendly.',
   thunder_scroll: 'A distant storm stirs between the inked lines.',
   revival_potion: 'A faint pulse waits to call a fallen traveller back.',
   resurrection_potion: 'A deep warmth waits where a fallen traveller’s heart has quieted.',

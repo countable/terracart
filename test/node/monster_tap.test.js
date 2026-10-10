@@ -13,7 +13,8 @@ test('monster taps: a foe shows its name, plus its tier gem when catchable, with
     globalThis.cellInReach = () => true;
     globalThis.worldMetersToAbsCell = () => ({ cellIX: 0, cellIY: 0 });
     for (const kind of Combat.enemyKinds()) {
-      if (SpriteLayout.isSummoned(kind)) continue;
+      // The serpent's head and tail tip take no tap (Combat.isConcealed).
+      if (SpriteLayout.isSummoned(kind) || EnemyRoster.get(kind)?.untargetable) continue;
       for (const charmed of [false, true]) {
         const target = { kind, id: `test_${kind}`, x: 0, y: 0, _disguiseRevealed: true,
           _charmUntil: charmed ? Date.now() + 60000 : 0 };
