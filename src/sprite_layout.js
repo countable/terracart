@@ -638,7 +638,8 @@
   });
   const CREATURE_BEHAVIOUR = {
     npc:           { wanders: true },
-    chicken:       { wanders: true, produce: { item: 'egg', shinyItem: 'shiny_egg', verb: 'laid' } },
+    // 6 s a step: 20% slower than the shared 5 s wander beat.
+    chicken:       { wanders: true, stepMs: 6000, produce: { item: 'egg', shinyItem: 'shiny_egg', verb: 'laid' } },
     // A cow takes twice the netting — through its HP (combat.js FAUNA_HP: a
     // catch's difficulty is current HP × 2, Pets.catchMs).
     cow:           { wanders: true, produce: { item: 'milk', verb: 'milked' } },
@@ -685,7 +686,7 @@
     // life). Its stepMs is one bite a second (Combat.MELEE_INTERVAL_MS — the
     // pet fight resolves once per step), the slime's own cadence. Its PACE is
     // the stride, not the beat: 0.7 of a cell a hop is 4.9 m/s, over every
-    // ground foe's chase but the goblins' (7 m/s; a goblin pursues, so it comes
+    // ground foe's chase but the goblins' (5.8 m/s; a goblin pursues, so it comes
     // to the raven) and no blur beside a walking player. Slow it by the
     // stride; the beat is the bite. It is NOT an
     // enemy (no MONSTERS row), NOT game, and NOT tappable (interact.js skips a

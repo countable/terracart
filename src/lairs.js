@@ -717,7 +717,7 @@
   const LAIR_CORE_SPREAD_CELLS = 1.5;
   const LAIR_CORE_AGGRO_CELLS = 3;
   const LAIR_LEASH_CELLS = 10;   // and this far out it gives up and goes home
-  //   THE LEASH IS WHAT ENDS A CHASE (goblins and orcs run at 7 and 3 m/s,
+  //   THE LEASH IS WHAT ENDS A CHASE (goblins and orcs run at 5.8 and 3 m/s,
   //   so a walking player cannot open the gap): a garrison follows to the
   //   leash and turns round there, whoever
   // is running. lair_chase_sim.test.js walks it.
