@@ -442,6 +442,7 @@ const MINERAL_ICON_SHEET = {
   fireball_scroll: { sheet: 'icon_book', frame: 46 },
   explosive_flask: { sheet: 'icon_potions', frame: 22 },
   fear_scroll:     { sheet: 'icon_book', frame: 47 },
+  wind_scroll:     { sheet: 'icon_wind_scroll', frame: 0 },
   treasure_map:    { sheet: 'icon_book', frame: 49 },
   // The Renovation Permit — the sealed scroll beside the maps (Books.png).
   renovation_permit: { sheet: 'icon_book', frame: 48 },
@@ -715,7 +716,7 @@ const BASE_TIER = {
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_reach: 3, tome_raven: 4, tome_thunder: 5, tome_fire_wall: 4,
-  blank_scroll: 2, fireball_scroll: 3, explosive_flask: 3, fear_scroll: 3, treasure_map: 4, magic_hammer: 4,
+  blank_scroll: 2, fireball_scroll: 3, explosive_flask: 3, fear_scroll: 3, wind_scroll: 1, treasure_map: 4, magic_hammer: 4,
   tome_speed: 3, tome_shielding: 3, tome_healing: 3, tome_blight: 4, tome_frost_aura: 6,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
@@ -878,6 +879,7 @@ const ITEMS = [
   { id: 'fireball_scroll', name: 'Fireball Scroll', kind: 'magic', scroll: true },
   { id: 'explosive_flask', name: 'Explosive Flask', kind: 'magic' },
   { id: 'fear_scroll', name: 'Scroll of Fear', kind: 'magic', scroll: true },
+  { id: 'wind_scroll', name: 'Scroll of Wind', kind: 'magic', scroll: true },
   { id: 'treasure_map', name: 'Treasure Map', kind: 'magic', scroll: true },
   // Spent on a wreck restore (houses.js HAMMER_ID): the building comes up shiny and sells cheaper for good.
   { id: 'magic_hammer', name: 'Magic Hammer', kind: 'magic' },
@@ -1189,6 +1191,14 @@ const CONSUMABLE_SPEC = {
     durationMs: 30 * 1000,
     verb: 'Read', title: 'Read the Scroll of Fear?',
     get: 'The words send a shiver through every watching foe.',
+  },
+  // THE SCROLL OF WIND (T1, owner Oct 2026): every foe in reach takes
+  // `damage` and is blown `pushCells` straight away from the reader
+  // (Whirlwinds.impulse — the one knockback — on any walkable ground).
+  wind_scroll: {
+    damage: 5, pushCells: 2,
+    verb: 'Read', title: 'Read the Scroll of Wind?',
+    get: 'A gust tears off the page and hurls every foe nearby away from you.',
   },
   treasure_map: {
     durationMs: 15 * _CONSUMABLE_MINUTE_MS,
@@ -1626,6 +1636,7 @@ const PRICES = {
   fireball_scroll: 120,
   explosive_flask: 100,
   fear_scroll: 100,
+  wind_scroll: 15,     // T1 — the first scroll a walk can hand over, priced with the T1 tonics
   treasure_map: 200,
   magic_hammer: 220,   // T4 — a standing discount at one building, forever
   sleep_powder: 100,
@@ -1790,6 +1801,7 @@ const ITEM_GUIDE_TIPS = {
   thunder_scroll: 'I copied the thunder words onto a blank scroll. Outside, the sky answered.',
   fireball_scroll: 'At the trailer I copied the fire spell from memory onto blank parchment. The ink warmed. I moved the bedding away.',
   fear_scroll: 'I copied the words that had scattered my pursuers onto a blank scroll. Even here at the trailer, the parchment trembled.',
+  wind_scroll: 'I copied the gust onto a blank scroll from memory. The trailer door banged open on its own.',
   treasure_map: 'Back at the trailer I traced the remembered map onto a blank scroll. Its hidden paths returned. I had hoped one might lead home.',
 };
 
@@ -1889,6 +1901,7 @@ const ITEM_EFFECTS = {
   fireball_scroll: CONSUMABLE_SPEC.fireball_scroll.get,
   explosive_flask: CONSUMABLE_SPEC.explosive_flask.get,
   fear_scroll: CONSUMABLE_SPEC.fear_scroll.get,
+  wind_scroll: CONSUMABLE_SPEC.wind_scroll.get,
   treasure_map: CONSUMABLE_SPEC.treasure_map.get,
   magic_hammer: 'Masons say a wall raised under this hammer never stops gleaming, and the folk inside deal kindly with whoever swung it.',
   sleep_powder: CONSUMABLE_SPEC.sleep_powder.get,
