@@ -29,6 +29,22 @@ Depth 0 is the surface. Each cave tile is the negative of the tile above it
 (`worldgen.js` `loadCaveTile`), so a floor's identity comes from three things:
 its terrain rule, its content windows, and its route in.
 
+## Sky floor (depth -1)
+
+One level above the ground (`WorldGen.SKY_DEPTH`), the sky floor holds trials
+over groves. Each sky tile is a copy of the surface tile's grove coverage as
+white floor (`CAVE_FLOOR`, painted by `Render.undergroundGroundColor` for the
+`sky` biome) over open air (`CAVE_WALL`, which blocks movement); nothing
+spawns there and it has its own tile cache (`loadSkyTile`). An awakened grove
+temple whose trial is the hidden way (`TemplePuzzles` `path`) lifts the player
+onto the trial's seat (`TempleLayout.plan`) through `_realmSwitchDepth`, the
+arena's switch. The route glows on the ground for
+`TemplePuzzles.PATH_REVEAL_SECONDS` while the player waits on A; each cell step
+is judged by `TemplePuzzles.move`, and a wrong step or leaving the square
+replays the preview from A. Tapping A (or B once won) returns to the temple
+door; a reload mid-trial does the same (`_recoverSkyRun`). The other temple
+trials still run in the paused overlay scene (`temple_scene.js`).
+
 ## Dungeon floors (depth 1-8)
 
 | Floor | Theme | Terrain and look | Unique to this floor | Signature foes |

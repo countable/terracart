@@ -1,12 +1,12 @@
 // The upper temple is an isolated scene: surface simulation is paused until exit.
+// The hidden way is not here: it is walked on the sky floor (scene_sky.js).
 (function (root) {
   'use strict';
   const KEY = 'grove-temple';
-  const TITLES = { blocks: 'Chromatic stones', tower: 'The three ascents', path: 'The hidden way', duel: 'The grove champion', ballista: 'Guard the heart' };
+  const TITLES = { blocks: 'Chromatic stones', tower: 'The three ascents', duel: 'The grove champion', ballista: 'Guard the heart' };
   const HELP = {
     blocks: 'Push each stone onto its matching pressure plate. Tap a neighboring cell or use arrow keys. Retry resets a trapped stone.',
     tower: 'Reach the golden ladder three times. Walls and monsters change each ascent. Your weapon attacks adjacent guards automatically.',
-    path: 'Memorize the blue cells, then follow that exact route from A to B. The route disappears before you can move.',
     duel: 'Defeat the elite grove champion. Move next to it to attack automatically; step away to evade.',
     ballista: 'Protect the center from wall drones. Frost arrows fire automatically along your compass heading. Without a compass, tap to aim or use Q / E.',
   };
@@ -113,7 +113,7 @@
     }
     if (next.status === 'won' && !this.rewarded) {
       this.rewarded = true;
-      root.Temples.complete(this.source, this.temple);
+      root.Temples.complete(this.source, this.temple, root.TemplePuzzles.winCondition(this.plan));
     }
   }
   function update(_time, delta) {
@@ -203,11 +203,10 @@
       const p = diamond(x, y, (x + y) % 2 ? 0xe9eee9 : 0xfafaf1);
       g.lineStyle(1, 0x9eafab, .18); g.lineBetween(p.x - this.tw * .5, p.y, p.x + this.tw * .3, p.y + this.th * .25);
     }
-    if (s.kind === 'path' && s.revealRemaining > 0) for (const p of s.path) diamond(p.x, p.y, 0x8bd4e7, 3);
     for (const p of s.plates) { const at = diamond(p.x, p.y, COLORS[p.color], 5); label(at.x, at.y, p.color[0].toUpperCase()); }
     for (const p of s.walls) { diamond(p.x, p.y, 0x6b7d7e, 1, 7); }
     for (const p of s.blocks) { const at = diamond(p.x, p.y, COLORS[p.color], 3, 9); label(at.x, at.y, p.color[0].toUpperCase(), '#ffffff'); }
-    for (const [p, text] of [[s.pointA, 'A'], [s.pointB, 'B'], [s.ladder, '⇧']]) if (p) { const at = diamond(p.x, p.y, 0xe6c97b, 3); label(at.x, at.y, text, '#5c451f', 18); }
+    for (const [p, text] of [[s.ladder, '⇧']]) if (p) { const at = diamond(p.x, p.y, 0xe6c97b, 3); label(at.x, at.y, text, '#5c451f', 18); }
     if (s.center) diamond(s.center.x, s.center.y, 0x96d6d2, 2);
     for (const e of s.enemies) {
       const p = this.point(e.x, e.y, 8), r = this.tw * .3;
@@ -239,9 +238,8 @@
     let progress = `${this.plan.enemyKind === 'giant_reaper' ? 'Old Stones' : 'Grove'} Nexus · Floor +1`;
     if (s.kind === 'tower') progress += ` · Ascent ${s.round}/3 · Health ${Math.ceil(s.player.hp)}`;
     if (s.kind === 'duel') progress += ` · Health ${Math.ceil(s.player.hp)}`;
-    if (s.kind === 'path') progress += s.revealRemaining > 0 ? ` · Memorize: ${Math.ceil(s.revealRemaining)}s` : ' · Follow the hidden route';
     if (s.kind === 'ballista') progress += `\nHeart ${s.centerHp}/100 · Drones ${s.defeated}/${s.totalDrones}`;
-    if (s.status !== 'playing') progress = s.status === 'won' ? 'Trial complete · The temple’s gift is yours.\nReturn to the ground when ready.' : 'Trial failed · Retry to begin again.';
+    if (s.status !== 'playing') progress = s.status === 'won' ? `Trial complete · ${root.TemplePuzzles.winCondition(this.plan)}\nReturn to the ground when ready.` : 'Trial failed · Retry to begin again.';
     this.statusText.setPosition(w / 2, this.visibleBottom - 117).setWordWrapWidth(w - 24).setText(progress);
     for (let i = labelCount; i < this.labelPool.length; i++) this.labelPool[i].setVisible(false);
     for (let i = actorCount; i < this.actorPool.length; i++) this.actorPool[i].setVisible(false);

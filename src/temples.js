@@ -8,6 +8,13 @@
     title: 'The temple awakens', art: 'temple_activated', kind: 'story',
     body: 'With the park’s enemies defeated, blue light fills the temple’s carved runes. Enter the temple and climb to the marble nexus above. A trial guards its gift of magic.',
   };
+  // Every awakening and every trial win names the condition it met.
+  const met = condition => condition ? `Condition met: ${condition}` : '';
+  function enemiesCondition(n) {
+    return n === 1 ? 'The park’s only enemy is defeated.' : `All ${n} of the park’s enemies are defeated.`;
+  }
+  const SPIRIT_CONDITION = 'This park had no enemies to defeat, and you found its hidden shrine spirit.';
+  const ENTRY_CONDITION = 'You entered the awakened temple.';
   function zoneKey(o) { return o?.templeZone || o?.templeAnchor?.key || null; }
   function isActive(save, o) { return !!save?.temples?.[zoneKey(o)]?.active; }
   function sameZone(anchor, key) { return anchor && String(anchor.key) === String(key); }
@@ -147,7 +154,9 @@
           body: 'There is no clear space for a trial at this nexus. Explore the temple’s surroundings to reveal any unseen ground.' });
         return true;
       }
-      root.TempleScene.enter(scene, o, plan);
+      // The hidden way is walked on the sky floor above the grove.
+      if (plan.kind === 'path') scene.enterSkyTrial(o, plan);
+      else root.TempleScene.enter(scene, o, plan);
       return true;
     }
     if (record.rewardClaimed) { scene.flash('The temple shines.', sx, sy); return true; }
@@ -158,29 +167,35 @@
       if (record.rewardClaimed) return;
       record.rewardClaimed = true;
       grantTreasureRoll(scene, save, sx, sy, '✦', CONTEXT, {
-        rollBonus: 1, ceremony: { art: STORY.art, header: 'The temple’s gift', kind: 'treasure' },
+        rollBonus: 1, ceremony: { art: STORY.art, header: 'The temple’s gift', kind: 'treasure', sub: met(ENTRY_CONDITION) },
       });
       persistSave(save);
     };
     claim();
     return true;
   }
-  function complete(scene, o) {
+  // condition: what the win proved (TemplePuzzles.winCondition).
+  function complete(scene, o, condition) {
     const record = scene.save.temples?.[zoneKey(o)];
     if (!record?.active) return false;
     record.challengeComplete = true;
-    if (record.rewardClaimed) { persistSave(scene.save); return false; }
+    if (record.rewardClaimed) {
+      persistSave(scene.save);
+      scene.showMessageModal?.({ title: 'Trial complete', kind: 'story',
+        body: [met(condition), 'The temple’s gift was already claimed.'].filter(Boolean).join('\n\n') });
+      return false;
+    }
     record.rewardClaimed = true;
     // Claim before the reward ceremony so repeated completion cannot pay twice.
     persistSave(scene.save);
     const p = scene.playerScreen();
     grantTreasureRoll(scene, scene.save, p.x, p.y, '✦', CONTEXT, {
-      rollBonus: 1, ceremony: { art: STORY.art, header: 'The temple’s gift', kind: 'treasure' },
+      rollBonus: 1, ceremony: { art: STORY.art, header: 'The temple’s gift', kind: 'treasure', sub: met(condition) || undefined },
     });
     persistSave(scene.save);
     return true;
   }
-  function activate(scene, o, spirit = false) {
+  function activate(scene, o, spirit = false, condition) {
     const key = zoneKey(o);
     if (!key || isActive(scene.save, o)) return false;
     const record = (scene.save.temples ||= {})[key] ||= {};
@@ -188,15 +203,16 @@
     record.rewardClaimed = false;
     epoch++;
     persistSave(scene.save);
-    scene.showMessageModal?.({ ...STORY,
-      ...(spirit ? { title: 'Shrine spirit discovered', body: 'Shrine spirit discovered. The shrine begins to glow.' } : {}),
-    });
+    const story = spirit ? { title: 'Shrine spirit discovered', body: 'Shrine spirit discovered. The shrine begins to glow.' } : {};
+    const body = story.body || STORY.body;
+    scene.showMessageModal?.({ ...STORY, ...story,
+      body: [body, met(spirit ? SPIRIT_CONDITION : condition)].filter(Boolean).join('\n\n') });
     return true;
   }
   function discoverSpirit(scene, o) { return activate(scene, o, true); }
   function hasPending(scene) { return pending.has(scene); }
   function observe(scene) {
-    if (scene.depth > 0) {
+    if (scene.depth) {
       pending.delete(scene);
       observed.delete(scene);
       return;
@@ -241,11 +257,11 @@
         // authored foes and found them all defeated (authored > 0). A stamp
         // from an earlier pass with nothing visible now waits, instead of
         // telling an enemies-defeated story nobody earned.
-        if (state.ready && state.authored > 0 && activate(scene, o)) return; // one story at a time
+        if (state.ready && state.authored > 0 && activate(scene, o, false, enemiesCondition(state.authored))) return; // one story at a time
       } else if (state.ready) root.HiddenObjects?.ensureSpirit(scene, o, state);
       return;
     }
     pending.delete(scene);
   }
-  root.Temples = { CONTEXT, STORY, zoneKey, isActive, coverage, status, interact, complete, observe, hasPending, discoverSpirit };
+  root.Temples = { CONTEXT, STORY, SPIRIT_CONDITION, ENTRY_CONDITION, enemiesCondition, zoneKey, isActive, coverage, status, interact, complete, observe, hasPending, discoverSpirit };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

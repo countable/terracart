@@ -309,8 +309,15 @@ const GRASS_FALLBACK_COLOR = 0x7b8d4e;   // matches the approved COLORS[0] grass
 // Underground palettes travel through the same ground accent lane as surface
 // zones: fills, rounded seams and border comparisons all see one colour.
 // Cave grit remains an alpha overlay, preserving its existing baked textures.
-Render.UNDERGROUND_GROUND = { underdark: 0x69626c, grove: 0x486653, dwarven_city: 0x8b7760 };
+// The sky floor (WorldGen.SKY_DEPTH) uses the same lane: white grove floor
+// over pale open air, with no biome texture (see the texture pass).
+Render.UNDERGROUND_GROUND = { underdark: 0x69626c, grove: 0x486653, dwarven_city: 0x8b7760,
+  sky_floor: 0xf7f7f1, sky_air: 0xb9dcf2 };
 Render.undergroundGroundColor = (entry, ix, iy, type) => {
+  if (entry?.undergroundBiome === 'sky') {
+    return type === WorldGen.T.CAVE_FLOOR ? Render.UNDERGROUND_GROUND.sky_floor
+      : type === WorldGen.T.CAVE_WALL ? Render.UNDERGROUND_GROUND.sky_air : null;
+  }
   if (type !== WorldGen.T.CAVE_FLOOR || !entry) return null;
   if (entry.undergroundBiome === 'underdark') return Render.UNDERGROUND_GROUND.underdark;
   if (entry.undergroundBiome !== 'deep_stone') return null;
@@ -1951,6 +1958,7 @@ Render.drawCells = function drawCells(scene) {
   // One read per pass — every building-art decision below asks it, and a
   // toggle flipping mid-pass would draw half a building.
   const POLY = polyBuildings();
+  const skyLevel = scene.depth === WorldGen.SKY_DEPTH;
   const gb2 = scene.borderGfx;
   scene._uprightPieces = [];
   scene._rampartPoolUsed = 0;
@@ -2541,7 +2549,7 @@ Render.drawCells = function drawCells(scene) {
             const u = e && e.pathUnder && e.pathUnder[`${lix}_${liy}`];
             if (u != null && BIOME_TEX[u]) baseType = u;
           }
-          const spec = BIOME_TEX[baseType];
+          const spec = skyLevel ? null : BIOME_TEX[baseType];
           if (spec) {
             texKey = `biome${baseType}_${Math.abs(h) % spec.variants}`;
             // Animated biome (water/pier): pick the pre-baked phase frame from

@@ -3572,6 +3572,7 @@ class MapScene extends Phaser.Scene {
     Companions.tickAll(this);
     tickGroundCoins(this);
     this._tickArena(dt);
+    this._tickSky(dt);
     // Did we just walk onto a trap, or are we still standing on one? Runs
     // beside the fog reveal because it asks the same question — which cell are
     // the player's FEET in — and answers it the same way (playerToWorldCell,
@@ -3610,6 +3611,7 @@ class MapScene extends Phaser.Scene {
     this.drawObjects();
     GasRender.draw(this);
     this._drawArena();
+    this._drawSky();
     this._drawWorkProgress();
     this.updateHUD();
     } catch (e) {
@@ -5615,6 +5617,7 @@ class MapScene extends Phaser.Scene {
   handleWorldTap(sx, sy) {
     if (this.isTooFast?.()) { this.flash('Too fast — on foot only.', sx, sy); return; }
     if (this._tapArenaPortal(sx, sy)) return;
+    if (this._tapSkyExit(sx, sy)) return;
     interactTap(this, sx, sy);
   }
 
@@ -10430,6 +10433,7 @@ installSceneMixin(MapScene, SceneConsumables);
 installSceneMixin(MapScene, ScenePets);
 installSceneMixin(MapScene, SceneElevators);
 installSceneMixin(MapScene, SceneArena);
+installSceneMixin(MapScene, SceneSky);
 installSceneMixin(MapScene, SceneVenues);
 installSceneMixin(MapScene, SceneStreets);
 installSceneMixin(MapScene, SceneBoss);

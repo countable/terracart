@@ -116,6 +116,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   revealing the player’s identity or the wizard’s secret. Preserve approved
   excerpts and keep `ITEM_GUIDE_TIPS` as the owner of shared item parables. Authors
   describe their world, not interface elements such as work circles or health bars.
+- Every temple awakening and every temple trial win names the condition it
+  met as a `Condition met:` line: the awakening story's body (the enemy count,
+  or the shrine spirit for an enemy-free park), the gift card's `sub`, and a
+  repeat win's note. Trial conditions are `TemplePuzzles.WIN_CONDITIONS` rows,
+  passed through `Temples.complete(scene, o, condition)`.
 - Story delivery separates required, ordered canon from optional, asynchronous
   lore (docs/design/story.txt, ACT STRUCTURE). Memory and restoration are independent
   progress tracks; required events join them through prerequisites and world

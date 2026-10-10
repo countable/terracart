@@ -3,6 +3,19 @@
   'use strict';
   const SIZE_RANGES = Object.freeze({ blocks: [5, 9], tower: [7, 9], path: [5, 9], duel: [5, 9], ballista: [7, 9] });
   const KINDS = Object.freeze(Object.keys(SIZE_RANGES));
+  // How long the hidden way's route shows on the sky floor before it fades.
+  const PATH_REVEAL_SECONDS = 5;
+  // What each win proves, shown when a trial completes (Temples.complete).
+  // An authored foe (plan.enemyKind) names its own fight.
+  const WIN_CONDITIONS = Object.freeze({
+    blocks: 'Both chromatic stones rest on their matching pressure plates.',
+    tower: 'All three golden ladders climbed.',
+    path: 'The hidden route walked from A to B without a wrong step.',
+    duel: 'The elite grove champion defeated.',
+    ballista: 'Every wall drone destroyed before the heart fell.',
+    giant_reaper: 'The giant reaper defeated.',
+  });
+  const winCondition = plan => WIN_CONDITIONS[plan?.enemyKind] || WIN_CONDITIONS[plan?.kind] || 'The temple trial completed.';
   const seedNumber = value => {
     if (Number.isFinite(value)) return Math.abs(Math.trunc(value));
     let hash = 0; for (const ch of String(value || '')) hash = (Math.imul(hash, 31) + ch.charCodeAt(0)) >>> 0;
@@ -45,7 +58,7 @@
       if (s.seed % 2) s.path = s.path.map(p => ({ x:size - 1 - p.x, y:p.y }));
       s.pointA = { ...s.path[0] }; s.pointB = { ...s.path[s.path.length - 1] };
       s.player.x = s.pointA.x; s.player.y = s.pointA.y;
-      s.pathIndex = 0; s.revealRemaining = 3; s.phase = 'reveal';
+      s.pathIndex = 0; s.revealRemaining = PATH_REVEAL_SECONDS; s.phase = 'reveal';
     } else if (kind === 'duel') s.enemies = [enemy(plan.enemyKind || 'elite', size - 2, 1, 100, !plan.enemyKind)];
     else {
       s.player.x = c; s.player.y = c; s.center = { x: c, y: c };
@@ -84,7 +97,7 @@
     if (s.kind === 'path') {
       if (!same(to, s.path[s.pathIndex + 1] || {})) {
         s.player.x = s.pointA.x; s.player.y = s.pointA.y; s.pathIndex = 0;
-        s.revealRemaining = 3; s.phase = 'reveal'; s.event = 'The path faded. Memorize it and try again.';
+        s.revealRemaining = PATH_REVEAL_SECONDS; s.phase = 'reveal'; s.event = 'The path faded. Memorize it and try again.';
         return s;
       }
       s.pathIndex++;
@@ -201,5 +214,5 @@
     }
     return finish(s);
   }
-  root.TemplePuzzles = { KINDS, SIZE_RANGES, create, move, tick, attack };
+  root.TemplePuzzles = { KINDS, SIZE_RANGES, PATH_REVEAL_SECONDS, WIN_CONDITIONS, winCondition, create, move, tick, attack };
 })(typeof window !== 'undefined' ? window : globalThis);
