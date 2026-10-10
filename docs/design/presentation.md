@@ -93,6 +93,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   creature's status (sleep, charm, frost, fear, psychosis) is a row of
   `Combat.STATUS_LOOKS` and one `Combat.flagStatus` call at its applier;
   render.js flicks and pops it through `_popCreatureText`.
+- Bearings on the map rim are rows of `MARKERS` (app.js). Each row's slot
+  holds a list of marks, so any number of them show at once: several
+  neighbours' directions, telescope finds, maps and the Pairy together. Writers
+  add with `Buffs.withMark`: a mark on the same target replaces or extends,
+  a new target adds a mark, and nothing refuses or clears another mark.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls

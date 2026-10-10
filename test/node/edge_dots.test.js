@@ -2,7 +2,7 @@
 (function () {
   // The rim bearings are rows of MARKERS, each drawn by _drawMarker (the
   // table is lifted beside the two methods; its predicates read globals).
-  const names = ['_drawMarkers() {', '_tapEdgeDot(sx, sy) {', '_drawEdgeDotLabel(row, target, marker, point) {', '_drawEdgeDot(targetWX, targetWY, fillColor) {', '_drawMarker(row) {'];
+  const names = ['_drawMarkers() {', '_tapEdgeDot(sx, sy) {', '_drawEdgeDotLabel(row, target, marker, point, key = row.key) {', '_drawEdgeDot(targetWX, targetWY, fillColor) {', '_drawMarker(row) {'];
   const MARKERS = new Function(SCENE_SRC.match(/\nconst _markClaimed = [\s\S]*?\nconst MARKERS = \[[\s\S]*?\n\];/)[0] + 'return MARKERS;')();
   const row = (key) => MARKERS.find((r) => r.key === key);
   const methods = new Function('W', 'H', 'persistSave', 'MARKERS', 'return ({' + names.map(signature => {
@@ -48,19 +48,19 @@
       setVisible(value) { this.visible = value; return this; },
     }; } };
     const now = Date.now();
-    s.save.telescopeCompass = { depth: 0, until: now + 10000, x: 100, y: 0 };
-    s.save.wayfarerCompass = { depth: 0, until: now + 10000, x: 0, y: 100 };
+    s.save.telescopeCompass = [{ targetId: 'a', depth: 0, until: now + 10000, x: 100, y: 0 }];
+    s.save.wayfarerCompass = [{ targetId: 'b', depth: 0, until: now + 10000, x: 0, y: 100 }];
     s._telescopeTrackedTarget = marker => marker;
     s._drawMarkers();
-    const a = s._edgeDotLabels.telescopeCompass, b = s._edgeDotLabels.wayfarerCompass;
+    const a = s._edgeDotLabels['telescopeCompass:a'], b = s._edgeDotLabels['wayfarerCompass:b'];
     assert.truthy(a.visible && b.visible, 'labels start visible');
-    const point = s._edgeDotPoints.telescopeCompass;
+    const point = s._edgeDotPoints['telescopeCompass:a'];
     assert.truthy(s._tapEdgeDot(point.x - 10, point.y), 'touch near the small dot counts');
     assert.falsy(a.visible);
     assert.truthy(b.visible, 'other labels remain visible');
     s._drawMarkers();
     assert.falsy(a.visible, 'rendering does not reveal hidden labels');
-    assert.truthy(s._edgeDotPoints.telescopeCompass, 'hidden label keeps its dot tappable');
+    assert.truthy(s._edgeDotPoints['telescopeCompass:a'], 'hidden label keeps its dot tappable');
     assert.eq(s._edgeDotLabelBounds.length, 1, 'hidden label reserves no layout space');
     assert.truthy(s._tapEdgeDot(point.x, point.y));
     s._drawMarkers();
@@ -78,6 +78,31 @@
     assert.gt(toggle, handler.indexOf('if (wasDrag) return;'), 'drag release never toggles');
     assert.lt(toggle, handler.indexOf('this._resetWalkHome()'));
     assert.lt(toggle, handler.indexOf('this.handleWorldTap('));
+  });
+  test('edge dots: several marks of one kind and of many kinds show at once, each clearing alone', () => {
+    const s = fixture(), drawn = [];
+    s._drawEdgeDot = (x, y, color) => { drawn.push({ x, y, color }); return { x, y, left: 5, right: 347, top: 101, bottom: 443 }; };
+    s._drawEdgeDotLabel = (row, target, marker, point, key) => { (s._edgeDotPoints ||= {})[key] = point; };
+    s._telescopeTrackedTarget = marker => marker;
+    const until = Date.now() + 10000;
+    // Two neighbours' directions, two finds, a legacy single map mark and the Pairy's.
+    s.save.wayfarerCompass = Buffs.withMark(Buffs.withMark(undefined, { targetId: 'w1', depth: 0, until, x: 10, y: 0 }),
+      { targetId: 'w2', depth: 0, until, x: 0, y: 10 });
+    s.save.telescopeCompass = [{ targetId: 't1', depth: 0, until, x: 20, y: 0 }, { targetId: 't2', depth: 0, until, x: 0, y: 20 }];
+    s.save.treasureCompass = { targetId: 'm1', depth: 0, until, x: 30, y: 0 };
+    s.pairyCompass = [{ targetId: 'p1', until, x: 40, y: 0 }];
+    s._drawMarkers();
+    assert.eq(Object.keys(s._edgeDotPoints).sort().join(),
+      'pairyCompass:p1,telescopeCompass:t1,telescopeCompass:t2,treasureCompass:m1,wayfarerCompass:w1,wayfarerCompass:w2');
+    assert.eq(drawn.length, 6);
+    s.save.wayfarerCompass[0].until = Date.now() - 1;
+    s._drawMarkers();
+    assert.eq(s.save.wayfarerCompass.map(m => m.targetId).join(), 'w2', 'an expired mark leaves the others standing');
+    assert.truthy(s.save.persisted);
+    assert.eq(Buffs.withMark(s.save.wayfarerCompass, { targetId: 'w2', until: 1 }).length, 1, 'the same target replaces its mark');
+    const ext = Buffs.withMark([{ targetId: 'c', until: until }], { targetId: 'c' }, 1000, Date.now());
+    assert.eq(ext.length, 1); assert.eq(ext[0].until, until + 1000, 'a timed mark on the same target extends');
+    assert.eq(Buffs.KINDS.field_scope.read(s.save), until, 'the chip runs until the last mark');
   });
   test('edge dots: every bearing reaches the actual map rim', () => {
     for (const [dx, dy] of [[1000, 0], [-1000, 0], [0, 1000], [0, -1000], [1000, 400], [-20, -40]]) {
@@ -118,7 +143,7 @@
     assert.eq(drawn.length, 1);
     assert.truthy(s.save.telescopeCompass);
     s.depth = 0; s._telescopeTrackedTarget = () => null;
-    s._edgeDotTargets.telescopeCompass.at -= 500;
+    s._edgeDotTargets['telescopeCompass:0'].at -= 500;
     s._drawMarker(row('telescopeCompass'));
     assert.eq(s.save.telescopeCompass, undefined);
     assert.truthy(s.save.persisted);
