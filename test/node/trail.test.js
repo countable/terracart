@@ -135,15 +135,38 @@
     assert.eq(T.progress(NaN, 0).pos, 0, 'and the counter never reads NaN');
   });
 
-  test('trail: the reward improves with every prize, then stops climbing', () => {
-    // opts.rollBonus is extra boost-chain steps; one to begin with and one more
-    // per prize won. Capped, because a chain step stops buying tiers at the
-    // context ceiling and turns into consolation coins after that.
-    assert.eq(T.rollBonusFor(0), T.PRIZE_ROLL_BONUS, 'the first prize gets the base bonus');
-    assert.eq(T.rollBonusFor(1), T.PRIZE_ROLL_BONUS + 1, 'the second gets one more');
-    assert.eq(T.rollBonusFor(3), T.PRIZE_ROLL_BONUS + 3, 'and so on');
-    assert.eq(T.rollBonusFor(99), T.PRIZE_ROLL_BONUS_MAX, 'up to the cap');
-    assert.gt(T.PRIZE_ROLL_BONUS_MAX, T.PRIZE_ROLL_BONUS, 'which leaves room to climb');
+  test('trail: the reward improves gradually with every prize, then stops climbing', () => {
+    // opts.rollBonus is extra tier steps: none for the first prize, then
+    // PRIZE_TIER_PER_PRIZE per prize won, the fraction a coin. Capped.
+    const lo = () => 0, hi = () => 0.999;
+    assert.eq(T.PRIZE_ROLL_BONUS, 0, 'the first prize rolls the base T1');
+    assert.eq(T.rollBonusFor(0, hi), 0, 'prize 1: no step, whatever the coin');
+    assert.eq(T.rollBonusFor(1, lo), 1, 'prize 2: a 30% coin for a step (won)');
+    assert.eq(T.rollBonusFor(1, hi), 0, '(lost)');
+    assert.eq(T.rollBonusFor(9, hi), 2, 'prize 10: two steps sure');
+    assert.eq(T.rollBonusFor(9, lo), 3, '…and a 70% coin for the third — T4');
+    assert.eq(T.rollBonusFor(10, hi), 3, 'prize 11: T4 for sure');
+    assert.eq(T.rollBonusFor(99, hi), T.PRIZE_ROLL_BONUS_MAX, 'up to the cap');
+  });
+
+  test('trail: rolled prizes start at T1 and T4 is common by prize 10', () => {
+    let seed = 1;
+    const rng = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+    const shareAt = (n, tier) => {
+      let hit = 0, all = 0;
+      for (let i = 0; i < 3000; i++) {
+        const r = pickReward(T.PRIZE_CONTEXT, { relics: {}, armor: {} }, rng,
+          { rollBonus: T.rollBonusFor(n - 1, rng), classes: ['cash'] });
+        if (!r) continue;
+        all++; if (r.tier === tier) hit++;
+      }
+      return hit / all;
+    };
+    assert.gt(shareAt(1, 1), 0.85, 'prize 1 is T1 (bar the odd jackpot)');
+    assert.gt(shareAt(4, 2), 0.6, 'prize 4 is mostly T2');
+    assert.gt(shareAt(7, 3), 0.6, 'prize 7 is mostly T3');
+    assert.gt(shareAt(10, 4), 0.55, 'prize 10: T4 is common');
+    assert.lt(shareAt(5, 4), 0.1, 'and still rare at prize 5');
   });
 
   test('trail: nothing per-path survives', () => {

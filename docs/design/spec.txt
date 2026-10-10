@@ -643,8 +643,10 @@ STREET RESTORATION (the road band itself)
    completed, full, never the remainder against the next rung.
  - each prize IS A CHOICE: two different rolls are offered (`Trail.PRIZE_CHOICES`;
    context `Trail.PRIZE_CONTEXT`) and nothing is granted until one is taken.
-   The kept gift opens as its own reward card. Rolls improve as the walks get
-   longer (`Trail.rollBonusFor`).
+   The kept gift opens as its own reward card. Rolls improve gradually as the
+   walks get longer (`Trail.rollBonusFor`): the first prize rolls T1, each
+   prize won adds `PRIZE_TIER_PER_PRIZE` (0.3) of a tier, so T4 is common by
+   prize 10 and sure from prize 11. The first prize's onion-seed card is fixed.
  - A SINGLE EARNED REWARD IS SHOWN AS A CARD (`app.js` `showRewardCard`),
    framed by its giver; finds on the ground stay toasts.
  - WHICH CELLS ARE PATH is geometric: a cell is PATH only where at least a full
