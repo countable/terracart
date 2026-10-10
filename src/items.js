@@ -2025,7 +2025,6 @@ const ANIMAL_FOOD = {
   green_dragon: ['meat'],
   rabbit: ['cress'],
   deer: ['apple'],
-  crow: ['potato_seed'],
   butterfly: ['flowers'],
   sea_turtle: ['cress'],
   cow:     ['pairy'],      // pears to munch

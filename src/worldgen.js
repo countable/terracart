@@ -6205,15 +6205,27 @@
     //    spawn pass. The cell's terrain is stamped onto the
     //    kept wildplant as `_biome` so the renderer can apply the biome's flora
     //    tint (e.g. golden field grass, swampy reeds).
+    //    A habitat-exclusive crop (BiomeProfiles.exclusive — the school's
+    //    forget-me-nots) also skips any cell a mapped park polygon covers: a
+    //    park inside school grounds loses the terrain paint to SCHOOL but is
+    //    still the park (and its grove) on screen.
     const filtered = [];
     yield 'structure cells';
+    let parkCells = null;
+    if (parkPolys.length && wildplants.some(wp => BiomeProfiles.exclusive(wp.crop))) {
+      parkCells = new Uint8Array(w * h);
+      for (const p of parkPolys) {
+        yield* forEachPolygonCellSteps(w, h, p.rings, mvtToCell, (x, y) => { parkCells[y * w + x] = 1; });
+      }
+    }
     let wpOccI = 0;
     for (const wp of wildplants) {
       if ((wpOccI & 63) === 0) yield 'wildplant occupancy sweep';
       wpOccI++;
       const t = grid[wp._iy * w + wp._ix];
       const cellKey = `${wp._ix}_${wp._iy}`;
-      const grows = wp._yard ? BiomeProfiles.yardAllows(wp.crop, t) : BiomeProfiles.allows(wp.crop, t);
+      const grows = (wp._yard ? BiomeProfiles.yardAllows(wp.crop, t) : BiomeProfiles.allows(wp.crop, t))
+        && !(parkCells && parkCells[wp._iy * w + wp._ix] && BiomeProfiles.exclusive(wp.crop));
       if (grows && (wp._floraTerrain == null || wp._floraTerrain === t) && !occupiedCells.has(cellKey)) {
         occupiedCells.add(cellKey);
         wp._biome = t;

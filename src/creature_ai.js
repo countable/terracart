@@ -52,7 +52,7 @@ const FLEE_BEAT_MUL = 0.5;
 // fire (enemyFireEscapeTick), a warded ghost's run (ghostTick). The pair
 // above over `base` (four times the ground), under the kind's own ceiling
 // (SpriteLayout.creatureMaxMps) and the wild speed ceiling every row's base
-// numbers sit under (WILD_SPEED_CEILING_MPS): a 7 m/s goblin retreats at
+// numbers sit under (WILD_SPEED_CEILING_MPS): a 5.8 m/s goblin retreats at
 // 10, never slower than it chases. No cap of its own (the old flat 6 m/s is
 // gone); a shiny's 1.5 and the frost's slow ride on top through
 // Combat.paceMul, at the site. The animals' step chain is the same rule in

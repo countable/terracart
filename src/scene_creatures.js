@@ -1961,8 +1961,8 @@ class SceneCreatures {
       }
       // Wild-crow flight rhythm: perch → one eased glide → perch again,
       // casing and raiding a field it notices (_wildCrowTick has the phases).
-      // Owned crows fall through to the generic wander below so
-      // they behave like other pets.
+      // A crow is never tame (SpriteLayout `untameable`); the guard only
+      // keeps a stray legacy row on the generic wander below.
       if (c.kind === 'crow' && !isTame) {
         this._wildCrowTick(c, now, px, py);
         return;

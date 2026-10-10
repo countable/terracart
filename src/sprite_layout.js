@@ -638,7 +638,8 @@
   });
   const CREATURE_BEHAVIOUR = {
     npc:           { wanders: true },
-    chicken:       { wanders: true, produce: { item: 'egg', shinyItem: 'shiny_egg', verb: 'laid' } },
+    // 6 s a step: 20% slower than the shared 5 s wander beat.
+    chicken:       { wanders: true, stepMs: 6000, produce: { item: 'egg', shinyItem: 'shiny_egg', verb: 'laid' } },
     // A cow takes twice the netting — through its HP (combat.js FAUNA_HP: a
     // catch's difficulty is current HP × 2, Pets.catchMs).
     cow:           { wanders: true, produce: { item: 'milk', verb: 'milked' } },
@@ -673,7 +674,9 @@
     // These birds also have hostile roster movement, but remain wild animals.
     gull:          { animal: true },
     raven:         { animal: true },
-    crow:          { wanders: true, game: true, drop: 'crow_feather', raidsCrops: true, avoids: ['scarecrow'] },
+    // `untameable`: GAME only — hunted for its feather, never caught, fed or
+    // kept as a pet (owner, Oct 2026). Pets.catchable reads it.
+    crow:          { wanders: true, game: true, untameable: true, drop: 'crow_feather', raidsCrops: true, avoids: ['scarecrow'] },
     // THE SPIRIT RAVEN — summoned by the Scroll or Tome of the Raven (app.js
     // readRavenScroll / readTomeRaven, kept by _tickSpiritRaven) for
     // SPIRIT_RAVEN_MS. It is a PET's hunt by another reason, not a second
@@ -685,7 +688,7 @@
     // life). Its stepMs is one bite a second (Combat.MELEE_INTERVAL_MS — the
     // pet fight resolves once per step), the slime's own cadence. Its PACE is
     // the stride, not the beat: 0.7 of a cell a hop is 4.9 m/s, over every
-    // ground foe's chase but the goblins' (7 m/s; a goblin pursues, so it comes
+    // ground foe's chase but the goblins' (5.8 m/s; a goblin pursues, so it comes
     // to the raven) and no blur beside a walking player. Slow it by the
     // stride; the beat is the bite. It is NOT an
     // enemy (no MONSTERS row), NOT game, and NOT tappable (interact.js skips a
@@ -741,6 +744,8 @@
   // Combat.isEnemy's business — nothing auto-fires at game and no shot may hit
   // it, or hunting stops being a choice (CLAUDE.md).
   function isGame(kind) { return !!creatureBehaviour(kind)?.game; }
+  // Never caught or kept as a pet, whatever is offered (the crow).
+  function isUntameable(kind) { return !!creatureBehaviour(kind)?.untameable; }
   // What a tame pet of this kind hunts, as a Set — null for everything else.
   function creaturePrey(kind) { return creatureBehaviour(kind)?.prey || null; }
   // The one item a kill of this kind drops (resolveDefeat), or null. An enemy
@@ -1045,7 +1050,7 @@
     CROWN_BOUNDS, fruitCrownOffset,
     NPC_FRAME, NPC_SHEETS, npcSheet, npcAppearance,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
-    CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
+    CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame, isUntameable,
     creaturePrey, creatureDrop, creatureProduce, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
     creatureAppearance, faceCreature, CREATURE_FACE_HOLD_MS, CREATURE_MOVE_GRACE_MS, updateCreatureFacing, CREATURE_DIRECTION_LAYOUTS,
     creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
