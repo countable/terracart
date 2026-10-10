@@ -53,12 +53,24 @@
     assert.eq(signature(generate(fixture(), [removed.id])), signature(baseline.filter(c => c.id !== removed.id)));
     // Grass has crows, and easy shows only Difficulty crowCountMul of them:
     // a visibility overlay, so hard shows a superset of the same seats.
-    const hard = generate(fixture(), [], 'hard'), notCrow = cs => cs.filter(c => c.kind !== 'crow');
+    const hard = generate(fixture(), [], 'hard');
+    const notCrow = cs => cs.filter(c => c.kind !== 'crow' && !c._landEnemyReserve);
     assert.eq(signature(notCrow(hard)), signature(notCrow(baseline)));
     const hardSeats = new Set(hard.map(c => `${c.id}:${c.kind}@${c.x},${c.y}`));
     assert.truthy(baseline.every(c => hardSeats.has(`${c.id}:${c.kind}@${c.x},${c.y}`)), 'easy crows are a subset of hard crows');
     assert.eq(signature(notCrow(generate(fixture(), [], 'easy', { has: () => true }))), signature(notCrow(baseline)),
       'personal amnesty is a visibility overlay rather than a population reroll (it hides crows, the crop raiders)');
+  });
+  test('habitat populations: hard shows half again the landcover enemies from a shared reserve', () => {
+    const landEnemies = cs => cs.filter(c => c.id.startsWith('enemy_habitat_'));
+    const easyEntry = fixture(), hardEntry = fixture();
+    const easy = landEnemies(generate(easyEntry)), hard = landEnemies(generate(hardEntry, [], 'hard'));
+    assert.eq(easyEntry.habitatPopulation.totals.reserve.requested, HabitatSpawns.ENEMIES_PER_TILE / 2);
+    assert.eq(hardEntry.habitatPopulation.totals.reserve.placed, easyEntry.habitatPopulation.totals.reserve.placed,
+      'both modes generate the same reserve');
+    assert.falsy(easy.some(c => c._landEnemyReserve), 'easy hides the reserve');
+    assert.eq(hard.length, Math.round(easy.length * Difficulty.PROFILES.hard.landEnemyCountMul), 'hard shows 1.5x');
+    assert.eq(signature(hard.filter(c => !c._landEnemyReserve)), signature(easy), 'the base population is untouched');
   });
   test('habitat populations: safety holes relocate seats without thinning habitat quotas', () => {
     const plain = fixture(), holes = fixture();

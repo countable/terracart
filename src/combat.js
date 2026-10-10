@@ -496,12 +496,12 @@
   // and read back through shotSource.
   const PLAYER_KILL_SOURCES = new Set(['player', 'pet', 'ally']);
   function isPlayerKill(source) { return PLAYER_KILL_SOURCES.has(source); }
-  // SHARED WITH NEARBY PLAYERS (multiplayer.js reportHit / reportKill): the
+  // OWN-SIDE DAMAGE (multiplayer.js reportHit / reportKill): the
   // blows of this client's own side — the player, their pet or charmed ally,
   // and their claimed castle's turrets. Those exist only on this client, so a
-  // peer's copy of the foe would never feel them otherwise. The world's own
-  // damage (lava, light, obstacles) and foe-on-foe blows run on every client
-  // already and are never shared.
+  // peer's copy of the foe would never feel them otherwise. This predicate
+  // also owns assist eligibility. Replicated world damage and foe-on-foe
+  // blows are published by one elected client without earning an assist.
   const SHARED_HIT_SOURCES = new Set([...PLAYER_KILL_SOURCES, 'turret']);
   function isSharedHit(source) { return SHARED_HIT_SOURCES.has(source); }
   // A PEER'S HIT, applied to this client's copy of the foe: shown like any
@@ -682,8 +682,12 @@
   function isDisguised(c) {
     return !!c && !c._disguiseRevealed && !!root.EnemyRoster?.get(c.kind)?.disguise;
   }
+  // Out of reach of every strike, tap and shot (and dealt no damage): hidden,
+  // burrowed, disguised — or a roster row that is never struck at all (the
+  // serpent's head and tail tip, `untargetable`).
   function isConcealed(c) {
-    return !!((c?.hidden || c?.stealthy) && !c._discovered) || isBurrowed(c) || isDisguised(c);
+    return !!((c?.hidden || c?.stealthy) && !c._discovered) || isBurrowed(c) || isDisguised(c)
+      || !!root.EnemyRoster?.get(c?.kind)?.untargetable;
   }
   // What a status may land on: a HOSTILE instance whether or not it is
   // charmed right now (isEnemy, with the charm's clock pushed past every

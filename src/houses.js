@@ -503,17 +503,16 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return true;
   }
 
-  // The wall clock keeps the deadline running while the player is away.
-  const CITADEL_BATTLE_MS = 10 * 60 * 1000;
+  // A citadel battle is a BossEncounters fight of kind 'citadel' (its
+  // duration, its liveness and its resets are that routine's); what is the
+  // citadel's own is here: which castles hold one, and the claim.
+  const CITADEL_BATTLE_MS = BossEncounters.KINDS.citadel.durationMs;
   function citadelBattleActive(save, key, now = Date.now()) {
-    const battle = save.citadelBattles?.[key];
-    return Number.isFinite(battle?.startedAt) && now < battle.startedAt + CITADEL_BATTLE_MS;
+    return BossEncounters.active(save, 'citadel', key, now);
   }
   function startCitadelBattle(save, key, now = Date.now()) {
-    if (!key || !CastleStyles.get(key).guards || isCastleClaimed(save, { castle: key })
-        || save.citadelBattles?.[key]) return false;
-    (save.citadelBattles ||= {})[key] = { startedAt: now, guardIds: [] };
-    return true;
+    if (!key || !CastleStyles.get(key).guards || isCastleClaimed(save, { castle: key })) return false;
+    return !!BossEncounters.start(save, 'citadel', key, { guardIds: [] }, now);
   }
   // A SHARED BATTLE (multiplayer.js): a nearby player's battle at a castle
   // arrives as its key and the epoch-ms it started. A castle key is the
@@ -546,17 +545,14 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     cur.startedAt = startedAt;
     return 'earlier';
   }
+  // Timed out or abandoned (BossEncounters.expire); a claimed castle's
+  // record just goes, its fight won.
   function expireCitadelBattles(save, now = Date.now()) {
-    const expired = [];
-    for (const [key, battle] of Object.entries(save.citadelBattles || {})) {
-      if (isCastleClaimed(save, { castle: key })) {
-        delete save.citadelBattles[key];
-      } else if (!citadelBattleActive(save, key, now)) {
-        expired.push({ key, guardIds: battle.guardIds || [] });
-        delete save.citadelBattles[key];
-      }
+    for (const key of Object.keys(save.citadelBattles || {})) {
+      if (isCastleClaimed(save, { castle: key })) delete save.citadelBattles[key];
     }
-    return expired;
+    return BossEncounters.expire(save, 'citadel', now)
+      .map(({ key, record }) => ({ key, guardIds: record.guardIds || [] }));
   }
 
   // The castle's favour, gated to once per castle per CASTLE_SERVICE_MS —

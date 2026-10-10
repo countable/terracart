@@ -724,8 +724,10 @@ ECONOMY (buying & selling)
    the job, and there are no shared quest slots or random quest templates.
    The board shows the castle as caption, the quest title in bold, then one
    sentence of flavour (`Quests.flavour`) over the objective and progress.
-   Citadel fights expire 10 minutes after activation, including time away.
-   On expiry their guards despawn and all battle progress resets for a fresh attempt.
+   Citadel fights are BOSS ENCOUNTERS (combat.md): 10 minutes after
+   activation, including time away, and they also reset if the player who
+   started them goes down or leaves the surface. On a reset their guards
+   despawn and all battle progress resets for a fresh attempt.
    Citadels offer Fight or Later at their gate. Only choosing Fight activates
    their guards; walking nearby, reading the dialog, or choosing Later leaves
    them dormant. The choice survives reloads; clearing the guards opens them. Other castle

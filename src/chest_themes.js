@@ -27,7 +27,7 @@
     farmAnimals: { ids: ['chicken', 'cow', 'rabbit'], fallback: 'farmProduce' },
     // Surface magic lanes keep place identity while making cave-only potions
     // available above ground. Lower-tier magic remains useful in larger stacks.
-    magic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry).map(i => i.id), mixedTiers: true, fallback: 'antidote' },
+    magic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry && !i.progressionOnly).map(i => i.id), mixedTiers: true, fallback: 'antidote' },
     travelMagic: { ids: ['reach_potion', 'speed_potion', 'shadow_powder', 'treasure_map'], mixedTiers: true, fallback: 'antidote' },
     combatMagic: { ids: ['protection_potion', 'immortal_potion', 'fire_resistance_potion', 'flight_potion', 'giant_potion', 'shielding_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll', 'blight_potion', 'thunder_scroll', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'explosive_flask', 'fear_scroll', 'sleep_powder', 'psychosis_powder', 'grip_potion', 'poison_flask', 'taming_potion'], mixedTiers: true, fallback: 'antidote' },
     medicalMagic: { ids: { healing_potion: 3, revival_potion: 3, protection_potion: 2, shielding_potion: 2, resurrection_potion: 2, elixir: 1,
@@ -49,7 +49,7 @@
     rope: { ids: ['rope'], fallback: 'torch' },
     trapKit: { ids: ['trap_disarm_kit'], fallback: 'torch' },
     magicTrap: { ids: ['magic_trap'], fallback: 'field' },
-    caveMagic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry).map(i => i.id), mixedTiers: true, fallback: 'torch' },
+    caveMagic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry && !i.progressionOnly).map(i => i.id), mixedTiers: true, fallback: 'torch' },
     caveGems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], mixedTiers: true, fallback: 'field' },
     noncombatGear: { kind: 'gear', slots: ['bag', 'watering_can', 'hoe', 'fishing_rod', 'net'], fallback: { school: 'books', default: 'supplies' } },
     protectiveGear: { kind: 'gear', armorOnly: true, fallback: { vista: 'magic', default: 'field' } },
@@ -82,6 +82,9 @@
     // One-time grails reward equipment, unique relics or magic only. Their
     // exhausted/owned equipment and relic lanes also terminate in magic.
     vista: { weights: { protectiveGear: 45, uniqueRelics: 5, magic: 50 } },
+    // A boss's hoard (scene_boss.js — the serpent's T4 chest): equipment or a
+    // unique relic, nothing else.
+    boss: { weights: { culturalGear: 50, uniqueRelics: 50 } },
   };
   // Final surface weights for displayed T3+ chests. Starter chests keep
   // their supplies; higher-tier chests favour progression and useful magic.

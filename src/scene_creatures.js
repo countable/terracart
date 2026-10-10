@@ -868,6 +868,7 @@ class SceneCreatures {
     if (caughtSet.has(creature.id) || creature._legacyDefeatIds?.some(id => caughtSet.has(id))) return false;
     const kindStr = creature.kind, at = creature._habitatSpawn;
     if ((kindStr === 'crow' || kindStr === 'raven') && pestFree && pestFree.has(at.cx, at.cy)) return false;
+    if (!HabitatSpawns.reserveVisible(creature, Difficulty.get())) return false;
     return kindStr !== 'crow' || EnemySpawns.roll(creature.id + ':mode') < Difficulty.get().crowCountMul;
   }
 
@@ -1751,6 +1752,8 @@ class SceneCreatures {
       // attack lane, including pets and neighbours.
       if (Combat.isParalyzed(c)) { Combat.cancelCreatureAction(c); return; }
       if (c.kind === 'npc') { NPC.tick(this, c, now, npcDt); return; }
+      // A boss's pieces move and bite by their encounter's tick (scene_boss.js).
+      if (EnemyRoster.get(c.kind)?.boss) return;
       const unnoticed = this.isUnnoticed(c);
       const isTame = Combat.isTame(c);
       // Read ONCE per creature per tick: is it a hostile right now, and how
@@ -2153,7 +2156,7 @@ class SceneCreatures {
           const fd2 = (tgt.x - c.x) ** 2 + (tgt.y - c.y) ** 2;
           const fightRange = Combat.petReachCells(c);
           const FIGHT_R2 = (fightRange * this.cellM) ** 2;
-          if (fd2 <= FIGHT_R2) {
+          if (fd2 <= FIGHT_R2 && (typeof Multiplayer === 'undefined' || Multiplayer.shouldApplyDamage(this, tgt, 'pet'))) {
             // One HP table for every fight (combat.js): the bite is Combat.petBite (a
             // point for a tame pet, the slime's own blow for the spirit raven). The prey
             // bites back a point either way.

@@ -978,6 +978,7 @@ class SceneStreets {
   // PRIZE #1 LEADS WITH THE ONION SEED: Trail.firstPrize is the first card,
   // so the first thing a road ever offers names what roads pay in — and the
   // rest of the row is rolled, so rung one is a choice like every other.
+  // PRIZE #4 IS THE SERPENT IDOL, alone (Trail.FIXED_PRIZES `sole`).
   //
   // THE PRIZE IS A CHOICE: it rolls Trail.PRIZE_CHOICES rewards and the
   // player keeps ONE. Nothing is granted until they pick — the roll they turn
@@ -1001,8 +1002,8 @@ class SceneStreets {
       return pickReward(Trail.PRIZE_CONTEXT, this.save, undefined,
         { rollBonus: bonus, classes, classMaxTier: { boots: bootsCap } });
     };
-    const fixed = Trail.firstPrize ? Trail.firstPrize(n) : null;
-    const choices = Trail.rollCardRow(rollFor, fixed ? [fixed] : []);
+    const fixed = Trail.fixedPrize(n);
+    const choices = fixed?.sole ? [fixed] : Trail.rollCardRow(rollFor, fixed ? [fixed] : []);
     // The ceremony carries the survivors' thanks; the road counter shows progress.
     const header = TRAIL_PRIZE_HEADER;
     if (!choices.length) {
