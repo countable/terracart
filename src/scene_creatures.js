@@ -868,6 +868,7 @@ class SceneCreatures {
     if (caughtSet.has(creature.id) || creature._legacyDefeatIds?.some(id => caughtSet.has(id))) return false;
     const kindStr = creature.kind, at = creature._habitatSpawn;
     if ((kindStr === 'crow' || kindStr === 'raven') && pestFree && pestFree.has(at.cx, at.cy)) return false;
+    if (!HabitatSpawns.reserveVisible(creature, Difficulty.get())) return false;
     return kindStr !== 'crow' || EnemySpawns.roll(creature.id + ':mode') < Difficulty.get().crowCountMul;
   }
 

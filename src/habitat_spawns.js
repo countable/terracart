@@ -3,6 +3,19 @@
 (function (root) {
   'use strict';
   const FAUNA_PER_TILE = 160, ENEMIES_PER_TILE = 50;
+  // THE MODE RESERVE: landcover enemies beyond ENEMIES_PER_TILE, sized by the
+  // largest Difficulty landEnemyCountMul. Every mode generates the same
+  // reserve after the base population (so base seats never move); each mode
+  // shows its own share of it (reserveVisible).
+  const maxLandEnemyMul = () => Math.max(1, ...Object.values(root.Difficulty?.PROFILES || {})
+    .map(p => p.landEnemyCountMul || 1));
+  const reserveBudget = () => Math.round(ENEMIES_PER_TILE * (maxLandEnemyMul() - 1));
+  function reserveVisible(creature, modeProfile) {
+    if (!creature?._landEnemyReserve) return true;
+    const spare = maxLandEnemyMul() - 1;
+    const share = spare > 0 ? ((modeProfile?.landEnemyCountMul || 1) - 1) / spare : 0;
+    return root.EnemySpawns.roll(creature.id + ':mode') < share;
+  }
   const LAND_FAUNA = {
     GRASS: { chicken: 5, cow: 4, butterfly: 4, rabbit: 3, crow: 2, horse: .4 },
     RESIDENTIAL: { cat: 4, dog: 4, chicken: 3, deer: 2, cow: .5, raven: .5 },
@@ -245,11 +258,14 @@
     const groups = [...groupsByKey.values()].sort((a, b) => keyOrder(a.key, b.key));
     const ordinary = groups.filter(group => group.profile.owner === 'land');
     allocate(ordinary.filter(group => faunaRows(group.profile).length), FAUNA_PER_TILE, 'faunaRequested');
-    allocate(ordinary.filter(group => enemyRows(group.profile, group.type, { beach: group.beach }).length), ENEMIES_PER_TILE, 'enemyRequested');
+    const armed = ordinary.filter(group => enemyRows(group.profile, group.type, { beach: group.beach }).length);
+    allocate(armed, ENEMIES_PER_TILE, 'enemyRequested');
+    for (const group of groups) group.enemyReserve = 0;
+    allocate(armed, reserveBudget(), 'enemyReserve');
     for (const group of groups) {
       if (group.profile.owner !== 'land') group.faunaRequested = faunaBudget(group.profile, `${tx}|${ty}|${group.key}`);
       group.diagnostic = { key: group.key, profile: group.profile.id, rawCells: group.cells.length,
-        fauna: counts(group.faunaRequested), enemies: counts(group.enemyRequested) };
+        fauna: counts(group.faunaRequested), enemies: counts(group.enemyRequested), reserve: counts(group.enemyReserve) };
       group.legacy = Array.from({ length: group.enemyRequested }, () => []);
       group.authoredFauna = new Map();
     }
@@ -383,8 +399,26 @@
         group.diagnostic.enemies.placed++;
       }
     }
-    const totals = { fauna: counts(), enemies: counts() };
-    for (const group of groups) for (const population of ['fauna', 'enemies']) {
+    // The mode reserve seats last, so the base population above is identical
+    // whatever its size.
+    for (const group of groups) {
+      for (let n = 0; n < group.enemyReserve; n++) {
+        if ((attempts++ & 31) === 0) yield 'spawn habitat reserve';
+        const id = `enemy_habitat_${tx}_${ty}_${encodeURIComponent(group.key)}_r${n}`;
+        const kind = enemyKind(group.profile, id, group.type, { beach: group.beach });
+        if (!kind) continue;
+        const seat = yield* seatFor(group, kind, id, false);
+        if (!seat) continue;
+        const point = { key: group.key, profile: group.profile.id, tx, ty, ...seat };
+        out.push(WG.makeCreature(kind, seat.x, seat.y, id, {
+          shiny: false, ...root.EnemySpawns.concealment(kind, id, group.profile.id),
+          _habitatSpawn: point, _surfaceSpawn: { tx, ty, ...seat }, _landEnemyReserve: true,
+        }));
+        group.diagnostic.reserve.placed++;
+      }
+    }
+    const totals = { fauna: counts(), enemies: counts(), reserve: counts() };
+    for (const group of groups) for (const population of ['fauna', 'enemies', 'reserve']) {
       const row = group.diagnostic[population];
       row.shortfall = row.requested - row.placed;
       for (const field of ['requested', 'placed', 'shortfall']) totals[population][field] += row[field];
@@ -394,7 +428,7 @@
       faunaRequested: totals.fauna.requested, enemyRequested: totals.enemies.requested };
     return out;
   }
-  const api = { FAUNA_PER_TILE, ENEMIES_PER_TILE, LAND_FAUNA, VARIANT_FAUNA, landProfile, shoreProfile, variantProfile, roadProfile, resolve, at,
+  const api = { FAUNA_PER_TILE, ENEMIES_PER_TILE, reserveBudget, reserveVisible, LAND_FAUNA, VARIANT_FAUNA, landProfile, shoreProfile, variantProfile, roadProfile, resolve, at,
     faunaRows, pickFauna, faunaBudget, allows, enemyRows, enemyKind, populationSteps };
   root.HabitatSpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
