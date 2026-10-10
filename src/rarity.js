@@ -179,13 +179,18 @@
     // them sat on nearly every early magic card.
     // The caller's rollBonus buys tiers up to T4; higher tiers need a jackpot.
     'treasure:road':    { classBias: { seed:0.20, magic:0.225, supply:0.025, boots:0.15, cash:0.15 }, cashMul: 1/6,
-                          chainSteps: 1, chainMax: 4, maxTier: 6, relicCap: 0,
+                          // No chain step of its own: the walk's ladder (Trail.rollBonusFor) is
+                          // the tier, so the first prize is T1 and T4 is common by the tenth.
+                          chainSteps: 0, chainMax: 4, maxTier: 6, relicCap: 0,
                           favourite: { p: 0.85, ids: {
                             reach_potion: 1, healing_potion: 1,
                             speed_potion: 1, shielding_potion: 1, revival_potion: 1,
                             antidote: 0.5, protection_potion: 0.5, growth_powder: 0.5, shadow_powder: 0.5,
                             fireball_scroll: 0.5, fear_scroll: 0.5, sleep_powder: 0.5, frost_powder: 0.5,
                             flight_potion: 0.5, fire_resistance_potion: 0.5, treasure_map: 0.5, thunder_scroll: 0.5,
+                            // The T1 tonics, so a first prize's magic card (the ladder starts at
+                            // T1) is more than an antidote or a growth powder.
+                            hardworking_potion: 0.5, grip_potion: 0.5, psychosis_powder: 0.5,
                           } } },
     // ── A grove shrine's daily gift (src/zones.js, INTERACTABLES.grove_shrine)
     // One roll a day per shrine, worth about a buried X: the X's flat curve
