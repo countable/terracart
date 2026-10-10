@@ -6,7 +6,10 @@
 //   and nothing has ended it (the clock runs while the player is away).
 //   RESET when it times out, or when the player who STARTED it (`own`; a
 //   battle adopted from another player is not theirs to end) goes down or
-//   leaves its floor (abandon). The record is dropped by expire() and the
+//   leaves its floor (abandon). A fight ADOPTED from another player that is
+//   fed by their device (`heardAt` — the serpent's head pose) ends once the
+//   feed has been silent for the kind's `staleMs`: the starter reset it, or
+//   walked out of range. The record is dropped by expire() and the
 //   kind's scene hook undoes the fight — despawns the foes and forgets their
 //   defeats — so the trigger can be used again later.
 //   WON: the kind's victory hook spends the trigger for good (a citadel is
@@ -27,6 +30,10 @@ const BossEncounters = (() => {
     serpent: { store: 'bossEncounters', durationMs: 5 * 60 * 1000,
       coils: 12, spacingCells: 0.55, spawnCells: 6, ringCells: [2, 7], throughP: 0.35,
       goalMs: 4000, turnRadPerS: 2.6, touchCells: 0.5,
+      // SHARED (multiplayer.js `boss` frames): the starter's device drives
+      // the head and sends its pose every `feedMs`; a copy adopted by a
+      // nearby player follows it and ends after `staleMs` of silence.
+      feedMs: 300, staleMs: 4000,
       chip: { label: 'Serpent', ink: '#c8ffd0', bg: '#123a24e8' },
       resetLine: 'The serpent sinks away. The idol is still yours.' },
   };
@@ -65,14 +72,16 @@ const BossEncounters = (() => {
     return out;
   }
   // End the player's own fights they can no longer be in: every one when
-  // they are down, and any on another floor. Marks them (expire() collects
-  // them); returns what it ended.
+  // they are down, and any on another floor — and an adopted, fed fight
+  // whose feed has gone quiet. Marks them (expire() collects them); returns
+  // what it ended.
   function abandon(save, { depth = 0, downed = false } = {}, now = Date.now()) {
     const out = [];
     for (const kind of Object.keys(KINDS)) {
       for (const [key, record] of Object.entries(store(save, kind) || {})) {
-        if (record.own !== true || !active(save, kind, key, now)) continue;
-        const reason = downed ? 'downed' : (record.depth || 0) !== depth ? 'left' : null;
+        if (!active(save, kind, key, now)) continue;
+        const reason = record.own === true ? (downed ? 'downed' : (record.depth || 0) !== depth ? 'left' : null)
+          : Number.isFinite(record.heardAt) && now - record.heardAt > (KINDS[kind].staleMs ?? Infinity) ? 'lost' : null;
         if (!reason) continue;
         record.abandoned = reason;
         out.push({ kind, key, record, reason });

@@ -191,8 +191,18 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
   `KINDS.serpent` row. The Serpent Idol is the road ladder's fourth prize, alone
   (`Trail.FIXED_PRIZES`), `progressionOnly` (no loot pool or sale), and cannot
   be raised on the Major-and-Medium road group's kerb or junctions.
+- SHARED: once one player starts a boss fight, every nearby player is in it.
+  A citadel battle travels as `battle` frames (below). A serpent's starter
+  drives its head and sends the pose as `boss` frames every `feedMs`; a
+  nearby player adopts the fight (`_adoptSerpent`: same key, start and piece
+  ids, `own: false`) and their copy follows the feed, while its coils, trail
+  and bites run on their device. The coils are shared enemies only while a
+  save holds the fight live (`EnemySpawns.isSharedId`), so hits and kills land
+  on every copy. Every player who sees it die gets their own hoard; only the
+  starter's idol is spent. When the feed has been silent for `staleMs` (the
+  starter won, reset or walked away) the adopted copy resets.
 
-Tests: `boss_encounters`, `castle_quest_flow`, `lairs`, `trail`.
+Tests: `boss_encounters`, `castle_quest_flow`, `lairs`, `trail`, server `test.js`.
 
 ## Shared enemies (multiplayer)
 
