@@ -1,0 +1,2120 @@
+{
+  "version": 1,
+  "distancesM": [
+    100,
+    500,
+    1000,
+    2000,
+    3000,
+    5000,
+    10000,
+    15000,
+    20000
+  ],
+  "milestones": [
+    {
+      "label": "Starter loop",
+      "trigger": "Open supplies → till → plant → restore a house → harvest → sell at Home; event driven, no fixed walking distance.",
+      "source": "src/quests.js:STARTER_CHAIN"
+    },
+    {
+      "label": "First tower unlock",
+      "trigger": "9 lifetime memories plus visiting the restored tower.",
+      "source": "src/memory_story.js:START_MEMORIES"
+    },
+    {
+      "label": "Next tower chapter",
+      "trigger": "21 lifetime memories and tower story progress.",
+      "source": "src/memory_story.js:LEAVE_MEMORIES"
+    },
+    {
+      "label": "Second tower revelation",
+      "trigger": "30 lifetime memories plus visiting the second tower.",
+      "source": "src/memory_story.js:REVEAL_MEMORIES"
+    }
+  ],
+  "source": {
+    "tileIds": [
+      "2753/5565",
+      "2754/5565",
+      "2755/5565",
+      "2753/5566",
+      "2754/5566",
+      "2755/5566",
+      "2753/5567",
+      "2754/5567",
+      "2755/5567"
+    ],
+    "tileEdgeM": 1576.8474614323513,
+    "areaM2": 22378031.249630854,
+    "walkableAreaM2": 13553535.502806475,
+    "difficulty": "easy",
+    "method": "MVT.decodeTile → WorldGen.rasterizeTile → MapScene.spawnInTile; same roaming setup as tools/map-distribution.js",
+    "generatedAt": "2026-10-10T16:19:49.056Z",
+    "revision": "98a1f3d5e527492d5b8b01fce6b9f59b9761574a"
+  },
+  "assumptions": {
+    "corridorWidthM": 40,
+    "routeEfficiency": 0.7,
+    "formula": "count × (1 − exp(−distanceM × corridorWidthM × routeEfficiency / walkableAreaM2))",
+    "strategy": "Exploration with occasional backtracking; interact with every discovered modeled reward once; successfully defeat discovered enemies.",
+    "scope": "Surface roaming census; Home placed outside sample to avoid mixing starter guarantees into density. No caves, daily restocks, quest rewards, fixed starter rewards, skill gates, combat time or capacity limits. Distance is cumulative in-game walking, not radius from Home.",
+    "caveat": "Uniform encounter exposure is an assumption, not a pathfinding simulation. Roads, clusters and player choices cause variation; 40 m search width and 70% efficiency are tunable estimates.",
+    "combatNote": "Every encountered enemy is defeated by the player and its coins collected; actual bounties, fixed drops and eligible 10% bonus rolls. The first elite of each kind grants a memory, subsequent elites grant treasure; no prior discoveries.",
+    "newStreetShare": 0.7,
+    "roadMetresMultiplier": 0.4,
+    "roadNote": "Normal non-Runner, keyboard/stick walking; 70% of travel restores new street, credited at shipping 40%; no scenic/boots bonuses. Road thresholds are conditional estimates."
+  },
+  "coverage": [
+    0.00020656682501093035,
+    0.0010324075146553586,
+    0.0020637491640344004,
+    0.004123239267456748,
+    0.00617847909989982,
+    0.010276243019718702,
+    0.020446884868837084,
+    0.030513010730647404,
+    0.04047569463683469
+  ],
+  "rows": [
+    {
+      "id": "barrel-barrel",
+      "label": "barrel",
+      "count": 88,
+      "expected": [
+        0.01817788060096187,
+        0.09085186128967156,
+        0.18160992643502724,
+        0.3628450555361938,
+        0.5437061607911842,
+        0.9043093857352458,
+        1.7993258684576634,
+        2.6851449442969715,
+        3.5618611280414525
+      ]
+    },
+    {
+      "id": "barrel-clay pot",
+      "label": "clay pot",
+      "count": 204,
+      "expected": [
+        0.04213963230222979,
+        0.21061113298969317,
+        0.42100482946301765,
+        0.8411408105611765,
+        1.2604097363795632,
+        2.096353576022615,
+        4.171164513242765,
+        6.22465418905207,
+        8.257041705914277
+      ]
+    },
+    {
+      "id": "buried",
+      "label": "Buried treasure marks",
+      "count": 412,
+      "expected": [
+        0.0851055319045033,
+        0.42535189603800777,
+        0.8502646555821729,
+        1.69877457819218,
+        2.545533389158726,
+        4.233812124124105,
+        8.424116565960878,
+        12.57136042102673,
+        16.67598619037589
+      ]
+    },
+    {
+      "id": "chapel",
+      "label": "Chapel alms",
+      "count": 7,
+      "expected": [
+        0.0014459677750765126,
+        0.00722685260258751,
+        0.014446244148240802,
+        0.028862674872197232,
+        0.04324935369929874,
+        0.07193370113803091,
+        0.1431281940818596,
+        0.21359107511453182,
+        0.2833298624578428
+      ]
+    },
+    {
+      "id": "chest-t1",
+      "label": "Chest · tier 1",
+      "count": 64,
+      "expected": [
+        0.013220276800699543,
+        0.06607408093794295,
+        0.13207994649820162,
+        0.26388731311723185,
+        0.3954226623935885,
+        0.6576795532619969,
+        1.3086006316055734,
+        1.9528326867614338,
+        2.59044445675742
+      ]
+    },
+    {
+      "id": "chest-t2",
+      "label": "Chest · tier 2",
+      "count": 135,
+      "expected": [
+        0.027886521376475598,
+        0.13937501447847342,
+        0.27860613714464405,
+        0.5566373011066609,
+        0.8340946784864757,
+        1.3872928076620248,
+        2.760329457293006,
+        4.119256448637399,
+        5.464218775972683
+      ]
+    },
+    {
+      "id": "chest-t3",
+      "label": "Chest · tier 3",
+      "count": 58,
+      "expected": [
+        0.011980875850633961,
+        0.0598796358500108,
+        0.11969745151399522,
+        0.23914787751249136,
+        0.3583517877941896,
+        0.5960220951436846,
+        1.1859193223925508,
+        1.7697546223775493,
+        2.347590288936412
+      ]
+    },
+    {
+      "id": "chest-t4",
+      "label": "Chest · tier 4",
+      "count": 24,
+      "expected": [
+        0.004957603800262328,
+        0.024777780351728607,
+        0.049529979936825605,
+        0.09895774241896194,
+        0.1482834983975957,
+        0.24662983247324882,
+        0.49072523685209,
+        0.7323122575355376,
+        0.9714166712840325
+      ]
+    },
+    {
+      "id": "chest-t5",
+      "label": "Chest · tier 5",
+      "count": 13,
+      "expected": [
+        0.0026853687251420944,
+        0.013421297690519663,
+        0.026828739132447203,
+        0.05360211047693772,
+        0.08032022829869766,
+        0.13359115925634313,
+        0.26580950329488207,
+        0.39666913949841626,
+        0.526184030278851
+      ]
+    },
+    {
+      "id": "elite-bonus",
+      "label": "Elite bonus rolls (after first kind)",
+      "count": 17,
+      "expected": [
+        0.000002473397746316475,
+        0.00006163899317919962,
+        0.00024558119489836473,
+        0.0009745923174075515,
+        0.0021756297368585517,
+        0.005949440278429634,
+        0.02289394262513214,
+        0.04958726803295635,
+        0.08491659288120296
+      ]
+    },
+    {
+      "id": "enemy-bonus",
+      "label": "Enemy bonus treasure rolls",
+      "count": 376,
+      "probability": 0.1,
+      "expected": [
+        0.007766912620410981,
+        0.038818522551041484,
+        0.07759696856769345,
+        0.15503379645637372,
+        0.23231081415623323,
+        0.38638673754142316,
+        0.7688028710682744,
+        1.1472892034723425,
+        1.5218861183449843
+      ]
+    },
+    {
+      "id": "enemy-wages",
+      "label": "Enemy kills / bounty payouts",
+      "count": 1417,
+      "expected": [
+        0.2927051910404883,
+        1.4629214482666433,
+        2.924332565436745,
+        5.842630041986212,
+        8.754904884558044,
+        14.5614363589414,
+        28.973235859142147,
+        43.236936205327375,
+        57.35405930039475
+      ]
+    },
+    {
+      "id": "headstone",
+      "label": "Headstone hoards",
+      "count": 12,
+      "expected": [
+        0.002478801900131164,
+        0.012388890175864304,
+        0.024764989968412802,
+        0.04947887120948097,
+        0.07414174919879785,
+        0.12331491623662441,
+        0.245362618426045,
+        0.3661561287677688,
+        0.48570833564201626
+      ]
+    },
+    {
+      "id": "shrine",
+      "label": "Grove shrine gifts",
+      "count": 24,
+      "expected": [
+        0.004957603800262328,
+        0.024777780351728607,
+        0.049529979936825605,
+        0.09895774241896194,
+        0.1482834983975957,
+        0.24662983247324882,
+        0.49072523685209,
+        0.7323122575355376,
+        0.9714166712840325
+      ]
+    },
+    {
+      "id": "trail",
+      "label": "Road prizes (keep one card)",
+      "count": null,
+      "expected": [
+        0,
+        0,
+        1,
+        1,
+        2,
+        3,
+        4,
+        6,
+        7
+      ],
+      "method": "restoration ladder"
+    }
+  ],
+  "rewardSources": [
+    {
+      "id": "source-0",
+      "label": "Grove shrine gifts",
+      "kind": "reward",
+      "context": "treasure:shrine",
+      "treasureGrant": true,
+      "count": 24,
+      "expected": [
+        0.004957603800262328,
+        0.024777780351728607,
+        0.049529979936825605,
+        0.09895774241896194,
+        0.1482834983975957,
+        0.24662983247324882,
+        0.49072523685209,
+        0.7323122575355376,
+        0.9714166712840325
+      ]
+    },
+    {
+      "id": "source-1",
+      "label": "Chest · tier 5",
+      "kind": "reward",
+      "context": "chest:vista",
+      "count": 4,
+      "options": {
+        "tier": 5,
+        "depth": 0,
+        "venueProduct": null
+      },
+      "expected": [
+        0.0008262673000437214,
+        0.0041296300586214345,
+        0.008254996656137601,
+        0.01649295706982699,
+        0.02471391639959928,
+        0.041104972078874806,
+        0.08178753947534834,
+        0.12205204292258962,
+        0.16190277854733875
+      ]
+    },
+    {
+      "id": "source-2",
+      "label": "Chest · tier 5",
+      "kind": "reward",
+      "context": "chest:civic",
+      "count": 3,
+      "options": {
+        "tier": 5,
+        "depth": 0,
+        "venueProduct": null
+      },
+      "expected": [
+        0.000619700475032791,
+        0.003097222543966076,
+        0.006191247492103201,
+        0.012369717802370242,
+        0.01853543729969946,
+        0.030828729059156103,
+        0.06134065460651125,
+        0.0915390321919422,
+        0.12142708391050407
+      ]
+    },
+    {
+      "id": "source-3",
+      "label": "Chest · tier 3",
+      "kind": "reward",
+      "context": "chest:park",
+      "count": 27,
+      "options": {
+        "tier": 3,
+        "depth": 0,
+        "venueProduct": null
+      },
+      "expected": [
+        0.00557730427529512,
+        0.027875002895694685,
+        0.05572122742892881,
+        0.11132746022133219,
+        0.16681893569729514,
+        0.27745856153240495,
+        0.5520658914586013,
+        0.8238512897274799,
+        1.0928437551945367
+      ]
+    },
+    {
+      "id": "source-4",
+      "label": "Chest · tier 2",
+      "kind": "reward",
+      "context": "chest:roadside",
+      "count": 115,
+      "options": {
+        "tier": 2,
+        "depth": 0,
+        "venueProduct": null
+      },
+      "expected": [
+        0.02375518487625699,
+        0.11872686418536624,
+        0.23733115386395603,
+        0.474172515757526,
+        0.7105250964884793,
+        1.1817679472676508,
+        2.3513917599162646,
+        3.5089962340244516,
+        4.654704883235989
+      ]
+    },
+    {
+      "id": "source-5",
+      "label": "Chest · tier 4",
+      "kind": "reward",
+      "context": "chest:roadside",
+      "count": 13,
+      "options": {
+        "tier": 4,
+        "depth": 0,
+        "venueProduct": null
+      },
+      "expected": [
+        0.0026853687251420944,
+        0.013421297690519663,
+        0.026828739132447203,
+        0.05360211047693772,
+        0.08032022829869766,
+        0.13359115925634313,
+        0.26580950329488207,
+        0.39666913949841626,
+        0.526184030278851
+      ]
+    },
+    {
+      "id": "source-6",
+      "label": "Chest · tier 3",
+      "kind": "reward",
+      "context": "chest:roadside",
+      "count": 31,
+      "options": {
+        "tier": 3,
+        "depth": 0,
+        "venueProduct": null
+      },
+      "expected": [
+        0.006403571575338841,
+        0.03200463295431612,
+        0.06397622408506641,
+        0.12782041729115917,
+        0.1915328520968944,
+        0.31856353361127976,
+        0.6338534309339496,
+        0.9459033326500695,
+        1.2547465337418753
+      ]
+    },
+    {
+      "id": "source-7",
+      "label": "Chapel alms",
+      "kind": "reward",
+      "context": "chest:worship",
+      "count": 6,
+      "options": {
+        "tier": 3,
+        "depth": 0
+      },
+      "expected": [
+        0.001239400950065582,
+        0.006194445087932152,
+        0.012382494984206401,
+        0.024739435604740484,
+        0.03707087459939892,
+        0.061657458118312206,
+        0.1226813092130225,
+        0.1830780643838844,
+        0.24285416782100813
+      ]
+    },
+    {
+      "id": "source-8",
+      "label": "barrel",
+      "kind": "barrel",
+      "object": {
+        "barrel": true,
+        "barrelStyle": "barrel"
+      },
+      "profile": "barrel",
+      "count": 88,
+      "expected": [
+        0.01817788060096187,
+        0.09085186128967156,
+        0.18160992643502724,
+        0.3628450555361938,
+        0.5437061607911842,
+        0.9043093857352458,
+        1.7993258684576634,
+        2.6851449442969715,
+        3.5618611280414525
+      ]
+    },
+    {
+      "id": "source-9",
+      "label": "clay pot",
+      "kind": "barrel",
+      "object": {
+        "barrel": true,
+        "barrelStyle": "clay_pot"
+      },
+      "profile": "clay pot",
+      "count": 203,
+      "expected": [
+        0.04193306547721886,
+        0.2095787254750378,
+        0.41894108029898325,
+        0.8370175712937198,
+        1.2542312572796634,
+        2.0860773330028963,
+        4.150717628373928,
+        6.194141178321423,
+        8.216566011277441
+      ]
+    },
+    {
+      "id": "source-10",
+      "label": "Headstone hoards",
+      "kind": "reward",
+      "context": "chest:lowtier",
+      "treasureGrant": true,
+      "count": 12,
+      "options": {
+        "tier": 1,
+        "depth": 0
+      },
+      "expected": [
+        0.002478801900131164,
+        0.012388890175864304,
+        0.024764989968412802,
+        0.04947887120948097,
+        0.07414174919879785,
+        0.12331491623662441,
+        0.245362618426045,
+        0.3661561287677688,
+        0.48570833564201626
+      ]
+    },
+    {
+      "id": "source-11",
+      "label": "Chest · tier 2",
+      "kind": "reward",
+      "context": "chest:park",
+      "count": 20,
+      "options": {
+        "tier": 2,
+        "depth": 0,
+        "venueProduct": null
+      },
+      "expected": [
+        0.004131336500218607,
+        0.020648150293107174,
+        0.04127498328068801,
+        0.08246478534913496,
+        0.12356958199799639,
+        0.20552486039437404,
+        0.4089376973767417,
+        0.6102602146129481,
+        0.8095138927366938
+      ]
+    },
+    {
+      "id": "source-12",
+      "label": "Buried treasure marks",
+      "kind": "reward",
+      "context": "treasure:default",
+      "treasureGrant": true,
+      "count": 402,
+      "options": {
+        "depth": 0
+      },
+      "expected": [
+        0.083039863654394,
+        0.4150278208914542,
+        0.8296271639418289,
+        1.6575421855176125,
+        2.483748598159728,
+        4.131049693926918,
+        8.219647717272508,
+        12.266230313720257,
+        16.271229244007547
+      ]
+    },
+    {
+      "id": "source-13",
+      "label": "Buried treasure marks",
+      "kind": "reward",
+      "context": "treasure:default",
+      "treasureGrant": true,
+      "count": 10,
+      "options": {
+        "depth": 0,
+        "rollBonus": 1
+      },
+      "expected": [
+        0.0020656682501093036,
+        0.010324075146553587,
+        0.020637491640344004,
+        0.04123239267456748,
+        0.061784790998998196,
+        0.10276243019718702,
+        0.20446884868837084,
+        0.30513010730647405,
+        0.4047569463683469
+      ]
+    },
+    {
+      "id": "source-14",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "raven",
+      "elite": false,
+      "amount": 2,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 22,
+      "expected": [
+        0.004544470150240468,
+        0.02271296532241789,
+        0.04540248160875681,
+        0.09071126388404845,
+        0.13592654019779604,
+        0.22607734643381144,
+        0.44983146711441585,
+        0.6712862360742429,
+        0.8904652820103631
+      ]
+    },
+    {
+      "id": "source-15",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "raven",
+      "elite": false,
+      "amount": 4,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 4,
+      "expected": [
+        0.0008262673000437214,
+        0.0041296300586214345,
+        0.008254996656137601,
+        0.01649295706982699,
+        0.02471391639959928,
+        0.041104972078874806,
+        0.08178753947534834,
+        0.12205204292258962,
+        0.16190277854733875
+      ]
+    },
+    {
+      "id": "source-16",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "zombie",
+      "elite": false,
+      "amount": 8,
+      "dropId": null,
+      "treasureChance": 0.1,
+      "shinyBonusAmount": 0,
+      "count": 99,
+      "expected": [
+        0.020450115676082105,
+        0.1022083439508805,
+        0.20431116723940562,
+        0.408200687478218,
+        0.6116694308900822,
+        1.0173480589521515,
+        2.0242416020148712,
+        3.020788062334093,
+        4.007093769046635
+      ]
+    },
+    {
+      "id": "source-17",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "ogre",
+      "elite": false,
+      "amount": 18,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 116,
+      "expected": [
+        0.023961751701267922,
+        0.1197592717000216,
+        0.23939490302799044,
+        0.4782957550249827,
+        0.7167035755883792,
+        1.1920441902873693,
+        2.3718386447851016,
+        3.5395092447550986,
+        4.695180577872824
+      ]
+    },
+    {
+      "id": "source-18",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "thief",
+      "elite": false,
+      "amount": 6,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 36,
+      "expected": [
+        0.007436405700393492,
+        0.03716667052759291,
+        0.07429496990523841,
+        0.1484366136284429,
+        0.2224252475963935,
+        0.36994474870987326,
+        0.736087855278135,
+        1.0984683863033065,
+        1.4571250069260488
+      ]
+    },
+    {
+      "id": "source-19",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "zombie",
+      "elite": true,
+      "amount": 16,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 2,
+      "expected": [
+        0.0004131336500218607,
+        0.0020648150293107173,
+        0.004127498328068801,
+        0.008246478534913495,
+        0.01235695819979964,
+        0.020552486039437403,
+        0.04089376973767417,
+        0.06102602146129481,
+        0.08095138927366938
+      ]
+    },
+    {
+      "id": "source-20",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "pirate_grunt",
+      "elite": false,
+      "amount": 6,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 29,
+      "expected": [
+        0.0059904379253169805,
+        0.0299398179250054,
+        0.05984872575699761,
+        0.11957393875624568,
+        0.1791758938970948,
+        0.2980110475718423,
+        0.5929596611962754,
+        0.8848773111887747,
+        1.173795144468206
+      ]
+    },
+    {
+      "id": "source-21",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "skeleton",
+      "elite": false,
+      "amount": 3,
+      "dropId": null,
+      "treasureChance": 0.1,
+      "shinyBonusAmount": 0,
+      "count": 12,
+      "expected": [
+        0.002478801900131164,
+        0.012388890175864304,
+        0.024764989968412802,
+        0.04947887120948097,
+        0.07414174919879785,
+        0.12331491623662441,
+        0.245362618426045,
+        0.3661561287677688,
+        0.48570833564201626
+      ]
+    },
+    {
+      "id": "source-22",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "skeleton_soldier",
+      "elite": false,
+      "amount": 8,
+      "dropId": null,
+      "treasureChance": 0.1,
+      "shinyBonusAmount": 0,
+      "count": 13,
+      "expected": [
+        0.0026853687251420944,
+        0.013421297690519663,
+        0.026828739132447203,
+        0.05360211047693772,
+        0.08032022829869766,
+        0.13359115925634313,
+        0.26580950329488207,
+        0.39666913949841626,
+        0.526184030278851
+      ]
+    },
+    {
+      "id": "source-23",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "giant_crab",
+      "elite": false,
+      "amount": 4,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 13,
+      "expected": [
+        0.0026853687251420944,
+        0.013421297690519663,
+        0.026828739132447203,
+        0.05360211047693772,
+        0.08032022829869766,
+        0.13359115925634313,
+        0.26580950329488207,
+        0.39666913949841626,
+        0.526184030278851
+      ]
+    },
+    {
+      "id": "source-24",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "giant_bear",
+      "elite": false,
+      "amount": 16,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 43,
+      "expected": [
+        0.008882373475470006,
+        0.04439352313018042,
+        0.08874121405347922,
+        0.17729928850064014,
+        0.26567460129569226,
+        0.44187844984790414,
+        0.8792160493599946,
+        1.3120594614178385,
+        1.7404548693838917
+      ]
+    },
+    {
+      "id": "source-25",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "treant",
+      "elite": false,
+      "amount": 12,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 190,
+      "expected": [
+        0.03924769675207677,
+        0.19615742778451814,
+        0.3921123411665361,
+        0.783415460816782,
+        1.1739110289809658,
+        1.9524861737465533,
+        3.884908125079046,
+        5.797472038823007,
+        7.690381980998591
+      ]
+    },
+    {
+      "id": "source-26",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "spider",
+      "elite": false,
+      "amount": 3,
+      "dropId": null,
+      "treasureChance": 0.1,
+      "shinyBonusAmount": 0,
+      "count": 60,
+      "expected": [
+        0.012394009500655822,
+        0.061944450879321517,
+        0.12382494984206402,
+        0.24739435604740487,
+        0.3707087459939892,
+        0.6165745811831221,
+        1.2268130921302252,
+        1.8307806438388443,
+        2.4285416782100815
+      ]
+    },
+    {
+      "id": "source-27",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "goblin",
+      "elite": false,
+      "amount": 10,
+      "dropId": null,
+      "treasureChance": 0.1,
+      "shinyBonusAmount": 0,
+      "count": 40,
+      "expected": [
+        0.008262673000437214,
+        0.04129630058621435,
+        0.08254996656137602,
+        0.1649295706982699,
+        0.24713916399599278,
+        0.4110497207887481,
+        0.8178753947534834,
+        1.2205204292258962,
+        1.6190277854733877
+      ]
+    },
+    {
+      "id": "source-28",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "wurm",
+      "elite": false,
+      "amount": 11,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 23,
+      "expected": [
+        0.004751036975251398,
+        0.023745372837073248,
+        0.04746623077279121,
+        0.0948345031515052,
+        0.14210501929769587,
+        0.23635358945353013,
+        0.47027835198325296,
+        0.7017992468048903,
+        0.9309409766471979
+      ]
+    },
+    {
+      "id": "source-29",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "pirate_gunner",
+      "elite": false,
+      "amount": 7,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 8,
+      "expected": [
+        0.0016525346000874428,
+        0.008259260117242869,
+        0.016509993312275203,
+        0.03298591413965398,
+        0.04942783279919856,
+        0.08220994415774961,
+        0.16357507895069667,
+        0.24410408584517923,
+        0.3238055570946775
+      ]
+    },
+    {
+      "id": "source-30",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "crab",
+      "elite": false,
+      "amount": 2,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 153,
+      "expected": [
+        0.03160472422667234,
+        0.15795834974226988,
+        0.31575362209726326,
+        0.6308556079208824,
+        0.9453073022846724,
+        1.5722651820169613,
+        3.128373384932074,
+        4.668490641789052,
+        6.1927812794357076
+      ]
+    },
+    {
+      "id": "source-31",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "gull",
+      "elite": false,
+      "amount": 2,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 40,
+      "expected": [
+        0.008262673000437214,
+        0.04129630058621435,
+        0.08254996656137602,
+        0.1649295706982699,
+        0.24713916399599278,
+        0.4110497207887481,
+        0.8178753947534834,
+        1.2205204292258962,
+        1.6190277854733877
+      ]
+    },
+    {
+      "id": "source-32",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "metal_slime",
+      "elite": false,
+      "amount": 75,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 3,
+      "expected": [
+        0.000619700475032791,
+        0.003097222543966076,
+        0.006191247492103201,
+        0.012369717802370242,
+        0.01853543729969946,
+        0.030828729059156103,
+        0.06134065460651125,
+        0.0915390321919422,
+        0.12142708391050407
+      ]
+    },
+    {
+      "id": "source-33",
+      "label": "Chest · tier 4",
+      "kind": "reward",
+      "context": "chest:park",
+      "count": 9,
+      "options": {
+        "tier": 4,
+        "depth": 0,
+        "venueProduct": null
+      },
+      "expected": [
+        0.001859101425098373,
+        0.009291667631898228,
+        0.018573742476309604,
+        0.037109153407110726,
+        0.05560631189909838,
+        0.09248618717746832,
+        0.18402196381953376,
+        0.2746170965758266,
+        0.3642812517315122
+      ]
+    },
+    {
+      "id": "source-34",
+      "label": "Chest · tier 1",
+      "kind": "reward",
+      "context": "chest:roadside",
+      "count": 64,
+      "options": {
+        "tier": 1,
+        "depth": 0,
+        "venueProduct": null
+      },
+      "expected": [
+        0.013220276800699543,
+        0.06607408093794295,
+        0.13207994649820162,
+        0.26388731311723185,
+        0.3954226623935885,
+        0.6576795532619969,
+        1.3086006316055734,
+        1.9528326867614338,
+        2.59044445675742
+      ]
+    },
+    {
+      "id": "source-35",
+      "label": "Chest · tier 4",
+      "kind": "reward",
+      "context": "chest:flora",
+      "count": 2,
+      "options": {
+        "tier": 4,
+        "depth": 0,
+        "venueProduct": null
+      },
+      "expected": [
+        0.0004131336500218607,
+        0.0020648150293107173,
+        0.004127498328068801,
+        0.008246478534913495,
+        0.01235695819979964,
+        0.020552486039437403,
+        0.04089376973767417,
+        0.06102602146129481,
+        0.08095138927366938
+      ]
+    },
+    {
+      "id": "source-36",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "plant",
+      "elite": false,
+      "amount": 9,
+      "dropId": null,
+      "treasureChance": 0.1,
+      "shinyBonusAmount": 0,
+      "count": 119,
+      "expected": [
+        0.024581452176300714,
+        0.12285649424398767,
+        0.24558615052009364,
+        0.49066547282735296,
+        0.7352390128880786,
+        1.2228729193465255,
+        2.433179299391613,
+        3.631048276947041,
+        4.816607661783328
+      ]
+    },
+    {
+      "id": "source-37",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "farmer_goblin",
+      "elite": false,
+      "amount": 5,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 140,
+      "expected": [
+        0.02891935550153025,
+        0.14453705205175021,
+        0.28892488296481605,
+        0.5772534974439447,
+        0.8649870739859747,
+        1.4386740227606183,
+        2.862563881637192,
+        4.271821502290637,
+        5.666597249156856
+      ]
+    },
+    {
+      "id": "source-38",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "club_goblin",
+      "elite": false,
+      "amount": 6,
+      "dropId": null,
+      "treasureChance": 0.1,
+      "shinyBonusAmount": 0,
+      "count": 31,
+      "expected": [
+        0.006403571575338841,
+        0.03200463295431612,
+        0.06397622408506641,
+        0.12782041729115917,
+        0.1915328520968944,
+        0.31856353361127976,
+        0.6338534309339496,
+        0.9459033326500695,
+        1.2547465337418753
+      ]
+    },
+    {
+      "id": "source-39",
+      "label": "clay pot",
+      "kind": "barrel",
+      "object": {
+        "poiClass": "recycling",
+        "barrelStyle": "clay_pot"
+      },
+      "profile": "clay pot",
+      "count": 1,
+      "expected": [
+        0.00020656682501093035,
+        0.0010324075146553586,
+        0.0020637491640344004,
+        0.004123239267456748,
+        0.00617847909989982,
+        0.010276243019718702,
+        0.020446884868837084,
+        0.030513010730647404,
+        0.04047569463683469
+      ]
+    },
+    {
+      "id": "source-40",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "slime",
+      "elite": false,
+      "amount": 2,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 48,
+      "expected": [
+        0.009915207600524657,
+        0.049555560703457215,
+        0.09905995987365121,
+        0.19791548483792387,
+        0.2965669967951914,
+        0.49325966494649764,
+        0.98145047370418,
+        1.4646245150710753,
+        1.942833342568065
+      ]
+    },
+    {
+      "id": "source-41",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "goblin_archer",
+      "elite": false,
+      "amount": 11,
+      "dropId": null,
+      "treasureChance": 0.1,
+      "shinyBonusAmount": 0,
+      "count": 1,
+      "expected": [
+        0.00020656682501093035,
+        0.0010324075146553586,
+        0.0020637491640344004,
+        0.004123239267456748,
+        0.00617847909989982,
+        0.010276243019718702,
+        0.020446884868837084,
+        0.030513010730647404,
+        0.04047569463683469
+      ]
+    },
+    {
+      "id": "source-42",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "farmer_goblin",
+      "elite": true,
+      "amount": 11,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 11,
+      "expected": [
+        0.002272235075120234,
+        0.011356482661208945,
+        0.022701240804378405,
+        0.04535563194202422,
+        0.06796327009889802,
+        0.11303867321690572,
+        0.22491573355720793,
+        0.33564311803712144,
+        0.44523264100518156
+      ]
+    },
+    {
+      "id": "source-43",
+      "label": "Chest · tier 5",
+      "kind": "reward",
+      "context": "chest:park",
+      "count": 6,
+      "options": {
+        "tier": 5,
+        "depth": 0,
+        "venueProduct": null
+      },
+      "expected": [
+        0.001239400950065582,
+        0.006194445087932152,
+        0.012382494984206401,
+        0.024739435604740484,
+        0.03707087459939892,
+        0.061657458118312206,
+        0.1226813092130225,
+        0.1830780643838844,
+        0.24285416782100813
+      ]
+    },
+    {
+      "id": "source-44",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "mushroom_monster",
+      "elite": false,
+      "amount": 6,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 150,
+      "expected": [
+        0.030985023751639553,
+        0.1548611271983038,
+        0.30956237460516006,
+        0.6184858901185122,
+        0.926771864984973,
+        1.5414364529578053,
+        3.0670327303255625,
+        4.576951609597111,
+        6.0713541955252035
+      ]
+    },
+    {
+      "id": "source-45",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "golden_slime",
+      "elite": false,
+      "amount": 10,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 1,
+      "expected": [
+        0.00020656682501093035,
+        0.0010324075146553586,
+        0.0020637491640344004,
+        0.004123239267456748,
+        0.00617847909989982,
+        0.010276243019718702,
+        0.020446884868837084,
+        0.030513010730647404,
+        0.04047569463683469
+      ]
+    },
+    {
+      "id": "source-46",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "split_slime",
+      "elite": false,
+      "amount": 6,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 2,
+      "expected": [
+        0.0004131336500218607,
+        0.0020648150293107173,
+        0.004127498328068801,
+        0.008246478534913495,
+        0.01235695819979964,
+        0.020552486039437403,
+        0.04089376973767417,
+        0.06102602146129481,
+        0.08095138927366938
+      ]
+    },
+    {
+      "id": "source-47",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "jellyfish",
+      "elite": false,
+      "amount": 6,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 1,
+      "expected": [
+        0.00020656682501093035,
+        0.0010324075146553586,
+        0.0020637491640344004,
+        0.004123239267456748,
+        0.00617847909989982,
+        0.010276243019718702,
+        0.020446884868837084,
+        0.030513010730647404,
+        0.04047569463683469
+      ]
+    },
+    {
+      "id": "source-48",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "treant",
+      "elite": true,
+      "amount": 24,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 2,
+      "expected": [
+        0.0004131336500218607,
+        0.0020648150293107173,
+        0.004127498328068801,
+        0.008246478534913495,
+        0.01235695819979964,
+        0.020552486039437403,
+        0.04089376973767417,
+        0.06102602146129481,
+        0.08095138927366938
+      ]
+    },
+    {
+      "id": "source-49",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "crab",
+      "elite": false,
+      "amount": 4,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 1,
+      "expected": [
+        0.00020656682501093035,
+        0.0010324075146553586,
+        0.0020637491640344004,
+        0.004123239267456748,
+        0.00617847909989982,
+        0.010276243019718702,
+        0.020446884868837084,
+        0.030513010730647404,
+        0.04047569463683469
+      ]
+    },
+    {
+      "id": "source-50",
+      "label": "Chapel alms",
+      "kind": "reward",
+      "context": "chest:worship",
+      "count": 1,
+      "options": {
+        "tier": 4,
+        "depth": 0
+      },
+      "expected": [
+        0.00020656682501093035,
+        0.0010324075146553586,
+        0.0020637491640344004,
+        0.004123239267456748,
+        0.00617847909989982,
+        0.010276243019718702,
+        0.020446884868837084,
+        0.030513010730647404,
+        0.04047569463683469
+      ]
+    },
+    {
+      "id": "source-51",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "plant",
+      "elite": true,
+      "amount": 17,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 2,
+      "expected": [
+        0.0004131336500218607,
+        0.0020648150293107173,
+        0.004127498328068801,
+        0.008246478534913495,
+        0.01235695819979964,
+        0.020552486039437403,
+        0.04089376973767417,
+        0.06102602146129481,
+        0.08095138927366938
+      ]
+    },
+    {
+      "id": "source-52",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "ghost",
+      "elite": false,
+      "amount": 4,
+      "dropId": null,
+      "treasureChance": 0,
+      "shinyBonusAmount": 0,
+      "count": 1,
+      "expected": [
+        0.00020656682501093035,
+        0.0010324075146553586,
+        0.0020637491640344004,
+        0.004123239267456748,
+        0.00617847909989982,
+        0.010276243019718702,
+        0.020446884868837084,
+        0.030513010730647404,
+        0.04047569463683469
+      ]
+    },
+    {
+      "id": "source-53",
+      "label": "Enemy kills / bounty payouts",
+      "kind": "enemy",
+      "enemyKind": "bat",
+      "elite": false,
+      "amount": 2,
+      "dropId": null,
+      "treasureChance": 0.1,
+      "shinyBonusAmount": 0,
+      "count": 1,
+      "expected": [
+        0.00020656682501093035,
+        0.0010324075146553586,
+        0.0020637491640344004,
+        0.004123239267456748,
+        0.00617847909989982,
+        0.010276243019718702,
+        0.020446884868837084,
+        0.030513010730647404,
+        0.04047569463683469
+      ]
+    },
+    {
+      "id": "trail-1",
+      "label": "Road prize 1",
+      "kind": "trail",
+      "prizeNumber": 1,
+      "count": 1,
+      "expected": [
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "trail-2",
+      "label": "Road prize 2",
+      "kind": "trail",
+      "prizeNumber": 2,
+      "count": 1,
+      "expected": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "trail-3",
+      "label": "Road prize 3",
+      "kind": "trail",
+      "prizeNumber": 3,
+      "count": 1,
+      "expected": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "trail-4",
+      "label": "Road prize 4",
+      "kind": "trail",
+      "prizeNumber": 4,
+      "count": 1,
+      "expected": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "trail-5",
+      "label": "Road prize 5",
+      "kind": "trail",
+      "prizeNumber": 5,
+      "count": 1,
+      "expected": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "trail-6",
+      "label": "Road prize 6",
+      "kind": "trail",
+      "prizeNumber": 6,
+      "count": 1,
+      "expected": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "trail-7",
+      "label": "Road prize 7",
+      "kind": "trail",
+      "prizeNumber": 7,
+      "count": 1,
+      "expected": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    }
+  ],
+  "enemies": [
+    {
+      "kind": "treant",
+      "count": 192,
+      "expected": [
+        0.039660830402098626,
+        0.19822224281382886,
+        0.39623983949460484,
+        0.7916619393516955,
+        1.1862679871807655,
+        1.9730386597859906,
+        3.92580189481672,
+        5.858498060284301,
+        7.77133337027226
+      ]
+    },
+    {
+      "kind": "crab",
+      "count": 154,
+      "expected": [
+        0.031811291051683274,
+        0.15899075725692524,
+        0.31781737126129767,
+        0.6349788471883391,
+        0.9514857813845723,
+        1.58254142503668,
+        3.148820269800911,
+        4.6990036525197,
+        6.233256974072542
+      ]
+    },
+    {
+      "kind": "farmer_goblin",
+      "count": 151,
+      "expected": [
+        0.031191590576650483,
+        0.15589353471295916,
+        0.31162612376919446,
+        0.6226091293859689,
+        0.9329503440848728,
+        1.551712695977524,
+        3.0874796151943995,
+        4.607464620327758,
+        6.111829890162038
+      ]
+    },
+    {
+      "kind": "mushroom_monster",
+      "count": 150,
+      "expected": [
+        0.030985023751639553,
+        0.1548611271983038,
+        0.30956237460516006,
+        0.6184858901185122,
+        0.926771864984973,
+        1.5414364529578053,
+        3.0670327303255625,
+        4.576951609597111,
+        6.0713541955252035
+      ]
+    },
+    {
+      "kind": "plant",
+      "count": 121,
+      "expected": [
+        0.024994585826322573,
+        0.12492130927329839,
+        0.24971364884816244,
+        0.49891195136226646,
+        0.7475959710878782,
+        1.2434254053859628,
+        2.4740730691292874,
+        3.6920742984083357,
+        4.897559051056997
+      ]
+    },
+    {
+      "kind": "ogre",
+      "count": 116,
+      "expected": [
+        0.023961751701267922,
+        0.1197592717000216,
+        0.23939490302799044,
+        0.4782957550249827,
+        0.7167035755883792,
+        1.1920441902873693,
+        2.3718386447851016,
+        3.5395092447550986,
+        4.695180577872824
+      ]
+    },
+    {
+      "kind": "zombie",
+      "count": 101,
+      "expected": [
+        0.020863249326103967,
+        0.10427315898019122,
+        0.20843866556747442,
+        0.41644716601313153,
+        0.6240263890898818,
+        1.0379005449915888,
+        2.0651353717525454,
+        3.0818140837953876,
+        4.088045158320304
+      ]
+    },
+    {
+      "kind": "spider",
+      "count": 60,
+      "expected": [
+        0.012394009500655822,
+        0.061944450879321517,
+        0.12382494984206402,
+        0.24739435604740487,
+        0.3707087459939892,
+        0.6165745811831221,
+        1.2268130921302252,
+        1.8307806438388443,
+        2.4285416782100815
+      ]
+    },
+    {
+      "kind": "slime",
+      "count": 48,
+      "expected": [
+        0.009915207600524657,
+        0.049555560703457215,
+        0.09905995987365121,
+        0.19791548483792387,
+        0.2965669967951914,
+        0.49325966494649764,
+        0.98145047370418,
+        1.4646245150710753,
+        1.942833342568065
+      ]
+    },
+    {
+      "kind": "giant_bear",
+      "count": 43,
+      "expected": [
+        0.008882373475470006,
+        0.04439352313018042,
+        0.08874121405347922,
+        0.17729928850064014,
+        0.26567460129569226,
+        0.44187844984790414,
+        0.8792160493599946,
+        1.3120594614178385,
+        1.7404548693838917
+      ]
+    },
+    {
+      "kind": "goblin",
+      "count": 40,
+      "expected": [
+        0.008262673000437214,
+        0.04129630058621435,
+        0.08254996656137602,
+        0.1649295706982699,
+        0.24713916399599278,
+        0.4110497207887481,
+        0.8178753947534834,
+        1.2205204292258962,
+        1.6190277854733877
+      ]
+    },
+    {
+      "kind": "gull",
+      "count": 40,
+      "expected": [
+        0.008262673000437214,
+        0.04129630058621435,
+        0.08254996656137602,
+        0.1649295706982699,
+        0.24713916399599278,
+        0.4110497207887481,
+        0.8178753947534834,
+        1.2205204292258962,
+        1.6190277854733877
+      ]
+    },
+    {
+      "kind": "thief",
+      "count": 36,
+      "expected": [
+        0.007436405700393492,
+        0.03716667052759291,
+        0.07429496990523841,
+        0.1484366136284429,
+        0.2224252475963935,
+        0.36994474870987326,
+        0.736087855278135,
+        1.0984683863033065,
+        1.4571250069260488
+      ]
+    },
+    {
+      "kind": "club_goblin",
+      "count": 31,
+      "expected": [
+        0.006403571575338841,
+        0.03200463295431612,
+        0.06397622408506641,
+        0.12782041729115917,
+        0.1915328520968944,
+        0.31856353361127976,
+        0.6338534309339496,
+        0.9459033326500695,
+        1.2547465337418753
+      ]
+    },
+    {
+      "kind": "pirate_grunt",
+      "count": 29,
+      "expected": [
+        0.0059904379253169805,
+        0.0299398179250054,
+        0.05984872575699761,
+        0.11957393875624568,
+        0.1791758938970948,
+        0.2980110475718423,
+        0.5929596611962754,
+        0.8848773111887747,
+        1.173795144468206
+      ]
+    },
+    {
+      "kind": "raven",
+      "count": 26,
+      "expected": [
+        0.005370737450284189,
+        0.026842595381039325,
+        0.053657478264894407,
+        0.10720422095387544,
+        0.16064045659739531,
+        0.26718231851268626,
+        0.5316190065897641,
+        0.7933382789968325,
+        1.052368060557702
+      ]
+    },
+    {
+      "kind": "wurm",
+      "count": 23,
+      "expected": [
+        0.004751036975251398,
+        0.023745372837073248,
+        0.04746623077279121,
+        0.0948345031515052,
+        0.14210501929769587,
+        0.23635358945353013,
+        0.47027835198325296,
+        0.7017992468048903,
+        0.9309409766471979
+      ]
+    },
+    {
+      "kind": "skeleton_soldier",
+      "count": 13,
+      "expected": [
+        0.0026853687251420944,
+        0.013421297690519663,
+        0.026828739132447203,
+        0.05360211047693772,
+        0.08032022829869766,
+        0.13359115925634313,
+        0.26580950329488207,
+        0.39666913949841626,
+        0.526184030278851
+      ]
+    },
+    {
+      "kind": "giant_crab",
+      "count": 13,
+      "expected": [
+        0.0026853687251420944,
+        0.013421297690519663,
+        0.026828739132447203,
+        0.05360211047693772,
+        0.08032022829869766,
+        0.13359115925634313,
+        0.26580950329488207,
+        0.39666913949841626,
+        0.526184030278851
+      ]
+    },
+    {
+      "kind": "skeleton",
+      "count": 12,
+      "expected": [
+        0.002478801900131164,
+        0.012388890175864304,
+        0.024764989968412802,
+        0.04947887120948097,
+        0.07414174919879785,
+        0.12331491623662441,
+        0.245362618426045,
+        0.3661561287677688,
+        0.48570833564201626
+      ]
+    },
+    {
+      "kind": "pirate_gunner",
+      "count": 8,
+      "expected": [
+        0.0016525346000874428,
+        0.008259260117242869,
+        0.016509993312275203,
+        0.03298591413965398,
+        0.04942783279919856,
+        0.08220994415774961,
+        0.16357507895069667,
+        0.24410408584517923,
+        0.3238055570946775
+      ]
+    },
+    {
+      "kind": "metal_slime",
+      "count": 3,
+      "expected": [
+        0.000619700475032791,
+        0.003097222543966076,
+        0.006191247492103201,
+        0.012369717802370242,
+        0.01853543729969946,
+        0.030828729059156103,
+        0.06134065460651125,
+        0.0915390321919422,
+        0.12142708391050407
+      ]
+    },
+    {
+      "kind": "split_slime",
+      "count": 2,
+      "expected": [
+        0.0004131336500218607,
+        0.0020648150293107173,
+        0.004127498328068801,
+        0.008246478534913495,
+        0.01235695819979964,
+        0.020552486039437403,
+        0.04089376973767417,
+        0.06102602146129481,
+        0.08095138927366938
+      ]
+    },
+    {
+      "kind": "goblin_archer",
+      "count": 1,
+      "expected": [
+        0.00020656682501093035,
+        0.0010324075146553586,
+        0.0020637491640344004,
+        0.004123239267456748,
+        0.00617847909989982,
+        0.010276243019718702,
+        0.020446884868837084,
+        0.030513010730647404,
+        0.04047569463683469
+      ]
+    },
+    {
+      "kind": "golden_slime",
+      "count": 1,
+      "expected": [
+        0.00020656682501093035,
+        0.0010324075146553586,
+        0.0020637491640344004,
+        0.004123239267456748,
+        0.00617847909989982,
+        0.010276243019718702,
+        0.020446884868837084,
+        0.030513010730647404,
+        0.04047569463683469
+      ]
+    },
+    {
+      "kind": "jellyfish",
+      "count": 1,
+      "expected": [
+        0.00020656682501093035,
+        0.0010324075146553586,
+        0.0020637491640344004,
+        0.004123239267456748,
+        0.00617847909989982,
+        0.010276243019718702,
+        0.020446884868837084,
+        0.030513010730647404,
+        0.04047569463683469
+      ]
+    },
+    {
+      "kind": "ghost",
+      "count": 1,
+      "expected": [
+        0.00020656682501093035,
+        0.0010324075146553586,
+        0.0020637491640344004,
+        0.004123239267456748,
+        0.00617847909989982,
+        0.010276243019718702,
+        0.020446884868837084,
+        0.030513010730647404,
+        0.04047569463683469
+      ]
+    },
+    {
+      "kind": "bat",
+      "count": 1,
+      "expected": [
+        0.00020656682501093035,
+        0.0010324075146553586,
+        0.0020637491640344004,
+        0.004123239267456748,
+        0.00617847909989982,
+        0.010276243019718702,
+        0.020446884868837084,
+        0.030513010730647404,
+        0.04047569463683469
+      ]
+    }
+  ],
+  "excluded": {
+    "sundries": 21,
+    "market stall": 55,
+    "training": 1,
+    "apothecary": 5,
+    "scriptorium": 5,
+    "inn": 8,
+    "shrine service/boon": 74,
+    "fixed supplies/rewards": 1736,
+    "viewpoint scope (first-visit bag omitted)": 4,
+    "scholar": 5,
+    "bike loan": 8,
+    "curio": 1,
+    "guildhall": 1
+  }
+}
