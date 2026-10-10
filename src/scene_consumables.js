@@ -525,25 +525,25 @@ class SceneConsumables {
   // form). No flight, no separate movement mode: a dragon walks the way
   // everyone walks.
 
-  // Growth Powder: every crop within 20 m springs ahead ONE stage on the spot,
-  // watered or not (Crops.advanceWithin — the crop model stays in crops.js).
-  // Refused, and the powder kept, when no unripe crop is in range: a scatter
-  // that moved nothing is not a use.
+  // Growth Powder: everything growing within 20 m completes its current stage
+  // on the spot — every timer ends (Crops.completeStageWithin — the crop model
+  // stays in crops.js). Refused, and the powder kept, when nothing in range
+  // is waiting on anything: a scatter that moved nothing is not a use.
   useGrowthPowder() {
     if (!this._selectedConsumable('growth_powder')) return false;
-    const n = this.advanceCropsWithin(GROWTH_POWDER_R_M);
+    const n = this.completeStagesWithin(GROWTH_POWDER_R_M);
     if (n <= 0) {
-      this.flash(`No crop within ${GROWTH_POWDER_R_M}m — kept.`,
+      this.flash('Nothing growing here — kept.',
         this.viewCenterX, this.viewCenterY);
       return false;
     }
     // THE BLAST — the same fanfare a street and a wreck get, scaled to what a
-    // scatter of powder covers. advanceCropsWithin has already thrown a
+    // scatter of powder covers. completeStagesWithin has already thrown a
     // 'sprout' over every plant that moved (the leaves ARE the growth); this
     // is the green ring around them, off the powder's own radius so the flash
     // says how far the scatter reached rather than going off at the feet. It
     // is thrown from the PLAYER's world point — the powder leaves the hand,
-    // and the sweep it drives is centred there too (advanceCropsWithin reads
+    // and the sweep it drives is centred there too (completeStagesWithin reads
     // the same point), so the ring and the crops it sprang share a centre.
     const feet = playerWorldM(this);
     this._blastAt(feet.x, feet.y, {
@@ -552,7 +552,7 @@ class SceneConsumables {
       sparks: 'greenspark',
     });
     this._consumeSelected();
-    this.flashLoot(`🌱 ${n} crop${n === 1 ? '' : 's'} sprang ahead`, UI_GREEN, 1.8, 'growth_powder');
+    this.flashLoot(`🌱 ${n} plant${n === 1 ? '' : 's'} grew a stage`, UI_GREEN, 1.8, 'growth_powder');
     return true;
   }
 
@@ -1211,17 +1211,30 @@ class SceneConsumables {
     return n;
   }
 
-  // Spring every unripe crop within ${radius} metres of the player one stage
-  // ahead, no watering involved (the Growth Powder). Returns the count.
-  advanceCropsWithin(radius) {
-    const { x: pWX, y: pWY } = playerWorldM(this);
-    // Leaf flecks off each plant that sprang — the SAME cue the 15-minute
-    // tick (advanceGrowth) and the can's jump (waterCropsWithin) throw, for
-    // the same event. _burstAtWorld drops the ones off-screen, so a scatter
-    // at the edge of a big plot only pays for the leaves you can see.
-    const movedPlants = [];
-    const n = Crops.advanceWithin(this.save, pWX, pWY, radius, movedPlants);
-    for (const p of movedPlants) this._burstAtWorld('sprout', p.x, p.y);
+  // Everything growing within `radius` metres of the player completes its
+  // current stage (the Growth Powder — Crops.completeStageWithin owns the
+  // rule). The scene's part: the WILD fruit trees on the map in reach (their
+  // picks are save.fruitPicked, but their places are the map's), and the
+  // live tree objects, which carry their own copy of planted_t. Returns the
+  // count.
+  completeStagesWithin(radius) {
+    const { x: pWX, y: pWY } = playerWorldM(this), now = Date.now();
+    const picked = [], live = new Map();
+    for (const entry of WorldGen.tileCache.values()) {
+      WorldGen.forEachItemInBox(entry, 'objects', pWX - radius, pWY - radius, pWX + radius, pWY + radius, o => {
+        if (o.kind === 'fruittree' && !o.planted && (o.x - pWX) ** 2 + (o.y - pWY) ** 2 <= radius * radius) picked.push(o.id);
+        if (o.planted) live.set(o.id, o);
+      });
+    }
+    const moved = [];
+    const n = Crops.completeStageWithin(this.save, pWX, pWY, radius, moved, now, picked);
+    // Leaf flecks off each plant that grew — the SAME cue the 15-minute tick
+    // (advanceGrowth) and the can's jump (waterCropsWithin) throw, for the
+    // same event. _burstAtWorld drops the ones off-screen.
+    for (const p of moved) {
+      if (p.planted_t != null && live.has(p.id)) live.get(p.id).planted_t = p.planted_t;
+      this._burstAtWorld('sprout', p.x, p.y);
+    }
     return n;
   }
 

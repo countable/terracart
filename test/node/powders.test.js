@@ -5,10 +5,12 @@
 // Powders — three consumables used through the same Use button and confirm
 // dialog:
 //
-//   Growth  — every crop within 20 m springs ahead ONE stage on the spot,
-//             watered or not. The crop model stays in crops.js
-//             (Crops.advanceWithin); app.js only supplies the player's point.
-//             Refused, and kept, when no unripe crop is in range.
+//   Growth  — everything growing within 20 m completes its current stage on
+//             the spot: every timer ends (a crop's hold and watering, a
+//             planted tree's stage, a picked fruit tree's regrowth). The
+//             crop model stays in crops.js (Crops.completeStageWithin); the
+//             scene supplies the player's point and the wild trees in reach.
+//             Refused, and kept, when nothing in range is waiting.
 //   Shadow  — for three minutes (3 × MINUTE_MS) no hostile takes an interest in the
 //             player: wanderCreatures gates BOTH the pursuit (the slime's
 //             meander and the monsters' stalk) and the hit (the leech and the
@@ -132,47 +134,73 @@ test('powders: each has a CONSUMABLE_SPEC action row and the method exists', () 
 });
 
 // ── Growth ─────────────────────────────────────────────────────────────────
-test('growth: Crops.advanceWithin springs one stage, unwatered, within the radius, ripe untouched', () => {
+test('growth: Crops.completeStageWithin ends every crop\'s current stage in range; ripe and far untouched', () => {
   const max = Crops.maxStage();
   const save = { planted: [
     { x: 0,  y: 0,  crop: 'carrot', stage: 0, watered_t: 0 },      // dry, in range
-    { x: 5,  y: 5,  crop: 'carrot', stage: 1, watered_t: 123 },    // watered, in range — keeps it
-    { x: 0,  y: 19, crop: 'carrot', stage: max - 1, watered_t: 9 },// ripens — watering cleared
+    { x: 5,  y: 5,  crop: 'carrot', stage: 1, watered_t: 123 },    // watered, in range
+    { x: 0,  y: 19, crop: 'carrot', stage: max - 1, watered_t: 9 },// ripens
     { x: 0,  y: 3,  crop: 'carrot', stage: max, watered_t: 0 },    // ripe — untouched
     { x: 30, y: 0,  crop: 'carrot', stage: 0, watered_t: 0 },      // out of range
   ] };
-  const n = Crops.advanceWithin(save, 0, 0, 20);
+  const moved = [];
+  const n = Crops.completeStageWithin(save, 0, 0, 20, moved);
   assert.eq(n, 3, 'three unripe crops in range moved');
-  assert.eq(save.planted[0].stage, 1, 'dry crop advanced without water');
-  assert.eq(save.planted[0].watered_t, 0, '…and still unwatered');
-  assert.eq(save.planted[1].stage, 2, 'watered crop advanced');
-  assert.eq(save.planted[1].watered_t, 123, '…keeping its watering (the can\'s jump does not spend it either)');
+  assert.eq(moved.length, 3, 'and are reported');
+  assert.eq(save.planted[0].stage, 1, 'dry crop finished its stage without water');
+  assert.eq(save.planted[1].stage, 2, 'watered crop finished its stage');
+  assert.eq(save.planted[1].watered_t, 0, '…its timer ended: the next stage waits for a fresh watering');
   assert.eq(save.planted[2].stage, max, 'ripened');
-  assert.eq(save.planted[2].watered_t, 0, 'a ripe plant holds no watering');
+  assert.eq(save.planted[2].watered_t, 0);
   assert.eq(save.planted[3].stage, max, 'ripe crop untouched');
   assert.eq(save.planted[4].stage, 0, 'out of range untouched');
-  assert.eq(Crops.advanceWithin({ planted: [] }, 0, 0, 20), 0, 'nothing planted → 0');
+  assert.eq(Crops.completeStageWithin({ planted: [] }, 0, 0, 20), 0, 'nothing planted → 0');
 });
 
-test('growth: useGrowthPowder sweeps advanceCropsWithin(20m) and refuses BEFORE consuming when nothing moved', () => {
+test('growth: planted trees reach their next stage and a picked fruit tree regrows at once', () => {
+  const now = 10 * PLANTED_TREE_GROW_MS, S = Crops.FRUIT_STAGE_MS;
+  const save = { planted: [], fruittrees: [
+    { id: 'pft_a', x: 0, y: 0, species: 'apple', planted_t: now - 1.2 * S },          // stage 1 of 4
+    { id: 'pft_b', x: 1, y: 0, species: 'apple', planted_t: now - 9 * S },            // mature, picked
+    { id: 'ptr_c', x: 2, y: 0, kind: 'tree', planted_t: now - 0.1 * PLANTED_TREE_GROW_MS }, // sprout
+    { id: 'ptr_d', x: 3, y: 0, kind: 'tree', planted_t: now - 0.7 * PLANTED_TREE_GROW_MS }, // young
+    { id: 'pft_far', x: 90, y: 0, species: 'apple', planted_t: now },
+  ], fruitPicked: { pft_b: now - 1000, wild_1: now - 1000, wild_far: now - 1000 } };
+  const moved = [];
+  const n = Crops.completeStageWithin(save, 0, 0, 20, moved, now, ['wild_1']);
+  // The map's tree objects carry `planted` (scene_creatures.js); the save rows do not.
+  const live = t => ({ ...t, planted: true });
+  assert.eq(Crops.fruitTreeState(live(save.fruittrees[0]), 0, now).stage, 2, 'a growing fruit tree reaches its next stage');
+  assert.truthy(Crops.fruitTreeState(live(save.fruittrees[1]), save.fruitPicked.pft_b, now).ready, 'a picked one bears again');
+  assert.eq(plantedTreeStage(save.fruittrees[2].planted_t, now), 2, 'a sprout is young');
+  assert.eq(plantedTreeStage(save.fruittrees[3].planted_t, now), 3, 'a young tree is grown');
+  assert.eq(save.fruittrees[4].planted_t, now, 'out of range untouched');
+  assert.falsy(save.fruitPicked.wild_1, 'a wild fruit tree the scene found in reach regrows');
+  assert.truthy(save.fruitPicked.wild_far, 'one it did not list keeps its timer');
+  assert.eq(n, 5, 'every ended timer counts');
+  assert.eq(moved.map(t => t.id).join(), 'pft_a,pft_b,ptr_c,ptr_d', 'the planted ones are reported for the leaves and the live copy');
+});
+
+test('growth: useGrowthPowder sweeps completeStagesWithin(20m) and refuses BEFORE consuming when nothing moved', () => {
   assert.eq(CONSUMABLE_SPEC.growth_powder.radiusM, CONSUMABLE_SPEC.rainberry.radiusM,
     'growth and rainberry share the owned crop radius');
   assert.truthy(/const GROWTH_POWDER_R_M = CONSUMABLE_SPEC\.growth_powder\.radiusM;/.test(app),
     'runtime derives the radius');
-  const wrap = app.match(/\n  advanceCropsWithin\(radius\) \{\n([\s\S]*?)\n  \}\n/);
-  assert.truthy(wrap, 'advanceCropsWithin beside waterCropsWithin');
-  assert.truthy(/Crops\.advanceWithin\(this\.save, pWX, pWY, radius, movedPlants\);/.test(wrap[1]),
+  const wrap = app.match(/\n  completeStagesWithin\(radius\) \{\n([\s\S]*?)\n  \}\n/);
+  assert.truthy(wrap, 'completeStagesWithin beside waterCropsWithin');
+  assert.truthy(/Crops\.completeStageWithin\(this\.save, pWX, pWY, radius, moved, now, picked\);/.test(wrap[1]),
     'the crop model stays in crops.js, and reports which plants moved');
-  assert.truthy(/for \(const p of movedPlants\) this\._burstAtWorld\('sprout', p\.x, p\.y\);/.test(wrap[1]),
+  assert.truthy(/this\._burstAtWorld\('sprout', p\.x, p\.y\);/.test(wrap[1]),
     'leaves over each one — the SAME cue the 15-min tick and the can\'s jump throw');
+  assert.truthy(/live\.get\(p\.id\)\.planted_t = p\.planted_t;/.test(wrap[1]), 'a live tree takes its new stage at once');
   const body = methodBody('useGrowthPowder');
-  assert.truthy(/const n = this\.advanceCropsWithin\(GROWTH_POWDER_R_M\);/.test(body), 'sweeps the radius');
+  assert.truthy(/const n = this\.completeStagesWithin\(GROWTH_POWDER_R_M\);/.test(body), 'sweeps the radius');
   const refuseAt = body.indexOf('if (n <= 0) {');
   const consumeAt = body.indexOf('this._consumeSelected();');
   assert.truthy(refuseAt >= 0, 'refuses on zero');
   assert.truthy(body.slice(refuseAt, consumeAt).includes('return false;'), 'the refusal returns before the consume');
   assert.truthy(consumeAt > refuseAt, 'the powder is consumed AFTER the refusal');
-  assert.truthy(/sprang ahead/.test(body), 'the flash says the count sprang ahead');
+  assert.truthy(/grew a stage/.test(body), 'the flash says how many grew a stage');
   // THE BLAST: the green ring a street and a wreck already get, off the
   // powder's OWN radius so the flash says how far the scatter reached — not a
   // fourth spelling of "something came good here".
