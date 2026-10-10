@@ -152,7 +152,8 @@ mechanics.
   a catch attempt (`Pets.catchMs`: current HP × 2 at the net's tool rate)
   while it flees for the edge of reach; no attack runs and it is no one's
   enemy until the attempt ends. A refused item is never consumed. Story foes
-  are not catchable (`Pets.catchable`). Only one pet per species, including
+  and `untameable` kinds (the crow: hunted for its feather, never a pet; old
+  saves drop a kept one) are not catchable (`Pets.catchable`). Only one pet per species, including
   baby/shiny variants. Hunting game (deer, crows) with an empty hand is apart.
   Use `Pets.carry/deploy/release`, never inventory stacks or id prefixes, for
   ownership. Stats, tint, accessories, growth and recovery stay on that record.
