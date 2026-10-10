@@ -11,11 +11,13 @@
     const T = root.WorldGen.T;
     return [T.GRASS, T.PARK, T.PLAYGROUND, T.PITCH, T.SCHOOL].includes(type);
   }
-  function ground(scene, x, y, from = null) {
+  // `anyGround` drops the whirlwind's own grassy-terrain rule — a Scroll of
+  // Wind's gust blows a foe across any ground the enemy gate allows.
+  function ground(scene, x, y, from = null, anyGround = false) {
     const p = scene.cellAt(x, y);
     if (!p.loaded) return false;
     const W = root.WorldGen, entry = W.tileCache.get(W.tileKey(p.tx, p.ty));
-    if (!entry?._spawnOpts || !terrain(p.type)) return false;
+    if (!entry?._spawnOpts || (!anyGround && !terrain(p.type))) return false;
     // The shared gate keeps roads, restricted land and KINDERGARTEN out;
     // SCHOOL is deliberately allowed, just as ordinary school fields are.
     // A pushed creature may occupy a reserved spawn seat. Allow it to leave
@@ -59,24 +61,29 @@
 
   // A forced move may not cross a road, building, private area or unloaded cell.
   // Quarter-cell sweeps also prevent a large timestep tunnelling through one.
-  function sweep(scene, unit, dx, dy) {
+  function sweep(scene, unit, dx, dy, anyGround = false) {
     const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (scene.cellM * .25)));
     const from = scene.cellAt(unit.x, unit.y);
     let x = unit.x, y = unit.y;
     for (let i = 0; i < steps; i++) {
       const nx = x + dx / steps, ny = y + dy / steps;
-      if (!ground(scene, nx, ny, from)) break;
+      if (!ground(scene, nx, ny, from, anyGround)) break;
       x = nx; y = ny;
     }
     return { x, y };
   }
-  function impulse(scene, unit, hazard, now, player = false) {
+  // THE ONE KNOCKBACK: a whirlwind's contact, and a Scroll of Wind's gust
+  // (opts: `cells` how far, `ms` over how long, `anyGround` past the
+  // whirlwind's grass). A push plays out at the depth it began on.
+  function impulse(scene, unit, hazard, now, player = false, opts = {}) {
     const x = player ? scene.startWorldM.x + scene.playerM.x : unit.x;
     const y = player ? scene.startWorldM.y + scene.playerM.y : unit.y;
     const angle = x === hazard.x && y === hazard.y ? hazard.heading : Math.atan2(y - hazard.y, x - hazard.x);
+    const ms = opts.ms ?? CONFIG.pushMs;
     unit._whirlwindPush = { x: Math.cos(angle), y: Math.sin(angle),
-      last: now, until: now + CONFIG.pushMs, depth: scene.depth, epoch: scene._whirlwindEpoch || 0 };
-    scene._whirlwindPushUntil = now + CONFIG.pushMs;
+      last: now, until: now + ms, depth: scene.depth, epoch: scene._whirlwindEpoch || 0,
+      cells: opts.cells ?? CONFIG.pushCells, ms, anyGround: !!opts.anyGround };
+    scene._whirlwindPushUntil = Math.max(scene._whirlwindPushUntil || 0, now + ms);
   }
   // Shared forced movement ledger for wind and physical dungeon traps.
   // Destination is absolute world BODY position; GPS remains untouched.
@@ -110,8 +117,8 @@
     if (!seconds) return;
     const x = player ? scene.startWorldM.x + scene.playerM.x : unit.x;
     const y = player ? scene.startWorldM.y + scene.playerM.y : unit.y;
-    const distance = CONFIG.pushCells * scene.cellM * seconds * 1000 / CONFIG.pushMs;
-    const end = sweep(scene, { x, y }, push.x * distance, push.y * distance);
+    const distance = (push.cells ?? CONFIG.pushCells) * scene.cellM * seconds * 1000 / (push.ms ?? CONFIG.pushMs);
+    const end = sweep(scene, { x, y }, push.x * distance, push.y * distance, push.anyGround);
     if (player) {
       displacePlayer(scene, end);
     } else {
@@ -152,11 +159,23 @@
   }
   function tick(scene, dt, now = performance.now()) {
     scene._whirlwinds ||= [];
-    if (scene.depth !== 0 || !scene.startWorldM) {
-      if (scene._whirlwinds.length || scene._whirlwindPushUntil)
+    // A depth change cancels every push still under way (its epoch).
+    if (scene._whirlwindDepth !== scene.depth) {
+      if (scene._whirlwindDepth != null && (scene._whirlwinds.length || scene._whirlwindPushUntil))
         scene._whirlwindEpoch = (scene._whirlwindEpoch || 0) + 1;
-      scene._whirlwinds.length = 0; scene._whirlwindPush = null;
-      scene._whirlwindPushUntil = 0; return;
+      scene._whirlwindDepth = scene.depth;
+      scene._whirlwindPush = null; scene._whirlwindPushUntil = 0;
+    }
+    if (scene.depth !== 0 || !scene.startWorldM) {
+      // No whirlwinds below ground, but a gust read down here still blows.
+      scene._whirlwinds.length = 0;
+      if (scene.startWorldM && scene._whirlwindPushUntil) {
+        dt = Math.min(.1, Math.max(0, dt));
+        pushStep(scene, scene, dt, now, true);
+        for (const c of units(scene)) pushStep(scene, c, dt, now);
+        if (now >= scene._whirlwindPushUntil) scene._whirlwindPushUntil = 0;
+      }
+      return;
     }
     dt = Math.min(.1, Math.max(0, dt));
     observe(scene, now);

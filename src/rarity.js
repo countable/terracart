@@ -190,7 +190,7 @@
                             flight_potion: 0.5, fire_resistance_potion: 0.5, treasure_map: 0.5, thunder_scroll: 0.5,
                             // The T1 tonics, so a first prize's magic card (the ladder starts at
                             // T1) is more than an antidote or a growth powder.
-                            hardworking_potion: 0.5, grip_potion: 0.5, psychosis_powder: 0.5,
+                            hardworking_potion: 0.5, grip_potion: 0.5, psychosis_powder: 0.5, wind_scroll: 0.5,
                           } } },
     // ── A grove shrine's daily gift (src/zones.js, INTERACTABLES.grove_shrine)
     // One roll a day per shrine, worth about a buried X: the X's flat curve

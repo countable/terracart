@@ -76,6 +76,18 @@ const CAST_ROWS = {
   fear_scroll: { noun: 'scroll', clock: 'perf',
     apply: (s, c, now) => { monsterRout(c, now, s.cellM); Combat.applyFear(c, CONSUMABLE_SPEC.fear_scroll.durationMs, now); },
     note: (s, n, felled, id) => s.flashLoot('The beasts turn and flee.', Combat.STATUS_LOOKS.fear.color, 1.8, id) },
+  // A gust: CONSUMABLE_SPEC.wind_scroll.damage through _damageEnemy, and
+  // whatever it leaves standing is blown pushCells straight away from the
+  // reader (Whirlwinds.impulse — the one knockback; any walkable ground).
+  wind_scroll: { noun: 'scroll', clock: 'perf', scope: 'reach',
+    apply: (s, c, now, damage) => {
+      if (s._damageEnemy(c, damage)) return true;
+      const p = playerWorldM(s);
+      Whirlwinds.impulse(s, c, { x: p.x, y: p.y, heading: Math.atan2(c.y - p.y, c.x - p.x) }, now, false,
+        { cells: CONSUMABLE_SPEC.wind_scroll.pushCells, anyGround: true });
+      return false;
+    },
+    note: (s, n, felled, id) => s.flashLoot('🌬 The gust hurls them back.', '#9fd8ff', 1.8, id) },
   sleep_powder: { noun: 'powder', clock: 'wall',
     apply: (s, c, now) => Combat.applySleep(c, now),
     note: (s, n, felled, id) => s.flashLoot(`Sleep falls for ${shortDuration(CONSUMABLE_SPEC.sleep_powder.durationMs)}.`, '#bca5e8', 1.8, id) },

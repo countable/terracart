@@ -89,6 +89,11 @@ mechanics.
   the row's `tome` column (`_readTome`); an "every foe in sight" spell is a
   `CAST_ROWS` row (`_castOnFoes`); the slot guard is `_selectedConsumable`,
   the spend `_spendScroll` / `_consumeSelected`. Never a hand-written handler.
+- KNOCKBACK has one owner, `Whirlwinds.impulse` / `pushStep`: a whirlwind's
+  contact (grassy ground only, surface only) and the T1 Scroll of Wind
+  (`CAST_ROWS.wind_scroll`: every foe in reach takes 5 and is blown
+  `pushCells` away on any ground the enemy gate allows, at any depth). A push
+  plays out at the depth it began on; a level change cancels it.
 - SPELL SLOTS: each tome rests on its own `cooldownMs` (`save.tomeMagicCd`;
   `TOME_COOLDOWN_MS`, one hour, unless its row names another), and a tome may
   be read while at most the worn amulet's tier of tomes rest (`Gear.spellSlots`
