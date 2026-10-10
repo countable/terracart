@@ -18,6 +18,10 @@ access or tile lifecycle mechanics.
   exhaust that pool within the same habitat. Forbidden ground is missing map
   area, not a roll that thins the population. A species with no sufficient
   legal space reports a placement shortfall without switching habitat/species.
+- Mode differences in landcover enemy count are a reserve, not a reroll: the
+  world seats the largest `Difficulty` `landEnemyCountMul` share
+  (`enemy_habitat_…_r<n>` ids) after the base population, and each mode shows
+  its share through `HabitatSpawns.reserveVisible` (hard 1.5×, easy none).
 - All generated creatures reserve their seats before captures, defeats, Home,
   daylight, amnesty and mode overlays. Stable habitat slots choose species;
   legal-seat changes cannot change their identities or species. Fauna may share

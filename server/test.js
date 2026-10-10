@@ -4,7 +4,7 @@
 
 const assert = require('assert');
 const WebSocket = require('ws');
-const { createServer, cleanName, cleanLabel, cleanHit, cleanIds, cleanBattle, cleanAggro, cleanGroups, cleanEnergy, cleanSmallInt,
+const { createServer, cleanName, cleanLabel, cleanHit, cleanIds, cleanBattle, cleanAggro, cleanGroups, cleanEnemyState, cleanState, cleanEnergy, cleanSmallInt,
         INTEREST_PX, MAX_MSGS_PER_S, MAX_ENEMY_FRAMES_PER_S, MAX_IDS, MAX_GROUP_PARTY, MAX_FLAGS, MAX_VISION_CUT,
         sendFrame, checkSlowConsumer, POSITION_BUFFER_BYTES, MAX_OUTBOUND_BYTES, SLOW_PING_LIMIT } = require('./index.js');
 
@@ -240,6 +240,61 @@ test('cleanIds keeps a well-formed seen/dead list and drops malformed ones', () 
     { ids: ['ok'], d: 0.5 },
     { ids: ['ok'] },
   ]) assert.strictEqual(cleanIds(bad), null, JSON.stringify(bad));
+});
+
+const enemyState = () => ({ q: 1, h: 0.75, x: 731104, y: 411906,
+  v: [['session_a', 0.25]], m: { _idleAngle: 1.2, _idleTurnT: 1200,
+    _startX: 731104, _startY: 411906, _movementDecisions: { idle: 2, 'bat-angle': 1 } }, pid: 1 });
+test('enemy snapshots validate complete bounded vectors and movement state', () => {
+  const s = enemyState();
+  assert.deepStrictEqual(cleanEnemyState(s), s);
+  const flight = { ...s, m: { _batFlight: { x: 100, y: 100, tx: 101, ty: 102, start: -200, duration: 1000 }, _batSwooping: true, _batLeg: 3 } };
+  assert.deepStrictEqual(cleanEnemyState(flight), flight);
+  assert.deepStrictEqual(cleanEnemyState({ ...s, m: { _batFlight: null } }).m, { _batFlight: null });
+  assert.deepStrictEqual(cleanState({ id: 'enemy_sync', d: 2, gen: 0, s }), { eid: 'enemy_sync', d: 2, gen: 0, s });
+  assert.strictEqual(cleanState({ id: 'enemy_sync', d: 2, gen: -1, s }), null);
+  for (const over of [
+    { q: 0 }, { q: Number.MAX_SAFE_INTEGER + 1 }, { h: -0.1 }, { h: NaN }, { h: 1.01 },
+    { x: Infinity }, { y: '3' }, { pid: -1 }, { v: [['a', -1]] }, { v: [['a', 1e6 + 1]] },
+    { v: [['a', 1], ['a', 2]] }, { v: [['a', 1, 2]] }, { v: [['bad id', 1]] },
+    { v: Array.from({ length: 33 }, (_, n) => ['p' + n, 0]) }, { m: [] },
+    { m: { _startX: 1 } }, { m: { _idleTurnT: 300001 } },
+    { m: { _batFlight: { ...flight.m._batFlight, duration: 0 } } }, { m: { _batHit: 1 } },
+    { m: { _movementDecisions: { idle: -1 } } }, { m: { _movementDecisions: { '_bad': 1 } } },
+    { m: { _movementDecisions: Array(3).fill(1) } },
+  ]) assert.strictEqual(cleanEnemyState({ ...s, ...over }), null, JSON.stringify(over));
+  const cleaned = cleanEnemyState({ ...s, secret: 9, m: { ...s.m, _hp: 999, constructor: 1 } });
+  assert.strictEqual(cleaned.secret, undefined);
+  assert.strictEqual(cleaned.m._hp, undefined);
+  assert(!Object.hasOwn(cleaned.m, 'constructor'));
+});
+
+test('cumulative hits preserve synchronization fields and reject partial metadata', () => {
+  const msg = { id: 'enemy_sync', f: 0.25, left: 0.75, d: 0, gen: 0, o: 'session_a', u: 0.25, s: enemyState() };
+  assert.deepStrictEqual(cleanHit(msg), { eid: msg.id, f: msg.f, left: msg.left, d: msg.d, gen: msg.gen, o: msg.o, u: msg.u, s: msg.s });
+  for (const over of [{ o: undefined }, { o: 'bad id' }, { u: undefined }, { u: Infinity }, { gen: undefined }, { gen: -1 }, { s: {} }]) {
+    assert.strictEqual(cleanHit({ ...msg, ...over }), null);
+  }
+});
+
+test('state and cumulative retry frames relay with capability and authenticated sender', async () => {
+  const relay = await boot();
+  try {
+    const a = await hello(relay.url, 'Ada', { enemySync: 1 });
+    const b = await hello(relay.url, 'Bob', { enemySync: 1 });
+    assert.strictEqual(a.welcome.enemySync, 1);
+    assert.strictEqual(b.welcome.peers[0].enemySync, 1);
+    assert.strictEqual((await a.next()).enemySync, 1);
+    const state = { t: 'state', id: 'enemy_sync', d: 0, gen: 0, s: enemyState() };
+    a.send(state);
+    assert.deepStrictEqual(await b.next(), { ...state, id: a.welcome.id, eid: state.id });
+    const damage = { t: 'damage', id: 'enemy_sync', f: 0.25, left: 0.75, d: 0, gen: 0, o: 'session_a', u: 0.25 };
+    a.send(damage);
+    assert.deepStrictEqual(await b.next(), { ...damage, id: a.welcome.id, eid: damage.id });
+    a.send({ ...state, s: { ...state.s, v: [['a', 1], ['a', 2]] } });
+    a.send({ ...damage, o: undefined });
+    await b.none(); await a.none();
+  } finally { await relay.close(); }
 });
 
 test('group batches validate every row, bounds and depth, and strip unsolicited fields', () => {

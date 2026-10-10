@@ -16,9 +16,17 @@ scripts, imports and documentation continue to work. The game has no build step.
 | `npm run test:viewers -- http://localhost:8000` | Smoke-test the main live design viewers and floor viewer against a running server. |
 | `npm run test:browser:docker` | Build the browser-test container and run its server and harness. |
 | `npm run test:relay` | Run the relay's own test suite. |
+| `node tools/multiplayer-drift.js` | Measure shared-enemy movement drift under different timing, target inputs and terrain fixtures. |
+| `node tools/multiplayer-health-drift.js` | Measure shared-enemy health and death disagreement under delayed, omitted and deferred messages. |
+| `node tools/multiplayer-sync-drift.js` | Measure event-driven position correction and health recovery with two isolated clients. |
 
 An inventory candidate may still be a generator input. Follow
 [ASSET_INVENTORY.md](../docs/art/ASSET_INVENTORY.md) before moving or deleting art.
+
+The multiplayer drift probes execute shipping logic with headless fixtures.
+They measure controlled scenarios, not live browser or production-network
+performance. Their output states units and assumptions; use it to compare
+synchronization changes, alongside `npm test` and `npm run test:relay`.
 
 ## Prerequisites
 

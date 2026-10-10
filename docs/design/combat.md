@@ -198,10 +198,12 @@ Tests: `boss_encounters`, `castle_quest_flow`, `lairs`, `trail`.
 
 - Nearby players fight the same enemies: `src/multiplayer.js` sends this
   client's own-side damage (`Combat.isSharedHit`: player, pet, charmed ally,
-  the player's claimed turrets) as a fraction of the foe's max HP, and every
-  own-side kill as an authoritative `k: 1`. Lava, light, obstacles and
-  foe-on-foe blows run on every client already and are never sent. Each client
-  still runs its own enemy AI. World-derived enemies use `enemyMovementRandom`
+  the player's claimed turrets) as a fraction of the foe's max HP. With an
+  upgraded relay, one nearby client publishes environmental and enemy-on-enemy
+  damage too; other copies gate those replicated blows before HP or combat
+  side effects. Own-side hits remain independent on every client. Kills carry
+  an authoritative `k: 1`. Each client still runs its own enemy AI.
+  World-derived enemies use `enemyMovementRandom`
   for movement decisions: enemy ID plus independent named decision counters
   seed idle headings, avoidance, roadside jitter, retreat, psychosis, bat
   flights and burrowing. Unrelated RNG calls and other creatures cannot alter
@@ -209,6 +211,37 @@ Tests: `boss_encounters`, `castle_quest_flow`, `lairs`, `trail`.
   when a creature is recreated; different targets, terrain, simulation timing
   or frozen intervals can still diverge. Private creatures retain their RNG.
   The wire protocol lives atop `server/index.js`.
+- Event-driven synchronization is negotiated with `enemySync: 1` in hello,
+  welcome and peer presence. The lowest eligible capable relay ID in the
+  enemy's simulation range publishes its state; castle candidates must share
+  the battle. A publisher's hit includes position, HP, target and movement
+  state. A hit from another client queues a publisher reply. Existing `seen`
+  requests obtain live snapshots as well as deaths, including after joining,
+  reconnecting/resuming and loading a tile. There is no added position
+  heartbeat. The repeated seen scan also repairs missed replies.
+- Upgraded hits carry a page-session origin and cumulative normalized damage
+  total, scoped to depth, enemy ID and castle battle generation. Receivers
+  apply only unseen damage, so retries and reordering do not multiply blows.
+  Snapshot vectors preserve damage not yet observed by the publisher, including
+  simultaneous local strikes. Unacknowledged own evidence retries with bounded
+  pacing; ledgers survive reconnect and ordinary tile recreation. HP and
+  position snapshots require the current publisher, life and a newer sequence;
+  they cannot resurrect a defeated enemy. Peer kills still use the ordinary
+  defeat path and assist rules.
+- Positions and movement endpoints use absolute world pixels; movement timers
+  use relative durations. Snapshots include deterministic decision counters,
+  hop timing, bat flight, lunge and burrow phases. Errors within 0.1 cell are
+  tolerated; larger corrections blend over 400 ms, with errors above three
+  cells corrected at once when the destination is safe. Local loaded-terrain
+  and creature movement checks can refuse a correction. Corrections do not
+  create traversed-path damage or traps.
+- `damage` carries cumulative retries and world blows so legacy clients do
+  not apply those as repeated own-side deltas. A relay without the capability
+  retains the previous own-side-only protocol. Full synchronization requires
+  upgraded clients and relay. Evidence, pending replies and snapshots are
+  bounded; an oversized complete damage vector suppresses the snapshot rather
+  than sending a partial vector that could double-count damage. See the client
+  constants and relay cleaners for wire limits.
 - A received hit is source `Combat.PEER_SOURCE`: it goes through
   `_damageEnemy` with `exact` damage (no armour or potion shield twice), shows
   its number, never splits a slime and is never sent on. A peer's kill goes
@@ -279,7 +312,8 @@ Tests: `boss_encounters`, `castle_quest_flow`, `lairs`, `trail`.
   body to `peerFeint` before anything else, so the copy only faces and swings:
   no damage, condition, theft, shot, web, trap or blast happens on this
   device. The peer's own device runs the same foe at them through
-  `Combat.playerDamage` as ever. Copies are not position-synced.
+  `Combat.playerDamage` as ever. Position corrections arrive on damage and
+  snapshot requests; movement between those events remains local.
 - Presence frames publish `e` (energy over `Energy.maxEnergy`), `g`
   (`TARGET_FLAGS`) and `v`. A peer below full energy wears the enemy health
   bar (`_drawEnemyHealthBar`) under its name tag; at full it shows none.
@@ -293,5 +327,8 @@ Tests: `boss_encounters`, `castle_quest_flow`, `lairs`, `trail`.
   scaling runs before that queue is applied. Repeated count announcements
   recover missed messages, while a live group's count never shrinks.
 
-Tests: `multiplayer_hits`, `multiplayer_shared`, `enemy_movement_determinism`,
-`server/test.js`.
+Tests: `multiplayer_hits`, `multiplayer_shared`, `multiplayer_state_sync`,
+`multiplayer_damage_routes`, `enemy_movement_determinism`, `server/test.js`.
+Measurements: `tools/multiplayer-drift.js`, `tools/multiplayer-health-drift.js`
+and `tools/multiplayer-sync-drift.js` (controlled headless fixtures, not browser
+or production-network performance).
