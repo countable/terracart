@@ -1549,6 +1549,7 @@ const ICON_SHEETS = {
   // Consumables + wilderness drops.
   icon_thunder_scroll: { url: 'assets/Icons/Items/ThunderScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_raven_scroll: { url: 'assets/Icons/Items/RavenScroll.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_wind_scroll: { url: 'assets/Icons/Items/WindScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_serpent_idol: { url: 'assets/Icons/Items/SerpentIdol.png', cols: 1, srcW: 16, srcH: 16 },
   icon_bones_scroll: { url: 'assets/Icons/Items/SkeletonScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_grip_potion: { url: 'assets/Icons/Items/GripPotion.png', cols: 1, srcW: 16, srcH: 16 },
