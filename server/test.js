@@ -4,7 +4,7 @@
 
 const assert = require('assert');
 const WebSocket = require('ws');
-const { createServer, cleanName, cleanLabel, cleanHit, cleanIds, cleanBattle, cleanAggro, cleanGroups, cleanEnemyState, cleanState, cleanEnergy, cleanSmallInt,
+const { createServer, cleanName, cleanLabel, cleanHit, cleanIds, cleanBattle, cleanBoss, cleanAggro, cleanGroups, cleanEnemyState, cleanState, cleanEnergy, cleanSmallInt,
         INTEREST_PX, MAX_MSGS_PER_S, MAX_ENEMY_FRAMES_PER_S, MAX_IDS, MAX_GROUP_PARTY, MAX_FLAGS, MAX_VISION_CUT,
         sendFrame, checkSlowConsumer, POSITION_BUFFER_BYTES, MAX_OUTBOUND_BYTES, SLOW_PING_LIMIT } = require('./index.js');
 
@@ -500,6 +500,30 @@ test('cleanBattle / cleanAggro keep well-formed frames and drop malformed ones',
     { eid: 'bad id', pid: 1, d: 0 }, { eid: 'e', pid: 0, d: 0 }, { eid: 'e', pid: -2, d: 0 }, { eid: 'e', pid: 1.5, d: 0 },
     { eid: 'e', pid: '1', d: 0 }, { eid: 'e', pid: 1, d: 0.5 }, { pid: 1, d: 0 },
   ]) assert.strictEqual(cleanAggro(bad), null, JSON.stringify(bad));
+});
+
+test('cleanBoss keeps a well-formed serpent feed and drops malformed ones', () => {
+  const ok = { key: 'serpent_1700000000000', startedAt: 1700000000000, d: 1, x: 10.5, y: 20.25, h: -1.5 };
+  assert.deepStrictEqual(cleanBoss({ ...ok, junk: 1 }), ok);
+  for (const bad of [
+    { ...ok, key: 'b_1_2' }, { ...ok, key: 'serpent_x' }, { ...ok, key: 7 }, { ...ok, startedAt: 0 },
+    { ...ok, d: -1 }, { ...ok, x: -1 }, { ...ok, y: 5e6 }, { ...ok, h: 'n' }, { ...ok, h: 1e4 }, { ...ok, x: undefined },
+  ]) assert.strictEqual(cleanBoss(bad), null, JSON.stringify(bad));
+});
+
+test('a boss feed relays to nearby peers with the sender id', async () => {
+  const s = await boot();
+  try {
+    const a = await hello(s.url, 'Ada');
+    const b = await hello(s.url, 'Bob', { x: 10, y: 10 });
+    await a.next();
+    const frame = { key: 'serpent_1700000000000', startedAt: 1700000000000, d: 0, x: 11, y: 12, h: 0.5 };
+    a.send({ t: 'boss', ...frame });
+    assert.deepStrictEqual(await b.next(), { t: 'boss', id: a.welcome.id, ...frame });
+    a.send({ t: 'boss', ...frame, key: 'nope' });
+    await b.none();
+    a.ws.close(); b.ws.close();
+  } finally { await s.close(); }
 });
 
 test('battle and aggro relay to nearby peers with the sender id, never echoed; malformed ones are dropped, not fatal', async () => {

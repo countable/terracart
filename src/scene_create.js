@@ -132,7 +132,7 @@ class SceneCreate {
     // Mark relics dirty so the first updateRelicRow call actually rebuilds.
     this._relicsGen = 1;
     // Transient runtime state — not persisted.
-    this.pairyCompass = null;   // { targetId, x, y, until } when active
+    this.pairyCompass = null;   // [{ targetId, x, y, until }] when active (Buffs.marks)
     if (needsStatePersist) persistSave(this.save);
 
     this.cameras.main.setBackgroundColor('#000');

@@ -701,8 +701,10 @@ const NPC = (() => {
     const say = () => {
       if (talk.target && !isDormant(c)) {
         // The rim label names who gave the directions (Wayfinder, Fieldwalker…).
-        scene.save.wayfarerCompass = { ...talk.target, source: c.roleLabel || LABELS[c.culture || 'village'][c.role],
-          until: Date.now() + Scenic.TELESCOPE_DURATION_MS };
+        // Each neighbour's directions join the others' (Buffs.withMark).
+        scene.save.wayfarerCompass = Buffs.withMark(scene.save.wayfarerCompass, { ...talk.target,
+          source: c.roleLabel || LABELS[c.culture || 'village'][c.role],
+          until: Date.now() + Scenic.TELESCOPE_DURATION_MS });
         persistSave(scene.save);
       }
       MemoryStory.showPages(scene, talk.pages, { title: talk.title, art: portrait(scene, c), kind: 'note',

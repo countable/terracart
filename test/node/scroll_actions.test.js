@@ -152,11 +152,12 @@ test('scroll actions: map selects T4/T5, remembers depth, and lasts fifteen minu
   assert.eq(s.useTreasureMap(), true);
   assertSpent(s, 'treasure_map', true);
   assert.eq(CONSUMABLE_SPEC.treasure_map.durationMs, 15 * 60 * 1000);
-  assert.eq(s.save.treasureCompass.targetId, 'treasure');
-  assert.eq(s.save.treasureCompass.depth, 3);
-  assert.eq(s.save.treasureCompass.x, 300); assert.eq(s.save.treasureCompass.y, 400);
-  assert.truthy(s.save.treasureCompass.until >= before + 15 * 60 * 1000);
-  assert.truthy(s.save.treasureCompass.until <= Date.now() + 15 * 60 * 1000);
+  assert.eq(s.save.treasureCompass.length, 1);
+  assert.eq(s.save.treasureCompass[0].targetId, 'treasure');
+  assert.eq(s.save.treasureCompass[0].depth, 3);
+  assert.eq(s.save.treasureCompass[0].x, 300); assert.eq(s.save.treasureCompass[0].y, 400);
+  assert.truthy(s.save.treasureCompass[0].until >= before + 15 * 60 * 1000);
+  assert.truthy(s.save.treasureCompass[0].until <= Date.now() + 15 * 60 * 1000);
 });
 
 test('scroll actions: map without eligible chest retains item and existing marker', () => {

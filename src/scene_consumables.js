@@ -756,7 +756,8 @@ class SceneConsumables {
   }
 
   // The map's mark EXTENDS like every timed thing (Buffs.laterOf): a second
-  // map read inside the first's quarter hour banks the time on the new mark.
+  // map read on the same chest banks the time; one on another chest adds a
+  // second mark beside the first (Buffs.withMark).
   useTreasureMap() {
     const sel = this._selectedConsumable('treasure_map');
     if (!sel) return false;
@@ -765,8 +766,8 @@ class SceneConsumables {
       this.flashAtPlayer(kept('No treasure found', 'map'));
       return false;
     }
-    this.save.treasureCompass = { x: target.x, y: target.y, targetId: target.id,
-      depth: this.depth || 0, until: Buffs.laterOf(this.save.treasureCompass?.until, CONSUMABLE_SPEC.treasure_map.durationMs) };
+    this.save.treasureCompass = Buffs.withMark(this.save.treasureCompass, { x: target.x, y: target.y, targetId: target.id,
+      depth: this.depth || 0 }, CONSUMABLE_SPEC.treasure_map.durationMs);
     this._spendScroll(sel.id);
     this.flashLoot(`Treasure marked for ${shortDuration(CONSUMABLE_SPEC.treasure_map.durationMs)}.`, '#ffd166', 1.8, sel.id);
     return true;
@@ -1058,9 +1059,9 @@ class SceneConsumables {
     } else if (id === 'pairy') {
       const target = this.findNearestUnopenedChest();
       if (target) {
-        this.pairyCompass = { targetId: target.id, x: target.x, y: target.y,
-          until: Buffs.laterOf(this.pairyCompass?.until, CONSUMABLE_SPEC.pairy.durationMs, now) };
-        extra = `\n🧭 chest compass: ${shortDuration(this.pairyCompass.until - now)}`;
+        this.pairyCompass = Buffs.withMark(this.pairyCompass, { targetId: target.id, x: target.x, y: target.y },
+          CONSUMABLE_SPEC.pairy.durationMs, now);
+        extra = `\n🧭 chest compass: ${shortDuration(this.pairyCompass.at(-1).until - now)}`;
       } else {
         extra = `\n🧭 no chests nearby`;
       }
@@ -1133,7 +1134,7 @@ class SceneConsumables {
           status.textContent = 'Nothing like that in sight. Try another search or another lookout.';
           return;
         }
-        this.save.telescopeCompass = target;
+        this.save.telescopeCompass = Buffs.withMark(this.save.telescopeCompass, target);
         persistSave(this.save);
         wrap.remove();
         this.flash('Follow the golden dot.', sx, sy);

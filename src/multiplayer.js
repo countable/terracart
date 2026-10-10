@@ -35,6 +35,13 @@
 // names the same start (battleShared). Each participant claims the castle in
 // its own save when it sees every guard down.
 //
+// BOSS FIGHTS are shared too (BossEncounters, scene_boss.js): the player who
+// raised a serpent sends its head pose in a `boss` frame every feedMs while
+// the fight runs. A nearby player ADOPTS it (scene._adoptSerpent: the same
+// key, start and piece ids) and their copy follows the feed; its coils are
+// shared enemies while the fight is live, so every hit and kill lands on all
+// copies. The feed stopping (the starter won, reset or left) ends the copies.
+//
 // SHARED TARGETING: every device simulates every enemy, so a shared foe picks
 // the SAME player on all of them (enemyTarget — nearest eligible player, a tie
 // band broken by lowest relay id, sticky). A copy whose target is a peer
@@ -142,6 +149,9 @@ const Multiplayer = (function () {
   // BATTLE_REPLY_MS at most (≤ 1 battle frame a second in all).
   const BATTLE_MS = 5000;
   const BATTLE_REPLY_MS = 1000;
+  // A boss fight's key on the wire (scene_boss.js `serpent_<start ms>`;
+  // mirrored in server/index.js BOSS_KEY_RE).
+  const BOSS_KEY_RE = /^serpent_\d{1,16}$/;
   // Aggro: ≤ AGGRO_MAX_PER_S frames a second, the newest pick per enemy
   // (coalesced while it waits). Two announcements for one enemy inside
   // AGGRO_TIE_MS are a conflict and the LOWER pid wins; past that window the
@@ -261,6 +271,7 @@ const Multiplayer = (function () {
     deadHeard: new Map(),     // depth:id → when a peer last said it was dead
     deadReplyAt: 0,
     battleSent: new Map(),    // castle key → { startedAt, at }: our last battle frame
+    bossSentAt: 0,            // when our last boss feed went out
     battleDue: new Set(),     // castle keys to announce at the next reply slot
     peerBattles: new Map(),   // peer id → Map(castle key → startedAt) from their battle frames
     aggro: new Map(),         // enemy id → { pid, at, seq, own, d }: the newest accepted announcement
@@ -425,6 +436,7 @@ const Multiplayer = (function () {
       }
       case 'leave': dropPeer(msg.id); S.peerBattles.delete(msg.id); break;
       case 'battle': onBattle(S.scene, msg); break;
+      case 'boss': onBoss(S.scene, msg); break;
       case 'aggro': onAggro(S.scene, msg, now); break;
       case 'group': onGroup(msg, now); break;
       case 'ping': addPing(msg, now); break;
@@ -1050,6 +1062,37 @@ const Multiplayer = (function () {
     }
   }
 
+  // ── shared boss fights ───────────────────────────────────────────────────
+  // Our own live serpents' head poses, every KINDS.serpent.feedMs, on this floor.
+  function flushBosses(scene, now) {
+    if (!(scene.mPerPx > 0) || !scene._serpentPieces) return;
+    const kind = BossEncounters.KINDS.serpent;
+    if (now - S.bossSentAt < kind.feedMs) return;
+    for (const e of BossEncounters.list(scene.save)) {
+      if (e.kind !== 'serpent' || e.record.own !== true || (e.record.depth || 0) !== (scene.depth || 0)) continue;
+      const head = scene._serpentPieces(e.key).head;
+      if (!head || !BOSS_KEY_RE.test(e.key)) continue;
+      if (!sendEnemy({ t: 'boss', key: e.key, startedAt: e.record.startedAt, d: scene.depth || 0,
+        x: round4(head.x / scene.mPerPx), y: round4(head.y / scene.mPerPx), h: round4(head._heading || 0) }, now)) return;
+      S.bossSentAt = now;
+    }
+  }
+  // A peer's boss feed: adopt the fight (the first frame — announced) and
+  // move this copy's head (scene._adoptSerpent).
+  function onBoss(scene, msg) {
+    if (!scene?.save || typeof msg.key !== 'string' || !BOSS_KEY_RE.test(msg.key)
+        || !Number.isSafeInteger(msg.startedAt) || !Number.isInteger(msg.d)
+        || ![msg.x, msg.y, msg.h].every(Number.isFinite) || !(scene.mPerPx > 0)) return false;
+    const fresh = !BossEncounters.get(scene.save, 'serpent', msg.key);
+    const at = fromWorldPx(scene, msg.x, msg.y);
+    const ok = !!scene._adoptSerpent?.(msg.key, msg.startedAt, msg.d, { x: at.x, y: at.y, h: msg.h });
+    if (ok && fresh) {
+      const who = S.peers.get(msg.id)?.name || 'Another player';
+      scene._toast?.(`⚔️ ${who} raised a serpent — join the fight`, { tier: 'sub' });
+    }
+    return ok;
+  }
+
   // ── shared targeting ─────────────────────────────────────────────────────
   // THE TARGET RULE, pure: `cands` are the eligible players in range, each
   // { id, d } (d = metres from the foe's copy); `cur` the id it holds. The
@@ -1506,6 +1549,7 @@ const Multiplayer = (function () {
       scanSeen(scene, now);
       flushDead(now);
       flushBattles(scene, now);
+      flushBosses(scene, now);
       flushAggro(now);
       flushState(scene, now);
       correctEnemies(scene, dt);
@@ -1532,7 +1576,7 @@ const Multiplayer = (function () {
   }
 
   return { start, stop, tick, shouldApplyDamage, applyState, correctEnemies, assisted, ASSIST_MS, consumeTap, setName, reportHit, reportKill, applyHit,
-           enemyTarget, pickTarget, localTargetState, onBattle, onAggro, battleShared, partyCount, scaleParty, onGroup, PARTY_SCAN_MS, GROUP_RETRY_MS, GROUP_MAX_PLAYERS,
+           enemyTarget, pickTarget, localTargetState, onBattle, onBoss, flushBosses, BOSS_KEY_RE, onAggro, battleShared, partyCount, scaleParty, onGroup, PARTY_SCAN_MS, GROUP_RETRY_MS, GROUP_MAX_PLAYERS,
            TARGET_FLAGS, TARGET_TIE_CELLS, TARGET_STICKY_CELLS, TARGET_KEEP_CELLS,
            BATTLE_MS, BATTLE_REPLY_MS, AGGRO_MAX_PER_S, AGGRO_TIE_MS,
            HIT_FLUSH_MS, HIT_MAX_PER_S, SEEN_MS, SEEN_RETRY_MS, SEEN_MAX_IDS, DEAD_JITTER_MAX_MS, DEAD_HEARD_MS,

@@ -65,9 +65,9 @@
     // No writer of an expiry survives outside the one rule.
     assert.falsy(/save\.\w+Until\s*=[^=]/.test(app), 'no raw save.<x>Until writer in app.js');
     assert.falsy(/this\._(dragon|shadow|torch)Until\s*=[^=]/.test(app), 'no raw scene timer writer in app.js');
-    assert.truthy(/until: Buffs\.laterOf\(this\.save\.treasureCompass\?\.until, CONSUMABLE_SPEC\.treasure_map\.durationMs\)/.test(app),
+    assert.truthy(/this\.save\.treasureCompass = Buffs\.withMark\(this\.save\.treasureCompass, [^;]*CONSUMABLE_SPEC\.treasure_map\.durationMs\)/.test(app),
       'the Treasure Map\'s mark extends by the same rule');
-    assert.truthy(/until: Buffs\.laterOf\(this\.pairyCompass\?\.until, CONSUMABLE_SPEC\.pairy\.durationMs, now\)/.test(app),
+    assert.truthy(/this\.pairyCompass = Buffs\.withMark\(this\.pairyCompass, [^;]*CONSUMABLE_SPEC\.pairy\.durationMs, now\)/.test(app),
       'the Pairy\'s compass too');
     assert.falsy(/Drill again in/.test(app), 'the training drill no longer refuses while one runs (it extends)');
   }));

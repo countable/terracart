@@ -184,6 +184,62 @@
     });
   });
 
+  test('serpent (shared): a nearby player adopts it, follows the feed, helps kill it, and is paid a hoard of their own', () => {
+    const entry = { creatures: [], objects: [] };
+    withWorld(entry, () => {
+      const peer = bossScene(entry), now = Date.now(), key = `serpent_${now - 1000}`;
+      const pose = { x: 30, y: 40, h: 1 };
+      assert.falsy(peer._adoptSerpent(key, now - 1000, 1, pose, now), 'another floor: not ours to join');
+      assert.truthy(peer._adoptSerpent(key, now - 1000, 0, pose, now), 'adopted');
+      const record = BossEncounters.get(peer.save, 'serpent', key);
+      assert.eq(record.own, false, 'not this player\'s to end');
+      assert.eq(record.startedAt, now - 1000, 'the starter\'s clock');
+      peer._tickBossEncounters(now);
+      const head = entry.creatures.find(c => c.kind === 'serpent_head');
+      assert.truthy(head && Math.hypot(head.x - 30, head.y - 40) < 1e-6, 'raised on the starter\'s pose');
+      const coil = coilsOf(entry)[0];
+      assert.truthy(EnemySpawns.isSharedId(coil, peer.save), 'its coils are shared enemies while the fight is live');
+      assert.falsy(EnemySpawns.isSharedId(coil, { caught: [] }), 'and never to a save without the fight');
+      peer._adoptSerpent(key, now - 1000, 0, { x: 33, y: 40, h: 0 }, now + 100);
+      for (let i = 0; i < 30; i++) peer._tickSerpent(key, 0.05, 1000 + i * 50);
+      assert.lt(Math.hypot(head.x - 33, head.y - 40), 0.5, 'the head follows the feed');
+      // The kills arrive (shared hits); its own idol is not the one spent.
+      for (const c of coilsOf(entry)) peer.save.caught.push(c.id);
+      peer._tickBossEncounters(now + 200);
+      assert.eq(entry.creatures.length, 0, 'it dies here too');
+      assert.eq(Inventory.count(peer.save, 'serpent_idol'), 1, 'a helper keeps their own idol');
+      assert.truthy(entry.objects.some(o => o.bossChest), 'and gets a hoard of their own');
+    });
+  });
+
+  test('serpent (shared): a silent feed ends the adopted copy; the starter\'s own fight never goes stale', () => {
+    const entry = { creatures: [], objects: [] };
+    withWorld(entry, () => {
+      const peer = bossScene(entry), now = Date.now(), key = `serpent_${now}`;
+      assert.truthy(peer._adoptSerpent(key, now, 0, { x: 0, y: 0, h: 0 }, now));
+      peer._tickBossEncounters(now);
+      assert.gt(entry.creatures.length, 0);
+      peer._tickBossEncounters(now + BossEncounters.KINDS.serpent.staleMs + 1);
+      assert.eq(entry.creatures.length, 0, 'the starter won, reset or walked off: this copy goes');
+      assert.eq(BossEncounters.list(peer.save, now).length, 0);
+      assert.falsy(peer.flashes.some(f => /idol is still yours/.test(f)), 'no word about an idol it never raised');
+      const own = bossScene(entry);
+      assert.truthy(own._useSerpentIdol());
+      own._tickBossEncounters(Date.now() + BossEncounters.KINDS.serpent.staleMs + 1);
+      assert.eq(BossEncounters.list(own.save).length, 1, 'the starter drives its own fight');
+    });
+  });
+
+  test('serpent (shared): a peer\'s boss frame reaches the scene in world metres; our own feed is sent every tick', () => {
+    const calls = [];
+    const scene = { save: { caught: [] }, mPerPx: 2, _adoptSerpent: (...a) => (calls.push(a), true) };
+    assert.truthy(Multiplayer.onBoss(scene, { id: 3, key: 'serpent_5', startedAt: 5, d: 0, x: 10, y: 20, h: 1 }));
+    assert.eq(JSON.stringify(calls[0].slice(0, 4)), JSON.stringify(['serpent_5', 5, 0, { x: 20, y: 40, h: 1 }]));
+    assert.falsy(Multiplayer.onBoss(scene, { id: 3, key: 'b_1_2', startedAt: 5, d: 0, x: 1, y: 1, h: 0 }), 'not a boss key');
+    assert.truthy(Multiplayer.BOSS_KEY_RE.test(`serpent_${Date.now()}`), 'the key the idol mints is the wire\'s');
+    assert.truthy(/flushBattles\(scene, now\);\n\s*flushBosses\(scene, now\);/.test(ALL_SRC['multiplayer.js']), 'sent from the online tick');
+  });
+
   test('serpent: the status row and the per-frame tick are wired', () => {
     assert.truthy(/this\._tickBossEncounters\(\);/.test(APP_JS_SRC), 'the frame runs the boss routine');
     assert.truthy(/BossEncounters\.list\(this\.save\)/.test(APP_JS_SRC), 'the status row shows each fight\'s clock');
