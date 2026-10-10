@@ -1163,7 +1163,6 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
     // The numbers the loop reads. Lifted, never retyped: a retune has to move
     // the simulation with it or these tests are measuring last week's game.
     num('CREATURE_SIM_CELLS'), num('SURFACE_RECHECK_MS'), num('FIRE_WARD_MAX_DEPTH'), num('WANDER_STEP_MS'),
-    num('STALK_JITTER'),
     num('PEST_SPAWN_CELLS'), num('STRUCK_REACTION_MS'),
     // The struck-prey flee and Home's rout both run at this pair.
     num('FLEE_STRIDE_MUL'), num('FLEE_BEAT_MUL'),

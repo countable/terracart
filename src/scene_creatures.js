@@ -1804,14 +1804,7 @@ class SceneCreatures {
       // same latch, a third reason, asked only for a haunting kind.
       const haunts = SpriteLayout.creatureHaunts(c.kind);
       const stationary = !!c.stationary || EnemyRoster.isRooted(c.kind);
-      // An ENRAGED game animal (a hunted deer — `fightsBack`, _rageUntil) is
-      // hostile for as long as it is angry, so it takes Home's ward exactly as
-      // an enemy does: one lane, another reason. Warded, it is turned away
-      // and `standDown` switches its butt off.
-      const fightsBack = !isTame ? SpriteLayout.creatureFightsBack(c.kind) : null;
-      const enraged = !!fightsBack && !!c._rageUntil && Date.now() < c._rageUntil;
-      const wardFoe = (!!homePos || castleWards.length > 0 || haunts) && !isTame
-        && (enemy || enraged);
+      const wardFoe = (!!homePos || castleWards.length > 0 || haunts) && !isTame && enemy;
       if (wardFoe) {
         const from = c._wardFrom;
         // A declared stationary foe cannot retreat to release a latch. Recheck
@@ -1849,7 +1842,7 @@ class SceneCreatures {
       // does not turn it, and a garrison hunts the peer it noticed.
       const peerTarget = enemy && !isTame && !haunts && typeof Multiplayer !== 'undefined'
         ? Multiplayer.enemyTarget(this, c, px, py) : null;
-      const kerbTurn = kerbLeash && !peerTarget && !isTame && (enemy || enraged);
+      const kerbTurn = kerbLeash && !peerTarget && !isTame && enemy;
       // ROUTED: turned onto an away angle at the flee pace — by Home's ward, or
       // by wandering off. Two reasons, one pace; the angle chain says away from
       // WHAT (Home, or the player).
@@ -1903,10 +1896,6 @@ class SceneCreatures {
           : NPC.enemyTarget(this, c, rosterRow, px, py, unnoticed)) : null;
       const enemyDt = c._enemyTickT == null ? 0 : Math.min(0.1, Math.max(0, (now - c._enemyTickT) / 1000));
       c._enemyTickT = now;
-      // A HUNTED DEER CHARGES: enraged, and neither warded nor ignoring you
-      // (`unnoticed` — a powder, or a body on an empty bar). Read by the butt
-      // below, the stride and the angle chain, so the three agree.
-      const gameCharge = enraged && !standDown && !unnoticed;
       // A GHOST has its own mover (ghostTick — hover, rush, burn) and its own
       // blow: ONE touch of its row's dmg (Combat.meleeBlow), through the mode,
       // the shield and the armour like every blow (foeBlowLands — the one
@@ -1941,18 +1930,6 @@ class SceneCreatures {
         if (npcTarget) rosterEnemyAttack(this, c, rosterRow, now, npcTarget.x, npcTarget.y,
           standDown, enemyDt, npcTarget);
         else rosterEnemyAttack(this, c, rosterRow, now, px, py, unnoticed || standDown, enemyDt);
-      }
-      // THE HUNTED DEER'S BUTT: at arm's length (Combat.meleeReachM, the reach
-      // the player swings at) every `hitMs`, for its row's `dmg` through the
-      // melee formula (Combat.meleeBlow) — the mode, the shield and the armour
-      // like every blow, banked and rolled up by the one writer (foeBlowLands).
-      if (gameCharge) {
-        const BUTT_R = Combat.meleeReachM(this.cellM);
-        if (ddx * ddx + ddy * ddy <= BUTT_R * BUTT_R && (!c._nextStealT || now >= c._nextStealT)) {
-          c._nextStealT = now + fightsBack.hitMs;
-          creatureMeleeSwing(c, px, py, BUTT_R / this.cellM);
-          foeBlowLands(this, c, Combat.meleeBlow(c, fightsBack.dmg));
-        }
       }
       // A LAIR GUARD AT REST DOES NOT MOVE — but it is not switched off.
       // Everything above this line has already run for it: it leeches, a
@@ -2006,13 +1983,10 @@ class SceneCreatures {
       // close enough to spook it), or the two-minute escape window a failed
       // net-catch arms (`flee.escapes` over _escapingUntil, set in
       // _drawWorkProgress — the butterfly's, and only ever stamped on one).
-      // A charging deer does not bolt — it comes at you (gameCharge).
-      const bolting = !!bolt && !gameCharge && !Combat.isCalm(c) && (
+      const bolting = !!bolt && !Combat.isCalm(c) && (
         (bolt.cells != null && ddx * ddx + ddy * ddy <= (bolt.cells * this.cellM) ** 2)
         || (!!bolt.escapes && !!(c._escapingUntil && now < c._escapingUntil)));
-      // The charge runs at the kind's own flee stride and beat: one pace for
-      // "in a hurry", whichever way it is going.
-      const sprinting = bolting || (gameCharge && !!bolt);
+      const sprinting = bolting;
       // The one pace multiplier (Combat.paceMul — a shiny's 1.5, a thrown
       // Speed potion's 2, the frost's slow) quickens the beat and lifts the
       // kind's top speed by the same factor.
@@ -2020,14 +1994,12 @@ class SceneCreatures {
       // stepMs = animation duration of the hop itself (short burst); stepM is
       // how far it carries: the kind's gait row, or the loop's own base beat.
       // A ROUTED animal RUNS, at the same pace anything else in a hurry runs
-      // (FLEE_*) — a hunted deer walked out of Home's ring. A rout takes the
-      // stride too, because the thing being asked for is distance, not
-      // urgency.
-      //   NOT ON A SPRINT. A kind already at its bolt (sprinting — bolting,
-      // or a hunted deer's charge) is already in a hurry: the bolt row IS its
-      // hurry pace, tuned under the speed ceiling (WILD_SPEED_CEILING_MPS),
+      // (FLEE_*). A rout takes the stride too, because the thing being asked
+      // for is distance, not urgency.
+      //   NOT ON A SPRINT. A kind already at its bolt (sprinting) is already
+      // in a hurry: the bolt row IS its hurry pace, tuned under the speed ceiling (WILD_SPEED_CEILING_MPS),
       // and the FLEE multipliers on top would stack a run on a run (a routed
-      // deer at four times its bolt). So the rout quickens what was not
+      // bolter at four times its bolt). So the rout quickens what was not
       // already running.
       const hurry = routed && !sprinting;
       let stepMs = (sprinting ? (bolt.stepMs ?? STEP_MS) : (gait?.stepMs ?? STEP_MS))
@@ -2215,13 +2187,6 @@ class SceneCreatures {
             angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 0.4;
           } else if (isFollowing) {
             stepLen = 0;
-          } else if (gameCharge) {
-            // A HUNTED DEER turns on you: every stride at the player, on the
-            // monsters' stalk jitter, until it is close enough to butt.
-            angle = distToPlayer > 0.5 * this.cellM
-              ? Math.atan2(dyp, dxp) + (Math.random() - 0.5) * STALK_JITTER
-              : Math.random() * Math.PI * 2;
-            if (distToPlayer > 0.5 * this.cellM) stepLen = Math.min(stepM, Math.max(0, distToPlayer - 0.5 * this.cellM));
           } else if (bolting) {
             // AWAY FROM THE PLAYER, at the kind's own spread: a rabbit
             // zig-zags in a panic (wide jitter), a deer runs a committed line
@@ -2243,8 +2208,8 @@ class SceneCreatures {
             // (roadsideRunAngle) — along the street, not through the yards.
             angle = roadsideRunAngle(this, c, angle) ?? angle + (Math.random() - 0.5) * 0.8;
           } else if (kerbTurn) {
-            // TURNED BACK AT THE KERB (an enraged deer; a foe's kerb turn is
-            // rosterEnemyMove's): away from the PLAYER, on the same spread as
+            // TURNED BACK AT THE KERB (a roster foe's kerb turn is
+            // rosterEnemyMove's; this is every other foe's): away from the PLAYER, on the same spread as
             // the rout above. An angle, not a refused cell, for the same
             // reason as the rout; the cell tests below still refuse water
             // and rocks. Among houses it runs the ROADSIDE (roadsideRunAngle).

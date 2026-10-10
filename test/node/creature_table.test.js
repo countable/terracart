@@ -178,21 +178,13 @@ test('creature table: it says how a kind BEHAVES, never whether it is a FOE', ()
   }
 });
 
-test('creatures: a hunted deer fights back — a row, wired through the one blow path', () => {
-  const fb = SpriteLayout.creatureFightsBack('deer');
-  assert.truthy(fb && fb.dmg > 0 && fb.hitMs > 0 && fb.rageMs > 0, 'the deer row carries fightsBack');
-  assert.eq(SpriteLayout.creatureFightsBack('crow'), null, 'a crow still just flies off');
+test('creatures: a hunted deer runs, never fights back (owner, Oct 2026)', () => {
+  const row = SpriteLayout.creatureBehaviour('deer');
+  assert.truthy(row.flee && row.flee.cells > 0, 'the deer row bolts from a near hunter');
+  assert.falsy('fightsBack' in row, 'no charge, no butt');
   assert.truthy(SpriteLayout.isGame('deer'), 'and the deer is still GAME');
   assert.falsy(Combat.isEnemy({ kind: 'deer', id: 'deer_1' }), 'never an enemy — nothing auto-fires at it');
-  assert.truthy(/const fb = SpriteLayout\.creatureFightsBack\(victim\.kind\);\s*if \(fb\) victim\._rageUntil = Date\.now\(\) \+ fb\.rageMs;/.test(INTERACT_SRC),
-    'starting a hunt enrages it');
-  const w = SCENE_SRC;
-  assert.truthy(/const gameCharge = enraged && !standDown && !unnoticed;/.test(w),
-    'it charges only when noticed and not warded (NOTHING HUNTS A BODY; Home wards it)');
-  assert.truthy(/foeBlowLands\(this, c, Combat\.meleeBlow\(c, fightsBack\.dmg\)\);/.test(w)
-    && /const dmg = mitigated \? raw : Combat\.incomingDamage\(scene\.save, raw\);/.test(CREATURE_AI_SRC),
-    'the butt is the melee formula, shielded and soaked before recipient difficulty by the one blow writer');
-  assert.truthy(/const bolting = !!bolt && !gameCharge &&/.test(w), 'a charging deer does not bolt');
+  assert.falsy(/_rageUntil/.test(INTERACT_SRC), 'starting a hunt enrages nothing');
 });
 
 test('creatures: no pest deer is dispatched underground', () => {
