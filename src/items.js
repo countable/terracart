@@ -1475,7 +1475,7 @@ const CONSUMABLE_SPEC = {
   growth_powder: {
     get radiusM() { return CONSUMABLE_SPEC.rainberry.radiusM; },
     verb: 'Use', method: 'useGrowthPowder', title: 'Use the Growth Powder?',
-    get: 'The crops around you stir as though spring has hurried past.',
+    get: 'Everything growing around you finishes its season of waiting at once.',
   },
   shadow_powder: {
     durationMs: 3 * _CONSUMABLE_MINUTE_MS, buff: 'shadow',
@@ -1666,7 +1666,7 @@ const PRICES = {
   resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
   thunder_scroll: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
   dragon_powder: 120,  // T4 — 1 min of dragon: tier-8 boot walking + 2× damage
-  growth_powder: 60,   // T1 — every crop within 20 m springs ahead a stage, unwatered
+  growth_powder: 60,   // T1 — everything growing within 20 m completes its current stage
   shadow_powder: 110,  // T2 — 3 min of monsters ignoring you entirely (priced for the
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach chilled (slowed) for 30 s
