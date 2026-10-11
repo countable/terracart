@@ -24,7 +24,7 @@
   const TIPS_BLOB_ALL = () => PLAY_TIPS.join(' ');
 
   // ── The table ─────────────────────────────────────────────────────────────
-  test('macro: the census classes map to their nine kinds', () => {
+  test('macro: the census classes map to their ten kinds', () => {
     const want = {
       lodging: 'inn', place_of_worship: 'chapel',
       pharmacy: 'apothecary', dentist: 'apothecary', hospital: 'apothecary',
@@ -32,6 +32,7 @@
       town_hall: 'guildhall', police: 'guildhall', fire_station: 'guildhall',
       museum: 'curio', theatre: 'curio', cinema: 'curio',
       shop: 'sundries', sports_centre: 'training', yoga: 'training',
+      bank: 'bank', atm: 'bank',
     };
     for (const [cls, kind] of Object.entries(want)) {
       const m = macroFor(poi(cls, { name: '' }));
@@ -41,7 +42,7 @@
     }
     assert.eq(Object.keys(MACRO_KIND_BY_CLASS).length, Object.keys(want).length, 'no other class is a macro');
     assert.eq(new Set(Object.values(MACRO_KIND_BY_CLASS)).size, MACRO_KINDS.length, 'every kind has a class');
-    for (const cls of ['university', 'park', 'memorial', 'bus', 'atm', 'restaurant', 'cemetery', 'art_gallery']) {
+    for (const cls of ['university', 'park', 'memorial', 'bus', 'restaurant', 'cemetery', 'art_gallery']) {
       assert.eq(macroFor(poi(cls)), null, `${cls} stays what it was`);
     }
   });
@@ -446,7 +447,7 @@
     } finally { globalThis.persistSave = realPersist; }
     assert.truthy(/\(s, v\) => \{ if \(v\.bounty\) s\._guildBountyDefeat\(v\); \}/.test(SCENE_SRC) && /for \(const tell of KILL_LEDGERS\) tell\(this, victim, source\);/.test(SCENE_SRC),
       'resolveDefeat calls it (a KILL_LEDGERS row)');
-    assert.truthy(/guildfoe\)_\(-\?\\\\d\+\)_/.test(SCENE_SRC), 'the caught-prune knows the prefix');
+    assert.truthy(/guildfoe\|debtor\)_\(-\?\\\\d\+\)_/.test(SCENE_SRC), 'the caught-prune knows the prefix');
     assert.truthy(/this\._tickTraps\(dt\);\s*\/\/[^\n]*\n\s*this\._tickGuildBounty\(\);/.test(SCENE_SRC), 'the leash ticks');
   });
 
@@ -592,7 +593,7 @@
         assert.truthy(Math.abs(d.w / d.h - 352 / 448) < 0.01, `${stem} fits the dialog`);
       }
     }
-    assert.eq(seen.size, 18);
+    assert.eq(seen.size, 20);
   });
   test('macro: each kind ships its 80×80 art and an ASSETS row under its texKey', () => {
     for (const kind of MACRO_KINDS) {
@@ -614,7 +615,7 @@
       /\(L\.stand \|\| L\.macro\) \? 0\.54/,
       /dxPx: \(o\) => \{ const L = chestLook\(o\); return \(L\.stand \|\| L\.macro\) \? -0\.24/,
       /\(L\.stand \|\| L\.macro\) \? 19\.3/,
-      /seat: \(o\) => \{ const L = chestLook\(o\); return !L\.stand && !L\.macro && !L\.coin && !L\.wagon; \}/,
+      /seat: \(o\) => \{ const L = chestLook\(o\); return !L\.stand && !L\.macro && !L\.wagon; \}/,
       /if \(produceStandFor\(o\) \|\| macroFor\(o\)\) continue;/,
     ]) assert.truthy(re.test(RENDER_SRC), String(re));
   });

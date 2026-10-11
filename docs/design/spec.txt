@@ -555,17 +555,23 @@ BREAKABLE POTS AND BARRELS
    crate restock ledger.
 
 ================================================================================
-COIN-BURST POIs (ATM / bicycle parking)
+BANKS (bank / ATM) and BIKE RACKS
 ================================================================================
- - An ATM is a POT OF GOLD: once a UTC day a tap scatters coins on walkable
-   cells nearby, fewer where ATMs are common (`loot.js`
-   `potCoinsFor`). Coins never land on a road or in a yard and stay on the
-   player's side of a Major or Medium road (CLAUDE.md).
+ - A bank or an ATM is a BANK booth (`macros.js` BANK). Each UTC day each bank
+   offers either BORROW or INVEST (a stable pick off its id and the day), in
+   three sizes: the max, half or a quarter.
+ - BORROW: the max is 100 coins plus 25 per memory. One loan at a time, at
+   most one a UTC day. After 24 hours the loan plus 20% falls due: the first
+   time the player is out on the surface after that, a pirate collector
+   steps up beside them and asks for it. Pay, or refuse and fight him; either
+   way the loan is closed.
+ - INVEST: the same shares, capped by the purse. One deposit at a time; after
+   24 hours the same bank pays back the deposit plus 20%.
  - A bike rack (a "Courier's Post" in the world) is not a chest: once a UTC day
    it lends the movement stick extra pace for a while (`loot.js` `isBikeRack`,
    `items.js` `BIKE_RACK_SPEED_MUL`).
- - Both are recurring sites on the one day ledger (`Macros.markToday`) and
-   glow while available (CLAUDE.md).
+ - The bike rack is a recurring site on the one day ledger (`Macros.markToday`)
+   and glows while available (CLAUDE.md).
 
 ================================================================================
 TREASURE MARKS (X on the ground)
@@ -667,7 +673,7 @@ ECONOMY (buying & selling)
 ================================================================================
  - currency = coins (`save.money`); a new save starts with a small purse
    (`STARTING_MONEY`; less on hard). Earn by selling, coin pickups, chests,
-   pots of gold, deliveries and enemy bounties.
+   bank deposits, deliveries and enemy bounties.
  - WRECK-HOUSE RESTORATION: every small house starts as a derelict WRECK with
    no shop function (the trailer is exempt — Home works from day one).
    Restoring costs stone, on a ladder that climbs with houses already restored

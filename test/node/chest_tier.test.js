@@ -316,20 +316,19 @@
     }
   });
 
-  test('chest: underground, a stand POI is a plain chest and a pot / rack / barrel is a plain chest', () => {
+  test('chest: underground, a stand POI is a plain chest and a bank / rack / barrel is a plain chest', () => {
     const stall = { kind: 'chest', poiClass: 'bakery', name: 'Corner Bakery', x: 0, y: 0 };
     assert.truthy(produceStandFor(stall), 'a bakery on the surface is a stand');
     const under = { ...stall, depth: 1, id: 'x_d1' };
     assert.eq(produceStandFor(under), null, 'the same bakery one level down is a chest');
     for (const cls of ['atm', 'bicycle_parking', 'waste_basket']) {
       const o = { kind: 'chest', poiClass: cls, x: 0, y: 0, depth: 2, poiDensity: 1 };
-      assert.falsy(isPotOfGold(o) || isBikeRack(o) || isBarrel(o), cls + ' underground is none of its surface selves');
+      assert.falsy(macroFor(o) || isBikeRack(o) || isBarrel(o), cls + ' underground is none of its surface selves');
       assert.eq(chestLook(o).texKey, 'chest', 'and wears the trunk');
     }
-    assert.truthy(/if \(look\.coin\) return DAILY_VISIT_KINDS\.gold;/.test(ALL_SRC['macros.js']), 'the pot hijack asks the one look (chestLook → isPotOfGold)');
     assert.eq(Macros.visitKindForObject({ kind: 'chest', poiClass: 'atm', x: 0, y: 0, depth: 2 }), null, 'underground: no row');
-    assert.eq(chestLook({ kind: 'chest', poiClass: 'atm', x: 0, y: 0 }).texKey, 'potofgold',
-      'an ATM on the surface wears the pot of gold');
+    assert.eq(chestLook({ kind: 'chest', poiClass: 'atm', x: 0, y: 0 }).texKey, 'macro_bank',
+      'an ATM on the surface is a bank booth');
     assert.truthy(!/_isCoinBurst|_chestIsBox/.test(RENDER_SRC),
       'render.js keeps no second copy of the look');
   });

@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-918bd2f0';
+const SHELL_VERSION = 'shell-07600d86';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -421,6 +421,7 @@ const ASSET_HASHES = {
   "assets/Objects/DailyVisits/wagon.png": "3d4c1c49",
   "assets/Objects/Generated/apothecary.png": "5370279b",
   "assets/Objects/Generated/apothecary_simple.png": "295b80fb",
+  "assets/Objects/Generated/bank_simple.png": "980f865f",
   "assets/Objects/Generated/barrel.png": "34a5ee3c",
   "assets/Objects/Generated/barricade.png": "c5c33df4",
   "assets/Objects/Generated/bike_rack.png": "bddf234d",
@@ -653,6 +654,8 @@ const ASSET_HASHES = {
   "assets/art/book_read.webp": "2771b757",
   "assets/art/booth_apothecary_intro.webp": "52174659",
   "assets/art/booth_apothecary_used.webp": "6f3875fe",
+  "assets/art/booth_bank_intro.webp": "241b53f4",
+  "assets/art/booth_bank_used.webp": "304b7a1f",
   "assets/art/booth_chapel_intro.webp": "d1ddf3ac",
   "assets/art/booth_chapel_used.webp": "3e8dbc29",
   "assets/art/booth_curio_intro.webp": "2be40e27",

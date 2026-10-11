@@ -1,14 +1,14 @@
-// A golden cauldron (coin-burst POI) once tapped today is SPENT, the same
-// state as an opened chest: hidden without an availability pulse until the
-// UTC day rolls. Its ambient site light remains.
+// A daily site (here a bike rack; the coin-burst POIs share the lane) once
+// tapped today is SPENT, the same state as an opened chest: hidden without an
+// availability pulse until the UTC day rolls. Its ambient site light remains.
 
 test('cauldron: a pot tapped today is spent, yesterday\'s is not', () => {
   const today = String(utcDayKey());
-  const pot = { kind: 'chest', id: 'c_12_34', poiClass: 'atm' };
+  const pot = { kind: 'chest', id: 'c_12_34', poiClass: 'bicycle_parking' };
   const save = { coinBurstClaimed: { [pot.id + today]: 1, ['c_9_9' + '20000101']: 1 } };
   const sets = spentSets(null, save);
   assert.truthy(isSpent(pot, sets), 'used today: hidden');
-  assert.falsy(isSpent({ kind: 'chest', id: 'c_9_9', poiClass: 'atm' }, sets), 'a stale day is back');
+  assert.falsy(isSpent({ kind: 'chest', id: 'c_9_9', poiClass: 'bicycle_parking' }, sets), 'a stale day is back');
   assert.falsy(isSpent(pot, spentSets(null, {})), 'never tapped: standing');
 });
 
@@ -17,7 +17,7 @@ test('cauldron: a spent pot loses its availability pulse but keeps ambient light
   assert.truthy(/const burstSet = dayLedgerAges\(scene\.save\);/.test(src), 'built once per frame');
   assert.truthy(/opened: openedSet,\s*burst: burstSet,/.test(src), 'the frame sets carry the day ledger');
   assert.truthy(/const spent = isSpent\(o, spentIds\);[\s\S]{0,120}return !spent;/.test(src), 'and isSpent culls the sprite');
-  const pot = { kind: 'chest', id: 'c_12_34', poiClass: 'atm' };
+  const pot = { kind: 'chest', id: 'c_12_34', poiClass: 'bicycle_parking' };
   const today = String(utcDayKey());
   const save = { coinBurstClaimed: { [pot.id + today]: 1 } };
   const spent = spentSets(null, save);
@@ -99,9 +99,8 @@ test('pot of gold: the burst is its density on its tile — 30 alone, 3 at 50, 1
   assert.falsy(/COIN_BURST_MIN/.test(SCENE_SRC), 'the old flat floor is gone');
 });
 
-test('pot of gold: only an ATM — a bike rack is no pot', () => {
-  assert.truthy(isPotOfGold({ kind: 'chest', poiClass: 'atm' }), 'an ATM');
-  assert.falsy(isPotOfGold({ kind: 'chest', poiClass: 'bicycle_parking' }), 'not a bike rack');
-  assert.falsy(isPotOfGold({ kind: 'chest', poiClass: 'atm', depth: 2 }), 'not underground');
+test('bank: an ATM is a bank booth, never a coin burst — a bike rack is its own site', () => {
+  assert.eq(chestLook({ kind: 'chest', poiClass: 'atm' }).texKey, 'macro_bank', 'an ATM');
+  assert.eq(Macros.visitKindForObject({ kind: 'chest', poiClass: 'atm' }), null, 'no daily coin burst');
   assert.eq(chestLook({ kind: 'chest', poiClass: 'bicycle_parking', poiDensity: 3 }).texKey, 'bike_rack', 'the rack wears its own art');
 });

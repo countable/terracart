@@ -1523,7 +1523,7 @@ class SceneCreatures {
       // is the pump's old prefix — a marker left by a session before the deer
       // took the job prunes the same way.)
       const sessionId = this._sessionIdRe ||= new RegExp(
-        `^(?:pest_deer|pest_crow|ghost|fished_slime|${Object.keys(Companions.KINDS).join('|')}|guildfoe)_(-?\\d+)_(-?\\d+)_`);
+        `^(?:pest_deer|pest_crow|ghost|fished_slime|${Object.keys(Companions.KINDS).join('|')}|guildfoe|debtor)_(-?\\d+)_(-?\\d+)_`);
       this.save.caught = this.save.caught.filter((id) => {
         const m = typeof id === 'string' && sessionId.exec(id);
         // A gate's guard (lairs.js DAILY_TIERS) carries its UTC day: one

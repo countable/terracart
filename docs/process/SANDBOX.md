@@ -180,8 +180,9 @@ memories alone do not unlock shop ranks. Authored buildings are restored using
 `Houses.restoreAs`, so roles, ranks and one-off shop identities use the live
 ledgers. The two marked wrecks remain unrestored until the tester chooses.
 
-The eastern service row has all nine macro types: inn, chapel, scholar,
-training, guildhall, curio, sundries, scriptorium and apothecary. A repeatable
+The eastern service row has all ten macro types: inn, chapel, scholar,
+training, guildhall, curio, sundries, scriptorium, apothecary and bank (an ATM
+by the start chest is a second bank). A repeatable
 crate, permanent barrel and clay pot, and a chest whose stable ID passes the
 real mimic roll compare container behavior. The southern encounter area adds
 mushroom monster, disguised treant, fire elemental, mimic, wurm and zombie

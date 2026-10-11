@@ -206,9 +206,9 @@
       s.well(1, 1);
       s.startChest('Sandbox Start Chest', 7, 6, { id: 'wood', qty: 5 });   // real starter chest — no pad
       s.creature('chicken', 7, 3, 1);
-      // A pot of gold (an ATM) — tapping spills a burst of collectible coins
-      // (daily-gated) — and a bike rack, which lends the stick a bike for
-      // three minutes (loot.js chestLook: 'potofgold' / 'bike_rack').
+      // An ATM — a bank booth (borrow or invest, src/macros.js) — and a
+      // bike rack, which lends the stick a bike for three minutes (loot.js
+      // chestLook: 'macro_bank' / 'bike_rack').
       s.chest('atm', 'Sandbox ATM', 6, 1);
       s.chest('bicycle_parking', 'Sandbox Bike Parking', 8, 2);
     },
@@ -458,7 +458,7 @@
         0, 9, { _sandboxBuild: key }));
       s.house(3, 14, 0, 9, { _sandboxWreck: true });
       s.house(10, 14, 0, 9, { _sandboxWreck: true });
-      ['lodging', 'place_of_worship', 'school', 'sports_centre', 'town_hall', 'museum', 'shop', 'library', 'pharmacy']
+      ['lodging', 'place_of_worship', 'school', 'sports_centre', 'town_hall', 'museum', 'shop', 'library', 'pharmacy', 'bank']
         .forEach((poiClass, i) => s.chest(poiClass, `Sandbox ${poiClass}`, 15, 2 + i * 4));
       s.chest('shelter', 'Sandbox Mimic Chest', 2, 18, { _sandboxProbe: 'mimic' });
       s.chest('bus', 'Sandbox Repeatable Crate', 5, 18, { tierSeed: 1, _sandboxProbe: 'daily-crate' });

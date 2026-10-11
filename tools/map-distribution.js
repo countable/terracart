@@ -578,7 +578,6 @@ function wValueByType(entries) {
     const chests = (e.objects || []).filter((o) => o && o.kind === 'chest' && !(o.depth > 0));
     for (const o of chests) {
       let look; try { look = chestLook(o); } catch (err) { continue; }
-      if (look.coin) { bump('Pot of gold (coin burst, daily)', 'recurring', potCoinsFor(o.poiDensity)); continue; }
       if (look.bike) { bump('Bike rack (speed loan, daily)', 'recurring', 0); continue; }
       if (look.barrel) {
         const name = barrelProfile(o).name;

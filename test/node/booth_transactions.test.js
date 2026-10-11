@@ -41,7 +41,7 @@
     assert.eq(s.save.storySeen['macro:inn:a'], 1);
     assert.eq(s.save.storySeen['macro:inn:b'], 1);
   });
-  boothTest('booth receipt: all nine services use their matching art and dialog category', () => {
+  boothTest('booth receipt: all ten services use their matching art and dialog category', () => {
     const s = fixture();
     for (const kind of Object.keys(Macros.KIND_TRANSACTION)) {
       s._macroTransaction(kind, 'An actual outcome.');
@@ -52,7 +52,7 @@
       assert.eq(m.body, 'An actual outcome.');
       m.onDismiss();   // one receipt at a time: the next waits in the ceremony queue
     }
-    assert.eq(s.messages.length, 9);
+    assert.eq(s.messages.length, 10);
   });
   boothTest('booth inn: receipt follows payment and healing; repeated daily use cannot show success', () => {
     const s = fixture(); const o = { id: 'inn-receipt' };
