@@ -4630,7 +4630,7 @@ Render.drawObjects = function drawObjects(scene) {
   const NEST_WIGGLE_DEG = 8;
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
-    const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
+    const { x: sx, y: sy } = project(dx, dy);
     setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     // A NEST BUSH (items.js isNestBush — the predicate the harvest pays the
     // baby off) WIGGLES: three quick swings, NEST_WIGGLE_DEG either side of
@@ -4804,7 +4804,7 @@ Render.drawObjects = function drawObjects(scene) {
   for (const effect of scene._creatureMeleePool) effect.setVisible(false).clear();
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;
-    const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
+    const { x: sx, y: sy } = project(dx, dy);
     setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     if (Render.drawCreatureDisguise(s, c, sx, sy, performance.now())) return;
     // ONE BRANCH FOR EVERY CREATURE: the sheet, frame stepping and float all come
