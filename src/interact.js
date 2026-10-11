@@ -341,7 +341,36 @@ function tillBlockerLine(o) {
   return TILL_BLOCKER_LINE[o.kind] || `${cropName(o.kind)} is in the way.`;
 }
 
-// GRASSLAND-biome cell types (spec §WORLD GENERATION grouping). These till in
+// What world object (a wild plant, or a tree / rock / chest / building …)
+// stands on the cell centred at (cwmx, cwmy), as the player's line — or null
+// when the ground is clear. Spent objects leave their cell unless their
+// profile keeps broken art. The one "is something lying here?" scan, shared
+// by the till and the campfire.
+function groundObjectBlocker(scene, save, cwmx, cwmy, cellHalfM) {
+  const pickedAll = new Set([...save.picked, ...(save.burnedObjects || [])]);
+  const spent = spentSets(scene, save);
+  const inCell = o => Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM;
+  for (const e of WorldGen.tileCache.values()) {
+    const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && inCell(wp));
+    if (wp) return `Pick ${cropName(wp.crop)} first.`;
+    const oo = (e.objects || []).find(o =>
+      !(isSpent(o, spent) && !(isBarrel(o) && chestLook(o).smashedKey)) && inCell(o));
+    if (oo) return tillBlockerLine(oo);
+  }
+  return null;
+}
+
+// Which ground takes a CAMPFIRE: any ground a person can stand on — a parking
+// lot, a plaza, a cave floor as much as soil — except water and what floats
+// on it (a pier), lava, buildings and the drawn road band (WorldGen.isWalkable
+// already refuses water, buildings, every road tier and cave rock). Wider than
+// isTillableCell on purpose: a fire needs no soil, only clear ground.
+function isFireGroundCell(cell) {
+  return WorldGen.isWalkable(cell.type) && !cell.underRoad
+    && cell.type !== TERRAIN.PIER && cell.type !== TERRAIN.CAVE_LAVA;
+}
+
+// GRASSLAND-biome cell types// GRASSLAND-biome cell types (spec §WORLD GENERATION grouping). These till in
 // HALF the time (spec §cells: "grassland biome cells till in half the time").
 const GRASSLAND_TILL = new Set([
   WorldGen.T.GRASS, WorldGen.T.PARK, WorldGen.T.SCHOOL, WorldGen.T.PLAYGROUND,
@@ -489,6 +518,8 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
 // tilled/occupied guards, same 0.1m overlap epsilon against save.planted,
 // same consume → persist → flash). Differences are passed in:
 //   itemId     — the selected inventory id that arms this placement
+//   ground     — optional cell predicate (default isTillableCell): which
+//                terrain takes this placement
 //   energyKey  — optional ENERGY_COST key spent on success (rock costs energy,
 //                scarecrow is free); spend failure consumes the tap (returns
 //                true) without placing, exactly like the inline version did
@@ -498,12 +529,12 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
 //   place      — performs the actual placement + persistence side effects
 //   flashMsg   — the success flash text
 // Returns the handler result (false = not this handler, true = consumed).
-function placeOnEmptyCell(ctx, { itemId, energyKey, extraGuard, place, flashMsg }) {
+function placeOnEmptyCell(ctx, { itemId, energyKey, ground = isTillableCell, extraGuard, place, flashMsg }) {
   const { scene, save, sx, sy, cell, cellKey } = ctx;
   const sel = getSelectedSlot(save);
   const selItem = sel ? ITEM_BY_ID[sel.id] : null;
   if (!(selItem && selItem.id === itemId && (sel.count ?? 0) > 0 &&
-        isTillableCell(cell) && !scene.tilledSet.has(cellKey) &&
+        ground(cell) && !scene.tilledSet.has(cellKey) &&
         (!extraGuard || extraGuard(ctx)) && !occupantsOf(ctx).plantedHere)) {
     return false;
   }
@@ -1304,13 +1335,20 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // 2-light-fire) With coal selected, burn it to light a campfire on an empty
-  // bare (tillable) cell. The fire repels slimes within 4 m — the same way a
+  // 2-light-fire) With flint selected, strike a campfire on any clear ground
+  // (isFireGroundCell — paved lots and cave floor too, not just soil) with
+  // nothing standing on it. The fire repels slimes within 4 m — the same way a
   // scarecrow repels crows/deer — and slowly restores energy to anyone resting
-  // near it (see app.js). Coal is consumed; the fire persists until tapped out.
+  // near it (see app.js). Flint is consumed; the fire persists until tapped out.
   { name: 'light-fire', try: (ctx) => placeOnEmptyCell(ctx, {
     itemId: 'flint_shard',
-    extraGuard: (ctx) => !occupantsOf(ctx).fireHere,
+    ground: isFireGroundCell,
+    extraGuard: (ctx) => {
+      const { scene, save, cellKey, cwmx, cwmy } = ctx, at = occupantsOf(ctx);
+      if (at.fireHere || at.scarecrowIdx >= 0 || at.magicTrapIdx >= 0) return false;
+      if (PlacedFloor.isSurface(scene.depth) && scene.placedRockSet?.has(cellKey)) return false;
+      return !groundObjectBlocker(scene, save, cwmx, cwmy, at.half);
+    },
     place: ({ scene, save, cwmx, cwmy }) => {
       // Tag the level so it renders / wards only here (see src/placed_floor.js).
       save.fires.push(PlacedFloor.stampDepth({ x: cwmx, y: cwmy }, scene.depth));
@@ -1711,23 +1749,10 @@ const TAP_HANDLERS = [
   // 2d) Untilled tillable cell → till it (refuses if occupied by any interactable).
   { name: 'till', try: (ctx) => {
     const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx, at = occupantsOf(ctx);
-    const cellHalfM = at.half;
-    const pickedAll = new Set([...save.picked, ...(save.burnedObjects || [])]);
     let blocker = null;
     if (scene.placedRockSet.has(cellKey)) blocker = 'Your own stone fence.';
     if (!blocker && at.plantedIdx >= 0) blocker = `${cropName(save.planted[at.plantedIdx].crop)} grows here.`;
-    if (!blocker) {
-      const spentTill = spentSets(scene, save);
-      for (const e of WorldGen.tileCache.values()) {
-        const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM);
-        if (wp) { blocker = `Pick ${cropName(wp.crop)} first.`; break; }
-        const oo = (e.objects || []).find(o =>
-          // Spent objects leave their cell unless their profile keeps broken art.
-          !(isSpent(o, spentTill) && !(isBarrel(o) && chestLook(o).smashedKey)) &&
-          Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM);
-        if (oo) { blocker = tillBlockerLine(oo); break; }
-      }
-    }
+    if (!blocker) blocker = groundObjectBlocker(scene, save, cwmx, cwmy, at.half);
     if (blocker) { scene.flash(blocker, sx, sy); return true; }
     // Tilling runs a WORK WHEEL (startToolJob: the hoe's cost pre-spent and
     // refunded on a cancel, the first furrow's story as the wheel starts).
