@@ -345,7 +345,7 @@ test('bundle: the legacy material class obeys the common budget and single-item 
 
 test('road: each card rolls only its own group — cash, seed or supply, boots or magic', () => {
   assert.eq(Trail.PRIZE_CONTEXT, 'treasure:road', 'the ceremony uses the road pool');
-  assert.eq(JSON.stringify(Trail.PRIZE_CARDS), JSON.stringify([['cash'], ['seed', 'supply'], ['boots', 'magic']]));
+  assert.eq(JSON.stringify(Trail.PRIZE_CARDS), JSON.stringify([['cash'], ['seed', 'supply'], ['boots', 'gear', 'magic']]));
   for (const bonus of [Trail.rollBonusFor(0), Trail.PRIZE_ROLL_BONUS_MAX]) {
     const seen = { gold: 0, seed: 0, supply: 0, armor: 0, magic: 0 };
     for (let g = 0; g < Trail.PRIZE_CARDS.length; g++) {
@@ -355,9 +355,8 @@ test('road: each card rolls only its own group — cash, seed or supply, boots o
           { rollBonus: bonus, classes, classMaxTier: { boots: 7 } });
         assert.truthy(r, 'every road roll resolves');
         if (g === 0) { assert.eq(r.kind, 'gold', 'the cash card is coin'); seen.gold++; continue; }
-        if (r.kind === 'armor') {
-          assert.eq(g, 2, 'boots only on the third card');
-          assert.eq(r.slot, 'boots');
+        if (r.kind === 'armor' || r.kind === 'relic' || r.cls === 'unique_relic') {
+          assert.eq(g, 2, 'equipment only on the third card');
           seen.armor++;
           continue;
         }
@@ -370,18 +369,18 @@ test('road: each card rolls only its own group — cash, seed or supply, boots o
   }
 });
 
-test('road: boots are held to one tier per kilometre walked', () => {
-  // No boots before the first km; T1 from 1 km, T2 from 2 km …
+test('road: boots are held to one tier per 10 kilometres banked', () => {
+  // No boots before 10 km; T1 from 10 km, T2 from 20 km …
   let firstBoots = 0;
   for (let n = 1; n <= 40; n++) {
     const cap = Trail.bootsTierCap(n);
     const km = Trail.totalMetres(0, n) / 1000;
-    assert.eq(cap, Math.min(7, Math.floor(km + 1e-9)), `rung ${n} (${km} km)`);
+    assert.eq(cap, Math.min(7, Math.floor(km / 10 + 1e-9)), `rung ${n} (${km} km)`);
     if (cap > 0 && !firstBoots) firstBoots = n;
     const classes = Trail.prizeCardClasses(2, n, undefined, 0);
-    assert.eq(classes.includes('boots'), cap > 0, `boots offered at rung ${n} only once a km is walked`);
+    assert.eq(classes.includes('boots'), cap > 0, `boots offered at rung ${n} only once 10 km are banked`);
   }
-  assert.eq(firstBoots, 3, 'the third rung (1.2 km) is the first that may offer boots');
+  assert.eq(firstBoots, 10, 'the tenth rung (11 km) is the first that may offer boots');
   assert.falsy(Trail.prizeCardClasses(2, 10, undefined, 7).includes('boots'), 'boots already at the cap drop out');
   for (let i = 0; i < 2000; i++) {
     const r = pickReward(Trail.PRIZE_CONTEXT, SAVE(), seeded(i + 1),
@@ -600,4 +599,31 @@ test('road: the magic card offers a spread of finds, not one potion every time',
     assert.lt(Math.max(...shares), early ? 0.3 : 0.2, `prize ${n}: no single item dominates the magic card`);
     assert.gt(shares.filter(s => s >= 0.03).length, early ? 4 : 7, `prize ${n}: ${early ? 'all five T1 tonics' : 'at least eight items'} turn up regularly`);
   }
+});
+
+
+test('road: gear shares stay 20 percent and unavailable shares become magic', () => {
+  for (const [n, ownedBoots, expected] of [[9, 0, { magic: 1 }],
+      [10, 0, { boots: .2, gear: .2, magic: .6 }], [10, 1, { gear: .2, magic: .8 }]]) {
+    const classes = Trail.prizeCardClasses(2, n, undefined, ownedBoots);
+    const opts = { classes, classMaxTier: { boots: Trail.bootsTierCap(n), gear: Trail.bootsTierCap(n) },
+      classFallbacks: { boots: 'magic', gear: 'magic' } };
+    const ctx = lootContext(Trail.PRIZE_CONTEXT, opts);
+    const total = Object.values(ctx.classBias).reduce((a, b) => a + b, 0);
+    for (const cls of ['boots', 'gear', 'magic'])
+      assert.lt(Math.abs((ctx.classBias[cls] || 0) / total - (expected[cls] || 0)), 1e-9);
+  }
+});
+
+test('road: general gear and unique relics respect the distance cap', () => {
+  const seen = new Set();
+  for (let i = 1; i <= 3000; i++) {
+    const r = pickReward(Trail.PRIZE_CONTEXT, { relics: {}, armor: {}, inv: [] }, seeded(i),
+      { rollBonus: 6, classes: ['gear'], classMaxTier: { gear: 2 } });
+    assert.lte(r.tier, 2);
+    seen.add(r.kind === 'item' ? r.cls : r.kind);
+  }
+  for (const kind of ['relic', 'armor', 'unique_relic']) assert.truthy(seen.has(kind), kind);
+  assert.eq(Trail.bootsTierCap(13, 'runner'), 0);
+  assert.eq(Trail.bootsTierCap(14, 'runner'), 1);
 });

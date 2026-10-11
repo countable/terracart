@@ -176,7 +176,12 @@
   const FIXED_PRIZES = {
     4: { kind: 'item', id: 'serpent_idol', qty: 1, tier: 4, cls: 'magic', jackpot: 0, consolation: 0, sole: true },
   };
-  function fixedPrize(n) {
+  function fixedPrize(n, save) {
+    // The third choice supplies the first pick; a better pick also counts.
+    // cls places this equipment offer in the magic card's group.
+    if ((n | 0) === 3 && !(save?.relics?.pickaxe?.tier > 0)) {
+      return { kind: 'relic', slot: 'pickaxe', tier: 1, cls: 'magic', jackpot: 0, consolation: 0 };
+    }
     return firstPrize(n) || (FIXED_PRIZES[n | 0] ? { ...FIXED_PRIZES[n | 0] } : null);
   }
 
@@ -199,7 +204,7 @@
   // description only once it is selected, so the row stays one line of pictures).
   // ONE CARD PER GROUP (see rollCardRow): money, something to grow or carry,
   // and something to wear or drink.
-  const PRIZE_CARDS = [['cash'], ['seed', 'supply'], ['boots', 'magic']];
+  const PRIZE_CARDS = [['cash'], ['seed', 'supply'], ['boots', 'gear', 'magic']];
   const PRIZE_CHOICES = PRIZE_CARDS.length;
   // Rolls to spend looking for a distinct option before settling for fewer.
   // Rolls can land on the same card, so a few retries per option is the
@@ -256,9 +261,10 @@
   // classes inside a group, so it stays the one owner of those numbers.
 
   // BOOTS ARE EARNED BY DISTANCE: the road never offers boots above one tier
-  // per kilometre walked to reach this rung (prize `n`, 1-based) — no boots
-  // at all before the first kilometre, T1 from 1 km, T2 from 2 km … T7.
-  const BOOTS_M_PER_TIER = 1000;
+  // per 10 kilometres banked to reach this rung (prize `n`, 1-based) — no boots
+  // at all before 10 km, T1 from 10 km, T2 from 20 km … T7.
+  // The general gear/unique-relic card uses this same cap.
+  const BOOTS_M_PER_TIER = 10000;
   function bootsTierCap(n, playerClass) {
     const walked = totalMetres(0, Math.max(0, n | 0), playerClass);
     return Math.max(0, Math.min(7, Math.floor(walked / BOOTS_M_PER_TIER + 1e-9)));
@@ -269,7 +275,7 @@
   function prizeCardClasses(groupIdx, n, playerClass, ownedBootsTier) {
     const group = PRIZE_CARDS[groupIdx] || [];
     const cap = bootsTierCap(n, playerClass);
-    return group.filter(c => c !== 'boots' || cap > (ownedBootsTier | 0));
+    return group.filter(c => c === 'boots' ? cap > (ownedBootsTier | 0) : c !== 'gear' || cap > 0);
   }
 
   // Roll the row: one card per PRIZE_CARDS group, in order. `rollFor(idx)`

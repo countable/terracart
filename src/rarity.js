@@ -165,8 +165,8 @@
     // ── The ROAD ladder's prize ─────────────────────────────────────────
     // What restoring a street pays (src/trail.js, app.js _fireTrailPrize).
     // The ceremony rolls ONE card per group (Trail.PRIZE_CARDS: cash / seed or
-    // supply / boots or magic), each narrowed to its classes, so these weights
-    // only split a group between its classes; boots are capped a tier a km
+    // supply / boots, gear or magic), each narrowed to its classes, so these weights
+    // only split a group between its classes; boots and gear are capped one tier per 10 km
     // (Trail.bootsTierCap). Favourites make the magic card usually a
     // traveller's kit: the everyday potions at full weight, utility potions,
     // powders and scrolls at half. The set must stay WIDE at every tier the
@@ -174,7 +174,7 @@
     // roll T2-T3): five potions left only healing and speed at T2, so one of
     // them sat on nearly every early magic card.
     // The caller's rollBonus buys tiers up to T4; higher tiers need a jackpot.
-    'treasure:road':    { classBias: { seed:0.20, magic:0.225, supply:0.025, boots:0.15, cash:0.15 }, cashMul: 1/6,
+    'treasure:road':    { classBias: { seed:0.20, magic:0.225, supply:0.025, boots:0.075, gear:0.075, cash:0.15 }, cashMul: 1/6,
                           // No chain step of its own: the walk's ladder (Trail.rollBonusFor) is
                           // the tier, so the first prize is T1 and T4 is common by the tenth.
                           chainSteps: 0, chainMax: 4, maxTier: 6, relicCap: 0,
@@ -351,7 +351,7 @@
   // starter chest can't downgrade equipped armor).
   // ────────────────────────────────────────────────────────────────
   // `cap` (default T7) is the highest tier this offer may climb to — the road
-  // prize's boots are held to one tier per kilometre (Trail.bootsTierCap).
+  // prize's boots are held to one tier per 10 km (Trail.bootsTierCap).
   function reconcileRelicOffer(rolled, save, rng, cap = 7) {
     const kind = rolled.kind || 'relic';
     const slot = rolled.slot;
@@ -465,6 +465,14 @@
     if (opts && Array.isArray(opts.classes)) {
       const classBias = {};
       for (const c of opts.classes) if (ctx.classBias[c] > 0) classBias[c] = ctx.classBias[c];
+      // An unavailable distance-gated class gives its share to magic instead
+      // of increasing the other equipment class's chance. Only transfer into
+      // this card's classes, so cash and supply cards retain their own pools.
+      for (const [from, to] of Object.entries(opts.classFallbacks || {})) {
+        if (!opts.classes.includes(from) && opts.classes.includes(to)) {
+          classBias[to] = (classBias[to] || 0) + (ctx.classBias[from] || 0);
+        }
+      }
       ctx = { ...ctx, classBias };
     }
 

@@ -415,10 +415,10 @@ test('trail prize: the ceremony rolls the ROAD pool, and rung one skips the roll
   const app = SCENE_SRC;
   const at = app.indexOf('_fireTrailPrize(n, onDismiss) {');
   const body = app.slice(at, app.indexOf('\n  _trailChoiceLabel', at));
-  assert.truthy(/pickReward\(Trail\.PRIZE_CONTEXT, this\.save, undefined,\s*\{ rollBonus: bonus, classes, classMaxTier: \{ boots: bootsCap \} \}\)/.test(body),
+  assert.truthy(/pickReward\(Trail\.PRIZE_CONTEXT, this\.save, undefined,\s*\{ rollBonus: bonus, classes, classMaxTier: \{ boots: bootsCap, gear: bootsCap \},\s*classFallbacks: \{ boots: 'magic', gear: 'magic' \} \}\)/.test(body),
     'the pool is trail.js\'s, never a chest context named here, one card group at a time');
   assert.falsy(/chest:lowtier/.test(body), 'the ladder no longer borrows the lowtier chest curve');
-  assert.truthy(/const fixed = Trail\.fixedPrize\(n\);/.test(body),
+  assert.truthy(/const fixed = Trail\.fixedPrize\(n, this\.save\);/.test(body),
     'a fixed rung is asked for first');
   assert.truthy(/fixed\?\.sole \? \[fixed\] : Trail\.rollCardRow\(rollFor, fixed \? \[fixed\] : \[\]\)/.test(body),
     'rung one takes its card in the rolled row; a sole rung stands alone');
@@ -430,7 +430,7 @@ test('trail prize: rung four is the Serpent Idol, alone, and nowhere else', () =
   assert.eq(p.qty, 1);
   assert.truthy(p.sole, 'offered alone: it cannot be picked past');
   assert.eq(Trail.fixedPrize(1).id, Trail.FIRST_PRIZE_ID, 'rung one is unchanged');
-  for (const n of [2, 3, 5, 8]) assert.eq(Trail.fixedPrize(n), null);
+  for (const n of [2, 5, 8]) assert.eq(Trail.fixedPrize(n), null);
   assert.truthy(ITEM_BY_ID.serpent_idol.progressionOnly, 'never a find, a ware or a trailer sale');
   Trail.fixedPrize(4).qty = 9;
   assert.eq(Trail.fixedPrize(4).qty, 1, 'callers get a copy');
@@ -1306,4 +1306,28 @@ test('trail: a runner\'s goals are halved — goalFor, progress, bank and readou
   assert.eq(T.readout(b, 'runner').label, '200/200 m', 'the second, halved rung');
   assert.eq(T.readout({ metres: 50, prizes: 2, owed: 0 }, 'runner').label, '50/300 m',
     'and the next sweep counts toward the third');
+});
+
+
+test('trail prize: third rung offers a wooden pick only when no pick is owned', () => {
+  for (const save of [{}, { relics: {} }, { relics: { pickaxe: { tier: 0 } } }]) {
+    const fixed = Trail.fixedPrize(3, save);
+    const rolledGroups = [];
+    const row = Trail.rollCardRow(g => {
+      rolledGroups.push(g);
+      return g === 0 ? { kind: 'gold', amount: 5 } : { kind: 'item', id: 'onion_seed', qty: 3 };
+    }, [fixed]);
+    assert.eq(row.length, 3);
+    assert.eq(rolledGroups.join(','), '0,1', 'cash and seeds roll; magic is replaced');
+    assert.eq(row[2].kind, 'relic');
+    assert.eq(row[2].slot, 'pickaxe');
+    assert.eq(row[2].tier, 1);
+    assert.falsy(row[2].sole, 'the player still chooses a card');
+    assert.falsy(save.relics?.pickaxe?.tier > 0, 'offering does not equip the pick');
+  }
+  for (const tier of [1, 2, 3, 4, 5, 6, 7]) {
+    assert.eq(Trail.fixedPrize(3, { relics: { pickaxe: { tier } } }), null,
+      'an owned wooden or better pick keeps the normal roll');
+  }
+  for (const n of [2, 5, 6]) assert.eq(Trail.fixedPrize(n, {}), null);
 });
