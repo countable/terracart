@@ -7,7 +7,11 @@
     "test:relay": "npm --prefix server test",
     "cache:check": "node tools/cachebust.js",
     "cache:write": "node tools/cachebust.js --write",
-    "assets:inventory": "node tools/asset_inventory.js"
+    "assets:inventory": "node tools/asset_inventory.js",
+    "qa": "node tools/qa/run.js",
+    "qa:play": "node tools/qa/play.js",
+    "qa:report": "node tools/qa/report.js",
+    "test:qa": "node test/qa-clock.test.js && node test/qa-runner.test.js && node test/qa-bridge.test.js"
   },
   "devDependencies": {
     "playwright-core": "^1.62.1"
