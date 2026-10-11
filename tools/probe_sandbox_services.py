@@ -64,7 +64,7 @@ async def probe(args):
               window.bookshop=[...WorldGen.tileCache.values()].flatMap(e=>e.objects||[])
                 .find(o=>o.id===s.save.bookshopId);
               if(!bookshop)throw Error('Missing authored Book Shop');
-              s.save.bookshopId=bookshop.id;s.save.restoredHouses[bookshop.id]='market';
+              s.save.bookshopId=bookshop.id;s.save.restoredHouses[bookshop.id]='shop';
               window.prices=[];
             """)
             for _ in range(3):

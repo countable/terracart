@@ -8736,7 +8736,7 @@ class MapScene extends Phaser.Scene {
     const affords = (c) => Inventory.count(this.save, c.id) >= c.qty;
     // A Shop card is named for the line it would open (its variant's theme).
     const labelFor = (row, theme) => row.name
-      || Shops.roleLabel(row.role, row.role === 'market' ? (row.theme || theme) : null) || 'House';
+      || Shops.roleLabel(row.role, row.role === 'shop' ? (row.theme || theme) : null) || 'House';
     const iconFor = (row) => {
       const texKey = Render.houseTextureKey(row.role, house, this);
       const frame = row.role === 'plain' ? 'front' : row.role === 'wizard' ? 3
@@ -8812,11 +8812,11 @@ class MapScene extends Phaser.Scene {
           // Name the building, describe what it does, show its painting, and
           // let showChestRewardModal's sparkle burst supply the fanfare. The
           // name is the sign's (Shops.roleLabel — a shop is named for the
-          // line it now sells, marketTheme), the blurb and art the row's.
-          const theme = row.role === 'market' ? this.marketTheme(house).theme : null;
+          // line it now sells, shopLine), the blurb and art the row's.
+          const theme = row.role === 'shop' ? this.shopLine(house).theme : null;
           const name = labelFor(row, theme);
           const tier = Shops.shopTier(this.save, house, row.role) || 0;
-          const blurb = row.key === 'market' ? row.blurb + (Shops.THEME_BLURB[theme] || 'You look over the freshly stocked counter.') : row.blurb;
+          const blurb = row.key === 'shop' ? row.blurb + (Shops.THEME_BLURB[theme] || 'You look over the freshly stocked counter.') : row.blurb;
           this.showChestRewardModal({
             kind: 'build',
             // The banner carries the picture - one art piece per card

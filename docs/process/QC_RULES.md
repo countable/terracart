@@ -107,14 +107,14 @@ other renders as the **wrong sprite, not an error**.
 ## 5. Shops / traders / deliveries (semantics, not just art)
 
 - [ ] **Right shop does the right thing.** Selling is **Home-only**; themed
-      shops (role `market`) sell one line for **cash**; traders **barter**
+      shops (role `shop`) sell one line for **cash**; traders **barter**
       (with re-roll); plain houses take **deliveries** (a full wanted set);
       forts run the slot machine. Don't add sell flows to non-Home shops.
 - [ ] **Offer icons go through `renderItemIcon`** — never a hardcoded
       sheet/frame in a modal. Gear goes through `gearIconHTML()`. A dialog about
       a map object passes that object's sprite as `kindIcon` (CLAUDE.md).
 - [ ] **A trader never offers to swap an item FOR the same item.**
-- [ ] **Building sprite/label matches its role** (blacksmith / market / trader
+- [ ] **Building sprite/label matches its role** (blacksmith / shop / trader
       / wizard / fort / Home).
 
 ## 6. Tooltip / splash / pickup-toast popups

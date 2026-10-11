@@ -5,7 +5,7 @@
 
 (function () {
 
-const BADGES = { blacksmith: 'smiths_guild_badge', market: 'marketeers_guild_badge', trader: 'traders_guild_badge' };
+const BADGES = { blacksmith: 'smiths_guild_badge', shop: 'marketeers_guild_badge', trader: 'traders_guild_badge' };
 const carrying = (id) => ({ inv: id ? [{ id, count: 1 }] : [], relics: {} });
 
 test('guild badges: each guild has one carried treasure with shipped art and a description', () => {
@@ -32,24 +32,24 @@ test('guild badges: found in treasure like every other unique relic', () => {
 test('guildDiscounted: ten percent off its own guild only, half a unit to the player, never below one', () => {
   const smith = carrying('smiths_guild_badge');
   assert.eq(guildDiscounted(carrying(null), 'blacksmith', 50), 50, 'no badge, no discount');
-  assert.eq(guildDiscounted(smith, 'market', 50), 50, 'another guild pays full');
+  assert.eq(guildDiscounted(smith, 'shop', 50), 50, 'another guild pays full');
   assert.eq(guildDiscounted(smith, null, 50), 50, 'no guild at all');
   assert.eq(guildDiscounted(smith, 'blacksmith', 50), 45);
   assert.eq(guildDiscounted(smith, 'blacksmith', 5), 4, 'five bars become four');
   assert.eq(guildDiscounted(smith, 'blacksmith', 3), 3, 'a sub-half saving rounds away');
   assert.eq(guildDiscounted(smith, 'blacksmith', 1), 1, 'never below one');
   assert.eq(guildDiscount(carrying('traders_guild_badge'), 'trader'), 0.1);
-  assert.eq(guildDiscount(carrying('marketeers_guild_badge'), 'market'), 0.1);
+  assert.eq(guildDiscount(carrying('marketeers_guild_badge'), 'shop'), 0.1);
 });
 
 test('Houses.guildRole: a house by its role, a peddler by its trade', () => {
-  const save = { restoredHouses: { s: 'blacksmith', m: 'market', t: 'trader', p: 'plain' } };
+  const save = { restoredHouses: { s: 'blacksmith', m: 'shop', t: 'trader', p: 'plain' } };
   const h = (id) => ({ id, kind: 'house', tier: 9 });
   assert.eq(Houses.guildRole(save, h('s')), 'blacksmith');
-  assert.eq(Houses.guildRole(save, h('m')), 'market');
+  assert.eq(Houses.guildRole(save, h('m')), 'shop');
   assert.eq(Houses.guildRole(save, h('t')), 'trader');
   assert.eq(Houses.guildRole(save, h('p')), null);
-  assert.eq(Houses.guildRole(save, { kind: 'npc', role: 'merchant' }), 'market', 'a merchant keeps a themed shop');
+  assert.eq(Houses.guildRole(save, { kind: 'npc', role: 'merchant' }), 'shop', 'a merchant keeps a themed shop');
   assert.eq(Houses.guildRole(save, { kind: 'npc', role: 'trader' }), 'trader');
   assert.eq(Houses.guildRole(save, { kind: 'npc', role: 'farmer' }), null);
   assert.eq(Houses.guildRole(save, null), null);
@@ -99,9 +99,9 @@ function scene(role, badge) {
 const HOUSE = { id: 'h', kind: 'house', tier: 9 };
 
 test('guild badge: the market badge cuts a themed shop’s cash price', () => {
-  const plain = scene('market', null).buildShopOffer('potato_seed', 100, { house: HOUSE });
-  const badged = scene('market', 'marketeers_guild_badge').buildShopOffer('potato_seed', 100, { house: HOUSE });
-  const wrong = scene('market', 'traders_guild_badge').buildShopOffer('potato_seed', 100, { house: HOUSE });
+  const plain = scene('shop', null).buildShopOffer('potato_seed', 100, { house: HOUSE });
+  const badged = scene('shop', 'marketeers_guild_badge').buildShopOffer('potato_seed', 100, { house: HOUSE });
+  const wrong = scene('shop', 'traders_guild_badge').buildShopOffer('potato_seed', 100, { house: HOUSE });
   const full = Number(plain.label);
   assert.eq(Number(badged.label), full - Math.round(full * 0.1));
   assert.eq(Number(wrong.label), full, 'the wrong guild’s badge buys nothing');

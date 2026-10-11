@@ -2441,8 +2441,8 @@ test('shopType: address last digit picks blacksmith / market / trader / null', (
   const T = (typeof WorldGen.T !== 'undefined') ? WorldGen.T.BUILDING : 9;
   const mk = (addr) => ({ kind: 'house', tier: T, address: addr });
   assert.eq(WorldGen.shopType(mk(19)),  'blacksmith', 'address 19 (ends in 9)');
-  assert.eq(WorldGen.shopType(mk(102)), 'market',     'address 102 (ends in 2)');
-  assert.eq(WorldGen.shopType(mk(26)),  'market',     'address 26 (ends in 6)');
+  assert.eq(WorldGen.shopType(mk(102)), 'shop',     'address 102 (ends in 2)');
+  assert.eq(WorldGen.shopType(mk(26)),  'shop',     'address 26 (ends in 6)');
   assert.eq(WorldGen.shopType(mk(31)),  'trader',     'address 31 (ends in 1)');
   assert.eq(WorldGen.shopType(mk(48)),  'trader',     'address 48 (ends in 8)');
   assert.eq(WorldGen.shopType(mk(7)),   null,         'address 7 → plain house');

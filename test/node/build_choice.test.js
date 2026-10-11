@@ -14,7 +14,7 @@ test('build choice: the restore modal offers the table and freezes the pick, nev
   assert.falsy(/shopType|preseed|PRESEED/.test(src), 'no address digit, no fixed run');
   assert.falsy(/preseedRestoreRole|PRESEED_RESTORE_ROLES/.test(SCENE_SRC), 'the fixed run is gone from the scene');
   assert.eq(Houses.PRESEED_RESTORE_ROLES, undefined);
-  assert.truthy(/row\.role === 'market' \? \(row\.theme \|\| theme\) : null/.test(src), 'a Shop card is named for its own line');
+  assert.truthy(/row\.role === 'shop' \? \(row\.theme \|\| theme\) : null/.test(src), 'a Shop card is named for its own line');
   assert.truthy(/art: row\.art/.test(src), 'the Restored! card opens on the row\'s painting');
   // A REGULAR dialog on the Build painting, each card with its picture and
   // its own price (Houses.buildCost), charged for the card picked (Oct 2026).

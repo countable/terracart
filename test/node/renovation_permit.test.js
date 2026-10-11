@@ -26,8 +26,8 @@ test('renovation permit: raises a ranked building one rank, only to a rank that 
   const save = { restoredHouses: {}, discovered: {} };
   Houses.restoreAs(save, h('h0'), 'plain');
   Houses.restoreAs(save, h('s'), 'blacksmith:1');
-  Houses.restoreAs(save, h('m'), 'market:seed:1');
-  Houses.restoreAs(save, h('p'), 'market:potion:1');
+  Houses.restoreAs(save, h('m'), 'shop:seed:1');
+  Houses.restoreAs(save, h('p'), 'shop:potion:1');
   for (let i = 4; i < 12; i++) Houses.restoreAs(save, h('h' + i), 'plain');
   Houses.restoreAs(save, h('t'), 'turret');
   Houses.restoreAs(save, h('pet'), 'petshop');
@@ -52,11 +52,11 @@ test('renovation permit: raises a ranked building one rank, only to a rank that 
   assert.eq(Houses.renovate(save, h('m')), 3);
   assert.eq(Houses.renovateTo(save, h('m')).why, 'line', 'Seed ends at T3');
   // Magic: one per tier — a standing T3 Magic Shop blocks the T1 one's climb.
-  Houses.restoreAs(save, h('p2'), 'market:potion:3');
+  Houses.restoreAs(save, h('p2'), 'shop:potion:3');
   assert.eq(Houses.renovateTo(save, h('p')).why, 'line', 'a T3 Magic Shop already stands');
   assert.eq(Houses.renovate(save, h('p2')), 5, 'the T3 one climbs to T5');
   assert.eq(Houses.renovateTo(save, h('p')).tier, 3, 'and the T1 one may follow');
-  Houses.restoreAs(save, h('r'), 'market:relic:2');
+  Houses.restoreAs(save, h('r'), 'shop:relic:2');
   assert.eq(Houses.renovate(save, h('r')), 4);
   assert.eq(Houses.renovate(save, h('r')), 6);
   assert.eq(Houses.renovateTo(save, h('r')).why, 'line');

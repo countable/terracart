@@ -229,7 +229,7 @@
 
   // ── RESIDENTIAL STREET — the headline scene. A ROAD runs across the middle
   //    (with street-name labels); a house of EACH shop type lines it:
-  //    blacksmith, market, trader and plain/delivery via explicit cards. Yards
+  //    blacksmith, shop, trader and plain/delivery via explicit cards. Yards
   //    carry mushroom decals + pickable mushrooms; a mineral rock sits at the
   //    curb (worldgen drops residential rocks only ≤1 cell from a road); cats
   //    & dogs roam (their primary biome). Houses are marked restored in seed.
@@ -255,7 +255,7 @@
     },
     populate(s) {
       s.house(1, 0, 9, 9, { _sandboxBuild: 'blacksmith:1' });   // blacksmith — top-left
-      s.house(7, 0, 6, 9, { _sandboxBuild: 'market:seed:1' });   // market     — top
+      s.house(7, 0, 6, 9, { _sandboxBuild: 'shop:seed:1' });   // shop     — top
       s.house(1, 7, 8, 9, { _sandboxBuild: 'trader:1' });   // trader     — bottom-left
       s.house(7, 7, 3);   // plain/delivery (produce plaque) — bottom
       s.wildplant('mushroom', 3, 6); s.wildplant('mushroom', 10, 6);
@@ -453,7 +453,7 @@
       { label: 'RESTORE A WRECK', dx: 7, dy: 13 }, { label: 'RECENT ENEMIES', dx: 7, dy: 25 }],
     populate(s) {
       const picks = ['blacksmith:1', 'blacksmith:2', 'blacksmith:3', 'trader:2',
-        'market:seed:2', 'market:supply:2', 'petshop', 'bookshop', 'turret'];
+        'shop:seed:2', 'shop:supply:2', 'petshop', 'bookshop', 'turret'];
       picks.forEach((key, i) => s.house(2 + (i % 4) * 3, 2 + Math.floor(i / 4) * 5,
         0, 9, { _sandboxBuild: key }));
       s.house(3, 14, 0, 9, { _sandboxWreck: true });

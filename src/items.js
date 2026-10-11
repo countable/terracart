@@ -775,7 +775,7 @@ const CARRIED_ITEM_SPEC = {
   // themed shop's price, the smith's forge and smelt materials, the trader's
   // ask. guildDiscounted (below) is the one place it is applied.
   smiths_guild_badge: { guildRole: 'blacksmith', guildDiscount: 0.1 },
-  marketeers_guild_badge: { guildRole: 'market', guildDiscount: 0.1 },
+  marketeers_guild_badge: { guildRole: 'shop', guildDiscount: 0.1 },
   traders_guild_badge: { guildRole: 'trader', guildDiscount: 0.1 },
 };
 const ITEMS = [
@@ -788,7 +788,7 @@ const ITEMS = [
   { id: 'metal_shield', name: 'Metal Shield', kind: 'unique_relic' },
   { id: 'gold_shield', name: 'Gold Shield', kind: 'unique_relic' },
   { id: 'smiths_guild_badge', name: 'Smiths’ Guild Badge', kind: 'unique_relic' },
-  { id: 'marketeers_guild_badge', name: 'Marketeers’ Guild Badge', kind: 'unique_relic' },
+  { id: 'marketeers_guild_badge', name: 'Shopkeepers’ Guild Badge', kind: 'unique_relic' },
   { id: 'traders_guild_badge', name: 'Traders’ Guild Badge', kind: 'unique_relic' },
   ...Object.keys(CROP_ROW).map(c => ({
     id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c,
@@ -1759,7 +1759,7 @@ const STARTING_MONEY = 50;
 // till, and harvest deduct energy via ENERGY_COST and refuse when the current
 // pool is too low. ARMOR does not touch the cap: it SOAKS the damage an attack
 // takes off the bar (armorReduction below, spent by Combat.mitigate).
-// Flower charm — gifting a Flowers stack item to a cash shop (market, fort
+// Flower charm — gifting a Flowers stack item to a cash shop (shop, fort
 // storefront, unclaimed castle) halves its prices at that building for this
 // long (the flower-gift branch in app.js shopInteract + shopCharmMul). Lives
 // here so the Flowers ✦ line below quotes the live number.

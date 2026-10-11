@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=005c35ce" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=3553ba62" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -408,7 +408,7 @@
     body.modal-open .hud-action,
     body.modal-open .loot-toast-icon,
     body.modal-open .delivery-callout,
-    body.modal-open .market-sign,
+    body.modal-open .shop-sign,
     body.modal-open #hud { display: none !important; }
     body.modal-open #money,
     body.modal-open #energy { opacity: 0.25; pointer-events: none; }
@@ -2883,7 +2883,7 @@
   <script src="src/creature_spawns.js?v=dd436e44"></script>
   <script src="src/enemy_habitats.js?v=15042f50"></script>
   <script src="src/difficulty.js?v=a41a7528"></script>
-  <script src="src/util.js?v=b8bec906"></script>
+  <script src="src/util.js?v=ee740382"></script>
   <script src="src/particles.js?v=4527614a"></script>
   <script src="src/trail.js?v=3c757488"></script>
   <script src="src/streets.js?v=b5afab2b"></script>
@@ -2901,7 +2901,7 @@
   <script src="src/reef_layout.js?v=5ac55392"></script>
   <script src="src/sprite_layout.js?v=c34ecab7"></script>
   <script src="src/placed_floor.js?v=2d48b4fd"></script>
-  <script src="src/home.js?v=38bea3d2"></script>
+  <script src="src/home.js?v=f17b8ae7"></script>
   <script src="src/coords.js?v=9f69f77e"></script>
   <script src="src/fog.js?v=e5c1de4f"></script>
   <script src="src/biome_profiles.js?v=a1e5cb6e"></script>
@@ -2925,8 +2925,8 @@
   <script src="src/worldgen.js?v=916af575"></script>
   <script src="src/castle_styles.js?v=ea3cd17d"></script>
   <script src="src/textures.js?v=9beaed13"></script>
-  <script src="src/save.js?v=b103250b"></script>
-  <script src="src/items.js?v=6fde92ee"></script>
+  <script src="src/save.js?v=6ad7b17f"></script>
+  <script src="src/items.js?v=8b507e7c"></script>
   <script src="src/inventory.js?v=dbfaffd0"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
   <script src="src/conditions.js?v=17e004a9"></script>
@@ -2937,11 +2937,11 @@
   <script src="src/save_state.js?v=9870999c"></script>
   <script src="src/gear.js?v=4832d949"></script>
   <script src="src/rewards.js?v=bb4617ed"></script>
-  <script src="src/shops_math.js?v=70451937"></script>
-  <script src="src/shops.js?v=7d36a493"></script>
+  <script src="src/shops_math.js?v=61fb7d5a"></script>
+  <script src="src/shops.js?v=176f7a5e"></script>
   <script src="src/egg_hatch.js?v=c8e90711"></script>
   <script src="src/chest_themes.js?v=beadaa84"></script>
-  <script src="src/rarity.js?v=39e19393"></script>
+  <script src="src/rarity.js?v=ad73fcce"></script>
   <script src="src/loot.js?v=f6f9f2b0"></script>
   <script src="src/macros.js?v=8beb2743"></script>
   <script src="src/quests.js?v=e0c5a12a"></script>
@@ -2952,7 +2952,7 @@
   <script src="src/temples.js?v=566836d0"></script>
   <script src="src/interactables.js?v=cbb0969a"></script>
   <script src="src/boss_encounters.js?v=f84f139b"></script>
-  <script src="src/houses.js?v=36d40926"></script>
+  <script src="src/houses.js?v=cc51e6a0"></script>
   <script src="src/obstacle_step.js?v=783f40dc"></script>
   <script src="src/spawn_ownership.js?v=d5742249"></script>
   <script src="src/starter.js?v=6091e091"></script>
@@ -2973,15 +2973,15 @@
   <script src="src/play_tips.js?v=d801a22f"></script>
   <script src="src/lighting.js?v=1064378b"></script>
   <script src="src/safety.js?v=f101b236"></script>
-  <script src="src/render.js?v=5ee2088f"></script>
+  <script src="src/render.js?v=e694508e"></script>
   <script src="src/gas_render.js?v=5e124492"></script>
   <script src="src/multiplayer.js?v=6ae62d18"></script>
   <script src="src/road_overlay.js?v=f66e6df1"></script>
   <script src="src/temple_art.js?v=e92e8263"></script>
   <script src="src/building_overlay.js?v=067a0edf"></script>
-  <script src="src/assets.js?v=3353ed4e"></script>
+  <script src="src/assets.js?v=7942a91f"></script>
   <script src="src/sandbox_destinations.js?v=0c811c95"></script>
-  <script src="src/sandbox.js?v=d885aac9"></script>
+  <script src="src/sandbox.js?v=ab40eccb"></script>
   <script src="src/testtools.js?v=39e80bd1"></script>
   <script src="src/geo.js?v=0a205c42"></script>
   <script src="src/art_thumbs.js?v=1b4241c5"></script>
@@ -2990,14 +2990,14 @@
   <script src="src/npc.js?v=40d66bf0"></script>
   <script src="src/scene_creatures.js?v=0d566222"></script>
   <script src="src/scene_fire.js?v=0dfbecec"></script>
-  <script src="src/scene_shops.js?v=80ca7951"></script>
+  <script src="src/scene_shops.js?v=cf717752"></script>
   <script src="src/scene_create.js?v=6d250eef"></script>
   <script src="src/scene_elevators.js?v=db4a70c9"></script>
   <script src="src/scene_arena.js?v=a07b555c"></script>
   <script src="src/scene_sky.js?v=c2698528"></script>
-  <script src="src/scene_consumables.js?v=0b4ced7d"></script>
+  <script src="src/scene_consumables.js?v=104e6a45"></script>
   <script src="src/scene_pets.js?v=817c1e2f"></script>
-  <script src="src/scene_venues.js?v=f6bcfbf7"></script>
+  <script src="src/scene_venues.js?v=19267b3d"></script>
   <script src="src/scene_streets.js?v=6c9af503"></script>
   <script src="src/scene_boss.js?v=47c21f70"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
@@ -3069,7 +3069,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=005c35ce';
+      const APP_SRC = 'src/app.js?v=3553ba62';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

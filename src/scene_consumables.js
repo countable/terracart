@@ -1277,7 +1277,7 @@ class SceneConsumables {
 
   // Stats / Relics menu — shows energy and every equipped relic / armor slot.
   // Building-flavored title for an offer modal. Different building kinds
-  // (castle / fort / market / trader / blacksmith / plain house) get their
+  // (castle / fort / shop / trader / blacksmith / plain house) get their
   // own greeting so the player can tell at a glance what they walked into,
   // instead of every dialog reading "A trader offers:". `action` is one of:
   //   'buy'      → routine seed/produce/barter buy
