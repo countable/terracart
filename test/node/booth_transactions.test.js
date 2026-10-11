@@ -89,6 +89,22 @@
     s.offers.at(-1).onCancel();
     assert.eq(s.events.join(), 'committed,committed,read');
   });
+  boothTest('booth scriptorium: the Book sells once, then the counter offers only the torch', () => {
+    const s = fixture();
+    const row = Macros.KIND_DIALOG.scriptorium, o = { id: 'scrip-1' };
+    const opts = { boothKind: 'scriptorium', items: row.stock(o, s.save), title: row.title,
+      restock: () => row.stock(o, s.save), bought: row.bought };
+    s._presentStallOffer(0, 0, opts);
+    assert.includes(s.offers.at(-1).get, ITEM_BY_ID.book.name);
+    s.offers.at(-1).onAccept();
+    assert.eq(Inventory.count(s.save, 'book'), 1);
+    s.offers.at(-1).repeat();
+    const after = s.offers.at(-1);
+    assert.includes(after.get, ITEM_BY_ID.torch.name, 'the shelf moves on to the torch');
+    assert.eq(after.tabs, undefined, 'no Book tab is left');
+    s._presentStallOffer(0, 0, { ...opts, items: row.stock({ id: 'scrip-2' }, s.save) });
+    assert.falsy(s.offers.at(-1).get.includes(ITEM_BY_ID.book.name), 'another scriptorium has none either');
+  });
   boothTest('booth shop: insufficient cash or a refused grant neither charges nor confirms', () => {
     for (const why of ['money', 'bag']) {
       const s = fixture();

@@ -45,7 +45,7 @@ One frame each, foot-anchored and drawn like the market stall (loot.js `chestLoo
 | inn.png | the INN (lodging POIs): rest to full for coin, once a day per inn | generated placeholder — replace with hand art when available (picked from two candidates, inn_b) |
 | chapel.png | the CHAPEL (place_of_worship POIs): daily alms, the Old Stones anchor | generated placeholder — replace with hand art when available (picked from two candidates, chapel_b) |
 | apothecary.png | the APOTHECARY (pharmacy / dentist / hospital POIs): a T2 potion counter + the antidote | generated placeholder — replace with hand art when available (picked from two candidates, apothecary_a) |
-| scriptorium.png | the SCRIPTORIUM (library / college POIs): a free Book page a day, Books for sale | generated placeholder — replace with hand art when available (picked from two candidates, scriptorium_a) |
+| scriptorium.png | the SCRIPTORIUM (library / college POIs): one Book a save, torches for sale | generated placeholder — replace with hand art when available (picked from two candidates, scriptorium_a) |
 | guildhall.png | the GUILDHALL (town_hall / police / fire_station POIs): one daily commission | generated placeholder — replace with hand art when available (picked from two candidates, guildhall_b) |
 | curio.png | the CURIO HALL (museum / theatre / cinema POIs): donate one of each item, once | generated placeholder — replace with hand art when available (picked from two candidates, curio_a) |
 | sundries.png | SUNDRIES (the generic `shop` POIs no produce stall claims): one supply item for sale | generated placeholder — replace with hand art when available (picked from two candidates, sundries_b) |
