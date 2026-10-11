@@ -136,3 +136,8 @@ one extra budget bracket linearly from 0% to 35%. A bracket adds 50% of the
 rolled tier's base budget; it does not directly multiply stack size or promote
 item tier. Category shares, rounding and item caps still apply. The saved
 `qtyUpgrades` field and `measure` track key retain their names for compatibility.
+
+Full barrels favor practical supplies: two thirds of successful rolls use the
+ordinary supply pool (including torches, rope and trap-disarm kits), with one
+sixth each for minerals and produce. This conditional mix is independent of
+the tile-density fullness chance and budget. Clay pots keep their own mix.
