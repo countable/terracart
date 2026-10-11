@@ -204,7 +204,7 @@ function syncControls() {
     opt($('monster'), Object.keys(Combat.MONSTERS).filter((k) => Combat.spawnsUnderground(k)).map((k) => [k, k]), 'cave_slime');
     opt($('owned'), [0, 1, 2, 3, 4, 5, 6, 7].map((t) => [t, t ? 'T' + t : 'nothing']), 0);
     opt($('fishing_rod'), [0, 1, 2, 3, 4, 5, 6, 7].map((t) => [t, t ? 'T' + t : 'bare hands']), 0);
-    opt($('qty'), Array.from({ length: RARITY_TUNING.qtyLuckLevels + 1 }, (_, i) => [i, i]), 0);
+    opt($('qty'), Array.from({ length: RARITY_TUNING.budgetUpgradeLevels + 1 }, (_, i) => [i, i]), 0);
     $('ctx').onchange = () => { syncControls(); rollOne(); };
     for (const id of ['tier', 'depth', 'bonus', 'monster', 'owned', 'qty', 'fishing_rod', 'slime', 'n']) $(id).onchange = () => { rollOne(); matrix(); if (id === 'owned' || id === 'qty') chestGrid(); };
     $('go').onclick = rollOne;

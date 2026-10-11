@@ -46,6 +46,7 @@
     if (save.reachUpgrades === undefined) save.reachUpgrades = 0;
     // The wizard's permanent luck and quantity ladders.
     if (save.luckUpgrades === undefined) save.luckUpgrades = 0;
+    // Legacy save key for the wizard’s Full Measure budget upgrade.
     if (save.qtyUpgrades === undefined) save.qtyUpgrades = 0;
     if (save.deliveryCount === undefined) save.deliveryCount = 0;
     // Per-house pinned wishlist (delivery.js wantedProduce). An older save has

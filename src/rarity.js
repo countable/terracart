@@ -6,7 +6,7 @@
 // BASE_TIER, RELIC_DEFS, gearPrice, PRICES) being loaded first.
 //
 // Exports as globals:
-//   RARITY_TUNING            — knob constants (boost/jackpot/qty)
+//   RARITY_TUNING            — knob constants (boost/jackpot/budget)
 //   LOOT_CONTEXTS            — per-context (chest:food, shop:trader, …) shape
 //   ITEMS_BY_CLASS_TIER      — { class → { tier → [id, …] } }
 //   pickReward(key, save, rng)        → { kind:'item'|'relic'|'armor'|'gold', … }
@@ -22,7 +22,7 @@
   const RARITY_TUNING = {
     luckPerUpgrade:      0.01,   // Seven Keen Eye rungs reach +0.07
     // Jackpot fires with entryP, then chains via continueP. Each boost step
-    // picks tier-up vs qty-up 50/50 (same split as the boost chain). Every
+    // picks tier-up vs budget-up 50/50 (same split as the boost chain). Every
     // jackpot — even a +1 — triggers the fanfare popup.
     //   P(any jackpot)   = entryP            ~16% — fanfare rate
     //   P(2-step chain)  = entryP × cont     ~4%
@@ -30,11 +30,11 @@
     //   P(4-step chain)  = entryP × cont³    ~0.25%
     jackpotEntryP:       0.16,
     jackpotContinueP:    0.25,
-    chainQtyP:           0.33,   // per chain step, P(qty-up) vs (1-chainQtyP) tier-up. At T2 chest (1 step): 67% T2 / 33% T1+qty. At T3 chest (2 steps): 45% T3 / 44% T2 / 11% T1.
-    // P(extra qty-bracket bump) at the TOP of the wizard's quantity ladder.
-    qtyLuckMaxP:         0.35,
-    qtyLuckLevels:       3,
-    // Quantity model: each qty BUMP (from the chain, the wizard's ladder or a
+    chainBudgetP:           0.33,   // per chain step, P(budget-up) vs (1-chainBudgetP) tier-up. At T2 chest (1 step): 67% T2 / 33% T1+budget. At T3 chest (2 steps): 45% T3 / 44% T2 / 11% T1.
+    // P(extra budget-bracket bump) at the TOP of the wizard's budget ladder.
+    budgetBoostMaxP:         0.35,
+    budgetUpgradeLevels:       3,
+    // Budget model: each budget BUMP (from the chain, the wizard's ladder or a
     // jackpot) banks one bracket, and a bracket only raises the roll's budget
     // (ChestThemes.budget). The stack is that budget over the item's price
     // (ChestThemes.quantity, capped per item); coins are the budget itself.
@@ -55,10 +55,10 @@
     // the walk-up ladder.
     chestTierMod: {
       // The chain is deterministic per chest tier: chainSteps unconditional
-      // boost steps, each tier-up if below chainCap, else qty-up. That puts
+      // boost steps, each tier-up if below chainCap, else budget-up. That puts
       // every chest at its own tier 100% of the time (before jackpot), so
       // T2 chests don't leak T1 items like coal × 1. Jackpot is the only
-      // path above the chest tier (~8% tier-side, ~8% qty-side per pull).
+      // path above the chest tier (~8% tier-side, ~8% budget-side per pull).
       //
       // T1 chests never offer relics — they're the floor-tier 'small treats'
       // chest. chainSteps=0 means tier stays at T1; only jackpot produces
@@ -105,11 +105,8 @@
   //             are told apart by `slot` everywhere they are paid: see
   //             interact.js grantTreasureRoll and interactables.js). Its worth
   //             is DERIVED, never tuned — see CASH_TIER_VALUE below.
-  //   bundle  — a pile of raw material (wood and stone). Its own class rather
-  //             than a mineral/produce roll because what makes it a bundle is
-  //             the COUNT: a T1 chest rolls no quantity bracket at all
-  //             (chainSteps 0), so wood out of the ordinary pool arrives one
-  //             stick at a time. See BUNDLE_IDS / BUNDLE_QTY.
+  //   bundle  — wood or rubble selected as a material reward. Its stack uses
+  //             the same budget, price and caps as ordinary item rewards.
   //
   // Class weights inside each row do NOT need to sum to exactly 1.0 — we
   // re-normalise in weightedPick. Easier to author this way.
@@ -283,15 +280,12 @@
     return Math.max(1, Math.round(ChestThemes.budget(tier, bracket) * jitter));
   }
 
-  // BUNDLE. Wood and stone, both T1, so its worth is entirely in its COUNT:
-  // BUNDLE_QTY plus BUNDLE_PER_BUMP per quantity bracket banked.
+  // Material bundles share the same budget-to-price conversion as other loot.
   const BUNDLE_IDS = ['wood', 'rubble'];
-  const BUNDLE_QTY_MIN = 3, BUNDLE_QTY_MAX = 8;
-  const BUNDLE_PER_BUMP = 2;
 
   // Neither synthetic class has a row in ITEMS_BY_CLASS_TIER, so give them
   // their own ceilings. A purse can be worth any tier; a bundle is always T1,
-  // so every chain step falls through to a quantity bracket (the pile grows).
+  // so every chain step falls through to a budget bracket (the pile grows).
   CLASS_MAX_TIER.cash = 7;
   CLASS_MAX_TIER.bundle = 1;
   CLASS_MAX_TIER.boots = 7;
@@ -315,12 +309,13 @@
     return (Math.max(0, Math.min(7, Math.floor(save?.luckUpgrades || 0))) + keyBonus + mealBonus)
       * RARITY_TUNING.luckPerUpgrade + boon;
   }
-  // The wizard's QUANTITY ladder: P(one extra qty-bracket bump on a roll).
-  // Linear over its rungs onto qtyLuckMaxP: the top rung is the Full Measure ceiling.
-  function qtyLuck(save) {
-    const levels = RARITY_TUNING.qtyLuckLevels || 1;
+  // save.qtyUpgrades is the persisted legacy key; its levels buy budget boosts.
+  // The wizard's BUDGET ladder: P(one extra budget-bracket bump on a roll).
+  // Linear over its rungs onto budgetBoostMaxP: the top rung is the Full Measure ceiling.
+  function budgetBoostChance(save) {
+    const levels = RARITY_TUNING.budgetUpgradeLevels || 1;
     const lv = Math.max(0, Math.min(levels, Math.floor(save?.qtyUpgrades || 0)));
-    return (lv / levels) * RARITY_TUNING.qtyLuckMaxP;
+    return (lv / levels) * RARITY_TUNING.budgetBoostMaxP;
   }
 
   // Pick a (single) id from a class at the rolled tier, sliding DOWN to the
@@ -477,7 +472,7 @@
   }
 
   function rollRewardQuality(ctx, cls, save, rng, opts) {
-    // 2) Boost chain. Start T1 / bracket 0; each step bumps tier or qty bracket.
+    // 2) Boost chain. Start T1 / bracket 0; each step bumps tier or budget bracket.
     // Relics always tier-up (quantity is meaningless for them).
     const isRelic = cls === 'relic';
     const finalCap = isRelic
@@ -488,8 +483,8 @@
       ? Math.min(ctx.relicChainMax ?? finalCap, finalCap)
       : Math.min(ctx.chainMax ?? finalCap, finalCap);
     // Deterministic chain: the context declares how many boost steps fire
-    // (chainSteps); each is 33% qty-up (bracket++) or 67% tier-up if below
-    // chainCap (else qty-up). It never 'misses', so the chest's tier is
+    // (chainSteps); each is 33% budget-up (bracket++) or 67% tier-up if below
+    // chainCap (else budget-up). It never 'misses', so the chest's tier is
     // reached reliably while still providing variance. A bracket only raises
     // the roll's budget (ChestThemes.budget), so it has no cap of its own.
     let tier = 1, bracket = 0;
@@ -498,10 +493,10 @@
     let wastedQtyBumps = 0;
     const chainSteps = ctx.chainSteps ?? 0;
     const luck = upgradeLuck(save);
-    const qtyP = Math.max(0, Math.min(0.95, (RARITY_TUNING.chainQtyP ?? 0.33) - luck));
+    const budgetP = Math.max(0, Math.min(0.95, (RARITY_TUNING.chainBudgetP ?? 0.33) - luck));
     for (let i = 0; i < chainSteps; i++) {
-      const goQty = rng() < qtyP;
-      if (!goQty && tier < chainCap) tier += 1;
+      const goBudget = rng() < budgetP;
+      if (!goBudget && tier < chainCap) tier += 1;
       else bracket += 1;
     }
     // ROLL BONUS — extra steps the caller paid for (opts.rollBonus; the
@@ -519,11 +514,11 @@
       if (tier < chainCap) tier += 1;
       else wastedQtyBumps += 1;        // no headroom left — pay it out in coins
     }
-    // The wizard's quantity upgrade: one extra bracket roll (not a post-multiply, which would double unbounded).
-    if (!isRelic && rng() < qtyLuck(save)) bracket += 1;
+    // The wizard's budget upgrade: one extra bracket roll (not a post-multiply, which would double unbounded).
+    if (!isRelic && rng() < budgetBoostChance(save)) bracket += 1;
 
     // 3) Jackpot. Geometric chain rooted at jackpotEntryP × jackpotContinueP;
-    // each step picks tier-up vs qty-up 50/50; a qty-up only raises the
+    // each step picks tier-up vs budget-up 50/50; a budget-up only raises the
     // budget. Fanfare fires on any non-zero jackpot.
     let jackpotSteps = 0;
     if (rng() < RARITY_TUNING.jackpotEntryP) {
@@ -592,7 +587,7 @@
       return { kind: 'gold', amount: cashValue(tier, bracket, rng), cls: 'cash', tier, ...meta };
     }
     const id = ChestThemes.pickItem(resolved, tier, rng, selectionOpts);
-    return { kind: 'item', id, qty: ChestThemes.quantity(id, tier, bracket, rng),
+    return { kind: 'item', id, qty: ChestThemes.quantity(id, tier, bracket),
       tier: _ITEM_BY_ID[id].kind === 'unique_relic' ? _ITEM_BY_ID[id].baseTier : tier,
       cls: _ITEM_BY_ID[id].kind, ...meta };
   }
@@ -622,7 +617,7 @@
 
     // A piece of gear, reconciled against what is worn (reconcileRelicOffer:
     // never a downgrade), with its consolation — the tail every gear class
-    // (relic, gear, boots) shares. Every chain qty-step on a gear class was
+    // (relic, gear, boots) shares. Every chain budget-step on a gear class was
     // "wasted" (gear has no qty axis), so the brackets roll into consolation
     // beside the qty-cap waste — except for shops, which never pay
     // consolation (the player is buying).
@@ -681,8 +676,7 @@
     // BUNDLE — wood or stone; tier never climbs (CLASS_MAX_TIER.bundle), so every bracket is size.
     if (cls === 'bundle') {
       const bid = pickFromArray(BUNDLE_IDS, rng);
-      const bqty = BUNDLE_QTY_MIN + Math.floor(rng() * (BUNDLE_QTY_MAX - BUNDLE_QTY_MIN + 1))
-                 + (ctx.singleItem ? 0 : bracket * BUNDLE_PER_BUMP);
+      const bqty = ctx.singleItem ? 1 : ChestThemes.quantity(bid, tier, bracket);
       return { kind: 'item', id: bid, qty: bqty, cls: 'bundle',
                tier: _ITEM_BY_ID[bid]?.baseTier ?? 1,
                jackpot: jackpotApplied, consolation: 0 };
@@ -715,7 +709,7 @@
       // Frost flowers). Rolled bumps are discarded, with no consolation.
       qty = cls === 'seed' && itemTier < 4 ? 5 : 1;
     } else {
-      qty = ChestThemes.quantity(id, tier, bracket, rng);
+      qty = ChestThemes.quantity(id, tier, bracket);
     }
     return { kind: 'item', id, qty, tier, cls: _ITEM_BY_ID[id].kind, jackpot: jackpotApplied,
              consolation: ctx.singleItem ? 0 : consolationFor(itemTier) };
@@ -781,5 +775,5 @@
   global.rollGearUpgrade        = rollGearUpgrade;
   // The luck ladders, so the wizard's rungs and tests read the SAME numbers.
   global.upgradeLuck            = upgradeLuck;
-  global.qtyLuck                = qtyLuck;
+  global.budgetBoostChance                = budgetBoostChance;
 })(window);

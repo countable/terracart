@@ -53,12 +53,12 @@
   const INTRO = 'The wizard draws power from your memories.';
 
   // ── Defensive reads of other modules (headless-safe) ─────────────────────
-  function qtyMax(opts) {
-    if (opts && Number.isFinite(opts.qtyMax)) return opts.qtyMax;
-    return (typeof RARITY_TUNING !== 'undefined' && RARITY_TUNING.qtyLuckLevels) || 3;
+  function budgetMax(opts) {
+    if (opts && Number.isFinite(opts.budgetMax)) return opts.budgetMax;
+    return (typeof RARITY_TUNING !== 'undefined' && RARITY_TUNING.budgetUpgradeLevels) || 3;
   }
-  function qtyLuckAt(n) {
-    return (typeof qtyLuck === 'function') ? qtyLuck({ qtyUpgrades: n }) : 0;
+  function budgetBoostChanceAt(n) {
+    return (typeof budgetBoostChance === 'function') ? budgetBoostChance({ qtyUpgrades: n }) : 0;
   }
   const int = (v) => Math.max(0, Math.floor(Number(v) || 0));
 
@@ -79,14 +79,15 @@
     },
     {
       key: 'measure', cost: TRACK_COST, icon: '🎒',
-      max: (opts) => qtyMax(opts),
+      max: (opts) => budgetMax(opts),
+      // Keep the persisted field and track key so existing purchases survive.
       have: (save) => int(save.qtyUpgrades),
       grant: (save, n) => { save.qtyUpgrades = n; },
       title: 'Full Measure', accept: 'Accept',
-      get: () => 'Let each find fill your hands a little more.',
+      get: (n) => `${(budgetBoostChanceAt(n) * 100).toFixed(1)}% chance of adding ${Math.round(ChestThemes.BUDGET_PER_BRACKET * 100)}% of the base treasure budget. Item limits still apply.`,
       header: '✨ Full Measure granted ✨',
       name: () => 'Full Measure',
-      sub: 'What the world gives you, it gives you more of.',
+      sub: 'A greater chance of a larger treasure budget.',
     },
     {
       key: 'eye', cost: TRACK_COST, icon: '👁',
@@ -267,6 +268,6 @@
     TRACK_COST, VIGOUR_COST, VIGOUR_MAX, CLASS_COST, CLASS_AT_BUYS, OFFER_COUNT,
     REACH_UPGRADE_MAX, LUCK_UPGRADE_MAX, INTRO,
     TRACKS, CLASSES, playerClass, isClass, classDue,
-    buys, derivedBuys, offers, buy, unfinishedTracks, qtyLuckAt,
+    buys, derivedBuys, offers, buy, unfinishedTracks, budgetBoostChanceAt,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
