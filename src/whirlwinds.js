@@ -7,9 +7,11 @@
     pushMs: 350, turnMs: 1800, leashCells: 5, spawnDistanceCells: 2,
     activeFrameMs: 110, frameSize: 48, anchor: [24, 44] });
 
+  // Open turf only: grass landcover, sports pitches and schoolyards — never
+  // park or playground cells.
   function terrain(type) {
     const T = root.WorldGen.T;
-    return [T.GRASS, T.PARK, T.PLAYGROUND, T.PITCH, T.SCHOOL].includes(type);
+    return [T.GRASS, T.PITCH, T.SCHOOL].includes(type);
   }
   // `anyGround` drops the whirlwind's own grassy-terrain rule — a Scroll of
   // Wind's gust blows a foe across any ground the enemy gate allows.
