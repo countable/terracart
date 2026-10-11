@@ -382,7 +382,7 @@ const MapReviewArt = (() => {
         const cellM=edge/(e?.cellsPerEdge||this._world.tiles[0].cellsPerEdge);
         const scale=(project(o.x+cellM,o.y).x-at.x)/32;
         if(scale*32<4)continue;
-        if(o.kind==='xmark') { const r=5.1*scale;g.strokeStyle='#2a1d108c';g.lineWidth=2*scale;g.beginPath();g.moveTo(at.x-r,at.y-r);g.lineTo(at.x+r,at.y+r);g.moveTo(at.x+r,at.y-r);g.lineTo(at.x-r,at.y+r);g.stroke();continue; }
+        if(o.kind==='xmark') { const r=(o.great?GREAT_X.halfSize:5.1)*scale;g.strokeStyle=o.great?'#6e0b0be6':'#2a1d108c';g.lineWidth=(o.great?GREAT_X.width:2)*scale;g.beginPath();g.moveTo(at.x-r,at.y-r);g.lineTo(at.x+r,at.y+r);g.moveTo(at.x+r,at.y-r);g.lineTo(at.x-r,at.y+r);g.stroke();continue; }
         const t=p?.visible&&textures.get(p.texKey),f=t&&t.get(p.frameVal);
         if(!f) {g.fillStyle='#ffd86a';g.fillRect(at.x-1,at.y-1,3,3);continue;}
         const w=(p.displayWidth??f.width*p.scl)*scale,h=(p.displayHeight??f.height*p.scl*p.scaleYMul)*scale;
