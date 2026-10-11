@@ -243,6 +243,7 @@
     "temple:false": 239,
     "temple:tar:false": 240,
     "temple:tar:true": 241,
-    "temple:true": 242
+    "temple:true": 242,
+    "macro_bank": 243
   }
 }

@@ -1,4 +1,4 @@
-// The GREAT X — loot.js GREAT_X / treasureContextFor and its rarity.js
+// The GREAT X — loot.js GREAT_X / treasureContextFor and its loot_contexts.js
 // 'treasure:great' pool: a thick dark-red X mark whose dig pays only gold, a
 // tool or weapon, or other equipment.
 

@@ -21,6 +21,23 @@ test('pickReward: returns a structurally valid reward for chest:lowtier', () => 
   assert.truthy(REWARD_KINDS.has(r.kind), 'kind is one of item/relic/armor/gold (' + r.kind + ')');
 });
 
+// LOOT_CONTEXTS (loot_contexts.js) is the whole description of a pool: the
+// picker routes on a row's fields (`picker`, `caveSkew`), never on its key, so
+// a new pool is one row and a renamed key cannot silently change its pipeline.
+test('loot contexts: the picker reads row fields, never context names', () => {
+  assert.falsy(/'(chest|shop|treasure):|startsWith\('chest|contextKey\s*===/.test(RARITY_SRC),
+    'rarity.js names no loot context');
+  for (const [key, row] of Object.entries(LOOT_CONTEXTS)) {
+    if (row.picker === undefined) continue;
+    assert.eq(row.picker, 'chest', key + ' names a known picker');
+    assert.truthy(ChestThemes.themes[row.theme], key + ' names a real chest theme');
+  }
+  for (const theme of Object.keys(ChestThemes.themes))
+    assert.eq(LOOT_CONTEXTS['chest:' + theme]?.picker, 'chest', 'every chest theme has a chest-picked row');
+  assert.eq(Object.keys(LOOT_CONTEXTS).filter(k => LOOT_CONTEXTS[k].caveSkew).join(','), 'treasure:default',
+    'only the buried X takes the cave skew');
+});
+
 test('pickReward: item rewards reference real catalog entries with qty ≥ 1', () => {
   for (let seed = 1; seed <= 200; seed++) {
     const r = pickReward('chest:lowtier', { relics: {}, armor: {} }, seeded(seed), { tier: 3 });

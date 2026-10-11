@@ -964,7 +964,7 @@ class SceneStreets {
   // (Trail.GOAL_STEP × n stones) and how good the roll is.
   //
   // Uses the unified rarity picker on the ROAD's own context
-  // (Trail.PRIZE_CONTEXT — rarity.js 'treasure:road': seeds first, with coins
+  // (Trail.PRIZE_CONTEXT — loot_contexts.js 'treasure:road': seeds first, with coins
   // and produce as the other faces) plus Trail.rollBonusFor extra chain steps
   // — one, and one more per prize already won, so a longer walk lands a better
   // find — while still not competing with the actual T4 epic POI chests.

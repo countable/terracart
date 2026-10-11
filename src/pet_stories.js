@@ -33,7 +33,7 @@ const PetStories = (() => {
 
   function drain(scene) {
     const pending = scene.save.petStoriesPending;
-    if (!pending?.length || scene._passingOut) return false;
+    if (!pending?.length || scene._passingOut || MemoryStory.storyHeld(scene)) return false;
     // Do not build a portrait while another dialog owns the screen.
     scene._syncModalGate?.();
     if (document.body?.classList?.contains('modal-open')) return false;
@@ -55,6 +55,7 @@ const PetStories = (() => {
         art, title: 'Your first ' + name.toLowerCase(), body,
       })) return false;
       pending.shift();
+      scene._storyRun = true;   // the story hold's run (app.js _storyHeld)
       persistSave(scene.save);
       return true;
     }

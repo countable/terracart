@@ -947,10 +947,10 @@ test('street themes: a winding patch caps total arclength and yields during inte
   assert.gt(yields,0,'the interval comparison loop cooperates with sliced world generation');
 });
 
-test('golden road: coins carpet both verges without overlapping occupied or blocked cells', () => {
+test('golden road: coin seats line both verges, ride on its idol, and claim no cell', () => {
   const name = nameWhere((n,k) => SV.variantFor(k,n,'minor') === 'golden', 'Golden Street');
   // Cells 10–42: a 224 m lane, inside the Golden Road's own 250 m section
-  // cap (sectionLimits), so the carpet runs end to end.
+  // cap (sectionLimits), so the seats run end to end.
   const line = pts([[10,25],[42,25]]), split = [line[0], pts([[26,25]])[0], line[1]];
   const build = (lines, blocked = false, occupied = new Set(), roadMask = new Uint8Array(CPE*CPE)) => {
     const index = indexOfLines(lines, name, TX, TY, TILE_EDGE_M / EXTENT);
@@ -961,18 +961,26 @@ test('golden road: coins carpet both verges without overlapping occupied or bloc
     const result = SV.dress({ index, tx:TX, ty:TY, N:CPE, tileEdgeM:TILE_EDGE_M, grid, spawnOpts:opts });
     return { result, opts };
   };
+  const seatsOf = (result) => [...result.coinSeats.values()].flatMap((m) => [...m.values()]);
   const { result, opts } = build([line]);
   assert.eq(SV.VARIANT_BY_ID.golden.story, 'street_golden');
   assert.eq(SV.VARIANT_BY_ID.golden.art, 'street_golden', 'show coins along both verges');
   assert.eq(SV.VARIANT_BY_ID.snare.art, 'street_snare', 'show the chest and its traps');
-  assert.eq(result.coins.length, 198, '33 cells along each of six verge rows are full');
-  assert.eq(new Set(result.coins.map(c => c.id)).size, result.coins.length, 'one pickup per cell');
-  assert.eq(JSON.stringify(result.coins), JSON.stringify(build([[split[2],split[1]],[split[1],split[0]]]).result.coins));
+  assert.eq(result.coins, undefined, 'the road lays no coins of its own');
+  const seats = seatsOf(result);
+  assert.eq(seats.length, 198, '33 cells along each of six verge rows are seats');
+  assert.eq(new Set(seats.map(c => c.id)).size, seats.length, 'one seat per cell');
+  assert.eq(JSON.stringify(seats.map(c => c.id).sort()),
+    JSON.stringify(seatsOf(build([[split[2],split[1]],[split[1],split[0]]]).result).map(c => c.id).sort()));
+  const idols = result.objects.filter(o => o.kind === 'grove_shrine' && o.shrineKind === 'golden_idol');
+  assert.eq(idols.length, 1, 'every Golden Road gets its idol');
+  assert.eq(idols[0].coinSeats.length, 198, 'the idol carries the seats');
+  assert.eq(Shrines.kindForObject(idols[0]).reward, 'coins', 'its tap is the coin spree');
   const rows = new Map();
-  for (const coin of result.coins) {
-    const iy = cellOf(coin.y, TY);
+  for (const seat of seats) {
+    const iy = cellOf(seat.y, TY);
     if (!rows.has(iy)) rows.set(iy, []);
-    rows.get(iy).push(cellOf(coin.x, TX));
+    rows.get(iy).push(cellOf(seat.x, TX));
   }
   assert.eq(rows.size, 6, 'three dense rows on each side');
   for (const [iy, xs] of rows) {
@@ -981,23 +989,24 @@ test('golden road: coins carpet both verges without overlapping occupied or bloc
     xs.sort((a,b) => a-b);
     for (let i=1; i<xs.length; i++) assert.eq(xs[i]-xs[i-1], 1, 'no gaps along a verge');
   }
-  const occupiedCell = cellOf(result.coins[0].y, TY)*CPE + cellOf(result.coins[0].x, TX);
-  const occupiedResult = build([line], false, new Set([occupiedCell])).result;
-  assert.eq(occupiedResult.coins.length, result.coins.length-1);
-  assert.falsy(occupiedResult.coins.some(c => c.id === result.coins[0].id));
+  const occupiedCell = cellOf(seats[0].y, TY)*CPE + cellOf(seats[0].x, TX);
+  const occupiedSeats = seatsOf(build([line], false, new Set([occupiedCell])).result);
+  assert.eq(occupiedSeats.length, seats.length-1);
+  assert.falsy(occupiedSeats.some(c => c.id === seats[0].id));
   const crossingRoad = new Uint8Array(CPE*CPE);
   for (let y=0; y<CPE; y++) crossingRoad[y*CPE+26] = 1;
-  const crossingResult = build([line], false, new Set(), crossingRoad).result;
-  assert.eq(crossingResult.coins.length, result.coins.length-6, 'crossing roadway cuts all six coin rows');
-  assert.falsy(crossingResult.coins.some(c => cellOf(c.x, TX) === 26));
-  for(const coin of result.coins) {
-    const ix=cellOf(coin.x,TX), iy=cellOf(coin.y,TY);
-    assert.eq(coin.id,WorldGen.cellId('golden_coin',TX,TY,ix,iy));
-    assert.eq(coin.kind,'coindrop'); assert.eq(coin.amount,1); assert.truthy(coin.seeded);
-    assert.truthy(opts.occupied.has(iy*CPE+ix),'coin reserves its cell before save filtering');
+  const crossingSeats = seatsOf(build([line], false, new Set(), crossingRoad).result);
+  assert.eq(crossingSeats.length, seats.length-6, 'crossing roadway cuts all six seat rows');
+  assert.falsy(crossingSeats.some(c => cellOf(c.x, TX) === 26));
+  const idolCell = cellOf(idols[0].y, TY)*CPE + cellOf(idols[0].x, TX);
+  for (const seat of seats) {
+    const ix=cellOf(seat.x,TX), iy=cellOf(seat.y,TY);
+    assert.eq(seat.id,WorldGen.cellId('golden_coin',TX,TY,ix,iy));
+    if (iy*CPE+ix !== idolCell) assert.falsy(opts.occupied.has(iy*CPE+ix), 'a seat claims no cell');
   }
-  assert.eq(build([line],true).result.coins.length,0,'hard restrictions prevent coin placement');
+  assert.eq(seatsOf(build([line],true).result).length,0,'hard restrictions prevent seats');
 });
+
 
 
 test('thorny path: dense deterministic brambles cross their minor road and enclose selected shrines', () => {

@@ -246,10 +246,10 @@ Render.objectGroundOffsetPx = function (appearance, textures) {
 
 // Shop rank is assigned at restoration (a shop's line tier, a smithy's own,
 // a trader's — Shops.shopTier); stock can fall back to another tier.
-// A market's tier comes through scene.marketTheme (an NPC stall carries its
+// A shop's tier comes through scene.shopLine (an NPC stall carries its
 // own line); a smithy's and a trader's straight off the ledger.
 Render.shopTierBadge = (scene, house, role) => {
-  const tier = role === 'market' ? scene.marketTheme(house).tier : Shops.shopTier(scene.save, house, role);
+  const tier = role === 'shop' ? scene.shopLine(house).tier : Shops.shopTier(scene.save, house, role);
   if (tier == null) return null;
   const t = Math.min(7, Math.max(1, tier));
   const color = TIER_BADGE_TINT[t] ?? TIER_BY_NUM[t].color;
@@ -260,9 +260,9 @@ Render.shopTierBadge = (scene, house, role) => {
     color: (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? '#1a1612' : '#fff4e0',
   };
 };
-// Market signs identify the line, not the randomly selected stock item.
+// Shop signs identify the line, not the randomly selected stock item.
 // Category icons are the inventory tabs' pixel art (sign-ink brown); books keep their item icon.
-Render.MARKET_SIGN_ICONS = Object.freeze({
+Render.SHOP_SIGN_ICONS = Object.freeze({
   seed: { tab: 'seed' },
   supply: { tab: 'supplies' },
   potion: { tab: 'magic' },
@@ -270,15 +270,28 @@ Render.MARKET_SIGN_ICONS = Object.freeze({
   pet: { tab: 'animal' },
   book: { item: 'book' },
 });
-Render.marketSignTheme = (scene, house, role) => {
-  if (house.kind !== 'house' || role !== 'market') return null;
-  const theme = scene.marketTheme(house).theme;
-  return Render.MARKET_SIGN_ICONS[theme] ? theme : null;
+Render.shopSignTheme = (scene, house, role) => {
+  if (house.kind !== 'house' || role !== 'shop') return null;
+  const theme = scene.shopLine(house).theme;
+  return Render.SHOP_SIGN_ICONS[theme] ? theme : null;
 };
-Render.marketSignIconHTML = (scene, theme, size) => {
-  const icon = Render.MARKET_SIGN_ICONS[theme];
+// The line board beside the tier chip, in that chip's colours: the tier's
+// fill, the chip's ink for the glyph, and a darker rim of the same hue. An
+// unranked shop (no chip) keeps the plain signboard wood.
+const SHOP_SIGN_PX = 12;     // the board's side, game px — about a tier chip's height
+const SHOP_SIGN_GAP = 2;     // board to chip, game px
+Render.SHOP_SIGN_PX = SHOP_SIGN_PX;
+Render.shopSignLook = (badge) => {
+  if (!badge) return { background: '#ead4a0', border: '#654628', ink: '#382719' };
+  const c = parseInt(badge.backgroundColor.slice(1), 16);
+  const dark = [16, 8, 0].map((sh) => Math.round(((c >> sh) & 255) * 0.55));
+  return { background: badge.backgroundColor, ink: badge.color,
+    border: '#' + dark.map((v) => v.toString(16).padStart(2, '0')).join('') };
+};
+Render.shopSignIconHTML = (scene, theme, size, ink = '#382719') => {
+  const icon = Render.SHOP_SIGN_ICONS[theme];
   if (!icon) return '';
-  if (icon.tab) return invCatIconHTML(icon.tab, size, '#382719');
+  if (icon.tab) return invCatIconHTML(icon.tab, size, ink);
   return scene.iconSpanHTML(icon.item, size);
 };
 const COIN_DROP_PX = 9;
@@ -871,7 +884,7 @@ function setStyleOnce(el, prop, value) {
   last[prop] = value;
   el.style[prop] = value;
 }
-// Hide every roof sign (market signboards, delivery callouts). They are <body>
+// Hide every roof sign (shop signboards, delivery callouts). They are <body>
 // overlays at fixed SCREEN positions, hidden only by drawObjects' sign pass:
 // a frame that never reaches it (a swallowed loop error, the frame a floor
 // changes) would leave one pinned over the view, riding along with the
@@ -3296,7 +3309,7 @@ Render.chasmArtForObjects = function chasmArtForObjects(scene, holes) {
       const n = absCellOffset(scene, c.cellIX, c.cellIY, dx, dy);
       if (!cells.has(`${n.cellIX}:${n.cellIY}`)) mask |= bit;
     }
-    result.set(o, { _chasmMask: mask });
+    result.set(o, { _chasmMask: mask, _cell: c });
   }
   return result;
 };
@@ -3378,7 +3391,7 @@ const _ROLE_INK = {
   trailer:    '#a8b0c0',
   blacksmith: '#c25a3a',
   trader:     '#ffae5c',
-  market:     '#5ddcc0',
+  shop:     '#5ddcc0',
   wizard:     '#b98cff',   // arcane violet
   turret:     '#9aa49a',   // the fort's mossy stone — it is a piece of castle
 };
@@ -3562,9 +3575,9 @@ Render.drawObjects = function drawObjects(scene) {
   // lightmap — an emptied POI is no longer a place that glows.
   const openedSet = setOf(scene.save.opened);
   // The day ledger (interactables.js dayLedgerAges — id → days since taken):
-  // a pot of gold, a courier's post, the chapel's blessing or a grove shrine's gift
+  // a courier's post, the chapel's blessing or a grove shrine's gift
   // taken TODAY, or a crate inside its restock days — unlit (and a
-  // pot, rack or crate hidden) until it comes back.
+  // rack or crate hidden) until it comes back.
   const burstSet = dayLedgerAges(scene.save);
   // The frame's spent sets, built ONCE and handed to isSpent (the sprite cull
   // below) and poiLit (the POI light) alike.
@@ -3894,7 +3907,13 @@ Render.drawObjects = function drawObjects(scene) {
   const hazardState = EnvironmentHazards.lists(scene);
   const openCaveins = hazardState.caveins.filter(h => h.phase === 'open' && !h.blocked
     && Math.abs(h.x - pWorldX) <= halfM + scene.cellM && Math.abs(h.y - pWorldY) <= halfM + scene.cellM);
-  for (const [o, art] of Render.chasmArtForObjects(scene, [...chasmObjects, ...openCaveins])) connectedArt.set(o, art);
+  // Chasm sections join edge to edge, so each seats on its terrain slot
+  // (coords.js absCellScreenCentre), never on its own rounded projection.
+  const chasmPc = viewAnchorCell(scene), chasmAt = new Map();
+  for (const [o, art] of Render.chasmArtForObjects(scene, [...chasmObjects, ...openCaveins])) {
+    connectedArt.set(o, { _chasmMask: art._chasmMask });
+    chasmAt.set(o, absCellScreenCentre(scene, chasmPc, art._cell.cellIX, art._cell.cellIY));
+  }
   const { fruitList } = Render.objectAppearance(scene, houseRoles);
   for (const item of filteredObj) {
     const art = connectedArt.get(item.o);
@@ -4062,7 +4081,7 @@ Render.drawObjects = function drawObjects(scene) {
   const objectStyleRevision = ((relics.axe?.tier || 0) << 4) | (relics.pickaxe?.tier || 0);
   const configureObject = (s, item) => {
     const { o, dx, dy } = item;
-    const { x: sx, y: sy } = project(dx, dy);
+    const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
     setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     // A shiny tree, or a building raised under the Magic Hammer (Houses.isShinyHouse).
     Render.setShine(s, (isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree))
@@ -4306,12 +4325,12 @@ Render.drawObjects = function drawObjects(scene) {
   // one table app.js's restoration card and offer titles read too, so the sign
   // over a shop and the words inside its modal can't drift apart.
   //
-  // A themed shop's sign follows its LINE (scene.marketTheme): "Potion Shop". The
+  // A themed shop's sign follows its LINE (scene.shopLine): "Potion Shop". The
   // trader's sign follows its OFFER ("Rockfruit Trader" — scene.traderGoodsName
   // reads the same seeded pick the barter modal hands over). No sign carries a
   // street-address numeral.
   const _roleLabel = (role, o) => Shops.roleLabel(role,
-    role === 'market' && typeof scene.marketTheme === 'function' ? scene.marketTheme(o).theme : null,
+    role === 'shop' && typeof scene.shopLine === 'function' ? scene.shopLine(o).theme : null,
     role === 'trader' && typeof scene.traderGoodsName === 'function' ? scene.traderGoodsName(o) : null);
   const _houseSignText = (o) => {
     const role = _houseRole(o);
@@ -4321,7 +4340,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (role === 'trailer') return Shops.BUILDING_LABEL.trailer;
     if (role === 'wizard') return Shops.TOWER_LABEL[MemoryStory.towerAccess(scene.save, o)];
     // The settled role the player picked at the wreck (blacksmith / trader /
-    // market / turret / wizard).
+    // shop / turret / wizard).
     const ordinary = role === 'plain' || role === 'fort';
     const label = ordinary ? null : _roleLabel(role, o);
     if (label) return label;
@@ -4354,8 +4373,12 @@ Render.drawObjects = function drawObjects(scene) {
   const shopHouses = filteredObj.filter(({ o, wide }) => !wide && o.kind === 'house' && _houseSignText(o));
   const shopBadges = scene.shopBadgePool || (scene.shopBadgePool = []);
   // The tier chips under the signs: collected as the signs are laid out, so
-  // each chip hangs off its own sign's measured height.
+  // each chip hangs off its own sign's measured height. A themed shop's line
+  // board (the DOM pass below) sits on the chip's row, just left of it, and
+  // wears the chip's tier colour; the seat is recorded here per house.
   const badgeList = [];
+  const signSeats = scene._shopSignSeats || (scene._shopSignSeats = new Map());
+  signSeats.clear();
   Render.renderPool(scene, scene.shopLabelPool, scene.labelContainer, shopHouses, (tx, item) => {
     const { o, dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
@@ -4368,18 +4391,29 @@ Render.drawObjects = function drawObjects(scene) {
     setColorOnce(tx, _lighten30(_houseSignInk(o)));
     tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(sy + 7) + 5);
     fadeLabelOverPlayer(tx, _playerBox);
-    const badge = Render.shopTierBadge(scene, o, _houseRole(o));
-    if (badge) badgeList.push({ badge, sx, y: tx.y + tx.height + 1 });
+    const role = _houseRole(o);
+    const badge = Render.shopTierBadge(scene, o, role);
+    const signed = !!Render.shopSignTheme(scene, o, role);
+    const y = tx.y + tx.height + 1;
+    if (badge) badgeList.push({ badge, sx, y, id: o.id, signed });
+    // An unranked shop (the Pet / Book Shop) has no chip: its board alone
+    // takes the row, centred under the name.
+    else if (signed) signSeats.set(o.id, { x: clampTextX(sx, SHOP_SIGN_PX, CANVAS_W), y: y + SHOP_SIGN_PX / 2, badge: null });
   }, labelFactory('sign'));
-  Render.renderPool(scene, shopBadges, scene.labelContainer, badgeList, (chip, { badge, sx, y }) => {
+  Render.renderPool(scene, shopBadges, scene.labelContainer, badgeList, (chip, { badge, sx, y, id, signed }) => {
     if (chip.text !== badge.text) chip.setText(badge.text).setStyle({
       color: badge.color, backgroundColor: badge.backgroundColor,
     });
-    chip.setPosition(Math.round(clampTextX(sx, chip.width, CANVAS_W)), Math.round(y));
+    // [board][gap][chip], the pair centred under the name as one row.
+    const lead = signed ? SHOP_SIGN_PX + SHOP_SIGN_GAP : 0;
+    const rowW = lead + chip.width;
+    const left = clampTextX(sx, rowW, CANVAS_W) - rowW / 2;
+    chip.setPosition(Math.round(left + lead + chip.width / 2), Math.round(y));
+    if (signed) signSeats.set(id, { x: left + SHOP_SIGN_PX / 2, y: Math.round(y) + chip.height / 2, badge });
     fadeLabelOverPlayer(chip, _playerBox);
   }, labelFactory('badge'));
 
-  // Market signboards and residential delivery plaques use real
+  // Shop signboards and residential delivery plaques use real
   // item ICONS instead of emoji text. Uses the same mechanism as flashLoot's
   // loot icon: pooled <div>s appended to <body> (NOT #game, whose CSS
   // transform would become the containing block for position:fixed) and
@@ -4423,13 +4457,15 @@ Render.drawObjects = function drawObjects(scene) {
         .map((t) => t.getBounds());
       for (const it of filteredObj) {
         // Every delivery host gets a roof callout: the wishlist of produce icons
-        // while hungry, a smiling face once a bundle is delivered; a market
+        // while hungry, a smiling face once a bundle is delivered; a shop
         // building shows its line's inventory-tab symbol instead.
         if (it.wide || it.o.kind !== 'house') continue;
-        const market = Render.marketSignTheme(scene, it.o, _houseRole(it.o));
-        if (!market && !_houseIsHost(it.o)) continue;
-        const happy = !market && _houseSatisfied(it.o);
-        const wanted = market || happy ? null : scene.wantedProduce(it.o);
+        const shop = Render.shopSignTheme(scene, it.o, _houseRole(it.o));
+        const seat = shop ? signSeats.get(it.o.id) : null;
+        if (shop && !seat) continue;
+        if (!shop && !_houseIsHost(it.o)) continue;
+        const happy = !shop && _houseSatisfied(it.o);
+        const wanted = shop || happy ? null : scene.wantedProduce(it.o);
         const { x: sx, y: sy } = project(it.dx, it.dy);
         let slot = pool[psi];
         if (!slot) {
@@ -4449,20 +4485,27 @@ Render.drawObjects = function drawObjects(scene) {
         // Rebuild contents only when the wishlist / happy state / icon size
         // changes — the produce set is memoized per house, so this is normally
         // a no-op. The 'happy' sentinel in the key flips the bubble on delivery.
-        const key = it.o.id + '|' + (market || (happy ? 'happy' : wanted.join(','))) + '|' + sizePx;
+        const signPx = Math.max(6, Math.round(SHOP_SIGN_PX * scale));
+        const look = shop ? Render.shopSignLook(seat.badge) : null;
+        const key = it.o.id + '|' + (shop ? shop + '|' + look.background : (happy ? 'happy' : wanted.join(',')))
+          + '|' + (shop ? signPx : sizePx);
         if (slot.key !== key) {
           slot.el.replaceChildren();
-          slot.el.className = market ? 'market-sign' : 'delivery-callout';
-          slot.el.setAttribute('aria-label', market ? Shops.roleLabel('market', market) : 'House delivery');
-          Object.assign(slot.el.style, {
-            background: market ? '#ead4a0' : '#fff',
-            border: market ? '2px solid #654628' : '1px solid rgba(0,0,0,0.18)',
-            borderRadius: market ? '3px' : '7px',
-            padding: market ? '3px' : '3px 5px',
-            boxShadow: market ? '1px 2px 0 #382719' : '0 1px 3px rgba(0,0,0,0.4)',
+          slot.el.className = shop ? 'shop-sign' : 'delivery-callout';
+          slot.el.setAttribute('aria-label', shop ? Shops.roleLabel('shop', shop) : 'House delivery');
+          const edge = Math.max(1, Math.round(scale));
+          Object.assign(slot.el.style, shop ? {
+            // A square board the chip's height, in the chip's tier colour.
+            background: look.background, border: `${edge}px solid ${look.border}`,
+            borderRadius: '2px', padding: '0', boxShadow: `0 ${edge}px 0 rgba(0,0,0,0.45)`,
+            boxSizing: 'border-box', width: signPx + 'px', height: signPx + 'px', justifyContent: 'center',
+          } : {
+            background: '#fff', border: '1px solid rgba(0,0,0,0.18)', borderRadius: '7px',
+            padding: '3px 5px', boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+            boxSizing: '', width: '', height: '', justifyContent: '',
           });
-          if (market) {
-            slot.el.innerHTML = Render.marketSignIconHTML(scene, market, sizePx);
+          if (shop) {
+            slot.el.innerHTML = Render.shopSignIconHTML(scene, shop, Math.max(4, signPx - 2 * edge - 2 * Math.max(1, Math.round(scale))), look.ink);
           } else if (happy) {
             // Smiling face — non-item UI, so emoji is allowed here (see QC §1).
             const face = document.createElement('div');
@@ -4475,38 +4518,38 @@ Render.drawObjects = function drawObjects(scene) {
           }
           // Downward tail — a CSS triangle absolutely positioned at the bubble's
           // bottom centre so it points at the house. position:absolute keeps it
-          // out of the flex flow, so it doesn't shift the icon row.
-          const tail = document.createElement('div');
-          tail.style.cssText = 'position:absolute;left:50%;bottom:-5px;width:0;height:0;'
-            + 'border-left:5px solid transparent;border-right:5px solid transparent;'
-            + 'border-top:6px solid #fff;transform:translateX(-50%);'
-            + 'filter:drop-shadow(0 1px 0 rgba(0,0,0,0.18));';
-          if (market) {
-            // A short hanger ties the little board to the storefront.
-            tail.style.cssText = 'position:absolute;left:50%;top:-7px;width:3px;height:6px;'
-              + 'background:#654628;transform:translateX(-50%);';
+          // out of the flex flow, so it doesn't shift the icon row. A shop's
+          // board sits on the label row and needs none.
+          if (!shop) {
+            const tail = document.createElement('div');
+            tail.style.cssText = 'position:absolute;left:50%;bottom:-5px;width:0;height:0;'
+              + 'border-left:5px solid transparent;border-right:5px solid transparent;'
+              + 'border-top:6px solid #fff;transform:translateX(-50%);'
+              + 'filter:drop-shadow(0 1px 0 rgba(0,0,0,0.18));';
+            slot.el.appendChild(tail);
           }
-          slot.el.appendChild(tail);
           slot.key = key;
         }
-        // Float the bubble ABOVE the house roof: translate(-50%,-100%) anchors it
-        // by its bottom-centre at sy-18.
-        const signX = sx + (market ? 18 : 0);
-        const signY = sy - (market ? 3 : 18);
+        // A callout floats ABOVE the house roof: translate(-50%,-100%) anchors
+        // it by its bottom-centre at sy-18. A shop's board is centred on its
+        // seat beside the tier chip.
+        const signX = shop ? seat.x : sx;
+        const signY = shop ? seat.y : sy - 18;
         const px = rect.left + signX * scale;
         const py = rect.top  + signY * scale;
-        setStyleOnce(slot.el, 'transform', `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, -100%)`);
+        setStyleOnce(slot.el, 'transform', `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, ${shop ? '-50%' : '-100%'})`);
         setStyleOnce(slot.el, 'display', 'flex');
-        // Bubble box in game px: n icons + 3px gaps, 5px/3px padding, 1px
-        // border, 6px tail (CSS px ÷ scale).
-        const n = market || happy ? 1 : Math.max(1, wanted.length);
-        const bw = n * ICON_GAME + ((n - 1) * 3 + 12) / scale;
-        const bh = ICON_GAME + (8 + 6) / scale;
-        const bl = signX - bw / 2, bb = signY + 6 / scale, bt = bb - bh;
+        // Box in game px. A callout: n icons + 3px gaps, 5px/3px padding, 1px
+        // border, 6px tail (CSS px ÷ scale). A board: its square.
+        const n = shop || happy ? 1 : Math.max(1, wanted.length);
+        const bw = shop ? SHOP_SIGN_PX : n * ICON_GAME + ((n - 1) * 3 + 12) / scale;
+        const bh = shop ? SHOP_SIGN_PX : ICON_GAME + (8 + 6) / scale;
+        const bb = shop ? signY + SHOP_SIGN_PX / 2 : signY + 6 / scale;
+        const bl = signX - bw / 2, bt = bb - bh;
         const covered = toastRects.some((r) =>
           !(bl + bw <= r.left || bl >= r.right || bb <= r.top || bt >= r.bottom));
         setStyleOnce(slot.el, 'visibility', covered ? 'hidden' : 'visible');
-        const overPlayer = market && _playerBox
+        const overPlayer = shop && _playerBox
           && !(bl + bw <= _playerBox.x0 || bl >= _playerBox.x1 || bb <= _playerBox.y0 || bt >= _playerBox.y1);
         setStyleOnce(slot.el, 'opacity', overPlayer ? String(LABEL_OVER_PLAYER_ALPHA) : '1');
         psi++;
@@ -4587,7 +4630,7 @@ Render.drawObjects = function drawObjects(scene) {
   const NEST_WIGGLE_DEG = 8;
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
-    const { x: sx, y: sy } = project(dx, dy);
+    const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
     setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     // A NEST BUSH (items.js isNestBush — the predicate the harvest pays the
     // baby off) WIGGLES: three quick swings, NEST_WIGGLE_DEG either side of
@@ -4761,7 +4804,7 @@ Render.drawObjects = function drawObjects(scene) {
   for (const effect of scene._creatureMeleePool) effect.setVisible(false).clear();
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;
-    const { x: sx, y: sy } = project(dx, dy);
+    const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
     setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     if (Render.drawCreatureDisguise(s, c, sx, sy, performance.now())) return;
     // ONE BRANCH FOR EVERY CREATURE: the sheet, frame stepping and float all come
@@ -4939,7 +4982,7 @@ Render.drawObjects = function drawObjects(scene) {
 
   scene._environmentHazardPool ||= [];
   Render.renderPool(scene, scene._environmentHazardPool, scene.creaturesContainer, environmentList, (s, it) => {
-    const { x: sx, y: sy } = project(it.dx, it.dy), h = it.h;
+    const h = it.h, { x: sx, y: sy } = chasmAt.get(h) || project(it.dx, it.dy);
     const cfg = EnvironmentHazards.CONFIG[h.type];
     s.anims?.stop();
     s.setTexture(h.phase === 'open' && cfg.openTexture || cfg.texture, connectedArt.get(h)?._chasmMask ?? h.frame)
@@ -5373,16 +5416,14 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
                 s.setAlpha(toolGatedAlpha(o, scene.save));
               } },
     // Which look (trunk / crate / barrel / bike rack / produce stand / macro
-    // stall / wagon / pot of gold) this object wears is loot.js's `chestLook`, the
-    // same resolver the treasure ceremony asks for its hero icon. An ATM spills
-    // collectible coins, so it renders as a "pot of gold"; a cave-level mirror of
-    // one is a plain chest. An opened chest never reaches the renderer (filtered
+    // stall / wagon) this object wears is loot.js's `chestLook`, the
+    // same resolver the treasure ceremony asks for its hero icon. An opened chest never reaches the renderer (filtered
     // out above); clay pots retain their broken art (o._smashed, stamped
     // by the filter). Wooden barrels disappear when collected.
     chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? L.smashedKey : L.texKey; },
               // The shared look selects each tier's recoloured chest frame and
-              // the produce stand's awning. Procedural pots of gold have no frame.
-              frame: (o) => { const L = chestLook(o); return L.coin ? undefined : L.frame; },
+              // the produce stand's awning.
+              frame: (o) => chestLook(o).frame,
               // THE WAGON (a bus stop on an old trade road): 32×32 art, drawn at
               // WAGON_SCALE (~1.5 cells wide) and foot-anchored like the stall —
               // a structure, not a chest, so it is not seated; its wheels sit
@@ -5394,18 +5435,17 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // 80×80 frame and box (x:[12,80) y:[0,70), feet on row 70), so
               // every stall number below holds for it (a structure, not seated).
               origin: (o) => { const L = chestLook(o);
-                               return (L.stand || L.macro || L.wagon) ? [0.5, 1.0] : (L.coin ? [0.5, 0.95] : [0.5, 0.9]); },
+                               return (L.stand || L.macro || L.wagon) ? [0.5, 1.0] : [0.5, 0.9]; },
               // Chest kinds and the market stall are drawn smaller than their sheet (they
               // crowded the cell) about the SAME centre: seated kinds (trunk chest, crates)
               // are re-centred by the seat pass, and the stall's dxPx/dyPx are derived for
               // its scale. Crates (box, 16×16) sit at CRATE_SCALE (16 × 0.8 = ~13px) so a
               // crate reads as a small prop; the gold chest uses CHEST_SCALE (~22px wide).
-              // The stall and the pot of gold are structures, not chests; the pot is a
-              // further 20% smaller. Wooden barrels fill 16px; clay pots draw at CLAY_POT_SCALE.
+              // The stall is a structure, not a chest. Wooden barrels fill 16px; clay pots draw at CLAY_POT_SCALE.
               // The shared spec also sizes the map-review artwork.
               scale: (o) => { const L = chestLook(o);
-                              return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.12
-                                : (L.barrel ? (L.texKey === 'barrel' ? BARREL_SCALE : CLAY_POT_SCALE) : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE))))); },
+                              return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54
+                                : (L.barrel ? (L.texKey === 'barrel' ? BARREL_SCALE : CLAY_POT_SCALE) : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE)))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5 centres the
               // FRAME box, but market_stand.png's opaque pixels are x:[12,80] in the 80px
               // frame. -3.24 (= 6px frame offset × 0.54 scale) centres the art; +3 on top per
@@ -5413,7 +5453,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // re-derived whenever the scale changes.
               // The macro art is centred in the same 12..80 box (trimmed centres
               // x 45.5..46 against the stall's 46), so the stall's -0.24 holds.
-              dxPx: (o) => { const L = chestLook(o); return (L.stand || L.macro) ? -0.24 : (L.coin ? 4 : 0); },
+              dxPx: (o) => { const L = chestLook(o); return (L.stand || L.macro) ? -0.24 : 0; },
               // The crate is foot-anchored (origin y 0.9) but must sit CENTRED in its cell,
               // so the anchor is pushed down by (0.9-0.5)·16·scale. This is only the
               // fallback — the seat pass below recomputes it from the trimmed art bounds
@@ -5422,10 +5462,10 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // (y:[0,70) of 80); at scale 0.54 the art centre sits at 19.3
               // (= 45px art-centre-above-anchor × 0.54 - 5).
               dyPx: (o) => { const L = chestLook(o);
-                             return L.wagon ? WAGON_DY_PX() : ((L.stand || L.macro) ? 19.3 : (L.coin ? 8 : (L.box ? 0.4 * 16 * CRATE_SCALE : 0))); },
+                             return L.wagon ? WAGON_DY_PX() : ((L.stand || L.macro) ? 19.3 : (L.box ? 0.4 * 16 * CRATE_SCALE : 0)); },
               // Plain chests + crates obey the "one cell" rule (centred); produce
-              // stands and the pot-of-gold are structure-like and stay foot-anchored.
-              seat: (o) => { const L = chestLook(o); return !L.stand && !L.macro && !L.coin && !L.wagon; },
+              // stands, macro stalls and the wagon are structure-like and stay foot-anchored.
+              seat: (o) => { const L = chestLook(o); return !L.stand && !L.macro && !L.wagon; },
               shadow: true },
     fruittree: { key: (o) => `${o.species === 'worldpeach' ? 'worldpeach' : 'apple'}_tree`,
               frame: (o) => {

@@ -86,21 +86,29 @@ class SceneShops {
   // THE STALL COUNTER — the one buy dialog every counter shares: the market
   // stall above, and the macro stalls that sell (the apothecary's potion and
   // cure, the sundries' supply, the scriptorium's Book and torch —
-  // src/macros.js; the same price and no stock limit). A
+  // src/macros.js; the same price and no stock limit, except the
+  // scriptorium's one Book each at a climbing price — its row's `price`,
+  // `bought` and `restock`). A
   // counter of more than one item shows a tab per item. `items` are ids;
   // `index` is the tab shown; `kind` / `kindLabel` / `art` dress the dialog
   // (the market stall keeps the 'shop' kind's own painting).
   _presentStallOffer(sx, sy, opts) {
     // Single-modal guard — mirror shopInteract so rapid taps can't stack modals.
     if (document.getElementById('offer-modal')) return;
-    const { items, index = 0, title, kind = 'shop', kindLabel, art } = opts;
+    const { title, kind = 'shop', kindLabel, art } = opts;
+    // A macro counter re-reads its stock (`restock`) so a once-only line
+    // (the scriptorium's Book) leaves the shelf after it sells.
+    const items = opts.restock ? opts.restock() : opts.items;
+    const index = Math.min(opts.index || 0, Math.max(0, (items?.length || 0) - 1));
     const id = items && items[index];
     if (!id) return;
     const item = ITEM_BY_ID[id];
     // The list price is the ladder's (ShopsMath.listPrice — only the Book
     // climbs, with every one bought); the stall discount comes off that.
     const listPrice = ShopsMath.listPrice(this.save, id);
-    const unitPrice = ShopsMath.standPrice(this.save, listPrice);
+    // A macro counter may price a line itself (`priceOf` — the
+    // scriptorium's climbing Book); null is the stall price.
+    const unitPrice = opts.priceOf?.(this.save, id) ?? ShopsMath.standPrice(this.save, listPrice);
     const iconHTML = this.iconSpanHTML(id);
     const itemName = item?.name || id;
     const money = () => this.save.money ?? 0;
@@ -146,6 +154,7 @@ class SceneShops {
         pay = unitPrice * take;
         addMoney(this.save, -pay);
         if (id === 'book') ShopsMath.bookBought(this.save, take);
+        opts.bought?.(this.save, id, take, unitPrice);
         this._settleDeal(null, [`${take}× ${itemName}\n−${pay}`, UI_GOLD, 1, id]);
         receipt = `Bought ${take}× ${itemName} for ${pay} coins.`;
       },
@@ -307,7 +316,7 @@ class SceneShops {
       this.flash(`${shopType} busy — back in ${shortDuration(dealWait)}`, sx, sy);
       return;
     }
-    // FLOWER GIFT — tapping a CASH shop (market / fort storefront / castle
+    // FLOWER GIFT — tapping a CASH shop (shop / fort storefront / castle
     // vault) with Flowers selected offers to charm the keeper: one bouquet
     // buys half prices at THIS building for SHOP_CHARM_MS. Only cash shops —
     // a bouquet at a barter trader / wizard / delivery house would buy
@@ -317,7 +326,7 @@ class SceneShops {
     // castle is excluded too — it sells nothing to discount, only
     // the daily rest/tax favour (see presentCastleServiceOffer).
     if (house && house.id != null && sel && sel.id === 'flowers' && (sel.count ?? 0) > 0
-        && ((castle && !this.isCastleClaimed(house)) || shopType === 'market')
+        && ((castle && !this.isCastleClaimed(house)) || shopType === 'shop')
         && this.shopCharmMul(house) === 1) {
       this.showOfferModal({
         kind: 'shop',
@@ -354,7 +363,7 @@ class SceneShops {
     if (house && house.id != null && sel && sel.id === Houses.PERMIT_ID && (sel.count ?? 0) > 0 && shopType && shopType !== 'turret' && !castle) {
       const to = Houses.renovateTo(this.save, house);
       if (to.tier) {
-        const label = Shops.roleLabel(shopType, shopType === 'market' ? this.marketTheme(house).theme : null) || 'shop';
+        const label = Shops.roleLabel(shopType, shopType === 'shop' ? this.shopLine(house).theme : null) || 'shop';
         this.showOfferModal({
           kind: 'build',
           title: 'Renovate the building?',
@@ -444,9 +453,9 @@ class SceneShops {
       }, house);
       return;
     }
-    // THEMED SHOPS (role key 'market') sell one line each — seed, supply,
+    // THEMED SHOPS (role key 'shop') sell one line each — seed, supply,
     // potion, ore, relic or pet, by restore order — see presentThemedShop.
-    if (shopType === 'market') {
+    if (shopType === 'shop') {
       this.presentThemedShop(sx, sy, house, recordDeal);
       return;
     }
@@ -477,7 +486,7 @@ class SceneShops {
     }
     const baseValue = itemValue(id);
     const item = ITEM_BY_ID[id];
-    // Every cash storefront (markets + generic houses) buys for money now;
+    // Every cash storefront (shops + generic houses) buys for money now;
     // barter lives only in the dedicated 'trader' shop kind (presentTraderOffer
     // above). buildShopOffer always returns a cash offer.
     const offer = this.buildShopOffer(id, baseValue, { house });
@@ -631,14 +640,14 @@ class SceneShops {
   }
 
 
-  // The line and tier a themed shop (role key 'market') sells: its place in
+  // The line and tier a themed shop (role key 'shop') sells: its place in
   // the save's restore order of shops, through Shops.themeAt — seed, supply,
   // potion, ore, relic, then round again a tier up (the Book and Pet lines
-  // are one-off stamps, Shops.SOLO_LINES). The tutorial's market
+  // are one-off stamps, Shops.SOLO_LINES). The tutorial's shop
   // (Houses.BUILD_OPTIONS, from the third rebuild) is the first shop, so it is still the
   // beginner's T1 seed shop. The sign, the offer title, the restoration card
   // and the stock all read this one answer.
-  marketTheme(house) {
+  shopLine(house) {
     if (house?.kind === 'npc') return { theme: house.shopTheme, tier: 1 };
     return Shops.lineFor(this.save, house);
   }
@@ -970,7 +979,7 @@ class SceneShops {
   // relic line hands off to the relic offer — capped at the shop's tier, never
   // at or below what the player wears — with the same cheap re-roll.
   presentThemedShop(sx, sy, house, recordDeal) {
-    const { theme, tier } = this.marketTheme(house);
+    const { theme, tier } = this.shopLine(house);
     const cost = ShopsMath.themedRerollCost;
     if (theme === 'relic') {
       const peek = () => this.peekOrBuildRelicOffer(house, { maxTier: tier });
@@ -988,7 +997,7 @@ class SceneShops {
   // holds for the hour and a re-roll (which bumps the bucket's rerolls, part
   // of the seed) moves it on.
   themedShopPick(house) {
-    const { theme, tier } = this.marketTheme(house);
+    const { theme, tier } = this.shopLine(house);
     const rng = house?.id ? this.shopRng(house, 'theme') : Math.random;
     return Shops.pickThemed(theme, tier, rng);
   }
@@ -996,7 +1005,7 @@ class SceneShops {
   // How many items this themed shop can stock — the list themedShopPick
   // draws from.
   _themedStockCount(house) {
-    const { theme, tier } = this.marketTheme(house);
+    const { theme, tier } = this.shopLine(house);
     return Shops.themedOfferStock(theme, tier).length;
   }
 
@@ -1004,7 +1013,7 @@ class SceneShops {
   // trader's (Shops.shopTier); nothing for a role with none.
   shopTierBadgeHTML(house) {
     const role = this.houseShopRole(house);
-    const tier = role === 'market' ? this.marketTheme(house).tier : Shops.shopTier(this.save, house, role);
+    const tier = role === 'shop' ? this.shopLine(house).tier : Shops.shopTier(this.save, house, role);
     if (tier == null) return '';
     return `<div style="margin-top:6px">${tierBadgeHTML(tier)}</div>`;
   }
@@ -1022,7 +1031,7 @@ class SceneShops {
     const item = ITEM_BY_ID[id];
     // The base is the ladder's (ShopsMath.listPrice — the Book climbs with
     // every one bought; everything else is its itemValue).
-    const { tier } = this.marketTheme(house);
+    const { tier } = this.shopLine(house);
     const quantityRng = house?.id ? this.shopRng(house, 'theme-quantity') : Math.random;
     const units = Shops.themedQuantity(id, tier, quantityRng);
     const offer = this.buildShopOffer(id, units * ShopsMath.listPrice(this.save, id, itemValue(id)), { house });
@@ -1594,7 +1603,7 @@ class SceneShops {
       // The castle as caption, the quest's name as the bold headline, then
       // its one-sentence flavour over the objective and progress.
       title: done ? 'Quest complete!' : style.name,
-      get: q.title,
+      get: q.title, headline: 'banner',
       blurb: `<em>${Quests.flavour(q)}</em><div style="margin-top:6px;opacity:1">${q.body} `
         + (done ? `Reward: ${this.moneyHTML(q.reward)}` : `<b>${q.have} / ${q.need}</b>`) + '</div>',
       canAfford: done,
@@ -1768,7 +1777,7 @@ class SceneShops {
   }
 
   // Build a shop offer for buying ${id} (baseValue = itemValue(id)). Always a
-  // CASH price, so the two trade idioms map cleanly onto shop types: MARKETS (and every
+  // CASH price, so the two trade idioms map cleanly onto shop types: SHOPS (and every
   // generic cash storefront) want money, TRADERS barter (their own qty-scaled
   // path in presentTraderOffer). opts.house names the shop asking: it seeds
   // the markup roll off that shop's hour bucket (so the price holds for the

@@ -45,11 +45,12 @@ One frame each, foot-anchored and drawn like the market stall (loot.js `chestLoo
 | inn.png | the INN (lodging POIs): rest to full for coin, once a day per inn | generated placeholder — replace with hand art when available (picked from two candidates, inn_b) |
 | chapel.png | the CHAPEL (place_of_worship POIs): daily alms, the Old Stones anchor | generated placeholder — replace with hand art when available (picked from two candidates, chapel_b) |
 | apothecary.png | the APOTHECARY (pharmacy / dentist / hospital POIs): a T2 potion counter + the antidote | generated placeholder — replace with hand art when available (picked from two candidates, apothecary_a) |
-| scriptorium.png | the SCRIPTORIUM (library / college POIs): a free Book page a day, Books for sale | generated placeholder — replace with hand art when available (picked from two candidates, scriptorium_a) |
+| scriptorium.png | the SCRIPTORIUM (library / college POIs): one Book per scriptorium, torches for sale | generated placeholder — replace with hand art when available (picked from two candidates, scriptorium_a) |
 | guildhall.png | the GUILDHALL (town_hall / police / fire_station POIs): one daily commission | generated placeholder — replace with hand art when available (picked from two candidates, guildhall_b) |
 | curio.png | the CURIO HALL (museum / theatre / cinema POIs): donate one of each item, once | generated placeholder — replace with hand art when available (picked from two candidates, curio_a) |
 | sundries.png | SUNDRIES (the generic `shop` POIs no produce stall claims): one supply item for sale | generated placeholder — replace with hand art when available (picked from two candidates, sundries_b) |
 | training.png | the TRAINING HALL (sports_centre / yoga POIs): buy damage, for good or for a day | generated placeholder — replace with hand art when available (picked from two candidates, training_a) |
+| bank_simple.png | the BANK (bank / atm POIs): borrow or invest, a pirate collects the loan | placeholder derived from curio_simple.png (crimson awning, gold coin sign) — replace with hand art |
 | scholar.png | the SCHOLAR'S BOOTH (school POIs): the book club — found books read earn prizes off the school's own shelf | temporary: the market stall's first frame (`Approved/market_stand.png` frame 0), a generic booth — replace with its own art |
 
 ## Batch 4 — `gpt-image-2` (OpenAI direct, chroma-keyed), single-subject images

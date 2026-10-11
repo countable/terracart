@@ -179,7 +179,7 @@ test('memory story: every ledger caller names what the memory is for, and the ti
   const calls = [...app.matchAll(/this\._bankDiscovery\(([^\n]*)/g)].map((m) => m[1]);
   assert.eq(calls.length, 6, 'shiny, elite, first delivery, three slot stars, the first slot deluxe, a curio milestone');
   for (const c of calls) assert.truthy(/,\s*\S/.test(c) || /,$/.test(c.trim()), `label passed: ${c}`);
-  assert.truthy(/_syncModalGate\?\.\(\);\s*this\._drainBadgeStories\(\);/.test(app),
-    'the modal-gate tick drains the queue right after the sync');
+  assert.truthy(/_syncModalGate\?\.\(\);\s*this\._tickStoryHold\(\);\s*this\._drainBadgeStories\(\);/.test(app),
+    'the modal-gate tick drains the queue right after the sync and the story hold');
 });
 })();

@@ -19,7 +19,7 @@
 //   chestMirrorsUnderground, CRATE_RESTORE_PER, CRATE_RESTORE_MAX_DAYS,
 //   crateRestoreDays, BARREL_CLASSES, BARREL_LOOT, CLAY_POT_LOOT,
 //   barrelProfile, barrelLootPool, rollBarrel, isBarrel,
-//   POT_COINS_BY_DENSITY, potCoinsFor, isPotOfGold, isBikeRack, barrelFlash,
+//   POT_COINS_BY_DENSITY, potCoinsFor, isBikeRack, barrelFlash,
 //   bikeRackFlash
 //   STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM,
 //   STAND_NEVER_CLASSES,
@@ -33,7 +33,7 @@
 
 // === The GREAT X ===
 // A rarer X mark drawn thick and dark red (render.js drawX) whose dig rolls
-// `context` (rarity.js 'treasure:great': gold, a tool or weapon, or other
+// `context` (loot_contexts.js 'treasure:great': gold, a tool or weapon, or other
 // equipment) instead of the ordinary X's seeds-and-stone pool. It is the same
 // mark otherwise — same hiding, reach and found-ledger. `share` of EVERY X
 // mark is great, whatever stream laid it (scatter, parking, quota, path,
@@ -228,11 +228,12 @@ const POI_CATEGORY = {
   drinking_water: 'lowtier', toilets: 'lowtier',
   // ── Restful shelters — small reward, frequent
   shelter: 'lowtier', picnic_site: 'lowtier',
-  // ── ATM → the pot of gold (a daily coin burst, app.js) and bicycle
-  // parking → the bike rack (a daily stick-walk speed boost) — neither is
-  // looted (isPotOfGold / isBikeRack below). motorcycle_parking is diverted
-  // to a treasure X in worldgen (no chest), so it needs no category here.
-  bicycle_parking: 'lowtier', atm: 'lowtier',
+  // ── Banks and ATMs → the BANK booth (macroFor; borrow or invest, src/
+  // macros.js), and bicycle parking → the bike rack (a daily stick-walk
+  // speed boost, isBikeRack below) — none is looted, and as street
+  // furniture none mirrors underground. motorcycle_parking is diverted to a
+  // treasure X in worldgen (no chest), so it needs no category here.
+  bicycle_parking: 'lowtier', atm: 'lowtier', bank: 'lowtier',
   // ── Athletic facilities — park-class chests, fits the "leisure" feel
   sports_centre: 'park', yoga: 'park', swimming: 'park',
   swimming_pool: 'park', bowls: 'park', running: 'park',
@@ -471,13 +472,13 @@ function isBarrel(o) {
   return BARREL_CLASSES.has(o.poiClass) && !(o.depth > 0);   // a bin POI; its cave mirror is a plain chest
 }
 
-// ── POTS OF GOLD (ATMs) and BIKE RACKS ────────────────────────────────────
-// An ATM is a pot of gold: a coin burst once a UTC day (app.js
-// _coinBurstInteract). How many coins it spills is its DENSITY on its tile,
-// the poiDensity count restock days also read: POT_COINS_BY_DENSITY's anchors,
-// interpolated linearly in log(count) between them, rounded, never below 1 —
-// a lone ATM spills 30, one of 50 on the tile 3, one of 150+ a single coin.
-// A cave-level mirror is never a pot (lowtier chests don't mirror anyway).
+// ── COIN BURSTS and BIKE RACKS ────────────────────────────────────────────
+// How many coins a POI coin burst (app.js _coinBurstInteract, when its row is
+// not fillScreen) spills is its DENSITY on its tile, the poiDensity count
+// restock days also read: POT_COINS_BY_DENSITY's anchors, interpolated
+// linearly in log(count) between them, rounded, never below 1 — a lone POI
+// spills 30, one of 50 on the tile 3, one of 150+ a single coin. (ATMs, the
+// old pots of gold, are bank booths now — src/macros.js.)
 const POT_COINS_BY_DENSITY = [
   { count: 1, coins: 30 },
   { count: 50, coins: 3 },
@@ -494,9 +495,6 @@ function potCoinsFor(count) {
     }
   }
   return Math.max(1, A[A.length - 1].coins);
-}
-function isPotOfGold(o) {
-  return !!o && o.kind === 'chest' && o.poiClass === 'atm' && !(o.depth > 0) && !o.crate && !o.fixedLoot;
 }
 // A BIKE RACK (bicycle_parking) is not a chest at all: a tap lends the stick
 // walk BIKE_RACK_SPEED_MUL for BIKE_RACK_MS (items.js — the stick-walk speed
@@ -840,9 +838,10 @@ const MACRO_KIND_BY_CLASS = {
   museum: 'curio', theatre: 'curio', cinema: 'curio',
   shop: 'sundries',
   sports_centre: 'training', yoga: 'training',
+  bank: 'bank', atm: 'bank',
 };
 // Every kind, in a fixed order (the balancing page, the tests).
-const MACRO_KINDS = ['inn', 'chapel', 'apothecary', 'scriptorium', 'guildhall', 'curio', 'sundries', 'training', 'scholar'];
+const MACRO_KINDS = ['inn', 'chapel', 'apothecary', 'scriptorium', 'guildhall', 'curio', 'sundries', 'training', 'scholar', 'bank'];
 // { kind, texKey } for a chest that stands as a macro, else null. Cached on
 // the object like produceStandFor's answer (every input is fixed at spawn and
 // a rebuilt tile is a NEW object). A scripted chest (a starter crate, the
@@ -864,8 +863,6 @@ function macroFor(o) {
 //   macro  → a macro stall (macroFor): an inn, chapel, apothecary, … — a
 //            building-front whose tap is a service; texKey `macro_<kind>`
 //   stand  → the market stall: a shop, not a chest (produceStandFor)
-//   coin   → the pot of gold: an ATM (isPotOfGold). A cave-level mirror of
-//            one is a plain chest — the burst is a street thing.
 //   bike   → the bike rack (isBikeRack): a stick-walk speed boost a day
 //   barrel → a bin or recycling point (isBarrel): smashed permanently. The look carries a stable barrel or clay-pot pair;
 //            spent containers with no smashedKey disappear; others show that broken art.
@@ -873,8 +870,9 @@ function macroFor(o) {
 //            StreetVariants.markBanditStops stamps `banditStop`). The same
 //            chest: id, tier, contents and `opened` are untouched; only the
 //            look (and the one goblin lairs.js seats beside it) changes.
-//   box    → the small crate sprite: a starter supply crate, or a tier-1
-//            chest (chestTier — one the tile's quota pyramid left unseated)
+//   box    → the small crate sprite: a starter supply crate, a tier-1
+//            chest (chestTier — one the tile's quota pyramid left unseated),
+//            or any other bus stop (chestAlwaysCrate)
 //   —      → the trunk chest
 // `texKey` is the texture key the RENDERER draws, so a caller that wants the
 // picture (app.js worldIconHTML) asks for it by the same name rather than
@@ -886,21 +884,29 @@ function macroFor(o) {
 // stampPoiDensity) drop it when they restamp. Nothing about the player
 // enters it (chestTier is the world's), so every player sees the same look
 // on the same chest.
+// A BUS STOP's treasure is always a regular crate (tier 1, restocking — the
+// box look): the wagon art belongs to the mercenary alone (Macros
+// DAILY_VISIT_KINDS.wagon, the old-trade-road stops). worldgen.js
+// seedChestTiers keeps these out of the tier pyramid.
+const CHEST_ALWAYS_CRATE_CLASSES = new Set(['bus']);
+function chestAlwaysCrate(o) {
+  return !!o && CHEST_ALWAYS_CRATE_CLASSES.has(o.poiClass) && !(o.depth > 0) && !o.vista && !o.chestTopUp;
+}
 function chestLook(o) {
   if (o._chestLook) return o._chestLook;
   const stand = (typeof produceStandFor === 'function') ? produceStandFor(o) : null;
-  const coin = isPotOfGold(o);
-  const bike = !coin && isBikeRack(o);
-  const barrel = !coin && !bike && isBarrel(o);
+  const bike = isBikeRack(o);
+  const barrel = !bike && isBarrel(o);
   const barrelArt = barrel ? barrelProfile(o) : null;
-  const special = coin || bike || barrel;
-  // Starter supply crates always use the box sprite; so does a tier-1 chest.
-  const box = !!o.quarryCrate || !!o.crate || chestTier(o) === 1;
+  const special = bike || barrel;
+  // Starter supply crates always use the box sprite; so does a tier-1 chest
+  // and every bus stop (chestAlwaysCrate) that is not a mercenary wagon.
+  const box = !!o.quarryCrate || !!o.crate || chestTier(o) === 1 || chestAlwaysCrate(o);
   const macro = (!special && typeof macroFor === 'function') ? macroFor(o) : null;
   const wagon = !!o.banditStop && !(o.depth > 0) && !stand && !special && !macro;
-  const texKey = coin ? 'potofgold' : bike ? 'bike_rack' : barrel ? barrelArt.texKey : (macro ? macro.texKey
+  const texKey = bike ? 'bike_rack' : barrel ? barrelArt.texKey : (macro ? macro.texKey
     : (stand ? 'market_stand' : (wagon ? 'wagon' : (box ? 'box' : 'chest'))));
-  return (o._chestLook = { stand, coin, bike, barrel, macro, smashedKey: barrelArt?.smashedKey, barrelName: barrelArt?.name,
+  return (o._chestLook = { stand, bike, barrel, macro, smashedKey: barrelArt?.smashedKey, barrelName: barrelArt?.name,
     box: box && !wagon && !macro && !special, wagon, texKey,
     frame: texKey === 'chest' ? chestTier(o) - 1 : (stand ? stand.frame : 0) });
 }

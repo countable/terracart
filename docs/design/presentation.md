@@ -136,6 +136,16 @@ changing dialogue, story panels, books, toasts or status presentation.
   lore (docs/design/story.txt, ACT STRUCTURE). Memory and restoration are independent
   progress tracks; required events join them through prerequisites and world
   context. A painted panel can carry either layer. Lore never blocks canon.
+- Unprompted panels never interrupt an interaction. A memory, a story
+  ceremony (`intro`, `prize`, `story` in `_enqueueCeremony`), a pet's first
+  story, the fire breath and Maud's greeting wait behind the STORY HOLD
+  (`_storyHeld`, asked through `MemoryStory.storyHeld`): a dialog is open, or
+  the player tapped anything but the stick in the last `STORY_IDLE_MS`.
+  Walking does not hold. The 📜 badge on the map's corner counts what waits
+  (`_pendingStoryCount`); idling or tapping it starts a RUN that shows them in
+  order, and only a tap outside a dialog ends it. A panel answering the
+  player's own act (a receipt, a Book read, a neighbour's talk) asks only
+  `_dialogOpen`. A new deferred lane asks the hold and adds to the count.
 - A street variant tells its story once, on the feet's first entry
   (`_tickStreetFeet`). After that its map line (`StreetVariants` row `flash`)
   pops when a street of that kind enters the lit reach (`_tickStreetSight`,

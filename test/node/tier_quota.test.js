@@ -10,7 +10,7 @@
 (function () {
   
   const mk = (i, cat, rank, extra = {}) => ({   // surface: no depth, no caveOf
-    kind: 'chest', poiClass: cat === 'roadside' ? 'bus' : cat === 'food' ? 'cafe' : cat === 'civic' ? 'town_hall' : 'park',
+    kind: 'chest', poiClass: cat === 'roadside' ? 'fuel' : cat === 'food' ? 'cafe' : cat === 'civic' ? 'town_hall' : 'park',
     poiDensity: 1, x: i, y: 0, id: `q${i}`, rank, ...extra,
   });
 
@@ -24,6 +24,21 @@
     assert.eq(n(3), 11, 'eleven T3');
     assert.eq(n(2), 18, 'eighteen T2');
     assert.eq(n(1), 55, 'the rest T1');
+  });
+
+  test('quota: a bus stop is always a regular crate — tier 1, no pyramid seat', () => {
+    const objs = [];
+    for (let i = 0; i < 40; i++) objs.push(mk(i, 'food', i + 1));
+    for (let i = 40; i < 60; i++) objs.push({ ...mk(i, 'food', 1), poiClass: 'bus' });
+    WorldGen.seedChestTiers(objs);
+    const bus = objs.filter(o => o.poiClass === 'bus');
+    assert.truthy(bus.every(o => o.tierSeed === 1 && chestTier(o) === 1), 'every stop is tier 1, however well ranked');
+    assert.truthy(bus.every(o => chestLook(o).texKey === 'box'), 'and wears the crate');
+    assert.eq(chestLook({ kind: 'chest', poiClass: 'bus', id: 'unseeded' }).texKey, 'box', 'even unseeded');
+    assert.eq(objs.filter(o => o.tierSeed === 5).length, 1, 'the T5 seat goes to another POI');
+    const wagon = { kind: 'chest', poiClass: 'bus', id: 'w', banditStop: true, tierSeed: 1 };
+    assert.eq(chestLook(wagon).texKey, 'wagon', 'the trade-road stop is still the mercenary wagon');
+    assert.eq(Macros.visitKindForObject(wagon), Macros.DAILY_VISIT_KINDS.wagon);
   });
 
   test('quota: dense tiles scale toward double, capped at 1000 POIs', () => {
