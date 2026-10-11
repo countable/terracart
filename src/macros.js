@@ -417,18 +417,34 @@
 
   // ── SCRIPTORIUM: a book counter ───────────────────────────────────────────
   // A plain stall (no free daily page). It sells the Book and
-  // the one other scholarly thing the game has, a Torch to read by. Priced by
-  // stallPrice like every counter; no daily gate. The Book is sold ONCE PER
-  // SAVE across every scriptorium (save.scriptoriumBookSold, written only by
-  // scriptoriumBought); after that the counter offers the Torch alone.
+  // the one other scholarly thing the game has, a Torch to read by. No daily
+  // gate. Each scriptorium sells ONE Book, ever (save.scriptoriumBooks — the
+  // ids that have sold theirs); the Torch stays on the shelf. The first
+  // scriptorium's Book is at the stall price (the Book ladder's, like any
+  // counter); every later one asks SCRIPTORIUM_BOOK_PRICE_MUL × what the
+  // previous one was paid (save.scriptoriumBookPaid). scriptoriumBought is
+  // the one writer of both.
   const SCRIPTORIUM_BOOK = 'book';
   const SCRIPTORIUM_STOCK = [SCRIPTORIUM_BOOK, 'torch'];
-  function scriptoriumBookSold(save) { return !!(save && save.scriptoriumBookSold); }
-  function scriptoriumStock(save) {
-    return SCRIPTORIUM_STOCK.filter((id) => ITEM_BY_ID[id] && !(id === SCRIPTORIUM_BOOK && scriptoriumBookSold(save)));
+  const SCRIPTORIUM_BOOK_PRICE_MUL = 4;
+  function scriptoriumBookSold(save, o) {
+    return !!(o && Array.isArray(save?.scriptoriumBooks) && save.scriptoriumBooks.includes(o.id));
   }
-  function scriptoriumBought(save, id) {
-    if (id === SCRIPTORIUM_BOOK && save) save.scriptoriumBookSold = true;
+  function scriptoriumStock(save, o) {
+    return SCRIPTORIUM_STOCK.filter((id) => ITEM_BY_ID[id] && !(id === SCRIPTORIUM_BOOK && scriptoriumBookSold(save, o)));
+  }
+  // The Book's price at the next scriptorium (null for anything else: the
+  // counter's own stall price).
+  function scriptoriumPrice(save, id) {
+    if (id !== SCRIPTORIUM_BOOK) return null;
+    const paid = Math.floor(Number(save?.scriptoriumBookPaid) || 0);
+    return paid > 0 ? paid * SCRIPTORIUM_BOOK_PRICE_MUL : stallPrice(save, id);
+  }
+  function scriptoriumBought(save, o, id, unitPrice) {
+    if (id !== SCRIPTORIUM_BOOK || !save || !o) return;
+    if (!Array.isArray(save.scriptoriumBooks)) save.scriptoriumBooks = [];
+    if (!save.scriptoriumBooks.includes(o.id)) save.scriptoriumBooks.push(o.id);
+    save.scriptoriumBookPaid = unitPrice;
   }
 
   // ── GUILDHALL: a monster bounty a day ─────────────────────────────────────
@@ -634,8 +650,9 @@
   // modal_shell kind), `art` (the introduction painting) and `present` — the
   // scene method (app.js) that opens its dialog, `(sx, sy, o, dress)`. A
   // counter that sells off a shelf presents through `_presentStallOffer` with
-  // its `stock(o, save)` and `title` columns (and `bought(save, id, n)`, run
-  // after each purchase, for a counter whose stock depends on what it sold); the chapel is no dialog of its own
+  // its `stock(o, save)` and `title` columns — and, for a counter whose
+  // stock or price depends on what it sold, `price(o, save, id)` (null: the
+  // stall price) and `bought(o, save, id, n, unitPrice)` after each purchase; the chapel is no dialog of its own
   // (interactables.js' daily visit), so it names no presenter.
   const KIND_DIALOG = {
     inn:         { label: 'Inn',         modal: 'shop',     art: 'booth_inn_intro',         present: '_presentInn' },
@@ -643,7 +660,9 @@
     apothecary:  { label: 'Apothecary',  modal: 'shop',     art: 'booth_apothecary_intro',  present: '_presentStallOffer',
       stock: (o) => apothecaryStock(o), title: 'The apothecary has on the shelf:' },
     scriptorium: { label: 'Scriptorium', modal: 'shop',     art: 'booth_scriptorium_intro', present: '_presentStallOffer',
-      stock: (o, save) => scriptoriumStock(save), bought: scriptoriumBought, title: 'The scriptorium sells:' },
+      stock: (o, save) => scriptoriumStock(save, o), title: 'The scriptorium sells:',
+      price: (o, save, id) => scriptoriumPrice(save, id),
+      bought: (o, save, id, n, unitPrice) => scriptoriumBought(save, o, id, unitPrice) },
     guildhall:   { label: 'Guildhall',   modal: 'delivery', art: 'booth_guildhall_intro',   present: '_presentGuildhall' },
     curio:       { label: 'Curio Hall',  modal: 'trade',    art: 'booth_curio_intro',       present: '_presentCurio' },
     sundries:    { label: 'Sundries',    modal: 'shop',     art: 'booth_sundries_intro',    present: '_presentStallOffer',
@@ -678,7 +697,7 @@
     inn: { title: 'An inn', body: 'Fresh blankets cover a bed beneath the green awning. Pay coins to restore all missing HP, once a day at this inn.' },
     chapel: { title: 'A chapel', body: 'A small bell hangs beneath the blue canopy. Receive a free blessing gift here once a day; nothing is asked in return.' },
     apothecary: { title: 'An apothecary', body: 'The keeper grows herbs among the old foundations. Pay coins for a potion or antidote from the shelf.' },
-    scriptorium: { title: 'A scriptorium', body: 'The scribe repairs pages salvaged after the Breaking. The scribe will part with one Book, once, for coins; torches to carry are always for sale.' },
+    scriptorium: { title: 'A scriptorium', body: 'The scribe repairs pages salvaged after the Breaking. Each scribe will part with one Book for coins, and every scriptorium asks four times what the last was paid. Torches to carry are always for sale.' },
     guildhall: { title: 'A guildhall', body: 'The keeper posts work as neighbours return. Defeat the posted creatures to earn coins; this hall offers one bounty a day.' },
     curio: { title: 'A curio hall', body: 'Recovered keepsakes fill the shelves beneath the crystal sign. Donate one of each missing curio; collection milestones bring back memories.' },
     sundries: { title: 'A sundries shop', body: 'Mended sacks and bundled tools fill the counter. Pay coins for the supplies offered here.' },
@@ -695,7 +714,7 @@
     CHAPEL_TIER_DROP, chapelRollTier,
     APOTHECARY_POTIONS, APOTHECARY_CURE, apothecaryStock,
     SUNDRIES_GEAR, SUNDRIES_SHIELDS, SUNDRIES_GEAR_PRICE_MUL, sundriesStock, isSundriesGear, sundriesGear,
-    SCRIPTORIUM_BOOK, SCRIPTORIUM_STOCK, scriptoriumStock, scriptoriumBookSold, scriptoriumBought,
+    SCRIPTORIUM_BOOK, SCRIPTORIUM_STOCK, SCRIPTORIUM_BOOK_PRICE_MUL, scriptoriumStock, scriptoriumBookSold, scriptoriumPrice, scriptoriumBought,
     BOUNTY_LADDER, BOUNTY_TIERS_PER_RUNG, BOUNTY_TIERS_PER_FOE, BOUNTY_MAX_FOES, BOUNTY_MATCH, BOUNTY_DIST_CELLS,
     bountyWeaponTier, bountyFor, bountyPay, slainByPlayer, bountyCleared,
     CURIO_COLLECTION, CURIO_MILESTONES, curioEligible, curioCollection, curioDonated, curioCount,

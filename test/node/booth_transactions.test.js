@@ -89,21 +89,26 @@
     s.offers.at(-1).onCancel();
     assert.eq(s.events.join(), 'committed,committed,read');
   });
-  boothTest('booth scriptorium: the Book sells once, then the counter offers only the torch', () => {
+  boothTest('booth scriptorium: one Book each, the next scriptorium asks 4× the last', () => {
     const s = fixture();
-    const row = Macros.KIND_DIALOG.scriptorium, o = { id: 'scrip-1' };
-    const opts = { boothKind: 'scriptorium', items: row.stock(o, s.save), title: row.title,
-      restock: () => row.stock(o, s.save), bought: row.bought };
-    s._presentStallOffer(0, 0, opts);
+    const row = Macros.KIND_DIALOG.scriptorium;
+    const counter = (o) => ({ boothKind: 'scriptorium', items: row.stock(o, s.save), title: row.title,
+      restock: () => row.stock(o, s.save), priceOf: (save, id) => row.price(o, save, id),
+      bought: (save, id, n, unit) => row.bought(o, save, id, n, unit) });
+    const first = Macros.scriptoriumPrice(s.save, 'book');
+    s._presentStallOffer(0, 0, counter({ id: 'scrip-1' }));
     assert.includes(s.offers.at(-1).get, ITEM_BY_ID.book.name);
     s.offers.at(-1).onAccept();
-    assert.eq(Inventory.count(s.save, 'book'), 1);
+    assert.eq(s.save.money, 10000 - first);
     s.offers.at(-1).repeat();
-    const after = s.offers.at(-1);
-    assert.includes(after.get, ITEM_BY_ID.torch.name, 'the shelf moves on to the torch');
-    assert.eq(after.tabs, undefined, 'no Book tab is left');
-    s._presentStallOffer(0, 0, { ...opts, items: row.stock({ id: 'scrip-2' }, s.save) });
-    assert.falsy(s.offers.at(-1).get.includes(ITEM_BY_ID.book.name), 'another scriptorium has none either');
+    assert.includes(s.offers.at(-1).get, ITEM_BY_ID.torch.name, 'the shelf moves on to the torch');
+    assert.eq(s.offers.at(-1).tabs, undefined, 'no Book tab is left');
+    s._presentStallOffer(0, 0, counter({ id: 'scrip-2' }));
+    assert.includes(s.offers.at(-1).get, ITEM_BY_ID.book.name, 'another scriptorium has its own Book');
+    assert.includes(s.offers.at(-1).cost, s.moneyHTML(first * 4), 'at four times the last');
+    s.offers.at(-1).onAccept();
+    assert.eq(s.save.money, 10000 - first * 5);
+    assert.eq(Inventory.count(s.save, 'book'), 2);
   });
   boothTest('booth shop: insufficient cash or a refused grant neither charges nor confirms', () => {
     for (const why of ['money', 'bag']) {

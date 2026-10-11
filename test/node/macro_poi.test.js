@@ -269,17 +269,23 @@
       'no macro reads a Book page for free');
   });
 
-  test('scriptorium: sells one Book a save, ever — then only the torch', () => {
-    const save = {};
-    assert.eq(Macros.scriptoriumStock(save).join(), 'book,torch', 'the first visit offers the Book');
-    Macros.scriptoriumBought(save, 'torch');
-    assert.eq(Macros.scriptoriumStock(save).join(), 'book,torch', 'a torch never spends the Book');
-    Macros.scriptoriumBought(save, 'book');
-    assert.truthy(Macros.scriptoriumBookSold(save));
-    assert.eq(Macros.scriptoriumStock(save).join(), 'torch', 'every scriptorium is out of Books for good');
+  test('scriptorium: one Book per scriptorium, each 4× the last one paid; the torch stays', () => {
+    const save = { relics: {} }, a = { id: 'scrip-a' }, b = { id: 'scrip-b' };
+    const first = Macros.scriptoriumPrice(save, 'book');
+    assert.eq(first, Macros.stallPrice(save, 'book'), 'the first Book is at the stall price');
+    assert.eq(Macros.scriptoriumPrice(save, 'torch'), null, 'the torch keeps the stall price');
+    Macros.scriptoriumBought(save, a, 'torch', 5);
+    assert.eq(Macros.scriptoriumStock(save, a).join(), 'book,torch', 'a torch never spends the Book');
+    Macros.scriptoriumBought(save, a, 'book', first);
+    assert.eq(Macros.scriptoriumStock(save, a).join(), 'torch', 'this scriptorium is out of Books for good');
+    assert.eq(Macros.scriptoriumStock(save, b).join(), 'book,torch', 'another scriptorium has one');
+    assert.eq(Macros.scriptoriumPrice(save, 'book'), first * Macros.SCRIPTORIUM_BOOK_PRICE_MUL);
+    assert.eq(Macros.SCRIPTORIUM_BOOK_PRICE_MUL, 4);
+    Macros.scriptoriumBought(save, b, 'book', first * 4);
+    assert.eq(Macros.scriptoriumPrice(save, 'book'), first * 16, 'four times the prior one again');
     const row = Macros.KIND_DIALOG.scriptorium;
-    assert.eq(row.stock({ id: 'any' }, save).join(), 'torch', 'the counter row reads the save');
-    assert.eq(row.bought, Macros.scriptoriumBought, 'the counter records the sale');
+    assert.eq(row.stock(b, save).join(), 'torch', 'the counter row reads the save');
+    assert.eq(row.price(b, save, 'book'), first * 16);
   });
 
   test('stalls: apothecary, sundries and scriptorium share the market stall\'s one counter', () => {
@@ -294,7 +300,7 @@
     // not a stack) off the same row, never a switch of its own.
     assert.truthy(/_presentStallGear\(sx, sy, \{[^}]*entry: stock\[0\] \}\)/.test(SCENE_SRC),
       'a gear line at the sundries counter opens the gear buy');
-    assert.truthy(/_presentStallOffer\(sx, sy, opts\) \{[\s\S]*?const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*const unitPrice = ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
+    assert.truthy(/_presentStallOffer\(sx, sy, opts\) \{[\s\S]*?const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*[\s\S]{0,200}?const unitPrice = opts\.priceOf\?\.\(this\.save, id\) \?\? ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
       'priced by ShopsMath.standPrice off the list price (the Book\'s ladder rides in listPrice)');
   });
 
@@ -713,7 +719,7 @@
     assert.eq(ShopsMath.listPrice(save, 'book'), base * ShopsMath.BOOK_PRICE_CAP_MUL, 'capped');
     assert.gt(ShopsMath.listPrice(save, 'book'), 300, 'and dear');
     assert.eq(Macros.stallPrice(save, 'book'), ShopsMath.standPrice(save, ShopsMath.listPrice(save, 'book')), 'the stall reads the ladder');
-    assert.truthy(/const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*const unitPrice = ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
+    assert.truthy(/const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*[\s\S]{0,200}?const unitPrice = opts\.priceOf\?\.\(this\.save, id\) \?\? ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
       'the stall counter prices off the ladder');
     assert.truthy(/const want = 1;/.test(SCENE_SRC), 'and sells a Book one at a time');
     assert.truthy(/this\.buildShopOffer\(id, units \* ShopsMath\.listPrice\(this\.save, id, itemValue\(id\)\), \{ house \}\)/.test(SCENE_SRC),
