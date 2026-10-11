@@ -144,8 +144,15 @@ access or tile lifecycle mechanics.
   bonus stays `+floor(depth/2)`. Unseeded chests (hand-placed, sandbox) are
   the unstamped T2 - the old count ladder is retired, and `o.poiDensity`
   now only feeds restock days and the pots of gold. Breakable pots and
-  barrels select their loot by stable appearance (`barrelProfile`), not
-  density.
+  barrels select their loot mix by stable appearance (`barrelProfile`). Surface
+  waste-basket/recycling POIs share `barrelDensity`, the combined tile count
+  stamped with POI density (including restamps after live additions). At ≤10
+  containers, each is full with a 75-coin budget; at ≥200, each has a 20% full
+  chance and a 15-coin budget. Both interpolate linearly between endpoints.
+  Generated non-POI containers keep 30% full odds and a 15-coin budget. Full
+  containers pay that budget as coins or use `ChestThemes.quantityForBudget`
+  for item stacks, including category shares and caps; higher budgets never
+  promote item tiers. All containers remain permanently smashed after use.
 - An X mark is hidden (`HiddenObjects.treasureHidden`) until the feet stand
   on a neighbouring cell (`HiddenObjects.tick` records it in
   `save.hiddenDiscoveries`), or within the vision disc with Perception; until

@@ -825,8 +825,11 @@
   }
   function stampPoiDensity(objects) {
     const counts = poiDensityCounts(objects);
+    // A shared surface count across bin classes and both stable container looks.
+    const barrelDensity = (objects || []).filter(o => isDensityChest(o) && isPoiBarrel(o)).length;
     for (const o of objects || []) {
       if (!isDensityChest(o)) continue;
+      if (isPoiBarrel(o)) o.barrelDensity = barrelDensity;
       const n = counts.get(o.poiClass);
       if (o.poiDensity !== n) { o.poiDensity = n; delete o._chestLook; }
     }
@@ -6573,6 +6576,8 @@
     // Hives are basic forest props; every Nexus reserves its entire coverage.
     deduped.push(...spawnForestHives(grid, w, h, tx, ty, tileEdgeM,
       { ...dressOpts(), zoneCoverage: zone?.coverage }));
+    // Replacement passes may remove POI containers; count the surviving tile.
+    stampPoiDensity(deduped);
     // Tier seeds last: zones and scenic have stamped their nexus/vista
     // chests, so the quota pyramid knows exactly which chests are budgeted.
     seedChestTiers(deduped);

@@ -281,7 +281,11 @@
   }
   function quantity(id, tier, bracket, rng = Math.random) {
     if (id === 'wood' || id === 'rubble') return Math.min(12, 3 + Math.floor(rng() * 6) + bracket * 2);
-    const allowance = budget(tier, bracket) * budgetShare(id);
+    return quantityForBudget(id, budget(tier, bracket));
+  }
+  // Explicit coin allowances share the same price, category shares and caps.
+  function quantityForBudget(id, amount) {
+    const allowance = amount * budgetShare(id);
     const count = allowance / Math.max(1, PRICES[id] || itemValue(id));
     // Magic and timber seeds round up to fill the allowance. Fruit saplings
     // still award one tree; a T2 acorn draw can now pay a small planting stack.
@@ -309,5 +313,5 @@
   // Catch authored errors early; runtime still has each theme's declared T1
   // terminal so an unexpected bad entry cannot consume a chest for nothing.
   try { validate(); } catch (error) { console.error('Chest theme validation failed', error); }
-  global.ChestThemes = { themes, highTierWeights, qualityFloor, groups, normalize, weights, members, BOOK_T2_SHARE, eligible, resolve, selectableIds, pickItem, cap, budget, BUDGET_SHARE, quantity, gearSlots, seedMultiplier, validate };
+  global.ChestThemes = { themes, highTierWeights, qualityFloor, groups, normalize, weights, members, BOOK_T2_SHARE, eligible, resolve, selectableIds, pickItem, cap, budget, BUDGET_SHARE, quantity, quantityForBudget, gearSlots, seedMultiplier, validate };
 })(window);

@@ -395,8 +395,8 @@ function crateRestoreDays(o) {
 
 // ── BREAKABLE CONTAINERS ────────────────────────────────────────────────
 // Appearance and loot share a stable identity. Both are smashed permanently;
-// density never changes these drop chances.
-// Generated containers (barrel: true) use the same profiles as bin POIs.
+// POI containers share a tile density curve; generated containers keep their
+// profile odds. Both size payouts from a coin budget using the treasure rules.
 const BARREL_LOOT = [
   { kind: 'empty', w: 0.7 },
   { kind: 'supply', w: 0.1 },
@@ -415,6 +415,23 @@ const BARREL_ART = [
   { texKey: 'clay_pot', smashedKey: 'clay_pot_smashed', name: 'clay pot', loot: CLAY_POT_LOOT },
 ];
 const BARREL_CLASSES = new Set(['waste_basket', 'recycling']);
+const BARREL_DENSITY_REWARDS = Object.freeze({ sparseCount: 10, denseCount: 200,
+  sparseFullChance: 1, denseFullChance: 0.2, baseBudget: 15, sparseBudgetMultiplier: 5 });
+function isPoiBarrel(o) {
+  return isBarrel(o) && BARREL_CLASSES.has(o.poiClass) && !(o.depth > 0) && !o.caveOf;
+}
+function barrelRewardProfile(o) {
+  const d = BARREL_DENSITY_REWARDS;
+  if (!isPoiBarrel(o)) {
+    const rows = barrelProfile(o).loot;
+    return { fullChance: rows.filter(row => row.kind !== 'empty').reduce((sum, row) => sum + row.w, 0)
+      / rows.reduce((sum, row) => sum + row.w, 0), budget: d.baseBudget };
+  }
+  const count = Math.max(1, Number(o.barrelDensity) || 1);
+  const t = Math.max(0, Math.min(1, (count - d.sparseCount) / (d.denseCount - d.sparseCount)));
+  return { fullChance: d.sparseFullChance + t * (d.denseFullChance - d.sparseFullChance),
+    budget: d.baseBudget * (d.sparseBudgetMultiplier + t * (1 - d.sparseBudgetMultiplier)) };
+}
 function barrelProfile(o) {
   const authored = BARREL_ART.find(row => row.texKey === o?.barrelStyle);
   if (authored) return authored;
@@ -427,14 +444,17 @@ function barrelLootPool(row) {
     .flatMap(([, ids]) => ids);
   return ids.map(id => ITEM_BY_ID[id]).filter(item => item && !item.uniqueJewelry);
 }
-// One smash: empty, one coin, or one item within the profile's tier bounds.
+// One smash: empty, or a budget-sized purse/stack within the profile’s tier bounds.
 function rollBarrel(o, rng) {
   const r = typeof rng === 'function' ? rng : Math.random;
-  const row = weightedPickBy(barrelProfile(o).loot, row => row.w, r);
+  const profile = barrelRewardProfile(o), rows = barrelProfile(o).loot;
+  const fullWeight = rows.filter(row => row.kind !== 'empty').reduce((sum, row) => sum + row.w, 0);
+  const row = weightedPickBy(rows, row => row.kind === 'empty'
+    ? 1 - profile.fullChance : row.w / fullWeight * profile.fullChance, r);
   if (row.kind === 'empty') return { kind: 'empty' };
-  if (row.kind === 'coin') return { kind: 'gold', amount: row.amount };
+  if (row.kind === 'coin') return { kind: 'gold', amount: Math.max(1, Math.round(profile.budget)) };
   const item = weightedPickBy(barrelLootPool(row), item => item.dropWeight ?? 1, r);
-  return item ? { kind: 'item', id: item.id, qty: 1 } : { kind: 'empty' };
+  return item ? { kind: 'item', id: item.id, qty: ChestThemes.quantityForBudget(item.id, profile.budget) } : { kind: 'empty' };
 }
 // The one map line a smash prints (≤ MAP_MSG_MAX): what came out, or that
 // nothing did — the real quantity, never a guess.

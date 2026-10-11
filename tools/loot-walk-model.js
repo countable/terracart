@@ -73,7 +73,7 @@ function census() {
         if (look.coin) bump('coins', 'Pots of gold', { kind: 'coins', amount: potCoinsFor(o.poiDensity) });
         else if (look.barrel) {
           const profile = barrelProfile(o);
-          bump('barrel-' + profile.name, profile.name, { kind: 'barrel', object: { poiClass: o.poiClass, barrel: o.barrel, barrelStyle: profile.texKey }, profile: profile.name });
+          bump('barrel-' + profile.name, profile.name, { kind: 'barrel', object: { kind: o.kind, poiClass: o.poiClass, barrelDensity: o.barrelDensity, barrel: o.barrel, barrelStyle: profile.texKey }, profile: profile.name });
         } else if (look.macro?.kind === 'chapel') bump('chapel', 'Chapel alms', { kind: 'reward', context: 'chest:' + chestThemeForPoi(o.poiClass), opts: { tier: Macros.chapelRollTier(o), depth: 0 } });
         else if (look.bike || look.stand || look.macro) { const key = look.bike ? 'bike loan' : look.stand ? 'market stall' : look.macro.kind; excluded[key] = (excluded[key] || 0) + 1; }
         else if (o.crate || o.fixedLoot) { excluded['fixed supplies/rewards'] = (excluded['fixed supplies/rewards'] || 0) + 1; }

@@ -79,7 +79,10 @@ stalls and coin pots keep their own interactions.
   potions or four seeds. Quantity steps (the chain, the wizard's ladder and
   quantity jackpots) only raise the budget, with no bracket cap; leftover
   budget pays no consolation coins, and no caller adds a bonus on top. Wood
-  and rubble bundles keep their own pile size.
+  and rubble bundles keep their own pile size. Breakable containers pass their
+  explicit coin allowance through `ChestThemes.quantityForBudget`, sharing
+  the same item prices, shares and caps (including wood/rubble). POI density
+  sets their full chance and allowance; see [generation](generation.md).
 - **Gear and coins keep their own paths** (`rollGearUpgrade`, `cashValue` in
   `src/rarity.js`; a purse pays the whole budget); a theme only restricts
   gear slots (`ChestThemes.gearSlots`).
