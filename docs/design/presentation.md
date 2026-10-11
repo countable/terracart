@@ -26,6 +26,14 @@ changing dialogue, story panels, books, toasts or status presentation.
   so it plays only when the GPS fix is near Home too (`_gpsNearHome`,
   `HomeArea.NEAR_M`), not just a body stick-walked into Home's ring; otherwise
   it stays unmarked for the next revival.
+- The normal third road card rolls 20% boots, 20% gear or a unique relic,
+  and 60% magic. Both equipment branches share a cap of one tier per 10,000
+  cumulative banked road metres, up to T7. Before T1, both shares become magic;
+  owned boots at the cap also redirect their share to magic. The general gear
+  pool includes boots and uses normal duplicate cash-outs.
+- The third road reward offers a wooden pick in the magic/equipment card slot
+  when the player has no pick. Owning any pick tier keeps the normal roll;
+  cash and seed/supply choices remain, and only the selected card is granted.
 - Feedback is visual; there is no vibration setting or device vibration.
 - `RoadSafety` owns the two location warnings. The first night entry into the
   MD/LG kerb buffer shows `road:night` once per save through the story ledger.

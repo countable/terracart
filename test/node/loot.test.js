@@ -173,38 +173,37 @@ test('pickReward: no bonus asked for is the old roll, exactly', () => {
 });
 
 // ── The two luck ladders, and who owns them ─────────────────────────────────
-// TIER luck (a find comes a tier rarer) is the RING's; QUANTITY luck (a bigger
-// stack) is a wizard rung — save.qtyUpgrades, bought as his Full Measure.
+// TIER luck (a find comes a tier rarer) is the RING's; BUDGET luck (more allowance for an item or purse) is a wizard rung — save.qtyUpgrades, bought as his Full Measure.
 
-test('qty luck: the ladder runs 0 → the old Frost-amulet ceiling over its rungs', () => {
-  const levels = RARITY_TUNING.qtyLuckLevels;
+test('budget boost: the ladder runs 0 → the old Frost-amulet ceiling over its rungs', () => {
+  const levels = RARITY_TUNING.budgetUpgradeLevels;
   assert.eq(levels, 3, 'three rungs');
-  assert.eq(RARITY_TUNING.qtyLuckMaxP, 0.35,
+  assert.eq(RARITY_TUNING.budgetBoostMaxP, 0.35,
     'the ceiling is 7 × the amulet\'s old 0.05/tier — unchanged, only re-homed');
-  assert.eq(qtyLuck({ qtyUpgrades: 0 }), 0, 'nothing before the first rung');
-  assert.eq(qtyLuck({}), 0, 'and nothing on a save that has never met the wizard');
-  assert.eq(qtyLuck(null), 0, 'no save at all never throws');
-  assert.lt(Math.abs(qtyLuck({ qtyUpgrades: levels }) - RARITY_TUNING.qtyLuckMaxP), 1e-9,
+  assert.eq(budgetBoostChance({ qtyUpgrades: 0 }), 0, 'nothing before the first rung');
+  assert.eq(budgetBoostChance({}), 0, 'and nothing on a save that has never met the wizard');
+  assert.eq(budgetBoostChance(null), 0, 'no save at all never throws');
+  assert.lt(Math.abs(budgetBoostChance({ qtyUpgrades: levels }) - RARITY_TUNING.budgetBoostMaxP), 1e-9,
     'the top rung IS the ceiling');
   // Linear, so every rung is worth the same step and none is a dud.
-  const step = RARITY_TUNING.qtyLuckMaxP / levels;
+  const step = RARITY_TUNING.budgetBoostMaxP / levels;
   for (let lv = 1; lv <= levels; lv++) {
-    assert.lt(Math.abs(qtyLuck({ qtyUpgrades: lv }) - lv * step), 1e-9, `rung ${lv} sits on the line`);
+    assert.lt(Math.abs(budgetBoostChance({ qtyUpgrades: lv }) - lv * step), 1e-9, `rung ${lv} sits on the line`);
   }
 });
 
-test('qty luck: a level past the top or below zero cannot leave the ladder', () => {
-  assert.eq(qtyLuck({ qtyUpgrades: 99 }), RARITY_TUNING.qtyLuckMaxP, 'clamped at the ceiling');
-  assert.eq(qtyLuck({ qtyUpgrades: -4 }), 0, 'and at the floor');
-  assert.eq(qtyLuck({ qtyUpgrades: 2.9 }), qtyLuck({ qtyUpgrades: 2 }), 'a part-rung is not a rung');
+test('budget boost: a level past the top or below zero cannot leave the ladder', () => {
+  assert.eq(budgetBoostChance({ qtyUpgrades: 99 }), RARITY_TUNING.budgetBoostMaxP, 'clamped at the ceiling');
+  assert.eq(budgetBoostChance({ qtyUpgrades: -4 }), 0, 'and at the floor');
+  assert.eq(budgetBoostChance({ qtyUpgrades: 2.9 }), budgetBoostChance({ qtyUpgrades: 2 }), 'a part-rung is not a rung');
 });
 
-test('qty luck: the AMULET no longer buys it', () => {
+test('budget boost: the AMULET no longer buys it', () => {
   // A Frost amulet buys stick walking and nothing else.
-  assert.eq(qtyLuck({ relics: { amulet: { tier: 7 } } }), 0,
-    'a Frost amulet is worth no quantity luck at all');
-  assert.eq(qtyLuck({ relics: { amulet: { tier: 7 } }, qtyUpgrades: 3 }),
-    qtyLuck({ qtyUpgrades: 3 }),
+  assert.eq(budgetBoostChance({ relics: { amulet: { tier: 7 } } }), 0,
+    'a Frost amulet is worth no budget boost chance at all');
+  assert.eq(budgetBoostChance({ relics: { amulet: { tier: 7 } }, qtyUpgrades: 3 }),
+    budgetBoostChance({ qtyUpgrades: 3 }),
     'and it adds nothing on top of the wizard\'s rungs');
 });
 
@@ -239,7 +238,7 @@ test('pickReward: a carried key improves treasure rolls like one luck upgrade', 
   assert.gt(changed, 0, 'the key actually changes rewards, not just the displayed stat');
 });
 
-test('pickReward: the wizard\'s quantity rungs make loot land in bigger stacks', () => {
+test('pickReward: the wizard\'s budget rungs can fund bigger stacks', () => {
   // Statistical smoke test for the wiring, same shape as the ring one above:
   // the top rung must not lower the mean stack size against no rungs at all.
   const N = 600;
@@ -252,7 +251,7 @@ test('pickReward: the wizard\'s quantity rungs make loot land in bigger stacks',
     return n ? sum / n : 0;
   };
   const base = meanQty({ relics: {}, armor: {} });
-  const full = meanQty({ relics: {}, armor: {}, qtyUpgrades: RARITY_TUNING.qtyLuckLevels });
+  const full = meanQty({ relics: {}, armor: {}, qtyUpgrades: RARITY_TUNING.budgetUpgradeLevels });
   assert.gte(full + 1e-9, base, `full measure mean qty ${full} >= base ${base}`);
   // And the amulet must move it not at all.
   const amuleted = meanQty({ relics: { amulet: { tier: 7 } }, armor: {} });
@@ -290,7 +289,7 @@ test('cash: the purse spends the same tier budget as an item roll', () => {
   }
 });
 
-test('cash: the quantity brackets fatten the purse rather than going to waste', () => {
+test('cash: the budget brackets fatten the purse rather than going to waste', () => {
   // A roll that banks brackets has to spend them on SOMETHING. On an item they
   // become stack size; on cash they become a bigger purse — never silently
   // dropped, which is what a naive 'gold' branch would have done.
@@ -310,42 +309,43 @@ test('cash: the quantity brackets fatten the purse rather than going to waste', 
   assert.gt(mean(fat), mean(lean), 'a longer walk pays a heavier purse');
 });
 
-test('bundle: wood and rock chest rewards still pay a pile', () => {
-  assert.eq(BUNDLE_IDS.join(','), 'wood,rubble', 'wood and stone');
+test('materials: chest rewards spend their tier and bracket budget', () => {
   let seen = 0;
-  for (let i = 0; i < 4000 && seen < 80; i++) {
-    const r = pickReward('chest:lowtier', SAVE(), seeded(i + 1), { tier: 1 });
-    if (!r || r.group !== 'materials' || !BUNDLE_IDS.includes(r.id)) continue;
-    seen++;
-    assert.eq(r.kind, 'item', 'a bundle is items in the bag');
-    assert.includes(BUNDLE_IDS, r.id, 'one of the two raw materials');
-    assert.gte(r.qty, 3, 'never a single stick — that is the whole reason it is its own class');
-    assert.lte(r.qty, 8 + 3 * 2, 'and bounded by its own range plus its brackets');
+  for (const tier of [1, 2, 4]) for (const bracket of [0, 1, 3]) {
+    for (let i = 1; i <= 100; i++) {
+      const r = resolveChestReward('roadside', { tier, bracket, jackpotApplied: 0 }, SAVE(), seeded(i), { tier: 1 });
+      if (!r || r.group !== 'materials' || !BUNDLE_IDS.includes(r.id)) continue;
+      seen++;
+      assert.eq(r.kind, 'item');
+      assert.eq(r.qty, ChestThemes.quantity(r.id, tier, bracket),
+        'material counts use the same allowance as other chest items');
+    }
   }
-  assert.gt(seen, 30, 'a lowtier chest hands one over often');
+  assert.gt(seen, 30, 'sampled actual material rewards');
 });
 
-test('bundle: the T1 chest that can roll no bracket at all still pays a pile', () => {
-  // chest:lowtier at T1 runs chainSteps 0, so an ordinary mineral roll there
-  // arrives as ONE stick of wood. That is the bug the class exists to fix, so
-  // pin the contrast rather than the constant.
-  let bundleMin = Infinity, plainWood = 0, plainWoodN = 0;
-  for (let i = 0; i < 6000; i++) {
-    const r = pickReward('chest:lowtier', SAVE(), seeded(i + 1), { tier: 1 });
-    if (!r || r.kind !== 'item') continue;
-    if (r.group === 'materials' && BUNDLE_IDS.includes(r.id)) bundleMin = Math.min(bundleMin, r.qty);
-    else if (r.id === 'wood') { plainWood += r.qty; plainWoodN++; }
-  }
-  assert.gte(bundleMin, 3, 'every bundle is a pile');
-  if (plainWoodN) {
-    assert.lt(plainWood / plainWoodN, bundleMin,
-      'while the ordinary mineral roll at this tier is smaller than the smallest bundle');
-  }
+test('bundle: the legacy material class obeys the common budget and single-item override', () => {
+  // The tooling still exposes this synthetic class; isolate it from class selection.
+  const key = 'test:budget-bundle';
+  try {
+    for (const singleItem of [false, true]) {
+      LOOT_CONTEXTS[key] = { classBias: { bundle: 1 }, chainSteps: 2, chainMax: 1, maxTier: 1, singleItem };
+      for (let i = 1; i <= 100; i++) {
+        const r = pickReward(key, SAVE(), seeded(i));
+        assert.truthy(r && r.cls === 'bundle', 'material bundle resolves');
+        assert.includes(BUNDLE_IDS, r.id);
+        assert.gte(r.qty, 1);
+        assert.lte(r.qty, 12, 'budget cannot bypass the material cap');
+        if (singleItem) assert.eq(r.qty, 1, 'single-item contexts award exactly one material');
+        else assert.gte(r.qty, ChestThemes.quantity(r.id, 1, 2), 'two chain steps fund two budget brackets');
+      }
+    }
+  } finally { delete LOOT_CONTEXTS[key]; }
 });
 
 test('road: each card rolls only its own group — cash, seed or supply, boots or magic', () => {
   assert.eq(Trail.PRIZE_CONTEXT, 'treasure:road', 'the ceremony uses the road pool');
-  assert.eq(JSON.stringify(Trail.PRIZE_CARDS), JSON.stringify([['cash'], ['seed', 'supply'], ['boots', 'magic']]));
+  assert.eq(JSON.stringify(Trail.PRIZE_CARDS), JSON.stringify([['cash'], ['seed', 'supply'], ['boots', 'gear', 'magic']]));
   for (const bonus of [Trail.rollBonusFor(0), Trail.PRIZE_ROLL_BONUS_MAX]) {
     const seen = { gold: 0, seed: 0, supply: 0, armor: 0, magic: 0 };
     for (let g = 0; g < Trail.PRIZE_CARDS.length; g++) {
@@ -355,9 +355,8 @@ test('road: each card rolls only its own group — cash, seed or supply, boots o
           { rollBonus: bonus, classes, classMaxTier: { boots: 7 } });
         assert.truthy(r, 'every road roll resolves');
         if (g === 0) { assert.eq(r.kind, 'gold', 'the cash card is coin'); seen.gold++; continue; }
-        if (r.kind === 'armor') {
-          assert.eq(g, 2, 'boots only on the third card');
-          assert.eq(r.slot, 'boots');
+        if (r.kind === 'armor' || r.kind === 'relic' || r.cls === 'unique_relic') {
+          assert.eq(g, 2, 'equipment only on the third card');
           seen.armor++;
           continue;
         }
@@ -370,18 +369,18 @@ test('road: each card rolls only its own group — cash, seed or supply, boots o
   }
 });
 
-test('road: boots are held to one tier per kilometre walked', () => {
-  // No boots before the first km; T1 from 1 km, T2 from 2 km …
+test('road: boots are held to one tier per 10 kilometres banked', () => {
+  // No boots before 10 km; T1 from 10 km, T2 from 20 km …
   let firstBoots = 0;
   for (let n = 1; n <= 40; n++) {
     const cap = Trail.bootsTierCap(n);
     const km = Trail.totalMetres(0, n) / 1000;
-    assert.eq(cap, Math.min(7, Math.floor(km + 1e-9)), `rung ${n} (${km} km)`);
+    assert.eq(cap, Math.min(7, Math.floor(km / 10 + 1e-9)), `rung ${n} (${km} km)`);
     if (cap > 0 && !firstBoots) firstBoots = n;
     const classes = Trail.prizeCardClasses(2, n, undefined, 0);
-    assert.eq(classes.includes('boots'), cap > 0, `boots offered at rung ${n} only once a km is walked`);
+    assert.eq(classes.includes('boots'), cap > 0, `boots offered at rung ${n} only once 10 km are banked`);
   }
-  assert.eq(firstBoots, 3, 'the third rung (1.2 km) is the first that may offer boots');
+  assert.eq(firstBoots, 10, 'the tenth rung (11 km) is the first that may offer boots');
   assert.falsy(Trail.prizeCardClasses(2, 10, undefined, 7).includes('boots'), 'boots already at the cap drop out');
   for (let i = 0; i < 2000; i++) {
     const r = pickReward(Trail.PRIZE_CONTEXT, SAVE(), seeded(i + 1),
@@ -600,4 +599,31 @@ test('road: the magic card offers a spread of finds, not one potion every time',
     assert.lt(Math.max(...shares), early ? 0.3 : 0.2, `prize ${n}: no single item dominates the magic card`);
     assert.gt(shares.filter(s => s >= 0.03).length, early ? 4 : 7, `prize ${n}: ${early ? 'all five T1 tonics' : 'at least eight items'} turn up regularly`);
   }
+});
+
+
+test('road: gear shares stay 20 percent and unavailable shares become magic', () => {
+  for (const [n, ownedBoots, expected] of [[9, 0, { magic: 1 }],
+      [10, 0, { boots: .2, gear: .2, magic: .6 }], [10, 1, { gear: .2, magic: .8 }]]) {
+    const classes = Trail.prizeCardClasses(2, n, undefined, ownedBoots);
+    const opts = { classes, classMaxTier: { boots: Trail.bootsTierCap(n), gear: Trail.bootsTierCap(n) },
+      classFallbacks: { boots: 'magic', gear: 'magic' } };
+    const ctx = lootContext(Trail.PRIZE_CONTEXT, opts);
+    const total = Object.values(ctx.classBias).reduce((a, b) => a + b, 0);
+    for (const cls of ['boots', 'gear', 'magic'])
+      assert.lt(Math.abs((ctx.classBias[cls] || 0) / total - (expected[cls] || 0)), 1e-9);
+  }
+});
+
+test('road: general gear and unique relics respect the distance cap', () => {
+  const seen = new Set();
+  for (let i = 1; i <= 3000; i++) {
+    const r = pickReward(Trail.PRIZE_CONTEXT, { relics: {}, armor: {}, inv: [] }, seeded(i),
+      { rollBonus: 6, classes: ['gear'], classMaxTier: { gear: 2 } });
+    assert.lte(r.tier, 2);
+    seen.add(r.kind === 'item' ? r.cls : r.kind);
+  }
+  for (const kind of ['relic', 'armor', 'unique_relic']) assert.truthy(seen.has(kind), kind);
+  assert.eq(Trail.bootsTierCap(13, 'runner'), 0);
+  assert.eq(Trail.bootsTierCap(14, 'runner'), 1);
 });

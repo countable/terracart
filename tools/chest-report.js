@@ -2,7 +2,7 @@
 const cr = id => document.getElementById(id);
 const crEsc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const crTick = () => new Promise(resolve => setTimeout(resolve, 0));
-const crSpecial = look => look.macro ? `Service: ${look.macro.kind}` : look.stand ? 'Market stand' : look.barrel ? `${look.barrelName} loot` : look.coin ? 'Daily coins' : look.bike ? 'Daily speed boost' : 'Chest loot';
+const crSpecial = look => look.macro ? `Service venue: ${look.macro.kind}` : look.stand ? 'Product stall' : look.barrel ? `Breakable container: ${look.barrelName}` : look.coin ? 'Daily coins' : look.bike ? 'Daily speed boost' : 'Chest loot';
 let crRows = [], crCityData = null;
 function crSources() {
   const theme = cr('theme').value;
@@ -69,7 +69,7 @@ function crCitiesRender() {
     const groups=new Map();
     for(const o of city.chests){const key=o.theme+':'+o.tier;const g=groups.get(key)||{theme:o.theme,tier:o.tier,n:0,near:0,pois:{}};g.n++;g.near+=!!o.near;g.pois[o.poiClass||'generated']=(g.pois[o.poiClass||'generated']||0)+1;groups.set(key,g);}
     const rows=[...groups.values()].sort((a,b)=>a.tier-b.tier||a.theme.localeCompare(b.theme)).map(g=>`<tr><td>T${g.tier}</td><td>${crEsc(g.theme)}</td><td>${g.n}</td><td>${g.near}</td><td>${(crRolls(g.theme,g.tier).coins*g.n).toFixed(1)}</td><td>${Object.entries(g.pois).map(([k,n])=>`${crEsc(k)}: ${n}`).join(', ')}</td></tr>`).join('');
-    return `<h3>${crEsc(city.name)}</h3><p>${city.tiles.filter(t=>t.source && !t.error).length}/9 tiles loaded.</p>${city.errors.length?`<p class="notice">Incomplete: ${city.errors.map(crEsc).join('; ')}</p>`:''}<p>Excluded from chest rolls: ${Object.entries(city.excluded).map(([k,n])=>`${crEsc(k)}: ${n}`).join(', ')||'none'}.</p><div class="scroll"><table><thead><tr><th>Tier</th><th>Theme</th><th>Chests</th><th>≤400 m</th><th>Expected coins</th><th>POI sources</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    return `<h3>${crEsc(city.name)}</h3><p>${city.tiles.filter(t=>t.source && !t.error).length}/9 tiles loaded.</p>${city.errors.length?`<p class="notice">Incomplete: ${city.errors.map(crEsc).join('; ')}</p>`:''}<p>Excluded from chest rolls: ${Object.entries(city.excluded).map(([k,n])=>`${crEsc(({macro:"Service venues",stand:"Product stalls",barrel:"Breakable containers",coin:"Daily coin sources",bike:"Daily speed boosts"})[k] || k)}: ${n}`).join(', ')||'none'}.</p><div class="scroll"><table><thead><tr><th>Tier</th><th>Theme</th><th>Chests</th><th>≤400 m</th><th>Expected coins</th><th>POI sources</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }).join('');
 }
 async function crBuildCities() {
@@ -87,7 +87,7 @@ async function crBuildCities() {
     const q = WorldGen.TIER_SEED_QUOTA;
     cr('tiers').textContent = 'Each tile gives its best-ranked POI chests quota seats: '
       + `about ${q[5]} T5, ${q[4]} T4, ${q[3]} T3 and ${q[2]} T2, scaled from x1 to x2 over 100 to 1000 budgeted POIs; `
-      + 'the rest are T1. Categories share seats round-robin. Vistas are fixed T5, and a zone nexus can win a seat without spending one '
+      + 'the rest are T1 crates, not barrels. These are POI tier-seed quotas, not strict counts of openable chests: service venues and product stalls also participate. Categories share seats round-robin. Vistas are fixed T5, and a zone nexus can win a seat without spending one '
       + `(+${ZONE_NEXUS_TIER_BONUS}). Each cave level re-seats its own pyramid; caps climb to T6 from level 3 and T7 from level 6. `
       + 'Unstamped hand-placed chests are T2. Theme and tier are independent.';
     const gift = LOOT_CONTEXTS[Scenic.VISTA_CONTEXT];

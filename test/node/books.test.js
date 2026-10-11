@@ -436,7 +436,7 @@ test('mechanics: street restoration retains its dwell and reward ladder', () => 
 test('mechanics: roads use the shared reward window', () => {
   assert.truthy(/const ONE_ROAD_WINDOW_MS = /.test(SCENE_SRC) && /_oneRoadPay\(perLine, now\)/.test(SCENE_SRC),
     'the sweep pays through the one-road window');
-  assert.eq(Trail.BOOTS_M_PER_TIER, 1000, 'a tier per km');
+  assert.eq(Trail.BOOTS_M_PER_TIER, 10000, 'a tier per 10 km');
 });
 
 test('mechanics: rebuilding adds stone to later restoration costs', () => {

@@ -1,0 +1,3482 @@
+{
+  "trials": 256,
+  "seed": 104729,
+  "source": {
+    "tileIds": [
+      "2753/5565",
+      "2754/5565",
+      "2755/5565",
+      "2753/5566",
+      "2754/5566",
+      "2755/5566",
+      "2753/5567",
+      "2754/5567",
+      "2755/5567"
+    ],
+    "tileEdgeM": 1576.8474614323513,
+    "areaM2": 22378031.249630854,
+    "walkableAreaM2": 13553535.502806475,
+    "difficulty": "easy",
+    "method": "MVT.decodeTile → WorldGen.rasterizeTile → MapScene.spawnInTile; same roaming setup as tools/map-distribution.js",
+    "generatedAt": "2026-10-10T16:19:49.056Z",
+    "revision": "98a1f3d5e527492d5b8b01fce6b9f59b9761574a"
+  },
+  "assumptions": [
+    "Shipping reward tables; fixed fresh-player equipment and zero luck upgrades for every roll, not a progression simulation.",
+    "Independent finite-tile encounter draws around the walking model expectations. Percentiles illustrate this model, not measured player routes.",
+    "All rewards accepted; no bag limits, purchases, energy costs, gear replacement, repeat visits or selling. Value is catalog list value, not spendable coins.",
+    "Street prizes keep one uniformly chosen offered card, including the first-prize seed option; offered cards are not all awarded.",
+    "Every encountered enemy is defeated by the player and its bounty collected. Kind-specific drops and eligible monster treasure rolls accompany that same encounter. First elite of each species grants a memory; later elites grant treasure. No previous discoveries are assumed."
+  ],
+  "distances": [
+    {
+      "distanceM": 100,
+      "trials": 256,
+      "meanCoins": 2.23828125,
+      "meanValue": 8.984375,
+      "meanItemCount": 0.359375,
+      "meanAwards": 0.4921875,
+      "meanMemories": 0.0078125,
+      "valueDistribution": {
+        "p10": 0,
+        "p50": 0,
+        "p90": 17
+      },
+      "coinDistribution": {
+        "p10": 0,
+        "p50": 0,
+        "p90": 9
+      },
+      "classes": [
+        {
+          "label": "Coins",
+          "awards": 0.30859375,
+          "share": 0.626984126984127
+        },
+        {
+          "label": "Mineral",
+          "awards": 0.0625,
+          "share": 0.12698412698412698
+        },
+        {
+          "label": "Seeds",
+          "awards": 0.0546875,
+          "share": 0.1111111111111111
+        },
+        {
+          "label": "Supply",
+          "awards": 0.04296875,
+          "share": 0.0873015873015873
+        },
+        {
+          "label": "Armour",
+          "awards": 0.0078125,
+          "share": 0.015873015873015872
+        },
+        {
+          "label": "Magic",
+          "awards": 0.0078125,
+          "share": 0.015873015873015872
+        },
+        {
+          "label": "Equipment",
+          "awards": 0.00390625,
+          "share": 0.007936507936507936
+        },
+        {
+          "label": "Food",
+          "awards": 0.00390625,
+          "share": 0.007936507936507936
+        }
+      ],
+      "topItems": [
+        {
+          "id": "cress_seed",
+          "label": "Cress Seed",
+          "category": "Seeds",
+          "expectedQty": 0.0546875,
+          "probability": 0.01171875
+        },
+        {
+          "id": "rubble_seed",
+          "label": "Rock Seed",
+          "category": "Seeds",
+          "expectedQty": 0.05078125,
+          "probability": 0.01953125
+        },
+        {
+          "id": "potato_seed",
+          "label": "Potato Seed",
+          "category": "Seeds",
+          "expectedQty": 0.0390625,
+          "probability": 0.015625
+        },
+        {
+          "id": "pairy_seed",
+          "label": "Pairy Seed",
+          "category": "Seeds",
+          "expectedQty": 0.03515625,
+          "probability": 0.00390625
+        },
+        {
+          "id": "flint_shard",
+          "label": "Flint",
+          "category": "Mineral",
+          "expectedQty": 0.02734375,
+          "probability": 0.015625
+        },
+        {
+          "id": "wood",
+          "label": "Wood",
+          "category": "Mineral",
+          "expectedQty": 0.01953125,
+          "probability": 0.01953125
+        },
+        {
+          "id": "trap_disarm_kit",
+          "label": "Trap Disarm Kit",
+          "category": "Supply",
+          "expectedQty": 0.01953125,
+          "probability": 0.00390625
+        },
+        {
+          "id": "torch",
+          "label": "Torch",
+          "category": "Supply",
+          "expectedQty": 0.01953125,
+          "probability": 0.01953125
+        },
+        {
+          "id": "starfruit_seed",
+          "label": "Starfruit Seed",
+          "category": "Seeds",
+          "expectedQty": 0.01953125,
+          "probability": 0.00390625
+        },
+        {
+          "id": "book",
+          "label": "Book",
+          "category": "Supply",
+          "expectedQty": 0.015625,
+          "probability": 0.015625
+        },
+        {
+          "id": "copper_bar",
+          "label": "Copper",
+          "category": "Mineral",
+          "expectedQty": 0.0078125,
+          "probability": 0.0078125
+        },
+        {
+          "id": "iron_bar",
+          "label": "Iron",
+          "category": "Mineral",
+          "expectedQty": 0.0078125,
+          "probability": 0.0078125
+        },
+        {
+          "id": "blank_scroll",
+          "label": "Blank Scroll",
+          "category": "Supply",
+          "expectedQty": 0.0078125,
+          "probability": 0.00390625
+        },
+        {
+          "id": "quartz",
+          "label": "Rose Quartz",
+          "category": "Mineral",
+          "expectedQty": 0.0078125,
+          "probability": 0.0078125
+        },
+        {
+          "id": "armor:leggings:1",
+          "label": "leggings · T1",
+          "category": "Armour",
+          "expectedQty": 0.00390625,
+          "probability": 0.00390625
+        },
+        {
+          "id": "speed_potion",
+          "label": "Potion of Speed",
+          "category": "Magic",
+          "expectedQty": 0.00390625,
+          "probability": 0.00390625
+        },
+        {
+          "id": "relic:staff:1",
+          "label": "staff · T1",
+          "category": "Equipment",
+          "expectedQty": 0.00390625,
+          "probability": 0.00390625
+        },
+        {
+          "id": "armor:boots:1",
+          "label": "boots · T1",
+          "category": "Armour",
+          "expectedQty": 0.00390625,
+          "probability": 0.00390625
+        }
+      ],
+      "examples": [
+        {
+          "seed": 104729,
+          "coins": 0,
+          "value": 24,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "rubble_seed",
+              "label": "Rock Seed",
+              "qty": 3,
+              "category": "Seeds"
+            }
+          ]
+        },
+        {
+          "seed": 104730,
+          "coins": 0,
+          "value": 0,
+          "memories": 0,
+          "rewards": []
+        },
+        {
+          "seed": 104731,
+          "coins": 0,
+          "value": 0,
+          "memories": 0,
+          "rewards": []
+        }
+      ]
+    },
+    {
+      "distanceM": 500,
+      "trials": 256,
+      "meanCoins": 14.21484375,
+      "meanValue": 49.0703125,
+      "meanItemCount": 1.70703125,
+      "meanAwards": 2.28125,
+      "meanMemories": 0.015625,
+      "valueDistribution": {
+        "p10": 2,
+        "p50": 20,
+        "p90": 94
+      },
+      "coinDistribution": {
+        "p10": 0,
+        "p50": 8,
+        "p90": 33
+      },
+      "classes": [
+        {
+          "label": "Coins",
+          "awards": 1.46875,
+          "share": 0.6438356164383562
+        },
+        {
+          "label": "Seeds",
+          "awards": 0.2109375,
+          "share": 0.09246575342465753
+        },
+        {
+          "label": "Supply",
+          "awards": 0.20703125,
+          "share": 0.09075342465753425
+        },
+        {
+          "label": "Mineral",
+          "awards": 0.203125,
+          "share": 0.08904109589041095
+        },
+        {
+          "label": "Equipment",
+          "awards": 0.07421875,
+          "share": 0.032534246575342464
+        },
+        {
+          "label": "Food",
+          "awards": 0.046875,
+          "share": 0.02054794520547945
+        },
+        {
+          "label": "Armour",
+          "awards": 0.04296875,
+          "share": 0.018835616438356163
+        },
+        {
+          "label": "Magic",
+          "awards": 0.0234375,
+          "share": 0.010273972602739725
+        },
+        {
+          "label": "Unique relics",
+          "awards": 0.00390625,
+          "share": 0.0017123287671232876
+        }
+      ],
+      "topItems": [
+        {
+          "id": "potato_seed",
+          "label": "Potato Seed",
+          "category": "Seeds",
+          "expectedQty": 0.16796875,
+          "probability": 0.0625
+        },
+        {
+          "id": "rubble_seed",
+          "label": "Rock Seed",
+          "category": "Seeds",
+          "expectedQty": 0.15234375,
+          "probability": 0.046875
+        },
+        {
+          "id": "coffee_seed",
+          "label": "Coffee Seed",
+          "category": "Seeds",
+          "expectedQty": 0.15234375,
+          "probability": 0.01953125
+        },
+        {
+          "id": "gemfruit_seed",
+          "label": "Gemfruit Seed",
+          "category": "Seeds",
+          "expectedQty": 0.12890625,
+          "probability": 0.015625
+        },
+        {
+          "id": "cress_seed",
+          "label": "Cress Seed",
+          "category": "Seeds",
+          "expectedQty": 0.12890625,
+          "probability": 0.03125
+        },
+        {
+          "id": "rainberry_seed",
+          "label": "Rainberry Seed",
+          "category": "Seeds",
+          "expectedQty": 0.10546875,
+          "probability": 0.01171875
+        },
+        {
+          "id": "wood",
+          "label": "Wood",
+          "category": "Mineral",
+          "expectedQty": 0.1015625,
+          "probability": 0.0703125
+        },
+        {
+          "id": "torch",
+          "label": "Torch",
+          "category": "Supply",
+          "expectedQty": 0.0625,
+          "probability": 0.05859375
+        },
+        {
+          "id": "flint_shard",
+          "label": "Flint",
+          "category": "Mineral",
+          "expectedQty": 0.05859375,
+          "probability": 0.046875
+        },
+        {
+          "id": "rubble",
+          "label": "Rock",
+          "category": "Food",
+          "expectedQty": 0.05859375,
+          "probability": 0.0078125
+        },
+        {
+          "id": "quartz",
+          "label": "Rose Quartz",
+          "category": "Mineral",
+          "expectedQty": 0.05078125,
+          "probability": 0.02734375
+        },
+        {
+          "id": "book",
+          "label": "Book",
+          "category": "Supply",
+          "expectedQty": 0.05078125,
+          "probability": 0.05078125
+        },
+        {
+          "id": "copper_bar",
+          "label": "Copper",
+          "category": "Mineral",
+          "expectedQty": 0.046875,
+          "probability": 0.04296875
+        },
+        {
+          "id": "barricade",
+          "label": "Barricade",
+          "category": "Supply",
+          "expectedQty": 0.046875,
+          "probability": 0.01171875
+        },
+        {
+          "id": "starfruit_seed",
+          "label": "Starfruit Seed",
+          "category": "Seeds",
+          "expectedQty": 0.046875,
+          "probability": 0.0078125
+        },
+        {
+          "id": "rope",
+          "label": "Rope",
+          "category": "Supply",
+          "expectedQty": 0.03125,
+          "probability": 0.015625
+        },
+        {
+          "id": "sugar_potion",
+          "label": "Sugar Potion",
+          "category": "Supply",
+          "expectedQty": 0.0234375,
+          "probability": 0.0078125
+        },
+        {
+          "id": "berry_seed",
+          "label": "Berry Seed",
+          "category": "Seeds",
+          "expectedQty": 0.0234375,
+          "probability": 0.0078125
+        }
+      ],
+      "examples": [
+        {
+          "seed": 204732,
+          "coins": 6,
+          "value": 11,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "quartz",
+              "label": "Rose Quartz",
+              "qty": 1,
+              "category": "Mineral"
+            }
+          ]
+        },
+        {
+          "seed": 204733,
+          "coins": 5,
+          "value": 49,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "book",
+              "label": "Book",
+              "qty": 1,
+              "category": "Supply"
+            },
+            {
+              "id": "rubble_seed",
+              "label": "Rock Seed",
+              "qty": 3,
+              "category": "Seeds"
+            }
+          ]
+        },
+        {
+          "seed": 204734,
+          "coins": 6,
+          "value": 6,
+          "memories": 0,
+          "rewards": []
+        }
+      ]
+    },
+    {
+      "distanceM": 1000,
+      "trials": 256,
+      "meanCoins": 33.76171875,
+      "meanValue": 115.43359375,
+      "meanItemCount": 5.1484375,
+      "meanAwards": 5.63671875,
+      "meanMemories": 0.04296875,
+      "valueDistribution": {
+        "p10": 31,
+        "p50": 83,
+        "p90": 238
+      },
+      "coinDistribution": {
+        "p10": 9,
+        "p50": 28,
+        "p90": 57
+      },
+      "classes": [
+        {
+          "label": "Coins",
+          "awards": 3.2578125,
+          "share": 0.577962577962578
+        },
+        {
+          "label": "Seeds",
+          "awards": 0.8828125,
+          "share": 0.15661815661815662
+        },
+        {
+          "label": "Mineral",
+          "awards": 0.4765625,
+          "share": 0.08454608454608455
+        },
+        {
+          "label": "Supply",
+          "awards": 0.3828125,
+          "share": 0.06791406791406791
+        },
+        {
+          "label": "Magic",
+          "awards": 0.33203125,
+          "share": 0.058905058905058906
+        },
+        {
+          "label": "Equipment",
+          "awards": 0.1640625,
+          "share": 0.029106029106029108
+        },
+        {
+          "label": "Food",
+          "awards": 0.1015625,
+          "share": 0.018018018018018018
+        },
+        {
+          "label": "Armour",
+          "awards": 0.0390625,
+          "share": 0.00693000693000693
+        }
+      ],
+      "topItems": [
+        {
+          "id": "onion_seed",
+          "label": "Onion Seed",
+          "category": "Seeds",
+          "expectedQty": 1.18359375,
+          "probability": 0.390625
+        },
+        {
+          "id": "cress_seed",
+          "label": "Cress Seed",
+          "category": "Seeds",
+          "expectedQty": 0.515625,
+          "probability": 0.15234375
+        },
+        {
+          "id": "potato_seed",
+          "label": "Potato Seed",
+          "category": "Seeds",
+          "expectedQty": 0.5078125,
+          "probability": 0.1328125
+        },
+        {
+          "id": "rubble_seed",
+          "label": "Rock Seed",
+          "category": "Seeds",
+          "expectedQty": 0.30859375,
+          "probability": 0.1015625
+        },
+        {
+          "id": "wood",
+          "label": "Wood",
+          "category": "Mineral",
+          "expectedQty": 0.265625,
+          "probability": 0.125
+        },
+        {
+          "id": "starfruit_seed",
+          "label": "Starfruit Seed",
+          "category": "Seeds",
+          "expectedQty": 0.18359375,
+          "probability": 0.02734375
+        },
+        {
+          "id": "flint_shard",
+          "label": "Flint",
+          "category": "Mineral",
+          "expectedQty": 0.171875,
+          "probability": 0.109375
+        },
+        {
+          "id": "rubble",
+          "label": "Rock",
+          "category": "Food",
+          "expectedQty": 0.1640625,
+          "probability": 0.03125
+        },
+        {
+          "id": "book",
+          "label": "Book",
+          "category": "Supply",
+          "expectedQty": 0.12109375,
+          "probability": 0.12109375
+        },
+        {
+          "id": "sugar_potion",
+          "label": "Sugar Potion",
+          "category": "Supply",
+          "expectedQty": 0.12109375,
+          "probability": 0.0234375
+        },
+        {
+          "id": "revival_potion",
+          "label": "Potion of Revival",
+          "category": "Magic",
+          "expectedQty": 0.11328125,
+          "probability": 0.05078125
+        },
+        {
+          "id": "quartz",
+          "label": "Rose Quartz",
+          "category": "Mineral",
+          "expectedQty": 0.109375,
+          "probability": 0.078125
+        },
+        {
+          "id": "coffee_seed",
+          "label": "Coffee Seed",
+          "category": "Seeds",
+          "expectedQty": 0.10546875,
+          "probability": 0.01171875
+        },
+        {
+          "id": "torch",
+          "label": "Torch",
+          "category": "Supply",
+          "expectedQty": 0.1015625,
+          "probability": 0.09765625
+        },
+        {
+          "id": "growth_powder",
+          "label": "Growth Powder",
+          "category": "Magic",
+          "expectedQty": 0.0859375,
+          "probability": 0.05078125
+        },
+        {
+          "id": "rainberry_seed",
+          "label": "Rainberry Seed",
+          "category": "Seeds",
+          "expectedQty": 0.0703125,
+          "probability": 0.0078125
+        },
+        {
+          "id": "barricade",
+          "label": "Barricade",
+          "category": "Supply",
+          "expectedQty": 0.06640625,
+          "probability": 0.01953125
+        },
+        {
+          "id": "copper_bar",
+          "label": "Copper",
+          "category": "Mineral",
+          "expectedQty": 0.05859375,
+          "probability": 0.0546875
+        }
+      ],
+      "examples": [
+        {
+          "seed": 304735,
+          "coins": 24,
+          "value": 45,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "onion_seed",
+              "label": "Onion Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "potato_seed",
+              "label": "Potato Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "cress_seed",
+              "label": "Cress Seed",
+              "qty": 3,
+              "category": "Seeds"
+            }
+          ]
+        },
+        {
+          "seed": 304736,
+          "coins": 41,
+          "value": 65,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "rubble_seed",
+              "label": "Rock Seed",
+              "qty": 3,
+              "category": "Seeds"
+            }
+          ]
+        },
+        {
+          "seed": 304737,
+          "coins": 48,
+          "value": 180,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "iron_bar",
+              "label": "Iron",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "relic:fishing_rod:1",
+              "label": "fishing rod · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "onion_seed",
+              "label": "Onion Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "potato_seed",
+              "label": "Potato Seed",
+              "qty": 3,
+              "category": "Seeds"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "distanceM": 2000,
+      "trials": 256,
+      "meanCoins": 69.421875,
+      "meanValue": 230.01953125,
+      "meanItemCount": 9.27734375,
+      "meanAwards": 11.01953125,
+      "meanMemories": 0.08203125,
+      "valueDistribution": {
+        "p10": 80,
+        "p50": 167,
+        "p90": 441
+      },
+      "coinDistribution": {
+        "p10": 25,
+        "p50": 57,
+        "p90": 102
+      },
+      "classes": [
+        {
+          "label": "Coins",
+          "awards": 6.75,
+          "share": 0.6125487415809997
+        },
+        {
+          "label": "Seeds",
+          "awards": 1.46484375,
+          "share": 0.13293158454448778
+        },
+        {
+          "label": "Mineral",
+          "awards": 0.9140625,
+          "share": 0.08294930875576037
+        },
+        {
+          "label": "Supply",
+          "awards": 0.78515625,
+          "share": 0.07125132931584545
+        },
+        {
+          "label": "Magic",
+          "awards": 0.46484375,
+          "share": 0.04218362282878412
+        },
+        {
+          "label": "Equipment",
+          "awards": 0.33984375,
+          "share": 0.030840127614321162
+        },
+        {
+          "label": "Food",
+          "awards": 0.19140625,
+          "share": 0.017369727047146403
+        },
+        {
+          "label": "Armour",
+          "awards": 0.09375,
+          "share": 0.008507621410847217
+        },
+        {
+          "label": "Unique relics",
+          "awards": 0.015625,
+          "share": 0.0014179369018078695
+        }
+      ],
+      "topItems": [
+        {
+          "id": "cress_seed",
+          "label": "Cress Seed",
+          "category": "Seeds",
+          "expectedQty": 1.2890625,
+          "probability": 0.3125
+        },
+        {
+          "id": "onion_seed",
+          "label": "Onion Seed",
+          "category": "Seeds",
+          "expectedQty": 1.10546875,
+          "probability": 0.3515625
+        },
+        {
+          "id": "potato_seed",
+          "label": "Potato Seed",
+          "category": "Seeds",
+          "expectedQty": 0.8125,
+          "probability": 0.23046875
+        },
+        {
+          "id": "rubble_seed",
+          "label": "Rock Seed",
+          "category": "Seeds",
+          "expectedQty": 0.79296875,
+          "probability": 0.21875
+        },
+        {
+          "id": "wood",
+          "label": "Wood",
+          "category": "Mineral",
+          "expectedQty": 0.43359375,
+          "probability": 0.1953125
+        },
+        {
+          "id": "flint_shard",
+          "label": "Flint",
+          "category": "Mineral",
+          "expectedQty": 0.4296875,
+          "probability": 0.23046875
+        },
+        {
+          "id": "quartz",
+          "label": "Rose Quartz",
+          "category": "Mineral",
+          "expectedQty": 0.25390625,
+          "probability": 0.15625
+        },
+        {
+          "id": "rubble",
+          "label": "Rock",
+          "category": "Food",
+          "expectedQty": 0.25,
+          "probability": 0.0390625
+        },
+        {
+          "id": "book",
+          "label": "Book",
+          "category": "Supply",
+          "expectedQty": 0.2265625,
+          "probability": 0.20703125
+        },
+        {
+          "id": "gemfruit_seed",
+          "label": "Gemfruit Seed",
+          "category": "Seeds",
+          "expectedQty": 0.203125,
+          "probability": 0.03125
+        },
+        {
+          "id": "growth_powder",
+          "label": "Growth Powder",
+          "category": "Magic",
+          "expectedQty": 0.1953125,
+          "probability": 0.0703125
+        },
+        {
+          "id": "sugar_potion",
+          "label": "Sugar Potion",
+          "category": "Supply",
+          "expectedQty": 0.1875,
+          "probability": 0.0546875
+        },
+        {
+          "id": "rope",
+          "label": "Rope",
+          "category": "Supply",
+          "expectedQty": 0.1796875,
+          "probability": 0.0703125
+        },
+        {
+          "id": "torch",
+          "label": "Torch",
+          "category": "Supply",
+          "expectedQty": 0.17578125,
+          "probability": 0.15234375
+        },
+        {
+          "id": "berry_seed",
+          "label": "Berry Seed",
+          "category": "Seeds",
+          "expectedQty": 0.1640625,
+          "probability": 0.046875
+        },
+        {
+          "id": "barricade",
+          "label": "Barricade",
+          "category": "Supply",
+          "expectedQty": 0.14453125,
+          "probability": 0.04296875
+        },
+        {
+          "id": "acorn",
+          "label": "Acorn",
+          "category": "Seeds",
+          "expectedQty": 0.14453125,
+          "probability": 0.03125
+        },
+        {
+          "id": "pairy_seed",
+          "label": "Pairy Seed",
+          "category": "Seeds",
+          "expectedQty": 0.1328125,
+          "probability": 0.015625
+        }
+      ],
+      "examples": [
+        {
+          "seed": 404738,
+          "coins": 81,
+          "value": 105,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "onion_seed",
+              "label": "Onion Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "torch",
+              "label": "Torch",
+              "qty": 1,
+              "category": "Supply"
+            },
+            {
+              "id": "cress_seed",
+              "label": "Cress Seed",
+              "qty": 4,
+              "category": "Seeds"
+            }
+          ]
+        },
+        {
+          "seed": 404739,
+          "coins": 50,
+          "value": 298,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "trap_disarm_kit",
+              "label": "Trap Disarm Kit",
+              "qty": 5,
+              "category": "Supply"
+            },
+            {
+              "id": "speed_potion",
+              "label": "Potion of Speed",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "compass",
+              "label": "Compass",
+              "qty": 1,
+              "category": "Unique relics"
+            },
+            {
+              "id": "rubble_seed",
+              "label": "Rock Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "flint_shard",
+              "label": "Flint",
+              "qty": 2,
+              "category": "Mineral"
+            },
+            {
+              "id": "potato_seed",
+              "label": "Potato Seed",
+              "qty": 3,
+              "category": "Seeds"
+            }
+          ]
+        },
+        {
+          "seed": 404740,
+          "coins": 64,
+          "value": 322,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "shadow_powder",
+              "label": "Shadow Powder",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "gemfruit_seed",
+              "label": "Gemfruit Seed",
+              "qty": 7,
+              "category": "Seeds"
+            },
+            {
+              "id": "copper_bar",
+              "label": "Copper",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "torch",
+              "label": "Torch",
+              "qty": 2,
+              "category": "Supply"
+            },
+            {
+              "id": "cress_seed",
+              "label": "Cress Seed",
+              "qty": 3,
+              "category": "Seeds"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "distanceM": 3000,
+      "trials": 256,
+      "meanCoins": 110.96875,
+      "meanValue": 398.4921875,
+      "meanItemCount": 13.01171875,
+      "meanAwards": 16.19140625,
+      "meanMemories": 0.08984375,
+      "valueDistribution": {
+        "p10": 171,
+        "p50": 337,
+        "p90": 621
+      },
+      "coinDistribution": {
+        "p10": 50,
+        "p50": 88,
+        "p90": 152
+      },
+      "classes": [
+        {
+          "label": "Coins",
+          "awards": 9.63671875,
+          "share": 0.5951749095295537
+        },
+        {
+          "label": "Seeds",
+          "awards": 2.14453125,
+          "share": 0.13244873341375152
+        },
+        {
+          "label": "Mineral",
+          "awards": 1.44140625,
+          "share": 0.08902291917973462
+        },
+        {
+          "label": "Supply",
+          "awards": 1.140625,
+          "share": 0.07044632086851628
+        },
+        {
+          "label": "Magic",
+          "awards": 0.84375,
+          "share": 0.05211097708082026
+        },
+        {
+          "label": "Equipment",
+          "awards": 0.50390625,
+          "share": 0.03112183353437877
+        },
+        {
+          "label": "Food",
+          "awards": 0.3125,
+          "share": 0.019300361881785282
+        },
+        {
+          "label": "Armour",
+          "awards": 0.140625,
+          "share": 0.008685162846803377
+        },
+        {
+          "label": "Unique relics",
+          "awards": 0.02734375,
+          "share": 0.0016887816646562123
+        }
+      ],
+      "topItems": [
+        {
+          "id": "potato_seed",
+          "label": "Potato Seed",
+          "category": "Seeds",
+          "expectedQty": 1.4453125,
+          "probability": 0.375
+        },
+        {
+          "id": "onion_seed",
+          "label": "Onion Seed",
+          "category": "Seeds",
+          "expectedQty": 1.2109375,
+          "probability": 0.3984375
+        },
+        {
+          "id": "rubble_seed",
+          "label": "Rock Seed",
+          "category": "Seeds",
+          "expectedQty": 1.14453125,
+          "probability": 0.3125
+        },
+        {
+          "id": "cress_seed",
+          "label": "Cress Seed",
+          "category": "Seeds",
+          "expectedQty": 1.12109375,
+          "probability": 0.30859375
+        },
+        {
+          "id": "wood",
+          "label": "Wood",
+          "category": "Mineral",
+          "expectedQty": 0.86328125,
+          "probability": 0.296875
+        },
+        {
+          "id": "flint_shard",
+          "label": "Flint",
+          "category": "Mineral",
+          "expectedQty": 0.6015625,
+          "probability": 0.32421875
+        },
+        {
+          "id": "book",
+          "label": "Book",
+          "category": "Supply",
+          "expectedQty": 0.390625,
+          "probability": 0.328125
+        },
+        {
+          "id": "rubble",
+          "label": "Rock",
+          "category": "Food",
+          "expectedQty": 0.37890625,
+          "probability": 0.0703125
+        },
+        {
+          "id": "coffee_seed",
+          "label": "Coffee Seed",
+          "category": "Seeds",
+          "expectedQty": 0.34765625,
+          "probability": 0.0625
+        },
+        {
+          "id": "quartz",
+          "label": "Rose Quartz",
+          "category": "Mineral",
+          "expectedQty": 0.34375,
+          "probability": 0.2578125
+        },
+        {
+          "id": "growth_powder",
+          "label": "Growth Powder",
+          "category": "Magic",
+          "expectedQty": 0.3046875,
+          "probability": 0.1328125
+        },
+        {
+          "id": "rainberry_seed",
+          "label": "Rainberry Seed",
+          "category": "Seeds",
+          "expectedQty": 0.2734375,
+          "probability": 0.09375
+        },
+        {
+          "id": "starfruit_seed",
+          "label": "Starfruit Seed",
+          "category": "Seeds",
+          "expectedQty": 0.26171875,
+          "probability": 0.0625
+        },
+        {
+          "id": "copper_bar",
+          "label": "Copper",
+          "category": "Mineral",
+          "expectedQty": 0.23046875,
+          "probability": 0.19140625
+        },
+        {
+          "id": "torch",
+          "label": "Torch",
+          "category": "Supply",
+          "expectedQty": 0.21875,
+          "probability": 0.19921875
+        },
+        {
+          "id": "gemfruit_seed",
+          "label": "Gemfruit Seed",
+          "category": "Seeds",
+          "expectedQty": 0.2109375,
+          "probability": 0.046875
+        },
+        {
+          "id": "barricade",
+          "label": "Barricade",
+          "category": "Supply",
+          "expectedQty": 0.19140625,
+          "probability": 0.05859375
+        },
+        {
+          "id": "trap_disarm_kit",
+          "label": "Trap Disarm Kit",
+          "category": "Supply",
+          "expectedQty": 0.18359375,
+          "probability": 0.05078125
+        }
+      ],
+      "examples": [
+        {
+          "seed": 504741,
+          "coins": 112,
+          "value": 294,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "fireball_scroll",
+              "label": "Fireball Scroll",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "relic:dagger:1",
+              "label": "dagger · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "onion_seed",
+              "label": "Onion Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "cress_seed",
+              "label": "Cress Seed",
+              "qty": 6,
+              "category": "Seeds"
+            },
+            {
+              "id": "wood",
+              "label": "Wood",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "torch",
+              "label": "Torch",
+              "qty": 1,
+              "category": "Supply"
+            }
+          ]
+        },
+        {
+          "seed": 504742,
+          "coins": 79,
+          "value": 160,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "copper_bar",
+              "label": "Copper",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "sugar_potion",
+              "label": "Sugar Potion",
+              "qty": 3,
+              "category": "Supply"
+            },
+            {
+              "id": "torch",
+              "label": "Torch",
+              "qty": 2,
+              "category": "Supply"
+            },
+            {
+              "id": "wood",
+              "label": "Wood",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "flint_shard",
+              "label": "Flint",
+              "qty": 2,
+              "category": "Mineral"
+            },
+            {
+              "id": "throwing_spear",
+              "label": "Throwing Spear",
+              "qty": 1,
+              "category": "Supply"
+            }
+          ]
+        },
+        {
+          "seed": 504743,
+          "coins": 56,
+          "value": 426,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "thunder_scroll",
+              "label": "Scroll of Thunder",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "sleep_powder",
+              "label": "Sleep Powder",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "armor:boots:1",
+              "label": "boots · T1",
+              "qty": 1,
+              "category": "Armour"
+            },
+            {
+              "id": "relic:sword:1",
+              "label": "sword · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "book",
+              "label": "Book",
+              "qty": 1,
+              "category": "Supply"
+            },
+            {
+              "id": "potato_seed",
+              "label": "Potato Seed",
+              "qty": 6,
+              "category": "Seeds"
+            },
+            {
+              "id": "torch",
+              "label": "Torch",
+              "qty": 1,
+              "category": "Supply"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "distanceM": 5000,
+      "trials": 256,
+      "meanCoins": 228.45703125,
+      "meanValue": 729.8125,
+      "meanItemCount": 21.65234375,
+      "meanAwards": 27.38671875,
+      "meanMemories": 0.203125,
+      "valueDistribution": {
+        "p10": 370,
+        "p50": 607,
+        "p90": 1169
+      },
+      "coinDistribution": {
+        "p10": 118,
+        "p50": 185,
+        "p90": 281
+      },
+      "classes": [
+        {
+          "label": "Coins",
+          "awards": 16.671875,
+          "share": 0.6087576665240336
+        },
+        {
+          "label": "Seeds",
+          "awards": 3.37890625,
+          "share": 0.12337754956496934
+        },
+        {
+          "label": "Mineral",
+          "awards": 2.35546875,
+          "share": 0.08600770218228498
+        },
+        {
+          "label": "Supply",
+          "awards": 1.86328125,
+          "share": 0.06803594351732992
+        },
+        {
+          "label": "Magic",
+          "awards": 1.2734375,
+          "share": 0.04649835972043931
+        },
+        {
+          "label": "Equipment",
+          "awards": 0.9140625,
+          "share": 0.03337612323491656
+        },
+        {
+          "label": "Food",
+          "awards": 0.53515625,
+          "share": 0.019540721723006704
+        },
+        {
+          "label": "Armour",
+          "awards": 0.3671875,
+          "share": 0.013407502496077592
+        },
+        {
+          "label": "Unique relics",
+          "awards": 0.02734375,
+          "share": 0.0009984310369419483
+        }
+      ],
+      "topItems": [
+        {
+          "id": "potato_seed",
+          "label": "Potato Seed",
+          "category": "Seeds",
+          "expectedQty": 2.12109375,
+          "probability": 0.484375
+        },
+        {
+          "id": "rubble_seed",
+          "label": "Rock Seed",
+          "category": "Seeds",
+          "expectedQty": 2.01953125,
+          "probability": 0.49609375
+        },
+        {
+          "id": "cress_seed",
+          "label": "Cress Seed",
+          "category": "Seeds",
+          "expectedQty": 1.8046875,
+          "probability": 0.46484375
+        },
+        {
+          "id": "wood",
+          "label": "Wood",
+          "category": "Mineral",
+          "expectedQty": 1.55078125,
+          "probability": 0.515625
+        },
+        {
+          "id": "onion_seed",
+          "label": "Onion Seed",
+          "category": "Seeds",
+          "expectedQty": 1.2890625,
+          "probability": 0.35546875
+        },
+        {
+          "id": "rubble",
+          "label": "Rock",
+          "category": "Food",
+          "expectedQty": 1.11328125,
+          "probability": 0.1640625
+        },
+        {
+          "id": "flint_shard",
+          "label": "Flint",
+          "category": "Mineral",
+          "expectedQty": 0.8125,
+          "probability": 0.3828125
+        },
+        {
+          "id": "quartz",
+          "label": "Rose Quartz",
+          "category": "Mineral",
+          "expectedQty": 0.63671875,
+          "probability": 0.40234375
+        },
+        {
+          "id": "coffee_seed",
+          "label": "Coffee Seed",
+          "category": "Seeds",
+          "expectedQty": 0.61328125,
+          "probability": 0.08984375
+        },
+        {
+          "id": "book",
+          "label": "Book",
+          "category": "Supply",
+          "expectedQty": 0.58203125,
+          "probability": 0.46875
+        },
+        {
+          "id": "sugar_potion",
+          "label": "Sugar Potion",
+          "category": "Supply",
+          "expectedQty": 0.44921875,
+          "probability": 0.12109375
+        },
+        {
+          "id": "gemfruit_seed",
+          "label": "Gemfruit Seed",
+          "category": "Seeds",
+          "expectedQty": 0.44921875,
+          "probability": 0.109375
+        },
+        {
+          "id": "growth_powder",
+          "label": "Growth Powder",
+          "category": "Magic",
+          "expectedQty": 0.4375,
+          "probability": 0.1640625
+        },
+        {
+          "id": "rainberry_seed",
+          "label": "Rainberry Seed",
+          "category": "Seeds",
+          "expectedQty": 0.39453125,
+          "probability": 0.14453125
+        },
+        {
+          "id": "copper_bar",
+          "label": "Copper",
+          "category": "Mineral",
+          "expectedQty": 0.38671875,
+          "probability": 0.28125
+        },
+        {
+          "id": "torch",
+          "label": "Torch",
+          "category": "Supply",
+          "expectedQty": 0.37890625,
+          "probability": 0.31640625
+        },
+        {
+          "id": "rope",
+          "label": "Rope",
+          "category": "Supply",
+          "expectedQty": 0.375,
+          "probability": 0.109375
+        },
+        {
+          "id": "pairy_seed",
+          "label": "Pairy Seed",
+          "category": "Seeds",
+          "expectedQty": 0.3125,
+          "probability": 0.13671875
+        }
+      ],
+      "examples": [
+        {
+          "seed": 604744,
+          "coins": 145,
+          "value": 435,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "growth_powder",
+              "label": "Growth Powder",
+              "qty": 2,
+              "category": "Magic"
+            },
+            {
+              "id": "pairy_seed",
+              "label": "Pairy Seed",
+              "qty": 1,
+              "category": "Seeds"
+            },
+            {
+              "id": "armor:boots:1",
+              "label": "boots · T1",
+              "qty": 1,
+              "category": "Armour"
+            },
+            {
+              "id": "copper_bar",
+              "label": "Copper",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "rubble_seed",
+              "label": "Rock Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "onion_seed",
+              "label": "Onion Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "quartz",
+              "label": "Rose Quartz",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "flint_shard",
+              "label": "Flint",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "flowers",
+              "label": "Flowers",
+              "qty": 1,
+              "category": "Food"
+            }
+          ]
+        },
+        {
+          "seed": 604745,
+          "coins": 87,
+          "value": 525,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "iron_bar",
+              "label": "Iron",
+              "qty": 2,
+              "category": "Mineral"
+            },
+            {
+              "id": "thunder_scroll",
+              "label": "Scroll of Thunder",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "armor:boots:1",
+              "label": "boots · T1",
+              "qty": 1,
+              "category": "Armour"
+            },
+            {
+              "id": "barricade",
+              "label": "Barricade",
+              "qty": 4,
+              "category": "Supply"
+            },
+            {
+              "id": "onion_seed",
+              "label": "Onion Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "wood",
+              "label": "Wood",
+              "qty": 1,
+              "category": "Mineral"
+            }
+          ]
+        },
+        {
+          "seed": 604746,
+          "coins": 207,
+          "value": 703,
+          "memories": 1,
+          "rewards": [
+            {
+              "id": "apple_sapling",
+              "label": "Apple Sapling",
+              "qty": 1,
+              "category": "Seeds"
+            },
+            {
+              "id": "coffee_seed",
+              "label": "Coffee Seed",
+              "qty": 6,
+              "category": "Seeds"
+            },
+            {
+              "id": "speed_potion",
+              "label": "Potion of Speed",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "wood",
+              "label": "Wood",
+              "qty": 7,
+              "category": "Mineral"
+            },
+            {
+              "id": "copper_bar",
+              "label": "Copper",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "relic:hoe:1",
+              "label": "hoe · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "rubble_seed",
+              "label": "Rock Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "topaz",
+              "label": "Topaz",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "onion_seed",
+              "label": "Onion Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "onion",
+              "label": "Onion",
+              "qty": 1,
+              "category": "Food"
+            },
+            {
+              "id": "throwing_spear",
+              "label": "Throwing Spear",
+              "qty": 1,
+              "category": "Supply"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "distanceM": 10000,
+      "trials": 256,
+      "meanCoins": 391.44921875,
+      "meanValue": 1239.6328125,
+      "meanItemCount": 38.91015625,
+      "meanAwards": 50.5078125,
+      "meanMemories": 0.33984375,
+      "valueDistribution": {
+        "p10": 715,
+        "p50": 1142,
+        "p90": 1877
+      },
+      "coinDistribution": {
+        "p10": 261,
+        "p50": 347,
+        "p90": 515
+      },
+      "classes": [
+        {
+          "label": "Coins",
+          "awards": 31.30859375,
+          "share": 0.619876256767208
+        },
+        {
+          "label": "Seeds",
+          "awards": 5.9453125,
+          "share": 0.1177107501933488
+        },
+        {
+          "label": "Mineral",
+          "awards": 4.578125,
+          "share": 0.09064191802010828
+        },
+        {
+          "label": "Supply",
+          "awards": 3.71875,
+          "share": 0.07362722351121423
+        },
+        {
+          "label": "Magic",
+          "awards": 1.70703125,
+          "share": 0.03379737045630317
+        },
+        {
+          "label": "Equipment",
+          "awards": 1.55078125,
+          "share": 0.030703789636504254
+        },
+        {
+          "label": "Food",
+          "awards": 0.9296875,
+          "share": 0.018406805877803557
+        },
+        {
+          "label": "Armour",
+          "awards": 0.70703125,
+          "share": 0.0139984532095901
+        },
+        {
+          "label": "Unique relics",
+          "awards": 0.0625,
+          "share": 0.0012374323279195668
+        }
+      ],
+      "topItems": [
+        {
+          "id": "potato_seed",
+          "label": "Potato Seed",
+          "category": "Seeds",
+          "expectedQty": 4.203125,
+          "probability": 0.74609375
+        },
+        {
+          "id": "cress_seed",
+          "label": "Cress Seed",
+          "category": "Seeds",
+          "expectedQty": 3.765625,
+          "probability": 0.73046875
+        },
+        {
+          "id": "rubble_seed",
+          "label": "Rock Seed",
+          "category": "Seeds",
+          "expectedQty": 3.54296875,
+          "probability": 0.70703125
+        },
+        {
+          "id": "wood",
+          "label": "Wood",
+          "category": "Mineral",
+          "expectedQty": 2.54296875,
+          "probability": 0.6953125
+        },
+        {
+          "id": "flint_shard",
+          "label": "Flint",
+          "category": "Mineral",
+          "expectedQty": 1.66796875,
+          "probability": 0.72265625
+        },
+        {
+          "id": "onion_seed",
+          "label": "Onion Seed",
+          "category": "Seeds",
+          "expectedQty": 1.5078125,
+          "probability": 0.375
+        },
+        {
+          "id": "rubble",
+          "label": "Rock",
+          "category": "Food",
+          "expectedQty": 1.5,
+          "probability": 0.23828125
+        },
+        {
+          "id": "quartz",
+          "label": "Rose Quartz",
+          "category": "Mineral",
+          "expectedQty": 1.25390625,
+          "probability": 0.578125
+        },
+        {
+          "id": "book",
+          "label": "Book",
+          "category": "Supply",
+          "expectedQty": 1.1015625,
+          "probability": 0.66015625
+        },
+        {
+          "id": "coffee_seed",
+          "label": "Coffee Seed",
+          "category": "Seeds",
+          "expectedQty": 1.0078125,
+          "probability": 0.1484375
+        },
+        {
+          "id": "sugar_potion",
+          "label": "Sugar Potion",
+          "category": "Supply",
+          "expectedQty": 0.80859375,
+          "probability": 0.19140625
+        },
+        {
+          "id": "torch",
+          "label": "Torch",
+          "category": "Supply",
+          "expectedQty": 0.7890625,
+          "probability": 0.5390625
+        },
+        {
+          "id": "growth_powder",
+          "label": "Growth Powder",
+          "category": "Magic",
+          "expectedQty": 0.77734375,
+          "probability": 0.30078125
+        },
+        {
+          "id": "gemfruit_seed",
+          "label": "Gemfruit Seed",
+          "category": "Seeds",
+          "expectedQty": 0.75390625,
+          "probability": 0.11328125
+        },
+        {
+          "id": "pairy_seed",
+          "label": "Pairy Seed",
+          "category": "Seeds",
+          "expectedQty": 0.7421875,
+          "probability": 0.1875
+        },
+        {
+          "id": "copper_bar",
+          "label": "Copper",
+          "category": "Mineral",
+          "expectedQty": 0.72265625,
+          "probability": 0.5078125
+        },
+        {
+          "id": "rainberry_seed",
+          "label": "Rainberry Seed",
+          "category": "Seeds",
+          "expectedQty": 0.69140625,
+          "probability": 0.25390625
+        },
+        {
+          "id": "barricade",
+          "label": "Barricade",
+          "category": "Supply",
+          "expectedQty": 0.6796875,
+          "probability": 0.19140625
+        }
+      ],
+      "examples": [
+        {
+          "seed": 704747,
+          "coins": 356,
+          "value": 1110,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "revival_potion",
+              "label": "Potion of Revival",
+              "qty": 6,
+              "category": "Magic"
+            },
+            {
+              "id": "armor:boots:2",
+              "label": "boots · T2",
+              "qty": 1,
+              "category": "Armour"
+            },
+            {
+              "id": "frost_powder",
+              "label": "Frost Powder",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "blight_potion",
+              "label": "Potion of Blight",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "copper_bar",
+              "label": "Copper",
+              "qty": 2,
+              "category": "Mineral"
+            },
+            {
+              "id": "book",
+              "label": "Book",
+              "qty": 2,
+              "category": "Supply"
+            },
+            {
+              "id": "relic:musket:1",
+              "label": "musket · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "relic:staff:1",
+              "label": "staff · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "trap_disarm_kit",
+              "label": "Trap Disarm Kit",
+              "qty": 1,
+              "category": "Supply"
+            },
+            {
+              "id": "antidote",
+              "label": "Antidote",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "torch",
+              "label": "Torch",
+              "qty": 3,
+              "category": "Supply"
+            },
+            {
+              "id": "topaz",
+              "label": "Topaz",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "wood",
+              "label": "Wood",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "flint_shard",
+              "label": "Flint",
+              "qty": 2,
+              "category": "Mineral"
+            },
+            {
+              "id": "throwing_spear",
+              "label": "Throwing Spear",
+              "qty": 1,
+              "category": "Supply"
+            },
+            {
+              "id": "cress_seed",
+              "label": "Cress Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "potato_seed",
+              "label": "Potato Seed",
+              "qty": 3,
+              "category": "Seeds"
+            }
+          ]
+        },
+        {
+          "seed": 704748,
+          "coins": 347,
+          "value": 1390,
+          "memories": 1,
+          "rewards": [
+            {
+              "id": "apple_sapling",
+              "label": "Apple Sapling",
+              "qty": 1,
+              "category": "Seeds"
+            },
+            {
+              "id": "gemfruit_seed",
+              "label": "Gemfruit Seed",
+              "qty": 10,
+              "category": "Seeds"
+            },
+            {
+              "id": "armor:boots:2",
+              "label": "boots · T2",
+              "qty": 1,
+              "category": "Armour"
+            },
+            {
+              "id": "rubble_seed",
+              "label": "Rock Seed",
+              "qty": 15,
+              "category": "Seeds"
+            },
+            {
+              "id": "growth_powder",
+              "label": "Growth Powder",
+              "qty": 2,
+              "category": "Magic"
+            },
+            {
+              "id": "revival_potion",
+              "label": "Potion of Revival",
+              "qty": 3,
+              "category": "Magic"
+            },
+            {
+              "id": "barricade",
+              "label": "Barricade",
+              "qty": 5,
+              "category": "Supply"
+            },
+            {
+              "id": "speed_potion",
+              "label": "Potion of Speed",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "armor:boots:1",
+              "label": "boots · T1",
+              "qty": 1,
+              "category": "Armour"
+            },
+            {
+              "id": "book",
+              "label": "Book",
+              "qty": 1,
+              "category": "Supply"
+            },
+            {
+              "id": "throwing_spear",
+              "label": "Throwing Spear",
+              "qty": 2,
+              "category": "Supply"
+            },
+            {
+              "id": "flint_shard",
+              "label": "Flint",
+              "qty": 2,
+              "category": "Mineral"
+            },
+            {
+              "id": "potato_seed",
+              "label": "Potato Seed",
+              "qty": 6,
+              "category": "Seeds"
+            },
+            {
+              "id": "wood",
+              "label": "Wood",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "torch",
+              "label": "Torch",
+              "qty": 1,
+              "category": "Supply"
+            },
+            {
+              "id": "quartz",
+              "label": "Rose Quartz",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "cress_seed",
+              "label": "Cress Seed",
+              "qty": 3,
+              "category": "Seeds"
+            }
+          ]
+        },
+        {
+          "seed": 704749,
+          "coins": 293,
+          "value": 1647,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "pairy_seed",
+              "label": "Pairy Seed",
+              "qty": 11,
+              "category": "Seeds"
+            },
+            {
+              "id": "rainberry_seed",
+              "label": "Rainberry Seed",
+              "qty": 9,
+              "category": "Seeds"
+            },
+            {
+              "id": "shadow_powder",
+              "label": "Shadow Powder",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "coffee_seed",
+              "label": "Coffee Seed",
+              "qty": 6,
+              "category": "Seeds"
+            },
+            {
+              "id": "armor:chestplate:1",
+              "label": "chestplate · T1",
+              "qty": 1,
+              "category": "Armour"
+            },
+            {
+              "id": "stealth_ring",
+              "label": "Stealth Ring",
+              "qty": 1,
+              "category": "Unique relics"
+            },
+            {
+              "id": "sunflower_seed",
+              "label": "Sunflower Seed",
+              "qty": 1,
+              "category": "Seeds"
+            },
+            {
+              "id": "rubble_seed",
+              "label": "Rock Seed",
+              "qty": 6,
+              "category": "Seeds"
+            },
+            {
+              "id": "quartz",
+              "label": "Rose Quartz",
+              "qty": 7,
+              "category": "Mineral"
+            },
+            {
+              "id": "relic:net:1",
+              "label": "net · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "rope",
+              "label": "Rope",
+              "qty": 1,
+              "category": "Supply"
+            },
+            {
+              "id": "rabbit_pelt",
+              "label": "Rabbit Pelt",
+              "qty": 1,
+              "category": "Food"
+            },
+            {
+              "id": "onion_seed",
+              "label": "Onion Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "wood",
+              "label": "Wood",
+              "qty": 2,
+              "category": "Mineral"
+            },
+            {
+              "id": "flint_shard",
+              "label": "Flint",
+              "qty": 2,
+              "category": "Mineral"
+            },
+            {
+              "id": "cress_seed",
+              "label": "Cress Seed",
+              "qty": 6,
+              "category": "Seeds"
+            },
+            {
+              "id": "torch",
+              "label": "Torch",
+              "qty": 1,
+              "category": "Supply"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "distanceM": 15000,
+      "trials": 256,
+      "meanCoins": 669.578125,
+      "meanValue": 2085.640625,
+      "meanItemCount": 58.984375,
+      "meanAwards": 76.08984375,
+      "meanMemories": 0.52734375,
+      "valueDistribution": {
+        "p10": 1354,
+        "p50": 1948,
+        "p90": 2982
+      },
+      "coinDistribution": {
+        "p10": 476,
+        "p50": 598,
+        "p90": 926
+      },
+      "classes": [
+        {
+          "label": "Coins",
+          "awards": 46.93359375,
+          "share": 0.6168181118127214
+        },
+        {
+          "label": "Seeds",
+          "awards": 8.9140625,
+          "share": 0.11715180450741824
+        },
+        {
+          "label": "Mineral",
+          "awards": 7.19140625,
+          "share": 0.0945120386056779
+        },
+        {
+          "label": "Supply",
+          "awards": 5.26953125,
+          "share": 0.06925406848400842
+        },
+        {
+          "label": "Equipment",
+          "awards": 2.5234375,
+          "share": 0.03316392011910262
+        },
+        {
+          "label": "Magic",
+          "awards": 2.40625,
+          "share": 0.03162379998973253
+        },
+        {
+          "label": "Food",
+          "awards": 1.53125,
+          "share": 0.02012423635710252
+        },
+        {
+          "label": "Armour",
+          "awards": 1.2265625,
+          "share": 0.016119924020740285
+        },
+        {
+          "label": "Unique relics",
+          "awards": 0.09375,
+          "share": 0.0012320961034960726
+        }
+      ],
+      "topItems": [
+        {
+          "id": "cress_seed",
+          "label": "Cress Seed",
+          "category": "Seeds",
+          "expectedQty": 6,
+          "probability": 0.84765625
+        },
+        {
+          "id": "potato_seed",
+          "label": "Potato Seed",
+          "category": "Seeds",
+          "expectedQty": 5.921875,
+          "probability": 0.828125
+        },
+        {
+          "id": "rubble_seed",
+          "label": "Rock Seed",
+          "category": "Seeds",
+          "expectedQty": 5.13671875,
+          "probability": 0.80078125
+        },
+        {
+          "id": "wood",
+          "label": "Wood",
+          "category": "Mineral",
+          "expectedQty": 3.921875,
+          "probability": 0.85546875
+        },
+        {
+          "id": "flint_shard",
+          "label": "Flint",
+          "category": "Mineral",
+          "expectedQty": 2.921875,
+          "probability": 0.84375
+        },
+        {
+          "id": "rubble",
+          "label": "Rock",
+          "category": "Food",
+          "expectedQty": 2.64453125,
+          "probability": 0.359375
+        },
+        {
+          "id": "quartz",
+          "label": "Rose Quartz",
+          "category": "Mineral",
+          "expectedQty": 1.89453125,
+          "probability": 0.8125
+        },
+        {
+          "id": "onion_seed",
+          "label": "Onion Seed",
+          "category": "Seeds",
+          "expectedQty": 1.63671875,
+          "probability": 0.4765625
+        },
+        {
+          "id": "book",
+          "label": "Book",
+          "category": "Supply",
+          "expectedQty": 1.53515625,
+          "probability": 0.7890625
+        },
+        {
+          "id": "starfruit_seed",
+          "label": "Starfruit Seed",
+          "category": "Seeds",
+          "expectedQty": 1.421875,
+          "probability": 0.23046875
+        },
+        {
+          "id": "coffee_seed",
+          "label": "Coffee Seed",
+          "category": "Seeds",
+          "expectedQty": 1.296875,
+          "probability": 0.16796875
+        },
+        {
+          "id": "growth_powder",
+          "label": "Growth Powder",
+          "category": "Magic",
+          "expectedQty": 1.26171875,
+          "probability": 0.41015625
+        },
+        {
+          "id": "pairy_seed",
+          "label": "Pairy Seed",
+          "category": "Seeds",
+          "expectedQty": 1.25,
+          "probability": 0.36328125
+        },
+        {
+          "id": "sugar_potion",
+          "label": "Sugar Potion",
+          "category": "Supply",
+          "expectedQty": 1.234375,
+          "probability": 0.2890625
+        },
+        {
+          "id": "copper_bar",
+          "label": "Copper",
+          "category": "Mineral",
+          "expectedQty": 1.21875,
+          "probability": 0.640625
+        },
+        {
+          "id": "torch",
+          "label": "Torch",
+          "category": "Supply",
+          "expectedQty": 1.15234375,
+          "probability": 0.6796875
+        },
+        {
+          "id": "gemfruit_seed",
+          "label": "Gemfruit Seed",
+          "category": "Seeds",
+          "expectedQty": 1.140625,
+          "probability": 0.18359375
+        },
+        {
+          "id": "rope",
+          "label": "Rope",
+          "category": "Supply",
+          "expectedQty": 1.12890625,
+          "probability": 0.30859375
+        }
+      ],
+      "examples": [
+        {
+          "seed": 804750,
+          "coins": 417,
+          "value": 1381,
+          "memories": 1,
+          "rewards": [
+            {
+              "id": "apple_sapling",
+              "label": "Apple Sapling",
+              "qty": 2,
+              "category": "Seeds"
+            },
+            {
+              "id": "revival_potion",
+              "label": "Potion of Revival",
+              "qty": 6,
+              "category": "Magic"
+            },
+            {
+              "id": "fireflower_seed",
+              "label": "Fireflower Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "copper_bar",
+              "label": "Copper",
+              "qty": 2,
+              "category": "Mineral"
+            },
+            {
+              "id": "protection_potion",
+              "label": "Potion of Protection",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "relic:pickaxe:1",
+              "label": "pickaxe · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "torch",
+              "label": "Torch",
+              "qty": 3,
+              "category": "Supply"
+            },
+            {
+              "id": "flint_shard",
+              "label": "Flint",
+              "qty": 2,
+              "category": "Mineral"
+            },
+            {
+              "id": "quartz",
+              "label": "Rose Quartz",
+              "qty": 2,
+              "category": "Mineral"
+            },
+            {
+              "id": "rubble",
+              "label": "Rock",
+              "qty": 8,
+              "category": "Food"
+            },
+            {
+              "id": "potato_seed",
+              "label": "Potato Seed",
+              "qty": 7,
+              "category": "Seeds"
+            },
+            {
+              "id": "cress_seed",
+              "label": "Cress Seed",
+              "qty": 6,
+              "category": "Seeds"
+            },
+            {
+              "id": "flowers",
+              "label": "Flowers",
+              "qty": 1,
+              "category": "Food"
+            }
+          ]
+        },
+        {
+          "seed": 804751,
+          "coins": 664,
+          "value": 1646,
+          "memories": 1,
+          "rewards": [
+            {
+              "id": "armor:boots:3",
+              "label": "boots · T3",
+              "qty": 1,
+              "category": "Armour"
+            },
+            {
+              "id": "treasure_map",
+              "label": "Treasure Map",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "coffee_seed",
+              "label": "Coffee Seed",
+              "qty": 9,
+              "category": "Seeds"
+            },
+            {
+              "id": "javelin",
+              "label": "Javelin",
+              "qty": 1,
+              "category": "Supply"
+            },
+            {
+              "id": "starfruit_seed",
+              "label": "Starfruit Seed",
+              "qty": 5,
+              "category": "Seeds"
+            },
+            {
+              "id": "rubble_seed",
+              "label": "Rock Seed",
+              "qty": 9,
+              "category": "Seeds"
+            },
+            {
+              "id": "growth_powder",
+              "label": "Growth Powder",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "relic:watering_can:1",
+              "label": "watering can · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "relic:axe:1",
+              "label": "axe · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "relic:staff:1",
+              "label": "staff · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "nut_seed",
+              "label": "Nut Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "onion_seed",
+              "label": "Onion Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "potato_seed",
+              "label": "Potato Seed",
+              "qty": 7,
+              "category": "Seeds"
+            },
+            {
+              "id": "wood",
+              "label": "Wood",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "cress_seed",
+              "label": "Cress Seed",
+              "qty": 6,
+              "category": "Seeds"
+            },
+            {
+              "id": "egg",
+              "label": "Egg",
+              "qty": 1,
+              "category": "Food"
+            },
+            {
+              "id": "flint_shard",
+              "label": "Flint",
+              "qty": 1,
+              "category": "Mineral"
+            }
+          ]
+        },
+        {
+          "seed": 804752,
+          "coins": 560,
+          "value": 2515,
+          "memories": 1,
+          "rewards": [
+            {
+              "id": "armor:boots:4",
+              "label": "boots · T4",
+              "qty": 1,
+              "category": "Armour"
+            },
+            {
+              "id": "platinum_bar",
+              "label": "Platinum",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "thunder_scroll",
+              "label": "Scroll of Thunder",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "growth_powder",
+              "label": "Growth Powder",
+              "qty": 2,
+              "category": "Magic"
+            },
+            {
+              "id": "rubble_seed",
+              "label": "Rock Seed",
+              "qty": 15,
+              "category": "Seeds"
+            },
+            {
+              "id": "reach_potion",
+              "label": "Potion of Reach",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "sunflower_seed",
+              "label": "Sunflower Seed",
+              "qty": 2,
+              "category": "Seeds"
+            },
+            {
+              "id": "relic:lance:1",
+              "label": "lance · T1",
+              "qty": 2,
+              "category": "Equipment"
+            },
+            {
+              "id": "healing_potion",
+              "label": "Potion of Healing",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "relic:sword:1",
+              "label": "sword · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "copper_bar",
+              "label": "Copper",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "relic:axe:1",
+              "label": "axe · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "torch",
+              "label": "Torch",
+              "qty": 4,
+              "category": "Supply"
+            },
+            {
+              "id": "scarecrow",
+              "label": "Scarecrow",
+              "qty": 1,
+              "category": "Supply"
+            },
+            {
+              "id": "quartz",
+              "label": "Rose Quartz",
+              "qty": 4,
+              "category": "Mineral"
+            },
+            {
+              "id": "berry_seed",
+              "label": "Berry Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "flint_shard",
+              "label": "Flint",
+              "qty": 4,
+              "category": "Mineral"
+            },
+            {
+              "id": "wood",
+              "label": "Wood",
+              "qty": 2,
+              "category": "Mineral"
+            },
+            {
+              "id": "cress_seed",
+              "label": "Cress Seed",
+              "qty": 6,
+              "category": "Seeds"
+            },
+            {
+              "id": "onion",
+              "label": "Onion",
+              "qty": 1,
+              "category": "Food"
+            },
+            {
+              "id": "egg",
+              "label": "Egg",
+              "qty": 1,
+              "category": "Food"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "distanceM": 20000,
+      "trials": 256,
+      "meanCoins": 930.31640625,
+      "meanValue": 2844.8984375,
+      "meanItemCount": 76.53125,
+      "meanAwards": 99.7734375,
+      "meanMemories": 0.62890625,
+      "valueDistribution": {
+        "p10": 1907,
+        "p50": 2603,
+        "p90": 4024
+      },
+      "coinDistribution": {
+        "p10": 668,
+        "p50": 820,
+        "p90": 1253
+      },
+      "classes": [
+        {
+          "label": "Coins",
+          "awards": 62.125,
+          "share": 0.6226607156839715
+        },
+        {
+          "label": "Seeds",
+          "awards": 11.26953125,
+          "share": 0.11295121760238039
+        },
+        {
+          "label": "Mineral",
+          "awards": 8.89453125,
+          "share": 0.08914728682170543
+        },
+        {
+          "label": "Supply",
+          "awards": 7.54296875,
+          "share": 0.07560097094980815
+        },
+        {
+          "label": "Equipment",
+          "awards": 3.203125,
+          "share": 0.032103985592357685
+        },
+        {
+          "label": "Magic",
+          "awards": 2.9921875,
+          "share": 0.029989820687495106
+        },
+        {
+          "label": "Food",
+          "awards": 2.05078125,
+          "share": 0.0205543810194973
+        },
+        {
+          "label": "Armour",
+          "awards": 1.60546875,
+          "share": 0.01609114399812074
+        },
+        {
+          "label": "Unique relics",
+          "awards": 0.08984375,
+          "share": 0.0009004776446636911
+        }
+      ],
+      "topItems": [
+        {
+          "id": "cress_seed",
+          "label": "Cress Seed",
+          "category": "Seeds",
+          "expectedQty": 7.6953125,
+          "probability": 0.87890625
+        },
+        {
+          "id": "potato_seed",
+          "label": "Potato Seed",
+          "category": "Seeds",
+          "expectedQty": 7.3359375,
+          "probability": 0.9296875
+        },
+        {
+          "id": "rubble_seed",
+          "label": "Rock Seed",
+          "category": "Seeds",
+          "expectedQty": 7.30078125,
+          "probability": 0.9140625
+        },
+        {
+          "id": "wood",
+          "label": "Wood",
+          "category": "Mineral",
+          "expectedQty": 5.6640625,
+          "probability": 0.88671875
+        },
+        {
+          "id": "rubble",
+          "label": "Rock",
+          "category": "Food",
+          "expectedQty": 3.54296875,
+          "probability": 0.46875
+        },
+        {
+          "id": "flint_shard",
+          "label": "Flint",
+          "category": "Mineral",
+          "expectedQty": 3.2734375,
+          "probability": 0.90625
+        },
+        {
+          "id": "book",
+          "label": "Book",
+          "category": "Supply",
+          "expectedQty": 2.2734375,
+          "probability": 0.890625
+        },
+        {
+          "id": "quartz",
+          "label": "Rose Quartz",
+          "category": "Mineral",
+          "expectedQty": 2.19921875,
+          "probability": 0.85546875
+        },
+        {
+          "id": "onion_seed",
+          "label": "Onion Seed",
+          "category": "Seeds",
+          "expectedQty": 1.8125,
+          "probability": 0.45703125
+        },
+        {
+          "id": "coffee_seed",
+          "label": "Coffee Seed",
+          "category": "Seeds",
+          "expectedQty": 1.80078125,
+          "probability": 0.234375
+        },
+        {
+          "id": "torch",
+          "label": "Torch",
+          "category": "Supply",
+          "expectedQty": 1.6796875,
+          "probability": 0.828125
+        },
+        {
+          "id": "growth_powder",
+          "label": "Growth Powder",
+          "category": "Magic",
+          "expectedQty": 1.5703125,
+          "probability": 0.50390625
+        },
+        {
+          "id": "starfruit_seed",
+          "label": "Starfruit Seed",
+          "category": "Seeds",
+          "expectedQty": 1.56640625,
+          "probability": 0.23046875
+        },
+        {
+          "id": "copper_bar",
+          "label": "Copper",
+          "category": "Mineral",
+          "expectedQty": 1.5,
+          "probability": 0.75390625
+        },
+        {
+          "id": "sugar_potion",
+          "label": "Sugar Potion",
+          "category": "Supply",
+          "expectedQty": 1.46875,
+          "probability": 0.3359375
+        },
+        {
+          "id": "gemfruit_seed",
+          "label": "Gemfruit Seed",
+          "category": "Seeds",
+          "expectedQty": 1.4296875,
+          "probability": 0.21875
+        },
+        {
+          "id": "rope",
+          "label": "Rope",
+          "category": "Supply",
+          "expectedQty": 1.421875,
+          "probability": 0.3671875
+        },
+        {
+          "id": "pairy_seed",
+          "label": "Pairy Seed",
+          "category": "Seeds",
+          "expectedQty": 1.39453125,
+          "probability": 0.38671875
+        }
+      ],
+      "examples": [
+        {
+          "seed": 904753,
+          "coins": 817,
+          "value": 4124,
+          "memories": 1,
+          "rewards": [
+            {
+              "id": "armor:boots:5",
+              "label": "boots · T5",
+              "qty": 1,
+              "category": "Armour"
+            },
+            {
+              "id": "armor:boots:3",
+              "label": "boots · T3",
+              "qty": 1,
+              "category": "Armour"
+            },
+            {
+              "id": "thunder_scroll",
+              "label": "Scroll of Thunder",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "copper_bar",
+              "label": "Copper",
+              "qty": 4,
+              "category": "Mineral"
+            },
+            {
+              "id": "barricade",
+              "label": "Barricade",
+              "qty": 10,
+              "category": "Supply"
+            },
+            {
+              "id": "book",
+              "label": "Book",
+              "qty": 5,
+              "category": "Supply"
+            },
+            {
+              "id": "marigold",
+              "label": "Marigold",
+              "qty": 2,
+              "category": "Food"
+            },
+            {
+              "id": "relic:dagger:1",
+              "label": "dagger · T1",
+              "qty": 3,
+              "category": "Equipment"
+            },
+            {
+              "id": "iron_bar",
+              "label": "Iron",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "revival_potion",
+              "label": "Potion of Revival",
+              "qty": 2,
+              "category": "Magic"
+            },
+            {
+              "id": "rope",
+              "label": "Rope",
+              "qty": 5,
+              "category": "Supply"
+            },
+            {
+              "id": "relic:fishing_rod:1",
+              "label": "fishing rod · T1",
+              "qty": 2,
+              "category": "Equipment"
+            },
+            {
+              "id": "speed_potion",
+              "label": "Potion of Speed",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "wood",
+              "label": "Wood",
+              "qty": 10,
+              "category": "Mineral"
+            },
+            {
+              "id": "armor:helmet:1",
+              "label": "helmet · T1",
+              "qty": 1,
+              "category": "Armour"
+            },
+            {
+              "id": "relic:amulet:2",
+              "label": "amulet · T2",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "gemfruit_seed",
+              "label": "Gemfruit Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "relic:axe:1",
+              "label": "axe · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "berry_seed",
+              "label": "Berry Seed",
+              "qty": 6,
+              "category": "Seeds"
+            },
+            {
+              "id": "relic:lance:1",
+              "label": "lance · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "flint_shard",
+              "label": "Flint",
+              "qty": 8,
+              "category": "Mineral"
+            },
+            {
+              "id": "trap_disarm_kit",
+              "label": "Trap Disarm Kit",
+              "qty": 1,
+              "category": "Supply"
+            },
+            {
+              "id": "nut_seed",
+              "label": "Nut Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "cress_seed",
+              "label": "Cress Seed",
+              "qty": 15,
+              "category": "Seeds"
+            },
+            {
+              "id": "rubble",
+              "label": "Rock",
+              "qty": 6,
+              "category": "Food"
+            },
+            {
+              "id": "torch",
+              "label": "Torch",
+              "qty": 1,
+              "category": "Supply"
+            },
+            {
+              "id": "quartz",
+              "label": "Rose Quartz",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "potato_seed",
+              "label": "Potato Seed",
+              "qty": 3,
+              "category": "Seeds"
+            }
+          ]
+        },
+        {
+          "seed": 904754,
+          "coins": 915,
+          "value": 2712,
+          "memories": 0,
+          "rewards": [
+            {
+              "id": "starflower",
+              "label": "Starflower",
+              "qty": 5,
+              "category": "Food"
+            },
+            {
+              "id": "revival_potion",
+              "label": "Potion of Revival",
+              "qty": 6,
+              "category": "Magic"
+            },
+            {
+              "id": "treasure_map",
+              "label": "Treasure Map",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "armor:chestplate:2",
+              "label": "chestplate · T2",
+              "qty": 1,
+              "category": "Armour"
+            },
+            {
+              "id": "rainberry_seed",
+              "label": "Rainberry Seed",
+              "qty": 2,
+              "category": "Seeds"
+            },
+            {
+              "id": "rubble_seed",
+              "label": "Rock Seed",
+              "qty": 14,
+              "category": "Seeds"
+            },
+            {
+              "id": "armor:boots:1",
+              "label": "boots · T1",
+              "qty": 1,
+              "category": "Armour"
+            },
+            {
+              "id": "growth_powder",
+              "label": "Growth Powder",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "relic:bow:1",
+              "label": "bow · T1",
+              "qty": 2,
+              "category": "Equipment"
+            },
+            {
+              "id": "quartz",
+              "label": "Rose Quartz",
+              "qty": 8,
+              "category": "Mineral"
+            },
+            {
+              "id": "book",
+              "label": "Book",
+              "qty": 2,
+              "category": "Supply"
+            },
+            {
+              "id": "relic:axe:1",
+              "label": "axe · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "topaz",
+              "label": "Topaz",
+              "qty": 2,
+              "category": "Mineral"
+            },
+            {
+              "id": "relic:musket:1",
+              "label": "musket · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "torch",
+              "label": "Torch",
+              "qty": 4,
+              "category": "Supply"
+            },
+            {
+              "id": "hardworking_potion",
+              "label": "Potion of Hardworking",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "acorn",
+              "label": "Acorn",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "wood",
+              "label": "Wood",
+              "qty": 2,
+              "category": "Mineral"
+            },
+            {
+              "id": "throwing_spear",
+              "label": "Throwing Spear",
+              "qty": 2,
+              "category": "Supply"
+            },
+            {
+              "id": "potato_seed",
+              "label": "Potato Seed",
+              "qty": 3,
+              "category": "Seeds"
+            },
+            {
+              "id": "flint_shard",
+              "label": "Flint",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "rubble",
+              "label": "Rock",
+              "qty": 1,
+              "category": "Food"
+            }
+          ]
+        },
+        {
+          "seed": 904755,
+          "coins": 1059,
+          "value": 1973,
+          "memories": 1,
+          "rewards": [
+            {
+              "id": "fire_resistance_potion",
+              "label": "Potion of Fire Resistance",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "fear_scroll",
+              "label": "Scroll of Fear",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "rainberry_seed",
+              "label": "Rainberry Seed",
+              "qty": 1,
+              "category": "Seeds"
+            },
+            {
+              "id": "frost_powder",
+              "label": "Frost Powder",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "pairy_seed",
+              "label": "Pairy Seed",
+              "qty": 1,
+              "category": "Seeds"
+            },
+            {
+              "id": "rope",
+              "label": "Rope",
+              "qty": 5,
+              "category": "Supply"
+            },
+            {
+              "id": "armor:leggings:1",
+              "label": "leggings · T1",
+              "qty": 1,
+              "category": "Armour"
+            },
+            {
+              "id": "growth_powder",
+              "label": "Growth Powder",
+              "qty": 1,
+              "category": "Magic"
+            },
+            {
+              "id": "rubble_seed",
+              "label": "Rock Seed",
+              "qty": 6,
+              "category": "Seeds"
+            },
+            {
+              "id": "book",
+              "label": "Book",
+              "qty": 2,
+              "category": "Supply"
+            },
+            {
+              "id": "relic:lance:1",
+              "label": "lance · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "copper_bar",
+              "label": "Copper",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "relic:dagger:1",
+              "label": "dagger · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "nut_seed",
+              "label": "Nut Seed",
+              "qty": 6,
+              "category": "Seeds"
+            },
+            {
+              "id": "relic:pickaxe:1",
+              "label": "pickaxe · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "relic:sword:1",
+              "label": "sword · T1",
+              "qty": 1,
+              "category": "Equipment"
+            },
+            {
+              "id": "quartz",
+              "label": "Rose Quartz",
+              "qty": 3,
+              "category": "Mineral"
+            },
+            {
+              "id": "torch",
+              "label": "Torch",
+              "qty": 3,
+              "category": "Supply"
+            },
+            {
+              "id": "rubble",
+              "label": "Rock",
+              "qty": 9,
+              "category": "Food"
+            },
+            {
+              "id": "berry",
+              "label": "Berry",
+              "qty": 1,
+              "category": "Food"
+            },
+            {
+              "id": "cress_seed",
+              "label": "Cress Seed",
+              "qty": 7,
+              "category": "Seeds"
+            },
+            {
+              "id": "potato_seed",
+              "label": "Potato Seed",
+              "qty": 6,
+              "category": "Seeds"
+            },
+            {
+              "id": "wood",
+              "label": "Wood",
+              "qty": 1,
+              "category": "Mineral"
+            },
+            {
+              "id": "throwing_spear",
+              "label": "Throwing Spear",
+              "qty": 1,
+              "category": "Supply"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

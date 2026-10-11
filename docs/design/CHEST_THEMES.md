@@ -71,15 +71,18 @@ stalls and coin pots keep their own interactions.
   piece or coins (`pickChestReward` / `resolveChestReward`).
 - **Quantity from the roll budget.** Every reward roll (chests, X marks,
   shrine, vista, road prize, elite drops) sizes its stack the same way: the
-  rolled tier's `TIER_VALUE` (`src/items.js`), plus half of it per quantity
+  rolled tier's `TIER_VALUE` (`src/items.js`), plus half of it per budget
   bracket (`ChestThemes.budget`), times the item's `BUDGET_SHARE` (potions and
   other magic 0.4, seeds 0.8, everything else 1), divided by the item's
   value, at least one, capped per item (`ChestThemes.quantity`,
   `ChestThemes.cap`). A same-tier roll with no brackets typically pays two
-  potions or four seeds. Quantity steps (the chain, the wizard's ladder and
-  quantity jackpots) only raise the budget, with no bracket cap; leftover
+  potions or four seeds. Budget steps (the chain, the wizard's ladder and
+  budget jackpots) only raise the budget, with no bracket cap; leftover
   budget pays no consolation coins, and no caller adds a bonus on top. Wood
-  and rubble bundles keep their own pile size.
+  and rubble use the same budget conversion and item caps. Breakable containers pass their
+  explicit coin allowance through `ChestThemes.quantityForBudget`, sharing
+  the same item prices, shares and caps (including wood/rubble). POI density
+  sets their full chance and allowance; see [generation](generation.md).
 - **Gear and coins keep their own paths** (`rollGearUpgrade`, `cashValue` in
   `src/rarity.js`; a purse pays the whole budget); a theme only restricts
   gear slots (`ChestThemes.gearSlots`).
@@ -128,3 +131,13 @@ Tools read the same tables and picker as the game, never a copy:
 
 Any change that raises a theme's mean reward value sharply needs an explicit
 balance decision from a seeded simulation, never a quiet edit to a row.
+Full Measure is the wizard's budget upgrade: three levels raise the chance of
+one extra budget bracket linearly from 0% to 35%. A bracket adds 50% of the
+rolled tier's base budget; it does not directly multiply stack size or promote
+item tier. Category shares, rounding and item caps still apply. The saved
+`qtyUpgrades` field and `measure` track key retain their names for compatibility.
+
+Full barrels favor practical supplies: two thirds of successful rolls use the
+ordinary supply pool (including torches, rope and trap-disarm kits), with one
+sixth each for minerals and produce. This conditional mix is independent of
+the tile-density fullness chance and budget. Clay pots keep their own mix.

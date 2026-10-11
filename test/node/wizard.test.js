@@ -24,7 +24,7 @@
     assert.eq(byKey.vigour.max(), 5, 'five vigour rungs');
     assert.eq(byKey.light.max(), 6, 'six Inner Light rungs');
     assert.eq(byKey.eye.max(), 7, 'seven Keen Eye rungs');
-    assert.eq(byKey.measure.max(), RARITY_TUNING.qtyLuckLevels, 'measure reads rarity.js');
+    assert.eq(byKey.measure.max(), RARITY_TUNING.budgetUpgradeLevels, 'measure reads rarity.js');
     assert.eq(W.CLASS_COST, 3);
     const enchanter = W.CLASSES.find((c) => c.key === 'enchanter');
     assert.truthy(enchanter && enchanter.blurb().includes('half the time'), 'the enchanter halves tome cooldowns');
@@ -132,7 +132,7 @@
   });
 
   test('wizard: finished tracks drop out; one left is one offer; none is empty', () => {
-    const qmax = RARITY_TUNING.qtyLuckLevels;
+    const qmax = RARITY_TUNING.budgetUpgradeLevels;
     const done = { reachUpgrades: 6, qtyUpgrades: qmax, luckUpgrades: 7, playerClass: 'enchanter' };
     const two = fresh(Object.assign({}, done, { reachUpgrades: 5 }));
     assert.eq(keys(W.offers(two)).join(), 'light,vigour', 'only the unfinished two');
@@ -176,5 +176,33 @@
     const next = W.offers(save)[0];
     assert.eq(W.buy(save, next.key, { spend: () => false }), null, 'refused');
     assert.eq(JSON.stringify(save), before, 'nothing written on a refused spend');
+  });
+
+  test('wizard: purchased budget rungs survive save reload and fund treasure without changing its tier', () => {
+    const save = fresh({ reachUpgrades: 6, luckUpgrades: 7, vigourUpgrades: 5, playerClass: 'hunter' });
+    const before = JSON.parse(JSON.stringify(save));
+    for (let rung = 1; rung <= RARITY_TUNING.budgetUpgradeLevels; rung++) {
+      const offer = W.offers(save)[0];
+      assert.eq(offer.key, 'measure', 'existing track identity is retained');
+      assert.truthy(offer.get.includes('budget'), 'the offer explains the allowance');
+      assert.truthy(W.buy(save, 'measure'), 'purchase succeeds');
+      assert.eq(save.qtyUpgrades, rung, 'the existing save field remains compatible');
+      assert.eq(save.memories, 100 - 5 * rung, 'each rung pays five memories');
+    }
+    const loaded = JSON.parse(JSON.stringify(save));
+    assert.eq(budgetBoostChance(loaded), 0.35, 'saved purchases reach the same probability ceiling');
+    assert.eq(W.offers(loaded).length, 0, 'reloading does not sell the completed track again');
+    // No chain or jackpot: the controlled draw isolates the purchased budget chance.
+    const ctx = { chainSteps: 0, chainMax: 1, maxTier: 1 };
+    const quality = (s, chance) => {
+      let draw = 0;
+      return rollRewardQuality(ctx, 'cash', s, () => draw++ === 0 ? chance : 0.99, {});
+    };
+    const plain = quality(before, 0.2), upgraded = quality(loaded, 0.2);
+    assert.eq(plain.bracket, 0);
+    assert.eq(upgraded.bracket, 1, 'a successful wizard roll adds one allowance bracket');
+    assert.eq(upgraded.tier, plain.tier, 'budget purchases do not buy item rarity');
+    assert.eq(ChestThemes.budget(upgraded.tier, upgraded.bracket), ChestThemes.budget(plain.tier, plain.bracket) * 1.5);
+    assert.eq(quality(loaded, 0.9).bracket, 0, 'the increase is a chance, not a guaranteed multiplier');
   });
 })();

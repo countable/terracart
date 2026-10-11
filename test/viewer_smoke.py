@@ -41,6 +41,29 @@ async def check_floor_seed(page):
     assert await population() == original, 'Reset must restore the original population'
 
 
+async def check_treasure_sources(page):
+    sources = await page.locator('#ctx option').evaluate_all('(options) => options.map(o => o.value)')
+    assert {'treasure:road', 'treasure:elite', 'special:found', 'special:headstone',
+            'container:barrel', 'container:clay_pot', 'special:tilling'} <= set(sources)
+    for source in sources:
+        await page.select_option('#ctx', source)
+        assert await page.locator('#samples tbody tr').count() == 10, source
+        assert 'NaN' not in await page.locator('#summary').inner_text(), source
+    await page.select_option('#ctx', 'treasure:road')
+    await page.select_option('#bonus', '3')
+    assert await page.evaluate("sample(Trail.PRIZE_CONTEXT, optsFor(Trail.PRIZE_CONTEXT), 0, 10).filter(r => r.key === 'equipment: pickaxe T1').length === 10")
+    assert await page.evaluate("sample(Trail.PRIZE_CONTEXT, optsFor(Trail.PRIZE_CONTEXT), 1, 10).every(r => !r.key.includes('pickaxe'))")
+    await page.select_option('#bonus', '20')
+    await page.select_option('#playerClass', 'runner')
+    assert await page.locator('#playerClass').is_visible()
+    assert await page.evaluate("optsFor(Temples.CONTEXT).rollBonus === 1")
+    assert await page.evaluate("optsFor('special:headstone').tier === Zones.HEADSTONE_TIER")
+    assert await page.evaluate("sample('container:clay_pot', {}, 7, 100).every(r => Number.isFinite(r.value))")
+    await page.select_option('#ctx', 'treasure:elite')
+    assert await page.locator('#monster').is_visible()
+    assert await page.locator('#depth').is_visible()
+
+
 async def check_viewers(browser, base_url):
     failures = 0
     for path, ready in VIEWERS.items():
@@ -70,6 +93,8 @@ async def check_viewers(browser, base_url):
             else:
                 status = await page.locator('#status, #count, #wStatus').all_text_contents()
                 raise AssertionError(f"Viewer did not become ready: {status}")
+            if path == 'treasure-balancing.html':
+                await check_treasure_sources(page)
             if path == 'floor-viewer.html':
                 await check_floor_seed(page)
             # Rendering schedules image loads and canvas work after boot.

@@ -150,3 +150,18 @@ PW_CHROMIUM=/path/to/chromium node tools/perf_live.js ~/.artifacts/performance/l
 
 Read the scripts' headers for timing controls and fixture requirements.
 Headless rendering timings depend on the machine and graphics backend.
+
+### Walking and loot draft
+
+Open `tools/loot-walk.html` for a two-section Kelowna walking-distance table and
+sampled treasure distributions. It loads saved JSON only; no game startup or
+simulation runs in the browser. Regenerate both snapshots together with
+`node tools/loot-walk-model.js` after generation or reward changes.
+
+The nine fixture tiles provide a finite surface census. A 40 m search corridor
+with 70% fresh-route efficiency estimates encounters over walkable area; the
+road-prize ladder uses keyboard/stick restoration credit. Samples execute the
+shipping reward and enemy payout functions with fixed starting gear and zero
+luck. This is an exploration estimate, excluding guaranteed starter supplies,
+caves, quest rewards, combat costs and inventory limits. Story gates show their
+action/memory requirements because this model does not simulate story progress.

@@ -989,7 +989,7 @@ class SceneStreets {
   // always did, rather than a choice with one answer.
   //
   // ONE CARD PER GROUP (Trail.PRIZE_CARDS): cash, a seed or supply, and boots
-  // or a magic item — boots held to Trail.bootsTierCap (a tier a kilometre).
+  // gear/unique relic or magic — gear held to one tier per 10 km.
   _fireTrailPrize(n, onDismiss) {
     const bonus = Trail.rollBonusFor(Math.max(0, (n | 0) - 1));
     const pc = this.save.playerClass;
@@ -1000,9 +1000,10 @@ class SceneStreets {
       const classes = Trail.prizeCardClasses(g, n, pc, ownedBoots);
       if (!classes.length) return null;
       return pickReward(Trail.PRIZE_CONTEXT, this.save, undefined,
-        { rollBonus: bonus, classes, classMaxTier: { boots: bootsCap } });
+        { rollBonus: bonus, classes, classMaxTier: { boots: bootsCap, gear: bootsCap },
+          classFallbacks: { boots: 'magic', gear: 'magic' } });
     };
-    const fixed = Trail.fixedPrize(n);
+    const fixed = Trail.fixedPrize(n, this.save);
     const choices = fixed?.sole ? [fixed] : Trail.rollCardRow(rollFor, fixed ? [fixed] : []);
     // The ceremony carries the survivors' thanks; the road counter shows progress.
     const header = TRAIL_PRIZE_HEADER;
