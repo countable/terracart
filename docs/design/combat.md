@@ -182,6 +182,9 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
   (`castle` set) skip the keep's quiet notice ring: `Lairs.guardState` hunts
   the player anywhere within `LAIR_LEASH_CELLS` of the keep's walls, so the
   garrison pours out of the keep at once.
+- Any lair guard struck by the player's side (`_damageEnemy`) is set hunting
+  wherever its notice ring is, so a ranged blow is answered; the leash still
+  ends the chase.
 - It RESETS — the foes despawn, their defeats are forgotten, and the trigger
   can be used again later — when its clock runs out, or when the player who
   started it (`own`) goes down or leaves its floor (`abandon`). A battle
