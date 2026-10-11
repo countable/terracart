@@ -26,7 +26,7 @@
 //   standWordItem, standNameItems, subclassProductFor, produceStandFor
 //   MACRO_KIND_BY_CLASS, MACRO_KINDS, macroFor
 //   chestLook, chestOpeningArt
-//   GREAT_X, isGreatXCell, treasureContextFor
+//   GREAT_X, isGreatX, treasureContextFor
 //
 // Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade)
 // live in rarity.js's pickReward + classBias engine.
@@ -35,21 +35,24 @@
 // A rarer X mark drawn thick and dark red (render.js drawX) whose dig rolls
 // `context` (rarity.js 'treasure:great': gold, a tool or weapon, or other
 // equipment) instead of the ordinary X's seeds-and-stone pool. It is the same
-// mark otherwise — same hiding, reach and found-ledger — flagged `great` on
-// the mark itself. `share` of the per-tile scatter X's are great, chosen off
-// WorldGen.cellHash of the mark's cell (scene_creatures.js), so every player
-// sees the same ones and no rng draw moves.
+// mark otherwise — same hiding, reach and found-ledger. `share` of EVERY X
+// mark is great, whatever stream laid it (scatter, parking, quota, path,
+// beach, a hoard, a cave): chosen off the mark's stable id, so every player
+// sees the same ones and no rng draw moves. A mark may also say so itself
+// (`great: true|false` — the sandbox's).
 const GREAT_X = {
-  context: 'treasure:great', share: 1 / 16, salt: 0x6e0b0b,
+  context: 'treasure:great', share: 1 / 10, salt: 0x6e0b0b,
   color: 0x6e0b0b, caveColor: 0xb02020, alpha: 0.9, width: 4, halfSize: 6.5,
 };
-// Is the scatter X on this tile cell a great one? Read at call time.
-function isGreatXCell(tx, ty, cx, cy) {
-  return ((WorldGen.cellHash(tx, ty, cx, cy) ^ GREAT_X.salt) >>> 0) / 0x100000000 < GREAT_X.share;
+// Is this X mark a great one?
+function isGreatX(mark) {
+  if (!mark) return false;
+  if (typeof mark.great === 'boolean') return mark.great;
+  return (fnv1aFrom(GREAT_X.salt, mark.id) >>> 0) / 0x100000000 < GREAT_X.share;
 }
 // The loot context a dug mark rolls.
 function treasureContextFor(mark) {
-  return mark?.great ? GREAT_X.context : 'treasure:default';
+  return isGreatX(mark) ? GREAT_X.context : 'treasure:default';
 }
 
 // === Rustic name transform ===

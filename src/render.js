@@ -3086,11 +3086,12 @@ Render.drawCells = function drawCells(scene) {
     const { x: cx, y: cy } = deltaMToScreen(scene, dx, dy);
     // 15% smaller than the old 6px; X is symmetric so the centroid (cx,cy) is unchanged.
     // A GREAT X (loot.js GREAT_X) is thick and dark red.
-    const s = tr.great ? GREAT_X.halfSize : 5.1;
-    if (tr.great) g.lineStyle(GREAT_X.width, underground ? GREAT_X.caveColor : GREAT_X.color, GREAT_X.alpha);
+    const great = isGreatX(tr);
+    const s = great ? GREAT_X.halfSize : 5.1;
+    if (great) g.lineStyle(GREAT_X.width, underground ? GREAT_X.caveColor : GREAT_X.color, GREAT_X.alpha);
     g.lineBetween(Math.round(cx - s), Math.round(cy - s), Math.round(cx + s), Math.round(cy + s));
     g.lineBetween(Math.round(cx + s), Math.round(cy - s), Math.round(cx - s), Math.round(cy + s));
-    if (tr.great) plainX();
+    if (great) plainX();
   };
   // Treasure marks — only check the player's 3×3 tile neighbourhood. drawX
   // already culls by viewport, but iterating all cached tiles every frame
