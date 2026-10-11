@@ -1176,9 +1176,9 @@ class SceneConsumables {
   findNearestUnopenedChest(tiers = null) {
     const sets = spentSets(this, this.save);
     // A macro stall (an inn, a chapel, … — loot.js macroFor) is a place,
-    // not a chest to find; nor is a barrel, a bike rack or a pot of gold.
+    // not a chest to find; nor is a barrel or a bike rack.
     return this._nearestObject((o) => o.kind === 'chest' && (!tiers || tiers.includes(chestTier(o))) && !isSpent(o, sets)
-      && !(macroFor(o) || isBarrel(o) || isBikeRack(o) || isPotOfGold(o)));
+      && !(macroFor(o) || isBarrel(o) || isBikeRack(o)));
   }
 
   // Water every planted crop within ${radius} meters of the player. Returns count.

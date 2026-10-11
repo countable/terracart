@@ -60,7 +60,6 @@ test('lighting: daily sites retain ambient light after the availability pulse is
     ...Shrines.KIND_IDS.map(shrineKind => ({ kind: 'grove_shrine', id: 'light-' + shrineKind, shrineKind })),
     { kind: 'chest', id: 'light-wagon', poiClass: 'bus', banditStop: true },
     { kind: 'chest', id: 'light-bike', poiClass: 'bicycle_parking' },
-    { kind: 'chest', id: 'light-gold', poiClass: 'atm' },
   ];
   for (const object of objects) {
     const s = scene({ _lights: [] });

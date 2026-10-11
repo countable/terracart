@@ -3575,9 +3575,9 @@ Render.drawObjects = function drawObjects(scene) {
   // lightmap — an emptied POI is no longer a place that glows.
   const openedSet = setOf(scene.save.opened);
   // The day ledger (interactables.js dayLedgerAges — id → days since taken):
-  // a pot of gold, a courier's post, the chapel's blessing or a grove shrine's gift
+  // a courier's post, the chapel's blessing or a grove shrine's gift
   // taken TODAY, or a crate inside its restock days — unlit (and a
-  // pot, rack or crate hidden) until it comes back.
+  // rack or crate hidden) until it comes back.
   const burstSet = dayLedgerAges(scene.save);
   // The frame's spent sets, built ONCE and handed to isSpent (the sprite cull
   // below) and poiLit (the POI light) alike.
@@ -5410,16 +5410,14 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
                 s.setAlpha(toolGatedAlpha(o, scene.save));
               } },
     // Which look (trunk / crate / barrel / bike rack / produce stand / macro
-    // stall / wagon / pot of gold) this object wears is loot.js's `chestLook`, the
-    // same resolver the treasure ceremony asks for its hero icon. An ATM spills
-    // collectible coins, so it renders as a "pot of gold"; a cave-level mirror of
-    // one is a plain chest. An opened chest never reaches the renderer (filtered
+    // stall / wagon) this object wears is loot.js's `chestLook`, the
+    // same resolver the treasure ceremony asks for its hero icon. An opened chest never reaches the renderer (filtered
     // out above); clay pots retain their broken art (o._smashed, stamped
     // by the filter). Wooden barrels disappear when collected.
     chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? L.smashedKey : L.texKey; },
               // The shared look selects each tier's recoloured chest frame and
-              // the produce stand's awning. Procedural pots of gold have no frame.
-              frame: (o) => { const L = chestLook(o); return L.coin ? undefined : L.frame; },
+              // the produce stand's awning.
+              frame: (o) => chestLook(o).frame,
               // THE WAGON (a bus stop on an old trade road): 32×32 art, drawn at
               // WAGON_SCALE (~1.5 cells wide) and foot-anchored like the stall —
               // a structure, not a chest, so it is not seated; its wheels sit
@@ -5431,18 +5429,17 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // 80×80 frame and box (x:[12,80) y:[0,70), feet on row 70), so
               // every stall number below holds for it (a structure, not seated).
               origin: (o) => { const L = chestLook(o);
-                               return (L.stand || L.macro || L.wagon) ? [0.5, 1.0] : (L.coin ? [0.5, 0.95] : [0.5, 0.9]); },
+                               return (L.stand || L.macro || L.wagon) ? [0.5, 1.0] : [0.5, 0.9]; },
               // Chest kinds and the market stall are drawn smaller than their sheet (they
               // crowded the cell) about the SAME centre: seated kinds (trunk chest, crates)
               // are re-centred by the seat pass, and the stall's dxPx/dyPx are derived for
               // its scale. Crates (box, 16×16) sit at CRATE_SCALE (16 × 0.8 = ~13px) so a
               // crate reads as a small prop; the gold chest uses CHEST_SCALE (~22px wide).
-              // The stall and the pot of gold are structures, not chests; the pot is a
-              // further 20% smaller. Wooden barrels fill 16px; clay pots draw at CLAY_POT_SCALE.
+              // The stall is a structure, not a chest. Wooden barrels fill 16px; clay pots draw at CLAY_POT_SCALE.
               // The shared spec also sizes the map-review artwork.
               scale: (o) => { const L = chestLook(o);
-                              return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.12
-                                : (L.barrel ? (L.texKey === 'barrel' ? BARREL_SCALE : CLAY_POT_SCALE) : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE))))); },
+                              return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54
+                                : (L.barrel ? (L.texKey === 'barrel' ? BARREL_SCALE : CLAY_POT_SCALE) : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE)))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5 centres the
               // FRAME box, but market_stand.png's opaque pixels are x:[12,80] in the 80px
               // frame. -3.24 (= 6px frame offset × 0.54 scale) centres the art; +3 on top per
@@ -5450,7 +5447,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // re-derived whenever the scale changes.
               // The macro art is centred in the same 12..80 box (trimmed centres
               // x 45.5..46 against the stall's 46), so the stall's -0.24 holds.
-              dxPx: (o) => { const L = chestLook(o); return (L.stand || L.macro) ? -0.24 : (L.coin ? 4 : 0); },
+              dxPx: (o) => { const L = chestLook(o); return (L.stand || L.macro) ? -0.24 : 0; },
               // The crate is foot-anchored (origin y 0.9) but must sit CENTRED in its cell,
               // so the anchor is pushed down by (0.9-0.5)·16·scale. This is only the
               // fallback — the seat pass below recomputes it from the trimmed art bounds
@@ -5459,10 +5456,10 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // (y:[0,70) of 80); at scale 0.54 the art centre sits at 19.3
               // (= 45px art-centre-above-anchor × 0.54 - 5).
               dyPx: (o) => { const L = chestLook(o);
-                             return L.wagon ? WAGON_DY_PX() : ((L.stand || L.macro) ? 19.3 : (L.coin ? 8 : (L.box ? 0.4 * 16 * CRATE_SCALE : 0))); },
+                             return L.wagon ? WAGON_DY_PX() : ((L.stand || L.macro) ? 19.3 : (L.box ? 0.4 * 16 * CRATE_SCALE : 0)); },
               // Plain chests + crates obey the "one cell" rule (centred); produce
-              // stands and the pot-of-gold are structure-like and stay foot-anchored.
-              seat: (o) => { const L = chestLook(o); return !L.stand && !L.macro && !L.coin && !L.wagon; },
+              // stands, macro stalls and the wagon are structure-like and stay foot-anchored.
+              seat: (o) => { const L = chestLook(o); return !L.stand && !L.macro && !L.wagon; },
               shadow: true },
     fruittree: { key: (o) => `${o.species === 'worldpeach' ? 'worldpeach' : 'apple'}_tree`,
               frame: (o) => {

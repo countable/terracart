@@ -356,8 +356,8 @@ const TELEPORT_FADE_IN_MS = 1300;
 // going ahead anyway (see _whenIdle). Long enough that a player actively
 // walking and tapping keeps the thread, short enough that the ring is all in
 // well before they could walk out of the centre tile.
-// How many coins a pot of gold bursts into is its DENSITY on its tile
-// (loot.js potCoinsFor off POT_COINS_BY_DENSITY: a lone ATM 30, one of 50 on
+// How many coins a POI coin burst spills is its DENSITY on its tile
+// (loot.js potCoinsFor off POT_COINS_BY_DENSITY: a lone POI 30, one of 50 on
 // the tile 3, one of 150+ a single coin). The scatter search widens until it
 // can seat them (see _coinBurstInteract) — a burst that came back short was
 // the search giving up, never the reward being small. Up to
@@ -3604,6 +3604,8 @@ class MapScene extends Phaser.Scene {
     // …and is a guildhall bounty's pack still about (its leash)?
     this._tickGuildBounty();
     this._tickSafetyReminders();
+    // …and has a bank loan fallen due (its pirate collector)?
+    this._tickBankDebt();
     this._tickRoadSafety(dt);
     // …and which STREET are the feet on — a variant's first-entry story, and
     // whether tar or stakes are slowing the body (the same feet cell).
@@ -5646,15 +5648,16 @@ class MapScene extends Phaser.Scene {
     interactTap(this, sx, sy);
   }
 
-  // === Coin-burst (the pot of gold — an ATM) ==============================
-  // Once per UTC day per pot: the day ledger (Macros.usedToday / markToday —
+  // === Coin-burst (a shrine row with reward 'coins' — the reef treasury) ===
+  // Once per UTC day per POI: the day ledger (Macros.usedToday / markToday —
   // save.coinBurstClaimed[<poiId>YYYYMMDD]); subsequent taps within the same
   // day flash a hint and spawn no coins. Coins themselves are in-memory only
   // (entry.coinDrops); only the ledger persists.
   _coinBurstInteract(sx, sy, poi) {
     const dayKey = utcDayKey();
     const ctx = { scene: this, save: this.save, sx, sy, dirty: false };
-    const row = Macros.visitKindForObject(poi) || Macros.DAILY_VISIT_KINDS.gold;
+    const row = Macros.visitKindForObject(poi);
+    if (!row) return;
     const visit = Macros.beginDailyVisit(ctx, poi, { row });
     if (!visit) return;
 

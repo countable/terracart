@@ -378,7 +378,7 @@ function creatureSpawnClass(kind) {
 globalThis.creatureSpawnClass = creatureSpawnClass;
 
 // ── SAME SIDE: nothing time-sensitive across a major road ────────────────────
-// A timed or place-bound reward seated near the player (a pot of gold's coin
+// A timed or place-bound reward seated near the player (a coin
 // burst, a guild bounty's pack, anything walkableDestination finds) must be
 // reachable WITHOUT crossing an MD/LG band: sameSideField floods the surface
 // from the player's cell over a lattice of cellM steps, 4-connected, refusing

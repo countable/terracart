@@ -266,7 +266,7 @@ class SceneCreate {
     makeTowerTexture(this);
     // Both tower atlases share their colours with the walls and courtyard.
     makeTowerTexture(this, CASTLE_STONE_UNCLAIMED, 'tower_unclaimed');
-    // Pot of gold — art for the coin-burst POI (the ATM — loot.js isPotOfGold).
+    // Pot of gold — procedural art (the ATM's look before it became a bank booth).
     makePotOfGoldTexture(this);
     // Traps: the barely-there scuff of a hidden one and the sprung iron jaw of
     // a discovered one. Temporary procedural stand-ins — see textures.js.

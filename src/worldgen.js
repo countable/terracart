@@ -799,7 +799,7 @@
   }
   // ── POI DENSITY: how many chests of each class a tile holds ─────────────
   // The one count loot.js reads for a crate's restock days
-  // (crateRestoreDays) and a pot of gold's burst (potCoinsFor) — never the
+  // (crateRestoreDays) — never the
   // tier, which is the quota seat (seedChestTiers below) — stamped on each
   // POI chest as
   // `poiDensity`. Surface POI chests only (a starter crate, a fixed-loot chest
@@ -913,7 +913,7 @@
         const o = list[j];
         if (o.kind !== 'chest' || o.crate || o.fixedLoot || o.depth > 0 || o.caveOf) continue;
         const look = chestLook(o);
-        if (look.stand || look.coin || look.bike || look.barrel || look.macro) continue;
+        if (look.stand || look.bike || look.barrel || look.macro) continue;
         const tier = chestTier(o);
         if (tier in counts) counts[tier]++;
       }
@@ -1003,7 +1003,7 @@
         if (o.kind !== 'chest' || o.fixedLoot || o.depth > 0 || o.caveOf) continue;
         if (!o.crate) {
           const look = chestLook(o);
-          if (look.stand || look.coin || look.bike || look.barrel || look.macro) continue;
+          if (look.stand || look.bike || look.barrel || look.macro) continue;
         }
         if (chestTier(o) === 1) count++;
       }
@@ -3509,12 +3509,12 @@
     'art_gallery','cinema','theatre',
     // ── Authority buildings (civic chests, high-tier feel)
     'police','fire_station','harbor',
-    // ── atm → the pot of gold (a daily coin burst), bicycle_parking → the
-    // bike rack (a daily stick-walk boost) — loot.js isPotOfGold /
-    // isBikeRack; they still spawn as chest objects here so persistent ids
-    // work. (motorcycle_parking is NOT here — like car parking it's
-    // diverted to a buried-treasure X below, not a chest.)
-    'bicycle_parking','atm',
+    // ── bank / atm → the BANK booth (borrow or invest — loot.js macroFor,
+    // src/macros.js), bicycle_parking → the bike rack (a daily stick-walk
+    // boost — loot.js isBikeRack); they still spawn as chest objects here so
+    // persistent ids work. (motorcycle_parking is NOT here — like car parking
+    // it's diverted to a buried-treasure X below, not a chest.)
+    'bicycle_parking','atm','bank',
   ]);
   // Two POI classes that are PLACES but not chests, placed after the road
   // mask is resolved (see the gate / notice-board pass in rasterizeTileSteps
@@ -6453,7 +6453,7 @@
     }
     const deduped = objects.filter(o => !o._drop);
     // Each POI chest's DENSITY — how many of its class this tile holds (loot.js
-    // crateRestoreDays / potCoinsFor). Stamped once
+    // crateRestoreDays). Stamped once
     // the tile's chests are final; loadTile restamps once a bin has injected
     // its own.
     stampPoiDensity(deduped);

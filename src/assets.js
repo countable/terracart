@@ -255,6 +255,7 @@ const ASSETS = {
   macro_training:    { kind: 'spritesheet', path: 'assets/Objects/Generated/training_simple.png', frameWidth: 80, frameHeight: 80 },
   // Scholar has a dedicated reading booth, distinct from the book shop.
   macro_scholar:     { kind: 'spritesheet', path: 'assets/Objects/Generated/scholar_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_bank:        { kind: 'spritesheet', path: 'assets/Objects/Generated/bank_simple.png', frameWidth: 80, frameHeight: 80 },
   // Stone well — the in-game stand-in for OSM amenity=fountain points. Tapping
   // it refills the watering can like a water tile (see interact.js 'well'
   // branch).

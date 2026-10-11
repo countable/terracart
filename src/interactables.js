@@ -72,7 +72,7 @@ function isBuilding(kind) {
 function chestHidesMimic(o) {
   return !!o && o.kind === 'chest' && !!o.id && !(o.depth > 0)
     && !o.fixedLoot && !o.crate && !restocks(o) && !macroFor(o)
-    && !isPotOfGold(o) && !isBikeRack(o) && !isBarrel(o) && !produceStandFor(o)
+    && !isBikeRack(o) && !isBarrel(o) && !produceStandFor(o)
     && chestTier(o) === 2 && makeRng32(fnv1a(o.id + '#mimic'))() < 0.15;
 }
 
@@ -526,7 +526,7 @@ const INTERACTABLES = {
   },
 
   // ---- Chest: the full open-and-loot ceremony ------------------------------
-  // Handles the recurring sites on a chest's rails (a pot of gold, a bike
+  // Handles the recurring sites on a chest's rails (a bike
   // rack, a wagon, the chapel's blessing, a crate — Macros.DAILY_VISIT_KINDS),
   // left-for-later held loot, fixed starter payloads, produce-stand items,
   // and the rarity-rolled item / relic / armor / gold results, with a
@@ -1049,9 +1049,9 @@ function chestNeverSpent(o) {
 // i.e. one the tile's quota pyramid left unseated, with no nexus bonus)
 // — never a starter supply crate
 // (`o.crate`, fixedLoot), never a cave copy (depth / caveOf), never a wagon,
-// stall, macro, pot of gold or bike rack. Taking one is written to the DAY LEDGER
+// stall, macro or bike rack. Taking one is written to the DAY LEDGER
 // (Macros.markToday — save.coinBurstClaimed[id + dayKey], kept a week), the
-// lane the pot of gold, the bike rack and the grove shrine's gift already
+// lane the bike rack and the grove shrine's gift already
 // share (the chapel's blessing takes the macro: service lane above), and it
 // stands bare for crateRestoreDays UTC
 // days (1 for an ordinary crate, up to CRATE_RESTORE_MAX_DAYS for a class
@@ -1066,13 +1066,13 @@ function restocks(o) {
   if (typeof chestLook !== 'function') return false;
   const L = chestLook(o);
   if (L.barrel) return false;
-  return !!(L.box && !L.stand && !L.coin && !L.bike && !L.macro && !L.wagon);
+  return !!(L.box && !L.stand && !L.bike && !L.macro && !L.wagon);
 }
 function isSpent(o, sets) {
   if (o && sets.burned?.has(o.id)) return true;
   if (o && sets.burnedGround?.(o)) return true;
   switch (o && o.kind) {
-    // A pot of gold or a bike rack used TODAY is spent until the UTC day
+    // A bike rack used TODAY is spent until the UTC day
     // rolls. A market stall and a macro stall (loot.js produceStandFor /
     // macroFor) are never spent: a counter is not a chest, and an id a save
     // put in save.opened while that POI was still a crate, or in the day
@@ -1119,7 +1119,7 @@ function isSpent(o, sets) {
 // ── Does this glow as "something to take here"? ────────────────────────────
 // The POI light (Lighting.KINDS.poi) is the one mark for it. A chest wears it
 // until it is spent; the RECURRING places (Macros.DAILY_VISIT_KINDS — a
-// crate, dark until it restocks; a pot of gold, a bike rack, the chapel's
+// crate, dark until it restocks; a bike rack, the chapel's
 // blessing, a page stone and a grove shrine's gift) wear it exactly while
 // the take is there (the day ledger), and go dark once it is taken. Every
 // other stall and market stays lit (a counter is always open). Takes the

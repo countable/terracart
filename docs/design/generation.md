@@ -158,7 +158,7 @@ access or tile lifecycle mechanics.
   (`loot.js chestTierMaxFor`: T6 from depth 3, T7 from 6) while the depth
   bonus stays `+floor(depth/2)`. Unseeded chests (hand-placed, sandbox) are
   the unstamped T2 - the old count ladder is retired, and `o.poiDensity`
-  now only feeds restock days and the pots of gold. Breakable pots and
+  now only feeds restock days and POI coin bursts. Breakable pots and
   barrels select their loot mix by stable appearance (`barrelProfile`). Surface
   waste-basket/recycling POIs share `barrelDensity`, the combined tile count
   stamped with POI density (including restamps after live additions). At ≤10
@@ -202,7 +202,7 @@ access or tile lifecycle mechanics.
   edge are not dead ends.
 - Chests give ONCE (`save.opened`), including smashed pots and barrels. Crates
   (`restocks`) come back after `crateRestoreDays` (1 for an ordinary crate, up
-  to 7 for a class crowding its tile); pots of gold, bike racks, chapels and
+  to 7 for a class crowding its tile); bike racks, chapels and
   grove shrines daily. Recurring sites take the one day ledger (`Macros.markToday` — it
   keeps a week; `usedToday` / `stillBare` / `restockWaitMs` read it) and glow
   while available (`poiLit`); a refusal is `Macros.waitLine(prefix, ms)`. A

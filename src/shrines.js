@@ -99,13 +99,6 @@
         Buffs.extend(ctx.save, ctx.scene, 'bike', BIKE_RACK_MS);
         ctx.scene.flash(bikeRackFlash(), ctx.sx, ctx.sy);
       } }) },
-    // A POT OF GOLD (an ATM): scattered coin pickups (app.js _coinBurstInteract).
-    gold: { name: 'Pot of gold', art: 'visit_gold', sprite: 'potofgold', light: 0xffd778, ledger: 'day',
-      reward: 'coins', effect: 'Scattered coins', durationMs: 0,
-      locations: ['Mapped ATMs'],
-      body: 'You lift the heavy lid. Coins spill across the ground.',
-      open: (ctx, o) => typeof ctx.scene._coinBurstInteract === 'function'
-        ? (ctx.scene._coinBurstInteract(ctx.sx, ctx.sy, o), true) : null },
     mystic_reef: { name: 'Reef treasury', art: 'visit_gold', reward: 'coins', fillScreen: true,
       body: 'You touch the sea-worn stone. Gold washes out across the shore.', light: 0x9fdcff },
     waystone: { name: 'Waystone', art: 'shrine_waystone', reward: 'book',
@@ -117,7 +110,6 @@
   // Returns the row itself; callers use its art/reward or boon lever.
   function kindForObject(o) {
     if (typeof isBikeRack === 'function' && isBikeRack(o)) return REWARD_KINDS.bike;
-    if (typeof isPotOfGold === 'function' && isPotOfGold(o)) return REWARD_KINDS.gold;
     if (o?.kind === 'waystone') return REWARD_KINDS.waystone;
     if (o?.kind !== 'grove_shrine') return null;
     return REWARD_KINDS[o.zoneVariant] || SHRINE_KINDS[o.shrineKind] || REWARD_KINDS.grove;
