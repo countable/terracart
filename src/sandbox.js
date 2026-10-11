@@ -1109,7 +1109,6 @@
     entry.objects.push(...dressing.objects);
     entry.wildplants.push(...dressing.wildplants);
     entry.extraTreasures.push(...dressing.treasures);
-    entry.coinDrops.push(...dressing.coins);
     entry.streetLairs.push(...dressing.lairs);
     // Snare-lane iron teeth: the real spawn pass lays dressing.traps into
     // entry.traps (scene_creatures.js); seat them here too, skipping cells
@@ -1526,7 +1525,7 @@
     //    expire after COIN_BURST_LIFE_MS; here we omit expiresAt so they
     //    persist across reloads. They live in entry.coinDrops, not objects[].
     if (centreEntry) {
-      centreEntry.coinDrops = (centreEntry.coinDrops || []).filter((c) => c._street === 'golden');
+      centreEntry.coinDrops = [];
       const plaza = sceneByName('PLAZA');
       const cellOf = (p) => `${Math.floor((p.x - centreTX * tileEdgeM) / cellM)}_${Math.floor((p.y - centreTY * tileEdgeM) / cellM)}`;
       const taken = new Set([...centreEntry.objects, ...centreEntry.wildplants, ...centreEntry.coinDrops,
