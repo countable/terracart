@@ -1284,6 +1284,15 @@
     if (!p || !(cellM > 0)) return 'hold';
     if (noticed !== false) {
       const dx = c.lairX - p.x, dy = c.lairY - p.y;
+      // A CITADEL's guards exist only once its Fight is accepted
+      // (stepResidency's isCitadelActive), so they need no noticing: they
+      // rush the player straight away, from anywhere inside the leash —
+      // measured from the keep's walls, not the knot at its centre, or a
+      // player at the gate of a big keep would never be seen.
+      if (c.castle) {
+        const wallR = Math.max(c.lairR || 0, Math.hypot(c.keepHW || 0, c.keepHH || 0));
+        if (Math.sqrt(dx * dx + dy * dy) - wallR <= LAIR_LEASH_CELLS * cellM) return 'hunt';
+      }
       const dLair = Math.sqrt(dx * dx + dy * dy) - (c.lairR || 0);
       if (dLair <= (c.aggroCells ?? LAIR_AGGRO_CELLS) * cellM) return 'hunt';
       if (c._hunting && dLair <= LAIR_LEASH_CELLS * cellM) return 'hunt';
