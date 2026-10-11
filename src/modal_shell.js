@@ -649,7 +649,7 @@ class SceneModals {
   //                 the start (a single card is selected on its own, so the
   //                 dialog reads as the plain price tag it is). A `suggested`
   //                 card wears a soft outline until something is picked.
-  showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, fullscreen = false, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
+  showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, fullscreen = false, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     // What the last accept of a REPEAT offer said (its flashLoot / flash
     // toasts, captured by the accept below): those draw on the map behind
     // this dialog, so the dialog that reopens prints them as its receipt.
@@ -696,7 +696,13 @@ class SceneModals {
     };
     if (getLabel) box.appendChild(mkCaption(getLabel));
     const getDiv = document.createElement('div');
-    getDiv.style.cssText = 'font-size:16px;font-weight:700;margin:2px 0;color:#ffe066';
+    // `headline: 'banner'` dresses the headline as a title (a castle quest's
+    // name): larger, glowing and ruled off from the caption and the blurb.
+    getDiv.style.cssText = headline === 'banner'
+      ? 'font:800 22px/1.25 var(--font-ui);letter-spacing:.02em;margin:4px 0 8px;padding:6px 0;color:#ffe066;'
+        + 'text-shadow:0 2px 0 #5a3d0a,0 0 12px rgba(255,200,80,.45);'
+        + 'border-top:1px solid rgba(200,166,74,.55);border-bottom:1px solid rgba(200,166,74,.55)'
+      : 'font-size:16px;font-weight:700;margin:2px 0;color:#ffe066';
     getDiv.innerHTML = get ?? '';
     if (pager?.options?.length) {
       // Recipe counters can jump straight to any known recipe, including

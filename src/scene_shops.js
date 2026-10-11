@@ -1603,7 +1603,7 @@ class SceneShops {
       // The castle as caption, the quest's name as the bold headline, then
       // its one-sentence flavour over the objective and progress.
       title: done ? 'Quest complete!' : style.name,
-      get: q.title,
+      get: q.title, headline: 'banner',
       blurb: `<em>${Quests.flavour(q)}</em><div style="margin-top:6px;opacity:1">${q.body} `
         + (done ? `Reward: ${this.moneyHTML(q.reward)}` : `<b>${q.have} / ${q.need}</b>`) + '</div>',
       canAfford: done,
