@@ -133,6 +133,18 @@ access or tile lifecycle mechanics.
   clearing rules; floor-tagged records survive reloads without reappearing
   after removal. Chopping a crafted barricade returns its recipe wood cost
   without a shiny bonus.
+- Indoor mall POIs retain their original map cells instead of migrating to
+  building frontage. `WorldGen.indoorMallPoisSteps` classifies each source
+  building component independently: at least 4,000 m², at least 9 distinct
+  POI positions inside, and at least half 15 m or more from its walls.
+  Courtyard holes subtract area, exclude contained pins and count as walls;
+  disconnected buildings never pool tenants. Buffered map points participate
+  in classification, while the existing tile-ownership rule still controls
+  placement. Ordinary buildings and shallow strip centres keep frontage
+  placement. `shop=mall` alone cannot override the geometry: both enclosed
+  Orchard Park and outdoor Orchard Plaza use that tag. The rule is a geometry
+  heuristic, not an entrance-access guarantee; missing tenant mapping and
+  clipped footprints can leave an enclosed mall using frontage placement.
 - A POI chest's tier is its tile's QUOTA SEAT (`WorldGen.seedChestTiers`):
   each tile seeds ~1 T5, 5 T4, 11 T3, 18 T2 (x1..x2 over 100..1000
   budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),
