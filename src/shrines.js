@@ -4,7 +4,8 @@
 // A shrine kind is a row of SHRINE_KINDS: its frame on the generated sheet
 // (assets/Objects/Generated/shrines.png, SpriteLayout.shrineKindArt), its
 // light colour (Lighting.KINDS `shrine_<id>`), the Nexus variants and Road
-// variants it stands in, and the ONE lever its boon pulls for durationMs.
+// variants it stands in, and the ONE lever its boon pulls for durationMs —
+// or, instead of a boon, a `reward` (the golden idol's coin spree).
 //
 // Every shrine is still a `grove_shrine` object — the daily shrine: one
 // visit per UTC day per shrine through Macros.usedToday / markToday, its
@@ -74,7 +75,7 @@
       name: 'Rust totem', flash: 'Your grip hardens like iron.',
       body: "You touch the rusted iron. Your arms feel stronger as you grip your weapon." },
     wishing_well: { art: 'shrine_wishing_well', frame: 6, light: 0xefc46a, lever: 'fortune', durationMs: 15 * MIN, boon: 'Luck',
-      zoneVariants: ['meadow', 'hedge_garden'], streets: ['golden', 'hedgerow'],
+      zoneVariants: ['meadow', 'hedge_garden'], streets: ['hedgerow'],
       name: 'Wishing well', flash: 'A coin sinks. Luck stirs.',
       body: "Green coins glint at the bottom of the well. You lean over the edge and make a wish." },
     harvest_idol: { art: 'shrine_harvest_idol', frame: 7, light: 0xffd07a, lever: 'work', durationMs: 15 * MIN, boon: 'Hardworking',
@@ -89,6 +90,14 @@
       zoneVariants: ['black_ring', 'flint_field', 'quarry-crater'], streets: ['burned'],
       name: 'Ember altar', flash: 'Fire gathers in your hands.',
       body: "You reach toward the glowing ember. Fire gathers in your hands, ready to strike." },
+    // The GOLDEN ROAD's idol: no boon — once a UTC day it spills a coin on
+    // every free verge cell of its road on this tile (`coinSeats`, laid by
+    // street_variants.js; app.js _coinBurstInteract's path mode). Every
+    // Golden Road gets one (streetChance), since the road's coins are its.
+    golden_idol: { art: 'street_golden', frame: 10, light: 0xefc46a, reward: 'coins', fillScreen: true, path: true,
+      zoneVariants: [], streets: ['golden'], streetChance: 1,
+      name: 'Golden idol', flash: 'Coins spill along the road.', spent: 'The idol is dull today',
+      body: 'You touch the gilded idol. Green coins spill from its hands and roll along both sides of the road.' },
   };
   const REWARD_KINDS = {
     bike: { name: "Courier's post", art: 'visit_bike', sprite: 'bike_rack', light: 0xaadbd1, ledger: 'day',
@@ -146,7 +155,7 @@
   // runs to max(now, until) + durationMs). Returns false for an unknown kind.
   function grant(save, kindId, now = Date.now(), scene = null) {
     const row = SHRINE_KINDS[kindId];
-    if (!row || !save) return false;
+    if (!row || !save || row.reward) return false;
     if (LEVERS[row.lever] === null) {
       if (!scene?._consumeFoodEffects) return false;
       scene._consumeFoodEffects('pairy', false, now);

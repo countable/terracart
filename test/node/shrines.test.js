@@ -4,7 +4,7 @@
   const T0 = 1_700_000_000_000;
 
   test('shrines: sheet idols and the drill share boon and light definitions', () => {
-    assert.eq(Shrines.KIND_IDS.length, 11);
+    assert.eq(Shrines.KIND_IDS.length, 12);
     const frames = Shrines.KIND_IDS.filter(id => K[id].frame != null).map(id => K[id].frame);
     assert.eq(new Set(frames).size, frames.length, 'one frame per kind');
     assert.eq(JSON.stringify([...frames].sort((a, b) => a - b)), JSON.stringify(SpriteLayout.SHRINE_KIND_ART.frames),
@@ -19,6 +19,7 @@
       assert.eq(Lighting.sourceKind({}, { kind: 'grove_shrine', shrineKind: id }), 'shrine_' + id);
       assert.eq(Lighting.KINDS['shrine_' + id].colour, K[id].light, `${id}: light colour from the table`);
       assert.eq(Lighting.KINDS['shrine_' + id].radiusCells, Lighting.KINDS.shrine.radiusCells, 'the shrine row\'s reach');
+      if (K[id].reward) continue;   // the golden idol pays a coin spree, not a boon
       assert.truthy(K[id].lever in Shrines.LEVERS, `${id}: a known lever`);
       assert.gt(K[id].durationMs, 0);
     }
