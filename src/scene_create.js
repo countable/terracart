@@ -1341,6 +1341,7 @@ class SceneCreate {
     this._buildRoadChip();
     this._buildBookChip();
     this._buildStatusRow();
+    this._buildStoryBadge();
     this.banner = document.getElementById('banner');
     this._settleInvCatOnBoot();
     this.buildInventoryDOM();

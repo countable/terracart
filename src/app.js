@@ -451,6 +451,9 @@ const FPS_LIMIT = (() => { const v = urlNumParam('fps'); return v == null ? FPS_
 // DOM/story backstops keep a wall-clock cadence when ?fps=0 follows a 90 or
 // 120 Hz display. Counting steps made this four times more frequent at 120 Hz.
 const HOUSEKEEPING_POLL_MS = 1000 / 3;
+// THE STORY HOLD (_storyHeld): how long the player goes without a tap
+// (walking does not count) before held story panels come up on their own.
+const STORY_IDLE_MS = 3000;
 // Phaser 3.87 drops its limiter's remainder and gates on smoothed deltas.
 // Keep scheduling phase separate from elapsed simulation time so every
 // display rate delivers the configured cadence without catch-up bursts.
@@ -1452,6 +1455,20 @@ const STATUS_ROW_CSS = `
 body.modal-open #status-row { opacity: 0.25; }
 body.modal-open #status-row button.status-chip { pointer-events: none; }
 body.booting #status-row { visibility: hidden; }
+`;
+// The held-story badge (_syncStoryBadge): a gold count on the map square's
+// top-left corner, seated in game px like a dialog. Hidden under a dialog.
+const STORY_BADGE_CSS = `
+#story-badge {
+  position: absolute; z-index: 8; display: none;
+  min-width: 34px; min-height: 34px; padding: 0 8px; box-sizing: border-box;
+  border: 2px solid #ffe066; border-radius: 17px;
+  background: #3a1f5ae8; color: #ffe066; cursor: pointer;
+  font: 700 13px var(--font-ui); text-shadow: 0 1px 0 #000;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  align-items: center; justify-content: center; gap: 4px;
+}
+body.modal-open #story-badge, body.booting #story-badge { visibility: hidden; }
 `;
 const ROAD_CHIP_CSS = `
 #roadchip {
@@ -3033,6 +3050,7 @@ class MapScene extends Phaser.Scene {
       const displayFps = this.game?.loop?.actualFps;
       if (displayFps > 0) WorldGen.noteSliceFrameTargetMs?.(1000 / displayFps);
       this._syncModalGate?.();
+      this._tickStoryHold();
       this._drainBadgeStories();
       this._lowHealthStory();
       this._firstSaleStory();
@@ -7651,14 +7669,18 @@ class MapScene extends Phaser.Scene {
     if (priority < 0) throw new Error(`unknown ceremony ${kind}`);
     const q = (this._ceremonies ||= []);
     if (key && q.some((c) => c.key === key)) return this._drainCeremonies();
-    q.push({ kind, key, hold, open, priority, seq: this._ceremonySeq = (this._ceremonySeq || 0) + 1 });
+    // `waits`: an unprompted panel the story hold keeps back (_storyHeld).
+    // A receipt, a Book read and a cheer answer the player's own act.
+    const waits = kind === 'intro' || kind === 'prize' || kind === 'story';
+    q.push({ kind, key, hold, open, priority, waits, seq: this._ceremonySeq = (this._ceremonySeq || 0) + 1 });
     return defer ? false : this._drainCeremonies();
   }
   _drainCeremonies() {
     const q = this._ceremonies;
     if (!q?.length || this._ceremonyOpen || this._dialogOpen()) return false;
     q.sort((a, b) => a.priority - b.priority || a.seq - b.seq);
-    const i = q.findIndex((c) => !c.hold?.());
+    const held = !!this._storyHeld?.();
+    const i = q.findIndex((c) => !c.hold?.() && !(held && c.waits));
     if (i < 0) return false;
     const [next] = q.splice(i, 1);
     this._ceremonyOpen = true;
@@ -7666,7 +7688,94 @@ class MapScene extends Phaser.Scene {
     let opened = false;
     try { opened = next.open(done) !== false; }
     finally { if (!opened) this._ceremonyOpen = false; }
+    // A held panel that opens starts the story hold's run: the taps that
+    // dismiss it do not hold back the next.
+    if (opened && next.waits) this._storyRun = true;
     return opened || this._drainCeremonies();
+  }
+
+  // ── THE STORY HOLD ────────────────────────────────────────────────────────
+  // Unprompted panels (a returning memory, a story beat, a trail prize or
+  // intro, a pet's first story, the fire breath) wait while the player is
+  // mid-interaction, not only while a dialog is up: a tap anywhere but the
+  // movement stick or the badge is interaction (_noteInteraction); walking
+  // is not. After STORY_IDLE_MS without one, or a tap on the badge, the held
+  // panels come up in order as a RUN: taps on their own dialogs do not end
+  // it, the next tap outside a dialog does. A dialog the player opened (a
+  // receipt, a Book read, a neighbour's talk) never waits here. Every
+  // deferred lane asks this (MemoryStory.storyHeld); the badge counts what
+  // they hold (_pendingStoryCount).
+  _storyHeld() {
+    if (this._dialogOpen()) return true;
+    if (this._storyRun) return false;
+    return Date.now() - (this._lastInteractionT ?? -Infinity) < STORY_IDLE_MS;
+  }
+  // The capture-phase pointerdown on the document (_buildStoryBadge).
+  _noteInteraction(target) {
+    if (target?.closest?.('#move-pad, #gps-pad, #story-badge')) return;
+    if (this._storyRun && target?.closest?.('.game-modal')) return;
+    this._lastInteractionT = Date.now();
+    this._storyRun = false;
+  }
+  // Panels the hold keeps back, across every deferred lane.
+  _pendingStoryCount() {
+    const s = this.save || {};
+    return (this._ceremonies || []).filter((c) => c.waits).length
+      + (s.memoryStory?.pending?.length || 0)
+      + (s.petStoriesPending?.length || 0)
+      + (s.dragonStory?.pending ? 1 : 0);
+  }
+  // The modal-gate tick, before the lanes drain: an idle clear screen with
+  // panels waiting starts the run; an empty queue ends it. Then the badge.
+  _tickStoryHold() {
+    const n = this._pendingStoryCount();
+    if (!n) this._storyRun = false;
+    else if (!this._storyRun && !this._storyHeld()) this._storyRun = true;
+    this._syncStoryBadge(n);
+  }
+  // The badge's tap: start the run now and open the first panel.
+  _releaseStories() {
+    if (this._dialogOpen()) return;
+    this._storyRun = true;
+    this._drainStoryLanes();
+    this._syncStoryBadge(this._pendingStoryCount());
+  }
+  // Every lane that opens a held panel, in the order the tick runs them.
+  _drainStoryLanes() {
+    this._drainBadgeStories();
+    PetStories.drain(this);
+    DragonStory.drain(this);
+  }
+  _syncStoryBadge(n) {
+    const el = this.storyBadgeEl;
+    if (!el) return;
+    const show = n > 0 && !this._storyRun;
+    const vs = this.viewSize || VIEW_CELLS * CELL_PX;
+    const key = show ? `${n}|${this.viewLeft ?? 0}|${this.viewTop ?? 0}|${vs}` : '';
+    if (this._storyBadgeKey === key) return;
+    this._storyBadgeKey = key;
+    el.style.display = show ? 'flex' : 'none';
+    if (!show) return;
+    el.style.left = `${(this.viewLeft ?? 0) + 8}px`;
+    el.style.top = `${(this.viewTop ?? 0) + 8}px`;
+    el.textContent = `\u{1F4DC} ${n}`;
+    el.setAttribute('aria-label', `${n} story panel${n === 1 ? '' : 's'} waiting`);
+  }
+  _buildStoryBadge() {
+    if (typeof document === 'undefined') return;
+    ensureStyle('story-badge-style', STORY_BADGE_CSS);
+    let el = document.getElementById('story-badge');
+    if (!el) {
+      el = document.createElement('button');
+      el.type = 'button';
+      el.id = 'story-badge';
+      swallowTaps(el);
+      el.addEventListener('click', (e) => { e.stopPropagation(); window.__scene?._releaseStories(); });
+      (document.getElementById('game') || document.body).appendChild(el);
+      document.addEventListener('pointerdown', (e) => window.__scene?._noteInteraction(e.target), true);
+    }
+    this.storyBadgeEl = el;
+    this._storyBadgeKey = null;
   }
 
   // The fanfare as HTML, over whatever dialog is open: the canvas toast's
