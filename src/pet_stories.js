@@ -8,7 +8,6 @@ const PetStories = (() => {
     dog: 'A wagging tail answers your outstretched hand. You are no longer travelling alone.',
     deer: 'The deer holds still beside you. You hardly dare breathe as its fear gives way to trust.',
     rabbit: 'A small nose twitches against your hand. The rabbit settles into the crook of your arm.',
-    crow: 'The crow tilts its head and croaks. Its claws curl gently around your wrist.',
     butterfly: 'Delicate wings pause beside you. Even something so small can make the world feel less empty.',
     crab: 'The crab raises a claw, then settles beside you. You choose to take that as a greeting.',
     horse: 'The horse lowers its head to your hand. The road ahead feels a little less lonely.',

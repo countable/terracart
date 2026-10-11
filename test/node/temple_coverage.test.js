@@ -98,7 +98,7 @@
       assert.truthy(hidden.ready, 'nothing remains that this player can see');
       assert.eq(hidden.authored, 0, 'but hidden is not defeated - no authored proof');
       // So observe must gate the awaken on authored > 0, not ready alone.
-      assert.truthy(/state\.ready && state\.authored > 0 && activate\(scene, o\)/.test(TEMPLES_SRC),
+      assert.truthy(/state\.ready && state\.authored > 0 && activate\(scene, o[,)]/.test(TEMPLES_SRC),
         'the awaken requires authored proof, never the stamp alone');
       eligible = true;
       const standing = Temples.status({ temples: { park: { hadEnemies: true } } }, temple, options);

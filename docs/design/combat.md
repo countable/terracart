@@ -20,7 +20,8 @@ mechanics.
   attacks use equipped gear and incoming damage uses armour mitigation.
   The floor ends at the platform edge. Walking beyond it returns to the surface
   without a reward; entering again starts a fresh trial. Grove temple platforms
-  share this fall behavior. Awakening remains permanent and winning grants the
+  share this fall behavior, except the hidden way, which is walked on the sky
+  floor ([floors](floors.md#sky-floor-depth--1)). Awakening remains permanent and winning grants the
   temple gift only once, even after re-entry or reload.
 
 - Confusing mushroom gas refreshes the shared `confused` condition to five
@@ -152,7 +153,8 @@ mechanics.
   a catch attempt (`Pets.catchMs`: current HP × 2 at the net's tool rate)
   while it flees for the edge of reach; no attack runs and it is no one's
   enemy until the attempt ends. A refused item is never consumed. Story foes
-  are not catchable (`Pets.catchable`). Only one pet per species, including
+  and `untameable` kinds (the crow: hunted for its feather, never a pet; old
+  saves drop a kept one) are not catchable (`Pets.catchable`). Only one pet per species, including
   baby/shiny variants. Hunting game (deer, crows) with an empty hand is apart.
   Use `Pets.carry/deploy/release`, never inventory stacks or id prefixes, for
   ownership. Stats, tint, accessories, growth and recovery stay on that record.

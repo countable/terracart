@@ -30,7 +30,8 @@
     if (typeof ITEM_BY_ID !== 'undefined' && Array.isArray(save.inv) && save.inv.some(row => ITEM_BY_ID[row.id]?.kind === 'animal')) {
       save.inv = save.inv.filter(row => ITEM_BY_ID[row.id]?.kind !== 'animal');
     }
-    save.released = save.released.filter(row => row?.pet === true && typeof row.id === 'string');
+    save.released = save.released.filter(row => row?.pet === true && typeof row.id === 'string'
+      && !(typeof SpriteLayout !== 'undefined' && SpriteLayout.isUntameable(String(row.kind || '').replace(/^shiny_|^baby_/, ''))));
     if (typeof Conditions !== 'undefined') Conditions.normalize(save);
     if (typeof Shrines !== 'undefined') Shrines.normalize(save);
     const relicSlots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS)

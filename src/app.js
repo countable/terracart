@@ -3572,6 +3572,7 @@ class MapScene extends Phaser.Scene {
     Companions.tickAll(this);
     tickGroundCoins(this);
     this._tickArena(dt);
+    this._tickSky(dt);
     // Did we just walk onto a trap, or are we still standing on one? Runs
     // beside the fog reveal because it asks the same question — which cell are
     // the player's FEET in — and answers it the same way (playerToWorldCell,
@@ -3610,9 +3611,13 @@ class MapScene extends Phaser.Scene {
     this.drawObjects();
     GasRender.draw(this);
     this._drawArena();
+    this._drawSky();
     this._drawWorkProgress();
     this.updateHUD();
     } catch (e) {
+      // A frame that broke off before drawObjects' sign pass would leave the
+      // roof signs pinned on screen (they are <body> overlays) — hide them.
+      try { Render.hideRoofSigns(this); } catch (_) { /* never mask the report */ }
       this._reportLoopError(e);
     }
   }
@@ -5615,6 +5620,7 @@ class MapScene extends Phaser.Scene {
   handleWorldTap(sx, sy) {
     if (this.isTooFast?.()) { this.flash('Too fast — on foot only.', sx, sy); return; }
     if (this._tapArenaPortal(sx, sy)) return;
+    if (this._tapSkyExit(sx, sy)) return;
     interactTap(this, sx, sy);
   }
 
@@ -6725,6 +6731,8 @@ class MapScene extends Phaser.Scene {
     this.depth = target;
     this.save.depth = target;
     WorldGen.setDepth(target);
+    // The surface's roof signs belong to the floor just left (render.js).
+    Render.hideRoofSigns(this);
     // GPS-mirror: keep the same world coordinates, just snap feet onto the stair.
     this.playerM.x = stair.x - this.startWorldM.x;
     this.playerM.y = stair.y - this.startWorldM.y - this.feetOffsetM;
@@ -9767,13 +9775,12 @@ class MapScene extends Phaser.Scene {
         'position:relative;flex:1 0 44px;min-width:44px;height:44px;border-radius:7px 7px 0 0;cursor:pointer;' +
         'font-size:16px;line-height:1;display:flex;flex-direction:column;align-items:center;' +
         'justify-content:center;gap:1px;padding:0;overflow:hidden;';
-      // Glyph in its own span so the desaturation targets ONLY the emoji — the
-      // count pip below keeps its full colour. The active tab shows its glyph in
-      // full colour; inactive tabs render greyscale + dimmed so the lit-up tab
+      // Pixel icon in its own span, tinted through currentColor: the active
+      // tab's icon lights gold, inactive tabs show it dimmed, so the lit-up tab
       // reads as the current category at a glance.
       const glyph = document.createElement('span');
-      glyph.textContent = c.sym;
-      glyph.style.cssText = 'line-height:1;' + (active ? '' : 'filter:grayscale(1) opacity(0.55);');
+      glyph.innerHTML = invCatIconHTML(c.key, 18);
+      glyph.style.cssText = 'line-height:1;' + (active ? `color:${UI_GOLD};` : 'color:var(--bone);opacity:0.55;');
       tab.appendChild(glyph);
       // Word under the glyph. Seven unlabelled emoji left a new player guessing
       // which one holds seeds — and the seed tab is the first thing the starter
@@ -10430,6 +10437,7 @@ installSceneMixin(MapScene, SceneConsumables);
 installSceneMixin(MapScene, ScenePets);
 installSceneMixin(MapScene, SceneElevators);
 installSceneMixin(MapScene, SceneArena);
+installSceneMixin(MapScene, SceneSky);
 installSceneMixin(MapScene, SceneVenues);
 installSceneMixin(MapScene, SceneStreets);
 installSceneMixin(MapScene, SceneBoss);

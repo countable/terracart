@@ -2025,7 +2025,6 @@ const ANIMAL_FOOD = {
   green_dragon: ['meat'],
   rabbit: ['cress'],
   deer: ['apple'],
-  crow: ['potato_seed'],
   butterfly: ['flowers'],
   sea_turtle: ['cress'],
   cow:     ['pairy'],      // pears to munch
@@ -2798,23 +2797,115 @@ function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad;
 // order. Item categories filter save.inv by `kind`; gear categories (relic /
 // armor) synthesize their slot list from save.relics / save.armor
 // (one-per-slot). Relics also includes permanent items carried in save.inv.
-// `sym` is the tab glyph — plain emoji so
-// no new pixel art is needed for the chrome.
+// `px` is the tab icon: a 9×9 one-bit bitmap ('#' lit) drawn by
+// invCatIconHTML as an inline SVG in a single colour, so the chrome needs no
+// sprite sheet and the icon takes its tint from the surface it sits on.
 //
 // A table over item KINDS, so it belongs with the catalog that defines them:
 // a kind added to ITEMS without a home here falls into Produce, and only this
 // file can see both halves of that.
 const INV_CATS = [
-  { key: 'seed',        label: 'Seeds',       sym: '🌱', kinds: ['seed'] },
-  { key: 'produce',     label: 'Produce',     sym: '🍎', kinds: ['produce'] },
-  { key: 'animal',      label: 'Pets',        sym: '🐾', kinds: ['pet_accessory'] },
-  { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic', kinds: ['unique_relic'] },
-  { key: 'armor',       label: 'Armour',      sym: '🛡️', gear: 'armor' },
-  { key: 'ores',        label: 'Ores',        sym: '💎', kinds: ['mineral'] },
-  { key: 'magic',       label: 'Magic',       sym: '🧪', kinds: ['magic'] },
-  { key: 'supplies',    label: 'Supplies',    sym: '🎒', kinds: ['supply'] },
+  { key: 'seed', label: 'Seeds', kinds: ['seed'], px: [
+    '.........',
+    '.##...##.',
+    '####.####',
+    '.###.###.',
+    '...###...',
+    '....#....',
+    '....#....',
+    '..#####..',
+    '#########'] },
+  { key: 'produce', label: 'Produce', kinds: ['produce'], px: [
+    '.....##..',
+    '....#....',
+    '.###.###.',
+    '#########',
+    '######.##',
+    '#########',
+    '#########',
+    '.#######.',
+    '..##.##..'] },
+  { key: 'animal', label: 'Pets', kinds: ['pet_accessory'], px: [
+    '.##...##.',
+    '.##...##.',
+    '.........',
+    '##.###.##',
+    '##.###.##',
+    '..#####..',
+    '.#######.',
+    '.#######.',
+    '..##.##..'] },
+  { key: 'relic', label: 'Relics', gear: 'relic', kinds: ['unique_relic'], px: [
+    '...###...',
+    '..##.##..',
+    '...###...',
+    '..#####..',
+    '.##...##.',
+    '##.....##',
+    '##.....##',
+    '.##...##.',
+    '..#####..'] },
+  { key: 'armor', label: 'Armour', gear: 'armor', px: [
+    '#########',
+    '##..#..##',
+    '##..#..##',
+    '##..#..##',
+    '.#..#..#.',
+    '.##.#.##.',
+    '..##.##..',
+    '...###...',
+    '....#....'] },
+  { key: 'ores', label: 'Ores', kinds: ['mineral'], px: [
+    '.........',
+    '..#####..',
+    '.##.#.##.',
+    '#########',
+    '.#######.',
+    '..#####..',
+    '...###...',
+    '....#....',
+    '.........'] },
+  { key: 'magic', label: 'Magic', kinds: ['magic'], px: [
+    '...###...',
+    '...#.#...',
+    '...#.#...',
+    '..#...#..',
+    '.#.....#.',
+    '#########',
+    '#########',
+    '#########',
+    '.#######.'] },
+  { key: 'supplies', label: 'Supplies', kinds: ['supply'], px: [
+    '...###...',
+    '..#...#..',
+    '.#######.',
+    '.#######.',
+    '.##...##.',
+    '.##...##.',
+    '.#######.',
+    '.#######.',
+    '.##...##.'] },
 ];
 const INV_CAT_BY_KEY = Object.fromEntries(INV_CATS.map(c => [c.key, c]));
+// One tab's bitmap as inline SVG markup: each lit run becomes one rect in a
+// single path, `crispEdges` keeps the cells square, and the drawn size snaps
+// down to a whole multiple of the grid so no cell blurs across a pixel seam.
+// `color` defaults to currentColor so CSS on the host element tints it.
+const INV_CAT_ICON_PATHS = {};
+function invCatIconHTML(key, size, color = 'currentColor') {
+  const rows = INV_CAT_BY_KEY[key]?.px;
+  if (!rows) return '';
+  const n = rows.length;
+  let d = INV_CAT_ICON_PATHS[key];
+  if (!d) {
+    d = '';
+    rows.forEach((row, y) => row.replace(/#+/g, (run, x) => { d += `M${x} ${y}h${run.length}v1h-${run.length}z`; return run; }));
+    INV_CAT_ICON_PATHS[key] = d;
+  }
+  const px = Math.max(n, Math.floor(size / n) * n);
+  return `<svg width="${px}" height="${px}" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" `
+    + `style="display:block" aria-hidden="true"><path fill="${color}" d="${d}"/></svg>`;
+}
 // Items whose TAB is not their kind's. Rock is the `rubble` crop — a
 // 'produce' item to the seed/sell/loot machinery, which keys on kind — but the
 // player files it with the wood and the ore it is gathered beside, so only its

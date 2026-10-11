@@ -13,7 +13,7 @@
 // concern); this file only references texture variant counts for documentation.
 //
 // Depends on: nothing. Pure data + small lookups. Exposes globals
-//   BiomeProfiles (accessors: T, flora, staticObjects, tint, atmos, mixHex, allows, faunaAllows, yard,
+//   BiomeProfiles (accessors: T, flora, staticObjects, tint, atmos, mixHex, allows, exclusive, faunaAllows, yard,
 //   yardAllows),
 //   BIOME_PROFILES (raw), BIOME_FAUNA, FAUNA_ORDER.
 
@@ -332,6 +332,10 @@
   // cell. Crops no biome lists (e.g. rockfruit) fall back to "any soft ground".
   // Explicit habitat exclusivity also rejects polygon-overlap spill onto
   // another final terrain. This filter is for generated flora, not crops.
+  // exclusive(crop): a `terrainOnly` crop also never grows where a mapped park
+  // polygon lies under its own terrain (a park inside school grounds keeps
+  // SCHOOL paint by precedence, but the player reads it as the park and its
+  // grove) — worldgen's wildplant filter applies that with its park mask.
   const EXCLUSIVE_TYPES = {};
   for (const [type, profile] of Object.entries(BIOME_PROFILES)) {
     for (const fl of profile.flora || []) if (fl.terrainOnly) {
@@ -371,6 +375,7 @@
     if (fams) return fams.has(familyOf(type));
     return GROUND.has(type);
   };
+  const exclusive = (crop) => !!EXCLUSIVE_TYPES[crop];
   // yard(type): the biome's yard-flora row (see FAMILY_PROFILE.urban.yard), or
   // null. yardAllows(crop, type): may a YARD-LANE plant survive on this cell?
   // Everything allows() tolerates, plus the yard's own crops on a cell whose
@@ -523,7 +528,7 @@
 
   // The accessors. The raw tables reach app.js as the bare globals below
   // (BIOME_FAUNA / FAUNA_ORDER for the fauna spawner), not through here.
-  const api = { T, flora, staticObjects, tint, atmos, mixHex, allows, faunaAllows, yard, yardAllows, patch, patchMul, FLORA_PATCH, GRASS_FILL,
+  const api = { T, flora, staticObjects, tint, atmos, mixHex, allows, exclusive, faunaAllows, yard, yardAllows, patch, patchMul, FLORA_PATCH, GRASS_FILL,
     PARK_CHARACTERS, PARK_CHARACTER_IDS, CEMETERY_CHARACTER, parkCharacterAt, parkCharacter, isParkPoi };
   global.BiomeProfiles = api;
   global.BIOME_PROFILES = BIOME_PROFILES;

@@ -638,6 +638,11 @@
       return { depth, dimA: 0.18, dimColour: 0x8e75c0, farA: 0.18,
         ambient: 0xc3b6e6, edge: 0.02, lit: 0.08, litColour: 0xffffff, night: 0 };
     }
+    // The sky floor is above the clouds: open daylight at every hour.
+    if (depth === WorldGen.SKY_DEPTH) {
+      return { depth, dimA: 0.12, dimColour: 0x9fc4e0, farA: 0.12,
+        ambient: 0xf2f6fa, edge: 0.02, lit: 0.06, litColour: 0xffffff, night: 0 };
+    }
     // render.js declares Render as a top-level const, so it is reachable by
     // bare name in every scope loaded after it (the browser and the node
     // bundle alike), never as a window property.
