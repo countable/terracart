@@ -177,4 +177,18 @@ test('drawObjects depth: the shared Phaser container sort is dirty-gated', () =>
     'a pick upgrade invalidates cached mineral-rock alpha');
 });
 
+test('drawObjects seats: every chasm seat lookup names its own pool item', () => {
+  // Only chasm and cave-in pieces seat on chasmAt; a pool callback that copies
+  // the lookup must key it by a name it destructured, or it throws in prod.
+  const body = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawObjects = function drawObjects(scene)'));
+  const lines = body.split('\n');
+  lines.forEach((line, i) => {
+    const m = line.match(/chasmAt\.get\((\w+)\)/);
+    if (!m) return;
+    const near = lines.slice(Math.max(0, i - 3), i + 1).join('\n');
+    assert.truthy(new RegExp('(const|let)\\s*(\\{[^}]*\\b' + m[1] + '\\b[^}]*\\}|' + m[1] + '\\b)').test(near),
+      'chasmAt.get(' + m[1] + ') reads a name declared in its callback: ' + line.trim());
+  });
+});
+
 })();
