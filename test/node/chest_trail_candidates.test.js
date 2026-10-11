@@ -27,7 +27,7 @@
   });
   test('chest trails: CHEST_TRAIL_LIMIT destinations maximum in stable order regardless of tile insertion', () => {
     const scene = { save: {}, cellM: 7 }, anchor = { x: 0, y: 0 }, L = HomeArea.CHEST_TRAIL_LIMIT;
-    assert.eq(L, 10);
+    assert.eq(L, 20);
     const objects = Array.from({ length: L + 2 }, (_, i) => chest('chest' + String(i).padStart(2, '0'), 10));
     withChests(objects.slice().reverse(), () => {
       const first = HomeArea.chestTrailCandidates(scene, anchor).map(o => o.id).join();

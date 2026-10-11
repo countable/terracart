@@ -47,7 +47,7 @@
 const FIRE_WARD_MAX_DEPTH = 1;
 
 // ── Buried X marks: how thick they lie on SAND ────────────────────────────
-// A tile's X marks are a flat scatter of 4-10 over every walkable cell plus a
+// A tile's X marks are a flat scatter of 6-15 over every walkable cell plus a
 // bonus stream beside footpaths — over a 2.4 km tile that is nothing at all
 // along a shoreline, and a beach is the one ground people actually dig. So
 // sand gets its own bonus stream, capped at one mark per BEACH_X_PER_CELLS
@@ -59,7 +59,7 @@ const FIRE_WARD_MAX_DEPTH = 1;
 const BEACH_X_PER_CELLS = 20;
 // THE LOW-TIER QUOTA'S X MARKS: a tile short of WorldGen.LOW_TIER_CHEST_QUOTA
 // tier-1 chests (entry.lowTierDeficit, topUpAmbientCratesSteps) also lays
-// extra X marks — X_TOP_UP_MAX on a tile with none, in proportion to its
+// extra X marks — X_TOP_UP_MAX (× X_MARK_FREQUENCY) on a tile with none, in proportion to its
 // shortfall. Cells are drawn off WorldGen.cellHash (never the tile's rng
 // stream, so no later draw moves), up to X_TOP_UP_TRIES per mark.
 const X_TOP_UP_MAX = 24;
@@ -583,7 +583,7 @@ class SceneCreatures {
     //                            + low-density random across all tiles.
     //  2) entry.parkingTreasures — one per OSM parking-lot POI (worldgen).
     //  3) entry.extraTreasures   — per-tile random scatter (new). Every tile
-    //                            rolls for 4–10 X marks dropped on random
+    //                            rolls for 6–15 X marks dropped on random
     //                            walkable cells, so X's feel like a regular
     //                            ambient reward instead of a once-a-walk find.
     // All three render + interact through the same code path.
@@ -649,14 +649,14 @@ class SceneCreatures {
         break;
       }
     }
-    // Extra scatter: 4–10 X's per tile on random walkable cells (doubled from
-    // 2–5). Each gets a stable id derived from its cell so save.foundTreasures
+    // Extra scatter: 4–10 X's per tile on random walkable cells, scaled by
+    // X_MARK_FREQUENCY (loot.js) to 6–15. Each gets a stable id derived from its cell so save.foundTreasures
     // persists across reloads. Failed placement attempts (water/building cells)
     // just drop that slot — small scatter variance is fine.
     // Skip the extra-X scatter in test mode — the unified treasure handler
     // runs BEFORE wildplant/creature/till/plant/water dispatches, and tests
     // that tap arbitrary cells would have the tap stolen by a random X.
-    const EXTRA_X_COUNT = testMode ? 0 : (4 + Math.floor(rng() * 7));
+    const EXTRA_X_COUNT = testMode ? 0 : Math.round((4 + Math.floor(rng() * 7)) * X_MARK_FREQUENCY);
     for (let k = 0; k < EXTRA_X_COUNT; k++) {
       let placed = false;
       for (let attempt = 0; attempt < 8 && !placed; attempt++) {
@@ -671,7 +671,7 @@ class SceneCreatures {
 
     // The low-tier quota's X marks (X_TOP_UP_MAX), skipped in test mode for
     // the same reason as the scatter above.
-    const xTopUp = testMode ? 0 : Math.ceil(X_TOP_UP_MAX
+    const xTopUp = testMode ? 0 : Math.ceil(X_TOP_UP_MAX * X_MARK_FREQUENCY
       * Math.min(1, (entry.lowTierDeficit || 0) / WorldGen.LOW_TIER_CHEST_QUOTA));
     for (let k = 0, laid = 0; laid < xTopUp && k < xTopUp * X_TOP_UP_TRIES; k++) {
       const i = (WorldGen.cellHash(tx, ty, k, 0x7a0b) >>> 0) % (N * N);
@@ -701,14 +701,14 @@ class SceneCreatures {
     // below; `sandCells` is the INLAND sand (bunkers, sandpits, volleyball),
     // which keeps the old capped scatter.
     if (pathCells.length > 0) {
-      // 4-8 bonus X marks per tile that has any path (doubled from 2-4).
-      // Capped by path density so a tile with one stub doesn't get spammed —
-      // the cap doubles with the count (one per 2 path cells, was one per 4),
-      // otherwise a thin-path tile clamps at the old number and the extra
-      // marks never appear.
+      // 4-8 bonus X marks per tile that has any path, scaled by
+      // X_MARK_FREQUENCY. Capped by path density so a tile with one stub
+      // doesn't get spammed — the cap scales with the count (one per 2 path
+      // cells at 1×), otherwise a thin-path tile clamps at the old number and
+      // the extra marks never appear.
       const PATH_BONUS_COUNT = Math.min(
-        4 + Math.floor(rng() * 5),
-        Math.max(1, Math.floor(pathCells.length / 2))
+        Math.round((4 + Math.floor(rng() * 5)) * X_MARK_FREQUENCY),
+        Math.max(1, Math.floor(pathCells.length * X_MARK_FREQUENCY / 2))
       );
       const NEIGHBOURS = [[1,0],[-1,0],[0,1],[0,-1]];
       for (let k = 0; k < PATH_BONUS_COUNT; k++) {
@@ -747,8 +747,8 @@ class SceneCreatures {
     // (below, Scenic.beachXCount — its count follows the shoreline).
     if (sandCells.length > 0) {
       const BEACH_BONUS_COUNT = Math.min(
-        4 + Math.floor(rng() * 5),
-        Math.max(1, Math.floor(sandCells.length / BEACH_X_PER_CELLS))
+        Math.round((4 + Math.floor(rng() * 5)) * X_MARK_FREQUENCY),
+        Math.max(1, Math.floor(sandCells.length * X_MARK_FREQUENCY / BEACH_X_PER_CELLS))
       );
       for (let k = 0; k < BEACH_BONUS_COUNT; k++) {
         let placed = false;
@@ -767,7 +767,7 @@ class SceneCreatures {
 
     // THE BEACH'S OWN MARKS (src/scenic.js): the count follows the SHORELINE
     // — Scenic.beachXCount(shoreM), one per BEACH_X_SHORE_M of waterline,
-    // capped at BEACH_X_MAX — not the tile's flat 4-8, so a long beach carries
+    // capped at BEACH_X_MAX, × X_MARK_FREQUENCY — not the tile's flat count, so a long beach carries
     // marks at its own rate. Its OWN stream (seeded off the tile, salted), so
     // no other draw moves; each mark on a shore-sand cell that takes a minor
     // spawn, keyed by position (treasure_sand ids, as before).

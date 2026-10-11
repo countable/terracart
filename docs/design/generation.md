@@ -151,6 +151,10 @@ access or tile lifecycle mechanics.
   `save.hiddenDiscoveries`), or within the vision disc with Perception; until
   then it is neither drawn nor diggable. A covering rock adds no rule of its
   own. The Treasure Map's dot is apart.
+- X-mark density: every ambient X stream (tile scatter, low-tier quota,
+  footpath and inland-sand bonuses, shoreline, cave floors) scales its count
+  by `loot.js X_MARK_FREQUENCY`; authored marks (parking, hoards) stay one
+  per site.
 - A GREAT X (`loot.js GREAT_X`): `GREAT_X.share` (a tenth) of every X mark,
   whatever stream laid it, chosen by `isGreatX` off the mark's id. Drawn thick
   and dark red, it digs the `treasure:great` pool (gold, a tool or weapon, or

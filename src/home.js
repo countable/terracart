@@ -50,7 +50,9 @@ const HomeArea = {
     return dx * dx + dy * dy <= radiusM * radiusM;
   },
 
-  CHEST_TRAIL_LIMIT: 10,
+  // Doubled in Oct 2026 (was 10 trails within 24 cells): the cap and the
+  // search area both, so twice the chests get a trail whichever binds.
+  CHEST_TRAIL_LIMIT: 20,
   // The lowest chest tier a trail leads to, and what the chest at a trail's
   // end adds to its roll (interactables.js chest open: isTrailChest).
   CHEST_TRAIL_MIN_TIER: 2,
@@ -58,7 +60,7 @@ const HomeArea = {
   // How far from the PLAYER (cells) a chest may lie and still get a trail.
   // Until Oct 2026 trails only led to chests inside Home's ring, which almost
   // never held a T2+ chest, so few players ever saw one.
-  CHEST_TRAIL_RADIUS_CELLS: 24,
+  CHEST_TRAIL_RADIUS_CELLS: 34,
 
   // Optional treasure trails lead to the nearest unopened T2+ surface chests
   // around the player, anywhere on the surface. Pick by distance and id, so

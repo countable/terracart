@@ -26,7 +26,7 @@
 //   standWordItem, standNameItems, subclassProductFor, produceStandFor
 //   MACRO_KIND_BY_CLASS, MACRO_KINDS, macroFor
 //   chestLook, chestOpeningArt
-//   GREAT_X, isGreatX, treasureContextFor
+//   GREAT_X, isGreatX, treasureContextFor, X_MARK_FREQUENCY
 //
 // Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade)
 // live in rarity.js's pickReward + classBias engine.
@@ -44,6 +44,12 @@ const GREAT_X = {
   context: 'treasure:great', share: 1 / 10, salt: 0x6e0b0b,
   color: 0x6e0b0b, caveColor: 0xb02020, alpha: 0.9, width: 4, halfSize: 6.5,
 };
+// HOW THICK X MARKS LIE. Every ambient X stream scales its count by this:
+// the tile scatter, the low-tier quota's marks, the footpath and inland-sand
+// bonuses (scene_creatures.js), the shoreline's (Scenic.beachXCount) and each
+// cave floor's (worldgen.js CAVE_PASSES treasureMarks). Authored marks (a
+// parking lot's, a hoard's) stay one per site.
+const X_MARK_FREQUENCY = 1.5;
 // Is this X mark a great one?
 function isGreatX(mark) {
   if (!mark) return false;

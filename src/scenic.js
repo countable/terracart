@@ -575,7 +575,8 @@
     return { mask, cells, waterline, shoreM: waterline.length * WG.CELL_M };
   }
   function beachXCount(shoreM) {
-    return Math.max(0, Math.min(BEACH_X_MAX, Math.floor((shoreM || 0) / BEACH_X_SHORE_M)));
+    // Scaled by the shared X-mark density (loot.js X_MARK_FREQUENCY).
+    return Math.round(Math.max(0, Math.min(BEACH_X_MAX, Math.floor((shoreM || 0) / BEACH_X_SHORE_M))) * X_MARK_FREQUENCY);
   }
   function tideCount(shoreM) {
     return Math.max(0, Math.min(TIDE_MAX, Math.floor((shoreM || 0) / TIDE_PER_M)));
