@@ -108,9 +108,7 @@ observation/action bridge. It requires a started, stationary session, verifies
 that save/time are unchanged, and records source revisions in the evidence.
 It is a harness maintenance operation, not a player action.
 
-To reproduce the currently observed first-sale sequencing issue at normal
-speed, run `node tools/qa/reproduce-first-sale.js /path/to/reproduction-output`.
+To verify first-sale story sequencing at normal speed, run `node tools/qa/reproduce-first-sale.js /path/to/reproduction-output`.
 This uses an explicitly seeded disposable inventory, performs one normal Sell
-click, and captures overlapping shop/story modals. It does not touch a measured
-run. Its assertions describe the current bug, so it will need updating once
-the game is fixed.
+clicks, and checks that the story stays queued across repeated sales and opens
+only after Leave closes the shop. It does not touch a measured run.

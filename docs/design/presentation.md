@@ -115,7 +115,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   confirmation lives in the dialog: an explicit `receipt` line, or else
   the `flashLoot` / `flash` toasts its accept raised, captured by
   `showOfferModal` and reprinted as the reopened dialog's status line.
-  Never add a second confirmation surface for a repeat offer.
+  Never add a second confirmation surface for a repeat offer. Stories earned
+  during an accept use the ceremony queue with `defer: true`: the gate tick
+  waits for the refreshed shop to close. Duplicate keyed requests must also
+  respect deferral rather than draining during the remove/remount gap.
 - Book stories use direct firsthand excerpts in quotation marks. Occasional
   narrator asides sit outside the quotation in italics (`bookPageHTML`), usually
   one short sentence. Vary length, format, mood and author voice across books;

@@ -25,6 +25,8 @@ test('first sale: only a completed sale opens its exact story, once per save', (
   s.offer.onAccept(1);
   assert.eq(Inventory.count(s.save, 'rubble'), 2);
   assert.gt(s.save.money, 0);
+  assert.eq(s.modals.length, 0, 'accept queues the story before the shop remounts');
+  s._drainCeremonies();
   assert.eq(s.modals[0].art, 'first_sale');
   assert.eq(s.modals[0].body, "The neighbours offer to buy your fine wares for some 'green'.");
   assert.truthy(s.save.storySeen['sale:first']);
@@ -48,10 +50,26 @@ test('first sale: a busy quest dialog defers the earned story and survives reloa
   assert.truthy(s.save.firstSalePending);
   assert.falsy(s.save.storySeen?.['sale:first']);
   s.save = JSON.parse(JSON.stringify(s.save));
-  busy(false); s._firstSaleStory();   // the modal pass: queued once, opened when the screen clears
+  busy(false); s._firstSaleStory(); s._drainCeremonies(); // modal pass after reload
   assert.eq(s.modals.length, 1);
   assert.falsy(s.save.firstSalePending);
   assert.truthy(/this\._lowHealthStory\(\);\s*this\._firstSaleStory\(\)/.test(SCENE_SRC), 'the modal pass retries it');
+}));
+test('first sale: repeated accepts keep one story queued until the shop closes', () => saleTest((s, busy) => {
+  s.presentHomeSell(0, 0);
+  for (let i = 0; i < 2; i++) {
+    busy(false); // showOfferModal removes the old shop before onAccept.
+    s.offer.onAccept();
+    assert.eq(s.modals.length, 0, 'neither initial nor duplicate enqueue drains during remount');
+    s.offer.repeat(); busy(true);
+    s._drainCeremonies();
+    assert.eq(s.modals.length, 0, 'the refreshed shop holds the story');
+    assert.eq(s._ceremonies.length, 1);
+  }
+  busy(false); s._drainCeremonies();
+  assert.eq(s.modals.length, 1, 'Leave releases the queued story');
+  s.modals[0].onDismiss(); s._firstSaleStory(); s._drainCeremonies();
+  assert.eq(s.modals.length, 1, 'dismissal does not replay the story');
 }));
 test('home sell: each tap sells one and the empty page never switches to another stack', () => saleTest(s => {
   s.save.inv = [{ id: 'rubble', count: 2 }, { id: 'wood', count: 4 }];

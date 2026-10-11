@@ -7646,7 +7646,7 @@ class MapScene extends Phaser.Scene {
     const priority = ['receipt', 'read', 'intro', 'prize', 'cheer', 'story'].indexOf(kind);
     if (priority < 0) throw new Error(`unknown ceremony ${kind}`);
     const q = (this._ceremonies ||= []);
-    if (key && q.some((c) => c.key === key)) return this._drainCeremonies();
+    if (key && q.some((c) => c.key === key)) return defer ? false : this._drainCeremonies();
     q.push({ kind, key, hold, open, priority, seq: this._ceremonySeq = (this._ceremonySeq || 0) + 1 });
     return defer ? false : this._drainCeremonies();
   }
@@ -7840,7 +7840,8 @@ class MapScene extends Phaser.Scene {
       delete this.save.firstSalePending;
       persistSave(this.save);
       return true;
-    }, { key: 'sale:first' });
+    // A repeat offer remounts after its accept callback; wait for the gate tick.
+    }, { key: 'sale:first', defer: true });
   }
 
   _lowHealthStory() {
