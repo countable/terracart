@@ -38,19 +38,20 @@ test('effectivePickCost: cheaper as the pick tier climbs', () => {
   assert.gt(bare, t7, 'bare hands cost more energy than a T7 pick');
 });
 
-// A seed's price is its chest allowance divisor (chest_themes.js quantity),
-// so seed prices sit near TIER_VALUE[baseTier] / 5: a chest of the seed's own
-// tier with no quantity bumps holds about five, never the nine-seed cap.
-// Bumps (up to 2.5x the allowance) are what reach the cap. Seeds may now sell
-// for more than a harvest returns; the 3x produce rule was retired for this.
-test('crop economy: a same-tier chest holds about five seeds, not the cap', () => {
+// A seed's price is its roll-budget divisor (chest_themes.js quantity), so
+// seed prices sit near TIER_VALUE[baseTier] / 5: a roll of the seed's own
+// tier with no brackets (the seed share of the budget) holds about four,
+// never the nine-seed cap. Brackets raise the budget toward the cap. Seeds
+// may now sell for more than a harvest returns; the 3x produce rule was
+// retired for this.
+test('crop economy: a same-tier roll holds about four seeds, not the cap', () => {
   for (const crop of Object.keys(CROP_ROW)) {
     const seedId = `${crop}_seed`;
     if (!ITEM_BY_ID[seedId] || PRICES[seedId] == null) continue;
     const qty = ChestThemes.quantity(seedId, ITEM_BY_ID[seedId].baseTier || 1, 0, () => 0);
     assert.lte(qty, 6, `${seedId}: a same-tier chest gives ${qty}`);
   }
-  assert.eq(ChestThemes.quantity('starfruit_seed', 3, 0), 5);
+  assert.eq(ChestThemes.quantity('starfruit_seed', 3, 0), 4);
   assert.eq(ChestThemes.quantity('starfruit_seed', 3, 3), 9, 'bumps still reach the cap');
 });
 

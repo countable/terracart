@@ -69,13 +69,20 @@ stalls and coin pots keep their own interactions.
   tier is not a guaranteed item tier beyond `ChestThemes.qualityFloor`.
 - **One chest, one reward.** An ordinary chest gives one item stack, one gear
   piece or coins (`pickChestReward` / `resolveChestReward`).
-- **Quantity from value.** A stack is an allowance from `TIER_VALUE`
-  (`src/items.js`) divided by the item's value, at least one, capped per item
-  (`ChestThemes.quantity`, `ChestThemes.cap`). Leftover allowance pays no
-  consolation coins; quantity is applied once, never on top of another
-  stack formula.
+- **Quantity from the roll budget.** Every reward roll (chests, X marks,
+  shrine, vista, road prize, elite drops) sizes its stack the same way: the
+  rolled tier's `TIER_VALUE` (`src/items.js`), plus half of it per quantity
+  bracket (`ChestThemes.budget`), times the item's `BUDGET_SHARE` (potions and
+  other magic 0.4, seeds 0.8, everything else 1), divided by the item's
+  value, at least one, capped per item (`ChestThemes.quantity`,
+  `ChestThemes.cap`). A same-tier roll with no brackets typically pays two
+  potions or four seeds. Quantity steps (the chain, the wizard's ladder and
+  quantity jackpots) only raise the budget, with no bracket cap; leftover
+  budget pays no consolation coins, and no caller adds a bonus on top. Wood
+  and rubble bundles keep their own pile size.
 - **Gear and coins keep their own paths** (`rollGearUpgrade`, `cashValue` in
-  `src/rarity.js`); a theme only restricts gear slots (`ChestThemes.gearSlots`).
+  `src/rarity.js`; a purse pays the whole budget); a theme only restricts
+  gear slots (`ChestThemes.gearSlots`).
 - **Unique finds stay unique.** Unique relics never drop to a player who
   already carries one (`ChestThemes.eligible`).
 - **Books reach the scholar.** Every chest seated at T2 carries a Book share

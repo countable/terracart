@@ -1568,9 +1568,9 @@ const PRICES = {
   field_scope: 80, compass: 0, orb: 180, goblet: 180, lucky_key: 100,
   wood_shield: 40, metal_shield: 160, gold_shield: 500,
   // ── Seeds ────────────────────────────────────────────────
-  // A seed's price is also its chest allowance divisor (chest_themes.js
-  // quantity): ~TIER_VALUE[baseTier] / 5, so a same-tier chest with no
-  // bumps holds about five, not the nine-seed cap.
+  // A seed's price is also its roll-budget divisor (chest_themes.js
+  // quantity): ~TIER_VALUE[baseTier] / 5, so a same-tier roll with no
+  // brackets (BUDGET_SHARE.seed of the budget) holds about four.
   rainberry_seed: 42, pairy_seed: 42, nut_seed: 5, potato_seed: 1,
   berry_seed: 5, cress_seed: 1, onion_seed: 5, starfruit_seed: 15,
   gemfruit_seed: 15, rubble_seed: 8, coffee_seed: 12,
@@ -2762,8 +2762,9 @@ function buyMarkupRange(relics) {   // eslint-disable-line no-unused-vars
 }
 
 // Low-tier seeds (baseTier ≤ 2 — the cheap starter crops) are planted in bulk,
-// so the places that hand out seeds — trader barter, treasure X, and cash
-// shops — bundle a few extra. `isLowTierSeed` is the single source of truth for
+// so the shops that sell seeds — trader barter and cash shops — bundle a few
+// extra. (Reward rolls size seed stacks from their budget alone,
+// ChestThemes.quantity.) `isLowTierSeed` is the single source of truth for
 // "should this seed get the bulk bonus"; LOW_TIER_SEED_QTY_BONUS is how many
 // extra ship on top of the normal quantity.
 const LOW_TIER_SEED_QTY_BONUS = 2;
