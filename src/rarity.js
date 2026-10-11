@@ -166,6 +166,12 @@
     // supply skew to the total, so the share is smaller down there.
     'treasure:default': { classBias: { seed:0.45, mineral:0.40, supply:0.15, gear:0.25 },
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0 },
+    // ── The GREAT X (loot.js GREAT_X — the thick dark-red mark) ─
+    // Gold, a tool or weapon, or any equipment: no seeds, no stone. Two chain
+    // steps onto a T3 ceiling (a relic sits a tier under, so T2), with the
+    // usual jackpot above it up to maxTier.
+    'treasure:great':   { classBias: { cash:0.40, relic:0.30, gear:0.30 },
+                          chainSteps: 2, chainMax: 3, maxTier: 4, relicCap: 4, relicChainMax: 4 },
     // ── The ROAD ladder's prize ─────────────────────────────────────────
     // What restoring a street pays (src/trail.js, app.js _fireTrailPrize).
     // The ceremony rolls ONE card per group (Trail.PRIZE_CARDS: cash / seed or

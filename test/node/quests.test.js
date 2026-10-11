@@ -194,10 +194,18 @@ test('plant: nothing in the game undoes a till by tapping it', () => {
 
 // ── Inventory category tabs ─────────────────────────────────────────────────
 
-test('inventory tabs: every category carries a label for its glyph', () => {
+test('inventory tabs: every category carries a label and a pixel icon', () => {
+  const seen = new Set();
   for (const c of INV_CATS) {
     assert.truthy(c.label, `${c.key} has a label`);
-    assert.truthy(c.sym, `${c.key} has a glyph`);
+    assert.eq(c.sym, undefined, `${c.key} carries no emoji glyph`);
+    assert.eq(c.px.length, 9, `${c.key} icon is 9 rows`);
+    for (const row of c.px) assert.truthy(/^[#.]{9}$/.test(row), `${c.key} row "${row}" is 9 one-bit cells`);
+    assert.falsy(seen.has(c.px.join('')), `${c.key} icon is distinct`);
+    seen.add(c.px.join(''));
+    const svg = invCatIconHTML(c.key, 20);
+    assert.truthy(/^<svg width="18" height="18"/.test(svg), `${c.key} icon snaps to a whole cell scale`);
+    assert.truthy(/fill="currentColor"/.test(svg), `${c.key} icon is single-colour, tinted by its host`);
     // The tab strip is ~46px per tab on a phone; long words would ellipsise.
     assert.lt(c.label.length, 10, `${c.key} label "${c.label}" fits the tab`);
   }

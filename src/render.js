@@ -261,7 +261,7 @@ Render.shopTierBadge = (scene, house, role) => {
   };
 };
 // Market signs identify the line, not the randomly selected stock item.
-// Category symbols come from the inventory tabs; books keep their item icon.
+// Category icons are the inventory tabs' pixel art (sign-ink brown); books keep their item icon.
 Render.MARKET_SIGN_ICONS = Object.freeze({
   seed: { tab: 'seed' },
   supply: { tab: 'supplies' },
@@ -278,7 +278,7 @@ Render.marketSignTheme = (scene, house, role) => {
 Render.marketSignIconHTML = (scene, theme, size) => {
   const icon = Render.MARKET_SIGN_ICONS[theme];
   if (!icon) return '';
-  if (icon.tab) return `<span style="display:block;font-size:${size}px;line-height:1">${INV_CAT_BY_KEY[icon.tab].sym}</span>`;
+  if (icon.tab) return invCatIconHTML(icon.tab, size, '#382719');
   return scene.iconSpanHTML(icon.item, size);
 };
 const COIN_DROP_PX = 9;
@@ -871,6 +871,14 @@ function setStyleOnce(el, prop, value) {
   last[prop] = value;
   el.style[prop] = value;
 }
+// Hide every roof sign (market signboards, delivery callouts). They are <body>
+// overlays at fixed SCREEN positions, hidden only by drawObjects' sign pass:
+// a frame that never reaches it (a swallowed loop error, the frame a floor
+// changes) would leave one pinned over the view, riding along with the
+// player. Through setStyleOnce, so the next pass can show them again.
+Render.hideRoofSigns = function hideRoofSigns(scene) {
+  for (const s of scene?._produceSignPool || []) if (s.el) setStyleOnce(s.el, 'display', 'none');
+};
 
 // Change-guarded Text style setters. Phaser guards setText / setFontSize /
 // setStroke against no-op values, but setColor, setBackgroundColor, setShadow
@@ -3065,8 +3073,9 @@ Render.drawCells = function drawCells(scene) {
   const hideNightRoadTreasure = typeof RoadSafety !== 'undefined' && RoadSafety.isNight(scene, Date.now());
   // Dark earth on the surface; pale scratched stone underground, where the
   // floor (0x2a2622) is darker than the surface ink and would swallow it.
-  if ((scene.depth || 0) > 0) g.lineStyle(2, 0xc9b48a, 0.6);
-  else g.lineStyle(2, 0x2a1d10, 0.55);
+  const underground = (scene.depth || 0) > 0;
+  const plainX = () => underground ? g.lineStyle(2, 0xc9b48a, 0.6) : g.lineStyle(2, 0x2a1d10, 0.55);
+  plainX();
   const drawX = (tr) => {
     if (!treasureExposed(tr, scene) || found.has(tr.id)) return;
     // Buried until the feet stand beside it (HiddenObjects.tick).
@@ -3075,9 +3084,14 @@ Render.drawCells = function drawCells(scene) {
     const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
     if (!inViewBox(dx, dy, halfM)) return;
     const { x: cx, y: cy } = deltaMToScreen(scene, dx, dy);
-    const s = 5.1;   // 15% smaller than the old 6px; X is symmetric so the centroid (cx,cy) is unchanged.
+    // 15% smaller than the old 6px; X is symmetric so the centroid (cx,cy) is unchanged.
+    // A GREAT X (loot.js GREAT_X) is thick and dark red.
+    const great = isGreatX(tr);
+    const s = great ? GREAT_X.halfSize : 5.1;
+    if (great) g.lineStyle(GREAT_X.width, underground ? GREAT_X.caveColor : GREAT_X.color, GREAT_X.alpha);
     g.lineBetween(Math.round(cx - s), Math.round(cy - s), Math.round(cx + s), Math.round(cy + s));
     g.lineBetween(Math.round(cx + s), Math.round(cy - s), Math.round(cx - s), Math.round(cy + s));
+    if (great) plainX();
   };
   // Treasure marks — only check the player's 3×3 tile neighbourhood. drawX
   // already culls by viewport, but iterating all cached tiles every frame
