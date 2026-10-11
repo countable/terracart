@@ -77,13 +77,7 @@ function sample(ctx, opts, owned, n) {
       rows.push(...Trail.rollCardRow(rollFor, fixed ? [fixed] : []).map(describe));
     } else if (ctx === 'fishing') rows.push(sampleFishing(save, opts));
     else {
-      const reward = roll();
-      // grantTreasureRoll applies this after pickReward, to digs and elite kills.
-      if ((ctx === 'treasure:default' || ctx === Combat.ELITE_TREASURE_CONTEXT || ctx === Zones.SHRINE_CONTEXT)
-          && reward?.kind === 'item' && isLowTierSeed(reward.id)) {
-        reward.qty += LOW_TIER_SEED_QTY_BONUS;
-      }
-      rows.push(describe(reward));
+      rows.push(describe(roll()));
     }
   }
   return rows;
