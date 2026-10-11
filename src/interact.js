@@ -360,14 +360,15 @@ function groundObjectBlocker(scene, save, cwmx, cwmy, cellHalfM) {
   return null;
 }
 
-// Which ground takes a CAMPFIRE: any ground a person can stand on — a parking
-// lot, a plaza, a cave floor as much as soil — except water and what floats
-// on it (a pier), lava, buildings and the drawn road band (WorldGen.isWalkable
-// already refuses water, buildings, every road tier and cave rock). Wider than
-// isTillableCell on purpose: a fire needs no soil, only clear ground.
+// Which ground takes a CAMPFIRE: any open ground — soil, a parking lot, a
+// plaza, a road, a cave floor — except water and what floats on it (a pier),
+// lava, buildings and cave rock. WorldGen.isWalkable refuses water, buildings
+// and cave rock but also the road tiers, which a fire may sit on, so roads are
+// let back in. Wider than isTillableCell on purpose: a fire needs no soil.
 function isFireGroundCell(cell) {
-  return WorldGen.isWalkable(cell.type) && !cell.underRoad
-    && cell.type !== TERRAIN.PIER && cell.type !== TERRAIN.CAVE_LAVA;
+  const t = cell.type;
+  return (WorldGen.isWalkable(t) || WorldGen.isRoadTerrain(t))
+    && t !== TERRAIN.PIER && t !== TERRAIN.CAVE_LAVA;
 }
 
 // GRASSLAND-biome cell types// GRASSLAND-biome cell types (spec §WORLD GENERATION grouping). These till in

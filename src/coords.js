@@ -414,6 +414,19 @@ function cellScreenXY(scene, ox, oy, fracX, fracY, phaseX) {
   return _cellScreenXY;
 }
 
+// Absolute cell -> the screen centre of the slot drawCells paints it in
+// (cellScreenXY with the row band's column shift and phase). A sprite that
+// must tile seamlessly with its neighbours (a chasm's connected sections)
+// seats here rather than on its own rounded deltaMToScreen point: two
+// neighbours' float centres sit CELL_PX ± epsilon apart, and rounding each
+// separately opens a 1px seam on some frames. Pass `pc` = viewAnchorCell.
+function absCellScreenCentre(scene, pc, cellIX, cellIY) {
+  const base = viewAnchorAbsCell(scene, pc), band = viewBand(scene, pc, cellIY);
+  const at = cellScreenXY(scene, cellIX - base.cellIX - band.dX, cellIY - base.cellIY,
+    pc.cx - Math.floor(pc.cx), pc.cy - Math.floor(pc.cy), band.phaseX);
+  return { x: at.x + CELL_PX / 2, y: at.y + CELL_PX / 2 };
+}
+
 // ─── The viewport cull ───────────────────────────────────────────────────────
 // Is a delta from the anchor inside the drawn square (halfM metres each way)?
 // Every per-frame list in render.js and every light collector asks this of

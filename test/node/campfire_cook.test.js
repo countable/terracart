@@ -184,8 +184,8 @@ test('campfire: the first fire lit tells its story, through the story ledger', (
 });
 
 // A campfire needs clear ground, not soil (interact.js isFireGroundCell): a
-// parking lot / plaza / cave floor takes one; water, a pier, lava, a building,
-// the drawn road band and any object standing on the cell do not.
+// parking lot / plaza / road / cave floor takes one; water, a pier, lava, a
+// building, cave rock and any object standing on the cell do not.
 (function () {
   const lightFire = TAP_HANDLERS.find(h => h.name === 'light-fire');
   function fixture(type, over = {}) {
@@ -201,18 +201,18 @@ test('campfire: the first fire lit tells its story, through the story ledger', (
     return { scene, save, ctx };
   }
   const T = WorldGen.T;
-  test('campfire: lights on paved and bare ground alike — parking lot, plaza, grass, cave floor', () => {
-    for (const type of [T.COMMERCIAL, T.INDUSTRIAL, T.PATH, T.ROCK, T.GRASS, T.CAVE_FLOOR]) {
-      const { save, ctx } = fixture(type);
+  test('campfire: lights on paved and bare ground alike — parking lot, plaza, road, grass, cave floor', () => {
+    for (const [type, over] of [[T.COMMERCIAL], [T.INDUSTRIAL], [T.PATH], [T.ROCK], [T.GRASS], [T.CAVE_FLOOR],
+        [T.ROAD], [T.ROAD_MD], [T.ROAD_LG], [T.GRASS, { underRoad: true }]]) {
+      const { save, ctx } = fixture(type, over);
       assert.eq(lightFire.try(ctx), true, `type ${type} takes a fire`);
       assert.eq(save.fires.length, 1);
       assert.eq(save.inv[0].count, 1, 'one flint spent');
     }
   });
-  test('campfire: refuses water, pier, lava, buildings, the road band and an occupied cell', () => {
+  test('campfire: refuses water, pier, lava, buildings, cave rock and an occupied cell', () => {
     const cases = [
-      fixture(T.WATER), fixture(T.PIER), fixture(T.CAVE_LAVA), fixture(T.BUILDING_MED),
-      fixture(T.ROAD_MD), fixture(T.COMMERCIAL, { underRoad: true }),
+      fixture(T.WATER), fixture(T.PIER), fixture(T.CAVE_LAVA), fixture(T.BUILDING_MED), fixture(T.CAVE_WALL),
     ];
     const occupied = fixture(T.COMMERCIAL);
     occupied.save.scarecrows.push({ x: 1002.5, y: 1002.5 });

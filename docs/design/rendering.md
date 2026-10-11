@@ -38,6 +38,10 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   Buildings, moving creatures and canvas-baked street lamps have separate seating.
   Use a stable `seatFrame` for animation. After art changes, run
   `node tools/sprite_audit.js --emit-bounds` and update `src/sprite_layout.js`.
+- Connected ground art that must abut its neighbours (chasm sections) seats on
+  its terrain slot through `absCellScreenCentre` (coords.js), never on its own
+  rounded `deltaMToScreen` point: neighbours' float centres sit `CELL_PX` ± epsilon
+  apart, and rounding each alone opens an intermittent 1px seam.
 - List actual crop `frames`, not sheet-cell counts. Hash the full id for
   per-cell variation (`wildplantFrame`); do not use id length or transient indices.
   When art depicts quantity, rendering and drops share the variant table

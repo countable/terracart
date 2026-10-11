@@ -3309,7 +3309,7 @@ Render.chasmArtForObjects = function chasmArtForObjects(scene, holes) {
       const n = absCellOffset(scene, c.cellIX, c.cellIY, dx, dy);
       if (!cells.has(`${n.cellIX}:${n.cellIY}`)) mask |= bit;
     }
-    result.set(o, { _chasmMask: mask });
+    result.set(o, { _chasmMask: mask, _cell: c });
   }
   return result;
 };
@@ -3907,7 +3907,13 @@ Render.drawObjects = function drawObjects(scene) {
   const hazardState = EnvironmentHazards.lists(scene);
   const openCaveins = hazardState.caveins.filter(h => h.phase === 'open' && !h.blocked
     && Math.abs(h.x - pWorldX) <= halfM + scene.cellM && Math.abs(h.y - pWorldY) <= halfM + scene.cellM);
-  for (const [o, art] of Render.chasmArtForObjects(scene, [...chasmObjects, ...openCaveins])) connectedArt.set(o, art);
+  // Chasm sections join edge to edge, so each seats on its terrain slot
+  // (coords.js absCellScreenCentre), never on its own rounded projection.
+  const chasmPc = viewAnchorCell(scene), chasmAt = new Map();
+  for (const [o, art] of Render.chasmArtForObjects(scene, [...chasmObjects, ...openCaveins])) {
+    connectedArt.set(o, { _chasmMask: art._chasmMask });
+    chasmAt.set(o, absCellScreenCentre(scene, chasmPc, art._cell.cellIX, art._cell.cellIY));
+  }
   const { fruitList } = Render.objectAppearance(scene, houseRoles);
   for (const item of filteredObj) {
     const art = connectedArt.get(item.o);
@@ -4075,7 +4081,7 @@ Render.drawObjects = function drawObjects(scene) {
   const objectStyleRevision = ((relics.axe?.tier || 0) << 4) | (relics.pickaxe?.tier || 0);
   const configureObject = (s, item) => {
     const { o, dx, dy } = item;
-    const { x: sx, y: sy } = project(dx, dy);
+    const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
     setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     // A shiny tree, or a building raised under the Magic Hammer (Houses.isShinyHouse).
     Render.setShine(s, (isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree))
@@ -4624,7 +4630,7 @@ Render.drawObjects = function drawObjects(scene) {
   const NEST_WIGGLE_DEG = 8;
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
-    const { x: sx, y: sy } = project(dx, dy);
+    const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
     setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     // A NEST BUSH (items.js isNestBush — the predicate the harvest pays the
     // baby off) WIGGLES: three quick swings, NEST_WIGGLE_DEG either side of
@@ -4798,7 +4804,7 @@ Render.drawObjects = function drawObjects(scene) {
   for (const effect of scene._creatureMeleePool) effect.setVisible(false).clear();
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;
-    const { x: sx, y: sy } = project(dx, dy);
+    const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
     setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     if (Render.drawCreatureDisguise(s, c, sx, sy, performance.now())) return;
     // ONE BRANCH FOR EVERY CREATURE: the sheet, frame stepping and float all come
@@ -4976,7 +4982,7 @@ Render.drawObjects = function drawObjects(scene) {
 
   scene._environmentHazardPool ||= [];
   Render.renderPool(scene, scene._environmentHazardPool, scene.creaturesContainer, environmentList, (s, it) => {
-    const { x: sx, y: sy } = project(it.dx, it.dy), h = it.h;
+    const h = it.h, { x: sx, y: sy } = chasmAt.get(h) || project(it.dx, it.dy);
     const cfg = EnvironmentHazards.CONFIG[h.type];
     s.anims?.stop();
     s.setTexture(h.phase === 'open' && cfg.openTexture || cfg.texture, connectedArt.get(h)?._chasmMask ?? h.frame)
