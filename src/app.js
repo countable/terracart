@@ -5648,7 +5648,8 @@ class MapScene extends Phaser.Scene {
     interactTap(this, sx, sy);
   }
 
-  // === Coin-burst (a shrine row with reward 'coins' — the reef treasury) ===
+  // === Coin-burst (a shrine row with reward 'coins' — the reef treasury,
+  // the golden idol's spree along its road) ================================
   // Once per UTC day per POI: the day ledger (Macros.usedToday / markToday —
   // save.coinBurstClaimed[<poiId>YYYYMMDD]); subsequent taps within the same
   // day flash a hint and spawn no coins. Coins themselves are in-memory only
@@ -5726,7 +5727,25 @@ class MapScene extends Phaser.Scene {
     // KEEP LOOKING UNTIL THERE IS A BURST TO SCATTER: widen the ring (the same
     // rule) out to MAX_BURST_CELLS.
     let candidates;
-    if (row.fillScreen) {
+    if (row.fillScreen && row.path) {
+      // THE GOLDEN IDOL: a coin on every free seat of its road's verges on
+      // this tile (poi.coinSeats — street_variants.js lays them), never off
+      // them; the seats already passed the spawn gate when the road was
+      // dressed, so here only what stands on them now (an object, a live
+      // coin, a zone's ground, this player's private-ground veto) turns one away.
+      candidates = [];
+      const x0 = tx * tileEdgeM, y0 = ty * tileEdgeM;
+      const occupied = new Set(entry._spawnOpts?.occupied || []);
+      const zoneCoverage = entry.zone && (entry.zone.coverage || entry.zone.idx);
+      for (const coin of entry.coinDrops || []) if (coin.expiresAt > Date.now())
+        occupied.add(Math.floor((coin.y - y0) / cellM) * N + Math.floor((coin.x - x0) / cellM));
+      for (const seat of poi.coinSeats || []) {
+        const cx = Math.floor((seat.x - x0) / cellM), cy = Math.floor((seat.y - y0) / cellM);
+        if (cx < 0 || cy < 0 || cx >= N || cy >= N || (cx === poiLocalCX && cy === poiLocalCY)) continue;
+        if (occupied.has(cy * N + cx) || zoneCoverage?.[cy * N + cx] || WorldGen.privateVetoAt(tx, ty, cx, cy)) continue;
+        candidates.push({ cx, cy, tx, ty, entry, x: seat.x, y: seat.y });
+      }
+    } else if (row.fillScreen) {
       // The reef fills the visible ground across tile seams. Each tile keeps
       // its own grid, occupancy and access rules; unopened tiles add nothing.
       candidates = [];
