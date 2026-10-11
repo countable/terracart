@@ -259,9 +259,29 @@
     if (magicalFlowers.includes(id) || item.kind === 'mineral') return 3;
     return 5;
   }
+  // THE ROLL BUDGET. Every reward roll sizes its stack (and its purse) from
+  // one allowance: the rolled tier's TIER_VALUE, plus BUDGET_PER_BRACKET of it
+  // for each quantity bracket the roll banked (chain qty steps, the wizard's
+  // ladder and quantity jackpots alike). A jackpot buys a bigger budget and
+  // nothing else; count = budget / price.
+  const BUDGET_PER_BRACKET = 0.5;
+  function budget(tier, bracket = 0) {
+    return TIER_VALUE[Math.max(1, Math.min(7, tier | 0))] * (1 + BUDGET_PER_BRACKET * bracket);
+  }
+  // The share of that budget a stack of this item may spend. Potions (and the
+  // other magic consumables) and seeds pay out a smaller stack than the tier's
+  // full worth: a same-tier roll with no brackets typically holds two potions
+  // or four seeds. Everything else spends the whole budget.
+  const BUDGET_SHARE = Object.freeze({ potion: 0.4, seed: 0.8 });
+  function budgetShare(id) {
+    const item = ITEM_BY_ID[id];
+    if (item.potion || item.kind === 'magic') return BUDGET_SHARE.potion;
+    if (item.kind === 'seed') return BUDGET_SHARE.seed;
+    return 1;
+  }
   function quantity(id, tier, bracket, rng = Math.random) {
     if (id === 'wood' || id === 'rubble') return Math.min(12, 3 + Math.floor(rng() * 6) + bracket * 2);
-    const allowance = TIER_VALUE[tier] * (1 + 0.5 * bracket);
+    const allowance = budget(tier, bracket) * budgetShare(id);
     const count = allowance / Math.max(1, PRICES[id] || itemValue(id));
     // Magic and timber seeds round up to fill the allowance. Fruit saplings
     // still award one tree; a T2 acorn draw can now pay a small planting stack.
@@ -289,5 +309,5 @@
   // Catch authored errors early; runtime still has each theme's declared T1
   // terminal so an unexpected bad entry cannot consume a chest for nothing.
   try { validate(); } catch (error) { console.error('Chest theme validation failed', error); }
-  global.ChestThemes = { themes, highTierWeights, qualityFloor, groups, normalize, weights, members, BOOK_T2_SHARE, eligible, resolve, selectableIds, pickItem, cap, quantity, gearSlots, seedMultiplier, validate };
+  global.ChestThemes = { themes, highTierWeights, qualityFloor, groups, normalize, weights, members, BOOK_T2_SHARE, eligible, resolve, selectableIds, pickItem, cap, budget, BUDGET_SHARE, quantity, gearSlots, seedMultiplier, validate };
 })(window);

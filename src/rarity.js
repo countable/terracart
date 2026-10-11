@@ -34,17 +34,10 @@
     // P(extra qty-bracket bump) at the TOP of the wizard's quantity ladder.
     qtyLuckMaxP:         0.35,
     qtyLuckLevels:       3,
-    // Quantity model: each qty BUMP (from the chain or jackpot) adds
-    // 1..tierQtyPerBump[itemTier] to the stack. A T1 seed with 2 bumps can
-    // land at 10 (two random(1..5) rolls + 1 base); a T4 seed with 2 bumps
-    // tops out at 3 (two random(1..1) rolls + 1 base). Index by item tier.
-    // Index 0 is unused; tiers 1..7.
-    tierQtyPerBump: [0, 5, 3, 2, 1, 1, 1, 1],
-    // Classes that are inherently single-stack — relic (no qty), animal (one
-    // live catch at a time), magic / supply (tap-to-use; `consumable` is the
-    // magic + supply union the cave X marks still route through). Fruit-tree
-    // seeds also stay single regardless of bumps.
-    singleStackClasses: ['relic', 'animal', 'magic', 'supply', 'consumable'],
+    // Quantity model: each qty BUMP (from the chain, the wizard's ladder or a
+    // jackpot) banks one bracket, and a bracket only raises the roll's budget
+    // (ChestThemes.budget). The stack is that budget over the item's price
+    // (ChestThemes.quantity, capped per item); coins are the budget itself.
     // Chest tier 1..7 modifiers (1..5 on the surface; 6..7 only underground,
     // loot.js chestTierMaxFor). Applied on top of the biome's classBias to
     // produce the effective context. Chest worldgen picks (biome, tier)
@@ -272,19 +265,16 @@
   // ────────────────────────────────────────────────────────────────
   // CASH. What a purse at tier T is worth is what an ITEM of that tier is worth,
   // so a coin option and a loot option on the same roll are the same prize
-  // stated two ways (see CASH_TIER_VALUE). CASH_MAX / CASH_PULL_MAX are
-  // currently unreferenced.
-  const CASH_MAX = 200;
-  const CASH_PULL_MAX = CASH_MAX * 2;
+  // stated two ways (see CASH_TIER_VALUE).
   const CASH_JITTER = 0.3;             // ±30% on the purse, so it isn't a fixed figure
   // Cash is the tier's budget: a coins roll pays what the item lane would
   // have spent (one table owns both lanes: items.js TIER_VALUE).
-  const CASH_TIER_VALUE = (typeof TIER_VALUE !== 'undefined' && TIER_VALUE) || [0, 6, 24, 75, 210, 480, 1080, 2400];  function cashValue(tier, qty, rng) {
-    const base = CASH_TIER_VALUE[Math.max(1, Math.min(7, tier | 0))] || 1;
+  const CASH_TIER_VALUE = (typeof TIER_VALUE !== 'undefined' && TIER_VALUE) || [0, 6, 24, 75, 210, 480, 1080, 2400];
+  function cashValue(tier, bracket, rng) {
     const jitter = 1 + (rng() * 2 - 1) * CASH_JITTER;
     // No pull cap: the budget owns the amount, and the top tiers'
     // budgets (T6 $1080, T7 $2400) are the dungeon payouts.
-    return Math.max(1, Math.round(base * Math.max(1, qty) * jitter));
+    return Math.max(1, Math.round(ChestThemes.budget(tier, bracket) * jitter));
   }
 
   // BUNDLE. Wood and stone, both T1, so its worth is entirely in its COUNT:
@@ -492,12 +482,13 @@
       ? Math.min(ctx.relicChainMax ?? finalCap, finalCap)
       : Math.min(ctx.chainMax ?? finalCap, finalCap);
     // Deterministic chain: the context declares how many boost steps fire
-    // (chainSteps); each is 33% qty-up (bracket++ if below cap, else nothing) or
-    // 67% tier-up if below chainCap (else qty-up). It never 'misses', so the
-    // chest's tier is reached reliably while still providing variance.
+    // (chainSteps); each is 33% qty-up (bracket++) or 67% tier-up if below
+    // chainCap (else qty-up). It never 'misses', so the chest's tier is
+    // reached reliably while still providing variance. A bracket only raises
+    // the roll's budget (ChestThemes.budget), so it has no cap of its own.
     let tier = 1, bracket = 0;
-    // Qty bumps rolled but unappliable (bracket at 3, or a single-stack class)
-    // pay small consolation coins.
+    // Steps that could not apply (a roll bonus with no tier headroom, or a
+    // bracket on gear, which has no stack) pay small consolation coins.
     let wastedQtyBumps = 0;
     const chainSteps = ctx.chainSteps ?? 0;
     const luck = upgradeLuck(save);
@@ -505,8 +496,7 @@
     for (let i = 0; i < chainSteps; i++) {
       const goQty = rng() < qtyP;
       if (!goQty && tier < chainCap) tier += 1;
-      else if (bracket < 3) bracket += 1;
-      else wastedQtyBumps += 1;        // both axes maxed
+      else bracket += 1;
     }
     // ROLL BONUS — extra steps the caller paid for (opts.rollBonus; the
     // cobble-trail prize spends Trail.PRIZE_ROLL_BONUS on it, one more for
@@ -524,13 +514,11 @@
       else wastedQtyBumps += 1;        // no headroom left — pay it out in coins
     }
     // The wizard's quantity upgrade: one extra bracket roll (not a post-multiply, which would double unbounded).
-    if (!isRelic && rng() < qtyLuck(save)) {
-      if (bracket < 3) bracket += 1;
-      else wastedQtyBumps += 1;
-    }
+    if (!isRelic && rng() < qtyLuck(save)) bracket += 1;
 
     // 3) Jackpot. Geometric chain rooted at jackpotEntryP × jackpotContinueP;
-    // each step picks tier-up vs qty-up 50/50. Fanfare fires on any non-zero jackpot.
+    // each step picks tier-up vs qty-up 50/50; a qty-up only raises the
+    // budget. Fanfare fires on any non-zero jackpot.
     let jackpotSteps = 0;
     if (rng() < RARITY_TUNING.jackpotEntryP) {
       jackpotSteps = 1;
@@ -540,8 +528,7 @@
       // Relics have no qty: force tier-up. Otherwise 50/50.
       const goTier = isRelic || rng() < 0.5;
       if (goTier && tier < finalCap) tier++;
-      else if (!goTier && bracket < 3) bracket++;
-      else if (!goTier) wastedQtyBumps += 1;  // wanted qty, bracket capped
+      else if (!goTier) bracket++;
       // (A goTier step that hits finalCap pays no coins: the cap is a chest feature.)
     }
     const jackpotApplied = jackpotSteps;
@@ -596,10 +583,7 @@
       meta.fallback = true;
     }
     if (resolved.kind === 'cash') {
-      let qty = 1;
-      const perBump = RARITY_TUNING.tierQtyPerBump[tier] || 1;
-      for (let i = 0; i < bracket; i++) qty += 1 + Math.floor(rng() * perBump);
-      return { kind: 'gold', amount: cashValue(tier, qty, rng), cls: 'cash', tier, ...meta };
+      return { kind: 'gold', amount: cashValue(tier, bracket, rng), cls: 'cash', tier, ...meta };
     }
     const id = ChestThemes.pickItem(resolved, tier, rng, selectionOpts);
     return { kind: 'item', id, qty: ChestThemes.quantity(id, tier, bracket, rng),
@@ -677,17 +661,15 @@
     // handling as other gear so a reward never replaces better owned boots.
     if (cls === 'boots') return gearOut({ kind: 'armor', slot: 'boots', tier }, tier, finalCap);
     // CASH — coins, worth what an item of the rolled tier is worth
-    // (CASH_TIER_VALUE) and fattened by the same quantity brackets a stack
+    // (CASH_TIER_VALUE) and fattened by the same budget brackets a stack
     // would have been, so the qty axis is not dead weight on a money roll.
     // NO `slot`: that is what tells every payer apart from a gear cash-out
     // (interact.js grantTreasureRoll, interactables.js) — money is money.
     // It pays no separate consolation; coins beside coins is one number said
-    // twice, and a wasted bracket on this class is already rare (cap 3).
+    // twice.
     if (cls === 'cash') {
-      let qty = 1;
-      const perBump = (RARITY_TUNING.tierQtyPerBump || [])[Math.min(tier, 7)] || 1;
-      if (!ctx.singleItem) for (let i = 0; i < bracket; i++) qty += 1 + Math.floor(rng() * perBump);
-      return { kind: 'gold', amount: Math.max(1, Math.round(cashValue(tier, qty, rng) * (ctx.cashMul ?? 1))), tier, cls: 'cash',
+      const amount = cashValue(tier, ctx.singleItem ? 0 : bracket, rng) * (ctx.cashMul ?? 1);
+      return { kind: 'gold', amount: Math.max(1, Math.round(amount)), tier, cls: 'cash',
                jackpot: jackpotApplied, consolation: 0 };
     }
     // BUNDLE — wood or stone; tier never climbs (CLASS_MAX_TIER.bundle), so every bracket is size.
@@ -717,20 +699,17 @@
     }
     const id = favId || pickItemInClass(cls, tier, rng) || (cls === 'magic' ? 'torch' : null);
     if (!id) return null;
-    // Quantity from chain+jackpot qty BUMPS: each adds 1..tierQtyPerBump[itemTier]
-    // to the stack (high-tier items refuse to pack). Single-stack classes
-    // ignore bumps; their bracket converts to wasted bumps (consolation gold).
+    // Quantity is the roll's budget over the item's price, the same stack a
+    // chest pays (ChestThemes.quantity: budget share, per-item cap; leftover
+    // budget pays no coins).
     const itemTier = _ITEM_BY_ID[id]?.baseTier ?? tier;
-    let qty = 1;
+    let qty;
     if (ctx.singleItem) {
       // Shops sell one item at a time, EXCEPT seed packs (5 for T1-T3, 1 for T4
       // Frost flowers). Rolled bumps are discarded, with no consolation.
-      if (cls === 'seed') qty = itemTier >= 4 ? 1 : 5;
-    } else if ((RARITY_TUNING.singleStackClasses || []).includes(cls) || _ITEM_BY_ID[id]?.plants === 'fruittree') {
-      wastedQtyBumps += bracket;          // bracket is dead for these classes
+      qty = cls === 'seed' && itemTier < 4 ? 5 : 1;
     } else {
-      const perBump = (RARITY_TUNING.tierQtyPerBump || [])[Math.min(itemTier, 7)] || 1;
-      for (let i = 0; i < bracket; i++) qty += 1 + Math.floor(rng() * perBump);
+      qty = ChestThemes.quantity(id, tier, bracket, rng);
     }
     return { kind: 'item', id, qty, tier, cls: _ITEM_BY_ID[id].kind, jackpot: jackpotApplied,
              consolation: ctx.singleItem ? 0 : consolationFor(itemTier) };

@@ -514,13 +514,12 @@ function wValueByType(entries) {
   if (!canChest) return null;
   const emptySave = { relics: {}, armor: {}, inv: [], money: 0 };
   const evCache = new Map();
-  function ev(context, opts, treasureGrant = false) {
-    const key = context + '|' + JSON.stringify(opts || null) + '|' + treasureGrant;
+  function ev(context, opts) {
+    const key = context + '|' + JSON.stringify(opts || null);
     if (evCache.has(key)) return evCache.get(key);
     let sum = 0;
     for (let i = 0; i < WVALUE_N_SAMPLES; i++) {
       const reward = pickReward(context, emptySave, Math.random, opts);
-      if (treasureGrant && reward?.kind === 'item' && isLowTierSeed(reward.id)) reward.qty += LOW_TIER_SEED_QTY_BONUS;
       sum += describe(reward).value;
     }
     const avg = sum / WVALUE_N_SAMPLES;
@@ -563,7 +562,7 @@ function wValueByType(entries) {
       if (o && o.kind === 'gatepost') bump('Gate post (2 per spawn point)', 'one-time', 0);
       // A viewpoint's scope (src/scenic.js): its daily gift (Scenic.VISTA_CONTEXT).
       if (o && o.kind === 'vista_scope' && typeof Scenic !== 'undefined') {
-        bump('Viewpoint scope (daily gift)', 'recurring', ev(Scenic.VISTA_CONTEXT, undefined, true));
+        bump('Viewpoint scope (daily gift)', 'recurring', ev(Scenic.VISTA_CONTEXT));
       }
     }
     // THE TIDE LINE (src/scenic.js): each waterline pickup lies there on a day
@@ -636,9 +635,9 @@ function wValueByType(entries) {
     if (zd && zd.objects && typeof Zones !== 'undefined') {
       for (const zo of zd.objects) {
         if (zo.kind === 'headstone' && Zones.headstoneHoards && Zones.headstoneHoards(zo.id)) {
-          bump('Headstone hoard', 'one-time', ev(Zones.HEADSTONE_CONTEXT || 'chest:lowtier', { tier: Zones.HEADSTONE_TIER || 1, depth: 0 }, true));
+          bump('Headstone hoard', 'one-time', ev(Zones.HEADSTONE_CONTEXT || 'chest:lowtier', { tier: Zones.HEADSTONE_TIER || 1, depth: 0 }));
         } else if (zo.kind === 'grove_shrine') {
-          bump('Grove shrine (daily gift)', 'recurring', ev(Zones.SHRINE_CONTEXT || 'treasure:shrine', undefined, true));
+          bump('Grove shrine (daily gift)', 'recurring', ev(Zones.SHRINE_CONTEXT || 'treasure:shrine'));
         }
       }
     }

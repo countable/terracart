@@ -355,10 +355,10 @@ function treasureExposed(treasure, scene, save = scene?.save) {
 }
 
 // Grant ONE buried-treasure roll: the pickReward('treasure:default') payout
-// with every branch it can take — an item (low-tier seeds bundled up, jackpot
-// fanfare on a big hit), a gold sum, or the fallback dollar if the pool comes
-// back empty — plus the consolation coins the picker couldn't fold into the
-// item's quantity.
+// with every branch it can take — an item (its stack sized by the roll's
+// budget, ChestThemes.quantity; jackpot fanfare on a big hit), a gold sum,
+// or the fallback dollar if the pool comes back empty — plus any
+// consolation coins the picker paid.
 //
 // Factored out of the X-mark handler so a monster's rare drop pays the SAME
 // table: two copies of this would be two loot pools to retune, and the whole
@@ -469,7 +469,6 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
     scene.flashLoot(`${mark} → 1`, '#ffe066', 1, null, scene.coinIconEl?.());
     return;
   }
-  if (reward.kind === 'item' && isLowTierSeed(reward.id)) reward.qty += LOW_TIER_SEED_QTY_BONUS;
   Rewards.apply(save, reward, scene);
   // Shown by the one presenter: a card under the caller's framing, or the
   // toast led by `mark`; a beaten relic roll (cashed out by
@@ -477,8 +476,8 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
   if (!(ceremony && Rewards.present(scene, reward, { extra: ceremony }))) {
     Rewards.present(scene, reward, { mode: 'toast', mark });
   }
-  // Consolation coins for any qty bumps the picker couldn't apply
-  // (bracket at cap or single-stack class). Small gold trickle alongside
+  // Consolation coins for steps the picker couldn't apply (a roll bonus
+  // with no tier headroom, or brackets on gear). Small gold trickle alongside
   // the main loot — never replaces it.
   if (reward.consolation > 0) {
     scene.flash(`+${reward.consolation}`, sx, sy + 16);
