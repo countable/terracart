@@ -211,6 +211,7 @@ class SceneCreate {
     // matching tile cache before any tiles load.
     // An interrupted trial returns to its surface portal; completed wins persist.
     this._recoverArenaRun();
+    this._recoverSkyRun();
     this.depth = this.save.depth || 0;
     WorldGen.setDepth(this.depth);
     if (this.depth > 0) this.cameras.main.setBackgroundColor('#0a0a12');

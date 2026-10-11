@@ -49,7 +49,7 @@
     let story;
     s.showMessageModal = row => { story = row; };
     assert.eq(HiddenObjects.reveal(s, o), true);
-    assert.eq(story.body, 'Shrine spirit discovered. The shrine begins to glow.');
+    assert.eq(story.body, `Shrine spirit discovered. The shrine begins to glow.\n\nCondition met: ${Temples.SPIRIT_CONDITION}`);
     assert.eq(Temples.isActive(s.save, o), true);
     assert.eq(s.save.temples['spirit-park'].rewardClaimed, false);
     assert.eq(HiddenObjects.reveal(s, o), false);

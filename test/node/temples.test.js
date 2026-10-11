@@ -81,7 +81,7 @@
       assert.eq(grants, 0);
       assert.eq(Temples.isActive(save, temple), false);
       Temples.discoverSpirit(scene, temple);
-      assert.eq(modal.body, 'Shrine spirit discovered. The shrine begins to glow.');
+      assert.eq(modal.body, `Shrine spirit discovered. The shrine begins to glow.\n\nCondition met: ${Temples.SPIRIT_CONDITION}`);
       assert.eq(grants, 0);
       assert.eq(Temples.isActive(save, temple), true);
       assert.eq(modal.art, 'temple_activated');

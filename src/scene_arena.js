@@ -67,7 +67,8 @@ class SceneArena {
     this._arenaPortalSprite.setVisible(true).setPosition(at.x,at.y).setDisplaySize(24,24);
     this._arenaPortalSprite.setFrame(this.depth===Arena.DEPTH?4:3);
   }
-  _arenaSwitchDepth(depth,point) {
+  // The one switch into and out of a realm floor: the arena and the sky floor.
+  _realmSwitchDepth(depth,point) {
     if(this._workProgress) this.cancelWorkProgress();
     this._autoMineKey=null; this._shots=[];this._nextShotT={};this._turretNextT={};this._turretScan=null;
     this.depth=this.save.depth=depth;
@@ -75,7 +76,7 @@ class SceneArena {
     this.playerM.x=point.x-this.startWorldM.x;
     this.playerM.y=point.y-this.startWorldM.y-this.feetOffsetM;
     this.syncMoveTarget();
-    this.cameras.main.setBackgroundColor(depth===Arena.DEPTH?'#16132f':'#000');
+    this.cameras.main.setBackgroundColor(depth===Arena.DEPTH?'#16132f':depth===WorldGen.SKY_DEPTH?'#b9dcf2':'#000');
     this.ensureTilesAround().catch(()=>{});
     persistSave(this.save);
   }
@@ -86,7 +87,7 @@ class SceneArena {
     if(Math.hypot(here.x-p.x,here.y+this.feetOffsetM-p.y)>12) {this.flashAtPlayer('Move closer to the portal.');return false;}
     this.save.arenaRun={return:{...p}};
     this._arenaTrial=null;
-    this._arenaSwitchDepth(Arena.DEPTH,p);
+    this._realmSwitchDepth(Arena.DEPTH,p);
     this.openArenaMenu();
     return true;
   }
@@ -95,7 +96,7 @@ class SceneArena {
     const p=this.save.arenaRun?.return || this.save.arena?.portal || {...playerWorldM(this),y:playerWorldM(this).y+this.feetOffsetM};
     this._arenaTrial=null;
     delete this.save.arenaRun;
-    this._arenaSwitchDepth(0,p);
+    this._realmSwitchDepth(0,p);
     return true;
   }
   openArenaMenu() {

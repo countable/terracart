@@ -300,6 +300,8 @@
   // kind that flies. Kinds here that live nowhere else (the runt, the
   // splitting slime, the storm gull) are roster rows with no surface or cave
   // pool: an authored garrison is the only thing that seats them.
+  // Ghosts are never guards (owner, Oct 2026): they haunt crypts and
+  // memorials, not ruins — no row seats a ghost.
   const GROUPS = {
     // ── A wrecked house: small ──
     grunt_gang: { label: 'Goblin grunt gang', tiers: [9], minT: 0, chance: .1, modeCap: false,
@@ -308,9 +310,6 @@
     splitter: { label: 'Splitting slime', tiers: [9], minT: 0,
       story: 'Strike it and it divides, half its health to each side. Finish a half before it divides again.',
       members: [{ kind: 'split_slime', n: 1, place: 'ring' }] },
-    haunting: { label: 'Haunted wreck', tiers: [9], minT: 0,
-      story: 'Two ghosts hang over the roof until you are close, then rise together. A torch or the sun burns them out.',
-      members: [{ kind: 'ghost', n: 2, place: 'cloud', proximityCells: 4 }] },
     roost: { label: 'Bat roost', tiers: [9], minT: 0,
       story: 'A pair in the rafters: they hang still until the wreck notices you, then both swoop.',
       members: [{ kind: 'bat', n: 2, place: 'cloud' }] },
@@ -325,9 +324,6 @@
     archers: { label: 'Archer line', tiers: [12], minT: 0.2,
       story: 'A firing line along the front wall and nothing to charge: four archers keep their distance and loose together.',
       members: [{ kind: 'archer_goblin', n: 4, place: 'front', spread: 0.5 }] },
-    ghosts: { label: 'Ghost burst', tiers: [12], minT: 0,
-      story: 'Seven hang over the keep until you are close, then rise together. A torch or the sun burns them out.',
-      members: [{ kind: 'ghost', n: 7, place: 'cloud', proximityCells: 4 }] },
     bats: { label: 'Bat swarm', tiers: [12], minT: 0.2,
       story: 'A roost in the towers: they hang still until the castle notices you, then the whole swarm swoops.',
       members: [{ kind: 'bat', n: 10, place: 'cloud' }] },

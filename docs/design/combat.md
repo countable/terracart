@@ -20,7 +20,8 @@ mechanics.
   attacks use equipped gear and incoming damage uses armour mitigation.
   The floor ends at the platform edge. Walking beyond it returns to the surface
   without a reward; entering again starts a fresh trial. Grove temple platforms
-  share this fall behavior. Awakening remains permanent and winning grants the
+  share this fall behavior, except the hidden way, which is walked on the sky
+  floor ([floors](floors.md#sky-floor-depth--1)). Awakening remains permanent and winning grants the
   temple gift only once, even after re-entry or reload.
 
 - Confusing mushroom gas refreshes the shared `confused` condition to five
