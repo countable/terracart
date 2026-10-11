@@ -361,13 +361,13 @@ function groundObjectBlocker(scene, save, cwmx, cwmy, cellHalfM) {
 }
 
 // Which ground takes a CAMPFIRE: any open ground — soil, a parking lot, a
-// plaza, a road, a cave floor — except water and what floats on it (a pier),
-// lava, buildings and cave rock. WorldGen.isWalkable refuses water, buildings
-// and cave rock but also the road tiers, which a fire may sit on, so roads are
-// let back in. Wider than isTillableCell on purpose: a fire needs no soil.
+// plaza, a cave floor — except water and what floats on it (a pier), lava,
+// buildings, cave rock and road cells (WorldGen.isWalkable refuses the road
+// tiers; underRoad is the drawn band the terrain under-reports). Wider than
+// isTillableCell on purpose: a fire needs no soil.
 function isFireGroundCell(cell) {
   const t = cell.type;
-  return (WorldGen.isWalkable(t) || WorldGen.isRoadTerrain(t))
+  return WorldGen.isWalkable(t) && !cell.underRoad
     && t !== TERRAIN.PIER && t !== TERRAIN.CAVE_LAVA;
 }
 
