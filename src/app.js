@@ -4737,6 +4737,10 @@ class MapScene extends Phaser.Scene {
     // A provoked-only zone's foe (EnemyHabitats.PROVOKED_ONLY — the mushroom
     // grove) turns on whoever's side struck it: the player's, or a peer's.
     if (dealt > 0 && (Combat.isSharedHit(source) || Combat.isPeerHit(source))) c._provoked = true;
+    // A struck lair guard hunts at once, wherever its notice ring is: the
+    // leash hysteresis (Lairs.guardState `_hunting`) carries the chase and
+    // ends it at the leash like any other.
+    if (dealt > 0 && c.lair && (Combat.isSharedHit(source) || Combat.isPeerHit(source))) c._hunting = true;
     // Asked BEFORE the stamp below, which is what makes it "was it already
     // charging" rather than "is it a slime".
     const wasCharging = slimeCharging(c);

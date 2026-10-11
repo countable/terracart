@@ -1434,6 +1434,20 @@
       'and not-close-enough is not');
   });
 
+  test('chase: a struck guard hunts from wherever it was hit, out to the leash', () => {
+    // Its notice ring is a distance from the ruin; a blow from past it (a
+    // bow, a spell, a keep guard's short ring) must still start the chase.
+    const dmg = SCENE_SRC.slice(SCENE_SRC.indexOf("_damageEnemy(c, amount, source = 'player', options = {}) {"));
+    assert.truthy(/if \(dealt > 0 && c\.lair && \(Combat\.isSharedHit\(source\) \|\| Combat\.isPeerHit\(source\)\)\) c\._hunting = true;/.test(dmg),
+      'a player-side hit marks a lair guard as hunting');
+    const mid = (AGGRO_M + LEASH_M) / 2;
+    const struck = guardAt(0, 0, { _hunting: false });
+    assert.eq(Lairs.guardState(struck, { x: mid, y: 0 }, CELL_M), 'hold', 'unstruck, it ignores a shooter past its ring');
+    struck._hunting = true;
+    assert.eq(Lairs.guardState(struck, { x: mid, y: 0 }, CELL_M), 'hunt', 'struck, it comes after them');
+    assert.eq(Lairs.guardState(struck, { x: LEASH_M + 1, y: 0 }, CELL_M), 'hold', 'and still not past the leash');
+  });
+
   test('chase: a player nobody can notice is not chased — the garrison goes home', () => {
     // Shadow Powder, or a bar run to zero (app.js `unnoticed`). The chase is
     // switched off exactly where the bite is, and a garrison that has lost the
