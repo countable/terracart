@@ -429,8 +429,17 @@ test('road: a longer walk buys a FINER seed, not a taller stack', () => {
   assert.gt(late.tier, first.tier, 'the tenth prize finds a finer seed');
   // The bonus buys TIER ONLY — a step with nowhere to climb pays coins, it
   // does not fall through to a quantity bracket (which is what pinned the old
-  // ceremony at "× 2").
-  assert.lte(late.qty, first.qty + 0.5, 'and not simply more of the same one');
+  // ceremony at "× 2"). The stack itself is that tier's budget over the
+  // seed's price (ChestThemes.quantity), so compare the brackets banked.
+  const brackets = (bonus) => {
+    let sum = 0;
+    for (let i = 0; i < 4000; i++) {
+      sum += rollRewardQuality(LOOT_CONTEXTS['treasure:road'], 'seed', SAVE(), seeded(i + 1), { rollBonus: bonus }).bracket;
+    }
+    return sum / 4000;
+  };
+  assert.lte(brackets(Trail.rollBonusFor(9)), brackets(Trail.rollBonusFor(0)) + 0.05,
+    'and not simply more of the same one');
 });
 
 test('road: the ceiling the bonus can climb to is the old T4 prize ceiling', () => {
