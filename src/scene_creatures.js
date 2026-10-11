@@ -664,7 +664,10 @@ class SceneCreatures {
         const cy = Math.floor(rng() * N);
         if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, ambientSpawnOpts, 'minor')) continue;
         const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
-        entry.extraTreasures.push({ x: wmx, y: wmy, id: WorldGen.cellId('treasure_x', tx, ty, cx, cy) });
+        const mark = { x: wmx, y: wmy, id: WorldGen.cellId('treasure_x', tx, ty, cx, cy) };
+        // A GREAT X (loot.js GREAT_X) — keyed off the cell, not the rng stream.
+        if (isGreatXCell(tx, ty, cx, cy)) mark.great = true;
+        entry.extraTreasures.push(mark);
         placed = true;
       }
     }

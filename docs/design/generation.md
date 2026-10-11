@@ -151,6 +151,10 @@ access or tile lifecycle mechanics.
   `save.hiddenDiscoveries`), or within the vision disc with Perception; until
   then it is neither drawn nor diggable. A covering rock adds no rule of its
   own. The Treasure Map's dot is apart.
+- A GREAT X (`loot.js GREAT_X`) is a scatter X flagged `great` by
+  `isGreatXCell` (the cell hash, `GREAT_X.share` of them): drawn thick and
+  dark red, it digs the `treasure:great` pool (gold, a tool or weapon, or
+  other equipment) through the same handler, hiding and found-ledger.
 - THE LOW-TIER QUOTA: a tile below `WorldGen.LOW_TIER_CHEST_QUOTA` (200)
   tier-1 chests tops up with ambient crates (`topUpAmbientCratesSteps`,
   after the variant top-up): one-time tier-1 crates on 'reward' cells, lowest

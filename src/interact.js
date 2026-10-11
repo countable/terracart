@@ -572,7 +572,7 @@ const TAP_HANDLERS = [
       // A mark that carries its own rollBonus (a hedgerow close's hoard —
       // StreetVariants.dress) pays that many extra roll steps on top.
       const dig = scene.digTreasureOpts?.();
-      grantTreasureRoll(scene, save, sx, sy, '✕', 'treasure:default',
+      grantTreasureRoll(scene, save, sx, sy, '✕', treasureContextFor(tr),
         tr.rollBonus > 0 ? { ...(dig || {}), rollBonus: tr.rollBonus } : dig);
       ctx.dirty = true;
       return true;

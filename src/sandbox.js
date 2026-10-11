@@ -1287,6 +1287,14 @@
         y: targetWorldY - cellM,
       };
     }
+    // ...and a GREAT X (loot.js GREAT_X) one cell north-east of spawn.
+    if (centreEntry && !(centreEntry.extraTreasures ||= []).some(t => t.great)) {
+      centreEntry.extraTreasures.push({
+        id: `sandbox_great_x_${centreTX}_${centreTY}`, great: true,
+        x: targetWorldX + cellM,
+        y: targetWorldY - cellM,
+      });
+    }
 
     installSceneLabels(scene, gridOriginIX, gridOriginIY, centreTX, centreTY,
                        tileEdgeM, cellM);
