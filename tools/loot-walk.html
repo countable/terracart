@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="artifact-review" content="disabled">
+  <title>A walk through Kelowna · Loot balancing</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="loot-walk.css">
+  <script src="loot-walk.js" defer></script>
+</head>
+<body>
+<main>
+  <header class="page-head">
+    <div class="eyebrow">Dragon Hood <span>/</span> Loot balancing <span class="draft">Draft</span></div>
+    <h1>A walk through Kelowna</h1>
+    <p class="lede">How often do rewards happen—and what does the player actually bring home?</p>
+    <div class="head-foot"><p id="source">Kelowna sample tiles · Surface exploration</p><a href="../tools/treasure-balancing.html">Detailed roll simulator <span aria-hidden="true">↗</span></a></div>
+  </header>
+
+  <p id="status" role="status">Loading the saved tile census and reward samples…</p>
+
+  <section aria-labelledby="walk-title" class="panel walk-panel">
+    <div class="section-head"><div><div class="step">01 · Encounters</div><h2 id="walk-title">From walking to reward rolls</h2><p>Cumulative expected rolls and payouts. Select a distance to inspect its treasure below.</p></div><details id="assumptions"><summary>Model assumptions</summary><div class="assumptions-body" id="assumptions-body"></div></details></div>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Expected reward rolls by walking distance; scroll horizontally on smaller screens">
+      <table id="walk-table"><caption class="sr-only">Walking distance across columns and expected reward opportunities down rows.</caption><thead id="walk-head"></thead><tbody id="walk-body"><tr><td class="loading-cell">Preparing the walking model…</td></tr></tbody></table>
+    </div>
+    <div class="table-key"><span><i class="key-square"></i> Selected distance</span><span>Exploration estimate; starter guarantees excluded. Decimals are expectations.</span></div>
+    <div class="encounter-context"><div><h3 id="enemy-title">Likely enemies at 1 km</h3><p class="quiet">Chance of meeting each kind; most common kinds shown first.</p></div><div id="enemies" class="enemy-list"></div></div>
+    <div class="story-context"><h3>Story gates <span>Actions and memories unlock these, not kilometres.</span></h3><div id="milestones" class="milestones"></div></div>
+  </section>
+
+  <section aria-labelledby="loot-title" class="panel loot-panel">
+    <div class="section-head"><div><div class="step">02 · The haul</div><h2 id="loot-title">What comes home after <span id="selected-distance">1 km</span></h2><p id="sampling-note">Actual game reward rolls, sampled across possible walks.</p></div><label class="distance-label">Walking distance<select id="distance-select" aria-label="Walking distance for treasure results"></select></label></div>
+    <div id="haul-summary" class="haul-summary"></div>
+    <div class="distribution-grid">
+      <div><h3>Reward mix</h3><p class="quiet">Share of reward awards, rather than stack size or value.</p><div id="class-distribution" class="bars"></div></div>
+      <div><h3>Most common finds</h3><p class="quiet">Mean quantities per walk; “chance” means at least one.</p><table class="finds-table"><thead><tr><th scope="col">Item</th><th scope="col">Expected qty</th><th scope="col">Chance</th></tr></thead><tbody id="top-items"></tbody></table></div>
+    </div>
+    <div class="examples-heading"><h3>Three possible backpacks</h3><p class="quiet">Repeatable samples, not guaranteed rewards or curated prize bundles.</p></div>
+    <div id="examples" class="examples"></div>
+    <p id="reward-caveat" class="footnote"></p>
+  </section>
+  <footer><span id="provenance">A density-based draft, not an exact route or progression simulation.</span><span><a href="data/loot-walk-model.json">Tile &amp; walking data</a> · <a href="data/loot-walk-rewards.json">Reward samples</a></span></footer>
+</main>
+</body>
+</html>

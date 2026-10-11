@@ -133,10 +133,25 @@ access or tile lifecycle mechanics.
   clearing rules; floor-tagged records survive reloads without reappearing
   after removal. Chopping a crafted barricade returns its recipe wood cost
   without a shiny bonus.
+- Indoor mall POIs retain their original map cells instead of migrating to
+  building frontage. `WorldGen.indoorMallPoisSteps` classifies each source
+  building component independently: at least 4,000 m², at least 9 distinct
+  POI positions inside, and at least half 15 m or more from its walls.
+  Courtyard holes subtract area, exclude contained pins and count as walls;
+  disconnected buildings never pool tenants. Buffered map points participate
+  in classification, while the existing tile-ownership rule still controls
+  placement. Ordinary buildings and shallow strip centres keep frontage
+  placement. `shop=mall` alone cannot override the geometry: both enclosed
+  Orchard Park and outdoor Orchard Plaza use that tag. The rule is a geometry
+  heuristic, not an entrance-access guarantee; missing tenant mapping and
+  clipped footprints can leave an enclosed mall using frontage placement.
 - A POI chest's tier is its tile's QUOTA SEAT (`WorldGen.seedChestTiers`):
   each tile seeds ~1 T5, 5 T4, 11 T3, 18 T2 (x1..x2 over 100..1000
   budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),
-  round-robin across chest categories; everything else is T1. Vista chests
+  round-robin across chest categories; everything else is T1. A bus stop
+  never takes a seat: it is always a regular restocking crate
+  (`loot.js chestAlwaysCrate`), because the wagon art belongs only to the
+  old-trade-road mercenary stop. Vista chests
   are fixed T5 outside the budget; a Nexus chest can win a seat without
   spending one (+1 on top). Each underground floor re-seats its own pyramid over
   its mirrors (the rank rides down), and the cap CLIMBS underground
@@ -144,8 +159,15 @@ access or tile lifecycle mechanics.
   bonus stays `+floor(depth/2)`. Unseeded chests (hand-placed, sandbox) are
   the unstamped T2 - the old count ladder is retired, and `o.poiDensity`
   now only feeds restock days and the pots of gold. Breakable pots and
-  barrels select their loot by stable appearance (`barrelProfile`), not
-  density.
+  barrels select their loot mix by stable appearance (`barrelProfile`). Surface
+  waste-basket/recycling POIs share `barrelDensity`, the combined tile count
+  stamped with POI density (including restamps after live additions). At ≤10
+  containers, each is full with a 75-coin budget; at ≥200, each has a 20% full
+  chance and a 15-coin budget. Both interpolate linearly between endpoints.
+  Generated non-POI containers keep 30% full odds and a 15-coin budget. Full
+  containers pay that budget as coins or use `ChestThemes.quantityForBudget`
+  for item stacks, including category shares and caps; higher budgets never
+  promote item tiers. All containers remain permanently smashed after use.
 - An X mark is hidden (`HiddenObjects.treasureHidden`) until the feet stand
   on a neighbouring cell (`HiddenObjects.tick` records it in
   `save.hiddenDiscoveries`), or within the vision disc with Perception; until

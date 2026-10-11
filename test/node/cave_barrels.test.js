@@ -2,7 +2,7 @@
 // POI behind it — strewn over the first cave level (worldgen.js caveBarrels)
 // and dressed into the seep and the quarries (zone-variants.json `barrel`) —
 // smashed on the surface bin's own lane (loot.js isBarrel / rollBarrel): a
-// profile-specific loot, 70% empty, back daily on the one day ledger.
+// profile-specific loot, 70% empty, a 15-coin budget, permanently smashed.
 (function () {
 function seeded(seed) {
   let a = seed >>> 0;
@@ -18,16 +18,17 @@ test('generated barrel: a `barrel: true` chest is a barrel at any depth; a bin\'
   assert.falsy(isBarrel({ kind: 'mineralrock', barrel: true }), 'only a chest');
 });
 
-test('generated containers use the same appearance-based loot as surface bins', () => {
-  for (let i = 0; i < 40; i++) {
-    const o = { kind: 'chest', barrel: true, id: `cbarrel_1_0_0_${i}_1` };
-    const surface = { ...o, barrel: false, poiClass: 'waste_basket', poiDensity: 100 };
-    const undergroundRng = seeded(7), surfaceRng = seeded(7);
+test('generated containers retain 70% empty odds and the base budget regardless of POI density', () => {
+  for (const barrelStyle of ['barrel', 'clay_pot']) {
+    const o = {kind: 'chest', barrel: true, barrelStyle, id: 'cbarrel_1_0_0_1_1'};
+    const rng = seeded(7), otherRng = seeded(7);
     let empty = 0;
     for (let j = 0; j < 1000; j++) {
-      const result = rollBarrel(o, undergroundRng);
-      assert.eq(JSON.stringify(result), JSON.stringify(rollBarrel(surface, surfaceRng)));
+      const result = rollBarrel(o, rng);
+      assert.eq(JSON.stringify(result), JSON.stringify(rollBarrel({...o, depth: 1, poiDensity: 1, barrelDensity: 1}, otherRng)));
       if (result.kind === 'empty') empty++;
+      else if (result.kind === 'gold') assert.eq(result.amount, 15);
+      else assert.eq(result.qty, ChestThemes.quantityForBudget(result.id, 15));
     }
     assert.lt(Math.abs(empty / 1000 - 0.7), 0.05);
   }

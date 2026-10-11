@@ -825,8 +825,11 @@
   }
   function stampPoiDensity(objects) {
     const counts = poiDensityCounts(objects);
+    // A shared surface count across bin classes and both stable container looks.
+    const barrelDensity = (objects || []).filter(o => isDensityChest(o) && isPoiBarrel(o)).length;
     for (const o of objects || []) {
       if (!isDensityChest(o)) continue;
+      if (isPoiBarrel(o)) o.barrelDensity = barrelDensity;
       const n = counts.get(o.poiClass);
       if (o.poiDensity !== n) { o.poiDensity = n; delete o._chestLook; }
     }
@@ -864,6 +867,9 @@
     for (const o of objects || []) {
       if (!inPool(o)) continue;
       if (o.tierSeed !== 1) { o.tierSeed = 1; delete o._chestLook; }
+      // A bus stop stays a plain crate (loot.js chestAlwaysCrate): tier 1,
+      // never a seat in the pyramid.
+      if (!cave && chestAlwaysCrate(o)) continue;
       pool.push(o);
     }
     const budgetN = pool.reduce((a, o) => a + (o.zoneNexus ? 0 : 1), 0);
@@ -3254,6 +3260,64 @@
     }
     return inside;
   }
+  // Enclosed shopping buildings retain their mapped interior POIs. A mall
+  // name/tag alone is insufficient: outdoor strip centres use it too.
+  const INDOOR_MALL_RULES = Object.freeze({ minAreaM2: 4000, minPois: 9,
+    interiorDepthM: 15, minDeepShare: 0.5 });
+  function* indoorMallPoisSteps(buildingLayer, poiLayer, mvtToM) {
+    const poiKeys = new Set(), buildings = [], unique = new Map();
+    let work = 0;
+    for (const f of poiLayer?.features || []) {
+      if ((++work & 63) === 0) yield 'mall POI census';
+      if (f.type !== 1) continue;
+      for (const part of f.geom || []) for (const p of part) {
+        // Count a geographic position once, including buffered neighbours.
+        // Stacked floor labels or duplicate tile points cannot inflate it.
+        unique.set(`${p.x},${p.y}`, p);
+      }
+    }
+    const points = [...unique.values()], rules = INDOOR_MALL_RULES;
+    for (const f of buildingLayer?.features || []) {
+      if ((++work & 31) === 0) yield 'mall building census';
+      if (f.type !== 3) continue;
+      // MVT multipolygons: each outer ring starts a component, followed by
+      // its holes. Separate wings/buildings cannot pool their tenant counts.
+      const components = [];
+      let outerSign = 0;
+      for (const ring of f.geom || []) {
+        const area = ringSignedArea(ring);
+        if (!area) continue;
+        if (!outerSign) outerSign = Math.sign(area);
+        if (Math.sign(area) === outerSign) components.push([ring]);
+        else components.at(-1)?.push(ring);
+      }
+      for (const rings of components) {
+        const areaM2 = (Math.abs(ringSignedArea(rings[0]))
+          - rings.slice(1).reduce((sum, ring) => sum + Math.abs(ringSignedArea(ring)), 0)) * mvtToM ** 2;
+        if (areaM2 < rules.minAreaM2) continue;
+        const bounds = bboxOf(rings), contained = [];
+        let deepCount = 0;
+        for (const p of points) {
+          if ((++work & 63) === 0) yield 'mall interior census';
+          if (p.x < bounds.minX || p.x > bounds.maxX || p.y < bounds.minY || p.y > bounds.maxY
+            || !pointInRings(rings, p.x, p.y)) continue;
+          contained.push(p);
+          let nearest2 = Infinity;
+          for (const ring of rings) for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            if ((++work & 255) === 0) yield 'mall wall distance';
+            const a = ring[j], b = ring[i], dx = b.x - a.x, dy = b.y - a.y;
+            const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+            nearest2 = Math.min(nearest2, (p.x - a.x - t * dx) ** 2 + (p.y - a.y - t * dy) ** 2);
+          }
+          if (nearest2 * mvtToM ** 2 >= rules.interiorDepthM ** 2) deepCount++;
+        }
+        if (contained.length < rules.minPois || deepCount / contained.length < rules.minDeepShare) continue;
+        for (const p of contained) poiKeys.add(`${p.x},${p.y}`);
+        buildings.push({ areaM2, poiCount: contained.length, deepCount });
+      }
+    }
+    return { poiKeys, buildings };
+  }
   // The same ray's crossings along the row at `y`, sorted — a scanline fill
   // walks them once per row instead of asking pointInRings per cell.
   function rowCrossings(rings, y) {
@@ -4747,6 +4811,7 @@
     yield* pruneLotLanesSteps(layersByName, mvtToM);
     yield 'lot lanes';
     layersByName['poi'] = parkPoiLayer(layersByName['poi'], layersByName['park']);
+    const indoorMalls = yield* indoorMallPoisSteps(layersByName['building'], layersByName['poi'], mvtToM);
 
     // PARK CHARACTERS (BiomeProfiles.PARK_CHARACTERS). A park polygon's
     // character is keyed on a GLOBAL point: the named-park POI inside it (the
@@ -5339,6 +5404,7 @@
             const poiIY = Math.floor(p.y * mvtToCell);
             const { mx: cx, my: cy } = cellCenterMeters(poiIX, poiIY);
             const id = cellId('c', tx, ty, poiIX, poiIY);
+            const indoorMall = indoorMalls.poiKeys.has(`${p.x},${p.y}`);
             // `_poiAt`: the POI's own tile-local point — how an influence
             // zone (src/zones.js) finds the chest its anchor minted, however
             // far the placement below slides it.
@@ -5350,7 +5416,7 @@
               { poiClass: cls, subclass: f.tags.subclass || '', name: f.tags.name || '', _poiAt: `${p.x},${p.y}`,
                 // The MVT rank tag (notability, lower = better): the tier
                 // seeding's "best POI first" signal. Every tile POI carries one.
-                rank: f.tags.rank }));
+                rank: f.tags.rank, ...(indoorMall ? { indoorMall: true } : {}) }));
             // The beach shrine keeps the ordinary POI identity and later
             // dedupe/quiet-land gates, but must not pave its source sand.
             if (beachPoi) continue;
@@ -5436,42 +5502,46 @@
               // inside the slab forces players to "enter" the building. Instead, find
               // the perimeter cell nearest the closest road/path and put the chest
               // there: it reads as the building's entrance / sidewalk frontage.
-              let nearRoad = null, bestRoadD = 60 * 60;
-              for (let dy = -60; dy <= 60; dy++) {
-                // 121x121 = ~14.6k cells, once per civic POI. Unbroken, that is
-                // one of the longest stretches in a build on a tile with a few
-                // schools or malls on it.
-                if ((dy & 31) === 0) yield 'civic road scan';
-                for (let dx = -60; dx <= 60; dx++) {
-                  const ix = cellIX + dx, iy = cellIY + dy;
-                  if (ix<0||iy<0||ix>=w||iy>=h) continue;
-                  if (!isCobbleTerrain(grid[iy * w + ix])) continue;
-                  const d2 = dx*dx + dy*dy;
-                  if (d2 < bestRoadD) { bestRoadD = d2; nearRoad = { ix, iy }; }
-                }
-              }
-              if (nearRoad) {
-                let bestPerimD = Infinity, bestPerim = null;
-                for (const idx of seen) {
-                  const ix = idx % w, iy = Math.floor(idx / w);
-                  let isPerim = false;
-                  for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-                    const nx = ix + ddx, ny = iy + ddy;
-                    if (nx<0||ny<0||nx>=w||ny>=h) { isPerim = true; break; }
-                    if (!seen.has(ny * w + nx)) { isPerim = true; break; }
+              // Deep, multi-tenant shopping footprints keep their source cells.
+              // Strip centres and ordinary civic buildings still use frontage.
+              if (!indoorMall) {
+                let nearRoad = null, bestRoadD = 60 * 60;
+                for (let dy = -60; dy <= 60; dy++) {
+                  // 121x121 = ~14.6k cells, once per civic POI. Unbroken, that is
+                  // one of the longest stretches in a build on a tile with a few
+                  // schools or malls on it.
+                  if ((dy & 31) === 0) yield 'civic road scan';
+                  for (let dx = -60; dx <= 60; dx++) {
+                    const ix = cellIX + dx, iy = cellIY + dy;
+                    if (ix<0||iy<0||ix>=w||iy>=h) continue;
+                    if (!isCobbleTerrain(grid[iy * w + ix])) continue;
+                    const d2 = dx*dx + dy*dy;
+                    if (d2 < bestRoadD) { bestRoadD = d2; nearRoad = { ix, iy }; }
                   }
-                  if (!isPerim) continue;
-                  const dx = ix - nearRoad.ix, dy = iy - nearRoad.iy;
-                  const d2 = dx*dx + dy*dy;
-                  if (d2 < bestPerimD) { bestPerimD = d2; bestPerim = { ix, iy }; }
                 }
-                if (bestPerim) { cellIX = bestPerim.ix; cellIY = bestPerim.iy; }
+                if (nearRoad) {
+                  let bestPerimD = Infinity, bestPerim = null;
+                  for (const idx of seen) {
+                    const ix = idx % w, iy = Math.floor(idx / w);
+                    let isPerim = false;
+                    for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                      const nx = ix + ddx, ny = iy + ddy;
+                      if (nx<0||ny<0||nx>=w||ny>=h) { isPerim = true; break; }
+                      if (!seen.has(ny * w + nx)) { isPerim = true; break; }
+                    }
+                    if (!isPerim) continue;
+                    const dx = ix - nearRoad.ix, dy = iy - nearRoad.iy;
+                    const d2 = dx*dx + dy*dy;
+                    if (d2 < bestPerimD) { bestPerimD = d2; bestPerim = { ix, iy }; }
+                  }
+                  if (bestPerim) { cellIX = bestPerim.ix; cellIY = bestPerim.iy; }
+                }
               }
             } else {
               // A POI can mark an entire campus or playing field. Only source
               // building footprints establish structures; a point alone must
               // not invent a castle on otherwise open ground.
-              const placement = offsetForPlacement(cellIX, cellIY);
+              const placement = indoorMall ? { ix: cellIX, iy: cellIY } : offsetForPlacement(cellIX, cellIY);
               cellIX = placement.ix;
               cellIY = placement.iy;
             }
@@ -6573,6 +6643,8 @@
     // Hives are basic forest props; every Nexus reserves its entire coverage.
     deduped.push(...spawnForestHives(grid, w, h, tx, ty, tileEdgeM,
       { ...dressOpts(), zoneCoverage: zone?.coverage }));
+    // Replacement passes may remove POI containers; count the surviving tile.
+    stampPoiDensity(deduped);
     // Tier seeds last: zones and scenic have stamped their nexus/vista
     // chests, so the quota pyramid knows exactly which chests are budgeted.
     seedChestTiers(deduped);
@@ -9414,7 +9486,7 @@
     // The cell walks (one ring scan, one disc order, one box scan) and the
     // polygon geometry every module used to re-type.
     ringCells, nearestRingCell, RING_ORDER, discOffsets, boxCells, anyNeighbour8, countNeighbours8,
-    pointInRings, rowCrossings, bboxOf, ringSignedArea, ringCentroid,
+    pointInRings, indoorMallPoisSteps, INDOOR_MALL_RULES, rowCrossings, bboxOf, ringSignedArea, ringCentroid,
     // The hedge-maze lattice decision (spawnHedgeMazeSteps' owner): exported
     // so the sandbox's flora mirror runs the SAME maze, never a drifted copy.
     hedgeMazeCell, hedgeMazePotCell, HEDGE_LATTICE_P,

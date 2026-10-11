@@ -112,7 +112,7 @@ const report = { samplesPerCell: samples, seedPolicy: 'fixed arithmetic seeds in
   notes: ['Values are catalog gold values (not discounted resale). Fresh inventory owns no gear.',
     'fullyEquipped is a separate actual picker simulation with every gear slot T7 and every unique relic held; no payouts are substituted. Saves stay fixed across rolls.',
     'magicShare counts catalog magic items; lowTierItemShare counts catalog items with baseTier <= 2 (not equipment or cash).',
-    'Actual cells include chain and jackpots, with no purchased luck or quantity upgrades. Fully equipped saves include the carried Lucky Key bonus. Displayed chest tiers stop at 5.',
+    'Actual cells include chain and jackpots, with no purchased luck or budget upgrades. Fully equipped saves include the carried Lucky Key bonus. Displayed chest tiers stop at 5.',
     'Conditional cells isolate rolled quality 1–7 with quantity bracket 0; gear retains the corresponding chest ceiling (maximum displayed tier 5).',
     'Cave roadside cells are stress tests: roadside chests normally have no cave mirrors.',
     'Fallback share counts explicit missing-group transfers, not ordinary nearest-lower-tier item selection.',

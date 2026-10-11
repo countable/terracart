@@ -129,7 +129,7 @@ test('chest themes: quantities use actual item price once and discard excess all
     assert.eq(ChestThemes.quantity(id, 7, 3), 1, id + ' is a single reward');
   }
   assert.eq(ChestThemes.quantity('antidote', 4, 0), 6, 'cheap magic fills a single stack');
-  assert.eq(ChestThemes.quantity('wood', 7, 3, () => 0.999), 12);
+  assert.eq(ChestThemes.quantity('wood', 7, 3), 12, 'material stacks retain their cap');
 });
 
 test('chest themes: unrelated gear and items never leak across themes', () => {
@@ -295,4 +295,20 @@ test('reward rolls: a stack is the roll budget over the price, and a qty jackpot
   } finally { ChestThemes.quantity = original; }
   assert.falsy(/LOW_TIER_SEED_QTY_BONUS/.test(INTERACT_SRC.slice(INTERACT_SRC.indexOf('function grantTreasureRoll('))),
     'a treasure roll adds no seed bonus to the budgeted stack');
+});
+
+
+test('chest themes: materials spend the same price-based budget at every tier', () => {
+  for (const id of ['wood', 'rubble']) {
+    const price = Math.max(1, PRICES[id] || itemValue(id));
+    for (let tier = 1; tier <= 7; tier++) for (const bracket of [0, 1, 3]) {
+      const expected = Math.min(12, Math.max(1, Math.floor(ChestThemes.budget(tier, bracket) / price)));
+      assert.eq(ChestThemes.quantity(id, tier, bracket), expected, `${id} T${tier} bracket ${bracket}`);
+      assert.eq(ChestThemes.quantityForBudget(id, ChestThemes.budget(tier, bracket)), expected,
+        'explicit container budgets and tier budgets agree');
+    }
+    assert.eq(ChestThemes.quantityForBudget(id, 0), 1, 'minimum one item');
+    assert.eq(ChestThemes.quantityForBudget(id, price * 5), 5, 'five units of price buy five items');
+    assert.eq(ChestThemes.quantityForBudget(id, price * 100), 12, 'surplus budget respects stack cap');
+  }
 });

@@ -80,7 +80,7 @@
   });
 
   test('chest tier: the look and the restock follow the tier — a seeded T1 is a crate, anything higher a trunk', () => {
-    const crate = chest('bus', 25, { tierSeed: 1 }), trunk = chest('bus', 1, { tierSeed: 4 }), mid = chest('shelter', 7, { tierSeed: 2 });
+    const crate = chest('bus', 25, { tierSeed: 1 }), trunk = chest('fuel', 1, { tierSeed: 4 }), mid = chest('shelter', 7, { tierSeed: 2 });
     assert.eq(chestLook(crate).texKey, 'box', 'the seeded T1: a crate');
     assert.truthy(restocks(crate), 'and restocks');
     assert.eq(chestLook(trunk).texKey, 'chest', 'a seeded T4: a trunk');
@@ -122,12 +122,13 @@
     for (const o of chests) {
       assert.eq(o.poiDensity, chests.filter((c) => c.poiClass === o.poiClass).length, o.id + ' carries its class count');
     }
-    // Under the tier-quota pyramid a sparse tile fills from the TOP: seven
-    // chests = one T5, five T4 and a T3, whatever their classes (until Oct
-    // 2026 the lone florist read T4 off the count ladder).
-    assert.eq(chests.filter((o) => chestTier(o) === 5).length, 1, 'one T5 seeds the tile');
+    // Under the tier-quota pyramid a sparse tile fills from the TOP (until
+    // Oct 2026 the lone florist read T4 off the count ladder) — but a bus
+    // stop is always a regular crate (loot.js chestAlwaysCrate) and takes
+    // no seat, so the florist alone is the tile's T5.
+    assert.eq(chests.filter((o) => chestTier(o) === 5).map((o) => o.poiClass).join(), 'florist', 'one T5 seeds the tile');
     for (const o of chests) {
-      assert.truthy(chestTier(o) >= 3, o.id + ' rides the sparse tile top tiers');
+      if (o.poiClass === 'bus') assert.eq(chestTier(o), 1, o.id + ' is a plain crate');
       assert.truthy(o.tierSeed, o.id + ' carries a quota seed');
     }
   });

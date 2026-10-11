@@ -4,7 +4,7 @@
 //     off the day ledger that now keeps a week (macros.js markToday /
 //     daysSinceTaken / restockWaitMs);
 //   • bins and recycling points are breakable barrels or clay pots, with
-//     separate loot profiles and a fixed 70% empty chance;
+//     separate loot profiles and tile-density-scaled odds/budgets;
 //   • a bike rack lends the stick walk BIKE_RACK_SPEED_MUL for BIKE_RACK_MS
 //     through the ONE speed lane (app.js _walkRelics → items.js
 //     steerSpeedMul), once a UTC day;
@@ -86,7 +86,7 @@
   test('barrel: clay pots keep their intact/broken pair, distinct rewards and permanent destruction', () => {
     const seen = new Set();
     for (let i = 0; i < 40; i++) {
-      const b = poi('waste_basket', { id: `container_${i}`, poiDensity: 50 });
+      const b = poi('waste_basket', { id: `container_${i}`, poiDensity: 50, barrelDensity: 200 });
       const look = chestLook(b);
       seen.add(look.texKey);
       assert.eq(tillBlockerLine(b), look.texKey === 'clay_pot' ? 'A clay pot stands here.' : 'A barrel stands here.', 'blocker names the visible object');
@@ -117,9 +117,9 @@
     assert.falsy(isBarrel(poi('bus')), 'a bus stop is no barrel');
   });
 
-  test('breakables: exact category odds, tiers and density-independent loot', () => {
+  test('generated breakables: exact category odds and budget-driven quantities ignore POI density', () => {
     const expected = {
-      barrel: { empty: 700, supply: 100, mineral: 100, produce: 100 },
+      barrel: { empty: 700, supply: 200, mineral: 50, produce: 50 },
       clay_pot: { empty: 700, magic: 50, produce: 50, coin: 100, seed: 100 },
     };
     for (const art of BARREL_ART) {
@@ -132,10 +132,10 @@
           const rng = () => first ? (first = false, (i + 0.5) / 1000) : 0.5;
           const result = rollBarrel({ ...o, poiDensity: density }, rng);
           let category = result.kind;
-          if (result.kind === 'gold') { category = 'coin'; assert.eq(result.amount, 1); }
+          if (result.kind === 'gold') { category = 'coin'; assert.eq(result.amount, 15); }
           if (result.kind === 'item') {
             const item = ITEM_BY_ID[result.id]; category = item.kind;
-            assert.eq(result.qty, 1);
+            assert.eq(result.qty, ChestThemes.quantityForBudget(result.id, 15));
             const row = art.loot.find(row => row.kind === category);
             if (row.ids) assert.includes(row.ids, item.id);
             else assert.inRange(item.baseTier, row.minTier ?? 1, row.maxTier ?? Infinity);
@@ -156,6 +156,103 @@
     }
   });
 
+  test('barrels: practical supplies dominate full rolls at sparse and dense POI counts', () => {
+    const supply = BARREL_LOOT.find(row => row.kind === 'supply');
+    const ids = barrelLootPool(supply).map(item => item.id);
+    for (const id of ['torch', 'rope', 'trap_disarm_kit']) assert.includes(ids, id);
+    for (const density of [10, 105, 200]) {
+      const o = poi('waste_basket', {barrelStyle: 'barrel', barrelDensity: density});
+      let full = 0, supplies = 0;
+      for (let i = 0; i < 3000; i++) {
+        let first = true;
+        const got = rollBarrel(o, () => first ? (first = false, (i + .5) / 3000) : .5);
+        if (got.kind === 'empty') continue;
+        full++;
+        if (got.kind === 'item' && ITEM_BY_ID[got.id].kind === 'supply') supplies++;
+      }
+      assert.lt(Math.abs(supplies / full - 2 / 3), .001, 'supply share survives density scaling');
+    }
+  });
+
+  test('POI breakables: bins and recycling share their own tile census, excluding generated containers', () => {
+    const bins = Array.from({length: 6}, () => poi('waste_basket'));
+    const recycling = Array.from({length: 5}, () => poi('recycling'));
+    const excluded = [poi('bus'), poi('waste_basket', {depth: 1}),
+      poi('recycling', {caveOf: 'surface'}), poi('waste_basket', {crate: true}),
+      poi('recycling', {fixedLoot: {kind: 'gold', amount: 1}}),
+      {kind: 'chest', id: 'ambient', barrel: true},
+      {kind: 'chest', id: 'cave', barrel: true, depth: 1}];
+    const objects = [...bins, ...recycling, ...excluded];
+    WorldGen.stampPoiDensity(objects);
+    for (const o of [...bins, ...recycling]) {
+      assert.truthy(isPoiBarrel(o));
+      assert.eq(o.barrelDensity, 11, 'both POI classes and both appearances share the count');
+      assert.eq(o.poiDensity, o.poiClass === 'recycling' ? 5 : 6, 'restock class census stays distinct');
+    }
+    for (const o of excluded) {
+      assert.falsy(isPoiBarrel(o));
+      assert.eq(o.barrelDensity, undefined, o.id + ' excluded');
+    }
+    const secondTile = [poi('waste_basket')];
+    WorldGen.stampPoiDensity(secondTile);
+    assert.eq(secondTile[0].barrelDensity, 1, 'another tile has its own count');
+    const injected = poi('recycling');
+    WorldGen.stampPoiDensity([...objects, injected]);
+    assert.eq(bins[0].barrelDensity, 12, 'restamping after injection refreshes existing containers');
+    assert.eq(injected.barrelDensity, 12);
+  });
+
+  test('POI breakables: full chance and coin budget interpolate and clamp at density anchors', () => {
+    for (const [density, chance, budget] of [[1, 1, 75], [10, 1, 75], [105, .6, 45], [200, .2, 15], [500, .2, 15]]) {
+      for (const cls of ['waste_basket', 'recycling']) {
+        const profile = barrelRewardProfile(poi(cls, {barrelDensity: density, poiDensity: 9999}));
+        assert.lt(Math.abs(profile.fullChance - chance), 1e-12);
+        assert.eq(profile.budget, budget);
+      }
+    }
+    assert.eq(barrelRewardProfile(poi('waste_basket')).budget, 75, 'unstamped POI defaults to one');
+    const generated = barrelRewardProfile({kind: 'chest', barrel: true, barrelDensity: 1});
+    assert.lt(Math.abs(generated.fullChance - .3), 1e-12, 'authored containers do not gain a sparse-POI bonus');
+    assert.eq(generated.budget, 15);
+  });
+
+  test('breakable budget: fifteen-coin rope grows from one to five, capped for larger allowances', () => {
+    assert.eq(PRICES.rope, 15, 'known supply price');
+    assert.eq(ChestThemes.quantityForBudget('rope', 15), 1);
+    assert.eq(ChestThemes.quantityForBudget('rope', 45), 3);
+    assert.eq(ChestThemes.quantityForBudget('rope', 75), 5);
+    assert.eq(ChestThemes.quantityForBudget('rope', 150), 5, 'supply stack cap');
+    for (const barrelStyle of ['barrel', 'clay_pot']) {
+      assert.falsy(rollBarrel(poi('waste_basket', {barrelStyle, barrelDensity: 10}), () => 0).kind === 'empty',
+        'zero RNG cannot select a zero-weight empty outcome');
+    }
+  });
+
+  test('POI breakables: actual rolls use density odds and the shared budget quantity for both styles', () => {
+    for (const barrelStyle of ['barrel', 'clay_pot']) {
+      for (const [density, full, budget] of [[10, 1000, 75], [105, 600, 45], [200, 200, 15]]) {
+        const o = poi('waste_basket', {barrelStyle, barrelDensity: density});
+        let fullCount = 0, itemCount = 0, coinCount = 0;
+        for (let i = 0; i < 1000; i++) {
+          let first = true;
+          const got = rollBarrel(o, () => first ? (first = false, (i + .5) / 1000) : .5);
+          if (got.kind === 'empty') continue;
+          fullCount++;
+          if (got.kind === 'gold') { coinCount++; assert.eq(got.amount, budget); }
+          else {
+            itemCount++;
+            assert.eq(got.qty, ChestThemes.quantityForBudget(got.id, budget));
+            assert.gte(got.qty, 1, 'a full container always pays at least one item');
+          }
+        }
+        assert.eq(fullCount, full, barrelStyle + ' at density ' + density);
+        assert.gt(itemCount, 0);
+        if (barrelStyle === 'clay_pot') assert.gt(coinCount, 0);
+        else assert.eq(coinCount, 0);
+      }
+    }
+  });
+
   test('barrel: a smash pays once, stays smashed permanently, and says what came out', () => {
     const b = poi('waste_basket', { poiDensity: 1 });
     const save = { inv: [], opened: [], relics: {}, money: 0 };
@@ -166,7 +263,7 @@
     assert.includes(save.opened, b.id, 'permanent destruction ledger');
     const said = [...flashes, ...loots];
     assert.eq(said.length, 1, 'one line');
-    const messages = ['Empty.', '+1 coin', ...barrelProfile(b).loot.flatMap(row => barrelLootPool(row).map(item => '+1 ' + item.name))];
+    const messages = ['+75 coins', ...barrelProfile(b).loot.flatMap(row => barrelLootPool(row).map(item => '+' + ChestThemes.quantityForBudget(item.id, 75) + ' ' + item.name))];
     assert.includes(messages, said[0], 'the line names an eligible reward');
     runInteractable(makeCtx(scene, save), b);
     assert.eq(flashes[flashes.length - 1], 'Already smashed.', 'a second smash is refused');
