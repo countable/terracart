@@ -148,7 +148,7 @@
   const STICK_METRES_MUL = 0.4;
 
   // ── Which pool the prize comes out of ────────────────────────────────────
-  // Its OWN context (rarity.js › 'treasure:road'), not the lowtier chest curve:
+  // Its OWN context (loot_contexts.js › 'treasure:road'), not the lowtier chest curve:
   // what the survivors hand over for a rebuilt
   // street includes seeds, walking supplies, fruit, boots and coins.
   // The key lives here rather than in app.js so trail.test.js pins the pool

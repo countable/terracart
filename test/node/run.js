@@ -101,7 +101,7 @@ const FILES = [
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',
   'dungeon_progression.js', 'elevators.js', 'arena.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'worldgen.js', 'save.js',
-  'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'rarity.js', 'loot.js',
+  'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',
   'hidden_objects.js', 'temple_puzzles.js', 'temple_layout.js', 'temple_scene.js', 'temples.js', 'interactables.js', 'boss_encounters.js', 'houses.js',
@@ -218,6 +218,8 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
 ctx.STARTER_JS_SRC = readSrc('starter.js');
 ctx.TEMPLES_SRC = readSrc('temples.js');
 ctx.CREATURE_AI_SRC = readSrc('creature_ai.js');
+// The loot picker's source, so loot.test.js can hold it to reading row fields, not context names.
+ctx.RARITY_SRC = readSrc('rarity.js');
 {
   // The creature-AI consts and helpers moved to creature_ai.js; look in both.
   const src = SCENE_SRC + '\n' + readSrc('creature_ai.js');

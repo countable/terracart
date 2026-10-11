@@ -33,7 +33,7 @@
 
 // === The GREAT X ===
 // A rarer X mark drawn thick and dark red (render.js drawX) whose dig rolls
-// `context` (rarity.js 'treasure:great': gold, a tool or weapon, or other
+// `context` (loot_contexts.js 'treasure:great': gold, a tool or weapon, or other
 // equipment) instead of the ordinary X's seeds-and-stone pool. It is the same
 // mark otherwise — same hiding, reach and found-ledger. `share` of EVERY X
 // mark is great, whatever stream laid it (scatter, parking, quota, path,
