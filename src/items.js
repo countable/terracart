@@ -861,7 +861,7 @@ const ITEMS = [
   // the one consumable that has to turn up often enough to be read. At an even
   // draw it is one of seven T2 consumables and a player could finish a session
   // never meeting one. Three makes it the plurality of the T2 consumable pool,
-  // and school chests pin it outright (rarity.js 'chest:school').
+  // and school chests pin it outright (loot_contexts.js 'chest:school').
   { id: 'book',  name: 'Book',  kind: 'supply', dropWeight: 3 },
   // Tomes are the scholar's rewards for reading Books. They cast repeatable
   // spells on timed cooldowns and are never consumed or sold. The tome flag

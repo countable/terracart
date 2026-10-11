@@ -528,7 +528,7 @@
   const MONSTER_TREASURE_CHANCE = 0.10;
   // An ELITE (shiny) monster is a different deal: its kill ALWAYS pays past
   // the wage — a Discovery badge the first time that kind is slain, and after
-  // that a roll on the relic-biased 'treasure:elite' pool (rarity.js), never
+  // that a roll on the relic-biased 'treasure:elite' pool (loot_contexts.js), never
   // the 10% roll above. The roll's tier is COMMENSURATE with the foe: each
   // level below the first and each level of the kind's own introduction depth
   // buys one tier-only step (pickReward's opts.rollBonus), so a goblin archer
