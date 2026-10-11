@@ -9,8 +9,8 @@
 //
 // What is pinned:
 //   · THE TABLE: every member is a registered enemy with art, behaviour and a
-//     pool; every tier named holds a lair; an `elite` member can be one; a
-//     ghost member is dormant (proximityCells); the biggest group stays well
+//     pool; every tier named holds a lair; an `elite` member can be one; no
+//     member is a ghost; the biggest group stays well
 //     inside the live cap.
 //   · THE DRAWS: groupFor is ONE draw (rate and pick off the same number),
 //     seatPolar is TWO per try whatever the placement, so the plain garrison
@@ -103,8 +103,8 @@
     assert.eq(Lairs.memberCount(G.horde.members[0], 12), 15, 'fifteen of them');
     has('decoy', 'goblin,orc');                  // a decoy goblin with fast orcs behind
     has('archers', 'archer_goblin');             // a group of just archers
-    has('ghosts', 'ghost');                      // a burst of ghosts
-    has('haunting', 'ghost');                    // …and a wreck's pair
+    assert.falsy(Object.values(G).some(row => row.members.some(m => EnemyRoster.get(m.kind)?.movement?.pattern === 'ghost_glide')),
+      'ghosts are never guards');
     has('splitter', 'split_slime');              // the slime that replicates when damaged
     has('bats', 'bat');                          // a swarm of bats
     has('roost', 'bat');                         // …and a wreck's pair
@@ -158,7 +158,6 @@
         assert.truthy(SpriteLayout.creatureWanders(m.kind), `${m.kind} thinks`);
         assert.truthy(places.has(m.place), `${name}: ${m.place} is a placement`);
         if (m.elite) assert.truthy(Combat.monster(m.kind).eliteEligible, `${name}: ${m.kind} can be an elite`);
-        if (m.kind === 'ghost') assert.gt(m.proximityCells, 0, `${name}: a ghost member is dormant until approached`);
         if (m.place === 'cloud') assert.truthy(Lairs.flies(m.kind), `${name}: only a flier hangs in a cloud`);
         if (m.nRange) {
           assert.eq(m.nRange.length, 2);
@@ -259,8 +258,6 @@
     const decoy = Lairs.expandGroup('decoy', 12);
     assert.eq(decoy.map((s) => s.kind).join(), 'goblin,orc,orc,orc', 'the decoy first — easy wakes it and one orc');
     assert.eq(decoy[0].aggroCells, 6); assert.eq(decoy[1].aggroCells, 2);
-    assert.eq(Lairs.expandGroup('haunting', 9).length, 2, 'two ghosts over a wreck');
-    assert.eq(Lairs.expandGroup('ghosts', 12).length, 7, 'seven over a castle');
     assert.eq(Lairs.expandGroup('nothing', 9).length, 0);
   });
 
@@ -315,22 +312,11 @@
     assert.eq(band.guards[0].kind, 'orc', 'the elite is guard 0, so easy mode wakes it');
   });
 
-  test('guard groups: the ghosts hang over the roof, dormant until approached; the bats cloud the ruin', () => {
-    const ghosts = wakeGroup('ghosts', 12, 2 * HALF);
-    assert.gte(ghosts.guards.length, 5, 'the burst woke');
-    const cloudR = Lairs.seatRadii(HALF, HALF, CELL_M).cloud * 1.2 + 1e-6;
-    for (const g of ghosts.guards) {
-      assert.eq(g.kind, 'ghost'); assert.eq(g.proximityCells, 4, 'dormant until you are four cells off');
-      assert.lte(Math.hypot(g.x - ghosts.cx, g.y - ghosts.cy), cloudR, 'over the keep');
-    }
-    const pair = wakeGroup('haunting', 9);
-    assert.eq(pair.guards.length, 2, 'a wreck\'s pair');
-    for (const g of pair.guards) { assert.eq(g.kind, 'ghost'); assert.eq(g.proximityCells, 4); }
+  test('guard groups: the bats cloud the ruin', () => {
     const bats = wakeGroup('bats', 12, 2 * HALF);
     assert.gte(bats.guards.length, 8, `the swarm woke ${bats.guards.length}`);
     for (const b of bats.guards) assert.eq(b.kind, 'bat');
     assert.eq(wakeGroup('roost', 9).guards.length, 2, 'a wreck roosts a pair');
-
   });
 
   test('guard groups: a grouped ruin is the same ruin for everyone, and the easy cap wakes its head', () => {
@@ -344,15 +330,15 @@
   });
 
   // ── The paces ────────────────────────────────────────────────────────────
-  test('guard groups: goblins and orcs run at twice their old pace; the bats sit on the ceiling', () => {
+  test('guard groups: orcs run at twice their old pace, goblins 20% under that; the bats sit on the ceiling', () => {
     const mps = (k) => EnemyRoster.get(k).movement.speedMetersPerSecond;
-    assert.eq(mps('goblin'), 7); assert.eq(mps('goblin_archer'), 5.6); assert.eq(mps('goblin_trapper'), 5.4);
-    assert.eq(mps('farmer_goblin'), 4.4); assert.eq(mps('club_goblin'), 5); assert.eq(mps('spear_goblin'), 3.6);
-    assert.eq(mps('archer_goblin'), 4); assert.eq(mps('bomb_goblin'), 5.2);
+    assert.eq(mps('goblin'), 5.8); assert.eq(mps('goblin_archer'), 4.7); assert.eq(mps('goblin_trapper'), 4.5);
+    assert.eq(mps('farmer_goblin'), 3.7); assert.eq(mps('club_goblin'), 4.2); assert.eq(mps('spear_goblin'), 3);
+    assert.eq(mps('archer_goblin'), 3.3); assert.eq(mps('bomb_goblin'), 4.3);
     assert.eq(mps('orc'), 3); assert.eq(mps('orc_mage'), 3); assert.eq(mps('orc_shaman'), 3);
     assert.eq(mps('bat'), WILD_SPEED_CEILING_MPS, 'twice 5.5 would clear the ceiling: the bat sits on it');
     assert.eq(mps('vampire_bat'), WILD_SPEED_CEILING_MPS);
-    assert.eq(mps('goblin_runt'), 5, 'a runt runs as a club goblin');
+    assert.eq(mps('goblin_runt'), 4.2, 'a runt runs as a club goblin');
     for (const k of ['goblin', 'orc', 'goblin_runt', 'bat', 'storm_gull']) {
       assert.eq(creatureSpawnClass(k), 'fastEnemy', `${k} is a fast foe: kept off the kerb`);
     }

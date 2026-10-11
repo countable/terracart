@@ -18,6 +18,10 @@ access or tile lifecycle mechanics.
   exhaust that pool within the same habitat. Forbidden ground is missing map
   area, not a roll that thins the population. A species with no sufficient
   legal space reports a placement shortfall without switching habitat/species.
+- Mode differences in landcover enemy count are a reserve, not a reroll: the
+  world seats the largest `Difficulty` `landEnemyCountMul` share
+  (`enemy_habitat_…_r<n>` ids) after the base population, and each mode shows
+  its share through `HabitatSpawns.reserveVisible` (hard 1.5×, easy none).
 - All generated creatures reserve their seats before captures, defeats, Home,
   daylight, amnesty and mode overlays. Stable habitat slots choose species;
   legal-seat changes cannot change their identities or species. Fauna may share
@@ -147,6 +151,14 @@ access or tile lifecycle mechanics.
   `save.hiddenDiscoveries`), or within the vision disc with Perception; until
   then it is neither drawn nor diggable. A covering rock adds no rule of its
   own. The Treasure Map's dot is apart.
+- X-mark density: every ambient X stream (tile scatter, low-tier quota,
+  footpath and inland-sand bonuses, shoreline, cave floors) scales its count
+  by `loot.js X_MARK_FREQUENCY`; authored marks (parking, hoards) stay one
+  per site.
+- A GREAT X (`loot.js GREAT_X`): `GREAT_X.share` (a tenth) of every X mark,
+  whatever stream laid it, chosen by `isGreatX` off the mark's id. Drawn thick
+  and dark red, it digs the `treasure:great` pool (gold, a tool or weapon, or
+  other equipment) through the same handler, hiding and found-ledger.
 - THE LOW-TIER QUOTA: a tile below `WorldGen.LOW_TIER_CHEST_QUOTA` (200)
   tier-1 chests tops up with ambient crates (`topUpAmbientCratesSteps`,
   after the variant top-up): one-time tier-1 crates on 'reward' cells, lowest

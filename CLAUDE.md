@@ -83,6 +83,8 @@ implementation rationale lives beside the code.
   unlocked by restore count in `STORY_RESTORES`; `restoreAs` is the ledger's
   one writer — never a fixed schedule or the OSM address).
   Creature variants inherit through `baseKind`; hostility uses `Combat.isEnemy`.
+  A boss fight (its clock, resets and win) is a `BossEncounters.KINDS` row
+  ([combat](docs/design/combat.md)) — never a timer of its own.
   An authored garrison (a horde, a decoy, an elite with minions) is a row of
   `Lairs.GROUPS` — members, placement (`seatPolar`) and what each is told
   (`aggroCells`, `proximityCells`, `elite`) — never a branch in

@@ -52,7 +52,7 @@ const FLEE_BEAT_MUL = 0.5;
 // fire (enemyFireEscapeTick), a warded ghost's run (ghostTick). The pair
 // above over `base` (four times the ground), under the kind's own ceiling
 // (SpriteLayout.creatureMaxMps) and the wild speed ceiling every row's base
-// numbers sit under (WILD_SPEED_CEILING_MPS): a 7 m/s goblin retreats at
+// numbers sit under (WILD_SPEED_CEILING_MPS): a 5.8 m/s goblin retreats at
 // 10, never slower than it chases. No cap of its own (the old flat 6 m/s is
 // gone); a shiny's 1.5 and the frost's slow ride on top through
 // Combat.paceMul, at the site. The animals' step chain is the same rule in
@@ -69,10 +69,6 @@ const SHINY_SPEED_MUL = Combat.SHINY_SPEED_MUL;
 // Ordinary wild movement targets 10 m/s. The universal shiny multiplier
 // applies afterwards, including to fast bats and crow flights; it is not capped.
 const WILD_SPEED_CEILING_MPS = 10;
-// The spread on a COMMITTED approach, in radians: tight enough to read as a
-// line rather than a meander. A hunted deer charges on it (wanderCreatures'
-// gameCharge branch).
-const STALK_JITTER = 0.8;
 // Is this slime still coming for whoever hit it? Derived from `_lastDamagedT`
 // — the stamp BOTH damage paths already set, the player's blows and shots via
 // _damageEnemy and a pet's teeth in wanderCreatures — so "the player or their
@@ -327,17 +323,13 @@ function roadsideRunAngleCached(scene, c, away, now) {
 // ever moves toward the player (a flee or a rout is away, and does not
 // count): a roster foe's quickest declared speed (rosterChaseMps — the base
 // pace, a slime's charge, a fiend's lunge, a bat's peak flight, a ghost's
-// glide); a hunted game animal's charge (its flee stride and beat —
-// `fightsBack`). 0 for anything that never comes at you. Derived from the
+// glide). 0 for anything that never comes at you. Derived from the
 // same numbers the movers move by, never a table of its own.
 function foeChaseMps(c, cellM) {
   if (!c) return 0;
   const cm = cellM > 0 ? cellM : WorldGen.CELL_M;
   const row = typeof EnemyRoster !== 'undefined' && EnemyRoster.get(c.kind);
   if (row) return rosterChaseMps(row);
-  const fb = SpriteLayout.creatureFightsBack(c.kind);
-  const flee = fb && SpriteLayout.creatureBehaviour(c.kind)?.flee;
-  if (flee) return (flee.stepCells ?? 1) * cm / ((flee.stepMs ?? WANDER_STEP_MS) / 1000);
   return 0;
 }
 // Every `…speedMetersPerSecond` a roster row's movement declares, at its
@@ -1261,7 +1253,7 @@ function enemyWalkHazardTick(scene, c, now) {
 
 // A FOE'S BLOW LANDS ON THE PLAYER — the one writer for every contact in the
 // sim (a roster foe's melee and aura, a slime trail, a ghost's touch, a
-// hunted deer's butt, a thrown Blight's drain). `raw` is the blow after the
+// thrown Blight's drain). `raw` is the blow after the
 // attacker's own power (Combat.meleeBlow); the shield, armour and mode have
 // their say through Combat.incomingDamage unless the caller already
 // mitigated a packet rate (`mitigated`: Combat.playerDamageRate, fractional

@@ -997,10 +997,12 @@ function swallowTaps(el) {
 // ── THE MARKERS ─────────────────────────────────────────────────────────────
 // Every bearing drawn at the map's rim is a row here, drawn by _drawMarkers
 // (each through _drawMarker): `key` on `store` ('save' survives a reload;
-// 'scene' is session state), the `color`, the `shape` (a dot, or the
+// 'scene' is session state) holds the row's marks — a list (Buffs.marks /
+// withMark), so any number of bearings, of one row or many, show at once —
+// the `color`, the `shape` (a dot, or the
 // delivery's arrow), `tracked` for a find that moves (re-read twice a second
 // through _telescopeTrackedTarget), and `clearWhen(scene, m)` — the row's
-// own reason to drop the mark besides its `until` passing. A mark on another
+// own reason to drop a mark besides its `until` passing. A mark on another
 // level is kept but not drawn. The Pairy's mark stays session state
 // (Buffs.KINDS.compass and player_time.js read scene.pairyCompass).
 const _markClaimed = (s, m) => setOf(s.save.opened).has(m.targetId) || dayLedgerAges(s.save).get(m.targetId) === 0;
@@ -1549,6 +1551,8 @@ const ICON_SHEETS = {
   // Consumables + wilderness drops.
   icon_thunder_scroll: { url: 'assets/Icons/Items/ThunderScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_raven_scroll: { url: 'assets/Icons/Items/RavenScroll.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_wind_scroll: { url: 'assets/Icons/Items/WindScroll.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_serpent_idol: { url: 'assets/Icons/Items/SerpentIdol.png', cols: 1, srcW: 16, srcH: 16 },
   icon_bones_scroll: { url: 'assets/Icons/Items/SkeletonScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_grip_potion: { url: 'assets/Icons/Items/GripPotion.png', cols: 1, srcW: 16, srcH: 16 },
   icon_wraith_scroll: { url: 'assets/Icons/Items/WraithScroll.png', cols: 1, srcW: 16, srcH: 16 },
@@ -2754,6 +2758,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // A generous hit area keeps the small rim dots usable on touchscreens.
+  // `key` is the mark's own (_drawMarker), so each of a row's dots toggles alone.
   _tapEdgeDot(sx, sy) {
     let key = null, nearest = 16 * 16;
     for (const [candidate, point] of Object.entries(this._edgeDotPoints || {})) {
@@ -2768,12 +2773,12 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
-  _drawEdgeDotLabel(row, target, marker, point) {
+  _drawEdgeDotLabel(row, target, marker, point, key = row.key) {
     if (!point) return;
-    (this._edgeDotPoints ||= {})[row.key] = point;
-    if (this._hiddenEdgeDotLabels?.has(row.key)) return;
+    (this._edgeDotPoints ||= {})[key] = point;
+    if (this._hiddenEdgeDotLabels?.has(key)) return;
     const labels = (this._edgeDotLabels ||= {});
-    const text = labels[row.key] ||= this.add.text(0, 0, '', {
+    const text = labels[key] ||= this.add.text(0, 0, '', {
       fontFamily: FONT_UI_STACK, fontSize: '11px', color: '#ffffff',
       stroke: '#151920', strokeThickness: 3,
     }).setDepth(12).setOrigin(0, 0);
@@ -2791,38 +2796,47 @@ class MapScene extends Phaser.Scene {
     // Stack nearby bearings inward without moving their actual dots.
     const step = text.height + 2;
     const direction = point.y > (top + bottom) / 2 ? -1 : 1;
-    for (let i = 0; i < MARKERS.length; i++) {
+    for (let i = 0; i <= bounds.length; i++) {
       if (!bounds.some(b => x < b.right && x + text.width > b.left && y < b.bottom && y + text.height > b.top)) break;
       y = Math.max(top, Math.min(bottom - text.height, y + step * direction));
     }
     text.setPosition(x, y).setVisible(true);
     bounds.push({ left: x, right: x + text.width, top: y, bottom: y + text.height });
   }
+  // Each of the row's marks: drop the spent ones, draw the rest. A mark's
+  // key (its row and target) carries its label, hit point and tracking memo.
   _drawMarker(row) {
-    const marker = (row.store === 'scene' ? this : this.save)[row.key];
-    if (!marker) return;
-    const clear = () => {
-      if (row.store === 'scene') this[row.key] = null;
-      else { delete this.save[row.key]; persistSave(this.save); }
-    };
-    if ((marker.until != null && Date.now() >= marker.until) || row.clearWhen?.(this, marker)) { clear(); return; }
-    if (marker.depth != null && marker.depth !== (this.depth || 0)) return;
-    let target = marker;
-    if (row.tracked) {
-      // World lookups need not run at render cadence; moving targets refresh
-      // twice per second while the edge projection still follows every frame.
-      const now = Date.now();
-      const memo = (this._edgeDotTargets ||= {});
-      if (memo[row.key]?.marker !== marker || now - memo[row.key].at >= 500) {
-        memo[row.key] = { marker, at: now, target: this._telescopeTrackedTarget(marker) };
+    const all = Buffs.marks((row.store === 'scene' ? this : this.save)[row.key]);
+    if (!all.length) return;
+    const now = Date.now();
+    const kept = all.filter((marker, i) => {
+      if ((marker.until != null && now >= marker.until) || row.clearWhen?.(this, marker)) return false;
+      if (marker.depth != null && marker.depth !== (this.depth || 0)) return true;
+      const key = `${row.key}:${marker.targetId ?? marker.id ?? i}`;
+      let target = marker;
+      if (row.tracked) {
+        // World lookups need not run at render cadence; moving targets refresh
+        // twice per second while the edge projection still follows every frame.
+        const memo = (this._edgeDotTargets ||= {});
+        if (memo[key]?.marker !== marker || now - memo[key].at >= 500) {
+          memo[key] = { marker, at: now, target: this._telescopeTrackedTarget(marker) };
+        }
+        target = memo[key].target;
+        if (!target) return false;
       }
-      target = memo[row.key].target;
-      if (!target) { clear(); return; }
-    }
-    if (row.shape === 'arrow') this._drawEdgeCompass(target.x, target.y, row.color, 0.9);
+      if (row.shape === 'arrow') this._drawEdgeCompass(target.x, target.y, row.color, 0.9);
+      else {
+        const point = this._drawEdgeDot(target.x, target.y, row.color);
+        this._drawEdgeDotLabel(row, target, marker, point, key);
+      }
+      return true;
+    });
+    if (kept.length === all.length) return;
+    if (row.store === 'scene') this[row.key] = kept.length ? kept : null;
     else {
-      const point = this._drawEdgeDot(target.x, target.y, row.color);
-      this._drawEdgeDotLabel(row, target, marker, point);
+      if (kept.length) this.save[row.key] = kept;
+      else delete this.save[row.key];
+      persistSave(this.save);
     }
   }
 
@@ -3488,7 +3502,8 @@ class MapScene extends Phaser.Scene {
       this.advanceGrowth();
     }
 
-    this._expireCitadelBattles();
+    // Every boss fight's clock, resets and serpents (scene_boss.js).
+    this._tickBossEncounters();
 
     // DERELICT LAIRS — the ruins are hard mode's; the STREET structures (a
     // a barricade, a café's hoard — lairs.js ALWAYS_AWAKE_TIERS)
@@ -3557,6 +3572,7 @@ class MapScene extends Phaser.Scene {
     Companions.tickAll(this);
     tickGroundCoins(this);
     this._tickArena(dt);
+    this._tickSky(dt);
     // Did we just walk onto a trap, or are we still standing on one? Runs
     // beside the fog reveal because it asks the same question — which cell are
     // the player's FEET in — and answers it the same way (playerToWorldCell,
@@ -3595,9 +3611,13 @@ class MapScene extends Phaser.Scene {
     this.drawObjects();
     GasRender.draw(this);
     this._drawArena();
+    this._drawSky();
     this._drawWorkProgress();
     this.updateHUD();
     } catch (e) {
+      // A frame that broke off before drawObjects' sign pass would leave the
+      // roof signs pinned on screen (they are <body> overlays) — hide them.
+      try { Render.hideRoofSigns(this); } catch (_) { /* never mask the report */ }
       this._reportLoopError(e);
     }
   }
@@ -4084,6 +4104,11 @@ class MapScene extends Phaser.Scene {
     }
     for (const b of Buffs.active(this.save, this)) {
       chips.push({ id: b.id, action: b.action, ink: b.color, bg: b.stroke + 'e8', text: `${b.name} · ${shortDuration(b.remainingMs)}` });
+    }
+    // A live boss fight's clock (BossEncounters — the citadel's, the serpent's).
+    for (const e of BossEncounters.list(this.save)) {
+      const chip = BossEncounters.KINDS[e.kind].chip;
+      chips.push({ id: `boss_${e.key}`, ink: chip.ink, bg: chip.bg, text: `${chip.label} · ${shortDuration(e.remainingMs)}` });
     }
     const order = chips.map((c) => c.id).join(',');
     if (this._statusRowDOM !== order) {
@@ -5595,6 +5620,7 @@ class MapScene extends Phaser.Scene {
   handleWorldTap(sx, sy) {
     if (this.isTooFast?.()) { this.flash('Too fast — on foot only.', sx, sy); return; }
     if (this._tapArenaPortal(sx, sy)) return;
+    if (this._tapSkyExit(sx, sy)) return;
     interactTap(this, sx, sy);
   }
 
@@ -6705,6 +6731,8 @@ class MapScene extends Phaser.Scene {
     this.depth = target;
     this.save.depth = target;
     WorldGen.setDepth(target);
+    // The surface's roof signs belong to the floor just left (render.js).
+    Render.hideRoofSigns(this);
     // GPS-mirror: keep the same world coordinates, just snap feet onto the stair.
     this.playerM.x = stair.x - this.startWorldM.x;
     this.playerM.y = stair.y - this.startWorldM.y - this.feetOffsetM;
@@ -9747,13 +9775,12 @@ class MapScene extends Phaser.Scene {
         'position:relative;flex:1 0 44px;min-width:44px;height:44px;border-radius:7px 7px 0 0;cursor:pointer;' +
         'font-size:16px;line-height:1;display:flex;flex-direction:column;align-items:center;' +
         'justify-content:center;gap:1px;padding:0;overflow:hidden;';
-      // Glyph in its own span so the desaturation targets ONLY the emoji — the
-      // count pip below keeps its full colour. The active tab shows its glyph in
-      // full colour; inactive tabs render greyscale + dimmed so the lit-up tab
+      // Pixel icon in its own span, tinted through currentColor: the active
+      // tab's icon lights gold, inactive tabs show it dimmed, so the lit-up tab
       // reads as the current category at a glance.
       const glyph = document.createElement('span');
-      glyph.textContent = c.sym;
-      glyph.style.cssText = 'line-height:1;' + (active ? '' : 'filter:grayscale(1) opacity(0.55);');
+      glyph.innerHTML = invCatIconHTML(c.key, 18);
+      glyph.style.cssText = 'line-height:1;' + (active ? `color:${UI_GOLD};` : 'color:var(--bone);opacity:0.55;');
       tab.appendChild(glyph);
       // Word under the glyph. Seven unlabelled emoji left a new player guessing
       // which one holds seeds — and the seed tab is the first thing the starter
@@ -10410,8 +10437,10 @@ installSceneMixin(MapScene, SceneConsumables);
 installSceneMixin(MapScene, ScenePets);
 installSceneMixin(MapScene, SceneElevators);
 installSceneMixin(MapScene, SceneArena);
+installSceneMixin(MapScene, SceneSky);
 installSceneMixin(MapScene, SceneVenues);
 installSceneMixin(MapScene, SceneStreets);
+installSceneMixin(MapScene, SceneBoss);
 
 const game = window.__game = new Phaser.Game({
   type: Phaser.AUTO,

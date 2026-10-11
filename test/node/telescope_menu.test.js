@@ -30,7 +30,9 @@
       next = { targetId: 'elite', category: 'elite', until: Date.now() + Scenic.TELESCOPE_DURATION_MS };
       buttons[1].click();
       assert.eq(searched, 'elite');
-      assert.eq(scene.save.telescopeCompass, next);
+      assert.eq(scene.save.telescopeCompass.length, 2, 'a new find joins the earlier one');
+      assert.eq(scene.save.telescopeCompass[0], original);
+      assert.eq(scene.save.telescopeCompass[1], next);
       assert.truthy(wrap.removed);
     } finally { document.createElement = create; }
   });

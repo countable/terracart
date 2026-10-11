@@ -3,7 +3,8 @@
 //
 // Hard penalizes the receiving player's damage after armour. Enemy stats,
 // ordinary populations and lair eligibility remain shared with Easy so players
-// can fight the same creatures together. Tutorial, economy and crop-pest rules
+// can fight the same creatures together; hard's extra landcover enemies are a
+// reserve the world seats for everyone and easy hides. Tutorial, economy and crop-pest rules
 // retain their per-save settings below.
 //
 // app.js pins save.mode at boot; an unset or pre-mode save defaults to Easy.
@@ -62,6 +63,10 @@
       enemyHpMul: 1,            // compatibility; shared HP and bounty
       enemyDmgMul: 1,           // over the surface slime's leech and every monster hit
       monsterCountMul: 1,       // over the cave spawner's 50 + 10/level
+      // Landcover enemies (HabitatSpawns.ENEMIES_PER_TILE). The world seats
+      // the largest mode's figure for everyone; a smaller mode hides the
+      // reserve (HabitatSpawns.reserveVisible), never rerolls the base.
+      landEnemyCountMul: 1,
       crowCountMul: 0.5,        // visibility share of generated habitat Crows
                                  // as many wild crows on easy (a quieter sky,
                                  // fewer birds casing your field)
@@ -116,6 +121,7 @@
       enemyHpMul: 1,            // shared enemy stats across players
       enemyDmgMul: 1,           // damage penalty belongs to the recipient
       monsterCountMul: 1,       // shared enemy population
+      landEnemyCountMul: 1.5,   // half again the landcover enemies (owner, Oct 2026)
       crowCountMul: 1,          // all generated habitat Crows are visible
       trapCountMul: 25,         // hard means it — 100 read as a minefield; halved twice (Sep 2026).
                                  // Per tile it spreads 0.3..1.7x around this (Traps.tileDanger)

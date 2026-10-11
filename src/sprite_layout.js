@@ -557,6 +557,9 @@
         // at the full 2× a pest stood as tall as a goblin).
         fw, fh, scale: 2 * (row.artScale ?? 1), foot: maxY / fh, minY, maxY,
         ...(row.art.attackFrames ? { attackFrames: row.art.attackFrames } : {}),
+        // An EIGHT-WAY parts atlas (the serpent's): the frame is the row's
+        // column for the creature's heading (creatureAppearance).
+        ...(row.art.octantRow != null ? { octantRow: row.art.octantRow, octantFlip: !!row.art.octantFlip } : {}),
         float: flying ? 6 : 0, airborne: flying,
         ...(ghost ? { hop: true, hopMs: 1600, hopPx: 3,
           alpha: GHOST_ALPHA, glow: GHOST_GLOW } : {}) };
@@ -635,7 +638,8 @@
   });
   const CREATURE_BEHAVIOUR = {
     npc:           { wanders: true },
-    chicken:       { wanders: true, produce: { item: 'egg', shinyItem: 'shiny_egg', verb: 'laid' } },
+    // 6 s a step: 20% slower than the shared 5 s wander beat.
+    chicken:       { wanders: true, stepMs: 6000, produce: { item: 'egg', shinyItem: 'shiny_egg', verb: 'laid' } },
     // A cow takes twice the netting — through its HP (combat.js FAUNA_HP: a
     // catch's difficulty is current HP × 2, Pets.catchMs).
     cow:           { wanders: true, produce: { item: 'milk', verb: 'milked' } },
@@ -653,19 +657,14 @@
     // hoisted Set the per-step scan reads, so it allocates nothing.
     cat:           { wanders: true, concealment: 'stealthy', pet: true, follows: true, prey: new Set(['crow']) },
     dog:           { wanders: true, pet: true, prey: new Set(['deer', 'slime']) },
-    // `fightsBack`: GAME that turns on the hunter. Starting a hunt on it
-    // (interact.js) enrages it for `rageMs`; while enraged it charges at its
-    // flee stride instead of fleeing, and butts for `dmg` every `hitMs` at
-    // arm's length (scene_creatures.js). It is still GAME, never an enemy:
-    // nothing auto-fires at it. See creatureFightsBack.
     // BOLT PACES sit under the speed ceiling WITH the shiny factor
     // (creature_ai.js WILD_SPEED_CEILING_MPS / SHINY_SPEED_MUL: 10 / 1.5, so
     // a plain bolt stays under ~6.6 m/s). The deer: 1.2 cells (8.4 m) in
-    // 1.3 s ≈ 6.5 m/s, a committed run.
+    // 1.3 s ≈ 6.5 m/s, a committed run. A hunted deer RUNS (owner, Oct 2026):
+    // the net's wheel races its bolt, and it never turns on the hunter.
     deer:          { wanders: true, game: true, drop: 'meat', raidsCrops: true,
                      avoids: ['scarecrow'], tameSettles: true,
-                     flee: { cells: 5, jitter: 0.6, stepMs: 1300, stepCells: 1.2 },
-                     fightsBack: { dmg: 3, hitMs: 2000, rageMs: 20000 } },
+                     flee: { cells: 5, jitter: 0.6, stepMs: 1300, stepCells: 1.2 } },
     // The rabbit: half-cell hops in 0.9 s idling (3.9 m/s) and a bolt of 0.6
     // cells (4.2 m) in 650 ms ≈ 6.5 m/s, quick short hops with a breath between.
     rabbit:        { wanders: true, tameSettles: true,
@@ -675,7 +674,9 @@
     // These birds also have hostile roster movement, but remain wild animals.
     gull:          { animal: true },
     raven:         { animal: true },
-    crow:          { wanders: true, game: true, drop: 'crow_feather', raidsCrops: true, avoids: ['scarecrow'] },
+    // `untameable`: GAME only — hunted for its feather, never caught, fed or
+    // kept as a pet (owner, Oct 2026). Pets.catchable reads it.
+    crow:          { wanders: true, game: true, untameable: true, drop: 'crow_feather', raidsCrops: true, avoids: ['scarecrow'] },
     // THE SPIRIT RAVEN — summoned by the Scroll or Tome of the Raven (app.js
     // readRavenScroll / readTomeRaven, kept by _tickSpiritRaven) for
     // SPIRIT_RAVEN_MS. It is a PET's hunt by another reason, not a second
@@ -687,7 +688,7 @@
     // life). Its stepMs is one bite a second (Combat.MELEE_INTERVAL_MS — the
     // pet fight resolves once per step), the slime's own cadence. Its PACE is
     // the stride, not the beat: 0.7 of a cell a hop is 4.9 m/s, over every
-    // ground foe's chase but the goblins' (7 m/s; a goblin pursues, so it comes
+    // ground foe's chase but the goblins' (5.8 m/s; a goblin pursues, so it comes
     // to the raven) and no blur beside a walking player. Slow it by the
     // stride; the beat is the bite. It is NOT an
     // enemy (no MONSTERS row), NOT game, and NOT tappable (interact.js skips a
@@ -743,6 +744,8 @@
   // Combat.isEnemy's business — nothing auto-fires at game and no shot may hit
   // it, or hunting stops being a choice (CLAUDE.md).
   function isGame(kind) { return !!creatureBehaviour(kind)?.game; }
+  // Never caught or kept as a pet, whatever is offered (the crow).
+  function isUntameable(kind) { return !!creatureBehaviour(kind)?.untameable; }
   // What a tame pet of this kind hunts, as a Set — null for everything else.
   function creaturePrey(kind) { return creatureBehaviour(kind)?.prey || null; }
   // The one item a kill of this kind drops (resolveDefeat), or null. An enemy
@@ -795,8 +798,6 @@
   // — a softened lair guard is drawn smaller); omitted, 1. Every reader of the
   // art's size below takes it, so the wheel, the health bar and the tap box
   // stay on the drawn body.
-  // A game kind's `fightsBack` row ({ dmg, hitMs, rageMs }), or null.
-  function creatureFightsBack(kind) { return creatureBehaviour(kind)?.fightsBack || null; }
   // A kind's hard top speed, m/s (its row's `maxMps`), or Infinity.
   function creatureMaxMps(kind) { return creatureBehaviour(kind)?.maxMps ?? Infinity; }
   function creatureScale(kind, inst = 1) { return (creatureArt(kind)?.scale ?? 1) * inst; }
@@ -889,6 +890,12 @@
   }
   function creatureAppearance(c, now) {
     const art = creatureArt(c.kind);
+    // Columns E, SE, S, SW, W, NW, N, NE off `_heading` (radians, world
+    // metres, y to the south); a tail tip is drawn pointing back (octantFlip).
+    if (art?.octantRow != null) {
+      const o = Math.round((Number.isFinite(c._heading) ? c._heading : 0) / (Math.PI / 4));
+      return { frame: art.octantRow * 8 + ((((o + (art.octantFlip ? 4 : 0)) % 8) + 8) % 8), flipX: false };
+    }
     const facing = c._facing || 'down';
     const side = facing === 'left' || facing === 'right';
     const explicitSide = side && art?.directions?.[facing];
@@ -1043,7 +1050,7 @@
     CROWN_BOUNDS, fruitCrownOffset,
     NPC_FRAME, NPC_SHEETS, npcSheet, npcAppearance,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
-    CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
+    CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame, isUntameable,
     creaturePrey, creatureDrop, creatureProduce, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
     creatureAppearance, faceCreature, CREATURE_FACE_HOLD_MS, CREATURE_MOVE_GRACE_MS, updateCreatureFacing, CREATURE_DIRECTION_LAYOUTS,
     creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
@@ -1051,7 +1058,7 @@
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     BUTTERFLY_VARIANTS, butterflyKindForTerrain, GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
     CAVE_SLIME_TINT, TRAPPER_TINT, FIRE_SLIME_TINT, GHOST_TINT, GHOST_ALPHA, GHOST_GLOW, SPIRIT_RAVEN_ALPHA, creatureSheet, creatureFrames, creatureTint, creatureAlpha, creatureGlow,
-    creatureFoot, creatureScale, creatureInstScale, PET_BABY, isBabyPet, creatureFightsBack, creatureMaxMps, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
+    creatureFoot, creatureScale, creatureInstScale, PET_BABY, isBabyPet, creatureMaxMps, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
   };
   root.SpriteLayout = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

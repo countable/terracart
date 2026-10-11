@@ -148,7 +148,7 @@ test('chase sim: it never strays further than the leash from its ruin', () => {
   // The player walks steadily away; the guard follows until the leash breaks.
   const scene = mkScene(g, { playerM: { x: 0, y: 0 } });
   let worst = 0;
-  // The player walks off at a real 1.4 m/s. A goblin (7 m/s since Oct 2026)
+  // The player walks off at a real 1.4 m/s. A goblin (5.8 m/s since Oct 2026)
   // keeps pace, so this is the LEASH that ends the chase, not the gap.
   for (let i = 0; i < (300 * 1000) / TICK_MS; i++) {
     scene.playerM.x = Math.min(1.4 * (i * TICK_MS) / 1000, 200 * CELL);

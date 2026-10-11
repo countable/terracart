@@ -442,6 +442,7 @@ const MINERAL_ICON_SHEET = {
   fireball_scroll: { sheet: 'icon_book', frame: 46 },
   explosive_flask: { sheet: 'icon_potions', frame: 22 },
   fear_scroll:     { sheet: 'icon_book', frame: 47 },
+  wind_scroll:     { sheet: 'icon_wind_scroll', frame: 0 },
   treasure_map:    { sheet: 'icon_book', frame: 49 },
   // The Renovation Permit — the sealed scroll beside the maps (Books.png).
   renovation_permit: { sheet: 'icon_book', frame: 48 },
@@ -471,6 +472,7 @@ const MINERAL_ICON_SHEET = {
   bones_scroll: { sheet: 'icon_bones_scroll', frame: 0 },
   wraith_scroll: { sheet: 'icon_wraith_scroll', frame: 0 },
   raven_scroll:  { sheet: 'icon_raven_scroll', frame: 0 },
+  serpent_idol:  { sheet: 'icon_serpent_idol', frame: 0 },
   // Potion of Blight — the red flask of the next row down (row 3, y=48:
   // frame 17), so it doesn't read as the Speed potion's red beside it.
   blight_potion: { sheet: 'icon_potions', frame: 17 },
@@ -681,6 +683,7 @@ const BASE_TIER = {
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_scroll: 2,
+  serpent_idol: 4,
   bones_scroll: 3, wraith_scroll: 4,
   dragon_powder: 4, flight_potion: 4, shrinking_potion: 4, giant_potion: 4, fire_resistance_potion: 4,
   // Revival: getting up where you fell instead of walking Home at a crawl.
@@ -713,7 +716,7 @@ const BASE_TIER = {
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_reach: 3, tome_raven: 4, tome_thunder: 5, tome_fire_wall: 4,
-  blank_scroll: 2, fireball_scroll: 3, explosive_flask: 3, fear_scroll: 3, treasure_map: 4, magic_hammer: 4,
+  blank_scroll: 2, fireball_scroll: 3, explosive_flask: 3, fear_scroll: 3, wind_scroll: 1, treasure_map: 4, magic_hammer: 4,
   tome_speed: 3, tome_shielding: 3, tome_healing: 3, tome_blight: 4, tome_frost_aura: 6,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
@@ -876,6 +879,7 @@ const ITEMS = [
   { id: 'fireball_scroll', name: 'Fireball Scroll', kind: 'magic', scroll: true },
   { id: 'explosive_flask', name: 'Explosive Flask', kind: 'magic' },
   { id: 'fear_scroll', name: 'Scroll of Fear', kind: 'magic', scroll: true },
+  { id: 'wind_scroll', name: 'Scroll of Wind', kind: 'magic', scroll: true },
   { id: 'treasure_map', name: 'Treasure Map', kind: 'magic', scroll: true },
   // Spent on a wreck restore (houses.js HAMMER_ID): the building comes up shiny and sells cheaper for good.
   { id: 'magic_hammer', name: 'Magic Hammer', kind: 'magic' },
@@ -912,6 +916,9 @@ const ITEMS = [
   { id: 'bones_scroll', name: 'Scroll of Bones', kind: 'magic', scroll: true },
   { id: 'wraith_scroll', name: 'Scroll of the Wraith', kind: 'magic', scroll: true },
   { id: 'raven_scroll',  name: 'Scroll of the Raven', kind: 'magic', scroll: true },
+  // The trail's fourth prize (trail.js FIXED_PRIZES), never a find or a
+  // ware: `progressionOnly` keeps it out of every loot pool and the trailer.
+  { id: 'serpent_idol', name: 'Serpent Idol', kind: 'magic', progressionOnly: true },
   // Drunk while DOWN (zero energy) to get back up on the spot — see
   // REVIVE_POTION_FRAC and drinkRevivePotion in app.js.
   { id: 'revival_potion',       name: 'Potion of Revival',       kind: 'magic', potion: true },
@@ -1185,6 +1192,14 @@ const CONSUMABLE_SPEC = {
     verb: 'Read', title: 'Read the Scroll of Fear?',
     get: 'The words send a shiver through every watching foe.',
   },
+  // THE SCROLL OF WIND (T1, owner Oct 2026): every foe in reach takes
+  // `damage` and is blown `pushCells` straight away from the reader
+  // (Whirlwinds.impulse — the one knockback — on any walkable ground).
+  wind_scroll: {
+    damage: 5, pushCells: 2,
+    verb: 'Read', title: 'Read the Scroll of Wind?',
+    get: 'A gust tears off the page and hurls every foe nearby away from you.',
+  },
   treasure_map: {
     durationMs: 15 * _CONSUMABLE_MINUTE_MS,
     verb: 'Read', method: 'useTreasureMap', title: 'Read the Treasure Map?',
@@ -1411,6 +1426,14 @@ const CONSUMABLE_SPEC = {
     get: 'A cold shade slips from the ink to hunt your foes.',
     used: { title: 'You read the Scroll of the Wraith', body: (scene, spec) => spec.get },
   },
+  // THE SERPENT IDOL raises a boss (scene_boss.js, BossEncounters kind
+  // 'serpent'). Raising it does not spend it: a fight that resets leaves the
+  // idol in the bag; only the serpent's death consumes it.
+  serpent_idol: {
+    method: '_useSerpentIdol',
+    verb: 'Raise', title: 'Raise the Serpent Idol?',
+    get: 'A great serpent coils out of the earth. Cut it down coil by coil before it slips away.',
+  },
   raven_scroll: {
     durationMs: _CONSUMABLE_MINUTE_MS, buff: 'raven',
     verb: 'Read', title: 'Read the Scroll of the Raven?',
@@ -1452,7 +1475,7 @@ const CONSUMABLE_SPEC = {
   growth_powder: {
     get radiusM() { return CONSUMABLE_SPEC.rainberry.radiusM; },
     verb: 'Use', method: 'useGrowthPowder', title: 'Use the Growth Powder?',
-    get: 'The crops around you stir as though spring has hurried past.',
+    get: 'Everything growing around you finishes its season of waiting at once.',
   },
   shadow_powder: {
     durationMs: 3 * _CONSUMABLE_MINUTE_MS, buff: 'shadow',
@@ -1545,9 +1568,9 @@ const PRICES = {
   field_scope: 80, compass: 0, orb: 180, goblet: 180, lucky_key: 100,
   wood_shield: 40, metal_shield: 160, gold_shield: 500,
   // ── Seeds ────────────────────────────────────────────────
-  // A seed's price is also its chest allowance divisor (chest_themes.js
-  // quantity): ~TIER_VALUE[baseTier] / 5, so a same-tier chest with no
-  // bumps holds about five, not the nine-seed cap.
+  // A seed's price is also its roll-budget divisor (chest_themes.js
+  // quantity): ~TIER_VALUE[baseTier] / 5, so a same-tier roll with no
+  // brackets (BUDGET_SHARE.seed of the budget) holds about four.
   rainberry_seed: 42, pairy_seed: 42, nut_seed: 5, potato_seed: 1,
   berry_seed: 5, cress_seed: 1, onion_seed: 5, starfruit_seed: 15,
   gemfruit_seed: 15, rubble_seed: 8, coffee_seed: 12,
@@ -1613,6 +1636,7 @@ const PRICES = {
   fireball_scroll: 120,
   explosive_flask: 100,
   fear_scroll: 100,
+  wind_scroll: 15,     // T1 — the first scroll a walk can hand over, priced with the T1 tonics
   treasure_map: 200,
   magic_hammer: 220,   // T4 — a standing discount at one building, forever
   sleep_powder: 100,
@@ -1635,13 +1659,14 @@ const PRICES = {
   shielding_potion: 250,  // T5 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura at app.js's BLIGHT_DPS
   raven_scroll: 55, // T2 — one minute of a slime-strength ally
+  serpent_idol: 180, // T4 — a boss and its hoard; never sold (progressionOnly)
   bones_scroll: 90, // T3 — one minute of a skeleton-strength ally
   wraith_scroll: 160, // T4 — one minute of a ghost-strength ally
   revival_potion: 40,   // T3 — get up where you fell with 30% of the bar
   resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
   thunder_scroll: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
   dragon_powder: 120,  // T4 — 1 min of dragon: tier-8 boot walking + 2× damage
-  growth_powder: 60,   // T1 — every crop within 20 m springs ahead a stage, unwatered
+  growth_powder: 60,   // T1 — everything growing within 20 m completes its current stage
   shadow_powder: 110,  // T2 — 3 min of monsters ignoring you entirely (priced for the
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach chilled (slowed) for 30 s
@@ -1776,6 +1801,7 @@ const ITEM_GUIDE_TIPS = {
   thunder_scroll: 'I copied the thunder words onto a blank scroll. Outside, the sky answered.',
   fireball_scroll: 'At the trailer I copied the fire spell from memory onto blank parchment. The ink warmed. I moved the bedding away.',
   fear_scroll: 'I copied the words that had scattered my pursuers onto a blank scroll. Even here at the trailer, the parchment trembled.',
+  wind_scroll: 'I copied the gust onto a blank scroll from memory. The trailer door banged open on its own.',
   treasure_map: 'Back at the trailer I traced the remembered map onto a blank scroll. Its hidden paths returned. I had hoped one might lead home.',
 };
 
@@ -1875,6 +1901,7 @@ const ITEM_EFFECTS = {
   fireball_scroll: CONSUMABLE_SPEC.fireball_scroll.get,
   explosive_flask: CONSUMABLE_SPEC.explosive_flask.get,
   fear_scroll: CONSUMABLE_SPEC.fear_scroll.get,
+  wind_scroll: CONSUMABLE_SPEC.wind_scroll.get,
   treasure_map: CONSUMABLE_SPEC.treasure_map.get,
   magic_hammer: 'Masons say a wall raised under this hammer never stops gleaming, and the folk inside deal kindly with whoever swung it.',
   sleep_powder: CONSUMABLE_SPEC.sleep_powder.get,
@@ -1889,6 +1916,7 @@ const ITEM_EFFECTS = {
   bones_scroll: 'The skull-marked parchment rattles softly in your hand.',
   wraith_scroll: 'Cold gathers around the shade stamped into the parchment.',
   raven_scroll: 'A pale wing stirs beneath the raven-marked ink.',
+  serpent_idol: 'A stone serpent, cold and heavy. Something vast sleeps in it, and it is not friendly.',
   thunder_scroll: 'A distant storm stirs between the inked lines.',
   revival_potion: 'A faint pulse waits to call a fallen traveller back.',
   resurrection_potion: 'A deep warmth waits where a fallen traveller’s heart has quieted.',
@@ -1997,7 +2025,6 @@ const ANIMAL_FOOD = {
   green_dragon: ['meat'],
   rabbit: ['cress'],
   deer: ['apple'],
-  crow: ['potato_seed'],
   butterfly: ['flowers'],
   sea_turtle: ['cress'],
   cow:     ['pairy'],      // pears to munch
@@ -2735,8 +2762,9 @@ function buyMarkupRange(relics) {   // eslint-disable-line no-unused-vars
 }
 
 // Low-tier seeds (baseTier ≤ 2 — the cheap starter crops) are planted in bulk,
-// so the places that hand out seeds — trader barter, treasure X, and cash
-// shops — bundle a few extra. `isLowTierSeed` is the single source of truth for
+// so the shops that sell seeds — trader barter and cash shops — bundle a few
+// extra. (Reward rolls size seed stacks from their budget alone,
+// ChestThemes.quantity.) `isLowTierSeed` is the single source of truth for
 // "should this seed get the bulk bonus"; LOW_TIER_SEED_QTY_BONUS is how many
 // extra ship on top of the normal quantity.
 const LOW_TIER_SEED_QTY_BONUS = 2;
@@ -2770,23 +2798,115 @@ function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad;
 // order. Item categories filter save.inv by `kind`; gear categories (relic /
 // armor) synthesize their slot list from save.relics / save.armor
 // (one-per-slot). Relics also includes permanent items carried in save.inv.
-// `sym` is the tab glyph — plain emoji so
-// no new pixel art is needed for the chrome.
+// `px` is the tab icon: a 9×9 one-bit bitmap ('#' lit) drawn by
+// invCatIconHTML as an inline SVG in a single colour, so the chrome needs no
+// sprite sheet and the icon takes its tint from the surface it sits on.
 //
 // A table over item KINDS, so it belongs with the catalog that defines them:
 // a kind added to ITEMS without a home here falls into Produce, and only this
 // file can see both halves of that.
 const INV_CATS = [
-  { key: 'seed',        label: 'Seeds',       sym: '🌱', kinds: ['seed'] },
-  { key: 'produce',     label: 'Produce',     sym: '🍎', kinds: ['produce'] },
-  { key: 'animal',      label: 'Pets',        sym: '🐾', kinds: ['pet_accessory'] },
-  { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic', kinds: ['unique_relic'] },
-  { key: 'armor',       label: 'Armour',      sym: '🛡️', gear: 'armor' },
-  { key: 'ores',        label: 'Ores',        sym: '💎', kinds: ['mineral'] },
-  { key: 'magic',       label: 'Magic',       sym: '🧪', kinds: ['magic'] },
-  { key: 'supplies',    label: 'Supplies',    sym: '🎒', kinds: ['supply'] },
+  { key: 'seed', label: 'Seeds', kinds: ['seed'], px: [
+    '.........',
+    '.##...##.',
+    '####.####',
+    '.###.###.',
+    '...###...',
+    '....#....',
+    '....#....',
+    '..#####..',
+    '#########'] },
+  { key: 'produce', label: 'Produce', kinds: ['produce'], px: [
+    '.....##..',
+    '....#....',
+    '.###.###.',
+    '#########',
+    '######.##',
+    '#########',
+    '#########',
+    '.#######.',
+    '..##.##..'] },
+  { key: 'animal', label: 'Pets', kinds: ['pet_accessory'], px: [
+    '.##...##.',
+    '.##...##.',
+    '.........',
+    '##.###.##',
+    '##.###.##',
+    '..#####..',
+    '.#######.',
+    '.#######.',
+    '..##.##..'] },
+  { key: 'relic', label: 'Relics', gear: 'relic', kinds: ['unique_relic'], px: [
+    '...###...',
+    '..##.##..',
+    '...###...',
+    '..#####..',
+    '.##...##.',
+    '##.....##',
+    '##.....##',
+    '.##...##.',
+    '..#####..'] },
+  { key: 'armor', label: 'Armour', gear: 'armor', px: [
+    '#########',
+    '##..#..##',
+    '##..#..##',
+    '##..#..##',
+    '.#..#..#.',
+    '.##.#.##.',
+    '..##.##..',
+    '...###...',
+    '....#....'] },
+  { key: 'ores', label: 'Ores', kinds: ['mineral'], px: [
+    '.........',
+    '..#####..',
+    '.##.#.##.',
+    '#########',
+    '.#######.',
+    '..#####..',
+    '...###...',
+    '....#....',
+    '.........'] },
+  { key: 'magic', label: 'Magic', kinds: ['magic'], px: [
+    '...###...',
+    '...#.#...',
+    '...#.#...',
+    '..#...#..',
+    '.#.....#.',
+    '#########',
+    '#########',
+    '#########',
+    '.#######.'] },
+  { key: 'supplies', label: 'Supplies', kinds: ['supply'], px: [
+    '...###...',
+    '..#...#..',
+    '.#######.',
+    '.#######.',
+    '.##...##.',
+    '.##...##.',
+    '.#######.',
+    '.#######.',
+    '.##...##.'] },
 ];
 const INV_CAT_BY_KEY = Object.fromEntries(INV_CATS.map(c => [c.key, c]));
+// One tab's bitmap as inline SVG markup: each lit run becomes one rect in a
+// single path, `crispEdges` keeps the cells square, and the drawn size snaps
+// down to a whole multiple of the grid so no cell blurs across a pixel seam.
+// `color` defaults to currentColor so CSS on the host element tints it.
+const INV_CAT_ICON_PATHS = {};
+function invCatIconHTML(key, size, color = 'currentColor') {
+  const rows = INV_CAT_BY_KEY[key]?.px;
+  if (!rows) return '';
+  const n = rows.length;
+  let d = INV_CAT_ICON_PATHS[key];
+  if (!d) {
+    d = '';
+    rows.forEach((row, y) => row.replace(/#+/g, (run, x) => { d += `M${x} ${y}h${run.length}v1h-${run.length}z`; return run; }));
+    INV_CAT_ICON_PATHS[key] = d;
+  }
+  const px = Math.max(n, Math.floor(size / n) * n);
+  return `<svg width="${px}" height="${px}" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" `
+    + `style="display:block" aria-hidden="true"><path fill="${color}" d="${d}"/></svg>`;
+}
 // Items whose TAB is not their kind's. Rock is the `rubble` crop — a
 // 'produce' item to the seed/sell/loot machinery, which keys on kind — but the
 // player files it with the wood and the ore it is gathered beside, so only its

@@ -155,10 +155,10 @@ test('cave extras: a picked-up seeded coin is written to save.foundTreasures', (
 
 // ── X marks ────────────────────────────────────────────────────────────────
 
-test('cave extras: 4..10 X marks per level, on free floor, ids carry the depth', () => {
+test('cave extras: 4..10 X marks per level (× X_MARK_FREQUENCY), on free floor, ids carry the depth', () => {
   const grid = townGrid();
   const out = WorldGen.caveTreasureMarks(grid, N, TX, TY, TILE_M, 3, new Set());
-  assert.inRange(out.length, 4, 10, 'the surface scatter\'s count');
+  assert.inRange(out.length, Math.round(4 * X_MARK_FREQUENCY), Math.round(10 * X_MARK_FREQUENCY), 'the surface scatter\'s count');
   for (const t of out) {
     const { lix, liy } = cellOf(t);
     assert.eq(grid[liy * N + lix], CAVE_FLOOR, 'on floor');

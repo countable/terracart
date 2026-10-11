@@ -355,10 +355,10 @@ function treasureExposed(treasure, scene, save = scene?.save) {
 }
 
 // Grant ONE buried-treasure roll: the pickReward('treasure:default') payout
-// with every branch it can take — an item (low-tier seeds bundled up, jackpot
-// fanfare on a big hit), a gold sum, or the fallback dollar if the pool comes
-// back empty — plus the consolation coins the picker couldn't fold into the
-// item's quantity.
+// with every branch it can take — an item (its stack sized by the roll's
+// budget, ChestThemes.quantity; jackpot fanfare on a big hit), a gold sum,
+// or the fallback dollar if the pool comes back empty — plus any
+// consolation coins the picker paid.
 //
 // Factored out of the X-mark handler so a monster's rare drop pays the SAME
 // table: two copies of this would be two loot pools to retune, and the whole
@@ -469,7 +469,6 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
     scene.flashLoot(`${mark} → 1`, '#ffe066', 1, null, scene.coinIconEl?.());
     return;
   }
-  if (reward.kind === 'item' && isLowTierSeed(reward.id)) reward.qty += LOW_TIER_SEED_QTY_BONUS;
   Rewards.apply(save, reward, scene);
   // Shown by the one presenter: a card under the caller's framing, or the
   // toast led by `mark`; a beaten relic roll (cashed out by
@@ -477,8 +476,8 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
   if (!(ceremony && Rewards.present(scene, reward, { extra: ceremony }))) {
     Rewards.present(scene, reward, { mode: 'toast', mark });
   }
-  // Consolation coins for any qty bumps the picker couldn't apply
-  // (bracket at cap or single-stack class). Small gold trickle alongside
+  // Consolation coins for steps the picker couldn't apply (a roll bonus
+  // with no tier headroom, or brackets on gear). Small gold trickle alongside
   // the main loot — never replaces it.
   if (reward.consolation > 0) {
     scene.flash(`+${reward.consolation}`, sx, sy + 16);
@@ -573,7 +572,7 @@ const TAP_HANDLERS = [
       // A mark that carries its own rollBonus (a hedgerow close's hoard —
       // StreetVariants.dress) pays that many extra roll steps on top.
       const dig = scene.digTreasureOpts?.();
-      grantTreasureRoll(scene, save, sx, sy, '✕', 'treasure:default',
+      grantTreasureRoll(scene, save, sx, sy, '✕', treasureContextFor(tr),
         tr.rollBonus > 0 ? { ...(dig || {}), rollBonus: tr.rollBonus } : dig);
       ctx.dirty = true;
       return true;
@@ -823,12 +822,8 @@ const TAP_HANDLERS = [
       // left when you tapped (creature_ai.js CROW_DEPART_HOP: a wood net at
       // point blank is a coin flip, decided by timing).
       if (victim.kind === 'crow') scene._crowDepart?.(victim, performance.now(), 'hunted');
-      // A kind that FIGHTS BACK (the deer — SpriteLayout.creatureFightsBack)
-      // turns on the hunter instead: enraged for its rageMs, it charges and
-      // butts (scene_creatures.js wanderCreatures). Wall clock, like
-      // _lastDamagedT.
-      const fb = SpriteLayout.creatureFightsBack(victim.kind);
-      if (fb) victim._rageUntil = Date.now() + fb.rageMs;
+      // A hunted deer bolts as any near player spooks it (its row's `flee`);
+      // it never fights back, and the wheel fails if it runs out of reach.
       return true;
     }
     const selItem = sel ? ITEM_BY_ID[sel.id] : null;

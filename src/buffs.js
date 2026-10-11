@@ -64,15 +64,15 @@
       read: (save) => Number(save?.fishRegen?.until) || 0 },
     bike:    { name: 'Bike',    color: '#a8f0b0', stroke: '#103a18', save: 'bikeUntil' },
     field_scope: { name: 'Telescope', color: '#ffd166', stroke: '#4a3a00',
-      read: save => Number(save?.telescopeCompass?.until) || 0 },
+      read: save => latestUntil(save?.telescopeCompass) },
     wayfarer: { name: 'Directions', color: '#4d9dff', stroke: '#102a40',
-      read: save => Number(save?.wayfarerCompass?.until) || 0 },
+      read: save => latestUntil(save?.wayfarerCompass) },
     compass: { name: 'Compass', color: '#67e8f9', stroke: '#2a1040',
-      read: (save, scene) => Number(scene?.pairyCompass?.until) || 0 },
+      read: (save, scene) => latestUntil(scene?.pairyCompass) },
     // The Treasure Map's mark (app.js useTreasureMap — save.treasureCompass,
     // drawn as the red edge dot), so its quarter hour shows like the others.
     treasure: { name: 'Treasure', color: '#ff5555', stroke: '#3a0a0a',
-      read: save => Number(save?.treasureCompass?.until) || 0 },
+      read: save => latestUntil(save?.treasureCompass) },
   };
   // The shrine boons that keep their own expiry (save.boonUntil[lever]):
   // every lever Shrines.LEVERS maps to a buff id that is not already a row
@@ -103,6 +103,25 @@
   function laterOf(until, ms, now = Date.now()) {
     return Math.max(now, Number(until) || 0) + ms;
   }
+  // A rim mark's slot (save.telescopeCompass, scene.pairyCompass, … — app.js
+  // MARKERS) holds a LIST, so several bearings of one kind show at once: two
+  // neighbours' directions, two telescope finds, two maps' chests. An older
+  // save's single mark reads as a list of one.
+  function marks(slot) {
+    return Array.isArray(slot) ? slot : slot ? [slot] : [];
+  }
+  // The slot with `mark` added. A mark on the same target replaces the old
+  // one; with `ms` its expiry extends (laterOf) instead of restarting.
+  function withMark(slot, mark, ms, now = Date.now()) {
+    const list = marks(slot);
+    const same = mark.targetId == null ? null : list.find(m => m.targetId === mark.targetId);
+    const next = ms == null ? mark : { ...mark, until: laterOf(same?.until, ms, now) };
+    return [...list.filter(m => m !== same), next];
+  }
+  // A slot's chip runs until its last mark does.
+  function latestUntil(slot) {
+    return Math.max(0, ...marks(slot).map(m => Number(m.until) || 0));
+  }
   // Lend row `id` for `ms` more: the one writer of a row's expiry. False for
   // an unknown row or one with nowhere to write (a `read`-only row).
   function extend(save, scene, id, ms, now = Date.now()) {
@@ -126,5 +145,5 @@
     return out;
   }
 
-  root.Buffs = { KINDS, until, active, laterOf, extend };
+  root.Buffs = { KINDS, until, active, laterOf, extend, marks, withMark, latestUntil };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -20,7 +20,8 @@ mechanics.
   attacks use equipped gear and incoming damage uses armour mitigation.
   The floor ends at the platform edge. Walking beyond it returns to the surface
   without a reward; entering again starts a fresh trial. Grove temple platforms
-  share this fall behavior. Awakening remains permanent and winning grants the
+  share this fall behavior, except the hidden way, which is walked on the sky
+  floor ([floors](floors.md#sky-floor-depth--1)). Awakening remains permanent and winning grants the
   temple gift only once, even after re-entry or reload.
 
 - Confusing mushroom gas refreshes the shared `confused` condition to five
@@ -89,6 +90,11 @@ mechanics.
   the row's `tome` column (`_readTome`); an "every foe in sight" spell is a
   `CAST_ROWS` row (`_castOnFoes`); the slot guard is `_selectedConsumable`,
   the spend `_spendScroll` / `_consumeSelected`. Never a hand-written handler.
+- KNOCKBACK has one owner, `Whirlwinds.impulse` / `pushStep`: a whirlwind's
+  contact (GRASS, PITCH and SCHOOL cells only, surface only) and the T1 Scroll of Wind
+  (`CAST_ROWS.wind_scroll`: every foe in reach takes 5 and is blown
+  `pushCells` away on any ground the enemy gate allows, at any depth). A push
+  plays out at the depth it began on; a level change cancels it.
 - SPELL SLOTS: each tome rests on its own `cooldownMs` (`save.tomeMagicCd`;
   `TOME_COOLDOWN_MS`, one hour, unless its row names another), and a tome may
   be read while at most the worn amulet's tier of tomes rest (`Gear.spellSlots`
@@ -147,7 +153,8 @@ mechanics.
   a catch attempt (`Pets.catchMs`: current HP × 2 at the net's tool rate)
   while it flees for the edge of reach; no attack runs and it is no one's
   enemy until the attempt ends. A refused item is never consumed. Story foes
-  are not catchable (`Pets.catchable`). Only one pet per species, including
+  and `untameable` kinds (the crow: hunted for its feather, never a pet; old
+  saves drop a kept one) are not catchable (`Pets.catchable`). Only one pet per species, including
   baby/shiny variants. Hunting game (deer, crows) with an empty hand is apart.
   Use `Pets.carry/deploy/release`, never inventory stacks or id prefixes, for
   ownership. Stats, tint, accessories, growth and recovery stay on that record.
@@ -164,6 +171,45 @@ mechanics.
 
 Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_ward`,
 `pet_pickup`.
+
+## Boss encounters
+
+- Every boss fight is one routine: a row of `BossEncounters.KINDS`
+  (`src/boss_encounters.js`) — today the citadel's garrison and the serpent a
+  Serpent Idol raises. A trigger starts a record (`start`, kept in the kind's
+  `store` on the save); it is live for the row's `durationMs` of wall time.
+- It RESETS — the foes despawn, their defeats are forgotten, and the trigger
+  can be used again later — when its clock runs out, or when the player who
+  started it (`own`) goes down or leaves its floor (`abandon`). A battle
+  adopted from another player (multiplayer) is not theirs to end. The scene
+  side is `_tickBossEncounters` (`src/scene_boss.js`), every frame; each live
+  fight shows its clock as a status-row chip.
+- WINNING spends the trigger for good: a citadel is claimed; the idol is
+  consumed and leaves a T4 boss chest (`chestThemeFor` → the `boss` theme:
+  equipment or a unique relic), kept as `save.bossChests` until opened.
+- THE SERPENT: one creature per piece (`serpent_head` / `_body` / `_tail`
+  roster rows, `boss: 'serpent'`), moved and biting only by its encounter's
+  tick, never `rosterEnemyMove`. The head snakes about the player within the
+  row's `leashCells`; the coils and tail tip follow its trail. Each coil
+  touching the player bites for the row's `dmg` once a `damageIntervalSeconds`
+  through `foeBlowLands`. Only coils can be struck (the head and tail are
+  `untargetable`, read by `Combat.isConcealed`); a slain coil shortens it, and
+  with only head and tail left it dies. Body and gait numbers are the
+  `KINDS.serpent` row. The Serpent Idol is the road ladder's fourth prize, alone
+  (`Trail.FIXED_PRIZES`), `progressionOnly` (no loot pool or sale), and cannot
+  be raised on the Major-and-Medium road group's kerb or junctions.
+- SHARED: once one player starts a boss fight, every nearby player is in it.
+  A citadel battle travels as `battle` frames (below). A serpent's starter
+  drives its head and sends the pose as `boss` frames every `feedMs`; a
+  nearby player adopts the fight (`_adoptSerpent`: same key, start and piece
+  ids, `own: false`) and their copy follows the feed, while its coils, trail
+  and bites run on their device. The coils are shared enemies only while a
+  save holds the fight live (`EnemySpawns.isSharedId`), so hits and kills land
+  on every copy. Every player who sees it die gets their own hoard; only the
+  starter's idol is spent. When the feed has been silent for `staleMs` (the
+  starter won, reset or walked away) the adopted copy resets.
+
+Tests: `boss_encounters`, `castle_quest_flow`, `lairs`, `trail`, server `test.js`.
 
 ## Shared enemies (multiplayer)
 

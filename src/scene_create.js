@@ -132,7 +132,7 @@ class SceneCreate {
     // Mark relics dirty so the first updateRelicRow call actually rebuilds.
     this._relicsGen = 1;
     // Transient runtime state — not persisted.
-    this.pairyCompass = null;   // { targetId, x, y, until } when active
+    this.pairyCompass = null;   // [{ targetId, x, y, until }] when active (Buffs.marks)
     if (needsStatePersist) persistSave(this.save);
 
     this.cameras.main.setBackgroundColor('#000');
@@ -211,6 +211,7 @@ class SceneCreate {
     // matching tile cache before any tiles load.
     // An interrupted trial returns to its surface portal; completed wins persist.
     this._recoverArenaRun();
+    this._recoverSkyRun();
     this.depth = this.save.depth || 0;
     WorldGen.setDepth(this.depth);
     if (this.depth > 0) this.cameras.main.setBackgroundColor('#0a0a12');

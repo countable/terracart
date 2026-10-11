@@ -27,7 +27,7 @@
     farmAnimals: { ids: ['chicken', 'cow', 'rabbit'], fallback: 'farmProduce' },
     // Surface magic lanes keep place identity while making cave-only potions
     // available above ground. Lower-tier magic remains useful in larger stacks.
-    magic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry).map(i => i.id), mixedTiers: true, fallback: 'antidote' },
+    magic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry && !i.progressionOnly).map(i => i.id), mixedTiers: true, fallback: 'antidote' },
     travelMagic: { ids: ['reach_potion', 'speed_potion', 'shadow_powder', 'treasure_map'], mixedTiers: true, fallback: 'antidote' },
     combatMagic: { ids: ['protection_potion', 'immortal_potion', 'fire_resistance_potion', 'flight_potion', 'giant_potion', 'shielding_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll', 'blight_potion', 'thunder_scroll', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'explosive_flask', 'fear_scroll', 'sleep_powder', 'psychosis_powder', 'grip_potion', 'poison_flask', 'taming_potion'], mixedTiers: true, fallback: 'antidote' },
     medicalMagic: { ids: { healing_potion: 3, revival_potion: 3, protection_potion: 2, shielding_potion: 2, resurrection_potion: 2, elixir: 1,
@@ -49,7 +49,7 @@
     rope: { ids: ['rope'], fallback: 'torch' },
     trapKit: { ids: ['trap_disarm_kit'], fallback: 'torch' },
     magicTrap: { ids: ['magic_trap'], fallback: 'field' },
-    caveMagic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry).map(i => i.id), mixedTiers: true, fallback: 'torch' },
+    caveMagic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry && !i.progressionOnly).map(i => i.id), mixedTiers: true, fallback: 'torch' },
     caveGems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], mixedTiers: true, fallback: 'field' },
     noncombatGear: { kind: 'gear', slots: ['bag', 'watering_can', 'hoe', 'fishing_rod', 'net'], fallback: { school: 'books', default: 'supplies' } },
     protectiveGear: { kind: 'gear', armorOnly: true, fallback: { vista: 'magic', default: 'field' } },
@@ -82,6 +82,9 @@
     // One-time grails reward equipment, unique relics or magic only. Their
     // exhausted/owned equipment and relic lanes also terminate in magic.
     vista: { weights: { protectiveGear: 45, uniqueRelics: 5, magic: 50 } },
+    // A boss's hoard (scene_boss.js — the serpent's T4 chest): equipment or a
+    // unique relic, nothing else.
+    boss: { weights: { culturalGear: 50, uniqueRelics: 50 } },
   };
   // Final surface weights for displayed T3+ chests. Starter chests keep
   // their supplies; higher-tier chests favour progression and useful magic.
@@ -256,9 +259,29 @@
     if (magicalFlowers.includes(id) || item.kind === 'mineral') return 3;
     return 5;
   }
+  // THE ROLL BUDGET. Every reward roll sizes its stack (and its purse) from
+  // one allowance: the rolled tier's TIER_VALUE, plus BUDGET_PER_BRACKET of it
+  // for each quantity bracket the roll banked (chain qty steps, the wizard's
+  // ladder and quantity jackpots alike). A jackpot buys a bigger budget and
+  // nothing else; count = budget / price.
+  const BUDGET_PER_BRACKET = 0.5;
+  function budget(tier, bracket = 0) {
+    return TIER_VALUE[Math.max(1, Math.min(7, tier | 0))] * (1 + BUDGET_PER_BRACKET * bracket);
+  }
+  // The share of that budget a stack of this item may spend. Potions (and the
+  // other magic consumables) and seeds pay out a smaller stack than the tier's
+  // full worth: a same-tier roll with no brackets typically holds two potions
+  // or four seeds. Everything else spends the whole budget.
+  const BUDGET_SHARE = Object.freeze({ potion: 0.4, seed: 0.8 });
+  function budgetShare(id) {
+    const item = ITEM_BY_ID[id];
+    if (item.potion || item.kind === 'magic') return BUDGET_SHARE.potion;
+    if (item.kind === 'seed') return BUDGET_SHARE.seed;
+    return 1;
+  }
   function quantity(id, tier, bracket, rng = Math.random) {
     if (id === 'wood' || id === 'rubble') return Math.min(12, 3 + Math.floor(rng() * 6) + bracket * 2);
-    const allowance = TIER_VALUE[tier] * (1 + 0.5 * bracket);
+    const allowance = budget(tier, bracket) * budgetShare(id);
     const count = allowance / Math.max(1, PRICES[id] || itemValue(id));
     // Magic and timber seeds round up to fill the allowance. Fruit saplings
     // still award one tree; a T2 acorn draw can now pay a small planting stack.
@@ -286,5 +309,5 @@
   // Catch authored errors early; runtime still has each theme's declared T1
   // terminal so an unexpected bad entry cannot consume a chest for nothing.
   try { validate(); } catch (error) { console.error('Chest theme validation failed', error); }
-  global.ChestThemes = { themes, highTierWeights, qualityFloor, groups, normalize, weights, members, BOOK_T2_SHARE, eligible, resolve, selectableIds, pickItem, cap, quantity, gearSlots, seedMultiplier, validate };
+  global.ChestThemes = { themes, highTierWeights, qualityFloor, groups, normalize, weights, members, BOOK_T2_SHARE, eligible, resolve, selectableIds, pickItem, cap, budget, BUDGET_SHARE, quantity, gearSlots, seedMultiplier, validate };
 })(window);

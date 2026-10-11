@@ -4,7 +4,9 @@
   const quality = { tier: 7, bracket: 5, jackpotApplied: 0 };
 
   test('unique relic rewards: civic owns a broad lane; culture, authority and vista add 5%', () => {
-    for (const theme of Object.keys(ChestThemes.themes)) for (const tier of [1, 2, 7]) for (const depth of [0, 2]) {
+    // A boss's hoard is its own lane: half equipment, half unique relics.
+    assert.eq(JSON.stringify(ChestThemes.weights('boss', 4, { depth: 0 })), JSON.stringify({ culturalGear: 50, uniqueRelics: 50 }));
+    for (const theme of Object.keys(ChestThemes.themes).filter(t => t !== 'boss')) for (const tier of [1, 2, 7]) for (const depth of [0, 2]) {
       const weights = ChestThemes.weights(theme, tier, { depth });
       const share = theme === 'civic' ? 25 * (depth > 0 ? 0.6 : 1)
         : tier >= 2 && ['culture', 'authority', 'vista'].includes(theme) ? 5 : 0;

@@ -38,4 +38,24 @@ test('school flowers actually spawn on school tiles but not ordinary grassland',
   assert.eq(grass.wildplants.filter(w => w.crop === 'forgetmenot').length, 0);
   assert.gt(grass.wildplants.filter(w => w.crop === 'flowers').length, 0);
 });
+test('a park inside school grounds grows no forget-me-nots, though SCHOOL wins its terrain paint', () => {
+  // The park's POI still anchors a grove there (an Ancient Grove's brambles
+  // read as a park), so school-only blooms stop at the park polygon's edge.
+  const N = 64, rect = (x0, y0, x1, y1) => [{x:x0,y:y0},{x:x1,y:y0},{x:x1,y:y1},{x:x0,y:y1},{x:x0,y:y0}];
+  const build = (withPark) => WorldGen.rasterizeTile([
+    { name: 'landuse', features: [{ type: 3, tags: { class: 'school' }, geom: [rect(0, 0, 4096, 4096)] }] },
+    { name: 'landcover', features: withPark
+      ? [{ type: 3, tags: { class: 'grass', subclass: 'park' }, geom: [rect(1024, 1024, 3072, 3072)] }] : [] },
+  ], N, 3, 5, N * 7);
+  const inPark = (w) => {
+    const ix = Math.floor(w.x / 7) - 3 * N, iy = Math.floor(w.y / 7) - 5 * N;
+    return ix >= 16 && ix < 48 && iy >= 16 && iy < 48;
+  };
+  const bare = build(false), parked = build(true);
+  assert.eq(parked.grid[32 * N + 32], WorldGen.T.SCHOOL, 'the park cell keeps SCHOOL paint');
+  const blooms = (r) => r.wildplants.filter(w => w.crop === 'forgetmenot');
+  assert.gt(blooms(bare).filter(inPark).length, 0, 'without the park the same cells grow blooms');
+  assert.eq(blooms(parked).filter(inPark).length, 0, 'none inside the park polygon');
+  assert.gt(blooms(parked).filter(w => !inPark(w)).length, 0, 'the rest of the campus keeps them');
+});
 })();

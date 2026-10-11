@@ -116,7 +116,7 @@ test('pickReward: a roll bonus lifts the average TIER', () => {
     return n ? sum / n : 0;
   };
   const base = meanTier(0);
-  const bonused = meanTier(Trail.PRIZE_ROLL_BONUS);
+  const bonused = meanTier(1);
   assert.gt(bonused, base, `bonused ${bonused} > base ${base}`);
 });
 
@@ -227,7 +227,9 @@ test('tier luck: the carried key adds one luck tier and never stacks', () => {
 test('pickReward: a carried key improves treasure rolls like one luck upgrade', () => {
   let changed = 0;
   for (let s = 1; s <= 600; s++) {
-    const roll = save => pickReward('treasure:road', save, seeded(s * 2654435761));
+    // A chest roll: luck works on chain steps, and the road prize takes none
+    // of its own now (its tier is the walk's ladder, Trail.rollBonusFor).
+    const roll = save => pickReward('chest:lowtier', save, seeded(s * 2654435761), { tier: 4 });
     const base = roll({});
     const keyed = roll({ inv: [{ id: 'lucky_key', count: 1 }] });
     const upgraded = roll({ luckUpgrades: 1 });
@@ -427,8 +429,17 @@ test('road: a longer walk buys a FINER seed, not a taller stack', () => {
   assert.gt(late.tier, first.tier, 'the tenth prize finds a finer seed');
   // The bonus buys TIER ONLY — a step with nowhere to climb pays coins, it
   // does not fall through to a quantity bracket (which is what pinned the old
-  // ceremony at "× 2").
-  assert.lte(late.qty, first.qty + 0.5, 'and not simply more of the same one');
+  // ceremony at "× 2"). The stack itself is that tier's budget over the
+  // seed's price (ChestThemes.quantity), so compare the brackets banked.
+  const brackets = (bonus) => {
+    let sum = 0;
+    for (let i = 0; i < 4000; i++) {
+      sum += rollRewardQuality(LOOT_CONTEXTS['treasure:road'], 'seed', SAVE(), seeded(i + 1), { rollBonus: bonus }).bracket;
+    }
+    return sum / 4000;
+  };
+  assert.lte(brackets(Trail.rollBonusFor(9)), brackets(Trail.rollBonusFor(0)) + 0.05,
+    'and not simply more of the same one');
 });
 
 test('road: the ceiling the bonus can climb to is the old T4 prize ceiling', () => {
@@ -555,7 +566,7 @@ test('cave X: a dig underground leans the cave way, a surface dig does not', () 
   assert.truthy(deep > surfH * 2, `hoard ${surfH.toFixed(3)} → ${deep.toFixed(3)} deep down`);
   assert.truthy(/digTreasureOpts\(\) \{[\s\S]{0,400}?return \{ depth, tier: 2 \+ bonus \};/.test(SCENE_SRC),
     'app.js hands a cave dig its depth and the depth\'s tier');
-  assert.truthy(/const dig = scene\.digTreasureOpts\?\.\(\);\s*grantTreasureRoll\(scene, save, sx, sy, '✕', 'treasure:default',\s*tr\.rollBonus > 0 \? \{ \.\.\.\(dig \|\| \{\}\), rollBonus: tr\.rollBonus \} : dig\)/.test(INTERACT_SRC),
+  assert.truthy(/const dig = scene\.digTreasureOpts\?\.\(\);\s*grantTreasureRoll\(scene, save, sx, sy, '✕', treasureContextFor\(tr\),\s*tr\.rollBonus > 0 \? \{ \.\.\.\(dig \|\| \{\}\), rollBonus: tr\.rollBonus \} : dig\)/.test(INTERACT_SRC),
     'the fallback dig passes them too');
 });
 
@@ -583,7 +594,10 @@ test('road: the magic card offers a spread of finds, not one potion every time',
       if (r && r.id) counts[r.id] = (counts[r.id] || 0) + 1;
     }
     const shares = Object.values(counts).map(c => c / N);
-    assert.lt(Math.max(...shares), 0.2, `prize ${n}: no single item dominates the magic card`);
-    assert.gt(shares.filter(s => s >= 0.03).length, 7, `prize ${n}: at least eight items turn up regularly`);
+    // The ladder starts at T1, where the magic shelf is five tonics (the road
+    // favourites' T1 rows); from the third prize on it is the full spread.
+    const early = n === 1;
+    assert.lt(Math.max(...shares), early ? 0.3 : 0.2, `prize ${n}: no single item dominates the magic card`);
+    assert.gt(shares.filter(s => s >= 0.03).length, early ? 4 : 7, `prize ${n}: ${early ? 'all five T1 tonics' : 'at least eight items'} turn up regularly`);
   }
 });

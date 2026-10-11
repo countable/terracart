@@ -160,6 +160,7 @@ const PLAY_TIPS = [
   "Want one alive? Hold out the gem it wants, then put your weapon away. It will run. Keep close until it gives up. Its friends will not stop fighting, so mind them.",
   "A creature at the end of a long quarrel is easier to persuade. Mine had lost most of its temper, and a good deal of its strength, before it took the stone and stayed.",
   ITEM_GUIDE_TIPS.barricade,
+  ITEM_GUIDE_TIPS.wind_scroll,
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -407,6 +408,7 @@ const PLAY_TIP_VOLUMES = [
   "brann",
   "scholar",
   "builder",
+  "wizard",
 ];
 
 // Narrator observations sit outside the quoted excerpt.

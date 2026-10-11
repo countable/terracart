@@ -47,7 +47,7 @@
 const FIRE_WARD_MAX_DEPTH = 1;
 
 // ── Buried X marks: how thick they lie on SAND ────────────────────────────
-// A tile's X marks are a flat scatter of 4-10 over every walkable cell plus a
+// A tile's X marks are a flat scatter of 6-15 over every walkable cell plus a
 // bonus stream beside footpaths — over a 2.4 km tile that is nothing at all
 // along a shoreline, and a beach is the one ground people actually dig. So
 // sand gets its own bonus stream, capped at one mark per BEACH_X_PER_CELLS
@@ -59,7 +59,7 @@ const FIRE_WARD_MAX_DEPTH = 1;
 const BEACH_X_PER_CELLS = 20;
 // THE LOW-TIER QUOTA'S X MARKS: a tile short of WorldGen.LOW_TIER_CHEST_QUOTA
 // tier-1 chests (entry.lowTierDeficit, topUpAmbientCratesSteps) also lays
-// extra X marks — X_TOP_UP_MAX on a tile with none, in proportion to its
+// extra X marks — X_TOP_UP_MAX (× X_MARK_FREQUENCY) on a tile with none, in proportion to its
 // shortfall. Cells are drawn off WorldGen.cellHash (never the tile's rng
 // stream, so no later draw moves), up to X_TOP_UP_TRIES per mark.
 const X_TOP_UP_MAX = 24;
@@ -583,7 +583,7 @@ class SceneCreatures {
     //                            + low-density random across all tiles.
     //  2) entry.parkingTreasures — one per OSM parking-lot POI (worldgen).
     //  3) entry.extraTreasures   — per-tile random scatter (new). Every tile
-    //                            rolls for 4–10 X marks dropped on random
+    //                            rolls for 6–15 X marks dropped on random
     //                            walkable cells, so X's feel like a regular
     //                            ambient reward instead of a once-a-walk find.
     // All three render + interact through the same code path.
@@ -649,14 +649,14 @@ class SceneCreatures {
         break;
       }
     }
-    // Extra scatter: 4–10 X's per tile on random walkable cells (doubled from
-    // 2–5). Each gets a stable id derived from its cell so save.foundTreasures
+    // Extra scatter: 4–10 X's per tile on random walkable cells, scaled by
+    // X_MARK_FREQUENCY (loot.js) to 6–15. Each gets a stable id derived from its cell so save.foundTreasures
     // persists across reloads. Failed placement attempts (water/building cells)
     // just drop that slot — small scatter variance is fine.
     // Skip the extra-X scatter in test mode — the unified treasure handler
     // runs BEFORE wildplant/creature/till/plant/water dispatches, and tests
     // that tap arbitrary cells would have the tap stolen by a random X.
-    const EXTRA_X_COUNT = testMode ? 0 : (4 + Math.floor(rng() * 7));
+    const EXTRA_X_COUNT = testMode ? 0 : Math.round((4 + Math.floor(rng() * 7)) * X_MARK_FREQUENCY);
     for (let k = 0; k < EXTRA_X_COUNT; k++) {
       let placed = false;
       for (let attempt = 0; attempt < 8 && !placed; attempt++) {
@@ -671,7 +671,7 @@ class SceneCreatures {
 
     // The low-tier quota's X marks (X_TOP_UP_MAX), skipped in test mode for
     // the same reason as the scatter above.
-    const xTopUp = testMode ? 0 : Math.ceil(X_TOP_UP_MAX
+    const xTopUp = testMode ? 0 : Math.ceil(X_TOP_UP_MAX * X_MARK_FREQUENCY
       * Math.min(1, (entry.lowTierDeficit || 0) / WorldGen.LOW_TIER_CHEST_QUOTA));
     for (let k = 0, laid = 0; laid < xTopUp && k < xTopUp * X_TOP_UP_TRIES; k++) {
       const i = (WorldGen.cellHash(tx, ty, k, 0x7a0b) >>> 0) % (N * N);
@@ -701,14 +701,14 @@ class SceneCreatures {
     // below; `sandCells` is the INLAND sand (bunkers, sandpits, volleyball),
     // which keeps the old capped scatter.
     if (pathCells.length > 0) {
-      // 4-8 bonus X marks per tile that has any path (doubled from 2-4).
-      // Capped by path density so a tile with one stub doesn't get spammed —
-      // the cap doubles with the count (one per 2 path cells, was one per 4),
-      // otherwise a thin-path tile clamps at the old number and the extra
-      // marks never appear.
+      // 4-8 bonus X marks per tile that has any path, scaled by
+      // X_MARK_FREQUENCY. Capped by path density so a tile with one stub
+      // doesn't get spammed — the cap scales with the count (one per 2 path
+      // cells at 1×), otherwise a thin-path tile clamps at the old number and
+      // the extra marks never appear.
       const PATH_BONUS_COUNT = Math.min(
-        4 + Math.floor(rng() * 5),
-        Math.max(1, Math.floor(pathCells.length / 2))
+        Math.round((4 + Math.floor(rng() * 5)) * X_MARK_FREQUENCY),
+        Math.max(1, Math.floor(pathCells.length * X_MARK_FREQUENCY / 2))
       );
       const NEIGHBOURS = [[1,0],[-1,0],[0,1],[0,-1]];
       for (let k = 0; k < PATH_BONUS_COUNT; k++) {
@@ -747,8 +747,8 @@ class SceneCreatures {
     // (below, Scenic.beachXCount — its count follows the shoreline).
     if (sandCells.length > 0) {
       const BEACH_BONUS_COUNT = Math.min(
-        4 + Math.floor(rng() * 5),
-        Math.max(1, Math.floor(sandCells.length / BEACH_X_PER_CELLS))
+        Math.round((4 + Math.floor(rng() * 5)) * X_MARK_FREQUENCY),
+        Math.max(1, Math.floor(sandCells.length * X_MARK_FREQUENCY / BEACH_X_PER_CELLS))
       );
       for (let k = 0; k < BEACH_BONUS_COUNT; k++) {
         let placed = false;
@@ -767,7 +767,7 @@ class SceneCreatures {
 
     // THE BEACH'S OWN MARKS (src/scenic.js): the count follows the SHORELINE
     // — Scenic.beachXCount(shoreM), one per BEACH_X_SHORE_M of waterline,
-    // capped at BEACH_X_MAX — not the tile's flat 4-8, so a long beach carries
+    // capped at BEACH_X_MAX, × X_MARK_FREQUENCY — not the tile's flat count, so a long beach carries
     // marks at its own rate. Its OWN stream (seeded off the tile, salted), so
     // no other draw moves; each mark on a shore-sand cell that takes a minor
     // spawn, keyed by position (treasure_sand ids, as before).
@@ -868,6 +868,7 @@ class SceneCreatures {
     if (caughtSet.has(creature.id) || creature._legacyDefeatIds?.some(id => caughtSet.has(id))) return false;
     const kindStr = creature.kind, at = creature._habitatSpawn;
     if ((kindStr === 'crow' || kindStr === 'raven') && pestFree && pestFree.has(at.cx, at.cy)) return false;
+    if (!HabitatSpawns.reserveVisible(creature, Difficulty.get())) return false;
     return kindStr !== 'crow' || EnemySpawns.roll(creature.id + ':mode') < Difficulty.get().crowCountMul;
   }
 
@@ -1751,6 +1752,8 @@ class SceneCreatures {
       // attack lane, including pets and neighbours.
       if (Combat.isParalyzed(c)) { Combat.cancelCreatureAction(c); return; }
       if (c.kind === 'npc') { NPC.tick(this, c, now, npcDt); return; }
+      // A boss's pieces move and bite by their encounter's tick (scene_boss.js).
+      if (EnemyRoster.get(c.kind)?.boss) return;
       const unnoticed = this.isUnnoticed(c);
       const isTame = Combat.isTame(c);
       // Read ONCE per creature per tick: is it a hostile right now, and how
@@ -1801,14 +1804,7 @@ class SceneCreatures {
       // same latch, a third reason, asked only for a haunting kind.
       const haunts = SpriteLayout.creatureHaunts(c.kind);
       const stationary = !!c.stationary || EnemyRoster.isRooted(c.kind);
-      // An ENRAGED game animal (a hunted deer — `fightsBack`, _rageUntil) is
-      // hostile for as long as it is angry, so it takes Home's ward exactly as
-      // an enemy does: one lane, another reason. Warded, it is turned away
-      // and `standDown` switches its butt off.
-      const fightsBack = !isTame ? SpriteLayout.creatureFightsBack(c.kind) : null;
-      const enraged = !!fightsBack && !!c._rageUntil && Date.now() < c._rageUntil;
-      const wardFoe = (!!homePos || castleWards.length > 0 || haunts) && !isTame
-        && (enemy || enraged);
+      const wardFoe = (!!homePos || castleWards.length > 0 || haunts) && !isTame && enemy;
       if (wardFoe) {
         const from = c._wardFrom;
         // A declared stationary foe cannot retreat to release a latch. Recheck
@@ -1846,7 +1842,7 @@ class SceneCreatures {
       // does not turn it, and a garrison hunts the peer it noticed.
       const peerTarget = enemy && !isTame && !haunts && typeof Multiplayer !== 'undefined'
         ? Multiplayer.enemyTarget(this, c, px, py) : null;
-      const kerbTurn = kerbLeash && !peerTarget && !isTame && (enemy || enraged);
+      const kerbTurn = kerbLeash && !peerTarget && !isTame && enemy;
       // ROUTED: turned onto an away angle at the flee pace — by Home's ward, or
       // by wandering off. Two reasons, one pace; the angle chain says away from
       // WHAT (Home, or the player).
@@ -1900,10 +1896,6 @@ class SceneCreatures {
           : NPC.enemyTarget(this, c, rosterRow, px, py, unnoticed)) : null;
       const enemyDt = c._enemyTickT == null ? 0 : Math.min(0.1, Math.max(0, (now - c._enemyTickT) / 1000));
       c._enemyTickT = now;
-      // A HUNTED DEER CHARGES: enraged, and neither warded nor ignoring you
-      // (`unnoticed` — a powder, or a body on an empty bar). Read by the butt
-      // below, the stride and the angle chain, so the three agree.
-      const gameCharge = enraged && !standDown && !unnoticed;
       // A GHOST has its own mover (ghostTick — hover, rush, burn) and its own
       // blow: ONE touch of its row's dmg (Combat.meleeBlow), through the mode,
       // the shield and the armour like every blow (foeBlowLands — the one
@@ -1939,18 +1931,6 @@ class SceneCreatures {
           standDown, enemyDt, npcTarget);
         else rosterEnemyAttack(this, c, rosterRow, now, px, py, unnoticed || standDown, enemyDt);
       }
-      // THE HUNTED DEER'S BUTT: at arm's length (Combat.meleeReachM, the reach
-      // the player swings at) every `hitMs`, for its row's `dmg` through the
-      // melee formula (Combat.meleeBlow) — the mode, the shield and the armour
-      // like every blow, banked and rolled up by the one writer (foeBlowLands).
-      if (gameCharge) {
-        const BUTT_R = Combat.meleeReachM(this.cellM);
-        if (ddx * ddx + ddy * ddy <= BUTT_R * BUTT_R && (!c._nextStealT || now >= c._nextStealT)) {
-          c._nextStealT = now + fightsBack.hitMs;
-          creatureMeleeSwing(c, px, py, BUTT_R / this.cellM);
-          foeBlowLands(this, c, Combat.meleeBlow(c, fightsBack.dmg));
-        }
-      }
       // A LAIR GUARD AT REST DOES NOT MOVE — but it is not switched off.
       // Everything above this line has already run for it: it leeches, a
       // monster kind among them shoots, it takes damage, it dies and pays its
@@ -1981,8 +1961,8 @@ class SceneCreatures {
       }
       // Wild-crow flight rhythm: perch → one eased glide → perch again,
       // casing and raiding a field it notices (_wildCrowTick has the phases).
-      // Owned crows fall through to the generic wander below so
-      // they behave like other pets.
+      // A crow is never tame (SpriteLayout `untameable`); the guard only
+      // keeps a stray legacy row on the generic wander below.
       if (c.kind === 'crow' && !isTame) {
         this._wildCrowTick(c, now, px, py);
         return;
@@ -2003,13 +1983,10 @@ class SceneCreatures {
       // close enough to spook it), or the two-minute escape window a failed
       // net-catch arms (`flee.escapes` over _escapingUntil, set in
       // _drawWorkProgress — the butterfly's, and only ever stamped on one).
-      // A charging deer does not bolt — it comes at you (gameCharge).
-      const bolting = !!bolt && !gameCharge && !Combat.isCalm(c) && (
+      const bolting = !!bolt && !Combat.isCalm(c) && (
         (bolt.cells != null && ddx * ddx + ddy * ddy <= (bolt.cells * this.cellM) ** 2)
         || (!!bolt.escapes && !!(c._escapingUntil && now < c._escapingUntil)));
-      // The charge runs at the kind's own flee stride and beat: one pace for
-      // "in a hurry", whichever way it is going.
-      const sprinting = bolting || (gameCharge && !!bolt);
+      const sprinting = bolting;
       // The one pace multiplier (Combat.paceMul — a shiny's 1.5, a thrown
       // Speed potion's 2, the frost's slow) quickens the beat and lifts the
       // kind's top speed by the same factor.
@@ -2017,14 +1994,12 @@ class SceneCreatures {
       // stepMs = animation duration of the hop itself (short burst); stepM is
       // how far it carries: the kind's gait row, or the loop's own base beat.
       // A ROUTED animal RUNS, at the same pace anything else in a hurry runs
-      // (FLEE_*) — a hunted deer walked out of Home's ring. A rout takes the
-      // stride too, because the thing being asked for is distance, not
-      // urgency.
-      //   NOT ON A SPRINT. A kind already at its bolt (sprinting — bolting,
-      // or a hunted deer's charge) is already in a hurry: the bolt row IS its
-      // hurry pace, tuned under the speed ceiling (WILD_SPEED_CEILING_MPS),
+      // (FLEE_*). A rout takes the stride too, because the thing being asked
+      // for is distance, not urgency.
+      //   NOT ON A SPRINT. A kind already at its bolt (sprinting) is already
+      // in a hurry: the bolt row IS its hurry pace, tuned under the speed ceiling (WILD_SPEED_CEILING_MPS),
       // and the FLEE multipliers on top would stack a run on a run (a routed
-      // deer at four times its bolt). So the rout quickens what was not
+      // bolter at four times its bolt). So the rout quickens what was not
       // already running.
       const hurry = routed && !sprinting;
       let stepMs = (sprinting ? (bolt.stepMs ?? STEP_MS) : (gait?.stepMs ?? STEP_MS))
@@ -2212,13 +2187,6 @@ class SceneCreatures {
             angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 0.4;
           } else if (isFollowing) {
             stepLen = 0;
-          } else if (gameCharge) {
-            // A HUNTED DEER turns on you: every stride at the player, on the
-            // monsters' stalk jitter, until it is close enough to butt.
-            angle = distToPlayer > 0.5 * this.cellM
-              ? Math.atan2(dyp, dxp) + (Math.random() - 0.5) * STALK_JITTER
-              : Math.random() * Math.PI * 2;
-            if (distToPlayer > 0.5 * this.cellM) stepLen = Math.min(stepM, Math.max(0, distToPlayer - 0.5 * this.cellM));
           } else if (bolting) {
             // AWAY FROM THE PLAYER, at the kind's own spread: a rabbit
             // zig-zags in a panic (wide jitter), a deer runs a committed line
@@ -2240,8 +2208,8 @@ class SceneCreatures {
             // (roadsideRunAngle) — along the street, not through the yards.
             angle = roadsideRunAngle(this, c, angle) ?? angle + (Math.random() - 0.5) * 0.8;
           } else if (kerbTurn) {
-            // TURNED BACK AT THE KERB (an enraged deer; a foe's kerb turn is
-            // rosterEnemyMove's): away from the PLAYER, on the same spread as
+            // TURNED BACK AT THE KERB (a roster foe's kerb turn is
+            // rosterEnemyMove's; this is every other foe's): away from the PLAYER, on the same spread as
             // the rout above. An angle, not a refused cell, for the same
             // reason as the rout; the cell tests below still refuse water
             // and rocks. Among houses it runs the ROADSIDE (roadsideRunAngle).

@@ -26,9 +26,40 @@
 //   standWordItem, standNameItems, subclassProductFor, produceStandFor
 //   MACRO_KIND_BY_CLASS, MACRO_KINDS, macroFor
 //   chestLook, chestOpeningArt
+//   GREAT_X, isGreatX, treasureContextFor, X_MARK_FREQUENCY
 //
 // Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade)
 // live in rarity.js's pickReward + classBias engine.
+
+// === The GREAT X ===
+// A rarer X mark drawn thick and dark red (render.js drawX) whose dig rolls
+// `context` (rarity.js 'treasure:great': gold, a tool or weapon, or other
+// equipment) instead of the ordinary X's seeds-and-stone pool. It is the same
+// mark otherwise — same hiding, reach and found-ledger. `share` of EVERY X
+// mark is great, whatever stream laid it (scatter, parking, quota, path,
+// beach, a hoard, a cave): chosen off the mark's stable id, so every player
+// sees the same ones and no rng draw moves. A mark may also say so itself
+// (`great: true|false` — the sandbox's).
+const GREAT_X = {
+  context: 'treasure:great', share: 1 / 10, salt: 0x6e0b0b,
+  color: 0x6e0b0b, caveColor: 0xb02020, alpha: 0.9, width: 4, halfSize: 6.5,
+};
+// HOW THICK X MARKS LIE. Every ambient X stream scales its count by this:
+// the tile scatter, the low-tier quota's marks, the footpath and inland-sand
+// bonuses (scene_creatures.js), the shoreline's (Scenic.beachXCount) and each
+// cave floor's (worldgen.js CAVE_PASSES treasureMarks). Authored marks (a
+// parking lot's, a hoard's) stay one per site.
+const X_MARK_FREQUENCY = 1.5;
+// Is this X mark a great one?
+function isGreatX(mark) {
+  if (!mark) return false;
+  if (typeof mark.great === 'boolean') return mark.great;
+  return (fnv1aFrom(GREAT_X.salt, mark.id) >>> 0) / 0x100000000 < GREAT_X.share;
+}
+// The loot context a dug mark rolls.
+function treasureContextFor(mark) {
+  return isGreatX(mark) ? GREAT_X.context : 'treasure:default';
+}
 
 // === Rustic name transform ===
 // Maps modern words → medieval/farm equivalents. Whole-word, case-insensitive.
@@ -234,7 +265,10 @@ function chestThemeForPoi(poiClass) {
 // poiClass's ordinary theme ('park', src/loot.js POI_CATEGORY.vista) — only
 // the grail gets its own row. Interactables reads this, never
 // chestThemeForPoi(o.poiClass) directly, for any chest.
+// A BOSS's hoard (o.bossChest — scene_boss.js) is the 'boss' theme:
+// equipment or a unique relic.
 function chestThemeFor(o) {
+  if (o && o.bossChest) return 'boss';
   return (o && o.vista === 'grail') ? 'vista' : chestThemeForPoi(o && o.poiClass);
 }
 

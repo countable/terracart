@@ -283,26 +283,48 @@
     return { n, jumped };
   }
 
-  // Growth Powder: spring every unripe crop within `radius` metres of (pwx,
-  // pwy) ONE stage ahead, on the spot and with no watering involved. A held
-  // watering is left in place (the can's jump above doesn't spend one either,
-  // and neither does this) — except on a plant that just ripened, which can
-  // no longer spend it. Returns how many plants moved.
-  //
-  // Pass an array as `movedPlants` to be told WHICH ones moved, as waterWithin
-  // reports its jumps: the scene bursts a 'sprout' on each.
-  function advanceWithin(save, pwx, pwy, radius, movedPlants = null) {
+  // Growth Powder: everything growing within `radius` metres of (pwx, pwy)
+  // COMPLETES the stage it is on, at once — every timer it is waiting on ends
+  // (owner, Oct 2026: "complete the current stage, end all timers"):
+  //   a CROP finishes its stage as advanceGrowth would — watered or not, the
+  //     next stage, and it waits for a fresh watering (a held one is spent);
+  //   a PLANTED TREE (save.fruittrees: an apple, a peach, an acorn's timber)
+  //     reaches its next growth stage — planted_t moves back to that stage's
+  //     boundary (FRUIT_STAGE_MS quarters; a timber tree's plantedTreeStage
+  //     halves of PLANTED_TREE_GROW_MS);
+  //   a PICKED fruit tree's regrowth ends (save.fruitPicked) — the planted
+  //     ones here, and any wild ones the caller lists in `pickedIds` (the
+  //     scene finds those on the map).
+  // Returns how many moved; `moved` (optional array) is told which crops and
+  // planted trees did, so the scene can burst a 'sprout' on each and re-seat
+  // a live tree's planted_t.
+  function completeStageWithin(save, pwx, pwy, radius, moved = null, now = Date.now(), pickedIds = []) {
     const r2 = radius * radius;
+    const near = o => (o.x - pwx) ** 2 + (o.y - pwy) ** 2 <= r2;
     let n = 0;
+    const hit = o => { n++; if (moved) moved.push(o); };
     for (const p of save.planted || []) {
-      if ((p.stage ?? 0) >= maxStage()) continue;
-      const dx = p.x - pwx, dy = p.y - pwy;
-      if (dx * dx + dy * dy > r2) continue;
+      if ((p.stage ?? 0) >= maxStage() || !near(p)) continue;
       p.stage = (p.stage ?? 0) + 1;
-      if ((p.stage ?? 0) >= maxStage()) p.watered_t = 0;
-      n++;
-      if (movedPlants) movedPlants.push(p);
+      p.watered_t = 0;
+      hit(p);
     }
+    const picked = save.fruitPicked && typeof save.fruitPicked === 'object' ? save.fruitPicked : null;
+    const unpick = id => {
+      if (!picked || !Ledger.waitMs(picked, id, now, FRUIT_RESPAWN_MS)) return false;
+      delete picked[id];
+      return true;
+    };
+    for (const t of save.fruittrees || []) {
+      if (!near(t)) continue;
+      const age = now - (t.planted_t || 0);
+      const next = t.kind === 'tree'
+        ? (age < PLANTED_TREE_GROW_MS / 2 ? PLANTED_TREE_GROW_MS / 2 : age < PLANTED_TREE_GROW_MS ? PLANTED_TREE_GROW_MS : null)
+        : (age < 4 * FRUIT_STAGE_MS ? (Math.floor(age / FRUIT_STAGE_MS) + 1) * FRUIT_STAGE_MS : null);
+      if (next != null) { t.planted_t = now - next; hit(t); }
+      else if (t.kind !== 'tree' && unpick(t.id)) hit(t);
+    }
+    for (const id of pickedIds) if (unpick(id)) n++;
     return n;
   }
 
@@ -342,7 +364,7 @@
   }
 
   root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, markFruitPicked, fruitTreeState, STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, CAN_TOP_TIER, maxStage, isMature, raiderEats,
-                 advanceGrowth, waterWithin, waterOne, waterJumpChance, advanceWithin,
+                 advanceGrowth, waterWithin, waterOne, waterJumpChance, completeStageWithin,
                  bedQuality, setBedQuality, clearBedQuality, takeBedQuality,
                  forEachInBox, invalidateSpatialIndex, EFFECTS, EFFECT_SCAN_MS, effectFor, tickPlantEffect, tickEffects };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

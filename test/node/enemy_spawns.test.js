@@ -45,7 +45,8 @@
     const signature = arr => arr.map(c => `${c.id}:${c.kind}:${c.x},${c.y}:${c.shiny}`).join('|');
     assert.gt(easy.length, 30, 'the existing shared enemy budget remains populated');
     assert.lte(easy.length, 50, 'new species divide the budget');
-    assert.eq(signature(easy), signature(hard), 'crow mode thinning cannot change subsequent enemy draws');
+    assert.eq(signature(easy), signature(hard.filter(c => !c._landEnemyReserve)), 'crow mode thinning cannot change subsequent enemy draws');
+    assert.gt(hard.length, easy.length, 'hard adds the landcover reserve on top of the shared draws');
     const killed = easy[0].id;
     const after = run('easy', [killed]).filter(c => c._surfaceSpawn);
     assert.eq(signature(after), signature(easy.filter(c => c.id !== killed)), 'a kill suppresses only its own candidate');

@@ -22,6 +22,8 @@ test('elite: every shiny row doubles HP and damage; armour remains the same', ()
     assert.eq(Combat.maxHp(plain), row.hp);
     assert.eq(Combat.maxHp(elite), row.hp * multiplier);
     assert.eq(Combat.powerMul(elite), multiplier);
+    // The serpent's head and tail tip are never struck (Combat.isConcealed).
+    if (row.untargetable) { assert.eq(Combat.damageDealt(elite, row.hp), 0, `${row.id} takes no blow`); continue; }
     const removed = Combat.damageDealt(elite, row.hp);
     assert.eq(removed, Math.min(row.hp * multiplier, Combat.mitigate(row.hp, row.armor)));
     assert.eq(Combat.hpFraction(elite), (row.hp * multiplier - removed) / (row.hp * multiplier));

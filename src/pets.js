@@ -12,9 +12,10 @@
   const eligible = kind => ITEM_BY_ID[species(kind)]?.kind === 'animal' || Object.hasOwn(ANIMAL_FOOD,species(kind));
   // What a wild one can be caught as a pet: an animal, or any ENEMY — except
   // a story's own foe (a story-encounter archer, a roster row with a
-  // storyReward), whose defeat moves the story on.
+  // storyReward), whose defeat moves the story on, and an `untameable` kind
+  // (the crow: hunted, never kept).
   const catchable = c => {
-    if (!c || c.storyEncounter) return false;
+    if (!c || c.storyEncounter || SpriteLayout.isUntameable(species(c.kind))) return false;
     const row = typeof EnemyRoster !== 'undefined' ? EnemyRoster.get(species(c.kind)) : null;
     return row ? !row.storyReward : eligible(c.kind);
   };

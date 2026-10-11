@@ -93,6 +93,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   creature's status (sleep, charm, frost, fear, psychosis) is a row of
   `Combat.STATUS_LOOKS` and one `Combat.flagStatus` call at its applier;
   render.js flicks and pops it through `_popCreatureText`.
+- Bearings on the map rim are rows of `MARKERS` (app.js). Each row's slot
+  holds a list of marks, so any number of them show at once: several
+  neighbours' directions, telescope finds, maps and the Pairy together. Writers
+  add with `Buffs.withMark`: a mark on the same target replaces or extends,
+  a new target adds a mark, and nothing refuses or clears another mark.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls
@@ -111,6 +116,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   revealing the player’s identity or the wizard’s secret. Preserve approved
   excerpts and keep `ITEM_GUIDE_TIPS` as the owner of shared item parables. Authors
   describe their world, not interface elements such as work circles or health bars.
+- Every temple awakening and every temple trial win names the condition it
+  met as a `Condition met:` line: the awakening story's body (the enemy count,
+  or the shrine spirit for an enemy-free park), the gift card's `sub`, and a
+  repeat win's note. Trial conditions are `TemplePuzzles.WIN_CONDITIONS` rows,
+  passed through `Temples.complete(scene, o, condition)`.
 - Story delivery separates required, ordered canon from optional, asynchronous
   lore (docs/design/story.txt, ACT STRUCTURE). Memory and restoration are independent
   progress tracks; required events join them through prerequisites and world

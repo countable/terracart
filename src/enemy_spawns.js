@@ -301,6 +301,10 @@
     if (!c || c._sharedId !== true || typeof c.id !== 'string' || !SHARED_ID_RE.test(c.id)) return false;
     // The original body becomes one private half; exclude the entire species.
     if (root.EnemyRoster.get(c.kind)?.ability?.type === 'split') return false;
+    // A BOSS's piece (`boss` — the serpent's key, scene_boss.js) likewise
+    // only while that save holds its fight live (BossEncounters).
+    if (c.boss) return !!save && typeof BossEncounters !== 'undefined'
+      && BossEncounters.active(save, root.EnemyRoster.get(c.kind)?.boss, c.boss);
     return !c.castle || (!!save && !!root.Houses?.citadelBattleActive(save, c.castle));
   }
   // Legacy IDs encode ordinal seats (pack) or cells (roamers). Match either

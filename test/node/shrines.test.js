@@ -162,7 +162,7 @@
     assert.truthy(Shrines.grant(save, 'wayfarer_post', T0, scene));
     assert.eq(save.energy, 5 + FOOD_ENERGY.pairy);
     assert.truthy(save.eaten.includes('pairy'), 'first taste is recorded');
-    assert.eq(scene.pairyCompass.until, T0 + CONSUMABLE_SPEC.pairy.durationMs);
+    assert.eq(scene.pairyCompass[0].until, T0 + CONSUMABLE_SPEC.pairy.durationMs);
     assert.eq(save.eatReadyAt, T0 + 99999, 'cooldown unchanged and bypassed');
     assert.eq(save.speedPotionUntil, undefined, 'no speed potion');
     assert.eq(Buffs.active(save, scene, T0).map(r => r.id).join(','), 'compass', 'the compass shows as the one countdown');

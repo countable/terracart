@@ -40,6 +40,16 @@
     e._spawnOpts.spawnWhy[27] = 0; e._spawnOpts.roadMask[27] = 1;
     assert.falsy(Whirlwinds.ground(s, 24, 24));
   }));
+  test('whirlwind: forms only on grass, pitch and schoolyard terrain', () => fixture((s, e) => {
+    const T = WorldGen.T;
+    for (const type of [T.GRASS, T.PITCH, T.SCHOOL]) {
+      e.grid.fill(type); assert.truthy(Whirlwinds.ground(s, 24, 24), `type ${type} allowed`);
+    }
+    for (const type of [T.PARK, T.PLAYGROUND]) {
+      e.grid.fill(type); assert.falsy(Whirlwinds.ground(s, 24, 24), `type ${type} excluded`);
+      assert.truthy(Whirlwinds.ground(s, 24, 24, null, true), 'a gust still crosses it');
+    }
+  }));
   test('whirlwind: warning is harmless, active contact damages once per cooldown', () => fixture(s => {
     const h = Whirlwinds.create({ x: 24, y: 24 }, 0, () => .5, 'test');
     s._whirlwinds = [h];

@@ -2,11 +2,11 @@
 test('chest themes: T2 acorns fill the budget with a stack while fruit saplings stay single', () => {
   assert.eq(itemValue('acorn'), 5);
   assert.eq(itemValue('scarecrow'), 20);
-  // T2's current 24-coin allowance buys 4.8 acorns: round up to five.
-  // Better brackets already hit that stack cap; the old 8-coin budget no
-  // longer governs this reward after main's chest-value increase.
-  for (const bracket of [0, 1, 2, 3]) {
-    assert.eq(ChestThemes.quantity('acorn', 2, bracket), 5, 'T2 fills the planting stack');
+  // T2's 24-coin budget at the seed share buys 3.84 acorns: round up to four.
+  // A bracket raises the budget into the five-tree stack cap.
+  assert.eq(ChestThemes.quantity('acorn', 2, 0), 4, 'T2 pays a planting stack');
+  for (const bracket of [1, 2, 3]) {
+    assert.eq(ChestThemes.quantity('acorn', 2, bracket), 5, 'brackets fill the planting stack');
   }
   assert.eq(ChestThemes.quantity('acorn', 7, 3), 5, 'ordinary stack cap still applies');
   for (const id of ['apple_sapling', 'worldpeach_sapling']) assert.eq(ChestThemes.quantity(id, 7, 3), 1);
@@ -15,8 +15,9 @@ test('chest themes: T2 acorns fill the budget with a stack while fruit saplings 
 test('chest themes: every authored path terminates and conserves probability', () => {
   assert.truthy(ChestThemes.validate());
   // Memorials mint no chest, and the unused pets theme is gone because
-  // OpenMapTiles represents pet stores as shop/pet commerce POIs.
-  assert.eq(Object.keys(ChestThemes.themes).length, 13);
+  // OpenMapTiles represents pet stores as shop/pet commerce POIs. `boss` is
+  // a slain boss's hoard (scene_boss.js), never a POI's.
+  assert.eq(Object.keys(ChestThemes.themes).length, 14);
   assert.falsy(ChestThemes.themes.memorial, 'no memorial theme');
   for (const theme of Object.keys(ChestThemes.themes)) for (let tier = 1; tier <= 7; tier++) {
     for (const depth of [0, 1]) {
@@ -121,8 +122,8 @@ test('chest themes: health stays in its medical-magic lane', () => {
 });
 
 test('chest themes: quantities use actual item price once and discard excess allowance', () => {
-  assert.eq(ChestThemes.quantity('healing_potion', 4, 0), 6);
-  assert.eq(ChestThemes.quantity('revival_potion', 4, 0), 6);
+  assert.eq(ChestThemes.quantity('healing_potion', 4, 0), 3);
+  assert.eq(ChestThemes.quantity('revival_potion', 4, 0), 3);
   assert.eq(ChestThemes.quantity('healing_potion', 5, 0), 6);
   for (const id of ['elixir', 'resurrection_potion', 'book', 'sunflower_seed', 'fireflower_seed', 'iceflower_seed']) {
     assert.eq(ChestThemes.quantity(id, 7, 3), 1, id + ' is a single reward');
@@ -263,4 +264,35 @@ test('chest themes: all authored pools exclude tomes and retain other unique rel
   for (const kind of Object.values(ITEMS_BY_CLASS_TIER)) for (const ids of Object.values(kind)) {
     for (const id of ids) assert.falsy(isTome(id), id + ' cannot enter generic treasure or barrel loot');
   }
+});
+
+test('reward rolls: a stack is the roll budget over the price, and a qty jackpot only raises the budget', () => {
+  assert.eq(ChestThemes.budget(2, 0), TIER_VALUE[2]);
+  assert.eq(ChestThemes.budget(2, 2), TIER_VALUE[2] * 2, 'each bracket adds half the tier budget');
+  // A same-tier roll with no brackets: about two potions, about four seeds.
+  assert.eq(ChestThemes.quantity('reach_potion', 4, 0), 2);
+  assert.eq(ChestThemes.quantity('starfruit_seed', 3, 0), 4);
+  // Brackets are budget, not a capped counter: quantity steps past three
+  // still grow the budget instead of turning into consolation coins.
+  const q = rollRewardQuality({ chainSteps: 6, chainMax: 1, maxTier: 1 }, 'seed', { relics: {}, armor: {} }, () => 0);
+  assert.gt(q.bracket, 3);
+  assert.eq(q.wastedQtyBumps, 0);
+  // Every reward context sizes its stacks through the one budget function;
+  // no context adds dice or a flat bonus on top.
+  const original = ChestThemes.quantity;
+  let last = null;
+  ChestThemes.quantity = (...args) => (last = original(...args));
+  try {
+    const rng = makeRng32(77);
+    for (const ctx of ['treasure:default', 'treasure:elite', 'treasure:road', 'treasure:vista', 'treasure:shrine', 'chest:farm']) {
+      for (let i = 0; i < 300; i++) {
+        last = null;
+        const r = pickReward(ctx, { relics: {}, armor: {} }, rng, { tier: 3, rollBonus: i % 4 });
+        if (r?.kind !== 'item' || r.cls === 'bundle' || r.cls === 'unique_relic') continue;
+        assert.eq(r.qty, last, `${ctx} ${r.id} uses the budget quantity`);
+      }
+    }
+  } finally { ChestThemes.quantity = original; }
+  assert.falsy(/LOW_TIER_SEED_QTY_BONUS/.test(INTERACT_SRC.slice(INTERACT_SRC.indexOf('function grantTreasureRoll('))),
+    'a treasure roll adds no seed bonus to the budgeted stack');
 });

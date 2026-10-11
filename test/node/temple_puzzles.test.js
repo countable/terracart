@@ -25,11 +25,11 @@
   test('temple puzzles: secret path preview expires and wrong turns reset it', () => {
     let s = P.create({ kind: 'path', size: 7 });
     assert.eq(P.move(s, 0, -1).player.y, s.player.y, 'cannot walk during preview');
-    s = P.tick(s, 3);
+    s = P.tick(s, P.PATH_REVEAL_SECONDS);
     assert.eq(s.phase, 'walk'); assert.eq(s.revealRemaining, 0);
     s = P.move(s, 1, 0);
     assert.eq(s.phase, 'reveal'); assert.eq(s.pathIndex, 0);
-    s = P.tick(s, 3);
+    s = P.tick(s, P.PATH_REVEAL_SECONDS);
     for (const p of s.path.slice(1)) s = P.move(s, p.x - s.player.x, p.y - s.player.y);
     assert.eq(s.status, 'won');
   });
@@ -105,7 +105,7 @@
       let s = P.create({kind:'path',size:7,seed});
       signatures.add(JSON.stringify(s.path));
       assert.eq(JSON.stringify(s.path), JSON.stringify(P.create({kind:'path',size:7,seed}).path));
-      s = P.tick(s, 3);
+      s = P.tick(s, P.PATH_REVEAL_SECONDS);
       for (const p of s.path.slice(1)) s = P.move(s, p.x - s.player.x, p.y - s.player.y);
       assert.eq(s.status,'won');
     }

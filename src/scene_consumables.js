@@ -76,6 +76,18 @@ const CAST_ROWS = {
   fear_scroll: { noun: 'scroll', clock: 'perf',
     apply: (s, c, now) => { monsterRout(c, now, s.cellM); Combat.applyFear(c, CONSUMABLE_SPEC.fear_scroll.durationMs, now); },
     note: (s, n, felled, id) => s.flashLoot('The beasts turn and flee.', Combat.STATUS_LOOKS.fear.color, 1.8, id) },
+  // A gust: CONSUMABLE_SPEC.wind_scroll.damage through _damageEnemy, and
+  // whatever it leaves standing is blown pushCells straight away from the
+  // reader (Whirlwinds.impulse — the one knockback; any walkable ground).
+  wind_scroll: { noun: 'scroll', clock: 'perf', scope: 'reach',
+    apply: (s, c, now, damage) => {
+      if (s._damageEnemy(c, damage)) return true;
+      const p = playerWorldM(s);
+      Whirlwinds.impulse(s, c, { x: p.x, y: p.y, heading: Math.atan2(c.y - p.y, c.x - p.x) }, now, false,
+        { cells: CONSUMABLE_SPEC.wind_scroll.pushCells, anyGround: true });
+      return false;
+    },
+    note: (s, n, felled, id) => s.flashLoot('🌬 The gust hurls them back.', '#9fd8ff', 1.8, id) },
   sleep_powder: { noun: 'powder', clock: 'wall',
     apply: (s, c, now) => Combat.applySleep(c, now),
     note: (s, n, felled, id) => s.flashLoot(`Sleep falls for ${shortDuration(CONSUMABLE_SPEC.sleep_powder.durationMs)}.`, '#bca5e8', 1.8, id) },
@@ -525,25 +537,25 @@ class SceneConsumables {
   // form). No flight, no separate movement mode: a dragon walks the way
   // everyone walks.
 
-  // Growth Powder: every crop within 20 m springs ahead ONE stage on the spot,
-  // watered or not (Crops.advanceWithin — the crop model stays in crops.js).
-  // Refused, and the powder kept, when no unripe crop is in range: a scatter
-  // that moved nothing is not a use.
+  // Growth Powder: everything growing within 20 m completes its current stage
+  // on the spot — every timer ends (Crops.completeStageWithin — the crop model
+  // stays in crops.js). Refused, and the powder kept, when nothing in range
+  // is waiting on anything: a scatter that moved nothing is not a use.
   useGrowthPowder() {
     if (!this._selectedConsumable('growth_powder')) return false;
-    const n = this.advanceCropsWithin(GROWTH_POWDER_R_M);
+    const n = this.completeStagesWithin(GROWTH_POWDER_R_M);
     if (n <= 0) {
-      this.flash(`No crop within ${GROWTH_POWDER_R_M}m — kept.`,
+      this.flash('Nothing growing here — kept.',
         this.viewCenterX, this.viewCenterY);
       return false;
     }
     // THE BLAST — the same fanfare a street and a wreck get, scaled to what a
-    // scatter of powder covers. advanceCropsWithin has already thrown a
+    // scatter of powder covers. completeStagesWithin has already thrown a
     // 'sprout' over every plant that moved (the leaves ARE the growth); this
     // is the green ring around them, off the powder's own radius so the flash
     // says how far the scatter reached rather than going off at the feet. It
     // is thrown from the PLAYER's world point — the powder leaves the hand,
-    // and the sweep it drives is centred there too (advanceCropsWithin reads
+    // and the sweep it drives is centred there too (completeStagesWithin reads
     // the same point), so the ring and the crops it sprang share a centre.
     const feet = playerWorldM(this);
     this._blastAt(feet.x, feet.y, {
@@ -552,7 +564,7 @@ class SceneConsumables {
       sparks: 'greenspark',
     });
     this._consumeSelected();
-    this.flashLoot(`🌱 ${n} crop${n === 1 ? '' : 's'} sprang ahead`, UI_GREEN, 1.8, 'growth_powder');
+    this.flashLoot(`🌱 ${n} plant${n === 1 ? '' : 's'} grew a stage`, UI_GREEN, 1.8, 'growth_powder');
     return true;
   }
 
@@ -744,7 +756,8 @@ class SceneConsumables {
   }
 
   // The map's mark EXTENDS like every timed thing (Buffs.laterOf): a second
-  // map read inside the first's quarter hour banks the time on the new mark.
+  // map read on the same chest banks the time; one on another chest adds a
+  // second mark beside the first (Buffs.withMark).
   useTreasureMap() {
     const sel = this._selectedConsumable('treasure_map');
     if (!sel) return false;
@@ -753,8 +766,8 @@ class SceneConsumables {
       this.flashAtPlayer(kept('No treasure found', 'map'));
       return false;
     }
-    this.save.treasureCompass = { x: target.x, y: target.y, targetId: target.id,
-      depth: this.depth || 0, until: Buffs.laterOf(this.save.treasureCompass?.until, CONSUMABLE_SPEC.treasure_map.durationMs) };
+    this.save.treasureCompass = Buffs.withMark(this.save.treasureCompass, { x: target.x, y: target.y, targetId: target.id,
+      depth: this.depth || 0 }, CONSUMABLE_SPEC.treasure_map.durationMs);
     this._spendScroll(sel.id);
     this.flashLoot(`Treasure marked for ${shortDuration(CONSUMABLE_SPEC.treasure_map.durationMs)}.`, '#ffd166', 1.8, sel.id);
     return true;
@@ -1046,9 +1059,9 @@ class SceneConsumables {
     } else if (id === 'pairy') {
       const target = this.findNearestUnopenedChest();
       if (target) {
-        this.pairyCompass = { targetId: target.id, x: target.x, y: target.y,
-          until: Buffs.laterOf(this.pairyCompass?.until, CONSUMABLE_SPEC.pairy.durationMs, now) };
-        extra = `\n🧭 chest compass: ${shortDuration(this.pairyCompass.until - now)}`;
+        this.pairyCompass = Buffs.withMark(this.pairyCompass, { targetId: target.id, x: target.x, y: target.y },
+          CONSUMABLE_SPEC.pairy.durationMs, now);
+        extra = `\n🧭 chest compass: ${shortDuration(this.pairyCompass.at(-1).until - now)}`;
       } else {
         extra = `\n🧭 no chests nearby`;
       }
@@ -1121,7 +1134,7 @@ class SceneConsumables {
           status.textContent = 'Nothing like that in sight. Try another search or another lookout.';
           return;
         }
-        this.save.telescopeCompass = target;
+        this.save.telescopeCompass = Buffs.withMark(this.save.telescopeCompass, target);
         persistSave(this.save);
         wrap.remove();
         this.flash('Follow the golden dot.', sx, sy);
@@ -1210,17 +1223,30 @@ class SceneConsumables {
     return n;
   }
 
-  // Spring every unripe crop within ${radius} metres of the player one stage
-  // ahead, no watering involved (the Growth Powder). Returns the count.
-  advanceCropsWithin(radius) {
-    const { x: pWX, y: pWY } = playerWorldM(this);
-    // Leaf flecks off each plant that sprang — the SAME cue the 15-minute
-    // tick (advanceGrowth) and the can's jump (waterCropsWithin) throw, for
-    // the same event. _burstAtWorld drops the ones off-screen, so a scatter
-    // at the edge of a big plot only pays for the leaves you can see.
-    const movedPlants = [];
-    const n = Crops.advanceWithin(this.save, pWX, pWY, radius, movedPlants);
-    for (const p of movedPlants) this._burstAtWorld('sprout', p.x, p.y);
+  // Everything growing within `radius` metres of the player completes its
+  // current stage (the Growth Powder — Crops.completeStageWithin owns the
+  // rule). The scene's part: the WILD fruit trees on the map in reach (their
+  // picks are save.fruitPicked, but their places are the map's), and the
+  // live tree objects, which carry their own copy of planted_t. Returns the
+  // count.
+  completeStagesWithin(radius) {
+    const { x: pWX, y: pWY } = playerWorldM(this), now = Date.now();
+    const picked = [], live = new Map();
+    for (const entry of WorldGen.tileCache.values()) {
+      WorldGen.forEachItemInBox(entry, 'objects', pWX - radius, pWY - radius, pWX + radius, pWY + radius, o => {
+        if (o.kind === 'fruittree' && !o.planted && (o.x - pWX) ** 2 + (o.y - pWY) ** 2 <= radius * radius) picked.push(o.id);
+        if (o.planted) live.set(o.id, o);
+      });
+    }
+    const moved = [];
+    const n = Crops.completeStageWithin(this.save, pWX, pWY, radius, moved, now, picked);
+    // Leaf flecks off each plant that grew — the SAME cue the 15-minute tick
+    // (advanceGrowth) and the can's jump (waterCropsWithin) throw, for the
+    // same event. _burstAtWorld drops the ones off-screen.
+    for (const p of moved) {
+      if (p.planted_t != null && live.has(p.id)) live.get(p.id).planted_t = p.planted_t;
+      this._burstAtWorld('sprout', p.x, p.y);
+    }
     return n;
   }
 

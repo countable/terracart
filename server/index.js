@@ -20,6 +20,7 @@
 //     { t:'seen', ids:[id...], d }                    these enemies are alive here │ ≤ MAX_ENEMY_FRAMES_PER_S
 //     { t:'dead', ids:[id...], d }                    these enemies are dead (reply)│ together; extras
 //     { t:'battle', key, startedAt, d }               my castle battle is on       │ dropped, not fatal
+//     { t:'boss', key, startedAt, d, x, y, h }        my boss's head pose (feed)   │
 //     { t:'aggro', eid, pid, d }                      enemy `eid` is after player `pid` │
 //     { t:'group', groups:[{id,p}...], d }            encounter party-size high-water marks ┘
 //   server → client
@@ -33,6 +34,7 @@
 //     { t:'seen',  id, ids, d }                       a peer has these enemies loaded, alive (within INTEREST_PX)
 //     { t:'dead',  id, ids, d }                       a peer knows these enemies are dead (within INTEREST_PX)
 //     { t:'battle', id, key, startedAt, d }           a peer's castle battle (within INTEREST_PX)
+//     { t:'boss', id, key, startedAt, d, x, y, h }    a peer's boss head pose (within INTEREST_PX)
 //     { t:'aggro', id, eid, pid, d }                  a peer's copy of `eid` targets `pid` (within INTEREST_PX)
 //     { t:'group', id, groups, d }                   a peer's encounter sizes (within INTEREST_PX)
 //     { t:'leave', id }                               a peer's socket closed
@@ -60,7 +62,9 @@
 // dead answers to everyone nearby, so a player who missed a kill learns it.
 // `battle` names a castle (CASTLE_KEY_RE — src/houses.js CASTLE_KEY_RE) and
 // the epoch-ms its battle started; receivers adopt or merge it (the earlier
-// start wins). `aggro` says the sender's copy of enemy `eid` chose player
+// start wins). `boss` names a boss fight (BOSS_KEY_RE — the serpent a Serpent
+// Idol raised, src/scene_boss.js), its epoch-ms start and its head's world-px
+// pose and heading (radians); receivers adopt the fight and follow it. `aggro` says the sender's copy of enemy `eid` chose player
 // `pid` (a relay id) as its target. `group` carries 1..MAX_IDS encounter IDs
 // (the same charset) and integer party sizes 2..MAX_GROUP_PARTY. Receivers
 // merge each encounter's size upward; the relay stores no encounter state.
@@ -112,6 +116,7 @@ const MAX_GROUP_PARTY = 32;
 // (under 4 KiB including JSON). Keep room for the largest legal batch.
 const MAX_PAYLOAD_BYTES = 4096;
 const CASTLE_KEY_RE = /^b_-?\d{1,9}_-?\d{1,9}$/;    // src/houses.js CASTLE_KEY_RE
+const BOSS_KEY_RE = /^serpent_\d{1,16}$/;          // src/multiplayer.js BOSS_KEY_RE
 const MAX_FLAGS = 255;        // presence `g`: a byte of targeting flags
 const MAX_VISION_CUT = 15;    // presence `v`: cells off an enemy's sight
 // A socket that has not answered a ping in this long is dead (phone locked,
@@ -173,6 +178,16 @@ function cleanBattle(msg) {
   if (!Number.isSafeInteger(startedAt) || startedAt <= 0) return null;
   if (!Number.isInteger(d) || d < 0) return null;
   return { key, startedAt, d };
+}
+// A well-formed boss feed's relayed fields, or null to drop it.
+function cleanBoss(msg) {
+  const { key, startedAt, d, x, y, h } = msg;
+  const coordinate = n => Number.isFinite(n) && n >= 0 && n <= 4194304;
+  if (typeof key !== 'string' || !BOSS_KEY_RE.test(key)) return null;
+  if (!Number.isSafeInteger(startedAt) || startedAt <= 0) return null;
+  if (!Number.isInteger(d) || d < 0) return null;
+  if (!coordinate(x) || !coordinate(y) || !Number.isFinite(h) || Math.abs(h) > 1000) return null;
+  return { key, startedAt, d, x, y, h };
 }
 // A well-formed aggro's relayed fields, or null to drop it.
 function cleanAggro(msg) {
@@ -290,7 +305,7 @@ function cleanGroups(msg) {
 // The enemy frames: one shared budget, each with its own cleaner.
 // A Map, not an object literal: `constructor` or `__proto__` is no frame type.
 const ENEMY_FRAMES = new Map([['hit', cleanHit], ['damage', msg => msg.o === undefined ? null : cleanHit(msg)], ['state', cleanState], ['seen', cleanIds], ['dead', cleanIds],
-                              ['battle', cleanBattle], ['aggro', cleanAggro], ['group', cleanGroups]]);
+                              ['battle', cleanBattle], ['boss', cleanBoss], ['aggro', cleanAggro], ['group', cleanGroups]]);
 
 function createRelay(server) {
   const wss = new WebSocketServer({ server, maxPayload: MAX_PAYLOAD_BYTES });
@@ -413,7 +428,7 @@ if (require.main === module) {
 }
 
 // What server/test.js drives; nothing else requires this module.
-module.exports = { createServer, cleanName, cleanLabel, cleanHit, cleanIds, cleanBattle, cleanAggro, cleanGroups, cleanEnemyState, cleanState, cleanEnergy, cleanSmallInt,
+module.exports = { createServer, cleanName, cleanLabel, cleanHit, cleanIds, cleanBattle, cleanBoss, cleanAggro, cleanGroups, cleanEnemyState, cleanState, cleanEnergy, cleanSmallInt,
                    SYNC_MAX_ORIGINS, SYNC_MAX_TOTAL,
                    INTEREST_PX, MAX_MSGS_PER_S, MAX_ENEMY_FRAMES_PER_S, MAX_IDS, MAX_GROUP_PARTY, MAX_FLAGS, MAX_VISION_CUT,
                    sendFrame, checkSlowConsumer, POSITION_BUFFER_BYTES, MAX_OUTBOUND_BYTES, SLOW_PING_LIMIT };

@@ -6205,15 +6205,27 @@
     //    spawn pass. The cell's terrain is stamped onto the
     //    kept wildplant as `_biome` so the renderer can apply the biome's flora
     //    tint (e.g. golden field grass, swampy reeds).
+    //    A habitat-exclusive crop (BiomeProfiles.exclusive — the school's
+    //    forget-me-nots) also skips any cell a mapped park polygon covers: a
+    //    park inside school grounds loses the terrain paint to SCHOOL but is
+    //    still the park (and its grove) on screen.
     const filtered = [];
     yield 'structure cells';
+    let parkCells = null;
+    if (parkPolys.length && wildplants.some(wp => BiomeProfiles.exclusive(wp.crop))) {
+      parkCells = new Uint8Array(w * h);
+      for (const p of parkPolys) {
+        yield* forEachPolygonCellSteps(w, h, p.rings, mvtToCell, (x, y) => { parkCells[y * w + x] = 1; });
+      }
+    }
     let wpOccI = 0;
     for (const wp of wildplants) {
       if ((wpOccI & 63) === 0) yield 'wildplant occupancy sweep';
       wpOccI++;
       const t = grid[wp._iy * w + wp._ix];
       const cellKey = `${wp._ix}_${wp._iy}`;
-      const grows = wp._yard ? BiomeProfiles.yardAllows(wp.crop, t) : BiomeProfiles.allows(wp.crop, t);
+      const grows = (wp._yard ? BiomeProfiles.yardAllows(wp.crop, t) : BiomeProfiles.allows(wp.crop, t))
+        && !(parkCells && parkCells[wp._iy * w + wp._ix] && BiomeProfiles.exclusive(wp.crop));
       if (grows && (wp._floraTerrain == null || wp._floraTerrain === t) && !occupiedCells.has(cellKey)) {
         occupiedCells.add(cellKey);
         wp._biome = t;
@@ -6748,6 +6760,7 @@
     const key = tileKey(x, y);
     if (!detached && tileCache.has(key)) return tileCache.get(key);
     if (depth > 0) return loadCaveTile(tileCache, depth, key, x, y, lat);
+    if (depth === SKY_DEPTH) return loadSkyTile(tileCache, key, x, y, lat);
     // Failures evict themselves (below) so the next ensureTilesAround retries, with a short
     // floor so a hard offline stretch doesn't spin on rebuild attempts.
     const failedAt = detached ? 0 : _tileFailedAt.get(key);
@@ -8745,7 +8758,7 @@
       emit: (L, c, p) => L.coins.push({ kind: 'coindrop', x: p.x, y: p.y, id: cellId(`ccoin_${L.depth}`, L.tx, L.ty, c.lix, c.liy), seeded: true }) },
     { id: 'treasureMarks', salt: 0xB55A4F09,
       when: () => !(typeof window !== 'undefined' && window.__TEST_MODE),
-      count: (rng) => CAVE_X_MIN + Math.floor(rng() * CAVE_X_SPAN), tries: CAVE_X_TRIES, pick: anyCell,
+      count: (rng) => Math.round((CAVE_X_MIN + Math.floor(rng() * CAVE_X_SPAN)) * X_MARK_FREQUENCY), tries: CAVE_X_TRIES, pick: anyCell,
       emit: (L, c, p) => L.treasures.push({ x: p.x, y: p.y, id: cellId(`treasure_c${L.depth}`, L.tx, L.ty, c.lix, c.liy) }) },
     { id: 'floorTorches', salt: 0x5BD1E995, when: (L) => L.depth === FLOOR_TORCH_DEPTH,
       // One at the foot of every up-ladder first, seated on the nearest free
@@ -9044,6 +9057,26 @@
   }
 
   const ARENA_DEPTH = 100;
+  // The sky floor is one level ABOVE the ground. Each tile copies its grove
+  // parks' footprint from the surface's generated layer as open floor over
+  // empty air (CAVE_WALL: no collision exceptions, no texture); render.js
+  // paints it white by `undergroundBiome: 'sky'`. Nothing spawns up here.
+  const SKY_DEPTH = -1;
+  async function loadSkyTile(cache, key, x, y, lat) {
+    const surface = await loadTile.atDepth(0, x, y, lat);
+    if (surface.status === 'loading') await surface.promise;
+    const N = surface.cellsPerEdge, tileEdgeM = surface.tileEdgeM;
+    const grid = new Uint8Array(N * N).fill(T.CAVE_WALL);
+    const mask = surface.zone?.coverage || surface.zone?.idx, anchors = surface.zone?.anchors || [];
+    if (mask) for (let i = 0; i < grid.length; i++) {
+      if (anchors[mask[i] - 1]?.kind === 'grove') grid[i] = T.CAVE_FLOOR;
+    }
+    const entry = { status: 'ready', grid, baseGrid: grid.slice(), cellsPerEdge: N, tileEdgeM, depth: SKY_DEPTH,
+      objects: [], genObjects: [], wildplants: [], genWildplants: [], creatures: [], traps: [],
+      _spawned: true, undergroundBiome: 'sky', parkingTreasures: [], extraTreasures: [],
+      caveCoinSeeds: [], roadLabels: {}, pathUnder: {}, torchSites: [] };
+    cache.set(key, entry); pruneCache(cache, key); return entry;
+  }
   async function loadCaveTile(cache, depth, key, x, y, lat) {
     if (depth === ARENA_DEPTH) {
       // Match ordinary tiles: row-owned cells, save-owned world metre frame.
@@ -9219,6 +9252,7 @@
     const key = tileKey(x, y);
     if (cache.has(key)) return cache.get(key);
     if (depth > 0) return loadCaveTile(cache, depth, key, x, y, lat);
+    if (depth === SKY_DEPTH) return loadSkyTile(cache, key, x, y, lat);
     // Surface at a non-active depth: temporarily point activeDepth at 0 so the
     // shared loadTile body writes into the surface cache, then restore.
     const prev = activeDepth;
@@ -9393,7 +9427,7 @@
     RESTRICTED_LAND, KINDERGARTEN_LAND, COMMERCIAL_GROUND, NEAREST_POI_MAX_M, COMMERCIAL_POI_KIND, commercialPoiKind, commercialPoiField, POI_PUBLIC, POI_PRIVATE, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
     SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, seedChestTiers, TIER_SEED_QUOTA, topUpChestsSteps, CHEST_TOP_UP_MIN, topUpAmbientCratesSteps, LOW_TIER_CHEST_QUOTA, AMBIENT_CRATE_PATH_CELLS, AMBIENT_CRATE_PATH_BIAS, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
-    ARENA_DEPTH, FLOOR_PROFILES, DEFAULT_FLOOR_PROFILE, floorProfile, undergroundTerrain, undergroundClearings, caveQuarryGemsFrom, stampCaveQuarryRocks, caveChestsFrom, CAVE_CHEST_SEEK_CELLS, capCaveChests, CAVE_LOWEST_TIER_CHEST_LIMIT,
+    ARENA_DEPTH, SKY_DEPTH, FLOOR_PROFILES, DEFAULT_FLOOR_PROFILE, floorProfile, undergroundTerrain, undergroundClearings, caveQuarryGemsFrom, stampCaveQuarryRocks, caveChestsFrom, CAVE_CHEST_SEEK_CELLS, capCaveChests, CAVE_LOWEST_TIER_CHEST_LIMIT,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms, CAVE_PASSES, runCavePass, cavePassLevel, spawnCaveRocks,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
     caveBarrels, caveContainerBudget, CAVE_BARREL_DEPTH, CAVE_BARREL_MIN, CAVE_BARREL_SPAN,

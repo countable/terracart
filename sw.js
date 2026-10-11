@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-9376d81e';
+const SHELL_VERSION = 'shell-4b758759';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -155,6 +155,7 @@ const ASSET_HASHES = {
   "assets/Icons/Items/RavenScroll.svg": "2b42167f",
   "assets/Icons/Items/RavenScrollStamp.svg": "76e24db4",
   "assets/Icons/Items/Rope.png": "536c2f28",
+  "assets/Icons/Items/SerpentIdol.png": "86dbcaca",
   "assets/Icons/Items/SkeletonScroll.png": "c6c3c07c",
   "assets/Icons/Items/SkeletonScrollStamp.svg": "e7c98299",
   "assets/Icons/Items/Spear.png": "897e87cb",
@@ -162,6 +163,7 @@ const ASSET_HASHES = {
   "assets/Icons/Items/ThunderScrollStamp.svg": "9993a3cd",
   "assets/Icons/Items/Torch.png": "0c35a90b",
   "assets/Icons/Items/TrapDisarmKit.png": "451f7ff3",
+  "assets/Icons/Items/WindScroll.png": "f2e04336",
   "assets/Icons/Items/WraithScroll.png": "4d7351f4",
   "assets/Icons/Items/WraithScrollStamp.svg": "33cff3a3",
   "assets/Icons/Items/compass.png": "34c47a57",
