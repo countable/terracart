@@ -136,7 +136,10 @@ access or tile lifecycle mechanics.
 - A POI chest's tier is its tile's QUOTA SEAT (`WorldGen.seedChestTiers`):
   each tile seeds ~1 T5, 5 T4, 11 T3, 18 T2 (x1..x2 over 100..1000
   budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),
-  round-robin across chest categories; everything else is T1. Vista chests
+  round-robin across chest categories; everything else is T1. A bus stop
+  never takes a seat: it is always a regular restocking crate
+  (`loot.js chestAlwaysCrate`), because the wagon art belongs only to the
+  old-trade-road mercenary stop. Vista chests
   are fixed T5 outside the budget; a Nexus chest can win a seat without
   spending one (+1 on top). Each underground floor re-seats its own pyramid over
   its mirrors (the rank rides down), and the cap CLIMBS underground

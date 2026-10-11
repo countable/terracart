@@ -1370,7 +1370,9 @@ class SceneConsumables {
     if (!d.stock) return this[d.present](sx, sy, o, dress);
     const stock = d.stock(o, this.save);
     const opts = { ...dress, items: stock, title: d.title,
-      restock: () => d.stock(o, this.save), bought: d.bought };
+      restock: () => d.stock(o, this.save),
+      priceOf: d.price && ((save, id) => d.price(o, save, id)),
+      bought: d.bought && ((save, id, n, unitPrice) => d.bought(o, save, id, n, unitPrice)) };
     // A counter's GEAR entry (`gear:<line>`, Macros.isSundriesGear) sells a
     // rung of equipment, not a stack: its own buy (_presentStallGear).
     return Macros.isSundriesGear(stock[0])

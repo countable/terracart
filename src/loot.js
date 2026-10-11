@@ -852,8 +852,9 @@ function macroFor(o) {
 //            StreetVariants.markBanditStops stamps `banditStop`). The same
 //            chest: id, tier, contents and `opened` are untouched; only the
 //            look (and the one goblin lairs.js seats beside it) changes.
-//   box    → the small crate sprite: a starter supply crate, or a tier-1
-//            chest (chestTier — one the tile's quota pyramid left unseated)
+//   box    → the small crate sprite: a starter supply crate, a tier-1
+//            chest (chestTier — one the tile's quota pyramid left unseated),
+//            or any other bus stop (chestAlwaysCrate)
 //   —      → the trunk chest
 // `texKey` is the texture key the RENDERER draws, so a caller that wants the
 // picture (app.js worldIconHTML) asks for it by the same name rather than
@@ -865,6 +866,14 @@ function macroFor(o) {
 // stampPoiDensity) drop it when they restamp. Nothing about the player
 // enters it (chestTier is the world's), so every player sees the same look
 // on the same chest.
+// A BUS STOP's treasure is always a regular crate (tier 1, restocking — the
+// box look): the wagon art belongs to the mercenary alone (Macros
+// DAILY_VISIT_KINDS.wagon, the old-trade-road stops). worldgen.js
+// seedChestTiers keeps these out of the tier pyramid.
+const CHEST_ALWAYS_CRATE_CLASSES = new Set(['bus']);
+function chestAlwaysCrate(o) {
+  return !!o && CHEST_ALWAYS_CRATE_CLASSES.has(o.poiClass) && !(o.depth > 0) && !o.vista && !o.chestTopUp;
+}
 function chestLook(o) {
   if (o._chestLook) return o._chestLook;
   const stand = (typeof produceStandFor === 'function') ? produceStandFor(o) : null;
@@ -873,8 +882,9 @@ function chestLook(o) {
   const barrel = !coin && !bike && isBarrel(o);
   const barrelArt = barrel ? barrelProfile(o) : null;
   const special = coin || bike || barrel;
-  // Starter supply crates always use the box sprite; so does a tier-1 chest.
-  const box = !!o.quarryCrate || !!o.crate || chestTier(o) === 1;
+  // Starter supply crates always use the box sprite; so does a tier-1 chest
+  // and every bus stop (chestAlwaysCrate) that is not a mercenary wagon.
+  const box = !!o.quarryCrate || !!o.crate || chestTier(o) === 1 || chestAlwaysCrate(o);
   const macro = (!special && typeof macroFor === 'function') ? macroFor(o) : null;
   const wagon = !!o.banditStop && !(o.depth > 0) && !stand && !special && !macro;
   const texKey = coin ? 'potofgold' : bike ? 'bike_rack' : barrel ? barrelArt.texKey : (macro ? macro.texKey

@@ -87,7 +87,8 @@ class SceneShops {
   // stall above, and the macro stalls that sell (the apothecary's potion and
   // cure, the sundries' supply, the scriptorium's Book and torch —
   // src/macros.js; the same price and no stock limit, except the
-  // scriptorium's one Book a save — its row's `bought` / `restock`). A
+  // scriptorium's one Book each at a climbing price — its row's `price`,
+  // `bought` and `restock`). A
   // counter of more than one item shows a tab per item. `items` are ids;
   // `index` is the tab shown; `kind` / `kindLabel` / `art` dress the dialog
   // (the market stall keeps the 'shop' kind's own painting).
@@ -105,7 +106,9 @@ class SceneShops {
     // The list price is the ladder's (ShopsMath.listPrice — only the Book
     // climbs, with every one bought); the stall discount comes off that.
     const listPrice = ShopsMath.listPrice(this.save, id);
-    const unitPrice = ShopsMath.standPrice(this.save, listPrice);
+    // A macro counter may price a line itself (`priceOf` — the
+    // scriptorium's climbing Book); null is the stall price.
+    const unitPrice = opts.priceOf?.(this.save, id) ?? ShopsMath.standPrice(this.save, listPrice);
     const iconHTML = this.iconSpanHTML(id);
     const itemName = item?.name || id;
     const money = () => this.save.money ?? 0;
@@ -151,7 +154,7 @@ class SceneShops {
         pay = unitPrice * take;
         addMoney(this.save, -pay);
         if (id === 'book') ShopsMath.bookBought(this.save, take);
-        opts.bought?.(this.save, id, take);
+        opts.bought?.(this.save, id, take, unitPrice);
         this._settleDeal(null, [`${take}× ${itemName}\n−${pay}`, UI_GOLD, 1, id]);
         receipt = `Bought ${take}× ${itemName} for ${pay} coins.`;
       },

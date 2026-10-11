@@ -460,7 +460,7 @@
       s.house(10, 14, 0, 9, { _sandboxWreck: true });
       ['lodging', 'place_of_worship', 'school', 'sports_centre', 'town_hall', 'museum', 'shop', 'library', 'pharmacy']
         .forEach((poiClass, i) => s.chest(poiClass, `Sandbox ${poiClass}`, 15, 2 + i * 4));
-      s.chest('bus', 'Sandbox Mimic Chest', 2, 18, { _sandboxProbe: 'mimic' });
+      s.chest('shelter', 'Sandbox Mimic Chest', 2, 18, { _sandboxProbe: 'mimic' });
       s.chest('bus', 'Sandbox Repeatable Crate', 5, 18, { tierSeed: 1, _sandboxProbe: 'daily-crate' });
       s.chest('bus', 'Sandbox Barrel', 8, 18, { barrel: true });
       s.chest('bus', 'Sandbox Clay Pot', 11, 18, { barrel: true, barrelStyle: 'clay_pot' });
