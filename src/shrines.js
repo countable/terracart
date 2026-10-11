@@ -39,7 +39,10 @@
   // `streets` names StreetVariants rows: themed streets (minor / major) and
   // the scenic path rows (promenade, greenway, parkpath — Scenic.KIND_ROW).
   // `flash` is the map line on a visit (≤ MAP_MSG_MAX); `body` the one-fact
-  // description (a hint, never the number). Frames are the sheet's order.
+  // description (a hint, never the number); `effect` (optional) spells out
+  // the rule when the hint alone would leave it unclear. The visit card adds
+  // the boon's chip word and duration under them (cardBody). Frames are the
+  // sheet's order.
   const SHRINE_KINDS = {
     drill: { art: 'underground_miners_way', light: 0x9fdcff, lever: 'mining', durationMs: MIN, boon: 'Mining',
       zoneVariants: [], streets: [], locations: ['Underground'], perTile: 10,
@@ -64,7 +67,8 @@
     moss_cairn: { art: 'shrine_moss_cairn', frame: 4, light: 0x9be08a, lever: 'hidden', durationMs: 3 * MIN, boon: 'Unseen',
       zoneVariants: ['ancient_grove', 'sacred_grove'], streets: ['overgrown', 'greenway', 'thorny'],
       name: 'Moss cairn', flash: 'The moss hushes your steps.',
-      body: "You touch the mossy stones. Nearby creatures look past you, unaware of your presence." },
+      body: "You touch the mossy stones and the woods fall quiet around you. Creatures look straight past you, as if you were part of the moss.",
+      effect: "Creatures won't notice or attack you, and animals won't flee your net. Strike a creature and that one sees you again." },
     rust_totem: { art: 'shrine_rust_totem', frame: 5, light: 0xff8c2a, lever: 'melee', durationMs: 5 * MIN, boon: 'Grip',
       zoneVariants: ['work_yard', 'broken_masonry', 'broken_depot'], streets: ['barricade', 'snare'],
       name: 'Rust totem', flash: 'Your grip hardens like iron.',
@@ -164,6 +168,19 @@
     return !!LEVERS[lever] && root.Buffs.extend(save, scene, LEVERS[lever], durationMs, now);
   }
 
+  // The visit card's body: the kind's description, then the line naming the
+  // boon as its status-row chip does and how long it runs (shortDuration),
+  // with the kind's `effect` rule when it has one.
+  function cardBody(kindId) {
+    const row = SHRINE_KINDS[kindId];
+    if (!row) return '';
+    const buff = root.Buffs && root.Buffs.KINDS[LEVERS[row.lever]];
+    if (!buff) return row.body;
+    const ink = '#' + row.light.toString(16).padStart(6, '0');
+    const chip = `<b style="color:${ink}">${buff.name}</b> · ${shortDuration(row.durationMs)}`;
+    return `${row.body}\n\n${chip}${row.effect ? ' — ' + row.effect : ''}`;
+  }
+
   // The map line a visit shows (≤ MAP_MSG_MAX — shrines.test.js measures).
   function boonFlash(kindId) { return SHRINE_KINDS[kindId] ? SHRINE_KINDS[kindId].flash : ''; }
 
@@ -180,6 +197,6 @@
 
   root.Shrines = {
     SHRINE_KINDS, REWARD_KINDS, kindForObject, KIND_IDS, LEVERS, FORTUNE_LUCK_BONUS, WORK_SPEED_MUL, REGEN_PER_SECOND, WAND_TIER, MINING_TIER, STREET_SHRINE_CHANCE, SCENIC_SHRINES_PER_TILE,
-    kindForZoneVariant, kindForStreet, leverUntil, leverActive, grant, extend, boonFlash, normalize,
+    kindForZoneVariant, kindForStreet, leverUntil, leverActive, grant, extend, boonFlash, cardBody, normalize,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
