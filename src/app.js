@@ -3615,6 +3615,9 @@ class MapScene extends Phaser.Scene {
     this._drawWorkProgress();
     this.updateHUD();
     } catch (e) {
+      // A frame that broke off before drawObjects' sign pass would leave the
+      // roof signs pinned on screen (they are <body> overlays) — hide them.
+      try { Render.hideRoofSigns(this); } catch (_) { /* never mask the report */ }
       this._reportLoopError(e);
     }
   }
@@ -6728,6 +6731,8 @@ class MapScene extends Phaser.Scene {
     this.depth = target;
     this.save.depth = target;
     WorldGen.setDepth(target);
+    // The surface's roof signs belong to the floor just left (render.js).
+    Render.hideRoofSigns(this);
     // GPS-mirror: keep the same world coordinates, just snap feet onto the stair.
     this.playerM.x = stair.x - this.startWorldM.x;
     this.playerM.y = stair.y - this.startWorldM.y - this.feetOffsetM;

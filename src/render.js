@@ -871,6 +871,14 @@ function setStyleOnce(el, prop, value) {
   last[prop] = value;
   el.style[prop] = value;
 }
+// Hide every roof sign (market signboards, delivery callouts). They are <body>
+// overlays at fixed SCREEN positions, hidden only by drawObjects' sign pass:
+// a frame that never reaches it (a swallowed loop error, the frame a floor
+// changes) would leave one pinned over the view, riding along with the
+// player. Through setStyleOnce, so the next pass can show them again.
+Render.hideRoofSigns = function hideRoofSigns(scene) {
+  for (const s of scene?._produceSignPool || []) if (s.el) setStyleOnce(s.el, 'display', 'none');
+};
 
 // Change-guarded Text style setters. Phaser guards setText / setFontSize /
 // setStroke against no-op values, but setColor, setBackgroundColor, setShadow
