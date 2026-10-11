@@ -8721,7 +8721,7 @@ class MapScene extends Phaser.Scene {
     const options = Houses.offerCards(this.save, house);
     const order = Houses.restoredCount(this.save);
     // EACH CARD HAS ITS OWN PRICE (Houses.buildCost — the House ladder, a
-    // shop's stones per tier, the turret's flat five): the cost line shows
+    // shop's stone / ore / gem per tier, the turret's flat five): the cost line shows
     // the selected card's, and the charge at accept is that card's too.
     const costFor = (row) => Houses.buildCost(this.save, house, row, order);
     const costLine = (c) => {

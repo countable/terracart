@@ -137,7 +137,8 @@ test('ranks: one card per rank the memory ladder has unlocked — T2 at five mem
 });
 
 // WHAT EACH CARD COSTS (owner, Oct 2026): a House keeps the ladder, a shop
-// pays stones per tier by its role, a turret a flat five.
+// pays per tier by its role (stone, a smithy's ore, a Magic Shop's gem), a
+// turret a flat five.
 test('buildCost: the House ladder, stones per tier for shops, a flat five for a turret', () => {
   const save = { restoredHouses: {}, discovered: { 'memory:0': 1, 'memory:1': 1, 'memory:2': 1, 'memory:3': 1, 'memory:4': 1 } };
   const h = { kind: 'house', tier: 9, id: 'h' };
@@ -157,6 +158,18 @@ test('buildCost: the House ladder, stones per tier for shops, a flat five for a 
   for (const c of [Houses.buildCost(save, h, by('turret')), Houses.buildCost(save, h, by('plain'))]) {
     assert.eq(c.id, 'rubble'); assert.eq(c.material, 'stone');
   }
+  // Paid in (owner, Oct 2026): a smithy in its tier's ore, a Magic Shop in
+  // its tier's gem, every other card in stone.
+  assert.eq(Houses.buildCost(save, h, by('blacksmith:1'), 9).id, 'wood', 'a T1 smithy: the T1 ore (barForTier)');
+  assert.eq(Houses.buildCost(save, h, by('blacksmith:2'), 9).id, 'copper_bar', 'a T2 smithy: copper');
+  assert.eq(Houses.buildCost(save, h, by('market:potion:1', 2), 2).id, 'quartz', 'a T1 Magic Shop: the T1 gem');
+  assert.eq(Houses.buildCost(save, h, by('market:potion:1', 2), 2).qty, 3, 'a T1 Magic Shop: 3 × 1');
+  for (const tier of [1, 2, 3, 4, 5, 6, 7]) {
+    assert.eq(Houses.buildCost(save, h, { role: 'market', theme: 'potion', tier }).id, gemForTier(tier));
+    assert.eq(Houses.buildCost(save, h, { role: 'blacksmith', tier }).id, barForTier(tier));
+  }
+  assert.eq(Houses.buildCost(save, h, by('market:seed:1', 2), 2).id, 'rubble', 'other shop lines stay stone');
+  assert.eq(Houses.buildCost(save, h, by('trader:1', 4), 4).id, 'rubble', 'a trader stays stone');
 });
 
 test('buildOptions: a card is NEW when the player has no such building, or none at that rank', () => {

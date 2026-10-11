@@ -416,17 +416,26 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // WHAT EACH CARD COSTS (owner, Oct 2026). A House — and the wizard's tower,
   // a story building — keeps the ladder above. A shop is priced by the rank
   // its card wears (the row's `tier`, the same badge the pick shows): this
-  // many stones PER TIER, one row per role; the Book Shop is a market at
+  // many units PER TIER, one row per role; the Book Shop is a market at
   // tier 1. A turret is a flat TURRET_ROCKS. `row` is a buildOptions card.
+  // WHAT IT IS PAID IN (owner, Oct 2026): stone, except a smithy pays the
+  // ore of its tier (items.js barForTier: wood T1, copper T2 … frost T7) and
+  // a Magic Shop the gem of its tier (gemForTier: quartz T1 … diamond T7).
   const BUILD_ROCKS_PER_TIER = Object.freeze({ trader: 2, market: 3, blacksmith: 4 });
   const TURRET_ROCKS = 5;
+  function buildMaterial(row, tier) {
+    if (row.role === 'blacksmith') return barForTier(tier);
+    if (row.role === 'market' && row.theme === 'potion') return gemForTier(tier);
+    return 'rubble';
+  }
   function buildCost(save, house, row, order = restoredCount(save)) {
     if (!row || row.role === 'plain' || row.role === 'wizard') return wreckRestoreCost(save, house);
     if (row.role === 'turret') return { id: 'rubble', qty: TURRET_ROCKS, material: 'stone' };
     const per = BUILD_ROCKS_PER_TIER[row.role];
     if (!per) return wreckRestoreCost(save, house);
     const tier = Math.max(1, (row.tier || 1) | 0);
-    return { id: 'rubble', qty: per * tier, material: 'stone' };
+    const id = buildMaterial(row, tier);
+    return id === 'rubble' ? { id, qty: per * tier, material: 'stone' } : { id, qty: per * tier };
   }
 
   // Wood this fort demands to unseal, following the per-fort progression

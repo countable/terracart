@@ -31,7 +31,7 @@ test('build choice: every offered card restores in one step, each with its own p
   const start = SCENE_SRC.indexOf('  presentWreckRestoreModal(sx, sy, house) {');
   const body = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start) + 4).trim();
   assert.falsy(/Building type|Choose a tier|showTypes|showTiers/.test(body), 'no type screen and no tier screen - one flat list');
-  const stock = { rubble: 100, magic_hammer: 1 };
+  const stock = { rubble: 100, wood: 100, magic_hammer: 1 };
   const inventory = {
     count: (save, id) => stock[id] || 0,
     remove: (save, id, qty) => { stock[id] -= qty; },
@@ -68,15 +68,16 @@ test('build choice: every offered card restores in one step, each with its own p
   assert.truthy(smithCard.suggested, 'the T1 smithy card is suggested while the lane has none');
   assert.truthy(modal.secondary.takes('blacksmith:1'), 'a smithy card takes the hammer');
   assert.falsy(modal.secondary.takes('plain'), 'the House card refuses it');
-  stock.rubble = 0;
+  stock.rubble = 0; stock[cost.id] = 0;
   present.call(scene, 0, 0, house);
   assert.truthy(modal.choices.every(c => c.canAfford === false), 'empty inventory disaffords every card');
-  stock.rubble = 100;
+  stock.rubble = 100; stock[cost.id] = 100;
   const singleModal = modal;
   modal.onAccept('blacksmith:1');
   assert.eq(modal, singleModal, 'one card, one step - no confirmation screen appears');
   assert.eq(scene.save.restoredHouses.new, 'blacksmith');
-  assert.eq(stock.rubble, 100 - cost.qty, 'the picked card is the one charged');
+  assert.eq(cost.id, 'wood', 'a T1 smithy is paid in the T1 ore (barForTier)');
+  assert.eq(stock.wood, 100 - cost.qty, 'the picked card is the one charged');
   assert.eq(stock.magic_hammer, 1, 'plain Restore keeps the hammer');
   scene.save = { restoredHouses: { first: 'plain' } };
   modal.secondary.onClick('blacksmith:1');
@@ -92,8 +93,9 @@ test('build choice: every offered card restores in one step, each with its own p
   };
   const offeredSmiths = Houses.offerCards(scene.save, house).filter(r => r.role === 'blacksmith');
   assert.gt(offeredSmiths.length, 1, 'fixture offers multiple smith ranks');
-  const prices = offeredSmiths.map(r => Houses.buildCost(scene.save, house, r).qty);
-  stock.rubble = Math.min(...prices);
+  const smithCosts = offeredSmiths.map(r => Houses.buildCost(scene.save, house, r));
+  const prices = smithCosts.map(c => c.qty);
+  for (const c of smithCosts) stock[c.id] = Math.min(...prices);
   present.call(scene, 0, 0, house);
   const smithCards = modal.choices.filter(c => c.key.startsWith('blacksmith:'));
   assert.eq(smithCards.length, offeredSmiths.length, 'every offered rank remains its own card');
@@ -105,12 +107,12 @@ test('build choice: every offered card restores in one step, each with its own p
   }
   const selected = offeredSmiths[offeredSmiths.length - 1];
   const selectedCost = Houses.buildCost(scene.save, house, selected);
-  stock.rubble = 100;
+  stock[selectedCost.id] = 100;
   present.call(scene, 0, 0, house);
   modal.onAccept(selected.key);
   assert.eq(scene.save.restoredHouses.new, 'blacksmith');
   assert.eq(scene.save.shopTiers.new, selected.tier);
-  assert.eq(stock.rubble, 100 - selectedCost.qty, 'the picked rank is the one charged');
+  assert.eq(stock[selectedCost.id], 100 - selectedCost.qty, 'the picked rank is the one charged');
 
 });
 
