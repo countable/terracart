@@ -3073,8 +3073,9 @@ Render.drawCells = function drawCells(scene) {
   const hideNightRoadTreasure = typeof RoadSafety !== 'undefined' && RoadSafety.isNight(scene, Date.now());
   // Dark earth on the surface; pale scratched stone underground, where the
   // floor (0x2a2622) is darker than the surface ink and would swallow it.
-  if ((scene.depth || 0) > 0) g.lineStyle(2, 0xc9b48a, 0.6);
-  else g.lineStyle(2, 0x2a1d10, 0.55);
+  const underground = (scene.depth || 0) > 0;
+  const plainX = () => underground ? g.lineStyle(2, 0xc9b48a, 0.6) : g.lineStyle(2, 0x2a1d10, 0.55);
+  plainX();
   const drawX = (tr) => {
     if (!treasureExposed(tr, scene) || found.has(tr.id)) return;
     // Buried until the feet stand beside it (HiddenObjects.tick).
@@ -3083,9 +3084,14 @@ Render.drawCells = function drawCells(scene) {
     const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
     if (!inViewBox(dx, dy, halfM)) return;
     const { x: cx, y: cy } = deltaMToScreen(scene, dx, dy);
-    const s = 5.1;   // 15% smaller than the old 6px; X is symmetric so the centroid (cx,cy) is unchanged.
+    // 15% smaller than the old 6px; X is symmetric so the centroid (cx,cy) is unchanged.
+    // A GREAT X (loot.js GREAT_X) is thick and dark red.
+    const great = isGreatX(tr);
+    const s = great ? GREAT_X.halfSize : 5.1;
+    if (great) g.lineStyle(GREAT_X.width, underground ? GREAT_X.caveColor : GREAT_X.color, GREAT_X.alpha);
     g.lineBetween(Math.round(cx - s), Math.round(cy - s), Math.round(cx + s), Math.round(cy + s));
     g.lineBetween(Math.round(cx + s), Math.round(cy - s), Math.round(cx - s), Math.round(cy + s));
+    if (great) plainX();
   };
   // Treasure marks — only check the player's 3×3 tile neighbourhood. drawX
   // already culls by viewport, but iterating all cached tiles every frame
