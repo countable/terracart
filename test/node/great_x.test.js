@@ -14,7 +14,7 @@ function seededGreat(seed) {
 
 test('great X: a flagged mark rolls the great pool, any other the ordinary one', () => {
   assert.eq(treasureContextFor({ great: true }), GREAT_X.context);
-  assert.eq(treasureContextFor({}), 'treasure:default');
+  assert.eq(treasureContextFor({ great: false }), 'treasure:default');
   assert.eq(treasureContextFor(null), 'treasure:default');
   assert.truthy(LOOT_CONTEXTS[GREAT_X.context], 'the context exists');
   assert.eq(Object.keys(LOOT_CONTEXTS[GREAT_X.context].classBias).sort().join(','), 'cash,gear,relic');
@@ -36,14 +36,14 @@ test('great X: every dig is gold or equipment, and it beats the ordinary X', () 
   assert.truthy(seen.has('gold') && seen.has('relic') && seen.has('armor'), 'all three shapes turn up: ' + [...seen]);
 });
 
-test('great X: a share of the scatter is great, keyed off the cell hash', () => {
-  assert.eq(isGreatXCell(3, 4, 5, 6), isGreatXCell(3, 4, 5, 6), 'deterministic');
-  assert.gt(GREAT_X.share, 0);
-  assert.lt(GREAT_X.share, 1);
-  let great = 0, n = 0;
-  for (let cx = 0; cx < 100; cx++) for (let cy = 0; cy < 100; cy++, n++) {
-    if (isGreatXCell(3, 4, cx, cy)) great++;
-  }
+test('great X: a tenth of every X mark is great, keyed off its id', () => {
+  assert.eq(GREAT_X.share, 1 / 10);
+  assert.eq(isGreatX({ id: 'treasure_x_3_4_5_6' }), isGreatX({ id: 'treasure_x_3_4_5_6' }), 'deterministic');
+  assert.eq(isGreatX({ id: 'x', great: true }), true, 'a mark may say so itself');
+  assert.eq(isGreatX({ id: 'x', great: false }), false);
+  let great = 0;
+  const n = 20000;
+  for (let i = 0; i < n; i++) if (isGreatX({ id: WorldGen.cellId(i % 2 ? 'treasure_x' : 't_park', 3, 4, i % 211, i) })) great++;
   const rate = great / n;
-  assert.truthy(Math.abs(rate - GREAT_X.share) < GREAT_X.share * 0.25, 'rate ' + rate + ' near the share');
+  assert.truthy(Math.abs(rate - GREAT_X.share) < GREAT_X.share * 0.15, 'rate ' + rate + ' near the share');
 });
