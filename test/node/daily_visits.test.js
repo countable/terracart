@@ -23,7 +23,7 @@
   }
 
   test('daily visits: every idol tells its story on each successful day, never twice', () => at(T0, () => {
-    for (const id of Shrines.KIND_IDS) {
+    for (const id of Shrines.KIND_IDS.filter(id => !Shrines.SHRINE_KINDS[id].reward)) {   // the golden idol's spree: golden_idol.test.js
       const h = harness({ energy: 80, inv: [], opened: [] });
       const o = { kind: 'grove_shrine', shrineKind: id, id: 'idol:' + id };
       h.tap(o);

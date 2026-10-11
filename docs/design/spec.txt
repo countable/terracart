@@ -572,6 +572,10 @@ BANKS (bank / ATM) and BIKE RACKS
    `items.js` `BIKE_RACK_SPEED_MUL`).
  - The bike rack is a recurring site on the one day ledger (`Macros.markToday`)
    and glows while available (CLAUDE.md).
+ - THE GOLDEN ROAD's coins come from its GOLDEN IDOL (`shrines.js`
+   `golden_idol`; every Golden Road has one): once a UTC day a tap spills a
+   coin on every free verge cell of the road on that tile (the seats
+   `street_variants.js` lays). The road lays no coins of its own.
 
 ================================================================================
 TREASURE MARKS (X on the ground)

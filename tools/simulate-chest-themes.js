@@ -14,7 +14,7 @@ const baselinePath = option('--baseline', null);
 function load(dir) {
   const ctx = vm.createContext({ console, addEventListener() {} });
   ctx.window = ctx;
-  for (const file of ['enemy_roster', 'difficulty', 'util', 'items', 'conditions', 'crops', 'chest_themes', 'loot_contexts', 'rarity']) {
+  for (const file of ['enemy_roster', 'difficulty', 'util', 'items', 'inventory', 'conditions', 'crops', 'chest_themes', 'loot_contexts', 'rarity']) {
     const source = path.join(dir, 'src', file + '.js');
     if (fs.existsSync(source)) vm.runInContext(fs.readFileSync(source, 'utf8'), ctx, { filename: source });
   }

@@ -141,6 +141,7 @@
     'shrines:7': { fw: 16, fh: 24, minX: 1, minY: 3, maxX: 15, maxY: 23 },
     'shrines:8': { fw: 16, fh: 24, minX: 1, minY: 8, maxX: 15, maxY: 23 },
     'shrines:9': { fw: 16, fh: 24, minX: 1, minY: 8, maxX: 15, maxY: 23 },
+    'shrines:10': { fw: 16, fh: 24, minX: 1, minY: 1, maxX: 15, maxY: 23 },
     'beehive:0': { fw: 16, fh: 16, minX: 2, minY: 3, maxX: 14, maxY: 14 },
     'barrel:0': { fw: 24, fh: 24, minX: 3, minY: 1, maxX: 20, maxY: 23 },
     'clay_pot:0': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 22, maxY: 23 },
@@ -160,10 +161,10 @@
   // One centered shrine object, reserving a 3×3-cell footprint.
   const SHIPWRECK_SHRINE_ART = { key: 'shipwreck_shrine', frame: 0, extentCells: 3,
     scale: CELL_PX * 3 / 192, name: 'Shipwreck' };
-  // The ten shrine kinds (src/shrines.js — a row's `frame` picks its art on
+  // The eleven sheet shrine kinds (src/shrines.js — a row's `frame` picks its art on
   // this one sheet). The frames are listed for the sprite audit, which loads
   // this file without Shrines; shrines.test.js pins every row's frame here.
-  const SHRINE_KIND_ART = { key: 'shrines', scale: 1.6, frames: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] };
+  const SHRINE_KIND_ART = { key: 'shrines', scale: 1.6, frames: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] };
   function groveShrineArt(o) {
     if (o?.shrineKind === 'drill') return { key: 'cave_props', frame: 6, scale: 4 / 3, name: 'Drill construct' };
     if (o?._shrineArt === 'shipwreck') return SHIPWRECK_SHRINE_ART;

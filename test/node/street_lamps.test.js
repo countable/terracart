@@ -285,7 +285,8 @@ test('street lamps: rasterized road decorations cannot occupy future lamp footpr
       {...tile, layers, tileEdgeM:TILE_EDGE_M, cellsPerEdge:CELLS});
     sites += reserved.size;
     const dress = tile.streetDress;
-    for (const o of [...dress.objects, ...dress.wildplants, ...dress.coins, ...dress.treasures]) {
+    const seats = [...dress.coinSeats.values()].flatMap((m) => [...m.values()]);
+    for (const o of [...dress.objects, ...dress.wildplants, ...seats, ...dress.treasures]) {
       props++;
       const ix = Math.floor((o.x - TX * TILE_EDGE_M) / CELL_M_T);
       const iy = Math.floor((o.y - TY * TILE_EDGE_M) / CELL_M_T);

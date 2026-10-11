@@ -16,12 +16,20 @@
       for (const [group, weight] of Object.entries(ChestThemes.weights(theme, quality, opts))) {
         if (!(weight > 0)) continue;
         const resolved = ChestThemes.resolve(group, quality, opts);
+        // A T2 supplies roll may hand out a T1 starter weapon instead
+        // (rarity.js resolveChestReward, ChestThemes `starterWeapons`).
+        if (tier === 2) {
+          for (const slot of ChestThemes.groups[resolved.group]?.starterWeapons || []) {
+            if (RELIC_DEFS[slot]) out.add(`relic:${slot}:1`);
+          }
+        }
         if (resolved.kind === 'item') {
           for (const id of ChestThemes.selectableIds(resolved, opts)) out.add(id);
         } else if (resolved.kind === 'gear') {
-          const cap = Math.min(7, Math.max(1, Math.round(1 + (tier - 1) * 2)));
+          // rarity.js rollGearUpgrade: the rolled quality IS the preferred
+          // gear tier and its ceiling, so a jackpot quality reaches its tier.
           for (const { kind, slot } of ChestThemes.gearSlots(resolved.group)) {
-            for (let t = 1; t <= cap; t++) out.add(`${kind}:${slot}:${t}`);
+            for (let t = 1; t <= Math.min(7, quality); t++) out.add(`${kind}:${slot}:${t}`);
           }
         }
       }

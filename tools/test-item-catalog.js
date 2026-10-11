@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const context = vm.createContext({ assert, console, addEventListener() {} });
 context.window = context;
-for (const file of ['src/util.js', 'src/difficulty.js', 'src/conditions.js', 'src/enemy_roster.js', 'src/sprite_layout.js', 'src/items.js', 'src/crops.js', 'src/loot.js', 'src/chest_themes.js', 'src/loot_contexts.js', 'src/rarity.js', 'src/starter.js', 'tools/item-catalog-data.js']) {
+for (const file of ['src/util.js', 'src/difficulty.js', 'src/conditions.js', 'src/enemy_roster.js', 'src/sprite_layout.js', 'src/items.js', 'src/inventory.js', 'src/crops.js', 'src/loot.js', 'src/chest_themes.js', 'src/loot_contexts.js', 'src/rarity.js', 'src/starter.js', 'tools/item-catalog-data.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), context, { filename: file });
 }
 vm.runInContext(`
@@ -38,22 +38,26 @@ vm.runInContext(`
     const row = byId.get(it.id);
     assert.equal(row.value, itemValue(it.id));
     assert.equal(row.description, ITEM_EFFECTS[it.id] || '');
-    if (it.kind === 'seed' && it.grows) assert.equal(row.growthStageMs, Crops.stageHoldMs(it.grows));
-    if (it.shiny || it.cooked) assert.equal(row.chests.length, 0, it.id);
+    if (it.kind === 'seed' && it.grows && !it.plants) assert.equal(row.growthStageMs, Crops.stageHoldMs(it.grows));
+    if (it.shiny) assert.equal(row.chests.length, 0, it.id);
+    // Cooked meals are found only in food chests (test/node/chest_themes.test.js).
+    if (it.cooked) assert(row.chests.every(source => source.context === 'chest:food'), it.id);
   }
   assert(byId.get('magic_trap').chests.length > 0);
   assert(byId.get('magic_trap').chests.every(source => source.depth > 0));
   assert(byId.get('diamond').chests.length > 0, 'rare jackpots are not lost');
   assert(byId.get('book').chests.some(source => source.context === 'chest:school' && source.tier === 1));
   for (const item of ITEMS.filter(item => item.uniqueJewelry)) {
-    assert.equal(byId.get(item.id).category, 'magic');
+    assert.equal(byId.get(item.id).category, 'unique_relic');
     assert(!ChestThemes.selectableIds(ChestThemes.resolve('caveMagic', 7, { depth: 1 }), { depth: 1 }).includes(item.id),
       item.id + ' is excluded from ordinary cave magic; named chest pools may include it');
   }
   assert(!ItemCatalog.chestContents('chest:civic', 1).some(id => id.startsWith('armor:')));
   assert(!ItemCatalog.chestContents('chest:civic', 2).some(id => id.startsWith('armor:')), 'civic gear is noncombat equipment');
   assert(ItemCatalog.chestContents('chest:authority', 2).includes('armor:boots:3'));
-  assert(!ItemCatalog.chestContents('chest:authority', 2).includes('armor:boots:4'));
+  // A T2 chest's jackpot ceiling (chestTierMod[2].maxTier) bounds its gear.
+  assert(ItemCatalog.chestContents('chest:authority', 2).includes('armor:boots:' + RARITY_TUNING.chestTierMod[2].maxTier));
+  assert(!ItemCatalog.chestContents('chest:authority', 2).includes('armor:boots:' + (RARITY_TUNING.chestTierMod[2].maxTier + 1)));
   assert(byId.get('antidote').chests.some(source => source.context === 'chest:health'));
   assert(byId.get('elixir').chests.some(source => source.context === 'chest:health'));
   assert.equal(byId.get('antidote').category, 'magic');

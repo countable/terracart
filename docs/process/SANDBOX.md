@@ -79,7 +79,7 @@ wizard role.
 | Street restoration | Half of Lantern Row starts restored, so lit and unlit lamps appear on one road. |
 | Road variant dressing | The live `StreetVariants.dress` pass places hedges, trees, fruit trees, mushrooms, coins, waystones, barricades, tar, stakes and torches. |
 | Old Trade Road | A plain Major or Medium road carries the bandit-verge bit and a hashed wagon-stop look. |
-| Street rewards | Golden Road coins, street lairs and a cafe hoard use their normal generated records. |
+| Street rewards | The Golden Road's idol and its coin spree, street lairs and a cafe hoard use their normal generated records. |
 | Scenic paths | Common Walk is a `parkpath`; the beach carries a scenic shore mask, tide pool and viewpoint scope. |
 | Nexuses | Grove, Old Stones and Tar Yard anchors carry real Nexus coverage and run `ZoneDressing`. |
 | Shrine kinds | The zones scene's east edge stands one shrine of each `Shrines.SHRINE_KINDS` row, north to south in table order; tap one for its boon. |
@@ -99,7 +99,7 @@ wizard role.
 | overgrown | Fern Way | staged roadside trees |
 | orchard | Cherry Lane | alternating apple and maple rows |
 | pilgrim | Abbey Walk | waystone end piece |
-| golden | Coin Row | persistent verge coins |
+| golden | Coin Row | a golden idol; its daily spree fills the verges with coins |
 | thorny | Thorny Way | brambles and a narrow road corridor |
 | snare | Iron Lane | a snare chest ringed by iron teeth, a few stray snares down the lane |
 | barricade | Fort Road | barricades, stakes and guard lair |
@@ -142,7 +142,7 @@ The new scenes add:
 | `tar`, `stakes`, `torch` | Tar Yard and themed roads |
 | `waystone` | Abbey Walk |
 | `vista_scope` and scenic chest | Recreation viewpoint |
-| `coindrop` from Golden Road | Coin Row |
+| `coindrop` from the golden idol's spree | Coin Row |
 | surface trap | Common Walk and park edges |
 | campfire | Player Plaza |
 | street and cafe lairs | themed streets |
