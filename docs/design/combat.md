@@ -91,7 +91,7 @@ mechanics.
   `CAST_ROWS` row (`_castOnFoes`); the slot guard is `_selectedConsumable`,
   the spend `_spendScroll` / `_consumeSelected`. Never a hand-written handler.
 - KNOCKBACK has one owner, `Whirlwinds.impulse` / `pushStep`: a whirlwind's
-  contact (grassy ground only, surface only) and the T1 Scroll of Wind
+  contact (GRASS, PITCH and SCHOOL cells only, surface only) and the T1 Scroll of Wind
   (`CAST_ROWS.wind_scroll`: every foe in reach takes 5 and is blown
   `pushCells` away on any ground the enemy gate allows, at any depth). A push
   plays out at the depth it began on; a level change cancels it.
