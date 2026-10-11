@@ -22,6 +22,8 @@ const StoryEncounters = (() => {
     return true;
   }
   const busy = scene => MemoryStory.dialogOpen(scene);
+  // Her unprompted greeting waits out the player's taps too (the story hold).
+  const held = scene => MemoryStory.storyHeld(scene);
   function surfaceEntries() { return WorldGen.tileCacheFor(0); }
   function find(id) {
     for (const entry of surfaceEntries().values()) {
@@ -108,7 +110,7 @@ const StoryEncounters = (() => {
     const c = materialize(scene, q, 'npc', 'npc', q.npcId);
     if (q.status === 'hunted') materialize(scene, q, 'enemy', 'goblin_archer', q.enemyId);
     const near = c && Math.hypot(c.x - scene.startWorldM.x - scene.playerM.x, c.y - scene.startWorldM.y - scene.playerM.y) <= scene.cellM * 5;
-    if (!q.greeted && near && find(q.enemyId) && !busy(scene) && !NPC.isDormant?.(c)) {
+    if (!q.greeted && near && find(q.enemyId) && !held(scene) && !NPC.isDormant?.(c)) {
       q.greeted = true;
       persist(scene);
       scene.showMessageModal({ title: `${c.name} · ${c.roleLabel}`, body: WORRIED, art: NPC.portrait(scene, c), kind: 'note' });
