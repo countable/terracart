@@ -1368,8 +1368,9 @@ class SceneConsumables {
     if (!d?.present) return undefined;
     const dress = { boothKind: kind, kind: d.modal, kindLabel: Macros.stallLabel(kind, o) || d.label, art: Macros.stallArt(kind, o) };
     if (!d.stock) return this[d.present](sx, sy, o, dress);
-    const stock = d.stock(o);
-    const opts = { ...dress, items: stock, title: d.title };
+    const stock = d.stock(o, this.save);
+    const opts = { ...dress, items: stock, title: d.title,
+      restock: () => d.stock(o, this.save), bought: d.bought };
     // A counter's GEAR entry (`gear:<line>`, Macros.isSundriesGear) sells a
     // rung of equipment, not a stack: its own buy (_presentStallGear).
     return Macros.isSundriesGear(stock[0])

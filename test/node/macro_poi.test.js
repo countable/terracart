@@ -263,10 +263,23 @@
     assert.falsy(/_presentScriptorium/.test(SCENE_SRC), 'the free-page dialog is gone');
     // presentMacro routes by the kind's `present` column (Macros.KIND_DIALOG);
     // a stall with a `stock` opens the shared counter with that stock.
-    assert.truthy(/if \(!d\.stock\) return this\[d\.present\]\(sx, sy, o, dress\);[\s\S]{0,400}?const opts = \{ \.\.\.dress, items: stock, title: d\.title \};/.test(SCENE_SRC),
+    assert.truthy(/if \(!d\.stock\) return this\[d\.present\]\(sx, sy, o, dress\);[\s\S]{0,400}?const opts = \{ \.\.\.dress, items: stock, title: d\.title,/.test(SCENE_SRC),
       'the scriptorium opens the stall counter');
     assert.falsy(/_presentBookRead\(\)/.test(SCENE_SRC.slice(SCENE_SRC.indexOf('presentMacro('), SCENE_SRC.indexOf('buildingFlavorTitle('))),
       'no macro reads a Book page for free');
+  });
+
+  test('scriptorium: sells one Book a save, ever — then only the torch', () => {
+    const save = {};
+    assert.eq(Macros.scriptoriumStock(save).join(), 'book,torch', 'the first visit offers the Book');
+    Macros.scriptoriumBought(save, 'torch');
+    assert.eq(Macros.scriptoriumStock(save).join(), 'book,torch', 'a torch never spends the Book');
+    Macros.scriptoriumBought(save, 'book');
+    assert.truthy(Macros.scriptoriumBookSold(save));
+    assert.eq(Macros.scriptoriumStock(save).join(), 'torch', 'every scriptorium is out of Books for good');
+    const row = Macros.KIND_DIALOG.scriptorium;
+    assert.eq(row.stock({ id: 'any' }, save).join(), 'torch', 'the counter row reads the save');
+    assert.eq(row.bought, Macros.scriptoriumBought, 'the counter records the sale');
   });
 
   test('stalls: apothecary, sundries and scriptorium share the market stall\'s one counter', () => {

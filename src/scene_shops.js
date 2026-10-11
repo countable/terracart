@@ -86,14 +86,19 @@ class SceneShops {
   // THE STALL COUNTER — the one buy dialog every counter shares: the market
   // stall above, and the macro stalls that sell (the apothecary's potion and
   // cure, the sundries' supply, the scriptorium's Book and torch —
-  // src/macros.js; the same price and no stock limit). A
+  // src/macros.js; the same price and no stock limit, except the
+  // scriptorium's one Book a save — its row's `bought` / `restock`). A
   // counter of more than one item shows a tab per item. `items` are ids;
   // `index` is the tab shown; `kind` / `kindLabel` / `art` dress the dialog
   // (the market stall keeps the 'shop' kind's own painting).
   _presentStallOffer(sx, sy, opts) {
     // Single-modal guard — mirror shopInteract so rapid taps can't stack modals.
     if (document.getElementById('offer-modal')) return;
-    const { items, index = 0, title, kind = 'shop', kindLabel, art } = opts;
+    const { title, kind = 'shop', kindLabel, art } = opts;
+    // A macro counter re-reads its stock (`restock`) so a once-only line
+    // (the scriptorium's Book) leaves the shelf after it sells.
+    const items = opts.restock ? opts.restock() : opts.items;
+    const index = Math.min(opts.index || 0, Math.max(0, (items?.length || 0) - 1));
     const id = items && items[index];
     if (!id) return;
     const item = ITEM_BY_ID[id];
@@ -146,6 +151,7 @@ class SceneShops {
         pay = unitPrice * take;
         addMoney(this.save, -pay);
         if (id === 'book') ShopsMath.bookBought(this.save, take);
+        opts.bought?.(this.save, id, take);
         this._settleDeal(null, [`${take}× ${itemName}\n−${pay}`, UI_GOLD, 1, id]);
         receipt = `Bought ${take}× ${itemName} for ${pay} coins.`;
       },
