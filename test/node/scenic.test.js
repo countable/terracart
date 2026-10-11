@@ -459,8 +459,8 @@ test('scenic: a scope is a rest spot on the fire\'s own ring and a light on it �
 // ── Beaches ─────────────────────────────────────────────────────────────
 test('scenic: the beach\'s X count follows the shoreline, capped; inland sand keeps its own stream', () => {
   assert.eq(S.beachXCount(0), 0);
-  assert.eq(S.beachXCount(S.BEACH_X_SHORE_M * 5 + 1), 5, 'one per BEACH_X_SHORE_M');
-  assert.eq(S.beachXCount(1e6), S.BEACH_X_MAX, 'capped');
+  assert.eq(S.beachXCount(S.BEACH_X_SHORE_M * 5 + 1), Math.round(5 * X_MARK_FREQUENCY), 'one per BEACH_X_SHORE_M, at the shared density');
+  assert.eq(S.beachXCount(1e6), Math.round(S.BEACH_X_MAX * X_MARK_FREQUENCY), 'capped');
   assert.eq(S.tideCount(S.TIDE_PER_M * 3), 3);
   assert.eq(S.tideCount(1e6), S.TIDE_MAX);
   // The shipping block (__bonusXMarks): a long beach strip, all of it shore.

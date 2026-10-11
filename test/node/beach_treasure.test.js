@@ -80,10 +80,10 @@ test('beach X: the roll is capped by the beach\'s own size', () => {
   // a shoreline gets the roll — a small patch can never draw the whole 4-8.
   for (const [w, seedCount] of [[1, 8], [2, 8], [6, 8]]) {
     const cells = w * N;
-    const cap = Math.max(1, Math.floor(cells / BEACH_X_PER_CELLS));
+    const cap = Math.max(1, Math.floor(cells * X_MARK_FREQUENCY / BEACH_X_PER_CELLS));
     for (let seed = 1; seed <= seedCount; seed++) {
       const n = run(makeEntry(beach(w)), seed).filter((t) => /^treasure_sand_/.test(t.id)).length;
-      assert.lte(n, Math.min(8, cap), `a ${cells}-cell beach, seed ${seed}`);
+      assert.lte(n, Math.min(Math.round(8 * X_MARK_FREQUENCY), cap), `a ${cells}-cell beach, seed ${seed}`);
     }
   }
   // A four-cell sandpit: one mark at most, however the roll falls.

@@ -8758,7 +8758,7 @@
       emit: (L, c, p) => L.coins.push({ kind: 'coindrop', x: p.x, y: p.y, id: cellId(`ccoin_${L.depth}`, L.tx, L.ty, c.lix, c.liy), seeded: true }) },
     { id: 'treasureMarks', salt: 0xB55A4F09,
       when: () => !(typeof window !== 'undefined' && window.__TEST_MODE),
-      count: (rng) => CAVE_X_MIN + Math.floor(rng() * CAVE_X_SPAN), tries: CAVE_X_TRIES, pick: anyCell,
+      count: (rng) => Math.round((CAVE_X_MIN + Math.floor(rng() * CAVE_X_SPAN)) * X_MARK_FREQUENCY), tries: CAVE_X_TRIES, pick: anyCell,
       emit: (L, c, p) => L.treasures.push({ x: p.x, y: p.y, id: cellId(`treasure_c${L.depth}`, L.tx, L.ty, c.lix, c.liy) }) },
     { id: 'floorTorches', salt: 0x5BD1E995, when: (L) => L.depth === FLOOR_TORCH_DEPTH,
       // One at the foot of every up-ladder first, seated on the nearest free

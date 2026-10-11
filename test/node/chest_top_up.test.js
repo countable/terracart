@@ -139,7 +139,7 @@
   test('ambient crates: the X-mark top-up reads the deficit, off the cell hash, never the rng stream', () => {
     const src = SCENE_CREATURES_SRC;
     assert.truthy(/entry\.lowTierDeficit = chestTopUp\?\.ambient\?\.deficit/.test(WORLDGEN_SRC), 'stored on the entry');
-    assert.truthy(/X_TOP_UP_MAX\s*\*\s*Math\.min\(1, \(entry\.lowTierDeficit \|\| 0\) \/ WorldGen\.LOW_TIER_CHEST_QUOTA\)/.test(src), 'in proportion to the shortfall');
+    assert.truthy(/X_TOP_UP_MAX \* X_MARK_FREQUENCY\s*\*\s*Math\.min\(1, \(entry\.lowTierDeficit \|\| 0\) \/ WorldGen\.LOW_TIER_CHEST_QUOTA\)/.test(src), 'in proportion to the shortfall');
     assert.truthy(/WorldGen\.cellHash\(tx, ty, k, 0x7a0b\)/.test(src), 'hash-drawn cells');
   });
 })();
