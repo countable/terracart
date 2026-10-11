@@ -867,6 +867,9 @@
     for (const o of objects || []) {
       if (!inPool(o)) continue;
       if (o.tierSeed !== 1) { o.tierSeed = 1; delete o._chestLook; }
+      // A bus stop stays a plain crate (loot.js chestAlwaysCrate): tier 1,
+      // never a seat in the pyramid.
+      if (!cave && chestAlwaysCrate(o)) continue;
       pool.push(o);
     }
     const budgetN = pool.reduce((a, o) => a + (o.zoneNexus ? 0 : 1), 0);

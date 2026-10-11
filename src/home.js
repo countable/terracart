@@ -15,7 +15,7 @@
 //   • Start origin / synthetic trailer ……… scene_shops.js  isStarterShop / ensureStarterShopId
 //   • What a wreck can become, by count … houses.js  BUILD_OPTIONS / STORY_RESTORES
 //   • Starter blacksmith (1st smithy) ……… houses.js  isStarterBlacksmith
-//   • Shops sell a line by restore order … scene_shops.js  marketTheme
+//   • Shops sell a line by restore order … scene_shops.js  shopLine
 //     (the first is the Seed Shop — see shops.js themeAt / roleLabel)
 //   • First 8 delivery houses → T1 produce delivery.js Delivery.isEarly
 //     (of which the first 7 walk delivery.js SCRIPTED_WISHLISTS — five

@@ -903,7 +903,7 @@ const INTERACTABLES = {
         return true;
       }
       return Macros.dailyVisit(ctx, o, {
-        row,
+        row: row.reward ? row : { ...row, body: Shrines.cardBody(o.shrineKind) },
         grant: row.reward ? null : () => {
           Shrines.grant(save, o.shrineKind, Date.now(), scene);
           scene.flash(Shrines.boonFlash(o.shrineKind), sx, sy);

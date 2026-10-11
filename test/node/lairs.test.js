@@ -1196,6 +1196,29 @@
     assert.lt(Lairs.LAIR_CORE_AGGRO_CELLS, Lairs.LAIR_AGGRO_CELLS, 'a keep is quieter than a wreck');
   });
 
+  test('chase: a citadel garrison rushes the player once its Fight is on', () => {
+    // A citadel's guards exist only during its battle, so the keep's quiet
+    // knot ring does not apply: they come from anywhere within the leash of
+    // the keep's WALLS — a big keep's gate is not out of sight of its centre.
+    const halfW = 12 * CELL_M, halfH = 8 * CELL_M;
+    const lairR = Lairs.LAIR_CORE_SPREAD_CELLS * CELL_M;
+    const g = { kind: 'bugbear', lair: 'C', castle: 'citadel', lairX: 0, lairY: 0, lairR,
+      keepHW: halfW, keepHH: halfH, seatX: 0, seatY: 0, x: 0, y: 0,
+      aggroCells: Lairs.LAIR_CORE_AGGRO_CELLS };
+    const wallR = Math.hypot(halfW, halfH);
+    assert.eq(Lairs.guardState(g, { x: halfW + CELL_M, y: 0 }, CELL_M), 'hunt',
+      'a player at the gate is rushed');
+    assert.eq(Lairs.guardState(g, { x: wallR + Lairs.LAIR_LEASH_CELLS * CELL_M - 1, y: 0 }, CELL_M), 'hunt',
+      'out to the leash');
+    assert.eq(Lairs.guardState(g, { x: wallR + Lairs.LAIR_LEASH_CELLS * CELL_M + 1, y: 0 }, CELL_M), 'hold',
+      'and no further');
+    assert.eq(Lairs.guardState(g, { x: halfW + CELL_M, y: 0 }, CELL_M, false), 'hold',
+      'an unnoticed player is still not chased');
+    const plain = Object.assign({}, g, { castle: undefined });
+    assert.eq(Lairs.guardState(plain, { x: halfW + CELL_M, y: 0 }, CELL_M), 'hold',
+      'an ordinary keep still holds while the player passes its gate');
+  });
+
   test('lairs: NOTHING is seated on a road cell (the shared spawn rule, mask included)', () => {
     // The road invariant (CLAUDE.md): a spawner that reads terrain instead of
     // the mask is told "grass" for a cell the overlay paints as asphalt. This

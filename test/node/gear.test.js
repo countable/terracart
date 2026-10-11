@@ -249,7 +249,7 @@ test('blacksmith offers: hourly shop lookup passes the bias only for the smith r
   assert.truthy(start>0&&end>start);
   const method=new Function(`return {${SCENE_SRC.slice(start+1,end+4)}};`)().peekOrBuildRelicOffer;
   const rng=seeded(42), house={kind:'house',id:'smith_test',tier:9};
-  for(const role of ['blacksmith','market','trader',null]) {
+  for(const role of ['blacksmith','shop','trader',null]) {
     const scene={houseShopRole:()=>role,shopRng:()=>rng,buildRelicOffer:(actual,opts)=>({actual,opts})};
     const result=method.call(scene,house);
     assert.eq(result.actual,rng,'keeps the existing hourly/reroll seed');

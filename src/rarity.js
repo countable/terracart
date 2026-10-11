@@ -119,7 +119,7 @@
 
     // ── Shops, by specialty ─────────────────────────────────────
     // Shops use the same deterministic chain; chainSteps maps to the shop's
-    // 'level' (plain/market/trader mid, forts and blacksmiths higher, castle
+    // 'level' (plain/shop/trader mid, forts and blacksmiths higher, castle
     // highest, relic-only).
     //
     // NOT reached from the shipped game: the shop UIs build their own offers
@@ -131,7 +131,7 @@
     // Only the wandering trader deals in livestock.
     'shop:plain':       { classBias: { seed:0.40, produce:0.40, mineral:0.10, magic:0.05, supply:0.05 },
                           chainSteps: 1, chainMax: 2, maxTier: 3, relicCap: 0, singleItem: true },
-    'shop:market':      { classBias: { produce:0.70, seed:0.20, magic:0.05, supply:0.05 },
+    'shop:shop':      { classBias: { produce:0.70, seed:0.20, magic:0.05, supply:0.05 },
                           chainSteps: 1, chainMax: 2, maxTier: 3, relicCap: 0, singleItem: true },
     // Blacksmiths exclusively convert gems → relics. classBias is relic-only;
     // the player trades a fixed gem cost and the smith forges one relic tier
@@ -606,7 +606,7 @@
     const ctx = lootContext(contextKey, opts);
     if (!ctx) return null;
 
-    // 1) Pick class. relicCap 0 scrubs the relic weight (a market never offers a relic).
+    // 1) Pick class. relicCap 0 scrubs the relic weight (a shop never offers a relic).
     const bias = { ...ctx.classBias };
     if ((ctx.relicCap ?? 7) <= 0) delete bias.relic;
     const cls = weightedPick(bias, rng);

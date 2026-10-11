@@ -672,7 +672,8 @@ ECONOMY (buying & selling)
    no shop function (the trailer is exempt — Home works from day one).
    Restoring costs stone, on a ladder that climbs with houses already restored
    (`items.js` `wreckRestoreQty`); other cards are priced by their rank
-   (`houses.js` `buildCost`). The dialog's quote is exactly what is charged.
+   (`houses.js` `buildCost`) — a smithy in its tier's ore (`barForTier`),
+   a Magic Shop in its tier's gem (`gemForTier`), the rest in stone. The dialog's quote is exactly what is charged.
  - WHAT A WRECK BECOMES IS THE PLAYER'S PICK (Oct 2026): cards from ONE table,
    `Houses.BUILD_OPTIONS`, unlocked by restore count (`STORY_RESTORES`): house,
    blacksmith, shop, trader, turret, the pet shop, the book shop, the wizard

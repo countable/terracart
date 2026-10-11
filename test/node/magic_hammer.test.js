@@ -38,7 +38,7 @@ test('magic hammer: restoreAs marks the house shiny and every price reads priceM
 test('magic hammer: a plain House takes no hammer — the predicate, the ledger and the dialog agree', () => {
   assert.falsy(Houses.hammerTakes({ key: 'plain', role: 'plain' }), 'never the plain House');
   assert.falsy(Houses.hammerTakes(null));
-  for (const role of ['blacksmith', 'trader', 'market', 'turret', 'wizard']) {
+  for (const role of ['blacksmith', 'trader', 'shop', 'turret', 'wizard']) {
     assert.truthy(Houses.hammerTakes({ key: role, role }), `${role} takes it`);
   }
   const save = { restoredHouses: {} };

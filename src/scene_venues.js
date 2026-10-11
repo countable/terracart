@@ -394,8 +394,8 @@ class SceneVenues {
     if (isFort)   return 'The fort quartermaster offers:';
     // Named for its line, so the words match the sign outside: "The potion
     // shop has fresh stock:".
-    if (st === 'market') {
-      return `The ${Shops.roleLabel('market', this.marketTheme(house).theme).toLowerCase()} has fresh stock:`;
+    if (st === 'shop') {
+      return `The ${Shops.roleLabel('shop', this.shopLine(house).theme).toLowerCase()} has fresh stock:`;
     }
     if (st === 'trader')     return 'The trader proposes a barter:';
     if (st === 'blacksmith') return 'The blacksmith has on hand:';

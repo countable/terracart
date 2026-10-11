@@ -55,6 +55,20 @@
     }
   });
 
+  test('shrines: the visit card names each timed boon as its chip does, with its duration', () => {
+    for (const id of Shrines.KIND_IDS) {
+      const buff = Buffs.KINDS[Shrines.LEVERS[K[id].lever]];
+      const card = Shrines.cardBody(id);
+      assert.truthy(card.startsWith(K[id].body), `${id}: description first`);
+      if (!buff) { assert.eq(card, K[id].body, `${id}: an instant boon adds no timer line`); continue; }
+      assert.truthy(card.includes(`${buff.name}</b> · ${shortDuration(K[id].durationMs)}`), `${id}: "${card}"`);
+    }
+    const moss = Shrines.cardBody('moss_cairn');
+    assert.truthy(moss.includes('Unseen</b> · 3m — ' + K.moss_cairn.effect), moss);
+    assert.falsy(/\d/.test(K.moss_cairn.effect), 'the rule is a hint; the timer line carries the number');
+    assert.eq(Shrines.cardBody('nope'), '');
+  });
+
   test('shrines: a boon extends what is running (Buffs.extend), never stacks in strength, and runs out', () => {
     const save = {};
     Shrines.grant(save, 'bone_watcher', T0);

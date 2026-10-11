@@ -29,7 +29,7 @@ const HOUSE_FRAMES = {
   trader:        76,
   wreck:         80,
   'wizard tower': 80,  // wizard.png sliced 80×104, frame 3
-  market:       106,
+  shop:       106,
   trailer:      108,
 };
 // The SHIPPING table (util.js), not copies of it — a test carrying its own
@@ -84,7 +84,7 @@ test('building scale: Home draws a tenth wider than the village, on its own row'
   assert.eq(TRAILER.def, TRAILER.min); assert.eq(TRAILER.def, TRAILER.max);
   assert.lt(TRAILER.max, FORT.min, 'Home stays under the smallest fort');
   // Every residential role without a row of its own shares the house row.
-  for (const role of ['plain', 'blacksmith', 'trader', 'market', 'wreck', 'wizard', 'house', undefined]) {
+  for (const role of ['plain', 'blacksmith', 'trader', 'shop', 'wreck', 'wizard', 'house', undefined]) {
     assert.eq(buildingArt(role), HOUSE, `${role} is a house`);
   }
   assert.eq(buildingArt('fort'), FORT); assert.eq(buildingArt('trailer'), TRAILER);

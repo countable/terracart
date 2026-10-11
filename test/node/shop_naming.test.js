@@ -1,26 +1,26 @@
-// A themed shop (role key 'market') is named for the LINE IT SELLS, not for the
+// A themed shop (role key 'shop') is named for the LINE IT SELLS, not for the
 // trade idiom: "Magic Shop" on the map sign, on the restoration card and in
 // the offer modal — never a "Market". The line comes from its restore order
-// (Shops.themeAt via app.js marketTheme), so no sign promises stock the shop
+// (Shops.themeAt via app.js shopLine), so no sign promises stock the shop
 // doesn't have.
 //
 // THREE call sites name this building (render.js's sign, app.js's restoration
 // card, app.js's offer title); they all read Shops.roleLabel so they cannot
 // drift. These tests pin the table and that nobody has re-inlined a name.
 //
-// The role KEY stays 'market': it is persisted in save.restoredHouses and
-// save.firstMarketId. Only the player-facing LABEL changed.
+// The role KEY is 'shop', persisted in save.restoredHouses; saves from before
+// the rename said 'market' and are rewritten on load (save.js migrateSave).
 
 (function () {
 const app = SCENE_SRC;
 const render = RENDER_SRC;
 
 test('shop naming: a themed shop is named for its line, not "Market"', () => {
-  assert.eq(Shops.roleLabel('market', 'seed'), 'Seed Shop');
-  assert.eq(Shops.roleLabel('market', 'potion'), 'Magic Shop');
-  assert.eq(Shops.roleLabel('market', 'pet'), 'Pet Shop');
-  for (const t of Shops.THEMES) assert.truthy(Shops.roleLabel('market', t), 'every line has a name: ' + t);
-  assert.eq(Shops.roleLabel('market'), 'Shop', 'no line to name → a bare Shop');
+  assert.eq(Shops.roleLabel('shop', 'seed'), 'Seed Shop');
+  assert.eq(Shops.roleLabel('shop', 'potion'), 'Magic Shop');
+  assert.eq(Shops.roleLabel('shop', 'pet'), 'Pet Shop');
+  for (const t of Shops.THEMES) assert.truthy(Shops.roleLabel('shop', t), 'every line has a name: ' + t);
+  assert.eq(Shops.roleLabel('shop'), 'Shop', 'no line to name → a bare Shop');
   for (const label of Object.values(Shops.ROLE_LABEL)) {
     assert.truthy(label !== 'Market', 'no role is labelled "Market"');
   }
@@ -46,7 +46,7 @@ test('shop naming: the trader is named for its goods, never its address', () => 
   assert.eq(Shops.roleLabel('trader', null, null), 'Trader', 'no goods → bare Trader');
   assert.eq(Shops.roleLabel('trader', null, ''), 'Trader', 'empty goods → bare Trader');
   // goods only ever touches the trader.
-  assert.eq(Shops.roleLabel('market', 'seed', 'Rockfruit'), 'Seed Shop', 'goods is trader-only');
+  assert.eq(Shops.roleLabel('shop', 'seed', 'Rockfruit'), 'Seed Shop', 'goods is trader-only');
   assert.eq(Shops.roleLabel('blacksmith', null, 'Rockfruit'), 'Blacksmith', 'goods is trader-only');
   assert.eq(Shops.roleLabel('wizard', null, 'Rockfruit'), 'Wizard', 'goods is trader-only');
 
@@ -78,9 +78,12 @@ test('shop naming: a closed trade turns the trader\'s goods over', () => {
     'shopRng reads ShopsMath.rng');
 });
 
-test('shop naming: the role KEY is untouched — saves still say "market"', () => {
+test('shop naming: the role key is "shop"; an old save\'s "market" is migrated on load', () => {
   const house = { kind: 'house', tier: WorldGen.T.BUILDING, address: 26 };
-  assert.eq(Shops.shopType(house), 'market', 'the persisted role string is unchanged');
+  assert.eq(Shops.shopType(house), 'shop', 'the persisted role string');
+  const old = migrateSave({ restoredHouses: { a: 'market', b: 'blacksmith', c: 'plain' } });
+  assert.eq(JSON.stringify(old.restoredHouses), JSON.stringify({ a: 'shop', b: 'blacksmith', c: 'plain' }));
+  assert.eq(JSON.stringify(migrateSave({})), '{}', 'a save with no ledger is untouched');
 });
 
 test('shop naming: every call site reads Shops.roleLabel, none inlines a name', () => {
@@ -88,9 +91,9 @@ test('shop naming: every call site reads Shops.roleLabel, none inlines a name', 
   assert.truthy(/Shops\.roleLabel\(role,/.test(render), 'the map sign resolves through Shops.roleLabel');
   assert.falsy(/market: 'Market'/.test(render), 'render.js no longer carries its own label table');
   // app.js's offer title + restoration card.
-  assert.truthy(/Shops\.roleLabel\('market', this\.marketTheme\(house\)\.theme\)/.test(app),
+  assert.truthy(/Shops\.roleLabel\('shop', this\.shopLine\(house\)\.theme\)/.test(app),
     'the offer title resolves through Shops.roleLabel');
-  assert.truthy(/Shops\.roleLabel\(row\.role, row\.role === 'market' \? \(row\.theme \|\| theme\) : null\)/.test(app),
+  assert.truthy(/Shops\.roleLabel\(row\.role, row\.role === 'shop' \? \(row\.theme \|\| theme\) : null\)/.test(app),
     'the restoration card resolves through Shops.roleLabel');
   assert.falsy(/name: 'Market'/.test(app), 'the restoration card no longer hardcodes "Market"');
   assert.falsy(/The market has fresh stock/.test(app), 'the old offer title is gone');

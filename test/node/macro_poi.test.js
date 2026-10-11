@@ -263,10 +263,29 @@
     assert.falsy(/_presentScriptorium/.test(SCENE_SRC), 'the free-page dialog is gone');
     // presentMacro routes by the kind's `present` column (Macros.KIND_DIALOG);
     // a stall with a `stock` opens the shared counter with that stock.
-    assert.truthy(/if \(!d\.stock\) return this\[d\.present\]\(sx, sy, o, dress\);[\s\S]{0,400}?const opts = \{ \.\.\.dress, items: stock, title: d\.title \};/.test(SCENE_SRC),
+    assert.truthy(/if \(!d\.stock\) return this\[d\.present\]\(sx, sy, o, dress\);[\s\S]{0,400}?const opts = \{ \.\.\.dress, items: stock, title: d\.title,/.test(SCENE_SRC),
       'the scriptorium opens the stall counter');
     assert.falsy(/_presentBookRead\(\)/.test(SCENE_SRC.slice(SCENE_SRC.indexOf('presentMacro('), SCENE_SRC.indexOf('buildingFlavorTitle('))),
       'no macro reads a Book page for free');
+  });
+
+  test('scriptorium: one Book per scriptorium, each 4× the last one paid; the torch stays', () => {
+    const save = { relics: {} }, a = { id: 'scrip-a' }, b = { id: 'scrip-b' };
+    const first = Macros.scriptoriumPrice(save, 'book');
+    assert.eq(first, Macros.stallPrice(save, 'book'), 'the first Book is at the stall price');
+    assert.eq(Macros.scriptoriumPrice(save, 'torch'), null, 'the torch keeps the stall price');
+    Macros.scriptoriumBought(save, a, 'torch', 5);
+    assert.eq(Macros.scriptoriumStock(save, a).join(), 'book,torch', 'a torch never spends the Book');
+    Macros.scriptoriumBought(save, a, 'book', first);
+    assert.eq(Macros.scriptoriumStock(save, a).join(), 'torch', 'this scriptorium is out of Books for good');
+    assert.eq(Macros.scriptoriumStock(save, b).join(), 'book,torch', 'another scriptorium has one');
+    assert.eq(Macros.scriptoriumPrice(save, 'book'), first * Macros.SCRIPTORIUM_BOOK_PRICE_MUL);
+    assert.eq(Macros.SCRIPTORIUM_BOOK_PRICE_MUL, 4);
+    Macros.scriptoriumBought(save, b, 'book', first * 4);
+    assert.eq(Macros.scriptoriumPrice(save, 'book'), first * 16, 'four times the prior one again');
+    const row = Macros.KIND_DIALOG.scriptorium;
+    assert.eq(row.stock(b, save).join(), 'torch', 'the counter row reads the save');
+    assert.eq(row.price(b, save, 'book'), first * 16);
   });
 
   test('stalls: apothecary, sundries and scriptorium share the market stall\'s one counter', () => {
@@ -281,7 +300,7 @@
     // not a stack) off the same row, never a switch of its own.
     assert.truthy(/_presentStallGear\(sx, sy, \{[^}]*entry: stock\[0\] \}\)/.test(SCENE_SRC),
       'a gear line at the sundries counter opens the gear buy');
-    assert.truthy(/_presentStallOffer\(sx, sy, opts\) \{[\s\S]*?const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*const unitPrice = ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
+    assert.truthy(/_presentStallOffer\(sx, sy, opts\) \{[\s\S]*?const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*[\s\S]{0,200}?const unitPrice = opts\.priceOf\?\.\(this\.save, id\) \?\? ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
       'priced by ShopsMath.standPrice off the list price (the Book\'s ladder rides in listPrice)');
   });
 
@@ -700,7 +719,7 @@
     assert.eq(ShopsMath.listPrice(save, 'book'), base * ShopsMath.BOOK_PRICE_CAP_MUL, 'capped');
     assert.gt(ShopsMath.listPrice(save, 'book'), 300, 'and dear');
     assert.eq(Macros.stallPrice(save, 'book'), ShopsMath.standPrice(save, ShopsMath.listPrice(save, 'book')), 'the stall reads the ladder');
-    assert.truthy(/const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*const unitPrice = ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
+    assert.truthy(/const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*[\s\S]{0,200}?const unitPrice = opts\.priceOf\?\.\(this\.save, id\) \?\? ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
       'the stall counter prices off the ladder');
     assert.truthy(/const want = 1;/.test(SCENE_SRC), 'and sells a Book one at a time');
     assert.truthy(/this\.buildShopOffer\(id, units \* ShopsMath\.listPrice\(this\.save, id, itemValue\(id\)\), \{ house \}\)/.test(SCENE_SRC),
@@ -720,7 +739,7 @@
   test('bookshop: the Book Shop card, from the 15th restoration, is a market that sells only the Book, outside the line cycle', () => {
     assert.eq(Houses.STORY_RESTORES.bookshop, 15);
     assert.eq(Houses.buildOption('bookshop').from, 15, 'on offer from the 15th rebuild');
-    assert.eq(Houses.buildOption('bookshop').role, 'market', 'stored as a shop');
+    assert.eq(Houses.buildOption('bookshop').role, 'shop', 'stored as a shop');
     assert.eq(Shops.THEME_LABEL.book, 'Book Shop');
     assert.eq(Shops.themedStock('book', 1).join(), 'book', 'the Book and nothing else');
     assert.falsy(Shops.THEMES.includes('book'), 'not a line of the cycle');
@@ -730,28 +749,28 @@
     const h = (id) => ({ kind: 'house', tier: 9, id });
     assert.eq(Houses.restoreAs(save, h('h0'), 'plain').key, 'plain');
     assert.eq(Houses.restoreAs(save, h('h1'), 'bookshop'), null, 'not on offer yet');
-    const shopKey = () => Houses.buildOptions(save, null).find((r) => r.role === 'market' && r.key !== 'bookshop').key;
+    const shopKey = () => Houses.buildOptions(save, null).find((r) => r.role === 'shop' && r.key !== 'bookshop').key;
     for (let i = 1; i < 14; i++) Houses.restoreAs(save, h('h' + i), i % 3 === 0 ? shopKey() : 'plain');
     assert.eq(save.bookshopId, undefined, 'an ordinary market is not it');
     assert.eq(Houses.restoreAs(save, h('b'), 'bookshop').key, 'bookshop');
     assert.eq(save.bookshopId, 'b', 'the pick is');
-    assert.eq(rh.b, 'market');
+    assert.eq(rh.b, 'shop');
     assert.eq(Houses.restoreAs(save, h('m'), 'bookshop'), null, 'once per save');
-    assert.eq(Houses.restoreAs(save, h('m'), shopKey()).role, 'market');
+    assert.eq(Houses.restoreAs(save, h('m'), shopKey()).role, 'shop');
     assert.eq(Shops.lineFor(save, { id: 'b' }).theme, 'book');
     assert.eq(Shops.lineFor(save, { id: 'b' }).tier, 1);
     // Outside the cycle: the markets before it keep their order, and the one
     // after it takes the line the bookshop would otherwise have spent.
-    const markets = Object.keys(rh).filter((id) => rh[id] === 'market' && id !== 'b');
+    const markets = Object.keys(rh).filter((id) => rh[id] === 'shop' && id !== 'b');
     markets.forEach((id, n) => assert.eq(Shops.shopOrder(save, { id }), n, `${id} keeps place ${n}`));
-    const lines = Shops.marketLines(save), mine = lines.find((r) => r.id === 'm');
+    const lines = Shops.shopLineLedger(save), mine = lines.find((r) => r.id === 'm');
     assert.eq(mine.tier, 1, 'a picked T1 line is T1 however many stand on it (the stamped rank)');
     assert.truthy(/const row = Houses\.restoreAs\(this\.save, house, key, \{ hammer \}\);/.test(SCENE_SRC), 'the restore path freezes the pick');
-    assert.truthy(/return Shops\.lineFor\(this\.save, house\);/.test(SCENE_SRC), 'marketTheme reads lineFor');
+    assert.truthy(/return Shops\.lineFor\(this\.save, house\);/.test(SCENE_SRC), 'shopLine reads lineFor');
     assert.falsy(/Shops\.themeAt\(Shops\.shopOrder/.test(SCENE_SRC), 'and nothing reads the cycle directly');
     // A save past the slot before the bookshop existed: no old shop is re-labelled.
     const old = { restoredHouses: {} };
-    for (let i = 0; i < 20; i++) old.restoredHouses['o' + i] = i % 2 ? 'market' : 'plain';
+    for (let i = 0; i < 20; i++) old.restoredHouses['o' + i] = i % 2 ? 'shop' : 'plain';
     assert.eq(Shops.lineFor(old, { id: 'o15' }).theme, Shops.themeAt(Shops.shopOrder(old, { id: 'o15' })).theme, 'no old shop is re-labelled');
     assert.eq(Houses.restoreAs(old, h('n'), 'bookshop').key, 'bookshop');
     assert.eq(old.bookshopId, 'n');
