@@ -153,7 +153,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   isToolGated, toolGatedAlpha, TOOL_GATED_ALPHA,
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE, MAP_MSG_MAX,
   // Which ground takes a hoe, and the inventory's type tabs.
-  NON_TILLABLE, INV_CATS, INV_CAT_BY_KEY,
+  NON_TILLABLE, INV_CATS, INV_CAT_BY_KEY, invCatIconHTML,
   toolDurationMs, TOOL_DURATION_MS, TIER_STEP, effectivePickCost, effectiveChopCost,
   treeWoodMul, treeAxeReqTier, treeSpeciesName, treeSizeClass, treeGrowthStage,
   plantedTreeStage, TREE_SAPLING_SCALE_MUL, PLANTED_TREE_GROW_MS, acornDropChance, ACORN_P_BASE, ACORN_P_FROST,

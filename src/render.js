@@ -261,7 +261,7 @@ Render.shopTierBadge = (scene, house, role) => {
   };
 };
 // Market signs identify the line, not the randomly selected stock item.
-// Category symbols come from the inventory tabs; books keep their item icon.
+// Category icons are the inventory tabs' pixel art (sign-ink brown); books keep their item icon.
 Render.MARKET_SIGN_ICONS = Object.freeze({
   seed: { tab: 'seed' },
   supply: { tab: 'supplies' },
@@ -278,7 +278,7 @@ Render.marketSignTheme = (scene, house, role) => {
 Render.marketSignIconHTML = (scene, theme, size) => {
   const icon = Render.MARKET_SIGN_ICONS[theme];
   if (!icon) return '';
-  if (icon.tab) return `<span style="display:block;font-size:${size}px;line-height:1">${INV_CAT_BY_KEY[icon.tab].sym}</span>`;
+  if (icon.tab) return invCatIconHTML(icon.tab, size, '#382719');
   return scene.iconSpanHTML(icon.item, size);
 };
 const COIN_DROP_PX = 9;
