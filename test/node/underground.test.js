@@ -46,10 +46,14 @@
     const deep = sample(3); assert.eq(deep.plan.routes.length, 0); assert.eq(deep.grid[32 * deep.N + 20], T.CAVE_WALL);
   });
   test('underground: gem tiers stop at floor depth and ordinary D2 respects suppression and bonus land', () => {
-    for (let n = 0; n < 100; n++) {
-      assert.eq(Underground.gem(1, n).yieldTier, 1);
-      assert.truthy(Underground.gem(2, n).yieldTier <= 2);
+    let quartz = 0;
+    for (let n = 0; n < 300; n++) {
+      const shallow = Underground.gem(1, n), mid = Underground.gem(2, n);
+      if (shallow) { assert.eq(shallow.yieldTier, 1); quartz++; }
+      if (mid) assert.truthy(mid.yieldTier <= 2);
     }
+    // Rose quartz lands about a third of its rolls (QUARTZ_KEEP).
+    assert.truthy(quartz > 70 && quartz < 130, `quartz kept ${quartz}/300`);
     function count(terrain, suppressed) {
       const N = 100, edge = 700, grid = new Uint8Array(N * N).fill(T.CAVE_FLOOR);
       const surface = { baseGrid: new Uint8Array(N * N).fill(terrain), spawnWhy: new Uint16Array(N * N).fill(suppressed ? WorldGen.SPAWN_WHY.SENSITIVE : 0) };
@@ -58,7 +62,9 @@
       return objects.filter(o => o.deposit).length;
     }
     const ordinary = count(T.GRASS, false), beach = count(T.SAND, false), commercial = count(T.COMMERCIAL, false);
-    assert.truthy(ordinary > 500 && ordinary < 1100);
+    // 8% of 10,000 rocks roll a gem; quartz holds 3 of 4 pool slots on D2
+    // and lands a third of the time, so about 0.08 × (1/4 + 3/4 × 1/3) × 10,000.
+    assert.truthy(ordinary > 250 && ordinary < 550, `ordinary ${ordinary}`);
     assert.truthy(beach > ordinary * 1.7 && beach < ordinary * 2.3);
     assert.eq(commercial, beach); assert.eq(count(T.SAND, true), 0);
   });

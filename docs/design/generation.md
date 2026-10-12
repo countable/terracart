@@ -116,6 +116,7 @@ access or tile lifecycle mechanics.
   one owning table keyed by floor, never a depth literal at a call site.
   `WorldGen.floorProfile(depth)` owns cave terrain, street projection and gem
   probabilities, authored cave-area weights/carving/garrisons, pressure traps,
+  the vent kinds a floor erupts,
   arrival story IDs and entry keys. Keep story copy in the presentation module;
   choose its story through the profile. Depths beyond the explicit rows inherit
   the default profile, including the infernal entry key.
@@ -480,6 +481,12 @@ Higher-priority placements and their access space take precedence in this order:
    override road variants where they overlap; the physical road and its
    safety restrictions remain intact.
 6. Ambient fill: ordinary plants, rocks and generic scattered content.
+   Residential yard trees are the newest ambient fill: while the DeepForest
+   layer is paused (`DEEPFOREST_TREES_ENABLED`), each residential polygon
+   seeds random-sized trees from the `T.RESIDENTIAL` `yardTrees` row
+   (`BiomeProfiles.yardTrees`). They seat after every older object and wild
+   plant, obey the residential spawn gate like the yard flora, and yield
+   their cell to any mapped or detected tree from the tile bin.
 
 - Hard terrain, land-access, road-safety and accessibility rules are prerequisites,
   separate from priority. Higher priority does not bypass them. Any authored
