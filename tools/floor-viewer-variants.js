@@ -50,10 +50,20 @@
       if (selected?.id && depth === 0) {
         const picks = new Map(selected.nexuses.map(row => [row.kind, row.id])), originalPick = V.pick;
         replace(V, 'pick', anchor => {
+          if (anchor.generated === 'parking_lanes') return originalPick(anchor);
           const id = picks.get(anchor.kind);
           if (!id) return originalPick(anchor);
           anchor.variant = id; return V.byId(id);
         });
+        // Parking-lot quarries select a layout directly from their footprint,
+        // bypassing V.pick. Force the initial roll, then let the live fitter
+        // retain its normal fallback when the selected layout cannot fit.
+        const quarryIndex = V.forKind('quarry').findIndex(row => row.id === picks.get('quarry'));
+        if (quarryIndex >= 0) {
+          const Q = root.QuarryLayout, originalWeightedIndex = Q.weightedIndexForHash;
+          replace(Q, 'weightedIndexForHash', (hash, variants) => variants
+            ? originalWeightedIndex(hash, variants) : quarryIndex);
+        }
         const roads = new Map(selected.roads.map(row => [row.kind, row.id])), originalRoad = SV.variantFor;
         replace(SV, 'variantFor', (key, name, size, context) => size === 'major' ? null
           : roads.get(size) || originalRoad(key, name, size, context));

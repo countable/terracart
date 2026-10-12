@@ -34,9 +34,15 @@
   test('floor viewer variants: simultaneous selectors restore after failed generation', async () => {
     const originalPick = ZoneVariants.pick, originalRoad = StreetVariants.variantFor, originalScenic = Scenic.classify;
     const originalScenicSteps = StreetVariants.applyPathScenicSteps;
+    const originalQuarryIndex = QuarryLayout.weightedIndexForHash;
     let failed = false;
     try {
       await FloorViewerVariants.withSelection(0, 2, async selected => {
+        const quarry = selected.nexuses.find(row => row.kind === 'quarry');
+        assert.eq(ZoneVariants.forKind('quarry')[QuarryLayout.weightedIndexForHash(123)].id, quarry.id);
+        const fitting = ZoneVariants.forKind('quarry').slice(1);
+        assert.eq(QuarryLayout.weightedIndexForHash(123, fitting), originalQuarryIndex(123, fitting),
+          'footprint fallback retains the fitting subset weights');
         for (const row of selected.nexuses) assert.eq(ZoneVariants.pick({ kind: row.kind }).id, row.id);
         for (const row of selected.roads) assert.eq(StreetVariants.variantFor('preview', '', row.kind), row.id);
         assert.falsy(selected.roads.some(row => row.kind === 'major'), 'MD/LG have no forced variant selector');
@@ -48,6 +54,7 @@
     assert.truthy(failed);
     assert.eq(ZoneVariants.pick, originalPick); assert.eq(StreetVariants.variantFor, originalRoad); assert.eq(Scenic.classify, originalScenic);
     assert.eq(StreetVariants.applyPathScenicSteps, originalScenicSteps);
+    assert.eq(QuarryLayout.weightedIndexForHash, originalQuarryIndex);
   });
   test('floor viewer variants: legacy cave weights restore and explicit empty profiles take precedence', async () => {
     const originalProfile = WorldGen.floorProfile, originalWeights = CaveAreas.DEPTH_WEIGHTS;

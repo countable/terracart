@@ -17,6 +17,8 @@ Unrestored places use weathered materials, subdued colour, and signs of neglect.
 - The viewport uses a top-down square grid. Artwork starts overhead, tilted roughly 45 degrees toward a south camera: show crowns, backs and top surfaces with compressed front faces. This deliberately mixes perspectives rather than using a physically correct projection. Raised walls and traps retain enough upright height to show their faces.
 - Raised surfaces reveal a front-facing wall or cliff below their top plane: a clear lip, shaded face, and grounded base. Tilled plots read as shallow depressions; shrine footings rise above their surroundings. Roads retain their softly blended edges without depression walls. Keep landscape terrain level for now.
 - Keep the square map axes aligned with the screen. This is not an isometric diamond grid.
+- Building sprites use a three-quarter top-down camera too: show substantial roof depth and tower tops, with shorter, foreshortened front walls. Keep entrances facing screen-bottom; avoid a face-on architectural elevation.
+- Design the fort at 64 pixels wide. Use broad shapes, restrained trim and a single readable gambling emblem. Review the actual 64px export; shrinking a detailed illustration does not make its detail appropriate for this resolution.
 - Everything except roads, buildings, and game characters lives on a 24px tile grid, scaled to the device for a crisp pixel look. Larger tiled objects can span multiple cells.
 - Match apparent pixel size across assets. Use crisp scaling for raster art; avoid mixing tiny detailed pixels with enlarged coarse pixels in neighbouring objects.
 - The 24px grid is the art target. Source sprites may be 16px or 24px; the current runtime display cell is 32px (`src/sprite_layout.js` and `src/app.js`). These are separate sizes; assess assets together at their final display scale.
@@ -26,7 +28,7 @@ Unrestored places use weathered materials, subdued colour, and signs of neglect.
 - Generate spritesheets as an 8 × 8 grid of sprites: eight columns and eight rows, for 64 frames. Design each frame in a 24 × 24 px pixel-art style, with deliberate pixel clusters, crisp edges and restrained detail.
 - A sheet of single-cell sprites is 192 × 192 px at the target resolution. Higher-resolution generations are enlarged working images; they must not introduce finer detail than the 24 × 24 px style can support. Review the extracted frames at their final game scale.
 - Keep frame spacing, ground anchors and apparent pixel size consistent across the sheet. Use transparent backgrounds and keep artwork inside its assigned frame. Declare larger, multi-cell objects separately rather than squeezing them into a single-cell silhouette.
-- The 8 × 8 layout is the generation convention, not a requirement to repack existing runtime sheets. Preserve the camera and scale exceptions above for buildings, roads and characters.
+- The 8 × 8 layout is the generation convention, not a requirement to repack existing runtime sheets. Preserve the scale exceptions above for buildings, roads and characters; buildings still follow the three-quarter top-down camera rule.
 
 ## Colour, vectors, and light
 - Use a shared, restrained palette across terrain, props, buildings, and actors. Coordinate material colours and shadow tones; reserve stronger colour and contrast for useful focal points and restoration.

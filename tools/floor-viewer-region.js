@@ -65,10 +65,11 @@
     poi.push(point({ class: 'parking', name: 'Market Parking' }, 7, 15));
     // The southern tar yard replaces the sports pitch.
     poi.push(point({ class: 'fuel', subclass: 'fuel' }, 21, 30));
-    // Parking aisles generate the quarry without a separate dirt-ground polygon.
-    transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[2, 8], [12, 8], [12, 21], [2, 21], [2, 8]]));
+    // Keep the aisle buffer inside the tile so this previews complete quarry
+    // layouts rather than the fixed scatter used for clipped lot fragments.
+    transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, 8], [12, 8], [12, 21], [4, 21], [4, 8]]));
     for (const y of [12, 15, 18])
-      transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[2, y], [12, y]]));
+      transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, y], [12, y]]));
     building.push(poly({ building: 'church' }, [cellRect(3, 28, 3, 2.5)]));
     poi.push(point({ class: 'place_of_worship', subclass: 'christian', name: 'Sandbox Church' }, 4, 29));
 
