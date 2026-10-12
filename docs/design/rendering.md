@@ -112,6 +112,13 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 ## Lighting and streets
 
+- Plain mineable rocks use the existing sheet's complete 32×16 boulders,
+  loaded as `mineralboulder` with five columns. The pair and three single-size
+  variants retain their deterministic slot and two/one-stone yields. Legacy
+  ore rocks use the matching larger mineral boulders; named gem deposits retain
+  their own artwork. `SpriteLayout.mineralRockArt` owns key, frame and scale.
+  The `mineralrock` 16×16 texture remains available for material/icon uses.
+
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Bushes, hedges, short walls, rocks and cave walls block sight beyond their
   cell; the smallest tree saplings provide no cover. Larger standing trees
@@ -120,8 +127,8 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   creatures and their associated labels, shadows and target affordances.
   `Lighting.coverFrame` caches a world-aligned mask and composites it into the
   existing lightmap after light sources. It reuses the exploration fog's
-  low-resolution smooth upscale and world-keyed wisps, with a narrow half-cell
-  edge instead of the exploration ramp. Noise coordinates and both canvases
+  low-resolution smooth upscale and world-keyed wisps, with a roughly one-cell
+  feather from a small separable filter instead of the exploration ramp. Noise coordinates and both canvases
   are reused; only changes to the sight field repaint the alpha buffer. Surface
   cover retains a faint ground silhouette, while underground full cover is black. Cover queries always
   originate at the player's body, including during camera peeks.

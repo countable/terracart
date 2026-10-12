@@ -1850,12 +1850,12 @@
     const revision = Visibility.revision(scene);
     const player = playerWorldM(scene);
     const stepM = scene.cellM / 2, stepPx = CELL_PX / 2;
-    // A sample outside every painted edge keeps interpolation continuous while
+    // Two samples outside every painted edge keep the feather continuous while
     // the padded mask scrolls. Normal game viewports are square.
-    const x0 = Math.floor((ax - (scene.viewCenterX - scene.viewLeft) * scene.cellM / CELL_PX) / stepM) - 1;
-    const y0 = Math.floor((ay - (scene.viewCenterY - scene.viewTop) * scene.cellM / CELL_PX) / stepM) - 1;
-    const D = Math.ceil(Math.max(W, H) / stepPx) + 4;
-    const cells = D - 2, samples = FOG_SUB / 2, N = cells * samples;
+    const x0 = Math.floor((ax - (scene.viewCenterX - scene.viewLeft) * scene.cellM / CELL_PX) / stepM) - 2;
+    const y0 = Math.floor((ay - (scene.viewCenterY - scene.viewTop) * scene.cellM / CELL_PX) / stepM) - 2;
+    const D = Math.ceil(Math.max(W, H) / stepPx) + 6;
+    const cells = D - 4, samples = FOG_SUB / 2, N = cells * samples;
     const latticeKey = [x0, y0, D, scene.cellM].join('|');
     const key = [revision, scene.depth, player.x, player.y, latticeKey].join('|');
     let mask = scene._coverLightMask;
@@ -1870,6 +1870,7 @@
         mask.ctx = buffer.getContext('2d');
         mask.img = mask.ctx.createImageData(N, N);
         mask.field = new Float32Array(D * D);
+        mask.feather = new Float32Array(D * D);
         mask.sampleX = new Float32Array(N * N);
         mask.sampleY = new Float32Array(N * N);
         mask.latticeKey = null;
@@ -1879,7 +1880,7 @@
       if (mask.latticeKey !== latticeKey) {
         let i = 0;
         for (let y = 0; y < N; y++) for (let x = 0; x < N; x++, i++) {
-          const fx = .5 + (x + .5) / samples, fy = .5 + (y + .5) / samples;
+          const fx = 1.5 + (x + .5) / samples, fy = 1.5 + (y + .5) / samples;
           const wx = (x0 + fx + .5) / 2, wy = (y0 + fy + .5) / 2;
           // At most one eighth of a cell of irregularity; unlike exploration
           // fog's long ramp, a narrow wall shadow must keep its dark centre.
@@ -1897,6 +1898,17 @@
           : cover === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS
           : (scene.depth > 0 ? 1 : Visibility.FULL_DARKNESS);
       }
+      // A small separable tent filter broadens the feather to about one cell.
+      // Only the visual field is filtered; sight tests stay exact. Uniform
+      // interiors keep their opacity, with no extra canvas or pixel readback.
+      for (let y = 0; y < D; y++) for (let x = 1; x < D - 1; x++) {
+        const i = y * D + x;
+        mask.feather[i] = (mask.field[i - 1] + 2 * mask.field[i] + mask.field[i + 1]) / 4;
+      }
+      for (let y = 1; y < D - 1; y++) for (let x = 1; x < D - 1; x++) {
+        const i = y * D + x;
+        mask.field[i] = (mask.feather[i - D] + 2 * mask.feather[i] + mask.feather[i + D]) / 4;
+      }
       const data = mask.img.data;
       for (let i = 0; i < N * N; i++) {
         data[i * 4 + 3] = Math.round(255 * fogSample(mask.field, D, mask.sampleX[i], mask.sampleY[i]));
@@ -1909,8 +1921,8 @@
       ctx.globalCompositeOperation = 'source-over';
       mask.key = key;
     }
-    const x = Math.round(scene.viewCenterX - scene.viewLeft + ((x0 + 1) * stepM - ax) * CELL_PX / scene.cellM);
-    const y = Math.round(scene.viewCenterY - scene.viewTop + ((y0 + 1) * stepM - ay) * CELL_PX / scene.cellM);
+    const x = Math.round(scene.viewCenterX - scene.viewLeft + ((x0 + 2) * stepM - ax) * CELL_PX / scene.cellM);
+    const y = Math.round(scene.viewCenterY - scene.viewTop + ((y0 + 2) * stepM - ay) * CELL_PX / scene.cellM);
     return { canvas: mask.canvas, x, y, key: key + '|' + x + ',' + y };
   }
 

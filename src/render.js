@@ -273,6 +273,34 @@ const SHOP_PLATE = Object.freeze({
   roof: 0.2,        // board centre above the house sprite's centre, × its height
 });
 Render.SHOP_PLATE = SHOP_PLATE;
+// The roof callouts: a house's quest bubble is white; a trader's barter
+// bubble is dark wood with a gold rim and a gold arrow, so the two never read
+// as the same thing.
+const QUEST_BUBBLE = Object.freeze({
+  fill: '#fff', border: '1px solid rgba(0,0,0,0.18)', tail: '#fff', tailEdge: 'rgba(0,0,0,0.18)',
+});
+const TRADER_BUBBLE = Object.freeze({
+  fill: '#3b2a1a', border: '1px solid #d9a441', tail: '#d9a441', tailEdge: 'rgba(0,0,0,0.45)', ink: '#f0c560',
+});
+Render.QUEST_BUBBLE = QUEST_BUBBLE;
+Render.TRADER_BUBBLE = TRADER_BUBBLE;
+// "gives →": a 7×7 one-bit right arrow, drawn like the tab glyphs.
+const TRADE_ARROW_PX = [
+  '...#...',
+  '...##..',
+  '######.',
+  '#######',
+  '######.',
+  '...##..',
+  '...#...'];
+Render.tradeArrowHTML = (size, color) => {
+  const n = TRADE_ARROW_PX.length;
+  let d = '';
+  TRADE_ARROW_PX.forEach((row, y) => row.replace(/#+/g, (run, x) => { d += `M${x} ${y}h${run.length}v1h-${run.length}z`; return run; }));
+  const px = Math.max(n, Math.floor(size / n) * n);
+  return `<svg width="${px}" height="${px}" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" `
+    + `style="display:block" aria-hidden="true"><path fill="${color}" d="${d}"/></svg>`;
+};
 const _shade = (c, k) => '#' + [16, 8, 0]
   .map((sh) => Math.min(255, Math.round(((c >> sh) & 255) * k)).toString(16).padStart(2, '0')).join('');
 Render.shopSignLook = (badge) => {
@@ -4416,6 +4444,23 @@ Render.drawObjects = function drawObjects(scene) {
     if (o.tier === 9 && _houseIsHost(o)) return null;   // the roof bubble handles it
     return Shops.BUILDING_LABEL[o.tier] || null;
   };
+  // What a trader asks and gives right now, as two trade pieces — the same
+  // offer its barter modal opens with (scene.peekOrBuildTraderOffer, or the
+  // gear swap). Re-read once a second per house: the offer walks the bag.
+  const _traderCache = scene._traderDealCache || (scene._traderDealCache = new Map());
+  const _traderDeal = (o) => {
+    if (typeof scene.peekOrBuildTraderOffer !== 'function') return null;
+    const now = performance.now();
+    let c = _traderCache.get(o.id);
+    if (!c || now - c.at > 1000) {
+      const offer = scene.peekOrBuildTraderOffer(o);
+      const deal = !offer ? null : offer.gearSwap
+        ? { ask: offer.give, give: offer.get }
+        : { ask: { kind: 'item', id: offer.askId }, give: { kind: 'item', id: offer.giveId } };
+      _traderCache.set(o.id, c = { at: now, deal });
+    }
+    return c.deal;
+  };
   // True if this house is a residential delivery host — a plain tier-9 home
   // (not a wreck, the player's own home, the starter smithy or any specialty
   // shop) that asks for produce bundles. Hosts always show a
@@ -4441,6 +4486,9 @@ Render.drawObjects = function drawObjects(scene) {
   const plates = [], plain = [];
   for (const item of shopHouses) {
     const role = _houseRole(item.o);
+    // A trader with a deal on shows it as its barter bubble (the DOM pass
+    // below) instead of any board.
+    if (role === 'trader' && _traderDeal(item.o)) continue;
     const badge = Render.shopTierBadge(scene, item.o, role);
     const theme = Render.shopSignTheme(scene, item.o, role);
     const glyph = Render.shopSignGlyph(theme, role);
@@ -4529,9 +4577,15 @@ Render.drawObjects = function drawObjects(scene) {
         // Every delivery host gets a roof callout: the wishlist of produce icons
         // while hungry, a smiling face once a bundle is delivered. (A shop's
         // line glyph is on its canvas plate, drawShopPlate.)
-        if (it.wide || it.o.kind !== 'house' || !_houseIsHost(it.o)) continue;
-        const happy = _houseSatisfied(it.o);
-        const wanted = happy ? null : scene.wantedProduce(it.o);
+        // A trader's barter bubble — what it wants → what it gives — is the
+        // same callout in a different hide: dark wood with a gold rim, so it
+        // can't be mistaken for a house's white quest bubble.
+        if (it.wide || it.o.kind !== 'house') continue;
+        const deal = _houseRole(it.o) === 'trader' ? _traderDeal(it.o) : null;
+        if (!deal && !_houseIsHost(it.o)) continue;
+        const happy = !deal && _houseSatisfied(it.o);
+        const wanted = deal || happy ? null : scene.wantedProduce(it.o);
+        const look = deal ? TRADER_BUBBLE : QUEST_BUBBLE;
         const { x: sx, y: sy } = project(it.dx, it.dy);
         let slot = pool[psi];
         if (!slot) {
@@ -4541,8 +4595,8 @@ Render.drawObjects = function drawObjects(scene) {
           // house roof. The downward
           // tail is a separate child triangle added during the icon rebuild.
           el.style.cssText = 'position:fixed;left:0;top:0;display:flex;gap:3px;'
-            + 'align-items:center;padding:3px 5px;background:#fff;border-radius:7px;'
-            + 'border:1px solid rgba(0,0,0,0.18);box-shadow:0 1px 3px rgba(0,0,0,0.4);'
+            + 'align-items:center;padding:3px 5px;border-radius:7px;'
+            + 'box-shadow:0 1px 3px rgba(0,0,0,0.4);'
             + 'pointer-events:none;z-index:4;will-change:transform;';
           document.body.appendChild(el);
           slot = { el, key: null };
@@ -4551,11 +4605,28 @@ Render.drawObjects = function drawObjects(scene) {
         // Rebuild contents only when the wishlist / happy state / icon size
         // changes — the produce set is memoized per house, so this is normally
         // a no-op. The 'happy' sentinel in the key flips the bubble on delivery.
-        const key = it.o.id + '|' + (happy ? 'happy' : wanted.join(',')) + '|' + sizePx;
+        const pieceKey = (p) => [p.kind, p.id || p.slot, p.tier].join(':');
+        const key = it.o.id + '|' + (deal ? 'trade>' + pieceKey(deal.ask) + '>' + pieceKey(deal.give)
+          : happy ? 'happy' : wanted.join(',')) + '|' + sizePx;
         if (slot.key !== key) {
           slot.el.replaceChildren();
-          slot.el.setAttribute('aria-label', 'House delivery');
-          if (happy) {
+          slot.el.setAttribute('aria-label', deal ? 'Trader barter' : 'House delivery');
+          slot.el.style.background = look.fill;
+          slot.el.style.border = look.border;
+          if (deal) {
+            const piece = (p) => {
+              if (p.kind === 'item') return scene.renderItemIcon ? scene.renderItemIcon(p.id, sizePx, 'block') : null;
+              if (!scene.gearIconHTML) return null;
+              const span = document.createElement('span');
+              span.style.cssText = 'display:block;line-height:0;';
+              span.innerHTML = scene.gearIconHTML(p.kind, p.slot, p.tier, sizePx);
+              return span;
+            };
+            const arrow = document.createElement('span');
+            arrow.style.cssText = 'display:block;line-height:0;';
+            arrow.innerHTML = Render.tradeArrowHTML(Math.round(sizePx * 0.75), TRADER_BUBBLE.ink);
+            for (const el of [piece(deal.ask), arrow, piece(deal.give)]) if (el) slot.el.appendChild(el);
+          } else if (happy) {
             // Smiling face — non-item UI, so emoji is allowed here (see QC §1).
             const face = document.createElement('div');
             face.textContent = '😊';
@@ -4571,8 +4642,8 @@ Render.drawObjects = function drawObjects(scene) {
           const tail = document.createElement('div');
           tail.style.cssText = 'position:absolute;left:50%;bottom:-5px;width:0;height:0;'
             + 'border-left:5px solid transparent;border-right:5px solid transparent;'
-            + 'border-top:6px solid #fff;transform:translateX(-50%);'
-            + 'filter:drop-shadow(0 1px 0 rgba(0,0,0,0.18));';
+            + `border-top:6px solid ${look.tail};transform:translateX(-50%);`
+            + `filter:drop-shadow(0 1px 0 ${look.tailEdge});`;
           slot.el.appendChild(tail);
           slot.key = key;
         }
@@ -4583,9 +4654,9 @@ Render.drawObjects = function drawObjects(scene) {
         setStyleOnce(slot.el, 'transform', `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, -100%)`);
         setStyleOnce(slot.el, 'display', 'flex');
         // Box in game px: n icons + 3px gaps, 5px/3px padding, 1px border,
-        // 6px tail (CSS px ÷ scale).
-        const n = happy ? 1 : Math.max(1, wanted.length);
-        const bw = n * ICON_GAME + ((n - 1) * 3 + 12) / scale;
+        // 6px tail (CSS px ÷ scale); a barter is two icons and the arrow.
+        const n = deal ? 2.6 : happy ? 1 : Math.max(1, wanted.length);
+        const bw = n * ICON_GAME + ((Math.ceil(n) - 1) * 3 + 12) / scale;
         const bh = ICON_GAME + (8 + 6) / scale;
         const bb = sy - 18 + 6 / scale;
         const bl = sx - bw / 2, bt = bb - bh;
@@ -5571,41 +5642,11 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
                   depth: s.depth + 0.5,
                 });
               } },
-    mineralrock: { key: (o) => mineralDeposit(o)?.art.sheet || 'mineralrock',
-              // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
-              // to the SMALL rock variants only — other rows have boulder-
-              // sized art that visibly bleeds past the 16 × 16 frame at
-              // rock scale. Two safe pickranges:
-              //   PLAIN → row 15, cols 3..6 (the four "nice vanilla" rocks
-              //           the user identified; 4 vars). Used by cave rock AND
-              //           T1 ore — T1 shows no visible ore, it's just plain
-              //           rock that happens to yield a little copper. The
-              //           variant is NOT free cosmetics: col 3 draws a PAIR of
-              //           stones and pays out one more rock for it, so the
-              //           frame comes from SpriteLayout.PLAIN_ROCK_VARIANTS —
-              //           the same table interactables.js rolls the yield off.
-              //   ORE   → row 0, the ore-stone per yield tier. The top row is
-              //           ore stones in tier order starting at copper — copper
-              //           col 0 (T2), iron 1 (T3), gold 2 (T4), platinum 3
-              //           (T5), crimson 5 (T6), frost blue 7 (T7) —
-              //           so the rock you see matches the bar it drops.
-              frame: (o) => {
-                const deposit = mineralDeposit(o);
-                if (deposit) return deposit.art.frame;
-                const tier = o.yieldTier || o.requiredTier || 1;
-                // Cave rock and T1 ore both render as a plain rock variant.
-                if (o.caveVariant != null || tier <= 1) {
-                  return SpriteLayout.plainRockFrame(o);   // row 15, cols 3..6
-                }
-                // MINERAL_TIERS owns the ore-stone column beside the bar the
-                // rock pays. Row 0 means the sheet frame equals that column.
-                return mineralRockFrame(tier);
-              },
-              // Seat per the "one cell" rule: centres the small rock art in its cell (the art
-              // sits low in the 16px frame). origin (0.5, 0.5)/dyPx below are the
-              // no-SpriteLayout fallback; a foot-anchor would shove a flat ground rock ~11 px
-              // into the cell above. scale 1.28 draws the 16px frame at ~20px.
-              origin: [0.5, 0.5], scale: o => mineralDeposit(o)?.art.scale || 1.28, seat: true, shadow: true,
+    mineralrock: { key: o => SpriteLayout.mineralRockArt(o).sheet,
+              frame: o => SpriteLayout.mineralRockArt(o).frame,
+              // Complete boulders make full cover readable. Named gem deposits
+              // retain their own art; cell seating uses each frame's bounds.
+              origin: [0.5, 0.5], scale: o => SpriteLayout.mineralRockArt(o).scale, seat: true, shadow: true,
               // Ore the current pick can't mine → half alpha; plain rock is
               // ungated and always full (interactables.js toolGatedAlpha).
               after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },
