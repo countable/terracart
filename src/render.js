@@ -5375,7 +5375,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // sprite vertically frame-to-frame; the flame still rises out the top.
     _fire: { key: 'bonfire',
              frame: () => Math.floor(performance.now() / 130) % 6,
-             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true },
+             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true,
+             // The logs' contact sits 2px above the art's bottom row.
+             shadowInsetPx: 2 },
     // A STREET LAMP on a restored street. ONE row, two arts, picked by the same
     // `lit` flag Lighting.collectLamps reads: the baked lamp (RoadOverlay.paintLamp,
     // a CANVAS texture, so its frame is '__BASE') or, dark, the broken post
@@ -5420,7 +5422,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     lava_vent: { key: null },
     torch: { key: 'torch',
              frame: (o) => (Math.floor(performance.now() / 130) + ((o.x | 0) & 3)) % 4,
-             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true },
+             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true,
+             // The logs' contact sits 2px above the art's bottom row.
+             shadowInsetPx: 2 },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine uses its own sheets sliced 32×48 so
     // the WHOLE tree fits in one frame. Column 3 is a full mature green tree on
@@ -5695,6 +5699,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
         // on the bottom edge makes it protrude below the stone like a gap.
         // Keep the true art foot for depth sorting; inset only the shadow.
         if (o.kind === 'mineralrock') foot.shadowInsetPx = Math.max(8, foot.w * 0.9) * SHADOW_LOOK.prop.aspect / 2;
+        // A row may lift its contact shadow a few px (spec.shadowInsetPx).
+        else if (spec.shadowInsetPx) foot.shadowInsetPx = spec.shadowInsetPx;
       }
     }
     if (foot && Render.hasShrineFooting(o)) {

@@ -677,3 +677,10 @@ test('quarry broken stone shrinks while mineral shadows stay under every resolve
   assert.eq(art.resolveAppearance({kind:'mineralrock',deposit:'crystal'}).scl,CRYSTAL_DEPOSIT.art.scale);
   assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:59}).scl,4/3);
 });
+
+test('campfire: its contact shadow sits 2px above the art bottom, on the logs', () => {
+  const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  const fire = art.resolveAppearance({kind:'_fire',id:'f'});
+  assert.truthy(fire.foot, 'the fire is seated and shadowed');
+  assert.eq(fire.foot.shadowInsetPx, 2);
+});
