@@ -1599,7 +1599,7 @@ const PRICES = {
   // A seed's price is also its roll-budget divisor (chest_themes.js
   // quantity): ~TIER_VALUE[baseTier] / 5, so a same-tier roll with no
   // brackets (BUDGET_SHARE.seed of the budget) holds about four.
-  rainberry_seed: 42, pairy_seed: 42, nut_seed: 5, potato_seed: 1,
+  rainberry_seed: 63, pairy_seed: 63, nut_seed: 5, potato_seed: 1,
   berry_seed: 5, cress_seed: 1, onion_seed: 5, starfruit_seed: 15,
   gemfruit_seed: 15, rubble_seed: 8, coffee_seed: 12,
   sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50, dawnfruit_seed: 480,
@@ -1610,9 +1610,9 @@ const PRICES = {
   potato: 5,
   cress: 5,        // T1 kitchen-garden green
   onion: 6,        // T1 kitchen-garden bulb
-  rainberry: 12,
+  rainberry: 18,
   berry: 7,        // T2 sweet
-  pairy: 16,
+  pairy: 24,
   // A shop-bought crop pays its grower: at an average shop (2.1× seed list)
   // the trailer's 2-produce harvest clears the seed cost by 25% of the
   // payout (Oct 2026). Starfruit and gemfruit were the T3 crops under it.
@@ -1648,7 +1648,7 @@ const PRICES = {
   shiny_egg: 40,
   baby_green_dragon: 360,
   green_dragon: 120,
-  milk: 18,
+  milk: 28,
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
   syrup: 7,

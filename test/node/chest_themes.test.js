@@ -67,8 +67,8 @@ test('chest themes: supply rewards reach T4 tools and the T6 Evertorch', () => {
     assert.falsy(ChestThemes.eligible('supplies', tier - 1).includes(id), id + ' respects its tier');
   }
   assert.eq(itemValue('blank_scroll'), 50);
-  assert.eq(itemValue('rainberry'), 12);
-  assert.eq(itemValue('pairy'), 16);
+  assert.eq(itemValue('rainberry'), 18);
+  assert.eq(itemValue('pairy'), 24);
   assert.eq(itemValue('worldpeach'), 250);
 });
 
