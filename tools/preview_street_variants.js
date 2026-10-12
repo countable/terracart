@@ -95,7 +95,7 @@ function preview(row) {
         { ...tile, layers, tileEdgeM, cellsPerEdge: N }), pois: [] } });
   const lamps = ctx.RoadOverlay.lampSitesForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
-  const objects = [...dress.objects, ...dress.wildplants, ...(dress.coins || []), ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))].map(local);
+  const objects = [...dress.objects, ...dress.wildplants, ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))].map(local);
   const lairs = dress.lairs.map((o) => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly }));
   return { ...row, ...groundPreview(tile), words: row.words ? row.words.source : null, sampleName: name,
     roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
@@ -124,23 +124,40 @@ function previewPath(row) {
     layers.push({ name: 'water', extent, features: [{ type: 3, tags: { class: 'lake' }, geom: [shore] }] });
     geography.push({ kind: 'water', points: shore.map(p => ({ x: p.x * tileEdgeM / extent, y: p.y * tileEdgeM / extent })) });
   }
-  const tile = WG.rasterizeTile(layers, N, tx, ty, tileEdgeM);
+  // Path themes belong to assigned sections, not the named-street hash.
+  // Force only the preview's theme draw; keep shipping section construction,
+  // scenic overrides, terrain, dressing and lamp placement intact.
+  const variantFor = SV.variantFor;
+  let tile;
+  try {
+    if (!kind) SV.variantFor = (key, label, size, context) => size === 'path'
+      ? row.id : variantFor(key, label, size, context);
+    tile = WG.rasterizeTile(layers, N, tx, ty, tileEdgeM);
+  } finally { SV.variantFor = variantFor; }
   const scenic = tile.scenic;
-  if (!scenic || scenic.census[kind] < lengthM - SC.SAMPLE_M) throw new Error(`Wrong scenic classification for ${row.id}`);
-  const dress = SC.dress({ scenic, tx, ty, N, tileEdgeM, grid: tile.grid, chests: [],
-    spawnOpts: { roadMask: tile.roadMask, roadClass: tile.roadClass, spawnWhy: tile.spawnWhy, occupied: ctx.RoadOverlay.lampReservedCells(tx, ty,
-      { ...tile, layers, tileEdgeM, cellsPerEdge: N }) } });
+  const entry = { ...tile, layers, tileEdgeM, cellsPerEdge: N };
+  const styles = SV.lineStyles(entry, layers[1].features[0], 0, 0, tileEdgeM / extent);
+  if (!styles.length || styles.some(style => style.variant !== row.id))
+    throw new Error(`Wrong assigned path theme for ${row.id}`);
+  if (kind && (!scenic || scenic.census[kind] < lengthM - SC.SAMPLE_M)) throw new Error(`Wrong scenic classification for ${row.id}`);
+  const spawnOpts = { roadMask: tile.roadMask, roadClass: tile.roadClass, spawnWhy: tile.spawnWhy,
+    occupied: ctx.RoadOverlay.lampReservedCells(tx, ty, entry), pois: [] };
+  const scenicDress = SC.dress({ scenic, tx, ty, N, tileEdgeM, grid: tile.grid, chests: [], spawnOpts });
+  const streetDress = SV.dress({ index: tile.streetIndex, tx, ty, N, tileEdgeM, grid: tile.grid, spawnOpts });
+  const objects = [scenicDress, streetDress].flatMap(dress => [...dress.objects, ...dress.wildplants,
+    ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))]).map(local);
   const lamps = ctx.RoadOverlay.lampSitesForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
-  if (!lamps.length || lamps.some(lamp => lamp.glow !== row.lampGlow)) throw new Error(`Wrong scenic lamps for ${row.id}`);
+  if (!lamps.length || lamps.some(lamp => lamp.glow !== row.lampGlow)) throw new Error(`Wrong path lamps for ${row.id}`);
   return { ...row, ...groundPreview(tile), sampleName: name, roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
     carpetStrokes: carpetPreview(row, WG.roadOverlayWidthM(tags)),
-    lampSpacingM: SV.lampSpacingFor(row.id, ctx.Streets.lampLayFor(tags).spacingM), objects: [...dress.objects, ...dress.wildplants, ...(dress.coins || []), ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))].map(local),
-    lamps, lairs: [], slowKinds: [], geography, scenicKind: kind,
-    selection: kind === 'shore' ? 'Off-road walking path beside qualifying shore water.' :
+    lampSpacingM: SV.lampSpacingFor(row.id, ctx.Streets.lampLayFor(tags).spacingM), objects,
+    lamps, lairs: streetDress.lairs.map(o => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly })),
+    slowKinds: [...new Set(objects.filter(o => SV.isSlowKind(o.kind)).map(o => o.kind))], geography, scenicKind: kind,
+    selection: !kind ? row.selection : kind === 'shore' ? 'Off-road walking path beside qualifying shore water.' :
       kind === 'greenway' ? 'Off-road walking path with a greenway name or route.' : 'Off-road walking path inside a named or sufficiently large park.',
-    rewards: `${SC.SCENIC_MUL[kind]}× first-restoration metre credit; one T${SC.VISTA_CHEST_TIER[kind]} one-time vista chest per eligible stretch of at least ${SC.VISTA_STRETCH_MIN_M} m. Daily path-lamp credit is unchanged.`,
-    placement: 'Geography selects the scenic row; real scenic stretch dressing seats vista chests off the path. ' + (kind === 'greenway' ? `Grass along both verges every ${SC.GREENWAY_GRASS_STEP_M} m where ground permits.` : 'No additional themed verge plants.'),
+    rewards: !kind ? row.rewards : `${SC.SCENIC_MUL[kind]}× first-restoration metre credit; one T${SC.VISTA_CHEST_TIER[kind]} one-time vista chest per eligible stretch of at least ${SC.VISTA_STRETCH_MIN_M} m. Daily path-lamp credit is unchanged.`,
+    placement: !kind ? row.placement : 'Geography selects the scenic row; real scenic stretch dressing seats vista chests off the path. ' + (kind === 'greenway' ? `Grass along both verges every ${SC.GREENWAY_GRASS_STEP_M} m where ground permits.` : 'No additional themed verge plants.'),
     line: line.map(p => ({ x: p.x * tileEdgeM / extent, y: p.y * tileEdgeM / extent })) };
 }
 
@@ -156,12 +173,13 @@ const rules = {
   overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,
   orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, both verges; at most ${SV.ORCHARD_MAX} trees per line piece, alternating half fruit trees (rare Worldpeach among apples) and half mature deciduous maples.`,
   snare: `One T${SV.SNARE_CHEST_TIER} cave-loot chest at the street midpoint, surrounded by up to ${(2 * SV.SNARE_TRAP_RADIUS_CELLS + 1) ** 2 - 1} traps on eligible verge ground. At least ${SV.SNARE_MIN_TRAPS} traps must fit.`,
-  golden: `Dense 1-coin pickups across all three rows of both verges; samples every ${SV.GOLDEN_STEP_M} m fill eligible cells. Road, lamp and occupied cells stay clear. Each coin is collectible once.`,
+  golden: `A golden idol holds eligible coin seats along both verges, sampled every ${SV.GOLDEN_STEP_M} m. Visiting it starts the daily coin spree; coins are not permanent street dressing. Road, lamp and occupied cells stay clear.`,
   pilgrim: 'One waystone per street per tile, at an eligible owned line end.',
-  lantern: `Lamps at ${SV.lampSpacingFor('lantern')} m target spacing (${SV.LANTERN_SPACING_DIV}× the usual density); no extra verge props.`,
+  lantern: `Lamps at ${SV.lampSpacingFor('lantern', ctx.Streets.lampLayFor({class: 'path'}).spacingM)} m target spacing (${SV.LANTERN_SPACING_DIV}× the usual path density); no extra verge props.`,
   burned: `Glowing ember paving damages the player like lava. One attempt every ${SV.BURNED_STEP_M} m; at most ${SV.BURNED_MAX} tar/stakes per line piece. Placed torches punctuate the verges; red lamps have ${SV.lampSpacingFor('burned')} m target spacing. One fire-slime guard site per stretch, seated back from the kerb.`,
   barricade: `Perpendicular lines of stakes and barricades cross the road every ${SV.BARRICADE_STEP_M} m and extend up to ${SV.BARRICADE_VERGE_MAX_CELLS} cells beyond either edge, stopping at obstacles; a target of ${SV.BARRICADE_MAX} pieces per line piece, finishing the last cross-road line. A Trap Kit removes each piece. One encounter anchor and its goblin guard site per street per tile.`,
   toadstool: `One attempt every ${SV.TOADSTOOL_STEP_M} m; at most ${SV.TOADSTOOL_MAX} mushrooms per line piece. Mushrooms only, in three-on/one-gap groups with varying verge setbacks.`,
+  goblin_gang: `${SV.VARIANT_BY_ID.goblin_gang.clusters} candidate gangs beside barrel stacks, with up to ${SV.VARIANT_BY_ID.goblin_gang.barrelsPerCluster} barrels per cluster where eligible verge cells remain.`,
 };
 for (const row of rows) row.placement = rules[row.id] || row.placement;
 process.stdout.write(JSON.stringify({ cellM, terrainVergeCells: Number(read('street_variants').match(/const TERRAIN_VERGE_CELLS = ([\d.]+)/)[1]), affinityContexts, fixture: { tx, ty, cellsPerEdge: N }, rows, baseline: SV.BANDIT_STORY,
