@@ -8,10 +8,11 @@ const Visibility = (() => {
   function objectCover(o) {
     // Match the smallest rendered sapling, not the harvest size class: the
     // latter also calls stage-2 young timber trees "small". Legacy bush-size
-    // timber records use that same sapling art; actual shrubs stay full cover.
+    // timber records use that same sapling art; actual shrubs retain partial cover.
     if (o?.kind === 'tree') return treeArtFrame(o) === 1 ? CLEAR : PARTIAL;
     if (o?.kind === 'fruittree') return Crops.fruitTreeState(o).stage === 0 ? CLEAR : PARTIAL;
-    if (ObstacleStep.profile(o)) return FULL;
+    if (o?.kind === 'mineralrock') return o.sightBlocking === true ? PARTIAL : CLEAR;
+    if (ObstacleStep.profile(o)) return PARTIAL;
     return CLEAR;
   }
   function key(c) { return c.cellIX + '_' + c.cellIY; }

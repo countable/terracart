@@ -519,8 +519,8 @@
       assert.gt(rocks.length, 0, `${zone}: actual rubble placements`);
       for (const rock of rocks) {
         assert.eq(rock._plantArt, `zone_rock_${zone}`);
-        assert.eq(wildplantSprite(rock).sheet, 'zone_objects');
-        assert.eq(wildplantFrame(rock), 64 + index);
+        assert.eq(wildplantSprite(rock).sheet, 'rock_variants');
+        assert.eq(wildplantFrame(rock), 52 + index);
         assert.eq(rock.id, WorldGen.cellId(rock.zoneLayer === 'background' ? 'wpf' : 'wz', 0, 0, rock._ix, rock._iy), 'art preserves the saved harvest identity');
       }
     }
@@ -541,7 +541,7 @@
     assert.truthy(stones.every(o => !o._objectArt), 'stone gardens keep standard stone art');
     assert.truthy(stones.filter(o => o.yieldTier > 1).every(o => !o._objectArt), 'iron ore keeps its tier art');
     const looks = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC;
-    assert.eq(looks.mineralrock.key({}), 'mineralboulder');
+    assert.eq(looks.mineralrock.key({}), 'rock_variants');
     assert.eq(looks.stakes.key, 'approved_charred_stakes', 'every spike placement uses the replacement art');
     assert.eq(looks.stakes.scale, 4 / 3, 'replacement art keeps its authored scale');
   });

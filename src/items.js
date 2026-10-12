@@ -137,23 +137,41 @@ function wildplantVariantHash(p) {
 // stamped by the rasterizer. None adds an item or changes planted crop art.
 // Mushroom Grove and Mushroom Lane can select the approved red mushroom
 // atlas frame; ordinary surface and cave mushrooms retain their base art.
+const ZONE_PLAIN_ROCK_FRAMES = Object.freeze({
+  stone_garden: 36, broken_masonry: 38, flint_field: 40, broken_depot: 42,
+  seep: 44, work_yard: 46, black_ring: 48, pirate_cove: 50,
+});
+// One authored environmental design per place; shared material rocks can take
+// these restrained zone tints without duplicating every material sprite.
+const ZONE_ROCK_THEMES = Object.freeze({
+  stone_garden: { frame: 52, tint: 0xdce6ce },
+  broken_masonry: { frame: 53, tint: 0xf0d6c2 },
+  flint_field: { frame: 54, tint: 0xd6dfeb },
+  broken_depot: { frame: 55, tint: 0xe6c9b5 },
+  seep: { frame: 56, tint: 0xc5e3df },
+  work_yard: { frame: 57, tint: 0xe8d8b6 },
+  black_ring: { frame: 58, tint: 0xc6c0ca },
+  pirate_cove: { frame: 59, tint: 0xe1dec4 },
+  'quarry-strip-mine': { frame: 60, tint: 0xe8d6b6 },
+  'quarry-stronghold': { frame: 61, tint: 0xd5d8df },
+  'quarry-crater': { frame: 62, tint: 0xcac5d3 },
+  'quarry-abandoned': { frame: 63, tint: 0xcdd9bd },
+  mystic_reef: { frame: 64, tint: 0xc1e0dd },
+});
 const WILDPLANT_CONTEXT_ART = {
   gas_mushroom_small: { crop: 'mushroom', sheet: 'gas_mushroom_small', custom: true, frame: 0, scale: CROP_SPRITE.mushroom.scale },
   gas_mushroom_large: { crop: 'giant_mushroom', sheet: 'gas_mushroom_large', custom: true, frame: 0, scale: CROP_SPRITE.giant_mushroom.scale, seat: CROP_SPRITE.giant_mushroom.seat },
-  zone_rock_stone_garden: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 64, scale: 4 / 3 },
-  zone_rock_broken_masonry: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 65, scale: 1.1 },
-  zone_rock_flint_field: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 66, scale: 4 / 3 },
-  zone_rock_broken_depot: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 67, scale: 4 / 3 },
-  zone_rock_seep: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 68, scale: 4 / 3 },
-  zone_rock_work_yard: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 69, scale: 4 / 3 },
-  zone_rock_black_ring: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 70, scale: 4 / 3 },
-  zone_rock_pirate_cove: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 71, scale: 4 / 3 },
+  ...Object.fromEntries(Object.entries(ZONE_ROCK_THEMES).map(([zone, theme]) =>
+    ['zone_rock_' + zone, { crop: 'rubble', sheet: 'rock_variants', custom: true, frame: theme.frame, scale: 0.75 }])),
   zone_hedge: { crop: 'shrub', sheet: 'zone_hedge', custom: true, scale: 4 / 3, seat: false },
   zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frame: 0, scale: (4 / 3) * 0.8, seat: false },
   palm: { crop: 'shrub', sheet: 'beach_palms', custom: true, frames: [2, 3, 4, 5], scale: 2, seat: true, shadow: true },
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
 function wildplantSprite(p) {
+  if (p?.crop === 'rubble' && (p.kind === 'wildplant' || p.wildId))
+    return { crop: 'rubble', sheet: mineralRockArtKey(p), custom: true,
+      frame: mineralRockArtFrame(p), scale: mineralRockArtScale(p) };
   if (p?.gasEmitter) {
     const gasArt = p.crop === 'giant_mushroom' || (p.crop === 'mushroom' && p._zoneObjectFrame === 40)
       ? WILDPLANT_CONTEXT_ART.gas_mushroom_large
@@ -180,6 +198,7 @@ function wildplantSprite(p) {
 function wildplantFrame(p) {
   const ov = wildplantSprite(p);
   if (!ov || !ov.custom) return 0;
+  if (p?.crop === 'rubble' && ov.sheet === 'rock_variants') return mineralRockArtFrame(p);
   // Grown underground: the crop's cave look (mushroom's blue caps), off the
   // same hash — same crop, same item, only the art says it grew in the dark.
   const list = (p && p._cave && ov.caveFrames) ? ov.caveFrames : ov.frames;
@@ -312,8 +331,8 @@ const COOKED_FOODS = {
 // 0..3, puts crimson at 5 and frost blue at 7; columns 4 and 6 are unused.
 // Yield tier 1 is a plain rock and therefore has no row or namesake bar.
 // Dedicated deposits pay the pictured gem. The approved cave sheet uses 24px
-// frames; sapphire retains the existing crystal-cluster art. `art` serves the
-// renderer while artKey/artFrame are the stable layout identity.
+// frames. These legacy art records remain available to layout/reference tools;
+// the world renderer now resolves every deposit through mineralRockArtFrame.
 function caveGemDeposit(item, yieldTier, artKey, artFrame) {
   const scale = artKey === 'crystal_cluster' ? 1.28 : 1.28 * 16 / 24;
   return Object.freeze({ item, quantity: 1, yieldTier,
@@ -340,15 +359,88 @@ function mineralDeposit(o) {
     : (Object.prototype.hasOwnProperty.call(GEM_DEPOSITS, o.deposit) ? GEM_DEPOSITS[o.deposit] : null);
 }
 
+// One neutral stone palette everywhere; material pairs are adjacent small/large frames.
+// Legacy yield variants still own mining quantities, independently of appearance.
+const ROCK_VARIANT_ART = Object.freeze({
+  columns: 6, rows: 11, smallScale: 1, largeScale: 4 / 3,
+  plainFrames: Object.freeze([0, 30, 32, 34]),
+  materials: Object.freeze(['plain', 'flint', 'quartz', 'topaz', 'amethyst',
+    'sapphire', 'ruby', 'emerald', 'diamond', 'copper', 'iron', 'gold',
+    'platinum', 'crimson', 'frost']),
+});
+function mineralRockMaterial(o) {
+  const deposit = mineralDeposit(o);
+  if (deposit) return deposit.item;
+  // A possible lucky find is not a visible deposit. Cave rubble stays plain.
+  if (o?.caveVariant != null) return 'plain';
+  const ore = MINERAL_TIERS[o?.yieldTier || o?.requiredTier || 1];
+  if (ore) return ore.material;
+  return o?.rockMaterial === 'flint' ? 'flint' : 'plain';
+}
+// Legacy zone_objects rock appearances occupy only frames 64–71.
+function mineralRockZone(o) {
+  const context = o?._plantArt || o?._objectArt;
+  const look = context?.startsWith('zone_rock_') ? context.slice('zone_rock_'.length) : null;
+  for (const zone of [look, o?.zoneVariant])
+    if (Object.prototype.hasOwnProperty.call(ZONE_ROCK_THEMES, zone)) return zone;
+  // An explicitly different zone keeps ordinary rocks, even on old saves
+  // whose decoration frame happens to overlap a former rock appearance.
+  if (o?.zoneVariant != null) return null;
+  return Number.isInteger(o?._zoneObjectFrame) && o._zoneObjectFrame >= 64 && o._zoneObjectFrame <= 71
+    ? Object.keys(ZONE_ROCK_THEMES)[o._zoneObjectFrame - 64] : null;
+}
+function zonePlainRockFrame(o) {
+  if (mineralRockMaterial(o) !== 'plain') return null;
+  const frame = ZONE_PLAIN_ROCK_FRAMES[mineralRockZone(o)];
+  return Number.isInteger(frame) ? frame + (o?.sightBlocking === true ? 1 : 0) : null;
+}
+function mineralRockArtKey() { return 'rock_variants'; }
+function mineralRockUsesZoneArt(o) {
+  return o?.rockStyle !== 'shared' && o?.rockStyle !== 'plain'
+    && mineralRockMaterial(o) === 'plain' && mineralRockZone(o) != null;
+}
+function mineralRockArtScale(o) {
+  if (o?.sightBlocking === true) return ROCK_VARIANT_ART.largeScale;
+  return mineralRockUsesZoneArt(o) ? 0.75 : ROCK_VARIANT_ART.smallScale;
+}
+// Shared rocks inherit their authored zone palette. An explicit false keeps
+// neutral art; a named theme overrides the zone. Baked art is never tinted twice.
+function mineralRockTint(o) {
+  if (o?.rockTheme === false || mineralRockUsesZoneArt(o)) return 0xffffff;
+  const zone = typeof o?.rockTheme === 'string' ? o.rockTheme : mineralRockZone(o);
+  return Object.prototype.hasOwnProperty.call(ZONE_ROCK_THEMES, zone) ? ZONE_ROCK_THEMES[zone].tint : 0xffffff;
+}
+function mineralRockArtFrame(o) {
+  if (mineralRockUsesZoneArt(o)) return ZONE_ROCK_THEMES[mineralRockZone(o)].frame;
+  if (o?.rockStyle === 'plain' && zonePlainRockFrame(o) != null) return zonePlainRockFrame(o);
+  const pair = ROCK_VARIANT_ART.materials.indexOf(mineralRockMaterial(o));
+  let frame = Math.max(0, pair) * 2;
+  if (pair <= 0) {
+    const id = o?.wildId ?? o?.id;
+    const shape = id == null ? 0 : avalanche32(fnv1a(String(id) + '#plain-rock-shape')) % ROCK_VARIANT_ART.plainFrames.length;
+    frame = ROCK_VARIANT_ART.plainFrames[shape];
+  }
+  return frame + (o?.sightBlocking === true ? 1 : 0);
+}
+function assignSurfaceBoulder(o) {
+  if (o?.kind !== 'mineralrock' || o.id == null || o._cave || o.depth > 0 || o.caveVariant != null
+      || o.deposit != null || Math.max(o.yieldTier || 1, o.requiredTier || 1) > 1
+      || o._street || o.zoneLayer === 'wall' || o.sightBlocking != null) return false;
+  const seed = avalanche32(fnv1a(String(o.id) + '#surface-boulder'));
+  if (seed % 8 !== 0) return false;
+  o.sightBlocking = true;
+  return true;
+}
+
 // `smeltFrom` is the flower a T5+ bar is SMELTED from (one flower plus the
 // bar one tier below — Gear.smeltingRecipe); T2..T4 bars are mined, not smelted.
 const MINERAL_TIERS = Object.freeze({
-  2: Object.freeze({ barId: 'copper_bar',   rockFrame: 0 }),
-  3: Object.freeze({ barId: 'iron_bar',     rockFrame: 1 }),
-  4: Object.freeze({ barId: 'gold_bar',     rockFrame: 2 }),
-  5: Object.freeze({ barId: 'platinum_bar', rockFrame: 3, smeltFrom: 'sunflower' }),
-  6: Object.freeze({ barId: 'crimson_bar',  rockFrame: 5, smeltFrom: 'fireflower' }),
-  7: Object.freeze({ barId: 'frost_bar',    rockFrame: 7, smeltFrom: 'iceflower' }),
+  2: Object.freeze({ barId: 'copper_bar', material: 'copper',   rockFrame: 0 }),
+  3: Object.freeze({ barId: 'iron_bar', material: 'iron',     rockFrame: 1 }),
+  4: Object.freeze({ barId: 'gold_bar', material: 'gold',     rockFrame: 2 }),
+  5: Object.freeze({ barId: 'platinum_bar', material: 'platinum', rockFrame: 3, smeltFrom: 'sunflower' }),
+  6: Object.freeze({ barId: 'crimson_bar', material: 'crimson',  rockFrame: 5, smeltFrom: 'fireflower' }),
+  7: Object.freeze({ barId: 'frost_bar', material: 'frost',    rockFrame: 7, smeltFrom: 'iceflower' }),
 });
 function mineralRockFrame(tier) { return MINERAL_TIERS[tier]?.rockFrame ?? 0; }
 function mineralBarId(tier) { return MINERAL_TIERS[tier]?.barId || null; }

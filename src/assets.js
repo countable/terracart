@@ -194,6 +194,7 @@ const ASSETS = {
   // ground decoration and must not enter the standing tree frame.
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
+  rock_variants: { kind: 'spritesheet', path: 'assets/Objects/Rocks/rocks-24.png', frameWidth: 24, frameHeight: 24 },
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
   // Five complete 32px columns; the trailing 16px mask column is unused.
   // Keep the original 16px key for mineral/item previews that still need it.

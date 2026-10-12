@@ -214,7 +214,7 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'util.js'), 'utf8'),
   itemsCtx, { filename: 'util.js' });
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'items.js'), 'utf8'),
   itemsCtx, { filename: 'items.js' });
-vm.runInContext('globalThis.GEM_DEPOSITS = GEM_DEPOSITS; globalThis.CROP_SPRITE = CROP_SPRITE; globalThis.WILDPLANT_CONTEXT_ART = WILDPLANT_CONTEXT_ART;', itemsCtx);
+vm.runInContext('globalThis.ROCK_VARIANT_ART = ROCK_VARIANT_ART; globalThis.GEM_DEPOSITS = GEM_DEPOSITS; globalThis.CROP_SPRITE = CROP_SPRITE; globalThis.WILDPLANT_CONTEXT_ART = WILDPLANT_CONTEXT_ART;', itemsCtx);
 const SHRUB_SCALE = itemsCtx.CROP_SPRITE.shrub.scale;
 const CROP_SPRITE = itemsCtx.CROP_SPRITE;
 
@@ -263,6 +263,7 @@ const SHEETS = {
   ...Object.fromEntries(['gas_mushroom_small', 'gas_mushroom_large'].map(key => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [0],
   }])),
+  rock_variants: { file: ASSETS.rock_variants.path, fw: 24, fh: 24, frames: Array.from({ length: 65 }, (_, i) => i) },
   zone_objects: { file: ASSETS.zone_objects.path, fw: 24, fh: 24, frames: [1,4,5,6,7,34,37,38,39,40,54,58,59,61,64,65,66,67,68,69,70,71] },
   zone_berry_bush: { file: ASSETS.zone_berry_bush.path, fw: 24, fh: 24, frames: [0] },
   reef_coral:    { file: 'assets/Objects/Reef/coral.png', fw: 24, fh: 24, frames: [0,1,2,3,4,5,6,7] },
@@ -324,7 +325,10 @@ const SCENARIOS = [
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
   { name: 'headstone',       key: 'zone_objects',  frameIdx: 1, scale: 4 / 3 },
   ...GROVE_SHRINE_ART.map(({ name, key, frame, scale }) => ({ name, key, frameIdx: frame, scale })),
-  ...[1,4,5,6,7,34,37,38,39,40,54,58,59,61,64,65,66,67,68,69,70,71].map(frameIdx => ({ name: `selected zone object ${frameIdx}`, key: 'zone_objects', frameIdx, scale: 4 / 3 })),
+  ...[1,4,5,6,7,34,37,38,39,40,54,58,59,61,64,65,66,67,68,69,70,71].map(frameIdx => ({ name: `selected zone object ${frameIdx}`, key: 'zone_objects', frameIdx, scale: frameIdx >= 64 && frameIdx <= 71 ? 1 : 4 / 3 })),
+  ...Array.from({ length: 13 }, (_, frameIdx) => [0.75, 4 / 3].map(scale => ({ name: `zone themed rock ${frameIdx} scale ${scale}`, key: 'rock_variants', frameIdx: frameIdx + 52, scale }))).flat(),
+  ...Array.from({ length: 16 }, (_, frameIdx) => ({ name: `zone plain rock ${frameIdx}`, key: 'rock_variants', frameIdx: frameIdx + 36, scale: frameIdx % 2 ? itemsCtx.ROCK_VARIANT_ART.largeScale : itemsCtx.ROCK_VARIANT_ART.smallScale })),
+  ...Array.from({ length: 36 }, (_, frameIdx) => ({ name: `rock variant ${frameIdx}`, key: 'rock_variants', frameIdx, scale: frameIdx % 2 ? itemsCtx.ROCK_VARIANT_ART.largeScale : itemsCtx.ROCK_VARIANT_ART.smallScale })),
   {name: 'berry bush', key: 'zone_berry_bush', frameIdx: 0, scale: 4 / 3},
   ...[0,1,2,3,4,5,6,7].map(frameIdx => ({ name: `reef coral ${frameIdx}`, key: 'reef_coral', frameIdx, scale: 4 / 3 })),
   { name: 'vista scope',     key: 'vista_scope',   frameIdx: 0, scale: 1.6 },

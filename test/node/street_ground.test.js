@@ -30,4 +30,17 @@
     f.scene.depth=0;f.entry.depth=1;
     assert.eq(f.read(),4,'a cave cache entry cannot supply surface ground');
   });
+  test('street ground: every raster road tier and path uses one biome backdrop', () => {
+    const f=fixture();
+    for (const type of [WorldGen.T.ROAD,WorldGen.T.ROAD_MD,WorldGen.T.ROAD_LG,WorldGen.T.PATH]) {
+      assert.eq(Render.roadBackdropType(f.scene,type,0,0),0,'explicit grass stays grass');
+      assert.eq(Render.roadBackdropType(f.scene,type,1,0),5,'theme supplies fill and texture');
+      f.entry.streetGround[0]=0;
+      assert.eq(Render.roadBackdropType(f.scene,type,0,0),4,'un-themed road uses surrounding biome');
+      f.entry.streetGround[0]=1;
+    }
+    assert.eq(Render.roadBackdropType({neighborNonRoadType:()=>null},WorldGen.T.PATH,0,0),WorldGen.T.GRASS,
+      'missing neighbors never reveal raw path paving');
+    assert.eq(Render.roadBackdropType(f.scene,WorldGen.T.ROCK,0,0),null,'ordinary ground keeps its own material');
+  });
 })();

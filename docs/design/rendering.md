@@ -47,8 +47,8 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   apart, and rounding each alone opens an intermittent 1px seam.
 - List actual crop `frames`, not sheet-cell counts. Hash the full id for
   per-cell variation (`wildplantFrame`); do not use id length or transient indices.
-  When art depicts quantity, rendering and drops share the variant table
-  (`PLAIN_ROCK_VARIANTS`); loot messages report the actual quantity rolled.
+  Legacy `PLAIN_ROCK_VARIANTS` retains rock yields independently of the neutral
+  material silhouettes; loot messages report the actual quantity rolled.
 - Procedural wildplant backgrounds carry the shared layout's `_terrainScale`
   into the normal crop renderer as a size multiplier; cell positions, crop art
   and harvest rewards remain owned by their existing records and tables.
@@ -114,20 +114,52 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 `tilled_bed`, `still_frames`, `chunk_index`, `building_overlay`; also
 `tools/sprite_audit.js`.
 
+- The shared mineral rock set uses a slightly warm grey palette and high
+  three-quarter overhead view. The generic `rock_variants` sheet has
+  24px cells forming fifteen adjacent small/large
+  material pairs plus three extra plain-stone pairs across six columns and six
+  rows. `mineralRockArtFrame` selects the matching gem deposit or ore tier,
+  plain stone for ordinary cave rubble,
+  and flint only when explicitly authored as `rockMaterial: 'flint'`. Partial
+  cover (`sightBlocking: true`) selects the large silhouette at scale 4/3;
+  small stones use scale 1. Outside authored rock zones, wild rubble shares
+  the four generic plain small shapes and skips biome tint; planted crop stages
+  and inventory icons retain their existing art. A stable id hash selects plain
+  stone shape independently of biome, mining quantity and small/large size.
+  Mining quantities retain their existing variant tables.
+  Thirteen stone contexts use one environmental design each from
+  `rock_variants` frames 52–64: Stone Garden, Broken Masonry, Flint Field, Broken Depot,
+  Seep, Work Yard, Black Ring, Pirate Cove, Strip Mine, Stronghold Quarry,
+  Crater Quarry, Abandoned Quarry and Mystic Reef. Color, moss and weathering carry
+  the place; Work Yard uses a cut stone slab and Crater Quarry has a glowing lava
+  seam painted into the sprite. These contain no collectible mineral inclusions.
+  The same 24px
+  frame scales to 0.75 for small stones and 4/3 for sight-blocking boulders.
+  Named context/variant fields resolve the theme, with legacy zone-object
+  frames 64–71 as a fallback. Gem, ore and explicitly flint-bearing rocks always
+  retain the shared material silhouettes and readable inclusions.
+  One 144×264 atlas holds 65 used frames and one empty trailing cell: shared material/shape pairs 0–35,
+  neutral zone pairs 36–51, and environmental designs 52–64. The source
+  images and `assets/Objects/Rocks/export.cjs` rebuild the atlas.
+  All earlier approved art remains available: `rockStyle: 'plain'` selects the original
+  neutral zone pair where one exists, otherwise the common plain shapes;
+  `rockStyle: 'shared'` always selects the common plain shapes. Stronghold
+  wall segments retain their connected wall art and physical behavior.
+  `ZONE_ROCK_THEMES` owns multiply colors: shared/neutral art automatically
+  inherits its supported zone palette; a named `rockTheme` selects a palette
+  explicitly and `rockTheme: false` keeps neutral colors. Other zones use
+  regular neutral rocks, including older records with legacy decoration frames.
+  Recoloring preserves frame/material/yield identity,
+  and never double-tints the authored themed sprite. Thus new zone palettes
+  require no copies of every ore and gem sprite.
+
 ## Lighting and streets
 
-- Plain mineable rocks use the existing sheet's complete 32×16 boulders,
-  loaded as `mineralboulder` with five columns. The pair and three single-size
-  variants retain their deterministic slot and two/one-stone yields. Legacy
-  ore rocks use the matching larger mineral boulders; named gem deposits retain
-  their own artwork. `SpriteLayout.mineralRockArt` owns key, frame and scale.
-  The `mineralrock` 16×16 texture remains available for material/icon uses.
-
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
-  Bushes, hedges, short walls, rocks and cave walls block sight beyond their
-  cell; the smallest tree saplings provide no cover. Larger standing trees
-  provide partial cover, with a non-stacking 50% darkness
-  treatment. The facing blocker stays visible. Full cover removes objects,
+  Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
+  short walls, larger standing trees and rocks marked `sightBlocking: true`
+  provide partial cover, with a non-stacking 50% darkness treatment. Small
+  rocks and the smallest tree saplings provide no cover. The facing blocker stays visible. Full cover removes objects,
   creatures and their associated labels, shadows and target affordances.
   `Lighting.coverFrame` caches a world-aligned mask and composites it into the
   existing lightmap after light sources. It reuses the exploration fog's
@@ -177,6 +209,11 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   entry or replacement `layers` array invalidates the geometry, so a cell move
   rejects distant lines without walking their vertices.
   Feather only the restored band's edge, with a hard-edge fallback.
+- Source-geometry road bands own all paving, in the game and map review.
+  Raster road/path cells paint one shared backdrop type for both colour and
+  biome texture (`Render.roadBackdropType`): explicit street ground, then the
+  surrounding biome, then grass. Never paint raw road colours or separate path
+  pebbles beneath the band; their grid edges read as a second road.
 - Restored Toadstool (Mushroom) and Snare lanes use near-black setts close to
   the default restored road. Retain their red/brown undertones and mushroom
   spots; the shared clean-stone bevel supplies the polished highlights.

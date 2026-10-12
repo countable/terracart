@@ -4,6 +4,16 @@ Detail doc for world generation, saves and placement precedence. The root
 `CLAUDE.md` owns the overview; read this before changing generation, spawn
 access or tile lifecycle mechanics.
 
+## Surface rocks
+
+- After zone and scenic dressing, `assignSurfaceBoulder` selects roughly one
+  eighth of plain natural mineral rocks from their stable ids. Boulders retain
+  their mining identity and yield. Ore, gem deposits, cave rocks, roadside rocks
+  and connected zone walls are excluded from this size selection. Selected
+  rocks carry `sightBlocking: true`; ordinary stones stay small and leave sight
+  clear. Shared rocks use neutral grey material artwork, with authored zone signatures
+  and optional zone tints for the supported places.
+
 ## Habitat populations
 
 - `src/habitat_spawns.js` owns fauna mixtures, landcover/variant resolution and

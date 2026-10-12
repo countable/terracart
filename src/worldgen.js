@@ -6680,6 +6680,16 @@
       yield* ReefLayout.dressSteps({ field: zone, zoneDress, tx, ty, N: w, tileEdgeM, grid,
         spawnOpts: dressOpts() });
     }
+    // Apply size after zone/scenic replacements; keep authored connected
+    // walls intact. All rocks share the material-based neutral palette.
+    for (const list of [deduped, zoneDress?.objects, scenicDress?.objects]) {
+      let rockIndex = 0;
+      for (const o of list || []) {
+        if ((rockIndex++ & 63) === 0) yield 'surface boulders';
+        if (o.kind !== 'mineralrock') continue;
+        assignSurfaceBoulder(o);
+      }
+    }
     // Hives are basic forest props; every Nexus reserves its entire coverage.
     deduped.push(...spawnForestHives(grid, w, h, tx, ty, tileEdgeM,
       { ...dressOpts(), zoneCoverage: zone?.coverage }));

@@ -129,6 +129,9 @@
       s.mineralRock(1, 1, 1); s.mineralRock(2, 3, 1); s.mineralRock(3, 5, 1);
       s.mineralRock(4, 1, 3); s.mineralRock(5, 5, 3);
       s.mineralRock(6, 1, 5); s.mineralRock(7, 5, 5);
+      // Neutral small/large stones exercise clear and shaded sight.
+      s.mineralRock(1, 1, 2, { sightBlocking: false });
+      s.mineralRock(1, 5, 2, { sightBlocking: true });
       // Plain CAVE rocks (the 4 vanilla variants) interleaved — break with any
       // pick, drop rockfruit + a lucky bar. Distinct sprite from the ore rocks.
       s.caveRock(0, 3, 3); s.caveRock(1, 3, 5); s.caveRock(2, 2, 2); s.caveRock(3, 4, 4);
@@ -753,11 +756,11 @@
       // and the ore-stone sprite (copper T2 … frost T7; T1 is plain rock that
       // yields a little copper). requiredTier = max(1, yieldTier-1) mirrors
       // worldgen's pick gate, so the gating ladder is exercised end-to-end.
-      mineralRock(yieldTier, dx, dy) {
+      mineralRock(yieldTier, dx, dy, extra = {}) {
         const { x, y } = at(dx, dy);
         const requiredTier = Math.max(1, yieldTier - 1);
         objects.push(WorldGen.makeObject('mineralrock', x, y,
-          `${baseId}_mr_${tag}_t${yieldTier}_${dx}_${dy}`, { yieldTier, requiredTier }));
+          `${baseId}_mr_${tag}_t${yieldTier}_${dx}_${dy}`, { yieldTier, requiredTier, ...extra }));
       },
       // Plain CAVE rock (caveVariant 0..3) — any pick breaks it, drops
       // rockfruit + a tier-scaled lucky bar. Renders the vanilla rock sprite,

@@ -172,7 +172,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   BIKE_RACK_SPEED_MUL, BIKE_RACK_MS, steerSpeedMul,
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
-  CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, GEM_DEPOSITS, quarryGemDeposit, mineralDeposit, mineralRockFrame, mineralBarId,
+  CROP_SPRITE, CROP_ROW, ROCK_VARIANT_ART, ZONE_PLAIN_ROCK_FRAMES, ZONE_ROCK_THEMES, mineralRockArtScale, mineralRockTint, zonePlainRockFrame, mineralRockArtKey, mineralRockMaterial, mineralRockArtFrame, assignSurfaceBoulder, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, GEM_DEPOSITS, quarryGemDeposit, mineralDeposit, mineralRockFrame, mineralBarId,
   // The plain rock's ladder and the GLINT rock built on it — glint_rock.test.js.
   PLAIN_ROCK_FLINT_P, GEM_BY_TIER, GEM_P_BY_TIER, GLINT_ROCK_FINDS, GLINT_ROCK_PERIOD_MS, GLINT_ROCK_SHOW_MS,
   // Baby pets and the nest bush — pet_baby.test.js.
@@ -1292,6 +1292,7 @@ ctx.MULTIPLAYER_SRC = readSrc('multiplayer.js');
 ctx.INTERACT_SRC = readSrc('interact.js');
 ctx.WORLDGEN_SRC = readSrc('worldgen.js');   // map_review.test.js (the review salt)
 ctx.GAME_LOADER_SRC = fs.readFileSync(path.join(ROOT, 'tools', 'game-loader.js'), 'utf8');   // map_review.test.js
+ctx.MAP_REVIEW_ART_SRC = fs.readFileSync(path.join(ROOT, 'tools', 'map-review-art.js'), 'utf8');
 // The multiplayer relay mirrors client regexes (multiplayer_shared.test.js).
 ctx.RELAY_SRC = fs.readFileSync(path.join(ROOT, 'server', 'index.js'), 'utf8');
 // The dialog-painting generator (scene_art.test.js).
