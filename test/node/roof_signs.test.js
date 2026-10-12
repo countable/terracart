@@ -50,4 +50,14 @@
     assert.eq(lbox.w, 2 * P.padX + 60, 'without a symbol the board letters its name');
     assert.truthy(lettered.name.y >= lbox.y && lettered.name.y + 13 <= lbox.y + lbox.h, 'on the board');
   });
+  // A trader shows its barter as a roof bubble, ask → give, in a hide unlike
+  // the house quest bubble's (owner, Oct 2026).
+  test('trader bubble: ask then arrow then give, never in the quest bubble\'s colours', () => {
+    assert.truthy(Render.TRADER_BUBBLE.fill !== Render.QUEST_BUBBLE.fill, 'a different fill');
+    assert.truthy(Render.TRADER_BUBBLE.border !== Render.QUEST_BUBBLE.border, 'and rim');
+    assert.truthy(/<svg[^>]*viewBox="0 0 7 7"/.test(Render.tradeArrowHTML(14, '#fff')), 'the arrow is a crisp 7x7 bitmap');
+    assert.truthy(/for \(const el of \[piece\(deal\.ask\), arrow, piece\(deal\.give\)\]\)/.test(RENDER_SRC), 'ask, arrow, give in that order');
+    assert.truthy(/scene\.peekOrBuildTraderOffer\(o\)/.test(RENDER_SRC), 'the bubble reads the offer the modal opens with');
+    assert.truthy(/if \(role === 'trader' && _traderDeal\(item\.o\)\) continue;/.test(RENDER_SRC), 'a trader with a deal hangs no board');
+  });
 })();
