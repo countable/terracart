@@ -94,7 +94,10 @@ access or tile lifecycle mechanics.
   precedence. Selection precedes live overlays and never depends on visits.
 
 - Spider webs save their absolute cell, world position, depth and wall-clock
-  expiry in `save.spiderWebs`. They survive reloads and tile eviction until
+  expiry in `save.spiderWebs`. Spider Path webs instead regenerate from their
+  section seed, remain while their surface tile is loaded, and never enter
+  this expiring save list. Shots landing on permanent silk do not change it.
+  Shot webs survive reloads and tile eviction until
   24 hours after landing; another shot refreshes that cell without duplicating
   it. Silk in flight is transient and is cleared when depth changes.
 
@@ -325,8 +328,10 @@ access or tile lifecycle mechanics.
   or on park edges, never near a road (`Traps.isTrapGround`).
 - Path variant assignment joins connected mapped fragments and balances natural
   endpoints, nearby terrain/Nexus affinity and a soft 300 m length target.
-  Ordinary sections are at least 180 m and at most 550 m; forks and true ends
-  retain short branches. Every 20 m, sample beside the path using source ground
+  Ordinary sections are at least 180 m and at most 550 m. Junction-created
+  approaches shorter than 60 m merge into the connected through-path rather
+  than starting their own theme; well-spaced forks remain boundaries. True
+  short dead-end branches retain their own geometry and assignment. Every 20 m, sample beside the path using source ground
   and Nexus traits. A dominant affinity change must persist 40 m on both sides
   to attract a cut. Source endpoints and pronounced bends are also preferred;
   interpolated cuts keep long uniform spans bounded. Choose cuts together to
@@ -344,7 +349,12 @@ access or tile lifecycle mechanics.
   generation never depends on which neighbouring tiles are loaded.
   Path sections have their own weighted pool: mostly Greenway, Park Path and
   Promenade, with occasional Lantern Row and Barricade and a rare Golden Path
-  (2% base weight, taken from Park Path). Golden Path uses Golden Road’s
+  (2% base weight), plus Slime Trail and Spider Path (5% each, taken equally
+  from Greenway and Park Path). Slime Trail picks one species per stable section
+  from green, purple, fire and splitting slimes. Seeded posts every 70 m hold
+  two of that species, with a midpoint post on short sections where placement
+  allows. These are finite path-authored enemies using the ordinary defeated
+  guard ledger, with no daily reset or extra shrine. Golden Path uses Golden Road’s
   daily shrine reward. A shrine is seated at each end where safe ground permits;
   both use the section key for one shared daily activation and the same coin
   seats, so either direction works without a second payout. At most one coin
@@ -355,6 +365,13 @@ access or tile lifecycle mechanics.
   never enter that pool. A majority-scenic section uses its landscape's look. Scenic restoration bonuses still follow the
   original geographic intervals. Painting, dressing, lamps, stories and map
   review all consume the same section assignment.
+- Spider Path has 5% base selection weight. A seeded 35% of cell-spaced
+  path samples receive permanent webs, with a small seeded lateral offset.
+  Webs use the hazard spawn gate and reserve their cells; restricted land,
+  occupancy, vehicle roads and road-junction safety can leave gaps. One
+  two-spider garrison per section seats on safe nearby ground. Both webs
+  and spiders carry path provenance through Nexus crossings. Web contact
+  uses the usual six-second paralysis, once per entry, with flight immunity.
 - Nexus interiors suppress Small-road variants using exact coverage-boundary
   intervals shared by pavement, lamps, stories and hazards. The selected theme
   and its stable identity survive; only outside portions receive themed

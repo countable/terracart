@@ -17,7 +17,7 @@
   built the way the game builds it — WorldGen.rasterizeTile, then the scene's
   own spawnInTile (fauna, wild slimes, buried X marks, the treasure scatter,
   traps, fruit trees, and the starting area when Home is in the tile) on a
-  light scene object. Hard-mode ruin garrisons come from Lairs.garrisonFor
+  light scene object. Ruin and path garrisons come from Lairs.garrisonFor
   with Home as their homeM. The world is a pure function of where it is, so
   this is what a player there would find, minus what their save changed.
 
@@ -297,10 +297,10 @@ async function buildWorld(home, onPreview) {
       else await WorldGen.runStepsSliced(() => scene.spawnInTileSteps(e, e.tx, e.ty));
     } catch (err) { errors.push(`spawnInTile ${e.tx}/${e.ty}: ${err.stack}`); }
   }
-  // Ruin garrisons, with Home as their homeM — held ruins are a HARD-mode
-  // rule, so on easy there are none.
+  // Preview the same finite garrisons as the game, including path encounters.
+  // Lairs owns difficulty-dependent counts and eligibility.
   const guards = [];
-  for (const e of (reviewDepth === 0 && Difficulty.isHard() ? tiles : [])) {
+  for (const e of (reviewDepth === 0 ? tiles : [])) {
     try {
       const cellM = EDGE / e.cellsPerEdge;
       const idx = Lairs.buildIndex(e, e.tx, e.ty, cellM, EDGE);
@@ -671,7 +671,7 @@ function draw(world, home) {
       add(c.kind === 'npc' ? 'resident: npc' : hostile ? 'enemy: ' + c.kind : 'animal: ' + c.kind, toLL(c.x, c.y, EDGE), (c.name || c.kind) + (c.elite ? ' (elite)' : ''), c.id, c.x, c.y, () => popupHTML(e,c,c.kind), ZoneReview.source(e,c,'creature'));
     }
   }
-  for (const g of world.guards) add('enemy: garrison', toLL(g.x, g.y, EDGE), 'hard-mode garrison · ' + g.kind, g.id, g.x, g.y);
+  for (const g of world.guards) add('enemy: garrison', toLL(g.x, g.y, EDGE), 'garrison · ' + g.kind, g.id, g.x, g.y);
   if (!world.scene.depth) add('Home', toLL(home.x, home.y, EDGE), 'Home', '');
   const kinds = Object.keys(groups).sort();
   // WHAT the counts cover: every loaded tile, with the per-tile average beside.

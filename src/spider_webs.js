@@ -1,4 +1,4 @@
-// Spider silk lands on a fixed cell; saved ground webs expire in wall time.
+// Spider-shot silk expires in wall time; seeded path webs belong to loaded tiles.
 (function (root) {
   'use strict';
   const CONFIG = Object.freeze({ lifetimeMs: 24 * 60 * 60 * 1000,
@@ -22,7 +22,11 @@
   function index(scene, now) {
     const state = runtime(scene);
     const source = scene.save.spiderWebs;
-    if (state.source === source && now < state.expiry) return state;
+    const entries = scene.depth > 0 ? [] : [...(root.WorldGen.tileCache?.values() || [])];
+    const paths = entries.map(e => e.spiderPathWebs).filter(Boolean);
+    if (state.source === source && now < state.expiry && state.paths?.length === paths.length
+      && paths.every((list, i) => list === state.paths[i])) return state;
+    state.paths = paths;
     const valid = Array.isArray(source) ? source.filter(w => w && Number.isInteger(w.depth) && w.depth >= 0
       && Number.isInteger(w.cellIX) && Number.isInteger(w.cellIY)
       && Number.isFinite(w.x) && Number.isFinite(w.y)
@@ -33,14 +37,20 @@
       const old = state.cells.get(key);
       if (!old || old.expiresAt < web.expiresAt) state.cells.set(key, web);
     }
-    for (const web of state.cells.values()) {
-      if (!state.byDepth.has(web.depth)) state.byDepth.set(web.depth, []);
-      state.byDepth.get(web.depth).push(web);
-      state.expiry = Math.min(state.expiry, web.expiresAt);
-    }
+    for (const web of state.cells.values()) state.expiry = Math.min(state.expiry, web.expiresAt);
     if (Array.isArray(source) && state.cells.size !== source.length) {
       scene.save.spiderWebs = [...state.cells.values()];
       persist(scene);
+    }
+    // Generated silk never enters save.spiderWebs or acquires a shot expiry.
+    // Rebuild when tiles load/evict, deduplicating shared cells with shot webs.
+    for (const list of paths) for (const web of list) {
+      const cell = worldMetersToAbsCell(scene, web.x, web.y);
+      state.cells.set(cellKey(0, cell.cellIX, cell.cellIY), { ...web, ...cell, depth: 0, permanent: true });
+    }
+    for (const web of state.cells.values()) {
+      if (!state.byDepth.has(web.depth)) state.byDepth.set(web.depth, []);
+      state.byDepth.get(web.depth).push(web);
     }
     state.source = scene.save.spiderWebs;
     return state;
@@ -64,6 +74,7 @@
     if (!at.loaded || !root.WorldGen.isWalkable(at.type)) return false;
     const state = index(scene, now), key = cellKey(shot.depth, shot.cellIX, shot.cellIY);
     const old = state.cells.get(key);
+    if (old?.permanent) return true;
     if (old) old.expiresAt = now + CONFIG.lifetimeMs;
     else {
       scene.save.spiderWebs ||= [];

@@ -231,6 +231,9 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   remain the focus. Restored paving has recessed dark joints, tidy courses and
   small polished bevels; worn cracks and mushroom spots stay low contrast.
   Keep each theme’s undertone. Burned Row retains its dark stone and glowing embers.
+- Slime Trail overlays its muted green paving with glossy slime pools and pale
+  bubbles, in both worn and restored states. The same pattern painter serves
+  runtime paving and the map review.
 - Path paving and lamp palettes follow the assigned segment intervals. Scenic
   geography still owns restoration bonuses; first-walk stories use the assigned
   theme on the restored segment.

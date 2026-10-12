@@ -51,6 +51,8 @@ mechanics.
 - `SpiderWebs` owns the silk flight, cell contact and 24-hour ground lifetime.
   Flight advances by at most 100 ms per frame, preserving its dodge window
   after a stall; saved ground webs still expire in wall time.
+  Spider Path also lays permanent seeded ground webs: these use the same
+  contact and rendering rules, but never expire or enter the shot-web save list.
   Entering a web paralyzes any body (player, enemy, pet or neighbour) for six
   seconds through the shared paralysis status. Standing there does not refresh
   the hold; leaving and entering again does. Webs are not consumed by contact.
@@ -59,6 +61,9 @@ mechanics.
   movement/targeting in `SpriteLayout.CREATURE_BEHAVIOUR` and reuse the pet
   combat lane. Persist contract expiry and any durable health state, not live
   map instances. Test reload, tile replacement and expiry when adding a kind.
+- Splitting slimes divide reactively on a blow. Only healing and summoning
+  abilities use the support cadence; splitting never replaces their normal
+  melee attack.
 - An elite has a rank, a row of `Combat.ELITE_RANKS`: a plain elite (2×
   HP and damage, 1.5× pace, white circle), possessed (3×, 1.4× an elite's
   pace, red) and ascendant (4×, blue, summons a plain copy of its basic form

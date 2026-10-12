@@ -1601,7 +1601,8 @@ function supportAbility(c, row) {
 }
 function enemySupportTick(scene, c, row, now, eligible) {
   const a = supportAbility(c, row);
-  if (!a) return false;
+  // Reactive splitting runs on damage; it never consumes an attack beat.
+  if (!a || !['heal', 'summon'].includes(a.type)) return false;
   const winding = c._abilityWindupUntil != null;
   if (winding && c._lastDamagedT !== c._abilityDamageStamp) eligible = false;
   if (!winding && eligible && now >= (c._abilityNextT || 0) && a.type === 'heal'
