@@ -264,7 +264,7 @@ Render.shopSignTheme = (scene, house, role) => {
 const SHOP_PLATE = Object.freeze({
   cell: 2,          // game px per glyph cell
   padX: 3,          // board edge to contents, sideways (rim included)
-  padY: 2,          // board edge to the contents, top and bottom (rim included)
+  padY: 1,          // board edge to the contents, top and bottom (the rim)
   gap: 3,           // glyph to name
   lineSpacing: -2,  // between the name's lines
   top: 12,          // house foot to board top (the old sign's seat)
@@ -3491,7 +3491,7 @@ const LABEL_STYLES = {
   sign:    { origin: [0.5, 0], depth: 50 },
   // A ranked building's plate (drawShopPlate): the name, then the tier word
   // under it, in the plate's ink — no outline, the plate is the contrast.
-  plate:     { stroke: false, align: 'center', origin: [0.5, 0], depth: 50 },
+  plate:     { size: 9, stroke: false, align: 'center', origin: [0.5, 0], depth: 50 },
   plateTier: { size: 8, origin: [0.5, 0], depth: 50 },
   // A growing crop's timer, in the bottom-right corner of its own cell.
   timer:   { size: 9, color: '#ffffff', background: 'rgba(0,0,0,0.7)', padding: { x: 2, y: 1 }, stroke: false, origin: [1, 1], depth: Z_OVERLAY },
