@@ -339,9 +339,18 @@
     ctx.fillStyle = '#14181a'; ctx.fillRect(0, 0, Wpx, Hpx);
     ctx.imageSmoothingEnabled = false;
     ctx.save(); ctx.beginPath(); ctx.rect(offX, offY, R.WIDTH * s, R.HEIGHT * s); ctx.clip();
+    const groundScene = Object.assign(Object.create(MapScene.prototype), {
+      depth, tileEdgeM: R.EDGE, cellsForRow: () => R.N, cellsPerTile: R.N,
+      originPx: { x: 0, y: 0 },
+    });
     // Ground: base colour + the game's baked biome texture per cell.
     for (let y = 0; y < R.HEIGHT; y++) for (let x = 0; x < R.WIDTH; x++) {
-      const i = y * R.N + x, type = entry.grid[i];
+      const i = y * R.N + x;
+      // Surface paving belongs to the source vectors below. Raster road/path
+      // cells use the same surrounding ground for both colour and texture.
+      const type = depth === 0
+        ? Render.roadBackdropType(groundScene, entry.grid[i], x, y) ?? entry.grid[i]
+        : entry.grid[i];
       const h = ((x) * 2246822519) ^ ((y) * 3266489917);
       let color;
       if (type === T.CAVE_FLOOR) color = '#8f8574';
