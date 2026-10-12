@@ -252,82 +252,96 @@ Render.shopSignTheme = (scene, house, role) => {
   const theme = scene.shopLine(house).theme;
   return Render.SHOP_SIGN_ICONS[theme] ? theme : null;
 };
-// ONE sign for a ranked or themed building: a board in the tier's colour,
-// hung from the doorstep on two short cords, with a thick rim and an inner
-// bevel in darker and lighter shades of the same hue. The line glyph (an
-// inventory tab's 9×9 bitmap at 2 game px a cell) sits on the left and the
-// name over the tier word on the right, both in small caps, glyph and
-// lettering in a deep shade of the tier colour. An unranked themed shop
-// (Pet / Book Shop) wears the plain signboard wood. All canvas, so the fog of
-// war covers it with the other labels.
+// ONE sign for a ranked or themed building: a board of dark tier-coloured
+// material, hung from the doorstep on two short cords, with a thick rim and
+// an inner bevel. The line glyph (an inventory tab's 9×9 bitmap at 2 game px
+// a cell) and the name sit on it in a pale tint of the tier, embossed: each
+// casts a 1px shadow below in the rim's shade. The tier word hangs under the
+// board on its own small plaque of the same material. An unranked themed
+// shop (Pet / Book Shop) wears dark signboard wood and has no plaque. All
+// canvas, so the fog of war covers it with the other labels.
 const SHOP_PLATE = Object.freeze({
   cell: 2,          // game px per glyph cell
   rim: 2,           // the board's dark edge
-  pad: 3,           // board edge to contents (rim included)
-  gap: 2,           // glyph to lettering
-  lead: -1,         // name line to tier line, past the font's own line box
+  padX: 3,          // board edge to contents, sideways (rim included)
+  padY: 2,          // board edge to the glyph, top and bottom (rim included)
+  gap: 3,           // glyph to name
   top: 12,          // house foot to board top (the old sign's seat)
   cord: 3,          // hanger cords above the board
+  tagCord: 2,       // board to the tier plaque
+  tagPadX: 3,       // plaque edge to its word (1px rim included)
 });
 Render.SHOP_PLATE = SHOP_PLATE;
 const _shade = (c, k) => '#' + [16, 8, 0]
   .map((sh) => Math.min(255, Math.round(((c >> sh) & 255) * k)).toString(16).padStart(2, '0')).join('');
 Render.shopSignLook = (badge) => {
-  if (!badge) return { background: '#ead4a0', border: '#654628', ink: '#382719', light: '#f6e6c0' };
-  const c = parseInt(badge.backgroundColor.slice(1), 16);
-  const mix = (k) => mixHex(c, 0xffffff, k);
-  return { background: badge.backgroundColor, border: _shade(c, 0.45), ink: _shade(c, 0.3),
-    light: cssOf(mix(0.35)) };
+  const c = badge ? parseInt(badge.backgroundColor.slice(1), 16) : 0xa8784a;   // signboard wood
+  return {
+    background: _shade(c, 0.55),          // the material: the tier colour, darkened
+    border: _shade(c, 0.3),
+    light: _shade(c, 0.75),               // the top bevel
+    ink: cssOf(mixHex(c, 0xffffff, 0.45)),   // the letters: the tier colour, lightened
+  };
 };
 Render.shopSignGlyph = (theme) => {
   const icon = Render.SHOP_SIGN_ICONS[theme];
   return icon ? (icon.px || INV_CAT_BY_KEY[icon.tab]?.px || null) : null;
 };
-// Lay out and draw one plate. `item.name` / `item.tier` are the plate's Text
-// slots (origin [0.5, 0]); `foot` is the house foot in game px, kept inside
-// the canvas width `canvasW`.
-Render.drawShopPlate = (gfx, item, foot, playerBox, canvasW) => {
-  const { cell, rim, pad, gap, lead, top, cord } = SHOP_PLATE;
-  const look = Render.shopSignLook(item.badge);
-  const glyph = Render.shopSignGlyph(item.theme);
-  const glyphPx = glyph ? glyph.length * cell : 0;
-  const name = item.name, tier = item.tier || null;
-  const textW = Math.max(name.width, tier ? tier.width : 0);
-  const textH = name.height + (tier ? tier.height + lead : 0);
-  const innerH = Math.max(glyphPx, textH);
-  const w = pad + glyphPx + (glyph ? gap : 0) + textW + pad;
-  const h = pad + innerH + pad;
-  const x0 = Math.round(clampTextX(foot.x, w, canvasW) - w / 2);
-  const y0 = Math.round(foot.y + top);
-  const hit = playerBox && x0 < playerBox.x1 && x0 + w > playerBox.x0
-    && y0 - cord < playerBox.y1 && y0 + h > playerBox.y0;
-  const alpha = hit ? LABEL_OVER_PLAYER_ALPHA : 1;
+// One board: cords, drop shadow, a rim with clipped corners, the face, a
+// light top bevel and a dark bottom one.
+function _drawSignBoard(gfx, look, x0, y0, w, h, rim, cord, alpha) {
   const border = parseHex(look.border);
-  // Cords, drop shadow, then the board: a rim with its corners clipped, the
-  // face, a light top bevel and a dark bottom one.
   gfx.fillStyle(border, alpha)
     .fillRect(x0 + 3, y0 - cord, 1, cord).fillRect(x0 + w - 4, y0 - cord, 1, cord);
   gfx.fillStyle(0x000000, 0.45 * alpha).fillRect(x0 + 1, y0 + h, w - 2, 1);
   gfx.fillStyle(border, alpha).fillRect(x0 + 1, y0, w - 2, h).fillRect(x0, y0 + 1, w, h - 2);
   gfx.fillStyle(parseHex(look.background), alpha).fillRect(x0 + rim, y0 + rim, w - 2 * rim, h - 2 * rim);
   gfx.fillStyle(parseHex(look.light), alpha).fillRect(x0 + rim, y0 + rim, w - 2 * rim, 1);
-  gfx.fillStyle(border, 0.35 * alpha).fillRect(x0 + rim, y0 + h - rim - 1, w - 2 * rim, 1);
-  const ink = parseHex(look.ink);
+}
+// Light letters raised off the board: a 1px shadow straight down.
+function _embossText(tx, look, alpha) {
+  setColorOnce(tx, look.ink);
+  setShadowOnce(tx, look.border, 0, 1, look.border, 0, false, true);
+  tx.setAlpha(alpha);
+}
+// Lay out and draw one sign. `item.name` / `item.tier` are its Text slots
+// (origin [0.5, 0]); `foot` is the house foot in game px, kept inside the
+// canvas width `canvasW`. Returns the board's box.
+Render.drawShopPlate = (gfx, item, foot, playerBox, canvasW) => {
+  const { cell, rim, padX, padY, gap, top, cord, tagCord, tagPadX } = SHOP_PLATE;
+  const look = Render.shopSignLook(item.badge);
+  const glyph = Render.shopSignGlyph(item.theme);
+  const glyphPx = glyph ? glyph.length * cell : 0;
+  const name = item.name, tier = item.tier || null;
+  const innerH = Math.max(glyphPx, name.height - 2 * (padY - rim));
+  const w = padX + glyphPx + (glyph ? gap : 0) + name.width + padX;
+  const h = padY + innerH + padY;
+  const x0 = Math.round(clampTextX(foot.x, w, canvasW) - w / 2);
+  const y0 = Math.round(foot.y + top);
+  const tagW = tier ? tier.width + 2 * tagPadX : 0, tagH = tier ? tier.height + 2 : 0;
+  const tagX = Math.round(x0 + (w - tagW) / 2), tagY = y0 + h + tagCord;
+  const bottom = tier ? tagY + tagH : y0 + h;
+  const hit = playerBox && x0 < playerBox.x1 && x0 + w > playerBox.x0
+    && y0 - cord < playerBox.y1 && bottom > playerBox.y0;
+  const alpha = hit ? LABEL_OVER_PLAYER_ALPHA : 1;
+  _drawSignBoard(gfx, look, x0, y0, w, h, rim, cord, alpha);
+  if (tier) _drawSignBoard(gfx, look, tagX, tagY, tagW, tagH, 1, tagCord, alpha);
   if (glyph) {
-    const gx = x0 + pad, gy = y0 + pad + Math.round((innerH - glyphPx) / 2);
-    gfx.fillStyle(ink, alpha);
-    glyph.forEach((row, y) => row.replace(/#+/g, (run, x) => {
-      gfx.fillRect(gx + x * cell, gy + y * cell, run.length * cell, cell);
-      return run;
-    }));
+    const gx = x0 + padX, gy = y0 + padY + Math.round((innerH - glyphPx) / 2);
+    for (const [ink, dy] of [[look.border, 1], [look.ink, 0]]) {
+      gfx.fillStyle(parseHex(ink), alpha);
+      glyph.forEach((row, y) => row.replace(/#+/g, (run, x) => {
+        gfx.fillRect(gx + x * cell, gy + y * cell + dy, run.length * cell, cell);
+        return run;
+      }));
+    }
   }
-  const cx = Math.round(x0 + pad + glyphPx + (glyph ? gap : 0) + textW / 2);
-  const ty = y0 + pad + Math.round((innerH - textH) / 2);
-  setColorOnce(name, look.ink);
-  name.setPosition(cx, ty).setAlpha(alpha);
+  const nx = Math.round(x0 + padX + glyphPx + (glyph ? gap : 0) + name.width / 2);
+  name.setPosition(nx, Math.round(y0 + (h - name.height) / 2));
+  _embossText(name, look, alpha);
   if (tier) {
-    setColorOnce(tier, look.ink);
-    tier.setPosition(cx, ty + name.height + lead).setAlpha(alpha);
+    tier.setPosition(Math.round(tagX + tagW / 2), tagY + 1);
+    _embossText(tier, look, alpha);
   }
   return { x: x0, y: y0, w, h };
 };
@@ -3482,7 +3496,7 @@ const LABEL_STYLES = {
   sign:    { origin: [0.5, 0], depth: 50 },
   // A ranked building's plate (drawShopPlate): the name, then the tier word
   // under it, in the plate's ink — no outline, the plate is the contrast.
-  plate:     { variant: 'small-caps', stroke: false, origin: [0.5, 0], depth: 50 },
+  plate:     { variant: 'small-caps', size: 11, stroke: false, origin: [0.5, 0], depth: 50 },
   plateTier: { variant: 'small-caps', size: 8, stroke: false, origin: [0.5, 0], depth: 50 },
   // A growing crop's timer, in the bottom-right corner of its own cell.
   timer:   { size: 9, color: '#ffffff', background: 'rgba(0,0,0,0.7)', padding: { x: 2, y: 1 }, stroke: false, origin: [1, 1], depth: Z_OVERLAY },
