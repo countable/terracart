@@ -112,6 +112,11 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 ## Lighting and streets
 
+- Evertorch uses the shared player-light collector and torch radius with a blue
+  `Lighting.KINDS` row. It takes visual precedence while both torches burn;
+  neither expands interaction reach. Its icon reuses Torch art with the
+  icon-source CSS palette filter in the shared inventory/offer/toast renderer.
+
 - Gas uses a translucent cell-bound pixel cloud above world sprites and below
   lighting and fog, clipped to the world viewport. `GasRender` eases density
   changes over 320 ms while the simulation diffuses once per second. Drawing

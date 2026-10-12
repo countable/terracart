@@ -145,6 +145,7 @@
     // cave torch stake): the same white, TORCH_RADIUS_MUL times as far,
     // breathing like the fire it is. Stamped at the feet in ADDITION to
     // the ramp, so the plateau is untouched and only the dark around it lifts.
+    evertorch: { radiusCells: () => radiusCells('player') * CONSUMABLE_SPEC.evertorch.radiusMul, colour: 0x75cfff, peak: 0.95, flicker: 0.12 },
     handtorch: { radiusCells: () => radiusCells('player') * TORCH_RADIUS_MUL, colour: 0xffffff, peak: 0.95, flicker: 0.12 },
     // Home: the starter trailer, or the house adopted as Home in its place
     // (both are save.starterShopId). Wider and warmer than a plain restored
@@ -746,6 +747,7 @@
   // of it while app.js's Torch timer runs (scene.isTorchActive — in memory,
   // never on the save, like the dragon's minute).
   function playerKind(scene) {
+    if (scene?.isEvertorchActive?.()) return 'evertorch';
     return (scene && typeof scene.isTorchActive === 'function' && scene.isTorchActive()) ? 'handtorch' : 'player';
   }
 
@@ -840,7 +842,7 @@
   function objectLightPadCells() {
     let m = 0;
     for (const k in KINDS) {
-      if (k === 'player' || k === 'handtorch') continue;
+      if (k === 'player' || k === 'handtorch' || k === 'evertorch') continue;
       m = Math.max(m, radiusCells(k));
     }
     return m;
@@ -1095,7 +1097,7 @@
   //     list — the scan has not looked there.
   // Each cookie is its baked shape: peak · (1 - r/R)² times the row's flicker
   // or pulse and the entry's own alpha / scale, at the colour's luminance.
-  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'fire', 'ground_fire', 'magic_trap', 'cobble', 'blast', 'bolt']);
+  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'evertorch', 'fire', 'ground_fire', 'magic_trap', 'cobble', 'blast', 'bolt']);
   function cookieLevel(L, qx, qy, cellM, now, pulseNow) {
     const row = KINDS[L.kind];
     if (!row || !(row.peak > 0)) return 0;
@@ -1628,7 +1630,7 @@
   // their shape/point changes independently of the camera.
   function cacheableWorldLight(L) {
     const row = KINDS[L.kind];
-    return L.kind !== 'handtorch' && L.kind !== 'bolt' && L.kind !== 'blast'
+    return L.kind !== 'handtorch' && L.kind !== 'evertorch' && L.kind !== 'bolt' && L.kind !== 'blast'
       && row && !row.flicker && !row.pulse && L.a == null && L.s == null;
   }
   function cookiePhase(scene, L, ax, ay) {
@@ -1936,7 +1938,7 @@
     // exact whole-pixel crops above.
     for (const L of cookies.excluded) paintLight(ctx, scene, L, crit, now, pnow, ox, oy);
     scene._boot_lightExcludedStamps = cookies.excluded.length;
-    scene._boot_lightWorldStamps = cookies.excluded.reduce((n, L) => n + (L.kind === 'handtorch' ? 0 : 1), 0);
+    scene._boot_lightWorldStamps = cookies.excluded.reduce((n, L) => n + (L.kind === 'handtorch' || L.kind === 'evertorch' ? 0 : 1), 0);
     scene._boot_lightCachedCookies = cookies.cached;
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';

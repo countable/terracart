@@ -1,10 +1,10 @@
 (function () {
-  test('peach rarity: fruit and sapling are T7, with healing, cleansing and fruit price unchanged', () => {
+  test('peach rarity: fruit and sapling are T7, with a premium fruit value and existing healing', () => {
     assert.eq(ITEM_BY_ID.worldpeach.baseTier, 7);
     assert.eq(ITEM_BY_ID.worldpeach_sapling.baseTier, 7);
     assert.eq(ITEM_BY_ID.worldpeach_sapling.baseTier, BASE_TIER.worldpeach_sapling);
     assert.eq(FOOD_ENERGY.worldpeach, 16);
-    assert.eq(itemValue('worldpeach'), 10);
+    assert.eq(itemValue('worldpeach'), 250);
     assert.includes(ITEMS_BY_CLASS_TIER.produce[7], 'worldpeach');
     assert.includes(ITEMS_BY_CLASS_TIER.seed[7], 'worldpeach_sapling');
     for (let tier = 1; tier < 7; tier++) {

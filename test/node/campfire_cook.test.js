@@ -46,6 +46,7 @@ test('campfire: every COOKED_FOODS raw cooks through the same lane as meat', () 
     const it = ITEM_BY_ID[c.id];
     assert.truthy(it && it.kind === 'produce' && it.cooked, `${c.id} is cooked produce`);
     assert.eq(it.baseTier, ITEM_BY_ID[raw].baseTier, `${c.id} keeps the raw food rarity`);
+    assert.eq(it.dropWeight ?? 1, ITEM_BY_ID[raw].dropWeight ?? 1, `${c.id} keeps the raw food drop weight`);
     assert.eq(FOOD_ENERGY[c.id], Math.round(FOOD_ENERGY[raw] * GRILL_ENERGY_MUL), `${c.id} energy`);
     assert.eq(PRICES[c.id], Math.round(PRICES[raw] * GRILL_ENERGY_MUL), `${c.id} price`);
   }

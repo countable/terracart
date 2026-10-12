@@ -95,6 +95,9 @@ mechanics.
   the row's `tome` column (`_readTome`); an "every foe in sight" spell is a
   `CAST_ROWS` row (`_castOnFoes`); the slot guard is `_selectedConsumable`,
   the spend `_spendScroll` / `_consumeSelected`. Never a hand-written handler.
+- Evertorch is a T6 timed supply: two hours of blue torchlight, with expiry
+  saved through `Buffs.evertorch`. Another extends that expiry. Ordinary
+  Torches keep their short, scene-local timer; either flame ignites melee foes.
 - KNOCKBACK has one owner, `Whirlwinds.impulse` / `pushStep`: a whirlwind's
   contact (GRASS, PITCH and SCHOOL cells only, surface only) and the T1 Scroll of Wind
   (`CAST_ROWS.wind_scroll`: every foe in reach takes 5 and is blown
