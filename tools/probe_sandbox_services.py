@@ -43,7 +43,7 @@ async def probe(args):
                     break
                 await page.wait_for_timeout(1100)
                 await modal.locator('button').last.click()
-            await js("document.getElementById('offer-modal')?.remove();s._syncModalGate();")
+            await js("document.getElementById('offer-modal')?.remove();document.getElementById('scholar-modal')?.remove();s._syncModalGate();")
 
         async def click(label):
             button = page.locator('#offer-modal').get_by_role('button', name=label, exact=True)
@@ -60,26 +60,33 @@ async def probe(args):
 
         async def books():
             await js("""
-              s.save.booksRead=0;s.save.booksBought=0;s.save.scholarTomes=0;
+              s.save.booksRead=0;s.save.booksBought=0;s.save.scholarLoans={};
+              s.save.inv=s.save.inv.filter(item=>!isTome(item.id));s.save.selSlot=-1;
               window.bookshop=[...WorldGen.tileCache.values()].flatMap(e=>e.objects||[])
                 .find(o=>o.id===s.save.bookshopId);
               if(!bookshop)throw Error('Missing authored Book Shop');
               s.save.bookshopId=bookshop.id;s.save.restoredHouses[bookshop.id]='shop';
               window.prices=[];
             """)
-            for _ in range(3):
+            cost = await js("return Macros.scholarCatalog(s.save)[0].cost;")
+            for _ in range(cost):
                 await js("prices.push(ShopsMath.listPrice(s.save,'book',itemValue('book')));s.presentThemedShop(0,0,bookshop,()=>ShopsMath.recordDeal(s.save,bookshop));")
                 await click('Buy')
                 await dismiss()
-            before=await js("return {read:s.save.booksRead,bought:s.save.booksBought,prices,next:Macros.scholarNext(s.save)};")
-            assert before['read']==3, before
-            assert before['next']['ready'], before
-            assert before['prices'][2]>before['prices'][0], before
-            await js("window.tome=Macros.scholarNext(s.save).id;window.tomeBefore=Inventory.count(s.save,tome);s._presentScholar(0,0,fixture('scholar'),dress('scholar'));")
-            await click('Collect')
-            result=await js("return {read:s.save.booksRead,taken:s.save.scholarTomes,delta:Inventory.count(s.save,tome)-tomeBefore};")
-            assert result['read']==3 and result['taken']==1 and result['delta']==1,result
-            return {'purchases':before,'claim':result}
+            before=await js("return {read:s.save.booksRead,bought:s.save.booksBought,prices,next:Macros.scholarCatalog(s.save)[0]};")
+            assert before['read']==cost, before
+            assert before['next']['canBorrow'], before
+            assert before['prices'][-1]>before['prices'][0], before
+            await js("window.tome=Macros.scholarShelf()[0];window.tomeBefore=Inventory.count(s.save,tome);s._presentScholar(0,0,fixture('scholar'),dress('scholar'));")
+            row = page.locator('[data-tome="'+before['next']['id']+'"]')
+            await row.locator('button').first.click()
+            result=await js("return {read:s.save.booksRead,loaned:Macros.scholarLoaned(s.save,tome),credits:Macros.scholarCredits(s.save),delta:Inventory.count(s.save,tome)-tomeBefore};")
+            assert result['read']==cost and result['loaned']==1 and result['delta']==1,result
+            assert result['credits']['available']==0,result
+            await row.locator('button').last.click()
+            returned=await js("return {loaned:Macros.scholarLoaned(s.save,tome),credits:Macros.scholarCredits(s.save)};")
+            assert returned['loaned']==0 and returned['credits']['available']==cost,returned
+            return {'purchases':before,'loan':result,'return':returned}
 
         async def inn():
             await js("window.inn=fixture('inn');s.save.coinBurstClaimed={};s.save.energy=50;window.innMoney=s.save.money;s._presentInn(0,0,inn,dress('inn'));")

@@ -5,7 +5,7 @@
 // (assets/Objects/Generated/shrines.png, SpriteLayout.shrineKindArt), its
 // light colour (Lighting.KINDS `shrine_<id>`), the Nexus variants and Road
 // variants it stands in, and the ONE lever its boon pulls for durationMs —
-// or, instead of a boon, a `reward` (the golden idol's coin spree).
+// or, instead of a boon, a `reward` (the golden shrine's coin spree).
 //
 // Every shrine is still a `grove_shrine` object — the daily shrine: one
 // visit per UTC day per shrine through Macros.usedToday / markToday, its
@@ -80,24 +80,28 @@
       body: "Green coins glint at the bottom of the well. You lean over the edge and make a wish." },
     harvest_idol: { art: 'shrine_harvest_idol', frame: 7, light: 0xffd07a, lever: 'work', durationMs: 15 * MIN, boon: 'Hardworking',
       zoneVariants: ['orchard'], streets: ['orchard'],
-      name: 'Harvest idol', flash: 'Your hands move swiftly.',
+      name: 'Harvest shrine', flash: 'Your hands move swiftly.',
       body: "You lay your hand on the straw figure. Your weariness lifts, and your hands move swiftly through their work." },
     toad_idol: { art: 'shrine_toad_idol', frame: 8, light: 0x7fe0a0, lever: 'regen', durationMs: 8 * MIN, boon: 'Mending',
       zoneVariants: ['mushroom_grove', 'seep'], streets: ['toadstool'],
-      name: 'Toad idol', flash: 'Your wounds begin to heal.',
+      name: 'Toad shrine', flash: 'Your wounds begin to heal.',
       body: "You touch the cool stone toad. The pain eases as your wounds begin to heal." },
     ember_altar: { art: 'shrine_ember_altar', frame: 9, light: 0xff5a3c, lever: 'wand', durationMs: 5 * MIN, boon: 'Ember',
       zoneVariants: ['black_ring', 'flint_field', 'quarry-crater'], streets: ['burned'],
       name: 'Ember altar', flash: 'Fire gathers in your hands.',
       body: "You reach toward the glowing ember. Fire gathers in your hands, ready to strike." },
-    // The GOLDEN ROAD's idol: no boon — once a UTC day it spills a coin on
+    // The GOLDEN ROAD's shrine: no boon — once a UTC day it spills a coin on
     // every free verge cell of its road on this tile (`coinSeats`, laid by
     // street_variants.js; app.js _coinBurstInteract's path mode). Every
     // Golden Road gets one (streetChance), since the road's coins are its.
     golden_idol: { art: 'street_golden', frame: 10, light: 0xefc46a, reward: 'coins', fillScreen: true, path: true,
       zoneVariants: [], streets: ['golden'], streetChance: 1,
-      name: 'Golden idol', flash: 'Coins spill along the road.', spent: 'The idol is dull today',
-      body: 'You touch the gilded idol. Green coins spill from its hands and roll along both sides of the road.' },
+      name: 'Golden shrine', flash: 'Coins spill along the road.', spent: 'The shrine is dull today',
+      body: 'You touch the gilded shrine. Green coins spill from its hands and roll along both sides of the road.' },
+    golden_path_idol: { art: 'street_golden', frame: 10, light: 0xefc46a, reward: 'coins', fillScreen: true, path: true,
+      zoneVariants: [], streets: ['golden_path'], streetChance: 1,
+      name: 'Golden path shrine', flash: 'Coins line the path.', spent: 'The shrine is dull today',
+      body: 'You touch the gilded shrine. Green coins appear in a line down the middle of the path.' },
   };
   const REWARD_KINDS = {
     bike: { name: "Courier's post", art: 'visit_bike', sprite: 'bike_rack', light: 0xaadbd1, ledger: 'day',

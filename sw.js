@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-c38e7b26';
+const SHELL_VERSION = 'shell-133453a9';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -348,6 +348,9 @@ const ASSET_HASHES = {
   "assets/Objects/Approved/Sources/ArtRedo20261012Round2/pillar.png": "37d91b0a",
   "assets/Objects/Approved/Sources/ArtRedo20261012Round2/shell.png": "41689e06",
   "assets/Objects/Approved/Sources/ArtRedo20261012Round2/waystone.png": "9c274004",
+  "assets/Objects/Approved/Sources/FortGamingHall/fort-restored-native.png": "2ce99bf0",
+  "assets/Objects/Approved/Sources/FortGamingHall/fort-unclaimed-native.png": "6c920428",
+  "assets/Objects/Approved/Sources/FortGamingHall/fort.png": "df3781b3",
   "assets/Objects/Approved/Sources/WorldArt/approved_charred_stakes-native.png": "380d334c",
   "assets/Objects/Approved/Sources/WorldArt/barricade-native.png": "34456b11",
   "assets/Objects/Approved/Sources/WorldArt/bramble-native.png": "0b1fa85c",
@@ -402,8 +405,8 @@ const ASSET_HASHES = {
   "assets/Objects/Approved/grove_votive.png": "3a142c5c",
   "assets/Objects/Approved/house.png": "6425b9d1",
   "assets/Objects/Approved/house_blacksmith.png": "00bf1d11",
-  "assets/Objects/Approved/house_fort.png": "648e41c6",
-  "assets/Objects/Approved/house_fort_unclaimed.png": "739f9a3a",
+  "assets/Objects/Approved/house_fort.png": "2ce99bf0",
+  "assets/Objects/Approved/house_fort_unclaimed.png": "6c920428",
   "assets/Objects/Approved/house_market.png": "97a3c417",
   "assets/Objects/Approved/house_trader.png": "79246b87",
   "assets/Objects/Approved/house_wreck.png": "503c90e7",

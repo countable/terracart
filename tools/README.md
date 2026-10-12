@@ -69,6 +69,16 @@ Serve the repository with `python3 -m http.server 8000`, then open a page under
 | `foliage_audit.html`, `map_art_dashboard.html`, `sandbox_art_comparison.html` | Art-review surfaces. |
 | `compass-test.html` | Compass behavior. |
 
+In `map-review.html`, clicking bare ground opens terrain, underlying landcover, zone influence,
+variant, zone nexus pattern, spawn restrictions and tile/cell coordinates.
+The gameplay tier is included when its overlay is enabled.
+Click a road or path for its source name/type, rendered variant and width,
+assignment length, affinity context, name influences and source feature IDs.
+At crossings the popup includes up to three nearby routes; ground details remain expandable.
+Map review trims buffered road/path geometry to its owning tile before drawing,
+variant counts, and click inspection. Neighboring buffer copies have no local
+path assignment and must not appear as additional plain paths.
+
 In `map-review.html`, the Overlays section toggles path endpoint dots
 and path names (visible from zoom 17; unnamed or numeric-only labels are hidden).
 White dots mark retained natural/source endpoints without a theme change;
@@ -87,6 +97,10 @@ the normal seeded picks. Surface choices apply to the matching nexus kind;
 cave choices come from that floor’s profile. Floors without authored nexus
 variants disable the buttons. Proposed mode uses the displayed source floor’s
 catalog. Placement still obeys the live spawn gates and available space.
+Parking-lot quarries receive the selected quarry layout before footprint fitting;
+lots that cannot fit it retain the live fitter's fallback.
+The sample lot's aisle buffer stays inside the tile so it previews complete
+layouts rather than the fixed scatter for incomplete edge fragments.
 Surface street choices cycle small-road themes and path-section themes, including
 scenic looks. Medium and large roads keep their fixed identities. Forced path
 themes preserve the geographic scenic intervals used for distance credit.

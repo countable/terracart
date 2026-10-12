@@ -277,7 +277,7 @@
       story: 'street_scenic', art: 'street_greenway', title: 'A greenway',
       body: "Branches hang low over the path. You duck beneath them as leaves brush your hood.",
       flash: 'A greenway. The green holds.' },
-    { id: 'parkpath', pathWeight: .40, terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'parkpath', pathWeight: .38, terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#7b756b', restored: '#898a80' },
       lampGlow: '#a8e07a',
       story: 'street_scenic', art: 'street_parkpath', title: 'The park path',
@@ -290,8 +290,8 @@
       sectionMaxM: 250,
       lampGlow: '#efc46a',
       story: 'street_golden', art: 'street_golden', title: 'Golden Road',
-      body: 'A gilded idol stands beside the road. Touch it each day, and green coins spill along both sides of the road.',
-      flash: 'A gilded idol waits ahead.' },
+      body: 'A gilded shrine stands beside the road. Touch it each day, and green coins spill along both sides of the road.',
+      flash: 'A gilded shrine waits ahead.' },
     { id: 'snare', terrain: 'WASTELAND', affinities: ['ruined'], size: 'minor', share: 0.03, rung: 'rare',
       stone: { weathered: '#80776c', restored: '#94897b' }, lampDensity: 1,
       lampGlow: '#d58b52', story: 'street_snare', art: 'street_snare', title: 'Snare Lane',
@@ -310,6 +310,12 @@
       lampGlow: '#dca452', story: 'street_goblin_gang', art: 'street_barricade', title: 'Goblin Gang Street',
       body: 'Goblin grunts gather in little gangs beside stacks of barrels along the street.',
       flash: 'Goblins and barrel stacks.' },
+    { id: 'golden_path', pathWeight: 0.02, terrain: 'ROCK', affinities: ['formal'], size: 'path', share: 0, rung: 'rare',
+      stone: { weathered: '#96866b', restored: '#af9c75' }, lampGlow: '#efc46a',
+      coinPlacement: 'centerline', shrinePlacement: 'ends',
+      story: 'street_golden_path', art: 'street_golden', title: 'Golden Path',
+      body: 'A gilded shrine stands beside the path. Touch it each day, and green coins appear in a line down the path.',
+      flash: 'Gold glimmers along the path.' },
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
@@ -374,9 +380,9 @@
       } }],
     // Dense ribbons of COIN SEATS on both verges, one per free cell; sampling
     // below cell width also covers diagonal roads. Nothing lies there until
-    // the road's golden idol is visited (Shrines.SHRINE_KINDS.golden_idol —
-    // the coin spree, app.js _coinBurstInteract): the seats ride on the idol
-    // (`coinSeats`). They claim no cell, so the idol and the day's coins may
+    // the road's golden shrine is visited (Shrines.SHRINE_KINDS.golden_idol —
+    // the coin spree, app.js _coinBurstInteract): the seats ride on the shrine
+    // (`coinSeats`). They claim no cell, so the shrine and the day's coins may
     // stand on the verge they line.
     golden: [{ step: GOLDEN_STEP_M, side: 'both', fill: true, claim: false,
       emit: (D, at, c) => {
@@ -1966,6 +1972,21 @@
         if (!shrineStreets.has(rec.key)) shrineStreets.set(rec.key, { v, recs: [] });
         shrineStreets.get(rec.key).recs.push({ rec, spans });
       }
+      if (row.coinPlacement === 'centerline') {
+        const seats = res.coinSeats.get(rec.key) || new Map();
+        res.coinSeats.set(rec.key, seats);
+        sampleLine(rec.line, gM, CELL_M, CELL_M / 2, (s, x, y) => {
+          if (!S.covers(spans, s)) return;
+          const ix = cellOfM(x), iy = cellOfM(y);
+          if (!cellOk(ix, iy)) return;
+          const id = WG.cellId('golden_path_coin', tx, ty, ix, iy);
+          // Keep the exact point on the polyline: snapping to a cell centre
+          // would put coins beside narrow and diagonal paths.
+          if (!seats.has(id)) seats.set(id, {
+            x: cx(ix) + (x / CELL_M - ix - 0.5) * frameCellM,
+            y: cy(iy) + (y / CELL_M - iy - 0.5) * frameCellM, id });
+        });
+      }
       // One finite encounter per themed street and owning tile, independent
       // of how many geometry fragments represent the street. Scenery streams
       // keep their draws; guards share the existing lair persistence lane.
@@ -2202,7 +2223,7 @@
           // barricade — or there is none.
           const g = foeSeat(c.ix, c.iy);
           if (g) {
-            res.lairs.push({ tier: 'barricade', sid: WG.cellId('barricade', tx, ty, c.ix, c.iy),
+            res.lairs.push({ tier: 'barricade', _street: grp.v, sid: WG.cellId('barricade', tx, ty, c.ix, c.iy),
               lx: (g.ix + 0.5) * frameCellM, ly: (g.iy + 0.5) * frameCellM });
           }
         }
@@ -2220,6 +2241,33 @@
       if (!streetShrineChosen(key, shrineStreets.get(key).v)) continue;
       yield 'street shrines';
       const { v, recs } = shrineStreets.get(key);
+      if (VARIANT_BY_ID[v].shrinePlacement === 'ends') {
+        const rec = idx.pathSections?.find(section => section.key === key) || recs[0].rec;
+        const length = S.lineLengthM(rec.line, gM);
+        for (const end of [0, length]) {
+          let c = null;
+          // A junction may block the exact endpoint; look a short way inward
+          // while keeping the two activations near opposite ends.
+          for (let inset = 0; inset <= Math.min(6 * CELL_M, length / 3); inset += CELL_M) {
+            for (const side of [1, -1, 0]) {
+              const p = S.pointAtM(rec.line, gM, end === 0 ? inset : length - inset,
+                side * ((rec.halfW || 1) + CELL_M / 2));
+              c = nearestSeat(cellOfM(p.x), cellOfM(p.y), N, rc, hoardOffsets(), hoardOk);
+              if (c) break;
+            }
+            if (c) break;
+          }
+          if (!c) continue;
+          claim(c.ix, c.iy);
+          res.objects.push(WG.makeObject('grove_shrine', cx(c.ix), cy(c.iy),
+            WG.cellId('street_shrine', tx, ty, c.ix, c.iy), {
+              _shrineStreet: v, shrineKind: root.Shrines.kindForStreet(v),
+              dailyVisitId: `path_shrine:${key}`,
+              coinSeats: [...(res.coinSeats.get(key)?.values() || [])],
+            }));
+        }
+        continue;
+      }
       let c = null;
       for (const { rec, spans } of recs) {
         const length = S.lineLengthM(rec.line, gM);
@@ -2235,7 +2283,7 @@
       }
       if (!c) continue;
       claim(c.ix, c.iy);
-      // A coin-spree idol carries its road's verge seats on this tile.
+      // A coin-spree shrine carries its road's verge seats on this tile.
       const seats = res.coinSeats.get(key);
       res.objects.push(WG.makeObject('grove_shrine', cx(c.ix), cy(c.iy),
         WG.cellId('street_shrine', tx, ty, c.ix, c.iy), { _shrineStreet: v, shrineKind: root.Shrines.kindForStreet(v),
@@ -2477,7 +2525,7 @@
   }
 
   // Whether street `key` (variant `v`) gets its shrine: STREET_SHRINE_CHANCE,
-  // or the kind's own `streetChance` (the Golden Road's idol is always there —
+  // or the kind's own `streetChance` (the Golden Road's shrine is always there —
   // the road's coins are its).
   function streetShrineChosen(key, v) {
     if (!root.Shrines) return false;

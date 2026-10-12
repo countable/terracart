@@ -658,8 +658,8 @@
     // step to the kerb of a road in the Major-and-Medium road group), off the road mask and whatever the
     // tile already put there.
     const rewardOk = (ix, iy) => inSq(ix, iy) && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'reward');
-    // Mapped viewpoints keep landmark priority. Procedural scenic rewards
-    // yield the full Nexus coverage, including cells its layout leaves empty.
+    // Mapped viewpoints and walking-path rewards keep their own seats.
+    // Ordinary shoreline rewards yield the full Nexus coverage.
     const zoneCoverage = ctx.zone && (ctx.zone.coverage || ctx.zone.idx);
     const ambientRewardOk = (ix, iy) => !zoneCoverage?.[iy * N + ix] && rewardOk(ix, iy);
     const rc = spawnOpts.roadClass || null;
@@ -711,11 +711,11 @@
       const p = st.at;
       if (!p) continue;
       const pix = Math.floor(p.x * N / ext), piy = Math.floor(p.y * N / ext);
-      const s = SV ? SV.nearestSeat(pix, piy, N, rc, seatOffsets, ambientRewardOk) : null;
+      const s = SV ? SV.nearestSeat(pix, piy, N, rc, seatOffsets, rewardOk) : null;
       if (!s) continue;
       claim(s.ix, s.iy);
       res.objects.push(WG.makeObject('chest', cx(s.ix), cy(s.iy), WG.cellId('vista', tx, ty, s.ix, s.iy),
-        { poiClass: VISTA_POI_CLASS, subclass: st.kind, name: '', vista: st.kind }));
+        { poiClass: VISTA_POI_CLASS, subclass: st.kind, name: '', vista: st.kind, _street: KIND_ROW[st.kind] }));
     }
 
     // SCENIC SHRINES (src/shrines.js): the path row's shrine kind beside the
@@ -730,12 +730,12 @@
       if (shrinesSeated >= Sh.SCENIC_SHRINES_PER_TILE) break;
       yield 'scenic shrines';
       const pix = Math.floor(st.at.x * N / ext), piy = Math.floor(st.at.y * N / ext);
-      const s = SV ? SV.nearestSeat(pix, piy, N, rc, seatOffsets, ambientRewardOk) : null;
+      const s = SV ? SV.nearestSeat(pix, piy, N, rc, seatOffsets, rewardOk) : null;
       if (!s) continue;
       claim(s.ix, s.iy);
       shrinesSeated++;
       res.objects.push(WG.makeObject('grove_shrine', cx(s.ix), cy(s.iy), WG.cellId('scenic_shrine', tx, ty, s.ix, s.iy),
-        { _shrineStreet: KIND_ROW[st.kind], shrineKind: Sh.kindForStreet(KIND_ROW[st.kind]) }));
+        { _street: KIND_ROW[st.kind], _shrineStreet: KIND_ROW[st.kind], shrineKind: Sh.kindForStreet(KIND_ROW[st.kind]) }));
     }
 
     // MESSAGE BOTTLES: before the tide pool, so a bottle's cell is claimed
@@ -794,7 +794,7 @@
     for (const p of sc.grassSeats || []) {
       if ((grassCount++ % 128) === 0) yield 'scenic greenway grass';
       const ix = Math.floor(p.x * N / ext), iy = Math.floor(p.y * N / ext);
-      if (!inSq(ix, iy) || zoneCoverage?.[iy * N + ix] || !WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'minor')) continue;
+      if (!inSq(ix, iy) || !WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'minor')) continue;
       claim(ix, iy);
       res.wildplants.push(WG.makeWildplant('longgrass', cx(ix), cy(iy), WG.cellId('greenway_grass', tx, ty, ix, iy),
         { _street: 'greenway' }));

@@ -4,8 +4,9 @@
   const T0 = 1_700_000_000_000;
 
   test('shrines: sheet idols and the drill share boon and light definitions', () => {
-    assert.eq(Shrines.KIND_IDS.length, 12);
-    const frames = Shrines.KIND_IDS.filter(id => K[id].frame != null).map(id => K[id].frame);
+    assert.eq(Shrines.KIND_IDS.length, 13);
+    assert.eq(K.golden_path_idol.frame, K.golden_idol.frame, 'Golden Path reuses the Golden Road idol art');
+    const frames = Shrines.KIND_IDS.filter(id => K[id].frame != null && id !== 'golden_path_idol').map(id => K[id].frame);
     assert.eq(new Set(frames).size, frames.length, 'one frame per kind');
     assert.eq(JSON.stringify([...frames].sort((a, b) => a - b)), JSON.stringify(SpriteLayout.SHRINE_KIND_ART.frames),
       'the sheet lists exactly the table\'s frames');

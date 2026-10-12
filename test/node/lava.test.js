@@ -1,4 +1,4 @@
-// LAVA — dungeon level WorldGen.LAVA_DEPTH (5) turns the rock under the town's
+// LAVA — dungeon level WorldGen.LAVA_DEPTH (6) turns the rock under the town's
 // BUILDINGS into lava (T.CAVE_LAVA): the water tile in red, walkable, and it
 // burns Combat.LAVA_DMG_PER_S (2) a second off the player's energy and an
 // enemy's HP alike. Only that level: the levels above keep rock there, and so
@@ -8,13 +8,13 @@
 const T = WorldGen.T;
 
 test('lava: the numbers', () => {
-  assert.eq(WorldGen.LAVA_DEPTH, 5, 'level 5 of the dungeon');
+  assert.eq(WorldGen.LAVA_DEPTH, 6, 'level 6 of the dungeon');
   assert.eq(Combat.LAVA_DMG_PER_S, 2, '2 a second');
   assert.truthy(WorldGen.isWalkable(T.CAVE_LAVA), 'you can walk into it — that is the danger');
   assert.falsy(WorldGen.isWalkable(T.CAVE_WALL), 'unlike rock');
 });
 
-test('lava: level 5 turns BUILDING rock to lava — not road or water rock, and no other level', async () => {
+test('lava: level 6 turns BUILDING rock to lava — not road or water rock, and no other level', async () => {
   const lat = 49.9;
   const tileEdgeM = WorldGen.tileEdgeMeters(lat);
   const n = WorldGen.cellsPerEdgeForLat(lat);
@@ -30,28 +30,28 @@ test('lava: level 5 turns BUILDING rock to lava — not road or water rock, and 
   WorldGen.tileCache.set(key, surface);
   try {
     const lv = {};
-    for (let d = 1; d <= 6; d++) lv[d] = await WorldGen.loadTile.atDepth(d, tx, ty, lat);
+    for (let d = 1; d <= 7; d++) lv[d] = await WorldGen.loadTile.atDepth(d, tx, ty, lat);
     for (const i of [HOUSE, SHOP, CIVIC]) {
-      assert.eq(lv[5].grid[i], T.CAVE_LAVA, `building cell ${i} is lava on level 5`);
-      for (const d of [1, 2, 4, 6]) assert.eq(lv[d].grid[i], T.CAVE_WALL, `and rock on level ${d}`);
+      assert.eq(lv[6].grid[i], T.CAVE_LAVA, `building cell ${i} is lava on level 6`);
+      for (const d of [1, 2, 3, 5, 7]) assert.eq(lv[d].grid[i], T.CAVE_WALL, `and rock on level ${d}`);
     }
     for (const i of [ROAD, POND]) {
-      for (const d of [1, 2, 4, 5, 6]) assert.eq(lv[d].grid[i], T.CAVE_WALL, `road/water cell ${i} is rock on level ${d}`);
+      for (const d of [1, 3, 5, 6, 7]) assert.eq(lv[d].grid[i], T.CAVE_WALL, `road/water cell ${i} is rock on level ${d}`);
     }
-    assert.truthy([...lv[3].grid].every(t => t === T.CAVE_FLOOR), 'Underdark has no walls');
+    assert.truthy([...lv[4].grid].every(t => t === T.CAVE_FLOOR), 'Underdark has no walls');
     let lava = 0;
-    for (let i = 0; i < n * n; i++) if (lv[5].grid[i] === T.CAVE_LAVA) lava++;
+    for (let i = 0; i < n * n; i++) if (lv[6].grid[i] === T.CAVE_LAVA) lava++;
     assert.eq(lava, 3, 'exactly the three building cells');
-    // Level 6 is exactly what it would be under plain rock: same grid as level 4.
-    assert.eq(Array.from(lv[6].grid).join(), Array.from(lv[4].grid).join(), 'level 6 unchanged by the lava above');
+    // Level 7 is exactly what it would be under plain rock: same grid as level 5.
+    assert.eq(Array.from(lv[7].geologyGrid).join(), Array.from(lv[5].geologyGrid).join(), 'level 7 unchanged by the lava above');
     // Nothing generated sits in the lava.
     const N = n, mPerCell = tileEdgeM / n;
     const cellOf = (o) => Math.floor((o.y - ty * tileEdgeM) / mPerCell) * N + Math.floor((o.x - tx * tileEdgeM) / mPerCell);
-    for (const o of lv[5].objects.concat(lv[5].wildplants || [])) {
-      assert.falsy(lv[5].grid[cellOf(o)] === T.CAVE_LAVA, `${o.kind} ${o.id} is not in the lava`);
+    for (const o of lv[6].objects.concat(lv[6].wildplants || [])) {
+      assert.falsy(lv[6].grid[cellOf(o)] === T.CAVE_LAVA, `${o.kind} ${o.id} is not in the lava`);
     }
   } finally {
-    for (let d = 0; d <= 6; d++) { WorldGen.setDepth(d); WorldGen.tileCache.delete(key); }
+    for (let d = 0; d <= 7; d++) { WorldGen.setDepth(d); WorldGen.tileCache.delete(key); }
     WorldGen.setDepth(0);
   }
 });

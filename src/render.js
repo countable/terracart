@@ -398,7 +398,8 @@ const GRASS_FALLBACK_COLOR = 0x7b8d4e;   // matches the approved COLORS[0] grass
 // Cave grit remains an alpha overlay, preserving its existing baked textures.
 // The sky floor (WorldGen.SKY_DEPTH) uses the same lane: white grove floor
 // over pale open air, with no biome texture (see the texture pass).
-Render.UNDERGROUND_GROUND = { underdark: 0x69626c, grove: 0x486653, dwarven_city: 0x8b7760,
+Render.UNDERGROUND_GROUND = { goblin_city: 0x77725b, underdark: 0x69626c,
+  haunted_city: 0x666979, lava: 0x6c5149, dragon: 0x706052, dragon_roost: 0x67554f, grove: 0x486653, dwarven_city: 0x8b7760,
   sky_floor: 0xf7f7f1, sky_air: 0xb9dcf2 };
 Render.undergroundGroundColor = (entry, ix, iy, type) => {
   if (entry?.undergroundBiome === 'sky') {
@@ -406,7 +407,8 @@ Render.undergroundGroundColor = (entry, ix, iy, type) => {
       : type === WorldGen.T.CAVE_WALL ? Render.UNDERGROUND_GROUND.sky_air : null;
   }
   if (type !== WorldGen.T.CAVE_FLOOR || !entry) return null;
-  if (entry.undergroundBiome === 'underdark') return Render.UNDERGROUND_GROUND.underdark;
+  const biomeColor = Render.UNDERGROUND_GROUND[entry.undergroundBiome];
+  if (biomeColor != null) return biomeColor;
   if (entry.undergroundBiome !== 'deep_stone') return null;
   const area = entry.undergroundAreas?.[iy * entry.cellsPerEdge + ix];
   return area === 1 ? Render.UNDERGROUND_GROUND.grove

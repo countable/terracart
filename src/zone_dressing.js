@@ -168,6 +168,7 @@
         }
         if (m.kind === 'stronghold_wall') extra.variant = s.quarryPlan.wallFrames.get(i);
         if (m.deposit) extra.deposit = m.deposit;
+        if (m.rockMaterial) extra.rockMaterial = m.rockMaterial;
         if (m.yieldTier != null) extra.yieldTier = m.yieldTier;
         if (m.requiredTier != null) extra.requiredTier = m.requiredTier;
         if (m.kind === 'mineralrock' && m.deposit && s.a.kind === 'quarry') {

@@ -703,10 +703,17 @@
       if (o.zoneLayer === 'background') assert.eq(o.crop, 'shrub', 'outer background is bushes only');
     }
   });
-  test('zone dressing: Flint Field has a central flint disk, rubble rim and rubble-only scatter', () => {
+  test('zone dressing: Flint Field has a mineable flint-rock disk, rubble rim and rubble-only scatter', () => {
     const out = ZoneDressing.dress(context('flint_field'));
-    const poi = out.wildplants.filter(o => o.zoneLayer === 'poi');
-    assert.eq(poi.filter(o => o.crop === 'flint').length, 12);
+    const poi = all(out).filter(o => o.zoneLayer === 'poi');
+    const rocks = poi.filter(o => o.kind === 'mineralrock' && o.rockMaterial === 'flint');
+    assert.eq(rocks.length, 12);
+    assert.eq(out.wildplants.filter(o => o.crop === 'flint').length, 0, 'no free flint remains');
+    for (const rock of rocks) {
+      assert.lte((rock._ix - 32) ** 2 + (rock._iy - 32) ** 2, 4, 'flint rocks stay in the circle');
+      assert.eq(mineralRockMaterial(rock), 'flint');
+      assert.gt(INTERACTABLES.mineralrock.energy({ relics: {} }, rock), 0, 'mining takes work');
+    }
     assert.eq(poi.filter(o => o.crop === 'rubble').length, 16);
     for (const o of out.wildplants) {
       const d2 = (o._ix - 32) ** 2 + (o._iy - 32) ** 2;

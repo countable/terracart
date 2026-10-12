@@ -3,7 +3,7 @@
 
   test('chest art: all seven source tiers follow the visible container and cave cap', () => {
     for (let tier = 1; tier <= 7; tier++) {
-      const o = chest(tier <= 5 ? { tierSeed: tier } : { tierSeed: 5, depth: tier === 6 ? 3 : 6 });
+      const o = chest(tier <= 5 ? { tierSeed: tier } : { tierSeed: 5, depth: tier === 6 ? 4 : 7 });
       assert.eq(chestTier(o), tier);
       assert.eq(chestOpeningArt(o), 'chest_t' + tier);
       const art = chestOpeningArt(o);
@@ -13,7 +13,7 @@
       assert.truthy(ART_THUMBS_SRC.includes(art + ": 'data:image/webp;base64,"),
         art + ' has a loading thumbnail');
     }
-    for (const [depth, cap] of [[0, 5], [2, 5], [3, 6], [5, 6], [6, 7], [20, 7]]) {
+    for (const [depth, cap] of [[0, 5], [2, 5], [3, 5], [4, 6], [6, 6], [7, 7], [20, 7]]) {
       assert.eq(chestOpeningArt(chest({ tierSeed: 7, depth })), 'chest_t' + cap);
     }
     assert.eq(chestOpeningArt(chest({ tierSeed: 2, zoneNexus: 'tar' })), 'chest_t3');

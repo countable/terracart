@@ -408,7 +408,7 @@ test('lighting: a torch and a mushroom glow to different degrees', () => {
 test('lighting: T3 and higher treasure trunks cast their shared rarity colour', () => {
   const sc = scene({_lights: []});
   for (let tier = 3; tier <= chestTierMaxFor(9); tier++) {
-    const depth = tier <= 5 ? 0 : tier === 6 ? 3 : 6;
+    const depth = tier <= 5 ? 0 : tier === 6 ? 4 : 7;
     const chest = {kind:'chest', id:'tier_light_' + tier, poiClass:'memorial', tierSeed:Math.min(5, tier), depth};
     assert.eq(chestTier(chest), tier);
     assert.eq(chestLook(chest).texKey, 'chest');

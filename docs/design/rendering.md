@@ -33,9 +33,12 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   never adjusts an actor's feet or enters the world depth sort. Towers and
   flags retain ordinary world ordering. Walls and footprints use a muted
   palette so interactables remain distinct.
-  Castle courtyard floors use four square stone tiles per cell (2×2), with
-  darker junctions, worn stretches and quiet bevels. Inner seams are lighter
-  than cell boundaries, keeping cells legible beside the smaller road cobbles.
+  Castle courtyard floors start from quarter-cell stone tiles (2×2); each
+  cached texture joins one adjacent pair into a horizontal or vertical half-cell
+  slab with a continuous fill and no internal bevel. This happens only at bake
+  time. Tiles have darker junctions, worn stretches and quiet bevels. Inner
+  seams are lighter than cell boundaries, keeping cells legible beside the
+  smaller road cobbles.
   Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
   renderers; polygon corners use bounded bevel joins.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
@@ -129,7 +132,8 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   material pairs plus three extra plain-stone pairs across six columns and six
   rows. `mineralRockArtFrame` selects the matching gem deposit or ore tier,
   plain stone for ordinary cave rubble,
-  and flint only when explicitly authored as `rockMaterial: 'flint'`. Partial
+  and flint when marked `rockMaterial: 'flint'`, including flint-bearing L1
+  cave rubble. The flint mark takes precedence over the generic cave variant. Partial
   cover (`sightBlocking: true`) selects the large silhouette at scale 4/3;
   small stones use scale 1. Outside authored rock zones, wild rubble shares
   the four generic plain small shapes and skips biome tint; planted crop stages

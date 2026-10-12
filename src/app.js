@@ -5662,7 +5662,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // === Coin-burst (a shrine row with reward 'coins' — the reef treasury,
-  // the golden idol's spree along its road) ================================
+  // the golden shrine's spree along its road) ================================
   // Once per UTC day per POI: the day ledger (Macros.usedToday / markToday —
   // save.coinBurstClaimed[<poiId>YYYYMMDD]); subsequent taps within the same
   // day flash a hint and spawn no coins. Coins themselves are in-memory only
@@ -5741,7 +5741,7 @@ class MapScene extends Phaser.Scene {
     // rule) out to MAX_BURST_CELLS.
     let candidates;
     if (row.fillScreen && row.path) {
-      // THE GOLDEN IDOL: a coin on every free seat of its road's verges on
+      // THE GOLDEN SHRINE: a coin on every free seat of its road's verges on
       // this tile (poi.coinSeats — street_variants.js lays them), never off
       // them; the seats already passed the spawn gate when the road was
       // dressed, so here only what stands on them now (an object, a live
@@ -5750,12 +5750,13 @@ class MapScene extends Phaser.Scene {
       const x0 = tx * tileEdgeM, y0 = ty * tileEdgeM;
       const occupied = new Set(entry._spawnOpts?.occupied || []);
       const zoneCoverage = entry.zone && (entry.zone.coverage || entry.zone.idx);
+      const pathAuthored = StreetVariants.VARIANT_BY_ID[poi._shrineStreet]?.size === 'path';
       for (const coin of entry.coinDrops || []) if (coin.expiresAt > Date.now())
         occupied.add(Math.floor((coin.y - y0) / cellM) * N + Math.floor((coin.x - x0) / cellM));
       for (const seat of poi.coinSeats || []) {
         const cx = Math.floor((seat.x - x0) / cellM), cy = Math.floor((seat.y - y0) / cellM);
         if (cx < 0 || cy < 0 || cx >= N || cy >= N || (cx === poiLocalCX && cy === poiLocalCY)) continue;
-        if (occupied.has(cy * N + cx) || zoneCoverage?.[cy * N + cx] || WorldGen.privateVetoAt(tx, ty, cx, cy)) continue;
+        if (occupied.has(cy * N + cx) || (!pathAuthored && zoneCoverage?.[cy * N + cx]) || WorldGen.privateVetoAt(tx, ty, cx, cy)) continue;
         candidates.push({ cx, cy, tx, ty, entry, x: seat.x, y: seat.y });
       }
     } else if (row.fillScreen) {
@@ -6821,7 +6822,15 @@ class MapScene extends Phaser.Scene {
     if (delta > 0 && !caveFall && arrivalStory === 'dungeon_stone') {
       this._storySplashOnce('dungeon_stone', { art: 'progression_elevator', title: 'Beneath the roots', body: 'Your pick strikes solid stone. Dwarven lamps and pale groves glimmer beyond the passages you dig.' });
     } else if (delta > 0 && arrivalStory === 'dungeon_underdark') {
-      this._storySplashOnce('dungeon_underdark', { art: 'progression_portal', title: 'The Underdark', body: 'The walls fall away into a barren cavern. Your footsteps carry across the open waste.' });
+      this._storySplashOnce('dungeon_underdark', { art: 'progression_portal', title: 'The Underdark', body: 'The walls fall away into a barren cavern. Pale fungi glow across the open ground.' });
+    } else if (delta > 0 && arrivalStory === 'dungeon_city') {
+      this._storySplashOnce(arrivalStory, { art: 'cave_first', title: 'The goblin city', body: 'The streets above continue beneath the earth. Goblin voices echo between the stone foundations.' });
+    } else if (delta > 0 && arrivalStory === 'dungeon_haunted') {
+      this._storySplashOnce(arrivalStory, { art: 'cave_first', title: 'The dead city', body: 'The shape of the town returns in cold stone. Its familiar streets lie silent beneath the earth.' });
+    } else if (delta > 0 && arrivalStory === 'dungeon_lava') {
+      this._storySplashOnce(arrivalStory, { art: 'cave_first', title: 'The lava stratum', body: 'Heat rises from the foundations. Molten pools glow where buildings stand far above.' });
+    } else if (delta > 0 && arrivalStory === 'dungeon_dragon') {
+      this._storySplashOnce(arrivalStory, { art: 'cave_first', title: 'The dragon depths', body: 'Beyond the molten stratum, scorched stone stretches into the dark. Something vast has passed this way.' });
     } else if (delta > 0 && !caveFall) {
       this._storySplashOnce('cave', {
         art: 'cave_first',
@@ -10228,7 +10237,9 @@ class MapScene extends Phaser.Scene {
         const sel = this.save.inv[this.save.selSlot];
         const it = sel && ITEM_BY_ID[sel.id];
         if (it) {
-          const nameTxt = sel.count != null ? `${it.name} ×${sel.count}` : it.name;
+          const borrowed = Macros.scholarLoaned(this.save, sel.id);
+          const nameTxt = (sel.count != null ? `${it.name} ×${sel.count}` : it.name)
+            + (borrowed ? ` · ${borrowed} on loan` : '');
           const effect = (typeof ITEM_EFFECTS !== 'undefined') ? ITEM_EFFECTS[sel.id] : null;
           const nameSpan = document.createElement('div');
           nameSpan.textContent = nameTxt;

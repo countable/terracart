@@ -5,13 +5,16 @@
     const end = SCENE_SRC.indexOf('\n  }\n', start);
     return new Function(...Object.keys(deps), 'return ({' + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')(...Object.values(deps));
   }
-  test('frost tome: scholar awards the tier-six reusable book', () => {
+  test('frost tome: scholar lends the tier-six reusable book', () => {
     assert.eq(BASE_TIER[ID], 6);
     assert.truthy(isTome(ID));
     assert.includes(Macros.scholarShelf(), ID);
     const shelf = Macros.scholarShelf(), index = shelf.indexOf(ID);
     const save = { scholarTomes: index, booksRead: (index + 1) * Macros.SCHOLAR_BOOKS_PER_PRIZE };
-    assert.eq(Macros.scholarNext(save).id, ID);
+    const row = Macros.scholarCatalog(save)[index];
+    assert.eq(row.id, ID);
+    assert.truthy(row.unlocked);
+    assert.eq(row.cost, 8);
     assert.truthy(CONSUMABLE_SPEC[ID].usable({ tomeUsable: id => id === ID }));
   });
   test('frost tome: reading uses its own cooldown and the buff path without consuming the book', () => {

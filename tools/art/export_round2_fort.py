@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
 from import_world_art_candidates import candidate_frame
 
-SOURCE = ROOT / 'assets/Objects/Approved/Sources/ArtRedo20261012Round2'
+SOURCE = ROOT / 'assets/Objects/Approved/Sources/FortGamingHall'
 
 
 def main():

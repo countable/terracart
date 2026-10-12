@@ -124,7 +124,7 @@ const BIOME_TEX = {
   8:  { variants: 2, draw: drawPathTex },         // path: pebble grain
   9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
   11: { variants: 1, draw: drawWoodFloorTex },    // building_med: wooden plank floor
-  12: { variants: 2, draw: drawCastleFloorTex },  // building_large / castle: four square stone slabs per cell
+  12: { variants: 2, draw: drawCastleFloorTex },  // building_large / castle: square and double stone slabs
   10: { variants: 2, patternOpacity: 0.9, draw: drawRockTex },         // rock: cracks
   // Subtype splits — each biome gets its own low-res texture so it reads
   // qualitatively different from the others (see src/biome_profiles.js for the
@@ -580,33 +580,41 @@ function drawBuildingTex(ctx, size, rng) {
 }
 
 function drawCastleFloorTex(ctx, size, rng) {
-  // Four square slabs per cell. Outer joints identify the cell; the lighter
-  // inner cross separates its slabs. Dark junctions fade into worn stretches.
+  // Join one pair of quarter-cell slabs at bake time: one half-cell slab and
+  // two squares, with no extra textures or runtime geometry. Keep outer joints.
   ctx.clearRect(0, 0, size, size);
   const step = size / 2;
+  const horizontal = rng() < 0.5, pair = rng() < 0.5 ? 0 : 1;
   for (let row = 0; row < 2; row++) {
     for (let col = 0; col < 2; col++) {
+      const joined = horizontal ? row === pair : col === pair;
+      if (joined && (horizontal ? col : row) === 1) continue;
+      const w = joined && horizontal ? size : step;
+      const h = joined && !horizontal ? size : step;
       ctx.fillStyle = `rgba(255,255,255,${0.015 + rng() * 0.025})`;
-      ctx.fillRect(col * step + 1, row * step + 1, step - 1, step - 1);
+      ctx.fillRect(col * step + 1, row * step + 1, w - 1, h - 1);
     }
   }
-  function seam(horizontal, at) {
+  function seam(isHorizontal, at) {
     const outer = at === 0;
     const gaps = [0, 1].map(() => Math.floor(step * (0.38 + rng() * 0.24)));
     for (let i = 0; i < size; i++) {
+      // Omit the shared edge, including its bevel, inside the double slab.
+      if (!outer && isHorizontal !== horizontal && i > pair * step
+          && i < (pair + 1) * step) continue;
       const along = i % step, distance = Math.min(along, step - along);
       // Horizontal seams own intersections, avoiding doubled dark pixels.
-      if (!horizontal && along === 0) continue;
+      if (!isHorizontal && along === 0) continue;
       const gap = gaps[Math.floor(i / step)];
       const worn = along >= gap && along < gap + 2;
       const alpha = distance <= 1 ? (outer ? 0.27 : 0.17)
         : distance <= 3 ? (outer ? 0.17 : 0.10)
         : worn ? (outer ? 0.025 : 0.012) : (outer ? 0.10 : 0.05);
       ctx.fillStyle = `rgba(0,0,0,${alpha})`;
-      ctx.fillRect(horizontal ? i : at, horizontal ? at : i, 1, 1);
+      ctx.fillRect(isHorizontal ? i : at, isHorizontal ? at : i, 1, 1);
       if (distance > 1 && !worn) {
         ctx.fillStyle = `rgba(255,255,255,${outer ? 0.055 : 0.025})`;
-        ctx.fillRect(horizontal ? i : at + 1, horizontal ? at + 1 : i, 1, 1);
+        ctx.fillRect(isHorizontal ? i : at + 1, isHorizontal ? at + 1 : i, 1, 1);
       }
     }
   }

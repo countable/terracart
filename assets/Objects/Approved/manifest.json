@@ -640,9 +640,9 @@
       ],
       "path": "assets/Objects/Approved/house_fort.png",
       "source": "assets/Objects/Houses/fort.png",
-      "width": 214,
-      "height": 154,
-      "sha256": "648e41c62dd60a5b0a18aa7fff0aa07448b7244fbf962a9bf89ec107b963882d",
+      "width": 64,
+      "height": 43,
+      "sha256": "2ce99bf022bbdba3f9c04b1dc2eef0da8ad1cc7010d329109a0cac01d62d7f70",
       "rows": [
         "building-fort"
       ],
@@ -673,14 +673,14 @@
       ],
       "frameImports": [
         {
-          "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+          "reviewId": "FORT-GAMING-HALL-2026-10-12",
           "frame": 0,
           "frameSize": [
             64,
             43
           ],
-          "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/fort-restored-native.png",
-          "sourceSha256": "648e41c62dd60a5b0a18aa7fff0aa07448b7244fbf962a9bf89ec107b963882d"
+          "source": "assets/Objects/Approved/Sources/FortGamingHall/fort-restored-native.png",
+          "sourceSha256": "2ce99bf022bbdba3f9c04b1dc2eef0da8ad1cc7010d329109a0cac01d62d7f70"
         }
       ]
     },
@@ -5698,9 +5698,9 @@
       ],
       "path": "assets/Objects/Approved/house_fort_unclaimed.png",
       "source": "assets/Objects/Houses/fort.png",
-      "width": 214,
-      "height": 154,
-      "sha256": "739f9a3a18859b68cd82daea33e0e3378ac8db18cb128e776e1fa99bdf0cbd37",
+      "width": 64,
+      "height": 43,
+      "sha256": "6c9204286e46a4e2adc80415c0f07a60046d5e4447b3dfa482f585a8d501c0c8",
       "rows": [
         "building-fort-unclaimed"
       ],
@@ -5737,14 +5737,14 @@
       ],
       "frameImports": [
         {
-          "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+          "reviewId": "FORT-GAMING-HALL-2026-10-12",
           "frame": 0,
           "frameSize": [
             64,
             43
           ],
-          "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/fort-unclaimed-native.png",
-          "sourceSha256": "739f9a3a18859b68cd82daea33e0e3378ac8db18cb128e776e1fa99bdf0cbd37"
+          "source": "assets/Objects/Approved/Sources/FortGamingHall/fort-unclaimed-native.png",
+          "sourceSha256": "6c9204286e46a4e2adc80415c0f07a60046d5e4447b3dfa482f585a8d501c0c8"
         }
       ]
     },
