@@ -12,7 +12,7 @@
       depth: 2, startWorldM: { x: 101, y: 201 }, playerM: { x: 12, y: 20 }, feetOffsetM: 5,
       dugWallSet: new Set(), cellAt: () => ({ cellIX: 7, cellIY: 8 }),
       cameras: { main: { setBackgroundColor() {} } },
-      ensureTilesAround: () => Promise.resolve(), syncMoveTarget() {},
+      ensureTilesAround: () => Promise.resolve(), syncMoveTarget() {}, _clearMarkers() {},
       flash() {}, flashAtPlayer() {}, _storySplashOnce() {}, buildInventoryDOM() {}, _syncStatusRow() {},
       _selectedConsumable(id) { const sel = this.save.inv[this.save.selSlot]; return sel && sel.id === id && sel.count > 0 ? sel : null; },
       saved: [],
