@@ -11,6 +11,7 @@
     return h >>> 0;
   }
   const roll = key => hash(key) / 4294967296;
+  const QUARTZ_KEEP = 1 / 3;
   function gem(depth, key) {
     const rows = typeof GEM_DEPOSITS === 'undefined' ? []
       : [...new Map(Object.values(GEM_DEPOSITS).map(g => [g.item, g])).values()];
@@ -19,6 +20,11 @@
     // Ordinary low gems favor quartz 3:1; themed pockets use the same finite pool.
     const pool = eligible.flatMap(g => g.yieldTier === 1 ? [g, g, g] : [g]);
     const g = pool[hash(key) % pool.length];
+    // Rose quartz is also thinned: a quartz roll lands QUARTZ_KEEP of the
+    // time and otherwise leaves no gem (the rock stays plain, the pocket
+    // empty). On the first floor it is the only eligible gem, so the pool
+    // weight alone could not make it rarer there.
+    if (g.yieldTier === 1 && roll(`${key}/quartz-keep`) >= QUARTZ_KEEP) return null;
     return { deposit: g.item, yieldTier: g.yieldTier, requiredTier: g.requiredTier };
   }
   function surfaceData(surface) {
