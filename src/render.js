@@ -254,9 +254,11 @@ Render.shopSignTheme = (scene, house, role) => {
 };
 // ONE sign for a ranked or themed building: a board of dark tier-coloured
 // material with a thin light rim, hung from the doorstep on two short cords.
-// The line glyph (an inventory tab's 9×9 bitmap at 2 game px a cell) and the
-// name, in capitals with a word to a line, sit on it in a pale tint of the
-// tier, embossed: each casts a 1px shadow below in a deep shade of the tier.
+// The board carries only a symbol (owner, Oct 2026): a shop's line glyph or
+// its role's (Render.ROLE_SIGN_ICONS), an inventory tab's 9×9 bitmap at 2
+// game px a cell, in a pale tint of the tier, embossed with a 1px shadow
+// below in a deep shade of the tier. A role with no symbol (the trader)
+// letters its name instead, in capitals with a word to a line.
 // The tier word hangs under the board as plain outlined map lettering in the
 // same pale tint. An unranked themed shop (Pet / Book Shop) wears dark
 // signboard wood and has no tier word. All canvas, so the fog of war covers
@@ -264,7 +266,8 @@ Render.shopSignTheme = (scene, house, role) => {
 const SHOP_PLATE = Object.freeze({
   cell: 2,          // game px per glyph cell
   padX: 3,          // board edge to contents, sideways (rim included)
-  padY: 1,          // board edge to the contents, top and bottom (the rim)
+  padY: 1,          // board edge to a name, top and bottom (the rim)
+  padGlyph: 2,      // board edge to a symbol (+1 below for its shadow)
   gap: 3,           // glyph to name
   lineSpacing: -2,  // between the name's lines
   top: 12,          // house foot to board top (the old sign's seat)
@@ -283,8 +286,12 @@ Render.shopSignLook = (badge) => {
     ink: cssOf(mixHex(c, 0xffffff, 0.45)),   // the letters: the tier colour, lightened
   };
 };
-Render.shopSignGlyph = (theme) => {
-  const icon = Render.SHOP_SIGN_ICONS[theme];
+// A non-shop role's symbol: its inventory tab.
+Render.ROLE_SIGN_ICONS = Object.freeze({
+  blacksmith: { tab: 'armor' },
+});
+Render.shopSignGlyph = (theme, role) => {
+  const icon = Render.SHOP_SIGN_ICONS[theme] || Render.ROLE_SIGN_ICONS[role];
   return icon ? (icon.px || INV_CAT_BY_KEY[icon.tab]?.px || null) : null;
 };
 // One board: cords, drop shadow, a 1px light rim with clipped corners, the face.
@@ -301,18 +308,17 @@ function _embossText(tx, look, alpha) {
   setShadowOnce(tx, look.shadow, 0, 1, look.shadow, 0, false, true);
   tx.setAlpha(alpha);
 }
-// Lay out and draw one sign. `item.name` / `item.tier` are its Text slots
-// (origin [0.5, 0]); `foot` is the house foot in game px, kept inside the
+// Lay out and draw one sign. `item.glyph` is its symbol's bitmap, or else
+// `item.name` its lettering; `item.tier` the tier word under it (Text slots,
+// origin [0.5, 0]). `foot` is the house foot in game px, kept inside the
 // canvas width `canvasW`. Returns the board's box.
 Render.drawShopPlate = (gfx, item, foot, playerBox, canvasW) => {
-  const { cell, padX, padY, gap, top, cord, tierGap } = SHOP_PLATE;
+  const { cell, padX, padY, padGlyph, top, cord, tierGap } = SHOP_PLATE;
   const look = Render.shopSignLook(item.badge);
-  const glyph = Render.shopSignGlyph(item.theme);
+  const glyph = item.glyph || null, name = glyph ? null : item.name, tier = item.tier || null;
   const glyphPx = glyph ? glyph.length * cell : 0;
-  const name = item.name, tier = item.tier || null;
-  const innerH = Math.max(glyphPx, name.height);
-  const w = padX + glyphPx + (glyph ? gap : 0) + name.width + padX;
-  const h = padY + innerH + padY;
+  const w = glyph ? 2 * padGlyph + glyphPx : 2 * padX + name.width;
+  const h = glyph ? 2 * padGlyph + 1 + glyphPx : 2 * padY + name.height;
   const x0 = Math.round(clampTextX(foot.x, w, canvasW) - w / 2);
   const y0 = Math.round(foot.y + top);
   const tierY = y0 + h + tierGap;
@@ -322,7 +328,7 @@ Render.drawShopPlate = (gfx, item, foot, playerBox, canvasW) => {
   const alpha = hit ? LABEL_OVER_PLAYER_ALPHA : 1;
   _drawSignBoard(gfx, look, x0, y0, w, h, cord, alpha);
   if (glyph) {
-    const gx = x0 + padX, gy = y0 + padY + Math.round((innerH - glyphPx) / 2);
+    const gx = x0 + padGlyph, gy = y0 + padGlyph;
     for (const [ink, dy] of [[look.shadow, 1], [look.ink, 0]]) {
       gfx.fillStyle(parseHex(ink), alpha);
       glyph.forEach((row, y) => row.replace(/#+/g, (run, x) => {
@@ -330,10 +336,10 @@ Render.drawShopPlate = (gfx, item, foot, playerBox, canvasW) => {
         return run;
       }));
     }
+  } else {
+    name.setPosition(Math.round(x0 + w / 2), y0 + padY);
+    _embossText(name, look, alpha);
   }
-  const nx = Math.round(x0 + padX + glyphPx + (glyph ? gap : 0) + name.width / 2);
-  name.setPosition(nx, Math.round(y0 + (h - name.height) / 2));
-  _embossText(name, look, alpha);
   if (tier) {
     setColorOnce(tier, look.ink);
     tier.setPosition(Math.round(x0 + w / 2), tierY).setAlpha(alpha);
@@ -4420,7 +4426,8 @@ Render.drawObjects = function drawObjects(scene) {
     const role = _houseRole(item.o);
     const badge = Render.shopTierBadge(scene, item.o, role);
     const theme = Render.shopSignTheme(scene, item.o, role);
-    (badge || theme ? plates : plain).push(badge || theme ? { ...item, badge, theme } : item);
+    const glyph = Render.shopSignGlyph(theme, role);
+    (badge || theme ? plates : plain).push(badge || theme ? { ...item, badge, glyph } : item);
   }
   Render.renderPool(scene, scene.shopLabelPool, scene.labelContainer, plain, (tx, item) => {
     const { o, dx, dy } = item;
@@ -4435,11 +4442,12 @@ Render.drawObjects = function drawObjects(scene) {
     tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(sy + 7) + 5);
     fadeLabelOverPlayer(tx, _playerBox);
   }, labelFactory('sign'));
-  // The plate's lettering: the name, then the tier word under it. Laid out
-  // first (Text measures itself), the plate drawn round them afterwards.
+  // The plate's lettering — a name only where there is no symbol, then the
+  // tier word under it. Laid out first (Text measures itself), the plate
+  // drawn round them afterwards.
   const plateNames = scene.shopPlateNamePool || (scene.shopPlateNamePool = []);
   const plateTiers = scene.shopPlateTierPool || (scene.shopPlateTierPool = []);
-  Render.renderPool(scene, plateNames, scene.labelContainer, plates, (tx, item) => {
+  Render.renderPool(scene, plateNames, scene.labelContainer, plates.filter((p) => !p.glyph), (tx, item) => {
     // Capitals, a word to a line.
     tx.setText(_houseSignText(item.o).toUpperCase().split(' ').join('\n'));
     setLineSpacingOnce(tx, SHOP_PLATE.lineSpacing);
