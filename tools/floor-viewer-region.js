@@ -93,7 +93,9 @@
       cellRect(lx - 5, ly - 5, WIDTH - lx + 5, 5),   // north strip, 5 cells wide
       cellRect(lx - 5, ly, 5, HEIGHT - ly),           // west strip, 5 cells wide
     ]));
-    poi.push(point({ class: 'beach', name: 'Lakeside Strand' }, lx + 4, ly - 2));
+    // Seat the Nexus toward the east, leaving roughly half the L-shaped
+    // sand strip outside its influence for ordinary beach spawning.
+    poi.push(point({ class: 'beach', name: 'Lakeside Strand' }, lx + 8, ly - 2));
 
     // Streets of every size; widths come from the classes
     transportation.push(line({ class: 'primary' }, [[39, 0], [39, HEIGHT - 1]]));       // LG, town height
@@ -126,7 +128,8 @@
     { text: 'Park · Grove nexus', nexusKind: 'grove', x: 51, y: 4 },
     { text: 'Forest', x: 55, y: 15 },
     { text: 'Grassland', x: 32, y: 30 },
-    { text: 'Beach nexus', nexusKind: 'beach', x: 53, y: 23 },
+    { text: 'Beach nexus', nexusKind: 'beach', x: 56, y: 23 },
+    { text: 'Regular beach', x: 45.5, y: 29 },
     { text: 'Lake', x: 54, y: 31 }
   ];
   root.FloorViewerRegion = { E, WIDTH, HEIGHT, N, CELL, EDGE, HOME, lat, makeLayers, labels, withNexusSizes, withSeed };
