@@ -345,7 +345,10 @@ access or tile lifecycle mechanics.
   Path sections have their own weighted pool: mostly Greenway, Park Path and
   Promenade, with occasional Lantern Row and Barricade and a rare Golden Path
   (2% base weight, taken from Park Path). Golden Path uses Golden Road’s
-  daily idol reward, with at most one coin seat per cell sampled along the
+  daily shrine reward. A shrine is seated at each end where safe ground permits;
+  both use the section key for one shared daily activation and the same coin
+  seats, so either direction works without a second payout. At most one coin
+  seat per cell is sampled along the
   exact path centreline, never snapped to cell centres or placed on verges.
   Occupancy and spawn restrictions leave gaps; path-authored seats survive
   Nexus crossings. Scenic overrides still apply. Small-road variants

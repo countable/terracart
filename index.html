@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=bff329a6" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=59073b27" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -2886,13 +2886,13 @@
   <script src="src/particles.js?v=4527614a"></script>
   <script src="src/trail.js?v=9ff1d8bf"></script>
   <script src="src/streets.js?v=b5afab2b"></script>
-  <script src="src/street_variants.js?v=4e20d936"></script>
+  <script src="src/street_variants.js?v=1fcc53fd"></script>
   <script src="src/scenic.js?v=61ec7bc5"></script>
   <script src="src/zones.js?v=5beaaecb"></script>
   <script src="src/zone_variant_data.js?v=1ddfec51"></script>
   <script src="src/terrain.js?v=c89a463c"></script>
   <script src="src/zone_variants.js?v=cbc567c1"></script>
-  <script src="src/shrines.js?v=3cbe9939"></script>
+  <script src="src/shrines.js?v=62c24cea"></script>
   <script src="src/buffs.js?v=bb71dc07"></script>
   <script src="src/zone_coverage.js?v=41ac04d2"></script>
   <script src="src/quarry_layout.js?v=29b76e5d"></script>
@@ -2925,10 +2925,10 @@
   <script src="src/castle_styles.js?v=947fba0e"></script>
   <script src="src/textures.js?v=bdfa448b"></script>
   <script src="src/save.js?v=6ad7b17f"></script>
-  <script src="src/items.js?v=96b3892c"></script>
+  <script src="src/items.js?v=0a26372b"></script>
   <script src="src/inventory.js?v=08929c24"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
-  <script src="src/conditions.js?v=17e004a9"></script>
+  <script src="src/conditions.js?v=961c6639"></script>
   <script src="src/player_time.js?v=bcfa05e1"></script>
   <script src="src/potion_effects.js?v=cec6c482"></script>
   <script src="src/crops.js?v=cbbbf8f0"></script>
@@ -2943,7 +2943,7 @@
   <script src="src/loot_contexts.js?v=fbd90631"></script>
   <script src="src/rarity.js?v=d6ac263c"></script>
   <script src="src/loot.js?v=697d48fb"></script>
-  <script src="src/macros.js?v=7c91a490"></script>
+  <script src="src/macros.js?v=082f7fe9"></script>
   <script src="src/quests.js?v=e0c5a12a"></script>
   <script src="src/hidden_objects.js?v=4f521b76"></script>
   <script src="src/temple_puzzles.js?v=73f9ce8c"></script>
@@ -3070,7 +3070,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=bff329a6';
+      const APP_SRC = 'src/app.js?v=59073b27';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

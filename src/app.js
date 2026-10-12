@@ -5662,7 +5662,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // === Coin-burst (a shrine row with reward 'coins' — the reef treasury,
-  // the golden idol's spree along its road) ================================
+  // the golden shrine's spree along its road) ================================
   // Once per UTC day per POI: the day ledger (Macros.usedToday / markToday —
   // save.coinBurstClaimed[<poiId>YYYYMMDD]); subsequent taps within the same
   // day flash a hint and spawn no coins. Coins themselves are in-memory only
@@ -5741,7 +5741,7 @@ class MapScene extends Phaser.Scene {
     // rule) out to MAX_BURST_CELLS.
     let candidates;
     if (row.fillScreen && row.path) {
-      // THE GOLDEN IDOL: a coin on every free seat of its road's verges on
+      // THE GOLDEN SHRINE: a coin on every free seat of its road's verges on
       // this tile (poi.coinSeats — street_variants.js lays them), never off
       // them; the seats already passed the spawn gate when the road was
       // dressed, so here only what stands on them now (an object, a live

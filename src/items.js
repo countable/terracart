@@ -798,8 +798,8 @@ const BASE_TIER = {
   // way, the weak cousin of Fear (T3): the first Magic shop sells it beside
   // the Antidote, so the first cave trip has one trick to get clear with.
   psychosis_powder: 1,
-  // Hardworking is the T1 farm potion: the Harvest Idol's boon (work at
-  // Shrines.WORK_SPEED_MUL) for a third of the idol's time, bottled.
+  // Hardworking is the T1 farm potion: the Harvest Shrine's boon (work at
+  // Shrines.WORK_SPEED_MUL) for a third of the shrine's time, bottled.
   hardworking_potion: 1,
   // Grip is the T1 fighting potion: the Rust totem's boon (+5 melee and
   // ranged damage, Combat.TRAINING_KINDS drill) for a short spell, bottled.
@@ -1325,10 +1325,10 @@ const CONSUMABLE_SPEC = {
     verb: 'Use', title: 'Scatter the Powder of Psychosis?',
     get: 'A giddy haze takes every foe in sight, and they run every which way.',
   },
-  // Potion of Hardworking: the Harvest Idol's boon (shrines.js `work` lever,
+  // Potion of Hardworking: the Harvest Shrine's boon (shrines.js `work` lever,
   // Shrines.WORK_SPEED_MUL on every work wheel — gear.js workDurationMs) for
   // durationMs, pulled through the same lever (Shrines.extend), so a potion
-  // on top of the idol's visit extends the one countdown and never stacks.
+  // on top of the shrine's visit extends the one countdown and never stacks.
   hardworking_potion: {
     durationMs: 5 * _CONSUMABLE_MINUTE_MS, buff: 'work',
     verb: 'Drink', title: 'Drink the Potion of Hardworking?',
@@ -1763,7 +1763,7 @@ const PRICES = {
   magic_hammer: 220,   // T4 — a standing discount at one building, forever
   sleep_powder: 100,
   psychosis_powder: 15, // T1 — ten seconds of foes running every which way
-  hardworking_potion: 15, // T1 — the Harvest Idol's quick hands for five minutes
+  hardworking_potion: 15, // T1 — the Harvest Shrine's quick hands for five minutes
   stoneskin_potion: 35, // T2 — five armour for two minutes
   grip_potion: 15, // T1 — the Rust totem's +5 damage for two minutes
   poison_flask: 45, // T2 — a minute of the purple slime's poison on whatever it touches

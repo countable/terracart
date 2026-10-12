@@ -208,7 +208,7 @@
     return null;
   }
   // The ledger id a row's take is written under.
-  function rowLedgerId(row, o) { return row?.ledger === 'service' ? serviceLedgerId(o.id) : o.id; }
+  function rowLedgerId(row, o) { return row?.ledger === 'service' ? serviceLedgerId(o.id) : (o.dailyVisitId || o.id); }
   // Is the row's take gone right now (the tap's question)?
   function rowUsed(save, row, o, now) {
     if (row.days) return stillBare(save, o.id, row.days(o), now);
@@ -228,25 +228,26 @@
   }
   function beginDailyVisit(ctx, o, { row = visitKindForObject(o), held = false } = {}) {
     const { scene, save, sx, sy } = ctx;
+    const visitId = o.dailyVisitId || o.id;
     const pending = scene._dailyVisits || (scene._dailyVisits = new Set());
-    if (!held && usedToday(save, o.id)) {
+    if (!held && usedToday(save, visitId)) {
       scene.flash(waitLine(row?.spent || SPENT_DEFAULT, msToNextUtcDay()), sx, sy);
       return null;
     }
-    if (pending.has(o.id)) return null;
-    pending.add(o.id);
+    if (pending.has(visitId)) return null;
+    pending.add(visitId);
     let claimed = false, finished = false, presented = false;
     const visit = {
       claim() {
         if (claimed || finished) return false;
         claimed = true;
-        markToday(save, o.id);
+        markToday(save, visitId);
         // Optional daily-site boons belong to the row, beside their copy.
         row?.grant?.(save, scene);
         ctx.dirty = true;
         return true;
       },
-      finish() { finished = true; pending.delete(o.id); },
+      finish() { finished = true; pending.delete(visitId); },
       present(afterStory) {
         if (presented || finished) return;
         presented = true;

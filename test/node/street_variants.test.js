@@ -1183,7 +1183,14 @@ test('golden path: exact diagonal centreline seats, no verge coins, and blocked 
       'coins stay exactly on the diagonal, not at off-path cell centres');
   }
   const idol = result.objects.find(o => o.shrineKind === 'golden_path_idol');
-  assert.truthy(idol, 'the path gets its daily idol');
+  assert.truthy(idol, 'the path gets its daily shrine');
+  const shrines = result.objects.filter(o => o.shrineKind === 'golden_path_idol');
+  assert.eq(shrines.length, 2, 'one activation shrine at each end');
+  assert.eq(shrines[0].dailyVisitId, shrines[1].dailyVisitId, 'both share one daily reward');
+  assert.falsy(shrines[0].id === shrines[1].id, 'each shrine has its own object identity');
+  const end = { x: TX * TILE_EDGE_M + 40.5 * 7, y: TY * TILE_EDGE_M + 35.5 * 7 };
+  for (const p of [a, end]) assert.truthy(shrines.some(o => Math.hypot(o.x - p.x, o.y - p.y) < 30),
+    'a shrine is close to each end, not the midpoint');
   assert.eq(idol.coinSeats.length, seats.length);
   assert.eq(Shrines.kindForStreet('golden_path'), 'golden_path_idol');
   const cell = cellOf(seats[0].y, TY) * CPE + cellOf(seats[0].x, TX);

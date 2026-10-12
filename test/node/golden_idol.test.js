@@ -56,6 +56,7 @@
   test('golden path idol: exact seats survive nexus coverage and pay only once daily', () => withCache(() => {
     const { scene, save, entry, poi } = fixture();
     poi.shrineKind = 'golden_path_idol'; poi._shrineStreet = 'golden_path';
+    poi.dailyVisitId = 'path_shrine:test';
     poi.coinSeats = [{ x: 17.1, y: 18.2 }, { x: 22.3, y: 23.4 }];
     entry.zone = { coverage: new Uint8Array(16 * 16).fill(1) };
     WorldGen.tileCache.set(WorldGen.tileKey(0, 0), entry);
@@ -65,6 +66,11 @@
       'runtime keeps the exact path point');
     INTERACTABLES.grove_shrine.custom(makeCtx(scene, save), poi);
     assert.eq(entry.coinDrops.length, 2, 'no second daily payout');
+    const otherEnd = { ...poi, id: 'other-end-shrine', x: 72.5, y: 12.5 };
+    INTERACTABLES.grove_shrine.custom(makeCtx(scene, save), otherEnd);
+    assert.eq(entry.coinDrops.length, 2, 'the opposite end cannot pay again');
+    assert.truthy(Macros.rowUsed(save, Macros.visitKindForObject(otherEnd), otherEnd),
+      'the opposite shrine shows spent too');
   }));
 
   test('golden idol: with every seat taken the day is not spent', () => withCache(() => {

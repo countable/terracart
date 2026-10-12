@@ -48,6 +48,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   adds one ordinary enemy on loaded walkable ground near the view edge in
   the active depth. These debug spawns last for the session.
 
+- Use **shrine** for daily activations and **idol** for boss-summoning items.
+  Shrine names and visit copy use this distinction; existing internal IDs remain stable.
 - Daily sites share `Macros.visitKindForObject` and `beginDailyVisit` / `dailyVisit`.
   Claim the UTC-day ledger only when the benefit is granted; cancellation must
   leave the visit available. Keep presentation, light and effects in the owning
