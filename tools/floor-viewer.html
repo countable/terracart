@@ -298,15 +298,14 @@
     variants.set(tint, canvas); return canvas;
   }
 
-  // Reuse the game's pavement swatches; cache tiles across resizes and floors.
+  // Preview restored pavement; cache tiles across resizes and floors.
   const pavementTiles = new Map();
   function pavementPattern(isPath, variant, s, offX, offY) {
     const key = `${isPath}:${variant || ''}`;
     if (!pavementTiles.has(key)) {
       const tile = document.createElement('canvas'); tile.width = tile.height = 32;
       const g = tile.getContext('2d');
-      RoadOverlay.paintPavementTile(g, 32, isPath, false, variant);
-      if (!StreetVariants.VARIANT_BY_ID[variant]?.hotRoad) RoadOverlay.paintWeatherTile(g, 32);
+      RoadOverlay.paintPavementTile(g, 32, isPath, true, variant);
       pavementTiles.set(key, tile);
     }
     const pattern = ctx.createPattern(pavementTiles.get(key), 'repeat');
