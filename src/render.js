@@ -261,26 +261,43 @@ Render.shopTierBadge = (scene, house, role) => {
   };
 };
 // Shop signs identify the line, not the randomly selected stock item.
-// Category icons are the inventory tabs' pixel art (sign-ink brown); books keep their item icon.
+// Category glyphs are the inventory tabs' 9×9 pixel art, drawn in the plate's ink.
 Render.SHOP_SIGN_ICONS = Object.freeze({
   seed: { tab: 'seed' },
   supply: { tab: 'supplies' },
   potion: { tab: 'magic' },
   relic: { tab: 'relic' },
   pet: { tab: 'animal' },
-  book: { item: 'book' },
+  // No inventory tab for books: the board's own bitmap in the same family.
+  book: { px: [
+    '.#######.',
+    '##.....##',
+    '##.###.##',
+    '##.....##',
+    '##.###.##',
+    '##.....##',
+    '#########',
+    '#.......#',
+    '.#######.'] },
 });
 Render.shopSignTheme = (scene, house, role) => {
   if (house.kind !== 'house' || role !== 'shop') return null;
   const theme = scene.shopLine(house).theme;
   return Render.SHOP_SIGN_ICONS[theme] ? theme : null;
 };
-// The line board beside the tier chip, in that chip's colours: the tier's
-// fill, the chip's ink for the glyph, and a darker rim of the same hue. An
-// unranked shop (no chip) keeps the plain signboard wood.
-const SHOP_SIGN_PX = 12;     // the board's side, game px — about a tier chip's height
-const SHOP_SIGN_GAP = 2;     // board to chip, game px
-Render.SHOP_SIGN_PX = SHOP_SIGN_PX;
+// ONE sign for a ranked or themed building: a plate in the tier's colour
+// with a darker rim of the same hue, the line glyph on the left (an inventory
+// tab's 9×9 bitmap at 2 game px a cell, in the plate's ink) and the name over
+// the tier word on the right. An unranked themed shop (Pet / Book Shop) wears
+// the plain signboard wood. All canvas, so the fog of war covers it with the
+// other labels.
+const SHOP_PLATE = Object.freeze({
+  cell: 2,          // game px per glyph cell
+  pad: 3,           // plate edge to contents
+  gap: 3,           // glyph to lettering
+  top: 12,          // house foot to plate top (the old sign's seat)
+});
+Render.SHOP_PLATE = SHOP_PLATE;
 Render.shopSignLook = (badge) => {
   if (!badge) return { background: '#ead4a0', border: '#654628', ink: '#382719' };
   const c = parseInt(badge.backgroundColor.slice(1), 16);
@@ -288,11 +305,51 @@ Render.shopSignLook = (badge) => {
   return { background: badge.backgroundColor, ink: badge.color,
     border: '#' + dark.map((v) => v.toString(16).padStart(2, '0')).join('') };
 };
-Render.shopSignIconHTML = (scene, theme, size, ink = '#382719') => {
+Render.shopSignGlyph = (theme) => {
   const icon = Render.SHOP_SIGN_ICONS[theme];
-  if (!icon) return '';
-  if (icon.tab) return invCatIconHTML(icon.tab, size, ink);
-  return scene.iconSpanHTML(icon.item, size);
+  return icon ? (icon.px || INV_CAT_BY_KEY[icon.tab]?.px || null) : null;
+};
+// Lay out and draw one plate. `item.name` / `item.tier` are the plate's Text
+// slots (origin [0.5, 0]); `foot` is the house foot in game px, kept inside
+// the canvas width `canvasW`.
+Render.drawShopPlate = (gfx, item, foot, playerBox, canvasW) => {
+  const { cell, pad, gap, top } = SHOP_PLATE;
+  const look = Render.shopSignLook(item.badge);
+  const glyph = Render.shopSignGlyph(item.theme);
+  const glyphPx = glyph ? glyph.length * cell : 0;
+  const name = item.name, tier = item.tier || null;
+  const textW = Math.max(name.width, tier ? tier.width : 0);
+  const textH = name.height + (tier ? tier.height : 0);
+  const innerH = Math.max(glyphPx, textH);
+  const w = pad + glyphPx + (glyph ? gap : 0) + textW + pad;
+  const h = pad + innerH + pad;
+  const x0 = Math.round(clampTextX(foot.x, w, canvasW) - w / 2);
+  const y0 = Math.round(foot.y + top);
+  const hit = playerBox && x0 < playerBox.x1 && x0 + w > playerBox.x0
+    && y0 < playerBox.y1 && y0 + h > playerBox.y0;
+  const alpha = hit ? LABEL_OVER_PLAYER_ALPHA : 1;
+  // Drop shadow, rim, fill.
+  gfx.fillStyle(0x000000, 0.45 * alpha).fillRect(x0, y0 + 1, w, h);
+  gfx.fillStyle(parseHex(look.border), alpha).fillRect(x0, y0, w, h);
+  gfx.fillStyle(parseHex(look.background), alpha).fillRect(x0 + 1, y0 + 1, w - 2, h - 2);
+  const ink = parseHex(look.ink);
+  if (glyph) {
+    const gx = x0 + pad, gy = y0 + pad + Math.round((innerH - glyphPx) / 2);
+    gfx.fillStyle(ink, alpha);
+    glyph.forEach((row, y) => row.replace(/#+/g, (run, x) => {
+      gfx.fillRect(gx + x * cell, gy + y * cell, run.length * cell, cell);
+      return run;
+    }));
+  }
+  const cx = Math.round(x0 + pad + glyphPx + (glyph ? gap : 0) + textW / 2);
+  const ty = y0 + pad + Math.round((innerH - textH) / 2);
+  setColorOnce(name, look.ink);
+  name.setPosition(cx, ty).setAlpha(alpha);
+  if (tier) {
+    setColorOnce(tier, look.ink);
+    tier.setPosition(cx, ty + name.height).setAlpha(alpha * 0.85);
+  }
+  return { x: x0, y: y0, w, h };
 };
 const COIN_DROP_PX = 9;
 Render.COIN_DROP_PX = COIN_DROP_PX;
@@ -884,7 +941,7 @@ function setStyleOnce(el, prop, value) {
   last[prop] = value;
   el.style[prop] = value;
 }
-// Hide every roof sign (shop signboards, delivery callouts). They are <body>
+// Hide every roof sign (the delivery callouts). They are <body>
 // overlays at fixed SCREEN positions, hidden only by drawObjects' sign pass:
 // a frame that never reaches it (a swallowed loop error, the frame a floor
 // changes) would leave one pinned over the view, riding along with the
@@ -3416,7 +3473,7 @@ const _lighten30 = (col) => {
 };
 // ── Map text: ONE family ───────────────────────────────────────────────────
 // Every label drawn over the map — POI names and crate labels, shop signs
-// and their tier chips, crop timers, pet hearts, the creature status markers
+// and their tier plates, crop timers, pet hearts, the creature status markers
 // and the QC variant labels — is a row here, and every row is the POI
 // label's style unless it says otherwise: bold 10px mono in a pale cool-blue
 // ink (the "this is a place" cue), a 2px near-black outline (pale glyphs on
@@ -3424,7 +3481,7 @@ const _lighten30 = (col) => {
 // zone's tiling) and a soft drop shadow for the lift. Seven pools used to
 // carry seven hand-typed styles (8 to 11px, three stroke colours) with no
 // stated reason. What a row may still say: a smaller SIZE where the text
-// sits inside a cell or under another label (the crop timer, the tier chip),
+// sits inside a cell or under another label (the crop timer, the plate's tier word),
 // a background CHIP where it reads over busy art, `stroke: false` for a chip
 // or a bare glyph, its ORIGIN (where it hangs off its point) and its DEPTH
 // (the labels layer, or the world overlay band Z_OVERLAY).
@@ -3438,8 +3495,10 @@ const LABEL_STYLES = {
   poi:     { origin: [0.5, 0], depth: 50, padding: { x: 4, y: 3 } },
   // A house's sign, tucked under its doorstep, in the role's own ink.
   sign:    { origin: [0.5, 0], depth: 50 },
-  // The shop tier chip under the sign — smaller than the sign it hangs off.
-  badge:   { size: 8, stroke: false, padding: { x: 3, y: 1 }, origin: [0.5, 0], depth: 50 },
+  // A ranked building's plate (drawShopPlate): the name, then the tier word
+  // under it, in the plate's ink — no outline, the plate is the contrast.
+  plate:     { stroke: false, origin: [0.5, 0], depth: 50 },
+  plateTier: { size: 8, stroke: false, origin: [0.5, 0], depth: 50 },
   // A growing crop's timer, in the bottom-right corner of its own cell.
   timer:   { size: 9, color: '#ffffff', background: 'rgba(0,0,0,0.7)', padding: { x: 2, y: 1 }, stroke: false, origin: [1, 1], depth: Z_OVERLAY },
   // The 💗 over a tame creature — a glyph, no outline.
@@ -4086,9 +4145,11 @@ Render.drawObjects = function drawObjects(scene) {
     // A shiny tree, or a building raised under the Magic Hammer (Houses.isShinyHouse).
     Render.setShine(s, (isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree))
       || (o.kind === 'house' && Houses.isShinyHouse(scene.save, o)), o.id);
+    // No art (a kind with no RENDER_SPEC row) hides the slot too: a pooled
+    // sprite keeps its last texture, so returning early drew whatever the
+    // slot held before — surface houses floating in a cave after a descent.
     const appearance = item._appearance;
-    if (!appearance) return;
-    if (!appearance.visible) { s.setVisible(false); return; }
+    if (!appearance || !appearance.visible) { s.setVisible(false); return; }
     const { spec, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx } = appearance;
     setTextureIfDifferent(s, texKey);
     // An absent frame leaves the texture's default frame untouched, while a
@@ -4314,11 +4375,10 @@ Render.drawObjects = function drawObjects(scene) {
     fadeLabelOverPlayer(tx, _playerBox);
   }, labelFactory('poi'));
 
-  // Specialty-shop labels above small-house shops (produce shops / blacksmiths /
-  // traders): the map text family (LABEL_STYLES.sign) — no background plank —
-  // so the lettering floats over the building art. Lettering colour comes
-  // from the role (_houseSignInk) so each shop type's signage matches its
-  // house tint at a glance.
+  // House signs under the doorstep. A ranked or themed building hangs a
+  // tier-coloured plate (Render.drawShopPlate, below); every other sign is
+  // the map text family (LABEL_STYLES.sign) floating over the building art,
+  // its lettering in the role's ink (_houseSignInk).
   // Starter shop labels as "Home". Shops.shopLabel() returns null for
   // non-shopType houses, so it is wrapped here to handle the starter case.
   // Display labels for the role-keyed shop signs come from Shops.roleLabel, the
@@ -4371,15 +4431,19 @@ Render.drawObjects = function drawObjects(scene) {
   // signs and pips are dropped: clampTextX would pin the label to the screen
   // edge with no building under it.
   const shopHouses = filteredObj.filter(({ o, wide }) => !wide && o.kind === 'house' && _houseSignText(o));
-  const shopBadges = scene.shopBadgePool || (scene.shopBadgePool = []);
-  // The tier chips under the signs: collected as the signs are laid out, so
-  // each chip hangs off its own sign's measured height. A themed shop's line
-  // board (the DOM pass below) sits on the chip's row, just left of it, and
-  // wears the chip's tier colour; the seat is recorded here per house.
-  const badgeList = [];
-  const signSeats = scene._shopSignSeats || (scene._shopSignSeats = new Map());
-  signSeats.clear();
-  Render.renderPool(scene, scene.shopLabelPool, scene.labelContainer, shopHouses, (tx, item) => {
+  // A ranked building (a shop, smithy or trader with a tier) and a themed
+  // shop hang ONE sign: a plate in the tier's colour carrying the line glyph
+  // on the left and the name over the tier word on the right (owner, Oct
+  // 2026: name, chip and board read as three stickers). Everything else keeps
+  // the floating outlined lettering.
+  const plates = [], plain = [];
+  for (const item of shopHouses) {
+    const role = _houseRole(item.o);
+    const badge = Render.shopTierBadge(scene, item.o, role);
+    const theme = Render.shopSignTheme(scene, item.o, role);
+    (badge || theme ? plates : plain).push(badge || theme ? { ...item, badge, theme } : item);
+  }
+  Render.renderPool(scene, scene.shopLabelPool, scene.labelContainer, plain, (tx, item) => {
     const { o, dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
     // House sprite origin is [0.5, 0.9] — sy is roughly the building's foot.
@@ -4391,29 +4455,29 @@ Render.drawObjects = function drawObjects(scene) {
     setColorOnce(tx, _lighten30(_houseSignInk(o)));
     tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(sy + 7) + 5);
     fadeLabelOverPlayer(tx, _playerBox);
-    const role = _houseRole(o);
-    const badge = Render.shopTierBadge(scene, o, role);
-    const signed = !!Render.shopSignTheme(scene, o, role);
-    const y = tx.y + tx.height + 1;
-    if (badge) badgeList.push({ badge, sx, y, id: o.id, signed });
-    // An unranked shop (the Pet / Book Shop) has no chip: its board alone
-    // takes the row, centred under the name.
-    else if (signed) signSeats.set(o.id, { x: clampTextX(sx, SHOP_SIGN_PX, CANVAS_W), y: y + SHOP_SIGN_PX / 2, badge: null });
   }, labelFactory('sign'));
-  Render.renderPool(scene, shopBadges, scene.labelContainer, badgeList, (chip, { badge, sx, y, id, signed }) => {
-    if (chip.text !== badge.text) chip.setText(badge.text).setStyle({
-      color: badge.color, backgroundColor: badge.backgroundColor,
-    });
-    // [board][gap][chip], the pair centred under the name as one row.
-    const lead = signed ? SHOP_SIGN_PX + SHOP_SIGN_GAP : 0;
-    const rowW = lead + chip.width;
-    const left = clampTextX(sx, rowW, CANVAS_W) - rowW / 2;
-    chip.setPosition(Math.round(left + lead + chip.width / 2), Math.round(y));
-    if (signed) signSeats.set(id, { x: left + SHOP_SIGN_PX / 2, y: Math.round(y) + chip.height / 2, badge });
-    fadeLabelOverPlayer(chip, _playerBox);
-  }, labelFactory('badge'));
+  // The plate's lettering: the name, then the tier word under it. Laid out
+  // first (Text measures itself), the plate drawn round them afterwards.
+  const plateNames = scene.shopPlateNamePool || (scene.shopPlateNamePool = []);
+  const plateTiers = scene.shopPlateTierPool || (scene.shopPlateTierPool = []);
+  Render.renderPool(scene, plateNames, scene.labelContainer, plates, (tx, item) => {
+    tx.setText(_houseSignText(item.o));
+    item.name = tx;
+  }, labelFactory('plate'));
+  const ranked = plates.filter((p) => p.badge);
+  Render.renderPool(scene, plateTiers, scene.labelContainer, ranked, (tx, item) => {
+    if (tx.text !== item.badge.text) tx.setText(item.badge.text);
+    item.tier = tx;
+  }, labelFactory('plateTier'));
+  let gfx = scene.shopPlateGfx;
+  if (!gfx) {
+    gfx = scene.shopPlateGfx = scene.add.graphics();
+    scene.labelContainer.addAt(gfx, 0);   // under every label's lettering
+  }
+  gfx.clear();
+  for (const item of plates) Render.drawShopPlate(gfx, item, project(item.dx, item.dy), _playerBox, CANVAS_W);
 
-  // Shop signboards and residential delivery plaques use real
+  // Residential delivery plaques use real
   // item ICONS instead of emoji text. Uses the same mechanism as flashLoot's
   // loot icon: pooled <div>s appended to <body> (NOT #game, whose CSS
   // transform would become the containing block for position:fixed) and
@@ -4457,15 +4521,11 @@ Render.drawObjects = function drawObjects(scene) {
         .map((t) => t.getBounds());
       for (const it of filteredObj) {
         // Every delivery host gets a roof callout: the wishlist of produce icons
-        // while hungry, a smiling face once a bundle is delivered; a shop
-        // building shows its line's inventory-tab symbol instead.
-        if (it.wide || it.o.kind !== 'house') continue;
-        const shop = Render.shopSignTheme(scene, it.o, _houseRole(it.o));
-        const seat = shop ? signSeats.get(it.o.id) : null;
-        if (shop && !seat) continue;
-        if (!shop && !_houseIsHost(it.o)) continue;
-        const happy = !shop && _houseSatisfied(it.o);
-        const wanted = shop || happy ? null : scene.wantedProduce(it.o);
+        // while hungry, a smiling face once a bundle is delivered. (A shop's
+        // line glyph is on its canvas plate, drawShopPlate.)
+        if (it.wide || it.o.kind !== 'house' || !_houseIsHost(it.o)) continue;
+        const happy = _houseSatisfied(it.o);
+        const wanted = happy ? null : scene.wantedProduce(it.o);
         const { x: sx, y: sy } = project(it.dx, it.dy);
         let slot = pool[psi];
         if (!slot) {
@@ -4485,28 +4545,11 @@ Render.drawObjects = function drawObjects(scene) {
         // Rebuild contents only when the wishlist / happy state / icon size
         // changes — the produce set is memoized per house, so this is normally
         // a no-op. The 'happy' sentinel in the key flips the bubble on delivery.
-        const signPx = Math.max(6, Math.round(SHOP_SIGN_PX * scale));
-        const look = shop ? Render.shopSignLook(seat.badge) : null;
-        const key = it.o.id + '|' + (shop ? shop + '|' + look.background : (happy ? 'happy' : wanted.join(',')))
-          + '|' + (shop ? signPx : sizePx);
+        const key = it.o.id + '|' + (happy ? 'happy' : wanted.join(',')) + '|' + sizePx;
         if (slot.key !== key) {
           slot.el.replaceChildren();
-          slot.el.className = shop ? 'shop-sign' : 'delivery-callout';
-          slot.el.setAttribute('aria-label', shop ? Shops.roleLabel('shop', shop) : 'House delivery');
-          const edge = Math.max(1, Math.round(scale));
-          Object.assign(slot.el.style, shop ? {
-            // A square board the chip's height, in the chip's tier colour.
-            background: look.background, border: `${edge}px solid ${look.border}`,
-            borderRadius: '2px', padding: '0', boxShadow: `0 ${edge}px 0 rgba(0,0,0,0.45)`,
-            boxSizing: 'border-box', width: signPx + 'px', height: signPx + 'px', justifyContent: 'center',
-          } : {
-            background: '#fff', border: '1px solid rgba(0,0,0,0.18)', borderRadius: '7px',
-            padding: '3px 5px', boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
-            boxSizing: '', width: '', height: '', justifyContent: '',
-          });
-          if (shop) {
-            slot.el.innerHTML = Render.shopSignIconHTML(scene, shop, Math.max(4, signPx - 2 * edge - 2 * Math.max(1, Math.round(scale))), look.ink);
-          } else if (happy) {
+          slot.el.setAttribute('aria-label', 'House delivery');
+          if (happy) {
             // Smiling face — non-item UI, so emoji is allowed here (see QC §1).
             const face = document.createElement('div');
             face.textContent = '😊';
@@ -4518,40 +4561,31 @@ Render.drawObjects = function drawObjects(scene) {
           }
           // Downward tail — a CSS triangle absolutely positioned at the bubble's
           // bottom centre so it points at the house. position:absolute keeps it
-          // out of the flex flow, so it doesn't shift the icon row. A shop's
-          // board sits on the label row and needs none.
-          if (!shop) {
-            const tail = document.createElement('div');
-            tail.style.cssText = 'position:absolute;left:50%;bottom:-5px;width:0;height:0;'
-              + 'border-left:5px solid transparent;border-right:5px solid transparent;'
-              + 'border-top:6px solid #fff;transform:translateX(-50%);'
-              + 'filter:drop-shadow(0 1px 0 rgba(0,0,0,0.18));';
-            slot.el.appendChild(tail);
-          }
+          // out of the flex flow, so it doesn't shift the icon row.
+          const tail = document.createElement('div');
+          tail.style.cssText = 'position:absolute;left:50%;bottom:-5px;width:0;height:0;'
+            + 'border-left:5px solid transparent;border-right:5px solid transparent;'
+            + 'border-top:6px solid #fff;transform:translateX(-50%);'
+            + 'filter:drop-shadow(0 1px 0 rgba(0,0,0,0.18));';
+          slot.el.appendChild(tail);
           slot.key = key;
         }
         // A callout floats ABOVE the house roof: translate(-50%,-100%) anchors
-        // it by its bottom-centre at sy-18. A shop's board is centred on its
-        // seat beside the tier chip.
-        const signX = shop ? seat.x : sx;
-        const signY = shop ? seat.y : sy - 18;
-        const px = rect.left + signX * scale;
-        const py = rect.top  + signY * scale;
-        setStyleOnce(slot.el, 'transform', `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, ${shop ? '-50%' : '-100%'})`);
+        // it by its bottom-centre at sy-18.
+        const px = rect.left + sx * scale;
+        const py = rect.top  + (sy - 18) * scale;
+        setStyleOnce(slot.el, 'transform', `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, -100%)`);
         setStyleOnce(slot.el, 'display', 'flex');
-        // Box in game px. A callout: n icons + 3px gaps, 5px/3px padding, 1px
-        // border, 6px tail (CSS px ÷ scale). A board: its square.
-        const n = shop || happy ? 1 : Math.max(1, wanted.length);
-        const bw = shop ? SHOP_SIGN_PX : n * ICON_GAME + ((n - 1) * 3 + 12) / scale;
-        const bh = shop ? SHOP_SIGN_PX : ICON_GAME + (8 + 6) / scale;
-        const bb = shop ? signY + SHOP_SIGN_PX / 2 : signY + 6 / scale;
-        const bl = signX - bw / 2, bt = bb - bh;
+        // Box in game px: n icons + 3px gaps, 5px/3px padding, 1px border,
+        // 6px tail (CSS px ÷ scale).
+        const n = happy ? 1 : Math.max(1, wanted.length);
+        const bw = n * ICON_GAME + ((n - 1) * 3 + 12) / scale;
+        const bh = ICON_GAME + (8 + 6) / scale;
+        const bb = sy - 18 + 6 / scale;
+        const bl = sx - bw / 2, bt = bb - bh;
         const covered = toastRects.some((r) =>
           !(bl + bw <= r.left || bl >= r.right || bb <= r.top || bt >= r.bottom));
         setStyleOnce(slot.el, 'visibility', covered ? 'hidden' : 'visible');
-        const overPlayer = shop && _playerBox
-          && !(bl + bw <= _playerBox.x0 || bl >= _playerBox.x1 || bb <= _playerBox.y0 || bt >= _playerBox.y1);
-        setStyleOnce(slot.el, 'opacity', overPlayer ? String(LABEL_OVER_PLAYER_ALPHA) : '1');
         psi++;
       }
     }
