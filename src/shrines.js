@@ -71,7 +71,7 @@
       body: "You touch the mossy stones and the woods fall quiet around you. Creatures look straight past you, as if you were part of the moss.",
       effect: "Creatures won't notice or attack you, and animals won't flee your net. Strike a creature and that one sees you again." },
     rust_totem: { art: 'shrine_rust_totem', frame: 5, light: 0xff8c2a, lever: 'melee', durationMs: 5 * MIN, boon: 'Grip',
-      zoneVariants: ['work_yard', 'broken_masonry', 'broken_depot'], streets: ['barricade', 'snare'],
+      zoneVariants: ['work_yard', 'broken_masonry', 'broken_depot'], streets: ['barricade', 'snare', 'goblin_gang'],
       name: 'Rust totem', flash: 'Your grip hardens like iron.',
       body: "You touch the rusted iron. Your arms feel stronger as you grip your weapon." },
     wishing_well: { art: 'shrine_wishing_well', frame: 6, light: 0xefc46a, lever: 'fortune', durationMs: 15 * MIN, boon: 'Luck',

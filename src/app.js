@@ -1907,7 +1907,7 @@ class MapScene extends Phaser.Scene {
   // One read per feet-cell change (playerToWorldCell — never the camera
   // anchor): the tile's street marks (StreetVariants.dress) and its MAJOR band
   // (entry.roadClass) say which street this is, and the first entry onto each
-  // variant — and onto an old trade road — tells its story once per save
+  // variant, old trade road or ancient highway tells its story once per save
   // (_storySplashOnce, keyed and painted by the row's `story` stem); a later
   // entry after being off it for STREET_FLASH_GAP_MS gets its map line. The
   // same cell says whether a Burned Row's tar pit or iron stakes are under
@@ -1974,10 +1974,9 @@ class MapScene extends Phaser.Scene {
     }
     // THE STORY: which street is this?
     const code = entry.streetMarks ? entry.streetMarks[i] : 0;
-    let row = code ? StreetVariants.variantByCode(code) : null;
-    if (!row && entry.roadClass && (entry.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_BAND)) {
-      row = StreetVariants.BANDIT_STORY;
-    }
+    const onMajorRoad = entry.roadClass && (entry.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_BAND);
+    const row = onMajorRoad ? StreetVariants.roadStoryAt(entry, lix, liy)
+      : code ? StreetVariants.variantByCode(code) : null;
     if (!row) { this._streetStoryHere = null; return; }
     if (row.story === this._streetStoryHere) return;
     this._streetStoryHere = row.story;

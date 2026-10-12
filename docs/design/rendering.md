@@ -180,7 +180,12 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 - Restored Toadstool (Mushroom) and Snare lanes use near-black setts close to
   the default restored road. Retain their red/brown undertones and mushroom
   spots; the shared clean-stone bevel supplies the polished highlights.
-- Generate lamps from `Streets.lampSpacingM()` (independent of restoration ladder goals).
+- Path paving and lamp palettes follow the assigned segment intervals. Scenic
+  geography still owns restoration bonuses; first-walk stories use the assigned
+  theme on the restored segment.
+- Generate lamps only on paths and Small roads, from `Streets.lampSpacingM()`
+  (independent of restoration ladder goals). Medium/Large roads have no lamp
+  sites, including broken lamps and spawn reservations.
   One list and `lit` flag feed art and lighting. Derive verge offset from road
   width and lamp footprint; art and light share the same world point. Lantern
   rise is a draw-space offset; retune height through `LAMP_PROFILE`.

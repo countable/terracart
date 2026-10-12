@@ -3351,7 +3351,7 @@ Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay
       const prior = roads.get(id);
       if (prior && prior.distance <= distance) continue;
       const row = StreetVariants.VARIANT_BY_ID[rec.variant];
-      const title = row ? row.title : rec.variant || (rec.size === 'major' ? StreetVariants.BANDIT_STORY.title : 'Plain street');
+      const title = row ? row.title : rec.variant || StreetVariants.roadStoryFor(rec)?.title || 'Plain street';
       roads.set(id, { id, kind: 'road', text: `Road: ${title}${rec.rocks ? ' · rocks' : ''}`, x, y, distance });
     }
   }

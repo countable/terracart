@@ -40,12 +40,17 @@ function rasterPair() {
   const layers = decode(`${TILE_TX}_${TILE_TY}`);
   const N = WorldGen.cellsPerEdgeForTile(TILE_TY), edge = edgeFor(TILE_TY);
   const saved = globalThis.Zones, paintRoad = StreetVariants.paintTerrainSteps;
+  const affinities = StreetVariants.applyAffinitiesSteps, scenicSections = StreetVariants.applyPathScenicSteps;
   let off, on;
   try {
     // Isolate zone paint over source land. Otherwise the zone-off build
     // acquires road verges exactly where the zone-on build takes precedence.
     // Street terrain tests exercise that composition separately.
     StreetVariants.paintTerrainSteps = function* ({ N }) { return new Uint8Array(N*N); };
+    // Compare replacement of the same authored content; geography-driven
+    // theme changes are covered by street affinity and section tests.
+    StreetVariants.applyAffinitiesSteps = function* () {};
+    StreetVariants.applyPathScenicSteps = function* () {};
     globalThis.Zones = undefined;
     off = WorldGen.rasterizeTile(decode(`${TILE_TX}_${TILE_TY}`), N, TILE_TX, TILE_TY, edge);
     globalThis.Zones = saved;
@@ -53,6 +58,8 @@ function rasterPair() {
   } finally {
     globalThis.Zones = saved;
     StreetVariants.paintTerrainSteps = paintRoad;
+    StreetVariants.applyAffinitiesSteps = affinities;
+    StreetVariants.applyPathScenicSteps = scenicSections;
   }
   return (_pair = { on, off, N, edge });
 }

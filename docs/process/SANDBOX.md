@@ -26,7 +26,7 @@ fits; the viewer reports declined placements.
 Use `index.html?sandbox=true&sandboxZone=forest` to start at a named destination.
 Examples include `beach`, `wetland`, `golf`, `castle`, `fort`, `grove`, `stones`,
 `tar`, `practice`, `hazards`, `hazards-cave`, `hazards-deep`, `restoration`, `meadow` and `crater`. Road destinations include `hedgerow-road`, `orchard-road`,
-`thorny-road` and `parkpath`. `src/sandbox_destinations.js` owns the shared catalog used by
+`thorny-road`, `goblin_gang-road` and `parkpath`. `src/sandbox_destinations.js` owns the shared catalog used by
 the game and design dashboards; coordinates come from the authored layout.
 
 Existing `sandboxScene=FOREST` or `sandboxScene=PRACTICE` links still work.
@@ -94,7 +94,7 @@ wizard role.
 | Variant | Road | What it exposes |
 |---|---|---|
 | hedgerow | Oak Road | clipped hedges and a habitat gate |
-| lantern | Main Street | dense amber lamps; half restored |
+| lantern path | Main Street | dense amber lamps; half restored |
 | burned | Mill Lane | tar, stakes, torches and slow cells |
 | toadstool | Garden Row | mushroom verge and teal lamps |
 | overgrown | Fern Way | staged roadside trees |
@@ -103,12 +103,14 @@ wizard role.
 | golden | Coin Row | a golden idol; its daily spree fills the verges with coins |
 | thorny | Thorny Way | brambles and a narrow road corridor |
 | snare | Iron Lane | a snare chest ringed by iron teeth, a few stray snares down the lane |
-| barricade | Fort Road | barricades, stakes and guard lair |
+| goblin_gang | Goblin Gang Street | clustered barrels and goblin grunt guards |
+| barricade path | Fort Road | barricades, stakes and guard lair |
 | plain minor | Market Close / Maple Street | ordinary street comparison |
-| plain major | Old Trade Road | old-trade-road lamps and wagon stop |
+| plain MD | Old Trade Road | suppression zone, night curse and wagon stop |
+| plain LG | Ancient Highway | suppression zone and night curse |
 | parkpath | Common Walk | scenic path colour, lamps and reward multiplier |
 
-This table covers every rolled minor and major row in
+This table covers every minor row and the lantern/barricade path rows in
 `StreetVariants.STREET_VARIANTS`. Scenic promenade and greenway rows still
 need geography that the sandbox does not author.
 

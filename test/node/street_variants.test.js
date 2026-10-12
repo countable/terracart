@@ -4,12 +4,12 @@
 //   · THE KEY: a street is a name inside a parish — the same on both sides of
 //     a tile seam (its lineKeys differ), different across a parish line, and
 //     an unnamed way keys off its own geometry.
-//   · THE ROLL: each row dresses ONE size, at its share (a name word nudges).
+//   · THE ROLL: minor streets retain their rarity; paths draw from road themes.
 //   · ROCKS line only the chosen minor streets, never a hedgerow.
 //   · DRESSING sits off the band and off anything already there, from
 //     position-derived ids, the same set every time.
 //   · THE OLD TRADE ROAD (internally "bandit"): a LOOK only since the Sep 2026
-//     safety pass — a bus stop by a major band wears the wagon with its id
+//     safety pass — a bus stop by a medium band wears the wagon with its id
 //     unchanged and holds NO guard, no dog is pulled onto a major verge, no
 //     trap sits in the kerb buffer, and no copy says "bandit".
 //   · THE KERB BUFFER: a barricade's goblin and a burned row's fire slime are
@@ -43,7 +43,7 @@ const ROCKY = nameWhere((n, k) => SV.rocksFor(k, 'minor', SV.variantFor(k, n, 'm
   && !SV.variantFor(k, n, 'minor'), 'Rock Road');
 
 // The fixture's two cafés: one in the open meadow (row 40, col 25), one
-// hugging the motorway's EAST kerb (col 47, row 56).
+// hugging the trade road's EAST kerb (col 47, row 56).
 const CAFE_OPEN = [25, 40], CAFE_KERB = [47, 56];
 const CAFES = [
   { type: 1, tags: { class: 'cafe', name: 'Open Cup' }, geom: [pts([CAFE_OPEN])] },
@@ -52,14 +52,14 @@ const CAFES = [
 // Meadow ground (no private-yard rule in the way) with: a rock-lined minor
 // street along row 12, a hedgerow minor street along row 50 from a junction
 // with an unnamed minor street down col 10 to a DEAD END at col 30, a
-// motorway down col 44, and two bus stops — one beside the motorway, one far
+// trade road down col 44, and two bus stops — one beside the motorway, one far
 // from any major way.
 function layers() {
   const tr = [
     { type: 2, tags: { class: 'minor' }, geom: [pts([[0, 12], [CPE - 1, 12]])] },
     { type: 2, tags: { class: 'minor' }, geom: [pts([[10, 20], [10, CPE - 1]])] },
     { type: 2, tags: { class: 'minor' }, geom: [pts([[10, 50], [20, 50], [30, 50]])] },
-    { type: 2, tags: { class: 'motorway' }, geom: [pts([[44, 0], [44, CPE - 1]])] },
+    { type: 2, tags: { class: 'secondary' }, geom: [pts([[44, 0], [44, CPE - 1]])] },
   ];
   const tn = [
     { type: 2, tags: { name: ROCKY }, geom: [pts([[0, 12], [CPE - 1, 12]])] },
@@ -133,9 +133,9 @@ test('street key: an unnamed way keys off its own geometry in its own tile', () 
 });
 
 // ── The roll ────────────────────────────────────────────────────────────
-test('variants: each row dresses ONE size, at its share (±1.5%) over 40k keys', () => {
+test('variants: minor streets and path sections use their normalized theme pools over 40k keys', () => {
   const N = 40000;
-  for (const size of ['minor', 'major']) {
+  for (const size of ['minor', 'major', 'path']) {
     const got = {};
     for (let i = 0; i < N; i++) {
       const v = SV.variantFor(`plain street ${i}|0,0`, null, size);
@@ -143,22 +143,28 @@ test('variants: each row dresses ONE size, at its share (±1.5%) over 40k keys',
     }
     for (const row of SV.STREET_VARIANTS) {
       const share = (got[row.id] || 0) / N;
-      if (row.size !== size) { assert.eq(share, 0, `${row.id} never rolls on a ${size} street`); continue; }
-      assert.inRange(share, row.share - 0.015, row.share + 0.015, `${row.id} share on ${size}`);
+      if (row.size !== size && !(size === 'path' && row.size === 'minor')) {
+        assert.eq(share, 0, `${row.id} never rolls on a ${size} street`); continue;
+      }
+      const weights = SV.selectionWeights(null, size);
+      const totalShare = size === 'path' ? 1 : size === 'minor' ? SV.MINOR_VARIANT_SHARE : 0;
+      const expected = (weights.find(w => w.id === row.id)?.probability || 0) * totalShare;
+      assert.inRange(share, expected - 0.015, expected + 0.015, `${row.id} share on ${size}`);
     }
   }
   assert.eq(SV.variantFor('x|0,0', 'x', null), null, 'a way of neither size is plain');
 });
 
-test('variants: Burned Row stays on small roads; Lantern Row takes its major-road share', () => {
+test('variants: medium and large roads stay plain; Lantern Row and barricades belong to paths', () => {
   assert.eq(SV.VARIANT_BY_ID.burned.size, 'minor');
-  assert.eq(SV.VARIANT_BY_ID.lantern.size, 'major');
+  assert.eq(SV.VARIANT_BY_ID.lantern.size, 'path');
+  assert.eq(SV.VARIANT_BY_ID.barricade.size, 'path');
   assert.eq(SV.VARIANT_BY_ID.lantern.share, 0.12);
-  for (const klass of ['primary', 'secondary', 'tertiary']) {
+  for (const klass of ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']) {
     const size = SV.sizeOfTags({ class: klass });
     for (let i = 0; i < 1000; i++) {
-      assert.falsy(SV.variantFor(`burn-swap-${i}`, 'Ember Kiln Road', size) === 'burned',
-        'even a matching name cannot put Burned Row on a major/medium road');
+      assert.eq(SV.variantFor(`burn-swap-${i}`, 'Ember Kiln Lantern Gate Road', size), null,
+        'names cannot put any variant on a medium or large road');
     }
   }
 });
@@ -177,7 +183,7 @@ test('variants: sizes follow the terrain tiers — major = ROAD_MD + ROAD_LG, mi
   assert.eq(SV.sizeOfTags({ class: 'tertiary' }), 'major');
   assert.eq(SV.sizeOfTags({ class: 'minor' }), 'minor');
   assert.eq(SV.sizeOfTags({ class: 'service' }), null, 'driveways and alleys stay plain');
-  assert.eq(SV.sizeOfTags({ class: 'footway' }), null, 'a footpath is neither');
+  assert.eq(SV.sizeOfTags({ class: 'footway' }), 'path', 'footpaths receive section variants');
   assert.eq(SV.sizeOfTags({ class: 'rail' }), null, 'a railway is not a street');
 });
 
@@ -202,7 +208,7 @@ test('index: the fixture\'s streets roll as searched, and its cafés are the hoa
   assert.truthy(byName(ROCKY).rocks, 'and rock-lined');
   assert.eq(byName(HEDGE).variant, 'hedgerow', 'the hedge street is a hedgerow');
   const major = r.streetIndex.lines.filter((l) => l.size === 'major');
-  assert.eq(major.length, 1, 'the motorway is the one major line');
+  assert.eq(major.length, 1, 'the secondary road is the one major line');
   assert.eq(r.streetIndex.closes, undefined, 'no dead-end closes any more — the hoard left the hedgerow');
   const hp = r.streetIndex.hoardPois;
   assert.eq(hp.length, 2, 'both cafés, and nothing else (the bus stops are not commercial)');
@@ -399,7 +405,7 @@ test('old trade road: no trap on this tile sits on a major verge or inside the k
 });
 
 test('old trade road: the copy says "Old trade road" — no player-facing string says bandit', () => {
-  assert.eq(SV.BANDIT_STORY.title, 'Old trade road');
+  assert.eq(SV.BANDIT_STORY.title, 'Old Trade Road');
   for (const row of [...SV.STREET_VARIANTS, SV.BANDIT_STORY]) {
     for (const f of ['title', 'body', 'flash']) {
       assert.falsy(/bandit/i.test(row[f] || ''), `${row.story} ${f} never says bandit`);
@@ -415,15 +421,15 @@ test('old trade road: a bus stop by a major band wears the wagon — same id, NO
   assert.eq(stops.length, 2, 'both stops are chests');
   const idsBefore = stops.map((o) => o.id).join('|');
   const looksBefore = stops.map((o) => chestLook(o).texKey);
-  const lairs = SV.markBanditStops(r.objects, r.roadClass, CPE, TX, TY, TILE_EDGE_M);
+  const lairs = SV.markBanditStops(r.objects, r.roadClass, CPE, TX, TY, TILE_EDGE_M, { grid: r.grid, streetIndex: r.streetIndex, cellsPerEdge: CPE });
   assert.eq(stops.map((o) => o.id).join('|'), idsBefore, 'ids untouched');
   const near = stops.find((o) => cellOf(o.x, TX) > 40), far = stops.find((o) => cellOf(o.x, TX) < 40);
-  assert.truthy(near.banditStop, 'the motorway stop is stamped');
-  assert.eq(chestLook(near).texKey, 'wagon', 'the motorway stop is a broken wagon');
+  assert.truthy(near.banditStop, 'the trade-road stop is stamped');
+  assert.eq(chestLook(near).texKey, 'wagon', 'the trade-road stop is a broken wagon');
   assert.truthy(chestLook(near).wagon && !chestLook(near).box, 'and nothing else');
   assert.eq(chestLook(far).texKey, looksBefore[stops.indexOf(far)], 'the park stop keeps its look');
   assert.eq(lairs.length, 0, 'NO guard post — no wagon goblins at all (the owner, Sep 2026)');
-  assert.truthy(SV.isWagonStop(near.id), 'this fixture\'s motorway stop is one the hash picks');
+  assert.truthy(SV.isWagonStop(near.id), 'this fixture\'s trade-road stop is one the hash picks');
   assert.eq(Lairs.KIND_ORDER.wagon, undefined, 'the wagon tier is gone from the lair tables');
   assert.eq(Lairs.capFor('wagon', 1), 0, 'and holds nobody');
   assert.falsy('wagon' in Lairs.OCCUPANCY, 'no occupancy row either');
@@ -438,11 +444,21 @@ test('old trade road: only about a third of the major-road stops are wagons, by 
   const near = r.objects.find((o) => o.kind === 'chest' && o.poiClass === 'bus' && cellOf(o.x, TX) > 40);
   const plain = Object.assign({}, near, { id: nameWhere((nm) => !SV.isWagonStop(nm), 'c_stop') });
   const objs = r.objects.map((o) => (o === near ? plain : o));
-  SV.markBanditStops(objs, r.roadClass, CPE, TX, TY, TILE_EDGE_M);
+  SV.markBanditStops(objs, r.roadClass, CPE, TX, TY, TILE_EDGE_M, { grid: r.grid, streetIndex: r.streetIndex, cellsPerEdge: CPE });
   assert.falsy(plain.banditStop, 'not stamped');
   assert.eq(chestLook(plain).texKey, chestLook(Object.assign({}, near, { banditStop: false, id: plain.id })).texKey,
     'it wears the bus-stop look');
   assert.eq(SV.isWagonStop(near.id), SV.isWagonStop(String(near.id)), 'the id decides');
+});
+
+test('ancient highway: bus stops retain their chest appearance', () => {
+  const ls = layers();
+  ls.find(l => l.name === 'transportation').features.find(f => f.tags.class === 'secondary').tags.class = 'motorway';
+  const r = openStreetTile(ls);
+  const stops = r.objects.filter(o => o.kind === 'chest' && o.poiClass === 'bus');
+  assert.gt(stops.length, 0);
+  SV.markBanditStops(r.objects, r.roadClass, CPE, TX, TY, TILE_EDGE_M, { grid: r.grid, streetIndex: r.streetIndex, cellsPerEdge: CPE });
+  assert.truthy(stops.every(o => !o.banditStop), 'large highways have no themed wagon stops');
 });
 
 test('old trade road: ordinary Major road ground has no population profile', () => {
@@ -475,7 +491,14 @@ test('sports pitches keep generated Deer on their Forest habitat', () => {
 
 // ── Toadstool Lane, the barricade's goblins, the burned row's fire slimes ──
 const TOAD = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'toadstool', 'Pale Lane');
-const BARR = nameWhere((n, k) => SV.variantFor(k, n, 'major') === 'barricade', 'Gate Road');
+const BARR = 'Gate Path';
+function withBarricadePaths(build) {
+  const original = SV.variantFor;
+  try {
+    SV.variantFor = (key, name, size, context) => size === 'path' ? 'barricade' : original(key, name, size, context);
+    return build();
+  } finally { SV.variantFor = original; }
+}
 const BURN = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'burned', 'Kiln Road');
 function variantLayers() {
   const toad = pts([[0, 20], [CPE - 1, 20]]);
@@ -485,7 +508,7 @@ function variantLayers() {
     { name: 'landcover', features: [{ type: 3, tags: { class: 'meadow' }, geom: [wholeTile()] }] },
     { name: 'transportation', extent: EXTENT, features: [
       { type: 2, tags: { class: 'minor' }, geom: [toad] },
-      { type: 2, tags: { class: 'secondary' }, geom: [barr] },
+      { type: 2, tags: { class: 'path' }, geom: [barr] },
       { type: 2, tags: { class: 'minor' }, geom: [burn] },
     ] },
     { name: 'transportation_name', extent: EXTENT, features: [
@@ -496,7 +519,7 @@ function variantLayers() {
   ];
 }
 const dressedVariants = () => {
-  const r = WorldGen.rasterizeTile(variantLayers(), CPE, TX, TY, TILE_EDGE_M);
+  const r = withBarricadePaths(() => WorldGen.rasterizeTile(variantLayers(), CPE, TX, TY, TILE_EDGE_M));
   return Object.assign({ r }, dressed(r));
 };
 
@@ -507,7 +530,7 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
   // Appended after the seven older rows (code 8), and only the never-rolled
   // scenic 'path' rows (src/scenic.js) after it: no older row's code moves.
   assert.eq(row.code, 8, 'appended: no older row\'s code moves');
-  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.size === 'path' || r.id === 'golden' || r.id === 'snare' || r.id === 'thorny'), 'new rows append without changing existing codes');
+  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.size === 'path' || r.id === 'golden' || r.id === 'snare' || r.id === 'thorny' || r.id === 'goblin_gang'), 'new rows append without changing existing codes');
   let plain = 0, named = 0;
   for (let i = 0; i < 20000; i++) {
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'toadstool') plain++;
@@ -613,7 +636,7 @@ test('burned row: placed torches share the spawn gate and red lamps have twice t
     assert.eq(o.id, WorldGen.cellId('torch_burned', TX, TY, ix, iy));
     assert.falsy(d.slowCells.has(cell), 'a torch is not slowing debris');
   }
-  const blocked = WorldGen.rasterizeTile(variantLayers(), CPE, TX, TY, TILE_EDGE_M);
+  const blocked = withBarricadePaths(() => WorldGen.rasterizeTile(variantLayers(), CPE, TX, TY, TILE_EDGE_M));
   blocked.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
   const blockedResult = SV.dress({ index: blocked.streetIndex, tx: TX, ty: TY, N: CPE,
     tileEdgeM: TILE_EDGE_M, grid: blocked.grid,
@@ -735,7 +758,7 @@ test('street sight: a told variant entering the lit radius pops its map line onc
 });
 
 // ── One end piece per street per tile (Sep 2026) ───────────────────────────
-// A major road arrives cut into many short lines. The ends are pooled by street key and ONE seats per (street, tile): the end
+// A path arrives cut into many short lines. The ends are pooled by street key and ONE seats per (street, tile): the end
 // whose hash endPick is lowest and that seats. Same for Pilgrim's waystones.
 const PILG = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'pilgrim', 'Chapel Walk');
 function piecewiseLayers() {
@@ -753,7 +776,7 @@ function piecewiseLayers() {
   return [
     { name: 'landcover', features: [{ type: 3, tags: { class: 'meadow' }, geom: [wholeTile()] }] },
     { name: 'transportation', extent: EXTENT, features: [
-      ...barr.map((g) => ({ type: 2, tags: { class: 'secondary' }, geom: [g] })),
+      ...barr.map((g) => ({ type: 2, tags: { class: 'path' }, geom: [g] })),
       ...pilg.map((g) => ({ type: 2, tags: { class: 'minor' }, geom: [g] })),
     ] },
     { name: 'transportation_name', extent: EXTENT, features: [
@@ -763,7 +786,7 @@ function piecewiseLayers() {
   ];
 }
 test('barricade + pilgrim: ONE end piece per street per tile, however many pieces it arrives in', () => {
-  const r = WorldGen.rasterizeTile(piecewiseLayers(), CPE, TX, TY, TILE_EDGE_M);
+  const r = withBarricadePaths(() => WorldGen.rasterizeTile(piecewiseLayers(), CPE, TX, TY, TILE_EDGE_M));
   const lines = r.streetIndex.lines;
   assert.eq(lines.filter((l) => l.variant === 'barricade').length, 4, 'four barricade pieces');
   assert.eq(lines.filter((l) => l.variant === 'pilgrim').length, 3, 'three pilgrim pieces');
@@ -774,7 +797,7 @@ test('barricade + pilgrim: ONE end piece per street per tile, however many piece
   assert.eq(d.lairs.filter((L) => L.tier === 'barricade').length, 1, 'and one goblin');
   assert.eq(ways.length, 1, 'one waystone for the pilgrim way in this tile');
   // Deterministic, and off a hash of the street + the end's GLOBAL point.
-  const again = dressed(WorldGen.rasterizeTile(piecewiseLayers(), CPE, TX, TY, TILE_EDGE_M)).d;
+  const again = dressed(withBarricadePaths(() => WorldGen.rasterizeTile(piecewiseLayers(), CPE, TX, TY, TILE_EDGE_M))).d;
   assert.eq(again.wildplants.filter((w) => w.crop === 'barricade' && !w._streetScenery)[0].id, bars[0].id, 'the same end every build');
   assert.truthy(/hash01\(`end\|\$\{grp\.v\}\|\$\{grp\.key\}\|\$\{gk\}`\)/.test(ALL_SRC['street_variants.js']),
     'the pick hashes variant, street key and the global end point');
@@ -816,6 +839,156 @@ function indexOfLines(lines, name = HEDGE, tx = TX, ty = TY, mvtToM = 1) {
   ], tx, ty, mvtToM);
 }
 const themeGeometry = index => JSON.stringify(index.dressingLines.map(r => ({ key: r.key, variant: r.variant, line: r.line, patch: r.patch })));
+
+function pathIndex(features) {
+  return SV.buildIndex([{ name: 'transportation', extent: EXTENT, features:
+    features.map(f => ({ type: 2, tags: { class: 'path' }, ...f })) }], TX, TY, 1);
+}
+const pathSectionGeometry = index => JSON.stringify(index.pathSections.map(rec => ({
+  key: rec.key, line: rec.line, variant: rec.variant, segmentLengthM: rec.segmentLengthM,
+})));
+
+test('path sections: source endpoints guide assignment and reversed duplicates are stable', () => {
+  const a = {x:100,y:100}, b = {x:400,y:100}, c = {x:750,y:100};
+  const whole = pathIndex([{ id: 10, geom: [[a,c]] }]);
+  const split = pathIndex([{ id: 12, geom: [[c,b]] }, { id: 11, geom: [[b,a]] }, { id: 12, geom: [[b,c]] }]);
+  assert.gt(whole.pathSections.length, 1, 'long source spans gain inferred splits');
+  assert.truthy(split.pathSections.some(rec => rec.line.some(p => p.x === b.x)),
+    'a well-spaced source endpoint remains available as a boundary');
+  assert.eq(pathSectionGeometry(split), pathSectionGeometry(pathIndex([{id:11,geom:[[a,b]]},{id:12,geom:[[b,c]]}])));
+  assert.gt(split.pathSections.length, 0);
+  assert.eq(split.pathSections.reduce((sum,rec) => sum + rec.segmentLengthM, 0), 650, 'duplicate source lines add no length');
+  assert.eq([...new Set(split.pathSections.flatMap(rec => rec.featureIds))].sort().join(), '11,12',
+    'joined sections retain identifiers of their contributing features');
+  assert.truthy(split.lines.every(rec => rec.size === 'path' && Array.isArray(rec.variantSegments)),
+    'source fragments keep section intervals for rasterization');
+});
+
+test('path sections: adding an earlier fork preserves downstream boundary identities', () => {
+  const features = [
+    {id:1,geom:[[{x:100,y:100},{x:1300,y:100}]]},
+    {id:2,geom:[[{x:700,y:100},{x:700,y:180}]]},
+  ];
+  const before = pathIndex(features);
+  const after = pathIndex([...features, {id:3,geom:[[{x:200,y:100},{x:200,y:180}]]}]);
+  const downstream = index => index.pathSections.filter(rec =>
+    rec.line.every(p => p.x >= 700 && p.y === 100));
+  assert.gt(after.pathSections.length, before.pathSections.length, 'the new fork adds earlier boundaries');
+  assert.gt(downstream(before).length, 0, 'there are downstream sections to compare');
+  assert.eq(JSON.stringify(downstream(after).map(rec => [rec.key, rec.variant, rec.line])),
+    JSON.stringify(downstream(before).map(rec => [rec.key, rec.variant, rec.line])),
+    'an earlier split cannot renumber or reroll unchanged downstream sections');
+});
+
+test('path sections: a branch preserves the straight route and is stable under source ordering', () => {
+  const a={x:100,y:100}, b={x:500,y:100}, c={x:900,y:100}, d={x:500,y:400};
+  const features=[{id:1,geom:[[a,b]]},{id:2,geom:[[b,c]]},{id:3,geom:[[b,d]]}];
+  const index=pathIndex(features);
+  const reversed=pathIndex(features.slice().reverse().map(f=>({...f,geom:f.geom.map(line=>line.slice().reverse())})));
+  assert.eq(pathSectionGeometry(index),pathSectionGeometry(reversed));
+  assert.inRange(index.pathSections.reduce((sum,rec)=>sum+rec.segmentLengthM,0),1099.999999,1100.000001);
+  assert.truthy(index.pathSections.every(rec=>rec.line.every(p=>p.y===100)||rec.line.every(p=>p.x===500)),
+    'the branch never turns the straight route into a bent assignment');
+});
+
+test('path sections: an interior T junction matches an explicit vertex without bending the through route', () => {
+  const a={x:100,y:100}, b={x:1200,y:100}, c={x:2300,y:100}, d={x:1200,y:700};
+  const implicit=pathIndex([{id:1,geom:[[a,c]]},{id:2,geom:[[b,d]]}]);
+  const explicit=pathIndex([{id:2,geom:[[d,b]]},{id:1,geom:[[c,b,a]]}]);
+  assert.eq(pathSectionGeometry(implicit),pathSectionGeometry(explicit),
+    'an endpoint on a segment interior connects identically to an authored vertex');
+  assert.inRange(implicit.pathSections.reduce((sum,rec)=>sum+rec.segmentLengthM,0),2799.999999,2800.000001);
+  for(const rec of implicit.pathSections) {
+    assert.gt(rec.segmentLengthM,0);
+    assert.truthy(rec.line.every(p=>p.y===100)||rec.line.every(p=>p.x===1200),
+      'the straight through route never turns into the side branch');
+  }
+});
+
+test('path sections: a closed loop has an inferred seam, not a trail end', () => {
+  const line = [{x:100,y:100},{x:400,y:100},{x:400,y:400},{x:100,y:400},{x:100,y:100}];
+  const index = pathIndex([{id:46,geom:[line]}]);
+  const reversed = pathIndex([{id:46,geom:[line.slice().reverse()]}]);
+  assert.eq(pathSectionGeometry(index), pathSectionGeometry(reversed), 'loop cuts are direction independent');
+  assert.inRange(index.pathSections.reduce((sum,rec) => sum + rec.segmentLengthM, 0),1199.999999,1200.000001);
+  assert.truthy(index.pathSections.every(rec => rec.segmentLengthM <= 550), 'loop sections obey the length limit');
+  const boundaries = index.pathSections.flatMap(rec => [
+    {reason:rec.startReason,inferred:rec.startInferred},
+    {reason:rec.endReason,inferred:rec.endInferred},
+  ]);
+  assert.eq(boundaries.filter(p => p.reason === 'Loop seam').length, 2, 'both sides identify the loop seam');
+  assert.truthy(boundaries.filter(p => p.reason === 'Loop seam').every(p => p.inferred), 'the seam is inferred');
+  assert.truthy(boundaries.every(p => p.reason !== 'Path end'), 'closed loops have no true trail ends');
+});
+
+test('path sections: disconnected lines and different bridge levels stay separate', () => {
+  const index = pathIndex([
+    { id: 31, geom: [[{x:100,y:100},{x:400,y:100}]] },
+    { id: 32, tags: {class:'path',layer:1,brunnel:'bridge'}, geom: [[{x:400,y:100},{x:700,y:100}]] },
+    { id: 31, geom: [[{x:100,y:600},{x:400,y:600}]] },
+  ]);
+  assert.eq(index.pathSections.length, 3, 'neither an identifier nor a projected endpoint joins disconnected levels');
+  assert.truthy(index.pathSections.every(rec => rec.featureIds.length === 1 && rec.segmentLengthM === 300));
+});
+
+test('path sections: long uniform spans balance length and preserve all geometry', () => {
+  for (const length of [179, 180, 1000, 1001, 2199, 3500]) {
+    const index = pathIndex([{id:44,geom:[[{x:100,y:100},{x:100+length,y:100}]]}]);
+    const sections = index.pathSections;
+    if (length <= 180) assert.eq(sections.length, 1, 'short true-end spans survive');
+    else assert.inRange(length / sections.length, 250, 380, 'uniform spans average near 300 m');
+    assert.inRange(sections.reduce((sum,rec) => sum + rec.segmentLengthM, 0), length-1e-6, length+1e-6,
+      'all path length is assigned to sections');
+    for (const rec of sections) {
+      assert.inRange(rec.segmentLengthM, Math.min(length,180)-1e-6, 550+1e-6);
+      assert.inRange(Streets.lineLengthM(rec.line,1), rec.segmentLengthM-1e-6, rec.segmentLengthM+1e-6);
+    }
+    const reversed = pathIndex([{id:44,geom:[[{x:100+length,y:100},{x:100,y:100}]]}]);
+    assert.eq(pathSectionGeometry(index), pathSectionGeometry(reversed), 'inferred cuts are direction independent');
+  }
+});
+
+function pathIndexWithContext(contextAt) {
+  const index = pathIndex([{id:45,geom:[[{x:100,y:100},{x:900,y:100}]]}]);
+  for (const _ of SV.buildPathSectionsSteps(index, TX, TY, 1, contextAt)) {}
+  return index;
+}
+
+test('path sections: a sustained affinity transition attracts a nearby split', () => {
+  const index = pathIndexWithContext(p => p.x < 400 ? {woodland:1} : {coastal:1});
+  const boundaries = index.pathSections.flatMap(rec => [rec.line[0], rec.line[rec.line.length-1]]);
+  assert.truthy(boundaries.some(p => Math.abs(p.x-400) <= 20),
+    'a sustained woodland-to-coast transition near 300 m gets a boundary');
+  assert.truthy(index.pathSections.every(rec => rec.segmentLengthM >= 180 && rec.segmentLengthM <= 550));
+  const before = pathSectionGeometry(index);
+  const dressingCount = index.dressingLines.length;
+  for (const _ of SV.buildPathSectionsSteps(index, TX, TY, 1,
+    p => p.x < 400 ? {woodland:1} : {coastal:1})) {}
+  assert.eq(pathSectionGeometry(index), before, 'rebuilding affinity sections is deterministic');
+  assert.eq(index.dressingLines.length, dressingCount, 'rebuilding does not duplicate path dressing');
+});
+
+test('path sections: a brief affinity patch does not create a transition split', () => {
+  const plain = pathIndexWithContext(() => ({woodland:1}));
+  const patch = pathIndexWithContext(p => p.x >= 390 && p.x < 410 ? {coastal:1} : {woodland:1});
+  assert.eq(pathSectionGeometry(patch), pathSectionGeometry(plain),
+    'a 20 m terrain patch is too brief to redirect boundaries');
+});
+
+test('path sections: close optional endpoints are thinned deterministically and forks stay short', () => {
+  const xs=[100,350,400,450,700,950];
+  const features=xs.slice(1).map((x,i)=>({id:i+1,geom:[[{x:xs[i],y:100},{x,y:100}]]}));
+  const index=pathIndex(features);
+  assert.eq(pathSectionGeometry(index),pathSectionGeometry(pathIndex(features.slice().reverse().map(f=>({...f,geom:[f.geom[0].slice().reverse()]})))));
+  assert.truthy(index.pathSections.length < features.length, 'close boundaries are removed');
+  assert.truthy(index.pathSections.every(r=>r.segmentLengthM>=180-1e-6));
+  assert.inRange(index.pathSections.reduce((n,r)=>n+r.segmentLengthM,0),849.999,850.001);
+  const fork=pathIndex([{id:1,geom:[[{x:100,y:100},{x:900,y:100}]]},
+    {id:2,geom:[[{x:200,y:100},{x:200,y:180}]]}]);
+  assert.gt(fork.pathSections.length,3, 'fork and length boundaries both split the through path');
+  assert.truthy(fork.pathSections.some(r=>Math.abs(r.segmentLengthM-80)<1e-6), 'short branch survives');
+  assert.truthy(fork.pathSections.some(r=>Math.abs(r.segmentLengthM-100)<1e-6), 'short approach to fork survives');
+});
 
 test('street themes: 40% of all minor keys, with name bias only selecting identity', () => {
   let plain = 0, named = 0, golden = 0, namedGolden = 0;
@@ -1214,7 +1387,8 @@ test('street affinity: conditional probabilities are normalized and retain alter
   const orchard = rows.find(r => r.id === 'orchard');
   assert.gt(orchard.contextMultiplier, 1);
   assert.truthy(rows.every(r => r.probability > 0), 'affinities never ban an eligible variant');
-  assert.eq(SV.selectionWeights(null, 'path', { coastal: 1 }).length, 0, 'scenic paths keep geography selection');
+  assert.truthy(SV.selectionWeights(null, 'path', { coastal: 1 }).some(r => r.id === 'lantern'), 'paths can receive Lantern Row');
+  assert.eq(SV.selectionWeights(null, 'major', { coastal: 1 }).length, 0, 'medium and large roads have no theme weights');
 });
 
 test('street affinity: final coverage overrides halo ownership and length weights split context', () => {
@@ -1465,7 +1639,7 @@ test('authored street obstacles: only declared minor-road seats relax the road g
   for(const t of [T.WATER,T.BUILDING,T.ROAD_MD,T.ROAD_LG]) {grid[0]=t;assert.falsy(ok('streetObstacle'),'terrain '+t);}
   opts.streetObstacleKind='barricade';opts.roadClass[0]=W.ROAD_CLASS_MAJOR_BAND;
   mask[0]|=W.SPAWN_WHY.KERB;
-  assert.truthy(ok('streetObstacle'),'declared barricade pieces cross their major road');
+  assert.falsy(ok('streetObstacle'),'barricades cannot cross medium or large roads');
   opts.streetObstacleCells.clear();assert.falsy(ok('streetObstacle'),'no exception beyond declared crossing');
   opts.streetObstacleCells.add(0);grid[0]=T.BUILDING;assert.falsy(ok('streetObstacle'),'barricades still stop at buildings');
 });
@@ -1487,7 +1661,7 @@ test('barricade scenery: perpendicular lines reach four cells from the verge', (
   }
 });
 
-test('barricades cross rasterized major roads, including diagonal pavement beyond the band center', () => {
+test('medium and large roads remain free of themed obstacles, including diagonal pavement', () => {
   for (const roadClass of ['secondary', 'primary', 'motorway']) {
     for (const diagonal of [false, true]) {
       const line = diagonal
@@ -1513,11 +1687,58 @@ test('barricades cross rasterized major roads, including diagonal pavement beyon
       const x = diagonal ? 34 : 32, y = diagonal ? 33 : 36, i = y * CPE + x;
       assert.truthy(WorldGen.isRoadTerrain(r.grid[i]), `${roadClass}: fixture checks actual pavement`);
       assert.truthy(r.spawnWhy[i] & WorldGen.SPAWN_WHY.TERRAIN, 'ordinary terrain spawn exclusion remains');
-      assert.truthy(occupied.has(i), `${roadClass}: barrier covers ${diagonal ? 'diagonal' : 'straight'} road tile`);
-      assert.truthy(pieces.some(o => r.roadMask[cellOf(o.y, TY) * CPE + cellOf(o.x, TX)]),
-        'barriers survive the full terrain/mask/dressing pipeline on the drawn band');
+      assert.falsy(occupied.has(i), `${roadClass}: pavement remains unobstructed`);
+      assert.eq(pieces.length, 0, 'medium and large roads have no barricade dressing');
+      assert.truthy(r.streetIndex.lines.every(rec => rec.variant === null), 'all major source lines remain plain');
+      assert.eq(r.streetIndex.dressingLines.length, 0, 'no themed sections are assigned');
     }
   }
 });
 
+
+test('Goblin Gang Street: six barrel stacks and thirty grunts, deterministic and safe', () => {
+  const row = SV.VARIANT_BY_ID.goblin_gang;
+  assert.eq(row.size, 'minor');
+  const grid = new Uint8Array(CPE * CPE).fill(T.GRASS);
+  const roadMask = new Uint8Array(grid.length), roadClass = new Uint8Array(grid.length);
+  const streetArea = new Uint8Array(grid.length);
+  for (let y = 28; y <= 34; y++) for (let x = 8; x <= 55; x++) {
+    streetArea[y * CPE + x] = row.code;
+    if (y >= 30 && y <= 32) { grid[y * CPE + x] = T.ROAD; roadMask[y * CPE + x] = 1; }
+  }
+  const rec = { variant: row.id, key: 'gang-test', lineKey: 'gang-test', size: 'minor',
+    line: pts([[10, 31], [53, 31]]), halfW: 7 };
+  const index = { extent: EXTENT, lines: [rec], vehicleLines: [], hoardPois: [], roadClass };
+  function run(blocked = false) {
+    const spawnOpts = { roadMask, roadClass, occupied: new Set(), pois: [] };
+    if (blocked) spawnOpts.spawnWhy = new Uint16Array(grid.length).fill(WorldGen.SPAWN_WHY.PRIVATE);
+    const d = SV.dress({ index, tx: TX, ty: TY, N: CPE, tileEdgeM: TILE_EDGE_M, grid, spawnOpts });
+    return { d, spawnOpts };
+  }
+  const { d, spawnOpts } = run();
+  const barrels = d.objects.filter(o => o.barrel && o._street === row.id);
+  assert.eq(barrels.length, 30);
+  assert.eq(d.lairs.length, 6);
+  assert.eq(JSON.stringify(d), JSON.stringify(run().d), 'stable ids and positions');
+  const previous = Difficulty.mode();
+  try {
+    for (const mode of ['easy', 'hard']) {
+      Difficulty.setMode(mode);
+      const entry = { grid, cellsPerEdge: CPE, roadClass, streetArea, _spawnOpts: spawnOpts,
+        buildingShapes: [], streetLairs: d.lairs, creatures: [] };
+      const idx = Lairs.buildIndex(entry, TX, TY, TILE_EDGE_M / CPE, TILE_EDGE_M);
+      const candidates = [...idx.buckets.values()].flat().filter(c => c.tier === 'street_goblin_gang');
+      const guards = candidates.flatMap(c => Lairs.garrisonFor(entry, c, { tileEdgeM: TILE_EDGE_M, homeM: { x: 0, y: 0 } }));
+      assert.eq(guards.length, 30, mode + ' keeps six five-grunt gangs');
+      for (const g of guards) {
+        assert.eq(g.kind, 'goblin_runt');
+        const at = cellOf(g.y, TY) * CPE + cellOf(g.x, TX);
+        assert.eq(roadMask[at], 0);
+      }
+    }
+  } finally { Difficulty.setMode(previous); }
+  const blocked = run(true).d;
+  assert.eq(blocked.lairs.length, 0);
+  assert.eq(blocked.objects.filter(o => o.barrel).length, 0);
+});
 })();

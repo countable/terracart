@@ -150,9 +150,14 @@
           assert.truthy(records.every(row => row.selectedVariant === road.id), `${road.id} reaches real street generation`);
         }
         const path = selection.roads.find(row => row.kind === 'path');
+        assert.gt(entry.streetIndex.pathSections.length, 0, 'assigned path sections present');
+        assert.truthy(entry.streetIndex.pathSections.every(section => section.variant === path.id),
+          `${path.id} reaches real path generation`);
         const intervals = [...entry.scenic.lines.values()].flat();
-        assert.gt(intervals.length, 0, 'scenic path intervals present');
-        assert.truthy(intervals.every(interval => Scenic.KIND_ROW[interval[2]] === path.id), `${path.id} reaches real scenic generation`);
+        assert.gt(intervals.length, 0, 'geographic scenic credit survives the forced theme');
+        const major = entry.streetIndex.lines.filter(row => row.size === 'major');
+        assert.gt(major.length, 0, 'major roads remain represented');
+        assert.truthy(major.every(row => !row.variant && !row.selectedVariant), 'forced themes never reach medium or large roads');
       });
     }
   });
