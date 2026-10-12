@@ -69,6 +69,10 @@ Serve the repository with `python3 -m http.server 8000`, then open a page under
 | `foliage_audit.html`, `map_art_dashboard.html`, `sandbox_art_comparison.html` | Art-review surfaces. |
 | `compass-test.html` | Compass behavior. |
 
+In `map-review.html`, clicking bare ground opens terrain, underlying landcover, zone influence,
+variant, zone nexus pattern, spawn restrictions and tile/cell coordinates.
+The gameplay tier is included when its overlay is enabled.
+
 In `floor-viewer.html`, the variant buttons wrap through the selected floor’s
 nexus catalog and rebuild the region with that choice. Natural selection uses
 the normal seeded picks. Surface choices apply to the matching nexus kind;

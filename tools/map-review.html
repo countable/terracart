@@ -140,6 +140,7 @@
 <script src="map-review-terrain.js"></script>
 <script src="map-review-gameplay.js"></script>
 <script src="map-review-gameplay-layer.js"></script>
+<script src="map-review-ground.js"></script>
 <script>
 // ── Tiles ───────────────────────────────────────────────────────────────────
 const Q = new URLSearchParams(location.search);
@@ -1128,7 +1129,15 @@ async function rebuild(home) {
     let placing = false;
     $('placeHome').onclick = () => { placing = !placing; $('placeHome').classList.toggle('on', placing); map.getContainer().style.cursor = placing ? 'crosshair' : ''; };
     map.on('click', (ev) => {
-      if (!placing || building) return;
+      if (building) return;
+      if (!placing) {
+        if (ev.propagatedFrom) return;
+        const hit = MapReviewGround.inspect(window.__world, toM(ev.latlng.lat, ev.latlng.lng, EDGE), EDGE);
+        const tier = $('gameplayTiers').checked ? gameplayReview.inspect(ev.latlng) : null;
+        const content = hit ? hit.content + (tier ? '<hr>' + tier.content : '') : 'No generated tile loaded at this location.';
+        L.popup({ maxWidth: 380 }).setLatLng(ev.latlng).setContent(content).openOn(map);
+        return;
+      }
       placing = false; $('placeHome').classList.remove('on'); map.getContainer().style.cursor = '';
       rebuild(window.__home = toM(ev.latlng.lat, ev.latlng.lng, EDGE));
     });
