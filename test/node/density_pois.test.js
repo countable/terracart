@@ -119,7 +119,7 @@
 
   test('generated breakables: exact category odds and budget-driven quantities ignore POI density', () => {
     const expected = {
-      barrel: { empty: 700, supply: 100, mineral: 100, produce: 100 },
+      barrel: { empty: 700, supply: 200, mineral: 50, produce: 50 },
       clay_pot: { empty: 700, magic: 50, produce: 50, coin: 100, seed: 100 },
     };
     for (const art of BARREL_ART) {
@@ -153,6 +153,24 @@
           if (!row.ids) assert.inRange(item.baseTier, row.minTier ?? 1, row.maxTier ?? Infinity);
         }
       }
+    }
+  });
+
+  test('barrels: practical supplies dominate full rolls at sparse and dense POI counts', () => {
+    const supply = BARREL_LOOT.find(row => row.kind === 'supply');
+    const ids = barrelLootPool(supply).map(item => item.id);
+    for (const id of ['torch', 'rope', 'trap_disarm_kit']) assert.includes(ids, id);
+    for (const density of [10, 105, 200]) {
+      const o = poi('waste_basket', {barrelStyle: 'barrel', barrelDensity: density});
+      let full = 0, supplies = 0;
+      for (let i = 0; i < 3000; i++) {
+        let first = true;
+        const got = rollBarrel(o, () => first ? (first = false, (i + .5) / 3000) : .5);
+        if (got.kind === 'empty') continue;
+        full++;
+        if (got.kind === 'item' && ITEM_BY_ID[got.id].kind === 'supply') supplies++;
+      }
+      assert.lt(Math.abs(supplies / full - 2 / 3), .001, 'supply share survives density scaling');
     }
   });
 
