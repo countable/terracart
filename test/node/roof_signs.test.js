@@ -40,8 +40,8 @@
     assert.eq(Render.shopSignGlyph(null, 'trader'), null, 'a trader has none');
     const item = { badge, glyph: Render.shopSignGlyph('potion'), name: text(60, 13) };
     const box = Render.drawShopPlate(gfx, item, { x: 200, y: 100 }, null, 400);
-    assert.eq(box.w, 2 * P.padGlyph + 9 * P.cell, 'the board is just the symbol');
-    assert.eq(box.h, 2 * P.padGlyph + 1 + 9 * P.cell, 'plus a row for its shadow');
+    assert.eq(box.w, 2 * P.padGlyph + Math.round(9 * P.cell), 'the board is just the symbol');
+    assert.eq(box.h, 2 * P.padGlyph + 1 + Math.round(9 * P.cell), 'plus a row for its shadow');
     assert.eq(item.name.x, undefined, 'no lettering beside a symbol');
     assert.truthy(fills.some(([c]) => c === parseInt(look.background.slice(1), 16)), 'the board is the dark tier material');
     const lettered = { badge, glyph: null, name: text(60, 13) };
