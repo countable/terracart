@@ -5,12 +5,13 @@
   const magicalFlowers = ['sunflower', 'fireflower', 'iceflower'];
   const gemIds = [...new Set(Object.values(GEM_DEPOSITS).map(deposit => deposit.item))];
   // Utility food can restore zero energy and still be a harvestable meal.
-  const foodIds = () => ITEMS.filter(i => i.kind === 'produce'
-    && Number.isFinite(FOOD_ENERGY[i.id]) && FOOD_ENERGY[i.id] >= 0 && !flowers.includes(i.id)).map(i => i.id);
+  const isFood = i => i.kind === 'produce'
+    && Number.isFinite(FOOD_ENERGY[i.id]) && FOOD_ENERGY[i.id] >= 0 && !flowers.includes(i.id);
+  const foodIds = () => ITEMS.filter(isFood).map(i => i.id);
   const cropSeeds = () => ITEMS.filter(i => i.kind === 'seed' && !i.plants && foodIds().includes(i.grows)).map(i => i.id);
   const groups = {
     uniqueRelics: { ids: () => ITEMS.filter(i => i.kind === 'unique_relic' && !isTome(i.id) && !i.progressionOnly).map(i => i.id), mixedTiers: true, fallback: 'magic' },
-    supplies: { ids: { torch: 3, rope: 1, trap_disarm_kit: 1, throwing_spear: 1, barricade: 1, sugar_potion: 1, blank_scroll: 1 }, starterWeapons: ['dagger', 'lance', 'musket'], starterWeaponChance: 0.25, fallback: 'torch' },
+    supplies: { ids: { torch: 3, rope: 1, trap_disarm_kit: 1, throwing_spear: 1, barricade: 1, sugar_potion: 1, blank_scroll: 1, javelin: 1, renovation_permit: 1, evertorch: 1 }, starterWeapons: ['dagger', 'lance', 'musket'], starterWeaponChance: 0.25, fallback: 'torch' },
     field: { ids: ['torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'barricade'], fallback: 'torch' },
     farmSupplies: { ids: ['scarecrow', 'sugar_potion'], fallback: 'torch' },
     materials: { ids: ['wood', 'rubble', 'flint_shard', ...Object.values(MINERAL_TIERS).map(row => row.barId)] },
@@ -258,7 +259,7 @@
     if (item.kind === 'magic') return item.uniqueJewelry ? 1 : 6;
     if (item.plants === 'tree') return 5;
     if (item.kind === 'seed') return magicalFlowers.includes(item.grows) ? 1 : 9;
-    if (magicalFlowers.includes(id) || item.kind === 'mineral') return 3;
+    if (magicalFlowers.includes(id) || item.kind === 'mineral' || id === 'evertorch') return 3;
     return 5;
   }
   // THE ROLL BUDGET. Every reward roll sizes its stack (and its purse) from
@@ -281,8 +282,11 @@
     if (item.kind === 'seed') return BUDGET_SHARE.seed;
     return 1;
   }
-  function quantity(id, tier, bracket = 0) {
-    return quantityForBudget(id, budget(tier, bracket));
+  function quantity(id, tier, bracket = 0, chestTier = 0) {
+    // A T2 chest can still select T1 food, but its $9 quality branch should
+    // not shrink a meal below the chest's $24 base allowance.
+    const foodFloor = chestTier > 0 && isFood(ITEM_BY_ID[id]) ? budget(chestTier) : 0;
+    return quantityForBudget(id, Math.max(budget(tier, bracket), foodFloor));
   }
   // Explicit coin allowances share the same price, category shares and caps.
   function quantityForBudget(id, amount) {

@@ -463,7 +463,7 @@
       return { kind: 'gold', amount: cashValue(tier, bracket, rng), cls: 'cash', tier, ...meta };
     }
     const id = ChestThemes.pickItem(resolved, tier, rng, selectionOpts);
-    return { kind: 'item', id, qty: ChestThemes.quantity(id, tier, bracket),
+    return { kind: 'item', id, qty: ChestThemes.quantity(id, tier, bracket, chestTier),
       tier: _ITEM_BY_ID[id].kind === 'unique_relic' ? _ITEM_BY_ID[id].baseTier : tier,
       cls: _ITEM_BY_ID[id].kind, ...meta };
   }

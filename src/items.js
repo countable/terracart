@@ -524,6 +524,8 @@ const MINERAL_ICON_SHEET = {
   // widens the player's own light for a few minutes (useTorch in app.js →
   // the `torch` row of Lighting.KINDS).
   torch:         { sheet: 'icon_torch', frame: 0 },
+  // The shared icon renderer applies the blue palette on every DOM surface.
+  evertorch:     { sheet: 'icon_torch', frame: 0, filter: 'hue-rotate(180deg) saturate(1.4)' },
   // Cutters from the db32 item library; the tool removes traps, not a backpack.
   trap_disarm_kit:      { sheet: 'icon_kit', frame: 0 },
   // The existing sprung-jaw drawing in the placed magic trap's magenta.
@@ -736,6 +738,7 @@ const BASE_TIER = {
   renovation_permit: 4,
   // Torch — the T1 cave staple: light for the dark, cheap and common.
   torch: 1,
+  evertorch: 6,
   // Minerals — coal floor, gem ladder mirrors mining rarity
   flint_shard: 1,
   meat: 3, rabbit_pelt: 2,
@@ -967,6 +970,7 @@ const ITEMS = [
   // plateau (what you can tap) is untouched; only the dark around it lifts.
   // Lighting another while one burns EXTENDS the time (useTorch in app.js).
   { id: 'torch',         name: 'Torch',               kind: 'supply' },
+  { id: 'evertorch',     name: 'Evertorch',           kind: 'supply' },
   // Trap Disarm Kit also dismantles barricades and iron spikes permanently.
   // Hold it and tap a trap (hidden scuff or already-sprung
   // jaw, surface or cave) to remove it for good — see Traps.disarm in
@@ -1079,6 +1083,10 @@ for (const it of ITEMS) {
   if (it.baseTier == null) it.baseTier = BASE_TIER[it.id] || 1;
 }
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+// Cooking changes value and nourishment, not how common the ingredient is.
+for (const [raw, cooked] of Object.entries(COOKED_FOODS)) {
+  if (ITEM_BY_ID[raw].dropWeight != null) ITEM_BY_ID[cooked.id].dropWeight = ITEM_BY_ID[raw].dropWeight;
+}
 // An item's display name, or its bare id when the catalog has no row for it.
 function itemName(id) {
   return ITEM_BY_ID[id]?.name || wildplantRule(id)?.name
@@ -1510,6 +1518,13 @@ const CONSUMABLE_SPEC = {
     used: { title: scene => (scene.isTorchActive() ? '🔥 You light another Torch' : '🔥 You light the Torch'),
       body: 'The flame takes with a soft roar. Shadows retreat beyond the reach of your footsteps.' },
   },
+  evertorch: {
+    durationMs: 120 * _CONSUMABLE_MINUTE_MS, radiusMul: 2, buff: 'evertorch',
+    verb: 'Light', title: 'Light the Evertorch?',
+    get: 'Blue fire opens the dark around you.',
+    used: { title: 'You light the Evertorch',
+      body: 'A steady blue flame takes hold. Its light follows you into the dark.' },
+  },
   // THE HORSE is kept, not spent: Ride and Dismount toggle save.riding, and
   // riding only counts while a horse is in the bag (isRiding). Mounted, the
   // stick walk goes speedMul as fast and costs energyMul as much per cell —
@@ -1584,7 +1599,7 @@ const PRICES = {
   // A seed's price is also its roll-budget divisor (chest_themes.js
   // quantity): ~TIER_VALUE[baseTier] / 5, so a same-tier roll with no
   // brackets (BUDGET_SHARE.seed of the budget) holds about four.
-  rainberry_seed: 42, pairy_seed: 42, nut_seed: 5, potato_seed: 1,
+  rainberry_seed: 63, pairy_seed: 63, nut_seed: 5, potato_seed: 1,
   berry_seed: 5, cress_seed: 1, onion_seed: 5, starfruit_seed: 15,
   gemfruit_seed: 15, rubble_seed: 8, coffee_seed: 12,
   sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50, dawnfruit_seed: 480,
@@ -1595,9 +1610,9 @@ const PRICES = {
   potato: 5,
   cress: 5,        // T1 kitchen-garden green
   onion: 6,        // T1 kitchen-garden bulb
-  rainberry: 6,
-  berry: 7,        // T2 sweet — slightly above rainberry
-  pairy: 8,
+  rainberry: 18,
+  berry: 7,        // T2 sweet
+  pairy: 24,
   // A shop-bought crop pays its grower: at an average shop (2.1× seed list)
   // the trailer's 2-produce harvest clears the seed cost by 25% of the
   // payout (Oct 2026). Starfruit and gemfruit were the T3 crops under it.
@@ -1633,7 +1648,7 @@ const PRICES = {
   shiny_egg: 40,
   baby_green_dragon: 360,
   green_dragon: 120,
-  milk: 18,
+  milk: 28,
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
   syrup: 7,
@@ -1645,7 +1660,7 @@ const PRICES = {
   tome_thunder: 300,  // T5 — a T4 thunderclap (the unique-relic curve re-prices all tomes)
   tome_speed: 100, tome_shielding: 80, tome_healing: 70, tome_blight: 170,
   tome_fire_wall: 170, // T4 — unique-relic pricing applies
-  blank_scroll: 200,
+  blank_scroll: 50,
   fireball_scroll: 120,
   explosive_flask: 100,
   fear_scroll: 100,
@@ -1690,6 +1705,7 @@ const PRICES = {
   trap_disarm_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
   throwing_spear:         5,   // T1 supply (BASE_TIER) — one thrown shot, spent on use; priced as a staple like the torch (owner, Oct 2026: 40 was far too dear for one throw)
+  evertorch:    200,   // T6 — forty times a Torch’s duration, at the same price per minute.
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
   renovation_permit: 180,   // T4 — one rank on one building, forever; a hammer's neighbour
@@ -1724,7 +1740,7 @@ const PRICES = {
   // ── Fish ─────────────────────────────────────────────────
   minnow: 3,    bass: 18,   trout: 60,   salmon: 150, goldenfish: 450,
   // ── Orchard fruit ────────────────────────────────────────
-  apple: 8, cherry: 12, worldpeach: 10, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
+  apple: 8, cherry: 12, worldpeach: 250, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
 };
 PRICES.grilled_meat = Math.round(PRICES.meat * GRILL_ENERGY_MUL);
 for (const [raw, c] of Object.entries(COOKED_FOODS)) {
@@ -1939,6 +1955,7 @@ const ITEM_EFFECTS = {
   frost_powder: 'A pinch chills the air, and foes within reach move and strike slowly.',
   rope: 'Its woven fibres offer a handhold between daylight and the depths.',
   torch: 'Its flame pushes back the dark beyond your fingertips.',
+  evertorch: 'Blue flame pushes back the dark for two hours.',
   trap_disarm_kit: 'Iron tools loosen snares, barricades and spikes.',
   renovation_permit: 'A guild seal that lets masons raise a shop a rank, once the lane has remembered enough to deserve it.',
   magic_trap: 'A hungry knot of magic waits for a foe’s footfall.',

@@ -691,6 +691,9 @@ class SceneConsumables {
   // added on top of the reach ramp (light adds; the plateau, and so the tap
   // gate, are untouched). Never gated on depth: a torch by night on the
   // surface is fine, and free.
+  isEvertorchActive() {
+    return Buffs.until('evertorch', this.save, this) > Date.now();
+  }
   isTorchActive() {
     return (this._torchUntil ?? 0) > Date.now();
   }
