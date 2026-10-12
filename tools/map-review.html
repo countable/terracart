@@ -976,17 +976,21 @@ function overlays(world) {
       if (!idx || !idx.lines) continue;
       const ext = idx.extent || 4096;
       for (const rec of SVx.displayLines(idx, EDGE / ext)) {
+        const clipped = MapReviewPaths.clipLine(rec.line, ext);
+        if (!clipped.length) continue;
         const story = SVx.roadStoryFor(rec);
         const id = story?.story || rec.variant || (rec.size === 'path' ? '__path' : '__minor');
         const lk = look[id] || (look[id] = { colour: story ? '#ffffff' : '#8a8a8a',
           label: story?.title || (rec.size === 'path' ? 'plain path' : id) });
         (keys[id] || (keys[id] = new Set())).add(rec.key);
         if (rec.rocks) rocky.add(rec.key);
-        const pts = rec.line.map((p) => toLL((e.tx + p.x / ext) * EDGE, (e.ty + p.y / ext) * EDGE, EDGE));
-        L.polyline(pts, { color: lk.colour, weight: rec.size === 'major' ? 5 : 3, opacity: 0.9,
-          dashArray: rec.rocks ? '6 4' : null })
-          .bindPopup(`<b>${esc(lk.label)}</b>${rec.rocks ? ' · rock-lined' : ''}<br>${esc(rec.name || '(unnamed)')}`)
-          .addTo(layer);
+        for (const line of clipped) {
+          const pts = line.map((p) => toLL((e.tx + p.x / ext) * EDGE, (e.ty + p.y / ext) * EDGE, EDGE));
+          L.polyline(pts, { color: lk.colour, weight: rec.size === 'major' ? 5 : 3, opacity: 0.9,
+            dashArray: rec.rocks ? '6 4' : null })
+            .bindPopup(`<b>${esc(lk.label)}</b>${rec.rocks ? ' · rock-lined' : ''}<br>${esc(rec.name || '(unnamed)')}`)
+            .addTo(layer);
+        }
       }
     }
     // Path variants come from the same assignment records as the game.

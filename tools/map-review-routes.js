@@ -24,10 +24,11 @@
         const record = entry.streetIndex?.lines?.find(r => r.fi === fi && r.li === li);
         for (const style of StreetVariants.lineStyles(entry, feature, fi, li, scale)) {
           const section = entry.streetIndex?.pathSections?.find(s => s.key === style.key);
-          const points = Streets.subLineM(line, scale, style.a, style.b)
-            .map(p => ({ x: entry.tx * edge + p.x, y: entry.ty * edge + p.y }));
-          rows.push({ entry, feature, record, section, style, width, points, scale,
-            isPath: WorldGen.PATH_CLASSES.has(feature.tags?.class) });
+          for (const clipped of MapReviewPaths.clipLine(Streets.subLineM(line, scale, style.a, style.b), edge)) {
+            const points = clipped.map(p => ({ x: entry.tx * edge + p.x, y: entry.ty * edge + p.y }));
+            rows.push({ entry, feature, record, section, style, width, points, scale,
+              isPath: WorldGen.PATH_CLASSES.has(feature.tags?.class) });
+          }
         }
       }
     }

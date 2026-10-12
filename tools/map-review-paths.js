@@ -1,6 +1,12 @@
 // Inspect the canonical path sections used for variant assignment.
 (function (root) {
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // MVT buffers repeat neighboring geometry without that tile's theme assignments.
+  // Trim before drawing, counting, or hit-testing so the owning tile wins.
+  function clipLine(line, extent) {
+    return Streets.tileSpans(line, 1, extent).filter(([a, b]) => b - a > 1e-6)
+      .map(([a, b]) => Streets.subLineM(line, 1, a, b));
+  }
   function sourceEndpoints(world) {
     if (world.scene?.depth > 0) return [];
     return world.tiles.flatMap(e => {
@@ -105,5 +111,5 @@
     map.on('zoomend', sync);
     return { update };
   }
-  root.MapReviewPaths = { sections, create };
+  root.MapReviewPaths = { clipLine, sections, create };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

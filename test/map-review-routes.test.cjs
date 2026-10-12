@@ -4,11 +4,6 @@ const vm = require('node:vm');
 const root = {
   WorldGen: { isLotLane: tags => tags.service === 'parking_aisle', classifyLine: () => 1,
     roadOverlayWidthM: tags => tags.class === 'path' ? 2 : 20, PATH_CLASSES: new Set(['path']) },
-  Streets: { subLineM: (line, scale, a, b) => {
-    const [p, q] = line, length = Math.hypot(q.x - p.x, q.y - p.y) * scale;
-    return [a, b].map(d => ({ x: p.x * scale + (q.x - p.x) * scale * d / length,
-      y: p.y * scale + (q.y - p.y) * scale * d / length }));
-  } },
   StreetVariants: {
     VARIANT_BY_ID: { lantern: { title: 'Lantern Row' }, promenade: { title: 'The promenade' }, barricade: { title: 'The barricade' } },
     lineStyles: (e, f) => f.tags.class === 'path'
@@ -17,6 +12,8 @@ const root = {
     roadStoryFor: () => null, selectionWeights: () => [{ id: 'lantern', nameMultiplier: 4 }],
   },
 };
+vm.runInNewContext(fs.readFileSync('src/streets.js', 'utf8'), root);
+vm.runInNewContext(fs.readFileSync('tools/map-review-paths.js', 'utf8'), root);
 vm.runInNewContext(fs.readFileSync('tools/map-review-routes.js', 'utf8'), root);
 const api = root.MapReviewRoutes;
 const path = { type: 2, id: 42, tags: { class: 'path', name: '<Lamp trail>' }, geom: [[{ x: 100, y: 200 }, { x: 300, y: 200 }]] };
@@ -42,4 +39,13 @@ assert.equal(inspect(-100, 200), null, 'unloaded tiles do not borrow buffered ge
 world.scene.depth = 1;
 assert.equal(inspect(150, 200), null, 'surface roads do not intercept underground clicks');
 assert.equal(api.distance({ x: 3, y: 4 }, { x: 0, y: 0 }, { x: 0, y: 0 }), 5);
-console.log('Route inspection checks passed.');
+const clip = root.MapReviewPaths.clipLine;
+assert.equal(clip([{ x: -30, y: 100 }, { x: 0, y: 100 }], 4096).length, 0,
+  'unassigned buffer ending at the tile edge contributes no plain path');
+const trimmed = clip([{ x: -30, y: 100 }, { x: 4120, y: 100 }], 4096);
+assert.equal(trimmed.length, 1);
+assert.equal(trimmed[0][0].x, 0);
+assert.equal(trimmed[0][1].x, 4096);
+const reentry = clip([{ x: 20, y: 20 }, { x: -20, y: 40 }, { x: 20, y: 60 }], 100);
+assert.equal(reentry.length, 2, 'separate in-tile runs must not join through the buffer');
+console.log('Route inspection and tile-buffer clipping checks passed.');

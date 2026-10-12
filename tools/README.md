@@ -75,6 +75,9 @@ The gameplay tier is included when its overlay is enabled.
 Click a road or path for its source name/type, rendered variant and width,
 assignment length, affinity context, name influences and source feature IDs.
 At crossings the popup includes up to three nearby routes; ground details remain expandable.
+Map review trims buffered road/path geometry to its owning tile before drawing,
+variant counts, and click inspection. Neighboring buffer copies have no local
+path assignment and must not appear as additional plain paths.
 
 In `map-review.html`, the Overlays section toggles path endpoint dots
 and path names (visible from zoom 17; unnamed or numeric-only labels are hidden).

@@ -216,10 +216,11 @@ const MapReviewArt = (() => {
         for(const [li,line] of (f.geom||[]).entries()) {
           if(line.length<2)continue;
           for(const style of StreetVariants.lineStyles(e,f,fi,li,mvtToM)) {
-            const points=Streets.subLineM(line,mvtToM,style.a,style.b);
-            let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-            for(const p of points) {minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y);}
-            result.push({width,isPath,variant:style.variant,points,minX,minY,maxX,maxY});
+            for(const points of MapReviewPaths.clipLine(Streets.subLineM(line,mvtToM,style.a,style.b),edge)) {
+              let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+              for(const p of points) {minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y);}
+              result.push({width,isPath,variant:style.variant,points,minX,minY,maxX,maxY});
+            }
           }
         }
       }
