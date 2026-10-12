@@ -6,8 +6,13 @@ const Visibility = (() => {
   const TREE_SIGHT_PENALTY = 2, PARTIAL_DARKNESS = 0.5, FULL_DARKNESS = 0.88;
   const states = new WeakMap();
   function objectCover(o) {
+    // Match the smallest rendered sapling, not the harvest size class: the
+    // latter also calls stage-2 young timber trees "small". Legacy bush-size
+    // timber records use that same sapling art; actual shrubs stay full cover.
+    if (o?.kind === 'tree') return treeArtFrame(o) === 1 ? CLEAR : PARTIAL;
+    if (o?.kind === 'fruittree') return Crops.fruitTreeState(o).stage === 0 ? CLEAR : PARTIAL;
     if (ObstacleStep.profile(o)) return FULL;
-    return o && (o.kind === 'tree' || o.kind === 'fruittree') ? PARTIAL : CLEAR;
+    return CLEAR;
   }
   function key(c) { return c.cellIX + '_' + c.cellIY; }
   function ready(scene) {

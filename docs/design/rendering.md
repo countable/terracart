@@ -114,12 +114,16 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Bushes, hedges, short walls, rocks and cave walls block sight beyond their
-  cell; standing trees provide partial cover, with a non-stacking 50% darkness
+  cell; the smallest tree saplings provide no cover. Larger standing trees
+  provide partial cover, with a non-stacking 50% darkness
   treatment. The facing blocker stays visible. Full cover removes objects,
   creatures and their associated labels, shadows and target affordances.
   `Lighting.coverFrame` caches a world-aligned mask and composites it into the
-  existing lightmap after light sources: surface cover retains a faint ground
-  silhouette, while underground full cover is black. Cover queries always
+  existing lightmap after light sources. It reuses the exploration fog's
+  low-resolution smooth upscale and world-keyed wisps, with a narrow half-cell
+  edge instead of the exploration ramp. Noise coordinates and both canvases
+  are reused; only changes to the sight field repaint the alpha buffer. Surface
+  cover retains a faint ground silhouette, while underground full cover is black. Cover queries always
   originate at the player's body, including during camera peeks.
 
 - Gas uses a translucent cell-bound pixel cloud above world sprites and below

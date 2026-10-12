@@ -227,6 +227,10 @@ function fakeCanvasWorld() {
   const makeCtx = (name) => new Proxy({}, {
     get(t, prop) {
       if (prop in t) return t[prop];
+      if (prop === 'createImageData') return (width, height) => {
+        log.push({ canvas: name, op: prop, args: [width, height] });
+        return { width, height, data: new Uint8ClampedArray(width * height * 4) };
+      };
       if (prop === 'createRadialGradient' || prop === 'createLinearGradient') return (...args) => {
         log.push({ canvas: name, op: prop, args });
         return { addColorStop() {} };
