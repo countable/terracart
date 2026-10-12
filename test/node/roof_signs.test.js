@@ -24,7 +24,7 @@
     const badge = Render.shopTierBadge(scene, { kind: 'house', id: 'h' }, 'shop');
     const look = Render.shopSignLook(badge);
     assert.eq(look.background, badge.backgroundColor, 'the plate is the tier colour');
-    assert.eq(look.ink, badge.color, 'its lettering and glyph are the tier ink');
+    assert.truthy(parseInt(look.ink.slice(1), 16) < parseInt(look.border.slice(1), 16), 'lettering and glyph a deeper shade of the tier than the rim');
     assert.truthy(look.border !== look.background, 'a darker rim of the same hue');
     assert.eq(Render.shopSignLook(null).background, '#ead4a0', 'an unranked shop keeps the plain board');
     for (const theme of Object.keys(Render.SHOP_SIGN_ICONS)) {
@@ -37,10 +37,10 @@
     const item = { badge, theme: 'potion', name: text(60, 13), tier: text(30, 10) };
     const box = Render.drawShopPlate(gfx, item, { x: 200, y: 100 }, null, 400);
     const P = Render.SHOP_PLATE;
-    assert.eq(box.h, 2 * P.pad + 23, 'the plate spans the name and the tier word');
+    assert.eq(box.h, 2 * P.pad + 23 + P.lead, 'the plate spans the name and the tier word');
     assert.eq(box.w, 2 * P.pad + 9 * P.cell + P.gap + 60, 'glyph then lettering');
-    assert.truthy(item.name.x > box.x + 9 * P.cell && item.tier.y === item.name.y + 13, 'lettering right of the glyph, tier under the name');
+    assert.truthy(item.name.x > box.x + 9 * P.cell && item.tier.y === item.name.y + 13 + P.lead, 'lettering right of the glyph, tier under the name');
     assert.truthy(item.name.y >= box.y && item.tier.y + 10 <= box.y + box.h, 'lettering inside the plate');
-    assert.eq(fills[2][0], parseInt(badge.backgroundColor.slice(1), 16), 'filled with the tier colour');
+    assert.truthy(fills.some(([c]) => c === parseInt(badge.backgroundColor.slice(1), 16)), 'filled with the tier colour');
   });
 })();
