@@ -7,8 +7,9 @@ real-world roll. `src/sandbox.js` owns the map.
 
 For simulated travel, enable **☰ → Developer → GPS stick**. The blue left
 stick moves the GPS fix; the ordinary stick still moves the character relative
-to it. First movement takes over from device GPS for this session. Hiding the
-stick keeps the simulated fix; reload to restore device GPS in normal play.
+to it. First movement takes over from device GPS for this session. Turning the
+stick off resumes device GPS in normal play; the next real fix walks or snaps the
+character back to it.
 
 ## Floor viewer
 
