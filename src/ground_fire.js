@@ -16,11 +16,15 @@ const GroundFire = (() => {
   function active(record, now) {
     return !!record && !record.extinguished && record.litAt <= now && now < record.until;
   }
-  function ignite(save, depth, cellIX, cellIY, now, rng = Math.random) {
+  // A cell burns once: its record is the permanent history. A source that
+  // burns without fuel (a fire vent) passes `relight` to light its cells
+  // again once the last burn is out, and its own `durationMs`.
+  function ignite(save, depth, cellIX, cellIY, now, rng = Math.random, opts = {}) {
     const ledger = save.groundFire || (save.groundFire = {});
     const id = key(depth, cellIX, cellIY);
-    if (Object.prototype.hasOwnProperty.call(ledger, id)) return false;
-    const duration = MIN_DURATION_MS + Math.floor(
+    const old = Object.prototype.hasOwnProperty.call(ledger, id) ? ledger[id] : null;
+    if (old && !(opts.relight && (old.extinguished || old.until <= now))) return false;
+    const duration = opts.durationMs ?? MIN_DURATION_MS + Math.floor(
       Math.max(0, Math.min(1, rng())) * (MAX_DURATION_MS - MIN_DURATION_MS));
     ledger[id] = { depth, cellIX, cellIY, litAt: now,
       until: now + duration, spreadAt: now + SPREAD_INTERVAL_MS };
