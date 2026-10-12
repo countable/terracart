@@ -580,7 +580,7 @@ Object.assign(ctx, {
   ENEMY_DEPTH_BONUS: ctx.Combat.ENEMY_DEPTH_BONUS,
   MONSTER_TREASURE_CHANCE: ctx.Combat.MONSTER_TREASURE_CHANCE,
   ELITE_TREASURE_CONTEXT: ctx.Combat.ELITE_TREASURE_CONTEXT,
-  eliteRollBonus: ctx.Combat.eliteRollBonus,
+  eliteDropTier: ctx.Combat.eliteDropTier,
   faunaBlocksCell: ctx.Combat.faunaBlocksCell,
 });
 

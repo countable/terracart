@@ -14,7 +14,7 @@ const extraSources = {
 };
 const sourceLabel = (ctx) => extraSources[ctx]?.[0] || ({
   'treasure:road': 'Distance reward · restored roads',
-  'treasure:elite': 'Elite enemy loot · repeat discovery',
+  'treasure:elite': 'Elite enemy · signature drop',
   'treasure:default': 'Buried treasure',
   'treasure:shrine': 'Grove shrine · treasure gift',
   'treasure:temple': 'Temple gift',
@@ -25,7 +25,7 @@ const rewardContexts = () => [Trail.PRIZE_CONTEXT, Combat.ELITE_TREASURE_CONTEXT
   ...Object.keys(extraSources), ...Object.keys(LOOT_CONTEXTS).filter(c => c.startsWith('treasure:')
     && c !== Trail.PRIZE_CONTEXT && c !== Combat.ELITE_TREASURE_CONTEXT), 'fishing', ...chestContexts()];
 const usesTier = ctx => ctx.startsWith('chest:') || ctx === 'special:chapel';
-const usesDepth = ctx => ctx.startsWith('chest:') || ['treasure:default', 'treasure:elite', 'special:hoard'].includes(ctx);
+const usesDepth = ctx => ctx.startsWith('chest:') || ['treasure:default', 'special:hoard'].includes(ctx);
 
 function sourceReward(ctx, save, opts) {
   if (ctx === 'special:coins') return { kind: 'gold', amount: potCoinsFor(+$('density').value) };
@@ -48,7 +48,7 @@ function sourceReward(ctx, save, opts) {
   const reward = pickReward(key, save, Math.random,
     ctx === 'special:found' ? { tier: rollFoundTreasureTier() } : opts);
   // Every grantTreasureRoll caller applies this, including chest-pool finds.
-  if ((ctx.startsWith('treasure:') && ctx !== Trail.PRIZE_CONTEXT && ctx !== Scenic.VISTA_CONTEXT
+  if ((ctx.startsWith('treasure:') && ctx !== Trail.PRIZE_CONTEXT && ctx !== Scenic.VISTA_CONTEXT && ctx !== Combat.ELITE_TREASURE_CONTEXT
       || ['enemy:normal', 'special:headstone', 'special:found', 'special:hoard'].includes(ctx))
       && reward?.kind === 'item' && isLowTierSeed(reward.id)) reward.qty += LOW_TIER_SEED_QTY_BONUS;
   return reward;
@@ -146,7 +146,7 @@ function optsFor(ctx) {
     o.tier = 2 + chestTierDepthBonus(o.depth);
   }
   if (ctx === Trail.PRIZE_CONTEXT) o.rollBonus = Trail.rollBonusFor(+$('bonus').value - 1);
-  if (ctx === Combat.ELITE_TREASURE_CONTEXT) o.rollBonus = Combat.eliteRollBonus($('monster').value, +$('depth').value);
+  if (ctx === Combat.ELITE_TREASURE_CONTEXT) o.monsterKind = $('monster').value;
   if (ctx === Temples.CONTEXT || ctx === 'special:hoard') o.rollBonus = 1;
   if (ctx === 'special:headstone') o.tier = Zones.HEADSTONE_TIER;
   return o;
@@ -244,7 +244,7 @@ function syncControls() {
     : ctx === Trail.PRIZE_CONTEXT
     ? `Each sample offers up to ${Trail.PRIZE_CHOICES} distinct cards: cash, seed or supply, and boots, gear/unique relic or magic. Prize #${$('bonus').value} requires ${Trail.goalFor(+$('bonus').value - 1, $('playerClass').value)} banked metres on this rung (${Trail.totalMetres(0, +$('bonus').value, $('playerClass').value)} total). Boots and gear cap at T${Trail.bootsTierCap(+$('bonus').value, $('playerClass').value)} for this calling (one tier per 10,000 banked metres). The third card is 20% boots, 20% gear/unique relic and 60% magic; unavailable shares become magic. The general gear pool can also select boots. The player keeps one. Prize #1 includes ${Trail.FIRST_PRIZE_QTY} onion seeds. Prize #3 offers a wooden pick in the magic slot if no pick is owned. Prize #4 gives the Serpent Idol alone. Tables measure offered cards, not total payout.`
     : ctx === Combat.ELITE_TREASURE_CONTEXT
-      ? 'Repeat elite kills pay this reward. The first discovery gives a memory instead. The normal kill wage is separate. Includes the extra low-tier seeds paid by the game.'
+      ? 'Every elite kill pays one signature drop at 70% / 20% / 10%. Equipment targets monster tier + 1 (maximum T7); fixed item stacks use that budget. Matching or weaker equipment pays half its list price in cash. The first discovery also gives a memory. The kill wage is separate.'
       : ctx.startsWith('chest:') ? 'Themed chest rewards at the chosen tier. Cave loot mixes 60% location theme with 40% cave supplies; the cave component increasingly favors magic. Seed odds decrease at high rolled quality. Surface food POIs are market stalls; their underground copies use chest:food. Florists and garden centres are also stalls; gardens stay chests. Fixed starter contents are not included.'
       : ctx === Scenic.VISTA_CONTEXT ? 'This tuning pool remains in the registry, but the current viewpoint interaction gives the first viewpoint gift and telescope services instead.'
       : ctx === Temples.CONTEXT ? 'One temple gift, including the game’s extra roll bonus.'
@@ -261,7 +261,7 @@ function syncControls() {
     opt($('tier'), [1, 2, 3, 4, 5, 6, 7].map((t) => [t, 'T' + t]), 2);
     opt($('depth'), [0, 1, 2, 3, 4, 5, 6, 7, 8, 10].map((d) => [d, d ? 'level ' + d : 'surface']), 0);
     opt($('bonus'), Array.from({ length: 30 }, (_, i) => i + 1).map((b) => [b, '#' + b]), 1);
-    opt($('monster'), Object.keys(Combat.MONSTERS).map((k) => [k, k]), 'cave_slime');
+    opt($('monster'), Object.values(Combat.MONSTERS).filter(m => m.eliteEligible).map(m => [m.id, m.name]), 'cave_slime');
     opt($('owned'), [0, 1, 2, 3, 4, 5, 6, 7].map((t) => [t, t ? 'T' + t : 'nothing']), 0);
     opt($('fishing_rod'), [0, 1, 2, 3, 4, 5, 6, 7].map((t) => [t, t ? 'T' + t : 'bare hands']), 0);
     opt($('qty'), Array.from({ length: RARITY_TUNING.budgetUpgradeLevels + 1 }, (_, i) => [i, i]), 0);

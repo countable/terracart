@@ -616,7 +616,7 @@ function magicTrapDamage() {
 const MAGIC_TRAP_TICK_MS = 100;
 
 // What a kill pays — enemyBounty, MONSTER_TREASURE_CHANCE,
-// ELITE_TREASURE_CONTEXT and eliteRollBonus — is Combat's, derived from the
+// ELITE_TREASURE_CONTEXT and eliteDropTier — is Combat's, derived from the
 // same HP pool the fight drains (Combat.ENEMY_COIN_PER_HP).
 
 // What a tame pet hunts is its row's `prey` in SpriteLayout.CREATURE_BEHAVIOUR
@@ -4877,20 +4877,15 @@ class MapScene extends Phaser.Scene {
       if (!mine) {
         // A turret's (or any non-player) kill: the coin is the whole payout.
       } else if (elite) {
-        // An elite always pays past the wage: the kind's memory the
-        // first time, a relic-biased treasure roll at a depth-commensurate
-        // tier every time after (see ELITE_TREASURE_CONTEXT / eliteRollBonus).
+        // First discovery adds a memory; every kill pays one signature drop.
         if (this._bankDiscovery(victim.kind, `slaying an elite ${name}`)) {
-          this.flashShiny(0, true, '✨ ELITE SLAIN ✨');   // the wage is the coin
-        } else {
-          // Shown as a card (showRewardCard), not a toast: an elite's drop is
-          // a quest-sized reward, and a toast under a fight is missed.
-          grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀',
-            Combat.ELITE_TREASURE_CONTEXT,
-            { rollBonus: Combat.eliteRollBonus(victim.kind, this.depth),
-              ceremony: { kind: 'treasure', header: `${Combat.eliteRank(victim).label} slain`,
-                          sub: `The ${name} falls. What it guarded is yours.` } });
+          this.flashShiny(0, true, '✨ ELITE SLAIN ✨');
         }
+        grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀',
+          Combat.ELITE_TREASURE_CONTEXT,
+          { monsterKind: victim.kind,
+            ceremony: { kind: 'treasure', header: `${Combat.eliteRank(victim).label} slain`,
+                        sub: `The ${name} falls. What it guarded is yours.` } });
       } else if (Combat.isMonster(victim.kind) && Combat.spawnsUnderground(victim.kind)
                  && Math.random() < Combat.MONSTER_TREASURE_CHANCE) {
         // One in ten plain cave monsters also drops a buried-treasure roll —

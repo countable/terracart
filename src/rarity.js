@@ -205,18 +205,9 @@
     // Measured ~15 (scratchpad scenic2/ev.js, the balancing sheet's valuation).
     'treasure:vista':   { classBias: { seed:0.45, produce:0.30, magic:0.15, supply:0.10 },
                           chainSteps: 1, chainMax: 2, maxTier: 2, relicCap: 0 },
-    // ── Elite monster drop ──────────────────────────────────────
-    // What a shiny cave monster pays once its kind's memory is
-    // banked (app.js › resolveDefeat). Biased to RELICS — half the class
-    // weight, the heaviest relic share of any context — because the foe was
-    // twice the fight. "Commensurate tier" is the caller's: one chain step
-    // here, and app.js › eliteRollBonus buys tier-only steps off the depth
-    // and the kind's own introduction depth (opts.rollBonus), so a goblin
-    // archer three levels down rolls higher than a cave slime at the first.
-    // A relic sits one tier UNDER the chain (see pickReward's relic branch),
-    // so relicCap 6 means a T5 relic at the very top.
-    'treasure:elite':   { classBias: { relic:0.50, mineral:0.20, magic:0.15, seed:0.08, produce:0.07 },
-                          chainSteps: 1, chainMax: 5, maxTier: 5, relicCap: 6, relicChainMax: 6 },
+    // Signature identities and odds come from Combat / EnemyRoster. This
+    // context remains discoverable by the dashboards; it bypasses class rolls.
+    'treasure:elite': {},
   };
 
   // ────────────────────────────────────────────────────────────────
@@ -600,9 +591,39 @@
       cls: _ITEM_BY_ID[id].kind, ...meta };
   }
 
+  // Resolve one authored signature for gameplay and the monster review page.
+  // Duplicate equipment pays its own value, never the value of better owned gear.
+  function eliteSignatureReward(kind, signatureIndex, save) {
+    const drop = Combat.monster(kind)?.eliteDrops?.[signatureIndex];
+    if (!drop) return null;
+    const target = Combat.eliteDropTier(kind);
+    const meta = { signatureIndex, jackpot: 0, consolation: 0 };
+    if (drop.kind === 'item') {
+      const item = _ITEM_BY_ID[drop.id];
+      return { ...drop, qty: ChestThemes.quantity(drop.id, target),
+        tier: item.baseTier, cls: item.kind, ...meta };
+    }
+    const tiers = (drop.kind === 'relic' && _RELIC_DEFS[drop.slot]?.tiers) || GEAR_ROLL_TIERS;
+    const tier = tiers.filter(t => t <= target).pop() || tiers[0];
+    const owned = (drop.kind === 'armor' ? save?.armor : save?.relics)?.[drop.slot]?.tier || 0;
+    if (owned >= tier) {
+      return { kind: 'gold', slot: drop.slot, gearKind: drop.kind, tier,
+        amount: Math.max(1, Math.floor(_gearPrice(drop.kind, drop.slot, tier) / 2)), ...meta };
+    }
+    return { ...drop, tier, ...meta };
+  }
+
+  function pickEliteReward(save, rng, opts) {
+    const roll = rng();
+    let threshold = 0;
+    const index = Combat.ELITE_DROP_CHANCES.findIndex(p => (threshold += p) > roll);
+    return eliteSignatureReward(opts?.monsterKind || 'cave_slime', index < 0 ? 2 : index, save);
+  }
+
   function pickReward(contextKey, save, rng, opts) {
     if (contextKey.startsWith('chest:')) return pickChestReward(contextKey.slice(6), save, rng, opts);
     rng = rng || Math.random;
+    if (contextKey === Combat.ELITE_TREASURE_CONTEXT) return pickEliteReward(save, rng, opts);
     const ctx = lootContext(contextKey, opts);
     if (!ctx) return null;
 
@@ -776,6 +797,7 @@
   global.CAVE_DEEP_SKEW         = CAVE_DEEP_SKEW;
   global.ITEMS_BY_CLASS_TIER    = ITEMS_BY_CLASS_TIER;
   global.pickReward             = pickReward;
+  global.eliteSignatureReward   = eliteSignatureReward;
   global.pickChestReward        = pickChestReward;
   global.resolveChestReward     = resolveChestReward;
   global.rollRewardQuality     = rollRewardQuality;
