@@ -15,8 +15,9 @@
   });
   test('enemy spawns: ordinary landcover keeps its authored enemy families', () => {
     const pool = biome => EnemySpawns.surfaceRows(biome).map(row => row.id).sort().join(',');
-    assert.eq(pool('FOREST'), 'bat,boar,giant_bear,plant,spider');
-    assert.eq(pool('ROCK'), 'bat,skeleton,skeleton_soldier');
+    assert.eq(pool('FOREST'), 'boar,giant_bear,plant,spider');
+    assert.eq(pool('ROCK'), 'skeleton,skeleton_soldier');
+    assert.falsy(EnemyRoster.get('bat').surface, 'bats live underground only');
     assert.eq(pool('COMMERCIAL'), 'club_goblin,goblin,goblin_archer,sword_spirit');
     assert.eq(pool('INDUSTRIAL'), 'ash_zombie,marsh_zombie,zombie');
     assert.eq(pool('FARMLAND'), 'farmer_goblin');

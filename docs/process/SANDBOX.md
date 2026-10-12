@@ -25,7 +25,7 @@ fits; the viewer reports declined placements.
 
 Use `index.html?sandbox=true&sandboxZone=forest` to start at a named destination.
 Examples include `beach`, `wetland`, `golf`, `castle`, `fort`, `grove`, `stones`,
-`tar`, `practice`, `hazards`, `hazards-cave`, `restoration`, `meadow` and `crater`. Road destinations include `hedgerow-road`, `orchard-road`,
+`tar`, `practice`, `hazards`, `hazards-cave`, `hazards-deep`, `restoration`, `meadow` and `crater`. Road destinations include `hedgerow-road`, `orchard-road`,
 `thorny-road` and `parkpath`. `src/sandbox_destinations.js` owns the shared catalog used by
 the game and design dashboards; coordinates come from the authored layout.
 
@@ -204,11 +204,14 @@ whose stable ID passes the real nest roll. The beach has a readable bottle.
 spawn is clear of their contact cells. The web uses the normal saved landing
 record and expiry; stepping off and back on tests paralysis renewal.
 
-`hazards-cave` starts at depth 1 with three vents (poison, fire, paralysis),
-a rolling ball, a sliding wall and a connected pair of cave-in cells. Arrival
+`hazards-cave` starts at depth 1 with the floor's grey confusion vent and a
+connected pair of cave-in cells. `hazards-deep` starts at depth 2 with its
+three vents (poison, fire, paralysis), a rolling ball and a sliding wall. Each
+lab seats the vents `EnvironmentHazards.ventKinds` allows on its floor. Arrival
 and reset light a normal torch from the test kit, making the warnings visible. Walk
 onto a plate to launch its trap; each plate fires once. Vents use their normal
-inactive/warning/active cycle. Cave-ins start their five-second warning on
+inactive/warning/active cycle; the confusion vent's eruption bursts confusion
+gas onto its neighbours instead of striking. Cave-ins start their five-second warning on
 load and stay open. `cavein` lands beside the cracks to watch the full warning;
 a second reset label there repeats the sequence without walking back. Depths 1 and 2 have authored empty floor tiles so falling
 uses the real landing search and depth transition without a network wait.

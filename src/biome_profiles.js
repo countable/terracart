@@ -59,6 +59,7 @@
     ORCH_LG: 0x5a17b108,
     ORCH_MAR: 0xf10a0008,
     YARD_FLORA: 0x7a4d0f10,   // residential yard grass/scrub (see `yard` below)
+    YARD_TREES: 0x7a4d7ee5,   // residential yard trees (T.RESIDENTIAL `yardTrees`)
   };
 
   // Default debris density window. D_MAX = 0.15 so any single flora type
@@ -194,7 +195,16 @@
     // Mushrooms remain on residential frontage; its yard lane grows shrubs.
     [T.RESIDENTIAL]: { flora: FAMILY_PROFILE.urban.flora, blockedFlora: ['longgrass'],
       yard: { ...FAMILY_PROFILE.urban.yard, min: 1, span: 1,
-        crops: [{crop: 'shrub', share: 1}] } },
+        crops: [{crop: 'shrub', share: 1}] },
+      // YARD TREES — stand-ins for the DeepForest yard canopy while that
+      // layer is paused (worldgen DEEPFOREST_TREES_ENABLED): one candidate
+      // per cell, kept with chance `p` off the polygon's own salted stream,
+      // each a random size class by `share` and a random species. The
+      // post-pass culls them by the same residential rule as every yard
+      // thing (_mrDrop), and they claim a cell only after every older object.
+      yardTrees: { p: 0.06, salt: S.YARD_TREES,
+                   sizes: [{ size: 'small', share: 0.4 }, { size: 'medium', share: 0.35 }, { size: 'large', share: 0.25 }] },
+    },
     [T.WASTELAND]: { staticObjects: { rockFireChance: 0.72, rockPlainKeep: 1, rockOreKeep: 0.75 }, flora: [], blockedFlora: ['mushroom'],
       yard: { ...FAMILY_PROFILE.urban.yard, min: 3, span: 4,
         crops: [{crop: 'longgrass', share: 0.33}, {crop: 'shrub', share: 0.67}] } },
@@ -382,6 +392,8 @@
   // biome carries that yard row. Only the yard lane asks this; every other
   // wild plant still goes through allows().
   const yard = (type) => get(type).yard || null;
+  // yardTrees(type): the biome's yard-tree row, or null.
+  const yardTrees = (type) => get(type).yardTrees || null;
   const yardAllows = (crop, type) => {
     if (get(type).blockedFlora?.includes(crop)) return false;
     if (allows(crop, type)) return true;
@@ -528,7 +540,7 @@
 
   // The accessors. The raw tables reach app.js as the bare globals below
   // (BIOME_FAUNA / FAUNA_ORDER for the fauna spawner), not through here.
-  const api = { T, flora, staticObjects, tint, atmos, mixHex, allows, exclusive, faunaAllows, yard, yardAllows, patch, patchMul, FLORA_PATCH, GRASS_FILL,
+  const api = { T, flora, staticObjects, tint, atmos, mixHex, allows, exclusive, faunaAllows, yard, yardTrees, yardAllows, patch, patchMul, FLORA_PATCH, GRASS_FILL,
     PARK_CHARACTERS, PARK_CHARACTER_IDS, CEMETERY_CHARACTER, parkCharacterAt, parkCharacter, isParkPoi };
   global.BiomeProfiles = api;
   global.BIOME_PROFILES = BIOME_PROFILES;

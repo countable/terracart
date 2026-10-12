@@ -81,9 +81,9 @@
     for(const o of pots)assert.eq(barrelProfile(o).texKey,'clay_pot','pots retain normal smash rewards');
   });
   test('zone guard additions: finite enemies respect ownership, sensitive ground and distinct seats', () => {
-    for(const [id,kind,count] of [['broken_depot','bat',5],['seep','split_slime',1],['work_yard','split_slime',2]]) {
+    for(const [id,kinds,count] of [['broken_depot',['skeleton','club_goblin'],5],['seep',['split_slime'],1],['work_yard',['split_slime'],2]]) {
       const out=ZoneDressing.dress(context(id));
-      assert.eq(out.guards.length,count);assert.truthy(out.guards.every(o=>o.kind===kind));
+      assert.eq(out.guards.length,count);assert.truthy(out.guards.every(o=>kinds.includes(o.kind)));
       assert.eq(new Set(all(out).map(o=>`${o._ix},${o._iy}`)).size,all(out).length);
       const ctx=context(id),dress=ZoneDressing.dress(ctx);
       const entry={grid:ctx.grid,baseGrid:ctx.grid.slice(),cellsPerEdge:ctx.N,genObjects:[],objects:[],wildplants:[],zoneDress:dress};
@@ -91,7 +91,7 @@
         _pestFreeZone:()=>null,_starterTrailAnchor:()=>null,_provisionStarterHome(){},_carveStarterPond(){}});
       const testMode=window.__TEST_MODE;window.__TEST_MODE=false;
       try {scene.spawnInTile(entry,0,0);} finally {window.__TEST_MODE=testMode;}
-      assert.eq(entry.creatures.filter(o=>o.zoneVariant===id && o.kind===kind).length,count,'the live surface roster accepts every authored guard');
+      assert.eq(entry.creatures.filter(o=>o.zoneVariant===id && kinds.includes(o.kind)).length,count,'the live surface roster accepts every authored guard');
       const observer=context(id);observer.field.anchors[0].owned=false;
       assert.eq(ZoneDressing.dress(observer).guards.length,0,'only source owner creates the group');
       const blocked=context(id);blocked.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.SENSITIVE);
@@ -541,7 +541,7 @@
     assert.truthy(stones.every(o => !o._objectArt), 'stone gardens keep standard stone art');
     assert.truthy(stones.filter(o => o.yieldTier > 1).every(o => !o._objectArt), 'iron ore keeps its tier art');
     const looks = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC;
-    assert.eq(looks.mineralrock.key({}), 'mineralrock');
+    assert.eq(looks.mineralrock.key({}), 'mineralboulder');
     assert.eq(looks.stakes.key, 'approved_charred_stakes', 'every spike placement uses the replacement art');
     assert.eq(looks.stakes.scale, 4 / 3, 'replacement art keeps its authored scale');
   });
@@ -771,7 +771,7 @@
     assert.eq(kinds('ordered_graves'), 'skeleton_soldier');
     assert.eq(kinds('overgrown_graves'), 'spider');
     assert.eq(kinds('broken_masonry'), 'club_goblin');
-    assert.eq(kinds('broken_depot'), 'bat,bat,bat,bat,bat');
+    assert.eq(kinds('broken_depot'), 'skeleton,club_goblin,skeleton,club_goblin,skeleton', 'the depot keeps its own family; no surface bats');
     assert.eq(kinds('seep'), 'split_slime');
     assert.eq(kinds('work_yard'), 'split_slime,split_slime');
     assert.eq(kinds('mystic_reef'), ['giant_crab', ...Array(8).fill('crab')].join());

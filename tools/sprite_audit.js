@@ -231,7 +231,8 @@ const ASSETS = assetsCtx.window.ASSETS;
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const GEM_ROCKS = Object.values(itemsCtx.GEM_DEPOSITS).filter(row => row.art.sheet === 'cave_props');
 const SHEETS = {
-  cave_props: { file: ASSETS.cave_props.path, fw: 24, fh: 24, frames: [6, ...GEM_ROCKS.map(row => row.art.frame)] },
+  cave_props: { file: ASSETS.cave_props.path, fw: 24, fh: 24, frames: [1, 6, ...GEM_ROCKS.map(row => row.art.frame)] },
+  poison_vent_inactive: { file: ASSETS.poison_vent_inactive.path, fw: 24, fh: 24, frames: [0] },
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
   // 32×48, not 32×64: at 64 the birch frame picked up the tip of the red tree below (see assets.js).
   pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [1, 2, 3] },
@@ -247,6 +248,7 @@ const SHEETS = {
   shrine_spirit: { file: ASSETS.shrine_spirit.path, fw: 16, fh: 16, frames: [0, 1, 2, 3] },
   crystal_cluster: { file: 'assets/Objects/Wilderness/crystal_cluster.png', fw: 16, fh: 16, frames: [0] },
   mineralrock:   { file: 'assets/Objects/Approved/mineralrock.png',fw: 16, fh: 16, frames: [168, 169, 170, 171, 0, 1, 2, 3, 5, 7] },
+  mineralboulder: { file: 'assets/Objects/Approved/mineralrock.png', fw: 32, fh: 16, frames: [45, 60, 46, 47, 48, 49, 51, 53] },
   approved_charred_stakes: { file: 'assets/Objects/Approved/approved_charred_stakes.png', fw: 24, fh: 24, frames: [0] },
   well:          { file: 'assets/Objects/Wilderness/well.png',               fw: 30, fh: 32, frames: [0] },
   pillar:        { file: ASSETS.pillar.path, fw: 24, fh: 24, frames: [0] },
@@ -288,6 +290,8 @@ const SCENARIOS = [
     name: key.replaceAll('_', ' '), key, frameIdx: 0, scale: itemsCtx.WILDPLANT_CONTEXT_ART[key].scale,
   })),
   { name: 'drill shrine', key: 'cave_props', frameIdx: 6, scale: 4 / 3 },
+  { name: 'stalagmites', key: 'cave_props', frameIdx: 1, scale: 4 / 3 },
+  { name: 'inactive poison vent', key: 'poison_vent_inactive', frameIdx: 0, scale: 4 / 3 },
   ...GEM_ROCKS.map(row => ({ name: row.item + ' deposit', key: row.art.sheet, frameIdx: row.art.frame, scale: row.art.scale })),
   { name: 'maple sprout',    key: 'trees',         frameIdx: 1, scale: t('maple', 'small') },
   { name: 'maple young',     key: 'trees',         frameIdx: 2, scale: t('maple', 'medium') },
@@ -307,9 +311,9 @@ const SCENARIOS = [
   { name: 'crate (box)',     key: 'box',           frameIdx: 0, scale: 0.8 },
   ...[0, 1, 2, 3].map(frameIdx => ({ name: `shrine spirit idle ${frameIdx}`, key: 'shrine_spirit', frameIdx,
     scale: SHRINE_SPIRIT_ART.scale })),
-  { name: 'mineralrock',     key: 'mineralrock',   frameIdx: 171, scale: 1.28 },
+  { name: 'mineralrock',     key: 'mineralboulder', frameIdx: 45, scale: 1.8 },
   { name: 'crystal deposit', key: itemsCtx.GEM_DEPOSITS.sapphire.art.sheet, frameIdx: itemsCtx.GEM_DEPOSITS.sapphire.art.frame, scale: itemsCtx.GEM_DEPOSITS.sapphire.art.scale },
-  { name: 'ore rock',        key: 'mineralrock',   frameIdx: 0,   scale: 1.28 },
+  { name: 'ore rock',        key: 'mineralboulder', frameIdx: 46, scale: 1.7 },
   { name: 'well',            key: 'well',          frameIdx: 0, scale: 0.9 },
   { name: 'pole (pillar)',   key: 'pillar',        frameIdx: 0, scale: 4 / 3 },
   { name: 'scarecrow',       key: 'scarecrow',     frameIdx: 0, scale: 0.6 },

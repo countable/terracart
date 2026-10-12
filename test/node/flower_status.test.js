@@ -161,10 +161,11 @@
   }));
   test('flower status: creature pursuit ignores player-only visibility reduction', () => withClock(() => {
     const c = foe('ally'), target = foe('enemy', 'zombie', 20), s = scene();
-    Combat.applyCharm(c, wall); const row = EnemyRoster.get(c.kind), real = Combat.seesPlayer;
-    Combat.seesPlayer = () => false;
+    Combat.applyCharm(c, wall); const row = EnemyRoster.get(c.kind), real = Combat.sightCells;
+    // Player-only sight suppression must not shrink a creature's own sight.
+    Combat.sightCells = (kind, save) => save ? 0 : real(kind);
     try { rosterEnemyMove(s, c, row, 10000, target.x, target.y, false, false, null, 0.1, target); }
-    finally { Combat.seesPlayer = real; }
+    finally { Combat.sightCells = real; }
     assert.gt(c.x, 0, 'the visible creature remains worth pursuing');
   }));
 })();

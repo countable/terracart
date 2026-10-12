@@ -30,8 +30,8 @@ Ordinary landcover profiles select enemy pools from `EnemyRoster.surface.biomes`
 legal seats; safety removes destinations, not requested inhabitants. Plain
 roads and paths supply neither species nor population. Road Variants and
 Nexuses supply explicit themed profiles. Forests host
-bats, spiders, boars, plants and giant bears. Rock hosts bats and the skeleton
-family. Commercial ground hosts goblins, including club fighters, and sword
+spiders, boars, plants and giant bears. Rock hosts the skeleton family. Bats
+live only underground: no surface pool, guard group or zone seats them. Commercial ground hosts goblins, including club fighters, and sword
 spirits. Industrial ground hosts plain, marsh and ash zombies; the two restored
 zombie palettes share the base zombie's pool rather than replacing it. They
 remain night-only and have no cave population. Orchard and farmland rims host

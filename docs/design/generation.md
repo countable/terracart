@@ -116,6 +116,7 @@ access or tile lifecycle mechanics.
   one owning table keyed by floor, never a depth literal at a call site.
   `WorldGen.floorProfile(depth)` owns cave terrain, street projection and gem
   probabilities, authored cave-area weights/carving/garrisons, pressure traps,
+  the vent kinds a floor erupts,
   arrival story IDs and entry keys. Keep story copy in the presentation module;
   choose its story through the profile. Depths beyond the explicit rows inherit
   the default profile, including the infernal entry key.
@@ -428,6 +429,13 @@ access or tile lifecycle mechanics.
   foreground ticks own the clock. `HazardFalls` owns landing and descent,
   including floor seals and retrying unavailable landings. Temporary sinkholes
   do not compete with these clusters; existing L1 chasms remain unchanged.
+  A grounded enemy, pet or charmed creature (`HazardFalls.fallsThrough`;
+  never a flier, NPC or hired ally) that ends a creature tick over an open gap (opened cave-in,
+  open sinkhole or L1 chasm — `HazardFalls.gapAt`) falls too
+  (`HazardFalls.dropCreatures`): it leaves this floor and lands, by the same
+  landing search, on the floor below when that tile is already spawned, or is
+  gone this session otherwise. A fall is no kill: nothing enters `save.caught`.
+  A fallen pet rejoins through `Companions.tickPets` catch-up.
 - POIs that are no chest ride existing lanes too: a GATE is two posts round a
   spawn point (`WorldGen.gatePostsAt`, lairs.js `'gate'` tier — one foe a UTC
   day, `DAILY_TIERS`); an INFORMATION board reads a Book page like the
@@ -473,6 +481,12 @@ Higher-priority placements and their access space take precedence in this order:
    override road variants where they overlap; the physical road and its
    safety restrictions remain intact.
 6. Ambient fill: ordinary plants, rocks and generic scattered content.
+   Residential yard trees are the newest ambient fill: while the DeepForest
+   layer is paused (`DEEPFOREST_TREES_ENABLED`), each residential polygon
+   seeds random-sized trees from the `T.RESIDENTIAL` `yardTrees` row
+   (`BiomeProfiles.yardTrees`). They seat after every older object and wild
+   plant, obey the residential spawn gate like the yard flora, and yield
+   their cell to any mapped or detected tree from the tile bin.
 
 - Hard terrain, land-access, road-safety and accessibility rules are prerequisites,
   separate from priority. Higher priority does not bypass them. Any authored

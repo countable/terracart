@@ -4,7 +4,7 @@
   'use strict';
   const EXT = 4096, REGION = 1024;
   const FAMILIES = {
-    natural: ['slime', 'cave_slime', 'bat', 'spider', 'purple_slime', 'gelatinous_cube', 'troll'],
+    natural: ['slime', 'cave_slime', 'split_slime', 'bat', 'spider', 'purple_slime', 'gelatinous_cube', 'troll'],
     roots: ['plant', 'spider', 'poison_spider', 'dryad', 'bone_plant'],
     warren: ['club_goblin', 'spear_goblin', 'archer_goblin', 'goblin_trapper', 'bomb_goblin', 'orc'],
     crypt: ['zombie', 'skeleton', 'skeleton_soldier', 'necromancer', 'lich', 'bone_plant', 'vampire_bat', 'sword_spirit'],
@@ -12,7 +12,9 @@
     infernal: ['fire_elemental', 'red_demon', 'purple_demon', 'armoured_demon', 'fiend', 'succubus', 'hell_brute'],
     roost: ['red_demon', 'armoured_demon'],
   };
+  // Floor 1 is slime country: one region in eight is a goblin warren.
   const THEME_BANDS = [
+    { max: 1, themes: ['natural', 'natural', 'natural', 'natural', 'natural', 'natural', 'natural', 'warren'] },
     { max: 2, themes: ['natural', 'natural', 'natural', 'warren'] },
     { max: 4, themes: ['natural', 'roots', 'warren', 'crypt', 'stronghold'] },
     { max: 6, themes: ['roots', 'warren', 'crypt', 'stronghold', 'infernal'] },

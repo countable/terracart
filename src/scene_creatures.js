@@ -1858,7 +1858,7 @@ class SceneCreatures {
       //            does NOT bite on the way — the player got clear, and a
       //            guard still leeching on its walk home would mean they had
       //            not.
-      const lairState = c.lair && !frightened && !psychotic ? Lairs.guardState(c, peerTarget || { x: px, y: py }, this.cellM,
+      const lairState = c.lair && !frightened && !psychotic ? enemyGuardState(this, c, peerTarget || { x: px, y: py },
         !!peerTarget || (!unnoticed && !kerbTurn)) : null;
       c._hunting = lairState === 'hunt';
       // ONE READ FOR "THIS FOE IS NOT ATTACKING YOU RIGHT NOW", the way
@@ -1942,7 +1942,7 @@ class SceneCreatures {
       if (rosterRow) {
         rosterEnemyMove(this, c, rosterRow, now, npcTarget?.x ?? px, npcTarget?.y ?? py,
           (npcTarget ? NPC.isDormant(npcTarget) : unnoticed) || standDown,
-          routed || (kerbTurn && !c.lair), lairState, enemyDt);
+          routed || (kerbTurn && !c.lair), lairState, enemyDt, npcTarget);
         return;
       }
       // Wild-crow flight rhythm: perch → one eased glide → perch again,
@@ -2290,6 +2290,14 @@ class SceneCreatures {
       tickCreature(c);
       if (EnemySpawns.homeFaunaSubject(c) || c._homeFaunaInactive) EnemySpawns.surfaceActive(this, c);
       updateCharacterSpacingIndex(spacingIndex, c);
+    }
+    // A foe, pet or charmed creature on an open floor gap falls through (HazardFalls).
+    const fell = HazardFalls.dropCreatures(this, activeCreatures);
+    if (fell.length) {
+      const gone = new Set(fell);
+      this._activeCreatures = this._activeCreatureMemo.creatures = activeCreatures.filter(c => !gone.has(c));
+      this._foeBodies = this._foeBodies.filter(c => !gone.has(c));
+      this._characterBodies = this._characterBodies.filter(c => !gone.has(c));
     }
     this._characterSpacingIndex = null;
     // What the foes took off the bar this window pops as one "⚔️ monsters"

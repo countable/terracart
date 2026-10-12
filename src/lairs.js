@@ -310,9 +310,6 @@
     splitter: { label: 'Splitting slime', tiers: [9], minT: 0,
       story: 'Strike it and it divides, half its health to each side. Finish a half before it divides again.',
       members: [{ kind: 'split_slime', n: 1, place: 'ring' }] },
-    roost: { label: 'Bat roost', tiers: [9], minT: 0,
-      story: 'A pair in the rafters: they hang still until the wreck notices you, then both swoop.',
-      members: [{ kind: 'bat', n: 2, place: 'cloud' }] },
     // ── A castle: the big ones, inside the keep ──
     horde: { label: 'Goblin horde', tiers: [12], minT: 0.35,
       story: 'Fifteen runts fill the keep: nothing alone, a wall of teeth together.',
@@ -324,9 +321,6 @@
     archers: { label: 'Archer line', tiers: [12], minT: 0.2,
       story: 'A firing line along the front wall and nothing to charge: four archers keep their distance and loose together.',
       members: [{ kind: 'archer_goblin', n: 4, place: 'front', spread: 0.5 }] },
-    bats: { label: 'Bat swarm', tiers: [12], minT: 0.2,
-      story: 'A roost in the towers: they hang still until the castle notices you, then the whole swarm swoops.',
-      members: [{ kind: 'bat', n: 10, place: 'cloud' }] },
     elite_orc: { label: 'Elite orc', tiers: [12], minT: 0.5,
       story: 'One strong one, alone in the keep. Twice the pool, twice the blow, and an elite\'s drop.',
       members: [{ kind: 'orc', n: 1, place: 'core', elite: true }] },
@@ -1279,7 +1273,7 @@
   // the CHASE off exactly where it already switches the bite off: a garrison
   // that has lost the player walks home instead of milling about wherever it
   // happened to be standing when they vanished.
-  function guardState(c, p, cellM, noticed) {
+  function guardState(c, p, cellM, noticed, sightPenalty = 0) {
     if (!c || !c.lair) return null;
     if (!p || !(cellM > 0)) return 'hold';
     if (noticed !== false) {
@@ -1294,8 +1288,8 @@
         if (Math.sqrt(dx * dx + dy * dy) - wallR <= LAIR_LEASH_CELLS * cellM) return 'hunt';
       }
       const dLair = Math.sqrt(dx * dx + dy * dy) - (c.lairR || 0);
-      if (dLair <= (c.aggroCells ?? LAIR_AGGRO_CELLS) * cellM) return 'hunt';
-      if (c._hunting && dLair <= LAIR_LEASH_CELLS * cellM) return 'hunt';
+      if (dLair <= Math.max(0, (c.aggroCells ?? LAIR_AGGRO_CELLS) - sightPenalty) * cellM) return 'hunt';
+      if (c._hunting && dLair <= Math.max(0, LAIR_LEASH_CELLS - sightPenalty) * cellM) return 'hunt';
     }
     if (!Number.isFinite(c.seatX) || !Number.isFinite(c.seatY)) return 'hold';
     const sx = c.x - c.seatX, sy = c.y - c.seatY;

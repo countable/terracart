@@ -14,7 +14,7 @@
   ].map(lift).join(',') + '});')({ now: () => now });
   const start = SCENE_SRC.indexOf('    // ── Melee: auto-engage');
   const end = SCENE_SRC.indexOf('    this._drawEnemyHealth(enemies);', start);
-  const tick = new Function('enemies', 'px', 'py', SCENE_SRC.slice(start, end));
+  const tick = new Function('visibleEnemies', 'px', 'py', SCENE_SRC.slice(start, end));
   function scene() {
     now = 1000;
     return Object.assign({
@@ -102,7 +102,7 @@
   test('death: ranged weapons refuse even an enemy standing on the player', () => {
     const a = SCENE_SRC.indexOf('    const rangedArmed =');
     const b = SCENE_SRC.indexOf('    if (rangedArmed)', a);
-    const armed = new Function('px', 'py', 'enemies', 'reachCells',
+    const armed = new Function('px', 'py', 'visibleEnemies', 'reachCells',
       SCENE_SRC.slice(a, b) + 'return rangedArmed;');
     const s = scene(), enemy = foe('near', 0);
     assert.truthy(armed.call(s, 0, 0, [enemy], () => 2));

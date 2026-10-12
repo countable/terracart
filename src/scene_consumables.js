@@ -702,7 +702,8 @@ class SceneConsumables {
     const targets = [];
     const pc = this.playerToWorldCell();
     WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, c => {
-      if (Combat.isEnemy(c) && !caught.has(c.id) && where(c)) targets.push(c);
+      if (Combat.isEnemy(c) && !caught.has(c.id) && where(c)
+          && !(typeof Visibility !== 'undefined' && Visibility.playerCover(this, c.x, c.y) === 2)) targets.push(c);
     });
     return targets;
   }

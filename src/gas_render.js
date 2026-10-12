@@ -2,10 +2,17 @@
 // under lighting and exploration fog. No textures or pixel readbacks per frame.
 const GasRender = (() => {
   const FADE_MS = 320;
-  // Confusion gas is YELLOW (owner, Oct 2026): the old lilac all but vanished
-  // over grass. The mushroom monster's travelling puff paints through here too.
-  const COLOR = 0xe6cf3a;
-  const HIGHLIGHT = 0xfff4a8;
+  // Confusion gas is BRIGHT YELLOW (owner, Oct 2026): the old lilac all but
+  // vanished over grass, and the first muted yellow still sank into dim cave
+  // floors. The mushroom monster's travelling puff paints through here too.
+  const COLOR = 0xffde1a;
+  const HIGHLIGHT = 0xffffc4;
+  // Cell opacity: any gas at all starts from MIN_ALPHA so a thin fringe still
+  // reads yellow over a dark cave floor, rather than a murky olive; a dense
+  // cloud peaks at MAX_ALPHA and the cell beneath still shows through every
+  // band (each band is at most 0.72 of it).
+  const MIN_ALPHA = 0.3;
+  const MAX_ALPHA = 0.9;
 
   // Phaser Graphics-compatible painter, also usable by the art preview adapter.
   // Stepped shoulders and sparse highlights keep a cell cloud from looking like
@@ -13,8 +20,11 @@ const GasRender = (() => {
   function paintCell(g, x, y, size, density, seed = 0, phase = 0) {
     // Square-root response keeps the spreading fringe visible: a .25-density
     // neighbour reads as a veil, while the source remains translucent.
-    const alpha = Math.min(0.62, Math.sqrt(Math.max(0, density)) * 0.7);
-    if (alpha < 0.001) return;
+    // The floor ramps in below the simulation's vanish threshold, so the
+    // 320 ms fade to or from nothing never pops.
+    if (!(density > 0)) return;
+    const floor = MIN_ALPHA * Math.min(1, density / Gas.DEFAULTS.minDensity);
+    const alpha = Math.min(MAX_ALPHA, floor + Math.sqrt(density) * 0.9);
     const unit = size / 16;
     const wobble = Math.sin(phase + seed * 0.73);
     for (let row = 0; row < 8; row++) {
@@ -26,14 +36,14 @@ const GasRender = (() => {
       g.fillStyle(COLOR, alpha * (row === 0 || row === 7 ? 0.35 : 0.72));
       g.fillRect(x + left * unit, top, (16 - left - right) * unit, 2 * unit);
       if (row > 1 && row < 6) {
-        g.fillStyle(HIGHLIGHT, alpha * (0.16 + wobble * 0.025));
+        g.fillStyle(HIGHLIGHT, alpha * (0.3 + wobble * 0.04));
         const shift = (row * 3 + seed) % 4;
         g.fillRect(x + (left + 2 + shift) * unit, top, (7 - shift) * unit, unit);
       }
     }
     // A few drifting pale flecks suggest suspended spores without obscuring
     // the terrain, enemies or hidden source beneath the gas.
-    g.fillStyle(HIGHLIGHT, alpha * 0.45);
+    g.fillStyle(HIGHLIGHT, alpha * 0.6);
     for (let i = 0; i < 3; i++) {
       const px = 3 + ((seed + i * 5) % 10);
       const py = 3 + ((seed * 3 + i * 7 + Math.floor(phase)) % 10);
