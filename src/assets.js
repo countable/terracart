@@ -372,7 +372,8 @@ const ASSETS = {
   // function. Anchored at origin (0.5, 0.9) like the base house.
   house_blacksmith: { kind: 'image', path: 'assets/Objects/Approved/house_blacksmith.png' },
   house_trader:     { kind: 'image', path: 'assets/Objects/Approved/house_trader.png' },
-  house_shop:     { kind: 'image', path: 'assets/Objects/Approved/house_shop.png' },
+  // The shop's file keeps its pre-rename name: the approved-art manifest keys it.
+  house_shop:       { kind: 'image', path: 'assets/Objects/Approved/house_market.png' },
   house_fort:       { kind: 'image', path: 'assets/Objects/Approved/house_fort.png' },
   house_trailer:    { kind: 'image', path: 'assets/Objects/Home/home_wagon.png' },
   // Wreck: every tier-9 small house starts out as one of these until the

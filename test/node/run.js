@@ -1428,6 +1428,16 @@ for (const f of testFiles) {
   }
 }
 
+// ── Every ASSETS file ships ──────────────────────────────────────────────
+// A key renamed without its file (house_market → house_shop) 404s in the
+// browser and the sprite silently never draws. Files on disk, so node scope.
+ctx.__tests.push({ name: 'assets: every ASSETS path exists on disk', fn: () => {
+  const { ASSETS } = require('../../tools/sprite_audit.js');
+  const missing = Object.entries(ASSETS).filter(([, a]) => a && a.path && !fs.existsSync(path.join(ROOT, a.path.split('?')[0])))
+    .map(([k, a]) => `${k} → ${a.path}`);
+  if (missing.length) throw new Error(`missing art files: ${missing.join(', ')}`);
+} });
+
 // The editable table and the shipped browser module must always agree.
 ctx.__tests.push({ name: 'zone variants: generated browser data matches the canonical table', fn: () => {
   const expected = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/data/zone-variants.json'), 'utf8'));
