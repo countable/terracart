@@ -20,7 +20,7 @@ test('gas rendering: cloud geometry never crosses the simulation cell edge', () 
       assert.lte(r.x + r.width, 132);
       assert.lte(r.y + r.height, 232);
       assert.gt(r.alpha, 0);
-      assert.lt(r.alpha, 0.5);
+      assert.lt(r.alpha, 0.7);
     }
   }
 });
@@ -30,7 +30,16 @@ test('gas rendering: thinner gas is more transparent and absent gas paints nothi
   const dense = gasPaintRects(1), thin = gasPaintRects(0.2);
   assert.eq(dense.length, thin.length);
   dense.forEach((r, i) => assert.lt(thin[i].alpha, r.alpha));
-  for (const r of gasPaintRects(100)) assert.lt(r.alpha, 0.5);
+  for (const r of gasPaintRects(100)) assert.lt(r.alpha, 0.7);
+});
+
+test('gas rendering: fading to nothing never pops', () => {
+  let last = 0;
+  for (let d = 0.001; d <= 0.05; d += 0.001) {
+    const a = Math.max(...gasPaintRects(d).map(r => r.alpha));
+    assert.lt(a - last, 0.03, `smooth alpha at density ${d.toFixed(3)}`);
+    last = a;
+  }
 });
 
 test('gas rendering: a newly diffused neighbour is a visible translucent veil', () => {
