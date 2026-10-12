@@ -76,6 +76,8 @@
       this.source._templeSceneActive = false;
       if (!this.hadModalClass) document.body.classList.remove('modal-open');
       this.source._syncModalGate?.();
+      // A viewport resize updates active cameras; the surface was paused.
+      if (typeof applyRenderScale === 'function') applyRenderScale(this.source.cameras.main);
       if (this.source.scene.isPaused()) this.source.scene.resume();
       this.source.updateHUD?.();
     });

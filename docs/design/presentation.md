@@ -80,6 +80,8 @@ changing dialogue, story panels, books, toasts or status presentation.
 - The modal HUD gate also covers the isolated upper-temple scene. Its scene
   flag keeps inventory, movement pads and the objective hidden until shutdown,
   even when no DOM dialog is open; a reward dialog keeps the gate after exit.
+  Shutdown reapplies the current camera scale to the paused surface before
+  resuming it, so a viewport resize during a trial also fits the return map.
 - Paired story paintings must use actual image references. Establish the
   introduction first, then edit that image for the completed action; preserve
   object designs, materials and booth identity. After-use panels zoom in on

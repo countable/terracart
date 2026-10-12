@@ -30,3 +30,36 @@ test('temple modal gate: observer sync preserves the trial and restores HUD only
   assert.falsy(gated, 'closing final overlay restores HUD');
   assert.eq(cheers, 1, 'queued cheers resume once the screen is clear');
 });
+
+test('temple modal gate: returning from a resized trial updates the paused surface camera before resume', () => {
+  const previous = { Phaser: globalThis.Phaser, document: globalThis.document,
+    applyRenderScale: globalThis.applyRenderScale };
+  let scale = 2, trial, shutdown, resumed = 0;
+  globalThis.Phaser = { Scene: class {} };
+  globalThis.applyRenderScale = camera => { camera.zoom = scale; };
+  globalThis.document = { body: { classList: { contains: () => false, add() {}, remove() {} } } };
+  const camera = { zoom: 2 };
+  const source = { cameras: { main: camera }, events: { once() {}, off() {} },
+    scene: { manager: { getScene() {}, add(_key, value) { trial = value; } },
+      pause() {}, isPaused: () => true, resume() { assert.eq(camera.zoom, scale, 'camera fits before surface resumes'); resumed++; } } };
+  try {
+    TempleScene.enter(source, {}, { kind: 'duel', size: 7, x: 0, y: 0, cellM: 7 });
+    const text = () => ({ setOrigin() { return this; }, setInteractive() { return this; }, on() { return this; } });
+    trial.add = { graphics: () => ({}), container: () => ({}), text };
+    trial.cameras = { main: { setBackgroundColor() {} } };
+    trial.input = { on() {} };
+    trial.events = { once(_event, callback) { shutdown = callback; } };
+    trial.restartTrial = () => {};
+    trial.create();
+    scale = 1.1;
+    assert.eq(camera.zoom, 2, 'paused surface still has its old scale');
+    shutdown();
+    assert.eq(camera.zoom, 1.1, 'shutdown applies the new viewport scale');
+    assert.eq(resumed, 1);
+    assert.falsy(source._templeSceneActive);
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete globalThis[key]; else globalThis[key] = value;
+    }
+  }
+});
