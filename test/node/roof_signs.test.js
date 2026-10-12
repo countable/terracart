@@ -25,7 +25,7 @@
     const look = Render.shopSignLook(badge);
     const lum = (css) => { const c = parseInt(css.slice(1), 16); return (c >> 16) + ((c >> 8) & 255) + (c & 255); };
     const tierLum = lum(badge.backgroundColor);
-    assert.truthy(lum(look.background) < tierLum && lum(look.border) < lum(look.background), 'dark tier material, darker rim');
+    assert.truthy(lum(look.background) < tierLum && lum(look.rim) > lum(look.background), 'dark tier material, a light rim');
     assert.truthy(lum(look.ink) > tierLum, 'letters a pale tint of the tier');
     assert.truthy(Render.shopSignLook(null).background !== look.background, 'an unranked shop wears signboard wood');
     for (const theme of Object.keys(Render.SHOP_SIGN_ICONS)) {
@@ -38,7 +38,7 @@
     const item = { badge, theme: 'potion', name: text(60, 13), tier: text(30, 10) };
     const box = Render.drawShopPlate(gfx, item, { x: 200, y: 100 }, null, 400);
     const P = Render.SHOP_PLATE;
-    assert.eq(box.h, 2 * P.padY + 9 * P.cell, 'the board is the glyph\'s height');
+    assert.eq(box.h, 2 * P.padY + 9 * P.cell, 'the board is the glyph\'s height when the name is shorter');
     assert.eq(box.w, 2 * P.padX + 9 * P.cell + P.gap + 60, 'glyph then name');
     assert.truthy(item.name.x > box.x + 9 * P.cell && item.name.y >= box.y, 'the name right of the glyph, on the board');
     assert.truthy(item.tier.y > box.y + box.h, 'the tier word hangs below the board');
