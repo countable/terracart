@@ -69,6 +69,13 @@ mechanics.
   one; bounty follows `powerMul`. Possessed and ascendant bend the space
   around them (rendering.md). A new rank is a row, never a branch
   (`test/node/elite_ranks.test.js`).
+- Every player-credited elite kill pays one of the monster row's three
+  `eliteDrops`, at 70% / 20% / 10%. The first kill also banks its memory.
+  Equipment targets monster tier + 1 (maximum T7), rounded down to a supported
+  slot tier. Fixed items use that tier's chest quantity budget. Same-tier or
+  weaker equipment becomes cash at half the dropped equipment's list price;
+  it never rerolls or climbs above the authored tier. Depth and luck do not
+  change signature odds or tiers. The ordinary kill bounty is separate.
 - `combat.js` owns foe HP for melee, projectiles and pets. Damage derives from
   `TOOL_DURATION_MS`; tune that or monster HP, not an extra combat multiplier.
   Game animals (crow/deer) are not enemies or projectile targets; released
