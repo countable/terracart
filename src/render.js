@@ -1942,6 +1942,7 @@ Render.drawSpiderWebs = function drawSpiderWebs(scene) {
   // Square-bound radial anchors, clockwise from the north-west corner.
   const anchors = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]];
   for (const web of webs) {
+    if (Render.coverHidden(scene, web)) continue;
     const at = worldMetersToScreen(scene, web.x, web.y);
     if (at.x + half < left || at.y + half < top || at.x - half > right || at.y - half > bottom) continue;
     if (!scene._spiderWebGfx) {
@@ -1981,6 +1982,7 @@ Render.drawSpiderWebs = function drawSpiderWebs(scene) {
   }
   if (!scene.boltContainer) return;
   for (const shot of shots) {
+    if (Render.coverHidden(scene, shot)) continue;
     const from = worldMetersToScreen(scene, shot.fromX, shot.fromY);
     const tip = worldMetersToScreen(scene, shot.x, shot.y);
     if (Math.max(from.x, tip.x) < left || Math.max(from.y, tip.y) < top
@@ -3141,6 +3143,7 @@ Render.drawCells = function drawCells(scene) {
   plainX();
   const drawX = (tr) => {
     if (!treasureExposed(tr, scene) || found.has(tr.id)) return;
+    if (Render.coverHidden(scene, tr)) return;
     // Buried until the feet stand beside it (HiddenObjects.tick).
     if (HiddenObjects.treasureHidden(scene.save, tr)) return;
     if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, tr, hideNightRoadTreasure)) return;
@@ -3557,6 +3560,17 @@ const CRITTER_SHADOW_W = {
   butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
 };
 
+// Cull before building sprite, label, shadow and effect lists. Tree cover
+// remains visible; the sole lighting pass supplies its half-dark treatment.
+Render.coverHidden = function coverHidden(scene, o) {
+  return typeof Visibility !== 'undefined' && Visibility.playerCover(scene, o.x, o.y) === Visibility.FULL;
+};
+Render.cullCovered = function cullCovered(scene, list, field) {
+  let n = 0;
+  for (const item of list) if (!Render.coverHidden(scene, item[field])) list[n++] = item;
+  list.length = n;
+};
+
 Render.drawObjects = function drawObjects(scene) {
   if (typeof EnemySpawns !== 'undefined') EnemySpawns.refreshHomeFauna(scene, false);
   // Canvas width, for keeping centred labels on screen (see clampTextX in
@@ -3675,6 +3689,7 @@ Render.drawObjects = function drawObjects(scene) {
   // offersPreCullLight (module level), the same predicate the per-tile list
   // is derived by.
   const offerPreCullLights = (o, dx, dy) => {
+    if (typeof Visibility !== 'undefined' && Visibility.playerCover(scene, o.x, o.y) === Visibility.FULL) return;
     // A restored building (or Home) is a LIGHT as well as a sprite, and
     // its light reaches further than its art: offered to the lightmap
     // before the sprite cull, with its own radius as the margin, so a
@@ -3724,6 +3739,7 @@ Render.drawObjects = function drawObjects(scene) {
       WorldGen.forEachItemInBox(entry, 'objects', sx0, sy0, sx1, sy1, (o) => {
         _boot_scanned++;
         if (o.kind === 'pressure_plate') return; // PressureTraps owns its ground sprite.
+        if (Render.coverHidden(scene, o)) return;
         if (HiddenObjects.isHidden(scene.save, o)
             || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) return;
         const dx = o.x - pWorldX, dy = o.y - pWorldY;
@@ -3785,6 +3801,7 @@ Render.drawObjects = function drawObjects(scene) {
         // is not on the waterline today or was taken today — one predicate,
         // interactables.js isSpent, the tap asks the same.
         if (isSpent(wp, spentIds) || (!wp.tide && pickedSet.has(wp.id))) return;
+        if (Render.coverHidden(scene, wp)) return;
         if (HiddenObjects.isHidden(scene.save, wp)
             || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, wp, hideNightRoadObjects))) return;
         const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
@@ -3844,6 +3861,7 @@ Render.drawObjects = function drawObjects(scene) {
   // seats; the fallback preserves standalone render callers.
   cullToView(consideredCreatures, pWorldX, pWorldY, halfM, (c, dx, dy) => {
     if (caughtSet.has(c.id)) return;
+    if (Render.coverHidden(scene, c)) return;
     if (typeof EnemySpawns !== 'undefined' && EnemySpawns.isSurfaceResident(c)) EnemySpawns.surfaceActive(scene, c);
     if (c._surfaceInactive) return;
     if ((c.hidden || c.stealthy) && !c._discovered) return;
@@ -3939,11 +3957,15 @@ Render.drawObjects = function drawObjects(scene) {
   // Only containers with broken art remain after collection (clay pots).
   // Wooden barrels disappear through the ordinary spent-object filter.
   for (const o of HiddenObjects.saved(scene)) {
+    if (Render.coverHidden(scene, o)) continue;
     if (HiddenObjects.isHidden(scene.save, o)
         || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) continue;
     const dx = o.x - pWorldX, dy = o.y - pWorldY;
     if (Math.abs(dx) <= halfM && Math.abs(dy) <= halfM) objList.push({o, dx, dy});
   }
+  Render.cullCovered(scene, objList, 'o');
+  Render.cullCovered(scene, plantedList, 'p');
+  Render.cullCovered(scene, trapList, 'tr');
   const filteredObj = objList.filter(({ o }) => {
     const spent = isSpent(o, spentIds);
     if (o.kind === 'chest' && isBarrel(o) && chestLook(o).smashedKey) { o._smashed = spent; return true; }
@@ -3955,6 +3977,7 @@ Render.drawObjects = function drawObjects(scene) {
   for (const sc of scarecrowList) filteredObj.push(sc);
   for (const fr of fireList) filteredObj.push(fr);
   for (const L of lampList) filteredObj.push(L);
+  Render.cullCovered(scene, filteredObj, 'o');
   filteredObj.sort((a, b) => a.dy - b.dy);
   const hazardState = EnvironmentHazards.lists(scene);
   const openCaveins = hazardState.caveins.filter(h => h.phase === 'open' && !h.blocked
@@ -4005,6 +4028,9 @@ Render.drawObjects = function drawObjects(scene) {
       ...it, dx: it.h.x - pWorldX, dy: it.h.y - pWorldY,
     })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
   const zList = [];
+  Render.cullCovered(scene, whirlwindList, 'h');
+  Render.cullCovered(scene, environmentList, 'h');
+  Render.cullCovered(scene, pressureList, 'h');
   for (const it of pressureList) zList.push({ it, rank: 2, ground: it.plate, groundY: groundY(it) });
   for (const it of environmentList) zList.push({ it, rank: 1,
     ground: it.h.type !== 'vent', groundY: groundY(it) });
@@ -4618,6 +4644,7 @@ Render.drawObjects = function drawObjects(scene) {
       const c = entry.coinDrops[r];
       if (c.expiresAt && c.expiresAt <= _coinNow) continue;
       entry.coinDrops[w++] = c;
+      if (Render.coverHidden(scene, c)) continue;
       if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, c, hideNightRoadObjects)) continue;
       const dx = c.x - pWorldX, dy = c.y - pWorldY;
       if (inViewBox(dx, dy, halfM)) coinList.push({ c, dx, dy });
@@ -5114,6 +5141,7 @@ Render.drawObjects = function drawObjects(scene) {
         // ring was re-projected per step.
         if (f._mFrame !== scene.startWorldM) { f._m = tileCellCenterMeters(scene, tx, ty, f.ix, f.iy); f._mFrame = scene.startWorldM; }
         const m = f._m;
+        if (Render.coverHidden(scene, m)) continue;
         const dx = m.x - pWorldX, dy = m.y - pWorldY;
         if (inViewBox(dx, dy, halfM)) sparkList.push({ dx, dy, id: f.id });
       }

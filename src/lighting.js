@@ -1840,6 +1840,43 @@
   // Returns true when it painted, false when the still-frame gate reused the
   // last upload. Times itself for the load profile: scene._boot_lightMs is
   // what drawObjects' own tick subtracts, since this runs inside that pass.
+  // Cover is painted into the existing lightmap after all additive sources,
+  // so a lamp beyond a wall cannot reveal a concealed room. Reuse one small
+  // world-aligned canvas; camera motion only changes its blit position.
+  function coverFrame(scene, ax, ay, W, H) {
+    if (typeof Visibility === 'undefined' || !(scene.cellM > 0)
+        || !scene.playerM || !scene.startWorldM) return null;
+    const revision = Visibility.revision(scene);
+    const player = playerWorldM(scene);
+    const stepM = scene.cellM / 2, stepPx = CELL_PX / 2;
+    const x0 = Math.floor((ax - (scene.viewCenterX - scene.viewLeft) * scene.cellM / CELL_PX) / stepM);
+    const y0 = Math.floor((ay - (scene.viewCenterY - scene.viewTop) * scene.cellM / CELL_PX) / stepM);
+    const cols = Math.ceil(W / stepPx) + 2, rows = Math.ceil(H / stepPx) + 2;
+    const key = [revision, scene.depth, player.x, player.y, x0, y0, cols, rows, scene.cellM].join('|');
+    let mask = scene._coverLightMask;
+    if (!mask) mask = scene._coverLightMask = { canvas: document.createElement('canvas'), key: null };
+    if (mask.key !== key) {
+      const canvas = mask.canvas;
+      if (canvas.width !== cols * stepPx) canvas.width = cols * stepPx;
+      if (canvas.height !== rows * stepPx) canvas.height = rows * stepPx;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#000';
+      for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+        const cover = Visibility.playerCover(scene, (x0 + x + .5) * stepM, (y0 + y + .5) * stepM);
+        if (cover === Visibility.CLEAR) continue;
+        ctx.globalAlpha = cover === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS
+          : (scene.depth > 0 ? 1 : Visibility.FULL_DARKNESS);
+        ctx.fillRect(x * stepPx, y * stepPx, stepPx, stepPx);
+      }
+      ctx.globalAlpha = 1;
+      mask.key = key;
+    }
+    const x = Math.round(scene.viewCenterX - scene.viewLeft + (x0 * stepM - ax) * CELL_PX / scene.cellM);
+    const y = Math.round(scene.viewCenterY - scene.viewTop + (y0 * stepM - ay) * CELL_PX / scene.cellM);
+    return { canvas: mask.canvas, x, y, key: key + '|' + x + ',' + y };
+  }
+
   function draw(scene, ax, ay, halfM) {
     // The anchor this frame's scanned lights are measured from — brightnessAt
     // reads them back against it.
@@ -1885,7 +1922,8 @@
     const frames = reachFrames(scene, rp, reachM, wall);
     const fadeKey = reachFramesKey(frames);
     const B = (typeof window !== 'undefined') ? window.__boot : null;
-    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx) + '|' + fadeKey;
+    const cover = coverFrame(scene, ax, ay, tex.width, tex.height);
+    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx) + '|' + fadeKey + '|cover:' + (cover?.key || '');
     // A crossing may have borrowed the cache's last half-cell of physical
     // pad. Even if every visual key holds, the next ordinary frame must pay
     // back that deferred rebuild before the still gate can return.
@@ -1941,6 +1979,7 @@
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     const uploadT0 = B ? performance.now() : 0;
+    if (cover) ctx.drawImage(cover.canvas, cover.x, cover.y);
     tex.refresh();
     if (B) B.tick('lighting upload', performance.now() - uploadT0);
     if (B) {
@@ -1969,7 +2008,7 @@
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, objectLightPadCells, wildplantLightPadCells,
     collectPlayer, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
-    flickerAlpha, plateauCellPath, REACH_FADE_MS, reachFrames, reachFramesKey, draw,
+    flickerAlpha, plateauCellPath, REACH_FADE_MS, reachFrames, reachFramesKey, coverFrame, draw,
     LIGHT_TICK_MS, lightClock, baseFrameKey, staticFrameKey, lightCentrePx, plateauPxKey, LIGHT_CACHE_PAD_CELLS, LIGHT_CACHE_LIMIT_CELLS, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,
   };
 })(window);

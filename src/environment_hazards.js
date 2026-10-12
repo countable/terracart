@@ -13,11 +13,14 @@
   // kinds a cave floor erupts is that floor's `vents` (WorldGen.floorProfile);
   // the surface vents only the destroyed crater's fire. A `gas` vent deals no
   // contact hit: each eruption bursts into the shared confusion gas
-  // (MushroomGas), which spreads to the adjacent cells.
+  // (MushroomGas), which spreads to the adjacent cells. Its `inactiveMs`
+  // replaces the shared quiet phase: one burst takes ~21 s to clear from a
+  // one-cell passage (5 s in the open), so a shorter cycle stacks bursts into
+  // a cloud that never disperses.
   const VENTS = Object.freeze({ poison: { row: 0, condition: 'poison', durationMs: 30000 },
     fire: { row: 1, condition: 'burning', durationMs: 6000 },
     paralysis: { row: 2, condition: 'paralysis', durationMs: 5000 },
-    confusion: { row: 3, gas: true } });
+    confusion: { row: 3, gas: true, inactiveMs: 20000 } });
   function ventKinds(depth) { return depth ? [...(root.WorldGen.floorProfile(depth).vents || [])] : ['fire']; }
   function state(scene) {
     scene._environmentHazards ||= new Map();
@@ -89,11 +92,12 @@
   function update(h) {
     const t = h.elapsedMs, c = CONFIG[h.type];
     if (h.type === 'vent') {
-      const phase = t % (c.inactiveMs + c.warningMs + c.activeMs);
-      h.phase = phase < c.inactiveMs ? 'inactive' : phase < c.inactiveMs + c.warningMs ? 'warning' : 'active';
+      const quietMs = VENTS[h.kind].inactiveMs ?? c.inactiveMs;
+      const phase = t % (quietMs + c.warningMs + c.activeMs);
+      h.phase = phase < quietMs ? 'inactive' : phase < quietMs + c.warningMs ? 'warning' : 'active';
       const col = h.phase === 'inactive' ? 0 : h.phase === 'warning'
-        ? 1 + Math.min(1, Math.floor((phase - c.inactiveMs) / (c.warningMs / 2)))
-        : 3 + Math.floor((phase - c.inactiveMs - c.warningMs) / 180) % 2;
+        ? 1 + Math.min(1, Math.floor((phase - quietMs) / (c.warningMs / 2)))
+        : 3 + Math.floor((phase - quietMs - c.warningMs) / 180) % 2;
       h.frame = VENTS[h.kind].row * 5 + col;
     } else if (h.type === 'cavein') {
       h.phase = t < c.warningMs ? 'warning' : 'open';

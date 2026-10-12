@@ -177,10 +177,14 @@
       assert.inRange(Lairs.GROUP_RATE[tier], 0.05, 0.95, `tier ${tier}: a group is a share of ruins, not all of them`);
     }
     // The kinds that exist only for groups are seated by nothing else.
+    // The splitting slime alone also joins the first cave floor's bag.
     for (const kind of ['goblin_runt', 'split_slime', 'storm_gull']) {
       const row = EnemyRoster.get(kind);
       assert.falsy(row.surface, `${kind} is in no surface pool`);
-      assert.falsy(row.cave, `${kind} is in no cave bag`);
+      if (kind === 'split_slime') {
+        assert.eq(`${row.cave.minDepth}-${row.cave.maxDepth}`, '1-1', 'the splitting slime oozes on floor 1 only');
+        assert.includes(EnemyHabitats.FAMILIES.natural, kind, 'in the natural regions');
+      } else assert.falsy(row.cave, `${kind} is in no cave bag`);
       assert.falsy(Combat.onQuestBoard(kind), `${kind} is never a board job`);
     }
   });

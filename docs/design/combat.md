@@ -109,7 +109,13 @@ mechanics.
   wraiths and includes airborne fauna; the same `Conditions.flying` gate covers
   them without saving an infinite potion expiry or showing an infinite countdown.
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds
-  sight range through `unseen`. Traps check `Combat.playerDowned` directly:
+  sight range through `unseen`. Bushes, short walls and cave walls fully block
+  detection, pursuit and new attacks across them. Trees reduce sight by two
+  cells once per sight line; overlapping trees do not stack. Cover uses the
+  same visibility grid for local players, peers and NPC targets, and cancels
+  an attack wind-up when sight is lost. Guards return to their seats when full
+  cover breaks sight; their notice/leash rings lose two cells through trees.
+  Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.
 - A status effect is a row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin): the
   player's condition, a foe's (`Combat.ignite` / `burnTick` read the same row),

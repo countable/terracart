@@ -127,7 +127,7 @@ const FILES = [
   // render.js reads no globals at load time (see the CANVAS_W comment in
   // drawObjects), so it loads safely and exposes pure helpers (edgeNeedsBorder).
   // The lightmap: only draw() touches Phaser, and no test calls it.
-  'lighting.js', 'safety.js', 'obstacle_step.js',
+  'lighting.js', 'safety.js', 'obstacle_step.js', 'visibility.js',
   'render.js',
   'gas_render.js',
   // The modal shell: its methods are DOM work nobody runs here, but its top
@@ -146,7 +146,7 @@ const FILES = [
 const BRIDGE = `;Object.assign(globalThis, {
   Arena,
   GasRender,
-  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep,
+  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, Visibility,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
   REACH_CORNER_PX, ReachCorner,

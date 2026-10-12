@@ -1858,7 +1858,7 @@ class SceneCreatures {
       //            does NOT bite on the way — the player got clear, and a
       //            guard still leeching on its walk home would mean they had
       //            not.
-      const lairState = c.lair && !frightened && !psychotic ? Lairs.guardState(c, peerTarget || { x: px, y: py }, this.cellM,
+      const lairState = c.lair && !frightened && !psychotic ? enemyGuardState(this, c, peerTarget || { x: px, y: py },
         !!peerTarget || (!unnoticed && !kerbTurn)) : null;
       c._hunting = lairState === 'hunt';
       // ONE READ FOR "THIS FOE IS NOT ATTACKING YOU RIGHT NOW", the way
@@ -1942,7 +1942,7 @@ class SceneCreatures {
       if (rosterRow) {
         rosterEnemyMove(this, c, rosterRow, now, npcTarget?.x ?? px, npcTarget?.y ?? py,
           (npcTarget ? NPC.isDormant(npcTarget) : unnoticed) || standDown,
-          routed || (kerbTurn && !c.lair), lairState, enemyDt);
+          routed || (kerbTurn && !c.lair), lairState, enemyDt, npcTarget);
         return;
       }
       // Wild-crow flight rhythm: perch → one eased glide → perch again,

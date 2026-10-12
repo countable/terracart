@@ -141,7 +141,7 @@ test('psychosis: one more reason in the rout lane of wanderCreatures, with a ran
   assert.truthy(/const frightened = enemy && Combat\.isFrightened\(c, now\);/.test(w), 'fear through the same table');
   assert.truthy(/const routed = warded \|\| wanderOff \|\| sated \|\| frightened \|\| psychotic;/.test(w), 'it runs at the rout pace');
   assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded/.test(w), 'it lands no blow, shoots nothing, lays nothing');
-  assert.truthy(/const lairState = c\.lair && !frightened && !psychotic \? Lairs\.guardState\(/.test(w), 'a mad guard is not holding its seat');
+  assert.truthy(/const lairState = c\.lair && !frightened && !psychotic \? enemyGuardState\(/.test(w), 'a mad guard is not holding its seat');
   assert.truthy(/if \(c\.immobile && !frightened && !psychotic && lairState/.test(w), 'and an immobile one still runs about');
   // The roster mover (every foe's) rolls the random heading inside its routed
   // branch: below the ward (Home still drives it out — `_wardFrom` wins).
