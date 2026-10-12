@@ -168,6 +168,11 @@ mechanics.
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap
   enemies inside Home's ring.
+- Home is `save.starterShopId`: a synthetic trailer or an adopted house, which
+  draws as the trailer. "Move Home here" on any cell of an unclaimed house's
+  footprint adopts that house, so the trailer replaces the building rather than
+  parking on it; a claimed building, temple or castle refuses the move
+  (`_homeFootingAt`, test `starter_trailer_footing`).
 
 Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_ward`,
 `pet_pickup`.
