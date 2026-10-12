@@ -265,8 +265,9 @@ const CHECKS = [
       if (calls.length < 10) {
         throw new Error(`only found ${calls.length} showOfferModal call sites — the scanner is broken`);
       }
+      // The Book Club uses its own lending catalog rather than an offer pair.
       const withCost = calls.filter((c) => c.args.has('get') && c.args.has('cost'));
-      if (withCost.length < 8) {
+      if (withCost.length < 7) {
         throw new Error(`only ${withCost.length} call sites parsed a get+cost pair — the scanner is broken`);
       }
       if (chestCalls().length < 5) {

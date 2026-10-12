@@ -814,7 +814,7 @@ class SceneShops {
     }
     const wanted = this.wantedProduce(house);
     if (!wanted.length) { this.flash('Nobody home.', sx, sy); return; }
-    const invCount = (id) => Inventory.count(this.save, id);
+    const invCount = (id) => Inventory.ownedCount(this.save, id);
     const hasOrder = () => wanted.every(id => invCount(id) >= 1);
     if (!hasOrder()) {
       // Only what is still missing — not the whole list (Delivery.missingLine).
@@ -1493,7 +1493,7 @@ class SceneShops {
     // included), so a deer is never asked for by the dozen at $1.
     const ask = ShopsMath.traderAsk({
       rng, giveId, target,
-      inv: this.save.inv,
+      inv: this.save.inv.map(s => ({ ...s, count: Inventory.ownedCount(this.save, s.id) })),
       prices: itemValues(),
       isItem: (id) => Object.hasOwn(Shops.traderPrices(), id),
       capFor: (id) => Inventory.stackCapFor(this.save, id),
@@ -1509,7 +1509,7 @@ class SceneShops {
     if (offer.gearSwap) { this._presentTraderGearSwap(sx, sy, house, recordDeal, offer); return; }
     const giveItem = ITEM_BY_ID[offer.giveId];
     const askItem  = ITEM_BY_ID[offer.askId];
-    const heldCount = () => Inventory.count(this.save, offer.askId);
+    const heldCount = () => Inventory.ownedCount(this.save, offer.askId);
     // Low-tier seeds barter in a slightly larger bundle (planted in bulk).
     const giveQty = TRADE_OFFER_QTY
       + (isLowTierSeed(offer.giveId) ? LOW_TIER_SEED_QTY_BONUS : 0);

@@ -116,6 +116,18 @@ mechanics.
   (`CAST_ROWS.wind_scroll`: every foe in reach takes 5 and is blown
   `pushCells` away on any ground the enemy gate allows, at any depth). A push
   plays out at the depth it began on; a level change cancels it.
+- BOOK CLUB LENDING: lifetime Books collected provide one reusable credit
+  each. The existing value-ordered tome shelf unlocks one new title every
+  three Books; unlocks do not repeat. Each borrowed copy reserves its item
+  tier plus two credits. Borrow as many copies as credit and bag capacity
+  allow; returning one removes that copy and releases its reserved credit.
+  All scholars share `save.scholarLoans`. Older permanent copies stay owned
+  outside this ledger. Borrowed copies cannot be sold, bartered, donated or
+  burned. The model updates inventory and loans together before one save.
+  Returns never reset cooldowns or release resting spell slots; duplicate
+  copies share their tome type's cooldown. Lending capacity chooses which
+  spells travel with the player; the existing spell-slot gate still controls
+  casting. The first tome unlocks before it becomes affordable.
 - SPELL SLOTS: each tome rests on its own `cooldownMs` (`save.tomeMagicCd`;
   `TOME_COOLDOWN_MS`, one hour, unless its row names another), and a tome may
   be read while at most the worn amulet's tier of tomes rest (`Gear.spellSlots`

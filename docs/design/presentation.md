@@ -59,6 +59,13 @@ changing dialogue, story panels, books, toasts or status presentation.
   when Craft is disabled. Keep the chosen recipe after crafting and refresh
   counts and the existing receipt. Recipe selection never spends ingredients;
   acceptance still rechecks unlocks, bag room, and ingredients before spending.
+- The Book Club is a lending catalog shared across scholars. Keep total/free
+  credit visible above the scrolling shelf; All tomes and On loan filters
+  support preparing spells and returning them. Each row shows its effect,
+  credit cost, borrowed/owned counts, and an explicit unlock or affordability
+  reason. Borrow and Return update the catalog in place with one receipt;
+  no confirmation chain or auto-selection of a spell. Inventory labels mark
+  borrowed quantities. Returns at any Book Club preserve spell cooldowns.
 - Magic Shops have Shop / Brew tabs at every shop tier. Brew lists only learned
   recipes, using the same ingredient counts and picker as Home crafting, plus a
   fixed coin fee. An empty list says "Once you find a potion, you can brew it here."
