@@ -675,12 +675,12 @@ test('scenic: the look rows, their lines and the paintings', () => {
     const row = S.rowFor(kind);
     assert.truthy(row, `${kind} wears a row`);
     assert.eq(row.size, 'path', 'the scenic size');
-    assert.eq(row.share, 0, 'never rolled');
-    assert.falsy(StreetVariants.selectionWeights('Promenade', 'path').some(choice => choice.id === row.id),
-      'geographic scenic rows are excluded from the authored path pool');
+    assert.eq(row.share, 0, 'excluded from the Small-road draw');
+    assert.truthy(StreetVariants.selectionWeights('Promenade', 'path').some(choice => choice.id === row.id),
+      'light scenic looks participate in the path-only pool');
     const selected = StreetVariants.variantFor(`k${kind}|0,0`, 'Promenade', 'path');
-    assert.truthy(StreetVariants.VARIANT_BY_ID[selected]?.share > 0,
-      'path assignment selects an authored theme instead of the geographic row');
+    assert.truthy(StreetVariants.VARIANT_BY_ID[selected]?.pathWeight > 0,
+      'path assignment selects a weighted path theme');
     assert.truthy(StreetVariants.lampGlowFor({ variant: row.id }), 'its lamps glow its colour');
     assert.lte([...row.flash].length, MAP_MSG_MAX, `map line: ${row.flash}`);
     assert.truthy(require_art(row.story), `painting ${row.story}`);

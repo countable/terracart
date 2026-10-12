@@ -4,7 +4,7 @@
 //   · THE KEY: a street is a name inside a parish — the same on both sides of
 //     a tile seam (its lineKeys differ), different across a parish line, and
 //     an unnamed way keys off its own geometry.
-//   · THE ROLL: minor streets retain their rarity; paths draw from road themes.
+//   · THE ROLL: minor streets retain their rarity; paths have a separate light theme pool.
 //   · ROCKS line only the chosen minor streets, never a hedgerow.
 //   · DRESSING sits off the band and off anything already there, from
 //     position-derived ids, the same set every time.
@@ -143,7 +143,7 @@ test('variants: minor streets and path sections use their normalized theme pools
     }
     for (const row of SV.STREET_VARIANTS) {
       const share = (got[row.id] || 0) / N;
-      if (row.size !== size && !(size === 'path' && row.size === 'minor')) {
+      if (row.size !== size) {
         assert.eq(share, 0, `${row.id} never rolls on a ${size} street`); continue;
       }
       const weights = SV.selectionWeights(null, size);
@@ -153,6 +153,26 @@ test('variants: minor streets and path sections use their normalized theme pools
     }
   }
   assert.eq(SV.variantFor('x|0,0', 'x', null), null, 'a way of neither size is plain');
+});
+
+test('variants: paths mostly select light scenic themes and never inherit Small-road themes', () => {
+  const expected = { lantern: .10, barricade: .03, promenade: .12, greenway: .35, parkpath: .40 };
+  const weights = SV.selectionWeights(null, 'path');
+  assert.eq(weights.length, Object.keys(expected).length);
+  for (const row of weights) {
+    assert.truthy(Object.hasOwn(expected, row.id), `${row.id} is an authored path theme`);
+    assert.inRange(row.probability, expected[row.id] - 1e-9, expected[row.id] + 1e-9,
+      `${row.id} has its intended path probability`);
+  }
+  for (const context of [null, { hostile: 1 }, { cultivated: 1 }, { sacred: 1 }, { woodland: 1 }, { coastal: 1 }]) {
+    const pool = SV.selectionWeights('Ember Kiln Cherry Golden Road', 'path', context);
+    assert.truthy(pool.every(row => SV.VARIANT_BY_ID[row.id].size === 'path'),
+      'names and affinity cannot introduce Small-road themes');
+    for (let i = 0; i < 1000; i++) {
+      const variant = SV.variantFor(`path-only-${i}`, 'Ember Kiln Cherry Golden Road', 'path', context);
+      assert.eq(SV.VARIANT_BY_ID[variant]?.size, 'path');
+    }
+  }
 });
 
 test('variants: medium and large roads stay plain; Lantern Row and barricades belong to paths', () => {
@@ -847,6 +867,27 @@ function pathIndex(features) {
 const pathSectionGeometry = index => JSON.stringify(index.pathSections.map(rec => ({
   key: rec.key, line: rec.line, variant: rec.variant, segmentLengthM: rec.segmentLengthM,
 })));
+
+test('path sections: geographic scenic majority overrides selection without fragmenting the section', () => {
+  const index = pathIndex([{ id: 8, geom: [[{x:100,y:100},{x:220,y:100}]] }]);
+  assert.eq(index.pathSections.length, 1);
+  const section = index.pathSections[0];
+  section.variant = 'lantern';
+  SV.syncPathVariants(index);
+  const rec = index.lines[0], originalKey = section.key;
+  const classify = length => {
+    const scenic = { lines: new Map([[rec.lineKey, [[0,length,'shore']]]]) };
+    for (const _ of SV.applyPathScenicSteps(index, scenic)) {}
+  };
+  classify(50);
+  assert.eq(section.variant, 'lantern', 'minority scenery retains the chosen path theme');
+  classify(80);
+  assert.eq(section.variant, 'promenade', 'majority shore scenery chooses the light coastal path');
+  assert.eq(index.pathSections.length, 1);
+  assert.eq(section.key, originalKey);
+  assert.truthy(rec.variantSegments.every(part => part.variant === 'promenade'),
+    'rendered source intervals inherit the whole-section geographic choice');
+});
 
 test('path sections: source endpoints guide assignment and reversed duplicates are stable', () => {
   const a = {x:100,y:100}, b = {x:400,y:100}, c = {x:750,y:100};
