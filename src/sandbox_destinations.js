@@ -14,6 +14,7 @@
     { id: 'hazards', label: 'Webs and sinkhole', scene: 'HAZARDS' },
     { id: 'cavein', label: 'Cave-in warning', scene: 'HAZARDS', sub: 'CAVE-IN ARRIVAL', depth: 1 },
     { id: 'hazards-cave', label: 'Cave hazard lab', scene: 'HAZARDS', depth: 1 },
+    { id: 'hazards-deep', label: 'Deep hazard lab', scene: 'HAZARDS', depth: 2 },
     { id: 'practice', label: 'Combat practice', scene: 'PRACTICE' },
     { id: 'forest', label: 'Forest', scene: 'FOREST' },
     { id: 'orchard', label: 'Orchard', scene: 'ORCHARD' },

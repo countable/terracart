@@ -2538,7 +2538,7 @@
   //                       (SURFACE_ROCK_TIER_WEIGHTS) — ~2.5 % copper-bearing
   //   underground       → CAVE_ORE_SHARE of the rocks for each of the
   //                       level's ore tiers (caveOreTiers, below), the rest
-  //                       plain: level 1 LEVEL1_COPPER_SHARE copper (3 %, a
+  //                       plain: level 1 LEVEL1_COPPER_SHARE copper (5 %, a
   //                       taste), level 2 90 %, then 80 %
   const CAVE_ORE_SHARE = 0.10;
   // The first level down is no tier's mine (caveOreTiers(1) is empty), but it
@@ -2546,7 +2546,7 @@
   // it (owner, Oct 2026): this share of its rocks, the rest plain. The ore
   // table for a level with no tiers of its own is copper (caveOreWeights),
   // which is what makes this one number enough.
-  const LEVEL1_COPPER_SHARE = 0.03;
+  const LEVEL1_COPPER_SHARE = 0.05;
   function caveRockP(depth) {
     if (!depth || depth <= 0) return 0.90;
     if (depth === 1) return 1 - LEVEL1_COPPER_SHARE;
@@ -5194,6 +5194,31 @@
               }
             };
 
+            // Residential YARD TREES (BiomeProfiles.yardTrees): one candidate
+            // per cell from the polygon's own salted stream — three draws per
+            // candidate whether kept or not, so nothing shifts — each a random
+            // size class and species. Flagged `_yardTree` so the occupancy
+            // pass seats them after every older object.
+            const _spawnYardTreesSteps = function* (geom, polyKey, row) {
+              const yrng = makeRng((polyKey ^ (row.salt >>> 0)) >>> 0);
+              const bb = bboxOf(geom);
+              const ix0 = Math.max(0, Math.floor(bb.minX * mvtToCell)), ix1 = Math.min(w - 1, Math.floor(bb.maxX * mvtToCell));
+              const iy0 = Math.max(0, Math.floor(bb.minY * mvtToCell)), iy1 = Math.min(h - 1, Math.floor(bb.maxY * mvtToCell));
+              for (let iy = iy0; iy <= iy1; iy++) {
+                if ((iy & 7) === 7) yield 'yard tree rows';
+                for (let ix = ix0; ix <= ix1; ix++) {
+                  const keep = yrng(), pickSize = yrng(), pickSpecies = yrng();
+                  if (keep >= row.p || !pointInRings(geom, (ix + 0.5) / mvtToCell, (iy + 0.5) / mvtToCell)) continue;
+                  let pick = pickSize, size = row.sizes[row.sizes.length - 1].size;
+                  for (const s of row.sizes) { if (pick < s.share) { size = s.size; break; } pick -= s.share; }
+                  const { mx, my } = cellCenterMeters(ix, iy);
+                  objects.push(makeObject('tree', mx, my, cellId('ytree', tx, ty, ix, iy), {
+                    size, species: TREE_SPECIES[Math.floor(pickSpecies * TREE_SPECIES.length)],
+                    individual: true, _yardTree: true }));
+                }
+              }
+            };
+
             // Residential mineral clusters — abandoned-yard / construction
             // piles in town. Pivot grid is ~24 m and ~59 % of candidates fire,
             // so a residential polygon spawns a handful of clusters; each is a
@@ -5236,6 +5261,9 @@
               if (yard && pivots.length) {
                 yield* _spawnYardFloraSteps(f.geom, polyKey, pivots, clusterR, yard);
               }
+              // Yard trees stand in for the DeepForest canopy while it is off.
+              const yardTrees = !DEEPFOREST_TREES_ENABLED && BiomeProfiles.yardTrees(t);
+              if (yardTrees) yield* _spawnYardTreesSteps(f.geom, polyKey, yardTrees);
               // (Sparse residential-yard mushrooms now spawn via the
               // BIOME_PROFILES flora loop above — see the RESIDENTIAL profile.)
             }
@@ -6217,9 +6245,12 @@
     //    stability isn't guaranteed across engines, and an arbitrary tie-break
     //    would let the same seed resolve a collision differently between reloads.
     const STRUCT_PRIO = { temple: 7, chest: 6, house: 5, tower: 5, infoboard: 5, gatepost: 5, fruittree: 4, tree: 3, mineralrock: 2 };
+    // A yard tree (_spawnYardTreesSteps) is newer than every other object:
+    // it seats last, so no existing world loses a rock or tree to it.
+    const structPrio = o => o._yardTree ? 1 : STRUCT_PRIO[o.kind] || 0;
     const structs = objects.filter(o => STRUCT_PRIO[o.kind] != null);
     structs.sort((a, b) => {
-      const dp = (STRUCT_PRIO[b.kind] || 0) - (STRUCT_PRIO[a.kind] || 0);
+      const dp = structPrio(b) - structPrio(a);
       if (dp) return dp;
       // Deterministic tie-break: position (always defined from generation),
       // then id as a final stable key.
@@ -6231,6 +6262,7 @@
       return ai < bi ? -1 : ai > bi ? 1 : 0;
     });
     const keptStructs = [], sampledRockCells = new Set();
+    let plantCells = null;   // wild plants' cells, built on the first yard tree
     yield 'structure sort';
     let structI = 0;
     for (const o of structs) {
@@ -6243,6 +6275,13 @@
       const pos = cellOfWorldM(o.x, o.y);
       const biome = grid[pos.iy * w + pos.ix];
       const tuning = BiomeProfiles.staticObjects(biome);
+      // A yard tree belongs to a yard, and is newer than every wild plant:
+      // a candidate on other ground, or on a plant's cell, goes.
+      if (o._yardTree) {
+        if (!BiomeProfiles.yardTrees(biome)) continue;
+        plantCells ||= new Set(wildplants.map(wp => cellKeyOfWorld(wp.x, wp.y)));
+        if (plantCells.has(k)) continue;
+      }
       if (o.kind === 'mineralrock') {
         if (tuning.noRocks || (biome === T.FOREST && o.caveVariant == null && o.yieldTier === 6)) continue;
         if (tuning.plainRockFrame != null && (o.caveVariant != null || (o.yieldTier || 1) <= 1)) {
@@ -7280,8 +7319,8 @@
       (!t.id && (t.crown_m != null || t.size != null || t.individual === true));
     const replaceable = o => !o.placed && !o.planted && !o.playerOwned &&
       !['chest', 'grove_shrine', 'house', 'temple', 'tower', 'staircase', 'gatepost', 'well'].includes(o.kind) &&
-      !!(o._street || o.zoneVariant || o._scenic);
-    const fixedCells = new Set(), themedCells = new Set(), treeClaims = new Set();
+      !!(o._street || o.zoneVariant || o._scenic || o._yardTree);
+    const fixedCells = new Set(), themedCells = new Set(), treeClaims = new Set(), yardTreeCells = new Set();
     const objectCells = o => {
       const {ix, iy} = _sxCell(o.x, o.y);
       const footprint = o._footprintCells || o.footprintCells || {};
@@ -7298,7 +7337,7 @@
     for (const list of [entry.objects, entry.wildplants]) for (const o of list) {
       { const y1 = tick('bin cell claims'); if (y1) yield y1; }
       const cells = replaceable(o) ? themedCells : fixedCells;
-      for (const i of objectCells(o)) cells.add(i);
+      for (const i of objectCells(o)) { cells.add(i); if (o._yardTree) yardTreeCells.add(i); }
     }
     const tryTreeCell = (ix, iy, detected) => {
       if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
@@ -7306,7 +7345,8 @@
       if (_sxHardCell(ix, iy, detected)) return null;
       const cell = iy * cpe + ix;
       if (fixedCells.has(cell)) return null;
-      if (occupied.has(`${ix}_${iy}`) && !(detected && themedCells.has(cell))) return null;
+      // A generated yard tree yields its cell to any mapped or detected tree.
+      if (occupied.has(`${ix}_${iy}`) && !((detected || yardTreeCells.has(cell)) && themedCells.has(cell))) return null;
       // Chest frontage stays clear (the player stands beside the chest),
       // but trees may hug buildings — no nearBuildingCell here. Yard
       // trees sit right against real houses; routing them through the
@@ -7336,10 +7376,8 @@
       if (!r) continue;
       occupied.add(r.key);
       fixedCells.add(r.iy * cpe + r.ix);
-      if (detected) {
-        treeClaims.add(r.iy * cpe + r.ix);
-        t._treeSource = 'deepforest';
-      }
+      if (detected || yardTreeCells.has(r.iy * cpe + r.ix)) treeClaims.add(r.iy * cpe + r.ix);
+      if (detected) t._treeSource = 'deepforest';
       t.x = r.x; t.y = r.y;
       // A detection with no OSM id is named by the cell it SETTLED on —
       // unique (one tree per cell, just claimed) and positional. Its bin
@@ -9022,6 +9060,7 @@
   //   arrivalStory story ID for the one-time floor arrival splash
   //   entryKey     save key required to enter (null for ungated floors)
   //   pressureTraps runtime pressure-plate encounters
+  //   vents        the vent kinds this floor erupts (EnvironmentHazards.VENTS rows)
   //   caveAreas    authored grove selection, carving and garrison settings
   //   streetGems   gemstone region and ordinary deposit probabilities
   const caveAreaProfile = (weights, carveWalls, goblins, spearGoblins) => Object.freeze({
@@ -9030,25 +9069,30 @@
     carveWalls, goblins, spearGoblins
   });
   const FLOOR_PROFILES = Object.freeze([
-    Object.freeze({ depth: 1, arrivalStory: 'cave', entryKey: null,
-      pressureTraps: true, caveAreas: caveAreaProfile([35, 30, 30, 5, 15], false, 12, false),
+    Object.freeze({ depth: 1, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
+      pressureTraps: false, caveAreas: caveAreaProfile([50, 15, 30, 5, 15], false, 12, false),
       streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'above', streetMirror: true,
       fallLandings: false, chestSource: 'above', quarryProvenance: true, lava: false }),
     Object.freeze({ depth: 2, arrivalStory: 'dungeon_stone', entryKey: null,
-      pressureTraps: false, caveAreas: caveAreaProfile([20, 45, 25, 10, 15], true, 16, true),
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
+      pressureTraps: true, caveAreas: caveAreaProfile([20, 45, 25, 10, 15], true, 16, true),
       streetGems: Object.freeze({ region: .10, ordinary: .08 }), biome: 'deep_stone', terrain: 'clearings', streetMirror: true,
       fallLandings: true, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 3, arrivalStory: 'dungeon_underdark', entryKey: null,
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'underdark', terrain: 'open', streetMirror: false,
       fallLandings: false, chestSource: 'surface', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 4, arrivalStory: 'cave', entryKey: null,
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'surfacePaint', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 5, arrivalStory: 'cave', entryKey: 'level4Key',
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'above', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: true }),
   ]);
   const DEFAULT_FLOOR_PROFILE = Object.freeze({ arrivalStory: 'cave', entryKey: 'level4Key',
+    vents: Object.freeze(['poison', 'fire', 'paralysis']),
     pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'above', streetMirror: false,
     fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false });
   const FLOOR_PROFILE_BY_DEPTH = new Map(FLOOR_PROFILES.map(row => [row.depth, row]));

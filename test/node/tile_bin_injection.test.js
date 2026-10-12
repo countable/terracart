@@ -31,6 +31,24 @@
     }
   });
 
+  test('tile bin: a mapped tree takes a generated yard tree\'s cell; other scenery still blocks it', () => {
+    const e = entry();
+    const yard = { kind: 'tree', id: 'ytree_0_0_10_10', size: 'small', species: 'maple', _yardTree: true, ...point(10, 10) };
+    const rock = { kind: 'mineralrock', id: 'rock', ...point(20, 20) };
+    e.objects.push(yard, rock);
+    e.genObjects = e.objects.slice();
+    WorldGen.injectTileBin(e, { trees: [
+      { kind: 'tree', id: 'tree_osm_1', lix: 10, liy: 10 },
+      { kind: 'tree', id: 'tree_osm_2', lix: 20, liy: 20 },
+    ] }, 0, 0);
+    const osm1 = e.objects.find(o => o.id === 'tree_osm_1'), osm2 = e.objects.find(o => o.id === 'tree_osm_2');
+    assert.eq(osm1.x, point(10, 10).x); assert.eq(osm1.y, point(10, 10).y, 'the mapped tree keeps its own cell');
+    assert.falsy(e.objects.includes(yard), 'the yard tree yields');
+    assert.truthy(e.objects.includes(rock));
+    assert.truthy(osm2.x !== rock.x || osm2.y !== rock.y, 'an ordinary rock still blocks the cell');
+    assert.eq(e.genObjects[0], yard, 'generated snapshots keep the yard tree');
+  });
+
   test('tile bin: destinations displace scenery but cannot displace structures', () => {
     const e = entry();
     const rock = { kind: 'mineralrock', id: 'rock', ...point(5, 5) };

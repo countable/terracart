@@ -9,9 +9,16 @@
     sinkhole: Object.freeze({ texture: 'sinkhole', chance: .035, warningMs: 5000, openingMs: 240, openMinMs: 5000, openMaxMs: 20000,
       closingMs: 600, frameSize: 48, renderAnchor: [0.5, 0.5], widthCells: 2, heightCells: 2, maxPresent: 2 }),
   });
+  // One row per vent kind: its sheet row and what contact applies. Which
+  // kinds a cave floor erupts is that floor's `vents` (WorldGen.floorProfile);
+  // the surface vents only the destroyed crater's fire. A `gas` vent deals no
+  // contact hit: each eruption bursts into the shared confusion gas
+  // (MushroomGas), which spreads to the adjacent cells.
   const VENTS = Object.freeze({ poison: { row: 0, condition: 'poison', durationMs: 30000 },
     fire: { row: 1, condition: 'burning', durationMs: 6000 },
-    paralysis: { row: 2, condition: 'paralysis', durationMs: 5000 } });
+    paralysis: { row: 2, condition: 'paralysis', durationMs: 5000 },
+    confusion: { row: 3, gas: true } });
+  function ventKinds(depth) { return depth ? [...(root.WorldGen.floorProfile(depth).vents || [])] : ['fire']; }
   function state(scene) {
     scene._environmentHazards ||= new Map();
     const depth = scene.depth || 0;
@@ -45,7 +52,7 @@
   function eligible(scene, h, checkCharacters = true) {
     const W = root.WorldGen;
     if (h.depth !== scene.depth) return false;
-    if (h.type === 'vent' && !scene.depth && h.kind !== 'fire') return false;
+    if (h.type === 'vent' && !ventKinds(scene.depth).includes(h.kind)) return false;
     const arenaDepth = W.ARENA_DEPTH;
     if (h.type !== 'vent' && (h.depth === arenaDepth || h.depth + 1 === arenaDepth)) return false;
     // Nothing falls out of a sealed floor (DungeonProgression.ROPE_SEALED_FLOORS,
@@ -216,8 +223,9 @@
       if (!keep && h.visitKey) s.visits.delete(h.visitKey);
       return keep;
     });
+    const kinds = ventKinds(scene.depth);
     for (const type of ['vent', 'sinkhole']) {
-      if (type === 'vent' && !scene.depth && quarry !== 'quarry-crater') continue;
+      if (type === 'vent' && (!kinds.length || (!scene.depth && quarry !== 'quarry-crater'))) continue;
       if (type === 'sinkhole' && (quarry || scene.depth === CONFIG.cavein.dungeonDepth)) continue;
       const visitKey = `${type}:${key}`;
       if (s.visits.has(visitKey)) continue;
@@ -226,8 +234,10 @@
       s.visits.add(visitKey);
       const id = `environment:${type}:${key}`, rng = root.WorldGen.makeRng(fnv1a(id));
       if (rng() >= (type === 'vent' && !scene.depth ? cfg.craterChance : cfg.chance)) continue;
-      const kind = type === 'vent' && !scene.depth ? 'fire'
-        : Object.keys(VENTS)[Math.min(2, Math.floor(rng() * 3))];
+      // Every type takes this one draw except the surface vent (crater fire),
+      // as it always has, so a floor's later seat draws keep their sequence.
+      const draw = type === 'vent' && !scene.depth ? 0 : rng();
+      const kind = type === 'vent' ? kinds[Math.min(kinds.length - 1, Math.floor(draw * kinds.length))] : 'poison';
       for (let attempt = 0; attempt < 12; attempt++) {
         const cell = absCellOffset(scene, at.cellIX, at.cellIY, Math.floor(rng() * 5) - 2, Math.floor(rng() * 5) - 2);
         const h = create(scene, type, cell, id, rng, kind);
@@ -255,6 +265,9 @@
     for (const h of hazards) {
       const before = h.phase; previous.set(h, before);
       h.elapsedMs += ms; update(h);
+      // A gas vent's eruption: one mushroom-sized burst as it turns active.
+      if (h.type === 'vent' && VENTS[h.kind].gas && h.phase === 'active' && before !== 'active' && !h.blocked
+          && root.MushroomGas) root.MushroomGas.emit(scene, h.cellIX, h.cellIY);
       if (h.type === 'cavein' && before !== 'open') {
         saveCaveIn(scene, h);
         persistCaveIns ||= h.phase === 'open' || Math.floor(h.elapsedMs / 1000) !== Math.floor((h.elapsedMs - ms) / 1000);
@@ -282,6 +295,7 @@
       }
       if (h.blocked || !touching || root.Combat.playerDowned(scene.save.energy)) continue;
       if (root.Conditions.flying(scene.save) && (h.type !== 'vent' || h.kind === 'fire')) continue;
+      if (h.type === 'vent' && VENTS[h.kind].gas) continue;   // its gas does the confusing
       if (h.type === 'vent' && h.phase === 'active' && h.elapsedMs >= h.nextContactMs) {
         h.nextContactMs = h.elapsedMs + CONFIG.contactMs;
         const now = Date.now();
@@ -303,5 +317,5 @@
     s.vents = s.vents.filter(h => !h.blocked);
     s.sinkholes = s.sinkholes.filter(h => h.phase !== 'closed');
   }
-  root.EnvironmentHazards = { CONFIG, VENTS, state, lists, footprint, suitable, eligible, create, update, overlaps, quarryVariant, touch, exposure, observe, tick };
+  root.EnvironmentHazards = { CONFIG, VENTS, ventKinds, state, lists, footprint, suitable, eligible, create, update, overlaps, quarryVariant, touch, exposure, observe, tick };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
