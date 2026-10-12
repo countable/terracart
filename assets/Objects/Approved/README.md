@@ -20,7 +20,8 @@ implementation performs the same transforms as the review pages.
 Tree growth sheets and crop growth frames keep their existing geometry.
 Inventory-only frames retain their original pixels unless explicitly included
 in the audit. The seven existing produce-counter frames share their treatment.
-No actor, enemy, macro-booth or chapel art is changed.
+The basic booth roof is shared through `tools/art/export_basic_booth.py`.
+Actor and enemy recolours remain runtime asset transforms.
 
 After legacy shrine or zone exports, run
 `python3 tools/art/import_approved_idols.py` to restore the approved grid-aligned
@@ -29,6 +30,15 @@ The world-art import manifest records source hashes and exact crop rectangles;
 the exporter preserves existing frame IDs, frame sizes and bottom anchors.
 It updates both zone atlases and the standalone mossy grave. The paired geometric
 grave keeps its original art.
+
+The round-two masters live in `Sources/ArtRedo20261012Round2/`. Run
+`python3 tools/import_world_art_candidates.py --review ART-2026-10-12-ROUND2-APPROVED`
+to restore the fort, pillar, intact wagon, large gas mushroom, mature maple and
+palms, compact shell, compass waystone and two-X barricade. Growth frames and
+neighbouring atlas pixels are preserved. The shell occupies 10×8 pixels in its
+16px frame. The fort's two native images use tight 64×43 canvases; regenerate
+these from the master with `python3 tools/art/export_round2_fort.py`. Their
+whole-image imports also restore that size after a legacy map-art rebuild.
 
 Unclaimed fort and wreck PNGs already include their approved weathering; their
 asset records declare `unclaimedArt` to prevent a second runtime wash. Separate

@@ -1,8 +1,21 @@
-// Concealed grove mushrooms feed the generic, depth-local gas simulation.
+// Concealed grove mushrooms and gas vents feed the generic, depth-local gas
+// simulation: one Gas field per kind, so clouds of different kinds never mix.
 (function (root) {
   'use strict';
   const CONFIG = Object.freeze({ sourceChance: .18, triggerCells: 1.25, burstMass: .3,
-    cooldownMs: 16000, observeMs: 200, contactMs: 1000, confusionMs: 5000, maxFrameMs: 100 });
+    cooldownMs: 16000, observeMs: 200, contactMs: 1000, maxFrameMs: 100 });
+  // One row per gas kind: the condition a breath applies and for how long,
+  // and the cloud's colours (GasRender paints every kind from these rows).
+  // Contact renews the condition each second, never shortening a longer one.
+  // `rearmMs` holds off the next dose after one lands, so a lingering cloud
+  // of paralysis cannot hold the player still until it clears: the gap
+  // between doses is the window to walk out.
+  const KINDS = Object.freeze({
+    confusion: Object.freeze({ condition: 'confused', durationMs: 5000, colour: 0xffde1a, highlight: 0xffffc4 }),
+    poison: Object.freeze({ condition: 'poison', durationMs: 30000, colour: 0x7ddc2e, highlight: 0xe2ffb8 }),
+    paralysis: Object.freeze({ condition: 'paralysis', durationMs: 5000, rearmMs: 8000,
+      colour: 0x3f9dff, highlight: 0xd2ecff }),
+  });
   const SOURCE_CROPS = new Set(['mushroom', 'giant_mushroom']);
   const DIRECTIONS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
@@ -33,8 +46,14 @@
   function state(scene) {
     const depths = scene._mushroomGas || (scene._mushroomGas = new Map());
     const depth = scene.depth || 0;
-    if (!depths.has(depth)) depths.set(depth, { gas: root.Gas.create(), elapsedMs: 0,
-      nextObserveMs: 0, nextContactMs: 0, lastContactCell: null, cooldowns: new Map() });
+    if (!depths.has(depth)) {
+      const gases = {}, contacts = {};
+      for (const kind of Object.keys(KINDS)) {
+        gases[kind] = root.Gas.create();
+        contacts[kind] = { nextMs: 0, cell: null, rearmAtMs: 0 };
+      }
+      depths.set(depth, { gases, contacts, elapsedMs: 0, nextObserveMs: 0, cooldowns: new Map() });
+    }
     return depths.get(depth);
   }
 
@@ -43,8 +62,8 @@
       && !setOf(scene.save.picked).has(plant.id) && !setOf(scene.save.burnedObjects).has(plant.id);
   }
 
-  function emit(scene, cellIX, cellIY, amount = CONFIG.burstMass) {
-    return root.Gas.inject(state(scene).gas, cellIX, cellIY, amount);
+  function emit(scene, cellIX, cellIY, amount = CONFIG.burstMass, kind = 'confusion') {
+    return root.Gas.inject(state(scene).gases[kind], cellIX, cellIY, amount);
   }
 
   function observe(scene, s) {
@@ -95,17 +114,23 @@
     const p = playerWorldM(scene);
     const cell = worldMetersToAbsCell(scene, p.x, p.y + (scene.feetOffsetM || 0));
     const key = `${cell.cellIX},${cell.cellIY}`;
-    if (!(s.gas.cells.get(key)?.density > 0)) {
-      s.lastContactCell = null;
-      return;
+    for (const [kind, row] of Object.entries(KINDS)) {
+      const c = s.contacts[kind];
+      if (!(s.gases[kind].cells.get(key)?.density > 0)) {
+        c.cell = null;
+        continue;
+      }
+      if (c.cell === key && s.elapsedMs < c.nextMs) continue;
+      if (s.elapsedMs < c.rearmAtMs) continue;
+      c.cell = key;
+      c.nextMs = s.elapsedMs + CONFIG.contactMs;
+      if (row.rearmMs) c.rearmAtMs = s.elapsedMs + row.rearmMs;
+      // Each gas shares its condition's own behaviour (confusion's compass,
+      // poison's ticks, paralysis's hold). A brief exposure must not shorten
+      // an existing longer effect.
+      if (scene._applyCondition) scene._applyCondition(row.condition, { durationMs: row.durationMs });
+      else root.Conditions.apply(scene.save, row.condition, Date.now(), { durationMs: row.durationMs });
     }
-    if (s.lastContactCell === key && s.elapsedMs < s.nextContactMs) return;
-    s.lastContactCell = key;
-    s.nextContactMs = s.elapsedMs + CONFIG.contactMs;
-    // Confusing gas shares the condition's compass and looping movement.
-    // A brief exposure must not shorten an existing longer confusion effect.
-    if (scene._applyCondition) scene._applyCondition('confused', { durationMs: CONFIG.confusionMs });
-    else root.Conditions.apply(scene.save, 'confused', Date.now(), { durationMs: CONFIG.confusionMs });
   }
 
   function tick(scene, dt) {
@@ -120,17 +145,22 @@
       const c = absCellOffset(scene, x, y, dx, dy);
       return { x: c.cellIX, y: c.cellIY };
     });
-    root.Gas.advance(s.gas, ms, terrainReader(scene), neighbors);
+    const terrain = terrainReader(scene);
+    for (const gas of Object.values(s.gases)) root.Gas.advance(gas, ms, terrain, neighbors);
     contact(scene, s);
   }
 
+  // Every kind's cells, tagged with their kind; the array is reused until any
+  // field changes, so the renderer can skip reconciling on an idle frame.
   function cells(scene) {
     const s = state(scene);
-    if (s.drawRevision !== s.gas.revision) {
-      s.drawRevision = s.gas.revision;
-      s.drawCells = [...s.gas.cells.values()].map(c => ({ cellIX: c.x, cellIY: c.y, density: c.density }));
+    const revision = Object.values(s.gases).map(g => g.revision).join();
+    if (s.drawRevision !== revision) {
+      s.drawRevision = revision;
+      s.drawCells = Object.entries(s.gases).flatMap(([kind, g]) =>
+        [...g.cells.values()].map(c => ({ kind, cellIX: c.x, cellIY: c.y, density: c.density })));
     }
     return s.drawCells || [];
   }
-  root.MushroomGas = { CONFIG, prepare, state, sourcePresent, emit, terrainReader, contact, tick, cells };
+  root.MushroomGas = { CONFIG, KINDS, prepare, state, sourcePresent, emit, terrainReader, contact, tick, cells };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

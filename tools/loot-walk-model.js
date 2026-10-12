@@ -70,8 +70,7 @@ function census() {
       if (!o || seen.has(o.id)) continue; seen.add(o.id);
       if (o.kind === 'chest' && !(o.depth > 0)) {
         const look = chestLook(o);
-        if (look.coin) bump('coins', 'Pots of gold', { kind: 'coins', amount: potCoinsFor(o.poiDensity) });
-        else if (look.barrel) {
+        if (look.barrel) {
           const profile = barrelProfile(o);
           bump('barrel-' + profile.name, profile.name, { kind: 'barrel', object: { kind: o.kind, poiClass: o.poiClass, barrelDensity: o.barrelDensity, barrel: o.barrel, barrelStyle: profile.texKey }, profile: profile.name });
         } else if (look.macro?.kind === 'chapel') bump('chapel', 'Chapel alms', { kind: 'reward', context: 'chest:' + chestThemeForPoi(o.poiClass), opts: { tier: Macros.chapelRollTier(o), depth: 0 } });

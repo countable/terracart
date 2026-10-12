@@ -28,15 +28,23 @@ test('sandbox coverage: the synthetic tile uses real map pipelines', () => {
 
   const variants = new Set(e.streetIndex.lines.map((r) => r.variant).filter(Boolean));
   const expected = StreetVariants.STREET_VARIANTS
-    .filter((r) => (r.size === 'minor' || r.size === 'major') && r.share > 0)
+    .filter((r) => (r.size === 'minor' || ['lantern', 'barricade'].includes(r.id)) && r.share > 0)
     .map((r) => r.id);
   for (const id of expected) assert.truthy(variants.has(id), `${id} has an authored street`);
   assert.truthy(e.streetIndex.lines.some((r) => r.size === 'major' && !r.variant),
     'an unthemed old trade road is present');
+  assert.truthy(e.streetIndex.lines.filter(r => r.size === 'major').every(r => !r.variant),
+    'MD and LG roads have no variants');
+  for (const name of ['Old Trade Road', 'Ancient Highway']) {
+    const road = e.streetIndex.lines.find(r => r.name === name);
+    assert.truthy(road && StreetVariants.roadStoryFor(road), `${name} has a fixed identity`);
+  }
+  for (const id of ['lantern', 'barricade']) assert.truthy(
+    e.streetIndex.lines.some(r => r.size === 'path' && r.variant === id), `${id} is on a path`);
 
   assert.truthy(e.streetDress && e.streetMarks, 'the real street dresser ran');
   assert.truthy(e.slowCells && e.slowCells.size > 0, 'burned-road and tar-yard slow cells exist');
-  assert.truthy(e.coinDrops.some((c) => c._street === 'golden'), 'Golden Road laid coins');
+  assert.truthy(e.objects.some((o) => o.shrineKind === 'golden_idol' && o.coinSeats?.length), 'the Golden Road has its idol and its coin seats');
   assert.gt(e.streetLairs.length, 0, 'street lairs were authored');
   assert.truthy(e.streetLairs.some((l) => l.tier === 'cafe'), 'the café hoard has its guard lair');
   assert.truthy(e.extraTreasures.some((t) => String(t.id).includes('treasure_cafe')),
@@ -294,11 +302,15 @@ test('sandbox coverage: hazard yard uses live web, vent, plate and fall records'
     const cave = Sandbox.seedHazardState(scene, origin);
     assert.gte(Buffs.until('torch', scene.save, scene), litAt + CONSUMABLE_SPEC.torch.durationMs,
       'cave arrival lights the normal torch for its full shared duration');
-    assert.eq(EnvironmentHazards.lists(scene).vents.length, Object.keys(EnvironmentHazards.VENTS).length);
+    assert.eq(EnvironmentHazards.lists(scene).vents.map(h => h.kind).join(), 'confusion', 'L1 vents confusion only');
     assert.eq(EnvironmentHazards.lists(scene).caveins.length, 2);
+    assert.falsy(cave.some(h => /^pressure-|^plate-/.test(h._sandboxProbe)), 'no ball or wall traps on L1');
+    scene.depth = 2;
+    const deep = Sandbox.seedHazardState(scene, origin);
+    assert.eq(EnvironmentHazards.lists(scene).vents.map(h => h.kind).join(), 'poison,fire,paralysis', 'L2 vents the three gases');
     for (const kind of ['ball', 'wall']) {
-      const trap = cave.find(h => h._sandboxProbe === 'pressure-' + kind);
-      const plate = cave.find(h => h._sandboxProbe === 'plate-' + kind);
+      const trap = deep.find(h => h._sandboxProbe === 'pressure-' + kind);
+      const plate = deep.find(h => h._sandboxProbe === 'plate-' + kind);
       assert.eq(trap.state, 'parked');
       assert.eq(plate.trapId, trap.id);
       assert.eq(PressureTraps.clearSegment(scene, trap, plate).x, plate.x,

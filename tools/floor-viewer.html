@@ -32,7 +32,6 @@
     color: #fff; font: 600 11px/1.2 system-ui, sans-serif; white-space: pre; text-align: center;
     text-shadow: 0 1px 2px #000, 0 2px 4px #000; }
   .poi-label { color: #ffe4aa; }
-  .road-label { color: #e3d5b5; background: #14181acc; border-radius: 3px; padding: 2px 4px; }
   canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; image-rendering: pixelated; }
 </style></head>
 <body>
@@ -63,7 +62,7 @@
 <div id="regionLabels" aria-label="Map region and POI labels"></div>
 <script src="game-loader.js"></script>
 <script src="floor-viewer-region.js?v=fc016e6e"></script>
-<script src="floor-viewer-variants.js?v=364e2193"></script>
+<script src="floor-viewer-variants.js?v=86892632"></script>
 <script>
 (() => {
   'use strict';
@@ -240,12 +239,6 @@
       if (look?.visible && look.texKey !== 'trap_hidden') { try { look.tint = Render.spriteTint(art, scene, look.texKey); } catch (_) {} }
       push(o, look);
     }
-    for (const o of entry.coinDrops || []) {
-      const pile = Render.coinPile(o);
-      push(o, { visible: true, texKey: pile.texture, frameVal: 0,
-        scl: 1, scaleYMul: 1, origin: [.5, .5], dxPx: 0, dyPx: 0,
-        displayWidth: pile.width, displayHeight: pile.width });
-    }
     for (const o of entry.wildplants || []) {
       const art = connected.has(o) ? { ...o, ...connected.get(o) } : o;
       const spec = wildplantSprite(art), stage = Math.min(MAX_GROWTH_STAGE, o.stage ?? MAX_GROWTH_STAGE);
@@ -305,21 +298,6 @@
     variants.set(tint, canvas); return canvas;
   }
 
-  // Preview restored pavement; cache tiles across resizes and floors.
-  const pavementTiles = new Map();
-  function pavementPattern(isPath, variant, s, offX, offY) {
-    const key = `${isPath}:${variant || ''}`;
-    if (!pavementTiles.has(key)) {
-      const tile = document.createElement('canvas'); tile.width = tile.height = 32;
-      const g = tile.getContext('2d');
-      RoadOverlay.paintPavementTile(g, 32, isPath, true, variant);
-      pavementTiles.set(key, tile);
-    }
-    const pattern = ctx.createPattern(pavementTiles.get(key), 'repeat');
-    pattern.setTransform(new DOMMatrix().translate(offX, offY).scale(s / 32));
-    return pattern;
-  }
-
   function draw() {
     if (!assets || building) return;
     const W = WorldGen, R = FloorViewerRegion, T = W.T;
@@ -345,18 +323,9 @@
     ctx.fillStyle = '#14181a'; ctx.fillRect(0, 0, Wpx, Hpx);
     ctx.imageSmoothingEnabled = false;
     ctx.save(); ctx.beginPath(); ctx.rect(offX, offY, R.WIDTH * s, R.HEIGHT * s); ctx.clip();
-    const groundScene = Object.assign(Object.create(MapScene.prototype), {
-      depth, tileEdgeM: R.EDGE, cellsForRow: () => R.N, cellsPerTile: R.N,
-      originPx: { x: 0, y: 0 },
-    });
     // Ground: base colour + the game's baked biome texture per cell.
     for (let y = 0; y < R.HEIGHT; y++) for (let x = 0; x < R.WIDTH; x++) {
-      const i = y * R.N + x;
-      // Surface paving belongs to the source vectors below. Raster road/path
-      // cells use the same surrounding ground for both colour and texture.
-      const type = depth === 0
-        ? Render.roadBackdropType(groundScene, entry.grid[i], x, y) ?? entry.grid[i]
-        : entry.grid[i];
+      const i = y * R.N + x, type = entry.grid[i];
       const h = ((x) * 2246822519) ^ ((y) * 3266489917);
       let color;
       if (type === T.CAVE_FLOOR) color = '#8f8574';
@@ -369,37 +338,32 @@
         ctx.drawImage(assets.textures.get('biome' + type + '_' + (Math.abs(h) % spec.variants)).getSourceImage(),
           offX + x * s, offY + y * s, s + .5, s + .5);
     }
-    const roadLabels = [];
-    // Source geometry at real widths, using the game's themed pavement tiles.
+    // Roads, at their real widths and tier colours, from the surface layer
+    // (surface view only). Stroked straight from the drawn geometry so the
+    // width tiers read plainly: primary 15 m, secondary 9 m, minor 5.5 m,
+    // footway 2 m (roadWidthM + the large-road scale).
     if (floor === 0) {
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       const roads = entry.layers.find(l => l.name === 'transportation');
       const mvtToM = R.EDGE / (roads?.extent || 4096);
-      for (const [fi, f] of (roads?.features || []).entries()) {
+      const TIER = { primary: '#9aa0ab', secondary: '#7c7d81', minor: '#5a5751', service: '#5a5751',
+        pedestrian: '#8b8272', track: '#a5947c', footway: '#b3a284', path: '#b3a284' };
+      for (const f of (roads?.features || [])) {
         if (f.type !== 2 || W.isLotLane(f.tags)) continue;
         const width = W.roadOverlayWidthM(f.tags); if (!width) continue;
         const isPath = W.PATH_CLASSES.has(f.tags?.class);
         if (!isPath && W.classifyLine('transportation', f.tags) == null) continue;
-        for (const [li, line] of f.geom.entries()) {
-          const styles = StreetVariants.lineStyles(entry, f, fi, li, mvtToM);
-          for (const style of styles || [null]) {
-            const points = style ? Streets.subLineM(line, mvtToM, style.a, style.b)
-              : line.map(p => ({ x: p.x * mvtToM, y: p.y * mvtToM }));
-            if (points.length < 2) continue;
-            const title = StreetVariants.roadStoryFor(f)?.title
-              || StreetVariants.VARIANT_BY_ID[style?.variant]?.title
-              || (isPath ? 'Plain path' : 'Plain road');
-            const midpoint = Streets.pointAtM(points, 1, Streets.lineLengthM(points, 1) / 2);
-            roadLabels.push({ text: title, x: midpoint.x / W.CELL_M,
-              y: midpoint.y / W.CELL_M - .7, road: true });
-            ctx.strokeStyle = pavementPattern(isPath, style?.variant, s, offX, offY);
-            ctx.lineWidth = Math.max(2, width / R.EDGE * R.N * s);
-            ctx.beginPath();
-            points.forEach((p, i) => ctx[i ? 'lineTo' : 'moveTo'](
-              offX + p.x / R.EDGE * R.N * s, offY + p.y / R.EDGE * R.N * s));
-            ctx.stroke();
-          }
-        }
+        const stroke = line2D => {
+          ctx.strokeStyle = TIER[f.tags?.class] || (isPath ? '#b3a284' : '#5a5751');
+          ctx.lineWidth = Math.max(2, width / R.EDGE * (R.N * s));
+          ctx.beginPath();
+          line2D.forEach((p, i2) => {
+            const x = offX + p.x * mvtToM / R.EDGE * R.N * s, y = offY + p.y * mvtToM / R.EDGE * R.N * s;
+            ctx[i2 ? 'lineTo' : 'moveTo'](x, y);
+          });
+          ctx.stroke();
+        };
+        stroke(f.geom[0]);
       }
     }
     // Sprites: the game's appearances, the game's scale rule (cell px / 32).
@@ -465,20 +429,19 @@
         labels.push({ text: 'POI · ' + name, x: o.x / W.CELL_M,
           y: o.y / W.CELL_M - .9, poi: true, objectId: o.id });
       }
-      labels.push(...roadLabels);
       const occupiedLabels = [];
       for (const label of labels) {
         if (label.x < 0 || label.y < 0 || label.x >= R.WIDTH || label.y >= R.HEIGHT) continue;
         const el = document.createElement('span');
-        el.className = 'region-label' + (label.poi ? ' poi-label' : label.road ? ' road-label' : ''); el.textContent = label.text;
+        el.className = 'region-label' + (label.poi ? ' poi-label' : ''); el.textContent = label.text;
         if (label.objectId) el.dataset.objectId = label.objectId;
         el.style.left = (offX + label.x * s) + 'px';
         el.style.top = (offY + label.y * s) + 'px';
         labelLayer.appendChild(el);
         const halfWidth = el.getBoundingClientRect().width / 2;
         el.style.left = Math.max(halfWidth + 4, Math.min(Wpx - halfWidth - 4, offX + label.x * s)) + 'px';
-        // Keep object and road captions legible beside region names and each other.
-        if (label.poi || label.road) for (let attempt = 0; attempt < 8; attempt++) {
+        // Keep compact POI captions legible beside region names and each other.
+        if (label.poi) for (let attempt = 0; attempt < 8; attempt++) {
           const box = el.getBoundingClientRect();
           if (!occupiedLabels.some(b => box.left < b.right + 3 && box.right + 3 > b.left
               && box.top < b.bottom + 3 && box.bottom + 3 > b.top)) break;

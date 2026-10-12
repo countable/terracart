@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "approval": "User approved WA-096, WA-098, WA-113, WA-120 (all), WA-125 and WA-133 on 2026-10-02. User approved Fort A (both conditions) and Shipwreck A on 2026-10-05. User approved mossy grave and all ten grid-aligned idols on 2026-10-12; retain old paired geometric grave.",
+  "approval": "User approved WA-096, WA-098, WA-113, WA-120 (all), WA-125 and WA-133 on 2026-10-02. User approved Fort A (both conditions) and Shipwreck A on 2026-10-05. User approved mossy grave and all ten grid-aligned idols on 2026-10-12; retain old paired geometric grave. User approved all round-two art on 2026-10-12, using the 64px fort and retaining the original paired geometric grave.",
   "packing": "Original generated crop; alpha threshold 128; nearest-neighbour fit with one pixel border; horizontally centred and bottom aligned. Entries with fitRect preserve the approved visible footprint and base anchor inside the existing canvas; nearest-neighbour fit and hard alpha remain shared.",
   "wood": "The approved log is shared by all three quantity frames so map and item icon use the same art.",
   "frames": [
@@ -138,18 +138,6 @@
       ]
     },
     {
-      "reviewId": "WA-083",
-      "sheet": "assets/Objects/Approved/barricade.png",
-      "frame": 0,
-      "frameSize": [
-        24,
-        24
-      ],
-      "source": "assets/Objects/Approved/Sources/WorldArt/barricade-native.png",
-      "sourceSha256": "34456b11476f90f1194b259aee27046952b9b8b706d49d33a88d9a10fa51c6f9",
-      "native": true
-    },
-    {
       "reviewId": "WA-002",
       "sheet": "assets/Objects/Approved/approved_charred_stakes.png",
       "frame": 0,
@@ -172,60 +160,6 @@
       "source": "assets/Objects/Approved/Sources/WorldArt/bramble-native.png",
       "sourceSha256": "0b1fa85c0edc14b3c3611c978a1507a77cf74fb18601ac7c5276294e9436cc7c",
       "native": true
-    },
-    {
-      "reviewId": "ART-2026-10-05-FORT-A-RESTORED",
-      "sheet": "assets/Objects/Approved/house_fort.png",
-      "frame": 0,
-      "frameSize": [
-        214,
-        154
-      ],
-      "source": "assets/Objects/Approved/Sources/WorldArt/fort-a-restored.png",
-      "sourceSha256": "87b1f49324c54f7592c35f705e0427975f6953b1fe81c7e34c700a4be83da8b5",
-      "generatedSheet": "dragon-hood-art-previews-2026-10-05/images/structures.png",
-      "generatedSheetSha256": "bb8eeba6594e1d9e27ee941fd131a4c5b85e0a61e23c5e894a29476f2078b18c",
-      "generatedRect": [
-        474,
-        80,
-        607,
-        202
-      ],
-      "selectedRow": 0,
-      "selectedColumn": 3,
-      "fitRect": [
-        0,
-        0,
-        214,
-        154
-      ]
-    },
-    {
-      "reviewId": "ART-2026-10-05-FORT-A-UNRESTORED",
-      "sheet": "assets/Objects/Approved/house_fort_unclaimed.png",
-      "frame": 0,
-      "frameSize": [
-        214,
-        154
-      ],
-      "source": "assets/Objects/Approved/Sources/WorldArt/fort-a-unrestored.png",
-      "sourceSha256": "13649be704091b3b4b9533b160068ed87c0589d4992e64f33d9b00cfdda79969",
-      "generatedSheet": "dragon-hood-art-previews-2026-10-05/images/structures.png",
-      "generatedSheetSha256": "bb8eeba6594e1d9e27ee941fd131a4c5b85e0a61e23c5e894a29476f2078b18c",
-      "generatedRect": [
-        474,
-        227,
-        607,
-        355
-      ],
-      "selectedRow": 1,
-      "selectedColumn": 3,
-      "fitRect": [
-        0,
-        0,
-        214,
-        154
-      ]
     },
     {
       "reviewId": "ART-2026-10-05-SHIPWRECK-A",
@@ -487,6 +421,239 @@
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012/mossy_grave.png",
       "sourceSha256": "b970af7644b0d2829d04a5cbef20ead690933dda1e04e7cb4a8310659aabd822"
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/Approved/gas-mushroom-large.png",
+      "frame": 0,
+      "frameSize": [
+        24,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/mushroom.png",
+      "sourceSha256": "1126e20e83dc2f6dfccdc1c91e880e0637ef34d448488c9da6ee85fa429a3021",
+      "fitRect": [
+        1,
+        1,
+        22,
+        22
+      ]
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/Approved/trees.png",
+      "frame": 3,
+      "frameSize": [
+        32,
+        48
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/maple.png",
+      "sourceSha256": "e27665d5ecab2bbc1c9367cf06d07bee5abd3ac0b862ad744b418e33a8919a6a",
+      "fitRect": [
+        0,
+        1,
+        32,
+        47
+      ]
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/Beach/palms.png",
+      "frame": 2,
+      "frameSize": [
+        16,
+        16
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/palm.png",
+      "sourceSha256": "fff90034af3ef03ac6083d2508d1e8af8393b8021ba4e305944b142e32ebe9cf",
+      "fitRect": [
+        1,
+        0,
+        14,
+        15
+      ]
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/Beach/palms.png",
+      "frame": 3,
+      "frameSize": [
+        16,
+        16
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/palm.png",
+      "sourceSha256": "fff90034af3ef03ac6083d2508d1e8af8393b8021ba4e305944b142e32ebe9cf",
+      "fitRect": [
+        1,
+        0,
+        14,
+        15
+      ]
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/Beach/palms.png",
+      "frame": 4,
+      "frameSize": [
+        16,
+        16
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/palm.png",
+      "sourceSha256": "fff90034af3ef03ac6083d2508d1e8af8393b8021ba4e305944b142e32ebe9cf",
+      "fitRect": [
+        1,
+        0,
+        14,
+        15
+      ]
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/Beach/palms.png",
+      "frame": 5,
+      "frameSize": [
+        16,
+        16
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/palm.png",
+      "sourceSha256": "fff90034af3ef03ac6083d2508d1e8af8393b8021ba4e305944b142e32ebe9cf",
+      "fitRect": [
+        1,
+        0,
+        14,
+        15
+      ]
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Icons/Fish/Sea/Creatures/Shell.png",
+      "frame": 0,
+      "frameSize": [
+        16,
+        16
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/shell.png",
+      "sourceSha256": "41689e06ec682c7a196656fea789788b7bb833925469ad3932ee4d5971593f4c",
+      "fitRect": [
+        3,
+        4,
+        10,
+        8
+      ]
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/Approved/house_fort.png",
+      "frame": 0,
+      "frameSize": [
+        64,
+        43
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/fort-restored-native.png",
+      "sourceSha256": "648e41c62dd60a5b0a18aa7fff0aa07448b7244fbf962a9bf89ec107b963882d",
+      "native": true,
+      "wholeImage": true
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/Approved/house_fort_unclaimed.png",
+      "frame": 0,
+      "frameSize": [
+        64,
+        43
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/fort-unclaimed-native.png",
+      "sourceSha256": "739f9a3a18859b68cd82daea33e0e3378ac8db18cb128e776e1fa99bdf0cbd37",
+      "native": true,
+      "wholeImage": true
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/ZoneVariants/tall_pillar.png",
+      "frame": 0,
+      "frameSize": [
+        24,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/pillar.png",
+      "sourceSha256": "37d91b0afae392816de1655a11423c472d75735e9353e5cb63a1949b8358d423"
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/ZoneVariants/objects-24.png",
+      "frame": 63,
+      "frameSize": [
+        24,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/pillar.png",
+      "sourceSha256": "37d91b0afae392816de1655a11423c472d75735e9353e5cb63a1949b8358d423"
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/ZoneVariants/approved-24.png",
+      "frame": 63,
+      "frameSize": [
+        24,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/pillar.png",
+      "sourceSha256": "37d91b0afae392816de1655a11423c472d75735e9353e5cb63a1949b8358d423"
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/ZoneVariants/objects-16.png",
+      "frame": 63,
+      "frameSize": [
+        16,
+        16
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/pillar.png",
+      "sourceSha256": "37d91b0afae392816de1655a11423c472d75735e9353e5cb63a1949b8358d423"
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/Approved/pillar.png",
+      "frame": 0,
+      "frameSize": [
+        16,
+        32
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/pillar.png",
+      "sourceSha256": "37d91b0afae392816de1655a11423c472d75735e9353e5cb63a1949b8358d423"
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/DailyVisits/wagon.png",
+      "frame": 0,
+      "frameSize": [
+        32,
+        32
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/cart.png",
+      "sourceSha256": "d3f647b20a0af4dd75ff68ed7f1218584d4b84a8f0ffdb0ffc6deb7ab01fefef"
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/Approved/waystone.png",
+      "frame": 0,
+      "frameSize": [
+        16,
+        16
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/waystone.png",
+      "sourceSha256": "9c2740048a7c5a3ad2c536e9dbd0d73ce6372baf86e6645a1d63443637765737"
+    },
+    {
+      "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+      "sheet": "assets/Objects/Approved/barricade.png",
+      "frame": 0,
+      "frameSize": [
+        24,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/barricade.png",
+      "sourceSha256": "cdab7ea2be32ff2be258e39290bf32a01cf2af3d16128cd93570f5679a99d829"
     }
   ]
 }

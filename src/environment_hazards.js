@@ -2,16 +2,30 @@
 (function (root) {
   'use strict';
   const CONFIG = Object.freeze({ contactMs: 1000, damage: 8, maxStepMs: 100,
-    vent: Object.freeze({ texture: 'vent_cycle', chance: .12, craterChance: .08, inactiveMs: 5000, warningMs: 3000, activeMs: 3000,
+    vent: Object.freeze({ texture: 'vent_cycle', chance: .12, craterChance: .08, inactiveMs: 5000, gasInactiveMs: 20000, warningMs: 3000, activeMs: 3000,
       frameSize: 24, renderAnchor: [0.5, 18.5 / 24], widthCells: 1, heightCells: 1, maxPresent: 24, retainRadiusCells: 24 }),
     cavein: Object.freeze({ texture: 'cavein', chance: .08, warningMs: 5000, crackStages: 3, openTexture: 'cave_chasm', openFrame: 15, frameSize: 24, renderAnchor: [0.5, 0.5],
       widthCells: 1, heightCells: 1, clusterMinCells: 2, clusterMaxCells: 5, dungeonDepth: 1 }),
     sinkhole: Object.freeze({ texture: 'sinkhole', chance: .035, warningMs: 5000, openingMs: 240, openMinMs: 5000, openMaxMs: 20000,
       closingMs: 600, frameSize: 48, renderAnchor: [0.5, 0.5], widthCells: 2, heightCells: 2, maxPresent: 2 }),
   });
-  const VENTS = Object.freeze({ poison: { row: 0, condition: 'poison', durationMs: 30000 },
-    fire: { row: 1, condition: 'burning', durationMs: 6000 },
-    paralysis: { row: 2, condition: 'paralysis', durationMs: 5000 } });
+  // One row per vent kind: its sheet row and what an eruption does. Which
+  // kinds a cave floor erupts is that floor's `vents` (WorldGen.floorProfile);
+  // the surface vents only the destroyed crater's fire.
+  // - A `gas` vent deals no contact hit: each eruption bursts that kind of
+  //   gas (MushroomGas.KINDS: its condition and colour), which spreads to the
+  //   adjacent cells. Gas vents rest `gasInactiveMs` instead of the shared
+  //   quiet phase: one burst takes ~21 s to clear from a one-cell passage
+  //   (5 s in the open), so a shorter cycle stacks bursts into a cloud that
+  //   never disperses.
+  // - The fire vent strikes on contact and applies `condition`, and each
+  //   eruption lights its own cell and the four beside it as burning ground
+  //   (GroundFire) for `groundFireMs`; fuel there can catch and spread.
+  const VENTS = Object.freeze({ poison: { row: 0, gas: 'poison' },
+    fire: { row: 1, condition: 'burning', durationMs: 6000, groundFireMs: 5000 },
+    paralysis: { row: 2, gas: 'paralysis' },
+    confusion: { row: 3, gas: 'confusion' } });
+  function ventKinds(depth) { return depth ? [...(root.WorldGen.floorProfile(depth).vents || [])] : ['fire']; }
   function state(scene) {
     scene._environmentHazards ||= new Map();
     const depth = scene.depth || 0;
@@ -45,7 +59,7 @@
   function eligible(scene, h, checkCharacters = true) {
     const W = root.WorldGen;
     if (h.depth !== scene.depth) return false;
-    if (h.type === 'vent' && !scene.depth && h.kind !== 'fire') return false;
+    if (h.type === 'vent' && !ventKinds(scene.depth).includes(h.kind)) return false;
     const arenaDepth = W.ARENA_DEPTH;
     if (h.type !== 'vent' && (h.depth === arenaDepth || h.depth + 1 === arenaDepth)) return false;
     // Nothing falls out of a sealed floor (DungeonProgression.ROPE_SEALED_FLOORS,
@@ -82,11 +96,12 @@
   function update(h) {
     const t = h.elapsedMs, c = CONFIG[h.type];
     if (h.type === 'vent') {
-      const phase = t % (c.inactiveMs + c.warningMs + c.activeMs);
-      h.phase = phase < c.inactiveMs ? 'inactive' : phase < c.inactiveMs + c.warningMs ? 'warning' : 'active';
+      const quietMs = VENTS[h.kind].gas ? c.gasInactiveMs : c.inactiveMs;
+      const phase = t % (quietMs + c.warningMs + c.activeMs);
+      h.phase = phase < quietMs ? 'inactive' : phase < quietMs + c.warningMs ? 'warning' : 'active';
       const col = h.phase === 'inactive' ? 0 : h.phase === 'warning'
-        ? 1 + Math.min(1, Math.floor((phase - c.inactiveMs) / (c.warningMs / 2)))
-        : 3 + Math.floor((phase - c.inactiveMs - c.warningMs) / 180) % 2;
+        ? 1 + Math.min(1, Math.floor((phase - quietMs) / (c.warningMs / 2)))
+        : 3 + Math.floor((phase - quietMs - c.warningMs) / 180) % 2;
       h.frame = VENTS[h.kind].row * 5 + col;
     } else if (h.type === 'cavein') {
       h.phase = t < c.warningMs ? 'warning' : 'open';
@@ -216,8 +231,9 @@
       if (!keep && h.visitKey) s.visits.delete(h.visitKey);
       return keep;
     });
+    const kinds = ventKinds(scene.depth);
     for (const type of ['vent', 'sinkhole']) {
-      if (type === 'vent' && !scene.depth && quarry !== 'quarry-crater') continue;
+      if (type === 'vent' && (!kinds.length || (!scene.depth && quarry !== 'quarry-crater'))) continue;
       if (type === 'sinkhole' && (quarry || scene.depth === CONFIG.cavein.dungeonDepth)) continue;
       const visitKey = `${type}:${key}`;
       if (s.visits.has(visitKey)) continue;
@@ -226,8 +242,10 @@
       s.visits.add(visitKey);
       const id = `environment:${type}:${key}`, rng = root.WorldGen.makeRng(fnv1a(id));
       if (rng() >= (type === 'vent' && !scene.depth ? cfg.craterChance : cfg.chance)) continue;
-      const kind = type === 'vent' && !scene.depth ? 'fire'
-        : Object.keys(VENTS)[Math.min(2, Math.floor(rng() * 3))];
+      // Every type takes this one draw except the surface vent (crater fire),
+      // as it always has, so a floor's later seat draws keep their sequence.
+      const draw = type === 'vent' && !scene.depth ? 0 : rng();
+      const kind = type === 'vent' ? kinds[Math.min(kinds.length - 1, Math.floor(draw * kinds.length))] : 'poison';
       for (let attempt = 0; attempt < 12; attempt++) {
         const cell = absCellOffset(scene, at.cellIX, at.cellIY, Math.floor(rng() * 5) - 2, Math.floor(rng() * 5) - 2);
         const h = create(scene, type, cell, id, rng, kind);
@@ -245,6 +263,21 @@
       }
     }
   }
+  // The moment a vent turns active: a gas vent's one mushroom-sized burst, or
+  // the fire vent's ring of burning ground on the cells fit to hold a vent.
+  function erupt(scene, h) {
+    const row = VENTS[h.kind];
+    if (row.gas && root.MushroomGas) root.MushroomGas.emit(scene, h.cellIX, h.cellIY, undefined, row.gas);
+    if (!row.groundFireMs || !scene._igniteGroundCell) return;
+    const now = Date.now();
+    for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const cell = absCellOffset(scene, h.cellIX, h.cellIY, dx, dy);
+      const point = absCellCenterMeters(scene, cell.cellIX, cell.cellIY);
+      const at = scene.cellAt(point.x, point.y);
+      if (!at.loaded || !suitable(at.type, scene.depth)) continue;
+      scene._igniteGroundCell({ ...cell, depth: h.depth }, now, { durationMs: row.groundFireMs, relight: true });
+    }
+  }
   function tick(scene, dt) {
     if (!scene.startWorldM || !scene.playerM || !Number.isFinite(dt) || dt <= 0) return;
     const s = state(scene), ms = Math.min(CONFIG.maxStepMs, dt * 1000);
@@ -255,6 +288,7 @@
     for (const h of hazards) {
       const before = h.phase; previous.set(h, before);
       h.elapsedMs += ms; update(h);
+      if (h.type === 'vent' && h.phase === 'active' && before !== 'active' && !h.blocked) erupt(scene, h);
       if (h.type === 'cavein' && before !== 'open') {
         saveCaveIn(scene, h);
         persistCaveIns ||= h.phase === 'open' || Math.floor(h.elapsedMs / 1000) !== Math.floor((h.elapsedMs - ms) / 1000);
@@ -282,6 +316,7 @@
       }
       if (h.blocked || !touching || root.Combat.playerDowned(scene.save.energy)) continue;
       if (root.Conditions.flying(scene.save) && (h.type !== 'vent' || h.kind === 'fire')) continue;
+      if (h.type === 'vent' && VENTS[h.kind].gas) continue;   // its gas does the harm
       if (h.type === 'vent' && h.phase === 'active' && h.elapsedMs >= h.nextContactMs) {
         h.nextContactMs = h.elapsedMs + CONFIG.contactMs;
         const now = Date.now();
@@ -303,5 +338,5 @@
     s.vents = s.vents.filter(h => !h.blocked);
     s.sinkholes = s.sinkholes.filter(h => h.phase !== 'closed');
   }
-  root.EnvironmentHazards = { CONFIG, VENTS, state, lists, footprint, suitable, eligible, create, update, overlaps, quarryVariant, touch, exposure, observe, tick };
+  root.EnvironmentHazards = { CONFIG, VENTS, ventKinds, state, lists, footprint, suitable, eligible, create, update, erupt, overlaps, quarryVariant, touch, exposure, observe, tick };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

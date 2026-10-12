@@ -46,8 +46,12 @@
       'the reduced edge is still visible');
     assert.eq(Math.max(0, Combat.sightCells('slime', bag('invisibility_ring'))), Combat.sightCells('slime', bag('invisibility_ring')),
       'effective sight never goes below zero');
-    assert.eq((CREATURE_AI_SRC.match(/Combat\.seesPlayer\(c\.kind, dist, scene\.cellM, scene\.save\)/g) || []).length, 2,
-      'ordinary pursuit (the roster attack and mover) passes the save through the one sight helper');
+    const observer = { kind: 'slime', x: 0, y: 0 };
+    const scene = { cellM: 10, save: bag('invisibility_ring') };
+    assert.truthy(Combat.seesTarget(scene, observer, Math.max(0, slime - 2) * 10, 0),
+      'cover-aware sight retains the gear-adjusted boundary');
+    assert.falsy(Combat.seesTarget(scene, observer, Math.max(0, slime - 2) * 10 + 1, 0),
+      'cover-aware sight rejects targets beyond the gear-adjusted boundary');
   });
 
   test('unique amulets: fastest carried regeneration cadence wins', () => {

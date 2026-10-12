@@ -145,6 +145,7 @@
     // cave torch stake): the same white, TORCH_RADIUS_MUL times as far,
     // breathing like the fire it is. Stamped at the feet in ADDITION to
     // the ramp, so the plateau is untouched and only the dark around it lifts.
+    evertorch: { radiusCells: () => radiusCells('player') * CONSUMABLE_SPEC.evertorch.radiusMul, colour: 0x75cfff, peak: 0.95, flicker: 0.12 },
     handtorch: { radiusCells: () => radiusCells('player') * TORCH_RADIUS_MUL, colour: 0xffffff, peak: 0.95, flicker: 0.12 },
     // Home: the starter trailer, or the house adopted as Home in its place
     // (both are save.starterShopId). Wider and warmer than a plain restored
@@ -746,6 +747,7 @@
   // of it while app.js's Torch timer runs (scene.isTorchActive — in memory,
   // never on the save, like the dragon's minute).
   function playerKind(scene) {
+    if (scene?.isEvertorchActive?.()) return 'evertorch';
     return (scene && typeof scene.isTorchActive === 'function' && scene.isTorchActive()) ? 'handtorch' : 'player';
   }
 
@@ -840,7 +842,7 @@
   function objectLightPadCells() {
     let m = 0;
     for (const k in KINDS) {
-      if (k === 'player' || k === 'handtorch') continue;
+      if (k === 'player' || k === 'handtorch' || k === 'evertorch') continue;
       m = Math.max(m, radiusCells(k));
     }
     return m;
@@ -1095,7 +1097,7 @@
   //     list — the scan has not looked there.
   // Each cookie is its baked shape: peak · (1 - r/R)² times the row's flicker
   // or pulse and the entry's own alpha / scale, at the colour's luminance.
-  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'fire', 'ground_fire', 'magic_trap', 'cobble', 'blast', 'bolt']);
+  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'evertorch', 'fire', 'ground_fire', 'magic_trap', 'cobble', 'blast', 'bolt']);
   function cookieLevel(L, qx, qy, cellM, now, pulseNow) {
     const row = KINDS[L.kind];
     if (!row || !(row.peak > 0)) return 0;
@@ -1628,7 +1630,7 @@
   // their shape/point changes independently of the camera.
   function cacheableWorldLight(L) {
     const row = KINDS[L.kind];
-    return L.kind !== 'handtorch' && L.kind !== 'bolt' && L.kind !== 'blast'
+    return L.kind !== 'handtorch' && L.kind !== 'evertorch' && L.kind !== 'bolt' && L.kind !== 'blast'
       && row && !row.flicker && !row.pulse && L.a == null && L.s == null;
   }
   function cookiePhase(scene, L, ax, ay) {
@@ -1840,6 +1842,92 @@
   // Returns true when it painted, false when the still-frame gate reused the
   // last upload. Times itself for the load profile: scene._boot_lightMs is
   // what drawObjects' own tick subtracts, since this runs inside that pass.
+  // The cover mask uses the exploration fog's low-resolution, world-keyed
+  // wisps. Its half-cell sight samples stay authoritative for gameplay;
+  // interpolation only softens the visual edge. Full interiors retain their
+  // exact opacity, and no second lighting texture or pixel readback is needed.
+  function coverFrame(scene, ax, ay, W, H) {
+    if (typeof Visibility === 'undefined' || !(scene.cellM > 0)
+        || !scene.playerM || !scene.startWorldM) return null;
+    const revision = Visibility.revision(scene);
+    const player = playerWorldM(scene);
+    const stepM = scene.cellM / 2, stepPx = CELL_PX / 2;
+    // Two samples outside every painted edge keep the feather continuous while
+    // the padded mask scrolls. Normal game viewports are square.
+    const x0 = Math.floor((ax - (scene.viewCenterX - scene.viewLeft) * scene.cellM / CELL_PX) / stepM) - 2;
+    const y0 = Math.floor((ay - (scene.viewCenterY - scene.viewTop) * scene.cellM / CELL_PX) / stepM) - 2;
+    const D = Math.ceil(Math.max(W, H) / stepPx) + 6;
+    const cells = D - 4, samples = FOG_SUB / 2, N = cells * samples;
+    const latticeKey = [x0, y0, D, scene.cellM].join('|');
+    const key = [revision, scene.depth, player.x, player.y, latticeKey].join('|');
+    let mask = scene._coverLightMask;
+    if (!mask) mask = scene._coverLightMask = {
+      canvas: document.createElement('canvas'), buffer: document.createElement('canvas'), key: null,
+    };
+    if (mask.key !== key) {
+      const canvas = mask.canvas, buffer = mask.buffer;
+      if (canvas.width !== cells * stepPx) canvas.width = canvas.height = cells * stepPx;
+      if (buffer.width !== N || !mask.img) {
+        buffer.width = buffer.height = N;
+        mask.ctx = buffer.getContext('2d');
+        mask.img = mask.ctx.createImageData(N, N);
+        mask.field = new Float32Array(D * D);
+        mask.feather = new Float32Array(D * D);
+        mask.sampleX = new Float32Array(N * N);
+        mask.sampleY = new Float32Array(N * N);
+        mask.latticeKey = null;
+      }
+      // Noise and smooth interpolation coordinates depend on the world window,
+      // not the observer. Reuse them through sub-cell player movement.
+      if (mask.latticeKey !== latticeKey) {
+        let i = 0;
+        for (let y = 0; y < N; y++) for (let x = 0; x < N; x++, i++) {
+          const fx = 1.5 + (x + .5) / samples, fy = 1.5 + (y + .5) / samples;
+          const wx = (x0 + fx + .5) / 2, wy = (y0 + fy + .5) / 2;
+          // At most one eighth of a cell of irregularity; unlike exploration
+          // fog's long ramp, a narrow wall shadow must keep its dark centre.
+          const nx = fx + (fogWisp(wx, wy) - .5) * .5;
+          const ny = fy + (fogWisp(wx + 31, wy - 17) - .5) * .5;
+          const ix = Math.floor(nx), iy = Math.floor(ny), tx = nx - ix, ty = ny - iy;
+          mask.sampleX[i] = ix + tx * tx * (3 - 2 * tx);
+          mask.sampleY[i] = iy + ty * ty * (3 - 2 * ty);
+        }
+        mask.latticeKey = latticeKey;
+      }
+      for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) {
+        const cover = Visibility.playerCover(scene, (x0 + x + .5) * stepM, (y0 + y + .5) * stepM);
+        mask.field[y * D + x] = cover === Visibility.CLEAR ? 0
+          : cover === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS
+          : (scene.depth > 0 ? 1 : Visibility.FULL_DARKNESS);
+      }
+      // A small separable tent filter broadens the feather to about one cell.
+      // Only the visual field is filtered; sight tests stay exact. Uniform
+      // interiors keep their opacity, with no extra canvas or pixel readback.
+      for (let y = 0; y < D; y++) for (let x = 1; x < D - 1; x++) {
+        const i = y * D + x;
+        mask.feather[i] = (mask.field[i - 1] + 2 * mask.field[i] + mask.field[i + 1]) / 4;
+      }
+      for (let y = 1; y < D - 1; y++) for (let x = 1; x < D - 1; x++) {
+        const i = y * D + x;
+        mask.field[i] = (mask.feather[i - D] + 2 * mask.feather[i] + mask.feather[i + D]) / 4;
+      }
+      const data = mask.img.data;
+      for (let i = 0; i < N * N; i++) {
+        data[i * 4 + 3] = Math.round(255 * fogSample(mask.field, D, mask.sampleX[i], mask.sampleY[i]));
+      }
+      mask.ctx.putImageData(mask.img, 0, 0);
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.globalCompositeOperation = 'copy';
+      ctx.drawImage(buffer, 0, 0, N, N, 0, 0, canvas.width, canvas.height);
+      ctx.globalCompositeOperation = 'source-over';
+      mask.key = key;
+    }
+    const x = Math.round(scene.viewCenterX - scene.viewLeft + ((x0 + 2) * stepM - ax) * CELL_PX / scene.cellM);
+    const y = Math.round(scene.viewCenterY - scene.viewTop + ((y0 + 2) * stepM - ay) * CELL_PX / scene.cellM);
+    return { canvas: mask.canvas, x, y, key: key + '|' + x + ',' + y };
+  }
+
   function draw(scene, ax, ay, halfM) {
     // The anchor this frame's scanned lights are measured from — brightnessAt
     // reads them back against it.
@@ -1885,7 +1973,8 @@
     const frames = reachFrames(scene, rp, reachM, wall);
     const fadeKey = reachFramesKey(frames);
     const B = (typeof window !== 'undefined') ? window.__boot : null;
-    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx) + '|' + fadeKey;
+    const cover = coverFrame(scene, ax, ay, tex.width, tex.height);
+    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx) + '|' + fadeKey + '|cover:' + (cover?.key || '');
     // A crossing may have borrowed the cache's last half-cell of physical
     // pad. Even if every visual key holds, the next ordinary frame must pay
     // back that deferred rebuild before the still gate can return.
@@ -1936,11 +2025,12 @@
     // exact whole-pixel crops above.
     for (const L of cookies.excluded) paintLight(ctx, scene, L, crit, now, pnow, ox, oy);
     scene._boot_lightExcludedStamps = cookies.excluded.length;
-    scene._boot_lightWorldStamps = cookies.excluded.reduce((n, L) => n + (L.kind === 'handtorch' ? 0 : 1), 0);
+    scene._boot_lightWorldStamps = cookies.excluded.reduce((n, L) => n + (L.kind === 'handtorch' || L.kind === 'evertorch' ? 0 : 1), 0);
     scene._boot_lightCachedCookies = cookies.cached;
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     const uploadT0 = B ? performance.now() : 0;
+    if (cover) ctx.drawImage(cover.canvas, cover.x, cover.y);
     tex.refresh();
     if (B) B.tick('lighting upload', performance.now() - uploadT0);
     if (B) {
@@ -1969,7 +2059,7 @@
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, objectLightPadCells, wildplantLightPadCells,
     collectPlayer, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
-    flickerAlpha, plateauCellPath, REACH_FADE_MS, reachFrames, reachFramesKey, draw,
+    flickerAlpha, plateauCellPath, REACH_FADE_MS, reachFrames, reachFramesKey, coverFrame, draw,
     LIGHT_TICK_MS, lightClock, baseFrameKey, staticFrameKey, lightCentrePx, plateauPxKey, LIGHT_CACHE_PAD_CELLS, LIGHT_CACHE_LIMIT_CELLS, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,
   };
 })(window);

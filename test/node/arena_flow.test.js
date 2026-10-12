@@ -19,7 +19,7 @@
       originPx:{x:64,y:128},mPerPx:2,
       isTooFast:()=>false,ensureTilesAround:async()=>{},
       cellAt:()=>({loaded:true,type:WorldGen.T.PARK,underRoad:false}),
-      flashAtPlayer(){},syncMoveTarget(){},_dialogOpen:()=>false,
+      flashAtPlayer(){},syncMoveTarget(){},_clearMarkers(){},_dialogOpen:()=>false,
       cameras:{main:{setBackgroundColor(){}}},
       showConfirmModal(modal){this.confirm=modal;},showMessageModal(modal){this.message=modal;},
       openArenaMenu(){this.menuOpened=(this.menuOpened||0)+1;},

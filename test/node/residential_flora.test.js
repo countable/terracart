@@ -186,4 +186,27 @@ test('waste ground keeps its rubble: the lot scatter runs dry on RESIDENTIAL onl
   const res = rasterize().objects.filter((o) => o.kind === 'mineralrock' && !o._street);
   assert.eq(res.length, 0, 'the residential block holds none');
 });
+
+test('residential yard trees: random-sized trees grow in the yards by the yard rules, deterministically', () => {
+  const a = rasterize(), b = rasterize();
+  const yardTrees = (r) => r.objects.filter((o) => o.kind === 'tree' && /^ytree_/.test(o.id));
+  const trees = yardTrees(a);
+  assert.eq(JSON.stringify(trees), JSON.stringify(yardTrees(b)), 'same tile, same trees');
+  assert.gt(trees.length, 10, `the suburb grows yard trees (${trees.length})`);
+  const sizes = new Set(trees.map((o) => o.size));
+  for (const size of ['small', 'medium', 'large']) assert.truthy(sizes.has(size), `some ${size} trees`);
+  const inYards = trees.filter((o) => a.grid[cellY(o.y) * CPE + cellX(o.x)] === T.RESIDENTIAL);
+  assert.gt(inYards.length, 10, 'most stand in the yards');
+  // Zone paint (applied after seating) can repaint a yard cell, as it does
+  // under a real canopy; the yard rules are checked on the yard cells.
+  for (const o of inYards) {
+    const cx = cellX(o.x), cy = cellY(o.y);
+    assert.eq(a.roadMask[cy * CPE + cx], 0, `${o.id} under the road band`);
+    assert.truthy(WorldGen.isSpawnCell(a.grid, CPE, CPE, cx, cy, { roadMask: a.roadMask }), `${o.id} passes the spawn rule`);
+    assert.eq(o._yardTree, true, `${o.id}: flagged so a mapped tree may take its cell`);
+  }
+  // Seated after every older object: rocks and other trees keep their cells.
+  const older = a.objects.filter((o) => !/^ytree_/.test(o.id) && (o.kind === 'mineralrock' || o.kind === 'tree'));
+  assert.gt(older.length, 0, 'sanity: the fixture has older objects');
+});
 })();

@@ -41,10 +41,14 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   Buildings, moving creatures and canvas-baked street lamps have separate seating.
   Use a stable `seatFrame` for animation. After art changes, run
   `node tools/sprite_audit.js --emit-bounds` and update `src/sprite_layout.js`.
+- Connected ground art that must abut its neighbours (chasm sections) seats on
+  its terrain slot through `absCellScreenCentre` (coords.js), never on its own
+  rounded `deltaMToScreen` point: neighbours' float centres sit `CELL_PX` ± epsilon
+  apart, and rounding each alone opens an intermittent 1px seam.
 - List actual crop `frames`, not sheet-cell counts. Hash the full id for
   per-cell variation (`wildplantFrame`); do not use id length or transient indices.
-  When art depicts quantity, rendering and drops share the variant table
-  (`PLAIN_ROCK_VARIANTS`); loot messages report the actual quantity rolled.
+  Legacy `PLAIN_ROCK_VARIANTS` retains rock yields independently of the neutral
+  material silhouettes; loot messages report the actual quantity rolled.
 - Procedural wildplant backgrounds carry the shared layout's `_terrainScale`
   into the normal crop renderer as a size multiplier; cell positions, crop art
   and harvest rewards remain owned by their existing records and tables.
@@ -110,15 +114,73 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 `tilled_bed`, `still_frames`, `chunk_index`, `building_overlay`; also
 `tools/sprite_audit.js`.
 
+- The shared mineral rock set uses a slightly warm grey palette and high
+  three-quarter overhead view. The generic `rock_variants` sheet has
+  24px cells forming fifteen adjacent small/large
+  material pairs plus three extra plain-stone pairs across six columns and six
+  rows. `mineralRockArtFrame` selects the matching gem deposit or ore tier,
+  plain stone for ordinary cave rubble,
+  and flint only when explicitly authored as `rockMaterial: 'flint'`. Partial
+  cover (`sightBlocking: true`) selects the large silhouette at scale 4/3;
+  small stones use scale 1. Outside authored rock zones, wild rubble shares
+  the four generic plain small shapes and skips biome tint; planted crop stages
+  and inventory icons retain their existing art. A stable id hash selects plain
+  stone shape independently of biome, mining quantity and small/large size.
+  Mining quantities retain their existing variant tables.
+  Thirteen stone contexts use one environmental design each from
+  `rock_variants` frames 52–64: Stone Garden, Broken Masonry, Flint Field, Broken Depot,
+  Seep, Work Yard, Black Ring, Pirate Cove, Strip Mine, Stronghold Quarry,
+  Crater Quarry, Abandoned Quarry and Mystic Reef. Color, moss and weathering carry
+  the place; Work Yard uses a cut stone slab and Crater Quarry has a glowing lava
+  seam painted into the sprite. These contain no collectible mineral inclusions.
+  The same 24px
+  frame scales to 0.75 for small stones and 4/3 for sight-blocking boulders.
+  Named context/variant fields resolve the theme, with legacy zone-object
+  frames 64–71 as a fallback. Gem, ore and explicitly flint-bearing rocks always
+  retain the shared material silhouettes and readable inclusions.
+  One 144×264 atlas holds 65 used frames and one empty trailing cell: shared material/shape pairs 0–35,
+  neutral zone pairs 36–51, and environmental designs 52–64. The source
+  images and `assets/Objects/Rocks/export.cjs` rebuild the atlas.
+  All earlier approved art remains available: `rockStyle: 'plain'` selects the original
+  neutral zone pair where one exists, otherwise the common plain shapes;
+  `rockStyle: 'shared'` always selects the common plain shapes. Stronghold
+  wall segments retain their connected wall art and physical behavior.
+  `ZONE_ROCK_THEMES` owns multiply colors: shared/neutral art automatically
+  inherits its supported zone palette; a named `rockTheme` selects a palette
+  explicitly and `rockTheme: false` keeps neutral colors. Other zones use
+  regular neutral rocks, including older records with legacy decoration frames.
+  Recoloring preserves frame/material/yield identity,
+  and never double-tints the authored themed sprite. Thus new zone palettes
+  require no copies of every ore and gem sprite.
+
 ## Lighting and streets
+
+- `Visibility` owns current cover, separately from `Fog`'s saved exploration.
+  Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
+  short walls, larger standing trees and rocks marked `sightBlocking: true`
+  provide partial cover, with a non-stacking 50% darkness treatment. Small
+  rocks and the smallest tree saplings provide no cover. The facing blocker stays visible. Full cover removes objects,
+  creatures and their associated labels, shadows and target affordances.
+  `Lighting.coverFrame` caches a world-aligned mask and composites it into the
+  existing lightmap after light sources. It reuses the exploration fog's
+  low-resolution smooth upscale and world-keyed wisps, with a roughly one-cell
+  feather from a small separable filter instead of the exploration ramp. Noise coordinates and both canvases
+  are reused; only changes to the sight field repaint the alpha buffer. Surface
+  cover retains a faint ground silhouette, while underground full cover is black. Cover queries always
+  originate at the player's body, including during camera peeks.
+- Evertorch uses the shared player-light collector and torch radius with a blue
+  `Lighting.KINDS` row. It takes visual precedence while both torches burn;
+  neither expands interaction reach. Its icon reuses Torch art with the
+  icon-source CSS palette filter in the shared inventory/offer/toast renderer.
 
 - Gas uses a translucent cell-bound pixel cloud above world sprites and below
   lighting and fog, clipped to the world viewport. `GasRender` eases density
   changes over 320 ms while the simulation diffuses once per second. Drawing
   reads a cached field snapshot and performs no texture creation or readback.
-  Confusion gas is yellow; mushroom projectiles use the same cloud painter
-  and palette, at
-  three-quarters of a cell wide.
+  Each `MushroomGas.KINDS` row owns its colours (confusion bright yellow,
+  poison green, paralysis blue); an opacity floor keeps even a thin fringe in
+  its colour over a dim cave floor. Mushroom projectiles use the same cloud
+  painter and confusion palette, at three-quarters of a cell wide.
 
 - `lighting.js` owns the sole lighting pass: additive source cookies on a 2D
   canvas multiplied over the world. Do not add darkness passes or dim sprites
@@ -147,10 +209,20 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   entry or replacement `layers` array invalidates the geometry, so a cell move
   rejects distant lines without walking their vertices.
   Feather only the restored band's edge, with a hard-edge fallback.
+- Source-geometry road bands own all paving, in the game and map review.
+  Raster road/path cells paint one shared backdrop type for both colour and
+  biome texture (`Render.roadBackdropType`): explicit street ground, then the
+  surrounding biome, then grass. Never paint raw road colours or separate path
+  pebbles beneath the band; their grid edges read as a second road.
 - Restored Toadstool (Mushroom) and Snare lanes use near-black setts close to
   the default restored road. Retain their red/brown undertones and mushroom
   spots; the shared clean-stone bevel supplies the polished highlights.
-- Generate lamps from `Streets.lampSpacingM()` (independent of restoration ladder goals).
+- Path paving and lamp palettes follow the assigned segment intervals. Scenic
+  geography still owns restoration bonuses; first-walk stories use the assigned
+  theme on the restored segment.
+- Generate lamps only on paths and Small roads, from `Streets.lampSpacingM()`
+  (independent of restoration ladder goals). Medium/Large roads have no lamp
+  sites, including broken lamps and spawn reservations.
   One list and `lit` flag feed art and lighting. Derive verge offset from road
   width and lamp footprint; art and light share the same world point. Lantern
   rise is a draw-space offset; retune height through `LAMP_PROFILE`.

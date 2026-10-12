@@ -310,6 +310,29 @@ test('scenic: bonusMetres pays (mul − 1) on the restored metres that ARE sceni
     assert.truthy(/this\._bankStreetMetres\(paid, null, now, \{ quiet: true \}\)/.test(body), 'a lamp visit banks its credit plain');
     assert.falsy(/bonusM|Scenic/.test(body), 'and never asks the scenic table');
   });
+  test('scenic: assigned path stories follow the restored segment and keep geographic bonus', () => {
+    withScenic([[0, EXT, 'shore']], clock => {
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(0, 0));
+      entry.streetIndex = { extent: EXT, lines: [{ lineKey: Streets.lineKey(way, 0),
+        line: way.geom[0], size: 'path', variantSegments: [
+          { a: 0, b: EXT / 2, variant: 'golden', key: 'a' },
+          { a: EXT / 2, b: EXT, variant: 'snare', key: 'b' },
+        ] }] };
+      const s = scene(); sweep(s, clock);
+      assert.gt(s.save.trail.bonusM, 0, 'shore geography still pays a bonus');
+      assert.eq(s.stories.length, 1);
+      assert.truthy(s.stories[0] === StreetVariants.VARIANT_BY_ID.golden.story
+        || s.stories[0] === StreetVariants.VARIANT_BY_ID.snare.story, 'the restored assigned theme tells its story');
+      const meta = { tileKey: WorldGen.tileKey(0, 0), lineKey: Streets.lineKey(way, 0), mvtToM: TILE_EDGE_M / EXT };
+      const direct = scene();
+      direct._scenicWalkStory('shore', meta, [[TILE_EDGE_M / 2 + 1, TILE_EDGE_M / 2 + 10]]);
+      assert.eq(direct.stories[0], StreetVariants.VARIANT_BY_ID.snare.story, 'the second interval gets its own story');
+      entry.streetIndex.lines[0].variantSegments[1].variant = null;
+      const plain = scene();
+      plain._scenicWalkStory('shore', meta, [[TILE_EDGE_M / 2 + 1, TILE_EDGE_M / 2 + 10]]);
+      assert.eq(plain.stories.length, 0, 'plain assigned paths do not tell an unrelated geography story');
+    });
+  });
 
   test('scenic: the multiplier rides the sweep, so a passenger and the drift home earn none of it', () => {
     const body = SCENE_SRC.slice(SCENE_SRC.indexOf('  _sweepStreets() {'), SCENE_SRC.indexOf('  _resetStreetSight() {'));
@@ -652,8 +675,12 @@ test('scenic: the look rows, their lines and the paintings', () => {
     const row = S.rowFor(kind);
     assert.truthy(row, `${kind} wears a row`);
     assert.eq(row.size, 'path', 'the scenic size');
-    assert.eq(row.share, 0, 'never rolled');
-    assert.eq(StreetVariants.variantFor(`k${kind}|0,0`, 'Promenade', 'path'), null, 'no roll lands on it');
+    assert.eq(row.share, 0, 'excluded from the Small-road draw');
+    assert.truthy(StreetVariants.selectionWeights('Promenade', 'path').some(choice => choice.id === row.id),
+      'light scenic looks participate in the path-only pool');
+    const selected = StreetVariants.variantFor(`k${kind}|0,0`, 'Promenade', 'path');
+    assert.truthy(StreetVariants.VARIANT_BY_ID[selected]?.pathWeight > 0,
+      'path assignment selects a weighted path theme');
     assert.truthy(StreetVariants.lampGlowFor({ variant: row.id }), 'its lamps glow its colour');
     assert.lte([...row.flash].length, MAP_MSG_MAX, `map line: ${row.flash}`);
     assert.truthy(require_art(row.story), `painting ${row.story}`);

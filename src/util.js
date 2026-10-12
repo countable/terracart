@@ -646,7 +646,7 @@ function derivedObjects(entry, slot, pred) {
 // DOWN from 0.6, forts clamped one UP from 0.28 — and the shared 0.6 the
 // residential roles were said to "share so they look like neighbours from one
 // village" did no such thing: at 0.6 the blacksmith drew 1.35 cells wide, the
-// trader 1.43, the wreck and the wizard 1.50, the market 1.99 and the trailer
+// trader 1.43, the wreck and the wizard 1.50, the shop 1.99 and the trailer
 // 2.02. The village was sized by whatever width each artist had chosen for
 // their PNG. Worse, a wreck (80px) and the house it restores into (72px) drew
 // at different widths, so REPAIRING a building shrank it by 10%.

@@ -9,6 +9,24 @@
 // THE MODULE LIST. The page loads the modules index.html lists, in order,
 // then app.js — reading the script tags out of index.html at load.
 (function () {
+test('map review: source road bands have biome ground rather than a second raster road', () => {
+  const L={Layer:{extend:methods=>function(options){Object.assign(this,methods);this.initialize(options);}},
+    setOptions:(layer,options)=>{layer.options=options;}};
+  const art=new Function('L','WorldGen','Render','tileCellToAbs','BIOME_TEX','COLORS','zoneGroundColor',
+    MAP_REVIEW_ART_SRC+'\nreturn MapReviewArt;')(L,WorldGen,Render,tileCellToAbs,
+    {0:{variants:1},1:{variants:1}}, {0:0x71845b,1:0x224422,7:0xff0000,8:0xff0000,13:0xff0000,14:0xff0000},()=>null);
+  const layer=art.layer({getEdge:()=>32});
+  const keys=[],fills=[];
+  const e={tx:0,ty:0,cellsPerEdge:2,grid:[7,8,13,14]};
+  layer._world={tiles:[e],scene:{cellsPerTile:2,neighborNonRoadType:(x)=>x===0?0:1}};
+  layer._assets={textures:{get:key=>({getSourceImage:()=>{keys.push(key);return key;}})}};
+  layer._roadsForTile=()=>[];
+  const g={fillRect(){fills.push(this.fillStyle);},drawImage(){}};
+  layer._paintGround(g,{x:32,y:32},(x,y)=>({x,y}));
+  assert.eq(fills.join(','),'#71845b,#224422,#71845b,#224422','all road cells match their biome fill');
+  assert.eq(keys.join(','),'biome0_0,biome1_0,biome0_0,biome1_0','all road cells match their biome texture');
+});
+
 test('map review: no game code sets the review salt', () => {
   assert.truthy(typeof WorldGen.setReviewSalt === 'function', 'the hook exists');
   for (const [name, src] of Object.entries(ALL_SRC)) {

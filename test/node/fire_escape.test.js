@@ -62,4 +62,39 @@
     PotionEffects.extinguish(c);
     assert.falsy(enemyFireEscapeTick(s, c, row(), 200, 0.1));
   });
+  // A lit campfire's hearth is fire for every grounded mover (fireStepAllowed),
+  // not only the entry-level kinds its warmth ring turns back (fireAverse).
+  function campScene(fires) {
+    const s = scene();
+    s.save.fires = fires;
+    s._nearAny = function (key, x, y, cells) {
+      return (this.save[key] || []).some(f => Math.hypot(f.x - x, f.y - y) < cells * this.cellM);
+    };
+    return s;
+  }
+  test('campfire hazard: no grounded body walks onto a hearth, and fliers pass over', () => {
+    const s = campScene([{ x: 3, y: 0.5 }]);
+    for (const c of [foe(), { id: 'g', kind: 'club_goblin', x: 0.5, y: 0.5, lair: 'guard' },
+      { id: 'p', kind: 'cat', x: 0.5, y: 0.5, ally: true }]) {
+      assert.falsy(fireStepAllowed(s, c, 3, 0.5), c.kind + ' refuses the hearth');
+      assert.falsy(fireStepAllowed(s, c, 5.5, 0.5), c.kind + ' cannot hop across it');
+      assert.truthy(fireStepAllowed(s, c, 2, 0.5), c.kind + ' may stand beside it');
+    }
+    assert.falsy(fireAverse({ kind: 'zombie' }, EnemyRoster.get('zombie')), 'a deep kind ignores the warmth ring...');
+    assert.truthy(creatureStepRefused(s, foe(), 3, 0.5, { row: row() }), '...but still never steps into the fire');
+    const bat = { id: 'b', kind: 'bat', x: 0.5, y: 0.5 };
+    assert.truthy(Conditions.flying(bat), 'bats fly');
+    assert.truthy(fireStepAllowed(s, bat, 5.5, 0.5), 'a flier passes over');
+  });
+  test('campfire hazard: a body already in the hearth walks out, never back in', () => {
+    const s = campScene([{ x: 0.5, y: 0.5 }]), c = foe();
+    assert.truthy(fireStepAllowed(s, c, 2.5, 0.5), 'leaving the fire is allowed');
+    assert.falsy(fireStepAllowed(s, { ...c, x: 2.5 }, 0.5, 0.5), 'and re-entering is not');
+  });
+  test('campfire hazard: a chasing foe jogs around the fire instead of stopping in it', () => {
+    const s = campScene([{ x: 1.5, y: 0.5 }]), c = foe();
+    enemySweep(s, c, row(), 2.5, 0.5, 0);
+    assert.gt(Math.hypot(c.x - 1.5, c.y - 0.5), FIRE_TOUCH_CELLS, 'never ends inside the hearth');
+    assert.truthy(Math.abs(c.y - 0.5) > 0.5, `it sidestepped round the hearth (${c.x.toFixed(2)}, ${c.y.toFixed(2)})`);
+  });
 })();

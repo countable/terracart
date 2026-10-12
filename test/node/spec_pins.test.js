@@ -180,8 +180,8 @@ test('#8 shopType: address-digit routing matches documented digit rules', () => 
   const makeHouse = (addr) => ({ kind: 'house', tier: WorldGen.T.BUILDING, address: addr });
   assert.eq(Shops.shopType(makeHouse(9)),  'blacksmith', 'digit 9 → blacksmith');
   assert.eq(Shops.shopType(makeHouse(19)), 'blacksmith', '19 mod 10 = 9 → blacksmith');
-  assert.eq(Shops.shopType(makeHouse(2)),  'market',     'digit 2 → market');
-  assert.eq(Shops.shopType(makeHouse(6)),  'market',     'digit 6 → market');
+  assert.eq(Shops.shopType(makeHouse(2)),  'shop',     'digit 2 → market');
+  assert.eq(Shops.shopType(makeHouse(6)),  'shop',     'digit 6 → market');
   assert.eq(Shops.shopType(makeHouse(1)),  'trader',     'digit 1 → trader');
   assert.eq(Shops.shopType(makeHouse(8)),  'trader',     'digit 8 → trader');
   assert.eq(Shops.shopType(makeHouse(5)),  null,         'digit 5 → null (no specialty)');

@@ -16,6 +16,8 @@ const ASSETS = {
         texture.add(frame, 0, rect.x, rect.y, rect.width, rect.height);
       }
     } },
+  // An inert poison vent: underground street scatter (render.js RENDER_SPEC).
+  poison_vent_inactive: { kind: 'spritesheet', path: 'assets/Objects/Cave/poison_vent_inactive.png', frameWidth: 24, frameHeight: 24 },
   cave_mechanisms: { kind: 'spritesheet', path: 'assets/Objects/Cave/mechanisms.png', frameWidth: 24, frameHeight: 24 },
   beehive: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Beehive.png', frameWidth: 16, frameHeight: 16 },
   bramble: { kind: 'spritesheet', path: 'assets/Objects/Approved/bramble.png', frameWidth: 24, frameHeight: 24 },
@@ -192,14 +194,18 @@ const ASSETS = {
   // ground decoration and must not enter the standing tree frame.
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
+  rock_variants: { kind: 'spritesheet', path: 'assets/Objects/Rocks/rocks-24.png', frameWidth: 24, frameHeight: 24 },
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
+  // Five complete 32px columns; the trailing 16px mask column is unused.
+  // Keep the original 16px key for mineral/item previews that still need it.
+  mineralboulder: { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 32, frameHeight: 16 },
   // Selected tall pillar (#63), replacing the global mapped-pole sprite.
   // One 24px frame displayed in a 32px cell; purely decorative as before.
   pillar:         { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/tall_pillar.png', frameWidth: 24, frameHeight: 24 },
   // STREET VARIANTS (src/street_variants.js): the generated 16px props (see
   // assets/Objects/Generated/README.md — placeholders): the pilgrim's
   // waystone, the barricade, and the burned row's tar pit and iron stakes
-  // (one look each). wagon: the broken wagon a bandit-road bus stop wears
+  // (one look each). wagon: the intact compact wagon a bandit-road bus stop wears
   // (loot.js chestLook), one compact 32×32 frame.
   waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone.png', frameWidth: 16, frameHeight: 16 },
   barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 24, frameHeight: 24 },
@@ -209,7 +215,7 @@ const ASSETS = {
   // and the flint nodule (items.js CROP_SPRITE.flint).
   grove_votive: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/seed_shrine.png', frameWidth: 24, frameHeight: 24 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Approved/flint.png', frameWidth: 16, frameHeight: 16 },
-  // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — ten 16×24 generated
+  // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — eleven 16×24 generated
   // placeholders on one row, in the table's order.
   shrines:        { kind: 'spritesheet', path: 'assets/Objects/Generated/shrines.png', frameWidth: 16, frameHeight: 24 },
   // SCENIC PLACES (src/scenic.js) — generated placeholders, one art per
@@ -255,6 +261,7 @@ const ASSETS = {
   macro_training:    { kind: 'spritesheet', path: 'assets/Objects/Generated/training_simple.png', frameWidth: 80, frameHeight: 80 },
   // Scholar has a dedicated reading booth, distinct from the book shop.
   macro_scholar:     { kind: 'spritesheet', path: 'assets/Objects/Generated/scholar_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_bank:        { kind: 'spritesheet', path: 'assets/Objects/Generated/bank_simple.png', frameWidth: 80, frameHeight: 80 },
   // Stone well — the in-game stand-in for OSM amenity=fountain points. Tapping
   // it refills the watering can like a water tile (see interact.js 'well'
   // branch).
@@ -371,7 +378,8 @@ const ASSETS = {
   // function. Anchored at origin (0.5, 0.9) like the base house.
   house_blacksmith: { kind: 'image', path: 'assets/Objects/Approved/house_blacksmith.png' },
   house_trader:     { kind: 'image', path: 'assets/Objects/Approved/house_trader.png' },
-  house_market:     { kind: 'image', path: 'assets/Objects/Approved/house_market.png' },
+  // The shop's file keeps its pre-rename name: the approved-art manifest keys it.
+  house_shop:       { kind: 'image', path: 'assets/Objects/Approved/house_market.png' },
   house_fort:       { kind: 'image', path: 'assets/Objects/Approved/house_fort.png' },
   house_trailer:    { kind: 'image', path: 'assets/Objects/Home/home_wagon.png' },
   // Wreck: every tier-9 small house starts out as one of these until the

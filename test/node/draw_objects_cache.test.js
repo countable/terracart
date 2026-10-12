@@ -177,4 +177,30 @@ test('drawObjects depth: the shared Phaser container sort is dirty-gated', () =>
     'a pick upgrade invalidates cached mineral-rock alpha');
 });
 
+test('drawObjects seats: every chasm seat lookup names its own pool item', () => {
+  // Only chasm and cave-in pieces seat on chasmAt; a pool callback that copies
+  // the lookup must key it by a name it destructured, or it throws in prod.
+  const body = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawObjects = function drawObjects(scene)'));
+  const lines = body.split('\n');
+  lines.forEach((line, i) => {
+    const m = line.match(/chasmAt\.get\((\w+)\)/);
+    if (!m) return;
+    const near = lines.slice(Math.max(0, i - 3), i + 1).join('\n');
+    assert.truthy(new RegExp('(const|let)\\s*(\\{[^}]*\\b' + m[1] + '\\b[^}]*\\}|' + m[1] + '\\b)').test(near),
+      'chasmAt.get(' + m[1] + ') reads a name declared in its callback: ' + line.trim());
+  });
+});
+
+// A pooled sprite keeps its last texture and seat. An object with no art (a
+// kind missing from RENDER_SPEC, such as an Underground street hazard) must
+// hide its slot, or the slot shows whatever it drew last frame: after a
+// descent, surface houses hung in the cave and slid as the player walked.
+test('drawObjects pool: an object with no appearance hides its reused slot', () => {
+  const body = RENDER_SRC.slice(RENDER_SRC.indexOf('const configureObject = (s, item) => {'));
+  const fn = body.slice(0, body.indexOf('\n  };') + 5);
+  assert.truthy(/if \(!appearance \|\| !appearance\.visible\) \{ s\.setVisible\(false\); return; \}/.test(fn),
+    'configureObject hides the slot when the appearance is missing or invisible');
+  assert.falsy(/if \(!appearance\) return;/.test(fn), 'no early return leaves a stale sprite showing');
+});
+
 })();

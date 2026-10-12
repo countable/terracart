@@ -63,6 +63,8 @@
   .zone-label{background:#122f2be8;border:1px solid #3c8f80;color:#fff;font-weight:600;font-size:11px}
   .poi-label{background:transparent;border:0;box-shadow:none;padding:1px 3px;color:#eee8dc;font-size:10px;font-weight:400;text-shadow:0 1px 2px #16140f,1px 0 2px #16140f,-1px 0 2px #16140f}
   .poi-label::before{display:none}
+  .path-label{background:#17201cdd;border:1px solid #ffffff66;border-radius:3px;color:#fff;box-shadow:none;padding:2px 4px;font-size:10px;white-space:nowrap;pointer-events:none}
+  .path-label::before{display:none}
 </style>
 </head>
 <body>
@@ -116,6 +118,9 @@
   <div id="quarrySummary" hidden style="font-size:11px;color:#aaa;line-height:1.5"></div>
 </div></details>
   <details class="review-section" open><summary>Overlays</summary><div class="section-body">
+  <label><input id="pathEndpoints" type="checkbox" checked> Path endpoints (yellow: theme change; orange: inferred; white: original)</label>
+  <label title="Visible at zoom level 17 and closer"><input id="pathLabels" type="checkbox" checked> Path names (zoom in)</label>
+  <p id="pathSummary" style="font-size:11px;color:#aaa;line-height:1.5"></p>
   <label title="Visible at zoom level 18 and closer"><input id="poiLabels" type="checkbox" checked> POI names (zoom in)</label><div id="ovl"></div>
 </div></details>
   <details class="review-section" open><summary>Density band</summary><div class="section-body">
@@ -135,6 +140,7 @@
 <script src="game-loader.js"></script>
 <script src="map-review-zones.js"></script>
 <script src="map-review-lanes.js"></script>
+<script src="map-review-paths.js"></script>
 <script src="map-review-quarries.js"></script>
 <script src="map-review-art.js"></script>
 <script src="map-review-terrain.js"></script>
@@ -322,6 +328,8 @@ const mkRow = (host, type, html, checked, on, name) => {
   l.innerHTML = `<input type="${type}"${name ? ` name="${name}"` : ''}${checked ? ' checked' : ''}> ${html}`;
   const i = l.querySelector('input'); i.onchange = () => on(i.checked); host.appendChild(l); return i;
 };
+const pathReview = MapReviewPaths.create({map, toLL, getEdge:()=>EDGE,
+  endpointsToggle:$('pathEndpoints'), labelsToggle:$('pathLabels'), summary:$('pathSummary')});
 $('removedLanes').checked = Q.get('removedLanes') === '1';
 const laneReview = MapReviewLanes.create({map,toLL,getEdge:()=>EDGE,
   removedToggle:$('removedLanes'),keptToggle:$('keptServiceRoads'),filter:$('laneFilter'),summary:$('laneSummary')});
@@ -802,6 +810,7 @@ for (const f of TERRAIN_FAMILIES) {
 const SPAWN_GATE_COLOUR = { invalid: 'rgba(230,40,40,.62)', suppressed: 'rgba(255,190,40,.58)' };
 let reviewOverlays = [];
 function overlays(world) {
+  pathReview.update(world);
   reviewOverlays.forEach(layer => map.removeLayer(layer));
   reviewOverlays = [];
   map.removeLayer(densityLayer); densityOn = false;
@@ -943,8 +952,8 @@ function overlays(world) {
   // STREET VARIANTS (src/street_variants.js): every indexed transportation
   // line (entry.streetIndex.lines) coloured by its variant — the table's own
   // rows and colours (StreetVariants.STREET_VARIANTS, each row's lampGlow),
-  // a plain major road as the old trade road (BANDIT_STORY), a plain minor
-  // street grey, a rock-lined one dashed. Counts are distinct streets (key).
+  // fixed MD/LG identities, plain streets grey, rock-lined streets dashed.
+  // Path counts use variant-assignment keys.
   if (typeof StreetVariants !== 'undefined' && world.tiles.some((e) => e.streetIndex && e.streetIndex.lines)) {
     const SVx = StreetVariants;
     const layer = L.layerGroup();
@@ -958,8 +967,6 @@ function overlays(world) {
     const PALETTE = ['#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4',
       '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990', '#dcbeff', '#9a6324', '#800000'];
     rows.forEach((r, i) => { look[r.id] = { colour: PALETTE[i % PALETTE.length], label: `${r.title || r.id} (${r.size})` }; });
-    const trade = (SVx.BANDIT_STORY && SVx.BANDIT_STORY.title) || 'old trade road';
-    look.__major = { colour: '#ffffff', label: `${trade} (major, plain)` };
     look.__minor = { colour: '#8a8a8a', label: 'plain street (minor)' };
     const keys = {};
     const rocky = new Set();
@@ -968,8 +975,10 @@ function overlays(world) {
       if (!idx || !idx.lines) continue;
       const ext = idx.extent || 4096;
       for (const rec of SVx.displayLines(idx, EDGE / ext)) {
-        const id = rec.variant || (rec.size === 'major' ? '__major' : '__minor');
-        const lk = look[id] || (look[id] = { colour: '#fff', label: id });
+        const story = SVx.roadStoryFor(rec);
+        const id = story?.story || rec.variant || (rec.size === 'path' ? '__path' : '__minor');
+        const lk = look[id] || (look[id] = { colour: story ? '#ffffff' : '#8a8a8a',
+          label: story?.title || (rec.size === 'path' ? 'plain path' : id) });
         (keys[id] || (keys[id] = new Set())).add(rec.key);
         if (rec.rocks) rocky.add(rec.key);
         const pts = rec.line.map((p) => toLL((e.tx + p.x / ext) * EDGE, (e.ty + p.y / ext) * EDGE, EDGE));
@@ -979,50 +988,15 @@ function overlays(world) {
           .addTo(layer);
       }
     }
-    // SCENIC STRETCHES (src/scenic.js — feature-detected: the page only has
-    // it once index.html loads the module): every walking way's scenic
-    // intervals (entry.scenic.lines, MVT arclength units) drawn as the
-    // sub-polyline they cover, in their look row's colour (StreetVariants'
-    // 'path' rows: promenade / greenway / park path). Counted in km.
-    const scenicKm = {};
-    if (typeof Scenic !== 'undefined' && typeof Streets !== 'undefined') {
-      for (const e of world.tiles) {
-        const sc = e.scenic;
-        if (!sc || !sc.lines || !sc.lines.size) continue;
-        const tr = (e.layers || []).find((l) => l.name === 'transportation');
-        if (!tr) continue;
-        const ext = tr.extent || 4096;
-        const gM = (e.cellsPerEdge * WorldGen.CELL_M) / ext;
-        for (const f of tr.features) {
-          if (f.type !== 2 || !f.geom) continue;
-          for (let li = 0; li < f.geom.length; li++) {
-            const ivs = sc.lines.get(Streets.lineKey(f, li));
-            if (!ivs) continue;
-            for (const iv of ivs) {
-              const row = Scenic.rowFor(iv[2]);
-              const id = row ? row.id : iv[2];
-              const lk = look[id] || (look[id] = { colour: '#0ff', label: id });
-              (keys[id] || (keys[id] = new Set())).add(`${e.tx},${e.ty}|${li}|${f.id}`);
-              scenicKm[id] = (scenicKm[id] || 0) + (iv[1] - iv[0]) * gM / 1000;
-              const sub = Streets.subLineM(f.geom[li], 1, iv[0], iv[1]);
-              if (sub.length < 2) continue;
-              const pts = sub.map((p) => toLL((e.tx + p.x / ext) * EDGE, (e.ty + p.y / ext) * EDGE, EDGE));
-              L.polyline(pts, { color: lk.colour, weight: 4, opacity: 0.95 })
-                .bindPopup(`<b>${esc(lk.label)}</b> · ×${Scenic.SCENIC_MUL[iv[2]]} on the ladder<br>${((iv[1] - iv[0]) * gM).toFixed(0)} m`)
-                .addTo(layer);
-            }
-          }
-        }
-      }
-    }
+    // Path variants come from the same assignment records as the game.
     mkRow($('ovl'), 'checkbox', 'Street variants', false, (on) => on ? layer.addTo(map) : map.removeLayer(layer));
-    const order = [...rows.map((r) => r.id), '__major', '__minor'].filter((id) => keys[id]);
+    const order = [...rows.map((r) => r.id), '__minor', '__path'].filter((id) => keys[id]);
     for (const id of Object.keys(keys)) if (!order.includes(id)) order.push(id);
     const div = document.createElement('div');
     div.style.margin = '2px 0 4px';
     div.innerHTML = order.map((id) => `<div style="display:flex;gap:6px;align-items:baseline">`
       + `<span class="sw sq" style="background:${look[id].colour}"></span><span>${esc(look[id].label)}</span>`
-      + `<span class="n">${keys[id].size.toLocaleString()}${scenicKm[id] ? ` · ${scenicKm[id].toFixed(1)} km` : ''}</span></div>`).join('')
+      + `<span class="n">${keys[id].size.toLocaleString()}</span></div>`).join('')
       + `<div style="display:flex;gap:6px;align-items:baseline"><span style="color:#888">dashed: rock-lined</span>`
       + `<span class="n">${rocky.size.toLocaleString()}</span></div>`;
     $('ovl').appendChild(div);

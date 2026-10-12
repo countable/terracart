@@ -1137,7 +1137,8 @@ const Multiplayer = (function () {
       if (g) return;
       const dist = Math.hypot(x - c.x, y - c.y);
       const r = Math.max(0, sight - v) * cellM;
-      if (dist <= r || (id === cur && dist <= r + TARGET_KEEP_CELLS * cellM)) cands.push({ id, d: dist, x, y });
+      const cells = (r / cellM) + (id === cur ? TARGET_KEEP_CELLS : 0);
+      if (Combat.seesTarget(scene, c, x, y, cells)) cands.push({ id, d: dist, x, y });
     };
     let peers = 0;
     for (const p of S.peers.values()) {
@@ -1332,6 +1333,9 @@ const Multiplayer = (function () {
       else { p.dx += (s.x - p.dx) * k; p.dy += (s.y - p.dy) * k; }
       const onScreen = (p.d || 0) === (scene.depth || 0)
         && Math.abs(p.dx - scene.viewCenterX) < half && Math.abs(p.dy - scene.viewCenterY) < half;
+      if (typeof Visibility !== 'undefined' && Visibility.playerCover(scene, wm.x, wm.y) === 2) {
+        hidePeerArt(p, false); continue;
+      }
       if (!onScreen) { hidePeerArt(p, false); drawPeerDot(scene, p); continue; }
       if (!p.spr) makePeerArt(scene, p);
       const walking = p.m && (now - p.seenAt) < 1500;

@@ -153,7 +153,8 @@
     "rows": [
       "poison",
       "fire",
-      "paralysis"
+      "paralysis",
+      "confusion"
     ],
     "phases": [
       "inactive",
@@ -163,7 +164,8 @@
       "active2"
     ],
     "inactiveImage": "vent-inactive.png",
-    "packing": "pack-vents.cjs preserves approved ring pixels; only plume-colored aperture pixels change in inactive state."
+    "packing": "pack-vents.cjs preserves approved ring pixels; only plume-colored aperture pixels change in inactive state.",
+    "confusionRow": "Row 3 is the paralysis row with its yellow plume and glow pixels recoloured to neutral grey at the same luminance; the stone ring is unchanged."
   },
   "gameplayTiming": {
     "vent": {

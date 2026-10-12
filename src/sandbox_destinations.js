@@ -14,6 +14,7 @@
     { id: 'hazards', label: 'Webs and sinkhole', scene: 'HAZARDS' },
     { id: 'cavein', label: 'Cave-in warning', scene: 'HAZARDS', sub: 'CAVE-IN ARRIVAL', depth: 1 },
     { id: 'hazards-cave', label: 'Cave hazard lab', scene: 'HAZARDS', depth: 1 },
+    { id: 'hazards-deep', label: 'Deep hazard lab', scene: 'HAZARDS', depth: 2 },
     { id: 'practice', label: 'Combat practice', scene: 'PRACTICE' },
     { id: 'forest', label: 'Forest', scene: 'FOREST' },
     { id: 'orchard', label: 'Orchard', scene: 'ORCHARD' },
@@ -41,11 +42,12 @@
       ['hedgerow', 'Hedgerow'], ['lantern', 'Lantern row'], ['burned', 'Burned row'],
       ['toadstool', 'Toadstool lane'], ['overgrown', 'Overgrown road'],
       ['orchard', 'Orchard road'], ['pilgrim', 'Pilgrim road'], ['golden', 'Golden road'],
-      ['thorny', 'Thorny Way'], ['snare', 'Snare lane'], ['barricade', 'Barricade road'],
+      ['thorny', 'Thorny Way'], ['snare', 'Snare lane'], ['goblin_gang', 'Goblin Gang Street'], ['barricade', 'Barricade road'],
     ].map(([variant, label]) => ({ id: `${variant}-road`, label, road: variant,
       aliases: [`road:${variant}`, ...(variant === 'orchard' ? [] : [variant])] })),
     { id: 'parkpath', label: 'Park path', roadName: 'Common Walk', aliases: ['path', 'road:parkpath'] },
-    { id: 'trade-road', label: 'Old trade road', roadName: 'Old Trade Road', aliases: ['road_lg', 'road:major'] },
+    { id: 'trade-road', label: 'Old trade road', roadName: 'Old Trade Road', aliases: ['road_md', 'road:street_bandit'] },
+    { id: 'ancient-highway', label: 'Ancient highway', roadName: 'Ancient Highway', aliases: ['road_lg', 'road:major', 'road:street_highway'] },
     { id: 'market-road', label: 'Market close', roadName: 'Market Close', aliases: ['road', 'road:minor'] },
   ];
   const normalize = value => String(value || '').trim().toLowerCase().replace(/[ _]+/g, '-');

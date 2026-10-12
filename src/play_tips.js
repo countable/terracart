@@ -43,7 +43,7 @@ const PLAY_TIPS = [
   "One chest alone shone brighter than the crowded crates. Fewer neighbours, better prospects.",
   "Plain crate. Emptied. Returned later: full again.",
   "Barrel inventory: hollow, hollow, hollow. Whoever stocked this depot had a very light hand.",
-  "Returned to the pot of gold another day. Fresh coins. I have crossed out my complaint about the empty pot.",
+  "Borrowed from the bank. A day later a pirate stood at my elbow asking for it back, with interest. I paid. Next time I will read the counter first.",
   "Borrowed swiftness at the courier's post. My wandering double raced ahead; for a moment I felt young by association.",
   "A glow lingered above the unopened gift. I almost walked past. These days I look twice at anything gentle.",
   "I lifted a stone and found a gemfruit beneath. My mother would have called that payment for the effort.",

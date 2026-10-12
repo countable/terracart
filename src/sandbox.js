@@ -129,6 +129,9 @@
       s.mineralRock(1, 1, 1); s.mineralRock(2, 3, 1); s.mineralRock(3, 5, 1);
       s.mineralRock(4, 1, 3); s.mineralRock(5, 5, 3);
       s.mineralRock(6, 1, 5); s.mineralRock(7, 5, 5);
+      // Neutral small/large stones exercise clear and shaded sight.
+      s.mineralRock(1, 1, 2, { sightBlocking: false });
+      s.mineralRock(1, 5, 2, { sightBlocking: true });
       // Plain CAVE rocks (the 4 vanilla variants) interleaved — break with any
       // pick, drop rockfruit + a lucky bar. Distinct sprite from the ore rocks.
       s.caveRock(0, 3, 3); s.caveRock(1, 3, 5); s.caveRock(2, 2, 2); s.caveRock(3, 4, 4);
@@ -206,9 +209,9 @@
       s.well(1, 1);
       s.startChest('Sandbox Start Chest', 7, 6, { id: 'wood', qty: 5 });   // real starter chest — no pad
       s.creature('chicken', 7, 3, 1);
-      // A pot of gold (an ATM) — tapping spills a burst of collectible coins
-      // (daily-gated) — and a bike rack, which lends the stick a bike for
-      // three minutes (loot.js chestLook: 'potofgold' / 'bike_rack').
+      // An ATM — a bank booth (borrow or invest, src/macros.js) — and a
+      // bike rack, which lends the stick a bike for three minutes (loot.js
+      // chestLook: 'macro_bank' / 'bike_rack').
       s.chest('atm', 'Sandbox ATM', 6, 1);
       s.chest('bicycle_parking', 'Sandbox Bike Parking', 8, 2);
     },
@@ -229,7 +232,7 @@
 
   // ── RESIDENTIAL STREET — the headline scene. A ROAD runs across the middle
   //    (with street-name labels); a house of EACH shop type lines it:
-  //    blacksmith, market, trader and plain/delivery via explicit cards. Yards
+  //    blacksmith, shop, trader and plain/delivery via explicit cards. Yards
   //    carry mushroom decals + pickable mushrooms; a mineral rock sits at the
   //    curb (worldgen drops residential rocks only ≤1 cell from a road); cats
   //    & dogs roam (their primary biome). Houses are marked restored in seed.
@@ -255,7 +258,7 @@
     },
     populate(s) {
       s.house(1, 0, 9, 9, { _sandboxBuild: 'blacksmith:1' });   // blacksmith — top-left
-      s.house(7, 0, 6, 9, { _sandboxBuild: 'market:seed:1' });   // market     — top
+      s.house(7, 0, 6, 9, { _sandboxBuild: 'shop:seed:1' });   // shop     — top
       s.house(1, 7, 8, 9, { _sandboxBuild: 'trader:1' });   // trader     — bottom-left
       s.house(7, 7, 3);   // plain/delivery (produce plaque) — bottom
       s.wildplant('mushroom', 3, 6); s.wildplant('mushroom', 10, 6);
@@ -361,8 +364,10 @@
     { name: 'Market Close', class: 'minor', type: T.ROAD, y: 13, thick: 1, x0: 0, x1: 23, variant: null },
     { name: 'Thorny Way', class: 'minor', type: T.ROAD, y: 35, thick: 1, x0: 0, x1: 23, variant: 'thorny' },
     { name: 'Iron Lane', class: 'minor', type: T.ROAD, y: 18, thick: 1, x0: 0, x1: 23, variant: 'snare' },
-    { name: 'Fort Road', class: 'tertiary', type: T.ROAD_MD, y: 25, thick: 2, x0: 0, x1: 23, variant: 'barricade' },
-    { name: 'Old Trade Road', class: 'primary', type: T.ROAD_LG, y: 28, thick: 2, x0: 0, x1: 23, variant: null, bandit: true },
+    { name: 'Goblin Gang Street', class: 'minor', type: T.ROAD, y: 21, thick: 1, x0: 0, x1: 23, variant: 'goblin_gang' },
+    { name: 'Fort Road', class: 'path', type: T.PATH, y: 25, thick: 2, x0: 0, x1: 23, variant: 'barricade' },
+    { name: 'Old Trade Road', class: 'tertiary', type: T.ROAD_MD, y: 28, thick: 2, x0: 0, x1: 23, variant: null, bandit: true },
+    { name: 'Ancient Highway', class: 'primary', type: T.ROAD_LG, y: 31, thick: 2, x0: 0, x1: 23, variant: null },
   ];
   const SHOWCASE = {
     name: 'STREETS', label: 'STREET VARIANTS', w: 24, h: 40, fill: T.GRASS,
@@ -453,14 +458,14 @@
       { label: 'RESTORE A WRECK', dx: 7, dy: 13 }, { label: 'RECENT ENEMIES', dx: 7, dy: 25 }],
     populate(s) {
       const picks = ['blacksmith:1', 'blacksmith:2', 'blacksmith:3', 'trader:2',
-        'market:seed:2', 'market:supply:2', 'petshop', 'bookshop', 'turret'];
+        'shop:seed:2', 'shop:supply:2', 'petshop', 'bookshop', 'turret'];
       picks.forEach((key, i) => s.house(2 + (i % 4) * 3, 2 + Math.floor(i / 4) * 5,
         0, 9, { _sandboxBuild: key }));
       s.house(3, 14, 0, 9, { _sandboxWreck: true });
       s.house(10, 14, 0, 9, { _sandboxWreck: true });
-      ['lodging', 'place_of_worship', 'school', 'sports_centre', 'town_hall', 'museum', 'shop', 'library', 'pharmacy']
+      ['lodging', 'place_of_worship', 'school', 'sports_centre', 'town_hall', 'museum', 'shop', 'library', 'pharmacy', 'bank']
         .forEach((poiClass, i) => s.chest(poiClass, `Sandbox ${poiClass}`, 15, 2 + i * 4));
-      s.chest('bus', 'Sandbox Mimic Chest', 2, 18, { _sandboxProbe: 'mimic' });
+      s.chest('shelter', 'Sandbox Mimic Chest', 2, 18, { _sandboxProbe: 'mimic' });
       s.chest('bus', 'Sandbox Repeatable Crate', 5, 18, { tierSeed: 1, _sandboxProbe: 'daily-crate' });
       s.chest('bus', 'Sandbox Barrel', 8, 18, { barrel: true });
       s.chest('bus', 'Sandbox Clay Pot', 11, 18, { barrel: true, barrelStyle: 'clay_pot' });
@@ -494,8 +499,8 @@
   // cells and its vector/variant row through the same record.
   const BANDS = [
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Oak Road', thick: 1, variant: 'hedgerow' }, scenes: [FOREST, ORCHARD, ROCK] },
-    { roadAfter: { type: T.ROAD_LG, class: 'primary', name: 'Main Street', thick: 2, variant: 'lantern' }, scenes: [BARNYARD, PADDOCK, BEACH, MARSH] },
-    { roadAfter: { type: T.ROAD_MD, class: 'tertiary', name: 'Mill Lane', thick: 1, variant: 'burned' }, scenes: [PLAZA, FARMLAND, PRACTICE] },
+    { roadAfter: { type: T.PATH, class: 'path', name: 'Main Street', thick: 2, variant: 'lantern' }, scenes: [BARNYARD, PADDOCK, BEACH, MARSH] },
+    { roadAfter: { type: T.ROAD, class: 'minor', name: 'Mill Lane', thick: 1, variant: 'burned' }, scenes: [PLAZA, FARMLAND, PRACTICE] },
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Garden Row', thick: 1, variant: 'toadstool' }, scenes: [RESIDENTIAL, CIVIC, SMALLHOUSE] },
     { roadAfter: null, scenes: [RECREATION, CASTLE, HAZARDS] },
     { roadAfter: null, scenes: [SHOWCASE, ZONES, RESTORATION, QUARRY] },
@@ -751,11 +756,11 @@
       // and the ore-stone sprite (copper T2 … frost T7; T1 is plain rock that
       // yields a little copper). requiredTier = max(1, yieldTier-1) mirrors
       // worldgen's pick gate, so the gating ladder is exercised end-to-end.
-      mineralRock(yieldTier, dx, dy) {
+      mineralRock(yieldTier, dx, dy, extra = {}) {
         const { x, y } = at(dx, dy);
         const requiredTier = Math.max(1, yieldTier - 1);
         objects.push(WorldGen.makeObject('mineralrock', x, y,
-          `${baseId}_mr_${tag}_t${yieldTier}_${dx}_${dy}`, { yieldTier, requiredTier }));
+          `${baseId}_mr_${tag}_t${yieldTier}_${dx}_${dy}`, { yieldTier, requiredTier, ...extra }));
       },
       // Plain CAVE rock (caveVariant 0..3) — any pick breaks it, drops
       // rockfruit + a tier-scaled lucky bar. Renders the vanilla rock sprite,
@@ -1083,7 +1088,7 @@
     const lines = [];
     for (let fi = 0; fi < transport.routes.length; fi++) {
       const route = transport.routes[fi];
-      if (route.type !== T.ROAD && route.type !== T.ROAD_MD && route.type !== T.ROAD_LG) continue;
+      if (route.type !== T.ROAD && route.type !== T.ROAD_MD && route.type !== T.ROAD_LG && route.type !== T.PATH) continue;
       const f = transport.features[fi], line = f.geom[0];
       let key = StreetVariants.streetKey(route.name, c.tx, c.ty);
       if (route.bandit) {
@@ -1092,8 +1097,8 @@
         do { key = `sandbox-old-trade-${n++}`; } while (!StreetVariants.isBanditStretch(key, st.sx, st.sy));
       }
       lines.push({ fi, li: 0, line, tags: f.tags, name: route.name, key,
-        variant: route.variant, selectedVariant: route.variant,
-        size: (route.type === T.ROAD_MD || route.type === T.ROAD_LG) ? 'major' : 'minor',
+        variant: route.scenic ? Scenic.KIND_ROW[route.scenic] : route.variant, selectedVariant: route.variant,
+        size: (route.type === T.ROAD_MD || route.type === T.ROAD_LG) ? 'major' : route.type === T.PATH ? 'path' : 'minor',
         halfW: WorldGen.roadOverlayWidthM(f.tags) / 2,
         lineKey: Streets.lineKey(f, 0), variantRanges: null });
     }
@@ -1101,7 +1106,10 @@
     const hoardPois = at ? [{ x: Math.round((at.ix + 0.5) * SANDBOX_EXTENT / c.cellsPerEdge),
       y: Math.round((at.iy + 0.5) * SANDBOX_EXTENT / c.cellsPerEdge),
       gk: `${c.tx * SANDBOX_EXTENT + at.ix},${c.ty * SANDBOX_EXTENT + at.iy}` }] : [];
-    return { extent: SANDBOX_EXTENT, lines, dressingLines: lines, hoardPois };
+    return { extent: SANDBOX_EXTENT, lines, dressingLines: lines, hoardPois,
+      pathSections: lines.filter(r => r.size === 'path').map(r => ({ ...r,
+        segmentLengthM: Streets.lineLengthM(r.line, c.tileEdgeM / SANDBOX_EXTENT),
+        featureIds: [transport.features[r.fi].id] })) };
   }
 
   function layStreetDressing(entry, c, dressing) {
@@ -1109,7 +1117,6 @@
     entry.objects.push(...dressing.objects);
     entry.wildplants.push(...dressing.wildplants);
     entry.extraTreasures.push(...dressing.treasures);
-    entry.coinDrops.push(...dressing.coins);
     entry.streetLairs.push(...dressing.lairs);
     // Snare-lane iron teeth: the real spawn pass lays dressing.traps into
     // entry.traps (scene_creatures.js); seat them here too, skipping cells
@@ -1166,7 +1173,7 @@
       const base = wagon.id; let n = 0;
       do { wagon.id = `${base}_${n++}`; } while (!StreetVariants.isWagonStop(wagon.id));
     }
-    StreetVariants.markBanditStops(entry.objects, entry.roadClass, c.cellsPerEdge, c.tx, c.ty, c.tileEdgeM);
+    StreetVariants.markBanditStops(entry.objects, entry.roadClass, c.cellsPerEdge, c.tx, c.ty, c.tileEdgeM, entry);
 
     spawnOpts.occupied = occupiedCells(c);
     // The shipping density cap (TRAP_GROUND_SHARE_PER_MUL × pool size) governs
@@ -1319,14 +1326,15 @@
     const origin = tileCellToAbs(scene, centreTX, centreTY,
       gridOriginIX + yard.lx, gridOriginIY + yard.ly);
     installHazardFloors(scene, centreTX, centreTY);
-    if (SandboxDestinations.find(params.get('sandboxZone'))?.depth === 1) {
-      scene.depth = scene.save.depth = 1;
-      WorldGen.setDepth(1);
+    const labDepth = SandboxDestinations.find(params.get('sandboxZone'))?.depth;
+    if (labDepth === 1 || labDepth === 2) {
+      scene.depth = scene.save.depth = labDepth;
+      WorldGen.setDepth(labDepth);
       scene.cameras.main.setBackgroundColor('#0a0a12');
     }
     scene._sandboxHazardOrigin = origin;
     scene._sandboxHazardFixtures = null;
-    if (scene.depth === 1 || SandboxDestinations.find(params.get('sandboxZone'))?.id === 'hazards'
+    if (scene.depth === 1 || scene.depth === 2 || SandboxDestinations.find(params.get('sandboxZone'))?.id === 'hazards'
         || params.get('sandboxScene')?.toUpperCase() === 'HAZARDS') seedHazardState(scene, origin);
   }
 
@@ -1526,7 +1534,7 @@
     //    expire after COIN_BURST_LIFE_MS; here we omit expiresAt so they
     //    persist across reloads. They live in entry.coinDrops, not objects[].
     if (centreEntry) {
-      centreEntry.coinDrops = (centreEntry.coinDrops || []).filter((c) => c._street === 'golden');
+      centreEntry.coinDrops = [];
       const plaza = sceneByName('PLAZA');
       const cellOf = (p) => `${Math.floor((p.x - centreTX * tileEdgeM) / cellM)}_${Math.floor((p.y - centreTY * tileEdgeM) / cellM)}`;
       const taken = new Set([...centreEntry.objects, ...centreEntry.wildplants, ...centreEntry.coinDrops,
@@ -1635,10 +1643,17 @@
       env[type === 'vent' ? 'vents' : type === 'cavein' ? 'caveins' : 'sinkholes'].push(h);
       fixtures.push(h);
     };
-    if (scene.depth === 1) {
+    if (scene.depth === 1 || scene.depth === 2) {
       const torch = CONSUMABLE_SPEC.torch;
       Buffs.extend(scene.save, scene, torch.buff, torch.durationMs);
-      ['poison', 'fire', 'paralysis'].forEach((kind, i) => add('vent', 3 + i * 4, 4, kind, 'vent-' + kind));
+      // Each floor's own vents (EnvironmentHazards.ventKinds): L1 confusion,
+      // L2 poison, fire and paralysis.
+      EnvironmentHazards.ventKinds(scene.depth).forEach((kind, i) => add('vent', 3 + i * 4, 4, kind, 'vent-' + kind));
+    }
+    if (scene.depth === 1) {
+      add('cavein', 20, 5, 'poison', 'cavein');
+      add('cavein', 21, 5, 'poison', 'cavein-neighbor');
+    } else if (scene.depth === 2) {
       ['ball', 'wall'].forEach((kind, i) => {
         const pair = PressureTraps.create(scene, at(6 + i * 10, 7), at(3 + i * 10, 7), kind, prefix + 'pressure-' + kind);
         pair.plate._sandboxProbe = 'plate-' + kind;
@@ -1647,8 +1662,6 @@
         PressureTraps.lists(scene).traps.push(pair.trap);
         fixtures.push(pair.plate, pair.trap);
       });
-      add('cavein', 20, 5, 'poison', 'cavein');
-      add('cavein', 21, 5, 'poison', 'cavein-neighbor');
     } else {
       add('sinkhole', 16, 6);
       const cell = at(5, 6), point = absCellCenterMeters(scene, cell.cellIX, cell.cellIY);
@@ -1727,11 +1740,12 @@
     const yard = sceneByName('HAZARDS');
     const label = (text, x, y, depth, reset = false) => addLabel(text,
       originIX + yard.lx + x, originIY + yard.ly + y, depth, reset);
-    for (const depth of [0, 1]) label('RESET HAZARDS', 2, 4, depth, true);
+    for (const depth of [0, 1, 2]) label('RESET HAZARDS', 2, 4, depth, true);
     label('RESET HAZARDS', 20, 3, 1, true);
-    [['POISON', 3, 3], ['FIRE', 7, 3], ['PARALYSIS', 11, 3],
-      ['BALL → PLATE', 4, 8], ['WALL → PLATE', 14, 8], ['CAVE-IN', 20, 4]]
-      .forEach(([text, x, y]) => label(text, x, y, 1));
+    [['CONFUSION', 3, 3, 1], ['CAVE-IN', 20, 4, 1],
+      ['POISON', 3, 3, 2], ['FIRE', 7, 3, 2], ['PARALYSIS', 11, 3, 2],
+      ['BALL → PLATE', 4, 8, 2], ['WALL → PLATE', 14, 8, 2]]
+      .forEach(([text, x, y, depth]) => label(text, x, y, depth));
     // Re-position labels from their world coord every frame so they follow the
     // camera. wanderCreatures runs each scene tick and we own the reference, so
     // wrap it (a direct scene.update patch doesn't intercept Phaser's binding).

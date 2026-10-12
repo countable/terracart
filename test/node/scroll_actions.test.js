@@ -183,13 +183,13 @@ test('scroll actions: nearest chest uses only active level cache, tier and unspe
     WorldGen: world, spentSets: () => new Set(['spent']),
     chestTier: c => c.tier, isSpent: (c, spent) => spent.has(c.id),
     macroFor: c => c.macro, isBarrel: c => c.barrel,
-    isBikeRack: c => c.bike, isPotOfGold: c => c.gold,
+    isBikeRack: c => c.bike,
   });
   assert.eq(find.call(s, [4, 5]), surface);
   world.tileCache = new Map([['cave', { objects: [far, near,
     chest('low', 101, 3), chest('spent', 102, 5), chest('stall', 103, 5, { macro: true }),
     chest('barrel', 104, 4, { barrel: true }), chest('bike', 105, 4, { bike: true }),
-    chest('gold', 106, 4, { gold: true }), { id: 'tree', kind: 'tree', x: 100, y: 200 }] }]]);
+    chest('bank', 106, 4, { macro: true }), { id: 'tree', kind: 'tree', x: 100, y: 200 }] }]]);
   assert.eq(find.call(s, [4, 5]), near, 'old level chest never considered');
   assert.eq(find.call(s, [5]), far);
   assert.eq(find.call(s).id, 'low', 'existing untiered compass stays compatible');

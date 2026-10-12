@@ -151,10 +151,16 @@ test('traps: BESIDE the path, never on it', () => {
       if (r.grid[y * CPE + x] !== T.PARK) besideOther = true;
     }
     if (k === 1) { path++; assert.truthy(besidePath, `${tp.id} is 8-adjacent to a footpath`); }
-    else { park++; assert.eq(r.grid[i], T.PARK, `${tp.id} is park`); assert.truthy(besideOther, `${tp.id} is on the park's edge`); }
+    else {
+      park++;
+      assert.eq(r.grid[i], T.PARK, `${tp.id} is park`);
+      assert.truthy(besideOther, `${tp.id} is on the park's edge`);
+      assert.eq(r.streetAreaVariants[i], StreetVariants.VARIANT_BY_ID.parkpath.code,
+        'the generated Park Path verge owns this park edge');
+    }
   }
   assert.gt(path, 0, 'the footpaths carry traps');
-  assert.eq(park, 0, 'generic grass fixture has only path trap ground');
+  assert.gt(park, 0, 'Park Path paints eligible park edges beside the grass fixture paths');
   // The predicate itself: the open park interior and plain grass are not
   // trap ground; the footpath cell never is.
   assert.eq(kindAt(r, 12, 30), 0, 'the park interior');

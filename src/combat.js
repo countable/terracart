@@ -107,6 +107,16 @@
   function seesPlayer(kind, distM, cellM, save) {
     return distM <= sightCells(kind, save) * cellM;
   }
+  // Range rejection comes before the grid ray. Tree cover applies one sight
+  // penalty regardless of how many trunks the ray crosses.
+  function seesTarget(scene, observer, x, y, cells = sightCells(observer.kind, scene.save)) {
+    const dist = Math.hypot(x - observer.x, y - observer.y);
+    if (dist > Math.max(0, cells) * scene.cellM) return false;
+    if (typeof Visibility === 'undefined') return true;
+    const cover = Visibility.coverBetween(scene, observer.x, observer.y, x, y);
+    if (cover === 2) return false;
+    return dist <= Math.max(0, cells - (cover === 1 ? Visibility.TREE_SIGHT_PENALTY : 0)) * scene.cellM;
+  }
   // Is this kind a cave MONSTER? Narrower than isEnemyKind, which also counts
   // the surface slime.
   function isMonster(kind) { return kind !== 'slime' && !!monster(kind); }
@@ -1672,7 +1682,7 @@
 
   const api = {
     MONSTERS,
-    registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
+    registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, seesTarget, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
     SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow, meleeBlow, petReachCells,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource, isSharedHit, PEER_SOURCE, isPeerHit,

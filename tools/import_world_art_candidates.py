@@ -2,7 +2,8 @@
 """Import approved review candidates into existing sheets without touching neighbours.
 
 Run after legacy art generators/recolour bakers. Only manifest-listed frames are
-replaced; geometry, unrelated frames, and asset registration remain unchanged.
+replaced; unrelated frames and asset registration remain unchanged. Explicit
+wholeImage entries can replace a standalone image canvas.
 The checked-in crops are from the generated originals, before review downsampling.
 """
 import argparse
@@ -59,6 +60,11 @@ def apply_imports(root=ROOT, review_ids=None):
         path = root / name
         before = Image.open(path).convert('RGBA')
         sheet = before.copy()
+        whole_image = any(entry.get('wholeImage') for entry in entries)
+        if whole_image:
+            if len(entries) != 1 or entries[0]['frame'] != 0 or not entries[0].get('native'):
+                raise ValueError(f'Whole-image import requires one native frame zero: {name}')
+            sheet = Image.new('RGBA', tuple(entries[0]['frameSize']))
         selected = Image.new('L', sheet.size)
         for entry in entries:
             w, h = entry['frameSize']
@@ -81,9 +87,10 @@ def apply_imports(root=ROOT, review_ids=None):
                 sheet.paste(candidate_frame(source, (w, h), entry.get('fitRect')), (x, y))
             selected.paste(255, (x, y, x + w, y + h))
         # Check all channels: RGBA.getbbox() alone can miss an RGB-only change.
-        delta = ImageChops.difference(before, sheet)
-        outside = ImageChops.invert(selected)
-        assert all(not ImageChops.multiply(channel, outside).getbbox() for channel in delta.split())
+        if not whole_image:
+            delta = ImageChops.difference(before, sheet)
+            outside = ImageChops.invert(selected)
+            assert all(not ImageChops.multiply(channel, outside).getbbox() for channel in delta.split())
         sheet.save(path)
         sha = digest(path)
         for record in approved['files']:

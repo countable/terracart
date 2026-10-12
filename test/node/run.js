@@ -101,7 +101,7 @@ const FILES = [
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',
   'dungeon_progression.js', 'elevators.js', 'arena.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'worldgen.js', 'save.js',
-  'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'rarity.js', 'loot.js',
+  'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',
   'hidden_objects.js', 'temple_puzzles.js', 'temple_layout.js', 'temple_scene.js', 'temples.js', 'interactables.js', 'boss_encounters.js', 'houses.js',
@@ -127,7 +127,7 @@ const FILES = [
   // render.js reads no globals at load time (see the CANVAS_W comment in
   // drawObjects), so it loads safely and exposes pure helpers (edgeNeedsBorder).
   // The lightmap: only draw() touches Phaser, and no test calls it.
-  'lighting.js', 'safety.js', 'obstacle_step.js',
+  'lighting.js', 'safety.js', 'obstacle_step.js', 'visibility.js',
   'render.js',
   'gas_render.js',
   // The modal shell: its methods are DOM work nobody runs here, but its top
@@ -146,7 +146,7 @@ const FILES = [
 const BRIDGE = `;Object.assign(globalThis, {
   Arena,
   GasRender,
-  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep,
+  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, Visibility,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
   REACH_CORNER_PX, ReachCorner,
@@ -168,11 +168,11 @@ const BRIDGE = `;Object.assign(globalThis, {
   chestBaseTier, chestTierDepthBonus, ZONE_NEXUS_TIER_BONUS, chestTierZoneBonus, chestTier, chestMirrorsUnderground,
   CRATE_RESTORE_PER, CRATE_RESTORE_MAX_DAYS, crateRestoreDays,
   BARREL_CLASSES, BARREL_ART, BARREL_LOOT, CLAY_POT_LOOT, barrelProfile, barrelLootPool, rollBarrel, isBarrel, isPoiBarrel, barrelRewardProfile, barrelFlash,
-  POT_COINS_BY_DENSITY, potCoinsFor, isPotOfGold, isBikeRack, bikeRackFlash,
+  POT_COINS_BY_DENSITY, potCoinsFor, isBikeRack, bikeRackFlash,
   BIKE_RACK_SPEED_MUL, BIKE_RACK_MS, steerSpeedMul,
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
-  CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, GEM_DEPOSITS, quarryGemDeposit, mineralDeposit, mineralRockFrame, mineralBarId,
+  CROP_SPRITE, CROP_ROW, ROCK_VARIANT_ART, ZONE_PLAIN_ROCK_FRAMES, ZONE_ROCK_THEMES, mineralRockArtScale, mineralRockTint, zonePlainRockFrame, mineralRockArtKey, mineralRockMaterial, mineralRockArtFrame, assignSurfaceBoulder, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, GEM_DEPOSITS, quarryGemDeposit, mineralDeposit, mineralRockFrame, mineralBarId,
   // The plain rock's ladder and the GLINT rock built on it — glint_rock.test.js.
   PLAIN_ROCK_FLINT_P, GEM_BY_TIER, GEM_P_BY_TIER, GLINT_ROCK_FINDS, GLINT_ROCK_PERIOD_MS, GLINT_ROCK_SHOW_MS,
   // Baby pets and the nest bush — pet_baby.test.js.
@@ -218,6 +218,8 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
 ctx.STARTER_JS_SRC = readSrc('starter.js');
 ctx.TEMPLES_SRC = readSrc('temples.js');
 ctx.CREATURE_AI_SRC = readSrc('creature_ai.js');
+// The loot picker's source, so loot.test.js can hold it to reading row fields, not context names.
+ctx.RARITY_SRC = readSrc('rarity.js');
 {
   // The creature-AI consts and helpers moved to creature_ai.js; look in both.
   const src = SCENE_SRC + '\n' + readSrc('creature_ai.js');
@@ -445,7 +447,7 @@ const starterWrapper = (name) => {
                    '_ripenStreets(now, sight) {', '_oneRoadPay(perLine, now) {',
                    '_roadMetresMul() {', '_offGps() {',
                    '_scenicIntervals(tileKey, lineKey) {',
-                   '_scenicWalkStory(kind) {', '_afterRestoreBeat(fn) {',
+                   '_scenicWalkStory(kind, meta, newly) {', '_afterRestoreBeat(fn) {',
                    '_bankStreetMetres(addedM, at, now, opts) {', '_showTrailIntro(onDone) {',
                    '_enqueueCeremony(kind, open, { key, hold, defer = false } = {}) {', '_drainCeremonies() {', '_dialogOpen() {',
                    '_visitStreetLamps(now) {', '_markLampsRestored(meta, newly, now) {',
@@ -1290,6 +1292,7 @@ ctx.MULTIPLAYER_SRC = readSrc('multiplayer.js');
 ctx.INTERACT_SRC = readSrc('interact.js');
 ctx.WORLDGEN_SRC = readSrc('worldgen.js');   // map_review.test.js (the review salt)
 ctx.GAME_LOADER_SRC = fs.readFileSync(path.join(ROOT, 'tools', 'game-loader.js'), 'utf8');   // map_review.test.js
+ctx.MAP_REVIEW_ART_SRC = fs.readFileSync(path.join(ROOT, 'tools', 'map-review-art.js'), 'utf8');
 // The multiplayer relay mirrors client regexes (multiplayer_shared.test.js).
 ctx.RELAY_SRC = fs.readFileSync(path.join(ROOT, 'server', 'index.js'), 'utf8');
 // The dialog-painting generator (scene_art.test.js).
@@ -1425,6 +1428,16 @@ for (const f of testFiles) {
     } });
   }
 }
+
+// ── Every ASSETS file ships ──────────────────────────────────────────────
+// A key renamed without its file (house_market → house_shop) 404s in the
+// browser and the sprite silently never draws. Files on disk, so node scope.
+ctx.__tests.push({ name: 'assets: every ASSETS path exists on disk', fn: () => {
+  const { ASSETS } = require('../../tools/sprite_audit.js');
+  const missing = Object.entries(ASSETS).filter(([, a]) => a && a.path && !fs.existsSync(path.join(ROOT, a.path.split('?')[0])))
+    .map(([k, a]) => `${k} → ${a.path}`);
+  if (missing.length) throw new Error(`missing art files: ${missing.join(', ')}`);
+} });
 
 // The editable table and the shipped browser module must always agree.
 ctx.__tests.push({ name: 'zone variants: generated browser data matches the canonical table', fn: () => {

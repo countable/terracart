@@ -1,4 +1,17 @@
 (() => {
+  test('floor viewer variants: surface cycling keeps paths and Small roads in separate theme pools', () => {
+    const families = FloorViewerVariants.families(0).filter(family => family.type === 'road');
+    assert.eq(families.length, 2);
+    for (const family of families) {
+      const expected = StreetVariants.STREET_VARIANTS.filter(row => row.size === family.kind).map(row => row.id).sort();
+      assert.eq(family.rows.map(row => row.id).sort().join(), expected.join());
+      assert.truthy(family.rows.every(row => StreetVariants.VARIANT_BY_ID[row.id].size === family.kind));
+    }
+    const paths = families.find(family => family.kind === 'path');
+    assert.falsy(paths.rows.some(row => row.id === 'burned'), 'Burned Row is exclusive to Small roads');
+    for (const id of ['promenade', 'greenway', 'parkpath'])
+      assert.truthy(paths.rows.some(row => row.id === id), `${id} remains available for path previews`);
+  });
   test('floor viewer variants: every family advances together and wraps independently', () => {
     const V = FloorViewerVariants;
     for (const depth of [0, 1, 2, 3, 4, 5, 6, 7, 8]) {
@@ -20,16 +33,21 @@
   });
   test('floor viewer variants: simultaneous selectors restore after failed generation', async () => {
     const originalPick = ZoneVariants.pick, originalRoad = StreetVariants.variantFor, originalScenic = Scenic.classify;
+    const originalScenicSteps = StreetVariants.applyPathScenicSteps;
     let failed = false;
     try {
       await FloorViewerVariants.withSelection(0, 2, async selected => {
         for (const row of selected.nexuses) assert.eq(ZoneVariants.pick({ kind: row.kind }).id, row.id);
-        for (const row of selected.roads.filter(row => row.kind !== 'path')) assert.eq(StreetVariants.variantFor('preview', '', row.kind), row.id);
+        for (const row of selected.roads) assert.eq(StreetVariants.variantFor('preview', '', row.kind), row.id);
+        assert.falsy(selected.roads.some(row => row.kind === 'major'), 'MD/LG have no forced variant selector');
+        assert.eq(StreetVariants.variantFor('preview', '', 'major'), null);
+        assert.eq(Scenic.classify, originalScenic, 'theme previews preserve geographic classification');
         throw new Error('test build failure');
       });
     } catch (error) { failed = error.message === 'test build failure'; }
     assert.truthy(failed);
     assert.eq(ZoneVariants.pick, originalPick); assert.eq(StreetVariants.variantFor, originalRoad); assert.eq(Scenic.classify, originalScenic);
+    assert.eq(StreetVariants.applyPathScenicSteps, originalScenicSteps);
   });
   test('floor viewer variants: legacy cave weights restore and explicit empty profiles take precedence', async () => {
     const originalProfile = WorldGen.floorProfile, originalWeights = CaveAreas.DEPTH_WEIGHTS;

@@ -73,6 +73,7 @@ class SceneArena {
     this._autoMineKey=null; this._shots=[];this._nextShotT={};this._turretNextT={};this._turretScan=null;
     this.depth=this.save.depth=depth;
     WorldGen.setDepth(depth);
+    this._clearMarkers();
     this.playerM.x=point.x-this.startWorldM.x;
     this.playerM.y=point.y-this.startWorldM.y-this.feetOffsetM;
     this.syncMoveTarget();

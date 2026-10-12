@@ -4,7 +4,7 @@
   const T0 = 1_700_000_000_000;
 
   test('shrines: sheet idols and the drill share boon and light definitions', () => {
-    assert.eq(Shrines.KIND_IDS.length, 11);
+    assert.eq(Shrines.KIND_IDS.length, 12);
     const frames = Shrines.KIND_IDS.filter(id => K[id].frame != null).map(id => K[id].frame);
     assert.eq(new Set(frames).size, frames.length, 'one frame per kind');
     assert.eq(JSON.stringify([...frames].sort((a, b) => a - b)), JSON.stringify(SpriteLayout.SHRINE_KIND_ART.frames),
@@ -19,6 +19,7 @@
       assert.eq(Lighting.sourceKind({}, { kind: 'grove_shrine', shrineKind: id }), 'shrine_' + id);
       assert.eq(Lighting.KINDS['shrine_' + id].colour, K[id].light, `${id}: light colour from the table`);
       assert.eq(Lighting.KINDS['shrine_' + id].radiusCells, Lighting.KINDS.shrine.radiusCells, 'the shrine row\'s reach');
+      if (K[id].reward) continue;   // the golden idol pays a coin spree, not a boon
       assert.truthy(K[id].lever in Shrines.LEVERS, `${id}: a known lever`);
       assert.gt(K[id].durationMs, 0);
     }
@@ -53,6 +54,20 @@
       assert.lte([...line].length, MAP_MSG_MAX, `${id}: "${line}"`);
       assert.falsy(/\d/.test(line + K[id].body), `${id}: no numbers in the copy`);
     }
+  });
+
+  test('shrines: the visit card names each timed boon as its chip does, with its duration', () => {
+    for (const id of Shrines.KIND_IDS) {
+      const buff = Buffs.KINDS[Shrines.LEVERS[K[id].lever]];
+      const card = Shrines.cardBody(id);
+      assert.truthy(card.startsWith(K[id].body), `${id}: description first`);
+      if (!buff) { assert.eq(card, K[id].body, `${id}: an instant boon adds no timer line`); continue; }
+      assert.truthy(card.includes(`${buff.name}</b> · ${shortDuration(K[id].durationMs)}`), `${id}: "${card}"`);
+    }
+    const moss = Shrines.cardBody('moss_cairn');
+    assert.truthy(moss.includes('Unseen</b> · 3m — ' + K.moss_cairn.effect), moss);
+    assert.falsy(/\d/.test(K.moss_cairn.effect), 'the rule is a hint; the timer line carries the number');
+    assert.eq(Shrines.cardBody('nope'), '');
   });
 
   test('shrines: a boon extends what is running (Buffs.extend), never stacks in strength, and runs out', () => {

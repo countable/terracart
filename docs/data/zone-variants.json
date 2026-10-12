@@ -6084,7 +6084,14 @@
       },
       "guards": {
         "mode": "guard_poi",
-        "kind": "bat",
+        "kind": "skeleton",
+        "kinds": [
+          "skeleton",
+          "club_goblin",
+          "skeleton",
+          "club_goblin",
+          "skeleton"
+        ],
         "count": 5,
         "offsetCells": [
           [
@@ -6111,7 +6118,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Repeated rubble piles are threaded with traps. An offset line leads toward two finds; the broken order suggests an ambush. Bats roost around the depot and swoop toward visitors.",
+      "atmosphere": "Repeated rubble piles are threaded with traps. An offset line leads toward two finds; the broken order suggests an ambush. Skeletons and goblins keep watch around the depot.",
       "decorations": [
         {
           "material": "handcart",

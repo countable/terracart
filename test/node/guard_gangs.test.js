@@ -29,8 +29,8 @@
       }
       assert.eq(counts.grunt_gang, 1000, 'exactly ten percent of eligible group-selection tickets');
       assert.eq(counts.plain, 10000 * .9 * (1 - L.GROUP_RATE[9]));
-      for (const name of ['splitter', 'roost'])
-        assert.eq(counts[name], 10000 * .9 * L.GROUP_RATE[9] / 2);
+      // The splitting slime is a wreck's one ordinary group (bats left the surface).
+      assert.eq(counts.splitter, 10000 * .9 * L.GROUP_RATE[9]);
     }
     assert.falsy(L.groupRows(11, 1, true).includes('grunt_gang'));
     assert.falsy(L.groupRows(12, 1, true).includes('grunt_gang'));

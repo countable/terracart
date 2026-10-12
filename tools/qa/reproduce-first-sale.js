@@ -53,6 +53,7 @@ async function run(mode) {
     date: Date.now(), virtualClock: typeof QAClock !== 'undefined', testMode: !!window.__TEST_MODE,
     money: __scene.save.money, inventory: __scene.save.inv,
     storySeen: !!__scene.save.storySeen?.['sale:first'],
+    pending: !!__scene.save.firstSalePending,
     modals: [...document.querySelectorAll('.game-modal')]
       .filter(el => el.isConnected && getComputedStyle(el).display !== 'none' && el.getClientRects().length)
       .map(el => ({ kind: el.dataset.kind, text: el.innerText, zIndex: getComputedStyle(el).zIndex })),
@@ -63,14 +64,33 @@ async function run(mode) {
   await page.getByRole('button', { name: 'Sell', exact: true }).last().click();
   await page.waitForTimeout(2000);
   const after = await snapshot();
-  await page.screenshot({ path: path.join(OUT, 'after-first-sale-overlap.png') });
-  const result = { fixture: 'Disposable fresh Easy save; two potatoes inserted; Home sale opened directly. Only sale acceptance uses real pointer input. No virtual clock, no TEST_MODE, no measured-run connection.', before, after, errors, fixtureMisses };
+  await page.screenshot({ path: path.join(OUT, 'after-first-sale-queued.png') });
+  assert.equal(after.modals.filter(m => m.kind === 'story').length, 0);
+  assert.equal(after.modals.filter(m => m.kind === 'shop').length, 1);
+  assert.equal(after.pending, true);
+  assert.equal(after.storySeen, false);
+  await page.getByRole('button', { name: 'Sell', exact: true }).last().click();
+  await page.waitForTimeout(1000);
+  const repeated = await snapshot();
+  assert.equal(repeated.modals.filter(m => m.kind === 'story').length, 0);
+  assert.equal(repeated.modals.filter(m => m.kind === 'shop').length, 1);
+  await page.getByRole('button', { name: 'Leave', exact: true }).click();
+  await page.waitForFunction(() => !!document.querySelector('.game-modal[data-kind="story"]'));
+  await page.waitForTimeout(600);
+  const closed = await snapshot();
+  assert.equal(closed.modals.filter(m => m.kind === 'shop').length, 0);
+  assert.equal(closed.modals.filter(m => m.kind === 'story').length, 1);
+  assert.equal(closed.storySeen, true);
+  assert.equal(closed.pending, false);
+  await page.screenshot({ path: path.join(OUT, 'story-after-leaving-shop.png') });
+  const result = { repeated, closed, fixture: 'Disposable fresh Easy save; two potatoes inserted; Home sale opened directly. Only sale acceptance uses real pointer input. No virtual clock, no TEST_MODE, no measured-run connection.', before, after, errors, fixtureMisses };
   fs.writeFileSync(path.join(OUT, 'reproduction.json'), JSON.stringify(result, null, 2));
   assert.equal(after.virtualClock, false);
   assert.equal(after.testMode, false);
-  assert.equal(after.modals.filter(m => m.kind === 'story').length, 1);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(fixtureMisses, []);
   assert.equal(after.modals.filter(m => m.kind === 'shop').length, 1);
-  console.log(JSON.stringify(result, null, 2));
+  console.log(JSON.stringify({passed:true, after:after.modals.map(m=>m.kind), repeated:repeated.modals.map(m=>m.kind), closed:closed.modals.map(m=>m.kind), errors, fixtureMisses}));
   await context.close();
 }
 (async () => {

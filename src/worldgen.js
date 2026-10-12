@@ -143,7 +143,7 @@
     const frame = tileFrame({ cellsPerEdge: N }, tx, ty, tileEdgeM);
     const cell = o => frame.idxOf(o.x, o.y);
     const streetLists = streetDress ? [streetDress.objects, streetDress.wildplants,
-      streetDress.treasures, streetDress.coins, streetDress.traps] : [];
+      streetDress.treasures, streetDress.traps] : [];
     const scenicLists = scenicDress ? [scenicDress.objects, scenicDress.wildplants] : [];
     let count = 0;
     field.legacyRemovedByAnchor = field.legacyRemovedByAnchor || {};
@@ -178,7 +178,7 @@
       for (let i = 0; i < coverage.length; i++) {
         if ((i & 511) === 0) yield 'zone street mark replacement';
         if (!coverage[i]) continue;
-        if (streetDress.marks) streetDress.marks[i] = 0;
+        if (streetDress.marks && StreetVariants.variantByCode(streetDress.marks[i])?.size !== 'path') streetDress.marks[i] = 0;
         if (streetDress.slowCells) streetDress.slowCells.delete(i);
       }
     }
@@ -671,10 +671,9 @@
     // Only authored thorny/barricade/snare cross-sections may occupy their own
     // road band. Declared seats never relax any other spawn class.
     const obstacle = cls === 'streetObstacle' && opts?.streetObstacleCells?.has(cy * w + cx);
-    const barricade = obstacle && opts.streetObstacleKind === 'barricade';
-    const obstacleRoad = obstacle && (here === T.ROAD || (barricade && isRoadTerrain(here)));
-    if (obstacle && (isLotTerrain(here) || (!barricade && (onMajorBand(opts.roadClass, w, cx, cy)
-        || inMajorBuffer(opts.roadClass, w, cx, cy))))) return false;
+    const obstacleRoad = obstacle && (here === T.ROAD || here === T.PATH);
+    if (obstacle && (isLotTerrain(here) || here === T.ROAD_MD || here === T.ROAD_LG
+        || onMajorBand(opts.roadClass, w, cx, cy) || inMajorBuffer(opts.roadClass, w, cx, cy))) return false;
     // Terrain and band are read LIVE as well as through the mask: a live grid
     // (the starter pond, a dug wall) can differ from the one the mask was
     // stamped over.
@@ -690,7 +689,7 @@
     if (occupied && occupied.has(cy * w + cx)) return false;   // already holds an object/wild plant
     const mask = opts && opts.spawnWhy;
     if (mask) {
-      const v = mask[cy * w + cx] & ~((waterOnly || obstacleRoad ? W_.TERRAIN : 0) | (obstacle ? W_.ROAD : 0) | (barricade ? W_.KERB : 0));
+      const v = mask[cy * w + cx] & ~((waterOnly || obstacleRoad ? W_.TERRAIN : 0) | (obstacle ? W_.ROAD : 0));
       if (obstacle && (v & (W_.PRIVATE | W_.KERB))) return false;
       if (v & (SPAWN_WHY_HARD & ~W_.PRIVATE)) return false;
       if (v & spawnBlocks(cls)) return false;
@@ -799,7 +798,7 @@
   }
   // ── POI DENSITY: how many chests of each class a tile holds ─────────────
   // The one count loot.js reads for a crate's restock days
-  // (crateRestoreDays) and a pot of gold's burst (potCoinsFor) — never the
+  // (crateRestoreDays) — never the
   // tier, which is the quota seat (seedChestTiers below) — stamped on each
   // POI chest as
   // `poiDensity`. Surface POI chests only (a starter crate, a fixed-loot chest
@@ -867,6 +866,9 @@
     for (const o of objects || []) {
       if (!inPool(o)) continue;
       if (o.tierSeed !== 1) { o.tierSeed = 1; delete o._chestLook; }
+      // A bus stop stays a plain crate (loot.js chestAlwaysCrate): tier 1,
+      // never a seat in the pyramid.
+      if (!cave && chestAlwaysCrate(o)) continue;
       pool.push(o);
     }
     const budgetN = pool.reduce((a, o) => a + (o.zoneNexus ? 0 : 1), 0);
@@ -910,7 +912,7 @@
         const o = list[j];
         if (o.kind !== 'chest' || o.crate || o.fixedLoot || o.depth > 0 || o.caveOf) continue;
         const look = chestLook(o);
-        if (look.stand || look.coin || look.bike || look.barrel || look.macro) continue;
+        if (look.stand || look.bike || look.barrel || look.macro) continue;
         const tier = chestTier(o);
         if (tier in counts) counts[tier]++;
       }
@@ -1000,7 +1002,7 @@
         if (o.kind !== 'chest' || o.fixedLoot || o.depth > 0 || o.caveOf) continue;
         if (!o.crate) {
           const look = chestLook(o);
-          if (look.stand || look.coin || look.bike || look.barrel || look.macro) continue;
+          if (look.stand || look.bike || look.barrel || look.macro) continue;
         }
         if (chestTier(o) === 1) count++;
       }
@@ -2535,7 +2537,7 @@
   //                       (SURFACE_ROCK_TIER_WEIGHTS) — ~2.5 % copper-bearing
   //   underground       → CAVE_ORE_SHARE of the rocks for each of the
   //                       level's ore tiers (caveOreTiers, below), the rest
-  //                       plain: level 1 LEVEL1_COPPER_SHARE copper (3 %, a
+  //                       plain: level 1 LEVEL1_COPPER_SHARE copper (5 %, a
   //                       taste), level 2 90 %, then 80 %
   const CAVE_ORE_SHARE = 0.10;
   // The first level down is no tier's mine (caveOreTiers(1) is empty), but it
@@ -2543,7 +2545,7 @@
   // it (owner, Oct 2026): this share of its rocks, the rest plain. The ore
   // table for a level with no tiers of its own is copper (caveOreWeights),
   // which is what makes this one number enough.
-  const LEVEL1_COPPER_SHARE = 0.03;
+  const LEVEL1_COPPER_SHARE = 0.05;
   function caveRockP(depth) {
     if (!depth || depth <= 0) return 0.90;
     if (depth === 1) return 1 - LEVEL1_COPPER_SHARE;
@@ -3506,12 +3508,12 @@
     'art_gallery','cinema','theatre',
     // ── Authority buildings (civic chests, high-tier feel)
     'police','fire_station','harbor',
-    // ── atm → the pot of gold (a daily coin burst), bicycle_parking → the
-    // bike rack (a daily stick-walk boost) — loot.js isPotOfGold /
-    // isBikeRack; they still spawn as chest objects here so persistent ids
-    // work. (motorcycle_parking is NOT here — like car parking it's
-    // diverted to a buried-treasure X below, not a chest.)
-    'bicycle_parking','atm',
+    // ── bank / atm → the BANK booth (borrow or invest — loot.js macroFor,
+    // src/macros.js), bicycle_parking → the bike rack (a daily stick-walk
+    // boost — loot.js isBikeRack); they still spawn as chest objects here so
+    // persistent ids work. (motorcycle_parking is NOT here — like car parking
+    // it's diverted to a buried-treasure X below, not a chest.)
+    'bicycle_parking','atm','bank',
   ]);
   // Two POI classes that are PLACES but not chests, placed after the road
   // mask is resolved (see the gate / notice-board pass in rasterizeTileSteps
@@ -5191,6 +5193,31 @@
               }
             };
 
+            // Residential YARD TREES (BiomeProfiles.yardTrees): one candidate
+            // per cell from the polygon's own salted stream — three draws per
+            // candidate whether kept or not, so nothing shifts — each a random
+            // size class and species. Flagged `_yardTree` so the occupancy
+            // pass seats them after every older object.
+            const _spawnYardTreesSteps = function* (geom, polyKey, row) {
+              const yrng = makeRng((polyKey ^ (row.salt >>> 0)) >>> 0);
+              const bb = bboxOf(geom);
+              const ix0 = Math.max(0, Math.floor(bb.minX * mvtToCell)), ix1 = Math.min(w - 1, Math.floor(bb.maxX * mvtToCell));
+              const iy0 = Math.max(0, Math.floor(bb.minY * mvtToCell)), iy1 = Math.min(h - 1, Math.floor(bb.maxY * mvtToCell));
+              for (let iy = iy0; iy <= iy1; iy++) {
+                if ((iy & 7) === 7) yield 'yard tree rows';
+                for (let ix = ix0; ix <= ix1; ix++) {
+                  const keep = yrng(), pickSize = yrng(), pickSpecies = yrng();
+                  if (keep >= row.p || !pointInRings(geom, (ix + 0.5) / mvtToCell, (iy + 0.5) / mvtToCell)) continue;
+                  let pick = pickSize, size = row.sizes[row.sizes.length - 1].size;
+                  for (const s of row.sizes) { if (pick < s.share) { size = s.size; break; } pick -= s.share; }
+                  const { mx, my } = cellCenterMeters(ix, iy);
+                  objects.push(makeObject('tree', mx, my, cellId('ytree', tx, ty, ix, iy), {
+                    size, species: TREE_SPECIES[Math.floor(pickSpecies * TREE_SPECIES.length)],
+                    individual: true, _yardTree: true }));
+                }
+              }
+            };
+
             // Residential mineral clusters — abandoned-yard / construction
             // piles in town. Pivot grid is ~24 m and ~59 % of candidates fire,
             // so a residential polygon spawns a handful of clusters; each is a
@@ -5233,6 +5260,9 @@
               if (yard && pivots.length) {
                 yield* _spawnYardFloraSteps(f.geom, polyKey, pivots, clusterR, yard);
               }
+              // Yard trees stand in for the DeepForest canopy while it is off.
+              const yardTrees = !DEEPFOREST_TREES_ENABLED && BiomeProfiles.yardTrees(t);
+              if (yardTrees) yield* _spawnYardTreesSteps(f.geom, polyKey, yardTrees);
               // (Sparse residential-yard mushrooms now spawn via the
               // BIOME_PROFILES flora loop above — see the RESIDENTIAL profile.)
             }
@@ -6214,9 +6244,12 @@
     //    stability isn't guaranteed across engines, and an arbitrary tie-break
     //    would let the same seed resolve a collision differently between reloads.
     const STRUCT_PRIO = { temple: 7, chest: 6, house: 5, tower: 5, infoboard: 5, gatepost: 5, fruittree: 4, tree: 3, mineralrock: 2 };
+    // A yard tree (_spawnYardTreesSteps) is newer than every other object:
+    // it seats last, so no existing world loses a rock or tree to it.
+    const structPrio = o => o._yardTree ? 1 : STRUCT_PRIO[o.kind] || 0;
     const structs = objects.filter(o => STRUCT_PRIO[o.kind] != null);
     structs.sort((a, b) => {
-      const dp = (STRUCT_PRIO[b.kind] || 0) - (STRUCT_PRIO[a.kind] || 0);
+      const dp = structPrio(b) - structPrio(a);
       if (dp) return dp;
       // Deterministic tie-break: position (always defined from generation),
       // then id as a final stable key.
@@ -6228,6 +6261,7 @@
       return ai < bi ? -1 : ai > bi ? 1 : 0;
     });
     const keptStructs = [], sampledRockCells = new Set();
+    let plantCells = null;   // wild plants' cells, built on the first yard tree
     yield 'structure sort';
     let structI = 0;
     for (const o of structs) {
@@ -6240,6 +6274,13 @@
       const pos = cellOfWorldM(o.x, o.y);
       const biome = grid[pos.iy * w + pos.ix];
       const tuning = BiomeProfiles.staticObjects(biome);
+      // A yard tree belongs to a yard, and is newer than every wild plant:
+      // a candidate on other ground, or on a plant's cell, goes.
+      if (o._yardTree) {
+        if (!BiomeProfiles.yardTrees(biome)) continue;
+        plantCells ||= new Set(wildplants.map(wp => cellKeyOfWorld(wp.x, wp.y)));
+        if (plantCells.has(k)) continue;
+      }
       if (o.kind === 'mineralrock') {
         if (tuning.noRocks || (biome === T.FOREST && o.caveVariant == null && o.yieldTier === 6)) continue;
         if (tuning.plainRockFrame != null && (o.caveVariant != null || (o.yieldTier || 1) <= 1)) {
@@ -6450,7 +6491,7 @@
     }
     const deduped = objects.filter(o => !o._drop);
     // Each POI chest's DENSITY — how many of its class this tile holds (loot.js
-    // crateRestoreDays / potCoinsFor). Stamped once
+    // crateRestoreDays). Stamped once
     // the tile's chests are final; loadTile restamps once a bin has injected
     // its own.
     stampPoiDensity(deduped);
@@ -6568,6 +6609,11 @@
     let scenic = null, scenicDress = null;
     if (typeof Scenic !== 'undefined') {
       scenic = yield* Scenic.buildSteps(layersByName, tx, ty, w, grid, false, zone && zone.under);
+      if (streetIndex) yield* StreetVariants.applyPathScenicSteps(streetIndex, scenic);
+    }
+    if (streetIndex) {
+      yield* StreetVariants.suppressNexusRoadThemesSteps(streetIndex, zone, w);
+      streetArea = yield* StreetVariants.areaSteps(streetIndex, w);
     }
     // Polygon scatter is legacy input for caves; surface corridor replacement
     // follows affinity selection and precedes zone paint and all dressings.
@@ -6636,6 +6682,16 @@
     if (zone && zoneDress && typeof ReefLayout !== 'undefined') {
       yield* ReefLayout.dressSteps({ field: zone, zoneDress, tx, ty, N: w, tileEdgeM, grid,
         spawnOpts: dressOpts() });
+    }
+    // Apply size after zone/scenic replacements; keep authored connected
+    // walls intact. All rocks share the material-based neutral palette.
+    for (const list of [deduped, zoneDress?.objects, scenicDress?.objects]) {
+      let rockIndex = 0;
+      for (const o of list || []) {
+        if ((rockIndex++ & 63) === 0) yield 'surface boulders';
+        if (o.kind !== 'mineralrock') continue;
+        assignSurfaceBoulder(o);
+      }
     }
     // Hives are basic forest props; every Nexus reserves its entire coverage.
     deduped.push(...spawnForestHives(grid, w, h, tx, ty, tileEdgeM,
@@ -7277,8 +7333,8 @@
       (!t.id && (t.crown_m != null || t.size != null || t.individual === true));
     const replaceable = o => !o.placed && !o.planted && !o.playerOwned &&
       !['chest', 'grove_shrine', 'house', 'temple', 'tower', 'staircase', 'gatepost', 'well'].includes(o.kind) &&
-      !!(o._street || o.zoneVariant || o._scenic);
-    const fixedCells = new Set(), themedCells = new Set(), treeClaims = new Set();
+      !!(o._street || o.zoneVariant || o._scenic || o._yardTree);
+    const fixedCells = new Set(), themedCells = new Set(), treeClaims = new Set(), yardTreeCells = new Set();
     const objectCells = o => {
       const {ix, iy} = _sxCell(o.x, o.y);
       const footprint = o._footprintCells || o.footprintCells || {};
@@ -7295,7 +7351,7 @@
     for (const list of [entry.objects, entry.wildplants]) for (const o of list) {
       { const y1 = tick('bin cell claims'); if (y1) yield y1; }
       const cells = replaceable(o) ? themedCells : fixedCells;
-      for (const i of objectCells(o)) cells.add(i);
+      for (const i of objectCells(o)) { cells.add(i); if (o._yardTree) yardTreeCells.add(i); }
     }
     const tryTreeCell = (ix, iy, detected) => {
       if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
@@ -7303,7 +7359,8 @@
       if (_sxHardCell(ix, iy, detected)) return null;
       const cell = iy * cpe + ix;
       if (fixedCells.has(cell)) return null;
-      if (occupied.has(`${ix}_${iy}`) && !(detected && themedCells.has(cell))) return null;
+      // A generated yard tree yields its cell to any mapped or detected tree.
+      if (occupied.has(`${ix}_${iy}`) && !((detected || yardTreeCells.has(cell)) && themedCells.has(cell))) return null;
       // Chest frontage stays clear (the player stands beside the chest),
       // but trees may hug buildings — no nearBuildingCell here. Yard
       // trees sit right against real houses; routing them through the
@@ -7333,10 +7390,8 @@
       if (!r) continue;
       occupied.add(r.key);
       fixedCells.add(r.iy * cpe + r.ix);
-      if (detected) {
-        treeClaims.add(r.iy * cpe + r.ix);
-        t._treeSource = 'deepforest';
-      }
+      if (detected || yardTreeCells.has(r.iy * cpe + r.ix)) treeClaims.add(r.iy * cpe + r.ix);
+      if (detected) t._treeSource = 'deepforest';
       t.x = r.x; t.y = r.y;
       // A detection with no OSM id is named by the cell it SETTLED on —
       // unique (one tree per cell, just claimed) and positional. Its bin
@@ -9019,6 +9074,7 @@
   //   arrivalStory story ID for the one-time floor arrival splash
   //   entryKey     save key required to enter (null for ungated floors)
   //   pressureTraps runtime pressure-plate encounters
+  //   vents        the vent kinds this floor erupts (EnvironmentHazards.VENTS rows)
   //   caveAreas    authored grove selection, carving and garrison settings
   //   streetGems   gemstone region and ordinary deposit probabilities
   const caveAreaProfile = (weights, carveWalls, goblins, spearGoblins) => Object.freeze({
@@ -9027,25 +9083,30 @@
     carveWalls, goblins, spearGoblins
   });
   const FLOOR_PROFILES = Object.freeze([
-    Object.freeze({ depth: 1, arrivalStory: 'cave', entryKey: null,
-      pressureTraps: true, caveAreas: caveAreaProfile([35, 30, 30, 5, 15], false, 12, false),
+    Object.freeze({ depth: 1, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
+      pressureTraps: false, caveAreas: caveAreaProfile([50, 15, 30, 5, 15], false, 12, false),
       streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'above', streetMirror: true,
       fallLandings: false, chestSource: 'above', quarryProvenance: true, lava: false }),
     Object.freeze({ depth: 2, arrivalStory: 'dungeon_stone', entryKey: null,
-      pressureTraps: false, caveAreas: caveAreaProfile([20, 45, 25, 10, 15], true, 16, true),
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
+      pressureTraps: true, caveAreas: caveAreaProfile([20, 45, 25, 10, 15], true, 16, true),
       streetGems: Object.freeze({ region: .10, ordinary: .08 }), biome: 'deep_stone', terrain: 'clearings', streetMirror: true,
       fallLandings: true, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 3, arrivalStory: 'dungeon_underdark', entryKey: null,
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'underdark', terrain: 'open', streetMirror: false,
       fallLandings: false, chestSource: 'surface', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 4, arrivalStory: 'cave', entryKey: null,
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'surfacePaint', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 5, arrivalStory: 'cave', entryKey: 'level4Key',
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'above', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: true }),
   ]);
   const DEFAULT_FLOOR_PROFILE = Object.freeze({ arrivalStory: 'cave', entryKey: 'level4Key',
+    vents: Object.freeze(['poison', 'fire', 'paralysis']),
     pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'above', streetMirror: false,
     fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false });
   const FLOOR_PROFILE_BY_DEPTH = new Map(FLOOR_PROFILES.map(row => [row.depth, row]));

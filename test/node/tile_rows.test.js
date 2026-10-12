@@ -221,6 +221,11 @@ function windowCheck(s, label) {
         const x1 = cellScreenXY(s, ox, oy, fracX, fracY, band.phaseX).x;
         const x0 = cellScreenXY(s, ox - 1, oy, fracX, fracY, band.phaseX).x;
         assert.eq(x1 - x0, CELL_PX, `${label}: drawn edge to edge`);
+        // A chasm section seats on that same slot (render.js chasmAt), so
+        // neighbouring sections abut with no seam.
+        const c = absCellScreenCentre(s, pc, aX, aY);
+        assert.eq(c.x, x1 + CELL_PX / 2, `${label}: a chasm section sits on its slot`);
+        assert.eq(c.y, cellScreenXY(s, ox, oy, fracX, fracY, band.phaseX).y + CELL_PX / 2);
       }
       prev = t;
     }

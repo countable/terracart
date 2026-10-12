@@ -2,21 +2,6 @@
   const drain = it => { let r; do { r = it.next(); } while (!r.done); return r.value; };
   const isLegacy = o => /^(?:wp|hr|hm|ptree|tree|ft|mr|rb)_-?\d+_/.test(o.id || '');
 
-  test('zone legacy: road coin seeds are removed across the full zone coverage', () => {
-    const N = 8, coverage = new Uint16Array(N * N);
-    coverage[18] = 1;
-    const coin = (id, x) => ({ kind: 'coindrop', seeded: true, _street: 'golden', id, x, y: 2.5 });
-    const streetDress = { coins: [coin('covered', 2.5), coin('outside', 6.5)] };
-    const occupied = new Set([18, 22]);
-    const removed = drain(WorldGen.clearZoneAmbientSteps({ field: { coverage }, objects: [], wildplants: [],
-      occupied, streetDress, tx: 0, ty: 0, N, tileEdgeM: N }));
-    assert.eq(removed, 1);
-    assert.eq(streetDress.coins.length, 1);
-    assert.eq(streetDress.coins[0].id, 'outside');
-    assert.falsy(occupied.has(18), 'cleared coin seat is available to the authored zone');
-    assert.truthy(occupied.has(22), 'uncovered coin retains its seat');
-  });
-
   test('zone legacy: scenic grass yields across coverage while landmarks and tide pools retain their seats', () => {
     const N = 8, coverage = new Uint16Array(N * N);
     coverage[18] = coverage[19] = coverage[20] = 1;
