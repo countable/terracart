@@ -84,6 +84,19 @@
     assert.truthy(seen.has('armor') && seen.has('relic'), 'both equipment categories exercised');
   });
 
+  test('elite drops: a renamed context retains its signature picker', () => {
+    const key = 'test:renamed-signatures';
+    LOOT_CONTEXTS[key] = { picker: 'elite' };
+    try {
+      for (const roll of rolls) {
+        const opts = { monsterKind: 'cave_slime' };
+        const renamed = pickReward(key, fresh(), () => roll, opts);
+        const original = pickReward('treasure:elite', fresh(), () => roll, opts);
+        assert.eq(JSON.stringify(renamed), JSON.stringify(original));
+      }
+    } finally { delete LOOT_CONTEXTS[key]; }
+  });
+
   test('elite drops: callers without a monster retain the cave slime default', () => {
     for (const roll of rolls) {
       const legacy = pickReward('treasure:elite', fresh(), () => roll);

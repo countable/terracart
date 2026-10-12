@@ -16,6 +16,7 @@
   //               (rarity.js pickChestReward, by `theme`), whose tier curve
   //               is RARITY_TUNING.chestTierMod[opts.tier] rather than the
   //               row's own chain fields. Absent = the class-bias picker below.
+  //               'elite' selects a monster's weighted signature drops.
   //   caveSkew  — true: a roll underground (opts.depth > 0) overlays the cave
   //               supply / deep-hoard mix (rarity.js CAVE_SUPPLY_SKEW,
   //               CAVE_DEEP_SKEW, chosen by opts.tier).
@@ -142,7 +143,7 @@
     'treasure:vista':   { classBias: { seed:0.45, produce:0.30, magic:0.15, supply:0.10 },
                           chainSteps: 1, chainMax: 2, maxTier: 2, relicCap: 0 },
     // Monster signatures bypass class rolls; keep the context discoverable.
-    'treasure:elite': {},
+    'treasure:elite': { picker: 'elite' },
   };
 
   global.LOOT_CONTEXTS = LOOT_CONTEXTS;

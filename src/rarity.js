@@ -501,9 +501,9 @@
     const row = LOOT_CONTEXTS[contextKey];
     if (row?.picker === 'chest') return pickChestReward(row.theme, save, rng, opts);
     rng = rng || Math.random;
-    if (contextKey === Combat.ELITE_TREASURE_CONTEXT) return pickEliteReward(save, rng, opts);
     const ctx = lootContext(contextKey, opts);
     if (!ctx) return null;
+    if (ctx.picker === 'elite') return pickEliteReward(save, rng, opts);
 
     // 1) Pick class. relicCap 0 scrubs the relic weight (a shop never offers a relic).
     const bias = { ...ctx.classBias };

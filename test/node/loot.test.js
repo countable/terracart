@@ -29,8 +29,8 @@ test('loot contexts: the picker reads row fields, never context names', () => {
     'rarity.js names no loot context');
   for (const [key, row] of Object.entries(LOOT_CONTEXTS)) {
     if (row.picker === undefined) continue;
-    assert.eq(row.picker, 'chest', key + ' names a known picker');
-    assert.truthy(ChestThemes.themes[row.theme], key + ' names a real chest theme');
+    assert.truthy(['chest', 'elite'].includes(row.picker), key + ' names a known picker');
+    if (row.picker === 'chest') assert.truthy(ChestThemes.themes[row.theme], key + ' names a real chest theme');
   }
   for (const theme of Object.keys(ChestThemes.themes))
     assert.eq(LOOT_CONTEXTS['chest:' + theme]?.picker, 'chest', 'every chest theme has a chest-picked row');
