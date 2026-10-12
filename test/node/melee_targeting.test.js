@@ -20,7 +20,7 @@
     return Object.assign({
       save: { energy: 50, relics: { sword: { tier: 3 } }, activeWeapon: 'sword' }, cellM: 10,
       startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 }, hits: [],
-      isShadowActive: () => false, isTorchActive: () => false,
+      isShadowActive: () => false, isTorchActive: () => false, isEvertorchActive: () => false,
       _toolActionStory() {}, _toolTexture: () => null,
       _attackMul: () => 1, _attackFlat: () => 0,
       _damageEnemy(c, damage) { this.hits.push({ c, damage }); return false; },

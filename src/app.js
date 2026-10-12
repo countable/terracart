@@ -4847,7 +4847,7 @@ class MapScene extends Phaser.Scene {
       // A LIT TORCH (isTorchActive) SETS THE FOE ALIGHT — Combat.ignite,
       // the `burning` row of Conditions.DEFINITIONS, as the player's own
       // kill. The blow lands first; the fire takes on what is left.
-      if (this.isTorchActive()) Combat.ignite(c, now, 'player');
+      if (this.isTorchActive() || this.isEvertorchActive()) Combat.ignite(c, now, 'player');
       return true;
     }
     return false;
@@ -9099,6 +9099,7 @@ class MapScene extends Phaser.Scene {
         + `background-position:-${col * sizePx}px -${row * sizePx}px;`;
       if (!IconNet.ready(sheet.url)) netUrl = sheet.url;
     }
+    if (css && src?.filter) css += `filter:${src.filter};`;
     // Shiny variants tint the base sprite warm-gold with a sheen.
     if (css && item && item.shiny) {
       css += 'filter:sepia(1) saturate(3.2) hue-rotate(-18deg) brightness(1.08)'
