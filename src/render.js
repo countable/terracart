@@ -253,24 +253,24 @@ Render.shopSignTheme = (scene, house, role) => {
   return Render.SHOP_SIGN_ICONS[theme] ? theme : null;
 };
 // ONE sign for a ranked or themed building: a board of dark tier-coloured
-// material with a thin light rim, hung from the doorstep on two short cords.
+// material with a thin light rim, mounted on the middle of the roof.
 // The board carries only a symbol (owner, Oct 2026): a shop's line glyph or
-// its role's (Render.ROLE_SIGN_ICONS), an inventory tab's 9×9 bitmap at 2
-// game px a cell, in a pale tint of the tier, embossed with a 1px shadow
+// its role's (Render.ROLE_SIGN_ICONS), an inventory tab's 9×9 bitmap, in a pale tint of the tier, embossed with a 1px shadow
 // below in a deep shade of the tier. A role with no symbol (the trader)
 // letters its name instead, in capitals with a word to a line.
 // The tier shows only as the board's colour. An unranked themed shop
 // (Pet / Book Shop) wears dark signboard wood. All canvas, so the fog of war covers
 // it with the other labels.
 const SHOP_PLATE = Object.freeze({
-  cell: 2,          // game px per glyph cell
+  // Game px per glyph cell. Not whole: the board is 10% under the 2px
+  // grid (owner, Oct 2026), so cell edges snap to device pixels instead.
+  cell: 1.75,
   padX: 3,          // board edge to contents, sideways (rim included)
   padY: 1,          // board edge to a name, top and bottom (the rim)
-  padGlyph: 2,      // board edge to a symbol (+1 below for its shadow)
+  padGlyph: 2,      // board edge to a symbol, rim included (+1 below for its shadow)
   gap: 3,           // glyph to name
   lineSpacing: -2,  // between the name's lines
-  top: 12,          // house foot to board top (the old sign's seat)
-  cord: 3,          // hanger cords above the board
+  roof: 0.2,        // board centre above the house sprite's centre, × its height
 });
 Render.SHOP_PLATE = SHOP_PLATE;
 const _shade = (c, k) => '#' + [16, 8, 0]
@@ -279,7 +279,7 @@ Render.shopSignLook = (badge) => {
   const c = badge ? parseInt(badge.backgroundColor.slice(1), 16) : 0xa8784a;   // signboard wood
   return {
     background: _shade(c, 0.55),          // the material: the tier colour, darkened
-    shadow: _shade(c, 0.3),               // the emboss shadow, the cords
+    shadow: _shade(c, 0.3),               // the emboss shadow
     rim: cssOf(mixHex(c, 0xffffff, 0.3)),    // the thin light edge
     ink: cssOf(mixHex(c, 0xffffff, 0.45)),   // the letters: the tier colour, lightened
   };
@@ -292,10 +292,8 @@ Render.shopSignGlyph = (theme, role) => {
   const icon = Render.SHOP_SIGN_ICONS[theme] || Render.ROLE_SIGN_ICONS[role];
   return icon ? (icon.px || INV_CAT_BY_KEY[icon.tab]?.px || null) : null;
 };
-// One board: cords, drop shadow, a 1px light rim with clipped corners, the face.
-function _drawSignBoard(gfx, look, x0, y0, w, h, cord, alpha) {
-  gfx.fillStyle(parseHex(look.shadow), alpha)
-    .fillRect(x0 + 3, y0 - cord, 1, cord).fillRect(x0 + w - 4, y0 - cord, 1, cord);
+// One board: drop shadow, a 1px light rim with clipped corners, the face.
+function _drawSignBoard(gfx, look, x0, y0, w, h, alpha) {
   gfx.fillStyle(0x000000, 0.45 * alpha).fillRect(x0 + 1, y0 + h, w - 2, 1);
   gfx.fillStyle(parseHex(look.rim), alpha).fillRect(x0 + 1, y0, w - 2, h).fillRect(x0, y0 + 1, w, h - 2);
   gfx.fillStyle(parseHex(look.background), alpha).fillRect(x0 + 1, y0 + 1, w - 2, h - 2);
@@ -307,27 +305,31 @@ function _embossText(tx, look, alpha) {
   tx.setAlpha(alpha);
 }
 // Lay out and draw one sign. `item.glyph` is its symbol's bitmap, or else
-// `item.name` its lettering (a Text slot, origin [0.5, 0]). `foot` is the house foot in game px, kept inside the
-// canvas width `canvasW`. Returns the board's box.
-Render.drawShopPlate = (gfx, item, foot, playerBox, canvasW) => {
-  const { cell, padX, padY, padGlyph, top, cord } = SHOP_PLATE;
+// `item.name` its lettering (a Text slot, origin [0.5, 0]). `at` is the
+// board's centre in game px (the roof's middle), kept inside the canvas
+// width `canvasW`. Returns the board's box.
+Render.drawShopPlate = (gfx, item, at, playerBox, canvasW) => {
+  const { cell, padX, padY, padGlyph } = SHOP_PLATE;
   const look = Render.shopSignLook(item.badge);
   const glyph = item.glyph || null, name = glyph ? null : item.name;
-  const glyphPx = glyph ? glyph.length * cell : 0;
+  const glyphPx = glyph ? Math.round(glyph.length * cell) : 0;
   const w = glyph ? 2 * padGlyph + glyphPx : 2 * padX + name.width;
   const h = glyph ? 2 * padGlyph + 1 + glyphPx : 2 * padY + name.height;
-  const x0 = Math.round(clampTextX(foot.x, w, canvasW) - w / 2);
-  const y0 = Math.round(foot.y + top);
+  const x0 = Math.round(clampTextX(at.x, w, canvasW) - w / 2);
+  const y0 = Math.round(at.y - h / 2);
   const hit = playerBox && x0 < playerBox.x1 && x0 + w > playerBox.x0
-    && y0 - cord < playerBox.y1 && y0 + h > playerBox.y0;
+    && y0 < playerBox.y1 && y0 + h > playerBox.y0;
   const alpha = hit ? LABEL_OVER_PLAYER_ALPHA : 1;
-  _drawSignBoard(gfx, look, x0, y0, w, h, cord, alpha);
+  _drawSignBoard(gfx, look, x0, y0, w, h, alpha);
   if (glyph) {
     const gx = x0 + padGlyph, gy = y0 + padGlyph;
+    // Cell edges on the device pixel grid, so every cell is solid.
+    const rs = (typeof RENDER_SCALE === 'number') ? RENDER_SCALE : 1;
+    const at = (i) => Math.round(i * cell * rs) / rs;
     for (const [ink, dy] of [[look.shadow, 1], [look.ink, 0]]) {
       gfx.fillStyle(parseHex(ink), alpha);
       glyph.forEach((row, y) => row.replace(/#+/g, (run, x) => {
-        gfx.fillRect(gx + x * cell, gy + y * cell + dy, run.length * cell, cell);
+        gfx.fillRect(gx + at(x), gy + at(y) + dy, at(x + run.length) - at(x), at(y + 1) - at(y));
         return run;
       }));
     }
@@ -4446,7 +4448,12 @@ Render.drawObjects = function drawObjects(scene) {
     scene.labelContainer.addAt(gfx, 0);   // under every label's lettering
   }
   gfx.clear();
-  for (const item of plates) Render.drawShopPlate(gfx, item, project(item.dx, item.dy), _playerBox, CANVAS_W);
+  for (const item of plates) {
+    // House art is centred on its footprint (RENDER_SPEC.house), so the
+    // roof's middle sits a fraction of the art's height above that centre.
+    const { x, y } = project(item.dx, item.dy);
+    Render.drawShopPlate(gfx, item, { x, y: y - SHOP_PLATE.roof * _houseArtH(item.o) }, _playerBox, CANVAS_W);
+  }
 
   // Residential delivery plaques use real
   // item ICONS instead of emoji text. Uses the same mechanism as flashLoot's
@@ -5193,7 +5200,7 @@ Render.wildplantShadow = function (plant, art = wildplantSprite(plant)) {
 // itself is built ONCE here (it was rebuilt inside drawObjects every frame —
 // four hundred lines of literal and a dozen closures a frame).
 const _pass = { scene: null, houseRoles: null, fruitNow: 0, fruitList: [] };
-const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _houseBaseScale } = (() => {
+const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseArtH } = (() => {
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
   // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
@@ -5278,6 +5285,13 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   };
   const _houseBaseScale = (o) =>
     buildingBaseScale(_houseFrameW(o), _houseRole(o), CELL_PX);
+  // The house art's drawn height, game px (0 before its texture loads).
+  const _houseArtH = (o) => {
+    const T = _pass.scene.textures;
+    if (!T || !T.exists(_houseKey(o))) return 0;
+    const fr = T.get(_houseKey(o)).get(_houseFrame(o));
+    return ((fr && fr.height) || 0) * _houseScale(o);
+  };
   const _houseScale = (o) =>
     houseArtScale(o.area, _houseFrameW(o), _houseRole(o), _pass.scene.cellM, CELL_PX);
 
@@ -5687,7 +5701,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     const ground = typeof spec.ground === 'function' ? !!spec.ground(o) : !!spec.ground;
     return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot, ground };
   };
-  return { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _houseBaseScale };
+  return { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseArtH };
 })();
 
 // Open a draw pass over `scene` with the frame's house roles: the spec's
