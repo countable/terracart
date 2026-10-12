@@ -87,7 +87,7 @@
       building.push(poly({ building: 'house' }, [cellRect(bx, by, 3, 2)]));
     // A medium footprint in open grass showcases the fort through the live
     // building-tier and sprite rules, clear of the tar yard and main roads.
-    building.push(poly({ building: 'commercial', name: 'Fort' }, [cellRect(30, 28, 4, 3)]));
+    building.push(poly({ building: 'commercial', name: 'Fort' }, [cellRect(30, 28, 3, 3)]));
 
     // Small southeast lake, with the 5-cell beach on its north
     // and west. The former beach-side park is now open grass.
@@ -131,7 +131,7 @@
     { text: 'Church · Old Stones nexus', nexusKind: 'stones', x: 8, y: 30 },
     { text: 'Park · Grove nexus', nexusKind: 'grove', x: 51, y: 4 },
     { text: 'Forest', x: 55, y: 15 },
-    { text: 'Fort', x: 32, y: 32 },
+    { text: 'Fort', x: 31.5, y: 32 },
     { text: 'Beach nexus', nexusKind: 'beach', x: 56, y: 23 },
     { text: 'Regular beach', x: 45.5, y: 29 },
     { text: 'Lake', x: 54, y: 31 }

@@ -8923,7 +8923,9 @@
       emit: (L, c, p) => {
         const id = cellId(`cmr_${L.depth}`, L.tx, L.ty, c.lix, c.liy);
         L.objects.push(makeObject('mineralrock', p.x, p.y, id, c.roll.plain
-          ? { requiredTier: 1, caveVariant: c.roll.caveVariant }
+          ? { requiredTier: 1, caveVariant: c.roll.caveVariant,
+              ...(avalanche32(fnv1a('flint:' + id)) / 0x100000000 < (floorProfile(L.depth).flintRockP || 0)
+                ? { rockMaterial: 'flint' } : {}) }
           : { yieldTier: c.roll.yieldTier, requiredTier: c.roll.requiredTier }));
       } },
     { id: 'mushrooms', salt: 0x27D4EB2F, pivot: 8, from: 1,
@@ -9151,6 +9153,7 @@
   //   pressureTraps runtime pressure-plate encounters
   //   vents        the vent kinds this floor erupts (EnvironmentHazards.VENTS rows)
   //   caveAreas    authored grove selection, carving and garrison settings
+  //   flintRockP   share of ordinary cave rocks with a guaranteed flint seam
   //   streetGems   gemstone region and ordinary deposit probabilities
   const caveAreaProfile = (weights, carveWalls, goblins, spearGoblins) => Object.freeze({
     weights: Object.freeze(['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern', 'dungeon_maze']
@@ -9158,7 +9161,7 @@
     carveWalls, goblins, spearGoblins
   });
   const FLOOR_PROFILES = Object.freeze([
-    Object.freeze({ depth: 1, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
+    Object.freeze({ depth: 1, flintRockP: .25, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
       pressureTraps: false, caveAreas: caveAreaProfile([50, 15, 30, 5, 15], false, 12, false),
       streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'above', streetMirror: true,
       fallLandings: false, chestSource: 'above', quarryProvenance: true, lava: false }),

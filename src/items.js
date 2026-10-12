@@ -371,6 +371,8 @@ const ROCK_VARIANT_ART = Object.freeze({
 function mineralRockMaterial(o) {
   const deposit = mineralDeposit(o);
   if (deposit) return deposit.item;
+  // Explicit flint seams are visible in surface and cave rubble.
+  if (o?.rockMaterial === 'flint' && (o.yieldTier || o.requiredTier || 1) <= 1) return 'flint';
   // A possible lucky find is not a visible deposit. Cave rubble stays plain.
   if (o?.caveVariant != null) return 'plain';
   const ore = MINERAL_TIERS[o?.yieldTier || o?.requiredTier || 1];

@@ -132,7 +132,8 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   material pairs plus three extra plain-stone pairs across six columns and six
   rows. `mineralRockArtFrame` selects the matching gem deposit or ore tier,
   plain stone for ordinary cave rubble,
-  and flint only when explicitly authored as `rockMaterial: 'flint'`. Partial
+  and flint when marked `rockMaterial: 'flint'`, including flint-bearing L1
+  cave rubble. The flint mark takes precedence over the generic cave variant. Partial
   cover (`sightBlocking: true`) selects the large silhouette at scale 4/3;
   small stones use scale 1. Outside authored rock zones, wild rubble shares
   the four generic plain small shapes and skips biome tint; planted crop stages

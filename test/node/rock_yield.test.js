@@ -254,3 +254,23 @@ test('plain rock: steeper bar rarity keeps copper and makes Frost three times ra
     }
   } finally { Math.random = original; }
 });
+
+
+test('flint-bearing rocks: visible seams guarantee one flint and still yield stone', () => {
+  assert.eq(mineralRockMaterial({ rockMaterial: 'flint', requiredTier: 2 }), 'copper', 'ore precedence stays intact');
+  assert.eq(mineralRockMaterial({ rockMaterial: 'flint', deposit: 'ruby' }), 'ruby', 'gem precedence stays intact');
+  const original = Math.random;
+  Math.random = () => .99; // No lucky flint, bars or glint findings.
+  try {
+    for (const extra of [{ yieldTier: 1 }, { caveVariant: 1 }]) {
+      const scene = makeScene();
+      const o = { kind: 'mineralrock', id: 'flint-seam', x: 0, y: 0, rockMaterial: 'flint', ...extra };
+      assert.eq(mineralRockMaterial(o), 'flint');
+      assert.eq(mineralRockArtFrame(o), 2);
+      assert.eq(runInteractable(makeCtx(scene, { relics: {} }), o), true);
+      assert.eq(scene.invCount('flint_shard'), 1, 'a seam is guaranteed without luck');
+      assert.eq(scene.invCount('rubble'), SpriteLayout.plainRockStones(o));
+      assert.truthy(scene.brokenRockSet.has(o.id));
+    }
+  } finally { Math.random = original; }
+});

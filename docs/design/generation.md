@@ -145,7 +145,7 @@ access or tile lifecycle mechanics.
 - A per-floor rule - rope seals, fall seals, hazards, lighting levels - reads
   one owning table keyed by floor, never a depth literal at a call site.
   `WorldGen.floorProfile(depth)` owns cave terrain, street projection and gem
-  probabilities, authored cave-area weights/carving/garrisons, pressure traps,
+  probabilities, flint-bearing rock frequency, authored cave-area weights/carving/garrisons, pressure traps,
   the vent kinds a floor erupts,
   arrival story IDs and entry keys. Keep story copy in the presentation module;
   choose its story through the profile. Depths beyond the explicit rows inherit
@@ -153,6 +153,13 @@ access or tile lifecycle mechanics.
   `DungeonProgression.ROPE_SEALED_FLOORS` is the pattern (the rope, the
   sinkhole minting and the fall check all read it); lighting already derives
   its per-floor ambience from depth (`Lighting.profile`, `litDim`).
+
+- Flint Field's central disk contains mineable flint-bearing rocks instead of
+  loose pickups. Visible flint seams yield stone and one guaranteed flint.
+  L1 marks a quarter of ordinary ambient rocks as flint-bearing using stable
+  rock IDs and `floorProfile(depth).flintRockP`; placement and ore rolls retain
+  their existing seeded streams. Other floors and loose tar-zone flint keep
+  their existing rules.
 
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.

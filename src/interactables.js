@@ -146,10 +146,10 @@ function plainRockBarChance(tier) {
   if (!Number.isInteger(tier) || tier < 2 || tier > 7) return 0;
   return 1 / (2 * tier * tier * Math.pow(3, (tier - 2) / 5));
 }
-function plainRockBaseDrop(scene, stones) {
+function plainRockBaseDrop(scene, stones, flintBearing = false) {
   const qty = stones == null ? 1 : stones;
   scene.addToInv('rubble', qty);
-  if (Math.random() < PLAIN_ROCK_FLINT_P) scene.addToInv('flint_shard', 1);
+  if (flintBearing || Math.random() < PLAIN_ROCK_FLINT_P) scene.addToInv('flint_shard', 1);
   return qty;
 }
 // A PLAIN rock: a cave rock or a T1 surface rock with no named deposit —
@@ -407,8 +407,9 @@ const INTERACTABLES = {
         // guaranteed find off that same ladder (glintRockFind).
         // Quarry rubble pays one stone regardless of its pile silhouette.
         // Elsewhere the original pair/single artwork still owns the quantity.
-        const qty = plainRockBaseDrop(scene, quarryRockRules(o)?.stones ?? SpriteLayout.plainRockStones(o));
-        let flashId = 'rubble';
+        const flintBearing = mineralRockMaterial(o) === 'flint';
+        const qty = plainRockBaseDrop(scene, quarryRockRules(o)?.stones ?? SpriteLayout.plainRockStones(o), flintBearing);
+        let flashId = flintBearing ? 'flint_shard' : 'rubble';
         for (let t = 2; t <= 7; t++) {
           if (Math.random() < plainRockBarChance(t)) {
             const bar = mineralBarId(t);
