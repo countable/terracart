@@ -1005,8 +1005,9 @@ function swallowTaps(el) {
 // the `color`, the `shape` (a dot, or the
 // delivery's arrow), `tracked` for a find that moves (re-read twice a second
 // through _telescopeTrackedTarget), and `clearWhen(scene, m)` — the row's
-// own reason to drop a mark besides its `until` passing. A mark on another
-// level is kept but not drawn. The Pairy's mark stays session state
+// own reason to drop a mark besides its `until` passing. Every mark points
+// at something on the floor it was made on, so switching floors clears them
+// all (_clearMarkers). The Pairy's mark stays session state
 // (Buffs.KINDS.compass and player_time.js read scene.pairyCompass).
 const _markClaimed = (s, m) => setOf(s.save.opened).has(m.targetId) || dayLedgerAges(s.save).get(m.targetId) === 0;
 const MARKERS = [
@@ -1015,7 +1016,7 @@ const MARKERS = [
   { key: 'telescopeCompass', store: 'save', color: 0xffd24a, source: 'Telescope', label: 'Find', shape: 'dot', tracked: true },
   // A neighbour's directions (npc.js interact); the mark names its speaker.
   { key: 'wayfarerCompass', store: 'save', color: 0x4488ff, source: 'Directions', label: 'Find', shape: 'dot', tracked: true },
-  // A map keeps its original level and expires by wall clock, including reloads.
+  // A map expires by wall clock, including reloads.
   { key: 'treasureCompass', store: 'save', color: 0xff5555, source: 'Map', label: 'Treasure', shape: 'dot', clearWhen: _markClaimed },
   // The delivery waypoint — a solid WHITE arrow at the house the player picked
   // (openDeliveryMenu), cleared once they arrive or the house has been fed.
@@ -2774,6 +2775,16 @@ class MapScene extends Phaser.Scene {
     for (const row of MARKERS) this._drawMarker(row);
   }
 
+  // Every row of MARKERS, emptied: their targets are on the floor just left.
+  // Each depth switch (changeDepth, _realmSwitchDepth, _passOutToSurface) calls it.
+  _clearMarkers() {
+    for (const row of MARKERS) {
+      if (row.store === 'scene') this[row.key] = null;
+      else delete this.save[row.key];
+    }
+    this._edgeDotTargets = {};
+  }
+
   // A generous hit area keeps the small rim dots usable on touchscreens.
   // `key` is the mark's own (_drawMarker), so each of a row's dots toggles alone.
   _tapEdgeDot(sx, sy) {
@@ -2828,7 +2839,7 @@ class MapScene extends Phaser.Scene {
     const now = Date.now();
     const kept = all.filter((marker, i) => {
       if ((marker.until != null && now >= marker.until) || row.clearWhen?.(this, marker)) return false;
-      if (marker.depth != null && marker.depth !== (this.depth || 0)) return true;
+      if (marker.depth != null && marker.depth !== (this.depth || 0)) return false;
       const key = `${row.key}:${marker.targetId ?? marker.id ?? i}`;
       let target = marker;
       if (row.tracked) {
@@ -6777,6 +6788,7 @@ class MapScene extends Phaser.Scene {
     WorldGen.setDepth(target);
     // The surface's roof signs belong to the floor just left (render.js).
     Render.hideRoofSigns(this);
+    this._clearMarkers();
     // GPS-mirror: keep the same world coordinates, just snap feet onto the stair.
     this.playerM.x = stair.x - this.startWorldM.x;
     this.playerM.y = stair.y - this.startWorldM.y - this.feetOffsetM;
@@ -6842,6 +6854,7 @@ class MapScene extends Phaser.Scene {
     this._turretNextT = {};
     this._turretScan = null;
     delete this.save.sapphireReturn;
+    this._clearMarkers();
     this.depth = 0;
     this.save.depth = 0;
     WorldGen.setDepth(0);

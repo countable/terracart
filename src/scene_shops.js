@@ -293,7 +293,7 @@ class SceneShops {
     // A TURRET trades nothing: its archer is the castle turret lane
     // (app.js _turretFire) and a tap only says so.
     if (shopType === 'turret') {
-      this.showMessageModal({ kind: 'build', title: 'Turret',
+      this.showMessageModal({ kind: 'build', kindLabel: 'On watch', art: 'turret_watch', title: 'Turret',
         body: 'An archer leans over the battlement and nods. Anything hostile that comes within bowshot of these walls is their business.' });
       return;
     }

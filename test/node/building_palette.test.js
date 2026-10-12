@@ -24,3 +24,28 @@ test('building materials: restored palette cannot brighten the unclaimed source'
   } finally { material.CASTLE_STONE.BODY.n = old; }
 });
 })();
+
+// Background treatment changes only colour intensity, not building condition.
+test('building materials: background colours lose chroma while retaining luminance', () => {
+  const channels = c => [(c >> 16) & 255, (c >> 8) & 255, c & 255];
+  const luminance = c => c[0] * .2126 + c[1] * .7152 + c[2] * .0722;
+  const chroma = c => Math.max(...c) - Math.min(...c);
+  for (const colour of [0xae685d, 0xaa9577, 0x345728, 0x804010]) {
+    const before = channels(colour), after = channels(buildingBackgroundColor(colour));
+    assert.lt(chroma(after), chroma(before), 'masonry recedes through reduced colour intensity');
+    assert.lt(Math.abs(luminance(after) - luminance(before)), 1, 'condition contrast keeps its lightness');
+  }
+  for (const gray of [0x000000, 0x171717, 0x808080, 0xffffff]) {
+    assert.eq(buildingBackgroundColor(gray), gray, 'neutral ink and highlights stay neutral');
+  }
+});
+
+test('building materials: background palettes preserve the original tower colours', () => {
+  const original = CastleStyles.get('citadel', true);
+  const before = JSON.stringify(original);
+  const muted = buildingBackgroundMaterial(original);
+  assert.eq(JSON.stringify(original), before, 'foreground source palette remains untouched');
+  assert.truthy(muted !== original && muted.stone !== original.stone && muted.wood !== original.wood,
+    'background owns separate colour tables');
+  assert.eq(buildingBackgroundMaterial(original), muted, 'repeated frames reuse the palette');
+});

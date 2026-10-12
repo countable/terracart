@@ -792,3 +792,21 @@ function speedGateStep(state, fix, now = Date.now()) {
   }
   return s;
 }
+
+// Background masonry keeps its lightness and condition, with quieter colour.
+function buildingBackgroundColor(rgb) {
+  const r = (rgb >> 16) & 255, g = (rgb >> 8) & 255, b = rgb & 255;
+  const gray = r * 0.2126 + g * 0.7152 + b * 0.0722;
+  return (Math.round(r * 0.7 + gray * 0.3) << 16)
+    | (Math.round(g * 0.7 + gray * 0.3) << 8) | Math.round(b * 0.7 + gray * 0.3);
+}
+const _buildingBackgroundMaterials = new WeakMap();
+function buildingBackgroundMaterial(material) {
+  if (_buildingBackgroundMaterials.has(material)) return _buildingBackgroundMaterials.get(material);
+  const palette = colours => Object.fromEntries(Object.entries(colours)
+    .map(([key, colour]) => [key, buildingBackgroundColor(colour)]));
+  const background = { ...material, floor: buildingBackgroundColor(material.floor),
+    stone: palette(material.stone), wood: palette(material.wood) };
+  _buildingBackgroundMaterials.set(material, background);
+  return background;
+}
