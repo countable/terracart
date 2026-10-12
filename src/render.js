@@ -5598,6 +5598,11 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     stakes:   { key: 'approved_charred_stakes', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     ground_hole: { key: 'cave_chasm', frame: o => o._chasmMask ?? 15, origin: [0.5, 0.5], scale: 1, seat: false, ground: true },
+    // UNDERGROUND STREET SCATTER (src/underground.js decorate): the triple
+    // stalagmites prop and an inert poison vent, 24px art at one cell like
+    // the stakes. A vent lies flat; the stalagmites stand and cast a shadow.
+    stalagmites: { key: 'cave_props', frame: 1, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
+    inactive_poison_vent: { key: 'poison_vent_inactive', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, ground: true },
     tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, ground: true },
     // POI PROPS (worldgen.js). A NOTICE BOARD (an information POI) stands like
     // the waystone and reads a Book page the same way (INTERACTABLES.infoboard);
@@ -5728,7 +5733,7 @@ Render.objectAppearance = function (scene, houseRoles) {
 // The non-enumerable stamp never enters saves, spreads or deterministic data;
 // its scene token prevents a review scene from reusing another scene's tuple.
 const CACHED_APPEARANCE_KINDS = new Set([
-  'zone_prop', 'reef_coral', 'tree', 'mineralrock', 'waystone', 'stakes', 'tar',
+  'zone_prop', 'reef_coral', 'tree', 'mineralrock', 'waystone', 'stakes', 'tar', 'stalagmites', 'inactive_poison_vent',
   'infoboard', 'bottle', 'gatepost', 'hive', 'headstone', 'vista_scope', 'well',
   'groundstack',
 ]);
