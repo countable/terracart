@@ -497,7 +497,10 @@ test('cave supplies: shallow caves add medicine and practical supplies', () => {
 // The deep hoard: a cave chest above the supply tiers (T3+) leans to potions,
 // powders and gems, tier-capped so a gem only comes where its tier does.
 test('deep hoard: T3+ chests underground pay magic consumables and gems more often', () => {
-  const HOARD = new Set(Object.keys(CAVE_DEEP_SKEW.favourite.ids));
+  const HOARD = new Set([
+    ...Object.keys(ChestThemes.members('caveMagic')),
+    ...Object.keys(ChestThemes.members('caveGems')),
+  ]);
   const rate = (depth, tier) => {
     const rng = seeded(777 + depth * 11 + tier);
     let n = 0; const N = 4000;
@@ -513,10 +516,9 @@ test('deep hoard: T3+ chests underground pay magic consumables and gems more oft
   }
 });
 
-test('deep hoard: tier-capped — at T3 it favours potions and powders, not gems', () => {
-  // Gems start at T4, so a T3 cave chest's favourite has none to offer: the
-  // hoard must not make gems any commoner there than on the surface (a jackpot
-  // can still lift the ordinary roll into one, exactly as it does up top).
+test('deep hoard: tier-capped — T4+ gems stay rare in T3 chests', () => {
+  // Quartz, Topaz and Amethyst are ordinary lower-tier gems. Sapphire and
+  // higher gems still require a jackpot to lift a T3 roll beyond its tier.
   const GEMS = new Set(['sapphire', 'ruby', 'emerald', 'diamond']);
   const gemRate = (depth, tier) => {
     const rng = seeded(31 + depth * 5 + tier);

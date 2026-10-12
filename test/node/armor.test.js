@@ -340,8 +340,8 @@ test('boots: protect against the trap bite and ongoing bleed', () => {
   assert.lt(Combat.playerDamage(Traps.STEP_ENERGY, boots), Traps.STEP_ENERGY);
   const hardBleed = Difficulty.PROFILES.hard.trapBleedPerS;
   assert.lt(Combat.playerDamage(hardBleed, boots, 1, 'easy'), hardBleed);
-  assert.truthy(SCENE_SRC.includes('Combat.playerDamage(bite, { boots: this.save.armor?.boots })'));
-  assert.truthy(SCENE_SRC.includes('Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt'));
+  assert.truthy(SCENE_SRC.includes('Combat.playerDamage(bite, { boots: this.save.armor?.boots }, 1, this.save.mode, Combat.armorBonus(this.save))'));
+  assert.truthy(SCENE_SRC.includes('Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }, 1, this.save.mode, Combat.armorBonus(this.save)) * dt'));
 });
 
 test('armor: enemy armour uses the player mitigation engine and returns actual damage', () => {
