@@ -2094,7 +2094,7 @@ class MapScene extends Phaser.Scene {
       // elite's snare bites harder); a generated trap at 1.
       // Only boots protect against traps; apply their soak before banking pips.
       const bite = Traps.STEP_ENERGY * Difficulty.get().trapBiteMul * Traps.trapPower(trap);
-      Energy.set(this.save, before - (Conditions.damageImmune(this.save) ? 0 : Combat.playerDamage(bite, { boots: this.save.armor?.boots })));
+      Energy.set(this.save, before - (Conditions.damageImmune(this.save) ? 0 : Combat.playerDamage(bite, { boots: this.save.armor?.boots }, 1, this.save.mode, Combat.armorBonus(this.save))));
       const spent = before - this.save.energy;
       this._painFlash(spent);
       // Say the real number: an empty bar loses nothing, so nothing is popped —
@@ -2103,7 +2103,7 @@ class MapScene extends Phaser.Scene {
       this._warnIfTiring(before);
       if (this.updateEnergyDOM) this.updateEnergyDOM();
       const ps = this.playerScreen ? this.playerScreen() : null;
-      const bleed = +Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }).toFixed(1);
+      const bleed = +Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }, 1, this.save.mode, Combat.armorBonus(this.save)).toFixed(1);
       this.flash(`🪤 a trap! −${bleed}⚡/s — step off`,
         ps ? ps.x : undefined, ps ? ps.y - ENERGY_POP_HEAD_PX - 22 : undefined);
       // The reveal has to survive a reload, so it is written now rather than
@@ -2132,7 +2132,7 @@ class MapScene extends Phaser.Scene {
     // loss joins the drain roll-up (_bankDrain) — a number a second stacks
     // into an unreadable column.
     const pips = bankWhole(this, '_trapDrainAccum',
-      Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt);
+      Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }, 1, this.save.mode, Combat.armorBonus(this.save)) * dt);
     if (pips > 0 && (this.save.energy ?? 0) > 0) this._bankDrain('trap', -this._losePlayerEnergy(pips), { ix, iy, label: '🪤 trap' });
   }
 

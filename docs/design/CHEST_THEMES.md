@@ -40,6 +40,8 @@ chest's position, id, tier, sprite or cave eligibility.
   (`src/chest_themes.js`); the rebalance comment above `themes` states each
   theme's one-line identity.
 - Groups, members, item weights and fallbacks: `ChestThemes.groups`.
+  Surface and cave gem groups use the full `GEM_DEPOSITS` ladder, deduplicated
+  by item so the crystal alias does not give Sapphire extra weight.
 - POI to theme: `CHEST_THEME_BY_POI` over `POI_CATEGORY`, read through
   `chestThemeFor` (`src/loot.js`). World categories with no theme of their
   own resolve through `ChestThemes.normalize` (its alias table; unknown
@@ -75,7 +77,10 @@ stalls and coin pots keep their own interactions.
   bracket (`ChestThemes.budget`), times the item's `BUDGET_SHARE` (potions and
   other magic 0.4, seeds 0.8, everything else 1), divided by the item's
   value, at least one, capped per item (`ChestThemes.quantity`,
-  `ChestThemes.cap`). A same-tier roll with no brackets typically pays two
+  `ChestThemes.cap`). Mushrooms round up to fill their allowance, as magic and
+  timber seeds do, so a T2 chest's lower-tier budget roll still buys a stack.
+  Fish prices control stack sizes; cooked prices derive from raw ingredients.
+  A same-tier roll with no brackets typically pays two
   potions or four seeds. Budget steps (the chain, the wizard's ladder and
   budget jackpots) only raise the budget, with no bracket cap; leftover
   budget pays no consolation coins, and no caller adds a bonus on top. Wood
