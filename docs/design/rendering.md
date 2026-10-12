@@ -49,6 +49,12 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   per-cell variation (`wildplantFrame`); do not use id length or transient indices.
   Legacy `PLAIN_ROCK_VARIANTS` retains rock yields independently of the neutral
   material silhouettes; loot messages report the actual quantity rolled.
+- Apple and Worldpeach trees keep their mature size after picking. Their
+  24-hour fruit regrowth is green for the first 12 hours, then uses the mature
+  blossom frame for the final 12 hours (apple frame 8, peach frame 4).
+  Ripe trees return to the green frame
+  with separate fruit overlays. `Crops.fruitTreeState` owns readiness and the
+  blossom window; initial sapling growth still flowers during stage 3.
 - Procedural wildplant backgrounds carry the shared layout's `_terrainScale`
   into the normal crop renderer as a size multiplier; cell positions, crop art
   and harvest rewards remain owned by their existing records and tables.

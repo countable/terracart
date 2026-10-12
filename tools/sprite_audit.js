@@ -240,7 +240,7 @@ const SHEETS = {
   bushes:        { file: 'assets/Objects/Approved/bushes.png',             fw: 48, fh: 32, frames: [0] },
   // The sheets' fruiting cells (apple 7, peach 5) are deliberately absent: a
   // bearing tree keeps its mature frame and wears a fruit sprite (FRUIT_FRAMES in render.js).
-  apple_tree:    { file: 'assets/Objects/Approved/apple_tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 5], crownFrame: 4 },
+  apple_tree:    { file: 'assets/Objects/Approved/apple_tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 8], crownFrame: 4 },
   worldpeach_tree:    { file: 'assets/Objects/Approved/peach_tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4], crownFrame: 3 },
   beehive:       { file: ASSETS.beehive.path, fw: 16, fh: 16, frames: [0] },
   chest:         { file: 'assets/Objects/Approved/chest.png',                    fw: 16, fh: 16, frames: [0] },
@@ -307,6 +307,8 @@ const SCENARIOS = [
   { name: 'giant mushroom', key: 'zone_objects', frameIdx: 40, scale: itemsCtx.CROP_SPRITE.giant_mushroom.scale },
   { name: 'apple sapling',   key: 'apple_tree',    frameIdx: 2, scale: 0.85 * 0.625, scaleYMul: 1.10 },
   { name: 'apple (wild)',    key: 'apple_tree',    frameIdx: 4, scale: 0.85, scaleYMul: 1.10 },
+  { name: 'apple blossom',   key: 'apple_tree', frameIdx: 8, scale: 0.85, scaleYMul: 1.10 },
+  { name: 'peach blossom',   key: 'worldpeach_tree', frameIdx: 4, scale: 0.85, scaleYMul: 1.10 },
   { name: 'peach (wild)',    key: 'worldpeach_tree',    frameIdx: 3, scale: 0.85, scaleYMul: 1.10 },
   { name: 'chest',           key: 'chest',         frameIdx: 0, scale: CHEST_SCALE },
   { name: 'crate (box)',     key: 'box',           frameIdx: 0, scale: 0.8 },
