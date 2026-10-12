@@ -165,39 +165,6 @@ Render.enemyMeleeColor = function (c) {
 // Flat ground props always precede upright pieces. Within each lane, ground
 // anchors determine occlusion; rank only breaks exact ties, so stepping
 // within one cell can still pass behind a tree.
-// SEATED AGAINST AN ANGLED WALL (owner, Oct 2026). A long angled castle wall
-// is cut into ~cell-long pieces, each sorted by its own lowest base point, so
-// a WIDE upright (a booth, Home) — or a player at a piece's end — that stands
-// in front of the wall where it actually stands could still lose to a
-// neighbouring piece whose base runs further south (and the reverse behind).
-// Rows marked `wallSeat: { x, halfW }` (world m) are judged against each
-// overlapping piece's BASE LINE (`base`, world m, building_overlay.js) at
-// their own x: in front of it → seated just in front of every such piece
-// that would otherwise cover them; behind it → just behind every piece that
-// would otherwise draw under them. Only those rows' keys move, so the sort
-// stays a total order. `reach` (world m) bounds how far apart in ground Y a
-// piece and a row can be and still overlap on screen.
-Render.seatAgainstWalls = function (rows, walls, reach) {
-  const EPS = 0.001;
-  for (const row of rows) {
-    const seat = row.wallSeat;
-    if (!seat) continue;
-    let lift = -Infinity, drop = Infinity;
-    for (const w of walls) {
-      const b = w.base;
-      if (!b || Math.abs(w.groundY - row.groundY) > reach) continue;
-      if (b.wx1 < seat.x - seat.halfW || b.wx0 > seat.x + seat.halfW) continue;
-      const span = b.x1 - b.x0;
-      if (Math.abs(span) < 1e-6) continue;               // a side edge: its piece's foot is its line
-      const lineY = b.y0 + (b.y1 - b.y0) * (seat.x - b.x0) / span;
-      if (row.groundY >= lineY) { if (w.groundY >= row.groundY) lift = Math.max(lift, w.groundY); }
-      else if (w.groundY <= row.groundY) drop = Math.min(drop, w.groundY);
-    }
-    if (lift > -Infinity) row.groundY = lift + EPS;      // visible beats hidden when walls disagree
-    else if (drop < Infinity) row.groundY = drop - EPS;
-  }
-};
-
 Render.sortWorldDepth = function (pieces) {
   pieces.sort((a, b) => Number(!!b.ground) - Number(!!a.ground)
     || (a.groundY - b.groundY) || ((a.rank || 0) - (b.rank || 0)));
@@ -1865,14 +1832,14 @@ function drawAtmosRim(scene, haze) {
   if (g.flush) g.flush();   // BAKED (app.js): one upload per haze change
 }
 
-// Tiled wall sections share the same ground-depth pass as other uprights.
+// Tiled walls stay with the building background, below every world object.
 Render.rampartPiece = function (scene, groundY, rank = 1) {
   const pool = scene._rampartPool || (scene._rampartPool = []);
   const i = scene._rampartPoolUsed++;
   let sprite = pool[i];
   if (!sprite) {
     sprite = scene.add.graphics();
-    scene.worldContainer.add(sprite);
+    scene.buildingWallContainer.add(sprite);
     pool.push(sprite);
   }
   sprite.setVisible(true);
@@ -2273,10 +2240,10 @@ Render.drawCells = function drawCells(scene) {
     return accent >= 0 ? accent : colour;
   };
   const courtShaded = (t, colour, c, r) =>
-    t === 12 ? CastleStyles.get(castleOwner(c, r), !UNCLAIMED(c, r)).floor :
+    t === 12 ? buildingBackgroundMaterial(CastleStyles.get(castleOwner(c, r), !UNCLAIMED(c, r))).floor :
     UNCLAIMED(c, r) && typeof UNCLAIMED_BUILDING_BASE !== 'undefined' && UNCLAIMED_BUILDING_BASE.floors[t] != null
-      ? unclaimedMaterialColor(unclaimedShade(UNCLAIMED_BUILDING_BASE.floors[t]))
-      : groundColor(colour, c, r);
+      ? buildingBackgroundColor(unclaimedMaterialColor(unclaimedShade(UNCLAIMED_BUILDING_BASE.floors[t])))
+      : t === 9 || t === 11 ? buildingBackgroundColor(colour) : groundColor(colour, c, r);
   // Cells whose PAINTED colour isn't COLORS[type] — the ones every neighbour
   // test has to look THROUGH to the zone underneath. Road and path cells are
   // painted the majority biome around them; in polygonal mode a building cell
@@ -2843,8 +2810,8 @@ Render.drawCells = function drawCells(scene) {
       // Tier 11 (mid-rise) — palisade-fenced wood floor: pointed pickets along every
       // perimeter edge, no silhouette/extrusion. Drawn instead of tier 9/12 styling.
       if (type === 11) {
-        const wood = n => UNCLAIMED(col, row) && typeof unclaimedMaterialColor === 'function'
-          ? unclaimedMaterialColor(unclaimedShade(n)) : n;
+        const wood = n => buildingBackgroundColor(UNCLAIMED(col, row) && typeof unclaimedMaterialColor === 'function'
+          ? unclaimedMaterialColor(unclaimedShade(n)) : n);
         const WOOD_BODY = wood(0xa67434), WOOD_SHADOW = wood(0x6b4520), WOOD_TIP = wood(0x3a240e);
         const PICKETS = 8, PW = 4;   // 8 pickets × 4px = 32px = CELL_PX
         // South: pickets stand below the cell, tips touching the cell edge.
@@ -2882,7 +2849,7 @@ Render.drawCells = function drawCells(scene) {
       if (type === 12) {
         // Resolve the same owner identity and condition as the tower and
         // polygon overlay. Returned colours already include weathering.
-        const material = CastleStyles.get(castleOwner(col, row), !UNCLAIMED(col, row));
+        const material = buildingBackgroundMaterial(CastleStyles.get(castleOwner(col, row), !UNCLAIMED(col, row)));
         const crest = material.rampart.woodTop ? material.wood : material.stone;
         const _DBG = (typeof window !== 'undefined') && window.__RAMPART_DEBUG;
         const STONE_LITE = crest.LITE, STONE_BODY = crest.BODY;
@@ -2987,9 +2954,9 @@ Render.drawCells = function drawCells(scene) {
       // South wall: tier-specific extrusion, a darker shade of the building
       // tier colour projected one cell downward.
       if (wallEdge(col, row, 0, 1)) {
-        const hex = UNCLAIMED(col, row) && typeof UNCLAIMED_BUILDING_BASE !== 'undefined'
+        const hex = buildingBackgroundColor(UNCLAIMED(col, row) && typeof UNCLAIMED_BUILDING_BASE !== 'undefined'
           ? unclaimedMaterialColor(unclaimedShade(UNCLAIMED_BUILDING_BASE.faces[type]))
-          : SOUTH_FACE_COLOR[type] || 0x444444;
+          : SOUTH_FACE_COLOR[type] || 0x444444);
         Render.paintMasonryFace(g, sx, sy + CELL_PX, CELL_PX, SOUTH_FACE_PX[type] || 7,
           hex, BiomeProfiles.mixHex(hex, 0xffffff, 0.16), BiomeProfiles.mixHex(0x000000, hex, 0.65));
       }
@@ -3029,6 +2996,11 @@ Render.drawCells = function drawCells(scene) {
     paint(gbW, UNCLAIMED_WASH, UNCLAIMED_WASH_A);
     paint(gbW, UNCLAIMED_MURK, UNCLAIMED_MURK_A);
     _washCells.length = 0;
+  }
+  // Preserve wall-to-wall overlap within the background, independent of actors.
+  if (scene._uprightPieces.length) {
+    Render.sortWorldDepth(scene._uprightPieces);
+    scene.buildingWallContainer.sort('depth');
   }
   // WHAT THIS LAYER STILL DOES: the unmapped-tile reveal, and nothing else.
   // The darkness (out-of-reach dim, underground dim, low-energy pink, falloff
@@ -4018,20 +3990,9 @@ Render.drawObjects = function drawObjects(scene) {
   for (const it of whirlwindList) zList.push({ it, rank: 3, groundY: groundY(it) });
   for (const it of plantedList) zList.push({ it, rank: 0,
     groundY: groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
-  // Booths and Home are judged against angled walls where they stand
-  // (Render.seatAgainstWalls), across their drawn width.
-  const homeId = scene.save?.starterShopId;
-  const wallSeatOf = (it) => {
-    if (it._appearance?.ground) return null;
-    if (!(it.o.id != null && it.o.id === homeId) && !(it.o.kind === 'chest' && chestLook(it.o).macro)) return null;
-    const ap = it._appearance, frame = ap?.visible ? scene.textures?.getFrame?.(ap.texKey, ap.frameVal) : null;
-    const halfPx = ((frame?.width || CELL_PX) * (ap?.scl || 1)) / 2;
-    return { x: pWorldX + it.dx, halfW: halfPx * scene.cellM / CELL_PX };
-  };
   for (const it of filteredObj) zList.push({ it, rank: it.o.kind === 'tower' ? 2 : 1,
     ground: it._appearance?.ground,
-    groundY: groundY(it, Render.objectGroundOffsetPx(it._appearance, scene.textures)),
-    wallSeat: wallSeatOf(it) });
+    groundY: groundY(it, Render.objectGroundOffsetPx(it._appearance, scene.textures)) });
   for (const it of creatureList) zList.push({ it, rank: 3,
     groundY: groundY(it, SpriteLayout.CREATURE_GROUND_DY) });
   // The ground shadow stays below props. The raised body clears only its
@@ -4039,13 +4000,8 @@ Render.drawObjects = function drawObjects(scene) {
   const playerGroundY = Math.max(playerWorldM(scene).y,
     ...zList.filter(row => supports.has(row.it?.o || row.it?.p)).map(row => row.groundY + 0.001));
   if (scene.playerWorldContainer) zList.push({ sprite: scene.playerWorldContainer,
-    groundY: playerGroundY, rank: 3,
-    wallSeat: { x: playerWorldM(scene).x, halfW: scene.cellM / 2 } });
-  zList.push(...(scene._uprightPieces || []), ...(scene._buildingUprightPieces || []),
-    ...(scene._peerUprightPieces || []));
-  // Players, booths and Home against angled castle walls: three cells of
-  // ground either way covers the tallest wall face over a body.
-  Render.seatAgainstWalls(zList, scene._buildingUprightPieces || [], scene.cellM * 3);
+    groundY: playerGroundY, rank: 3 });
+  zList.push(...(scene._peerUprightPieces || []));
   const worldList = scene.worldContainer?.list;
   const worldChildCountBefore = worldList?.length ?? 0;
   let worldDepthDirty = Render.sortWorldDepth(zList) || !scene._worldDepthSorted
