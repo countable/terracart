@@ -1144,13 +1144,21 @@ class SceneVenues {
         body: 'Your trailer stays on the surface — it has never been much of a caver. Climb back up before moving Home.' });
       return;
     }
+    const { x: px, y: py } = playerWorldM(this);
+    const footing = this._homeFootingAt(px, py);
+    if (footing?.blocked) {
+      this.showMessageModal({ title: 'Move Home',
+        body: 'Your trailer can\'t park on this building. Step off its footprint before moving Home.' });
+      return;
+    }
     const cost = Math.min(500, Math.floor((this.save.money ?? 0) / 2));
     this.showConfirmModal({
       id: 'move-home-modal',
       kind: 'build',
       title: 'Move Home here?',
-      body:
-        'Settle your trailer here.',
+      body: footing?.house
+        ? 'Your trailer replaces this building.'
+        : 'Settle your trailer here.',
       acceptLabel: `Move (${this.moneyHTML(cost, 12)})`,
       onAccept: () => {
         addMoney(this.save, -cost);
@@ -1162,10 +1170,34 @@ class SceneVenues {
     });
   }
 
+  // What "Move Home here" finds under (x, y): null on open ground; { house }
+  // anywhere on an unclaimed house's footprint, which Home then takes over —
+  // Home draws as the trailer, so the trailer replaces the building rather
+  // than parking on top of it (the same adoption ensureStarterTrailerObject
+  // makes on the house's own cell); { blocked } on any other building — one
+  // already yours, a temple, a castle, or a house whose tile isn't loaded.
+  _homeFootingAt(x, y) {
+    const c = worldMetersToTileCell(this, x, y);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(c.tx, c.ty));
+    const i = c.iy * c.n + c.ix;
+    if (!entry?.grid || !BUILDING_TYPES.has(entry.grid[i])) return null;
+    const key = entry.ownerKeys?.[entry.owners?.[i]];
+    if (!key) return { blocked: true };
+    if (key !== this.save.starterShopId && Houses.isClaimedKey(this.save, key)) return { blocked: true };
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) {
+        if (o.id === key) return o.kind === 'house' && !o._synthetic ? { house: o } : { blocked: true };
+      }
+    }
+    return { blocked: true };
+  }
+
   // Relocate Home to the player's current position by (re)synthesizing the
-  // starter trailer there. Works whether the current Home is a real adopted
-  // house (it simply becomes a normal house again) or an existing synthetic
-  // trailer (it moves). Surface-only — the confirm above guards depth.
+  // starter trailer there — or, standing on a house's footprint, by taking
+  // that house over (_homeFootingAt). Works whether the current Home is a
+  // real adopted house (it simply becomes a normal house again) or an
+  // existing synthetic trailer (it moves). Surface-only — the confirm above
+  // guards depth.
   moveHomeTrailerHere() {
     // Evict any previously injected trailer object from the loaded tiles.
     // ensureStarterTrailerObject only dedupes within the NEW owning tile, so
@@ -1178,7 +1210,14 @@ class SceneVenues {
     }
     // playerM → absolute world metres (the space every object's x/y lives in).
     const { x: ax, y: ay } = playerWorldM(this);
-    this._makeStarterTrailer(ax, ay);
+    const footing = this._homeFootingAt(ax, ay);
+    if (footing?.house) {
+      this.save.starterTrailer = null;
+      this._starterTrailerObj = null;
+      this.save.starterShopId = footing.house.id;
+    } else {
+      this._makeStarterTrailer(ax, ay);
+    }
     this._starterShopOk = true;
   }
 
