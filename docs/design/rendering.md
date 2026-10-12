@@ -33,6 +33,9 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   never adjusts an actor's feet or enters the world depth sort. Towers and
   flags retain ordinary world ordering. Walls and footprints use a muted
   palette so interactables remain distinct.
+  Castle courtyard floors use four square stone tiles per cell (2×2), with
+  darker junctions, worn stretches and quiet bevels. Inner seams are lighter
+  than cell boundaries, keeping cells legible beside the smaller road cobbles.
   Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
   renderers; polygon corners use bounded bevel joins.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
@@ -220,9 +223,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   biome texture (`Render.roadBackdropType`): explicit street ground, then the
   surrounding biome, then grass. Never paint raw road colours or separate path
   pebbles beneath the band; their grid edges read as a second road.
-- Restored Toadstool (Mushroom) and Snare lanes use near-black setts close to
-  the default restored road. Retain their red/brown undertones and mushroom
-  spots; the shared clean-stone bevel supplies the polished highlights.
+- Roads and paths use a consistent muted midtone range so ground objects
+  remain the focus. Restored paving has recessed dark joints, tidy courses and
+  small polished bevels; worn cracks and mushroom spots stay low contrast.
+  Keep each theme’s undertone. Burned Row retains its dark stone and glowing embers.
 - Path paving and lamp palettes follow the assigned segment intervals. Scenic
   geography still owns restoration bonuses; first-walk stories use the assigned
   theme on the restored segment.

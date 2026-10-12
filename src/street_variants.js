@@ -181,7 +181,7 @@
   // `flash` is the ≤30-char map line a later visit gets.
   const STREET_VARIANTS = [
     { id: 'hedgerow', terrain: 'PARK', affinities: ['cultivated', 'formal'], size: 'minor', share: 0.08, nudge: 2, rung: 'find',
-      stone: { weathered: '#3a322c', restored: '#000000' }, lampDensity: HEDGE_LAMP_DENSITY,
+      stone: { weathered: '#77746a', restored: '#898a80' }, lampDensity: HEDGE_LAMP_DENSITY,
       // A dark green carpet runs down the verge either side (road_overlay.js
       // decor lane), sown with the old monarch's crown — the one royal symbol
       // the kept lanes still carry from before the fire. `emblem` names the
@@ -193,7 +193,7 @@
       body: 'Hedges line the road, with gaps at the garden gates. You look through as you pass.',
       flash: 'A hedged lane, still kept.' },
     { id: 'overgrown', terrain: 'FOREST', treeSpecies: 'pine', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'common',
-      stone: { weathered: '#465b42', restored: '#5d7953' }, lampDensity: 1,
+      stone: { weathered: '#737f69', restored: '#8c9b7f' }, lampDensity: 1,
       carpet: '#9caa55', carpetWidthCells: 0.28, carpetFeatherCells: 0.14,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
       lampGlow: '#9be08a', fauna: { rabbit: [2, 5], butterfly: [2, 5] },
@@ -201,14 +201,14 @@
       body: 'Saplings crowd the verge beneath tall pines. You push past branches reaching into the street.',
       flash: 'The green is taking it back.' },
     { id: 'orchard', terrain: 'ORCHARD', treeSpecies: 'maple', affinities: ['cultivated'], size: 'minor', share: 0.08, rung: 'uncommon',
-      stone: { weathered: '#78604e', restored: '#ab8659' }, lampDensity: 0.5,
+      stone: { weathered: '#8a7c69', restored: '#a49376' }, lampDensity: 0.5,
       words: /(orchard|apple|cherry|plum|pear|peach|fruit|obst|kirsch|apfel|birn|pflaum|vine|berry)/i,
       lampGlow: '#ffa6c9', fauna: { rabbit: [2, 5] },
       story: 'street_orchard', title: 'Orchard Lane',
       body: 'Apples hang from the old orchard trees.',
       flash: 'Old trees, still fruiting.' },
     { id: 'pilgrim', terrain: 'ROCK', affinities: ['sacred'], size: 'minor', share: 0.06, rung: 'uncommon',
-      stone: { weathered: '#8b8879', restored: '#c5c1aa' }, lampDensity: 1,
+      stone: { weathered: '#929084', restored: '#aaa798' }, lampDensity: 1,
       // The diamond marks the ancient religion; hedged lanes bear the ruling crown.
       carpet: '#64517d', emblem: 'diamond', emblemInk: '#c5b4d5',
       words: /(church|chapel|abbey|kirch|kloster|pilgrim|cross|saint|\bst\b|priest|minster|\bdom\b|mission)/i,
@@ -218,7 +218,7 @@
       flash: 'A waystone, worn smooth.' },
     // Lantern Row and Barricade are path themes; vehicle arterials stay plain.
     { id: 'lantern', pathWeight: .10, terrain: 'COMMERCIAL', affinities: ['formal', 'destination'], size: 'path', share: 0.12, rung: 'common',
-      stone: { weathered: '#806438', restored: '#c79a48' }, lampDensity: LANTERN_SPACING_DIV,
+      stone: { weathered: '#91836a', restored: '#ae9a72' }, lampDensity: LANTERN_SPACING_DIV,
       words: /(lantern|lamp|light|candle|latern)/i,
       // No `attracts`: the theme adds lamps without a separate fauna profile.
       // Legacy note: road marks used to lie on the major band + verge, inside
@@ -238,7 +238,7 @@
       body: 'Hot embers glow between the road stones, burning like lava underfoot. Tar fills the gutters, and iron stakes jut from the verge.',
       flash: 'Hot embers burn underfoot.' },
     { id: 'barricade', pathWeight: .03, terrain: 'WASTELAND', affinities: ['ruined'], size: 'path', share: 0.04, rung: 'rare',
-      stone: { weathered: '#706047', restored: '#a38754' }, lampDensity: 1,
+      stone: { weathered: '#8c806b', restored: '#a19276' }, lampDensity: 1,
       words: /(gate|wall|fort|\btor\b|mauer|castle|burg|bastion|guard|wache|barrack|kaserne|armou?ry)/i,
       lampGlow: '#ff8c2a',
       story: 'street_barricade', title: 'The barricade',
@@ -248,10 +248,10 @@
     // the minor rows in order, so a street that rolled an older minor row
     // still does — only plain streets can become a toadstool lane.
     // Weathered paving keeps the fly-agaric red and cream spots. Restored
-    // setts turn near-black with a red undertone, so the common bevel lights
+    // setts turn muted with a red undertone, so the common bevel lights
     // read as polished stone like the default repaired road. Lamps stay orange.
     { id: 'toadstool', terrain: 'WETLAND', affinities: ['damp', 'woodland'], size: 'minor', share: 0.05, rung: 'uncommon',
-      stone: { weathered: '#6d412c', restored: '#180d0c', pattern: 'spots', accent: '#f0dfb4' }, lampDensity: 1,
+      stone: { weathered: '#8a756a', restored: '#9b857b', pattern: 'spots', accent: '#f0dfb4' }, lampDensity: 1,
       words: /(mushroom|toadstool|fung|pilz|fairy|\bring|moss|damp|mycel|spore|schwamm|elfen|feen)/i,
       lampGlow: '#ff8c2a', fauna: { butterfly: [2, 5] },
       story: 'street_toadstool', title: 'Toadstool Lane',
@@ -266,19 +266,19 @@
     // shared ledger key with a painting per landscape, told on the first scenic metre
     // restored (app.js _ripenStreets), the `flash` on later walks.
     { id: 'promenade', pathWeight: .12, terrain: 'SAND', affinities: ['coastal', 'formal'], size: 'path', share: 0, rung: 'uncommon',
-      stone: { weathered: '#92743e', restored: '#d6ad58' },
+      stone: { weathered: '#9c8d70', restored: '#b1a07c' },
       lampGlow: '#ffd16a',
       story: 'street_scenic', title: 'The promenade',
       body: 'The path runs along the water. You listen to it lapping against the shore as you walk.',
       flash: 'The promenade. Walk it slow.' },
     { id: 'greenway', pathWeight: .35, terrain: 'GRASS', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
-      stone: { weathered: '#4f6c49', restored: '#76966a' },
+      stone: { weathered: '#74866c', restored: '#91a084' },
       lampGlow: '#a8e07a',
       story: 'street_scenic', art: 'street_greenway', title: 'A greenway',
       body: "Branches hang low over the path. You duck beneath them as leaves brush your hood.",
       flash: 'A greenway. The green holds.' },
     { id: 'parkpath', pathWeight: .40, terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
-      stone: { weathered: '#5c4b3f', restored: '#000000' },
+      stone: { weathered: '#7b756b', restored: '#898a80' },
       lampGlow: '#a8e07a',
       story: 'street_scenic', art: 'street_parkpath', title: 'The park path',
       body: "Weeds crowd the old park path, and dry leaves cover its edges. You follow it through the overgrowth.",
@@ -293,13 +293,13 @@
       body: 'A gilded idol stands beside the road. Touch it each day, and green coins spill along both sides of the road.',
       flash: 'A gilded idol waits ahead.' },
     { id: 'snare', terrain: 'WASTELAND', affinities: ['ruined'], size: 'minor', share: 0.03, rung: 'rare',
-      stone: { weathered: '#594a3f', restored: '#100e0b' }, lampDensity: 1,
+      stone: { weathered: '#80776c', restored: '#94897b' }, lampDensity: 1,
       lampGlow: '#d58b52', story: 'street_snare', art: 'street_snare', title: 'Snare Lane',
       body: 'A chest sits beside the lane, surrounded by iron traps. Open jaws stretch across the road and both verges.',
       flash: 'Iron teeth around a chest.' },
     // Append so saved mark codes retain their existing meanings.
     { id: 'thorny', terrain: 'FOREST', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'uncommon',
-      stone: { weathered: '#514638', restored: '#8c7654' }, lampDensity: 1,
+      stone: { weathered: '#827967', restored: '#998c73' }, lampDensity: 1,
       sectionMaxM: 250, words: /(thorn|bramble|briar|brier)/i,
       lampGlow: '#b1bd78', story: 'street_thorny', art: 'street_overgrown', title: 'Thorny Way',
       body: 'Tangled brambles crowd both sides of the road. You follow the narrow opening between their thorns.',

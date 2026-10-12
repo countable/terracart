@@ -1755,6 +1755,49 @@
       ...cut.map(row => ({ ...row, extent: tl.extent || 4096 }))];
     return cut;
   }
+  // Parking uses the same suppression/night-danger region as an MD/LG kerb,
+  // without becoming a road surface. Keep mapped footprints exact; where MVT
+  // supplies only points/aisles, use the existing lot-inference distances.
+  function* stampParkingSafetySteps(layers, roadClass, w, h, mvtToCell, mvtToM) {
+    const cover = new Uint16Array(w * h);
+    const transportation = layers.find(l => l.name === 'transportation');
+    const roads = _bucketGrid(128);
+    for (const f of transportation?.features || []) {
+      const terrain = classifyLine('transportation', f.tags || {});
+      if (f.type !== 2 || !f.geom || f.tags?.class === 'service'
+          || ![T.ROAD, T.ROAD_MD, T.ROAD_LG].includes(terrain)) continue;
+      for (const line of f.geom) for (let i = 1; i < line.length; i++) {
+        const a = line[i - 1], b = line[i];
+        roads.addBox([a.x, a.y, b.x, b.y], Math.min(a.x, b.x), Math.min(a.y, b.y), Math.max(a.x, b.x), Math.max(a.y, b.y));
+      }
+    }
+    for (const source of transportation?.parkingLanes || []) {
+      const scale = w / (source.extent || 4096);
+      for (const line of source.lines || [])
+        yield* stampCoverLineSteps(cover, w, h, line, 2 * LOT_AISLE_R_M / CELL_M, scale);
+    }
+    for (const layer of layers) {
+      if (!['landuse', 'landcover', 'poi', 'transportation'].includes(layer.name)) continue;
+      for (const f of layer.features || []) {
+        if (!f.geom || !['parking', 'motorcycle_parking'].includes(f.tags?.class)
+            && f.tags?.amenity !== 'parking') continue;
+        if (f.type === 3) {
+          yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell,
+            (x, y) => { roadClass[y * w + x] |= ROAD_CLASS_MAJOR_BUFFER; });
+        } else if (f.type === 1) {
+          const p = f.geom[0]?.[0];
+          if (!p) continue;
+          const sideR = LOT_STREETSIDE_M / mvtToM;
+          if (roads.near(p.x, p.y, sideR, s => _segDist(p.x, p.y, s[0], s[1], s[2], s[3]) < sideR)) continue;
+          yield* stampCoverLineSteps(cover, w, h, [p, p], 2 * LOT_POI_R_M / CELL_M, mvtToCell);
+        }
+      }
+    }
+    for (let i = 0; i < cover.length; i++) {
+      if ((i & 4095) === 4095) yield 'parking safety';
+      if (cover[i]) roadClass[i] |= ROAD_CLASS_MAJOR_BUFFER;
+    }
+  }
   // Approximate real-world carriageway width, in metres, per transportation
   // class. The rasterizer only reads this for PIER (roads and paths always
   // rasterize one cell wide — see the wCells comment in rasterizeTile), but
@@ -2187,7 +2230,8 @@
   //                          Stamped after the street index is built
   //                          (StreetVariants.stampBanditStretchesSteps).
   const ROAD_CLASS_BANDIT_VERGE = 4;
-  //   ROAD_CLASS_MAJOR_BUFFER the KERB BUFFER: within MAJOR_BUFFER_CELLS of a
+  //   ROAD_CLASS_MAJOR_BUFFER the shared safety region: parking lots plus
+  //                          the KERB BUFFER within MAJOR_BUFFER_CELLS of a
   //                          Major-and-Medium road band (the band's own cells included) —
   //                          stamped off the same lines, widened, so it is
   //                          seam-safe the way the band is. THE SAFETY RULE
@@ -5916,6 +5960,7 @@
     yield* resolveRoadMaskSteps(roadCover, roadMask, w, h);
     yield* resolveRoadClassSteps(majorCover, roadMask, roadClass, w, h, majorBufCover);
     yield* stampRoadJunctionsSteps(junctionSegments, roadClass, w, h);
+    yield* stampParkingSafetySteps(layers, roadClass, w, h, mvtToCell, mvtToM);
     // QUIET LAND (QUIET_LAND): military, railway, reserve and cemetery cells
     // host nothing. Stamped here, beside the road mask, so every cull and
     // spawner below reads it (the mineralrock cleanup, the gates and boards,

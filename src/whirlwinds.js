@@ -26,8 +26,9 @@
     // that cell without treating its own seat as a solid wall.
     const leavingSeat = from && p.tx === from.tx && p.ty === from.ty && p.ix === from.ix && p.iy === from.iy;
     const opts = leavingSeat ? { ...entry._spawnOpts, occupied: null } : entry._spawnOpts;
+    const cls = anyGround ? 'enemy' : 'hazard';
     return W.isSpawnCell(entry.grid, entry.cellsPerEdge, entry.cellsPerEdge,
-      p.ix, p.iy, opts, 'enemy')
+      p.ix, p.iy, opts, cls)
       && !W.privateVetoAt(p.tx, p.ty, p.ix, p.iy);
   }
   function frame(hazard, now) {

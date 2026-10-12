@@ -100,7 +100,7 @@
     entries[1].grid[4 * 8] = WorldGen.T.BUILDING;
     assert.falsy(EnvironmentHazards.eligible(s, h), 'far corner across seam blocks whole region');
     entries[1].grid[4 * 8] = WorldGen.T.CAVE_FLOOR;
-    for (const why of ['RESTRICTED', 'FARM_INTERIOR', 'QUIET']) {
+    for (const why of ['RESTRICTED', 'FARM_INTERIOR', 'QUIET', 'KERB', 'JUNCTION_SOFT']) {
       entries[1]._spawnOpts.spawnWhy[4 * 8] = WorldGen.SPAWN_WHY[why];
       assert.falsy(EnvironmentHazards.eligible(s, h), why);
     }
@@ -108,6 +108,13 @@
     assert.falsy(EnvironmentHazards.eligible(s, h)); entries[1]._spawnOpts.roadMask.fill(0);
     entries[1].objects.push({ x: 68, y: 36, kind: 'house' });
     assert.falsy(EnvironmentHazards.eligible(s, h), 'newly placed structure blocks');
+  }));
+  test('environment hazards: cave-ins refuse the shared parking/road suppression reason', () => fixture((s, entries) => {
+    s.depth = 0; entries[0].grid.fill(WorldGen.T.ROCK);
+    const h = EnvironmentHazards.create(s, 'cavein', { cellIX: 3, cellIY: 3 }, 'parking-cavein');
+    assert.truthy(EnvironmentHazards.eligible(s, h));
+    entries[0]._spawnOpts.spawnWhy[3 * 8 + 3] = WorldGen.SPAWN_WHY.KERB;
+    assert.falsy(EnvironmentHazards.eligible(s, h), 'parking or MD/LG suppression excludes collapse');
   }));
   test('environment hazards: clocks pause with foreground ticks and retain depth-local state', () => fixture(s => {
     const h = EnvironmentHazards.create(s, 'sinkhole', { cellIX: 3, cellIY: 3 }, 'hole', () => 0);

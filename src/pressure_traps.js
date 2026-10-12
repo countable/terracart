@@ -59,7 +59,7 @@
     if (!e?._spawnOpts) return false;
     const opts = { ...e._spawnOpts, spawnWhy: e.spawnWhy || e._spawnOpts.spawnWhy,
       roadMask: e.roadMask || e._spawnOpts.roadMask, roadClass: e.roadClass || e._spawnOpts.roadClass };
-    return W.isSpawnCell(e.grid, e.cellsPerEdge, e.cellsPerEdge, p.ix, p.iy, opts, 'enemy')
+    return W.isSpawnCell(e.grid, e.cellsPerEdge, e.cellsPerEdge, p.ix, p.iy, opts, 'hazard')
       && !W.privateVetoAt(p.tx, p.ty, p.ix, p.iy);
   }
   function clearSegment(scene, from, to) {
