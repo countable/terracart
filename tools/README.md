@@ -72,6 +72,9 @@ Serve the repository with `python3 -m http.server 8000`, then open a page under
 In `map-review.html`, clicking bare ground opens terrain, underlying landcover, zone influence,
 variant, zone nexus pattern, spawn restrictions and tile/cell coordinates.
 The gameplay tier is included when its overlay is enabled.
+Click a road or path for its source name/type, rendered variant and width,
+assignment length, affinity context, name influences and source feature IDs.
+At crossings the popup includes up to three nearby routes; ground details remain expandable.
 
 In `map-review.html`, the Overlays section toggles path endpoint dots
 and path names (visible from zoom 17; unnamed or numeric-only labels are hidden).

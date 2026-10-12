@@ -147,6 +147,7 @@
 <script src="map-review-gameplay.js"></script>
 <script src="map-review-gameplay-layer.js"></script>
 <script src="map-review-ground.js"></script>
+<script src="map-review-routes.js"></script>
 <script>
 // ── Tiles ───────────────────────────────────────────────────────────────────
 const Q = new URLSearchParams(location.search);
@@ -1106,10 +1107,15 @@ async function rebuild(home) {
       if (building) return;
       if (!placing) {
         if (ev.propagatedFrom) return;
-        const hit = MapReviewGround.inspect(window.__world, toM(ev.latlng.lat, ev.latlng.lng, EDGE), EDGE);
+        const point = toM(ev.latlng.lat, ev.latlng.lng, EDGE);
+        const route = MapReviewRoutes.inspect({ world: window.__world, point, edge: EDGE,
+          project: p => map.latLngToLayerPoint(toLL(p.x, p.y, EDGE)) });
+        const hit = MapReviewGround.inspect(window.__world, point, EDGE);
         const tier = $('gameplayTiers').checked ? gameplayReview.inspect(ev.latlng) : null;
-        const content = hit ? hit.content + (tier ? '<hr>' + tier.content : '') : 'No generated tile loaded at this location.';
-        L.popup({ maxWidth: 380 }).setLatLng(ev.latlng).setContent(content).openOn(map);
+        const ground = hit?.content || 'No generated tile loaded at this location.';
+        const content = (route ? route.content + '<hr><details><summary>Ground beneath click</summary>' + ground + '</details>' : ground)
+          + (tier ? '<hr>' + tier.content : '');
+        L.popup({ maxWidth: 380, maxHeight: 420 }).setLatLng(ev.latlng).setContent(content).openOn(map);
         return;
       }
       placing = false; $('placeHome').classList.remove('on'); map.getContainer().style.cursor = '';
