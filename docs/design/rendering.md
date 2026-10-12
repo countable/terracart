@@ -120,8 +120,8 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   creatures and their associated labels, shadows and target affordances.
   `Lighting.coverFrame` caches a world-aligned mask and composites it into the
   existing lightmap after light sources. It reuses the exploration fog's
-  low-resolution smooth upscale and world-keyed wisps, with a narrow half-cell
-  edge instead of the exploration ramp. Noise coordinates and both canvases
+  low-resolution smooth upscale and world-keyed wisps, with a roughly one-cell
+  feather from a small separable filter instead of the exploration ramp. Noise coordinates and both canvases
   are reused; only changes to the sight field repaint the alpha buffer. Surface
   cover retains a faint ground silhouette, while underground full cover is black. Cover queries always
   originate at the player's body, including during camera peeks.
