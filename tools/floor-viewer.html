@@ -32,6 +32,7 @@
     color: #fff; font: 600 11px/1.2 system-ui, sans-serif; white-space: pre; text-align: center;
     text-shadow: 0 1px 2px #000, 0 2px 4px #000; }
   .poi-label { color: #ffe4aa; }
+  .road-label { color: #e3d5b5; background: #14181acc; border-radius: 3px; padding: 2px 4px; }
   canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; image-rendering: pixelated; }
 </style></head>
 <body>
@@ -362,6 +363,7 @@
         ctx.drawImage(assets.textures.get('biome' + type + '_' + (Math.abs(h) % spec.variants)).getSourceImage(),
           offX + x * s, offY + y * s, s + .5, s + .5);
     }
+    const roadLabels = [];
     // Source geometry at real widths, using the game's themed pavement tiles.
     if (floor === 0) {
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -377,6 +379,13 @@
           for (const style of styles || [null]) {
             const points = style ? Streets.subLineM(line, mvtToM, style.a, style.b)
               : line.map(p => ({ x: p.x * mvtToM, y: p.y * mvtToM }));
+            if (points.length < 2) continue;
+            const title = StreetVariants.roadStoryFor(f)?.title
+              || StreetVariants.VARIANT_BY_ID[style?.variant]?.title
+              || (isPath ? 'Plain path' : 'Plain road');
+            const midpoint = Streets.pointAtM(points, 1, Streets.lineLengthM(points, 1) / 2);
+            roadLabels.push({ text: title, x: midpoint.x / W.CELL_M,
+              y: midpoint.y / W.CELL_M - .7, road: true });
             ctx.strokeStyle = pavementPattern(isPath, style?.variant, s, offX, offY);
             ctx.lineWidth = Math.max(2, width / R.EDGE * R.N * s);
             ctx.beginPath();
@@ -450,19 +459,20 @@
         labels.push({ text: 'POI · ' + name, x: o.x / W.CELL_M,
           y: o.y / W.CELL_M - .9, poi: true, objectId: o.id });
       }
+      labels.push(...roadLabels);
       const occupiedLabels = [];
       for (const label of labels) {
         if (label.x < 0 || label.y < 0 || label.x >= R.WIDTH || label.y >= R.HEIGHT) continue;
         const el = document.createElement('span');
-        el.className = 'region-label' + (label.poi ? ' poi-label' : ''); el.textContent = label.text;
+        el.className = 'region-label' + (label.poi ? ' poi-label' : label.road ? ' road-label' : ''); el.textContent = label.text;
         if (label.objectId) el.dataset.objectId = label.objectId;
         el.style.left = (offX + label.x * s) + 'px';
         el.style.top = (offY + label.y * s) + 'px';
         labelLayer.appendChild(el);
         const halfWidth = el.getBoundingClientRect().width / 2;
         el.style.left = Math.max(halfWidth + 4, Math.min(Wpx - halfWidth - 4, offX + label.x * s)) + 'px';
-        // Keep compact POI captions legible beside region names and each other.
-        if (label.poi) for (let attempt = 0; attempt < 8; attempt++) {
+        // Keep object and road captions legible beside region names and each other.
+        if (label.poi || label.road) for (let attempt = 0; attempt < 8; attempt++) {
           const box = el.getBoundingClientRect();
           if (!occupiedLabels.some(b => box.left < b.right + 3 && box.right + 3 > b.left
               && box.top < b.bottom + 3 && box.bottom + 3 > b.top)) break;
