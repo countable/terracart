@@ -39,7 +39,7 @@
   // GENERATED — see `node tools/sprite_audit.js --emit-bounds`.
   const ART_BOUNDS = {
     'gas_mushroom_small:0': { fw: 16, fh: 16, minX: 3, minY: 4, maxX: 13, maxY: 15 },
-    'gas_mushroom_large:0': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 23, maxY: 23 },
+    'gas_mushroom_large:0': { fw: 24, fh: 24, minX: 1, minY: 5, maxX: 23, maxY: 23 },
     'bone_cache:0': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 14 },
     'cave_props:0': { fw: 24, fh: 24, minX: 3, minY: 8, maxX: 24, maxY: 24 },
     'cave_props:1': { fw: 24, fh: 24, minX: 3, minY: 2, maxX: 24, maxY: 24 },
@@ -54,13 +54,13 @@
     'poison_vent_inactive:0': { fw: 24, fh: 24, minX: 5, minY: 8, maxX: 19, maxY: 18 },
     'beach_palms:0': { fw: 16, fh: 16, minX: 4, minY: 9, maxX: 10, maxY: 15 },
     'beach_palms:1': { fw: 16, fh: 16, minX: 6, minY: 9, maxX: 12, maxY: 15 },
-    'beach_palms:2': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 15, maxY: 15 },
-    'beach_palms:3': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 15, maxY: 15 },
-    'beach_palms:4': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 14, maxY: 15 },
-    'beach_palms:5': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 14, maxY: 15 },
+    'beach_palms:2': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 15, maxY: 15 },
+    'beach_palms:3': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 15, maxY: 15 },
+    'beach_palms:4': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 15, maxY: 15 },
+    'beach_palms:5': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 15, maxY: 15 },
     'trees:1': { fw: 32, fh: 48, minX: 11, minY: 37, maxX: 21, maxY: 48 },
     'trees:2': { fw: 32, fh: 48, minX: 7, minY: 16, maxX: 25, maxY: 48 },
-    'trees:3': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 48 },
+    'trees:3': { fw: 32, fh: 48, minX: 0, minY: 6, maxX: 32, maxY: 48 },
     'pine_tree:1': { fw: 32, fh: 48, minX: 12, minY: 36, maxX: 19, maxY: 46 },
     'pine_tree:2': { fw: 32, fh: 48, minX: 4, minY: 14, maxX: 27, maxY: 48 },
     'pine_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
@@ -100,14 +100,14 @@
     'mineralrock:7': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
     'approved_charred_stakes:0': { fw: 24, fh: 24, minX: 1, minY: 4, maxX: 23, maxY: 23 },
     'well:0': { fw: 30, fh: 32, minX: 2, minY: 0, maxX: 30, maxY: 32 },
-    'pillar:0': { fw: 24, fh: 24, minX: 6, minY: 1, maxX: 18, maxY: 23 },
+    'pillar:0': { fw: 24, fh: 24, minX: 5, minY: 1, maxX: 18, maxY: 23 },
     'scarecrow:0': { fw: 48, fh: 48, minX: 3, minY: 8, maxX: 45, maxY: 47 },
     'bonfire:0': { fw: 16, fh: 32, minX: 1, minY: 9, maxX: 14, maxY: 31 },
     'torch:0': { fw: 16, fh: 32, minX: 5, minY: 5, maxX: 12, maxY: 32 },
-    'waystone:0': { fw: 16, fh: 16, minX: 0, minY: 1, maxX: 16, maxY: 16 },
+    'waystone:0': { fw: 16, fh: 16, minX: 1, minY: 6, maxX: 15, maxY: 15 },
     'tar:0': { fw: 16, fh: 16, minX: 1, minY: 6, maxX: 15, maxY: 15 },
     'grove_votive:0': { fw: 24, fh: 24, minX: 2, minY: 1, maxX: 21, maxY: 23 },
-    'zone_objects:1': { fw: 24, fh: 24, minX: 6, minY: 1, maxX: 18, maxY: 23 },
+    'zone_objects:1': { fw: 24, fh: 24, minX: 5, minY: 1, maxX: 18, maxY: 23 },
     'zone_objects:4': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 22, maxY: 23 },
     'zone_objects:5': { fw: 24, fh: 24, minX: 1, minY: 5, maxX: 23, maxY: 19 },
     'zone_objects:6': { fw: 24, fh: 24, minX: 5, minY: 1, maxX: 18, maxY: 23 },
@@ -140,15 +140,15 @@
     'reef_coral:7': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 22, maxY: 23 },
     'vista_scope:0': { fw: 16, fh: 24, minX: 0, minY: 0, maxX: 15, maxY: 24 },
     'shrines:0': { fw: 16, fh: 24, minX: 1, minY: 1, maxX: 15, maxY: 23 },
-    'shrines:1': { fw: 16, fh: 24, minX: 1, minY: 1, maxX: 14, maxY: 23 },
-    'shrines:2': { fw: 16, fh: 24, minX: 1, minY: 7, maxX: 15, maxY: 23 },
-    'shrines:3': { fw: 16, fh: 24, minX: 1, minY: 1, maxX: 15, maxY: 23 },
-    'shrines:4': { fw: 16, fh: 24, minX: 1, minY: 5, maxX: 15, maxY: 23 },
-    'shrines:5': { fw: 16, fh: 24, minX: 2, minY: 1, maxX: 13, maxY: 23 },
+    'shrines:1': { fw: 16, fh: 24, minX: 1, minY: 3, maxX: 15, maxY: 23 },
+    'shrines:2': { fw: 16, fh: 24, minX: 1, minY: 10, maxX: 15, maxY: 23 },
+    'shrines:3': { fw: 16, fh: 24, minX: 1, minY: 3, maxX: 15, maxY: 23 },
+    'shrines:4': { fw: 16, fh: 24, minX: 1, minY: 7, maxX: 15, maxY: 23 },
+    'shrines:5': { fw: 16, fh: 24, minX: 2, minY: 1, maxX: 14, maxY: 23 },
     'shrines:6': { fw: 16, fh: 24, minX: 1, minY: 3, maxX: 15, maxY: 23 },
     'shrines:7': { fw: 16, fh: 24, minX: 1, minY: 3, maxX: 15, maxY: 23 },
-    'shrines:8': { fw: 16, fh: 24, minX: 1, minY: 8, maxX: 15, maxY: 23 },
-    'shrines:9': { fw: 16, fh: 24, minX: 1, minY: 8, maxX: 15, maxY: 23 },
+    'shrines:8': { fw: 16, fh: 24, minX: 1, minY: 10, maxX: 15, maxY: 23 },
+    'shrines:9': { fw: 16, fh: 24, minX: 1, minY: 9, maxX: 15, maxY: 23 },
     'shrines:10': { fw: 16, fh: 24, minX: 1, minY: 1, maxX: 15, maxY: 23 },
     'beehive:0': { fw: 16, fh: 16, minX: 2, minY: 3, maxX: 14, maxY: 14 },
     'barrel:0': { fw: 24, fh: 24, minX: 3, minY: 1, maxX: 20, maxY: 23 },
@@ -385,6 +385,9 @@
   // Ordinary citizen sheets share six real frames in each directional row:
   // front, back, left, right. Dialog portraits use the same front-facing art.
   const NPC_FRAME = { width: 48, height: 48, cols: 6, frames: [0, 1, 2, 3, 4, 5], portraitFrame: 0 };
+  // Fox sheets have 16px bodies and pale outline ink. Match the citizens'
+  // 20px height at texture load, keeping the shared feet and tap geometry.
+  const FOX_NPC_RENDER = { sourceSize: 16, size: 20, colors: { '#4f4652': '#28202b' } };
   const NPC_SHEETS = [
     { idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png' },
     { idle: 'npc_1_idle', walk: 'npc_1_walk', path: 'assets/NPC/Citizen_woman02_idle.png' },
@@ -417,7 +420,8 @@
       ['lamplighter', ['village', 'market'], 'lamplighter', 99],
       ['keeper', ['shrine'], 'shrine_keeper', 99], ['keeper', ['grove'], 'den_keeper', 90],
     ].map(([role, cultures, slug, portraitY]) => ({ role, cultures, idle: `npc_${slug}_idle`, walk: `npc_${slug}_walk`,
-      path: `assets/NPC/${slug}_idle.png`, cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY })),
+      path: `assets/NPC/${slug}_idle.png`, cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY,
+      render: cultures.includes('grove') ? FOX_NPC_RENDER : undefined })),
   ];
   function npcSheet(c) {
     return NPC_SHEETS.find(sheet => sheet.role && sheet.role === c.role && (!sheet.cultures || sheet.cultures.includes(c.culture)))
