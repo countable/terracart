@@ -369,7 +369,8 @@
     s._mushroomGas = null;
     const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, 'c', () => .5, 'confusion');
     EnvironmentHazards.lists(s).vents = [h];
-    h.elapsedMs = 7900; EnvironmentHazards.tick(s, .1);
+    const quietMs = EnvironmentHazards.VENTS.confusion.inactiveMs, C = EnvironmentHazards.CONFIG.vent;
+    h.elapsedMs = quietMs + C.warningMs - 100; EnvironmentHazards.tick(s, .1);
     assert.eq(h.phase, 'active');
     assert.eq(s.save.energy, 100, 'the vent itself never strikes');
     const cells = () => MushroomGas.cells(s);
@@ -387,6 +388,17 @@
     while (cells().length && seconds < 30) { Gas.advance(g, Gas.STEP_MS, pocket); seconds++; }
     assert.eq(cells().length, 0, 'the gas clears');
     assert.lt(seconds, 8, `cleared within a few seconds (${seconds}s)`);
+  }));
+  test('vents: a confusion burst disperses from a one-cell passage before the next eruption', () => fixture(s => {
+    const C = EnvironmentHazards.CONFIG.vent;
+    const periodMs = EnvironmentHazards.VENTS.confusion.inactiveMs + C.warningMs + C.activeMs;
+    const g = Gas.create();
+    Gas.inject(g, 0, 0, MushroomGas.CONFIG.burstMass);
+    const passage = (x, y) => Math.abs(x) > 30 ? 'unknown' : y ? 'wall' : 'open';
+    let ms = 0;
+    while (g.cells.size && ms < 120000) { Gas.advance(g, Gas.STEP_MS, passage); ms += Gas.STEP_MS; }
+    assert.eq(g.cells.size, 0, 'the gas clears');
+    assert.lt(ms, periodMs, `cleared in ${ms} ms, before the next eruption at ${periodMs} ms`);
   }));
 
   test('cave-in contact: grounded NPC and enemy bodies trigger the same seeded L1 patch', () => fixture((s, entries) => {
