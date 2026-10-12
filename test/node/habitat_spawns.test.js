@@ -15,6 +15,14 @@
     } finally { Difficulty.setMode(previous); }
   };
   const signature = creatures => creatures.map(c => `${c.id}:${c.kind}@${c.x},${c.y}`).sort().join('|');
+  test('habitat populations: ordinary animals are reduced by thirty percent without reducing enemies', () => {
+    const entry = fixture();
+    generate(entry);
+    assert.eq(entry.habitatPopulation.totals.fauna.requested, 112);
+    assert.eq(entry.habitatPopulation.totals.fauna.placed, 112);
+    assert.eq(entry.habitatPopulation.totals.enemies.requested, 50);
+    assert.eq(entry.habitatPopulation.totals.enemies.placed, 50);
+  });
   test('habitat populations: preview area scales tile budgets without thinning feature populations', () => {
     const make = () => {
       const entry = fixture();

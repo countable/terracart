@@ -108,8 +108,8 @@ test('shore fauna: crabs on shore sand only, gulls on the beach only, counted of
   const out = seat(b);
   const crabs = out.filter((c) => c.kind === 'crab'), gulls = out.filter((c) => c.kind === 'gull');
   const shore = new Set(b.shore.cells), pier = new Set(b.pierCells);
-  const want = (k, lenM) => Math.min(SHORE_FAUNA[k].max, Math.floor(lenM / SHORE_FAUNA[k].perShoreM));
-  assert.eq(crabs.length, want('crab', b.shore.shoreM), 'one crab per perShoreM of waterline, capped');
+  const want = (k, lenM) => HabitatSpawns.faunaCount(Math.min(SHORE_FAUNA[k].max, Math.floor(lenM / SHORE_FAUNA[k].perShoreM)));
+  assert.eq(crabs.length, want('crab', b.shore.shoreM), 'waterline budget uses the shared animal density');
   assert.eq(gulls.length, want('gull', b.shore.shoreM), 'gulls count the beach waterline only');
   assert.gt(crabs.length, 14, 'ordinary beaches have a common crab population');
   for (const c of crabs) assert.eq(c.shiny, faunaShiny(c.kind, c.id), 'hostile crabs retain their animal shiny chance');
@@ -192,31 +192,17 @@ function nativeBeach() {
       { key: 'native_beach', kind: 'beach', variant: 'shellwater_strand', gx: 10, gy: 10 }] } };
   return b;
 }
-// A beach zone claims most of a real beach (any OSM natural=beach), so its
-// native list must carry the gull or real beaches have none.
-test('shore fauna: Beach Nexus supplies native Crabs, Sea Turtles and Gulls without ordinary shoreline duplication', () => {
-  const b = nativeBeach(), creatures = seat(b);
-  assert.truthy(creatures.some(c => c.kind === 'sea_turtle'));
-  assert.truthy(creatures.some(c => c.kind === 'crab'));
-  assert.truthy(creatures.some(c => c.kind === 'gull'));
-  assert.truthy(creatures.every(c => ['crab', 'sea_turtle', 'gull'].includes(c.kind)));
-  assert.truthy(creatures.every(c => c.id.startsWith('shore_habitat_') && c.zoneVariant === 'shellwater_strand'));
-  assert.truthy(b.entry.shorePopulation.every(row => row.key.startsWith('zone:')));
+test('shore fauna: every Nexus excludes generic shore top-ups, including after authored captures', () => {
+  for (const variant of ['pirate_cove', 'shellwater_strand', 'mystic_reef', 'marine_meadow']) {
+    const b = nativeBeach();
+    b.entry.zone.anchors[0].variant = variant;
+    b.entry.zone.anchors[0].kind = variant === 'marine_meadow' ? 'grove' : 'beach';
+    b.authored = [{ kind: 'crab', id: 'authored_crab', x: 3 * NB * CM + CM / 2, y: 4 * NB * CM + CM / 2 }];
+    assert.eq(seat(b).length, 0, variant + ' keeps its own population');
+    assert.eq(seat(b, new Set(['authored_crab'])).length, 0, 'capture never triggers generic replenishment');
+    assert.eq(b.entry.shorePopulation.length, 0, 'no ambient budget belongs to a Nexus');
+  }
 });
-test('shore fauna: authored native Crabs satisfy the owner budget even after their saved capture', () => {
-  const baseline = seat(nativeBeach()).filter(c => c.kind === 'crab');
-  assert.gt(baseline.length, 0);
-  const b = nativeBeach();
-  b.authored = [{ ...baseline[0], id: 'authored_native_crab' }];
-  const generated = seat(b), afterCapture = seat(b, new Set(['authored_native_crab']));
-  assert.eq(generated.filter(c => c.kind === 'crab').length, baseline.length - 1);
-  assert.eq(generated.map(c => `${c.id}@${c.x},${c.y}`).join('|'),
-    afterCapture.map(c => `${c.id}@${c.x},${c.y}`).join('|'), 'capturing the authored animal does not supply a replacement');
-  const row = b.entry.shorePopulation.find(row => row.kind === 'crab');
-  assert.eq(row.authored, 1);
-  assert.eq(row.requested, baseline.length);
-});
-
 
 test('shore fauna: safety relocation preserves canonical identities and captured animals stay gone', () => {
   const original = seat(beach());

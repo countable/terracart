@@ -145,6 +145,8 @@
     const streetLists = streetDress ? [streetDress.objects, streetDress.wildplants,
       streetDress.treasures, streetDress.traps] : [];
     const scenicLists = scenicDress ? [scenicDress.objects, scenicDress.wildplants] : [];
+    const pathRecord = o => typeof StreetVariants !== 'undefined'
+      && StreetVariants.VARIANT_BY_ID[o._street || o._shrineStreet]?.size === 'path';
     let count = 0;
     field.legacyRemovedByAnchor = field.legacyRemovedByAnchor || {};
     const record = (idx, street) => {
@@ -160,9 +162,10 @@
       const streetList = streetLists.includes(list);
       yield* compactSteps(list, (o) => {
         const idx = cell(o);
-        // Scenic landmarks and tide pools retain their seats, but ordinary
-        // greenway verge grass yields to the Nexus just like road dressing.
+        // Path-authored pieces keep their provenance through Nexus coverage;
+        // a nearby path mark never exempts unrelated road or biome scatter.
         const street = streetList || (scenicLists.includes(list) && !!o._street);
+        if (street && pathRecord(o)) return false;
         if (!((street || isGeneralAmbientRecord(o)) && idx >= 0 && coverage[idx])) return false;
         record(idx, street);
         return true;
@@ -170,6 +173,7 @@
     }
     if (streetDress) {
       yield* compactSteps(streetDress.lairs || [], (lair) => {
+        if (pathRecord(lair)) return false;
         const idx = cell({ x: frame.ox + lair.lx, y: frame.oy + lair.ly });
         if (!(idx >= 0 && coverage[idx])) return false;
         record(idx, true);
@@ -178,7 +182,8 @@
       for (let i = 0; i < coverage.length; i++) {
         if ((i & 511) === 0) yield 'zone street mark replacement';
         if (!coverage[i]) continue;
-        if (streetDress.marks && StreetVariants.variantByCode(streetDress.marks[i])?.size !== 'path') streetDress.marks[i] = 0;
+        const path = streetDress.marks && StreetVariants.variantByCode(streetDress.marks[i])?.size === 'path';
+        if (streetDress.marks && !path) streetDress.marks[i] = 0;
         if (streetDress.slowCells) streetDress.slowCells.delete(i);
       }
     }

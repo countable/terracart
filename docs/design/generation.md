@@ -16,6 +16,10 @@ access or tile lifecycle mechanics.
 
 ## Habitat populations
 
+- Ambient animal budgets share `HabitatSpawns.FAUNA_DENSITY`: ordinary landcover,
+  road roamers, and ordinary shoreline fauna use 70% of their base counts,
+  rounded to whole animals. Nexus populations, enemies, authored formations, starter guarantees,
+  saved animals and pets keep their existing counts.
 - `src/habitat_spawns.js` owns fauna mixtures, landcover/variant resolution and
   population budgets. Nexus coverage wins, then a declared Road Variant,
   then ordinary landcover. `streetAreaVariants` records the winning variant
@@ -48,10 +52,14 @@ access or tile lifecycle mechanics.
   Rabbits have ordinary surface populations. Cat exclusion from Wasteland, Deer restriction
   to Forest/Residential, and Butterfly exclusion from Forest/Orchard remain
   species placement limits.
-- Shore length is a specialized habitat budget. Ordinary and declared Beach/
-  Marine Meadow owners partition raw shoreline; safety only removes destinations.
-  Beach owners supply native Crabs/Turtles/Gulls and count authored inhabitants before
-  filling remaining slots. `entry.shorePopulation` records placement shortfalls.
+- Shore length is a specialized ambient budget outside Nexus coverage. Every
+  Nexus keeps its own declared inhabitants and excludes generic shoreline
+  top-ups, including after captures. Safety only removes destinations;
+  `entry.shorePopulation` records placement shortfalls.
+- Beach Nexus influence has a hard ten-cell radius (about a 20×20-cell
+  extent), including ragged edges and park-derived beach companions. Larger
+  mapped beaches remain ordinary sand outside that cap, with normal beach
+  spawning. Other Nexus kinds retain their existing coverage rules.
 - The former species-first draw stream is replayed only to preserve unrelated
   tile treasure RNG and map old cell-based enemy defeats to new stable habitat
   identities. Historical fauna counts are compatibility inputs, not current
@@ -566,9 +574,10 @@ Higher-priority placements and their access space take precedence in this order:
   ability to share interactable cells and their terrain/road restrictions.
   Nexus coverage also excludes ordinary beach bottles, tide reservations and
   generic fauna. Within it, `HabitatSpawns` supplies the variant's declared
-  fauna, including native shore species on declared Beach/Marine Meadow owners;
-  arrangement stays within the winning owner. Underlying landcover does not
-  supply an additional population.
+  fauna; arrangement stays within the winning owner. Underlying landcover
+  and generic shoreline rules do not supply an additional population.
+  A path crossing a Nexus retains its own path-generated content; this
+  exception never admits ordinary road or biome spawns.
 - Resolve equal-priority generated claims using stable world-space feature keys
   and buffered geometry, never iteration order, tile-load order or save state.
   Apply saved-player changes as overlays without rerolling the generated world.

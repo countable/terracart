@@ -2201,7 +2201,7 @@
           // barricade — or there is none.
           const g = foeSeat(c.ix, c.iy);
           if (g) {
-            res.lairs.push({ tier: 'barricade', sid: WG.cellId('barricade', tx, ty, c.ix, c.iy),
+            res.lairs.push({ tier: 'barricade', _street: grp.v, sid: WG.cellId('barricade', tx, ty, c.ix, c.iy),
               lx: (g.ix + 0.5) * frameCellM, ly: (g.iy + 0.5) * frameCellM });
           }
         }
