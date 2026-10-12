@@ -117,9 +117,10 @@ function eliteDrops(e, detailed=false){
     if(!reward)return '';
     const equipment=reward.kind==='relic'||reward.kind==='armor';
     const name=equipment?gearName(reward.kind,reward.slot,reward.tier):`${reward.qty||1} × ${ITEM_BY_ID[reward.id]?.name||reward.id}`;
+    if(!detailed)return esc(equipment?`1 × ${name}`:name);
     const cash=equipment?Math.max(1,Math.floor(gearPrice(reward.kind,reward.slot,reward.tier)/2)):null;
     return `<div class="signature-drop"><b>${Math.round(chance*100)}%</b><span>${esc(name)} <small>· T${reward.tier}</small>${detailed&&equipment?`<br><small>Owned at T${reward.tier}+ → ${cash} coins</small>`:''}</span></div>`;
-  }).join('');
+  }).join(detailed?'':', ');
   return detailed?`<h3>Elite signature drops</h3><p class="muted">One drop per elite defeat, targeting T${Combat.eliteDropTier(e.id)}. First defeat also awards a memory.</p>${rows}<p class="muted">Equipment you own at the same or a higher tier becomes cash at half its list price.</p>`:rows;
 }
 
