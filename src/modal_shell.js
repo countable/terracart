@@ -570,7 +570,9 @@ class SceneModals {
     // for those, so it can't be used here).
     const shown = (el) => el.getClientRects().length > 0;
     const sync = () => {
-      const any = [...document.querySelectorAll('.game-modal')].some(shown);
+      // The upper temple is a Phaser scene, so it has no DOM modal to query.
+      // Keep its HUD gate until TempleScene's shutdown clears the scene flag.
+      const any = !!this._templeSceneActive || [...document.querySelectorAll('.game-modal')].some(shown);
       document.body.classList.toggle('modal-open', any);
       // The ☰ menu is hidden under the class (index.html); fold it shut as
       // well, so a menu left open behind a dialog doesn't spring back open

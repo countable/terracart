@@ -11,6 +11,36 @@ to it. First movement takes over from device GPS for this session. Turning the
 stick off resumes device GPS in normal play; the next real fix walks or snaps the
 character back to it.
 
+## Test controls and coverage
+
+Open **☰ → Sandbox test lab** to choose a destination and reload its fixtures.
+Destinations are grouped by scene, with roads and underground labs separately.
+Choose **Damage test** to remove armour, carried shields and jewellery; the
+full kit otherwise masks damage, aggro and regeneration checks. Both kits keep
+tools and consumables. Reload restores inventory, at least 2,000 coins, 120 Wood
+and 120 Rock. Authored harvests, mined rocks, defeated enemies, opened chests, fruit, fire,
+potion, house and fort fixtures are reset;
+this is not a wipe of the player's other progress or service cooldowns.
+
+The service block has separate labelled counters and direct links for the inn,
+chapel, training, sports, guild, curio, general store, Book Club, apothecary and
+bank. Ranked restoration shops include the T3 Magic Shop. `fort` is locked;
+`open-fort` is ready for slot-machine testing.
+
+The combat block has twelve spaced stations for distinct enemy behaviours and
+all three elite ranks. `combat-swoop`, `combat-traps`, `combat-lunge`,
+`combat-theft`, `combat-flee`, `combat-engulf`, `combat-split`, `combat-breath`,
+`combat-blast`, `combat-elite`, `combat-possessed` and `combat-ascendant` jump to
+labelled approach points. Enemies use their normal AI and can leave their stations.
+
+`flint-field` uses the live Flint Field zone dresser. The rock display compares
+small and large flint-bearing rocks against ordinary rock. `cave-rock` repeats
+the mining display on L1 for underground visibility and interaction checks.
+`cave-entrance` leads to L1 through a normal staircase. Use a rope to reach L2
+(the normal L1 stair restriction remains active), then climb the matching up
+stairs back through L1 to the surface. Orchard rows compare
+picked, blossoming and ready apple/peach trees through the normal harvest ledger.
+
 ## Floor viewer
 
 `tools/floor-viewer.html` builds its compact region through the live generation
@@ -54,19 +84,21 @@ restoration metres and dressing.
 ## Layout from north to south
 
 ```text
-Band 1  COUNTRYSIDE      FOREST · ORCHARD · ROCK
+Band 1  COUNTRYSIDE      FOREST · ORCHARD · ROCK · FLINT FIELD
    -- Oak Road: hedgerow (road) --
 Band 2  WATER & PASTURE  BARNYARD · PETTING PADDOCK · BEACH/PIER · WETLAND/GOLF
-   -- Main Street: Lantern Row (road_lg) --
-Band 3  CENTRE           PLAYER SPAWN · FARMLAND · SPELLS/POTIONS/FIRE
-   -- Mill Lane: Burned Row (road_md) --
+   -- Main Street: Lantern Row (path) --
+Band 3  CENTRE           PLAYER SPAWN · FARMLAND · SPELLS/POTIONS/FIRE · SERVICES
+   -- Mill Lane: Burned Row (road) --
 Band 4  TOWN             RESIDENTIAL ST · CIVIC BLOCK/PATH · SMALL HOUSE
    -- Garden Row: Toadstool Lane (road) --
 Band 5  RECREATION       PARK/PARK PATH · PLAYGROUND · PITCH · CASTLE/FORT · HAZARDS
 Band 6  NEW MECHANICS    STREETS · ZONES/MEADOW/CRATER · RESTORATION/ENCOUNTERS · QUARRY/RUINS
+Band 7  COMBAT           SWOOP · TRAPS · LUNGE · THEFT · FLEE · ENGULF
+                        SPLIT · BREATH · BLAST · ELITE · POSSESSED · ASCENDANT
 ```
 
-The footprint is 70 x 102 cells, about 490 m x 714 m at 7 m per cell.
+The footprint is 70 x 126 cells, about 490 m x 882 m at 7 m per cell.
 `buildLayout` centres it in the start tile. The player teleports to PLAYER
 SPAWN, where a synthetic Home trailer keeps the nearby wizard tower in its
 wizard role.
@@ -250,16 +282,18 @@ attack range even after the movement stick returns to its anchor.
 - Reload resets fire history, creature potion effects and shared and per-tome cooldowns, so
   the same fuel can burn again. Scroll learning is retained for crafting checks.
 
-The full bag includes passive shields and rings: remove shields when checking
-unmitigated mushroom confusion, and remove the Ember Ring when measuring raw
-lava damage. The full kit intentionally makes some hazards harmless.
+The full bag includes passive shields and rings. Choose the **Damage test** kit
+in the sandbox menu for unmitigated damage and ordinary enemy perception;
+choose **Full kit** to restore those items for defensive comparisons.
 
 Check Giant/Shrinking body size and health bars, thrown-potion impact effects,
 fire resistance, Protection/Immortal damage handling and Time cooldown reset.
 The yard uses the real runtime paths; effects expire and targets move normally.
 Generation-only chest top-ups and cave tier caps remain covered by node tests.
 
-- The inventory starts with five of every item and at least 20 memories.
+- The full inventory starts with five of every item, except 120 Wood and Rock,
+  plus at least 20 memories and 2,000 coins. The Damage test kit omits carried
+  shields and jewellery and starts without armour.
 - Every relic and armour piece starts at T3. The pickaxe and axe start at T7 so every
   ore deposit and barricade can be cleared.
 - Energy starts full.
@@ -270,8 +304,9 @@ Generation-only chest top-ups and cave tier caps remain covered by node tests.
 
 - Procedural coral reefs, their source water geometry and whole-world spawn
   frequencies remain in their dedicated tests and real map.
-- Procedural cave geometry and depth progression remain in the cave tests and
-  real map. The hazard lab uses authored cave floor and real fall transitions.
+- Procedural cave geometry and progression beyond L2 remain in the cave tests
+  and real map. The hazard lab uses authored cave floor, stairs, ropes and real
+  fall transitions.
   Surface crater lava and selected cave enemy recipients are also available.
 - The sandbox authors decoded layer objects rather than fetching MVT bytes. It
   exercises downstream map systems, while parser and live fetch coverage stays

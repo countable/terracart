@@ -4,6 +4,15 @@
   const scriptURL = typeof document !== 'undefined' ? document.currentScript?.src : null;
   const gameURL = scriptURL ? new URL('../index.html', scriptURL).href : 'index.html';
   const entries = [
+    { id: 'cave-rock', label: 'L1 mining and flint', scene: 'ROCK', depth: 1 },
+    { id: 'flint-field', label: 'Flint Field', scene: 'FLINT_FIELD' },
+    { id: 'services', label: 'Service counters', scene: 'SERVICES' },
+    ...[['inn', 'INN'], ['chapel', 'CHAPEL'], ['training', 'TRAINING'], ['sports-service', 'SPORTS'],
+      ['guild', 'GUILD'], ['curio', 'CURIO'], ['general-store', 'GENERAL STORE'],
+      ['book-club', 'BOOK CLUB'], ['apothecary', 'APOTHECARY'], ['bank', 'BANK']]
+      .map(([id, sub]) => ({ id, label: sub, scene: 'SERVICES', sub })),
+    ...['SWOOP', 'TRAPS', 'LUNGE', 'THEFT', 'FLEE', 'ENGULF', 'SPLIT', 'BREATH', 'BLAST', 'ELITE', 'POSSESSED', 'ASCENDANT']
+      .map(sub => ({ id: `combat-${sub.toLowerCase()}`, label: sub, scene: 'COMBAT', sub })),
     { id: 'plaza', label: 'Player plaza', scene: 'PLAZA', aliases: ['grass', 'home'] },
     { id: 'encounters', label: 'Recent enemy encounters', scene: 'RESTORATION', sub: 'RECENT ENEMIES' },
     { id: 'strip-mine', label: 'Strip mine', scene: 'QUARRY', sub: 'STRIP MINE' },
@@ -12,6 +21,7 @@
     { id: 'meadow', label: 'Meadow', scene: 'ZONES', sub: 'MEADOW' },
     { id: 'crater', label: 'Destroyed crater', scene: 'ZONES', sub: 'CRATER', aliases: ['quarry-crater'] },
     { id: 'hazards', label: 'Webs and sinkhole', scene: 'HAZARDS' },
+    { id: 'cave-entrance', label: 'Cave entrance and return stairs', scene: 'HAZARDS', sub: 'CAVE ENTRANCE' },
     { id: 'cavein', label: 'Cave-in warning', scene: 'HAZARDS', sub: 'CAVE-IN ARRIVAL', depth: 1 },
     { id: 'hazards-cave', label: 'Cave hazard lab', scene: 'HAZARDS', depth: 1 },
     { id: 'hazards-deep', label: 'Deep hazard lab', scene: 'HAZARDS', depth: 2 },
@@ -34,6 +44,7 @@
     { id: 'playground', label: 'Playground', scene: 'RECREATION', sub: 'PLAYGROUND' },
     { id: 'pitch', label: 'Sports pitch', scene: 'RECREATION', sub: 'PITCH' },
     { id: 'castle', label: 'Castle', scene: 'CASTLE', sub: 'CASTLE', aliases: ['building_large'] },
+    { id: 'open-fort', label: 'Unlocked fort slots', scene: 'CASTLE', sub: 'OPEN FORT' },
     { id: 'fort', label: 'Fort', scene: 'CASTLE', sub: 'FORT', aliases: ['building_med'] },
     { id: 'grove', label: 'Sacred grove', scene: 'ZONES', sub: 'SACRED GROVE', aliases: ['ancient_grove'] },
     { id: 'stones', label: 'Old stones', scene: 'ZONES', sub: 'OLD STONES', aliases: ['churchyard', 'ordered_graves'] },

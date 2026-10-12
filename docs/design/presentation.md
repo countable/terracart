@@ -77,6 +77,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
   with its band layout. Painted headers use a label without emoji/`kindIcon`.
+- The modal HUD gate also covers the isolated upper-temple scene. Its scene
+  flag keeps inventory, movement pads and the objective hidden until shutdown,
+  even when no DOM dialog is open; a reward dialog keeps the gate after exit.
 - Paired story paintings must use actual image references. Establish the
   introduction first, then edit that image for the completed action; preserve
   object designs, materials and booth identity. After-use panels zoom in on
