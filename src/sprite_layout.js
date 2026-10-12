@@ -51,7 +51,7 @@
     'cave_props:27': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
     'cave_props:28': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
     'cave_props:29': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
-    'poison_vent_inactive:0': { fw: 24, fh: 24, minX: 4, minY: 14, maxX: 20, maxY: 23 },
+    'poison_vent_inactive:0': { fw: 24, fh: 24, minX: 5, minY: 8, maxX: 19, maxY: 18 },
     'beach_palms:0': { fw: 16, fh: 16, minX: 4, minY: 9, maxX: 10, maxY: 15 },
     'beach_palms:1': { fw: 16, fh: 16, minX: 6, minY: 9, maxX: 12, maxY: 15 },
     'beach_palms:2': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 15, maxY: 15 },

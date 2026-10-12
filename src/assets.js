@@ -16,6 +16,8 @@ const ASSETS = {
         texture.add(frame, 0, rect.x, rect.y, rect.width, rect.height);
       }
     } },
+  // An inert poison vent: underground street scatter (render.js RENDER_SPEC).
+  poison_vent_inactive: { kind: 'spritesheet', path: 'assets/Objects/Cave/poison_vent_inactive.png', frameWidth: 24, frameHeight: 24 },
   cave_mechanisms: { kind: 'spritesheet', path: 'assets/Objects/Cave/mechanisms.png', frameWidth: 24, frameHeight: 24 },
   beehive: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Beehive.png', frameWidth: 16, frameHeight: 16 },
   bramble: { kind: 'spritesheet', path: 'assets/Objects/Approved/bramble.png', frameWidth: 24, frameHeight: 24 },

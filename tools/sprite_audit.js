@@ -231,7 +231,8 @@ const ASSETS = assetsCtx.window.ASSETS;
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const GEM_ROCKS = Object.values(itemsCtx.GEM_DEPOSITS).filter(row => row.art.sheet === 'cave_props');
 const SHEETS = {
-  cave_props: { file: ASSETS.cave_props.path, fw: 24, fh: 24, frames: [6, ...GEM_ROCKS.map(row => row.art.frame)] },
+  cave_props: { file: ASSETS.cave_props.path, fw: 24, fh: 24, frames: [1, 6, ...GEM_ROCKS.map(row => row.art.frame)] },
+  poison_vent_inactive: { file: ASSETS.poison_vent_inactive.path, fw: 24, fh: 24, frames: [0] },
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
   // 32×48, not 32×64: at 64 the birch frame picked up the tip of the red tree below (see assets.js).
   pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [1, 2, 3] },
@@ -288,6 +289,8 @@ const SCENARIOS = [
     name: key.replaceAll('_', ' '), key, frameIdx: 0, scale: itemsCtx.WILDPLANT_CONTEXT_ART[key].scale,
   })),
   { name: 'drill shrine', key: 'cave_props', frameIdx: 6, scale: 4 / 3 },
+  { name: 'stalagmites', key: 'cave_props', frameIdx: 1, scale: 4 / 3 },
+  { name: 'inactive poison vent', key: 'poison_vent_inactive', frameIdx: 0, scale: 4 / 3 },
   ...GEM_ROCKS.map(row => ({ name: row.item + ' deposit', key: row.art.sheet, frameIdx: row.art.frame, scale: row.art.scale })),
   { name: 'maple sprout',    key: 'trees',         frameIdx: 1, scale: t('maple', 'small') },
   { name: 'maple young',     key: 'trees',         frameIdx: 2, scale: t('maple', 'medium') },

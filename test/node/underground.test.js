@@ -153,4 +153,21 @@
       }
     }
   });
+  // Every kind the street scatter seats must have art. A kind without a
+  // RENDER_SPEC row draws nothing (and once reused a pooled slot's stale
+  // texture, which floated surface houses through the cave).
+  test('underground: every decorated kind resolves to visible art', () => {
+    const art = Render.objectAppearance({ textures: { exists: () => true, get() { return { get() { return { width: 24, height: 24 }; } }; } }, save: {} }, new WeakMap());
+    const kinds = new Map();
+    for (const depth of [1, 2, 3]) for (const cls of ['minor', 'service']) for (const id of [42, 7, 1234]) {
+      const s = sample(depth, cls, id), out = [];
+      Underground.decorate(s.plan, s.grid, out, [], new Set());
+      for (const o of out) if (!kinds.has(o.kind)) kinds.set(o.kind, o);
+    }
+    for (const kind of ['stalagmites', 'inactive_poison_vent']) assert.truthy(kinds.has(kind), kind + ' is placed');
+    for (const [kind, o] of kinds) {
+      const ap = art.resolveAppearance(o);
+      assert.truthy(ap && ap.visible && ap.texKey, kind + ' has drawable art');
+    }
+  });
 })();
