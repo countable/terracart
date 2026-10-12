@@ -266,7 +266,7 @@ test('kerb: the rules live on the lanes that exist (source pins)', () => {
   assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| wanderOff \|\| kerbTurn \|\|/.test(w), 'a reason in standDown');
   // (A shared guard after a peer — Multiplayer.enemyTarget — measures from
   // that peer, whose own device judges their kerb.)
-  assert.truthy(/Lairs\.guardState\(c, peerTarget \|\| \{ x: px, y: py \}, this\.cellM,\s*!!peerTarget \|\| \(!unnoticed && !kerbTurn\)\)/.test(w), 'a guard gives up');
+  assert.truthy(/enemyGuardState\(this, c, peerTarget \|\| \{ x: px, y: py \},\s*!!peerTarget \|\| \(!unnoticed && !kerbTurn\)\)/.test(w), 'a guard gives up');
   // The refused cells live in the ONE step test (creature_ai.js
   // creatureStepRefused), which both movers ask.
   assert.truthy(/if \(road & WorldGen\.ROAD_CLASS_MAJOR_BAND\) return true;/.test(CREATURE_AI_SRC), 'the band is a refused cell');

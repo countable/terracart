@@ -252,7 +252,7 @@ test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderC
     'every foe\'s leech, blow, arrow and snare is gated');
   // The pursuits: the roster mover is told the same (`inactive`), and a
   // foe that is told so neither sees nor stalks.
-  assert.truthy(/\(npcTarget \? NPC\.isDormant\(npcTarget\) : unnoticed\) \|\| standDown,\s*routed \|\| \(kerbTurn && !c\.lair\), lairState, enemyDt\)/.test(w),
+  assert.truthy(/\(npcTarget \? NPC\.isDormant\(npcTarget\) : unnoticed\) \|\| standDown,\s*routed \|\| \(kerbTurn && !c\.lair\), lairState, enemyDt, npcTarget\)/.test(w),
     'every foe\'s stalk is gated');
   assert.truthy(/let sees = !inactive && /.test(CREATURE_AI_SRC), 'an inactive foe sees nothing');
   // And the player's own weapons, quiet BOTH ways: the cadence holds its fire

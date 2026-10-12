@@ -1279,14 +1279,14 @@
   // the CHASE off exactly where it already switches the bite off: a garrison
   // that has lost the player walks home instead of milling about wherever it
   // happened to be standing when they vanished.
-  function guardState(c, p, cellM, noticed) {
+  function guardState(c, p, cellM, noticed, sightPenalty = 0) {
     if (!c || !c.lair) return null;
     if (!p || !(cellM > 0)) return 'hold';
     if (noticed !== false) {
       const dx = c.lairX - p.x, dy = c.lairY - p.y;
       const dLair = Math.sqrt(dx * dx + dy * dy) - (c.lairR || 0);
-      if (dLair <= (c.aggroCells ?? LAIR_AGGRO_CELLS) * cellM) return 'hunt';
-      if (c._hunting && dLair <= LAIR_LEASH_CELLS * cellM) return 'hunt';
+      if (dLair <= Math.max(0, (c.aggroCells ?? LAIR_AGGRO_CELLS) - sightPenalty) * cellM) return 'hunt';
+      if (c._hunting && dLair <= Math.max(0, LAIR_LEASH_CELLS - sightPenalty) * cellM) return 'hunt';
     }
     if (!Number.isFinite(c.seatX) || !Number.isFinite(c.seatY)) return 'hold';
     const sx = c.x - c.seatX, sy = c.y - c.seatY;

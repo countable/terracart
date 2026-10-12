@@ -81,7 +81,7 @@
   });
   test('vent paralysis: actual ranged gate and dragon breath stop while prior shots remain intact', () => {
     const expr = SCENE_SRC.match(/const rangedArmed = ([\s\S]*?);/)[1];
-    const gate = new Function('px', 'py', 'enemies', 'reachCells', 'return ' + expr);
+    const gate = new Function('px', 'py', 'visibleEnemies', 'reachCells', 'return ' + expr);
     const enemy = { kind: 'slime', x: 0, y: 0 };
     const oldShot = { id: 'already-flying' };
     const s = { save: { energy: 100, dragonStory: { fireBreath: true } }, cellM: 7,
