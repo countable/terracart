@@ -16,12 +16,46 @@ function coverFixture(objects = [], walls = []) {
 }
 
 test('cover classification shares bushes, hedges, walls and rocks with obstacle profiles', () => {
-  for (const o of [{kind:'tree', size:'bush'}, {kind:'wildplant',crop:'shrub'},
+  for (const o of [{kind:'wildplant',crop:'shrub'},
     {kind:'wildplant',crop:'berry'}, {kind:'stronghold_wall'}, {kind:'mineralrock'}]) {
     assert.eq(Visibility.objectCover(o), Visibility.FULL);
   }
   for (const kind of ['tree','fruittree']) assert.eq(Visibility.objectCover({kind}), Visibility.PARTIAL);
   assert.eq(Visibility.objectCover({kind:'wildplant',crop:'longgrass'}), Visibility.CLEAR);
+});
+
+test('only the smallest rendered timber and fruit saplings provide no cover', () => {
+  for (const species of ['maple','pine']) {
+    for (const o of [{size:'small'}, {size:'bush'}, {variant:1}, {planted_t:Date.now()}]) {
+      assert.eq(Visibility.objectCover({kind:'tree',species,...o}),Visibility.CLEAR);
+    }
+    // Young and mature art both obscure sight, even when their harvest class
+    // is "small" or their explicit size overrides a variant-1 seed.
+    for (const o of [{variant:2}, {variant:3}, {size:'medium',variant:1}, {size:'large'}]) {
+      assert.eq(Visibility.objectCover({kind:'tree',species,...o}),Visibility.PARTIAL);
+    }
+  }
+  for (const species of ['apple','worldpeach']) {
+    assert.eq(Visibility.objectCover({kind:'fruittree',species,planted:true,planted_t:Date.now()}),Visibility.CLEAR);
+    assert.eq(Visibility.objectCover({kind:'fruittree',species,planted:true,planted_t:Date.now()-Crops.FRUIT_STAGE_MS-1000}),Visibility.PARTIAL);
+    // Wild fruit-tree size metadata does not shrink its mature artwork.
+    assert.eq(Visibility.objectCover({kind:'fruittree',species,size:'small'}),Visibility.PARTIAL);
+  }
+});
+
+test('a sight line through saplings is clear while young trees and shrubs still provide cover', () => {
+  const tree = {id:'sapling',kind:'tree',variant:1,x:2.5,y:.5};
+  const f = coverFixture([tree]);
+  try {
+    assert.eq(Visibility.playerCover(f.scene,4.5,.5),Visibility.CLEAR);
+    assert.eq(Visibility.coverBetween(f.scene,4.5,.5,.5,.5),Visibility.CLEAR);
+    tree.variant = 2;
+    Visibility.invalidate(f.scene);
+    assert.eq(Visibility.playerCover(f.scene,4.5,.5),Visibility.PARTIAL);
+    f.entry.objects = [{id:'shrub',kind:'wildplant',crop:'shrub',x:2.5,y:.5}];
+    Visibility.invalidate(f.scene);
+    assert.eq(Visibility.playerCover(f.scene,4.5,.5),Visibility.FULL);
+  } finally { f.done(); }
 });
 
 test('full cover hides behind a blocker but preserves its facing cell; rays are reciprocal', () => {

@@ -148,6 +148,19 @@ PW_CHROMIUM=/path/to/chromium node tools/perf_loop.js ~/.artifacts/performance/l
 PW_CHROMIUM=/path/to/chromium node tools/perf_live.js ~/.artifacts/performance/live
 ```
 
+`benchmark-cover.js` compares a baseline Git revision's `Lighting.coverFrame`
+with the working tree in one live sandbox Chromium page. Both versions use
+current visibility rules, alternating identical dense surface and cave
+fixtures. It measures retained-blocker movement, cold rebuilds, and stationary
+cache hits; JSON includes raw samples, median/p95, source hashes and hardware.
+The primary metric covers CPU work and canvas paint commands, without pixel
+readbacks, GPU uploads or a full-frame FPS claim. `CPU_THROTTLE=4` adds a
+synthetic slowdown, not a phone measurement.
+
+```sh
+node tools/benchmark-cover.js BASELINE_GIT_REF ~/.artifacts/performance/cover.json
+```
+
 Read the scripts' headers for timing controls and fixture requirements.
 Headless rendering timings depend on the machine and graphics backend.
 
