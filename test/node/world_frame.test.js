@@ -179,16 +179,16 @@ test('world frame: generation never reads the player\'s home (softwood is an ove
     const bare = W.rasterizeTile(layers(), N, TX, TY, edge);
     // Home in the middle of the wood: under the old rule every tree near it
     // came out a pine for this player only.
-    const tree = bare.objects.find((o) => o.kind === 'tree' && o.species !== 'pine');
-    assert.truthy(tree, 'the fixture has a non-pine tree to test with');
+    const tree = bare.objects.find((o) => o.kind === 'tree');
+    assert.truthy(tree, 'the fixture has a tree to test with');
     HomeArea.setOrigin(tree.x, tree.y);
     const homed = W.rasterizeTile(layers(), N, TX, TY, edge);
     const sp = (r) => r.objects.filter((o) => o.kind === 'tree').map((o) => `${o.id}:${o.species}`).join(',');
     assert.eq(sp(homed), sp(bare), 'a home next to the wood changes no generated species');
     // …and the overlay is where the rule lives now.
-    const changed = HomeArea.applySoftwood(homed.objects);
-    assert.gt(changed, 0, 'applySoftwood stamps pine on the trees near home');
-    assert.eq(homed.objects.find((o) => o.id === tree.id).species, 'pine', 'the tree at home is softwood for this player');
+    HomeArea.applySoftwood(homed.objects);
+    assert.eq(homed.objects.find((o) => o.id === tree.id).species,
+      tree.treeSpeciesFixed ? tree.species : 'pine', 'home preserves habitat species and softens other trees');
     assert.eq(HomeArea.applySoftwood(homed.objects), 0, 'the overlay is idempotent');
   } finally {
     HomeArea.worldM = prev;

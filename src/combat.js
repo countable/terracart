@@ -377,8 +377,8 @@
   // same one. An unstamped shiny is a plain elite.
   const ELITE_RANKS = {
     elite:     { label: 'Elite', power: 2, pace: 1.5, ring: 0xffffff },
-    possessed: { label: 'Possessed elite', power: 3, pace: 1.5 * 1.4, ring: 0xff3b2e, warp: true, share: 0.05 },
-    ascendant: { label: 'Ascendant elite', power: 4, pace: 1.5, ring: 0x4aa8ff, warp: true, share: 0.05,
+    possessed: { dropIndex: 1, label: 'Possessed elite', power: 3, pace: 1.5 * 1.4, ring: 0xff3b2e, warp: true, share: 0.05 },
+    ascendant: { dropIndex: 2, label: 'Ascendant elite', power: 4, pace: 1.5, ring: 0x4aa8ff, warp: true, share: 0.05,
       ability: { type: 'summon', maxMinions: 6, intervalSeconds: 5, windupSeconds: 0.6 } },
   };
   const ELITE_MUL = ELITE_RANKS.elite.power;
@@ -540,18 +540,11 @@
   // hoard is something you turn up underground, and the surface slime in your
   // potatoes is not standing on one.
   const MONSTER_TREASURE_CHANCE = 0.10;
-  // An ELITE (shiny) monster is a different deal: its kill ALWAYS pays past
-  // the wage — a Discovery badge the first time that kind is slain, and after
-  // that a roll on the relic-biased 'treasure:elite' pool (loot_contexts.js), never
-  // the 10% roll above. The roll's tier is COMMENSURATE with the foe: each
-  // level below the first and each level of the kind's own introduction depth
-  // buys one tier-only step (pickReward's opts.rollBonus), so a goblin archer
-  // (minDepth 3) met at depth 3 rolls four steps higher than a cave slime at
-  // depth 1.
+  // Every elite pays one themed signature drop, plus a memory on first discovery.
   const ELITE_TREASURE_CONTEXT = 'treasure:elite';
-  function eliteRollBonus(kind, depth) {
-    const intro = Math.max(1, monster(kind)?.cave?.minDepth || 1);
-    return Math.max(0, (depth || 0) - 1) + (intro - 1);
+  const ELITE_DROP_CHANCES = Object.freeze([0.70, 0.20, 0.10]);
+  function eliteDropTier(kind) {
+    return Math.min(7, Math.max(1, (monster(kind)?.tier || 1) + 1));
   }
 
   // ── Where fauna may not step ─────────────────────────────────────────────
@@ -1693,7 +1686,7 @@
     SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow, meleeBlow, petReachCells,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource, isSharedHit, PEER_SOURCE, isPeerHit,
-    MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
+    MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, ELITE_DROP_CHANCES, eliteDropTier,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
     FLOWER_STATUS_MS, isSleeping, isParalyzed, paralyze, isCharmed, calm, isCalm, isPacified, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
     STATUS_FLASH_MS, STATUS_LOOKS, statusLook, flagStatus, statusFlashTint, hasStatus, applyStatus, slowMul, paceMul,

@@ -69,6 +69,19 @@ mechanics.
   one; bounty follows `powerMul`. Possessed and ascendant bend the space
   around them (rendering.md). A new rank is a row, never a branch
   (`test/node/elite_ranks.test.js`).
+- Every player-credited elite kill pays one of the monster row's three
+  `eliteDrops`: ordinary elites roll 70% / 20% / 10%, Possessed always give
+  the second entry, and Ascendant always give the third. Rank guarantees live
+  in `Combat.ELITE_RANKS.dropIndex`. The first kill also banks its memory.
+  Equipment targets monster tier + 1 (maximum T7), rounded down to a supported
+  slot tier. Fixed items use that tier's chest quantity budget; consumable
+  signatures can add one through their row's `qtyBonus`. About half the entries
+  come from other categories, including food, seeds, ores and unique relics.
+  The 10% slot commonly holds a thematic unique relic, always quantity one.
+  Same-tier or weaker equipment and already-carried unique relics become cash
+  at half the drop's list price, checked again when a unique is awarded.
+  Drops never reroll or climb above the authored tier. Depth and luck do not
+  change signature odds or tiers. The ordinary kill bounty is separate.
 - `combat.js` owns foe HP for melee, projectiles and pets. Damage derives from
   `TOOL_DURATION_MS`; tune that or monster HP, not an extra combat multiplier.
   Game animals (crow/deer) are not enemies or projectile targets; released
@@ -103,6 +116,18 @@ mechanics.
   (`CAST_ROWS.wind_scroll`: every foe in reach takes 5 and is blown
   `pushCells` away on any ground the enemy gate allows, at any depth). A push
   plays out at the depth it began on; a level change cancels it.
+- BOOK CLUB LENDING: lifetime Books collected provide one reusable credit
+  each. The existing value-ordered tome shelf unlocks one new title every
+  three Books; unlocks do not repeat. Each borrowed copy reserves its item
+  tier plus two credits. Borrow as many copies as credit and bag capacity
+  allow; returning one removes that copy and releases its reserved credit.
+  All scholars share `save.scholarLoans`. Older permanent copies stay owned
+  outside this ledger. Borrowed copies cannot be sold, bartered, donated or
+  burned. The model updates inventory and loans together before one save.
+  Returns never reset cooldowns or release resting spell slots; duplicate
+  copies share their tome type's cooldown. Lending capacity chooses which
+  spells travel with the player; the existing spell-slot gate still controls
+  casting. The first tome unlocks before it becomes affordable.
 - SPELL SLOTS: each tome rests on its own `cooldownMs` (`save.tomeMagicCd`;
   `TOME_COOLDOWN_MS`, one hour, unless its row names another), and a tome may
   be read while at most the worn amulet's tier of tomes rest (`Gear.spellSlots`

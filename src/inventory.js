@@ -40,6 +40,12 @@
     return have;
   }
 
+  // Loans remain usable in the bag, but cannot pay for sales, barter or gifts.
+  function ownedCount(save, id) {
+    const loaned = Math.max(0, Math.floor(Number(save?.scholarLoans?.[id]) || 0));
+    return Math.max(0, count(save, id) - loaned);
+  }
+
   // How many more of `id` would fit right now (0 = full). Mirrors add()'s
   // cap so a caller can detect overflow before committing a reward.
   function roomFor(save, id) {
@@ -93,8 +99,9 @@
   // included), deducting and splicing emptied stacks. Returns the count
   // actually removed (≤ n; 0 if none held). The caller owns side effects —
   // persist, DOM rebuild, and re-clamping save.selSlot after the splice.
-  function remove(save, id, n = 1) {
+  function remove(save, id, n = 1, { allowLoanReturn = false } = {}) {
     if (n <= 0) return 0;
+    n = Math.min(n, allowLoanReturn ? count(save, id) : ownedCount(save, id));
     let left = n;
     const inv = save?.inv || [];
     for (let i = inv.length - 1; i >= 0 && left > 0; i--) {
@@ -110,5 +117,5 @@
     return n - left;
   }
 
-  root.Inventory = { stackCap, stackCapFor, count, roomFor, add, remove };
+  root.Inventory = { stackCap, stackCapFor, count, ownedCount, roomFor, add, remove };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

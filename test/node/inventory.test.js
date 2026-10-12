@@ -1,6 +1,23 @@
 // Headless tests for the inventory core (src/inventory.js) — the stack / cap /
 // dedupe rules (and the no-autoselect rule) extracted from app.js's MapScene.
 
+test('remove: borrowed tomes stay in the bag while owned copies can leave', () => {
+  const save = { inv: [{ id: 'tome_healing', count: 3 }], scholarLoans: { tome_healing: 2 } };
+  assert.eq(Inventory.count(save, 'tome_healing'), 3, 'all copies remain usable');
+  assert.eq(Inventory.ownedCount(save, 'tome_healing'), 1);
+  assert.eq(Inventory.remove(save, 'tome_healing', 9), 1, 'only the owned copy leaves');
+  assert.eq(Inventory.remove(save, 'tome_healing'), 0, 'cannot dispose of loans');
+  assert.eq(Inventory.count(save, 'tome_healing'), 2);
+  assert.eq(Inventory.remove(save, 'tome_healing', 1, { allowLoanReturn: true }), 1, 'school can accept a loan return');
+});
+
+test('remove: a loan ledger does not change ordinary owned inventory', () => {
+  const save = { inv: [{ id: 'wood', count: 3 }, { id: 'tome_reach', count: 1 }], scholarLoans: { tome_healing: 2 } };
+  assert.eq(Inventory.remove(save, 'wood', 2), 2);
+  assert.eq(Inventory.remove(save, 'tome_reach'), 1, 'permanently owned tomes remain disposable');
+  assert.eq(Inventory.count(save, 'wood'), 1);
+});
+
 test('stackCap: 9 with no bag, 249 at tier 7, monotonic between', () => {
   assert.eq(Inventory.stackCap({ relics: {} }), 9, 'no bag = 9');
   assert.eq(Inventory.stackCap({ relics: { bag: { tier: 7 } } }), 249, 'tier 7 = 249');

@@ -21,7 +21,9 @@ const side = 37, origin = Math.floor((N - side) / 2);
 const cell = (x, y) => ({ x: (origin + x + .5) * extent / N, y: (origin + y + .5) * extent / N });
 const source = [[[7,8],[28,8]],[[7,15],[28,15]],[[7,22],[28,22]],[[7,29],[28,29]],[[7,8],[7,29]]];
 const layers = [
-  { name: 'landuse', extent, features: [{ type: 3, tags: { class: 'residential' },
+  // Neutral open ground leaves room for the quarry without creating a park
+  // nexus or the private-lot exclusions attached to residential landuse.
+  { name: 'landcover', extent, features: [{ type: 3, tags: { class: 'grass' },
     geom: [[cell(-1,-1),cell(side,-1),cell(side,side),cell(-1,side),cell(-1,-1)]] }] },
   { name: 'transportation', extent, features: [{ type: 2,
     tags: { class: 'service', service: 'parking_aisle' }, geom: source.map(line => line.map(([x,y]) => cell(x,y))) }] },

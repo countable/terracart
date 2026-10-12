@@ -86,6 +86,13 @@ access or tile lifecycle mechanics.
 
 ## Generation, saves and tiles
 
+- After surface POI placement settles, `assignScholarFallback` upgrades one
+  surviving Scriptorium (library or college) to a Scholar when the tile has no
+  Scholar. The smallest stable object id wins, independent of input order or
+  player progress. This service override preserves the source POI class, id,
+  treasure rules and underground chest mirrors; existing school Scholars take
+  precedence. Selection precedes live overlays and never depends on visits.
+
 - Spider webs save their absolute cell, world position, depth and wall-clock
   expiry in `save.spiderWebs`. They survive reloads and tile eviction until
   24 hours after landing; another shot refreshes that cell without duplicating
@@ -354,6 +361,16 @@ access or tile lifecycle mechanics.
   curse damage. Selected mapped bus stops off the MD carriageway can retain
   mercenary hiring wagons; LG roads and junctions cannot. Ordinary mapped
   places keep their existing rules.
+- Parking lots join the existing MD/LG safety region (`ROAD_CLASS_MAJOR_BUFFER`,
+  stamped into the spawn gate as `KERB`) without acquiring a road surface or
+  the standing-on-carriageway warning. Mapped parking polygons supply their
+  footprint; retained tagged/inferred parking aisles use the lot detector's
+  12 m radius, and non-streetside parking POIs its 30 m radius. Repainting a
+  lot as a Quarry Nexus preserves this suppression. Fast movers cannot spawn
+  or enter; traps, whirlwinds, vents, sinkholes and cave-ins use the `hazard`
+  gate, including authored crater lava. Suppressing its lava leaves a dry
+  crater without removing its finds or altar. At night the same region supplies the blood aura, interaction hiding
+  and energy drain. Ordinary static content keeps its existing access rules.
 - The road is never a refuge and never a lure. `roadClass` derives all safety
   geometry from the vector bands. `ROAD_CLASS_MAJOR_ROAD` marks an MD/LG cell
   only when that group covers at least half of it, which gives runtime warnings
@@ -554,6 +571,18 @@ Higher-priority placements and their access space take precedence in this order:
    seats reduce the count. Barrels use the attractor gate, and gang posts
    and their guards retain the fast-enemy spawn gate.
 6. Ambient fill: ordinary plants, rocks and generic scattered content.
+   Forest landcover scatters pine only; wooded park characters scatter maple
+   only, from their `BiomeProfiles` rows. Both mark `treeSpeciesFixed` so
+   the near-home softwood overlay preserves their habitat. Species changes
+   do not consume random draws or move trees. Residential yards keep their
+   mixed maple/pine selection. Imported ordinary trees on forest cells become pine.
+   Authored park/Nexus coverage already excludes imported trees and keeps
+   its own tree choices; fruit trees keep their species. Outside forests,
+   mapped trees retain their original mix.
+   Tree-bearing street variants declare their timber species on the variant
+   row: Overgrown uses pine and Orchard uses maple alongside its fruit trees.
+   Street timber also marks `treeSpeciesFixed`, so its type stays consistent
+   through the starter area. Unfixed trees keep the existing near-home pine rule.
    Residential yard trees are the newest ambient fill: while the DeepForest
    layer is paused (`DEEPFOREST_TREES_ENABLED`), each residential polygon
    seeds random-sized trees from the `T.RESIDENTIAL` `yardTrees` row

@@ -5,7 +5,8 @@
 // the tile's transportation layer by the rasterizer's FIRST pass, so nothing
 // downstream (terrain, roadMask, the street index, scenic, labels, the road
 // overlay, restoration, lamps — all of which read that same layer object)
-// ever meets one. Removed geometry remains generation-only quarry input.
+// ever meets one. Removed geometry remains generation-only quarry and
+// parking-suppression input.
 // Every OTHER service way stays an ordinary road.
 //
 // These drive the REAL rasterizer over a synthetic lot.
@@ -72,7 +73,8 @@ test('lot lanes: a tagged parking aisle is cut from the layer and stamps no road
   assert.falsy(by.transportation.features.some((f) => WorldGen.isLotLane(f.tags)), 'no lot lane survives');
   for (const i of cellsOf(rowCells(38, 37, 43))) {
     assert.eq(r.roadMask[i], 0, 'aisle cell is not road ground');
-    assert.eq(r.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_BUFFER, 0, 'nor kerb');
+    assert.truthy(r.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_BUFFER, 'parking retains shared safety suppression');
+    assert.truthy(r.spawnWhy[i] & WorldGen.SPAWN_WHY.KERB, 'fast movers and hazards read the shared gate');
   }
 });
 

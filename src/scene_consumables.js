@@ -1301,6 +1301,10 @@ class SceneConsumables {
   // EXPLODES (_potionBlast). The dialog hints, never names, which.
   presentBurnConfirm(id, fire = null) {
     if (document.getElementById('offer-modal')) return;
+    if (Inventory.ownedCount(this.save, id) < 1) {
+      this.flash('Return this at a Book Club.');
+      return;
+    }
     const name = itemName(id);
     const out = fireBurnOutcome(id);
     this.showOfferModal({
@@ -1317,7 +1321,7 @@ class SceneConsumables {
       cancelLabel: 'Keep',
       onAccept: () => {
         const sel = getSelectedSlot(this.save);
-        if (!sel || sel.id !== id || (sel.count ?? 0) <= 0) return;
+        if (!sel || sel.id !== id || Inventory.ownedCount(this.save, id) < 1) return;
         consumeSelected(this.save);
         if (out.transmute) {
           // One potion out, one in: a stack of one freed its own slot, and a

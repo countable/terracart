@@ -22,11 +22,11 @@ function sampleWalkRewards(model, trials) {
       if (source.dropId) rewards.push({ kind: 'item', id: source.dropId, qty: 1 });
       let context = null;
       if (source.elite) {
-        if (discoveries.has(source.enemyKind)) context = Combat.ELITE_TREASURE_CONTEXT;
-        else discoveries.add(source.enemyKind);
+        context = Combat.ELITE_TREASURE_CONTEXT;
+        discoveries.add(source.enemyKind);
       } else if (rng() < (source.treasureChance || 0)) context = 'treasure:default';
       if (context) rewards.push(draw({ context, options: source.elite
-        ? { rollBonus: Combat.eliteRollBonus(source.enemyKind, 0) } : {} }, rng, discoveries));
+        ? { monsterKind: source.enemyKind, eliteRank: source.eliteRank } : {} }, rng, discoveries));
       // resolveDefeat also grants the shiny cash bonus when the species has
       // its own item drop, independently of the enemy bounty/elite branch.
       if (source.shinyBonusAmount) {
@@ -144,7 +144,7 @@ function sampleWalkRewards(model, trials) {
       'Independent finite-tile encounter draws around the walking model expectations. Percentiles illustrate this model, not measured player routes.',
       'All rewards accepted; no bag limits, purchases, energy costs, gear replacement, repeat visits or selling. Value is catalog list value, not spendable coins.',
       'Street prizes keep one uniformly chosen offered card, including the first-prize seed option; offered cards are not all awarded.',
-      'Every encountered enemy is defeated by the player and its bounty collected. Kind-specific drops and eligible monster treasure rolls accompany that same encounter. First elite of each species grants a memory; later elites grant treasure. No previous discoveries are assumed.',
+      'Every encountered enemy is defeated by the player and its bounty collected. Kind-specific drops and eligible monster treasure rolls accompany that same encounter. Every elite grants a signature drop; the first of each species also grants a memory. No previous discoveries are assumed.',
     ], distances: results };
 }
 

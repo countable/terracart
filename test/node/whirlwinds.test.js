@@ -40,6 +40,11 @@
     e._spawnOpts.spawnWhy[27] = 0; e._spawnOpts.roadMask[27] = 1;
     assert.falsy(Whirlwinds.ground(s, 24, 24));
   }));
+  test('whirlwind: shared parking and road suppression blocks hazards but preserves scroll gusts', () => fixture((s, e) => {
+    e._spawnOpts.spawnWhy[27] = WorldGen.SPAWN_WHY.KERB;
+    assert.falsy(Whirlwinds.ground(s, 24, 24));
+    assert.truthy(Whirlwinds.ground(s, 24, 24, null, true), 'the scroll still uses its enemy movement gate');
+  }));
   test('whirlwind: forms only on grass, pitch and schoolyard terrain', () => fixture((s, e) => {
     const T = WorldGen.T;
     for (const type of [T.GRASS, T.PITCH, T.SCHOOL]) {

@@ -17,7 +17,7 @@ function describe(r) {
     // EQUIPMENT here, so it never collides with the unique-relic finds
     // (telescope, amulets, rings) the same tables now show.
     const kind = r.kind === 'armor' ? 'armor' : 'equipment';
-    const v = (typeof gearPrice === 'function') ? gearPrice(kind, r.slot, r.tier) : 0;
+    const v = (typeof gearPrice === 'function') ? gearPrice(r.kind === 'armor' ? 'armor' : 'relic', r.slot, r.tier) : 0;
     return { cls: kind, key: `${kind}: ${r.slot} T${r.tier}`, value: (v || 0) + (r.consolation || 0), tier: r.tier,
       text: `${r.slot} T${r.tier}${r.consolation ? ` + $${r.consolation}` : ''}` };
   }

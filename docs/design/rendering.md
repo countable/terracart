@@ -33,6 +33,12 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   never adjusts an actor's feet or enters the world depth sort. Towers and
   flags retain ordinary world ordering. Walls and footprints use a muted
   palette so interactables remain distinct.
+  Castle courtyard floors start from quarter-cell stone tiles (2×2); each
+  cached texture joins one adjacent pair into a horizontal or vertical half-cell
+  slab with a continuous fill and no internal bevel. This happens only at bake
+  time. Tiles have darker junctions, worn stretches and quiet bevels. Inner
+  seams are lighter than cell boundaries, keeping cells legible beside the
+  smaller road cobbles.
   Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
   renderers; polygon corners use bounded bevel joins.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
@@ -49,6 +55,12 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   per-cell variation (`wildplantFrame`); do not use id length or transient indices.
   Legacy `PLAIN_ROCK_VARIANTS` retains rock yields independently of the neutral
   material silhouettes; loot messages report the actual quantity rolled.
+- Apple and Worldpeach trees keep their mature size after picking. Their
+  24-hour fruit regrowth is green for the first 12 hours, then uses the mature
+  blossom frame for the final 12 hours (apple frame 8, peach frame 4).
+  Ripe trees return to the green frame
+  with separate fruit overlays. `Crops.fruitTreeState` owns readiness and the
+  blossom window; initial sapling growth still flowers during stage 3.
 - Procedural wildplant backgrounds carry the shared layout's `_terrainScale`
   into the normal crop renderer as a size multiplier; cell positions, crop art
   and harvest rewards remain owned by their existing records and tables.
@@ -214,9 +226,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   biome texture (`Render.roadBackdropType`): explicit street ground, then the
   surrounding biome, then grass. Never paint raw road colours or separate path
   pebbles beneath the band; their grid edges read as a second road.
-- Restored Toadstool (Mushroom) and Snare lanes use near-black setts close to
-  the default restored road. Retain their red/brown undertones and mushroom
-  spots; the shared clean-stone bevel supplies the polished highlights.
+- Roads and paths use a consistent muted midtone range so ground objects
+  remain the focus. Restored paving has recessed dark joints, tidy courses and
+  small polished bevels; worn cracks and mushroom spots stay low contrast.
+  Keep each theme’s undertone. Burned Row retains its dark stone and glowing embers.
 - Path paving and lamp palettes follow the assigned segment intervals. Scenic
   geography still owns restoration bonuses; first-walk stories use the assigned
   theme on the restored segment.

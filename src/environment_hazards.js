@@ -74,7 +74,7 @@
       if (h.type === 'vent' && !scene.depth && quarryVariant(e, p.ix, p.iy) !== 'quarry-crater') return false;
       const opts = { ...e._spawnOpts, spawnWhy: e.spawnWhy || e._spawnOpts.spawnWhy,
         roadMask: e.roadMask || e._spawnOpts.roadMask, roadClass: e.roadClass || e._spawnOpts.roadClass };
-      if (!W.isSpawnCell(e.grid, e.cellsPerEdge, e.cellsPerEdge, p.ix, p.iy, opts, 'enemy')) return false;
+      if (!W.isSpawnCell(e.grid, e.cellsPerEdge, e.cellsPerEdge, p.ix, p.iy, opts, 'hazard')) return false;
       if (W.privateVetoAt(p.tx, p.ty, p.ix, p.iy)) return false;
       // Live placed structures may be newer than the generated occupancy mask.
       const occupied = o => { const at = scene.cellAt(o.x, o.y); return at.cellIX === p.cellIX && at.cellIY === p.cellIY; };

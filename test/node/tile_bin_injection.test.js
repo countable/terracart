@@ -11,6 +11,37 @@
   }
   const point = (ix, iy, cellM = 7) => ({ x: (ix + 0.5) * cellM, y: (iy + 0.5) * cellM });
 
+  test('tile bin: imported forest trees are pine; fruit and yards keep species', () => {
+    const e = entry();
+    e.grid[10 * N + 10] = T.FOREST;
+    e.grid[20 * N + 20] = T.RESIDENTIAL;
+    e.grid[25 * N + 25] = T.FOREST;
+    const bin = { trees: [
+      { kind: 'tree', id: 'forest', species: 'maple', lix: 10, liy: 10 },
+      { kind: 'tree', id: 'yard', species: 'maple', lix: 20, liy: 20 },
+    ], fruittrees: [{ kind: 'fruittree', id: 'apple', species: 'apple', lix: 25, liy: 25 }] };
+    const before = JSON.stringify(bin);
+    WorldGen.injectTileBin(e, bin, 0, 0);
+    const byId = Object.fromEntries(e.objects.map(o => [o.id, o]));
+    assert.eq(byId.forest.species, 'pine');
+    assert.eq(byId.forest.treeSpeciesFixed, true);
+    assert.eq(byId.yard.species, 'maple');
+    assert.falsy(byId.yard.treeSpeciesFixed);
+    assert.eq(byId.apple.species, 'apple');
+    assert.falsy(byId.apple.treeSpeciesFixed);
+    assert.eq(JSON.stringify(bin), before, 'shared cached species remain unchanged');
+  });
+
+  test('tile bin: authored wooded park coverage excludes ordinary imported trees', () => {
+    const e = entry();
+    e.grid.fill(T.PARK);
+    e.zone = { coverage: new Uint16Array(N * N).fill(1) };
+    WorldGen.injectTileBin(e, { trees: [
+      { kind: 'tree', id: 'tree_osm_wooded', species: 'pine', lix: 10, liy: 10 },
+    ] }, 0, 0);
+    assert.eq(e.objects.length, 0, 'park layout retains its authored tree species');
+  });
+
   test('tile bin: cached rows survive relocation and reuse in a different world frame', () => {
     const bin = { trees: [
       { kind: 'tree', id: 'tree_osm_3', lix: 10, liy: 10, crown_m: 3 },

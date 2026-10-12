@@ -960,8 +960,8 @@ const ITEMS = [
   // never meeting one. Three makes it the plurality of the T2 consumable pool,
   // and school chests pin it outright (loot_contexts.js 'chest:school').
   { id: 'book',  name: 'Book',  kind: 'supply', dropWeight: 3 },
-  // Tomes are the scholar's rewards for reading Books. They cast repeatable
-  // spells on timed cooldowns and are never consumed or sold. The tome flag
+  // Tomes are borrowed from the scholar using credit earned by collecting
+  // Books. They cast repeatable spells; loaned copies cannot be sold or spent. The tome flag
   // owns scholar membership and excludes them from treasure-box pools.
   { id: 'tome_reach',    name: 'Tome of Reach',     kind: 'unique_relic', tome: true },
   { id: 'tome_raven',    name: 'Tome of the Raven',   kind: 'unique_relic', tome: true },

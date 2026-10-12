@@ -104,6 +104,12 @@ stalls and coin pots keep their own interactions.
   already carries one (`ChestThemes.eligible`).
 - **Books reach the scholar.** Every chest seated at T2 carries a Book share
   (`ChestThemes.BOOK_T2_SHARE`, applied last in `weights`).
+  Books become ineligible when lifetime Books collected (`booksRead`) exceed
+  lifetime recovered memories (keys in `discovered`) plus three. At equality
+  one more Book can drop; another memory then reopens eligibility. Blocked
+  Book lanes, including fallback paths, yield their existing Torch fallback.
+  Purchases and already saved chest rewards are unaffected; this paces new
+  chest rolls rather than guaranteeing one Book per memory.
 - **Seeds thin out with quality.** High rolls move seed share to the related
   group rather than renormalising the row (`seedMultiplier`, `seedTransfers`).
 

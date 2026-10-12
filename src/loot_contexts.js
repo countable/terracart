@@ -16,6 +16,7 @@
   //               (rarity.js pickChestReward, by `theme`), whose tier curve
   //               is RARITY_TUNING.chestTierMod[opts.tier] rather than the
   //               row's own chain fields. Absent = the class-bias picker below.
+  //               'elite' selects a monster's weighted signature drops.
   //   caveSkew  — true: a roll underground (opts.depth > 0) overlays the cave
   //               supply / deep-hoard mix (rarity.js CAVE_SUPPLY_SKEW,
   //               CAVE_DEEP_SKEW, chosen by opts.tier).
@@ -141,18 +142,8 @@
     // Measured ~15 (scratchpad scenic2/ev.js, the balancing sheet's valuation).
     'treasure:vista':   { classBias: { seed:0.45, produce:0.30, magic:0.15, supply:0.10 },
                           chainSteps: 1, chainMax: 2, maxTier: 2, relicCap: 0 },
-    // ── Elite monster drop ──────────────────────────────────────
-    // What a shiny cave monster pays once its kind's memory is
-    // banked (app.js › resolveDefeat). Biased to RELICS — half the class
-    // weight, the heaviest relic share of any context — because the foe was
-    // twice the fight. "Commensurate tier" is the caller's: one chain step
-    // here, and app.js › eliteRollBonus buys tier-only steps off the depth
-    // and the kind's own introduction depth (opts.rollBonus), so a goblin
-    // archer three levels down rolls higher than a cave slime at the first.
-    // A relic sits one tier UNDER the chain (see pickReward's relic branch),
-    // so relicCap 6 means a T5 relic at the very top.
-    'treasure:elite':   { classBias: { relic:0.50, mineral:0.20, magic:0.15, seed:0.08, produce:0.07 },
-                          chainSteps: 1, chainMax: 5, maxTier: 5, relicCap: 6, relicChainMax: 6 },
+    // Monster signatures bypass class rolls; keep the context discoverable.
+    'treasure:elite': { picker: 'elite' },
   };
 
   global.LOOT_CONTEXTS = LOOT_CONTEXTS;

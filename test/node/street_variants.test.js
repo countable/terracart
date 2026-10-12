@@ -823,7 +823,7 @@ test('barricade + pilgrim: ONE end piece per street per tile, however many piece
     'the pick hashes variant, street key and the global end point');
 });
 
-test('short street dressing: mixed orchard rows and a visible maple growth sequence', () => {
+test('short street dressing: fixed timber species with mixed orchard rows and pine growth', () => {
   for (const v of ['orchard', 'overgrown']) {
     const name = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === v, v);
     const line = pts([[2, 30], [60, 30]]);
@@ -836,6 +836,9 @@ test('short street dressing: mixed orchard rows and a visible maple growth seque
     const d = dressed(r).d;
     const trees = d.objects.filter((o) => o._street === v);
     assert.gt(trees.length, 15, v + ' dresses the full short street');
+    const timber = trees.filter(o => o.kind === 'tree');
+    assert.truthy(timber.every(o => o.treeSpeciesFixed === true && o.species === SV.VARIANT_BY_ID[v].treeSpecies),
+      'the variant owns every timber tree species');
     if (v === 'orchard') {
       const apples = trees.filter(o => o.kind === 'fruittree');
       assert.truthy(apples.every(o => o.species === WorldGen.fruitTreeSpecies(WorldGen.cellHash(TX, TY, cellOf(o.x, TX), cellOf(o.y, TY)))));
@@ -847,7 +850,7 @@ test('short street dressing: mixed orchard rows and a visible maple growth seque
       assert.truthy(trees.some((o) => cellOf(o.y, TY) < 30) && trees.some((o) => cellOf(o.y, TY) > 30), 'both verges');
     } else {
       assert.eq([...new Set(trees.map((o) => o.variant))].join(), '1,2,3', 'saplings, young trees, mature trees in order');
-      assert.truthy(trees.every((o) => o.kind === 'tree' && o.species === 'maple'), 'existing maple growth art and mechanics');
+      assert.truthy(trees.every((o) => o.kind === 'tree' && o.species === 'pine'), 'overgrown lanes use pine throughout');
     }
   }
 });

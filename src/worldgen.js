@@ -10,8 +10,8 @@
   const TILE_PX = 256;          // standard
   const TILE_EXTENT = 4096;     // MVT units
   const CELL_M = 7;             // game cell size in meters
-  // Park, forest and grove trees share this ordered set so a species change
-  // reaches every generated tree lane.
+  // Mixed residential and mapped trees share this ordered species set.
+  // Forests and wooded parks take their fixed species from BiomeProfiles.
   const TREE_SPECIES = Object.freeze(['maple', 'pine']);
   // Natural fruit trees share one Worldpeach chance per stable cell.
   // No RNG draws or placement order affect the species.
@@ -838,6 +838,27 @@
       if (o.poiDensity !== n) { o.poiDensity = n; delete o._chestLook; }
     }
     return counts;
+  }
+  // Choose from the final generated surface POIs, before player/bin overlays.
+  // Keep the source class: a library's loot, density and cave mirror stay a
+  // library even when its surface counter lends the scholar's tomes.
+  function assignScholarFallback(objects) {
+    let chosen = null, hasScholar = false;
+    for (const o of objects || []) {
+      if (o.scholarFallback) {
+        delete o.scholarFallback;
+        delete o._macroCache;
+        delete o._chestLook;
+      }
+      const macro = macroFor(o);
+      if (macro?.kind === 'scholar') hasScholar = true;
+      if (macro?.kind === 'scriptorium' && (!chosen || String(o.id) < String(chosen.id))) chosen = o;
+    }
+    if (hasScholar || !chosen) return null;
+    chosen.scholarFallback = true;
+    delete chosen._macroCache;
+    delete chosen._chestLook;
+    return chosen;
   }
   // ── Tier seeds: the per-tile quota pyramid (Oct 2026) ─────────────────────
   // The count-threshold ladder is replaced by QUOTAS. Each tile seeds about
@@ -1760,6 +1781,49 @@
       ...cut.map(row => ({ ...row, extent: tl.extent || 4096 }))];
     return cut;
   }
+  // Parking uses the same suppression/night-danger region as an MD/LG kerb,
+  // without becoming a road surface. Keep mapped footprints exact; where MVT
+  // supplies only points/aisles, use the existing lot-inference distances.
+  function* stampParkingSafetySteps(layers, roadClass, w, h, mvtToCell, mvtToM) {
+    const cover = new Uint16Array(w * h);
+    const transportation = layers.find(l => l.name === 'transportation');
+    const roads = _bucketGrid(128);
+    for (const f of transportation?.features || []) {
+      const terrain = classifyLine('transportation', f.tags || {});
+      if (f.type !== 2 || !f.geom || f.tags?.class === 'service'
+          || ![T.ROAD, T.ROAD_MD, T.ROAD_LG].includes(terrain)) continue;
+      for (const line of f.geom) for (let i = 1; i < line.length; i++) {
+        const a = line[i - 1], b = line[i];
+        roads.addBox([a.x, a.y, b.x, b.y], Math.min(a.x, b.x), Math.min(a.y, b.y), Math.max(a.x, b.x), Math.max(a.y, b.y));
+      }
+    }
+    for (const source of transportation?.parkingLanes || []) {
+      const scale = w / (source.extent || 4096);
+      for (const line of source.lines || [])
+        yield* stampCoverLineSteps(cover, w, h, line, 2 * LOT_AISLE_R_M / CELL_M, scale);
+    }
+    for (const layer of layers) {
+      if (!['landuse', 'landcover', 'poi', 'transportation'].includes(layer.name)) continue;
+      for (const f of layer.features || []) {
+        if (!f.geom || !['parking', 'motorcycle_parking'].includes(f.tags?.class)
+            && f.tags?.amenity !== 'parking') continue;
+        if (f.type === 3) {
+          yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell,
+            (x, y) => { roadClass[y * w + x] |= ROAD_CLASS_MAJOR_BUFFER; });
+        } else if (f.type === 1) {
+          const p = f.geom[0]?.[0];
+          if (!p) continue;
+          const sideR = LOT_STREETSIDE_M / mvtToM;
+          if (roads.near(p.x, p.y, sideR, s => _segDist(p.x, p.y, s[0], s[1], s[2], s[3]) < sideR)) continue;
+          yield* stampCoverLineSteps(cover, w, h, [p, p], 2 * LOT_POI_R_M / CELL_M, mvtToCell);
+        }
+      }
+    }
+    for (let i = 0; i < cover.length; i++) {
+      if ((i & 4095) === 4095) yield 'parking safety';
+      if (cover[i]) roadClass[i] |= ROAD_CLASS_MAJOR_BUFFER;
+    }
+  }
   // Approximate real-world carriageway width, in metres, per transportation
   // class. The rasterizer only reads this for PIER (roads and paths always
   // rasterize one cell wide — see the wCells comment in rasterizeTile), but
@@ -2192,7 +2256,8 @@
   //                          Stamped after the street index is built
   //                          (StreetVariants.stampBanditStretchesSteps).
   const ROAD_CLASS_BANDIT_VERGE = 4;
-  //   ROAD_CLASS_MAJOR_BUFFER the KERB BUFFER: within MAJOR_BUFFER_CELLS of a
+  //   ROAD_CLASS_MAJOR_BUFFER the shared safety region: parking lots plus
+  //                          the KERB BUFFER within MAJOR_BUFFER_CELLS of a
   //                          Major-and-Medium road band (the band's own cells included) —
   //                          stamped off the same lines, widened, so it is
   //                          seam-safe the way the band is. THE SAFETY RULE
@@ -4609,9 +4674,9 @@
     // A WOODED park's trees (PARK_CHARACTERS.wooded `trees`): one candidate
     // per cell, kept with chance p (× the FLORA_PATCH clump), off the
     // polygon's own stream (polyKey ^ salt) — one draw per candidate, then
-    // one for the look. The species is the polygon's, as in a forest.
+    // one for the look. The character row fixes the species (wooded: maple).
     function* spawnParkTreesSteps(rings, polyKey, trees, patch) {
-      const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
+      const species = trees.species;
       const prng = makeRng((polyKey ^ trees.salt) >>> 0);
       const gx0 = tx * TILE_EXTENT, gy0 = ty * TILE_EXTENT;
       const bb = bboxOf(rings);
@@ -4627,7 +4692,7 @@
           if (prng() >= trees.p * pm) continue;
           const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
           objects.push(makeObject('tree', cx, cy, cellId('ptree', tx, ty, ix, iy),
-            { variant: 1 + Math.floor(prng() * 4), species }));
+            { variant: 1 + Math.floor(prng() * 4), species, treeSpeciesFixed: true }));
         }
       }
     }
@@ -4643,14 +4708,13 @@
     // spawnHedgeMazeSteps. `yield` consumes no rng, so rng() fires in exactly
     // the same order sliced or not — the forest this produces is identical.
     function* spawnForestTreesSteps(rings, polyKey) {
-      // Each polygon picks ONE species (maple/pine) so a single
-      // forest reads as a single woodland type instead of a jumbled mix. Each
-      // species has its own real sprite sheet (no tint pass needed).
-      const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
+      // Forest landcover always uses the profile's pine canopy.
+      const profile = BiomeProfiles.staticObjects(T.FOREST);
+      const species = profile.treeSpecies;
       const bb = bboxOf(rings);
       // The profile owns the canopy spacing. Every in-polygon candidate
       // becomes a tree; the fixed pitch sets density without extra draws.
-      const stepMvt = BiomeProfiles.staticObjects(T.FOREST).treeSpacingM / mvtToM;
+      const stepMvt = profile.treeSpacingM / mvtToM;
       // The polygon's OWN stream, like every other scatter (debris, rock
       // clusters, yard flora): drawing from the tile-wide rng made each
       // forest's jitter depend on how many draws every earlier forest on the
@@ -4672,13 +4736,11 @@
             // pushing one undefined into save.chopped made
             // choppedSet.has(undefined) match every other tree → felling one
             // cleared the grove. Tile + LOCAL cell, never frame metres.
-            // The species is the WORLD's: the softwood-near-home rule is a
-            // per-player overlay (HomeArea.applySoftwood, app.js), never a
-            // generation input.
+            // Habitat species stays fixed even in the near-home overlay.
             objects.push(makeObject('tree', cx, cy,
               cellId('tree', tx, ty, ix, iy), {
                 variant: 1 + Math.floor(frng() * 4),
-                species,
+                species, treeSpeciesFixed: true,
               }));
           }
         }
@@ -5924,6 +5986,7 @@
     yield* resolveRoadMaskSteps(roadCover, roadMask, w, h);
     yield* resolveRoadClassSteps(majorCover, roadMask, roadClass, w, h, majorBufCover);
     yield* stampRoadJunctionsSteps(junctionSegments, roadClass, w, h);
+    yield* stampParkingSafetySteps(layers, roadClass, w, h, mvtToCell, mvtToM);
     // QUIET LAND (QUIET_LAND): military, railway, reserve and cemetery cells
     // host nothing. Stamped here, beside the road mask, so every cull and
     // spawner below reads it (the mineralrock cleanup, the gates and boards,
@@ -6711,6 +6774,7 @@
       zone, streetDress, grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
     chestTopUp.ambient = yield* topUpAmbientCratesSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
       grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
+    assignScholarFallback(deduped);
     return { grid, owners, ownerKeys, syntheticBuildingCells, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
   }
 
@@ -7398,6 +7462,12 @@
       if (detected || yardTreeCells.has(r.iy * cpe + r.ix)) treeClaims.add(r.iy * cpe + r.ix);
       if (detected) t._treeSource = 'deepforest';
       t.x = r.x; t.y = r.y;
+      // Use the settled cell's habitat, including a tree relocated off an
+      // occupied cell. Authored zones already win through _sxReserved above.
+      if (t.kind === 'tree' && !detected && grid[r.iy * cpe + r.ix] === T.FOREST) {
+        t.species = BiomeProfiles.staticObjects(T.FOREST).treeSpecies;
+        t.treeSpeciesFixed = true;
+      }
       // A detection with no OSM id is named by the cell it SETTLED on —
       // unique (one tree per cell, just claimed) and positional. Its bin
       // cell alone was not: two detections in one cell, or one relocated
@@ -9561,7 +9631,7 @@
     SPAWN_SENSITIVE_BUFFER_M,
     RESTRICTED_LAND, KINDERGARTEN_LAND, COMMERCIAL_GROUND, NEAREST_POI_MAX_M, COMMERCIAL_POI_KIND, commercialPoiKind, commercialPoiField, POI_PUBLIC, POI_PRIVATE, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
-    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, seedChestTiers, TIER_SEED_QUOTA, topUpChestsSteps, CHEST_TOP_UP_MIN, topUpAmbientCratesSteps, LOW_TIER_CHEST_QUOTA, AMBIENT_CRATE_PATH_CELLS, AMBIENT_CRATE_PATH_BIAS, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
+    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, assignScholarFallback, seedChestTiers, TIER_SEED_QUOTA, topUpChestsSteps, CHEST_TOP_UP_MIN, topUpAmbientCratesSteps, LOW_TIER_CHEST_QUOTA, AMBIENT_CRATE_PATH_CELLS, AMBIENT_CRATE_PATH_BIAS, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
     ARENA_DEPTH, SKY_DEPTH, FLOOR_PROFILES, DEFAULT_FLOOR_PROFILE, floorProfile, undergroundTerrain, undergroundClearings, caveQuarryGemsFrom, stampCaveQuarryRocks, caveChestsFrom, CAVE_CHEST_SEEK_CELLS, capCaveChests, CAVE_LOWEST_TIER_CHEST_LIMIT,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms, CAVE_PASSES, runCavePass, cavePassLevel, spawnCaveRocks,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
@@ -9601,8 +9671,7 @@
     // exact odds a real residential deposit gets, and exported for the
     // headless tests that pin those odds.
     rollSurfaceRockTier, SURFACE_PLAIN_ROCK_P: caveRockP(0), caveRockP, caveOreWeights, caveOreTiers, LEVEL1_COPPER_SHARE,
-    // One tree-species table feeds parks, forests and zone groves. The vein
-    // helper is exported for the deterministic cave distribution regression.
+    // Mixed-tree species and deterministic fruit/cave distribution helpers.
     TREE_SPECIES, PEACH_ONE_IN, fruitTreeSpecies, rollVeinTable,
     // Per-class road width — the road-geometry overlay strokes with it.
     roadWidthM,

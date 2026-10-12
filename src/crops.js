@@ -179,6 +179,7 @@
   // one day) so their copy and art cannot drift when tree growth changes.
   const FRUIT_STAGE_MS = PLANTED_TREE_GROW_MS / 4;
   const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;
+  const FRUIT_BLOSSOM_MS = 12 * 60 * 60 * 1000;
 
   // Shared by tree art and harvesting. Wild trees start mature; planted trees
   // take four stages (a quarter of the window each), then each pick starts a
@@ -195,7 +196,10 @@
     const mature = stage === 4;
     const remainingMs = !mature ? 4 * FRUIT_STAGE_MS - elapsed
       : pickedAt ? Math.max(0, FRUIT_RESPAWN_MS - (now - pickedAt)) : 0;
-    return { stage, mature, ready: mature && remainingMs === 0, remainingMs };
+    // Mature trees flower during the final half of regrowth; picking never
+    // returns a tree to its sapling stages or changes its mature size.
+    const blossoming = mature && remainingMs > 0 && remainingMs <= FRUIT_BLOSSOM_MS;
+    return { stage, mature, blossoming, ready: mature && remainingMs === 0, remainingMs };
   }
 
   function maxStage() {
@@ -363,7 +367,7 @@
     return q;
   }
 
-  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, markFruitPicked, fruitTreeState, STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, CAN_TOP_TIER, maxStage, isMature, raiderEats,
+  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, FRUIT_BLOSSOM_MS, markFruitPicked, fruitTreeState, STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, CAN_TOP_TIER, maxStage, isMature, raiderEats,
                  advanceGrowth, waterWithin, waterOne, waterJumpChance, completeStageWithin,
                  bedQuality, setBedQuality, clearBedQuality, takeBedQuality,
                  forEachInBox, invalidateSpatialIndex, EFFECTS, EFFECT_SCAN_MS, effectFor, tickPlantEffect, tickEffects };
