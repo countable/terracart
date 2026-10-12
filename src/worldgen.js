@@ -2538,7 +2538,7 @@
   //                       (SURFACE_ROCK_TIER_WEIGHTS) — ~2.5 % copper-bearing
   //   underground       → CAVE_ORE_SHARE of the rocks for each of the
   //                       level's ore tiers (caveOreTiers, below), the rest
-  //                       plain: level 1 LEVEL1_COPPER_SHARE copper (3 %, a
+  //                       plain: level 1 LEVEL1_COPPER_SHARE copper (5 %, a
   //                       taste), level 2 90 %, then 80 %
   const CAVE_ORE_SHARE = 0.10;
   // The first level down is no tier's mine (caveOreTiers(1) is empty), but it
@@ -2546,7 +2546,7 @@
   // it (owner, Oct 2026): this share of its rocks, the rest plain. The ore
   // table for a level with no tiers of its own is copper (caveOreWeights),
   // which is what makes this one number enough.
-  const LEVEL1_COPPER_SHARE = 0.03;
+  const LEVEL1_COPPER_SHARE = 0.05;
   function caveRockP(depth) {
     if (!depth || depth <= 0) return 0.90;
     if (depth === 1) return 1 - LEVEL1_COPPER_SHARE;
@@ -9022,6 +9022,7 @@
   //   arrivalStory story ID for the one-time floor arrival splash
   //   entryKey     save key required to enter (null for ungated floors)
   //   pressureTraps runtime pressure-plate encounters
+  //   vents        the vent kinds this floor erupts (EnvironmentHazards.VENTS rows)
   //   caveAreas    authored grove selection, carving and garrison settings
   //   streetGems   gemstone region and ordinary deposit probabilities
   const caveAreaProfile = (weights, carveWalls, goblins, spearGoblins) => Object.freeze({
@@ -9030,25 +9031,30 @@
     carveWalls, goblins, spearGoblins
   });
   const FLOOR_PROFILES = Object.freeze([
-    Object.freeze({ depth: 1, arrivalStory: 'cave', entryKey: null,
-      pressureTraps: true, caveAreas: caveAreaProfile([35, 30, 30, 5, 15], false, 12, false),
+    Object.freeze({ depth: 1, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
+      pressureTraps: false, caveAreas: caveAreaProfile([50, 15, 30, 5, 15], false, 12, false),
       streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'above', streetMirror: true,
       fallLandings: false, chestSource: 'above', quarryProvenance: true, lava: false }),
     Object.freeze({ depth: 2, arrivalStory: 'dungeon_stone', entryKey: null,
-      pressureTraps: false, caveAreas: caveAreaProfile([20, 45, 25, 10, 15], true, 16, true),
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
+      pressureTraps: true, caveAreas: caveAreaProfile([20, 45, 25, 10, 15], true, 16, true),
       streetGems: Object.freeze({ region: .10, ordinary: .08 }), biome: 'deep_stone', terrain: 'clearings', streetMirror: true,
       fallLandings: true, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 3, arrivalStory: 'dungeon_underdark', entryKey: null,
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'underdark', terrain: 'open', streetMirror: false,
       fallLandings: false, chestSource: 'surface', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 4, arrivalStory: 'cave', entryKey: null,
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'surfacePaint', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 5, arrivalStory: 'cave', entryKey: 'level4Key',
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'above', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: true }),
   ]);
   const DEFAULT_FLOOR_PROFILE = Object.freeze({ arrivalStory: 'cave', entryKey: 'level4Key',
+    vents: Object.freeze(['poison', 'fire', 'paralysis']),
     pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'above', streetMirror: false,
     fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false });
   const FLOOR_PROFILE_BY_DEPTH = new Map(FLOOR_PROFILES.map(row => [row.depth, row]));

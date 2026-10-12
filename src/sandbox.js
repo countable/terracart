@@ -1318,14 +1318,15 @@
     const origin = tileCellToAbs(scene, centreTX, centreTY,
       gridOriginIX + yard.lx, gridOriginIY + yard.ly);
     installHazardFloors(scene, centreTX, centreTY);
-    if (SandboxDestinations.find(params.get('sandboxZone'))?.depth === 1) {
-      scene.depth = scene.save.depth = 1;
-      WorldGen.setDepth(1);
+    const labDepth = SandboxDestinations.find(params.get('sandboxZone'))?.depth;
+    if (labDepth === 1 || labDepth === 2) {
+      scene.depth = scene.save.depth = labDepth;
+      WorldGen.setDepth(labDepth);
       scene.cameras.main.setBackgroundColor('#0a0a12');
     }
     scene._sandboxHazardOrigin = origin;
     scene._sandboxHazardFixtures = null;
-    if (scene.depth === 1 || SandboxDestinations.find(params.get('sandboxZone'))?.id === 'hazards'
+    if (scene.depth === 1 || scene.depth === 2 || SandboxDestinations.find(params.get('sandboxZone'))?.id === 'hazards'
         || params.get('sandboxScene')?.toUpperCase() === 'HAZARDS') seedHazardState(scene, origin);
   }
 
@@ -1634,10 +1635,17 @@
       env[type === 'vent' ? 'vents' : type === 'cavein' ? 'caveins' : 'sinkholes'].push(h);
       fixtures.push(h);
     };
-    if (scene.depth === 1) {
+    if (scene.depth === 1 || scene.depth === 2) {
       const torch = CONSUMABLE_SPEC.torch;
       Buffs.extend(scene.save, scene, torch.buff, torch.durationMs);
-      ['poison', 'fire', 'paralysis'].forEach((kind, i) => add('vent', 3 + i * 4, 4, kind, 'vent-' + kind));
+      // Each floor's own vents (EnvironmentHazards.ventKinds): L1 confusion,
+      // L2 poison, fire and paralysis.
+      EnvironmentHazards.ventKinds(scene.depth).forEach((kind, i) => add('vent', 3 + i * 4, 4, kind, 'vent-' + kind));
+    }
+    if (scene.depth === 1) {
+      add('cavein', 20, 5, 'poison', 'cavein');
+      add('cavein', 21, 5, 'poison', 'cavein-neighbor');
+    } else if (scene.depth === 2) {
       ['ball', 'wall'].forEach((kind, i) => {
         const pair = PressureTraps.create(scene, at(6 + i * 10, 7), at(3 + i * 10, 7), kind, prefix + 'pressure-' + kind);
         pair.plate._sandboxProbe = 'plate-' + kind;
@@ -1646,8 +1654,6 @@
         PressureTraps.lists(scene).traps.push(pair.trap);
         fixtures.push(pair.plate, pair.trap);
       });
-      add('cavein', 20, 5, 'poison', 'cavein');
-      add('cavein', 21, 5, 'poison', 'cavein-neighbor');
     } else {
       add('sinkhole', 16, 6);
       const cell = at(5, 6), point = absCellCenterMeters(scene, cell.cellIX, cell.cellIY);
@@ -1726,11 +1732,12 @@
     const yard = sceneByName('HAZARDS');
     const label = (text, x, y, depth, reset = false) => addLabel(text,
       originIX + yard.lx + x, originIY + yard.ly + y, depth, reset);
-    for (const depth of [0, 1]) label('RESET HAZARDS', 2, 4, depth, true);
+    for (const depth of [0, 1, 2]) label('RESET HAZARDS', 2, 4, depth, true);
     label('RESET HAZARDS', 20, 3, 1, true);
-    [['POISON', 3, 3], ['FIRE', 7, 3], ['PARALYSIS', 11, 3],
-      ['BALL → PLATE', 4, 8], ['WALL → PLATE', 14, 8], ['CAVE-IN', 20, 4]]
-      .forEach(([text, x, y]) => label(text, x, y, 1));
+    [['CONFUSION', 3, 3, 1], ['CAVE-IN', 20, 4, 1],
+      ['POISON', 3, 3, 2], ['FIRE', 7, 3, 2], ['PARALYSIS', 11, 3, 2],
+      ['BALL → PLATE', 4, 8, 2], ['WALL → PLATE', 14, 8, 2]]
+      .forEach(([text, x, y, depth]) => label(text, x, y, depth));
     // Re-position labels from their world coord every frame so they follow the
     // camera. wanderCreatures runs each scene tick and we own the reference, so
     // wrap it (a direct scene.update patch doesn't intercept Phaser's binding).
