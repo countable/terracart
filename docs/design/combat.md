@@ -182,6 +182,12 @@ mechanics.
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap
   enemies inside Home's ring.
+- A lit campfire's hearth (`FIRE_TOUCH_CELLS`, where it sets a body burning) is
+  fire to every grounded mover — every enemy kind, lair guards, pets, fauna and
+  NPCs — through the same `fireStepAllowed` that holds bodies out of burning
+  ground: no step or hop enters it, a body already in it may walk out, and a
+  chasing foe sidesteps around it when a jog fits. This is separate from the
+  warmth-ring ward (`FIRE_REST_R`), which turns back only entry-level kinds.
 - Home is `save.starterShopId`: a synthetic trailer or an adopted house, which
   draws as the trailer. "Move Home here" on any cell of an unclaimed house's
   footprint adopts that house, so the trailer replaces the building rather than

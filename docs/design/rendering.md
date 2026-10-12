@@ -58,6 +58,10 @@ rendering, lighting or street mechanics. Camera and art geometry live in
 - A creature's contact shadow centres 3 px above its ground point
   (`SHADOW_LOOK.creature.dy`), so its feet stand on the ellipse's middle; the
   elite's rune circle shares that centre.
+- NPC sheet corrections live in `SpriteLayout.NPC_SHEETS.render` and bake once
+  through `makeNpcSheet` at asset load. Grove fox bodies match the citizens'
+  height and outline ink while retaining the shared feet anchor; map animations,
+  dialogue portraits and the NPC roster use that same transform.
 - An elite (`Combat.isElite`) keeps its own colours, baked vivid once per
   sheet (`Render.vividTexture`), under every renderer; the gold tint is for
   shiny animals. Its twin rune circle is two white rotation strips
@@ -137,10 +141,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   lighting and fog, clipped to the world viewport. `GasRender` eases density
   changes over 320 ms while the simulation diffuses once per second. Drawing
   reads a cached field snapshot and performs no texture creation or readback.
-  Confusion gas is bright yellow with an opacity floor, so even a thin fringe
-  reads yellow over a dim cave floor; mushroom projectiles use the same cloud painter
-  and palette, at
-  three-quarters of a cell wide.
+  Each `MushroomGas.KINDS` row owns its colours (confusion bright yellow,
+  poison green, paralysis blue); an opacity floor keeps even a thin fringe in
+  its colour over a dim cave floor. Mushroom projectiles use the same cloud
+  painter and confusion palette, at three-quarters of a cell wide.
 
 - `lighting.js` owns the sole lighting pass: additive source cookies on a 2D
   canvas multiplied over the world. Do not add darkness passes or dim sprites

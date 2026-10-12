@@ -1,14 +1,13 @@
-// Cell-bound mushroom gas: a translucent, pixel-soft cloud over world sprites,
+// Cell-bound gas (every MushroomGas.KINDS row): a translucent, pixel-soft cloud over world sprites,
 // under lighting and exploration fog. No textures or pixel readbacks per frame.
 const GasRender = (() => {
   const FADE_MS = 320;
-  // Confusion gas is BRIGHT YELLOW (owner, Oct 2026): the old lilac all but
-  // vanished over grass, and the first muted yellow still sank into dim cave
-  // floors. The mushroom monster's travelling puff paints through here too.
-  const COLOR = 0xffde1a;
-  const HIGHLIGHT = 0xffffc4;
+  // Colours are the kind's row (MushroomGas.KINDS): confusion BRIGHT YELLOW
+  // (owner, Oct 2026: the old lilac all but vanished over grass, and a muted
+  // yellow sank into dim cave floors), poison green, paralysis blue. The
+  // mushroom monster's travelling puff paints confusion through here too.
   // Cell opacity: any gas at all starts from MIN_ALPHA so a thin fringe still
-  // reads yellow over a dark cave floor, rather than a murky olive; a dense
+  // reads in its colour over a dark cave floor, rather than murk; a dense
   // cloud peaks at MAX_ALPHA and the cell beneath still shows through every
   // band (each band is at most 0.72 of it).
   const MIN_ALPHA = 0.3;
@@ -17,7 +16,8 @@ const GasRender = (() => {
   // Phaser Graphics-compatible painter, also usable by the art preview adapter.
   // Stepped shoulders and sparse highlights keep a cell cloud from looking like
   // a rectangular terrain tint. All geometry stays inside its simulation cell.
-  function paintCell(g, x, y, size, density, seed = 0, phase = 0) {
+  function paintCell(g, x, y, size, density, seed = 0, phase = 0, kind = 'confusion') {
+    const { colour: COLOR, highlight: HIGHLIGHT } = MushroomGas.KINDS[kind];
     // Square-root response keeps the spreading fringe visible: a .25-density
     // neighbour reads as a veil, while the source remains translucent.
     // The floor ramps in below the simulation's vanish threshold, so the
@@ -69,7 +69,7 @@ const GasRender = (() => {
       state.frameKey = null;
       const seen = new Set();
       for (const cell of cells) {
-        const key = cellKeyFromAbsCell(cell.cellIX, cell.cellIY);
+        const key = cell.kind + ':' + cellKeyFromAbsCell(cell.cellIX, cell.cellIY);
         seen.add(key);
         let entry = state.cells.get(key);
         if (!entry) {
@@ -110,7 +110,7 @@ const GasRender = (() => {
           p.y - size / 2 > scene.viewTop + scene.viewSize) continue;
       const seed = ((Math.imul(entry.cellIX, 31) ^ entry.cellIY) >>> 0) % 997;
       paintCell(g, Math.round(p.x - size / 2), Math.round(p.y - size / 2),
-        size, densityAt(entry, now), seed, now / 1800);
+        size, densityAt(entry, now), seed, now / 1800, entry.kind);
     }
   }
 

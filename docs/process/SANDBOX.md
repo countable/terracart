@@ -210,8 +210,9 @@ three vents (poison, fire, paralysis), a rolling ball and a sliding wall. Each
 lab seats the vents `EnvironmentHazards.ventKinds` allows on its floor. Arrival
 and reset light a normal torch from the test kit, making the warnings visible. Walk
 onto a plate to launch its trap; each plate fires once. Vents use their normal
-inactive/warning/active cycle; the confusion vent's eruption bursts confusion
-gas onto its neighbours instead of striking. Cave-ins start their five-second warning on
+inactive/warning/active cycle; a gas vent's eruption bursts its gas (confusion
+yellow, poison green, paralysis blue) onto its neighbours instead of striking,
+and the fire vent lights burning ground on its cell and the four beside it. Cave-ins start their five-second warning on
 load and stay open. `cavein` lands beside the cracks to watch the full warning;
 a second reset label there repeats the sequence without walking back. Depths 1 and 2 have authored empty floor tiles so falling
 uses the real landing search and depth transition without a network wait.

@@ -93,7 +93,9 @@ The giant serpent remains a draft prototype and has no live spawn entry.
 
 Destroyed Crater has cyclic fire vents on its dry ground, in addition to its
 permanent central lava pool. `EnvironmentHazards` owns their seeded placement,
-inactive/warning/eruption cycle, contact damage and burning. Other surface
+inactive/warning/eruption cycle, contact damage and burning; each eruption
+also lights the vent's cell and the four beside it as short-lived
+`GroundFire`, relit every cycle, which can catch nearby fuel. Other surface
 quarry variants do not gain these vents.
 
 ## Caves

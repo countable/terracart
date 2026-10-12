@@ -1,4 +1,4 @@
-/* global loadGame, NPC, SpriteLayout, SortableTables */
+/* global loadGame, NPC, SpriteLayout, SortableTables, makeNpcSheet */
 'use strict';
 // NPC viewer: every neighbour role and named story character the game can
 // show, with the art it wears now. Roles, labels, culture shares, names and
@@ -39,7 +39,7 @@
     };
 
     const npcArt = SpriteLayout.CREATURE_ART.npc;
-    const asSheet = (s, scale = 1) => ({ key: s.idle, label: s.path.split('/').pop().replace(/_idle\.png$/, ''), src: '../' + s.path, fw: 48, fh: 48, scale: npcArt.scale * scale, tint: s.tint });
+    const asSheet = (s, scale = 1) => ({ key: s.idle, label: s.path.split('/').pop().replace(/_idle\.png$/, ''), src: '../' + s.path, fw: 48, fh: 48, scale: npcArt.scale * scale, tint: s.tint, render: s.render });
     const citizens = SpriteLayout.NPC_SHEETS.filter(s => !s.role);
     // A row's art: its own sheet, or the shared citizens in the culture's tints.
     const artFor = (c, scale) => {
@@ -80,7 +80,8 @@
     // back, left, right), each cropped to its own columns on one shared
     // vertical band so feet stay level, multiplied by `tint` like Phaser.
     async function draw(sheet, { rowsToShow = 1, tint = null, zoom, label = sheet.label }) {
-      const im = await load(sheet.src);
+      const source = await load(sheet.src);
+      const im = source && makeNpcSheet(source, sheet);
       const fig = document.createElement('figure');
       if (!im) { fig.innerHTML = `<span class="missing">Missing image</span><figcaption>${esc(label)}</figcaption>`; return fig; }
       const src = document.createElement('canvas'); src.width = sheet.fw * rowsToShow; src.height = sheet.fh;
