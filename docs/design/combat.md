@@ -76,7 +76,12 @@ mechanics.
 - Route incoming damage through `Combat.playerDamage` and armour mitigation,
   including per-hit arrow bundles. A shield potion halves the raw blow before
   armour; difficulty multiplies the mitigated blow after armour. Armour reduces
-  blows rather than increasing maximum energy.
+  blows rather than increasing maximum energy. Stoneskin adds its consumable
+  row's armour bonus to that same pool, including traps, potion blasts and
+  ongoing damage packets. Its potion is drunk through the shared timed-buff
+  action. Raw and grilled salmon lend both Grip and Stoneskin for the fish
+  regeneration duration; each extends the existing buff without stacking its
+  strength. A refused meal grants neither effect.
 - `Energy.set` is the only runtime energy writer (current-save normalization is exempt).
   Accumulate fractional per-frame gains/losses before banking whole pips.
   `RoadSafety.DRAIN_PER_SECOND` drains a surface player whose feet remain in
