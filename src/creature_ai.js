@@ -1720,7 +1720,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
       const a = row.aura;
       const raw = a.rawDps * Combat.powerMul(c);
       const loss = Combat.playerDamageRate(raw * PotionEffects.damageMul(scene.save), scene.save.armor, dt,
-        { packetSeconds: a.mitigationPacketSeconds });
+        { packetSeconds: a.mitigationPacketSeconds, save: scene.save, mode: scene.save.mode });
       foeBlowLands(scene, c, loss, { mitigated: true });
     }
   }
@@ -2035,7 +2035,7 @@ function enemySlimeTrailTick(scene, px, py, dt, now = Date.now()) {
   if (!rawDps || Combat.playerDowned(scene.save.energy) || Conditions.flying(scene.save, now)) return;
   // One-second packets through the one blow writer (the aura's shape).
   foeBlowLands(scene, null, Combat.playerDamageRate(rawDps * PotionEffects.damageMul(scene.save),
-    scene.save.armor, dt, { packetSeconds: 1 }), { mitigated: true });
+    scene.save.armor, dt, { packetSeconds: 1, save: scene.save, mode: scene.save.mode }), { mitigated: true });
 }
 
 function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt, creatureTarget = null) {

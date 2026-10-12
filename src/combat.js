@@ -222,16 +222,20 @@
     if (typeof Difficulty === 'undefined') return mode === 'hard' ? 2.5 : 1;
     return (mode ? Difficulty.of({ mode }) : Difficulty.get()).incomingDamageMul;
   }
-  function playerDamage(damage, armor, hits = 1, mode) {
+  // Temporary armour joins the worn pool before each hit is mitigated.
+  function armorBonus(save, now = Date.now()) {
+    return Buffs.until('stoneskin', save) > now ? CONSUMABLE_SPEC.stoneskin_potion.armorBonus : 0;
+  }
+  function playerDamage(damage, armor, hits = 1, mode, bonus = 0) {
     const n = Math.max(1, Math.round(hits || 1));
     const reduction = (typeof armorReduction === 'function') ? armorReduction(armor) : 0;
-    return n * mitigate(damage / n, reduction) * playerDamageMultiplier(mode);
+    return n * mitigate(damage / n, reduction + bonus) * playerDamageMultiplier(mode);
   }
   // Mitigate whole packets, then integrate the rate. The one-point hit floor
   // is never applied once per animation frame for an aura or ongoing damage.
   function playerDamageRate(rawDps, armor, dtSeconds, options = {}) {
     const packet = options.packetSeconds > 0 ? options.packetSeconds : 1;
-    return playerDamage(rawDps * packet * (options.multiplier ?? 1), armor, 1, options.mode)
+    return playerDamage(rawDps * packet * (options.multiplier ?? 1), armor, 1, options.mode, armorBonus(options.save, options.now))
       / packet * Math.max(0, dtSeconds);
   }
 
@@ -245,7 +249,7 @@
     // fields, for the player and a potioned creature alike).
     const mul = root.PotionEffects ? root.PotionEffects.damageMul(save, now) : 1;
     const shielded = mul < 1 ? Math.ceil(damage * mul) : damage;
-    return playerDamage(shielded, save.armor, hits, save.mode);
+    return playerDamage(shielded, save.armor, hits, save.mode, armorBonus(save, now));
   }
 
   // Carrying several shields never stacks their protection. Subtract once
@@ -1703,7 +1707,7 @@
     trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul, playerAttackIntervalMul,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
-    MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, incomingProjectileDamage, projectileReduction, playerDowned,
+    MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, armorBonus, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, incomingProjectileDamage, projectileReduction, playerDowned,
     theftKind, THEFT_COINS, theftAmount, theftFood, theftDay, theftSated, incomingTheft, bankTheft, raidSpent, bankRaid,
     MELEE_REACH_CELLS, MELEE_WEAPONS, meleeIntervalMs, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,

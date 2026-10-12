@@ -513,6 +513,7 @@ const MINERAL_ICON_SHEET = {
   // Potion of Grip — the round sparkling flask (frame 12) recoloured to the
   // Rust totem's light (tools/export_grip_potion_icon.py).
   grip_potion: { sheet: 'icon_grip_potion', frame: 0 },
+  stoneskin_potion: { sheet: 'icon_potions', frame: 30 }, // pale round flask
   // Poison Flask — the wide violet flask (row 4, frame 23), poison's ink.
   poison_flask: { sheet: 'icon_potions', frame: 23 },
   // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
@@ -523,6 +524,8 @@ const MINERAL_ICON_SHEET = {
   // widens the player's own light for a few minutes (useTorch in app.js →
   // the `torch` row of Lighting.KINDS).
   torch:         { sheet: 'icon_torch', frame: 0 },
+  // The shared icon renderer applies the blue palette on every DOM surface.
+  evertorch:     { sheet: 'icon_torch', frame: 0, filter: 'hue-rotate(180deg) saturate(1.4)' },
   // Cutters from the db32 item library; the tool removes traps, not a backpack.
   trap_disarm_kit:      { sheet: 'icon_kit', frame: 0 },
   // The existing sprung-jaw drawing in the placed magic trap's magenta.
@@ -707,6 +710,7 @@ const BASE_TIER = {
   // Grip is the T1 fighting potion: the Rust totem's boon (+5 melee and
   // ranged damage, Combat.TRAINING_KINDS drill) for a short spell, bottled.
   grip_potion: 1,
+  stoneskin_potion: 2,
   // The Poison Flask: the purple slime's minute of poison, thrown or drunk —
   // a T2 utility like the protection potion, under the T3 explosive flask.
   poison_flask: 2,
@@ -734,6 +738,7 @@ const BASE_TIER = {
   renovation_permit: 4,
   // Torch — the T1 cave staple: light for the dark, cheap and common.
   torch: 1,
+  evertorch: 6,
   // Minerals — coal floor, gem ladder mirrors mining rarity
   flint_shard: 1,
   meat: 3, rabbit_pelt: 2,
@@ -893,6 +898,7 @@ const ITEMS = [
   { id: 'hardworking_potion', name: 'Potion of Hardworking', kind: 'magic' },
   // Drunk, never thrown: the boon is the player's training drill.
   { id: 'grip_potion', name: 'Potion of Grip', kind: 'magic' },
+  { id: 'stoneskin_potion', name: 'Potion of Stoneskin', kind: 'magic' },
   // Thrown like a potion (it lands Combat.poison on whatever it strikes) or
   // drunk (the player's own poison row).
   { id: 'poison_flask', name: 'Poison Flask', kind: 'magic', potion: true },
@@ -964,6 +970,7 @@ const ITEMS = [
   // plateau (what you can tap) is untouched; only the dark around it lifts.
   // Lighting another while one burns EXTENDS the time (useTorch in app.js).
   { id: 'torch',         name: 'Torch',               kind: 'supply' },
+  { id: 'evertorch',     name: 'Evertorch',           kind: 'supply' },
   // Trap Disarm Kit also dismantles barricades and iron spikes permanently.
   // Hold it and tap a trap (hidden scuff or already-sprung
   // jaw, surface or cave) to remove it for good — see Traps.disarm in
@@ -1076,6 +1083,10 @@ for (const it of ITEMS) {
   if (it.baseTier == null) it.baseTier = BASE_TIER[it.id] || 1;
 }
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+// Cooking changes value and nourishment, not how common the ingredient is.
+for (const [raw, cooked] of Object.entries(COOKED_FOODS)) {
+  if (ITEM_BY_ID[raw].dropWeight != null) ITEM_BY_ID[cooked.id].dropWeight = ITEM_BY_ID[raw].dropWeight;
+}
 // An item's display name, or its bare id when the catalog has no row for it.
 function itemName(id) {
   return ITEM_BY_ID[id]?.name || wildplantRule(id)?.name
@@ -1241,6 +1252,13 @@ const CONSUMABLE_SPEC = {
     used: { title: 'You drink the Potion of Grip',
       body: (scene, spec) => `+${Combat.TRAINING_KINDS.melee.drill} melee and archery damage for ${shortDuration(spec.durationMs)}.` },
   },
+  stoneskin_potion: {
+    durationMs: 2 * _CONSUMABLE_MINUTE_MS, buff: 'stoneskin', armorBonus: 5,
+    verb: 'Drink', title: 'Drink the Potion of Stoneskin?',
+    get: 'Your skin hardens like stone, lending armour against incoming blows.',
+    used: { title: 'You drink the Potion of Stoneskin',
+      body: (scene, spec) => `+${spec.armorBonus} armour for ${shortDuration(spec.durationMs)}.` },
+  },
   // Poison Flask: whoever it touches carries the `poison` row of
   // Conditions.DEFINITIONS for its minute — a struck creature through
   // PotionEffects.apply (Combat.poison), the drinker through
@@ -1256,6 +1274,9 @@ const CONSUMABLE_SPEC = {
   // as if by a can of `canTier` (Gold, T4 — owner, Sep 2026), or by the
   // player's own can when that is better (app.js waterCropsWithin). So the
   // jump roll and the shortened hold are a Gold can's, whoever eats it.
+  salmon: { get durationMs() { return Energy.FISH_REGEN_MS; }, foodBuffs: ['melee', 'stoneskin'] },
+  grilled_salmon: { get durationMs() { return CONSUMABLE_SPEC.salmon.durationMs; },
+    get foodBuffs() { return CONSUMABLE_SPEC.salmon.foodBuffs; } },
   rainberry: { radiusM: 20, canTier: 4 },
   pairy: { durationMs: 5 * _CONSUMABLE_MINUTE_MS, buff: 'compass' },
   coffee: { durationMs: 3 * _CONSUMABLE_MINUTE_MS, speedTierBoost: 2, buff: 'coffee' },
@@ -1497,6 +1518,13 @@ const CONSUMABLE_SPEC = {
     used: { title: scene => (scene.isTorchActive() ? '🔥 You light another Torch' : '🔥 You light the Torch'),
       body: 'The flame takes with a soft roar. Shadows retreat beyond the reach of your footsteps.' },
   },
+  evertorch: {
+    durationMs: 120 * _CONSUMABLE_MINUTE_MS, radiusMul: 2, buff: 'evertorch',
+    verb: 'Light', title: 'Light the Evertorch?',
+    get: 'Blue fire opens the dark around you.',
+    used: { title: 'You light the Evertorch',
+      body: 'A steady blue flame takes hold. Its light follows you into the dark.' },
+  },
   // THE HORSE is kept, not spent: Ride and Dismount toggle save.riding, and
   // riding only counts while a horse is in the bag (isRiding). Mounted, the
   // stick walk goes speedMul as fast and costs energyMul as much per cell —
@@ -1571,7 +1599,7 @@ const PRICES = {
   // A seed's price is also its roll-budget divisor (chest_themes.js
   // quantity): ~TIER_VALUE[baseTier] / 5, so a same-tier roll with no
   // brackets (BUDGET_SHARE.seed of the budget) holds about four.
-  rainberry_seed: 42, pairy_seed: 42, nut_seed: 5, potato_seed: 1,
+  rainberry_seed: 63, pairy_seed: 63, nut_seed: 5, potato_seed: 1,
   berry_seed: 5, cress_seed: 1, onion_seed: 5, starfruit_seed: 15,
   gemfruit_seed: 15, rubble_seed: 8, coffee_seed: 12,
   sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50, dawnfruit_seed: 480,
@@ -1582,9 +1610,9 @@ const PRICES = {
   potato: 5,
   cress: 5,        // T1 kitchen-garden green
   onion: 6,        // T1 kitchen-garden bulb
-  rainberry: 6,
-  berry: 7,        // T2 sweet — slightly above rainberry
-  pairy: 8,
+  rainberry: 18,
+  berry: 7,        // T2 sweet
+  pairy: 24,
   // A shop-bought crop pays its grower: at an average shop (2.1× seed list)
   // the trailer's 2-produce harvest clears the seed cost by 25% of the
   // payout (Oct 2026). Starfruit and gemfruit were the T3 crops under it.
@@ -1620,7 +1648,7 @@ const PRICES = {
   shiny_egg: 40,
   baby_green_dragon: 360,
   green_dragon: 120,
-  milk: 18,
+  milk: 28,
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
   syrup: 7,
@@ -1632,7 +1660,7 @@ const PRICES = {
   tome_thunder: 300,  // T5 — a T4 thunderclap (the unique-relic curve re-prices all tomes)
   tome_speed: 100, tome_shielding: 80, tome_healing: 70, tome_blight: 170,
   tome_fire_wall: 170, // T4 — unique-relic pricing applies
-  blank_scroll: 200,
+  blank_scroll: 50,
   fireball_scroll: 120,
   explosive_flask: 100,
   fear_scroll: 100,
@@ -1642,6 +1670,7 @@ const PRICES = {
   sleep_powder: 100,
   psychosis_powder: 15, // T1 — ten seconds of foes running every which way
   hardworking_potion: 15, // T1 — the Harvest Idol's quick hands for five minutes
+  stoneskin_potion: 35, // T2 — five armour for two minutes
   grip_potion: 15, // T1 — the Rust totem's +5 damage for two minutes
   poison_flask: 45, // T2 — a minute of the purple slime's poison on whatever it touches
   reach_potion:  45,   // T4 — full-screen reach for 1 min is a strong utility pop
@@ -1676,6 +1705,7 @@ const PRICES = {
   trap_disarm_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
   throwing_spear:         5,   // T1 supply (BASE_TIER) — one thrown shot, spent on use; priced as a staple like the torch (owner, Oct 2026: 40 was far too dear for one throw)
+  evertorch:    200,   // T6 — forty times a Torch’s duration, at the same price per minute.
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
   renovation_permit: 180,   // T4 — one rank on one building, forever; a hammer's neighbour
@@ -1706,11 +1736,11 @@ const PRICES = {
   crow_feather: 10,
   butterfly: 100,  // premium catch — Bug Net required, so it's worth a lot
   // ── Wild mushroom ────────────────────────────────────────
-  mushroom: 8,
+  mushroom: 5,
   // ── Fish ─────────────────────────────────────────────────
-  minnow: 2,    bass: 12,   trout: 40,   salmon: 100, goldenfish: 300,
+  minnow: 3,    bass: 18,   trout: 60,   salmon: 150, goldenfish: 450,
   // ── Orchard fruit ────────────────────────────────────────
-  apple: 8, cherry: 12, worldpeach: 10, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
+  apple: 8, cherry: 12, worldpeach: 250, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
 };
 PRICES.grilled_meat = Math.round(PRICES.meat * GRILL_ENERGY_MUL);
 for (const [raw, c] of Object.entries(COOKED_FOODS)) {
@@ -1908,6 +1938,7 @@ const ITEM_EFFECTS = {
   psychosis_powder: CONSUMABLE_SPEC.psychosis_powder.get,
   hardworking_potion: CONSUMABLE_SPEC.hardworking_potion.get,
   grip_potion: CONSUMABLE_SPEC.grip_potion.get,
+  stoneskin_potion: CONSUMABLE_SPEC.stoneskin_potion.get,
   poison_flask: 'Bottled venom. A purple chill creeps into whoever it touches, thrown or drunk.',
   reach_potion: 'The far horizon trembles close to the rim of this bottle.',
   antidote: 'A bitter draught to wash every affliction away.',
@@ -1924,6 +1955,7 @@ const ITEM_EFFECTS = {
   frost_powder: 'A pinch chills the air, and foes within reach move and strike slowly.',
   rope: 'Its woven fibres offer a handhold between daylight and the depths.',
   torch: 'Its flame pushes back the dark beyond your fingertips.',
+  evertorch: 'Blue flame pushes back the dark for two hours.',
   trap_disarm_kit: 'Iron tools loosen snares, barricades and spikes.',
   renovation_permit: 'A guild seal that lets masons raise a shop a rank, once the lane has remembered enough to deserve it.',
   magic_trap: 'A hungry knot of magic waits for a foe’s footfall.',
@@ -2472,6 +2504,9 @@ const FISH_SPECIES = [
 for (const { id } of FISH_SPECIES) {
   ITEM_EFFECTS[id] = 'Its nourishment returns your strength little by little.';
   ITEM_EFFECTS[COOKED_FOODS[id].id] = 'Warm from the fire, it restores your strength little by little.';
+}
+for (const id of ['salmon', COOKED_FOODS.salmon.id]) {
+  ITEM_EFFECTS[id] += ' It also grants Grip and Stoneskin.';
 }
 function fishTier(id) { return itemTierOf(id, 1); }
 // Shiny fish use the same +3 tier uplift as shiny inventory animals.
