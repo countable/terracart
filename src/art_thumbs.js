@@ -5,7 +5,7 @@
 const ART_THUMBS = {
   barehand_tree: 'data:image/webp;base64,UklGRt4AAABXRUJQVlA4INIAAADQBQCdASoWABwAPp1Enkolo6MhqAqosBOJZgDCr5AUCQmbQD/Abn+LZANfzev3kRGFfcYzGLAAAP70SYfJ7U+raFmHvrRj5qLwvWTVit0zt/0JB+rFx4HexsEvLnRtBL+C0YazwQK2PCnQ0O+9WFY7+ZVuc88ZnMwWqAb+8i2Kxb+55wji0U6A+xwxLZMrayE6zGHuP4qDhlQYr+wvKV87EQY8i4F6QaV56TMGLIHxCdYHSbtns0pBByeJdxAT72//SgKzlUSJmVzqlH4W/+XkAAA=',
   barehand_work: 'data:image/webp;base64,UklGRswAAABXRUJQVlA4IMAAAAAwBQCdASoWABwAPp1Enkmlo6MhKAqosBOJZADFB3/kpTZSjFUvVSvNLxFQO7QfRxuZSAD+woYrjbr30Vf33qn+QwGD8tvycHA8NTpBb4t2S66zKEcnBxt6VZTZ+cGSsiaKECqwcbgtZKLHk0Q165J7mX/ZsMwtL8Rf1+MJ5P+rDENi1f5FlKku/szvLsZiZ8JKjwhxNRyG98S+5nbVgFPIYUTpXUGRgvxp9prDgO4CJk5GpRWTHNHpAvhlPQAAAAA=',
-  book_read: 'data:image/webp;base64,UklGRuIAAABXRUJQVlA4INYAAACwBQCdASoWABwAPp1Am0ilo6KhKA1QsBOJZgCdMoR1cKlBGCZKNzoh5dww0IZ34ixW/HeDiqAA/uaayOz5q5bNRnjsIX4+rCi+pefTo88IGKQIQXRkXbur3c8S9tWg4UPXF17vD7E3hdU77e2ltbDeSJo3vsYL9h1yRwmra7GmYEWZ2wWepaEwWpBRMPpoOM7eKOOBFHpGU5L+dUIjvzV0fXXEjXsMw8VvMnkV5sum9LaQ62ql3gvuVJD4PUfi11lBvvkyKznxLX/UQ/55He68thGX3AAA',
+  book_read: 'data:image/webp;base64,UklGRuIAAABXRUJQVlA4INYAAACQBQCdASoWABwAPp1CnEolo6KhqAqosBOJZgCdMoRwABLNcdIToQxOqJHbEZiv0U2KZPUHAAD+6jkIgymZ+8IfQMU2h9zCPbJNMUozCo1lrQQoG2Jm/qeC3e06I1JLrOf+iBWyn1HWMZQ+vt7aW1aK5WRPEPY9MaesCZQ7IYsD48su253Yb3l7FdFo64O9xaDIgsgtR7d9pEyybMcTph0/2zdExEpJRFtsetnvLBgXF4wpz9gf4+/hb2mTma1OScjjiitVsan4pjxvk18tky+5pdyn2gAA',
   booth_apothecary_intro: 'data:image/webp;base64,UklGRoQAAABXRUJQVlA4IHgAAAAwBACdASoWABwAPp1EnUolo6KhqAqosBOJZQC2yA34+8eDC1Zcvr91/oAA/ulVDw5NV6rag1TH5ccYqlStnPu57RicnnVkyhHqVuTwmXy/jxcJrc8GWp492tSmnyZ5pSTjlSFkGh9en/8Sto8V50WXQMnDl5WAAAA=',
   booth_apothecary_used: 'data:image/webp;base64,UklGRoYAAABXRUJQVlA4IHoAAABQBACdASoWABwAPp1Gnkslo6KhqAgAsBOJZQC3uBELVi7OaEphMLhyjXuAAP70o4tCgVf+JsUL6+K26J4/WmNF4ekkvOup4cSlnM6cIyMUwK/iqN2MxCllM2vmzT7mdiLEnQc4nust1mrArgSazwBwK4VLychR1AAAAA==',
   booth_chapel_intro: 'data:image/webp;base64,UklGRpIAAABXRUJQVlA4IIYAAAAQBACdASoWABwAPp1Am0klo6KhMBgIALATiWUAAC6ln/llJ3aDfKjeLAD+71w+lNVJQHPpVo3F7YttMLzv5AuO16A9Yj9JJTz9wj7iNKL5Qi9gcqrH/coSYt/tst80AD6LJpF1gxpQor7kGJIBsFtO6yCvakPu4kv9LvEQzeMZGCRpLYygAA==',
@@ -147,7 +147,7 @@ const ART_THUMBS = {
 const ART_TONES = {
   barehand_tree: '#995820',
   barehand_work: '#8a5321',
-  book_read: '#8f5323',
+  book_read: '#8a4d1e',
   booth_apothecary_intro: '#4e3423',
   booth_apothecary_used: '#38220e',
   booth_chapel_intro: '#473328',
@@ -300,9 +300,9 @@ const ART_CUTS = {
     'data:image/webp;base64,UklGRloAAABXRUJQVlA4IE4AAAAQAgCdASoLAA4AAkA4JagCdGuAAklxh2NAAP7SlTDWQJ6Fql3EPXnRD6fachEnVCS2xYeuTlcbVjnPL6PxQx51v8k9nv6TO+Wjja4AAAA=',
   ],
   book_read: [
-    'data:image/webp;base64,UklGRkYAAABXRUJQVlA4IDoAAADwAQCdASoDAAQAAkA4JQBOiP/wPRL8UYAA/va0eh63Vj1FXtNs5AJ3rJEoxWBPeLsDXazm1WmmAAAA',
-    'data:image/webp;base64,UklGRkwAAABXRUJQVlA4IEAAAAAQAgCdASoGAAgAAkA4JZACdGuAAocdFPNAAP7tKF06eN6IknalQEl7rNPW9ArHSw0D8dbPDvMk+pQvOYptUAAA',
-    'data:image/webp;base64,UklGRmIAAABXRUJQVlA4IFYAAAAQAgCdASoLAA4AAkA4JbACdAEe4V9vFVXwAP7xvLe3GECaZrI/S778dkUOn2+QbLEGQRBbLueF5ehVHjeSbNS/8uR1C5KHoqKznP9oBEK8b2+2onIAAA==',
+    'data:image/webp;base64,UklGRkQAAABXRUJQVlA4IDgAAADwAQCdASoDAAQAAkA4JQBOiP/wPRLj7EAA/vefcksoT1+6I7OQCd6yRKMVSP1X8XcwyIRJaKgAAA==',
+    'data:image/webp;base64,UklGRkoAAABXRUJQVlA4ID4AAAAwAgCdASoGAAgAAkA4JZgCdGuAAvp9QGuUgAD+76lJ9wzlO2KxrkUWRKjssSTwG+NF80AFB8V89++KfAAAAA==',
+    'data:image/webp;base64,UklGRmIAAABXRUJQVlA4IFYAAAAwAgCdASoLAA4AAkA4JbACdAEe4YfJW/egAAD+82VGJbBqCfK1B9hsISjwc+gBpNqiixK/MtXEUf+HNJZAMq/Pf7Zm4ZAWHdC7lW/pAbrPZ5mBv7HgAA==',
   ],
   booth_apothecary_intro: [
     'data:image/webp;base64,UklGRjIAAABXRUJQVlA4ICYAAACwAQCdASoDAAQAAkA4JZQCdAEO/gLsAP78WJ0u+e5iGSiZTOQAAA==',

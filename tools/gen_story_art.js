@@ -339,7 +339,7 @@ const PIECES = {
     'A stout stone frontier fort, its heavy timber gates swinging open for the first time in years, ' +
     'dust falling, a quartermaster in boiled leather stepping out with a relic-laden rack behind him.', 'claws'),
   book_read: scene(
-    'A young survivor sits on a fallen log reading a worn leather book by lantern light at dusk, a small stack of books beside them, fireflies drifting. Quiet learning.', 'mural'),
+    'A young survivor sits on a fallen log reading a worn leather book by lantern light at dusk, a small stack of books beside them, fireflies drifting. The raised brown hood projects forward, hiding the entire face and hair in opaque dark shadow: no visible skin, eyes, nose, mouth or chin inside the hood, even in lantern light. Quiet learning.', 'mural'),
   // A message bottle on the waterline (interactables.js INTERACTABLES.bottle):
   // its Book page is read under this painting.
   bottle_read: scene(
