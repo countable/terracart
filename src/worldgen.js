@@ -178,7 +178,7 @@
       for (let i = 0; i < coverage.length; i++) {
         if ((i & 511) === 0) yield 'zone street mark replacement';
         if (!coverage[i]) continue;
-        if (streetDress.marks) streetDress.marks[i] = 0;
+        if (streetDress.marks && StreetVariants.variantByCode(streetDress.marks[i])?.size !== 'path') streetDress.marks[i] = 0;
         if (streetDress.slowCells) streetDress.slowCells.delete(i);
       }
     }
@@ -6611,7 +6611,10 @@
       scenic = yield* Scenic.buildSteps(layersByName, tx, ty, w, grid, false, zone && zone.under);
       if (streetIndex) yield* StreetVariants.applyPathScenicSteps(streetIndex, scenic);
     }
-    if (streetIndex) streetArea = yield* StreetVariants.areaSteps(streetIndex, w);
+    if (streetIndex) {
+      yield* StreetVariants.suppressNexusRoadThemesSteps(streetIndex, zone, w);
+      streetArea = yield* StreetVariants.areaSteps(streetIndex, w);
+    }
     // Polygon scatter is legacy input for caves; surface corridor replacement
     // follows affinity selection and precedes zone paint and all dressings.
     const streetGround = new Uint8Array(w * h);
