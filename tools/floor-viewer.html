@@ -116,6 +116,7 @@
         HomeArea.setOrigin(home.x, home.y);
         const scene = Object.create(MapScene.prototype);
         Object.assign(scene, { tileEdgeM: R.EDGE, depth: 0, save: {}, startWorldM: home,
+          habitatTileAreaScale: (R.EDGE / W.tileEdgeMeters(R.lat)) ** 2,
           _sandboxMode: true, playerM: { x: 0, y: 0 }, mPerPx: R.EDGE / W.TILE_PX,
           originPx: { x: home.x / (R.EDGE / W.TILE_PX), y: home.y / (R.EDGE / W.TILE_PX) },
           cellM: W.CELL_M, cellsForRow: () => R.N, cellsPerTile: R.N, cellPx: 32,
@@ -375,9 +376,7 @@
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       const roads = entry.layers.find(l => l.name === 'transportation');
       const mvtToM = R.EDGE / (roads?.extent || 4096);
-      const TIER = { primary: '#9aa0ab', secondary: '#7c7d81', minor: '#5a5751', service: '#5a5751',
-        pedestrian: '#8b8272', track: '#a5947c', footway: '#b3a284', path: '#b3a284' };
-      for (const f of (roads?.features || [])) {
+      for (const [fi, f] of (roads?.features || []).entries()) {
         if (f.type !== 2 || W.isLotLane(f.tags)) continue;
         const width = W.roadOverlayWidthM(f.tags); if (!width) continue;
         const isPath = W.PATH_CLASSES.has(f.tags?.class);

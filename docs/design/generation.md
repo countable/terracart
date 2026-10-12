@@ -28,6 +28,11 @@ access or tile lifecycle mechanics.
   exhaust that pool within the same habitat. Forbidden ground is missing map
   area, not a roll that thins the population. A species with no sufficient
   legal space reports a placement shortfall without switching habitat/species.
+- Synthetic floor previews set `scene.habitatTileAreaScale` to their tile area
+  divided by a real map tile's area at the preview latitude. This scales only
+  ordinary fauna, enemy and mode-reserve budgets before placement. Live scenes
+  default to 1; Nexus, road, shoreline and authored encounter budgets keep
+  their own rules.
 - Mode differences in landcover enemy count are a reserve, not a reroll: the
   world seats the largest `Difficulty` `landEnemyCountMul` share
   (`enemy_habitat_…_r<n>` ids) after the base population, and each mode shows

@@ -257,11 +257,15 @@
     }
     const groups = [...groupsByKey.values()].sort((a, b) => keyOrder(a.key, b.key));
     const ordinary = groups.filter(group => group.profile.owner === 'land');
-    allocate(ordinary.filter(group => faunaRows(group.profile).length), FAUNA_PER_TILE, 'faunaRequested');
+    // Synthetic previews cover less area than a map tile. Scale their tile
+    // budgets before placement; live scenes retain the full budget by default.
+    const areaScale = scene.habitatTileAreaScale ?? 1;
+    const budget = count => Math.round(count * areaScale);
+    allocate(ordinary.filter(group => faunaRows(group.profile).length), budget(FAUNA_PER_TILE), 'faunaRequested');
     const armed = ordinary.filter(group => enemyRows(group.profile, group.type, { beach: group.beach }).length);
-    allocate(armed, ENEMIES_PER_TILE, 'enemyRequested');
+    allocate(armed, budget(ENEMIES_PER_TILE), 'enemyRequested');
     for (const group of groups) group.enemyReserve = 0;
-    allocate(armed, reserveBudget(), 'enemyReserve');
+    allocate(armed, budget(reserveBudget()), 'enemyReserve');
     for (const group of groups) {
       if (group.profile.owner !== 'land') group.faunaRequested = faunaBudget(group.profile, `${tx}|${ty}|${group.key}`);
       group.diagnostic = { key: group.key, profile: group.profile.id, rawCells: group.cells.length,
