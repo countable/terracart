@@ -447,7 +447,7 @@ const starterWrapper = (name) => {
                    '_ripenStreets(now, sight) {', '_oneRoadPay(perLine, now) {',
                    '_roadMetresMul() {', '_offGps() {',
                    '_scenicIntervals(tileKey, lineKey) {',
-                   '_scenicWalkStory(kind) {', '_afterRestoreBeat(fn) {',
+                   '_scenicWalkStory(kind, meta, newly) {', '_afterRestoreBeat(fn) {',
                    '_bankStreetMetres(addedM, at, now, opts) {', '_showTrailIntro(onDone) {',
                    '_enqueueCeremony(kind, open, { key, hold, defer = false } = {}) {', '_drainCeremonies() {', '_dialogOpen() {',
                    '_visitStreetLamps(now) {', '_markLampsRestored(meta, newly, now) {',

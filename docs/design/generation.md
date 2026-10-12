@@ -272,8 +272,8 @@ access or tile lifecycle mechanics.
   spawner. Authored Thorny Path, Snare Lane and Barricade Road cross-sections are the
   narrow exception: `streetObstacle` may occupy explicitly declared cells
   of its own road band. Thorny Path and snare clusters (and a Snare Lane's few lone stray snares, declared one band cell at a time) cross variant-eligible Small roads only; removable
-  barricade/spike lines also cross their own Major or Medium road band
-  and kerb buffer. All keep
+  barricade/spike lines belong on paths. Every authored cross-section refuses
+  Major/Medium road bands and their kerb buffers. All keep
   private, quiet, restricted, water/building and occupancy exclusions. Ordinary
   spawn classes cannot use that declaration to cross a road.
   POI chests are the place itself (`landRefused` —
@@ -286,6 +286,36 @@ access or tile lifecycle mechanics.
   (`sameSideField`, creature_ai.js) — nothing urgent across a Major or Medium road.
   Cave traps use their occupied-cell set; surface traps sit beside footpaths
   or on park edges, never near a road (`Traps.isTrapGround`).
+- Path variant assignment joins connected mapped fragments and balances natural
+  endpoints, nearby terrain/Nexus affinity and a soft 300 m length target.
+  Ordinary sections are at least 180 m and at most 550 m; forks and true ends
+  retain short branches. Every 20 m, sample beside the path using source ground
+  and Nexus traits. A dominant affinity change must persist 40 m on both sides
+  to attract a cut. Source endpoints and pronounced bends are also preferred;
+  interpolated cuts keep long uniform spans bounded. Choose cuts together to
+  avoid short leftovers. Theme affinity uses the same surrounding traits.
+  Section keys use their boundary coordinates and mapped level rather than an
+  ordinal, so an unchanged downstream section keeps its identity. Boundary
+  reasons and lengths are exposed in the map review viewer.
+  `streetIndex.pathSections` owns their geometry, stable
+  keys, source feature IDs and themes;
+  isolated short paths and tile-edge remnants stay short. Exact T-junctions are joined even when a source line omits the junction
+  vertex. Nearby disconnected endpoints are not snapped together. At forks, the
+  straightest continuation is preferred deterministically. Different mapped
+  levels and bridge/tunnel classes never join, and disconnected geometry
+  never joins just because it shares a feature ID. Sections are tile-local;
+  generation never depends on which neighbouring tiles are loaded.
+  Path sections draw from existing Small-road themes plus Lantern Row and
+  Barricade. Nexus surroundings influence the draw; a majority-scenic section
+  uses its landscape's look. Scenic restoration bonuses still follow the
+  original geographic intervals. Painting, dressing, lamps, stories and map
+  review all consume the same section assignment.
+- Medium roads are always **Old Trade Road**, and large roads are always
+  **Ancient Highway**. Neither receives road variants, themed obstacles,
+  themed guards or variant flora. Both retain road suppression and nighttime
+  curse damage. Selected mapped bus stops off the MD carriageway can retain
+  mercenary hiring wagons; LG roads and junctions cannot. Ordinary mapped
+  places keep their existing rules.
 - The road is never a refuge and never a lure. `roadClass` derives all safety
   geometry from the vector bands. `ROAD_CLASS_MAJOR_ROAD` marks an MD/LG cell
   only when that group covers at least half of it, which gives runtime warnings
@@ -479,7 +509,12 @@ Higher-priority placements and their access space take precedence in this order:
    replaces residential land cover and ambient yard fill, while buildings,
    piers and other land-access exclusions keep their paint. Nexus variants
    override road variants where they overlap; the physical road and its
-   safety restrictions remain intact.
+   safety restrictions remain intact. Goblin Gang Street is a Small-road
+   variant with compact sections up to 250 m. Per street key in a tile, six
+   paired clusters target 30 breakable barrels and 30 goblin grunts (five
+   per gang, in either difficulty). Fragments share that budget; blocked
+   seats reduce the count. Barrels use the attractor gate, and gang posts
+   and their guards retain the fast-enemy spawn gate.
 6. Ambient fill: ordinary plants, rocks and generic scattered content.
    Residential yard trees are the newest ambient fill: while the DeepForest
    layer is paused (`DEEPFOREST_TREES_ENABLED`), each residential polygon

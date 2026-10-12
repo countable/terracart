@@ -529,10 +529,6 @@ test('street lamps: each lamp carries its street\'s glow — StreetVariants.lamp
   const themed = P._streetLampsForTile.call({}, TX, TY, withIndex([themedRec]));
   assert.eq(themed[0].glow, StreetVariants.lampGlowFor(themedRec), 'a themed street: its variant\'s glow');
   assert.truthy(themed.every((L) => L.glow === themed[0].glow), 'every lamp on the line the same');
-  // An unthemed MAJOR road: whatever lampGlowFor says (the bandit torch).
-  const majorRec = { fi: 0, li: 0, size: 'major', variant: null };
-  const major = P._streetLampsForTile.call({}, TX, TY, withIndex([majorRec]));
-  assert.eq(major[0].glow, StreetVariants.lampGlowFor(majorRec) || UI_LAMP_GLOW, 'an unthemed major road');
   // A record for a DIFFERENT line does not colour this one.
   const other = P._streetLampsForTile.call({}, TX, TY, withIndex([{ fi: 0, li: 1, size: v.size, variant: v.id }]));
   assert.eq(other[0].glow, UI_LAMP_GLOW, 'keyed by fi:li — another line\'s theme stays on that line');
@@ -541,15 +537,39 @@ test('street lamps: each lamp carries its street\'s glow — StreetVariants.lamp
 });
 
 test('street lamps: density and glow stop at the same compact theme intervals', () => {
-  const rec = { fi:0,li:0,size:'major',variant:'lantern',
+  const rec = { fi:0,li:0,size:'minor',variant:'lantern',
     variantRanges:[[60 / MVT_TO_M,120 / MVT_TO_M]] };
   const lamps = P._streetLampsForTile.call({},TX,TY,withIndex([rec]));
   const themed=lamps.filter(l=>l.s>=60 && l.s<=120), plain=lamps.filter(l=>l.s<60 || l.s>120);
   assert.gt(themed.length,0,'the compact lantern stretch has lamps');
   assert.gt(plain.length,0,'the plain road remains represented');
   assert.truthy(themed.every(l=>l.glow === StreetVariants.VARIANT_BY_ID.lantern.lampGlow));
-  assert.truthy(plain.every(l=>l.glow === StreetVariants.BANDIT_STORY.lampGlow));
+  assert.truthy(plain.every(l=>l.glow === UI_LAMP_GLOW));
   assert.lt(themed[0].spacingM,plain[0].spacingM,'only the themed interval has dense lamps');
+});
+
+test('street lamps: medium and large roads have no posts, lights or reserved footprints, even when themed', () => {
+  for (const cls of ['secondary', 'tertiary', 'primary', 'trunk', 'motorway']) {
+    for (const variant of [null, 'lantern']) {
+      const tags = { class: cls }, rec = { fi: 0, li: 0, size: 'major', variant, tags };
+      const entry = withIndex([rec]);
+      entry.layers[0].features[0].tags = tags;
+      assert.eq(RoadOverlay.lampSitesForTile(TX, TY, entry).length, 0, `${cls}: no generated sites`);
+      assert.eq(P._streetLampsForTile.call({}, TX, TY, entry).length, 0, `${cls}: no live lamps`);
+      assert.eq(RoadOverlay.lampReservedCells(TX, TY, entry).size, 0, `${cls}: no phantom reservations`);
+    }
+  }
+});
+
+test('street lamps: paths and small roads retain their lamps and reserved footprints', () => {
+  for (const cls of [...WorldGen.PATH_CLASSES, 'minor', 'service', 'street', 'residential']) {
+    const entry = readyEntry();
+    entry.layers[0].features[0].tags.class = cls;
+    const sites = RoadOverlay.lampSitesForTile(TX, TY, entry);
+    assert.gt(sites.length, 0, `${cls}: lamps remain`);
+    assert.gt(RoadOverlay.lampReservedCells(TX, TY, entry).size, 0, `${cls}: feet remain reserved`);
+    assert.eq(P._streetLampsForTile.call({}, TX, TY, entry).length, sites.length, `${cls}: live lamps remain`);
+  }
 });
 
 test('street lamps: the ART and the LIGHT read the one glow', () => {

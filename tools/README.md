@@ -69,12 +69,27 @@ Serve the repository with `python3 -m http.server 8000`, then open a page under
 | `foliage_audit.html`, `map_art_dashboard.html`, `sandbox_art_comparison.html` | Art-review surfaces. |
 | `compass-test.html` | Compass behavior. |
 
+In `map-review.html`, the Overlays section toggles path endpoint dots
+and path names (visible from zoom 17; unnamed or numeric-only labels are hidden).
+White dots mark retained natural/source endpoints without a theme change;
+orange marks inferred boundaries and tile cuts, and yellow marks theme transitions.
+Boundary selection balances source endpoints, terrain affinity and a soft 300 m
+length target. Forks and true ends remain even when sections are shorter.
+Removed endpoints are hidden; dots do not necessarily mark trail ends.
+Click a dot for source feature IDs and, at section boundaries, the variant,
+assignment length, section key and tile.
+The street overlay and distribution report use those same assignment sections;
+MD roads appear as Old Trade Road and LG roads as Ancient Highway.
+
 In `floor-viewer.html`, the variant buttons wrap through the selected floor’s
 nexus catalog and rebuild the region with that choice. Natural selection uses
 the normal seeded picks. Surface choices apply to the matching nexus kind;
 cave choices come from that floor’s profile. Floors without authored nexus
 variants disable the buttons. Proposed mode uses the displayed source floor’s
 catalog. Placement still obeys the live spawn gates and available space.
+Surface street choices cycle small-road themes and path-section themes, including
+scenic looks. Medium and large roads keep their fixed identities. Forced path
+themes preserve the geographic scenic intervals used for distance credit.
 The seed field and New seed button rebuild the region with different review
 rolls; Reset restores seed 0, the original generation. The URL retains the
 seed for sharing and reloading, and floor/variant changes keep it. This viewer

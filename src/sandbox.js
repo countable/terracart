@@ -361,8 +361,10 @@
     { name: 'Market Close', class: 'minor', type: T.ROAD, y: 13, thick: 1, x0: 0, x1: 23, variant: null },
     { name: 'Thorny Way', class: 'minor', type: T.ROAD, y: 35, thick: 1, x0: 0, x1: 23, variant: 'thorny' },
     { name: 'Iron Lane', class: 'minor', type: T.ROAD, y: 18, thick: 1, x0: 0, x1: 23, variant: 'snare' },
-    { name: 'Fort Road', class: 'tertiary', type: T.ROAD_MD, y: 25, thick: 2, x0: 0, x1: 23, variant: 'barricade' },
-    { name: 'Old Trade Road', class: 'primary', type: T.ROAD_LG, y: 28, thick: 2, x0: 0, x1: 23, variant: null, bandit: true },
+    { name: 'Goblin Gang Street', class: 'minor', type: T.ROAD, y: 21, thick: 1, x0: 0, x1: 23, variant: 'goblin_gang' },
+    { name: 'Fort Road', class: 'path', type: T.PATH, y: 25, thick: 2, x0: 0, x1: 23, variant: 'barricade' },
+    { name: 'Old Trade Road', class: 'tertiary', type: T.ROAD_MD, y: 28, thick: 2, x0: 0, x1: 23, variant: null, bandit: true },
+    { name: 'Ancient Highway', class: 'primary', type: T.ROAD_LG, y: 31, thick: 2, x0: 0, x1: 23, variant: null },
   ];
   const SHOWCASE = {
     name: 'STREETS', label: 'STREET VARIANTS', w: 24, h: 40, fill: T.GRASS,
@@ -494,8 +496,8 @@
   // cells and its vector/variant row through the same record.
   const BANDS = [
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Oak Road', thick: 1, variant: 'hedgerow' }, scenes: [FOREST, ORCHARD, ROCK] },
-    { roadAfter: { type: T.ROAD_LG, class: 'primary', name: 'Main Street', thick: 2, variant: 'lantern' }, scenes: [BARNYARD, PADDOCK, BEACH, MARSH] },
-    { roadAfter: { type: T.ROAD_MD, class: 'tertiary', name: 'Mill Lane', thick: 1, variant: 'burned' }, scenes: [PLAZA, FARMLAND, PRACTICE] },
+    { roadAfter: { type: T.PATH, class: 'path', name: 'Main Street', thick: 2, variant: 'lantern' }, scenes: [BARNYARD, PADDOCK, BEACH, MARSH] },
+    { roadAfter: { type: T.ROAD, class: 'minor', name: 'Mill Lane', thick: 1, variant: 'burned' }, scenes: [PLAZA, FARMLAND, PRACTICE] },
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Garden Row', thick: 1, variant: 'toadstool' }, scenes: [RESIDENTIAL, CIVIC, SMALLHOUSE] },
     { roadAfter: null, scenes: [RECREATION, CASTLE, HAZARDS] },
     { roadAfter: null, scenes: [SHOWCASE, ZONES, RESTORATION, QUARRY] },
@@ -1083,7 +1085,7 @@
     const lines = [];
     for (let fi = 0; fi < transport.routes.length; fi++) {
       const route = transport.routes[fi];
-      if (route.type !== T.ROAD && route.type !== T.ROAD_MD && route.type !== T.ROAD_LG) continue;
+      if (route.type !== T.ROAD && route.type !== T.ROAD_MD && route.type !== T.ROAD_LG && route.type !== T.PATH) continue;
       const f = transport.features[fi], line = f.geom[0];
       let key = StreetVariants.streetKey(route.name, c.tx, c.ty);
       if (route.bandit) {
@@ -1092,8 +1094,8 @@
         do { key = `sandbox-old-trade-${n++}`; } while (!StreetVariants.isBanditStretch(key, st.sx, st.sy));
       }
       lines.push({ fi, li: 0, line, tags: f.tags, name: route.name, key,
-        variant: route.variant, selectedVariant: route.variant,
-        size: (route.type === T.ROAD_MD || route.type === T.ROAD_LG) ? 'major' : 'minor',
+        variant: route.scenic ? Scenic.KIND_ROW[route.scenic] : route.variant, selectedVariant: route.variant,
+        size: (route.type === T.ROAD_MD || route.type === T.ROAD_LG) ? 'major' : route.type === T.PATH ? 'path' : 'minor',
         halfW: WorldGen.roadOverlayWidthM(f.tags) / 2,
         lineKey: Streets.lineKey(f, 0), variantRanges: null });
     }
@@ -1101,7 +1103,10 @@
     const hoardPois = at ? [{ x: Math.round((at.ix + 0.5) * SANDBOX_EXTENT / c.cellsPerEdge),
       y: Math.round((at.iy + 0.5) * SANDBOX_EXTENT / c.cellsPerEdge),
       gk: `${c.tx * SANDBOX_EXTENT + at.ix},${c.ty * SANDBOX_EXTENT + at.iy}` }] : [];
-    return { extent: SANDBOX_EXTENT, lines, dressingLines: lines, hoardPois };
+    return { extent: SANDBOX_EXTENT, lines, dressingLines: lines, hoardPois,
+      pathSections: lines.filter(r => r.size === 'path').map(r => ({ ...r,
+        segmentLengthM: Streets.lineLengthM(r.line, c.tileEdgeM / SANDBOX_EXTENT),
+        featureIds: [transport.features[r.fi].id] })) };
   }
 
   function layStreetDressing(entry, c, dressing) {
@@ -1165,7 +1170,7 @@
       const base = wagon.id; let n = 0;
       do { wagon.id = `${base}_${n++}`; } while (!StreetVariants.isWagonStop(wagon.id));
     }
-    StreetVariants.markBanditStops(entry.objects, entry.roadClass, c.cellsPerEdge, c.tx, c.ty, c.tileEdgeM);
+    StreetVariants.markBanditStops(entry.objects, entry.roadClass, c.cellsPerEdge, c.tx, c.ty, c.tileEdgeM, entry);
 
     spawnOpts.occupied = occupiedCells(c);
     // The shipping density cap (TRAP_GROUND_SHARE_PER_MUL × pool size) governs

@@ -28,11 +28,19 @@ test('sandbox coverage: the synthetic tile uses real map pipelines', () => {
 
   const variants = new Set(e.streetIndex.lines.map((r) => r.variant).filter(Boolean));
   const expected = StreetVariants.STREET_VARIANTS
-    .filter((r) => (r.size === 'minor' || r.size === 'major') && r.share > 0)
+    .filter((r) => (r.size === 'minor' || ['lantern', 'barricade'].includes(r.id)) && r.share > 0)
     .map((r) => r.id);
   for (const id of expected) assert.truthy(variants.has(id), `${id} has an authored street`);
   assert.truthy(e.streetIndex.lines.some((r) => r.size === 'major' && !r.variant),
     'an unthemed old trade road is present');
+  assert.truthy(e.streetIndex.lines.filter(r => r.size === 'major').every(r => !r.variant),
+    'MD and LG roads have no variants');
+  for (const name of ['Old Trade Road', 'Ancient Highway']) {
+    const road = e.streetIndex.lines.find(r => r.name === name);
+    assert.truthy(road && StreetVariants.roadStoryFor(road), `${name} has a fixed identity`);
+  }
+  for (const id of ['lantern', 'barricade']) assert.truthy(
+    e.streetIndex.lines.some(r => r.size === 'path' && r.variant === id), `${id} is on a path`);
 
   assert.truthy(e.streetDress && e.streetMarks, 'the real street dresser ran');
   assert.truthy(e.slowCells && e.slowCells.size > 0, 'burned-road and tar-yard slow cells exist');

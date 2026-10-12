@@ -671,10 +671,9 @@
     // Only authored thorny/barricade/snare cross-sections may occupy their own
     // road band. Declared seats never relax any other spawn class.
     const obstacle = cls === 'streetObstacle' && opts?.streetObstacleCells?.has(cy * w + cx);
-    const barricade = obstacle && opts.streetObstacleKind === 'barricade';
-    const obstacleRoad = obstacle && (here === T.ROAD || (barricade && isRoadTerrain(here)));
-    if (obstacle && (isLotTerrain(here) || (!barricade && (onMajorBand(opts.roadClass, w, cx, cy)
-        || inMajorBuffer(opts.roadClass, w, cx, cy))))) return false;
+    const obstacleRoad = obstacle && (here === T.ROAD || here === T.PATH);
+    if (obstacle && (isLotTerrain(here) || here === T.ROAD_MD || here === T.ROAD_LG
+        || onMajorBand(opts.roadClass, w, cx, cy) || inMajorBuffer(opts.roadClass, w, cx, cy))) return false;
     // Terrain and band are read LIVE as well as through the mask: a live grid
     // (the starter pond, a dug wall) can differ from the one the mask was
     // stamped over.
@@ -690,7 +689,7 @@
     if (occupied && occupied.has(cy * w + cx)) return false;   // already holds an object/wild plant
     const mask = opts && opts.spawnWhy;
     if (mask) {
-      const v = mask[cy * w + cx] & ~((waterOnly || obstacleRoad ? W_.TERRAIN : 0) | (obstacle ? W_.ROAD : 0) | (barricade ? W_.KERB : 0));
+      const v = mask[cy * w + cx] & ~((waterOnly || obstacleRoad ? W_.TERRAIN : 0) | (obstacle ? W_.ROAD : 0));
       if (obstacle && (v & (W_.PRIVATE | W_.KERB))) return false;
       if (v & (SPAWN_WHY_HARD & ~W_.PRIVATE)) return false;
       if (v & spawnBlocks(cls)) return false;
@@ -6610,7 +6609,9 @@
     let scenic = null, scenicDress = null;
     if (typeof Scenic !== 'undefined') {
       scenic = yield* Scenic.buildSteps(layersByName, tx, ty, w, grid, false, zone && zone.under);
+      if (streetIndex) yield* StreetVariants.applyPathScenicSteps(streetIndex, scenic);
     }
+    if (streetIndex) streetArea = yield* StreetVariants.areaSteps(streetIndex, w);
     // Polygon scatter is legacy input for caves; surface corridor replacement
     // follows affinity selection and precedes zone paint and all dressings.
     const streetGround = new Uint8Array(w * h);

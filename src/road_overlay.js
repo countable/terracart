@@ -707,6 +707,9 @@
         if (cls === 'rail' || cls === 'transit') continue;
         if (WorldGen.isParkingAisle(f.tags)) continue;
         const tier = WorldGen.classifyLine ? WorldGen.classifyLine('transportation', f.tags || {}) : null;
+        // Only paths and small roads carry lamps, including broken posts and
+        // future footprint reservations. Wider roads keep their verges clear.
+        if (tier !== WorldGen.T.PATH && tier !== WorldGen.T.ROAD) continue;
         // How far off the centreline this way's lamps stand: its band's
         // half-width plus the stone (per feature: it depends on class only).
         const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM(f.tags || {}), footRM);
@@ -735,7 +738,7 @@
             if (!at.length) continue;
             const spacingM = (style.b - style.a) / at.length;
             const creditM = Streets.lampCreditM(spacingM, path);
-            const glow = (hasVariants && StreetVariants.lampGlowFor({ variant: style.variant, size: style.size })) || UI_LAMP_GLOW;
+            const glow = (hasVariants && StreetVariants.lampGlowFor({ variant: style.variant, size: style.size, tags: rec?.tags || f.tags })) || UI_LAMP_GLOW;
             for (const offset of at) {
               const sM = style.a + offset;
               if (!Streets.covers(spans, sM)) continue;

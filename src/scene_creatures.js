@@ -339,11 +339,11 @@ class SceneCreatures {
       entry.streetMarks = dressing.marks;
     }
     yield 'spawn street dressing';
-    // BANDIT STOPS: a bus stop on a MAJOR road wears the broken wagon
-    // (loot.js chestLook) and holds one goblin (lairs.js 'wagon' tier). Read
-    // off the live objects so an Overpass bin's stops are included.
+    // MERCENARY STOPS: selected bus stops on a medium road's safe verge
+    // wear a wagon (loot.js chestLook) and offer a hire (Macros). Read the
+    // live objects so an Overpass bin's stops are included; no guard spawns.
     if (typeof StreetVariants !== 'undefined' && entry.roadClass) {
-      for (const L of StreetVariants.markBanditStops(entry.objects, entry.roadClass, N, tx, ty, this.tileEdgeM)) {
+      for (const L of StreetVariants.markBanditStops(entry.objects, entry.roadClass, N, tx, ty, this.tileEdgeM, entry)) {
         entry.streetLairs.push(L);
       }
     }

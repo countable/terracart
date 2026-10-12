@@ -33,6 +33,15 @@
     assert.truthy(labels.some(l => l.text === 'Road: Golden Road' && l.x >=40 && l.x <=80));
     assert.truthy(labels.some(l => l.text === 'Road: Plain street' && (l.x<40 || l.x>80)));
   });
+  test('variant labels: medium and large roads show their fixed identities', () => {
+    const e = { tx: 0, ty: 0, streetIndex: { extent: 100, lines: [
+      { key: 'medium', size: 'major', tags: { class: 'secondary' }, line: [{ x: 0, y: 0 }, { x: 100, y: 0 }] },
+      { key: 'large', size: 'major', tags: { class: 'primary' }, line: [{ x: 0, y: 20 }, { x: 100, y: 20 }] },
+    ] } };
+    const labels = Render.variantLabelRecords([e], 100, 50, 10, 100);
+    assert.truthy(labels.some(l => l.text === 'Road: Old Trade Road'));
+    assert.truthy(labels.some(l => l.text === 'Road: Ancient Highway'));
+  });
   test('variant labels: pooled draw follows camera projection and clears on toggle or underground', () => {
     const previous = new Map(WorldGen.tileCache), made = [];
     const text = () => {

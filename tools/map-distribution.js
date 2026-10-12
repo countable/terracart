@@ -132,17 +132,14 @@ function wMeasure(e, EDGE, errors) {
   if (si && si.lines && typeof StreetVariants !== 'undefined') {
     const ext = si.extent || 4096, mPerU = EDGE / ext;
     const keys = {}, len = {};
-    for (const r of si.lines) {
+    for (const r of StreetVariants.displayLines(si, mPerU)) {
       if (!r.size) continue;
-      const v = r.variant || '(plain)';
+      const v = StreetVariants.roadStoryFor(r)?.story || r.variant || '(plain)';
+      const L = Streets.tileSpans(r.line, mPerU, ext)
+        .reduce((sum, [a, b]) => sum + b - a, 0);
+      if (!(L > 0)) continue;
       (keys[r.size] = keys[r.size] || {});
       (keys[r.size][v] = keys[r.size][v] || new Set()).add(r.key);
-      let L = 0;
-      for (let k = 1; k < r.line.length; k++) {
-        const a = r.line[k - 1], b = r.line[k], mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-        if (mx < 0 || my < 0 || mx > ext || my > ext) continue;   // tile square only
-        L += Math.hypot(b.x - a.x, b.y - a.y) * mPerU;
-      }
       (len[r.size] = len[r.size] || {});
       len[r.size][v] = (len[r.size][v] || 0) + L;
       if (r.rocks) { (keys.rockKeys = keys.rockKeys || new Set()).add(r.key); }
@@ -388,10 +385,10 @@ function wRender(w) {
   // Street variants.
   if (typeof StreetVariants !== 'undefined' && ms.some((m) => m.streets)) {
     const SV = StreetVariants;
-    const sizes = [...new Set(SV.STREET_VARIANTS.map((r) => r.size))];
+    const sizes = [...new Set([...SV.STREET_VARIANTS.map((r) => r.size), ...ms.flatMap(m => Object.keys(m.streets?.len || {}))])];
     const rows = [];
     for (const size of sizes) {
-      const ids = [...SV.STREET_VARIANTS.filter((r) => r.size === size).map((r) => r.id), '(plain)'];
+      const ids = [...new Set([...SV.STREET_VARIANTS.filter((r) => r.size === size).map((r) => r.id), ...ms.flatMap(m => Object.keys(m.streets?.len[size] || {})), ...(size === 'major' ? [] : ['(plain)'])])];
       const all = new Set(), per = {};
       for (const id of ids) per[id] = new Set();
       let lenTot = 0; const lenBy = {};
@@ -401,14 +398,15 @@ function wRender(w) {
         for (const [id, L] of Object.entries((m.streets && m.streets.len[size]) || {})) { lenBy[id] = (lenBy[id] || 0) + L; lenTot += L; }
       }
       for (const id of ids) {
+        const story = [SV.BANDIT_STORY, SV.HIGHWAY_STORY].find(s => s?.story === id);
         const row = SV.VARIANT_BY_ID[id];
-        rows.push(`<tr><td>${size}</td><td class="l">${id} ${SandboxLinks.link(`road:${id}`, 'Sandbox')}${row ? ` <span class="dim">(${row.rung}, base ${wPct(row.share)})</span>` : ''}</td>`
+        rows.push(`<tr><td>${size}</td><td class="l">${story?.title || id} ${SandboxLinks.link(`road:${id}`, 'Sandbox')}${row ? ` <span class="dim">(${row.rung}${size === 'path' ? '' : `, base ${wPct(row.share)}`})</span>` : ''}</td>`
           + `<td>${per[id].size}</td><td>${all.size ? wPct(per[id].size / all.size) : '—'}</td>`
           + `<td>${lenTot ? wPct((lenBy[id] || 0) / lenTot) : '—'}</td><td>${f1(lenBy[id] || 0)} m</td></tr>`);
       }
     }
-    $('wStreetScope').textContent = 'Distinct streets across the roaming area; streets crossing internal tile boundaries count once. Length is the total within the area.';
-    table($('wStreets'), ['size', 'variant', 'distinct streets', 'share of size', 'length share', 'total length'], rows);
+    $('wStreetScope').textContent = 'Distinct streets and path assignment sections across the roaming area. Connected path fragments are grouped and split into generally 200–1,000 m sections; short isolated paths and tile-edge remnants can be shorter. Lengths count only geometry inside the sampled tiles. MD/LG roads have fixed identities and no variants.';
+    table($('wStreets'), ['size', 'variant', 'streets / path sections', 'share of size', 'length share', 'total length'], rows);
     const rockKeys = new Set(), minorKeys = new Set();
     for (const m of ms) {
       for (const k of (m.streets && m.streets.keys.rockKeys) || []) rockKeys.add(k);

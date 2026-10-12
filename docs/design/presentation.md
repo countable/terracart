@@ -151,6 +151,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   pops when a street of that kind enters the lit reach (`_tickStreetSight`,
   on its nearest lit cell) or the feet step onto it, on one per-story
   `STREET_FLASH_GAP_MS` clock.
+  Medium roads tell the Old Trade Road story; large roads tell the Ancient
+  Highway story. Their identities come from the mapped road class and have
+  separate first-visit records, without assigning a street variant. The
+  existing Old Trade Road record remains valid for returning players.
 - Story panels use a direct second-person narrator focused on the current
   experience: what happens, what the Hood notices, and how people respond.
   Keep them to one or two short sentences with occasional sensory detail.
