@@ -294,11 +294,15 @@ test('sandbox coverage: hazard yard uses live web, vent, plate and fall records'
     const cave = Sandbox.seedHazardState(scene, origin);
     assert.gte(Buffs.until('torch', scene.save, scene), litAt + CONSUMABLE_SPEC.torch.durationMs,
       'cave arrival lights the normal torch for its full shared duration');
-    assert.eq(EnvironmentHazards.lists(scene).vents.length, Object.keys(EnvironmentHazards.VENTS).length);
+    assert.eq(EnvironmentHazards.lists(scene).vents.map(h => h.kind).join(), 'confusion', 'L1 vents confusion only');
     assert.eq(EnvironmentHazards.lists(scene).caveins.length, 2);
+    assert.falsy(cave.some(h => /^pressure-|^plate-/.test(h._sandboxProbe)), 'no ball or wall traps on L1');
+    scene.depth = 2;
+    const deep = Sandbox.seedHazardState(scene, origin);
+    assert.eq(EnvironmentHazards.lists(scene).vents.map(h => h.kind).join(), 'poison,fire,paralysis', 'L2 vents the three gases');
     for (const kind of ['ball', 'wall']) {
-      const trap = cave.find(h => h._sandboxProbe === 'pressure-' + kind);
-      const plate = cave.find(h => h._sandboxProbe === 'plate-' + kind);
+      const trap = deep.find(h => h._sandboxProbe === 'pressure-' + kind);
+      const plate = deep.find(h => h._sandboxProbe === 'plate-' + kind);
       assert.eq(trap.state, 'parked');
       assert.eq(plate.trapId, trap.id);
       assert.eq(PressureTraps.clearSegment(scene, trap, plate).x, plate.x,

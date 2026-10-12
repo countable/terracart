@@ -9,7 +9,7 @@
       W.tileCache.set(key, entry); entries.push(entry);
     }
     W.privateVetoAt = () => false; W.makeRng = () => () => .99;
-    const scene = { depth: 1, cellsPerTile: 8, cellM: 8, mPerPx: 64 / W.TILE_PX,
+    const scene = { depth: 2, cellsPerTile: 8, cellM: 8, mPerPx: 64 / W.TILE_PX,
       originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 }, playerM: { x: 44, y: 44 }, gpsM: { x: 40, y: 44 },
       _manualOffsetM: { x: 4, y: 0 }, _targetM: { x: 44, y: 44 },
       save: { energy: 100 },
@@ -48,7 +48,7 @@
       s.save = JSON.parse(JSON.stringify(s.save));
       assert.eq(PressureTraps.lists(s).plates[0].frame, 3, 'saved state owns regenerated plate appearance');
       PressureTraps.tick(s, .1); assert.eq(raised, 1, 'reload never resummons');
-      s.depth = 2; assert.eq(PressureTraps.lists(s).plates.length, 0);
+      s.depth = 1; assert.eq(PressureTraps.lists(s).plates.length, 0);
     } finally { globalThis.raiseGhostAt = original; }
   }));
   test('grove plates: exclusions and full ghost budget do not spend a plate', () => fixture((s, entries) => {
@@ -65,10 +65,10 @@
       assert.eq(raised, 1, 'shared gate rejects before ghost spawn');
     } finally { globalThis.raiseGhostAt = original; }
   }));
-  test('pressure traps: only L1 visits seed a gated plate and a launcher two to four cells away', () => fixture((s, entries) => {
+  test('pressure traps: only L2 visits seed a gated plate and a launcher two to four cells away', () => fixture((s, entries) => {
     WorldGen.makeRng = () => () => 0;
-    for (const depth of [0, 2, 3]) { s.depth = depth; PressureTraps.observe(s); assert.eq(PressureTraps.lists(s).plates.length, 0); }
-    s.depth = 1; PressureTraps.observe(s);
+    for (const depth of [0, 1, 3]) { s.depth = depth; PressureTraps.observe(s); assert.eq(PressureTraps.lists(s).plates.length, 0); }
+    s.depth = 2; PressureTraps.observe(s);
     const list = PressureTraps.lists(s);
     assert.eq(list.plates.length, 1); assert.eq(list.traps.length, 1);
     const distance = Math.hypot(list.plates[0].x-list.traps[0].x,list.plates[0].y-list.traps[0].y)/s.cellM;

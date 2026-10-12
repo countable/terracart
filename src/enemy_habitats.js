@@ -12,7 +12,9 @@
     infernal: ['fire_elemental', 'red_demon', 'purple_demon', 'armoured_demon', 'fiend', 'succubus', 'hell_brute'],
     roost: ['red_demon', 'armoured_demon'],
   };
+  // Floor 1 is slime country: one region in eight is a goblin warren.
   const THEME_BANDS = [
+    { max: 1, themes: ['natural', 'natural', 'natural', 'natural', 'natural', 'natural', 'natural', 'warren'] },
     { max: 2, themes: ['natural', 'natural', 'natural', 'warren'] },
     { max: 4, themes: ['natural', 'roots', 'warren', 'crypt', 'stronghold'] },
     { max: 6, themes: ['roots', 'warren', 'crypt', 'stronghold', 'infernal'] },

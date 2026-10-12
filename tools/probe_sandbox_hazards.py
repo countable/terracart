@@ -53,7 +53,7 @@ CASES = {
    check(s._spiderWebGfx?.visible,'web renderer visible');
    return {paralysisMs:duration,standingRemainingMs:remaining,reentry:true,flight:true};
  }"""),
- 'vent-cadence': ('hazards-cave', r"""() => {
+ 'vent-cadence': ('hazards-deep', r"""() => {
    const {s,check,move,clean,draw,advance}=hazardProbe;
    const vents=EnvironmentHazards.lists(s).vents.filter(h=>h._sandboxProbe);
    check(vents.length===3,'three authored gas/fire vents');const results=[];
@@ -77,7 +77,23 @@ CASES = {
    check(sprites.every(o=>o.displayWidth>0&&o.displayHeight>0&&Number.isFinite(o.x)&&Number.isFinite(o.y)),'finite vent bounds');
    return {warningMs:3000,contactMs:1000,vents:results,visibleVents:sprites.length};
  }"""),
- 'pressure-contact': ('hazards-cave', r"""() => {
+ 'confusion-vent': ('hazards-cave', r"""() => {
+   const {s,check,move,clean,draw,advance}=hazardProbe;
+   const vents=EnvironmentHazards.lists(s).vents.filter(h=>h._sandboxProbe);
+   check(vents.length===1&&vents[0].kind==='confusion','L1 authors one confusion vent');
+   check(PressureTraps.lists(s).traps.length===0,'no ball or wall traps on L1');
+   const h=vents[0];clean();move(h);h.elapsedMs=0;EnvironmentHazards.update(h);
+   advance(7900);check(h.phase==='warning'&&MushroomGas.cells(s).length===0,'no gas before the eruption');
+   advance(100);check(h.phase==='active','erupts at eight seconds');
+   check(s.save.energy===100,'confusion vent deals no contact damage');
+   for(let i=0;i<11;i++)MushroomGas.tick(s,.1);const cells=MushroomGas.cells(s);
+   const near=cells.filter(c=>Math.abs(c.cellIX-h.cellIX)+Math.abs(c.cellIY-h.cellIY)===1);
+   check(near.length>=1,'gas reaches the adjacent cells');
+   check(Conditions.active(s.save,'confused'),'the gas confuses the player');
+   draw();check(s._environmentHazardPool.some(o=>o.visible&&o.texture.key==='vent_cycle'&&o.frame.name>=15),'grey vent row rendered');
+   return {gasCells:cells.length,adjacent:near.length};
+ }"""),
+ 'pressure-contact': ('hazards-deep', r"""() => {
    const {s,check,move,clean,draw}=hazardProbe;
    const state=PressureTraps.lists(s),traps=state.traps.filter(h=>h._sandboxProbe);
    check(traps.length===2,'ball and wall authored');const results=[];
@@ -148,7 +164,7 @@ CASES = {
    const frames=sprites.map(o=>o.frame.name);check(new Set(frames).size>1,'adjacent pit edges join rather than isolated frames');
    return {warningMs:5000,connectedFrames:frames,flight:true};
  }"""),
- 'foreground-clock': ('hazards-cave', r"""async() => {
+ 'foreground-clock': ('hazards-deep', r"""async() => {
    const {s,check,move}=hazardProbe;
    const h=EnvironmentHazards.lists(s).vents.find(h=>h._sandboxProbe==='vent-poison');
    move({x:h.x,y:h.y-s.cellM});h.elapsedMs=4900;EnvironmentHazards.update(h);
@@ -158,12 +174,12 @@ CASES = {
    check(h.phase==='warning','warning appears after resumed foreground crosses boundary');
    return {pausedMs:400,resumedMs:400,foregroundAdvancedMs:elapsed};
  }"""),
- 'reset-label': ('hazards-cave', r"""async() => {
+ 'reset-label': ('hazards-deep', r"""async() => {
    const {s,check}=hazardProbe;
    const old=EnvironmentHazards.lists(s).vents.find(h=>h._sandboxProbe==='vent-poison');
    old.elapsedMs=9000;EnvironmentHazards.update(old);
    s.scene.resume();await new Promise(r=>setTimeout(r,100));
-   const label=s._sandboxLabelData.find(d=>d.depth===1&&d.t.text==='RESET HAZARDS'&&d.t.visible);
+   const label=s._sandboxLabelData.find(d=>d.depth===2&&d.t.text==='RESET HAZARDS'&&d.t.visible);
    check(label,'reset label visible at arrival');
    window.resetBefore={old,player:{...s.playerM},target:{...s._targetM}};
    const bounds=label.t.getBounds(),rect=s.game.canvas.getBoundingClientRect(),camera=s.cameras.main;

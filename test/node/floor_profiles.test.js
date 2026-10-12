@@ -19,12 +19,13 @@
   test('floor profiles: authored caves and pressure traps retain their shipped floors', () => {
     for (const depth of [0, 1, 2, 3, 4, 5, 6, 8, 40]) {
       const row = WorldGen.floorProfile(depth);
-      assert.eq(row.pressureTraps, depth === 1);
+      assert.eq(row.pressureTraps, depth === 2, 'ball and wall traps live on L2 only');
+      if (depth) assert.eq(row.vents.join(), depth === 1 ? 'confusion' : 'poison,fire,paralysis', 'L1 vents confusion only');
       assert.eq(!!row.caveAreas, depth === 1 || depth === 2);
       assert.eq(row.streetMirror, depth === 1 || depth === 2);
     }
     const first = WorldGen.floorProfile(1).caveAreas, second = WorldGen.floorProfile(2).caveAreas;
-    assert.eq(first.weights.map(r => r.weight).join(','), '35,30,30,5,15');
+    assert.eq(first.weights.map(r => r.weight).join(','), '50,15,30,5,15', 'L1 favours slime springs over goblin warrens');
     assert.eq(second.weights.map(r => r.weight).join(','), '20,45,25,10,15');
     assert.eq(first.carveWalls, false);
     assert.eq(second.carveWalls, true);
