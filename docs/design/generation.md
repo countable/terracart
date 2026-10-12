@@ -428,6 +428,13 @@ access or tile lifecycle mechanics.
   foreground ticks own the clock. `HazardFalls` owns landing and descent,
   including floor seals and retrying unavailable landings. Temporary sinkholes
   do not compete with these clusters; existing L1 chasms remain unchanged.
+  A grounded enemy, pet or charmed creature (`HazardFalls.fallsThrough`;
+  never a flier, NPC or hired ally) that ends a creature tick over an open gap (opened cave-in,
+  open sinkhole or L1 chasm — `HazardFalls.gapAt`) falls too
+  (`HazardFalls.dropCreatures`): it leaves this floor and lands, by the same
+  landing search, on the floor below when that tile is already spawned, or is
+  gone this session otherwise. A fall is no kill: nothing enters `save.caught`.
+  A fallen pet rejoins through `Companions.tickPets` catch-up.
 - POIs that are no chest ride existing lanes too: a GATE is two posts round a
   spawn point (`WorldGen.gatePostsAt`, lairs.js `'gate'` tier — one foe a UTC
   day, `DAILY_TIERS`); an INFORMATION board reads a Book page like the

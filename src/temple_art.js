@@ -5,6 +5,9 @@
     active: '#b9fbff', glow: '#45d9ff' });
   const darkColors = Object.freeze({ ...colors, floor: '#565969', face: '#303744',
     shadow: '#242c39', coping: '#858b99', edge: '#b0b6c2', dormant: '#91a6b1', joint: '#414958' });
+  const backgroundPaint = paint => Object.fromEntries(Object.entries(paint).map(([key, css]) =>
+    [key, '#' + buildingBackgroundColor(parseInt(css.slice(1), 16)).toString(16).padStart(6, '0')]));
+  const backgroundColors = backgroundPaint(colors), backgroundDarkColors = backgroundPaint(darkColors);
   const glyphs = [
     [[0, -5, 0, 5], [0, -5, 4, -1, 0, 2, -4, -1, 0, -5]],
     [[-4, -4, 0, 0, 4, -4], [0, -5, 0, 5], [-3, 3, 0, 0, 3, 3]],
@@ -91,7 +94,9 @@
   }
   function draw(ctx, sourceRing, options = {}) {
     const ring = points(sourceRing); if (ring.length < 3) return;
-    const scale = options.scale || 1, b = bounds(ring), paint = options.dark ? darkColors : colors;
+    const scale = options.scale || 1, b = bounds(ring);
+    const paint = options.background ? (options.dark ? backgroundDarkColors : backgroundColors)
+      : options.dark ? darkColors : colors;
     ctx.save();
     if (options.faces !== false) {
       ctx.save(); ctx.translate(0, 6 * scale); trace(ctx, ring);
@@ -115,6 +120,9 @@
   const material = paint => Object.freeze(Object.fromEntries(['floor', 'face', 'coping', 'edge', 'shadow']
     .map(key => [key === 'shadow' ? 'outline' : key, parseInt(paint[key].slice(1), 16)])));
   const marble = material(colors), tar = material(darkColors);
-  function palette(activated = false, dark = false) { return dark ? tar : marble; }
+  const backgroundMarble = material(backgroundColors), backgroundTar = material(backgroundDarkColors);
+  function palette(activated = false, dark = false, background = false) {
+    return background ? (dark ? backgroundTar : backgroundMarble) : dark ? tar : marble;
+  }
   global.TempleArt = Object.freeze({ draw, drawRunes, colors, darkColors, palette });
 })(window);

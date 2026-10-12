@@ -61,5 +61,67 @@
       return false;
     } finally { scene._hazardFallPending = false; }
   }
-  root.HazardFalls = { LANDING_RADIUS, landing, over, fall };
+  // ── CREATURES FALL TOO ────────────────────────────────────────────────
+  // The open floor gap under (x, y) on the current floor, or null: an opened
+  // cave-in or open sinkhole (EnvironmentHazards; a blocked one is not open)
+  // or an L1 chasm (the ground_hole CaveHazards drops the player through).
+  function gapAt(scene, x, y) {
+    const W = root.WorldGen, depth = scene.depth || 0, at = scene.cellAt?.(x, y);
+    if (!at?.loaded) return null;
+    const s = scene._environmentHazards?.get(depth);
+    for (const h of [...(s?.caveins || []), ...(s?.sinkholes || [])]) {
+      if (!h.blocked && h.phase === 'open'
+          && (h.footprintCells || []).some(c => c.cellIX === at.cellIX && c.cellIY === at.cellIY)) return h;
+    }
+    if (!(depth > 0)) return null;
+    const entry = W.tileCache.get(W.tileKey(at.tx, at.ty));
+    if (!entry) return null;
+    const centre = absCellCenterMeters(scene, at.cellIX, at.cellIY), half = scene.cellM / 2;
+    let hole = null;
+    W.forEachItemInBox(entry, 'objects', centre.x - half, centre.y - half, centre.x + half, centre.y + half, o => {
+      if (hole || o.kind !== 'ground_hole' || (o.depth || 0) !== depth) return;
+      const c = scene.cellAt(o.x, o.y);
+      if (c.cellIX === at.cellIX && c.cellIY === at.cellIY) hole = o;
+    });
+    return hole;
+  }
+  // Who a gap takes: a grounded foe, pet or charmed creature still standing
+  // in the world (not buried, mid-catch or down). Fliers cross; neighbours,
+  // calmed animals and hired allies never fall.
+  function fallsThrough(c) {
+    if (!c || c._spent || c._surfaceInactive || c._beingCaught || root.Conditions.flying(c)
+        || root.Combat.hp(c) <= 0) return false;
+    return root.Combat.isTame(c) || root.Combat.isCharmed(c) || root.Combat.isEnemy(c);
+  }
+  // A body that ends its step over a gap leaves this floor. It lands
+  // on the floor below when that tile is already spawned there (the same
+  // landing the player gets), otherwise it is simply gone this session; its
+  // id never enters save.caught, so a falling foe is no kill and pays nothing.
+  // A pet left below rejoins through Companions' catch-up once the player
+  // changes floors or walks off.
+  function dropCreatures(scene, creatures) {
+    const fell = [];
+    for (const c of creatures) {
+      if (fallsThrough(c) && gapAt(scene, c.x, c.y)) fell.push(c);
+    }
+    for (const c of fell) dropCreature(scene, c);
+    return fell;
+  }
+  function dropCreature(scene, c) {
+    const W = root.WorldGen, depth = scene.depth || 0, edge = scene.tileEdgeM;
+    const { x, y } = c;
+    for (const e of W.tileCache.values()) {
+      const i = e.creatures?.indexOf(c) ?? -1;
+      if (i >= 0) { e.creatures.splice(i, 1); break; }
+    }
+    const below = W.tileCacheFor(depth + 1)?.get(W.tileKey(Math.floor(x / edge), Math.floor(y / edge)));
+    const at = below?._spawned && below.creatures ? landing(below, c, edge) : null;
+    if (at) {
+      Object.assign(c, { x: at.x, y: at.y, _startX: at.x, _startY: at.y, _targetX: at.x, _targetY: at.y,
+        _nextChooseT: 0, _chaseTarget: null });
+      below.creatures.push(c);
+    }
+    scene.flashAtWorld?.('It fell through!', x, y);
+  }
+  root.HazardFalls = { LANDING_RADIUS, landing, over, fall, gapAt, fallsThrough, dropCreatures };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

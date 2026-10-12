@@ -91,7 +91,7 @@
     const texture = scene.textures.createCanvas(key, 16, 20), ctx = texture.getContext();
     // Keep the existing fluted shaft and stone plinth, removing its intact cap.
     ctx.drawImage(scene.textures.get('pillar').getSourceImage(), 0, 12, 16, 18, 0, 2, 16, 18);
-    const image = ctx.getImageData(0, 0, 16, 20), data = image.data, stone = get('ruin', claimed).stone;
+    const image = ctx.getImageData(0, 0, 16, 20), data = image.data, stone = buildingBackgroundMaterial(get('ruin', claimed)).stone;
     for (let y = 0; y < 20; y++) for (let x = 0; x < 16; x++) {
       const i = (y * 16 + x) * 4;
       if (data[i + 3] < 128 || y < 2 + (x % 3)) { data[i + 3] = 0; continue; }
@@ -150,7 +150,7 @@
     if (scene.textures.exists(name)) return name;
     if (!scene.textures.exists('biome12_0')) return null;
     const texture = scene.textures.createCanvas(name, 96, 96), ctx = texture.getContext();
-    const paving = scene.textures.get('biome12_0').getSourceImage(), material = get('ruin', claimed);
+    const paving = scene.textures.get('biome12_0').getSourceImage(), material = buildingBackgroundMaterial(get('ruin', claimed));
     for (let i = 0; i < 9; i++) {
       const x = i % 3 * 32, y = Math.floor(i / 3) * 32;
       ctx.drawImage(paving, x, y);

@@ -2291,6 +2291,14 @@ class SceneCreatures {
       if (EnemySpawns.homeFaunaSubject(c) || c._homeFaunaInactive) EnemySpawns.surfaceActive(this, c);
       updateCharacterSpacingIndex(spacingIndex, c);
     }
+    // A foe, pet or charmed creature on an open floor gap falls through (HazardFalls).
+    const fell = HazardFalls.dropCreatures(this, activeCreatures);
+    if (fell.length) {
+      const gone = new Set(fell);
+      this._activeCreatures = this._activeCreatureMemo.creatures = activeCreatures.filter(c => !gone.has(c));
+      this._foeBodies = this._foeBodies.filter(c => !gone.has(c));
+      this._characterBodies = this._characterBodies.filter(c => !gone.has(c));
+    }
     this._characterSpacingIndex = null;
     // What the foes took off the bar this window pops as one "⚔️ monsters"
     // roll-up from the scene's drain lane (app.js _flushDrainPops).
