@@ -2291,7 +2291,7 @@ class SceneCreatures {
       if (EnemySpawns.homeFaunaSubject(c) || c._homeFaunaInactive) EnemySpawns.surfaceActive(this, c);
       updateCharacterSpacingIndex(spacingIndex, c);
     }
-    // A foe that stepped onto an open floor gap falls through (HazardFalls).
+    // A foe, pet or charmed creature on an open floor gap falls through (HazardFalls).
     const fell = HazardFalls.dropCreatures(this, activeCreatures);
     if (fell.length) {
       const gone = new Set(fell);
