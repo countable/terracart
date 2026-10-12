@@ -270,7 +270,7 @@
   });
   test('deep ghosts: enlarged white and pink ghosts double power once; shiny is a separate bonus', () => {
     for (const kind of ['ghost', 'pink_ghost']) {
-      const plain = { kind }, deep = { kind, _artScale: EnemyRoster.ghostProfile(6).sizeMultiplier };
+      const plain = { kind }, deep = { kind, _artScale: EnemyRoster.ghostProfile(7).sizeMultiplier };
       assert.eq(Combat.maxHp(deep), 2 * Combat.maxHp(plain));
       assert.eq(Combat.powerMul(deep), 2);
       assert.eq(Combat.powerMul({ ...deep, shiny: true }), 4);
@@ -362,12 +362,12 @@
     rosterEnemyMove(s, p, EnemyRoster.get('plant'), 10000, 14, 0, false, false, null, 0.1);
     assert.eq(p.x, 0); assert.eq(p.y, 0);
   });
-  test('enemy AI: dungeon ghost count changes at four and visual size at six', () => {
-    assert.eq(EnemyRoster.ghostProfile(2).groupMax, 3);
-    assert.eq(EnemyRoster.ghostProfile(4).groupMax, 4);
-    assert.eq(EnemyRoster.ghostProfile(4).nearMax, 8);
-    assert.eq(EnemyRoster.ghostProfile(4).sizeMultiplier, 1);
-    assert.eq(EnemyRoster.ghostProfile(6).sizeMultiplier, 1.5);
+  test('enemy AI: dungeon ghost count changes at five and visual size at seven', () => {
+    assert.eq(EnemyRoster.ghostProfile(3).groupMax, 3);
+    assert.eq(EnemyRoster.ghostProfile(5).groupMax, 4);
+    assert.eq(EnemyRoster.ghostProfile(5).nearMax, 8);
+    assert.eq(EnemyRoster.ghostProfile(5).sizeMultiplier, 1);
+    assert.eq(EnemyRoster.ghostProfile(7).sizeMultiplier, 1.5);
     assert.eq(EnemyRoster.ghostProfile(20).sizeMultiplier, 1.5);
   });
   test('enemy AI: purple slime keeps its poison condition and attack animation', () => {

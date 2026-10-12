@@ -190,12 +190,12 @@ test('ghost pump: no crypt means no haunting on odd or even cave levels', () => 
   }
 });
 
-test('ghost pump: crypts are haunted from depth 3 at every hour, odd or even', () => {
+test('ghost pump: crypts are haunted from depth 4 at every hour, odd or even', () => {
   for (const depth of [1,2,3,4,5,6]) {
     for (const day of [1,0]) atDaylight(day,()=>{
       const s=pumpScene({depth});pump(s,0);
       const rose=pump(s,400000);
-      if(depth>=3) assert.gt(rose,0);else assert.eq(rose,0);
+      if(depth>=4) assert.gt(rose,0);else assert.eq(rose,0);
     });
   }
   assert.falsy(__ghost.ghostsHaunt(0,1));assert.truthy(__ghost.ghostsHaunt(0,0));
@@ -204,7 +204,7 @@ test('ghost pump: crypts are haunted from depth 3 at every hour, odd or even', (
 test('ghost pump: player and each generated seat must both belong to crypt habitat', () => {
   const isPlayer=(tx,ty,ix,iy)=>tx===0&&ty===0&&ix===0&&iy===0;
   for(const playerCrypt of [true,false]) {
-    const s=pumpScene({depth:3,_themeAt:(tx,ty,ix,iy)=>isPlayer(tx,ty,ix,iy)===playerCrypt?'crypt':'natural'});
+    const s=pumpScene({depth:4,_themeAt:(tx,ty,ix,iy)=>isPlayer(tx,ty,ix,iy)===playerCrypt?'crypt':'natural'});
     pump(s,0);assert.eq(pump(s,400000),0);
     assert.eq(s._entry.creatures.length,0);
   }
@@ -537,24 +537,24 @@ test('brightnessAt: a campfire, a lit lamp and a scanned light add; a dark lamp 
 });
 
 
-test('ghost pump: D4 enlarges groups and D6 enlarges both ghost colours', () => {
+test('ghost pump: D5 enlarges groups and D7 enlarges both ghost colours', () => {
   atDaylight(0, () => {
     const random = Math.random;
     try {
       Math.random = () => 0.99;
-      for (const depth of [0, 3, 4, 5, 6, 7]) {
+      for (const depth of [0, 4, 5, 6, 7, 8]) {
         const s = pumpScene({ depth });
         pump(s, 0);
         const n = pump(s, 400000);
-        assert.eq(n, depth >= 4 ? 4 : 3);
+        assert.eq(n, depth >= 5 ? 4 : 3);
         for (const c of s._entry.creatures) {
           assert.eq(c.kind, 'ghost');
-          assert.eq(c._artScale, depth >= 6 ? 1.5 : 1);
-          assert.eq(Combat.maxHp(c), EnemyRoster.get(c.kind).hp * (depth >= 6 ? 2 : 1));
+          assert.eq(c._artScale, depth >= 7 ? 1.5 : 1);
+          assert.eq(Combat.maxHp(c), EnemyRoster.get(c.kind).hp * (depth >= 7 ? 2 : 1));
         }
       }
       Math.random = () => 0;
-      const s = pumpScene({ depth: 6 });
+      const s = pumpScene({ depth: 7 });
       pump(s, 0); pump(s, 400000);
       assert.eq(s._entry.creatures.length, 2);
       for (const c of s._entry.creatures) {

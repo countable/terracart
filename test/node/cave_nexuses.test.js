@@ -155,7 +155,7 @@
     }
   });
 
-  test('cave nexuses: level-two quarry uses projected small-street routes through actual rock substrate', async () => {
+  test('cave nexuses: level-two quarry uses projected small-street routes over open city substrate', async () => {
     const f = fixture('mine_tunnels', 2), key = W.tileKey(f.tx, f.ty);
     for (const grid of [f.surface.grid, f.surface.baseGrid, f.surface.zone.caveSource.grid]) {
       grid.fill(T.ROCK);
@@ -169,11 +169,11 @@
       const ore = entry.caveAreas.objects.filter(o => o.kind === 'mineralrock');
       assert.eq(entry.caveAreas.areas.length, 1, 'eligible source route enables an actual mine');
       assert.gt(ore.length, 0, 'mine has finite ore beside the reserved through lane');
+      assert.gt(entry.underground.streetCells.size, 0, 'mine retains its projected street route');
       for (const o of ore) {
         const i = idx(f, o);
-        assert.eq(entry.geologyGrid[i], T.CAVE_WALL, 'projected route opens original rock');
+        assert.eq(entry.geologyGrid[i], T.CAVE_FLOOR, 'city keeps non-building substrate open');
         assert.eq(entry.grid[i], T.CAVE_FLOOR);
-        assert.truthy(entry.underground.streetCells.has(i));
         assert.falsy(entry.underground.lane.has(i), 'ore preserves through route');
       }
     } finally {
