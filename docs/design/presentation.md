@@ -59,6 +59,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   when Craft is disabled. Keep the chosen recipe after crafting and refresh
   counts and the existing receipt. Recipe selection never spends ingredients;
   acceptance still rechecks unlocks, bag room, and ingredients before spending.
+- Magic Shops have Shop / Brew tabs at every shop tier. Brew lists only learned
+  recipes, using the same ingredient counts and picker as Home crafting, plus a
+  fixed coin fee. An empty list says "Once you find a potion, you can brew it here."
+  Keep the selected recipe after brewing and recheck discovery, bag room,
+  ingredients and coins before spending either resource.
 - Dialogs use `makeModalShell` with a kind, which supplies a scene painting.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow

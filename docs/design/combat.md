@@ -178,6 +178,15 @@ mechanics.
   food is meat. Regular eggs still hatch shiny domestic babies. Each egg type
   incubates one egg at a time, with independent saved distance and GPS sessions;
   hatching or losing one type never spends the other's progress.
+- Magic Shop brewing uses `BREW_RECIPES` in items.js. Each batch consumes the
+  recipe's ingredients and fixed coin fee for one potion. Finding its output in
+  the wild unlocks a recipe through `homeRecipeLocked`; buying or brewing never
+  unlocks one. Antidote, Hardworking, Grip, Healing, Stoneskin, Blight, Shielding
+  and Shrinking are brewable; Revival and Resurrection remain unbrewable.
+  Blight uses Marigolds and Meat; Shielding uses Starflowers and Milk. Shrinking
+  uses two Mango and four coins, an intentional exception to same-tier inputs
+  and the otherwise conservative recipe economics. Sugar Potion retains its
+  existing Home recipe. Brewing does not change potion effects.
 - Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap

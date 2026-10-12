@@ -45,6 +45,6 @@ test('smithy: both the Forge and the Smelt offer caption the price', () => {
   const shops = ENERGY_WRITE_SOURCES['scene_shops.js'];
   assert.eq((shops.match(/costLabel: 'You give',/g) || []).length, 1, 'captioned once, in the counter');
   assert.truthy(/acceptLabel: 'Smelt',/.test(shops) && /acceptLabel: 'Forge',/.test(shops), 'both offers are recipe offers');
-  assert.eq((shops.match(/this\._presentRecipeOffer\(/g) || []).length, 2, 'and nothing else in the smithy bypasses it');
+  assert.eq((shops.match(/this\._presentRecipeOffer\(/g) || []).length, 3, 'forge, smelt and brewing use the shared recipe presenter');
 });
 })();

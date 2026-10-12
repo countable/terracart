@@ -2752,6 +2752,19 @@ const HOME_RECIPES = [
     id: item.id, cost: [{ id: 'blank_scroll', qty: 1 }],
   })),
 ];
+// Magic Shop brewing: one potion per batch, with fixed ingredient and coin costs.
+// Discovery uses the same found-in-the-wild rule as Home recipes. Mango's
+// two-fruit, four-coin Shrinking brew is an intentional resale-value exception.
+const BREW_RECIPES = [
+  { id: 'antidote', cost: [{ id: 'cress', qty: 3 }], coins: 2 },
+  { id: 'hardworking_potion', cost: [{ id: 'potato', qty: 3 }], coins: 3 },
+  { id: 'grip_potion', cost: [{ id: 'shell', qty: 2 }, { id: 'old_boot', qty: 1 }], coins: 3 },
+  { id: 'healing_potion', cost: [{ id: 'berry', qty: 3 }, { id: 'onion', qty: 2 }], coins: 5 },
+  { id: 'stoneskin_potion', cost: [{ id: 'nut', qty: 3 }, { id: 'coconut', qty: 2 }], coins: 5 },
+  { id: 'blight_potion', cost: [{ id: 'marigold', qty: 2 }, { id: 'meat', qty: 1 }], coins: 5 },
+  { id: 'shielding_potion', cost: [{ id: 'starflower', qty: 2 }, { id: 'milk', qty: 1 }], coins: 20 },
+  { id: 'shrinking_potion', cost: [{ id: 'mango', qty: 2 }], coins: 4 },
+];
 // Spears are known from the start in every difficulty. Other Home recipes
 // are learned by first finding their output in the wild, never by buying,
 // bartering, forging or crafting it. addToInv owns the foundWild ledger.
