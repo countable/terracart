@@ -1,35 +1,44 @@
 // Rendering must conceal the same full-cover targets as interactions, while
 // retaining partial cover and reusing its darkness mask between changes.
 (function () {
-  function fixture() {
-    let revision = 1, allocations = 0, clears = 0, samples = 0;
-    const fills = [];
-    const ctx = {
-      globalAlpha: 1,
-      clearRect() { clears++; },
-      fillRect(x, y, width, height) {
-        fills.push({ x, y, width, height, alpha: this.globalAlpha, colour: this.fillStyle });
-      },
-    };
-    const visibility = { CLEAR: 0, PARTIAL: 1, FULL: 2, PARTIAL_DARKNESS: .5, FULL_DARKNESS: .88,
-      revision: () => revision,
-      playerCover(scene, x) { samples++; return Math.floor(x / 2) % 3; },
-    };
+  function fixture(coverAt = () => 2) {
+    let revision = 1, allocations = 0, clears = 0, samples = 0, uploads = 0, blits = 0, images = 0;
+    const rasters = [];
     const document = { createElement(kind) {
       assert.eq(kind, 'canvas'); allocations++;
+      const ctx = {
+        globalAlpha: 1,
+        clearRect() { clears++; },
+        createImageData(width, height) {
+          images++;
+          return { width, height, data: new Uint8ClampedArray(width * height * 4) };
+        },
+        putImageData(image) {
+          uploads++;
+          rasters.push({ width: image.width, height: image.height, data: Array.from(image.data) });
+        },
+        drawImage() { blits++; },
+        getImageData() { throw new Error('Cover must never read pixels back'); },
+      };
       return { width: 0, height: 0, getContext: () => ctx };
     } };
+    const visibility = { CLEAR: 0, PARTIAL: 1, FULL: 2, PARTIAL_DARKNESS: .5, FULL_DARKNESS: .88,
+      revision: () => revision,
+      playerCover(scene, x, y) { samples++; return coverAt(x, y); },
+    };
     const start = LIGHTING_SRC.indexOf('  function coverFrame(scene, ax, ay, W, H) {');
-    const end = LIGHTING_SRC.indexOf('\n  }\n', start);
-    assert.gte(start, 0, 'cover mask helper exists');
-    const frame = new Function('Visibility', 'document', 'playerWorldM', 'CELL_PX',
-      LIGHTING_SRC.slice(start, end + 4) + '\nreturn coverFrame;')(
-      visibility, document, scene => scene.playerM, 32);
+    const end = LIGHTING_SRC.indexOf('\n  function draw(scene, ax, ay, halfM) {', start);
+    assert.gte(start, 0, 'fog mask helpers exist');
+    const frame = new Function('Visibility', 'document', 'playerWorldM', 'CELL_PX', 'FOG_SUB', 'fogWisp', 'fogSample',
+      LIGHTING_SRC.slice(start, end) + '\nreturn coverFrame;')(
+      visibility, document, scene => scene.playerM, 32, FOG_SUB, fogWisp, fogSample);
     const scene = { depth: 0, cellM: 4, playerM: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 },
       viewCenterX: 0, viewCenterY: 0, viewLeft: 0, viewTop: 0 };
-    return { scene, frame, fills, ctx, bumpRevision() { revision++; },
-      stats: () => ({ allocations, clears, samples }) };
+    return { scene, frame, rasters, bumpRevision() { revision++; },
+      stats: () => ({ allocations, clears, samples, uploads, blits, images }) };
   }
+
+  const alphas = raster => raster.data.filter((value, i) => i % 4 === 3);
 
   test('cover render: full targets are removed in place, partial targets keep their order', () => {
     const start = RENDER_SRC.indexOf('Render.coverHidden = function');
@@ -50,43 +59,70 @@
     }
   });
 
-  test('cover render: tree shadows are half dark, cave full cover is opaque', () => {
-    const f = fixture();
-    f.frame(f.scene, 0, 0, 32, 16);
-    assert.eq(f.fills.length, 6, 'clear cells never receive darkness');
-    assert.eq(f.fills[0].alpha, .5);
-    assert.eq(f.fills[1].alpha, .88, 'surface terrain stays faintly readable');
-    assert.truthy(f.fills.every(fill => fill.colour === '#000'));
-    assert.eq(f.ctx.globalAlpha, 1, 'restore context alpha after painting');
-    const surfaceCount = f.fills.length;
-    f.scene.depth = 1;
-    f.frame(f.scene, 0, 0, 32, 16);
-    assert.eq(f.fills[surfaceCount].alpha, .5, 'partial cover remains half dark underground');
-    assert.eq(f.fills[surfaceCount + 1].alpha, 1, 'full cave cover is opaque');
+  test('cover render: clear, tree and full interiors retain their darkness in the alpha raster', () => {
+    for (const [cover, depth, alpha] of [[0, 0, 0], [1, 0, 128], [2, 0, 224], [1, 1, 128], [2, 1, 255]]) {
+      const f = fixture(() => cover);
+      f.scene.depth = depth;
+      f.frame(f.scene, 0, 0, 128, 64);
+      const raster = f.rasters[0];
+      assert.truthy(raster, 'upload the generated raster');
+      assert.truthy(alphas(raster).every(a => a === alpha), `cover ${cover}, depth ${depth}: uniform interior`);
+      assert.truthy(raster.data.every((value, i) => i % 4 === 3 || value === 0), 'black RGB supplies only darkness');
+    }
   });
 
-  test('cover render: stationary and subcell camera frames reuse the mask; movement and blockers redraw', () => {
+  test('cover render: the boundary has graded alpha and world-fixed wisps after player movement', () => {
+    const f = fixture(x => x < 8 ? 0 : 2);
+    f.frame(f.scene, 0, 0, 128, 64);
+    const initial = f.rasters[0];
+    const values = new Set(alphas(initial));
+    assert.truthy(values.has(0), 'clear side remains clear');
+    assert.truthy(values.has(224), 'full interior keeps the surface darkness');
+    assert.gt(values.size, 8, 'the edge contains a smooth gradient instead of flat half-cell squares');
+    f.scene.playerM.x = .25;
+    f.frame(f.scene, 0, 0, 128, 64);
+    assert.eq(f.stats().uploads, 2, 'movement recalculates sight and repaints');
+    assert.eq(JSON.stringify(f.rasters[1]), JSON.stringify(initial), 'unchanged cover geometry must not make the wisps swim');
+    f.frame(f.scene, 2, 0, 128, 64);
+    const scrolled = f.rasters[2], shift = FOG_SUB / 2;
+    assert.eq(scrolled.width, initial.width);
+    for (let y = 0; y < initial.height; y++) for (let x = 0; x < initial.width - shift; x++) {
+      const before = initial.data[(y * initial.width + x + shift) * 4 + 3];
+      const after = scrolled.data[(y * scrolled.width + x) * 4 + 3];
+      assert.lte(Math.abs(before - after), 1, 'crossing a sample boundary preserves world-aligned fog');
+    }
+  });
+
+  test('cover render: stationary and subcell camera frames reuse the mask; movement, depth and blockers redraw', () => {
     const f = fixture();
-    const first = f.frame(f.scene, 0, 0, 32, 16);
+    const first = f.frame(f.scene, 0, 0, 128, 64);
     const samples = f.stats().samples;
-    const still = f.frame(f.scene, 0, 0, 32, 16);
+    const still = f.frame(f.scene, 0, 0, 128, 64);
     assert.eq(still.canvas, first.canvas);
     assert.eq(still.key, first.key);
     assert.eq(f.stats().samples, samples, 'stationary frames perform no sight sampling');
-    assert.eq(f.stats().clears, 1);
-    const camera = f.frame(f.scene, .25, 0, 32, 16);
+    assert.eq(f.stats().uploads, 1);
+    assert.eq(f.stats().blits, 1);
+    const camera = f.frame(f.scene, .25, 0, 128, 64);
     assert.eq(camera.canvas, first.canvas);
-    assert.eq(f.stats().clears, 1, 'subcell camera movement changes only the blit');
-    assert.eq(camera.x, -2);
+    assert.eq(f.stats().uploads, 1, 'subcell camera movement changes only the final blit position');
+    assert.eq(f.stats().blits, 1, 'no raster scaling while the world-aligned mask is reusable');
+    assert.eq(f.stats().samples, samples);
+    assert.eq(camera.x - first.x, -2);
     assert.truthy(camera.key !== first.key, 'lightmap must upload the changed blit position');
     f.scene.playerM.x = .25;
-    const moved = f.frame(f.scene, .25, 0, 32, 16);
-    assert.eq(f.stats().clears, 2, 'player movement changes sight');
+    const moved = f.frame(f.scene, .25, 0, 128, 64);
+    assert.eq(f.stats().uploads, 2, 'player movement changes sight');
     assert.truthy(moved.key !== camera.key);
     f.bumpRevision();
-    const changed = f.frame(f.scene, .25, 0, 32, 16);
-    assert.eq(f.stats().clears, 3, 'mining or removing a blocker changes sight');
+    const changed = f.frame(f.scene, .25, 0, 128, 64);
+    assert.eq(f.stats().uploads, 3, 'mining or removing a blocker changes sight');
     assert.truthy(changed.key !== moved.key);
-    assert.eq(f.stats().allocations, 1, 'all updates reuse one canvas');
+    f.scene.depth = 1;
+    const cave = f.frame(f.scene, .25, 0, 128, 64);
+    assert.eq(f.stats().uploads, 4, 'depth changes darkness and geometry');
+    assert.truthy(cave.key !== changed.key);
+    assert.eq(f.stats().allocations, 2, 'all updates reuse the raster canvas and scaled mask canvas');
+    assert.eq(f.stats().images, 1, 'redraws reuse the existing pixel array');
   });
 })();
