@@ -143,6 +143,7 @@ const ART_THUMBS = {
   zone_stones: 'data:image/webp;base64,UklGRrgAAABXRUJQVlA4IKwAAACQBACdASoWABwAPp0+m0mloyKiMBgIALATiWIAnTKAAYjMRMER9Ga/LfYsrgAAxxW2vuAA0PEixsxIAt3S/DnU9PxXX+uoSS4qc92BgvRIr8T9q3jtUF9ab4JdKpu0/+L1X2fGI/WnB3BbD/5264tk9VjqYTSqYE/6+Nr1jvrjzxtqAYzxEgfNcdKDU6aG3zP6GrLnf0PgAjs0TTlfqVy6c4vZdeNaMHydWwAA',
   zone_tar: 'data:image/webp;base64,UklGRs4AAABXRUJQVlA4IMIAAACwBACdASoWABwAPp1Cn0mlo6MhKAqosBOJZgC0/Qg5/8A4Kb5ut59aoJGWtUPAAM14VIhCAyJr551GdRHvhg0s9Dlqg012HmOv8qr/R1cP0NjF9d3ro6v2Pbete13tYN2cSc+dOxf/vY4a/t5db6DFfdX+80B/Y2vFg77v8rosTMu2ZrM/2k1RD0Veo6EwKDj1ddRIMNMlUQICVJt0D1RSPQtULHs3KyKqNvvG5mxhlBJNRVSM8KmQcqpWBj8bMD7gAA==',
   zone_viewpoint: 'data:image/webp;base64,UklGRswAAABXRUJQVlA4IMAAAADwBACdASoWABwAPp1Emkqlo6IhqAqosBOJZgCdMoR/UBLIGl6ZO5GFk0RTdQo+RQAA9qEZtxeP8IHB9CDcnyAdFce9PEtk2d7xhfavx82wCfGyWN4CIGa+guOhNX3TdHpyINEMGcYXU//LhQ/K6N2+c5o/bHasOsctviAABNP0wjjnei1blAmMBqwpUaP0k7/UGICHiCwZTJ9tF5bYr7WUZejw5CIaMjg8/9KF+2Tg8Feqb/R1lO0ZcvM74F5gYAA=',
+  turret_watch: 'data:image/webp;base64,UklGRqAAAABXRUJQVlA4IJQAAACwBACdASoWABwAPp08m0mloyIhMBgIALATiUAVJagADVUpzNxdFE2wz+kFxEkIAP7tHwOTDTOylOXpeFOiHgULRtw4cA8cXj4AuNDolmsZCEzpeThZfEROroXWlBoV57rse/fMscu89hi/Jo9Rnofr5xVVuTuCRfpowtgHDMVrw7UakS3wh3QuSrjqLtg7kD8HIcAA',
 };
 const ART_TONES = {
   barehand_tree: '#995820',
@@ -285,6 +286,7 @@ const ART_TONES = {
   zone_stones: '#a76421',
   zone_tar: '#aa692c',
   zone_viewpoint: '#b77734',
+  turret_watch: '#7d5941',
 };
 // The coarser resolve cuts, coarse to fine; ART_THUMBS is the last step.
 const ART_CUT_WIDTHS = [3,6,11,22];
@@ -988,5 +990,10 @@ const ART_CUTS = {
     'data:image/webp;base64,UklGRkYAAABXRUJQVlA4IDoAAACwAQCdASoDAAQAAkA4JZACdAEPCliwAP7u8/lXqi96vxFEhPjw1gvno3AAoam5H4uD72LV0Qfg6AAA',
     'data:image/webp;base64,UklGRkwAAABXRUJQVlA4IEAAAAAwAgCdASoGAAgAAkA4JZgCdGuAAocckD12AAD8Oul/gOEXXXa9b1mtpiztYBxeRZ/3mL75ZKF/B+15feP9ZhAA',
     'data:image/webp;base64,UklGRmAAAABXRUJQVlA4IFQAAADwAQCdASoLAA4AAkA4JbACdAD0lcwOCAAAzjkC5akaT4EUJ61tC4q783e4XnPV1PPcOWyGAWDyA7CfIKTCX/xfKf8c/tklK8nf9g5vq3f66pIAAAA=',
+  ],
+  turret_watch: [
+    'data:image/webp;base64,UklGRjoAAABXRUJQVlA4IC4AAADQAQCdASoDAAQAAkA4JYwCdAEPClnmAAD++KNVmn5XIGtyoWY33aYtgQ+VAwAA',
+    'data:image/webp;base64,UklGRkQAAABXRUJQVlA4IDgAAADQAQCdASoGAAgAAkA4JQBOgCHcOlFekAD+8bUhjT25A2D9WKVe2eQMfbYZhqbRYWh4UMB10sAAAA==',
+    'data:image/webp;base64,UklGRlgAAABXRUJQVlA4IEwAAADQAQCdASoLAA4AAkA4JZgCdADz4S8Y0AD+8acyZhxvZoMUSsq01H27wk95GRPzhJbRF7eixFAb/G3B1S5ou8KyK4IrNcG2ODbn4AAA',
   ],
 };

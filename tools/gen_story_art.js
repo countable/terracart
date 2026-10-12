@@ -401,6 +401,8 @@ const PIECES = {
     'A woven basket of fresh vegetables tied with twine resting on a cottage doorstep at dusk, the door ajar with warm light spilling out.'),
   kind_build: scene(
     'The timber frame of a cottage being rebuilt, a ladder against it, a hammer and a stack of fresh planks and stones beside it at golden hour.', 'claws'),
+  turret_watch: scene(
+    'A finished grey stone defensive turret, a watchful human archer leaning over its crenellated battlement and acknowledging the viewer with a reserved nod. A wooden longbow in hand and a quiver on their shoulder clearly show its defensive purpose. Close view of the archer and tower crown at golden hour; clean completed masonry, no construction tools or scaffolding.'),
   kind_craft: scene(
     'A rough wooden workbench inside a timber travelling home wagon, planks, stones and a saw laid out, a lantern hanging overhead, curved wooden roof ribs and iron fittings.'),
   kind_wizard: scene(
