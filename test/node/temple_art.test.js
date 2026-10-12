@@ -91,7 +91,7 @@
       BuildingOverlay.draw(scene);
       assert.eq(gfx.clears, clearCount + 1, 'awakening invalidates floor cache');
       assert.eq(gfx.ops.find(o => o.op === 'temple').activated, true);
-      assert.eq(gfx.ops.find(o => o.op === 'fill').color, TempleArt.palette().face);
+      assert.eq(gfx.ops.find(o => o.op === 'fill').color, TempleArt.palette(false, false, true).face);
     } finally {
       WorldGen.tileCache.clear(); for (const [key, entry] of oldTiles) WorldGen.tileCache.set(key, entry);
     }
