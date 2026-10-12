@@ -4086,9 +4086,11 @@ Render.drawObjects = function drawObjects(scene) {
     // A shiny tree, or a building raised under the Magic Hammer (Houses.isShinyHouse).
     Render.setShine(s, (isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree))
       || (o.kind === 'house' && Houses.isShinyHouse(scene.save, o)), o.id);
+    // No art (a kind with no RENDER_SPEC row) hides the slot too: a pooled
+    // sprite keeps its last texture, so returning early drew whatever the
+    // slot held before — surface houses floating in a cave after a descent.
     const appearance = item._appearance;
-    if (!appearance) return;
-    if (!appearance.visible) { s.setVisible(false); return; }
+    if (!appearance || !appearance.visible) { s.setVisible(false); return; }
     const { spec, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx } = appearance;
     setTextureIfDifferent(s, texKey);
     // An absent frame leaves the texture's default frame untouched, while a
