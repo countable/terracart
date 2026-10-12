@@ -73,6 +73,13 @@ access or tile lifecycle mechanics.
 
 ## Generation, saves and tiles
 
+- After surface POI placement settles, `assignScholarFallback` upgrades one
+  surviving Scriptorium (library or college) to a Scholar when the tile has no
+  Scholar. The smallest stable object id wins, independent of input order or
+  player progress. This service override preserves the source POI class, id,
+  treasure rules and underground chest mirrors; existing school Scholars take
+  precedence. Selection precedes live overlays and never depends on visits.
+
 - Spider webs save their absolute cell, world position, depth and wall-clock
   expiry in `save.spiderWebs`. They survive reloads and tile eviction until
   24 hours after landing; another shot refreshes that cell without duplicating

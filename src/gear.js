@@ -285,7 +285,7 @@
       if (tier > 0) out.push({ kind: 'armor', slot, tier });
     }
     for (const item of uniqueRelics()) {
-      if (carriesItem(save, item.id)) out.push({ kind: 'item', id: item.id, qty: 1, tier: item.baseTier });
+      if (Inventory.ownedCount(save, item.id) > 0) out.push({ kind: 'item', id: item.id, qty: 1, tier: item.baseTier });
     }
     return out;
   }

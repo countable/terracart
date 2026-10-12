@@ -10228,7 +10228,9 @@ class MapScene extends Phaser.Scene {
         const sel = this.save.inv[this.save.selSlot];
         const it = sel && ITEM_BY_ID[sel.id];
         if (it) {
-          const nameTxt = sel.count != null ? `${it.name} ×${sel.count}` : it.name;
+          const borrowed = Macros.scholarLoaned(this.save, sel.id);
+          const nameTxt = (sel.count != null ? `${it.name} ×${sel.count}` : it.name)
+            + (borrowed ? ` · ${borrowed} on loan` : '');
           const effect = (typeof ITEM_EFFECTS !== 'undefined') ? ITEM_EFFECTS[sel.id] : null;
           const nameSpan = document.createElement('div');
           nameSpan.textContent = nameTxt;

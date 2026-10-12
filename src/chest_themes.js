@@ -196,6 +196,11 @@
     return Object.keys(members(group)).filter(id => {
       const item = ITEM_BY_ID[id];
       return item && !isTome(id) && !item.shiny && (!item.caveOnly || opts.depth > 0)
+        // Lifetime reading may run a few Books ahead of recovered memories.
+        // Filter here so direct Book lanes and study/culture fallbacks obey
+        // the same gate; an empty Book lane keeps its Torch fallback.
+        && (id !== 'book' || (Number(opts.save?.booksRead) || 0)
+          <= Object.keys(opts.save?.discovered || {}).length + 3)
         && (!(opts.chestTier >= 3 && tier >= opts.chestTier && item.kind === 'magic')
           || cap(id) * itemValue(id) >= TIER_VALUE[Math.min(5, opts.chestTier)] / 2)
         // Unique relics never drop to a

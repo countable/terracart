@@ -849,7 +849,8 @@ const MACRO_KINDS = ['inn', 'chapel', 'apothecary', 'scriptorium', 'guildhall', 
 function macroFor(o) {
   if (!o || o.kind !== 'chest' || o.depth > 0 || o.crate || o.fixedLoot) return null;
   if (o._macroCache !== undefined) return o._macroCache;
-  const kind = MACRO_KIND_BY_CLASS[o.poiClass] || null;
+  const baseKind = MACRO_KIND_BY_CLASS[o.poiClass] || null;
+  const kind = o.scholarFallback && baseKind === 'scriptorium' ? 'scholar' : baseKind;
   const res = (kind && !produceStandFor(o)) ? { kind, texKey: 'macro_' + kind } : null;
   o._macroCache = res;
   return res;
