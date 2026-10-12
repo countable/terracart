@@ -195,6 +195,9 @@ const ASSETS = {
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
+  // Five complete 32px columns; the trailing 16px mask column is unused.
+  // Keep the original 16px key for mineral/item previews that still need it.
+  mineralboulder: { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 32, frameHeight: 16 },
   // Selected tall pillar (#63), replacing the global mapped-pole sprite.
   // One 24px frame displayed in a 32px cell; purely decorative as before.
   pillar:         { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/tall_pillar.png', frameWidth: 24, frameHeight: 24 },

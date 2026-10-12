@@ -565,7 +565,7 @@ test('crystal deposits use their quarry sapphire rock art and centered seating',
   const spec=Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.mineralrock;
   const crystal={kind:'mineralrock',deposit:'crystal',yieldTier:1};
   assert.eq(spec.key(crystal),'zone_objects');assert.eq(spec.frame(crystal),59);
-  assert.eq(spec.key({yieldTier:6}),'mineralrock');assert.eq(spec.frame({yieldTier:6}),mineralRockFrame(6));
+  assert.eq(spec.key({yieldTier:6}),'mineralboulder');assert.eq(spec.frame({yieldTier:6}),46+mineralRockFrame(6));
   assert.eq(spec.scale(crystal),1.28*16/24);assert.truthy(spec.seat);
   const b=SpriteLayout.ART_BOUNDS['zone_objects:59'];
   const offset=SpriteLayout.seatInCell(b,.5,.5,spec.scale(crystal),spec.scale(crystal));
@@ -619,7 +619,7 @@ test('stronghold walls keep their tile frame alignment instead of centering corn
     assert.eq(p.dxPx,0); assert.eq(p.dyPx,0);
     assert.eq(p.spec.seat,false,'corner quadrants must not be recentered');
   }
-  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:2}).texKey,'mineralrock','global rock art retained');
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:2}).texKey,'mineralboulder','global boulder art retained');
 });
 
 // A mature replacement must not turn the seed packet or growing crop into a bush.
@@ -643,7 +643,7 @@ test('selected zone appearances keep mineral interactions and global art separat
   const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
   const original = art.resolveAppearance({kind:'mineralrock',yieldTier:2});
   const selected = art.resolveAppearance({kind:'mineralrock',deposit:'crystal',_zoneObjectFrame:37});
-  assert.eq(original.texKey,'mineralrock');
+  assert.eq(original.texKey,'mineralboulder');
   assert.eq(selected.texKey,'zone_objects'); assert.eq(selected.frameVal,37);
   assert.eq(selected.spec.after,original.spec.after,'pick-gate appearance hook is retained');
   assert.eq(selected.scl*24,32);
@@ -672,8 +672,8 @@ test('quarry broken stone shrinks while mineral shadows stay under every resolve
     assert.truthy(Math.abs(p.dyPx+(b.maxY-b.fh/2)*p.scl-p.foot.footFromCentre)<1e-10,'depth keeps the true art foot');
   }
   assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65}).scl,1.1);
-  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:1}).scl,1.28);
-  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:4}).scl,1.28);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:1,rockVariant:3}).scl,1.8);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:4}).scl,1.7);
   assert.eq(art.resolveAppearance({kind:'mineralrock',deposit:'crystal'}).scl,CRYSTAL_DEPOSIT.art.scale);
   assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:59}).scl,4/3);
 });

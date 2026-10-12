@@ -80,6 +80,14 @@
     'shrine_spirit:2': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 14, maxY: 14 },
     'shrine_spirit:3': { fw: 16, fh: 16, minX: 2, minY: 1, maxX: 14, maxY: 15 },
     'crystal_cluster:0': { fw: 16, fh: 16, minX: 1, minY: 2, maxX: 15, maxY: 14 },
+    'mineralboulder:45': { fw: 32, fh: 16, minX: 6, minY: 2, maxX: 25, maxY: 16 },
+    'mineralboulder:60': { fw: 32, fh: 16, minX: 3, minY: 0, maxX: 28, maxY: 16 },
+    'mineralboulder:46': { fw: 32, fh: 16, minX: 6, minY: 0, maxX: 25, maxY: 16 },
+    'mineralboulder:47': { fw: 32, fh: 16, minX: 6, minY: 0, maxX: 25, maxY: 16 },
+    'mineralboulder:48': { fw: 32, fh: 16, minX: 6, minY: 0, maxX: 25, maxY: 16 },
+    'mineralboulder:49': { fw: 32, fh: 16, minX: 6, minY: 0, maxX: 25, maxY: 16 },
+    'mineralboulder:51': { fw: 32, fh: 16, minX: 6, minY: 1, maxX: 25, maxY: 16 },
+    'mineralboulder:53': { fw: 32, fh: 16, minX: 6, minY: 1, maxX: 25, maxY: 16 },
     'mineralrock:168': { fw: 16, fh: 16, minX: 1, minY: 5, maxX: 16, maxY: 15 },
     'mineralrock:169': { fw: 16, fh: 16, minX: 3, minY: 6, maxX: 12, maxY: 14 },
     'mineralrock:170': { fw: 16, fh: 16, minX: 3, minY: 6, maxX: 13, maxY: 14 },
@@ -173,28 +181,15 @@
     return GROVE_SHRINE_ART[root.fnv1a(String(o?.id ?? '') + '#shrine') % GROVE_SHRINE_ART.length];
   }
 
-  // ── Plain rock: what the art SHOWS is what it DROPS ───────────────────────
-  // The four "plain rock" looks (row 15, cols 3..6 of the mineralrock sheet)
-  // are NOT interchangeable: col 3 draws a PAIR of stones — a small one
-  // overlapping a larger one — and cols 4..6 draw a single stone.
-  //
-  // `stones` is the art's promise of quantity: render.js picks the frame from
-  // `col` and interactables.js rolls the yield off `stones`, so the rock you
-  // see and the count you get can't drift apart.
-  //
-  // NOTE the pair is a SINGLE connected blob, so no pixel pass can count it —
-  // `stones` is authored, not measured. The tripwire if the sheet is re-cut is
-  // the ART_BOUNDS drift check in tools/sprite_audit.js (it pins
-  // 'mineralrock:168' at 15px wide against the singles' 9-13).
+  // Plain boulders reuse the complete 32×16 artwork in the existing sheet.
+  // Four stable variant slots preserve saved/worldgen choices and their drops:
+  // the pair pays two stones; the three single sizes each pay one.
   const PLAIN_ROCK_VARIANTS = [
-    { col: 3, stones: 2 },   // a pair — small stone overlapping a larger one
-    { col: 4, stones: 1 },   // single, small
-    { col: 5, stones: 1 },   // single, small
-    { col: 6, stones: 1 },   // single, chunkier
+    { frame: 60, scale: 1.6, stones: 2 },
+    { frame: 45, scale: 1.6, stones: 1 },
+    { frame: 45, scale: 1.7, stones: 1 },
+    { frame: 45, scale: 1.8, stones: 1 },
   ];
-  // Row 15 of the sheet (11 cols) holds the small rock variants; the other rows
-  // are boulder-sized art that bleeds past the 16×16 frame at render scale.
-  const PLAIN_ROCK_ROW = 15, MINERALROCK_COLS = 11;
   // The one look every churchyard rock wears (src/zones.js): the chunky
   // single stone — one stone drawn, one stone paid.
   const CHURCHYARD_ROCK_VARIANT = 3;
@@ -220,7 +215,19 @@
   }
   // Sheet frame index for a plain rock — what render.js draws.
   function plainRockFrame(o) {
-    return PLAIN_ROCK_ROW * MINERALROCK_COLS + plainRockVariant(o).col;
+    return plainRockVariant(o).frame;
+  }
+  // Named deposits keep their own art. Legacy ore colours follow the same
+  // material column as their dropped bar, offset past the plain boulder.
+  function mineralRockArt(o) {
+    const deposit = mineralDeposit(o);
+    if (deposit) return deposit.art;
+    const tier = o.yieldTier || o.requiredTier || 1;
+    if (o.caveVariant != null || tier <= 1) {
+      const variant = plainRockVariant(o);
+      return { sheet: 'mineralboulder', frame: variant.frame, scale: variant.scale };
+    }
+    return { sheet: 'mineralboulder', frame: 46 + mineralRockFrame(tier), scale: 1.7 };
   }
   // How many stones the art shows — what interactables.js pays out.
   function plainRockStones(o) { return plainRockVariant(o).stones; }
@@ -1047,7 +1054,7 @@
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell, PLAYER_ART, playerArt, CHEST_SCALE,
     GROVE_SHRINE_ART, SHIPWRECK_SHRINE_ART, SHRINE_KIND_ART, SHRINE_SPIRIT_ART, groveShrineArt,
-    PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones,
+    PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones, mineralRockArt,
     CROWN_BOUNDS, fruitCrownOffset,
     NPC_FRAME, NPC_SHEETS, npcSheet, npcAppearance,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,

@@ -112,6 +112,13 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 ## Lighting and streets
 
+- Plain mineable rocks use the existing sheet's complete 32×16 boulders,
+  loaded as `mineralboulder` with five columns. The pair and three single-size
+  variants retain their deterministic slot and two/one-stone yields. Legacy
+  ore rocks use the matching larger mineral boulders; named gem deposits retain
+  their own artwork. `SpriteLayout.mineralRockArt` owns key, frame and scale.
+  The `mineralrock` 16×16 texture remains available for material/icon uses.
+
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Bushes, hedges, short walls, rocks and cave walls block sight beyond their
   cell; the smallest tree saplings provide no cover. Larger standing trees

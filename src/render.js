@@ -5571,41 +5571,11 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
                   depth: s.depth + 0.5,
                 });
               } },
-    mineralrock: { key: (o) => mineralDeposit(o)?.art.sheet || 'mineralrock',
-              // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
-              // to the SMALL rock variants only — other rows have boulder-
-              // sized art that visibly bleeds past the 16 × 16 frame at
-              // rock scale. Two safe pickranges:
-              //   PLAIN → row 15, cols 3..6 (the four "nice vanilla" rocks
-              //           the user identified; 4 vars). Used by cave rock AND
-              //           T1 ore — T1 shows no visible ore, it's just plain
-              //           rock that happens to yield a little copper. The
-              //           variant is NOT free cosmetics: col 3 draws a PAIR of
-              //           stones and pays out one more rock for it, so the
-              //           frame comes from SpriteLayout.PLAIN_ROCK_VARIANTS —
-              //           the same table interactables.js rolls the yield off.
-              //   ORE   → row 0, the ore-stone per yield tier. The top row is
-              //           ore stones in tier order starting at copper — copper
-              //           col 0 (T2), iron 1 (T3), gold 2 (T4), platinum 3
-              //           (T5), crimson 5 (T6), frost blue 7 (T7) —
-              //           so the rock you see matches the bar it drops.
-              frame: (o) => {
-                const deposit = mineralDeposit(o);
-                if (deposit) return deposit.art.frame;
-                const tier = o.yieldTier || o.requiredTier || 1;
-                // Cave rock and T1 ore both render as a plain rock variant.
-                if (o.caveVariant != null || tier <= 1) {
-                  return SpriteLayout.plainRockFrame(o);   // row 15, cols 3..6
-                }
-                // MINERAL_TIERS owns the ore-stone column beside the bar the
-                // rock pays. Row 0 means the sheet frame equals that column.
-                return mineralRockFrame(tier);
-              },
-              // Seat per the "one cell" rule: centres the small rock art in its cell (the art
-              // sits low in the 16px frame). origin (0.5, 0.5)/dyPx below are the
-              // no-SpriteLayout fallback; a foot-anchor would shove a flat ground rock ~11 px
-              // into the cell above. scale 1.28 draws the 16px frame at ~20px.
-              origin: [0.5, 0.5], scale: o => mineralDeposit(o)?.art.scale || 1.28, seat: true, shadow: true,
+    mineralrock: { key: o => SpriteLayout.mineralRockArt(o).sheet,
+              frame: o => SpriteLayout.mineralRockArt(o).frame,
+              // Complete boulders make full cover readable. Named gem deposits
+              // retain their own art; cell seating uses each frame's bounds.
+              origin: [0.5, 0.5], scale: o => SpriteLayout.mineralRockArt(o).scale, seat: true, shadow: true,
               // Ore the current pick can't mine → half alpha; plain rock is
               // ungated and always full (interactables.js toolGatedAlpha).
               after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },
