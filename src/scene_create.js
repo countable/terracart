@@ -471,6 +471,10 @@ class SceneCreate {
     // layer; the module draws into an offscreen canvas and adds the resulting
     // image here on its first pass.
     this.buildingGeomContainer = this.add.container(0, 0);
+    // Building walls are background too, below pads, traps and characters.
+    this.buildingWallContainer = this.add.container(0, 0);
+    // Tiled building trim and claim washes share the same background slot.
+    this.rampartBackGfx = this.add.graphics();
     // Pads (rounded concrete slabs under POI chests) draw under objects.
     this.padContainer = this.add.container(0, 0);
     // TRAPS — flat marks lying ON the ground (src/traps.js), so they belong
@@ -516,15 +520,13 @@ class SceneCreate {
     // (The POI halo layer — a ring "ping" under every live POI — lived here
     // until Sep 2026. A live POI is a LIGHT now, breathing in the lightmap:
     // Lighting.KINDS.poi.)
-    // Flat building trim and claim washes stay below upright world pieces.
-    this.rampartBackGfx = this.add.graphics();
     // Upright scenery and characters share a continuous ground-Y sort.
     // Cell art keeps its seating; moving feet can cross its base within a cell.
     this.worldContainer = this.add.container(0, 0);
     this.plantedContainer = this.worldContainer;
     this.objectsContainer = this.worldContainer;
     this.creaturesContainer = this.worldContainer;
-    // Castle walls, turrets and flags participate in the world foot sort.
+    // Interactive towers and flags participate in the world foot sort.
     this.towerContainer = this.worldContainer;
     // Cell gas veils standing objects, then shares their lighting and fog.
     this.gasGfx = this.add.graphics();
@@ -932,6 +934,7 @@ class SceneCreate {
     this.letterContainer.setMask(mask);
     this.roadGeomContainer.setMask(mask);
     this.buildingGeomContainer.setMask(mask);
+    this.buildingWallContainer.setMask(mask);
     this.padContainer.setMask(mask);
     this.trapContainer.setMask(mask);
     this.shadowContainer.setMask(mask);

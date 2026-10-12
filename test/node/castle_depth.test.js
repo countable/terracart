@@ -13,27 +13,24 @@
     Render.sortWorldDepth([actor, tower]);
     assert.gt(actor.sprite.depth, tower.sprite.depth, 'crossing the foot paints actor in front');
   });
-  test('castle depth: tiled sections share wall, tower, and actor ground ordering', () => {
+  test('castle depth: tiled wall sections belong to the building background and reuse their pool', () => {
     const graphics = () => ({ visible: false, depth: -1,
       setVisible(v) { this.visible = v; return this; }, setDepth(v) { this.depth = v; return this; } });
+    const walls = [];
     const scene = { _uprightPieces: [], _rampartPoolUsed: 0,
-      add: { graphics }, worldContainer: { add() {} } };
+      add: { graphics },
+      buildingWallContainer: { add(sprite) { sprite.parentContainer = this; walls.push(sprite); } },
+      worldContainer: { add() { throw new Error('walls must stay out of the world layer'); } } };
     const north = Render.rampartPiece(scene, 100);
-    const side = Render.rampartPiece(scene, 107, 0);
-    const south = Render.rampartPiece(scene, 107);
-    const tower = { sprite: sprite(), groundY: 107, rank: 2 };
-    const actor = { sprite: sprite(), groundY: 106.9, rank: 3 };
-    const pieces = [...scene._uprightPieces, tower, actor];
-    Render.sortWorldDepth(pieces);
-    assert.lt(north.depth, actor.sprite.depth, 'north wall stays behind approaching actor');
-    assert.lt(actor.sprite.depth, side.depth, 'side sorts by its southern endpoint');
-    assert.lt(side.depth, south.depth, 'horizontal wall wins the exact corner tie');
-    assert.lt(south.depth, tower.sprite.depth, 'tower wins only the ordinary exact foot tie');
-    actor.groundY = 107.1;
-    Render.sortWorldDepth(pieces);
-    assert.gt(actor.sprite.depth, south.depth, 'actor crossing ground foot passes in front');
+    Render.rampartPiece(scene, 107, 0);
+    Render.rampartPiece(scene, 107);
+    assert.eq(walls.length, 3, 'all tiled sections enter the background container');
+    assert.truthy(walls.every(wall => wall.parentContainer === scene.buildingWallContainer),
+      'actors always draw above tiled walls');
     scene._uprightPieces = []; scene._rampartPoolUsed = 0;
     assert.eq(Render.rampartPiece(scene, 114), north, 'tiled wall graphics reuse their pool');
+    assert.eq(walls.length, 3, 'reuse adds no new wall');
+    assert.eq(north.parentContainer, scene.buildingWallContainer, 'reuse preserves the background layer');
     assert.eq(scene._uprightPieces[0].groundY, 114, 'reuse reads current ground anchor');
   });
 })();

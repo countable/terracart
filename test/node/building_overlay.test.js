@@ -207,7 +207,7 @@ test('building overlay: the wall is the ring shifted south, drawn UNDER the floo
     assert.eq(wall.pts[i].x, floor.pts[i].x, `wall vertex ${i} x matches the floor`);
     assert.eq(wall.pts[i].y, floor.pts[i].y + depth, `wall vertex ${i} sits ${depth}px south`);
   }
-  assert.eq(wall.color, Render.BUILDING_FACE_COLOR[T.BUILDING], 'wall wears render.js face colour');
+  assert.eq(wall.color, buildingBackgroundColor(Render.BUILDING_FACE_COLOR[T.BUILDING]), 'wall wears render.js face colour');
 });
 
 test('building overlay: a castle wall is deeper than a house wall', () => {
@@ -270,7 +270,7 @@ test('building overlay: castle floors and ramparts share the tower material in b
     putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING_LARGE, id)]);
     const scene = makeScene({ isClaimedKey: () => claimed });
     BuildingOverlay.draw(scene);
-    const material = CastleStyles.get(id, claimed), g = scene.buildingGeomGfx;
+    const material = buildingBackgroundMaterial(CastleStyles.get(id, claimed)), g = scene.buildingGeomGfx;
     const fills = g.only('fill');
     assert.eq(fills[0].color, material.stone.FACE, `${id}: stone wall face`);
     assert.eq(fills[1].color, material.floor, `${id}: matching courtyard`);
@@ -407,7 +407,9 @@ test('building overlay: an unclaimed footprint is drawn in shaded colours', () =
     BuildingOverlay.draw(dark);
     const a = lit.buildingGeomGfx.only('fill')[1].color;
     const b = dark.buildingGeomGfx.only('fill')[1].color;
-    assert.eq(b, a ^ 0x00ff00, 'the unclaimed floor went through the shade');
+    const raw = typeof COLORS !== 'undefined' ? COLORS[T.BUILDING] : 0xae685d;
+    assert.eq(a, buildingBackgroundColor(raw), 'claimed floor is muted');
+    assert.eq(b, buildingBackgroundColor(raw ^ 0x00ff00), 'shade precedes background treatment');
   } finally {
     if (had) globalThis.unclaimedShade = prev; else delete globalThis.unclaimedShade;
   }
@@ -431,16 +433,18 @@ test('building overlay: the unclaimed material lift is applied to the colours, n
     BuildingOverlay.draw(scene);
     const g = scene.buildingGeomGfx;
     const [oldWall, oldFloor, newWall, newFloor] = g.only('fill');
-    const base = oldFloor.color ^ 0x0000ff ^ 0x00ff00;
-    assert.eq(newFloor.color, base, 'the restored floor is the plain tier colour');
-    assert.eq(oldFloor.color, (base ^ 0x00ff00) ^ 0x0000ff, 'the old floor: shaded, then lifted');
-    assert.eq(oldWall.color, (newWall.color ^ 0x00ff00) ^ 0x0000ff, 'its wall too');
+    const base = typeof COLORS !== 'undefined' ? COLORS[T.BUILDING] : 0xae685d;
+    assert.eq(newFloor.color, buildingBackgroundColor(base), 'the restored floor uses the muted tier colour');
+    assert.eq(oldFloor.color, buildingBackgroundColor((base ^ 0x00ff00) ^ 0x0000ff), 'the old floor: shaded, then lifted');
+    assert.eq(newWall.color, buildingBackgroundColor(Render.BUILDING_FACE_COLOR[T.BUILDING]));
+    assert.eq(oldWall.color, buildingBackgroundColor((Render.BUILDING_FACE_COLOR[T.BUILDING] ^ 0x00ff00) ^ 0x0000ff), 'its wall too');
     const slime = g.only('slime');
     assert.eq(slime.length, 1, 'only the old floor is overgrown');
-    assert.includes(tuned, slime[0].color ^ 0x0000ff, 'the slime went through the lift');
+    const finalTuned = tuned.map(c => buildingBackgroundColor(c ^ 0x0000ff));
+    assert.includes(finalTuned, slime[0].color, 'the slime went through the lift');
     const [oldLine, newLine] = g.only('stroke');
-    assert.includes(tuned, oldLine.color ^ 0x0000ff, 'and the old outline');
-    assert.eq(tuned.includes(newLine.color ^ 0x0000ff), false, 'the restored outline did not');
+    assert.includes(finalTuned, oldLine.color, 'and the old outline');
+    assert.eq(finalTuned.includes(newLine.color), false, 'the restored outline did not');
     assert.eq(typeof BuildingOverlay.draw, 'function');
   } finally {
     if (hadShade) globalThis.unclaimedShade = prevShade; else delete globalThis.unclaimedShade;
@@ -516,8 +520,8 @@ test('building overlay: slime is dark green, derived from the unclaimed shade', 
   try {
     const scene = unclaimedScene();
     BuildingOverlay.draw(scene);
-    const floor = scene.buildingGeomGfx.only('fill')[1].color;
-    assert.eq(scene.buildingGeomGfx.only('slime')[0].color, shade(shade(floor)),
+    const raw = typeof COLORS !== 'undefined' ? COLORS[T.BUILDING] : 0xae685d;
+    assert.eq(scene.buildingGeomGfx.only('slime')[0].color, buildingBackgroundColor(shade(shade(shade(raw)))),
       'two shades deeper than the floor it grows on');
   } finally {
     if (had) globalThis.unclaimedShade = prev; else delete globalThis.unclaimedShade;
@@ -755,7 +759,12 @@ function makeWallScene(over) {
   ctx.moveTo = ctx.lineTo = (x, y) => path.push({ x, y });
   ctx.fill = () => log.polygons.push({ color: ctx.fillStyle, points: path.slice() });
   const scene = makeScene(Object.assign({
-    worldContainer: { add(sprite) { log.sprites.push(sprite); } },
+    buildingWallContainer: {
+      ...makeContainer(),
+      add(sprite) { sprite.parentContainer = this; log.sprites.push(sprite); },
+      sort(key) { log.sprites.sort((a, b) => a[key] - b[key]); },
+    },
+    worldContainer: { add() { throw new Error('building walls must stay out of the world layer'); } },
     textures: {
       exists: () => false,
       remove: (key) => log.removedTextures.push(key),
@@ -828,7 +837,7 @@ test('building overlay: castle ramparts use short upright wall sections, leaving
   assert.eq(scene.buildingGeomGfx.only('fill').length, 1, 'only the courtyard stays on the ground canvas');
   assert.eq(scene.buildingGeomGfx.only('inset').length, 0, 'ramparts belong to the upright pieces');
   assert.eq(scene._buildingUprightPieces.length, 8, 'one section per cell of perimeter');
-  assert.eq(log.sprites.length, 8, 'wall sections are ordinary world sprites');
+  assert.eq(log.sprites.length, 8, 'wall sections are background sprites');
   assert.eq(log.pages.length, 1, 'sections share the wall atlas');
 });
 
@@ -837,7 +846,7 @@ test('building overlay: both horizontal castle boundaries expose six-pixel caps 
   putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'citadel')]);
   const { scene, log } = makeWallScene();
   BuildingOverlay.draw(scene);
-  const material = CastleStyles.get('citadel', true);
+  const material = buildingBackgroundMaterial(CastleStyles.get('citadel', true));
   const css = c => '#' + c.toString(16).padStart(6, '0');
   const faces = log.polygons.filter(p => p.color === css(material.stone.FACE));
   assert.eq(faces.length, 4, 'two sections on each horizontal boundary, including the back wall');
@@ -860,7 +869,7 @@ test('building overlay: angled and concave castle corners bridge adjacent top pl
     putShapes(0, 0, [{ ring: Float32Array.from(ring), tier: T.BUILDING_LARGE, areaM2: 300, key: 'citadel' }]);
     const { scene, log } = makeWallScene();
     BuildingOverlay.draw(scene);
-    const material = CastleStyles.get('citadel');
+    const material = buildingBackgroundMaterial(CastleStyles.get('citadel'));
     const color = '#' + material.stone.BODY.toString(16).padStart(6, '0');
     const caps = log.polygons.filter(p => p.color === color && p.points.length === 4).map(p => p.points);
     const point = i => ({ x: 176 + ring[(i * 2 + ring.length) % ring.length] * PX_PER_M,
@@ -895,80 +904,24 @@ test('building overlay: polygon winding does not change wall base anchors', () =
   assert.eq(anchors[0], anchors[1], 'south face bases agree for either source ring order');
 });
 
-test('building overlay: angled castle sections sort by their lowest masonry base as actors cross', () => {
-  clearTiles();
-  putShapes(0, 0, [{ ring: Float32Array.from([10, 0, 20, 10, 10, 20, 0, 10]),
-    tier: T.BUILDING_LARGE, areaM2: 200, key: 'archive' }]);
-  const { scene } = makeWallScene();
-  BuildingOverlay.draw(scene);
-  const pieces = scene._buildingUprightPieces;
-  assert.eq(pieces.length, 12, 'each diagonal edge splits into three sub-cell sections');
-  const first = pieces[0], second = pieces[1];
-  assert.lt(Math.abs(first.groundY - 10 / 3), 1e-9, 'first anchor is lower endpoint, not midpoint or roof');
-  assert.lt(Math.abs(second.groundY - 20 / 3), 1e-9, 'next section has its own lower endpoint');
-  const actor = { groundY: first.groundY - 0.01, rank: 3,
-    sprite: { depth: 0, setDepth(d) { this.depth = d; } } };
-  Render.sortWorldDepth([first, second, actor]);
-  assert.lt(actor.sprite.depth, first.sprite.depth, 'actor behind section foot is occluded');
-  actor.groundY = first.groundY + 0.01;
-  Render.sortWorldDepth([first, second, actor]);
-  assert.gt(actor.sprite.depth, first.sprite.depth, 'crossing the foot moves actor in front');
-  assert.lt(actor.sprite.depth, second.sprite.depth, 'next lower wall section remains in front');
-  const front = pieces[3];
-  const faceM = CastleStyles.get('archive').rampart.wallHeight / PX_PER_M;
-  const liftedCapM = CastleStyles.get('archive').rampart.topDepth * (1 - Math.SQRT1_2) / PX_PER_M;
-  assert.lt(Math.abs(front.groundY - (40 / 3 + faceM - liftedCapM)), 1e-9,
-    'south-facing section sorts at the actual shortened face bottom below its lifted cap');
-  actor.groundY = front.groundY - 0.01;
-  Render.sortWorldDepth([front, actor]);
-  assert.lt(actor.sprite.depth, front.sprite.depth, 'actor on the masonry face remains behind the wall');
-  actor.groundY = front.groundY + 0.01;
-  Render.sortWorldDepth([front, actor]);
-  assert.gt(actor.sprite.depth, front.sprite.depth, 'actor below the physical base passes in front');
-  const ground = first.groundY;
-  scene.playerM.x = 5;
-  BuildingOverlay.draw(scene);
-  assert.eq(scene._buildingUprightPieces[0], first, 'moving the camera reuses the section');
-  assert.eq(first.groundY, ground, 'camera movement never changes its world ground anchor');
-});
-
-test('building overlay: angled house and palisade (fort) edges carry base lines, and players / booths seat against them', () => {
-  // A diamond footprint: its south-east edge runs (20,10)→(10,20) — a slanted
-  // wall long enough to cut into several pieces, as a house or a palisade fort.
+test('building overlay: angled walls stay in the background for every building tier', () => {
   const ring = [10, 0, 20, 10, 10, 20, 0, 10];
-  for (const tier of [T.BUILDING, T.BUILDING_MED]) {
+  for (const tier of [T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE]) {
     clearTiles();
-    putShapes(0, 0, [{ ring: Float32Array.from(ring), tier, areaM2: 200, key: 'house_' + tier }]);
-    const { scene } = makeWallScene();
+    putShapes(0, 0, [{ ring: Float32Array.from(ring), tier, areaM2: 200, key: 'archive' }]);
+    const { scene, log } = makeWallScene();
     BuildingOverlay.draw(scene);
     const pieces = scene._buildingUprightPieces;
-    assert.gt(pieces.length, 4, `tier ${tier}: the slanted edges are cut into pieces`);
-    for (const piece of pieces) {
-      const b = piece.base;
-      assert.truthy(b && [b.x0, b.y0, b.x1, b.y1, b.wx0, b.wx1].every(Number.isFinite), `tier ${tier}: every piece carries its base line`);
-      // The line meets the piece's own foot at the low end of its segment.
-      if (Math.abs(b.x1 - b.x0) > 1e-6) {
-        const at = (x) => b.y0 + (b.y1 - b.y0) * (x - b.x0) / (b.x1 - b.x0);
-        assert.lt(Math.abs(Math.max(at(b.wx0), at(b.wx1)) - piece.groundY), 1e-6, `tier ${tier}: base line meets the foot`);
-      }
-    }
-    // A wide booth just outside the south-east edge (in front of it), and a
-    // player just inside it (behind): each lands on the right side of every
-    // piece of that edge it overlaps.
-    const se = pieces.filter(p => p.base && p.base.x1 < p.base.x0 && p.base.y1 > p.base.y0);
-    assert.gt(se.length, 1, `tier ${tier}: the south-east edge has several pieces`);
-    const lineAt = (x) => { const b = se[0].base; return b.y0 + (b.y1 - b.y0) * (x - b.x0) / (b.x1 - b.x0); };
-    const x = 15;   // the middle of the south-east edge, world m
-    const booth = { groundY: lineAt(x) + 0.2, rank: 1, wallSeat: { x, halfW: 6 },
-      sprite: { depth: 0, setDepth(d) { this.depth = d; } } };
-    const player = { groundY: lineAt(x) - 0.2, rank: 3, wallSeat: { x, halfW: 2.5 },
-      sprite: { depth: 0, setDepth(d) { this.depth = d; } } };
-    Render.seatAgainstWalls([booth, player], pieces, scene.cellM * 3);
-    Render.sortWorldDepth([...pieces, booth, player]);
-    for (const p of se) {
-      if (p.base.wx1 >= x - 6 && p.base.wx0 <= x + 6) assert.gt(booth.sprite.depth, p.sprite.depth, `tier ${tier}: the booth in front of the wall is drawn over it`);
-      if (p.base.wx1 >= x - 2.5 && p.base.wx0 <= x + 2.5) assert.lt(player.sprite.depth, p.sprite.depth, `tier ${tier}: the player behind the wall is hidden by it`);
-    }
+    assert.gt(pieces.length, 4, `tier ${tier}: slanted edges split into short sections`);
+    assert.truthy(log.sprites.every(sprite => sprite.parentContainer === scene.buildingWallContainer),
+      `tier ${tier}: every wall is below the world layer`);
+    const first = pieces[0], ground = first.groundY, oldX = first.sprite.x;
+    scene.playerM.x = 5;
+    BuildingOverlay.draw(scene);
+    assert.eq(scene._buildingUprightPieces[0], first, 'camera movement reuses the section');
+    assert.eq(first.groundY, ground, 'camera movement preserves its world anchor');
+    assert.eq(first.sprite.x, oldX - CELL_PX, 'background walls follow the camera');
+    assert.eq(first.sprite.parentContainer, scene.buildingWallContainer, 'reused walls stay in the background');
   }
   clearTiles();
 });
@@ -997,7 +950,7 @@ test('building overlay: a cell crossing reuses baked wall pieces instead of reba
 });
 
 clearTiles();
-test('building overlay: upright polygon walls share world ordering and scroll independently of floors', () => {
+test('building overlay: polygon walls remain background and scroll independently of floors', () => {
   clearTiles();
   putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_MED)]);
   let shutdown, shutdownRegistrations = 0;
@@ -1008,7 +961,7 @@ test('building overlay: upright polygon walls share world ordering and scroll in
   assert.eq(scene.buildingGeomGfx.only('fill').length, 1, 'only the floor stays on the ground canvas');
   assert.eq(scene.buildingGeomGfx.only('inset').length, 0, 'upright building trim leaves the ground canvas');
   assert.eq(scene._buildingUprightPieces.length, 8, 'perimeter divides into cell-length wall pieces');
-  const north = scene._buildingUprightPieces[0], south = scene._buildingUprightPieces[4];
+  const north = scene._buildingUprightPieces[0], south = scene._buildingUprightPieces.at(-1);
   assert.lt(north.groundY, south.groundY, 'north and south walls have independent world anchors');
   assert.eq(south.groundY, 10 + Render.BUILDING_FACE_PX[T.BUILDING_MED] / PX_PER_M,
     'south anchor follows the lowest visible masonry base');

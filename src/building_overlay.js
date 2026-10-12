@@ -47,10 +47,9 @@
 // walk, scattered inside the ring rather than its bounding box, and coloured
 // by running the unclaimed shade over the floor twice more.
 //
-// Floors share the cached ground canvas. Upright faces and castle ramparts
-// are split into short perimeter pieces in worldContainer, each ordered at
-// its own ground foot with characters and scenery. A character can therefore
-// stand behind a south wall while remaining in front of the north wall.
+// Floors share the cached ground canvas. Wall faces and castle ramparts use
+// cached atlas pieces in a background container immediately above the floors.
+// Every interactable and character draws above both layers.
 //
 // Depends on:
 //   scene fields (read-only): buildingGeomGfx, buildingGeomContainer,
@@ -128,8 +127,8 @@
   // …and the material lift over the shaded colour: what render.js's tiled
   // pass does to an unclaimed court floor and its stone (courtShaded, `stone`).
   const tuneOf = (claimed) => {
-    if (claimed || typeof unclaimedMaterialColor !== 'function') return (c) => c;
-    return (c) => unclaimedMaterialColor(c);
+    if (claimed || typeof unclaimedMaterialColor !== 'function') return buildingBackgroundColor;
+    return (c) => buildingBackgroundColor(unclaimedMaterialColor(c));
   };
 
   // ── Slime: what "dilapidated" looks like up close ────────────────────────
@@ -239,10 +238,9 @@
     return blobs;
   }
 
-  // Castle masonry, from the shared palette so a polygon rampart is the same
-  // stone as the turret sprites standing on it.
+  // Castle masonry shares the tower material, muted for the background.
   const castleStone = (claimed, key) => {
-    const style = CastleStyles.get(key, claimed);
+    const style = buildingBackgroundMaterial(CastleStyles.get(key, claimed));
     const top = style.rampart.woodTop ? style.wood : style.stone;
     return { body: style.stone.BODY, lite: top.LITE, dark: style.stone.DARK,
       top: top.BODY, style };
@@ -473,7 +471,7 @@
       templePoly(pts, activated, dark) {
         ctx.save();
         ctx.translate(-originX, -originY);
-        TempleArt.draw(ctx, pts, { activated, dark, faces: false });
+        TempleArt.draw(ctx, pts, { activated, dark, faces: false, background: true });
         ctx.restore();
       },
       texturePhase(x, y) { phaseX = wrap(x - originX); phaseY = wrap(y - originY); },
@@ -575,7 +573,7 @@
   function uprightEdges(scene, d, isMine, projX, projY, seen) {
     const shade = shadeOf(isMine), tune = tuneOf(isMine);
     const stone = d.tier === CASTLE && !d.templeZone ? castleStone(isMine, d.key) : null;
-    const temple = d.templeZone ? TempleArt.palette(isMine, d.templeKind === 'tar') : null;
+    const temple = d.templeZone ? TempleArt.palette(isMine, d.templeKind === 'tar', true) : null;
     const depth = stone ? stone.style.rampart.wallHeight : facePx(d.tier);
     const face = temple ? temple.face : stone ? stone.style.stone.FACE : tune(shade(faceColor(d.tier, isMine)));
     const outline = temple ? temple.outline : stone ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
@@ -767,21 +765,11 @@
         const frame = `p${++page.seq}`;
         page.tex.add(frame, 0, sx, sy, Math.min(w, A.slotW), Math.min(h, A.slotH));
         const sprite = scene.add.image(x, y, page.key, frame).setOrigin(0, 0);
-        scene.worldContainer.add(sprite);
+        scene.buildingWallContainer.add(sprite);
         const piece = {
           sprite, page, frame, slot, x, y, wx, wy, width: w, height: h, rank: 1,
           // Lowest visible masonry, excluding transparent frame padding.
           groundY: (masonryBaseY - projY(0)) * scene.cellM / CELL_PX,
-          // The whole edge's BASE LINE and this piece's own x-span (the
-          // segment, not the padded atlas box), in world m
-          // (Render.seatAgainstWalls): the edge shifted down by this piece's
-          // own foot offset, so it meets groundY at the piece's low end.
-          base: (() => {
-            const k = scene.cellM / CELL_PX, off = masonryBaseY - Math.max(p.y, q.y);
-            return { x0: (a.x - projX(0)) * k, y0: (a.y + off - projY(0)) * k,
-              x1: (b.x - projX(0)) * k, y1: (b.y + off - projY(0)) * k,
-              wx0: (Math.min(p.x, q.x) - projX(0)) * k, wx1: (Math.max(p.x, q.x) - projX(0)) * k };
-          })(),
         };
         scene._buildingUprightCache.set(cacheKey, piece);
         seen.add(cacheKey);
@@ -805,6 +793,7 @@
     // the tiled art is the one being drawn.
     const on = (scene.depth ?? 0) === 0 && enabled();
     if (container) container.setVisible(on);
+    if (scene.buildingWallContainer) scene.buildingWallContainer.setVisible((scene.depth ?? 0) === 0);
     if (!on) {
       clearUprights(scene);
       // Wipe the canvas the first time it goes off: setEnabled() invalidates
@@ -887,7 +876,7 @@
         scene._buildingGeomTarget = null;
       });
     }
-    const separateUprights = !!(scene.worldContainer && scene.add && scene.textures);
+    const separateUprights = !!(scene.buildingWallContainer && scene.add && scene.textures);
     // Cell-snapped projection (the container re-applies the sub-cell offset) —
     // the same one the road overlay strokes with — and its padded cull bounds.
     const { projX, projY, minX, maxX, minY, maxY } = overlayProjection(scene, fracX, fracY);
@@ -951,7 +940,7 @@
     for (const d of draws) {
       if (d.templeZone) {
         const active = Temples.isActive(scene.save, d);
-        const palette = TempleArt.palette(active, d.templeKind === 'tar');
+        const palette = TempleArt.palette(active, d.templeKind === 'tar', true);
         if (!separateUprights) g.fillPoly(d.pts.map(p => ({ x: p.x, y: p.y + facePx(d.tier) })), palette.face);
         if (g.templePoly) g.templePoly(d.pts, active, d.templeKind === 'tar');
         else { g.fillPoly(d.pts, palette.floor); g.strokePoly(d.pts, OUTLINE_PX, palette.outline); }
@@ -962,7 +951,7 @@
       const shade = shadeOf(isMine), tune = tuneOf(isMine);
       // The shaded floor is what the slime derives from (three shades deep —
       // see slimeColor); the material lift goes over every colour after.
-      const style = d.tier === CASTLE ? CastleStyles.get(d.key, isMine) : null;
+      const style = d.tier === CASTLE ? buildingBackgroundMaterial(CastleStyles.get(d.key, isMine)) : null;
       const shaded = style ? style.floor : shade(floorColor(d.tier, isMine));
       const floor = style ? style.floor : tune(shaded);
       const depth = facePx(d.tier);
@@ -984,7 +973,7 @@
       // faint loses to a cobble or plank pattern laid on top of it.
       if (g.gridPoly) g.gridPoly(d.pts, gridInkFor(GRID, floor));
       if (d.columns.length && g.columnsPoly) g.columnsPoly(d.pts, d.columns, isMine);
-      // Every short wall section joins the ordinary upright painter pass.
+      // Wall sections stay in the building background.
       if (separateUprights) {
         uprightEdges(scene, d, isMine, projX, projY, seen);
       } else if (d.tier === CASTLE) {
@@ -1006,7 +995,11 @@
     for (const [k, p] of scene._buildingUprightCache) {
       if (!seen.has(k)) { releasePiece(scene, p); scene._buildingUprightCache.delete(k); }
     }
-    if (separateUprights) commitWallAtlas(scene);
+    if (separateUprights) {
+      Render.sortWorldDepth(scene._buildingUprightPieces);
+      scene.buildingWallContainer.sort('depth');
+      commitWallAtlas(scene);
+    }
     if (g.commit) g.commit();
   }
 

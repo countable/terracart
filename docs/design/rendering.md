@@ -21,17 +21,20 @@ rendering, lighting or street mechanics. Camera and art geometry live in
 - Flight raises the body by the consumable row’s `liftPx` through `playerBodyDy()`;
   the shadow, world position and ground sorting remain at the feet. Expiry lowers
   the body automatically. Thrown flight potions also raise creature bodies.
-- Upright scenery, castle wall pieces and characters (including the player)
-  share `Render.sortWorldDepth`: lower continuous ground/feet Y renders in
-  front. Use stable seating geometry, never animation lift or whole cell rows.
+- Upright scenery and characters (including the player) share
+  `Render.sortWorldDepth`: lower continuous ground/feet Y renders in front.
+  Use stable seating geometry, never animation lift or whole cell rows.
   Add sprite appearances to `RENDER_SPEC`; ground surfaces stay underneath.
+- Layer order is landcover, variant surfaces, building footprints, walls,
+  ground state (such as oil spills), then objects and characters.
+  Building footprints and walls are background. Polygon walls and tiled castle
+  ramparts live in `buildingWallContainer`, immediately above the footprint
+  layer and below pads, traps, shadows and every interactable. Wall geometry
+  never adjusts an actor's feet or enters the world depth sort. Towers and
+  flags retain ordinary world ordering. Walls and footprints use a muted
+  palette so interactables remain distinct.
   Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
-  renderers. Polygon corners use bounded bevel joins; depth seating follows
-  the rendered masonry base, including the lift on angled edges. Each angled
-  wall piece also carries its edge's base line (`base`), and players, booths
-  and Home (`wallSeat` rows) are judged against it at their own x
-  (`Render.seatAgainstWalls`): in front of the wall where they stand, they
-  draw over every piece they overlap; behind it, under every one.
+  renderers; polygon corners use bounded bevel joins.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
