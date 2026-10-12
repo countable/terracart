@@ -63,7 +63,7 @@
 <div id="regionLabels" aria-label="Map region and POI labels"></div>
 <script src="game-loader.js"></script>
 <script src="floor-viewer-region.js?v=fc016e6e"></script>
-<script src="floor-viewer-variants.js?v=86892632"></script>
+<script src="floor-viewer-variants.js?v=364e2193"></script>
 <script>
 (() => {
   'use strict';
@@ -239,6 +239,12 @@
         : resolveAppearance(art); } catch (_) { continue; }
       if (look?.visible && look.texKey !== 'trap_hidden') { try { look.tint = Render.spriteTint(art, scene, look.texKey); } catch (_) {} }
       push(o, look);
+    }
+    for (const o of entry.coinDrops || []) {
+      const pile = Render.coinPile(o);
+      push(o, { visible: true, texKey: pile.texture, frameVal: 0,
+        scl: 1, scaleYMul: 1, origin: [.5, .5], dxPx: 0, dyPx: 0,
+        displayWidth: pile.width, displayHeight: pile.width });
     }
     for (const o of entry.wildplants || []) {
       const art = connected.has(o) ? { ...o, ...connected.get(o) } : o;

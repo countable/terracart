@@ -8,7 +8,8 @@
       assert.eq(V.select(depth, count).id, null);
       assert.eq(V.select(depth, -1).index, count - 1);
       const length = Math.max(...families.map(f => f.rows.length));
-      for (let index = 1; index <= length + 1; index++) {
+      assert.eq(count, length + 1, 'one pass through the largest family, plus Natural');
+      for (let index = 1; index <= length; index++) {
         const selection = V.select(depth, index);
         for (const family of families) {
           const selected = [...selection.nexuses, ...selection.roads].find(row => row.type === family.type && row.kind === family.kind);

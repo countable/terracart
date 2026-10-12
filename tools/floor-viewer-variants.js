@@ -27,10 +27,9 @@
     }
     return out.filter(family => family.rows.length);
   }
-  const gcd = (a, b) => b ? gcd(b, a % b) : a;
   function count(depth) {
     const rows = families(depth);
-    return rows.length ? rows.reduce((n, family) => n * family.rows.length / gcd(n, family.rows.length), 1) + 1 : 0;
+    return rows.length ? Math.max(...rows.map(family => family.rows.length)) + 1 : 0;
   }
   function select(depth, index) {
     const length = count(depth);
