@@ -17,9 +17,9 @@
     assert.truthy(/WorldGen\.setDepth\(target\);\n\s*\/\/[^\n]*\n\s*Render\.hideRoofSigns\(this\);/.test(APP_JS_SRC), 'changeDepth');
     assert.truthy(/catch \(e\) \{[\s\S]{0,200}Render\.hideRoofSigns\(this\)[\s\S]{0,120}this\._reportLoopError\(e\);/.test(APP_JS_SRC), 'a swallowed loop error');
   });
-  // A ranked or themed building hangs ONE plate in its tier colour: glyph,
-  // name and tier word together (owner, Oct 2026).
-  test('shop signs: one tier-coloured board carries the symbol, the tier word hangs under it', () => {
+  // A ranked or themed building hangs ONE plate in its tier colour carrying
+  // its symbol (owner, Oct 2026).
+  test('shop signs: one tier-coloured board carries the symbol, the tier is its colour', () => {
     const scene = { save: { shopTiers: { h: 4 } }, shopLine: () => ({ theme: 'potion', tier: 4 }) };
     const badge = Render.shopTierBadge(scene, { kind: 'house', id: 'h' }, 'shop');
     const look = Render.shopSignLook(badge);
@@ -38,15 +38,13 @@
     const P = Render.SHOP_PLATE;
     assert.eq(Render.shopSignGlyph(null, 'blacksmith'), INV_CAT_BY_KEY.armor.px, 'a smithy shows the armour symbol');
     assert.eq(Render.shopSignGlyph(null, 'trader'), null, 'a trader has none');
-    const item = { badge, glyph: Render.shopSignGlyph('potion'), name: text(60, 13), tier: text(30, 10) };
+    const item = { badge, glyph: Render.shopSignGlyph('potion'), name: text(60, 13) };
     const box = Render.drawShopPlate(gfx, item, { x: 200, y: 100 }, null, 400);
     assert.eq(box.w, 2 * P.padGlyph + 9 * P.cell, 'the board is just the symbol');
     assert.eq(box.h, 2 * P.padGlyph + 1 + 9 * P.cell, 'plus a row for its shadow');
     assert.eq(item.name.x, undefined, 'no lettering beside a symbol');
-    assert.truthy(item.tier.y > box.y + box.h, 'the tier word hangs below the board');
-    assert.truthy(Math.abs(item.tier.x - (box.x + box.w / 2)) <= 1, 'centred under it');
     assert.truthy(fills.some(([c]) => c === parseInt(look.background.slice(1), 16)), 'the board is the dark tier material');
-    const lettered = { badge, glyph: null, name: text(60, 13), tier: null };
+    const lettered = { badge, glyph: null, name: text(60, 13) };
     const lbox = Render.drawShopPlate(gfx, lettered, { x: 200, y: 100 }, null, 400);
     assert.eq(lbox.w, 2 * P.padX + 60, 'without a symbol the board letters its name');
     assert.truthy(lettered.name.y >= lbox.y && lettered.name.y + 13 <= lbox.y + lbox.h, 'on the board');

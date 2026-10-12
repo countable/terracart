@@ -259,9 +259,8 @@ Render.shopSignTheme = (scene, house, role) => {
 // game px a cell, in a pale tint of the tier, embossed with a 1px shadow
 // below in a deep shade of the tier. A role with no symbol (the trader)
 // letters its name instead, in capitals with a word to a line.
-// The tier word hangs under the board as plain outlined map lettering in the
-// same pale tint. An unranked themed shop (Pet / Book Shop) wears dark
-// signboard wood and has no tier word. All canvas, so the fog of war covers
+// The tier shows only as the board's colour. An unranked themed shop
+// (Pet / Book Shop) wears dark signboard wood. All canvas, so the fog of war covers
 // it with the other labels.
 const SHOP_PLATE = Object.freeze({
   cell: 2,          // game px per glyph cell
@@ -272,7 +271,6 @@ const SHOP_PLATE = Object.freeze({
   lineSpacing: -2,  // between the name's lines
   top: 12,          // house foot to board top (the old sign's seat)
   cord: 3,          // hanger cords above the board
-  tierGap: 1,       // board to the tier word
 });
 Render.SHOP_PLATE = SHOP_PLATE;
 const _shade = (c, k) => '#' + [16, 8, 0]
@@ -309,22 +307,19 @@ function _embossText(tx, look, alpha) {
   tx.setAlpha(alpha);
 }
 // Lay out and draw one sign. `item.glyph` is its symbol's bitmap, or else
-// `item.name` its lettering; `item.tier` the tier word under it (Text slots,
-// origin [0.5, 0]). `foot` is the house foot in game px, kept inside the
+// `item.name` its lettering (a Text slot, origin [0.5, 0]). `foot` is the house foot in game px, kept inside the
 // canvas width `canvasW`. Returns the board's box.
 Render.drawShopPlate = (gfx, item, foot, playerBox, canvasW) => {
-  const { cell, padX, padY, padGlyph, top, cord, tierGap } = SHOP_PLATE;
+  const { cell, padX, padY, padGlyph, top, cord } = SHOP_PLATE;
   const look = Render.shopSignLook(item.badge);
-  const glyph = item.glyph || null, name = glyph ? null : item.name, tier = item.tier || null;
+  const glyph = item.glyph || null, name = glyph ? null : item.name;
   const glyphPx = glyph ? glyph.length * cell : 0;
   const w = glyph ? 2 * padGlyph + glyphPx : 2 * padX + name.width;
   const h = glyph ? 2 * padGlyph + 1 + glyphPx : 2 * padY + name.height;
   const x0 = Math.round(clampTextX(foot.x, w, canvasW) - w / 2);
   const y0 = Math.round(foot.y + top);
-  const tierY = y0 + h + tierGap;
-  const bottom = tier ? tierY + tier.height : y0 + h;
   const hit = playerBox && x0 < playerBox.x1 && x0 + w > playerBox.x0
-    && y0 - cord < playerBox.y1 && bottom > playerBox.y0;
+    && y0 - cord < playerBox.y1 && y0 + h > playerBox.y0;
   const alpha = hit ? LABEL_OVER_PLAYER_ALPHA : 1;
   _drawSignBoard(gfx, look, x0, y0, w, h, cord, alpha);
   if (glyph) {
@@ -339,10 +334,6 @@ Render.drawShopPlate = (gfx, item, foot, playerBox, canvasW) => {
   } else {
     name.setPosition(Math.round(x0 + w / 2), y0 + padY);
     _embossText(name, look, alpha);
-  }
-  if (tier) {
-    setColorOnce(tier, look.ink);
-    tier.setPosition(Math.round(x0 + w / 2), tierY).setAlpha(alpha);
   }
   return { x: x0, y: y0, w, h };
 };
@@ -3473,7 +3464,7 @@ const _lighten30 = (col) => {
 };
 // ── Map text: ONE family ───────────────────────────────────────────────────
 // Every label drawn over the map — POI names and crate labels, shop signs
-// and their tier plates, crop timers, pet hearts, the creature status markers
+// and their plates, crop timers, pet hearts, the creature status markers
 // and the QC variant labels — is a row here, and every row is the POI
 // label's style unless it says otherwise: bold 10px mono in a pale cool-blue
 // ink (the "this is a place" cue), a 2px near-black outline (pale glyphs on
@@ -3481,7 +3472,7 @@ const _lighten30 = (col) => {
 // zone's tiling) and a soft drop shadow for the lift. Seven pools used to
 // carry seven hand-typed styles (8 to 11px, three stroke colours) with no
 // stated reason. What a row may still say: a smaller SIZE where the text
-// sits inside a cell or under another label (the crop timer, the plate's tier word),
+// sits inside a cell or under another label (the crop timer, a plate's name),
 // a background CHIP where it reads over busy art, `stroke: false` for a chip
 // or a bare glyph, its ORIGIN (where it hangs off its point) and its DEPTH
 // (the labels layer, or the world overlay band Z_OVERLAY).
@@ -3495,10 +3486,9 @@ const LABEL_STYLES = {
   poi:     { origin: [0.5, 0], depth: 50, padding: { x: 4, y: 3 } },
   // A house's sign, tucked under its doorstep, in the role's own ink.
   sign:    { origin: [0.5, 0], depth: 50 },
-  // A ranked building's plate (drawShopPlate): the name, then the tier word
-  // under it, in the plate's ink — no outline, the plate is the contrast.
+  // A symbol-less plate's name (drawShopPlate), in the plate's ink — no
+  // outline, the plate is the contrast.
   plate:     { size: 9, stroke: false, align: 'center', origin: [0.5, 0], depth: 50 },
-  plateTier: { size: 8, origin: [0.5, 0], depth: 50 },
   // A growing crop's timer, in the bottom-right corner of its own cell.
   timer:   { size: 9, color: '#ffffff', background: 'rgba(0,0,0,0.7)', padding: { x: 2, y: 1 }, stroke: false, origin: [1, 1], depth: Z_OVERLAY },
   // The 💗 over a tame creature — a glyph, no outline.
@@ -4417,10 +4407,8 @@ Render.drawObjects = function drawObjects(scene) {
   // edge with no building under it.
   const shopHouses = filteredObj.filter(({ o, wide }) => !wide && o.kind === 'house' && _houseSignText(o));
   // A ranked building (a shop, smithy or trader with a tier) and a themed
-  // shop hang ONE sign: a plate in the tier's colour carrying the line glyph
-  // on the left and the name over the tier word on the right (owner, Oct
-  // 2026: name, chip and board read as three stickers). Everything else keeps
-  // the floating outlined lettering.
+  // shop hang ONE sign: a plate in the tier's colour carrying its symbol
+  // (owner, Oct 2026). Everything else keeps the floating outlined lettering.
   const plates = [], plain = [];
   for (const item of shopHouses) {
     const role = _houseRole(item.o);
@@ -4442,22 +4430,16 @@ Render.drawObjects = function drawObjects(scene) {
     tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(sy + 7) + 5);
     fadeLabelOverPlayer(tx, _playerBox);
   }, labelFactory('sign'));
-  // The plate's lettering — a name only where there is no symbol, then the
-  // tier word under it. Laid out first (Text measures itself), the plate
-  // drawn round them afterwards.
+  // The plate's lettering — a name only where there is no symbol. Laid out
+  // first (Text measures itself), the plate drawn round it afterwards; the
+  // tier shows only as the board's colour.
   const plateNames = scene.shopPlateNamePool || (scene.shopPlateNamePool = []);
-  const plateTiers = scene.shopPlateTierPool || (scene.shopPlateTierPool = []);
   Render.renderPool(scene, plateNames, scene.labelContainer, plates.filter((p) => !p.glyph), (tx, item) => {
     // Capitals, a word to a line.
     tx.setText(_houseSignText(item.o).toUpperCase().split(' ').join('\n'));
     setLineSpacingOnce(tx, SHOP_PLATE.lineSpacing);
     item.name = tx;
   }, labelFactory('plate'));
-  const ranked = plates.filter((p) => p.badge);
-  Render.renderPool(scene, plateTiers, scene.labelContainer, ranked, (tx, item) => {
-    if (tx.text !== item.badge.text) tx.setText(item.badge.text);
-    item.tier = tx;
-  }, labelFactory('plateTier'));
   let gfx = scene.shopPlateGfx;
   if (!gfx) {
     gfx = scene.shopPlateGfx = scene.add.graphics();
