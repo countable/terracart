@@ -4218,9 +4218,8 @@ Render.drawObjects = function drawObjects(scene) {
   // ── Ripe fruit ────────────────────────────────────────────────────────────
   // A bearing fruit tree wears its fruit: the same icon the fruit carries in
   // the inventory, drawn as its own small sprite on the tree's canopy. The
-  // tree's art never changes — picking removes the fruit and leaves the tree
-  // standing exactly as it was, so an orchard still reads as an orchard once
-  // it's been worked, and what's ripe reads at a glance across the tile.
+  // tree stays mature after picking, flowers before the next harvest, and
+  // returns to its green canopy when ripe; fruit reads at a glance.
   // Every number here came off the tree sprite itself in the `after` hook
   // above (crown from SpriteLayout.CROWN_BOUNDS, scale and depth from the
   // sprite) — nothing about the fruit is placed by hand.
@@ -5331,9 +5330,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // Fruit-tree life-cycle frames, in 32px-wide frame indices (sheets are sliced
   // 32×48 — see assets.js; each tree is a full 32px column, NOT 16). The Apple
   // and Peach sheets DON'T share a layout, so map each explicitly:
-  //   apple (15 frames): 0 sprout, 2 young, 4 mature-green, 5 blossom.
+  //   apple (15 frames): 0 sprout, 2 young, 4 mature-green, 8 mature blossom.
   //   peach (13 frames): 0 sprout, 2 young, 3 mature-green, 4 blossom.
-  // (Higher frames are seasonal / stump / white-matte cells — NOT live trees.)
+  // (Other frames include seasonal / stump / white-matte cells.)
   //
   // A BEARING tree keeps the mature frame and wears its fruit as a separate
   // sprite on the canopy (the fruit pass at the end of this function), so the
@@ -5341,8 +5340,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // the mature frame it already passed at stage 2: stage 3 is blossom, stage 4
   // is the same mature tree with fruit hung on it.
   const FRUIT_FRAMES = {
-    apple: { grow: [0, 2, 4, 5, 4], mature: 4 },
-    worldpeach: { grow: [0, 2, 3, 4, 3], mature: 3 },
+    apple: { grow: [0, 2, 4, 8, 4], mature: 4, blossom: 8 },
+    worldpeach: { grow: [0, 2, 3, 4, 3], mature: 3, blossom: 4 },
   };
   const _ftSpec = (o) => FRUIT_FRAMES[o.species === 'worldpeach' ? 'worldpeach' : 'apple'];
   const _ftState = (o) => Crops.fruitTreeState(o, _pass.scene.save.fruitPicked?.[o.id], _pass.fruitNow);
@@ -5592,11 +5591,10 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               shadow: true },
     fruittree: { key: (o) => `${o.species === 'worldpeach' ? 'worldpeach' : 'apple'}_tree`,
               frame: (o) => {
-                const fr = _ftSpec(o);
-                // A planted sapling walks the sheet's life-cycle frames as it grows; a wild
-                // (detected/orchard) tree is mature from the start. Whether either is BEARING
-                // doesn't touch the frame — the fruit is its own sprite (the fruit pass below).
-                return o.planted ? fr.grow[_ftStage(o)] : fr.mature;
+                const fr = _ftSpec(o), state = _ftState(o);
+                // Regrowth blossoms use mature artwork without restarting sapling growth.
+                if (state.blossoming) return fr.blossom;
+                return o.planted ? fr.grow[state.stage] : fr.mature;
               },
               origin: [0.5, 0.95],
               scale: (o) => {

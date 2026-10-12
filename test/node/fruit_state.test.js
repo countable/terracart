@@ -47,6 +47,28 @@
     }
   });
 
+  test('fruit state: mature apple and peach flower for the final 12 hours before harvest', () => {
+    const hour = 60 * 60 * 1000, pickedAt = 1000 + 5 * day;
+    assert.eq(Crops.FRUIT_BLOSSOM_MS, 12 * hour);
+    for (const species of ['apple', 'worldpeach']) {
+      for (const tree of [{ species }, { ...planted, species }]) {
+        for (const [elapsed, blossoming, ready] of [
+          [0, false, false], [12 * hour - 1, false, false],
+          [12 * hour, true, false], [day - 1, true, false],
+          [day, false, true], [day + 1, false, true],
+        ]) {
+          const state = Crops.fruitTreeState(tree, pickedAt, pickedAt + elapsed);
+          assert.eq(state.blossoming, blossoming, `${species} at ${elapsed}ms`);
+          assert.eq(state.ready, ready);
+          assert.eq(state.stage, 4, 'regrowth preserves maturity');
+        }
+        assert.eq(Crops.fruitTreeState(tree, undefined, pickedAt).blossoming, false);
+      }
+    }
+    assert.eq(Crops.fruitTreeState(planted, undefined, 1000 + 3 * stage).blossoming,
+      false, 'saplings retain their growth-stage artwork');
+  });
+
   test('fruit state: future planting dates cannot produce a negative art frame', () => {
     const state = Crops.fruitTreeState(planted, undefined, 0);
     assert.eq(state.stage, 0);

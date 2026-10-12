@@ -133,7 +133,7 @@
     'apple_tree:0': { fw: 32, fh: 48, minX: 12, minY: 43, maxX: 20, maxY: 46 },
     'apple_tree:2': { fw: 32, fh: 48, minX: 5, minY: 14, maxX: 29, maxY: 48 },
     'apple_tree:4': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 47 },
-    'apple_tree:5': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 47 },
+    'apple_tree:8': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 47 },
     'worldpeach_tree:0': { fw: 32, fh: 48, minX: 12, minY: 42, maxX: 20, maxY: 46 },
     'worldpeach_tree:2': { fw: 32, fh: 48, minX: 5, minY: 14, maxX: 28, maxY: 48 },
     'worldpeach_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },

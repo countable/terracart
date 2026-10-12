@@ -192,15 +192,15 @@
       story: 'street_hedgerow', title: 'The hedged lane',
       body: 'Hedges line the road, with gaps at the garden gates. You look through as you pass.',
       flash: 'A hedged lane, still kept.' },
-    { id: 'overgrown', terrain: 'FOREST', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'common',
+    { id: 'overgrown', terrain: 'FOREST', treeSpecies: 'pine', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'common',
       stone: { weathered: '#737f69', restored: '#8c9b7f' }, lampDensity: 1,
       carpet: '#9caa55', carpetWidthCells: 0.28, carpetFeatherCells: 0.14,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
       lampGlow: '#9be08a', fauna: { rabbit: [2, 5], butterfly: [2, 5] },
       story: 'street_overgrown', title: 'Gone to seed',
-      body: 'Saplings crowd the verge beneath tall maples. You push past branches reaching into the street.',
+      body: 'Saplings crowd the verge beneath tall pines. You push past branches reaching into the street.',
       flash: 'The green is taking it back.' },
-    { id: 'orchard', terrain: 'ORCHARD', affinities: ['cultivated'], size: 'minor', share: 0.08, rung: 'uncommon',
+    { id: 'orchard', terrain: 'ORCHARD', treeSpecies: 'maple', affinities: ['cultivated'], size: 'minor', share: 0.08, rung: 'uncommon',
       stone: { weathered: '#8a7c69', restored: '#a49376' }, lampDensity: 0.5,
       words: /(orchard|apple|cherry|plum|pear|peach|fruit|obst|kirsch|apfel|birn|pflaum|vine|berry)/i,
       lampGlow: '#ffa6c9', fauna: { rabbit: [2, 5] },
@@ -351,7 +351,8 @@
     overgrown: [{ step: OVERGROWN_STEP_M, max: OVERGROWN_MAX, side: () => 1,
       emit: (D, at, c) => D.res.objects.push(D.WG.makeObject('tree', D.cx(c.ix), D.cy(c.iy),
         D.WG.cellId('tree_og', D.tx, D.ty, c.ix, c.iy),
-        { species: 'maple', variant: 1 + Math.min(2, Math.floor(3 * at.s / Math.max(1, D.lengthM()))), _street: D.v })) }],
+        { species: VARIANT_BY_ID[D.v].treeSpecies, treeSpeciesFixed: true,
+          variant: 1 + Math.min(2, Math.floor(3 * at.s / Math.max(1, D.lengthM()))), _street: D.v })) }],
     // Repeating loose scallops: three caps, a breathing gap, then the opposite
     // verge. Two of every three groups have a giant at its set-back centre.
     toadstool: [{ step: TOADSTOOL_STEP_M, max: TOADSTOOL_MAX,
@@ -369,7 +370,7 @@
         D.res.objects.push(D.WG.makeObject(apple ? 'fruittree' : 'tree', D.cx(c.ix), D.cy(c.iy),
           D.WG.cellId(apple ? 'ft_lane' : 'tree_lane', D.tx, D.ty, c.ix, c.iy),
           apple ? { species: D.WG.fruitTreeSpecies(D.WG.cellHash(D.tx, D.ty, c.ix, c.iy)), wild: true, _street: D.v }
-            : { species: 'maple', variant: 3, _street: D.v }));
+            : { species: VARIANT_BY_ID[D.v].treeSpecies, treeSpeciesFixed: true, variant: 3, _street: D.v }));
       } }],
     // Dense ribbons of COIN SEATS on both verges, one per free cell; sampling
     // below cell width also covers diagonal roads. Nothing lies there until

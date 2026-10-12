@@ -546,6 +546,18 @@ Higher-priority placements and their access space take precedence in this order:
    seats reduce the count. Barrels use the attractor gate, and gang posts
    and their guards retain the fast-enemy spawn gate.
 6. Ambient fill: ordinary plants, rocks and generic scattered content.
+   Forest landcover scatters pine only; wooded park characters scatter maple
+   only, from their `BiomeProfiles` rows. Both mark `treeSpeciesFixed` so
+   the near-home softwood overlay preserves their habitat. Species changes
+   do not consume random draws or move trees. Residential yards keep their
+   mixed maple/pine selection. Imported ordinary trees on forest cells become pine.
+   Authored park/Nexus coverage already excludes imported trees and keeps
+   its own tree choices; fruit trees keep their species. Outside forests,
+   mapped trees retain their original mix.
+   Tree-bearing street variants declare their timber species on the variant
+   row: Overgrown uses pine and Orchard uses maple alongside its fruit trees.
+   Street timber also marks `treeSpeciesFixed`, so its type stays consistent
+   through the starter area. Unfixed trees keep the existing near-home pine rule.
    Residential yard trees are the newest ambient fill: while the DeepForest
    layer is paused (`DEEPFOREST_TREES_ENABLED`), each residential polygon
    seeds random-sized trees from the `T.RESIDENTIAL` `yardTrees` row

@@ -10,8 +10,8 @@
   const TILE_PX = 256;          // standard
   const TILE_EXTENT = 4096;     // MVT units
   const CELL_M = 7;             // game cell size in meters
-  // Park, forest and grove trees share this ordered set so a species change
-  // reaches every generated tree lane.
+  // Mixed residential and mapped trees share this ordered species set.
+  // Forests and wooded parks take their fixed species from BiomeProfiles.
   const TREE_SPECIES = Object.freeze(['maple', 'pine']);
   // Natural fruit trees share one Worldpeach chance per stable cell.
   // No RNG draws or placement order affect the species.
@@ -4648,9 +4648,9 @@
     // A WOODED park's trees (PARK_CHARACTERS.wooded `trees`): one candidate
     // per cell, kept with chance p (× the FLORA_PATCH clump), off the
     // polygon's own stream (polyKey ^ salt) — one draw per candidate, then
-    // one for the look. The species is the polygon's, as in a forest.
+    // one for the look. The character row fixes the species (wooded: maple).
     function* spawnParkTreesSteps(rings, polyKey, trees, patch) {
-      const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
+      const species = trees.species;
       const prng = makeRng((polyKey ^ trees.salt) >>> 0);
       const gx0 = tx * TILE_EXTENT, gy0 = ty * TILE_EXTENT;
       const bb = bboxOf(rings);
@@ -4666,7 +4666,7 @@
           if (prng() >= trees.p * pm) continue;
           const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
           objects.push(makeObject('tree', cx, cy, cellId('ptree', tx, ty, ix, iy),
-            { variant: 1 + Math.floor(prng() * 4), species }));
+            { variant: 1 + Math.floor(prng() * 4), species, treeSpeciesFixed: true }));
         }
       }
     }
@@ -4682,14 +4682,13 @@
     // spawnHedgeMazeSteps. `yield` consumes no rng, so rng() fires in exactly
     // the same order sliced or not — the forest this produces is identical.
     function* spawnForestTreesSteps(rings, polyKey) {
-      // Each polygon picks ONE species (maple/pine) so a single
-      // forest reads as a single woodland type instead of a jumbled mix. Each
-      // species has its own real sprite sheet (no tint pass needed).
-      const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
+      // Forest landcover always uses the profile's pine canopy.
+      const profile = BiomeProfiles.staticObjects(T.FOREST);
+      const species = profile.treeSpecies;
       const bb = bboxOf(rings);
       // The profile owns the canopy spacing. Every in-polygon candidate
       // becomes a tree; the fixed pitch sets density without extra draws.
-      const stepMvt = BiomeProfiles.staticObjects(T.FOREST).treeSpacingM / mvtToM;
+      const stepMvt = profile.treeSpacingM / mvtToM;
       // The polygon's OWN stream, like every other scatter (debris, rock
       // clusters, yard flora): drawing from the tile-wide rng made each
       // forest's jitter depend on how many draws every earlier forest on the
@@ -4711,13 +4710,11 @@
             // pushing one undefined into save.chopped made
             // choppedSet.has(undefined) match every other tree → felling one
             // cleared the grove. Tile + LOCAL cell, never frame metres.
-            // The species is the WORLD's: the softwood-near-home rule is a
-            // per-player overlay (HomeArea.applySoftwood, app.js), never a
-            // generation input.
+            // Habitat species stays fixed even in the near-home overlay.
             objects.push(makeObject('tree', cx, cy,
               cellId('tree', tx, ty, ix, iy), {
                 variant: 1 + Math.floor(frng() * 4),
-                species,
+                species, treeSpeciesFixed: true,
               }));
           }
         }
@@ -7438,6 +7435,12 @@
       if (detected || yardTreeCells.has(r.iy * cpe + r.ix)) treeClaims.add(r.iy * cpe + r.ix);
       if (detected) t._treeSource = 'deepforest';
       t.x = r.x; t.y = r.y;
+      // Use the settled cell's habitat, including a tree relocated off an
+      // occupied cell. Authored zones already win through _sxReserved above.
+      if (t.kind === 'tree' && !detected && grid[r.iy * cpe + r.ix] === T.FOREST) {
+        t.species = BiomeProfiles.staticObjects(T.FOREST).treeSpecies;
+        t.treeSpeciesFixed = true;
+      }
       // A detection with no OSM id is named by the cell it SETTLED on —
       // unique (one tree per cell, just claimed) and positional. Its bin
       // cell alone was not: two detections in one cell, or one relocated
@@ -9641,8 +9644,7 @@
     // exact odds a real residential deposit gets, and exported for the
     // headless tests that pin those odds.
     rollSurfaceRockTier, SURFACE_PLAIN_ROCK_P: caveRockP(0), caveRockP, caveOreWeights, caveOreTiers, LEVEL1_COPPER_SHARE,
-    // One tree-species table feeds parks, forests and zone groves. The vein
-    // helper is exported for the deterministic cave distribution regression.
+    // Mixed-tree species and deterministic fruit/cave distribution helpers.
     TREE_SPECIES, PEACH_ONE_IN, fruitTreeSpecies, rollVeinTable,
     // Per-class road width — the road-geometry overlay strokes with it.
     roadWidthM,

@@ -99,6 +99,7 @@ const HomeArea = {
   // per save, so worldgen generates the world's species and applySoftwood
   // (below) stamps this rule onto a built tile's trees for THIS player.
   // Includes legacy bush-sized trees, which now use the small tree canopy.
+  // Habitat- and street-assigned species are preserved by applySoftwood.
   softwoodSpeciesNear(x, y, fallbackSpecies) {
     return this.isNear(x, y) ? 'pine' : fallbackSpecies;
   },
@@ -112,7 +113,7 @@ const HomeArea = {
     if (!objects || !this.worldM) return 0;
     let n = 0;
     for (const o of objects) {
-      if (!o || o.kind !== 'tree') continue;
+      if (!o || o.kind !== 'tree' || o.treeSpeciesFixed === true) continue;
       const sp = this.softwoodSpeciesNear(o.x, o.y, o.species, o.size);
       if (sp !== o.species) { o.species = sp; n++; }
     }

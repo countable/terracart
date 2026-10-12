@@ -179,7 +179,7 @@
   const BIOME_PROFILES = {
     [T.GRASS]: { blockedFlora: ['marigold'], flora: [GRASS_FILL,
       fix('flowers', 0.012, 0.020, S.FORGETMENOT)] },
-    [T.FOREST]: { staticObjects: { treeSpacingM: 11.7 },
+    [T.FOREST]: { staticObjects: { treeSpacingM: 11.7, treeSpecies: 'pine' },
       flora: [fix('shrub', 0.018, 0.052, S.SHRUB),
               fix('nut', 0.008, 0.033, S.NUT),
               fix('mushroom', 0.055, 0.125, S.MUSH_FOREST),
@@ -264,7 +264,7 @@
     },
     wooded: {
       share: 0.25, filler: 'shrub', pad: { shrub: 0.07, longgrass: 0.015 },
-      trees: { p: 0.060, salt: PARK_S.TREE },
+      trees: { p: 0.060, salt: PARK_S.TREE, species: 'maple' },
       flora: [fix('shrub', 0.008, 0.017, S.SHRUB),
               fix('flowers', 0.002, 0.004, S.FORGETMENOT)],
       patch: FLORA_PATCH,
