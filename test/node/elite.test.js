@@ -76,8 +76,8 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
     'the bounty is paid at the power multiplier (elite × lair), by a split slime\'s share');
   assert.truthy(/if \(this\._bankDiscovery\(victim\.kind, /.test(kill),
     'an elite kill banks the kind\'s memory the first time');
-  assert.truthy(/grantTreasureRoll\(this, save, [^;]*Combat\.ELITE_TREASURE_CONTEXT,\s*\{ monsterKind: victim\.kind,\s*ceremony: \{ kind: 'treasure', header: `\$\{Combat\.eliteRank\(victim\)\.label\} slain`,/.test(kill),
-    'and passes the monster identity to its signature reward card');
+  assert.truthy(/grantTreasureRoll\(this, save, [^;]*Combat\.ELITE_TREASURE_CONTEXT,\s*\{ monsterKind: victim\.kind,\s*eliteRank: victim\.eliteRank,\s*ceremony: \{ kind: 'treasure', header: `\$\{Combat\.eliteRank\(victim\)\.label\} slain`,/.test(kill),
+    'and passes the monster identity and elite rank to its signature reward card');
   // The relic-capable roll has somewhere to land: grantTreasureRoll equips a
   // relic / armor reward and cashes out a beaten one.
   const grant = INTERACT_SRC.slice(INTERACT_SRC.indexOf('function grantTreasureRoll('));

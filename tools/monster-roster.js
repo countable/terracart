@@ -41,7 +41,7 @@
     const rosterIds=new Set(EnemyRoster.ROWS.map(r=>r.id));
     const extras=Object.keys(B).filter(id=>!rosterIds.has(id)&&SpriteLayout.creatureArt(id)).map(id=>({id,name:titleCase(id),extra:true,tier:0,armor:0,hp:id in Combat.FAUNA_HP?Combat.creatureMaxHp(id):null,roles:rolesFor(id,false),behaviour:B[id]})).filter(x=>x.roles.length);
     const DATA={ghostScaling:EnemyRoster.GHOST_SCALING,rules:[
-      'Elite defeats award one signature drop: 70%, 20% or 10%. Reward tier is monster tier + 1, capped at T7; supported equipment tiers and item quantities follow the game rules. The first defeat also awards a memory. Owned equipment at the same or a higher tier converts to cash at half the drop’s list price.',
+      'Ordinary elite defeats award one signature drop: 70%, 20% or 10%. Possessed always give the second listed drop; Ascendant always give the third. Reward tier is monster tier + 1, capped at T7; supported equipment tiers and item quantities follow the game rules. The first defeat also awards a memory. Owned equipment at the same or a higher tier, and already-carried unique relics, convert to cash at half the drop’s list price.',
       'Loaded from the current game roster, combat helpers, sprite layouts and habitat tables. Retired rows are excluded.',
       'General spawn ranges and named habitat memberships are separate routes. Membership does not guarantee a spawn: terrain, home distance, depth and encounter rules still apply.',
       'Combat comparisons assume uninterrupted attacks, no class or training bonuses, no movement or regeneration, and sequential kills within a concurrent group. Kill time charges one full attack interval per hit. Group cost is an estimate, not a battle simulation.',
@@ -118,10 +118,11 @@ function eliteDrops(e, detailed=false){
     const equipment=reward.kind==='relic'||reward.kind==='armor';
     const name=equipment?gearName(reward.kind,reward.slot,reward.tier):`${reward.qty||1} × ${ITEM_BY_ID[reward.id]?.name||reward.id}`;
     if(!detailed)return esc(equipment?`1 × ${name}`:name);
-    const cash=equipment?Math.max(1,Math.floor(gearPrice(reward.kind,reward.slot,reward.tier)/2)):null;
-    return `<div class="signature-drop"><b>${Math.round(chance*100)}%</b><span>${esc(name)} <small>· T${reward.tier}</small>${detailed&&equipment?`<br><small>Owned at T${reward.tier}+ → ${cash} coins</small>`:''}</span></div>`;
+    const unique=ITEM_BY_ID[reward.id]?.kind==='unique_relic';
+    const cash=equipment?Math.max(1,Math.floor(gearPrice(reward.kind,reward.slot,reward.tier)/2)):unique?Math.max(1,Math.floor(itemValue(reward.id)/2)):null;
+    return `<div class="signature-drop"><b>${Math.round(chance*100)}%</b><span>${esc(name)} <small>· T${reward.tier}</small>${cash!=null?`<br><small>${equipment?`Owned at T${reward.tier}+`:'Already carried'} → ${cash} coins</small>`:''}</span></div>`;
   }).join(detailed?'':', ');
-  return detailed?`<h3>Elite signature drops</h3><p class="muted">One drop per elite defeat, targeting T${Combat.eliteDropTier(e.id)}. First defeat also awards a memory.</p>${rows}<p class="muted">Equipment you own at the same or a higher tier becomes cash at half its list price.</p>`:rows;
+  return detailed?`<h3>Elite signature drops</h3><p class="muted">One drop per elite defeat, targeting T${Combat.eliteDropTier(e.id)}. First defeat also awards a memory. Possessed always give the second drop; Ascendant always give the third.</p>${rows}<p class="muted">Matching or weaker owned equipment and already-carried unique relics become cash at half the drop’s list price.</p>`:rows;
 }
 
 function movementLabel(e){const m=e.movement;return Number.isFinite(m.speedMetersPerSecond)?`${fmt(m.speedMetersPerSecond)} m/s`:`${Number(m.speedCellsPerSecond.toFixed(3))} cells/s${m.pattern==='orbit_swoop'?' in flight':''}`}

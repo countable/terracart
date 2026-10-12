@@ -477,8 +477,11 @@
     const meta = { signatureIndex, jackpot: 0, consolation: 0 };
     if (drop.kind === 'item') {
       const item = _ITEM_BY_ID[drop.id];
-      return { ...drop, qty: ChestThemes.quantity(drop.id, target),
+      const unique = item.kind === 'unique_relic';
+      const reward = { kind: 'item', id: drop.id,
+        qty: unique ? 1 : ChestThemes.quantity(drop.id, target) + (drop.qtyBonus || 0),
         tier: item.baseTier, cls: item.kind, ...meta };
+      return unique ? Rewards.reconcileUnique(save, reward) : reward;
     }
     const tiers = (drop.kind === 'relic' && _RELIC_DEFS[drop.slot]?.tiers) || GEAR_ROLL_TIERS;
     const tier = tiers.filter(t => t <= target).pop() || tiers[0];
@@ -491,6 +494,8 @@
   }
 
   function pickEliteReward(save, rng, opts) {
+    const guaranteed = Combat.ELITE_RANKS[opts?.eliteRank]?.dropIndex;
+    if (guaranteed != null) return eliteSignatureReward(opts?.monsterKind || 'cave_slime', guaranteed, save);
     const roll = rng();
     let threshold = 0;
     const index = Combat.ELITE_DROP_CHANCES.findIndex(p => (threshold += p) > roll);

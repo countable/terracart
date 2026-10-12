@@ -146,7 +146,7 @@ function optsFor(ctx) {
     o.tier = 2 + chestTierDepthBonus(o.depth);
   }
   if (ctx === Trail.PRIZE_CONTEXT) o.rollBonus = Trail.rollBonusFor(+$('bonus').value - 1);
-  if (ctx === Combat.ELITE_TREASURE_CONTEXT) o.monsterKind = $('monster').value;
+  if (ctx === Combat.ELITE_TREASURE_CONTEXT) { o.monsterKind = $('monster').value; o.eliteRank = $('eliteRank').value; }
   if (ctx === Temples.CONTEXT || ctx === 'special:hoard') o.rollBonus = 1;
   if (ctx === 'special:headstone') o.tier = Zones.HEADSTONE_TIER;
   return o;
@@ -236,7 +236,7 @@ function syncControls() {
   $('depthL').style.display = usesDepth(ctx) ? '' : 'none';
   $('rodL').style.display = $('slimeL').style.display = ctx === 'fishing' ? '' : 'none';
   $('bonusL').style.display = ctx === Trail.PRIZE_CONTEXT ? '' : 'none';
-  $('monsterL').style.display = ctx === Combat.ELITE_TREASURE_CONTEXT ? '' : 'none';
+  $('monsterL').style.display = $('eliteRankL').style.display = ctx === Combat.ELITE_TREASURE_CONTEXT ? '' : 'none';
   $('densityL').style.display = ctx === 'special:coins' ? '' : 'none';
   $('playerClassL').style.display = ctx === Trail.PRIZE_CONTEXT ? '' : 'none';
   $('contextNote').textContent = extraSources[ctx]?.[1] || (ctx === 'fishing'
@@ -244,7 +244,7 @@ function syncControls() {
     : ctx === Trail.PRIZE_CONTEXT
     ? `Each sample offers up to ${Trail.PRIZE_CHOICES} distinct cards: cash, seed or supply, and boots, gear/unique relic or magic. Prize #${$('bonus').value} requires ${Trail.goalFor(+$('bonus').value - 1, $('playerClass').value)} banked metres on this rung (${Trail.totalMetres(0, +$('bonus').value, $('playerClass').value)} total). Boots and gear cap at T${Trail.bootsTierCap(+$('bonus').value, $('playerClass').value)} for this calling (one tier per 10,000 banked metres). The third card is 20% boots, 20% gear/unique relic and 60% magic; unavailable shares become magic. The general gear pool can also select boots. The player keeps one. Prize #1 includes ${Trail.FIRST_PRIZE_QTY} onion seeds. Prize #3 offers a wooden pick in the magic slot if no pick is owned. Prize #4 gives the Serpent Idol alone. Tables measure offered cards, not total payout.`
     : ctx === Combat.ELITE_TREASURE_CONTEXT
-      ? 'Every elite kill pays one signature drop at 70% / 20% / 10%. Equipment targets monster tier + 1 (maximum T7); fixed item stacks use that budget. Matching or weaker equipment pays half its list price in cash. The first discovery also gives a memory. The kill wage is separate.'
+      ? 'Ordinary elites roll 70% / 20% / 10%. Possessed always give the second drop; Ascendant always give the third. Equipment targets monster tier + 1 (maximum T7); fixed item stacks use that budget plus authored consumable bonuses. Matching or weaker equipment and carried unique relics pay half their list price in cash. The first discovery also gives a memory. The kill wage is separate.'
       : ctx.startsWith('chest:') ? 'Themed chest rewards at the chosen tier. Cave loot mixes 60% location theme with 40% cave supplies; the cave component increasingly favors magic. Seed odds decrease at high rolled quality. Surface food POIs are market stalls; their underground copies use chest:food. Florists and garden centres are also stalls; gardens stay chests. Fixed starter contents are not included.'
       : ctx === Scenic.VISTA_CONTEXT ? 'This tuning pool remains in the registry, but the current viewpoint interaction gives the first viewpoint gift and telescope services instead.'
       : ctx === Temples.CONTEXT ? 'One temple gift, including the game’s extra roll bonus.'
@@ -262,11 +262,12 @@ function syncControls() {
     opt($('depth'), [0, 1, 2, 3, 4, 5, 6, 7, 8, 10].map((d) => [d, d ? 'level ' + d : 'surface']), 0);
     opt($('bonus'), Array.from({ length: 30 }, (_, i) => i + 1).map((b) => [b, '#' + b]), 1);
     opt($('monster'), Object.values(Combat.MONSTERS).filter(m => m.eliteEligible).map(m => [m.id, m.name]), 'cave_slime');
+    opt($('eliteRank'), Object.entries(Combat.ELITE_RANKS).map(([id, rank]) => [id, rank.label]), 'elite');
     opt($('owned'), [0, 1, 2, 3, 4, 5, 6, 7].map((t) => [t, t ? 'T' + t : 'nothing']), 0);
     opt($('fishing_rod'), [0, 1, 2, 3, 4, 5, 6, 7].map((t) => [t, t ? 'T' + t : 'bare hands']), 0);
     opt($('qty'), Array.from({ length: RARITY_TUNING.budgetUpgradeLevels + 1 }, (_, i) => [i, i]), 0);
     $('ctx').onchange = () => { syncControls(); rollOne(); };
-    for (const id of ['tier', 'depth', 'bonus', 'monster', 'owned', 'qty', 'fishing_rod', 'slime', 'playerClass', 'density', 'n']) $(id).onchange = () => { syncControls(); rollOne(); matrix(); if (id === 'owned' || id === 'qty') chestGrid(); };
+    for (const id of ['tier', 'depth', 'bonus', 'monster', 'eliteRank', 'owned', 'qty', 'fishing_rod', 'slime', 'playerClass', 'density', 'n']) $(id).onchange = () => { syncControls(); rollOne(); matrix(); if (id === 'owned' || id === 'qty') chestGrid(); };
     $('go').onclick = rollOne;
     syncControls();
     $('status').textContent = 'rolling…';

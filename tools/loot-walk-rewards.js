@@ -26,7 +26,7 @@ function sampleWalkRewards(model, trials) {
         discoveries.add(source.enemyKind);
       } else if (rng() < (source.treasureChance || 0)) context = 'treasure:default';
       if (context) rewards.push(draw({ context, options: source.elite
-        ? { monsterKind: source.enemyKind } : {} }, rng, discoveries));
+        ? { monsterKind: source.enemyKind, eliteRank: source.eliteRank } : {} }, rng, discoveries));
       // resolveDefeat also grants the shiny cash bonus when the species has
       // its own item drop, independently of the enemy bounty/elite branch.
       if (source.shinyBonusAmount) {

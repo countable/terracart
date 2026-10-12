@@ -99,7 +99,7 @@ function census() {
       const elite = Combat.isElite(enemy);
       const treasureChance = !elite && Combat.isMonster(enemy.kind) && Combat.spawnsUnderground(enemy.kind) ? Combat.MONSTER_TREASURE_CHANCE : 0;
       const dropId = SpriteLayout.creatureDrop(enemy.kind);
-      bump('enemy-wages', 'Enemy kills / bounty payouts', { kind: 'enemy', enemyKind: enemy.kind, elite,
+      bump('enemy-wages', 'Enemy kills / bounty payouts', { kind: 'enemy', enemyKind: enemy.kind, elite, eliteRank: enemy.eliteRank,
         amount: Combat.enemyBounty(enemy.kind, 0, Combat.powerMul(enemy) * (enemy._splitShare ?? 1)), dropId, treasureChance, shinyBonusAmount: enemy.shiny && dropId ? Math.max(10, Math.round(itemValue(enemy.kind) * 10)) : 0 });
       if (treasureChance) {
         bump('enemy-bonus', 'Enemy bonus treasure rolls');

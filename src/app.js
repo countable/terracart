@@ -4920,7 +4920,7 @@ class MapScene extends Phaser.Scene {
         }
         grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀',
           Combat.ELITE_TREASURE_CONTEXT,
-          { monsterKind: victim.kind,
+          { monsterKind: victim.kind, eliteRank: victim.eliteRank,
             ceremony: { kind: 'treasure', header: `${Combat.eliteRank(victim).label} slain`,
                         sub: `The ${name} falls. What it guarded is yours.` } });
       } else if (Combat.isMonster(victim.kind) && Combat.spawnsUnderground(victim.kind)
