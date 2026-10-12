@@ -277,8 +277,11 @@ Render.shopSignTheme = (scene, house, role) => {
 };
 // The line board beside the tier chip, in that chip's colours: the tier's
 // fill, the chip's ink for the glyph, and a darker rim of the same hue. An
-// unranked shop (no chip) keeps the plain signboard wood.
-const SHOP_SIGN_PX = 12;     // the board's side, game px — about a tier chip's height
+// unranked shop (no chip) keeps the plain signboard wood. The board is half
+// again a chip's height so its glyph reads at a glance (owner, Oct 2026: the
+// chip-height board was too small); it hangs from the chip's top edge, so it
+// never climbs into the shop name above.
+const SHOP_SIGN_PX = 18;     // the board's side, game px
 const SHOP_SIGN_GAP = 2;     // board to chip, game px
 Render.SHOP_SIGN_PX = SHOP_SIGN_PX;
 Render.shopSignLook = (badge) => {
@@ -4409,7 +4412,7 @@ Render.drawObjects = function drawObjects(scene) {
     const rowW = lead + chip.width;
     const left = clampTextX(sx, rowW, CANVAS_W) - rowW / 2;
     chip.setPosition(Math.round(left + lead + chip.width / 2), Math.round(y));
-    if (signed) signSeats.set(id, { x: left + SHOP_SIGN_PX / 2, y: Math.round(y) + chip.height / 2, badge });
+    if (signed) signSeats.set(id, { x: left + SHOP_SIGN_PX / 2, y: Math.round(y) + SHOP_SIGN_PX / 2, badge });
     fadeLabelOverPlayer(chip, _playerBox);
   }, labelFactory('badge'));
 
@@ -4495,7 +4498,7 @@ Render.drawObjects = function drawObjects(scene) {
           slot.el.setAttribute('aria-label', shop ? Shops.roleLabel('shop', shop) : 'House delivery');
           const edge = Math.max(1, Math.round(scale));
           Object.assign(slot.el.style, shop ? {
-            // A square board the chip's height, in the chip's tier colour.
+            // A square board hung beside the chip, in the chip's tier colour.
             background: look.background, border: `${edge}px solid ${look.border}`,
             borderRadius: '2px', padding: '0', boxShadow: `0 ${edge}px 0 rgba(0,0,0,0.45)`,
             boxSizing: 'border-box', width: signPx + 'px', height: signPx + 'px', justifyContent: 'center',
