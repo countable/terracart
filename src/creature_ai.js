@@ -1561,7 +1561,7 @@ function enemySplit(scene, c, fromX, fromY, now) {
   // Another character can split this slime during its own turn. Refresh the
   // original now; the newborn joins the next pass's body list as before.
   if (scene._characterSpacingIndex) updateCharacterSpacingIndex(scene._characterSpacingIndex, c);
-  const twin = WorldGen.makeCreature(c.kind, seats[1].x, seats[1].y, id, { shiny: false });
+  const twin = WorldGen.makeCreature(c.kind, seats[1].x, seats[1].y, id, { shiny: false, ...(c.depth != null ? { depth: c.depth } : {}) });
   for (const key of [...garrisonInherit(), '_lastDamagedT']) if (c[key] != null) twin[key] = c[key];
   twin._hp = half; twin._splitShare = share; twin._splitRoot = root; twin._splitNextT = c._splitNextT;
   // Each half's seat is where it now stands, so a garrison's halves walk home
