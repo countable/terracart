@@ -52,6 +52,7 @@
     flight: { name: 'Flight', color: '#9fe8ff', stroke: '#0b2a3a', save: 'flightPotionUntil' },
     shrinking: { name: 'Shrinking', color: '#d9b3ff', stroke: '#2a1040', save: 'shrinkingPotionUntil' },
     giant: { name: 'Giant', color: '#ffb18c', stroke: '#4a180b', save: 'giantPotionUntil' },
+    stoneskin: { name: 'Stoneskin', color: '#d5d0c8', stroke: '#292723', save: 'stoneskinUntil' },
     shield:  { name: 'Shield',  color: '#c9d6ff', stroke: '#1a2250', save: 'shieldPotionUntil' },
     reach:   { name: 'Reach',   color: '#fff3a8', stroke: '#4a3a00', save: 'reachPotionUntil' },
     skeleton: { name: 'Bones', color: '#ded6bc', stroke: '#27231d', save: 'skeletonUntil' },

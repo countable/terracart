@@ -1,4 +1,40 @@
 // Themes are tested through the same groups and picker consumed by the game.
+test('chest themes: commerce can award every gem at its tier above and below ground', () => {
+  const gems = ['quartz', 'topaz', 'amethyst', 'sapphire', 'ruby', 'emerald', 'diamond'];
+  for (const group of ['gems', 'caveGems']) {
+    assert.eq(Object.keys(ChestThemes.members(group)).sort().join(), gems.slice().sort().join());
+  }
+  for (const depth of [0, 1]) for (const [index, id] of gems.entries()) {
+    const tier = index + 1;
+    const rng = makeRng32(1927);
+    let found = false;
+    for (let i = 0; i < 2000; i++) {
+      const reward = resolveChestReward('commerce', { tier, bracket: 0, jackpotApplied: 0 }, {}, rng, { tier, depth });
+      if (reward.id === id) found = true;
+      if (reward.id && gems.includes(reward.id)) assert.lte(ITEM_BY_ID[reward.id].baseTier, tier);
+    }
+    assert.truthy(found, `${id} reaches commerce at T${tier}, depth ${depth}`);
+  }
+});
+
+test('chest themes: T2 mushroom rewards are stacks and fish prices limit quantities', () => {
+  assert.eq(itemValue('mushroom'), 5);
+  assert.eq(ChestThemes.quantity('mushroom', 1, 1), 2, 'T2 budget branch buys two mushrooms');
+  assert.eq(ChestThemes.quantity('mushroom', 2), 5);
+  const rng = makeRng32(1927);
+  let mushrooms = 0;
+  for (let i = 0; i < 10000; i++) {
+    const reward = pickReward('chest:food', {}, rng, { tier: 2 });
+    if (reward.id !== 'mushroom') continue;
+    mushrooms++;
+    assert.gte(reward.qty, 2, 'actual T2 mushroom rewards exceed one');
+  }
+  assert.gt(mushrooms, 0);
+  assert.eq(ChestThemes.quantity('minnow', 1, 1), 3, 'budget branch no longer buys four minnows');
+  assert.eq(ChestThemes.quantity('trout', 4), 3, 'same-tier trout stack below the five-food cap');
+  assert.eq(ChestThemes.quantity('salmon', 5), 3);
+});
+
 test('chest themes: T2 acorns fill the budget with a stack while fruit saplings stay single', () => {
   assert.eq(itemValue('acorn'), 5);
   assert.eq(itemValue('scarecrow'), 20);

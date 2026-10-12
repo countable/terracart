@@ -206,12 +206,14 @@ const NPC = (() => {
   // — and nearer than the player unless the player is hidden. The one
   // nearest scan (creature_ai.js nearestCreature) over the prepared list.
   function enemyTarget(scene, enemy, row, px, py, playerHidden) {
+    playerHidden ||= !Combat.seesTarget(scene, enemy, px, py);
     const limit = Math.min(row.visionCells * scene.cellM,
       playerHidden ? Infinity : Math.hypot(enemy.x - px, enemy.y - py));
     return nearestCreature(scene, enemy, limit, (c, d) => {
       if (typeof PotionEffects !== 'undefined'
           && d > Math.max(0, row.visionCells - PotionEffects.visionReduction(c)) * scene.cellM) return false;
-      return canTarget(scene, c) && !enemySightBlocked(scene, enemy, c.x, c.y);
+      return canTarget(scene, c) && Combat.seesTarget(scene, enemy, c.x, c.y,
+        row.visionCells - PotionEffects.visionReduction(c)) && !enemySightBlocked(scene, enemy, c.x, c.y);
     }, { los: true, pool: scene._npcCombatTargets || [] });
   }
   function tick(scene, c, now, dt) {

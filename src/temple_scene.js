@@ -90,7 +90,7 @@
     this.state = root.TemplePuzzles.create(this.plan, {
       playerHp: Math.max(1, save.energy ?? 100),
       enemyHp: combat.maxHp({ kind: enemyKind, shiny: elite }),
-      enemyDamage: combat.playerDamage(foe.dmg * (elite ? combat.ELITE_MUL : 1), save.armor, 1, save.mode),
+      enemyDamage: combat.playerDamage(foe.dmg * (elite ? combat.ELITE_MUL : 1), save.armor, 1, save.mode, combat.armorBonus(save)),
       enemyStepSeconds: this.plan.enemyKind ? foe.damageIntervalSeconds : 1,
       shotSpeed: combat.SHOT.bow.speedCps, shotRange: combat.SHOT.bow.rangeCells,
       shotInterval: this.plan.kind === 'ballista' ? combat.fireIntervalMs('bow') / 1000 : .01,

@@ -76,7 +76,12 @@ mechanics.
 - Route incoming damage through `Combat.playerDamage` and armour mitigation,
   including per-hit arrow bundles. A shield potion halves the raw blow before
   armour; difficulty multiplies the mitigated blow after armour. Armour reduces
-  blows rather than increasing maximum energy.
+  blows rather than increasing maximum energy. Stoneskin adds its consumable
+  row's armour bonus to that same pool, including traps, potion blasts and
+  ongoing damage packets. Its potion is drunk through the shared timed-buff
+  action. Raw and grilled salmon lend both Grip and Stoneskin for the fish
+  regeneration duration; each extends the existing buff without stacking its
+  strength. A refused meal grants neither effect.
 - `Energy.set` is the only runtime energy writer (current-save normalization is exempt).
   Accumulate fractional per-frame gains/losses before banking whole pips.
   `RoadSafety.DRAIN_PER_SECOND` drains a surface player whose feet remain in
@@ -109,7 +114,16 @@ mechanics.
   wraiths and includes airborne fauna; the same `Conditions.flying` gate covers
   them without saving an infinite potion expiry or showing an infinite countdown.
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds
-  sight range through `unseen`. Traps check `Combat.playerDowned` directly:
+  sight range through `unseen`. Bushes, short walls and cave walls fully block
+  detection, pursuit and new attacks across them. Young and mature trees reduce
+  sight by two cells once per sight line; overlapping trees do not stack. The
+  smallest timber sapling artwork (including legacy bush-sized timber records)
+  and newly planted fruit sprouts provide no cover. Actual shrubs and hedges
+  retain full cover. Cover uses the
+  same visibility grid for local players, peers and NPC targets, and cancels
+  an attack wind-up when sight is lost. Guards return to their seats when full
+  cover breaks sight; their notice/leash rings lose two cells through trees.
+  Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.
 - A status effect is a row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin): the
   player's condition, a foe's (`Combat.ignite` / `burnTick` read the same row),
@@ -168,6 +182,11 @@ mechanics.
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap
   enemies inside Home's ring.
+- Home is `save.starterShopId`: a synthetic trailer or an adopted house, which
+  draws as the trailer. "Move Home here" on any cell of an unclaimed house's
+  footprint adopts that house, so the trailer replaces the building rather than
+  parking on it; a claimed building, temple or castle refuses the move
+  (`_homeFootingAt`, test `starter_trailer_footing`).
 
 Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_ward`,
 `pet_pickup`.

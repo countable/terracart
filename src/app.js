@@ -2112,7 +2112,7 @@ class MapScene extends Phaser.Scene {
       // elite's snare bites harder); a generated trap at 1.
       // Only boots protect against traps; apply their soak before banking pips.
       const bite = Traps.STEP_ENERGY * Difficulty.get().trapBiteMul * Traps.trapPower(trap);
-      Energy.set(this.save, before - (Conditions.damageImmune(this.save) ? 0 : Combat.playerDamage(bite, { boots: this.save.armor?.boots })));
+      Energy.set(this.save, before - (Conditions.damageImmune(this.save) ? 0 : Combat.playerDamage(bite, { boots: this.save.armor?.boots }, 1, this.save.mode, Combat.armorBonus(this.save))));
       const spent = before - this.save.energy;
       this._painFlash(spent);
       // Say the real number: an empty bar loses nothing, so nothing is popped —
@@ -2121,7 +2121,7 @@ class MapScene extends Phaser.Scene {
       this._warnIfTiring(before);
       if (this.updateEnergyDOM) this.updateEnergyDOM();
       const ps = this.playerScreen ? this.playerScreen() : null;
-      const bleed = +Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }).toFixed(1);
+      const bleed = +Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }, 1, this.save.mode, Combat.armorBonus(this.save)).toFixed(1);
       this.flash(`🪤 a trap! −${bleed}⚡/s — step off`,
         ps ? ps.x : undefined, ps ? ps.y - ENERGY_POP_HEAD_PX - 22 : undefined);
       // The reveal has to survive a reload, so it is written now rather than
@@ -2150,7 +2150,7 @@ class MapScene extends Phaser.Scene {
     // loss joins the drain roll-up (_bankDrain) — a number a second stacks
     // into an unreadable column.
     const pips = bankWhole(this, '_trapDrainAccum',
-      Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt);
+      Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }, 1, this.save.mode, Combat.armorBonus(this.save)) * dt);
     if (pips > 0 && (this.save.energy ?? 0) > 0) this._bankDrain('trap', -this._losePlayerEnergy(pips), { ix, iy, label: '🪤 trap' });
   }
 
@@ -3746,7 +3746,9 @@ class MapScene extends Phaser.Scene {
       WorldGen.forEachItemNear('creatures', pcTick.tx, pcTick.ty, considerCreature);
     }
 
-    DragonStory.tick(this, now, px, py, enemies);
+    const visibleEnemies = typeof Visibility === 'undefined' ? enemies
+      : enemies.filter(c => Visibility.playerCover(this, c.x, c.y) !== 2);
+    DragonStory.tick(this, now, px, py, visibleEnemies);
     const relics = Gear.effectiveRelics(this.save);
     const activeWeapon = Gear.activeWeapon(this.save);
     // The player's attack multiplier (_attackMul — Dragon Powder's ×2, the
@@ -3777,7 +3779,7 @@ class MapScene extends Phaser.Scene {
     // A CATCH attempt (a fleeing wheel) is no time to fight: no auto-fire.
     const rangedArmed = !Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && !this.isShadowActive()
       && !this._workProgress?.flee
-      && Combat.anyEnemyWithin(px, py, enemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
+      && Combat.anyEnemyWithin(px, py, visibleEnemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
     if (rangedArmed) {
       for (const slot of Combat.RANGED_SLOTS) {
         if (!relics[slot] || activeWeapon !== slot) continue;
@@ -3805,7 +3807,7 @@ class MapScene extends Phaser.Scene {
         // bolt flies exactly as far as the check that loosed it.
         const reach = reachCells(this);
         // Confused, the staff can't pick a foe: it fires where you face.
-        const heading = Combat.shotHeading(slot, px, py, this.facing, enemies, this.cellM, reach,
+        const heading = Combat.shotHeading(slot, px, py, this.facing, visibleEnemies, this.cellM, reach,
           { confused: Conditions.active(this.save, 'confused') });
         if (!heading) continue;
         // The staff draws energy per bolt (Combat.SHOT.staff.energyCost — the
@@ -3951,7 +3953,7 @@ class MapScene extends Phaser.Scene {
     // turns it off — Gear.meleeActive — see the WEAPON_SLOTS note above.
     if (!Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && Gear.meleeActive(this.save) && !this._workProgress) {
       let best = null, bestD2 = Infinity;
-      for (const c of enemies) {
+      for (const c of visibleEnemies) {
         // ARM'S LENGTH, not the lit reach (Combat.MELEE_REACH_CELLS): a sword
         // swings as far as a monster bites and no further.
         if (!Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save))) continue;
@@ -4814,6 +4816,7 @@ class MapScene extends Phaser.Scene {
   // One strike, never a work item. The scene clock survives target changes;
   // every attempt checks the live position and allegiance before spending it.
   startCombat(victim, opts = {}) {
+    if (victim && typeof Visibility !== 'undefined' && Visibility.playerCover(this, victim.x, victim.y) === 2) return false;
     if (Combat.playerDowned(this.save?.energy) || Conditions.attacksBlocked(this.save)) return false;
     if (this.isShadowActive()) {
       if (!opts.auto) {
@@ -5165,6 +5168,11 @@ class MapScene extends Phaser.Scene {
         Math.round(now - (wp.startT || now)), 'ms (dur', wp.durationMs, ')'); } catch (_) {}
       this.cancelWorkProgress();
       try { this.flash?.('(cleared a stuck action)', this.viewCenterX, this.viewCenterY - 60); } catch (_) {}
+      return;
+    }
+    const tracked = wp.flee || wp.track;
+    if (tracked && typeof Visibility !== 'undefined' && Visibility.playerCover(this, tracked.x, tracked.y) === 2) {
+      this.cancelWorkProgress();
       return;
     }
     // Fleeing catch target: it backs away from the player at FLEE_MPS while the

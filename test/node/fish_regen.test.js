@@ -18,6 +18,38 @@
   const totals = { minnow: 7, bass: 20, trout: 60, salmon: 100, goldenfish: 180,
     grilled_minnow: 11, grilled_bass: 30, grilled_trout: 90, grilled_salmon: 150, grilled_goldenfish: 270 };
 
+  test('salmon: raw and grilled meals extend Grip and Stoneskin, including across reload', () => {
+    const old = Date.now; let now = T0; Date.now = () => now;
+    try {
+      const s = scene('salmon');
+      assert.truthy(eat.call(s));
+      assert.eq(Buffs.until('melee', s.save), T0 + Energy.FISH_REGEN_MS);
+      assert.eq(Buffs.until('stoneskin', s.save), T0 + Energy.FISH_REGEN_MS);
+      assert.eq(Combat.trainingBonus(s.save, 'melee', now), 5);
+      assert.eq(Combat.trainingBonus(s.save, 'ranged', now), 5);
+      assert.eq(Combat.armorBonus(s.save, now), CONSUMABLE_SPEC.stoneskin_potion.armorBonus);
+      assert.includes(s.lastFlash, 'Grip: 3m');
+      assert.includes(s.lastFlash, 'Stoneskin: 3m');
+      s.save = JSON.parse(JSON.stringify(s.save));
+      now += Energy.EAT_COOLDOWN_MS;
+      s.save.inv = [{ id: 'grilled_salmon', count: 1 }];
+      s.save.selSlot = 0;
+      assert.truthy(eat.call(s));
+      for (const buff of ['melee', 'stoneskin']) assert.eq(Buffs.until(buff, s.save), T0 + 2 * Energy.FISH_REGEN_MS);
+      assert.eq(Combat.trainingBonus(s.save, 'melee', now), 5, 'strength does not stack');
+      assert.eq(Combat.armorBonus(s.save, T0 + 2 * Energy.FISH_REGEN_MS), 0, 'expires');
+    } finally { Date.now = old; }
+  });
+
+  test('salmon: stronger fish regeneration refuses the meal without granting combat buffs', () => {
+    const s = scene('salmon');
+    Energy.startFishRegen(s.save, 'goldenfish');
+    assert.falsy(eat.call(s));
+    assert.eq(Inventory.count(s.save, 'salmon'), 1);
+    assert.eq(Buffs.until('melee', s.save), 0);
+    assert.eq(Buffs.until('stoneskin', s.save), 0);
+  });
+
   test('fish: every raw and grilled meal starts three-minute regeneration with no instant healing', () => {
     assert.eq(Energy.FISH_REGEN_MS, 180000);
     for (const [id, total] of Object.entries(totals)) {

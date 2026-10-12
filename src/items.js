@@ -513,6 +513,7 @@ const MINERAL_ICON_SHEET = {
   // Potion of Grip — the round sparkling flask (frame 12) recoloured to the
   // Rust totem's light (tools/export_grip_potion_icon.py).
   grip_potion: { sheet: 'icon_grip_potion', frame: 0 },
+  stoneskin_potion: { sheet: 'icon_potions', frame: 30 }, // pale round flask
   // Poison Flask — the wide violet flask (row 4, frame 23), poison's ink.
   poison_flask: { sheet: 'icon_potions', frame: 23 },
   // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
@@ -707,6 +708,7 @@ const BASE_TIER = {
   // Grip is the T1 fighting potion: the Rust totem's boon (+5 melee and
   // ranged damage, Combat.TRAINING_KINDS drill) for a short spell, bottled.
   grip_potion: 1,
+  stoneskin_potion: 2,
   // The Poison Flask: the purple slime's minute of poison, thrown or drunk —
   // a T2 utility like the protection potion, under the T3 explosive flask.
   poison_flask: 2,
@@ -893,6 +895,7 @@ const ITEMS = [
   { id: 'hardworking_potion', name: 'Potion of Hardworking', kind: 'magic' },
   // Drunk, never thrown: the boon is the player's training drill.
   { id: 'grip_potion', name: 'Potion of Grip', kind: 'magic' },
+  { id: 'stoneskin_potion', name: 'Potion of Stoneskin', kind: 'magic' },
   // Thrown like a potion (it lands Combat.poison on whatever it strikes) or
   // drunk (the player's own poison row).
   { id: 'poison_flask', name: 'Poison Flask', kind: 'magic', potion: true },
@@ -1241,6 +1244,13 @@ const CONSUMABLE_SPEC = {
     used: { title: 'You drink the Potion of Grip',
       body: (scene, spec) => `+${Combat.TRAINING_KINDS.melee.drill} melee and archery damage for ${shortDuration(spec.durationMs)}.` },
   },
+  stoneskin_potion: {
+    durationMs: 2 * _CONSUMABLE_MINUTE_MS, buff: 'stoneskin', armorBonus: 5,
+    verb: 'Drink', title: 'Drink the Potion of Stoneskin?',
+    get: 'Your skin hardens like stone, lending armour against incoming blows.',
+    used: { title: 'You drink the Potion of Stoneskin',
+      body: (scene, spec) => `+${spec.armorBonus} armour for ${shortDuration(spec.durationMs)}.` },
+  },
   // Poison Flask: whoever it touches carries the `poison` row of
   // Conditions.DEFINITIONS for its minute — a struck creature through
   // PotionEffects.apply (Combat.poison), the drinker through
@@ -1256,6 +1266,9 @@ const CONSUMABLE_SPEC = {
   // as if by a can of `canTier` (Gold, T4 — owner, Sep 2026), or by the
   // player's own can when that is better (app.js waterCropsWithin). So the
   // jump roll and the shortened hold are a Gold can's, whoever eats it.
+  salmon: { get durationMs() { return Energy.FISH_REGEN_MS; }, foodBuffs: ['melee', 'stoneskin'] },
+  grilled_salmon: { get durationMs() { return CONSUMABLE_SPEC.salmon.durationMs; },
+    get foodBuffs() { return CONSUMABLE_SPEC.salmon.foodBuffs; } },
   rainberry: { radiusM: 20, canTier: 4 },
   pairy: { durationMs: 5 * _CONSUMABLE_MINUTE_MS, buff: 'compass' },
   coffee: { durationMs: 3 * _CONSUMABLE_MINUTE_MS, speedTierBoost: 2, buff: 'coffee' },
@@ -1642,6 +1655,7 @@ const PRICES = {
   sleep_powder: 100,
   psychosis_powder: 15, // T1 — ten seconds of foes running every which way
   hardworking_potion: 15, // T1 — the Harvest Idol's quick hands for five minutes
+  stoneskin_potion: 35, // T2 — five armour for two minutes
   grip_potion: 15, // T1 — the Rust totem's +5 damage for two minutes
   poison_flask: 45, // T2 — a minute of the purple slime's poison on whatever it touches
   reach_potion:  45,   // T4 — full-screen reach for 1 min is a strong utility pop
@@ -1706,9 +1720,9 @@ const PRICES = {
   crow_feather: 10,
   butterfly: 100,  // premium catch — Bug Net required, so it's worth a lot
   // ── Wild mushroom ────────────────────────────────────────
-  mushroom: 8,
+  mushroom: 5,
   // ── Fish ─────────────────────────────────────────────────
-  minnow: 2,    bass: 12,   trout: 40,   salmon: 100, goldenfish: 300,
+  minnow: 3,    bass: 18,   trout: 60,   salmon: 150, goldenfish: 450,
   // ── Orchard fruit ────────────────────────────────────────
   apple: 8, cherry: 12, worldpeach: 10, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
 };
@@ -1908,6 +1922,7 @@ const ITEM_EFFECTS = {
   psychosis_powder: CONSUMABLE_SPEC.psychosis_powder.get,
   hardworking_potion: CONSUMABLE_SPEC.hardworking_potion.get,
   grip_potion: CONSUMABLE_SPEC.grip_potion.get,
+  stoneskin_potion: CONSUMABLE_SPEC.stoneskin_potion.get,
   poison_flask: 'Bottled venom. A purple chill creeps into whoever it touches, thrown or drunk.',
   reach_potion: 'The far horizon trembles close to the rim of this bottle.',
   antidote: 'A bitter draught to wash every affliction away.',
@@ -2472,6 +2487,9 @@ const FISH_SPECIES = [
 for (const { id } of FISH_SPECIES) {
   ITEM_EFFECTS[id] = 'Its nourishment returns your strength little by little.';
   ITEM_EFFECTS[COOKED_FOODS[id].id] = 'Warm from the fire, it restores your strength little by little.';
+}
+for (const id of ['salmon', COOKED_FOODS.salmon.id]) {
+  ITEM_EFFECTS[id] += ' It also grants Grip and Stoneskin.';
 }
 function fishTier(id) { return itemTierOf(id, 1); }
 // Shiny fish use the same +3 tier uplift as shiny inventory animals.

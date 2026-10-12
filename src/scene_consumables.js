@@ -702,7 +702,8 @@ class SceneConsumables {
     const targets = [];
     const pc = this.playerToWorldCell();
     WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, c => {
-      if (Combat.isEnemy(c) && !caught.has(c.id) && where(c)) targets.push(c);
+      if (Combat.isEnemy(c) && !caught.has(c.id) && where(c)
+          && !(typeof Visibility !== 'undefined' && Visibility.playerCover(this, c.x, c.y) === 2)) targets.push(c);
     });
     return targets;
   }
@@ -1052,6 +1053,11 @@ class SceneConsumables {
     let extra = fish ? `\nRegen: ${fish}⚡ over ${shortDuration(Energy.FISH_REGEN_MS)}` : '';
     // Every timed effect a food lends EXTENDS (Buffs.extend / laterOf — the
     // one rule): a second coffee inside the first banks its three minutes.
+    const foodSpec = CONSUMABLE_SPEC[id];
+    for (const buff of foodSpec?.foodBuffs || []) {
+      Buffs.extend(this.save, this, buff, foodSpec.durationMs, now);
+      extra += `\n${Buffs.KINDS[buff].name}: ${shortDuration(Buffs.until(buff, this.save, this) - now)}`;
+    }
     if (CONSUMABLE_SPEC[id]?.condition) {
       const spec = CONSUMABLE_SPEC[id];
       this._applyCondition(spec.condition, { durationMs: spec.durationMs });
@@ -1341,7 +1347,7 @@ class SceneConsumables {
     if (fire) this.flashAtWorld('💥 It exploded!', fire.x, fire.y);
     else this.flash('💥 It exploded!');
     if (Combat.playerDowned(before) || Conditions.damageImmune(this.save)) return 0;
-    const dmg = Combat.playerDamage(rawDmg, this.save.armor);
+    const dmg = Combat.playerDamage(rawDmg, this.save.armor, 1, this.save.mode, Combat.armorBonus(this.save));
     Energy.set(this.save, before - dmg);
     const lost = before - this.save.energy;
     this._flashPlayerHit(lost);

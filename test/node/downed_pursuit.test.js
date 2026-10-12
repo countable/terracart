@@ -73,17 +73,17 @@ test('downed: every hostile-interest branch reads `unnoticed`, never `shadowed`'
   // lane, one more reason.
   const gates = [
     [/rosterEnemyAttack\(this, c, rosterRow, now, px, py, unnoticed \|\| standDown, enemyDt\)/, "every roster foe's blow, arrow and snare"],
-    [/\(npcTarget \? NPC\.isDormant\(npcTarget\) : unnoticed\) \|\| standDown,\s*routed \|\| \(kerbTurn && !c\.lair\), lairState, enemyDt\)/, "every roster foe's stalk"],
+    [/\(npcTarget \? NPC\.isDormant\(npcTarget\) : unnoticed\) \|\| standDown,\s*routed \|\| \(kerbTurn && !c\.lair\), lairState, enemyDt, npcTarget\)/, "every roster foe's stalk"],
     [/\(npcTarget \? NPC\.isDormant\(npcTarget\) : unnoticed\) \|\| kerbTurn, warded, pace\)/, "the ghost's rush"],
   ];
   for (const [re, what] of gates) {
     assert.truthy(re.test(code), `${what} is gated on unnoticed`);
   }
   // The roster mover and attack read the foe's own sight through the one
-  // helper (Combat.seesPlayer) beside `inactive` — never a lane of their own.
-  assert.truthy(/const attentive = !inactive && \(creatureTarget \|\| npcTarget \|\| !Combat\.playerDowned\(scene\.save\.energy\)\)\s*&& inTerritory && \(creatureTarget \|\| npcTarget \|\| Combat\.seesPlayer\(c\.kind, dist, scene\.cellM, scene\.save\)\);/.test(CREATURE_AI_SRC),
+  // helper (Combat.seesTarget) beside `inactive` — never a lane of their own.
+  assert.truthy(/const attentive = !inactive && Combat\.seesTarget\(scene, c, px, py, targetSight\) && \(creatureTarget \|\| npcTarget \|\| !Combat\.playerDowned\(scene\.save\.energy\)\)\s*&& inTerritory;/.test(CREATURE_AI_SRC),
     'the attack is attentive only to a player it can see and who is not down');
-  assert.truthy(/let sees = !inactive && \(creatureTarget\s*\? dist <= Combat\.sightCells\(c\.kind\) \* scene\.cellM\s*: Combat\.seesPlayer\(c\.kind, dist, scene\.cellM, scene\.save\)\);/.test(CREATURE_AI_SRC),
+  assert.truthy(/let sees = !inactive && Combat\.seesTarget\(scene, c, px, py, creatureTarget/.test(CREATURE_AI_SRC),
     'and the mover stalks only what it sees');
 });
 
