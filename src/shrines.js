@@ -98,6 +98,10 @@
       zoneVariants: [], streets: ['golden'], streetChance: 1,
       name: 'Golden idol', flash: 'Coins spill along the road.', spent: 'The idol is dull today',
       body: 'You touch the gilded idol. Green coins spill from its hands and roll along both sides of the road.' },
+    golden_path_idol: { art: 'street_golden', frame: 10, light: 0xefc46a, reward: 'coins', fillScreen: true, path: true,
+      zoneVariants: [], streets: ['golden_path'], streetChance: 1,
+      name: 'Golden path idol', flash: 'Coins line the path.', spent: 'The idol is dull today',
+      body: 'You touch the gilded idol. Green coins appear in a line down the middle of the path.' },
   };
   const REWARD_KINDS = {
     bike: { name: "Courier's post", art: 'visit_bike', sprite: 'bike_rack', light: 0xaadbd1, ledger: 'day',

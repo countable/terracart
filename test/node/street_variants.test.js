@@ -156,7 +156,7 @@ test('variants: minor streets and path sections use their normalized theme pools
 });
 
 test('variants: paths mostly select light scenic themes and never inherit Small-road themes', () => {
-  const expected = { lantern: .10, barricade: .03, promenade: .12, greenway: .35, parkpath: .40 };
+  const expected = { lantern: .10, barricade: .03, promenade: .12, greenway: .35, parkpath: .38, golden_path: .02 };
   const weights = SV.selectionWeights(null, 'path');
   assert.eq(weights.length, Object.keys(expected).length);
   for (const row of weights) {
@@ -1159,6 +1159,36 @@ test('street themes: a winding patch caps total arclength and yields during inte
   assert.inRange(total,499.99,500.01,'one patch cannot hide more than500m of winding street');
   // Additional short source segments are tested against its clipped theme.
   assert.gt(yields,0,'the interval comparison loop cooperates with sliced world generation');
+});
+
+test('golden path: exact diagonal centreline seats, no verge coins, and blocked cells leave gaps', () => {
+  const line = pts([[10, 15], [40, 35]]);
+  const rec = { key: 'golden-path-test', line, variant: 'golden_path', size: 'path', halfW: 1 };
+  const build = (blocked = false, occupied = new Set(), roadMask = new Uint8Array(CPE * CPE)) => {
+    const spawnWhy = new Uint16Array(CPE * CPE);
+    if (blocked) spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    const index = { extent: EXTENT, lines: [rec], dressingLines: [rec], hoardPois: [] };
+    return SV.dress({ index, tx: TX, ty: TY, N: CPE, tileEdgeM: TILE_EDGE_M,
+      grid: new Uint8Array(CPE * CPE).fill(T.PATH),
+      spawnOpts: { spawnWhy, occupied, roadMask, roadClass: new Uint8Array(CPE * CPE) } });
+  };
+  const result = build(), seats = [...result.coinSeats.get(rec.key).values()];
+  assert.truthy(seats.length > 20, 'a line of coins along the path');
+  const a = { x: TX * TILE_EDGE_M + 10.5 * 7, y: TY * TILE_EDGE_M + 15.5 * 7 };
+  for (const seat of seats) {
+    assert.inRange(Math.abs((seat.x - a.x) * 20 - (seat.y - a.y) * 30), 0, 1e-8,
+      'coins stay exactly on the diagonal, not at off-path cell centres');
+  }
+  const idol = result.objects.find(o => o.shrineKind === 'golden_path_idol');
+  assert.truthy(idol, 'the path gets its daily idol');
+  assert.eq(idol.coinSeats.length, seats.length);
+  assert.eq(Shrines.kindForStreet('golden_path'), 'golden_path_idol');
+  const cell = cellOf(seats[0].y, TY) * CPE + cellOf(seats[0].x, TX);
+  assert.eq(build(false, new Set([cell])).coinSeats.get(rec.key).size, seats.length - 1);
+  const roadMask = new Uint8Array(CPE * CPE); roadMask[cell] = 1;
+  assert.eq(build(false, new Set(), roadMask).coinSeats.get(rec.key).size, seats.length - 1,
+    'vehicle-road crossings remain clear');
+  assert.eq(build(true).coinSeats.get(rec.key).size, 0, 'restricted ground stays clear');
 });
 
 test('golden road: coin seats line both verges, ride on its idol, and claim no cell', () => {

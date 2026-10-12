@@ -329,7 +329,12 @@ access or tile lifecycle mechanics.
   never joins just because it shares a feature ID. Sections are tile-local;
   generation never depends on which neighbouring tiles are loaded.
   Path sections have their own weighted pool: mostly Greenway, Park Path and
-  Promenade, with occasional Lantern Row and Barricade. Small-road variants
+  Promenade, with occasional Lantern Row and Barricade and a rare Golden Path
+  (2% base weight, taken from Park Path). Golden Path uses Golden Road’s
+  daily idol reward, with at most one coin seat per cell sampled along the
+  exact path centreline, never snapped to cell centres or placed on verges.
+  Occupancy and spawn restrictions leave gaps; path-authored seats survive
+  Nexus crossings. Scenic overrides still apply. Small-road variants
   never enter that pool. A majority-scenic section uses its landscape's look. Scenic restoration bonuses still follow the
   original geographic intervals. Painting, dressing, lamps, stories and map
   review all consume the same section assignment.

@@ -277,7 +277,7 @@
       story: 'street_scenic', art: 'street_greenway', title: 'A greenway',
       body: "Branches hang low over the path. You duck beneath them as leaves brush your hood.",
       flash: 'A greenway. The green holds.' },
-    { id: 'parkpath', pathWeight: .40, terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'parkpath', pathWeight: .38, terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#5c4b3f', restored: '#000000' },
       lampGlow: '#a8e07a',
       story: 'street_scenic', art: 'street_parkpath', title: 'The park path',
@@ -310,6 +310,12 @@
       lampGlow: '#dca452', story: 'street_goblin_gang', art: 'street_barricade', title: 'Goblin Gang Street',
       body: 'Goblin grunts gather in little gangs beside stacks of barrels along the street.',
       flash: 'Goblins and barrel stacks.' },
+    { id: 'golden_path', pathWeight: 0.02, terrain: 'ROCK', affinities: ['formal'], size: 'path', share: 0, rung: 'rare',
+      stone: { weathered: '#96866b', restored: '#af9c75' }, lampGlow: '#efc46a',
+      coinPlacement: 'centerline',
+      story: 'street_golden_path', art: 'street_golden', title: 'Golden Path',
+      body: 'A gilded idol stands beside the path. Touch it each day, and green coins appear in a line down the path.',
+      flash: 'Gold glimmers along the path.' },
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
@@ -1964,6 +1970,21 @@
       if (v !== 'thorny' && root.Shrines && root.Shrines.kindForStreet(v)) {
         if (!shrineStreets.has(rec.key)) shrineStreets.set(rec.key, { v, recs: [] });
         shrineStreets.get(rec.key).recs.push({ rec, spans });
+      }
+      if (row.coinPlacement === 'centerline') {
+        const seats = res.coinSeats.get(rec.key) || new Map();
+        res.coinSeats.set(rec.key, seats);
+        sampleLine(rec.line, gM, CELL_M, CELL_M / 2, (s, x, y) => {
+          if (!S.covers(spans, s)) return;
+          const ix = cellOfM(x), iy = cellOfM(y);
+          if (!cellOk(ix, iy)) return;
+          const id = WG.cellId('golden_path_coin', tx, ty, ix, iy);
+          // Keep the exact point on the polyline: snapping to a cell centre
+          // would put coins beside narrow and diagonal paths.
+          if (!seats.has(id)) seats.set(id, {
+            x: cx(ix) + (x / CELL_M - ix - 0.5) * frameCellM,
+            y: cy(iy) + (y / CELL_M - iy - 0.5) * frameCellM, id });
+        });
       }
       // One finite encounter per themed street and owning tile, independent
       // of how many geometry fragments represent the street. Scenery streams

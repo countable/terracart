@@ -5755,12 +5755,13 @@ class MapScene extends Phaser.Scene {
       const x0 = tx * tileEdgeM, y0 = ty * tileEdgeM;
       const occupied = new Set(entry._spawnOpts?.occupied || []);
       const zoneCoverage = entry.zone && (entry.zone.coverage || entry.zone.idx);
+      const pathAuthored = StreetVariants.VARIANT_BY_ID[poi._shrineStreet]?.size === 'path';
       for (const coin of entry.coinDrops || []) if (coin.expiresAt > Date.now())
         occupied.add(Math.floor((coin.y - y0) / cellM) * N + Math.floor((coin.x - x0) / cellM));
       for (const seat of poi.coinSeats || []) {
         const cx = Math.floor((seat.x - x0) / cellM), cy = Math.floor((seat.y - y0) / cellM);
         if (cx < 0 || cy < 0 || cx >= N || cy >= N || (cx === poiLocalCX && cy === poiLocalCY)) continue;
-        if (occupied.has(cy * N + cx) || zoneCoverage?.[cy * N + cx] || WorldGen.privateVetoAt(tx, ty, cx, cy)) continue;
+        if (occupied.has(cy * N + cx) || (!pathAuthored && zoneCoverage?.[cy * N + cx]) || WorldGen.privateVetoAt(tx, ty, cx, cy)) continue;
         candidates.push({ cx, cy, tx, ty, entry, x: seat.x, y: seat.y });
       }
     } else if (row.fillScreen) {

@@ -53,6 +53,20 @@
     assert.eq(entry.coinDrops.length, coins.length + 1, 'once a UTC day');
   }));
 
+  test('golden path idol: exact seats survive nexus coverage and pay only once daily', () => withCache(() => {
+    const { scene, save, entry, poi } = fixture();
+    poi.shrineKind = 'golden_path_idol'; poi._shrineStreet = 'golden_path';
+    poi.coinSeats = [{ x: 17.1, y: 18.2 }, { x: 22.3, y: 23.4 }];
+    entry.zone = { coverage: new Uint8Array(16 * 16).fill(1) };
+    WorldGen.tileCache.set(WorldGen.tileKey(0, 0), entry);
+    INTERACTABLES.grove_shrine.custom(makeCtx(scene, save), poi);
+    assert.eq(entry.coinDrops.length, 2, 'path coins are allowed through a nexus');
+    for (const seat of poi.coinSeats) assert.truthy(entry.coinDrops.some(c => c.x === seat.x && c.y === seat.y),
+      'runtime keeps the exact path point');
+    INTERACTABLES.grove_shrine.custom(makeCtx(scene, save), poi);
+    assert.eq(entry.coinDrops.length, 2, 'no second daily payout');
+  }));
+
   test('golden idol: with every seat taken the day is not spent', () => withCache(() => {
     const { scene, save, entry, poi } = fixture();
     WorldGen.tileCache.set(WorldGen.tileKey(0, 0), entry);
