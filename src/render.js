@@ -262,9 +262,9 @@ Render.shopSignTheme = (scene, house, role) => {
 // (Pet / Book Shop) wears dark signboard wood. All canvas, so the fog of war covers
 // it with the other labels.
 const SHOP_PLATE = Object.freeze({
-  // Game px per glyph cell. Not whole: the board is 10% under the 2px
-  // grid (owner, Oct 2026), so cell edges snap to device pixels instead.
-  cell: 1.75,
+  // Game px per glyph cell. Not whole: the board was cut 10% twice from the
+  // 2px grid (owner, Oct 2026), so cell edges snap to device pixels instead.
+  cell: 1.55,
   padX: 3,          // board edge to contents, sideways (rim included)
   padY: 1,          // board edge to a name, top and bottom (the rim)
   padGlyph: 2,      // board edge to a symbol, rim included (+1 below for its shadow)
@@ -284,9 +284,10 @@ Render.shopSignLook = (badge) => {
     ink: cssOf(mixHex(c, 0xffffff, 0.45)),   // the letters: the tier colour, lightened
   };
 };
-// A non-shop role's symbol: its inventory tab.
+// A non-shop role's symbol: its inventory tab, and `dy` game px to nudge
+// the board down where that role's roof sits lower (the smithy's art).
 Render.ROLE_SIGN_ICONS = Object.freeze({
-  blacksmith: { tab: 'armor' },
+  blacksmith: { tab: 'armor', dy: 3 },
 });
 Render.shopSignGlyph = (theme, role) => {
   const icon = Render.SHOP_SIGN_ICONS[theme] || Render.ROLE_SIGN_ICONS[role];
@@ -4443,7 +4444,7 @@ Render.drawObjects = function drawObjects(scene) {
     const badge = Render.shopTierBadge(scene, item.o, role);
     const theme = Render.shopSignTheme(scene, item.o, role);
     const glyph = Render.shopSignGlyph(theme, role);
-    (badge || theme ? plates : plain).push(badge || theme ? { ...item, badge, glyph } : item);
+    (badge || theme ? plates : plain).push(badge || theme ? { ...item, badge, glyph, theme } : item);
   }
   Render.renderPool(scene, scene.shopLabelPool, scene.labelContainer, plain, (tx, item) => {
     const { o, dx, dy } = item;
@@ -4478,7 +4479,8 @@ Render.drawObjects = function drawObjects(scene) {
     // House art is centred on its footprint (RENDER_SPEC.house), so the
     // roof's middle sits a fraction of the art's height above that centre.
     const { x, y } = project(item.dx, item.dy);
-    Render.drawShopPlate(gfx, item, { x, y: y - SHOP_PLATE.roof * _houseArtH(item.o) }, _playerBox, CANVAS_W);
+    const dy = (!item.theme && Render.ROLE_SIGN_ICONS[_houseRole(item.o)]?.dy) || 0;
+    Render.drawShopPlate(gfx, item, { x, y: y - SHOP_PLATE.roof * _houseArtH(item.o) + dy }, _playerBox, CANVAS_W);
   }
 
   // Residential delivery plaques use real
