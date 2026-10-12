@@ -22,6 +22,14 @@ Inventory-only frames retain their original pixels unless explicitly included
 in the audit. The seven existing produce-counter frames share their treatment.
 No actor, enemy, macro-booth or chapel art is changed.
 
+After legacy shrine or zone exports, run
+`python3 tools/art/import_approved_idols.py` to restore the approved grid-aligned
+idols and mossy grave from the retained `Sources/ArtRedo20261012/` masters.
+The world-art import manifest records source hashes and exact crop rectangles;
+the exporter preserves existing frame IDs, frame sizes and bottom anchors.
+It updates both zone atlases and the standalone mossy grave. The paired geometric
+grave keeps its original art.
+
 Unclaimed fort and wreck PNGs already include their approved weathering; their
 asset records declare `unclaimedArt` to prevent a second runtime wash. Separate
 context sprites are selected by the game only in their declared zones. Moss

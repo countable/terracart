@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-d9d8cd0a';
+const SHELL_VERSION = 'shell-fe1246ed';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -325,6 +325,18 @@ const ASSET_HASHES = {
   "assets/NPC/town_guide_walk.png": "8a0bb10b",
   "assets/NPC/wayfinder_idle.png": "aa3349e4",
   "assets/NPC/wayfinder_walk.png": "22d0c257",
+  "assets/Objects/Approved/Sources/ArtRedo20261012/idol-0.png": "0ebff767",
+  "assets/Objects/Approved/Sources/ArtRedo20261012/idol-1.png": "dade77bc",
+  "assets/Objects/Approved/Sources/ArtRedo20261012/idol-2.png": "74be6eaf",
+  "assets/Objects/Approved/Sources/ArtRedo20261012/idol-3.png": "d3edc61b",
+  "assets/Objects/Approved/Sources/ArtRedo20261012/idol-4.png": "217f39c4",
+  "assets/Objects/Approved/Sources/ArtRedo20261012/idol-5.png": "2852a4d0",
+  "assets/Objects/Approved/Sources/ArtRedo20261012/idol-6.png": "6c070bc7",
+  "assets/Objects/Approved/Sources/ArtRedo20261012/idol-7.png": "d7076d43",
+  "assets/Objects/Approved/Sources/ArtRedo20261012/idol-8.png": "97e4bd3c",
+  "assets/Objects/Approved/Sources/ArtRedo20261012/idol-9.png": "4a570162",
+  "assets/Objects/Approved/Sources/ArtRedo20261012/idols.png": "7c888b52",
+  "assets/Objects/Approved/Sources/ArtRedo20261012/mossy_grave.png": "b970af76",
   "assets/Objects/Approved/Sources/WorldArt/approved_charred_stakes-native.png": "380d334c",
   "assets/Objects/Approved/Sources/WorldArt/barricade-native.png": "34456b11",
   "assets/Objects/Approved/Sources/WorldArt/bramble-native.png": "0b1fa85c",
@@ -451,7 +463,7 @@ const ASSET_HASHES = {
   "assets/Objects/Generated/scriptorium.png": "10a5ba47",
   "assets/Objects/Generated/scriptorium_simple.png": "8b8a1084",
   "assets/Objects/Generated/shrine.png": "9c78d47e",
-  "assets/Objects/Generated/shrines.png": "30257824",
+  "assets/Objects/Generated/shrines.png": "12aab912",
   "assets/Objects/Generated/signpost.png": "712c8565",
   "assets/Objects/Generated/stakes_a.png": "e2c8ab23",
   "assets/Objects/Generated/sundries.png": "99ee4aa3",
@@ -602,7 +614,7 @@ const ASSET_HASHES = {
   "assets/Objects/Wilderness/well.png": "d8e21f0d",
   "assets/Objects/Wilderness/wood.png": "034e40b6",
   "assets/Objects/ZoneVariants/amphora.png": "7d9fd8eb",
-  "assets/Objects/ZoneVariants/approved-24.png": "d3d88ff4",
+  "assets/Objects/ZoneVariants/approved-24.png": "474c217d",
   "assets/Objects/ZoneVariants/atlas-1024.png": "739a7776",
   "assets/Objects/ZoneVariants/barrel.png": "8caafb3d",
   "assets/Objects/ZoneVariants/berry_bush.png": "1c7a0cb8",
@@ -619,10 +631,10 @@ const ASSET_HASHES = {
   "assets/Objects/ZoneVariants/fallen_column.png": "4a43c875",
   "assets/Objects/ZoneVariants/handcart.png": "80fcc75f",
   "assets/Objects/ZoneVariants/hedge_corner.png": "5fb64207",
-  "assets/Objects/ZoneVariants/mossy_grave_pillar.png": "8bb207fe",
+  "assets/Objects/ZoneVariants/mossy_grave_pillar.png": "58c1a438",
   "assets/Objects/ZoneVariants/mushroom_red.png": "2d104654",
-  "assets/Objects/ZoneVariants/objects-16.png": "6fe38082",
-  "assets/Objects/ZoneVariants/objects-24.png": "9d2ed062",
+  "assets/Objects/ZoneVariants/objects-16.png": "06fa6ad6",
+  "assets/Objects/ZoneVariants/objects-24.png": "6cd77339",
   "assets/Objects/ZoneVariants/paired_grave_posts.png": "b1c1e6e1",
   "assets/Objects/ZoneVariants/pots-smashed-source.png": "119f4158",
   "assets/Objects/ZoneVariants/pots_cracked.png": "bf62cc14",
