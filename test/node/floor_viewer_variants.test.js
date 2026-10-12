@@ -1,4 +1,17 @@
 (() => {
+  test('floor viewer variants: surface cycling keeps paths and Small roads in separate theme pools', () => {
+    const families = FloorViewerVariants.families(0).filter(family => family.type === 'road');
+    assert.eq(families.length, 2);
+    for (const family of families) {
+      const expected = StreetVariants.STREET_VARIANTS.filter(row => row.size === family.kind).map(row => row.id).sort();
+      assert.eq(family.rows.map(row => row.id).sort().join(), expected.join());
+      assert.truthy(family.rows.every(row => StreetVariants.VARIANT_BY_ID[row.id].size === family.kind));
+    }
+    const paths = families.find(family => family.kind === 'path');
+    assert.falsy(paths.rows.some(row => row.id === 'burned'), 'Burned Row is exclusive to Small roads');
+    for (const id of ['promenade', 'greenway', 'parkpath'])
+      assert.truthy(paths.rows.some(row => row.id === id), `${id} remains available for path previews`);
+  });
   test('floor viewer variants: every family advances together and wraps independently', () => {
     const V = FloorViewerVariants;
     for (const depth of [0, 1, 2, 3, 4, 5, 6, 7, 8]) {

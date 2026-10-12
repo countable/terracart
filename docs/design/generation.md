@@ -305,11 +305,21 @@ access or tile lifecycle mechanics.
   levels and bridge/tunnel classes never join, and disconnected geometry
   never joins just because it shares a feature ID. Sections are tile-local;
   generation never depends on which neighbouring tiles are loaded.
-  Path sections draw from existing Small-road themes plus Lantern Row and
-  Barricade. Nexus surroundings influence the draw; a majority-scenic section
-  uses its landscape's look. Scenic restoration bonuses still follow the
+  Path sections have their own weighted pool: mostly Greenway, Park Path and
+  Promenade, with occasional Lantern Row and Barricade. Small-road variants
+  never enter that pool. A majority-scenic section uses its landscape's look. Scenic restoration bonuses still follow the
   original geographic intervals. Painting, dressing, lamps, stories and map
   review all consume the same section assignment.
+- Nexus interiors suppress Small-road variants using exact coverage-boundary
+  intervals shared by pavement, lamps, stories and hazards. The selected theme
+  and its stable identity survive; only outside portions receive themed
+  dressing. Coverage also clips area claims and hot-road end caps. Paths keep
+  their light paving and lamps inside, but Nexus vegetation and encounters
+  take precedence: ordinary path/road props, guards and slow effects yield.
+  Affinity is sampled before suppression. Nexus influence follows connected
+  routes for up to 150 m, fading with route distance; parallel disconnected
+  roads and different bridge/tunnel levels do not inherit it. The path pool's
+  normal weights live on its rows as `pathWeight`; Small roads retain `share`.
 - Medium roads are always **Old Trade Road**, and large roads are always
   **Ancient Highway**. Neither receives road variants, themed obstacles,
   themed guards or variant flora. Both retain road suppression and nighttime

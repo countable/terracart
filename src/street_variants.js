@@ -217,7 +217,7 @@
       body: 'A waystone stands beside the road. You rest your hand in its smooth, worn hollow.',
       flash: 'A waystone, worn smooth.' },
     // Lantern Row and Barricade are path themes; vehicle arterials stay plain.
-    { id: 'lantern', terrain: 'COMMERCIAL', affinities: ['formal', 'destination'], size: 'path', share: 0.12, rung: 'common',
+    { id: 'lantern', pathWeight: .10, terrain: 'COMMERCIAL', affinities: ['formal', 'destination'], size: 'path', share: 0.12, rung: 'common',
       stone: { weathered: '#806438', restored: '#c79a48' }, lampDensity: LANTERN_SPACING_DIV,
       words: /(lantern|lamp|light|candle|latern)/i,
       // No `attracts`: the theme adds lamps without a separate fauna profile.
@@ -237,7 +237,7 @@
       story: 'street_burned', title: 'Burned Row',
       body: 'Hot embers glow between the road stones, burning like lava underfoot. Tar fills the gutters, and iron stakes jut from the verge.',
       flash: 'Hot embers burn underfoot.' },
-    { id: 'barricade', terrain: 'WASTELAND', affinities: ['ruined'], size: 'path', share: 0.04, rung: 'rare',
+    { id: 'barricade', pathWeight: .03, terrain: 'WASTELAND', affinities: ['ruined'], size: 'path', share: 0.04, rung: 'rare',
       stone: { weathered: '#706047', restored: '#a38754' }, lampDensity: 1,
       words: /(gate|wall|fort|\btor\b|mauer|castle|burg|bastion|guard|wache|barrack|kaserne|armou?ry)/i,
       lampGlow: '#ff8c2a',
@@ -265,19 +265,19 @@
     // lamps on the scenic metres shed it — lampGlowFor), and the story — one
     // shared ledger key with a painting per landscape, told on the first scenic metre
     // restored (app.js _ripenStreets), the `flash` on later walks.
-    { id: 'promenade', terrain: 'SAND', affinities: ['coastal', 'formal'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'promenade', pathWeight: .12, terrain: 'SAND', affinities: ['coastal', 'formal'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#92743e', restored: '#d6ad58' },
       lampGlow: '#ffd16a',
       story: 'street_scenic', title: 'The promenade',
       body: 'The path runs along the water. You listen to it lapping against the shore as you walk.',
       flash: 'The promenade. Walk it slow.' },
-    { id: 'greenway', terrain: 'GRASS', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'greenway', pathWeight: .35, terrain: 'GRASS', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#4f6c49', restored: '#76966a' },
       lampGlow: '#a8e07a',
       story: 'street_scenic', art: 'street_greenway', title: 'A greenway',
       body: "Branches hang low over the path. You duck beneath them as leaves brush your hood.",
       flash: 'A greenway. The green holds.' },
-    { id: 'parkpath', terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'parkpath', pathWeight: .40, terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#5c4b3f', restored: '#000000' },
       lampGlow: '#a8e07a',
       story: 'street_scenic', art: 'street_parkpath', title: 'The park path',
@@ -490,12 +490,14 @@
   // Rarity and choice have independent hash lanes. Names and surroundings
   // redistribute the special roads; they never increase their total share.
   function selectionWeights(name, size, context) {
-    const weights = STREET_VARIANTS.filter(row => (row.size === size || size === 'path' && row.size === 'minor') && row.share > 0).map(row => {
+    const baseWeightFor = row => size === 'path' ? row.pathWeight || 0 : row.share;
+    const weights = STREET_VARIANTS.filter(row => row.size === size && baseWeightFor(row) > 0).map(row => {
+      const baseWeight = baseWeightFor(row);
       const named = !!(name && row.words && row.words.test(name));
-      const nameMultiplier = named ? Math.min(NUDGED_SHARE_MAX, row.share * (row.nudge || NAME_NUDGE)) / row.share : 1;
+      const nameMultiplier = named ? Math.max(1, Math.min(NUDGED_SHARE_MAX, baseWeight * (row.nudge || NAME_NUDGE)) / baseWeight) : 1;
       const contextMultiplier = root.ZoneVariants?.affinityMultiplier(row.affinities, context) || 1;
-      return { id: row.id, baseWeight: row.share, nameMultiplier, contextMultiplier,
-        weight: row.share * nameMultiplier * contextMultiplier };
+      return { id: row.id, baseWeight, nameMultiplier, contextMultiplier,
+        weight: baseWeight * nameMultiplier * contextMultiplier };
     });
     const golden = size === 'minor' && weights.find(row => row.id === 'golden');
     const goldenShare = golden ? golden.baseWeight / MINOR_VARIANT_SHARE : 0;
@@ -538,12 +540,137 @@
   }
 
   const AFFINITY_SAMPLE_M = 20;
+  const NEXUS_EXIT_AFFINITY_M = 150;
+  // Influence travels along connected ways, never across the gap to a nearby
+  // parallel road. Keep bridge/tunnel levels and road/path networks separate.
+  function* nexusExitAffinitySteps(index, zone, N, mvtToM) {
+    const coverage = zone?.coverage || zone?.idx;
+    const empty = () => ({});
+    if (!coverage || !zone?.anchors?.length) return empty;
+    const groups = new Map(), graphs = new Map(), ext = index.extent;
+    const networkKey = (size, tags = {}) => `${size}|${tags.layer || 0}|${tags.brunnel || ''}`;
+    for (const rec of index.lines || []) {
+      if (rec.size !== 'minor' && rec.size !== 'path') continue;
+      const key = networkKey(rec.size, rec.tags);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(rec.line);
+    }
+    let work = 0;
+    for (const [key, lines] of groups) {
+      const nodes = new Map(), edges = new Map(), buckets = new Map();
+      const node = p => {
+        const id = `${p.x.toFixed(6)},${p.y.toFixed(6)}`;
+        if (!nodes.has(id)) nodes.set(id, { ...p, id, edges: [], distance: Infinity, source: '', traits: [] });
+        return nodes.get(id);
+      };
+      const cell = p => ({ x: Math.floor(p.x * N / ext), y: Math.floor(p.y * N / ext) });
+      for (const line of yield* nodePathEndsSteps(lines)) for (let j = 1; j < line.length; j++) {
+        let a = line[j-1], b = line[j];
+        if (a.x > b.x || (a.x === b.x && a.y > b.y)) [a,b] = [b,a];
+        const length = Math.hypot(b.x-a.x,b.y-a.y)*mvtToM;
+        if (!length) continue;
+        const count = Math.ceil(length / AFFINITY_SAMPLE_M);
+        let previous = node(a);
+        for (let k = 1; k <= count; k++) {
+          const next = node({ x: a.x+(b.x-a.x)*k/count, y: a.y+(b.y-a.y)*k/count });
+          const edgeKey = `${previous.id}|${next.id}`;
+          if (!edges.has(edgeKey)) {
+            const edge = { a: previous, b: next, length: length/count };
+            edges.set(edgeKey, edge); previous.edges.push(edge); next.edges.push(edge);
+            const ca = cell(previous), cb = cell(next);
+            for (let y = Math.min(ca.y,cb.y); y <= Math.max(ca.y,cb.y); y++)
+              for (let x = Math.min(ca.x,cb.x); x <= Math.max(ca.x,cb.x); x++) {
+                const bucket = `${x},${y}`;
+                if (!buckets.has(bucket)) buckets.set(bucket, []);
+                buckets.get(bucket).push(edge);
+              }
+          }
+          previous = next;
+          if ((++work & 255) === 0) yield 'nexus exit graph';
+        }
+      }
+      const heap = [];
+      const before = (a,b) => a.distance < b.distance || (a.distance === b.distance && a.source < b.source);
+      const push = item => {
+        heap.push(item);
+        for (let i = heap.length-1; i > 0;) {
+          const parent = (i-1)>>1;
+          if (!before(heap[i],heap[parent])) break;
+          [heap[i],heap[parent]]=[heap[parent],heap[i]]; i=parent;
+        }
+      };
+      const pop = () => {
+        const first=heap[0], last=heap.pop();
+        if (heap.length) {
+          heap[0]=last;
+          for (let i=0;;) {
+            let next=i;
+            for (const child of [i*2+1,i*2+2]) if (child<heap.length&&before(heap[child],heap[next])) next=child;
+            if(next===i)break;
+            [heap[i],heap[next]]=[heap[next],heap[i]];i=next;
+          }
+        }
+        return first;
+      };
+      for (const n of nodes.values()) {
+        const c=cell(n), slot=c.x>=0&&c.y>=0&&c.x<N&&c.y<N ? coverage[c.y*N+c.x] : 0;
+        const anchor=slot&&zone.anchors[slot-1];
+        if (!anchor) continue;
+        const traits=root.ZoneVariants?.traitsFor(root.ZoneVariants.pick(anchor)) || [];
+        if (!traits.length) continue;
+        n.distance=0; n.source=`${anchor.kind}|${anchor.gx ?? slot},${anchor.gy ?? ''}`; n.traits=traits;
+        push({ node:n, distance:0, source:n.source });
+      }
+      while (heap.length) {
+        const item=pop(), n=item.node;
+        if (item.distance!==n.distance||item.source!==n.source) continue;
+        for (const edge of n.edges) {
+          const next=edge.a===n?edge.b:edge.a, distance=n.distance+edge.length;
+          if (distance>NEXUS_EXIT_AFFINITY_M) continue;
+          if (distance>next.distance || (distance===next.distance && next.source<=n.source)) continue;
+          next.distance=distance;next.source=n.source;next.traits=n.traits;
+          push({node:next,distance,source:next.source});
+        }
+        if ((++work & 255) === 0) yield 'nexus exit affinity';
+      }
+      graphs.set(key,buckets);
+    }
+    return (p, size, tags) => {
+      const bucket=graphs.get(networkKey(size,tags))?.get(`${Math.floor(p.x*N/ext)},${Math.floor(p.y*N/ext)}`);
+      let best=null;
+      for (const edge of bucket || []) {
+        const {a,b}=edge, dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy;
+        const t=((p.x-a.x)*dx+(p.y-a.y)*dy)/len2;
+        if(t < -1e-7 || t > 1+1e-7) continue;
+        if(Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy)>1e-5) continue;
+        for (const [n,along] of [[a,t*edge.length],[b,(1-t)*edge.length]]) {
+          const distance=n.distance+Math.max(0,along);
+          if(distance>=NEXUS_EXIT_AFFINITY_M)continue;
+          if(!best||distance<best.distance||(distance===best.distance&&n.source<best.source))best={...n,distance};
+        }
+      }
+      const context={};
+      if(best)for(const trait of best.traits)context[trait]=(1-best.distance/NEXUS_EXIT_AFFINITY_M)/best.traits.length;
+      return context;
+    };
+  }
+
+
   // Final coverage is the same ownership field as Nexus art and lamp tint.
   // Eligible roads are wholly inside this tile; never consult loaded neighbours.
   // Canonical, unique segments make reversal and duplicate features immaterial.
   function* applyAffinitiesSteps(index, zone, N, mvtToM, geography = {}) {
     if (!index || !(N > 0) || !(mvtToM > 0)) return;
-    const pathContext = pathContextSampler(index, zone, N, geography);
+    const exitAffinity = yield* nexusExitAffinitySteps(index, zone, N, mvtToM);
+    const localPathContext = pathContextSampler(index, zone, N, geography);
+    const pathContext = (p, level = '0|') => {
+      const [layer, brunnel] = level.split('|'), local = localPathContext(p);
+      const influence = exitAffinity(p, 'path', { layer, brunnel });
+      for (const [trait, amount] of Object.entries(influence)) local[trait] = (local[trait] || 0) + amount;
+      const sum = Object.values(local).reduce((a,b) => a+b,0);
+      for (const trait of Object.keys(local)) local[trait] /= sum;
+      return local;
+    };
     if (Number.isFinite(index.tx) && Number.isFinite(index.ty))
       yield* buildPathSectionsSteps(index, index.tx, index.ty, mvtToM, pathContext);
     const coverage = zone && (zone.coverage || zone.idx);
@@ -583,9 +710,9 @@
       for (const rec of records) for (let i = 1; i < rec.line.length; i++) {
         let a = rec.line[i - 1], b = rec.line[i];
         if (a.x > b.x || (a.x === b.x && a.y > b.y)) [a, b] = [b, a];
-        segments.set(`${a.x},${a.y}|${b.x},${b.y}`, [a, b]);
+        segments.set(`${a.x},${a.y}|${b.x},${b.y}`, [a, b, rec.tags]);
       }
-      for (const [, [a, b]] of [...segments].sort((a, b) => a[0].localeCompare(b[0]))) {
+      for (const [, [a, b, tags]] of [...segments].sort((a, b) => a[0].localeCompare(b[0]))) {
         for (const p of [a, b]) {
           const key = `${p.x},${p.y}`, end = ends.get(key);
           ends.set(key, { p, degree: (end ? end.degree : 0) + 1 });
@@ -603,17 +730,22 @@
             zoneTraits.set(slot, anchor && root.ZoneVariants ? root.ZoneVariants.traitsFor(root.ZoneVariants.pick(anchor)) : []);
           }
           if (records[0].size === 'path') {
-            const nearby = pathContext({ x: a.x + (b.x-a.x)*t, y: a.y + (b.y-a.y)*t });
+            const nearby = pathContext({ x: a.x + (b.x-a.x)*t, y: a.y + (b.y-a.y)*t }, `${tags?.layer || 0}|${tags?.brunnel || ''}`);
             for (const [trait, amount] of Object.entries(nearby)) context[trait] = (context[trait] || 0) + weight * amount;
             total += weight;
             if ((++samples & 127) === 0) yield 'path affinity samples';
             continue;
           }
+          const influence = exitAffinity({ x: a.x+(b.x-a.x)*t, y: a.y+(b.y-a.y)*t }, records[0].size, tags);
           const traits = zoneTraits.get(slot).slice();
           if (destinationAt(x, y)) traits.push('destination');
           if (traits.length) for (const trait of traits) context[trait] = (context[trait] || 0) + weight / traits.length;
           else context.neutral = (context.neutral || 0) + weight;
           total += weight;
+          for (const [trait, amount] of Object.entries(influence)) {
+            context[trait] = (context[trait] || 0) + weight * amount;
+            total += weight * amount;
+          }
           if ((++samples & 127) === 0) yield 'street affinity samples';
         }
       }
@@ -1006,7 +1138,7 @@
           put({ distance, required: true, reason: boundary ? 'Tile-edge cut' : degree > 2 ? 'Junction' : loop ? 'Loop seam' : 'Path end',
             inferred: boundary || (loop && !(degree > 2)) });
         }
-        const dominant = p => Object.entries(contextAt?.(p) || {}).sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]))[0]?.[0] || 'neutral';
+        const dominant = p => Object.entries(contextAt?.(p, level) || {}).sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]))[0]?.[0] || 'neutral';
         const samples = [];
         for (let d = 0; d < length; d += AFFINITY_SAMPLE_M) {
           samples.push({ distance: d, trait: dominant(pointAt(Math.min(length, d + AFFINITY_SAMPLE_M / 2))) });
@@ -1098,6 +1230,7 @@
   function variantAt(rec, metres, mvtToM = 1) {
     if (!rec) return null;
     metres /= mvtToM;
+    if (rec.nexusSuppressedRanges?.some(([a, b]) => metres >= a && metres < b)) return null;
     if (rec.variantSegments) return rec.variantSegments.find(p => metres >= p.a - 1e-6 && metres < p.b - 1e-6)?.variant || null;
     if (!rec.variant) return null;
     return !rec.variantRanges || rec.variantRanges.some(([a, b]) => metres >= a - 1e-6 && metres <= b + 1e-6)
@@ -1107,6 +1240,7 @@
   function lineParts(rec, mvtToM) {
     const length = root.Streets.lineLengthM(rec.line, mvtToM);
     const cuts = [0, length];
+    for (const span of rec.nexusSuppressedRanges || []) cuts.push(...span.map(end => end * mvtToM));
     for (const part of rec.variantSegments || []) cuts.push(part.a * mvtToM, part.b * mvtToM);
     for (const span of rec.variantRanges || []) for (const end of span) {
       cuts.push(Math.max(0, Math.min(length, end * mvtToM)));
@@ -1121,6 +1255,63 @@
         ...(segment ? { key: segment.key, segmentLengthM: segment.lengthM } : {}) });
     }
     return out;
+  }
+
+  // Traverse cell boundaries exactly so even a narrow nexus crossing interrupts
+  // the theme. Distances are MVT units, matching variantRanges/variantSegments.
+  function* nexusRangesSteps(line, coverage, N, extent) {
+    const ranges = [], cell = extent / N;
+    let distance = 0;
+    for (let j = 1; j < line.length; j++) {
+      yield 'nexus road intervals';
+      const a = line[j - 1], b = line[j], dx = b.x - a.x, dy = b.y - a.y;
+      const length = Math.hypot(dx, dy), cuts = [0, 1];
+      if (!length) continue;
+      for (const [start, delta] of [[a.x, dx], [a.y, dy]]) {
+        if (!delta) continue;
+        const end = start + delta;
+        for (let k = Math.max(0, Math.ceil(Math.min(start, end) / cell));
+          k <= Math.min(N, Math.floor(Math.max(start, end) / cell)); k++) {
+          const t = (k * cell - start) / delta;
+          if (t > 0 && t < 1) cuts.push(t);
+        }
+      }
+      cuts.sort((a, b) => a - b);
+      for (let k = 1; k < cuts.length; k++) {
+        const lo = cuts[k - 1], hi = cuts[k];
+        if (hi <= lo) continue;
+        const t = (lo + hi) / 2, x = Math.floor((a.x + dx * t) / cell), y = Math.floor((a.y + dy * t) / cell);
+        if (x < 0 || y < 0 || x >= N || y >= N || !coverage[y * N + x]) continue;
+        const start = distance + lo * length, end = distance + hi * length;
+        const last = ranges[ranges.length - 1];
+        if (last && Math.abs(last[1] - start) < 1e-6) last[1] = end;
+        else ranges.push([start, end]);
+      }
+      distance += length;
+    }
+    return ranges;
+  }
+
+  function* suppressNexusRoadThemesSteps(index, zone, N) {
+    if (!index || !zone?.coverage || !(N > 0)) return;
+    index.nexusCoverage = zone.coverage;
+    const extent = index.extent || 4096;
+    for (const rec of index.lines || []) {
+      if (rec.size === 'minor') rec.nexusSuppressedRanges = yield* nexusRangesSteps(rec.line, zone.coverage, N, extent);
+    }
+    const dressing = [];
+    for (const rec of index.dressingLines || []) {
+      if (rec.size !== 'minor') { dressing.push(rec); continue; }
+      const ranges = yield* nexusRangesSteps(rec.line, zone.coverage, N, extent);
+      if (!ranges.length) { dressing.push(rec); continue; }
+      let start = 0;
+      const length = root.Streets.lineLengthM(rec.line, 1);
+      for (const [a, b] of [...ranges, [length, length]]) {
+        if (a - start > 1e-6) dressing.push({ ...rec, line: root.Streets.subLineM(rec.line, 1, start, a) });
+        start = b;
+      }
+    }
+    index.dressingLines = dressing;
   }
 
   // Same split geometry for the map-review overlay and in-game QC labels.
@@ -1348,6 +1539,7 @@
         for (let iy = top; iy <= bottom; iy++) for (let ix = left; ix <= right; ix++) {
           if ((++candidates & 511) === 0) yield 'street area cells';
           const distance = segmentCellD2(ax, ay, bx, by, ix, iy), i = iy * N + ix;
+          if (rec.size === 'minor' && index.nexusCoverage?.[i]) continue;
           if (distance > r2) continue;
           area[i] = 1;
           const identity = String(rec.key || rec.variant);
@@ -1390,7 +1582,7 @@
         for (const iv of scenic?.lines?.get(key) || []) {
           const variant = root.Scenic.KIND_ROW[iv[2]];
           if (terrainFor(variant) == null) continue;
-          records.push({ key, variant, halfW: WG.roadOverlayWidthM(f.tags) / 2,
+          records.push({ key, variant, size: 'path', halfW: WG.roadOverlayWidthM(f.tags) / 2,
             line: S.subLineM(f.geom[li], scale, iv[0] * scale, iv[1] * scale)
               .map(p => ({ x: p.x / scale, y: p.y / scale })) });
         }
@@ -1414,7 +1606,8 @@
           for (let x = Math.max(0, Math.floor(Math.min(ax, bx) - radius)); x <= Math.min(N-1, Math.floor(Math.max(ax, bx) + radius)); x++) {
             if ((++candidates & 511) === 0) yield 'street terrain cells';
             const i = y * N + x, here = original[i];
-            if (zone?.coverage?.[i] || zone?.under?.present?.[i] || zone?.under?.[i]) continue;
+            const inNexus = zone?.coverage?.[i] || zone?.under?.present?.[i] || zone?.under?.[i];
+            if (inNexus && !(rec.size === 'path' && here === WG.T.PATH)) continue;
             // Road/terrain spawn exclusions remain unchanged; only land-access
             // exclusions prevent this visual ground paint — except RESIDENTIAL
             // land cover, which the variant's claim blocks out to its verge
@@ -2208,6 +2401,7 @@
     const cellM = entry.tileEdgeM / N, scale = entry.tileEdgeM / (index.extent || 4096);
     const x = cx * cellM, y = cy * cellM;
     for (const rec of index.lines || []) {
+      if (rec.size === 'minor' && index.nexusCoverage?.[Math.floor(cy) * N + Math.floor(cx)]) continue;
       if (!VARIANT_BY_ID[rec.variant]?.hotRoad) continue;
       for (const part of lineParts(rec, scale)) {
         if (!VARIANT_BY_ID[part.variant]?.hotRoad) continue;
@@ -2303,8 +2497,8 @@
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
     THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
-    PATH_SECTION_MIN_M, PATH_SECTION_TARGET_M, PATH_SECTION_MAX_M, buildPathSectionsSteps, applyPathScenicSteps, syncPathVariants, selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
-    nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,
+    PATH_SECTION_MIN_M, PATH_SECTION_TARGET_M, PATH_SECTION_MAX_M, buildPathSectionsSteps, applyPathScenicSteps, syncPathVariants, selectionWeights, applyAffinitiesSteps, nexusExitAffinitySteps, NEXUS_EXIT_AFFINITY_M, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
+    nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area, suppressNexusRoadThemesSteps,
     markBanditStops, streetShrineChosen, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, carpetEmblemFor, carpetStyleFor, lineStyles, hotRoadAt, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
