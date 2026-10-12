@@ -7,7 +7,7 @@
 const h = (id) => ({ kind: 'house', tier: 9, id });
 
 test('shop tiers: the stamped rank wins; a legacy smithy is the Nth in ledger order', () => {
-  const save = { restoredHouses: { a: 'plain', s1: 'blacksmith', b: 'market', s2: 'blacksmith', s3: 'blacksmith' } };
+  const save = { restoredHouses: { a: 'plain', s1: 'blacksmith', b: 'shop', s2: 'blacksmith', s3: 'blacksmith' } };
   assert.eq(Shops.smithTier(save, h('s1')), 1);
   assert.eq(Shops.smithTier(save, h('s2')), 2);
   assert.eq(Shops.smithTier(save, h('s3')), 3);
@@ -45,8 +45,8 @@ test('shop tiers: the trader draws only its own tier on its one lane', () => {
   assert.includes(body, 'Shops.traderTier(this.save, house)');
   // The smithy hands its tier to the forge roll; every badge reads shopTier.
   assert.truthy(/const smithTier = isBlacksmith \? Shops\.smithTier\(this\.save, house\) : undefined;/.test(SCENE_SRC));
-  assert.truthy(/const tier = role === 'market' \? this\.marketTheme\(house\)\.tier : Shops\.shopTier\(this\.save, house, role\);/.test(SCENE_SRC), 'the offer blurb badge');
-  assert.truthy(/const tier = role === 'market' \? scene\.marketTheme\(house\)\.tier : Shops\.shopTier\(scene\.save, house, role\);/.test(RENDER_SRC), 'the map badge');
+  assert.truthy(/const tier = role === 'shop' \? this\.shopLine\(house\)\.tier : Shops\.shopTier\(this\.save, house, role\);/.test(SCENE_SRC), 'the offer blurb badge');
+  assert.truthy(/const tier = role === 'shop' \? scene\.shopLine\(house\)\.tier : Shops\.shopTier\(scene\.save, house, role\);/.test(RENDER_SRC), 'the map badge');
   assert.truthy(/const tier = Shops\.shopTier\(this\.save, house, row\.role\) \|\| 0;/.test(SCENE_SRC), 'the Restored! card');
   assert.truthy(/tierBadgeHTML\(row\.tier, 9, 4\)/.test(SCENE_SRC), 'and the flat restore card\'s rank badge');
 });

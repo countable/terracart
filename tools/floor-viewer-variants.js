@@ -12,8 +12,9 @@
     if (depth === 0) {
       for (const kind of [...new Set(root.ZoneVariantData.variants.map(row => row.zone))])
         out.push({ type: 'nexus', kind, rows: root.ZoneVariants.forKind(kind).map(row => ({ id: row.id, label: row.name })) });
-      for (const kind of ['minor', 'major', 'path']) out.push({ type: 'road', kind,
-        rows: root.StreetVariants.STREET_VARIANTS.filter(row => row.size === kind).map(row => ({ id: row.id, label: row.title || title(row.id) })) });
+      for (const kind of ['minor', 'path']) out.push({ type: 'road', kind,
+        rows: root.StreetVariants.STREET_VARIANTS.filter(row => row.size === kind)
+          .map(row => ({ id: row.id, label: row.title || title(row.id) })) });
     } else {
       const weights = caveWeights(depth);
       if (weights) {
@@ -54,10 +55,16 @@
           anchor.variant = id; return V.byId(id);
         });
         const roads = new Map(selected.roads.map(row => [row.kind, row.id])), originalRoad = SV.variantFor;
-        replace(SV, 'variantFor', (key, name, size, context) => roads.get(size) || originalRoad(key, name, size, context));
-        const scenicKind = Object.keys(root.Scenic.KIND_ROW).find(kind => root.Scenic.KIND_ROW[kind] === roads.get('path'));
-        const originalClassify = root.Scenic.classify;
-        replace(root.Scenic, 'classify', (...args) => originalClassify(...args) ? scenicKind : null);
+        replace(SV, 'variantFor', (key, name, size, context) => size === 'major' ? null
+          : roads.get(size) || originalRoad(key, name, size, context));
+        // Force the rendered assignment after the geographic scenic vote.
+        // Geographic intervals still own credit; MD/LG never receive themes.
+        const originalScenicSteps = SV.applyPathScenicSteps;
+        replace(SV, 'applyPathScenicSteps', function* (index, scenic) {
+          yield* originalScenicSteps(index, scenic);
+          for (const section of index?.pathSections || []) section.variant = roads.get('path');
+          SV.syncPathVariants(index);
+        });
       } else if (selected?.id) {
         const grove = selected.nexuses.find(row => row.kind === 'grove');
         if (grove) {

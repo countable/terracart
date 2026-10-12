@@ -2,7 +2,7 @@
 (function () {
   // The rim bearings are rows of MARKERS, each drawn by _drawMarker (the
   // table is lifted beside the two methods; its predicates read globals).
-  const names = ['_drawMarkers() {', '_tapEdgeDot(sx, sy) {', '_drawEdgeDotLabel(row, target, marker, point, key = row.key) {', '_drawEdgeDot(targetWX, targetWY, fillColor) {', '_drawMarker(row) {'];
+  const names = ['_drawMarkers() {', '_tapEdgeDot(sx, sy) {', '_drawEdgeDotLabel(row, target, marker, point, key = row.key) {', '_drawEdgeDot(targetWX, targetWY, fillColor) {', '_drawMarker(row) {', '_clearMarkers() {'];
   const MARKERS = new Function(SCENE_SRC.match(/\nconst _markClaimed = [\s\S]*?\nconst MARKERS = \[[\s\S]*?\n\];/)[0] + 'return MARKERS;')();
   const row = (key) => MARKERS.find((r) => r.key === key);
   const methods = new Function('W', 'H', 'persistSave', 'MARKERS', 'return ({' + names.map(signature => {
@@ -131,7 +131,7 @@
     assert.truthy(p.x >= 5 && p.y >= 5);
     assert.truthy(p.x === 5 || p.y === 5);
   });
-  test('edge dots: tracked sightings follow targets, suspend underground, expire and clear claimed targets', () => {
+  test('edge dots: tracked sightings follow targets, drop on another floor, expire and clear claimed targets', () => {
     const s = fixture(), drawn = [];
     s._drawEdgeDot = (...args) => { drawn.push(args); };
     s._telescopeTrackedTarget = () => ({ x: 450, y: 300 });
@@ -141,8 +141,9 @@
     s.depth = 1;
     s._drawMarker(row('telescopeCompass'));
     assert.eq(drawn.length, 1);
-    assert.truthy(s.save.telescopeCompass);
+    assert.eq(s.save.telescopeCompass, undefined, 'a mark made on another floor is dropped, not kept');
     s.depth = 0; s._telescopeTrackedTarget = () => null;
+    s.save.telescopeCompass = { depth: 0, until: Date.now() + 86400000, x: 100, y: 100 };
     s._edgeDotTargets['telescopeCompass:0'].at -= 500;
     s._drawMarker(row('telescopeCompass'));
     assert.eq(s.save.telescopeCompass, undefined);
@@ -158,5 +159,22 @@
     assert.eq(s.pairyCompass, null, 'claimed: cleared');
     assert.eq(drawn.length, 1);
     assert.eq(MARKERS.map((r) => r.key).join(), 'pairyCompass,telescopeCompass,wayfarerCompass,treasureCompass,deliveryCompass', 'the five rim bearings, one table');
+  });
+  test('edge dots: switching floors clears every rim mark, depth-stamped or not', () => {
+    const s = fixture(), until = Date.now() + 10000;
+    s.pairyCompass = [{ targetId: 'p', x: 1, y: 2, until }];
+    s.deliveryCompass = { id: 'h', x: 3, y: 4 };
+    s.save.telescopeCompass = [{ targetId: 't', depth: 0, until, x: 5, y: 6 }];
+    s.save.wayfarerCompass = [{ targetId: 'w', depth: 0, until, x: 7, y: 8 }];
+    s.save.treasureCompass = [{ targetId: 'm', depth: 0, until, x: 9, y: 0 }];
+    s._clearMarkers();
+    for (const r of MARKERS) {
+      assert.falsy((r.store === 'scene' ? s : s.save)[r.key], `${r.key} cleared`);
+    }
+    // Every depth writer calls it: stairs/rope/elevator, the realm floors, a blackout.
+    for (const sig of ['\n  changeDepth(delta, stair, options = {}) {', '\n  _passOutToSurface() {', '\n  _realmSwitchDepth(depth,point) {']) {
+      const start = SCENE_SRC.indexOf(sig);
+      assert.truthy(start >= 0 && SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start)).includes('this._clearMarkers()'), sig.trim());
+    }
   });
 })();

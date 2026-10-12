@@ -59,6 +59,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   when Craft is disabled. Keep the chosen recipe after crafting and refresh
   counts and the existing receipt. Recipe selection never spends ingredients;
   acceptance still rechecks unlocks, bag room, and ingredients before spending.
+- Magic Shops have Shop / Brew tabs at every shop tier. Brew lists only learned
+  recipes, using the same ingredient counts and picker as Home crafting, plus a
+  fixed coin fee. An empty list says "Once you find a potion, you can brew it here."
+  Keep the selected recipe after brewing and recheck discovery, bag room,
+  ingredients and coins before spending either resource.
 - Dialogs use `makeModalShell` with a kind, which supplies a scene painting.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
@@ -115,7 +120,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   confirmation lives in the dialog: an explicit `receipt` line, or else
   the `flashLoot` / `flash` toasts its accept raised, captured by
   `showOfferModal` and reprinted as the reopened dialog's status line.
-  Never add a second confirmation surface for a repeat offer.
+  Never add a second confirmation surface for a repeat offer. Stories earned
+  during an accept use the ceremony queue with `defer: true`: the gate tick
+  waits for the refreshed shop to close. Duplicate keyed requests must also
+  respect deferral rather than draining during the remove/remount gap.
 - Book stories use direct firsthand excerpts in quotation marks. Occasional
   narrator asides sit outside the quotation in italics (`bookPageHTML`), usually
   one short sentence. Vary length, format, mood and author voice across books;
@@ -133,11 +141,25 @@ changing dialogue, story panels, books, toasts or status presentation.
   lore (docs/design/story.txt, ACT STRUCTURE). Memory and restoration are independent
   progress tracks; required events join them through prerequisites and world
   context. A painted panel can carry either layer. Lore never blocks canon.
+- Unprompted panels never interrupt an interaction. A memory, a story
+  ceremony (`intro`, `prize`, `story` in `_enqueueCeremony`), a pet's first
+  story, the fire breath and Maud's greeting wait behind the STORY HOLD
+  (`_storyHeld`, asked through `MemoryStory.storyHeld`): a dialog is open, or
+  the player tapped anything but the stick in the last `STORY_IDLE_MS`.
+  Walking does not hold. The 📜 badge on the map's corner counts what waits
+  (`_pendingStoryCount`); idling or tapping it starts a RUN that shows them in
+  order, and only a tap outside a dialog ends it. A panel answering the
+  player's own act (a receipt, a Book read, a neighbour's talk) asks only
+  `_dialogOpen`. A new deferred lane asks the hold and adds to the count.
 - A street variant tells its story once, on the feet's first entry
   (`_tickStreetFeet`). After that its map line (`StreetVariants` row `flash`)
   pops when a street of that kind enters the lit reach (`_tickStreetSight`,
   on its nearest lit cell) or the feet step onto it, on one per-story
   `STREET_FLASH_GAP_MS` clock.
+  Medium roads tell the Old Trade Road story; large roads tell the Ancient
+  Highway story. Their identities come from the mapped road class and have
+  separate first-visit records, without assigning a street variant. The
+  existing Old Trade Road record remains valid for returning players.
 - Story panels use a direct second-person narrator focused on the current
   experience: what happens, what the Hood notices, and how people respond.
   Keep them to one or two short sentences with occasional sensory detail.

@@ -35,8 +35,5 @@
       const pool = ChestThemes.resolve(group, ITEM_BY_ID[id].baseTier, { theme });
       assert.includes(ChestThemes.selectableIds(pool), id, `${id}: available from themed loot`);
     }
-    for (const item of ITEMS.filter(item => item.scroll)) {
-      assert.lte(PRICES[item.id], PRICES.blank_scroll, `${item.id}: crafting cannot increase the material's sale value`);
-    }
   });
 })();

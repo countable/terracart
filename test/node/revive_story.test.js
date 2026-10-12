@@ -34,6 +34,7 @@ test('death story: both collapse paths show memories before the existing outcome
     s.showMessageModal = s.showChestRewardModal = o => s.modals.push(o);
     s.moneyHTML = String;
     s.syncMoveTarget = () => {};
+    s._clearMarkers = () => {};
     s.cameras = { main: { setBackgroundColor: () => {} } };
     s.ensureTilesAround = () => Promise.resolve();
     s[underground ? '_passOutToSurface' : '_passOutOnSurface']();

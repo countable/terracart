@@ -236,7 +236,10 @@ const MapReviewArt = (() => {
         const x1=Math.min(N,Math.ceil((size.x-a.x)/dx)),y1=Math.min(N,Math.ceil((size.y-a.y)/dy));
         for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++) {
           let type=e.grid[y*N+x];
-          if(type===WorldGen.T.PATH&&e.pathUnder?.[`${x}_${y}`]!=null)type=e.pathUnder[`${x}_${y}`];
+          if(WorldGen.isCobbleTerrain(type)) {
+            const cell=tileCellToAbs(this._world.scene,e.tx,e.ty,x,y);
+            type=Render.roadBackdropType(this._world.scene,type,cell.cellIX,cell.cellIY);
+          }
           const spec=BIOME_TEX[type],h=((e.tx*N+x)*2246822519)^((e.ty*N+y)*3266489917);
           g.fillStyle='#'+(zoneGroundColor(e,x,y,type)??COLORS[type]??0x71845b).toString(16).padStart(6,'0');g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
           if(spec&&dx>=4)g.drawImage(textures.get(`biome${type}_${Math.abs(h)%spec.variants}`).getSourceImage(),a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);

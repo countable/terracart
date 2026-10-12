@@ -80,10 +80,11 @@
   test('gem deposits: map art shows the matching gem and stays centered at ordinary rock size', () => {
     const spec=Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.mineralrock;
     for(const [id,,,,frame] of cases) {
-      const o=rock(id),scale=spec.scale(o),b=SpriteLayout.ART_BOUNDS[`cave_props:${frame}`];
-      assert.eq(spec.key(o),'cave_props');assert.eq(spec.frame(o),frame);assert.truthy(spec.seat);
+      const o=rock(id),scale=spec.scale(o),expected=ROCK_VARIANT_ART.materials.indexOf(id)*2,
+        b=SpriteLayout.ART_BOUNDS[`rock_variants:${expected}`];
+      assert.eq(spec.key(o),'rock_variants');assert.eq(spec.frame(o),expected);assert.truthy(spec.seat);
       assert.truthy(b,`${id} has seating bounds`);
-      assert.inRange(b.fw*scale,16*1.28-1e-9,16*1.28+1e-9,'24px art preserves the ordinary rock footprint');
+      assert.eq(scale,ROCK_VARIANT_ART.smallScale,'all small mineral rocks share a scale');
       const offset=SpriteLayout.seatInCell(b,.5,.5,scale,scale);
       assert.inRange(offset.dxPx+((b.minX+b.maxX)/2-b.fw/2)*scale,-1e-9,1e-9);
       assert.inRange(offset.dyPx+((b.minY+b.maxY)/2-b.fh/2)*scale,-1e-9,1e-9);

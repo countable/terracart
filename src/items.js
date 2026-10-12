@@ -137,23 +137,41 @@ function wildplantVariantHash(p) {
 // stamped by the rasterizer. None adds an item or changes planted crop art.
 // Mushroom Grove and Mushroom Lane can select the approved red mushroom
 // atlas frame; ordinary surface and cave mushrooms retain their base art.
+const ZONE_PLAIN_ROCK_FRAMES = Object.freeze({
+  stone_garden: 36, broken_masonry: 38, flint_field: 40, broken_depot: 42,
+  seep: 44, work_yard: 46, black_ring: 48, pirate_cove: 50,
+});
+// One authored environmental design per place; shared material rocks can take
+// these restrained zone tints without duplicating every material sprite.
+const ZONE_ROCK_THEMES = Object.freeze({
+  stone_garden: { frame: 52, tint: 0xdce6ce },
+  broken_masonry: { frame: 53, tint: 0xf0d6c2 },
+  flint_field: { frame: 54, tint: 0xd6dfeb },
+  broken_depot: { frame: 55, tint: 0xe6c9b5 },
+  seep: { frame: 56, tint: 0xc5e3df },
+  work_yard: { frame: 57, tint: 0xe8d8b6 },
+  black_ring: { frame: 58, tint: 0xc6c0ca },
+  pirate_cove: { frame: 59, tint: 0xe1dec4 },
+  'quarry-strip-mine': { frame: 60, tint: 0xe8d6b6 },
+  'quarry-stronghold': { frame: 61, tint: 0xd5d8df },
+  'quarry-crater': { frame: 62, tint: 0xcac5d3 },
+  'quarry-abandoned': { frame: 63, tint: 0xcdd9bd },
+  mystic_reef: { frame: 64, tint: 0xc1e0dd },
+});
 const WILDPLANT_CONTEXT_ART = {
   gas_mushroom_small: { crop: 'mushroom', sheet: 'gas_mushroom_small', custom: true, frame: 0, scale: CROP_SPRITE.mushroom.scale },
   gas_mushroom_large: { crop: 'giant_mushroom', sheet: 'gas_mushroom_large', custom: true, frame: 0, scale: CROP_SPRITE.giant_mushroom.scale, seat: CROP_SPRITE.giant_mushroom.seat },
-  zone_rock_stone_garden: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 64, scale: 4 / 3 },
-  zone_rock_broken_masonry: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 65, scale: 1.1 },
-  zone_rock_flint_field: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 66, scale: 4 / 3 },
-  zone_rock_broken_depot: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 67, scale: 4 / 3 },
-  zone_rock_seep: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 68, scale: 4 / 3 },
-  zone_rock_work_yard: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 69, scale: 4 / 3 },
-  zone_rock_black_ring: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 70, scale: 4 / 3 },
-  zone_rock_pirate_cove: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 71, scale: 4 / 3 },
+  ...Object.fromEntries(Object.entries(ZONE_ROCK_THEMES).map(([zone, theme]) =>
+    ['zone_rock_' + zone, { crop: 'rubble', sheet: 'rock_variants', custom: true, frame: theme.frame, scale: 0.75 }])),
   zone_hedge: { crop: 'shrub', sheet: 'zone_hedge', custom: true, scale: 4 / 3, seat: false },
   zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frame: 0, scale: (4 / 3) * 0.8, seat: false },
   palm: { crop: 'shrub', sheet: 'beach_palms', custom: true, frames: [2, 3, 4, 5], scale: 2, seat: true, shadow: true },
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
 function wildplantSprite(p) {
+  if (p?.crop === 'rubble' && (p.kind === 'wildplant' || p.wildId))
+    return { crop: 'rubble', sheet: mineralRockArtKey(p), custom: true,
+      frame: mineralRockArtFrame(p), scale: mineralRockArtScale(p) };
   if (p?.gasEmitter) {
     const gasArt = p.crop === 'giant_mushroom' || (p.crop === 'mushroom' && p._zoneObjectFrame === 40)
       ? WILDPLANT_CONTEXT_ART.gas_mushroom_large
@@ -180,6 +198,7 @@ function wildplantSprite(p) {
 function wildplantFrame(p) {
   const ov = wildplantSprite(p);
   if (!ov || !ov.custom) return 0;
+  if (p?.crop === 'rubble' && ov.sheet === 'rock_variants') return mineralRockArtFrame(p);
   // Grown underground: the crop's cave look (mushroom's blue caps), off the
   // same hash — same crop, same item, only the art says it grew in the dark.
   const list = (p && p._cave && ov.caveFrames) ? ov.caveFrames : ov.frames;
@@ -312,8 +331,8 @@ const COOKED_FOODS = {
 // 0..3, puts crimson at 5 and frost blue at 7; columns 4 and 6 are unused.
 // Yield tier 1 is a plain rock and therefore has no row or namesake bar.
 // Dedicated deposits pay the pictured gem. The approved cave sheet uses 24px
-// frames; sapphire retains the existing crystal-cluster art. `art` serves the
-// renderer while artKey/artFrame are the stable layout identity.
+// frames. These legacy art records remain available to layout/reference tools;
+// the world renderer now resolves every deposit through mineralRockArtFrame.
 function caveGemDeposit(item, yieldTier, artKey, artFrame) {
   const scale = artKey === 'crystal_cluster' ? 1.28 : 1.28 * 16 / 24;
   return Object.freeze({ item, quantity: 1, yieldTier,
@@ -340,15 +359,88 @@ function mineralDeposit(o) {
     : (Object.prototype.hasOwnProperty.call(GEM_DEPOSITS, o.deposit) ? GEM_DEPOSITS[o.deposit] : null);
 }
 
+// One neutral stone palette everywhere; material pairs are adjacent small/large frames.
+// Legacy yield variants still own mining quantities, independently of appearance.
+const ROCK_VARIANT_ART = Object.freeze({
+  columns: 6, rows: 11, smallScale: 1, largeScale: 4 / 3,
+  plainFrames: Object.freeze([0, 30, 32, 34]),
+  materials: Object.freeze(['plain', 'flint', 'quartz', 'topaz', 'amethyst',
+    'sapphire', 'ruby', 'emerald', 'diamond', 'copper', 'iron', 'gold',
+    'platinum', 'crimson', 'frost']),
+});
+function mineralRockMaterial(o) {
+  const deposit = mineralDeposit(o);
+  if (deposit) return deposit.item;
+  // A possible lucky find is not a visible deposit. Cave rubble stays plain.
+  if (o?.caveVariant != null) return 'plain';
+  const ore = MINERAL_TIERS[o?.yieldTier || o?.requiredTier || 1];
+  if (ore) return ore.material;
+  return o?.rockMaterial === 'flint' ? 'flint' : 'plain';
+}
+// Legacy zone_objects rock appearances occupy only frames 64–71.
+function mineralRockZone(o) {
+  const context = o?._plantArt || o?._objectArt;
+  const look = context?.startsWith('zone_rock_') ? context.slice('zone_rock_'.length) : null;
+  for (const zone of [look, o?.zoneVariant])
+    if (Object.prototype.hasOwnProperty.call(ZONE_ROCK_THEMES, zone)) return zone;
+  // An explicitly different zone keeps ordinary rocks, even on old saves
+  // whose decoration frame happens to overlap a former rock appearance.
+  if (o?.zoneVariant != null) return null;
+  return Number.isInteger(o?._zoneObjectFrame) && o._zoneObjectFrame >= 64 && o._zoneObjectFrame <= 71
+    ? Object.keys(ZONE_ROCK_THEMES)[o._zoneObjectFrame - 64] : null;
+}
+function zonePlainRockFrame(o) {
+  if (mineralRockMaterial(o) !== 'plain') return null;
+  const frame = ZONE_PLAIN_ROCK_FRAMES[mineralRockZone(o)];
+  return Number.isInteger(frame) ? frame + (o?.sightBlocking === true ? 1 : 0) : null;
+}
+function mineralRockArtKey() { return 'rock_variants'; }
+function mineralRockUsesZoneArt(o) {
+  return o?.rockStyle !== 'shared' && o?.rockStyle !== 'plain'
+    && mineralRockMaterial(o) === 'plain' && mineralRockZone(o) != null;
+}
+function mineralRockArtScale(o) {
+  if (o?.sightBlocking === true) return ROCK_VARIANT_ART.largeScale;
+  return mineralRockUsesZoneArt(o) ? 0.75 : ROCK_VARIANT_ART.smallScale;
+}
+// Shared rocks inherit their authored zone palette. An explicit false keeps
+// neutral art; a named theme overrides the zone. Baked art is never tinted twice.
+function mineralRockTint(o) {
+  if (o?.rockTheme === false || mineralRockUsesZoneArt(o)) return 0xffffff;
+  const zone = typeof o?.rockTheme === 'string' ? o.rockTheme : mineralRockZone(o);
+  return Object.prototype.hasOwnProperty.call(ZONE_ROCK_THEMES, zone) ? ZONE_ROCK_THEMES[zone].tint : 0xffffff;
+}
+function mineralRockArtFrame(o) {
+  if (mineralRockUsesZoneArt(o)) return ZONE_ROCK_THEMES[mineralRockZone(o)].frame;
+  if (o?.rockStyle === 'plain' && zonePlainRockFrame(o) != null) return zonePlainRockFrame(o);
+  const pair = ROCK_VARIANT_ART.materials.indexOf(mineralRockMaterial(o));
+  let frame = Math.max(0, pair) * 2;
+  if (pair <= 0) {
+    const id = o?.wildId ?? o?.id;
+    const shape = id == null ? 0 : avalanche32(fnv1a(String(id) + '#plain-rock-shape')) % ROCK_VARIANT_ART.plainFrames.length;
+    frame = ROCK_VARIANT_ART.plainFrames[shape];
+  }
+  return frame + (o?.sightBlocking === true ? 1 : 0);
+}
+function assignSurfaceBoulder(o) {
+  if (o?.kind !== 'mineralrock' || o.id == null || o._cave || o.depth > 0 || o.caveVariant != null
+      || o.deposit != null || Math.max(o.yieldTier || 1, o.requiredTier || 1) > 1
+      || o._street || o.zoneLayer === 'wall' || o.sightBlocking != null) return false;
+  const seed = avalanche32(fnv1a(String(o.id) + '#surface-boulder'));
+  if (seed % 8 !== 0) return false;
+  o.sightBlocking = true;
+  return true;
+}
+
 // `smeltFrom` is the flower a T5+ bar is SMELTED from (one flower plus the
 // bar one tier below — Gear.smeltingRecipe); T2..T4 bars are mined, not smelted.
 const MINERAL_TIERS = Object.freeze({
-  2: Object.freeze({ barId: 'copper_bar',   rockFrame: 0 }),
-  3: Object.freeze({ barId: 'iron_bar',     rockFrame: 1 }),
-  4: Object.freeze({ barId: 'gold_bar',     rockFrame: 2 }),
-  5: Object.freeze({ barId: 'platinum_bar', rockFrame: 3, smeltFrom: 'sunflower' }),
-  6: Object.freeze({ barId: 'crimson_bar',  rockFrame: 5, smeltFrom: 'fireflower' }),
-  7: Object.freeze({ barId: 'frost_bar',    rockFrame: 7, smeltFrom: 'iceflower' }),
+  2: Object.freeze({ barId: 'copper_bar', material: 'copper',   rockFrame: 0 }),
+  3: Object.freeze({ barId: 'iron_bar', material: 'iron',     rockFrame: 1 }),
+  4: Object.freeze({ barId: 'gold_bar', material: 'gold',     rockFrame: 2 }),
+  5: Object.freeze({ barId: 'platinum_bar', material: 'platinum', rockFrame: 3, smeltFrom: 'sunflower' }),
+  6: Object.freeze({ barId: 'crimson_bar', material: 'crimson',  rockFrame: 5, smeltFrom: 'fireflower' }),
+  7: Object.freeze({ barId: 'frost_bar', material: 'frost',    rockFrame: 7, smeltFrom: 'iceflower' }),
 });
 function mineralRockFrame(tier) { return MINERAL_TIERS[tier]?.rockFrame ?? 0; }
 function mineralBarId(tier) { return MINERAL_TIERS[tier]?.barId || null; }
@@ -524,6 +616,8 @@ const MINERAL_ICON_SHEET = {
   // widens the player's own light for a few minutes (useTorch in app.js →
   // the `torch` row of Lighting.KINDS).
   torch:         { sheet: 'icon_torch', frame: 0 },
+  // The shared icon renderer applies the blue palette on every DOM surface.
+  evertorch:     { sheet: 'icon_torch', frame: 0, filter: 'hue-rotate(180deg) saturate(1.4)' },
   // Cutters from the db32 item library; the tool removes traps, not a backpack.
   trap_disarm_kit:      { sheet: 'icon_kit', frame: 0 },
   // The existing sprung-jaw drawing in the placed magic trap's magenta.
@@ -736,6 +830,7 @@ const BASE_TIER = {
   renovation_permit: 4,
   // Torch — the T1 cave staple: light for the dark, cheap and common.
   torch: 1,
+  evertorch: 6,
   // Minerals — coal floor, gem ladder mirrors mining rarity
   flint_shard: 1,
   meat: 3, rabbit_pelt: 2,
@@ -777,7 +872,7 @@ const CARRIED_ITEM_SPEC = {
   // themed shop's price, the smith's forge and smelt materials, the trader's
   // ask. guildDiscounted (below) is the one place it is applied.
   smiths_guild_badge: { guildRole: 'blacksmith', guildDiscount: 0.1 },
-  marketeers_guild_badge: { guildRole: 'market', guildDiscount: 0.1 },
+  marketeers_guild_badge: { guildRole: 'shop', guildDiscount: 0.1 },
   traders_guild_badge: { guildRole: 'trader', guildDiscount: 0.1 },
 };
 const ITEMS = [
@@ -790,7 +885,7 @@ const ITEMS = [
   { id: 'metal_shield', name: 'Metal Shield', kind: 'unique_relic' },
   { id: 'gold_shield', name: 'Gold Shield', kind: 'unique_relic' },
   { id: 'smiths_guild_badge', name: 'Smiths’ Guild Badge', kind: 'unique_relic' },
-  { id: 'marketeers_guild_badge', name: 'Marketeers’ Guild Badge', kind: 'unique_relic' },
+  { id: 'marketeers_guild_badge', name: 'Shopkeepers’ Guild Badge', kind: 'unique_relic' },
   { id: 'traders_guild_badge', name: 'Traders’ Guild Badge', kind: 'unique_relic' },
   ...Object.keys(CROP_ROW).map(c => ({
     id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c,
@@ -863,7 +958,7 @@ const ITEMS = [
   // the one consumable that has to turn up often enough to be read. At an even
   // draw it is one of seven T2 consumables and a player could finish a session
   // never meeting one. Three makes it the plurality of the T2 consumable pool,
-  // and school chests pin it outright (rarity.js 'chest:school').
+  // and school chests pin it outright (loot_contexts.js 'chest:school').
   { id: 'book',  name: 'Book',  kind: 'supply', dropWeight: 3 },
   // Tomes are the scholar's rewards for reading Books. They cast repeatable
   // spells on timed cooldowns and are never consumed or sold. The tome flag
@@ -967,6 +1062,7 @@ const ITEMS = [
   // plateau (what you can tap) is untouched; only the dark around it lifts.
   // Lighting another while one burns EXTENDS the time (useTorch in app.js).
   { id: 'torch',         name: 'Torch',               kind: 'supply' },
+  { id: 'evertorch',     name: 'Evertorch',           kind: 'supply' },
   // Trap Disarm Kit also dismantles barricades and iron spikes permanently.
   // Hold it and tap a trap (hidden scuff or already-sprung
   // jaw, surface or cave) to remove it for good — see Traps.disarm in
@@ -1079,6 +1175,10 @@ for (const it of ITEMS) {
   if (it.baseTier == null) it.baseTier = BASE_TIER[it.id] || 1;
 }
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+// Cooking changes value and nourishment, not how common the ingredient is.
+for (const [raw, cooked] of Object.entries(COOKED_FOODS)) {
+  if (ITEM_BY_ID[raw].dropWeight != null) ITEM_BY_ID[cooked.id].dropWeight = ITEM_BY_ID[raw].dropWeight;
+}
 // An item's display name, or its bare id when the catalog has no row for it.
 function itemName(id) {
   return ITEM_BY_ID[id]?.name || wildplantRule(id)?.name
@@ -1510,6 +1610,13 @@ const CONSUMABLE_SPEC = {
     used: { title: scene => (scene.isTorchActive() ? '🔥 You light another Torch' : '🔥 You light the Torch'),
       body: 'The flame takes with a soft roar. Shadows retreat beyond the reach of your footsteps.' },
   },
+  evertorch: {
+    durationMs: 120 * _CONSUMABLE_MINUTE_MS, radiusMul: 2, buff: 'evertorch',
+    verb: 'Light', title: 'Light the Evertorch?',
+    get: 'Blue fire opens the dark around you.',
+    used: { title: 'You light the Evertorch',
+      body: 'A steady blue flame takes hold. Its light follows you into the dark.' },
+  },
   // THE HORSE is kept, not spent: Ride and Dismount toggle save.riding, and
   // riding only counts while a horse is in the bag (isRiding). Mounted, the
   // stick walk goes speedMul as fast and costs energyMul as much per cell —
@@ -1584,7 +1691,7 @@ const PRICES = {
   // A seed's price is also its roll-budget divisor (chest_themes.js
   // quantity): ~TIER_VALUE[baseTier] / 5, so a same-tier roll with no
   // brackets (BUDGET_SHARE.seed of the budget) holds about four.
-  rainberry_seed: 42, pairy_seed: 42, nut_seed: 5, potato_seed: 1,
+  rainberry_seed: 63, pairy_seed: 63, nut_seed: 5, potato_seed: 1,
   berry_seed: 5, cress_seed: 1, onion_seed: 5, starfruit_seed: 15,
   gemfruit_seed: 15, rubble_seed: 8, coffee_seed: 12,
   sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50, dawnfruit_seed: 480,
@@ -1595,9 +1702,9 @@ const PRICES = {
   potato: 5,
   cress: 5,        // T1 kitchen-garden green
   onion: 6,        // T1 kitchen-garden bulb
-  rainberry: 6,
-  berry: 7,        // T2 sweet — slightly above rainberry
-  pairy: 8,
+  rainberry: 18,
+  berry: 7,        // T2 sweet
+  pairy: 24,
   // A shop-bought crop pays its grower: at an average shop (2.1× seed list)
   // the trailer's 2-produce harvest clears the seed cost by 25% of the
   // payout (Oct 2026). Starfruit and gemfruit were the T3 crops under it.
@@ -1633,7 +1740,7 @@ const PRICES = {
   shiny_egg: 40,
   baby_green_dragon: 360,
   green_dragon: 120,
-  milk: 18,
+  milk: 28,
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
   syrup: 7,
@@ -1645,7 +1752,7 @@ const PRICES = {
   tome_thunder: 300,  // T5 — a T4 thunderclap (the unique-relic curve re-prices all tomes)
   tome_speed: 100, tome_shielding: 80, tome_healing: 70, tome_blight: 170,
   tome_fire_wall: 170, // T4 — unique-relic pricing applies
-  blank_scroll: 200,
+  blank_scroll: 50,
   fireball_scroll: 120,
   explosive_flask: 100,
   fear_scroll: 100,
@@ -1690,6 +1797,7 @@ const PRICES = {
   trap_disarm_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
   throwing_spear:         5,   // T1 supply (BASE_TIER) — one thrown shot, spent on use; priced as a staple like the torch (owner, Oct 2026: 40 was far too dear for one throw)
+  evertorch:    200,   // T6 — forty times a Torch’s duration, at the same price per minute.
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
   renovation_permit: 180,   // T4 — one rank on one building, forever; a hammer's neighbour
@@ -1724,7 +1832,7 @@ const PRICES = {
   // ── Fish ─────────────────────────────────────────────────
   minnow: 3,    bass: 18,   trout: 60,   salmon: 150, goldenfish: 450,
   // ── Orchard fruit ────────────────────────────────────────
-  apple: 8, cherry: 12, worldpeach: 10, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
+  apple: 8, cherry: 12, worldpeach: 250, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
 };
 PRICES.grilled_meat = Math.round(PRICES.meat * GRILL_ENERGY_MUL);
 for (const [raw, c] of Object.entries(COOKED_FOODS)) {
@@ -1773,7 +1881,7 @@ const STARTING_MONEY = 50;
 // till, and harvest deduct energy via ENERGY_COST and refuse when the current
 // pool is too low. ARMOR does not touch the cap: it SOAKS the damage an attack
 // takes off the bar (armorReduction below, spent by Combat.mitigate).
-// Flower charm — gifting a Flowers stack item to a cash shop (market, fort
+// Flower charm — gifting a Flowers stack item to a cash shop (shop, fort
 // storefront, unclaimed castle) halves its prices at that building for this
 // long (the flower-gift branch in app.js shopInteract + shopCharmMul). Lives
 // here so the Flowers ✦ line below quotes the live number.
@@ -1939,6 +2047,7 @@ const ITEM_EFFECTS = {
   frost_powder: 'A pinch chills the air, and foes within reach move and strike slowly.',
   rope: 'Its woven fibres offer a handhold between daylight and the depths.',
   torch: 'Its flame pushes back the dark beyond your fingertips.',
+  evertorch: 'Blue flame pushes back the dark for two hours.',
   trap_disarm_kit: 'Iron tools loosen snares, barricades and spikes.',
   renovation_permit: 'A guild seal that lets masons raise a shop a rank, once the lane has remembered enough to deserve it.',
   magic_trap: 'A hungry knot of magic waits for a foe’s footfall.',
@@ -2751,6 +2860,19 @@ const HOME_RECIPES = [
   ...ITEMS.filter(item => item.scroll).map(item => ({
     id: item.id, cost: [{ id: 'blank_scroll', qty: 1 }],
   })),
+];
+// Magic Shop brewing: one potion per batch, with fixed ingredient and coin costs.
+// Discovery uses the same found-in-the-wild rule as Home recipes. Mango's
+// two-fruit, four-coin Shrinking brew is an intentional resale-value exception.
+const BREW_RECIPES = [
+  { id: 'antidote', cost: [{ id: 'cress', qty: 3 }], coins: 2 },
+  { id: 'hardworking_potion', cost: [{ id: 'potato', qty: 3 }], coins: 3 },
+  { id: 'grip_potion', cost: [{ id: 'shell', qty: 2 }, { id: 'old_boot', qty: 1 }], coins: 3 },
+  { id: 'healing_potion', cost: [{ id: 'berry', qty: 3 }, { id: 'onion', qty: 2 }], coins: 5 },
+  { id: 'stoneskin_potion', cost: [{ id: 'nut', qty: 3 }, { id: 'coconut', qty: 2 }], coins: 5 },
+  { id: 'blight_potion', cost: [{ id: 'marigold', qty: 2 }, { id: 'meat', qty: 1 }], coins: 5 },
+  { id: 'shielding_potion', cost: [{ id: 'starflower', qty: 2 }, { id: 'milk', qty: 1 }], coins: 20 },
+  { id: 'shrinking_potion', cost: [{ id: 'mango', qty: 2 }], coins: 4 },
 ];
 // Spears are known from the start in every difficulty. Other Home recipes
 // are learned by first finding their output in the wild, never by buying,

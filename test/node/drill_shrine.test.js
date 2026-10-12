@@ -28,8 +28,9 @@
     assert.eq(Gear.workDurationMs(save, 4000, now, 'pickaxe'), frost / Shrines.WORK_SPEED_MUL);
   });
 
-  test('shrines: bike stands and gold pots use the shared shrine designation', () => {
-    for (const [poiClass, id] of [['bicycle_parking', 'bike'], ['atm', 'gold']]) {
+  test('shrines: bike stands use the shared shrine designation; an ATM is a bank, no shrine', () => {
+    assert.eq(Shrines.kindForObject({ kind: 'chest', poiClass: 'atm' }), null);
+    for (const [poiClass, id] of [['bicycle_parking', 'bike']]) {
       const o = { kind: 'chest', poiClass };
       assert.eq(Shrines.kindForObject(o), Shrines.REWARD_KINDS[id]);
       assert.eq(Macros.visitKindForObject(o), Shrines.kindForObject(o));

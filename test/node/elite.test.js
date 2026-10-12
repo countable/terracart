@@ -1,6 +1,6 @@
 // Elite (shiny) monsters — src/combat.js › ELITE_MUL / isElite / maxHp, the
 // spawn stamp and kill payout in app.js, and the relic-biased
-// 'treasure:elite' pool in rarity.js. Plus the first-delivery memory.
+// 'treasure:elite' pool in loot_contexts.js. Plus the first-delivery memory.
 
 function seeded(seed) {
   let a = seed >>> 0;

@@ -95,6 +95,9 @@ mechanics.
   the row's `tome` column (`_readTome`); an "every foe in sight" spell is a
   `CAST_ROWS` row (`_castOnFoes`); the slot guard is `_selectedConsumable`,
   the spend `_spendScroll` / `_consumeSelected`. Never a hand-written handler.
+- Evertorch is a T6 timed supply: two hours of blue torchlight, with expiry
+  saved through `Buffs.evertorch`. Another extends that expiry. Ordinary
+  Torches keep their short, scene-local timer; either flame ignites melee foes.
 - KNOCKBACK has one owner, `Whirlwinds.impulse` / `pushStep`: a whirlwind's
   contact (GRASS, PITCH and SCHOOL cells only, surface only) and the T1 Scroll of Wind
   (`CAST_ROWS.wind_scroll`: every foe in reach takes 5 and is blown
@@ -114,7 +117,15 @@ mechanics.
   wraiths and includes airborne fauna; the same `Conditions.flying` gate covers
   them without saving an infinite potion expiry or showing an infinite countdown.
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds
-  sight range through `unseen`. Traps check `Combat.playerDowned` directly:
+  sight range through `unseen`. Only cave terrain walls fully block detection,
+  pursuit and new attacks across them. Trees, bushes, hedges, short walls and
+  large rocks marked `sightBlocking: true` reduce sight by two cells once per
+  sight line; overlapping partial cover does not stack. Ordinary rocks do not
+  reduce sight. Cover uses the
+  same visibility grid for local players, peers and NPC targets, and cancels
+  an attack wind-up when sight is lost. Guards return to their seats when full
+  cover breaks sight; their notice/leash rings lose two cells through trees.
+  Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.
 - A status effect is a row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin): the
   player's condition, a foe's (`Combat.ignite` / `burnTick` read the same row),
@@ -169,10 +180,30 @@ mechanics.
   food is meat. Regular eggs still hatch shiny domestic babies. Each egg type
   incubates one egg at a time, with independent saved distance and GPS sessions;
   hatching or losing one type never spends the other's progress.
+- Magic Shop brewing uses `BREW_RECIPES` in items.js. Each batch consumes the
+  recipe's ingredients and fixed coin fee for one potion. Finding its output in
+  the wild unlocks a recipe through `homeRecipeLocked`; buying or brewing never
+  unlocks one. Antidote, Hardworking, Grip, Healing, Stoneskin, Blight, Shielding
+  and Shrinking are brewable; Revival and Resurrection remain unbrewable.
+  Blight uses Marigolds and Meat; Shielding uses Starflowers and Milk. Shrinking
+  uses two Mango and four coins, an intentional exception to same-tier inputs
+  and the otherwise conservative recipe economics. Sugar Potion retains its
+  existing Home recipe. Brewing does not change potion effects.
 - Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap
   enemies inside Home's ring.
+- A lit campfire's hearth (`FIRE_TOUCH_CELLS`, where it sets a body burning) is
+  fire to every grounded mover — every enemy kind, lair guards, pets, fauna and
+  NPCs — through the same `fireStepAllowed` that holds bodies out of burning
+  ground: no step or hop enters it, a body already in it may walk out, and a
+  chasing foe sidesteps around it when a jog fits. This is separate from the
+  warmth-ring ward (`FIRE_REST_R`), which turns back only entry-level kinds.
+- Home is `save.starterShopId`: a synthetic trailer or an adopted house, which
+  draws as the trailer. "Move Home here" on any cell of an unclaimed house's
+  footprint adopts that house, so the trailer replaces the building rather than
+  parking on it; a claimed building, temple or castle refuses the move
+  (`_homeFootingAt`, test `starter_trailer_footing`).
 
 Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_ward`,
 `pet_pickup`.
@@ -183,6 +214,13 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
   (`src/boss_encounters.js`) — today the citadel's garrison and the serpent a
   Serpent Idol raises. A trigger starts a record (`start`, kept in the kind's
   `store` on the save); it is live for the row's `durationMs` of wall time.
+- A citadel's garrison wakes only once its Fight is accepted, and its guards
+  (`castle` set) skip the keep's quiet notice ring: `Lairs.guardState` hunts
+  the player anywhere within `LAIR_LEASH_CELLS` of the keep's walls, so the
+  garrison pours out of the keep at once.
+- Any lair guard struck by the player's side (`_damageEnemy`) is set hunting
+  wherever its notice ring is, so a ranged blow is answered; the leash still
+  ends the chase.
 - It RESETS — the foes despawn, their defeats are forgotten, and the trigger
   can be used again later — when its clock runs out, or when the player who
   started it (`own`) goes down or leaves its floor (`abandon`). A battle

@@ -80,7 +80,7 @@
   });
 
   test('chest tier: the look and the restock follow the tier — a seeded T1 is a crate, anything higher a trunk', () => {
-    const crate = chest('bus', 25, { tierSeed: 1 }), trunk = chest('bus', 1, { tierSeed: 4 }), mid = chest('shelter', 7, { tierSeed: 2 });
+    const crate = chest('bus', 25, { tierSeed: 1 }), trunk = chest('fuel', 1, { tierSeed: 4 }), mid = chest('shelter', 7, { tierSeed: 2 });
     assert.eq(chestLook(crate).texKey, 'box', 'the seeded T1: a crate');
     assert.truthy(restocks(crate), 'and restocks');
     assert.eq(chestLook(trunk).texKey, 'chest', 'a seeded T4: a trunk');
@@ -122,12 +122,13 @@
     for (const o of chests) {
       assert.eq(o.poiDensity, chests.filter((c) => c.poiClass === o.poiClass).length, o.id + ' carries its class count');
     }
-    // Under the tier-quota pyramid a sparse tile fills from the TOP: seven
-    // chests = one T5, five T4 and a T3, whatever their classes (until Oct
-    // 2026 the lone florist read T4 off the count ladder).
-    assert.eq(chests.filter((o) => chestTier(o) === 5).length, 1, 'one T5 seeds the tile');
+    // Under the tier-quota pyramid a sparse tile fills from the TOP (until
+    // Oct 2026 the lone florist read T4 off the count ladder) — but a bus
+    // stop is always a regular crate (loot.js chestAlwaysCrate) and takes
+    // no seat, so the florist alone is the tile's T5.
+    assert.eq(chests.filter((o) => chestTier(o) === 5).map((o) => o.poiClass).join(), 'florist', 'one T5 seeds the tile');
     for (const o of chests) {
-      assert.truthy(chestTier(o) >= 3, o.id + ' rides the sparse tile top tiers');
+      if (o.poiClass === 'bus') assert.eq(chestTier(o), 1, o.id + ' is a plain crate');
       assert.truthy(o.tierSeed, o.id + ' carries a quota seed');
     }
   });
@@ -315,20 +316,19 @@
     }
   });
 
-  test('chest: underground, a stand POI is a plain chest and a pot / rack / barrel is a plain chest', () => {
+  test('chest: underground, a stand POI is a plain chest and a bank / rack / barrel is a plain chest', () => {
     const stall = { kind: 'chest', poiClass: 'bakery', name: 'Corner Bakery', x: 0, y: 0 };
     assert.truthy(produceStandFor(stall), 'a bakery on the surface is a stand');
     const under = { ...stall, depth: 1, id: 'x_d1' };
     assert.eq(produceStandFor(under), null, 'the same bakery one level down is a chest');
     for (const cls of ['atm', 'bicycle_parking', 'waste_basket']) {
       const o = { kind: 'chest', poiClass: cls, x: 0, y: 0, depth: 2, poiDensity: 1 };
-      assert.falsy(isPotOfGold(o) || isBikeRack(o) || isBarrel(o), cls + ' underground is none of its surface selves');
+      assert.falsy(macroFor(o) || isBikeRack(o) || isBarrel(o), cls + ' underground is none of its surface selves');
       assert.eq(chestLook(o).texKey, 'chest', 'and wears the trunk');
     }
-    assert.truthy(/if \(look\.coin\) return DAILY_VISIT_KINDS\.gold;/.test(ALL_SRC['macros.js']), 'the pot hijack asks the one look (chestLook → isPotOfGold)');
     assert.eq(Macros.visitKindForObject({ kind: 'chest', poiClass: 'atm', x: 0, y: 0, depth: 2 }), null, 'underground: no row');
-    assert.eq(chestLook({ kind: 'chest', poiClass: 'atm', x: 0, y: 0 }).texKey, 'potofgold',
-      'an ATM on the surface wears the pot of gold');
+    assert.eq(chestLook({ kind: 'chest', poiClass: 'atm', x: 0, y: 0 }).texKey, 'macro_bank',
+      'an ATM on the surface is a bank booth');
     assert.truthy(!/_isCoinBurst|_chestIsBox/.test(RENDER_SRC),
       'render.js keeps no second copy of the look');
   });

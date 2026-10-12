@@ -154,7 +154,6 @@
     // A BIKE RACK: a push in the stick-walk speed lane (Buffs.KINDS.bike —
     // save.bikeUntil, app.js _walkRelics → items.js steerSpeedMul).
     bike: root.Shrines.REWARD_KINDS.bike,
-    gold: root.Shrines.REWARD_KINDS.gold,
     // The CHAPEL's blessing: the chest ceremony a tier humbler (chapelRollTier).
     chapel: { name: 'Chapel', get art() { return KIND_DIALOG.chapel.art; }, sprite: 'macro_chapel', light: 0xf2d9a0, ledger: 'service',
       reward: 'treasure', effect: 'A daily blessing, a tier under the chest it replaced', durationMs: 0,
@@ -204,7 +203,6 @@
     const look = chestLook(o);
     if (look.wagon) return DAILY_VISIT_KINDS.wagon;
     if (look.bike) return DAILY_VISIT_KINDS.bike;
-    if (look.coin) return DAILY_VISIT_KINDS.gold;
     if (look.macro?.kind === 'chapel') return DAILY_VISIT_KINDS.chapel;
     if (typeof restocks === 'function' && restocks(o)) return DAILY_VISIT_KINDS.crate;
     return null;
@@ -417,11 +415,123 @@
 
   // ── SCRIPTORIUM: a book counter ───────────────────────────────────────────
   // A plain stall (no free daily page). It sells the Book and
-  // the one other scholarly thing the game has, a Torch to read by. Priced by
-  // stallPrice like every counter; no gate, no cooldown.
+  // the one other scholarly thing the game has, a Torch to read by. No daily
+  // gate. Each scriptorium sells ONE Book, ever (save.scriptoriumBooks — the
+  // ids that have sold theirs); the Torch stays on the shelf. The first
+  // scriptorium's Book is at the stall price (the Book ladder's, like any
+  // counter); every later one asks SCRIPTORIUM_BOOK_PRICE_MUL × what the
+  // previous one was paid (save.scriptoriumBookPaid). scriptoriumBought is
+  // the one writer of both.
   const SCRIPTORIUM_BOOK = 'book';
   const SCRIPTORIUM_STOCK = [SCRIPTORIUM_BOOK, 'torch'];
-  function scriptoriumStock() { return SCRIPTORIUM_STOCK.filter((id) => ITEM_BY_ID[id]); }
+  const SCRIPTORIUM_BOOK_PRICE_MUL = 4;
+  function scriptoriumBookSold(save, o) {
+    return !!(o && Array.isArray(save?.scriptoriumBooks) && save.scriptoriumBooks.includes(o.id));
+  }
+  function scriptoriumStock(save, o) {
+    return SCRIPTORIUM_STOCK.filter((id) => ITEM_BY_ID[id] && !(id === SCRIPTORIUM_BOOK && scriptoriumBookSold(save, o)));
+  }
+  // The Book's price at the next scriptorium (null for anything else: the
+  // counter's own stall price).
+  function scriptoriumPrice(save, id) {
+    if (id !== SCRIPTORIUM_BOOK) return null;
+    const paid = Math.floor(Number(save?.scriptoriumBookPaid) || 0);
+    return paid > 0 ? paid * SCRIPTORIUM_BOOK_PRICE_MUL : stallPrice(save, id);
+  }
+  function scriptoriumBought(save, o, id, unitPrice) {
+    if (id !== SCRIPTORIUM_BOOK || !save || !o) return;
+    if (!Array.isArray(save.scriptoriumBooks)) save.scriptoriumBooks = [];
+    if (!save.scriptoriumBooks.includes(o.id)) save.scriptoriumBooks.push(o.id);
+    save.scriptoriumBookPaid = unitPrice;
+  }
+
+  // ── BANK: borrow or invest (banks and ATMs) ───────────────────────────────
+  // Each bank offers ONE of two deals a UTC day, a stable pick off its id and
+  // the day (bankOfferKind), so every player sees the same counter.
+  //   • BORROW: up to bankLimit coins (BANK_BASE + BANK_PER_MEMORY a memory),
+  //     or half or a quarter of it (BANK_SHARES). One loan out at a time, and
+  //     at most one taken a UTC day (the day ledger's BANK_BORROW_LEDGER).
+  //     BANK_TERM_MS later the debt (the sum + BANK_INTEREST) falls due: the
+  //     first frame the player is about on the surface after that, a pirate
+  //     collector steps up beside them (scene_venues.js _tickBankDebt) and
+  //     asks for it. Pay, or refuse and fight him; either way the loan is
+  //     closed.
+  //   • INVEST: the same shares of the limit, capped by the purse. One
+  //     investment at a time; after BANK_TERM_MS the SAME bank pays back the
+  //     principal + BANK_INTEREST.
+  // save.bankLoan { owed, principal, due, bank } and save.bankInvest
+  // { principal, due, bank } are the state; bankBorrow / bankLoanSettle /
+  // bankInvest / bankWithdraw are their only writers.
+  const BANK_BASE = 100;
+  const BANK_PER_MEMORY = 25;
+  const BANK_INTEREST = 0.2;
+  const BANK_TERM_MS = 24 * 60 * 60 * 1000;
+  const BANK_SHARES = [{ key: 'max', label: 'Max', div: 1 }, { key: 'half', label: 'Half', div: 2 }, { key: 'quarter', label: 'Quarter', div: 4 }];
+  const BANK_BORROW_LEDGER = 'bank:borrow';
+  // Who comes for an unpaid loan, and how close to the player he steps up.
+  const BANK_COLLECTOR_KIND = 'pirate_captain';
+  const BANK_COLLECTOR_DIST_CELLS = 2;
+  function bankLimit(save) {
+    const memories = typeof MemoryStory !== 'undefined' ? MemoryStory.total(save) : 0;
+    return BANK_BASE + BANK_PER_MEMORY * memories;
+  }
+  function bankOfferKind(o, now) {
+    return fnv1a(String(o && o.id) + '|bank|' + utcDayKey(now)) % 2 ? 'invest' : 'borrow';
+  }
+  function bankWithInterest(amount) { return Math.round(amount * (1 + BANK_INTEREST)); }
+  // The three amounts on offer, largest first: shares of `cap`, never below 1
+  // (an empty cap offers nothing).
+  function bankAmounts(cap) {
+    const c = Math.max(0, Math.floor(cap || 0));
+    return c > 0 ? BANK_SHARES.map((sh) => ({ ...sh, amount: Math.max(1, Math.floor(c / sh.div)) })) : [];
+  }
+  function bankBorrowCap(save) { return bankLimit(save); }
+  function bankInvestCap(save) { return Math.min(bankLimit(save), Math.max(0, Math.floor(save?.money || 0))); }
+  // Why this save may not borrow now, or null.
+  function bankBorrowBlock(save, now) {
+    if (save?.bankLoan) return 'loan';
+    if (usedToday(save, BANK_BORROW_LEDGER, now)) return 'today';
+    return null;
+  }
+  function bankBorrow(save, o, amount, now = Date.now()) {
+    if (bankBorrowBlock(save, now) || !(amount > 0) || amount > bankBorrowCap(save)) return null;
+    addMoney(save, amount);
+    save.bankLoan = { principal: amount, owed: bankWithInterest(amount), due: now + BANK_TERM_MS, bank: o.id };
+    markToday(save, BANK_BORROW_LEDGER, now);
+    return save.bankLoan;
+  }
+  // The loan the collector comes for: due and unpaid, or null.
+  function bankLoanDue(save, now = Date.now()) {
+    const l = save?.bankLoan;
+    return l && now >= l.due ? l : null;
+  }
+  // Close the loan: `paid` takes the debt from the purse (false when it is
+  // short — the loan stays open); a refusal closes it with nothing paid.
+  function bankLoanSettle(save, paid) {
+    const l = save?.bankLoan;
+    if (!l) return false;
+    if (paid) {
+      if ((save.money || 0) < l.owed) return false;
+      addMoney(save, -l.owed);
+    }
+    delete save.bankLoan;
+    return true;
+  }
+  function bankInvest(save, o, amount, now = Date.now()) {
+    if (save?.bankInvest || !(amount > 0) || amount > bankInvestCap(save)) return null;
+    addMoney(save, -amount);
+    save.bankInvest = { principal: amount, due: now + BANK_TERM_MS, bank: o.id };
+    return save.bankInvest;
+  }
+  // Collect a matured investment at the bank that holds it: the payout, or 0.
+  function bankWithdraw(save, o, now = Date.now()) {
+    const inv = save?.bankInvest;
+    if (!inv || inv.bank !== o.id || now < inv.due) return 0;
+    const pay = bankWithInterest(inv.principal);
+    addMoney(save, pay);
+    delete save.bankInvest;
+    return pay;
+  }
 
   // ── GUILDHALL: a monster bounty a day ─────────────────────────────────────
   // Once a UTC day per hall (the day ledger) the board posts a BOUNTY: a small
@@ -626,7 +736,9 @@
   // modal_shell kind), `art` (the introduction painting) and `present` — the
   // scene method (app.js) that opens its dialog, `(sx, sy, o, dress)`. A
   // counter that sells off a shelf presents through `_presentStallOffer` with
-  // its `stock(o)` and `title` columns; the chapel is no dialog of its own
+  // its `stock(o, save)` and `title` columns — and, for a counter whose
+  // stock or price depends on what it sold, `price(o, save, id)` (null: the
+  // stall price) and `bought(o, save, id, n, unitPrice)` after each purchase; the chapel is no dialog of its own
   // (interactables.js' daily visit), so it names no presenter.
   const KIND_DIALOG = {
     inn:         { label: 'Inn',         modal: 'shop',     art: 'booth_inn_intro',         present: '_presentInn' },
@@ -634,13 +746,16 @@
     apothecary:  { label: 'Apothecary',  modal: 'shop',     art: 'booth_apothecary_intro',  present: '_presentStallOffer',
       stock: (o) => apothecaryStock(o), title: 'The apothecary has on the shelf:' },
     scriptorium: { label: 'Scriptorium', modal: 'shop',     art: 'booth_scriptorium_intro', present: '_presentStallOffer',
-      stock: () => scriptoriumStock(), title: 'The scriptorium sells:' },
+      stock: (o, save) => scriptoriumStock(save, o), title: 'The scriptorium sells:',
+      price: (o, save, id) => scriptoriumPrice(save, id),
+      bought: (o, save, id, n, unitPrice) => scriptoriumBought(save, o, id, unitPrice) },
     guildhall:   { label: 'Guildhall',   modal: 'delivery', art: 'booth_guildhall_intro',   present: '_presentGuildhall' },
     curio:       { label: 'Curio Hall',  modal: 'trade',    art: 'booth_curio_intro',       present: '_presentCurio' },
     sundries:    { label: 'Sundries',    modal: 'shop',     art: 'booth_sundries_intro',    present: '_presentStallOffer',
       stock: (o) => sundriesStock(o), title: 'The counter has in stock:' },
     training:    { label: 'Training',    modal: 'shop',     art: 'booth_training_intro',    present: '_presentTraining' },
     scholar:     { label: 'Book Club',   modal: 'trade',    art: 'booth_scholar_intro',     present: '_presentScholar' },
+    bank:        { label: 'Bank',        modal: 'trade',    art: 'booth_bank_intro',        present: '_presentBank' },
   };  // The word a stall's sign and dialog wear: its kind's label, except a
   // training hall, which names its discipline ("Archery Training").
   function stallLabel(kind, o) {
@@ -661,6 +776,7 @@
     sundries:    { title: 'Supplies bought',     art: 'booth_sundries_used' },
     training:    { title: 'Training complete',  art: 'booth_training_used' },
     scholar:     { title: 'A tome earned',      art: 'booth_scholar_used' },
+    bank:        { title: 'Business done',      art: 'booth_bank_used' },
   };
 
   // One introduction per physical booth, followed by its live offer. State
@@ -669,12 +785,13 @@
     inn: { title: 'An inn', body: 'Fresh blankets cover a bed beneath the green awning. Pay coins to restore all missing HP, once a day at this inn.' },
     chapel: { title: 'A chapel', body: 'A small bell hangs beneath the blue canopy. Receive a free blessing gift here once a day; nothing is asked in return.' },
     apothecary: { title: 'An apothecary', body: 'The keeper grows herbs among the old foundations. Pay coins for a potion or antidote from the shelf.' },
-    scriptorium: { title: 'A scriptorium', body: 'The scribe repairs pages salvaged after the Breaking. Pay coins for a Book to read, or a torch to carry.' },
+    scriptorium: { title: 'A scriptorium', body: 'The scribe repairs pages salvaged after the Breaking. Each scribe will part with one Book for coins, and every scriptorium asks four times what the last was paid. Torches to carry are always for sale.' },
     guildhall: { title: 'A guildhall', body: 'The keeper posts work as neighbours return. Defeat the posted creatures to earn coins; this hall offers one bounty a day.' },
     curio: { title: 'A curio hall', body: 'Recovered keepsakes fill the shelves beneath the crystal sign. Donate one of each missing curio; collection milestones bring back memories.' },
     sundries: { title: 'A sundries shop', body: 'Mended sacks and bundled tools fill the counter. Pay coins for the supplies offered here.' },
     training: { title: 'A training hall', body: 'Practice rings out beneath the crossed weapons. Pay coins for a permanent lesson when you have enough memories, or buy a temporary drill.' },
     scholar: { title: 'A book club', body: `You join the book club beneath the scholar’s open-book sign. Every ${SCHOLAR_BOOKS_PER_PRIZE} Books collected earns a tome; found and bought Books count, and no books or coins are spent to claim it.` },
+    bank: { title: 'A bank', body: `The banker keeps a strongbox behind the counter. Some days it lends coins and some days it takes deposits, at ${Math.round(BANK_INTEREST * 100)}% after a day either way. A pirate collects each loan, and fights anyone who refuses to pay.` },
   };
 
   root.Macros = {
@@ -686,13 +803,16 @@
     CHAPEL_TIER_DROP, chapelRollTier,
     APOTHECARY_POTIONS, APOTHECARY_CURE, apothecaryStock,
     SUNDRIES_GEAR, SUNDRIES_SHIELDS, SUNDRIES_GEAR_PRICE_MUL, sundriesStock, isSundriesGear, sundriesGear,
-    SCRIPTORIUM_BOOK, SCRIPTORIUM_STOCK, scriptoriumStock,
+    SCRIPTORIUM_BOOK, SCRIPTORIUM_STOCK, SCRIPTORIUM_BOOK_PRICE_MUL, scriptoriumStock, scriptoriumBookSold, scriptoriumPrice, scriptoriumBought,
     BOUNTY_LADDER, BOUNTY_TIERS_PER_RUNG, BOUNTY_TIERS_PER_FOE, BOUNTY_MAX_FOES, BOUNTY_MATCH, BOUNTY_DIST_CELLS,
     bountyWeaponTier, bountyFor, bountyPay, slainByPlayer, bountyCleared,
     CURIO_COLLECTION, CURIO_MILESTONES, curioEligible, curioCollection, curioDonated, curioCount,
     curioNextMilestone, curioMilestoneKey, curioMissing, curioDonate,
     TRAINING_LESSON_PRICE, TRAINING_DRILL_PRICE, TRAINING_MEMORIES_PER_LEVEL, trainingKindFor, lessonMemoriesAt, lessonMemories, stallLabel, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,
     buyLesson, buyDrill, drillLeftMs,
+    BANK_BASE, BANK_PER_MEMORY, BANK_INTEREST, BANK_TERM_MS, BANK_SHARES, BANK_BORROW_LEDGER, BANK_COLLECTOR_KIND, BANK_COLLECTOR_DIST_CELLS,
+    bankLimit, bankOfferKind, bankWithInterest, bankAmounts, bankBorrowCap, bankInvestCap, bankBorrowBlock,
+    bankBorrow, bankLoanDue, bankLoanSettle, bankInvest, bankWithdraw,
     SCHOLAR_BOOKS_PER_PRIZE, scholarShelf, booksRead, scholarTaken, scholarNext, scholarClaim,
     KIND_DIALOG, KIND_STORY, KIND_TRANSACTION, stallArt,
   };

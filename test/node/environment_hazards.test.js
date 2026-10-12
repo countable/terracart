@@ -26,6 +26,7 @@
   }
   const advance = (s, ms) => { for (let t = 0; t < ms; t += 100) EnvironmentHazards.tick(s, Math.min(100, ms - t) / 1000); };
   test('environment hazards: vent cycles repeat exact inactive warning active intervals', () => fixture(s => {
+    s.depth = 2;   // poison, fire and paralysis vent from the second floor down
     const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, 'v', () => .5, 'fire');
     const list = EnvironmentHazards.lists(s); list.vents.push(h);
     const cases = [[0, 'inactive', 5], [4999, 'inactive', 5], [5000, 'warning', 6],
@@ -39,13 +40,46 @@
     advance(s, 100); assert.lt(s.save.energy, after);
     assert.eq(s.save.conditions.burning.remainingMs, 6000);
   }));
-  test('environment hazards: each active vent applies its explicit condition duration', () => fixture(s => {
-    for (const [kind, condition, duration] of [['poison', 'poison', 30000], ['paralysis', 'paralysis', 5000]]) {
-      s.save.conditions = {};
+  test('environment hazards: poison and paralysis vents burst their own gas and strike nothing', () => fixture(s => {
+    s.depth = 2;   // poison, fire and paralysis vent from the second floor down
+    const C = EnvironmentHazards.CONFIG.vent;
+    for (const kind of ['poison', 'paralysis']) {
+      s.save.conditions = {}; s._mushroomGas = null;
       const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, kind, () => .5, kind);
-      h.elapsedMs = 7900; EnvironmentHazards.lists(s).vents = [h]; EnvironmentHazards.tick(s, .1);
-      assert.eq(s.save.conditions[condition].remainingMs, duration);
+      h.elapsedMs = C.gasInactiveMs + C.warningMs - 100; EnvironmentHazards.lists(s).vents = [h]; EnvironmentHazards.tick(s, .1);
+      assert.eq(h.phase, 'active');
+      assert.eq(s.save.energy, 100, kind + ' vent never strikes');
+      assert.eq(MushroomGas.cells(s).map(c => c.kind).join(), kind, 'one burst of ' + kind + ' gas');
+      MushroomGas.contact(s, MushroomGas.state(s));
+      assert.eq(s.save.conditions[MushroomGas.KINDS[kind].condition].remainingMs, MushroomGas.KINDS[kind].durationMs);
     }
+  }));
+  test('environment hazards: a fire vent eruption lights burning ground on its cell and the four beside it, every cycle', () => fixture((s, entries) => {
+    s.depth = 2;
+    const lit = [];
+    s._igniteGroundCell = (cell, now, opts) => {
+      const ok = GroundFire.ignite(s.save, cell.depth, cell.cellIX, cell.cellIY, now, Math.random, opts);
+      if (ok) lit.push(`${cell.cellIX},${cell.cellIY}`);
+      return ok;
+    };
+    entries[0].grid[3 * 8 + 4] = WorldGen.T.CAVE_WALL;   // east of the vent is rock
+    const C = EnvironmentHazards.CONFIG.vent, row = EnvironmentHazards.VENTS.fire;
+    const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, 'fire', () => .5, 'fire');
+    EnvironmentHazards.lists(s).vents = [h];
+    s.playerM = { x: 60, y: 60 };   // well away: the vent's own strike is not under test
+    h.elapsedMs = C.inactiveMs + C.warningMs - 100; EnvironmentHazards.tick(s, .1);
+    assert.eq(lit.sort().join(' '), '2,3 3,2 3,3 3,4', 'the vent cell and its floor neighbours, never the rock');
+    const fire = s.save.groundFire[GroundFire.key(2, 3, 3)];
+    assert.eq(fire.until - fire.litAt, row.groundFireMs);
+    EnvironmentHazards.tick(s, .1);
+    assert.eq(lit.length, 4, 'one lighting per eruption, not per frame');
+    // Out and burnt, the same cells light again at the next eruption.
+    for (const f of Object.values(s.save.groundFire)) f.extinguished = true;
+    h.elapsedMs = 2 * (C.inactiveMs + C.warningMs + C.activeMs) - C.activeMs - 100;
+    EnvironmentHazards.update(h);   // the next cycle's warning
+    EnvironmentHazards.tick(s, .1);
+    assert.eq(lit.length, 8, 'relit each cycle');
+    assert.falsy(GroundFire.ignite(s.save, 2, 3, 3, Date.now()), 'ordinary fire still burns a cell only once');
   }));
   test('environment hazards: sealed floors never open sinkholes', () => fixture((s) => {
     s.depth = 2;
@@ -149,10 +183,11 @@
     } finally { if (old) WorldGen.tileCache.set(key, old); else WorldGen.tileCache.delete(key); }
   }));
   test('environment hazards: idle validation is throttled but dangerous transitions always recheck', () => fixture((s, entries) => {
+    s.depth = 2;   // poison, fire and paralysis vent from the second floor down
     const gate = WorldGen.isSpawnCell; let checks = 0;
     WorldGen.isSpawnCell = (...args) => { checks++; return gate(...args); };
     try {
-      const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, 'v');
+      const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, 'v', () => .5, 'fire');
       EnvironmentHazards.lists(s).vents.push(h);
       for (let i = 0; i < 60; i++) EnvironmentHazards.tick(s, 1 / 60);
       assert.eq(checks, 1, 'one object/spawn scan per second, not one per rendered frame');
@@ -332,19 +367,72 @@
     } finally { PressureTraps.lists = original; }
   }));
   test('flight: fire vents are harmless but poison and paralysis gas still affect the player', () => fixture(s => {
+    s.depth = 2;   // poison, fire and paralysis vent from the second floor down
     s.save.flightPotionUntil = Date.now() + 60000;
+    const C = EnvironmentHazards.CONFIG.vent;
     for (const kind of ['fire', 'poison', 'paralysis']) {
-      s.save.energy = 100; s.save.conditions = {};
+      s.save.energy = 100; s.save.conditions = {}; s._mushroomGas = null;
       const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, kind, () => .5, kind);
-      h.elapsedMs = 8000;
+      h.elapsedMs = (kind === 'fire' ? C.inactiveMs : C.gasInactiveMs) + C.warningMs;
       EnvironmentHazards.lists(s).vents = [h];
       EnvironmentHazards.tick(s, .1);
       if (kind === 'fire') {
         assert.eq(s.save.energy, 100); assert.falsy(s.save.conditions.burning);
       } else {
-        assert.lt(s.save.energy, 100); assert.truthy(s.save.conditions[kind]);
+        MushroomGas.contact(s, MushroomGas.state(s));
+        assert.truthy(s.save.conditions[kind]);
       }
     }
+  }));
+
+  test('vents: each floor vents its own kinds; the first floor vents confusion only', () => fixture(s => {
+    assert.eq(EnvironmentHazards.ventKinds(0).join(), 'fire', 'the surface keeps crater fire');
+    assert.eq(EnvironmentHazards.ventKinds(1).join(), 'confusion');
+    for (const depth of [2, 3, 7]) assert.eq(EnvironmentHazards.ventKinds(depth).join(), 'poison,fire,paralysis');
+    for (const kind of ['poison', 'fire', 'paralysis']) {
+      const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, kind, () => .5, kind);
+      assert.falsy(EnvironmentHazards.eligible(s, h), kind + ' never vents on L1');
+    }
+    const grey = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, 'c', () => .5, 'confusion');
+    assert.truthy(EnvironmentHazards.eligible(s, grey));
+    assert.eq(grey.frame, 15, 'the grey row is the fourth sheet row');
+    s.depth = 2;
+    assert.falsy(EnvironmentHazards.eligible(s, { ...grey, depth: 2 }), 'confusion stays on L1');
+  }));
+  test('vents: a confusion eruption bursts mushroom gas onto the adjacent cells and deals no hit', () => fixture(s => {
+    s._mushroomGas = null;
+    const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, 'c', () => .5, 'confusion');
+    EnvironmentHazards.lists(s).vents = [h];
+    const C = EnvironmentHazards.CONFIG.vent, quietMs = C.gasInactiveMs;
+    h.elapsedMs = quietMs + C.warningMs - 100; EnvironmentHazards.tick(s, .1);
+    assert.eq(h.phase, 'active');
+    assert.eq(s.save.energy, 100, 'the vent itself never strikes');
+    const cells = () => MushroomGas.cells(s);
+    assert.eq(cells().length, 1, 'one burst at the vent cell');
+    assert.eq(cells()[0].density, MushroomGas.CONFIG.burstMass, 'a mushroom-sized burst');
+    EnvironmentHazards.tick(s, .1);
+    assert.eq(cells()[0].density, MushroomGas.CONFIG.burstMass, 'one burst per eruption, not per frame');
+    const g = MushroomGas.state(s).gases.confusion;
+    Gas.advance(g, Gas.STEP_MS, () => 'open');
+    const adjacent = cells().filter(c => Math.abs(c.cellIX - 3) + Math.abs(c.cellIY - 3) === 1);
+    assert.eq(adjacent.length, 4, 'one second later the four neighbours are gassed');
+    // Briefly: in a ventilated pocket the burst thins below the floor and clears.
+    const pocket = (x, y) => Math.abs(x - 3) + Math.abs(y - 3) > 4 ? 'unknown' : 'open';
+    let seconds = 1;
+    while (cells().length && seconds < 30) { Gas.advance(g, Gas.STEP_MS, pocket); seconds++; }
+    assert.eq(cells().length, 0, 'the gas clears');
+    assert.lt(seconds, 8, `cleared within a few seconds (${seconds}s)`);
+  }));
+  test('vents: a confusion burst disperses from a one-cell passage before the next eruption', () => fixture(s => {
+    const C = EnvironmentHazards.CONFIG.vent;
+    const periodMs = C.gasInactiveMs + C.warningMs + C.activeMs;
+    const g = Gas.create();
+    Gas.inject(g, 0, 0, MushroomGas.CONFIG.burstMass);
+    const passage = (x, y) => Math.abs(x) > 30 ? 'unknown' : y ? 'wall' : 'open';
+    let ms = 0;
+    while (g.cells.size && ms < 120000) { Gas.advance(g, Gas.STEP_MS, passage); ms += Gas.STEP_MS; }
+    assert.eq(g.cells.size, 0, 'the gas clears');
+    assert.lt(ms, periodMs, `cleared in ${ms} ms, before the next eruption at ${periodMs} ms`);
   }));
 
   test('cave-in contact: grounded NPC and enemy bodies trigger the same seeded L1 patch', () => fixture((s, entries) => {

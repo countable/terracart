@@ -73,12 +73,27 @@ In `map-review.html`, clicking bare ground opens terrain, underlying landcover, 
 variant, zone nexus pattern, spawn restrictions and tile/cell coordinates.
 The gameplay tier is included when its overlay is enabled.
 
+In `map-review.html`, the Overlays section toggles path endpoint dots
+and path names (visible from zoom 17; unnamed or numeric-only labels are hidden).
+White dots mark retained natural/source endpoints without a theme change;
+orange marks inferred boundaries and tile cuts, and yellow marks theme transitions.
+Boundary selection balances source endpoints, terrain affinity and a soft 300 m
+length target. Forks and true ends remain even when sections are shorter.
+Removed endpoints are hidden; dots do not necessarily mark trail ends.
+Click a dot for source feature IDs and, at section boundaries, the variant,
+assignment length, section key and tile.
+The street overlay and distribution report use those same assignment sections;
+MD roads appear as Old Trade Road and LG roads as Ancient Highway.
+
 In `floor-viewer.html`, the variant buttons wrap through the selected floor’s
 nexus catalog and rebuild the region with that choice. Natural selection uses
 the normal seeded picks. Surface choices apply to the matching nexus kind;
 cave choices come from that floor’s profile. Floors without authored nexus
 variants disable the buttons. Proposed mode uses the displayed source floor’s
 catalog. Placement still obeys the live spawn gates and available space.
+Surface street choices cycle small-road themes and path-section themes, including
+scenic looks. Medium and large roads keep their fixed identities. Forced path
+themes preserve the geographic scenic intervals used for distance credit.
 The seed field and New seed button rebuild the region with different review
 rolls; Reset restores seed 0, the original generation. The URL retains the
 seed for sharing and reloading, and floor/variant changes keep it. This viewer
@@ -150,6 +165,19 @@ start their own HTTP server. Examples:
 mkdir -p ~/.artifacts/performance
 PW_CHROMIUM=/path/to/chromium node tools/perf_loop.js ~/.artifacts/performance/loop.json
 PW_CHROMIUM=/path/to/chromium node tools/perf_live.js ~/.artifacts/performance/live
+```
+
+`benchmark-cover.js` compares a baseline Git revision's `Lighting.coverFrame`
+with the working tree in one live sandbox Chromium page. Both versions use
+current visibility rules, alternating identical dense surface and cave
+fixtures. It measures retained-blocker movement, cold rebuilds, and stationary
+cache hits; JSON includes raw samples, median/p95, source hashes and hardware.
+The primary metric covers CPU work and canvas paint commands, without pixel
+readbacks, GPU uploads or a full-frame FPS claim. `CPU_THROTTLE=4` adds a
+synthetic slowdown, not a phone measurement.
+
+```sh
+node tools/benchmark-cover.js BASELINE_GIT_REF ~/.artifacts/performance/cover.json
 ```
 
 Read the scripts' headers for timing controls and fixture requirements.

@@ -1,4 +1,4 @@
-// THEMED SHOPS. A shop (role key 'market') sells one LINE at one rank, the
+// THEMED SHOPS. A shop (role key 'shop') sells one LINE at one rank, the
 // player's pick (shop_lines.test.js). A market from before lines were stored
 // takes its line from its place in the save's restore order of shops: seed,
 // supply, potion, relic, then round again a tier up (shops.js themeAt /
@@ -24,7 +24,7 @@ test('themed shops: the legacy cycle walks the lines in order, then round again 
 test('themed shops: the order is the save\'s restore order of SHOPS — old markets convert in place', () => {
   // A save that restored shops before themes existed: its markets take lines
   // in the order they were rebuilt, blacksmiths / traders / houses skipped.
-  const save = { restoredHouses: { b: 'blacksmith', m1: 'market', t: 'trader', h: 'plain', m2: 'market', m3: 'market' } };
+  const save = { restoredHouses: { b: 'blacksmith', m1: 'shop', t: 'trader', h: 'plain', m2: 'shop', m3: 'shop' } };
   assert.eq(Shops.shopOrder(save, { id: 'm1' }), 0);
   assert.eq(Shops.shopOrder(save, { id: 'm2' }), 1);
   assert.eq(Shops.shopOrder(save, { id: 'm3' }), 2);
@@ -124,7 +124,7 @@ test('themed shops: a relic shop sells up to its tier, never at or below what yo
 
 test('themed shops: the wiring — the tap, the stock, the price and the re-roll', () => {
   const app = SCENE_SRC;
-  assert.truthy(/if \(shopType === 'market'\) \{\s*\n\s*this\.presentThemedShop\(sx, sy, house, recordDeal\);/.test(app),
+  assert.truthy(/if \(shopType === 'shop'\) \{\s*\n\s*this\.presentThemedShop\(sx, sy, house, recordDeal\);/.test(app),
     'a shop tap opens the themed shop');
   assert.truthy(/return Shops\.lineFor\(this\.save, house\);/.test(app), 'one resolver (lineFor — the bookshop override, then the cycle)');
   assert.truthy(/const rng = house\?\.id \? this\.shopRng\(house, 'theme'\) : Math\.random;/.test(app),
@@ -154,7 +154,7 @@ test('themed shops: no re-roll where the tier stocks one item', () => {
 
 test('themed shops: three market digits and one blacksmith digit on small houses', () => {
   const roles = Array.from({ length: 10 }, (_, address) => Shops.shopType({ kind: 'house', tier: WorldGen.T.BUILDING, address }));
-  assert.eq(roles.map((r, i) => r === 'market' ? i : null).filter(x => x !== null).join(), '2,4,6');
+  assert.eq(roles.map((r, i) => r === 'shop' ? i : null).filter(x => x !== null).join(), '2,4,6');
   assert.eq(roles.map((r, i) => r === 'blacksmith' ? i : null).filter(x => x !== null).join(), '9');
   assert.eq(Shops.shopType({ kind: 'house', tier: WorldGen.T.BUILDING_MED, address: 24 }), null, 'forts do not become markets');
   assert.eq(Houses.houseShopRole({ restoredHouses: { old: 'plain' } }, { kind: 'house', id: 'old', tier: WorldGen.T.BUILDING, address: 24 }), null, 'existing frozen roles stay put');

@@ -42,6 +42,11 @@ chest's position, id, tier, sprite or cave eligibility.
 - Groups, members, item weights and fallbacks: `ChestThemes.groups`.
   Surface and cave gem groups use the full `GEM_DEPOSITS` ladder, deduplicated
   by item so the crystal alias does not give Sapphire extra weight.
+  The supply group reaches Javelins and Renovation Permits at T4 and
+  Evertorches at T6. Cooked foods inherit their raw ingredient's drop weight.
+  Blank Scrolls are affordable T2 materials; a remembered spell can turn one
+  into a scroll with a higher sale value. Scroll prices are not bounded by
+  the parchment price; the existing learning requirement still gates writing.
 - POI to theme: `CHEST_THEME_BY_POI` over `POI_CATEGORY`, read through
   `chestThemeFor` (`src/loot.js`). World categories with no theme of their
   own resolve through `ChestThemes.normalize` (its alias table; unknown
@@ -80,6 +85,10 @@ stalls and coin pots keep their own interactions.
   `ChestThemes.cap`). Mushrooms round up to fill their allowance, as magic and
   timber seeds do, so a T2 chest's lower-tier budget roll still buys a stack.
   Fish prices control stack sizes; cooked prices derive from raw ingredients.
+  Chest food rewards have a minimum allowance of the displayed chest tier's
+  base budget. A T2 roll may still select T1 food, but spends at least the T2
+  allowance rather than the smaller T1 budget with one bonus bracket. This
+  floor changes quantity, not eligibility, item caps, or other reward kinds.
   A same-tier roll with no brackets typically pays two
   potions or four seeds. Budget steps (the chain, the wizard's ladder and
   budget jackpots) only raise the budget, with no bracket cap; leftover

@@ -35,6 +35,43 @@ test('chest themes: T2 mushroom rewards are stacks and fish prices limit quantit
   assert.eq(ChestThemes.quantity('salmon', 5), 3);
 });
 
+test('chest themes: T2 food keeps its chest allowance on a lower-quality roll', () => {
+  const opts = { tier: 2 };
+  const rng = makeRng32(1927);
+  const seen = new Set();
+  for (let i = 0; i < 10000; i++) {
+    const r = resolveChestReward('food', { tier: 1, bracket: 1, jackpotApplied: 0 }, {}, rng, opts);
+    if (['potato', 'cress', 'grilled_minnow', 'baked_potato', 'grilled_mushroom'].includes(r.id)) {
+      seen.add(r.id);
+      assert.gte(r.qty, 3, r.id + ' uses the T2 allowance');
+    }
+  }
+  assert.eq(seen.size, 5, 'all affected starter foods remain selectable');
+  assert.eq(ChestThemes.quantity('potato', 1, 1, 2), 4);
+  assert.eq(ChestThemes.quantity('grilled_mushroom', 1, 1, 2), 3);
+  assert.eq(ChestThemes.quantity('bass', 2, 0, 2), 1, 'expensive foods are not guaranteed multiples');
+  assert.eq(ChestThemes.quantity('potato', 1, 1), 1, 'non-chest rolls retain their budget');
+  assert.eq(ChestThemes.quantity('rope', 1, 1, 2), 1, 'the floor is for food');
+  assert.eq(ChestThemes.quantity('potato', 3, 1, 2), ChestThemes.quantity('potato', 3, 1), 'jackpots keep their larger budget');
+});
+
+test('chest themes: supply rewards reach T4 tools and the T6 Evertorch', () => {
+  for (const [id, tier] of [['javelin', 4], ['renovation_permit', 4], ['evertorch', 6]]) {
+    const rng = makeRng32(1927);
+    let seen = false;
+    for (let i = 0; i < 2000; i++) {
+      const r = resolveChestReward('roadside', { tier, bracket: 0, jackpotApplied: 1 }, {}, rng, { tier: 4 });
+      if (r.id === id) seen = true;
+    }
+    assert.truthy(seen, id + ' is reachable through a roadside roll');
+    assert.falsy(ChestThemes.eligible('supplies', tier - 1).includes(id), id + ' respects its tier');
+  }
+  assert.eq(itemValue('blank_scroll'), 50);
+  assert.eq(itemValue('rainberry'), 18);
+  assert.eq(itemValue('pairy'), 24);
+  assert.eq(itemValue('worldpeach'), 250);
+});
+
 test('chest themes: T2 acorns fill the budget with a stack while fruit saplings stay single', () => {
   assert.eq(itemValue('acorn'), 5);
   assert.eq(itemValue('scarecrow'), 20);

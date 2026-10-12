@@ -48,7 +48,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // 2nd rebuild may be a Blacksmith"); `earlyMending` and `childHome` are the
   // story's restoration-count gates (memory_story.js).
   const STORY_RESTORES = Object.freeze({
-    house: 1, blacksmith: 2, market: 3, trader: 5, turret: 8, petshop: 12, bookshop: 15,
+    house: 1, blacksmith: 2, shop: 3, trader: 5, turret: 8, petshop: 12, bookshop: 15,
     firstTower: 30, secondTower: 52, earlyMending: 2, childHome: 1,
   });
   // Old unstamped saves retain the tower identities their original schedule
@@ -64,7 +64,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // modal call it the same thing); `name` overrides it where the label is a
   // line, not a building.
   //   bookshop, petshop — ONE-OFF SHOPS (`solo`: the line, a key of
-  //              shops.js SOLO_LINES): stored as a 'market' plus the stamp
+  //              shops.js SOLO_LINES): stored as a 'shop' plus the stamp
   //              that table names (save.bookshopId / save.petshopId —
   //              registerSoloShop; lineFor sells the line off it), so old
   //              readers of the role string never meet a new one. Once built
@@ -97,21 +97,21 @@ const FORT_UNLOCK_WOOD_STEP = 6;
         // the wooden tools come from nowhere else.
         suggested: (s) => tier === 1 && !hasBlacksmith(s),
       })) },
-    { key: 'market', role: 'market', ranked: true, from: STORY_RESTORES.market, art: 'restore_market',
-      blurb: 'A family opens the market shutters again. ',
+    { key: 'shop', role: 'shop', ranked: true, from: STORY_RESTORES.shop, art: 'restore_market',
+      blurb: 'A family opens the shop shutters again. ',
       variants: (save) => Shops.THEMES.flatMap((theme) => ranks(save)
         .filter((tier) => Shops.lineBuildable(save, theme, tier))
-        .map((tier) => ({ key: `market:${theme}:${tier}`, theme, tier }))) },
+        .map((tier) => ({ key: `shop:${theme}:${tier}`, theme, tier }))) },
     { key: 'trader', role: 'trader', ranked: true, from: STORY_RESTORES.trader, art: 'restore_trader',
       blurb: 'The trader and his family unpack beside the hearth. They offer to share their supplies.',
       variants: (save) => ranks(save).map((tier) => ({ key: 'trader:' + tier, tier })) },
     { key: 'turret', role: 'turret', from: STORY_RESTORES.turret, art: 'castle_claim',
       blurb: 'Masons raise a single tower on the old footings. An archer climbs to the battlement and strings a bow.' },
-    { key: 'petshop', role: 'market', solo: 'pet', from: STORY_RESTORES.petshop, name: 'Pet Shop', art: 'restore_market',
-      blurb: 'A family opens the market shutters again. You hear paws and hooves shuffling nearby.',
+    { key: 'petshop', role: 'shop', solo: 'pet', from: STORY_RESTORES.petshop, name: 'Pet Shop', art: 'restore_market',
+      blurb: 'A family opens the shop shutters again. You hear paws and hooves shuffling nearby.',
       offered: (save) => save.petshopId == null },
-    { key: 'bookshop', role: 'market', solo: 'book', from: STORY_RESTORES.bookshop, name: 'Book Shop', art: 'restore_market',
-      blurb: 'A family opens the market shutters again. Shelves of books line the walls.',
+    { key: 'bookshop', role: 'shop', solo: 'book', from: STORY_RESTORES.bookshop, name: 'Book Shop', art: 'restore_market',
+      blurb: 'A family opens the shop shutters again. Shelves of books line the walls.',
       offered: (save) => save.bookshopId == null },
     { key: 'wizard', role: 'wizard', pinned: true, from: STORY_RESTORES.firstTower, name: 'Wizard Tower', art: 'restore_wizard',
       blurb: 'You step into the tower. An old wizard asks about your memories.',
@@ -139,15 +139,15 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   function renovateTo(save, house) {
     const role = houseShopRole(save, house);
     if (!role || !buildOption(role)?.ranked) return { tier: null, why: 'unranked' };
-    if (role === 'market' && Shops.isSoloShop(save, house.id)) return { tier: null, why: 'unranked' };
+    if (role === 'shop' && Shops.isSoloShop(save, house.id)) return { tier: null, why: 'unranked' };
     const now = Shops.shopTier(save, house, role);
-    const theme = role === 'market' ? Shops.lineFor(save, house).theme : null;
+    const theme = role === 'shop' ? Shops.lineFor(save, house).theme : null;
     const allowed = Shops.LINE_RULES[theme]?.tiers;
     const next = allowed ? allowed.find(tier => tier > now) : now + 1;
     if (next == null) return { tier: null, why: 'line' };
     if (next > Shops.SHOP_TIER_MAX) return { tier: null, why: 'top' };
     if (next > Shops.tierCap(save)) return { tier: null, why: 'memories', need: Shops.tierUnlockMemories(next) };
-    if (role === 'market' && !Shops.lineBuildable(save, Shops.lineFor(save, house).theme, next)) return { tier: null, why: 'line' };
+    if (role === 'shop' && !Shops.lineBuildable(save, Shops.lineFor(save, house).theme, next)) return { tier: null, why: 'line' };
     return { tier: next, why: null };
   }
   function renovate(save, house) {
@@ -168,7 +168,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     if (!row) return false;
     const rh = (save && save.restoredHouses) || {};
     const tier = row.tier || null;
-    const theme = row.role === 'market' ? (row.solo || row.theme || null) : null;
+    const theme = row.role === 'shop' ? (row.solo || row.theme || null) : null;
     for (const id of Object.keys(rh)) {
       if (rh[id] !== row.role) continue;
       const house = { kind: 'house', id };
@@ -264,7 +264,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
       && save.starterBlacksmithId === house.id;
   }
 
-  // The role a (restored) house plays: 'blacksmith' | 'trader' | 'market'
+  // The role a (restored) house plays: 'blacksmith' | 'trader' | 'shop'
   // | 'wizard' | 'turret', or null for a plain residential house. Single
   // source of truth for both the renderer and the interaction handler. Once a
   // wreck is restored its role is frozen into save.restoredHouses[id] as a
@@ -282,8 +282,8 @@ const FORT_UNLOCK_WOOD_STEP = 6;
 
   // The guild whose badge discounts deals at `place` (items.js
   // guildDiscounted): a house's role, or a peddling neighbour's — a merchant
-  // keeps a themed shop (role key 'market'), a trader barters.
-  const NPC_GUILD = { merchant: 'market', trader: 'trader' };
+  // keeps a themed shop (role key 'shop'), a trader barters.
+  const NPC_GUILD = { merchant: 'shop', trader: 'trader' };
   function guildRole(save, place) {
     if (place?.kind === 'npc') return NPC_GUILD[place.role] || null;
     return houseShopRole(save, place);
@@ -345,15 +345,15 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   }
 
   // Stamp a solo shop (shops.js SOLO_LINES: the Book Shop's bookshopId, the
-  // Pet Shop's petshopId): the market the player picked that card for — once
+  // Pet Shop's petshopId): the shop the player picked that card for — once
   // per save (the card leaves the offer once it is stamped). A save that
-  // restored a market before the card existed is never re-labelled; its next
+  // restored a shop before the card existed is never re-labelled; its next
   // pick is the one.
   function registerSoloShop(save, house, theme) {
     const key = Shops.SOLO_LINES[theme];
     if (!key) return null;
     if (save[key] != null || house?.id == null) return save[key] ?? null;
-    if (save.restoredHouses?.[house.id] !== 'market') return null;
+    if (save.restoredHouses?.[house.id] !== 'shop') return null;
     save[key] = String(house.id);
     return save[key];
   }
@@ -416,17 +416,26 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // WHAT EACH CARD COSTS (owner, Oct 2026). A House — and the wizard's tower,
   // a story building — keeps the ladder above. A shop is priced by the rank
   // its card wears (the row's `tier`, the same badge the pick shows): this
-  // many stones PER TIER, one row per role; the Book Shop is a market at
+  // many units PER TIER, one row per role; the Book Shop is a shop at
   // tier 1. A turret is a flat TURRET_ROCKS. `row` is a buildOptions card.
-  const BUILD_ROCKS_PER_TIER = Object.freeze({ trader: 2, market: 3, blacksmith: 4 });
+  // WHAT IT IS PAID IN (owner, Oct 2026): stone, except a smithy pays the
+  // ore of its tier (items.js barForTier: wood T1, copper T2 … frost T7) and
+  // a Magic Shop the gem of its tier (gemForTier: quartz T1 … diamond T7).
+  const BUILD_ROCKS_PER_TIER = Object.freeze({ trader: 2, shop: 3, blacksmith: 4 });
   const TURRET_ROCKS = 5;
+  function buildMaterial(row, tier) {
+    if (row.role === 'blacksmith') return barForTier(tier);
+    if (row.role === 'shop' && row.theme === 'potion') return gemForTier(tier);
+    return 'rubble';
+  }
   function buildCost(save, house, row, order = restoredCount(save)) {
     if (!row || row.role === 'plain' || row.role === 'wizard') return wreckRestoreCost(save, house);
     if (row.role === 'turret') return { id: 'rubble', qty: TURRET_ROCKS, material: 'stone' };
     const per = BUILD_ROCKS_PER_TIER[row.role];
     if (!per) return wreckRestoreCost(save, house);
     const tier = Math.max(1, (row.tier || 1) | 0);
-    return { id: 'rubble', qty: per * tier, material: 'stone' };
+    const id = buildMaterial(row, tier);
+    return id === 'rubble' ? { id, qty: per * tier, material: 'stone' } : { id, qty: per * tier };
   }
 
   // Wood this fort demands to unseal, following the per-fort progression

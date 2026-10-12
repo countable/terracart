@@ -23,7 +23,7 @@
   }
 
   test('daily visits: every idol tells its story on each successful day, never twice', () => at(T0, () => {
-    for (const id of Shrines.KIND_IDS) {
+    for (const id of Shrines.KIND_IDS.filter(id => !Shrines.SHRINE_KINDS[id].reward)) {   // the golden idol's spree: golden_idol.test.js
       const h = harness({ energy: 80, inv: [], opened: [] });
       const o = { kind: 'grove_shrine', shrineKind: id, id: 'idol:' + id };
       h.tap(o);
@@ -145,16 +145,11 @@
     assert.falsy(Macros.usedToday(h.save, 'other-wagon'));
   }));
 
-  test('daily visits: bike retains speed and gold remains a coin-only reward', () => at(T0, () => {
+  test('daily visits: bike retains speed', () => at(T0, () => {
     const bike = { kind: 'chest', id: 'bike', poiClass: 'bicycle_parking' };
     const h = harness({}); h.tap(bike);
     assert.eq(h.save.bikeUntil, T0 + BIKE_RACK_MS);
     assert.eq(h.stories[0].art, Macros.DAILY_VISIT_KINDS.bike.art);
-    const pot = { kind: 'chest', id: 'gold', poiClass: 'atm' };
-    const visit = Macros.beginDailyVisit(makeCtx(h.scene, h.save), pot);
-    assert.truthy(visit.claim()); assert.falsy(visit.claim());
-    assert.falsy(Shrines.leverActive(h.save, 'fortune'));
-    visit.present();
-    assert.eq(h.stories[1].art, Macros.DAILY_VISIT_KINDS.gold.art);
+    assert.eq(Macros.DAILY_VISIT_KINDS.gold, undefined, 'the ATM pot of gold is a bank booth now');
   }));
 })();

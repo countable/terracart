@@ -76,7 +76,7 @@ test('deal cooldown: dealWaitMs counts down from the last deal and only for a ro
   assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000 + TRADER_MS / 2), TRADER_MS / 2, 'half way');
   assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000 + TRADER_MS), 0, 'open again on the dot');
   assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000 + TRADER_MS * 9), 0, 'and stays open');
-  for (const role of ['market', 'blacksmith', 'wizard', null, undefined]) {
+  for (const role of ['shop', 'blacksmith', 'wizard', null, undefined]) {
     assert.eq(ShopsMath.dealWaitMs(save, house, role, 10000), 0, `${role}: no row, no wait`);
   }
   assert.eq(ShopsMath.dealWaitMs(save, { }, 'trader', 10000), 0, 'no id, no wait');

@@ -42,6 +42,7 @@
   test('buffs: every boon-only shrine lever is a row named by its boon word, in its light', () => {
     for (const id of Shrines.KIND_IDS) {
       const row = Shrines.SHRINE_KINDS[id], buff = Shrines.LEVERS[row.lever];
+      if (row.reward) { assert.eq(row.lever, undefined, `${id}: a reward shrine pulls no lever`); continue; }
       if (buff === null) { assert.falsy(Buffs.KINDS[row.lever], `${id}: instant — the compass row shows its effect`); continue; }
       const k = Buffs.KINDS[buff];
       assert.truthy(k, `${id}: lever ${row.lever} maps to a row`);

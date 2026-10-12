@@ -1196,6 +1196,29 @@
     assert.lt(Lairs.LAIR_CORE_AGGRO_CELLS, Lairs.LAIR_AGGRO_CELLS, 'a keep is quieter than a wreck');
   });
 
+  test('chase: a citadel garrison rushes the player once its Fight is on', () => {
+    // A citadel's guards exist only during its battle, so the keep's quiet
+    // knot ring does not apply: they come from anywhere within the leash of
+    // the keep's WALLS — a big keep's gate is not out of sight of its centre.
+    const halfW = 12 * CELL_M, halfH = 8 * CELL_M;
+    const lairR = Lairs.LAIR_CORE_SPREAD_CELLS * CELL_M;
+    const g = { kind: 'bugbear', lair: 'C', castle: 'citadel', lairX: 0, lairY: 0, lairR,
+      keepHW: halfW, keepHH: halfH, seatX: 0, seatY: 0, x: 0, y: 0,
+      aggroCells: Lairs.LAIR_CORE_AGGRO_CELLS };
+    const wallR = Math.hypot(halfW, halfH);
+    assert.eq(Lairs.guardState(g, { x: halfW + CELL_M, y: 0 }, CELL_M), 'hunt',
+      'a player at the gate is rushed');
+    assert.eq(Lairs.guardState(g, { x: wallR + Lairs.LAIR_LEASH_CELLS * CELL_M - 1, y: 0 }, CELL_M), 'hunt',
+      'out to the leash');
+    assert.eq(Lairs.guardState(g, { x: wallR + Lairs.LAIR_LEASH_CELLS * CELL_M + 1, y: 0 }, CELL_M), 'hold',
+      'and no further');
+    assert.eq(Lairs.guardState(g, { x: halfW + CELL_M, y: 0 }, CELL_M, false), 'hold',
+      'an unnoticed player is still not chased');
+    const plain = Object.assign({}, g, { castle: undefined });
+    assert.eq(Lairs.guardState(plain, { x: halfW + CELL_M, y: 0 }, CELL_M), 'hold',
+      'an ordinary keep still holds while the player passes its gate');
+  });
+
   test('lairs: NOTHING is seated on a road cell (the shared spawn rule, mask included)', () => {
     // The road invariant (CLAUDE.md): a spawner that reads terrain instead of
     // the mask is told "grass" for a cell the overlay paints as asphalt. This
@@ -1411,6 +1434,20 @@
       'and not-close-enough is not');
   });
 
+  test('chase: a struck guard hunts from wherever it was hit, out to the leash', () => {
+    // Its notice ring is a distance from the ruin; a blow from past it (a
+    // bow, a spell, a keep guard's short ring) must still start the chase.
+    const dmg = SCENE_SRC.slice(SCENE_SRC.indexOf("_damageEnemy(c, amount, source = 'player', options = {}) {"));
+    assert.truthy(/if \(dealt > 0 && c\.lair && \(Combat\.isSharedHit\(source\) \|\| Combat\.isPeerHit\(source\)\)\) c\._hunting = true;/.test(dmg),
+      'a player-side hit marks a lair guard as hunting');
+    const mid = (AGGRO_M + LEASH_M) / 2;
+    const struck = guardAt(0, 0, { _hunting: false });
+    assert.eq(Lairs.guardState(struck, { x: mid, y: 0 }, CELL_M), 'hold', 'unstruck, it ignores a shooter past its ring');
+    struck._hunting = true;
+    assert.eq(Lairs.guardState(struck, { x: mid, y: 0 }, CELL_M), 'hunt', 'struck, it comes after them');
+    assert.eq(Lairs.guardState(struck, { x: LEASH_M + 1, y: 0 }, CELL_M), 'hold', 'and still not past the leash');
+  });
+
   test('chase: a player nobody can notice is not chased — the garrison goes home', () => {
     // Shadow Powder, or a bar run to zero (app.js `unnoticed`). The chase is
     // switched off exactly where the bite is, and a garrison that has lost the
@@ -1590,13 +1627,13 @@
     assert.lt(immobile, stepAt, 'at-rest below the movement step — a garrison that wanders off');
     // And the state that decides it is resolved ABOVE the attack blocks, since
     // `standDown` — the one read those blocks ask — is built from it.
-    const state = at("const lairState = c.lair && !frightened && !psychotic ? Lairs.guardState(", 'the guard state');
+    const state = at("const lairState = c.lair && !frightened && !psychotic ? enemyGuardState(", 'the guard state');
     assert.lt(state, leech, 'the state is resolved before anything reads standDown');
     // `!unnoticed`, optionally AND further reasons to stand down (the kerb
     // turn of the Sep 2026 safety pass) — never a lane that drops unnoticed.
     // A shared guard after another player (Multiplayer.enemyTarget's peer
     // body) measures from THAT player, noticed — their device judges them.
-    assert.truthy(/Lairs\.guardState\(c, peerTarget \|\| \{ x: px, y: py \}, this\.cellM,\s*!!peerTarget \|\| \(!unnoticed(?: && [^)]+)?\)\)/.test(body),
+    assert.truthy(/enemyGuardState\(this, c, peerTarget \|\| \{ x: px, y: py \},\s*!!peerTarget \|\| \(!unnoticed(?: && [^)]+)?\)\)/.test(body),
       'measured from the FEET, and told whether the player is worth noticing at all');
     assert.truthy(/c\._hunting = lairState === 'hunt';/.test(body),
       'the hysteresis is stored back on the creature');

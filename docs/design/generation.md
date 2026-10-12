@@ -4,6 +4,16 @@ Detail doc for world generation, saves and placement precedence. The root
 `CLAUDE.md` owns the overview; read this before changing generation, spawn
 access or tile lifecycle mechanics.
 
+## Surface rocks
+
+- After zone and scenic dressing, `assignSurfaceBoulder` selects roughly one
+  eighth of plain natural mineral rocks from their stable ids. Boulders retain
+  their mining identity and yield. Ore, gem deposits, cave rocks, roadside rocks
+  and connected zone walls are excluded from this size selection. Selected
+  rocks carry `sightBlocking: true`; ordinary stones stay small and leave sight
+  clear. Shared rocks use neutral grey material artwork, with authored zone signatures
+  and optional zone tints for the supported places.
+
 ## Habitat populations
 
 - `src/habitat_spawns.js` owns fauna mixtures, landcover/variant resolution and
@@ -116,6 +126,7 @@ access or tile lifecycle mechanics.
   one owning table keyed by floor, never a depth literal at a call site.
   `WorldGen.floorProfile(depth)` owns cave terrain, street projection and gem
   probabilities, authored cave-area weights/carving/garrisons, pressure traps,
+  the vent kinds a floor erupts,
   arrival story IDs and entry keys. Keep story copy in the presentation module;
   choose its story through the profile. Depths beyond the explicit rows inherit
   the default profile, including the infernal entry key.
@@ -148,14 +159,17 @@ access or tile lifecycle mechanics.
 - A POI chest's tier is its tile's QUOTA SEAT (`WorldGen.seedChestTiers`):
   each tile seeds ~1 T5, 5 T4, 11 T3, 18 T2 (x1..x2 over 100..1000
   budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),
-  round-robin across chest categories; everything else is T1. Vista chests
+  round-robin across chest categories; everything else is T1. A bus stop
+  never takes a seat: it is always a regular restocking crate
+  (`loot.js chestAlwaysCrate`), because the wagon art belongs only to the
+  old-trade-road mercenary stop. Vista chests
   are fixed T5 outside the budget; a Nexus chest can win a seat without
   spending one (+1 on top). Each underground floor re-seats its own pyramid over
   its mirrors (the rank rides down), and the cap CLIMBS underground
   (`loot.js chestTierMaxFor`: T6 from depth 3, T7 from 6) while the depth
   bonus stays `+floor(depth/2)`. Unseeded chests (hand-placed, sandbox) are
   the unstamped T2 - the old count ladder is retired, and `o.poiDensity`
-  now only feeds restock days and the pots of gold. Breakable pots and
+  now only feeds restock days and POI coin bursts. Breakable pots and
   barrels select their loot mix by stable appearance (`barrelProfile`). Surface
   waste-basket/recycling POIs share `barrelDensity`, the combined tile count
   stamped with POI density (including restamps after live additions). At ≤10
@@ -199,7 +213,7 @@ access or tile lifecycle mechanics.
   edge are not dead ends.
 - Chests give ONCE (`save.opened`), including smashed pots and barrels. Crates
   (`restocks`) come back after `crateRestoreDays` (1 for an ordinary crate, up
-  to 7 for a class crowding its tile); pots of gold, bike racks, chapels and
+  to 7 for a class crowding its tile); bike racks, chapels and
   grove shrines daily. Recurring sites take the one day ledger (`Macros.markToday` — it
   keeps a week; `usedToday` / `stillBare` / `restockWaitMs` read it) and glow
   while available (`poiLit`); a refusal is `Macros.waitLine(prefix, ms)`. A
@@ -268,8 +282,8 @@ access or tile lifecycle mechanics.
   spawner. Authored Thorny Path, Snare Lane and Barricade Road cross-sections are the
   narrow exception: `streetObstacle` may occupy explicitly declared cells
   of its own road band. Thorny Path and snare clusters (and a Snare Lane's few lone stray snares, declared one band cell at a time) cross variant-eligible Small roads only; removable
-  barricade/spike lines also cross their own Major or Medium road band
-  and kerb buffer. All keep
+  barricade/spike lines belong on paths. Every authored cross-section refuses
+  Major/Medium road bands and their kerb buffers. All keep
   private, quiet, restricted, water/building and occupancy exclusions. Ordinary
   spawn classes cannot use that declaration to cross a road.
   POI chests are the place itself (`landRefused` —
@@ -282,6 +296,46 @@ access or tile lifecycle mechanics.
   (`sameSideField`, creature_ai.js) — nothing urgent across a Major or Medium road.
   Cave traps use their occupied-cell set; surface traps sit beside footpaths
   or on park edges, never near a road (`Traps.isTrapGround`).
+- Path variant assignment joins connected mapped fragments and balances natural
+  endpoints, nearby terrain/Nexus affinity and a soft 300 m length target.
+  Ordinary sections are at least 180 m and at most 550 m; forks and true ends
+  retain short branches. Every 20 m, sample beside the path using source ground
+  and Nexus traits. A dominant affinity change must persist 40 m on both sides
+  to attract a cut. Source endpoints and pronounced bends are also preferred;
+  interpolated cuts keep long uniform spans bounded. Choose cuts together to
+  avoid short leftovers. Theme affinity uses the same surrounding traits.
+  Section keys use their boundary coordinates and mapped level rather than an
+  ordinal, so an unchanged downstream section keeps its identity. Boundary
+  reasons and lengths are exposed in the map review viewer.
+  `streetIndex.pathSections` owns their geometry, stable
+  keys, source feature IDs and themes;
+  isolated short paths and tile-edge remnants stay short. Exact T-junctions are joined even when a source line omits the junction
+  vertex. Nearby disconnected endpoints are not snapped together. At forks, the
+  straightest continuation is preferred deterministically. Different mapped
+  levels and bridge/tunnel classes never join, and disconnected geometry
+  never joins just because it shares a feature ID. Sections are tile-local;
+  generation never depends on which neighbouring tiles are loaded.
+  Path sections have their own weighted pool: mostly Greenway, Park Path and
+  Promenade, with occasional Lantern Row and Barricade. Small-road variants
+  never enter that pool. A majority-scenic section uses its landscape's look. Scenic restoration bonuses still follow the
+  original geographic intervals. Painting, dressing, lamps, stories and map
+  review all consume the same section assignment.
+- Nexus interiors suppress Small-road variants using exact coverage-boundary
+  intervals shared by pavement, lamps, stories and hazards. The selected theme
+  and its stable identity survive; only outside portions receive themed
+  dressing. Coverage also clips area claims and hot-road end caps. Paths keep
+  their light paving and lamps inside, but Nexus vegetation and encounters
+  take precedence: ordinary path/road props, guards and slow effects yield.
+  Affinity is sampled before suppression. Nexus influence follows connected
+  routes for up to 150 m, fading with route distance; parallel disconnected
+  roads and different bridge/tunnel levels do not inherit it. The path pool's
+  normal weights live on its rows as `pathWeight`; Small roads retain `share`.
+- Medium roads are always **Old Trade Road**, and large roads are always
+  **Ancient Highway**. Neither receives road variants, themed obstacles,
+  themed guards or variant flora. Both retain road suppression and nighttime
+  curse damage. Selected mapped bus stops off the MD carriageway can retain
+  mercenary hiring wagons; LG roads and junctions cannot. Ordinary mapped
+  places keep their existing rules.
 - The road is never a refuge and never a lure. `roadClass` derives all safety
   geometry from the vector bands. `ROAD_CLASS_MAJOR_ROAD` marks an MD/LG cell
   only when that group covers at least half of it, which gives runtime warnings
@@ -425,6 +479,13 @@ access or tile lifecycle mechanics.
   foreground ticks own the clock. `HazardFalls` owns landing and descent,
   including floor seals and retrying unavailable landings. Temporary sinkholes
   do not compete with these clusters; existing L1 chasms remain unchanged.
+  A grounded enemy, pet or charmed creature (`HazardFalls.fallsThrough`;
+  never a flier, NPC or hired ally) that ends a creature tick over an open gap (opened cave-in,
+  open sinkhole or L1 chasm — `HazardFalls.gapAt`) falls too
+  (`HazardFalls.dropCreatures`): it leaves this floor and lands, by the same
+  landing search, on the floor below when that tile is already spawned, or is
+  gone this session otherwise. A fall is no kill: nothing enters `save.caught`.
+  A fallen pet rejoins through `Companions.tickPets` catch-up.
 - POIs that are no chest ride existing lanes too: a GATE is two posts round a
   spawn point (`WorldGen.gatePostsAt`, lairs.js `'gate'` tier — one foe a UTC
   day, `DAILY_TIERS`); an INFORMATION board reads a Book page like the
@@ -468,8 +529,19 @@ Higher-priority placements and their access space take precedence in this order:
    replaces residential land cover and ambient yard fill, while buildings,
    piers and other land-access exclusions keep their paint. Nexus variants
    override road variants where they overlap; the physical road and its
-   safety restrictions remain intact.
+   safety restrictions remain intact. Goblin Gang Street is a Small-road
+   variant with compact sections up to 250 m. Per street key in a tile, six
+   paired clusters target 30 breakable barrels and 30 goblin grunts (five
+   per gang, in either difficulty). Fragments share that budget; blocked
+   seats reduce the count. Barrels use the attractor gate, and gang posts
+   and their guards retain the fast-enemy spawn gate.
 6. Ambient fill: ordinary plants, rocks and generic scattered content.
+   Residential yard trees are the newest ambient fill: while the DeepForest
+   layer is paused (`DEEPFOREST_TREES_ENABLED`), each residential polygon
+   seeds random-sized trees from the `T.RESIDENTIAL` `yardTrees` row
+   (`BiomeProfiles.yardTrees`). They seat after every older object and wild
+   plant, obey the residential spawn gate like the yard flora, and yield
+   their cell to any mapped or detected tree from the tile bin.
 
 - Hard terrain, land-access, road-safety and accessibility rules are prerequisites,
   separate from priority. Higher priority does not bypass them. Any authored

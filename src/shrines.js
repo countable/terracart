@@ -4,7 +4,8 @@
 // A shrine kind is a row of SHRINE_KINDS: its frame on the generated sheet
 // (assets/Objects/Generated/shrines.png, SpriteLayout.shrineKindArt), its
 // light colour (Lighting.KINDS `shrine_<id>`), the Nexus variants and Road
-// variants it stands in, and the ONE lever its boon pulls for durationMs.
+// variants it stands in, and the ONE lever its boon pulls for durationMs —
+// or, instead of a boon, a `reward` (the golden idol's coin spree).
 //
 // Every shrine is still a `grove_shrine` object — the daily shrine: one
 // visit per UTC day per shrine through Macros.usedToday / markToday, its
@@ -39,7 +40,10 @@
   // `streets` names StreetVariants rows: themed streets (minor / major) and
   // the scenic path rows (promenade, greenway, parkpath — Scenic.KIND_ROW).
   // `flash` is the map line on a visit (≤ MAP_MSG_MAX); `body` the one-fact
-  // description (a hint, never the number). Frames are the sheet's order.
+  // description (a hint, never the number); `effect` (optional) spells out
+  // the rule when the hint alone would leave it unclear. The visit card adds
+  // the boon's chip word and duration under them (cardBody). Frames are the
+  // sheet's order.
   const SHRINE_KINDS = {
     drill: { art: 'underground_miners_way', light: 0x9fdcff, lever: 'mining', durationMs: MIN, boon: 'Mining',
       zoneVariants: [], streets: [], locations: ['Underground'], perTile: 10,
@@ -64,13 +68,14 @@
     moss_cairn: { art: 'shrine_moss_cairn', frame: 4, light: 0x9be08a, lever: 'hidden', durationMs: 3 * MIN, boon: 'Unseen',
       zoneVariants: ['ancient_grove', 'sacred_grove'], streets: ['overgrown', 'greenway', 'thorny'],
       name: 'Moss cairn', flash: 'The moss hushes your steps.',
-      body: "You touch the mossy stones. Nearby creatures look past you, unaware of your presence." },
+      body: "You touch the mossy stones and the woods fall quiet around you. Creatures look straight past you, as if you were part of the moss.",
+      effect: "Creatures won't notice or attack you, and animals won't flee your net. Strike a creature and that one sees you again." },
     rust_totem: { art: 'shrine_rust_totem', frame: 5, light: 0xff8c2a, lever: 'melee', durationMs: 5 * MIN, boon: 'Grip',
-      zoneVariants: ['work_yard', 'broken_masonry', 'broken_depot'], streets: ['barricade', 'snare'],
+      zoneVariants: ['work_yard', 'broken_masonry', 'broken_depot'], streets: ['barricade', 'snare', 'goblin_gang'],
       name: 'Rust totem', flash: 'Your grip hardens like iron.',
       body: "You touch the rusted iron. Your arms feel stronger as you grip your weapon." },
     wishing_well: { art: 'shrine_wishing_well', frame: 6, light: 0xefc46a, lever: 'fortune', durationMs: 15 * MIN, boon: 'Luck',
-      zoneVariants: ['meadow', 'hedge_garden'], streets: ['golden', 'hedgerow'],
+      zoneVariants: ['meadow', 'hedge_garden'], streets: ['hedgerow'],
       name: 'Wishing well', flash: 'A coin sinks. Luck stirs.',
       body: "Green coins glint at the bottom of the well. You lean over the edge and make a wish." },
     harvest_idol: { art: 'shrine_harvest_idol', frame: 7, light: 0xffd07a, lever: 'work', durationMs: 15 * MIN, boon: 'Hardworking',
@@ -85,6 +90,14 @@
       zoneVariants: ['black_ring', 'flint_field', 'quarry-crater'], streets: ['burned'],
       name: 'Ember altar', flash: 'Fire gathers in your hands.',
       body: "You reach toward the glowing ember. Fire gathers in your hands, ready to strike." },
+    // The GOLDEN ROAD's idol: no boon — once a UTC day it spills a coin on
+    // every free verge cell of its road on this tile (`coinSeats`, laid by
+    // street_variants.js; app.js _coinBurstInteract's path mode). Every
+    // Golden Road gets one (streetChance), since the road's coins are its.
+    golden_idol: { art: 'street_golden', frame: 10, light: 0xefc46a, reward: 'coins', fillScreen: true, path: true,
+      zoneVariants: [], streets: ['golden'], streetChance: 1,
+      name: 'Golden idol', flash: 'Coins spill along the road.', spent: 'The idol is dull today',
+      body: 'You touch the gilded idol. Green coins spill from its hands and roll along both sides of the road.' },
   };
   const REWARD_KINDS = {
     bike: { name: "Courier's post", art: 'visit_bike', sprite: 'bike_rack', light: 0xaadbd1, ledger: 'day',
@@ -95,13 +108,6 @@
         Buffs.extend(ctx.save, ctx.scene, 'bike', BIKE_RACK_MS);
         ctx.scene.flash(bikeRackFlash(), ctx.sx, ctx.sy);
       } }) },
-    // A POT OF GOLD (an ATM): scattered coin pickups (app.js _coinBurstInteract).
-    gold: { name: 'Pot of gold', art: 'visit_gold', sprite: 'potofgold', light: 0xffd778, ledger: 'day',
-      reward: 'coins', effect: 'Scattered coins', durationMs: 0,
-      locations: ['Mapped ATMs'],
-      body: 'You lift the heavy lid. Coins spill across the ground.',
-      open: (ctx, o) => typeof ctx.scene._coinBurstInteract === 'function'
-        ? (ctx.scene._coinBurstInteract(ctx.sx, ctx.sy, o), true) : null },
     mystic_reef: { name: 'Reef treasury', art: 'visit_gold', reward: 'coins', fillScreen: true,
       body: 'You touch the sea-worn stone. Gold washes out across the shore.', light: 0x9fdcff },
     waystone: { name: 'Waystone', art: 'shrine_waystone', reward: 'book',
@@ -113,7 +119,6 @@
   // Returns the row itself; callers use its art/reward or boon lever.
   function kindForObject(o) {
     if (typeof isBikeRack === 'function' && isBikeRack(o)) return REWARD_KINDS.bike;
-    if (typeof isPotOfGold === 'function' && isPotOfGold(o)) return REWARD_KINDS.gold;
     if (o?.kind === 'waystone') return REWARD_KINDS.waystone;
     if (o?.kind !== 'grove_shrine') return null;
     return REWARD_KINDS[o.zoneVariant] || SHRINE_KINDS[o.shrineKind] || REWARD_KINDS.grove;
@@ -150,7 +155,7 @@
   // runs to max(now, until) + durationMs). Returns false for an unknown kind.
   function grant(save, kindId, now = Date.now(), scene = null) {
     const row = SHRINE_KINDS[kindId];
-    if (!row || !save) return false;
+    if (!row || !save || row.reward) return false;
     if (LEVERS[row.lever] === null) {
       if (!scene?._consumeFoodEffects) return false;
       scene._consumeFoodEffects('pairy', false, now);
@@ -162,6 +167,19 @@
   // grant above, and app.js drinkHardworkingPotion pulling `work`).
   function extend(save, lever, durationMs, now = Date.now(), scene = null) {
     return !!LEVERS[lever] && root.Buffs.extend(save, scene, LEVERS[lever], durationMs, now);
+  }
+
+  // The visit card's body: the kind's description, then the line naming the
+  // boon as its status-row chip does and how long it runs (shortDuration),
+  // with the kind's `effect` rule when it has one.
+  function cardBody(kindId) {
+    const row = SHRINE_KINDS[kindId];
+    if (!row) return '';
+    const buff = root.Buffs && root.Buffs.KINDS[LEVERS[row.lever]];
+    if (!buff) return row.body;
+    const ink = '#' + row.light.toString(16).padStart(6, '0');
+    const chip = `<b style="color:${ink}">${buff.name}</b> · ${shortDuration(row.durationMs)}`;
+    return `${row.body}\n\n${chip}${row.effect ? ' — ' + row.effect : ''}`;
   }
 
   // The map line a visit shows (≤ MAP_MSG_MAX — shrines.test.js measures).
@@ -180,6 +198,6 @@
 
   root.Shrines = {
     SHRINE_KINDS, REWARD_KINDS, kindForObject, KIND_IDS, LEVERS, FORTUNE_LUCK_BONUS, WORK_SPEED_MUL, REGEN_PER_SECOND, WAND_TIER, MINING_TIER, STREET_SHRINE_CHANCE, SCENIC_SHRINES_PER_TILE,
-    kindForZoneVariant, kindForStreet, leverUntil, leverActive, grant, extend, boonFlash, normalize,
+    kindForZoneVariant, kindForStreet, leverUntil, leverActive, grant, extend, boonFlash, cardBody, normalize,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

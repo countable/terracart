@@ -86,7 +86,7 @@ test('restored starter smith: keeps its pair and advances to the regular forge',
 
 test('always open: a heap of deals this hour shuts no door', () => withDocument(() => {
   for (const [opts, key] of [
-    [{ role: 'market' }, 'themed'],
+    [{ role: 'shop' }, 'themed'],
     [{ role: 'trader' }, 'trader'],
     [{ role: 'blacksmith' }, 'smith'],
     [{}, 'delivery'],
@@ -100,7 +100,7 @@ test('always open: a heap of deals this hour shuts no door', () => withDocument(
 }));
 
 test('always open: a deal is recorded against the house, and a cash shop reopens on it at once', () => withDocument(() => {
-  const s = scene({ role: 'market' });
+  const s = scene({ role: 'shop' });
   s.shopInteract(0, 0, HOUSE);
   const record = s.calls.records[0];
   assert.eq(typeof record, 'function', 'the accept path is handed recordDeal');

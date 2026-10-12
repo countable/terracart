@@ -34,6 +34,8 @@
       const q = Quests.get(s.save, variant);
       assert.eq(q.verb, verb);
       assert.eq(s.offers[0].canAfford, false);
+      assert.eq(s.offers[0].get, q.title);
+      assert.eq(s.offers[0].headline, 'banner', 'the quest name is dressed as a title');
       // Even a stale or manually triggered locked callback cannot grant ownership.
       s.offers[0].onAccept();
       assert.falsy(s.isCastleClaimed(h));

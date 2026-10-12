@@ -20,7 +20,14 @@
 // Game constants the renderer passes in (app.js CELL_PX, worldgen CELL_M) and
 // the real frame widths render.js reads off the loaded textures.
 const CELL_M = 7, CELL_PX = 32;
-const FORT_W = 214;          // assets/Objects/Houses/fort.png is 214×154
+const FORT_W = pngDims('assets/Objects/Approved/house_fort.png').w;
+test('fort art: both states use the approved tight 64px frame', () => {
+  for (const name of ['house_fort', 'house_fort_unclaimed']) {
+    const size = pngDims(`assets/Objects/Approved/${name}.png`);
+    assert.eq(size.w, 64);
+    assert.eq(size.h, 43);
+  }
+});
 // Every residential frame in the game, so "one village, one size" is checked
 // against the actual art rather than asserted about one of them.
 const HOUSE_FRAMES = {
@@ -29,7 +36,7 @@ const HOUSE_FRAMES = {
   trader:        76,
   wreck:         80,
   'wizard tower': 80,  // wizard.png sliced 80×104, frame 3
-  market:       106,
+  shop:       106,
   trailer:      108,
 };
 // The SHIPPING table (util.js), not copies of it — a test carrying its own
@@ -84,7 +91,7 @@ test('building scale: Home draws a tenth wider than the village, on its own row'
   assert.eq(TRAILER.def, TRAILER.min); assert.eq(TRAILER.def, TRAILER.max);
   assert.lt(TRAILER.max, FORT.min, 'Home stays under the smallest fort');
   // Every residential role without a row of its own shares the house row.
-  for (const role of ['plain', 'blacksmith', 'trader', 'market', 'wreck', 'wizard', 'house', undefined]) {
+  for (const role of ['plain', 'blacksmith', 'trader', 'shop', 'wreck', 'wizard', 'house', undefined]) {
     assert.eq(buildingArt(role), HOUSE, `${role} is a house`);
   }
   assert.eq(buildingArt('fort'), FORT); assert.eq(buildingArt('trailer'), TRAILER);

@@ -106,8 +106,8 @@
     assert.falsy(Object.values(G).some(row => row.members.some(m => EnemyRoster.get(m.kind)?.movement?.pattern === 'ghost_glide')),
       'ghosts are never guards');
     has('splitter', 'split_slime');              // the slime that replicates when damaged
-    has('bats', 'bat');                          // a swarm of bats
-    has('roost', 'bat');                         // …and a wreck's pair
+    // Bats live underground only: no surface garrison seats one.
+    assert.falsy(Object.values(G).some(row => row.members.some(m => m.kind === 'bat')), 'no group seats a bat');
     assert.falsy(Object.values(G).some(row=>row.members.some(m=>m.kind==='storm_gull')), 'retired storm gulls have no generated guard group');
     has('elite_orc', 'orc');                     // one strong guy, elite
     has('elite_soldier', 'skeleton_soldier');
@@ -123,9 +123,13 @@
     for (const [name, g] of Object.entries(Lairs.GROUPS)) {
       assert.eq(g.tiers.length, 1, `${name}: one tier, never both`);
       const habitat = Object.hasOwn(Lairs.HABITAT_TIER_GUARDS, g.tiers[0]);
-      assert.truthy(g.tiers[0] === 9 || g.tiers[0] === 12 || habitat, `${name}: a house's, a castle's or a habitat site's, never a fort's`);
+      const street = Object.hasOwn(Lairs.STREET_TIER_GUARDS, g.tiers[0]);
+      assert.truthy(g.tiers[0] === 9 || g.tiers[0] === 12 || habitat || street, `${name}: a house's, a castle's or a habitat site's, never a fort's`);
       const n = Lairs.expandGroup(name, g.tiers[0]).length;
-      if (g.tiers[0] === 9 || habitat) {
+      if (street) {
+        assert.eq(n, Lairs.STREET_TIER_GUARDS[g.tiers[0]], `${name}: street group uses its fixed budget`);
+        for (const m of g.members) assert.eq(m.place, 'ring', `${name}: clustered around its verge post`);
+      } else if (g.tiers[0] === 9 || habitat) {
         assert.lte(n, 4, `${name}: a wreck's group is small (${n})`);
         for (const m of g.members) assert.truthy(m.place === 'ring' || m.place === 'cloud', `${name}: a wreck's guards sit round or over it, never on its floor`);
       } else {
@@ -147,7 +151,7 @@
     for (const [name, g] of Object.entries(Lairs.GROUPS)) {
       assert.truthy(g.label && g.story, `${name}: a label and a line for the design sheet`);
       assert.gt(g.tiers.length, 0, `${name}: holds somewhere`);
-      for (const tier of g.tiers) assert.truthy(Lairs.TIERS.includes(tier) || Object.hasOwn(Lairs.HABITAT_TIER_GUARDS, tier), `${name}: tier ${tier} is a building or a habitat tier`);
+      for (const tier of g.tiers) assert.truthy(Lairs.TIERS.includes(tier) || Object.hasOwn(Lairs.HABITAT_TIER_GUARDS, tier) || Object.hasOwn(Lairs.STREET_TIER_GUARDS, tier), `${name}: tier ${tier} is a building or a habitat tier`);
       for (const tier of g.tiers) if (typeof tier === 'string') assert.eq(Lairs.TIER_GROUP[tier], name, `${name}: a habitat tier always takes its group`);
       if (g.chance != null) assert.inRange(g.chance, 0, 1, `${name}: fixed share is a probability`);
       assert.inRange(g.minT || 0, 0, 0.9, `${name}: minT leaves strong ruins something to take`);
@@ -177,10 +181,14 @@
       assert.inRange(Lairs.GROUP_RATE[tier], 0.05, 0.95, `tier ${tier}: a group is a share of ruins, not all of them`);
     }
     // The kinds that exist only for groups are seated by nothing else.
+    // The splitting slime alone also joins the first cave floor's bag.
     for (const kind of ['goblin_runt', 'split_slime', 'storm_gull']) {
       const row = EnemyRoster.get(kind);
       assert.falsy(row.surface, `${kind} is in no surface pool`);
-      assert.falsy(row.cave, `${kind} is in no cave bag`);
+      if (kind === 'split_slime') {
+        assert.eq(`${row.cave.minDepth}-${row.cave.maxDepth}`, '1-1', 'the splitting slime oozes on floor 1 only');
+        assert.includes(EnemyHabitats.FAMILIES.natural, kind, 'in the natural regions');
+      } else assert.falsy(row.cave, `${kind} is in no cave bag`);
       assert.falsy(Combat.onQuestBoard(kind), `${kind} is never a board job`);
     }
   });
@@ -310,13 +318,6 @@
       assert.truthy(insideKeep(r, band.cx, band.cy), 'about the floor of the keep');
     }
     assert.eq(band.guards[0].kind, 'orc', 'the elite is guard 0, so easy mode wakes it');
-  });
-
-  test('guard groups: the bats cloud the ruin', () => {
-    const bats = wakeGroup('bats', 12, 2 * HALF);
-    assert.gte(bats.guards.length, 8, `the swarm woke ${bats.guards.length}`);
-    for (const b of bats.guards) assert.eq(b.kind, 'bat');
-    assert.eq(wakeGroup('roost', 9).guards.length, 2, 'a wreck roosts a pair');
   });
 
   test('guard groups: a grouped ruin is the same ruin for everyone, and the easy cap wakes its head', () => {

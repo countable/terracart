@@ -7,8 +7,9 @@ real-world roll. `src/sandbox.js` owns the map.
 
 For simulated travel, enable **☰ → Developer → GPS stick**. The blue left
 stick moves the GPS fix; the ordinary stick still moves the character relative
-to it. First movement takes over from device GPS for this session. Hiding the
-stick keeps the simulated fix; reload to restore device GPS in normal play.
+to it. First movement takes over from device GPS for this session. Turning the
+stick off resumes device GPS in normal play; the next real fix walks or snaps the
+character back to it.
 
 ## Floor viewer
 
@@ -24,8 +25,8 @@ fits; the viewer reports declined placements.
 
 Use `index.html?sandbox=true&sandboxZone=forest` to start at a named destination.
 Examples include `beach`, `wetland`, `golf`, `castle`, `fort`, `grove`, `stones`,
-`tar`, `practice`, `hazards`, `hazards-cave`, `restoration`, `meadow` and `crater`. Road destinations include `hedgerow-road`, `orchard-road`,
-`thorny-road` and `parkpath`. `src/sandbox_destinations.js` owns the shared catalog used by
+`tar`, `practice`, `hazards`, `hazards-cave`, `hazards-deep`, `restoration`, `meadow` and `crater`. Road destinations include `hedgerow-road`, `orchard-road`,
+`thorny-road`, `goblin_gang-road` and `parkpath`. `src/sandbox_destinations.js` owns the shared catalog used by
 the game and design dashboards; coordinates come from the authored layout.
 
 Existing `sandboxScene=FOREST` or `sandboxScene=PRACTICE` links still work.
@@ -79,7 +80,7 @@ wizard role.
 | Street restoration | Half of Lantern Row starts restored, so lit and unlit lamps appear on one road. |
 | Road variant dressing | The live `StreetVariants.dress` pass places hedges, trees, fruit trees, mushrooms, coins, waystones, barricades, tar, stakes and torches. |
 | Old Trade Road | A plain Major or Medium road carries the bandit-verge bit and a hashed wagon-stop look. |
-| Street rewards | Golden Road coins, street lairs and a cafe hoard use their normal generated records. |
+| Street rewards | The Golden Road's idol and its coin spree, street lairs and a cafe hoard use their normal generated records. |
 | Scenic paths | Common Walk is a `parkpath`; the beach carries a scenic shore mask, tide pool and viewpoint scope. |
 | Nexuses | Grove, Old Stones and Tar Yard anchors carry real Nexus coverage and run `ZoneDressing`. |
 | Shrine kinds | The zones scene's east edge stands one shrine of each `Shrines.SHRINE_KINDS` row, north to south in table order; tap one for its boon. |
@@ -93,21 +94,23 @@ wizard role.
 | Variant | Road | What it exposes |
 |---|---|---|
 | hedgerow | Oak Road | clipped hedges and a habitat gate |
-| lantern | Main Street | dense amber lamps; half restored |
+| lantern path | Main Street | dense amber lamps; half restored |
 | burned | Mill Lane | tar, stakes, torches and slow cells |
 | toadstool | Garden Row | mushroom verge and teal lamps |
 | overgrown | Fern Way | staged roadside trees |
 | orchard | Cherry Lane | alternating apple and maple rows |
 | pilgrim | Abbey Walk | waystone end piece |
-| golden | Coin Row | persistent verge coins |
+| golden | Coin Row | a golden idol; its daily spree fills the verges with coins |
 | thorny | Thorny Way | brambles and a narrow road corridor |
 | snare | Iron Lane | a snare chest ringed by iron teeth, a few stray snares down the lane |
-| barricade | Fort Road | barricades, stakes and guard lair |
+| goblin_gang | Goblin Gang Street | clustered barrels and goblin grunt guards |
+| barricade path | Fort Road | barricades, stakes and guard lair |
 | plain minor | Market Close / Maple Street | ordinary street comparison |
-| plain major | Old Trade Road | old-trade-road lamps and wagon stop |
+| plain MD | Old Trade Road | suppression zone, night curse and wagon stop |
+| plain LG | Ancient Highway | suppression zone and night curse |
 | parkpath | Common Walk | scenic path colour, lamps and reward multiplier |
 
-This table covers every rolled minor and major row in
+This table covers every minor row and the lantern/barricade path rows in
 `StreetVariants.STREET_VARIANTS`. Scenic promenade and greenway rows still
 need geography that the sandbox does not author.
 
@@ -142,7 +145,7 @@ The new scenes add:
 | `tar`, `stakes`, `torch` | Tar Yard and themed roads |
 | `waystone` | Abbey Walk |
 | `vista_scope` and scenic chest | Recreation viewpoint |
-| `coindrop` from Golden Road | Coin Row |
+| `coindrop` from the golden idol's spree | Coin Row |
 | surface trap | Common Walk and park edges |
 | campfire | Player Plaza |
 | street and cafe lairs | themed streets |
@@ -180,8 +183,9 @@ memories alone do not unlock shop ranks. Authored buildings are restored using
 `Houses.restoreAs`, so roles, ranks and one-off shop identities use the live
 ledgers. The two marked wrecks remain unrestored until the tester chooses.
 
-The eastern service row has all nine macro types: inn, chapel, scholar,
-training, guildhall, curio, sundries, scriptorium and apothecary. A repeatable
+The eastern service row has all ten macro types: inn, chapel, scholar,
+training, guildhall, curio, sundries, scriptorium, apothecary and bank (an ATM
+by the start chest is a second bank). A repeatable
 crate, permanent barrel and clay pot, and a chest whose stable ID passes the
 real mimic roll compare container behavior. The southern encounter area adds
 mushroom monster, disguised treant, fire elemental, mimic, wurm and zombie
@@ -202,11 +206,15 @@ whose stable ID passes the real nest roll. The beach has a readable bottle.
 spawn is clear of their contact cells. The web uses the normal saved landing
 record and expiry; stepping off and back on tests paralysis renewal.
 
-`hazards-cave` starts at depth 1 with three vents (poison, fire, paralysis),
-a rolling ball, a sliding wall and a connected pair of cave-in cells. Arrival
+`hazards-cave` starts at depth 1 with the floor's grey confusion vent and a
+connected pair of cave-in cells. `hazards-deep` starts at depth 2 with its
+three vents (poison, fire, paralysis), a rolling ball and a sliding wall. Each
+lab seats the vents `EnvironmentHazards.ventKinds` allows on its floor. Arrival
 and reset light a normal torch from the test kit, making the warnings visible. Walk
 onto a plate to launch its trap; each plate fires once. Vents use their normal
-inactive/warning/active cycle. Cave-ins start their five-second warning on
+inactive/warning/active cycle; a gas vent's eruption bursts its gas (confusion
+yellow, poison green, paralysis blue) onto its neighbours instead of striking,
+and the fire vent lights burning ground on its cell and the four beside it. Cave-ins start their five-second warning on
 load and stay open. `cavein` lands beside the cracks to watch the full warning;
 a second reset label there repeats the sequence without walking back. Depths 1 and 2 have authored empty floor tiles so falling
 uses the real landing search and depth transition without a network wait.

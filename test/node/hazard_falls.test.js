@@ -11,7 +11,7 @@
     globalThis.WorldGen = world; EnvironmentHazards.overlaps = s => s.touching;
     const scene = { depth, tileEdgeM: 64, feetOffsetM: 0, startWorldM: { x: 0, y: 0 }, playerM: { x: 28, y: 28 },
       touching: true, save: { depth, energy: 50, dungeonProgression: {} }, flashed: [], persisted: 0,
-      flashAtPlayer(s) { this.flashed.push(s); }, flash() {}, syncMoveTarget() {},
+      flashAtPlayer(s) { this.flashed.push(s); }, flash() {}, syncMoveTarget() {}, _clearMarkers() {},
       cameras: { main: { setBackgroundColor() {} } }, ensureTilesAround: async () => {},
       _storySplashOnce() {}, spawnCaveCreatures(e) { e._spawned = true; } };
     const start = SCENE_SRC.indexOf('\n  changeDepth('), end = SCENE_SRC.indexOf('\n  }', start) + 4;

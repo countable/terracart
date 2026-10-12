@@ -222,10 +222,12 @@ test('the literal spellings are gone from the readers', () => {
     // (+ the street variants' standing props: the waystone and the stakes;
     // the tar pit lies flat and casts none. + the influence zones' two:
     // the headstone and the grove shrine. + the POI props: the notice board
-    // and the gate post. + the scenic viewpoint's scope.)
+    // and the gate post. + the scenic viewpoint's scope. + the underground
+    // streets' stalagmites; their inert vent lies flat and casts none.)
     const expected = ['tree', 'fruittree', 'chest', 'mineralrock', 'well',
                       '_scarecrow', '_fire', 'torch', 'waystone', 'stakes',
-                      'headstone', 'grove_shrine', 'hive', 'infoboard', 'gatepost', 'vista_scope'];
+                      'headstone', 'grove_shrine', 'hive', 'infoboard', 'gatepost', 'vista_scope',
+                      'stalagmites'];
     for (const k of expected) assert.truthy(flagged.has(k), `${k} casts a contact shadow`);
     for (const k of ['house', 'tower', 'groundstack', 'staircase']) {
       assert.falsy(flagged.has(k), `${k} does not`);

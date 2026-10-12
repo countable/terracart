@@ -204,7 +204,7 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
   // a wander-off, the kerb, a sated thief, an unprovoked grove resident, a
   // lair guard that has not noticed you) and `routed`; a tame slime (released_) never reaches it at all.
   assert.truthy(/const rosterRow = !isTame \? EnemyRoster\.get\(c\.kind\) : null;/.test(app), 'a tame slime is a pet, not a foe');
-  assert.truthy(/rosterEnemyMove\(this, c, rosterRow, now, npcTarget\?\.x \?\? px, npcTarget\?\.y \?\? py,\s*\(npcTarget \? NPC\.isDormant\(npcTarget\) : unnoticed\) \|\| standDown,\s*routed \|\| \(kerbTurn && !c\.lair\), lairState, enemyDt\);/.test(app),
+  assert.truthy(/rosterEnemyMove\(this, c, rosterRow, now, npcTarget\?\.x \?\? px, npcTarget\?\.y \?\? py,\s*\(npcTarget \? NPC\.isDormant\(npcTarget\) : unnoticed\) \|\| standDown,\s*routed \|\| \(kerbTurn && !c\.lair\), lairState, enemyDt, npcTarget\);/.test(app),
     'the mover is told unnoticed, standDown and routed');
   assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| wanderOff \|\| kerbTurn \|\| sated \|\| unprovoked\s*\|\| \(!!lairState && lairState !== 'hunt'\);/.test(app),
     'and standDown is still built from Home\'s ward, the wander-off, the kerb (creature_ai.js THE KERB), a sated thief (Combat.theftSated), an unprovoked grove resident (EnemyHabitats.unprovoked) and the lair state');
@@ -614,7 +614,7 @@ test('combat: a confused staff fires where you face, not at the nearest foe', ()
     'confused: the bolt follows the facing');
   const clear = Combat.shotHeading('staff', 0, 0, facing, [far, near], COMBAT_CELL_M, undefined, { confused: false });
   assert.truthy(clear.x === 0 && clear.y === -14, 'clear-headed: it still picks the nearest');
-  assert.truthy(/Combat\.shotHeading\(slot, px, py, this\.facing, enemies, this\.cellM, reach,\s*\{ confused: Conditions\.active\(this\.save, 'confused'\) \}\)/.test(SCENE_SRC),
+  assert.truthy(/Combat\.shotHeading\(slot, px, py, this\.facing, visibleEnemies, this\.cellM, reach,\s*\{ confused: Conditions\.active\(this\.save, 'confused'\) \}\)/.test(SCENE_SRC),
     'the fight tick passes the confused condition');
 });
 
@@ -872,7 +872,7 @@ test('staff range: the trigger and the flight are the same number', () => {
   assert.eq(shot.rangeM, rangeM, 'and the bolt flies exactly the range that loosed it');
   // The same reach, at both call sites, in the shipping loop.
   assert.truthy(/const reach = reachCells\(this\);/.test(SCENE_SRC), 'app.js reads the live reach');
-  assert.truthy(/Combat\.shotHeading\(slot, px, py, this\.facing, enemies, this\.cellM, reach[,)]/.test(SCENE_SRC),
+  assert.truthy(/Combat\.shotHeading\(slot, px, py, this\.facing, visibleEnemies, this\.cellM, reach[,)]/.test(SCENE_SRC),
     'and hands it to the trigger');
   assert.truthy(/relics\[slot\]\.tier, reach\);/.test(SCENE_SRC), 'and to the spawn');
 });

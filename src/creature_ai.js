@@ -378,7 +378,7 @@ function creatureSpawnClass(kind) {
 globalThis.creatureSpawnClass = creatureSpawnClass;
 
 // ── SAME SIDE: nothing time-sensitive across a major road ────────────────────
-// A timed or place-bound reward seated near the player (a pot of gold's coin
+// A timed or place-bound reward seated near the player (a coin
 // burst, a guild bounty's pack, anything walkableDestination finds) must be
 // reachable WITHOUT crossing an MD/LG band: sameSideField floods the surface
 // from the player's cell over a lattice of cellM steps, 4-connected, refusing
@@ -882,6 +882,10 @@ function fireWardTrip(scene, c) {
 // straight away from the ward; `unnoticed` (NOTHING HUNTS A BODY, or a Shadow
 // Powder) it hovers where it is. Neither touches.
 function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
+  // Ghost dispatch starts outside the roster's ordinary sight ring. Preserve
+  // its existing simulation-bubble pursuit, shortened by trees like any sight.
+  unnoticed ||= !Combat.seesTarget(scene, c, px, py,
+    (!c._awakened && c.proximityCells) || CREATURE_SIM_CELLS);
   // Routed by a ward it RUNS (hurryMps, like every other foe); the pace
   // multiplier (shiny, a thrown Speed, the frost's slow) rides on top.
   if (warded) pace = hurryMps(c, pace * 1000) / 1000;
@@ -1096,16 +1100,26 @@ function creatureFlightEase(t) {
 
 // Check the whole segment: a long hop must not skip a burning cell. An
 // escape may cross existing flames only while its starting point is on fire.
+// A lit campfire's hearth (FIRE_TOUCH_CELLS, where it sets a body burning) is
+// fire too, for every grounded mover and every kind; a body that is already
+// standing in one (placed on it, or pushed in) may always walk out.
 function fireStepAllowed(scene, c, x, y, escaping = false) {
-  if (!scene._groundFireAtWorld || Conditions.flying(c)) return true;
+  if (Conditions.flying(c)) return true;
+  const ground = scene._groundFireAtWorld, hearths = scene._nearAny && scene.save?.fires?.length;
+  if (!ground && !hearths) return true;
   const wallNow = Date.now();
-  let leavingFire = escaping && GroundFire.active(scene._groundFireAtWorld(c.x, c.y), wallNow);
+  const hearth = (px, py) => !!hearths && scene._nearAny('fires', px, py, FIRE_TOUCH_CELLS);
+  let leavingFire = escaping && !!ground && GroundFire.active(ground.call(scene, c.x, c.y), wallNow);
+  let leavingHearth = hearth(c.x, c.y);
   const n = Math.max(1, Math.ceil(Math.hypot(x - c.x, y - c.y) / (scene.cellM * 0.2)));
   for (let i = 1; i <= n; i++) {
-    const fire = GroundFire.active(scene._groundFireAtWorld(
-      c.x + (x - c.x) * i / n, c.y + (y - c.y) * i / n), wallNow);
+    const px = c.x + (x - c.x) * i / n, py = c.y + (y - c.y) * i / n;
+    const fire = !!ground && GroundFire.active(ground.call(scene, px, py), wallNow);
     if (fire && !leavingFire) return false;
     if (!fire) leavingFire = false;
+    const inHearth = hearth(px, py);
+    if (inHearth && !leavingHearth) return false;
+    if (!inHearth) leavingHearth = false;
   }
   return true;
 }
@@ -1354,11 +1368,14 @@ function fireAverse(c, row) { return !Conditions.flying(c) && !c.lair && (row.ca
 function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = false, allow = null) {
   let dx = x - c.x, dy = y - c.y;
   const distance = Math.hypot(dx, dy);
-  // Sharp plants, spikes and visible cave-ins prefer the body's same short jog
-  // when it fits; a broad belt has no trivial detour, so keep going through.
+  // Sharp plants, spikes, visible cave-ins and fire (a campfire's hearth,
+  // burning ground) prefer the body's same short jog when it fits; a broad
+  // belt has no trivial detour, so keep going through. Fire never lets the
+  // body through: without a jog it waits at the edge (fireStepAllowed).
   const collapseExposure = (nx, ny) => globalThis.EnvironmentHazards?.exposure?.(scene, c.x, c.y, nx, ny) || 0;
   if (!escaping && !Conditions.flying(c) && distance > 0
-      && (scene._walkHazardExposure?.(c.x, c.y, x, y) > 0 || collapseExposure(x, y) > 0)) {
+      && (scene._walkHazardExposure?.(c.x, c.y, x, y) > 0 || collapseExposure(x, y) > 0
+        || !fireStepAllowed(scene, c, x, y))) {
     const open = (ox, oy) => {
       const nx = c.x + ox * scene.cellM, ny = c.y + oy * scene.cellM;
       return (!allow || allow(nx, ny)) && enemyCanStep(scene, c, row, nx, ny) && enemyWalkHazardRate(scene, nx, ny) === 0
@@ -1561,7 +1578,7 @@ function enemySplit(scene, c, fromX, fromY, now) {
   // Another character can split this slime during its own turn. Refresh the
   // original now; the newborn joins the next pass's body list as before.
   if (scene._characterSpacingIndex) updateCharacterSpacingIndex(scene._characterSpacingIndex, c);
-  const twin = WorldGen.makeCreature(c.kind, seats[1].x, seats[1].y, id, { shiny: false });
+  const twin = WorldGen.makeCreature(c.kind, seats[1].x, seats[1].y, id, { shiny: false, ...(c.depth != null ? { depth: c.depth } : {}) });
   for (const key of [...garrisonInherit(), '_lastDamagedT']) if (c[key] != null) twin[key] = c[key];
   twin._hp = half; twin._splitShare = share; twin._splitRoot = root; twin._splitNextT = c._splitNextT;
   // Each half's seat is where it now stands, so a garrison's halves walk home
@@ -1634,6 +1651,7 @@ function peerFeint(scene, c, row, now, tx, ty) {
       || row.attackType === 'none') return false;
   const reach = PotionEffects.range(c, row.range);
   if (Math.hypot(tx - c.x, ty - c.y) > reach * scene.cellM) return false;
+  if (!Combat.seesTarget(scene, c, tx, ty)) return false;
   SpriteLayout.faceCreature(c, tx - c.x, ty - c.y);
   if (row.attackType !== 'melee' || now < (c._peerFeintT || 0)) return false;
   c._peerFeintT = now + (row.damageIntervalSeconds || 1) * 1000;
@@ -1673,8 +1691,11 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   const territory = row.movement.territoryCells;
   const inTerritory = !territory || Math.hypot(px - (c._territoryX ?? c.homeX ?? c.x),
     py - (c._territoryY ?? c.homeY ?? c.y)) <= territory * scene.cellM;
-  const attentive = !inactive && (creatureTarget || npcTarget || !Combat.playerDowned(scene.save.energy))
-    && inTerritory && (creatureTarget || npcTarget || Combat.seesPlayer(c.kind, dist, scene.cellM, scene.save));
+  const targetSight = creatureTarget || npcTarget
+    ? Math.max(0, row.visionCells - PotionEffects.visionReduction(creatureTarget || npcTarget))
+    : Combat.sightCells(c.kind, scene.save);
+  const attentive = !inactive && Combat.seesTarget(scene, c, px, py, targetSight) && (creatureTarget || npcTarget || !Combat.playerDowned(scene.save.energy))
+    && inTerritory;
   if (row.movement.pattern === 'lunge_recover'
       && (now < (c._lungeWindupUntil || 0) || now < (c._lungeRecoverUntil || 0))) {
     enemyAttackReady(c, row, now, false);
@@ -1889,6 +1910,14 @@ function characterMove(scene, c, x, y, now, { pace = Math.hypot(x - c.x, y - c.y
   return Math.hypot(c.x - sx, c.y - sy) > 1e-9;
 }
 
+// Guards keep their authored ruin rings, but lose interest through cover.
+function enemyGuardState(scene, c, target, noticed) {
+  const cover = !noticed || typeof Visibility === 'undefined' ? 0
+    : Visibility.coverBetween(scene, c.x, c.y, target.x, target.y);
+  return Lairs.guardState(c, target, scene.cellM, noticed && cover !== 2,
+    cover === 1 ? Visibility.TREE_SIGHT_PENALTY : 0);
+}
+
 // Release/rejoin seats are deterministic for the individual, but checked live
 // against terrain, traps and other bodies. A crowded/blocked area waits; it
 // never falls back to stacking everyone on the player's feet.
@@ -1921,7 +1950,7 @@ function enemyConcealmentTick(scene, c) {
 function enemyDisguiseTick(scene, c, px, py) {
   if (!Combat.isDisguised(c)) return false;
   const disguise = EnemyRoster.get(c.kind).disguise;
-  if (Math.hypot(px - c.x, py - c.y) > disguise.revealCells * scene.cellM) return true;
+  if (!Combat.seesTarget(scene, c, px, py, disguise.revealCells)) return true;
   c._disguiseRevealed = true;
   c._hunting = true;
   scene._burstAtWorld?.('timber', c.x, c.y);
@@ -1942,7 +1971,7 @@ function enemyBurrowTick(scene, c, row, now) {
   if (c.emergeFromGround && !c._hasEmerged) {
     c._burrowed = true;
     const { x: px, y: py } = playerWorldM(scene);
-    if (scene.isUnnoticed(c) || !Combat.seesPlayer(c.kind, Math.hypot(px - c.x, py - c.y), scene.cellM, scene.save)) return true;
+    if (scene.isUnnoticed(c) || !Combat.seesTarget(scene, c, px, py)) return true;
     c._burrowed = false; c._hasEmerged = true;
     enemyStartEmerging(scene, c, row, now);
     return true;
@@ -2027,9 +2056,9 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
   // reads this stamp through enemyCanStep's sweep).
   c._retreating = routed || m.pattern === 'flee';
   const dist = Math.hypot(px - c.x, py - c.y);
-  let sees = !inactive && (creatureTarget
-    ? dist <= Combat.sightCells(c.kind) * scene.cellM
-    : Combat.seesPlayer(c.kind, dist, scene.cellM, scene.save));
+  let sees = !inactive && Combat.seesTarget(scene, c, px, py, creatureTarget
+    ? Math.max(0, Combat.sightCells(c.kind) - PotionEffects.visionReduction(creatureTarget))
+    : Combat.sightCells(c.kind, scene.save));
   if (m.territoryCells) {
     c._territoryX ??= c.homeX ?? c.x; c._territoryY ??= c.homeY ?? c.y;
     const radius = m.territoryCells * scene.cellM;
@@ -2214,7 +2243,7 @@ function flowerOpponent(scene, c, px, py, caught, wall = Date.now()) {
   const sight = Combat.sightCells(c.kind) * scene.cellM;
   let limit = sight;
   if (!charmed) {
-    const unnoticed = scene.isUnnoticed(c);
+    const unnoticed = scene.isUnnoticed(c) || !Combat.seesTarget(scene, c, px, py);
     if (!unnoticed) limit = Math.min(limit, Math.hypot(px - c.x, py - c.y));
     const npc = typeof NPC !== 'undefined' && NPC.enemyTarget
       ? NPC.enemyTarget(scene, c, EnemyRoster.get(c.kind) || { visionCells: Combat.sightCells(c.kind) }, px, py, unnoticed) : null;
@@ -2223,7 +2252,7 @@ function flowerOpponent(scene, c, px, py, caught, wall = Date.now()) {
   return nearestCreature(scene, c, limit, (other, d) => {
     if (caught.has(other.id) || other._surfaceInactive) return false;
     if (!(charmed ? Combat.isEnemy(other, wall) : Combat.isCharmed(other, wall)) || Combat.hp(other) <= 0) return false;
-    return d <= sight - PotionEffects.visionReduction(other, wall) * scene.cellM;
+    return Combat.seesTarget(scene, c, other.x, other.y, sight / scene.cellM - PotionEffects.visionReduction(other, wall));
   }, { los: true, pool: !charmed && scene._charmedOpponents ? scene._charmedOpponents : null });
 }
 function flowerCreatureTick(scene, c, now, px, py, caught, wards = null) {
@@ -2235,7 +2264,7 @@ function flowerCreatureTick(scene, c, now, px, py, caught, wards = null) {
   if (!asleep && !charmed && target) {
     const warded = c._wardFrom || (wards && wardTrip(c, wards.homePos, wards.castleWards, wards.radiusSq))
       || (SpriteLayout.creatureHaunts(c.kind) && fireWardTrip(scene, c));
-    const lairState = c.lair ? Lairs.guardState(c, { x: px, y: py }, scene.cellM, !scene.isUnnoticed(c)) : null;
+    const lairState = c.lair ? enemyGuardState(scene, c, { x: px, y: py }, !scene.isUnnoticed(c)) : null;
     if (warded || (lairState && lairState !== 'hunt')) return false;
   }
   // Temporary allegiance and sleep do not protect from ordinary hazards.

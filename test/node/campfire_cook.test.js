@@ -46,6 +46,7 @@ test('campfire: every COOKED_FOODS raw cooks through the same lane as meat', () 
     const it = ITEM_BY_ID[c.id];
     assert.truthy(it && it.kind === 'produce' && it.cooked, `${c.id} is cooked produce`);
     assert.eq(it.baseTier, ITEM_BY_ID[raw].baseTier, `${c.id} keeps the raw food rarity`);
+    assert.eq(it.dropWeight ?? 1, ITEM_BY_ID[raw].dropWeight ?? 1, `${c.id} keeps the raw food drop weight`);
     assert.eq(FOOD_ENERGY[c.id], Math.round(FOOD_ENERGY[raw] * GRILL_ENERGY_MUL), `${c.id} energy`);
     assert.eq(PRICES[c.id], Math.round(PRICES[raw] * GRILL_ENERGY_MUL), `${c.id} price`);
   }
@@ -182,3 +183,52 @@ test('campfire: the first fire lit tells its story, through the story ledger', (
   assert.truthy(/body:\s*['`][^'`]+/.test(place), 'the fire story has narrative copy');
   assert.truthy(webpDims('assets/art/fire_first.webp'), 'the banner exists');
 });
+
+// A campfire needs clear ground, not soil (interact.js isFireGroundCell): a
+// parking lot / plaza / cave floor takes one; water, a pier, lava, a
+// building, cave rock, a road cell and any object standing on the cell do not.
+(function () {
+  const lightFire = TAP_HANDLERS.find(h => h.name === 'light-fire');
+  function fixture(type, over = {}) {
+    const scene = Object.assign(makeScene(), {
+      depth: 0, cellM: 5, tilledSet: new Set(), placedRockSet: new Set(),
+      buildInventoryDOM() {},
+    });
+    const save = { inv: [{ id: 'flint_shard', count: 2 }], selSlot: 0, fires: [], scarecrows: [],
+      magicTraps: [], planted: [], picked: [] };
+    scene.save = save;
+    const ctx = Object.assign(makeCtx(scene, save), { cwmx: 1002.5, cwmy: 1002.5, cellKey: 'k',
+      cell: Object.assign({ type, underRoad: false }, over) });
+    return { scene, save, ctx };
+  }
+  const T = WorldGen.T;
+  test('campfire: lights on paved and bare ground alike — parking lot, plaza, grass, cave floor', () => {
+    for (const [type, over] of [[T.COMMERCIAL], [T.INDUSTRIAL], [T.PATH], [T.ROCK], [T.GRASS], [T.CAVE_FLOOR]]) {
+      const { save, ctx } = fixture(type, over);
+      assert.eq(lightFire.try(ctx), true, `type ${type} takes a fire`);
+      assert.eq(save.fires.length, 1);
+      assert.eq(save.inv[0].count, 1, 'one flint spent');
+    }
+  });
+  test('campfire: refuses water, pier, lava, buildings, cave rock, road cells and an occupied cell', () => {
+    const cases = [
+      fixture(T.WATER), fixture(T.PIER), fixture(T.CAVE_LAVA), fixture(T.BUILDING_MED), fixture(T.CAVE_WALL),
+      fixture(T.ROAD), fixture(T.ROAD_MD), fixture(T.ROAD_LG), fixture(T.COMMERCIAL, { underRoad: true }),
+    ];
+    const occupied = fixture(T.COMMERCIAL);
+    occupied.save.scarecrows.push({ x: 1002.5, y: 1002.5 });
+    cases.push(occupied);
+    for (const { save, ctx } of cases) {
+      assert.falsy(lightFire.try(ctx));
+      assert.eq(save.fires.length, 0);
+      assert.eq(save.inv[0].count, 2, 'flint kept');
+    }
+    const key = WorldGen.tileKey(999, 999);
+    WorldGen.tileCache.set(key, { objects: [{ kind: 'tree', id: 't', x: 1002.5, y: 1002.5 }], wildplants: [] });
+    try {
+      const { save, ctx } = fixture(T.GRASS);
+      assert.falsy(lightFire.try(ctx), 'a tree stands here');
+      assert.eq(save.fires.length, 0);
+    } finally { WorldGen.tileCache.delete(key); }
+  });
+})();
