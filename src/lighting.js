@@ -1848,8 +1848,11 @@
     if (typeof Visibility === 'undefined' || !(scene.cellM > 0)
         || !scene.playerM || !scene.startWorldM) return null;
     const revision = Visibility.revision(scene);
-    const player = playerWorldM(scene);
     const stepM = scene.cellM / 2, stepPx = CELL_PX / 2;
+    // Rays leave an eighth-cell observer lattice: an edge moves less than the
+    // feather is wide, and walking or GPS glide repaints only per step, not
+    // every frame (a repaint traces every sample's ray).
+    const eye = Visibility.observer(scene, scene.cellM / 8);
     // Two samples outside every painted edge keep the feather continuous while
     // the padded mask scrolls. Normal game viewports are square.
     const x0 = Math.floor((ax - (scene.viewCenterX - scene.viewLeft) * scene.cellM / CELL_PX) / stepM) - 2;
@@ -1857,7 +1860,7 @@
     const D = Math.ceil(Math.max(W, H) / stepPx) + 6;
     const cells = D - 4, samples = FOG_SUB / 2, N = cells * samples;
     const latticeKey = [x0, y0, D, scene.cellM].join('|');
-    const key = [revision, scene.depth, player.x, player.y, latticeKey].join('|');
+    const key = [revision, scene.depth, eye.x, eye.y, latticeKey].join('|');
     let mask = scene._coverLightMask;
     if (!mask) mask = scene._coverLightMask = {
       canvas: document.createElement('canvas'), buffer: document.createElement('canvas'), key: null,
@@ -1893,7 +1896,7 @@
         mask.latticeKey = latticeKey;
       }
       for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) {
-        const cover = Visibility.playerCover(scene, (x0 + x + .5) * stepM, (y0 + y + .5) * stepM);
+        const cover = Visibility.coverBetween(scene, eye.x, eye.y, (x0 + x + .5) * stepM, (y0 + y + .5) * stepM);
         mask.field[y * D + x] = cover === Visibility.CLEAR ? 0
           : cover === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS
           : (scene.depth > 0 ? 1 : Visibility.FULL_DARKNESS);
