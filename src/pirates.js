@@ -19,6 +19,10 @@
   }
 
   function isPirate(c) { return !!c && !!Combat.monster(c.kind)?.pirate; }
+  // A bank's DEBT COLLECTOR (scene_venues.js _tickBankDebt) is a pirate with
+  // business of his own: no passage offer, and paid passage does not calm
+  // him — his parley flag is his own dialog's.
+  function isCollector(c) { return !!c?.debtCollector; }
   function onHit(scene, c) {
     if (!isPirate(c) || Combat.isPacified(c) || Combat.isCharmed(c) || !(scene.save.money > 0)) return 0;
     // Use the purse's normal loss/feedback path without a thief's daily satiation.
@@ -29,7 +33,7 @@
     return Number.isFinite(until) ? until : 0;
   }
   function sync(scene, c) {
-    if (!isPirate(c)) return;
+    if (!isPirate(c) || isCollector(c)) return;
     const wasPaused = Combat.isPacified(c);
     c._piratePeaceUntil = peaceUntil(scene);
     c._pirateParleyPending = !!scene._pirateParleyPending;
@@ -42,7 +46,7 @@
     }
   }
   function available(scene, c) {
-    if (!isPirate(c) || c.id?.startsWith('released_')) return false;
+    if (!isPirate(c) || isCollector(c) || c.id?.startsWith('released_')) return false;
     if ((c._surfaceSpawn || c.lair) && !EnemySpawns.surfaceActive(scene, c)) return false;
     return !c._surfaceInactive && !Combat.isConcealed(c)
       && !scene.save.caught?.includes(c.id) && Combat.hp(c) > 0;
@@ -128,5 +132,5 @@
     if (candidate && !scene._pirateEncounterOffered && peaceUntil(scene) <= Date.now()
         && !busy(scene)) present(scene, candidate);
   }
-  root.Pirates = { PRICE, HIT_COINS, DURATION_MS, SPEECH_MS, LINES, isPirate, say, onHit, sync, present, tick };
+  root.Pirates = { PRICE, HIT_COINS, DURATION_MS, SPEECH_MS, LINES, isPirate, isCollector, say, onHit, sync, present, tick };
 })(typeof window !== 'undefined' ? window : globalThis);

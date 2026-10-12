@@ -2,14 +2,14 @@
   const match = SCENE_SRC.match(/^  shopTierBadgeHTML\([^\n]*\) \{[\s\S]*?^  \}/m);
   const modalBadge = new Function('return ({' + match[0] + '})')().shopTierBadgeHTML;
   const house = { id: 'supply', kind: 'house' };
-  const scene = (tier, role = 'market') => ({
+  const scene = (tier, role = 'shop') => ({
     save: {}, houseShopRole: () => role,
-    marketTheme: () => ({ theme: 'supply', tier }),
+    shopLine: () => ({ theme: 'supply', tier }),
   });
 
   test('shop badge: assigned tier survives lower-tier seed stock', () => {
     const s = scene(4);
-    s.marketTheme = () => ({ theme: 'seed', tier: 4 });
+    s.shopLine = () => ({ theme: 'seed', tier: 4 });
     assert.truthy(Shops.themedStock('seed', 4).every(id => itemTierOf(id) !== 4));
     const badge = Render.shopTierBadge(s, house, s.houseShopRole());
     assert.eq(badge.text, 'RARE');

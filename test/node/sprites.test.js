@@ -586,11 +586,10 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
       else assert.eq(spec.frame(o), 0);
     }
   }
-  for (const poiClass of ['bakery', 'lodging', 'waste_basket', 'bicycle_parking']) {
+  for (const poiClass of ['bakery', 'lodging', 'waste_basket', 'bicycle_parking', 'atm']) {
     const o = {kind:'chest', poiClass};
     assert.eq(spec.frame(o), chestLook(o).frame, poiClass);
   }
-  assert.eq(spec.frame({kind:'chest', poiClass:'atm'}), undefined, 'procedural gold pot has no sheet frame');
   assert.falsy(/CHEST_TIER_COLOR|chestObjs|tier diamond/.test(RENDER_SRC), 'tier colours are in the chest art, without floating gems');
   assert.truthy(/const g = scene\.tierGfx;\s*g\.clear\(\);/.test(RENDER_SRC), 'attack warning layer still clears each draw');
   assert.truthy(/g\.strokeCircle\(centre\.x, centre\.y, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
@@ -677,4 +676,11 @@ test('quarry broken stone shrinks while mineral shadows stay under every resolve
   assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:4}).scl,1.28);
   assert.eq(art.resolveAppearance({kind:'mineralrock',deposit:'crystal'}).scl,CRYSTAL_DEPOSIT.art.scale);
   assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:59}).scl,4/3);
+});
+
+test('campfire: its contact shadow sits 2px above the art bottom, on the logs', () => {
+  const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  const fire = art.resolveAppearance({kind:'_fire',id:'f'});
+  assert.truthy(fire.foot, 'the fire is seated and shadowed');
+  assert.eq(fire.foot.shadowInsetPx, 2);
 });

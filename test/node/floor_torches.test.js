@@ -1,7 +1,7 @@
 // Torches you can pick up: the Torch consumable lying on the first cave
 // level's floor (worldgen.js caveFloorTorches) — one at the foot of every
 // up-ladder, where a descent lands, and a few dozen strewn over the rest —
-// plus the roadside box's themed supply group (rarity.js 'chest:lowtier').
+// plus the roadside box's themed supply group (loot_contexts.js 'chest:lowtier').
 // The floor ones are `torch` WILDPLANTS, so they ride the lane every floor
 // pickup already walks: generated, drawn by CROP_SPRITE, picked by the
 // wildplant tap, remembered only as an id in save.picked.

@@ -148,14 +148,17 @@ access or tile lifecycle mechanics.
 - A POI chest's tier is its tile's QUOTA SEAT (`WorldGen.seedChestTiers`):
   each tile seeds ~1 T5, 5 T4, 11 T3, 18 T2 (x1..x2 over 100..1000
   budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),
-  round-robin across chest categories; everything else is T1. Vista chests
+  round-robin across chest categories; everything else is T1. A bus stop
+  never takes a seat: it is always a regular restocking crate
+  (`loot.js chestAlwaysCrate`), because the wagon art belongs only to the
+  old-trade-road mercenary stop. Vista chests
   are fixed T5 outside the budget; a Nexus chest can win a seat without
   spending one (+1 on top). Each underground floor re-seats its own pyramid over
   its mirrors (the rank rides down), and the cap CLIMBS underground
   (`loot.js chestTierMaxFor`: T6 from depth 3, T7 from 6) while the depth
   bonus stays `+floor(depth/2)`. Unseeded chests (hand-placed, sandbox) are
   the unstamped T2 - the old count ladder is retired, and `o.poiDensity`
-  now only feeds restock days and the pots of gold. Breakable pots and
+  now only feeds restock days and POI coin bursts. Breakable pots and
   barrels select their loot mix by stable appearance (`barrelProfile`). Surface
   waste-basket/recycling POIs share `barrelDensity`, the combined tile count
   stamped with POI density (including restamps after live additions). At ≤10
@@ -199,7 +202,7 @@ access or tile lifecycle mechanics.
   edge are not dead ends.
 - Chests give ONCE (`save.opened`), including smashed pots and barrels. Crates
   (`restocks`) come back after `crateRestoreDays` (1 for an ordinary crate, up
-  to 7 for a class crowding its tile); pots of gold, bike racks, chapels and
+  to 7 for a class crowding its tile); bike racks, chapels and
   grove shrines daily. Recurring sites take the one day ledger (`Macros.markToday` — it
   keeps a week; `usedToday` / `stillBare` / `restockWaitMs` read it) and glow
   while available (`poiLit`); a refusal is `Macros.waitLine(prefix, ms)`. A
@@ -425,6 +428,13 @@ access or tile lifecycle mechanics.
   foreground ticks own the clock. `HazardFalls` owns landing and descent,
   including floor seals and retrying unavailable landings. Temporary sinkholes
   do not compete with these clusters; existing L1 chasms remain unchanged.
+  A grounded enemy, pet or charmed creature (`HazardFalls.fallsThrough`;
+  never a flier, NPC or hired ally) that ends a creature tick over an open gap (opened cave-in,
+  open sinkhole or L1 chasm — `HazardFalls.gapAt`) falls too
+  (`HazardFalls.dropCreatures`): it leaves this floor and lands, by the same
+  landing search, on the floor below when that tile is already spawned, or is
+  gone this session otherwise. A fall is no kill: nothing enters `save.caught`.
+  A fallen pet rejoins through `Companions.tickPets` catch-up.
 - POIs that are no chest ride existing lanes too: a GATE is two posts round a
   spawn point (`WorldGen.gatePostsAt`, lairs.js `'gate'` tier — one foe a UTC
   day, `DAILY_TIERS`); an INFORMATION board reads a Book page like the

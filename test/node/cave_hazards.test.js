@@ -86,7 +86,7 @@
     WorldGen.setDepth = () => {};
     try {
       const s = { save: { energy: 0 }, depth: 2, startWorldM: { x: 0, y: 0 },
-        playerM: { x: 0, y: 0 }, feetOffsetM: 0, flash() {}, syncMoveTarget() {},
+        playerM: { x: 0, y: 0 }, feetOffsetM: 0, flash() {}, syncMoveTarget() {}, _clearMarkers() {},
         cameras: { main: { setBackgroundColor() {} } }, ensureTilesAround: () => Promise.resolve(),
         _storySplashOnce() { throw new Error('A fall already has its story'); } };
       change.call(s, 1, hole);

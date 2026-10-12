@@ -356,8 +356,8 @@ const TELEPORT_FADE_IN_MS = 1300;
 // going ahead anyway (see _whenIdle). Long enough that a player actively
 // walking and tapping keeps the thread, short enough that the ring is all in
 // well before they could walk out of the centre tile.
-// How many coins a pot of gold bursts into is its DENSITY on its tile
-// (loot.js potCoinsFor off POT_COINS_BY_DENSITY: a lone ATM 30, one of 50 on
+// How many coins a POI coin burst spills is its DENSITY on its tile
+// (loot.js potCoinsFor off POT_COINS_BY_DENSITY: a lone POI 30, one of 50 on
 // the tile 3, one of 150+ a single coin). The scatter search widens until it
 // can seat them (see _coinBurstInteract) — a burst that came back short was
 // the search giving up, never the reward being small. Up to
@@ -451,6 +451,9 @@ const FPS_LIMIT = (() => { const v = urlNumParam('fps'); return v == null ? FPS_
 // DOM/story backstops keep a wall-clock cadence when ?fps=0 follows a 90 or
 // 120 Hz display. Counting steps made this four times more frequent at 120 Hz.
 const HOUSEKEEPING_POLL_MS = 1000 / 3;
+// THE STORY HOLD (_storyHeld): how long the player goes without a tap
+// (walking does not count) before held story panels come up on their own.
+const STORY_IDLE_MS = 3000;
 // Phaser 3.87 drops its limiter's remainder and gates on smoothed deltas.
 // Keep scheduling phase separate from elapsed simulation time so every
 // display rate delivers the configured cadence without catch-up bursts.
@@ -1002,8 +1005,9 @@ function swallowTaps(el) {
 // the `color`, the `shape` (a dot, or the
 // delivery's arrow), `tracked` for a find that moves (re-read twice a second
 // through _telescopeTrackedTarget), and `clearWhen(scene, m)` — the row's
-// own reason to drop a mark besides its `until` passing. A mark on another
-// level is kept but not drawn. The Pairy's mark stays session state
+// own reason to drop a mark besides its `until` passing. Every mark points
+// at something on the floor it was made on, so switching floors clears them
+// all (_clearMarkers). The Pairy's mark stays session state
 // (Buffs.KINDS.compass and player_time.js read scene.pairyCompass).
 const _markClaimed = (s, m) => setOf(s.save.opened).has(m.targetId) || dayLedgerAges(s.save).get(m.targetId) === 0;
 const MARKERS = [
@@ -1012,7 +1016,7 @@ const MARKERS = [
   { key: 'telescopeCompass', store: 'save', color: 0xffd24a, source: 'Telescope', label: 'Find', shape: 'dot', tracked: true },
   // A neighbour's directions (npc.js interact); the mark names its speaker.
   { key: 'wayfarerCompass', store: 'save', color: 0x4488ff, source: 'Directions', label: 'Find', shape: 'dot', tracked: true },
-  // A map keeps its original level and expires by wall clock, including reloads.
+  // A map expires by wall clock, including reloads.
   { key: 'treasureCompass', store: 'save', color: 0xff5555, source: 'Map', label: 'Treasure', shape: 'dot', clearWhen: _markClaimed },
   // The delivery waypoint — a solid WHITE arrow at the house the player picked
   // (openDeliveryMenu), cleared once they arrive or the house has been fed.
@@ -1452,6 +1456,20 @@ const STATUS_ROW_CSS = `
 body.modal-open #status-row { opacity: 0.25; }
 body.modal-open #status-row button.status-chip { pointer-events: none; }
 body.booting #status-row { visibility: hidden; }
+`;
+// The held-story badge (_syncStoryBadge): a gold count on the map square's
+// top-left corner, seated in game px like a dialog. Hidden under a dialog.
+const STORY_BADGE_CSS = `
+#story-badge {
+  position: absolute; z-index: 8; display: none;
+  min-width: 34px; min-height: 34px; padding: 0 8px; box-sizing: border-box;
+  border: 2px solid #ffe066; border-radius: 17px;
+  background: #3a1f5ae8; color: #ffe066; cursor: pointer;
+  font: 700 13px var(--font-ui); text-shadow: 0 1px 0 #000;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  align-items: center; justify-content: center; gap: 4px;
+}
+body.modal-open #story-badge, body.booting #story-badge { visibility: hidden; }
 `;
 const ROAD_CHIP_CSS = `
 #roadchip {
@@ -2757,6 +2775,16 @@ class MapScene extends Phaser.Scene {
     for (const row of MARKERS) this._drawMarker(row);
   }
 
+  // Every row of MARKERS, emptied: their targets are on the floor just left.
+  // Each depth switch (changeDepth, _realmSwitchDepth, _passOutToSurface) calls it.
+  _clearMarkers() {
+    for (const row of MARKERS) {
+      if (row.store === 'scene') this[row.key] = null;
+      else delete this.save[row.key];
+    }
+    this._edgeDotTargets = {};
+  }
+
   // A generous hit area keeps the small rim dots usable on touchscreens.
   // `key` is the mark's own (_drawMarker), so each of a row's dots toggles alone.
   _tapEdgeDot(sx, sy) {
@@ -2811,7 +2839,7 @@ class MapScene extends Phaser.Scene {
     const now = Date.now();
     const kept = all.filter((marker, i) => {
       if ((marker.until != null && now >= marker.until) || row.clearWhen?.(this, marker)) return false;
-      if (marker.depth != null && marker.depth !== (this.depth || 0)) return true;
+      if (marker.depth != null && marker.depth !== (this.depth || 0)) return false;
       const key = `${row.key}:${marker.targetId ?? marker.id ?? i}`;
       let target = marker;
       if (row.tracked) {
@@ -3033,6 +3061,7 @@ class MapScene extends Phaser.Scene {
       const displayFps = this.game?.loop?.actualFps;
       if (displayFps > 0) WorldGen.noteSliceFrameTargetMs?.(1000 / displayFps);
       this._syncModalGate?.();
+      this._tickStoryHold();
       this._drainBadgeStories();
       this._lowHealthStory();
       this._firstSaleStory();
@@ -3586,6 +3615,8 @@ class MapScene extends Phaser.Scene {
     // …and is a guildhall bounty's pack still about (its leash)?
     this._tickGuildBounty();
     this._tickSafetyReminders();
+    // …and has a bank loan fallen due (its pirate collector)?
+    this._tickBankDebt();
     this._tickRoadSafety(dt);
     // …and which STREET are the feet on — a variant's first-entry story, and
     // whether tar or stakes are slowing the body (the same feet cell).
@@ -4721,6 +4752,10 @@ class MapScene extends Phaser.Scene {
     // A provoked-only zone's foe (EnemyHabitats.PROVOKED_ONLY — the mushroom
     // grove) turns on whoever's side struck it: the player's, or a peer's.
     if (dealt > 0 && (Combat.isSharedHit(source) || Combat.isPeerHit(source))) c._provoked = true;
+    // A struck lair guard hunts at once, wherever its notice ring is: the
+    // leash hysteresis (Lairs.guardState `_hunting`) carries the chase and
+    // ends it at the leash like any other.
+    if (dealt > 0 && c.lair && (Combat.isSharedHit(source) || Combat.isPeerHit(source))) c._hunting = true;
     // Asked BEFORE the stamp below, which is what makes it "was it already
     // charging" rather than "is it a slime".
     const wasCharging = slimeCharging(c);
@@ -5632,15 +5667,17 @@ class MapScene extends Phaser.Scene {
     interactTap(this, sx, sy);
   }
 
-  // === Coin-burst (the pot of gold — an ATM) ==============================
-  // Once per UTC day per pot: the day ledger (Macros.usedToday / markToday —
+  // === Coin-burst (a shrine row with reward 'coins' — the reef treasury,
+  // the golden idol's spree along its road) ================================
+  // Once per UTC day per POI: the day ledger (Macros.usedToday / markToday —
   // save.coinBurstClaimed[<poiId>YYYYMMDD]); subsequent taps within the same
   // day flash a hint and spawn no coins. Coins themselves are in-memory only
   // (entry.coinDrops); only the ledger persists.
   _coinBurstInteract(sx, sy, poi) {
     const dayKey = utcDayKey();
     const ctx = { scene: this, save: this.save, sx, sy, dirty: false };
-    const row = Macros.visitKindForObject(poi) || Macros.DAILY_VISIT_KINDS.gold;
+    const row = Macros.visitKindForObject(poi);
+    if (!row) return;
     const visit = Macros.beginDailyVisit(ctx, poi, { row });
     if (!visit) return;
 
@@ -5709,7 +5746,25 @@ class MapScene extends Phaser.Scene {
     // KEEP LOOKING UNTIL THERE IS A BURST TO SCATTER: widen the ring (the same
     // rule) out to MAX_BURST_CELLS.
     let candidates;
-    if (row.fillScreen) {
+    if (row.fillScreen && row.path) {
+      // THE GOLDEN IDOL: a coin on every free seat of its road's verges on
+      // this tile (poi.coinSeats — street_variants.js lays them), never off
+      // them; the seats already passed the spawn gate when the road was
+      // dressed, so here only what stands on them now (an object, a live
+      // coin, a zone's ground, this player's private-ground veto) turns one away.
+      candidates = [];
+      const x0 = tx * tileEdgeM, y0 = ty * tileEdgeM;
+      const occupied = new Set(entry._spawnOpts?.occupied || []);
+      const zoneCoverage = entry.zone && (entry.zone.coverage || entry.zone.idx);
+      for (const coin of entry.coinDrops || []) if (coin.expiresAt > Date.now())
+        occupied.add(Math.floor((coin.y - y0) / cellM) * N + Math.floor((coin.x - x0) / cellM));
+      for (const seat of poi.coinSeats || []) {
+        const cx = Math.floor((seat.x - x0) / cellM), cy = Math.floor((seat.y - y0) / cellM);
+        if (cx < 0 || cy < 0 || cx >= N || cy >= N || (cx === poiLocalCX && cy === poiLocalCY)) continue;
+        if (occupied.has(cy * N + cx) || zoneCoverage?.[cy * N + cx] || WorldGen.privateVetoAt(tx, ty, cx, cy)) continue;
+        candidates.push({ cx, cy, tx, ty, entry, x: seat.x, y: seat.y });
+      }
+    } else if (row.fillScreen) {
       // The reef fills the visible ground across tile seams. Each tile keeps
       // its own grid, occupancy and access rules; unopened tiles add nothing.
       candidates = [];
@@ -6741,6 +6796,7 @@ class MapScene extends Phaser.Scene {
     WorldGen.setDepth(target);
     // The surface's roof signs belong to the floor just left (render.js).
     Render.hideRoofSigns(this);
+    this._clearMarkers();
     // GPS-mirror: keep the same world coordinates, just snap feet onto the stair.
     this.playerM.x = stair.x - this.startWorldM.x;
     this.playerM.y = stair.y - this.startWorldM.y - this.feetOffsetM;
@@ -6806,6 +6862,7 @@ class MapScene extends Phaser.Scene {
     this._turretNextT = {};
     this._turretScan = null;
     delete this.save.sapphireReturn;
+    this._clearMarkers();
     this.depth = 0;
     this.save.depth = 0;
     WorldGen.setDepth(0);
@@ -7654,15 +7711,19 @@ class MapScene extends Phaser.Scene {
     const priority = ['receipt', 'read', 'intro', 'prize', 'cheer', 'story'].indexOf(kind);
     if (priority < 0) throw new Error(`unknown ceremony ${kind}`);
     const q = (this._ceremonies ||= []);
-    if (key && q.some((c) => c.key === key)) return this._drainCeremonies();
-    q.push({ kind, key, hold, open, priority, seq: this._ceremonySeq = (this._ceremonySeq || 0) + 1 });
+    if (key && q.some((c) => c.key === key)) return defer ? false : this._drainCeremonies();
+    // `waits`: an unprompted panel the story hold keeps back (_storyHeld).
+    // A receipt, a Book read and a cheer answer the player's own act.
+    const waits = kind === 'intro' || kind === 'prize' || kind === 'story';
+    q.push({ kind, key, hold, open, priority, waits, seq: this._ceremonySeq = (this._ceremonySeq || 0) + 1 });
     return defer ? false : this._drainCeremonies();
   }
   _drainCeremonies() {
     const q = this._ceremonies;
     if (!q?.length || this._ceremonyOpen || this._dialogOpen()) return false;
     q.sort((a, b) => a.priority - b.priority || a.seq - b.seq);
-    const i = q.findIndex((c) => !c.hold?.());
+    const held = !!this._storyHeld?.();
+    const i = q.findIndex((c) => !c.hold?.() && !(held && c.waits));
     if (i < 0) return false;
     const [next] = q.splice(i, 1);
     this._ceremonyOpen = true;
@@ -7670,7 +7731,94 @@ class MapScene extends Phaser.Scene {
     let opened = false;
     try { opened = next.open(done) !== false; }
     finally { if (!opened) this._ceremonyOpen = false; }
+    // A held panel that opens starts the story hold's run: the taps that
+    // dismiss it do not hold back the next.
+    if (opened && next.waits) this._storyRun = true;
     return opened || this._drainCeremonies();
+  }
+
+  // ── THE STORY HOLD ────────────────────────────────────────────────────────
+  // Unprompted panels (a returning memory, a story beat, a trail prize or
+  // intro, a pet's first story, the fire breath) wait while the player is
+  // mid-interaction, not only while a dialog is up: a tap anywhere but the
+  // movement stick or the badge is interaction (_noteInteraction); walking
+  // is not. After STORY_IDLE_MS without one, or a tap on the badge, the held
+  // panels come up in order as a RUN: taps on their own dialogs do not end
+  // it, the next tap outside a dialog does. A dialog the player opened (a
+  // receipt, a Book read, a neighbour's talk) never waits here. Every
+  // deferred lane asks this (MemoryStory.storyHeld); the badge counts what
+  // they hold (_pendingStoryCount).
+  _storyHeld() {
+    if (this._dialogOpen()) return true;
+    if (this._storyRun) return false;
+    return Date.now() - (this._lastInteractionT ?? -Infinity) < STORY_IDLE_MS;
+  }
+  // The capture-phase pointerdown on the document (_buildStoryBadge).
+  _noteInteraction(target) {
+    if (target?.closest?.('#move-pad, #gps-pad, #story-badge')) return;
+    if (this._storyRun && target?.closest?.('.game-modal')) return;
+    this._lastInteractionT = Date.now();
+    this._storyRun = false;
+  }
+  // Panels the hold keeps back, across every deferred lane.
+  _pendingStoryCount() {
+    const s = this.save || {};
+    return (this._ceremonies || []).filter((c) => c.waits).length
+      + (s.memoryStory?.pending?.length || 0)
+      + (s.petStoriesPending?.length || 0)
+      + (s.dragonStory?.pending ? 1 : 0);
+  }
+  // The modal-gate tick, before the lanes drain: an idle clear screen with
+  // panels waiting starts the run; an empty queue ends it. Then the badge.
+  _tickStoryHold() {
+    const n = this._pendingStoryCount();
+    if (!n) this._storyRun = false;
+    else if (!this._storyRun && !this._storyHeld()) this._storyRun = true;
+    this._syncStoryBadge(n);
+  }
+  // The badge's tap: start the run now and open the first panel.
+  _releaseStories() {
+    if (this._dialogOpen()) return;
+    this._storyRun = true;
+    this._drainStoryLanes();
+    this._syncStoryBadge(this._pendingStoryCount());
+  }
+  // Every lane that opens a held panel, in the order the tick runs them.
+  _drainStoryLanes() {
+    this._drainBadgeStories();
+    PetStories.drain(this);
+    DragonStory.drain(this);
+  }
+  _syncStoryBadge(n) {
+    const el = this.storyBadgeEl;
+    if (!el) return;
+    const show = n > 0 && !this._storyRun;
+    const vs = this.viewSize || VIEW_CELLS * CELL_PX;
+    const key = show ? `${n}|${this.viewLeft ?? 0}|${this.viewTop ?? 0}|${vs}` : '';
+    if (this._storyBadgeKey === key) return;
+    this._storyBadgeKey = key;
+    el.style.display = show ? 'flex' : 'none';
+    if (!show) return;
+    el.style.left = `${(this.viewLeft ?? 0) + 8}px`;
+    el.style.top = `${(this.viewTop ?? 0) + 8}px`;
+    el.textContent = `\u{1F4DC} ${n}`;
+    el.setAttribute('aria-label', `${n} story panel${n === 1 ? '' : 's'} waiting`);
+  }
+  _buildStoryBadge() {
+    if (typeof document === 'undefined') return;
+    ensureStyle('story-badge-style', STORY_BADGE_CSS);
+    let el = document.getElementById('story-badge');
+    if (!el) {
+      el = document.createElement('button');
+      el.type = 'button';
+      el.id = 'story-badge';
+      swallowTaps(el);
+      el.addEventListener('click', (e) => { e.stopPropagation(); window.__scene?._releaseStories(); });
+      (document.getElementById('game') || document.body).appendChild(el);
+      document.addEventListener('pointerdown', (e) => window.__scene?._noteInteraction(e.target), true);
+    }
+    this.storyBadgeEl = el;
+    this._storyBadgeKey = null;
   }
 
   // The fanfare as HTML, over whatever dialog is open: the canvas toast's
@@ -7840,6 +7988,7 @@ class MapScene extends Phaser.Scene {
   // when the screen clears; the pending flag on the save survives a reload.
   _firstSaleStory() {
     if (!this.save.firstSalePending || this.save.storySeen?.['sale:first']) return;
+    // A repeat offer remounts after its accept callback; wait for the gate tick.
     this._enqueueCeremony('story', (done) => {
       if (!this.save.firstSalePending || !this._storySplashOnce('sale:first', {
         art: 'first_sale', title: 'Fine wares',
@@ -7848,7 +7997,7 @@ class MapScene extends Phaser.Scene {
       delete this.save.firstSalePending;
       persistSave(this.save);
       return true;
-    }, { key: 'sale:first' });
+    }, { key: 'sale:first', defer: true });
   }
 
   _lowHealthStory() {
@@ -8734,7 +8883,7 @@ class MapScene extends Phaser.Scene {
     const options = Houses.offerCards(this.save, house);
     const order = Houses.restoredCount(this.save);
     // EACH CARD HAS ITS OWN PRICE (Houses.buildCost — the House ladder, a
-    // shop's stones per tier, the turret's flat five): the cost line shows
+    // shop's stone / ore / gem per tier, the turret's flat five): the cost line shows
     // the selected card's, and the charge at accept is that card's too.
     const costFor = (row) => Houses.buildCost(this.save, house, row, order);
     const costLine = (c) => {
@@ -8744,7 +8893,7 @@ class MapScene extends Phaser.Scene {
     const affords = (c) => Inventory.count(this.save, c.id) >= c.qty;
     // A Shop card is named for the line it would open (its variant's theme).
     const labelFor = (row, theme) => row.name
-      || Shops.roleLabel(row.role, row.role === 'market' ? (row.theme || theme) : null) || 'House';
+      || Shops.roleLabel(row.role, row.role === 'shop' ? (row.theme || theme) : null) || 'House';
     const iconFor = (row) => {
       const texKey = Render.houseTextureKey(row.role, house, this);
       const frame = row.role === 'plain' ? 'front' : row.role === 'wizard' ? 3
@@ -8820,11 +8969,11 @@ class MapScene extends Phaser.Scene {
           // Name the building, describe what it does, show its painting, and
           // let showChestRewardModal's sparkle burst supply the fanfare. The
           // name is the sign's (Shops.roleLabel — a shop is named for the
-          // line it now sells, marketTheme), the blurb and art the row's.
-          const theme = row.role === 'market' ? this.marketTheme(house).theme : null;
+          // line it now sells, shopLine), the blurb and art the row's.
+          const theme = row.role === 'shop' ? this.shopLine(house).theme : null;
           const name = labelFor(row, theme);
           const tier = Shops.shopTier(this.save, house, row.role) || 0;
-          const blurb = row.key === 'market' ? row.blurb + (Shops.THEME_BLURB[theme] || 'You look over the freshly stocked counter.') : row.blurb;
+          const blurb = row.key === 'shop' ? row.blurb + (Shops.THEME_BLURB[theme] || 'You look over the freshly stocked counter.') : row.blurb;
           this.showChestRewardModal({
             kind: 'build',
             // The banner carries the picture - one art piece per card

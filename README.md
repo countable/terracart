@@ -56,7 +56,7 @@ src/        Game source (vanilla JS, global scope, load-order dependent). The bi
               lighting.js     the lightmap — the only lighting pass
               interact.js     tap dispatch (TAP_HANDLERS)
               interactables.js  declarative tap-driven world-object registry
-              items.js / rarity.js / loot.js / shops*.js / gear.js   catalog + economy
+              items.js / loot_contexts.js / rarity.js / loot.js / shops*.js / gear.js   catalog + economy
               combat.js / wizard.js / quests.js / play_tips.js / trail.js / streets.js   systems
             plus small pure cores (coords, energy, inventory, crops, fog, traps,
             lairs, buffs, difficulty, …) that the headless suite loads directly.

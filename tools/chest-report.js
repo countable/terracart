@@ -2,7 +2,7 @@
 const cr = id => document.getElementById(id);
 const crEsc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const crTick = () => new Promise(resolve => setTimeout(resolve, 0));
-const crSpecial = look => look.macro ? `Service venue: ${look.macro.kind}` : look.stand ? 'Product stall' : look.barrel ? `Breakable container: ${look.barrelName}` : look.coin ? 'Daily coins' : look.bike ? 'Daily speed boost' : 'Chest loot';
+const crSpecial = look => look.macro ? `Service venue: ${look.macro.kind}` : look.stand ? 'Product stall' : look.barrel ? `Breakable container: ${look.barrelName}` : look.bike ? 'Daily speed boost' : 'Chest loot';
 let crRows = [], crCityData = null;
 function crSources() {
   const theme = cr('theme').value;

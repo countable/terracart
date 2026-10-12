@@ -58,7 +58,7 @@
   }
 
   // The short hold a shop role keeps after a closed deal, by role — the one
-  // table of who waits. A role with no row (market, blacksmith, wizard, the
+  // table of who waits. A role with no row (shop, blacksmith, wizard, the
   // castle) never does. Only the trader: its stock is what changes hands,
   // so an instant reopen was a free converter between any two stacks the bag
   // held. Short on purpose — a breather, not a ration.

@@ -1177,9 +1177,9 @@ class SceneConsumables {
   findNearestUnopenedChest(tiers = null) {
     const sets = spentSets(this, this.save);
     // A macro stall (an inn, a chapel, … — loot.js macroFor) is a place,
-    // not a chest to find; nor is a barrel, a bike rack or a pot of gold.
+    // not a chest to find; nor is a barrel or a bike rack.
     return this._nearestObject((o) => o.kind === 'chest' && (!tiers || tiers.includes(chestTier(o))) && !isSpent(o, sets)
-      && !(macroFor(o) || isBarrel(o) || isBikeRack(o) || isPotOfGold(o)));
+      && !(macroFor(o) || isBarrel(o) || isBikeRack(o)));
   }
 
   // Water every planted crop within ${radius} meters of the player. Returns count.
@@ -1278,7 +1278,7 @@ class SceneConsumables {
 
   // Stats / Relics menu — shows energy and every equipped relic / armor slot.
   // Building-flavored title for an offer modal. Different building kinds
-  // (castle / fort / market / trader / blacksmith / plain house) get their
+  // (castle / fort / shop / trader / blacksmith / plain house) get their
   // own greeting so the player can tell at a glance what they walked into,
   // instead of every dialog reading "A trader offers:". `action` is one of:
   //   'buy'      → routine seed/produce/barter buy
@@ -1369,8 +1369,11 @@ class SceneConsumables {
     if (!d?.present) return undefined;
     const dress = { boothKind: kind, kind: d.modal, kindLabel: Macros.stallLabel(kind, o) || d.label, art: Macros.stallArt(kind, o) };
     if (!d.stock) return this[d.present](sx, sy, o, dress);
-    const stock = d.stock(o);
-    const opts = { ...dress, items: stock, title: d.title };
+    const stock = d.stock(o, this.save);
+    const opts = { ...dress, items: stock, title: d.title,
+      restock: () => d.stock(o, this.save),
+      priceOf: d.price && ((save, id) => d.price(o, save, id)),
+      bought: d.bought && ((save, id, n, unitPrice) => d.bought(o, save, id, n, unitPrice)) };
     // A counter's GEAR entry (`gear:<line>`, Macros.isSundriesGear) sells a
     // rung of equipment, not a stack: its own buy (_presentStallGear).
     return Macros.isSundriesGear(stock[0])

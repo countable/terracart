@@ -6,7 +6,7 @@
 // bare `true` — saves from before roles were frozen, and the sandbox, which
 // stamps `true` so its test street shows every storefront:
 //   9       → blacksmith (sooty tint, gem→relic forge)
-//   2 / 4 / 6 → market  (red tint, a THEMED shop — seed / supply / potion /
+//   2 / 4 / 6 → shop  (red tint, a THEMED shop — seed / supply / potion /
 //                        relic, by restore order; see themeAt)
 //   1 / 8   → trader    (no tint, barter-only deals)
 // Forts (BUILDING_MED) and civic slabs (BUILDING_LARGE) are excluded — the
@@ -16,7 +16,7 @@
 //   worldgen.js — WorldGen.T  (for T.BUILDING tier check)
 //
 // Exports as globals:
-//   Shops.shopType(house)         → 'blacksmith' | 'market' | 'trader' | null
+//   Shops.shopType(house)         → 'blacksmith' | 'shop' | 'trader' | null
 //   Shops.shopInk(house)          → signage lettering colour or null
 //   Shops.roleLabel(role, seed, goods) → the player-facing NAME of a shop role
 //
@@ -30,7 +30,7 @@
   // the SHOP_INK_BG dark-wood background (render.js).
   const SHOP_CONFIG = {
     blacksmith: { ink: '#d8d8d8' },  // steel
-    market:     { ink: '#ff7a6a' },  // red
+    shop:     { ink: '#ff7a6a' },  // red
     trader:     { ink: UI_GOLD },    // gold
   };
 
@@ -39,7 +39,7 @@
   // _houseSignText), the restoration card (app.js shopInteract) and the offer
   // modal's flavour line (app.js buildingFlavorTitle).
   //
-  // The themed storefront (role key 'market') is named for the LINE IT SELLS
+  // The themed storefront (role key 'shop') is named for the LINE IT SELLS
   // ("Potion Shop", never "Market") off its theme (THEME_LABEL, resolved by
   // themeAt). Category, not item: stock re-rolls hourly, so a per-item name
   // would rewrite the sign constantly.
@@ -49,11 +49,11 @@
   // IS the identity, and the sign rotates exactly when the offer does. With no
   // offer to name it falls back to a bare "Trader".
   //
-  // The role KEY stays 'market': it is persisted in save.restoredHouses and
-  // read back by shopOrder.
+  // The role KEY 'shop' is persisted in save.restoredHouses and read back by
+  // shopOrder (older saves' 'market' is migrated on load, save.js migrateSave).
   const ROLE_LABEL = {
     blacksmith: 'Blacksmith',
-    market:     'Shop',          // a themed shop with no theme to name (see THEME_LABEL)
+    shop:     'Shop',          // a themed shop with no theme to name (see THEME_LABEL)
     trader:     'Trader',
     wizard:     'Wizard',
     turret:     'Turret',        // a lone castle tower on a house lot (houses.js BUILD_OPTIONS)
@@ -62,7 +62,7 @@
   // `theme` names a themed shop's line (THEMES); `goods` is the display name of
   // the item a trader currently offers ("Rockfruit"), which names the trader.
   function roleLabel(role, theme = null, goods = null) {
-    if (role === 'market' && THEME_LABEL[theme]) return THEME_LABEL[theme];
+    if (role === 'shop' && THEME_LABEL[theme]) return THEME_LABEL[theme];
     if (role === 'trader' && goods) return `${goods} ${ROLE_LABEL.trader}`;
     return ROLE_LABEL[role] ?? null;
   }
@@ -77,7 +77,7 @@
     if (house.tier !== WorldGen.T.BUILDING) return null;   // forts / civic slabs excluded
     const d = (house.address ?? 0) % 10;
     if (d === 9) return 'blacksmith';
-    if (d === 2 || d === 4 || d === 6) return 'market';
+    if (d === 2 || d === 4 || d === 6) return 'shop';
     if (d === 1 || d === 8) return 'trader';
     return null;
   }
@@ -88,9 +88,9 @@
   const shopInk = (house) => shopConfig(house)?.ink ?? null;
 
   // ── THEMED SHOPS ──────────────────────────────────────────────────────────
-  // A shop (role key 'market') sells ONE LINE at ONE TIER — the player's pick
+  // A shop (role key 'shop') sells ONE LINE at ONE TIER — the player's pick
   // on the restore modal (houses.js offerCards: a card per line and rank
-  // the ladder has unlocked, LINE_RULES below). A market from before lines
+  // the ladder has unlocked, LINE_RULES below). A shop from before lines
   // were stored takes its line from its place in the order the player
   // restored shops (themeAt: seed, supply, potion, relic, round again a
   // tier higher).
@@ -107,7 +107,7 @@
   // Supply stop at T3, the Magic Shop is one per tier, the Relic Shop runs
   // even tiers T2/T4/T6 any number deep; Magic uses T1/T3/T5/T7. The Ore Shop is gone. The Book and Pet
   // lines are NOT here — they are one-offs, SOLO_LINES. THEMES is the
-  // table's keys, in this order: the legacy cycle (themeAt, for a market
+  // table's keys, in this order: the legacy cycle (themeAt, for a shop
   // restored before lines were stored) walks it.
   const SHOP_TIER_MAX = 7;
   const LINE_RULES = Object.freeze({
@@ -117,12 +117,12 @@
     relic:  { maxTier: 6, tiers: [2, 4, 6] },
   });
   const THEMES = Object.keys(LINE_RULES);
-  // ONE-OFF LINES (owner, Oct 2026): a line exactly ONE market per save
+  // ONE-OFF LINES (owner, Oct 2026): a line exactly ONE shop per save
   // sells, outside the cycle — the Book Shop (save.bookshopId, from the 15th
   // restore) and the Pet Shop (save.petshopId, from the 12th), each its own
   // card in houses.js BUILD_OPTIONS (`solo`, stamped by registerSoloShop).
-  // A solo shop is a market plus its stamp: shopOrder and marketLines skip
-  // it, so the markets after it keep the lines they would have had, and the
+  // A solo shop is a shop plus its stamp: shopOrder and shopLineLedger skip
+  // it, so the shops after it keep the lines they would have had, and the
   // line never comes round again at a higher tier — it is always T1.
   const SOLO_LINES = Object.freeze({ book: 'bookshopId', pet: 'petshopId' });
   const THEME_LABEL = {
@@ -161,16 +161,16 @@
   }
 
   // 0-based place of this shop among the save's restored shops, in restore
-  // order. A shop that isn't in the record (an address-derived market from
+  // order. A shop that isn't in the record (an address-derived shop from
   // before roles were frozen) gets a stable place off its id instead, within
   // the first round, so it still has a line and it never shifts.
   function shopOrder(save, house) {
     if (!house || !house.id) return 0;
     const rh = (save && save.restoredHouses) || {};
-    if (rh[house.id] === 'market') {
+    if (rh[house.id] === 'shop') {
       let n = 0;
       for (const id of Object.keys(rh)) {
-        if (rh[id] !== 'market' || isSoloShop(save, id)) continue;   // a solo shop takes no place in the cycle
+        if (rh[id] !== 'shop' || isSoloShop(save, id)) continue;   // a solo shop takes no place in the cycle
         if (id === house.id) return n;
         n++;
       }
@@ -179,7 +179,7 @@
   }
 
   // The solo line this house was stamped with (SOLO_LINES), or null for a
-  // market of the cycle. Every themed-shop reader goes through lineFor,
+  // shop of the cycle. Every themed-shop reader goes through lineFor,
   // never themeAt directly.
   function soloLine(save, houseId) {
     if (!save || houseId == null) return null;
@@ -191,23 +191,23 @@
   }
   function isSoloShop(save, houseId) { return soloLine(save, houseId) != null; }
   function isBookshop(save, houseId) { return soloLine(save, houseId) === 'book'; }
-  // THE LINE AND THE TIER ARE THE PLAYER'S PICK: a market restored off a Shop
+  // THE LINE AND THE TIER ARE THE PLAYER'S PICK: a shop restored off a Shop
   // card carries its chosen line in save.shopLines[id] and its rank in
   // save.shopTiers[id] (houses.js restoreAs stamps both; storedTier reads
-  // the rank for every ranked role). A market from before ranks were stored
-  // takes one past the markets before it on the same line; one with no
+  // the rank for every ranked role). A shop from before ranks were stored
+  // takes one past the shops before it on the same line; one with no
   // stored line keeps the cycle's answer, themeAt(shopOrder). One walk over
-  // the ledger resolves every market's line and tier in restore order.
-  function marketLines(save) {
+  // the ledger resolves every shop's line and tier in restore order.
+  function shopLineLedger(save) {
     const rh = (save && save.restoredHouses) || {};
     const stored = (save && save.shopLines) || {};
     const out = [];
     let n = 0;
     const seen = {};
     for (const id of Object.keys(rh)) {
-      if (rh[id] !== 'market' || isSoloShop(save, id)) continue;
+      if (rh[id] !== 'shop' || isSoloShop(save, id)) continue;
       let theme, tier;
-      // Any line the pools know (a market picked as a Pet Shop before the
+      // Any line the pools know (a shop picked as a Pet Shop before the
       // line became a one-off keeps its pet accessories), else the cycle's answer.
       if (LINE_RULES[stored[id]] || THEME_POOL[stored[id]]) { theme = stored[id]; tier = storedTier(save, id) ?? 1 + (seen[theme] || 0); }
       else ({ theme, tier } = themeAt(n));
@@ -222,16 +222,16 @@
     if (solo) return { theme: solo, tier: 1 };
     const stored = save?.shopLines?.[house?.id];
     if (house && (LINE_RULES[stored] || THEME_POOL[stored])) {
-      const row = marketLines(save).find((r) => r.id === String(house.id));
+      const row = shopLineLedger(save).find((r) => r.id === String(house.id));
       if (row) return { theme: row.theme, tier: row.tier };
     }
     return themeAt(shopOrder(save, house));
   }
-  // How many markets of this line stand at this tier.
+  // How many shops of this line stand at this tier.
   function lineCount(save, theme, tier) {
-    return marketLines(save).filter((r) => r.theme === theme && r.tier === tier).length;
+    return shopLineLedger(save).filter((r) => r.theme === theme && r.tier === tier).length;
   }
-  // May a market of `theme` be raised at `tier`? The line must exist at
+  // May a shop of `theme` be raised at `tier`? The line must exist at
   // that rank (LINE_RULES maxTier) and its per-tier cap (perTier) must not
   // be full. The ladder (tierCap) is the caller's question.
   function lineBuildable(save, theme, tier) {
@@ -302,7 +302,7 @@
   }
   // The one tier every badge reads, by role; null for a role with none.
   function shopTier(save, house, role) {
-    if (role === 'market') return lineFor(save, house).tier;
+    if (role === 'shop') return lineFor(save, house).tier;
     if (role === 'blacksmith') return smithTier(save, house);
     if (role === 'trader') return traderTier(save, house);
     return null;
@@ -371,7 +371,7 @@
     shopType, shopInk,
     ROLE_LABEL, roleLabel, BUILDING_LABEL, TOWER_LABEL,
     THEMED_BATCH_CHANCE, batchStock, themedOfferStock, themedQuantity, traderPrices, traderStock,
-    LINE_RULES, THEMES, SOLO_LINES, soloLine, isSoloShop, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, marketLines, lineFor, lineCount, lineBuildable, themedStock, itemTier,
+    LINE_RULES, THEMES, SOLO_LINES, soloLine, isSoloShop, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, shopLineLedger, lineFor, lineCount, lineBuildable, themedStock, itemTier,
     MEMORIES_PER_TIER, SHOP_TIER_MAX, memoryTotal, tierCap, tierUnlockMemories, storedTier, smithTier, traderTierAt, traderTier, shopTier, roleTierCount, tierAffinity, pickThemed,
   };
 })(window);

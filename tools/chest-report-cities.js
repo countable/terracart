@@ -56,7 +56,7 @@ async function loadChestReportCities(onProgress) {
           const dy = (lat - config.home.lat) * 110540;
           const near = Math.hypot(dx, dy) <= CHEST_REPORT_HOME_RADIUS_M;
           const look = chestLook(object);
-          const excluded = look.coin ? 'coin' : look.bike ? 'bike' : look.barrel ? 'barrel'
+          const excluded = look.bike ? 'bike' : look.barrel ? 'barrel'
             : look.macro ? 'macro' : look.stand ? 'stand' : null;
           if (excluded) {
             city.excluded[excluded] = (city.excluded[excluded] || 0) + 1;

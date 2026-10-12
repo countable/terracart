@@ -62,6 +62,21 @@
     s._debugGpsEnabled = false;
     s._stepDebugGps(1);
     assert.eq(s.gpsM.x, x);
-    assert.truthy(s._gpsSimulated, 'hiding the control keeps the last simulated fix');
+  });
+
+  test('debug GPS: turning the stick off resumes the real GPS watch', () => {
+    const f = setup(), s = f.scene;
+    f.doc.getElementById = () => null;
+    s.startGps();
+    s._stepDebugGps(1);
+    assert.truthy(s._gpsSimulated);
+    assert.eq(f.watched(), 1);
+    s.setDebugGpsStick(false);
+    assert.falsy(s._gpsSimulated);
+    assert.falsy(s._debugGpsEnabled);
+    assert.eq(f.watched(), 2, 'the device watch is re-armed');
+    assert.eq(s.gpsWatchId, 'watch');
+    s.setDebugGpsStick(false);
+    assert.eq(f.watched(), 2, 'turning it off again never stacks a second watch');
   });
 })();

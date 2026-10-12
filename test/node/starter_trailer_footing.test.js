@@ -130,3 +130,42 @@ test('starter trailer footing: no caller reads the trailer record back after mak
   }
   assert.eq(calls, 2, 'the starter placement and Move Home here');
 });
+
+// "Move Home here" on a house's FOOTPRINT — any of its cells, not just the
+// one its object stands on — takes that house over as Home (it draws as the
+// trailer), so the trailer replaces the building instead of parking on it.
+// A building that is already the player's, or isn't a house, refuses.
+function homeFootingAt(scene, x, y) {
+  const at = SCENE_SRC.indexOf('  _homeFootingAt(x, y) {\n');
+  const body = SCENE_SRC.slice(SCENE_SRC.indexOf('{', at) + 1, SCENE_SRC.indexOf('\n  }\n', at));
+  return new Function('BUILDING_TYPES', 'x', 'y', body).call(scene, new Set([9, 11, 12]), x, y);
+}
+
+function footprintTile(key, objects) {
+  const n = WorldGen.TILE_PX;
+  const grid = new Uint8Array(n * n), owners = new Uint16Array(n * n);
+  for (let iy = 20; iy <= 22; iy++) for (let ix = 10; ix <= 13; ix++) {
+    grid[iy * n + ix] = 9; owners[iy * n + ix] = 1;
+  }
+  return { grid, owners, ownerKeys: [null, key], objects };
+}
+
+test('move home: any cell of a house footprint resolves to that house', () => {
+  const scene = estScene({ starterTrailer: null, starterShopId: 'starter_trailer' });
+  const house = { kind: 'house', id: 'h_fp', x: 11.5, y: 21.5, tier: 9 };
+  WorldGen.tileCache.set(EST_KEY, footprintTile('h_fp', [house]));
+  try {
+    assert.eq(homeFootingAt(scene, 13.5, 20.5)?.house, house, 'a footprint corner finds its house');
+    assert.eq(homeFootingAt(scene, 15.5, 20.5), null, 'open ground beside it is free');
+    scene.save.restoredHouses = { h_fp: 'plain' };
+    assert.truthy(homeFootingAt(scene, 13.5, 20.5)?.blocked, 'a restored house is not replaced');
+  } finally { WorldGen.tileCache.delete(EST_KEY); }
+});
+
+test('move home: a castle footprint refuses rather than hosting the trailer', () => {
+  const scene = estScene({ starterTrailer: null, starterShopId: 'starter_trailer' });
+  WorldGen.tileCache.set(EST_KEY, footprintTile('b_11_21', []));
+  try {
+    assert.truthy(homeFootingAt(scene, 12.5, 21.5)?.blocked, 'no house object behind the footprint');
+  } finally { WorldGen.tileCache.delete(EST_KEY); }
+});

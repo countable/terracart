@@ -209,7 +209,7 @@ const ASSETS = {
   // and the flint nodule (items.js CROP_SPRITE.flint).
   grove_votive: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/seed_shrine.png', frameWidth: 24, frameHeight: 24 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Approved/flint.png', frameWidth: 16, frameHeight: 16 },
-  // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — ten 16×24 generated
+  // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — eleven 16×24 generated
   // placeholders on one row, in the table's order.
   shrines:        { kind: 'spritesheet', path: 'assets/Objects/Generated/shrines.png', frameWidth: 16, frameHeight: 24 },
   // SCENIC PLACES (src/scenic.js) — generated placeholders, one art per
@@ -255,6 +255,7 @@ const ASSETS = {
   macro_training:    { kind: 'spritesheet', path: 'assets/Objects/Generated/training_simple.png', frameWidth: 80, frameHeight: 80 },
   // Scholar has a dedicated reading booth, distinct from the book shop.
   macro_scholar:     { kind: 'spritesheet', path: 'assets/Objects/Generated/scholar_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_bank:        { kind: 'spritesheet', path: 'assets/Objects/Generated/bank_simple.png', frameWidth: 80, frameHeight: 80 },
   // Stone well — the in-game stand-in for OSM amenity=fountain points. Tapping
   // it refills the watering can like a water tile (see interact.js 'well'
   // branch).
@@ -371,7 +372,8 @@ const ASSETS = {
   // function. Anchored at origin (0.5, 0.9) like the base house.
   house_blacksmith: { kind: 'image', path: 'assets/Objects/Approved/house_blacksmith.png' },
   house_trader:     { kind: 'image', path: 'assets/Objects/Approved/house_trader.png' },
-  house_market:     { kind: 'image', path: 'assets/Objects/Approved/house_market.png' },
+  // The shop's file keeps its pre-rename name: the approved-art manifest keys it.
+  house_shop:       { kind: 'image', path: 'assets/Objects/Approved/house_market.png' },
   house_fort:       { kind: 'image', path: 'assets/Objects/Approved/house_fort.png' },
   house_trailer:    { kind: 'image', path: 'assets/Objects/Home/home_wagon.png' },
   // Wreck: every tier-9 small house starts out as one of these until the

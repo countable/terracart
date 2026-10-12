@@ -187,8 +187,21 @@ function resetCurrentSave() {
 }
 
 function loadSave() {
-  try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; }
+  try { return migrateSave(JSON.parse(localStorage.getItem(SAVE_KEY)) || {}); }
   catch { return {}; }
+}
+
+// Renamed persisted values, rewritten as a save is read. The themed shop's
+// role key was 'market' before Oct 2026; it is 'shop' now.
+const LEGACY_HOUSE_ROLES = Object.freeze({ market: 'shop' });
+function migrateSave(save) {
+  const rh = save && save.restoredHouses;
+  if (rh && typeof rh === 'object') {
+    for (const id of Object.keys(rh)) {
+      if (Object.hasOwn(LEGACY_HOUSE_ROLES, rh[id])) rh[id] = LEGACY_HOUSE_ROLES[rh[id]];
+    }
+  }
+  return save;
 }
 
 // Save is called from many hot code paths (every till/water/harvest/pickup/

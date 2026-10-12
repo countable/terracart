@@ -101,7 +101,7 @@ const FILES = [
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',
   'dungeon_progression.js', 'elevators.js', 'arena.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'worldgen.js', 'save.js',
-  'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'rarity.js', 'loot.js',
+  'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',
   'hidden_objects.js', 'temple_puzzles.js', 'temple_layout.js', 'temple_scene.js', 'temples.js', 'interactables.js', 'boss_encounters.js', 'houses.js',
@@ -168,7 +168,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   chestBaseTier, chestTierDepthBonus, ZONE_NEXUS_TIER_BONUS, chestTierZoneBonus, chestTier, chestMirrorsUnderground,
   CRATE_RESTORE_PER, CRATE_RESTORE_MAX_DAYS, crateRestoreDays,
   BARREL_CLASSES, BARREL_ART, BARREL_LOOT, CLAY_POT_LOOT, barrelProfile, barrelLootPool, rollBarrel, isBarrel, isPoiBarrel, barrelRewardProfile, barrelFlash,
-  POT_COINS_BY_DENSITY, potCoinsFor, isPotOfGold, isBikeRack, bikeRackFlash,
+  POT_COINS_BY_DENSITY, potCoinsFor, isBikeRack, bikeRackFlash,
   BIKE_RACK_SPEED_MUL, BIKE_RACK_MS, steerSpeedMul,
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
@@ -218,6 +218,8 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
 ctx.STARTER_JS_SRC = readSrc('starter.js');
 ctx.TEMPLES_SRC = readSrc('temples.js');
 ctx.CREATURE_AI_SRC = readSrc('creature_ai.js');
+// The loot picker's source, so loot.test.js can hold it to reading row fields, not context names.
+ctx.RARITY_SRC = readSrc('rarity.js');
 {
   // The creature-AI consts and helpers moved to creature_ai.js; look in both.
   const src = SCENE_SRC + '\n' + readSrc('creature_ai.js');
@@ -1425,6 +1427,16 @@ for (const f of testFiles) {
     } });
   }
 }
+
+// ── Every ASSETS file ships ──────────────────────────────────────────────
+// A key renamed without its file (house_market → house_shop) 404s in the
+// browser and the sprite silently never draws. Files on disk, so node scope.
+ctx.__tests.push({ name: 'assets: every ASSETS path exists on disk', fn: () => {
+  const { ASSETS } = require('../../tools/sprite_audit.js');
+  const missing = Object.entries(ASSETS).filter(([, a]) => a && a.path && !fs.existsSync(path.join(ROOT, a.path.split('?')[0])))
+    .map(([k, a]) => `${k} → ${a.path}`);
+  if (missing.length) throw new Error(`missing art files: ${missing.join(', ')}`);
+} });
 
 // The editable table and the shipped browser module must always agree.
 ctx.__tests.push({ name: 'zone variants: generated browser data matches the canonical table', fn: () => {

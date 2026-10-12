@@ -151,7 +151,7 @@
     };
   }
   // Half-cell samples fill the full three-cell verge on both sides.
-  const GOLDEN_STEP_M = 3.5, GOLDEN_COIN_AMOUNT = 1;
+  const GOLDEN_STEP_M = 3.5;
   const OVERGROWN_STEP_M = 12, OVERGROWN_MAX = 42;
   const ORCHARD_STEP_M = 12, ORCHARD_MAX = 80;
   const TOADSTOOL_STEP_M = 6, TOADSTOOL_MAX = 100;
@@ -320,13 +320,13 @@
       flash: 'The park path winds on.' },
     { id: 'golden', terrain: 'ROCK', affinities: ['formal'], size: 'minor', share: 0.02, rung: 'rare',
       stone: { weathered: '#806747', restored: '#bd9650' }, lampDensity: 1,
-      // A coin carpet half the usual section long (sectionLimits): a whole
+      // A coin spree half the usual section long (sectionLimits): a whole
       // 500 m of coins on every long road would be a purse, not a find.
       sectionMaxM: 250,
       lampGlow: '#efc46a',
       story: 'street_golden', art: 'street_golden', title: 'Golden Road',
-      body: 'Green coins lie scattered in the grass on both sides of the road. You spot more with every step.',
-      flash: 'The verges glitter with coins.' },
+      body: 'A gilded idol stands beside the road. Touch it each day, and green coins spill along both sides of the road.',
+      flash: 'A gilded idol waits ahead.' },
     { id: 'snare', terrain: 'WASTELAND', affinities: ['ruined'], size: 'minor', share: 0.03, rung: 'rare',
       stone: { weathered: '#594a3f', restored: '#100e0b' }, lampDensity: 1,
       lampGlow: '#d58b52', story: 'street_snare', art: 'street_snare', title: 'Snare Lane',
@@ -400,13 +400,19 @@
           apple ? { species: D.WG.fruitTreeSpecies(D.WG.cellHash(D.tx, D.ty, c.ix, c.iy)), wild: true, _street: D.v }
             : { species: 'maple', variant: 3, _street: D.v }));
       } }],
-    // Dense ribbons on both verges, one pickup per free cell; sampling below
-    // cell width also covers diagonal roads. Cell ids survive reloads on the
-    // existing foundTreasures ledger.
-    golden: [{ step: GOLDEN_STEP_M, side: 'both', fill: true,
-      emit: (D, at, c) => D.res.coins.push({ kind: 'coindrop', x: D.cx(c.ix), y: D.cy(c.iy),
-        id: D.WG.cellId('golden_coin', D.tx, D.ty, c.ix, c.iy),
-        amount: GOLDEN_COIN_AMOUNT, seeded: true, _street: D.v }) }],
+    // Dense ribbons of COIN SEATS on both verges, one per free cell; sampling
+    // below cell width also covers diagonal roads. Nothing lies there until
+    // the road's golden idol is visited (Shrines.SHRINE_KINDS.golden_idol —
+    // the coin spree, app.js _coinBurstInteract): the seats ride on the idol
+    // (`coinSeats`). They claim no cell, so the idol and the day's coins may
+    // stand on the verge they line.
+    golden: [{ step: GOLDEN_STEP_M, side: 'both', fill: true, claim: false,
+      emit: (D, at, c) => {
+        const seats = D.res.coinSeats.get(D.rec.key) || new Map();
+        D.res.coinSeats.set(D.rec.key, seats);
+        const id = D.WG.cellId('golden_coin', D.tx, D.ty, c.ix, c.iy);
+        if (!seats.has(id)) seats.set(id, { x: D.cx(c.ix), y: D.cy(c.iy), id });
+      } }],
     burned: [
       // The debris: tar pits and stakes, side and kind off the row's stream.
       { step: BURNED_STEP_M, max: BURNED_MAX, stream: true,
@@ -1307,7 +1313,7 @@
   // never in the unsliced spawn pass (CLAUDE.md, the worst-block rule).
   function* dressSteps(ctx) {
     const WG = root.WorldGen, S = root.Streets;
-    const res = { objects: [], wildplants: [], treasures: [], coins: [], traps: [], lairs: [], slowCells: new Map(), marks: null };
+    const res = { objects: [], wildplants: [], treasures: [], coinSeats: new Map(), traps: [], lairs: [], slowCells: new Map(), marks: null };
     const idx = ctx && ctx.index;
     if (!idx || !WG || !S) return res;
     const { tx, ty, N, grid, spawnOpts } = ctx;
@@ -1374,7 +1380,8 @@
             for (let k = k0; k <= kMax; k++) {
               const c = vergeCell(rec, x, y, nx, ny, side, k);
               if (!cellOk(c.ix, c.iy)) continue;
-              claim(c.ix, c.iy); row.emit(D, at, c, side); placed++;
+              if (row.claim !== false) claim(c.ix, c.iy);
+              row.emit(D, at, c, side); placed++;
             }
             continue;
           }
@@ -1565,7 +1572,7 @@
         // Reserve the selected shrine before filling its verge. Two complete
         // shrub rings enclose it, connected to the verge but clear of the road.
         // Cutting or burning an approach uses the ordinary shrub picked ledger.
-        if (!thornyShrines.has(rec.key) && streetShrineChosen(rec.key)) {
+        if (!thornyShrines.has(rec.key) && streetShrineChosen(rec.key, v)) {
           const length = S.lineLengthM(rec.line, gM), radius = THORNY_SHRINE_RADIUS_CELLS;
           sampleLine(rec.line, gM, length + CELL_M, length / 2, (s, x, y, nx, ny) => {
             if (!S.covers(spans, s)) return;
@@ -1677,7 +1684,7 @@
     // side of every Major-and-Medium road band. Unsafe streets simply receive no shrine.
     const shrineKeys = [...shrineStreets.keys()].sort((a, b) => hash01('shrine|' + a) - hash01('shrine|' + b));
     for (const key of shrineKeys) {
-      if (!streetShrineChosen(key)) continue;
+      if (!streetShrineChosen(key, shrineStreets.get(key).v)) continue;
       yield 'street shrines';
       const { v, recs } = shrineStreets.get(key);
       let c = null;
@@ -1695,8 +1702,11 @@
       }
       if (!c) continue;
       claim(c.ix, c.iy);
+      // A coin-spree idol carries its road's verge seats on this tile.
+      const seats = res.coinSeats.get(key);
       res.objects.push(WG.makeObject('grove_shrine', cx(c.ix), cy(c.iy),
-        WG.cellId('street_shrine', tx, ty, c.ix, c.iy), { _shrineStreet: v, shrineKind: root.Shrines.kindForStreet(v) }));
+        WG.cellId('street_shrine', tx, ty, c.ix, c.iy), { _shrineStreet: v, shrineKind: root.Shrines.kindForStreet(v),
+          ...(seats ? { coinSeats: [...seats.values()] } : {}) }));
     }
 
     // THE CAFÉ HOARDS: the index's hoard POIs in hash order, the first
@@ -1932,8 +1942,13 @@
       featherCells: row.carpetFeatherCells || 0, emblem: carpetEmblemFor(variant) };
   }
 
-  function streetShrineChosen(key) {
-    return !!root.Shrines && hash01('shrine|' + key) < root.Shrines.STREET_SHRINE_CHANCE;
+  // Whether street `key` (variant `v`) gets its shrine: STREET_SHRINE_CHANCE,
+  // or the kind's own `streetChance` (the Golden Road's idol is always there —
+  // the road's coins are its).
+  function streetShrineChosen(key, v) {
+    if (!root.Shrines) return false;
+    const row = root.Shrines.SHRINE_KINDS[root.Shrines.kindForStreet(v)];
+    return hash01('shrine|' + key) < (row?.streetChance ?? root.Shrines.STREET_SHRINE_CHANCE);
   }
 
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
@@ -1946,7 +1961,7 @@
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GATE_EVERY_CELLS, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
-    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
+    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
     THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,

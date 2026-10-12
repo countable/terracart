@@ -52,11 +52,13 @@ const Visibility = (() => {
     s.signature = signature; s.refreshed = now;
     const cells = new Map(), grids = [];
     const sets = spentSets(scene, scene.save);
+    const roadNight = typeof RoadSafety !== 'undefined' && RoadSafety.isNight(scene);
     const add = o => {
       const cover = objectCover(o);
       if (!cover || Math.abs(o.x - p.x) > radius || Math.abs(o.y - p.y) > radius) return;
       if (isSpent(o, sets) || (o.kind === 'wildplant' && sets.picked.has(o.id))) return;
       if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(scene.save, o)) return;
+      if (roadNight && RoadSafety.objectHidden(scene, o, true)) return;
       const k = key(worldMetersToAbsCell(scene, o.x, o.y));
       cells.set(k, Math.max(cover, cells.get(k) || CLEAR));
     };

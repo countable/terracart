@@ -970,10 +970,8 @@ function makeCastleSkullFlagTexture(scene) {
   }
 }
 
-// Procedural "pot of gold" — the in-world art for the coin-burst POIs
-// (ATM + bicycle_parking). Tapping one of these spills a burst of collectible
-// coins, so a little cast-iron cauldron brimming with gold reads the mechanic
-// at a glance.
+// Procedural "pot of gold" — a little cast-iron cauldron brimming with gold
+// (the ATM's look before ATMs became bank booths).
 // Single-frame canvas texture keyed 'potofgold'; the render spec leaves `frame`
 // undefined for it, exactly like the themed-house sprites.
 function makePotOfGoldTexture(scene) {

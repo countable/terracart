@@ -230,6 +230,164 @@ class SceneVenues {
   }
 
 
+  // BANK: today's deal at this counter (Macros.bankOfferKind — borrow or
+  // invest), in three sizes (Macros.BANK_SHARES, a tab each; `share` is the
+  // tab shown). A matured investment held HERE is collected first; the rules
+  // and the ledger are src/macros.js's, the debt's collector _tickBankDebt.
+  _presentBank(sx, sy, o, dress, share = 0, now = Date.now()) {
+    const save = this.save;
+    const inv = save.bankInvest;
+    const pct = Math.round(Macros.BANK_INTEREST * 100);
+    if (inv && inv.bank === o.id) {
+      const pay = Macros.bankWithInterest(inv.principal);
+      if (now < inv.due) {
+        this.showMessageModal({ ...dress, kind: dress.kind, title: 'Your savings',
+          body: `You have ${this.moneyHTML(inv.principal)} on deposit here. It returns ${this.moneyHTML(pay)} in ${shortDuration(inv.due - now)}.` });
+        return;
+      }
+      this.showOfferModal({
+        ...dress, kind: dress.kind, title: 'Your savings have matured:',
+        get: `Collect ${this.moneyHTML(pay)}`,
+        blurb: `Your ${this.moneyHTML(inv.principal)} deposit plus ${pct}% interest.`,
+        canAfford: true, acceptLabel: 'Collect', cancelLabel: 'Later',
+        onAccept: () => {
+          const got = Macros.bankWithdraw(save, o);
+          if (!got) return;
+          persistSave(save);
+          this._finishInventoryChange?.();
+          this.flashLoot(`+${got}`, UI_GOLD, 1, null, this.coinIconEl());
+          this._macroTransaction('bank', `You collected ${this.moneyHTML(got)}: your deposit and its interest.`);
+        },
+      });
+      return;
+    }
+    const kind = Macros.bankOfferKind(o, now);
+    const wait = shortDuration(msToNextUtcDay(now));
+    if (kind === 'borrow') {
+      const block = Macros.bankBorrowBlock(save, now);
+      if (block === 'loan') {
+        const l = save.bankLoan;
+        this.showMessageModal({ ...dress, kind: dress.kind, title: 'The bank is lending today',
+          body: `You already owe ${this.moneyHTML(l.owed)}. A collector comes for it in ${shortDuration(Math.max(0, l.due - now))}; the bank lends no more until it is settled.` });
+        return;
+      }
+      if (block === 'today') {
+        this.showMessageModal({ ...dress, kind: dress.kind, title: 'The bank is lending today',
+          body: `The bank lends once a day. Come back in ${wait}.` });
+        return;
+      }
+    } else if (inv) {
+      this.showMessageModal({ ...dress, kind: dress.kind, title: 'The bank takes deposits today',
+        body: `You already have ${this.moneyHTML(inv.principal)} on deposit at another bank. Collect it there first.` });
+      return;
+    }
+    const cap = kind === 'borrow' ? Macros.bankBorrowCap(save) : Macros.bankInvestCap(save);
+    const amounts = Macros.bankAmounts(cap);
+    if (!amounts.length) {
+      this.showMessageModal({ ...dress, kind: dress.kind, title: 'The bank takes deposits today',
+        body: `Bring coins to invest. The bank returns them with ${pct}% interest after a day.` });
+      return;
+    }
+    const pick = amounts[Math.min(share, amounts.length - 1)];
+    const back = Macros.bankWithInterest(pick.amount);
+    const term = shortDuration(Macros.BANK_TERM_MS);
+    const borrow = kind === 'borrow';
+    this.showOfferModal({
+      ...dress, kind: dress.kind,
+      title: borrow ? 'The bank is lending today:' : 'The bank takes deposits today:',
+      tabs: amounts.map((a, i) => ({ label: `${a.label} · ${a.amount}`, active: a === pick,
+        onSelect: () => this._presentBank(sx, sy, o, dress, i) })),
+      get: `${borrow ? 'Borrow' : 'Invest'} ${this.moneyHTML(pick.amount)}`,
+      blurb: borrow
+        ? `Owe ${this.moneyHTML(back)} in ${term}. A pirate will come to collect it, and he fights if you refuse to pay. You can borrow up to ${Macros.BANK_BASE} coins plus ${Macros.BANK_PER_MEMORY} for each memory.`
+        : `Collect ${this.moneyHTML(back)} from this bank after ${term}.`,
+      canAfford: true,
+      acceptLabel: borrow ? 'Borrow' : 'Invest', cancelLabel: 'Later',
+      onAccept: () => {
+        const done = borrow ? Macros.bankBorrow(save, o, pick.amount) : Macros.bankInvest(save, o, pick.amount);
+        if (!done) return;
+        persistSave(save);
+        this._finishInventoryChange?.();
+        if (borrow) this.flashLoot(`+${pick.amount}`, UI_GOLD, 1, null, this.coinIconEl());
+        this._macroTransaction('bank', borrow
+          ? `You borrowed ${this.moneyHTML(pick.amount)}. In ${term} a collector will ask for ${this.moneyHTML(back)}.`
+          : `You deposited ${this.moneyHTML(pick.amount)}. Return here after ${term} to collect ${this.moneyHTML(back)}.`);
+      },
+    });
+  }
+
+  // THE DEBT COLLECTOR, asked each frame: once a bank loan falls due
+  // (Macros.bankLoanDue), the first moment the player is about on the
+  // surface with no dialog open, a pirate (Macros.BANK_COLLECTOR_KIND) steps
+  // up BANK_COLLECTOR_DIST_CELLS away (never inside Home's ward, which would
+  // rout him) and asks for the debt. He stands pacified while he asks
+  // (`_pirateParleyPending`; pirates.js leaves a collector's flags alone).
+  // Pay: the loan closes and he leaves. Refuse: the loan closes and he
+  // fights. A reload before the answer brings a new collector.
+  _tickBankDebt(now = Date.now()) {
+    const pend = this._bankCollector;
+    if (pend) {
+      // Another dialog can replace the offer without its callback: ask again
+      // once the screen is clear.
+      if (pend.modal && !pend.modal.isConnected && !this._dialogOpen?.()) this._presentBankCollector(pend.c);
+      return;
+    }
+    const loan = Macros.bankLoanDue(this.save, now);
+    if (!loan || (this.depth || 0) !== 0 || this._dialogOpen?.() || this._passingOut || this.save.exhausted) return;
+    if (now < (this._bankCollectorRetryAt || 0)) return;
+    this._bankCollectorRetryAt = now + 3000;
+    const homePos = this.homeWorldPos();
+    const dest = this.findWalkableDestination(Macros.BANK_COLLECTOR_DIST_CELLS, {
+      seed: 'bankdebt:' + loan.due, cls: 'enemy',
+      accept: (x, y) => !homePos || Math.hypot(x - homePos.x, y - homePos.y) > HOME_R * this.cellM,
+    });
+    if (!dest) return;
+    const { entry, tx, ty } = dest;
+    const id = `debtor_${tx}_${ty}_${Math.floor(now)}`;
+    const c = WorldGen.makeCreature(Macros.BANK_COLLECTOR_KIND, dest.x, dest.y, id,
+      { shiny: false, debtCollector: true, _pirateParleyPending: true });
+    entry.creatures = entry.creatures || [];
+    entry.creatures.push(c);
+    this._presentBankCollector(c);
+  }
+  _presentBankCollector(c) {
+    const loan = this.save.bankLoan;
+    if (!loan) { this._bankCollector = null; c._pirateParleyPending = false; return; }
+    const pend = this._bankCollector = { c, modal: null };
+    let settled = false;
+    const settle = (pay) => {
+      if (settled || this._bankCollector !== pend) return;
+      settled = true;
+      this._bankCollector = null;
+      const paid = pay && Macros.bankLoanSettle(this.save, true);
+      if (!paid) Macros.bankLoanSettle(this.save, false);
+      persistSave(this.save);
+      if (paid) {
+        // His business is done: he leaves the street.
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(Math.floor(c.x / this.tileEdgeM), Math.floor(c.y / this.tileEdgeM)));
+        const i = entry?.creatures?.indexOf(c) ?? -1;
+        if (i >= 0) entry.creatures.splice(i, 1);
+        this._finishInventoryChange?.();
+        this.flashAtPlayer('The pirate pockets the coins and leaves.');
+      } else {
+        c._pirateParleyPending = false;
+        this.flashAtPlayer('The pirate draws his cutlass!');
+      }
+    };
+    const short = (this.save.money ?? 0) < loan.owed;
+    this.showOfferModal({
+      kind: 'trade', title: 'A debt collector',
+      get: `Repay ${this.moneyHTML(loan.owed)}`,
+      blurb: `“Arr! The bank sent me. You borrowed ${loan.principal} coins, and with interest you owe ${loan.owed}. Pay up, or we settle it with steel.”`
+        + (short ? ' You do not have enough coins.' : ''),
+      canAfford: !short,
+      acceptLabel: `Pay ${loan.owed} coins`, cancelLabel: 'Refuse',
+      onAccept: () => settle(true),
+      onCancel: () => settle(false),
+    });
+    pend.modal = document.getElementById('offer-modal');
+  }
+
   // CURIO HALL: the ONE shared collection (Macros.CURIO_COLLECTION — things
   // that keep). Hold a listed thing the collection lacks and tap to give ONE;
   // nothing is paid. At each of Macros.CURIO_MILESTONES given, a MEMORY
@@ -394,8 +552,8 @@ class SceneVenues {
     if (isFort)   return 'The fort quartermaster offers:';
     // Named for its line, so the words match the sign outside: "The potion
     // shop has fresh stock:".
-    if (st === 'market') {
-      return `The ${Shops.roleLabel('market', this.marketTheme(house).theme).toLowerCase()} has fresh stock:`;
+    if (st === 'shop') {
+      return `The ${Shops.roleLabel('shop', this.shopLine(house).theme).toLowerCase()} has fresh stock:`;
     }
     if (st === 'trader')     return 'The trader proposes a barter:';
     if (st === 'blacksmith') return 'The blacksmith has on hand:';
@@ -986,13 +1144,21 @@ class SceneVenues {
         body: 'Your trailer stays on the surface — it has never been much of a caver. Climb back up before moving Home.' });
       return;
     }
+    const { x: px, y: py } = playerWorldM(this);
+    const footing = this._homeFootingAt(px, py);
+    if (footing?.blocked) {
+      this.showMessageModal({ title: 'Move Home',
+        body: 'Your trailer can\'t park on this building. Step off its footprint before moving Home.' });
+      return;
+    }
     const cost = Math.min(500, Math.floor((this.save.money ?? 0) / 2));
     this.showConfirmModal({
       id: 'move-home-modal',
       kind: 'build',
       title: 'Move Home here?',
-      body:
-        'Settle your trailer here.',
+      body: footing?.house
+        ? 'Your trailer replaces this building.'
+        : 'Settle your trailer here.',
       acceptLabel: `Move (${this.moneyHTML(cost, 12)})`,
       onAccept: () => {
         addMoney(this.save, -cost);
@@ -1004,10 +1170,34 @@ class SceneVenues {
     });
   }
 
+  // What "Move Home here" finds under (x, y): null on open ground; { house }
+  // anywhere on an unclaimed house's footprint, which Home then takes over —
+  // Home draws as the trailer, so the trailer replaces the building rather
+  // than parking on top of it (the same adoption ensureStarterTrailerObject
+  // makes on the house's own cell); { blocked } on any other building — one
+  // already yours, a temple, a castle, or a house whose tile isn't loaded.
+  _homeFootingAt(x, y) {
+    const c = worldMetersToTileCell(this, x, y);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(c.tx, c.ty));
+    const i = c.iy * c.n + c.ix;
+    if (!entry?.grid || !BUILDING_TYPES.has(entry.grid[i])) return null;
+    const key = entry.ownerKeys?.[entry.owners?.[i]];
+    if (!key) return { blocked: true };
+    if (key !== this.save.starterShopId && Houses.isClaimedKey(this.save, key)) return { blocked: true };
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of (e.objects || [])) {
+        if (o.id === key) return o.kind === 'house' && !o._synthetic ? { house: o } : { blocked: true };
+      }
+    }
+    return { blocked: true };
+  }
+
   // Relocate Home to the player's current position by (re)synthesizing the
-  // starter trailer there. Works whether the current Home is a real adopted
-  // house (it simply becomes a normal house again) or an existing synthetic
-  // trailer (it moves). Surface-only — the confirm above guards depth.
+  // starter trailer there — or, standing on a house's footprint, by taking
+  // that house over (_homeFootingAt). Works whether the current Home is a
+  // real adopted house (it simply becomes a normal house again) or an
+  // existing synthetic trailer (it moves). Surface-only — the confirm above
+  // guards depth.
   moveHomeTrailerHere() {
     // Evict any previously injected trailer object from the loaded tiles.
     // ensureStarterTrailerObject only dedupes within the NEW owning tile, so
@@ -1020,7 +1210,14 @@ class SceneVenues {
     }
     // playerM → absolute world metres (the space every object's x/y lives in).
     const { x: ax, y: ay } = playerWorldM(this);
-    this._makeStarterTrailer(ax, ay);
+    const footing = this._homeFootingAt(ax, ay);
+    if (footing?.house) {
+      this.save.starterTrailer = null;
+      this._starterTrailerObj = null;
+      this.save.starterShopId = footing.house.id;
+    } else {
+      this._makeStarterTrailer(ax, ay);
+    }
     this._starterShopOk = true;
   }
 

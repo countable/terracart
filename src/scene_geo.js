@@ -243,11 +243,19 @@ class SceneGeo {
   }
 
   // The control preference persists; simulated fixes remain session-only.
-  // Hiding the stick keeps its last fix; reload restores device tracking.
+  // Turning the stick off hands the body back to the device: the watch it
+  // dropped (_stepDebugGps) is re-armed, and the next real fix walks or snaps
+  // the body home through the ordinary fix rules (_applyGpsFix).
   setDebugGpsStick(enabled) {
     this._debugGpsReset?.();
     document.getElementById('gps-pad')?.remove();
     this._debugGpsEnabled = !!enabled;
+    if (!enabled && this._gpsSimulated) {
+      this._gpsSimulated = false;
+      this._debugGpsVec = { x: 0, y: 0 };
+      this.startGps();
+      this.flashAtPlayer?.('Real GPS resumed');
+    }
     try { localStorage.setItem('terracart.debugGpsStick', enabled ? '1' : '0'); } catch (_) {}
     const toggle = document.getElementById('debug-gps-stick');
     if (toggle) {
@@ -258,7 +266,7 @@ class SceneGeo {
     const pad = document.createElement('div');
     pad.id = 'gps-pad';
     pad.setAttribute('aria-label', 'Move simulated GPS');
-    pad.title = 'Move GPS (reload to restore real GPS)';
+    pad.title = 'Move GPS (turn the GPS stick off to restore real GPS)';
     pad.style.cssText = `position:fixed;left:calc(var(--phone-left, 0px) + 16px);
       bottom:calc(var(--stick-bottom, 160px) + env(safe-area-inset-bottom, 0px));
       width:110px;height:110px;border-radius:50%;box-sizing:border-box;

@@ -311,10 +311,6 @@ class SceneCreatures {
     }
     yield 'spawn zone dressing';
     const dressing = entry.streetDress;
-    // A rebuilt tile carries live coinDrops. Replace its authored road coins
-    // from the new dressing so collected or newly overridden seats disappear;
-    // bounty and burst coins keep their existing session state.
-    if (entry.coinDrops) entry.coinDrops = entry.coinDrops.filter(c => c._street !== 'golden');
     if (dressing && typeof StreetVariants !== 'undefined' && !testMode) {
       const cellIdx = (p) => {
         const ix = Math.floor((p.x - tx * this.tileEdgeM) / cellM);
@@ -338,16 +334,6 @@ class SceneCreatures {
       for (const wp of dressing.wildplants) if (lay(wp)) entry.wildplants.push(wp);
       for (const trap of (dressing.traps || [])) if (lay(trap)) zoneTraps.push({ ...trap });
       streetTreasures = dressing.treasures.filter(lay);
-      const found = setOf(this.save.foundTreasures || []);
-      const coinIds = new Set((entry.coinDrops || []).map(c => c.id));
-      const zoneCoverage = entry.zone && (entry.zone.coverage || entry.zone.idx);
-      for (const coin of (dressing.coins || [])) {
-        if (coinIds.has(coin.id) || zoneCoverage?.[cellIdx(coin)] || !lay(coin)) continue;
-        // Reserve even collected seats: a save delta must not change which
-        // lower-priority pieces the generated layout admits.
-        coinIds.add(coin.id);
-        if (!found.has(coin.id)) (entry.coinDrops || (entry.coinDrops = [])).push(coin);
-      }
       entry.streetLairs.push(...dressing.lairs);
       entry.slowCells = slow.size ? slow : null;
       entry.streetMarks = dressing.marks;
@@ -1523,7 +1509,7 @@ class SceneCreatures {
       // is the pump's old prefix — a marker left by a session before the deer
       // took the job prunes the same way.)
       const sessionId = this._sessionIdRe ||= new RegExp(
-        `^(?:pest_deer|pest_crow|ghost|fished_slime|${Object.keys(Companions.KINDS).join('|')}|guildfoe)_(-?\\d+)_(-?\\d+)_`);
+        `^(?:pest_deer|pest_crow|ghost|fished_slime|${Object.keys(Companions.KINDS).join('|')}|guildfoe|debtor)_(-?\\d+)_(-?\\d+)_`);
       this.save.caught = this.save.caught.filter((id) => {
         const m = typeof id === 'string' && sessionId.exec(id);
         // A gate's guard (lairs.js DAILY_TIERS) carries its UTC day: one
@@ -2304,6 +2290,14 @@ class SceneCreatures {
       tickCreature(c);
       if (EnemySpawns.homeFaunaSubject(c) || c._homeFaunaInactive) EnemySpawns.surfaceActive(this, c);
       updateCharacterSpacingIndex(spacingIndex, c);
+    }
+    // A foe, pet or charmed creature on an open floor gap falls through (HazardFalls).
+    const fell = HazardFalls.dropCreatures(this, activeCreatures);
+    if (fell.length) {
+      const gone = new Set(fell);
+      this._activeCreatures = this._activeCreatureMemo.creatures = activeCreatures.filter(c => !gone.has(c));
+      this._foeBodies = this._foeBodies.filter(c => !gone.has(c));
+      this._characterBodies = this._characterBodies.filter(c => !gone.has(c));
     }
     this._characterSpacingIndex = null;
     // What the foes took off the bar this window pops as one "⚔️ monsters"

@@ -87,3 +87,20 @@ test('minimal headless scenes have clear cover without canonical coordinates', (
   assert.eq(Visibility.coverBetween({},0,0,1,2),Visibility.CLEAR);
   assert.eq(Visibility.revision({}),0);
 });
+
+// Road safety hides roadside props after dark; their invisible art must not
+// leave an unexplained sight barrier behind.
+test('night-hidden roadside props do not cast cover', () => {
+  const f = coverFixture([{ id: 'road-wall', kind: 'stronghold_wall', x: 2.5, y: .5 }]);
+  const night = RoadSafety.isNight, hidden = RoadSafety.objectHidden;
+  try {
+    RoadSafety.isNight = () => true;
+    RoadSafety.objectHidden = (scene, o) => o.id === 'road-wall';
+    assert.eq(Visibility.playerCover(f.scene, 4.5, .5), Visibility.CLEAR);
+    RoadSafety.isNight = () => false;
+    Visibility.invalidate(f.scene);
+    assert.eq(Visibility.playerCover(f.scene, 4.5, .5), Visibility.FULL);
+  } finally {
+    RoadSafety.isNight = night; RoadSafety.objectHidden = hidden; f.done();
+  }
+});

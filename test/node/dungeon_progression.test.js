@@ -143,7 +143,7 @@
       startWorldM: {x: 0,y: 0}, playerM: {x: 0,y: 0}, feetOffsetM: 0,
       dugWallSet: new Set(), cellAt: () => ({cellIX: 1,cellIY: 2}),
       _selectedConsumable: () => true, flashAtPlayer() {}, flash() {},
-      buildInventoryDOM() {}, syncMoveTarget() {}, _storySplashOnce() {},
+      buildInventoryDOM() {}, syncMoveTarget() {}, _clearMarkers() {}, _storySplashOnce() {},
       cameras: {main: {setBackgroundColor() {}}}, ensureTilesAround: () => Promise.resolve(),
     };
     const deps = {

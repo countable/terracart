@@ -215,9 +215,16 @@ const MemoryStory = (() => {
     if (typeof scene?._dialogOpen === 'function') return !!scene._dialogOpen();
     return typeof document !== 'undefined' && !!document.body?.classList?.contains('modal-open');
   }
+  // An UNPROMPTED panel also waits out the player's interaction (app.js
+  // _storyHeld — the story hold: a tap in the last few seconds); a panel
+  // answering the player's own tap (a neighbour's talk) asks dialogOpen.
+  function storyHeld(scene) {
+    return typeof scene?._storyHeld === 'function' ? !!scene._storyHeld() : dialogOpen(scene);
+  }
   function drainPanel(scene, flagKey, panel, onDone) {
-    if (scene[flagKey] || dialogOpen(scene)) return false;
+    if (scene[flagKey] || storyHeld(scene)) return false;
     scene[flagKey] = true;
+    scene._storyRun = true;   // the hold's run: its dismissing tap holds back nothing
     try {
       scene.showMessageModal({ ...panel, mustAcknowledge: true, onDismiss: () => {
         scene[flagKey] = false;
@@ -638,6 +645,6 @@ const MemoryStory = (() => {
   }
   return { START_MEMORIES, LEAVE_MEMORIES, REVEAL_MEMORIES, ABANDONED_NOTE, HALF_FORMED, LOCKED, ABANDONED, EMPTY,
     HOME, FIRST_ROOF, RUMOUR, NEIGHBOURS, STRANGER, STRANGER_RUMOURS, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
-    state, total, enqueue, panel, drain, dialogOpen, drainPanel, showPages, npcDialogue, wandererLine, wandererHoused, believerLine, survivorLine, act, towerAccess, objective,
+    state, total, enqueue, panel, drain, dialogOpen, storyHeld, drainPanel, showPages, npcDialogue, wandererLine, wandererHoused, believerLine, survivorLine, act, towerAccess, objective,
     eligibleBeats, wizardSequence, pagesFor, visitWizard, archaeologistConversation, acknowledgeArchaeologist };
 })();

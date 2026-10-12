@@ -281,12 +281,12 @@
     },
 
     // 6) Tap an adjacent chest: entry in save.opened AND inventory. A one-off
-    //    chest only: a crate spends into the day ledger, and a pot of gold /
-    //    bike rack is no chest.
+    //    chest only: a crate spends into the day ledger, and a bike rack is
+    //    no chest.
     async open_chest() {
       const s = S();
       const chest = nearestObject(o => o.kind === 'chest' && !restocks(o) && !chestNeverSpent(o)
-        && !isPotOfGold(o) && !isBikeRack(o) && !isBarrel(o)
+        && !isBikeRack(o) && !isBarrel(o)
         && !s.save.opened.includes(o.id));
       if (!chest) return { name: 'open_chest', pass: false, details: 'no unopened chest' };
       teleportAdjacent(chest, 'south', 1);
