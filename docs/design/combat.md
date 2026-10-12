@@ -110,8 +110,11 @@ mechanics.
   them without saving an infinite potion expiry or showing an infinite countdown.
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds
   sight range through `unseen`. Bushes, short walls and cave walls fully block
-  detection, pursuit and new attacks across them. Trees reduce sight by two
-  cells once per sight line; overlapping trees do not stack. Cover uses the
+  detection, pursuit and new attacks across them. Young and mature trees reduce
+  sight by two cells once per sight line; overlapping trees do not stack. The
+  smallest timber sapling artwork (including legacy bush-sized timber records)
+  and newly planted fruit sprouts provide no cover. Actual shrubs and hedges
+  retain full cover. Cover uses the
   same visibility grid for local players, peers and NPC targets, and cancels
   an attack wind-up when sight is lost. Guards return to their seats when full
   cover breaks sight; their notice/leash rings lose two cells through trees.
