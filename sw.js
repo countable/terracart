@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-fccea1de';
+const SHELL_VERSION = 'shell-03322c82';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -440,6 +440,7 @@ const ASSET_HASHES = {
   "assets/Objects/Generated/inn.png": "bde5598f",
   "assets/Objects/Generated/inn_simple.png": "9533cb50",
   "assets/Objects/Generated/macro_booths_simple.png": "daaa5701",
+  "assets/Objects/Generated/market_stand_simple.png": "9a84bf8f",
   "assets/Objects/Generated/pillar_a.png": "a584ec00",
   "assets/Objects/Generated/pillar_c.png": "e0507f5c",
   "assets/Objects/Generated/pot.png": "5a20c83f",
@@ -650,7 +651,7 @@ const ASSET_HASHES = {
   "assets/Objects/trunk.png": "77fdcb98",
   "assets/art/barehand_tree.webp": "43a9b645",
   "assets/art/barehand_work.webp": "0ce150a1",
-  "assets/art/book_read.webp": "2771b757",
+  "assets/art/book_read.webp": "a63f3011",
   "assets/art/booth_apothecary_intro.webp": "52174659",
   "assets/art/booth_apothecary_used.webp": "6f3875fe",
   "assets/art/booth_chapel_intro.webp": "d1ddf3ac",
@@ -778,6 +779,7 @@ const ASSET_HASHES = {
   "assets/art/trail_prize.webp": "6ecb62eb",
   "assets/art/trap_free.webp": "e4903efb",
   "assets/art/trap_jaw.webp": "26caf9a0",
+  "assets/art/turret_watch.webp": "fb3db58d",
   "assets/art/underground_bone_gallery.webp": "c23b9e73",
   "assets/art/underground_depth2_rock_scatter.webp": "e8551cb3",
   "assets/art/underground_gemstone_cavern.webp": "81b47df2",

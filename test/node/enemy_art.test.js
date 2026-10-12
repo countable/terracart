@@ -95,6 +95,19 @@ test('enemy art: dungeon ghost instance size carries through crown and tap geome
   assert.lt(SpriteLayout.creatureWheelDy('ghost', scale), SpriteLayout.creatureWheelDy('ghost'), 'wheel rises with crown');
 });
 
+test('enemy art: gull eyes stay dark against pale heads through recoloring', () => {
+  const window = {};
+  new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC)(window, EnemyRoster, SpriteLayout);
+  for (const kind of ['gull', 'storm_gull']) {
+    // Crow.png uses this red for the eye and gray for the adjacent head.
+    const pixels = [196, 27, 36, 255, 47, 47, 47, 255, 196, 27, 36, 0];
+    window.recolorEnemyPixels(pixels, EnemyRoster.get(kind).palette);
+    assert.eq(pixels.slice(0, 4).join(), '24,33,42,255', kind + ' has a dark eye');
+    assert.gt(pixels[4], pixels[0] + 70, kind + ' eye contrasts with its head');
+    assert.eq(pixels.slice(8).join(), '196,27,36,0', 'transparent pixels remain untouched');
+  }
+});
+
 // Hold the approved effective sizes, including variants whose parents shrank.
 test('enemy art: size reduction targets 2x foes and the two selected giants only', () => {
   const smaller = ['bat', 'spider', 'zombie', 'plant', 'skeleton', 'vampire_bat',

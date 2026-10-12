@@ -377,6 +377,9 @@
   // Ordinary citizen sheets share six real frames in each directional row:
   // front, back, left, right. Dialog portraits use the same front-facing art.
   const NPC_FRAME = { width: 48, height: 48, cols: 6, frames: [0, 1, 2, 3, 4, 5], portraitFrame: 0 };
+  // Fox sheets have 16px bodies and pale outline ink. Match the citizens'
+  // 20px height at texture load, keeping the shared feet and tap geometry.
+  const FOX_NPC_RENDER = { sourceSize: 16, size: 20, colors: { '#4f4652': '#28202b' } };
   const NPC_SHEETS = [
     { idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png' },
     { idle: 'npc_1_idle', walk: 'npc_1_walk', path: 'assets/NPC/Citizen_woman02_idle.png' },
@@ -409,7 +412,8 @@
       ['lamplighter', ['village', 'market'], 'lamplighter', 99],
       ['keeper', ['shrine'], 'shrine_keeper', 99], ['keeper', ['grove'], 'den_keeper', 90],
     ].map(([role, cultures, slug, portraitY]) => ({ role, cultures, idle: `npc_${slug}_idle`, walk: `npc_${slug}_walk`,
-      path: `assets/NPC/${slug}_idle.png`, cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY })),
+      path: `assets/NPC/${slug}_idle.png`, cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY,
+      render: cultures.includes('grove') ? FOX_NPC_RENDER : undefined })),
   ];
   function npcSheet(c) {
     return NPC_SHEETS.find(sheet => sheet.role && sheet.role === c.role && (!sheet.cultures || sheet.cultures.includes(c.culture)))

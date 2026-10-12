@@ -94,6 +94,12 @@ and export recipe: `~/.artifacts/castle-towers/`.
 
 ## Simplified macro booths
 
+Basic produce booths also use the simplified style, in `market_stand_simple.png`.
+All seven 80×80 frames share one solid ochre roof and the same chunky booth.
+Frame indices remain intact because product-family logic also uses them.
+`tools/art/export_basic_booth.py` exports the sheet from its transparent master,
+preserved in the `art-redo-2026-10-12` review artifacts.
+
 The nine `*_simple.png` booth sprites replace Batch 3 in the runtime asset
 catalog. `macro_booths_simple.png` is their 3×3 sheet: inn, chapel,
 apothecary / scriptorium, guildhall, curio / sundries, training, scholar.
