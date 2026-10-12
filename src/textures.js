@@ -1272,6 +1272,10 @@ function drawCaveWallFaceTex(ctx, size, height, variant) {
 // It still passes through the scene's ordinary lighting, like other terrain.
 const CAVE_WALL_EDGE_FRAMES = 64;
 const CAVE_WALL_TOP_LIFT = 3;
+// The cap's top plane: its colour at an exposed lip, and how much of that it
+// loses toward the middle of a solid block.
+const CAVE_WALL_TOP_RGB = [98, 86, 70];
+const CAVE_WALL_TOP_FALLOFF = 0.24;
 function makeCaveWallEdges(scene, size) {
   if (scene.textures.exists('cave_wall_edges')) return;
   const frameHeight = size + CAVE_WALL_TOP_LIFT;
@@ -1281,19 +1285,30 @@ function makeCaveWallEdges(scene, size) {
     ctx.save(); ctx.translate(mask * size, variant * frameHeight);
     ctx.beginPath(); ctx.rect(0, 0, size, frameHeight); ctx.clip();
     const capHeight = mask & 4 ? top : frameHeight;
-    // Mask zero is the dark interior, not an empty overlay. End the falloff
+    // Mask zero is the shaded interior, not an empty overlay. End the falloff
     // within a cell so it joins that interior without a bright tile seam.
     for (let y = 0; y < capHeight; y++) for (let x = 0; x < size; x++) {
       const distance = Math.min(mask & 1 ? y : size, mask & 2 ? size - 1 - x : size,
         mask & 4 ? top - 1 - y : size, mask & 8 ? x : size,
         mask & 16 ? Math.hypot(x, Math.max(0, top - y)) : size,
         mask & 32 ? Math.hypot(size - 1 - x, Math.max(0, top - y)) : size);
-      const shade = .23 + .57 * Math.min(1, distance / (size * .38));
+      // The top plane is floor-toned stone (the floor is 0x5b4f40): lightest
+      // just inside an exposed lip, settling a little darker inward, so a
+      // block's interior reads as rock seen from above rather than a void.
       // Opaque rock covers the ground grid and the tile-local noise underneath.
-      // Only perimeter distance shapes this continuous top surface.
-      const light = 1 - shade;
-      ctx.fillStyle = `rgb(${Math.round(36 * light)},${Math.round(31 * light)},${Math.round(27 * light)})`;
+      const light = 1 - CAVE_WALL_TOP_FALLOFF * Math.min(1, distance / (size * .38));
+      ctx.fillStyle = `rgb(${Math.round(CAVE_WALL_TOP_RGB[0] * light)},${Math.round(CAVE_WALL_TOP_RGB[1] * light)},${Math.round(CAVE_WALL_TOP_RGB[2] * light)})`;
       ctx.fillRect(x, y, 1, 1);
+    }
+    // Faint broad rock planes for shading, inset from the cell so connected
+    // caps join without a seam. Seeded per variant only: no mask-dependent cut.
+    const planes = seededRand(611 + variant * 977);
+    for (let i = 0; i < 3; i++) {
+      const w = 7 + Math.floor(planes() * 7), h = 4 + Math.floor(planes() * 5);
+      const x = 4 + Math.floor(planes() * (size - 8 - w)), y = 4 + Math.floor(planes() * Math.max(1, capHeight - 8 - h));
+      ctx.fillStyle = i % 2 ? 'rgba(255,235,205,0.06)' : 'rgba(0,0,0,0.09)';
+      ctx.beginPath(); ctx.moveTo(x, y + 2); ctx.lineTo(x + w - 2, y); ctx.lineTo(x + w, y + h - 2);
+      ctx.lineTo(x + 3, y + h); ctx.closePath(); ctx.fill();
     }
     if (mask & 4) {
       ctx.save(); ctx.translate(0, top);
@@ -1316,13 +1331,14 @@ function makeCaveWallEdges(scene, size) {
         else ctx.fillRect(at, edge + inward * inset, width, 1);
       };
       // A flat three-pixel ledge grows into the cap, never down the face.
-      mark(start, length, 0, '#5c503f');
-      mark(start, length, 1, '#564a3a');
-      mark(start, length, 2, '#493f32');
+      // The lip catches the light: brighter than the floor-toned top it frames.
+      mark(start, length, 0, '#8d7d64');
+      mark(start, length, 1, '#7d6e58');
+      mark(start, length, 2, '#6f624e');
       const rng = seededRand(937 + variant * 131 + side * 71);
       for (let i = 0; i < 2 && length > 8; i++) {
         const at = start + 3 + Math.floor(rng() * (length - 7));
-        mark(at, 2, 0, '#30291f'); mark(at, 2, 1, '#564a39');
+        mark(at, 2, 0, '#4a3f31'); mark(at, 2, 1, '#665a47');
       }
     };
     if (mask & 8) rim(2, 0, capHeight);
