@@ -1,8 +1,8 @@
 {
   "frameWidth": 24,
   "frameHeight": 24,
-  "columns": 6,
-  "rows": 11,
+  "columns": 8,
+  "rows": 9,
   "sections": [
     {
       "name": "Shared material and shape pairs",
@@ -21,143 +21,21 @@
     }
   ],
   "sources": {
-    "neutral": {
-      "frameWidth": 24,
-      "frameHeight": 24,
-      "columns": 6,
-      "rows": 6,
-      "materials": [
-        "plain",
-        "flint",
-        "quartz",
-        "topaz",
-        "amethyst",
-        "sapphire",
-        "ruby",
-        "emerald",
-        "diamond",
-        "copper",
-        "iron",
-        "gold",
-        "platinum",
-        "crimson",
-        "frost"
-      ],
-      "plainShapePairs": [
-        [
-          0,
-          1
-        ],
-        [
-          30,
-          31
-        ],
-        [
-          32,
-          33
-        ],
-        [
-          34,
-          35
-        ]
-      ],
-      "plainShapes": [
-        "faceted",
-        "slab",
-        "wedge",
-        "notch"
-      ],
-      "frames": "Material index m uses small2*m and large2*m+1. Three extra plain shape pairs follow in the final row. Shared across biomes; crystal aliases sapphire.",
-      "palette": "Slightly warm neutral grey, simple planar top-down three-quarter geometry. Broad top faces and compressed front edges; bold mineral colors retained.",
-      "provenance": {
-        "tool": "Built-in image_gen",
-        "sources": [
-          "neutral-source.png",
-          "plain-shapes-source.png"
-        ],
-        "export": "Component-extracted silhouettes fitted within 24px cells with nearest-neighbor sampling. Small maximum14x9; large maximum19x19. Ground anchor y22. Alpha preserved.",
-        "prompts": [
-          "Edit image1 (the neutral grey rock sheet). Image2 (existing mineralrock game sheet) is reference ONLY: study its TOP ROW of small ore rocks, which show clearly readable rich colored mineral clusters even at tiny size.\n\nKeep image1's EXACT 6columns x5rows layout, all30 sprites, adjacent small/large pairs, current shapes, size, grey stone shading, transparency, camera. Keep PLAIN first pair absolutely unchanged. No colored stone tint, moss, foliage, lava, colored cracks, glow or background.\n\nCHANGE ONLY the mineral inclusions on the other28 rocks: previous pinprick flecks are too subtle. Give each mineral rock 2 conspicuous EMBEDDED EXPOSED MINERAL PATCHES, with saturated midtone, dark edging against grey and one bright highlight. Main patch sits prominently on upper/front face, second smaller patch on side. Mineral patches should occupy about25-30% of each SMALL rock visible area and20-25% of each LARGE rock visible area. At final small stone footprint14x9 pixels, main patch must still be roughly4x3 logical pixels and secondary patch3x2; not isolated single pixels. At large footprint19x19 use larger clusters roughly6x5 plus4x3. Match the read strength of the reference's top-row ore rocks. Mineral stays embedded flush with stone, NOT huge loose crystals replacing the stone, not dotted sparkle/star symbols. Chunky deliberate pixel clusters, never tiny noise. The rocks remain predominantly neutral grey.\n\nPreserve materials and frame order:\nrow1 plain pair unchanged, flint pair (obvious glossy black chert patches with silver sharp edge), quartz pair (milky white clusters with dark bordering to distinguish from grey stone);\nrow2 topaz pair (rich amber orange), amethyst pair (saturated violet), sapphire pair (rich cobalt blue);\nrow3 ruby pair (scarlet red), emerald pair (rich emerald green), diamond pair (brilliant white with pale cyan facets);\nrow4 copper pair (rich metallic copper/orange), iron pair (clearly exposed steel silver with dark charcoal cut edges), gold pair (rich warm golden yellow);\nrow5 platinum pair (bright platinum silver-white with dark contrasting border), crimson pair (deep saturated crimson red), frost pair (clear icy blue).\nSmall rocks in odd columns1,3,5 MUST be as easy to identify by mineral color as their large partner in columns2,4,6. No text. Transparent background. This is a targeted stronger-mineral-patches edit; do not redesign the sheet or change its grid.\nUSER REVISION TAKES PRIORITY over preserving the old silhouette/shading: ALSO SIMPLIFY the rocks' geometry to resemble image2's existing MAP ORE ROCKS. Replace the soft rounded, mottled, high-detail surfaces with crisp simple angular polygonal stone shapes: one broad flat top face, two or three planar side faces, clean stepped pixel outline. Small stones are low angular 5-6-sided chunks; large stones are taller faceted boulders with the same simple design language. Limit neutral stone shading to 4-5 flat greys (dark outline, deep side, middle face, light top, tiny highlight). NO dithering, mottled texture, granular noise, tiny cracks, smooth gradients or photorealistic shading. The exposed mineral is a few contiguous geometric colored clusters integrated into the flat faces. The plain pair should adopt this simpler geometry too but remain entirely grey. Still preserve6columns5rows, material order, small/large identity,24px intended pixel scale and transparent background. Think simple readable 16/24px game map tiles like the reference, not miniature detailed illustrations.",
-          "Create SIX new PLAIN GREY ROCK sprites matching the simplified flat-faceted art style of the supplied reference sheet. Reference is only for style. Output EXACTLY2columns x3rows on transparent background, no other objects, no text, no labels or grid. Each cell24x24 logical pixels, output can be enlarged. Column1 SMALL low stone(14x9pixel footprint), column2 LARGE tall boulder(19x19). Each row is a matched small/large pair with a NEW silhouette DIFFERENT from the reference's generic rounded angular rock.\n\nROW1: FLAT SLAB shape: broad horizontal top, straight chopped edge, trapezoid low stone; large version is a thick upright blocky slab with an angled shoulder, broad flat top and a single dark side.\nROW2: WEDGE shape: asymmetric slanted triangular rock with one steep side and one long sloping planar top; large version is a tall angular leaning wedge, clearly different silhouette from slab.\nROW3: SPLIT NOTCH shape: low two-lobed angular stone with a single clean dark notch cut in its top edge; large version is a substantial blocky boulder with one stepped notch and two simple planes, still one connected mass.\n\nALL SIX are plain neutral GRAYSCALE rock: zero ore, zero gems, zero flint, zero colored flecks, zero moss or lava or vegetation. Only four or five flat shades of neutral grey, black/dark charcoal stepped pixel outline, light grey top, middle grey front, deep grey side. NO tiny surface details, no mottling, texture, dither, gradients or extra fissures. Broad geometric faceted map-tile shapes, low visual complexity, simple like classic16px RPG rocks. Upper-left light, overhead tilted45degrees toward south camera, not isometric. Full object within its assigned cell with at least2px margin, centered horizontally ground contact at22px. Clear transparent gaps, no background or ground patch."
-        ],
-        "cameraAndWarmthEdits": [
-          "Edit the reference rock spritesheet ONLY to change camera elevation. Keep EXACTLY same30 sprites in6columns5rows, same material order, small/large pairs, bold mineral patch colors, simple angular silhouettes and flat neutral grey palette, transparent background.\n\nRaise camera to a more TOP-DOWN THREE-QUARTER game-map view, about60 degrees above the ground (30degrees from vertical). The current rocks look too frontal and upright. Show broad overhead crown/top surfaces occupying roughly TWO THIRDS of each rock's visible area; front/side vertical faces form only a compressed LOWER THIRD rim. A large rock should read as a chunky broad boulder seen from above, NOT a standing obelisk or upright triangular cliff. Top polygon extends toward the back/north of the sprite; mineral patches primarily lie on its broad TOP face, a few on compressed front edge. Small stones should visibly have a broad top plane with a very shallow shaded front edge. Camera faces north from south, square map axes, NOT isometric diamond.\n\nPreserve distinct large vs small, but make large silhouette broader relative to height with foreshortened front faces. Geometry change rather than just squashing the image. Keep low complexity:4-5 flat neutral grey shades, chunky24px pixel clusters, clean dark stepped outlines, upperleft light. No texture/dithering/gradients. Plain pair entirely grey. Strong visible colored mineral clusters stay large enough to read at small14x9 and large19x19 final footprints;25%small and20%large visible surface. Materials unchanged: row1plain/flint/quartz,row2topaz/amethyst/sapphire,row3ruby/emerald/diamond,row4copper/iron/gold,row5platinum/crimson/frost. No moss/lava/background/tint/text.",
-          "Edit only the STONE PALETTE of this exact rock sheet to a HINT WARMER GREY. Keep the new top-down three-quarter camera, broad top faces, compressed front rims, simple flat facets, bold mineral colors, all30sprites, exact6columns5rows and transparent background absolutely unchanged. Subtly warm each neutral stone grey: red just a few levels above green, blue a few below green (example midgrey RGB130,126,120; lightgrey178,174,166; charcoal58,56,53). This must still read GREY, not brown/beige/yellow. NO environmental tint, moss, lava, rust, texture, gradients or new detail. DO NOT recolor mineral patches; ruby, emerald, sapphire, copper etc keep distinct original hue/saturation. Pure palette edit on stone only; all silhouettes and material order unchanged.",
-          "Edit these six PLAIN grey rock sprites to the SAME higher TOP-DOWN THREE-QUARTER camera: camera60degrees aboveground, looking north fromsouth, NOT isometric. Keep EXACT2columns3rows; leftsmall/rightlarge; rows slab,wedge,notch. Make broad top planes occupy aboutTWO THIRDS of visible rock; shorten upright front faces to lowerthird. These must look like solid low/big boulders seen fromabove, not side-view mountain profiles. Wedge shows broad triangular top plane rather than triangular vertical face. Slab shows generous flat top with narrow front edge. Notch exposes both top planes separated by the dark notch. Grey only,4-5flat shades, simple geometric shapes and clean steppedpixeloutline, no texture/dither/gradients, no minerals or colored flecks. Preserve small/large distinction, upperleftlight, transparent background,24px target scale. No labels.\nUser palette revision: stone should be just a HINT WARMER GREY, subtle low-saturation warm neutral such as midgrey RGB130,126,120, light178,174,166, charcoal58,56,53. Still unmistakably grey, not brown or beige. Keep this slight warm palette consistent across all6sprites."
-        ]
-      }
-    },
-    "zone-plain": {
-      "frameWidth": 24,
-      "frameHeight": 24,
-      "columns": 4,
-      "rows": 4,
-      "zones": [
-        "stone_garden",
-        "broken_masonry",
-        "flint_field",
-        "broken_depot",
-        "seep",
-        "work_yard",
-        "black_ring",
-        "pirate_cove"
-      ],
-      "frames": "Zone index z uses small2*z and large2*z+1.",
-      "palette": "Approved slightly warm grey/high three-quarter overhead view. Shape differences only; no ores, gems, flint inclusions, moss, lava or colored decoration.",
-      "provenance": {
-        "tool": "Built-in image_gen",
-        "source": "zone-plain-source.png",
-        "export": "16 silhouettes component-extracted, fitted into24px frames with nearest-neighbor sampling. Smallmaximum14x9,largemaximum19x19,groundanchor22. Nativealpha preserved.",
-        "prompt": "Create a companion plain-rock spritesheet matching the provided APPROVED reference's style, camera and warm-grey palette. EXACTLY4columns x4rows=16sprites, eight small/large pairs. NO minerals: no ore, gem, flint inclusions, colored flecks, moss, lava, shells, vegetation, wood, metal or other colored decoration. Every object is only slightly warm grey stone.\n\nPixel art target24x24px per frame. Simple flat geometric faces,4-5shades of warm grey, dark stepped outline, no gradients/no mottling/no tiny texture. High TOP-DOWN THREE-QUARTER camera about60degrees aboveground; broad top plane roughly two-thirds visible object, compressed shaded front rim lowerthird. NOT side-view or isometric. Upper-left neutral light. Small14x9 footprint, large19x19 maximum, large broad chunky boulder rather than upright monolith. Each pair carries the SAME distinctive shape in low/small and raised/large versions. Keep sprites independent separated by generous transparent gutters, all withincells, no labels/grids/groundpatches.\n\nLayout oddcolumns1,3small; evencolumns2,4large. Each row2pairs:\nROW1 leftpair STONE GARDEN: smooth balanced oval/geometric river boulder, broad octagonal top with gently chamfered edges; rightpair BROKEN MASONRY: angular broken building-stone block, squared top with a single clean missing corner, broad cut planes.\nROW2 leftpair FLINT FIELD: pointed natural wedge with one large curved/conchoidal chipped top facet, allgrey NO blackflint deposits; rightpair BROKEN DEPOT: irregular fractured chunk with a zigzag broken upper edge and two offset broad planar shoulders, no artificial/metal debris.\nROW3 leftpair SEEP: low smooth broad waterworn oval, one shallow rounded depression expressed as a single darkergrey topfacet, NO wetglow or moss; rightpair WORK YARD: squared freshly quarried trapezoid with flat sawn top and one diagonal bevel, clean rectilinear mass.\nROW4 leftpair BLACK RING: squat polygonal basalt-like boulder with several broad hexagonal planes and one strong central ridge, SAME warmgrey palette notblack, NO lava/cracks/glow; rightpair PIRATE COVE: broad asymmetric sea-worn stone with rounded triangular outline and a simple shallow scoop/chipped edge, NO shells or sand.\n\nThese eight shapes should be clearly different from one another even at24px, but visually one coherent neutral stone set acrossbiomes. Avoid multiple pebbles/piles; one connected stone perframe. Full transparent background."
-      }
-    },
-    "zone-themed": {
-      "frameWidth": 24,
-      "frameHeight": 24,
-      "columns": 4,
-      "rows": 2,
-      "zones": [
-        "stone_garden",
-        "broken_masonry",
-        "flint_field",
-        "broken_depot",
-        "seep",
-        "work_yard",
-        "black_ring",
-        "pirate_cove"
-      ],
-      "palette": "Themed colored stone with moss, cracks, weathering, chisel marks, salt crust. Shared neutral and prior zone plain sets retained.",
-      "provenance": {
-        "tool": "Built-in image_gen",
-        "source": "zone-themed-source.png",
-        "export": "Eight alpha silhouettes fitted within 19x19 in 24px frames; nearest-neighbor export, ground anchor22.",
-        "prompt": "Create one game sprite atlas, exactly FOUR columns by TWO rows = EIGHT isolated rocks, transparent background. Reference image is STYLE AND CAMERA reference only. Preserve its simple geometric broad flat faces, dark stepped pixel outlines, high top-down three-quarter camera about60degrees aboveground with wide top and compressed short front face. Each is one chunky squat rock, same visual size, intended for24x24pixel game tiles. Not realistic, no gradients, no tiny dithering, no floating detached fragments. Make decorative marks large enough to survive24pixel downsampling, two or three bold pixel clusters rather than fine texture. Each rock sits centered with generous transparent gutters, equal row baselines near bottom of each cell, no text/no grid/no ground patches/no drop shadows.\nUnlike neutral reference these EIGHT special zone rocks must have DISTINCT COLORED stone and clear themed accents. Keep them coherent within one style:\nRow1 col1 STONE GARDEN: sage warm-grey rounded octagonal rock with two bold olive moss patches over top and side.\nRow1 col2 BROKEN MASONRY: dusty reddish buff squared broken building stone, one missing corner, dark branching crack and cream exposed chip.\nRow1 col3 FLINT FIELD: cool charcoal blue-grey angular chipped wedge, broad pale chalky rind on one edge and large conchoidal facet, no sparkling ore or crystals.\nRow1 col4 BROKEN DEPOT: weathered muted rusty-brown grey fractured rock, dark fracture and ochre weather-stain on corner, no attached metal.\nRow2 col1 SEEP: muted slate teal blue-grey smooth low rock with dark wet lower rim and a few moss green patches by a shallow top depression, no pool outside rock.\nRow2 col2 WORK YARD: pale warm sandy limestone quarry block, broad clean sawn face, two dark chisel notches and one cream fresh fractured corner.\nRow2 col3 BLACK RING: dark plum charcoal basalt with one bold jagged black crack and a few muted terracotta scorch marks, NO luminous lava or magical glow.\nRow2 col4 PIRATE COVE: sandy blue-grey sea-worn asymmetric stone, pale cream salt crust on a broad edge and two small offwhite barnacle dots grouped together.\nOne special rock per zone, eight total, not small/large pairs. No gems, no ore flecks, no symbols or lettering. Crisp low-resolution map tile art."
-      }
-    },
-    "quarry_reef": {
-      "tool": "Built-in image_gen",
-      "source": "quarry-reef-source.png",
-      "frames": {
-        "60": "quarry-strip-mine",
-        "61": "quarry-stronghold",
-        "62": "quarry-crater",
-        "63": "quarry-abandoned",
-        "64": "mystic_reef"
-      },
-      "prompt": "Create a companion pixel-art sprite sheet matching the supplied rock reference's geometric shape style and high top-down three-quarter camera, broad top plane short front rim, dark stepped outline, crisp limited-color flat facets. EXACTLY FIVE separate rocks arranged ONE ROW OF FIVE equally spaced cells on transparent background. Each one a connected squat rock silhouette, same size, target24x24px per sprite. Bold simple accents that read at24px, no fine noise or gradients. Generous transparent separation, same bottom baseline nearbottom. No text, grid, shadows, groundpatches, detached fragments, glowing ores or gems.\nLeft to right:\n1 STRIP MINE: pale warm sandstone angular low block, broad horizontal sediment layers in cream and ochre, two clear quarry chisel notches. Distinct layered top ledge.\n2 STRONGHOLD QUARRY: cool grey broken squared masonry block with one crenellated missing corner and a shallow carved rectangular groove, broad top plane, restrained dull green lichen on corner. Looks ancient foundation stone, not tiny building.\n3 CRATER QUARRY: charcoal iron-grey squat volcanic rock with jagged deep black fissure and muted rusty-red scorch edge, NO glowing lava, no crystals. Strong angular split silhouette.\n4 ABANDONED QUARRY: dusty taupe irregular collapsed stone, broken diagonal face with cream freshchip and sparse olive moss on one side. Low weathered crumbling feel with singleconnectedshape.\n5 MYSTIC REEF: muted teal slate sea-worn rock with broad rounded top, pale cream encrusted edge, one clustered lavender coral patch and two offwhite barnacle spots. Colored details organic notgemshards. No waterbackground.\nKeep simple flat geometric map art just like reference, not highdetail illustration. Small amount of warmtone on greys. FIVE total, all transparent, one row."
-    },
-    "slab_lava_revision": {
-      "tool": "Built-in image_gen",
-      "source": "slab-lava-source.png",
-      "replacementFrames": {
-        "57": "work_yard",
-        "62": "quarry-crater"
-      },
-      "prompt": "Generate a replacement sprite pair for this existing rock library. TWO sprites only, one row two columns, generous transparent gutters. Match reference flat geometric pixel art, dark stepped outlines, upperleftlight, high top-down three-quarter camera with broad top and short front rim, target24x24px native. No text, no ground, no detached particles, no soft drop shadows or gradients.\nLEFT: WORK YARD cut slab. Pale warm buff limestone, obviously man-cut broad RECTANGULAR top, straight horizontal front edge, square corners with tiny bevels, visibly shallow thickness, two clean shallow parallel cut scores on the broad top and one small corner chip. Flat low rectangular slab rather than rounded boulder or upright cube. Cardinal alignment, not diamond/isometric yaw. Simple4shade stonepalette, large readable shapes.\nRIGHT: CRATER QUARRY lava-seam boulder. Use the reference's third quarry rock, same squat jagged charcoal-grey broad top silhouette. Replace its black central crack with a bold branching molten LAVA SEAM: dark burnt-red edges, bright orange middle and a thin yellow-hot core. Seam cuts across top and down front face. Strong readable hot glowing color confined to fissure, slight warm orange reflected pixel highlights only immediately at crack edges. No external halo, no sparks, no lava pool, no crystal shapes. Main rock remains dark warm charcoal. Keep glows pixel crisp and saturated at24px.\nEach a single connected silhouette, both same overall width, slab visibly lower than boulder. Actual transparent background."
+    "graphicStorybook": {
+      "file": "graphic-storybook-source.png",
+      "generation": "One full 8 by 9 sheet; no reference image. Graphic storybook illustration, flatter regular rocks and taller boulders.",
+      "export": "export.cjs",
+      "frameMapping": "export.json"
     }
   },
   "frameCount": 65,
   "emptyFrames": [
-    65
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71
   ]
 }

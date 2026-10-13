@@ -207,7 +207,7 @@ const ASSETS = {
   // waystone, the barricade, and the burned row's tar pit and iron stakes
   // (one look each). wagon: the intact compact wagon a bandit-road bus stop wears
   // (loot.js chestLook), one compact 32×32 frame.
-  waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone.png', frameWidth: 16, frameHeight: 16 },
+  waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone-24.png', frameWidth: 24, frameHeight: 24 },
   barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 24, frameHeight: 24 },
   tar:            { kind: 'spritesheet', path: 'assets/Objects/Approved/tar.png', frameWidth: 16, frameHeight: 16 },
   wagon:          { kind: 'spritesheet', path: 'assets/Objects/DailyVisits/wagon.png', frameWidth: 32, frameHeight: 32 },
@@ -215,9 +215,9 @@ const ASSETS = {
   // and the flint nodule (items.js CROP_SPRITE.flint).
   grove_votive: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/seed_shrine.png', frameWidth: 24, frameHeight: 24 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Approved/flint.png', frameWidth: 16, frameHeight: 16 },
-  // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — eleven 16×24 generated
+  // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — eleven 24×36 generated
   // placeholders on one row, in the table's order.
-  shrines:        { kind: 'spritesheet', path: 'assets/Objects/Generated/shrines.png', frameWidth: 16, frameHeight: 24 },
+  shrines:        { kind: 'spritesheet', path: 'assets/Objects/Generated/shrines-24.png', frameWidth: 24, frameHeight: 36 },
   // SCENIC PLACES (src/scenic.js) — generated placeholders, one art per
   // interactable: the viewpoint's scope (16×24, an object — RENDER_SPEC
   // vista_scope) and the tide line's driftwood and message bottle (wild
@@ -226,7 +226,7 @@ const ASSETS = {
   gas_mushroom_small: { kind: 'spritesheet', path: 'assets/Objects/Approved/gas-mushroom-small.png', frameWidth: 16, frameHeight: 16 },
   gas_mushroom_large: { kind: 'spritesheet', path: 'assets/Objects/Approved/gas-mushroom-large.png', frameWidth: 24, frameHeight: 24 },
   zone_berry_bush: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/berry_bush.png', frameWidth: 24, frameHeight: 24 },
-  beach_palms: { kind: 'spritesheet', path: 'assets/Objects/Beach/palms.png', frameWidth: 16, frameHeight: 16 },
+  beach_palms: { kind: 'spritesheet', path: 'assets/Objects/Beach/palms-24.png', frameWidth: 24, frameHeight: 24 },
   zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/Approved/approved_clipped_hedge.png', frameWidth: 16, frameHeight: 16 },
   zone_hedge: { kind: 'spritesheet', path: 'assets/Objects/Hedges/hedges-24.png?v=b465bfa1', frameWidth: 24, frameHeight: 24 },
   stronghold_wall: { kind: 'spritesheet', path: 'assets/Objects/Stronghold/walls-24.png?v=42926d98', frameWidth: 24, frameHeight: 24 },
@@ -279,9 +279,9 @@ const ASSETS = {
   // Top row = 4 tower variants (blue-ivy, purple-ivy, blue-clean, purple-clean).
   // Wizard houses (role 'wizard') use frame 3 (fully-restored purple-clean).
   shrine:      { kind: 'spritesheet', path: 'assets/Objects/Approved/shrine.png', frameWidth: 80, frameHeight: 104 },
-  // Shell collectible keeps its original 48×64 sheet geometry, with only
-  // frame 0 occupied. Unused colour duplicates were cleared in place.
-  shell_sheet: { kind: 'spritesheet', path: 'assets/Icons/Fish/Sea/Creatures/Shell.png', frameWidth: 16, frameHeight: 16 },
+  // Shell collectible uses 24px cells in the same 3×4 layout, with only
+  // frame 0 occupied. The approved source is sampled at the new resolution.
+  shell_sheet: { kind: 'spritesheet', path: 'assets/Icons/Fish/Sea/Creatures/Shell-24.png', frameWidth: 24, frameHeight: 24 },
   // The Torch consumable's own 16×16 icon, drawn in the world where one lies
   // on a cave floor to be picked up (worldgen.js caveFloorTorches →
   // CROP_SPRITE.torch). Not the wall `torch` stake below, which is a light.
