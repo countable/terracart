@@ -135,7 +135,9 @@
   // StreetVariants.BANDIT_STRETCH_UNITS) are the same reason again: one guard
   // each, always held, every mode. (There is no 'wagon' tier: a bus stop is on
   // the kerb by definition.)
-  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_orchard: 1, street_toadstool: 1, street_goblin_gang: 5 };
+  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_orchard: 1, street_toadstool: 1, street_goblin_gang: 5, street_spider_path: 2 };
+  const SLIME_TRAIL = root.StreetVariants.VARIANT_BY_ID.slime_trail;
+  for (const kind of SLIME_TRAIL.enemyKinds) STREET_TIER_GUARDS[`street_slime_trail_${kind}`] = SLIME_TRAIL.guardsPerPost;
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
   // ── A TAR YARD — the same reason again (src/zones.js): the fire slimes at
   // a fuel station's pumps, seated about its chest. Fixed and always held
@@ -236,6 +238,7 @@
     street_overgrown: ['plant'],
     street_orchard: ['farmer_goblin'],
     street_toadstool: ['spider'],
+    street_spider_path: ['spider'],
     street_goblin_gang: ['goblin_runt'],
     // A burned row's stretch: one fire slime in the tar (the fire slimes are
     // zone-seated, never a tile's wild spawn, so the burned row seats its own
@@ -249,6 +252,7 @@
     habitat_marsh: ['plant', 'slime'],
     habitat_stronghold: ['orc', 'orc_shaman'],
   };
+  for (const kind of SLIME_TRAIL.enemyKinds) KIND_ORDER[`street_slime_trail_${kind}`] = [kind];
   const KIND_LADDER = {};
   for (const [tier, kinds] of Object.entries(KIND_ORDER)) {
     KIND_LADDER[tier] = kinds.map((kind, i) => ({ kind, minT: i / kinds.length }));
@@ -304,6 +308,9 @@
   // Ghosts are never guards (owner, Oct 2026): they haunt crypts and
   // memorials, not ruins — no row seats a ghost.
   const GROUPS = {
+    street_spider_path: { label: 'Spider Path', tiers: ['street_spider_path'], modeCap: false,
+      story: 'Two spiders lurk beside a path strewn with lasting webs.',
+      members: [{ kind: 'spider', n: 2, place: 'ring' }] },
     street_goblin_gang: { label: 'Street goblin gang', tiers: ['street_goblin_gang'], modeCap: false,
       story: 'Five weak goblin grunts gather beside the street, with barrel stacks nearby.',
       members: [{ kind: 'goblin_runt', n: 5, place: 'ring' }] },
@@ -363,7 +370,7 @@
   // overlays that hide it (the quiet home, the amnesty, the surface spawn's
   // night rule) — so a hidden summoner never leaves its minions standing.
   const GARRISON_INHERIT = ['castle', 'lair', 'immobile', 'lairX', 'lairY', 'lairR', 'keepHW', 'keepHH', 'aggroCells',
-    'homeX', 'homeY', '_surfaceSpawn', 'habitat', 'zoneVariant', '_hunting'];
+    'homeX', 'homeY', '_surfaceSpawn', 'habitat', 'zoneVariant', '_hunting', '_street'];
   // The ordinary-group share after explicit fixed chances are reserved.
   // A castle is where the interesting fight belongs; a wreck is still mostly
   // slimes; a fort takes none.
@@ -533,11 +540,14 @@
     street_overgrown: { rate: 1, thinned: false },
     street_orchard: { rate: 1, thinned: false },
     street_toadstool: { rate: 1, thinned: false },
+    street_spider_path: { rate: 1, thinned: false },
     street_goblin_gang: { rate: 1, thinned: false },
     gate:   { rate: 1, thinned: false },   // a gate's posts — held every day
     habitat_marsh: { rate: 1, thinned: false },      // a habitat site — always held
     habitat_stronghold: { rate: 1, thinned: false },
   };
+
+  for (const kind of SLIME_TRAIL.enemyKinds) OCCUPANCY[`street_slime_trail_${kind}`] = { rate: 1, thinned: false };
 
   // Focus adapters expose their authored group references and existing
   // frequency/lifecycle data to the common spawn registry. Strength/count,
@@ -922,7 +932,7 @@
         const wx = ox + st.lx, wy = oy + st.ly;
         const cand = {
           tx, ty, ix: Math.floor(st.lx / tcM), iy: Math.floor(st.ly / tcM),
-          tier: st.tier, key: null, sid: st.sid,
+          tier: st.tier, key: null, sid: st.sid, ...(st._street ? { _street: st._street } : {}),
           wx, wy, lx: st.lx, ly: st.ly, ox, oy, halfW: 0, halfH: 0,
         };
         const bk = bucketKey(Math.floor(wx / bucketM), Math.floor(wy / bucketM));
@@ -1045,7 +1055,8 @@
     // the rooted kinds (EnemyRoster.isRooted — the plants); a road variant's
     // stretch (a street tier) keeps them. The kind is picked off the filtered
     // list, so no seat draw moves.
-    const rawFamily = root.EnemyHabitats?.buildingKinds(entry, cand);
+    const pathAuthored = root.StreetVariants?.VARIANT_BY_ID[cand._street]?.size === 'path';
+    const rawFamily = pathAuthored ? null : root.EnemyHabitats?.buildingKinds(entry, cand);
     const mobile = rawFamily && TIERS.includes(cand.tier)
       ? rawFamily.filter((k) => !root.EnemyRoster?.isRooted(k)) : rawFamily;
     const family = mobile && mobile.length ? mobile : null;
@@ -1194,6 +1205,7 @@
         || root.EnemySpawns.rollsElite(entry, kind, id, seat.x, seat.y, cellM));
       const g = WG.makeCreature(kind, seat.x, seat.y, id, {
         _sharedId: true,   // the world's garrison (EnemySpawns.isSharedId)
+        ...(cand._street ? { _street: cand._street } : {}),
         shiny,
         ...(root.EnemyHabitats?.emergesFromGround(kind,
           root.EnemyHabitats.variantAt(entry, seat.ix, seat.iy) || cand.variant)

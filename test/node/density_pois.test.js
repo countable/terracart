@@ -119,7 +119,7 @@
 
   test('generated breakables: exact category odds and budget-driven quantities ignore POI density', () => {
     const expected = {
-      barrel: { empty: 700, supply: 200, mineral: 50, produce: 50 },
+      barrel: { empty: 700, supply: 200, ores: 50, produce: 50 },
       clay_pot: { empty: 700, magic: 50, produce: 50, coin: 100, seed: 100 },
     };
     for (const art of BARREL_ART) {

@@ -31,12 +31,13 @@ test('cave ore: every fired vein boosts one ore tier the level offers', () => {
     const boosted = table.tierW.map((total, i) => total - (i ? table.tierW[i - 1] : 0));
     const changed = boosted.map((weight, i) => weight !== weights[i] ? i : -1).filter((i) => i >= 0);
     assert.eq(changed.length, 1, `seed ${seed}: one tier is boosted`);
-
     assert.truthy(weights[changed[0]] > 0, `seed ${seed}: the boosted tier is offered`);
     assert.eq(boosted[changed[0]], weights[changed[0]] * 10, `seed ${seed}: the offered tier gets the vein multiplier`);
     assert.gt(table.totalW, baseTotal, `seed ${seed}: every fired vein changes the table`);
   }
 });
+})();
+
 
 test('cave flint: L1 has regular deterministic seams throughout ordinary rock clusters', () => {
   const N = 120, edge = N * WorldGen.CELL_M;
@@ -56,4 +57,3 @@ test('cave flint: L1 has regular deterministic seams throughout ordinary rock cl
   assert.eq(first.filter(o => o.yieldTier > 1 && o.rockMaterial === 'flint').length, 0, 'ore is preserved');
   assert.eq(generate(2).filter(o => o.rockMaterial === 'flint').length, 0, 'other floor populations unchanged');
 });
-})();

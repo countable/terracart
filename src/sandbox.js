@@ -108,11 +108,15 @@
   // peach) in a small grid + a farm-class chest.
   const ORCHARD = {
     name: 'ORCHARD', label: 'ORCHARD', w: 7, h: 7, fill: T.ORCHARD,
+    spawn: { dx: 3, dy: 5 },
+    subLabels: [{ label: 'PICKED', dx: 3, dy: 1 },
+      { label: 'BLOSSOMING', dx: 3, dy: 4 }, { label: 'READY', dx: 3, dy: 6 }],
     populate(s) {
-      s.fruitTree('apple', 0, 0);   s.fruitTree('apple', 3, 0);  s.fruitTree('worldpeach', 6, 0);
-      s.fruitTree('apple', 0, 3);   s.fruitTree('worldpeach', 6, 3);
-      s.fruitTree('apple', 0, 6);   s.fruitTree('apple', 3, 6);  s.fruitTree('worldpeach', 6, 6);
-      s.chest('park', 'Sandbox Orchard', 3, 3);   // round pad
+      ['picked', 'blossoming', 'ready'].forEach((state, i) => {
+        s.fruitTree('apple', 0, i * 3, { _sandboxFruitState: state });
+        s.fruitTree('worldpeach', 6, i * 3, { _sandboxFruitState: state });
+      });
+      s.chest('park', 'Sandbox Orchard', 3, 3);
     },
   };
 
@@ -121,7 +125,7 @@
   //    frost (T7), so every deposit is mineable — letting a tester verify each
   //    ore type drops its matching bar and renders its matching ore-stone.
   const ROCK = {
-    name: 'ROCK', label: 'ROCK · ORE DEPOSITS', w: 7, h: 7, fill: T.ROCK,
+    name: 'ROCK', label: 'ROCK · ORE DEPOSITS', w: 7, h: 9, fill: T.ROCK,
     populate(s) {
       // One deposit per yield tier T1..T7. yieldTier sets the ore-stone colour
       // and the bar it drops: T1 plain rock→rockfruit, T2 copper, T3 iron,
@@ -135,6 +139,11 @@
       // Plain CAVE rocks (the 4 vanilla variants) interleaved — break with any
       // pick, drop rockfruit + a lucky bar. Distinct sprite from the ore rocks.
       s.caveRock(0, 3, 3); s.caveRock(1, 3, 5); s.caveRock(2, 2, 2); s.caveRock(3, 4, 4);
+      // Surface flint is the same plain-rock work path, with a guaranteed
+      // shard. Small/large examples flank an ordinary comparison stone.
+      s.mineralRock(1, 1, 7, { rockMaterial: 'flint', sightBlocking: false, _sandboxProbe: 'flint-small' });
+      s.mineralRock(1, 3, 7, { sightBlocking: false, _sandboxProbe: 'flint-comparison' });
+      s.mineralRock(1, 5, 7, { rockMaterial: 'flint', sightBlocking: true, _sandboxProbe: 'flint-large' });
     },
   };
 
@@ -337,19 +346,21 @@
   // ── CASTLE + FORT — BUILDING_LARGE (castle, with towers = relic shop) and
   //    BUILDING_MED (fort, with a cache chest).
   const CASTLE = {
-    name: 'CASTLE', label: 'CASTLE · FORT', w: 10, h: 8, fill: T.GRASS,
-    subLabels: [{ label: 'CASTLE', dx: 2, dy: 4 }, { label: 'FORT', dx: 7, dy: 4 }],
+    name: 'CASTLE', label: 'CASTLE · FORTS', w: 16, h: 8, fill: T.GRASS,
+    subLabels: [{ label: 'CASTLE', dx: 2, dy: 4 }, { label: 'FORT', dx: 7, dy: 4 }, { label: 'OPEN FORT', dx: 12, dy: 4 }],
     paint(p) {
       p.rect(0, 0, 5, 8, T.BUILDING_LARGE);
       p.rect(6, 0, 4, 8, T.BUILDING_MED);
+      p.rect(11, 0, 4, 8, T.BUILDING_MED);
     },
     populate(s) {
       // Towers ARE the castle-shop interactable (unlimited relic stock + reroll).
       s.tower(0, 0); s.tower(4, 0); s.tower(0, 7); s.tower(4, 7);
       // Fort BUILDING (tier 11) — renders the fort sprite AND is the fort shop
-      // (up to 5 deals/hour). Placed at the fort's bottom edge so it's reachable
+      // (coin-operated slot machine). Placed at the fort's bottom edge so it's reachable
       // from the grass below the scene (the rest of the fort blocks the player).
       s.house(7, 7, 0, 11);
+      s.house(12, 7, 0, 11, { _sandboxUnlockedFort: true });
     },
   };
 
@@ -458,13 +469,11 @@
       { label: 'RESTORE A WRECK', dx: 7, dy: 13 }, { label: 'RECENT ENEMIES', dx: 7, dy: 25 }],
     populate(s) {
       const picks = ['blacksmith:1', 'blacksmith:2', 'blacksmith:3', 'trader:2',
-        'shop:seed:2', 'shop:supply:2', 'petshop', 'bookshop', 'turret'];
+        'shop:seed:2', 'shop:supply:2', 'petshop', 'bookshop', 'turret', 'shop:potion:3'];
       picks.forEach((key, i) => s.house(2 + (i % 4) * 3, 2 + Math.floor(i / 4) * 5,
         0, 9, { _sandboxBuild: key }));
       s.house(3, 14, 0, 9, { _sandboxWreck: true });
       s.house(10, 14, 0, 9, { _sandboxWreck: true });
-      ['lodging', 'place_of_worship', 'school', 'sports_centre', 'town_hall', 'museum', 'shop', 'library', 'pharmacy', 'bank']
-        .forEach((poiClass, i) => s.chest(poiClass, `Sandbox ${poiClass}`, 15, 2 + i * 4));
       s.chest('shelter', 'Sandbox Mimic Chest', 2, 18, { _sandboxProbe: 'mimic' });
       s.chest('bus', 'Sandbox Repeatable Crate', 5, 18, { tierSeed: 1, _sandboxProbe: 'daily-crate' });
       s.chest('bus', 'Sandbox Barrel', 8, 18, { barrel: true });
@@ -476,12 +485,44 @@
     },
   };
 
+  const SERVICE_ROWS = [
+    ['lodging', 'INN'], ['place_of_worship', 'CHAPEL'], ['school', 'TRAINING'],
+    ['sports_centre', 'SPORTS'], ['town_hall', 'GUILD'], ['museum', 'CURIO'],
+    ['shop', 'GENERAL STORE'], ['library', 'BOOK CLUB'], ['pharmacy', 'APOTHECARY'], ['bank', 'BANK'],
+  ];
+  const SERVICES = {
+    name: 'SERVICES', label: 'SERVICES', w: 25, h: 14, fill: T.GRASS,
+    ambientFlora: false, spawn: { dx: 2, dy: 5 },
+    subLabels: SERVICE_ROWS.map(([, label], i) => ({ label, dx: 2 + i % 5 * 5, dy: 4 + Math.floor(i / 5) * 7 })),
+    populate(s) {
+      SERVICE_ROWS.forEach(([kind, label], i) => s.chest(kind, `Sandbox ${label}`, 2 + i % 5 * 5, 2 + Math.floor(i / 5) * 7));
+    },
+  };
+
+  const ENCOUNTER_ROWS = [
+    ['bat', 'SWOOP'], ['goblin_trapper', 'TRAPS'], ['fiend', 'LUNGE'],
+    ['thief', 'THEFT'], ['metal_slime', 'FLEE'], ['gelatinous_cube', 'ENGULF'],
+    ['split_slime', 'SPLIT'], ['red_dragon', 'BREATH'], ['bomb_goblin', 'BLAST'],
+    ['goblin', 'ELITE', 'elite'], ['goblin', 'POSSESSED', 'possessed'], ['goblin', 'ASCENDANT', 'ascendant'],
+  ];
+  const COMBAT = {
+    name: 'COMBAT', label: 'ENEMY BEHAVIOURS', w: 66, h: 22, fill: T.GRASS,
+    ambientFlora: false, spawn: { dx: 5, dy: 7 },
+    subLabels: ENCOUNTER_ROWS.map(([, label], i) => ({ label, dx: 5 + i % 6 * 11, dy: 7 + Math.floor(i / 6) * 11 })),
+    populate(s) {
+      ENCOUNTER_ROWS.forEach(([kind, , eliteRank], i) => s.creature(kind, 5 + i % 6 * 11,
+        3 + Math.floor(i / 6) * 11, i + 1, eliteRank ? { shiny: true, eliteRank } : {}));
+    },
+  };
+
   const HAZARDS = {
     name: 'HAZARDS', label: 'WEBS · SINKHOLE / CAVE HAZARDS', w: 24, h: 12, fill: T.GRASS,
     ambientFlora: false, spawn: { dx: 2, dy: 5 },
-    subLabels: [{ label: 'SPIDER WEB', dx: 5, dy: 3 }, { label: 'SINKHOLE', dx: 16, dy: 3 }, { label: 'CAVE-IN ARRIVAL', dx: 19, dy: 5 }],
+    subLabels: [{ label: 'SPIDER WEB', dx: 5, dy: 3 }, { label: 'SINKHOLE', dx: 16, dy: 3 },
+      { label: 'CAVE-IN ARRIVAL', dx: 19, dy: 5 }, { label: 'CAVE ENTRANCE', dx: 22, dy: 11 }],
     populate(s) {
       s.creature('spider', 8, 7, 1, { _sandboxProbe: 'web-spider' });
+      s.object('staircase', 22, 10, { dir: 'down', _sandboxProbe: 'cave-entrance' });
     },
   };
 
@@ -495,15 +536,25 @@
     populate(s) {},
   };
 
+  const FLINT_FIELD = {
+    name: 'FLINT_FIELD', label: 'FLINT FIELD', w: 11, h: 9, fill: T.TAR_YARD,
+    spawn: { dx: 5, dy: 8 },
+    zoneStrips: [
+      { kind: 'tar', variant: 'flint_field', y: 0, h: 9, terrain: T.TAR_YARD, owned: true },
+    ],
+    populate(s) {},
+  };
+
   // Bands run north to south. Each connective road owns both its painted
   // cells and its vector/variant row through the same record.
   const BANDS = [
-    { roadAfter: { type: T.ROAD, class: 'minor', name: 'Oak Road', thick: 1, variant: 'hedgerow' }, scenes: [FOREST, ORCHARD, ROCK] },
+    { roadAfter: { type: T.ROAD, class: 'minor', name: 'Oak Road', thick: 1, variant: 'hedgerow' }, scenes: [FOREST, ORCHARD, ROCK, FLINT_FIELD] },
     { roadAfter: { type: T.PATH, class: 'path', name: 'Main Street', thick: 2, variant: 'lantern' }, scenes: [BARNYARD, PADDOCK, BEACH, MARSH] },
-    { roadAfter: { type: T.ROAD, class: 'minor', name: 'Mill Lane', thick: 1, variant: 'burned' }, scenes: [PLAZA, FARMLAND, PRACTICE] },
+    { roadAfter: { type: T.ROAD, class: 'minor', name: 'Mill Lane', thick: 1, variant: 'burned' }, scenes: [PLAZA, FARMLAND, PRACTICE, SERVICES] },
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Garden Row', thick: 1, variant: 'toadstool' }, scenes: [RESIDENTIAL, CIVIC, SMALLHOUSE] },
     { roadAfter: null, scenes: [RECREATION, CASTLE, HAZARDS] },
     { roadAfter: null, scenes: [SHOWCASE, ZONES, RESTORATION, QUARRY] },
+    { roadAfter: null, scenes: [COMBAT] },
   ];
 
   // Resolve each scene's grid-local origin (lx, ly) and the road rows. Sizes
@@ -699,10 +750,10 @@
         if (species) o.species = species;   // non-maple species use own sheet
         objects.push(o);
       },
-      fruitTree(species, dx, dy) {
+      fruitTree(species, dx, dy, extra = {}) {
         const { x, y } = at(dx, dy);
         objects.push(WorldGen.makeObject('fruittree', x, y,
-          `${baseId}_ft_${tag}_${species}_${dx}_${dy}`, { species }));
+          `${baseId}_ft_${tag}_${species}_${dx}_${dy}`, { species, ...extra }));
       },
       chest(poiClass, name, dx, dy, extra) {
         const { x, y } = at(dx, dy);
@@ -1345,6 +1396,12 @@
     // every ore deposit in the ROCK band is mineable for verification. Clobbered
     // on every load for a predictable baseline.
     grantSandboxGear(scene);
+    if (params.get('sandboxKit') === 'raw') {
+      scene.save.armor = {};
+      scene.save.inv = scene.save.inv.filter(stack => !ITEM_BY_ID[stack.id]?.uniqueJewelry
+        && !CARRIED_ITEM_SPEC[stack.id]?.projectileReduction);
+      scene.buildInventoryDOM?.();
+    }
 
     // Seed runtime state that lives outside the tile entry — planted crops,
     // placed rocks, released pets, scarecrows, coin drops, extra treasures.
@@ -1360,10 +1417,58 @@
       WorldGen.setDepth(labDepth);
       scene.cameras.main.setBackgroundColor('#0a0a12');
     }
+    installControls(params);
     scene._sandboxHazardOrigin = origin;
     scene._sandboxHazardFixtures = null;
     if (scene.depth === 1 || scene.depth === 2 || SandboxDestinations.find(params.get('sandboxZone'))?.id === 'hazards'
         || params.get('sandboxScene')?.toUpperCase() === 'HAZARDS') seedHazardState(scene, origin);
+  }
+
+  function installControls(params) {
+    if (typeof document === 'undefined' || !document.querySelector) return;
+    const menu = document.querySelector('#devtools');
+    if (!menu || document.getElementById('sandbox-controls')) return;
+    const panel = document.createElement('details');
+    panel.id = 'sandbox-controls';
+    const title = document.createElement('summary');
+    title.textContent = 'Sandbox test lab';
+    panel.append(title);
+    panel.style.cssText = 'padding:8px;display:block;border-top:1px solid #555';
+    const destination = document.createElement('select');
+    destination.setAttribute('aria-label', 'Sandbox destination');
+    destination.style.cssText = 'width:100%;margin:8px 0;min-height:44px;background:#201c17;color:#eee;border:1px solid #857344;border-radius:4px;font:inherit';
+    const groups = new Map();
+    for (const row of SandboxDestinations.entries) {
+      const groupName = row.depth ? 'Underground' : row.road || row.roadName ? 'Roads' : row.scene;
+      if (!groups.has(groupName)) {
+        const group = document.createElement('optgroup');
+        group.label = groupName;
+        destination.append(group);
+        groups.set(groupName, group);
+      }
+      const option = document.createElement('option');
+      option.value = row.id;
+      option.textContent = row.label;
+      groups.get(groupName).append(option);
+    }
+    destination.value = SandboxDestinations.find(params.get('sandboxZone') || params.get('sandboxScene'))?.id || 'plaza';
+    const kit = document.createElement('select');
+    kit.setAttribute('aria-label', 'Sandbox equipment');
+    kit.style.cssText = destination.style.cssText;
+    for (const [value, label] of [['full', 'Full kit'], ['raw', 'Damage test: no armour, shields or jewellery']]) {
+      const option = document.createElement('option');
+      option.value = value; option.textContent = label; kit.append(option);
+    }
+    kit.value = params.get('sandboxKit') === 'raw' ? 'raw' : 'full';
+    const go = document.createElement('button');
+    go.textContent = 'Load destination / reload fixtures';
+    go.onclick = () => {
+      const url = new URL(SandboxDestinations.href(destination.value), location.href);
+      url.searchParams.set('sandboxKit', kit.value);
+      location.href = url.href;
+    };
+    panel.append(destination, kit, go);
+    menu.parentElement.prepend(panel);
   }
 
   // Equip one of every relic + armor piece at T3 (see note above), and top the
@@ -1407,6 +1512,11 @@
   function seedHouseState(save, entry) {
     const houses = (entry?.objects || []).filter(o => o.kind === 'house');
     save.restoredHouses ||= {};
+    save.unlockedForts ||= {};
+    for (const house of houses.filter(h => h.tier === 11)) {
+      delete save.unlockedForts[house.id];
+      if (house._sandboxUnlockedFort) save.unlockedForts[house.id] = true;
+    }
     save.memories = Math.max(save.memories || 0, 20);
     save.discovered ||= {};
     for (const item of ITEMS) {
@@ -1439,6 +1549,21 @@
     }
   }
 
+  function resetFixtureProgress(scene, entry) {
+    const save = scene.save;
+    const ids = new Set(['objects', 'creatures', 'wildplants', 'extraTreasures']
+      .flatMap(key => (entry?.[key] || []).flatMap(o => [o.id, `sandbox-L1-${o.id}`])));
+    // Mining reads the runtime binding created before Sandbox.install. Delete
+    // through it as well as clearing saved history, so reload restores the rock.
+    for (const id of ids) scene.brokenRockSet?.delete(id);
+    for (const key of ['picked', 'caught', 'chopped', 'brokenRocks', 'opened', 'foundTreasures']) {
+      if (Array.isArray(save[key])) save[key] = save[key].filter(id => !ids.has(id));
+    }
+    for (const key of ['lastProduce', 'fruitPicked', 'chestHold', 'quarryMined']) {
+      for (const id of Object.keys(save[key] || {})) if (ids.has(id)) delete save[key][id];
+    }
+  }
+
   function seedSandboxState(scene, originIX, originIY, centreTX, centreTY,
                             cellsPerEdge, tileEdgeM, cellM) {
     const save = scene.save;
@@ -1450,6 +1575,7 @@
     save.wildAnimals = [];
     save.restoredHouses = save.restoredHouses || {};
     const centreEntry = WorldGen.tileCache.get(WorldGen.tileKey(centreTX, centreTY));
+    resetFixtureProgress(scene, centreEntry);
 
     // Helpers ────────────────────────────────────────────────────────────────
     // Centre-tile LOCAL cell of (dx, dy) inside a named scene.
@@ -1609,7 +1735,7 @@
     const inv = [];
     // Most-tested kinds first (seeds → produce → animals → minerals →
     // consumables).
-    const ORDER = ['seed', 'produce', 'animal', 'mineral', 'magic', 'supply'];
+    const ORDER = ['seed', 'produce', 'animal', 'ores', 'magic', 'supply'];
     const byKind = {};
     for (const it of ITEMS) {
       if (!it || !it.id || !it.kind) continue;
@@ -1622,6 +1748,8 @@
       if (ORDER.includes(kind)) continue;
       for (const id of byKind[kind]) inv.push({ id, count: COUNT });
     }
+    for (const stack of inv) if (['wood', 'rubble'].includes(stack.id)) stack.count = 120;
+    scene.save.money = Math.max(scene.save.money || 0, 2000);
     scene.save.inv = inv;
     scene.save.selSlot = 0;
     // Unspent memories (a save counter, not a bag stack) so the wizard
@@ -1641,6 +1769,17 @@
       const entry = makeTileEntry({ tx: x, ty: y, cellsPerEdge: n, tileEdgeM: edge, cellM: edge / n,
         populate(c) { c.grid.fill(T.CAVE_FLOOR); } });
       entry.depth = depth;
+      // Keep the entrance's exact data cell on both authored floors. L1 has
+      // no down stair: its ordinary descent requires a rope or elevator.
+      entry.objects.push(...(surface?.objects || [])
+        .filter(o => o._sandboxProbe === 'cave-entrance')
+        .map(o => ({ ...o, id: `${o.id}:depth-${depth}`, dir: 'up', depth,
+          _sandboxProbe: 'cave-return' })));
+      if (depth === 1 && dx === 0 && dy === 0) {
+        entry.objects.push(...(surface?.objects || [])
+          .filter(o => o.kind === 'mineralrock' && o.id.includes('_ROCK_'))
+          .map(o => ({ ...o, id: `sandbox-L1-${o.id}`, depth: 1 })));
+      }
       // Retain inherited exclusions even though this is authored empty floor.
       entry.spawnWhy = surface?.spawnWhy?.slice() || new Uint32Array(n * n);
       entry.roadMask = surface?.roadMask?.slice() || new Uint8Array(n * n);
@@ -1702,8 +1841,18 @@
     return fixtures;
   }
 
+  function seedFruitState(save, entry, now = Date.now()) {
+    const elapsedHours = { picked: 0, blossoming: 13, ready: 25 };
+    for (const tree of (entry?.objects || []).filter(o => o.kind === 'fruittree')) {
+      if (save.fruitPicked) delete save.fruitPicked[tree.id];
+      const hours = elapsedHours[tree._sandboxFruitState];
+      if (hours !== undefined) Crops.markFruitPicked(save, tree.id, now - hours * 60 * 60 * 1000);
+    }
+  }
+
   function seedMechanicsState(scene, entry) {
     const save = scene.save;
+    seedFruitState(save, entry);
     // Fire history is permanent in normal play; keeping it here made a second
     // sandbox visit unable to ignite the very same demonstration cells.
     save.groundFire = {};
@@ -1766,10 +1915,14 @@
       }
     }
     const yard = sceneByName('HAZARDS');
+    const rocks = sceneByName('ROCK');
+    addLabel('L1 MINING · FLINT', originIX + rocks.lx + 3, originIY + rocks.ly + 6, 1);
     const label = (text, x, y, depth, reset = false) => addLabel(text,
       originIX + yard.lx + x, originIY + yard.ly + y, depth, reset);
     for (const depth of [0, 1, 2]) label('RESET HAZARDS', 2, 4, depth, true);
     label('RESET HAZARDS', 20, 3, 1, true);
+    label('SURFACE ↑ · ROPE ↓', 22, 11, 1);
+    label('RETURN TO L1 ↑', 22, 11, 2);
     [['CONFUSION', 3, 3, 1], ['CAVE-IN', 20, 4, 1],
       ['POISON', 3, 3, 2], ['FIRE', 7, 3, 2], ['PARALYSIS', 11, 3, 2],
       ['BALL → PLATE', 4, 8, 2], ['WALL → PLATE', 14, 8, 2]]
@@ -1815,7 +1968,9 @@
   global.Sandbox.layoutForTest = LAYOUT;
   global.Sandbox.seedMechanicsState = seedMechanicsState;
   global.Sandbox.seedHouseState = seedHouseState;
+  global.Sandbox.resetFixtureProgress = resetFixtureProgress;
   global.Sandbox.seedHazardState = seedHazardState;
+  global.Sandbox.installHazardFloorsForTest = installHazardFloors;
   global.Sandbox.stockInventoryForTest = stockSandboxInventory;
   global.Sandbox.resolveDestination = resolveDestination;
 })(window);

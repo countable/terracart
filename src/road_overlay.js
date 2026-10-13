@@ -578,7 +578,22 @@
     cx.globalAlpha = 1;
   }
 
+  // Glossy overlapping pools, with small reflected highlights and bubbles.
+  function paintSlime(cx, size, accent) {
+    cx.save();
+    for (const [x, y, r] of [[.18, .24, .19], [.43, .35, .24], [.66, .57, .20], [.84, .78, .24]]) {
+      cx.fillStyle = '#44652f'; cx.globalAlpha = .45;
+      cx.beginPath(); cx.arc(x * size, y * size, r * size, 0, Math.PI * 2); cx.fill();
+      cx.fillStyle = accent || '#b3d77c'; cx.globalAlpha = .5;
+      cx.beginPath(); cx.arc((x - r / 3) * size, (y - r / 3) * size, r * size * .36, 0, Math.PI * 2); cx.fill();
+      cx.fillStyle = '#efffc9'; cx.globalAlpha = .7;
+      cx.fillRect((x - r / 2) * size, (y - r / 2) * size, size * .035, size * .025);
+    }
+    cx.restore();
+  }
+
   function paintPattern(cx, size, pattern, accent) {
+    if (pattern === 'slime') paintSlime(cx, size, accent);
     if (pattern === 'spots') paintSpots(cx, size, accent);
     if (pattern === 'embers') paintEmbers(cx, size, accent);
   }

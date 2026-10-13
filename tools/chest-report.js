@@ -37,16 +37,18 @@ async function crArt() {
 const crRollCache = new Map();
 function crRolls(theme, tier, depth = 0) {
   const key = theme + ':' + tier + ':' + depth; if (crRollCache.has(key)) return crRollCache.get(key);
-  const rng = makeRng32(fnv1a(key)), items = new Map(); let coins = 0;
+  const rng = makeRng32(fnv1a(key)), items = new Map(); let coins = 0, coinCount = 0;
   for (let i=0;i<2000;i++) {
     const r = pickReward('chest:'+theme,{relics:{},armor:{}},rng,{tier,depth});
     if (!r) continue;
-    coins += (r.consolation || 0) + (r.kind === 'gold' ? r.amount : 0);
+    const awardedCoins = (r.consolation || 0) + (r.kind === 'gold' ? r.amount : 0);
+    coins += awardedCoins;
+    if (awardedCoins > 0) coinCount++;
     if (r.kind === 'gold') continue;
     const name = r.id ? ITEM_BY_ID[r.id]?.name || r.id : `${r.kind} ${r.slot} T${r.tier}`;
     const item = items.get(name) || {name,count:0,qty:0}; item.count++; item.qty += r.qty || 1; items.set(name,item);
   }
-  const result = {coins:coins/2000,items:[...items.values()].sort((a,b)=>b.count-a.count)};
+  const result = {coins:coins/2000,meanCoins:coinCount ? coins/coinCount : 0,coinCount,items:[...items.values()].sort((a,b)=>b.count-a.count)};
   crRollCache.set(key,result); return result;
 }
 async function crRewards() {
@@ -58,9 +60,9 @@ async function crRewards() {
     let rows='';
     for(let tier=1;tier<=CHEST_TIER_MAX;tier++) {
       const r=crRolls(theme,tier,Number(cr('depth').value));
-      rows+=`<tr><th>T${tier}</th><td>${r.coins.toFixed(2)}</td><td>${r.items.map(i=>`${crEsc(i.name)}: ${(i.count/20).toFixed(1)}% · ${(i.qty/2000).toFixed(2)} mean`).join('<br>')}</td></tr>`;
+      rows+=`<tr><th>T${tier}</th><td>${(r.coinCount/20).toFixed(1)}% · ${r.coinCount ? r.meanCoins.toFixed(2) + ' mean' : '—'}</td><td>${r.items.map(i=>`${crEsc(i.name)}: ${(i.count/20).toFixed(1)}% · ${(i.qty/i.count).toFixed(2)} mean`).join('<br>')}</td></tr>`;
     }
-    section.innerHTML+=`<div class="scroll"><table><thead><tr><th>Tier</th><th>Mean coins</th><th>Items: chance · mean quantity</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    section.innerHTML+=`<div class="scroll"><table><thead><tr><th>Tier</th><th>Coins: chance · mean if awarded</th><th>Items: chance · mean quantity if awarded</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     cr('rewards').append(section);await crTick();
   }
 }

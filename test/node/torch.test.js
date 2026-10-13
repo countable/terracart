@@ -170,10 +170,10 @@ test('torch: lighting it runs for the row\'s length, extending from the current 
     const tables = ['SUMMON_HOOK', 'TIMED_BUFF_HOOKS'].map(t => app.match(new RegExp('\\nconst ' + t + ' = \\{[\\s\\S]*?\\n\\};'))[0]).join('\n');
     return new Function(tables + '\nreturn ({' + app.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
   };
-  const titles = [];
+  const titles = [], paintings = [];
   const s = { save: { inv: [{ id: 'torch', count: 3 }], selSlot: 0 }, _torchUntil: 0,
     isTorchActive() { return (this._torchUntil ?? 0) > Date.now(); },
-    showMessageModal: ({ title }) => titles.push(title), buildInventoryDOM() {} };
+    showMessageModal: ({ title, art }) => { titles.push(title); paintings.push(art); }, buildInventoryDOM() {} };
   for (const name of ['_useTimedBuff', '_selectedConsumable', '_spendScroll', '_consumeSelected', '_finishInventoryChange']) s[name] = lift(name);
   const T0 = 1_700_000_000_000, old = Date.now; let now = T0; Date.now = () => now;
   try {
@@ -184,6 +184,9 @@ test('torch: lighting it runs for the row\'s length, extending from the current 
     assert.eq(s._torchUntil, T0 + 2 * CONSUMABLE_SPEC.torch.durationMs,
       'extends from the LATER of now and the current end — a second torch is never wasted');
     assert.eq(s.save.inv[0].count, 1, 'two spent');
+    assert.eq(paintings.join('|'), 'torch_light|torch_light', 'lighting and relighting show the torch painting');
+    const dims = webpDims('assets/art/torch_light.webp');
+    assert.truthy(dims && Math.abs(dims.w / dims.h - 352 / 448) < 0.01, 'painting fits the dialog');
     assert.eq(titles.join('|'), '🔥 You light the Torch|🔥 You light another Torch', 'the title knows a torch was burning');
   } finally { Date.now = old; }
   assert.falsy(/shortDuration/.test(JSON.stringify(titles)), 'the story leaves time to the live torch readout');

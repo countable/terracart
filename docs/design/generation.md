@@ -94,7 +94,10 @@ access or tile lifecycle mechanics.
   precedence. Selection precedes live overlays and never depends on visits.
 
 - Spider webs save their absolute cell, world position, depth and wall-clock
-  expiry in `save.spiderWebs`. They survive reloads and tile eviction until
+  expiry in `save.spiderWebs`. Spider Path webs instead regenerate from their
+  section seed, remain while their surface tile is loaded, and never enter
+  this expiring save list. Shots landing on permanent silk do not change it.
+  Shot webs survive reloads and tile eviction until
   24 hours after landing; another shot refreshes that cell without duplicating
   it. Silk in flight is transient and is cleared when depth changes.
 
@@ -102,7 +105,12 @@ access or tile lifecycle mechanics.
   Retired save formats may be discarded; keep current-state defaults, validation
   and runtime cleanup separate from compatibility conversion.
 
-- Farm and orchard interiors, and entire golf courses, exclude spawns at every dungeon depth.
+- Surface access exclusions and typed safety suppression apply at every dungeon depth.
+  Road bands, junctions, private/restricted/quiet land and sensitive sites retain
+  their reason bits; kerb and sensitive-area buffers retain their spawn-class rules.
+  Terrain alone is recalculated for the current floor. Underground tiles also
+  inherit road geometry for chase boundaries, warnings and night-road hiding/drain.
+  Farm and orchard interiors, and entire golf courses, exclude spawns at every dungeon depth.
   Fields keep an eligible outer rim of `WorldGen.FARM_EDGE_CELLS` cells,
   measured from the source footprint; roads, POIs and later paint cannot create
   interior edges. Farmland rims scatter static T1–T2 wild crops at seeded growth
@@ -111,6 +119,22 @@ access or tile lifecycle mechanics.
   `WorldGen.SPAWN_WHY_ALL_FLOORS` owns the inherited reasons; `floorSpawnWhy`
   derives them from immutable surface evidence. Preserve that mask through cave
   generation and runtime spawns; repainting or digging never grants spawn access.
+
+- L2 fills eligible ground between authored areas with connected goblin-warren
+  rooms (`CaveAreas.planCity`, configured by `floorProfile(2).warren`).
+  Shared walls have two-cell doors; clipped rooms retain open rims, and route
+  clearings, landmarks and stair approaches stay clear. The city owns its empty
+  ground so ordinary rock scatter cannot refill its passages. Room encounters
+  use stable IDs and the class-specific safety gate; finite stores share the
+  existing cave-container budget. The drill budget is placed before the city.
+
+- L2 pressure plates are subtle floor marks, visible only within one cell of
+  the player's body. Stepping on one triggers its paired rolling ball, spike
+  wall or gas grate once per encounter. Gas grates stay inert until pressed,
+  then emit the existing poison/paralysis gas burst rather than a periodic
+  geyser eruption. City passages may host traps despite the city's ambient
+  reservation; actual objects, landmark approaches and the hazard safety gate
+  still exclude placement. Grove ghost plates retain their existing visibility.
 
 - Authored cave areas use `ZoneVariants.anchorFrame` and run before ordinary
   floor passes. Keep their empty-ground reservations separate from object
@@ -140,6 +164,10 @@ access or tile lifecycle mechanics.
   per-depth regions (`THEME_BANDS`), while chest mirrors, torch sites, quarry
   provenance and spring caves inherit surface anchors. The street mirror and
   any per-floor road clearings are level-scoped projections of surface lines.
+  On L1, only Small roads become road-derived cave walls; Medium/Large roads
+  and paths remain open terrain. Route projection cannot carve the L1 Small-road
+  walls. Buildings and water retain their existing wall mapping. Open terrain
+  does not relax inherited spawn safety.
   `docs/design/floors.md` owns the per-floor catalog.
 
 - A per-floor rule - rope seals, fall seals, hazards, lighting levels - reads
@@ -187,7 +215,7 @@ access or tile lifecycle mechanics.
   heuristic, not an entrance-access guarantee; missing tenant mapping and
   clipped footprints can leave an enclosed mall using frontage placement.
 - A POI chest's tier is its tile's QUOTA SEAT (`WorldGen.seedChestTiers`):
-  each tile seeds ~1 T5, 5 T4, 11 T3, 18 T2 (x1..x2 over 100..1000
+  each tile seeds ~1 T5, 5 T4, 11 T3, 36 T2 (x1..x2 over 100..1000
   budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),
   round-robin across chest categories; everything else is T1. A bus stop
   never takes a seat: it is always a regular restocking crate
@@ -222,15 +250,22 @@ access or tile lifecycle mechanics.
   whatever stream laid it, chosen by `isGreatX` off the mark's id. Drawn thick
   and dark red, it digs the `treasure:great` pool (gold, a tool or weapon, or
   other equipment) through the same handler, hiding and found-ledger.
-- THE LOW-TIER QUOTA: a tile below `WorldGen.LOW_TIER_CHEST_QUOTA` (200)
-  tier-1 chests tops up with ambient crates (`topUpAmbientCratesSteps`,
-  after the variant top-up): one-time tier-1 crates on 'reward' cells, lowest
-  cell hash first, with a cell within `AMBIENT_CRATE_PATH_CELLS` of a
-  footpath scoring `AMBIENT_CRATE_PATH_BIAS` times better, so a low-POI town's
-  crates line its walking paths. Its shortfall (`entry.lowTierDeficit`) also lays extra X
-  marks in proportion (scene_creatures.js `X_TOP_UP_MAX`), drawn off the cell
-  hash so the tile's rng stream never shifts. Mine mouths ignore ambient
-  crates and drop any they land on.
+- Sparse-tile seeding: below 250 POIs per 2.8224 km² of spawnable land,
+  `topUpAmbientCratesSteps` fills to 200 per that area (240 × 240 seven-metre
+  cells, a typical mid-latitude tile). Both numbers scale with the count of
+  cells accepted by the reward spawn gate, so compact review tiles get
+  proportionally fewer crates. Use canonical cell area, not the player’s
+  latitude-dependent metre frame. Water, road surfaces and other
+  excluded ground contribute no area; occupancy blocks placement without
+  shrinking the target. The census includes surface POIs of every tier and
+  type, plus generated filler; fixed starter loot and cave mirrors are excluded.
+  The additions are one-time T1 crates, scattered by stable cell hashes across
+  free spawnable cells. Their loot follows underlying landcover: grass, forest,
+  parks and wetlands use park loot; farmland and orchards use farm loot;
+  commercial ground uses commerce, school grounds use school, and other ground
+  uses roadside. The pre-fill shortfall (`entry.lowTierDeficit`) also lays extra
+  X marks in proportion (`X_TOP_UP_MAX`), drawn off the cell hash. Mine mouths
+  ignore ambient crates and drop any they land on.
 - Treasure trails (`HomeArea.chestTrailCandidates`, up to `CHEST_TRAIL_LIMIT`)
   lead to the nearest unopened T2+ surface chests within
   `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the surface (only the
@@ -328,8 +363,10 @@ access or tile lifecycle mechanics.
   or on park edges, never near a road (`Traps.isTrapGround`).
 - Path variant assignment joins connected mapped fragments and balances natural
   endpoints, nearby terrain/Nexus affinity and a soft 300 m length target.
-  Ordinary sections are at least 180 m and at most 550 m; forks and true ends
-  retain short branches. Every 20 m, sample beside the path using source ground
+  Ordinary sections are at least 180 m and at most 550 m. Junction-created
+  approaches shorter than 60 m merge into the connected through-path rather
+  than starting their own theme; well-spaced forks remain boundaries. True
+  short dead-end branches retain their own geometry and assignment. Every 20 m, sample beside the path using source ground
   and Nexus traits. A dominant affinity change must persist 40 m on both sides
   to attract a cut. Source endpoints and pronounced bends are also preferred;
   interpolated cuts keep long uniform spans bounded. Choose cuts together to
@@ -347,7 +384,12 @@ access or tile lifecycle mechanics.
   generation never depends on which neighbouring tiles are loaded.
   Path sections have their own weighted pool: mostly Greenway, Park Path and
   Promenade, with occasional Lantern Row and Barricade and a rare Golden Path
-  (2% base weight, taken from Park Path). Golden Path uses Golden Road’s
+  (2% base weight), plus Slime Trail and Spider Path (5% each, taken equally
+  from Greenway and Park Path). Slime Trail picks one species per stable section
+  from green, purple, fire and splitting slimes. Seeded posts every 70 m hold
+  two of that species, with a midpoint post on short sections where placement
+  allows. These are finite path-authored enemies using the ordinary defeated
+  guard ledger, with no daily reset or extra shrine. Golden Path uses Golden Road’s
   daily shrine reward. A shrine is seated at each end where safe ground permits;
   both use the section key for one shared daily activation and the same coin
   seats, so either direction works without a second payout. At most one coin
@@ -358,6 +400,13 @@ access or tile lifecycle mechanics.
   never enter that pool. A majority-scenic section uses its landscape's look. Scenic restoration bonuses still follow the
   original geographic intervals. Painting, dressing, lamps, stories and map
   review all consume the same section assignment.
+- Spider Path has 5% base selection weight. A seeded 35% of cell-spaced
+  path samples receive permanent webs, with a small seeded lateral offset.
+  Webs use the hazard spawn gate and reserve their cells; restricted land,
+  occupancy, vehicle roads and road-junction safety can leave gaps. One
+  two-spider garrison per section seats on safe nearby ground. Both webs
+  and spiders carry path provenance through Nexus crossings. Web contact
+  uses the usual six-second paralysis, once per entry, with flight immunity.
 - Nexus interiors suppress Small-road variants using exact coverage-boundary
   intervals shared by pavement, lamps, stories and hazards. The selected theme
   and its stable identity survive; only outside portions receive themed

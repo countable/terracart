@@ -1095,7 +1095,7 @@ const SHINY_FIND_TITLE = '✨ SHINY FIND ✨';
 // Fort slot machine (presentFortSlots): what can be a prize, and the reels'
 // animation — a flicker every FORT_SLOT_TICK_MS, the first reel stopping at
 // FORT_SLOT_FIRST_STOP_MS and each next one FORT_SLOT_STOP_GAP_MS later.
-const FORT_SLOT_KINDS = ['seed', 'produce', 'magic', 'supply', 'mineral'];
+const FORT_SLOT_KINDS = ['seed', 'produce', 'magic', 'supply', 'ores'];
 const FORT_SLOT_EXCLUDE = new Set(['book']);   // a Book reads itself on pickup
 const FORT_SLOT_TICK_MS = 70;
 const FORT_SLOT_FIRST_STOP_MS = 700;
@@ -3178,7 +3178,14 @@ class MapScene extends Phaser.Scene {
       this._tickWalkHazards(dt, x, y, x, y);
     } else if (Conditions.active(this.save, 'confused')) {
       const { x, y } = playerWorldM(this);
-      this._confusedStep(dt, bodyHold.capMS);
+      const intent = vx || vy ? { x: vx, y: vy } : stick;
+      const steerDt = dt * (1 - Conditions.confusionSteering(this.save));
+      if (steerDt > 0) {
+        if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, steerDt);
+        else this._driftHome(dt);
+        this._steerTarget(vx, vy, speedMul, steerDt);
+      }
+      this._confusedStep(dt, bodyHold.capMS, intent);
       const after = playerWorldM(this);
       this._tickWalkHazards(dt, x, y, after.x, after.y);
     } else {
@@ -3746,7 +3753,7 @@ class MapScene extends Phaser.Scene {
     }
 
     const visibleEnemies = typeof Visibility === 'undefined' ? enemies
-      : enemies.filter(c => Visibility.playerCover(this, c.x, c.y) !== 2);
+      : enemies.filter(c => !Visibility.hidden(this, c.x, c.y));
     DragonStory.tick(this, now, px, py, visibleEnemies);
     const relics = Gear.effectiveRelics(this.save);
     const activeWeapon = Gear.activeWeapon(this.save);
@@ -4820,7 +4827,7 @@ class MapScene extends Phaser.Scene {
   // One strike, never a work item. The scene clock survives target changes;
   // every attempt checks the live position and allegiance before spending it.
   startCombat(victim, opts = {}) {
-    if (victim && typeof Visibility !== 'undefined' && Visibility.playerCover(this, victim.x, victim.y) === 2) return false;
+    if (victim && typeof Visibility !== 'undefined' && Visibility.hidden(this, victim.x, victim.y)) return false;
     if (Combat.playerDowned(this.save?.energy) || Conditions.attacksBlocked(this.save)) return false;
     if (this.isShadowActive()) {
       if (!opts.auto) {
@@ -5170,7 +5177,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const tracked = wp.flee || wp.track;
-    if (tracked && typeof Visibility !== 'undefined' && Visibility.playerCover(this, tracked.x, tracked.y) === 2) {
+    if (tracked && typeof Visibility !== 'undefined' && Visibility.hidden(this, tracked.x, tracked.y)) {
       this.cancelWorkProgress();
       return;
     }
@@ -6550,9 +6557,9 @@ class MapScene extends Phaser.Scene {
   // single-cell jog around it (_detourDir) and only dig if no such trivial
   // detour exists. _startAutoMine no-ops unless a wall is really ahead, so a
   // body merely outrun by fast steering on open floor won't dig.
-  // Confusion owns direction, while collision and the ordinary hold/slow gates
-  // remain in force. GPS keeps its latest target for a gentle recovery later.
-  _confusedStep(dt, capMS) {
+  // Remaining confusion trades walking intent for the spinning compass. Both
+  // share walking pace, so distant GPS targets cannot overpower the effect.
+  _confusedStep(dt, capMS, intent = null) {
     if (!(dt > 0) || Combat.playerDowned(this.save.energy)) return;
     if (this._busyWheel?.()) { this._playDirected(this.player, 'idle'); return; }
     if (!this._confusedLoop) this._confusedLoop = {
@@ -6562,6 +6569,8 @@ class MapScene extends Phaser.Scene {
       compassBefore: { deg: this.compassDeg ?? null, facing: { ...this.facing } },
     };
     const loop = this._confusedLoop;
+    const takeover = Conditions.confusionSteering(this.save);
+    const manual = intent && (intent.x || intent.y);
     // Keep each random turn for a complete circle before choosing another.
     if (loop.left == null) loop.left = Math.PI * 2 / Math.abs(loop.turn);
     const balanceMul = typeof ObstacleStep !== 'undefined' ? ObstacleStep.speedMul(this._obstacleStep) : 1;
@@ -6572,7 +6581,21 @@ class MapScene extends Phaser.Scene {
       remaining -= step;
       loop.angle += loop.turn * step;
       loop.left -= step;
-      const dx = Math.cos(loop.angle) * speed * step, dy = Math.sin(loop.angle) * speed * step;
+      let ux = 0, uy = 0;
+      if (takeover < 1) {
+        const target = manual ? intent : !this._followPaused && this._targetM;
+        if (target) {
+          const tx = manual ? target.x : target.x - this.playerM.x;
+          const ty = manual ? target.y : target.y - this.playerM.y;
+          const distance = Math.hypot(tx, ty);
+          if (distance > (manual ? 0 : this.cellM * 0.15)) {
+            const strength = manual ? 1 : Math.min(1, distance / (speed * step || 1));
+            ux = tx / distance * strength; uy = ty / distance * strength;
+          }
+        }
+      }
+      const dx = (ux * (1 - takeover) + Math.cos(loop.angle) * takeover) * speed * step;
+      const dy = (uy * (1 - takeover) + Math.sin(loop.angle) * takeover) * speed * step;
       const x = this.playerM.x + dx, y = this.playerM.y + dy;
       if (!this._cellBlocked(this.startWorldM.x + x, this.startWorldM.y + y + (this.feetOffsetM || 0))) {
         this.playerM.x = x; this.playerM.y = y;
@@ -9828,7 +9851,7 @@ class MapScene extends Phaser.Scene {
   // One display order for tab counts, paging and pickups. Fixed-tier relics
   // remain ordinary inventory stacks after the equipped tool/weapon slots.
   invDisplayEntriesForCat(catKey) {
-    const pets = catKey === 'animal' ? Pets.list(this.save).map(pet => ({ pet })) : [];
+    const pets = catKey === 'pets' ? Pets.list(this.save).map(pet => ({ pet })) : [];
     return [...pets, ...this.gearEntriesForCat(catKey).map(gear => ({ gear })),
       ...this.invEntriesForCat(catKey)];
   }
@@ -9848,7 +9871,7 @@ class MapScene extends Phaser.Scene {
   // entry (or empty). Used by the tab buttons.
   // Land the inventory on a tab that has something in it — ONCE, at boot.
   //
-  // save.invCat defaults to 'seed' and otherwise persists whatever tab was
+  // save.invCat defaults to 'seeds' and otherwise persists whatever tab was
   // last open. Either can point somewhere empty on the screen the player
   // arrives at: a fresh save opens on Seeds with nothing in it, and a
   // returning one opens on the tab it was left on, which may have been emptied
@@ -9889,7 +9912,7 @@ class MapScene extends Phaser.Scene {
 
   buildInventoryDOM() {
     const PAGE = 5;
-    if (!INV_CAT_BY_KEY[this.save.invCat]) this.save.invCat = 'seed';
+    this.save.invCat = normalizeInventoryCategory(this.save.invCat);
     if (this.save.invPage == null) this.save.invPage = 0;
     const cat = INV_CAT_BY_KEY[this.save.invCat];
     const gearList = this.gearEntriesForCat(cat.key);
@@ -10202,7 +10225,7 @@ class MapScene extends Phaser.Scene {
   refreshInventoryHighlight() {
     const bar = document.getElementById('inv');
     if (!bar) return;
-    const cat = INV_CAT_BY_KEY[this.save.invCat] || INV_CAT_BY_KEY.seed;
+    const cat = INV_CAT_BY_KEY[this.save.invCat] || INV_CAT_BY_KEY.seeds;
     const isGear = !!cat.gear && this.save.selSlot < 0;
     const gearKey = this.save.selGear ? `${this.save.selGear.kind}:${this.save.selGear.slot}` : null;
     [...bar.querySelectorAll('button[data-slot],button[data-gear]')].forEach(el => {
@@ -10221,7 +10244,7 @@ class MapScene extends Phaser.Scene {
         if (!g) {
           // Empty gear tab — tell the player where this gear comes from.
           const hint = document.createElement('div');
-          hint.textContent = cat.key === 'armor'
+          hint.textContent = cat.key === 'armour'
             ? 'No armour yet — forge or find it'
             : this.invDisplayEntriesForCat(cat.key).length ? 'Select a relic' : 'No relics yet — forge or find them';
           hint.style.cssText = 'opacity:0.7;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
@@ -10563,6 +10586,7 @@ class MapScene extends Phaser.Scene {
       this.showOfferModal({
         kind: 'use',
         title: entry.title,
+        art: entry.art,
         get: typeof entry.get === 'function' ? entry.get(this, entry) : entry.get,
         cost: `1× ${this.iconSpanHTML(id)} ${item?.name || id}`,
         canAfford: typeof entry.usable === 'function' ? entry.usable(this, entry) : true,

@@ -131,7 +131,7 @@
       const drillArt = SpriteLayout.groveShrineArt(drills(first)[0]);
       assert.eq(drillArt.key, 'cave_props'); assert.eq(drillArt.frame, 6);
       const road = 32 * s.N + 20;
-      assert.eq(first.grid[road], T.CAVE_FLOOR); assert.eq(second.grid[road], T.CAVE_FLOOR);
+      assert.eq(first.grid[road], T.CAVE_WALL, 'L1 small-road walls survive route projection'); assert.eq(second.grid[road], T.CAVE_FLOOR);
       assert.eq(first.geologyGrid[road], T.CAVE_WALL);
       assert.eq(third.grid[road], T.CAVE_WALL, 'shallow streets do not carve deep stone');
       assert.eq(fourth.grid[road], T.CAVE_FLOOR, 'Underdark is the owning open stratum');

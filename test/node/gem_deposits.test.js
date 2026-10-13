@@ -15,7 +15,7 @@
     for (const [id,name,tier,requiredTier,frame,icon,price] of cases) {
       const item = ITEM_BY_ID[id], deposit = mineralDeposit(rock(id));
       assert.truthy(item, `${id} exists`);
-      assert.eq(item.name,name);assert.eq(item.kind,'mineral');assert.eq(item.baseTier,tier);
+      assert.eq(item.name,name);assert.eq(item.kind,'ores');assert.eq(item.baseTier,tier);
       assert.eq(BASE_TIER[id],tier);assert.eq(PRICES[id],price);
       assert.truthy(ITEM_EFFECTS[id],`${id} has a description`);
       const source=inventoryIconSource(id);

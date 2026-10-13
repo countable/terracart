@@ -3,7 +3,7 @@
 // latitude-dependent tile rows keep their own grid.
 const Visibility = (() => {
   const CLEAR = 0, PARTIAL = 1, FULL = 2;
-  const TREE_SIGHT_PENALTY = 2, PARTIAL_DARKNESS = 0.5, FULL_DARKNESS = 0.88;
+  const TREE_SIGHT_PENALTY = 2, PARTIAL_DARKNESS = 0.75, FULL_DARKNESS = 1;
   const states = new WeakMap();
   const REFRESH_MS = 1000;
   function objectCover(o) {
@@ -211,10 +211,15 @@ const Visibility = (() => {
     const a = worldMetersToAbsCell(scene, p.x, p.y), b = worldMetersToAbsCell(scene, q.x, q.y);
     return a.cellIX === b.cellIX && a.cellIY === b.cellIY ? q : p;
   }
+  // Any cover hides what stands behind it from the player: creatures, peers,
+  // objects and their labels, shadows and tap targets. The facing blocker
+  // itself stays visible (trace skips the last cell). Cover grades only the
+  // darkness; ground stays drawn and tappable unless cover is FULL.
+  function hidden(scene, x, y) { return playerCover(scene, x, y) !== CLEAR; }
   function invalidate(scene) {
     const s = states.get(scene);
     if (s) { s.frame = undefined; s.signature = null; s.rays.clear(); s.revision++; }
   }
   return { CLEAR, PARTIAL, FULL, TREE_SIGHT_PENALTY, PARTIAL_DARKNESS, FULL_DARKNESS,
-    objectCover, coverBetween, playerCover, observer, revision: scene => ready(scene) ? state(scene).revision : 0, invalidate };
+    objectCover, coverBetween, playerCover, hidden, observer, revision: scene => ready(scene) ? state(scene).revision : 0, invalidate };
 })();

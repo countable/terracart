@@ -138,3 +138,32 @@ test('tabs: Rock files under Ores beside Wood, though it stays produce', () => {
   assert.eq(ITEM_BY_ID.rubble.kind, 'produce', 'rock keeps its kind (price, loot, eat)');
   assert.eq(invCatForItem('egg'), 'produce', 'other produce is unmoved');
 });
+
+
+test('inventory categories: saved tabs migrate without changing carried items or equipment kinds', () => {
+  const legacy = { seed: 'seeds', animal: 'pets', relic: 'relics', armor: 'armour', mineral: 'ores', minerals: 'ores' };
+  for (const [oldKey, key] of Object.entries(legacy)) {
+    const save = { invCat: oldKey, inv: [{ id: 'wood', count: 3 }],
+      relics: { sword: { tier: 2 } }, armor: { helmet: { tier: 2 } },
+      selGear: { kind: 'relic', slot: 'sword' } };
+    SaveState.normalize(save);
+    assert.eq(save.invCat, key, oldKey);
+    assert.eq(save.inv[0].id, 'wood');
+    assert.eq(save.inv[0].count, 3);
+    assert.eq(save.relics.sword.tier, 2);
+    assert.eq(save.armor.helmet.tier, 2);
+    assert.eq(save.selGear.kind, 'relic');
+    SaveState.normalize(save);
+    assert.eq(save.invCat, key, 'normalization is idempotent');
+  }
+  for (const key of INV_CATS.map(cat => cat.key)) {
+    const save = { invCat: key };
+    SaveState.normalize(save);
+    assert.eq(save.invCat, key, 'current tab is preserved');
+  }
+  for (const invCat of [undefined, null, 'missing']) {
+    const save = { invCat };
+    SaveState.normalize(save);
+    assert.eq(save.invCat, 'seeds', 'missing or invalid tab opens Seeds');
+  }
+});

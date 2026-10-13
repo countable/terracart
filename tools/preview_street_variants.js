@@ -145,7 +145,7 @@ function previewPath(row) {
   const scenicDress = SC.dress({ scenic, tx, ty, N, tileEdgeM, grid: tile.grid, chests: [], spawnOpts });
   const streetDress = SV.dress({ index: tile.streetIndex, tx, ty, N, tileEdgeM, grid: tile.grid, spawnOpts });
   const objects = [scenicDress, streetDress].flatMap(dress => [...dress.objects, ...dress.wildplants,
-    ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))]).map(local);
+    ...(dress.coins || []), ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))]).map(local);
   const lamps = ctx.RoadOverlay.lampSitesForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   if (!lamps.length || lamps.some(lamp => lamp.glow !== row.lampGlow)) throw new Error(`Wrong path lamps for ${row.id}`);

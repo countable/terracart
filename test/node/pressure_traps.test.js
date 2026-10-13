@@ -107,6 +107,93 @@
     pair.trap.state='spent'; s.playerM={x:28,y:28}; PressureTraps.tick(s,.1);
     assert.eq(pair.trap.state,'spent','one activation per encounter');
   }));
+  test('pressure traps: procedural spike walls activate and respect suppression', () => fixture((s, entries) => {
+    WorldGen.makeRng = () => {
+      let draw = 0;
+      return () => draw++ === 1 ? .5 : 0;
+    };
+    PressureTraps.observe(s);
+    const list = PressureTraps.lists(s), wall = list.traps[0], plate = list.plates[0];
+    assert.eq(list.traps.length, 1);
+    assert.eq(wall.kind, 'wall');
+    assert.eq(wall.state, 'parked');
+    s.playerM = { x: plate.x, y: plate.y };
+    PressureTraps.tick(s, .1);
+    assert.eq(wall.state, 'moving');
+    assert.eq(wall.vx, 0); assert.eq(wall.vy, 1);
+    s._pressureTraps = null;
+    entries[0]._spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.JUNCTION_SOFT);
+    PressureTraps.observe(s);
+    assert.eq(PressureTraps.lists(s).traps.length, 0, 'small-road junction suppression reaches spike walls');
+  }));
+  test('pressure traps: moving spike walls hurt and push only within their lane', () => fixture(s => {
+    const pair = PressureTraps.create(s, { cellIX: 5, cellIY: 3 }, { cellIX: 3, cellIY: 3 }, 'wall', 'spikes');
+    PressureTraps.trigger(pair.trap, pair.plate);
+    s.playerM = { x: 28, y: 28 }; s._targetM = { ...s.playerM };
+    for (let i = 0; i < 10; i++) PressureTraps.contact(s, pair.trap, .1);
+    assert.lt(s.save.energy, 100);
+    assert.gt(s.playerM.x, 28);
+    s.playerM = { x: 28, y: 36 };
+    const energy = s.save.energy;
+    PressureTraps.contact(s, pair.trap, 1);
+    assert.eq(s.save.energy, energy, 'walking sideways clears the spikes');
+    assert.eq(s.playerM.x, 28);
+  }));
+  test('pressure traps: cave plates are subtle and visible only within one cell of the player', () => fixture(s => {
+    const plate = PressureTraps.create(s, { cellIX: 3, cellIY: 3 }, { cellIX: 1, cellIY: 3 }, 'wall', 'hidden').plate;
+    assert.falsy(PressureTraps.plateVisible(s, plate));
+    s.playerM = { x: 36, y: 36 };
+    assert.truthy(PressureTraps.plateVisible(s, plate), 'diagonally adjacent cell reveals the plate');
+    s.playerM = { x: 44, y: 36 };
+    assert.falsy(PressureTraps.plateVisible(s, plate));
+    plate.pressed = true;
+    assert.falsy(PressureTraps.plateVisible(s, plate), 'pressed cave plates still obey discovery distance');
+    plate.effect = 'ghost';
+    assert.truthy(PressureTraps.plateVisible(s, plate), 'authored surface grove plates retain their visibility');
+    assert.inRange(PressureTraps.CONFIG.plateAlpha, .1, .5);
+  }));
+  test('pressure traps: city passages ignore room reservation but keep objects, protected ground and safety', () => fixture((s, entries) => {
+    const e = entries[0], index = 5 * 8 + 5;
+    e._spawnOpts.occupied = new Set([index]);
+    const area = { city: true, reserved: new Set([index]), passages: new Set([index]), protected: new Set() };
+    e.caveAreas = { areas: [area] };
+    assert.truthy(PressureTraps.ground(s, 44, 44));
+    area.passages.clear(); assert.falsy(PressureTraps.ground(s, 44, 44)); area.passages.add(index);
+    area.protected.add(index); assert.falsy(PressureTraps.ground(s, 44, 44)); area.protected.clear();
+    e.objects.push({ x: 44, y: 44 }); assert.falsy(PressureTraps.ground(s, 44, 44)); e.objects.length = 0;
+    e.wildplants = [{ x: 44, y: 44 }]; assert.falsy(PressureTraps.ground(s, 44, 44)); e.wildplants.length = 0;
+    e._spawnOpts.spawnWhy[index] = WorldGen.SPAWN_WHY.KERB;
+    assert.falsy(PressureTraps.ground(s, 44, 44));
+  }));
+  test('pressure traps: gas grate remains dormant until its plate triggers one existing gas burst', () => fixture(s => {
+    const original = EnvironmentHazards.erupt, bursts = [];
+    EnvironmentHazards.erupt = (scene, vent) => { bursts.push(vent); original(scene, vent); };
+    try {
+      const pair = PressureTraps.create(s, { cellIX: 3, cellIY: 3 }, { cellIX: 1, cellIY: 3 }, 'gas', 'gas');
+      pair.trap.gasKind = 'paralysis';
+      const state = PressureTraps.lists(s); state.plates.push(pair.plate); state.traps.push(pair.trap);
+      for (let n = 0; n < 40; n++) PressureTraps.tick(s, .1);
+      assert.eq(bursts.length, 0); assert.eq(pair.trap.state, 'parked');
+      s.playerM = { x: pair.plate.x, y: pair.plate.y };
+      PressureTraps.tick(s, .1);
+      assert.eq(bursts.length, 1); assert.eq(bursts[0].kind, 'paralysis');
+      assert.eq(bursts[0].cellIX, 1); assert.eq(bursts[0].cellIY, 3);
+      assert.eq(pair.trap.state, 'active'); assert.eq(s.save.energy, 100, 'the gas owns effects; grate deals no direct hit');
+      for (let n = 0; n < 40; n++) PressureTraps.tick(s, .1);
+      assert.eq(pair.trap.state, 'spent'); assert.eq(bursts.length, 1, 'standing on plate cannot stack gas');
+    } finally { EnvironmentHazards.erupt = original; }
+  }));
+  test('pressure traps: gas grates are selected procedurally and refuse newly suppressed outlets', () => fixture((s, entries) => {
+    WorldGen.makeRng = () => { let draw = 0; return () => draw++ === 1 ? .9 : 0; };
+    PressureTraps.observe(s);
+    const state = PressureTraps.lists(s), grate = state.traps[0], plate = state.plates[0];
+    assert.eq(grate.kind, 'gas'); assert.eq(grate.gasKind, 'poison');
+    const at = s.cellAt(grate.x, grate.y);
+    entries[0]._spawnOpts.spawnWhy[at.iy * 8 + at.ix] = WorldGen.SPAWN_WHY.JUNCTION_SOFT;
+    s.playerM = { x: plate.x, y: plate.y };
+    PressureTraps.tick(s, .1);
+    assert.falsy(grate.emitted);
+  }));
   test('pressure traps: contact is exactly five damage per second at common frame rates and preserves GPS', () => fixture(s => {
     for(const fps of [10,30,60]) {
       s.save.energy=100;s._pressureDamageFraction=0;s.playerM={x:28,y:28};s._targetM={x:28,y:28};s._manualOffsetM={x:0,y:0};

@@ -41,7 +41,7 @@ test('glint rock: the find table IS the plain rock ladder, plus the crystal', ()
   assert.eq(GLINT_ROCK_FINDS.length, 8, 'flint, six bars, one crystal — nothing else');
   for (const f of GLINT_ROCK_FINDS) {
     assert.truthy(ITEM_BY_ID[f.id], `${f.id} is a real item`);
-    assert.eq(ITEM_BY_ID[f.id].kind, 'mineral');
+    assert.eq(ITEM_BY_ID[f.id].kind, 'ores');
     assert.gt(f.weight, 0);
   }
   // Rarity order holds: flint and copper lead, a crystal is a rare find.

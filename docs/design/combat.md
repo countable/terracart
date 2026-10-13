@@ -24,18 +24,19 @@ mechanics.
   floor ([floors](floors.md#sky-floor-depth--1)). Awakening remains permanent and winning grants the
   temple gift only once, even after re-entry or reload.
 
-- Confusing mushroom gas refreshes the shared `confused` condition to five
-  seconds on contact, preserving any longer confusion already active. A single
-  outdoor puff carries 0.3 mass: natural diffusion and the thin-gas threshold
+- Confusing gas scales each `confused` dose with local density: a full
+  0.3-density puff applies five seconds; thinner gas applies proportionally less,
+  denser gas applies longer doses up to the shared 60-second condition cap,
+  preserving any longer active confusion.
+  A single outdoor puff carries 0.3 mass: natural diffusion and the thin-gas threshold
   limit it to the source and four neighbours, dissipating in about five seconds
   (at most about ten seconds of confusion from that puff). Overlapping or repeated
-  puffs can extend exposure; sources can puff again after eight seconds. Gas
+  puffs can extend exposure; sources can puff again after sixteen seconds. Gas
   spreads to cardinal neighbours once per foreground second; rock, masonry and
-  intact stronghold walls block it. Thin gas disappears only when its connected
-  region reaches open terrain beyond the loaded area; sealed rooms conserve it.
-  Unloaded cells retain their share, and inconclusive bounded enclosure searches
-  preserve gas. Fields and emitter cooldowns are session-local, separated by
-  depth and paused while that depth is inactive.
+  intact stronghold walls block it. Every gas cell disappears completely below
+  the shared 0.025 density threshold, including sealed rooms and unloaded boundaries. Walls and unloaded
+  cells still block diffusion; denser trapped gas remains until it can thin.
+  Fields and emitter cooldowns are session-local, separated by depth and paused while that depth is inactive.
 
 - Mushroom Grove residents are provoked-only (`EnemyHabitats.PROVOKED_ONLY`):
   until provoked they count among `standDown` in `wanderCreatures` — no chase,
@@ -51,6 +52,8 @@ mechanics.
 - `SpiderWebs` owns the silk flight, cell contact and 24-hour ground lifetime.
   Flight advances by at most 100 ms per frame, preserving its dodge window
   after a stall; saved ground webs still expire in wall time.
+  Spider Path also lays permanent seeded ground webs: these use the same
+  contact and rendering rules, but never expire or enter the shot-web save list.
   Entering a web paralyzes any body (player, enemy, pet or neighbour) for six
   seconds through the shared paralysis status. Standing there does not refresh
   the hold; leaving and entering again does. Webs are not consumed by contact.
@@ -59,6 +62,9 @@ mechanics.
   movement/targeting in `SpriteLayout.CREATURE_BEHAVIOUR` and reuse the pet
   combat lane. Persist contract expiry and any durable health state, not live
   map instances. Test reload, tile replacement and expiry when adding a kind.
+- Splitting slimes divide reactively on a blow. Only healing and summoning
+  abilities use the support cadence; splitting never replaces their normal
+  melee attack.
 - An elite has a rank, a row of `Combat.ELITE_RANKS`: a plain elite (2×
   HP and damage, 1.5× pace, white circle), possessed (3×, 1.4× an elite's
   pace, red) and ascendant (4×, blue, summons a plain copy of its basic form
@@ -148,7 +154,8 @@ mechanics.
   sight line; overlapping partial cover does not stack. Ordinary rocks do not
   reduce sight. Cover uses the
   same visibility grid for local players, peers and NPC targets, and cancels
-  an attack wind-up when sight is lost. Guards return to their seats when full
+  an attack wind-up when sight is lost. A foe behind any cover is hidden
+  from the player and cannot be targeted. Guards return to their seats when full
   cover breaks sight; their notice/leash rings lose two cells through trees.
   Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.
@@ -156,14 +163,17 @@ mechanics.
   player's condition, a foe's (`Combat.ignite` / `burnTick` read the same row),
   the HUD chip and the body tint all derive from it. A new status is a row
   there, never a timer, colour or label of its own.
-- Confusion chooses a random compass heading and turn direction, then forces
-  circular wandering along that rotating heading. Collision, holds and speed
-  caps still apply. Device headings keep sampling privately; expiry or cure
+- Confusion chooses a random compass heading and turn direction. Its share
+  of movement increases linearly with the remaining duration: five seconds
+  gives the compass 25% and player intent 75%; ten seconds splits control
+  equally; at twenty seconds or more the compass fully takes over. As the
+  timer falls, keyboard, stick and GPS steering recover gradually. Collision,
+  holds and walking-speed caps still apply. Device headings keep sampling privately; expiry or cure
   restores the latest real heading (or the prior movement fallback) and eases
   the body back toward its GPS target at walking pace for at most
   `CONFUSED_RECOVER_MS`; then ordinary following (catch-up ramp, far snap)
   resumes, since walking pace never catches a walking player. Enemy puffs retain their normal duration;
-  confusing gas supplies a five-second override to the same condition.
+  confusing gas supplies its density-scaled duration to the same condition.
   Mushroom monsters only start and complete a puff shot when the target is at
   least one cell away. Closing that gap cancels the wind-up; their weak melee
   against an already confused target keeps its own close-range rule.

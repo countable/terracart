@@ -1,5 +1,11 @@
 (function () {
   const W = WorldGen, T = W.T;
+  test('L1 road geology: only small roads make walls; medium, large and paths stay open', () => {
+    const source = Uint8Array.from([T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH, T.BUILDING, T.WATER, T.GRASS]);
+    const result = W.undergroundTerrain({ baseGrid: source }, source, 1);
+    assert.eq([...result.grid].join(), [T.CAVE_WALL, T.CAVE_FLOOR, T.CAVE_FLOOR, T.CAVE_FLOOR,
+      T.CAVE_WALL, T.CAVE_WALL, T.CAVE_FLOOR].join());
+  });
   test('deep stone: only surface parks and commercial clearings open, roads remain stone', () => {
     const source = Uint8Array.from([T.GRASS, T.PARK, T.COMMERCIAL, T.GROVE, T.BUILDING, T.ROAD]);
     const surface = { grid: new Uint8Array(6).fill(T.PARK), baseGrid: source, roadMask: Uint8Array.from([0, 0, 1, 0, 0, 1]) };

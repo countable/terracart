@@ -30,8 +30,15 @@
     ]),
   });
 
+  // Underground floors retain the real-world road footprint. Sky and arena
+  // spaces do not represent walking over the local road network.
+  function hasRoadSafety(scene) {
+    const depth = scene?.depth || 0;
+    return depth >= 0 && depth !== WorldGen.ARENA_DEPTH;
+  }
+
   function isNight(scene, now = Date.now(), daylight) {
-    if ((scene?.depth || 0) !== 0 || typeof Lighting === 'undefined') return false;
+    if (!hasRoadSafety(scene) || typeof Lighting === 'undefined') return false;
     const day = daylight == null ? Lighting.daylight(scene, now) : daylight;
     return day < NIGHT_DAYLIGHT;
   }
@@ -39,7 +46,7 @@
   // Read the generated road bits under one world-metre point. A missing or
   // loading tile is open because no safety geometry exists to display yet.
   function roadClassAt(scene, x, y) {
-    if ((scene?.depth || 0) !== 0 || !scene?.startWorldM || !scene?.originPx || !(scene.mPerPx > 0)) return 0;
+    if (!hasRoadSafety(scene) || !scene?.startWorldM || !scene?.originPx || !(scene.mPerPx > 0)) return 0;
     const cell = worldMetersToTileCell(scene, x, y);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
     if (!entry?.roadClass || !(entry.cellsPerEdge > 0)) return 0;
@@ -65,7 +72,7 @@
   // Resolve the player's feet once for the runtime tick. The warning reads the
   // majority-covered band; the drain and story read the wider kerb buffer.
   function playerState(scene, now = Date.now(), daylight) {
-    if (!scene?.startWorldM || !scene?.playerM || (scene.depth || 0) !== 0) {
+    if (!scene?.startWorldM || !scene?.playerM || !hasRoadSafety(scene)) {
       return { x: 0, y: 0, nightZone: false, majorRoad: false };
     }
     const feet = playerWorldM(scene);

@@ -44,12 +44,12 @@
     assert.falsy(INV_CAT_BY_KEY.unique_relic);
     const ids = ITEMS.filter(i => i.kind === 'unique_relic').map(i => i.id);
     assert.eq(ids.length, 29, 'eighteen finds, two progression relics and nine reusable tomes');
-    for (const id of ids) assert.eq(invCatForItem(id), 'relic', id);
+    for (const id of ids) assert.eq(invCatForItem(id), 'relics', id);
   });
 
   test('inventory relics: gear and carried items render together, with correct selection, actions and tiers', () => {
     const s = harness({ inv: [{ id: 'orb', count: 1 }, { id: 'goblet', count: 1 }],
-      relics: { sword: { tier: 2 } }, armor: {}, invCat: 'relic', invPage: 0, selSlot: -1, selGear: null });
+      relics: { sword: { tier: 2 } }, armor: {}, invCat: 'relics', invPage: 0, selSlot: -1, selGear: null });
     s.buildInventoryDOM();
     const slots = s.slots();
     assert.eq(slots[0].dataset.gear, 'relic:sword');
@@ -80,24 +80,24 @@
 
   test('inventory relics: a pickup page includes preceding equipment and tab counts include both', () => {
     const relics = Object.fromEntries(['pickaxe', 'axe', 'sword', 'bow', 'staff', 'watering_can'].map(slot => [slot, { tier: 1 }]));
-    const s = harness({ inv: [], relics, armor: {}, invCat: 'seed', invPage: 0, selSlot: -1 });
+    const s = harness({ inv: [], relics, armor: {}, invCat: 'seeds', invPage: 0, selSlot: -1 });
     assert.eq(s.addToInv('field_scope', 1), 1);
-    assert.eq(s.save.invCat, 'relic'); assert.eq(s.save.invPage, 1);
+    assert.eq(s.save.invCat, 'relics'); assert.eq(s.save.invPage, 1);
     assert.truthy(s.slots().some(slot => slot.dataset.slot === 0), 'pickup visible after six equipped slots');
-    const tab = s.document.getElementById('inv-tabs').children.find(e => e.dataset.cat === 'relic');
+    const tab = s.document.getElementById('inv-tabs').children.find(e => e.dataset.cat === 'relics');
     assert.eq(tab.children.at(-1).textContent, '7', 'six equipped plus one carried');
     assert.eq(s.save.selSlot, -1, 'pickup does not auto-select the carried item');
     s.click(s.slots().find(slot => slot.dataset.slot === 0));
     Inventory.remove(s.save, 'field_scope', 1);
     s._clampSelSlot(); s.buildInventoryDOM();
-    assert.eq(s.save.selSlot, -1); assert.eq(s.invEntriesForCat('relic').length, 0);
-    assert.eq(s.gearEntriesForCat('relic').length, 6, 'dropping/removing a carried item preserves gear');
+    assert.eq(s.save.selSlot, -1); assert.eq(s.invEntriesForCat('relics').length, 0);
+    assert.eq(s.gearEntriesForCat('relics').length, 6, 'dropping/removing a carried item preserves gear');
   });
 
   test('inventory relics: alternate weapons have separate selectable slots and one active badge', () => {
     const s = harness({ inv: [], relics: { sword: { tier: 3 }, dagger: { tier: 1 },
       lance: { tier: 3 }, musket: { tier: 5 } }, armor: {}, activeWeapon: 'lance',
-      invCat: 'relic', invPage: 0, selSlot: -1 });
+      invCat: 'relics', invPage: 0, selSlot: -1 });
     s.buildInventoryDOM();
     for (const slot of ['sword', 'dagger', 'lance', 'musket']) {
       const button = s.slots().find(b => b.dataset.gear === `relic:${slot}`);
@@ -111,8 +111,8 @@
 
   test('inventory relics: boot keeps a carried-only Relics tab and empty-hand selection works', () => {
     const s = harness({ inv: [{ id: 'orb', count: 1 }], relics: {}, armor: {},
-      invCat: 'relic', invPage: 0, selSlot: -1 });
-    s._settleInvCatOnBoot(); assert.eq(s.save.invCat, 'relic');
+      invCat: 'relics', invPage: 0, selSlot: -1 });
+    s._settleInvCatOnBoot(); assert.eq(s.save.invCat, 'relics');
     s.buildInventoryDOM(); s.click(s.slots()[0]);
     assert.eq(s.save.selSlot, 0);
     s.click(s.slots().find(slot => slot.dataset.slot === -1));

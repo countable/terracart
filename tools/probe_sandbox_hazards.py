@@ -57,21 +57,39 @@ CASES = {
    const {s,check,move,clean,draw,advance}=hazardProbe;
    const vents=EnvironmentHazards.lists(s).vents.filter(h=>h._sandboxProbe);
    check(vents.length===3,'three authored gas/fire vents');const results=[];
-   for(const h of vents){
-     clean();move(h);h.elapsedMs=0;h.nextContactMs=0;EnvironmentHazards.update(h);
-     advance(4900);check(h.phase==='inactive'&&s.save.energy===100,'inactive vent safe');
-     advance(100);check(h.phase==='warning'&&s.save.energy===100,'warning starts at five seconds');
+   for(const kind of vents.map(h=>h.kind)){
+     Sandbox.seedHazardState(s,s._sandboxHazardOrigin);
+     s._mushroomGas?.delete(s.depth || 0);
+     const h=EnvironmentHazards.lists(s).vents.find(h=>h.kind===kind);
+     const row=EnvironmentHazards.VENTS[h.kind],cfg=EnvironmentHazards.CONFIG.vent;
+     const quietMs=row.gas?cfg.gasInactiveMs:cfg.inactiveMs;
+     clean();move(h);
+     advance(quietMs-100);check(h.phase==='inactive'&&s.save.energy===100,'inactive vent safe');
+     advance(100);check(h.phase==='warning'&&s.save.energy===100,'warning follows its quiet period');
      advance(2900);check(h.phase==='warning'&&s.save.energy===100,'three second warning stays safe');
      advance(100);const energy=s.save.energy;
-     check(h.phase==='active'&&energy<100,'active vent first contact at eight seconds');
-     check(Conditions.active(s.save,EnvironmentHazards.VENTS[h.kind].condition),'vent applies its condition');
-     advance(900);check(s.save.energy===energy,'no duplicate damage inside contact second');
-     advance(100);check(s.save.energy<energy,'second contact after one second');
-     clean();s.save.flightPotionUntil=Date.now()+60000;h.elapsedMs=8000;h.nextContactMs=0;
-     advance(100);check((s.save.energy===100)===(h.kind==='fire'),'flight avoids fire but gases still reach player');
-     results.push({kind:h.kind,firstDamage:100-energy,flightProtected:h.kind==='fire'});
+     check(h.phase==='active','vent erupts after its warning');
+     if(row.gas){
+       check(energy===100,'gas vent has no direct contact hit');
+       for(let i=0;i<11;i++)MushroomGas.tick(s,.1);
+       check(Conditions.active(s.save,row.gas),'diffusing gas applies its condition');
+     }else{
+       check(energy<100&&Conditions.active(s.save,row.condition),'fire vent damages and burns');
+       advance(900);check(s.save.energy===energy,'no duplicate contact inside one second');
+       advance(100);check(s.save.energy<energy,'second contact after one second');
+       check(Object.keys(s.save.groundFire||{}).length>=5,'fire eruption ignites its neighbors');
+     }
+     Sandbox.seedHazardState(s,s._sandboxHazardOrigin);s._mushroomGas?.delete(s.depth || 0);
+     clean();s.save.flightPotionUntil=Date.now()+60000;
+     const airborne=EnvironmentHazards.lists(s).vents.find(v=>v.kind===kind);
+     airborne.elapsedMs=quietMs+cfg.warningMs-100;EnvironmentHazards.update(airborne);advance(100);
+     if(row.gas){for(let i=0;i<11;i++)MushroomGas.tick(s,.1);check(Conditions.active(s.save,row.gas),'flight does not avoid gas');}
+     else check(s.save.energy===100,'flight avoids ground fire vent contact');
+     results.push({kind:h.kind,quietMs,firstDamage:100-energy,flightProtected:h.kind==='fire'});
    }
-   clean();for(const h of vents){h.elapsedMs=8000;EnvironmentHazards.update(h);}move(vents[1]);draw();
+   Sandbox.seedHazardState(s,s._sandboxHazardOrigin);clean();
+   const visible=EnvironmentHazards.lists(s).vents.filter(h=>h._sandboxProbe);
+   for(const h of visible){h.elapsedMs=(EnvironmentHazards.VENTS[h.kind].gas?20000:5000)+3000;EnvironmentHazards.update(h);}move(visible[1]);draw();
    const sprites=s._environmentHazardPool.filter(o=>o.visible&&o.texture.key==='vent_cycle');
    check(sprites.length>=3,'all three vents rendered');
    check(sprites.every(o=>o.displayWidth>0&&o.displayHeight>0&&Number.isFinite(o.x)&&Number.isFinite(o.y)),'finite vent bounds');
@@ -83,8 +101,9 @@ CASES = {
    check(vents.length===1&&vents[0].kind==='confusion','L1 authors one confusion vent');
    check(PressureTraps.lists(s).traps.length===0,'no ball or wall traps on L1');
    const h=vents[0];clean();move(h);h.elapsedMs=0;EnvironmentHazards.update(h);
-   advance(7900);check(h.phase==='warning'&&MushroomGas.cells(s).length===0,'no gas before the eruption');
-   advance(100);check(h.phase==='active','erupts at eight seconds');
+   advance(EnvironmentHazards.CONFIG.vent.gasInactiveMs+EnvironmentHazards.CONFIG.vent.warningMs-100);
+   check(h.phase==='warning'&&MushroomGas.cells(s).length===0,'no gas before the eruption');
+   advance(100);check(h.phase==='active','erupts after its gas quiet period and warning');
    check(s.save.energy===100,'confusion vent deals no contact damage');
    for(let i=0;i<11;i++)MushroomGas.tick(s,.1);const cells=MushroomGas.cells(s);
    const near=cells.filter(c=>Math.abs(c.cellIX-h.cellIX)+Math.abs(c.cellIY-h.cellIY)===1);
@@ -167,10 +186,11 @@ CASES = {
  'foreground-clock': ('hazards-deep', r"""async() => {
    const {s,check,move}=hazardProbe;
    const h=EnvironmentHazards.lists(s).vents.find(h=>h._sandboxProbe==='vent-poison');
-   move({x:h.x,y:h.y-s.cellM});h.elapsedMs=4900;EnvironmentHazards.update(h);
-   await new Promise(r=>setTimeout(r,400));check(h.elapsedMs===4900,'paused scene freezes warning clock');
+   const boundary=EnvironmentHazards.CONFIG.vent.gasInactiveMs-100;
+   move({x:h.x,y:h.y-s.cellM});h.elapsedMs=boundary;EnvironmentHazards.update(h);
+   await new Promise(r=>setTimeout(r,400));check(h.elapsedMs===boundary,'paused scene freezes warning clock');
    s.scene.resume();await new Promise(r=>setTimeout(r,400));s.scene.pause();
-   const elapsed=h.elapsedMs-4900;check(elapsed>0&&elapsed<800,'resume advances foreground time without catchup');
+   const elapsed=h.elapsedMs-boundary;check(elapsed>0&&elapsed<800,'resume advances foreground time without catchup');
    check(h.phase==='warning','warning appears after resumed foreground crosses boundary');
    return {pausedMs:400,resumedMs:400,foregroundAdvancedMs:elapsed};
  }"""),
@@ -238,6 +258,13 @@ async def probe(args):
                     await page.wait_for_function("window.__game?.scene.getScene('map')?._sandboxLabelData?.length",timeout=60000)
                     await page.wait_for_function("__game.scene.getScene('map')._bootOverlayGone && !document.getElementById('bootload')",timeout=60000)
                     result['bootSeconds']=round(time.monotonic()-started,3)
+                    # Isolate handler checks from startup story queues. The
+                    # paused scene retains its last frame's dialog shield.
+                    await page.evaluate("""() => {
+                      const s=__game.scene.getScene('map');s.scene.pause();
+                      document.querySelectorAll('[id$="-modal"]').forEach(e=>e.remove());
+                      s._syncModalGate();Conditions.setDialogShield(s.save,false);
+                    }""")
                     await page.evaluate(SETUP)
                     result['details']=await page.evaluate(action)
                     if name=='reset-label':
