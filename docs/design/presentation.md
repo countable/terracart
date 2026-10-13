@@ -116,8 +116,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   `Buffs.extend(save, scene, id, ms)` is the one writer of a row's expiry
   (max(now, until) + ms — a second dose extends, never resets or refuses). A status
   LANDING announces itself from those tables (`_announceStatuses`: the body
-  flicks the row's ink, the word pops on the cell) — never at the writer. A
-  creature's status (sleep, charm, frost, fear, psychosis) is a row of
+  flicks the row's ink, the word pops on the cell) — never at the writer.
+  Food energy and condition notices stay separate; the food receipt must not
+  repeat the condition announcement. A creature's status (sleep, charm, frost,
+  fear, psychosis) is a row of
   `Combat.STATUS_LOOKS` and one `Combat.flagStatus` call at its applier;
   render.js flicks and pops it through `_popCreatureText`.
 - Bearings on the map rim are rows of `MARKERS` (app.js). Each row's slot

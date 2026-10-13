@@ -114,6 +114,7 @@
     const s = scene();
     const result = s._consumeFoodEffects('mushroom');
     assert.truthy(result.gained > 0);
+    assert.falsy(result.extra.includes('Confused'), 'food receipt leaves confusion to the shared status announcement');
     assert.eq(s.save.conditions.confused.remainingMs, 3000);
     Conditions.tick(s.save, 2999);
     assert.truthy(Conditions.active(s.save, 'confused'));

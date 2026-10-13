@@ -1064,7 +1064,6 @@ class SceneConsumables {
     if (CONSUMABLE_SPEC[id]?.condition) {
       const spec = CONSUMABLE_SPEC[id];
       this._applyCondition(spec.condition, { durationMs: spec.durationMs });
-      extra = `\nConfused: ${shortDuration(spec.durationMs)}`;
     } else if (id === 'pairy') {
       const target = this.findNearestUnopenedChest();
       if (target) {
