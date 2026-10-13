@@ -33,6 +33,12 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   never adjusts an actor's feet or enters the world depth sort. Towers and
   flags retain ordinary world ordering. Walls and footprints use a muted
   palette so interactables remain distinct.
+  Castle courtyard floors start from quarter-cell stone tiles (2×2); each
+  cached texture joins one adjacent pair into a horizontal or vertical half-cell
+  slab with a continuous fill and no internal bevel. This happens only at bake
+  time. Tiles have darker junctions, worn stretches and quiet bevels. Inner
+  seams are lighter than cell boundaries, keeping cells legible beside the
+  smaller road cobbles.
   Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
   renderers; polygon corners use bounded bevel joins.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
@@ -47,8 +53,14 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   apart, and rounding each alone opens an intermittent 1px seam.
 - List actual crop `frames`, not sheet-cell counts. Hash the full id for
   per-cell variation (`wildplantFrame`); do not use id length or transient indices.
-  When art depicts quantity, rendering and drops share the variant table
-  (`PLAIN_ROCK_VARIANTS`); loot messages report the actual quantity rolled.
+  Legacy `PLAIN_ROCK_VARIANTS` retains rock yields independently of the neutral
+  material silhouettes; loot messages report the actual quantity rolled.
+- Apple and Worldpeach trees keep their mature size after picking. Their
+  24-hour fruit regrowth is green for the first 12 hours, then uses the mature
+  blossom frame for the final 12 hours (apple frame 8, peach frame 4).
+  Ripe trees return to the green frame
+  with separate fruit overlays. `Crops.fruitTreeState` owns readiness and the
+  blossom window; initial sapling growth still flowers during stage 3.
 - Procedural wildplant backgrounds carry the shared layout's `_terrainScale`
   into the normal crop renderer as a size multiplier; cell positions, crop art
   and harvest rewards remain owned by their existing records and tables.
@@ -58,6 +70,10 @@ rendering, lighting or street mechanics. Camera and art geometry live in
 - A creature's contact shadow centres 3 px above its ground point
   (`SHADOW_LOOK.creature.dy`), so its feet stand on the ellipse's middle; the
   elite's rune circle shares that centre.
+- NPC sheet corrections live in `SpriteLayout.NPC_SHEETS.render` and bake once
+  through `makeNpcSheet` at asset load. Grove fox bodies match the citizens'
+  height and outline ink while retaining the shared feet anchor; map animations,
+  dialogue portraits and the NPC roster use that same transform.
 - An elite (`Combat.isElite`) keeps its own colours, baked vivid once per
   sheet (`Render.vividTexture`), under every renderer; the gold tint is for
   shiny animals. Its twin rune circle is two white rotation strips
@@ -110,20 +126,53 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 `tilled_bed`, `still_frames`, `chunk_index`, `building_overlay`; also
 `tools/sprite_audit.js`.
 
+- The shared mineral rock set uses a slightly warm grey palette and high
+  three-quarter overhead view. The generic `rock_variants` sheet has
+  24px cells forming fifteen adjacent small/large
+  material pairs plus three extra plain-stone pairs across six columns and six
+  rows. `mineralRockArtFrame` selects the matching gem deposit or ore tier,
+  plain stone for ordinary cave rubble,
+  and flint when marked `rockMaterial: 'flint'`, including flint-bearing L1
+  cave rubble. The flint mark takes precedence over the generic cave variant. Partial
+  cover (`sightBlocking: true`) selects the large silhouette at scale 4/3;
+  small stones use scale 1. Outside authored rock zones, wild rubble shares
+  the four generic plain small shapes and skips biome tint; planted crop stages
+  and inventory icons retain their existing art. A stable id hash selects plain
+  stone shape independently of biome, mining quantity and small/large size.
+  Mining quantities retain their existing variant tables.
+  Thirteen stone contexts use one environmental design each from
+  `rock_variants` frames 52–64: Stone Garden, Broken Masonry, Flint Field, Broken Depot,
+  Seep, Work Yard, Black Ring, Pirate Cove, Strip Mine, Stronghold Quarry,
+  Crater Quarry, Abandoned Quarry and Mystic Reef. Color, moss and weathering carry
+  the place; Work Yard uses a cut stone slab and Crater Quarry has a glowing lava
+  seam painted into the sprite. These contain no collectible mineral inclusions.
+  The same 24px
+  frame scales to 0.75 for small stones and 4/3 for sight-blocking boulders.
+  Named context/variant fields resolve the theme, with legacy zone-object
+  frames 64–71 as a fallback. Gem, ore and explicitly flint-bearing rocks always
+  retain the shared material silhouettes and readable inclusions.
+  One 144×264 atlas holds 65 used frames and one empty trailing cell: shared material/shape pairs 0–35,
+  neutral zone pairs 36–51, and environmental designs 52–64. The source
+  images and `assets/Objects/Rocks/export.cjs` rebuild the atlas.
+  All earlier approved art remains available: `rockStyle: 'plain'` selects the original
+  neutral zone pair where one exists, otherwise the common plain shapes;
+  `rockStyle: 'shared'` always selects the common plain shapes. Stronghold
+  wall segments retain their connected wall art and physical behavior.
+  `ZONE_ROCK_THEMES` owns multiply colors: shared/neutral art automatically
+  inherits its supported zone palette; a named `rockTheme` selects a palette
+  explicitly and `rockTheme: false` keeps neutral colors. Other zones use
+  regular neutral rocks, including older records with legacy decoration frames.
+  Recoloring preserves frame/material/yield identity,
+  and never double-tints the authored themed sprite. Thus new zone palettes
+  require no copies of every ore and gem sprite.
+
 ## Lighting and streets
 
-- Plain mineable rocks use the existing sheet's complete 32×16 boulders,
-  loaded as `mineralboulder` with five columns. The pair and three single-size
-  variants retain their deterministic slot and two/one-stone yields. Legacy
-  ore rocks use the matching larger mineral boulders; named gem deposits retain
-  their own artwork. `SpriteLayout.mineralRockArt` owns key, frame and scale.
-  The `mineralrock` 16×16 texture remains available for material/icon uses.
-
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
-  Bushes, hedges, short walls, rocks and cave walls block sight beyond their
-  cell; the smallest tree saplings provide no cover. Larger standing trees
-  provide partial cover, with a non-stacking 50% darkness
-  treatment. The facing blocker stays visible. Full cover removes objects,
+  Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
+  short walls, larger standing trees and rocks marked `sightBlocking: true`
+  provide partial cover, with a non-stacking 50% darkness treatment. Small
+  rocks and the smallest tree saplings provide no cover. The facing blocker stays visible. Full cover removes objects,
   creatures and their associated labels, shadows and target affordances.
   `Lighting.coverFrame` caches a world-aligned mask and composites it into the
   existing lightmap after light sources. It reuses the exploration fog's
@@ -137,6 +186,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   every frame. Rays read a dense typed-array cover grid, never per-cell key
   strings; the object rescan is gated by a signature (night state included) and
   a one-second refresh for slow in-place edits.
+- Evertorch uses the shared player-light collector and torch radius with a blue
+  `Lighting.KINDS` row. It takes visual precedence while both torches burn;
+  neither expands interaction reach. Its icon reuses Torch art with the
+  icon-source CSS palette filter in the shared inventory/offer/toast renderer.
 
 - Gas uses a translucent cell-bound pixel cloud above world sprites and below
   lighting and fog, clipped to the world viewport. `GasRender` eases density
@@ -174,10 +227,21 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   entry or replacement `layers` array invalidates the geometry, so a cell move
   rejects distant lines without walking their vertices.
   Feather only the restored band's edge, with a hard-edge fallback.
-- Restored Toadstool (Mushroom) and Snare lanes use near-black setts close to
-  the default restored road. Retain their red/brown undertones and mushroom
-  spots; the shared clean-stone bevel supplies the polished highlights.
-- Generate lamps from `Streets.lampSpacingM()` (independent of restoration ladder goals).
+- Source-geometry road bands own all paving, in the game and map review.
+  Raster road/path cells paint one shared backdrop type for both colour and
+  biome texture (`Render.roadBackdropType`): explicit street ground, then the
+  surrounding biome, then grass. Never paint raw road colours or separate path
+  pebbles beneath the band; their grid edges read as a second road.
+- Roads and paths use a consistent muted midtone range so ground objects
+  remain the focus. Restored paving has recessed dark joints, tidy courses and
+  small polished bevels; worn cracks and mushroom spots stay low contrast.
+  Keep each theme’s undertone. Burned Row retains its dark stone and glowing embers.
+- Path paving and lamp palettes follow the assigned segment intervals. Scenic
+  geography still owns restoration bonuses; first-walk stories use the assigned
+  theme on the restored segment.
+- Generate lamps only on paths and Small roads, from `Streets.lampSpacingM()`
+  (independent of restoration ladder goals). Medium/Large roads have no lamp
+  sites, including broken lamps and spawn reservations.
   One list and `lit` flag feed art and lighting. Derive verge offset from road
   width and lamp footprint; art and light share the same world point. Lantern
   rise is a draw-space offset; retune height through `LAMP_PROFILE`.

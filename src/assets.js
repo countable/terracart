@@ -105,9 +105,9 @@ const ASSETS = {
       scene.textures.addSpriteSheet('chest', sheet, { frameWidth: 16, frameHeight: 16 });
     } },
   // Market stall — a "produce stand" POI sprite (80×80 per frame). One frame
-  // per product family (awning colour): 0 fruit, 1 veg, 2 meat, 3 fish,
+  // per product family, sharing one ochre roof: 0 fruit, 1 veg, 2 meat, 3 fish,
   // 4 coffee/bakery, 5 dairy/egg, 6 flowers. See produceStandFor() in loot.js.
-  market_stand: { kind: 'spritesheet', path: 'assets/Objects/Approved/market_stand.png', frameWidth: 80, frameHeight: 80 },
+  market_stand: { kind: 'spritesheet', path: 'assets/Objects/Generated/market_stand_simple.png', frameWidth: 80, frameHeight: 80 },
   // Crops sheet: 9 cols x 16 rows of 16x16 cells. Each crop = one row.
   // In-world growth: col 0 (sprout) -> col 4 (harvestable). Inventory: col 7 produce, col 8 seed.
   crops:   {
@@ -194,6 +194,7 @@ const ASSETS = {
   // ground decoration and must not enter the standing tree frame.
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
+  rock_variants: { kind: 'spritesheet', path: 'assets/Objects/Rocks/rocks-24.png', frameWidth: 24, frameHeight: 24 },
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
   // Five complete 32px columns; the trailing 16px mask column is unused.
   // Keep the original 16px key for mineral/item previews that still need it.
@@ -204,7 +205,7 @@ const ASSETS = {
   // STREET VARIANTS (src/street_variants.js): the generated 16px props (see
   // assets/Objects/Generated/README.md — placeholders): the pilgrim's
   // waystone, the barricade, and the burned row's tar pit and iron stakes
-  // (one look each). wagon: the broken wagon a bandit-road bus stop wears
+  // (one look each). wagon: the intact compact wagon a bandit-road bus stop wears
   // (loot.js chestLook), one compact 32×32 frame.
   waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone.png', frameWidth: 16, frameHeight: 16 },
   barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 24, frameHeight: 24 },
@@ -401,10 +402,39 @@ const ASSETS = {
 
 // Neighbour role sheets are listed once, in SpriteLayout.NPC_SHEETS; each
 // idle sheet has a walk sheet beside it.
+// Bake once at load under the original keys: map animations and dialogue
+// portraits then share the same size, palette, and 32px ground anchor.
+function makeNpcSheet(source, sheet) {
+  if (!sheet.render) return source;
+  const { sourceSize, size, colors } = sheet.render;
+  const canvas = document.createElement('canvas');
+  canvas.width = source.width; canvas.height = source.height;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  for (let y = 0; y < source.height; y += 48) for (let x = 0; x < source.width; x += 48) {
+    ctx.drawImage(source, x + (48 - sourceSize) / 2, y + 32 - sourceSize, sourceSize, sourceSize,
+      x + (48 - size) / 2, y + 32 - size, size, size);
+  }
+  const image = ctx.getImageData(0, 0, canvas.width, canvas.height), pixels = image.data;
+  const swaps = new Map(Object.entries(colors).map(([from, to]) => [parseInt(from.slice(1), 16), parseInt(to.slice(1), 16)]));
+  for (let i = 0; i < pixels.length; i += 4) {
+    if (!pixels[i + 3]) continue;
+    const color = swaps.get((pixels[i] << 16) | (pixels[i + 1] << 8) | pixels[i + 2]);
+    if (color == null) continue;
+    pixels[i] = color >> 16 & 255; pixels[i + 1] = color >> 8 & 255; pixels[i + 2] = color & 255;
+  }
+  ctx.putImageData(image, 0, 0);
+  return canvas;
+}
 for (const sheet of SpriteLayout.NPC_SHEETS) {
   if (ASSETS[sheet.idle]) continue;
   ASSETS[sheet.idle] = { kind: 'spritesheet', path: sheet.path, frameWidth: 48, frameHeight: 48 };
   ASSETS[sheet.walk] = { kind: 'spritesheet', path: sheet.path.replace(/_idle\.png$/, '_walk.png'), frameWidth: 48, frameHeight: 48 };
+  if (sheet.render) for (const key of [sheet.idle, sheet.walk]) ASSETS[key].onLoad = scene => {
+    const canvas = makeNpcSheet(scene.textures.get(key).getSourceImage(), sheet);
+    scene.textures.remove(key);
+    scene.textures.addSpriteSheet(key, canvas, ASSETS[key]);
+  };
 }
 
 // Player class and bicycle appearances share their verified layout metadata.
@@ -418,8 +448,15 @@ for (const art of Object.values(SpriteLayout.PLAYER_ART)) {
 function recolorEnemyPixels(pixels, palette) {
   const rgb = (hex) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
   const stops = ['#000000', palette.shadow, palette.mid, palette.highlight].map(rgb);
+  // Preserve authored details, such as the crow's red eye on a white gull.
+  const colors = new Map(Object.entries(palette.colors ?? {}).map(([from, to]) => [parseInt(from.slice(1), 16), rgb(to)]));
   for (let i = 0; i < pixels.length; i += 4) {
     if (!pixels[i + 3]) continue;
+    const color = colors.get((pixels[i] << 16) | (pixels[i + 1] << 8) | pixels[i + 2]);
+    if (color) {
+      for (let ch = 0; ch < 3; ch++) pixels[i + ch] = color[ch];
+      continue;
+    }
     const luma = (0.2126 * pixels[i] + 0.7152 * pixels[i + 1] + 0.0722 * pixels[i + 2]) / 255;
     const t = Math.pow(luma, palette.gamma ?? 1) * 3;
     const segment = Math.min(2, Math.floor(t));

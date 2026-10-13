@@ -148,7 +148,7 @@ const PLAY_TIPS = [
   ITEM_GUIDE_TIPS.fireball_scroll,
   ITEM_GUIDE_TIPS.fear_scroll,
   ITEM_GUIDE_TIPS.treasure_map,
-  "Joined the book club at the school booth. The scholars count every book I read and take a tome down from the shelf as the pile grows. Bought ones count too, at a climbing price.",
+  "Joined the book club. Every book I collect opens more of the shelf and adds lending credit. I borrow the tomes I need, then return them to make room for others. Bought books count too.",
   // Append new guides after all published pages to preserve saved bookmarks.
   ITEM_GUIDE_TIPS.thunder_scroll,
   ITEM_GUIDE_TIPS.raven_scroll,

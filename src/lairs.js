@@ -135,7 +135,7 @@
   // StreetVariants.BANDIT_STRETCH_UNITS) are the same reason again: one guard
   // each, always held, every mode. (There is no 'wagon' tier: a bus stop is on
   // the kerb by definition.)
-  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_orchard: 1, street_toadstool: 1 };
+  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_orchard: 1, street_toadstool: 1, street_goblin_gang: 5 };
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
   // ── A TAR YARD — the same reason again (src/zones.js): the fire slimes at
   // a fuel station's pumps, seated about its chest. Fixed and always held
@@ -236,6 +236,7 @@
     street_overgrown: ['plant'],
     street_orchard: ['farmer_goblin'],
     street_toadstool: ['spider'],
+    street_goblin_gang: ['goblin_runt'],
     // A burned row's stretch: one fire slime in the tar (the fire slimes are
     // zone-seated, never a tile's wild spawn, so the burned row seats its own
     // here rather than relocating any).
@@ -303,6 +304,9 @@
   // Ghosts are never guards (owner, Oct 2026): they haunt crypts and
   // memorials, not ruins — no row seats a ghost.
   const GROUPS = {
+    street_goblin_gang: { label: 'Street goblin gang', tiers: ['street_goblin_gang'], modeCap: false,
+      story: 'Five weak goblin grunts gather beside the street, with barrel stacks nearby.',
+      members: [{ kind: 'goblin_runt', n: 5, place: 'ring' }] },
     // ── A wrecked house: small ──
     grunt_gang: { label: 'Goblin grunt gang', tiers: [9], minT: 0, chance: .1, modeCap: false,
       story: 'Three to eight weak goblins crowd around the wreck. Each falls quickly; the gang comes together.',
@@ -529,6 +533,7 @@
     street_overgrown: { rate: 1, thinned: false },
     street_orchard: { rate: 1, thinned: false },
     street_toadstool: { rate: 1, thinned: false },
+    street_goblin_gang: { rate: 1, thinned: false },
     gate:   { rate: 1, thinned: false },   // a gate's posts — held every day
     habitat_marsh: { rate: 1, thinned: false },      // a habitat site — always held
     habitat_stronghold: { rate: 1, thinned: false },

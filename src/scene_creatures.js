@@ -339,11 +339,11 @@ class SceneCreatures {
       entry.streetMarks = dressing.marks;
     }
     yield 'spawn street dressing';
-    // BANDIT STOPS: a bus stop on a MAJOR road wears the broken wagon
-    // (loot.js chestLook) and holds one goblin (lairs.js 'wagon' tier). Read
-    // off the live objects so an Overpass bin's stops are included.
+    // MERCENARY STOPS: selected bus stops on a medium road's safe verge
+    // wear a wagon (loot.js chestLook) and offer a hire (Macros). Read the
+    // live objects so an Overpass bin's stops are included; no guard spawns.
     if (typeof StreetVariants !== 'undefined' && entry.roadClass) {
-      for (const L of StreetVariants.markBanditStops(entry.objects, entry.roadClass, N, tx, ty, this.tileEdgeM)) {
+      for (const L of StreetVariants.markBanditStops(entry.objects, entry.roadClass, N, tx, ty, this.tileEdgeM, entry)) {
         entry.streetLairs.push(L);
       }
     }
@@ -861,13 +861,13 @@ class SceneCreatures {
   // THE SHORE FAUNA pass (see the call in spawnInTile). Pure in the tile:
   // the shore (entry.scenic.shore — generated) and the pier cells (the
   // generated grid) decide it; nothing per-player. Returns what it seated.
-  //   count   floor((waterline m + pier m) / perShoreM), capped at `max` —
+  //   count   waterline budget capped at `max`, then shared fauna density —
   //           in GENERATION metres (WorldGen.CELL_M per cell), never the
   //           save's frame (CLAUDE.md "Every player sees the SAME world")
   //   seats   exhaust legal shore cells inside the same owner; safety
   //           changes seats, not population budgets or species identities.
-  //   ids     raw canonical cell draws (ordinary) or stable owner ordinals
-  //           (Nexus), reserved before saved captures are filtered.
+  //   ids     raw canonical cell draws, reserved before saved captures.
+  //           Nexus coverage never receives this ambient population.
   spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid, faunaOpts, foeOpts, caughtSet, zoneCoverage, habitatEntry = null, authoredCreatures = []) {
     const out = [];
     if (typeof SHORE_FAUNA === 'undefined') return out;
@@ -881,10 +881,10 @@ class SceneCreatures {
     const getGroup = i => {
       const owner = habitatEntry ? HabitatSpawns.resolve(habitatEntry, i) : null;
       const areaOwner = habitatEntry ? WorldGen.variantOwnerAt(habitatEntry, i) : null;
-      if ((areaOwner || zoneCoverage?.[i]) && !(owner?.profile?.owner === 'zone' && owner.profile.shoreFauna)) return null;
-      // Road variants and unrelated Nexus variants own their empty shore too.
-      if (owner?.profile?.owner === 'road' || (owner?.profile?.owner === 'zone' && !owner.profile.shoreFauna)) return null;
-      const key = owner?.profile?.owner === 'zone' ? owner.key : 'shore:ordinary';
+      // Every Nexus owns its empty cells too. Path content comes from its
+      // own generator; ordinary shoreline fauna never fills either owner.
+      if (areaOwner || zoneCoverage?.[i] || owner?.profile?.owner === 'zone' || owner?.profile?.owner === 'road') return null;
+      const key = 'shore:ordinary';
       if (!groups.has(key)) groups.set(key, { key, owner, shore: [], pier: [] });
       return groups.get(key);
     };
@@ -893,8 +893,7 @@ class SceneCreatures {
     const rawWaterline = shore?.waterline;
     const diagnostics = [];
     for (const group of [...groups.values()].sort((a, b) => a.key.localeCompare(b.key))) {
-      const native = group.owner?.profile?.owner === 'zone';
-      const kinds = native ? group.owner.profile.shoreFauna.map(row => row.kind) : SHORE_FAUNA_ORDER;
+      const kinds = SHORE_FAUNA_ORDER;
       const ground = new Set(group.shore);
       const shoreM = rawWaterline ? rawWaterline.filter(i => ground.has(i)).length * WorldGen.CELL_M
         : (shore?.shoreM || 0) * group.shore.length / Math.max(1, allShore.length);
@@ -904,25 +903,21 @@ class SceneCreatures {
         const rawPool = row.pier ? group.shore.concat(group.pier) : group.shore;
         if (!rawPool.length) continue;
         const lenM = shoreM + (row.pier ? group.pier.length * WorldGen.CELL_M : 0);
-        const requested = Math.max(0, Math.min(row.max, Math.floor(lenM / row.perShoreM)));
-        const authored = native ? authoredCreatures.filter(c => {
-          if (c.kind !== kind) return false;
-          const cx = Math.floor((c.x - tx * this.tileEdgeM) / cellM), cy = Math.floor((c.y - ty * this.tileEdgeM) / cellM);
-          return HabitatSpawns.resolve(habitatEntry, cy * N + cx).key === group.key;
-        }).length : 0;
-        const want = Math.max(0, requested - authored);
         const spClass = creatureSpawnClass(kind);
         const fauna = spClass === 'fauna' || spClass === 'fastFauna';
+        const rawCount = Math.max(0, Math.min(row.max, Math.floor(lenM / row.perShoreM)));
+        const requested = fauna || SpriteLayout.creatureBehaviour(kind)?.animal
+          ? HabitatSpawns.faunaCount(rawCount) : rawCount;
         const opts = fauna ? faunaOpts : foeOpts;
         const canonicalPool = rawPool.filter(i => HabitatSpawns.allows(kind, genGrid[i], group.owner?.profile));
         const pool = canonicalPool.filter(i => {
           const cx = i % N, cy = Math.floor(i / N);
           return WorldGen.isSpawnCell(genGrid, N, N, cx, cy, opts, spClass);
         });
-        const srng = WorldGen.makeRng(fnv1a(`${row.salt}|${tx},${ty}${native ? '|' + group.key : ''}`));
+        const srng = WorldGen.makeRng(fnv1a(`${row.salt}|${tx},${ty}`));
         const taken = new Set();
         let placed = 0;
-        for (let n = 0; n < want && taken.size < canonicalPool.length; n++) {
+        for (let n = 0; n < requested && taken.size < canonicalPool.length; n++) {
           const start = Math.floor(srng() * canonicalPool.length);
           let canonical = null;
           for (let at = 0; at < canonicalPool.length; at++) {
@@ -934,7 +929,7 @@ class SceneCreatures {
           // Identity uses this species' own draw. Other inhabitants can move
           // its seat within the same shore owner without changing that ID.
           const canonicalX = canonical % N, canonicalY = Math.floor(canonical / N);
-          const id = native ? `shore_habitat_${kind}_${tx}_${ty}_${encodeURIComponent(group.key)}_${n}` : WorldGen.cellId(kind, tx, ty, canonicalX, canonicalY);
+          const id = WorldGen.cellId(kind, tx, ty, canonicalX, canonicalY);
           let cell = null;
           const canonicalSeat = pool.indexOf(canonical);
           const seatStart = canonicalSeat >= 0 ? canonicalSeat : Math.floor(EnemySpawns.roll(id + ':seat') * pool.length);
@@ -946,16 +941,16 @@ class SceneCreatures {
           reserved.add(cell); placed++;
           const cx = cell % N, cy = Math.floor(cell / N);
           const seat = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
-          const point = { key: native ? group.key : `land:${genGrid[cell]}:shore`, profile: group.owner?.profile?.id || 'shore', tx, ty, cx, cy, sourceCx: canonicalX, sourceCy: canonicalY, ...seat };
+          const point = { key: `land:${genGrid[cell]}:shore`, profile: group.owner?.profile?.id || 'shore', tx, ty, cx, cy, sourceCx: canonicalX, sourceCy: canonicalY, ...seat };
           const c = WorldGen.makeCreature(kind, seat.x, seat.y, id, {
             shiny: fauna || ITEM_BY_ID[kind]?.kind === 'animal' ? faunaShiny(kind, id) : false,
-            _habitatSpawn: point, ...(native ? { zoneVariant: group.owner.profile.id } : {}),
+            _habitatSpawn: point,
           });
           EnemySpawns.surfaceActive(this, c);
           if (caughtSet.has(id)) continue;
           creatures.push(c); out.push(c);
         }
-        diagnostics.push({ key: group.key, kind, requested, authored, placed, shortfall: Math.max(0, want - placed) });
+        diagnostics.push({ key: group.key, kind, requested, placed, shortfall: Math.max(0, requested - placed) });
       }
     }
     if (habitatEntry) habitatEntry.shorePopulation = diagnostics;

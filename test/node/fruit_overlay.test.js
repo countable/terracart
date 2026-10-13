@@ -1,10 +1,9 @@
 // A bearing fruit tree WEARS its fruit (src/render.js's fruit pass, seated by
 // SpriteLayout.fruitCrownOffset over CROWN_BOUNDS in src/sprite_layout.js).
 //
-// The rule these pin: the tree's ART is the same whether or not it is bearing.
-// The FRUIT is what appears and disappears (swapping to a fruiting frame and
-// dimming turned a worked orchard into faded, different trees), and it is
-// placed off the tree sprite just drawn, not at a hand-picked offset.
+// Fruit remains a separate overlay on the mature canopy. Regrowing trees use
+// the mature blossom artwork during their flowering window; they never shrink
+// to saplings or dim. Fruit placement follows the drawn canopy.
 //
 // (The crown boxes themselves are re-derived from the real PNGs by
 // tools/sprite_audit.js — see the `fruit-tree crown:` cases in run.js.)
@@ -81,20 +80,35 @@ test('fruit overlay: the sheets’ own fruiting frames are never drawn', () => {
   // apple 7 / peach 5 are the cells that draw fruit INTO the tree. Drawing one
   // would change the tree under the player on a pick, and wear an overlay fruit as well.
   const frames = RENDER_FRUIT_FRAMES_SRC;
-  assert.truthy(/apple:\s*\{\s*grow:\s*\[0, 2, 4, 5, 4\], mature: 4 \}/.test(frames),
+  assert.truthy(/apple:\s*\{\s*grow:\s*\[0, 2, 4, 8, 4\], mature: 4, blossom: 8 \}/.test(frames),
     'apple ends its life cycle on the mature frame, not the fruiting one');
-  assert.truthy(/peach:\s*\{\s*grow:\s*\[0, 2, 3, 4, 3\], mature: 3 \}/.test(frames),
+  assert.truthy(/peach:\s*\{\s*grow:\s*\[0, 2, 3, 4, 3\], mature: 3, blossom: 4 \}/.test(frames),
     'peach ends its life cycle on the mature frame, not the fruiting one');
   assert.truthy(!/fruit:/.test(frames), 'no fruiting-frame entry is left to pick up');
 });
 
-test('fruit overlay: the tree’s frame does not depend on whether it is bearing', () => {
+test('fruit overlay: both species draw mature blossoms only during their regrowth window', () => {
+  const frames = new Function('return ({' + RENDER_FRUIT_FRAMES_SRC + '});')();
   const spec = RENDER_FRUITTREE_SPEC_SRC;
   const frameFn = spec.slice(spec.indexOf('frame: (o) =>'), spec.indexOf('origin:'));
-  assert.truthy(!/_ftPicked|_ftBearing/.test(frameFn),
-    'the frame picker reads growth only — never the picked/bearing state');
-  assert.truthy(/o\.planted \? fr\.grow\[_ftStage\(o\)\] : fr\.mature/.test(frameFn),
-    'growth frames for a sapling, the mature frame for a wild tree');
+  assert.eq(frames.apple.blossom, 8, 'white mature apple blossom, not brown autumn frame 5');
+  assert.eq(frames.worldpeach.blossom, 4, 'pink mature peach blossom');
+  assert.eq(frames.apple.grow[3], 8, 'apple saplings also use the true blossom frame');
+  const pickedAt = 10 * Crops.FRUIT_RESPAWN_MS;
+  let now = pickedAt;
+  const frame = new Function('_ftSpec', '_ftState', `return ({${frameFn}}).frame;`)(
+    o => frames[o.species], o => Crops.fruitTreeState(o, pickedAt, now));
+  for (const species of ['apple', 'worldpeach']) {
+    for (const planted of [false, true]) {
+      const tree = { species, planted, planted_t: 1000 };
+      now = pickedAt;
+      assert.eq(frame(tree), frames[species].mature, 'green immediately after picking');
+      now = pickedAt + Crops.FRUIT_RESPAWN_MS - Crops.FRUIT_BLOSSOM_MS;
+      assert.eq(frame(tree), frames[species].blossom, 'mature blossom before harvest');
+      now = pickedAt + Crops.FRUIT_RESPAWN_MS;
+      assert.eq(frame(tree), frames[species].mature, 'ripe green canopy accepts fruit overlay');
+    }
+  }
 });
 
 test('fruit overlay: a picked tree is not dimmed — the fruit is simply gone', () => {

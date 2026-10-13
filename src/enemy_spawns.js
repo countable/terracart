@@ -261,7 +261,7 @@
       && depth >= row.cave.minDepth && (row.cave.maxDepth == null || depth <= row.cave.maxDepth)
       && (row.cave.depthRule !== 'even' || depth % 2 === 0)
       && (!context || context.kinds.includes(row.id))
-      && (depth >= 5 || !['red_demon', 'purple_demon', 'armoured_demon', 'fiend', 'succubus', 'hell_brute'].includes(row.id))
+      && (depth >= root.WorldGen.LAVA_DEPTH || !['red_demon', 'purple_demon', 'armoured_demon', 'fiend', 'succubus', 'hell_brute'].includes(row.id))
       && row.id !== 'red_dragon');
   }
   // Giants share at most 5% of the total bag, regardless of how many are added.

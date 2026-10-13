@@ -619,7 +619,7 @@ function magicTrapDamage() {
 const MAGIC_TRAP_TICK_MS = 100;
 
 // What a kill pays — enemyBounty, MONSTER_TREASURE_CHANCE,
-// ELITE_TREASURE_CONTEXT and eliteRollBonus — is Combat's, derived from the
+// ELITE_TREASURE_CONTEXT and eliteDropTier — is Combat's, derived from the
 // same HP pool the fight drains (Combat.ENEMY_COIN_PER_HP).
 
 // What a tame pet hunts is its row's `prey` in SpriteLayout.CREATURE_BEHAVIOUR
@@ -1907,7 +1907,7 @@ class MapScene extends Phaser.Scene {
   // One read per feet-cell change (playerToWorldCell — never the camera
   // anchor): the tile's street marks (StreetVariants.dress) and its MAJOR band
   // (entry.roadClass) say which street this is, and the first entry onto each
-  // variant — and onto an old trade road — tells its story once per save
+  // variant, old trade road or ancient highway tells its story once per save
   // (_storySplashOnce, keyed and painted by the row's `story` stem); a later
   // entry after being off it for STREET_FLASH_GAP_MS gets its map line. The
   // same cell says whether a Burned Row's tar pit or iron stakes are under
@@ -1974,10 +1974,9 @@ class MapScene extends Phaser.Scene {
     }
     // THE STORY: which street is this?
     const code = entry.streetMarks ? entry.streetMarks[i] : 0;
-    let row = code ? StreetVariants.variantByCode(code) : null;
-    if (!row && entry.roadClass && (entry.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_BAND)) {
-      row = StreetVariants.BANDIT_STORY;
-    }
+    const onMajorRoad = entry.roadClass && (entry.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_BAND);
+    const row = onMajorRoad ? StreetVariants.roadStoryAt(entry, lix, liy)
+      : code ? StreetVariants.variantByCode(code) : null;
     if (!row) { this._streetStoryHere = null; return; }
     if (row.story === this._streetStoryHere) return;
     this._streetStoryHere = row.story;
@@ -2112,7 +2111,7 @@ class MapScene extends Phaser.Scene {
       // elite's snare bites harder); a generated trap at 1.
       // Only boots protect against traps; apply their soak before banking pips.
       const bite = Traps.STEP_ENERGY * Difficulty.get().trapBiteMul * Traps.trapPower(trap);
-      Energy.set(this.save, before - (Conditions.damageImmune(this.save) ? 0 : Combat.playerDamage(bite, { boots: this.save.armor?.boots })));
+      Energy.set(this.save, before - (Conditions.damageImmune(this.save) ? 0 : Combat.playerDamage(bite, { boots: this.save.armor?.boots }, 1, this.save.mode, Combat.armorBonus(this.save))));
       const spent = before - this.save.energy;
       this._painFlash(spent);
       // Say the real number: an empty bar loses nothing, so nothing is popped —
@@ -2121,7 +2120,7 @@ class MapScene extends Phaser.Scene {
       this._warnIfTiring(before);
       if (this.updateEnergyDOM) this.updateEnergyDOM();
       const ps = this.playerScreen ? this.playerScreen() : null;
-      const bleed = +Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }).toFixed(1);
+      const bleed = +Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }, 1, this.save.mode, Combat.armorBonus(this.save)).toFixed(1);
       this.flash(`🪤 a trap! −${bleed}⚡/s — step off`,
         ps ? ps.x : undefined, ps ? ps.y - ENERGY_POP_HEAD_PX - 22 : undefined);
       // The reveal has to survive a reload, so it is written now rather than
@@ -2150,7 +2149,7 @@ class MapScene extends Phaser.Scene {
     // loss joins the drain roll-up (_bankDrain) — a number a second stacks
     // into an unreadable column.
     const pips = bankWhole(this, '_trapDrainAccum',
-      Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt);
+      Combat.playerDamage(Traps.standEnergyPerS() * Traps.trapPower(trap), { boots: this.save.armor?.boots }, 1, this.save.mode, Combat.armorBonus(this.save)) * dt);
     if (pips > 0 && (this.save.energy ?? 0) > 0) this._bankDrain('trap', -this._losePlayerEnergy(pips), { ix, iy, label: '🪤 trap' });
   }
 
@@ -4847,7 +4846,7 @@ class MapScene extends Phaser.Scene {
       // A LIT TORCH (isTorchActive) SETS THE FOE ALIGHT — Combat.ignite,
       // the `burning` row of Conditions.DEFINITIONS, as the player's own
       // kill. The blow lands first; the fire takes on what is left.
-      if (this.isTorchActive()) Combat.ignite(c, now, 'player');
+      if (this.isTorchActive() || this.isEvertorchActive()) Combat.ignite(c, now, 'player');
       return true;
     }
     return false;
@@ -4915,20 +4914,15 @@ class MapScene extends Phaser.Scene {
       if (!mine) {
         // A turret's (or any non-player) kill: the coin is the whole payout.
       } else if (elite) {
-        // An elite always pays past the wage: the kind's memory the
-        // first time, a relic-biased treasure roll at a depth-commensurate
-        // tier every time after (see ELITE_TREASURE_CONTEXT / eliteRollBonus).
+        // First discovery adds a memory; every kill pays one signature drop.
         if (this._bankDiscovery(victim.kind, `slaying an elite ${name}`)) {
-          this.flashShiny(0, true, '✨ ELITE SLAIN ✨');   // the wage is the coin
-        } else {
-          // Shown as a card (showRewardCard), not a toast: an elite's drop is
-          // a quest-sized reward, and a toast under a fight is missed.
-          grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀',
-            Combat.ELITE_TREASURE_CONTEXT,
-            { rollBonus: Combat.eliteRollBonus(victim.kind, this.depth),
-              ceremony: { kind: 'treasure', header: `${Combat.eliteRank(victim).label} slain`,
-                          sub: `The ${name} falls. What it guarded is yours.` } });
+          this.flashShiny(0, true, '✨ ELITE SLAIN ✨');
         }
+        grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀',
+          Combat.ELITE_TREASURE_CONTEXT,
+          { monsterKind: victim.kind, eliteRank: victim.eliteRank,
+            ceremony: { kind: 'treasure', header: `${Combat.eliteRank(victim).label} slain`,
+                        sub: `The ${name} falls. What it guarded is yours.` } });
       } else if (Combat.isMonster(victim.kind) && Combat.spawnsUnderground(victim.kind)
                  && Math.random() < Combat.MONSTER_TREASURE_CHANCE) {
         // One in ten plain cave monsters also drops a buried-treasure roll —
@@ -5668,7 +5662,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // === Coin-burst (a shrine row with reward 'coins' — the reef treasury,
-  // the golden idol's spree along its road) ================================
+  // the golden shrine's spree along its road) ================================
   // Once per UTC day per POI: the day ledger (Macros.usedToday / markToday —
   // save.coinBurstClaimed[<poiId>YYYYMMDD]); subsequent taps within the same
   // day flash a hint and spawn no coins. Coins themselves are in-memory only
@@ -5747,7 +5741,7 @@ class MapScene extends Phaser.Scene {
     // rule) out to MAX_BURST_CELLS.
     let candidates;
     if (row.fillScreen && row.path) {
-      // THE GOLDEN IDOL: a coin on every free seat of its road's verges on
+      // THE GOLDEN SHRINE: a coin on every free seat of its road's verges on
       // this tile (poi.coinSeats — street_variants.js lays them), never off
       // them; the seats already passed the spawn gate when the road was
       // dressed, so here only what stands on them now (an object, a live
@@ -5756,12 +5750,13 @@ class MapScene extends Phaser.Scene {
       const x0 = tx * tileEdgeM, y0 = ty * tileEdgeM;
       const occupied = new Set(entry._spawnOpts?.occupied || []);
       const zoneCoverage = entry.zone && (entry.zone.coverage || entry.zone.idx);
+      const pathAuthored = StreetVariants.VARIANT_BY_ID[poi._shrineStreet]?.size === 'path';
       for (const coin of entry.coinDrops || []) if (coin.expiresAt > Date.now())
         occupied.add(Math.floor((coin.y - y0) / cellM) * N + Math.floor((coin.x - x0) / cellM));
       for (const seat of poi.coinSeats || []) {
         const cx = Math.floor((seat.x - x0) / cellM), cy = Math.floor((seat.y - y0) / cellM);
         if (cx < 0 || cy < 0 || cx >= N || cy >= N || (cx === poiLocalCX && cy === poiLocalCY)) continue;
-        if (occupied.has(cy * N + cx) || zoneCoverage?.[cy * N + cx] || WorldGen.privateVetoAt(tx, ty, cx, cy)) continue;
+        if (occupied.has(cy * N + cx) || (!pathAuthored && zoneCoverage?.[cy * N + cx]) || WorldGen.privateVetoAt(tx, ty, cx, cy)) continue;
         candidates.push({ cx, cy, tx, ty, entry, x: seat.x, y: seat.y });
       }
     } else if (row.fillScreen) {
@@ -6827,7 +6822,15 @@ class MapScene extends Phaser.Scene {
     if (delta > 0 && !caveFall && arrivalStory === 'dungeon_stone') {
       this._storySplashOnce('dungeon_stone', { art: 'progression_elevator', title: 'Beneath the roots', body: 'Your pick strikes solid stone. Dwarven lamps and pale groves glimmer beyond the passages you dig.' });
     } else if (delta > 0 && arrivalStory === 'dungeon_underdark') {
-      this._storySplashOnce('dungeon_underdark', { art: 'progression_portal', title: 'The Underdark', body: 'The walls fall away into a barren cavern. Your footsteps carry across the open waste.' });
+      this._storySplashOnce('dungeon_underdark', { art: 'progression_portal', title: 'The Underdark', body: 'The walls fall away into a barren cavern. Pale fungi glow across the open ground.' });
+    } else if (delta > 0 && arrivalStory === 'dungeon_city') {
+      this._storySplashOnce(arrivalStory, { art: 'cave_first', title: 'The goblin city', body: 'The streets above continue beneath the earth. Goblin voices echo between the stone foundations.' });
+    } else if (delta > 0 && arrivalStory === 'dungeon_haunted') {
+      this._storySplashOnce(arrivalStory, { art: 'cave_first', title: 'The dead city', body: 'The shape of the town returns in cold stone. Its familiar streets lie silent beneath the earth.' });
+    } else if (delta > 0 && arrivalStory === 'dungeon_lava') {
+      this._storySplashOnce(arrivalStory, { art: 'cave_first', title: 'The lava stratum', body: 'Heat rises from the foundations. Molten pools glow where buildings stand far above.' });
+    } else if (delta > 0 && arrivalStory === 'dungeon_dragon') {
+      this._storySplashOnce(arrivalStory, { art: 'cave_first', title: 'The dragon depths', body: 'Beyond the molten stratum, scorched stone stretches into the dark. Something vast has passed this way.' });
     } else if (delta > 0 && !caveFall) {
       this._storySplashOnce('cave', {
         art: 'cave_first',
@@ -9099,6 +9102,7 @@ class MapScene extends Phaser.Scene {
         + `background-position:-${col * sizePx}px -${row * sizePx}px;`;
       if (!IconNet.ready(sheet.url)) netUrl = sheet.url;
     }
+    if (css && src?.filter) css += `filter:${src.filter};`;
     // Shiny variants tint the base sprite warm-gold with a sheen.
     if (css && item && item.shiny) {
       css += 'filter:sepia(1) saturate(3.2) hue-rotate(-18deg) brightness(1.08)'
@@ -10233,7 +10237,9 @@ class MapScene extends Phaser.Scene {
         const sel = this.save.inv[this.save.selSlot];
         const it = sel && ITEM_BY_ID[sel.id];
         if (it) {
-          const nameTxt = sel.count != null ? `${it.name} ×${sel.count}` : it.name;
+          const borrowed = Macros.scholarLoaned(this.save, sel.id);
+          const nameTxt = (sel.count != null ? `${it.name} ×${sel.count}` : it.name)
+            + (borrowed ? ` · ${borrowed} on loan` : '');
           const effect = (typeof ITEM_EFFECTS !== 'undefined') ? ITEM_EFFECTS[sel.id] : null;
           const nameSpan = document.createElement('div');
           nameSpan.textContent = nameTxt;

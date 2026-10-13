@@ -691,6 +691,9 @@ class SceneConsumables {
   // added on top of the reach ramp (light adds; the plateau, and so the tap
   // gate, are untouched). Never gated on depth: a torch by night on the
   // surface is fine, and free.
+  isEvertorchActive() {
+    return Buffs.until('evertorch', this.save, this) > Date.now();
+  }
   isTorchActive() {
     return (this._torchUntil ?? 0) > Date.now();
   }
@@ -1053,6 +1056,11 @@ class SceneConsumables {
     let extra = fish ? `\nRegen: ${fish}⚡ over ${shortDuration(Energy.FISH_REGEN_MS)}` : '';
     // Every timed effect a food lends EXTENDS (Buffs.extend / laterOf — the
     // one rule): a second coffee inside the first banks its three minutes.
+    const foodSpec = CONSUMABLE_SPEC[id];
+    for (const buff of foodSpec?.foodBuffs || []) {
+      Buffs.extend(this.save, this, buff, foodSpec.durationMs, now);
+      extra += `\n${Buffs.KINDS[buff].name}: ${shortDuration(Buffs.until(buff, this.save, this) - now)}`;
+    }
     if (CONSUMABLE_SPEC[id]?.condition) {
       const spec = CONSUMABLE_SPEC[id];
       this._applyCondition(spec.condition, { durationMs: spec.durationMs });
@@ -1293,6 +1301,10 @@ class SceneConsumables {
   // EXPLODES (_potionBlast). The dialog hints, never names, which.
   presentBurnConfirm(id, fire = null) {
     if (document.getElementById('offer-modal')) return;
+    if (Inventory.ownedCount(this.save, id) < 1) {
+      this.flash('Return this at a Book Club.');
+      return;
+    }
     const name = itemName(id);
     const out = fireBurnOutcome(id);
     this.showOfferModal({
@@ -1309,7 +1321,7 @@ class SceneConsumables {
       cancelLabel: 'Keep',
       onAccept: () => {
         const sel = getSelectedSlot(this.save);
-        if (!sel || sel.id !== id || (sel.count ?? 0) <= 0) return;
+        if (!sel || sel.id !== id || Inventory.ownedCount(this.save, id) < 1) return;
         consumeSelected(this.save);
         if (out.transmute) {
           // One potion out, one in: a stack of one freed its own slot, and a
@@ -1342,7 +1354,7 @@ class SceneConsumables {
     if (fire) this.flashAtWorld('💥 It exploded!', fire.x, fire.y);
     else this.flash('💥 It exploded!');
     if (Combat.playerDowned(before) || Conditions.damageImmune(this.save)) return 0;
-    const dmg = Combat.playerDamage(rawDmg, this.save.armor);
+    const dmg = Combat.playerDamage(rawDmg, this.save.armor, 1, this.save.mode, Combat.armorBonus(this.save));
     Energy.set(this.save, before - dmg);
     const lost = before - this.save.energy;
     this._flashPlayerHit(lost);

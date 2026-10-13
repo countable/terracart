@@ -69,6 +69,19 @@ mechanics.
   one; bounty follows `powerMul`. Possessed and ascendant bend the space
   around them (rendering.md). A new rank is a row, never a branch
   (`test/node/elite_ranks.test.js`).
+- Every player-credited elite kill pays one of the monster row's three
+  `eliteDrops`: ordinary elites roll 70% / 20% / 10%, Possessed always give
+  the second entry, and Ascendant always give the third. Rank guarantees live
+  in `Combat.ELITE_RANKS.dropIndex`. The first kill also banks its memory.
+  Equipment targets monster tier + 1 (maximum T7), rounded down to a supported
+  slot tier. Fixed items use that tier's chest quantity budget; consumable
+  signatures can add one through their row's `qtyBonus`. About half the entries
+  come from other categories, including food, seeds, ores and unique relics.
+  The 10% slot commonly holds a thematic unique relic, always quantity one.
+  Same-tier or weaker equipment and already-carried unique relics become cash
+  at half the drop's list price, checked again when a unique is awarded.
+  Drops never reroll or climb above the authored tier. Depth and luck do not
+  change signature odds or tiers. The ordinary kill bounty is separate.
 - `combat.js` owns foe HP for melee, projectiles and pets. Damage derives from
   `TOOL_DURATION_MS`; tune that or monster HP, not an extra combat multiplier.
   Game animals (crow/deer) are not enemies or projectile targets; released
@@ -76,7 +89,12 @@ mechanics.
 - Route incoming damage through `Combat.playerDamage` and armour mitigation,
   including per-hit arrow bundles. A shield potion halves the raw blow before
   armour; difficulty multiplies the mitigated blow after armour. Armour reduces
-  blows rather than increasing maximum energy.
+  blows rather than increasing maximum energy. Stoneskin adds its consumable
+  row's armour bonus to that same pool, including traps, potion blasts and
+  ongoing damage packets. Its potion is drunk through the shared timed-buff
+  action. Raw and grilled salmon lend both Grip and Stoneskin for the fish
+  regeneration duration; each extends the existing buff without stacking its
+  strength. A refused meal grants neither effect.
 - `Energy.set` is the only runtime energy writer (current-save normalization is exempt).
   Accumulate fractional per-frame gains/losses before banking whole pips.
   `RoadSafety.DRAIN_PER_SECOND` drains a surface player whose feet remain in
@@ -90,11 +108,26 @@ mechanics.
   the row's `tome` column (`_readTome`); an "every foe in sight" spell is a
   `CAST_ROWS` row (`_castOnFoes`); the slot guard is `_selectedConsumable`,
   the spend `_spendScroll` / `_consumeSelected`. Never a hand-written handler.
+- Evertorch is a T6 timed supply: two hours of blue torchlight, with expiry
+  saved through `Buffs.evertorch`. Another extends that expiry. Ordinary
+  Torches keep their short, scene-local timer; either flame ignites melee foes.
 - KNOCKBACK has one owner, `Whirlwinds.impulse` / `pushStep`: a whirlwind's
   contact (GRASS, PITCH and SCHOOL cells only, surface only) and the T1 Scroll of Wind
   (`CAST_ROWS.wind_scroll`: every foe in reach takes 5 and is blown
   `pushCells` away on any ground the enemy gate allows, at any depth). A push
   plays out at the depth it began on; a level change cancels it.
+- BOOK CLUB LENDING: lifetime Books collected provide one reusable credit
+  each. The existing value-ordered tome shelf unlocks one new title every
+  three Books; unlocks do not repeat. Each borrowed copy reserves its item
+  tier plus two credits. Borrow as many copies as credit and bag capacity
+  allow; returning one removes that copy and releases its reserved credit.
+  All scholars share `save.scholarLoans`. Older permanent copies stay owned
+  outside this ledger. Borrowed copies cannot be sold, bartered, donated or
+  burned. The model updates inventory and loans together before one save.
+  Returns never reset cooldowns or release resting spell slots; duplicate
+  copies share their tome type's cooldown. Lending capacity chooses which
+  spells travel with the player; the existing spell-slot gate still controls
+  casting. The first tome unlocks before it becomes affordable.
 - SPELL SLOTS: each tome rests on its own `cooldownMs` (`save.tomeMagicCd`;
   `TOME_COOLDOWN_MS`, one hour, unless its row names another), and a tome may
   be read while at most the worn amulet's tier of tomes rest (`Gear.spellSlots`
@@ -109,12 +142,11 @@ mechanics.
   wraiths and includes airborne fauna; the same `Conditions.flying` gate covers
   them without saving an infinite potion expiry or showing an infinite countdown.
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds
-  sight range through `unseen`. Bushes, short walls and cave walls fully block
-  detection, pursuit and new attacks across them. Young and mature trees reduce
-  sight by two cells once per sight line; overlapping trees do not stack. The
-  smallest timber sapling artwork (including legacy bush-sized timber records)
-  and newly planted fruit sprouts provide no cover. Actual shrubs and hedges
-  retain full cover. Cover uses the
+  sight range through `unseen`. Only cave terrain walls fully block detection,
+  pursuit and new attacks across them. Trees, bushes, hedges, short walls and
+  large rocks marked `sightBlocking: true` reduce sight by two cells once per
+  sight line; overlapping partial cover does not stack. Ordinary rocks do not
+  reduce sight. Cover uses the
   same visibility grid for local players, peers and NPC targets, and cancels
   an attack wind-up when sight is lost. Guards return to their seats when full
   cover breaks sight; their notice/leash rings lose two cells through trees.
@@ -173,6 +205,15 @@ mechanics.
   food is meat. Regular eggs still hatch shiny domestic babies. Each egg type
   incubates one egg at a time, with independent saved distance and GPS sessions;
   hatching or losing one type never spends the other's progress.
+- Magic Shop brewing uses `BREW_RECIPES` in items.js. Each batch consumes the
+  recipe's ingredients and fixed coin fee for one potion. Finding its output in
+  the wild unlocks a recipe through `homeRecipeLocked`; buying or brewing never
+  unlocks one. Antidote, Hardworking, Grip, Healing, Stoneskin, Blight, Shielding
+  and Shrinking are brewable; Revival and Resurrection remain unbrewable.
+  Blight uses Marigolds and Meat; Shielding uses Starflowers and Milk. Shrinking
+  uses two Mango and four coins, an intentional exception to same-tier inputs
+  and the otherwise conservative recipe economics. Sugar Potion retains its
+  existing Home recipe. Brewing does not change potion effects.
 - Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap

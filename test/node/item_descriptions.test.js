@@ -39,7 +39,7 @@ test('consumables: one action row names every button method', () => {
     'portal_stone', 'orb', 'egg', 'book', 'sugar_potion', 'reach_potion', 'antidote', 'elixir',
     'healing_potion', 'speed_potion', 'shielding_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll',
     'giant_potion', 'fire_resistance_potion', 'flight_potion', 'protection_potion', 'time_potion', 'immortal_potion', 'shrinking_potion',
-    'thunder_scroll', 'blight_potion', 'revival_potion',
+    'thunder_scroll', 'blight_potion', 'revival_potion', 'stoneskin_potion', 'evertorch',
     'resurrection_potion', 'dragon_powder', 'growth_powder', 'shadow_powder',
     'frost_powder', 'torch', 'sapphire', 'rope', 'throwing_spear', 'javelin', 'rubble', 'forgetmenot', 'wildrose', 'horse', 'shiny_horse', 'shiny_egg',
     'tome_reach', 'tome_raven', 'tome_thunder', 'tome_speed', 'tome_shielding', 'tome_healing', 'tome_blight', 'tome_fire_wall', 'tome_frost_aura',

@@ -398,7 +398,8 @@ const GRASS_FALLBACK_COLOR = 0x7b8d4e;   // matches the approved COLORS[0] grass
 // Cave grit remains an alpha overlay, preserving its existing baked textures.
 // The sky floor (WorldGen.SKY_DEPTH) uses the same lane: white grove floor
 // over pale open air, with no biome texture (see the texture pass).
-Render.UNDERGROUND_GROUND = { underdark: 0x69626c, grove: 0x486653, dwarven_city: 0x8b7760,
+Render.UNDERGROUND_GROUND = { goblin_city: 0x77725b, underdark: 0x69626c,
+  haunted_city: 0x666979, lava: 0x6c5149, dragon: 0x706052, dragon_roost: 0x67554f, grove: 0x486653, dwarven_city: 0x8b7760,
   sky_floor: 0xf7f7f1, sky_air: 0xb9dcf2 };
 Render.undergroundGroundColor = (entry, ix, iy, type) => {
   if (entry?.undergroundBiome === 'sky') {
@@ -406,7 +407,8 @@ Render.undergroundGroundColor = (entry, ix, iy, type) => {
       : type === WorldGen.T.CAVE_WALL ? Render.UNDERGROUND_GROUND.sky_air : null;
   }
   if (type !== WorldGen.T.CAVE_FLOOR || !entry) return null;
-  if (entry.undergroundBiome === 'underdark') return Render.UNDERGROUND_GROUND.underdark;
+  const biomeColor = Render.UNDERGROUND_GROUND[entry.undergroundBiome];
+  if (biomeColor != null) return biomeColor;
   if (entry.undergroundBiome !== 'deep_stone') return null;
   const area = entry.undergroundAreas?.[iy * entry.cellsPerEdge + ix];
   return area === 1 ? Render.UNDERGROUND_GROUND.grove
@@ -762,6 +764,12 @@ const POI_PAD_MINI_SCALE = 0.55;
 // street restoration is metre-based (src/streets.js, drawn by road_overlay.js).
 const T_PATH = 8;
 const isRoadType = (t) => t === 7 || t === 13 || t === 14;
+
+// Raster road codes carry gameplay, not a second paved surface. Both the
+// game and map review paint the surrounding ground under the source band.
+Render.roadBackdropType = (scene, type, cellIX, cellIY) =>
+  isRoadType(type) || type === T_PATH
+    ? (scene.neighborNonRoadType(cellIX, cellIY) ?? WorldGen.T.GRASS) : null;
 
 // Both directions of the world⇄screen projection are defined against the CAMERA
 // ANCHOR (coords.js viewAnchorWorldM), not the player: they are the same thing
@@ -1740,11 +1748,11 @@ Render.houseTextureKey = (role, o, scene) => {
 // Pure (object + scene in, a colour out), which is also what makes it
 // auditable headlessly: test/node/wreck_dim.test.js drives it directly.
 Render.spriteTint = function spriteTint(o, scene, textureKey) {
-  let tint = 0xffffff;
-  // Per-biome tint for primary interactables (e.g. rusty mineralrock on an
-  // industrial lot). The cell's terrain was stamped as `_biome` at worldgen
+  let tint = o.kind === 'mineralrock' ? mineralRockTint(o) : 0xffffff;
+  // Rocks use their authored palette or their zone's runtime theme; other primary interactables
+  // may use their biome's tint. The cell's terrain was stamped as `_biome` at worldgen
   // time. A spec.after hook (e.g. mineralrock tier shading) may still override.
-  if (typeof BiomeProfiles !== 'undefined' && o._biome != null) {
+  if (o.kind !== 'mineralrock' && typeof BiomeProfiles !== 'undefined' && o._biome != null) {
     const bt = BiomeProfiles.tint(o._biome, o.kind);
     if (bt) tint = bt;
   }
@@ -2361,9 +2369,8 @@ Render.drawCells = function drawCells(scene) {
           const nt = scene.neighborNonRoadType ? scene.neighborNonRoadType(wcx, wcy) : null;
           if (nt != null) { polyGround = nt; color = COLORS[nt] ?? color; }
         } else {
-          const themed = scene.streetGroundType?.(wcx, wcy);
-          if (themed != null) { polyGround = themed; color = COLORS[themed] ?? color; }
-          else color = scene.neighborNonRoadColor(wcx, wcy) ?? color;
+          polyGround = Render.roadBackdropType(scene, type, wcx, wcy);
+          color = COLORS[polyGround] ?? color;
         }
       }
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
@@ -2630,22 +2637,13 @@ Render.drawCells = function drawCells(scene) {
         if (isTilled) {
           texKey = `tilled_${Math.abs(h) % TILLED_VARIANTS}`;
         } else {
-          // PATH cells render the biome they were painted over (recorded in
-          // worldgen's pathUnder) so a footpath reads as stepping-stones on the
-          // existing ground rather than carving out a path-coloured patch. The
-          // road overlay's band still draws on top (road_overlay.js). Falls
-          // back to the path's own base if there's no record or the under-biome
-          // has no texture (e.g. commercial/industrial concrete pads).
+          // Road/path colour and texture share one backdrop. Painting path
+          // pebbles or an untextured road-coloured tile here leaves a second,
+          // grid-aligned lane beside the continuous source-geometry paving.
           let baseType = type;
-          // Explicit themed roads and polygonal buildings wear the same
+          // Roads and polygonal buildings wear the same
           // biome texture as their base fill, including beneath the paving.
           if (polyGround >= 0) baseType = polyGround;
-          else if (type === T_PATH) {
-            const lix = _ringIX[_si], liy = _ringIY[_si];
-            const e = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
-            const u = e && e.pathUnder && e.pathUnder[`${lix}_${liy}`];
-            if (u != null && BIOME_TEX[u]) baseType = u;
-          }
           const spec = skyLevel ? null : BIOME_TEX[baseType];
           if (spec) {
             texKey = `biome${baseType}_${Math.abs(h) % spec.variants}`;
@@ -3351,7 +3349,7 @@ Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay
       const prior = roads.get(id);
       if (prior && prior.distance <= distance) continue;
       const row = StreetVariants.VARIANT_BY_ID[rec.variant];
-      const title = row ? row.title : rec.variant || (rec.size === 'major' ? StreetVariants.BANDIT_STORY.title : 'Plain street');
+      const title = row ? row.title : rec.variant || StreetVariants.roadStoryFor(rec)?.title || 'Plain street';
       roads.set(id, { id, kind: 'road', text: `Road: ${title}${rec.rocks ? ' · rocks' : ''}`, x, y, distance });
     }
   }
@@ -3845,6 +3843,7 @@ Render.drawObjects = function drawObjects(scene) {
         // occupancy pass never saw (cave mushrooms, the sandbox scatter), so
         // the id is what the per-cell variant hash actually keys off.
         plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: wp.stage ?? MAX_GROWTH_STAGE, wildId: wp.id, gasEmitter: wp.gasEmitter,
+                                sightBlocking: wp.sightBlocking, zoneVariant: wp.zoneVariant, rockStyle: wp.rockStyle, rockTheme: wp.rockTheme,
                                 _cave: wp._cave, _biome: wp._biome, _terrainScale: wp._terrainScale, _plantArt: wp._plantArt, _hedgeFrame: wp._hedgeFrame, _zoneObjectFrame: wp._zoneObjectFrame, _streetArt: wp._streetArt, _ix: wp._ix, _iy: wp._iy, ...connectedArt.get(wp) }, dx, dy });
         _boot_kept++;
       });
@@ -4221,9 +4220,8 @@ Render.drawObjects = function drawObjects(scene) {
   // ── Ripe fruit ────────────────────────────────────────────────────────────
   // A bearing fruit tree wears its fruit: the same icon the fruit carries in
   // the inventory, drawn as its own small sprite on the tree's canopy. The
-  // tree's art never changes — picking removes the fruit and leaves the tree
-  // standing exactly as it was, so an orchard still reads as an orchard once
-  // it's been worked, and what's ripe reads at a glance across the tile.
+  // tree stays mature after picking, flowers before the next harvest, and
+  // returns to its green canopy when ripe; fruit reads at a glance.
   // Every number here came off the tree sprite itself in the `after` hook
   // above (crown from SpriteLayout.CROWN_BOUNDS, scale and depth from the
   // sprite) — nothing about the fruit is placed by hand.
@@ -4760,8 +4758,10 @@ Render.drawObjects = function drawObjects(scene) {
     // Per-biome flora tint (golden field grass, swampy reeds, …) — the cell's
     // terrain was stamped onto the wildplant at worldgen time (`_biome`). Falls
     // back to no tint (0xffffff) when the biome has no tint for this crop.
-    const bt = (typeof BiomeProfiles !== 'undefined' && p._biome != null)
-      ? BiomeProfiles.tint(p._biome, p.crop) : null;
+    const bt = p.crop === 'rubble' && (p.wildId != null || p.kind === 'wildplant')
+      ? mineralRockTint(p)
+      : (p.crop !== 'rubble' && typeof BiomeProfiles !== 'undefined' && p._biome != null)
+        ? BiomeProfiles.tint(p._biome, p.crop) : null;
     if (bt) s.setTint(bt);
     // Placed rockfruit stones use the produce-icon frame directly (col PRODUCE_COL)
     // rather than the in-world growth art. Stage clamping is skipped.
@@ -5332,9 +5332,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // Fruit-tree life-cycle frames, in 32px-wide frame indices (sheets are sliced
   // 32×48 — see assets.js; each tree is a full 32px column, NOT 16). The Apple
   // and Peach sheets DON'T share a layout, so map each explicitly:
-  //   apple (15 frames): 0 sprout, 2 young, 4 mature-green, 5 blossom.
+  //   apple (15 frames): 0 sprout, 2 young, 4 mature-green, 8 mature blossom.
   //   peach (13 frames): 0 sprout, 2 young, 3 mature-green, 4 blossom.
-  // (Higher frames are seasonal / stump / white-matte cells — NOT live trees.)
+  // (Other frames include seasonal / stump / white-matte cells.)
   //
   // A BEARING tree keeps the mature frame and wears its fruit as a separate
   // sprite on the canopy (the fruit pass at the end of this function), so the
@@ -5342,8 +5342,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // the mature frame it already passed at stage 2: stage 3 is blossom, stage 4
   // is the same mature tree with fruit hung on it.
   const FRUIT_FRAMES = {
-    apple: { grow: [0, 2, 4, 5, 4], mature: 4 },
-    worldpeach: { grow: [0, 2, 3, 4, 3], mature: 3 },
+    apple: { grow: [0, 2, 4, 8, 4], mature: 4, blossom: 8 },
+    worldpeach: { grow: [0, 2, 3, 4, 3], mature: 3, blossom: 4 },
   };
   const _ftSpec = (o) => FRUIT_FRAMES[o.species === 'worldpeach' ? 'worldpeach' : 'apple'];
   const _ftState = (o) => Crops.fruitTreeState(o, _pass.scene.save.fruitPicked?.[o.id], _pass.fruitNow);
@@ -5593,11 +5593,10 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               shadow: true },
     fruittree: { key: (o) => `${o.species === 'worldpeach' ? 'worldpeach' : 'apple'}_tree`,
               frame: (o) => {
-                const fr = _ftSpec(o);
-                // A planted sapling walks the sheet's life-cycle frames as it grows; a wild
-                // (detected/orchard) tree is mature from the start. Whether either is BEARING
-                // doesn't touch the frame — the fruit is its own sprite (the fruit pass below).
-                return o.planted ? fr.grow[_ftStage(o)] : fr.mature;
+                const fr = _ftSpec(o), state = _ftState(o);
+                // Regrowth blossoms use mature artwork without restarting sapling growth.
+                if (state.blossoming) return fr.blossom;
+                return o.planted ? fr.grow[state.stage] : fr.mature;
               },
               origin: [0.5, 0.95],
               scale: (o) => {
@@ -5642,11 +5641,10 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
                   depth: s.depth + 0.5,
                 });
               } },
-    mineralrock: { key: o => SpriteLayout.mineralRockArt(o).sheet,
-              frame: o => SpriteLayout.mineralRockArt(o).frame,
-              // Complete boulders make full cover readable. Named gem deposits
-              // retain their own art; cell seating uses each frame's bounds.
-              origin: [0.5, 0.5], scale: o => SpriteLayout.mineralRockArt(o).scale, seat: true, shadow: true,
+    mineralrock: { key: mineralRockArtKey, frame: mineralRockArtFrame,
+              origin: [0.5, 0.5],
+              scale: mineralRockArtScale,
+              seat: true, shadow: true,
               // Ore the current pick can't mine → half alpha; plain rock is
               // ungated and always full (interactables.js toolGatedAlpha).
               after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },
@@ -5728,17 +5726,13 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     if (!spec) return null;
     const scene = _pass.scene;
     // Zone-local appearances retain the existing object behavior and hooks.
-    if (Number.isInteger(o._zoneObjectFrame)) spec = { ...spec, key: 'zone_objects',
+    if (o.kind !== 'mineralrock' && Number.isInteger(o._zoneObjectFrame)) spec = { ...spec, key: 'zone_objects',
       frame: o._zoneObjectFrame,
-      // The strip-mine's broken stone chunks leave a little space in their cell.
-      scale: o.kind === 'mineralrock' && o._zoneObjectFrame === WILDPLANT_CONTEXT_ART.zone_rock_broken_masonry.frame
-        ? WILDPLANT_CONTEXT_ART.zone_rock_broken_masonry.scale : 4 / 3,
-      origin: [0.5, 0.5], seat: true };
+      scale: 4 / 3, origin: [0.5, 0.5], seat: true };
     const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
     if (texKey == null || !scene.textures.exists(texKey)) return { spec, visible: false };
     const frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
-    const baseScale = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
-    const scl = o.kind === 'mineralrock' && o.zone === 'quarry' ? baseScale * 0.9 : baseScale;
+    const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
     const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
     const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
     let dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);

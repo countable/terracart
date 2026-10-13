@@ -65,10 +65,11 @@
     poi.push(point({ class: 'parking', name: 'Market Parking' }, 7, 15));
     // The southern tar yard replaces the sports pitch.
     poi.push(point({ class: 'fuel', subclass: 'fuel' }, 21, 30));
-    // Parking aisles generate the quarry without a separate dirt-ground polygon.
-    transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[2, 8], [12, 8], [12, 21], [2, 21], [2, 8]]));
+    // Keep the aisle buffer inside the tile so this previews complete quarry
+    // layouts rather than the fixed scatter used for clipped lot fragments.
+    transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, 8], [12, 8], [12, 21], [4, 21], [4, 8]]));
     for (const y of [12, 15, 18])
-      transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[2, y], [12, y]]));
+      transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, y], [12, y]]));
     building.push(poly({ building: 'church' }, [cellRect(3, 28, 3, 2.5)]));
     poi.push(point({ class: 'place_of_worship', subclass: 'christian', name: 'Sandbox Church' }, 4, 29));
 
@@ -84,6 +85,9 @@
     // The house grid leaves the minor streets and nexus sites clear.
     for (const by of [7, 12, 19]) for (const bx of [16, 27, 33])
       building.push(poly({ building: 'house' }, [cellRect(bx, by, 3, 2)]));
+    // A medium footprint in open grass showcases the fort through the live
+    // building-tier and sprite rules, clear of the tar yard and main roads.
+    building.push(poly({ building: 'commercial', name: 'Fort' }, [cellRect(30, 28, 3, 3)]));
 
     // Small southeast lake, with the 5-cell beach on its north
     // and west. The former beach-side park is now open grass.
@@ -93,7 +97,9 @@
       cellRect(lx - 5, ly - 5, WIDTH - lx + 5, 5),   // north strip, 5 cells wide
       cellRect(lx - 5, ly, 5, HEIGHT - ly),           // west strip, 5 cells wide
     ]));
-    poi.push(point({ class: 'beach', name: 'Lakeside Strand' }, lx + 4, ly - 2));
+    // Seat the Nexus toward the east, leaving roughly half the L-shaped
+    // sand strip outside its influence for ordinary beach spawning.
+    poi.push(point({ class: 'beach', name: 'Lakeside Strand' }, lx + 8, ly - 2));
 
     // Streets of every size; widths come from the classes
     transportation.push(line({ class: 'primary' }, [[39, 0], [39, HEIGHT - 1]]));       // LG, town height
@@ -125,8 +131,9 @@
     { text: 'Church · Old Stones nexus', nexusKind: 'stones', x: 8, y: 30 },
     { text: 'Park · Grove nexus', nexusKind: 'grove', x: 51, y: 4 },
     { text: 'Forest', x: 55, y: 15 },
-    { text: 'Grassland', x: 32, y: 30 },
-    { text: 'Beach nexus', nexusKind: 'beach', x: 53, y: 23 },
+    { text: 'Fort', x: 31.5, y: 32 },
+    { text: 'Beach nexus', nexusKind: 'beach', x: 56, y: 23 },
+    { text: 'Regular beach', x: 45.5, y: 29 },
     { text: 'Lake', x: 54, y: 31 }
   ];
   root.FloorViewerRegion = { E, WIDTH, HEIGHT, N, CELL, EDGE, HOME, lat, makeLayers, labels, withNexusSizes, withSeed };

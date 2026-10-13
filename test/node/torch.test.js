@@ -247,4 +247,62 @@ test('torch: the collector stamps the dimmed strength as the entry alpha', () =>
   } finally { if (old === undefined) delete w.__DAYLIGHT; else w.__DAYLIGHT = old; }
 });
 
+
+test('evertorch: Light spends a T6 supply, banks two hours and survives scene replacement', () => {
+  const lift = name => {
+    const start = app.indexOf('\n  ' + name + '('), end = app.indexOf('\n  }\n', start);
+    const tables = ['SUMMON_HOOK', 'TIMED_BUFF_HOOKS'].map(t => app.match(new RegExp('\\nconst ' + t + ' = \\{[\\s\\S]*?\\n\\};'))[0]).join('\n');
+    return new Function(tables + '\nreturn ({' + app.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
+  };
+  const s = scene({ save: { energy: 100, maxEnergy: 100, inv: [{ id: 'evertorch', count: 2 }], selSlot: 0 },
+    showMessageModal() {}, buildInventoryDOM() {} });
+  for (const name of ['_useTimedBuff', '_selectedConsumable', '_spendScroll', '_consumeSelected', '_finishInventoryChange', 'isEvertorchActive', 'isTorchActive']) s[name] = lift(name);
+  const old = Date.now; let now = 1700000000000; Date.now = () => now;
+  try {
+    assert.eq(BASE_TIER.evertorch, 6);
+    assert.eq(ITEM_BY_ID.evertorch.kind, 'supply');
+    assert.eq(CONSUMABLE_SPEC.evertorch.durationMs, 2 * 60 * 60 * 1000);
+    assert.truthy(s._useTimedBuff('evertorch'));
+    assert.eq(s.save.inv[0].count, 1);
+    const firstEnd = s.save.evertorchUntil;
+    assert.eq(firstEnd, now + 7200000);
+    now += 1000;
+    assert.truthy(s._useTimedBuff('evertorch'));
+    assert.eq(s.save.evertorchUntil, firstEnd + 7200000);
+    const reloaded = scene({ save: JSON.parse(JSON.stringify(s.save)), isEvertorchActive: s.isEvertorchActive });
+    assert.truthy(reloaded.isEvertorchActive());
+    assert.eq(Buffs.active(reloaded.save, reloaded, now)[0].id, 'evertorch');
+    Lighting.beginFrame(reloaded);
+    assert.eq(Lighting.collectPlayer(reloaded, 103, 196, HALF_M), 'evertorch');
+    assert.eq(reloaded._lights.length, 1);
+    assert.eq(Lighting.radiusCells('evertorch'), Lighting.radiusCells('handtorch'));
+    const colour = Lighting.KINDS.evertorch.colour;
+    assert.gt(colour & 255, (colour >> 16) & 255, 'blue light');
+    assert.eq(reachRadiusM(reloaded), reachRadiusM(scene()), 'interaction reach unchanged');
+    reloaded.isTorchActive = () => true;
+    assert.eq(Lighting.playerKind(reloaded), 'evertorch', 'blue takes precedence');
+    now = reloaded.save.evertorchUntil;
+    assert.falsy(reloaded.isEvertorchActive());
+    assert.eq(Lighting.playerKind(reloaded), 'handtorch', 'a surviving regular torch takes over');
+    reloaded.isTorchActive = () => false;
+    assert.eq(Lighting.playerKind(reloaded), 'player');
+  } finally { Date.now = old; }
+});
+
+test('evertorch: shared inventory, offer and pickup icon renderer applies its blue palette', () => {
+  const start = app.indexOf('\n  renderItemIcon('), end = app.indexOf('\n  }\n', start);
+  const doc = { createElement: () => ({ style: {}, dataset: {} }) };
+  const sheetRow = app.match(/\n  icon_torch:\s*(\{ url: '[^']+',\s*cols: \d+,\s*srcW: \d+,\s*srcH: \d+ \})/);
+  const sheets = { icon_torch: new Function('return (' + sheetRow[1] + ');')() };
+  const render = new Function('document', 'IconNet', 'ICON_SHEETS',
+    'return ({' + app.slice(start, end + 4) + '}).renderItemIcon;')(doc, { ready: () => true }, sheets);
+  const source = inventoryIconSource('evertorch');
+  assert.eq(source.sheet, inventoryIconSource('torch').sheet);
+  for (const size of [16, 24, 32]) {
+    assert.truthy(render('evertorch', size, 'inline').includes('filter:' + source.filter));
+    assert.truthy(render('evertorch', size, 'block').style.cssText.includes('filter:' + source.filter));
+    assert.falsy(render('torch', size, 'inline').includes('hue-rotate'), 'ordinary torch keeps its palette');
+  }
+});
+
 })();

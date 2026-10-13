@@ -208,7 +208,7 @@
     return null;
   }
   // The ledger id a row's take is written under.
-  function rowLedgerId(row, o) { return row?.ledger === 'service' ? serviceLedgerId(o.id) : o.id; }
+  function rowLedgerId(row, o) { return row?.ledger === 'service' ? serviceLedgerId(o.id) : (o.dailyVisitId || o.id); }
   // Is the row's take gone right now (the tap's question)?
   function rowUsed(save, row, o, now) {
     if (row.days) return stillBare(save, o.id, row.days(o), now);
@@ -228,25 +228,26 @@
   }
   function beginDailyVisit(ctx, o, { row = visitKindForObject(o), held = false } = {}) {
     const { scene, save, sx, sy } = ctx;
+    const visitId = o.dailyVisitId || o.id;
     const pending = scene._dailyVisits || (scene._dailyVisits = new Set());
-    if (!held && usedToday(save, o.id)) {
+    if (!held && usedToday(save, visitId)) {
       scene.flash(waitLine(row?.spent || SPENT_DEFAULT, msToNextUtcDay()), sx, sy);
       return null;
     }
-    if (pending.has(o.id)) return null;
-    pending.add(o.id);
+    if (pending.has(visitId)) return null;
+    pending.add(visitId);
     let claimed = false, finished = false, presented = false;
     const visit = {
       claim() {
         if (claimed || finished) return false;
         claimed = true;
-        markToday(save, o.id);
+        markToday(save, visitId);
         // Optional daily-site boons belong to the row, beside their copy.
         row?.grant?.(save, scene);
         ctx.dirty = true;
         return true;
       },
-      finish() { finished = true; pending.delete(o.id); },
+      finish() { finished = true; pending.delete(visitId); },
       present(afterStory) {
         if (presented || finished) return;
         presented = true;
@@ -627,7 +628,7 @@
   function curioDonate(save, id) {
     if (!curioEligible(id)) return { ok: false, why: 'ineligible' };
     if (curioDonated(save, id)) return { ok: false, why: 'given' };
-    if (Inventory.count(save, id) < 1) return { ok: false, why: 'none' };
+    if (Inventory.ownedCount(save, id) < 1) return { ok: false, why: 'none' };
     Inventory.remove(save, id, 1);
     save.donated = [...(save.donated || []), id];
     const count = curioCount(save);
@@ -701,35 +702,56 @@
   // ── Per-kind dialog dressing: the painting each opens on and its label ────
   // Default paintings for each service; training also selects by discipline.
   // `modal` is a MODAL_KINDS key.
-  // The scholar's Book Club uses one reading ledger across every school.
-  // Each three Books collected (read automatically, bought ones included)
-  // earns a tome, ordered by value and repeating after a full set.
-  // Treasure pools do not own this shelf.
-  // Keep tome claims separate from legacy scholarPrizes: that mixed shelf
-  // awarded ordinary items too, so its index must not skip new tome prizes.
+  // Every school shares a lending shelf. Lifetime reading supplies reusable
+  // credit capacity; each three Books unlock the next tome, once. Older
+  // permanent rewards remain owned, outside the loan ledger.
   const SCHOLAR_BOOKS_PER_PRIZE = 3;
   function scholarShelf() {
     return ITEMS.filter(item => isTome(item.id)).map(item => item.id)
       .sort((a, b) => (itemValue(a) - itemValue(b)) || (a < b ? -1 : a > b ? 1 : 0));
   }
-  function booksRead(save) { return Math.max(0, Math.floor(Number(save && save.booksRead) || 0)); }
-  function scholarTaken(save) { return Math.max(0, Math.floor(Number(save && save.scholarTomes) || 0)); }
-  // The next tome — { id, index, booksAt, ready } — or null for an empty
-  // shelf. The sequence repeats; booksAt is the lifetime reading milestone.
-  function scholarNext(save, shelf = scholarShelf()) {
-    const index = scholarTaken(save);
-    if (!shelf.length) return null;
-    const booksAt = (index + 1) * SCHOLAR_BOOKS_PER_PRIZE;
-    return { id: shelf[index % shelf.length], index, booksAt, ready: booksRead(save) >= booksAt };
+  function scholarCount(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
   }
-  // Take the next earned prize off the shelf. The caller has already put it
-  // in the bag (the bag may be full — app.js addToInv says so first).
-  function scholarClaim(save, shelf = scholarShelf()) {
-    const next = scholarNext(save, shelf);
-    if (!next) return { ok: false, why: 'bare' };
-    if (!next.ready) return { ok: false, why: 'unread', next };
-    save.scholarTomes = next.index + 1;
-    return { ok: true, id: next.id, index: next.index };
+  function booksRead(save) { return scholarCount(save && save.booksRead); }
+  function scholarLoaned(save, id) { return scholarCount(save?.scholarLoans?.[id]); }
+  function scholarCost(id) { return (ITEM_BY_ID[id]?.baseTier || 1) + 2; }
+  function scholarCredits(save) {
+    const total = booksRead(save);
+    const used = scholarShelf().reduce((sum, id) => sum + scholarLoaned(save, id) * scholarCost(id), 0);
+    return { total, used, available: Math.max(0, total - used) };
+  }
+  function scholarCatalog(save, shelf = scholarShelf()) {
+    const credits = scholarCredits(save);
+    return shelf.map((id, index) => {
+      const booksAt = (index + 1) * SCHOLAR_BOOKS_PER_PRIZE;
+      const cost = scholarCost(id), borrowed = scholarLoaned(save, id);
+      const unlocked = credits.total >= booksAt;
+      const owned = Math.max(0, Inventory.count(save, id) - borrowed);
+      const why = !unlocked ? 'locked' : credits.available < cost ? 'credit'
+        : Inventory.roomFor(save, id) < 1 ? 'full' : null;
+      return { id, index, booksAt, cost, unlocked, borrowed, owned, canBorrow: !why, why };
+    });
+  }
+  // The inventory and loan ledger change together; the scene persists once.
+  function scholarBorrow(save, id, shelf = scholarShelf()) {
+    const row = scholarCatalog(save, shelf).find(row => row.id === id);
+    if (!row || !isTome(id)) return { ok: false, why: 'unknown' };
+    if (!row.canBorrow) return { ok: false, why: row.why };
+    if (Inventory.add(save, id, 1).accepted !== 1) return { ok: false, why: 'full' };
+    save.scholarLoans = save.scholarLoans || {};
+    save.scholarLoans[id] = row.borrowed + 1;
+    return { ok: true, id, cost: row.cost };
+  }
+  function scholarReturn(save, id) {
+    const borrowed = scholarLoaned(save, id);
+    if (!isTome(id) || !borrowed) return { ok: false, why: 'notBorrowed' };
+    if (Inventory.remove(save, id, 1, { allowLoanReturn: true }) !== 1) return { ok: false, why: 'missing' };
+    if (borrowed === 1) delete save.scholarLoans[id];
+    else save.scholarLoans[id] = borrowed - 1;
+    // Never clear tomeMagicCd: returning and reborrowing cannot refresh a spell.
+    return { ok: true, id, cost: scholarCost(id) };
   }
 
   // One row per booth kind: `label` (its sign and dialog word), `modal` (the
@@ -775,7 +797,7 @@
     curio:       { title: 'A curio donated',     art: 'booth_curio_used' },
     sundries:    { title: 'Supplies bought',     art: 'booth_sundries_used' },
     training:    { title: 'Training complete',  art: 'booth_training_used' },
-    scholar:     { title: 'A tome earned',      art: 'booth_scholar_used' },
+    scholar:     { title: 'A tome borrowed',      art: 'booth_scholar_used' },
     bank:        { title: 'Business done',      art: 'booth_bank_used' },
   };
 
@@ -790,7 +812,7 @@
     curio: { title: 'A curio hall', body: 'Recovered keepsakes fill the shelves beneath the crystal sign. Donate one of each missing curio; collection milestones bring back memories.' },
     sundries: { title: 'A sundries shop', body: 'Mended sacks and bundled tools fill the counter. Pay coins for the supplies offered here.' },
     training: { title: 'A training hall', body: 'Practice rings out beneath the crossed weapons. Pay coins for a permanent lesson when you have enough memories, or buy a temporary drill.' },
-    scholar: { title: 'A book club', body: `You join the book club beneath the scholar’s open-book sign. Every ${SCHOLAR_BOOKS_PER_PRIZE} Books collected earns a tome; found and bought Books count, and no books or coins are spent to claim it.` },
+    scholar: { title: 'A book club', body: `You join the book club beneath the scholar’s open-book sign. Each Book collected adds one lending credit. Every ${SCHOLAR_BOOKS_PER_PRIZE} Books opens another tome for loan. Borrow for its tier plus two credits; return it at any school to free those credits.` },
     bank: { title: 'A bank', body: `The banker keeps a strongbox behind the counter. Some days it lends coins and some days it takes deposits, at ${Math.round(BANK_INTEREST * 100)}% after a day either way. A pirate collects each loan, and fights anyone who refuses to pay.` },
   };
 
@@ -813,7 +835,7 @@
     BANK_BASE, BANK_PER_MEMORY, BANK_INTEREST, BANK_TERM_MS, BANK_SHARES, BANK_BORROW_LEDGER, BANK_COLLECTOR_KIND, BANK_COLLECTOR_DIST_CELLS,
     bankLimit, bankOfferKind, bankWithInterest, bankAmounts, bankBorrowCap, bankInvestCap, bankBorrowBlock,
     bankBorrow, bankLoanDue, bankLoanSettle, bankInvest, bankWithdraw,
-    SCHOLAR_BOOKS_PER_PRIZE, scholarShelf, booksRead, scholarTaken, scholarNext, scholarClaim,
+    SCHOLAR_BOOKS_PER_PRIZE, scholarShelf, booksRead, scholarLoaned, scholarCredits, scholarCatalog, scholarBorrow, scholarReturn,
     KIND_DIALOG, KIND_STORY, KIND_TRANSACTION, stallArt,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

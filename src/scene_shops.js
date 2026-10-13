@@ -814,7 +814,7 @@ class SceneShops {
     }
     const wanted = this.wantedProduce(house);
     if (!wanted.length) { this.flash('Nobody home.', sx, sy); return; }
-    const invCount = (id) => Inventory.count(this.save, id);
+    const invCount = (id) => Inventory.ownedCount(this.save, id);
     const hasOrder = () => wanted.every(id => invCount(id) >= 1);
     if (!hasOrder()) {
       // Only what is still missing — not the whole list (Delivery.missingLine).
@@ -1031,7 +1031,7 @@ class SceneShops {
     const item = ITEM_BY_ID[id];
     // The base is the ladder's (ShopsMath.listPrice — the Book climbs with
     // every one bought; everything else is its itemValue).
-    const { tier } = this.shopLine(house);
+    const { theme, tier } = this.shopLine(house);
     const quantityRng = house?.id ? this.shopRng(house, 'theme-quantity') : Math.random;
     const units = Shops.themedQuantity(id, tier, quantityRng);
     const offer = this.buildShopOffer(id, units * ShopsMath.listPrice(this.save, id, itemValue(id)), { house });
@@ -1039,6 +1039,7 @@ class SceneShops {
     const buyQty = units * (1 + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0));
     this.showOfferModal({
       kind: 'shop',
+      tabs: theme === 'potion' ? this._brewingTabs('shop', sx, sy, house, recordDeal) : undefined,
       title: this.buildingFlavorTitle(house, 'buy'),
       ...NPC.offerArt(this, house),
       cancelLabel: 'Later',
@@ -1062,6 +1063,61 @@ class SceneShops {
             (nextId) => this._presentThemedItem(sx, sy, house, recordDeal, nextId),
             { cost: ShopsMath.themedRerollCost, peek: () => this.themedShopPick(house), current: id })
         : undefined,
+    });
+  }
+
+  _brewingTabs(active, sx, sy, house, recordDeal) {
+    return [
+      { label: 'Shop', active: active === 'shop', onSelect: () => this.presentThemedShop(sx, sy, house, recordDeal) },
+      { label: 'Brew', active: active === 'brew', onSelect: () => this.presentBrewOffer(sx, sy, house, recordDeal) },
+    ];
+  }
+
+  presentBrewOffer(sx, sy, house, recordDeal, targetId = null) {
+    const tabs = this._brewingTabs('brew', sx, sy, house, recordDeal);
+    const recipes = BREW_RECIPES.filter(r => !homeRecipeLocked(this.save, r.id));
+    if (!recipes.length) {
+      this.showOfferModal({
+        kind: 'craft', kindLabel: 'Brewing', tabs,
+        get: 'Once you find a potion, you can brew it here.',
+        cost: '', canAfford: false, acceptLabel: 'Brew', cancelLabel: 'Leave',
+      });
+      return;
+    }
+    const held = id => Inventory.count(this.save, id);
+    const canBrew = r => recipeCap(r.cost, held) > 0
+      && (this.save.money ?? 0) >= r.coins && this.invRoomFor(r.id) >= 1;
+    const rec = recipes.find(r => r.id === targetId) || recipes.find(canBrew) || recipes[0];
+    const idx = recipes.indexOf(rec), n = recipes.length;
+    const pageTo = r => () => this.presentBrewOffer(sx, sy, house, recordDeal, r.id);
+    this._presentRecipeOffer(sx, sy, {
+      recipe: rec.cost, coinCost: rec.coins,
+      kind: 'craft', kindLabel: 'Brewing', tabs,
+      get: `1× ${this.iconSpanHTML(rec.id)} ${itemName(rec.id)}`,
+      blurb: ITEM_EFFECTS[rec.id] || undefined,
+      costLabel: 'Ingredients and fee', acceptLabel: 'Brew', cancelLabel: 'Leave',
+      canAfford: this.invRoomFor(rec.id) >= 1,
+      disabledReason: this.invRoomFor(rec.id) < 1 ? bagFullFor(rec.id) : undefined,
+      repeat: pageTo(rec),
+      pager: {
+        index: idx, count: n, showIndex: false,
+        options: recipes.map(r => ({ label: itemName(r.id), onSelect: pageTo(r) })),
+        iconHTML: this.iconSpanHTML(rec.id, 32),
+        caption: `Makes 1 · In bag: ${held(rec.id)}`,
+        onPrev: pageTo(recipes[(idx - 1 + n) % n]),
+        onNext: pageTo(recipes[(idx + 1) % n]),
+      },
+      refuse: () => {
+        if (homeRecipeLocked(this.save, rec.id)) {
+          this.flash(`Find a ${itemName(rec.id)} first.`, sx, sy); return true;
+        }
+        if (this.invRoomFor(rec.id) < 1) { this.flash(bagFullFor(rec.id), sx, sy); return true; }
+        return false;
+      },
+      produce: () => {
+        this.addToInv(rec.id, 1, false, { notWild: true, deferRefresh: true });
+        this._settleDeal(recordDeal, [`Brewed ${itemName(rec.id)} ×1`, UI_GOLD, 1.25, rec.id]);
+      },
     });
   }
 
@@ -1202,7 +1258,9 @@ class SceneShops {
     const held = (id) => Inventory.count(this.save, id);
     const short = () => recipe.find(r => held(r.id) < r.qty);
     const craft = modal.kind === 'craft';
-    const cost = craft
+    const { coinCost = 0 } = modal;
+    const moneyShort = () => (this.save.money ?? 0) < coinCost;
+    let cost = craft
       ? '<div class="recipe-ingredients" style="text-align:left;font-size:13px;font-weight:400">'
         + '<div style="text-align:right;color:#bdb5a4;font-size:11px;margin-bottom:4px">Have / Need</div>'
         + recipe.map(r => {
@@ -1217,18 +1275,23 @@ class SceneShops {
         }).join('') + '</div>'
       : recipe.map(r => `<span style="color:${held(r.id) >= r.qty ? UI_GREEN : UI_DANGER_INK}">`
         + `${r.qty}× ${this.iconSpanHTML(r.id)} ${itemName(r.id)}</span>`).join(' + ');
+    if (coinCost > 0) cost += `<div style="margin-top:8px;color:${moneyShort() ? UI_DANGER_INK : UI_GREEN}">`
+      + `Brewing fee: ${this.moneyHTML(coinCost)}</div>`;
     this.showOfferModal({
       kind: 'forge',
       costLabel: 'You give',
       ...modal,
       cost,
-      disabledReason: modal.disabledReason || (craft && short() ? 'Missing ingredients' : undefined),
-      canAfford: canAfford && !short(),
+      disabledReason: modal.disabledReason || (craft && short() ? 'Missing ingredients'
+        : moneyShort() ? purseShort(coinCost) : undefined),
+      canAfford: canAfford && !short() && !moneyShort(),
       onAccept: () => {
         if (refuse && refuse()) return;
         const missing = short();
         if (missing) { this.flash(`Need ${missing.qty - held(missing.id)} more ${itemName(missing.id)}`, sx, sy); return; }
+        if (moneyShort()) { this.flash(purseShort(coinCost), sx, sy); return; }
         for (const r of recipe) Inventory.remove(this.save, r.id, r.qty);
+        if (coinCost > 0) addMoney(this.save, -coinCost);
         this._clampSelSlot();
         produce();
       },
@@ -1430,7 +1493,7 @@ class SceneShops {
     // included), so a deer is never asked for by the dozen at $1.
     const ask = ShopsMath.traderAsk({
       rng, giveId, target,
-      inv: this.save.inv,
+      inv: this.save.inv.map(s => ({ ...s, count: Inventory.ownedCount(this.save, s.id) })),
       prices: itemValues(),
       isItem: (id) => Object.hasOwn(Shops.traderPrices(), id),
       capFor: (id) => Inventory.stackCapFor(this.save, id),
@@ -1446,7 +1509,7 @@ class SceneShops {
     if (offer.gearSwap) { this._presentTraderGearSwap(sx, sy, house, recordDeal, offer); return; }
     const giveItem = ITEM_BY_ID[offer.giveId];
     const askItem  = ITEM_BY_ID[offer.askId];
-    const heldCount = () => Inventory.count(this.save, offer.askId);
+    const heldCount = () => Inventory.ownedCount(this.save, offer.askId);
     // Low-tier seeds barter in a slightly larger bundle (planted in bulk).
     const giveQty = TRADE_OFFER_QTY
       + (isLowTierSeed(offer.giveId) ? LOW_TIER_SEED_QTY_BONUS : 0);

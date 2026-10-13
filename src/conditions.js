@@ -125,7 +125,7 @@
     if (explicit && (!Number.isFinite(options.durationMs) || options.durationMs <= 0)) return false;
     const duration = explicit ? Math.min(options.durationMs, def.maxDurationMs || def.durationMs) : def.durationMs;
     if (id === 'burning' && fireImmune(save, now)) return false;
-    // A Toad Idol's boon (src/shrines.js 'antidote'): poison cannot take hold.
+    // A Toad Shrine's boon (src/shrines.js 'antidote'): poison cannot take hold.
     if (id === 'poison' && root.Shrines && root.Shrines.leverActive(save, 'antidote')) return false;
     const fresh = !active(save, id);
     save.conditions ||= {};

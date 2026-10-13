@@ -206,7 +206,7 @@
   });
 
   test('park beaches: adjoining park becomes grass marine meadow while mapped sand keeps its beach', () => {
-    const T = WorldGen.T, a = anchor(1800, 1800);
+    const T = WorldGen.T, a = anchor(1300, 1800);
     const park = { rings: [rect(700, 700, 3000, 3000)] };
     const beachLayer = { features: [{ type: 3, tags: { class: 'sand', subclass: 'beach' },
       geom: [rect(700, 700, 1100, 3000)] }] };
@@ -234,7 +234,7 @@
     const park = { rings: [rect(1200, 700, 3000, 3000)] };
     const beachLayer = { features: [{ type: 3, tags: { natural: 'beach' }, geom: [rect(700,700,1200,3000)] }] };
     for (const kind of ['grove', 'beach']) {
-      const a = anchor(1800, 1800, kind), grid = new Uint8Array(N * N).fill(WorldGen.T.PARK);
+      const a = anchor(1600, 1800, kind), grid = new Uint8Array(N * N).fill(WorldGen.T.PARK);
       for (let y = 11; y < 47; y++) for (let x = 11; x < 19; x++) grid[y * N + x] = WorldGen.T.SAND;
       const f = build([a], [park], { grid, beachLayer }).field;
       assert.eq(ownerAt(f, 30, 22).variant, 'marine_meadow', kind);
@@ -367,6 +367,27 @@
     assert.falsy(ownerAt(plain, 32, 32), 'unanchored beach is not a grove motif');
     const before = grid[32 * N + 32]; paint(out, grid);
     assert.eq(grid[32 * N + 32], before, 'beach sand retains its terrain');
+  });
+  test('beach coverage: large mapped shore and park cannot grow a Nexus beyond twenty cells', () => {
+    for (const kind of ['beach', 'grove']) {
+      const a = anchor(2048, 2048, kind);
+      a.R = 80;
+      const grid = new Uint8Array(N * N).fill(WorldGen.T.SAND);
+      const rings = [rect(0, 0, EXT, EXT)];
+      const field = build([a], [{ rings }], { grid,
+        beachLayer: { features: [{ type: 3, tags: { natural: 'beach' }, geom: rings }] } }).field;
+      assert.eq(ownerAt(field, 32, 32).kind, 'beach');
+      let count = 0;
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        if (!ownerAt(field, x, y)) continue;
+        count++;
+        assert.truthy(Math.hypot(x + .5 - 32, y + .5 - 32) <= 10, 'every owned cell is within the ten-cell radius');
+      }
+      assert.gt(count, 200, 'the influence remains a substantial encounter area');
+      assert.falsy(ownerAt(field, 43, 32), 'outer beach has no Nexus owner');
+      paint(field, grid);
+      assert.eq(grid[32 * N + 43], WorldGen.T.SAND, 'outer beach stays ordinary sand');
+    }
   });
   test('unlabelled parks: rasterization paints the entire park as Nexus ground and owns one shrine', () => {
     const park = { type: 3, id: 771, tags: { class: 'park', name: 'Unnamed POI park' },

@@ -3,18 +3,63 @@
   const kinds = profile => HabitatSpawns.faunaRows(profile).map(row => row.kind);
   const fixture = (terrain = WorldGen.T.GRASS, N = 64) => ({ cellsPerEdge: N,
     tileEdgeM: 640, grid: new Uint8Array(N * N).fill(terrain), objects: [] });
-  const generate = (entry, caught = [], mode = 'easy', pestFree = null) => {
+  const generate = (entry, caught = [], mode = 'easy', pestFree = null, sceneOptions = {}) => {
     const marker = SPAWN_IN_TILE_SRC.indexOf('    // (Starter-cow');
     assert.gte(marker, 0, 'the real habitat population pass precedes starter guarantees');
     const spawn = spawnPassFn(SPAWN_IN_TILE_SRC.slice(0, marker) + '\nreturn creatures;');
     const previous = Difficulty.mode(); Difficulty.setMode(mode);
     try {
       const scene = Object.assign(new SceneCreatures(), { tileEdgeM: 640, cellM: 10,
-        depth: 0, save: { caught }, startWorldM: { x: -5000, y: 0 }, _pestFreeZone: () => pestFree });
+        depth: 0, save: { caught }, startWorldM: { x: -5000, y: 0 }, _pestFreeZone: () => pestFree }, sceneOptions);
       return spawn.call(scene, entry, 0, 0);
     } finally { Difficulty.setMode(previous); }
   };
   const signature = creatures => creatures.map(c => `${c.id}:${c.kind}@${c.x},${c.y}`).sort().join('|');
+  test('habitat populations: ordinary animals are reduced by thirty percent without reducing enemies', () => {
+    const entry = fixture();
+    generate(entry);
+    assert.eq(entry.habitatPopulation.totals.fauna.requested, 112);
+    assert.eq(entry.habitatPopulation.totals.fauna.placed, 112);
+    assert.eq(entry.habitatPopulation.totals.enemies.requested, 50);
+    assert.eq(entry.habitatPopulation.totals.enemies.placed, 50);
+  });
+  test('habitat populations: preview area scales tile budgets without thinning feature populations', () => {
+    const make = () => {
+      const entry = fixture();
+      entry.zone = { coverage: new Uint16Array(4096), anchors: [
+        { kind: 'grove', variant: 'meadow', key: 'preview_grove', gx: 0, gy: 0 }] };
+      entry.zone.coverage.fill(1, 0, 512);
+      entry.streetArea = new Uint8Array(4096);
+      entry.streetArea.fill(1, 512, 1024);
+      entry.streetAreaVariants = new Uint8Array(4096);
+      entry.streetAreaVariants.fill(StreetVariants.VARIANT_BY_ID.orchard.code, 512, 1024);
+      return entry;
+    };
+    const baseline = make(), live = generate(baseline);
+    assert.eq(signature(generate(make(), [], 'easy', null, { habitatTileAreaScale: 1 })), signature(live));
+    const R = FloorViewerRegion, scale = (R.EDGE / WorldGen.tileEdgeMeters(R.lat)) ** 2;
+    for (const habitatTileAreaScale of [scale, 0]) {
+      const entry = make(), options = { habitatTileAreaScale };
+      const population = generate(entry, [], 'easy', null, options);
+      const regions = entry.habitatPopulation.regions;
+      const land = regions.filter(r => r.key.startsWith('land:'));
+      for (const [kind, budget] of [['fauna', HabitatSpawns.FAUNA_PER_TILE],
+        ['enemies', HabitatSpawns.ENEMIES_PER_TILE], ['reserve', HabitatSpawns.reserveBudget()]]) {
+        const expected = Math.round(budget * habitatTileAreaScale);
+        assert.eq(land.reduce((sum, r) => sum + r[kind].requested, 0), expected, kind + ' budget');
+        assert.eq(land.reduce((sum, r) => sum + r[kind].placed, 0), expected, kind + ' placements');
+      }
+      const features = regions.filter(r => !r.key.startsWith('land:'));
+      assert.eq(features.length, 2, 'Nexus and road populations both present');
+      for (const feature of features) {
+        const original = baseline.habitatPopulation.regions.find(r => r.key === feature.key);
+        assert.gt(feature.fauna.requested, 0);
+        assert.eq(feature.fauna.requested, original.fauna.requested, 'feature budget is unchanged');
+        assert.eq(feature.fauna.placed, original.fauna.placed, 'feature inhabitants still placed');
+      }
+      assert.eq(signature(generate(make(), [], 'easy', null, options)), signature(population), 'preview is deterministic');
+    }
+  });
   test('habitat populations: common landcovers collectively supply the core companions', () => {
     const grass = kinds(HabitatSpawns.landProfile('GRASS'));
     const residential = kinds(HabitatSpawns.landProfile('RESIDENTIAL'));

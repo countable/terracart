@@ -16,7 +16,7 @@
         themes.add(EnemyHabitats.caveAt(a, 0, 0, x, y, depth).theme);
       }
       if (depth <= 4) assert.falsy(themes.has('infernal'));
-      if (depth < 9) assert.falsy(themes.has('roost'));
+      if (depth < 8) assert.falsy(themes.has('roost'));
     }
   });
   test('enemy habitats: dragon roosts have one owner per region and reserve their generated seat', () => {
@@ -35,7 +35,7 @@
       }
     }
     assert.gt(count, 0, 'the fixture exercises actual roosts');
-    assert.eq(EnemyHabitats.caveSites(entry(), 0, 0, 8, new Set()).length, 0);
+    assert.eq(EnemyHabitats.caveSites(entry(), 0, 0, 7, new Set()).length, 0);
   });
   test('enemy habitats: roosts need floor chambers, avoid generated stairs, and ignore player edits', () => {
     const e = entry(), base = EnemyHabitats.caveSites(e, 0, 0, 9, new Set());
@@ -155,11 +155,11 @@ test('enemy habitats: every selected cave theme has an eligible family through d
       assert.gt(pool.length, 0, `${theme} has residents at depth ${depth}`);
       for (const row of pool) {
         assert.falsy(row.retired); assert.falsy(row.id === 'red_dragon', 'dragons have finite roost seats');
-        if (theme === 'infernal') assert.gte(depth, 5);
+        if (theme === 'infernal') assert.gte(depth, WorldGen.LAVA_DEPTH);
       }
     }
   }
-  assert.truthy(EnemySpawns.caveRows(4, { kinds: EnemyHabitats.FAMILIES.warren }).some(r => r.id === 'bomb_goblin'));
+  assert.truthy(EnemySpawns.caveRows(5, { kinds: EnemyHabitats.FAMILIES.warren }).some(r => r.id === 'bomb_goblin'));
 });
 
 (() => {
@@ -343,5 +343,5 @@ test('new monsters: requested tiers and attack behavior come from the roster', (
   assert.eq(EnemyRoster.get('sword_spirit').movement.pattern, 'orbit_swoop');
   assert.gt(EnemyRoster.get('sword_spirit').dmg, 0);
   assert.falsy(EnemyRoster.get('sword_spirit').steals);
-  assert.truthy(EnemySpawns.caveRows(3, { kinds: EnemyHabitats.FAMILIES.natural }).some(r => r.id === 'gelatinous_cube'));
+  assert.truthy(EnemySpawns.caveRows(4, { kinds: EnemyHabitats.FAMILIES.natural }).some(r => r.id === 'gelatinous_cube'));
 });

@@ -303,13 +303,13 @@ const CHEST_DENSITY_T1_AT = 25;
 const CHEST_TIER_UNSTAMPED = 2;
 // Chest sprite recolors: T1 crates keep their wood; T2–T5 use distinct hues.
 const CHEST_TIER_MAX = 5;
-// THE CAP CLIMBS UNDERGROUND (Oct 2026): T6 chests exist from cave level 3,
-// T7 from level 6 - the dungeon-only tiers. A chest's own tier never demotes;
+// THE CAP CLIMBS UNDERGROUND (Oct 2026): T6 chests exist from cave level 4,
+// T7 from level 7 - the dungeon-only tiers. A chest's own tier never demotes;
 // the cap only stops the bonuses (so an L7 T4 stays T4, capped by its own
 // rung, while a high seed plus the depth bonus reaches 6/7 down there).
-// Surface and the first two levels hold the ordinary 5.
+// Surface and the first three levels hold the ordinary 5.
 function chestTierMaxFor(depth) {
-  return Math.min(7, CHEST_TIER_MAX + Math.floor(Math.max(0, depth || 0) / 3));
+  return Math.min(7, CHEST_TIER_MAX + Math.floor(Math.max(0, (depth || 0) - 1) / 3));
 }
 const CHEST_TIER_COLOR = Object.fromEntries(
   Array.from({ length: chestTierMaxFor(9) }, (_, i) => [i + 1, tierBadgeColor(i + 1)])
@@ -849,7 +849,8 @@ const MACRO_KINDS = ['inn', 'chapel', 'apothecary', 'scriptorium', 'guildhall', 
 function macroFor(o) {
   if (!o || o.kind !== 'chest' || o.depth > 0 || o.crate || o.fixedLoot) return null;
   if (o._macroCache !== undefined) return o._macroCache;
-  const kind = MACRO_KIND_BY_CLASS[o.poiClass] || null;
+  const baseKind = MACRO_KIND_BY_CLASS[o.poiClass] || null;
+  const kind = o.scholarFallback && baseKind === 'scriptorium' ? 'scholar' : baseKind;
   const res = (kind && !produceStandFor(o)) ? { kind, texKey: 'macro_' + kind } : null;
   o._macroCache = res;
   return res;

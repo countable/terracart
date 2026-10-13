@@ -52,7 +52,7 @@ test('source: a lit torch\'s blow sets the foe alight after the blow lands, as t
   const i = SCENE_SRC.indexOf('if (this._damageEnemy(c, blow)) return true;');
   assert.truthy(i > 0);
   const after = code(SCENE_SRC.slice(i, i + 600));
-  assert.truthy(/if \(this\.isTorchActive\(\)\) Combat\.ignite\(c, now, 'player'\);/.test(after),
+  assert.truthy(/if \(this\.isTorchActive\(\) \|\| this\.isEvertorchActive\(\)\) Combat\.ignite\(c, now, 'player'\);/.test(after),
     'the torch lights what the blow leaves standing');
 });
 

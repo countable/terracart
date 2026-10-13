@@ -422,7 +422,7 @@ class SceneStreets {
     // one ladder — a path by the water, along a greenway or through a park
     // (Scenic.bonusMetres off the tile's scenic intervals). A new REASON on
     // the ladder, never a second one; the km chip still reads true metres.
-    let scenicKind = null;
+    let scenicKind = null, scenicStoryMeta = null, scenicStoryNewly = null;
     // What each way restored this sweep (true metres and scenic bonus) — the
     // pay is ONE of them (_oneRoadPay), the restore is all of them.
     const perLine = new Map();
@@ -445,7 +445,9 @@ class SceneStreets {
         if (b > 0) {
           line.bonus += b;
           const k = Scenic.kindOfNewly(sIvs, out.newly, meta.mvtToM);
-          if (k && (!scenicKind || Scenic.SCENIC_MUL[k] > Scenic.SCENIC_MUL[scenicKind])) scenicKind = k;
+          if (k && (!scenicKind || Scenic.SCENIC_MUL[k] > Scenic.SCENIC_MUL[scenicKind])) {
+            scenicKind = k; scenicStoryMeta = meta; scenicStoryNewly = out.newly;
+          }
         }
       }
       this._markLampsRestored(meta, out.newly, now);
@@ -499,7 +501,7 @@ class SceneStreets {
     if (pay.m > 0 || pay.bonus > 0) {
       this._bankStreetMetres(pay.m * mul, at, now, pay.bonus > 0 ? { bonusM: pay.bonus * mul } : undefined);
     }
-    if (scenicKind) this._scenicWalkStory(scenicKind);
+    if (scenicKind) this._scenicWalkStory(scenicKind, scenicStoryMeta, scenicStoryNewly);
     persistSave(this.save);
   }
 
@@ -546,12 +548,23 @@ class SceneStreets {
     return (sc && sc.lines && sc.lines.get(lineKey)) || null;
   }
 
-  // THE SCENIC WALK'S STORY: the first scenic metre a save restores tells its
-  // row's story once (_storySplashOnce, the street_scenic painting —
-  // StreetVariants' 'path' rows); a later restore on a scenic way gets the
-  // row's map line, no oftener than STREET_FLASH_GAP_MS per row.
-  _scenicWalkStory(kind) {
-    const row = Scenic.rowFor(kind);
+  // Scenic geography pays its bonus independently of the path's assigned
+  // theme. Tell the theme on the largest newly restored part of this line;
+  // a plain assigned segment has no story. Unindexed tiles retain the
+  // geographic story until their generated street index is available.
+  _scenicWalkStory(kind, meta, newly) {
+    let row = Scenic.rowFor(kind);
+    const entry = meta && WorldGen.tileCache.get(meta.tileKey);
+    const rec = entry?.streetIndex?.lines?.find(r => r.lineKey === meta.lineKey);
+    if (rec?.variantSegments) {
+      row = null;
+      let longest = 0;
+      for (const part of StreetVariants.lineParts(rec, meta.mvtToM)) {
+        const overlap = (newly || []).reduce((sum, iv) => sum + Math.max(0,
+          Math.min(iv[1], part.b) - Math.max(iv[0], part.a)), 0);
+        if (overlap > longest) { longest = overlap; row = StreetVariants.VARIANT_BY_ID[part.variant] || null; }
+      }
+    }
     if (!row) return;
     if (!(this.save.storySeen && this.save.storySeen[row.story])) {
       this._storySplashOnce(row.story, { art: row.art || row.story, title: row.title, body: row.body });
@@ -559,8 +572,8 @@ class SceneStreets {
     }
     const last = (this._streetFlashAt = this._streetFlashAt || {});
     const t = performance.now();
-    if (t - (last[row.id] || -Infinity) < STREET_FLASH_GAP_MS) return;
-    last[row.id] = t;
+    if (t - (last[row.story] || -Infinity) < STREET_FLASH_GAP_MS) return;
+    last[row.story] = t;
     // The row's map line (≤ MAP_MSG_MAX — scenic.test.js measures every row).
     const line = row.flash;
     const ps = this.playerScreen ? this.playerScreen() : null;

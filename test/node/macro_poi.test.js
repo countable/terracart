@@ -649,53 +649,78 @@
     assert.eq(Macros.scholarShelf().join(), shelf.join(), 'the same shelf every time, every school');
   });
 
-  test('scholar: every three books earns a tome, with a repeating shelf', () => {
-    const shelf = Macros.scholarShelf();
-    const per = Macros.SCHOLAR_BOOKS_PER_PRIZE;
-    assert.eq(per, 3);
-    const save = {};
-    assert.eq(Macros.booksRead(save), 0, 'a fresh save has read nothing');
-    let next = Macros.scholarNext(save, shelf);
-    assert.eq(next.id, shelf[0]); assert.eq(next.booksAt, per); assert.falsy(next.ready, 'unread: not ready');
-    assert.eq(Macros.scholarClaim(save, shelf).why, 'unread', 'nothing to collect yet');
-    save.booksRead = per - 1;
-    assert.falsy(Macros.scholarNext(save, shelf).ready, 'one short');
-    save.booksRead = per;
-    assert.truthy(Macros.scholarNext(save, shelf).ready, 'the third book earns the first prize');
-    let r = Macros.scholarClaim(save, shelf);
-    assert.truthy(r.ok && r.id === shelf[0], 'the humblest prize first');
-    assert.eq(Macros.scholarTaken(save), 1);
-    assert.eq(Macros.scholarClaim(save, shelf).why, 'unread', 'the same reading pays once');
-    assert.eq(Macros.scholarNext(save, shelf).id, shelf[1], 'then the next up the shelf');
-    // Read far ahead: the prizes still come one at a time, in order.
-    save.booksRead = per * shelf.length + 100;
-    for (let i = 1; i < shelf.length; i++) {
-      r = Macros.scholarClaim(save, shelf);
-      assert.truthy(r.ok && r.id === shelf[i], `prize ${i} is ${shelf[i]}`);
-    }
-    assert.eq(Macros.scholarNext(save, shelf).id, shelf[0], 'the next cycle starts with the first tome');
-    assert.eq(Macros.scholarNext(save, shelf).booksAt, (shelf.length + 1) * per);
-    assert.eq(Macros.scholarClaim(save, shelf).id, shelf[0]);
-    assert.eq(Macros.scholarTaken(save), shelf.length + 1);
-    assert.eq(Macros.scholarClaim(save, []).why, 'bare', 'an empty catalog has no reward');
-    // Garbage in the ledger reads as nothing, never as a free shelf.
-    assert.eq(Macros.booksRead({ booksRead: 'lots' }), 0);
-    assert.eq(Macros.scholarTaken({ scholarTomes: -3 }), 0);
+  test('scholar: reading unlocks the lending shelf once, independently of old claims', () => {
+    const shelf = Macros.scholarShelf(), save = { booksRead: 2, scholarTomes: 99, scholarPrizes: 20 };
+    assert.eq(Macros.scholarBorrow(save, shelf[0]).why, 'locked');
+    save.booksRead = 3;
+    const rows = Macros.scholarCatalog(save);
+    assert.truthy(rows[0].unlocked);
+    assert.falsy(rows[1].unlocked);
+    assert.eq(rows[0].booksAt, 3);
+    assert.eq(rows[1].booksAt, 6);
+    for (const row of rows) assert.eq(row.cost, ITEM_BY_ID[row.id].baseTier + 2);
+    save.booksRead = 100;
+    assert.eq(Macros.scholarCatalog(save).length, shelf.length, 'no repeating unlocks');
+    assert.truthy(Macros.scholarCatalog(save).every(row => row.unlocked));
+    assert.eq(Macros.scholarCatalog(save, []).length, 0);
+    assert.eq(Macros.scholarBorrow(save, 'book').why, 'unknown');
+    for (const booksRead of [-3, 'lots', Infinity]) assert.eq(Macros.booksRead({ booksRead }), 0);
   });
 
-
-  test('scholar: legacy mixed prizes never skip tome rewards and reading credit survives', () => {
-    const save = { booksRead: 12, scholarPrizes: 20 };
-    assert.eq(Macros.scholarTaken(save), 0);
-    assert.eq(Macros.scholarNext(save).booksAt, 3);
-    for (let i = 0; i < 4; i++) assert.truthy(Macros.scholarClaim(save).ok);
-    assert.eq(Macros.scholarNext(save).booksAt, 15);
-    assert.falsy(Macros.scholarNext(save).ready);
-    assert.eq(save.booksRead, 12);
-    assert.eq(save.scholarPrizes, 20);
-    assert.eq(save.scholarTomes, 4);
+  test('scholar: loans spend reusable capacity atomically and permit duplicate copies', () => {
+    const [first, second] = Macros.scholarShelf();
+    const save = { booksRead: 15, money: 75, inv: [] };
+    const cost = ITEM_BY_ID[first].baseTier + 2;
+    assert.truthy(Macros.scholarBorrow(save, first).ok);
+    assert.truthy(Macros.scholarBorrow(save, first).ok);
+    assert.eq(Macros.scholarLoaned(save, first), 2);
+    assert.eq(Inventory.count(save, first), 2);
+    assert.eq(Macros.scholarCredits(save).used, cost * 2);
+    assert.truthy(Macros.scholarBorrow(save, second).ok);
+    const available = Macros.scholarCredits(save).available;
+    assert.truthy(Macros.scholarReturn(save, first).ok);
+    assert.eq(Macros.scholarCredits(save).available, available + cost);
+    assert.eq(Macros.scholarLoaned(save, first), 1);
+    assert.eq(Inventory.count(save, first), 1);
+    assert.eq(save.booksRead, 15);
+    assert.eq(save.money, 75);
     const reload = JSON.parse(JSON.stringify(save));
-    assert.eq(Macros.scholarNext(reload).booksAt, 15);
+    assert.eq(Macros.scholarCredits(reload).used, Macros.scholarCredits(save).used);
+    assert.eq(Macros.scholarCatalog(reload)[0].borrowed, 1);
+  });
+
+  test('scholar: failed loans preserve credits, inventory and previous rewards', () => {
+    const id = Macros.scholarShelf()[0], cost = ITEM_BY_ID[id].baseTier + 2;
+    const save = { booksRead: cost, inv: [], scholarTomes: 7 };
+    assert.truthy(Macros.scholarBorrow(save, id).ok);
+    let before = JSON.stringify(save);
+    assert.eq(Macros.scholarBorrow(save, id).why, 'credit');
+    assert.eq(JSON.stringify(save), before);
+    save.booksRead = 100;
+    save.inv[0].count = Inventory.stackCap(save);
+    before = JSON.stringify(save);
+    assert.eq(Macros.scholarBorrow(save, id).why, 'full');
+    assert.eq(JSON.stringify(save), before);
+    assert.eq(save.scholarTomes, 7);
+    assert.eq(Macros.scholarCatalog(save)[0].owned, Inventory.stackCap(save) - 1);
+    assert.truthy(Macros.scholarReturn(save, id).ok);
+    assert.eq(Inventory.count(save, id), Inventory.stackCap(save) - 1, 'owned copies survive');
+    assert.eq(Macros.scholarReturn(save, id).why, 'notBorrowed');
+    assert.eq(Macros.scholarCredits(save).used, 0);
+  });
+
+  test('scholar: returning a resting tome never refreshes its spell or restores a slot', () => {
+    const id = Macros.scholarShelf()[0];
+    const save = { booksRead: 30, inv: [], tomeMagicCd: { [id]: 1700003600000 } };
+    assert.truthy(Macros.scholarBorrow(save, id).ok);
+    const cooldown = JSON.stringify(save.tomeMagicCd);
+    assert.truthy(Macros.scholarReturn(save, id).ok);
+    assert.truthy(Macros.scholarBorrow(save, id).ok);
+    assert.eq(JSON.stringify(save.tomeMagicCd), cooldown);
+    save.inv = [];
+    const before = JSON.stringify(save);
+    assert.eq(Macros.scholarReturn(save, id).why, 'missing');
+    assert.eq(JSON.stringify(save), before, 'missing inventory cannot silently clear the ledger');
   });
 
   test('scholar: every Book read counts — found or bought — and the counter is the brake', () => {
@@ -727,13 +752,9 @@
       'the themed shop prices off the ladder');
     assert.eq((SCENE_SRC.match(/if \(id === 'book'\) ShopsMath\.bookBought\(this\.save, (?:take|buyQty)\);/g) || []).length, 2,
       'both counters climb the ladder on a sale');
-    // A tome prize is handed over notWild and persisted together with its claim.
-    const pres = SCENE_SRC.slice(SCENE_SRC.indexOf('_presentScholar(sx, sy, o, dress) {'));
-    assert.truthy(/this\.addToInv\(next\.id, 1, false, \{ notWild: true, deferRefresh: true \}\)/.test(pres.slice(0, pres.indexOf('\n  }\n'))),
-      'the prize is handed over notWild');
     assert.truthy(/if \(!d\.stock\) return this\[d\.present\]\(sx, sy, o, dress\);/.test(SCENE_SRC), 'presentMacro routes it by the row');
     assert.eq(Macros.KIND_DIALOG.scholar.label, 'Book Club');
-    assert.lte('Tome collected'.length, MAP_MSG_MAX);
+    assert.lte('Tome borrowed'.length, MAP_MSG_MAX);
     assert.truthy(/book club/i.test(Macros.KIND_STORY.scholar.body) && /join/i.test(Macros.KIND_STORY.scholar.body), 'the story is the joining');
   });
 

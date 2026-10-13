@@ -168,6 +168,7 @@
         }
         if (m.kind === 'stronghold_wall') extra.variant = s.quarryPlan.wallFrames.get(i);
         if (m.deposit) extra.deposit = m.deposit;
+        if (m.rockMaterial) extra.rockMaterial = m.rockMaterial;
         if (m.yieldTier != null) extra.yieldTier = m.yieldTier;
         if (m.requiredTier != null) extra.requiredTier = m.requiredTier;
         if (m.kind === 'mineralrock' && m.deposit && s.a.kind === 'quarry') {
@@ -305,7 +306,7 @@
       }
       for (const i of plan.hazards) {
         const ix = i % N, iy = Math.floor(i / N);
-        if (!WG.isSpawnCell(grid, N, N, ix, iy, opts, 'minor')) continue;
+        if (!WG.isSpawnCell(grid, N, N, ix, iy, opts, 'hazard')) continue;
         const [x, y] = position(ix, iy);
         grid[i] = WG.T.CAVE_LAVA;
         out.objects.push(WG.makeObject('lava_vent', x, y, WG.cellId('qlava', tx, ty, ix, iy),
@@ -434,7 +435,10 @@
         if ((n & 255) === 0) yield 'generated zone shrine';
         const i = s.cells[n], ix = i % N, iy = Math.floor(i / N);
         const fixed = s.quarryPlan?.shrineSeat;
-        if (v.quarryLayout === 'crater' && (i !== fixed || !s.quarryPlan.hazards.every(j => grid[j] === WG.T.CAVE_LAVA))) continue;
+        // A safely suppressed lava cell leaves a dry pool; it does not remove
+        // the altar. Occupied or inaccessible pool cells still prevent it.
+        if (v.quarryLayout === 'crater' && (i !== fixed || !s.quarryPlan.hazards.every(j =>
+          grid[j] === WG.T.CAVE_LAVA || WG.isSpawnCell(grid, N, N, j % N, Math.floor(j / N), opts, 'minor')))) continue;
         if ((s.clear.has(i) && i !== fixed) || s.poiSlots.has(i) || s.connections.has(i)
             || s.quarryPlan?.background.has(i) || ctx.tideSeats?.has(i)
             || ctx.poiPadCells?.has(i) || out.reservedCells?.has(i)

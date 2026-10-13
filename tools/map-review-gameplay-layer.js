@@ -189,11 +189,6 @@
       details.innerHTML = content;
       return { tier: tier.id, reason: reason?.id, content, entry: e, cell: i };
     }
-    map.on('click', event => {
-      if (!toggle.checked || event.propagatedFrom || document.getElementById('placeHome')?.classList.contains('on')) return;
-      const hit = inspect(event.latlng);
-      if (hit) L.popup().setLatLng(event.latlng).setContent(hit.content).openOn(map);
-    });
     toggle.onchange = sync;
     opacity.oninput = () => layer.eachLayer(item => {
       if (item.setStyle) item.setStyle({ fillOpacity: Number(opacity.value) });

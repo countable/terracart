@@ -48,6 +48,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   adds one ordinary enemy on loaded walkable ground near the view edge in
   the active depth. These debug spawns last for the session.
 
+- Use **shrine** for daily activations and **idol** for boss-summoning items.
+  Shrine names and visit copy use this distinction; existing internal IDs remain stable.
 - Daily sites share `Macros.visitKindForObject` and `beginDailyVisit` / `dailyVisit`.
   Claim the UTC-day ledger only when the benefit is granted; cancellation must
   leave the visit available. Keep presentation, light and effects in the owning
@@ -59,6 +61,18 @@ changing dialogue, story panels, books, toasts or status presentation.
   when Craft is disabled. Keep the chosen recipe after crafting and refresh
   counts and the existing receipt. Recipe selection never spends ingredients;
   acceptance still rechecks unlocks, bag room, and ingredients before spending.
+- The Book Club is a lending catalog shared across scholars. Keep total/free
+  credit visible above the scrolling shelf; All tomes and On loan filters
+  support preparing spells and returning them. Each row shows its effect,
+  credit cost, borrowed/owned counts, and an explicit unlock or affordability
+  reason. Borrow and Return update the catalog in place with one receipt;
+  no confirmation chain or auto-selection of a spell. Inventory labels mark
+  borrowed quantities. Returns at any Book Club preserve spell cooldowns.
+- Magic Shops have Shop / Brew tabs at every shop tier. Brew lists only learned
+  recipes, using the same ingredient counts and picker as Home crafting, plus a
+  fixed coin fee. An empty list says "Once you find a potion, you can brew it here."
+  Keep the selected recipe after brewing and recheck discovery, bag room,
+  ingredients and coins before spending either resource.
 - Dialogs use `makeModalShell` with a kind, which supplies a scene painting.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
@@ -151,6 +165,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   pops when a street of that kind enters the lit reach (`_tickStreetSight`,
   on its nearest lit cell) or the feet step onto it, on one per-story
   `STREET_FLASH_GAP_MS` clock.
+  Medium roads tell the Old Trade Road story; large roads tell the Ancient
+  Highway story. Their identities come from the mapped road class and have
+  separate first-visit records, without assigning a street variant. The
+  existing Old Trade Road record remains valid for returning players.
 - Story panels use a direct second-person narrator focused on the current
   experience: what happens, what the Hood notices, and how people respond.
   Keep them to one or two short sentences with occasional sensory detail.

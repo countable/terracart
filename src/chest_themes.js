@@ -3,13 +3,15 @@
 (function (global) {
   const flowers = ['flowers', 'forgetmenot', 'marigold', 'wildrose', 'starflower', 'sunflower', 'fireflower', 'iceflower'];
   const magicalFlowers = ['sunflower', 'fireflower', 'iceflower'];
+  const gemIds = [...new Set(Object.values(GEM_DEPOSITS).map(deposit => deposit.item))];
   // Utility food can restore zero energy and still be a harvestable meal.
-  const foodIds = () => ITEMS.filter(i => i.kind === 'produce'
-    && Number.isFinite(FOOD_ENERGY[i.id]) && FOOD_ENERGY[i.id] >= 0 && !flowers.includes(i.id)).map(i => i.id);
+  const isFood = i => i.kind === 'produce'
+    && Number.isFinite(FOOD_ENERGY[i.id]) && FOOD_ENERGY[i.id] >= 0 && !flowers.includes(i.id);
+  const foodIds = () => ITEMS.filter(isFood).map(i => i.id);
   const cropSeeds = () => ITEMS.filter(i => i.kind === 'seed' && !i.plants && foodIds().includes(i.grows)).map(i => i.id);
   const groups = {
     uniqueRelics: { ids: () => ITEMS.filter(i => i.kind === 'unique_relic' && !isTome(i.id) && !i.progressionOnly).map(i => i.id), mixedTiers: true, fallback: 'magic' },
-    supplies: { ids: { torch: 3, rope: 1, trap_disarm_kit: 1, throwing_spear: 1, barricade: 1, sugar_potion: 1, blank_scroll: 1 }, starterWeapons: ['dagger', 'lance', 'musket'], starterWeaponChance: 0.25, fallback: 'torch' },
+    supplies: { ids: { torch: 3, rope: 1, trap_disarm_kit: 1, throwing_spear: 1, barricade: 1, sugar_potion: 1, blank_scroll: 1, javelin: 1, renovation_permit: 1, evertorch: 1 }, starterWeapons: ['dagger', 'lance', 'musket'], starterWeaponChance: 0.25, fallback: 'torch' },
     field: { ids: ['torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'barricade'], fallback: 'torch' },
     farmSupplies: { ids: ['scarecrow', 'sugar_potion'], fallback: 'torch' },
     materials: { ids: ['wood', 'rubble', 'flint_shard', ...Object.values(MINERAL_TIERS).map(row => row.barId)] },
@@ -29,7 +31,7 @@
     // available above ground. Lower-tier magic remains useful in larger stacks.
     magic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry && !i.progressionOnly).map(i => i.id), mixedTiers: true, fallback: 'antidote' },
     travelMagic: { ids: ['reach_potion', 'speed_potion', 'shadow_powder', 'treasure_map'], mixedTiers: true, fallback: 'antidote' },
-    combatMagic: { ids: ['protection_potion', 'immortal_potion', 'fire_resistance_potion', 'flight_potion', 'giant_potion', 'shielding_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll', 'blight_potion', 'thunder_scroll', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'explosive_flask', 'fear_scroll', 'sleep_powder', 'psychosis_powder', 'grip_potion', 'poison_flask', 'taming_potion'], mixedTiers: true, fallback: 'antidote' },
+    combatMagic: { ids: ['protection_potion', 'immortal_potion', 'fire_resistance_potion', 'flight_potion', 'giant_potion', 'shielding_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll', 'blight_potion', 'thunder_scroll', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'explosive_flask', 'fear_scroll', 'sleep_powder', 'psychosis_powder', 'grip_potion', 'stoneskin_potion', 'poison_flask', 'taming_potion'], mixedTiers: true, fallback: 'antidote' },
     medicalMagic: { ids: { healing_potion: 3, revival_potion: 3, protection_potion: 2, shielding_potion: 2, resurrection_potion: 2, elixir: 1,
       regeneration_amulet: 0.3, vigor_amulet: 0.3 }, mixedTiers: true, fallback: 'antidote' },
     recovery: { ids: ['healing_potion', 'elixir'], fallback: 'restorative' },
@@ -39,7 +41,7 @@
     shield: { ids: ['protection_potion', 'shielding_potion'], fallback: { health: 'restorative', worship: 'restorative', default: 'field' } },
     study: { ids: { reach_potion: 2, raven_scroll: 1, protection_potion: 1, shielding_potion: 1, shadow_powder: 1, blank_scroll: 1, fireball_scroll: 1, fear_scroll: 1, treasure_map: 1 }, mixedTiers: true, fallback: 'books' },
     shadow: { ids: { raven_scroll: 1, bones_scroll: 1, wraith_scroll: 1, shadow_powder: 1 }, mixedTiers: true, fallback: 'flowers' },
-    gems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], fallback: { culture: 'books', vista: 'antidote', commerce: 'cash', default: 'field' } },
+    gems: { ids: gemIds, fallback: { culture: 'books', vista: 'antidote', commerce: 'cash', default: 'field' } },
     // Books feed the scholar's tome trades at every chest tier.
     books: { ids: ['book'], fallback: 'torch' },
     // Dedicated Book share for themes without their own books lane.
@@ -50,7 +52,7 @@
     trapKit: { ids: ['trap_disarm_kit'], fallback: 'torch' },
     magicTrap: { ids: ['magic_trap'], fallback: 'field' },
     caveMagic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry && !i.progressionOnly).map(i => i.id), mixedTiers: true, fallback: 'torch' },
-    caveGems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], mixedTiers: true, fallback: 'field' },
+    caveGems: { ids: gemIds, mixedTiers: true, fallback: 'field' },
     noncombatGear: { kind: 'gear', slots: ['bag', 'watering_can', 'hoe', 'fishing_rod', 'net'], fallback: { school: 'books', default: 'supplies' } },
     protectiveGear: { kind: 'gear', armorOnly: true, fallback: { vista: 'magic', default: 'field' } },
     culturalGear: { kind: 'gear', fallback: 'books' },
@@ -194,6 +196,11 @@
     return Object.keys(members(group)).filter(id => {
       const item = ITEM_BY_ID[id];
       return item && !isTome(id) && !item.shiny && (!item.caveOnly || opts.depth > 0)
+        // Lifetime reading may run a few Books ahead of recovered memories.
+        // Filter here so direct Book lanes and study/culture fallbacks obey
+        // the same gate; an empty Book lane keeps its Torch fallback.
+        && (id !== 'book' || (Number(opts.save?.booksRead) || 0)
+          <= Object.keys(opts.save?.discovered || {}).length + 3)
         && (!(opts.chestTier >= 3 && tier >= opts.chestTier && item.kind === 'magic')
           || cap(id) * itemValue(id) >= TIER_VALUE[Math.min(5, opts.chestTier)] / 2)
         // Unique relics never drop to a
@@ -257,7 +264,7 @@
     if (item.kind === 'magic') return item.uniqueJewelry ? 1 : 6;
     if (item.plants === 'tree') return 5;
     if (item.kind === 'seed') return magicalFlowers.includes(item.grows) ? 1 : 9;
-    if (magicalFlowers.includes(id) || item.kind === 'mineral') return 3;
+    if (magicalFlowers.includes(id) || item.kind === 'mineral' || id === 'evertorch') return 3;
     return 5;
   }
   // THE ROLL BUDGET. Every reward roll sizes its stack (and its purse) from
@@ -280,16 +287,19 @@
     if (item.kind === 'seed') return BUDGET_SHARE.seed;
     return 1;
   }
-  function quantity(id, tier, bracket = 0) {
-    return quantityForBudget(id, budget(tier, bracket));
+  function quantity(id, tier, bracket = 0, chestTier = 0) {
+    // A T2 chest can still select T1 food, but its $9 quality branch should
+    // not shrink a meal below the chest's $24 base allowance.
+    const foodFloor = chestTier > 0 && isFood(ITEM_BY_ID[id]) ? budget(chestTier) : 0;
+    return quantityForBudget(id, Math.max(budget(tier, bracket), foodFloor));
   }
   // Explicit coin allowances share the same price, category shares and caps.
   function quantityForBudget(id, amount) {
     const allowance = amount * budgetShare(id);
     const count = allowance / Math.max(1, PRICES[id] || itemValue(id));
-    // Magic and timber seeds round up to fill the allowance. Fruit saplings
+    // Mushrooms, magic and timber seeds round up to fill the allowance. Fruit saplings
     // still award one tree; a T2 acorn draw can now pay a small planting stack.
-    const roundUp = ITEM_BY_ID[id].kind === 'magic' || ITEM_BY_ID[id].plants === 'tree';
+    const roundUp = id === 'mushroom' || ITEM_BY_ID[id].kind === 'magic' || ITEM_BY_ID[id].plants === 'tree';
     return Math.min(cap(id), Math.max(1, roundUp ? Math.ceil(count) : Math.floor(count)));
   }
   function gearSlots(group) {

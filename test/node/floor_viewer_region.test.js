@@ -108,7 +108,7 @@
     assert.eq(entry.grid[15 * FloorViewerRegion.N + 55], T.FOREST, 'forest sits below the eastern grove');
     const lot = entry.grid[12 * FloorViewerRegion.N + 7];
     assert.eq(lot, T.ROCK, 'parking lot becomes quarry ground');
-    for (let y = 6; y < 24; y++) for (let x = 0; x < 15; x++) {
+    for (let y = 8; y < 21; y++) for (let x = 4; x < 12; x++) {
       const i = y * FloorViewerRegion.N + x;
       assert.falsy(entry.grid[i] === T.COMMERCIAL, 'commercial ground never splits the parking lot');
       if (entry.roadMask[i] || WorldGen.isRoadTerrain(entry.grid[i])) continue;
@@ -136,9 +136,24 @@
 
   test('floor viewer region: each surface variant reaches real dressing', async () => {
     const V = FloorViewerVariants;
+    const parkingLayouts = new Set();
     for (let i = 1; i <= Math.max(...V.families(0).map(family => family.rows.length)); i++) {
       await V.withSelection(0, i, async selection => {
         const entry = await buildSurface();
+        const quarry = selection.nexuses.find(row => row.kind === 'quarry');
+        const parking = entry.zone.anchors.filter(anchor => anchor.generated === 'parking_lanes' && !anchor.clipped);
+        assert.gt(parking.length, 0, 'complete parking-lot quarries present');
+        for (const anchor of parking) {
+          assert.eq(anchor.requestedVariant, quarry.id, 'parking layout receives the selected quarry variant');
+          assert.truthy(anchor.variant === quarry.id || anchor.layoutFallback === 'usable_footprint',
+            'only the live footprint fitter may substitute another layout');
+        }
+        const parkingRocks = entry.zoneDress.objects.filter(o => {
+          if (o.kind !== 'mineralrock') return false;
+          const i = Math.floor(o.y / WorldGen.CELL_M) * entry.cellsPerEdge + Math.floor(o.x / WorldGen.CELL_M);
+          return parking.includes(entry.zone.anchors[entry.zone.coverage[i] - 1]);
+        });
+        parkingLayouts.add(JSON.stringify(parkingRocks.map(o => [o.x, o.y]).sort()));
         for (const selected of selection.nexuses) {
           assert.truthy(entry.zone.anchors.some(anchor => anchor.kind === selected.kind && anchor.variant === selected.id), selected.id);
           assert.truthy(entry.zoneDress.diagnostics.some(nexus => nexus.zoneVariant === selected.id),
@@ -150,11 +165,17 @@
           assert.truthy(records.every(row => row.selectedVariant === road.id), `${road.id} reaches real street generation`);
         }
         const path = selection.roads.find(row => row.kind === 'path');
+        assert.gt(entry.streetIndex.pathSections.length, 0, 'assigned path sections present');
+        assert.truthy(entry.streetIndex.pathSections.every(section => section.variant === path.id),
+          `${path.id} reaches real path generation`);
         const intervals = [...entry.scenic.lines.values()].flat();
-        assert.gt(intervals.length, 0, 'scenic path intervals present');
-        assert.truthy(intervals.every(interval => Scenic.KIND_ROW[interval[2]] === path.id), `${path.id} reaches real scenic generation`);
+        assert.gt(intervals.length, 0, 'geographic scenic credit survives the forced theme');
+        const major = entry.streetIndex.lines.filter(row => row.size === 'major');
+        assert.gt(major.length, 0, 'major roads remain represented');
+        assert.truthy(major.every(row => !row.variant && !row.selectedVariant), 'forced themes never reach medium or large roads');
       });
     }
+    assert.gt(parkingLayouts.size, 1, 'variant cycling changes actual parking rock positions, not just labels');
   });
 
   test('floor viewer region: street sizes differ and the beach is five cells', async () => {

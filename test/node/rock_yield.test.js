@@ -60,28 +60,17 @@ PRV.forEach((variant, v) => {
   });
 });
 
-test('plain cover rocks use complete boulders while preserving all four drop slots', () => {
+test('shared rock art preserves all four legacy drop slots', () => {
   assert.eq(PRV.map(v => v.stones).join(','),'2,1,1,1');
   const appearance = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
   for (let v = 0; v < PRV.length; v++) {
     const o = {kind:'mineralrock',rockVariant:v,yieldTier:1};
-    const art = SpriteLayout.mineralRockArt(o), resolved = appearance.resolveAppearance(o);
-    assert.eq(art.sheet,'mineralboulder');
-    assert.eq(art.frame,v === 0 ? 60 : 45);
-    assert.eq(resolved.texKey,art.sheet);
-    assert.eq(resolved.frameVal,art.frame);
-    assert.eq(resolved.scl,art.scale);
-    const b = SpriteLayout.ART_BOUNDS[`${art.sheet}:${art.frame}`];
-    assert.eq(b.fw,32,'full two-column frame prevents sliced boulders');
-    assert.gte((b.maxY-b.minY)*art.scale,22,'cover rock rises visibly above the old pebble art');
-    assert.gte((b.maxX-b.minX)*art.scale,30,'full-width silhouette reads as cover');
+    const resolved = appearance.resolveAppearance(o);
+    assert.eq(resolved.texKey,'rock_variants');
+    assert.eq(resolved.frameVal,mineralRockArtFrame(o));
+    assert.eq(resolved.scl,ROCK_VARIANT_ART.smallScale);
+    assert.eq(SpriteLayout.plainRockStones(o),PRV[v].stones);
   }
-  for (const tier of [2,3,4,5,6,7]) {
-    const art = SpriteLayout.mineralRockArt({yieldTier:tier});
-    assert.eq(art.sheet,'mineralboulder');
-    assert.eq(art.frame,46+mineralRockFrame(tier),'ore hue follows the existing bar identity');
-  }
-  assert.eq(SpriteLayout.mineralRockArt({deposit:'crystal'}),CRYSTAL_DEPOSIT.art);
 });
 
 // --- The variant is the world's, not the save frame's ----------------------
@@ -140,8 +129,8 @@ test('ore tiers: one table owns the frame, dropped bar and item tier', () => {
     'every ore-bearing tier has one identity row');
   assert.eq(rows.map(([, row]) => row.rockFrame).join(','), '0,1,2,3,5,7',
     'the table records that frost uses blue column 7, skipping green column 6');
-  assert.truthy(/SpriteLayout\.mineralRockArt\(o\)/.test(RENDER_SRC),
-    'render asks the shared boulder art helper instead of owning a frame array');
+  assert.truthy(/frame: mineralRockArtFrame/.test(RENDER_SRC),
+    'render asks the shared material art helper instead of owning a frame array');
   assert.truthy(/const primaryBar = mineralBarId\(t\)/.test(INTERACTABLES_SRC),
     'the payout asks the table helper instead of owning a bar array');
   assert.falsy(/ORE_COL_BY_TIER/.test(RENDER_SRC) || /const BARS =/.test(INTERACTABLES_SRC),
@@ -262,6 +251,26 @@ test('plain rock: steeper bar rarity keeps copper and makes Frost three times ra
       const save = { relics: { pickaxe: { tier: 7 } } };
       INTERACTABLES.mineralrock.complete(makeCtx(scene, save), { kind: 'mineralrock', id: `ore-${tier}`, yieldTier: tier });
       assert.eq(scene.invCount(bars[tier]), 1, 'named ore still guarantees its primary bar');
+    }
+  } finally { Math.random = original; }
+});
+
+
+test('flint-bearing rocks: visible seams guarantee one flint and still yield stone', () => {
+  assert.eq(mineralRockMaterial({ rockMaterial: 'flint', requiredTier: 2 }), 'copper', 'ore precedence stays intact');
+  assert.eq(mineralRockMaterial({ rockMaterial: 'flint', deposit: 'ruby' }), 'ruby', 'gem precedence stays intact');
+  const original = Math.random;
+  Math.random = () => .99; // No lucky flint, bars or glint findings.
+  try {
+    for (const extra of [{ yieldTier: 1 }, { caveVariant: 1 }]) {
+      const scene = makeScene();
+      const o = { kind: 'mineralrock', id: 'flint-seam', x: 0, y: 0, rockMaterial: 'flint', ...extra };
+      assert.eq(mineralRockMaterial(o), 'flint');
+      assert.eq(mineralRockArtFrame(o), 2);
+      assert.eq(runInteractable(makeCtx(scene, { relics: {} }), o), true);
+      assert.eq(scene.invCount('flint_shard'), 1, 'a seam is guaranteed without luck');
+      assert.eq(scene.invCount('rubble'), SpriteLayout.plainRockStones(o));
+      assert.truthy(scene.brokenRockSet.has(o.id));
     }
   } finally { Math.random = original; }
 });

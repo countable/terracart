@@ -4,8 +4,22 @@ Detail doc for world generation, saves and placement precedence. The root
 `CLAUDE.md` owns the overview; read this before changing generation, spawn
 access or tile lifecycle mechanics.
 
+## Surface rocks
+
+- After zone and scenic dressing, `assignSurfaceBoulder` selects roughly one
+  eighth of plain natural mineral rocks from their stable ids. Boulders retain
+  their mining identity and yield. Ore, gem deposits, cave rocks, roadside rocks
+  and connected zone walls are excluded from this size selection. Selected
+  rocks carry `sightBlocking: true`; ordinary stones stay small and leave sight
+  clear. Shared rocks use neutral grey material artwork, with authored zone signatures
+  and optional zone tints for the supported places.
+
 ## Habitat populations
 
+- Ambient animal budgets share `HabitatSpawns.FAUNA_DENSITY`: ordinary landcover,
+  road roamers, and ordinary shoreline fauna use 70% of their base counts,
+  rounded to whole animals. Nexus populations, enemies, authored formations, starter guarantees,
+  saved animals and pets keep their existing counts.
 - `src/habitat_spawns.js` owns fauna mixtures, landcover/variant resolution and
   population budgets. Nexus coverage wins, then a declared Road Variant,
   then ordinary landcover. `streetAreaVariants` records the winning variant
@@ -18,6 +32,11 @@ access or tile lifecycle mechanics.
   exhaust that pool within the same habitat. Forbidden ground is missing map
   area, not a roll that thins the population. A species with no sufficient
   legal space reports a placement shortfall without switching habitat/species.
+- Synthetic floor previews set `scene.habitatTileAreaScale` to their tile area
+  divided by a real map tile's area at the preview latitude. This scales only
+  ordinary fauna, enemy and mode-reserve budgets before placement. Live scenes
+  default to 1; Nexus, road, shoreline and authored encounter budgets keep
+  their own rules.
 - Mode differences in landcover enemy count are a reserve, not a reroll: the
   world seats the largest `Difficulty` `landEnemyCountMul` share
   (`enemy_habitat_…_r<n>` ids) after the base population, and each mode shows
@@ -33,10 +52,14 @@ access or tile lifecycle mechanics.
   Rabbits have ordinary surface populations. Cat exclusion from Wasteland, Deer restriction
   to Forest/Residential, and Butterfly exclusion from Forest/Orchard remain
   species placement limits.
-- Shore length is a specialized habitat budget. Ordinary and declared Beach/
-  Marine Meadow owners partition raw shoreline; safety only removes destinations.
-  Beach owners supply native Crabs/Turtles/Gulls and count authored inhabitants before
-  filling remaining slots. `entry.shorePopulation` records placement shortfalls.
+- Shore length is a specialized ambient budget outside Nexus coverage. Every
+  Nexus keeps its own declared inhabitants and excludes generic shoreline
+  top-ups, including after captures. Safety only removes destinations;
+  `entry.shorePopulation` records placement shortfalls.
+- Beach Nexus influence has a hard ten-cell radius (about a 20×20-cell
+  extent), including ragged edges and park-derived beach companions. Larger
+  mapped beaches remain ordinary sand outside that cap, with normal beach
+  spawning. Other Nexus kinds retain their existing coverage rules.
 - The former species-first draw stream is replayed only to preserve unrelated
   tile treasure RNG and map old cell-based enemy defeats to new stable habitat
   identities. Historical fauna counts are compatibility inputs, not current
@@ -62,6 +85,13 @@ access or tile lifecycle mechanics.
   is reevaluated after dusk and dawn, including specialized Metal Slimes.
 
 ## Generation, saves and tiles
+
+- After surface POI placement settles, `assignScholarFallback` upgrades one
+  surviving Scriptorium (library or college) to a Scholar when the tile has no
+  Scholar. The smallest stable object id wins, independent of input order or
+  player progress. This service override preserves the source POI class, id,
+  treasure rules and underground chest mirrors; existing school Scholars take
+  precedence. Selection precedes live overlays and never depends on visits.
 
 - Spider webs save their absolute cell, world position, depth and wall-clock
   expiry in `save.spiderWebs`. They survive reloads and tile eviction until
@@ -115,14 +145,24 @@ access or tile lifecycle mechanics.
 - A per-floor rule - rope seals, fall seals, hazards, lighting levels - reads
   one owning table keyed by floor, never a depth literal at a call site.
   `WorldGen.floorProfile(depth)` owns cave terrain, street projection and gem
-  probabilities, authored cave-area weights/carving/garrisons, pressure traps,
+  probabilities, flint-bearing rock frequency, authored cave-area weights/carving/garrisons, pressure traps,
   the vent kinds a floor erupts,
-  arrival story IDs and entry keys. Keep story copy in the presentation module;
+  arrival story IDs and entry keys. The terrain ladder is city 2, clearings 3,
+  open fungal 4, haunted surface mirror 5, lava 6, and dragon mirrors 7–8.
+  Clearing rewards carry the receiving depth; biome tints follow the profile.
+  Keep story copy in the presentation module;
   choose its story through the profile. Depths beyond the explicit rows inherit
   the default profile, including the infernal entry key.
   `DungeonProgression.ROPE_SEALED_FLOORS` is the pattern (the rope, the
   sinkhole minting and the fall check all read it); lighting already derives
   its per-floor ambience from depth (`Lighting.profile`, `litDim`).
+
+- Flint Field's central disk contains mineable flint-bearing rocks instead of
+  loose pickups. Visible flint seams yield stone and one guaranteed flint.
+  L1 marks a quarter of ordinary ambient rocks as flint-bearing using stable
+  rock IDs and `floorProfile(depth).flintRockP`; placement and ore rolls retain
+  their existing seeded streams. Other floors and loose tar-zone flint keep
+  their existing rules.
 
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
@@ -156,7 +196,7 @@ access or tile lifecycle mechanics.
   are fixed T5 outside the budget; a Nexus chest can win a seat without
   spending one (+1 on top). Each underground floor re-seats its own pyramid over
   its mirrors (the rank rides down), and the cap CLIMBS underground
-  (`loot.js chestTierMaxFor`: T6 from depth 3, T7 from 6) while the depth
+  (`loot.js chestTierMaxFor`: T6 from depth 4, T7 from 7) while the depth
   bonus stays `+floor(depth/2)`. Unseeded chests (hand-placed, sandbox) are
   the unstamped T2 - the old count ladder is retired, and `o.poiDensity`
   now only feeds restock days and POI coin bursts. Breakable pots and
@@ -272,8 +312,8 @@ access or tile lifecycle mechanics.
   spawner. Authored Thorny Path, Snare Lane and Barricade Road cross-sections are the
   narrow exception: `streetObstacle` may occupy explicitly declared cells
   of its own road band. Thorny Path and snare clusters (and a Snare Lane's few lone stray snares, declared one band cell at a time) cross variant-eligible Small roads only; removable
-  barricade/spike lines also cross their own Major or Medium road band
-  and kerb buffer. All keep
+  barricade/spike lines belong on paths. Every authored cross-section refuses
+  Major/Medium road bands and their kerb buffers. All keep
   private, quiet, restricted, water/building and occupancy exclusions. Ordinary
   spawn classes cannot use that declaration to cross a road.
   POI chests are the place itself (`landRefused` —
@@ -286,6 +326,64 @@ access or tile lifecycle mechanics.
   (`sameSideField`, creature_ai.js) — nothing urgent across a Major or Medium road.
   Cave traps use their occupied-cell set; surface traps sit beside footpaths
   or on park edges, never near a road (`Traps.isTrapGround`).
+- Path variant assignment joins connected mapped fragments and balances natural
+  endpoints, nearby terrain/Nexus affinity and a soft 300 m length target.
+  Ordinary sections are at least 180 m and at most 550 m; forks and true ends
+  retain short branches. Every 20 m, sample beside the path using source ground
+  and Nexus traits. A dominant affinity change must persist 40 m on both sides
+  to attract a cut. Source endpoints and pronounced bends are also preferred;
+  interpolated cuts keep long uniform spans bounded. Choose cuts together to
+  avoid short leftovers. Theme affinity uses the same surrounding traits.
+  Section keys use their boundary coordinates and mapped level rather than an
+  ordinal, so an unchanged downstream section keeps its identity. Boundary
+  reasons and lengths are exposed in the map review viewer.
+  `streetIndex.pathSections` owns their geometry, stable
+  keys, source feature IDs and themes;
+  isolated short paths and tile-edge remnants stay short. Exact T-junctions are joined even when a source line omits the junction
+  vertex. Nearby disconnected endpoints are not snapped together. At forks, the
+  straightest continuation is preferred deterministically. Different mapped
+  levels and bridge/tunnel classes never join, and disconnected geometry
+  never joins just because it shares a feature ID. Sections are tile-local;
+  generation never depends on which neighbouring tiles are loaded.
+  Path sections have their own weighted pool: mostly Greenway, Park Path and
+  Promenade, with occasional Lantern Row and Barricade and a rare Golden Path
+  (2% base weight, taken from Park Path). Golden Path uses Golden Road’s
+  daily shrine reward. A shrine is seated at each end where safe ground permits;
+  both use the section key for one shared daily activation and the same coin
+  seats, so either direction works without a second payout. At most one coin
+  seat per cell is sampled along the
+  exact path centreline, never snapped to cell centres or placed on verges.
+  Occupancy and spawn restrictions leave gaps; path-authored seats survive
+  Nexus crossings. Scenic overrides still apply. Small-road variants
+  never enter that pool. A majority-scenic section uses its landscape's look. Scenic restoration bonuses still follow the
+  original geographic intervals. Painting, dressing, lamps, stories and map
+  review all consume the same section assignment.
+- Nexus interiors suppress Small-road variants using exact coverage-boundary
+  intervals shared by pavement, lamps, stories and hazards. The selected theme
+  and its stable identity survive; only outside portions receive themed
+  dressing. Coverage also clips area claims and hot-road end caps. Paths keep
+  their light paving and lamps inside, but Nexus vegetation and encounters
+  take precedence: ordinary path/road props, guards and slow effects yield.
+  Affinity is sampled before suppression. Nexus influence follows connected
+  routes for up to 150 m, fading with route distance; parallel disconnected
+  roads and different bridge/tunnel levels do not inherit it. The path pool's
+  normal weights live on its rows as `pathWeight`; Small roads retain `share`.
+- Medium roads are always **Old Trade Road**, and large roads are always
+  **Ancient Highway**. Neither receives road variants, themed obstacles,
+  themed guards or variant flora. Both retain road suppression and nighttime
+  curse damage. Selected mapped bus stops off the MD carriageway can retain
+  mercenary hiring wagons; LG roads and junctions cannot. Ordinary mapped
+  places keep their existing rules.
+- Parking lots join the existing MD/LG safety region (`ROAD_CLASS_MAJOR_BUFFER`,
+  stamped into the spawn gate as `KERB`) without acquiring a road surface or
+  the standing-on-carriageway warning. Mapped parking polygons supply their
+  footprint; retained tagged/inferred parking aisles use the lot detector's
+  12 m radius, and non-streetside parking POIs its 30 m radius. Repainting a
+  lot as a Quarry Nexus preserves this suppression. Fast movers cannot spawn
+  or enter; traps, whirlwinds, vents, sinkholes and cave-ins use the `hazard`
+  gate, including authored crater lava. Suppressing its lava leaves a dry
+  crater without removing its finds or altar. At night the same region supplies the blood aura, interaction hiding
+  and energy drain. Ordinary static content keeps its existing access rules.
 - The road is never a refuge and never a lure. `roadClass` derives all safety
   geometry from the vector bands. `ROAD_CLASS_MAJOR_ROAD` marks an MD/LG cell
   only when that group covers at least half of it, which gives runtime warnings
@@ -479,8 +577,25 @@ Higher-priority placements and their access space take precedence in this order:
    replaces residential land cover and ambient yard fill, while buildings,
    piers and other land-access exclusions keep their paint. Nexus variants
    override road variants where they overlap; the physical road and its
-   safety restrictions remain intact.
+   safety restrictions remain intact. Goblin Gang Street is a Small-road
+   variant with compact sections up to 250 m. Per street key in a tile, six
+   paired clusters target 30 breakable barrels and 30 goblin grunts (five
+   per gang, in either difficulty). Fragments share that budget; blocked
+   seats reduce the count. Barrels use the attractor gate, and gang posts
+   and their guards retain the fast-enemy spawn gate.
 6. Ambient fill: ordinary plants, rocks and generic scattered content.
+   Forest landcover scatters pine only; wooded park characters scatter maple
+   only, from their `BiomeProfiles` rows. Both mark `treeSpeciesFixed` so
+   the near-home softwood overlay preserves their habitat. Species changes
+   do not consume random draws or move trees. Residential yards keep their
+   mixed maple/pine selection. Imported ordinary trees on forest cells become pine.
+   Authored park/Nexus coverage already excludes imported trees and keeps
+   its own tree choices; fruit trees keep their species. Outside forests,
+   mapped trees retain their original mix.
+   Tree-bearing street variants declare their timber species on the variant
+   row: Overgrown uses pine and Orchard uses maple alongside its fruit trees.
+   Street timber also marks `treeSpeciesFixed`, so its type stays consistent
+   through the starter area. Unfixed trees keep the existing near-home pine rule.
    Residential yard trees are the newest ambient fill: while the DeepForest
    layer is paused (`DEEPFOREST_TREES_ENABLED`), each residential polygon
    seeds random-sized trees from the `T.RESIDENTIAL` `yardTrees` row
@@ -506,9 +621,10 @@ Higher-priority placements and their access space take precedence in this order:
   ability to share interactable cells and their terrain/road restrictions.
   Nexus coverage also excludes ordinary beach bottles, tide reservations and
   generic fauna. Within it, `HabitatSpawns` supplies the variant's declared
-  fauna, including native shore species on declared Beach/Marine Meadow owners;
-  arrangement stays within the winning owner. Underlying landcover does not
-  supply an additional population.
+  fauna; arrangement stays within the winning owner. Underlying landcover
+  and generic shoreline rules do not supply an additional population.
+  A path crossing a Nexus retains its own path-generated content; this
+  exception never admits ordinary road or biome spawns.
 - Resolve equal-priority generated claims using stable world-space feature keys
   and buffered geometry, never iteration order, tile-load order or save state.
   Apply saved-player changes as overlays without rerolling the generated world.

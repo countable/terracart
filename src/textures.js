@@ -124,7 +124,7 @@ const BIOME_TEX = {
   8:  { variants: 2, draw: drawPathTex },         // path: pebble grain
   9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
   11: { variants: 1, draw: drawWoodFloorTex },    // building_med: wooden plank floor
-  12: { variants: 2, draw: drawCastleFloorTex },  // building_large / castle: subtle stone cobbles
+  12: { variants: 2, draw: drawCastleFloorTex },  // building_large / castle: square and double stone slabs
   10: { variants: 2, patternOpacity: 0.9, draw: drawRockTex },         // rock: cracks
   // Subtype splits — each biome gets its own low-res texture so it reads
   // qualitatively different from the others (see src/biome_profiles.js for the
@@ -580,22 +580,46 @@ function drawBuildingTex(ctx, size, rng) {
 }
 
 function drawCastleFloorTex(ctx, size, rng) {
-  // Subtle stone cobbles for the castle court — coarser and much fainter
-  // than the house cobble (drawBuildingTex) so the paving reads without
-  // competing with the bright rampart walls. Drawn as a transparent overlay
-  // baked over the slate base colour.
+  // Join one pair of quarter-cell slabs at bake time: one half-cell slab and
+  // two squares, with no extra textures or runtime geometry. Keep outer joints.
   ctx.clearRect(0, 0, size, size);
-  const step = 8;
-  for (let row = 0; row * step < size + step; row++) {
-    const offset = (row % 2) * (step / 2);
-    for (let col = 0; col * step < size + step; col++) {
-      const cx = col * step + offset + (rng() - 0.5) * 2;
-      const cy = row * step + step / 2 + (rng() - 0.5) * 2;
-      const r = 2.6 + rng() * 0.8;
-      dot(ctx, cx, cy, r, 'rgba(0,0,0,0.15)');
-      dot(ctx, cx - 0.7, cy - 0.7, r - 1.4, 'rgba(255,255,255,0.08)');
+  const step = size / 2;
+  const horizontal = rng() < 0.5, pair = rng() < 0.5 ? 0 : 1;
+  for (let row = 0; row < 2; row++) {
+    for (let col = 0; col < 2; col++) {
+      const joined = horizontal ? row === pair : col === pair;
+      if (joined && (horizontal ? col : row) === 1) continue;
+      const w = joined && horizontal ? size : step;
+      const h = joined && !horizontal ? size : step;
+      ctx.fillStyle = `rgba(255,255,255,${0.015 + rng() * 0.025})`;
+      ctx.fillRect(col * step + 1, row * step + 1, w - 1, h - 1);
     }
   }
+  function seam(isHorizontal, at) {
+    const outer = at === 0;
+    const gaps = [0, 1].map(() => Math.floor(step * (0.38 + rng() * 0.24)));
+    for (let i = 0; i < size; i++) {
+      // Omit the shared edge, including its bevel, inside the double slab.
+      if (!outer && isHorizontal !== horizontal && i > pair * step
+          && i < (pair + 1) * step) continue;
+      const along = i % step, distance = Math.min(along, step - along);
+      // Horizontal seams own intersections, avoiding doubled dark pixels.
+      if (!isHorizontal && along === 0) continue;
+      const gap = gaps[Math.floor(i / step)];
+      const worn = along >= gap && along < gap + 2;
+      const alpha = distance <= 1 ? (outer ? 0.27 : 0.17)
+        : distance <= 3 ? (outer ? 0.17 : 0.10)
+        : worn ? (outer ? 0.025 : 0.012) : (outer ? 0.10 : 0.05);
+      ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+      ctx.fillRect(isHorizontal ? i : at, isHorizontal ? at : i, 1, 1);
+      if (distance > 1 && !worn) {
+        ctx.fillStyle = `rgba(255,255,255,${outer ? 0.055 : 0.025})`;
+        ctx.fillRect(isHorizontal ? i : at + 1, isHorizontal ? at + 1 : i, 1, 1);
+      }
+    }
+  }
+  seam(true, 0); seam(true, step);
+  seam(false, 0); seam(false, step);
 }
 
 function drawWoodFloorTex(ctx, size, rng) {

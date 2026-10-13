@@ -152,6 +152,22 @@ test('HomeArea.softwoodSpeciesNear: forces pine near spawn at every tree size', 
 });
 
 // ── Boots: stick walking ─────────────────────────────────────────────────────
+test('HomeArea.applySoftwood preserves habitat and street species', () => {
+  const previous = HomeArea.worldM;
+  try {
+    HomeArea.setOrigin(0, 0);
+    const trees = [
+      { kind: 'tree', x: 1, y: 1, species: 'maple', treeSpeciesFixed: true },
+      { kind: 'tree', x: 2, y: 2, species: 'maple', treeSpeciesFixed: true, _street: 'orchard' },
+      { kind: 'tree', x: 3, y: 3, species: 'maple', _yardTree: true },
+      { kind: 'fruittree', x: 4, y: 4, species: 'apple' },
+    ];
+    assert.eq(HomeArea.applySoftwood(trees), 1, 'only the ordinary yard tree takes starter softwood');
+    assert.eq(trees.map(o => o.species).join(','), 'maple,maple,pine,apple');
+    assert.eq(HomeArea.applySoftwood(trees), 0, 'the overlay is idempotent');
+  } finally { HomeArea.worldM = previous; }
+});
+
 // The stick is always present and always works; boots improve both curves.
 // Both curves therefore have to answer for bare feet (tier 0).
 
