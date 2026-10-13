@@ -360,8 +360,8 @@ test('fire ward: grounded foes share the depth-cap predicate on the one mover', 
   assert.truthy(enemyCanStep(scene, { kind: 'spider' }, EnemyRoster.get('spider'), 0, 0),
     'a spider (depth 2) walks through firelight');
   for (const row of EnemyRoster.ROWS) {
-    assert.eq(fireAverse({ kind: row.id }, row), !Conditions.flying({ kind: row.id }) && (row.cave?.minDepth ?? 1) <= FIRE_WARD_MAX_DEPTH,
-      `${row.id}: flight bypasses fire contact; grounded foes use the cave-depth cap`);
+    assert.eq(fireAverse({ kind: row.id }, row), !Conditions.flying({ kind: row.id }) && !row.fireImmune && (row.cave?.minDepth ?? 1) <= FIRE_WARD_MAX_DEPTH,
+      `${row.id}: flight and fire immunity bypass fire contact; susceptible grounded foes use the cave-depth cap`);
   }
   assert.truthy(enemyCanStep(scene, { kind: 'goblin' }, EnemyRoster.get('goblin'), 0, 0));
   const loop = SCENE_SRC.slice(SCENE_SRC.indexOf('  wanderCreatures() {'), SCENE_SRC.indexOf('  _crowDepart('));

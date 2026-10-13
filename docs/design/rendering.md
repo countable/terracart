@@ -38,11 +38,18 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   vertical half-cell slab, with both positions represented. Polygon courtyards
   scatter those variants across a cached eight-cell-square repeat; tiled floors
   choose them from a mixed world-cell hash. The pattern stays fixed while the
-  camera moves. Tiles have darker junctions, worn stretches and quiet bevels. Inner
-  seams are lighter than cell boundaries, keeping cells legible beside the
-  smaller road cobbles.
+  camera moves. Each joint uses one recessed pixel, with quiet worn stretches
+  and stronger corners. Polygon courtyards use these stone seams without a
+  second cell-grid overlay.
   Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
-  renderers; polygon corners use bounded bevel joins.
+  renderers; polygon corners use bounded bevel joins with faces beneath them.
+  Merlons have low rectangular tops spanning the full wall-cap width, with both
+  opposing faces flush with the wall below at every angle. Their length along
+  the wall is independent of its thickness. Full end blocks reach each corner;
+  the rear highlight stays inside the cap silhouette. Polygon wall bodies and
+  crenellations use separate cached passes, with every body drawn before the
+  crowns so adjacent wall sections cannot cover a crenellation top. Castle wall
+  bodies omit mid-wall shadow stripes; the bottom silhouette and a quiet rear highlight define the edge.
 - Standing objects fade to half their normal opacity only when their art overlaps
   the player's inset body box and their world depth draws them in front. The
   overlap uses cached trimmed `ART_BOUNDS`, with frame bounds for procedural
