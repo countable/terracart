@@ -1,7 +1,7 @@
 // Any ground variant may neighbour any other. A feature crossing an edge
 // must continue into every variant, not only a repeat of its own texture.
 (() => {
-  const painters = new Function('lerp', TEXTURES_SRC + '\nreturn { drawForestTex, drawSandTex, drawWetlandTex, seededRand };')(
+  const painters = new Function('lerp', TEXTURES_SRC + '\nreturn { drawForestTex, drawSandTex, drawWetlandTex, drawCastleFloorTex, seededRand };')(
     (a, b, t) => a + (b - a) * t);
   const size = 32;
   function draw(name, seed) {
@@ -12,9 +12,9 @@
       arc(x, y, r) { arcs.push({ x, y, r, ink: this.fillStyle }); }, fill() {},
       moveTo(x, y) { path.push([x, y]); }, lineTo(x, y) { path.push([x, y]); },
       stroke() { strokes.push({ path, ink: this.strokeStyle, width: this.lineWidth }); },
-      fillRect(x, y, w, h) { rects.push({ x, y, w, h }); },
+      fillRect(x, y, w, h) { rects.push({ x, y, w, h, ink: this.fillStyle }); },
     };
-    painters[name](ctx, size, painters.seededRand(seed));
+    painters[name](ctx, size, typeof seed === 'function' ? seed : painters.seededRand(seed));
     return { arcs, strokes, rects };
   }
   const edgeArcs = arcs => arcs.filter(({ x, y, r }) => x - r < 1 || y - r < 1 || x + r > size - 1 || y + r > size - 1);
@@ -56,6 +56,30 @@
       }
     });
   }
+  test('ground seams: castle joints have one quiet line with stronger corners', () => {
+    for (let layout = 0; layout < 16; layout++) {
+      let first = true;
+      const { rects } = draw('drawCastleFloorTex', () => {
+        if (!first) return 0.5;
+        first = false;
+        return layout / 0xffffffff;
+      });
+      const joints = rects.filter(r => r.w === 1 && r.h === 1);
+      const pixels = new Set();
+      for (const { x, y, ink } of joints) {
+        assert.truthy(ink.startsWith('rgba(0,0,0,'), 'joints have no parallel highlight strip');
+        assert.truthy(x % 16 === 0 || y % 16 === 0, 'each joint is only one pixel wide');
+        const pixel = `${x},${y}`;
+        assert.falsy(pixels.has(pixel), 'intersections paint once, avoiding doubled opacity');
+        pixels.add(pixel);
+      }
+      const alpha = (x, y) => Number(joints.find(r => r.x === x && r.y === y).ink.split(',')[3].slice(0, -1));
+      assert.lte(alpha(5, 0), 0.05, 'cell-boundary middles stay understated');
+      assert.gt(alpha(0, 0), alpha(5, 0) * 4, 'corners retain the stone shape');
+      assert.eq(rects.filter(r => r.w > 1 && r.h > 1).length, layout < 4 ? 3 : 4,
+        'occasional joined pairs preserve mostly quarter-cell slabs');
+    }
+  });
   test('ground seams: marsh reeds fit entirely within the cell', () => {
     for (let seed = 1; seed <= 40; seed++) {
       for (const { x, y, w, h } of draw('drawWetlandTex', seed).rects) {

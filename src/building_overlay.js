@@ -672,6 +672,14 @@
               const previousNy = (a.x - previous.x) / previousLength * winding;
               const previousOuter = { x: a.x, y: a.y - cap * (1 + previousNy) };
               const previousInner = { x: a.x + previousNx * cap, y: a.y - cap };
+              const previousFront = previousNy > 0 ? previousInner : previousOuter;
+              // The bevel needs a vertical face too: joining only the roof
+              // leaves a daylight gap beneath angled and concave corners.
+              if (Math.abs(previousFront.x - fp.x) > 1e-6) {
+                quad(previousFront, fp, down(fp, depth), down(previousFront, depth), face);
+                quad(down(previousFront, depth - 1), down(fp, depth - 1),
+                  down(fp, depth), down(previousFront, depth), outline);
+              }
               quad(previousOuter, op, ip, previousInner, stone.top);
             }
           }
@@ -707,12 +715,23 @@
             const crest = ny < 0 ? inner : outer;
             const v = crest({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
             if (damage && damage.missing === tooth % 4) continue;
-            ctx.fillStyle = cssOf(face);
-            ctx.fillRect(Math.round(v.x), Math.round(v.y - rampart.toothHeight), rampart.toothWidth, rampart.toothHeight);
-            ctx.fillStyle = cssOf(stone.lite);
-            ctx.fillRect(Math.round(v.x), Math.round(v.y - rampart.toothHeight - 2), rampart.toothWidth, 2);
-            ctx.fillStyle = cssOf(stone.style.stone.SHADOW);
-            ctx.fillRect(Math.round(v.x) + rampart.toothWidth - 1, Math.round(v.y - rampart.toothHeight), 1, rampart.toothHeight);
+            // A tooth follows the crest, rather than touching an angled
+            // wall at the corner of an axis-aligned rectangle. Its shallow
+            // footprint also keeps the side-wall teeth visibly attached.
+            const endT = Math.min(1, t + rampart.toothWidth / length);
+            const end = crest({ x: a.x + (b.x - a.x) * endT, y: a.y + (b.y - a.y) * endT });
+            const toward = ny < 0 ? -1 : 1;
+            const front = v => ({ x: v.x + nx * toward * 2, y: v.y + ny * toward * 2 });
+            const base = [v, end, front(end), front(v)];
+            const roof = base.map(v => down(v, -rampart.toothHeight));
+            const toothWinding = winding * toward;
+            for (let edge = 0; edge < 4; edge++) {
+              const next = (edge + 1) % 4;
+              if ((base[edge].x - base[next].x) * toothWinding <= 1e-6) continue;
+              quad(roof[edge], roof[next], base[next], base[edge],
+                edge === 2 ? face : stone.style.stone.SHADOW);
+            }
+            quad(roof[0], roof[1], roof[2], roof[3], stone.lite);
           }
         } else {
         // Extrude this edge downward, then remove its part inside the floor.
@@ -973,7 +992,9 @@
       }
       // The cell grid goes on OVER the floor and its material: a hairline this
       // faint loses to a cobble or plank pattern laid on top of it.
-      if (g.gridPoly) g.gridPoly(d.pts, gridInkFor(GRID, floor));
+      // Castle paving already carries its cell seams. A second lattice
+      // beside those joints makes the stones read as doubled outlines.
+      if (g.gridPoly && d.tier !== CASTLE) g.gridPoly(d.pts, gridInkFor(GRID, floor));
       if (d.columns.length && g.columnsPoly) g.columnsPoly(d.pts, d.columns, isMine);
       // Wall sections stay in the building background.
       if (separateUprights) {

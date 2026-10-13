@@ -38,11 +38,13 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   vertical half-cell slab, with both positions represented. Polygon courtyards
   scatter those variants across a cached eight-cell-square repeat; tiled floors
   choose them from a mixed world-cell hash. The pattern stays fixed while the
-  camera moves. Tiles have darker junctions, worn stretches and quiet bevels. Inner
-  seams are lighter than cell boundaries, keeping cells legible beside the
-  smaller road cobbles.
+  camera moves. Each joint uses one recessed pixel, with quiet worn stretches
+  and stronger corners. Polygon courtyards use these stone seams without a
+  second cell-grid overlay.
   Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
-  renderers; polygon corners use bounded bevel joins.
+  renderers; polygon corners use bounded bevel joins with faces beneath them.
+  Merlon bases follow the wall crest at every angle, with shallow caps and
+  vertical faces that remain attached to the wall.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.

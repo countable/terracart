@@ -356,6 +356,15 @@ test('building overlay: the ground grid continues across a footprint', () => {
   assert.eq(seq.indexOf('grid') > seq.indexOf('texture'), true, 'and over the material');
 });
 
+test('building overlay: castle paving supplies its seams without a second grid', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'citadel')]);
+  const scene = makeScene();
+  BuildingOverlay.draw(scene);
+  assert.eq(scene.buildingGeomGfx.only('texture').length, 1, 'paving carries its own seams');
+  assert.eq(scene.buildingGeomGfx.only('grid').length, 0, 'no additional lattice beside paving joints');
+});
+
 test('building overlay: the grid ink flips to white on a floor too dark for black', () => {
   // 8% black on a near-black unclaimed floor is nothing, and "the squares stay
   // visible" is the whole job — so the ink, and only the ink, flips.
@@ -867,7 +876,8 @@ test('building overlay: both horizontal castle boundaries expose six-pixel caps 
   BuildingOverlay.draw(scene);
   const material = buildingBackgroundMaterial(CastleStyles.get('citadel', true));
   const css = c => '#' + c.toString(16).padStart(6, '0');
-  const faces = log.polygons.filter(p => p.color === css(material.stone.FACE));
+  const faces = log.polygons.filter(p => p.color === css(material.stone.FACE)
+    && Math.max(...p.points.map(v => v.x)) - Math.min(...p.points.map(v => v.x)) > material.rampart.topDepth);
   assert.eq(faces.length, 4, 'two sections on each horizontal boundary, including the back wall');
   for (const face of faces) {
     const ys = face.points.map(p => p.y);
@@ -907,6 +917,46 @@ test('building overlay: angled and concave castle corners bridge adjacent top pl
       assert.truthy(caps.some(poly => poly.every((p, index) =>
         Math.hypot(p.x - expected[index].x, p.y - expected[index].y) < 1e-8)),
       'a filled bevel connects both neighboring top profiles at every convex and concave corner');
+      const previousFront = previous.y > 0 ? expected[3] : expected[0];
+      const nextFront = next.y > 0 ? expected[2] : expected[1];
+      if (Math.abs(previousFront.x - nextFront.x) > 1e-6) {
+        const face = [previousFront, nextFront,
+          { x: nextFront.x, y: nextFront.y + material.rampart.wallHeight },
+          { x: previousFront.x, y: previousFront.y + material.rampart.wallHeight }];
+        assert.truthy(log.polygons.some(poly => poly.color === '#' + material.stone.FACE.toString(16).padStart(6, '0')
+          && poly.points.every((p, index) => Math.hypot(p.x - face[index].x, p.y - face[index].y) < 1e-8)),
+        'a wall face supports the bevel instead of leaving a gap beneath the corner');
+      }
+    }
+  }
+});
+
+test('building overlay: merlon bases follow their caps at every wall angle and winding', () => {
+  const css = c => '#' + c.toString(16).padStart(6, '0');
+  const inside = (p, polygon) => {
+    const crosses = polygon.map((a, i) => {
+      const b = polygon[(i + 1) % polygon.length];
+      return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+    });
+    return crosses.every(c => c >= -1e-7) || crosses.every(c => c <= 1e-7);
+  };
+  for (const angle of [0, 15, 30, 45, 60, 75]) for (const reversed of [false, true]) {
+    const radians = angle * Math.PI / 180;
+    const points = [[-8, -8], [8, -8], [8, 8], [-8, 8]].map(([x, y]) =>
+      [12 + x * Math.cos(radians) - y * Math.sin(radians), 12 + x * Math.sin(radians) + y * Math.cos(radians)]);
+    if (reversed) points.reverse();
+    clearTiles();
+    putShapes(0, 0, [{ ring: Float32Array.from(points.flat()), tier: T.BUILDING_LARGE, areaM2: 256, key: 'citadel' }]);
+    const { scene, log } = makeWallScene();
+    BuildingOverlay.draw(scene);
+    const material = buildingBackgroundMaterial(CastleStyles.get('citadel'));
+    const caps = log.polygons.filter(p => p.color === css(material.stone.BODY)).map(p => p.points);
+    const roofs = log.polygons.filter(p => p.color === css(material.stone.LITE));
+    assert.gt(roofs.length, 0, 'merlons have visible roofs');
+    for (const roof of roofs) for (const v of roof.points) {
+      const base = { x: v.x, y: v.y + material.rampart.toothHeight };
+      assert.truthy(caps.some(cap => inside(base, cap)),
+        `every tooth corner is seated on stone at ${angle} degrees, reversed=${reversed}`);
     }
   }
 });
