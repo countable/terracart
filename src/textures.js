@@ -124,7 +124,7 @@ const BIOME_TEX = {
   8:  { variants: 2, draw: drawPathTex },         // path: pebble grain
   9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
   11: { variants: 1, draw: drawWoodFloorTex },    // building_med: wooden plank floor
-  12: { variants: 2, draw: drawCastleFloorTex },  // building_large / castle: square and double stone slabs
+  12: { variants: 16, draw: drawCastleFloorTex }, // castle: mostly quarters, occasional double slabs
   10: { variants: 2, patternOpacity: 0.9, draw: drawRockTex },         // rock: cracks
   // Subtype splits — each biome gets its own low-res texture so it reads
   // qualitatively different from the others (see src/biome_profiles.js for the
@@ -580,14 +580,16 @@ function drawBuildingTex(ctx, size, rng) {
 }
 
 function drawCastleFloorTex(ctx, size, rng) {
-  // Join one pair of quarter-cell slabs at bake time: one half-cell slab and
-  // two squares, with no extra textures or runtime geometry. Keep outer joints.
+  // Twelve of the sixteen baked variants keep all four quarters; the other
+  // four join one pair, covering both halves and orientations. The low bits
+  // distribute adjacent texture seeds evenly across those sixteen layouts.
   ctx.clearRect(0, 0, size, size);
   const step = size / 2;
-  const horizontal = rng() < 0.5, pair = rng() < 0.5 ? 0 : 1;
+  const layout = Math.round(rng() * 0xffffffff) % 16;
+  const combined = layout < 4, horizontal = layout < 2, pair = layout % 2;
   for (let row = 0; row < 2; row++) {
     for (let col = 0; col < 2; col++) {
-      const joined = horizontal ? row === pair : col === pair;
+      const joined = combined && (horizontal ? row === pair : col === pair);
       if (joined && (horizontal ? col : row) === 1) continue;
       const w = joined && horizontal ? size : step;
       const h = joined && !horizontal ? size : step;
@@ -600,7 +602,7 @@ function drawCastleFloorTex(ctx, size, rng) {
     const gaps = [0, 1].map(() => Math.floor(step * (0.38 + rng() * 0.24)));
     for (let i = 0; i < size; i++) {
       // Omit the shared edge, including its bevel, inside the double slab.
-      if (!outer && isHorizontal !== horizontal && i > pair * step
+      if (combined && !outer && isHorizontal !== horizontal && i > pair * step
           && i < (pair + 1) * step) continue;
       const along = i % step, distance = Math.min(along, step - along);
       // Horizontal seams own intersections, avoiding doubled dark pixels.
@@ -1417,6 +1419,17 @@ function makeCaveChasmTexture(scene, size) {
   tex.refresh();
 }
 
+function makeCastlePavingTexture(scene, size) {
+  // A larger cached repeat scatters joined slabs across polygon courtyards.
+  const cells = 8, rng = seededRand(120812);
+  bakeCanvas(scene, 'castle_paving', size * cells, size * cells, ctx => {
+    for (let y = 0; y < cells; y++) for (let x = 0; x < cells; x++) {
+      const variant = Math.min(BIOME_TEX[12].variants - 1, Math.floor(rng() * BIOME_TEX[12].variants));
+      ctx.drawImage(scene.textures.get(`biome12_${variant}`).getSourceImage(), x * size, y * size);
+    }
+  });
+}
+
 function makeBiomeTextures(scene, size) {
   makeCaveChasmTexture(scene, size);
   makeCaveWallEdges(scene, size);
@@ -1429,6 +1442,7 @@ function makeBiomeTextures(scene, size) {
       }
     }
   }
+  makeCastlePavingTexture(scene, size);
   for (let v = 0; v < TILLED_VARIANTS; v++) {
     bakeCanvas(scene, `tilled_${v}`, size, size, (ctx) => drawTilledTex(ctx, size, seededRand(7919 + v)));
   }

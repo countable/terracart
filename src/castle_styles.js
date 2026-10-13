@@ -148,12 +148,18 @@
     if (!pattern) return null;
     const name = `castle_ruin_floor_${pattern.index}_${claimed ? 1 : 0}`;
     if (scene.textures.exists(name)) return name;
-    if (!scene.textures.exists('biome12_0')) return null;
+    const pavingKey = scene.textures.exists('castle_paving') ? 'castle_paving' : 'biome12_0';
+    if (!scene.textures.exists(pavingKey)) return null;
     const texture = scene.textures.createCanvas(name, 96, 96), ctx = texture.getContext();
-    const paving = scene.textures.get('biome12_0').getSourceImage(), material = buildingBackgroundMaterial(get('ruin', claimed));
+    const paving = scene.textures.get(pavingKey).getSourceImage(), material = buildingBackgroundMaterial(get('ruin', claimed));
+    const cols = Math.max(1, Math.floor(paving.width / 32)), rows = Math.max(1, Math.floor(paving.height / 32));
     for (let i = 0; i < 9; i++) {
       const x = i % 3 * 32, y = Math.floor(i / 3) * 32;
-      ctx.drawImage(paving, x, y);
+      // Reuse the courtyard's quarter tiles and occasional double slabs in
+      // each bounded ruin pattern, with a stable patch for each damage layout.
+      const sx = ((i % 3 + pattern.index * 3) % cols) * 32;
+      const sy = ((Math.floor(i / 3) + pattern.index * 2) % rows) * 32;
+      ctx.drawImage(paving, sx, sy, 32, 32, x, y, 32, 32);
       for (const r of pattern.cells[i].rects) {
         const color = r.ink === 'floor' ? material.floor : material.stone[r.ink];
         ctx.fillStyle = '#' + color.toString(16).padStart(6, '0'); ctx.globalAlpha = r.alpha;
