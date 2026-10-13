@@ -43,12 +43,13 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   second cell-grid overlay.
   Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
   renderers; polygon corners use bounded bevel joins with faces beneath them.
-  Merlons have low square tops spanning the full wall-cap width, with both
-  opposing faces flush with the wall below at every angle. Full end blocks
+  Merlons have low rectangular tops spanning the full wall-cap width, with both
+  opposing faces flush with the wall below at every angle. Their length along
+  the wall is independent of its thickness. Full end blocks
   reach each corner; the
   rear highlight stays inside the cap silhouette. Polygon wall bodies and
   crenellations use separate cached passes, with every body drawn before the
-  crowns so adjacent wall sections cannot cover a square top. Castle wall bodies omit mid-wall shadow
+  crowns so adjacent wall sections cannot cover a crenellation top. Castle wall bodies omit mid-wall shadow
   stripes; the bottom silhouette and a quiet rear highlight define the edge.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;

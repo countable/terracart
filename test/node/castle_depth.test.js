@@ -1,20 +1,22 @@
 // Castle walls are ground art; towers and actors use ordinary ground order.
 (() => {
   const sprite = () => ({ depth: -1, setDepth(v) { this.depth = v; return this; } });
-  test('castle art: tiled teeth have square roofs seated on the cap', () => {
+  test('castle art: tiled teeth have rectangular roofs seated on the thinner cap', () => {
     const rects = [];
     const g = { color: null, fillStyle(c) { this.color = c; },
       fillRect(x, y, w, h) { rects.push({ x, y, w, h, color: this.color }); } };
-    for (const id of CastleStyles.ids) {
+    for (const id of CastleStyles.ids) for (const side of [false, true]) {
       rects.length = 0;
       const r = CastleStyles.get(id).rampart;
-      Render.paintRampartTooth(g, 10, 20, r.toothWidth, r.toothHeight, 1, 2, 3);
+      const width = side ? r.topDepth : r.toothWidth, depth = side ? r.toothWidth : r.topDepth;
+      Render.paintRampartTooth(g, 10, 20, width, depth, r.toothHeight, 1, 2, 3);
       const roof = rects.find(p => p.color === 2), face = rects.find(p => p.color === 1);
-      assert.eq(roof.w, roof.h, 'roof has equal sides');
-      assert.eq(roof.w, r.toothWidth, 'roof uses the style tooth width');
+      assert.eq(roof.w, width, 'roof uses the oriented footprint width');
+      assert.eq(roof.h, depth, 'roof uses the oriented footprint depth');
       assert.eq(roof.y + r.toothHeight, 20, 'rear foot remains on the cap');
-      assert.eq(face.y + face.h, 20 + r.toothWidth, 'front face meets the cap at its front foot');
-      assert.eq(r.toothWidth, r.topDepth, 'front and rear tooth faces are flush with the wall');
+      assert.eq(face.y + face.h, 20 + depth, 'front face meets the cap at its front foot');
+      assert.eq(r.toothWidth, 6, 'along-wall length remains unchanged');
+      assert.eq(r.topDepth, 3.6, 'across-wall depth is 40 percent thinner');
       assert.eq(r.toothHeight, ['ruin', 'archive'].includes(id) ? 1.5 : 2, 'merlons stand half their original height');
     }
   });

@@ -898,7 +898,7 @@ test('building overlay: atlas wall bodies cannot overpaint crowns across section
   }
 });
 
-test('building overlay: both horizontal castle boundaries expose six-pixel caps and shaded faces', () => {
+test('building overlay: both horizontal castle boundaries expose thinner caps and unchanged shaded faces', () => {
   clearTiles();
   putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'citadel')]);
   const { scene, log } = makeWallScene();
@@ -906,18 +906,24 @@ test('building overlay: both horizontal castle boundaries expose six-pixel caps 
   const material = buildingBackgroundMaterial(CastleStyles.get('citadel', true));
   const css = c => '#' + c.toString(16).padStart(6, '0');
   const faces = log.polygons.filter(p => p.color === css(material.stone.FACE)
-    && Math.max(...p.points.map(v => v.x)) - Math.min(...p.points.map(v => v.x)) > material.rampart.topDepth);
+    && Math.max(...p.points.map(v => v.x)) - Math.min(...p.points.map(v => v.x)) > Math.max(material.rampart.topDepth, material.rampart.toothWidth));
   assert.eq(faces.length, 4, 'two sections on each horizontal boundary, including the back wall');
+  const floorYs = scene.buildingGeomGfx.only('fill')[0].pts.map(p => p.y);
   for (const face of faces) {
     const ys = face.points.map(p => p.y);
     assert.eq(Math.max(...ys) - Math.min(...ys), 6, 'compressed south-facing plane');
+    if (Math.min(...ys) < Math.min(...floorYs)) {
+      assert.eq(Math.max(...ys), Math.min(...floorYs), 'north face still lands exactly at ground');
+    } else {
+      assert.eq(Math.min(...ys), Math.max(...floorYs), 'south face still starts at ground');
+    }
   }
   const caps = log.polygons.filter(p => p.color === css(material.stone.BODY) && p.points.length === 4);
   assert.eq(caps.length, 12, 'continuous top surface on four sides plus four bounded corner joins');
   for (const cap of caps.filter(p => new Set(p.points.map(v => v.y)).size === 2)) {
     const xs = cap.points.map(p => p.x), ys = cap.points.map(p => p.y);
-    assert.eq(Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)), 6,
-      'top plane stays as broad as the face');
+    assert.lt(Math.abs(Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys))
+      - material.rampart.topDepth), 1e-7, 'top plane follows the thinner cap width');
   }
 });
 
@@ -952,11 +958,12 @@ test('building overlay: angled and concave castle corners bridge adjacent top pl
     for (let i = 0; i < ring.length / 2; i++) {
       const vertex = point(i), previous = normal(point(i - 1), vertex), next = normal(vertex, point(i + 1));
       const cap = material.rampart.topDepth;
+      const lift = ny => cap + (material.rampart.wallHeight - cap) * Math.max(0, ny);
       const expected = [
-        { x: vertex.x, y: vertex.y - cap * (1 + previous.y) },
-        { x: vertex.x, y: vertex.y - cap * (1 + next.y) },
-        { x: vertex.x + next.x * cap, y: vertex.y - cap },
-        { x: vertex.x + previous.x * cap, y: vertex.y - cap },
+        { x: vertex.x, y: vertex.y - lift(previous.y) - cap * previous.y },
+        { x: vertex.x, y: vertex.y - lift(next.y) - cap * next.y },
+        { x: vertex.x + next.x * cap, y: vertex.y - lift(next.y) },
+        { x: vertex.x + previous.x * cap, y: vertex.y - lift(previous.y) },
       ];
       assert.truthy(caps.some(poly => poly.every((p, index) =>
         Math.hypot(p.x - expected[index].x, p.y - expected[index].y) < 1e-8)),
@@ -975,7 +982,7 @@ test('building overlay: angled and concave castle corners bridge adjacent top pl
   }
 });
 
-test('building overlay: square merlon bases follow their caps at every wall angle and winding', () => {
+test('building overlay: rectangular merlon bases follow their caps at every wall angle and winding', () => {
   const css = c => '#' + c.toString(16).padStart(6, '0');
   const inside = (p, polygon) => {
     const crosses = polygon.map((a, i) => {
@@ -1002,7 +1009,8 @@ test('building overlay: square merlon bases follow their caps at every wall angl
     const caps = log.polygons.filter(p => p.color === css(material.stone.BODY)).map(p => p.points);
     const roofs = log.polygons.filter(p => p.color === css(material.stone.LITE));
     assert.gt(roofs.length, 0, 'merlons have visible roofs');
-    assert.eq(material.rampart.toothWidth, material.rampart.topDepth, 'tooth faces are flush with both cap edges');
+    assert.eq(material.rampart.toothWidth, 6, 'along-wall tooth length is unchanged');
+    assert.eq(material.rampart.topDepth, 3.6, 'cap is 40 percent thinner');
     const vertices = scene.buildingGeomGfx.only('fill')[0].pts;
     const winding = reversed ? -1 : 1;
     for (let i = 0; i < vertices.length; i++) {
@@ -1010,11 +1018,13 @@ test('building overlay: square merlon bases follow their caps at every wall angl
       const length = Math.hypot(b.x - a.x, b.y - a.y);
       const nx = -(b.y - a.y) / length * winding, ny = (b.x - a.x) / length * winding;
       for (const v of [a, b]) {
-        const crest = ny < 0 ? { x: v.x + nx * material.rampart.topDepth, y: v.y - material.rampart.topDepth }
-          : { x: v.x, y: v.y - material.rampart.topDepth * (1 + ny) };
+        const lift = material.rampart.topDepth
+          + (material.rampart.wallHeight - material.rampart.topDepth) * Math.max(0, ny);
+        const crest = ny < 0 ? { x: v.x + nx * material.rampart.topDepth, y: v.y - lift }
+          : { x: v.x, y: v.y - lift - material.rampart.topDepth * ny };
         assert.truthy(roofs.some(roof => roof.points.some(p =>
           Math.hypot(p.x - crest.x, p.y + material.rampart.toothHeight - crest.y) < 1e-7)),
-        'full square crowns reach both edge endpoints without inset corner gaps');
+        'full rectangular crowns reach both edge endpoints without inset corner gaps');
       }
     }
     for (const roof of roofs) {
@@ -1023,10 +1033,10 @@ test('building overlay: square merlon bases follow their caps at every wall angl
       const across = { x: c.x - b.x, y: c.y - b.y };
       assert.lt(Math.abs(Math.hypot(along.x, along.y) - material.rampart.toothWidth), 1e-7,
         'the tooth retains its full width, even at an edge end');
-      assert.lt(Math.abs(Math.hypot(across.x, across.y) - material.rampart.toothWidth), 1e-7,
-        'the top is equally wide along and across the wall');
+      assert.lt(Math.abs(Math.hypot(across.x, across.y) - material.rampart.topDepth), 1e-7,
+        'the top reaches both edges of the thinner cap');
       assert.lt(Math.abs(along.x * across.x + along.y * across.y), 1e-7,
-        'adjacent sides of the square roof are perpendicular');
+        'adjacent sides of the rectangular roof are perpendicular');
       for (const v of roof.points) {
         const base = { x: v.x, y: v.y + material.rampart.toothHeight };
         assert.truthy(caps.some(cap => inside(base, cap)),
@@ -1140,8 +1150,9 @@ test('building overlay: atlas slots fit the largest piece, and an emptied page i
   const A = scene._buildingWallAtlas;
   assert.truthy(A && A.slotW > 0 && A.slotH > 0, 'the atlas geometry is on the scene');
   const styles = CastleStyles.ids.map(id => CastleStyles.get(id).rampart);
-  const pad = 2 * (Math.max(...styles.map(r => r.topDepth)) * 2
-    + Math.max(...styles.map(r => r.toothHeight)) + 2) + 2;
+  const pad = 2 * Math.ceil(Math.max(...styles.map(r =>
+    r.topDepth + Math.max(r.topDepth, r.wallHeight) + r.toothHeight)) + 2) + 2;
+  assert.truthy(Number.isInteger(A.slotW) && Number.isInteger(A.slotH), 'fractional caps retain integer atlas slots');
   assert.eq(A.slotW, CELL_PX + pad, 'a slot is a cell plus the bake padding wide');
   assert.eq(A.slotH, CELL_PX + Render.BUILDING_FACE_PX[T.BUILDING_LARGE] + pad, 'and the deepest face taller');
   assert.gt(log.frames.length, 4, 'the diamond cut into several pieces');

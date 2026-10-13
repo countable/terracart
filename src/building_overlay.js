@@ -509,8 +509,10 @@
   // outline padding on every side, and the pixel of floor/ceil rounding at
   // each end. Derived from the constants the bake pads with, so a retune of
   // BAND_PX can't overflow a slot.
-  const SLOT_PAD = BAND_PX * 2
-    + Math.max(...CastleStyles.ids.map(id => CastleStyles.get(id).rampart.toothHeight)) + 2;
+  const SLOT_PAD = Math.ceil(Math.max(...CastleStyles.ids.map(id => {
+    const r = CastleStyles.get(id).rampart;
+    return r.topDepth + Math.max(r.topDepth, r.wallHeight) + r.toothHeight;
+  })) + 2);
   const slotSize = () => {
     const tbl = (typeof Render !== 'undefined' && Render.BUILDING_FACE_PX) || null;
     const deepest = tbl ? Math.max(...Object.values(tbl)) : facePx(CASTLE);
@@ -647,8 +649,12 @@
           const length = Math.hypot(b.x - a.x, b.y - a.y);
           const nx = -(b.y - a.y) / length * winding;
           const ny = (b.x - a.x) / length * winding;
-          const outer = v => ({ x: v.x, y: v.y - cap * (1 + ny) });
-          const inner = v => ({ x: v.x + nx * cap, y: v.y - cap });
+          // The north face lands at ground level even when the cap narrows;
+          // wall height controls its lift, while cap depth controls thickness.
+          const liftFor = normalY => cap + (depth - cap) * Math.max(0, normalY);
+          const lift = liftFor(ny);
+          const outer = v => ({ x: v.x, y: v.y - lift - cap * ny });
+          const inner = v => ({ x: v.x + nx * cap, y: v.y - lift });
           const op = outer(p), oq = outer(q), ip = inner(p), iq = inner(q);
           masonryBaseY = -Infinity;
           let drawingCrown = false;
@@ -676,8 +682,8 @@
             if (previousLength > 0) {
               const previousNx = -(a.y - previous.y) / previousLength * winding;
               const previousNy = (a.x - previous.x) / previousLength * winding;
-              const previousOuter = { x: a.x, y: a.y - cap * (1 + previousNy) };
-              const previousInner = { x: a.x + previousNx * cap, y: a.y - cap };
+              const previousOuter = { x: a.x, y: a.y - liftFor(previousNy) - cap * previousNy };
+              const previousInner = { x: a.x + previousNx * cap, y: a.y - liftFor(previousNy) };
               const previousFront = previousNy > 0 ? previousInner : previousOuter;
               // The bevel needs a vertical face too: joining only the roof
               // leaves a daylight gap beneath angled and concave corners.
@@ -708,7 +714,7 @@
           if (damage && !crownPass) {
             const at = damage.chip / CELL_PX;
             const x = p.x + (q.x - p.x) * at + nx * cap / 2;
-            const y = p.y + (q.y - p.y) * at - cap * (1 + ny / 2);
+            const y = p.y + (q.y - p.y) * at - lift - cap * ny / 2;
             ctx.fillStyle = cssOf(stone.style.stone.SHADOW);
             ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
           }
@@ -729,11 +735,11 @@
             if (damage && damage.missing === tooth % 4) continue;
             // A tooth follows the crest, rather than touching an angled
             // wall at the corner of an axis-aligned rectangle. The top is
-            // square in plan, with the same width along and across the crest.
+            // rectangular in plan, spanning the full depth of the thinner cap.
             const endT = Math.min(1, t + rampart.toothWidth / length);
             const end = crest({ x: a.x + (b.x - a.x) * endT, y: a.y + (b.y - a.y) * endT });
-            const front = v => ({ x: v.x + nx * toward * rampart.toothWidth,
-              y: v.y + ny * toward * rampart.toothWidth });
+            const front = v => ({ x: v.x + nx * toward * cap,
+              y: v.y + ny * toward * cap });
             const base = [v, end, front(end), front(v)];
             const roof = base.map(v => down(v, -rampart.toothHeight));
             const toothWinding = winding * toward;

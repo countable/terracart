@@ -450,12 +450,12 @@ Render.paintMasonryFace = function (g, x, y, width, height, face, cap, seam, cou
   g.fillStyle(seam, 1); g.fillRect(x, y + height - 1, width, 1);
 };
 
-// Seat the square footprint on the cap, then lift its roof by the tooth height.
-Render.paintRampartTooth = function (g, x, baseY, width, height, face, roof, shadow) {
+// Seat the rectangular footprint on the cap, then lift its roof by the tooth height.
+Render.paintRampartTooth = function (g, x, baseY, width, depth, height, face, roof, shadow) {
   const roofY = baseY - height;
-  g.fillStyle(face, 1); g.fillRect(x, roofY + width, width, height);
-  g.fillStyle(shadow, 1); g.fillRect(x + width - 1, roofY + width, 1, height);
-  g.fillStyle(roof, 1); g.fillRect(x, roofY, width, width);
+  g.fillStyle(face, 1); g.fillRect(x, roofY + depth, width, height);
+  g.fillStyle(shadow, 1); g.fillRect(x + width - 1, roofY + depth, 1, height);
+  g.fillStyle(roof, 1); g.fillRect(x, roofY, width, depth);
 };
 
 Render.hasShrineFooting = o => o.kind === 'grove_shrine' && o._shrineArt !== 'shipwreck';
@@ -2940,7 +2940,7 @@ Render.drawCells = function drawCells(scene) {
           for (let i = 0; i < MERLONS; i++) {
             if ((material.rampart.broken && i === 2) || (damage && i === damage.missing)) continue;
             const mx = x + i * SPAN + MOFF;
-            Render.paintRampartTooth(gx, mx, baseY - CAP, MW, TOOTH_H,
+            Render.paintRampartTooth(gx, mx, baseY - CAP, MW, CAP, TOOTH_H,
               STONE_FACE, STONE_LITE, STONE_SHADOW);
           }
         };
@@ -2996,8 +2996,7 @@ Render.drawCells = function drawCells(scene) {
             const dy = sy + i * SPAN + MOFF;
             if (dy + MW <= bandBot && !(material.rampart.broken && i === 2)
               && (!damage || i !== damage.missing)) {
-              const toothX = innerX === x ? x + SIDE_W - MW : x;
-              Render.paintRampartTooth(gb, toothX, dy, MW, TOOTH_H,
+              Render.paintRampartTooth(gb, x, dy, CAP, MW, TOOTH_H,
                 STONE_FACE, _DBG ? 0xe06060 : STONE_LITE, STONE_SHADOW);
             }
           }
