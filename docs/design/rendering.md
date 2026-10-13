@@ -183,7 +183,7 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
   short walls, larger standing trees and rocks marked `sightBlocking: true`
-  provide partial cover, with a non-stacking 75% darkness treatment. Small
+  provide partial cover, with a non-stacking 50% darkness treatment. Small
   rocks and the smallest tree saplings provide no cover. The facing blocker
   stays visible. Any cover (`Visibility.hidden`) removes the actors behind
   it — creatures, peers, coins, shots — with their labels, shadows and

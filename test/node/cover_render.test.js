@@ -22,7 +22,7 @@
       };
       return { width: 0, height: 0, getContext: () => ctx };
     } };
-    const visibility = { CLEAR: 0, PARTIAL: 1, FULL: 2, PARTIAL_DARKNESS: .75, FULL_DARKNESS: 1,
+    const visibility = { CLEAR: 0, PARTIAL: 1, FULL: 2, PARTIAL_DARKNESS: .5, FULL_DARKNESS: 1,
       revision: () => revision,
       observer(scene, q) { const p = scene.playerM; return { x: (Math.floor(p.x / q) + .5) * q, y: (Math.floor(p.y / q) + .5) * q }; },
       coverBetween(scene, ax, ay, x, y) { samples++; return coverAt(x, y); },
@@ -60,8 +60,8 @@
     }
   });
 
-  test('cover render: partial interiors are strongly dark and full interiors are black', () => {
-    for (const [cover, depth, alpha] of [[0, 0, 0], [1, 0, 191], [2, 0, 255], [1, 1, 191], [2, 1, 255]]) {
+  test('cover render: partial interiors are half dark and full interiors are black', () => {
+    for (const [cover, depth, alpha] of [[0, 0, 0], [1, 0, 128], [2, 0, 255], [1, 1, 128], [2, 1, 255]]) {
       const f = fixture(() => cover);
       f.scene.depth = depth;
       f.frame(f.scene, 0, 0, 128, 64);
@@ -76,7 +76,7 @@
     // A lone bush casts a narrow wedge; the feather must not average it away.
     const f = fixture(x => Math.abs(x - 9) < 1 ? 1 : 0);
     f.frame(f.scene, 0, 0, 128, 64);
-    assert.gte(Math.max(...alphas(f.rasters[0])), 189, 'the covered sample keeps 75% darkness');
+    assert.gte(Math.max(...alphas(f.rasters[0])), 126, 'the covered sample keeps its full darkness');
   });
 
   test('cover render: the boundary has graded alpha and world-fixed wisps after player movement', () => {

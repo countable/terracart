@@ -3,7 +3,7 @@
 // latitude-dependent tile rows keep their own grid.
 const Visibility = (() => {
   const CLEAR = 0, PARTIAL = 1, FULL = 2;
-  const TREE_SIGHT_PENALTY = 2, PARTIAL_DARKNESS = 0.75, FULL_DARKNESS = 1;
+  const TREE_SIGHT_PENALTY = 2, PARTIAL_DARKNESS = 0.5, FULL_DARKNESS = 1;
   const states = new WeakMap();
   const REFRESH_MS = 1000;
   function objectCover(o) {
