@@ -42,6 +42,7 @@ class ScenePets {
       box.appendChild(b);
     };
     const foods = (this.save.inv || []).filter(s => s.count > 0 && animalLikesFood(pet.kind, s.id));
+    add('View info', () => this.presentPetInfo(id));
     add('Feed favourite', () => this.presentPetFoodMenu(id), !foods.length);
     if (pet.carried) {
       add('Bring along', () => {
@@ -87,6 +88,68 @@ class ScenePets {
       }, onCancel: () => this.presentPetMenu(id),
     }), resting);
     add('Close', () => {});
+    mount();
+  }
+
+  presentPetInfo(id) {
+    const pet = Pets.get(this.save, id);
+    if (!pet) return;
+    Pets.tick(this.save, pet);
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('pet-info-modal', { kind: 'note', kindLabel: 'Pet info', art: false, story: true });
+    const name = itemName(pet.kind);
+    const title = document.createElement('h2');
+    title.textContent = name;
+    title.style.cssText = 'margin:0 0 6px;font-size:18px;line-height:1.2;';
+    box.appendChild(title);
+    const portrait = document.createElement('div');
+    portrait.style.cssText = 'width:128px;height:128px;margin:6px auto;border-radius:12px;overflow:hidden;background:#18251d;';
+    const art = typeof CharacterPortraits !== 'undefined' ? CharacterPortraits.pet(pet.kind) : null;
+    if (art) {
+      const img = document.createElement('img');
+      img.src = art; img.alt = name; img.width = 128; img.height = 128;
+      img.style.cssText = 'display:block;width:128px;height:128px;image-rendering:pixelated;';
+      img.addEventListener('error', () => { img.remove(); portrait.appendChild(this.renderItemIcon(pet.kind, 128, 'block')); }, { once: true });
+      portrait.appendChild(img);
+    } else portrait.appendChild(this.renderItemIcon(pet.kind, 128, 'block'));
+    box.appendChild(portrait);
+    const descriptions = {
+      chicken: 'A curious little companion with a soft cluck and a busy beak.',
+      cow: 'Patient eyes and a gentle nudge make even a long journey feel quieter.',
+      cat: 'An independent companion who stays close on soft, silent paws.',
+      dog: 'A loyal companion with an eager nose and a warmly wagging tail.',
+      deer: 'A watchful woodland companion, learning to trade fear for trust.',
+      rabbit: 'A bright-eyed bundle of soft fur, twitching whiskers and quick feet.',
+      butterfly: 'A delicate companion whose fluttering wings bring a little colour to the road.',
+      crab: 'A determined shore companion who meets the world with raised claws.',
+      horse: 'A sure-footed companion, always ready for the open road.',
+      sea_turtle: 'A quiet traveller with a sturdy shell and an unhurried pace.',
+      green_dragon: 'A green-winged companion, growing into the strength hidden in its shining egg.',
+      slime: 'A soft, wobbling companion who has learned to trust your hand.',
+    };
+    const description = document.createElement('p');
+    description.style.cssText = 'margin:8px 0;line-height:1.35;';
+    description.textContent = descriptions[Pets.species(pet.kind)]
+      || 'Once a wild foe, now a trusted companion at your side.';
+    box.appendChild(description);
+    const stats = document.createElement('dl');
+    stats.style.cssText = 'display:grid;grid-template-columns:1fr auto;gap:6px 16px;margin:8px 0;text-align:left;';
+    const number = value => String(Math.round(value * 10) / 10);
+    const values = [
+      ['HP', `${number(pet.hp)} / ${number(Combat.maxHp(pet))}`],
+      ['Damage per hit', number(Combat.petBlow(pet))],
+      ['Defence bonus', number(Pets.stats(pet).armor)],
+      ['Status', Pets.isDown(pet) ? 'Resting' : pet.carried ? 'Carried' : pet.stayHome ? 'Staying home' : 'Following'],
+    ];
+    for (const [label, value] of values) {
+      const term = document.createElement('dt'), detail = document.createElement('dd');
+      term.textContent = label; detail.textContent = value;
+      detail.style.cssText = 'margin:0;font-weight:bold;';
+      stats.appendChild(term); stats.appendChild(detail);
+    }
+    box.appendChild(stats);
+    const back = mkBtn('Back');
+    back.addEventListener('click', e => { e.stopPropagation(); wrap.remove(); this.presentPetMenu(id); });
+    box.appendChild(back);
     mount();
   }
 

@@ -58,7 +58,7 @@
       assert.eq(q.status, 'rewarded');
       // The seed is SHOWN as a card under her portrait, her thanks its line.
       assert.eq(s.lastCard.name, itemName('starfruit_seed')); assert.eq(s.lastCard.tier, itemTierOf('starfruit_seed'));
-      assert.eq(s.lastCard.sub, StoryEncounters.THANKS); assert.eq(s.lastCard.art, 'portrait');
+      assert.eq(s.lastCard.sub, StoryEncounters.THANKS); assert.eq(s.lastCard.portrait, 'portrait');
       assert.eq(s.lastCard.kind, 'story'); assert.eq(s.lastDialog, notes, 'no note on top of the card');
       s.save = JSON.parse(JSON.stringify(s.save));
       StoryEncounters.interact(s, c);
