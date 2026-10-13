@@ -556,7 +556,7 @@ class SceneConsumables {
     Buffs.extend(this.save, this, 'moonbeam', CONSUMABLE_SPEC.moonbeam_scroll.durationMs);
     this._moonbeamLastT = performance.now();
     this._spendScroll(sel.id);
-    this.flashLoot('🌙 Moonlight pours from your hand.', '#cfe6ff', 1.8, sel.id);
+    this.flashLoot('🌙 The moonbeam answers.', '#cfe6ff', 1.8, sel.id);
     return true;
   }
   // The beam on the shots' layer, lifted to the shots' chest height: a soft

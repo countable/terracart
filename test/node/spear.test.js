@@ -317,7 +317,7 @@ test('javelin: projectile sprite pool switches between both inventory art sheets
   const draw = new Function('SHOT_DRAW_LIFT_PX', 'return ({' + m[1] + '})._drawShots;')(10);
   const sprite = { setTexture(sheet) { this.sheet = sheet; return this; },
     setScale() { return this; }, setVisible() { return this; }, setPosition() { return this; }, setRotation() { return this; } };
-  const scene = { projGfx: { clear() {} }, _spearPool: [sprite], _boltPool: [], _drawStaffCharge() {},
+  const scene = { projGfx: { clear() {} }, _spearPool: [sprite], _boltPool: [], _drawStaffCharge() {}, _drawMoonbeam() {},
     worldMetersToScreen: (x, y) => ({ x, y }), _shots: [] };
   for (const projectile of ['javelin', 'throwing_spear', 'javelin']) {
     scene._shots = [{ projectile, slot: 'bow', x: 0, y: 0, vx: 1, vy: 0 }];
