@@ -19,14 +19,14 @@ const NPC = (() => {
   // influence zone. A culture is not a zone: the influence zone a resident
   // stands in is its separate zoneKind.
   const CULTURES = {
-    village: { prefixes: ['Al', 'Bel', 'Mar', 'Ros'], roots: ['an', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'wyn'], colors: [0xe8bb91, 0xbfc8ee, 0xeeb3cb], roles: ['scout', 'scout', 'scout', 'scout', 'merchant', 'merchant', 'trader', 'trader', 'trader', 'scholar', 'mason', 'lamplighter'], theme: 'supply' },
-    farm: { prefixes: ['Br', 'Fen', 'Haz', 'Row'], roots: ['am', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'wyn'], colors: [0xdec58d, 0xe9ba96, 0xc6ce9c], roles: ['scout', 'scout', 'merchant', 'trader', 'mason'], theme: 'seed' },
-    market: { prefixes: ['Cal', 'Dar', 'Mer', 'Val'], roots: ['an', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'is'], colors: [0xe7b1d8, 0xaacde9, 0xe5d593], roles: ['merchant', 'trader', 'merchant', 'scout', 'mason', 'lamplighter'], theme: 'supply' },
-    woodland: { prefixes: ['Syl', 'Lin', 'Fa', 'El'], roots: ['ar', 'eth', 'ir', 'ow'], suffixes: ['a', 'iel', 'en', 'yn'], colors: [0xacc79a, 0xc3bf8c, 0xa4c8bd], roles: ['scout', 'scout', 'scout', 'scout', 'scout', 'trader', 'trader', 'trader', 'trader', 'scholar'], theme: 'seed' },
-    shrine: { prefixes: ['Ae', 'Eli', 'Gala', 'Syl'], roots: ['lan', 'riel', 'thar', 'wen'], suffixes: ['iel', 'ia', 'eth', 'wyn'], colors: [0x70cf86, 0x87db96, 0x59bc78, 0x9bdd7f], roles: ['scout', 'scout', 'scholar', 'trader', 'keeper', 'keeper'], theme: 'potion' },
+    village: { prefixes: ['Al', 'Bel', 'Mar', 'Ros'], roots: ['an', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'wyn'], menSuffixes: ['ard', 'ric', 'on', 'wick'], colors: [0xe8bb91, 0xbfc8ee, 0xeeb3cb], roles: ['scout', 'scout', 'scout', 'scout', 'merchant', 'merchant', 'trader', 'trader', 'trader', 'scholar', 'mason', 'lamplighter'], theme: 'supply' },
+    farm: { prefixes: ['Br', 'Fen', 'Haz', 'Row'], roots: ['am', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'wyn'], menSuffixes: ['ard', 'ock', 'on', 'wick'], colors: [0xdec58d, 0xe9ba96, 0xc6ce9c], roles: ['scout', 'scout', 'merchant', 'trader', 'mason'], theme: 'seed' },
+    market: { prefixes: ['Cal', 'Dar', 'Mer', 'Val'], roots: ['an', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'is'], menSuffixes: ['ar', 'ic', 'on', 'us'], colors: [0xe7b1d8, 0xaacde9, 0xe5d593], roles: ['merchant', 'trader', 'merchant', 'scout', 'mason', 'lamplighter'], theme: 'supply' },
+    woodland: { prefixes: ['Syl', 'Lin', 'Fa', 'El'], roots: ['ar', 'eth', 'ir', 'ow'], suffixes: ['a', 'iel', 'en', 'yn'], menSuffixes: ['an', 'orn', 'ric', 'on'], colors: [0xacc79a, 0xc3bf8c, 0xa4c8bd], roles: ['scout', 'scout', 'scout', 'scout', 'scout', 'trader', 'trader', 'trader', 'trader', 'scholar'], theme: 'seed' },
+    shrine: { prefixes: ['Ae', 'Eli', 'Gala', 'Syl'], roots: ['lan', 'riel', 'thar', 'wen'], suffixes: ['iel', 'ia', 'eth', 'wyn'], menSuffixes: ['ion', 'or', 'os', 'dor'], colors: [0x70cf86, 0x87db96, 0x59bc78, 0x9bdd7f], roles: ['scout', 'scout', 'scholar', 'trader', 'keeper', 'keeper'], theme: 'potion' },
     // The fox people of the groves (Oct 2026, owner's call): their own culture
     // and role names, so they never read as the shrine's neighbours.
-    grove: { prefixes: ['Ru', 'Vix', 'Tod', 'Sor'], roots: ['an', 'el', 'in', 'ow'], suffixes: ['a', 'en', 'ie', 'y'], colors: [0xe0b48a, 0xd9a77c, 0xe8c49b], roles: ['scout', 'scout', 'scholar', 'trader', 'keeper', 'keeper'], theme: 'potion' },
+    grove: { prefixes: ['Ru', 'Vix', 'Tod', 'Sor'], roots: ['an', 'el', 'in', 'ow'], suffixes: ['a', 'en', 'ie', 'y'], menSuffixes: ['ick', 'o', 'on', 'us'], colors: [0xe0b48a, 0xd9a77c, 0xe8c49b], roles: ['scout', 'scout', 'scholar', 'trader', 'keeper', 'keeper'], theme: 'potion' },
   };
   // LABELS, keyed by culture: every culture labels every role. A keeper
   // reseated by the zone guarantee in spawn(), or a role added to one culture
@@ -40,13 +40,22 @@ const NPC = (() => {
     shrine: { scout: 'Shrine Warden', scholar: 'Shrine Lorekeeper', merchant: 'Herbalist', trader: 'Shrine Trader', mason: 'Shrine Mason', lamplighter: 'Lantern Keeper', keeper: 'Shrine Keeper' },
     grove: { scout: 'Fox Tracker', scholar: 'Fox Storyteller', merchant: 'Fox Herbalist', trader: 'Fox Trader', mason: 'Den Builder', lamplighter: 'Fox Lantern Bearer', keeper: 'Den Keeper' },
   };
-  function identity(id, culture = 'village') {
+  // The name agrees with the art the resident wears (SpriteLayout.NPC_SHEETS
+  // `presents`): suffixes for women, menSuffixes for men. `role` overrides the
+  // drawn one for a caller that reseats a saved role, so the name follows it;
+  // the draw order is unchanged, so women keep the names they always had.
+  function identity(id, culture = 'village', role = null) {
     if (!CULTURES[culture]) culture = 'village';
     const p = CULTURES[culture], rng = WorldGen.makeRng(fnv1a(`${id}:identity:${culture}`));
     const pick = a => a[Math.floor(rng() * a.length)];
-    const name = pick(p.prefixes) + pick(p.roots) + pick(p.suffixes);
-    const role = pick(p.roles);
-    return { name, role, culture, roleLabel: LABELS[culture][role], npcVariant: Math.floor(rng() * 3), tint: pick(p.colors), shopTheme: p.theme };
+    const stem = pick(p.prefixes) + pick(p.roots), suffixRoll = rng();
+    const drawn = pick(p.roles);
+    role = role || drawn;
+    const npcVariant = Math.floor(rng() * 3);
+    const man = SpriteLayout.npcSheet({ role, culture, npcVariant }).presents === 'man';
+    const suffixes = man ? p.menSuffixes : p.suffixes;
+    const name = stem + suffixes[Math.floor(suffixRoll * suffixes.length)];
+    return { name, role, culture, roleLabel: LABELS[culture][role], npcVariant, tint: pick(p.colors), shopTheme: p.theme };
   }
   function cultureFor(type, nearShrine = false, influence = null) {
     const T = WorldGen.T;
@@ -111,7 +120,7 @@ const NPC = (() => {
     const kept = new Set(people.filter(c => c.role === 'keeper' && c.zoneKind).map(c => c.zoneKind));
     for (const c of people) {
       if (!c.zoneKind || kept.has(c.zoneKind) || (c.culture !== 'shrine' && c.culture !== 'grove')) continue;
-      c.role = 'keeper'; c.roleLabel = LABELS[c.culture].keeper;
+      Object.assign(c, identity(c.id, c.culture, 'keeper'));
       kept.add(c.zoneKind);
     }
   }
@@ -498,7 +507,7 @@ const NPC = (() => {
         claimed.add(house.key);
         const c = current?.c || WorldGen.makeCreature('npc', seat.x, seat.y, id,
           STORY_ROLES[record.role] ? storyNeighbour(id, record.role)
-            : { ...identity(id, record.culture), role: record.role, zoneKind: record.zoneKind });
+            : { ...identity(id, record.culture, record.role), zoneKind: record.zoneKind });
         // Remove the old tile's copy before admitting the destination. The
         // saved ID also suppresses the original spawn on subsequent rebuilds.
         for (const { entry } of tiles) entry.creatures = (entry.creatures || []).filter(other => other.id !== id);

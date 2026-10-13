@@ -1155,7 +1155,7 @@ class SceneCreatures {
     for (const i of entry.undergroundReserved || []) occupiedIdx.add(i);
     for (const resident of entry.undergroundResidents || []) {
       const { x, y, id, culture, dwarf } = resident;
-      const identity = NPC.identity(id, culture);
+      const identity = NPC.identity(id, culture, dwarf ? 'merchant' : null);
       creatures.push(WorldGen.makeCreature('npc', x, y, id, {
         ...identity, depth, homeX: x, homeY: y,
         ...(dwarf ? { name: 'Dwarf ' + identity.name, role: 'merchant', roleLabel: 'Dwarven Smith', shopTheme: 'supply', artScale: 0.8 } : {}),
