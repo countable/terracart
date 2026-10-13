@@ -209,7 +209,7 @@ whose stable ID passes the real nest roll. The beach has a readable bottle.
 spawn is clear of their contact cells. The web uses the normal saved landing
 record and expiry; stepping off and back on tests paralysis renewal.
 
-`hazards-cave` starts at depth 1 with the floor's grey confusion vent and a
+`hazards-cave` starts at depth 1 with the floor's yellow confusion vent and a
 connected pair of cave-in cells. `hazards-deep` starts at depth 2 with its
 three vents (poison, fire, paralysis), a rolling ball and a sliding wall. Each
 lab seats the vents `EnvironmentHazards.ventKinds` allows on its floor. Arrival
