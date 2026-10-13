@@ -456,10 +456,10 @@ access or tile lifecycle mechanics.
   shared with egg hatching) nothing restores, pays or taps and foes ignore the
   player via `unnoticed`. `HabitatSpawns` allocates the base population from
   the winning landcover, Nexus or Road Variant profile before it chooses
-  legal seats. Plain roads add no population. Pedestrian paths seat rare metal
-  slimes on adjacent legal ground: one per 300 m of path cells, at most two
+  legal seats. Plain roads add no population. The beach path variant (`promenade`) owns
+  its metal slimes in `pathFauna`, seated on its adjacent legal ground: one per 300 m of path cells, at most two
   per tile, with stable path-cell defeat identities. Ordinary beach and pier
-  populations contain no metal slimes. Road Variant `fauna`
+  populations and other path variants contain no metal slimes. Road Variant `fauna`
   declarations supply local inhabitants.
   Where a species prefers to stand is an `attracts` column (road variant rows,
   `Zones.ZONE_KINDS`, `BIOME_ATTRACTS`, scenic themes and

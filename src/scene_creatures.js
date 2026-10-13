@@ -818,7 +818,7 @@ class SceneCreatures {
       faunaSpawnOpts, _spawnOpts, caughtSet, entry.zone && (entry.zone.coverage || entry.zone.idx), entry, zoneGuards);
 
 
-    this.spawnPathMetalSlimes(creatures, pathCells, N, tx, ty, cellM, genGrid, _spawnOpts, caughtSet, zoneGuards);
+    this.spawnPathVariantFauna(creatures, pathCells, N, tx, ty, cellM, genGrid, _spawnOpts, caughtSet, entry, zoneGuards);
 
     // The per-player cull, AFTER every draw of the shared stream above.
     this._cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures);
@@ -967,46 +967,57 @@ class SceneCreatures {
     return out;
   }
 
-  // Rare metal slimes belong beside pedestrian paths. Their own stream
-  // preserves other populations, and canonical path cells keep defeat IDs
-  // stable when safety or occupancy changes which adjacent seat is free.
-  spawnPathMetalSlimes(creatures, pathCells, N, tx, ty, cellM, grid, opts, caughtSet, authoredCreatures = []) {
-    const out = [], kind = 'metal_slime', spClass = creatureSpawnClass(kind);
-    const row = PATH_FAUNA[kind];
-    const requested = Math.min(row.max, Math.floor(pathCells.length * WorldGen.CELL_M / row.perPathM));
-    const rng = WorldGen.makeRng(fnv1a(`${row.salt}|${tx},${ty}`));
-    const remaining = pathCells.slice().sort((a, b) => a - b);
-    const reserved = new Set(opts.creatureCells || []);
-    for (const c of [...creatures, ...authoredCreatures]) {
-      const cx = Math.floor((c.x - tx * this.tileEdgeM) / cellM), cy = Math.floor((c.y - ty * this.tileEdgeM) / cellM);
-      if (cx >= 0 && cy >= 0 && cx < N && cy < N) reserved.add(cy * N + cx);
+  // Path populations belong to their variant rows, including their budget.
+  // Each species keeps an independent stream and stable canonical path-cell IDs.
+  spawnPathVariantFauna(creatures, allPathCells, N, tx, ty, cellM, grid, opts, caughtSet, entry, authoredCreatures = []) {
+    const out = [], groups = new Map();
+    for (const cell of allPathCells) {
+      const id = HabitatSpawns.resolve(entry, cell).variant;
+      const variant = StreetVariants.VARIANT_BY_ID[id];
+      if (!variant?.pathFauna) continue;
+      if (!groups.has(id)) groups.set(id, { variant, cells: [] });
+      groups.get(id).cells.push(cell);
     }
-    for (let n = 0; n < requested && remaining.length; n++) {
-      const canonical = remaining.splice(Math.floor(rng() * remaining.length), 1)[0];
-      const sourceCx = canonical % N, sourceCy = Math.floor(canonical / N);
-      const id = WorldGen.cellId('metal_slime_path', tx, ty, sourceCx, sourceCy);
-      let cell = null;
-      // Search other path verges if the canonical one is occupied; never
-      // relocate onto unrelated beach or open ground away from a path.
-      const start = pathCells.indexOf(canonical);
-      for (let j = 0; j < pathCells.length && cell == null; j++) {
-        const path = pathCells[(start + j) % pathCells.length];
-        const px = path % N, py = Math.floor(path / N);
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const cx = px + dx, cy = py + dy, i = cy * N + cx;
-          if (cx < 0 || cy < 0 || cx >= N || cy >= N || grid[i] === WorldGen.T.PATH || reserved.has(i)) continue;
-          if (!WorldGen.isSpawnCell(grid, N, N, cx, cy, opts, spClass)) continue;
-          cell = i; break;
+    for (const { variant, cells: pathCells } of groups.values()) {
+      for (const [kind, row] of Object.entries(variant.pathFauna)) {
+        const spClass = creatureSpawnClass(kind);
+        const requested = Math.min(row.max, Math.floor(pathCells.length * WorldGen.CELL_M / row.perPathM));
+        const rng = WorldGen.makeRng(fnv1a(`${row.salt}|${tx},${ty}`));
+        const remaining = pathCells.slice().sort((a, b) => a - b);
+        const reserved = new Set(opts.creatureCells || []);
+        for (const c of [...creatures, ...authoredCreatures]) {
+          const cx = Math.floor((c.x - tx * this.tileEdgeM) / cellM), cy = Math.floor((c.y - ty * this.tileEdgeM) / cellM);
+          if (cx >= 0 && cy >= 0 && cx < N && cy < N) reserved.add(cy * N + cx);
+        }
+        for (let n = 0; n < requested && remaining.length; n++) {
+          const canonical = remaining.splice(Math.floor(rng() * remaining.length), 1)[0];
+          const sourceCx = canonical % N, sourceCy = Math.floor(canonical / N);
+          const id = WorldGen.cellId(`${kind}_path`, tx, ty, sourceCx, sourceCy);
+          let cell = null;
+          // Search other path verges if the canonical one is occupied; never
+          // relocate onto unrelated beach or open ground away from a path.
+          const start = pathCells.indexOf(canonical);
+          for (let j = 0; j < pathCells.length && cell == null; j++) {
+            const path = pathCells[(start + j) % pathCells.length];
+            const px = path % N, py = Math.floor(path / N);
+            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+              const cx = px + dx, cy = py + dy, i = cy * N + cx;
+              if (cx < 0 || cy < 0 || cx >= N || cy >= N || grid[i] === WorldGen.T.PATH || reserved.has(i)) continue;
+              if (HabitatSpawns.resolve(entry, i).variant !== variant.id) continue;
+              if (!WorldGen.isSpawnCell(grid, N, N, cx, cy, opts, spClass)) continue;
+              cell = i; break;
+            }
+          }
+          if (cell == null) continue;
+          reserved.add(cell);
+          if (caughtSet.has(id)) continue;
+          const cx = cell % N, cy = Math.floor(cell / N);
+          const point = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
+          const c = WorldGen.makeCreature(kind, point.x, point.y, id);
+          EnemySpawns.surfaceActive(this, c);
+          creatures.push(c); out.push(c);
         }
       }
-      if (cell == null) continue;
-      reserved.add(cell);
-      if (caughtSet.has(id)) continue;
-      const cx = cell % N, cy = Math.floor(cell / N);
-      const point = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
-      const c = WorldGen.makeCreature(kind, point.x, point.y, id);
-      EnemySpawns.surfaceActive(this, c);
-      creatures.push(c); out.push(c);
     }
     return out;
   }

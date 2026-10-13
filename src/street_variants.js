@@ -266,6 +266,7 @@
     // shared ledger key with a painting per landscape, told on the first scenic metre
     // restored (app.js _ripenStreets), the `flash` on later walks.
     { id: 'promenade', pathWeight: .12, terrain: 'SAND', affinities: ['coastal', 'formal'], size: 'path', share: 0, rung: 'uncommon',
+      pathFauna: { metal_slime: { perPathM: 300, max: 2, salt: 'pathfauna|metal_slime' } },
       stone: { weathered: '#9c8d70', restored: '#b1a07c' },
       lampGlow: '#ffd16a',
       story: 'street_scenic', title: 'The promenade',

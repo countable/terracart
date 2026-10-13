@@ -537,10 +537,6 @@
     sea_turtle: { perShoreM: 70, max: 8, pier: false, salt: 'shorefauna|turtle' },
   };
 
-  const PATH_FAUNA = {
-    metal_slime: { perPathM: 300, max: 2, salt: 'pathfauna|metal_slime' },
-  };
-
   // The accessors. The raw tables reach app.js as the bare globals below
   // (BIOME_FAUNA / FAUNA_ORDER for the fauna spawner), not through here.
   const api = { T, flora, staticObjects, tint, atmos, mixHex, allows, exclusive, faunaAllows, yard, yardTrees, yardAllows, patch, patchMul, FLORA_PATCH, GRASS_FILL,
@@ -550,7 +546,6 @@
   global.BIOME_FAUNA = BIOME_FAUNA;
   global.FAUNA_ORDER = FAUNA_ORDER;
   global.LEGACY_ENEMY_TERRAINS = LEGACY_ENEMY_TERRAINS;
-  global.PATH_FAUNA = PATH_FAUNA;
   global.SHORE_FAUNA = SHORE_FAUNA;
   global.SHORE_FAUNA_ORDER = SHORE_FAUNA_ORDER;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

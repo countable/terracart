@@ -98,21 +98,26 @@ test('shore fauna: metal slimes never belong to beach or pier populations', () =
 });
 
 const pathLift = () => {
-  const i = SCENE_SRC.indexOf('  spawnPathMetalSlimes(');
+  const i = SCENE_SRC.indexOf('  spawnPathVariantFauna(');
   const j = SCENE_SRC.indexOf('\n  }\n', i);
-  return new Function(`return ({ ${SCENE_SRC.slice(i, j + 4)} });`)().spawnPathMetalSlimes;
+  return new Function(`return ({ ${SCENE_SRC.slice(i, j + 4)} });`)().spawnPathVariantFauna;
 };
-function pathPopulation(block = false, caught = new Set()) {
+function pathPopulation(block = false, caught = new Set(), variant = 'promenade') {
   const grid = new Uint8Array(NB * NB).fill(T.SAND), pathCells = [];
   for (let y = 0; y < NB; y++) { grid[y * NB + 30] = T.PATH; pathCells.push(y * NB + 30); }
   const spawnWhy = new Uint16Array(NB * NB);
   if (block) for (let y = 0; y < NB - 5; y++) for (const x of [29, 31]) spawnWhy[y * NB + x] = WorldGen.SPAWN_WHY.RESTRICTED;
-  return pathLift().call({ tileEdgeM: NB * CM }, [], pathCells, NB, 3, 4, CM, grid, { spawnWhy }, caught);
+  const entry = { grid, cellsPerEdge: NB, streetArea: new Uint8Array(NB * NB).fill(1),
+    streetAreaVariants: new Uint8Array(NB * NB).fill(StreetVariants.VARIANT_BY_ID[variant]?.code || 0) };
+  return pathLift().call({ tileEdgeM: NB * CM }, [], pathCells, NB, 3, 4, CM, grid, { spawnWhy }, caught, entry);
 }
-test('path fauna: rare metal slimes stand beside paths with stable defeat identities', () => {
+test('path fauna: promenade-defined metal slimes stand beside paths with stable defeat identities', () => {
   const ordinary = pathPopulation(), relocated = pathPopulation(true);
   assert.eq(ordinary.length, Math.min(2, Math.floor(NB * CM / 300)));
   assert.gt(ordinary.length, 0);
+  assert.eq(StreetVariants.VARIANT_BY_ID.promenade.pathFauna.metal_slime.perPathM, 300);
+  for (const variant of ['greenway', 'parkpath', 'slime_trail', ''])
+    assert.eq(pathPopulation(false, new Set(), variant).length, 0, `${variant || 'plain'} paths have no metal slimes`);
   assert.eq(ordinary.map(c => c.id).join(), relocated.map(c => c.id).join(), 'safety leaves identities intact');
   for (const c of [...ordinary, ...relocated]) assert.eq(Math.abs(cellOf(c) % NB - 30), 1, 'every slime is adjacent to the path');
   for (const c of relocated) assert.gte(Math.floor(cellOf(c) / NB), NB - 5, 'restricted path verges remain empty');
