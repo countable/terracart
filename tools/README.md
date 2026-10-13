@@ -79,6 +79,9 @@ Map review trims buffered road/path geometry to its owning tile before drawing,
 variant counts, and click inspection. Neighboring buffer copies have no local
 path assignment and must not appear as additional plain paths.
 The game-art layer also draws seeded Spider Path webs on the ground.
+Pirate Cove sand has a warm terracotta tint in game art and terrain codes.
+The tint follows the exact variant coverage cells, leaving ordinary beach sand,
+water and paths unchanged.
 
 In `map-review.html`, the Overlays section toggles path endpoint dots
 and path names (visible from zoom 17; unnamed or numeric-only labels are hidden).

@@ -92,15 +92,32 @@ function seat(b, caught = new Set(), order) {
 }
 const cellOf = (c) => Math.floor((c.y - 4 * NB * CM) / CM) * NB + Math.floor((c.x - 3 * NB * CM) / CM);
 
-test('shore fauna: metal slimes use a sparse independent population with persistent identities', () => {
-  const b=beach(), all=seat(b), metals=all.filter(c=>c.kind==='metal_slime');
-  const count=Math.min(SHORE_FAUNA.metal_slime.max,
-    Math.floor((b.shore.shoreM+b.pierCells.length*CM)/SHORE_FAUNA.metal_slime.perShoreM));
-  assert.eq(metals.length,count); assert.gt(count,0);
-  assert.eq(metals.map(c=>c.id).join(),seat(b,new Set(),['metal_slime']).map(c=>c.id).join(),
-    'other species never reroll the metal stream');
-  assert.eq(seat(b,new Set(metals.map(c=>c.id))).filter(c=>c.kind==='metal_slime').length,0,
-    'defeated metal slimes do not respawn');
+test('shore fauna: metal slimes never belong to beach or pier populations', () => {
+  assert.falsy(SHORE_FAUNA.metal_slime);
+  assert.falsy(seat(beach()).some(c => c.kind === 'metal_slime'));
+});
+
+const pathLift = () => {
+  const i = SCENE_SRC.indexOf('  spawnPathMetalSlimes(');
+  const j = SCENE_SRC.indexOf('\n  }\n', i);
+  return new Function(`return ({ ${SCENE_SRC.slice(i, j + 4)} });`)().spawnPathMetalSlimes;
+};
+function pathPopulation(block = false, caught = new Set()) {
+  const grid = new Uint8Array(NB * NB).fill(T.SAND), pathCells = [];
+  for (let y = 0; y < NB; y++) { grid[y * NB + 30] = T.PATH; pathCells.push(y * NB + 30); }
+  const spawnWhy = new Uint16Array(NB * NB);
+  if (block) for (let y = 0; y < NB - 5; y++) for (const x of [29, 31]) spawnWhy[y * NB + x] = WorldGen.SPAWN_WHY.RESTRICTED;
+  return pathLift().call({ tileEdgeM: NB * CM }, [], pathCells, NB, 3, 4, CM, grid, { spawnWhy }, caught);
+}
+test('path fauna: rare metal slimes stand beside paths with stable defeat identities', () => {
+  const ordinary = pathPopulation(), relocated = pathPopulation(true);
+  assert.eq(ordinary.length, Math.min(2, Math.floor(NB * CM / 300)));
+  assert.gt(ordinary.length, 0);
+  assert.eq(ordinary.map(c => c.id).join(), relocated.map(c => c.id).join(), 'safety leaves identities intact');
+  for (const c of [...ordinary, ...relocated]) assert.eq(Math.abs(cellOf(c) % NB - 30), 1, 'every slime is adjacent to the path');
+  for (const c of relocated) assert.gte(Math.floor(cellOf(c) / NB), NB - 5, 'restricted path verges remain empty');
+  assert.eq(pathPopulation(false, new Set(ordinary.map(c => c.id))).length, 0, 'defeated slimes remain gone');
+  assert.eq(pathLift().call({ tileEdgeM: NB * CM }, [], [], NB, 3, 4, CM, new Uint8Array(NB * NB).fill(T.SAND), {}, new Set()).length, 0, 'a pathless beach has no metal slime');
 });
 
 test('shore fauna: crabs on shore sand only, gulls on the beach only, counted off the waterline', () => {
@@ -126,6 +143,15 @@ test('shore fauna: crabs on shore sand only, gulls on the beach only, counted of
   }
   assert.eq(new Set(out.map((c) => c.id)).size, out.length, 'each canonical identity is unique');
   assert.eq(new Set(out.map(cellOf)).size, out.length, 'all shore species share physical seat reservations');
+});
+
+test('shore fauna: animals of different species share a spacing preference', () => {
+  const out = seat(beach());
+  for (let a = 0; a < out.length; a++) for (let b = a + 1; b < out.length; b++) {
+    const ia = cellOf(out[a]), ib = cellOf(out[b]);
+    assert.gte(Math.max(Math.abs(ia % NB - ib % NB), Math.abs(Math.floor(ia / NB) - Math.floor(ib / NB))),
+      HabitatSpawns.FAUNA_SPACING_CELLS, 'a spacious beach spreads animals across species');
+  }
 });
 
 test('shore fauna: no shore, no crabs — inland sand and a tile without water hold none', () => {

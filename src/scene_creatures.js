@@ -754,7 +754,7 @@ class SceneCreatures {
 
     // THE BEACH'S OWN MARKS (src/scenic.js): the count follows the SHORELINE
     // — Scenic.beachXCount(shoreM), one per BEACH_X_SHORE_M of waterline,
-    // capped at BEACH_X_MAX, × X_MARK_FREQUENCY — not the tile's flat count, so a long beach carries
+    // capped at BEACH_X_MAX, × X_MARK_FREQUENCY × BEACH_X_DENSITY — not the tile's flat count, so a long beach carries
     // marks at its own rate. Its OWN stream (seeded off the tile, salted), so
     // no other draw moves; each mark on a shore-sand cell that takes a minor
     // spawn, keyed by position (treasure_sand ids, as before).
@@ -762,15 +762,17 @@ class SceneCreatures {
     if (shore && shore.cells.length && typeof Scenic !== 'undefined') {
       const want = Scenic.beachXCount(shore.shoreM);
       const brng = WorldGen.makeRng(fnv1a(`beachx|${tx},${ty}`));
-      let placed = 0;
-      for (let attempt = 0; attempt < want * 8 && placed < want; attempt++) {
-        const cell = shore.cells[Math.floor(brng() * shore.cells.length)];
+      const eligible = shore.cells.filter(cell => WorldGen.isSpawnCell(genGrid, N, N,
+        cell % N, Math.floor(cell / N), ambientSpawnOpts, 'minor'));
+      const occupied = [...entry.extraTreasures, ...(entry.treasure ? [entry.treasure] : [])]
+        .map(t => ({ x: Math.floor((t.x - tx * this.tileEdgeM) / cellM),
+          y: Math.floor((t.y - ty * this.tileEdgeM) / cellM) }))
+        .filter(c => c.x >= 0 && c.y >= 0 && c.x < N && c.y < N)
+        .map(c => c.y * N + c.x);
+      for (const cell of Scenic.beachXCells(eligible, N, want, brng, occupied)) {
         const scx = cell % N, scy = Math.floor(cell / N);
-        if (!WorldGen.isSpawnCell(genGrid, N, N, scx, scy, ambientSpawnOpts, 'minor')) continue;
         const id = WorldGen.cellId('treasure_sand', tx, ty, scx, scy);
-        if (entry.extraTreasures.some(t => t.id === id)) continue;
         entry.extraTreasures.push({ ...tileCellCentre(this.tileEdgeM, tx, ty, cellM, scx, scy), id });
-        placed++;
       }
     }
 
@@ -807,14 +809,16 @@ class SceneCreatures {
     if (savedPlantings.length) SpawnOwnership.reconcileEntry(this, entry, savedPlantings);
     PlacedFloor.restoreBarricades(this, entry, tx, ty, 0);
     // THE SHORE'S OWN FAUNA (biome_profiles.js SHORE_FAUNA): crabs on the
-    // shore sand, gulls on the shore and the piers (the
-    // shore and pier cells come out of the bonus-X block's one grid pass). Each species on its OWN
+    // shore sand, gulls and turtles along the shore (the shore and pier cells
+    // come out of the bonus-X block's one grid pass). Each species on its OWN
     // stream (its `salt`), so no other draw moves; its count follows the
     // waterline; each seat uses the shared gate and its creature class.
     // IDs come from raw shore draws, before safety relocates eligible seats.
     this.spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid,
       faunaSpawnOpts, _spawnOpts, caughtSet, entry.zone && (entry.zone.coverage || entry.zone.idx), entry, zoneGuards);
 
+
+    this.spawnPathMetalSlimes(creatures, pathCells, N, tx, ty, cellM, genGrid, _spawnOpts, caughtSet, zoneGuards);
 
     // The per-player cull, AFTER every draw of the shared stream above.
     this._cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures);
@@ -879,6 +883,7 @@ class SceneCreatures {
       if (cx >= 0 && cy >= 0 && cx < N && cy < N) reserved.add(cy * N + cx);
     }
 
+    const spacing = HabitatSpawns.faunaSpacing(N, reserved);
     const getGroup = i => {
       const owner = habitatEntry ? HabitatSpawns.resolve(habitatEntry, i) : null;
       const areaOwner = habitatEntry ? WorldGen.variantOwnerAt(habitatEntry, i) : null;
@@ -934,12 +939,16 @@ class SceneCreatures {
           let cell = null;
           const canonicalSeat = pool.indexOf(canonical);
           const seatStart = canonicalSeat >= 0 ? canonicalSeat : Math.floor(EnemySpawns.roll(id + ':seat') * pool.length);
+          let clearance = -1;
           for (let at = 0; at < pool.length; at++) {
             const candidate = pool[(seatStart + at) % pool.length];
-            if (!reserved.has(candidate)) { cell = candidate; break; }
+            if (reserved.has(candidate)) continue;
+            const gap = spacing.clearance(candidate);
+            if (gap > clearance) { cell = candidate; clearance = gap; }
+            if (gap >= HabitatSpawns.FAUNA_SPACING_CELLS) break;
           }
           if (cell == null) continue;
-          reserved.add(cell); placed++;
+          reserved.add(cell); spacing.add(cell); placed++;
           const cx = cell % N, cy = Math.floor(cell / N);
           const seat = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
           const point = { key: `land:${genGrid[cell]}:shore`, profile: group.owner?.profile?.id || 'shore', tx, ty, cx, cy, sourceCx: canonicalX, sourceCy: canonicalY, ...seat };
@@ -955,6 +964,50 @@ class SceneCreatures {
       }
     }
     if (habitatEntry) habitatEntry.shorePopulation = diagnostics;
+    return out;
+  }
+
+  // Rare metal slimes belong beside pedestrian paths. Their own stream
+  // preserves other populations, and canonical path cells keep defeat IDs
+  // stable when safety or occupancy changes which adjacent seat is free.
+  spawnPathMetalSlimes(creatures, pathCells, N, tx, ty, cellM, grid, opts, caughtSet, authoredCreatures = []) {
+    const out = [], kind = 'metal_slime', spClass = creatureSpawnClass(kind);
+    const row = PATH_FAUNA[kind];
+    const requested = Math.min(row.max, Math.floor(pathCells.length * WorldGen.CELL_M / row.perPathM));
+    const rng = WorldGen.makeRng(fnv1a(`${row.salt}|${tx},${ty}`));
+    const remaining = pathCells.slice().sort((a, b) => a - b);
+    const reserved = new Set(opts.creatureCells || []);
+    for (const c of [...creatures, ...authoredCreatures]) {
+      const cx = Math.floor((c.x - tx * this.tileEdgeM) / cellM), cy = Math.floor((c.y - ty * this.tileEdgeM) / cellM);
+      if (cx >= 0 && cy >= 0 && cx < N && cy < N) reserved.add(cy * N + cx);
+    }
+    for (let n = 0; n < requested && remaining.length; n++) {
+      const canonical = remaining.splice(Math.floor(rng() * remaining.length), 1)[0];
+      const sourceCx = canonical % N, sourceCy = Math.floor(canonical / N);
+      const id = WorldGen.cellId('metal_slime_path', tx, ty, sourceCx, sourceCy);
+      let cell = null;
+      // Search other path verges if the canonical one is occupied; never
+      // relocate onto unrelated beach or open ground away from a path.
+      const start = pathCells.indexOf(canonical);
+      for (let j = 0; j < pathCells.length && cell == null; j++) {
+        const path = pathCells[(start + j) % pathCells.length];
+        const px = path % N, py = Math.floor(path / N);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const cx = px + dx, cy = py + dy, i = cy * N + cx;
+          if (cx < 0 || cy < 0 || cx >= N || cy >= N || grid[i] === WorldGen.T.PATH || reserved.has(i)) continue;
+          if (!WorldGen.isSpawnCell(grid, N, N, cx, cy, opts, spClass)) continue;
+          cell = i; break;
+        }
+      }
+      if (cell == null) continue;
+      reserved.add(cell);
+      if (caughtSet.has(id)) continue;
+      const cx = cell % N, cy = Math.floor(cell / N);
+      const point = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
+      const c = WorldGen.makeCreature(kind, point.x, point.y, id);
+      EnemySpawns.surfaceActive(this, c);
+      creatures.push(c); out.push(c);
+    }
     return out;
   }
 

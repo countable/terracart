@@ -178,6 +178,9 @@ a composition shortfall.
   variant labels, each Nexus's coverage union, live placements and what occupancy or
   the gate removed; `?quarryClusters=1` (with `removedLanes=1`) colours quarry
   ownership. These are read-only views of the game's own generation.
+  Pirate Cove sand uses a review-only terracotta tint in game art and terrain
+  codes, following the exact coverage winner at each sand cell rather than
+  the anchor's influence radius.
 
 Tests: `zone_variants`, `zone_coverage`, `zone_dressing`, `zone_ground`,
 `zone_runtime`, `zones`, `quarry_layout`, `quarry_coverage`,

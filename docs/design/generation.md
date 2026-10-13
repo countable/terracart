@@ -45,7 +45,11 @@ access or tile lifecycle mechanics.
   daylight, amnesty and mode overlays. Stable habitat slots choose species;
   legal-seat changes cannot change their identities or species. Fauna may share
   static interactable cells, but generated inhabitants do not share each
-  other's seats. `entry.habitatPopulation` separates requested, placed and
+  other's seats. Habitat and shoreline fauna prefer three-cell Chebyshev
+  separation across species, including already placed inhabitants. Seeded seat
+  order stays deterministic; if no fully spaced legal seat exists, use the best
+  remaining clearance so tight habitat does not silently lose its population.
+  `entry.habitatPopulation` separates requested, placed and
   shortfall counts; matching authored Nexus fauna satisfies matching slots.
 - Crows are the open country's corvid: Grass landcover, Grove Nexus and
   declared Road Variant populations; Ravens are the houses' (Residential).
@@ -245,7 +249,10 @@ access or tile lifecycle mechanics.
 - X-mark density: every ambient X stream (tile scatter, low-tier quota,
   footpath and inland-sand bonuses, shoreline, cave floors) scales its count
   by `loot.js X_MARK_FREQUENCY`; authored marks (parking, hoards) stay one
-  per site.
+  per site. Shoreline marks use an additional 0.7 density multiplier and
+  seeded farthest-first placement, at least three cells apart from each other
+  and earlier X marks on the tile. Their positions repeat for every player
+  and reload; crowded beaches may place fewer when no spaced legal seat remains.
 - A GREAT X (`loot.js GREAT_X`): `GREAT_X.share` (a tenth) of every X mark,
   whatever stream laid it, chosen by `isGreatX` off the mark's id. Drawn thick
   and dark red, it digs the `treasure:great` pool (gold, a tool or weapon, or
@@ -449,7 +456,10 @@ access or tile lifecycle mechanics.
   shared with egg hatching) nothing restores, pays or taps and foes ignore the
   player via `unnoticed`. `HabitatSpawns` allocates the base population from
   the winning landcover, Nexus or Road Variant profile before it chooses
-  legal seats. Plain roads and paths add no population. Road Variant `fauna`
+  legal seats. Plain roads add no population. Pedestrian paths seat rare metal
+  slimes on adjacent legal ground: one per 300 m of path cells, at most two
+  per tile, with stable path-cell defeat identities. Ordinary beach and pier
+  populations contain no metal slimes. Road Variant `fauna`
   declarations supply local inhabitants.
   Where a species prefers to stand is an `attracts` column (road variant rows,
   `Zones.ZONE_KINDS`, `BIOME_ATTRACTS`, scenic themes and
