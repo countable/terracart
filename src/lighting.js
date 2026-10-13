@@ -22,6 +22,7 @@
 //   Lighting.collectMagicTraps(scene, ax, ay, halfM) — add the set magic traps
 //   Lighting.collectLamps(scene, ax, ay, halfM) — add the restored streets' lamps
 //   Lighting.collectPlayer(scene, ax, ay, halfM, now?) — add the player's torch, if lit
+//   Lighting.playerLightMul(scene) — the player's light as a fraction (blinded: ½)
 //   Lighting.TORCH_RADIUS_MUL     — the torch's radius, in player radii
 //   Lighting.profile(scene, daylight) — ambient / lit / edge levels at this depth
 //   Lighting.lowEnergyFrac(scene) — 0..1, how far into the low-energy warning
@@ -1060,6 +1061,13 @@
   // pushes nothing: the ramp IS that light, and a cookie on top of it would
   // brighten the surface picture the profile derivation pins.
   const PLAYER_OBJ = { kind: 'player', id: 'player' };
+  // How far the player's OWN light carries this frame, as a fraction of its
+  // row: Conditions.lightMul (a ghost's blinding touch halves it). Scales the
+  // ramp's extent (draw, playerLightAt) and a carried torch's cookie
+  // (collectPlayer's `r`); the reach plateau shrinks in reachRadiusM itself.
+  function playerLightMul(scene) {
+    return (window.Conditions && window.Conditions.lightMul) ? window.Conditions.lightMul(scene?.save) : 1;
+  }
   function collectPlayer(scene, ax, ay, halfM, now) {
     const kind = sourceKind(scene, PLAYER_OBJ);
     if (kind === 'player') return kind;
@@ -1073,7 +1081,10 @@
     // direct call with none reads the clock itself.
     const t = now ?? lightClock(Date.now());
     const a = torchStrength(scene.depth, daylight(scene, t));
-    scene._lights.push(a < 1 ? { kind, dx, dy, a, id: PLAYER_OBJ.id } : { kind, dx, dy, id: PLAYER_OBJ.id });
+    const L = a < 1 ? { kind, dx, dy, a, id: PLAYER_OBJ.id } : { kind, dx, dy, id: PLAYER_OBJ.id };
+    const sight = playerLightMul(scene);
+    if (sight < 1) L.r = radiusCells(kind) * sight;
+    scene._lights.push(L);
     return kind;
   }
 
@@ -1138,7 +1149,7 @@
       const added = (level - prof.edge) * lum(plateauCellColour(prof, level));
       return prof.edge + added * REACH_OUTPUT_K;
     }
-    const rMaxM = radiusCells('player') * cellM;
+    const rMaxM = radiusCells('player') * playerLightMul(scene) * cellM;
     if (d >= rMaxM) return 0;
     const t = rMaxM > reachM ? Math.max(0, (d - reachM) / (rMaxM - reachM)) : 1;
     return playerCookieAlpha(t, prof);
@@ -2014,7 +2025,7 @@
     const k = CELL_PX / scene.cellM;                 // metres → screen px
     // The ramp's extent: the player row's radius — the viewport's half-
     // diagonal plus PLAYER_RAMP_PAST_CORNER_CELLS, so the corners stay lit.
-    const rMax = radiusCells('player') * CELL_PX;
+    const rMax = radiusCells('player') * playerLightMul(scene) * CELL_PX;
     const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
     const r0 = Math.max(0, reachM * k);
     const player = ensurePlayerCookie(scene, prof, r0, rMax);
@@ -2117,7 +2128,7 @@
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, objectLightPadCells, wildplantLightPadCells,
-    collectPlayer, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
+    collectPlayer, playerLightMul, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, REACH_FADE_MS, reachFrames, reachFramesKey, coverFrame, draw,
     LIGHT_TICK_MS, lightClock, baseFrameKey, staticFrameKey, lightCentrePx, plateauPxKey, LIGHT_CACHE_PAD_CELLS, LIGHT_CACHE_LIMIT_CELLS, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,

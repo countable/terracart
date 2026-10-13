@@ -131,6 +131,21 @@ mechanics.
   (`CAST_ROWS.wind_scroll`: every foe in reach takes 5 and is blown
   `pushCells` away on any ground the enemy gate allows, at any depth). A push
   plays out at the depth it began on; a level change cancels it.
+- THE MOONBEAM (T6 `moonbeam_scroll`, its own `useMoonbeamScroll`): the
+  `moonbeam` Buffs row runs eight seconds (a second reading extends it). While
+  it runs, `_moonbeamSegment` lays an instant beam `rangeCells` out along the
+  facing, cut short at cave rock, and `_tickMoonbeam` burns `dps` a second
+  (bypassing armour) into every foe within `widthCells` of it —
+  `Combat.beamHits` keeps them all, so it pierces. Held while attacks are
+  blocked, under the shadow's truce or while downed; the draw reads the same
+  segment.
+- LIFESTEAL is one rule, `Combat.lifestealHeal(fraction, dealt, target)`: a
+  share of what a blow took, nothing from a `Combat.isUndead` target (the
+  roster's `undead` column, inherited through `baseKind`). A bat's row
+  `lifesteal` feeds it through `Combat.feed`, past its max (`foeBlowLands`
+  and a charmed bat's bite); the Vampire Ring (`UNIQUE_JEWELRY.vampire_ring`,
+  `jewelryMeleeLifesteal`) returns 20% of a melee blow as banked whole energy,
+  capped at the bar.
 - BOOK CLUB LENDING: lifetime Books collected provide one reusable credit
   each. The existing value-ordered tome shelf unlocks one new title every
   three Books; unlocks do not repeat. Each borrowed copy reserves its item
@@ -171,7 +186,10 @@ mechanics.
 - A status effect is a row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin): the
   player's condition, a foe's (`Combat.ignite` / `burnTick` read the same row),
   the HUD chip and the body tint all derive from it. A new status is a row
-  there, never a timer, colour or label of its own.
+  there, never a timer, colour or label of its own. BLINDED (a ghost's touch,
+  its roster row's `condition`) carries `lightMul`: `Conditions.lightMul`
+  halves the reach plateau (`reachRadiusM`, never under one cell), the light
+  ramp and a carried torch (`Lighting.playerLightMul`) for fifteen seconds.
 - Confusion chooses a random compass heading and turn direction. Its share
   of movement increases linearly with the remaining duration: five seconds
   gives the compass 25% and player intent 75%; ten seconds splits control
@@ -283,10 +301,11 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
 - THE SERPENT: one creature per piece (`serpent_head` / `_body` / `_tail`
   roster rows, `boss: 'serpent'`), moved and biting only by its encounter's
   tick, never `rosterEnemyMove`. The head snakes about the player within the
-  row's `leashCells`; the coils and tail tip follow its trail. Trail samples
+  row's `leashCells` at 3.9 m/s; the coils and tail tip follow its trail,
+  spaced one display pixel closer than 0.55 cells at the standard cell scale. Trail samples
   accumulate distance from a fixed anchor while the live head moves, so turns
   remain in the path at every frame rate. Each coil touching the player bites
-  for the row's `dmg` once a `damageIntervalSeconds`
+  for the row's `dmg` (4 base damage) once a `damageIntervalSeconds`
   through `foeBlowLands`. Only coils can be struck (the head and tail are
   `untargetable`, read by `Combat.isConcealed`); a slain coil shortens it, and
   with only head and tail left it dies. Body and gait numbers are the

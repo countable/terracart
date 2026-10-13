@@ -56,6 +56,7 @@ function ghostScene(creatures, over = {}) {
     _warnIfTiring: () => {}, _flashPlayerHit: (n) => hits.push(n), _closeShopOnHit: () => {},
     _losePlayerEnergy(d) { const b = this.save.energy ?? 0; this.save.energy = Math.max(0, b - d); const l = b - this.save.energy; this._flashPlayerHit(l); return l; },
     updateEnergyDOM: () => {}, flash: () => {}, _wildCrowTick: () => {},
+    _applyCondition(id) { Conditions.apply(this.save, id); },
   }, over);
   scene.creatures = creatures;
   scene._hits = hits; scene._pops = pops; scene._dmgCalls = dmgCalls;
@@ -327,6 +328,7 @@ test('ghost: a touch lands GHOST_TOUCH_DMG through armour and spends the ghost â
     assert.eq(s._hits.length, 1, 'the body flinched, once');
     assert.eq(s._pops.length, 1, 'and the loss popped');
     assert.eq(s._pops[0].d, -want);
+    assert.truthy(Conditions.active(s.save, 'blinded'), 'and the touch blinds (its row\'s condition)');
     // Armour soaks it, by the one rule.
     const armor = { head: { tier: 3 }, body: { tier: 3 } };
     const g2 = mkGhost({ id: 'ghost_0_0_2_0_1', x: P.x + 3 * CELL });

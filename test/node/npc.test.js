@@ -23,6 +23,21 @@
     assert.truthy(Number.isInteger(first.npcVariant), 'art variant is a stable index');
   });
 
+  test('NPC identities: the name agrees with who the art shows', () => {
+    // A farm scout wears the straw-hatted Fieldwalker; no "Brella" may wear him.
+    for (const culture of Object.keys(NPC.LABELS)) {
+      const C = NPC.CULTURES[culture];
+      for (let i = 0; i < 300; i++) {
+        const c = NPC.identity(`npc_3_9_${i}_2`, culture);
+        const pool = SpriteLayout.npcSheet(c).presents === 'man' ? C.menSuffixes : C.suffixes;
+        assert.truthy(pool.some(s => c.name.endsWith(s)), `${culture} ${c.role} ${c.name}`);
+      }
+    }
+    const fieldwalker = NPC.identity('npc_3_9_0_2', 'farm', 'scout');
+    assert.eq(fieldwalker.role, 'scout');
+    assert.truthy(NPC.CULTURES.farm.menSuffixes.some(s => fieldwalker.name.endsWith(s)), fieldwalker.name);
+  });
+
   test('NPC identities: scholars are uncommon and every behavior is represented', () => {
     const counts = {};
     for (let i = 0; i < 1000; i++) {

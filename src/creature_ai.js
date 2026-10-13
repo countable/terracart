@@ -1288,6 +1288,8 @@ function foeBlowLands(scene, c, raw, { condition = null, mitigated = false } = {
     if (typeof persistSave === 'function') persistSave(scene.save);
   }
   if (lost > 0 && condition) scene._applyCondition(condition);
+  // A BAT FEEDS (its row's `lifesteal`): the life it took, past its own max.
+  if (lost > 0 && c) Combat.feed(c, Combat.lifestealHeal(Combat.monster(c.kind)?.lifesteal, lost, null));
   return lost;
 }
 
@@ -1793,7 +1795,9 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
       (scene._shots ||= []).push(shot);
     }
   } else if (creatureTarget) {
+    const before = Combat.hp(creatureTarget);
     scene._damageEnemy(creatureTarget, raw, Combat.isCharmed(c) ? 'ally' : 'enemy');
+    Combat.feed(c, Combat.lifestealHeal(row.lifesteal, before - Combat.hp(creatureTarget), creatureTarget));
   } else if (npcTarget) {
     NPC.hit(scene, npcTarget, Date.now(), raw);
   } else if (row.steals) {

@@ -709,12 +709,16 @@ function reachRadiusM(scene) {
   // drawn cell — render.js darkens cells from -1..VIEW_CELLS (offsets -6..6
   // from the centre), so the far corner sits at √2·6·cellM ≈ 42 m; VIEW_CELLS·
   // cellM (55 m) clears it with margin so every on-screen cell reads as lit.
+  // BLINDED (Conditions.lightMul — a ghost's touch) halves either, never
+  // below the one cell round the feet, so the next cell stays workable.
+  const sight = (typeof Conditions !== 'undefined' && Conditions.lightMul) ? Conditions.lightMul(scene.save) : 1;
   if (Energy.fullViewReachActive(scene.save)) {
-    return VIEW_CELLS * scene.cellM;
+    return VIEW_CELLS * scene.cellM * sight;
   }
   const energy = scene.save?.energy ?? 0;
   if (energy <= 0) return 0;
-  return reachCells(scene) * scene.cellM + 1;
+  const cells = reachCells(scene);
+  return (sight < 1 ? Math.max(Math.min(1, cells), cells * sight) : cells) * scene.cellM + 1;
 }
 
 // "Is this absolute cell within the player's reach?" Both drawCells (visual

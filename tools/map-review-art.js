@@ -72,7 +72,7 @@ const MapReviewArt = (() => {
     const custom=spec?.custom, spring=spec?.sheet==='springcrops';
     return { visible:true, texKey:custom?spec.sheet:spring?'springcrops':'crops',
       frameVal:custom?wildplantFrame(o):spring?spec.row*SPRING_CROPS_COLS+stage:(CROP_ROW[o.crop]??1)*CROPS_SHEET_COLS+stage,
-      scl:spec?.scale??2,scaleYMul:1,tint:BiomeProfiles.tint(o._biome,o.crop)||0xffffff,origin:[.5,stage===0&&!custom&&!spring?.85:.5],dxPx:0,dyPx:0 };
+      scl:spec?.scale??2,scaleYMul:1,tint:spec?.tint??(BiomeProfiles.tint(o._biome,o.crop)||0xffffff),origin:[.5,stage===0&&!custom&&!spring?.85:.5],dxPx:0,dyPx:0 };
   }
   function creatureAppearance(o) {
     const art=SpriteLayout.creatureArt(o.kind); if(!art)return null;

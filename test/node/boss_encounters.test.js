@@ -247,11 +247,11 @@
       assert.lt(maxD, leash + 2 * s.cellM, 'it snakes about the player, inside its leash');
       assert.gt(s.lost, 0, 'and it passes through the player, biting');
       const coil = coilsOf(entry)[0];
-      assert.eq(EnemyRoster.get('serpent_body').dmg, 2, 'two a coil');
+      assert.eq(EnemyRoster.get('serpent_body').dmg, 4, 'four a coil');
       coil.x = 0; coil.y = 0; coil._touchNextT = 0;
       const before = s.lost;
-      foeBlowLands(s, coil, Combat.meleeBlow(coil, 2));
-      assert.eq(s.lost - before, Combat.incomingDamage(s.save, 2), 'through the one blow writer');
+      foeBlowLands(s, coil, Combat.meleeBlow(coil, EnemyRoster.get(coil.kind).dmg));
+      assert.eq(s.lost - before, Combat.incomingDamage(s.save, 4), 'through the one blow writer');
     });
   });
 

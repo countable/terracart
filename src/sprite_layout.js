@@ -473,18 +473,21 @@
     // tools/art/import_npc_art.py seats them in 4x4 cells of 48px and bakes
     // the citizen palette into them; assets.js preloads them from here.
     // `portraitY` lowers the smaller heads in the dialog portrait, as Orrin's.
+    // `presents` is who the art shows, and NPC.identity draws the resident's
+    // name to match: a straw-hatted Fieldwalker is never "Brella". Rows
+    // without it, and the citizen sheets, show women.
     ...[
-      ['scout', ['village'], 'wayfinder', 90], ['scout', ['farm'], 'fieldwalker', 90], ['scout', ['market'], 'town_guide', 99],
+      ['scout', ['village'], 'wayfinder', 90], ['scout', ['farm'], 'fieldwalker', 90, 'man'], ['scout', ['market'], 'town_guide', 99, 'man'],
       ['scout', ['woodland'], 'ranger', 90], ['scout', ['shrine'], 'shrine_warden', 90], ['scout', ['grove'], 'fox_tracker', 90],
-      ['merchant', ['village', 'market'], 'peddler', 90], ['merchant', ['farm'], 'seed_seller', 99],
-      ['trader', ['village'], 'barterer', 90], ['trader', ['farm'], 'harvest_trader', 99], ['trader', ['market'], 'market_trader', 99],
+      ['merchant', ['village', 'market'], 'peddler', 90, 'man'], ['merchant', ['farm'], 'seed_seller', 99],
+      ['trader', ['village'], 'barterer', 90], ['trader', ['farm'], 'harvest_trader', 99], ['trader', ['market'], 'market_trader', 99, 'man'],
       ['trader', ['woodland'], 'forager', 99], ['trader', ['shrine'], 'shrine_trader', 99], ['trader', ['grove'], 'fox_trader', 90],
-      ['scholar', ['village'], 'storykeeper', 99], ['scholar', ['woodland'], 'lorekeeper', 99], ['scholar', ['shrine'], 'shrine_lorekeeper', 99],
+      ['scholar', ['village'], 'storykeeper', 99, 'man'], ['scholar', ['woodland'], 'lorekeeper', 99], ['scholar', ['shrine'], 'shrine_lorekeeper', 99],
       ['scholar', ['grove'], 'fox_storyteller', 90],
-      ['mason', ['village'], 'mason', 90], ['mason', ['farm'], 'barn_raiser', 99], ['mason', ['market'], 'stonemason', 99],
+      ['mason', ['village'], 'mason', 90, 'man'], ['mason', ['farm'], 'barn_raiser', 99, 'man'], ['mason', ['market'], 'stonemason', 99, 'man'],
       ['lamplighter', ['village', 'market'], 'lamplighter', 99],
       ['keeper', ['shrine'], 'shrine_keeper', 99], ['keeper', ['grove'], 'den_keeper', 90],
-    ].map(([role, cultures, slug, portraitY]) => ({ role, cultures, idle: `npc_${slug}_idle`, walk: `npc_${slug}_walk`,
+    ].map(([role, cultures, slug, portraitY, presents = 'woman']) => ({ role, cultures, presents, idle: `npc_${slug}_idle`, walk: `npc_${slug}_walk`,
       path: `assets/NPC/${slug}_idle.png`, cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY,
       render: cultures.includes('grove') ? FOX_NPC_RENDER : undefined })),
   ];

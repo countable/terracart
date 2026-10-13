@@ -28,7 +28,7 @@ const BossEncounters = (() => {
     // them straight through the player, re-aimed each `goalMs`, turning at
     // most `turnRadPerS`; a coil within `touchCells` bites.
     serpent: { store: 'bossEncounters', durationMs: 5 * 60 * 1000,
-      coils: 12, spacingCells: 0.55, spawnCells: 6, ringCells: [2, 7], throughP: 0.35,
+      coils: 12, spacingCells: 0.55 - 1 / SpriteLayout.CELL_PX, spawnCells: 6, ringCells: [2, 7], throughP: 0.35,
       goalMs: 4000, turnRadPerS: 2.6, touchCells: 0.5,
       // SHARED (multiplayer.js `boss` frames): the starter's device drives
       // the head and sends its pose every `feedMs`; a copy adopted by a

@@ -1155,7 +1155,7 @@ class SceneCreatures {
     for (const i of entry.undergroundReserved || []) occupiedIdx.add(i);
     for (const resident of entry.undergroundResidents || []) {
       const { x, y, id, culture, dwarf } = resident;
-      const identity = NPC.identity(id, culture);
+      const identity = NPC.identity(id, culture, dwarf ? 'merchant' : null);
       creatures.push(WorldGen.makeCreature('npc', x, y, id, {
         ...identity, depth, homeX: x, homeY: y,
         ...(dwarf ? { name: 'Dwarf ' + identity.name, role: 'merchant', roleLabel: 'Dwarven Smith', shopTheme: 'supply', artScale: 0.8 } : {}),
@@ -1946,7 +1946,8 @@ class SceneCreatures {
       // A GHOST has its own mover (ghostTick — hover, rush, burn) and its own
       // blow: ONE touch of its row's dmg (Combat.meleeBlow), through the mode,
       // the shield and the armour like every blow (foeBlowLands — the one
-      // writer and the one roll-up), and then it is spent — marked in
+      // writer and the one roll-up) — its row's `condition` with it (the
+      // blinding, Conditions.DEFINITIONS.blinded) — and then it is spent — marked in
       // save.caught like a kill, but no coin (nobody felled it). Nothing else
       // below runs for it: it has no leech, no step chain and no crop to eat.
       if (haunts) {
@@ -1956,7 +1957,7 @@ class SceneCreatures {
         if (fate === 'touch') {
           const raw = Combat.meleeBlow(c, rosterRow.dmg);
           if (npcTarget) NPC.hit(this, npcTarget, Date.now(), raw);
-          else foeBlowLands(this, c, raw);
+          else foeBlowLands(this, c, raw, { condition: rosterRow.condition });
         }
         if (fate === 'touch' || fate === 'faded') {
           (this.save.caught = this.save.caught || []).push(c.id);

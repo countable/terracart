@@ -170,7 +170,7 @@ const ROCK_VARIANT_ART = Object.freeze({
 });
 const WILDPLANT_CONTEXT_ART = {
   gas_mushroom_small: { crop: 'mushroom', sheet: 'gas_mushroom_small', custom: true, frame: 0, scale: CROP_SPRITE.mushroom.scale },
-  gas_mushroom_large: { crop: 'giant_mushroom', sheet: 'gas_mushroom_large', custom: true, frame: 0, scale: CROP_SPRITE.giant_mushroom.scale, seat: CROP_SPRITE.giant_mushroom.seat },
+  gas_mushroom_large: { ...CROP_SPRITE.giant_mushroom, crop: 'giant_mushroom', tint: 0xd5e58a },
   ...Object.fromEntries(Object.entries(ZONE_ROCK_THEMES).map(([zone, theme]) =>
     ['zone_rock_' + zone, { crop: 'rubble', sheet: 'rock_variants', custom: true, frame: theme.frame, scale: ROCK_VARIANT_ART.themedScale }])),
   zone_hedge: { crop: 'shrub', sheet: 'zone_hedge', custom: true, scale: 4 / 3, seat: false },
@@ -578,6 +578,8 @@ const MINERAL_ICON_SHEET = {
   resurrection_potion: { sheet: 'icon_potions', frame: 21 },
   // Scroll of Thunder keeps its legacy save id; gold-lettered scroll art.
   thunder_scroll:      { sheet: 'icon_thunder_scroll', frame: 0 },
+  // Scroll of Moonbeam: a crescent throwing its pale beam across the page.
+  moonbeam_scroll:     { sheet: 'icon_moonbeam_scroll', frame: 0 },
   // Dragon Powder — the vivid crimson pouch (row 1 col 2 = frame 7). Using it
   // turns you into a red dragon (useDragonPowder in app.js).
   dragon_powder: { sheet: 'icon_potions', frame: 7 },
@@ -596,6 +598,8 @@ const MINERAL_ICON_SHEET = {
   coin_ring:         { sheet: 'icon_rings',   frame: 7 },
   invisibility_ring: { sheet: 'icon_rings',   frame: 11 },
   ember_ring:        { sheet: 'icon_rings',   frame: 9 },
+  // The dark band with its blood-red stone (Rings.png row 3).
+  vampire_ring:      { sheet: 'icon_rings',   frame: 18 },
   regeneration_amulet:      { sheet: 'icon_amulets', frame: 10 },
   vigor_amulet:      { sheet: 'icon_amulets', frame: 17 },
   sleep_powder:  { sheet: 'icon_potions', frame: 3 }, // scoop of violet dream dust
@@ -789,6 +793,7 @@ const BASE_TIER = {
   revival_potion: 3, resurrection_potion: 5,
   // Thunder: a screen-wide strike that also breaks a fight up — T4.
   thunder_scroll: 4,
+  moonbeam_scroll: 6,
   // Growth Powder is a T1 farm utility, there from the first harvest. Shadow
   // is T2: three minutes of not being hunted is a way to WALK AWAY from a fight,
   // the same shape as the reach/speed/shield potions it shares a tier with.
@@ -811,7 +816,7 @@ const BASE_TIER = {
   poison_flask: 2,
   // Unique jewelry is intrinsically magical, never a metal rung.
   portal_stone: 3, depth_key: 4,
-  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, regeneration_amulet: 3, vigor_amulet: 5,
+  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, regeneration_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_reach: 3, tome_raven: 4, tome_thunder: 5, tome_fire_wall: 4,
@@ -1026,6 +1031,7 @@ const ITEMS = [
   { id: 'resurrection_potion', name: 'Potion of Resurrection', kind: 'magic', potion: true },
   // Read to strike every foe on screen.
   { id: 'thunder_scroll',      name: 'Scroll of Thunder',      kind: 'magic', scroll: true },
+  { id: 'moonbeam_scroll',     name: 'Scroll of Moonbeam',     kind: 'magic', scroll: true },
   // Dragon Powder: use it (Use button with it selected) to wear a red dragon
   // for one minute — tier-8 boot movement and 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
@@ -1052,6 +1058,7 @@ const ITEMS = [
   { id: 'coin_ring',         name: 'Ring of Gathering',     kind: 'unique_relic', uniqueJewelry: true },
   { id: 'invisibility_ring', name: 'Ring of Invisibility',  kind: 'unique_relic', uniqueJewelry: true },
   { id: 'ember_ring',        name: 'Ember Ring',            kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'vampire_ring',      name: 'Vampire Ring',          kind: 'unique_relic', uniqueJewelry: true },
   { id: 'regeneration_amulet',      name: 'Amulet of Regeneration', kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vigor_amulet',      name: 'Amulet of Vigour',        kind: 'unique_relic', uniqueJewelry: true },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
@@ -1562,6 +1569,16 @@ const CONSUMABLE_SPEC = {
     verb: 'Read', title: 'Read the Scroll of Thunder?',
     get: 'Thunder breaks over the foes before you.',
   },
+  // THE SCROLL OF MOONBEAM (T6): for `durationMs` an instant beam runs
+  // `rangeCells` out along the reader's facing (scene_consumables.js
+  // _tickMoonbeam — Combat.beamHits): every foe within `widthCells` of it
+  // takes `dps` a second, armour or no, however many stand in the line. The
+  // timer is the `moonbeam` Buffs row; a second reading extends it.
+  moonbeam_scroll: {
+    durationMs: 8000, dps: 10, rangeCells: 6, widthCells: 0.8,
+    verb: 'Cast', method: 'useMoonbeamScroll', title: 'Cast the Scroll of Moonbeam?',
+    get: 'For eight seconds a beam of moonlight runs from your hand the way you face, burning through every foe in its line.',
+  },
   blight_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, radiusCells: 1.5, damagePerSecond: 2, buff: 'blight',
     verb: 'Drink', title: 'Drink the Potion of Blight?',
@@ -1790,13 +1807,14 @@ const PRICES = {
   revival_potion: 40,   // T3 — get up where you fell with 30% of the bar
   resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
   thunder_scroll: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
+  moonbeam_scroll: 320,  // T6 — 8 s of a piercing 10/s beam: up to 80 to each foe in its line
   dragon_powder: 120,  // T4 — 1 min of dragon: tier-8 boot walking + 2× damage
   growth_powder: 60,   // T1 — everything growing within 20 m completes its current stage
   shadow_powder: 110,  // T2 — 3 min of monsters ignoring you entirely (priced for the
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach chilled (slowed) for 30 s
   // Initial entries are replaced by fixed-tier equipment values after gearPrice is defined.
-  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
+  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, vampire_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's brief round trip); crafted from 5 long grass, so not a money pump
   trap_disarm_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
@@ -1925,6 +1943,7 @@ const ITEM_GUIDE_TIPS = {
   wraith_scroll: 'The ink paled as I finished the shade. My breath misted above the parchment.',
   raven_scroll: 'I traced a raven onto the parchment. Its ink-dark wings stirred before the page was dry.',
   thunder_scroll: 'I copied the thunder words onto a blank scroll. Outside, the sky answered.',
+  moonbeam_scroll: 'I copied the moon onto a blank scroll by candlelight. When I blew the candle out, the page kept shining.',
   fireball_scroll: 'At the trailer I copied the fire spell from memory onto blank parchment. The ink warmed. I moved the bedding away.',
   fear_scroll: 'I copied the words that had scattered my pursuers onto a blank scroll. Even here at the trailer, the parchment trembled.',
   wind_scroll: 'I copied the gust onto a blank scroll from memory. The trailer door banged open on its own.',
@@ -2002,6 +2021,7 @@ const ITEM_EFFECTS = {
   depth_key: 'The metal warms in your palm, answering a lock far below.',
   coin_ring: 'Loose coins slide across the ground toward its golden band.',
   ember_ring: 'Its banked ember drinks the heat before it reaches your skin.',
+  vampire_ring: 'Each blow you strike by hand sends a fifth of its wound back into you. The dead have nothing left to give.',
   invisibility_ring: 'The eye forgets the hand it almost saw.',
   regeneration_amulet: 'A slow warmth mends what the day takes.',
   vigor_amulet: 'A quickened warmth mends what the day takes.',
@@ -2028,6 +2048,7 @@ const ITEM_EFFECTS = {
   explosive_flask: CONSUMABLE_SPEC.explosive_flask.get,
   fear_scroll: CONSUMABLE_SPEC.fear_scroll.get,
   wind_scroll: CONSUMABLE_SPEC.wind_scroll.get,
+  moonbeam_scroll: CONSUMABLE_SPEC.moonbeam_scroll.get,
   treasure_map: CONSUMABLE_SPEC.treasure_map.get,
   magic_hammer: 'Masons say a wall raised under this hammer never stops gleaming, and the folk inside deal kindly with whoever swung it.',
   sleep_powder: CONSUMABLE_SPEC.sleep_powder.get,
@@ -2764,6 +2785,9 @@ const UNIQUE_JEWELRY = Object.freeze({
   coin_ring: Object.freeze({ coinMagnetCells: 3 }),
   invisibility_ring: Object.freeze({ visionCells: 2 }),
   ember_ring: Object.freeze({ fireDamageMul: 0.4 }),
+  // LIFESTEAL in melee: this fraction of what a hand blow takes comes back
+  // as energy (app.js startCombat — Combat.lifestealHeal, never from the undead).
+  vampire_ring: Object.freeze({ meleeLifesteal: 0.2 }),
   regeneration_amulet: Object.freeze({ regenMs: 4000 }),
   vigor_amulet: Object.freeze({ regenMs: 2000 }),
 });
@@ -2801,6 +2825,14 @@ function jewelryFireDamageMul(save) {
     if (row.fireDamageMul != null && carriesItem(save, id)) mul = Math.min(mul, row.fireDamageMul);
   }
   return mul;
+}
+// The strongest carried melee lifesteal (the Vampire Ring), 0 without one.
+function jewelryMeleeLifesteal(save) {
+  let frac = 0;
+  for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
+    if (row.meleeLifesteal && carriesItem(save, id)) frac = Math.max(frac, row.meleeLifesteal);
+  }
+  return frac;
 }
 function jewelryRegenIntervalMs(save) {
   let interval = Infinity;
