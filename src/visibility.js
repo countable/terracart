@@ -211,11 +211,15 @@ const Visibility = (() => {
     const a = worldMetersToAbsCell(scene, p.x, p.y), b = worldMetersToAbsCell(scene, q.x, q.y);
     return a.cellIX === b.cellIX && a.cellIY === b.cellIY ? q : p;
   }
-  // Any cover hides what stands behind it from the player: creatures, peers,
-  // objects and their labels, shadows and tap targets. The facing blocker
-  // itself stays visible (trace skips the last cell). Cover grades only the
-  // darkness; ground stays drawn and tappable unless cover is FULL.
-  function hidden(scene, x, y) { return playerCover(scene, x, y) !== CLEAR; }
+  // Any cover hides the ACTORS behind it from the player — creatures, peers,
+  // coins, shots — with their labels, shadows and tap targets. SCENERY
+  // (objects, plants, crops, traps, hazards) stays drawn and tappable in the
+  // shadow so the player keeps their bearings; only FULL cover removes it.
+  // The facing blocker itself stays visible (trace skips the last cell).
+  function hidden(scene, x, y, scenery = false) {
+    const cover = playerCover(scene, x, y);
+    return scenery ? cover === FULL : cover !== CLEAR;
+  }
   function invalidate(scene) {
     const s = states.get(scene);
     if (s) { s.frame = undefined; s.signature = null; s.rays.clear(); s.revision++; }

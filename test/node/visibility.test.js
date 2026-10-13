@@ -68,7 +68,8 @@ test('surface wall shades behind its facing cell; rays are reciprocal', () => {
     assert.eq(Visibility.coverBetween(f.scene,4.5,0.5,0.5,0.5), Visibility.PARTIAL);
     assert.eq(Visibility.playerCover(f.scene,0.5,4.5), Visibility.CLEAR);
     assert.falsy(Visibility.hidden(f.scene,2.5,0.5), 'the facing blocker itself stays visible');
-    assert.truthy(Visibility.hidden(f.scene,4.5,0.5), 'partial cover hides what stands behind it');
+    assert.truthy(Visibility.hidden(f.scene,4.5,0.5), 'partial cover hides an actor behind it');
+    assert.falsy(Visibility.hidden(f.scene,4.5,0.5,true), 'scenery behind partial cover stays drawn');
     assert.falsy(Visibility.hidden(f.scene,0.5,4.5));
   } finally { f.done(); }
 });
@@ -92,6 +93,7 @@ test('two touching full-cover corners prevent diagonal sight in either direction
   const f = coverFixture([], ['1_0', '0_1']); f.scene.depth = 1;
   try {
     assert.eq(Visibility.playerCover(f.scene,2.5,2.5), Visibility.FULL);
+    assert.truthy(Visibility.hidden(f.scene,2.5,2.5,true), 'full cover hides scenery too');
     assert.eq(Visibility.coverBetween(f.scene,2.5,2.5,0.5,0.5), Visibility.FULL);
   } finally { f.done(); }
 });

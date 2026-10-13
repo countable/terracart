@@ -185,10 +185,13 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   short walls, larger standing trees and rocks marked `sightBlocking: true`
   provide partial cover, with a non-stacking 75% darkness treatment. Small
   rocks and the smallest tree saplings provide no cover. The facing blocker
-  stays visible. Any cover (`Visibility.hidden`) removes the objects,
-  creatures and peers behind it, with their labels, shadows and target
-  affordances; the ground stays drawn and tappable unless cover is full.
-  Partial and full cover differ only in darkness: full cover is black.
+  stays visible. Any cover (`Visibility.hidden`) removes the actors behind
+  it — creatures, peers, coins, shots — with their labels, shadows and
+  target affordances. Scenery (objects, plants, crops, traps, hazards) and
+  the ground stay drawn and tappable in the shadow so the player keeps their
+  bearings; full cover is black and removes scenery as well. The cover
+  mask's feather spreads outward only, so every hidden cell keeps its full
+  darkness.
   `Lighting.coverFrame` caches a world-aligned mask and composites it into the
   existing lightmap after light sources. It reuses the exploration fog's
   low-resolution smooth upscale and world-keyed wisps, with a roughly one-cell
