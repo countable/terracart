@@ -91,7 +91,7 @@ class ScenePets {
     mount();
   }
 
-  presentPetInfo(id) {
+  presentPetInfo(id, { fromCatch = false } = {}) {
     const pet = Pets.get(this.save, id);
     if (!pet) return;
     Pets.tick(this.save, pet);
@@ -102,7 +102,7 @@ class ScenePets {
     title.style.cssText = 'margin:0 0 6px;font-size:18px;line-height:1.2;';
     box.appendChild(title);
     const portrait = document.createElement('div');
-    portrait.style.cssText = 'width:128px;height:128px;margin:6px auto;border-radius:12px;overflow:hidden;background:#18251d;';
+    portrait.style.cssText = 'width:128px;height:128px;margin:6px auto;';
     const art = typeof CharacterPortraits !== 'undefined' ? CharacterPortraits.pet(pet.kind) : null;
     if (art) {
       const img = document.createElement('img');
@@ -147,8 +147,11 @@ class ScenePets {
       stats.appendChild(term); stats.appendChild(detail);
     }
     box.appendChild(stats);
-    const back = mkBtn('Back');
-    back.addEventListener('click', e => { e.stopPropagation(); wrap.remove(); this.presentPetMenu(id); });
+    const back = mkBtn(fromCatch ? 'Close' : 'Back');
+    back.addEventListener('click', e => {
+      e.stopPropagation(); wrap.remove();
+      if (!fromCatch) this.presentPetMenu(id);
+    });
     box.appendChild(back);
     mount();
   }

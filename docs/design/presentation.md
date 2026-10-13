@@ -10,13 +10,16 @@ changing dialogue, story panels, books, toasts or status presentation.
   128px portrait, description, current/max HP and damage per hit. Stats use
   `Combat.maxHp`, `Combat.petBlow` and `Pets.stats`, including accessories and
   individual bonuses. Converted enemies use their main sprite as the portrait.
+  Successful catches open this card immediately with **Close**; the first-pet
+  story stays queued until the card closes. Inventory cards use **Back**.
 
-- Character portraits use `CharacterPortraits` and individual 128×128 cells
-  from the generated 4×4 sheets in `assets/portraits/`. NPC identity follows
-  `SpriteLayout.npcSheet` for each role and culture; Tilly has a housed variant.
+- Character portraits use `CharacterPortraits` and transparent 80×80 cells
+  from the generated 4×4 sheets (320×320 atlases) in `assets/portraits/`.
+  NPC identity follows `SpriteLayout.npcSheet` for each role and culture; Tilly has a housed variant.
   Dialogue passes `portrait` to the modal shell, which keeps the face and
-  shoulders at 128px above independently scrolling text. Scene paintings
-  continue to use `art` and the full scene layout.
+  shoulders at 128px above independently scrolling text, using pixelated scaling
+  for chunky pixels. Portraits have no background plate or rounded clipping.
+  Scene paintings continue to use `art` and the full scene layout.
 
 - Interrupted startup script downloads show a recovery screen and retry the
   whole page at most twice per tab, preserving script order and saved progress.
