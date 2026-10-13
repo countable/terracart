@@ -93,7 +93,9 @@ unlocks - his tower's lessons train dragon hunters (`story.txt`).
   only between the surface and floor 1. Ten low-tier chests (tiers 1-2) on
   floor 1 find the descent module; each deeper stop (floors 2 and 3) needs
   its own ten-chest parts find. The fully fixed elevator goes down to
-  floor 3.
+  floor 3. Until the lift serves the floor you are on (the repair for
+  floor 1, or that floor's own parts find), it offers no trip Home: climb
+  out by ladder or rope.
 - The portal stone, found on floor 4, opens the arena portal when carried to
   the surface.
 

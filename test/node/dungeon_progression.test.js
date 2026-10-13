@@ -312,7 +312,7 @@
     assert.falsy(h.save.chestHold.boundary_chest);
   });
   test('dungeon progression: every repaired elevator route reaches the requested stop at the home anchor', () => {
-    for (const partsFound of [false, true]) for (const from of Elevators.FLOORS) for (const to of (partsFound ? Elevators.FLOORS : [0, 1])) {
+    for (const partsFound of [false, true]) for (const from of (partsFound ? Elevators.FLOORS : [0, 1])) for (const to of (partsFound ? Elevators.FLOORS : [0, 1])) {
       if (from === to) continue;
       const scene = ropeScene(from);
       scene.save.elevators = {repaired: true, partsFound};
