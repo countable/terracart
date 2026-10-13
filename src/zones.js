@@ -182,7 +182,7 @@
       body: 'Blue crystals glint among the broken stone. You step through the rubble for a closer look.',
       flash: 'A quarry of broken stone.',
       keeper: ['<em>Kicks a loose stone aside.</em>\n“The lanes here were paved once. The Breaking cracked the stone, and the blue crystals grew in the cracks. Mind your footing.”'] },
-    beach: { code: 4, R: 80, terrain: 'GROVE', story: 'zone_grove', art: 'zone_shore', title: 'The shore',
+    beach: { code: 4, R: 70, maxRadiusCells: 10, terrain: 'GROVE', story: 'zone_grove', art: 'zone_shore', title: 'The shore',
       body: 'An old shrine stands above the sand. You pause beside it and listen to the waves.', flash: 'The shore opens ahead.',
       keeper: ['<em>Brushes salt off the shrine step.</em>\n“This shrine was here before the Breaking, and the sea never noticed the Breaking at all. I sweep the salt off each morning.”',
         '“The tide keeps its own hours. Whatever the Warmonger burned, it never learned to burn water.”'] },
@@ -431,7 +431,10 @@
   }
   // The anchor's reach at a global point: R bent by the noise.
   function edgeAt(a, gx, gy) {
-    return a.R * (1 + EDGE_JITTER * (2 * edgeNoise(gx, gy) - 1));
+    const edge = a.R * (1 + EDGE_JITTER * (2 * edgeNoise(gx, gy) - 1));
+    // Beach encounters fit within a twenty-cell diameter, including jitter.
+    const cap = ZONE_KINDS[a.kind]?.maxRadiusCells;
+    return cap == null ? edge : Math.min(edge, cap * root.WorldGen.CELL_M);
   }
   // Does anchor `a` beat anchor `b` on a cell where both have strength byte s?
   function beats(a, b) {

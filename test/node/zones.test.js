@@ -40,21 +40,29 @@ function rasterPair() {
   const layers = decode(`${TILE_TX}_${TILE_TY}`);
   const N = WorldGen.cellsPerEdgeForTile(TILE_TY), edge = edgeFor(TILE_TY);
   const saved = globalThis.Zones, paintRoad = StreetVariants.paintTerrainSteps;
-  let off, on;
+  const affinities = StreetVariants.applyAffinitiesSteps, scenicSections = StreetVariants.applyPathScenicSteps;
+  let off, on, again;
   try {
     // Isolate zone paint over source land. Otherwise the zone-off build
     // acquires road verges exactly where the zone-on build takes precedence.
     // Street terrain tests exercise that composition separately.
     StreetVariants.paintTerrainSteps = function* ({ N }) { return new Uint8Array(N*N); };
+    // Compare replacement of the same authored content; geography-driven
+    // theme changes are covered by street affinity and section tests.
+    StreetVariants.applyAffinitiesSteps = function* () {};
+    StreetVariants.applyPathScenicSteps = function* () {};
     globalThis.Zones = undefined;
     off = WorldGen.rasterizeTile(decode(`${TILE_TX}_${TILE_TY}`), N, TILE_TX, TILE_TY, edge);
     globalThis.Zones = saved;
     on = WorldGen.rasterizeTile(layers, N, TILE_TX, TILE_TY, edge);
+    again = WorldGen.rasterizeTile(layers, N, TILE_TX, TILE_TY, edge);
   } finally {
     globalThis.Zones = saved;
     StreetVariants.paintTerrainSteps = paintRoad;
+    StreetVariants.applyAffinitiesSteps = affinities;
+    StreetVariants.applyPathScenicSteps = scenicSections;
   }
-  return (_pair = { on, off, N, edge });
+  return (_pair = { on, off, again, N, edge });
 }
 
 // ── Detection ───────────────────────────────────────────────────────────────
@@ -88,6 +96,20 @@ test('zones: which POIs anchor which kind', () => {
 });
 
 // ── The formula ─────────────────────────────────────────────────────────────
+test('beach influence: ragged field stays within a twenty-cell diameter', () => {
+  const N = 64, unit = EXT / N;
+  const poi = { features: [{ type: 1, tags: { natural: 'beach' }, geom: [[{ x: 2048, y: 2048 }]] }] };
+  const field = Z.field(poi, 0, 0, N);
+  assert.truthy(field?.idx);
+  let count = 0;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    if (!field.idx[y * N + x]) continue;
+    count++;
+    assert.truthy(Math.hypot((x + .5) * unit - 2048, (y + .5) * unit - 2048) <= 10 * unit);
+  }
+  assert.gt(count, 200);
+});
+
 test('zones: R is the kind\'s cap shrunk by crowding, clamped to R_MIN', () => {
   assert.eq(Z.ZONE_KINDS.grove.R, 60); assert.eq(Z.ZONE_KINDS.stones.R, 80); assert.eq(Z.ZONE_KINDS.tar.R, 37.5);
   assert.eq(Z.R_MIN_M, 30); assert.eq(Z.MERGE_M, 40); assert.eq(Z.W_MAX_M, 200);
@@ -216,7 +238,7 @@ test('zones: zone styling owns coverage while roads, paths, water and buildings 
 });
 
 test('zones: covered ambience is replaced while every preserved item keeps its id and position', () => {
-  const { on, off, N, edge } = rasterPair();
+  const { on, off, again, N, edge } = rasterPair();
   const keep = o => {
     const x = Math.floor((o.x - TILE_TX * edge) / (edge / N));
     const y = Math.floor((o.y - TILE_TY * edge) / (edge / N));
@@ -233,12 +255,22 @@ test('zones: covered ambience is replaced while every preserved item keeps its i
     sig(off.objects.filter(o => keep(o) && ordinary(o))), 'preserved non-building objects keep ids and positions');
   assert.eq(sig(on.wildplants), sig(off.wildplants.filter(keep)), 'preserved wild plants keep ids and positions');
   assert.gt(off.wildplants.length - on.wildplants.length, 0, 'covered legacy flora is actually replaced');
-  assert.eq(JSON.stringify(on.streetDress && on.streetDress.objects.map((o) => o.id)),
-    JSON.stringify(off.streetDress && off.streetDress.objects.filter(o => {
+  // Nexus boundaries clip the road's dressing geometry before placement,
+  // which can move exterior samples. Test ownership and repeatability rather
+  // than treating zone-off placements as the zone-on street's authored seats.
+  assert.gt(on.streetDress.objects.length, 0, 'exterior street dressing remains');
+  for (const key of ['objects', 'wildplants', 'treasures', 'coins', 'traps']) {
+    const records = on.streetDress[key] || [];
+    for (const o of records) {
       const x = Math.floor((o.x - TILE_TX * edge) / (edge / N));
       const y = Math.floor((o.y - TILE_TY * edge) / (edge / N));
-      return !on.zone.coverage[y * N + x];
-    }).map((o) => o.id)), 'street dressing survives only outside zone coverage');
+      if (on.zone.coverage[y * N + x]) {
+        assert.eq(StreetVariants.VARIANT_BY_ID[o._street || o._shrineStreet]?.size, 'path',
+          `${key}: ${o.id} inside nexus coverage must come from a crossing path`);
+      }
+    }
+    assert.eq(sig(records), sig(again.streetDress[key] || []), `${key}: repeated builds keep ids and positions`);
+  }
 });
 
 test('zones: the trap ground is the LAND\'s — a repainted waste lot stays trap ground', () => {
@@ -844,11 +876,17 @@ test('beach parks: Kelowna mapped shores pair beach variants with marine meadows
       assert.eq(shore?.variant, 'pirate_cove');
       if (shore.owned) {
         const objects = on.zoneDress.objects.filter(o => o.zoneVariant === 'pirate_cove');
-        assert.truthy(objects.some(o => o._shrineArt === 'shipwreck'), 'Rotary has its ship: ' + JSON.stringify(on.zoneDress.diagnostics.filter(d => d.variant === 'pirate_cove')));
-        assert.eq(objects.filter(o => o.zoneLayer === 'shore_find').length, 2, 'Rotary has two shoreline chests');
+        const ship = objects.some(o => o._shrineArt === 'shipwreck');
+        const diagnostic = on.zoneDress.diagnostics.find(d => d.anchorKey === shore.key && d.zoneVariant === shore.variant);
+        // Rotary's original park point reaches only a narrow sand strip at
+        // the twenty-cell cap. The wider hull seat lies farther downshore;
+        // preserve the bounded encounter and report the authored shortfall.
+        assert.falsy(ship, 'the ship cannot spill beyond the bounded shore');
+        assert.includes(diagnostic.shortfalls, 'shrine:shipwreck', 'unseatable hull has an explicit diagnostic');
+        assert.eq(objects.filter(o => o.zoneLayer === 'shore_find').length, 2, 'Rotary retains its two shoreline chests');
         assert.eq(objects.filter(o => o.barrel).length, 3, 'Rotary has authored barrels');
         assert.eq(on.zoneDress.wildplants.filter(o => o.zoneVariant === 'pirate_cove' && o.crop === 'driftwood' && o.zoneLayer === 'decoration').length, 4, 'Rotary has authored driftwood');
-        assert.eq(on.zoneDress.guards.filter(o => o.zoneVariant === 'pirate_cove' && o.kind === 'crab').length, 3, 'Rotary has authored crabs');
+        assert.eq(on.zoneDress.guards.filter(o => o.zoneVariant === 'pirate_cove' && o.kind === 'crab').length, 3, 'Rotary retains its authored crabs');
       }
     }
     const beaches = (source.find(l => l.name === 'landcover')?.features || [])
@@ -868,6 +906,8 @@ test('beach parks: Kelowna mapped shores pair beach variants with marine meadows
         shoreCells++; named.add(a.name); variants.add(ZoneVariants.pick(a).id);
         const point = {x: (i%N+.5)*4096/N, y: (Math.floor(i/N)+.5)*4096/N};
         assert.truthy(beaches.some(f => inside(point, f.geom)), `${a.name}: coverage stays inside mapped beach`);
+        assert.lte(Math.hypot(tx * 4096 + point.x - a.gx, ty * 4096 + point.y - a.gy) * a.upm,
+          10 * WorldGen.CELL_M, `${a.name}: real shore coverage respects the ten-cell radius`);
       } else if (b?.kind === 'grove') {
         inlandCells++;
         assert.eq(a?.kind, 'grove', 'inland park keeps its grove');

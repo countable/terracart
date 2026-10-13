@@ -2,7 +2,7 @@
   const drain = it => { let r; do { r = it.next(); } while (!r.done); return r.value; };
   const isLegacy = o => /^(?:wp|hr|hm|ptree|tree|ft|mr|rb)_-?\d+_/.test(o.id || '');
 
-  test('zone legacy: scenic grass yields across coverage while landmarks and tide pools retain their seats', () => {
+  test('zone legacy: path-authored grass keeps its seats across nexus coverage', () => {
     const N = 8, coverage = new Uint16Array(N * N);
     coverage[18] = coverage[19] = coverage[20] = 1;
     const grass = (ix) => ({ id: `greenway_grass_0_0_${ix}_2`, x: ix + .5, y: 2.5,
@@ -14,16 +14,14 @@
     const field = { coverage, anchors: [{ kind: 'grove', gx: 99, gy: 100 }] };
     const removed = drain(WorldGen.clearZoneAmbientSteps({ field, objects: [], wildplants: [],
       scenicDress, occupied, tx: 0, ty: 0, N, tileEdgeM: N }));
-    assert.eq(removed, 2);
-    assert.eq(field.legacyRemovedByAnchor['grove:99,100'].street, 2);
-    assert.eq(scenicDress.wildplants.length, 2);
+    assert.eq(removed, 0);
+    assert.eq(scenicDress.wildplants.length, 4);
     assert.truthy(scenicDress.wildplants.includes(shell), 'tide-pool rewards remain');
     assert.eq(scenicDress.objects[0], scope, 'scenic landmark remains');
-    assert.falsy(occupied.has(18), 'cleared grass seat opens for the variant');
-    for (const cell of [19, 20, 22]) assert.truthy(occupied.has(cell), 'retained placements keep their seats');
+    for (const cell of [18, 19, 20, 22]) assert.truthy(occupied.has(cell), 'retained placements keep their seats');
   });
 
-  test('zone legacy: Maude Roxby Wetland excludes greenway grass from its grove layout', () => {
+  test('zone legacy: Maude Roxby Wetland retains its crossing greenway grass', () => {
     const tx = 2753, ty = 5565, N = WorldGen.cellsPerEdgeForTile(ty);
     const edge = WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(ty));
     const r = WorldGen.rasterizeTile(MVT.decodeTile(FIXTURE_TILES[`${tx}_${ty}`]), N, tx, ty, edge);
@@ -31,10 +29,9 @@
     assert.truthy(anchor, 'real wetland fixture');
     const cell = o => Math.floor((o.y - ty * edge) / (edge / N)) * N + Math.floor((o.x - tx * edge) / (edge / N));
     assert.truthy(r.scenic.grassSeats.some(p => r.zone.coverage[Math.floor(p.y * N / r.scenic.ext) * N + Math.floor(p.x * N / r.scenic.ext)]),
-      'fixture has scenic grass candidates inside nexus; they are refused before placement');
-    for (const o of r.scenicDress.wildplants.filter(o => o._street)) {
-      assert.falsy(r.zone.coverage[cell(o)], 'greenway grass remains only outside zone coverage');
-    }
+      'fixture has scenic grass candidates inside nexus');
+    assert.truthy(r.scenicDress.wildplants.some(o => o._street === 'greenway' && r.zone.coverage[cell(o)]),
+      'the crossing path retains its own verge plants');
   });
 
   test('zone legacy: coverage overrides biome and street decoration while authored, placed and uncovered items survive', () => {

@@ -564,10 +564,10 @@ test('down ladder uses only the centered bottom half while the up ladder stays w
 test('crystal deposits use their quarry sapphire rock art and centered seating', () => {
   const spec=Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.mineralrock;
   const crystal={kind:'mineralrock',deposit:'crystal',yieldTier:1};
-  assert.eq(spec.key(crystal),'zone_objects');assert.eq(spec.frame(crystal),59);
-  assert.eq(spec.key({yieldTier:6}),'mineralrock');assert.eq(spec.frame({yieldTier:6}),mineralRockFrame(6));
-  assert.eq(spec.scale(crystal),1.28*16/24);assert.truthy(spec.seat);
-  const b=SpriteLayout.ART_BOUNDS['zone_objects:59'];
+  assert.eq(spec.key(crystal),'rock_variants');assert.eq(spec.frame(crystal),10);
+  assert.eq(spec.key({yieldTier:6}),'rock_variants');assert.eq(spec.frame({yieldTier:6}),26);
+  assert.eq(spec.scale(crystal),ROCK_VARIANT_ART.smallScale);assert.truthy(spec.seat);
+  const b=SpriteLayout.ART_BOUNDS['rock_variants:10'];
   const offset=SpriteLayout.seatInCell(b,.5,.5,spec.scale(crystal),spec.scale(crystal));
   assert.eq(offset.dxPx+((b.minX+b.maxX)/2-b.fw/2)*spec.scale(crystal),0);
   assert.eq(offset.dyPx+((b.minY+b.maxY)/2-b.fh/2)*spec.scale(crystal),0);
@@ -619,7 +619,7 @@ test('stronghold walls keep their tile frame alignment instead of centering corn
     assert.eq(p.dxPx,0); assert.eq(p.dyPx,0);
     assert.eq(p.spec.seat,false,'corner quadrants must not be recentered');
   }
-  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:2}).texKey,'mineralrock','global rock art retained');
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:2}).texKey,'rock_variants','shared neutral rock art');
 });
 
 // A mature replacement must not turn the seed packet or growing crop into a bush.
@@ -639,14 +639,14 @@ test('berry bush: mature map art replaces wild and farmed berries while growth a
   assert.eq(wildplantRewards('berry')[0].qty, 1);
 });
 
-test('selected zone appearances keep mineral interactions and global art separate', () => {
+test('neutral mineral art overrides stale zone frames without changing interactions', () => {
   const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
   const original = art.resolveAppearance({kind:'mineralrock',yieldTier:2});
   const selected = art.resolveAppearance({kind:'mineralrock',deposit:'crystal',_zoneObjectFrame:37});
-  assert.eq(original.texKey,'mineralrock');
-  assert.eq(selected.texKey,'zone_objects'); assert.eq(selected.frameVal,37);
+  assert.eq(original.texKey,'rock_variants');
+  assert.eq(selected.texKey,'rock_variants'); assert.eq(selected.frameVal,10);
   assert.eq(selected.spec.after,original.spec.after,'pick-gate appearance hook is retained');
-  assert.eq(selected.scl*24,32);
+  assert.eq(selected.scl,ROCK_VARIANT_ART.smallScale);
   const pot = {kind:'chest',barrel:true,barrelStyle:'clay_pot',id:'selected-pot'};
   assert.eq(art.resolveAppearance(pot).texKey,'clay_pot');
   assert.eq(art.resolveAppearance({...pot,_smashed:true}).texKey,'clay_pot_smashed');
@@ -655,7 +655,7 @@ test('selected zone appearances keep mineral interactions and global art separat
 });
 
 
-test('quarry broken stone shrinks while mineral shadows stay under every resolved art', () => {
+test('neutral mineral shadows stay under every resolved material and size', () => {
   const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
   for (const o of [
     {kind:'mineralrock',yieldTier:1,rockVariant:3},
@@ -671,11 +671,13 @@ test('quarry broken stone shrinks while mineral shadows stay under every resolve
     const b = SpriteLayout.ART_BOUNDS[`${p.texKey}:${p.frameVal}`];
     assert.truthy(Math.abs(p.dyPx+(b.maxY-b.fh/2)*p.scl-p.foot.footFromCentre)<1e-10,'depth keeps the true art foot');
   }
-  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65}).scl,1.1);
-  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:1}).scl,1.28);
-  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:4}).scl,1.28);
-  assert.eq(art.resolveAppearance({kind:'mineralrock',deposit:'crystal'}).scl,CRYSTAL_DEPOSIT.art.scale);
-  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:59}).scl,4/3);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65}).scl,0.75,'single themed frame shrinks for a small stone');
+  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65,rockStyle:'plain'}).scl,1,'prior small zone frame keeps its native scale');
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:1}).scl,1);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:4}).scl,1);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',deposit:'crystal'}).scl,ROCK_VARIANT_ART.smallScale);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:59}).scl,1);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',sightBlocking:true}).scl,4/3);
 });
 
 test('campfire: its contact shadow sits 2px above the art bottom, on the logs', () => {

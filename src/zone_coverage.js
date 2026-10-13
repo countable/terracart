@@ -217,6 +217,11 @@
       if (a && (a.kind === 'beach' || (a.kind === 'grove' && sourceLand(i) === WG.T.SAND))) coverage[i] = 0;
     }
     const unit = EXT / N, margin = Z.FRINGE_FILL_M / (N * WG.CELL_M / EXT);
+    const withinLimit = (a, x, y) => {
+      const cap = Z.ZONE_KINDS[a.kind]?.maxRadiusCells;
+      return cap == null || Math.hypot(tx * EXT + (x + .5) * unit - a.gx,
+        ty * EXT + (y + .5) * unit - a.gy) * a.upm <= cap * WG.CELL_M;
+    };
     // Real park points retain their identity. An eligible unlabelled park
     // receives a centred grove anchor from its buffered source geometry.
     const shore = new Uint8Array(N * N);
@@ -297,6 +302,12 @@
           const beach = grid && a.kind === 'grove' && shore[i]
             && [WG.T.SAND, WG.T.PARK, WG.T.GRASS, WG.T.FOREST, WG.T.GROVE].includes(land) ? (beachAnchor || shoreFor(a)) : null;
           if (beach) {
+            // A mapped beach may extend far beyond its shrine. Its remaining
+            // sand has no Nexus owner, even inside an associated park.
+            if (!withinLimit(beach, x, y)) {
+              if (coverage[i] && f.anchors[coverage[i] - 1].kind === 'grove') coverage[i] = 0;
+              continue;
+            }
             const previous = coverage[i] && f.anchors[coverage[i] - 1];
             if (!previous || previous.kind === 'grove' || (previous.parkShore
                 && (a.gy < previous.gy || (a.gy === previous.gy && a.gx < previous.gx)))) {
@@ -305,6 +316,7 @@
             continue;
           }
           if (grid && a.kind === 'grove' && land === WG.T.SAND) continue;
+          if (!withinLimit(a, x, y)) continue;
           if (grid && a.kind === 'beach' && ![WG.T.SAND, WG.T.PARK, WG.T.GRASS, WG.T.FOREST, WG.T.GROVE].includes(land)) continue;
           const current = coverage[i] && f.anchors[coverage[i] - 1];
           if (f.idx && f.idx[i] && current && !(a.kind === 'beach' && (land === WG.T.SAND || current.kind === 'grove'))) continue;

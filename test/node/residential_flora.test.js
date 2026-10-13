@@ -193,6 +193,9 @@ test('residential yard trees: random-sized trees grow in the yards by the yard r
   const trees = yardTrees(a);
   assert.eq(JSON.stringify(trees), JSON.stringify(yardTrees(b)), 'same tile, same trees');
   assert.gt(trees.length, 10, `the suburb grows yard trees (${trees.length})`);
+  const species = new Set(trees.map((o) => o.species));
+  for (const name of ['maple', 'pine']) assert.truthy(species.has(name), `yards retain ${name}`);
+  assert.truthy(trees.every(o => !o.treeSpeciesFixed), 'yards retain the ordinary home overlay');
   const sizes = new Set(trees.map((o) => o.size));
   for (const size of ['small', 'medium', 'large']) assert.truthy(sizes.has(size), `some ${size} trees`);
   const inYards = trees.filter((o) => a.grid[cellY(o.y) * CPE + cellX(o.x)] === T.RESIDENTIAL);

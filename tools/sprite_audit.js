@@ -214,7 +214,7 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'util.js'), 'utf8'),
   itemsCtx, { filename: 'util.js' });
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'items.js'), 'utf8'),
   itemsCtx, { filename: 'items.js' });
-vm.runInContext('globalThis.GEM_DEPOSITS = GEM_DEPOSITS; globalThis.CROP_SPRITE = CROP_SPRITE; globalThis.WILDPLANT_CONTEXT_ART = WILDPLANT_CONTEXT_ART;', itemsCtx);
+vm.runInContext('globalThis.ROCK_VARIANT_ART = ROCK_VARIANT_ART; globalThis.GEM_DEPOSITS = GEM_DEPOSITS; globalThis.CROP_SPRITE = CROP_SPRITE; globalThis.WILDPLANT_CONTEXT_ART = WILDPLANT_CONTEXT_ART;', itemsCtx);
 const SHRUB_SCALE = itemsCtx.CROP_SPRITE.shrub.scale;
 const CROP_SPRITE = itemsCtx.CROP_SPRITE;
 
@@ -240,7 +240,7 @@ const SHEETS = {
   bushes:        { file: 'assets/Objects/Approved/bushes.png',             fw: 48, fh: 32, frames: [0] },
   // The sheets' fruiting cells (apple 7, peach 5) are deliberately absent: a
   // bearing tree keeps its mature frame and wears a fruit sprite (FRUIT_FRAMES in render.js).
-  apple_tree:    { file: 'assets/Objects/Approved/apple_tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 5], crownFrame: 4 },
+  apple_tree:    { file: 'assets/Objects/Approved/apple_tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 8], crownFrame: 4 },
   worldpeach_tree:    { file: 'assets/Objects/Approved/peach_tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4], crownFrame: 3 },
   beehive:       { file: ASSETS.beehive.path, fw: 16, fh: 16, frames: [0] },
   chest:         { file: 'assets/Objects/Approved/chest.png',                    fw: 16, fh: 16, frames: [0] },
@@ -248,6 +248,7 @@ const SHEETS = {
   shrine_spirit: { file: ASSETS.shrine_spirit.path, fw: 16, fh: 16, frames: [0, 1, 2, 3] },
   crystal_cluster: { file: 'assets/Objects/Wilderness/crystal_cluster.png', fw: 16, fh: 16, frames: [0] },
   mineralrock:   { file: 'assets/Objects/Approved/mineralrock.png',fw: 16, fh: 16, frames: [168, 169, 170, 171, 0, 1, 2, 3, 5, 7] },
+  mineralboulder: { file: 'assets/Objects/Approved/mineralrock.png', fw: 32, fh: 16, frames: [45, 60, 46, 47, 48, 49, 51, 53] },
   approved_charred_stakes: { file: 'assets/Objects/Approved/approved_charred_stakes.png', fw: 24, fh: 24, frames: [0] },
   well:          { file: 'assets/Objects/Wilderness/well.png',               fw: 30, fh: 32, frames: [0] },
   pillar:        { file: ASSETS.pillar.path, fw: 24, fh: 24, frames: [0] },
@@ -262,6 +263,7 @@ const SHEETS = {
   ...Object.fromEntries(['gas_mushroom_small', 'gas_mushroom_large'].map(key => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [0],
   }])),
+  rock_variants: { file: ASSETS.rock_variants.path, fw: 24, fh: 24, frames: Array.from({ length: 65 }, (_, i) => i) },
   zone_objects: { file: ASSETS.zone_objects.path, fw: 24, fh: 24, frames: [1,4,5,6,7,34,37,38,39,40,54,58,59,61,64,65,66,67,68,69,70,71] },
   zone_berry_bush: { file: ASSETS.zone_berry_bush.path, fw: 24, fh: 24, frames: [0] },
   reef_coral:    { file: 'assets/Objects/Reef/coral.png', fw: 24, fh: 24, frames: [0,1,2,3,4,5,6,7] },
@@ -305,14 +307,16 @@ const SCENARIOS = [
   { name: 'giant mushroom', key: 'zone_objects', frameIdx: 40, scale: itemsCtx.CROP_SPRITE.giant_mushroom.scale },
   { name: 'apple sapling',   key: 'apple_tree',    frameIdx: 2, scale: 0.85 * 0.625, scaleYMul: 1.10 },
   { name: 'apple (wild)',    key: 'apple_tree',    frameIdx: 4, scale: 0.85, scaleYMul: 1.10 },
+  { name: 'apple blossom',   key: 'apple_tree', frameIdx: 8, scale: 0.85, scaleYMul: 1.10 },
+  { name: 'peach blossom',   key: 'worldpeach_tree', frameIdx: 4, scale: 0.85, scaleYMul: 1.10 },
   { name: 'peach (wild)',    key: 'worldpeach_tree',    frameIdx: 3, scale: 0.85, scaleYMul: 1.10 },
   { name: 'chest',           key: 'chest',         frameIdx: 0, scale: CHEST_SCALE },
   { name: 'crate (box)',     key: 'box',           frameIdx: 0, scale: 0.8 },
   ...[0, 1, 2, 3].map(frameIdx => ({ name: `shrine spirit idle ${frameIdx}`, key: 'shrine_spirit', frameIdx,
     scale: SHRINE_SPIRIT_ART.scale })),
-  { name: 'mineralrock',     key: 'mineralrock',   frameIdx: 171, scale: 1.28 },
+  { name: 'mineralrock',     key: 'mineralboulder', frameIdx: 45, scale: 1.8 },
   { name: 'crystal deposit', key: itemsCtx.GEM_DEPOSITS.sapphire.art.sheet, frameIdx: itemsCtx.GEM_DEPOSITS.sapphire.art.frame, scale: itemsCtx.GEM_DEPOSITS.sapphire.art.scale },
-  { name: 'ore rock',        key: 'mineralrock',   frameIdx: 0,   scale: 1.28 },
+  { name: 'ore rock',        key: 'mineralboulder', frameIdx: 46, scale: 1.7 },
   { name: 'well',            key: 'well',          frameIdx: 0, scale: 0.9 },
   { name: 'pole (pillar)',   key: 'pillar',        frameIdx: 0, scale: 4 / 3 },
   { name: 'scarecrow',       key: 'scarecrow',     frameIdx: 0, scale: 0.6 },
@@ -323,7 +327,10 @@ const SCENARIOS = [
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
   { name: 'headstone',       key: 'zone_objects',  frameIdx: 1, scale: 4 / 3 },
   ...GROVE_SHRINE_ART.map(({ name, key, frame, scale }) => ({ name, key, frameIdx: frame, scale })),
-  ...[1,4,5,6,7,34,37,38,39,40,54,58,59,61,64,65,66,67,68,69,70,71].map(frameIdx => ({ name: `selected zone object ${frameIdx}`, key: 'zone_objects', frameIdx, scale: 4 / 3 })),
+  ...[1,4,5,6,7,34,37,38,39,40,54,58,59,61,64,65,66,67,68,69,70,71].map(frameIdx => ({ name: `selected zone object ${frameIdx}`, key: 'zone_objects', frameIdx, scale: frameIdx >= 64 && frameIdx <= 71 ? 1 : 4 / 3 })),
+  ...Array.from({ length: 13 }, (_, frameIdx) => [0.75, 4 / 3].map(scale => ({ name: `zone themed rock ${frameIdx} scale ${scale}`, key: 'rock_variants', frameIdx: frameIdx + 52, scale }))).flat(),
+  ...Array.from({ length: 16 }, (_, frameIdx) => ({ name: `zone plain rock ${frameIdx}`, key: 'rock_variants', frameIdx: frameIdx + 36, scale: frameIdx % 2 ? itemsCtx.ROCK_VARIANT_ART.largeScale : itemsCtx.ROCK_VARIANT_ART.smallScale })),
+  ...Array.from({ length: 36 }, (_, frameIdx) => ({ name: `rock variant ${frameIdx}`, key: 'rock_variants', frameIdx, scale: frameIdx % 2 ? itemsCtx.ROCK_VARIANT_ART.largeScale : itemsCtx.ROCK_VARIANT_ART.smallScale })),
   {name: 'berry bush', key: 'zone_berry_bush', frameIdx: 0, scale: 4 / 3},
   ...[0,1,2,3,4,5,6,7].map(frameIdx => ({ name: `reef coral ${frameIdx}`, key: 'reef_coral', frameIdx, scale: 4 / 3 })),
   { name: 'vista scope',     key: 'vista_scope',   frameIdx: 0, scale: 1.6 },

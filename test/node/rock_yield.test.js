@@ -1,13 +1,13 @@
 // Headless tests for the plain-rock promise: WHAT THE ART SHOWS IS WHAT IT
 // DROPS. The mineralrock sheet's four plain-rock looks are not interchangeable
-// — row 15 col 3 draws a PAIR of stones, cols 4..6 draw one.
+// — the complete boulder pair draws two stones; every single draws one.
 //
 // One table (SpriteLayout.PLAIN_ROCK_VARIANTS): render.js picks the frame from
-// `col`, interactables.js rolls the yield off `stones`. These tests pin BOTH
+// `frame` and `scale`, interactables.js rolls the yield off `stones`. These tests pin BOTH
 // sides against it, so the frame and the payout can't drift apart.
 
 const PRV = SpriteLayout.PLAIN_ROCK_VARIANTS;
-const PLAIN_ROCK_ROW = 15, MINERALROCK_COLS = 11;
+
 
 // Mine one plain rock and return how many rockfruit it dropped. `o` decides
 // the variant (a hash of the id for a surface rock, caveVariant for a cave one).
@@ -25,7 +25,7 @@ const surfaceRock = (v, i) => {
   for (let k = 0; ; k++) {
     const id = `mineralrock_12_34_${i}_${k}`;
     const o = { kind: 'mineralrock', id, x: 0, y: 0, yieldTier: 1 };
-    if (SpriteLayout.plainRockFrame(o) === 15 * 11 + PRV[v].col) return o;
+    if (SpriteLayout.plainRockVariant(o) === PRV[v]) return o;
   }
 };
 // A cave plain rock wearing variant `v`.
@@ -33,7 +33,7 @@ const caveRock = (v, i) => ({ kind: 'mineralrock', id: `mr-c${v}-${i}`, x: 0, y:
 
 // --- The payout follows the art --------------------------------------------
 PRV.forEach((variant, v) => {
-  test(`plain rock: variant ${v} (col ${variant.col}, ${variant.stones} stone${variant.stones > 1 ? 's' : ''}) drops exactly ${variant.stones}`, () => {
+  test(`plain rock: variant ${v} (frame ${variant.frame}, ${variant.stones} stone${variant.stones > 1 ? 's' : ''}) drops exactly ${variant.stones}`, () => {
     for (let i = 0; i < 400; i++) {
       assert.eq(mineOnce(surfaceRock(v, i)), variant.stones,
         `variant ${v} pays exactly its ${variant.stones} drawn stone(s)`);
@@ -44,20 +44,33 @@ PRV.forEach((variant, v) => {
     const o = surfaceRock(v, 0);
     // The SAME object must resolve to the same row of the table on both sides:
     // the frame the renderer draws and the stone count the loot pays.
-    assert.eq(SpriteLayout.plainRockFrame(o), PLAIN_ROCK_ROW * MINERALROCK_COLS + variant.col,
-      'frame is row 15 of the variant it was assigned');
+    assert.eq(SpriteLayout.plainRockFrame(o), variant.frame,
+      'frame is the complete boulder for the assigned variant');
     assert.eq(SpriteLayout.plainRockStones(o), variant.stones,
       'stone count comes from that same variant');
   });
 
   test(`plain rock: cave variant ${v} reads the same table as a surface rock`, () => {
     const o = caveRock(v, 0);
-    assert.eq(SpriteLayout.plainRockFrame(o), PLAIN_ROCK_ROW * MINERALROCK_COLS + variant.col,
+    assert.eq(SpriteLayout.plainRockFrame(o), variant.frame,
       'cave rock picks its frame from the shared table');
     for (let i = 0; i < 100; i++) {
       assert.eq(mineOnce(caveRock(v, i)), variant.stones, 'cave rock pays what its art shows');
     }
   });
+});
+
+test('shared rock art preserves all four legacy drop slots', () => {
+  assert.eq(PRV.map(v => v.stones).join(','),'2,1,1,1');
+  const appearance = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  for (let v = 0; v < PRV.length; v++) {
+    const o = {kind:'mineralrock',rockVariant:v,yieldTier:1};
+    const resolved = appearance.resolveAppearance(o);
+    assert.eq(resolved.texKey,'rock_variants');
+    assert.eq(resolved.frameVal,mineralRockArtFrame(o));
+    assert.eq(resolved.scl,ROCK_VARIANT_ART.smallScale);
+    assert.eq(SpriteLayout.plainRockStones(o),PRV[v].stones);
+  }
 });
 
 // --- The variant is the world's, not the save frame's ----------------------
@@ -73,7 +86,7 @@ test('plain rock: a surface rock\'s variant is keyed on its id, never its metres
   }
   // …and the ids spread across the whole table, so no variant is dead.
   const seen = new Set();
-  for (let i = 0; i < 200; i++) seen.add(SpriteLayout.plainRockFrame({ id: `mineralrock_1_1_${i}_0` }));
+  for (let i = 0; i < 200; i++) seen.add(SpriteLayout.plainRockVariant({ id: `mineralrock_1_1_${i}_0` }));
   assert.eq(seen.size, PRV.length, 'every variant is reachable from an id');
   // A cave rock's caveVariant still wins over its id.
   assert.eq(SpriteLayout.plainRockStones({ id: 'x', caveVariant: 0 }), PRV[0].stones, 'caveVariant first');
@@ -94,18 +107,18 @@ test('plain rock: the pair variant beats every single variant, always', () => {
 // can count them — `stones: 2` is authored. What CAN be checked is that the
 // frame it names is still the visibly widest of the four: tools/sprite_audit.js
 // re-decodes the real PNGs into ART_BOUNDS, so if the sheet is ever re-cut and
-// col 3 stops being the wide double rock, this fails.
+// the pair stops being the wide double rock, this fails.
 test('plain rock: the pair frame is still the widest art of the four', () => {
   const widthOf = (variant) => {
-    const bb = SpriteLayout.ART_BOUNDS[`mineralrock:${PLAIN_ROCK_ROW * MINERALROCK_COLS + variant.col}`];
-    assert.truthy(bb, `ART_BOUNDS has an entry for plain rock col ${variant.col}`);
+    const bb = SpriteLayout.ART_BOUNDS[`mineralboulder:${variant.frame}`];
+    assert.truthy(bb, `ART_BOUNDS has an entry for plain rock frame ${variant.frame}`);
     return bb.maxX - bb.minX;
   };
   const pair = PRV.find((p) => p.stones === 2);
   const pairW = widthOf(pair);
   for (const s of PRV.filter((p) => p.stones === 1)) {
     assert.gt(pairW, widthOf(s),
-      `the pair (col ${pair.col}) is wider than single col ${s.col} — art matches the table`);
+      `the pair (frame ${pair.frame}) is wider than single frame ${s.frame} — art matches the table`);
   }
 });
 
@@ -116,8 +129,8 @@ test('ore tiers: one table owns the frame, dropped bar and item tier', () => {
     'every ore-bearing tier has one identity row');
   assert.eq(rows.map(([, row]) => row.rockFrame).join(','), '0,1,2,3,5,7',
     'the table records that frost uses blue column 7, skipping green column 6');
-  assert.truthy(/return mineralRockFrame\(tier\);/.test(RENDER_SRC),
-    'render asks the table helper instead of owning a frame array');
+  assert.truthy(/frame: mineralRockArtFrame/.test(RENDER_SRC),
+    'render asks the shared material art helper instead of owning a frame array');
   assert.truthy(/const primaryBar = mineralBarId\(t\)/.test(INTERACTABLES_SRC),
     'the payout asks the table helper instead of owning a bar array');
   assert.falsy(/ORE_COL_BY_TIER/.test(RENDER_SRC) || /const BARS =/.test(INTERACTABLES_SRC),
@@ -196,7 +209,7 @@ test('plain rock: an explicit rockVariant decides the frame AND the drop, over c
   for (let i = 0; i < 60; i++) {
     const o = { kind: 'mineralrock', id: `mrz_1_2_${i}_${i * 3}`, x: 0, y: 0, yieldTier: 1, rockVariant: v,
       caveVariant: (v + 1 + i) % PRV.length };
-    assert.eq(SpriteLayout.plainRockFrame(o), PLAIN_ROCK_ROW * MINERALROCK_COLS + PRV[v].col, `${o.id}: its frame`);
+    assert.eq(SpriteLayout.plainRockFrame(o), PRV[v].frame, `${o.id}: its frame`);
     assert.eq(SpriteLayout.plainRockStones(o), PRV[v].stones, `${o.id}: its count`);
     if (i < 20) assert.eq(mineOnce(o), PRV[v].stones, `${o.id}: pays what it shows`);
   }
@@ -238,6 +251,26 @@ test('plain rock: steeper bar rarity keeps copper and makes Frost three times ra
       const save = { relics: { pickaxe: { tier: 7 } } };
       INTERACTABLES.mineralrock.complete(makeCtx(scene, save), { kind: 'mineralrock', id: `ore-${tier}`, yieldTier: tier });
       assert.eq(scene.invCount(bars[tier]), 1, 'named ore still guarantees its primary bar');
+    }
+  } finally { Math.random = original; }
+});
+
+
+test('flint-bearing rocks: visible seams guarantee one flint and still yield stone', () => {
+  assert.eq(mineralRockMaterial({ rockMaterial: 'flint', requiredTier: 2 }), 'copper', 'ore precedence stays intact');
+  assert.eq(mineralRockMaterial({ rockMaterial: 'flint', deposit: 'ruby' }), 'ruby', 'gem precedence stays intact');
+  const original = Math.random;
+  Math.random = () => .99; // No lucky flint, bars or glint findings.
+  try {
+    for (const extra of [{ yieldTier: 1 }, { caveVariant: 1 }]) {
+      const scene = makeScene();
+      const o = { kind: 'mineralrock', id: 'flint-seam', x: 0, y: 0, rockMaterial: 'flint', ...extra };
+      assert.eq(mineralRockMaterial(o), 'flint');
+      assert.eq(mineralRockArtFrame(o), 2);
+      assert.eq(runInteractable(makeCtx(scene, { relics: {} }), o), true);
+      assert.eq(scene.invCount('flint_shard'), 1, 'a seam is guaranteed without luck');
+      assert.eq(scene.invCount('rubble'), SpriteLayout.plainRockStones(o));
+      assert.truthy(scene.brokenRockSet.has(o.id));
     }
   } finally { Math.random = original; }
 });

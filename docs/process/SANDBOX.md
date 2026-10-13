@@ -14,7 +14,10 @@ character back to it.
 ## Floor viewer
 
 `tools/floor-viewer.html` builds its compact region through the live generation
-pipeline. Variant index 0 uses natural selection. Each later index advances
+pipeline. Each floor button renders that actual depth: goblin city at 2, deep
+stone at 3, fungal Underdark at 4, haunted city at 5, lava at 6, and dragon
+strata at 7–8. The former proposed-floor offset is retired.
+Variant index 0 uses natural selection. Each later index advances
 all Nexus kinds and road groups together; each group wraps through its own
 variant rows. The index completes a shared cycle before returning to natural
 selection. Surface paths cycle scenic themes, and cave paths and small roads
@@ -26,7 +29,7 @@ fits; the viewer reports declined placements.
 Use `index.html?sandbox=true&sandboxZone=forest` to start at a named destination.
 Examples include `beach`, `wetland`, `golf`, `castle`, `fort`, `grove`, `stones`,
 `tar`, `practice`, `hazards`, `hazards-cave`, `hazards-deep`, `restoration`, `meadow` and `crater`. Road destinations include `hedgerow-road`, `orchard-road`,
-`thorny-road` and `parkpath`. `src/sandbox_destinations.js` owns the shared catalog used by
+`thorny-road`, `goblin_gang-road` and `parkpath`. `src/sandbox_destinations.js` owns the shared catalog used by
 the game and design dashboards; coordinates come from the authored layout.
 
 Existing `sandboxScene=FOREST` or `sandboxScene=PRACTICE` links still work.
@@ -94,7 +97,7 @@ wizard role.
 | Variant | Road | What it exposes |
 |---|---|---|
 | hedgerow | Oak Road | clipped hedges and a habitat gate |
-| lantern | Main Street | dense amber lamps; half restored |
+| lantern path | Main Street | dense amber lamps; half restored |
 | burned | Mill Lane | tar, stakes, torches and slow cells |
 | toadstool | Garden Row | mushroom verge and teal lamps |
 | overgrown | Fern Way | staged roadside trees |
@@ -103,12 +106,14 @@ wizard role.
 | golden | Coin Row | a golden idol; its daily spree fills the verges with coins |
 | thorny | Thorny Way | brambles and a narrow road corridor |
 | snare | Iron Lane | a snare chest ringed by iron teeth, a few stray snares down the lane |
-| barricade | Fort Road | barricades, stakes and guard lair |
+| goblin_gang | Goblin Gang Street | clustered barrels and goblin grunt guards |
+| barricade path | Fort Road | barricades, stakes and guard lair |
 | plain minor | Market Close / Maple Street | ordinary street comparison |
-| plain major | Old Trade Road | old-trade-road lamps and wagon stop |
+| plain MD | Old Trade Road | suppression zone, night curse and wagon stop |
+| plain LG | Ancient Highway | suppression zone and night curse |
 | parkpath | Common Walk | scenic path colour, lamps and reward multiplier |
 
-This table covers every rolled minor and major row in
+This table covers every minor row and the lantern/barricade path rows in
 `StreetVariants.STREET_VARIANTS`. Scenic promenade and greenway rows still
 need geography that the sandbox does not author.
 
@@ -210,8 +215,9 @@ three vents (poison, fire, paralysis), a rolling ball and a sliding wall. Each
 lab seats the vents `EnvironmentHazards.ventKinds` allows on its floor. Arrival
 and reset light a normal torch from the test kit, making the warnings visible. Walk
 onto a plate to launch its trap; each plate fires once. Vents use their normal
-inactive/warning/active cycle; the confusion vent's eruption bursts confusion
-gas onto its neighbours instead of striking. Cave-ins start their five-second warning on
+inactive/warning/active cycle; a gas vent's eruption bursts its gas (confusion
+yellow, poison green, paralysis blue) onto its neighbours instead of striking,
+and the fire vent lights burning ground on its cell and the four beside it. Cave-ins start their five-second warning on
 load and stay open. `cavein` lands beside the cracks to watch the full warning;
 a second reset label there repeats the sequence without walking back. Depths 1 and 2 have authored empty floor tiles so falling
 uses the real landing search and depth transition without a network wait.

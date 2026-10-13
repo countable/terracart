@@ -463,9 +463,43 @@
       return { kind: 'gold', amount: cashValue(tier, bracket, rng), cls: 'cash', tier, ...meta };
     }
     const id = ChestThemes.pickItem(resolved, tier, rng, selectionOpts);
-    return { kind: 'item', id, qty: ChestThemes.quantity(id, tier, bracket),
+    return { kind: 'item', id, qty: ChestThemes.quantity(id, tier, bracket, chestTier),
       tier: _ITEM_BY_ID[id].kind === 'unique_relic' ? _ITEM_BY_ID[id].baseTier : tier,
       cls: _ITEM_BY_ID[id].kind, ...meta };
+  }
+
+  // Resolve one authored signature for gameplay and the monster review page.
+  // Duplicate equipment pays its own value, never the value of better owned gear.
+  function eliteSignatureReward(kind, signatureIndex, save) {
+    const drop = Combat.monster(kind)?.eliteDrops?.[signatureIndex];
+    if (!drop) return null;
+    const target = Combat.eliteDropTier(kind);
+    const meta = { signatureIndex, jackpot: 0, consolation: 0 };
+    if (drop.kind === 'item') {
+      const item = _ITEM_BY_ID[drop.id];
+      const unique = item.kind === 'unique_relic';
+      const reward = { kind: 'item', id: drop.id,
+        qty: unique ? 1 : ChestThemes.quantity(drop.id, target) + (drop.qtyBonus || 0),
+        tier: item.baseTier, cls: item.kind, ...meta };
+      return unique ? Rewards.reconcileUnique(save, reward) : reward;
+    }
+    const tiers = (drop.kind === 'relic' && _RELIC_DEFS[drop.slot]?.tiers) || GEAR_ROLL_TIERS;
+    const tier = tiers.filter(t => t <= target).pop() || tiers[0];
+    const owned = (drop.kind === 'armor' ? save?.armor : save?.relics)?.[drop.slot]?.tier || 0;
+    if (owned >= tier) {
+      return { kind: 'gold', slot: drop.slot, gearKind: drop.kind, tier,
+        amount: Math.max(1, Math.floor(_gearPrice(drop.kind, drop.slot, tier) / 2)), ...meta };
+    }
+    return { ...drop, tier, ...meta };
+  }
+
+  function pickEliteReward(save, rng, opts) {
+    const guaranteed = Combat.ELITE_RANKS[opts?.eliteRank]?.dropIndex;
+    if (guaranteed != null) return eliteSignatureReward(opts?.monsterKind || 'cave_slime', guaranteed, save);
+    const roll = rng();
+    let threshold = 0;
+    const index = Combat.ELITE_DROP_CHANCES.findIndex(p => (threshold += p) > roll);
+    return eliteSignatureReward(opts?.monsterKind || 'cave_slime', index < 0 ? 2 : index, save);
   }
 
   function pickReward(contextKey, save, rng, opts) {
@@ -474,6 +508,7 @@
     rng = rng || Math.random;
     const ctx = lootContext(contextKey, opts);
     if (!ctx) return null;
+    if (ctx.picker === 'elite') return pickEliteReward(save, rng, opts);
 
     // 1) Pick class. relicCap 0 scrubs the relic weight (a shop never offers a relic).
     const bias = { ...ctx.classBias };
@@ -645,6 +680,7 @@
   global.CAVE_DEEP_SKEW         = CAVE_DEEP_SKEW;
   global.ITEMS_BY_CLASS_TIER    = ITEMS_BY_CLASS_TIER;
   global.pickReward             = pickReward;
+  global.eliteSignatureReward   = eliteSignatureReward;
   global.pickChestReward        = pickChestReward;
   global.resolveChestReward     = resolveChestReward;
   global.rollRewardQuality     = rollRewardQuality;

@@ -13,7 +13,7 @@
     try { run(scene, entry); } finally { W.tileCache.clear(); for (const [k, v] of prior) W.tileCache.set(k, v); }
   }
   const advance = (scene, ms) => { for (let t = 0; t < ms; t += 100) MushroomGas.tick(scene, Math.min(100, ms - t) / 1000); };
-  const mass = scene => [...MushroomGas.state(scene).gas.cells.values()].reduce((sum, c) => sum + c.density, 0);
+  const mass = scene => [...MushroomGas.state(scene).gases.confusion.cells.values()].reduce((sum, c) => sum + c.density, 0);
   const plant = (x, y) => W.makeWildplant('mushroom', (x + .5) * cellM, (y + .5) * cellM, `gas_test_${x}_${y}`);
 
   test('mushroom gas: concealed source selection is stable, grove-only and respects hard exclusions', () => fixture((s, e) => {
@@ -64,7 +64,7 @@
       for (let frame = 0; frame < 10; frame++) {
         Conditions.tick(s.save, 100);
         MushroomGas.tick(s, .1);
-        for (const key of MushroomGas.state(s).gas.cells.keys()) {
+        for (const key of MushroomGas.state(s).gases.confusion.cells.keys()) {
           assert.truthy(footprint.has(key), 'thin gas disappears before reaching a second ring');
         }
       }
@@ -90,6 +90,27 @@
     s.playerM = { x: 10.5, y: 10.5 };
     Conditions.tick(s.save, 10000); MushroomGas.contact(s, st);
     assert.falsy(Conditions.active(s.save, 'confused'), 'expires after leaving the cloud');
+  }));
+
+  test('gas kinds: each vent gas applies its own condition; paralysis re-arms so the player can walk out', () => fixture(s => {
+    const st = MushroomGas.state(s);
+    const cell = worldMetersToAbsCell(s, playerWorldM(s).x, playerWorldM(s).y + (s.feetOffsetM || 0));
+    for (const kind of ['poison', 'paralysis']) MushroomGas.emit(s, cell.cellIX, cell.cellIY, undefined, kind);
+    MushroomGas.contact(s, st);
+    assert.falsy(Conditions.active(s.save, 'confused'), 'kinds never mix: no confusion from other gases');
+    assert.eq(s.save.conditions.poison.remainingMs, MushroomGas.KINDS.poison.durationMs);
+    assert.eq(s.save.conditions.paralysis.remainingMs, MushroomGas.KINDS.paralysis.durationMs);
+    // Still standing in the cloud: poison renews each second, paralysis does
+    // not until its re-arm gap has passed, so its hold runs out first.
+    const { durationMs, rearmMs } = MushroomGas.KINDS.paralysis;
+    for (let t = 1000; t < rearmMs; t += 1000) {
+      Conditions.tick(s.save, 1000); st.elapsedMs += 1000; MushroomGas.contact(s, st);
+    }
+    assert.falsy(Conditions.active(s.save, 'paralysis'), 'the paralysis lapses inside the cloud');
+    assert.gt(rearmMs - durationMs, 2000, 'a free window of over two seconds to step out');
+    assert.eq(s.save.conditions.poison.remainingMs, MushroomGas.KINDS.poison.durationMs);
+    st.elapsedMs += 1000; MushroomGas.contact(s, st);
+    assert.truthy(Conditions.active(s.save, 'paralysis'), 'after the gap the cloud doses again');
   }));
 
   test('mushroom gas: masonry contains gas, roads do not, and mining opens sealed rooms', () => fixture((s, e) => {

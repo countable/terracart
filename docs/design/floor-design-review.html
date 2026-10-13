@@ -82,20 +82,22 @@
 <table>
 <tr><th>Depth</th><th>Terrain rule (undergroundTerrain)</th><th>Gate / special (current)</th></tr>
 <tr><td>1</td><td>Negative of the surface's walkability</td><td>Street mirror, spring caves, chasms, barrels, floor torches, pressure plates, quarry gems, copper seam; stair chain stops</td></tr>
-<tr><td>2</td><td>Only park/grove/playground/pitch/commercial surface cells open (npc-class gate)</td><td>Clearings settle as groves/Dwarven cities; landing pockets for floor-1 falls; street mirror (last floor)</td></tr>
-<tr><td>3</td><td>Every cell opens (Underdark splash today)</td><td>Chest mirrors read the surface layer directly</td></tr>
-<tr><td>4</td><td>Mirrors the surface paint</td><td><strong>Portal stone (T4+ chest, &ge; 1 km)</strong></td></tr>
-<tr><td>5</td><td>Mirrors the floor above; lava under surface buildings (<code>LAVA_DEPTH = 5</code>)</td><td><strong>Entry gated by the arena key</strong> (five trials)</td></tr>
-<tr><td>6+</td><td>Mirrors the floor above - recursion unbounded</td><td>Content keeps scaling: T7 chests from 6, infernal hard gate at 5, roosts from 9</td></tr>
+<tr><td>2</td><td>Only surface building footprints are walls; roads and water footprints open</td><td>Goblin city; authored cave areas remain anchor-local; pressure traps and fall landings</td></tr>
+<tr><td>3</td><td>Only park/grove/playground/pitch/commercial cells open (npc-class gate)</td><td>Deep groves and Dwarven settlements; copper mine; proposed road tunnels/shaft pending</td></tr>
+<tr><td>4</td><td>Every cell opens; fungal Underdark</td><td>Surface chest mirrors; portal stone (T4+, &ge; 1 km); T6 ceiling; crypt ghosts</td></tr>
+<tr><td>5</td><td>Mirrors immutable surface paint; haunted biome</td><td>Arena key; crypt habitat throughout</td></tr>
+<tr><td>6</td><td>Mirrors the floor above; lava under surface buildings</td><td>Fire elementals and infernal kinds; <code>LAVA_DEPTH = 6</code></td></tr>
+<tr><td>7-8</td><td>Mirrors the floor above; dragon-ground biome tints</td><td>T7 chests from 7; enlarged ghosts from 7; existing finite roost encounters from 8</td></tr>
+<tr><td>9+</td><td>Mirrors the floor above, unbounded</td><td>Default cave biome; capped ore/chest tiers</td></tr>
 <tr><td>100</td><td>Flat synthetic arena</td><td>The five trials; wins mint the depth key</td></tr>
 </table>
-<p><strong>floors.md shifts this ladder by one</strong> (deep stone 3, fungal Underdark 4, haunted city 5 gated by the key, lava 6, dragons 7-8) plus a goblin city at 2 - that shift is pending, so content thresholds above still sit at their old depths in code.</p>
+<p><strong>The terrain ladder now follows floors.md.</strong> New geometry and progression proposals remain separate: full-floor warrens, road tunnels, dug descent shafts, fungal beds/skins, ruin dressing, heat shelters, expanded roost design, elevator repair, wizard key and stair minting.</p>
 
 <h2>4. The inputs to a floor - the declarative checklist</h2>
 <p>Every input that defines a floor, its owning table, its shape, and whether it is declarative today. Define a floor by editing these rows - <span class="ok">&#10003;</span> is a table row or formula; <span class="warn">&#9888;</span> is a branch or literal that still wants a home (the FLOOR_PROFILES row).</p>
 <table>
 <tr><th>Input</th><th>Owner</th><th>Shape</th><th>Declarative</th></tr>
-<tr><td>Terrain rule</td><td class="f">FLOOR_PROFILES, worldgen.js (undergroundTerrain)</td><td>Row per depth: <code>above</code> / <code>surfacePaint</code> / <code>clearings</code> / <code>open</code>; depths past the table inherit the default</td><td class="ok">&#10003; table</td></tr>
+<tr><td>Terrain rule</td><td class="f">FLOOR_PROFILES, worldgen.js (undergroundTerrain)</td><td>Row per depth: <code>above</code> / <code>surfacePaint</code> / <code>clearings</code> / <code>city</code> / <code>open</code>; depths past the table inherit the default</td><td class="ok">&#10003; table</td></tr>
 <tr><td>Biome label + ground tint</td><td class="f">FLOOR_PROFILES.biome; render.js UNDERGROUND_GROUND</td><td>Row field; render maps the label</td><td class="ok">&#10003; table</td></tr>
 <tr><td>Lava stratum</td><td class="f">FLOOR_PROFILES.lava (LAVA_DEPTH derived), worldgen.js</td><td>Row flag; fire and ember rules read the derived depth</td><td class="ok">&#10003; table</td></tr>
 <tr><td>Chest mirror source</td><td class="f">FLOOR_PROFILES.chestSource, worldgen.js</td><td>Row field: 'above' | 'surface'</td><td class="ok">&#10003; table</td></tr>
@@ -105,18 +107,18 @@
 <tr><td>Floor dressing</td><td class="f">CAVE_PASSES, worldgen.js:8445</td><td>Rows with <code>when(level)</code>/<code>fire(level)</code> predicates, own salted streams</td><td class="ok">&#10003; table</td></tr>
 <tr><td>Chasms / barrels / floor torches</td><td class="f">CAVE_PASSES + FLOOR_TORCH_DEPTH, CAVE_BARREL_DEPTH</td><td>Row predicates on one depth constant each</td><td class="ok">&#10003; table (constants worldgen-local)</td></tr>
 <tr><td>Pressure plates</td><td class="f">pressure_traps.js CONFIG.depth</td><td>One depth field</td><td class="ok">&#10003; data (module-local)</td></tr>
-<tr><td>Chest tier ceiling + bonus</td><td class="f">loot.js:276-298 chestTierMaxFor / chestTierDepthBonus</td><td>Formulas: min(7, 5+&lfloor;d/3&rfloor;), +&lfloor;d/2&rfloor;</td><td class="ok">&#10003; formula</td></tr>
+<tr><td>Chest tier ceiling + bonus</td><td class="f">loot.js:276-298 chestTierMaxFor / chestTierDepthBonus</td><td>Formulas: min(7, 5+&lfloor;max(0,d-1)/3&rfloor;), +&lfloor;d/2&rfloor;</td><td class="ok">&#10003; formula</td></tr>
 <tr><td>Portal stone</td><td class="f">dungeon_progression.js portalStoneDue</td><td>depth 4, tier &ge; 4, &ge; 1000 m</td><td class="ok">&#10003; predicate</td></tr>
-<tr><td>Ore mine</td><td class="f">worldgen.js:2375 caveOreTiers, caveRockP</td><td>[d-1, d] capped 2..7; plain-rock share; L1 copper seam</td><td class="ok">&#10003; formula</td></tr>
+<tr><td>Ore mine</td><td class="f">worldgen.js:2375 caveOreTiers, caveRockP</td><td>[d-2, d-1] capped 2..7; plain-rock share; L1-2 copper seam</td><td class="ok">&#10003; formula</td></tr>
 <tr><td>Gem pockets</td><td class="f">underground.js gem</td><td>Rows filter by yieldTier &le; depth</td><td class="ok">&#10003; table</td></tr>
-<tr><td>Enemy windows</td><td class="f">enemy_roster.js rows cave:{minDepth,maxDepth,weight,depthRule}</td><td>Two-level windows; infernal hard gate <code>depth &ge; 5</code> in enemy_spawns.js:252</td><td class="ok">&#10003; table (gate literal pending shift)</td></tr>
+<tr><td>Enemy windows</td><td class="f">enemy_roster.js rows cave:{minDepth,maxDepth,weight,depthRule}</td><td>Two-level windows; infernal hard gate <code>depth &ge; LAVA_DEPTH</code> in enemy_spawns.js:252</td><td class="ok">&#10003; table (gate follows the lava profile)</td></tr>
 <tr><td>Habitat geography + themes</td><td class="f">enemy_habitats.js:29-68 THEME_BANDS, caveAt</td><td>Per-depth bands to Infinity; per-depth seeded regions</td><td class="ok">&#10003; table</td></tr>
-<tr><td>Ghost bands</td><td class="f">enemy_roster.js GHOST_SCALING</td><td>Depth-banded rows, minCryptDepth 3</td><td class="ok">&#10003; table</td></tr>
+<tr><td>Ghost bands</td><td class="f">enemy_roster.js GHOST_SCALING</td><td>Depth-banded rows, minCryptDepth 4; enlarged from 7</td><td class="ok">&#10003; table</td></tr>
 <tr><td>Descent gates + seals</td><td class="f">dungeon_progression.js</td><td>canEnterDepth (depth &lt; 5 | key); ROPE_SEALED_FLOORS [2,3,4,6]</td><td class="ok">&#10003; table</td></tr>
 <tr><td>Elevator stops + parts</td><td class="f">elevators.js FLOORS, partsDue</td><td>Frozen array [0,1,2,3]; per-floor parts lanes</td><td class="ok">&#10003; data (finite by design)</td></tr>
 <tr><td>Stair minting</td><td class="f">worldgen.js:8810-8854</td><td>L1 none, L2+ shafts + fallback</td><td class="warn">&#9888; branch - row flags when the stair rework lands</td></tr>
 <tr><td>Ambient light curve</td><td class="f">lighting.js litDim/profile</td><td>Depth formula</td><td class="ok">&#10003; formula</td></tr>
-<tr><td>Arrival stories</td><td class="f">app.js:6656-6660</td><td>Depth literals: stone at 2, Underdark at 3</td><td class="warn">&#9888; literal - row field</td></tr>
+<tr><td>Arrival stories</td><td class="f">app.js:6656-6660</td><td>Profile story IDs: stone3, Underdark4, city2, haunted5, lava6, dragons7-8</td><td class="ok">&#10003; profile field</td></tr>
 <tr><td>Campfire ward reach</td><td class="f">scene_creatures.js FIRE_WARD_MAX_DEPTH = 1</td><td>One constant</td><td class="ok">&#10003; data (module-local)</td></tr>
 </table>
 
@@ -126,7 +128,7 @@
 <div class="card good">
 <h3>Addressed</h3>
 <ul>
-<li><strong>Floor-scoped rules are one table.</strong> <code>FLOOR_PROFILES</code> now owns terrain mode, biome label, lava, street mirror, fall landings, chest source and quarry provenance; <code>underground.js</code> and <code>cave_areas.js</code> read <code>floorProfile(depth)</code> instead of depth literals; tests pin the shipped behavior. The remaining &#9888; rows are stair minting, arrival stories and the content-window shift - each has an owner and a plan.</li>
+<li><strong>Floor-scoped rules are one table.</strong> <code>FLOOR_PROFILES</code> now owns terrain mode, biome label, lava, street mirror, fall landings, chest source and quarry provenance; <code>underground.js</code> and <code>cave_areas.js</code> read <code>floorProfile(depth)</code> instead of depth literals; tests pin the shipped behavior. Arrival stories and content windows follow the shifted ladder; stair minting remains pending.</li>
 <li><strong>Descent rules are one table.</strong> The rope seal, the sinkhole-minting seal and the fall seal all read <code>ROPE_SEALED_FLOORS</code>; the arena gate and the portal stone moved to floors 4/5 with tests. A new gate is a row, not a scattered check.</li>
 <li><strong>The portal-stone bar survived the move.</strong> Floor 4's depth bonus lifts every chest to effective T3, so the bar was retuned to T4 - intent (a good chest, far out) kept, drift caught by a test.</li>
 <li><strong>Content was never the problem.</strong> Roster windows, THEME_BANDS (to Infinity), CAVE_PASSES, loot and ore formulas, ghost bands, habitat geography: all rows and formulas already.</li>
@@ -136,17 +138,16 @@
 <div class="card bad">
 <h3>What does not scale - updated</h3>
 <ul>
-<li><strong>Terrain identity was branch code - no longer.</strong> The profiles table replaced the per-depth if/else, the lava constant and the chest-source branch. What remains branch-shaped is <em>scoped by plan</em>: stair minting (the stair rework), the arrival splashes, and the depth shift of content windows (roster bands, THEME_BANDS, infernal gate) that follows the terrain move.</li>
-<li><strong>Three looks, eight floors.</strong> The biome ternary still caps at cave/deep_stone/underdark; floors 4+ render plain. <em>Address: profile.biome</em> + the target labels (goblin city, haunted city, dragon).</li>
+<li><strong>Terrain identities and content windows are aligned.</strong> Explicit profiles cover floors 1-8, with biome tints and arrival splashes. Ore, chest caps, enemy windows, ghost bands and existing roost thresholds follow the same ladder. New proposal mechanics remain separate work.</li>
 <li><strong>Floor-locked features read the profile.</strong> Pressure plates, authored cave areas (including springs), the street mirror, arrival splashes and the infernal entry gate read <code>WorldGen.floorProfile(depth)</code>. Cave weights, carving, garrisons and street gem probabilities live in those rows; story copy stays in presentation. Seals retain their owning progression table.</li>
-<li><strong>Authored areas are singletons.</strong> One geometry (spring) at one depth; the goblin city needs a generator, not a flag. <em>Address: the goblin-city feature itself.</em></li>
+<li><strong>Authored areas are singletons.</strong> Several anchor-local cave variants exist on floors 1-2; full-floor city warrens still need their own planner. <em>Address: the goblin-city feature itself.</em></li>
 <li><strong>Elevator stops are finite</strong> - and that is by design (a physical lift with parts lanes); the array is already data. Extending it is a row plus a parts lane, nothing structural.</li>
 </ul>
 </div>
 </div>
 
 <h3>Verdict</h3>
-<p><span style="font-weight:bold">Adding depth is cheap; adding floor types is now a row edit with a checklist.</span> The gates-and-seals work proved the pattern, and FLOOR_PROFILES extends it to terrain and floor flags. What is left before the floors.md ladder can ship as rows: the open geometry decisions in <a href="floor-geometry-proposal.md">floor-geometry-proposal.md</a> (per-floor inputs, themes, activities - each gap carries a default for confirmation), the goblin-city full-floor generator, the stair rework and the content-window shift.</p>
+<p><span style="font-weight:bold">Adding depth is cheap; adding floor types is now a row edit with a checklist.</span> The gates-and-seals work proved the pattern, and FLOOR_PROFILES extends it to terrain and floor flags. What remains beyond the shipped terrain ladder: the open geometry decisions in <a href="floor-geometry-proposal.md">floor-geometry-proposal.md</a> (per-floor inputs, themes, activities - each gap carries a default for confirmation), the goblin-city full-floor generator, the stair/elevator/key progression rework.</p>
 
 <div class="foot">
 Evidence: direct reads of src/worldgen.js (7914-7959, 8366-8560, 8650-8915), src/dungeon_progression.js, src/loot.js, src/enemy_spawns.js, src/enemy_habitats.js, src/underground.js, src/cave_areas.js, src/elevators.js, src/lighting.js, src/scene_creatures.js and the regression tests under test/node/ (dungeon_progression, arena_flow, environment_hazards, hazard_falls). Line numbers verified against the working tree, Oct 2026, after the tranche-1 gate commits.

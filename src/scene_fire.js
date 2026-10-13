@@ -56,9 +56,9 @@ class SceneFire {
     this._groundFireDirty = true;
   }
 
-  _igniteGroundCell(cell, now = Date.now()) {
+  _igniteGroundCell(cell, now = Date.now(), opts = {}) {
     const depth = cell.depth ?? this.depth ?? 0;
-    if (!GroundFire.ignite(this.save, depth, cell.cellIX, cell.cellIY, now)) return false;
+    if (!GroundFire.ignite(this.save, depth, cell.cellIX, cell.cellIY, now, Math.random, opts)) return false;
     this._rememberGroundFire(this.save.groundFire[GroundFire.key(depth, cell.cellIX, cell.cellIY)]);
     return true;
   }

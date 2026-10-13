@@ -14,13 +14,14 @@ in `assets/Objects/Approved/world-art-imports.json`. The source crops under
 `assets/Objects/Approved/Sources/WorldArt/` retain the generated pixels before
 review downsampling, with original sheet hashes and crop coordinates in that
 manifest. Run `python3 tools/import_world_art_candidates.py` after rebuilding a
-legacy sheet. It replaces only approved frames, preserves sheet geometry and
+legacy sheet. It replaces only approved frames, preserves atlas geometry and
 all neighbouring pixels, and updates the Approved manifest hashes. The map-art
 baker calls this automatically after its older recolour recipes. The approved
 wood log fills all three quantity frames so the world and inventory stay aligned.
-Fort A (restored and unrestored) and Shipwreck A use the same importer. Their
-`fitRect` entries preserve the reviewed visible size and base anchor within
-the existing image canvases. Use repeatable `--review` arguments to import only
+The fort uses the approved inner timber building on a tight 64×43 canvas in
+both states; external palisades remain separate. Its explicit `wholeImage`
+imports replace the old larger canvases. Shipwreck A retains its `fitRect`
+within the existing canvas. Use repeatable `--review` arguments to import only
 selected replacements without rewriting other approved art.
 
 The palette was built from twelve current story paintings. Each contributes an

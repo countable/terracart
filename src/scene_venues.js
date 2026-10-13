@@ -437,48 +437,161 @@ class SceneVenues {
     });
   }
 
-  // The Book Club rewards each three Books collected with the next tome.
-  // All schools share reading and claim progress; the shelf repeats.
+  // One shared lending shelf. Keep credit and actions in view while the
+  // catalog scrolls; transactions update in place so preparing several
+  // spells never sends the player through a chain of confirmation dialogs.
   _presentScholar(sx, sy, o, dress) {
-    const shelf = Macros.scholarShelf();
-    const read = Macros.booksRead(this.save);
-    const next = Macros.scholarNext(this.save, shelf);
-    const title = `The book club: ${read} ${read === 1 ? 'book' : 'books'} read`;
-    if (!next) {
-      this.showMessageModal({ kind: dress.kind, art: dress.art, title,
-        body: 'The scholar has no tomes on the shelf today.' });
-      return;
-    }
-    if (!next.ready) {
-      const need = next.booksAt - read;
-      this.showMessageModal({ kind: dress.kind, art: dress.art, title,
-        body: `The next prize is ${itemName(next.id)}, at ${next.booksAt} books. Read ${need} more. `
-          + `Every ${Macros.SCHOLAR_BOOKS_PER_PRIZE} books earns a tome. Found and bought books both count; the tome shelf repeats after a full set.` });
-      return;
-    }
-    this.showOfferModal({
-      ...dress, kind: dress.kind, title,
-      get: `${this.iconSpanHTML(next.id)} ${itemName(next.id)} ×1`,
-      cost: `${next.booksAt} books read`,
-      blurb: 'The scholar lifts the next tome down from the shelf and sets it before you.',
-      canAfford: true,
-      disabledReason: this.invRoomFor(next.id) < 1
-        ? 'Your bag cannot hold another copy of this tome. Equip a larger bag to collect it.' : '',
-      acceptLabel: 'Collect',
-      cancelLabel: 'Later',
-      onAccept: () => {
-        // Another open offer may already have collected this milestone.
-        const current = Macros.scholarNext(this.save, shelf);
-        if (!current?.ready || current.index !== next.index) return;
-        // Credit the milestone only after the complete prize fits; refresh
-        // and persist once, with both the tome and claim ledger updated.
-        if (!this.addToInv(next.id, 1, false, { notWild: true, deferRefresh: true })) return;
-        Macros.scholarClaim(this.save, shelf);
-        this._finishInventoryChange();
-        this.flashLoot('Tome collected', UI_GOLD, 1, next.id);
-        this._macroTransaction('scholar', `You received ${itemName(next.id)} for ${next.booksAt} books collected. Your books remain yours.`);
-      },
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('scholar-modal', {
+      kind: dress.kind, kindLabel: 'Book Club', art: dress.art,
     });
+    const credit = document.createElement('div');
+    credit.id = 'scholar-credit';
+    credit.style.cssText = 'color:#ffe066;font-weight:700;margin-bottom:5px';
+    box.appendChild(credit);
+    const help = document.createElement('details');
+    const helpTitle = document.createElement('summary');
+    helpTitle.textContent = 'How lending works';
+    helpTitle.style.cssText = 'font-size:11px;cursor:pointer;padding:3px 0 6px';
+    help.appendChild(helpTitle);
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size:11px;line-height:1.4;opacity:.85;margin-bottom:7px';
+    hint.textContent = 'Each collected Book gives 1 credit. Return tomes here or at another Book Club to free credit. Returns keep spell cooldowns.';
+    help.appendChild(hint);
+    box.appendChild(help);
+    const tabs = document.createElement('div');
+    tabs.style.cssText = 'display:flex;gap:6px;margin-bottom:6px';
+    box.appendChild(tabs);
+    const list = document.createElement('div');
+    list.id = 'scholar-shelf';
+    list.style.cssText = 'height:180px;overflow-y:auto;overscroll-behavior:contain;text-align:left;';
+    list.setAttribute('aria-label', 'Tomes available to borrow');
+    box.appendChild(list);
+    const receipt = document.createElement('div');
+    receipt.id = 'scholar-receipt';
+    receipt.setAttribute('role', 'status');
+    receipt.style.cssText = 'font-size:11px;min-height:15px;margin:6px 0;';
+    box.appendChild(receipt);
+    const close = mkBtn('Done', { variant: 'ghost' });
+    close.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    box.appendChild(close);
+    let onLoanOnly = false;
+    const allTab = mkBtn('All tomes', { variant: 'ghost', css: 'flex:1;padding:7px;' });
+    const loansTab = mkBtn('On loan', { variant: 'ghost', css: 'flex:1;padding:7px;' });
+    tabs.appendChild(allTab); tabs.appendChild(loansTab);
+    const render = () => {
+      const credits = Macros.scholarCredits(this.save);
+      credit.textContent = `${credits.available} / ${credits.total} credits free · ${credits.used} on loan`;
+      allTab.setAttribute('aria-pressed', String(!onLoanOnly));
+      loansTab.setAttribute('aria-pressed', String(onLoanOnly));
+      allTab.style.borderColor = !onLoanOnly ? '#ffe066' : '#555';
+      loansTab.style.borderColor = onLoanOnly ? '#ffe066' : '#555';
+      const scroll = list.scrollTop;
+      list.replaceChildren();
+      const catalog = Macros.scholarCatalog(this.save);
+      const rows = onLoanOnly ? catalog.filter(row => row.borrowed > 0) : catalog;
+      if (!rows.length) {
+        const empty = document.createElement('p');
+        empty.textContent = onLoanOnly ? 'No tomes on loan. Browse the shelf to prepare your spells.' : 'The shelf is empty.';
+        list.appendChild(empty);
+      }
+      for (const row of rows) {
+        const card = document.createElement('div');
+        card.dataset.tome = row.id;
+        card.style.cssText = 'display:grid;grid-template-columns:minmax(0,1fr) 88px;gap:3px 8px;padding:8px 1px;border-top:1px solid #ffffff28;';
+        const description = document.createElement('details');
+        description.style.gridColumn = '1';
+        const name = document.createElement('summary');
+        name.style.cssText = 'display:flex;align-items:center;gap:7px;font-weight:700;cursor:pointer;';
+        name.innerHTML = this.iconSpanHTML(row.id);
+        const label = document.createElement('span');
+        label.textContent = itemName(row.id);
+        name.appendChild(label); description.appendChild(name); card.appendChild(description);
+        const detail = document.createElement('div');
+        detail.style.cssText = 'grid-column:1;font-size:11px;line-height:1.4;opacity:.9';
+        const ownWait = Math.max(0, (this.save.tomeMagicCd?.[row.id] || 0) - Date.now());
+        detail.textContent = `${row.borrowed} on loan`
+          + (row.owned ? ` · ${row.owned} owned` : '')
+          + (ownWait ? ` · Resting ${shortDuration(ownWait)}` : '')
+          + (row.borrowed || row.owned ? ' · Copies share a cooldown.' : '');
+        card.appendChild(detail);
+        name.setAttribute('aria-label', `${itemName(row.id)} — spell details`);
+        const effect = document.createElement('div');
+        effect.style.cssText = 'font-size:11px;line-height:1.4;margin-bottom:6px;color:#9fe6ff;';
+        effect.textContent = this._scholarSpellDetail(row.id);
+        description.appendChild(effect);
+        const reason = !row.unlocked ? `Unlocks at ${row.booksAt} Books · ${row.booksAt - Macros.booksRead(this.save)} more to collect`
+          : row.why === 'credit' ? `Need ${Math.max(0, row.cost - credits.available)} more free credits`
+          : row.why === 'full' ? 'Your bag cannot hold another copy.' : '';
+        if (reason) {
+          const why = document.createElement('div');
+          why.textContent = reason;
+          why.style.cssText = 'grid-column:1;font-size:11px;margin-bottom:3px;opacity:.8';
+          card.appendChild(why);
+        }
+        const actions = document.createElement('div');
+        actions.style.cssText = 'grid-column:2;grid-row:1 / span 3;display:flex;flex-direction:column;justify-content:center;gap:5px;';
+        const transact = (action) => (e) => {
+          e.stopPropagation();
+          if (!wrap.isConnected) return;
+          const r = this._scholarTransaction(action, row.id);
+          receipt.textContent = r.ok
+            ? `${action === 'borrow' ? 'Borrowed' : 'Returned'} ${itemName(row.id)} · ${r.cost} credits ${action === 'borrow' ? 'reserved' : 'freed'}`
+            : 'The loan could not change. Check the updated shelf.';
+          render();
+          list.querySelector(`[data-tome="${row.id}"] button:not(:disabled)`)?.focus({ preventScroll: true });
+        };
+        const borrow = mkBtn(`Borrow · ${row.cost}`, { disabled: !row.canBorrow, css: 'flex:1;padding:8px 5px;' });
+        borrow.setAttribute('aria-label', `Borrow ${itemName(row.id)} for ${row.cost} credits`);
+        borrow.addEventListener('click', transact('borrow'));
+        actions.appendChild(borrow);
+        if (row.borrowed > 0) {
+          const back = mkBtn('Return one', { variant: 'ghost', css: 'flex:1;padding:8px 5px;' });
+          back.setAttribute('aria-label', `Return ${itemName(row.id)} and free ${row.cost} credits`);
+          back.addEventListener('click', transact('return'));
+          actions.appendChild(back);
+        }
+        card.appendChild(actions); list.appendChild(card);
+      }
+      list.scrollTop = scroll;
+    };
+    allTab.addEventListener('click', (e) => { e.stopPropagation(); onLoanOnly = false; list.scrollTop = 0; render(); });
+    loansTab.addEventListener('click', (e) => { e.stopPropagation(); onLoanOnly = true; list.scrollTop = 0; render(); });
+    render();
+    mount();
+    // Only the shelf scrolls; credit, receipt and Done remain reachable.
+    const body = box.querySelector('.modal-body');
+    body.style.display = 'flex';
+    body.style.flexDirection = 'column';
+    body.style.height = body.style.maxHeight;
+    body.style.overflow = 'hidden';
+    for (const child of body.children) child.style.flexShrink = '0';
+    list.style.flex = '1 1 0';
+    list.style.minHeight = '0';
+    list.style.height = 'auto';
+  }
+
+  _scholarSpellDetail(id) {
+    const spec = CONSUMABLE_SPEC[id];
+    const source = CONSUMABLE_SPEC[spec.tome?.of] || spec;
+    const mul = spec.tome?.mul ?? 1;
+    const effect = source.energy ? `Restores ${Math.floor(source.energy * mul)} HP.`
+      : source.damage ? `Deals ${Math.floor(source.damage * mul)} damage to foes in sight.`
+      : source.get;
+    const duration = source.durationMs ? ` Lasts ${shortDuration(source.durationMs * (source === spec ? 1 : mul))}.` : '';
+    const rest = spec.cooldownMs * (Wizard.isClass(this.save, 'enchanter') ? 0.5 : 1);
+    return `${effect}${duration} Reusable; rests ${shortDuration(rest)} after casting.`;
+  }
+
+  _scholarTransaction(action, id) {
+    const selected = getSelectedSlot(this.save)?.id;
+    const result = action === 'borrow' ? Macros.scholarBorrow(this.save, id)
+      : action === 'return' ? Macros.scholarReturn(this.save, id) : { ok: false, why: 'action' };
+    if (!result.ok) return result;
+    // Returning an earlier stack must not silently select a different spell.
+    if (selected) this.save.selSlot = this.save.inv.findIndex(stack => stack.id === selected);
+    this._clampSelSlot();
+    this._finishInventoryChange();
+    return result;
   }
 
   // TRAINING HALL: one DISCIPLINE per hall (Macros.trainingKindFor — melee,
@@ -586,7 +699,7 @@ class SceneVenues {
   presentHomeSell(sx, sy, targetId = null) {
     const sel = targetId == null ? this.save.inv[this.save.selSlot]
       : this.save.inv.find(stack => stack.id === targetId && stack.count > 0);
-    const hasSel = sel && sel.id && (sel.count ?? 0) > 0;
+    const hasSel = sel && sel.id && Inventory.ownedCount(this.save, sel.id) > 0;
     const tabs = this._homeTabs('sell', sx, sy);
     const kindIcon = this._homeKindIcon();
     // Nothing sellable in hand: the page says what it is for rather than
@@ -597,7 +710,9 @@ class SceneVenues {
         kind: 'shop', kindIcon, tabs, art: 'home_sell',
         title: 'Sell from your stash',
         get: targetId ? 'Sold out' : 'Nothing picked to sell',
-        blurb: 'Pick a stack in your bag, then tap Home to sell it.',
+        blurb: sel && Macros.scholarLoaned(this.save, sel.id) > 0
+          ? 'Return borrowed tomes at a Book Club. They cannot be sold.'
+          : 'Pick a stack in your bag, then tap Home to sell it.',
         cost: '', canAfford: false, cancelLabel: 'Leave', acceptLabel: 'Sell',
         repeat: () => this.presentHomeSell(sx, sy, targetId),
         onAccept: () => {},
@@ -623,9 +738,9 @@ class SceneVenues {
       cancelLabel: 'Leave',
       repeat: () => this.presentHomeSell(sx, sy, sellId),
       onAccept: () => {
-        const have = Inventory.count(this.save, sellId);
+        const have = Inventory.ownedCount(this.save, sellId);
         if (have <= 0) { this.flash('Gone — already used.', sx, sy); return; }
-        Inventory.remove(this.save, sellId, 1);
+        if (Inventory.remove(this.save, sellId, 1) !== 1) return;
         this._clampSelSlot();
         const gain = unitPrice;
         addMoney(this.save, gain);

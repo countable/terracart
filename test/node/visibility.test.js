@@ -15,13 +15,15 @@ function coverFixture(objects = [], walls = []) {
   } };
 }
 
-test('cover classification shares bushes, hedges, walls and rocks with obstacle profiles', () => {
+test('only cave terrain is opaque; low rocks are clear and tall props give partial cover', () => {
   for (const o of [{kind:'wildplant',crop:'shrub'},
-    {kind:'wildplant',crop:'berry'}, {kind:'stronghold_wall'}, {kind:'mineralrock'}]) {
-    assert.eq(Visibility.objectCover(o), Visibility.FULL);
+    {kind:'wildplant',crop:'berry'}, {kind:'stronghold_wall'}, {kind:'mineralrock',sightBlocking:true}]) {
+    assert.eq(Visibility.objectCover(o), Visibility.PARTIAL);
   }
   for (const kind of ['tree','fruittree']) assert.eq(Visibility.objectCover({kind}), Visibility.PARTIAL);
   assert.eq(Visibility.objectCover({kind:'wildplant',crop:'longgrass'}), Visibility.CLEAR);
+  assert.eq(Visibility.objectCover({kind:'mineralrock'}), Visibility.CLEAR);
+  assert.eq(Visibility.objectCover({kind:'mineralrock',sightBlocking:false}), Visibility.CLEAR);
 });
 
 test('only the smallest rendered timber and fruit saplings provide no cover', () => {
@@ -54,16 +56,16 @@ test('a sight line through saplings is clear while young trees and shrubs still 
     assert.eq(Visibility.playerCover(f.scene,4.5,.5),Visibility.PARTIAL);
     f.entry.objects = [{id:'shrub',kind:'wildplant',crop:'shrub',x:2.5,y:.5}];
     Visibility.invalidate(f.scene);
-    assert.eq(Visibility.playerCover(f.scene,4.5,.5),Visibility.FULL);
+    assert.eq(Visibility.playerCover(f.scene,4.5,.5),Visibility.PARTIAL);
   } finally { f.done(); }
 });
 
-test('full cover hides behind a blocker but preserves its facing cell; rays are reciprocal', () => {
+test('surface wall shades behind its facing cell; rays are reciprocal', () => {
   const f = coverFixture([{id:'wall',kind:'stronghold_wall',x:2.5,y:0.5}]);
   try {
     assert.eq(Visibility.playerCover(f.scene,2.5,0.5), Visibility.CLEAR);
-    assert.eq(Visibility.playerCover(f.scene,4.5,0.5), Visibility.FULL);
-    assert.eq(Visibility.coverBetween(f.scene,4.5,0.5,0.5,0.5), Visibility.FULL);
+    assert.eq(Visibility.playerCover(f.scene,4.5,0.5), Visibility.PARTIAL);
+    assert.eq(Visibility.coverBetween(f.scene,4.5,0.5,0.5,0.5), Visibility.PARTIAL);
     assert.eq(Visibility.playerCover(f.scene,0.5,4.5), Visibility.CLEAR);
   } finally { f.done(); }
 });
@@ -84,8 +86,7 @@ test('multiple trees remain partial and cleared blockers invalidate the retained
 });
 
 test('two touching full-cover corners prevent diagonal sight in either direction', () => {
-  const f = coverFixture([{id:'a',kind:'stronghold_wall',x:1.5,y:0.5},
-    {id:'b',kind:'stronghold_wall',x:0.5,y:1.5}]);
+  const f = coverFixture([], ['1_0', '0_1']); f.scene.depth = 1;
   try {
     assert.eq(Visibility.playerCover(f.scene,2.5,2.5), Visibility.FULL);
     assert.eq(Visibility.coverBetween(f.scene,2.5,2.5,0.5,0.5), Visibility.FULL);
@@ -133,8 +134,27 @@ test('night-hidden roadside props do not cast cover', () => {
     assert.eq(Visibility.playerCover(f.scene, 4.5, .5), Visibility.CLEAR);
     RoadSafety.isNight = () => false;
     Visibility.invalidate(f.scene);
-    assert.eq(Visibility.playerCover(f.scene, 4.5, .5), Visibility.FULL);
+    assert.eq(Visibility.playerCover(f.scene, 4.5, .5), Visibility.PARTIAL);
   } finally {
     RoadSafety.isNight = night; RoadSafety.objectHidden = hidden; f.done();
+  }
+});
+
+
+test('small surface and cave rocks leave sight clear; boulders cast removable partial shade', () => {
+  for (const depth of [0, 1]) {
+    const rock = { id: 'size-rock', kind: 'mineralrock', x: 2.5, y: .5 };
+    const f = coverFixture([rock]); f.scene.depth = depth;
+    try {
+      assert.eq(Visibility.playerCover(f.scene, 4.5, .5), Visibility.CLEAR);
+      rock.sightBlocking = true;
+      Visibility.invalidate(f.scene);
+      assert.eq(Visibility.playerCover(f.scene, 2.5, .5), Visibility.CLEAR);
+      assert.eq(Visibility.playerCover(f.scene, 4.5, .5), Visibility.PARTIAL);
+      f.scene.save.brokenRocks = [rock.id];
+      f.scene.brokenRockSet.add(rock.id);
+      f.scene.game.loop.frame++;
+      assert.eq(Visibility.playerCover(f.scene, 4.5, .5), Visibility.CLEAR);
+    } finally { f.done(); }
   }
 });

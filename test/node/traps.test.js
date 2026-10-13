@@ -151,10 +151,16 @@ test('traps: BESIDE the path, never on it', () => {
       if (r.grid[y * CPE + x] !== T.PARK) besideOther = true;
     }
     if (k === 1) { path++; assert.truthy(besidePath, `${tp.id} is 8-adjacent to a footpath`); }
-    else { park++; assert.eq(r.grid[i], T.PARK, `${tp.id} is park`); assert.truthy(besideOther, `${tp.id} is on the park's edge`); }
+    else {
+      park++;
+      assert.eq(r.grid[i], T.PARK, `${tp.id} is park`);
+      assert.truthy(besideOther, `${tp.id} is on the park's edge`);
+      assert.eq(r.streetAreaVariants[i], StreetVariants.VARIANT_BY_ID.parkpath.code,
+        'the generated Park Path verge owns this park edge');
+    }
   }
   assert.gt(path, 0, 'the footpaths carry traps');
-  assert.eq(park, 0, 'generic grass fixture has only path trap ground');
+  assert.gt(park, 0, 'Park Path paints eligible park edges beside the grass fixture paths');
   // The predicate itself: the open park interior and plain grass are not
   // trap ground; the footpath cell never is.
   assert.eq(kindAt(r, 12, 30), 0, 'the park interior');
@@ -615,7 +621,7 @@ test('traps: the tick asks where the PLAYER is, never where the camera is', () =
   assert.truthy(/persistSave\(this\.save\)/.test(block),
     'and it is written straight away, so a discovered trap stays discovered');
   assert.truthy(/this\._painFlash\(spent\)/.test(block), 'the bite carries the pain effect');
-  assert.truthy(/Combat\.playerDamage\(Traps\.standEnergyPerS\(\) \* Traps\.trapPower\(trap\), \{ boots: this\.save\.armor\?\.boots \}\) \* dt/.test(block),
+  assert.truthy(/Combat\.playerDamage\(Traps\.standEnergyPerS\(\) \* Traps\.trapPower\(trap\), \{ boots: this\.save\.armor\?\.boots \}, 1, this\.save\.mode, Combat\.armorBonus\(this\.save\)\) \* dt/.test(block),
     'the bleed is per SECOND, accumulated off the frame delta');
 });
 
@@ -780,7 +786,7 @@ test('traps: a trapper\'s snare bites at its trapper\'s power — the Home nerf 
   assert.truthy(/Traps\.layTrap\([\s\S]*?Combat\.powerMul\(c\)\);/.test(SCENE_SRC), 'the trapper hands over its powerMul');
   assert.truthy(/Traps\.STEP_ENERGY \* Difficulty\.get\(\)\.trapBiteMul \* Traps\.trapPower\(trap\)/.test(SCENE_SRC),
     'the bite scales by it');
-  assert.truthy(/Combat\.playerDamage\(Traps\.standEnergyPerS\(\) \* Traps\.trapPower\(trap\), \{ boots: this\.save\.armor\?\.boots \}\) \* dt/.test(SCENE_SRC), 'and the bleed');
+  assert.truthy(/Combat\.playerDamage\(Traps\.standEnergyPerS\(\) \* Traps\.trapPower\(trap\), \{ boots: this\.save\.armor\?\.boots \}, 1, this\.save\.mode, Combat\.armorBonus\(this\.save\)\) \* dt/.test(SCENE_SRC), 'and the bleed');
 });
 
 // ── Danger: the per-tile spread ─────────────────────────────────────────────

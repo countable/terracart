@@ -93,7 +93,12 @@
   // held unique. Check again at grant time for delayed capacity-dialog actions.
   function reconcileUnique(save, reward) {
     if (reward?.kind !== 'item' || ITEM_BY_ID[reward.id]?.kind !== 'unique_relic') return reward;
-    if (carriesItem(save, reward.id)) return { ...reward, kind: 'gold', amount: itemValue(reward.id) };
+    if (carriesItem(save, reward.id)) {
+      const value = itemValue(reward.id);
+      // Elite signatures use the same half-price cash-out as their equipment.
+      const amount = reward.signatureIndex != null ? Math.max(1, Math.floor(value / 2)) : value;
+      return { ...reward, kind: 'gold', amount };
+    }
     return { ...reward, qty: Math.min(1, reward.qty) };
   }
 

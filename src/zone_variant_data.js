@@ -383,6 +383,14 @@
       "recordType": "enemy",
       "kind": "gull",
       "spawnClass": "fastEnemy"
+    },
+    "flint_rock": {
+      "kind": "mineralrock",
+      "yieldTier": 1,
+      "requiredTier": 1,
+      "rockMaterial": "flint",
+      "spawnClass": "minor",
+      "color": "#d6a877"
     }
   },
   "variants": [
@@ -5419,7 +5427,7 @@
               0,
               -2
             ],
-            "material": "flint"
+            "material": "flint_rock"
           },
           {
             "at": [
@@ -5447,21 +5455,21 @@
               -1,
               -1
             ],
-            "material": "flint"
+            "material": "flint_rock"
           },
           {
             "at": [
               0,
               -1
             ],
-            "material": "flint"
+            "material": "flint_rock"
           },
           {
             "at": [
               1,
               -1
             ],
-            "material": "flint"
+            "material": "flint_rock"
           },
           {
             "at": [
@@ -5482,28 +5490,28 @@
               -2,
               0
             ],
-            "material": "flint"
+            "material": "flint_rock"
           },
           {
             "at": [
               -1,
               0
             ],
-            "material": "flint"
+            "material": "flint_rock"
           },
           {
             "at": [
               1,
               0
             ],
-            "material": "flint"
+            "material": "flint_rock"
           },
           {
             "at": [
               2,
               0
             ],
-            "material": "flint"
+            "material": "flint_rock"
           },
           {
             "at": [
@@ -5524,21 +5532,21 @@
               -1,
               1
             ],
-            "material": "flint"
+            "material": "flint_rock"
           },
           {
             "at": [
               0,
               1
             ],
-            "material": "flint"
+            "material": "flint_rock"
           },
           {
             "at": [
               1,
               1
             ],
-            "material": "flint"
+            "material": "flint_rock"
           },
           {
             "at": [
@@ -5566,7 +5574,7 @@
               0,
               2
             ],
-            "material": "flint"
+            "material": "flint_rock"
           },
           {
             "at": [
@@ -5624,7 +5632,7 @@
                 0,
                 -2
               ],
-              "material": "flint"
+              "material": "flint_rock"
             },
             {
               "at": [
@@ -5652,21 +5660,21 @@
                 -1,
                 -1
               ],
-              "material": "flint"
+              "material": "flint_rock"
             },
             {
               "at": [
                 0,
                 -1
               ],
-              "material": "flint"
+              "material": "flint_rock"
             },
             {
               "at": [
                 1,
                 -1
               ],
-              "material": "flint"
+              "material": "flint_rock"
             },
             {
               "at": [
@@ -5687,28 +5695,28 @@
                 -2,
                 0
               ],
-              "material": "flint"
+              "material": "flint_rock"
             },
             {
               "at": [
                 -1,
                 0
               ],
-              "material": "flint"
+              "material": "flint_rock"
             },
             {
               "at": [
                 1,
                 0
               ],
-              "material": "flint"
+              "material": "flint_rock"
             },
             {
               "at": [
                 2,
                 0
               ],
-              "material": "flint"
+              "material": "flint_rock"
             },
             {
               "at": [
@@ -5729,21 +5737,21 @@
                 -1,
                 1
               ],
-              "material": "flint"
+              "material": "flint_rock"
             },
             {
               "at": [
                 0,
                 1
               ],
-              "material": "flint"
+              "material": "flint_rock"
             },
             {
               "at": [
                 1,
                 1
               ],
-              "material": "flint"
+              "material": "flint_rock"
             },
             {
               "at": [
@@ -5771,7 +5779,7 @@
                 0,
                 2
               ],
-              "material": "flint"
+              "material": "flint_rock"
             },
             {
               "at": [
@@ -5811,7 +5819,7 @@
         "clearing": {
           "radiusCells": 2,
           "rimWidthCells": 1,
-          "material": "flint",
+          "material": "flint_rock",
           "rimMaterial": "rubble"
         }
       },
@@ -5856,7 +5864,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "A radius-two flint circle surrounds the POI, edged with a continuous rubble rim. Rubble scatters at 15% outside; three gemfruit finds remain.",
+      "atmosphere": "A radius-two flint-bearing rock circle surrounds the POI, edged with a continuous rubble rim. Rubble scatters at 15% outside; three gemfruit finds remain.",
       "materialLooks": {
         "rubble": "zone_rock_flint_field"
       }
@@ -6086,7 +6094,14 @@
       },
       "guards": {
         "mode": "guard_poi",
-        "kind": "bat",
+        "kind": "skeleton",
+        "kinds": [
+          "skeleton",
+          "club_goblin",
+          "skeleton",
+          "club_goblin",
+          "skeleton"
+        ],
         "count": 5,
         "offsetCells": [
           [
@@ -6113,7 +6128,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Repeated rubble piles are threaded with traps. An offset line leads toward two finds; the broken order suggests an ambush. Bats roost around the depot and swoop toward visitors.",
+      "atmosphere": "Repeated rubble piles are threaded with traps. An offset line leads toward two finds; the broken order suggests an ambush. Skeletons and goblins keep watch around the depot.",
       "decorations": [
         {
           "material": "handcart",

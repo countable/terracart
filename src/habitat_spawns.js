@@ -2,7 +2,9 @@
 // Budgets are independent of placement exclusions and player visibility.
 (function (root) {
   'use strict';
-  const FAUNA_PER_TILE = 160, ENEMIES_PER_TILE = 50;
+  const FAUNA_DENSITY = 0.7;
+  const faunaCount = count => Math.round(count * FAUNA_DENSITY);
+  const FAUNA_PER_TILE = faunaCount(160), ENEMIES_PER_TILE = 50;
   // THE MODE RESERVE: landcover enemies beyond ENEMIES_PER_TILE, sized by the
   // largest Difficulty landEnemyCountMul. Every mode generates the same
   // reserve after the base population (so base seats never move); each mode
@@ -67,7 +69,6 @@
   const HAUNTED_LAND = new Set(['GRASS', 'FOREST', 'ROCK', 'SAND', 'RESIDENTIAL',
     'COMMERCIAL', 'INDUSTRIAL', 'WETLAND', 'ORCHARD']);
   const HAUNTED_VARIANTS = new Set(['ordered_graves', 'overgrown_graves', 'silent_circle', 'black_ring']);
-  const SHORE_VARIANTS = new Set(['marine_meadow', 'mystic_reef', 'pirate_cove', 'shellwater_strand']);
   const landCache = new Map(), variantCache = new Map(), roadCache = new Map();
   const weightedRows = mix => Object.freeze(Object.entries(mix).map(([kind, weight]) => Object.freeze({ kind, weight })));
   const terrainNames = new Map();
@@ -108,10 +109,8 @@
     if (!variantCache.has(key)) {
       const mix = VARIANT_FAUNA[id] || (kind === 'grove' ? VARIANT_FAUNA.meadow
         : kind === 'tar' ? VARIANT_FAUNA.work_yard : VARIANT_FAUNA.stone_garden);
-      const shore = SHORE_VARIANTS.has(id);
       variantCache.set(key, Object.freeze({ id, owner: 'zone', kind, fauna: weightedRows(mix),
-        faunaBudget: Object.freeze(shore || id === 'quarry-crater' ? [0, 0] : kind === 'quarry' ? [2, 4] : [3, 8]),
-        ...(shore ? { shoreFauna: Object.freeze(['crab', 'sea_turtle', 'gull'].map(kind => Object.freeze({ kind }))) } : {}),
+        faunaBudget: Object.freeze(!Object.keys(mix).length ? [0, 0] : kind === 'quarry' ? [2, 4] : [3, 8]),
         haunting: HAUNTED_VARIANTS.has(id) }));
     }
     return variantCache.get(key);
@@ -180,7 +179,8 @@
   function pickFauna(profile, id) { return pick(faunaRows(profile), unit(id + ':fauna'), row => row.weight)?.kind || null; }
   function faunaBudget(profile, id) {
     const range = profile?.faunaBudget;
-    return range ? range[0] + Math.floor(unit(id + ':fauna-count') * (range[1] - range[0] + 1)) : 0;
+    const count = range ? range[0] + Math.floor(unit(id + ':fauna-count') * (range[1] - range[0] + 1)) : 0;
+    return profile?.owner === 'road' ? faunaCount(count) : count;
   }
   function allows(kind, type, profile) {
     const name = nameOf(type);
@@ -257,11 +257,15 @@
     }
     const groups = [...groupsByKey.values()].sort((a, b) => keyOrder(a.key, b.key));
     const ordinary = groups.filter(group => group.profile.owner === 'land');
-    allocate(ordinary.filter(group => faunaRows(group.profile).length), FAUNA_PER_TILE, 'faunaRequested');
+    // Synthetic previews cover less area than a map tile. Scale their tile
+    // budgets before placement; live scenes retain the full budget by default.
+    const areaScale = scene.habitatTileAreaScale ?? 1;
+    const budget = count => Math.round(count * areaScale);
+    allocate(ordinary.filter(group => faunaRows(group.profile).length), budget(FAUNA_PER_TILE), 'faunaRequested');
     const armed = ordinary.filter(group => enemyRows(group.profile, group.type, { beach: group.beach }).length);
-    allocate(armed, ENEMIES_PER_TILE, 'enemyRequested');
+    allocate(armed, budget(ENEMIES_PER_TILE), 'enemyRequested');
     for (const group of groups) group.enemyReserve = 0;
-    allocate(armed, reserveBudget(), 'enemyReserve');
+    allocate(armed, budget(reserveBudget()), 'enemyReserve');
     for (const group of groups) {
       if (group.profile.owner !== 'land') group.faunaRequested = faunaBudget(group.profile, `${tx}|${ty}|${group.key}`);
       group.diagnostic = { key: group.key, profile: group.profile.id, rawCells: group.cells.length,
@@ -428,7 +432,7 @@
       faunaRequested: totals.fauna.requested, enemyRequested: totals.enemies.requested };
     return out;
   }
-  const api = { FAUNA_PER_TILE, ENEMIES_PER_TILE, reserveBudget, reserveVisible, LAND_FAUNA, VARIANT_FAUNA, landProfile, shoreProfile, variantProfile, roadProfile, resolve, at,
+  const api = { FAUNA_DENSITY, faunaCount, FAUNA_PER_TILE, ENEMIES_PER_TILE, reserveBudget, reserveVisible, LAND_FAUNA, VARIANT_FAUNA, landProfile, shoreProfile, variantProfile, roadProfile, resolve, at,
     faunaRows, pickFauna, faunaBudget, allows, enemyRows, enemyKind, populationSteps };
   root.HabitatSpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

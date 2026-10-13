@@ -1100,16 +1100,26 @@ function creatureFlightEase(t) {
 
 // Check the whole segment: a long hop must not skip a burning cell. An
 // escape may cross existing flames only while its starting point is on fire.
+// A lit campfire's hearth (FIRE_TOUCH_CELLS, where it sets a body burning) is
+// fire too, for every grounded mover and every kind; a body that is already
+// standing in one (placed on it, or pushed in) may always walk out.
 function fireStepAllowed(scene, c, x, y, escaping = false) {
-  if (!scene._groundFireAtWorld || Conditions.flying(c)) return true;
+  if (Conditions.flying(c)) return true;
+  const ground = scene._groundFireAtWorld, hearths = scene._nearAny && scene.save?.fires?.length;
+  if (!ground && !hearths) return true;
   const wallNow = Date.now();
-  let leavingFire = escaping && GroundFire.active(scene._groundFireAtWorld(c.x, c.y), wallNow);
+  const hearth = (px, py) => !!hearths && scene._nearAny('fires', px, py, FIRE_TOUCH_CELLS);
+  let leavingFire = escaping && !!ground && GroundFire.active(ground.call(scene, c.x, c.y), wallNow);
+  let leavingHearth = hearth(c.x, c.y);
   const n = Math.max(1, Math.ceil(Math.hypot(x - c.x, y - c.y) / (scene.cellM * 0.2)));
   for (let i = 1; i <= n; i++) {
-    const fire = GroundFire.active(scene._groundFireAtWorld(
-      c.x + (x - c.x) * i / n, c.y + (y - c.y) * i / n), wallNow);
+    const px = c.x + (x - c.x) * i / n, py = c.y + (y - c.y) * i / n;
+    const fire = !!ground && GroundFire.active(ground.call(scene, px, py), wallNow);
     if (fire && !leavingFire) return false;
     if (!fire) leavingFire = false;
+    const inHearth = hearth(px, py);
+    if (inHearth && !leavingHearth) return false;
+    if (!inHearth) leavingHearth = false;
   }
   return true;
 }
@@ -1358,11 +1368,14 @@ function fireAverse(c, row) { return !Conditions.flying(c) && !c.lair && (row.ca
 function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = false, allow = null) {
   let dx = x - c.x, dy = y - c.y;
   const distance = Math.hypot(dx, dy);
-  // Sharp plants, spikes and visible cave-ins prefer the body's same short jog
-  // when it fits; a broad belt has no trivial detour, so keep going through.
+  // Sharp plants, spikes, visible cave-ins and fire (a campfire's hearth,
+  // burning ground) prefer the body's same short jog when it fits; a broad
+  // belt has no trivial detour, so keep going through. Fire never lets the
+  // body through: without a jog it waits at the edge (fireStepAllowed).
   const collapseExposure = (nx, ny) => globalThis.EnvironmentHazards?.exposure?.(scene, c.x, c.y, nx, ny) || 0;
   if (!escaping && !Conditions.flying(c) && distance > 0
-      && (scene._walkHazardExposure?.(c.x, c.y, x, y) > 0 || collapseExposure(x, y) > 0)) {
+      && (scene._walkHazardExposure?.(c.x, c.y, x, y) > 0 || collapseExposure(x, y) > 0
+        || !fireStepAllowed(scene, c, x, y))) {
     const open = (ox, oy) => {
       const nx = c.x + ox * scene.cellM, ny = c.y + oy * scene.cellM;
       return (!allow || allow(nx, ny)) && enemyCanStep(scene, c, row, nx, ny) && enemyWalkHazardRate(scene, nx, ny) === 0
@@ -1707,7 +1720,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
       const a = row.aura;
       const raw = a.rawDps * Combat.powerMul(c);
       const loss = Combat.playerDamageRate(raw * PotionEffects.damageMul(scene.save), scene.save.armor, dt,
-        { packetSeconds: a.mitigationPacketSeconds });
+        { packetSeconds: a.mitigationPacketSeconds, save: scene.save, mode: scene.save.mode });
       foeBlowLands(scene, c, loss, { mitigated: true });
     }
   }
@@ -2022,7 +2035,7 @@ function enemySlimeTrailTick(scene, px, py, dt, now = Date.now()) {
   if (!rawDps || Combat.playerDowned(scene.save.energy) || Conditions.flying(scene.save, now)) return;
   // One-second packets through the one blow writer (the aura's shape).
   foeBlowLands(scene, null, Combat.playerDamageRate(rawDps * PotionEffects.damageMul(scene.save),
-    scene.save.armor, dt, { packetSeconds: 1 }), { mitigated: true });
+    scene.save.armor, dt, { packetSeconds: 1, save: scene.save, mode: scene.save.mode }), { mitigated: true });
 }
 
 function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt, creatureTarget = null) {

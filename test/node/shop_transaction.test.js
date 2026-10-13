@@ -8,6 +8,48 @@
   const finish = method('_finishInventoryChange');
   const settle = method('_settleDeal');
 
+  test('campfire: borrowed tomes cannot be burned, including stale confirmation', () => {
+    let modal;
+    const getElementById = document.getElementById;
+    document.getElementById = () => null;
+    try {
+      const scene = {
+        save: { inv: [{ id: 'tome_healing', count: 1 }], selSlot: 0, scholarLoans: {} },
+        worldIconHTML: () => '', iconSpanHTML: () => '', flash() {},
+        showOfferModal(m) { modal = m; },
+      };
+      method('presentBurnConfirm').call(scene, 'tome_healing');
+      assert.truthy(modal, 'owned tome may be burned');
+      scene.save.scholarLoans.tome_healing = 1;
+      modal.onAccept();
+      assert.eq(Inventory.count(scene.save, 'tome_healing'), 1, 'stale confirmation preserves loan');
+      modal = null;
+      method('presentBurnConfirm').call(scene, 'tome_healing');
+      assert.eq(modal, null, 'borrowed tome has no burn offer');
+    } finally {
+      document.getElementById = getElementById;
+    }
+  });
+
+  test('barter: borrowed tomes cannot pay, including a stale accepted offer', () => {
+    let modal, rewards = 0;
+    const scene = {
+      save: { inv: [{ id: 'tome_healing', count: 1 }], scholarLoans: {} },
+      peekOrBuildTraderOffer: () => ({ giveId: 'wood', askId: 'tome_healing', askQty: 1 }),
+      iconSpanHTML: () => '', _traderRerollSecondary: () => null,
+      showOfferModal(m) { modal = m; }, flash() {},
+      addToInv() { rewards++; }, _clampSelSlot() {}, _settleDeal() {},
+    };
+    method('presentTraderOffer').call(scene, 0, 0, { id: 'trader' }, () => {});
+    assert.truthy(modal.canAfford, 'owned copy can pay');
+    scene.save.scholarLoans.tome_healing = 1;
+    modal.onAccept();
+    assert.eq(rewards, 0, 'loan never becomes barter goods');
+    assert.eq(Inventory.count(scene.save, 'tome_healing'), 1);
+    method('presentTraderOffer').call(scene, 0, 0, { id: 'trader' }, () => {});
+    assert.falsy(modal.canAfford, 'borrowed copy does not enable the offer');
+  });
+
   test('shop purchase: one inventory refresh observes payment, grant and deal together', () => {
     let modal, deals = 0, refreshes = 0;
     const scene = {

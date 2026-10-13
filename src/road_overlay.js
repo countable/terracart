@@ -32,7 +32,7 @@
 // The band is DILAPIDATED by default — cracked, damp, lichened, missing the
 // odd stone (see "Weathering") — and the stretches the player has restored
 // (src/streets.js: exact float metre intervals along each way, kept in the
-// save) are drawn AGAIN on a second canvas above it in clean near-black
+// save) are drawn AGAIN on a second canvas above it in clean, muted grey
 // cobble with a hairline kerb (see "Restored"), its outline feathered so the
 // patch reads as a repair blending into the band rather than a decal laid on
 // it. So a street reads as rebuilt exactly as far as the player has rebuilt
@@ -73,7 +73,7 @@
   // ROAD_COLOR (carriageways) is desaturated further AND darkened so a paved
   // street reads as a harder surface than a dirt path, not just a wider band.
   const PATH_COLOR = 0x948b75;
-  const ROAD_COLOR = 0x79766c;
+  const ROAD_COLOR = 0x89867c;
   const ALPHA = 0.61;    // reads as a band without hiding the map
   const MVT_EXTENT = 4096;
 
@@ -291,10 +291,10 @@
   // round stone with highlight/shadow dots read as a tray of bubbles.
   const STONE_TILE_PX = SpriteLayout.CELL_PX; // repeat every cell
   const STONE_COLS = 4, STONE_ROWS = 4;    // small stones — a 4×4 grid per tile
-  const STONE_GROUT_ALPHA = 0.16;    // dark wash first — the seams between stones
-  const STONE_EDGE_ALPHA = 0.30;     // dark outline stroke around each stone
-  const STONE_FACE_ALPHA_MIN = 0.06; // per-stone face tone varies within this
-  const STONE_FACE_ALPHA_MAX = 0.16; // range so neighbours don't read identical
+  const STONE_GROUT_ALPHA = 0.05;    // dark wash first — the seams between stones
+  const STONE_EDGE_ALPHA = 0.10;     // dark outline stroke around each stone
+  const STONE_FACE_ALPHA_MIN = 0.03; // per-stone face tone varies within this
+  const STONE_FACE_ALPHA_MAX = 0.07; // range so neighbours don't read identical
   // ── Rough edges ──────────────────────────────────────────────────────────
   // A clean vector edge reads as tape over the map, so the silhouette is
   // nibbled, in stroke passes at commit time:
@@ -339,19 +339,19 @@
     return edgeNoiseCanvas;
   }
 
-  let stoneCanvas;
-  function stoneTile() {
-    if (stoneCanvas !== undefined) return stoneCanvas;
-    stoneCanvas = null;
-    if (typeof document === 'undefined') return stoneCanvas;
+  const stoneCanvases = {};
+  function stoneTile(embers = false) {
+    if (stoneCanvases[embers] !== undefined) return stoneCanvases[embers];
+    stoneCanvases[embers] = null;
+    if (typeof document === 'undefined') return null;
     const c = document.createElement('canvas');
     c.width = c.height = STONE_TILE_PX;
     const cx = c.getContext('2d');
-    if (!cx) return stoneCanvas;
+    if (!cx) return null;
     const rnd = lcg(0x2f6b4a);
     // Grout wash: a faint dark tone over the whole tile first, so the margin
     // between stones reads as a recessed seam.
-    cx.fillStyle = `rgba(0,0,0,${STONE_GROUT_ALPHA})`;
+    cx.fillStyle = `rgba(0,0,0,${embers ? 0.16 : STONE_GROUT_ALPHA})`;
     cx.fillRect(0, 0, STONE_TILE_PX, STONE_TILE_PX);
     cx.lineWidth = 1;
     const cellW = STONE_TILE_PX / STONE_COLS, cellH = STONE_TILE_PX / STONE_ROWS;
@@ -373,15 +373,15 @@
         }
         cx.closePath();
         // Flat face at a per-stone alpha so neighbours read as separate pavers.
-        const faceAlpha = STONE_FACE_ALPHA_MIN + rnd() * (STONE_FACE_ALPHA_MAX - STONE_FACE_ALPHA_MIN);
+        const faceAlpha = (embers ? 0.06 : STONE_FACE_ALPHA_MIN) + rnd() * (embers ? 0.10 : STONE_FACE_ALPHA_MAX - STONE_FACE_ALPHA_MIN);
         cx.fillStyle = `rgba(255,255,255,${faceAlpha})`;
         cx.fill();
-        cx.strokeStyle = `rgba(0,0,0,${STONE_EDGE_ALPHA})`;
+        cx.strokeStyle = `rgba(0,0,0,${embers ? 0.30 : STONE_EDGE_ALPHA})`;
         cx.stroke();
       }
     }
-    stoneCanvas = c;
-    return stoneCanvas;
+    stoneCanvases[embers] = c;
+    return c;
   }
 
   // ── Weathering ───────────────────────────────────────────────────────────
@@ -389,19 +389,18 @@
   // marks of a neglected street: hairline cracks with a pale lifted lip, damp
   // patches, lichen/dust blooms and dark pits where a stone has gone.
   //
-  // The alphas are bold on purpose: the whole canvas is shown at ALPHA (0.61),
-  // so a mark drawn at 0.3 arrives as 0.18 and reads as nothing. Fixed-seed
+  // Wear stays visible at ground level without deep black fissures. Fixed-seed
   // and world-phased through texturePhase like the stones.
   //
   // RAIL gets none of it: a railway's band is ballast, not paving, and it is
   // already dressed with ties and rails. See commitBase for how the fill is
   // held off the rail runs.
   const WEATHER_TILE_PX = 64;
-  const WEATHER_CRACK_ALPHA = 0.85;   // the crack itself: 1px, near-black
-  const WEATHER_LIP_ALPHA = 0.18;     // the pale lifted lip beside it
-  const WEATHER_DAMP_ALPHA = 0.38;    // soft dark damp patches
-  const WEATHER_LICHEN_ALPHA = 0.16;  // pale lichen / dust blooms
-  const WEATHER_PIT_ALPHA = 0.6;      // a missing stone
+  const WEATHER_CRACK_ALPHA = 0.24;   // a fine, subdued crack
+  const WEATHER_LIP_ALPHA = 0.10;     // the pale lifted lip beside it
+  const WEATHER_DAMP_ALPHA = 0.14;    // soft dark damp patches
+  const WEATHER_LICHEN_ALPHA = 0.10;  // pale lichen / dust blooms
+  const WEATHER_PIT_ALPHA = 0.22;      // a missing stone
   const WEATHER_LICHEN_N = 3, WEATHER_DAMP_N = 2, WEATHER_CRACK_N = 3, WEATHER_PIT_N = 2;
 
   // A soft round bloom: a radial gradient falling to zero over its bounding square.
@@ -478,31 +477,29 @@
   // one: the base pass draws every way in full and the restored pass paints
   // the rebuilt metres on top of it.
   //
-  // Near-black, the one thing the biome palette never contains, so a restored
-  // street reads as a different surface from far off. Paths restore to dark
-  // packed earth instead (basalt setts would read as a road). Rail never
-  // restores.
+  // Muted midtones keep paving beneath props in the visual hierarchy.
+  // Restoration reads through tidy courses and small bevel highlights,
+  // while paths retain warmer earth tones. Rail never restores.
   const RESTORED_ALPHA = 0.92;         // near-opaque: the rebuilt street is the surface
-  const RESTORED_ROAD_COLOR = 0x161412;
-  const RESTORED_PATH_COLOR = 0x2e2620;
+  const RESTORED_ROAD_COLOR = 0x929087;
+  const RESTORED_PATH_COLOR = 0x9b8e77;
   const RESTORED_TEX_KEY = 'roadgeom_restored';
   const restoredColorFor = (tags) =>
     (PATH_CLASSES.has((tags && tags.class) || '') ? RESTORED_PATH_COLOR : RESTORED_ROAD_COLOR);
 
   // The clean cobble tile: brick-staggered courses of small rounded setts on a
-  // pale mortar wash. Its regularity IS the restoration. Paths get the same
+  // recessed mortar wash. Its regularity IS the restoration. Paths get the same
   // tile with the mortar wash halved (packed earth has little mortar).
   const CLEAN_TILE_PX = 32;
-  // Bright enough to read as mortar lines from across the street without
-  // competing with the setts (lower and the band reads as one flat slab).
-  const CLEAN_MORTAR_ALPHA = 0.22;
+  // Recessed dark joints separate the lighter faces without darkening the whole road.
+  const CLEAN_MORTAR_ALPHA = 0.14;
   const CLEAN_PATH_MORTAR_MUL = 0.5;
   const CLEAN_COLS = 6, CLEAN_ROWS = 8;   // 6 setts across, 8 courses down
   const CLEAN_SETT_R = 1.6;          // corner radius
   const CLEAN_GAP_X = 1.5, CLEAN_GAP_Y = 1.2;   // mortar gaps between setts, px
-  const CLEAN_TONE_MIN = 0.05, CLEAN_TONE_MAX = 0.12;  // per-stone tone
-  // The top bevel catch-light: lower reads as texture noise, not a highlight.
-  const CLEAN_BEVEL_ALPHA = 0.24;
+  const CLEAN_TONE_MIN = 0.025, CLEAN_TONE_MAX = 0.055;  // per-stone tone
+  // A small polished catch-light; Burned Row retains its original contrast.
+  const CLEAN_BEVEL_ALPHA = 0.20;
   const CLEAN_BEVEL_H = 0.45;        // …over the upper 45% of the sett
 
   function roundRectPath(cx, x, y, w, h, r) {
@@ -520,19 +517,24 @@
   }
 
   // One sett: body, a slight per-stone tone, and a catch-light on its top edge.
-  function paintSett(cx, x, y, w, h, tone, stoneColor) {
-    cx.fillStyle = stoneColor || '#000';
+  function paintSett(cx, x, y, w, h, tone, stoneColor, bevelAlpha) {
+    cx.fillStyle = stoneColor || cssOf(RESTORED_ROAD_COLOR);
     roundRectPath(cx, x, y, w, h, CLEAN_SETT_R); cx.fill();
     cx.fillStyle = `rgba(255,255,255,${tone})`;
     roundRectPath(cx, x, y, w, h, CLEAN_SETT_R); cx.fill();
-    cx.fillStyle = `rgba(255,255,255,${CLEAN_BEVEL_ALPHA})`;
+    cx.fillStyle = `rgba(255,255,255,${bevelAlpha})`;
     roundRectPath(cx, x + 0.5, y + 0.5, w - 1, h * CLEAN_BEVEL_H, 1); cx.fill();
   }
 
   function paintCleanTile(cx, size, mortarAlpha, stoneColor, pattern, accent) {
     const S = size || CLEAN_TILE_PX;
     const rnd = lcg(0xc0bb1e);
-    cx.fillStyle = `rgba(255,255,255,${mortarAlpha == null ? CLEAN_MORTAR_ALPHA : mortarAlpha})`;
+    const embers = pattern === 'embers';
+    const toneMin = embers ? 0.05 : CLEAN_TONE_MIN;
+    const toneMax = embers ? 0.12 : CLEAN_TONE_MAX;
+    const bevelAlpha = embers ? 0.24 : CLEAN_BEVEL_ALPHA;
+    if (embers) mortarAlpha = 0.22;
+    cx.fillStyle = `rgba(${embers ? '255,255,255' : '0,0,0'},${mortarAlpha == null ? CLEAN_MORTAR_ALPHA : mortarAlpha})`;
     cx.fillRect(0, 0, S, S);
     const sw = S / CLEAN_COLS, sh = S / CLEAN_ROWS;
     for (let row = 0; row < CLEAN_ROWS; row++) {
@@ -540,18 +542,18 @@
       for (let col = 0; col < CLEAN_COLS; col++) {
         const x = col * sw + off + CLEAN_GAP_X / 2, y = row * sh + CLEAN_GAP_Y / 2;
         const w = sw - CLEAN_GAP_X, h = sh - CLEAN_GAP_Y;
-        const tone = CLEAN_TONE_MIN + rnd() * (CLEAN_TONE_MAX - CLEAN_TONE_MIN);
-        paintSett(cx, x, y, w, h, tone, stoneColor);
+        const tone = toneMin + rnd() * (toneMax - toneMin);
+        paintSett(cx, x, y, w, h, tone, stoneColor, bevelAlpha);
         // A staggered course's last sett runs off the right edge; draw it again
         // one tile to the LEFT so the pattern meets itself where it repeats.
-        if (x + w > S) paintSett(cx, x - S, y, w, h, tone, stoneColor);
+        if (x + w > S) paintSett(cx, x - S, y, w, h, tone, stoneColor, bevelAlpha);
       }
     }
   }
 
   function paintSpots(cx, size, accent) {
     cx.fillStyle = accent || '#d7dba3';
-    cx.globalAlpha = 0.65;
+    cx.globalAlpha = 0.22;
     for (const [x, y, r] of [[0.18, 0.21, 0.09], [0.67, 0.38, 0.13], [0.35, 0.77, 0.08], [0.88, 0.88, 0.06]]) {
       cx.beginPath(); cx.arc(x * size, y * size, r * size, 0, Math.PI * 2); cx.fill();
     }
@@ -584,16 +586,18 @@
   // Shared preview swatch uses the same authored tiles and palette as the game.
   function paintPavementTile(cx, size, isPath, restored, variant) {
     const palette = global.StreetVariants?.VARIANT_BY_ID[variant]?.stone;
-    const color = palette?.[restored ? 'restored' : 'weathered'];
-    cx.fillStyle = color || cssOf(restored ? (isPath ? RESTORED_PATH_COLOR : RESTORED_ROAD_COLOR) : (isPath ? PATH_COLOR : ROAD_COLOR));
+    const color = palette?.[restored ? 'restored' : 'weathered']
+      || cssOf(restored ? (isPath ? RESTORED_PATH_COLOR : RESTORED_ROAD_COLOR) : (isPath ? PATH_COLOR : ROAD_COLOR));
+    cx.fillStyle = color;
     cx.fillRect(0, 0, size, size);
-    if (restored) paintCleanTile(cx, size, CLEAN_MORTAR_ALPHA * (isPath ? CLEAN_PATH_MORTAR_MUL : 1), color);
-    else { const tile = stoneTile(); if (tile) cx.drawImage(tile, 0, 0, size, size); }
+    if (restored) paintCleanTile(cx, size, CLEAN_MORTAR_ALPHA * (isPath ? CLEAN_PATH_MORTAR_MUL : 1), color, palette?.pattern);
+    else { const tile = stoneTile(palette?.pattern === 'embers'); if (tile) cx.drawImage(tile, 0, 0, size, size); }
     paintPattern(cx, size, palette?.pattern, palette?.accent);
   }
 
   const cleanCanvas = {};
   function cleanTile(isPath, stoneColor, pattern, accent) {
+    stoneColor ||= cssOf(isPath ? RESTORED_PATH_COLOR : RESTORED_ROAD_COLOR);
     const k = `${isPath ? 'path' : 'road'}:${stoneColor || '#000'}:${pattern || ''}:${accent || ''}`;
     if (cleanCanvas[k] !== undefined) return cleanCanvas[k];
     cleanCanvas[k] = null;
@@ -602,7 +606,7 @@
     c.width = c.height = CLEAN_TILE_PX;
     const cx = c.getContext('2d');
     if (!cx) return cleanCanvas[k];
-    paintCleanTile(cx, CLEAN_TILE_PX, CLEAN_MORTAR_ALPHA * (isPath ? CLEAN_PATH_MORTAR_MUL : 1), stoneColor);
+    paintCleanTile(cx, CLEAN_TILE_PX, CLEAN_MORTAR_ALPHA * (isPath ? CLEAN_PATH_MORTAR_MUL : 1), stoneColor, pattern);
     paintPattern(cx, CLEAN_TILE_PX, pattern, accent);
     cleanCanvas[k] = c;
     return cleanCanvas[k];
@@ -707,6 +711,9 @@
         if (cls === 'rail' || cls === 'transit') continue;
         if (WorldGen.isParkingAisle(f.tags)) continue;
         const tier = WorldGen.classifyLine ? WorldGen.classifyLine('transportation', f.tags || {}) : null;
+        // Only paths and small roads carry lamps, including broken posts and
+        // future footprint reservations. Wider roads keep their verges clear.
+        if (tier !== WorldGen.T.PATH && tier !== WorldGen.T.ROAD) continue;
         // How far off the centreline this way's lamps stand: its band's
         // half-width plus the stone (per feature: it depends on class only).
         const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM(f.tags || {}), footRM);
@@ -735,7 +742,7 @@
             if (!at.length) continue;
             const spacingM = (style.b - style.a) / at.length;
             const creditM = Streets.lampCreditM(spacingM, path);
-            const glow = (hasVariants && StreetVariants.lampGlowFor({ variant: style.variant, size: style.size })) || UI_LAMP_GLOW;
+            const glow = (hasVariants && StreetVariants.lampGlowFor({ variant: style.variant, size: style.size, tags: rec?.tags || f.tags })) || UI_LAMP_GLOW;
             for (const offset of at) {
               const sM = style.a + offset;
               if (!Streets.covers(spans, sM)) continue;
@@ -1259,7 +1266,13 @@
       paintPattern(tile.getContext('2d'), STONE_TILE_PX, row.stone.pattern, row.stone.accent);
       const pat = layer.ctx.createPattern(tile, 'repeat');
       yield* strokeOpsSteps(layer.ctx, ops, 0);
-      if (pat) patternFill(layer.ctx, pass, pat, 'source-in', STONE_TILE_PX);
+      // Burned Row keeps its original dark joints underneath the glowing cracks.
+      const embers = row.stone.pattern === 'embers';
+      if (embers) {
+        const stone = patternOf(layer.ctx, pass.pats, 'ember-stone', stoneTile(true));
+        if (stone) patternFill(layer.ctx, pass, stone, 'source-atop', STONE_TILE_PX);
+      }
+      if (pat) patternFill(layer.ctx, pass, pat, embers ? 'source-atop' : 'source-in', STONE_TILE_PX);
       ctx.save(); ctx.globalCompositeOperation = 'source-atop';
       ctx.drawImage(layer.canvas, 0, 0); ctx.restore(); yield;
     }

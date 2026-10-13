@@ -36,8 +36,8 @@
     assert.gt(result.zone.coverage.filter(Boolean).length, 0, 'fixture has actual special-zone coverage');
     assert.eq(result.scenicDress.objects.filter(o=>o.kind==='vista_scope').length,1);
     assert.eq(result.scenicDress.objects.filter(o=>o.vista==='grail').length,1);
-    assert.eq(result.scenicDress.objects.length,2,'procedural scenic chests and shrines yield to nexus');
-    assert.eq(result.scenicDress.wildplants.length,0,'procedural scenic grass and tide yield to nexus');
+    assert.truthy(result.scenicDress.objects.some(o => o.vista === 'shore'), 'crossing scenic path keeps its chest');
+    assert.eq(result.scenicDress.wildplants.length,1,'crossing greenway keeps its verge grass');
     const cell = o => Math.floor(o.y/WorldGen.CELL_M)*N+Math.floor(o.x/WorldGen.CELL_M);
     const bottleCells = result.scenicDress.objects.filter(o=>o.kind==='bottle').map(cell);
     assert.eq(bottleCells.length, 0, 'nexus excludes ordinary beach bottles');

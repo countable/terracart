@@ -20,7 +20,14 @@
 // Game constants the renderer passes in (app.js CELL_PX, worldgen CELL_M) and
 // the real frame widths render.js reads off the loaded textures.
 const CELL_M = 7, CELL_PX = 32;
-const FORT_W = 214;          // assets/Objects/Houses/fort.png is 214×154
+const FORT_W = pngDims('assets/Objects/Approved/house_fort.png').w;
+test('fort art: both states use the approved tight 64px frame', () => {
+  for (const name of ['house_fort', 'house_fort_unclaimed']) {
+    const size = pngDims(`assets/Objects/Approved/${name}.png`);
+    assert.eq(size.w, 64);
+    assert.eq(size.h, 43);
+  }
+});
 // Every residential frame in the game, so "one village, one size" is checked
 // against the actual art rather than asserted about one of them.
 const HOUSE_FRAMES = {

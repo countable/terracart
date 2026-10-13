@@ -99,7 +99,7 @@ function census() {
       const elite = Combat.isElite(enemy);
       const treasureChance = !elite && Combat.isMonster(enemy.kind) && Combat.spawnsUnderground(enemy.kind) ? Combat.MONSTER_TREASURE_CHANCE : 0;
       const dropId = SpriteLayout.creatureDrop(enemy.kind);
-      bump('enemy-wages', 'Enemy kills / bounty payouts', { kind: 'enemy', enemyKind: enemy.kind, elite,
+      bump('enemy-wages', 'Enemy kills / bounty payouts', { kind: 'enemy', enemyKind: enemy.kind, elite, eliteRank: enemy.eliteRank,
         amount: Combat.enemyBounty(enemy.kind, 0, Combat.powerMul(enemy) * (enemy._splitShare ?? 1)), dropId, treasureChance, shinyBonusAmount: enemy.shiny && dropId ? Math.max(10, Math.round(itemValue(enemy.kind) * 10)) : 0 });
       if (treasureChance) {
         bump('enemy-bonus', 'Enemy bonus treasure rolls');
@@ -109,9 +109,9 @@ function census() {
       if (elite) elites.set(enemy.kind, (elites.get(enemy.kind) || 0) + 1);
     }
   }
-  if (elites.size) rows.set('elite-bonus', { id: 'elite-bonus', label: 'Elite bonus rolls (after first kind)', count: [...elites.values()].reduce((a,n) => a+n,0),
-    expected: counts(1).map(p => [...elites.values()].reduce((s,n) => s + Math.max(0, n*p - (1-Math.pow(1-p,n))),0)) });
-  assumptions.combatNote = 'Every encountered enemy is defeated by the player and its coins collected; actual bounties, fixed drops and eligible 10% bonus rolls. The first elite of each kind grants a memory, subsequent elites grant treasure; no prior discoveries.';
+  if (elites.size) rows.set('elite-bonus', { id: 'elite-bonus', label: 'Elite signature drops', count: [...elites.values()].reduce((a,n) => a+n,0),
+    expected: counts(1).map(p => [...elites.values()].reduce((s,n) => s + n*p,0)) });
+  assumptions.combatNote = 'Every encountered enemy is defeated by the player and its coins collected; actual bounties, fixed drops and eligible 10% bonus rolls. Every elite grants a signature drop; the first of each kind also grants a memory.';
   assumptions.newStreetShare = 0.7;
   assumptions.roadMetresMultiplier = Trail.STICK_METRES_MUL;
   assumptions.roadNote = 'Normal non-Runner, keyboard/stick walking; 70% of travel restores new street, credited at shipping 40%; no scenic/boots bonuses. Road thresholds are conditional estimates.';

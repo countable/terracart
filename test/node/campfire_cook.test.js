@@ -46,6 +46,7 @@ test('campfire: every COOKED_FOODS raw cooks through the same lane as meat', () 
     const it = ITEM_BY_ID[c.id];
     assert.truthy(it && it.kind === 'produce' && it.cooked, `${c.id} is cooked produce`);
     assert.eq(it.baseTier, ITEM_BY_ID[raw].baseTier, `${c.id} keeps the raw food rarity`);
+    assert.eq(it.dropWeight ?? 1, ITEM_BY_ID[raw].dropWeight ?? 1, `${c.id} keeps the raw food drop weight`);
     assert.eq(FOOD_ENERGY[c.id], Math.round(FOOD_ENERGY[raw] * GRILL_ENERGY_MUL), `${c.id} energy`);
     assert.eq(PRICES[c.id], Math.round(PRICES[raw] * GRILL_ENERGY_MUL), `${c.id} price`);
   }
@@ -153,7 +154,7 @@ test('campfire: two potions TRANSMUTE through fixed recipes; the rest EXPLODE', 
 test('campfire: a potion blast is a blow on the body — armour soaks it', () => {
   // Mirrors app.js _potionBlast: through Combat.playerDamage, never raw.
   const src = SCENE_SRC.match(/_potionBlast\(rawDmg, fire\) \{[\s\S]*?\n  \}/)[0];
-  assert.truthy(/Combat\.playerDamage\(rawDmg, this\.save\.armor\)/.test(src), 'armour soaks the blast');
+  assert.truthy(/Combat\.playerDamage\(rawDmg, this\.save\.armor, 1, this\.save\.mode, Combat\.armorBonus\(this\.save\)\)/.test(src), 'worn armour and Stoneskin soak the blast');
   assert.truthy(/Combat\.playerDowned\(before\)/.test(src), 'nothing off an empty bar');
   assert.truthy(/_flashPlayerHit\(/.test(src) && /_popEnergy\(-lost\)/.test(src), 'flinch + −N⚡ pop');
   const worn = { chestplate: { tier: 7 }, helmet: { tier: 7 } };

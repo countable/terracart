@@ -97,9 +97,10 @@
       const first = await WorldGen.loadTile.atDepth(1, tx, ty, 49.85);
       const second = await WorldGen.loadTile.atDepth(2, tx, ty, 49.85);
       const third = await WorldGen.loadTile.atDepth(3, tx, ty, 49.85);
+      const fourth = await WorldGen.loadTile.atDepth(4, tx, ty, 49.85);
       const drills = entry => entry.genObjects.filter(o => o.shrineKind === 'drill');
-      for (const entry of [first, second, third]) {
-        assert.eq(drills(entry).length, 10, 'ten drill shrines on each underground depth');
+      for (const entry of [first, second, fourth]) {
+        assert.eq(drills(entry).length, 10, 'open floors have room for ten drill shrines');
         const occupied = [...entry.genObjects, ...entry.wildplants];
         for (const drill of drills(entry)) {
           assert.eq(drill.kind, 'grove_shrine');
@@ -115,7 +116,8 @@
       const road = 32 * s.N + 20;
       assert.eq(first.grid[road], T.CAVE_FLOOR); assert.eq(second.grid[road], T.CAVE_FLOOR);
       assert.eq(first.geologyGrid[road], T.CAVE_WALL);
-      assert.eq(third.grid[road], T.CAVE_FLOOR, 'the Underdark remains the owning open stratum');
+      assert.eq(third.grid[road], T.CAVE_WALL, 'shallow streets do not carve deep stone');
+      assert.eq(fourth.grid[road], T.CAVE_FLOOR, 'Underdark is the owning open stratum');
       assert.falsy(first.genObjects.some(o => o.kind === 'staircase' && o.dir === 'down'),
         'the first cave retains main’s deliberate break in the generated stair chain');
       const down = second.genObjects.find(o => o.kind === 'staircase' && o.dir === 'down');
@@ -128,7 +130,7 @@
       assert.eq(rebuilt.grid[road], T.CAVE_FLOOR);
       assert.eq(JSON.stringify(drills(rebuilt)), JSON.stringify(drills(second)), 'drill placement survives uncached rebuild');
     } finally {
-      for (const depth of [0, 1, 2, 3]) WorldGen.setDepth(depth).delete(key);
+      for (const depth of [0, 1, 2, 3, 4]) WorldGen.setDepth(depth).delete(key);
       WorldGen.setDepth(0);
     }
   });

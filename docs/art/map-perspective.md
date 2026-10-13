@@ -11,6 +11,13 @@ the one-line version; this file owns the geometry. The
   This deliberately mixes perspectives;
   it is not a physically correct projection or an isometric diamond grid.
   Keep north/south along screen up/down and east/west along screen right/left.
+  Never rotate an object's footprint around the vertical (Z) axis to obtain a
+  three-quarter view: no 45-degree yaw, diagonal wagon bodies, or diamond
+  plinths. This applies to every asset, including buildings, carts, idols and
+  barricades. Three-quarter means camera tilt only; rectangular front edges
+  remain horizontal and side edges follow screen north/south. Show both top
+  surfaces and enough front face or trunk to read the object's upright form;
+  avoid flattening mushrooms and tree crowns into near-overhead discs.
   Walls and directional traps align with those square-cell axes and retain
   enough upright height for their faces and spikes to stay legible. Apply the
   angled artwork consistently to bushes, hedges, props, walls and buildings.

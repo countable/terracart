@@ -135,7 +135,7 @@
   // StreetVariants.BANDIT_STRETCH_UNITS) are the same reason again: one guard
   // each, always held, every mode. (There is no 'wagon' tier: a bus stop is on
   // the kerb by definition.)
-  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_orchard: 1, street_toadstool: 1 };
+  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_orchard: 1, street_toadstool: 1, street_goblin_gang: 5 };
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
   // ── A TAR YARD — the same reason again (src/zones.js): the fire slimes at
   // a fuel station's pumps, seated about its chest. Fixed and always held
@@ -236,6 +236,7 @@
     street_overgrown: ['plant'],
     street_orchard: ['farmer_goblin'],
     street_toadstool: ['spider'],
+    street_goblin_gang: ['goblin_runt'],
     // A burned row's stretch: one fire slime in the tar (the fire slimes are
     // zone-seated, never a tile's wild spawn, so the burned row seats its own
     // here rather than relocating any).
@@ -303,6 +304,9 @@
   // Ghosts are never guards (owner, Oct 2026): they haunt crypts and
   // memorials, not ruins — no row seats a ghost.
   const GROUPS = {
+    street_goblin_gang: { label: 'Street goblin gang', tiers: ['street_goblin_gang'], modeCap: false,
+      story: 'Five weak goblin grunts gather beside the street, with barrel stacks nearby.',
+      members: [{ kind: 'goblin_runt', n: 5, place: 'ring' }] },
     // ── A wrecked house: small ──
     grunt_gang: { label: 'Goblin grunt gang', tiers: [9], minT: 0, chance: .1, modeCap: false,
       story: 'Three to eight weak goblins crowd around the wreck. Each falls quickly; the gang comes together.',
@@ -310,9 +314,6 @@
     splitter: { label: 'Splitting slime', tiers: [9], minT: 0,
       story: 'Strike it and it divides, half its health to each side. Finish a half before it divides again.',
       members: [{ kind: 'split_slime', n: 1, place: 'ring' }] },
-    roost: { label: 'Bat roost', tiers: [9], minT: 0,
-      story: 'A pair in the rafters: they hang still until the wreck notices you, then both swoop.',
-      members: [{ kind: 'bat', n: 2, place: 'cloud' }] },
     // ── A castle: the big ones, inside the keep ──
     horde: { label: 'Goblin horde', tiers: [12], minT: 0.35,
       story: 'Fifteen runts fill the keep: nothing alone, a wall of teeth together.',
@@ -324,9 +325,6 @@
     archers: { label: 'Archer line', tiers: [12], minT: 0.2,
       story: 'A firing line along the front wall and nothing to charge: four archers keep their distance and loose together.',
       members: [{ kind: 'archer_goblin', n: 4, place: 'front', spread: 0.5 }] },
-    bats: { label: 'Bat swarm', tiers: [12], minT: 0.2,
-      story: 'A roost in the towers: they hang still until the castle notices you, then the whole swarm swoops.',
-      members: [{ kind: 'bat', n: 10, place: 'cloud' }] },
     elite_orc: { label: 'Elite orc', tiers: [12], minT: 0.5,
       story: 'One strong one, alone in the keep. Twice the pool, twice the blow, and an elite\'s drop.',
       members: [{ kind: 'orc', n: 1, place: 'core', elite: true }] },
@@ -535,6 +533,7 @@
     street_overgrown: { rate: 1, thinned: false },
     street_orchard: { rate: 1, thinned: false },
     street_toadstool: { rate: 1, thinned: false },
+    street_goblin_gang: { rate: 1, thinned: false },
     gate:   { rate: 1, thinned: false },   // a gate's posts — held every day
     habitat_marsh: { rate: 1, thinned: false },      // a habitat site — always held
     habitat_stronghold: { rate: 1, thinned: false },
