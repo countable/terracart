@@ -22,8 +22,14 @@ class SceneElevators {
     description.textContent = destinations.length ? 'Where would you like to go?' : 'No floors unlocked yet.';
     box.appendChild(description);
     if (Elevators.isRepaired && !Elevators.isRepaired(this.save) && (depth === 0 || depth === 1)) {
-      const repair = mkBtn('Repair — 9 wood + 9 stone', true);
-      repair.disabled = !Elevators.canRepair(this.save);
+      // Disabled through mkBtn so the button also looks unaffordable; the
+      // shortfall line says what is still missing.
+      const cost = Elevators.REPAIR_COST;
+      const repair = mkBtn(`Repair — ${cost.wood} wood + ${cost.rubble} stone`,
+        { variant: 'primary', disabled: !Elevators.canRepair(this.save) });
+      repair.style.display = 'block';
+      repair.style.width = '100%';
+      repair.style.marginBottom = '8px';
       repair.addEventListener('click', event => {
         event.stopPropagation();
         if ((this.depth || 0) !== depth || !Elevators.repair(this.save)) return;
@@ -33,6 +39,13 @@ class SceneElevators {
         this.openElevator(stair);
       });
       box.appendChild(repair);
+      if (repair.disabled) {
+        const short = document.createElement('p');
+        short.style.cssText = 'font-size:12px;opacity:.85;margin:0 0 8px';
+        const have = id => Inventory.count(this.save, id);
+        short.textContent = `You have ${have('wood')}/${cost.wood} wood and ${have('rubble')}/${cost.rubble} stone.`;
+        box.appendChild(short);
+      }
     }
     for (const floor of destinations) {
       const button = mkBtn(floor === 0 ? 'Home' : `Floor ${floor}`, true);
@@ -56,9 +69,9 @@ class SceneElevators {
       });
       box.appendChild(button);
     }
-    const cancel = mkBtn('Cancel', false);
-    cancel.addEventListener('click', event => { event.stopPropagation(); wrap.remove(); });
-    box.appendChild(cancel);
+    const leave = mkBtn('Leave', { variant: 'ghost' });
+    leave.addEventListener('click', event => { event.stopPropagation(); wrap.remove(); });
+    box.appendChild(leave);
     mount();
   }
 
