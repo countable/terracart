@@ -673,6 +673,10 @@ def street_svg(v, cell_m, detail=False):
                 offset = (n - (count - 1) / 2) * cell_m
                 parts.append(creature_at(kinds[n % len(kinds)],x+offset,y,cell_m,f'Representative guard {n+1} of {count} at candidate anchor; actual seat may move'))
         parts.append(f'<path class="monster-layer" d="M {x} {y-r} L {x+r} {y} L {x} {y+r} L {x-r} {y} Z" fill="none" stroke="#ff827b" stroke-width="1.2"><title>{html.escape(o["kind"])}; candidate site, not a creature position</title></path>')
+    for kind, rule in v.get('pathFauna', {}).items():
+        # A short sample may not earn a population slot: label this as an example.
+        parts.append(creature_at(kind, mid_x, mid_y + cell_m, cell_m,
+            f'Illustrative {kind.replace("_", " ")}: one per {rule["perPathM"]} m of path, up to {rule["max"]} per tile; not a guaranteed spawn in this short sample'))
     for lamp in v['lamps']:
         parts.append(light_guide(lamp['x'],lamp['y'],cell_m*art_registry()['lighting']['cobble']['radiusCells'],lamp['glow']))
         parts.append(f'<circle class="geometry-cell" cx="{lamp["x"]}" cy="{lamp["y"]}" r="2.5" fill="{v["lampGlow"]}" stroke="#182019" stroke-width=".6"><title>Street lamp: {v["lampGlow"]}</title></circle>')
@@ -693,6 +697,8 @@ def street_section(streets):
         mix = collections.Counter(o.get('crop', o['kind']) for o in v['objects'])
         inventory = ', '.join(f'{n} {kind}' for kind, n in mix.items()) or 'No extra verge props'
         fauna = 'Local inhabitants from habitat profiles'
+        if v.get('pathFauna'):
+            fauna = '; '.join(f'{kind.replace("_", " ").title()}: one per {rule["perPathM"]} m of path, at most {rule["max"]} per tile, on adjacent eligible ground; stays defeated. Preview shows one illustrative encounter, not a guaranteed spawn on this short sample.' for kind, rule in v['pathFauna'].items())
         selection = 'Geography-selected path' if v.get('scenicKind') else f"{v['size']} {'section' if v['size'] == 'path' else 'street'} · {v['share']*100:g}% base share"
         if v['size'] == 'path':
             selection = f"Walking path · {v.get('pathWeight', 0)*100:g}% base weight"
@@ -1139,6 +1145,8 @@ def render(d, out):
         coverage_label = 'interactables + ' + f'{sum(hazards.values())*100:g}% hazards' if hazards else ('expected' if b['type']=='seeded_scatter' or b.get('gapScatter') else 'nominal')
         mode = {'concentric_rings':'Three concentric rings · POI at common center', 'bounded_line_grid':f'{b.get("plots",[0,0])[0]} × {b.get("plots",[0,0])[1]} plots · POI centered in a plot', 'line_grid':f'Lines every {b.get("spacingCells")} cells · repeat to zone edge', 'seeded_scatter':'Seeded scatter · no repeating tile', 'repeat_motif':'Repeating cell pattern', 'procedural_layout':'Shared procedural layout · repeat to zone edge'}[b['type']]
         fauna = 'Local inhabitants from habitat profiles'
+        if v.get('pathFauna'):
+            fauna = '; '.join(f'{kind.replace("_", " ").title()}: one per {rule["perPathM"]} m of path, at most {rule["max"]} per tile, on adjacent eligible ground; stays defeated. Preview shows one illustrative encounter, not a guaranteed spawn on this short sample.' for kind, rule in v['pathFauna'].items())
         guard = v['guards']
         kinds = guard.get('kinds') or guard.get('choices') or [guard.get('kind', 'guard')]
         guard_text = 'None'
