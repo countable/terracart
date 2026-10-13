@@ -301,10 +301,11 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
 - THE SERPENT: one creature per piece (`serpent_head` / `_body` / `_tail`
   roster rows, `boss: 'serpent'`), moved and biting only by its encounter's
   tick, never `rosterEnemyMove`. The head snakes about the player within the
-  row's `leashCells`; the coils and tail tip follow its trail. Trail samples
+  row's `leashCells` at 3.9 m/s; the coils and tail tip follow its trail,
+  spaced one display pixel closer than 0.55 cells at the standard cell scale. Trail samples
   accumulate distance from a fixed anchor while the live head moves, so turns
   remain in the path at every frame rate. Each coil touching the player bites
-  for the row's `dmg` once a `damageIntervalSeconds`
+  for the row's `dmg` (4 base damage) once a `damageIntervalSeconds`
   through `foeBlowLands`. Only coils can be struck (the head and tail are
   `untargetable`, read by `Combat.isConcealed`); a slain coil shortens it, and
   with only head and tail left it dies. Body and gait numbers are the
