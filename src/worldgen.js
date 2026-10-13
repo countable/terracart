@@ -129,13 +129,13 @@
 
   function isGeneralAmbientRecord(o) {
     return !o.placed && !o.zoneVariant &&
-      /^(?:wp|hr|hm|hmpot|ibarrel|ptree|tree|ft|mr|rb)_-?\d+_/.test(o.id || '');
+      /^(?:wp|hr|hm|hmpot|ibarrel|ptree|ytree|tree|ft|mr|rb)_-?\d+_/.test(o.id || '');
   }
 
   // Zone layouts own the entire coverage, including intentionally empty motif
   // cells. Replace biome scatter and street dressing there, retaining mapped
-  // places/buildings/trees and player objects. Numeric tile-id prefixes belong
-  // to procedural ambience; OSM imports have distinct *_osm / *_sx prefixes.
+  // places/buildings and player objects. Numeric tile-id prefixes belong to
+  // procedural ambience; later mapped-tree injection also respects coverage.
   function* clearZoneAmbientSteps({ field, objects, wildplants, occupied, streetDress, scenicDress, tx, ty, N, tileEdgeM }) {
     const coverage = field && field.coverage;
     if (!coverage) return 0;
@@ -143,10 +143,8 @@
     const frame = tileFrame({ cellsPerEdge: N }, tx, ty, tileEdgeM);
     const cell = o => frame.idxOf(o.x, o.y);
     const streetLists = streetDress ? [streetDress.objects, streetDress.wildplants,
-      streetDress.treasures, streetDress.traps, streetDress.webs, streetDress.vents] : [];
+      streetDress.treasures, streetDress.coins, streetDress.traps, streetDress.webs, streetDress.vents] : [];
     const scenicLists = scenicDress ? [scenicDress.objects, scenicDress.wildplants] : [];
-    const pathRecord = o => typeof StreetVariants !== 'undefined'
-      && StreetVariants.VARIANT_BY_ID[o._street || o._shrineStreet]?.size === 'path';
     let count = 0;
     field.legacyRemovedByAnchor = field.legacyRemovedByAnchor || {};
     const record = (idx, street) => {
@@ -162,10 +160,9 @@
       const streetList = streetLists.includes(list);
       yield* compactSteps(list, (o) => {
         const idx = cell(o);
-        // Path-authored pieces keep their provenance through Nexus coverage;
-        // a nearby path mark never exempts unrelated road or biome scatter.
+        // A crossing path retains its physical paving, but its generated
+        // props and encounters yield to the Nexus, including empty motif cells.
         const street = streetList || (scenicLists.includes(list) && !!o._street);
-        if (street && pathRecord(o)) return false;
         if (!((street || isGeneralAmbientRecord(o)) && idx >= 0 && coverage[idx])) return false;
         record(idx, street);
         return true;
@@ -173,7 +170,6 @@
     }
     if (streetDress) {
       yield* compactSteps(streetDress.lairs || [], (lair) => {
-        if (pathRecord(lair)) return false;
         const idx = cell({ x: frame.ox + lair.lx, y: frame.oy + lair.ly });
         if (!(idx >= 0 && coverage[idx])) return false;
         record(idx, true);
@@ -182,8 +178,7 @@
       for (let i = 0; i < coverage.length; i++) {
         if ((i & 511) === 0) yield 'zone street mark replacement';
         if (!coverage[i]) continue;
-        const path = streetDress.marks && StreetVariants.variantByCode(streetDress.marks[i])?.size === 'path';
-        if (streetDress.marks && !path) streetDress.marks[i] = 0;
+        if (streetDress.marks) streetDress.marks[i] = 0;
         if (streetDress.slowCells) streetDress.slowCells.delete(i);
       }
     }
@@ -7405,8 +7400,8 @@
       }
       wps.length = wr;
     }
-    // DeepForest crowns outrank authored dressing, including intentionally
-    // empty motif cells. Older cached bins predate the explicit source flag.
+    // DeepForest crowns may replace road dressing, but Nexus coverage owns
+    // every cell. Older cached bins predate the explicit source flag.
     const detectedTree = t => t._treeSource === 'deepforest' ||
       (!t.id && (t.crown_m != null || t.size != null || t.individual === true));
     const replaceable = o => !o.placed && !o.planted && !o.playerOwned &&
@@ -7433,7 +7428,7 @@
     }
     const tryTreeCell = (ix, iy, detected) => {
       if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
-      if (!detected && _sxReserved(ix, iy)) return null;
+      if (variantOwnerAt(entry, iy * cpe + ix) === 'zone' || (!detected && _sxReserved(ix, iy))) return null;
       if (_sxHardCell(ix, iy, detected)) return null;
       const cell = iy * cpe + ix;
       if (fixedCells.has(cell)) return null;

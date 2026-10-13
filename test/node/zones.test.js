@@ -242,7 +242,7 @@ test('zones: covered ambience is replaced while every preserved item keeps its i
   const keep = o => {
     const x = Math.floor((o.x - TILE_TX * edge) / (edge / N));
     const y = Math.floor((o.y - TILE_TY * edge) / (edge / N));
-    return !(/^(wp|hr|hm|ptree|tree|ft|mr|rb)_-?\d+_/.test(o.id) && on.zone.coverage[y * N + x]);
+    return !(/^(wp|hr|hm|ptree|ytree|tree|ft|mr|rb)_-?\d+_/.test(o.id) && on.zone.coverage[y * N + x]);
   };
   // The park's chest becomes its shrine in place; all identities stay fixed.
   const sig = (arr) => arr.map((o) => `${o.kind === 'grove_shrine' ? 'chest' : o.kind}|${o.id}|${o.x.toFixed(3)}|${o.y.toFixed(3)}|${o.crop || ''}`).join('\n');
@@ -264,10 +264,7 @@ test('zones: covered ambience is replaced while every preserved item keeps its i
     for (const o of records) {
       const x = Math.floor((o.x - TILE_TX * edge) / (edge / N));
       const y = Math.floor((o.y - TILE_TY * edge) / (edge / N));
-      if (on.zone.coverage[y * N + x]) {
-        assert.eq(StreetVariants.VARIANT_BY_ID[o._street || o._shrineStreet]?.size, 'path',
-          `${key}: ${o.id} inside nexus coverage must come from a crossing path`);
-      }
+      assert.falsy(on.zone.coverage[y * N + x], `${key}: ${o.id} yields to Nexus coverage`);
     }
     assert.eq(sig(records), sig(again.streetDress[key] || []), `${key}: repeated builds keep ids and positions`);
   }

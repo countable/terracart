@@ -51,25 +51,27 @@
     assert.eq(StreetVariants.variantAt(rec, 80), 'burned');
     assert.eq(StreetVariants.variantAt(rec, 100), null);
   });
-  test('nexus roads: cleanup retains path-authored pieces and rejects unrelated overlapping spawns', () => {
+  test('nexus roads: cleanup excludes path and road props, hazards and guards from Nexus coverage', () => {
     const { coverage } = fixture('path', 'barricade'), i = 5 * N + 5;
     const streetDress = { marks: new Uint8Array(N * N), slowCells: new Set([i]),
       objects: [{ id: 'path_prop', kind: 'stakes', _street: 'barricade', x: 55, y: 55 },
         { id: 'road_prop', kind: 'barrel', _street: 'burned', x: 55, y: 55 },
         { id: 'unknown_prop', kind: 'barrel', x: 55, y: 55 }],
+      coins: [{ id: 'path_coin', _street: 'golden', x: 55, y: 55 }],
+      traps: [{ id: 'path_trap', _street: 'barricade', x: 55, y: 55 }],
+      webs: [{ id: 'path_web', _street: 'spider', x: 55, y: 55 }],
+      vents: [{ id: 'path_vent', _street: 'poison', x: 55, y: 55 }],
       lairs: [{ tier: 'barricade', _street: 'barricade', lx: 55, ly: 55 },
         { tier: 'burned', lx: 55, ly: 55 }] };
     streetDress.marks[i] = StreetVariants.VARIANT_BY_ID.barricade.code;
     WorldGen.runSteps(WorldGen.clearZoneAmbientSteps({ field: { coverage }, streetDress,
       objects: [], wildplants: [], tx: 0, ty: 0, N, tileEdgeM: extent }));
-    assert.eq(streetDress.marks[i], StreetVariants.VARIANT_BY_ID.barricade.code);
-    assert.eq(streetDress.objects.length, 1);
-    assert.eq(streetDress.objects[0].id, 'path_prop');
-    assert.eq(streetDress.lairs.length, 1);
-    assert.eq(streetDress.lairs[0].tier, 'barricade');
+    assert.eq(streetDress.marks[i], 0);
+    for (const key of ['objects', 'lairs', 'coins', 'traps', 'webs', 'vents'])
+      assert.eq(streetDress[key].length, 0, `${key} yield to the Nexus`);
     assert.falsy(streetDress.slowCells.has(i));
   });
-  test('nexus paths: scenic path rewards and verge plants survive full coverage', () => {
+  test('nexus paths: scenic path rewards and verge plants yield to full coverage', () => {
     const coverage = new Uint16Array(N * N).fill(1);
     const scenic = { ext: extent, stretches: [{ key: 'park-path', kind: 'park', at: { x: 55, y: 55 } }],
       grassSeats: [{ x: 85, y: 85 }] };
@@ -78,10 +80,10 @@
       tileEdgeM: extent, grid, chests: [], spawnOpts: { occupied: new Set() } });
     assert.truthy(dress.objects.some(o => o.vista === 'park'));
     assert.eq(dress.wildplants.length, 1);
-    const before = dress.objects.length;
+    assert.gt(dress.objects.length, 0);
     WorldGen.runSteps(WorldGen.clearZoneAmbientSteps({ field: { coverage }, scenicDress: dress,
       objects: [], wildplants: [], tx: 0, ty: 0, N, tileEdgeM: extent }));
-    assert.eq(dress.objects.length, before);
-    assert.eq(dress.wildplants.length, 1);
+    assert.eq(dress.objects.length, 0);
+    assert.eq(dress.wildplants.length, 0);
   });
 })();

@@ -783,7 +783,7 @@
     assert.eq(kinds('work_yard'), 'split_slime,split_slime');
     assert.eq(kinds('mystic_reef'), ['giant_crab', ...Array(8).fill('crab')].join());
     assert.eq(kinds('shellwater_strand'), Array(8).fill('crab').join());
-    assert.truthy(['slime', 'spider'].includes(kinds('mushroom_grove')));
+    assert.eq(kinds('mushroom_grove'), 'mushroom_monster');
     const plant = ZoneDressing.dress(context('hedge_garden')).guards[0];
     assert.truthy(plant.stationary);
     const ghost = ZoneDressing.dress(context('silent_circle')).guards;
