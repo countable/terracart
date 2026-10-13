@@ -180,7 +180,7 @@ class SceneConsumables {
     hook?.after?.(this, spec);
     if (!spend) return true;
     this._spendScroll(id);
-    this.showMessageModal({ title, body });
+    this.showMessageModal({ title, body, art: used.art || spec.art });
     return true;
   }
   // One route from a CONSUMABLE_SPEC row to its action: a `buff` row is a
