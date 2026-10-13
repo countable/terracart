@@ -301,7 +301,11 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
 - THE SERPENT: one creature per piece (`serpent_head` / `_body` / `_tail`
   roster rows, `boss: 'serpent'`), moved and biting only by its encounter's
   tick, never `rosterEnemyMove`. The head snakes about the player within the
-  row's `leashCells` at 3.9 m/s; the coils and tail tip follow its trail,
+  row's `leashCells`, cycling through eight seconds each of viewport roaming,
+  circling the player, and charging through the player's position. Roaming and
+  circling use 3.9 m/s; charges use 1.6 times that pace and commit to a target
+  that the player can dodge. The saved encounter clock preserves the phase
+  across reloads; shared copies follow the owner's poses. Coils and tail follow its trail,
   spaced one display pixel closer than 0.55 cells at the standard cell scale. Trail samples
   accumulate distance from a fixed anchor while the live head moves, so turns
   remain in the path at every frame rate. Each coil touching the player bites

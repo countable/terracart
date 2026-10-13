@@ -22,14 +22,14 @@ const BossEncounters = (() => {
     citadel: { store: 'citadelBattles', durationMs: 10 * 60 * 1000,
       chip: { label: 'Citadel', ink: '#ffe9b0', bg: '#4a2a12e8' },
       resetLine: 'The garrison withdraws. The fight resets.' },
-    // The serpent's body and gait (scene_boss.js): `coils` struck pieces
-    // `spacingCells` apart on the head's trail; raised `spawnCells` off;
-    // the head's goals on a `ringCells` ring about the player, `throughP` of
-    // them straight through the player, re-aimed each `goalMs`, turning at
-    // most `turnRadPerS`; a coil within `touchCells` bites.
+    // The head repeats roam → encircle → charge on the encounter clock.
+    // Body spacing, steering and mode tuning live alongside that clock.
     serpent: { store: 'bossEncounters', durationMs: 5 * 60 * 1000,
-      coils: 12, spacingCells: 0.55 - 1 / SpriteLayout.CELL_PX, spawnCells: 6, ringCells: [2, 7], throughP: 0.35,
-      goalMs: 4000, turnRadPerS: 2.6, touchCells: 0.5,
+      coils: 12, spacingCells: 0.55 - 1 / SpriteLayout.CELL_PX, spawnCells: 6,
+      modes: ['roam', 'encircle', 'charge'], modeMs: 8000,
+      roamGoalMs: 2000, viewportMarginCells: 1, orbitRadiusCells: 2,
+      orbitLookAheadRad: 0.6, chargeThroughCells: 2, chargeSpeedMul: 1.6,
+      turnRadPerS: 2.6, touchCells: 0.5,
       // SHARED (multiplayer.js `boss` frames): the starter's device drives
       // the head and sends its pose every `feedMs`; a copy adopted by a
       // nearby player follows it and ends after `staleMs` of silence.
