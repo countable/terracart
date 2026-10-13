@@ -155,7 +155,7 @@
     }
   });
 
-  test('cave nexuses: level-two quarry uses projected small-street routes through actual rock substrate', async () => {
+  test('cave nexuses: level-two quarry uses projected small-street routes over open city substrate', async () => {
     const f = fixture('mine_tunnels', 2), key = W.tileKey(f.tx, f.ty);
     for (const grid of [f.surface.grid, f.surface.baseGrid, f.surface.zone.caveSource.grid]) {
       grid.fill(T.ROCK);
@@ -166,14 +166,15 @@
     W.setDepth(0).set(key, f.surface);
     try {
       const entry = await W.loadTile.atDepth(2, f.tx, f.ty, 49);
-      const ore = entry.caveAreas.objects.filter(o => o.kind === 'mineralrock');
-      assert.eq(entry.caveAreas.areas.length, 1, 'eligible source route enables an actual mine');
+      const areas = entry.caveAreas.areas.filter(a => !a.city);
+      assert.eq(areas.length, 1, 'eligible source route enables an actual mine');
+      const ore = entry.caveAreas.objects.filter(o => o.kind === 'mineralrock' && o.caveArea === areas[0].id);
       assert.gt(ore.length, 0, 'mine has finite ore beside the reserved through lane');
+      assert.gt(entry.underground.streetCells.size, 0, 'mine retains its projected street route');
       for (const o of ore) {
         const i = idx(f, o);
-        assert.eq(entry.geologyGrid[i], T.CAVE_WALL, 'projected route opens original rock');
+        assert.eq(entry.geologyGrid[i], T.CAVE_FLOOR, 'city keeps non-building substrate open');
         assert.eq(entry.grid[i], T.CAVE_FLOOR);
-        assert.truthy(entry.underground.streetCells.has(i));
         assert.falsy(entry.underground.lane.has(i), 'ore preserves through route');
       }
     } finally {
@@ -190,7 +191,8 @@
       W.setDepth(0).set(key, f.surface);
       try {
         const entry = await W.loadTile.atDepth(depth, f.tx, f.ty, 49);
-        assert.eq(entry.caveAreas.areas.length, 1, kind + ' D' + depth + ' survives loader passes');
+        const areas = entry.caveAreas.areas.filter(a => !a.city);
+        assert.eq(areas.length, 1, kind + ' D' + depth + ' survives loader passes');
         for (const i of entry.caveAreas.reserved) {
           assert.truthy(entry.undergroundReserved.has(i), kind + ' D' + depth + ' reserved cell ' + i + ' survives all ambient passes');
           assert.eq(W.variantOwnerAt(entry, i), 'cave');
@@ -198,7 +200,7 @@
         const authored = new Set(entry.caveAreas.objects.concat(entry.caveAreas.wildplants).map(o => o.id));
         for (const o of entry.objects.concat(entry.wildplants, entry.extraTreasures || [], entry.caveCoinSeeds || [])) {
           if (authored.has(o.id) || ['staircase', 'chest', 'torch'].includes(o.kind)) continue;
-          assert.falsy(entry.caveAreas.reserved.has(idx(f, o)), 'ordinary object suppressed inside ' + kind);
+          assert.falsy(areas[0].reserved.has(idx(f, o)), 'ordinary object suppressed inside ' + kind);
         }
         const old = payload(entry.caveAreas);
         W.setDepth(depth).delete(key);

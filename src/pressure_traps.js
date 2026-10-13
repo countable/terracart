@@ -1,9 +1,9 @@
-// Cave plates launch slow traps; authored grove plates awaken a ghost once.
+// Cave plates release rolling balls, spike walls or grate gas; grove plates awaken a ghost once.
 (function (root) {
   'use strict';
   const CONFIG = Object.freeze({ chance: .065, maxPresent: 8, retainRadiusCells: 24,
     speedCellsPerSecond: .25, pushCellsPerSecond: .4, travelCells: 6,
-    contactDps: 5, frameSize: 24, ballRadiusPixels: 10, ballFrames: 8, maxStepSeconds: .1,
+    contactDps: 5, plateRevealCells: 1, plateAlpha: .32, frameSize: 24, ballRadiusPixels: 10, ballFrames: 8, maxStepSeconds: .1,
     ballContactCells: .62, wallHalfWidthCells: .62, wallHalfDepthCells: .35 });
   const DIRECTIONS = [[0, -1], [Math.SQRT1_2, -Math.SQRT1_2], [1, 0], [Math.SQRT1_2, Math.SQRT1_2],
     [0, 1], [-Math.SQRT1_2, Math.SQRT1_2], [-1, 0], [-Math.SQRT1_2, -Math.SQRT1_2]];
@@ -59,6 +59,22 @@
     if (!e?._spawnOpts) return false;
     const opts = { ...e._spawnOpts, spawnWhy: e.spawnWhy || e._spawnOpts.spawnWhy,
       roadMask: e.roadMask || e._spawnOpts.roadMask, roadClass: e.roadClass || e._spawnOpts.roadClass };
+    const index = p.iy * e.cellsPerEdge + p.ix;
+    const city = e.caveAreas?.areas?.find(a => a.city && a.reserved.has(index));
+    // The city reserves its entire footprint against ambient dressing. Empty
+    // passages can still house mechanisms; landmark halos and real props cannot.
+    if (city?.passages?.has(index) && !city.protected?.has(index)) opts.occupied = null;
+    if (city?.protected?.has(index)) return false;
+    const centre = absCellCenterMeters(scene, p.cellIX, p.cellIY), half = scene.cellM / 2;
+    let occupied = false;
+    for (const prop of ['objects', 'wildplants']) {
+      W.forEachItemInBox(e, prop, centre.x - half, centre.y - half, centre.x + half, centre.y + half, o => {
+        if (occupied || Math.abs(o.x - centre.x) > half || Math.abs(o.y - centre.y) > half) return;
+        const at = scene.cellAt(o.x, o.y);
+        if (at.cellIX === p.cellIX && at.cellIY === p.cellIY) occupied = true;
+      });
+    }
+    if (occupied) return false;
     return W.isSpawnCell(e.grid, e.cellsPerEdge, e.cellsPerEdge, p.ix, p.iy, opts, 'hazard')
       && !W.privateVetoAt(p.tx, p.ty, p.ix, p.iy);
   }
@@ -77,6 +93,10 @@
     const at = absCellCenterMeters(scene, launcherCell.cellIX, launcherCell.cellIY);
     const plate = { id: id + ':plate', trapId: id, ...p, ...plateCell, pressed: false, frame: 2 };
     const trap = { id, kind, ...at, state: 'parked', frame: 0, direction: 0, travelled: 0, elapsedMs: 0 };
+    if (kind === 'gas') {
+      trap.cellIX = launcherCell.cellIX; trap.cellIY = launcherCell.cellIY;
+      trap.gasKind = 'poison'; trap.depth = scene.depth;
+    }
     return { plate, trap };
   }
   function observe(scene) {
@@ -97,16 +117,24 @@
     s.visits.add(key);
     const rng = root.WorldGen.makeRng(fnv1a('pressure:' + key));
     if (rng() >= CONFIG.chance) return;
-    const kind = rng() < .5 ? 'ball' : 'wall';
+    const choice = rng(), kind = choice < .25 ? 'ball' : choice < .65 ? 'wall' : 'gas';
     for (let attempt = 0; attempt < 12; attempt++) {
       const facing = Math.floor(rng() * 4) * 2, [dx, dy] = DIRECTIONS[facing];
       const plateCell = absCellOffset(scene, cell.cellIX, cell.cellIY, dx * 2, dy * 2);
       const distance = 2 + Math.min(2, Math.floor(rng() * 3));
       const launcherCell = absCellOffset(scene, plateCell.cellIX, plateCell.cellIY, dx * distance, dy * distance);
       const pair = create(scene, plateCell, launcherCell, kind, 'pressure:' + key);
-      const candidates = [plateCell, launcherCell]
-        .map(at => root.EnvironmentHazards.create(scene, 'vent', at, 'placement'));
-      if (!candidates.every(h => root.EnvironmentHazards.eligible(scene, h))) continue;
+      if (![pair.plate, pair.trap].every(h => ground(scene, h.x, h.y))) continue;
+      if ([pair.plate, pair.trap].some(h => {
+        const at = scene.cellAt(h.x, h.y), e = root.WorldGen.tileCache.get(root.WorldGen.tileKey(at.tx, at.ty));
+        return (e.creatures || []).some(c => !c._spent && !c._surfaceInactive
+          && Math.hypot(c.x - h.x, c.y - h.y) < scene.cellM);
+      })) continue;
+      if (kind === 'gas') {
+        const gases = root.EnvironmentHazards.ventKinds(scene.depth).filter(k => root.EnvironmentHazards.VENTS[k].gas);
+        if (!gases.length) continue;
+        pair.trap.gasKind = gases[Math.min(gases.length - 1, Math.floor(rng() * gases.length))];
+      }
       const end = clearSegment(scene, pair.trap, pair.plate);
       if (Math.hypot(end.x - pair.plate.x, end.y - pair.plate.y) > .001) continue;
       const env = root.EnvironmentHazards.lists(scene);
@@ -121,6 +149,7 @@
   }
   function trigger(trap, target) {
     if (trap.state !== 'parked') return;
+    if (trap.kind === 'gas') { trap.state = 'active'; trap.elapsedMs = 0; return; }
     const dx = target.x - trap.x, dy = target.y - trap.y;
     let direction = (Math.round(Math.atan2(dx, -dy) * 4 / Math.PI) + 8) % 8;
     if (trap.kind === 'wall') direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 6) : (dy > 0 ? 4 : 0);
@@ -131,8 +160,13 @@
       trap.vx = dx / d;
       trap.vy = dy / d;
     }
-    trap.state = 'moving';
     trap.frame = trap.kind === 'wall' ? direction / 2 : (direction % 4) * CONFIG.ballFrames;
+    trap.state = 'moving';
+  }
+  function plateVisible(scene, plate) {
+    if (plate.effect === 'ghost') return true;
+    const p = feet(scene), cell = scene.cellAt(p.x, p.y);
+    return Math.max(Math.abs(plate.cellIX - cell.cellIX), Math.abs(plate.cellIY - cell.cellIY)) <= CONFIG.plateRevealCells;
   }
   function ballFrame(trap, cellM) {
     const circumference = 2 * Math.PI * CONFIG.ballRadiusPixels / CONFIG.frameSize * cellM;
@@ -147,6 +181,7 @@
       && Math.abs(dx * trap.vy - dy * trap.vx) <= CONFIG.wallHalfWidthCells;
   }
   function contact(scene, trap, dt) {
+    if (trap.kind === 'gas' || !ground(scene, trap.x, trap.y)) return;
     if (root.Conditions.flying(scene.save)) { scene._pressureDamageFraction = 0; return; }
     if (trap.state === 'parked' || !touching(scene, trap) || root.Combat.playerDowned(scene.save.energy)) return;
     if (!root.Conditions.damageImmune(scene.save)) {
@@ -170,6 +205,7 @@
     for (const plate of s.plates) {
       if (!root.Conditions.flying(scene.save) && plate.cellIX === cell.cellIX && plate.cellIY === cell.cellIY && !plate.pressed) {
         if (plate.effect === 'ghost') { pressGrove(scene, plate); continue; }
+        if (!ground(scene, plate.x, plate.y)) continue;
         plate.pressed = true;
         plate.frame = 3;
         const trap = s.traps.find(h => h.id === plate.trapId);
@@ -177,6 +213,17 @@
       }
     }
     for (const h of s.traps) {
+      if (h.kind === 'gas') {
+        if (h.state === 'active') {
+          if (!h.emitted && ground(scene, h.x, h.y)) {
+            root.EnvironmentHazards.erupt(scene, { ...h, kind: h.gasKind });
+            h.emitted = true;
+          }
+          h.elapsedMs += dt * 1000;
+          if (h.elapsedMs >= root.EnvironmentHazards.CONFIG.vent.activeMs) h.state = 'spent';
+        }
+        continue;
+      }
       if (h.state === 'moving') {
         const distance = Math.min(CONFIG.speedCellsPerSecond * scene.cellM * dt,
           Math.max(0, CONFIG.travelCells * scene.cellM - h.travelled));
@@ -193,5 +240,5 @@
     }
   }
   root.PressureTraps = { CONFIG, DIRECTIONS, lists, grovePlates, pressGrove, feet, ground, clearSegment, create, observe,
-    trigger, ballFrame, touching, contact, tick };
+    trigger, plateVisible, ballFrame, touching, contact, tick };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

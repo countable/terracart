@@ -41,7 +41,7 @@
       if (save.relics[slot] === undefined) save.relics[slot] = null;
     }
     if (save.activeWeapon === undefined) save.activeWeapon = null;
-    if (save.invCat === undefined) save.invCat = 'seed';
+    save.invCat = normalizeInventoryCategory(save.invCat);
     if (save.selGear === undefined) save.selGear = null;
     if (save.reachUpgrades === undefined) save.reachUpgrades = 0;
     // The wizard's permanent luck and quantity ladders.

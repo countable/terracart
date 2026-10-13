@@ -230,11 +230,11 @@ Render.shopTierBadge = (scene, house, role) => {
 // Shop signs identify the line, not the randomly selected stock item.
 // Category glyphs are the inventory tabs' 9×9 pixel art, drawn in the plate's ink.
 Render.SHOP_SIGN_ICONS = Object.freeze({
-  seed: { tab: 'seed' },
+  seed: { tab: 'seeds' },
   supply: { tab: 'supplies' },
   potion: { tab: 'magic' },
-  relic: { tab: 'relic' },
-  pet: { tab: 'animal' },
+  relic: { tab: 'relics' },
+  pet: { tab: 'pets' },
   // No inventory tab for books: the board's own bitmap in the same family.
   book: { px: [
     '.#######.',
@@ -315,7 +315,7 @@ Render.shopSignLook = (badge) => {
 // A non-shop role's symbol: its inventory tab, and `dy` game px to nudge
 // the board down where that role's roof sits lower (the smithy's art).
 Render.ROLE_SIGN_ICONS = Object.freeze({
-  blacksmith: { tab: 'armor', dy: 3 },
+  blacksmith: { tab: 'armour', dy: 3 },
 });
 Render.shopSignGlyph = (theme, role) => {
   const icon = Render.SHOP_SIGN_ICONS[theme] || Render.ROLE_SIGN_ICONS[role];
@@ -398,7 +398,8 @@ const GRASS_FALLBACK_COLOR = 0x7b8d4e;   // matches the approved COLORS[0] grass
 // Cave grit remains an alpha overlay, preserving its existing baked textures.
 // The sky floor (WorldGen.SKY_DEPTH) uses the same lane: white grove floor
 // over pale open air, with no biome texture (see the texture pass).
-Render.UNDERGROUND_GROUND = { underdark: 0x69626c, grove: 0x486653, dwarven_city: 0x8b7760,
+Render.UNDERGROUND_GROUND = { goblin_city: 0x77725b, underdark: 0x69626c,
+  haunted_city: 0x666979, lava: 0x6c5149, dragon: 0x706052, dragon_roost: 0x67554f, grove: 0x486653, dwarven_city: 0x8b7760,
   sky_floor: 0xf7f7f1, sky_air: 0xb9dcf2 };
 Render.undergroundGroundColor = (entry, ix, iy, type) => {
   if (entry?.undergroundBiome === 'sky') {
@@ -406,7 +407,8 @@ Render.undergroundGroundColor = (entry, ix, iy, type) => {
       : type === WorldGen.T.CAVE_WALL ? Render.UNDERGROUND_GROUND.sky_air : null;
   }
   if (type !== WorldGen.T.CAVE_FLOOR || !entry) return null;
-  if (entry.undergroundBiome === 'underdark') return Render.UNDERGROUND_GROUND.underdark;
+  const biomeColor = Render.UNDERGROUND_GROUND[entry.undergroundBiome];
+  if (biomeColor != null) return biomeColor;
   if (entry.undergroundBiome !== 'deep_stone') return null;
   const area = entry.undergroundAreas?.[iy * entry.cellsPerEdge + ix];
   return area === 1 ? Render.UNDERGROUND_GROUND.grove
@@ -4049,7 +4051,7 @@ Render.drawObjects = function drawObjects(scene) {
     h, dx: h.x - pWorldX, dy: h.y - pWorldY,
   })).filter(it => !it.h.blocked && Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
   const pressureState = PressureTraps.lists(scene);
-  const pressureList = [...pressureState.plates.map(h => ({ h, plate: true })),
+  const pressureList = [...pressureState.plates.filter(h => PressureTraps.plateVisible(scene, h)).map(h => ({ h, plate: true })),
     ...pressureState.traps.map(h => ({ h, plate: false }))].map(it => ({
       ...it, dx: it.h.x - pWorldX, dy: it.h.y - pWorldY,
     })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
@@ -4057,7 +4059,7 @@ Render.drawObjects = function drawObjects(scene) {
   Render.cullCovered(scene, whirlwindList, 'h');
   Render.cullCovered(scene, environmentList, 'h');
   Render.cullCovered(scene, pressureList, 'h');
-  for (const it of pressureList) zList.push({ it, rank: 2, ground: it.plate, groundY: groundY(it) });
+  for (const it of pressureList) zList.push({ it, rank: 2, ground: it.plate || it.h.kind === 'gas', groundY: groundY(it) });
   for (const it of environmentList) zList.push({ it, rank: 1,
     ground: it.h.type !== 'vent', groundY: groundY(it) });
   for (const it of whirlwindList) zList.push({ it, rank: 3, groundY: groundY(it) });
@@ -5083,10 +5085,12 @@ Render.drawObjects = function drawObjects(scene) {
   scene._pressureTrapPool ||= [];
   Render.renderPool(scene, scene._pressureTrapPool, scene.creaturesContainer, pressureList, (s, it) => {
     const { x: sx, y: sy } = project(it.dx, it.dy);
-    const key = it.plate ? 'cave_mechanisms' : it.h.kind === 'ball' ? 'rolling_ball' : 'sliding_spike_wall';
+    const key = it.plate ? 'cave_mechanisms' : it.h.kind === 'gas' ? 'pressure_gas_grate'
+      : it.h.kind === 'ball' ? 'rolling_ball' : 'sliding_spike_wall';
     s.anims?.stop();
-    s.setTexture(key, it.h.frame).setOrigin(.5, .5).setDisplaySize(CELL_PX, CELL_PX)
-      .setPosition(Math.round(sx), Math.round(sy)).setAlpha(1).setTint(0xffffff);
+    s.setTexture(key, it.h.kind === 'gas' ? 0 : it.h.frame).setOrigin(.5, .5).setDisplaySize(CELL_PX, CELL_PX)
+      .setPosition(Math.round(sx), Math.round(sy))
+      .setAlpha(it.plate && it.h.effect !== 'ghost' ? PressureTraps.CONFIG.plateAlpha : 1).setTint(0xffffff);
     setWorldDepth(s, it._z);
   });
 

@@ -7,6 +7,9 @@ the full proposal text.
 
 Companion to [floors.md](floors.md) (the target catalog) and
 [floor-design-review.html](floor-design-review.html) (the inputs checklist).
+The decided terrain ladder is implemented through floor 8; proposal mechanics
+below remain unimplemented unless explicitly marked shipped. Existing finite
+roost encounters start on 8, without the proposed largest-opening/egg redesign.
 This page answers, per floor: which surface evidence does the floor
 recognize, how is each read, and where the theme, the player activities or
 the geometry mapping are still undecided. Everything marked PROPOSAL or OPEN
@@ -21,7 +24,7 @@ roads, buildings, landcover, nexus, POIs and road variants:
 | --- | --- | --- | --- | --- |
 | 1 | Terrain paint | `WorldGen.T` classes (walkable land, PARK/GROVE/PLAYGROUND/PITCH/COMMERCIAL, FARMLAND, SAND, WATER, ROAD, buildings) | `FLOOR_PROFILES` terrain modes (`undergroundTerrain`) | every floor, by mode |
 | 2 | Roads | Drawn carriageway bands, by class (MD/LG/minor) | `surfaceRoadMask` at the spawn gate; the street mirror carves routes | every floor (gate); 1-2 (mirror) |
-| 3 | Buildings | Footprint polygons painted as building terrain | lava mode (`isBuildingTerrain`); spawn-gate moat | 5 (lava); all (gate) |
+| 3 | Buildings | Footprint polygons painted as building terrain | lava mode (`isBuildingTerrain`); spawn-gate moat | 6 (lava); all (gate) |
 | 4 | Zone/nexus anchors | `ZoneCoverage` anchors (grove, quarry, ...) | `cave_areas.js` `DEPTH_WEIGHTS` | 1-2 (authored areas) |
 | 5 | POIs | The objects layer (chests, low-tier seats) | chest mirrors (`caveChestsFrom`), torch sites (`caveTorchSites`) | every floor |
 | 6 | Road variants | `StreetVariants` corridors (thorny, snare, barricade...) | surface-only today | 0 (surface) |
@@ -73,7 +76,7 @@ count. Theme: decided (floors.md).
 
 | Input | How defined | Status |
 | --- | --- | --- |
-| Landcover (1) | `clearings` mode: park/grove/playground/pitch/commercial open, seeded with settlements | DECIDED (row ships at depth 2 today; shifts to 3) |
+| Landcover (1) | `clearings` mode: park/grove/playground/pitch/commercial open, seeded with settlements | SHIPPED at depth 3 |
 | Digging | The way around | PROPOSAL P6 |
 | Road variants (6) | Half the roads cleared as tunnels | PROPOSAL P7 |
 | POIs (5) | Chest mirrors, dwarf/grove settlements (shipped) | DECIDED |
@@ -128,8 +131,8 @@ count. Theme: decided (floors.md).
   paint variant. Default: yes.
 - **P14 - Hatch seat.** One arena hatch per tile at the best-ranked POI site
   (the plaza). Default: yes.
-- **P15 - Constant haunt.** The dead city ignores the even-depth ghost rule:
-  ghosts walk floor 5 always. Default: yes.
+- **P15 - Constant haunt (shipped).** Floor 5 uses crypt habitat throughout,
+  so the existing crypt ghost pump haunts it at every hour on this odd depth.
 
 ## Floor 6 - lava stratum
 

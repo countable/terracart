@@ -3,8 +3,8 @@
 ## Purpose
 
 Use one vocabulary for game design, comments and documentation. This glossary
-separates naming ambiguities, valid subconcepts and redundant synonyms. It does
-not rename APIs or change mechanics.
+separates naming ambiguities, valid subconcepts and redundant synonyms. Inventory
+categories also define shared code keys; naming changes preserve mechanics.
 
 ## Scope
 
@@ -13,13 +13,14 @@ in maintained source and design docs. It is not an exhaustive item, creature or
 story-character catalogue. Evidence links show representative definitions and uses.
 
 **These terms are approved for design prose, comments and documentation.**
-The owning source and docs continue to define behavior. Runtime identifiers,
-data keys and mechanics retain their existing meanings.
+The owning source and docs continue to define behavior. The inventory category
+policy below applies to code keys as well as prose. Other runtime identifiers
+and data keys retain their existing meanings.
 
 - **Ambiguous use:** a name has competing meanings; the column defines the terms for each meaning.
 - **Subconcepts:** valid narrower concepts or components to keep. Related concepts at the same level are identified as such rather than treated as synonyms.
 - **Synonyms:** wording to replace in design prose only when it means the same concept. This does not remove story language, map tags, API names or data keys.
-- **Technical names:** backticked identifiers remain intact. No listed identifier is a rename target in this cleanup.
+- **Technical names:** backticked identifiers remain intact unless the inventory category policy explicitly renames them.
 
 Grouped rows keep related concepts together within each table. Title case is
 appropriate for category headings; lowercase common nouns in prose are fine.
@@ -32,7 +33,6 @@ Preserve proper names such as Home and Dragon Hood.
 | *Special places: identity, selection and focal objects* | | | | | |
 | **Shrine** | A site activated daily for a boon or reward. | Use shrine in daily-activation names and copy. Existing saved identifiers stay stable. | Golden Shrine; Golden Path Shrine; Harvest Shrine; Toad Shrine. | Idol when referring to a daily activation. | [Shrine definitions](../../src/shrines.js); [daily visits](presentation.md). |
 | **Idol** | An item used to summon a boss. | Reserve idol for boss-summoning items. | Serpent Idol. | None. | [Boss encounters](../../src/boss_encounters.js). |
-| **Shrine** | Daily interactable that can grant gifts or boons. | Keep **shrine** distinct from the containing temple or Nexus. | Shrine kinds; daily gift; boon. | None. | [Temple and keeper flags](../../src/zones.js#L171); [shrine contract](zone-variants.md#placement-contract). |
 | **Nexus** | A complete anchored special place, including its authored objects and owned area. | Use **Nexus** for the whole place; **Nexus focal layout** for its central arrangement; **Temple-bearing Nexus** for the temple-capable subset. This broadens the narrow temple-only use. | Nexus variants; focal layouts; coverage; temple-bearing subset. | Special zone / zone only when naming the whole special place. | [Local pattern](../../src/zones.js#L75); [whole coverage](generation.md#spawn-precedence); [temple-bearing kinds](../../src/zones.js#L175). |
 | **Nexus focal layout** | Compact arrangement around a Nexus POI. | Replace the compact-pattern sense of bare “nexus” with this term. | Rings, crosses, symmetric beds and POI arrangements. | None beyond the ambiguous bare “nexus” use. | [Local pattern](../../src/zones.js#L75); [whole coverage](generation.md#spawn-precedence); [temple-bearing kinds](../../src/zones.js#L175). |
 | **Temple-bearing Nexus** | Subset of special places permitted to claim a temple building. | Replace the temple-only sense of bare “Nexus” with this explicit subset name. | Grove, Old Stones and Tar Yard under the current flags. | None beyond the ambiguous bare “Nexus” use. | [Local pattern](../../src/zones.js#L75); [whole coverage](generation.md#spawn-precedence); [temple-bearing kinds](../../src/zones.js#L175). |
@@ -106,6 +106,43 @@ rows use Nexus for the whole place.
 | **Shrine** | Daily interactable that can grant gifts or boons. | Keep **shrine** distinct from the containing temple or Nexus. | Shrine kinds; daily gift; boon. | None. | [Temple and keeper flags](../../src/zones.js#L171); [shrine contract](zone-variants.md#placement-contract). |
 | **Keeper** | NPC role tending a special place. | Use **Nexus keeper** when the owning place matters; “keeper” names a resident, not the place. | Family-specific keeper dialogue. | Zone keeper. | [Temple and keeper flags](../../src/zones.js#L171); [shrine contract](zone-variants.md#placement-contract). |
 
+## Inventory categories and treasure rewards
+
+Inventory categories use the same names in the UI, code and design prose.
+`INV_CATS` in [items.js](../../src/items.js) owns their labels and lowercase keys:
+
+| Inventory label | Code category key | Membership rule |
+| --- | --- | --- |
+| Seeds | `seeds` | Items with kind `seed`. |
+| Produce | `produce` | Items with kind `produce`, except explicit category overrides; also the fallback for unmapped kinds, including `animal`. |
+| Pets | `pets` | Items with kind `pet_accessory`, plus owned pets from the pet lifecycle. |
+| Relics | `relics` | Relic equipment and items with kind `unique_relic`. |
+| Armour | `armour` | Armour equipment. |
+| Ores | `ores` | Items with kind `ores`, including wood, metals and gems; Rock (`rubble`) joins through its category override. |
+| Magic | `magic` | Items with kind `magic`. |
+| Supplies | `supplies` | Items with kind `supply`. |
+
+Use **Ores** / `ores` for the former **Minerals** / `mineral` category, item
+kind and generic treasure reward class. Other item kinds, such as `seed`,
+`supply`, `animal` and `unique_relic`, and equipment types `relic` and `armor`
+describe behavior rather than inventory categories, so they retain their names.
+`invCatForItem(id)` maps an item to its official category; Rock keeps its
+`produce` kind for crop behavior and its `ores` category for inventory display.
+
+Treasure rewards expose their official inventory category through
+`reward.category`, derived by `rewardCategory(reward)`. The reward's `cls`
+selects its roll or handling path and need not equal its inventory category.
+Coins are currency, so coin rewards have no inventory category.
+
+**Reward pools** are named selection subgroups, owned by
+`ChestThemes.groups` in [chest_themes.js](../../src/chest_themes.js). They keep
+their own membership, weights and fallbacks. `materials` and `gems` are separate
+pools whose items appear under Ores; naming the category Ores does not add gems
+to a materials roll. `books` is a Supplies subgroup. A pool can cross inventory
+categories: `medicalMagic` includes Magic items and healing amulets under Relics.
+The category alignment preserves existing pool membership and reward odds.
+See [themed chests](CHEST_THEMES.md) for selection rules.
+
 ## Progression and interactions
 
 | Term | Meaning | Usage distinctions | Subconcepts (valid) | Synonyms to replace in this meaning | Evidence |
@@ -162,6 +199,7 @@ rows use Nexus for the whole place.
    Major-and-Medium road group and Variant-eligible Small roads explicitly;
    preserve their safety and variant memberships.
 3. Replace synonyms only in the meanings stated in each row. Keep source-map
-   tags, runtime identifiers, proper names and valid subconcepts.
+   tags, proper names and valid subconcepts. Runtime identifiers follow the
+   explicit inventory category policy; other identifiers retain their names.
 4. Keep this glossary about shared vocabulary. Detailed mechanics, numeric tuning,
    item/creature catalogues and story canon stay in their owning sources.

@@ -88,7 +88,7 @@
             const t = Math.max(0, Math.min(1, ((wx - a.x) * dx + (wy - a.y) * dy) / len2));
             const distance = Math.hypot(wx - a.x - t * dx, wy - a.y - t * dy);
             if (distance > width || !allowed(data, i, street)) continue;
-            if (street && data.grid[i] === W.T.ROAD) grid[i] = W.T.CAVE_FLOOR;
+            if (street && data.grid[i] === W.T.ROAD && W.floorProfile(depth).roadWalls !== 'small') grid[i] = W.T.CAVE_FLOOR;
             if (street && grid[i] === W.T.CAVE_FLOOR) streetCells.add(i);
             if (grid[i] !== W.T.CAVE_FLOOR) continue;
             rec.cells.push(i);

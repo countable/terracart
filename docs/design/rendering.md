@@ -227,10 +227,13 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   biome texture (`Render.roadBackdropType`): explicit street ground, then the
   surrounding biome, then grass. Never paint raw road colours or separate path
   pebbles beneath the band; their grid edges read as a second road.
-- Roads and paths use a consistent muted midtone range so ground objects
-  remain the focus. Restored paving has recessed dark joints, tidy courses and
-  small polished bevels; worn cracks and mushroom spots stay low contrast.
-  Keep each theme’s undertone. Burned Row retains its dark stone and glowing embers.
+- Roads and paths use muted colors so ground objects remain the focus.
+  Restored paving has recessed dark joints, tidy courses and small polished
+  bevels; worn cracks and mushroom spots stay low contrast. Keep each theme’s
+  undertone. Burned Row retains its dark stone and glowing embers.
+- Restored Toadstool (Mushroom) and Snare lanes use near-black setts close to
+  the default restored road. Retain their red/brown undertones and mushroom
+  spots; the shared clean-stone bevel supplies the polished highlights.
 - Slime Trail overlays its muted green paving with glossy slime pools and pale
   bubbles, in both worn and restored states. The same pattern painter serves
   runtime paving and the map review.
@@ -250,3 +253,7 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
 `trail`, `loot`; also `tools/layer_audit.js`.
+
+- Cave pressure plates use a low-opacity floor mark revealed within one body
+  cell. Plate-controlled gas outlets use one cached metal-grate texture and
+  the existing gas-cloud renderer; both grate and plate sort as ground objects.

@@ -34,38 +34,32 @@
     assert.eq(state.cells.size, 0);
   });
 
-  test('gas: sealed room conserves even gas below the disappearance threshold', () => {
+  test('gas: thin cells vanish in sealed rooms and at unloaded boundaries', () => {
+    for (const terrain of [room, () => 'unknown', () => 'wall']) {
+      const state = Gas.create();
+      Gas.inject(state, 0, 0, state.config.minDensity / 2);
+      Gas.advance(state, 1000, terrain);
+      assert.eq(state.cells.size, 0, 'enclosure never exempts thin gas');
+    }
     const state = Gas.create();
-    Gas.inject(state, 0, 0, .1);
-    for (let second = 0; second < 200; second++) Gas.advance(state, 1000, room);
-    assert.eq(state.cells.size, 25);
-    near(mass(state), .1);
-    assert.truthy([...state.cells.values()].every(c => c.density < state.config.minDensity));
+    Gas.inject(state, 0, 0, .3);
+    for (let second = 0; second < 30; second++) Gas.advance(state, 1000, room);
+    assert.eq(state.cells.size, 0, 'a normal puff fully thins out in a sealed room');
   });
 
-  test('gas: topology is reconsidered after a sealed room gains an exterior opening', () => {
-    const state = Gas.create();
-    Gas.inject(state, 0, 0, .01);
-    Gas.advance(state, 1000, room);
-    near(mass(state), .01);
-    Gas.advance(state, 1000, (x, y) => x === 3 && y === 0 ? 'unknown' : room(x, y));
-    assert.eq(state.cells.size, 0);
+  test('gas: cutoff is strictly below the configured density and preserves dense neighbours', () => {
+    const state = Gas.create({ minDensity: .05 });
+    Gas.inject(state, 0, 0, .049);
+    Gas.inject(state, 2, 0, .05);
+    Gas.inject(state, 4, 0, .1);
+    Gas.advance(state, 1000, () => 'unknown');
+    assert.falsy(state.cells.has('0,0'));
+    near(state.cells.get('2,0').density, .05);
+    near(state.cells.get('4,0').density, .1);
   });
 
-  test('gas: ventilation of one disconnected region cannot erase sealed gas', () => {
-    const state = Gas.create();
-    Gas.inject(state, 0, 0, .01);
-    Gas.inject(state, 10, 0, .01);
-    const terrain = (x, y) => Math.abs(x) <= 2 && Math.abs(y) <= 2 ? 'open'
-      : Math.abs(x - 10) <= 2 && Math.abs(y) <= 2 ? 'open'
-      : x === 13 && y === 0 ? 'unknown' : 'wall';
-    Gas.advance(state, 1000, terrain);
-    near(mass(state), .01);
-    assert.truthy([...state.cells.values()].every(c => c.x < 3));
-  });
-
-  test('gas: traversal and sparse-cell caps conserve gas when topology is uncertain', () => {
-    const state = Gas.create({ maxCells: 6, maxTopologyCells: 12 });
+  test('gas: sparse-cell caps bound work without losing above-threshold gas', () => {
+    const state = Gas.create({ maxCells: 6, minDensity: 0 });
     let reads = 0;
     Gas.inject(state, 0, 0, .01);
     for (let second = 0; second < 30; second++) {
@@ -81,7 +75,7 @@
   });
 
   test('gas: long frame gaps cap catch-up and preserve fractional-second timing', () => {
-    const state = Gas.create();
+    const state = Gas.create({ minDensity: 0 });
     Gas.inject(state, 0, 0);
     Gas.advance(state, 250, room);
     assert.eq(Gas.advance(state, 3600000, room), 5);
@@ -90,8 +84,8 @@
     near(mass(state), 1);
   });
 
-  test('gas: mapped neighbors drive both diffusion and enclosure traversal', () => {
-    const state = Gas.create();
+  test('gas: mapped neighbors drive diffusion before the density cutoff', () => {
+    const state = Gas.create({ minDensity: 0 });
     const neighbors = (x, y) => [{ x: x + 10, y }, { x: x - 10, y }, { x, y: y + 1 }, { x, y: y - 1 }];
     const terrain = (x, y) => y === 0 && (x === 0 || x === 10) ? 'open' : 'wall';
     Gas.inject(state, 0, 0, .01);
@@ -99,6 +93,7 @@
     assert.eq(state.cells.size, 2);
     near(state.cells.get('10,0').density, .00125);
     near(mass(state), .01);
+    state.config.minDensity = .025;
     Gas.advance(state, 1000, (x, y) => x === 20 && y === 0 ? 'unknown' : terrain(x, y), neighbors);
     assert.eq(state.cells.size, 0);
   });

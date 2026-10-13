@@ -1,7 +1,7 @@
 // THE TIER QUOTA PYRAMID (Oct 2026).
 //
 // seedChestTiers replaces the count-threshold ladder for GENERATED chests:
-// each tile seeds ~1 T5, 5 T4, 11 T3, 18 T2 (x1..x2 as the budgeted count
+// each tile seeds ~1 T5, 5 T4, 11 T3, 36 T2 (x1..x2 as the budgeted count
 // runs 100..1000), picking the best POIs first (the MVT rank tag), spreading
 // each tier's seats round-robin across chest categories. Vista chests stand
 // outside; a nexus chest can win a tier but never spends a seat; sparse tiles
@@ -22,8 +22,8 @@
     assert.eq(n(5), 1, 'one T5');
     assert.eq(n(4), 5, 'five T4');
     assert.eq(n(3), 11, 'eleven T3');
-    assert.eq(n(2), 18, 'eighteen T2');
-    assert.eq(n(1), 55, 'the rest T1');
+    assert.eq(n(2), 36, 'thirty-six T2');
+    assert.eq(n(1), 37, 'the rest T1');
   });
 
   test('quota: a bus stop is always a regular crate — tier 1, no pyramid seat', () => {
@@ -46,13 +46,17 @@
       const objs = [];
       for (let i = 0; i < count; i++) objs.push(mk(i, ['roadside', 'food', 'civic', 'park'][i % 4], (i % 40) + 1));
       WorldGen.seedChestTiers(objs);
-      return objs.filter(o => o.tierSeed === 4).length;
+      return {
+        t4: objs.filter(o => o.tierSeed === 4).length,
+        t2: objs.filter(o => o.tierSeed === 2).length,
+      };
     };
     const t4 = (n) => Math.round(5 * (1 + Math.max(0, Math.min(1, (n - 100) / 900))));
-    assert.eq(build(100), t4(100), 'at 100 POIs the base quotas');
-    assert.eq(build(550), t4(550), 'halfway scaled');
-    assert.eq(build(1000), 10, 'double at 1000');
-    assert.eq(build(2000), 10, 'and never more than double');
+    for (const [count, t2] of [[100, 36], [550, 54], [1000, 72], [2000, 72]]) {
+      const seeded = build(count);
+      assert.eq(seeded.t4, t4(count), `T4 scales as before at ${count} POIs`);
+      assert.eq(seeded.t2, t2, `T2 scales from 36 to a cap of 72 at ${count} POIs`);
+    }
   });
 
   test('quota: a sparse tile fills from the top and leaves gaps', () => {
@@ -143,7 +147,7 @@ test('quota: each CAVE level runs its own pyramid over its mirrors', () => {
   assert.eq(n(5), 1, 'one T5 seat at this level');
   assert.eq(n(4), 5, 'five T4');
   assert.eq(n(3), 11, 'eleven T3');
-  assert.eq(n(2), 18, 'eighteen T2');
+  assert.eq(n(2), 36, 'thirty-six T2');
   assert.eq(chestTier(level.find(o => o.tierSeed === 5)), chestTierMaxFor(4),
     'the depth bonus reaches this level\'s cap');
   assert.eq(chestTier(level.find(o => o.tierSeed === 2)), 4, 'a T2 seed at depth 4 reads T4 (+2 bonus)');

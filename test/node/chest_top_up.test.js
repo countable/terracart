@@ -96,11 +96,11 @@
       assert.eq(chestTier(o), o.tierSeed); assert.eq(chestLootDepth(o), 0);
     }
   });
-  test('ambient crates: a tile under the low-tier quota fills to it with one-time tier-1 crates', () => {
-    const big = 24, Q = W.LOW_TIER_CHEST_QUOTA;
+  test('ambient crates: a sparse tile fills to its POI target with one-time tier-1 crates', () => {
+    const big = 240, Q = W.LOW_TIER_CHEST_QUOTA;
     assert.eq(Q, 200);
     const ctx = (t1) => ({ objects: Array.from({ length: t1 }, (_, i) => chest(1, i)),
-      grid: new Uint8Array(big * big).fill(W.T.GRASS), N: big, tx: 3, ty: 9, tileEdgeM: 168,
+      grid: new Uint8Array(big * big).fill(W.T.GRASS), N: big, tx: 3, ty: 9, tileEdgeM: big * W.CELL_M,
       spawnOpts: { occupied: new Set(), spawnWhy: new Uint16Array(big * big), roadMask: new Uint8Array(big * big) } });
     const go = (c) => { const it = W.topUpAmbientCratesSteps(c); let r; do { r = it.next(); } while (!r.done); return r.value; };
     const c = ctx(50), r = go(c), crates = c.objects.filter(o => o.ambientCrate);
@@ -119,22 +119,80 @@
     assert.eq(go(blocked).added, 0, 'only spawnable ground');
     assert.eq(go(ctx(0)).deficit, Q, 'the deficit is kept for the X-mark top-up');
   });
-  test('ambient crates: in a low-POI tile they lie thicker along the walking paths', () => {
-    const N = 120, R = W.AMBIENT_CRATE_PATH_CELLS;
-    assert.eq(W.AMBIENT_CRATE_PATH_BIAS, 4);
-    const grid = new Uint8Array(N * N).fill(W.T.GRASS);
-    for (const col of [20, 60, 100]) for (let y = 0; y < N; y++) grid[y * N + col] = W.T.PATH;
-    const c = { objects: [], grid, N, tx: 5, ty: 2, tileEdgeM: N * 7,
-      spawnOpts: { occupied: new Set(), spawnWhy: new Uint16Array(N * N), roadMask: new Uint8Array(N * N) } };
-    const it = W.topUpAmbientCratesSteps(c); let r; do { r = it.next(); } while (!r.done);
-    const crates = c.objects.filter(o => o.ambientCrate);
-    assert.eq(crates.length, W.LOW_TIER_CHEST_QUOTA, 'the count is the quota, unchanged');
-    const near = crates.filter(o => {
-      const ix = Math.floor(o.x / 7) % N;
-      return [20, 60, 100].some(col => Math.abs(ix - col) <= R);
-    }).length;
-    const share = 3 * (2 * R + 1) / N;   // the path band's share of the ground
-    assert.gt(near / crates.length, share * 2.5, `crates favour the path band (${near}/${crates.length}, ground share ${share.toFixed(2)})`);
+  function ambientContext() {
+    const N = 240;
+    return { objects: [], grid: new Uint8Array(N * N).fill(W.T.GRASS), N,
+      tx: 5, ty: 2, tileEdgeM: N * 7,
+      spawnOpts: { occupied: new Set(), spawnWhy: new Uint32Array(N * N), roadMask: new Uint8Array(N * N) } };
+  }
+  function ambientRun(c) {
+    const it = W.topUpAmbientCratesSteps(c); let r;
+    do { r = it.next(); } while (!r.done);
+    return r.value;
+  }
+  test('ambient crates: target scales with reward-spawnable area, not occupancy', () => {
+    const c = ambientContext(), size = c.N * c.N;
+    c.grid.fill(W.T.WATER, 0, size / 4);
+    c.spawnOpts.roadMask.fill(1, size / 4, size / 2);
+    const r = ambientRun(c);
+    assert.eq(r.spawnableCells, size / 2);
+    assert.eq(r.target, 100); assert.eq(r.threshold, 125); assert.eq(r.added, 100);
+    for (const o of c.objects) assert.gte(Math.floor(o.y / 7) % c.N, c.N / 2);
+    const repeat = ambientRun(c);
+    assert.eq(repeat.target, 100); assert.eq(repeat.added, 0);
+    for (const block of ['water', 'restricted', 'kerb']) {
+      const d = ambientContext();
+      if (block === 'water') d.grid.fill(W.T.WATER);
+      else d.spawnOpts.spawnWhy.fill(block === 'kerb' ? W.SPAWN_WHY.KERB : W.SPAWN_WHY.RESTRICTED);
+      const empty = ambientRun(d);
+      assert.eq(empty.target, 0); assert.eq(empty.deficit, 0); assert.eq(empty.added, 0);
+    }
+  });
+  test('ambient crates: compact viewer tiles get proportional fill independent of metre frame', () => {
+    const make = (N, tileEdgeM = N * W.CELL_M) => ({ objects: [],
+      grid: new Uint8Array(N * N).fill(W.T.GRASS), N, tx: 0, ty: 0, tileEdgeM,
+      spawnOpts: { occupied: new Set(), spawnWhy: new Uint32Array(N * N), roadMask: new Uint8Array(N * N) } });
+    const small = make(FloorViewerRegion.N), large = make(FloorViewerRegion.N * 2);
+    const a = ambientRun(small), b = ambientRun(large);
+    assert.eq(a.target, 12, '420 m square gets 12 crates, not 200');
+    assert.eq(a.added, 12);
+    assert.eq(b.target, 50, 'doubling the edge quadruples area before rounding');
+    const reframed = make(FloorViewerRegion.N, FloorViewerRegion.EDGE * 2);
+    assert.eq(ambientRun(reframed).added, a.added, 'player coordinate frame cannot alter density');
+    assert.eq(reframed.objects.map(o => o.id).join(), small.objects.map(o => o.id).join());
+    small.grid.fill(W.T.WATER, 0, small.grid.length / 2);
+    assert.eq(ambientRun(small).target, 6, 'excluded land still reduces the target');
+    assert.eq(ambientRun(make(7)).added, 0, 'tiny patches do not force a crate');
+  });
+  test('ambient crates: every POI type and tier counts, including services', () => {
+    for (const count of [50, 200, 249, 250, 300]) {
+      const c = ambientContext();
+      c.objects = Array.from({ length: count }, (_, i) => chest(3, i, { poiClass: i % 2 ? 'school' : 'atm' }));
+      c.dressings = [{ objects: c.objects.slice() }];
+      const r = ambientRun(c);
+      assert.eq(r.before, count, 'do not double count shared objects');
+      assert.eq(r.added, Math.max(0, 200 - count));
+    }
+    const c = ambientContext(); c.grid.fill(W.T.WATER, 0, c.grid.length / 2);
+    c.objects = Array.from({ length: 126 }, (_, i) => chest(3, i));
+    assert.eq(ambientRun(c).added, 0, 'above the scaled threshold');
+  });
+  test('ambient crates: loot follows underlying landcover and stays surface-only', () => {
+    for (const [terrain, theme] of [[W.T.GRASS, 'park'], [W.T.FOREST, 'park'],
+      [W.T.ORCHARD, 'farm'], [W.T.FARMLAND, 'farm'], [W.T.COMMERCIAL, 'commerce'],
+      [W.T.SCHOOL, 'school'], [W.T.ROCK, 'roadside']]) {
+      const c = ambientContext();
+      c.landcoverGrid = new Uint8Array(c.grid.length).fill(terrain);
+      ambientRun(c);
+      assert.eq(c.objects.length, 200);
+      for (const o of c.objects) {
+        assert.eq(chestThemeFor(o), theme);
+        assert.eq(chestTier(o), 1); assert.falsy(restocks(o));
+        assert.falsy(chestLook(o).macro); assert.falsy(chestLook(o).stand);
+      }
+      W.seedChestTiers(c.objects);
+      assert.truthy(c.objects.every(o => o.tierSeed === 1), 'restamping preserves filler tiers');
+    }
   });
   test('ambient crates: the X-mark top-up reads the deficit, off the cell hash, never the rng stream', () => {
     const src = SCENE_CREATURES_SRC;

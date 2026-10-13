@@ -305,8 +305,8 @@
         if (o.kind === 'mineralrock') assert.falsy(chestCells.has(cellOf(o)), 'rock ' + o.id + ' sits on a chest');
       }
       const lvl2 = await WorldGen.loadTile.atDepth(2, tx, ty, lat);
-      const deep = lvl2.objects.filter(o => o.kind === 'chest');
-      assert.eq(deep.length, 0, 'L2 solid stone has no floor for these non-clearing mirrors');
+      const deep = lvl2.objects.filter(o => o.kind === 'chest' && o.caveOf && !o.barrel);
+      assert.eq(deep.length, 2, 'city ground receives both mirrors');
     } finally {
       WorldGen.setDepth(0);
       WorldGen.tileCache.delete(key);

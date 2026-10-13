@@ -258,8 +258,8 @@
       body: 'Red toadstools crowd the verge, and the air smells of damp earth. You step around their spotted caps.',
       flash: 'Toadstools. They glow at dusk.' },
     // SCENIC PATHS (src/scenic.js) — a third SIZE, 'path', appended LAST so
-    // no older row's code moves. NEVER ROLLED: sizeOfTags never answers
-    // scenic rows stay out of the ordinary draw (share 0); the row is read off a
+    // no older row's code moves. pathWeight supplies the light path pool;
+    // share stays zero for the Small-road pool. Scenic classification reads a
     // way's SCENIC CLASS (Scenic.rowFor — shore → promenade, greenway,
     // park → parkpath). The columns are the street rows' own: `lampGlow` (the
     // lamps on the scenic metres shed it — lampGlowFor), and the story — one
@@ -284,7 +284,7 @@
       body: "Weeds crowd the old park path, and dry leaves cover its edges. You follow it through the overgrowth.",
       flash: 'The park path winds on.' },
     { id: 'golden', terrain: 'ROCK', affinities: ['formal'], size: 'minor', share: 0.02, rung: 'rare',
-      stone: { weathered: '#806747', restored: '#bd9650' }, lampDensity: 1,
+      stone: { weathered: '#96866b', restored: '#af9c75' }, lampDensity: 1,
       // A coin spree half the usual section long (sectionLimits): a whole
       // 500 m of coins on every long road would be a purse, not a find.
       sectionMaxM: 250,

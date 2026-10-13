@@ -608,9 +608,9 @@
   const SPAWN_WHY_HARD = W_.TERRAIN | W_.ROAD | W_.RESTRICTED | W_.QUIET | W_.KINDERGARTEN
     | W_.SENSITIVE_SITE | W_.BEHIND_HOUSE | W_.PRIVATE | W_.FARM_INTERIOR | W_.FARMLAND | W_.GOLF
     | W_.PIER_ACCESS | W_.JUNCTION;
-  // Geographic exclusions survive every dungeon floor. Terrain, roads and
-  // frontage are evaluated separately for the floor on which a spawn sits.
-  const SPAWN_WHY_ALL_FLOORS = W_.FARM_INTERIOR | W_.GOLF;
+  // Surface access and safety survive every dungeon floor. Only terrain is
+  // re-evaluated from the current floor; digging never removes safety zones.
+  const SPAWN_WHY_ALL_FLOORS = (SPAWN_WHY_HARD | W_.KERB | W_.SENSITIVE | W_.JUNCTION_SOFT) & ~W_.TERRAIN;
   function floorSpawnWhy(surface) {
     const source = surface.zone?.caveSource || surface.caveSource || surface;
     const grid = source.baseGrid || source.grid;
@@ -862,9 +862,9 @@
   }
   // ── Tier seeds: the per-tile quota pyramid (Oct 2026) ─────────────────────
   // The count-threshold ladder is replaced by QUOTAS. Each tile seeds about
-  // 1 T5, 5 T4, 11 T3 and 18 T2 among its budgeted POI chests — every other
+  // 1 T5, 5 T4, 11 T3 and 36 T2 among its budgeted POI chests — every other
   // chest stays T1 — scaling x1..x2 as the budgeted count runs 100..1000, so
-  // a dense downtown holds up to 2/10/22/36 promoted chests where a suburb
+  // a dense downtown holds up to 2/10/22/72 promoted chests where a suburb
   // holds the base pyramid. Seats go to the BEST POIs first: the MVT rank
   // tag (every tile POI carries one; lower = more notable), then id as the
   // deterministic tiebreak. Within a tier the seats round-robin across chest
@@ -877,7 +877,7 @@
   // matter more than completeness. Runs at the end of the rasterize steps
   // (zones and scenic stamped already) and again when a settled tile restamps
   // (loadTile after bin injection).
-  const TIER_SEED_QUOTA = { 5: 1, 4: 5, 3: 11, 2: 18 };
+  const TIER_SEED_QUOTA = { 5: 1, 4: 5, 3: 11, 2: 36 };
   const TIER_SEED_DENSE_AT = 100, TIER_SEED_DENSE_MAX_AT = 1000;
   function seedChestTiers(objects, opts = {}) {
     // Underground, the pool is the CAVE MIRRORS (isDensityChest excludes
@@ -982,59 +982,45 @@
     result.shortfall = need;
     return result;
   }
-  // ── THE LOW-TIER QUOTA (Oct 2026): a tile below LOW_TIER_CHEST_QUOTA
-  // tier-1 chests (POI crates, top-ups, dead-end and ambient crates alike)
-  // tops up with AMBIENT CRATES — one-time tier-1 supply crates (`crate`, no
-  // poiClass) on 'reward' cells anywhere in the tile, lowest cell hash first,
-  // until it reaches the quota. Runs after topUpChestsSteps, so variant
-  // footprints fill first. Counting its own crates keeps a repeat pass a
-  // no-op. The tile's shortfall before the crates (`deficit`) is kept on the
-  // entry (lowTierDeficit): spawnInTile tops up X marks from it
-  // (scene_creatures.js X_TOP_UP).
+  // Sparse tiles fill to an area-scaled POI target with one-time T1 chests.
+  // Occupancy limits placement, not land area: adding a chest must not shrink
+  // the target on the next pass. Keep the pre-fill deficit for ambient X marks.
   const LOW_TIER_CHEST_QUOTA = 200;
-  // ALONG THE WALKING PATHS (owner, Oct 2026): a seat within
-  // AMBIENT_CRATE_PATH_CELLS of a footpath (T.PATH) is AMBIENT_CRATE_PATH_BIAS
-  // times likelier to win — its hash score is divided by the bias before the
-  // lowest-score draw, so the count is unchanged and only where they lie moves
-  // toward the paths a walker actually takes.
-  const AMBIENT_CRATE_PATH_CELLS = 2;
-  const AMBIENT_CRATE_PATH_BIAS = 4;
-  // Cells within `r` (Chebyshev) of a footpath, as a 0/1 mask: two separable
-  // passes, rows then columns, so it costs O(N² · r) and never a 2-D scan.
-  function* nearPathMaskSteps(grid, N, r) {
-    const rows = new Uint8Array(N * N), out = new Uint8Array(N * N);
-    for (let y = 0; y < N; y++) {
-      if ((y & 31) === 0) yield 'ambient crate path mask';
-      let last = -Infinity;
-      for (let x = 0; x < N; x++) if (grid[y * N + x] === T.PATH) last = x; else if (x - last <= r) rows[y * N + x] = 1;
-      last = Infinity;
-      for (let x = N - 1; x >= 0; x--) if (grid[y * N + x] === T.PATH) { last = x; rows[y * N + x] = 1; } else if (last - x <= r) rows[y * N + x] = 1;
-    }
-    for (let x = 0; x < N; x++) {
-      if ((x & 31) === 0) yield 'ambient crate path mask';
-      for (let y = 0; y < N; y++) {
-        if (!rows[y * N + x]) continue;
-        for (let d = -r; d <= r; d++) { const yy = y + d; if (yy >= 0 && yy < N) out[yy * N + x] = 1; }
-      }
-    }
-    return out;
-  }
-  function* topUpAmbientCratesSteps({ objects, dressings = [], grid, N, tx, ty, tileEdgeM, spawnOpts }) {
+  // Preserve the quota around a typical mid-latitude tile (240 seven-metre
+  // cells per edge). Count canonical cells, not tileEdgeM: that coordinate
+  // frame can vary with the player's latitude without changing the world.
+  const AMBIENT_REFERENCE_CELLS = 240 * 240;
+  const AMBIENT_POI_THRESHOLD = 250;
+  const AMBIENT_CHEST_POI = {
+    [T.GRASS]: 'park', [T.PARK]: 'park', [T.FOREST]: 'park',
+    [T.GROVE]: 'park', [T.WETLAND]: 'park', [T.PLAYGROUND]: 'park', [T.PITCH]: 'park',
+    [T.FARMLAND]: 'farm', [T.ORCHARD]: 'farm',
+    [T.COMMERCIAL]: 'shop', [T.SCHOOL]: 'school',
+  };
+  function* topUpAmbientCratesSteps({ objects, dressings = [], grid, landcoverGrid = grid, N, tx, ty, tileEdgeM, spawnOpts }) {
     let count = 0;
+    const seen = new Set();
     for (const list of [objects, ...dressings.map(d => d?.objects || [])]) {
       for (let j = 0; j < list.length; j++) {
         if ((j & 255) === 0) yield 'ambient crate census';
-        const o = list[j];
-        if (o.kind !== 'chest' || o.fixedLoot || o.depth > 0 || o.caveOf) continue;
-        if (!o.crate) {
-          const look = chestLook(o);
-          if (look.stand || look.bike || look.barrel || look.macro) continue;
-        }
-        if (chestTier(o) === 1) count++;
+        const o = list[j], key = o.id ?? o;
+        if (seen.has(key) || o.fixedLoot || o.depth > 0 || o.caveOf) continue;
+        if (!o.poiClass && !o.crate && !o.chestTopUp) continue;
+        seen.add(key);
+        count++;
       }
     }
-    const deficit = Math.max(0, LOW_TIER_CHEST_QUOTA - count);
-    const result = { before: count, deficit, added: 0 };
+    let spawnableCells = 0;
+    const areaOpts = { ...spawnOpts, occupied: null };
+    for (let i = 0; i < N * N; i++) {
+      if ((i & 1023) === 0) yield 'ambient crate area';
+      if (isSpawnCell(grid, N, N, i % N, Math.floor(i / N), areaOpts, 'reward')) spawnableCells++;
+    }
+    const fraction = spawnableCells / AMBIENT_REFERENCE_CELLS;
+    const target = Math.floor(LOW_TIER_CHEST_QUOTA * fraction);
+    const threshold = AMBIENT_POI_THRESHOLD * fraction;
+    const deficit = count < threshold ? Math.max(0, target - count) : 0;
+    const result = { before: count, target, threshold, spawnableCells, deficit, added: 0 };
     if (!deficit) return result;
     // The best `deficit` seats by (score, i), kept in a bounded max-heap so a
     // large tile never sorts every eligible cell in one block.
@@ -1050,13 +1036,12 @@
         [heap[k], heap[m]] = [heap[m], heap[k]]; k = m;
       }
     };
-    const nearPath = yield* nearPathMaskSteps(grid, N, AMBIENT_CRATE_PATH_CELLS);
     for (let i = 0; i < N * N; i++) {
       if ((i & 1023) === 0) yield 'ambient crate seats';
       const ix = i % N, iy = (i - ix) / N;
       if (!isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'reward')) continue;
       const raw = (cellHash(tx, ty, ix, iy) ^ 0x2c1b3d5) >>> 0;
-      const seat = { i, ix, iy, score: nearPath[i] ? Math.floor(raw / AMBIENT_CRATE_PATH_BIAS) : raw };
+      const seat = { i, ix, iy, score: raw };
       if (heap.length < deficit) {
         heap.push(seat);
         for (let k = heap.length - 1; k > 0;) {
@@ -1070,7 +1055,8 @@
     for (const { i, ix, iy } of seats) {
       objects.push(makeObject('chest', (tx + (ix + 0.5) / N) * tileEdgeM,
         (ty + (iy + 0.5) / N) * tileEdgeM, cellId('crate_ambient', tx, ty, ix, iy),
-        { crate: true, tierSeed: 1, chestTopUp: true, ambientCrate: true }));
+        { crate: true, tierSeed: 1, chestTopUp: true, ambientCrate: true,
+          poiClass: AMBIENT_CHEST_POI[landcoverGrid[i]] || 'shelter' }));
       spawnOpts.occupied.add(i);
       result.added++;
     }
@@ -2608,9 +2594,9 @@
   //   underground       → CAVE_ORE_SHARE of the rocks for each of the
   //                       level's ore tiers (caveOreTiers, below), the rest
   //                       plain: level 1 LEVEL1_COPPER_SHARE copper (5 %, a
-  //                       taste), level 2 90 %, then 80 %
+  //                       taste), level 3 90 %, then 80 %
   const CAVE_ORE_SHARE = 0.10;
-  // The first level down is no tier's mine (caveOreTiers(1) is empty), but it
+  // The first two levels are no tier's mine (their ore tiers are empty), but this
   // is where a wood pick first swings, so a thin seam of copper runs through
   // it (owner, Oct 2026): this share of its rocks, the rest plain. The ore
   // table for a level with no tiers of its own is copper (caveOreWeights),
@@ -2618,27 +2604,16 @@
   const LEVEL1_COPPER_SHARE = 0.05;
   function caveRockP(depth) {
     if (!depth || depth <= 0) return 0.90;
-    if (depth === 1) return 1 - LEVEL1_COPPER_SHARE;
+    if (depth <= 2) return 1 - LEVEL1_COPPER_SHARE;
     return 1 - CAVE_ORE_SHARE * caveOreTiers(depth).length;
   }
 
-  // EACH LEVEL IS ITS TIER'S MINE. Level N's ORE ROCKS — the ones drawn with
-  // ore in them, which always break into their bar — are tier N and the tier
-  // below, CAVE_ORE_SHARE (10 %) of the rocks each: level 3 is 10 % iron,
-  // 10 % copper. Only REAL ore counts (tier 2, copper, and up): a "tier 1" ore
-  // rock breaks as plain stone (interactables.js isPlain), so level 1 is no
-  // tier's mine — it carries only the thin LEVEL1_COPPER_SHARE seam above —
-  // and level 2 is 10 % copper. It is the progression ladder in the rocks: a
-  // tier-N ore wants a pick of tier N-1 (requiredTier), so level 2's copper
-  // forges the pick that opens level 3's iron, down to frost and crimson on
-  // level 7 (and below — the table tops out there). Tier 4+ ore carries its
-  // gem (sapphire, ruby, emerald, then the diamond on 7).
-  // Plain rocks keep their own hidden bar roll on break (interactables.js,
-  // 1/(2t²) per tier) on every level — this table is only the visible ore.
-  // Until Sep 2026 every level below the first used the surface's spread, so
-  // frost was 3 % of ore on level 7 exactly as on level 2.
+  // Deep stone (L3) is the copper mine; each deeper floor adds a tier,
+  // retaining the previous tier, up to tiers 6-7 on L8 and below. L1-2
+  // carry only the thin copper seam. Plain rocks retain their hidden bar
+  // roll on break; these weights describe visible ore-bearing rocks.
   function caveOreTiers(depth) {
-    const top = Math.max(1, Math.min(7, depth | 0));
+    const top = Math.max(1, Math.min(7, (depth | 0) - 1));
     return [top - 1, top].filter((t) => t >= 2);
   }
   function caveOreWeights(depth) {
@@ -6773,7 +6748,7 @@
     const chestTopUp = yield* topUpChestsSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
       zone, streetDress, grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
     chestTopUp.ambient = yield* topUpAmbientCratesSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
-      grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
+      landcoverGrid: caveSource.grid, grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
     assignScholarFallback(deduped);
     return { grid, owners, ownerKeys, syntheticBuildingCells, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
   }
@@ -8875,7 +8850,7 @@
     [[0,0],[1,0],[1,1],[2,1],[2,2]],
   ];
   const CAVE_PASSES = [
-    { id: 'chasms', salt: 0x43A51F27, when: L => L.depth === 1,
+    { id: 'chasms', spawnClass: 'hazard', salt: 0x43A51F27, when: L => L.depth === 1,
       pivot: 18, from: 4, fire: () => .4,
       setup: L => {
         const protectedCells = new Set(L.occupied);
@@ -8900,7 +8875,8 @@
         for (const c of cells) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
           const x = c.lix + dx, y = c.liy + dy, i = y * L.N + x;
           if (x < 0 || y < 0 || x >= L.N || y >= L.N || L.grid[i] !== T.CAVE_FLOOR
-            || protectedCells.has(i) || L.occupied.has(i)) return [];
+            || protectedCells.has(i) || L.occupied.has(i)
+            || !isSpawnCell(L.grid, L.N, L.N, x, y, { spawnWhy: L.spawnWhy }, 'hazard')) return [];
         }
         return cells;
       },
@@ -8948,7 +8924,7 @@
           (liy < N - 1 && grid[(liy + 1) * N + lix] === T.CAVE_WALL);
       },
       emit: (L, c, p) => L.objects.push({ kind: 'torch', x: p.x, y: p.y, id: cellId(`torch_w_${L.depth}`, L.tx, L.ty, c.lix, c.liy), depth: L.depth }) },
-    { id: 'coins', salt: 0xFD7046C5, pivot: CAVE_COIN_PIVOT, from: 0, tries: 1,
+    { id: 'coins', spawnClass: 'reward', salt: 0xFD7046C5, pivot: CAVE_COIN_PIVOT, from: 0, tries: 1,
       // Fire, x and y are drawn for every pivot, fired or not, so the
       // sequence is stable.
       pick: (rng, px, py) => {
@@ -8957,7 +8933,7 @@
         return fire ? { lix, liy } : null;
       },
       emit: (L, c, p) => L.coins.push({ kind: 'coindrop', x: p.x, y: p.y, id: cellId(`ccoin_${L.depth}`, L.tx, L.ty, c.lix, c.liy), seeded: true }) },
-    { id: 'treasureMarks', salt: 0xB55A4F09,
+    { id: 'treasureMarks', spawnClass: 'reward', salt: 0xB55A4F09,
       when: () => !(typeof window !== 'undefined' && window.__TEST_MODE),
       count: (rng) => Math.round((CAVE_X_MIN + Math.floor(rng() * CAVE_X_SPAN)) * X_MARK_FREQUENCY), tries: CAVE_X_TRIES, pick: anyCell,
       emit: (L, c, p) => L.treasures.push({ x: p.x, y: p.y, id: cellId(`treasure_c${L.depth}`, L.tx, L.ty, c.lix, c.liy) }) },
@@ -8979,14 +8955,14 @@
       count: (rng) => FLOOR_TORCH_MIN + Math.floor(rng() * FLOOR_TORCH_SPAN), tries: FLOOR_TORCH_TRIES, pick: anyCell,
       emit: (L, c, p) => L.wildplants.push(makeWildplant('torch', p.x, p.y,
         cellId(`ctorch_${L.depth}`, L.tx, L.ty, c.lix, c.liy), { _ix: c.lix, _iy: c.liy })) },
-    { id: 'barrels', salt: 0x7FEB352D, when: (L) => L.depth === CAVE_BARREL_DEPTH,
+    { id: 'barrels', spawnClass: 'reward', salt: 0x7FEB352D, when: (L) => L.depth === CAVE_BARREL_DEPTH,
       count: (rng, L) => Math.max(0, CAVE_BARREL_MIN + Math.floor(rng() * CAVE_BARREL_SPAN)
         - L.objects.filter(o => o.caveArea && o.barrel).length), tries: CAVE_BARREL_TRIES, pick: anyCell,
       emit: (L, c, p) => L.objects.push(makeObject('chest', p.x, p.y,
         cellId(`cbarrel_${L.depth}`, L.tx, L.ty, c.lix, c.liy), { barrel: true, depth: L.depth })) },
     // Sample free floor without replacement so every tile has its full quota
     // whenever enough eligible cells remain. Appending preserves older finds.
-    { id: 'drills', salt: 0xD4115A7E,
+    { id: 'drills', spawnClass: 'reward', salt: 0xD4115A7E,
       setup: (L) => {
         // Shallow route dressing lands after every ordinary floor pass but
         // before drills claim the final free seats.
@@ -8994,6 +8970,7 @@
           global.Underground.decorate(L.underground, L.grid, L.objects, L.wildplants, L.occupied);
           L.underground = null;
         }
+        if (L.cityDrillsPlaced) return [];
         const reserved = new Set(), seats = [];
         for (const o of L.objects) if (o.kind === 'staircase') {
           const { lix, liy } = cellIndexOf(L.tx, L.ty, o.x, o.y, L.tileEdgeM, L.N);
@@ -9003,7 +8980,8 @@
           }
         }
         for (let i = 0; i < L.grid.length; i++) {
-          if (L.grid[i] === T.CAVE_FLOOR && !L.occupied.has(i) && !reserved.has(i)) seats.push(i);
+          if (L.grid[i] === T.CAVE_FLOOR && !L.occupied.has(i) && !reserved.has(i)
+            && isSpawnCell(L.grid, L.N, L.N, i % L.N, Math.floor(i / L.N), { spawnWhy: L.spawnWhy }, 'reward')) seats.push(i);
         }
         return seats;
       },
@@ -9025,12 +9003,14 @@
     if (row.when && !row.when(L)) return;
     if (row.run) { row.run(L); return; }
     const { grid, N, occupied } = L;
+    const cls = row.spawnClass || 'minor';
     const st = row.setup ? row.setup(L) : null;
     if (row.pre) row.pre(L, st);
     const rng = row.rng ? row.rng(L) : makeRng(tileStreamSeed(L.tx, L.ty, row.salt, L.depth));
     const seat = (c) => {
       if (!c || c.lix < 0 || c.liy < 0 || c.lix >= N || c.liy >= N) return false;
       const idx = c.liy * N + c.lix;
+      if (!isSpawnCell(grid, N, N, c.lix, c.liy, { spawnWhy: L.spawnWhy }, cls)) return false;
       if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx) || (row.ok && !row.ok(L, c.lix, c.liy))) return false;
       occupied.add(idx);
       row.emit(L, c, cellCentreM(L.tx, L.ty, c.lix, c.liy, L.tileEdgeM, N), st);
@@ -9141,9 +9121,10 @@
   //                negative mirror), 'surfacePaint' the surface's own
   //                generated paint, 'clearings' only the open-land surface
   //                classes (this mode also seeds `areas` for settlements),
-  //                or 'open' every cell.
+  //                'city' every non-building cell, or 'open' every cell.
   //   biome        the label render and lighting read (entry.undergroundBiome)
   //   lava         this floor's walls under surface BUILDINGS turn to lava
+  //   roadWalls    'small' limits road-derived walls to Small roads
   //   streetMirror Underground projects surface paths/streets as an overlay
   //   fallLandings 3x3 pockets under the floor above's ground holes
   //   chestSource  whose POI chests mirror down: 'above' | 'surface'
@@ -9163,25 +9144,34 @@
   const FLOOR_PROFILES = Object.freeze([
     Object.freeze({ depth: 1, flintRockP: .25, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
       pressureTraps: false, caveAreas: caveAreaProfile([50, 15, 30, 5, 15], false, 12, false),
-      streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'above', streetMirror: true,
+      streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'above', roadWalls: 'small', streetMirror: true,
       fallLandings: false, chestSource: 'above', quarryProvenance: true, lava: false }),
-    Object.freeze({ depth: 2, arrivalStory: 'dungeon_stone', entryKey: null,
+    Object.freeze({ depth: 2, arrivalStory: 'dungeon_city', entryKey: null,
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
+      warren: Object.freeze({ roomCells: 10, enemyChance: .45, enemies: Object.freeze(['club_goblin', 'spear_goblin', 'archer_goblin', 'goblin_trapper']) }),
       pressureTraps: true, caveAreas: caveAreaProfile([20, 45, 25, 10, 15], true, 16, true),
-      streetGems: Object.freeze({ region: .10, ordinary: .08 }), biome: 'deep_stone', terrain: 'clearings', streetMirror: true,
+      streetGems: Object.freeze({ region: .10, ordinary: .08 }), biome: 'goblin_city', terrain: 'city', streetMirror: true,
       fallLandings: true, chestSource: 'above', quarryProvenance: false, lava: false }),
-    Object.freeze({ depth: 3, arrivalStory: 'dungeon_underdark', entryKey: null,
+    Object.freeze({ depth: 3, arrivalStory: 'dungeon_stone', entryKey: null,
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'deep_stone', terrain: 'clearings', streetMirror: false,
+      fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
+    Object.freeze({ depth: 4, arrivalStory: 'dungeon_underdark', entryKey: null,
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'underdark', terrain: 'open', streetMirror: false,
       fallLandings: false, chestSource: 'surface', quarryProvenance: false, lava: false }),
-    Object.freeze({ depth: 4, arrivalStory: 'cave', entryKey: null,
+    Object.freeze({ depth: 5, arrivalStory: 'dungeon_haunted', entryKey: 'level4Key',
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
-      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'surfacePaint', streetMirror: false,
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'haunted_city', terrain: 'surfacePaint', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
-    Object.freeze({ depth: 5, arrivalStory: 'cave', entryKey: 'level4Key',
+    Object.freeze({ depth: 6, arrivalStory: 'dungeon_lava', entryKey: 'level4Key',
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
-      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'above', streetMirror: false,
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'lava', terrain: 'above', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: true }),
+    ...[7, 8].map(depth => Object.freeze({ depth, arrivalStory: 'dungeon_dragon', entryKey: 'level4Key',
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: depth === 7 ? 'dragon' : 'dragon_roost', terrain: 'above', streetMirror: false,
+      fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false })),
   ]);
   const DEFAULT_FLOOR_PROFILE = Object.freeze({ arrivalStory: 'cave', entryKey: 'level4Key',
     vents: Object.freeze(['poison', 'fire', 'paralysis']),
@@ -9205,6 +9195,10 @@
       fromSurfacePaint = profile.terrain === 'surfacePaint';
     for (let i = 0; i < grid.length; i++) {
       if (open) { grid[i] = T.CAVE_FLOOR; continue; }
+      if (profile.terrain === 'city') {
+        grid[i] = isBuildingTerrain(source[i]) ? T.CAVE_WALL : T.CAVE_FLOOR;
+        continue;
+      }
       if (clearing) {
         const t = source[i];
         const width = surface.cellsPerEdge || source.length;
@@ -9214,6 +9208,10 @@
         if (clear) areas[i] = t === T.COMMERCIAL ? 2 : 1;
       } else {
         const terrain = fromSurfacePaint ? source[i] : aboveGrid[i];
+        if (profile.roadWalls === 'small' && (isRoadTerrain(terrain) || terrain === T.PATH)) {
+          grid[i] = terrain === T.ROAD ? T.CAVE_WALL : T.CAVE_FLOOR;
+          continue;
+        }
         grid[i] = isWalkable(terrain) && !isRoadTerrain(terrain) && terrain !== T.CAVE_LAVA
           ? T.CAVE_FLOOR : T.CAVE_WALL;
       }
@@ -9223,7 +9221,7 @@
 
   // One settlement per connected clearing. Its open lanes, shrine/treasure,
   // and resident seats are claimed before rocks or monsters are scattered.
-  function undergroundClearings(areas, grid, N, tx, ty, tileEdgeM, objects, occupied) {
+  function undergroundClearings(areas, grid, N, tx, ty, tileEdgeM, objects, occupied, depth) {
     const seen = new Uint8Array(areas.length), residents = [], clearings = [];
     for (let seed = 0; seed < areas.length; seed++) {
       if (!areas[seed] || seen[seed]) continue;
@@ -9253,9 +9251,9 @@
       };
       const chest = take();
       if (chest) objects.push(makeObject('chest', chest.x, chest.y, cellId('deep_treasure', tx, ty, chest.i % N, Math.floor(chest.i / N)),
-        { depth: 2, poiClass: kind === 2 ? 'shop' : 'park', name: name + ' cache', rank: 1 }));
+        { depth, poiClass: kind === 2 ? 'shop' : 'park', name: name + ' cache', rank: 1 }));
       const shrine = kind === 1 && take();
-      if (shrine) objects.push(makeObject('grove_shrine', shrine.x, shrine.y, cellId('deep_grove', tx, ty, shrine.i % N, Math.floor(shrine.i / N)), { depth: 2 }));
+      if (shrine) objects.push(makeObject('grove_shrine', shrine.x, shrine.y, cellId('deep_grove', tx, ty, shrine.i % N, Math.floor(shrine.i / N)), { depth }));
       for (let n = 0; n < (kind === 2 ? 3 : 1); n++) {
         const seat = take(); if (!seat) break;
         residents.push({ x: seat.x, y: seat.y, id: cellId('deep_resident', tx, ty, seat.i % N, Math.floor(seat.i / N)), culture: kind === 2 ? 'market' : 'grove', dwarf: kind === 2 });
@@ -9314,7 +9312,7 @@
     if (surface.status === 'loading') await surface.promise;
     const { grid, areas } = undergroundTerrain(surface, aboveGrid, depth);
     const spawnWhy = floorSpawnWhy(surface);
-    for (let i = 0; i < areas.length; i++) if (spawnWhy[i]) areas[i] = 0;
+    for (let i = 0; i < areas.length; i++) if (spawnWhy[i] & (SPAWN_WHY_HARD | spawnBlocks('attractor'))) areas[i] = 0;
     // THE LAVA LEVEL. By here a building's footprint is indistinguishable from
     // a road's or a lake's — every cave level carries them all as CAVE_WALL —
     // so ask the SURFACE, the one grid that still knows (its generated layer,
@@ -9342,7 +9340,7 @@
     for (const s of downAbove) {
       const { lix: ulix, liy: uliy } = cellIndexOf(x, y, s.x, s.y, tileEdgeM, N);
       const inTile = ulix >= 0 && ulix < N && uliy >= 0 && uliy < N;
-      if (!inTile || spawnWhy[uliy * N + ulix]) continue;
+      if (!inTile || (spawnWhy[uliy * N + ulix] & (SPAWN_WHY_HARD | spawnBlocks('cave')))) continue;
       // Way back up: stand on it the moment you descend.
       objects.push(makeObject('staircase', s.x, s.y, caveStairId('up', depth, x, y, ulix, uliy),
         { dir: 'up', depth }));
@@ -9365,7 +9363,7 @@
       const floor = randomFloorCell(grid, N, x, y, tileEdgeM, rng, -1, spawnWhy);
       const seat = floor || { lix: Math.floor(N / 2), liy: Math.floor(N / 2) };
       const p = floor || cellCentreM(x, y, seat.lix, seat.liy, tileEdgeM, N);
-      if (!spawnWhy[seat.liy * N + seat.lix])
+      if (!(spawnWhy[seat.liy * N + seat.lix] & (SPAWN_WHY_HARD | spawnBlocks('cave'))))
         objects.push(makeObject('staircase', p.x, p.y, caveStairId('down', depth, x, y, seat.lix, seat.liy), { dir: 'down', depth }));
     }
     const landingCells = new Set();
@@ -9378,7 +9376,7 @@
         const cx = c.lix + dx, cy = c.liy + dy;
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
         const i = cy * N + cx;
-        if (spawnWhy[i]) continue;
+        if (spawnWhy[i] & SPAWN_WHY_HARD) continue;
         grid[i] = T.CAVE_FLOOR; landingCells.add(i);
       }
     }
@@ -9395,19 +9393,23 @@
     for (const i of landingCells) occupied.add(i);
     // Every cave placement pass shares these reservations, including mirrors,
     // torches, gem seams and rewards. Keep the actual terrain walkable.
-    for (let i = 0; i < spawnWhy.length; i++) if (spawnWhy[i]) occupied.add(i);
-    // Reuse the pure Nexus focal-layout planner as a reservation prepass: generic D2
+    for (let i = 0; i < spawnWhy.length; i++) if (spawnWhy[i] & SPAWN_WHY_HARD) occupied.add(i);
+    // Reuse the pure Nexus focal-layout planner as a reservation prepass: generic clearing
     // settlements must not consume its shrine/cache/encounter space first.
     // Final planning below sees the surviving, tiered mirrored caches.
     const proposedAreas = global.CaveAreas.plan({ surface, grid, N, tx: x, ty: y, tileEdgeM, depth,
       objects, occupied, spawnWhy, routeLane: underground?.lane, routeStreetCells: underground?.streetCells });
     const clearingOccupied = new Set([...occupied, ...proposedAreas.reserved]);
-    const { clearings, residents } = undergroundClearings(areas, grid, N, x, y, tileEdgeM, objects, clearingOccupied);
+    const { clearings, residents } = undergroundClearings(areas, grid, N, x, y, tileEdgeM, objects, clearingOccupied, depth);
     for (const i of clearingOccupied) if (!proposedAreas.reserved.has(i)) occupied.add(i);
     const chestSources = profile.chestSource === 'surface'
       ? (surface.genObjects || surface.objects || []) : aboveObjects;
-    for (const c of caveChestsFrom(chestSources, grid, N, x, y, tileEdgeM, depth, occupied)) {
+    const chestOccupied = new Set(occupied);
+    for (let i = 0; i < spawnWhy.length; i++) if (spawnWhy[i] & spawnBlocks('reward')) chestOccupied.add(i);
+    for (const c of caveChestsFrom(chestSources, grid, N, x, y, tileEdgeM, depth, chestOccupied)) {
       objects.push(c);
+      const cell = cellIndexOf(x, y, c.x, c.y, tileEdgeM, N);
+      occupied.add(cell.liy * N + cell.lix);
     }
     // This level's own quota pyramid, over this level's mirrors.
     seedChestTiers(objects, { cave: true });
@@ -9425,18 +9427,32 @@
     const wildplants = [];
     const caveAreas = global.CaveAreas.plan({ surface, grid, N, tx: x, ty: y, tileEdgeM, depth,
       objects, occupied, spawnWhy, routeLane: underground?.lane, routeStreetCells: underground?.streetCells });
+    // Authored focuses keep first claim; drills precede the background city.
+    if (profile.warren) {
+      const drillOccupied = new Set([...occupied, ...caveAreas.reserved]);
+      const before = objects.length;
+      runCavePass(cavePass('drills'), cavePassLevel(grid, N, x, y, tileEdgeM, depth,
+        drillOccupied, { objects, wildplants, spawnWhy }));
+      for (const object of objects.slice(before)) {
+        const cell = cellIndexOf(x, y, object.x, object.y, tileEdgeM, N);
+        occupied.add(cell.liy * N + cell.lix);
+      }
+    }
+    global.CaveAreas.planCity({ surface, grid, N, tx: x, ty: y, tileEdgeM, depth,
+      objects, occupied, spawnWhy, routeLane: underground?.lane, routeCells: underground?.routeAt?.keys() }, caveAreas);
     global.CaveAreas.apply(caveAreas, grid, objects, wildplants, occupied);
     // Area ownership includes its empty banks and approaches. Own placements
     // use real occupancy; ordinary floor passes also respect the whole area.
     const ambientOccupied = new Set([...occupied, ...caveAreas.reserved]);
     objects.push(...caveQuarryGemsFrom(aboveObjects, grid, N, x, y, tileEdgeM, depth, ambientOccupied));
-    const level = cavePassLevel(grid, N, x, y, tileEdgeM, depth, ambientOccupied, { objects, wildplants });
+    const level = cavePassLevel(grid, N, x, y, tileEdgeM, depth, ambientOccupied, { objects, wildplants, spawnWhy });
     level.underground = underground;
+    level.cityDrillsPlaced = !!profile.warren;
     for (const row of CAVE_PASSES) runCavePass(row, level);
     stampCaveQuarryRocks(objects, above, N, x, y, tileEdgeM, depth);
     const extraTreasures = level.treasures, caveCoinSeeds = level.coins;
     const entry = {
-      status: 'ready', grid, spawnWhy, geologyGrid, caveAreas, underground, cellsPerEdge: N, tileEdgeM, depth,
+      status: 'ready', grid, spawnWhy, roadClass: surface.roadClass?.slice(), geologyGrid, caveAreas, underground, cellsPerEdge: N, tileEdgeM, depth,
       undergroundBiome: profile.biome,
       undergroundAreas: areas, undergroundClearings: clearings, undergroundResidents: residents,
       undergroundReserved: ambientOccupied, surfaceRoadMask: surface.roadMask,
@@ -9634,7 +9650,7 @@
     SPAWN_SENSITIVE_BUFFER_M,
     RESTRICTED_LAND, KINDERGARTEN_LAND, COMMERCIAL_GROUND, NEAREST_POI_MAX_M, COMMERCIAL_POI_KIND, commercialPoiKind, commercialPoiField, POI_PUBLIC, POI_PRIVATE, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
-    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, assignScholarFallback, seedChestTiers, TIER_SEED_QUOTA, topUpChestsSteps, CHEST_TOP_UP_MIN, topUpAmbientCratesSteps, LOW_TIER_CHEST_QUOTA, AMBIENT_CRATE_PATH_CELLS, AMBIENT_CRATE_PATH_BIAS, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
+    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, assignScholarFallback, seedChestTiers, TIER_SEED_QUOTA, topUpChestsSteps, CHEST_TOP_UP_MIN, topUpAmbientCratesSteps, LOW_TIER_CHEST_QUOTA, AMBIENT_POI_THRESHOLD, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
     ARENA_DEPTH, SKY_DEPTH, FLOOR_PROFILES, DEFAULT_FLOOR_PROFILE, floorProfile, undergroundTerrain, undergroundClearings, caveQuarryGemsFrom, stampCaveQuarryRocks, caveChestsFrom, CAVE_CHEST_SEEK_CELLS, capCaveChests, CAVE_LOWEST_TIER_CHEST_LIMIT,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms, CAVE_PASSES, runCavePass, cavePassLevel, spawnCaveRocks,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,

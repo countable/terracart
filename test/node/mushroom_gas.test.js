@@ -76,6 +76,36 @@
     assert.falsy(Conditions.active(s.save, 'confused'), 'single-puff confusion ends within ten seconds');
   }));
 
+  test('gas kinds: every kind fully clears below the same threshold in a sealed room', () => fixture((s, e) => {
+    e.grid.fill(W.T.CAVE_WALL); e.grid[8 * N + 8] = W.T.PARK;
+    for (const kind of Object.keys(MushroomGas.KINDS))
+      MushroomGas.emit(s, 8, 8, Gas.DEFAULTS.minDensity / 2, kind);
+    advance(s, 1000);
+    assert.eq(MushroomGas.cells(s).length, 0);
+    for (const gas of Object.values(MushroomGas.state(s).gases)) assert.eq(gas.cells.size, 0);
+  }));
+
+  test('confusion gas: dose duration scales with density up to the shared condition limit', () => fixture(s => {
+    const st = MushroomGas.state(s), doses = [];
+    s._applyCondition = (kind, opts) => doses.push({ kind, ...opts });
+    for (const density of [.3, .15, .03, .6, 1.2, 6]) {
+      st.gases.confusion.cells.clear();
+      MushroomGas.emit(s, 8, 8, density);
+      st.elapsedMs += MushroomGas.CONFIG.contactMs;
+      MushroomGas.contact(s, st);
+    }
+    assert.eq(doses.map(d => d.durationMs).join(), '5000,2500,500,10000,20000,60000');
+    assert.truthy(doses.every(d => d.kind === 'confused'));
+  }));
+
+  test('confusion gas: concentrated clouds can reach full steering takeover through the condition lifecycle', () => fixture(s => {
+    MushroomGas.emit(s, 8, 8, 1.5);
+    MushroomGas.contact(s, MushroomGas.state(s));
+    assert.eq(s.save.conditions.confused.remainingMs, 25000);
+    Conditions.normalize(s.save);
+    assert.eq(s.save.conditions.confused.remainingMs, 25000, 'reload preserves high-density confusion');
+  }));
+
   test('mushroom gas: contact refreshes five seconds without shortening stronger confusion', () => fixture(s => {
     MushroomGas.emit(s, 8, 8);
     const st = MushroomGas.state(s);
@@ -123,8 +153,7 @@
     for (let y = 6; y <= 10; y++) for (let x = 6; x <= 10; x++) e.grid[y * N + x] = W.T.PARK;
     MushroomGas.emit(s, 8, 8, .1);
     advance(s, 30000);
-    assert.truthy(Math.abs(mass(s) - .1) < 1e-9, 'sealed thin gas persists');
-    assert.truthy(Conditions.active(s.save, 'confused'), 'retained trapped gas still confuses');
+    assert.eq(mass(s), 0, 'sealed thin gas dissipates without mining an exit');
     for (let x = 11; x < N; x++) e.grid[8 * N + x] = W.T.PARK;
     advance(s, 2000);
     assert.eq(mass(s), 0, 'opened passage lets the thin cloud dissipate');

@@ -1486,7 +1486,7 @@ test('mineral items registered with expected price ladder', () => {
   for (const id of ['flint_shard', 'sapphire', 'ruby', 'emerald']) {
     const it = ITEM_BY_ID[id];
     assert.truthy(it, id + ' exists');
-    assert.eq(it.kind, 'mineral', id + ' kind=mineral');
+    assert.eq(it.kind, 'ores', id + ' kind=mineral');
   }
   assert.lt(PRICES.flint_shard, PRICES.sapphire, 'coal < sapphire');
   assert.lt(PRICES.sapphire, PRICES.ruby, 'sapphire < ruby');
@@ -2808,7 +2808,7 @@ test('bars: all six tiers registered as mineral-kind with ascending price + matc
   for (const [id, tier] of expected) {
     const it = ITEM_BY_ID[id];
     assert.truthy(it, id + ' is registered');
-    assert.eq(it.kind, 'mineral', id + ' kind=mineral');
+    assert.eq(it.kind, 'ores', id + ' kind=mineral');
     assert.eq(it.baseTier, tier, id + ' baseTier = T' + tier);
     assert.gt(PRICES[id], lastPrice, id + ' price > previous (' + lastPrice + ')');
     lastPrice = PRICES[id];

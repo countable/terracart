@@ -15,10 +15,11 @@
   // Floor 1 is slime country: one region in eight is a goblin warren.
   const THEME_BANDS = [
     { max: 1, themes: ['natural', 'natural', 'natural', 'natural', 'natural', 'natural', 'natural', 'warren'] },
-    { max: 2, themes: ['natural', 'natural', 'natural', 'warren'] },
+    { max: 2, themes: ['warren', 'warren', 'warren', 'natural'] },
     { max: 4, themes: ['natural', 'roots', 'warren', 'crypt', 'stronghold'] },
+    { max: 5, themes: ['crypt'] },
     { max: 6, themes: ['roots', 'warren', 'crypt', 'stronghold', 'infernal'] },
-    { max: 8, themes: ['crypt', 'stronghold', 'infernal', 'infernal', 'roots'] },
+    { max: 7, themes: ['crypt', 'stronghold', 'infernal', 'infernal', 'roots'] },
     { max: Infinity, themes: ['crypt', 'stronghold', 'infernal', 'infernal', 'roost'] },
   ];
   const GRAVEYARD_THEMES = ['ordered_graves', 'overgrown_graves'];
@@ -425,12 +426,13 @@
     if (Array.isArray(entry.streetLairs)) entry.streetLairs.push(...lairs);
     return lairs;
   }
-  // A dragon is a single chamber encounter, never a member of the ambient bag.
+  // From the roster's first dragon depth, a dragon is a single chamber
+  // encounter, never a member of the ambient bag.
   // Jittered habitat centres own seats, even when their territory crosses a
   // tile seam. Missing space means no roost; another tile never retries it.
   // The caller filters saved defeats/live edits AFTER reserving this seat.
   function caveSites(entry, tx, ty, depth, occupied) {
-    if (depth < 9) return [];
+    if (depth < root.EnemyRoster.get('red_dragon').cave.minDepth) return [];
     const WG = root.WorldGen, N = entry.cellsPerEdge;
     const grid = entry.baseGrid || entry.grid, cellM = entry.tileEdgeM / N;
     const objects = (entry.genObjects || entry.objects || []).filter(o => !o._synthetic);

@@ -103,6 +103,12 @@ The footprint is 70 x 126 cells, about 490 m x 882 m at 7 m per cell.
 SPAWN, where a synthetic Home trailer keeps the nearby wizard tower in its
 wizard role.
 
+The ROCK scene (`?sandbox=true&sandboxScene=ROCK`) includes representative small/large
+neutral grey rocks at scene offsets (1, 2) and (5, 2). The western small stone
+leaves sight clear; the eastern boulder casts the same partial shade as a tree.
+Both use the new 24px rock sheet and ordinary T1 mining behavior. Existing ore
+and plain-rock examples remain in the surrounding grid.
+
 ## Map-system coverage
 
 | System | Sandbox coverage |

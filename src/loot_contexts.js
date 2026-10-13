@@ -66,7 +66,7 @@
     //
     // singleItem: true forces qty=1 (except seeds, which ship in packs).
     // Only the wandering trader deals in livestock.
-    'shop:plain':       { classBias: { seed:0.40, produce:0.40, mineral:0.10, magic:0.05, supply:0.05 },
+    'shop:plain':       { classBias: { seed:0.40, produce:0.40, ores:0.10, magic:0.05, supply:0.05 },
                           chainSteps: 1, chainMax: 2, maxTier: 3, relicCap: 0, singleItem: true },
     'shop:shop':      { classBias: { produce:0.70, seed:0.20, magic:0.05, supply:0.05 },
                           chainSteps: 1, chainMax: 2, maxTier: 3, relicCap: 0, singleItem: true },
@@ -79,9 +79,9 @@
     // Wandering trader / fort quartermaster also deal the occasional fruit-tree
     // sapling (small share; maxTier 4 keeps it to the apple — peach stays a
     // rare nature-chest find).
-    'shop:trader':      { classBias: { animal:0.35, mineral:0.15, produce:0.20, seed:0.20, magic:0.05, supply:0.05, relic:0.05 },
+    'shop:trader':      { classBias: { animal:0.35, ores:0.15, produce:0.20, seed:0.20, magic:0.05, supply:0.05, relic:0.05 },
                           chainSteps: 2, chainMax: 3, maxTier: 4, relicCap: 3, singleItem: true },
-    'shop:fort':        { classBias: { seed:0.31, produce:0.27, mineral:0.17, magic:0.085, supply:0.085, relic:0.12 },
+    'shop:fort':        { classBias: { seed:0.31, produce:0.27, ores:0.17, magic:0.085, supply:0.085, relic:0.12 },
                           chainSteps: 2, chainMax: 3, maxTier: 4, relicCap: 3, singleItem: true },
     'shop:castle':      { classBias: { relic: 1.00 },
                           chainSteps: 3, chainMax: 4, maxTier: 7, relicCap: 7, singleItem: true },
@@ -91,7 +91,7 @@
     // `gear` (any equipment: a tool or weapon, armour, a unique relic) is a
     // fifth of the draws above ground: 0.25 of a 1.25 total. A cave X adds its
     // supply skew to the total, so the share is smaller down there.
-    'treasure:default': { classBias: { seed:0.45, mineral:0.40, supply:0.15, gear:0.25 }, caveSkew: true,
+    'treasure:default': { classBias: { seed:0.45, ores:0.40, supply:0.15, gear:0.25 }, caveSkew: true,
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0 },
     // ── The GREAT X (loot.js GREAT_X — the thick dark-red mark) ─
     // Gold, a tool or weapon, or any equipment: no seeds, no stone. Two chain

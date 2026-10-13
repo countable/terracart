@@ -482,6 +482,90 @@
     diagnostic.status='placed';
   }
 
+  // The city is the background floor, not a collection of grove-only pockets.
+  // Its room lattice repeats in world cells; doors and protected approaches
+  // remain open even where roads or buildings clip a room.
+  function planCity(ctx, out = { reserved: new Set(), areas: [], diagnostics: [], terrain: new Map(),
+    objects: [], wildplants: [], moves: [], replacements: [], encounters: [] }) {
+    const W = root.WorldGen, { grid, N, tx, ty, tileEdgeM, depth } = ctx;
+    const cfg = W.floorProfile(depth).warren;
+    if (!cfg) return out;
+    const frame = W.tileFrame({ cellsPerEdge: N }, tx, ty, tileEdgeM);
+    const id = `goblin_city|${depth}|${tx},${ty}`;
+    const reserved = new Set(), passages = new Set(), protectedCells = new Set(ctx.routeLane || []);
+    for (const i of ctx.routeCells || []) protectedCells.add(i);
+    const occupied = new Set(ctx.occupied || []);
+    for (const object of [...(ctx.objects || []), ...out.objects, ...out.wildplants]) {
+      const p = frame.cellOf(object.x, object.y);
+      occupied.add(p.iy * N + p.ix);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++)
+        if (frame.inTile(p.ix + dx, p.iy + dy)) protectedCells.add((p.iy + dy) * N + p.ix + dx);
+    }
+    const eligible = new Uint8Array(grid.length), walls = new Set(), rooms = new Map();
+    const mod = (a, b) => ((a % b) + b) % b;
+    const opts = { spawnWhy: ctx.spawnWhy };
+    for (let i = 0; i < grid.length; i++) {
+      const x = i % N, y = Math.floor(i / N);
+      if (out.reserved.has(i) || grid[i] !== W.T.CAVE_FLOOR ||
+          !W.isSpawnCell(grid, N, N, x, y, opts, 'minor')) continue;
+      eligible[i] = 1;
+      reserved.add(i); out.reserved.add(i);
+      const gx = tx * N + x, gy = ty * N + y;
+      const u = mod(gx, cfg.roomCells), v = mod(gy, cfg.roomCells);
+      const mid = Math.floor(cfg.roomCells / 2);
+      const lane = u === mid || u === mid + 1 || v === mid || v === mid + 1;
+      if (lane || protectedCells.has(i) || x === 0 || y === 0 || x === N - 1 || y === N - 1) passages.add(i);
+      else if (u === 0 || v === 0) walls.add(i);
+      const key = `${Math.floor(gx / cfg.roomCells)},${Math.floor(gy / cfg.roomCells)}`;
+      if (!rooms.has(key)) rooms.set(key, []);
+      rooms.get(key).push(i);
+    }
+    // A clear rim joins clipped rooms around every pre-existing obstacle.
+    for (const i of walls) {
+      const x = i % N, y = Math.floor(i / N);
+      if ([-1, 0, 1].some(dy => [-1, 0, 1].some(dx =>
+        !frame.inTile(x + dx, y + dy) || !eligible[(y + dy) * N + x + dx]))) {
+        walls.delete(i); passages.add(i);
+      }
+    }
+    if (!reserved.size) return out;
+    const area = { id, kind: 'goblin_warrens', city: true, depth, reserved, passages,
+      protected: protectedCells, roomCount: rooms.size };
+    out.areas.push(area);
+    const put = (i, kind, extra) => {
+      const ix = i % N, iy = Math.floor(i / N);
+      const at = frame.centre(ix, iy);
+      const object = W.makeObject(kind, at.x, at.y,
+        `${id}|${ix},${iy}|${kind}`, { _ix: ix, _iy: iy, _cave: true, caveArea: id, depth, ...extra });
+      out.objects.push(object); occupied.add(i);
+    };
+    for (const i of walls) if (!occupied.has(i)) put(i, 'mineralrock', { requiredTier: 1, caveVariant: 0 });
+    let stores = Math.max(0, W.caveContainerBudget(tx, ty, depth)
+      - [...(ctx.objects || []), ...out.objects].filter(o => o.barrel).length);
+    for (const [key, cells] of rooms) {
+      const seats = cells.filter(i => !occupied.has(i) && !protectedCells.has(i) && !passages.has(i));
+      seats.sort((a, b) => fnv1a(`${id}|seat|${a}`) - fnv1a(`${id}|seat|${b}`));
+      if (fnv1a(`${id}|room|${key}`) / 4294967296 < cfg.enemyChance) {
+        const kinds = cfg.enemies;
+        const kind = kinds[fnv1a(`${id}|kind|${key}`) % kinds.length];
+        const cls = creatureSpawnClass(kind);
+        const i = seats.find(i => W.isSpawnCell(grid, N, N, i % N, Math.floor(i / N), opts, cls));
+        if (i != null) {
+          const ix = i % N, iy = Math.floor(i / N);
+          out.encounters.push({ ...frame.centre(ix, iy), kind, id: `${id}|enemy|${key}`,
+            _ix: ix, _iy: iy, caveArea: id, depth });
+          occupied.add(i);
+        }
+      }
+      if (stores > 0) {
+        const i = seats.find(i => !occupied.has(i) && W.isSpawnCell(grid, N, N,
+          i % N, Math.floor(i / N), opts, 'reward'));
+        if (i != null) { put(i, 'chest', { barrel: true }); stores--; }
+      }
+    }
+    return out;
+  }
+
   function apply(plan, grid, objects, wildplants, occupied) {
     for (const change of plan.replacements || []) {
       const index = objects.indexOf(change.object);
@@ -503,5 +587,5 @@
     for (const o of plan.objects.concat(plan.wildplants)) occupied.add(o._iy * N + o._ix);
     return plan;
   }
-  root.CaveAreas = { SPRING, BUDGETS, MAZE, select, materialAt, mazeWallAt, plan, apply };
+  root.CaveAreas = { SPRING, BUDGETS, MAZE, select, materialAt, mazeWallAt, plan, planCity, apply };
 })(typeof window !== 'undefined' ? window : globalThis);

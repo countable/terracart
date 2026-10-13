@@ -105,7 +105,12 @@ access or tile lifecycle mechanics.
   Retired save formats may be discarded; keep current-state defaults, validation
   and runtime cleanup separate from compatibility conversion.
 
-- Farm and orchard interiors, and entire golf courses, exclude spawns at every dungeon depth.
+- Surface access exclusions and typed safety suppression apply at every dungeon depth.
+  Road bands, junctions, private/restricted/quiet land and sensitive sites retain
+  their reason bits; kerb and sensitive-area buffers retain their spawn-class rules.
+  Terrain alone is recalculated for the current floor. Underground tiles also
+  inherit road geometry for chase boundaries, warnings and night-road hiding/drain.
+  Farm and orchard interiors, and entire golf courses, exclude spawns at every dungeon depth.
   Fields keep an eligible outer rim of `WorldGen.FARM_EDGE_CELLS` cells,
   measured from the source footprint; roads, POIs and later paint cannot create
   interior edges. Farmland rims scatter static T1–T2 wild crops at seeded growth
@@ -114,6 +119,22 @@ access or tile lifecycle mechanics.
   `WorldGen.SPAWN_WHY_ALL_FLOORS` owns the inherited reasons; `floorSpawnWhy`
   derives them from immutable surface evidence. Preserve that mask through cave
   generation and runtime spawns; repainting or digging never grants spawn access.
+
+- L2 fills eligible ground between authored areas with connected goblin-warren
+  rooms (`CaveAreas.planCity`, configured by `floorProfile(2).warren`).
+  Shared walls have two-cell doors; clipped rooms retain open rims, and route
+  clearings, landmarks and stair approaches stay clear. The city owns its empty
+  ground so ordinary rock scatter cannot refill its passages. Room encounters
+  use stable IDs and the class-specific safety gate; finite stores share the
+  existing cave-container budget. The drill budget is placed before the city.
+
+- L2 pressure plates are subtle floor marks, visible only within one cell of
+  the player's body. Stepping on one triggers its paired rolling ball, spike
+  wall or gas grate once per encounter. Gas grates stay inert until pressed,
+  then emit the existing poison/paralysis gas burst rather than a periodic
+  geyser eruption. City passages may host traps despite the city's ambient
+  reservation; actual objects, landmark approaches and the hazard safety gate
+  still exclude placement. Grove ghost plates retain their existing visibility.
 
 - Authored cave areas use `ZoneVariants.anchorFrame` and run before ordinary
   floor passes. Keep their empty-ground reservations separate from object
@@ -143,6 +164,10 @@ access or tile lifecycle mechanics.
   per-depth regions (`THEME_BANDS`), while chest mirrors, torch sites, quarry
   provenance and spring caves inherit surface anchors. The street mirror and
   any per-floor road clearings are level-scoped projections of surface lines.
+  On L1, only Small roads become road-derived cave walls; Medium/Large roads
+  and paths remain open terrain. Route projection cannot carve the L1 Small-road
+  walls. Buildings and water retain their existing wall mapping. Open terrain
+  does not relax inherited spawn safety.
   `docs/design/floors.md` owns the per-floor catalog.
 
 - A per-floor rule - rope seals, fall seals, hazards, lighting levels - reads
@@ -150,7 +175,10 @@ access or tile lifecycle mechanics.
   `WorldGen.floorProfile(depth)` owns cave terrain, street projection and gem
   probabilities, flint-bearing rock frequency, authored cave-area weights/carving/garrisons, pressure traps,
   the vent kinds a floor erupts,
-  arrival story IDs and entry keys. Keep story copy in the presentation module;
+  arrival story IDs and entry keys. The terrain ladder is city2, clearings3,
+  open fungal4, haunted surface mirror5, lava6, and dragon mirrors7-8.
+  Clearing rewards carry the receiving depth; biome tints follow the profile.
+  Keep story copy in the presentation module;
   choose its story through the profile. Depths beyond the explicit rows inherit
   the default profile, including the infernal entry key.
   `DungeonProgression.ROPE_SEALED_FLOORS` is the pattern (the rope, the
@@ -187,7 +215,7 @@ access or tile lifecycle mechanics.
   heuristic, not an entrance-access guarantee; missing tenant mapping and
   clipped footprints can leave an enclosed mall using frontage placement.
 - A POI chest's tier is its tile's QUOTA SEAT (`WorldGen.seedChestTiers`):
-  each tile seeds ~1 T5, 5 T4, 11 T3, 18 T2 (x1..x2 over 100..1000
+  each tile seeds ~1 T5, 5 T4, 11 T3, 36 T2 (x1..x2 over 100..1000
   budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),
   round-robin across chest categories; everything else is T1. A bus stop
   never takes a seat: it is always a regular restocking crate
@@ -196,7 +224,7 @@ access or tile lifecycle mechanics.
   are fixed T5 outside the budget; a Nexus chest can win a seat without
   spending one (+1 on top). Each underground floor re-seats its own pyramid over
   its mirrors (the rank rides down), and the cap CLIMBS underground
-  (`loot.js chestTierMaxFor`: T6 from depth 3, T7 from 6) while the depth
+  (`loot.js chestTierMaxFor`: T6 from depth 4, T7 from 7) while the depth
   bonus stays `+floor(depth/2)`. Unseeded chests (hand-placed, sandbox) are
   the unstamped T2 - the old count ladder is retired, and `o.poiDensity`
   now only feeds restock days and POI coin bursts. Breakable pots and
@@ -222,15 +250,22 @@ access or tile lifecycle mechanics.
   whatever stream laid it, chosen by `isGreatX` off the mark's id. Drawn thick
   and dark red, it digs the `treasure:great` pool (gold, a tool or weapon, or
   other equipment) through the same handler, hiding and found-ledger.
-- THE LOW-TIER QUOTA: a tile below `WorldGen.LOW_TIER_CHEST_QUOTA` (200)
-  tier-1 chests tops up with ambient crates (`topUpAmbientCratesSteps`,
-  after the variant top-up): one-time tier-1 crates on 'reward' cells, lowest
-  cell hash first, with a cell within `AMBIENT_CRATE_PATH_CELLS` of a
-  footpath scoring `AMBIENT_CRATE_PATH_BIAS` times better, so a low-POI town's
-  crates line its walking paths. Its shortfall (`entry.lowTierDeficit`) also lays extra X
-  marks in proportion (scene_creatures.js `X_TOP_UP_MAX`), drawn off the cell
-  hash so the tile's rng stream never shifts. Mine mouths ignore ambient
-  crates and drop any they land on.
+- Sparse-tile seeding: below 250 POIs per 2.8224 km² of spawnable land,
+  `topUpAmbientCratesSteps` fills to 200 per that area (240 × 240 seven-metre
+  cells, a typical mid-latitude tile). Both numbers scale with the count of
+  cells accepted by the reward spawn gate, so compact review tiles get
+  proportionally fewer crates. Use canonical cell area, not the player’s
+  latitude-dependent metre frame. Water, road surfaces and other
+  excluded ground contribute no area; occupancy blocks placement without
+  shrinking the target. The census includes surface POIs of every tier and
+  type, plus generated filler; fixed starter loot and cave mirrors are excluded.
+  The additions are one-time T1 crates, scattered by stable cell hashes across
+  free spawnable cells. Their loot follows underlying landcover: grass, forest,
+  parks and wetlands use park loot; farmland and orchards use farm loot;
+  commercial ground uses commerce, school grounds use school, and other ground
+  uses roadside. The pre-fill shortfall (`entry.lowTierDeficit`) also lays extra
+  X marks in proportion (`X_TOP_UP_MAX`), drawn off the cell hash. Mine mouths
+  ignore ambient crates and drop any they land on.
 - Treasure trails (`HomeArea.chestTrailCandidates`, up to `CHEST_TRAIL_LIMIT`)
   lead to the nearest unopened T2+ surface chests within
   `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the surface (only the
