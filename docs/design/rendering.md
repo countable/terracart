@@ -53,6 +53,9 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   `footprintFootOffset`); its shadow, sign, roof plate and bubble follow the art.
   Use a stable `seatFrame` for animation. After art changes, run
   `node tools/sprite_audit.js --emit-bounds` and update `src/sprite_layout.js`.
+- Every underground floor uses the same connected cave-wall atlas: raised caps,
+  chipped rims and lighter front faces. Live neighbour masks update after mining
+  and tile arrival; pooled sprites hide when returning to the surface or sky.
 - Connected ground art that must abut its neighbours (chasm sections) seats on
   its terrain slot through `absCellScreenCentre` (coords.js), never on its own
   rounded `deltaMToScreen` point: neighbours' float centres sit `CELL_PX` ± epsilon
@@ -180,15 +183,17 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
   short walls, larger standing trees and rocks marked `sightBlocking: true`
-  provide partial cover, with a non-stacking 50% darkness treatment. Small
-  rocks and the smallest tree saplings provide no cover. The facing blocker stays visible. Full cover removes objects,
-  creatures and their associated labels, shadows and target affordances.
+  provide partial cover, with a non-stacking 75% darkness treatment. Small
+  rocks and the smallest tree saplings provide no cover. The facing blocker
+  stays visible. Any cover (`Visibility.hidden`) removes the objects,
+  creatures and peers behind it, with their labels, shadows and target
+  affordances; the ground stays drawn and tappable unless cover is full.
+  Partial and full cover differ only in darkness: full cover is black.
   `Lighting.coverFrame` caches a world-aligned mask and composites it into the
   existing lightmap after light sources. It reuses the exploration fog's
   low-resolution smooth upscale and world-keyed wisps, with a roughly one-cell
   feather from a small separable filter instead of the exploration ramp. Noise coordinates and both canvases
-  are reused; only changes to the sight field repaint the alpha buffer. Surface
-  cover retains a faint ground silhouette, while underground full cover is black. Cover queries always
+  are reused; only changes to the sight field repaint the alpha buffer. Cover queries always
   originate at the player's body, including during camera peeks; the mask alone
   traces from `Visibility.observer`, the body snapped to an eighth-cell lattice
   inside its own cell, so walking and GPS glide repaint it per step rather than
