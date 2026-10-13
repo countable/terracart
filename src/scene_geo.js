@@ -808,7 +808,7 @@ class SceneGeo {
     return true;
   }
 
-  async _loadTileEntry(tx, ty) {
+  async _loadTileEntry(tx, ty, bytesPromise) {
     const kick = this._bootTileKick;
     if (kick && kick.tx === tx && kick.ty === ty && kick.depth === (this.depth || 0)) {
       // preload() started this exact centre before Phaser fetched its assets.
@@ -825,7 +825,7 @@ class SceneGeo {
       // entry before create() reaches it. Read that replacement through the
       // normal cache path rather than spawning the detached old entry.
     }
-    return WorldGen.loadTile(tx, ty, START_LAT);
+    return WorldGen.loadTile(tx, ty, START_LAT, { bytesPromise });
   }
 
   async ensureTilesAround() {
@@ -876,17 +876,15 @@ class SceneGeo {
     //     retry and nothing was unreachable, so neither of the above.
     let centreFailed = false, centreWhy = "";
     let anyRetry = false;
-    // Fetch/decode/rasterize the whole 3×3 block CONCURRENTLY, not serially (on a
-    // cold cache every neighbour is a network round trip: 9x the latency). Nothing
-    // depends on load order: each tile reads/writes only its own entry, and the one
-    // cross-tile read, dedup, tolerates racing (see collectDedupIndex).
+    // Build the centre first, then stream serial neighbour builds with bounded
+    // byte-only lookahead so network waits overlap the sliced generation work.
     let doneCount = 0;
     const total = needed.size;
-    const buildOne = async (k) => {
+    const buildOne = async (k, bytesPromise) => {
       const [tx, ty] = k.split('/').map(Number);
       let entry = null;
       try {
-        entry = await this._loadTileEntry(tx, ty);
+        entry = await this._loadTileEntry(tx, ty, bytesPromise);
         if (entry.status === 'loading') await entry.promise;
         // A NEIGHBOUR's surface spawn pass runs SLICED (_spawnInTileSliced):
         // 20-70 ms of it used to ride this tile's build unbroken. The centre
@@ -994,9 +992,23 @@ class SceneGeo {
       // requestIdleCallback picks the gaps; the timeout is the floor on a busy thread,
       // and the rAF fallback covers browsers without it.
       const endRing = window.__boot?.begin('neighbour ring (in the background)');
-      for (const k of ring) {
+      const bytesAhead = new Map();
+      for (let i = 0; i < ring.length; i++) {
+        if (passSeq !== this._tilePassSeq) break;
+        // At most three raw payloads, including the tile about to build. No
+        // neighbour competes with the centre's network or queues heavy work.
+        if (this.depth === 0) {
+          for (const k of ring.slice(i, i + 3)) {
+            if (bytesAhead.has(k)) continue;
+            const [tx, ty] = k.split('/').map(Number);
+            bytesAhead.set(k, WorldGen.prefetchTileBytes(tx, ty));
+          }
+        }
         await this._whenIdle();
-        await buildOne(k);
+        if (passSeq !== this._tilePassSeq) break;
+        const k = ring[i];
+        await buildOne(k, bytesAhead.get(k));
+        bytesAhead.delete(k);
       }
       endRing?.(`${ring.length} tiles`);
     })().catch(() => {});

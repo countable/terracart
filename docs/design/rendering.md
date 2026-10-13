@@ -33,10 +33,12 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   never adjusts an actor's feet or enters the world depth sort. Towers and
   flags retain ordinary world ordering. Walls and footprints use a muted
   palette so interactables remain distinct.
-  Castle courtyard floors start from quarter-cell stone tiles (2×2); each
-  cached texture joins one adjacent pair into a horizontal or vertical half-cell
-  slab with a continuous fill and no internal bevel. This happens only at bake
-  time. Tiles have darker junctions, worn stretches and quiet bevels. Inner
+  Castle courtyard cells mostly retain four quarter-cell stone tiles (2×2).
+  A quarter of the cached variants join one adjacent pair into a horizontal or
+  vertical half-cell slab, with both positions represented. Polygon courtyards
+  scatter those variants across a cached eight-cell-square repeat; tiled floors
+  choose them from a mixed world-cell hash. The pattern stays fixed while the
+  camera moves. Tiles have darker junctions, worn stretches and quiet bevels. Inner
   seams are lighter than cell boundaries, keeping cells legible beside the
   smaller road cobbles.
   Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
@@ -138,8 +140,8 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   plain stone for ordinary cave rubble,
   and flint when marked `rockMaterial: 'flint'`, including flint-bearing L1
   cave rubble. The flint mark takes precedence over the generic cave variant. Partial
-  cover (`sightBlocking: true`) selects the large silhouette at scale 4/3;
-  small stones use scale 1. Outside authored rock zones, wild rubble shares
+  cover (`sightBlocking: true`) selects the large silhouette at scale 1.6;
+  small stones use scale 1.2. Outside authored rock zones, wild rubble shares
   the four generic plain small shapes and skips biome tint; planted crop stages
   and inventory icons retain their existing art. A stable id hash selects plain
   stone shape independently of biome, mining quantity and small/large size.
@@ -151,7 +153,9 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   the place; Work Yard uses a cut stone slab and Crater Quarry has a glowing lava
   seam painted into the sprite. These contain no collectible mineral inclusions.
   The same 24px
-  frame scales to 0.75 for small stones and 4/3 for sight-blocking boulders.
+  frame scales to 0.9 for small stones and 1.6 for sight-blocking boulders.
+  Placed rockfruit stones use scale 2.4. These display sizes leave mining
+  quantities, occupied cells and cover behavior unchanged.
   Named context/variant fields resolve the theme, with legacy zone-object
   frames 64–71 as a fallback. Gem, ore and explicitly flint-bearing rocks always
   retain the shared material silhouettes and readable inclusions.
@@ -218,7 +222,11 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   pad once and rebuilds on the next ordinary frame; it never crops past the
   painted edge. A viewport scratch blends
   old/new masks at their live fade weights and colours them with the radial
-  gradient still centred on the body. Stable world cookies join padded caches
+  gradient still centred on the body. Interrupted fades retain exact weights,
+  but rendering skips masks outside the painted view and an aggregate of less
+  than one 8-bit alpha level; it never renormalises the remaining brightness.
+  Active mask canvases stay pinned until compositing finishes, including when
+  a fade needs more than four masks. Surplus canvases are released as it settles. Stable world cookies join padded caches
   by their exact whole-pixel phase. Player-attached, breathing, flickering and
   transient lights keep the individual stamp path. The full-frame key gates
   before every canvas call. Reach lighting follows `cellInReach`; light conveys

@@ -313,12 +313,14 @@
     const patternFor = (tier) => {
       if (patterns.has(tier)) return patterns.get(tier);
       let p = null;
-      const key = `biome${tier}_0`;
+      const key = tier === CASTLE && scene.textures.exists('castle_paving') ? 'castle_paving' : `biome${tier}_0`;
       if (scene.textures.exists(key)) {
         const src = scene.textures.get(key).getSourceImage();
         // createPattern THROWS on a zero-sized source (a texture not baked yet)
         // and would take the whole pass down. No material is fine.
-        if (src && src.width && src.height) p = ctx.createPattern(src, 'repeat');
+        if (src && src.width && src.height) p = {
+          fill: ctx.createPattern(src, 'repeat'), width: src.width, height: src.height,
+        };
       }
       patterns.set(tier, p);
       return p;
@@ -328,8 +330,7 @@
     // un-phased pattern would swim over the floors as the player walks. Whole
     // pixels only — a fractional translate resamples the tile and mushes it.
     let phaseX = 0, phaseY = 0;
-    const TILE = (typeof SpriteLayout !== 'undefined' && SpriteLayout.CELL_PX) || CELL_PX;
-    const wrap = (v) => ((Math.round(v) % TILE) + TILE) % TILE;
+    const wrap = (v, period) => ((v % period) + period) % period;
     const trace = (pts) => {
       ctx.beginPath();
       ctx.moveTo(pts[0].x - originX, pts[0].y - originY);
@@ -441,9 +442,10 @@
         ctx.save();
         trace(pts);
         ctx.clip();
-        ctx.fillStyle = p;
-        ctx.translate(phaseX, phaseY);
-        ctx.fillRect(-TILE, -TILE, size + TILE * 2, size + TILE * 2);
+        ctx.fillStyle = p.fill;
+        const x = wrap(phaseX, p.width), y = wrap(phaseY, p.height);
+        ctx.translate(x, y);
+        ctx.fillRect(-x, -y, size, size);
         ctx.restore();
       },
       damagePoly(pts, key, claimed, anchorX, anchorY) {
@@ -474,7 +476,7 @@
         TempleArt.draw(ctx, pts, { activated, dark, faces: false, background: true });
         ctx.restore();
       },
-      texturePhase(x, y) { phaseX = wrap(x - originX); phaseY = wrap(y - originY); },
+      texturePhase(x, y) { phaseX = Math.round(x - originX); phaseY = Math.round(y - originY); },
       commit() { tex.refresh(); },
     };
     scene._buildingGeomTarget = target;
