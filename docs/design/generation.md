@@ -60,6 +60,9 @@ access or tile lifecycle mechanics.
   Nexus keeps its own declared inhabitants and excludes generic shoreline
   top-ups, including after captures. Safety only removes destinations;
   `entry.shorePopulation` records placement shortfalls.
+- Ordinary beach enemy slots favour Jellyfish (80%) over Giant Crabs (20%).
+  Jellyfish occupy legal shoreline water; crabs occupy sand. The shared enemy
+  budget and Home restrictions still apply; Nexus encounters keep their own mix.
 - Beach Nexus influence has a hard ten-cell radius (about a 20×20-cell
   extent), including ragged edges and park-derived beach companions. Larger
   mapped beaches remain ordinary sand outside that cap, with normal beach

@@ -117,7 +117,9 @@
     if (!base) return null;
     const key = `${name}:shore`;
     if (!landCache.has(key)) landCache.set(key, Object.freeze({ id: key, owner: 'land',
-      fauna: weightedRows({}), haunting: base.haunting }));
+      fauna: weightedRows({}), haunting: base.haunting,
+      // Ordinary beach enemies favour shoreline jellyfish over sand crabs.
+      enemyTierWeights: Object.freeze({ 1: 1, 2: 4 }) }));
     return landCache.get(key);
   }
   function variantProfile(id, kind) {
@@ -227,7 +229,7 @@
     return eligible.filter(row => !replaced.has(row.id));
   }
   function enemyKind(profile, id, type, context) {
-    const rows = enemyRows(profile, type, context), weights = root.EnemyRoster.SURFACE_TIERS.at(-1).tierWeights;
+    const rows = enemyRows(profile, type, context), weights = profile?.enemyTierWeights || root.EnemyRoster.SURFACE_TIERS.at(-1).tierWeights;
     const tiers = [...new Set(rows.map(row => row.tier))];
     const tier = pick(tiers, unit(id + ':tier'), value => weights[value] || 0);
     const family = profile?.owner === 'zone';
