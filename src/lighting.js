@@ -1953,15 +1953,18 @@
           : cover === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS : Visibility.FULL_DARKNESS;
       }
       // A small separable tent filter broadens the feather to about one cell.
-      // Only the visual field is filtered; sight tests stay exact. Uniform
-      // interiors keep their opacity, with no extra canvas or pixel readback.
+      // Only the visual field is filtered; sight tests stay exact. Each pass
+      // keeps the darker of the sample and its blur, so the feather spreads
+      // OUTWARD only: a narrow bush shadow, whose cells hide what stands in
+      // them, keeps its full darkness instead of averaging toward clear ground.
+      // No extra canvas or pixel readback.
       for (let y = 0; y < D; y++) for (let x = 1; x < D - 1; x++) {
         const i = y * D + x;
-        mask.feather[i] = (mask.field[i - 1] + 2 * mask.field[i] + mask.field[i + 1]) / 4;
+        mask.feather[i] = Math.max(mask.field[i], (mask.field[i - 1] + 2 * mask.field[i] + mask.field[i + 1]) / 4);
       }
       for (let y = 1; y < D - 1; y++) for (let x = 1; x < D - 1; x++) {
         const i = y * D + x;
-        mask.field[i] = (mask.feather[i - D] + 2 * mask.feather[i] + mask.feather[i + D]) / 4;
+        mask.field[i] = Math.max(mask.feather[i], (mask.feather[i - D] + 2 * mask.feather[i] + mask.feather[i + D]) / 4);
       }
       const data = mask.img.data;
       for (let i = 0; i < N * N; i++) {
