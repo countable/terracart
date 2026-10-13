@@ -91,7 +91,7 @@ class ScenePets {
     mount();
   }
 
-  presentPetInfo(id) {
+  presentPetInfo(id, { fromCatch = false } = {}) {
     const pet = Pets.get(this.save, id);
     if (!pet) return;
     Pets.tick(this.save, pet);
@@ -147,8 +147,11 @@ class ScenePets {
       stats.appendChild(term); stats.appendChild(detail);
     }
     box.appendChild(stats);
-    const back = mkBtn('Back');
-    back.addEventListener('click', e => { e.stopPropagation(); wrap.remove(); this.presentPetMenu(id); });
+    const back = mkBtn(fromCatch ? 'Close' : 'Back');
+    back.addEventListener('click', e => {
+      e.stopPropagation(); wrap.remove();
+      if (!fromCatch) this.presentPetMenu(id);
+    });
     box.appendChild(back);
     mount();
   }

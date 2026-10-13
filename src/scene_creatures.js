@@ -2627,6 +2627,7 @@ class SceneCreatures {
     if (c.shiny) this.awardShinyBonus(c.kind,sx,sy);
     PetStories.queue(this,c.kind);
     this.selectInvCat('animal');
+    this.presentPetInfo(row.id, { fromCatch: true });
     return row;
   }
 }
