@@ -41,11 +41,11 @@ test('scene art: every kind has a default painting, except STORY, which brings i
       assert.truthy(new RegExp(`art: 'kind_${key}'`).test(body), `${key} opens on kind_${key}`);
     }
   }
-  assert.truthy(/art = art \|\| kRow\?\.art;/.test(shell), 'the shell falls back to the kind row');
+  assert.truthy(/art = portrait \|\| art === false \? null : art \|\| kRow\?\.art;/.test(shell), 'the shell falls back to the kind row unless portrait or art:false supplies a dedicated layout');
 });
 
 test('scene art: a message with a painting is a STORY', () => {
-  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note', kindLabel, mustAcknowledge = false \}\)/.test(shell),
+  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, portrait, kind = art \? 'story' : 'note', kindLabel, mustAcknowledge = false \}\)/.test(shell),
     'art makes it a story; a plain message stays a note');
 });
 

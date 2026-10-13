@@ -1,0 +1,67 @@
+{
+  "generator": "Built-in image_gen",
+  "columns": 4,
+  "rows": 4,
+  "frameSize": 128,
+  "sheets": {
+    "pets": [
+      "chicken",
+      "cow",
+      "cat",
+      "dog",
+      "deer",
+      "rabbit",
+      "butterfly",
+      "crab",
+      "horse",
+      "sea_turtle",
+      "green_dragon",
+      "slime",
+      "baby_cat",
+      "baby_dog",
+      "baby_cow",
+      "baby_green_dragon"
+    ],
+    "npcs-1": [
+      "warden",
+      "witness",
+      "wanderer",
+      "believer",
+      "archaeologist",
+      "stranger",
+      "wanderer_housed",
+      "wizard",
+      "wayfinder",
+      "peddler",
+      "barterer",
+      "storykeeper",
+      "mason",
+      "lamplighter",
+      "fieldwalker",
+      "seed_seller"
+    ],
+    "npcs-2": [
+      "harvest_trader",
+      "barn_raiser",
+      "market_trader",
+      "town_guide",
+      "stonemason",
+      "ranger",
+      "forager",
+      "lorekeeper",
+      "shrine_warden",
+      "shrine_lorekeeper",
+      "shrine_trader",
+      "shrine_keeper",
+      "fox_tracker",
+      "fox_storyteller",
+      "fox_trader",
+      "den_keeper"
+    ]
+  },
+  "prompts": [
+    "Use case: stylized-concept. Asset type: game portrait spritesheet for Dragon Hood, a cozy post-apocalyptic fantasy pixel-art RPG.\nCreate a square 4x4 spritesheet of sixteen different pet portraits. Exactly equal square cells with NO gutters, NO borders, NO text. Every cell is a complete composition, neatly contained, with a consistent deep forest green flat background. At final size each cell will be 128x128 pixels, so use clean deliberate chunky pixel clusters, charming expressive eyes, clear silhouettes, restrained details, warm light, rich muted earth colours. Three-quarter portraits, entire small animal or head and chest of large animal, centered, comfortable padding.\nEXACT row-major order:\nRow 1: white chicken with red comb; gentle cream-and-brown dairy cow; warm grey tabby cat; golden-brown floppy-eared dog.\nRow 2: gentle brown deer with small antlers; cream rabbit; purple butterfly with open wings; red-orange shore crab.\nRow 3: chestnut horse with dark mane; olive green sea turtle; small friendly emerald green dragon with tiny horns and wings; friendly translucent mint-green slime.\nRow 4: fluffy grey kitten; golden puppy; small cream-and-brown calf; baby emerald green dragon.\nAll are affectionate companions. Avoid modern accessories, photorealism, writing, grids drawn over art, any creature crossing cell edges. Precisely four rows and four columns.",
+    "Use case: stylized-concept. Asset type: NPC dialogue portrait spritesheet for Dragon Hood cozy post-apocalyptic fantasy pixel RPG. Create ONE square sheet exactly 4 columns by 4 rows, 16 equal square cells, no gutters, no drawn borders, no lettering. Each cell will be 128x128 final: clean deliberate pixel clusters, expressive faces, warm gentle lighting and restrained muted earth colors. Each is a face-and-shoulders bust closeup, centered, enough headroom, shoulders at bottom. Shared flat dark forest-green background. NO full-body figures.\nReference images 1-5 show established named characters; preserve their features, ages, hair and clothes.\nExact row-major order:\nRow1: Bryn warden (image1 brown-haired young woman green kerchief cream shirt olive vest); Maud survivor (image2 worried elderly woman grey hair cream headscarf rust-brown coat); Tilly wanderer (image4 little brown-haired girl cream kerchief brown hood sad expression); Edda believer (image3 hopeful middle-aged brown-haired woman cream headscarf and rust vest).\nRow2: Orrin archaeologist (image5 elderly balding man wild white side hair bushy white mustache warm bumbling expression brown vest cream shirt); mysterious white-haired adult woman long white hair slate-blue cloak quietly observant; Tilly same little girl as row1 now safe and happy; Tim kindly old wizard long white beard blue-grey hooded robe.\nRow3: Wayfinder lavender-blue haired young woman pale blouse; Peddler blond young man brown vest; Barterer blonde woman braided buns earthy clothes; Storykeeper silver-haired older man short dark beard leather scholarly coat.\nRow4: Mason sturdy red-haired man headband rust workshirt; Lamplighter teal-haired woman with cream work coat; Fieldwalker weathered man straw hat lavender shirt; Seed seller moss-green haired young woman beige scarf.\nMake faces distinct and likeable. Pixel illustration, not photography. No text, no labels, no watermarks; exactly 16 faces, one per cell.",
+    "Use case: stylized-concept. Asset type: NPC dialogue portrait spritesheet for Dragon Hood cozy post-apocalyptic fantasy pixel RPG. Create ONE square sheet exactly 4 columns by 4 rows, 16 equal square cells, NO gutters, NO drawn borders, NO lettering. Each cell will be 128x128 final: deliberate pixel clusters, expressive faces, warm gentle lighting and muted earthy colours. Every portrait is a face-and-shoulders closeup, centered with comfortable headroom and shoulders at bottom. Shared flat deep forest-green background. Reference 1 shows the game's NPC sprites, use hair colours and dress cues; reference 2 is the already approved portrait sheet, match that style precisely. This is a new sheet of 16 OTHER characters, NOT a rework of either reference.\nEXACT row-major order:\nRow 1: Harvest trader brown-haired young woman cream blouse brown shawl; Barn raiser cheerful middle-aged man brown hair and headband work overalls; Market trader brown-haired man green collar and cream shirt; Town guide sandy blond young man olive tunic.\nRow 2: Stonemason sturdy bald brown-bearded man russet work vest; Ranger auburn-haired woman braided hair practical forest cloak; Forager mint-green-haired woman earthy jacket; Lorekeeper violet-haired older woman in gold-trimmed ochre robe.\nRow 3: Shrine warden woman silver helmet lavender cloth and steel shoulder armour; Shrine lorekeeper blue-haired woman cream hood and blue robe; Shrine trader sage-green-haired woman cream and tan tunic; Shrine keeper elderly woman cream hood framing kind lined face muted rust cloak.\nRow 4: Fox tracker male fox-person with rust-brown fur, pointed fox ears, cream muzzle, green scout tunic; Fox storyteller female fox-person lilac-grey fur, pointed fox ears, cream muzzle, brown storyteller robe; Fox trader male fox-person blue-grey fur, pointed fox ears, cream muzzle, ochre merchant vest; Den keeper female fox-person golden-tan fur, pointed fox ears, cream muzzle, forest-green robe.\nFox people in bottom row have real anthropomorphic FOX faces with short muzzles and fluffy cheeks, not humans wearing ears. Make all sixteen faces distinct and likeable. Pixel illustration, not photography. No text, no labels, no watermarks; precisely one face per cell."
+  ]
+}

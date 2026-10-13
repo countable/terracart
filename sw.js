@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-147c7f8b';
+const SHELL_VERSION = 'shell-d54ee6a8';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -842,7 +842,61 @@ const ASSET_HASHES = {
   "assets/art/zone_shore.webp": "6237121b",
   "assets/art/zone_stones.webp": "cae019cd",
   "assets/art/zone_tar.webp": "d3c26957",
-  "assets/art/zone_viewpoint.webp": "af7db19d"
+  "assets/art/zone_viewpoint.webp": "af7db19d",
+  "assets/portraits/archaeologist.png": "4dea9f0b",
+  "assets/portraits/baby_cat.png": "f0040544",
+  "assets/portraits/baby_cow.png": "7e215a3f",
+  "assets/portraits/baby_dog.png": "f10f947e",
+  "assets/portraits/baby_green_dragon.png": "4b969a0c",
+  "assets/portraits/barn_raiser.png": "202b9190",
+  "assets/portraits/barterer.png": "22b8d3c9",
+  "assets/portraits/believer.png": "e78fb319",
+  "assets/portraits/butterfly.png": "25400ef1",
+  "assets/portraits/cat.png": "8acc1639",
+  "assets/portraits/chicken.png": "ff373aae",
+  "assets/portraits/cow.png": "dbaa6616",
+  "assets/portraits/crab.png": "b740ae31",
+  "assets/portraits/deer.png": "44cd7e6a",
+  "assets/portraits/den_keeper.png": "46e11780",
+  "assets/portraits/dog.png": "b84f59d6",
+  "assets/portraits/fieldwalker.png": "b2ba1b8e",
+  "assets/portraits/forager.png": "5f0916a1",
+  "assets/portraits/fox_storyteller.png": "d74302b7",
+  "assets/portraits/fox_tracker.png": "3069a99b",
+  "assets/portraits/fox_trader.png": "7747a018",
+  "assets/portraits/green_dragon.png": "6f86caa7",
+  "assets/portraits/harvest_trader.png": "ad80c1cf",
+  "assets/portraits/horse.png": "c22974c3",
+  "assets/portraits/lamplighter.png": "39cbe3f7",
+  "assets/portraits/lorekeeper.png": "a40baf7f",
+  "assets/portraits/market_trader.png": "b1ac2040",
+  "assets/portraits/mason.png": "27641e29",
+  "assets/portraits/npcs-1.png": "12c7b6f5",
+  "assets/portraits/npcs-2.png": "2b9d6dad",
+  "assets/portraits/peddler.png": "575c22c8",
+  "assets/portraits/pets.png": "06297a03",
+  "assets/portraits/rabbit.png": "3a3998cb",
+  "assets/portraits/ranger.png": "b8a4225c",
+  "assets/portraits/sea_turtle.png": "b8e06a65",
+  "assets/portraits/seed_seller.png": "2c16a4a3",
+  "assets/portraits/shrine_keeper.png": "bebb1873",
+  "assets/portraits/shrine_lorekeeper.png": "a30b983b",
+  "assets/portraits/shrine_trader.png": "2d7c34c3",
+  "assets/portraits/shrine_warden.png": "177dd5bc",
+  "assets/portraits/slime.png": "d03bcf0d",
+  "assets/portraits/sources/npcs-1.png": "c07ad60a",
+  "assets/portraits/sources/npcs-2.png": "59fdcff8",
+  "assets/portraits/sources/pets.png": "caf9fde9",
+  "assets/portraits/stonemason.png": "db8d034c",
+  "assets/portraits/storykeeper.png": "b9f44981",
+  "assets/portraits/stranger.png": "956ea183",
+  "assets/portraits/town_guide.png": "d38df720",
+  "assets/portraits/wanderer.png": "b6fac980",
+  "assets/portraits/wanderer_housed.png": "355d9677",
+  "assets/portraits/warden.png": "9f3b86f8",
+  "assets/portraits/wayfinder.png": "6bfde549",
+  "assets/portraits/witness.png": "46e8f934",
+  "assets/portraits/wizard.png": "ebd3b6ed"
 };
 /* ASSET_HASHES_END */
 const TILE_CACHE    = 'tiles-v1';

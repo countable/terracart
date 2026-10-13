@@ -1324,7 +1324,7 @@ class SceneShops {
     const calling = offers[0].kind === 'class';
     const mem = (px) => this.iconSpanHTML('memory', px);
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { onClose: () => {}, kind: 'wizard' });
+      { onClose: () => {}, kind: 'wizard', portrait: CharacterPortraits.npc({ role: 'wizard' }) });
     const intro = document.createElement('div');
     intro.style.cssText = `font-size:13px;margin-bottom:4px;color:${UI_GOLD}`;
     intro.textContent = Wizard.INTRO;

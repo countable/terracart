@@ -283,8 +283,7 @@ const NPC = (() => {
   //   THE STRANGER is Ayo in human form (story bible §2): white hair, no
   // name given — the lane calls her the white-haired woman — in town from
   // eleven memories. She is `transient`: passing through, so no talk ever
-  // moves her into a restored house (meetHomeNeighbour). No painting yet:
-  // her portrait is her sprite's (portrait() without `art`).
+  // moves her into a restored house (meetHomeNeighbour).
   const CHILD_SCALE = 0.7;
   const STORY_ROLES = {
     warden: { label: 'Warden', name: 'Bryn', art: 'npc_bryn', minMemories: 3 },
@@ -659,36 +658,15 @@ const NPC = (() => {
     if (target) talk.target = target;
     return talk;
   }
-  // Named neighbours share a story painting across every dialogue surface.
-  // Other residents use the same RGB multiplication as Phaser's world tint,
-  // including alpha, cached on the live NPC rather than a global roster.
+  // Portrait identity follows the same role/culture sheet as the map sprite.
   function portrait(scene, c) {
-    const row = STORY_ROLES[c.role];
-    if (row?.housedArt && typeof MemoryStory !== 'undefined' && MemoryStory.wandererHoused(scene.save, c)) return row.housedArt;
-    if (row?.art) return row.art;
-    if (c._portrait) return c._portrait;
-    const sheet = SpriteLayout.npcSheet(c);
-    const source = scene.textures.get(sheet.idle).getSourceImage();
-    const sprite = document.createElement('canvas'); sprite.width = 48; sprite.height = 48;
-    const ctx = sprite.getContext('2d'); ctx.drawImage(source, 0, 0, 48, 48, 0, 0, 48, 48);
-    const pixels = ctx.getImageData(0, 0, 48, 48), tint = sheet.tint ?? c.tint ?? 0xffffff;
-    for (let i = 0; i < pixels.data.length; i += 4) {
-      pixels.data[i] *= ((tint >> 16) & 255) / 255;
-      pixels.data[i + 1] *= ((tint >> 8) & 255) / 255;
-      pixels.data[i + 2] *= (tint & 255) / 255;
-    }
-    ctx.putImageData(pixels, 0, 0);
-    const canvas = document.createElement('canvas'); canvas.width = 352; canvas.height = 448;
-    const out = canvas.getContext('2d'); out.fillStyle = '#203128'; out.fillRect(0, 0, 352, 448);
-    out.imageSmoothingEnabled = false;
-    out.drawImage(sprite, 8, 8, 32, 28, 104, sheet.portraitY ?? 12, 144, 126);
-    c._portrait = canvas.toDataURL();
-    return c._portrait;
+    return CharacterPortraits.npc(c, { housed: c.role === 'wanderer'
+      && typeof MemoryStory !== 'undefined' && MemoryStory.wandererHoused(scene.save, c) });
   }
   function offerArt(scene, c) {
     if (c?.kind !== 'npc') return {};
     const talk = dialogue(scene, c);
-    return { art: portrait(scene, c), title: talk.title, blurb: talk.body };
+    return { portrait: portrait(scene, c), title: talk.title, blurb: talk.body };
   }
   function interact(scene, c, sx, sy) {
     // A dialog SHOWN, not merely present: index.html's static overlays
@@ -709,17 +687,17 @@ const NPC = (() => {
           until: Date.now() + Scenic.TELESCOPE_DURATION_MS });
         persistSave(scene.save);
       }
-      MemoryStory.showPages(scene, talk.pages, { title: talk.title, art: portrait(scene, c), kind: 'note',
+      MemoryStory.showPages(scene, talk.pages, { title: talk.title, portrait: portrait(scene, c), kind: 'note',
         onDone: () => meetHomeNeighbour(scene, c) });
     };
     if (isDormant(c)) { say(); return; }
     if (c.role === 'archaeologist' && typeof MemoryStory !== 'undefined') {
       const conversation = MemoryStory.archaeologistConversation(scene.save);
-      const art = portrait(scene, c);
+      const face = portrait(scene, c);
       let answered = false;
       scene.showChestRewardModal({
         kind: 'note', header: talk.title, name: conversation.title,
-        sub: conversation.body, art,
+        sub: conversation.body, portrait: face,
         actions: [
           ...conversation.choices.map(choice => ({
             label: choice.label,
@@ -729,7 +707,7 @@ const NPC = (() => {
               const reply = MemoryStory.acknowledgeArchaeologist(scene.save, conversation.id, choice.id);
               if (!reply) return;
               Save.persist(scene.save);
-              scene.showMessageModal({ kind: 'note', title: talk.title, body: reply.body, art });
+              scene.showMessageModal({ kind: 'note', title: talk.title, body: reply.body, portrait: face });
             },
           })),
           // Leaving or reloading does not consume an introduction or a topic.
@@ -747,7 +725,7 @@ const NPC = (() => {
     // the trader's stock turnover and that cooldown.
     const dealWait = ShopsMath.dealWaitMs(scene.save, c, c.role);
     if (dealWait > 0) {
-      scene.showMessageModal({ title: talk.title, body: `I have just traded. Come back in ${spokenDuration(dealWait)}.`, art: portrait(scene, c), kind: 'trade' });
+      scene.showMessageModal({ title: talk.title, body: `I have just traded. Come back in ${spokenDuration(dealWait)}.`, portrait: portrait(scene, c), kind: 'trade' });
       return;
     }
     const record = () => { ShopsMath.recordDeal(scene.save, c); };
