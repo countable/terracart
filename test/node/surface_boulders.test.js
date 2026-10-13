@@ -134,7 +134,7 @@
       const o = rock('signature', { zoneVariant, sightBlocking }), before = JSON.stringify(o);
       assert.eq(zonePlainRockFrame(o), null, 'new signatures do not duplicate neutral pairs');
       assert.eq(mineralRockArtFrame(o), 60 + index);
-      assert.eq(mineralRockArtScale(o), sightBlocking ? 4 / 3 : 0.75);
+      assert.eq(mineralRockArtScale(o), sightBlocking ? 1.6 : 0.9);
       assert.eq(mineralRockTint(o), 0xffffff);
       assert.eq(Visibility.objectCover(o), sightBlocking ? Visibility.PARTIAL : Visibility.CLEAR);
       assert.eq(wildplantFrame({ ...o, kind: 'wildplant', crop: 'rubble' }), 60 + index);
