@@ -541,19 +541,18 @@ test('combat: a ranged monster needs the same clear line you do', () => {
 
 // ── What stops a SHOT on the surface (app.js shotBlocked) ───────────────────
 // combat.js's own lineOfFire/stepShots take whatever obstruction test the
-// caller hands them (pinned above); app.js's shotBlocked is that test on the
-// A rock never blocks, and neither does a small/bush tree: too slight a
-// trunk to hide an arrow behind. Only a MEDIUM-or-bigger standing tree
-// (treeSizeClass) still stops one.
-test('combat: a rock never blocks a shot, and only a real trunk does', () => {
+// caller hands them (pinned above); app.js's shotBlocked is that test.
+// Of the sight-cover props, only an unbroken stronghold wall and a fully
+// grown trunk (full-canopy tree art, a mature fruit tree) stop an arrow;
+// tall rocks, bushes, hedges and younger trees never do.
+test('combat: only walls and fully grown trees block a shot', () => {
   const app = SCENE_SRC;
   const block = app.slice(app.indexOf('    if (this._shots.length) {'), app.indexOf('this._drawShots();'));
-  assert.falsy(/mineralrock/.test(block), 'mineral stone is no longer part of the obstruction scan at all');
-  assert.truthy(/if \(o\.kind !== 'tree' && o\.kind !== 'fruittree'\) return;/.test(block),
-    'only trees/fruit trees are ever candidates');
-  assert.truthy(/const cls = treeSizeClass\(o\);/.test(block), 'sized the same way the axe-tier gate is');
-  assert.truthy(/if \(cls === 'small' \|\| cls === 'bush'\) return;/.test(block),
-    'a small or bush-class tree is too slight a trunk to stop a shot');
+  assert.falsy(/mineralrock|wildplant/.test(block), 'rocks and bushes are not part of the obstruction scan');
+  assert.truthy(/o\.kind === 'stronghold_wall'[\s\S]*?brokenSet\.has\(o\.id\)/.test(block),
+    'an unbroken stronghold wall stops a shot');
+  assert.truthy(/treeArtFrame\(o\) !== 3\) return;/.test(block), 'only full-canopy tree art stops a shot');
+  assert.truthy(/!Crops\.fruitTreeState\(o\)\.mature\) return;/.test(block), 'only a mature fruit tree stops a shot');
 });
 
 test('combat: line of fire holds at the endpoints and with no world test', () => {
