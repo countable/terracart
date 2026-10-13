@@ -228,3 +228,14 @@ test('tree scale: a size-less tree classes mid-ladder, never bush or full', () =
     assert.truthy(cls === 'medium' || cls === 'small', `${species} → ${cls}`);
   }
 });
+
+test('building seat: art stands on the footprint\'s centre of mass', () => {
+  // Offsets are in cells from the anchor cell's centre.
+  assert.eq(WorldGen.footprintFootOffset([[3, 4]], [3, 4]).footDx, 0, 'one cell: its own centre');
+  const pair = WorldGen.footprintFootOffset([[3, 4], [4, 4]], [3, 4]);
+  assert.eq(pair.footDx, 0.5, 'a 2x1 block stands between its cells');
+  assert.eq(pair.footDy, 0);
+  const ell = WorldGen.footprintFootOffset([[0, 0], [0, 1], [0, 2], [1, 2], [2, 2]], [0, 2]);
+  assert.eq(ell.footDx, 0.6);
+  assert.truthy(Math.abs(ell.footDy - -0.4) < 1e-12, 'an L stands on its mass, off the anchor cell');
+});

@@ -79,7 +79,7 @@ test('render spec: built once, opened per pass', () => {
   assert.eq(a.RENDER_SPEC, b.RENDER_SPEC, 'the table is one object, not rebuilt');
   assert.eq(a.resolveAppearance, b.resolveAppearance, 'and so is the resolver');
   assert.truthy(a.fruitList !== b.fruitList && b.fruitList.length === 0, 'the fruit list starts empty each pass');
-  assert.truthy(/^const \{ RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseArtH \} = \(\(\) => \{/m.test(RENDER_SRC),
+  assert.truthy(/^const \{ RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseArtH, _houseFootPx, _houseArtMidPx \} = \(\(\) => \{/m.test(RENDER_SRC),
     'the spec is a module-level table');
   assert.truthy(/const \{ fruitList \} = Render\.objectAppearance\(scene, houseRoles\);/.test(RENDER_SRC),
     'drawObjects opens the pass and reads only the per-pass list');
