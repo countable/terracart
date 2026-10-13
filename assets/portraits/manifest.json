@@ -1,0 +1,102 @@
+{
+  "generator": "Built-in image_gen",
+  "columns": 4,
+  "rows": 4,
+  "frameSize": 80,
+  "sheets": {
+    "pets": [
+      "chicken",
+      "cow",
+      "cat",
+      "dog",
+      "deer",
+      "rabbit",
+      "butterfly",
+      "crab",
+      "horse",
+      "sea_turtle",
+      "green_dragon",
+      "slime",
+      "baby_cat",
+      "baby_dog",
+      "baby_cow",
+      "baby_green_dragon"
+    ],
+    "npcs-1": [
+      "warden",
+      "witness",
+      "wanderer",
+      "believer",
+      "archaeologist",
+      "stranger",
+      "wanderer_housed",
+      "wizard",
+      "wayfinder",
+      "peddler",
+      "barterer",
+      "storykeeper",
+      "mason",
+      "lamplighter",
+      "fieldwalker",
+      "seed_seller"
+    ],
+    "npcs-2": [
+      "harvest_trader",
+      "barn_raiser",
+      "market_trader",
+      "town_guide",
+      "stonemason",
+      "ranger",
+      "forager",
+      "lorekeeper",
+      "shrine_warden",
+      "shrine_lorekeeper",
+      "shrine_trader",
+      "shrine_keeper",
+      "fox_tracker",
+      "fox_storyteller",
+      "fox_trader",
+      "den_keeper"
+    ]
+  },
+  "prompts": [
+    "Edit target: image1, the pet portrait sheet. Supporting reference image2: actual gameplay sprites showing canonical colours and silhouettes; use reference ONLY for appearance, not tiny scale or composition.\nMake a revised 4x4 pet portrait spritesheet with the EXACT SAME sixteen subjects and EXACT SAME row-major order as image1. Preserve appealing warm pixel-art illustration and poses except the requested corrections. Remove ALL green backgrounds and ground shadows: output actual alpha transparency around every character. No checkerboard drawn into image, no backplates, no environment, no text or grid lines. Exactly four equal columns and four equal rows; comfortably inset EVERY silhouette inside its square, including tails/ears/wings, with transparent separation. Designed to downsample each cell to80x80: bold pixel clusters, simplified clean outlines, restrained face details.\nCorrections to match actual sprites:\nRow1 col1: chicken has rich red/russet plumage, red comb, deep dark green tail, gold beak and feet, NOT white plumage.\nRow1 col2: dairy cow has WHITE coat with reddish-brown patches, brown ears, pink muzzle, gentle eyes, short horns, NOT cream shaggy fur.\nRow1 col3: GINGER orange tabby cat with darker orange stripes, cream muzzle, NOT grey.\nRow1 col4: dark GREY dog, pointed upright triangular ears, white blaze down face and white muzzle and chest, NOT golden floppy-eared retriever.\nRow2 col1: chestnut spotted deer, NO antlers (same alert large ears and white spots as sprite).\nRow2 col2: white rabbit, soft grey shading, pink inner ears.\nRow2 col3: butterfly is AZURE/LIGHT BLUE with dark navy outline and veins, NOT purple.\nRow2 col4: warm orange-brown shore crab, keep recognizable crab silhouette.\nRow3 col1: tan/chestnut horse, medium-brown mane and pale blaze, follow sprite.\nRow3 col2: bright lime/leaf-green turtle with angular green shell, not olive-brown.\nRow3 col3: friendly leaf-green dragon, pale lime belly and pinkish inner wings, tiny dark red/brown horns, preserve friendly dragon identity.\nRow3 col4: bright leaf-green translucent slime, maintain small friendly eyes, NO detached floating bubble.\nRow4 col1: ginger kitten matching adult orange cat; col2: grey white-faced puppy with upright ears matching adult dog; col3: WHITE-and-reddish-brown calf matching cow; col4: baby leaf-green dragon matching adult.\nMaintain exact positions. True transparent PNG, one isolated subject per equal grid cell, no rectangular background remnants.",
+    "Edit target image1: existing 4x4 NPC portrait sheet. Image2 is labelled gameplay sprite comparison ONLY as costume/hair reference. Image3 is named-character story-art reference. Make a revised version of image1 with EXACT SAME sixteen identities, equal 4x4 cell geometry and row-major order. Preserve the beautiful warm expressive pixel illustration, age, expression and portrait closeup unless corrected below. Design clean bold clusters to read at final80x80 per cell.\nCRITICAL ALL backgrounds must be actual transparent alpha, no dark green plates, no checkerboard texture, no shadows outside characters, no text, no frames. Each head/hat/hair/shoulder silhouette comfortably INSIDE its own equal square cell with transparent padding on every side; do not let hats touch neighbour cells. Cropped bust shoulders at bottom should terminate cleanly INSIDE the cell.\nRow1: Bryn warden; Maud survivor; Tilly wanderer; Edda believer. These four KEEP their established story painting identity exactly: Bryn auburn/brown hair green scarf and vest; Maud elderly pale scarf rust coat; Tilly child cream headscarf brown clothes; Edda hopeful cream headscarf rust vest. Do not replace them with generic sprite faces.\nRow2: Orrin archaeologist KEEP bald crown white side tufts and white moustache brown vest from his canonical story painting; white-haired woman KEEP white hair slate clothes; happy Tilly KEEP same child identity; Tim WIZARD MUST CHANGE: large broad-brimmed TALL POINTED violet-blue wizard HAT, blue-violet robe decorated with small GOLD STARS like story art, long WHITE beard. His ENTIRE FACE hidden in near-black shadow beneath very low hat brim: NO visible eyes, nose, mouth or facial skin. White beard emerges below shadow. NOT a hood.\nRow3 corrections: Wayfinder blue/lavender hair but RED top, not cream blouse. Peddler fair blond hair and RED jacket, not brown vest. Barterer blond hair in two braided buns, PALE cream/light green dress, no dark traveling cloak. Storykeeper WHITE beard, WHITE cloth headwrap/headband with blue band detail, dark scholarly outfit, not shaggy brown beard.\nRow4 corrections: Mason red beard and GREY HORNED HELMET, red/earthy work clothes, not cloth headband. Lamplighter BLUE hair and long GREEN cape, not beige coat. Fieldwalker broad STRAW HAT and BLUE OVERALLS. Seed seller green hair and ORANGE tunic, no heavy cream scarf.\nAll named identities remain recognizable, sixteen face/shoulder portraits only, exactly4rows4columns, transparent background.",
+    "Edit target image1: existing second4x4 NPC portrait sheet. Image2 is a comparison showing labelled gameplay sprites LEFT of each older portrait: use actual sprite clothing and colour cues, not the inaccurate older portraits on its right. Keep the exact same sixteen identities in the same four-by-four row-major layout as image1. Retain warm expressive pixel illustration and faces unless corrected. Clear broad pixel clusters and simple outlines, designed for final80x80 per cell.\nALL backgrounds must be genuinely transparent alpha. No green plates, no backgrounds, no checkerboard texture, no border frames, no text, no ground shadows. Isolate every face/shoulder bust comfortably inside its own square cell with a narrow transparent margin. No head/hair overlaps cell boundaries.\nEXACT row-major order and corrections:\nRow1 col1 Harvest trader: orange/copper hair and ORANGE dress, remove cream headscarf; col2 Barn raiser: spiky brown hair and prominent GREY metal forehead headgear, blue-grey work clothes, not black cloth band; col3 Market trader: brown hair plain PALE LAVENDER tunic, no dark green cloak; col4 Town guide: ORANGE hair and RED HEADBAND, earthy tunic, not blond hair without band.\nRow2 col1 Stonemason: orange SIDE-SWEPT HAIR, broad shoulders, dark work clothes, NOT bald; col2 Ranger: red/auburn BRAIDS, grey-brown FUR collar, practical hunter clothes, not green hood; col3 Forager: GREEN hair, visibly DARK BROWN SKIN on entire face neck hands, brown clothes, not pale skin; col4 Lorekeeper: lilac hair, patterned GREEN RED GOLD robe, not ochre-only robe.\nRow3 col1 Shrine warden: grey metal HELMET and grey armour, preserve lavender undercloth; col2 Shrine lorekeeper: BLUE hair visible, WHITE robe, NO cream hood or headscarf; col3 Shrine trader: green hair light tan clothes and satchel strap, preserve kind face; col4 Shrine keeper: WHITE hood with RED trim, red-and-white robe.\nRow4 col1 Fox tracker: brown fox fur, cream muzzle, GREEN scout tunic; col2 Fox storyteller: WHITE/LIGHT SILVER fur and hair, pointed fox ears and cream-white muzzle, DARK simple dress, NOT purple fur or orange cloak; col3 Fox trader: distinctly BLUE fur, cream muzzle, YELLOW shirt, NOT slate grey fur or brown cloak; col4 Den keeper: golden-tan fox fur cream muzzle GREEN vest.\nBottom row are fox people with real fox faces: short muzzle, fluffy cheeks and pointed ears, preserve individuality and friendly expressions. Exactly16portraits,4columns4rows. Transparent background with no dark rectangle remnants."
+  ],
+  "transparentBackground": true,
+  "displaySize": 128,
+  "appearanceReferences": {
+    "pets": "src/assets.js sprite paths and green_dragon onLoad palette",
+    "namedNPCs": "assets/art/npc_*.webp story paintings; stranger follows Ayo_human sprite",
+    "wizard": "assets/art/wizard_cold.webp and wizard_dragon.webp: pointed blue star hat, shadowed face, white beard",
+    "residents": "SpriteLayout.NPC_SHEETS and tools/npc-roster.js LOOKS"
+  },
+  "referenceDiscrepancies": {
+    "warden": "Story art has brown hair and no spectacles; citizen03 map sprite has fair hair and spectacles. Portrait follows named story art.",
+    "archaeologist": "Story art has a brown vest; map sprite has a green vest. Portrait follows named story art."
+  },
+  "sourceRowBounds": {
+    "pets": [
+      0,
+      336,
+      636,
+      930,
+      1254
+    ],
+    "npcs-1": [
+      0,
+      316,
+      627,
+      938,
+      1254
+    ],
+    "npcs-2": [
+      0,
+      315,
+      630,
+      942,
+      1254
+    ]
+  }
+}

@@ -509,8 +509,10 @@
   // outline padding on every side, and the pixel of floor/ceil rounding at
   // each end. Derived from the constants the bake pads with, so a retune of
   // BAND_PX can't overflow a slot.
-  const SLOT_PAD = BAND_PX * 2
-    + Math.max(...CastleStyles.ids.map(id => CastleStyles.get(id).rampart.toothHeight)) + 2;
+  const SLOT_PAD = Math.ceil(Math.max(...CastleStyles.ids.map(id => {
+    const r = CastleStyles.get(id).rampart;
+    return r.topDepth + Math.max(r.topDepth, r.wallHeight) + r.toothHeight;
+  })) + 2);
   const slotSize = () => {
     const tbl = (typeof Render !== 'undefined' && Render.BUILDING_FACE_PX) || null;
     const deepest = tbl ? Math.max(...Object.values(tbl)) : facePx(CASTLE);
@@ -600,7 +602,11 @@
       const a = points[i], b = points[(i + 1) % points.length];
       if (a.x === b.x && a.y === b.y) continue;
       const count = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / CELL_PX));
-      for (let j = 0; j < count; j++) {
+      // Crowns must composite after every cap: a tooth can cross the next
+      // atlas section, whose opaque body would otherwise cut into its roof.
+      const passes = stone ? 2 : 1;
+      for (let section = 0; section < count * passes; section++) {
+        const j = Math.floor(section / passes), crownPass = stone && section % passes === 1;
         const at = (t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
         const p = at(j / count), q = at((j + 1) / count);
         const pad = SLOT_PAD;
@@ -613,7 +619,7 @@
         // World-relative placement: the same edge at a later camera cell sits
         // at the same offset from the projected world origin.
         const wx = x - projX(0), wy = y - projY(0);
-        const cacheKey = `${d.seed}|${d.templeZone || ''}|${d.tier}|${stone?.style.id || ''}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
+        const cacheKey = `${d.seed}|${d.templeZone || ''}|${d.tier}|${stone?.style.id || ''}|${isMine ? 1 : 0}|${i}|${j}|${crownPass ? 1 : 0}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
         const cached = scene._buildingUprightCache.get(cacheKey);
         if (cached) {
           if (!seen.has(cacheKey)) {
@@ -643,12 +649,18 @@
           const length = Math.hypot(b.x - a.x, b.y - a.y);
           const nx = -(b.y - a.y) / length * winding;
           const ny = (b.x - a.x) / length * winding;
-          const outer = v => ({ x: v.x, y: v.y - cap * (1 + ny) });
-          const inner = v => ({ x: v.x + nx * cap, y: v.y - cap });
+          // The north face lands at ground level even when the cap narrows;
+          // wall height controls its lift, while cap depth controls thickness.
+          const liftFor = normalY => cap + (depth - cap) * Math.max(0, normalY);
+          const lift = liftFor(ny);
+          const outer = v => ({ x: v.x, y: v.y - lift - cap * ny });
+          const inner = v => ({ x: v.x + nx * cap, y: v.y - lift });
           const op = outer(p), oq = outer(q), ip = inner(p), iq = inner(q);
           masonryBaseY = -Infinity;
+          let drawingCrown = false;
           const quad = (a, b, c, d, color) => {
             masonryBaseY = Math.max(masonryBaseY, a.y, b.y, c.y, d.y);
+            if (drawingCrown !== crownPass) return;
             ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
             ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath();
             ctx.fillStyle = cssOf(color); ctx.fill();
@@ -670,49 +682,74 @@
             if (previousLength > 0) {
               const previousNx = -(a.y - previous.y) / previousLength * winding;
               const previousNy = (a.x - previous.x) / previousLength * winding;
-              const previousOuter = { x: a.x, y: a.y - cap * (1 + previousNy) };
-              const previousInner = { x: a.x + previousNx * cap, y: a.y - cap };
+              const previousOuter = { x: a.x, y: a.y - liftFor(previousNy) - cap * previousNy };
+              const previousInner = { x: a.x + previousNx * cap, y: a.y - liftFor(previousNy) };
+              const previousFront = previousNy > 0 ? previousInner : previousOuter;
+              // The bevel needs a vertical face too: joining only the roof
+              // leaves a daylight gap beneath angled and concave corners.
+              if (Math.abs(previousFront.x - fp.x) > 1e-6) {
+                quad(previousFront, fp, down(fp, depth), down(previousFront, depth), face);
+                quad(down(previousFront, depth - 1), down(fp, depth - 1),
+                  down(fp, depth), down(previousFront, depth), outline);
+              }
               quad(previousOuter, op, ip, previousInner, stone.top);
             }
           }
           quad(op, oq, iq, ip, stone.top);
           const line = (a, b, color) => {
+            if (crownPass) return;
             ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
             ctx.lineWidth = 1; ctx.strokeStyle = cssOf(color); ctx.stroke();
           };
-          // Light the rear lip and shade the front lip. On the south wall
-          // those are the inner and outer edges respectively; reversing them
-          // makes the cap read as a trench behind the battlements.
-          line(op, oq, ny < 0 ? stone.style.stone.SHADOW : stone.lite);
-          line(ip, iq, ny < 0 ? stone.lite : stone.style.stone.SHADOW);
-          // Roofed merlons continue on one 8px grid across atlas sections.
+          // Keep the rear highlight quiet; a dark front-lip stroke would
+          // cut an unnecessary horizontal stripe through the wall body.
+          const toward = ny < 0 ? -1 : 1;
+          const lip = v => ({ x: v.x + nx * toward * 0.5, y: v.y + ny * toward * 0.5 });
+          line(lip(ny < 0 ? ip : op), lip(ny < 0 ? iq : oq), stone.lite);
+          // Seat full teeth at both endpoints; distribute the gaps near the
+          // 8px rhythm, with the same phase across every atlas section.
           const damage = CastleStyles.damageCell(d.key,
             Math.floor(((p.x + q.x) / 2 + nx * 0.01 - d.damageOriginX) / CELL_PX),
             Math.floor(((p.y + q.y) / 2 + ny * 0.01 - d.damageOriginY) / CELL_PX));
-          if (damage) {
+          if (damage && !crownPass) {
             const at = damage.chip / CELL_PX;
             const x = p.x + (q.x - p.x) * at + nx * cap / 2;
-            const y = p.y + (q.y - p.y) * at - cap * (1 + ny / 2);
+            const y = p.y + (q.y - p.y) * at - lift - cap * ny / 2;
             ctx.fillStyle = cssOf(stone.style.stone.SHADOW);
             ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
           }
-          const first = Math.ceil(length * j / count / 8);
-          const last = Math.ceil(length * (j + 1) / count / 8);
+          drawingCrown = true;
+          const teeth = length < rampart.toothWidth ? 0
+            : Math.max(1, Math.round((length - rampart.toothWidth) / 8) + 1);
+          const pitch = teeth > 1 ? (length - rampart.toothWidth) / (teeth - 1) : length;
+          const first = Math.ceil(length * j / count / pitch - 1e-9);
+          const last = Math.min(teeth, Math.ceil(length * (j + 1) / count / pitch - 1e-9));
           for (let tooth = first; tooth < last; tooth++) {
             if (rampart.broken && tooth % 4 === 2) continue;
-            const t = (tooth * 8 + 2) / length;
+            const t = tooth * pitch / length;
             if (t >= 1) continue;
             // Crown the rear edge, leaving the top plane visible in front
             // of the teeth, as in the tiled rampart's overhead profile.
             const crest = ny < 0 ? inner : outer;
             const v = crest({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
             if (damage && damage.missing === tooth % 4) continue;
-            ctx.fillStyle = cssOf(face);
-            ctx.fillRect(Math.round(v.x), Math.round(v.y - rampart.toothHeight), rampart.toothWidth, rampart.toothHeight);
-            ctx.fillStyle = cssOf(stone.lite);
-            ctx.fillRect(Math.round(v.x), Math.round(v.y - rampart.toothHeight - 2), rampart.toothWidth, 2);
-            ctx.fillStyle = cssOf(stone.style.stone.SHADOW);
-            ctx.fillRect(Math.round(v.x) + rampart.toothWidth - 1, Math.round(v.y - rampart.toothHeight), 1, rampart.toothHeight);
+            // A tooth follows the crest, rather than touching an angled
+            // wall at the corner of an axis-aligned rectangle. The top is
+            // rectangular in plan, spanning the full depth of the thinner cap.
+            const endT = Math.min(1, t + rampart.toothWidth / length);
+            const end = crest({ x: a.x + (b.x - a.x) * endT, y: a.y + (b.y - a.y) * endT });
+            const front = v => ({ x: v.x + nx * toward * cap,
+              y: v.y + ny * toward * cap });
+            const base = [v, end, front(end), front(v)];
+            const roof = base.map(v => down(v, -rampart.toothHeight));
+            const toothWinding = winding * toward;
+            for (let edge = 0; edge < 4; edge++) {
+              const next = (edge + 1) % 4;
+              if ((base[edge].x - base[next].x) * toothWinding <= 1e-6) continue;
+              quad(roof[edge], roof[next], base[next], base[edge],
+                edge === 2 ? face : stone.style.stone.SHADOW);
+            }
+            quad(roof[0], roof[1], roof[2], roof[3], stone.lite);
           }
         } else {
         // Extrude this edge downward, then remove its part inside the floor.
@@ -770,6 +807,7 @@
         scene.buildingWallContainer.add(sprite);
         const piece = {
           sprite, page, frame, slot, x, y, wx, wy, width: w, height: h, rank: 1,
+          ground: !crownPass,
           // Lowest visible masonry, excluding transparent frame padding.
           groundY: (masonryBaseY - projY(0)) * scene.cellM / CELL_PX,
         };
@@ -973,7 +1011,9 @@
       }
       // The cell grid goes on OVER the floor and its material: a hairline this
       // faint loses to a cobble or plank pattern laid on top of it.
-      if (g.gridPoly) g.gridPoly(d.pts, gridInkFor(GRID, floor));
+      // Castle paving already carries its cell seams. A second lattice
+      // beside those joints makes the stones read as doubled outlines.
+      if (g.gridPoly && d.tier !== CASTLE) g.gridPoly(d.pts, gridInkFor(GRID, floor));
       if (d.columns.length && g.columnsPoly) g.columnsPoly(d.pts, d.columns, isMine);
       // Wall sections stay in the building background.
       if (separateUprights) {

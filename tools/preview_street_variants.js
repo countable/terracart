@@ -29,10 +29,10 @@ const local = (o) => ({ ...o, x: o.x - tx * tileEdgeM, y: o.y - ty * tileEdgeM }
 
 // Record the actual carpet painter, including its soft edge and symbols.
 // The painter uses screen pixels; the diagram's coordinate system is metres.
-function carpetPreview(row, roadWidthM) {
+function carpetPreview(row, roadWidthM, sampleLine = line) {
   if (!SV.carpetStyleFor(row.id)) return [];
   const pxPerM = ctx.SpriteLayout.CELL_PX / cellM, strokes = [];
-  const base = line.map(p => ({x:p.x*tileEdgeM/extent, y:p.y*tileEdgeM/extent}));
+  const base = sampleLine.map(p => ({x:p.x*tileEdgeM/extent, y:p.y*tileEdgeM/extent}));
   for (const side of [-1, 1]) {
     const run = base.map(p => ({x:p.x*pxPerM, y:(p.y+side*(roadWidthM/2+cellM/2))*pxPerM}));
     ctx.RoadOverlay.emitCarpetStrip({decorPath(width, colour, points, alpha=1) {
@@ -106,6 +106,9 @@ function preview(row) {
 }
 
 function previewPath(row) {
+  // Shorter samples let the gallery show path encounters at twice the scale.
+  const line = [point(middle - halfLengthCells / 2, middle), point(middle + halfLengthCells / 2, middle)];
+  const lengthM = ctx.Streets.lineLengthM(line, tileEdgeM / extent);
   const SC = ctx.Scenic;
   const kind = Object.keys(SC.KIND_ROW).find(k => SC.KIND_ROW[k] === row.id);
   const name = row.id === 'greenway' ? 'Preview Greenway' : 'Preview Footpath';
@@ -150,9 +153,9 @@ function previewPath(row) {
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   if (!lamps.length || lamps.some(lamp => lamp.glow !== row.lampGlow)) throw new Error(`Wrong path lamps for ${row.id}`);
   return { ...row, ...groundPreview(tile), sampleName: name, roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
-    carpetStrokes: carpetPreview(row, WG.roadOverlayWidthM(tags)),
+    carpetStrokes: carpetPreview(row, WG.roadOverlayWidthM(tags), line),
     lampSpacingM: SV.lampSpacingFor(row.id, ctx.Streets.lampLayFor(tags).spacingM), objects,
-    lamps, lairs: streetDress.lairs.map(o => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly })),
+    lamps, vents: (streetDress.vents || []).map(local), webs: (streetDress.webs || []).map(local), lairs: streetDress.lairs.map(o => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly })),
     slowKinds: [...new Set(objects.filter(o => SV.isSlowKind(o.kind)).map(o => o.kind))], geography, scenicKind: kind,
     selection: !kind ? row.selection : kind === 'shore' ? 'Off-road walking path beside qualifying shore water.' :
       kind === 'greenway' ? 'Off-road walking path with a greenway name or route.' : 'Off-road walking path inside a named or sufficiently large park.',
@@ -168,6 +171,10 @@ const affinityContexts = Object.fromEntries(['neutral', 'cultivated', 'woodland'
   [trait, Object.fromEntries(['minor', 'major'].map(size =>
     [size, SV.selectionWeights('Preview', size, trait === 'neutral' ? {} : {[trait]: 1})]))]));
 const rules = {
+  slime_trail: `Glossy slime paving. One seeded species per section, chosen from green, purple, fire or splitting slimes. Two guards at each eligible post every ${SV.VARIANT_BY_ID.slime_trail.enemyStepM} m; short sections use a midpoint post. No daily reset.`,
+  spider_path: `Permanent seeded webs on ${SV.VARIANT_BY_ID.spider_path.webDensity * 100}% of eligible cell-spaced samples, with scattered lateral offsets. Webs cause six seconds of paralysis on entry; flying actors are immune. One two-spider garrison per section, where safe ground permits.`,
+  golden_path: 'An activation shrine at each safe end shares one daily activation. Coins appear directly on the path centerline, so either direction works without backtracking or a second payout.',
+
   hedgerow: `Two straight rows of cut hedges, one per ${cellM} m cell, with aligned gate gaps every ${SV.HEDGE_GATE_EVERY_CELLS} cells. Blocked slots stay empty. One encounter anchor holds two ordinary slimes where safe ground permits.`,
   thorny: `Irregular bramble clusters at ${SV.THORNY_CLUSTER_DENSITY * 100}% density cross the road and reach up to ${SV.THORNY_VERGE_MAX_CELLS} cells beyond either edge, stopping at the first obstruction. Selected streets enclose a moss cairn in brambles when the whole ring fits. Brambles burn and cost 1 energy per second while crossed.`,
   overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,
@@ -181,7 +188,10 @@ const rules = {
   toadstool: `One attempt every ${SV.TOADSTOOL_STEP_M} m; at most ${SV.TOADSTOOL_MAX} mushrooms per line piece. Mushrooms only, in three-on/one-gap groups with varying verge setbacks.`,
   goblin_gang: `${SV.VARIANT_BY_ID.goblin_gang.clusters} candidate gangs beside barrel stacks, with up to ${SV.VARIANT_BY_ID.goblin_gang.barrelsPerCluster} barrels per cluster where eligible verge cells remain.`,
 };
-for (const row of rows) row.placement = rules[row.id] || row.placement;
+for (const row of rows) {
+  row.placement = rules[row.id] || row.placement;
+  if (row.ventKind) row.placement = `Seeded ${row.ventKind} geysers alongside the path, where hazard placement is safe. A matching daily shrine stands on each eligible section.`;
+}
 process.stdout.write(JSON.stringify({ cellM, terrainVergeCells: Number(read('street_variants').match(/const TERRAIN_VERGE_CELLS = ([\d.]+)/)[1]), affinityContexts, fixture: { tx, ty, cellsPerEdge: N }, rows, baseline: SV.BANDIT_STORY,
   maxVariantLengthM: SV.MAX_VARIANT_LENGTH_M, wagonStopShare: SV.WAGON_STOP_SHARE, rockStreetShare: SV.ROCK_STREET_SHARE,
   plainShare: Object.fromEntries(['minor', 'major'].map((size) =>

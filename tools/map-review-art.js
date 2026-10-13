@@ -1,6 +1,13 @@
 // Static game art on Leaflet: shipping textures and object appearance, with no
 // player/save, fog, lighting or animation loop. Only the viewport is painted.
 const MapReviewArt = (() => {
+  const PIRATE_SAND = { colour: '#c98f73', wash: 'rgba(184,86,48,.28)' };
+  // Use the cell's actual coverage winner, not the anchor's circular influence.
+  function pirateSand(e, i) {
+    const zone = e.zone, slot = zone?.coverage?.[i];
+    return e.grid[i] === WorldGen.T.SAND && slot && zone.anchors[slot - 1]?.variant === 'pirate_cove'
+      ? PIRATE_SAND : null;
+  }
   function textureStore() {
     const entries = new Map();
     const store = {
@@ -17,8 +24,10 @@ const MapReviewArt = (() => {
       const frames = new Map();
       const t = {
         getSourceImage: () => source, getContext: () => source.getContext('2d'), refresh() {},
-        add(name, index, x, y, width, height) { frames.set(name,{x,y,width,height}); },
-        get(name) { return frames.get(name ?? '__BASE') || frames.get(0) || frames.get('__BASE'); },
+        // Phaser treats numeric frame IDs and their string forms identically.
+        add(name, index, x, y, width, height) { frames.set(String(name),{x,y,width,height}); },
+        remove(name) { return frames.delete(String(name)); },
+        get(name) { return frames.get(String(name ?? '__BASE')) || frames.get('0') || frames.get('__BASE'); },
       };
       t.add('__BASE',0,0,0,source.width,source.height);
       if (spec) {
@@ -36,7 +45,8 @@ const MapReviewArt = (() => {
   function assets() {
     if (assetsPromise) return assetsPromise;
     assetsPromise = (async () => {
-      const textures=textureStore(), scene={textures};
+      // Static previews load the same texture hooks, but never animate a player.
+      const textures=textureStore(), scene={textures,_createAnim(){},isDragonActive:()=>false};
       const failures=[];
       await Promise.all(Object.entries(ASSETS).map(async ([key,spec]) => {
         if (!['image','spritesheet'].includes(spec.kind)) return;
@@ -88,7 +98,7 @@ const MapReviewArt = (() => {
     _load() {
       if(typeof ASSETS==='undefined'||this._assets||this._loading)return;
       this._loading=true;
-      assets().then(data=>{this._assets=data;this._prepare();this.redraw();})
+      return assets().then(data=>{this._assets=data;this._prepare();this.redraw();})
         .catch(error=>{console.error('Game art could not load',error);this.options.onStatus?.('Game art could not load: '+error.message);});
     },
     onRemove(map) { map.off('moveend zoomend resize',this._requestRedraw,this);map.off('zoomanim',this._animateZoom,this);clearTimeout(this._groundTimer);this._groundJob=null;cancelAnimationFrame(this._redrawFrame);this._redrawFrame=null;this._canvas.remove();this._canvas=null;this._map=null; },
@@ -126,7 +136,7 @@ const MapReviewArt = (() => {
         if(!Number.isFinite(o.x)||!Number.isFinite(o.y))return;
         const override=connectedArt.get(o);
         const art=override?{...o,...override}:o;
-        const appearance=category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(art):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:o.kind==='coindrop'?{visible:true,texKey:Render.coinPile(o).texture,frameVal:0,scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,displayWidth:Render.coinPile(o).width,displayHeight:Render.coinPile(o).width}:resolve(art);
+        const appearance=o.kind==='_pathvent'?{visible:true,texKey:EnvironmentHazards.CONFIG.vent.texture,frameVal:EnvironmentHazards.VENTS[o.ventKind].row*5+3,scl:SpriteLayout.CELL_PX/EnvironmentHazards.CONFIG.vent.frameSize,scaleYMul:1,origin:EnvironmentHazards.CONFIG.vent.renderAnchor,dxPx:0,dyPx:0}:category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(art):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:o.kind==='coindrop'?{visible:true,texKey:Render.coinPile(o).texture,frameVal:0,scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,displayWidth:Render.coinPile(o).width,displayHeight:Render.coinPile(o).width}:resolve(art);
         if(appearance?.visible&&category!=='plant'&&category!=='creature')appearance.tint=Render.spriteTint(art,scene,appearance.texKey);
         if(o.kind==='_streetlamp'&&appearance?.visible) {
           // The shipping after hook owns lamp sizing and dark-stone alpha.
@@ -172,6 +182,7 @@ const MapReviewArt = (() => {
         }
         for(const o of e.creatures||[])add(e,o,'creature');
         for(const o of e.traps||[])add(e,{...o,kind:'trap'},'object');
+        for(const o of e.pathVents||e.streetDress?.vents||[])add(e,{...o,ventKind:o.kind,kind:'_pathvent'},'object');
         for(const o of [e.treasure,...(e.extraTreasures||[]),...(e.parkingTreasures||[])])if(treasureExposed(o,this._world.scene))add(e,{...o,kind:'xmark'},'object');
       }
       connectedArt=new Map();
@@ -270,7 +281,8 @@ const MapReviewArt = (() => {
           const spec=BIOME_TEX[type],h=((e.tx*N+x)*2246822519)^((e.ty*N+y)*3266489917);
           g.fillStyle='#'+(zoneGroundColor(e,x,y,type)??COLORS[type]??0x71845b).toString(16).padStart(6,'0');g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
           if(spec&&dx>=4)g.drawImage(textures.get(`biome${type}_${Math.abs(h)%spec.variants}`).getSourceImage(),a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
-
+          const sand=pirateSand(e,y*N+x);
+          if(sand){g.fillStyle=sand.wash;g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);}
         }
         // Follow the source road centreline, using the game's physical widths.
         g.lineCap='round';g.lineJoin='round';
@@ -433,5 +445,5 @@ const MapReviewArt = (() => {
       return this;
     },
   });
-  return {layer:options=>new Layer(options)};
+  return {layer:options=>new Layer(options),pirateSand};
 })();

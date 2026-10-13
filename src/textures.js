@@ -601,7 +601,7 @@ function drawCastleFloorTex(ctx, size, rng) {
     const outer = at === 0;
     const gaps = [0, 1].map(() => Math.floor(step * (0.38 + rng() * 0.24)));
     for (let i = 0; i < size; i++) {
-      // Omit the shared edge, including its bevel, inside the double slab.
+      // Omit the shared edge inside the double slab.
       if (combined && !outer && isHorizontal !== horizontal && i > pair * step
           && i < (pair + 1) * step) continue;
       const along = i % step, distance = Math.min(along, step - along);
@@ -609,15 +609,13 @@ function drawCastleFloorTex(ctx, size, rng) {
       if (!isHorizontal && along === 0) continue;
       const gap = gaps[Math.floor(i / step)];
       const worn = along >= gap && along < gap + 2;
-      const alpha = distance <= 1 ? (outer ? 0.27 : 0.17)
-        : distance <= 3 ? (outer ? 0.17 : 0.10)
-        : worn ? (outer ? 0.025 : 0.012) : (outer ? 0.10 : 0.05);
+      // One recessed pixel owns each joint. A parallel bright bevel reads as
+      // a second grid line; keep the definition concentrated at the corners.
+      const alpha = distance <= 1 ? (outer ? 0.22 : 0.17)
+        : distance <= 2 ? (outer ? 0.08 : 0.06)
+        : worn ? 0.012 : (outer ? 0.04 : 0.03);
       ctx.fillStyle = `rgba(0,0,0,${alpha})`;
       ctx.fillRect(isHorizontal ? i : at, isHorizontal ? at : i, 1, 1);
-      if (distance > 1 && !worn) {
-        ctx.fillStyle = `rgba(255,255,255,${outer ? 0.055 : 0.025})`;
-        ctx.fillRect(isHorizontal ? i : at + 1, isHorizontal ? at + 1 : i, 1, 1);
-      }
     }
   }
   seam(true, 0); seam(true, step);

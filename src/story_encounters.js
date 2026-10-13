@@ -113,7 +113,7 @@ const StoryEncounters = (() => {
     if (!q.greeted && near && find(q.enemyId) && !held(scene) && !NPC.isDormant?.(c)) {
       q.greeted = true;
       persist(scene);
-      scene.showMessageModal({ title: `${c.name} · ${c.roleLabel}`, body: WORRIED, art: NPC.portrait(scene, c), kind: 'note' });
+      scene.showMessageModal({ title: `${c.name} · ${c.roleLabel}`, body: WORRIED, portrait: NPC.portrait(scene, c), kind: 'note' });
     }
   }
   function interact(scene, c) {
@@ -135,14 +135,14 @@ const StoryEncounters = (() => {
         // The gift is SHOWN — the seed's own card under her portrait, her
         // thanks as its line — not described in a note (Rewards.present).
         Rewards.present(scene, { kind: 'item', id: 'starfruit_seed', qty: 1 },
-          { extra: { kind: 'story', header: `${c.name} · ${c.roleLabel}`, art: NPC.portrait(scene, c), sub: THANKS } });
+          { extra: { kind: 'story', header: `${c.name} · ${c.roleLabel}`, portrait: NPC.portrait(scene, c), sub: THANKS } });
         return true;
       }
       body = 'Thank you for stopping the archer. Make room in your bag; I have a starfruit seed for you.';
     }
     q.greeted = true;
     persist(scene);
-    scene.showMessageModal({ title: `${c.name} · ${c.roleLabel}`, body, art: NPC.portrait(scene, c), kind: 'note' });
+    scene.showMessageModal({ title: `${c.name} · ${c.roleLabel}`, body, portrait: NPC.portrait(scene, c), kind: 'note' });
     return true;
   }
   return { arm, tick, defeated, interact, WORRIED, THANKS, armAtMemories };

@@ -5,6 +5,24 @@
   const FAUNA_DENSITY = 0.7;
   const faunaCount = count => Math.round(count * FAUNA_DENSITY);
   const FAUNA_PER_TILE = faunaCount(160), ENEMIES_PER_TILE = 50;
+  const FAUNA_SPACING_CELLS = 3;
+  // One shared field for all species and habitat owners. Capped clearance
+  // makes each candidate lookup constant-time, even on a crowded shore.
+  function faunaSpacing(N, indices = []) {
+    const clearance = new Uint8Array(N * N).fill(FAUNA_SPACING_CELLS);
+    function add(index) {
+      if (index < 0 || index >= N * N) return;
+      const cx = index % N, cy = Math.floor(index / N), radius = FAUNA_SPACING_CELLS - 1;
+      for (let y = Math.max(0, cy - radius); y <= Math.min(N - 1, cy + radius); y++) {
+        for (let x = Math.max(0, cx - radius); x <= Math.min(N - 1, cx + radius); x++) {
+          const i = y * N + x;
+          clearance[i] = Math.min(clearance[i], Math.max(Math.abs(x - cx), Math.abs(y - cy)));
+        }
+      }
+    }
+    for (const index of indices) add(index);
+    return { add, clearance: index => clearance[index] ?? 0 };
+  }
   // THE MODE RESERVE: landcover enemies beyond ENEMIES_PER_TILE, sized by the
   // largest Difficulty landEnemyCountMul. Every mode generates the same
   // reserve after the base population (so base seats never move); each mode
@@ -99,7 +117,9 @@
     if (!base) return null;
     const key = `${name}:shore`;
     if (!landCache.has(key)) landCache.set(key, Object.freeze({ id: key, owner: 'land',
-      fauna: weightedRows({}), haunting: base.haunting }));
+      fauna: weightedRows({}), haunting: base.haunting,
+      // Ordinary beach enemies favour shoreline jellyfish over sand crabs.
+      enemyTierWeights: Object.freeze({ 1: 1, 2: 4 }) }));
     return landCache.get(key);
   }
   function variantProfile(id, kind) {
@@ -209,7 +229,7 @@
     return eligible.filter(row => !replaced.has(row.id));
   }
   function enemyKind(profile, id, type, context) {
-    const rows = enemyRows(profile, type, context), weights = root.EnemyRoster.SURFACE_TIERS.at(-1).tierWeights;
+    const rows = enemyRows(profile, type, context), weights = profile?.enemyTierWeights || root.EnemyRoster.SURFACE_TIERS.at(-1).tierWeights;
     const tiers = [...new Set(rows.map(row => row.tier))];
     const tier = pick(tiers, unit(id + ':tier'), value => weights[value] || 0);
     const family = profile?.owner === 'zone';
@@ -242,6 +262,7 @@
     const occupied = spawnOpts.occupied || new Set();
     spawnOpts.occupied = occupied;
     const guardCells = opts.guardCells || new Set(), reserved = new Set();
+    const faunaSeats = faunaSpacing(N);
     spawnOpts.creatureCells = reserved;
     const groupsByKey = new Map(), habitatOf = new Array(N * N);
     for (let i = 0; i < N * N; i++) {
@@ -282,6 +303,7 @@
       const index = frame.idxOf(creature.x, creature.y);
       if (index < 0) continue;
       reserved.add(index);
+      faunaSeats.add(index);
       const group = groupsByKey.get(habitatOf[index]?.key);
       if (group?.profile.owner !== 'zone'
           || !faunaRows(group.profile).some(row => row.kind === creature.kind)
@@ -347,17 +369,25 @@
       if (!pool.length) return null;
       const start = Math.floor(unit(id + ':seat') * pool.length), aquatic = isAquatic(kind);
       const seatOpts = optionsFor(group, fauna, aquatic), cls = classOf(kind);
+      let best = null, bestClearance = -1;
       for (let n = 0; n < pool.length; n++) {
         if ((n & 4095) === 4095) yield 'spawn habitat seat search';
         const index = pool[(start + n) % pool.length];
         if (reserved.has(index) || guardCells.has(index) || !sameOwner(group, index, aquatic)) continue;
         const cx = index % N, cy = Math.floor(index / N);
         if (!WG.isSpawnCell(grid, N, N, cx, cy, seatOpts, cls)) continue;
-        reserved.add(index);
-        occupied.add(index);
-        return { cx, cy, x: tx * tileM + (cx + .5) * cellM, y: ty * tileM + (cy + .5) * cellM };
+        const clearance = fauna ? faunaSeats.clearance(index) : FAUNA_SPACING_CELLS;
+        if (clearance > bestClearance) { best = { index, cx, cy }; bestClearance = clearance; }
+        if (clearance >= FAUNA_SPACING_CELLS) break;
       }
-      return null;
+      if (!best) return null;
+      // Keep the budget on constrained ground, choosing the least crowded
+      // legal seat only after exhausting the well-spaced alternatives.
+      const { index, cx, cy } = best;
+      reserved.add(index);
+      occupied.add(index);
+      if (fauna) faunaSeats.add(index);
+      return { cx, cy, x: tx * tileM + (cx + .5) * cellM, y: ty * tileM + (cy + .5) * cellM };
     }
     for (const group of groups) {
       for (let n = 0; n < group.faunaRequested; n++) {
@@ -432,7 +462,7 @@
       faunaRequested: totals.fauna.requested, enemyRequested: totals.enemies.requested };
     return out;
   }
-  const api = { FAUNA_DENSITY, faunaCount, FAUNA_PER_TILE, ENEMIES_PER_TILE, reserveBudget, reserveVisible, LAND_FAUNA, VARIANT_FAUNA, landProfile, shoreProfile, variantProfile, roadProfile, resolve, at,
+  const api = { FAUNA_DENSITY, faunaCount, FAUNA_PER_TILE, FAUNA_SPACING_CELLS, faunaSpacing, ENEMIES_PER_TILE, reserveBudget, reserveVisible, LAND_FAUNA, VARIANT_FAUNA, landProfile, shoreProfile, variantProfile, roadProfile, resolve, at,
     faunaRows, pickFauna, faunaBudget, allows, enemyRows, enemyKind, populationSteps };
   root.HabitatSpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

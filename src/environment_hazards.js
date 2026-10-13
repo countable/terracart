@@ -11,7 +11,7 @@
   });
   // One row per vent kind: its sheet row and what an eruption does. Which
   // kinds a cave floor erupts is that floor's `vents` (WorldGen.floorProfile);
-  // the surface vents only the destroyed crater's fire.
+  // ambient surface vents are crater fire; seeded paths author any row below.
   // - A `gas` vent deals no contact hit: each eruption bursts that kind of
   //   gas (MushroomGas.KINDS: its condition and colour), which spreads to the
   //   adjacent cells. Gas vents rest `gasInactiveMs` instead of the shared
@@ -59,21 +59,29 @@
   function eligible(scene, h, checkCharacters = true) {
     const W = root.WorldGen;
     if (h.depth !== scene.depth) return false;
-    if (h.type === 'vent' && !ventKinds(scene.depth).includes(h.kind)) return false;
+    const pathVent = h.type === 'vent' && h.depth === 0 && !!VENTS[h.kind]
+      && root.StreetVariants?.VARIANT_BY_ID[h._street]?.ventKind === h.kind;
+    if (h.type === 'vent' && !pathVent && !ventKinds(scene.depth).includes(h.kind)) return false;
     const arenaDepth = W.ARENA_DEPTH;
     if (h.type !== 'vent' && (h.depth === arenaDepth || h.depth + 1 === arenaDepth)) return false;
     // Nothing falls out of a sealed floor (DungeonProgression.ROPE_SEALED_FLOORS,
     // docs/design/floors.md): its descent is gated - elevator, dig or key.
     if (h.type !== 'vent' && root.DungeonProgression && !root.DungeonProgression.ropeCanDescend(h.depth)) return false;
     return footprint(scene, h).every(p => {
-      if (!p.loaded || !suitable(p.type, scene.depth)) return false;
+      if (!p.loaded || !(pathVent ? W.isWalkable(p.type) : suitable(p.type, scene.depth))) return false;
       const e = W.tileCache.get(W.tileKey(p.tx, p.ty));
       if (!e?._spawnOpts) return false;
       // Surface fire vents belong to the destroyed crater's dry ground;
       // the central lava pool is a separate permanent terrain hazard.
-      if (h.type === 'vent' && !scene.depth && quarryVariant(e, p.ix, p.iy) !== 'quarry-crater') return false;
+      if (h.type === 'vent' && !scene.depth && !pathVent && quarryVariant(e, p.ix, p.iy) !== 'quarry-crater') return false;
       const opts = { ...e._spawnOpts, spawnWhy: e.spawnWhy || e._spawnOpts.spawnWhy,
         roadMask: e.roadMask || e._spawnOpts.roadMask, roadClass: e.roadClass || e._spawnOpts.roadClass };
+      // Authored seats own their generation occupancy, but never bypass land
+      // safety or a structure subsequently placed over the vent.
+      if (pathVent && opts.occupied) {
+        const occupied = opts.occupied, own = p.iy * e.cellsPerEdge + p.ix;
+        opts.occupied = { has: i => i !== own && occupied.has(i) };
+      }
       if (!W.isSpawnCell(e.grid, e.cellsPerEdge, e.cellsPerEdge, p.ix, p.iy, opts, 'hazard')) return false;
       if (W.privateVetoAt(p.tx, p.ty, p.ix, p.iy)) return false;
       // Live placed structures may be newer than the generated occupancy mask.
@@ -211,9 +219,33 @@
     }
     return 0;
   }
+  // Path seats are tile data, never ambient discovery rolls or saved hazards.
+  // Returning to an evicted seat restarts its harmless warning cycle.
+  function syncPathVents(scene, s, px, py) {
+    if (scene.depth !== 0) return;
+    const live = new Map(), radius = CONFIG.vent.retainRadiusCells * scene.cellM;
+    for (const entry of root.WorldGen.tileCache.values()) for (const vent of entry.pathVents || []) {
+      if (!VENTS[vent.kind] || !vent._street || Math.hypot(vent.x - px, vent.y - py) > radius) continue;
+      const cell = scene.cellAt(vent.x, vent.y);
+      if (cell.loaded) live.set(vent.id, { vent, cell });
+    }
+    s.vents = s.vents.filter(h => !h._street || live.has(h.id));
+    const existing = new Map(s.vents.map(h => [h.id, h]));
+    for (const [id, { vent, cell }] of live) {
+      const old = existing.get(id);
+      if (old && old.kind === vent.kind && old.cellIX === cell.cellIX && old.cellIY === cell.cellIY) continue;
+      if (old) s.vents.splice(s.vents.indexOf(old), 1);
+      const h = create(scene, 'vent', cell, id, undefined, vent.kind);
+      h._street = vent._street;
+      if (!eligible(scene, h, false)) continue;
+      if (s.vents.some(other => other.cellIX === h.cellIX && other.cellIY === h.cellIY)) continue;
+      s.vents.push(h);
+    }
+  }
   function observe(scene) {
     const s = state(scene), px = scene.startWorldM.x + scene.playerM.x,
       py = scene.startWorldM.y + scene.playerM.y + (scene.feetOffsetM || 0), at = scene.cellAt(px, py);
+    syncPathVents(scene, s, px, py);
     if (!at.loaded) return;
     const key = `${scene.depth}:${at.tx}:${at.ty}:${at.ix}:${at.iy}`;
     const e = root.WorldGen.tileCache.get(root.WorldGen.tileKey(at.tx, at.ty));
@@ -288,7 +320,6 @@
     for (const h of hazards) {
       const before = h.phase; previous.set(h, before);
       h.elapsedMs += ms; update(h);
-      if (h.type === 'vent' && h.phase === 'active' && before !== 'active' && !h.blocked) erupt(scene, h);
       if (h.type === 'cavein' && before !== 'open') {
         saveCaveIn(scene, h);
         persistCaveIns ||= h.phase === 'open' || Math.floor(h.elapsedMs / 1000) !== Math.floor((h.elapsedMs - ms) / 1000);
@@ -314,6 +345,7 @@
         }
         h.blocked = false;
       }
+      if (h.type === 'vent' && h.phase === 'active' && before !== 'active' && !h.blocked) erupt(scene, h);
       if (h.blocked || !touching || root.Combat.playerDowned(scene.save.energy)) continue;
       if (root.Conditions.flying(scene.save) && (h.type !== 'vent' || h.kind === 'fire')) continue;
       if (h.type === 'vent' && VENTS[h.kind].gas) continue;   // its gas does the harm

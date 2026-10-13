@@ -23,6 +23,39 @@
     assert.eq(entry.habitatPopulation.totals.enemies.requested, 50);
     assert.eq(entry.habitatPopulation.totals.enemies.placed, 50);
   });
+  test('habitat populations: different animal species share a three-cell spacing preference', () => {
+    const entry = fixture();
+    const animals = generate(entry, [], 'hard').filter(c => c._habitatSpawn && !c.id.startsWith('enemy_habitat_'));
+    assert.gt(new Set(animals.map(c => c.kind)).size, 1, 'the fixture exercises multiple species');
+    assert.eq(animals.length, HabitatSpawns.FAUNA_PER_TILE, 'spacing retains the animal budget');
+    for (let i = 0; i < animals.length; i++) for (let j = i + 1; j < animals.length; j++) {
+      const a = animals[i]._habitatSpawn, b = animals[j]._habitatSpawn;
+      assert.gte(Math.max(Math.abs(a.cx - b.cx), Math.abs(a.cy - b.cy)), 3,
+        `${animals[i].kind} and ${animals[j].kind} should spread apart on ample land`);
+    }
+  });
+  test('habitat populations: spacing relaxes on constrained ground without losing identities or budget', () => {
+    const entry = fixture();
+    entry.spawnWhy = new Uint16Array(4096).fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    for (let y = 20; y < 25; y++) for (let x = 20; x < 25; x++) entry.spawnWhy[y * 64 + x] = 0;
+    const animals = generate(entry, [], 'hard').filter(c => c._habitatSpawn && !c.id.startsWith('enemy_habitat_'));
+    assert.eq(animals.length, 25, 'all legal cells remain available after spacing alternatives run out');
+    assert.eq(entry.habitatPopulation.totals.fauna.requested, HabitatSpawns.FAUNA_PER_TILE);
+    assert.eq(entry.habitatPopulation.totals.fauna.shortfall, HabitatSpawns.FAUNA_PER_TILE - 25);
+    assert.eq(new Set(animals.map(c => `${c.x},${c.y}`)).size, 25);
+    assert.eq(signature(generate(entry, [], 'hard').filter(c => c._habitatSpawn && !c.id.startsWith('enemy_habitat_'))),
+      signature(animals), 'constrained placement remains deterministic');
+  });
+  test('habitat populations: shared spacing includes authored seats without wrapping tile edges', () => {
+    const spacing = HabitatSpawns.faunaSpacing(8, [7]);
+    assert.eq(spacing.clearance(7), 0);
+    assert.eq(spacing.clearance(6), 1);
+    assert.eq(spacing.clearance(2 * 8 + 5), 2, 'diagonal clearance is Chebyshev distance');
+    assert.eq(spacing.clearance(8), 3, 'the next row does not wrap to the far edge');
+    spacing.add(8);
+    assert.eq(spacing.clearance(8), 0);
+    assert.eq(spacing.clearance(0), 1);
+  });
   test('habitat populations: preview area scales tile budgets without thinning feature populations', () => {
     const make = () => {
       const entry = fixture();
@@ -167,6 +200,16 @@
       { N: 64, cellM: 10, grid: entry.grid, spawnOpts: {}, legacyEnemies: [legacy, legacy] }));
     assert.eq(populations.filter(c => c._legacyDefeatIds?.includes(legacy.id)).length, 1,
       'duplicate historical candidate seats represent one old enemy');
+  });
+
+  test('habitat populations: ordinary beach enemy mix favours jellyfish without adding inland water enemies', () => {
+    const shore = HabitatSpawns.shoreProfile('SAND');
+    const draws = Array.from({ length: 4000 }, (_, i) =>
+      HabitatSpawns.enemyKind(shore, `beach_mix_${i}`, 'SAND', { beach: true }));
+    assert.inRange(draws.filter(kind => kind === 'jellyfish').length / draws.length, .77, .83);
+    assert.truthy(draws.every(kind => kind === 'jellyfish' || kind === 'giant_crab'));
+    const inland = HabitatSpawns.landProfile('SAND');
+    assert.falsy(HabitatSpawns.enemyRows(inland, 'SAND').some(row => row.id === 'jellyfish'));
   });
 
   test('habitat populations: ordinary shoreline uses its explicit aquatic enemy pool and water seats', () => {

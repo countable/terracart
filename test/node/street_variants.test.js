@@ -156,7 +156,7 @@ test('variants: minor streets and path sections use their normalized theme pools
 });
 
 test('variants: paths mostly select light scenic themes and never inherit Small-road themes', () => {
-  const expected = { lantern: .10, barricade: .03, promenade: .12, greenway: .30, parkpath: .33, golden_path: .02, slime_trail: .05, spider_path: .05 };
+  const expected = { lantern: .10, barricade: .03, promenade: .12, greenway: .24, parkpath: .27, golden_path: .02, slime_trail: .05, spider_path: .05, poison_path: .03, fire_path: .03, paralysis_path: .03, confusion_path: .03 };
   const weights = SV.selectionWeights(null, 'path');
   assert.eq(weights.length, Object.keys(expected).length);
   for (const row of weights) {
@@ -1589,6 +1589,38 @@ function vergeFixture(variant = 'overgrown') {
     key:'road', variant, halfW:3.5, line:[{x:1.5,y:6.5},{x:10.5,y:6.5}]
   }]}};
 }
+test('forest roads: one third add one finite giant bear without replacing the plant', () => {
+  const tier = 'street_forest_bear';
+  assert.eq(SV.VARIANT_BY_ID.overgrown.bonusEncounter.chance, 1 / 3);
+  const build = (key, fragments = false, blocked = false) => {
+    const f = vergeFixture(), rec = f.index.dressingLines[0];
+    rec.key = key;
+    if (fragments) f.index.dressingLines.push({...rec, line: rec.line.slice()});
+    if (blocked) f.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    return SV.dress({...f, tx:0, ty:0, tileEdgeM:f.N*7,
+      spawnOpts:{roadMask:f.roadMask, spawnWhy:f.spawnWhy, occupied:new Set()}}).lairs;
+  };
+  let selected = 0, chosen;
+  for (let i=0;i<300;i++) {
+    const key = `forest-test-${i}`, posts = build(key), bears = posts.filter(p=>p.tier===tier);
+    assert.eq(posts.filter(p=>p.tier==='street_overgrown').length,1,'plant remains');
+    assert.lte(bears.length,1);
+    if (bears.length) { selected++; chosen=key; }
+  }
+  assert.inRange(selected,75,125,'seeded population is approximately one third');
+  const posts = build(chosen).filter(p=>p.tier===tier);
+  assert.eq(JSON.stringify(build(chosen).filter(p=>p.tier===tier)),JSON.stringify(posts),'reload is stable');
+  assert.eq(JSON.stringify(build(chosen,true).filter(p=>p.tier===tier)),JSON.stringify(posts),'duplicate fragments do not multiply posts');
+  assert.eq(build(chosen,false,true).filter(p=>p.tier===tier).length,0,'restricted land excludes bears');
+  const N=64,entry={cellsPerEdge:N,grid:new Uint8Array(N*N).fill(T.GRASS),objects:[],buildingShapes:[],
+    _spawnOpts:{occupied:new Set(),roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N)}};
+  const cand={tier,sid:posts[0].sid,tx:0,ty:0,ox:0,oy:0,lx:32.5*7,ly:32.5*7,ix:32,iy:32,halfW:0,halfH:0};
+  const wake=caughtSet=>Lairs.garrisonFor(entry,cand,{tileEdgeM:N*7,caughtSet});
+  const bears=wake();assert.eq(bears.length,1);assert.eq(bears[0].kind,'giant_bear');
+  assert.eq(wake(new Set([bears[0].id])).length,0,'defeated bear stays gone');
+  assert.falsy(Lairs.DAILY_TIERS.has(tier));
+});
+
 test('street terrain: agreed biome rows paint one and a half cells beyond road geometry', () => {
   for (const [variant, terrain] of Object.entries({hedgerow:T.PARK,overgrown:T.FOREST,
     orchard:T.ORCHARD,pilgrim:T.ROCK,lantern:T.COMMERCIAL,burned:T.INDUSTRIAL,

@@ -45,7 +45,11 @@ access or tile lifecycle mechanics.
   daylight, amnesty and mode overlays. Stable habitat slots choose species;
   legal-seat changes cannot change their identities or species. Fauna may share
   static interactable cells, but generated inhabitants do not share each
-  other's seats. `entry.habitatPopulation` separates requested, placed and
+  other's seats. Habitat and shoreline fauna prefer three-cell Chebyshev
+  separation across species, including already placed inhabitants. Seeded seat
+  order stays deterministic; if no fully spaced legal seat exists, use the best
+  remaining clearance so tight habitat does not silently lose its population.
+  `entry.habitatPopulation` separates requested, placed and
   shortfall counts; matching authored Nexus fauna satisfies matching slots.
 - Crows are the open country's corvid: Grass landcover, Grove Nexus and
   declared Road Variant populations; Ravens are the houses' (Residential).
@@ -56,6 +60,9 @@ access or tile lifecycle mechanics.
   Nexus keeps its own declared inhabitants and excludes generic shoreline
   top-ups, including after captures. Safety only removes destinations;
   `entry.shorePopulation` records placement shortfalls.
+- Ordinary beach enemy slots favour Jellyfish (80%) over Giant Crabs (20%).
+  Jellyfish occupy legal shoreline water; crabs occupy sand. The shared enemy
+  budget and Home restrictions still apply; Nexus encounters keep their own mix.
 - Beach Nexus influence has a hard ten-cell radius (about a 20×20-cell
   extent), including ragged edges and park-derived beach companions. Larger
   mapped beaches remain ordinary sand outside that cap, with normal beach
@@ -245,7 +252,10 @@ access or tile lifecycle mechanics.
 - X-mark density: every ambient X stream (tile scatter, low-tier quota,
   footpath and inland-sand bonuses, shoreline, cave floors) scales its count
   by `loot.js X_MARK_FREQUENCY`; authored marks (parking, hoards) stay one
-  per site.
+  per site. Shoreline marks use an additional 0.7 density multiplier and
+  seeded farthest-first placement, at least three cells apart from each other
+  and earlier X marks on the tile. Their positions repeat for every player
+  and reload; crowded beaches may place fewer when no spaced legal seat remains.
 - A GREAT X (`loot.js GREAT_X`): `GREAT_X.share` (a tenth) of every X mark,
   whatever stream laid it, chosen by `isGreatX` off the mark's id. Drawn thick
   and dark red, it digs the `treasure:great` pool (gold, a tool or weapon, or
@@ -400,6 +410,15 @@ access or tile lifecycle mechanics.
   never enter that pool. A majority-scenic section uses its landscape's look. Scenic restoration bonuses still follow the
   original geographic intervals. Painting, dressing, lamps, stories and map
   review all consume the same section assignment.
+- Poison Path, Fire Path, Paralysis Path and Confusion Path each have 3% base
+  weight, taking six percentage points each from Greenway and Park Path. Their
+  matching geysers use seeded verge seats every 42 m, with a midpoint sample
+  for short sections. The hazard gate and occupancy can leave gaps. Every
+  section attempts a daily shrine before claiming geyser cells, searching its
+  length for safe public ground. Poison lends Mending, Fire lends Ember,
+  Paralysis lends Shield, and Confusion lends Light; these are ordinary daily
+  boons, not immunity to the matching gas. Geysers carry path provenance
+  through Nexus crossings.
 - Spider Path has 5% base selection weight. A seeded 35% of cell-spaced
   path samples receive permanent webs, with a small seeded lateral offset.
   Webs use the hazard spawn gate and reserve their cells; restricted land,
@@ -449,7 +468,10 @@ access or tile lifecycle mechanics.
   shared with egg hatching) nothing restores, pays or taps and foes ignore the
   player via `unnoticed`. `HabitatSpawns` allocates the base population from
   the winning landcover, Nexus or Road Variant profile before it chooses
-  legal seats. Plain roads and paths add no population. Road Variant `fauna`
+  legal seats. Plain roads add no population. The beach path variant (`promenade`) owns
+  its metal slimes in `pathFauna`, seated on its adjacent legal ground: one per 300 m of path cells, at most two
+  per tile, with stable path-cell defeat identities. Ordinary beach and pier
+  populations and other path variants contain no metal slimes. Road Variant `fauna`
   declarations supply local inhabitants.
   Where a species prefers to stand is an `attracts` column (road variant rows,
   `Zones.ZONE_KINDS`, `BIOME_ATTRACTS`, scenic themes and
@@ -636,6 +658,10 @@ Higher-priority placements and their access space take precedence in this order:
    per gang, in either difficulty). Fragments share that budget; blocked
    seats reduce the count. Barrels use the attractor gate, and gang posts
    and their guards retain the fast-enemy spawn gate.
+   Overgrown forest roads additionally roll a one-third chance of a Giant Bear
+   from their stable street key. Selected streets attempt one finite bear post
+   per owning tile, alongside the usual plant guard. Geometry fragments share
+   the post; occupancy and the fast-enemy safety gate can prevent placement.
 6. Ambient fill: ordinary plants, rocks and generic scattered content.
    Forest landcover scatters pine only; wooded park characters scatter maple
    only, from their `BiomeProfiles` rows. Both mark `treeSpeciesFixed` so

@@ -79,6 +79,9 @@ Map review trims buffered road/path geometry to its owning tile before drawing,
 variant counts, and click inspection. Neighboring buffer copies have no local
 path assignment and must not appear as additional plain paths.
 The game-art layer also draws seeded Spider Path webs on the ground.
+Pirate Cove sand has a warm terracotta tint in game art and terrain codes.
+The tint follows the exact variant coverage cells, leaving ordinary beach sand,
+water and paths unchanged.
 
 In `map-review.html`, the Overlays section toggles path endpoint dots
 and path names (visible from zoom 17; unnamed or numeric-only labels are hidden).
@@ -125,6 +128,8 @@ Adjacent JavaScript and CSS files support these pages. Shared helpers include
 exporters; they are not separate commands.
 
 ## Art previews, generators and data
+
+`preview_zone_variants.py` includes shipping path weights, slime paving and guards, and permanent seeded spider webs in its street showcase. Geyser paths show their seeded vents in the active phase and describe their daily shrine. Walking-path samples use half the road sample length and twice the visual scale.
 
 `preview_*.py` and `preview_*_art.js` produce art reviews; the detailed workflows
 and source manifests live in [docs/art/README.md](../docs/art/README.md).

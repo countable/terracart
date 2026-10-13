@@ -9,6 +9,48 @@
 // THE MODULE LIST. The page loads the modules index.html lists, in order,
 // then app.js — reading the script tags out of index.html at load.
 (function () {
+test('map review: texture hooks replace numeric frames and skip player animation', async () => {
+  const L={Layer:{extend:methods=>function(options){Object.assign(this,methods);this.initialize(options);}},
+    setOptions:(layer,options)=>{layer.options=options;}};
+  const ASSETS={
+    cave_props:{kind:'spritesheet',path:'props.png',frameWidth:24,frameHeight:24,onLoad(scene){
+      const texture=scene.textures.get('cave_props');
+      texture.remove('24');
+      texture.add('24',0,0,99,24,21);
+    }},
+    dragon:{kind:'spritesheet',path:'dragon.png',frameWidth:96,frameHeight:96,onLoad(scene){
+      scene._createAnim('dragon-fly','dragon',0,7,10);
+      if(scene.isDragonActive())throw new Error('static review must not activate a player');
+    }},
+  };
+  class Image { constructor(){this.width=192;this.height=192;} async decode(){} }
+  const noop=()=>{};
+  const art=new Function('L','ASSETS','Image','makeTowerTexture','makePotOfGoldTexture','makeTrapTextures','BIOME_TEX',
+    MAP_REVIEW_ART_SRC+'\nreturn MapReviewArt;')(L,ASSETS,Image,noop,noop,noop,{});
+  const layer=art.layer({});
+  layer.redraw=noop;
+  await layer._load();
+  assert.eq(layer._assets.failures.length,0,'shipping texture hooks must not become missing assets');
+  const texture=layer._assets.textures.get('cave_props');
+  assert.eq(texture.get(24).y,99,'numeric frame lookup reads the replacement string frame');
+  assert.eq(texture.get('24').height,21,'replacement clips the prior row contamination');
+  assert.eq(texture.get(23).height,24,'neighbouring frame stays intact');
+  assert.eq(texture.get(24),texture.get('24'),'both identifiers resolve to the same frame');
+});
+
+test('map review: pirate sand tint follows only the exact sand coverage cells', () => {
+  const L={Layer:{extend:()=>function(){}}};
+  const art=new Function('L','WorldGen',MAP_REVIEW_ART_SRC+'\nreturn MapReviewArt;')(L,WorldGen);
+  const T=WorldGen.T;
+  const e={grid:[T.SAND,T.SAND,T.SAND,T.WATER,T.PATH],zone:{
+    anchors:[{variant:'pirate_cove'},{variant:'shellwater_strand'}],
+    coverage:[1,2,0,1,1],idx:[0,1,1,1,1],
+  }};
+  assert.truthy(art.pirateSand(e,0),'pirate coverage wins even outside the influence core');
+  for(let i=1;i<e.grid.length;i++)assert.eq(art.pirateSand(e,i),null,'ordinary sand, uncovered cells, water and paths stay unchanged');
+  assert.eq(art.pirateSand({grid:[T.SAND]},0),null,'tiles without zones stay unchanged');
+});
+
 test('map review: source road bands have biome ground rather than a second raster road', () => {
   const L={Layer:{extend:methods=>function(options){Object.assign(this,methods);this.initialize(options);}},
     setOptions:(layer,options)=>{layer.options=options;}};

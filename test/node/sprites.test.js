@@ -228,6 +228,7 @@ test('CROP_SPRITE: shell uses shell_sheet, custom: true, original frame 0', () =
   assert.eq(CROP_SPRITE['shell'].sheet, 'shell_sheet');
   assert.eq(CROP_SPRITE['shell'].custom, true);
   assert.eq(CROP_SPRITE['shell'].frames.join(','), '0');
+  assert.eq(CROP_SPRITE.shell.scale * 24, 32, '24px shell export keeps a 32px display cell');
 });
 
 // ── Structural invariants for CROP_ROW ────────────────────────────────────
@@ -671,13 +672,13 @@ test('neutral mineral shadows stay under every resolved material and size', () =
     const b = SpriteLayout.ART_BOUNDS[`${p.texKey}:${p.frameVal}`];
     assert.truthy(Math.abs(p.dyPx+(b.maxY-b.fh/2)*p.scl-p.foot.footFromCentre)<1e-10,'depth keeps the true art foot');
   }
-  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65}).scl,1.08,'single themed frame shrinks for a small stone');
-  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65,rockStyle:'plain'}).scl,1.44,'prior small zone frame shares the enlarged scale');
-  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:1}).scl,1.44);
-  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:4}).scl,1.44);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65}).scl,4 / 3,'themed rocks use the 24px-to-32px scale');
+  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65,rockStyle:'plain'}).scl,4 / 3,'plain rocks use the same source-cell scale');
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:1}).scl,4 / 3);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:4}).scl,4 / 3);
   assert.eq(art.resolveAppearance({kind:'mineralrock',deposit:'crystal'}).scl,ROCK_VARIANT_ART.smallScale);
-  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:59}).scl,1.44);
-  assert.eq(art.resolveAppearance({kind:'mineralrock',sightBlocking:true}).scl,1.92);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:59}).scl,4 / 3);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',sightBlocking:true}).scl,4 / 3);
 });
 
 test('campfire: its contact shadow sits 2px above the art bottom, on the logs', () => {

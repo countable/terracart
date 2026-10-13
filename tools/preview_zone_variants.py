@@ -601,10 +601,11 @@ def street_materials(rows):
 def street_svg(v, cell_m, detail=False):
     a, b = v['line']
     mid_x, mid_y = (a['x'] + b['x']) / 2, (a['y'] + b['y']) / 2
-    left, top = a['x'] - cell_m * 5, mid_y - cell_m * 11
-    width, height = v['lengthM'] + cell_m * 10, cell_m * 22
+    framing = .5 if v['size'] == 'path' else 1
+    left, top = a['x'] - cell_m * 5 * framing, mid_y - cell_m * 11 * framing
+    width, height = v['lengthM'] + cell_m * 10 * framing, cell_m * 22 * framing
     if detail:
-        left, top, width, height = mid_x - cell_m * 8, mid_y - cell_m * 5, cell_m * 16, cell_m * 10
+        left, top, width, height = mid_x - cell_m * 8 * framing, mid_y - cell_m * 5 * framing, cell_m * 16 * framing, cell_m * 10 * framing
     suffix = '-detail' if detail else ''
     pattern_id = f'street-grid-{v["id"]}{suffix}'
     parts = [f'<svg role="img" aria-label="{html.escape(v["title"])} generated street arrangement" viewBox="{left} {top} {width} {height}">',
@@ -655,6 +656,20 @@ def street_svg(v, cell_m, detail=False):
         label = html.escape(kind + (f' ({o["species"]})' if o.get('species') else '') + (f' · growth stage {o["variant"]}' if kind == 'tree' and 'variant' in o else ''))
         parts.append(f'<rect class="geometry-cell" x="{o["x"]-size/2}" y="{o["y"]-size/2}" width="{size}" height="{size}" rx=".8" fill="{color}"><title>{label}</title></rect>')
         parts.append(sprite_cell(art_prefix, street_material_key(o), o['x']-size/2, o['y']-size/2, size, o))
+    for vent in v.get('vents', []):
+        cfg = art_registry()['ventConfig']
+        frame = art_registry()['vents'][vent['kind']]['row'] * 5 + 3
+        art = {'sheet': cfg['texture'], 'frames': [frame], 'preserveFrame': True}
+        x, y = vent['x'] - cell_m / 2, vent['y'] - cell_m * cfg['renderAnchor'][1]
+        parts.append(f'<g class="path-geyser"><title>{html.escape(vent["kind"].title())} geyser · active phase shown</title>' + art_image(art, f'x="{x}" y="{y}" width="{cell_m}" height="{cell_m}"') + '</g>')
+    for web in v.get('webs', []):
+        x, y, r = web['x'], web['y'], cell_m * .42
+        silk = [f'M {x-r} {y-r} L {x+r} {y+r}', f'M {x+r} {y-r} L {x-r} {y+r}',
+                f'M {x-r} {y} H {x+r}', f'M {x} {y-r} V {y+r}']
+        for scale in [.45, .8]:
+            d = r * scale
+            silk.append(f'M {x-d} {y-d} H {x+d} V {y+d} H {x-d} Z')
+        parts.append(f'<path class="path-web" d="{" ".join(silk)}" fill="none" stroke="#e5e4ed" stroke-opacity=".8" stroke-width=".35"><title>Permanent seeded spider web · six-second paralysis</title></path>')
     for o in v['lairs']:
         x, y, r = o['x'], o['y'], cell_m * .6
         kinds = art_registry()['lairs']['kinds'].get(o.get('tier', o['kind']), [])
@@ -664,6 +679,10 @@ def street_svg(v, cell_m, detail=False):
                 offset = (n - (count - 1) / 2) * cell_m
                 parts.append(creature_at(kinds[n % len(kinds)],x+offset,y,cell_m,f'Representative guard {n+1} of {count} at candidate anchor; actual seat may move'))
         parts.append(f'<path class="monster-layer" d="M {x} {y-r} L {x+r} {y} L {x} {y+r} L {x-r} {y} Z" fill="none" stroke="#ff827b" stroke-width="1.2"><title>{html.escape(o["kind"])}; candidate site, not a creature position</title></path>')
+    for kind, rule in v.get('pathFauna', {}).items():
+        # A short sample may not earn a population slot: label this as an example.
+        parts.append(creature_at(kind, mid_x, mid_y + cell_m, cell_m,
+            f'Illustrative {kind.replace("_", " ")}: one per {rule["perPathM"]} m of path, up to {rule["max"]} per tile; not a guaranteed spawn in this short sample'))
     for lamp in v['lamps']:
         parts.append(light_guide(lamp['x'],lamp['y'],cell_m*art_registry()['lighting']['cobble']['radiusCells'],lamp['glow']))
         parts.append(f'<circle class="geometry-cell" cx="{lamp["x"]}" cy="{lamp["y"]}" r="2.5" fill="{v["lampGlow"]}" stroke="#182019" stroke-width=".6"><title>Street lamp: {v["lampGlow"]}</title></circle>')
@@ -673,7 +692,7 @@ def street_svg(v, cell_m, detail=False):
         parts.append(f'<circle cx="{p["x"]}" cy="{p["y"]}" r="2" fill="#e1d1b4"><title>Source line endpoint</title></circle>')
     if not detail:
         parts.append(f'<circle cx="{mid_x}" cy="{mid_y}" r="4" fill="none" stroke="#fff6ca" stroke-width="1"/><path d="M {mid_x-3} {mid_y} h 6 M {mid_x} {mid_y-3} v 6" stroke="#fff6ca" stroke-width=".8"><title>Road reference point; not a POI</title></path>')
-    parts.append(f'<path d="M {left+7} {top+height-10} h {cell_m*5}" stroke="#c2cbb8"/><text x="{left+7}" y="{top+height-15}" fill="#c2cbb8" font-size="{2.2 if detail else 7}">{cell_m*5:g} m · 5 cells</text></svg>')
+    parts.append(f'<path d="M {left+7} {top+height-10} h {cell_m*5}" stroke="#c2cbb8"/><text x="{left+7}" y="{top+height-15}" fill="#c2cbb8" font-size="{(2.2 if detail else 7) * framing}">{cell_m*5:g} m · 5 cells</text></svg>')
     return ''.join(parts)
 
 
@@ -684,15 +703,29 @@ def street_section(streets):
         mix = collections.Counter(o.get('crop', o['kind']) for o in v['objects'])
         inventory = ', '.join(f'{n} {kind}' for kind, n in mix.items()) or 'No extra verge props'
         fauna = 'Local inhabitants from habitat profiles'
+        if v.get('pathFauna'):
+            fauna = '; '.join(f'{kind.replace("_", " ").title()}: one per {rule["perPathM"]} m of path, at most {rule["max"]} per tile, on adjacent eligible ground; stays defeated. Preview shows one illustrative encounter, not a guaranteed spawn on this short sample.' for kind, rule in v['pathFauna'].items())
         selection = 'Geography-selected path' if v.get('scenicKind') else f"{v['size']} {'section' if v['size'] == 'path' else 'street'} · {v['share']*100:g}% base share"
+        if v['size'] == 'path':
+            selection = f"Walking path · {v.get('pathWeight', 0)*100:g}% base weight"
+        if v.get('vents'):
+            inventory += f"; {len(v['vents'])} seeded geysers (active phase shown)"
+        if v.get('webs'):
+            inventory += f"; {len(v['webs'])} permanent seeded webs"
         tiers = sorted(set(o.get('tier',o['kind']) for o in v['lairs']))
         monsters = '; '.join(' or '.join(k.replace('_',' ') for k in art_registry()['lairs']['kinds'].get(t,[])) + f' · {art_registry()["lairs"]["counts"].get(t,1)} guard per eligible anchor' for t in tiers) or 'No variant-specific enemies'
         if tiers: monsters += '; stays defeated; placement and home safety can suppress guards'
         affinity = ', '.join(v.get('affinities', [])) or 'Neutral'
         affinity_details = f'<dt>Affinities</dt><dd>{html.escape(affinity)}</dd>' + (f'<dt>Selection</dt><dd data-affinity-row="{v["id"]}" data-road-size="{v["size"]}"></dd>' if v['size'] != 'path' else '')
         terrain_details = f'<dt>Terrain verge</dt><dd>{html.escape(v.get("terrain", "").replace("_", " ").title())} · {streets["terrainVergeCells"]:g} cells ({streets["cellM"]*streets["terrainVergeCells"]:g} m) beyond the road edge, on eligible ground. Special zones take precedence.</dd>'
+        shrine = next((row for row in art_registry()['shrineKinds'].values() if v['id'] in row.get('streets', [])), None)
+        shrine_details = ''
+        if v.get('ventKind') and shrine:
+            boon = shrine.get('boon', shrine.get('lever', 'boon'))
+            minutes = shrine.get('durationMs', 0) / 60000
+            shrine_details = f'<dt>Daily shrine</dt><dd>{html.escape(shrine["name"])} · {html.escape(boon)} for {minutes:g} minutes. One per section where safe ground permits; once per UTC day.</dd>'
         scenic_details = (f'<dt>Geography</dt><dd>{html.escape(v["selection"])}</dd><dt>Rewards</dt><dd>{html.escape(v["rewards"])}</dd>' if v.get('scenicKind') else '')
-        cards.append(f'''<article id="street-{v['id']}"><p data-sandbox="road:{v['id']}"></p><header><small>{selection} · {v['rung']}</small><h2>{html.escape(v['title'])}</h2></header><p class="mix"><b>{props} props over {v['lengthM']:g} m · {props/v['lengthM']*100:.1f} per 100 m in this sample</b><br>{inventory}</p><figure>{street_svg(v, streets['cellM'])}<figcaption>Generated straight-road sample · {v['roadWidthM']:g} m carriageway · ⊕ road reference point, not a POI</figcaption></figure><details class="street-closeup"><summary>Pavement and lamp close-up</summary>{street_svg(v, streets['cellM'], True)}</details><p>{html.escape(v['body'])}</p><dl>{affinity_details}{terrain_details}{scenic_details}<dt>Placement</dt><dd>{html.escape(v['placement'])}</dd><dt>Lamps</dt><dd>{len(v['lamps'])} shown · {v['lampSpacingM']:g} m target spacing · <span class="swatch" style="background:{v['lampGlow']}"></span>{v['lampGlow']}</dd><dt>Monsters</dt><dd>{monsters}</dd><dt>Guard sites</dt><dd>{len(v['lairs'])} generated candidate sites · outlined diamonds</dd><dt>Slows</dt><dd>{', '.join(v['slowKinds']) or 'None'}</dd><dt>Fauna</dt><dd>{fauna}</dd><dt>Sample key</dt><dd>{v['sampleName']} · tile ({streets['fixture']['tx']}, {streets['fixture']['ty']})</dd></dl></article>''')
+        cards.append(f'''<article id="street-{v['id']}"><p data-sandbox="road:{v['id']}"></p><header><small>{selection} · {v['rung']}</small><h2>{html.escape(v['title'])}</h2></header><p class="mix"><b>{props} props over {v['lengthM']:g} m · {props/v['lengthM']*100:.1f} per 100 m in this sample</b><br>{inventory}</p><figure>{street_svg(v, streets['cellM'])}<figcaption>Generated straight-road sample · {v['roadWidthM']:g} m carriageway · ⊕ road reference point, not a POI</figcaption></figure><details class="street-closeup"><summary>Pavement and lamp close-up</summary>{street_svg(v, streets['cellM'], True)}</details><p>{html.escape(v['body'])}</p><dl>{affinity_details}{terrain_details}{scenic_details}{shrine_details}<dt>Placement</dt><dd>{html.escape(v['placement'])}</dd><dt>Lamps</dt><dd>{len(v['lamps'])} shown · {v['lampSpacingM']:g} m target spacing · <span class="swatch" style="background:{v['lampGlow']}"></span>{v['lampGlow']}</dd><dt>Monsters</dt><dd>{monsters}</dd><dt>Guard sites</dt><dd>{len(v['lairs'])} generated candidate sites · outlined diamonds</dd><dt>Slows</dt><dd>{', '.join(v['slowKinds']) or 'None'}</dd><dt>Fauna</dt><dd>{fauna}</dd><dt>Sample key</dt><dd>{v['sampleName']} · tile ({streets['fixture']['tx']}, {streets['fixture']['ty']})</dd></dl></article>''')
     legend = ''
     contexts = html.escape(json.dumps(streets['affinityContexts']), quote=True)
     affinity_controls = f'<div class="affinity-controls" data-affinity-contexts="{contexts}"><label>Surroundings <select id="affinity-context">' + ''.join(f'<option value="{key}">{key.title()}</option>' for key in streets['affinityContexts']) + '</select></label><p>Selection probabilities below are conditional on a road already being special, within its road size, with no street-name match. Change surroundings to compare soft preferences; the art fixtures stay the same. Scenic paths retain their geographic selection.</p></div>'
@@ -1126,6 +1159,8 @@ def render(d, out):
         coverage_label = 'interactables + ' + f'{sum(hazards.values())*100:g}% hazards' if hazards else ('expected' if b['type']=='seeded_scatter' or b.get('gapScatter') else 'nominal')
         mode = {'concentric_rings':'Three concentric rings · POI at common center', 'bounded_line_grid':f'{b.get("plots",[0,0])[0]} × {b.get("plots",[0,0])[1]} plots · POI centered in a plot', 'line_grid':f'Lines every {b.get("spacingCells")} cells · repeat to zone edge', 'seeded_scatter':'Seeded scatter · no repeating tile', 'repeat_motif':'Repeating cell pattern', 'procedural_layout':'Shared procedural layout · repeat to zone edge'}[b['type']]
         fauna = 'Local inhabitants from habitat profiles'
+        if v.get('pathFauna'):
+            fauna = '; '.join(f'{kind.replace("_", " ").title()}: one per {rule["perPathM"]} m of path, at most {rule["max"]} per tile, on adjacent eligible ground; stays defeated. Preview shows one illustrative encounter, not a guaranteed spawn on this short sample.' for kind, rule in v['pathFauna'].items())
         guard = v['guards']
         kinds = guard.get('kinds') or guard.get('choices') or [guard.get('kind', 'guard')]
         guard_text = 'None'

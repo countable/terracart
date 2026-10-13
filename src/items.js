@@ -81,9 +81,9 @@ const CROP_SPRITE = {
   // Lighting.KINDS.mushroom) says it grew in the dark. The inventory icon
   // stays `frame`.
   mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.1016, caveFrames: [127, 128] },
-  // Shell keeps its original pink cowrie on every surface. The unused
-  // colour variants and duplicate frames are cleared without changing sheet geometry.
-  shell: { sheet: 'shell_sheet', custom: true, frames: [0] },
+  // Approved shell is exported from the original art into a 24px cell.
+  // Map and inventory share its frame; display scaling keeps the same footprint.
+  shell: { sheet: 'shell_sheet', custom: true, frames: [0], scale: 4 / 3 },
   // Torch — the consumable lying on a level-1 cave floor (worldgen.js
   // caveFloorTorches); the floor pickup uses the shared crop renderer.
   torch: { sheet: 'icon_torch', custom: true, frame: 0, scale: 1.36 },
@@ -161,8 +161,8 @@ const ZONE_ROCK_THEMES = Object.freeze({
 // One neutral stone palette everywhere; material pairs are adjacent small/large frames.
 // Legacy yield variants still own mining quantities, independently of appearance.
 const ROCK_VARIANT_ART = Object.freeze({
-  columns: 6, rows: 11, smallScale: 1.44, largeScale: 1.92,
-  themedScale: 1.08, placedScale: 2.88,
+  columns: 8, rows: 9, smallScale: 4 / 3, largeScale: 4 / 3,
+  themedScale: 4 / 3, placedScale: 2.88,
   plainFrames: Object.freeze([0, 30, 32, 34]),
   materials: Object.freeze(['plain', 'flint', 'quartz', 'topaz', 'amethyst',
     'sapphire', 'ruby', 'emerald', 'diamond', 'copper', 'iron', 'gold',
@@ -175,7 +175,7 @@ const WILDPLANT_CONTEXT_ART = {
     ['zone_rock_' + zone, { crop: 'rubble', sheet: 'rock_variants', custom: true, frame: theme.frame, scale: ROCK_VARIANT_ART.themedScale }])),
   zone_hedge: { crop: 'shrub', sheet: 'zone_hedge', custom: true, scale: 4 / 3, seat: false },
   zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frame: 0, scale: (4 / 3) * 0.8, seat: false },
-  palm: { crop: 'shrub', sheet: 'beach_palms', custom: true, frames: [2, 3, 4, 5], scale: 2, seat: true, shadow: true },
+  palm: { crop: 'shrub', sheet: 'beach_palms', custom: true, frames: [2, 3, 4, 5], scale: 4 / 3, seat: true, shadow: true },
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
 function wildplantSprite(p) {

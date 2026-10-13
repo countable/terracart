@@ -4,9 +4,12 @@
   const T0 = 1_700_000_000_000;
 
   test('shrines: sheet idols and the drill share boon and light definitions', () => {
-    assert.eq(Shrines.KIND_IDS.length, 13);
+    assert.eq(Shrines.KIND_IDS.length, 17);
     assert.eq(K.golden_path_idol.frame, K.golden_idol.frame, 'Golden Path reuses the Golden Road idol art');
-    const frames = Shrines.KIND_IDS.filter(id => K[id].frame != null && id !== 'golden_path_idol').map(id => K[id].frame);
+    const aliases = { golden_path_idol: 'golden_idol', poison_path_shrine: 'toad_idol',
+      fire_path_shrine: 'ember_altar', paralysis_path_shrine: 'bone_watcher', confusion_path_shrine: 'lantern_saint' };
+    for (const [id, original] of Object.entries(aliases)) assert.eq(K[id].frame, K[original].frame, `${id} reuses ${original} art`);
+    const frames = Shrines.KIND_IDS.filter(id => K[id].frame != null && !aliases[id]).map(id => K[id].frame);
     assert.eq(new Set(frames).size, frames.length, 'one frame per kind');
     assert.eq(JSON.stringify([...frames].sort((a, b) => a - b)), JSON.stringify(SpriteLayout.SHRINE_KIND_ART.frames),
       'the sheet lists exactly the table\'s frames');

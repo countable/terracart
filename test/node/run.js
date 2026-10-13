@@ -109,7 +109,7 @@ const FILES = [
   // starter constants as GLOBALS at call time; run.js injects those below (STARTER_CONSTS).
   'spawn_ownership.js', 'starter.js',
   // Fight maths (pure; combat.test.js registers a synthetic monster table).
-  'ground_fire.js', 'combat.js', 'pirates.js', 'pets.js', 'companions.js', 'creature_ai.js', 'npc.js',
+  'ground_fire.js', 'combat.js', 'pirates.js', 'pets.js', 'character_portraits.js', 'companions.js', 'creature_ai.js', 'npc.js',
   // The wizard tower's offers — pure, so wizard.test.js drives the shipping rules.
   'wizard.js', 'dragon_story.js', 'memory_story.js', 'pet_story_art.js', 'pet_stories.js', 'story_encounters.js',
   'interact.js',
@@ -146,11 +146,10 @@ const FILES = [
 const BRIDGE = `;Object.assign(globalThis, {
   Arena,
   GasRender,
-  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, Visibility,
+  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, CharacterPortraits, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, Visibility,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
   REACH_CORNER_PX, ReachCorner,
-  isToolGated, toolGatedAlpha, TOOL_GATED_ALPHA,
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE, MAP_MSG_MAX,
   // Which ground takes a hoe, and the inventory's type tabs.
   NON_TILLABLE, INV_CATS, INV_CAT_BY_KEY, invCatIconHTML,
@@ -986,7 +985,7 @@ Object.assign(ctx, {
   // consult the one-place-one-chest rule before pushing a chest).
   ctx.SX_CHEST_INJECT_SRC    = slice(wgSrc,  'for (const ch of sx.chests) {\n', 'entry.objects.push(ch);', 'the sidecar chest injection');
   // The tree + mineralrock RENDER_SPEC entries (a const inside drawObjects);
-  // tool_gate_fade.test.js pins that both `after` hooks use the shared tool-gate fade.
+  // tool_gate_fade.test.js pins that tool access no longer changes object opacity.
   ctx.RENDER_TREE_ROCK_SPEC_SRC = slice(readSrc('render.js'), '    tree:   { key: (o) => {', '    // STREET VARIANT PROPS', 'the tree/mineralrock render specs');
   // The fruit-tree frame table, its RENDER_SPEC entry and the fruit pass, all
   // inside drawObjects; fruit_overlay.test.js pins as text that the tree's ART
@@ -1430,6 +1429,27 @@ for (const f of testFiles) {
 }
 
 // ── Every ASSETS file ships ──────────────────────────────────────────────
+// Portraits must retain actual transparent pixels through the RGBA exporter,
+// rather than merely adding an unused alpha channel to a flat background.
+ctx.__tests.push({ name: 'character portraits: every exported cell and atlas has visible art and transparency', fn: () => {
+  const { decodePng } = require('../../tools/sprite_audit.js');
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/portraits/manifest.json'), 'utf8'));
+  const ids = new Set([...Object.keys(manifest.sheets), ...Object.values(manifest.sheets).flat()]);
+  for (const id of ids) {
+    const image = decodePng(fs.readFileSync(path.join(ROOT, `assets/portraits/${id}.png`)));
+    let transparent = 0, opaque = 0;
+    for (let i = 3; i < image.data.length; i += 4) {
+      if (image.data[i] === 0) transparent++;
+      // Generated cutouts can have 254 alpha even in solid interiors.
+      if (image.data[i] >= 250) opaque++;
+    }
+    const minimum = image.w * image.h * 0.05;
+    if (transparent < minimum || opaque < minimum) {
+      throw new Error(`${id}: expected visible art on a transparent background (${opaque} opaque, ${transparent} transparent pixels)`);
+    }
+  }
+} });
+
 // A key renamed without its file (house_market → house_shop) 404s in the
 // browser and the sprite silently never draws. Files on disk, so node scope.
 ctx.__tests.push({ name: 'assets: every ASSETS path exists on disk', fn: () => {

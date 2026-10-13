@@ -99,7 +99,8 @@
       || !!root.SpriteLayout?.creatureAirborne(save?.kind);
   }
   function fireImmune(save, now = Date.now()) {
-    return damageImmune(save, now) || (save.fireResistancePotionUntil || 0) > now;
+    return damageImmune(save, now) || (save.fireResistancePotionUntil || 0) > now
+      || !!root.Combat?.monster(save.kind)?.fireImmune;
   }
   // Energy is integral. Carry fractional fire loss between hits and saves so
   // resistance still works against small ticks; zero damage never discharges it.

@@ -140,7 +140,7 @@ class SceneModals {
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, story = false, art, centerBody = false, fullscreen = false, delayInput } = {}) {
+    kind, kindLabel, kindIcon, story = false, art, portrait, centerBody = false, fullscreen = false, delayInput } = {}) {
     // A dialog swapping itself in place (a pager turn, a tab) is the same
     // dialog already armed; a fresh story or event gets the arming second.
     const swapping = !!document.getElementById(id);
@@ -149,7 +149,8 @@ class SceneModals {
     // Scene art is a story-sized dialog by definition — its frame is cut to
     // the grown box (ART_FRAME_ASPECT).
     const kRow = typeof kind === 'string' ? MODAL_KINDS[kind] : kind;
-    art = art || kRow?.art;
+    art = portrait || art === false ? null : art || kRow?.art;
+    if (portrait) story = true;
     // FULLSCREEN (the wreck's build pick): the box fills the whole visible
     // game slice instead of the map square, and drops the painting — a
     // portrait frame cut to the square has no shape to fill it. The kind
@@ -394,6 +395,21 @@ class SceneModals {
       }
       while (box.firstChild) into.appendChild(box.firstChild);
       box.appendChild(body);
+      if (portrait) {
+        // A square character portrait keeps its own size, separate from the
+        // scrollable copy. It is never stretched into a scene painting.
+        box.style.overflowY = 'hidden';
+        body.style.cssText = 'margin:0;min-height:0;flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;padding-bottom:3px;';
+        const image = document.createElement('img');
+        image.className = 'modal-portrait';
+        image.src = portrait;
+        image.alt = '';
+        image.width = 128;
+        image.height = 128;
+        image.style.cssText = 'display:block;width:128px;height:128px;flex:0 0 128px;align-self:center;object-fit:contain;margin:0 0 10px;image-rendering:pixelated;';
+        image.addEventListener('error', () => { image.style.display = 'none'; });
+        box.insertBefore(image, body);
+      }
       if (artLayer) { box.insertBefore(artLayer, box.firstChild); box.insertBefore(mosaicLayer, artLayer); }
       if (kindNode) { kindNode.style.flex = '0 0 auto'; box.insertBefore(kindNode, box.firstChild); }
       // The ENTRANCE (index.html .modal-anim): the backdrop fades in and the
@@ -524,7 +540,7 @@ class SceneModals {
   // `art` (optional) — the story's own SCENE painting (assets/art/ stem); a
   // dialog with one is a STORY unless the caller names another kind.
   // `kind` (optional) — the MODAL_KINDS category; a plain message is a 'note'.
-  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false }) {
+  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false }) {
     document.getElementById('offer-modal')?.remove();
     let dismissed = false;
     const dismiss = () => {
@@ -536,7 +552,7 @@ class SceneModals {
       if (typeof onDismiss === 'function') onDismiss();
     };
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
-      { zIndex: 60, onClose: mustAcknowledge ? undefined : dismiss, kind: kind, kindLabel, art });
+      { zIndex: 60, onClose: mustAcknowledge ? undefined : dismiss, kind: kind, kindLabel, art, portrait });
     const safeBody = String(body).replace(/\n/g, '<br>');
     // No title, no title line: a page whose own heading is in the body (the
     // Book's volume line) starts on it, with no empty gold row above.
@@ -654,13 +670,13 @@ class SceneModals {
   //                 the start (a single card is selected on its own, so the
   //                 dialog reads as the plain price tag it is). A `suggested`
   //                 card wears a soft outline until something is picked.
-  showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, fullscreen = false, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
+  showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, portrait, fullscreen = false, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     // What the last accept of a REPEAT offer said (its flashLoot / flash
     // toasts, captured by the accept below): those draw on the map behind
     // this dialog, so the dialog that reopens prints them as its receipt.
     const offerToasts = this._offerToasts; this._offerToasts = null;
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art, fullscreen });
+      { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art, portrait, fullscreen });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
     // and calls onSelect, which re-presents the sibling modal — cheap "tabs"
@@ -1054,10 +1070,10 @@ class SceneModals {
     });
   }
   showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
-    onDismiss, header, kind = 'treasure', kindIcon, actions, art, cards = false, tier = 0,
+    onDismiss, header, kind = 'treasure', kindIcon, actions, art, portrait, cards = false, tier = 0,
     confirmLabel = 'Take', pickHint = 'Tap one to see what it does' }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('chest-reward-modal', {
-      zIndex: 55, borderColor: accent, wrapBg: '#000c', art, centerBody: true,
+      zIndex: 55, borderColor: accent, wrapBg: '#000c', art, portrait, centerBody: true,
       kind, kindLabel: header, kindIcon, delayInput: true,
       wrapExtra: 'animation:chestModalIn 180ms ease-out;',
       boxExtra: `border-width:3px;border-radius:14px;padding:22px 22px 14px;font-size:14px;` +

@@ -121,22 +121,22 @@
   test('story neighbours: the wanderer is homeless until the first restoration after you meet them', () => {
     const w = person('wanderer');
     const s = scene({ discovered: {}, restoredHouses: { h0: 'blacksmith' } });
-    assert.eq(NPC.portrait(s, w), 'npc_tilly');
+    assert.eq(NPC.portrait(s, w), 'assets/portraits/wanderer.png');
     assert.falsy(s.save.memoryStory, 'reading the portrait does not start her housing ledger');
     assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.homeless, 'sad on the first meeting even after a restoration they never saw');
     assert.eq(s.save.memoryStory.met[w.id], 1, 'the meeting is stamped with the day\'s count');
     assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.homeless, 'still sad tomorrow');
     assert.eq(Houses.STORY_RESTORES.childHome, 1, 'owner\'s call (Oct 2026): one roof is enough');
     s.save.restoredHouses.h1 = 'trader';
-    assert.eq(NPC.portrait(s, w), 'npc_tilly_happy', 'the live target changes her portrait before the next talk');
+    assert.eq(NPC.portrait(s, w), 'assets/portraits/wanderer_housed.png', 'the live target changes her portrait before the next talk');
     assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.housed, 'the first restoration after meeting gives them a roof');
     const reloaded = scene(JSON.parse(JSON.stringify(s.save)));
     assert.eq(NPC.dialogue(reloaded, w).body, MemoryStory.NEIGHBOURS.wanderer.housed);
-    assert.eq(NPC.portrait(reloaded, w), 'npc_tilly_happy');
+    assert.eq(NPC.portrait(reloaded, w), 'assets/portraits/wanderer_housed.png');
     assert.eq(s.save.memoryStory.met[w.id], 1, 'the stamp never moves');
     const stamped = scene({ restoredHouses: { first: 'plain', second: 'plain' }, memoryStory: { met: { [w.id]: 1 }, childHomeAt: { [w.id]: 3 } } });
     assert.eq(NPC.dialogue(stamped, w).body, MemoryStory.NEIGHBOURS.wanderer.housed, 'the target derives from the meeting, so a child met under the old rule moves in too');
-    assert.eq(NPC.portrait(stamped, w), 'npc_tilly_happy');
+    assert.eq(NPC.portrait(stamped, w), 'assets/portraits/wanderer_housed.png');
     const later = scene(towerSave(12)); later.save.memoryStory.met = { [w.id]: 3 };
     assert.eq(NPC.dialogue(later, w).body, MemoryStory.NEIGHBOURS.wanderer.settled, 'settled by the second act');
     assert.truthy(/· Wanderer$/.test(NPC.dialogue(s, w).title));
@@ -167,14 +167,14 @@
     assert.falsy(Object.values(NPC.LABELS).some(l => /Elven/.test(Object.values(l).join())), 'no elves');
   });
 
-  test('story neighbours: named dialogue uses paintings and ordinary residents keep their sprite portraits', () => {
+  test('story neighbours: named and ordinary dialogue use dedicated character portraits', () => {
     for (const role of NPC.STORY_NEIGHBOURS.filter(r => NPC.STORY_ROLES[r].art)) {
       const c = person(role);
       c._portrait = 'data:image/png;base64,old-sprite';
-      assert.eq(NPC.portrait({}, c), `npc_${c.name.toLowerCase()}`, `${c.name} uses the painting even after a cached sprite portrait`);
+      assert.eq(NPC.portrait({}, c), `assets/portraits/${role}.png`, `${c.name} uses the portrait even after a cached sprite portrait`);
     }
     const ordinary = { role: 'mason', _portrait: 'data:image/png;base64,resident' };
-    assert.eq(NPC.portrait({}, ordinary), ordinary._portrait, 'ordinary residents retain the sprite fallback');
+    assert.eq(NPC.portrait({}, ordinary), 'assets/portraits/mason.png', 'ordinary residents use their role portrait');
     const homeless = MemoryStory.NEIGHBOURS.wanderer.homeless;
     assert.truthy(/door handle is all that’s left/.test(homeless), 'Tilly holds the surviving piece of her home — her words agree with the painting');
     assert.falsy(/<em>/.test(homeless), 'spoken only: no italic action line (owner\'s call, Oct 2026)');

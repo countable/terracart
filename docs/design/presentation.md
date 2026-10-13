@@ -6,6 +6,21 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- The inventory pet menu's **View info** opens an individual pet card with a
+  128px portrait, description, current/max HP and damage per hit. Stats use
+  `Combat.maxHp`, `Combat.petBlow` and `Pets.stats`, including accessories and
+  individual bonuses. Converted enemies use their main sprite as the portrait.
+  Successful catches open this card immediately with **Close**; the first-pet
+  story stays queued until the card closes. Inventory cards use **Back**.
+
+- Character portraits use `CharacterPortraits` and transparent 80×80 cells
+  from the generated 4×4 sheets (320×320 atlases) in `assets/portraits/`.
+  NPC identity follows `SpriteLayout.npcSheet` for each role and culture; Tilly has a housed variant.
+  Dialogue passes `portrait` to the modal shell, which keeps the face and
+  shoulders at 128px above independently scrolling text, using pixelated scaling
+  for chunky pixels. Portraits have no background plate or rounded clipping.
+  Scene paintings continue to use `art` and the full scene layout.
+
 - Interrupted startup script downloads show a recovery screen and retry the
   whole page at most twice per tab, preserving script order and saved progress.
   Offline startup waits for connectivity; exhausted retries offer **Try again**.
@@ -76,7 +91,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   fixed coin fee. An empty list says "Once you find a potion, you can brew it here."
   Keep the selected recipe after brewing and recheck discovery, bag room,
   ingredients and coins before spending either resource.
-- Dialogs use `makeModalShell` with a kind, which supplies a scene painting.
+- Dialogs use `makeModalShell` with a kind, which supplies a default scene
+  painting unless the caller supplies a character `portrait` or `art: false`.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
   with its band layout. Painted headers use a label without emoji/`kindIcon`.

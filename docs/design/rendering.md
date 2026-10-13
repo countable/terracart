@@ -38,11 +38,24 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   vertical half-cell slab, with both positions represented. Polygon courtyards
   scatter those variants across a cached eight-cell-square repeat; tiled floors
   choose them from a mixed world-cell hash. The pattern stays fixed while the
-  camera moves. Tiles have darker junctions, worn stretches and quiet bevels. Inner
-  seams are lighter than cell boundaries, keeping cells legible beside the
-  smaller road cobbles.
+  camera moves. Each joint uses one recessed pixel, with quiet worn stretches
+  and stronger corners. Polygon courtyards use these stone seams without a
+  second cell-grid overlay.
   Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
-  renderers; polygon corners use bounded bevel joins.
+  renderers; polygon corners use bounded bevel joins with faces beneath them.
+  Merlons have low rectangular tops spanning the full wall-cap width, with both
+  opposing faces flush with the wall below at every angle. Their length along
+  the wall is independent of its thickness. Full end blocks reach each corner;
+  the rear highlight stays inside the cap silhouette. Polygon wall bodies and
+  crenellations use separate cached passes, with every body drawn before the
+  crowns so adjacent wall sections cannot cover a crenellation top. Castle wall
+  bodies omit mid-wall shadow stripes; the bottom silhouette and a quiet rear highlight define the edge.
+- Standing objects fade to half their normal opacity only when their art overlaps
+  the player's inset body box and their world depth draws them in front. The
+  overlap uses cached trimmed `ART_BOUNDS`, with frame bounds for procedural
+  art, and updates even on reused sprite slots. Moving clear restores the
+  original opacity; tool access never changes it. Ground art retains its own
+  opacity, and fruit overlays follow their tree.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
@@ -111,7 +124,7 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   `drawObjects` caches appearance by identity only for generation-immutable
   records, reuses their configured pool slots while body and camera stand still,
   and sorts the shared world container only when membership or assigned depth
-  changes; tool/work transitions invalidate reuse, while connected, clock-driven
+  changes; work transitions invalidate reuse, while connected, clock-driven
   and saved-state art stays live.
 - `RoadSafety` paints every visible `ROAD_CLASS_MAJOR_BUFFER` cell with its
   muted red ground wash after dark. The wash sits above road surfaces and below
@@ -135,16 +148,26 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 `tilled_bed`, `still_frames`, `chunk_index`, `building_overlay`; also
 `tools/sprite_audit.js`.
 
+- Approved replacements are resampled from original generated crops at the
+  24px art grid, never enlarged from a finished 16px export. The world-art
+  importer records `resizeSheet` for compatibility frames in migrated sheets;
+  selected frames are then replaced from original sources. Palms and shells
+  use 24px cells at 4/3 display scale. Tall shrine frames use 24×36 cells;
+  their scale and the waystone scale compensate for the larger source grid,
+  preserving their established screen footprint. Legacy unrelated sheets and
+  building or multi-cell canvas dimensions remain separate from this rule.
+
 - The shared mineral rock set uses a slightly warm grey palette and high
   three-quarter overhead view. The generic `rock_variants` sheet has
   24px cells forming fifteen adjacent small/large
-  material pairs plus three extra plain-stone pairs across six columns and six
-  rows. `mineralRockArtFrame` selects the matching gem deposit or ore tier,
+  material pairs plus three extra plain-stone pairs. `mineralRockArtFrame` selects the matching gem deposit or ore tier,
   plain stone for ordinary cave rubble,
   and flint when marked `rockMaterial: 'flint'`, including flint-bearing L1
   cave rubble. The flint mark takes precedence over the generic cave variant. Partial
-  cover (`sightBlocking: true`) selects the large silhouette at scale 1.92;
-  small stones use scale 1.44. Outside authored rock zones, wild rubble shares
+  cover (`sightBlocking: true`) selects the taller boulder silhouette.
+  Regular rocks and boulders both use 24px frames at scale 4/3; their height
+  difference is authored into the graphic-storybook atlas (8 columns, 9 rows).
+  Outside authored rock zones, wild rubble shares
   the four generic plain small shapes and skips biome tint; planted crop stages
   and inventory icons retain their existing art. A stable id hash selects plain
   stone shape independently of biome, mining quantity and small/large size.
@@ -156,7 +179,7 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   the place; Work Yard uses a cut stone slab and Crater Quarry has a glowing lava
   seam painted into the sprite. These contain no collectible mineral inclusions.
   The same 24px
-  frame scales to 1.08 for small stones and 1.92 for sight-blocking boulders.
+  frame scales to 4/3 for both small stones and sight-blocking boulders.
   `ROCK_VARIANT_ART` owns these scales and the placed-rock scale of 2.88.
   These display sizes leave mining
   quantities, occupied cells and cover behavior unchanged.
@@ -237,7 +260,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   by their exact whole-pixel phase. Player-attached, breathing, flickering and
   transient lights keep the individual stamp path. The full-frame key gates
   before every canvas call. Reach lighting follows `cellInReach`; light conveys
-  reach and live POIs without outline rings. Day/night leaves the reach plateau bright;
+  reach and live POIs without outline rings. The radial player glow uses
+  `PLAYER_OUTPUT_K = 0.44`; the added reach-cell light is halved by
+  `REACH_OUTPUT_K = 0.5`, with interaction distance unchanged.
+  Day/night leaves the reach plateau bright;
   caves ignore it.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors
   cull by viewport plus light radius, not sprite bounds. Use the existing

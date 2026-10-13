@@ -529,9 +529,8 @@
   // bunker, a sandpit) holds none. Seated through the spawn gate with the
   // kind's own class (creatureSpawnClass — the gull, a fast flier, is a
   // 'fastEnemy' and keeps off the kerb).
-  const SHORE_FAUNA_ORDER = ['crab', 'gull', 'metal_slime', 'sea_turtle'];
+  const SHORE_FAUNA_ORDER = ['crab', 'gull', 'sea_turtle'];
   const SHORE_FAUNA = {
-    metal_slime: { perShoreM: 300, max: 2, pier: true, salt: 'shorefauna|metal_slime' },
     crab: { perShoreM: 20, max: 24, pier: false, salt: 'shorefauna|crab' },
     gull: { perShoreM: 90, max: 6,  pier: false, only: [T.SAND],  salt: 'shorefauna|gull' },
     // The sea turtle: the rabbit's habits on the sand, fewer than the crabs.

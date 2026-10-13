@@ -236,7 +236,7 @@ const SHEETS = {
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
   // 32×48, not 32×64: at 64 the birch frame picked up the tip of the red tree below (see assets.js).
   pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [1, 2, 3] },
-  beach_palms: { file: ASSETS.beach_palms.path, fw: 16, fh: 16, frames: [0, 1, 2, 3, 4, 5] },
+  beach_palms: { file: ASSETS.beach_palms.path, fw: ASSETS.beach_palms.frameWidth, fh: ASSETS.beach_palms.frameHeight, frames: [0, 1, 2, 3, 4, 5] },
   bushes:        { file: 'assets/Objects/Approved/bushes.png',             fw: 48, fh: 32, frames: [0] },
   // The sheets' fruiting cells (apple 7, peach 5) are deliberately absent: a
   // bearing tree keeps its mature frame and wears a fruit sprite (FRUIT_FRAMES in render.js).
@@ -255,7 +255,7 @@ const SHEETS = {
   scarecrow:     { file: 'assets/Objects/Approved/scarecrow.png',               fw: 48, fh: 48, frames: [0] },
   bonfire:       { file: 'assets/Objects/Wilderness/bonfire.png',            fw: 16, fh: 32, frames: [0] },
   torch:         { file: 'assets/Objects/Wilderness/torch.png',              fw: 16, fh: 32, frames: [0] },
-  waystone:      { file: 'assets/Objects/Approved/waystone.png',            fw: 16, fh: 16, frames: [0] },
+  waystone:      { file: ASSETS.waystone.path, fw: ASSETS.waystone.frameWidth, fh: ASSETS.waystone.frameHeight, frames: [0] },
   tar:           { file: 'assets/Objects/Approved/tar.png',                 fw: 16, fh: 16, frames: [0] },
   ...Object.fromEntries(GROVE_SHRINE_ART.map(({ key, frame }) => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [frame],
@@ -322,13 +322,13 @@ const SCENARIOS = [
   { name: 'scarecrow',       key: 'scarecrow',     frameIdx: 0, scale: 0.6 },
   { name: 'bonfire',         key: 'bonfire',       frameIdx: 0, scale: 1.1 },
   { name: 'torch',           key: 'torch',         frameIdx: 0, scale: 1.1 },
-  { name: 'waystone',        key: 'waystone',      frameIdx: 0, scale: 1.6 },
+  { name: 'waystone',        key: 'waystone',      frameIdx: 0, scale: 1.6 * 2 / 3 },
   { name: 'charred stakes', key: 'approved_charred_stakes', frameIdx: 0, scale: 4 / 3 },
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
   { name: 'headstone',       key: 'zone_objects',  frameIdx: 1, scale: 4 / 3 },
   ...GROVE_SHRINE_ART.map(({ name, key, frame, scale }) => ({ name, key, frameIdx: frame, scale })),
   ...[1,4,5,6,7,34,37,38,39,40,54,58,59,61,64,65,66,67,68,69,70,71].map(frameIdx => ({ name: `selected zone object ${frameIdx}`, key: 'zone_objects', frameIdx, scale: frameIdx >= 64 && frameIdx <= 71 ? 1 : 4 / 3 })),
-  ...Array.from({ length: 13 }, (_, frameIdx) => [0.75, 4 / 3].map(scale => ({ name: `zone themed rock ${frameIdx} scale ${scale}`, key: 'rock_variants', frameIdx: frameIdx + 52, scale }))).flat(),
+  ...Array.from({ length: 13 }, (_, frameIdx) => [itemsCtx.ROCK_VARIANT_ART.themedScale].map(scale => ({ name: `zone themed rock ${frameIdx} scale ${scale}`, key: 'rock_variants', frameIdx: frameIdx + 52, scale }))).flat(),
   ...Array.from({ length: 16 }, (_, frameIdx) => ({ name: `zone plain rock ${frameIdx}`, key: 'rock_variants', frameIdx: frameIdx + 36, scale: frameIdx % 2 ? itemsCtx.ROCK_VARIANT_ART.largeScale : itemsCtx.ROCK_VARIANT_ART.smallScale })),
   ...Array.from({ length: 36 }, (_, frameIdx) => ({ name: `rock variant ${frameIdx}`, key: 'rock_variants', frameIdx, scale: frameIdx % 2 ? itemsCtx.ROCK_VARIANT_ART.largeScale : itemsCtx.ROCK_VARIANT_ART.smallScale })),
   {name: 'berry bush', key: 'zone_berry_bush', frameIdx: 0, scale: 4 / 3},
