@@ -72,6 +72,13 @@
     }
   });
 
+  test('cover render: a one-sample-wide shadow keeps its full darkness', () => {
+    // A lone bush casts a narrow wedge; the feather must not average it away.
+    const f = fixture(x => Math.abs(x - 9) < 1 ? 1 : 0);
+    f.frame(f.scene, 0, 0, 128, 64);
+    assert.gte(Math.max(...alphas(f.rasters[0])), 189, 'the covered sample keeps 75% darkness');
+  });
+
   test('cover render: the boundary has graded alpha and world-fixed wisps after player movement', () => {
     const f = fixture(x => x < 8 ? 0 : 2);
     f.frame(f.scene, 0, 0, 128, 64);

@@ -26,15 +26,17 @@
     scene.openElevator({ x: 0, y: 0 });
     return { buttons, trips, scene, anchor, home };
   }
-  test('elevator: locked cave floors always offer a direct trip Home', () => {
-    const p = picker(6, []);
-    assert.eq(p.buttons.map(b => b.label).join(','), 'Home,Leave');
-    p.buttons[0].click();
-    assert.eq(p.trips[0].delta, -6);
-    assert.eq(p.trips[0].position, p.home);
+  test('elevator: a broken lift offers no trip Home; a served floor does', () => {
+    const broken = picker(6, []);
+    assert.eq(broken.buttons.map(b => b.label).join(','), 'Leave');
+    const served = picker(6, [6]);
+    assert.eq(served.buttons.map(b => b.label).join(','), 'Home,Leave');
+    served.buttons[0].click();
+    assert.eq(served.trips[0].delta, -6);
+    assert.eq(served.trips[0].position, served.home);
   });
-  test('elevator: unaffordable repair is a disabled primary and Leave is secondary', () => {
-    const p = picker(0, [], { isRepaired: () => false, canRepair: () => false, REPAIR_COST: { wood: 9, rubble: 9 } });
+  test('elevator: unaffordable repair is a disabled primary and Leave is secondary, with no Home while broken', () => {
+    const p = picker(1, [], { isRepaired: () => false, canRepair: () => false, REPAIR_COST: { wood: 9, rubble: 9 } });
     assert.eq(p.buttons.map(b => b.label).join(','), 'Repair — 9 wood + 9 stone,Leave');
     assert.eq(p.buttons[0].opts.variant, 'primary');
     assert.truthy(p.buttons[0].opts.disabled, 'repair is disabled through mkBtn so it looks disabled');

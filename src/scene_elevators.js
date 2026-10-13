@@ -16,10 +16,15 @@ class SceneElevators {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('elevator-modal', {
       kind: 'note', kindLabel: 'Elevator', art: 'progression_elevator', onClose: () => {},
     });
-    const destinations = Elevators.unlockedFloors(this.save).filter(floor => floor !== depth);
-    if (depth > 0) destinations.unshift(0);
+    // Underground the lift runs only where it serves this floor (the L1
+    // repair or this floor's own parts); a broken lift is no exit Home.
+    const unlocked = Elevators.unlockedFloors(this.save);
+    const serves = depth === 0 || unlocked.includes(depth);
+    const destinations = serves ? unlocked.filter(floor => floor !== depth) : [];
+    if (serves && depth > 0) destinations.unshift(0);
     const description = document.createElement('p');
-    description.textContent = destinations.length ? 'Where would you like to go?' : 'No floors unlocked yet.';
+    description.textContent = !serves ? 'The elevator is broken.'
+      : destinations.length ? 'Where would you like to go?' : 'No floors unlocked yet.';
     box.appendChild(description);
     if (Elevators.isRepaired && !Elevators.isRepaired(this.save) && (depth === 0 || depth === 1)) {
       // Disabled through mkBtn so the button also looks unaffordable; the
