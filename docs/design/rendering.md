@@ -43,6 +43,12 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   smaller road cobbles.
   Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
   renderers; polygon corners use bounded bevel joins.
+- Standing objects fade to half their normal opacity only when their art overlaps
+  the player's inset body box and their world depth draws them in front. The
+  overlap uses cached trimmed `ART_BOUNDS`, with frame bounds for procedural
+  art, and updates even on reused sprite slots. Moving clear restores the
+  original opacity; tool access never changes it. Ground art retains its own
+  opacity, and fruit overlays follow their tree.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
@@ -111,7 +117,7 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   `drawObjects` caches appearance by identity only for generation-immutable
   records, reuses their configured pool slots while body and camera stand still,
   and sorts the shared world container only when membership or assigned depth
-  changes; tool/work transitions invalidate reuse, while connected, clock-driven
+  changes; work transitions invalidate reuse, while connected, clock-driven
   and saved-state art stays live.
 - `RoadSafety` paints every visible `ROAD_CLASS_MAJOR_BUFFER` cell with its
   muted red ground wash after dark. The wash sits above road surfaces and below
@@ -234,7 +240,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   by their exact whole-pixel phase. Player-attached, breathing, flickering and
   transient lights keep the individual stamp path. The full-frame key gates
   before every canvas call. Reach lighting follows `cellInReach`; light conveys
-  reach and live POIs without outline rings. Day/night leaves the reach plateau bright;
+  reach and live POIs without outline rings. The radial player glow uses
+  `PLAYER_OUTPUT_K = 0.44`; the added reach-cell light is halved by
+  `REACH_OUTPUT_K = 0.5`, with interaction distance unchanged.
+  Day/night leaves the reach plateau bright;
   caves ignore it.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors
   cull by viewport plus light radius, not sprite bounds. Use the existing

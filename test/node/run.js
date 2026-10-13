@@ -150,7 +150,6 @@ const BRIDGE = `;Object.assign(globalThis, {
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
   REACH_CORNER_PX, ReachCorner,
-  isToolGated, toolGatedAlpha, TOOL_GATED_ALPHA,
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE, MAP_MSG_MAX,
   // Which ground takes a hoe, and the inventory's type tabs.
   NON_TILLABLE, INV_CATS, INV_CAT_BY_KEY, invCatIconHTML,
@@ -986,7 +985,7 @@ Object.assign(ctx, {
   // consult the one-place-one-chest rule before pushing a chest).
   ctx.SX_CHEST_INJECT_SRC    = slice(wgSrc,  'for (const ch of sx.chests) {\n', 'entry.objects.push(ch);', 'the sidecar chest injection');
   // The tree + mineralrock RENDER_SPEC entries (a const inside drawObjects);
-  // tool_gate_fade.test.js pins that both `after` hooks use the shared tool-gate fade.
+  // tool_gate_fade.test.js pins that tool access no longer changes object opacity.
   ctx.RENDER_TREE_ROCK_SPEC_SRC = slice(readSrc('render.js'), '    tree:   { key: (o) => {', '    // STREET VARIANT PROPS', 'the tree/mineralrock render specs');
   // The fruit-tree frame table, its RENDER_SPEC entry and the fruit pass, all
   // inside drawObjects; fruit_overlay.test.js pins as text that the tree's ART
