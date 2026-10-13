@@ -26,7 +26,7 @@
       bat: ['berry', 75],
       bee: ['flowers', 100],
       purple_slime: ['onion_seed', 25],
-      spider: ['longgrass', 100],
+      spider: ['web_scroll', 25],
       zombie: ['old_boot', 25],
       plant: ['cress_seed', 25],
       skeleton: [null, 0],
@@ -53,7 +53,7 @@
       thief: [null, 0],
       pirate_gunner: ['flint_shard', 25],
       pirate_captain: [null, 0],
-      giant_crab: ['rope', 25],
+      giant_crab: ['shell', 25],
       farmer_goblin: ['potato_seed', 25],
       club_goblin: ['wood', 25],
       spear_goblin: ['wood', 25],
@@ -78,7 +78,7 @@
       jellyfish: ['magic_trap', 25],
       golden_slime: ['quartz', 25],
       mimic: [null, 0],
-      wurm: ['rope', 25],
+      wurm: ['flint_shard', 25],
       sword_spirit: ['flint_shard', 25],
       mushroom_monster: ['mushroom', 25],
       treant: ['rope', 25],
@@ -88,14 +88,61 @@
       serpent_tail: ['minnow', 25],
       bugbear: ['throwing_spear', 25],
       troll: ['throwing_spear', 25],
-      giant_bear: ['rope', 25],
+      giant_bear: ['meat', 25],
       ogre: ['throwing_spear', 25],
       giant_reaper: ['rope', 25],
     };
+    const NEW_DROP_ITEMS = {
+      web_scroll: { name: 'Scroll of Web', value: 15,
+        description: `New consumable proposal: cast once at a ground cell within ${EnemyRoster.get('spider').range} cells. Launch the spider’s same silk projectile; on landing it leaves a web for ${SpiderWebs.CONFIG.lifetimeMs/3600000} hours. Entering it paralyzes any non-flying body for ${SpiderWebs.CONFIG.paralysisMs/1000} seconds, including the caster and allies. Standing in it does not refresh paralysis; leaving and re-entering does. No direct damage. Proposed list value: 15 coins.` },
+    };
+    const dropItem = id => NEW_DROP_ITEMS[id] || ITEM_BY_ID[id];
+    const dropValue = id => NEW_DROP_ITEMS[id]?.value ?? itemValue(id);
+    // Fixed proposed purses: looters carry more; ordinary troops carry modest pay.
+    const COIN_PROPOSALS = {
+      thief: [40, 'A thief carries a stolen purse.'],
+      pirate_grunt: [12, 'A share of plunder.'],
+      pirate_gunner: [20, 'A specialist’s share of plunder.'],
+      pirate_captain: [60, 'The captain carries the crew’s takings.'],
+      goblin: [10, 'A small scavenged purse.'],
+      goblin_archer: [10, 'A small scavenged purse.'],
+      goblin_trapper: [8, 'A trapper’s loose change.'],
+      farmer_goblin: [5, 'A few coins from trading crops.'],
+      club_goblin: [6, 'A foot soldier’s pocket money.'],
+      spear_goblin: [8, 'A foot soldier’s pocket money.'],
+      archer_goblin: [8, 'A foot soldier’s pocket money.'],
+      bomb_goblin: [12, 'Coins saved for supplies.'],
+      goblin_runt: [2, 'A handful of stolen coppers.'],
+      skeleton: [4, 'Old burial coins.'],
+      skeleton_soldier: [10, 'A soldier’s buried pay.'],
+      orc: [15, 'Raiding spoils.'],
+      orc_mage: [20, 'Coins carried for magical supplies.'],
+      orc_shaman: [15, 'Offerings carried by the shaman.'],
+      lich: [15, 'Ancient grave money.'],
+      necromancer: [20, 'Money for forbidden supplies.'],
+      succubus: [30, 'Tributes and stolen valuables.'],
+      armoured_demon: [30, 'A war purse.'],
+      golden_slime: [40, 'Gold gathered into its body.'],
+      metal_slime: [75, 'Keep its existing treasure-creature bounty.'],
+      mimic: [35, 'Loose coins from the chest it imitates.'],
+      red_dragon: [50, 'A modest loose handful from its hoard; story treasure is separate.'],
+    };
+    // 18 of 71 enemies: bodies, plants and natural materials, not purses.
+    const COIN_FREE = new Set(['crab', 'bat', 'bee', 'spider', 'vampire_bat',
+      'poison_spider', 'gull', 'giant_crab', 'boar', 'storm_gull', 'jellyfish',
+      'wurm', 'mushroom_monster', 'treant', 'giant_bear', 'plant', 'dryad', 'bone_plant']);
     for (const e of enemies) {
       const proposal = NORMAL_DROP_PROPOSALS[e.id];
-      if (!proposal || (proposal[0] && !ITEM_BY_ID[proposal[0]])) throw new Error(`Missing normal drop proposal or item: ${e.id}`);
-      e.normalDropProposal = {item: proposal[0], percent: proposal[1]};
+      if (!proposal || (proposal[0] && !dropItem(proposal[0]))) throw new Error(`Missing normal drop proposal or item: ${e.id}`);
+      const coinFree = COIN_FREE.has(e.id);
+      const referenceCoins = Combat.enemyBounty(e.id, 0);
+      // A 25% drop is the ceiling; expensive natural drops keep roughly the
+      // same expected item value by becoming rarer, with nothing otherwise.
+      const percent = coinFree ? Math.max(1, Math.round(25 * Math.min(1, referenceCoins / dropValue(proposal[0])))) : proposal[1];
+      e.normalDropProposal = {item: proposal[0], percent,
+        coins: coinFree ? 0 : COIN_PROPOSALS[e.id]?.[0] ?? null,
+        coinReason: coinFree ? 'Coin-free creature: only its themed item can drop.' : COIN_PROPOSALS[e.id]?.[1],
+        referenceCoins};
     }
     // Roles beyond the monster roster. The game has no single pest predicate,
     // so each pest line names the rule it describes; every other role is read
@@ -121,8 +168,9 @@
     const rosterIds=new Set(EnemyRoster.ROWS.map(r=>r.id));
     const extras=Object.keys(B).filter(id=>!rosterIds.has(id)&&SpriteLayout.creatureArt(id)).map(id=>({id,name:titleCase(id),extra:true,tier:0,armor:0,hp:id in Combat.FAUNA_HP?Combat.creatureMaxHp(id):null,roles:rolesFor(id,false),behaviour:B[id]})).filter(x=>x.roles.length);
     const DATA={ghostScaling:EnemyRoster.GHOST_SCALING,rules:[
-      'Normal drops are proposals, not active game rules. Each ordinary defeat gives one listed item at its stated chance; otherwise it gives the existing coin bounty. Item and coins are mutually exclusive. Coin-only enemies retain their current bounty. Elite drops below remain live game data. Serpent parts share one reward on boss defeat; splitting slimes roll only for the original slime; copies drop nothing (no items or coins), preventing farming. Scripted boss rewards and recovered stolen goods remain separate.',
-      'T4+ normal drop proposals give coins 75% of the time and one themed item 25%. Aim for an item list value near the ordinary surface coin bounty, with theme taking priority over an exact price match. Depth and difficulty can change the bounty; the proposed item stays the same.',
+      'Normal drops are proposals, not active game rules. Each ordinary defeat gives one listed item at its stated chance; otherwise it gives the listed coin amount, or nothing for coin-free creatures. Item and coins are mutually exclusive. Authored purses are fixed amounts; other coin amounts use the live ordinary surface bounty as a reference. Elite drops below remain live game data. Serpent parts share one reward on boss defeat; splitting slimes roll only for the original slime; copies drop nothing (no items or coins), preventing farming. Scripted boss rewards and recovered stolen goods remain separate.',
+      'Coin-bearing T4+ normal drop proposals give coins 75% of the time and one themed item 25%. Aim for an item list value near the ordinary surface coin bounty, with theme taking priority over an exact price match. Depth and difficulty can change formula-based bounties; fixed proposed purses and items stay the same.',
+      'Eighteen coin-free beasts and plant creatures give no coins. Item chance is at most 25%; when item value exceeds the ordinary surface bounty, reduce the chance proportionally (rounded to a whole percent, minimum 1%). Other rolls give nothing. Scroll of Web is a new item proposal, not yet implemented.',
       'Ordinary elite defeats award one signature drop: 70%, 20% or 10%. Possessed always give the second listed drop; Ascendant always give the third. Reward tier is monster tier + 1, capped at T7; supported equipment tiers and item quantities follow the game rules. The first defeat also awards a memory. Owned equipment at the same or a higher tier, and already-carried unique relics, convert to cash at half the drop’s list price.',
       'Loaded from the current game roster, combat helpers, sprite layouts and habitat tables. Retired rows are excluded.',
       'General spawn ranges and named habitat memberships are separate routes. Membership does not guarantee a spawn: terrain, home distance, depth and encounter rules still apply.',
@@ -192,11 +240,19 @@ function zone(e) {
   return lines.join('');
 }
 
+function normalCoins(e){return e.normalDropProposal.coins ?? Combat.enemyBounty(e.id,0)}
 function normalDrop(e){
-  const {item, percent}=e.normalDropProposal;
-  const reward=item?`1 × ${ITEM_BY_ID[item].name} at ${percent}%${percent<100?`; coins at ${100-percent}%`:''}`:'Coins at 100%';
+  const {item, percent}=e.normalDropProposal, coins=normalCoins(e);
+  const coinReward=coins?`${coins} coins`:'No reward';
+  const reward=item?`1 × ${dropItem(item).name}${NEW_DROP_ITEMS[item]?' (new)':''} at ${percent}%${percent<100?`; ${coinReward.toLowerCase()} at ${100-percent}%`:''}`:`${coinReward} at 100%`;
   const note=e.boss==='serpent'?' (once per boss defeat; shared across all parts)':e.id==='split_slime'?' (original slime only; copies drop nothing: no items or coins)':'';
-  return esc(reward+note);
+  return esc(reward+(coins===0?' · 0 coins':'')+note);
+}
+function normalDropDetails(e){
+  const {item, coins, coinReason}=e.normalDropProposal;
+  const value=item?`Item list value: ${dropValue(item)} coins · `:'';
+  const basis=coins===null?'Live ordinary surface bounty (current game difficulty)':coins===0?'Proposed coins':'Fixed proposed purse';
+  return `<p class="muted">${value}${basis}: ${normalCoins(e)} coins.${coinReason?' '+esc(coinReason):''}</p>${NEW_DROP_ITEMS[item]?`<p>${esc(NEW_DROP_ITEMS[item].description)}</p>`:''}`;
 }
 
 function eliteDrops(e, detailed=false){
@@ -251,14 +307,14 @@ function extraDetail(x){const a=extraAttack(x);$('detail').innerHTML=`<div class
 function renderRoles(){const all=[...enemies,...extras];$('roles').innerHTML=ROLES.map(([id,label])=>`<button type="button" data-role="${id}" aria-pressed="${role===id}">${label}<span>${id==='all'?all.length:all.filter(e=>e.roles.includes(id)).length}</span></button>`).join('');$('roles').querySelectorAll('button').forEach(b=>b.onclick=()=>{role=b.dataset.role;renderRoles();render()});$('roleNote').textContent=role==='mercenary'?'No mercenaries exist in the game yet; this filter will fill once a hired-ally kind is added.':role!=='all'&&role!=='monster'&&monsterFiltersActive()?'Habitat, tier and spawn filters apply to monsters only; reset them to see non-monster rows.':''}
 function render(){renderRoles();let list=enemies.filter(e=>roleOk(e)&&(()=>{const q=$('search').value.toLowerCase(),s=e.surface,c=e.cave;return (!q||(JSON.stringify(e)+' '+JSON.stringify(habitatMemberships(e))).toLowerCase().includes(q))&&($('tier').value==='all'||e.tier===Number($('tier').value))&&($('variant').value==='all'||($('variant').value==='base'?!e.variantOf:!!e.variantOf))&&($('habitat').value==='all'||($('habitat').value==='surface'?hasSurface(e):$('habitat').value==='dungeon'?hasCave(e):!hasSurface(e)&&hasCave(e)))&&($('biome').value==='all'||s?.biomes.includes($('biome').value))&&($('time').value==='all'||(s&&(s.time==='any'||s.time===$('time').value)))&&($('distance').value===''||(hasSurface(e)&&EnemySpawns.homeAllows(e.id,Number($('distance').value))&&(!s||s.maxHomeM==null||Number($('distance').value)<s.maxHomeM)))&&($('depth').value===''||atDepth(e,Number($('depth').value)))})());if(!monsterFiltersActive()){const q=$('search').value.toLowerCase();list=list.concat(extras.filter(x=>roleOk(x)&&(!q||(x.name+' '+x.roles.join(' ')+' '+extraFacts(x).join(' ')).toLowerCase().includes(q))))}list.sort((a,b)=>$('sort').value==='name'?a.name.localeCompare(b.name):(a[$('sort').value]-b[$('sort').value]||a.name.localeCompare(b.name)));if(!list.some(e=>e.id===selected))selected=list[0]?.id;$('count').textContent=`${list.length} characters shown · player armour pool ${pool()} · ${$('mode').value==='hard'?'Hard':'Easy'} mode · ${$('elite').value==='elite'?'Elite preview (where eligible)':'ordinary stats'}`;$('rows').innerHTML=list.map(e=>{if(e.extra)return extraRow(e);const s=stats(e),f=fight(e,Number($('weaponTier').value),$('weapon').value),inc=incoming(e),cost=group(e,Number($('weaponTier').value),$('weapon').value);return `<tr data-id="${e.id}" class="${selected===e.id?'selected':''}"><td data-sort-value="${esc(e.name)}"><div class="name">${sprite(e)}<div><button class="pickaxe" data-pick="${e.id}">${esc(e.name)}</button><br><span class="tag">T${e.tier} ${tiers[e.tier]}</span>${e.variantOf?'<small>'+esc(e.variantType)+'</small>':''}${s.elite?'<span class="tag">Elite</span>':''}</div></div></td><td class="nowrap" data-sort-value="${s.hp}"><b>${s.hp}</b> HP<br>${s.armor} armour</td><td data-sort-value="${e.visionCells}">${movementLabel(e)}<br><b>${e.visionCells} cells vision</b><br><small>${esc(e.movement.pattern.replaceAll('_',' '))}</small></td><td data-sort-value="${e.steals||e.attack==='trap'?'':s.dmg}">${e.steals?'Coin theft':e.attack==='trap'?'Snares':fmt(s.dmg)+' dmg'}<br>${e.range} cells<br><small>${esc(e.attack)}${e.attack==='touch'?'':` · ${e.attackSeconds}s`}</small></td><td data-sort-value="${e.attack==='trap'||e.attack==='touch'||e.steals?'':rawDps(e)+(e.aura?e.aura.rawDps*(s.elite?Combat.ELITE_MUL:1):0)}" class="nowrap" title="Raw total DPS / damage through a full same-tier armour set. Includes full aura exposure; Hard affects only the armour-adjusted result.">${dpsPair(e)}<br><small>raw / armour</small></td><td class="elite-drops"><b>Normal drop:</b> ${normalDrop(e)} <small>(proposed)</small>; <b>Elite drops:</b> ${eliteDrops(e)}</td><td class="zone">${zone(e)}</td><td class="nowrap" data-sort-value="${f.seconds}">${fmt(f.seconds)} s<br><small>${f.hits} hits × ${fmt(f.hit)}</small></td><td data-sort-value="${cost??''}">${cost==null?'Special':fmt(cost)+' energy'}<br><small>${verdict(cost)} · ${groupN()} foes</small></td></tr>`}).join('')||`<tr><td colspan="9" class="empty">${role==='mercenary'?'No mercenaries in the game yet.':'Nothing matches these zones and filters.'}</td></tr>`;$('rows').querySelectorAll('tr[data-id]').forEach(row=>Array.from(row.cells).forEach((cell,index)=>cell.dataset.label=['Enemy / tier','HP / armour','Movement / vision','Attack / reach','DPS','Drops','Declared zones','Kill time','Group cost'][index]));SortableTables.refresh($('rows').closest('table'));$('rows').querySelectorAll('tr[data-id]').forEach(tr=>tr.onclick=()=>{selected=tr.dataset.id;render()});const pick=list.find(e=>e.id===selected);pick?.extra?extraDetail(pick):detail(pick);$('detail').querySelectorAll('table').forEach(SortableTables.refresh)}
 function abilityDetail(e){const a=e.ability;if(a?.type!=='split')return '';return `<h3>Splitting</h3><p>Divides after a direct hit when both halves can carry at least ${a.minHp} HP and there is room beside it. Remaining health is shared between the halves; cooldown ${a.cooldownSeconds} seconds. Burning does not trigger a split.</p>`;}
-function detail(e){if(!e){$('detail').innerHTML='<h2>No selection</h2><p>Broaden a filter to inspect an enemy.</p>';return}const s=stats(e),f=fight(e,Number($('weaponTier').value),$('weapon').value);$('detail').innerHTML=`<div class="name">${sprite(e,true)}<div><div class="eyebrow">${e.variantOf?'Declared variant':'Base kind'}</div><h2>${esc(e.name)}</h2><span class="tag">T${e.tier} · ${tiers[e.tier]}</span></div></div><p>${esc(e.notes||e.movement.hitPolicy||e.movement.speedMeaning||'')}</p><div class="statgrid"><div><small>HP</small><b>${s.hp}</b></div><div><small>Armour pool</small><b>${s.armor}</b></div><div><small>Reach</small><b>${e.range}</b></div></div><h3>Normal drop <small>· proposed</small></h3><p>${normalDrop(e)}</p>${e.tier>=4&&e.normalDropProposal.item?`<p class="muted">Item list value: ${itemValue(e.normalDropProposal.item)} coins · ordinary surface bounty: ${Combat.enemyBounty(e.id,0)} coins (current game difficulty).</p>`:''}${eliteDrops(e,true)}${movementDetails(e)}${abilityDetail(e)}${e.bountyCoins!=null?`<p><b>${e.bountyCoins} coins</b> current live bounty (before the proposed normal drop change).</p>`:''}<h3>Declared zones</h3>${zone(e)}<h3>Group challenge</h3><button onclick="matchTier(${e.tier})">Equip matching T${e.tier} weapon + full armour</button><p><strong>${group(e,Number($('weaponTier').value),$('weapon').value)==null?'Special encounter':fmt(group(e,Number($('weaponTier').value),$('weapon').value))+' energy'}</strong> expected cost against ${groupN()} concurrent enemies. ${verdict(group(e,Number($('weaponTier').value),$('weapon').value))}.</p><p class="muted">Same-tier full-set cost: ${['sword','bow','staff'].map(w=>w+' '+(group(e,e.tier,w,e.tier*4)==null?'special':fmt(group(e,e.tier,w,e.tier*4)))).join(' · ')}. Staff estimate includes 1 energy per cast and assumes a single target per bolt; piercing groups can materially reduce the cost.</p><h3>Kill time by player weapon</h3><p class="muted">Includes enemy armour and Elite modifier. Difficulty changes incoming player damage only.</p><table><thead><tr><th>Tier</th><th>Sword</th><th>Bow</th><th>Staff</th></tr></thead><tbody>${tiers.slice(1).map((name,i)=>`<tr><td>T${i+1} ${name}</td>${['sword','bow','staff'].map(w=>`<td>${fmt(fight(e,i+1,w).seconds)} s</td>`).join('')}</tr>`).join('')}</tbody></table><h3>Incoming attack damage by full armour set</h3><table><thead><tr><th>Armour</th><th>${e.attack==='projectile'?'Per projectile':'Per hit / touch'}</th></tr></thead><tbody>${tiers.map((name,t)=>`<tr><td>T${t} ${name}</td><td>${e.steals?'Coin theft':e.attack==='trap'?'Separate hazard':fmt((e.attackHits||1)*Combat.mitigate(s.dmg,4*t)*penalty())}</td></tr>`).join('')}</tbody></table><p class="muted">Selected attack: ${fmt(weapon(Number($('weaponTier').value),$('weapon').value).raw)} raw → ${fmt(f.hit)} after enemy armour.</p>${s.elite&&$('mode').value==='hard'?`<p class="warn">Elite is identical in both modes. Hard players receive ×${penalty()} damage after armour; this can make Elite hits severe.</p>`:''}<details><summary>Declared row</summary><pre>${esc(JSON.stringify(e,null,2))}</pre></details>`}
+function detail(e){if(!e){$('detail').innerHTML='<h2>No selection</h2><p>Broaden a filter to inspect an enemy.</p>';return}const s=stats(e),f=fight(e,Number($('weaponTier').value),$('weapon').value);$('detail').innerHTML=`<div class="name">${sprite(e,true)}<div><div class="eyebrow">${e.variantOf?'Declared variant':'Base kind'}</div><h2>${esc(e.name)}</h2><span class="tag">T${e.tier} · ${tiers[e.tier]}</span></div></div><p>${esc(e.notes||e.movement.hitPolicy||e.movement.speedMeaning||'')}</p><div class="statgrid"><div><small>HP</small><b>${s.hp}</b></div><div><small>Armour pool</small><b>${s.armor}</b></div><div><small>Reach</small><b>${e.range}</b></div></div><h3>Normal drop <small>· proposed</small></h3><p>${normalDrop(e)}</p>${normalDropDetails(e)}${eliteDrops(e,true)}${movementDetails(e)}${abilityDetail(e)}${e.bountyCoins!=null?`<p><b>${e.bountyCoins} coins</b> current live bounty (before the proposed normal drop change).</p>`:''}<h3>Declared zones</h3>${zone(e)}<h3>Group challenge</h3><button onclick="matchTier(${e.tier})">Equip matching T${e.tier} weapon + full armour</button><p><strong>${group(e,Number($('weaponTier').value),$('weapon').value)==null?'Special encounter':fmt(group(e,Number($('weaponTier').value),$('weapon').value))+' energy'}</strong> expected cost against ${groupN()} concurrent enemies. ${verdict(group(e,Number($('weaponTier').value),$('weapon').value))}.</p><p class="muted">Same-tier full-set cost: ${['sword','bow','staff'].map(w=>w+' '+(group(e,e.tier,w,e.tier*4)==null?'special':fmt(group(e,e.tier,w,e.tier*4)))).join(' · ')}. Staff estimate includes 1 energy per cast and assumes a single target per bolt; piercing groups can materially reduce the cost.</p><h3>Kill time by player weapon</h3><p class="muted">Includes enemy armour and Elite modifier. Difficulty changes incoming player damage only.</p><table><thead><tr><th>Tier</th><th>Sword</th><th>Bow</th><th>Staff</th></tr></thead><tbody>${tiers.slice(1).map((name,i)=>`<tr><td>T${i+1} ${name}</td>${['sword','bow','staff'].map(w=>`<td>${fmt(fight(e,i+1,w).seconds)} s</td>`).join('')}</tr>`).join('')}</tbody></table><h3>Incoming attack damage by full armour set</h3><table><thead><tr><th>Armour</th><th>${e.attack==='projectile'?'Per projectile':'Per hit / touch'}</th></tr></thead><tbody>${tiers.map((name,t)=>`<tr><td>T${t} ${name}</td><td>${e.steals?'Coin theft':e.attack==='trap'?'Separate hazard':fmt((e.attackHits||1)*Combat.mitigate(s.dmg,4*t)*penalty())}</td></tr>`).join('')}</tbody></table><p class="muted">Selected attack: ${fmt(weapon(Number($('weaponTier').value),$('weapon').value).raw)} raw → ${fmt(f.hit)} after enemy armour.</p>${s.elite&&$('mode').value==='hard'?`<p class="warn">Elite is identical in both modes. Hard players receive ×${penalty()} damage after armour; this can make Elite hits severe.</p>`:''}<details><summary>Declared row</summary><pre>${esc(JSON.stringify(e,null,2))}</pre></details>`}
 function matchTier(t){$('weaponTier').value=t;$('armorTier').value=t;$('pieces').value='4';$('pool').value='';render()}
 const linkParams=new URLSearchParams(location.search);
 const linkedEnemy=enemies.find(e=>e.id===linkParams.get('enemy'));
 $('search').value=linkedEnemy?.id||linkParams.get('search')||'';
 if(linkedEnemy)selected=linkedEnemy.id;
 $('sort').addEventListener('input',()=>SortableTables.clear($('rows').closest('table')));
-for(const input of document.querySelectorAll('.controls input,.controls select'))input.addEventListener('input',render);$('reset').onclick=()=>{SortableTables.clear($('rows').closest('table'));for(const id of ['search','distance','depth'])$(id).value='';for(const id of ['habitat','tier','variant','biome','time'])$(id).value='all';$('sort').value='tier';render()};render();window.review={enemies,extras,normalDrop,eliteDrops,fight,incoming,stats,weapon,group,atDepth,hasSurface,hasCave,artFrames};window.matchTier=matchTier;
+for(const input of document.querySelectorAll('.controls input,.controls select'))input.addEventListener('input',render);$('reset').onclick=()=>{SortableTables.clear($('rows').closest('table'));for(const id of ['search','distance','depth'])$(id).value='';for(const id of ['habitat','tier','variant','biome','time'])$(id).value='all';$('sort').value='tier';render()};render();window.review={enemies,extras,normalDrop,normalCoins,eliteDrops,fight,incoming,stats,weapon,group,atDepth,hasSurface,hasCave,artFrames};window.matchTier=matchTier;
 
     document.documentElement.dataset.previewReady='true';
     document.documentElement.dataset.rosterReady='true';
