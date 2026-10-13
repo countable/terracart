@@ -688,11 +688,9 @@
             ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
             ctx.lineWidth = 1; ctx.strokeStyle = cssOf(color); ctx.stroke();
           };
-          // Light the rear lip and shade the front lip. On the south wall
-          // those are the inner and outer edges respectively; reversing them
-          // makes the cap read as a trench behind the battlements.
-          line(op, oq, ny < 0 ? stone.style.stone.SHADOW : stone.lite);
-          line(ip, iq, ny < 0 ? stone.lite : stone.style.stone.SHADOW);
+          // Keep the rear highlight quiet; a dark front-lip stroke would
+          // cut an unnecessary horizontal stripe through the wall body.
+          line(ny < 0 ? ip : op, ny < 0 ? iq : oq, stone.lite);
           // Roofed merlons continue on one 8px grid across atlas sections.
           const damage = CastleStyles.damageCell(d.key,
             Math.floor(((p.x + q.x) / 2 + nx * 0.01 - d.damageOriginX) / CELL_PX),
@@ -716,12 +714,14 @@
             const v = crest({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
             if (damage && damage.missing === tooth % 4) continue;
             // A tooth follows the crest, rather than touching an angled
-            // wall at the corner of an axis-aligned rectangle. Its shallow
-            // footprint also keeps the side-wall teeth visibly attached.
-            const endT = Math.min(1, t + rampart.toothWidth / length);
+            // wall at the corner of an axis-aligned rectangle. The top is
+            // square in plan, with the same width along and across the crest.
+            const endT = t + rampart.toothWidth / length;
+            if (endT > 1) continue; // omit an end tooth rather than shorten its square
             const end = crest({ x: a.x + (b.x - a.x) * endT, y: a.y + (b.y - a.y) * endT });
             const toward = ny < 0 ? -1 : 1;
-            const front = v => ({ x: v.x + nx * toward * 2, y: v.y + ny * toward * 2 });
+            const front = v => ({ x: v.x + nx * toward * rampart.toothWidth,
+              y: v.y + ny * toward * rampart.toothWidth });
             const base = [v, end, front(end), front(v)];
             const roof = base.map(v => down(v, -rampart.toothHeight));
             const toothWinding = winding * toward;

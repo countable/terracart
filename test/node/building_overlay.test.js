@@ -931,7 +931,7 @@ test('building overlay: angled and concave castle corners bridge adjacent top pl
   }
 });
 
-test('building overlay: merlon bases follow their caps at every wall angle and winding', () => {
+test('building overlay: square merlon bases follow their caps at every wall angle and winding', () => {
   const css = c => '#' + c.toString(16).padStart(6, '0');
   const inside = (p, polygon) => {
     const crosses = polygon.map((a, i) => {
@@ -940,9 +940,14 @@ test('building overlay: merlon bases follow their caps at every wall angle and w
     });
     return crosses.every(c => c >= -1e-7) || crosses.every(c => c <= 1e-7);
   };
-  for (const angle of [0, 15, 30, 45, 60, 75]) for (const reversed of [false, true]) {
+  const outlines = [
+    [[-8, -8], [8, -8], [8, 8], [-8, 8]],
+    [[-10, -6], [10, -6], [-5, 9]],
+    [[-10, -8], [9, -5], [4, 0], [10, 9], [-8, 6]],
+  ];
+  for (const outline of outlines) for (const angle of [0, 15, 30, 45, 60, 75]) for (const reversed of [false, true]) {
     const radians = angle * Math.PI / 180;
-    const points = [[-8, -8], [8, -8], [8, 8], [-8, 8]].map(([x, y]) =>
+    const points = outline.map(([x, y]) =>
       [12 + x * Math.cos(radians) - y * Math.sin(radians), 12 + x * Math.sin(radians) + y * Math.cos(radians)]);
     if (reversed) points.reverse();
     clearTiles();
@@ -953,10 +958,21 @@ test('building overlay: merlon bases follow their caps at every wall angle and w
     const caps = log.polygons.filter(p => p.color === css(material.stone.BODY)).map(p => p.points);
     const roofs = log.polygons.filter(p => p.color === css(material.stone.LITE));
     assert.gt(roofs.length, 0, 'merlons have visible roofs');
-    for (const roof of roofs) for (const v of roof.points) {
-      const base = { x: v.x, y: v.y + material.rampart.toothHeight };
-      assert.truthy(caps.some(cap => inside(base, cap)),
-        `every tooth corner is seated on stone at ${angle} degrees, reversed=${reversed}`);
+    for (const roof of roofs) {
+      const [a, b, c] = roof.points;
+      const along = { x: b.x - a.x, y: b.y - a.y };
+      const across = { x: c.x - b.x, y: c.y - b.y };
+      assert.lt(Math.abs(Math.hypot(along.x, along.y) - material.rampart.toothWidth), 1e-7,
+        'the tooth retains its full width, even at an edge end');
+      assert.lt(Math.abs(Math.hypot(across.x, across.y) - material.rampart.toothWidth), 1e-7,
+        'the top is equally wide along and across the wall');
+      assert.lt(Math.abs(along.x * across.x + along.y * across.y), 1e-7,
+        'adjacent sides of the square roof are perpendicular');
+      for (const v of roof.points) {
+        const base = { x: v.x, y: v.y + material.rampart.toothHeight };
+        assert.truthy(caps.some(cap => inside(base, cap)),
+          `every tooth corner is seated on stone at ${angle} degrees, reversed=${reversed}`);
+      }
     }
   }
 });

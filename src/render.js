@@ -437,10 +437,10 @@ Render.BUILDING_FACE_PX = BUILDING_FACE_PX;
 
 // Short courses on tiled fronts echo the polygon painter. All marks are local
 // to the face, so fractional camera motion cannot slide its masonry pattern.
-Render.paintMasonryFace = function (g, x, y, width, height, face, cap, seam) {
+Render.paintMasonryFace = function (g, x, y, width, height, face, cap, seam, courses = true) {
   g.fillStyle(face, 1); g.fillRect(x, y, width, height);
   g.fillStyle(seam, 0.35);
-  for (let row = 3; row < height; row += 3) {
+  for (let row = 3; courses && row < height; row += 3) {
     g.fillRect(x, y + row, width, 1);
     for (let col = (row % 6 ? 8 : 0); col < width; col += 16) {
       g.fillRect(x + col, y + row - 2, 1, 2);
@@ -448,6 +448,14 @@ Render.paintMasonryFace = function (g, x, y, width, height, face, cap, seam) {
   }
   g.fillStyle(cap, 1); g.fillRect(x, y, width, 1);
   g.fillStyle(seam, 1); g.fillRect(x, y + height - 1, width, 1);
+};
+
+// Seat the square footprint on the cap, then lift its roof by the tooth height.
+Render.paintRampartTooth = function (g, x, baseY, width, height, face, roof, shadow) {
+  const roofY = baseY - height;
+  g.fillStyle(face, 1); g.fillRect(x, roofY + width, width, height);
+  g.fillStyle(shadow, 1); g.fillRect(x + width - 1, roofY + width, 1, height);
+  g.fillStyle(roof, 1); g.fillRect(x, roofY, width, width);
 };
 
 Render.hasShrineFooting = o => o.kind === 'grove_shrine' && o._shrineArt !== 'shipwreck';
@@ -2929,20 +2937,18 @@ Render.drawCells = function drawCells(scene) {
           const body = dbgTint ?? STONE_BODY;
           gx.fillStyle(body, 1);   gx.fillRect(x, baseY - CAP, CELL_PX, CAP);
           gx.fillStyle(STONE_LITE, 1); gx.fillRect(x, baseY - CAP, CELL_PX, 1);
-          gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(x, baseY - 1, CELL_PX, 1);
           for (let i = 0; i < MERLONS; i++) {
             if ((material.rampart.broken && i === 2) || (damage && i === damage.missing)) continue;
             const mx = x + i * SPAN + MOFF;
-            gx.fillStyle(STONE_FACE, 1); gx.fillRect(mx, baseY - CAP - TOOTH_H, MW, TOOTH_H);
-            gx.fillStyle(STONE_LITE, 1); gx.fillRect(mx, baseY - CAP - TOOTH_H - 2, MW, 2);
-            gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(mx + MW - 1, baseY - CAP - TOOTH_H, 1, TOOTH_H);
+            Render.paintRampartTooth(gx, mx, baseY - CAP, MW, TOOTH_H,
+              STONE_FACE, STONE_LITE, STONE_SHADOW);
           }
         };
         // South boundary projects its stone face beyond the floor.
         if (wallEdge(col, row, 0, 1)) {
           const gw = Render.rampartPiece(scene, northY + cm + WALL * cm / CELL_PX);
           Render.paintMasonryFace(gw, sx, sy + CELL_PX, CELL_PX, WALL,
-            _DBG ? 0x30a030 : STONE_FACE, STONE_LITE, STONE_DARK);
+            _DBG ? 0x30a030 : STONE_FACE, STONE_LITE, STONE_DARK, false);
           crestH(gw, sx, sy + CELL_PX, _DBG ? 0x50c050 : undefined);
           wallChip(gw, sx, sy + CELL_PX);
         }
@@ -2959,7 +2965,7 @@ Render.drawCells = function drawCells(scene) {
           const extL = (T(col - 1, row - 1) === 12 && wallEdge(col - 1, row - 1, 1, 0)) ? SIDE_W : 0;
           const extR = (T(col + 1, row - 1) === 12 && wallEdge(col + 1, row - 1, -1, 0)) ? SIDE_W : 0;
           Render.paintMasonryFace(gb, sx - extL, sy - WALL, CELL_PX + extL + extR, WALL,
-            _DBG ? 0x3060c0 : STONE_FACE, STONE_LITE, STONE_DARK);
+            _DBG ? 0x3060c0 : STONE_FACE, STONE_LITE, STONE_DARK, false);
           crestH(gb, sx, sy - WALL, _DBG ? 0x5080e0 : undefined);
           wallChip(gb, sx, sy - WALL);
           // SOLID crest-height shoulders over the widened columns — the crest
@@ -2989,7 +2995,11 @@ Render.drawCells = function drawCells(scene) {
           for (let i = 0; i < MERLONS; i++) {
             const dy = sy + i * SPAN + MOFF;
             if (dy + MW <= bandBot && !(material.rampart.broken && i === 2)
-              && (!damage || i !== damage.missing)) gb.fillRect(x, dy, SIDE_W, MW);
+              && (!damage || i !== damage.missing)) {
+              const toothX = innerX === x ? x + SIDE_W - MW : x;
+              Render.paintRampartTooth(gb, toothX, dy, MW, TOOTH_H,
+                STONE_FACE, _DBG ? 0xe06060 : STONE_LITE, STONE_SHADOW);
+            }
           }
           // 1px darker line on the wall's INTERIOR edge so the side wall reads as
           // a distinct band instead of blurring into the adjacent floor / wall.
