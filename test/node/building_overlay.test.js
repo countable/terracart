@@ -806,7 +806,9 @@ test('building overlay: canvas adapter clears and fills the full padded backing 
   const oldDamageTexture = CastleStyles.damageTexture;
   try {
     scene.textures.exists = () => true;
-    scene.textures.get = () => ({ getSourceImage: () => ({ width: 16, height: 16 }) });
+    scene.textures.get = key => ({ getSourceImage: () => ({
+      width: key === 'castle_paving' ? 256 : 16, height: key === 'castle_paving' ? 256 : 16,
+    }) });
     ctx.createPattern = () => ({});
     CastleStyles.damageTexture = () => 'test_damage';
     target.clear();
@@ -815,10 +817,27 @@ test('building overlay: canvas adapter clears and fills the full padded backing 
     const size = Math.ceil(scene.viewSize + CELL_PX * 4);
     assert.eq(page.w, size);
     assert.eq(JSON.stringify(clears[0]), JSON.stringify([0, 0, size, size]));
-    assert.eq(fills[0][2], size + CELL_PX * 2, 'material pattern covers padded canvas');
-    assert.eq(fills[0][3], size + CELL_PX * 2);
+    assert.eq(fills[0][2], size, 'material pattern covers padded canvas');
+    assert.eq(fills[0][3], size);
     assert.eq(fills[1][2], size, 'damage pattern covers padded canvas');
     assert.eq(fills[1][3], size);
+    const translations = [];
+    ctx.translate = (x, y) => translations.push([x, y]);
+    for (const offset of [0, CELL_PX, 256, -CELL_PX]) {
+      target.texturePhase(offset, offset);
+      target.texturePoly(points, T.BUILDING_LARGE);
+      const shift = translations.at(-1), fill = fills.at(-1);
+      assert.eq(shift[0] + fill[0], 0, 'translated material fills from the canvas left edge');
+      assert.eq(shift[1] + fill[1], 0, 'translated material fills from the canvas top edge');
+      assert.eq(fill[2], size); assert.eq(fill[3], size);
+    }
+    for (const axis of [0, 1]) {
+      assert.eq((translations[1][axis] - translations[0][axis] + 256) % 256, CELL_PX,
+        'panning one cell advances within the larger castle pattern');
+      assert.eq(translations[2][axis], translations[0][axis], 'the whole paving sheet repeats');
+      assert.eq((translations[0][axis] - translations[3][axis] + 256) % 256, CELL_PX,
+        'negative panning retains the world phase');
+    }
     scene.depth = 1;
     BuildingOverlay.draw(scene);
     assert.eq(clears.length, 2, 'entering a cave clears the real canvas too');
