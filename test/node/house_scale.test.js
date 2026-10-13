@@ -237,5 +237,5 @@ test('building seat: art stands on the footprint\'s centre of mass', () => {
   assert.eq(pair.footDy, 0);
   const ell = WorldGen.footprintFootOffset([[0, 0], [0, 1], [0, 2], [1, 2], [2, 2]], [0, 2]);
   assert.eq(ell.footDx, 0.6);
-  assert.truthy(Math.abs(ell.footDy - -0.4) < 1e-12, 'an L stands on its mass, off the anchor cell');
+  assert.truthy(Math.abs(ell.footDy - -0.6) < 1e-12, 'an L stands on its mass, off the anchor cell');
 });
