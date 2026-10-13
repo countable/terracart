@@ -601,10 +601,11 @@ def street_materials(rows):
 def street_svg(v, cell_m, detail=False):
     a, b = v['line']
     mid_x, mid_y = (a['x'] + b['x']) / 2, (a['y'] + b['y']) / 2
-    left, top = a['x'] - cell_m * 5, mid_y - cell_m * 11
-    width, height = v['lengthM'] + cell_m * 10, cell_m * 22
+    framing = .5 if v['size'] == 'path' else 1
+    left, top = a['x'] - cell_m * 5 * framing, mid_y - cell_m * 11 * framing
+    width, height = v['lengthM'] + cell_m * 10 * framing, cell_m * 22 * framing
     if detail:
-        left, top, width, height = mid_x - cell_m * 8, mid_y - cell_m * 5, cell_m * 16, cell_m * 10
+        left, top, width, height = mid_x - cell_m * 8 * framing, mid_y - cell_m * 5 * framing, cell_m * 16 * framing, cell_m * 10 * framing
     suffix = '-detail' if detail else ''
     pattern_id = f'street-grid-{v["id"]}{suffix}'
     parts = [f'<svg role="img" aria-label="{html.escape(v["title"])} generated street arrangement" viewBox="{left} {top} {width} {height}">',
@@ -681,7 +682,7 @@ def street_svg(v, cell_m, detail=False):
         parts.append(f'<circle cx="{p["x"]}" cy="{p["y"]}" r="2" fill="#e1d1b4"><title>Source line endpoint</title></circle>')
     if not detail:
         parts.append(f'<circle cx="{mid_x}" cy="{mid_y}" r="4" fill="none" stroke="#fff6ca" stroke-width="1"/><path d="M {mid_x-3} {mid_y} h 6 M {mid_x} {mid_y-3} v 6" stroke="#fff6ca" stroke-width=".8"><title>Road reference point; not a POI</title></path>')
-    parts.append(f'<path d="M {left+7} {top+height-10} h {cell_m*5}" stroke="#c2cbb8"/><text x="{left+7}" y="{top+height-15}" fill="#c2cbb8" font-size="{2.2 if detail else 7}">{cell_m*5:g} m · 5 cells</text></svg>')
+    parts.append(f'<path d="M {left+7} {top+height-10} h {cell_m*5}" stroke="#c2cbb8"/><text x="{left+7}" y="{top+height-15}" fill="#c2cbb8" font-size="{(2.2 if detail else 7) * framing}">{cell_m*5:g} m · 5 cells</text></svg>')
     return ''.join(parts)
 
 

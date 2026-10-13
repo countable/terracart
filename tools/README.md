@@ -129,7 +129,7 @@ exporters; they are not separate commands.
 
 ## Art previews, generators and data
 
-`preview_zone_variants.py` includes shipping path weights, slime paving and guards, and permanent seeded spider webs in its street showcase.
+`preview_zone_variants.py` includes shipping path weights, slime paving and guards, and permanent seeded spider webs in its street showcase. Walking-path samples use half the road sample length and twice the visual scale.
 
 `preview_*.py` and `preview_*_art.js` produce art reviews; the detailed workflows
 and source manifests live in [docs/art/README.md](../docs/art/README.md).

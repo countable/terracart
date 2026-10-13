@@ -29,10 +29,10 @@ const local = (o) => ({ ...o, x: o.x - tx * tileEdgeM, y: o.y - ty * tileEdgeM }
 
 // Record the actual carpet painter, including its soft edge and symbols.
 // The painter uses screen pixels; the diagram's coordinate system is metres.
-function carpetPreview(row, roadWidthM) {
+function carpetPreview(row, roadWidthM, sampleLine = line) {
   if (!SV.carpetStyleFor(row.id)) return [];
   const pxPerM = ctx.SpriteLayout.CELL_PX / cellM, strokes = [];
-  const base = line.map(p => ({x:p.x*tileEdgeM/extent, y:p.y*tileEdgeM/extent}));
+  const base = sampleLine.map(p => ({x:p.x*tileEdgeM/extent, y:p.y*tileEdgeM/extent}));
   for (const side of [-1, 1]) {
     const run = base.map(p => ({x:p.x*pxPerM, y:(p.y+side*(roadWidthM/2+cellM/2))*pxPerM}));
     ctx.RoadOverlay.emitCarpetStrip({decorPath(width, colour, points, alpha=1) {
@@ -106,6 +106,9 @@ function preview(row) {
 }
 
 function previewPath(row) {
+  // Shorter samples let the gallery show path encounters at twice the scale.
+  const line = [point(middle - halfLengthCells / 2, middle), point(middle + halfLengthCells / 2, middle)];
+  const lengthM = ctx.Streets.lineLengthM(line, tileEdgeM / extent);
   const SC = ctx.Scenic;
   const kind = Object.keys(SC.KIND_ROW).find(k => SC.KIND_ROW[k] === row.id);
   const name = row.id === 'greenway' ? 'Preview Greenway' : 'Preview Footpath';
@@ -150,7 +153,7 @@ function previewPath(row) {
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   if (!lamps.length || lamps.some(lamp => lamp.glow !== row.lampGlow)) throw new Error(`Wrong path lamps for ${row.id}`);
   return { ...row, ...groundPreview(tile), sampleName: name, roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
-    carpetStrokes: carpetPreview(row, WG.roadOverlayWidthM(tags)),
+    carpetStrokes: carpetPreview(row, WG.roadOverlayWidthM(tags), line),
     lampSpacingM: SV.lampSpacingFor(row.id, ctx.Streets.lampLayFor(tags).spacingM), objects,
     lamps, webs: (streetDress.webs || []).map(local), lairs: streetDress.lairs.map(o => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly })),
     slowKinds: [...new Set(objects.filter(o => SV.isSlowKind(o.kind)).map(o => o.kind))], geography, scenicKind: kind,
