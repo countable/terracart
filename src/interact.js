@@ -160,7 +160,7 @@ function findItemInTapCell(scene, layer, wm, accept) {
     if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, item)) return;
     if (accept && !accept(item)) return;
     if (!itemContainsTapCell(scene, item, tapCell)) return;
-    if (typeof Visibility !== 'undefined' && Visibility.playerCover(scene, item.x, item.y) === 2) return;
+    if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, item.x, item.y)) return;
     const d2 = distM2(item.x, item.y, wm.x, wm.y);
     if (d2 < bestD2) { bestD2 = d2; best = item; }
   });
@@ -644,7 +644,7 @@ const TAP_HANDLERS = [
         for (let i = 0; i < entry.coinDrops.length; i++) {
           const c = entry.coinDrops[i];
           if (c.expiresAt && c.expiresAt <= now) continue;
-          if (typeof Visibility !== 'undefined' && Visibility.playerCover(scene, c.x, c.y) === 2) continue;
+          if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, c.x, c.y)) continue;
           if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, c)) continue;
           if (!sameAbsCell(scene, wm.x, wm.y, c.x, c.y)) continue;
           // Distance only picks a winner among coins sharing the tapped cell.
@@ -722,7 +722,7 @@ const TAP_HANDLERS = [
       const bodyCY = c.y + (span.top + span.bottom) / 2 * px2m;   // drawn centre
       if (Math.abs(wm.x - c.x) > halfW) return;
       if (wm.y < topY || wm.y > botY) return;
-      if (typeof Visibility !== 'undefined' && Visibility.playerCover(scene, c.x, c.y) === 2) return;
+      if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, c.x, c.y)) return;
       const ddx = wm.x - c.x, ddy = wm.y - bodyCY;
       const d2 = ddx * ddx + ddy * ddy;
       if (d2 < bestD2) { bestD2 = d2; target = c; }
@@ -1142,7 +1142,7 @@ const TAP_HANDLERS = [
       // catches taps on any BUILDING-terrain cell of a footprint and routes
       // them to that building, which is cell-based in the same way.
       if (!itemContainsTapCell(scene, o, tapCell)) continue;
-      if (typeof Visibility !== 'undefined' && Visibility.playerCover(scene, o.x, o.y) === 2) continue;
+      if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y)) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
       // Every tap-driven world object (groundstack / chest / well / tree /
       // mineralrock / fruittree / house / tower) is declared in the
@@ -1243,7 +1243,7 @@ const TAP_HANDLERS = [
     if (owner && entry?.buildingShapes?.some(s => s.key === owner && s.kind === 'temple')) return true;
     const best = findClosestItem('objects', cwmx, cwmy, 30,
       (o) => isBuilding(o.kind)
-        && !(typeof Visibility !== 'undefined' && Visibility.playerCover(scene, o.x, o.y) === 2)
+        && !(typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y))
         && !(typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o)));
     if (!best) return false;
     scene.shopInteract(sx, sy, best);
@@ -1828,7 +1828,9 @@ function interactTap(scene, sx, sy) {
   // tooFar → cellInReach (coords.js), which reads the player's feet cell off
   // the scene itself, so the handlers only need the tap.
   const ctx = { scene, save: scene.save, wm, sx, sy, dirty: false };
-  const covered = typeof Visibility !== 'undefined' && Visibility.playerCover(scene, wm.x, wm.y) === 2;
+  // Ground behind partial cover is still drawn (only what stands on it is
+  // hidden, per-handler), so only FULL cover's darkness gates a ground tap.
+  const covered = typeof Visibility !== 'undefined' && Visibility.playerCover(scene, wm.x, wm.y) === Visibility.FULL;
   let consumedBy = null;
   for (const h of TAP_HANDLERS) {
     // An existing action can still be cancelled by tapping covered ground.

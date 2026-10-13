@@ -398,7 +398,8 @@ const GRASS_FALLBACK_COLOR = 0x7b8d4e;   // matches the approved COLORS[0] grass
 // Cave grit remains an alpha overlay, preserving its existing baked textures.
 // The sky floor (WorldGen.SKY_DEPTH) uses the same lane: white grove floor
 // over pale open air, with no biome texture (see the texture pass).
-Render.UNDERGROUND_GROUND = { underdark: 0x69626c, grove: 0x486653, dwarven_city: 0x8b7760,
+Render.UNDERGROUND_GROUND = { goblin_city: 0x77725b, underdark: 0x69626c,
+  haunted_city: 0x666979, lava: 0x6c5149, dragon: 0x706052, dragon_roost: 0x67554f, grove: 0x486653, dwarven_city: 0x8b7760,
   sky_floor: 0xf7f7f1, sky_air: 0xb9dcf2 };
 Render.undergroundGroundColor = (entry, ix, iy, type) => {
   if (entry?.undergroundBiome === 'sky') {
@@ -406,7 +407,8 @@ Render.undergroundGroundColor = (entry, ix, iy, type) => {
       : type === WorldGen.T.CAVE_WALL ? Render.UNDERGROUND_GROUND.sky_air : null;
   }
   if (type !== WorldGen.T.CAVE_FLOOR || !entry) return null;
-  if (entry.undergroundBiome === 'underdark') return Render.UNDERGROUND_GROUND.underdark;
+  const biomeColor = Render.UNDERGROUND_GROUND[entry.undergroundBiome];
+  if (biomeColor != null) return biomeColor;
   if (entry.undergroundBiome !== 'deep_stone') return null;
   const area = entry.undergroundAreas?.[iy * entry.cellsPerEdge + ix];
   return area === 1 ? Render.UNDERGROUND_GROUND.grove
@@ -1977,9 +1979,9 @@ Render.drawSpiderWebs = function drawSpiderWebs(scene) {
   // Square-bound radial anchors, clockwise from the north-west corner.
   const anchors = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]];
   for (const web of webs) {
-    if (Render.coverHidden(scene, web)) continue;
     const at = worldMetersToScreen(scene, web.x, web.y);
     if (at.x + half < left || at.y + half < top || at.x - half > right || at.y - half > bottom) continue;
+    if (Render.coverHidden(scene, web)) continue;
     if (!scene._spiderWebGfx) {
       scene._spiderWebGfx = scene.add.graphics();
       scene.cobbleContainer.add(scene._spiderWebGfx);
@@ -2017,11 +2019,11 @@ Render.drawSpiderWebs = function drawSpiderWebs(scene) {
   }
   if (!scene.boltContainer) return;
   for (const shot of shots) {
-    if (Render.coverHidden(scene, shot)) continue;
     const from = worldMetersToScreen(scene, shot.fromX, shot.fromY);
     const tip = worldMetersToScreen(scene, shot.x, shot.y);
     if (Math.max(from.x, tip.x) < left || Math.max(from.y, tip.y) < top
       || Math.min(from.x, tip.x) > right || Math.min(from.y, tip.y) > bottom) continue;
+    if (Render.coverHidden(scene, shot)) continue;
     if (!scene._spiderWebShotGfx) {
       scene._spiderWebShotGfx = scene.add.graphics();
       scene.boltContainer.add(scene._spiderWebShotGfx);
@@ -2644,7 +2646,8 @@ Render.drawCells = function drawCells(scene) {
           if (polyGround >= 0) baseType = polyGround;
           const spec = skyLevel ? null : BIOME_TEX[baseType];
           if (spec) {
-            texKey = `biome${baseType}_${Math.abs(h) % spec.variants}`;
+            const variantHash = baseType === 12 ? avalanche32(h) : Math.abs(h);
+            texKey = `biome${baseType}_${variantHash % spec.variants}`;
             // Animated biome (water/pier): pick the pre-baked phase frame from
             // the wall clock. The key is compared every frame anyway, so a
             // time-varying one costs a swap only when the phase turns — the
@@ -2736,10 +2739,10 @@ Render.drawCells = function drawCells(scene) {
     }
   }
   scene.terrainCache?.flush();
-  // Level-one trial. Re-evaluate the live neighbour ring on each ground draw:
+  // All underground floors share this wall style. Re-evaluate the live neighbour ring:
   // mining and arriving tiles immediately update faces, including tile seams.
   // Atlas sprites share the ground-decoration layer, beneath actors and lights.
-  if (scene.depth === 1 && scene.cobbleContainer) {
+  if (scene.depth > 0 && scene.cobbleContainer) {
     const open = (c, r) => T(c, r) !== WorldGen.T.CAVE_WALL && T(c, r) !== UNMAPPED_T;
     for (let row = -1; row <= VIEW_CELLS; row++) for (let col = -1; col <= VIEW_CELLS; col++) {
       if (T(col, row) !== WorldGen.T.CAVE_WALL) continue;
@@ -3168,12 +3171,13 @@ Render.drawCells = function drawCells(scene) {
   plainX();
   const drawX = (tr) => {
     if (!treasureExposed(tr, scene) || found.has(tr.id)) return;
+    const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
+    if (!inViewBox(dx, dy, halfM)) return;
+    // After the view box: a cover ray is the costly test (re-traced per step).
     if (Render.coverHidden(scene, tr)) return;
     // Buried until the feet stand beside it (HiddenObjects.tick).
     if (HiddenObjects.treasureHidden(scene.save, tr)) return;
     if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, tr, hideNightRoadTreasure)) return;
-    const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
-    if (!inViewBox(dx, dy, halfM)) return;
     const { x: cx, y: cy } = deltaMToScreen(scene, dx, dy);
     // 15% smaller than the old 6px; X is symmetric so the centroid (cx,cy) is unchanged.
     // A GREAT X (loot.js GREAT_X) is thick and dark red.
@@ -3585,10 +3589,11 @@ const CRITTER_SHADOW_W = {
   butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
 };
 
-// Cull before building sprite, label, shadow and effect lists. Tree cover
-// remains visible; the sole lighting pass supplies its half-dark treatment.
+// Cull before building sprite, label, shadow and effect lists. Any cover
+// (Visibility.hidden) removes what stands behind it; the sole lighting pass
+// darkens the ground there.
 Render.coverHidden = function coverHidden(scene, o) {
-  return typeof Visibility !== 'undefined' && Visibility.playerCover(scene, o.x, o.y) === Visibility.FULL;
+  return typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y);
 };
 Render.cullCovered = function cullCovered(scene, list, field) {
   let n = 0;
@@ -3613,9 +3618,10 @@ Render.drawObjects = function drawObjects(scene) {
   // worldgen never emits it, so it must be re-added after reloads / eviction.
   if (scene.ensureStarterTrailerObject) scene.ensureStarterTrailerObject();
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
-  // Extra cull reach for house sprites — half the widest building art that can
-  // be drawn (BUILDING_ART.fort.max: a fort tops out at 3.48 cells wide, so 2.2
-  // cells of roof either side of the centroid covers it with margin). Pinned by
+  // Extra cull reach for house sprites — the art stands bottom-middle on its
+  // footprint's centre of mass, so it reaches half its width sideways and its
+  // full height north (BUILDING_ART.fort.max: a fort tops out at 3.48 cells
+  // wide, 2.34 tall; 2.2 cells plus halfM's own cell covers both). Pinned by
   // test/node/house_scale.test.js.
   const HOUSE_PAD_M = 2.2 * scene.cellM;
   // Both the cull and the projection measure from the CAMERA ANCHOR (normally
@@ -3714,7 +3720,7 @@ Render.drawObjects = function drawObjects(scene) {
   // offersPreCullLight (module level), the same predicate the per-tile list
   // is derived by.
   const offerPreCullLights = (o, dx, dy) => {
-    if (typeof Visibility !== 'undefined' && Visibility.playerCover(scene, o.x, o.y) === Visibility.FULL) return;
+    if (Render.coverHidden(scene, o)) return;
     // A restored building (or Home) is a LIGHT as well as a sprite, and
     // its light reaches further than its art: offered to the lightmap
     // before the sprite cull, with its own radius as the margin, so a
@@ -3774,10 +3780,10 @@ Render.drawObjects = function drawObjects(scene) {
         if (!inViewBox(dx, dy, sM)) return;
         // Houses are culled with extra margin. Every other object's art is
         // about a cell wide, so its anchor leaving the viewport means its
-        // art has left too — but a house is CENTRED on its footprint
-        // centroid, and a grown fort's roof spans several cells (see
-        // _houseScale), so an anchor a little past the rim can still have
-        // half its building on screen. Without the pad, walking onto a big
+        // art has left too — but a house stands on its footprint's centre of
+        // mass and rises north of it, and a grown fort's roof spans several
+        // cells (see _houseScale), so an anchor a little past the rim can
+        // still have much of its building on screen. Without the pad, walking onto a big
         // fort's footprint made the whole building vanish and left bare
         // brick. HOUSE_PAD_M is half the widest art the fort cap allows.
         const lim = o.kind === 'house' ? halfM + HOUSE_PAD_M : halfM;
@@ -3983,11 +3989,11 @@ Render.drawObjects = function drawObjects(scene) {
   // Only containers with broken art remain after collection (clay pots).
   // Wooden barrels disappear through the ordinary spent-object filter.
   for (const o of HiddenObjects.saved(scene)) {
-    if (Render.coverHidden(scene, o)) continue;
+    const dx = o.x - pWorldX, dy = o.y - pWorldY;
+    if (!inViewBox(dx, dy, halfM) || Render.coverHidden(scene, o)) continue;
     if (HiddenObjects.isHidden(scene.save, o)
         || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) continue;
-    const dx = o.x - pWorldX, dy = o.y - pWorldY;
-    if (Math.abs(dx) <= halfM && Math.abs(dy) <= halfM) objList.push({o, dx, dy});
+    objList.push({o, dx, dy});
   }
   Render.cullCovered(scene, objList, 'o');
   Render.cullCovered(scene, plantedList, 'p');
@@ -4131,34 +4137,28 @@ Render.drawObjects = function drawObjects(scene) {
         return;
       }
       // The shadow ellipse is CENTRE-anchored (origin 0.5,0.5) and is placed at
-      // the building's visual BASE so a thin contact crescent grounds it. The
-      // base depends on how the sprite is anchored (see RENDER_SPEC):
-      //   • tower / wizard house — foot-anchored, base ≈ the centroid cell.
-      //   • every other house     — CENTRED on the centroid, so its base sits
-      //     half the (scaled) sprite height SOUTH of the centroid. Read the
-      //     sprite's frame height so the shadow tracks the real art, not a guess.
-      // The small extra lift tucks the ellipse's bulk behind the building.
+      // the building's visual BASE so a thin contact crescent grounds it:
+      //   • tower — foot-anchored, base ≈ the cell's front edge.
+      //   • a house — its bottom-middle stands on the footprint's centre of
+      //     mass (_houseFootPx, RENDER_SPEC.house).
+      // The small lift tucks the ellipse's bulk behind the building.
       const role = o.kind === 'house' ? item.houseRole : null;
-      let w = CELL_PX * 1.5, footY = sy - 4;
-      if (o.kind === 'tower' || role === 'turret') { w = CELL_PX * 1.1; footY = sy + 2; }
-      else if (role === 'wizard') { footY = sy + CELL_PX * 0.5 - 4; }
+      let w = CELL_PX * 1.5, footX = sx, footY = sy - 4;
+      if (o.kind === 'tower' || role === 'turret') w = CELL_PX * 1.1;
+      if (o.kind === 'tower') footY = sy + 2;
       else if (o.kind === 'house') {
         if (role === 'fort') w = CELL_PX * 2.4;
         // Same art + scale the sprite pass will use, so a house shrunk to fit a
         // small footprint gets a shadow that shrinks with it — in width as well
         // as position, or a shrunk house would sit on an oversized ellipse.
         const appearance = item._appearance;
-        const hkey = appearance.texKey ?? _houseKey(o);
         const hscale = appearance.scl ?? _houseScale(o);
         w *= hscale / _houseBaseScale(o);
-        let fh = CELL_PX;
-        if (scene.textures.exists(hkey)) {
-          const fr = scene.textures.get(hkey).get(appearance.frameVal);
-          if (fr && fr.height) fh = fr.height;
-        }
-        footY = sy + 0.5 * fh * hscale - 6;   // centred-house base, tucked up 6px
+        const foot = _houseFootPx(o);
+        footX = sx + foot.x;
+        footY = sy + foot.y - 6;   // the base, tucked up 6px
       }
-      seatShadow(s, 'building', w, Math.round(sx), Math.round(footY));
+      seatShadow(s, 'building', w, Math.round(footX), Math.round(footY));
     });
   }
   // Turrets keep a separate reusable pool inside the shared world layer.
@@ -4452,7 +4452,7 @@ Render.drawObjects = function drawObjects(scene) {
       const offer = scene.peekOrBuildTraderOffer(o);
       const deal = !offer ? null : offer.gearSwap
         ? { ask: offer.give, give: offer.get }
-        : { ask: { kind: 'item', id: offer.askId }, give: { kind: 'item', id: offer.giveId } };
+        : { ask: { kind: 'item', id: offer.askId, qty: offer.askQty }, give: { kind: 'item', id: offer.giveId } };
       _traderCache.set(o.id, c = { at: now, deal });
     }
     return c.deal;
@@ -4492,15 +4492,14 @@ Render.drawObjects = function drawObjects(scene) {
   }
   Render.renderPool(scene, scene.shopLabelPool, scene.labelContainer, plain, (tx, item) => {
     const { o, dx, dy } = item;
-    const { x: sx, y: sy } = project(dx, dy);
-    // House sprite origin is [0.5, 0.9] — sy is roughly the building's foot.
-    // Anchor the label TOP just below sy so the sign tucks under the
-    // building, almost touching the doorstep (origin [0.5, 0], so position
-    // y = label top). +5 follows the house sprite's own dyPx so the sign
-    // stays glued to the doorstep.
+    const { x: px, y: py } = project(dx, dy);
+    const mid = _houseArtMidPx(o);
+    const sx = px + mid.x, sy = py + mid.y;
+    // The label TOP hangs 12px below the art's middle (origin [0.5, 0], so
+    // position y = label top): across the building's lower front, by its door.
     tx.setText(_houseSignText(o));
     setColorOnce(tx, _lighten30(_houseSignInk(o)));
-    tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(sy + 7) + 5);
+    tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(sy) + 12);
     fadeLabelOverPlayer(tx, _playerBox);
   }, labelFactory('sign'));
   // The plate's lettering — a name only where there is no symbol. Laid out
@@ -4520,11 +4519,12 @@ Render.drawObjects = function drawObjects(scene) {
   }
   gfx.clear();
   for (const item of plates) {
-    // House art is centred on its footprint (RENDER_SPEC.house), so the
-    // roof's middle sits a fraction of the art's height above that centre.
+    // The roof's middle sits a fraction of the art's height above the art's
+    // middle (_houseArtMidPx).
     const { x, y } = project(item.dx, item.dy);
+    const mid = _houseArtMidPx(item.o);
     const dy = (!item.theme && Render.ROLE_SIGN_ICONS[_houseRole(item.o)]?.dy) || 0;
-    Render.drawShopPlate(gfx, item, { x, y: y - SHOP_PLATE.roof * _houseArtH(item.o) + dy }, _playerBox, CANVAS_W);
+    Render.drawShopPlate(gfx, item, { x: x + mid.x, y: y + mid.y - SHOP_PLATE.roof * _houseArtH(item.o) + dy }, _playerBox, CANVAS_W);
   }
 
   // Residential delivery plaques use real
@@ -4582,7 +4582,9 @@ Render.drawObjects = function drawObjects(scene) {
         const happy = !deal && _houseSatisfied(it.o);
         const wanted = deal || happy ? null : scene.wantedProduce(it.o);
         const look = deal ? TRADER_BUBBLE : QUEST_BUBBLE;
-        const { x: sx, y: sy } = project(it.dx, it.dy);
+        const anchor = project(it.dx, it.dy);
+        const mid = _houseArtMidPx(it.o);   // the bubble floats off the art's middle
+        const sx = anchor.x + mid.x, sy = anchor.y + mid.y;
         let slot = pool[psi];
         if (!slot) {
           const el = document.createElement('div');
@@ -4601,7 +4603,7 @@ Render.drawObjects = function drawObjects(scene) {
         // Rebuild contents only when the wishlist / happy state / icon size
         // changes — the produce set is memoized per house, so this is normally
         // a no-op. The 'happy' sentinel in the key flips the bubble on delivery.
-        const pieceKey = (p) => [p.kind, p.id || p.slot, p.tier].join(':');
+        const pieceKey = (p) => [p.kind, p.id || p.slot, p.tier, p.qty].join(':');
         const key = it.o.id + '|' + (deal ? 'trade>' + pieceKey(deal.ask) + '>' + pieceKey(deal.give)
           : happy ? 'happy' : wanted.join(',')) + '|' + sizePx;
         if (slot.key !== key) {
@@ -4611,12 +4613,24 @@ Render.drawObjects = function drawObjects(scene) {
           slot.el.style.border = look.border;
           if (deal) {
             const piece = (p) => {
-              if (p.kind === 'item') return scene.renderItemIcon ? scene.renderItemIcon(p.id, sizePx, 'block') : null;
-              if (!scene.gearIconHTML) return null;
-              const span = document.createElement('span');
-              span.style.cssText = 'display:block;line-height:0;';
-              span.innerHTML = scene.gearIconHTML(p.kind, p.slot, p.tier, sizePx);
-              return span;
+              let ic = null;
+              if (p.kind === 'item') ic = scene.renderItemIcon ? scene.renderItemIcon(p.id, sizePx, 'block') : null;
+              else if (scene.gearIconHTML) {
+                ic = document.createElement('span');
+                ic.style.cssText = 'display:block;line-height:0;';
+                ic.innerHTML = scene.gearIconHTML(p.kind, p.slot, p.tier, sizePx);
+              }
+              if (!ic || !(p.qty > 1)) return ic;
+              // How many the trader asks for, on the icon's corner like a bag stack.
+              const wrap = document.createElement('span');
+              wrap.style.cssText = 'position:relative;display:block;line-height:0;';
+              const n = document.createElement('span');
+              n.textContent = String(p.qty);
+              n.style.cssText = 'position:absolute;right:-3px;bottom:-3px;line-height:1;'
+                + `font:bold ${Math.max(8, Math.round(sizePx * 0.5))}px ${FONT_UI_STACK};`
+                + `color:${TRADER_BUBBLE.ink};text-shadow:0 1px 0 #000,1px 0 0 #000,-1px 0 0 #000,0 -1px 0 #000;`;
+              wrap.append(ic, n);
+              return wrap;
             };
             const arrow = document.createElement('span');
             arrow.style.cssText = 'display:block;line-height:0;';
@@ -4713,10 +4727,11 @@ Render.drawObjects = function drawObjects(scene) {
       const c = entry.coinDrops[r];
       if (c.expiresAt && c.expiresAt <= _coinNow) continue;
       entry.coinDrops[w++] = c;
-      if (Render.coverHidden(scene, c)) continue;
-      if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, c, hideNightRoadObjects)) continue;
       const dx = c.x - pWorldX, dy = c.y - pWorldY;
-      if (inViewBox(dx, dy, halfM)) coinList.push({ c, dx, dy });
+      // View box before the cover ray: Golden Path coins line whole tiles.
+      if (!inViewBox(dx, dy, halfM) || Render.coverHidden(scene, c)) continue;
+      if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, c, hideNightRoadObjects)) continue;
+      coinList.push({ c, dx, dy });
     }
     entry.coinDrops.length = w;
   });
@@ -4769,7 +4784,7 @@ Render.drawObjects = function drawObjects(scene) {
       s.setFrame(frame);
       // Centre on the rock cell (0.5, 0.5): this is the produce icon, not a
       // bottom-weighted seed frame, which the foot-anchor would float ~11px high.
-      s.setOrigin(0.5, 0.5).setScale(2).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.5).setScale(ROCK_VARIANT_ART.placedScale).setPosition(Math.round(sx), Math.round(sy));
       return;
     }
     const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);
@@ -5214,9 +5229,10 @@ Render.drawObjects = function drawObjects(scene) {
         // ring was re-projected per step.
         if (f._mFrame !== scene.startWorldM) { f._m = tileCellCenterMeters(scene, tx, ty, f.ix, f.iy); f._mFrame = scene.startWorldM; }
         const m = f._m;
-        if (Render.coverHidden(scene, m)) continue;
         const dx = m.x - pWorldX, dy = m.y - pWorldY;
-        if (inViewBox(dx, dy, halfM)) sparkList.push({ dx, dy, id: f.id });
+        // View box first: a cover ray per off-screen spot of the ring cost
+        // most of a walking frame (rays are re-traced whenever the body moves).
+        if (inViewBox(dx, dy, halfM) && !Render.coverHidden(scene, m)) sparkList.push({ dx, dy, id: f.id });
       }
     });
   }
@@ -5301,7 +5317,7 @@ Render.wildplantShadow = function (plant, art = wildplantSprite(plant)) {
 // itself is built ONCE here (it was rebuilt inside drawObjects every frame —
 // four hundred lines of literal and a dozen closures a frame).
 const _pass = { scene: null, houseRoles: null, fruitNow: 0, fruitList: [] };
-const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseArtH } = (() => {
+const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseArtH, _houseFootPx, _houseArtMidPx } = (() => {
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
   // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
@@ -5395,6 +5411,15 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   };
   const _houseScale = (o) =>
     houseArtScale(o.area, _houseFrameW(o), _houseRole(o), _pass.scene.cellM, CELL_PX);
+  // Where a house's art stands, game px from its anchor cell's centre: the
+  // centre of mass of its footprint (worldgen footprintFootOffset, in cells).
+  // A house with no recorded footprint stands on its anchor cell's centre.
+  const _houseFootPx = (o) => ({ x: Math.round((o.footDx || 0) * CELL_PX), y: Math.round((o.footDy || 0) * CELL_PX) });
+  // The middle of the drawn art, same frame: roof plates and bubbles hang off it.
+  const _houseArtMidPx = (o) => {
+    const foot = _houseFootPx(o);
+    return { x: foot.x, y: foot.y - _houseArtH(o) / 2 };
+  };
 
   const RENDER_SPEC = {
     // Temples use their entire source polygon; no house sprite covers the runes.
@@ -5424,16 +5449,12 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     house:  {
       key: _houseKey,
       frame: _houseFrame,
-      // Centre the sprite ON the building footprint's centroid (the house x/y IS
-      // that centroid): a bottom-middle anchor drew the body NORTH of it, leaving
-      // the southern cells of a multi-cell footprint bare. Origin 0.5,0.5 + no
-      // nudge keeps the art over its footprint. The wizard tower is the exception:
-      // a tall sprite that stands foot-seated at the cell's front edge, so it keeps
-      // the bottom anchor + a downward nudge.
-      // A turret is the castle tower sprite and seats as the castle tower
-      // row below does: foot at the cell's front edge, half-cell nudge.
-      origin: (o) => (_houseRole(o) === 'wizard' || _houseRole(o) === 'turret' ? [0.5, 1.0] : [0.5, 0.5]),
-      dyPx: (o) => (_houseRole(o) === 'wizard' || _houseRole(o) === 'turret' ? CELL_PX * 0.5 : 0),
+      // Every building stands its bottom-middle on its footprint's centre of
+      // mass (_houseFootPx): the object sits on the footprint cell nearest
+      // that point, so the art is nudged by the remainder.
+      origin: [0.5, 1.0],
+      dxPx: (o) => _houseFootPx(o).x,
+      dyPx: (o) => _houseFootPx(o).y,
       scale: _houseScale,
     },
     // Bottom-seat each sprite at its data cell. A castle's identity selects
@@ -5766,7 +5787,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     const ground = typeof spec.ground === 'function' ? !!spec.ground(o) : !!spec.ground;
     return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot, ground };
   };
-  return { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseArtH };
+  return { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseArtH, _houseFootPx, _houseArtMidPx };
 })();
 
 // Open a draw pass over `scene` with the frame's house roles: the spec's

@@ -1,9 +1,9 @@
 (function () {
   const entry = () => ({ cellsPerEdge: 4, tileEdgeM: 64,
     grid: new Uint8Array(16).fill(WorldGen.T.CAVE_FLOOR), objects: [], traps: [] });
-  const hole = { id: 'hole', kind: 'ground_hole', depth: 2, x: 24, y: 24 };
+  const hole = { id: 'hole', kind: 'ground_hole', depth: 1, x: 24, y: 24 };
   function scene(energy = 100) {
-    return { depth: 2, tileEdgeM: 64, save: { energy },
+    return { depth: 1, tileEdgeM: 64, save: { energy },
       showMessageModal(panel) { this.panel = panel; },
       _losePlayerEnergy(n) { const before = this.save.energy; Energy.set(this.save, before - n); return before - this.save.energy; },
       changeDepth(delta, destination, options) {
@@ -24,15 +24,15 @@
   });
   test('cave holes: story precedes damage and low energy still falls exactly one floor once', async () => {
     const previous = WorldGen.loadTile.atDepth;
-    WorldGen.loadTile.atDepth = async depth => { assert.eq(depth, 3); return entry(); };
+    WorldGen.loadTile.atDepth = async depth => { assert.eq(depth, 2); return entry(); };
     try {
       const s = scene(4);
       assert.truthy(await CaveHazards.fall(s, hole));
-      assert.eq(s.save.energy, 4); assert.eq(s.depth, 2);
+      assert.eq(s.save.energy, 4); assert.eq(s.depth, 1);
       assert.truthy(s._caveFallPending);
       assert.falsy(await CaveHazards.fall(s, hole));
       s.panel.onDismiss(); s.panel.onDismiss();
-      assert.eq(s.save.energy, 0); assert.eq(s.depth, 3); assert.eq(s.descents, 1);
+      assert.eq(s.save.energy, 0); assert.eq(s.depth, 2); assert.eq(s.descents, 1);
       assert.falsy(s._caveFallPending);
     } finally { WorldGen.loadTile.atDepth = previous; }
   });
@@ -46,6 +46,49 @@
       assert.eq(s.save.energy, Math.max(0, 70 - damage));
     } finally { WorldGen.loadTile.atDepth = previous; }
   });
+  test('cave holes: acknowledging the real story applies damage and retains potion immunity', async () => {
+    const previous = WorldGen.loadTile.atDepth, getElement = document.getElementById;
+    WorldGen.loadTile.atDepth = async () => entry();
+    document.getElementById = () => null;
+    try {
+      for (const immortal of [false, true]) {
+        const s = scene(70);
+        if (immortal) s.save.immortalPotionUntil = Date.now() + 60000;
+        const damage = Combat.incomingDamage(s.save, Energy.maxEnergy(s.save) * CaveHazards.FALL_ENERGY_FRACTION);
+        let shown = false, click;
+        s._storyDialogOpen = () => shown;
+        s.makeModalShell = () => ({
+          wrap: { remove() { shown = false; } }, box: { appendChild() {} },
+          mount() { shown = true; }, mkBtn: () => ({ addEventListener(type, fn) { click = fn; } }),
+        });
+        s.showMessageModal = SceneModals.prototype.showMessageModal;
+        assert.truthy(await CaveHazards.fall(s, hole));
+        // The update loop observes the displayed story before its OK click.
+        Conditions.setDialogShield(s.save, s._storyDialogOpen());
+        assert.truthy(Conditions.damageImmune(s.save));
+        click({ stopPropagation() {} });
+        assert.eq(s.save.energy, 70 - damage);
+        assert.eq(Conditions.damageImmune(s.save), immortal);
+        assert.eq(s.depth, 2);
+        click({ stopPropagation() {} });
+        assert.eq(s.descents, 1, 'acknowledging twice cannot repeat the fall');
+      }
+    } finally { WorldGen.loadTile.atDepth = previous; document.getElementById = getElement; }
+  });
+  test('cave holes: sealed floors refuse authored holes before loading or showing a story', async () => {
+    const previous = WorldGen.loadTile.atDepth;
+    let loads = 0;
+    WorldGen.loadTile.atDepth = async () => { loads++; return entry(); };
+    try {
+      for (const depth of DungeonProgression.ROPE_SEALED_FLOORS) {
+        const s = scene(); s.depth = depth;
+        assert.falsy(await CaveHazards.fall(s, { ...hole, depth }));
+        assert.eq(s.depth, depth); assert.eq(s.save.energy, 100);
+        assert.falsy(s.panel); assert.falsy(s._caveFallPending);
+      }
+      assert.eq(loads, 0);
+    } finally { WorldGen.loadTile.atDepth = previous; }
+  });
   test('cave holes: invalid or unavailable destination leaves energy and depth untouched', async () => {
     const previous = WorldGen.loadTile.atDepth;
     try {
@@ -56,7 +99,7 @@
         };
         const s = scene();
         assert.falsy(await CaveHazards.fall(s, hole));
-        assert.eq(s.depth, 2); assert.eq(s.save.energy, 100);
+        assert.eq(s.depth, 1); assert.eq(s.save.energy, 100);
         assert.falsy(s.panel); assert.falsy(s._caveFallPending);
       }
     } finally { WorldGen.loadTile.atDepth = previous; }
@@ -72,11 +115,11 @@
     try {
       const s = scene();
       s.spawnCaveCreatures = (loaded, tx, ty, depth) => {
-        assert.eq(loaded, e); assert.eq(depth, 3);
+        assert.eq(loaded, e); assert.eq(depth, 2);
         loaded.grid.fill(WorldGen.T.CAVE_WALL);
       };
       assert.falsy(await CaveHazards.fall(s, hole));
-      assert.eq(s.depth, 2); assert.eq(s.save.energy, 100);
+      assert.eq(s.depth, 1); assert.eq(s.save.energy, 100);
     } finally { WorldGen.loadTile.atDepth = previous; }
   });
   test('cave holes: real depth transition permits a forced exhausted descent only', () => {
@@ -97,9 +140,9 @@
       let stories = 0;
       s.save.energy = 100;
       s.save.dungeonProgression = { level4Key: true };
-      s._storySplashOnce = key => { assert.eq(key, 'cave'); stories++; };
+      s._storySplashOnce = key => { assert.eq(key, 'dungeon_underdark'); stories++; };
       change.call(s, 1, hole);
-      assert.eq(s.depth, 4); assert.eq(stories, 1, 'ordinary descent retains the first-cave story');
+      assert.eq(s.depth, 4); assert.eq(stories, 1, 'ordinary descent presents the receiving floor story');
     } finally { WorldGen.setDepth = previous; }
   });
   test('cave pits: same snare damage path and hidden until adjacent, even with perception', () => {
@@ -147,7 +190,7 @@
     s._caveHoleCell = 'old';
     assert.falsy(await CaveHazards.fall(s, hole));
     CaveHazards.tick(s, 0);
-    assert.eq(s._caveHoleCell, null); assert.falsy(s.panel); assert.eq(s.depth, 2);
+    assert.eq(s._caveHoleCell, null); assert.falsy(s.panel); assert.eq(s.depth, 1);
   });
 
 })();

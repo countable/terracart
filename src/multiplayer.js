@@ -1333,7 +1333,7 @@ const Multiplayer = (function () {
       else { p.dx += (s.x - p.dx) * k; p.dy += (s.y - p.dy) * k; }
       const onScreen = (p.d || 0) === (scene.depth || 0)
         && Math.abs(p.dx - scene.viewCenterX) < half && Math.abs(p.dy - scene.viewCenterY) < half;
-      if (typeof Visibility !== 'undefined' && Visibility.playerCover(scene, wm.x, wm.y) === 2) {
+      if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, wm.x, wm.y)) {
         hidePeerArt(p, false); continue;
       }
       if (!onScreen) { hidePeerArt(p, false); drawPeerDot(scene, p); continue; }

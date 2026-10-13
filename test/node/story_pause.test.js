@@ -29,4 +29,19 @@
     assert.truthy(/if \(enemy && this\._storyPause\) \{ c\._moving = false; Combat\.cancelCreatureAction\(c\); return; \}/.test(SCENE_SRC),
       'hostiles hold still and drop their wind-up');
   });
+  test('story pause: dismissing one message retains protection from another open story', () => {
+    const previous = document.getElementById;
+    document.getElementById = () => null;
+    try {
+      let click, immune;
+      const s = { save: {}, _storyDialogOpen: () => true,
+        makeModalShell: () => ({ wrap: { remove() {} }, box: { appendChild() {} }, mount() {},
+          mkBtn: () => ({ addEventListener(type, fn) { click = fn; } }) }) };
+      Conditions.setDialogShield(s.save, true);
+      SceneModals.prototype.showMessageModal.call(s, { body: 'Done',
+        onDismiss: () => { immune = Conditions.damageImmune(s.save); } });
+      click({ stopPropagation() {} });
+      assert.truthy(immune, 'a remaining story still shields dismissal callbacks');
+    } finally { document.getElementById = previous; }
+  });
 })();

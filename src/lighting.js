@@ -1725,19 +1725,69 @@
     return `${scene.cellM}|${frame.key}|${placement.structure}`;
   }
 
+  // Keep the exact fade history for reversals; only its picture can discard
+  // an aggregate of less than one 8-bit alpha level. Never renormalise: masks
+  // outside the view still own their share of the fade's brightness.
+  function visibleReachFrames(scene, pc, frames) {
+    const base = viewAnchorAbsCell(scene, pc);
+    const half = (VIEW_CELLS - 1) / 2;
+    const visible = frames.filter(frame => {
+      if (frame.weight <= 0) return false;
+      const radius = frame.reachM / scene.cellM;
+      // Include the painted grid plus two cells for rounded corners and cache
+      // scrolling. Probe row endpoints in the reach cell's own grid so tile
+      // rows with different cell counts cannot incorrectly cull a mask.
+      for (let row = -3; row <= VIEW_CELLS + 2; row++) {
+        const iy = base.cellIY + row - half;
+        const dy = iy - frame.rp.cellIY;
+        if (Math.abs(dy) > radius) continue;
+        const band = viewBand(scene, pc, iy);
+        const left = absCellDelta(scene, frame.rp.cellIX, frame.rp.cellIY,
+          base.cellIX - 3 - half + band.dX, iy).dx;
+        const right = absCellDelta(scene, frame.rp.cellIX, frame.rp.cellIY,
+          base.cellIX + VIEW_CELLS + 2 - half + band.dX, iy).dx;
+        const dx = left > 0 ? left : right < 0 ? -right : 0;
+        if (dx * dx + dy * dy <= radius * radius) return true;
+      }
+      return false;
+    });
+    const smallest = [...visible].sort((a, b) => a.weight - b.weight);
+    const omitted = new Set();
+    let weight = 0;
+    for (const frame of smallest) {
+      if (weight + frame.weight >= 1 / 255) break;
+      weight += frame.weight;
+      omitted.add(frame);
+    }
+    return visible.filter(frame => !omitted.has(frame));
+  }
+
   // Build or crop each padded reach mask. These canvases never become Phaser
   // textures: viewport crops are added to the existing lightmap before its
   // sole refresh, preserving one-pass MULTIPLY and the Canvas fallback.
   function contributionFrames(scene, W, H, ox, oy, plateau, pc, frames) {
     const items = [];
     if (!plateau) {
-      for (const e of scene._lightContribution?.entries || []) e.pending = false;
+      const st = scene._lightContribution;
+      if (st) {
+        st.entries = st.entries.sort((a, b) => b.used - a.used).slice(0, 4);
+        for (const e of st.entries) e.pending = false;
+      }
       return { items, rebuilt: false, deferred: false };
     }
     const pad = LIGHT_CACHE_PAD_CELLS * CELL_PX;
     const limit = LIGHT_CACHE_LIMIT_CELLS * CELL_PX;
     const placement = plateauPlacement(scene, pc);
     const st = scene._lightContribution || (scene._lightContribution = { entries: [], rebuilds: 0, serial: 0 });
+    frames = visibleReachFrames(scene, pc, frames);
+    const active = new Set(frames.map(frame => contributionKey(scene, frame, placement)));
+    // A returned item holds this canvas until compositing finishes. Pin every
+    // active key, including masks not visited yet, so no later bake overwrites
+    // an earlier item's pixels when an interrupted fade needs more than four.
+    const reserve = Math.max(4, active.size);
+    st.entries = st.entries.filter(e => active.has(e.key)).concat(
+      st.entries.filter(e => !active.has(e.key)).sort((a, b) => b.used - a.used)
+        .slice(0, Math.max(0, reserve - st.entries.filter(e => active.has(e.key)).length)));
     let rebuilt = false, deferred = false;
     for (const frame of frames) {
       if (frame.weight <= 0) continue;
@@ -1761,11 +1811,11 @@
       if (entry && entry.pending && !scene._boot_crossing) reusable = false;
       if (!reusable) {
         if (!entry) {
-          if (st.entries.length < 4) {
+          entry = st.entries.filter(e => !active.has(e.key))
+            .reduce((oldest, e) => !oldest || e.used < oldest.used ? e : oldest, null);
+          if (!entry) {
             entry = { canvas: document.createElement('canvas') };
             st.entries.push(entry);
-          } else {
-            entry = st.entries.reduce((a, b) => a.used < b.used ? a : b);
           }
         }
         if (entry.canvas.width !== W + 2 * pad) entry.canvas.width = W + 2 * pad;
@@ -1850,8 +1900,11 @@
     if (typeof Visibility === 'undefined' || !(scene.cellM > 0)
         || !scene.playerM || !scene.startWorldM) return null;
     const revision = Visibility.revision(scene);
-    const player = playerWorldM(scene);
     const stepM = scene.cellM / 2, stepPx = CELL_PX / 2;
+    // Rays leave an eighth-cell observer lattice: an edge moves less than the
+    // feather is wide, and walking or GPS glide repaints only per step, not
+    // every frame (a repaint traces every sample's ray).
+    const eye = Visibility.observer(scene, scene.cellM / 8);
     // Two samples outside every painted edge keep the feather continuous while
     // the padded mask scrolls. Normal game viewports are square.
     const x0 = Math.floor((ax - (scene.viewCenterX - scene.viewLeft) * scene.cellM / CELL_PX) / stepM) - 2;
@@ -1859,7 +1912,7 @@
     const D = Math.ceil(Math.max(W, H) / stepPx) + 6;
     const cells = D - 4, samples = FOG_SUB / 2, N = cells * samples;
     const latticeKey = [x0, y0, D, scene.cellM].join('|');
-    const key = [revision, scene.depth, player.x, player.y, latticeKey].join('|');
+    const key = [revision, scene.depth, eye.x, eye.y, latticeKey].join('|');
     let mask = scene._coverLightMask;
     if (!mask) mask = scene._coverLightMask = {
       canvas: document.createElement('canvas'), buffer: document.createElement('canvas'), key: null,
@@ -1895,10 +1948,9 @@
         mask.latticeKey = latticeKey;
       }
       for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) {
-        const cover = Visibility.playerCover(scene, (x0 + x + .5) * stepM, (y0 + y + .5) * stepM);
+        const cover = Visibility.coverBetween(scene, eye.x, eye.y, (x0 + x + .5) * stepM, (y0 + y + .5) * stepM);
         mask.field[y * D + x] = cover === Visibility.CLEAR ? 0
-          : cover === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS
-          : (scene.depth > 0 ? 1 : Visibility.FULL_DARKNESS);
+          : cover === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS : Visibility.FULL_DARKNESS;
       }
       // A small separable tent filter broadens the feather to about one cell.
       // Only the visual field is filtered; sight tests stay exact. Uniform

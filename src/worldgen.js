@@ -2608,9 +2608,9 @@
   //   underground       → CAVE_ORE_SHARE of the rocks for each of the
   //                       level's ore tiers (caveOreTiers, below), the rest
   //                       plain: level 1 LEVEL1_COPPER_SHARE copper (5 %, a
-  //                       taste), level 2 90 %, then 80 %
+  //                       taste), level 3 90 %, then 80 %
   const CAVE_ORE_SHARE = 0.10;
-  // The first level down is no tier's mine (caveOreTiers(1) is empty), but it
+  // The first two levels are no tier's mine (their ore tiers are empty), but this
   // is where a wood pick first swings, so a thin seam of copper runs through
   // it (owner, Oct 2026): this share of its rocks, the rest plain. The ore
   // table for a level with no tiers of its own is copper (caveOreWeights),
@@ -2618,27 +2618,16 @@
   const LEVEL1_COPPER_SHARE = 0.05;
   function caveRockP(depth) {
     if (!depth || depth <= 0) return 0.90;
-    if (depth === 1) return 1 - LEVEL1_COPPER_SHARE;
+    if (depth <= 2) return 1 - LEVEL1_COPPER_SHARE;
     return 1 - CAVE_ORE_SHARE * caveOreTiers(depth).length;
   }
 
-  // EACH LEVEL IS ITS TIER'S MINE. Level N's ORE ROCKS — the ones drawn with
-  // ore in them, which always break into their bar — are tier N and the tier
-  // below, CAVE_ORE_SHARE (10 %) of the rocks each: level 3 is 10 % iron,
-  // 10 % copper. Only REAL ore counts (tier 2, copper, and up): a "tier 1" ore
-  // rock breaks as plain stone (interactables.js isPlain), so level 1 is no
-  // tier's mine — it carries only the thin LEVEL1_COPPER_SHARE seam above —
-  // and level 2 is 10 % copper. It is the progression ladder in the rocks: a
-  // tier-N ore wants a pick of tier N-1 (requiredTier), so level 2's copper
-  // forges the pick that opens level 3's iron, down to frost and crimson on
-  // level 7 (and below — the table tops out there). Tier 4+ ore carries its
-  // gem (sapphire, ruby, emerald, then the diamond on 7).
-  // Plain rocks keep their own hidden bar roll on break (interactables.js,
-  // 1/(2t²) per tier) on every level — this table is only the visible ore.
-  // Until Sep 2026 every level below the first used the surface's spread, so
-  // frost was 3 % of ore on level 7 exactly as on level 2.
+  // Deep stone (L3) is the copper mine; each deeper floor adds a tier,
+  // retaining the previous tier, up to tiers 6-7 on L8 and below. L1-2
+  // carry only the thin copper seam. Plain rocks retain their hidden bar
+  // roll on break; these weights describe visible ore-bearing rocks.
   function caveOreTiers(depth) {
-    const top = Math.max(1, Math.min(7, depth | 0));
+    const top = Math.max(1, Math.min(7, (depth | 0) - 1));
     return [top - 1, top].filter((t) => t >= 2);
   }
   function caveOreWeights(depth) {
@@ -2901,6 +2890,26 @@
     idbPut(key, { bytes: buf, fetchedAt: Date.now() });
     return { bytes: buf, fromCache: false };
   }
+  // Byte-only lookahead: leave generation, retries and depth ownership to loadTile.
+  // The caller bounds and retains these promises until their serial build turn.
+  function prefetchTileBytes(x, y) {
+    const key = tileKey(x, y);
+    const failedAt = _tileFailedAt.get(key);
+    if (activeDepth !== 0 || cacheFor(0).has(key) ||
+        (failedAt && Date.now() - failedAt < TILE_RETRY_MS)) return null;
+    const end = ((typeof window !== 'undefined' && window.__boot) || null)?.begin(`tile ${key} prefetch`);
+    const promise = fetchTileBytes(x, y).then(result => {
+      end?.(result.fromCache ? 'from cache' : 'from network');
+      return result;
+    }, error => {
+      end?.(`failed: ${error.message}`);
+      throw error;
+    });
+    // A later tile can fail before its build turn. The build still receives the
+    // original rejection and applies the ordinary banner/backoff policy.
+    promise.catch(() => {});
+    return promise;
+  }
   // Test seam: forget the resolved template and its memo.
   function _resetTileUrlForTest() {
     _tileUrl = TILE_URL_FALLBACK;
@@ -2934,6 +2943,19 @@
       a += (ring[j].x * ring[i].y - ring[i].x * ring[j].y);
     }
     return a / 2;
+  }
+  // Where a building's art stands: the centre of mass of its rasterized
+  // footprint `cells` ([x, y] cell pairs), as an offset in CELLS from the
+  // centre of its anchor cell `[ax, ay]`. A house object sits on that anchor
+  // cell (taps, occupancy); render.js stands the art's bottom-middle on
+  // anchor + offset. Cell sums are integers, so both tiles of a seam building
+  // compute the same offset.
+  function footprintFootOffset(cells, [ax, ay]) {
+    const n = cells.length;
+    if (!n) return { footDx: 0, footDy: 0 };
+    let sx = 0, sy = 0;
+    for (const [fx, fy] of cells) { sx += fx; sy += fy; }
+    return { footDx: sx / n - ax, footDy: sy / n - ay };
   }
   function ringCentroid(ring) {
     let cx = 0, cy = 0, a = 0;
@@ -5905,7 +5927,7 @@
           // save. Houses whose address ends in 9 become blacksmiths (~10%).
           const address = cellHash(otx, oty, oix, oiy) % 1000;
           objects.push(makeObject(bp.templeZone ? 'temple' : 'house', cx, cy, id,
-            { area: bp.areaM2, tier: bp.tier, address,
+            { area: bp.areaM2, tier: bp.tier, address, ...footprintFootOffset(allFp, best),
               ...(bp.templeZone ? { templeZone: bp.templeZone, templeKind: bp.templeAnchor.kind, templeAnchor: { ...bp.templeAnchor } } : {}) }));
         }
         yield 'building paint (all footprints)';
@@ -6972,8 +6994,9 @@
     entry.promise = (async () => {
       const _bp = (typeof window !== 'undefined' && window.__boot) || null;
       const _endFetch = _bp && _bp.begin(`tile ${key} fetch`);
-      const { bytes, fromCache } = await fetchTileBytes(x, y);
-      if (_endFetch) _endFetch(fromCache ? 'from cache' : 'from network');
+      const { bytes, fromCache } = await (opts?.bytesPromise || fetchTileBytes(x, y));
+      if (_endFetch) _endFetch(opts?.bytesPromise ? 'prefetched bytes (remaining wait)' :
+        (fromCache ? 'from cache' : 'from network'));
       // Decode and rasterize in separate scheduled turns (see runHeavyPhase):
       // the two heaviest chunks of a tile build each get their own slice, and
       // the spawn/dedup post-passes below ride the rasterize turn.
@@ -9625,7 +9648,7 @@
     // tiles are actually fetched under right now; resolveTileUrl asks the
     // TileJSON.
     TILE_URL_FALLBACK, TILEJSON_URL, tileUrlTemplate, tileUrlFor, resolveTileUrl,
-    fetchTileBytes, _resetTileUrlForTest,
+    fetchTileBytes, prefetchTileBytes, _resetTileUrlForTest,
     // The step generator itself, so the block audit
     // (test/node/tile_build_blocks.test.js) can time the build one step at
     // a time — the only way to see the thing that actually stutters, which
@@ -9663,7 +9686,7 @@
     // The cell walks (one ring scan, one disc order, one box scan) and the
     // polygon geometry every module used to re-type.
     ringCells, nearestRingCell, RING_ORDER, discOffsets, boxCells, anyNeighbour8, countNeighbours8,
-    pointInRings, indoorMallPoisSteps, INDOOR_MALL_RULES, rowCrossings, bboxOf, ringSignedArea, ringCentroid,
+    pointInRings, indoorMallPoisSteps, INDOOR_MALL_RULES, rowCrossings, bboxOf, ringSignedArea, ringCentroid, footprintFootOffset,
     // The hedge-maze lattice decision (spawnHedgeMazeSteps' owner): exported
     // so the sandbox's flora mirror runs the SAME maze, never a drifted copy.
     hedgeMazeCell, hedgeMazePotCell, HEDGE_LATTICE_P,

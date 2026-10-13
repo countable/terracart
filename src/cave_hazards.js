@@ -30,6 +30,7 @@
   async function fall(scene, hole, latitude = 0) {
     if (root.Conditions.flying(scene.save) || scene._caveFallPending || scene._hazardFallPending || !(scene.depth > 0) || (hole.depth || 0) !== scene.depth) return false;
     const depth = scene.depth;
+    if (!root.DungeonProgression.ropeCanDescend(depth)) return false;
     scene._caveFallPending = true;
     try {
       const edge = scene.tileEdgeM, tx = Math.floor(hole.x / edge), ty = Math.floor(hole.y / edge);

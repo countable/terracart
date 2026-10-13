@@ -180,7 +180,7 @@ class SceneConsumables {
     hook?.after?.(this, spec);
     if (!spend) return true;
     this._spendScroll(id);
-    this.showMessageModal({ title, body });
+    this.showMessageModal({ title, body, art: used.art || spec.art });
     return true;
   }
   // One route from a CONSUMABLE_SPEC row to its action: a `buff` row is a
@@ -706,7 +706,7 @@ class SceneConsumables {
     const pc = this.playerToWorldCell();
     WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, c => {
       if (Combat.isEnemy(c) && !caught.has(c.id) && where(c)
-          && !(typeof Visibility !== 'undefined' && Visibility.playerCover(this, c.x, c.y) === 2)) targets.push(c);
+          && !(typeof Visibility !== 'undefined' && Visibility.hidden(this, c.x, c.y))) targets.push(c);
     });
     return targets;
   }
