@@ -109,7 +109,7 @@ const MAX_MSGS_PER_S = 30;
 // Frames past this cap are dropped silently rather
 // than closing the socket. 8 Hz positions + 20 stays inside MAX_MSGS_PER_S.
 const MAX_ENEMY_FRAMES_PER_S = 20;
-const ENEMY_ID_RE = /^[A-Za-z0-9_:.%-]{1,96}$/;   // src/enemy_spawns.js SHARED_ID_RE
+const ENEMY_ID_RE = /^[A-Za-z0-9_:.%|,\/-]{1,96}$/;   // src/enemy_spawns.js SHARED_ID_RE
 const MAX_IDS = 32;
 const MAX_GROUP_PARTY = 32;
 // A full group batch can contain 32 × 96-character IDs plus party sizes

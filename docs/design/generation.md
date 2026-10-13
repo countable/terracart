@@ -154,7 +154,7 @@ access or tile lifecycle mechanics.
   choose its story through the profile. Depths beyond the explicit rows inherit
   the default profile, including the infernal entry key.
   `DungeonProgression.ROPE_SEALED_FLOORS` is the pattern (the rope, the
-  sinkhole minting and the fall check all read it); lighting already derives
+  sinkhole and authored cave-hole minting, and both fall checks read it); lighting already derives
   its per-floor ambience from depth (`Lighting.profile`, `litDim`).
 
 - Flint Field's central disk contains mineable flint-bearing rocks instead of

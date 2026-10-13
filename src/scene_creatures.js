@@ -1423,8 +1423,8 @@ class SceneCreatures {
     }
     for (const guard of entry.underground?.boneGuards || []) {
       if (!caughtSet.has(guard.id) && !entry.creatures.some(c => c.id === guard.id)) {
-        entry.creatures.push(WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id,
-          { depth, shiny: guard.shiny, _hunting: true }));
+        entry.creatures.push(EnemySpawns.markShared(WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id,
+          { depth, shiny: guard.shiny, _hunting: true })));
       }
     }
   }

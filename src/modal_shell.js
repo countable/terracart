@@ -530,6 +530,9 @@ class SceneModals {
     const dismiss = () => {
       if (dismissed) return;
       dismissed = true;
+      // The wrap is already gone. Post-story consequences run before the
+      // next frame, so refresh immunity now while retaining any other story.
+      Conditions.setDialogShield(this.save, this._storyDialogOpen?.() || false);
       if (typeof onDismiss === 'function') onDismiss();
     };
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
