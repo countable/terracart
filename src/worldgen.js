@@ -208,23 +208,16 @@
     return entry.streetArea && entry.streetArea[idx] ? 'road' : null;
   }
 
-  // A record's `_street` is a variant id for that variant's own pieces (kept),
-  // or `true` for a rock-lined street's verge rocks. Those rocks are general
-  // fill: they stay only on a street that is itself a variant (`ownLines`, the
-  // lineKeys of variant streets); a plain rock street's rocks crossing or
-  // running beside a variant's corridor yield to it.
-  function streetRockForeign(o, ownLines) {
-    return o._street === true && !!ownLines && !ownLines.has(o._streetLine);
-  }
-
-  function* clearStreetAmbientSteps({ area, objects, wildplants, tx, ty, N, tileEdgeM, ownLines }) {
+  // String `_street` ids mark authored variant pieces. Boolean `_street`
+  // marks generic roadside rocks, which yield throughout every variant area.
+  function* clearStreetAmbientSteps({ area, objects, wildplants, tx, ty, N, tileEdgeM }) {
     if (!area) return 0;
     const frame = tileFrame({ cellsPerEdge: N }, tx, ty, tileEdgeM);
     let removed = 0;
     for (const list of [objects, wildplants]) {
       removed += yield* compactSteps(list, (o) => {
         const idx = frame.idxOf(o.x, o.y);
-        return isGeneralAmbientRecord(o) && (!o._street || streetRockForeign(o, ownLines)) && idx >= 0 && !!area[idx];
+        return isGeneralAmbientRecord(o) && (!o._street || o._street === true) && idx >= 0 && !!area[idx];
       }, 'street ambient replacement');
     }
     return removed;
@@ -6578,10 +6571,8 @@
       const { templeAnchor, templeZone, templeKind, ...physical } = caveSource.objects[i];
       caveSource.objects[i] = physical;
     }
-    const ownStreetLines = hasStreetArea
-      ? new Set(streetIndex.lines.filter(r => r.variant).map(r => r.lineKey)) : null;
     if (hasStreetArea) yield* clearStreetAmbientSteps({ area: streetArea, objects: deduped,
-      wildplants: filtered, tx, ty, N: w, tileEdgeM, ownLines: ownStreetLines });
+      wildplants: filtered, tx, ty, N: w, tileEdgeM });
     // STREET DRESSING (StreetVariants.dressSteps) — computed HERE, inside the
     // sliced build, against every cell the tile's own objects and wild plants
     // now hold; spawnInTile lays it (dropping any piece whose cell something
@@ -6694,7 +6685,7 @@
         transportation: layersByName.transportation, grid, N: w, roadMask, spawnWhy, zone, streetGround }) : null;
     const hasStreetTerrain = streetTerrain && streetTerrain.some(Boolean);
     if (hasStreetTerrain) yield* clearStreetAmbientSteps({ area: streetTerrain,
-      objects: deduped, wildplants: filtered, tx, ty, N: w, tileEdgeM, ownLines: ownStreetLines });
+      objects: deduped, wildplants: filtered, tx, ty, N: w, tileEdgeM });
     if (zone) {
       // Mine entrances are world identities, seeded by the original rock
       // clusters and occupancy. Keep that input separate from the visible

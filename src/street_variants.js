@@ -30,7 +30,7 @@
   // A name word multiplies its row's share by this, capped per row.
   const NAME_NUDGE = 4;
   const NUDGED_SHARE_MAX = 0.9;
-  // Share of MINOR street keys lined with rock clusters (hedgerows excepted).
+  // Share of normal MINOR street keys lined with rock clusters.
   const ROCK_STREET_SHARE = 0.25;
   const MINOR_VARIANT_SHARE = 0.40;
 
@@ -818,10 +818,15 @@
     }
     syncPathVariants(index);
   }
-  // Is this street one of the rock-lined ones? Minor only, never a hedgerow.
-  function rocksFor(key, size, variant) {
+  // Original substrate roll is retained only while building cave inputs.
+  function substrateRocksFor(key, size, variant) {
     return size === 'minor' && variant !== 'hedgerow' && !!key
       && hash01('rocks|' + key) < ROCK_STREET_SHARE;
+  }
+
+  // Generic roadside rocks belong only to normal streets.
+  function rocksFor(key, size, variant) {
+    return !variant && substrateRocksFor(key, size, variant);
   }
 
   // Is the stretch of street `key` through lattice square (sx, sy) a bandit
@@ -1415,7 +1420,7 @@
           rec.name = name;
           rec.key = key;
           rec.variant = variant;
-          rec.rocks = rocksFor(key, size, variant);
+          rec.rocks = substrateRocksFor(key, size, variant);
           rec.halfW = WG.roadOverlayWidthM(f.tags || {}) / 2;
           rec.lineKey = S ? S.lineKey(f, li) : `${fi}:${li}`;
           out.lines.push(rec);
@@ -1511,7 +1516,7 @@
           rec.key = key;
           rec.affinityKey = key;
           rec.variantEligible = !bounded;
-          rec.rocks = rocksFor(substrateKey, rec.size, substrateVariantFor(substrateKey, rec.name, rec.size));
+          rec.rocks = substrateRocksFor(substrateKey, rec.size, substrateVariantFor(substrateKey, rec.name, rec.size));
           rec.streetLengthM = group.metres;
           rec.selectedVariant = selected;
           rec.variantRanges = yield* themeRanges(rec.line, paths.map(p => p.line), 1);

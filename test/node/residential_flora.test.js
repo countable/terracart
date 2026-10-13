@@ -208,8 +208,12 @@ test('residential yard trees: random-sized trees grow in the yards by the yard r
     assert.truthy(WorldGen.isSpawnCell(a.grid, CPE, CPE, cx, cy, { roadMask: a.roadMask }), `${o.id} passes the spawn rule`);
     assert.eq(o._yardTree, true, `${o.id}: flagged so a mapped tree may take its cell`);
   }
-  // Seated after every older object: rocks and other trees keep their cells.
-  const older = a.objects.filter((o) => !/^ytree_/.test(o.id) && (o.kind === 'mineralrock' || o.kind === 'tree'));
-  assert.gt(older.length, 0, 'sanity: the fixture has older objects');
+  // Variant streets no longer supply generic rocks; existing plants still
+  // exercise the earlier placements that yard trees must leave alone.
+  const older = [...a.wildplants, ...a.objects.filter((o) => !/^ytree_/.test(o.id)
+    && (o.kind === 'mineralrock' || o.kind === 'tree'))];
+  assert.gt(older.length, 0, 'sanity: the fixture has earlier placements');
+  const occupied = new Set(older.map(cellIdx));
+  for (const tree of trees) assert.falsy(occupied.has(cellIdx(tree)), `${tree.id} leaves earlier placements clear`);
 });
 })();
