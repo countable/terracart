@@ -1606,7 +1606,7 @@ const CONSUMABLE_SPEC = {
   },
   torch: {
     durationMs: 3 * _CONSUMABLE_MINUTE_MS, radiusMul: 2, buff: 'torch',
-    verb: 'Light', title: 'Light the Torch?',
+    verb: 'Light', title: 'Light the Torch?', art: 'torch_light',
     get: scene => scene.isTorchActive()
       ? 'Fresh flame feeds the light already around you.'
       : 'Firelight opens the dark around you.',

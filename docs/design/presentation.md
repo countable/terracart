@@ -80,6 +80,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
   with its band layout. Painted headers use a label without emoji/`kindIcon`.
+- Consumables may select a painting through `art`; timed buffs reuse it after
+  use unless `used.art` overrides it. Lighting or relighting a Torch uses
+  `torch_light`, a close-up of the flame catching.
 - Paired story paintings must use actual image references. Establish the
   introduction first, then edit that image for the completed action; preserve
   object designs, materials and booth identity. After-use panels zoom in on

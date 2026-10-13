@@ -10563,6 +10563,7 @@ class MapScene extends Phaser.Scene {
       this.showOfferModal({
         kind: 'use',
         title: entry.title,
+        art: entry.art,
         get: typeof entry.get === 'function' ? entry.get(this, entry) : entry.get,
         cost: `1× ${this.iconSpanHTML(id)} ${item?.name || id}`,
         canAfford: typeof entry.usable === 'function' ? entry.usable(this, entry) : true,
