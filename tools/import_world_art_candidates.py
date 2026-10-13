@@ -58,7 +58,14 @@ def apply_imports(root=ROOT, review_ids=None):
     approved = json.loads(approved_path.read_text())
     for name, entries in grouped.items():
         path = root / name
-        before = Image.open(path).convert('RGBA')
+        resize = entries[0].get('resizeSheet')
+        # Keep legacy-only frames as compatibility fallbacks; selected frames
+        # below are freshly sampled from their original high-resolution art.
+        if resize:
+            before = Image.open(root / resize['source']).convert('RGBA').resize(
+                tuple(resize['size']), Image.Resampling.NEAREST)
+        else:
+            before = Image.open(path).convert('RGBA')
         sheet = before.copy()
         whole_image = any(entry.get('wholeImage') for entry in entries)
         if whole_image:

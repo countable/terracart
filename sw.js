@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-a9984ee2';
+const SHELL_VERSION = 'shell-e1872b38';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -128,6 +128,7 @@ const ASSET_HASHES = {
   "assets/Icons/Fish/River/Golden Fish.png": "8f7a79f4",
   "assets/Icons/Fish/River/Large Mouth Bass.png": "ec034481",
   "assets/Icons/Fish/River/Tiger Trout.png": "00df0ad2",
+  "assets/Icons/Fish/Sea/Creatures/Shell-24.png": "ec01492f",
   "assets/Icons/Fish/Sea/Creatures/Shell.png": "5d895725",
   "assets/Icons/Fish/Sea/Salmon.png": "ba03e58d",
   "assets/Icons/Fish/Sea/Smallmouth Bass.png": "2e7a8556",
@@ -428,8 +429,10 @@ const ASSET_HASHES = {
   "assets/Objects/Approved/trees.png": "6ab39c9e",
   "assets/Objects/Approved/vista_scope.png": "22d7039b",
   "assets/Objects/Approved/wagon.png": "9ee6ea9d",
+  "assets/Objects/Approved/waystone-24.png": "06b7d36a",
   "assets/Objects/Approved/waystone.png": "121d51f9",
   "assets/Objects/Beach/driftwood.png": "f46727ec",
+  "assets/Objects/Beach/palms-24.png": "57a86ae9",
   "assets/Objects/Beach/palms.png": "6520c5b7",
   "assets/Objects/Beach/shipwreck_shrine.png": "4948c3c0",
   "assets/Objects/Beach/shipwreck_shrine_runtime.png": "0eddaf3a",
@@ -478,6 +481,7 @@ const ASSET_HASHES = {
   "assets/Objects/Generated/scriptorium.png": "10a5ba47",
   "assets/Objects/Generated/scriptorium_simple.png": "8b8a1084",
   "assets/Objects/Generated/shrine.png": "9c78d47e",
+  "assets/Objects/Generated/shrines-24.png": "ecd2f405",
   "assets/Objects/Generated/shrines.png": "dff18369",
   "assets/Objects/Generated/signpost.png": "712c8565",
   "assets/Objects/Generated/stakes_a.png": "e2c8ab23",
@@ -554,10 +558,11 @@ const ASSET_HASHES = {
   "assets/Objects/Reef/coral.png": "88a65d20",
   "assets/Objects/Reef/reef_atlas.png": "5f9e1716",
   "assets/Objects/Road copiar.png": "eb7417d4",
+  "assets/Objects/Rocks/graphic-storybook-source.png": "b977c197",
   "assets/Objects/Rocks/neutral-source.png": "ef190610",
   "assets/Objects/Rocks/plain-shapes-source.png": "db1383e5",
   "assets/Objects/Rocks/quarry-reef-source.png": "6e8512f9",
-  "assets/Objects/Rocks/rocks-24.png": "aeb55906",
+  "assets/Objects/Rocks/rocks-24.png": "b1ef3c2f",
   "assets/Objects/Rocks/slab-lava-source.png": "619d387c",
   "assets/Objects/Rocks/zone-plain-source.png": "8c852a11",
   "assets/Objects/Rocks/zone-themed-source.png": "0ecf041c",

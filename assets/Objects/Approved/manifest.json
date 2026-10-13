@@ -6023,6 +6023,210 @@
           "native": true
         }
       ]
+    },
+    {
+      "path": "assets/Objects/Beach/palms-24.png",
+      "sha256": "57a86ae93af77fc0390033b28353796be983eebb088ef98e47259bc0614d69c6",
+      "frameImports": [
+        {
+          "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+          "frame": 2,
+          "frameSize": [
+            24,
+            24
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/palm.png",
+          "sourceSha256": "fff90034af3ef03ac6083d2508d1e8af8393b8021ba4e305944b142e32ebe9cf"
+        },
+        {
+          "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+          "frame": 3,
+          "frameSize": [
+            24,
+            24
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/palm.png",
+          "sourceSha256": "fff90034af3ef03ac6083d2508d1e8af8393b8021ba4e305944b142e32ebe9cf"
+        },
+        {
+          "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+          "frame": 4,
+          "frameSize": [
+            24,
+            24
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/palm.png",
+          "sourceSha256": "fff90034af3ef03ac6083d2508d1e8af8393b8021ba4e305944b142e32ebe9cf"
+        },
+        {
+          "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+          "frame": 5,
+          "frameSize": [
+            24,
+            24
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/palm.png",
+          "sourceSha256": "fff90034af3ef03ac6083d2508d1e8af8393b8021ba4e305944b142e32ebe9cf"
+        }
+      ],
+      "width": 144,
+      "height": 24,
+      "operations": []
+    },
+    {
+      "path": "assets/Icons/Fish/Sea/Creatures/Shell-24.png",
+      "sha256": "ec01492fb751679bdc6c51794069c4956fc78f96b8d09b9445a7473e8e34b7ad",
+      "frameImports": [
+        {
+          "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+          "frame": 0,
+          "frameSize": [
+            24,
+            24
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/shell.png",
+          "sourceSha256": "41689e06ec682c7a196656fea789788b7bb833925469ad3932ee4d5971593f4c"
+        }
+      ],
+      "width": 72,
+      "height": 96,
+      "operations": []
+    },
+    {
+      "path": "assets/Objects/Generated/shrines-24.png",
+      "sha256": "ecd2f405f0206dec3c547ada30f7ac7fc51270164419a1d11aa71f242f4a1383",
+      "frameImports": [
+        {
+          "reviewId": "ART-2026-10-12-APPROVED",
+          "frame": 0,
+          "frameSize": [
+            24,
+            36
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-0.png",
+          "sourceSha256": "0ebff767e6724f2f18c72ba0ec26347712d30f2e12bb30716d788c052719f83f"
+        },
+        {
+          "reviewId": "ART-2026-10-12-APPROVED",
+          "frame": 1,
+          "frameSize": [
+            24,
+            36
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-1.png",
+          "sourceSha256": "dade77bc3dcd61b5935be517ca4f1e383b0242251fa356638bdbd62cbef12d39"
+        },
+        {
+          "reviewId": "ART-2026-10-12-APPROVED",
+          "frame": 2,
+          "frameSize": [
+            24,
+            36
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-2.png",
+          "sourceSha256": "74be6eaf89387ca8873054d170ee3064f1e56daa9ddd2b4c601baaebd16df341"
+        },
+        {
+          "reviewId": "ART-2026-10-12-APPROVED",
+          "frame": 3,
+          "frameSize": [
+            24,
+            36
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-3.png",
+          "sourceSha256": "d3edc61b1e1644c8b8c4362377be879c4a122a7a8c2ef03610c9f75e0f03fb61"
+        },
+        {
+          "reviewId": "ART-2026-10-12-APPROVED",
+          "frame": 4,
+          "frameSize": [
+            24,
+            36
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-4.png",
+          "sourceSha256": "217f39c4f1bd2af052399212fa8b5495e5c02ee2c12d647757bef97458f89a41"
+        },
+        {
+          "reviewId": "ART-2026-10-12-APPROVED",
+          "frame": 5,
+          "frameSize": [
+            24,
+            36
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-5.png",
+          "sourceSha256": "2852a4d077fef48c89a0ca5214ccc66e0f10eda74d146b0ae29ebe6ebd06a423"
+        },
+        {
+          "reviewId": "ART-2026-10-12-APPROVED",
+          "frame": 6,
+          "frameSize": [
+            24,
+            36
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-6.png",
+          "sourceSha256": "6c070bc78c32e1d240a5b01529324fc5483116409feaa3ca8379807ebb155487"
+        },
+        {
+          "reviewId": "ART-2026-10-12-APPROVED",
+          "frame": 7,
+          "frameSize": [
+            24,
+            36
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-7.png",
+          "sourceSha256": "d7076d4309fd2bb48770e08fbfd2d116b6bd891aa67bd319303cca1ff3c6a069"
+        },
+        {
+          "reviewId": "ART-2026-10-12-APPROVED",
+          "frame": 8,
+          "frameSize": [
+            24,
+            36
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-8.png",
+          "sourceSha256": "97e4bd3cbbed1749cea7644c08615bd266c0fe40da8d4ade1fb5dfe5eef5add7"
+        },
+        {
+          "reviewId": "ART-2026-10-12-APPROVED",
+          "frame": 9,
+          "frameSize": [
+            24,
+            36
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-9.png",
+          "sourceSha256": "4a570162c59ef882c4897220c6c12e2062cd04fcdfe37d247ea778822278b461"
+        }
+      ],
+      "width": 264,
+      "height": 36,
+      "operations": []
+    },
+    {
+      "key": "waystone",
+      "keys": [
+        "waystone"
+      ],
+      "path": "assets/Objects/Approved/waystone-24.png",
+      "source": "assets/Objects/Generated/waystone.png",
+      "width": 24,
+      "height": 24,
+      "sha256": "06b7d36ad083a422270b26af19ed1f0ab03280ca8302ac3663851a2f16911ca0",
+      "rows": [
+        "waystone"
+      ],
+      "operations": [],
+      "frameImports": [
+        {
+          "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
+          "frame": 0,
+          "frameSize": [
+            24,
+            24
+          ],
+          "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/waystone.png",
+          "sourceSha256": "9c2740048a7c5a3ad2c536e9dbd0d73ce6372baf86e6645a1d63443637765737"
+        }
+      ]
     }
   ]
 }

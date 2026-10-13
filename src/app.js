@@ -1601,9 +1601,9 @@ const ICON_SHEETS = {
     cols: Object.keys(COOKED_FOODS).length, srcW: 16 * Object.keys(COOKED_FOODS).length, srcH: 16 },
   icon_pelt:     { url: 'assets/Icons/Food Icons/Black rabbit Fur.png',      cols: 2,  srcW: 32,  srcH: 16 },
   icon_feather:  { url: 'assets/Icons/RPG icons/Extras/Chicken feather.png', cols: 9,  srcW: 144, srcH: 32 },
-  // Beach pickup — 48×64 = 3×4 of 16×16, only the top row shell art (see
+  // Beach pickup — 72×96 = 3×4 of 24×24, only the top row shell art (see
   // CROP_SPRITE.shell). Frame 0 is the canonical cowrie, the inventory icon.
-  shell_sheet:   { url: 'assets/Icons/Fish/Sea/Creatures/Shell.png',         cols: 3,  srcW: 48,  srcH: 64 },
+  shell_sheet:   { url: 'assets/Icons/Fish/Sea/Creatures/Shell-24.png',         cols: 3,  srcW: 72,  srcH: 96 },
   // Same rustic prop sheet as the map: grass frame 10, mushroom frame 35.
   // Other frames retain their existing art.
   props:         { url: 'assets/Objects/Approved/props.png',               cols: 22, srcW: 352, srcH: 192 },
