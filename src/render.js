@@ -4783,7 +4783,7 @@ Render.drawObjects = function drawObjects(scene) {
       s.setFrame(frame);
       // Centre on the rock cell (0.5, 0.5): this is the produce icon, not a
       // bottom-weighted seed frame, which the foot-anchor would float ~11px high.
-      s.setOrigin(0.5, 0.5).setScale(2.4).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.5).setScale(ROCK_VARIANT_ART.placedScale).setPosition(Math.round(sx), Math.round(sy));
       return;
     }
     const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);
