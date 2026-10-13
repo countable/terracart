@@ -763,10 +763,14 @@ test('building overlay: nothing is drawn underground', () => {
 function makeWallScene(over) {
   const log = { pages: [], removedTextures: [], frames: [], removedFrames: [], refreshes: 0, sprites: [], polygons: [], strokes: [] };
   const ctx = new Proxy({}, { get: (obj, key) => obj[key] || (() => {}), set: (obj, key, v) => { obj[key] = v; return true; } });
-  let path = [];
+  let path = [], framePolygons = [];
+  ctx.clearRect = () => { framePolygons = []; };
   ctx.beginPath = () => { path = []; };
   ctx.moveTo = ctx.lineTo = (x, y) => path.push({ x, y });
-  ctx.fill = () => log.polygons.push({ color: ctx.fillStyle, points: path.slice() });
+  ctx.fill = () => {
+    const polygon = { color: ctx.fillStyle, points: path.slice() };
+    log.polygons.push(polygon); framePolygons.push(polygon);
+  };
   ctx.stroke = () => log.strokes.push({ color: ctx.strokeStyle, width: ctx.lineWidth, points: path.slice() });
   const scene = makeScene(Object.assign({
     buildingWallContainer: {
@@ -782,7 +786,7 @@ function makeWallScene(over) {
         const page = { key, w, h, frames: new Map(),
           getContext: () => ctx,
           refresh() { log.refreshes++; },
-          add(name, src, x, y, fw, fh) { const f = { page: key, name, x, y, w: fw, h: fh }; this.frames.set(name, f); log.frames.push(f); return f; },
+          add(name, src, x, y, fw, fh) { const f = { page: key, name, x, y, w: fw, h: fh, polygons: framePolygons.slice() }; this.frames.set(name, f); log.frames.push(f); return f; },
           remove(name) { this.frames.delete(name); log.removedFrames.push(name); return true; },
         };
         log.pages.push(page);
@@ -865,9 +869,33 @@ test('building overlay: castle ramparts use short upright wall sections, leaving
   BuildingOverlay.draw(scene);
   assert.eq(scene.buildingGeomGfx.only('fill').length, 1, 'only the courtyard stays on the ground canvas');
   assert.eq(scene.buildingGeomGfx.only('inset').length, 0, 'ramparts belong to the upright pieces');
-  assert.eq(scene._buildingUprightPieces.length, 8, 'one section per cell of perimeter');
-  assert.eq(log.sprites.length, 8, 'wall sections are background sprites');
+  assert.eq(scene._buildingUprightPieces.length, 16, 'one body and crown section per cell of perimeter');
+  assert.eq(log.sprites.length, 16, 'wall bodies and crowns are background sprites');
   assert.eq(log.pages.length, 1, 'sections share the wall atlas');
+});
+
+test('building overlay: atlas wall bodies cannot overpaint crowns across section boundaries', () => {
+  for (const ring of [[0, 0, 35, 0, 35, 25, 0, 25], [8, 0, 35, 18, 25, 35, 0, 20]]) {
+    clearTiles();
+    putShapes(0, 0, [{ ring: Float32Array.from(ring), tier: T.BUILDING_LARGE, areaM2: 600, key: 'citadel' }]);
+    const { scene, log } = makeWallScene();
+    BuildingOverlay.draw(scene);
+    const material = buildingBackgroundMaterial(CastleStyles.get('citadel'));
+    const css = c => '#' + c.toString(16).padStart(6, '0');
+    let sawRoof = false, bodies = 0;
+    // Walk the actual sprite submission order and each baked frame's paint.
+    for (const sprite of log.sprites) {
+      const frame = log.frames.find(f => f.page === sprite.key && f.name === sprite.frame);
+      for (const polygon of frame.polygons) {
+        if (polygon.color === css(material.stone.LITE)) sawRoof = true;
+        if (polygon.color === css(material.stone.BODY)) {
+          assert.falsy(sawRoof, 'no later atlas cap may cover a neighboring tooth roof');
+          bodies++;
+        }
+      }
+    }
+    assert.truthy(sawRoof && bodies > 4, 'multiple atlas sections and their crowns were rendered');
+  }
 });
 
 test('building overlay: both horizontal castle boundaries expose six-pixel caps and shaded faces', () => {

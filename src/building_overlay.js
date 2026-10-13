@@ -600,7 +600,11 @@
       const a = points[i], b = points[(i + 1) % points.length];
       if (a.x === b.x && a.y === b.y) continue;
       const count = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / CELL_PX));
-      for (let j = 0; j < count; j++) {
+      // Crowns must composite after every cap: a tooth can cross the next
+      // atlas section, whose opaque body would otherwise cut into its roof.
+      const passes = stone ? 2 : 1;
+      for (let section = 0; section < count * passes; section++) {
+        const j = Math.floor(section / passes), crownPass = stone && section % passes === 1;
         const at = (t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
         const p = at(j / count), q = at((j + 1) / count);
         const pad = SLOT_PAD;
@@ -613,7 +617,7 @@
         // World-relative placement: the same edge at a later camera cell sits
         // at the same offset from the projected world origin.
         const wx = x - projX(0), wy = y - projY(0);
-        const cacheKey = `${d.seed}|${d.templeZone || ''}|${d.tier}|${stone?.style.id || ''}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
+        const cacheKey = `${d.seed}|${d.templeZone || ''}|${d.tier}|${stone?.style.id || ''}|${isMine ? 1 : 0}|${i}|${j}|${crownPass ? 1 : 0}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
         const cached = scene._buildingUprightCache.get(cacheKey);
         if (cached) {
           if (!seen.has(cacheKey)) {
@@ -647,8 +651,10 @@
           const inner = v => ({ x: v.x + nx * cap, y: v.y - cap });
           const op = outer(p), oq = outer(q), ip = inner(p), iq = inner(q);
           masonryBaseY = -Infinity;
+          let drawingCrown = false;
           const quad = (a, b, c, d, color) => {
             masonryBaseY = Math.max(masonryBaseY, a.y, b.y, c.y, d.y);
+            if (drawingCrown !== crownPass) return;
             ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
             ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath();
             ctx.fillStyle = cssOf(color); ctx.fill();
@@ -685,6 +691,7 @@
           }
           quad(op, oq, iq, ip, stone.top);
           const line = (a, b, color) => {
+            if (crownPass) return;
             ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
             ctx.lineWidth = 1; ctx.strokeStyle = cssOf(color); ctx.stroke();
           };
@@ -698,13 +705,14 @@
           const damage = CastleStyles.damageCell(d.key,
             Math.floor(((p.x + q.x) / 2 + nx * 0.01 - d.damageOriginX) / CELL_PX),
             Math.floor(((p.y + q.y) / 2 + ny * 0.01 - d.damageOriginY) / CELL_PX));
-          if (damage) {
+          if (damage && !crownPass) {
             const at = damage.chip / CELL_PX;
             const x = p.x + (q.x - p.x) * at + nx * cap / 2;
             const y = p.y + (q.y - p.y) * at - cap * (1 + ny / 2);
             ctx.fillStyle = cssOf(stone.style.stone.SHADOW);
             ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
           }
+          drawingCrown = true;
           const teeth = length < rampart.toothWidth ? 0
             : Math.max(1, Math.round((length - rampart.toothWidth) / 8) + 1);
           const pitch = teeth > 1 ? (length - rampart.toothWidth) / (teeth - 1) : length;
@@ -793,6 +801,7 @@
         scene.buildingWallContainer.add(sprite);
         const piece = {
           sprite, page, frame, slot, x, y, wx, wy, width: w, height: h, rank: 1,
+          ground: !crownPass,
           // Lowest visible masonry, excluding transparent frame padding.
           groundY: (masonryBaseY - projY(0)) * scene.cellM / CELL_PX,
         };

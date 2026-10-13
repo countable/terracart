@@ -46,7 +46,9 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   Merlons have low square tops spanning the full wall-cap width, with both
   opposing faces flush with the wall below at every angle. Full end blocks
   reach each corner; the
-  rear highlight stays inside the cap silhouette. Castle wall bodies omit mid-wall shadow
+  rear highlight stays inside the cap silhouette. Polygon wall bodies and
+  crenellations use separate cached passes, with every body drawn before the
+  crowns so adjacent wall sections cannot cover a square top. Castle wall bodies omit mid-wall shadow
   stripes; the bottom silhouette and a quiet rear highlight define the edge.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
