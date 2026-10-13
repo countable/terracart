@@ -129,6 +129,8 @@ exporters; they are not separate commands.
 
 ## Art previews, generators and data
 
+`preview_zone_variants.py` includes shipping path weights, slime paving and guards, and permanent seeded spider webs in its street showcase.
+
 `preview_*.py` and `preview_*_art.js` produce art reviews; the detailed workflows
 and source manifests live in [docs/art/README.md](../docs/art/README.md).
 For example, with Pillow, Node and the required reserve art available:

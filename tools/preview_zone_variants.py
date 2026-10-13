@@ -655,6 +655,14 @@ def street_svg(v, cell_m, detail=False):
         label = html.escape(kind + (f' ({o["species"]})' if o.get('species') else '') + (f' · growth stage {o["variant"]}' if kind == 'tree' and 'variant' in o else ''))
         parts.append(f'<rect class="geometry-cell" x="{o["x"]-size/2}" y="{o["y"]-size/2}" width="{size}" height="{size}" rx=".8" fill="{color}"><title>{label}</title></rect>')
         parts.append(sprite_cell(art_prefix, street_material_key(o), o['x']-size/2, o['y']-size/2, size, o))
+    for web in v.get('webs', []):
+        x, y, r = web['x'], web['y'], cell_m * .42
+        silk = [f'M {x-r} {y-r} L {x+r} {y+r}', f'M {x+r} {y-r} L {x-r} {y+r}',
+                f'M {x-r} {y} H {x+r}', f'M {x} {y-r} V {y+r}']
+        for scale in [.45, .8]:
+            d = r * scale
+            silk.append(f'M {x-d} {y-d} H {x+d} V {y+d} H {x-d} Z')
+        parts.append(f'<path class="path-web" d="{" ".join(silk)}" fill="none" stroke="#e5e4ed" stroke-opacity=".8" stroke-width=".35"><title>Permanent seeded spider web · six-second paralysis</title></path>')
     for o in v['lairs']:
         x, y, r = o['x'], o['y'], cell_m * .6
         kinds = art_registry()['lairs']['kinds'].get(o.get('tier', o['kind']), [])
@@ -685,6 +693,10 @@ def street_section(streets):
         inventory = ', '.join(f'{n} {kind}' for kind, n in mix.items()) or 'No extra verge props'
         fauna = 'Local inhabitants from habitat profiles'
         selection = 'Geography-selected path' if v.get('scenicKind') else f"{v['size']} {'section' if v['size'] == 'path' else 'street'} · {v['share']*100:g}% base share"
+        if v['size'] == 'path':
+            selection = f"Walking path · {v.get('pathWeight', 0)*100:g}% base weight"
+        if v.get('webs'):
+            inventory += f"; {len(v['webs'])} permanent seeded webs"
         tiers = sorted(set(o.get('tier',o['kind']) for o in v['lairs']))
         monsters = '; '.join(' or '.join(k.replace('_',' ') for k in art_registry()['lairs']['kinds'].get(t,[])) + f' · {art_registry()["lairs"]["counts"].get(t,1)} guard per eligible anchor' for t in tiers) or 'No variant-specific enemies'
         if tiers: monsters += '; stays defeated; placement and home safety can suppress guards'
