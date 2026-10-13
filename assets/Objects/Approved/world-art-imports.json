@@ -190,11 +190,11 @@
     },
     {
       "reviewId": "ART-2026-10-12-APPROVED",
-      "sheet": "assets/Objects/Generated/shrines.png",
+      "sheet": "assets/Objects/Generated/shrines-24.png",
       "frame": 0,
       "frameSize": [
-        16,
-        24
+        24,
+        36
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-0.png",
       "sourceSha256": "0ebff767e6724f2f18c72ba0ec26347712d30f2e12bb30716d788c052719f83f",
@@ -205,15 +205,28 @@
         3,
         304,
         509
+      ],
+      "resizeSheet": {
+        "source": "assets/Objects/Generated/shrines.png",
+        "size": [
+          264,
+          36
+        ]
+      },
+      "fitRect": [
+        2,
+        2,
+        21,
+        33
       ]
     },
     {
       "reviewId": "ART-2026-10-12-APPROVED",
-      "sheet": "assets/Objects/Generated/shrines.png",
+      "sheet": "assets/Objects/Generated/shrines-24.png",
       "frame": 1,
       "frameSize": [
-        16,
-        24
+        24,
+        36
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-1.png",
       "sourceSha256": "dade77bc3dcd61b5935be517ca4f1e383b0242251fa356638bdbd62cbef12d39",
@@ -224,15 +237,28 @@
         3,
         611,
         509
+      ],
+      "resizeSheet": {
+        "source": "assets/Objects/Generated/shrines.png",
+        "size": [
+          264,
+          36
+        ]
+      },
+      "fitRect": [
+        2,
+        2,
+        21,
+        33
       ]
     },
     {
       "reviewId": "ART-2026-10-12-APPROVED",
-      "sheet": "assets/Objects/Generated/shrines.png",
+      "sheet": "assets/Objects/Generated/shrines-24.png",
       "frame": 2,
       "frameSize": [
-        16,
-        24
+        24,
+        36
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-2.png",
       "sourceSha256": "74be6eaf89387ca8873054d170ee3064f1e56daa9ddd2b4c601baaebd16df341",
@@ -243,15 +269,28 @@
         3,
         918,
         509
+      ],
+      "resizeSheet": {
+        "source": "assets/Objects/Generated/shrines.png",
+        "size": [
+          264,
+          36
+        ]
+      },
+      "fitRect": [
+        2,
+        2,
+        21,
+        33
       ]
     },
     {
       "reviewId": "ART-2026-10-12-APPROVED",
-      "sheet": "assets/Objects/Generated/shrines.png",
+      "sheet": "assets/Objects/Generated/shrines-24.png",
       "frame": 3,
       "frameSize": [
-        16,
-        24
+        24,
+        36
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-3.png",
       "sourceSha256": "d3edc61b1e1644c8b8c4362377be879c4a122a7a8c2ef03610c9f75e0f03fb61",
@@ -262,15 +301,28 @@
         3,
         1226,
         509
+      ],
+      "resizeSheet": {
+        "source": "assets/Objects/Generated/shrines.png",
+        "size": [
+          264,
+          36
+        ]
+      },
+      "fitRect": [
+        2,
+        2,
+        21,
+        33
       ]
     },
     {
       "reviewId": "ART-2026-10-12-APPROVED",
-      "sheet": "assets/Objects/Generated/shrines.png",
+      "sheet": "assets/Objects/Generated/shrines-24.png",
       "frame": 4,
       "frameSize": [
-        16,
-        24
+        24,
+        36
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-4.png",
       "sourceSha256": "217f39c4f1bd2af052399212fa8b5495e5c02ee2c12d647757bef97458f89a41",
@@ -281,15 +333,28 @@
         3,
         1533,
         509
+      ],
+      "resizeSheet": {
+        "source": "assets/Objects/Generated/shrines.png",
+        "size": [
+          264,
+          36
+        ]
+      },
+      "fitRect": [
+        2,
+        2,
+        21,
+        33
       ]
     },
     {
       "reviewId": "ART-2026-10-12-APPROVED",
-      "sheet": "assets/Objects/Generated/shrines.png",
+      "sheet": "assets/Objects/Generated/shrines-24.png",
       "frame": 5,
       "frameSize": [
-        16,
-        24
+        24,
+        36
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-5.png",
       "sourceSha256": "2852a4d077fef48c89a0ca5214ccc66e0f10eda74d146b0ae29ebe6ebd06a423",
@@ -300,15 +365,28 @@
         515,
         304,
         1021
+      ],
+      "resizeSheet": {
+        "source": "assets/Objects/Generated/shrines.png",
+        "size": [
+          264,
+          36
+        ]
+      },
+      "fitRect": [
+        2,
+        2,
+        21,
+        33
       ]
     },
     {
       "reviewId": "ART-2026-10-12-APPROVED",
-      "sheet": "assets/Objects/Generated/shrines.png",
+      "sheet": "assets/Objects/Generated/shrines-24.png",
       "frame": 6,
       "frameSize": [
-        16,
-        24
+        24,
+        36
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-6.png",
       "sourceSha256": "6c070bc78c32e1d240a5b01529324fc5483116409feaa3ca8379807ebb155487",
@@ -319,15 +397,28 @@
         515,
         611,
         1021
+      ],
+      "resizeSheet": {
+        "source": "assets/Objects/Generated/shrines.png",
+        "size": [
+          264,
+          36
+        ]
+      },
+      "fitRect": [
+        2,
+        2,
+        21,
+        33
       ]
     },
     {
       "reviewId": "ART-2026-10-12-APPROVED",
-      "sheet": "assets/Objects/Generated/shrines.png",
+      "sheet": "assets/Objects/Generated/shrines-24.png",
       "frame": 7,
       "frameSize": [
-        16,
-        24
+        24,
+        36
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-7.png",
       "sourceSha256": "d7076d4309fd2bb48770e08fbfd2d116b6bd891aa67bd319303cca1ff3c6a069",
@@ -338,15 +429,28 @@
         515,
         918,
         1021
+      ],
+      "resizeSheet": {
+        "source": "assets/Objects/Generated/shrines.png",
+        "size": [
+          264,
+          36
+        ]
+      },
+      "fitRect": [
+        2,
+        2,
+        21,
+        33
       ]
     },
     {
       "reviewId": "ART-2026-10-12-APPROVED",
-      "sheet": "assets/Objects/Generated/shrines.png",
+      "sheet": "assets/Objects/Generated/shrines-24.png",
       "frame": 8,
       "frameSize": [
-        16,
-        24
+        24,
+        36
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-8.png",
       "sourceSha256": "97e4bd3cbbed1749cea7644c08615bd266c0fe40da8d4ade1fb5dfe5eef5add7",
@@ -357,15 +461,28 @@
         515,
         1226,
         1021
+      ],
+      "resizeSheet": {
+        "source": "assets/Objects/Generated/shrines.png",
+        "size": [
+          264,
+          36
+        ]
+      },
+      "fitRect": [
+        2,
+        2,
+        21,
+        33
       ]
     },
     {
       "reviewId": "ART-2026-10-12-APPROVED",
-      "sheet": "assets/Objects/Generated/shrines.png",
+      "sheet": "assets/Objects/Generated/shrines-24.png",
       "frame": 9,
       "frameSize": [
-        16,
-        24
+        24,
+        36
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-9.png",
       "sourceSha256": "4a570162c59ef882c4897220c6c12e2062cd04fcdfe37d247ea778822278b461",
@@ -376,6 +493,19 @@
         515,
         1533,
         1021
+      ],
+      "resizeSheet": {
+        "source": "assets/Objects/Generated/shrines.png",
+        "size": [
+          264,
+          36
+        ]
+      },
+      "fitRect": [
+        2,
+        2,
+        21,
+        33
       ]
     },
     {
@@ -458,88 +588,123 @@
     },
     {
       "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
-      "sheet": "assets/Objects/Beach/palms.png",
+      "sheet": "assets/Objects/Beach/palms-24.png",
       "frame": 2,
       "frameSize": [
-        16,
-        16
+        24,
+        24
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/palm.png",
       "sourceSha256": "fff90034af3ef03ac6083d2508d1e8af8393b8021ba4e305944b142e32ebe9cf",
       "fitRect": [
-        1,
+        2,
         0,
-        14,
-        15
-      ]
+        21,
+        22
+      ],
+      "resizeSheet": {
+        "source": "assets/Objects/Beach/palms.png",
+        "size": [
+          144,
+          24
+        ]
+      }
     },
     {
       "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
-      "sheet": "assets/Objects/Beach/palms.png",
+      "sheet": "assets/Objects/Beach/palms-24.png",
       "frame": 3,
       "frameSize": [
-        16,
-        16
+        24,
+        24
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/palm.png",
       "sourceSha256": "fff90034af3ef03ac6083d2508d1e8af8393b8021ba4e305944b142e32ebe9cf",
       "fitRect": [
-        1,
+        2,
         0,
-        14,
-        15
-      ]
+        21,
+        22
+      ],
+      "resizeSheet": {
+        "source": "assets/Objects/Beach/palms.png",
+        "size": [
+          144,
+          24
+        ]
+      }
     },
     {
       "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
-      "sheet": "assets/Objects/Beach/palms.png",
+      "sheet": "assets/Objects/Beach/palms-24.png",
       "frame": 4,
       "frameSize": [
-        16,
-        16
+        24,
+        24
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/palm.png",
       "sourceSha256": "fff90034af3ef03ac6083d2508d1e8af8393b8021ba4e305944b142e32ebe9cf",
       "fitRect": [
-        1,
+        2,
         0,
-        14,
-        15
-      ]
+        21,
+        22
+      ],
+      "resizeSheet": {
+        "source": "assets/Objects/Beach/palms.png",
+        "size": [
+          144,
+          24
+        ]
+      }
     },
     {
       "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
-      "sheet": "assets/Objects/Beach/palms.png",
+      "sheet": "assets/Objects/Beach/palms-24.png",
       "frame": 5,
       "frameSize": [
-        16,
-        16
+        24,
+        24
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/palm.png",
       "sourceSha256": "fff90034af3ef03ac6083d2508d1e8af8393b8021ba4e305944b142e32ebe9cf",
       "fitRect": [
-        1,
+        2,
         0,
-        14,
-        15
-      ]
+        21,
+        22
+      ],
+      "resizeSheet": {
+        "source": "assets/Objects/Beach/palms.png",
+        "size": [
+          144,
+          24
+        ]
+      }
     },
     {
       "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
-      "sheet": "assets/Icons/Fish/Sea/Creatures/Shell.png",
+      "sheet": "assets/Icons/Fish/Sea/Creatures/Shell-24.png",
       "frame": 0,
       "frameSize": [
-        16,
-        16
+        24,
+        24
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/shell.png",
       "sourceSha256": "41689e06ec682c7a196656fea789788b7bb833925469ad3932ee4d5971593f4c",
       "fitRect": [
-        3,
         4,
-        10,
-        8
-      ]
+        6,
+        15,
+        12
+      ],
+      "resizeSheet": {
+        "source": "assets/Icons/Fish/Sea/Creatures/Shell.png",
+        "size": [
+          72,
+          96
+        ]
+      }
     },
     {
       "reviewId": "FORT-GAMING-HALL-2026-10-12",
@@ -635,14 +800,27 @@
     },
     {
       "reviewId": "ART-2026-10-12-ROUND2-APPROVED",
-      "sheet": "assets/Objects/Approved/waystone.png",
+      "sheet": "assets/Objects/Approved/waystone-24.png",
       "frame": 0,
       "frameSize": [
-        16,
-        16
+        24,
+        24
       ],
       "source": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/waystone.png",
-      "sourceSha256": "9c2740048a7c5a3ad2c536e9dbd0d73ce6372baf86e6645a1d63443637765737"
+      "sourceSha256": "9c2740048a7c5a3ad2c536e9dbd0d73ce6372baf86e6645a1d63443637765737",
+      "resizeSheet": {
+        "source": "assets/Objects/Approved/waystone.png",
+        "size": [
+          24,
+          24
+        ]
+      },
+      "fitRect": [
+        2,
+        2,
+        21,
+        21
+      ]
     },
     {
       "reviewId": "ART-2026-10-12-ROUND2-APPROVED",

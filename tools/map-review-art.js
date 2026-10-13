@@ -24,8 +24,10 @@ const MapReviewArt = (() => {
       const frames = new Map();
       const t = {
         getSourceImage: () => source, getContext: () => source.getContext('2d'), refresh() {},
-        add(name, index, x, y, width, height) { frames.set(name,{x,y,width,height}); },
-        get(name) { return frames.get(name ?? '__BASE') || frames.get(0) || frames.get('__BASE'); },
+        // Phaser treats numeric frame IDs and their string forms identically.
+        add(name, index, x, y, width, height) { frames.set(String(name),{x,y,width,height}); },
+        remove(name) { return frames.delete(String(name)); },
+        get(name) { return frames.get(String(name ?? '__BASE')) || frames.get('0') || frames.get('__BASE'); },
       };
       t.add('__BASE',0,0,0,source.width,source.height);
       if (spec) {
@@ -43,7 +45,8 @@ const MapReviewArt = (() => {
   function assets() {
     if (assetsPromise) return assetsPromise;
     assetsPromise = (async () => {
-      const textures=textureStore(), scene={textures};
+      // Static previews load the same texture hooks, but never animate a player.
+      const textures=textureStore(), scene={textures,_createAnim(){},isDragonActive:()=>false};
       const failures=[];
       await Promise.all(Object.entries(ASSETS).map(async ([key,spec]) => {
         if (!['image','spritesheet'].includes(spec.kind)) return;
@@ -95,7 +98,7 @@ const MapReviewArt = (() => {
     _load() {
       if(typeof ASSETS==='undefined'||this._assets||this._loading)return;
       this._loading=true;
-      assets().then(data=>{this._assets=data;this._prepare();this.redraw();})
+      return assets().then(data=>{this._assets=data;this._prepare();this.redraw();})
         .catch(error=>{console.error('Game art could not load',error);this.options.onStatus?.('Game art could not load: '+error.message);});
     },
     onRemove(map) { map.off('moveend zoomend resize',this._requestRedraw,this);map.off('zoomanim',this._animateZoom,this);clearTimeout(this._groundTimer);this._groundJob=null;cancelAnimationFrame(this._redrawFrame);this._redrawFrame=null;this._canvas.remove();this._canvas=null;this._map=null; },

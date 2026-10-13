@@ -5697,7 +5697,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // (a tap reads a page of the Book — INTERACTABLES.waystone); the tar pit
     // and the iron stakes are the Burned Row's hazards (they SLOW the body —
     // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
-    waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6 * 2 / 3, seat: true, shadow: true },
     stakes:   { key: 'approved_charred_stakes', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     ground_hole: { key: 'cave_chasm', frame: o => o._chasmMask ?? 15, origin: [0.5, 0.5], scale: 1, seat: false, ground: true },
     // UNDERGROUND STREET SCATTER (src/underground.js decorate): the triple

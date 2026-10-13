@@ -3,6 +3,8 @@ test('coastal shrubs: authored beaches and beach parks use palms', () => {
     assert.eq(row.materialLooks.shrub, 'palm', row.id);
     const p = { crop: 'shrub', id: 'coastal-bush', _plantArt: row.materialLooks.shrub };
     assert.eq(wildplantSprite(p).sheet, 'beach_palms');
+    assert.eq(SpriteLayout.ART_BOUNDS['beach_palms:2'].fw * wildplantSprite(p).scale, 32,
+      '24px art keeps a 32px display cell');
     assert.includes([2, 3, 4, 5], wildplantFrame(p));
     assert.eq(wildplantFrame(p), wildplantFrame({ ...p }), 'stable on reload');
   }

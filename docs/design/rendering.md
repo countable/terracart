@@ -148,16 +148,26 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 `tilled_bed`, `still_frames`, `chunk_index`, `building_overlay`; also
 `tools/sprite_audit.js`.
 
+- Approved replacements are resampled from original generated crops at the
+  24px art grid, never enlarged from a finished 16px export. The world-art
+  importer records `resizeSheet` for compatibility frames in migrated sheets;
+  selected frames are then replaced from original sources. Palms and shells
+  use 24px cells at 4/3 display scale. Tall shrine frames use 24×36 cells;
+  their scale and the waystone scale compensate for the larger source grid,
+  preserving their established screen footprint. Legacy unrelated sheets and
+  building or multi-cell canvas dimensions remain separate from this rule.
+
 - The shared mineral rock set uses a slightly warm grey palette and high
   three-quarter overhead view. The generic `rock_variants` sheet has
   24px cells forming fifteen adjacent small/large
-  material pairs plus three extra plain-stone pairs across six columns and six
-  rows. `mineralRockArtFrame` selects the matching gem deposit or ore tier,
+  material pairs plus three extra plain-stone pairs. `mineralRockArtFrame` selects the matching gem deposit or ore tier,
   plain stone for ordinary cave rubble,
   and flint when marked `rockMaterial: 'flint'`, including flint-bearing L1
   cave rubble. The flint mark takes precedence over the generic cave variant. Partial
-  cover (`sightBlocking: true`) selects the large silhouette at scale 1.92;
-  small stones use scale 1.44. Outside authored rock zones, wild rubble shares
+  cover (`sightBlocking: true`) selects the taller boulder silhouette.
+  Regular rocks and boulders both use 24px frames at scale 4/3; their height
+  difference is authored into the graphic-storybook atlas (8 columns, 9 rows).
+  Outside authored rock zones, wild rubble shares
   the four generic plain small shapes and skips biome tint; planted crop stages
   and inventory icons retain their existing art. A stable id hash selects plain
   stone shape independently of biome, mining quantity and small/large size.
@@ -169,7 +179,7 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   the place; Work Yard uses a cut stone slab and Crater Quarry has a glowing lava
   seam painted into the sprite. These contain no collectible mineral inclusions.
   The same 24px
-  frame scales to 1.08 for small stones and 1.92 for sight-blocking boulders.
+  frame scales to 4/3 for both small stones and sight-blocking boulders.
   `ROCK_VARIANT_ART` owns these scales and the placed-rock scale of 2.88.
   These display sizes leave mining
   quantities, occupied cells and cover behavior unchanged.
