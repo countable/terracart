@@ -690,8 +690,11 @@
           };
           // Keep the rear highlight quiet; a dark front-lip stroke would
           // cut an unnecessary horizontal stripe through the wall body.
-          line(ny < 0 ? ip : op, ny < 0 ? iq : oq, stone.lite);
-          // Roofed merlons continue on one 8px grid across atlas sections.
+          const toward = ny < 0 ? -1 : 1;
+          const lip = v => ({ x: v.x + nx * toward * 0.5, y: v.y + ny * toward * 0.5 });
+          line(lip(ny < 0 ? ip : op), lip(ny < 0 ? iq : oq), stone.lite);
+          // Seat full teeth at both endpoints; distribute the gaps near the
+          // 8px rhythm, with the same phase across every atlas section.
           const damage = CastleStyles.damageCell(d.key,
             Math.floor(((p.x + q.x) / 2 + nx * 0.01 - d.damageOriginX) / CELL_PX),
             Math.floor(((p.y + q.y) / 2 + ny * 0.01 - d.damageOriginY) / CELL_PX));
@@ -702,11 +705,14 @@
             ctx.fillStyle = cssOf(stone.style.stone.SHADOW);
             ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
           }
-          const first = Math.ceil(length * j / count / 8);
-          const last = Math.ceil(length * (j + 1) / count / 8);
+          const teeth = length < rampart.toothWidth ? 0
+            : Math.max(1, Math.round((length - rampart.toothWidth) / 8) + 1);
+          const pitch = teeth > 1 ? (length - rampart.toothWidth) / (teeth - 1) : length;
+          const first = Math.ceil(length * j / count / pitch - 1e-9);
+          const last = Math.min(teeth, Math.ceil(length * (j + 1) / count / pitch - 1e-9));
           for (let tooth = first; tooth < last; tooth++) {
             if (rampart.broken && tooth % 4 === 2) continue;
-            const t = (tooth * 8 + 2) / length;
+            const t = tooth * pitch / length;
             if (t >= 1) continue;
             // Crown the rear edge, leaving the top plane visible in front
             // of the teeth, as in the tiled rampart's overhead profile.
@@ -716,10 +722,8 @@
             // A tooth follows the crest, rather than touching an angled
             // wall at the corner of an axis-aligned rectangle. The top is
             // square in plan, with the same width along and across the crest.
-            const endT = t + rampart.toothWidth / length;
-            if (endT > 1) continue; // omit an end tooth rather than shorten its square
+            const endT = Math.min(1, t + rampart.toothWidth / length);
             const end = crest({ x: a.x + (b.x - a.x) * endT, y: a.y + (b.y - a.y) * endT });
-            const toward = ny < 0 ? -1 : 1;
             const front = v => ({ x: v.x + nx * toward * rampart.toothWidth,
               y: v.y + ny * toward * rampart.toothWidth });
             const base = [v, end, front(end), front(v)];

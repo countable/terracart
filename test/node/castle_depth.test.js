@@ -14,7 +14,8 @@
       assert.eq(roof.w, r.toothWidth, 'roof uses the style tooth width');
       assert.eq(roof.y + r.toothHeight, 20, 'rear foot remains on the cap');
       assert.eq(face.y + face.h, 20 + r.toothWidth, 'front face meets the cap at its front foot');
-      assert.lte(r.toothWidth, r.topDepth, 'square footprint fits the cap');
+      assert.eq(r.toothWidth, r.topDepth, 'front and rear tooth faces are flush with the wall');
+      assert.eq(r.toothHeight, ['ruin', 'archive'].includes(id) ? 1.5 : 2, 'merlons stand half their original height');
     }
   });
   test('castle art: clean wall faces retain only the bottom silhouette and top highlight', () => {

@@ -761,12 +761,13 @@ test('building overlay: nothing is drawn underground', () => {
 // paints its new pieces and uploads a page once, with no pixel read-back.
 // The stub records what a Phaser CanvasTexture would be asked to do.
 function makeWallScene(over) {
-  const log = { pages: [], removedTextures: [], frames: [], removedFrames: [], refreshes: 0, sprites: [], polygons: [] };
+  const log = { pages: [], removedTextures: [], frames: [], removedFrames: [], refreshes: 0, sprites: [], polygons: [], strokes: [] };
   const ctx = new Proxy({}, { get: (obj, key) => obj[key] || (() => {}), set: (obj, key, v) => { obj[key] = v; return true; } });
   let path = [];
   ctx.beginPath = () => { path = []; };
   ctx.moveTo = ctx.lineTo = (x, y) => path.push({ x, y });
   ctx.fill = () => log.polygons.push({ color: ctx.fillStyle, points: path.slice() });
+  ctx.stroke = () => log.strokes.push({ color: ctx.strokeStyle, width: ctx.lineWidth, points: path.slice() });
   const scene = makeScene(Object.assign({
     buildingWallContainer: {
       ...makeContainer(),
@@ -892,6 +893,21 @@ test('building overlay: both horizontal castle boundaries expose six-pixel caps 
   }
 });
 
+test('building overlay: side highlights stay inside the horizontal wall silhouette', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'citadel')]);
+  const { scene, log } = makeWallScene();
+  BuildingOverlay.draw(scene);
+  const vertices = scene.buildingGeomGfx.only('fill')[0].pts;
+  const minX = Math.min(...vertices.map(p => p.x)), maxX = Math.max(...vertices.map(p => p.x));
+  const vertical = log.strokes.filter(s => s.points.length === 2 && s.points[0].x === s.points[1].x);
+  assert.gt(vertical.length, 0, 'side highlights are drawn');
+  for (const s of vertical) {
+    assert.gte(s.points[0].x - s.width / 2, minX, 'west highlight stays inside the footprint');
+    assert.lte(s.points[0].x + s.width / 2, maxX, 'east highlight stays inside the footprint');
+  }
+});
+
 test('building overlay: angled and concave castle corners bridge adjacent top planes', () => {
   for (const ring of [[10, 0, 20, 10, 10, 20, 0, 10], [0, 0, 20, 0, 20, 20, 10, 10, 0, 20]]) {
     clearTiles();
@@ -958,6 +974,21 @@ test('building overlay: square merlon bases follow their caps at every wall angl
     const caps = log.polygons.filter(p => p.color === css(material.stone.BODY)).map(p => p.points);
     const roofs = log.polygons.filter(p => p.color === css(material.stone.LITE));
     assert.gt(roofs.length, 0, 'merlons have visible roofs');
+    assert.eq(material.rampart.toothWidth, material.rampart.topDepth, 'tooth faces are flush with both cap edges');
+    const vertices = scene.buildingGeomGfx.only('fill')[0].pts;
+    const winding = reversed ? -1 : 1;
+    for (let i = 0; i < vertices.length; i++) {
+      const a = vertices[i], b = vertices[(i + 1) % vertices.length];
+      const length = Math.hypot(b.x - a.x, b.y - a.y);
+      const nx = -(b.y - a.y) / length * winding, ny = (b.x - a.x) / length * winding;
+      for (const v of [a, b]) {
+        const crest = ny < 0 ? { x: v.x + nx * material.rampart.topDepth, y: v.y - material.rampart.topDepth }
+          : { x: v.x, y: v.y - material.rampart.topDepth * (1 + ny) };
+        assert.truthy(roofs.some(roof => roof.points.some(p =>
+          Math.hypot(p.x - crest.x, p.y + material.rampart.toothHeight - crest.y) < 1e-7)),
+        'full square crowns reach both edge endpoints without inset corner gaps');
+      }
+    }
     for (const roof of roofs) {
       const [a, b, c] = roof.points;
       const along = { x: b.x - a.x, y: b.y - a.y };
@@ -1080,7 +1111,9 @@ test('building overlay: atlas slots fit the largest piece, and an emptied page i
   BuildingOverlay.draw(scene);
   const A = scene._buildingWallAtlas;
   assert.truthy(A && A.slotW > 0 && A.slotH > 0, 'the atlas geometry is on the scene');
-  const pad = 2 * (6 * 2 + 4 + 2) + 2; // lifted cap, full merlon face and roof, plus rounding
+  const styles = CastleStyles.ids.map(id => CastleStyles.get(id).rampart);
+  const pad = 2 * (Math.max(...styles.map(r => r.topDepth)) * 2
+    + Math.max(...styles.map(r => r.toothHeight)) + 2) + 2;
   assert.eq(A.slotW, CELL_PX + pad, 'a slot is a cell plus the bake padding wide');
   assert.eq(A.slotH, CELL_PX + Render.BUILDING_FACE_PX[T.BUILDING_LARGE] + pad, 'and the deepest face taller');
   assert.gt(log.frames.length, 4, 'the diamond cut into several pieces');
