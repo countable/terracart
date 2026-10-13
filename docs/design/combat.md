@@ -258,8 +258,10 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
 - THE SERPENT: one creature per piece (`serpent_head` / `_body` / `_tail`
   roster rows, `boss: 'serpent'`), moved and biting only by its encounter's
   tick, never `rosterEnemyMove`. The head snakes about the player within the
-  row's `leashCells`; the coils and tail tip follow its trail. Each coil
-  touching the player bites for the row's `dmg` once a `damageIntervalSeconds`
+  row's `leashCells`; the coils and tail tip follow its trail. Trail samples
+  accumulate distance from a fixed anchor while the live head moves, so turns
+  remain in the path at every frame rate. Each coil touching the player bites
+  for the row's `dmg` once a `damageIntervalSeconds`
   through `foeBlowLands`. Only coils can be struck (the head and tail are
   `untargetable`, read by `Combat.isConcealed`); a slain coil shortens it, and
   with only head and tail left it dies. Body and gait numbers are the
@@ -336,8 +338,10 @@ Tests: `boss_encounters`, `castle_quest_flow`, `lairs`, `trail`, server `test.js
   drop, elite or treasure roll) but no ledger credit — `KILL_LEDGERS` hear
   only of own kills, so `Macros.slainByPlayer` stays false.
 - Only world-shared creatures take part (`EnemySpawns.isSharedId`): a positive
-  mark stamped where world-derived creatures are made. Clock-, random- or
-  serial-minted creatures (ghosts, fished slimes, pest deer, guild foes, dev
+  mark stamped where world-derived creatures are made, including authored
+  cave encounters and bone-gallery guards. Client and relay ID validation
+  accepts their persistent delimiters so saved defeats retain their identities.
+  Clock-, random- or serial-minted creatures (ghosts, fished slimes, pest deer, guild foes, dev
   spawns and story encounters) stay local. Splitting species stay local in
   full, including the original body, which represents just one private half
   after splitting. A citadel guard is shared only while the asking save's

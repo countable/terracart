@@ -295,7 +295,8 @@
   // permanent death here. multiplayer.js also checks the SENDER fights the
   // same battle (its `battle` frames) before it lets a hit or a death land.
   // SHARED_ID_RE is the wire's id charset (mirrored in server/index.js).
-  const SHARED_ID_RE = /^[A-Za-z0-9_:.%-]{1,96}$/;
+  // Keep authored cave delimiters valid so saved defeat IDs need no migration.
+  const SHARED_ID_RE = /^[A-Za-z0-9_:.%|,\/-]{1,96}$/;
   function markShared(c, on = true) { if (c && on) c._sharedId = true; return c; }
   function isSharedId(c, save = null) {
     if (!c || c._sharedId !== true || typeof c.id !== 'string' || !SHARED_ID_RE.test(c.id)) return false;
