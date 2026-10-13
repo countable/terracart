@@ -272,13 +272,13 @@
       story: 'street_scenic', title: 'The promenade',
       body: 'The path runs along the water. You listen to it lapping against the shore as you walk.',
       flash: 'The promenade. Walk it slow.' },
-    { id: 'greenway', pathWeight: .30, terrain: 'GRASS', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'greenway', pathWeight: .24, terrain: 'GRASS', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#74866c', restored: '#91a084' },
       lampGlow: '#a8e07a',
       story: 'street_scenic', art: 'street_greenway', title: 'A greenway',
       body: "Branches hang low over the path. You duck beneath them as leaves brush your hood.",
       flash: 'A greenway. The green holds.' },
-    { id: 'parkpath', pathWeight: .33, terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'parkpath', pathWeight: .27, terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#7b756b', restored: '#898a80' },
       lampGlow: '#a8e07a',
       story: 'street_scenic', art: 'street_parkpath', title: 'The park path',
@@ -329,6 +329,30 @@
       story: 'street_spider_path', art: 'street_toadstool', title: 'Spider Path',
       body: 'Lasting webs lie scattered across the path. Spiders lurk nearby; touching silk briefly pins you in place.',
       flash: 'Silk glistens across the path.' },
+    { id: 'poison_path', pathWeight: .03, terrain: 'WETLAND', affinities: ['damp', 'hostile'], size: 'path', share: 0, rung: 'rare',
+      stone: { weathered: '#62704e', restored: '#899768' }, lampGlow: '#8fcc65',
+      ventKind: 'poison', ventStepM: 42,
+      story: 'street_poison_path', art: 'street_toadstool', title: 'Poison Path',
+      body: 'Poison geysers erupt beside the path. A shrine offers a daily boon along the way.',
+      flash: 'Poison geysers line the path.' },
+    { id: 'fire_path', pathWeight: .03, terrain: 'ROCK', affinities: ['ruined', 'hostile'], size: 'path', share: 0, rung: 'rare',
+      stone: { weathered: '#80644f', restored: '#a77d5b' }, lampGlow: '#ff754b',
+      ventKind: 'fire', ventStepM: 42,
+      story: 'street_fire_path', art: 'street_burned', title: 'Fire Path',
+      body: 'Fire geysers erupt beside the path. A shrine offers a daily boon along the way.',
+      flash: 'Fire geysers line the path.' },
+    { id: 'paralysis_path', pathWeight: .03, terrain: 'ROCK', affinities: ['hostile'], size: 'path', share: 0, rung: 'rare',
+      stone: { weathered: '#827947', restored: '#b2a362' }, lampGlow: '#e5cc62',
+      ventKind: 'paralysis', ventStepM: 42,
+      story: 'street_paralysis_path', art: 'street_lantern', title: 'Paralysis Path',
+      body: 'Paralysis geysers erupt beside the path. A shrine offers a daily boon along the way.',
+      flash: 'Paralysis geysers hiss.' },
+    { id: 'confusion_path', pathWeight: .03, terrain: 'FOREST', affinities: ['woodland', 'hostile'], size: 'path', share: 0, rung: 'rare',
+      stone: { weathered: '#716278', restored: '#9a85a2' }, lampGlow: '#c49ddd',
+      ventKind: 'confusion', ventStepM: 42,
+      story: 'street_confusion_path', art: 'street_toadstool', title: 'Confusion Path',
+      body: 'Confusion geysers erupt beside the path. A shrine offers a daily boon along the way.',
+      flash: 'Confusion geysers hiss.' },
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
@@ -1832,7 +1856,7 @@
   // never in the unsliced spawn pass (CLAUDE.md, the worst-block rule).
   function* dressSteps(ctx) {
     const WG = root.WorldGen, S = root.Streets;
-    const res = { objects: [], wildplants: [], treasures: [], coinSeats: new Map(), traps: [], webs: [], lairs: [], slowCells: new Map(), marks: null };
+    const res = { objects: [], wildplants: [], treasures: [], coinSeats: new Map(), traps: [], webs: [], vents: [], lairs: [], slowCells: new Map(), marks: null };
     const idx = ctx && ctx.index;
     if (!idx || !WG || !S) return res;
     const { tx, ty, N, grid, spawnOpts } = ctx;
@@ -2340,7 +2364,10 @@
       let c = null;
       for (const { rec, spans } of recs) {
         const length = S.lineLengthM(rec.line, gM);
-        sampleLine(rec.line, gM, length + CELL_M, length / 2, (s, x, y, nx, ny) => {
+        const searchAll = !!VARIANT_BY_ID[v].ventKind;
+        sampleLine(rec.line, gM, searchAll ? CELL_M : length + CELL_M,
+          searchAll ? Math.min(CELL_M / 2, length / 2) : length / 2, (s, x, y, nx, ny) => {
+          if (c) return false;
           if (!S.covers(spans, s)) return;
           for (const side of [1, -1]) {
             const k = verge(rec, x, y, nx, ny, side);
@@ -2357,6 +2384,34 @@
       res.objects.push(WG.makeObject('grove_shrine', cx(c.ix), cy(c.iy),
         WG.cellId('street_shrine', tx, ty, c.ix, c.iy), { _shrineStreet: v, shrineKind: root.Shrines.kindForStreet(v),
           ...(seats ? { coinSeats: [...seats.values()] } : {}) }));
+    }
+
+    // Seat geysers after shrines so their hazards cannot occupy the section's
+    // daily activation. Cell claims and the shared hazard gate own every gap.
+    for (const rec of (idx.dressingLines || idx.lines)) {
+      const row = VARIANT_BY_ID[rec.variant];
+      if (!row?.ventKind) continue;
+      const spans = S.tileSpans(rec.line, gM, ext);
+      const length = S.lineLengthM(rec.line, gM);
+      const start = Math.min(length / 2,
+        row.ventStepM * (.25 + .5 * hash01(`vent-start|${rec.key}`)));
+      sampleLine(rec.line, gM, row.ventStepM, start, (s, x, y, nx, ny) => {
+        if (!S.covers(spans, s)) return;
+        const side = hash01(`vent-side|${rec.key}|${Math.floor(s / row.ventStepM)}`) < .5 ? 1 : -1;
+        for (const direction of [side, -side]) {
+          let placed = false;
+          for (let k = 1; k <= VERGE_MAX_CELLS; k++) {
+            const { ix, iy } = vergeCell(rec, x, y, nx, ny, direction, k);
+            if (!WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'hazard')) continue;
+            claim(ix, iy);
+            res.vents.push({ id: WG.cellId(`path_vent_${row.ventKind}`, tx, ty, ix, iy),
+              x: cx(ix), y: cy(iy), kind: row.ventKind, _street: rec.variant });
+            placed = true; break;
+          }
+          if (placed) break;
+        }
+      });
+      yield 'path geysers';
     }
 
     // THE CAFÉ HOARDS: the index's hoard POIs in hash order, the first

@@ -155,7 +155,7 @@ function previewPath(row) {
   return { ...row, ...groundPreview(tile), sampleName: name, roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
     carpetStrokes: carpetPreview(row, WG.roadOverlayWidthM(tags), line),
     lampSpacingM: SV.lampSpacingFor(row.id, ctx.Streets.lampLayFor(tags).spacingM), objects,
-    lamps, webs: (streetDress.webs || []).map(local), lairs: streetDress.lairs.map(o => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly })),
+    lamps, vents: (streetDress.vents || []).map(local), webs: (streetDress.webs || []).map(local), lairs: streetDress.lairs.map(o => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly })),
     slowKinds: [...new Set(objects.filter(o => SV.isSlowKind(o.kind)).map(o => o.kind))], geography, scenicKind: kind,
     selection: !kind ? row.selection : kind === 'shore' ? 'Off-road walking path beside qualifying shore water.' :
       kind === 'greenway' ? 'Off-road walking path with a greenway name or route.' : 'Off-road walking path inside a named or sufficiently large park.',
@@ -188,7 +188,10 @@ const rules = {
   toadstool: `One attempt every ${SV.TOADSTOOL_STEP_M} m; at most ${SV.TOADSTOOL_MAX} mushrooms per line piece. Mushrooms only, in three-on/one-gap groups with varying verge setbacks.`,
   goblin_gang: `${SV.VARIANT_BY_ID.goblin_gang.clusters} candidate gangs beside barrel stacks, with up to ${SV.VARIANT_BY_ID.goblin_gang.barrelsPerCluster} barrels per cluster where eligible verge cells remain.`,
 };
-for (const row of rows) row.placement = rules[row.id] || row.placement;
+for (const row of rows) {
+  row.placement = rules[row.id] || row.placement;
+  if (row.ventKind) row.placement = `Seeded ${row.ventKind} geysers alongside the path, where hazard placement is safe. A matching daily shrine stands on each eligible section.`;
+}
 process.stdout.write(JSON.stringify({ cellM, terrainVergeCells: Number(read('street_variants').match(/const TERRAIN_VERGE_CELLS = ([\d.]+)/)[1]), affinityContexts, fixture: { tx, ty, cellsPerEdge: N }, rows, baseline: SV.BANDIT_STORY,
   maxVariantLengthM: SV.MAX_VARIANT_LENGTH_M, wagonStopShare: SV.WAGON_STOP_SHARE, rockStreetShare: SV.ROCK_STREET_SHARE,
   plainShare: Object.fromEntries(['minor', 'major'].map((size) =>

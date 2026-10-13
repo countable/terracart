@@ -136,7 +136,7 @@ const MapReviewArt = (() => {
         if(!Number.isFinite(o.x)||!Number.isFinite(o.y))return;
         const override=connectedArt.get(o);
         const art=override?{...o,...override}:o;
-        const appearance=category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(art):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:o.kind==='coindrop'?{visible:true,texKey:Render.coinPile(o).texture,frameVal:0,scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,displayWidth:Render.coinPile(o).width,displayHeight:Render.coinPile(o).width}:resolve(art);
+        const appearance=o.kind==='_pathvent'?{visible:true,texKey:EnvironmentHazards.CONFIG.vent.texture,frameVal:EnvironmentHazards.VENTS[o.ventKind].row*5+3,scl:SpriteLayout.CELL_PX/EnvironmentHazards.CONFIG.vent.frameSize,scaleYMul:1,origin:EnvironmentHazards.CONFIG.vent.renderAnchor,dxPx:0,dyPx:0}:category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(art):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:o.kind==='coindrop'?{visible:true,texKey:Render.coinPile(o).texture,frameVal:0,scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,displayWidth:Render.coinPile(o).width,displayHeight:Render.coinPile(o).width}:resolve(art);
         if(appearance?.visible&&category!=='plant'&&category!=='creature')appearance.tint=Render.spriteTint(art,scene,appearance.texKey);
         if(o.kind==='_streetlamp'&&appearance?.visible) {
           // The shipping after hook owns lamp sizing and dark-stone alpha.
@@ -182,6 +182,7 @@ const MapReviewArt = (() => {
         }
         for(const o of e.creatures||[])add(e,o,'creature');
         for(const o of e.traps||[])add(e,{...o,kind:'trap'},'object');
+        for(const o of e.pathVents||e.streetDress?.vents||[])add(e,{...o,ventKind:o.kind,kind:'_pathvent'},'object');
         for(const o of [e.treasure,...(e.extraTreasures||[]),...(e.parkingTreasures||[])])if(treasureExposed(o,this._world.scene))add(e,{...o,kind:'xmark'},'object');
       }
       connectedArt=new Map();

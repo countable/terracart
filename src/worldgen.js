@@ -143,7 +143,7 @@
     const frame = tileFrame({ cellsPerEdge: N }, tx, ty, tileEdgeM);
     const cell = o => frame.idxOf(o.x, o.y);
     const streetLists = streetDress ? [streetDress.objects, streetDress.wildplants,
-      streetDress.treasures, streetDress.traps, streetDress.webs] : [];
+      streetDress.treasures, streetDress.traps, streetDress.webs, streetDress.vents] : [];
     const scenicLists = scenicDress ? [scenicDress.objects, scenicDress.wildplants] : [];
     const pathRecord = o => typeof StreetVariants !== 'undefined'
       && StreetVariants.VARIANT_BY_ID[o._street || o._shrineStreet]?.size === 'path';
@@ -7492,7 +7492,7 @@
       entry.wildplants = entry.wildplants.filter(o => !replaceable(o) || !overlapsTree(o));
       for (const dress of [entry.streetDress, entry.zoneDress, entry.scenicDress]) {
         if (!dress) continue;
-        for (const key of ['objects', 'wildplants', 'treasures', 'coins', 'traps', 'webs', 'guards']) {
+        for (const key of ['objects', 'wildplants', 'treasures', 'coins', 'traps', 'webs', 'vents', 'guards']) {
           if (!dress[key]) continue;
           dress[key] = dress[key].filter(o => !overlapsTree(o) &&
             !(key === 'guards' && Number.isFinite(o.homeX) && Number.isFinite(o.homeY) &&

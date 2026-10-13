@@ -407,6 +407,15 @@ access or tile lifecycle mechanics.
   never enter that pool. A majority-scenic section uses its landscape's look. Scenic restoration bonuses still follow the
   original geographic intervals. Painting, dressing, lamps, stories and map
   review all consume the same section assignment.
+- Poison Path, Fire Path, Paralysis Path and Confusion Path each have 3% base
+  weight, taking six percentage points each from Greenway and Park Path. Their
+  matching geysers use seeded verge seats every 42 m, with a midpoint sample
+  for short sections. The hazard gate and occupancy can leave gaps. Every
+  section attempts a daily shrine before claiming geyser cells, searching its
+  length for safe public ground. Poison lends Mending, Fire lends Ember,
+  Paralysis lends Shield, and Confusion lends Light; these are ordinary daily
+  boons, not immunity to the matching gas. Geysers carry path provenance
+  through Nexus crossings.
 - Spider Path has 5% base selection weight. A seeded 35% of cell-spaced
   path samples receive permanent webs, with a small seeded lateral offset.
   Webs use the hazard spawn gate and reserve their cells; restricted land,

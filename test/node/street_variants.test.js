@@ -156,7 +156,7 @@ test('variants: minor streets and path sections use their normalized theme pools
 });
 
 test('variants: paths mostly select light scenic themes and never inherit Small-road themes', () => {
-  const expected = { lantern: .10, barricade: .03, promenade: .12, greenway: .30, parkpath: .33, golden_path: .02, slime_trail: .05, spider_path: .05 };
+  const expected = { lantern: .10, barricade: .03, promenade: .12, greenway: .24, parkpath: .27, golden_path: .02, slime_trail: .05, spider_path: .05, poison_path: .03, fire_path: .03, paralysis_path: .03, confusion_path: .03 };
   const weights = SV.selectionWeights(null, 'path');
   assert.eq(weights.length, Object.keys(expected).length);
   for (const row of weights) {

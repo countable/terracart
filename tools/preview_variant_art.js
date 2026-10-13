@@ -8,7 +8,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'enemy_spawns', 'util', 'coords', 'sprite_layout', 'assets', 'items', 'chest_themes', 'loot', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'habitat_spawns', 'macros', 'interactables', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones']) {
+for (const name of ['enemy_roster', 'enemy_spawns', 'util', 'coords', 'sprite_layout', 'assets', 'items', 'chest_themes', 'loot', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'habitat_spawns', 'macros', 'interactables', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones', 'environment_hazards']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 const render = read('render');
@@ -43,6 +43,7 @@ const data = vm.runInContext(`({ assets: ASSETS, crops: CROP_SPRITE, contextLook
   churchyardFrame: SpriteLayout.plainRockFrame({rockVariant: SpriteLayout.CHURCHYARD_ROCK_VARIANT}),
   groveShrines: SpriteLayout.GROVE_SHRINE_ART, shipwreckShrine: SpriteLayout.SHIPWRECK_SHRINE_ART,
   lighting: Lighting.KINDS, wildplantRules: WILDPLANT_RULES,
+  vents: EnvironmentHazards.VENTS, ventConfig: EnvironmentHazards.CONFIG.vent,
   shrineKinds: Shrines.SHRINE_KINDS, shrineRewards: Shrines.REWARD_KINDS,
   quarryRockRules: QUARRY_ROCK_RULES, quarryGemChance: QUARRY_GEM_CHANCE,
   lairs: {kinds:Lairs.KIND_ORDER,counts:Lairs.STREET_TIER_GUARDS,daily:[...Lairs.DAILY_TIERS]},

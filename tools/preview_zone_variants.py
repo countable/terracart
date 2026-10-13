@@ -656,6 +656,12 @@ def street_svg(v, cell_m, detail=False):
         label = html.escape(kind + (f' ({o["species"]})' if o.get('species') else '') + (f' · growth stage {o["variant"]}' if kind == 'tree' and 'variant' in o else ''))
         parts.append(f'<rect class="geometry-cell" x="{o["x"]-size/2}" y="{o["y"]-size/2}" width="{size}" height="{size}" rx=".8" fill="{color}"><title>{label}</title></rect>')
         parts.append(sprite_cell(art_prefix, street_material_key(o), o['x']-size/2, o['y']-size/2, size, o))
+    for vent in v.get('vents', []):
+        cfg = art_registry()['ventConfig']
+        frame = art_registry()['vents'][vent['kind']]['row'] * 5 + 3
+        art = {'sheet': cfg['texture'], 'frames': [frame], 'preserveFrame': True}
+        x, y = vent['x'] - cell_m / 2, vent['y'] - cell_m * cfg['renderAnchor'][1]
+        parts.append(f'<g class="path-geyser"><title>{html.escape(vent["kind"].title())} geyser · active phase shown</title>' + art_image(art, f'x="{x}" y="{y}" width="{cell_m}" height="{cell_m}"') + '</g>')
     for web in v.get('webs', []):
         x, y, r = web['x'], web['y'], cell_m * .42
         silk = [f'M {x-r} {y-r} L {x+r} {y+r}', f'M {x+r} {y-r} L {x-r} {y+r}',
@@ -702,6 +708,8 @@ def street_section(streets):
         selection = 'Geography-selected path' if v.get('scenicKind') else f"{v['size']} {'section' if v['size'] == 'path' else 'street'} · {v['share']*100:g}% base share"
         if v['size'] == 'path':
             selection = f"Walking path · {v.get('pathWeight', 0)*100:g}% base weight"
+        if v.get('vents'):
+            inventory += f"; {len(v['vents'])} seeded geysers (active phase shown)"
         if v.get('webs'):
             inventory += f"; {len(v['webs'])} permanent seeded webs"
         tiers = sorted(set(o.get('tier',o['kind']) for o in v['lairs']))
@@ -710,8 +718,14 @@ def street_section(streets):
         affinity = ', '.join(v.get('affinities', [])) or 'Neutral'
         affinity_details = f'<dt>Affinities</dt><dd>{html.escape(affinity)}</dd>' + (f'<dt>Selection</dt><dd data-affinity-row="{v["id"]}" data-road-size="{v["size"]}"></dd>' if v['size'] != 'path' else '')
         terrain_details = f'<dt>Terrain verge</dt><dd>{html.escape(v.get("terrain", "").replace("_", " ").title())} · {streets["terrainVergeCells"]:g} cells ({streets["cellM"]*streets["terrainVergeCells"]:g} m) beyond the road edge, on eligible ground. Special zones take precedence.</dd>'
+        shrine = next((row for row in art_registry()['shrineKinds'].values() if v['id'] in row.get('streets', [])), None)
+        shrine_details = ''
+        if v.get('ventKind') and shrine:
+            boon = shrine.get('boon', shrine.get('lever', 'boon'))
+            minutes = shrine.get('durationMs', 0) / 60000
+            shrine_details = f'<dt>Daily shrine</dt><dd>{html.escape(shrine["name"])} · {html.escape(boon)} for {minutes:g} minutes. One per section where safe ground permits; once per UTC day.</dd>'
         scenic_details = (f'<dt>Geography</dt><dd>{html.escape(v["selection"])}</dd><dt>Rewards</dt><dd>{html.escape(v["rewards"])}</dd>' if v.get('scenicKind') else '')
-        cards.append(f'''<article id="street-{v['id']}"><p data-sandbox="road:{v['id']}"></p><header><small>{selection} · {v['rung']}</small><h2>{html.escape(v['title'])}</h2></header><p class="mix"><b>{props} props over {v['lengthM']:g} m · {props/v['lengthM']*100:.1f} per 100 m in this sample</b><br>{inventory}</p><figure>{street_svg(v, streets['cellM'])}<figcaption>Generated straight-road sample · {v['roadWidthM']:g} m carriageway · ⊕ road reference point, not a POI</figcaption></figure><details class="street-closeup"><summary>Pavement and lamp close-up</summary>{street_svg(v, streets['cellM'], True)}</details><p>{html.escape(v['body'])}</p><dl>{affinity_details}{terrain_details}{scenic_details}<dt>Placement</dt><dd>{html.escape(v['placement'])}</dd><dt>Lamps</dt><dd>{len(v['lamps'])} shown · {v['lampSpacingM']:g} m target spacing · <span class="swatch" style="background:{v['lampGlow']}"></span>{v['lampGlow']}</dd><dt>Monsters</dt><dd>{monsters}</dd><dt>Guard sites</dt><dd>{len(v['lairs'])} generated candidate sites · outlined diamonds</dd><dt>Slows</dt><dd>{', '.join(v['slowKinds']) or 'None'}</dd><dt>Fauna</dt><dd>{fauna}</dd><dt>Sample key</dt><dd>{v['sampleName']} · tile ({streets['fixture']['tx']}, {streets['fixture']['ty']})</dd></dl></article>''')
+        cards.append(f'''<article id="street-{v['id']}"><p data-sandbox="road:{v['id']}"></p><header><small>{selection} · {v['rung']}</small><h2>{html.escape(v['title'])}</h2></header><p class="mix"><b>{props} props over {v['lengthM']:g} m · {props/v['lengthM']*100:.1f} per 100 m in this sample</b><br>{inventory}</p><figure>{street_svg(v, streets['cellM'])}<figcaption>Generated straight-road sample · {v['roadWidthM']:g} m carriageway · ⊕ road reference point, not a POI</figcaption></figure><details class="street-closeup"><summary>Pavement and lamp close-up</summary>{street_svg(v, streets['cellM'], True)}</details><p>{html.escape(v['body'])}</p><dl>{affinity_details}{terrain_details}{scenic_details}{shrine_details}<dt>Placement</dt><dd>{html.escape(v['placement'])}</dd><dt>Lamps</dt><dd>{len(v['lamps'])} shown · {v['lampSpacingM']:g} m target spacing · <span class="swatch" style="background:{v['lampGlow']}"></span>{v['lampGlow']}</dd><dt>Monsters</dt><dd>{monsters}</dd><dt>Guard sites</dt><dd>{len(v['lairs'])} generated candidate sites · outlined diamonds</dd><dt>Slows</dt><dd>{', '.join(v['slowKinds']) or 'None'}</dd><dt>Fauna</dt><dd>{fauna}</dd><dt>Sample key</dt><dd>{v['sampleName']} · tile ({streets['fixture']['tx']}, {streets['fixture']['ty']})</dd></dl></article>''')
     legend = ''
     contexts = html.escape(json.dumps(streets['affinityContexts']), quote=True)
     affinity_controls = f'<div class="affinity-controls" data-affinity-contexts="{contexts}"><label>Surroundings <select id="affinity-context">' + ''.join(f'<option value="{key}">{key.title()}</option>' for key in streets['affinityContexts']) + '</select></label><p>Selection probabilities below are conditional on a road already being special, within its road size, with no street-name match. Change surroundings to compare soft preferences; the art fixtures stay the same. Scenic paths retain their geographic selection.</p></div>'

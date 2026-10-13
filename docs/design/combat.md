@@ -38,6 +38,15 @@ mechanics.
   cells still block diffusion; denser trapped gas remains until it can thin.
   Fields and emitter cooldowns are session-local, separated by depth and paused while that depth is inactive.
 
+- Poison, Fire, Paralysis and Confusion Paths place seeded geysers on safe
+  verges. They use `EnvironmentHazards`' existing warning and eruption cycles:
+  poison, paralysis and confusion release their matching gas; fire ignites its
+  cell and adjacent suitable ground. Loaded nearby seats retain their clocks;
+  eviction restarts them inactive, and other depths never run the surface seats.
+  These authored hazards keep the shared safety exclusions and cannot erupt
+  beneath a newly placed structure. They never enter the ambient crater roll
+  or the save, and path-authored seats survive Nexus ambient suppression.
+
 - Mushroom Grove residents are provoked-only (`EnemyHabitats.PROVOKED_ONLY`):
   until provoked they count among `standDown` in `wanderCreatures` — no chase,
   puff or blow, at the player or a neighbour. A player-side or peer blow

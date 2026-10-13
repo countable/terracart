@@ -90,6 +90,22 @@
       zoneVariants: ['black_ring', 'flint_field', 'quarry-crater'], streets: ['burned'],
       name: 'Ember altar', flash: 'Fire gathers in your hands.',
       body: "You reach toward the glowing ember. Fire gathers in your hands, ready to strike." },
+    poison_path_shrine: { art: 'shrine_toad_idol', frame: 8, light: 0x7fe0a0, lever: 'regen', durationMs: 8 * MIN, boon: 'Mending',
+      zoneVariants: [], streets: ['poison_path'], streetChance: 1,
+      name: 'Poison path shrine', flash: 'Your wounds begin to heal.',
+      body: 'The cool stone eases your wounds beside the poisonous steam.' },
+    fire_path_shrine: { art: 'shrine_ember_altar', frame: 9, light: 0xff5a3c, lever: 'wand', durationMs: 5 * MIN, boon: 'Ember',
+      zoneVariants: [], streets: ['fire_path'], streetChance: 1,
+      name: 'Fire path shrine', flash: 'Fire gathers in your hands.',
+      body: 'You warm your hands above the altar. Its ember strengthens your magic.' },
+    paralysis_path_shrine: { art: 'shrine_bone_watcher', frame: 3, light: 0xd8d4e8, lever: 'shield', durationMs: 3 * MIN,
+      zoneVariants: [], streets: ['paralysis_path'], streetChance: 1,
+      name: 'Paralysis path shrine', flash: 'Something watches your back.',
+      body: 'You rest beside the watcher. A protective shimmer gathers around you.' },
+    confusion_path_shrine: { art: 'shrine_lantern_saint', frame: 1, light: 0xffb347, lever: 'light', durationMs: 5 * MIN,
+      zoneVariants: [], streets: ['confusion_path'], streetChance: 1,
+      name: 'Confusion path shrine', flash: 'Her lantern warms your hand.',
+      body: 'The lantern offers a steady light among the swirling vapours.' },
     // The GOLDEN ROAD's shrine: no boon — once a UTC day it spills a coin on
     // every free verge cell of its road on this tile (`coinSeats`, laid by
     // street_variants.js; app.js _coinBurstInteract's path mode). Every
