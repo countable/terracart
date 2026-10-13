@@ -904,7 +904,35 @@
           roadLabel: (dx, dy, text) => { roadLabels[`${ix0 + dx}_${iy0 + dy}`] = { text, angle: 0 }; },
         });
       }
+      const firstNew = objects.length;
       s.populate(makeScenePush(ix0, iy0, s.name, baseId, { objects, wildplants, creatures }, wmAt));
+      // A hand-placed house stands on its painted block the way worldgen's do:
+      // the connected cells of its own building terrain are its footprint. A
+      // block shared by several houses (SMALLHOUSE) is no one's footprint, so
+      // each of those stands on its own cell.
+      const cellOf = (o) => [Math.round((o.x - tx * c.tileEdgeM) / c.cellM - 0.5),
+        Math.round((o.y - ty * c.tileEdgeM) / c.cellM - 0.5)];
+      const houses = objects.slice(firstNew).filter((o) => o.kind === 'house');
+      const anchors = new Set(houses.map((o) => { const [x, y] = cellOf(o); return y * cellsPerEdge + x; }));
+      for (const o of houses) {
+        if (o.footDx != null) continue;
+        const [ax, ay] = cellOf(o);
+        if (ax < 0 || ay < 0 || ax >= cellsPerEdge || ay >= cellsPerEdge) continue;
+        const tier = grid[ay * cellsPerEdge + ax];
+        if (![T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE].includes(tier)) continue;
+        const seen = new Set([ay * cellsPerEdge + ax]), cells = [], stack = [[ax, ay]];
+        while (stack.length) {
+          const [cx, cy] = stack.pop();
+          cells.push([cx, cy]);
+          for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
+            const k = ny * cellsPerEdge + nx;
+            if (nx < 0 || ny < 0 || nx >= cellsPerEdge || ny >= cellsPerEdge || seen.has(k) || grid[k] !== tier) continue;
+            seen.add(k); stack.push([nx, ny]);
+          }
+        }
+        if (cells.some(([x, y]) => (x !== ax || y !== ay) && anchors.has(y * cellsPerEdge + x))) continue;
+        Object.assign(o, WorldGen.footprintFootOffset(cells, [ax, ay]));
+      }
     }
 
     // Connective roads span the full layout width below their band.
