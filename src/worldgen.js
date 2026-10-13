@@ -2924,6 +2924,19 @@
     }
     return a / 2;
   }
+  // Where a building's art stands: the centre of mass of its rasterized
+  // footprint `cells` ([x, y] cell pairs), as an offset in CELLS from the
+  // centre of its anchor cell `[ax, ay]`. A house object sits on that anchor
+  // cell (taps, occupancy); render.js stands the art's bottom-middle on
+  // anchor + offset. Cell sums are integers, so both tiles of a seam building
+  // compute the same offset.
+  function footprintFootOffset(cells, [ax, ay]) {
+    const n = cells.length;
+    if (!n) return { footDx: 0, footDy: 0 };
+    let sx = 0, sy = 0;
+    for (const [fx, fy] of cells) { sx += fx; sy += fy; }
+    return { footDx: sx / n - ax, footDy: sy / n - ay };
+  }
   function ringCentroid(ring) {
     let cx = 0, cy = 0, a = 0;
     for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -5894,7 +5907,7 @@
           // save. Houses whose address ends in 9 become blacksmiths (~10%).
           const address = cellHash(otx, oty, oix, oiy) % 1000;
           objects.push(makeObject(bp.templeZone ? 'temple' : 'house', cx, cy, id,
-            { area: bp.areaM2, tier: bp.tier, address,
+            { area: bp.areaM2, tier: bp.tier, address, ...footprintFootOffset(allFp, best),
               ...(bp.templeZone ? { templeZone: bp.templeZone, templeKind: bp.templeAnchor.kind, templeAnchor: { ...bp.templeAnchor } } : {}) }));
         }
         yield 'building paint (all footprints)';
@@ -9623,7 +9636,7 @@
     // The cell walks (one ring scan, one disc order, one box scan) and the
     // polygon geometry every module used to re-type.
     ringCells, nearestRingCell, RING_ORDER, discOffsets, boxCells, anyNeighbour8, countNeighbours8,
-    pointInRings, indoorMallPoisSteps, INDOOR_MALL_RULES, rowCrossings, bboxOf, ringSignedArea, ringCentroid,
+    pointInRings, indoorMallPoisSteps, INDOOR_MALL_RULES, rowCrossings, bboxOf, ringSignedArea, ringCentroid, footprintFootOffset,
     // The hedge-maze lattice decision (spawnHedgeMazeSteps' owner): exported
     // so the sandbox's flora mirror runs the SAME maze, never a drifted copy.
     hedgeMazeCell, hedgeMazePotCell, HEDGE_LATTICE_P,

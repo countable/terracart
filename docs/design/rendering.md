@@ -45,6 +45,10 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
   Buildings, moving creatures and canvas-baked street lamps have separate seating.
+  A house sprite (small and medium tiers) stands its bottom-middle on its
+  footprint's centre of mass: the object sits on the nearest footprint cell
+  and carries the remainder (`footDx`/`footDy`, worldgen
+  `footprintFootOffset`); its shadow, sign, roof plate and bubble follow the art.
   Use a stable `seatFrame` for animation. After art changes, run
   `node tools/sprite_audit.js --emit-bounds` and update `src/sprite_layout.js`.
 - Connected ground art that must abut its neighbours (chasm sections) seats on
