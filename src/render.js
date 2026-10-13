@@ -2739,10 +2739,10 @@ Render.drawCells = function drawCells(scene) {
     }
   }
   scene.terrainCache?.flush();
-  // Level-one trial. Re-evaluate the live neighbour ring on each ground draw:
+  // All underground floors share this wall style. Re-evaluate the live neighbour ring:
   // mining and arriving tiles immediately update faces, including tile seams.
   // Atlas sprites share the ground-decoration layer, beneath actors and lights.
-  if (scene.depth === 1 && scene.cobbleContainer) {
+  if (scene.depth > 0 && scene.cobbleContainer) {
     const open = (c, r) => T(c, r) !== WorldGen.T.CAVE_WALL && T(c, r) !== UNMAPPED_T;
     for (let row = -1; row <= VIEW_CELLS; row++) for (let col = -1; col <= VIEW_CELLS; col++) {
       if (T(col, row) !== WorldGen.T.CAVE_WALL) continue;
@@ -4784,7 +4784,7 @@ Render.drawObjects = function drawObjects(scene) {
       s.setFrame(frame);
       // Centre on the rock cell (0.5, 0.5): this is the produce icon, not a
       // bottom-weighted seed frame, which the foot-anchor would float ~11px high.
-      s.setOrigin(0.5, 0.5).setScale(2.4).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.5).setScale(ROCK_VARIANT_ART.placedScale).setPosition(Math.round(sx), Math.round(sy));
       return;
     }
     const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);
