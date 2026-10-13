@@ -3589,10 +3589,11 @@ const CRITTER_SHADOW_W = {
   butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
 };
 
-// Cull before building sprite, label, shadow and effect lists. Tree cover
-// remains visible; the sole lighting pass supplies its half-dark treatment.
+// Cull before building sprite, label, shadow and effect lists. Any cover
+// (Visibility.hidden) removes what stands behind it; the sole lighting pass
+// darkens the ground there.
 Render.coverHidden = function coverHidden(scene, o) {
-  return typeof Visibility !== 'undefined' && Visibility.playerCover(scene, o.x, o.y) === Visibility.FULL;
+  return typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y);
 };
 Render.cullCovered = function cullCovered(scene, list, field) {
   let n = 0;
@@ -3719,7 +3720,7 @@ Render.drawObjects = function drawObjects(scene) {
   // offersPreCullLight (module level), the same predicate the per-tile list
   // is derived by.
   const offerPreCullLights = (o, dx, dy) => {
-    if (typeof Visibility !== 'undefined' && Visibility.playerCover(scene, o.x, o.y) === Visibility.FULL) return;
+    if (Render.coverHidden(scene, o)) return;
     // A restored building (or Home) is a LIGHT as well as a sprite, and
     // its light reaches further than its art: offered to the lightmap
     // before the sprite cull, with its own radius as the margin, so a

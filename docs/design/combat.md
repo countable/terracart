@@ -148,7 +148,8 @@ mechanics.
   sight line; overlapping partial cover does not stack. Ordinary rocks do not
   reduce sight. Cover uses the
   same visibility grid for local players, peers and NPC targets, and cancels
-  an attack wind-up when sight is lost. Guards return to their seats when full
+  an attack wind-up when sight is lost. A foe behind any cover is hidden
+  from the player and cannot be targeted. Guards return to their seats when full
   cover breaks sight; their notice/leash rings lose two cells through trees.
   Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.

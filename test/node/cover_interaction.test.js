@@ -19,7 +19,7 @@
     ];
     const tap = new Function('Visibility', 'TAP_HANDLERS', '_tapDiag', 'persistSave',
       INTERACT_SRC.slice(INTERACT_SRC.indexOf('function interactTap(scene, sx, sy) {')) + '\nreturn interactTap;')(
-      { playerCover: () => cover }, handlers, () => {}, () => {});
+      { FULL: 2, playerCover: () => cover }, handlers, () => {}, () => {});
     const scene = { viewLeft: 0, viewTop: 0, viewSize: 100, save: {},
       screenToWorldMeters: () => ({ x: 10, y: 10 }) };
     tap(scene, 10, 10);
@@ -30,26 +30,25 @@
     assert.eq(actions, 0);
     cover = 1;
     tap(scene, 10, 10);
-    assert.eq(actions, 1, 'partial tree cover remains interactable');
+    assert.eq(actions, 1, 'ground behind partial cover stays tappable; handlers hide covered items themselves');
   });
 
-  test('cover: spells target clear and partial foes, never fully hidden foes', () => {
+  test('cover: spells target only clear foes, never ones behind any cover', () => {
     const foes = [0, 1, 2].map(cover => ({ id: 'cover' + cover, kind: 'slime', x: cover, y: 0 }));
     const method = new Function('Visibility', 'WorldGen', 'Combat', 'setOf',
       'return ({' + lift('_enemiesWhere(where) {') + '})._enemiesWhere;')(
-      { playerCover: (scene, x) => x },
+      { hidden: (scene, x) => x !== 0 },
       { forEachItemNear: (layer, tx, ty, fn) => foes.forEach(fn) }, Combat, list => new Set(list));
     const scene = { save: { caught: [] }, playerToWorldCell: () => ({ tx: 0, ty: 0 }) };
     const targets = method.call(scene, () => true);
-    assert.eq(targets.length, 2);
+    assert.eq(targets.length, 1);
     assert.eq(targets[0], foes[0]);
-    assert.eq(targets[1], foes[1]);
   });
 
-  test('cover: direct melee cannot bypass full cover', () => {
+  test('cover: direct melee cannot bypass cover', () => {
     const method = new Function('Visibility',
       'return ({' + lift('startCombat(victim, opts = {}) {') + '}).startCombat;')(
-      { playerCover: () => 2 });
+      { hidden: () => true });
     const scene = { save: { energy: 100 },
       isShadowActive() { throw new Error('Hidden foe must be rejected before attacking'); } };
     const foe = { kind: 'slime', x: 10, y: 0 };
