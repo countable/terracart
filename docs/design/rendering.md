@@ -45,12 +45,17 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   renderers; polygon corners use bounded bevel joins with faces beneath them.
   Merlons have low rectangular tops spanning the full wall-cap width, with both
   opposing faces flush with the wall below at every angle. Their length along
-  the wall is independent of its thickness. Full end blocks
-  reach each corner; the
-  rear highlight stays inside the cap silhouette. Polygon wall bodies and
+  the wall is independent of its thickness. Full end blocks reach each corner;
+  the rear highlight stays inside the cap silhouette. Polygon wall bodies and
   crenellations use separate cached passes, with every body drawn before the
-  crowns so adjacent wall sections cannot cover a crenellation top. Castle wall bodies omit mid-wall shadow
-  stripes; the bottom silhouette and a quiet rear highlight define the edge.
+  crowns so adjacent wall sections cannot cover a crenellation top. Castle wall
+  bodies omit mid-wall shadow stripes; the bottom silhouette and a quiet rear highlight define the edge.
+- Standing objects fade to half their normal opacity only when their art overlaps
+  the player's inset body box and their world depth draws them in front. The
+  overlap uses cached trimmed `ART_BOUNDS`, with frame bounds for procedural
+  art, and updates even on reused sprite slots. Moving clear restores the
+  original opacity; tool access never changes it. Ground art retains its own
+  opacity, and fruit overlays follow their tree.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
@@ -119,7 +124,7 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   `drawObjects` caches appearance by identity only for generation-immutable
   records, reuses their configured pool slots while body and camera stand still,
   and sorts the shared world container only when membership or assigned depth
-  changes; tool/work transitions invalidate reuse, while connected, clock-driven
+  changes; work transitions invalidate reuse, while connected, clock-driven
   and saved-state art stays live.
 - `RoadSafety` paints every visible `ROAD_CLASS_MAJOR_BUFFER` cell with its
   muted red ground wash after dark. The wash sits above road surfaces and below
@@ -193,10 +198,13 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   short walls, larger standing trees and rocks marked `sightBlocking: true`
   provide partial cover, with a non-stacking 75% darkness treatment. Small
   rocks and the smallest tree saplings provide no cover. The facing blocker
-  stays visible. Any cover (`Visibility.hidden`) removes the objects,
-  creatures and peers behind it, with their labels, shadows and target
-  affordances; the ground stays drawn and tappable unless cover is full.
-  Partial and full cover differ only in darkness: full cover is black.
+  stays visible. Any cover (`Visibility.hidden`) removes the actors behind
+  it — creatures, peers, coins, shots — with their labels, shadows and
+  target affordances. Scenery (objects, plants, crops, traps, hazards) and
+  the ground stay drawn and tappable in the shadow so the player keeps their
+  bearings; full cover is black and removes scenery as well. The cover
+  mask's feather spreads outward only, so every hidden cell keeps its full
+  darkness.
   `Lighting.coverFrame` caches a world-aligned mask and composites it into the
   existing lightmap after light sources. It reuses the exploration fog's
   low-resolution smooth upscale and world-keyed wisps, with a roughly one-cell
@@ -242,7 +250,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   by their exact whole-pixel phase. Player-attached, breathing, flickering and
   transient lights keep the individual stamp path. The full-frame key gates
   before every canvas call. Reach lighting follows `cellInReach`; light conveys
-  reach and live POIs without outline rings. Day/night leaves the reach plateau bright;
+  reach and live POIs without outline rings. The radial player glow uses
+  `PLAYER_OUTPUT_K = 0.44`; the added reach-cell light is halved by
+  `REACH_OUTPUT_K = 0.5`, with interaction distance unchanged.
+  Day/night leaves the reach plateau bright;
   caves ignore it.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors
   cull by viewport plus light radius, not sprite bounds. Use the existing

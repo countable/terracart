@@ -148,6 +148,8 @@
   // CELL_M), capped per tile; one tide pickup a day per TIDE_PER_M, capped.
   const BEACH_X_SHORE_M = 40;
   const BEACH_X_MAX = 24;
+  const BEACH_X_DENSITY = 0.7;
+  const BEACH_X_SPACING_CELLS = 3;
   const TIDE_PER_M = 25;
   const TIDE_MAX = 12;
   // A shore-sand cell this close to water (cells) is the WATERLINE.
@@ -576,7 +578,30 @@
   }
   function beachXCount(shoreM) {
     // Scaled by the shared X-mark density (loot.js X_MARK_FREQUENCY).
-    return Math.round(Math.max(0, Math.min(BEACH_X_MAX, Math.floor((shoreM || 0) / BEACH_X_SHORE_M))) * X_MARK_FREQUENCY);
+    return Math.round(Math.max(0, Math.min(BEACH_X_MAX, Math.floor((shoreM || 0) / BEACH_X_SHORE_M))) * X_MARK_FREQUENCY * BEACH_X_DENSITY);
+  }
+  // Seeded farthest-first seats spread finds over the available shore instead
+  // of independent random draws piling several into one patch of sand.
+  function beachXCells(cells, N, want, rng, occupied = []) {
+    const distance2 = (a, b) => (a % N - b % N) ** 2
+      + (Math.floor(a / N) - Math.floor(b / N)) ** 2;
+    const candidates = cells.map(cell => ({ cell, tie: rng(), distance: Infinity }));
+    for (const candidate of candidates) for (const cell of occupied)
+      candidate.distance = Math.min(candidate.distance, distance2(candidate.cell, cell));
+    const out = [], minDistance = BEACH_X_SPACING_CELLS ** 2;
+    while (out.length < want) {
+      let best = null;
+      for (const candidate of candidates) {
+        if (candidate.distance < minDistance) continue;
+        if (!best || candidate.distance > best.distance
+          || (candidate.distance === best.distance && candidate.tie > best.tie)) best = candidate;
+      }
+      if (!best) break;
+      out.push(best.cell);
+      for (const candidate of candidates)
+        candidate.distance = Math.min(candidate.distance, distance2(candidate.cell, best.cell));
+    }
+    return out;
   }
   function tideCount(shoreM) {
     return Math.max(0, Math.min(TIDE_MAX, Math.floor((shoreM || 0) / TIDE_PER_M)));
@@ -932,11 +957,11 @@
     PARK_MIN_M2, SAMPLE_M, GREENWAY_GRASS_STEP_M, GREENWAY_RE, PATH_SUBCLASSES,
     VISTA_STRETCH_MIN_M, VISTA_SEAT_CELLS, VISTA_CHEST_TIER, VISTA_POI_CLASS, VISTA_MERGE_M, SCOPE_SEAT_R,
     VISTA_CONTEXT, FIRST_VISTA_SLOT, VISTA_STORY, TELESCOPE_DURATION_MS, TELESCOPE_OPTIONS, telescopeTarget,
-    BEACH_X_SHORE_M, BEACH_X_MAX, TIDE_PER_M, TIDE_MAX, WATERLINE_CELLS, TIDE_DRIFTWOOD_P,
+    BEACH_X_SHORE_M, BEACH_X_MAX, BEACH_X_DENSITY, BEACH_X_SPACING_CELLS, TIDE_PER_M, TIDE_MAX, WATERLINE_CELLS, TIDE_DRIFTWOOD_P,
     BEACH_BOTTLES_PER_TILE,
     isEligibleWay, isVehicleWay, isBusyWay, isShoreWater, isShoreWaterway, isBeachSand, isViewpoint,
     geoSteps, classify, nearWater, lineIntervals, linesSteps, shoreSandSteps, collectVistas,
-    buildSteps, build, dressSteps, dress, beachXCount, tideCount, tideLive,
+    buildSteps, build, dressSteps, dress, beachXCount, beachXCells, tideCount, tideLive,
     bonusMetres, kindAt, kindOfNewly, rowFor, firstVistaPrize, ringsAreaU2,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

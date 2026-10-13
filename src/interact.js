@@ -160,7 +160,7 @@ function findItemInTapCell(scene, layer, wm, accept) {
     if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, item)) return;
     if (accept && !accept(item)) return;
     if (!itemContainsTapCell(scene, item, tapCell)) return;
-    if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, item.x, item.y)) return;
+    if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, item.x, item.y, true)) return;
     const d2 = distM2(item.x, item.y, wm.x, wm.y);
     if (d2 < bestD2) { bestD2 = d2; best = item; }
   });
@@ -1142,7 +1142,7 @@ const TAP_HANDLERS = [
       // catches taps on any BUILDING-terrain cell of a footprint and routes
       // them to that building, which is cell-based in the same way.
       if (!itemContainsTapCell(scene, o, tapCell)) continue;
-      if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y)) continue;
+      if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, true)) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
       // Every tap-driven world object (groundstack / chest / well / tree /
       // mineralrock / fruittree / house / tower) is declared in the
@@ -1243,7 +1243,7 @@ const TAP_HANDLERS = [
     if (owner && entry?.buildingShapes?.some(s => s.key === owner && s.kind === 'temple')) return true;
     const best = findClosestItem('objects', cwmx, cwmy, 30,
       (o) => isBuilding(o.kind)
-        && !(typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y))
+        && !(typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, true))
         && !(typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o)));
     if (!best) return false;
     scene.shopInteract(sx, sy, best);

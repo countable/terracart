@@ -1022,7 +1022,7 @@ function setPaddingOnce(tx, key, left, top) {
 //
 // THE RESET is what closes a whole class of bugs: a pooled slot keeps
 // whatever its last occupant left on it, so a bush's wiggle angle rode onto
-// the next plant, a gated tree's half alpha onto a rock, a frozen foe's ice
+// the next plant, an obscuring tree's half alpha onto a rock, a frozen foe's ice
 // onto a cow — and each callback learned to clear one property at a time.
 // Every slot now starts the frame upright, opaque, untinted, unflipped, at
 // scale 1; a callback sets only what its item means.
@@ -1989,7 +1989,7 @@ Render.drawSpiderWebs = function drawSpiderWebs(scene) {
   for (const web of webs) {
     const at = worldMetersToScreen(scene, web.x, web.y);
     if (at.x + half < left || at.y + half < top || at.x - half > right || at.y - half > bottom) continue;
-    if (Render.coverHidden(scene, web)) continue;
+    if (Render.coverHidden(scene, web, true)) continue;
     if (!scene._spiderWebGfx) {
       scene._spiderWebGfx = scene.add.graphics();
       scene.cobbleContainer.add(scene._spiderWebGfx);
@@ -3183,7 +3183,7 @@ Render.drawCells = function drawCells(scene) {
     const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
     if (!inViewBox(dx, dy, halfM)) return;
     // After the view box: a cover ray is the costly test (re-traced per step).
-    if (Render.coverHidden(scene, tr)) return;
+    if (Render.coverHidden(scene, tr, true)) return;
     // Buried until the feet stand beside it (HiddenObjects.tick).
     if (HiddenObjects.treasureHidden(scene.save, tr)) return;
     if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, tr, hideNightRoadTreasure)) return;
@@ -3308,6 +3308,26 @@ function fadeLabelOverPlayer(tx, box) {
   const hit = x0 < box.x1 && x0 + w > box.x0 && y0 < box.y1 && y0 + h > box.y0;
   tx.setAlpha(hit ? LABEL_OVER_PLAYER_ALPHA : 1);
 }
+
+// Upright props fade only while their visible art covers the player's body
+// and their shared world depth places them in front. Read the boot-time art
+// bounds, never texture pixels; untrimmed procedural art uses its frame box.
+Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha) {
+  let obscures = false;
+  if (box && s.visible !== false && !appearance.ground && s.depth > playerDepth) {
+    const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
+    const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
+    const fw = art?.fw ?? s.frame?.realWidth ?? s.frame?.width ?? s.width;
+    const fh = art?.fh ?? s.frame?.realHeight ?? s.frame?.height ?? s.height;
+    const x0 = s.x + ((art?.minX ?? 0) - s.originX * fw) * s.scaleX;
+    const x1 = s.x + ((art?.maxX ?? fw) - s.originX * fw) * s.scaleX;
+    const y0 = s.y + ((art?.minY ?? 0) - s.originY * fh) * s.scaleY;
+    const y1 = s.y + ((art?.maxY ?? fh) - s.originY * fh) * s.scaleY;
+    obscures = x0 < box.x1 && x1 > box.x0 && y0 < box.y1 && y1 > box.y0;
+  }
+  const alpha = baseAlpha * (obscures ? 0.5 : 1);
+  if (s.alpha !== alpha) s.setAlpha(alpha);
+};
 
 // QC labels read the generated selections, never choose another variant.
 // Buffered copies share an identity; prefer a zone's owned POI and the
@@ -3599,14 +3619,14 @@ const CRITTER_SHADOW_W = {
 };
 
 // Cull before building sprite, label, shadow and effect lists. Any cover
-// (Visibility.hidden) removes what stands behind it; the sole lighting pass
-// darkens the ground there.
-Render.coverHidden = function coverHidden(scene, o) {
-  return typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y);
+// removes an actor behind it; scenery (`scenery` true) goes only behind full
+// cover (Visibility.hidden). The sole lighting pass darkens the shadow.
+Render.coverHidden = function coverHidden(scene, o, scenery = false) {
+  return typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, scenery);
 };
-Render.cullCovered = function cullCovered(scene, list, field) {
+Render.cullCovered = function cullCovered(scene, list, field, scenery = false) {
   let n = 0;
-  for (const item of list) if (!Render.coverHidden(scene, item[field])) list[n++] = item;
+  for (const item of list) if (!Render.coverHidden(scene, item[field], scenery)) list[n++] = item;
   list.length = n;
 };
 
@@ -3729,7 +3749,7 @@ Render.drawObjects = function drawObjects(scene) {
   // offersPreCullLight (module level), the same predicate the per-tile list
   // is derived by.
   const offerPreCullLights = (o, dx, dy) => {
-    if (Render.coverHidden(scene, o)) return;
+    if (Render.coverHidden(scene, o, true)) return;
     // A restored building (or Home) is a LIGHT as well as a sprite, and
     // its light reaches further than its art: offered to the lightmap
     // before the sprite cull, with its own radius as the margin, so a
@@ -3779,7 +3799,7 @@ Render.drawObjects = function drawObjects(scene) {
       WorldGen.forEachItemInBox(entry, 'objects', sx0, sy0, sx1, sy1, (o) => {
         _boot_scanned++;
         if (o.kind === 'pressure_plate') return; // PressureTraps owns its ground sprite.
-        if (Render.coverHidden(scene, o)) return;
+        if (Render.coverHidden(scene, o, true)) return;
         if (HiddenObjects.isHidden(scene.save, o)
             || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) return;
         const dx = o.x - pWorldX, dy = o.y - pWorldY;
@@ -3841,7 +3861,7 @@ Render.drawObjects = function drawObjects(scene) {
         // is not on the waterline today or was taken today — one predicate,
         // interactables.js isSpent, the tap asks the same.
         if (isSpent(wp, spentIds) || (!wp.tide && pickedSet.has(wp.id))) return;
-        if (Render.coverHidden(scene, wp)) return;
+        if (Render.coverHidden(scene, wp, true)) return;
         if (HiddenObjects.isHidden(scene.save, wp)
             || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, wp, hideNightRoadObjects))) return;
         const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
@@ -3999,14 +4019,14 @@ Render.drawObjects = function drawObjects(scene) {
   // Wooden barrels disappear through the ordinary spent-object filter.
   for (const o of HiddenObjects.saved(scene)) {
     const dx = o.x - pWorldX, dy = o.y - pWorldY;
-    if (!inViewBox(dx, dy, halfM) || Render.coverHidden(scene, o)) continue;
+    if (!inViewBox(dx, dy, halfM) || Render.coverHidden(scene, o, true)) continue;
     if (HiddenObjects.isHidden(scene.save, o)
         || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) continue;
     objList.push({o, dx, dy});
   }
-  Render.cullCovered(scene, objList, 'o');
-  Render.cullCovered(scene, plantedList, 'p');
-  Render.cullCovered(scene, trapList, 'tr');
+  Render.cullCovered(scene, objList, 'o', true);
+  Render.cullCovered(scene, plantedList, 'p', true);
+  Render.cullCovered(scene, trapList, 'tr', true);
   const filteredObj = objList.filter(({ o }) => {
     const spent = isSpent(o, spentIds);
     if (o.kind === 'chest' && isBarrel(o) && chestLook(o).smashedKey) { o._smashed = spent; return true; }
@@ -4018,7 +4038,7 @@ Render.drawObjects = function drawObjects(scene) {
   for (const sc of scarecrowList) filteredObj.push(sc);
   for (const fr of fireList) filteredObj.push(fr);
   for (const L of lampList) filteredObj.push(L);
-  Render.cullCovered(scene, filteredObj, 'o');
+  Render.cullCovered(scene, filteredObj, 'o', true);
   filteredObj.sort((a, b) => a.dy - b.dy);
   const hazardState = EnvironmentHazards.lists(scene);
   const openCaveins = hazardState.caveins.filter(h => h.phase === 'open' && !h.blocked
@@ -4070,8 +4090,8 @@ Render.drawObjects = function drawObjects(scene) {
     })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
   const zList = [];
   Render.cullCovered(scene, whirlwindList, 'h');
-  Render.cullCovered(scene, environmentList, 'h');
-  Render.cullCovered(scene, pressureList, 'h');
+  Render.cullCovered(scene, environmentList, 'h', true);
+  Render.cullCovered(scene, pressureList, 'h', true);
   for (const it of pressureList) zList.push({ it, rank: 2, ground: it.plate || it.h.kind === 'gas', groundY: groundY(it) });
   for (const it of environmentList) zList.push({ it, rank: 1,
     ground: it.h.type !== 'vent', groundY: groundY(it) });
@@ -4171,11 +4191,10 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
   // Turrets keep a separate reusable pool inside the shared world layer.
-  // Tree/rock alpha is the only saved-state style on a cacheable row. Fold the
-  // two tool tiers once per frame; a gear change invalidates every affected
-  // slot without a per-object key or map lookup.
-  const relics = scene.save.relics || {};
-  const objectStyleRevision = ((relics.axe?.tier || 0) << 4) | (relics.pickaxe?.tier || 0);
+  const bodyBox = playerScreenBox(scene);
+  const playerDepth = scene.playerWorldContainer?.depth ?? Infinity;
+  const fadeObject = (s, appearance) => Render.fadeObjectOverPlayer(s, appearance,
+    bodyBox, playerDepth, s._objectBaseAlpha ?? 1);
   const configureObject = (s, item) => {
     const { o, dx, dy } = item;
     const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
@@ -4199,22 +4218,22 @@ Render.drawObjects = function drawObjects(scene) {
      .setPosition(Math.round(sx) + dxPx, Math.round(sy) + dyPx)
      .setTint(tint);
     // Per-kind post-config hook — runs AFTER the pool's identity reset and
-    // the tint, so hooks can override (such as the tool-gate fade on trees /
-    // rocks).
-    // Handed the scene so a hook can read the save (tool tiers).
+    // the tint, so hooks can override the ordinary appearance.
     if (typeof spec.after === 'function') spec.after(s, o, scene);
     Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, o, performance.now()),
       Math.round(sx), Math.round(sy) + (appearance.foot?.footFromCentre ?? dyPx));
     s._staticObject = o;
     s._staticAppearance = appearance;
-    s._staticStyleRevision = objectStyleRevision;
+    s._objectBaseAlpha = s.alpha;
+    fadeObject(s, appearance);
     s._staticHadWork = !!scene._workProgress;
   };
   const reuseStaticObject = (s, item) => {
     if (!scene._boot_still || !item._appearanceStable || scene._workProgress || s._staticHadWork
-        || s._staticObject !== item.o || s._staticAppearance !== item._appearance
-        || s._staticStyleRevision !== objectStyleRevision) return false;
+        || s._staticObject !== item.o || s._staticAppearance !== item._appearance) return false;
     setWorldDepth(s, item._z ?? 0);
+    // Body animation/height can change while cached scenery stands still.
+    fadeObject(s, item._appearance);
     return true;
   };
   const towerList = filteredObj.filter(({ o }) => o.kind === 'tower');
@@ -4239,6 +4258,7 @@ Render.drawObjects = function drawObjects(scene) {
      .setScale(item.scale)
      .setPosition(item.x, item.y);
     setWorldDepth(s, item.depth);
+    s.setAlpha(item.treeSprite.alpha);
   });
   // Every unrestored turret flies the square skull flag. Restoring the
   // castle replaces them with the player's existing single flagPost banner.
@@ -5241,7 +5261,7 @@ Render.drawObjects = function drawObjects(scene) {
         const dx = m.x - pWorldX, dy = m.y - pWorldY;
         // View box first: a cover ray per off-screen spot of the ring cost
         // most of a walking frame (rays are re-traced whenever the body moves).
-        if (inViewBox(dx, dy, halfM) && !Render.coverHidden(scene, m)) sparkList.push({ dx, dy, id: f.id });
+        if (inViewBox(dx, dy, halfM) && !Render.coverHidden(scene, m, true)) sparkList.push({ dx, dy, id: f.id });
       }
     });
   }
@@ -5565,9 +5585,6 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
               after: (s, o, scene) => {
                 if (o.crown_color) s.setTint(_crownTint(o.crown_color));
-                // Out of reach of the current axe → half alpha (interactables.js
-                // toolGatedAlpha reads the same gate the tap refuses on).
-                s.setAlpha(toolGatedAlpha(o, scene.save));
               } },
     // Which look (trunk / crate / barrel / bike rack / produce stand / macro
     // stall / wagon) this object wears is loot.js's `chestLook`, the
@@ -5660,7 +5677,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
                 // Ripe fruit waiting to be drawn ON its tree — the fruit pass
                 // drains the pass's list after the object pool has rendered.
                 _pass.fruitList.push({
-                  key: src.sheet, frame: src.frame ?? 0,
+                  key: src.sheet, frame: src.frame ?? 0, treeSprite: s,
                   x: s.x + off.dxPx, y: s.y + off.dyPx,
                   // The fruit is drawn at the TREE's scale (scaleX, not scaleY: the tree's
                   // 1.10 Y stretch is a tree thing; a stretched apple is an egg).
@@ -5674,10 +5691,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     mineralrock: { key: mineralRockArtKey, frame: mineralRockArtFrame,
               origin: [0.5, 0.5],
               scale: mineralRockArtScale,
-              seat: true, shadow: true,
-              // Ore the current pick can't mine → half alpha; plain rock is
-              // ungated and always full (interactables.js toolGatedAlpha).
-              after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },
+              seat: true, shadow: true },
     // STREET VARIANT PROPS (src/street_variants.js). Ordinary 16px props draw
     // at 1.6; approved 24px ground spikes draw at 4/3. All seat in one cell. The waystone stands
     // (a tap reads a page of the Book — INTERACTABLES.waystone); the tar pit

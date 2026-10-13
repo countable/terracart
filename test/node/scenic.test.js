@@ -482,8 +482,8 @@ test('scenic: a scope is a rest spot on the fire\'s own ring and a light on it �
 // ── Beaches ─────────────────────────────────────────────────────────────
 test('scenic: the beach\'s X count follows the shoreline, capped; inland sand keeps its own stream', () => {
   assert.eq(S.beachXCount(0), 0);
-  assert.eq(S.beachXCount(S.BEACH_X_SHORE_M * 5 + 1), Math.round(5 * X_MARK_FREQUENCY), 'one per BEACH_X_SHORE_M, at the shared density');
-  assert.eq(S.beachXCount(1e6), Math.round(S.BEACH_X_MAX * X_MARK_FREQUENCY), 'capped');
+  assert.eq(S.beachXCount(S.BEACH_X_SHORE_M * 5 + 1), Math.round(5 * X_MARK_FREQUENCY * 0.7), 'one per BEACH_X_SHORE_M, at the shared density');
+  assert.eq(S.beachXCount(1e6), Math.round(S.BEACH_X_MAX * X_MARK_FREQUENCY * 0.7), 'capped');
   assert.eq(S.tideCount(S.TIDE_PER_M * 3), 3);
   assert.eq(S.tideCount(1e6), S.TIDE_MAX);
   // The shipping block (__bonusXMarks): a long beach strip, all of it shore.
@@ -501,11 +501,27 @@ test('scenic: the beach\'s X count follows the shoreline, capped; inland sand ke
   __bonusXMarks.call({ tileEdgeM: NB * CM, cellM: CM }, entry, 3, 4, NB, rng, {});
   const sand = entry.extraTreasures.filter((x) => /^treasure_sand_/.test(x.id));
   assert.eq(sand.length, S.beachXCount(shoreM), `a ${shoreM} m shore lays ${S.beachXCount(shoreM)} marks — past the old flat cap of 8`);
+  for (let i = 0; i < sand.length; i++) for (let j = i + 1; j < sand.length; j++)
+    assert.gte(Math.hypot(sand[i].x - sand[j].x, sand[i].y - sand[j].y),
+      S.BEACH_X_SPACING_CELLS * CM, 'beach finds have breathing room');
   // Deterministic: the beach's own stream, the same marks again.
   const again = { ...entry, extraTreasures: [] };
   __bonusXMarks.call({ tileEdgeM: NB * CM, cellM: CM }, again, 3, 4, NB, () => 0.1, {});
   assert.eq(again.extraTreasures.filter((x) => /^treasure_sand_/.test(x.id)).map((x) => x.id).join(),
     sand.map((x) => x.id).join(), 'the tile\'s shared stream does not move them');
+});
+
+
+test('scenic: beach X spacing respects earlier finds and stops when sand is crowded', () => {
+  const cells = Array.from({ length: 100 }, (_, i) => i);
+  const pick = () => S.beachXCells(cells, 10, 25, WorldGen.makeRng(123), [44]);
+  const selected = pick();
+  assert.eq(selected.join(), pick().join(), 'same seed, same spread');
+  assert.lt(selected.length, 25, 'spacing wins over filling a cramped quota');
+  assert.gt(selected.length, 4, 'uses available sand');
+  for (const cell of selected) for (const other of [44, ...selected.filter(c => c !== cell)])
+    assert.gte(Math.hypot(cell % 10 - other % 10, Math.floor(cell / 10) - Math.floor(other / 10)), 3);
+  assert.eq(S.beachXCells([], 10, 5, () => 0).length, 0);
 });
 
 test('scenic: the tide line is the same for everyone on a UTC day, new the next, and taken into the day ledger', () => {

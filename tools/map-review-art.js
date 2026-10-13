@@ -1,6 +1,13 @@
 // Static game art on Leaflet: shipping textures and object appearance, with no
 // player/save, fog, lighting or animation loop. Only the viewport is painted.
 const MapReviewArt = (() => {
+  const PIRATE_SAND = { colour: '#c98f73', wash: 'rgba(184,86,48,.28)' };
+  // Use the cell's actual coverage winner, not the anchor's circular influence.
+  function pirateSand(e, i) {
+    const zone = e.zone, slot = zone?.coverage?.[i];
+    return e.grid[i] === WorldGen.T.SAND && slot && zone.anchors[slot - 1]?.variant === 'pirate_cove'
+      ? PIRATE_SAND : null;
+  }
   function textureStore() {
     const entries = new Map();
     const store = {
@@ -270,7 +277,8 @@ const MapReviewArt = (() => {
           const spec=BIOME_TEX[type],h=((e.tx*N+x)*2246822519)^((e.ty*N+y)*3266489917);
           g.fillStyle='#'+(zoneGroundColor(e,x,y,type)??COLORS[type]??0x71845b).toString(16).padStart(6,'0');g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
           if(spec&&dx>=4)g.drawImage(textures.get(`biome${type}_${Math.abs(h)%spec.variants}`).getSourceImage(),a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
-
+          const sand=pirateSand(e,y*N+x);
+          if(sand){g.fillStyle=sand.wash;g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);}
         }
         // Follow the source road centreline, using the game's physical widths.
         g.lineCap='round';g.lineJoin='round';
@@ -433,5 +441,5 @@ const MapReviewArt = (() => {
       return this;
     },
   });
-  return {layer:options=>new Layer(options)};
+  return {layer:options=>new Layer(options),pirateSand};
 })();
