@@ -1981,7 +1981,7 @@ Render.drawSpiderWebs = function drawSpiderWebs(scene) {
   for (const web of webs) {
     const at = worldMetersToScreen(scene, web.x, web.y);
     if (at.x + half < left || at.y + half < top || at.x - half > right || at.y - half > bottom) continue;
-    if (Render.coverHidden(scene, web)) continue;
+    if (Render.coverHidden(scene, web, true)) continue;
     if (!scene._spiderWebGfx) {
       scene._spiderWebGfx = scene.add.graphics();
       scene.cobbleContainer.add(scene._spiderWebGfx);
@@ -3174,7 +3174,7 @@ Render.drawCells = function drawCells(scene) {
     const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
     if (!inViewBox(dx, dy, halfM)) return;
     // After the view box: a cover ray is the costly test (re-traced per step).
-    if (Render.coverHidden(scene, tr)) return;
+    if (Render.coverHidden(scene, tr, true)) return;
     // Buried until the feet stand beside it (HiddenObjects.tick).
     if (HiddenObjects.treasureHidden(scene.save, tr)) return;
     if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, tr, hideNightRoadTreasure)) return;
@@ -3610,14 +3610,14 @@ const CRITTER_SHADOW_W = {
 };
 
 // Cull before building sprite, label, shadow and effect lists. Any cover
-// (Visibility.hidden) removes what stands behind it; the sole lighting pass
-// darkens the ground there.
-Render.coverHidden = function coverHidden(scene, o) {
-  return typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y);
+// removes an actor behind it; scenery (`scenery` true) goes only behind full
+// cover (Visibility.hidden). The sole lighting pass darkens the shadow.
+Render.coverHidden = function coverHidden(scene, o, scenery = false) {
+  return typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, scenery);
 };
-Render.cullCovered = function cullCovered(scene, list, field) {
+Render.cullCovered = function cullCovered(scene, list, field, scenery = false) {
   let n = 0;
-  for (const item of list) if (!Render.coverHidden(scene, item[field])) list[n++] = item;
+  for (const item of list) if (!Render.coverHidden(scene, item[field], scenery)) list[n++] = item;
   list.length = n;
 };
 
@@ -3740,7 +3740,7 @@ Render.drawObjects = function drawObjects(scene) {
   // offersPreCullLight (module level), the same predicate the per-tile list
   // is derived by.
   const offerPreCullLights = (o, dx, dy) => {
-    if (Render.coverHidden(scene, o)) return;
+    if (Render.coverHidden(scene, o, true)) return;
     // A restored building (or Home) is a LIGHT as well as a sprite, and
     // its light reaches further than its art: offered to the lightmap
     // before the sprite cull, with its own radius as the margin, so a
@@ -3790,7 +3790,7 @@ Render.drawObjects = function drawObjects(scene) {
       WorldGen.forEachItemInBox(entry, 'objects', sx0, sy0, sx1, sy1, (o) => {
         _boot_scanned++;
         if (o.kind === 'pressure_plate') return; // PressureTraps owns its ground sprite.
-        if (Render.coverHidden(scene, o)) return;
+        if (Render.coverHidden(scene, o, true)) return;
         if (HiddenObjects.isHidden(scene.save, o)
             || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) return;
         const dx = o.x - pWorldX, dy = o.y - pWorldY;
@@ -3852,7 +3852,7 @@ Render.drawObjects = function drawObjects(scene) {
         // is not on the waterline today or was taken today — one predicate,
         // interactables.js isSpent, the tap asks the same.
         if (isSpent(wp, spentIds) || (!wp.tide && pickedSet.has(wp.id))) return;
-        if (Render.coverHidden(scene, wp)) return;
+        if (Render.coverHidden(scene, wp, true)) return;
         if (HiddenObjects.isHidden(scene.save, wp)
             || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, wp, hideNightRoadObjects))) return;
         const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
@@ -4010,14 +4010,14 @@ Render.drawObjects = function drawObjects(scene) {
   // Wooden barrels disappear through the ordinary spent-object filter.
   for (const o of HiddenObjects.saved(scene)) {
     const dx = o.x - pWorldX, dy = o.y - pWorldY;
-    if (!inViewBox(dx, dy, halfM) || Render.coverHidden(scene, o)) continue;
+    if (!inViewBox(dx, dy, halfM) || Render.coverHidden(scene, o, true)) continue;
     if (HiddenObjects.isHidden(scene.save, o)
         || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) continue;
     objList.push({o, dx, dy});
   }
-  Render.cullCovered(scene, objList, 'o');
-  Render.cullCovered(scene, plantedList, 'p');
-  Render.cullCovered(scene, trapList, 'tr');
+  Render.cullCovered(scene, objList, 'o', true);
+  Render.cullCovered(scene, plantedList, 'p', true);
+  Render.cullCovered(scene, trapList, 'tr', true);
   const filteredObj = objList.filter(({ o }) => {
     const spent = isSpent(o, spentIds);
     if (o.kind === 'chest' && isBarrel(o) && chestLook(o).smashedKey) { o._smashed = spent; return true; }
@@ -4029,7 +4029,7 @@ Render.drawObjects = function drawObjects(scene) {
   for (const sc of scarecrowList) filteredObj.push(sc);
   for (const fr of fireList) filteredObj.push(fr);
   for (const L of lampList) filteredObj.push(L);
-  Render.cullCovered(scene, filteredObj, 'o');
+  Render.cullCovered(scene, filteredObj, 'o', true);
   filteredObj.sort((a, b) => a.dy - b.dy);
   const hazardState = EnvironmentHazards.lists(scene);
   const openCaveins = hazardState.caveins.filter(h => h.phase === 'open' && !h.blocked
@@ -4081,8 +4081,8 @@ Render.drawObjects = function drawObjects(scene) {
     })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
   const zList = [];
   Render.cullCovered(scene, whirlwindList, 'h');
-  Render.cullCovered(scene, environmentList, 'h');
-  Render.cullCovered(scene, pressureList, 'h');
+  Render.cullCovered(scene, environmentList, 'h', true);
+  Render.cullCovered(scene, pressureList, 'h', true);
   for (const it of pressureList) zList.push({ it, rank: 2, ground: it.plate || it.h.kind === 'gas', groundY: groundY(it) });
   for (const it of environmentList) zList.push({ it, rank: 1,
     ground: it.h.type !== 'vent', groundY: groundY(it) });
@@ -5252,7 +5252,7 @@ Render.drawObjects = function drawObjects(scene) {
         const dx = m.x - pWorldX, dy = m.y - pWorldY;
         // View box first: a cover ray per off-screen spot of the ring cost
         // most of a walking frame (rays are re-traced whenever the body moves).
-        if (inViewBox(dx, dy, halfM) && !Render.coverHidden(scene, m)) sparkList.push({ dx, dy, id: f.id });
+        if (inViewBox(dx, dy, halfM) && !Render.coverHidden(scene, m, true)) sparkList.push({ dx, dy, id: f.id });
       }
     });
   }
