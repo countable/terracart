@@ -2890,6 +2890,26 @@
     idbPut(key, { bytes: buf, fetchedAt: Date.now() });
     return { bytes: buf, fromCache: false };
   }
+  // Byte-only lookahead: leave generation, retries and depth ownership to loadTile.
+  // The caller bounds and retains these promises until their serial build turn.
+  function prefetchTileBytes(x, y) {
+    const key = tileKey(x, y);
+    const failedAt = _tileFailedAt.get(key);
+    if (activeDepth !== 0 || cacheFor(0).has(key) ||
+        (failedAt && Date.now() - failedAt < TILE_RETRY_MS)) return null;
+    const end = ((typeof window !== 'undefined' && window.__boot) || null)?.begin(`tile ${key} prefetch`);
+    const promise = fetchTileBytes(x, y).then(result => {
+      end?.(result.fromCache ? 'from cache' : 'from network');
+      return result;
+    }, error => {
+      end?.(`failed: ${error.message}`);
+      throw error;
+    });
+    // A later tile can fail before its build turn. The build still receives the
+    // original rejection and applies the ordinary banner/backoff policy.
+    promise.catch(() => {});
+    return promise;
+  }
   // Test seam: forget the resolved template and its memo.
   function _resetTileUrlForTest() {
     _tileUrl = TILE_URL_FALLBACK;
@@ -6974,8 +6994,9 @@
     entry.promise = (async () => {
       const _bp = (typeof window !== 'undefined' && window.__boot) || null;
       const _endFetch = _bp && _bp.begin(`tile ${key} fetch`);
-      const { bytes, fromCache } = await fetchTileBytes(x, y);
-      if (_endFetch) _endFetch(fromCache ? 'from cache' : 'from network');
+      const { bytes, fromCache } = await (opts?.bytesPromise || fetchTileBytes(x, y));
+      if (_endFetch) _endFetch(opts?.bytesPromise ? 'prefetched bytes (remaining wait)' :
+        (fromCache ? 'from cache' : 'from network'));
       // Decode and rasterize in separate scheduled turns (see runHeavyPhase):
       // the two heaviest chunks of a tile build each get their own slice, and
       // the spawn/dedup post-passes below ride the rasterize turn.
@@ -9598,7 +9619,7 @@
     // tiles are actually fetched under right now; resolveTileUrl asks the
     // TileJSON.
     TILE_URL_FALLBACK, TILEJSON_URL, tileUrlTemplate, tileUrlFor, resolveTileUrl,
-    fetchTileBytes, _resetTileUrlForTest,
+    fetchTileBytes, prefetchTileBytes, _resetTileUrlForTest,
     // The step generator itself, so the block audit
     // (test/node/tile_build_blocks.test.js) can time the build one step at
     // a time — the only way to see the thing that actually stutters, which
