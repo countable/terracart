@@ -1,8 +1,8 @@
 (function () {
   const lift = (name, args = '') => SCENE_SRC.match(new RegExp('\\n  '+name+'\\('+args+'\\) \\{([\\s\\S]*?)\\n  \\}\\n'))[1];
-  const step = new Function('dt','capMS','WALK_M_S',lift('_confusedStep','dt, capMS'));
+  const step = new Function('dt','capMS','WALK_M_S','intent',lift('_confusedStep','dt, capMS, intent = null'));
   const hold = new Function('WALK_M_S','SLOW_BODY_M_S',lift('_bodyHold'));
-  function body() { return {save:{energy:100},playerM:{x:0,y:0},startWorldM:{x:0,y:0},
+  function body() { return {save:{energy:100,conditions:{confused:{remainingMs:20000}}},playerM:{x:0,y:0},startWorldM:{x:0,y:0},
     cellM:5,_targetM:{x:1000,y:1000},gpsM:{x:2000,y:2000},_cellBlocked:()=>false,_playDirected(){}}; }
   test('confused: ten gameplay seconds, refresh and cure use the shared condition lifecycle', () => {
     const save={energy:100};
@@ -29,6 +29,59 @@
       assert.lte(Math.hypot(slow.playerM.x,slow.playerM.y),.020001);
       const down=body();down.save.energy=0;step.call(down,1,null,2);assert.eq(down.playerM.x,0);
     } finally {Math.random=random;}
+  });
+  test('confused: remaining duration blends manual and GPS steering continuously into the compass', () => {
+    for (const ms of [0,5000,10000,19000,20000,30000]) {
+      for (const manual of [false,true]) {
+        const s=body();s.save.conditions.confused.remainingMs=ms;
+        s._targetM={x:0,y:-1000};
+        s._confusedLoop={angle:0,turn:1.2,left:3};
+        const intent=manual ? {x:0,y:-1} : null;
+        step.call(s,.05,null,2,intent);
+        const share=Math.min(1,ms/20000),angle=.06;
+        assert.inRange(s.playerM.x-.1*Math.cos(angle)*share,-1e-9,1e-9);
+        assert.inRange(s.playerM.y-.1*(-(1-share)+Math.sin(angle)*share),-1e-9,1e-9);
+        if (ms<20000) {
+          const opposite=body();opposite.save.conditions.confused.remainingMs=ms;
+          opposite._targetM={x:0,y:1000};opposite._confusedLoop={angle:0,turn:1.2,left:3};
+          step.call(opposite,.05,null,2,manual?{x:0,y:1}:null);
+          assert.gt(opposite.playerM.y,s.playerM.y,'controls retain influence below twenty seconds');
+        }
+      }
+    }
+  });
+  test('confused: countdown restores control gradually and strong durations survive normalization', () => {
+    const s=body();
+    Conditions.apply(s.save,'confused',0,{durationMs:30000});
+    Conditions.normalize(s.save);assert.eq(s.save.conditions.confused.remainingMs,30000);
+    Conditions.apply(s.save,'confused');assert.eq(s.save.conditions.confused.remainingMs,30000,'a weaker enemy puff cannot cure dense gas');
+    assert.eq(Conditions.confusionSteering(s.save),1);
+    Conditions.tick(s.save,11000);assert.eq(Conditions.confusionSteering(s.save),.95);
+    Conditions.tick(s.save,9000);assert.eq(Conditions.confusionSteering(s.save),.5);
+    Conditions.tick(s.save,5000);assert.eq(Conditions.confusionSteering(s.save),.25);
+    Conditions.tick(s.save,5000);assert.eq(Conditions.confusionSteering(s.save),0);
+  });
+  test('confused: frame routes keyboard, stick and GPS intent through partial takeover', () => {
+    const a=SCENE_SRC.indexOf('const bodyHold = this._bodyHold();');
+    const b=SCENE_SRC.indexOf('\n    // THE DRAIN ROLL-UP flushes here',a);
+    const move=new Function('stick','vx','vy','speedMul','dt',SCENE_SRC.slice(a,b));
+    for (const mode of ['keyboard','stick','gps']) {
+      for (const ms of [5000,19000,20000]) {
+        const s=body();s.save.conditions.confused.remainingMs=ms;
+        s._targetM=mode==='gps'?{x:0,y:-1000}:{x:0,y:1000};
+        s._confusedLoop={angle:0,turn:1.2,left:3};
+        s._bodyHold=()=>({pinned:false,capMS:null});s._tickWalkHazards=()=>{};
+        let manualSeconds=0,targetSeconds=0;
+        s._steerManual=(x,y,dt)=>{manualSeconds+=dt;};
+        s._steerTarget=(x,y,mul,dt)=>{targetSeconds+=dt;};s._driftHome=()=>{};
+        s._confusedStep=(dt,cap,intent)=>step.call(s,dt,cap,2,intent);
+        move.call(s,mode==='stick'?{x:0,y:-1}:null,0,mode==='keyboard'?-1:0,100,.05);
+        const share=ms/20000;
+        assert.inRange(s.playerM.y-.1*(-(1-share)+Math.sin(.06)*share),-1e-9,1e-9,mode);
+        assert.inRange(targetSeconds-.05*(1-share),-1e-9,1e-9,'target lead matches remaining control');
+        if(mode==='stick')assert.inRange(manualSeconds-.05*(1-share),-1e-9,1e-9,'stick stamina matches remaining control');
+      }
+    }
   });
   test('confused: compass rotates with the forced circular walk and restores the fallback', () => {
     const s=body();s.facing={x:0,y:-1};s.compassDeg=null;
@@ -102,10 +155,13 @@
     s._bodyHold=()=>({pinned:Conditions.active(s.save,'pinned'),capMS:null});
     s._tickWalkHazards=()=>{};s._confusedStep=()=>{loops++;};
     s._steerManual=s._steerTarget=s._followStep=s._driftHome=()=>{normal++;};
-    Conditions.apply(s.save,'confused');move.call(s,{x:1,y:0},1,0,1,.1);
-    assert.eq(loops,1);assert.eq(normal,0,'GPS, keyboard and stick cannot steer the confused body');
+    s.save.conditions.confused.remainingMs=10000;move.call(s,{x:1,y:0},1,0,1,.1);
+    assert.eq(loops,1);assert.eq(normal,2,'keyboard and stick retain their targets below twenty seconds');
+    Conditions.apply(s.save,'confused',0,{durationMs:20000});
+    move.call(s,{x:1,y:0},1,0,1,.1);
+    assert.eq(loops,2);assert.eq(normal,2,'full confusion stops manual target steering');
     Conditions.apply(s.save,'pinned');move.call(s,{x:1,y:0},1,0,1,.1);
-    assert.eq(loops,1,'pin stops forced walking too');
+    assert.eq(loops,2,'pin stops forced walking too');
     Conditions.clearDebuffs(s.save);move.call(s,{x:1,y:0},1,0,1,.1);
     assert.gt(normal,0,'normal steering returns after cure');
   });

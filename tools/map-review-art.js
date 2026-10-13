@@ -1,6 +1,13 @@
 // Static game art on Leaflet: shipping textures and object appearance, with no
 // player/save, fog, lighting or animation loop. Only the viewport is painted.
 const MapReviewArt = (() => {
+  const PIRATE_SAND = { colour: '#c98f73', wash: 'rgba(184,86,48,.28)' };
+  // Use the cell's actual coverage winner, not the anchor's circular influence.
+  function pirateSand(e, i) {
+    const zone = e.zone, slot = zone?.coverage?.[i];
+    return e.grid[i] === WorldGen.T.SAND && slot && zone.anchors[slot - 1]?.variant === 'pirate_cove'
+      ? PIRATE_SAND : null;
+  }
   function textureStore() {
     const entries = new Map();
     const store = {
@@ -226,6 +233,32 @@ const MapReviewArt = (() => {
       }
       this._roadGeometry.set(e,result);return result;
     },
+    _paintPathWebs(g,e,edge,size,project) {
+      const cellM=edge/e.cellsPerEdge;
+      const anchors=[[-1,-1],[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0]];
+      for(const web of e.spiderPathWebs||e.streetDress?.webs||[]) {
+        const at=project(web.x,web.y),side=Math.abs(project(web.x+cellM,web.y).x-at.x),half=side/2;
+        if(side<4||at.x+half<0||at.y+half<0||at.x-half>size.x||at.y-half>size.y)continue;
+        const radius=half-Math.max(.5,side/32);
+        g.fillStyle='rgba(224,232,239,.1)';g.fillRect(at.x-half,at.y-half,side,side);
+        g.lineWidth=Math.max(.5,side/32);g.strokeStyle='rgba(229,237,244,.8)';g.beginPath();
+        for(const [x,y] of anchors){g.moveTo(at.x,at.y);g.lineTo(at.x+x*radius,at.y+y*radius);}g.stroke();
+        g.strokeStyle='rgba(211,227,238,.65)';
+        for(const fraction of [.28,.56,.84,1]) {
+          g.beginPath();
+          anchors.forEach(([x,y],i)=>{
+            if(!i){g.moveTo(at.x+x*radius*fraction,at.y+y*radius*fraction);return;}
+            const prev=anchors[i-1];
+            g.lineTo(at.x+(prev[0]+x)*radius*fraction*.44,at.y+(prev[1]+y)*radius*fraction*.44);
+            g.lineTo(at.x+x*radius*fraction,at.y+y*radius*fraction);
+          });
+          g.lineTo(at.x+(anchors[7][0]+anchors[0][0])*radius*fraction*.44,
+            at.y+(anchors[7][1]+anchors[0][1])*radius*fraction*.44);
+          g.closePath();g.stroke();
+        }
+        g.fillStyle='rgba(246,248,255,.85)';g.beginPath();g.arc(at.x,at.y,Math.max(.6,side/32*1.5),0,Math.PI*2);g.fill();
+      }
+    },
     _paintGround(g,size,project) {
       const edge=this.options.getEdge(),textures=this._assets.textures;
       for(const e of this._world.tiles) {
@@ -244,7 +277,8 @@ const MapReviewArt = (() => {
           const spec=BIOME_TEX[type],h=((e.tx*N+x)*2246822519)^((e.ty*N+y)*3266489917);
           g.fillStyle='#'+(zoneGroundColor(e,x,y,type)??COLORS[type]??0x71845b).toString(16).padStart(6,'0');g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
           if(spec&&dx>=4)g.drawImage(textures.get(`biome${type}_${Math.abs(h)%spec.variants}`).getSourceImage(),a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
-
+          const sand=pirateSand(e,y*N+x);
+          if(sand){g.fillStyle=sand.wash;g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);}
         }
         // Follow the source road centreline, using the game's physical widths.
         g.lineCap='round';g.lineJoin='round';
@@ -271,6 +305,7 @@ const MapReviewArt = (() => {
           road.points.forEach((p,i)=>g[i?'lineTo':'moveTo'](a.x+p.x/edge*(b.x-a.x),a.y+p.y/edge*(b.y-a.y)));
           g.stroke();
         }
+        this._paintPathWebs(g,e,edge,size,project);
       }
     },
     _groundChunks(size,project,dpr) {
@@ -406,5 +441,5 @@ const MapReviewArt = (() => {
       return this;
     },
   });
-  return {layer:options=>new Layer(options)};
+  return {layer:options=>new Layer(options),pirateSand};
 })();

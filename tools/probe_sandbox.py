@@ -27,6 +27,15 @@ async def probe(args):
         await page.goto(args.url, wait_until='domcontentloaded')
         await page.wait_for_function("window.__game?.scene.getScene('map')?._sandboxLabelData?.length", timeout=60000)
         await page.wait_for_timeout(3000)
+        await page.evaluate("()=>__game.scene.getScene('map').scene.pause()")
+        # Isolate combat from unrelated startup story queues. A paused scene
+        # cannot clear its previous frame's dialog shield by itself.
+        await page.evaluate("""() => {
+          const s=__game.scene.getScene('map');
+          document.querySelectorAll('[id$="-modal"]').forEach(e=>e.remove());
+          s._syncModalGate();Conditions.setDialogShield(s.save,false);
+          s.drawCells();s.drawObjects();
+        }""")
         seeded = await page.evaluate("""() => {
           const s=__game.scene.getScene('map');
           const plants=[...WorldGen.tileCache.values()].flatMap(e=>e.creatures||[])
@@ -47,10 +56,9 @@ async def probe(args):
             results.push({id,ok,spent:before-stack.count,shot:s._shots.at(-1)?.potionId});
           }
           s._shots=[];
-          for (const [id,method] of [['fireball_scroll','useFireballScroll'],
-              ['fear_scroll','useFearScroll'],['treasure_map','useTreasureMap']]) {
+          for (const id of ['fireball_scroll','fear_scroll','treasure_map']) {
             s.save.selSlot=s.save.inv.findIndex(i=>i.id===id);
-            results.push({id,ok:s[method]()});
+            results.push({id,ok:s._useConsumable(id)});
           }
           s.scene.resume(); return results;
         }""")
@@ -77,15 +85,14 @@ async def probe(args):
         assert impacts[1]['consumed'] and not impacts[1]['speedActive'] and impacts[1]['cooldown'] == 0, impacts
         await page.wait_for_timeout(2500)
         await page.screenshot(path=str(args.output/'fireball.png'))
-        # Story arrivals hide the inventory while their message is open.
-        await page.evaluate("__game.scene.getScene('map').scene.pause()")
-        for _ in range(15):
-            modal = page.locator('#message-modal')
-            if not await modal.count():
-                break
-            await modal.get_by_role('button', name='OK', exact=True).click()
-            await page.wait_for_timeout(150)
+        # Preserve visible map/HUD evidence after the isolated spell actions.
+        await page.evaluate("""() => {
+          const s=__game.scene.getScene('map');s.scene.pause();
+          document.querySelectorAll('[id$="-modal"]').forEach(e=>e.remove());
+          s._syncModalGate();Conditions.setDialogShield(s.save,false);
+        }""")
         await page.set_viewport_size({'width': 390, 'height': 844})
+        await page.evaluate("()=>{const s=__game.scene.getScene('map');s.drawCells();s.drawObjects();}")
         await page.locator('#inv-tabs button[data-cat="magic"]').click()
         await page.wait_for_timeout(500)
         await page.screenshot(path=str(args.output/'mobile-magic.png'))

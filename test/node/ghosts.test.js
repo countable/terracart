@@ -496,7 +496,8 @@ test('brightnessAt: the player\'s plateau, its ramp, then nothing', () => {
     const s = ghostScene([]);
     const prof = Lighting.profile(s, 0);
     const feet = Lighting.brightnessAt(s, P.x, P.y);
-    assert.inRange(feet, prof.lit * 0.99, prof.lit * 1.01, 'at the feet: the plateau\'s full level');
+    const expected = prof.edge + (prof.lit - prof.edge) * 0.5;
+    assert.inRange(feet, expected * 0.99, expected * 1.01, 'at the feet: radial glow plus half the reach contribution');
     const rim = Lighting.brightnessAt(s, P.x + 2 * CELL, P.y);
     assert.lt(rim, feet, 'the plateau eases toward its rim');
     assert.gt(rim, prof.edge, 'but is still over the ramp');

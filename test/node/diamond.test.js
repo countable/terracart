@@ -24,7 +24,7 @@ test('diamond: is the T7 mineral at the top of the gem ladder, with a price and 
   const it = ITEM_BY_ID.diamond;
   assert.truthy(it, 'diamond is registered');
   assert.eq(it.name, 'Diamond', 'display name');
-  assert.eq(it.kind, 'mineral', 'kind — the rarity class the rocks and chests draw from');
+  assert.eq(it.kind, 'ores', 'kind — the rarity class the rocks and chests draw from');
   assert.eq(it.baseTier, 7, 'baseTier — Frost');
   assert.eq(BASE_TIER.diamond, 7, 'BASE_TIER row');
   assert.eq(BASE_TIER.sapphire, 4, 'the ladder below it: sapphire 4');
@@ -85,7 +85,7 @@ test('diamond: the T7 mineralrock lists the diamond FIRST — it is the Frost ro
   const gems = t7[1].split(',').map(s => s.trim().replace(/^'|'$/g, '')).filter(Boolean);
   assert.eq(gems[0], 'diamond', 'diamond is the primary (first) entry');
   assert.truthy(gems.includes('emerald'), 'the emerald stays as its secondary');
-  for (const g of gems) assert.truthy(ITEM_BY_ID[g] && ITEM_BY_ID[g].kind === 'mineral', `${g} is a real mineral`);
+  for (const g of gems) assert.truthy(ITEM_BY_ID[g] && ITEM_BY_ID[g].kind === 'ores', `${g} is a real mineral`);
   // The rungs below are untouched — one gem each, in ladder order.
   assert.truthy(/4:\s*\['sapphire'\]/.test(table), 'T4 → sapphire');
   assert.truthy(/5:\s*\['ruby'\]/.test(table), 'T5 → ruby');
@@ -154,7 +154,7 @@ test('diamond: the rarity picker can hand one out of a mineral-heavy cave chest'
     if (r && r.kind === 'item' && r.id === 'diamond') {
       seen++;
       assert.eq(r.tier, 7, 'rolled as a T7 item');
-      assert.eq(r.cls, 'mineral', 'from the mineral class');
+      assert.eq(r.cls, 'ores', 'from the mineral class');
       assert.truthy(r.qty >= 1, 'at least one');
     }
   }

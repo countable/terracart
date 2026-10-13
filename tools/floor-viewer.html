@@ -426,7 +426,8 @@
     labelLayer.hidden = !showLabels;
     if (showLabels) {
       const areas = [...(entry.caveAreas?.areas || []), ...(entry.undergroundClearings || [])]
-        .map(area => ({ text: area.name || area.kind.replace(/_/g, ' '),
+        .map(area => ({ text: area.name || UndergroundStories.KINDS[area.kind]?.title
+            || area.kind.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
           x: area.x / R.EDGE * R.N, y: area.y / R.EDGE * R.N }))
         .filter(label => label.x >= 0 && label.y >= 0 && label.x < R.WIDTH && label.y < R.HEIGHT);
       // Floors without authored areas still identify the surface geography

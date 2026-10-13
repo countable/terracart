@@ -36,7 +36,7 @@
     const gfx = { fillStyle(c, a) { fills.push([c, a]); return this; }, fillRect(x, y, w, h) { rects.push({ x, y, w, h }); return this; } };
     const text = (w, h) => ({ width: w, height: h, setColor() {}, setShadow() {}, setPosition(x, y) { this.x = x; this.y = y; return this; }, setAlpha(a) { this.alpha = a; return this; } });
     const P = Render.SHOP_PLATE;
-    assert.eq(Render.shopSignGlyph(null, 'blacksmith'), INV_CAT_BY_KEY.armor.px, 'a smithy shows the armour symbol');
+    assert.eq(Render.shopSignGlyph(null, 'blacksmith'), INV_CAT_BY_KEY.armour.px, 'a smithy shows the armour symbol');
     assert.eq(Render.shopSignGlyph(null, 'trader'), null, 'a trader has none');
     const item = { badge, glyph: Render.shopSignGlyph('potion'), name: text(60, 13) };
     const box = Render.drawShopPlate(gfx, item, { x: 200, y: 100 }, null, 400);

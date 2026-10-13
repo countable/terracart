@@ -145,14 +145,14 @@ function previewPath(row) {
   const scenicDress = SC.dress({ scenic, tx, ty, N, tileEdgeM, grid: tile.grid, chests: [], spawnOpts });
   const streetDress = SV.dress({ index: tile.streetIndex, tx, ty, N, tileEdgeM, grid: tile.grid, spawnOpts });
   const objects = [scenicDress, streetDress].flatMap(dress => [...dress.objects, ...dress.wildplants,
-    ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))]).map(local);
+    ...(dress.coins || []), ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))]).map(local);
   const lamps = ctx.RoadOverlay.lampSitesForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   if (!lamps.length || lamps.some(lamp => lamp.glow !== row.lampGlow)) throw new Error(`Wrong path lamps for ${row.id}`);
   return { ...row, ...groundPreview(tile), sampleName: name, roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
     carpetStrokes: carpetPreview(row, WG.roadOverlayWidthM(tags)),
     lampSpacingM: SV.lampSpacingFor(row.id, ctx.Streets.lampLayFor(tags).spacingM), objects,
-    lamps, lairs: streetDress.lairs.map(o => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly })),
+    lamps, webs: (streetDress.webs || []).map(local), lairs: streetDress.lairs.map(o => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly })),
     slowKinds: [...new Set(objects.filter(o => SV.isSlowKind(o.kind)).map(o => o.kind))], geography, scenicKind: kind,
     selection: !kind ? row.selection : kind === 'shore' ? 'Off-road walking path beside qualifying shore water.' :
       kind === 'greenway' ? 'Off-road walking path with a greenway name or route.' : 'Off-road walking path inside a named or sufficiently large park.',
@@ -168,6 +168,10 @@ const affinityContexts = Object.fromEntries(['neutral', 'cultivated', 'woodland'
   [trait, Object.fromEntries(['minor', 'major'].map(size =>
     [size, SV.selectionWeights('Preview', size, trait === 'neutral' ? {} : {[trait]: 1})]))]));
 const rules = {
+  slime_trail: `Glossy slime paving. One seeded species per section, chosen from green, purple, fire or splitting slimes. Two guards at each eligible post every ${SV.VARIANT_BY_ID.slime_trail.enemyStepM} m; short sections use a midpoint post. No daily reset.`,
+  spider_path: `Permanent seeded webs on ${SV.VARIANT_BY_ID.spider_path.webDensity * 100}% of eligible cell-spaced samples, with scattered lateral offsets. Webs cause six seconds of paralysis on entry; flying actors are immune. One two-spider garrison per section, where safe ground permits.`,
+  golden_path: 'An activation shrine at each safe end shares one daily activation. Coins appear directly on the path centerline, so either direction works without backtracking or a second payout.',
+
   hedgerow: `Two straight rows of cut hedges, one per ${cellM} m cell, with aligned gate gaps every ${SV.HEDGE_GATE_EVERY_CELLS} cells. Blocked slots stay empty. One encounter anchor holds two ordinary slimes where safe ground permits.`,
   thorny: `Irregular bramble clusters at ${SV.THORNY_CLUSTER_DENSITY * 100}% density cross the road and reach up to ${SV.THORNY_VERGE_MAX_CELLS} cells beyond either edge, stopping at the first obstruction. Selected streets enclose a moss cairn in brambles when the whole ring fits. Brambles burn and cost 1 energy per second while crossed.`,
   overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,

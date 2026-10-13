@@ -254,15 +254,16 @@
       W.setDepth(0).set(key, f.surface);
       try {
         const entry = await W.loadTile.atDepth(depth, f.tx, f.ty, 49), p = entry.caveAreas;
-        assert.eq(p.areas.length, 1);
-        assert.eq(p.areas[0].kind, 'dungeon_maze');
+        const areas = p.areas.filter(a => !a.city);
+        assert.eq(areas.length, 1);
+        assert.eq(areas[0].kind, 'dungeon_maze');
         assert.gt([...p.terrain].filter(([, terrain]) => terrain === T.CAVE_WALL).length, 0);
         for (const [i, terrain] of p.terrain) assert.eq(entry.grid[i], terrain, 'later generation preserves authored terrain');
         for (const i of p.reserved) {
           assert.truthy(entry.undergroundReserved.has(i));
           assert.eq(W.variantOwnerAt(entry, i), 'cave');
         }
-        const rewards = entry.objects.filter(o => o.caveArea === p.areas[0].id &&
+        const rewards = entry.objects.filter(o => o.caveArea === areas[0].id &&
           (o.kind === 'grove_shrine' || (o.kind === 'chest' && !o.barrel)));
         assert.eq(rewards.length, 1, 'loader retains exactly one focus reward');
         assert.gt(p.encounters.length, 0);

@@ -372,10 +372,10 @@
   // exactly, and lower is a dimmer light at the same reach.
   //
   // PLAYER_OUTPUT_K scales `edge` — the ramp OUTSIDE the reach area, and the
-  // whole falloff hung off it. Kept low (0.4) so the placed lights (a
+  // whole falloff hung off it. Kept low (0.44) so the placed lights (a
   // campfire, Home, a POI) tell against it and the reach step reads against a
   // darker mid-field.
-  const PLAYER_OUTPUT_K = 0.4;
+  const PLAYER_OUTPUT_K = 0.44;
 
   // PLATEAU_OUTPUT_K scales `lit` — the reach area itself, the plateau the
   // per-cell mask ADDS over the ramp. It is a separate knob from
@@ -401,6 +401,8 @@
   // what binds. If the far field is ever brightened again — AMBIENT_DAY_LUM
   // up, or the dim palette out — re-measure this before raising it.
   const PLATEAU_OUTPUT_K = 0.6;
+  // Scale the added reach-cell light independently of the underlying radial glow.
+  const REACH_OUTPUT_K = 0.5;
 
   // ── Time of day ───────────────────────────────────────────────────────────
   // The surface picture above is HIGH NOON. As the real sun goes down where
@@ -1132,7 +1134,9 @@
     }
     if (inReach) {
       const rim = reachM + cellM * Math.SQRT1_2;
-      return plateauLevel(prof, d / rim) * lum(prof.litColour);
+      const level = plateauLevel(prof, d / rim);
+      const added = (level - prof.edge) * lum(plateauCellColour(prof, level));
+      return prof.edge + added * REACH_OUTPUT_K;
     }
     const rMaxM = radiusCells('player') * cellM;
     if (d >= rMaxM) return 0;
@@ -1871,9 +1875,10 @@
     m.fillRect(0, 0, W, H);
     m.globalCompositeOperation = 'source-over';
     ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = REACH_OUTPUT_K;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(c, 0, 0);
+    ctx.globalAlpha = 1;
   }
 
   // One exact copy of the baked static layer onto the lightmap. The layer is
@@ -1953,15 +1958,18 @@
           : cover === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS : Visibility.FULL_DARKNESS;
       }
       // A small separable tent filter broadens the feather to about one cell.
-      // Only the visual field is filtered; sight tests stay exact. Uniform
-      // interiors keep their opacity, with no extra canvas or pixel readback.
+      // Only the visual field is filtered; sight tests stay exact. Each pass
+      // keeps the darker of the sample and its blur, so the feather spreads
+      // OUTWARD only: a narrow bush shadow, whose cells hide what stands in
+      // them, keeps its full darkness instead of averaging toward clear ground.
+      // No extra canvas or pixel readback.
       for (let y = 0; y < D; y++) for (let x = 1; x < D - 1; x++) {
         const i = y * D + x;
-        mask.feather[i] = (mask.field[i - 1] + 2 * mask.field[i] + mask.field[i + 1]) / 4;
+        mask.feather[i] = Math.max(mask.field[i], (mask.field[i - 1] + 2 * mask.field[i] + mask.field[i + 1]) / 4);
       }
       for (let y = 1; y < D - 1; y++) for (let x = 1; x < D - 1; x++) {
         const i = y * D + x;
-        mask.field[i] = (mask.feather[i - D] + 2 * mask.feather[i] + mask.feather[i + D]) / 4;
+        mask.field[i] = Math.max(mask.feather[i], (mask.feather[i - D] + 2 * mask.feather[i] + mask.feather[i + D]) / 4);
       }
       const data = mask.img.data;
       for (let i = 0; i < N * N; i++) {
@@ -2102,7 +2110,7 @@
   }
 
   window.Lighting = {
-    KINDS, radiusCells, TORCH_RADIUS_MUL, TORCH_DAY_FLOOR, torchStrength, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
+    KINDS, radiusCells, TORCH_RADIUS_MUL, TORCH_DAY_FLOOR, torchStrength, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, REACH_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, CRITICAL_LIGHT_MIX, CRITICAL_LIGHT_DIM, CRITICAL_LIGHT_DIP, CRITICAL_PLAYER_TINT_A, criticalLights, critPaintProfile, mixColour, mixToWhite, scaleColour, lum, atLuminance,

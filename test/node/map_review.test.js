@@ -9,6 +9,19 @@
 // THE MODULE LIST. The page loads the modules index.html lists, in order,
 // then app.js — reading the script tags out of index.html at load.
 (function () {
+test('map review: pirate sand tint follows only the exact sand coverage cells', () => {
+  const L={Layer:{extend:()=>function(){}}};
+  const art=new Function('L','WorldGen',MAP_REVIEW_ART_SRC+'\nreturn MapReviewArt;')(L,WorldGen);
+  const T=WorldGen.T;
+  const e={grid:[T.SAND,T.SAND,T.SAND,T.WATER,T.PATH],zone:{
+    anchors:[{variant:'pirate_cove'},{variant:'shellwater_strand'}],
+    coverage:[1,2,0,1,1],idx:[0,1,1,1,1],
+  }};
+  assert.truthy(art.pirateSand(e,0),'pirate coverage wins even outside the influence core');
+  for(let i=1;i<e.grid.length;i++)assert.eq(art.pirateSand(e,i),null,'ordinary sand, uncovered cells, water and paths stay unchanged');
+  assert.eq(art.pirateSand({grid:[T.SAND]},0),null,'tiles without zones stay unchanged');
+});
+
 test('map review: source road bands have biome ground rather than a second raster road', () => {
   const L={Layer:{extend:methods=>function(options){Object.assign(this,methods);this.initialize(options);}},
     setOptions:(layer,options)=>{layer.options=options;}};

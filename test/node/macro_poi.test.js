@@ -462,7 +462,7 @@
       const it = ITEM_BY_ID[id];
       assert.falsy(id in FOOD_ENERGY, `${id} is not food`);
       assert.falsy(['seed', 'sapling', 'magic', 'animal'].includes(it.kind), `${id} is no seed, sapling, potion or animal`);
-      assert.truthy(['mineral', 'supply', 'unique_relic'].includes(it.kind) || keeps.has(id), `${id} is a lasting thing (${it.kind})`);
+      assert.truthy(['ores', 'supply', 'unique_relic'].includes(it.kind) || keeps.has(id), `${id} is a lasting thing (${it.kind})`);
     }
     for (const id of ['potato', 'apple', 'flowers', 'healing_potion', 'egg', 'potato_seed', 'acorn']) {
       assert.falsy(Macros.curioEligible(id), `${id} is not collected`);

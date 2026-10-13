@@ -38,11 +38,24 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   vertical half-cell slab, with both positions represented. Polygon courtyards
   scatter those variants across a cached eight-cell-square repeat; tiled floors
   choose them from a mixed world-cell hash. The pattern stays fixed while the
-  camera moves. Tiles have darker junctions, worn stretches and quiet bevels. Inner
-  seams are lighter than cell boundaries, keeping cells legible beside the
-  smaller road cobbles.
+  camera moves. Each joint uses one recessed pixel, with quiet worn stretches
+  and stronger corners. Polygon courtyards use these stone seams without a
+  second cell-grid overlay.
   Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
-  renderers; polygon corners use bounded bevel joins.
+  renderers; polygon corners use bounded bevel joins with faces beneath them.
+  Merlons have low rectangular tops spanning the full wall-cap width, with both
+  opposing faces flush with the wall below at every angle. Their length along
+  the wall is independent of its thickness. Full end blocks reach each corner;
+  the rear highlight stays inside the cap silhouette. Polygon wall bodies and
+  crenellations use separate cached passes, with every body drawn before the
+  crowns so adjacent wall sections cannot cover a crenellation top. Castle wall
+  bodies omit mid-wall shadow stripes; the bottom silhouette and a quiet rear highlight define the edge.
+- Standing objects fade to half their normal opacity only when their art overlaps
+  the player's inset body box and their world depth draws them in front. The
+  overlap uses cached trimmed `ART_BOUNDS`, with frame bounds for procedural
+  art, and updates even on reused sprite slots. Moving clear restores the
+  original opacity; tool access never changes it. Ground art retains its own
+  opacity, and fruit overlays follow their tree.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
@@ -111,7 +124,7 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   `drawObjects` caches appearance by identity only for generation-immutable
   records, reuses their configured pool slots while body and camera stand still,
   and sorts the shared world container only when membership or assigned depth
-  changes; tool/work transitions invalidate reuse, while connected, clock-driven
+  changes; work transitions invalidate reuse, while connected, clock-driven
   and saved-state art stays live.
 - `RoadSafety` paints every visible `ROAD_CLASS_MAJOR_BUFFER` cell with its
   muted red ground wash after dark. The wash sits above road surfaces and below
@@ -185,10 +198,13 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   short walls, larger standing trees and rocks marked `sightBlocking: true`
   provide partial cover, with a non-stacking 75% darkness treatment. Small
   rocks and the smallest tree saplings provide no cover. The facing blocker
-  stays visible. Any cover (`Visibility.hidden`) removes the objects,
-  creatures and peers behind it, with their labels, shadows and target
-  affordances; the ground stays drawn and tappable unless cover is full.
-  Partial and full cover differ only in darkness: full cover is black.
+  stays visible. Any cover (`Visibility.hidden`) removes the actors behind
+  it — creatures, peers, coins, shots — with their labels, shadows and
+  target affordances. Scenery (objects, plants, crops, traps, hazards) and
+  the ground stay drawn and tappable in the shadow so the player keeps their
+  bearings; full cover is black and removes scenery as well. The cover
+  mask's feather spreads outward only, so every hidden cell keeps its full
+  darkness.
   `Lighting.coverFrame` caches a world-aligned mask and composites it into the
   existing lightmap after light sources. It reuses the exploration fog's
   low-resolution smooth upscale and world-keyed wisps, with a roughly one-cell
@@ -234,7 +250,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   by their exact whole-pixel phase. Player-attached, breathing, flickering and
   transient lights keep the individual stamp path. The full-frame key gates
   before every canvas call. Reach lighting follows `cellInReach`; light conveys
-  reach and live POIs without outline rings. Day/night leaves the reach plateau bright;
+  reach and live POIs without outline rings. The radial player glow uses
+  `PLAYER_OUTPUT_K = 0.44`; the added reach-cell light is halved by
+  `REACH_OUTPUT_K = 0.5`, with interaction distance unchanged.
+  Day/night leaves the reach plateau bright;
   caves ignore it.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors
   cull by viewport plus light radius, not sprite bounds. Use the existing
@@ -253,10 +272,16 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   biome texture (`Render.roadBackdropType`): explicit street ground, then the
   surrounding biome, then grass. Never paint raw road colours or separate path
   pebbles beneath the band; their grid edges read as a second road.
-- Roads and paths use a consistent muted midtone range so ground objects
-  remain the focus. Restored paving has recessed dark joints, tidy courses and
-  small polished bevels; worn cracks and mushroom spots stay low contrast.
-  Keep each theme’s undertone. Burned Row retains its dark stone and glowing embers.
+- Roads and paths use muted colors so ground objects remain the focus.
+  Restored paving has recessed dark joints, tidy courses and small polished
+  bevels; worn cracks and mushroom spots stay low contrast. Keep each theme’s
+  undertone. Burned Row retains its dark stone and glowing embers.
+- Restored Toadstool (Mushroom) and Snare lanes use near-black setts close to
+  the default restored road. Retain their red/brown undertones and mushroom
+  spots; the shared clean-stone bevel supplies the polished highlights.
+- Slime Trail overlays its muted green paving with glossy slime pools and pale
+  bubbles, in both worn and restored states. The same pattern painter serves
+  runtime paving and the map review.
 - Path paving and lamp palettes follow the assigned segment intervals. Scenic
   geography still owns restoration bonuses; first-walk stories use the assigned
   theme on the restored segment.
@@ -273,3 +298,7 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
 `trail`, `loot`; also `tools/layer_audit.js`.
+
+- Cave pressure plates use a low-opacity floor mark revealed within one body
+  cell. Plate-controlled gas outlets use one cached metal-grate texture and
+  the existing gas-cloud renderer; both grate and plate sort as ground objects.

@@ -402,7 +402,7 @@ const BARREL_LOOT = [
   { kind: 'empty', w: 0.7 },
   // Two thirds of full barrels contain practical supplies (torch, rope, kits…).
   { kind: 'supply', w: 0.2 },
-  { kind: 'mineral', w: 0.05, minTier: 1, maxTier: 2 },
+  { kind: 'ores', w: 0.05, minTier: 1, maxTier: 2 },
   { kind: 'produce', w: 0.05, minTier: 1, maxTier: 1 },
 ];
 const CLAY_POT_LOOT = [

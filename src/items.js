@@ -35,7 +35,7 @@ const CROP_ROW = {
   // unused index in Crops.png that the fallback path would use; never
   // actually reached because CROP_SPRITE intercepts first.
   berry: 10, cress: 11, onion: 12,
-  // tree + shrub are not crops: chopping one drops the 'wood' mineral directly.
+  // tree + shrub are not crops: chopping one drops the 'wood' ore-category item directly.
 };
 const MAX_GROWTH_STAGE = 4; // cols 0..4 inclusive: 5 stages, 4 waterings to mature
 const PRODUCE_COL = 7;
@@ -229,7 +229,7 @@ function wildplantFrame(p) {
 // the vast majority — it drops itself, is picked instantly for nothing, hides
 // no treasure and casts no light.
 const WILDPLANT_RULES = {
-  // A woody bush. Chopping one yields the WOOD mineral, not a 'shrub' item
+  // A woody bush. Chopping one yields the WOOD item, not a 'shrub' item
   // (tree + shrub have no inventory counterparts), and it is real felling
   // work: bare hands take 5 seconds, axes use their usual ladder, and
   // `workCharged` puts the shared energy cost on the bar.
@@ -739,7 +739,7 @@ const BASE_TIER = {
   berry: 2, nut: 2, onion: 2,
   starfruit: 3,
   rainberry: 4, pairy: 4,
-  // wood: T1 mineral. Dropped by trees + shrubs (no tools needed beyond
+  // wood: T1 Ores item. Dropped by trees + shrubs (no tools needed beyond
   // an axe for shrubs / trees) and sprinkled around the starting area.
   // Used as the smithy ingredient for every T1 wooden tool.
   wood: 1,
@@ -1084,7 +1084,7 @@ const ITEMS = [
   { id: 'javelin',      name: 'Javelin',             kind: 'supply' },
   { id: 'renovation_permit', name: 'Renovation Permit', kind: 'supply' },
   // Animal byproducts — kind: 'produce' alongside egg / milk, so they sit in
-  // the produce pool of the rarity picker, not the mineral pool.
+  // the produce pool of the rarity picker, not the ores pool.
   { id: 'meat',         name: 'Meat',         kind: 'produce' },
   // Cooked food is made at campfires or found in themed food chests.
   { id: 'grilled_meat', name: 'Grilled Meat', kind: 'produce', cooked: true },
@@ -1140,37 +1140,37 @@ const ITEMS = [
   // off the default growth sheet and takes no hardwood/softwood tier shift.
   { id: 'acorn', name: 'Acorn', kind: 'seed', plants: 'tree', baseTier: 2 },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
-  { id: 'flint_shard',     name: 'Flint',    kind: 'mineral' },   // id kept: saves carry 'flint_shard'
-  { id: 'quartz',   name: 'Rose Quartz', kind: 'mineral' },
-  { id: 'topaz',    name: 'Topaz', kind: 'mineral' },
-  { id: 'amethyst', name: 'Amethyst', kind: 'mineral' },
+  { id: 'flint_shard',     name: 'Flint',    kind: 'ores' },   // id kept: saves carry 'flint_shard'
+  { id: 'quartz',   name: 'Rose Quartz', kind: 'ores' },
+  { id: 'topaz',    name: 'Topaz', kind: 'ores' },
+  { id: 'amethyst', name: 'Amethyst', kind: 'ores' },
   // Sapphire doubles as a one-shot descent charge: tap the Portal button with
   // it selected to descend in place. A Return status action leads back to
   // the entry for one minute, including after the last gem is spent.
-  { id: 'sapphire', name: 'Sapphire', kind: 'mineral' },
-  { id: 'ruby',     name: 'Ruby',     kind: 'mineral' },
-  { id: 'emerald',  name: 'Emerald',  kind: 'mineral' },
+  { id: 'sapphire', name: 'Sapphire', kind: 'ores' },
+  { id: 'ruby',     name: 'Ruby',     kind: 'ores' },
+  { id: 'emerald',  name: 'Emerald',  kind: 'ores' },
   // Diamond — the Frost-tier (T7) gem, one per rung of the ladder above:
   // sapphire 4 / ruby 5 / emerald 6 / diamond 7. Mined from the T7
   // (frost) mineralrock (interactables.js GEM_BY_TIER) and what every T7
   // piece of jewelry is cut around (gear.js blacksmithRecipe).
-  { id: 'diamond',  name: 'Diamond',  kind: 'mineral' },
+  { id: 'diamond',  name: 'Diamond',  kind: 'ores' },
   // Smelted metal bars — primary forge material at blacksmiths. Dropped
   // by mineralrocks (worldgen.js). One ladder per material tier 2..7;
   // tier 1 (wood) gear is starter-shop only and doesn't need a bar.
   // Display names drop the trailing "Bar" ("Copper", "Frost"); the sprite
   // shows the bar. Ids keep the _bar suffix.
-  // wood is the T1 mineral — chopping a tree or harvesting a shrub drops it,
+  // wood is a T1 Ores item — chopping a tree or harvesting a shrub drops it,
   // and the starter blacksmith uses it as the sole ingredient for every T1
   // wooden tool. In-world (ground stack + inventory bar) it renders the
   // 'wood' spritesheet via ITEM_DATA_URLS.
-  { id: 'wood',         name: 'Wood',     kind: 'mineral' },
-  { id: 'copper_bar',   name: 'Copper',   kind: 'mineral' },
-  { id: 'iron_bar',     name: 'Iron',     kind: 'mineral' },
-  { id: 'gold_bar',     name: 'Gold',     kind: 'mineral' },
-  { id: 'platinum_bar', name: 'Platinum', kind: 'mineral' },
-  { id: 'crimson_bar',  name: 'Crimson',  kind: 'mineral' },
-  { id: 'frost_bar',    name: 'Frost',    kind: 'mineral' },
+  { id: 'wood',         name: 'Wood',     kind: 'ores' },
+  { id: 'copper_bar',   name: 'Copper',   kind: 'ores' },
+  { id: 'iron_bar',     name: 'Iron',     kind: 'ores' },
+  { id: 'gold_bar',     name: 'Gold',     kind: 'ores' },
+  { id: 'platinum_bar', name: 'Platinum', kind: 'ores' },
+  { id: 'crimson_bar',  name: 'Crimson',  kind: 'ores' },
+  { id: 'frost_bar',    name: 'Frost',    kind: 'ores' },
 ];
 // Fill in baseTier for entries that didn't set one; a missing BASE_TIER row
 // falls back to 1 (an authoring oversight, not a load-time crash).
@@ -1700,6 +1700,7 @@ const PRICES = {
   sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50, dawnfruit_seed: 480,
   miracle_lettuce_seed: 216,
   // ── Produce (sell value) ─────────────────────────────────
+  wood: 2,
   rubble: 1,    // wild debris in every residential tile — the floor
   nut: 4,
   potato: 5,
@@ -2949,7 +2950,7 @@ function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad;
 // a kind added to ITEMS without a home here falls into Produce, and only this
 // file can see both halves of that.
 const INV_CATS = [
-  { key: 'seed', label: 'Seeds', kinds: ['seed'], px: [
+  { key: 'seeds', label: 'Seeds', kinds: ['seed'], px: [
     '.........',
     '.##...##.',
     '####.####',
@@ -2969,7 +2970,7 @@ const INV_CATS = [
     '#########',
     '.#######.',
     '..##.##..'] },
-  { key: 'animal', label: 'Pets', kinds: ['pet_accessory'], px: [
+  { key: 'pets', label: 'Pets', kinds: ['pet_accessory'], px: [
     '.##...##.',
     '.##...##.',
     '.........',
@@ -2979,7 +2980,7 @@ const INV_CATS = [
     '.#######.',
     '.#######.',
     '..##.##..'] },
-  { key: 'relic', label: 'Relics', gear: 'relic', kinds: ['unique_relic'], px: [
+  { key: 'relics', label: 'Relics', gear: 'relic', kinds: ['unique_relic'], px: [
     '...###...',
     '..##.##..',
     '...###...',
@@ -2989,7 +2990,7 @@ const INV_CATS = [
     '##.....##',
     '.##...##.',
     '..#####..'] },
-  { key: 'armor', label: 'Armour', gear: 'armor', px: [
+  { key: 'armour', label: 'Armour', gear: 'armor', px: [
     '#########',
     '##..#..##',
     '##..#..##',
@@ -2999,7 +3000,7 @@ const INV_CATS = [
     '..##.##..',
     '...###...',
     '....#....'] },
-  { key: 'ores', label: 'Ores', kinds: ['mineral'], px: [
+  { key: 'ores', label: 'Ores', kinds: ['ores'], px: [
     '.........',
     '..#####..',
     '.##.#.##.',
@@ -3031,6 +3032,13 @@ const INV_CATS = [
     '.##...##.'] },
 ];
 const INV_CAT_BY_KEY = Object.fromEntries(INV_CATS.map(c => [c.key, c]));
+// Category keys match the inventory labels. Only old saved tab selections
+// need translation; item ids and equipment storage keep their own contracts.
+function normalizeInventoryCategory(key) {
+  const legacy = { seed: 'seeds', animal: 'pets', relic: 'relics', armor: 'armour', mineral: 'ores', minerals: 'ores' };
+  const canonical = legacy[key] || key;
+  return Object.hasOwn(INV_CAT_BY_KEY, canonical) ? canonical : 'seeds';
+}
 // One tab's bitmap as inline SVG markup: each lit run becomes one rect in a
 // single path, `crispEdges` keeps the cells square, and the drawn size snaps
 // down to a whole multiple of the grid so no cell blurs across a pixel seam.
@@ -3065,6 +3073,15 @@ function invCatForItem(id) {
   const kind = ITEM_BY_ID[id]?.kind;
   for (const c of INV_CATS) if (c.kinds && c.kinds.includes(kind)) return c.key;
   return 'produce';
+}
+// Reward pools can span categories. Classify the awarded object, rather than
+// its selection pool; a cash-out has no inventory category even with a slot.
+function rewardCategory(reward) {
+  if (!reward || reward.kind === 'gold' || reward.kind === 'empty') return null;
+  if (reward.kind === 'item') return ITEM_BY_ID[reward.id] ? invCatForItem(reward.id) : null;
+  if (reward.kind === 'relic') return 'relics';
+  if (reward.kind === 'armor') return 'armour';
+  return null;
 }
 
 // Contact damage is shared by player and enemy movement through these props.

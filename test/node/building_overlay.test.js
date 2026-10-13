@@ -356,6 +356,15 @@ test('building overlay: the ground grid continues across a footprint', () => {
   assert.eq(seq.indexOf('grid') > seq.indexOf('texture'), true, 'and over the material');
 });
 
+test('building overlay: castle paving supplies its seams without a second grid', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'citadel')]);
+  const scene = makeScene();
+  BuildingOverlay.draw(scene);
+  assert.eq(scene.buildingGeomGfx.only('texture').length, 1, 'paving carries its own seams');
+  assert.eq(scene.buildingGeomGfx.only('grid').length, 0, 'no additional lattice beside paving joints');
+});
+
 test('building overlay: the grid ink flips to white on a floor too dark for black', () => {
   // 8% black on a near-black unclaimed floor is nothing, and "the squares stay
   // visible" is the whole job — so the ink, and only the ink, flips.
@@ -752,12 +761,17 @@ test('building overlay: nothing is drawn underground', () => {
 // paints its new pieces and uploads a page once, with no pixel read-back.
 // The stub records what a Phaser CanvasTexture would be asked to do.
 function makeWallScene(over) {
-  const log = { pages: [], removedTextures: [], frames: [], removedFrames: [], refreshes: 0, sprites: [], polygons: [] };
+  const log = { pages: [], removedTextures: [], frames: [], removedFrames: [], refreshes: 0, sprites: [], polygons: [], strokes: [] };
   const ctx = new Proxy({}, { get: (obj, key) => obj[key] || (() => {}), set: (obj, key, v) => { obj[key] = v; return true; } });
-  let path = [];
+  let path = [], framePolygons = [];
+  ctx.clearRect = () => { framePolygons = []; };
   ctx.beginPath = () => { path = []; };
   ctx.moveTo = ctx.lineTo = (x, y) => path.push({ x, y });
-  ctx.fill = () => log.polygons.push({ color: ctx.fillStyle, points: path.slice() });
+  ctx.fill = () => {
+    const polygon = { color: ctx.fillStyle, points: path.slice() };
+    log.polygons.push(polygon); framePolygons.push(polygon);
+  };
+  ctx.stroke = () => log.strokes.push({ color: ctx.strokeStyle, width: ctx.lineWidth, points: path.slice() });
   const scene = makeScene(Object.assign({
     buildingWallContainer: {
       ...makeContainer(),
@@ -772,7 +786,7 @@ function makeWallScene(over) {
         const page = { key, w, h, frames: new Map(),
           getContext: () => ctx,
           refresh() { log.refreshes++; },
-          add(name, src, x, y, fw, fh) { const f = { page: key, name, x, y, w: fw, h: fh }; this.frames.set(name, f); log.frames.push(f); return f; },
+          add(name, src, x, y, fw, fh) { const f = { page: key, name, x, y, w: fw, h: fh, polygons: framePolygons.slice() }; this.frames.set(name, f); log.frames.push(f); return f; },
           remove(name) { this.frames.delete(name); log.removedFrames.push(name); return true; },
         };
         log.pages.push(page);
@@ -855,30 +869,76 @@ test('building overlay: castle ramparts use short upright wall sections, leaving
   BuildingOverlay.draw(scene);
   assert.eq(scene.buildingGeomGfx.only('fill').length, 1, 'only the courtyard stays on the ground canvas');
   assert.eq(scene.buildingGeomGfx.only('inset').length, 0, 'ramparts belong to the upright pieces');
-  assert.eq(scene._buildingUprightPieces.length, 8, 'one section per cell of perimeter');
-  assert.eq(log.sprites.length, 8, 'wall sections are background sprites');
+  assert.eq(scene._buildingUprightPieces.length, 16, 'one body and crown section per cell of perimeter');
+  assert.eq(log.sprites.length, 16, 'wall bodies and crowns are background sprites');
   assert.eq(log.pages.length, 1, 'sections share the wall atlas');
 });
 
-test('building overlay: both horizontal castle boundaries expose six-pixel caps and shaded faces', () => {
+test('building overlay: atlas wall bodies cannot overpaint crowns across section boundaries', () => {
+  for (const ring of [[0, 0, 35, 0, 35, 25, 0, 25], [8, 0, 35, 18, 25, 35, 0, 20]]) {
+    clearTiles();
+    putShapes(0, 0, [{ ring: Float32Array.from(ring), tier: T.BUILDING_LARGE, areaM2: 600, key: 'citadel' }]);
+    const { scene, log } = makeWallScene();
+    BuildingOverlay.draw(scene);
+    const material = buildingBackgroundMaterial(CastleStyles.get('citadel'));
+    const css = c => '#' + c.toString(16).padStart(6, '0');
+    let sawRoof = false, bodies = 0;
+    // Walk the actual sprite submission order and each baked frame's paint.
+    for (const sprite of log.sprites) {
+      const frame = log.frames.find(f => f.page === sprite.key && f.name === sprite.frame);
+      for (const polygon of frame.polygons) {
+        if (polygon.color === css(material.stone.LITE)) sawRoof = true;
+        if (polygon.color === css(material.stone.BODY)) {
+          assert.falsy(sawRoof, 'no later atlas cap may cover a neighboring tooth roof');
+          bodies++;
+        }
+      }
+    }
+    assert.truthy(sawRoof && bodies > 4, 'multiple atlas sections and their crowns were rendered');
+  }
+});
+
+test('building overlay: both horizontal castle boundaries expose thinner caps and unchanged shaded faces', () => {
   clearTiles();
   putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'citadel')]);
   const { scene, log } = makeWallScene();
   BuildingOverlay.draw(scene);
   const material = buildingBackgroundMaterial(CastleStyles.get('citadel', true));
   const css = c => '#' + c.toString(16).padStart(6, '0');
-  const faces = log.polygons.filter(p => p.color === css(material.stone.FACE));
+  const faces = log.polygons.filter(p => p.color === css(material.stone.FACE)
+    && Math.max(...p.points.map(v => v.x)) - Math.min(...p.points.map(v => v.x)) > Math.max(material.rampart.topDepth, material.rampart.toothWidth));
   assert.eq(faces.length, 4, 'two sections on each horizontal boundary, including the back wall');
+  const floorYs = scene.buildingGeomGfx.only('fill')[0].pts.map(p => p.y);
   for (const face of faces) {
     const ys = face.points.map(p => p.y);
     assert.eq(Math.max(...ys) - Math.min(...ys), 6, 'compressed south-facing plane');
+    if (Math.min(...ys) < Math.min(...floorYs)) {
+      assert.eq(Math.max(...ys), Math.min(...floorYs), 'north face still lands exactly at ground');
+    } else {
+      assert.eq(Math.min(...ys), Math.max(...floorYs), 'south face still starts at ground');
+    }
   }
   const caps = log.polygons.filter(p => p.color === css(material.stone.BODY) && p.points.length === 4);
   assert.eq(caps.length, 12, 'continuous top surface on four sides plus four bounded corner joins');
   for (const cap of caps.filter(p => new Set(p.points.map(v => v.y)).size === 2)) {
     const xs = cap.points.map(p => p.x), ys = cap.points.map(p => p.y);
-    assert.eq(Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)), 6,
-      'top plane stays as broad as the face');
+    assert.lt(Math.abs(Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys))
+      - material.rampart.topDepth), 1e-7, 'top plane follows the thinner cap width');
+  }
+});
+
+test('building overlay: side highlights stay inside the horizontal wall silhouette', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'citadel')]);
+  const { scene, log } = makeWallScene();
+  BuildingOverlay.draw(scene);
+  const vertices = scene.buildingGeomGfx.only('fill')[0].pts;
+  const minX = Math.min(...vertices.map(p => p.x)), maxX = Math.max(...vertices.map(p => p.x));
+  const vertical = log.strokes.filter(s => s.points.length === 2 && s.points[0].x === s.points[1].x);
+  assert.gt(vertical.length, 0, 'side highlights are drawn');
+  for (const s of vertical) {
+    assert.gte(s.points[0].x - s.width / 2, minX, 'west highlight stays inside the footprint');
+    assert.lte(s.points[0].x + s.width / 2, maxX, 'east highlight stays inside the footprint');
   }
 });
 
@@ -898,15 +958,90 @@ test('building overlay: angled and concave castle corners bridge adjacent top pl
     for (let i = 0; i < ring.length / 2; i++) {
       const vertex = point(i), previous = normal(point(i - 1), vertex), next = normal(vertex, point(i + 1));
       const cap = material.rampart.topDepth;
+      const lift = ny => cap + (material.rampart.wallHeight - cap) * Math.max(0, ny);
       const expected = [
-        { x: vertex.x, y: vertex.y - cap * (1 + previous.y) },
-        { x: vertex.x, y: vertex.y - cap * (1 + next.y) },
-        { x: vertex.x + next.x * cap, y: vertex.y - cap },
-        { x: vertex.x + previous.x * cap, y: vertex.y - cap },
+        { x: vertex.x, y: vertex.y - lift(previous.y) - cap * previous.y },
+        { x: vertex.x, y: vertex.y - lift(next.y) - cap * next.y },
+        { x: vertex.x + next.x * cap, y: vertex.y - lift(next.y) },
+        { x: vertex.x + previous.x * cap, y: vertex.y - lift(previous.y) },
       ];
       assert.truthy(caps.some(poly => poly.every((p, index) =>
         Math.hypot(p.x - expected[index].x, p.y - expected[index].y) < 1e-8)),
       'a filled bevel connects both neighboring top profiles at every convex and concave corner');
+      const previousFront = previous.y > 0 ? expected[3] : expected[0];
+      const nextFront = next.y > 0 ? expected[2] : expected[1];
+      if (Math.abs(previousFront.x - nextFront.x) > 1e-6) {
+        const face = [previousFront, nextFront,
+          { x: nextFront.x, y: nextFront.y + material.rampart.wallHeight },
+          { x: previousFront.x, y: previousFront.y + material.rampart.wallHeight }];
+        assert.truthy(log.polygons.some(poly => poly.color === '#' + material.stone.FACE.toString(16).padStart(6, '0')
+          && poly.points.every((p, index) => Math.hypot(p.x - face[index].x, p.y - face[index].y) < 1e-8)),
+        'a wall face supports the bevel instead of leaving a gap beneath the corner');
+      }
+    }
+  }
+});
+
+test('building overlay: rectangular merlon bases follow their caps at every wall angle and winding', () => {
+  const css = c => '#' + c.toString(16).padStart(6, '0');
+  const inside = (p, polygon) => {
+    const crosses = polygon.map((a, i) => {
+      const b = polygon[(i + 1) % polygon.length];
+      return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+    });
+    return crosses.every(c => c >= -1e-7) || crosses.every(c => c <= 1e-7);
+  };
+  const outlines = [
+    [[-8, -8], [8, -8], [8, 8], [-8, 8]],
+    [[-10, -6], [10, -6], [-5, 9]],
+    [[-10, -8], [9, -5], [4, 0], [10, 9], [-8, 6]],
+  ];
+  for (const outline of outlines) for (const angle of [0, 15, 30, 45, 60, 75]) for (const reversed of [false, true]) {
+    const radians = angle * Math.PI / 180;
+    const points = outline.map(([x, y]) =>
+      [12 + x * Math.cos(radians) - y * Math.sin(radians), 12 + x * Math.sin(radians) + y * Math.cos(radians)]);
+    if (reversed) points.reverse();
+    clearTiles();
+    putShapes(0, 0, [{ ring: Float32Array.from(points.flat()), tier: T.BUILDING_LARGE, areaM2: 256, key: 'citadel' }]);
+    const { scene, log } = makeWallScene();
+    BuildingOverlay.draw(scene);
+    const material = buildingBackgroundMaterial(CastleStyles.get('citadel'));
+    const caps = log.polygons.filter(p => p.color === css(material.stone.BODY)).map(p => p.points);
+    const roofs = log.polygons.filter(p => p.color === css(material.stone.LITE));
+    assert.gt(roofs.length, 0, 'merlons have visible roofs');
+    assert.eq(material.rampart.toothWidth, 6, 'along-wall tooth length is unchanged');
+    assert.eq(material.rampart.topDepth, 3.6, 'cap is 40 percent thinner');
+    const vertices = scene.buildingGeomGfx.only('fill')[0].pts;
+    const winding = reversed ? -1 : 1;
+    for (let i = 0; i < vertices.length; i++) {
+      const a = vertices[i], b = vertices[(i + 1) % vertices.length];
+      const length = Math.hypot(b.x - a.x, b.y - a.y);
+      const nx = -(b.y - a.y) / length * winding, ny = (b.x - a.x) / length * winding;
+      for (const v of [a, b]) {
+        const lift = material.rampart.topDepth
+          + (material.rampart.wallHeight - material.rampart.topDepth) * Math.max(0, ny);
+        const crest = ny < 0 ? { x: v.x + nx * material.rampart.topDepth, y: v.y - lift }
+          : { x: v.x, y: v.y - lift - material.rampart.topDepth * ny };
+        assert.truthy(roofs.some(roof => roof.points.some(p =>
+          Math.hypot(p.x - crest.x, p.y + material.rampart.toothHeight - crest.y) < 1e-7)),
+        'full rectangular crowns reach both edge endpoints without inset corner gaps');
+      }
+    }
+    for (const roof of roofs) {
+      const [a, b, c] = roof.points;
+      const along = { x: b.x - a.x, y: b.y - a.y };
+      const across = { x: c.x - b.x, y: c.y - b.y };
+      assert.lt(Math.abs(Math.hypot(along.x, along.y) - material.rampart.toothWidth), 1e-7,
+        'the tooth retains its full width, even at an edge end');
+      assert.lt(Math.abs(Math.hypot(across.x, across.y) - material.rampart.topDepth), 1e-7,
+        'the top reaches both edges of the thinner cap');
+      assert.lt(Math.abs(along.x * across.x + along.y * across.y), 1e-7,
+        'adjacent sides of the rectangular roof are perpendicular');
+      for (const v of roof.points) {
+        const base = { x: v.x, y: v.y + material.rampart.toothHeight };
+        assert.truthy(caps.some(cap => inside(base, cap)),
+          `every tooth corner is seated on stone at ${angle} degrees, reversed=${reversed}`);
+      }
     }
   }
 });
@@ -1014,7 +1149,10 @@ test('building overlay: atlas slots fit the largest piece, and an emptied page i
   BuildingOverlay.draw(scene);
   const A = scene._buildingWallAtlas;
   assert.truthy(A && A.slotW > 0 && A.slotH > 0, 'the atlas geometry is on the scene');
-  const pad = 2 * (6 * 2 + 4 + 2) + 2; // lifted cap, full merlon face and roof, plus rounding
+  const styles = CastleStyles.ids.map(id => CastleStyles.get(id).rampart);
+  const pad = 2 * Math.ceil(Math.max(...styles.map(r =>
+    r.topDepth + Math.max(r.topDepth, r.wallHeight) + r.toothHeight)) + 2) + 2;
+  assert.truthy(Number.isInteger(A.slotW) && Number.isInteger(A.slotH), 'fractional caps retain integer atlas slots');
   assert.eq(A.slotW, CELL_PX + pad, 'a slot is a cell plus the bake padding wide');
   assert.eq(A.slotH, CELL_PX + Render.BUILDING_FACE_PX[T.BUILDING_LARGE] + pad, 'and the deepest face taller');
   assert.gt(log.frames.length, 4, 'the diamond cut into several pieces');

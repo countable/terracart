@@ -17,14 +17,21 @@ catalog `dropWeight` (CLAUDE.md, "Loot identity by place").
 Success: every theme yields a useful, related reward at every reachable tier,
 with no empty roll and no silent cash substitute for a missing item.
 
-## Item classes: Magic and Supplies
+## Inventory categories and reward pools
 
 Potions, powders and scrolls are `magic`; practical tools and consumables are
-`supply`. The class drives the inventory tab, the shop label and the loot
-lanes. Being supernatural does not make a thing Magic: an item's class is its
-use in the player's hands, not its flavour.
+kind `supply` and category `supplies`. Being supernatural does not make a thing
+Magic: an item's kind is its use in the player's hands, not its flavour.
 
-- Kinds and their tabs: `src/items.js` `ITEMS` (`kind`) and `INV_CATS`.
+- The [glossary](glossary.md#inventory-categories-and-treasure-rewards) owns
+  official category names and keys. `INV_CATS` and `invCatForItem` in
+  `src/items.js` map items to those categories; `rewardCategory(reward)` exposes
+  the same mapping as `reward.category` for treasure. A reward's `cls` identifies
+  its handling path, which can differ from its inventory category.
+- Reward pools remain separate selection subgroups. For example, `materials`
+  and `gems` both award Ores; `books` awards Supplies; `medicalMagic` can award
+  Magic items or Relics. Category names preserve each pool's membership and
+  odds. Coins have no inventory category.
 - Potion behaviour reads the item flag (`isPotion`, `src/items.js`), not the
   class. The potion shop keeps its persisted `potion` key and shows the label
   from `src/shops.js`.
@@ -126,7 +133,8 @@ The cave tier cap is `chestTierMaxFor` (`src/loot.js`).
 Stacks store ids and counts, so the class split needs no rewrite. Opened
 chests stay opened; a chest held for later keeps its exact saved reward and
 never rerolls. No per-chest theme state is saved: it derives from the POI
-class and depth. No compatibility migrations (CLAUDE.md).
+class and depth. `normalizeInventoryCategory` translates older saved inventory-tab
+keys to the official keys; item ids, counts and equipment storage stay intact.
 
 ## Poison, Antidote, Elixir, magical flowers
 
@@ -159,5 +167,5 @@ item tier. Category shares, rounding and item caps still apply. The saved
 
 Full barrels favor practical supplies: two thirds of successful rolls use the
 ordinary supply pool (including torches, rope and trap-disarm kits), with one
-sixth each for minerals and produce. This conditional mix is independent of
+sixth each for ores and produce. This conditional mix is independent of
 the tile-density fullness chance and budget. Clay pots keep their own mix.

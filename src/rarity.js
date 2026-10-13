@@ -291,7 +291,7 @@
   // TIER-CAPPED (`tierCapped`: members at or under the rolled tier), so a gem
   // arrives only where its tier does — a sapphire from T4, a diamond at T7.
   const CAVE_DEEP_SKEW = {
-    classAdd:  { consumable: 0.25, mineral: 0.25 },
+    classAdd:  { consumable: 0.25, ores: 0.25 },
     favourite: { p: 0.75, tierCapped: true, ids: {
       healing_potion: 1, shielding_potion: 1, reach_potion: 1, speed_potion: 1, flight_potion: 1,
       revival_potion: 1, blight_potion: 1, raven_scroll: 1, bones_scroll: 1, wraith_scroll: 1, thunder_scroll: 1, resurrection_potion: 1,
@@ -426,6 +426,10 @@
 
   // Also used by the balance tool to isolate a rolled quality from the displayed chest tier.
   function resolveChestReward(theme, quality, save, rng, opts = {}) {
+    const reward = resolveChestRewardRaw(theme, quality, save, rng, opts);
+    return reward ? { ...reward, category: rewardCategory(reward) } : null;
+  }
+  function resolveChestRewardRaw(theme, quality, save, rng, opts = {}) {
     theme = ChestThemes.normalize(theme);
     const chestTier = Math.max(1, Math.min(typeof chestTierMaxFor === 'function' ? chestTierMaxFor(opts.depth) : 5, opts.tier || 2));
     const { tier, bracket, jackpotApplied } = quality;
@@ -503,9 +507,14 @@
   }
 
   function pickReward(contextKey, save, rng, opts) {
+    const reward = pickRewardRaw(contextKey, save, rng, opts);
+    return reward ? { ...reward, category: rewardCategory(reward) } : null;
+  }
+  function pickRewardRaw(contextKey, save, rng, opts) {
     const row = LOOT_CONTEXTS[contextKey];
     if (row?.picker === 'chest') return pickChestReward(row.theme, save, rng, opts);
     rng = rng || Math.random;
+    if (row?.picker === 'elite') return pickEliteReward(save, rng, opts);
     const ctx = lootContext(contextKey, opts);
     if (!ctx) return null;
     if (ctx.picker === 'elite') return pickEliteReward(save, rng, opts);

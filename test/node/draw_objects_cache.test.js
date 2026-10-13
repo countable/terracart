@@ -173,8 +173,8 @@ test('drawObjects depth: the shared Phaser container sort is dirty-gated', () =>
     'the first still frame after a work animation resets its former rotation');
   assert.truthy(body.includes('const objectReuse = scene._boot_still ? reuseStaticObject : undefined;'),
     'walking never pays the still-slot reuse callback');
-  assert.truthy(body.includes('relics.pickaxe?.tier'),
-    'a pick upgrade invalidates cached mineral-rock alpha');
+  assert.falsy(body.includes('objectStyleRevision'),
+    'tool tiers do not invalidate object opacity or cached appearance');
 });
 
 test('drawObjects seats: every chasm seat lookup names its own pool item', () => {

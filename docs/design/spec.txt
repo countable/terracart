@@ -218,8 +218,8 @@ MOVEMENT & REACH
    geometric so every upgrade reads as an upgrade.
    TOOL GATES: trees and ore rocks have a required tool tier (tree size and
    species, ore tier). Exactly one tier short offers a slow, costly grind;
-   further short is refused; an under-tooled target draws faded
-   (`interactables.js` `runInteractable`, `isToolGated`, `SLOW_GRIND_MS`).
+   further short is refused. Tool access does not change object opacity
+   (`interactables.js` `runInteractable`, `SLOW_GRIND_MS`).
    Fishing is the exception to the ladder (see FISHING). Tapping anywhere
    cancels a wheel and refunds any pre-charged energy; the launching tap
    cannot cancel it.
