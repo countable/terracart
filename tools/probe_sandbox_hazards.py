@@ -90,7 +90,7 @@ CASES = {
    const near=cells.filter(c=>Math.abs(c.cellIX-h.cellIX)+Math.abs(c.cellIY-h.cellIY)===1);
    check(near.length>=1,'gas reaches the adjacent cells');
    check(Conditions.active(s.save,'confused'),'the gas confuses the player');
-   draw();check(s._environmentHazardPool.some(o=>o.visible&&o.texture.key==='vent_cycle'&&o.frame.name>=15),'grey vent row rendered');
+   draw();check(s._environmentHazardPool.some(o=>o.visible&&o.texture.key==='vent_cycle'&&o.frame.name>=15),'confusion vent row rendered');
    return {gasCells:cells.length,adjacent:near.length};
  }"""),
  'pressure-contact': ('hazards-deep', r"""() => {

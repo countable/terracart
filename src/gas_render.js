@@ -4,7 +4,8 @@ const GasRender = (() => {
   const FADE_MS = 320;
   // Colours are the kind's row (MushroomGas.KINDS): confusion BRIGHT YELLOW
   // (owner, Oct 2026: the old lilac all but vanished over grass, and a muted
-  // yellow sank into dim cave floors), poison green, paralysis blue. The
+  // yellow sank into dim cave floors), poison lime green, paralysis blue, each
+  // matching its vent's plume (vent_cycle). The
   // mushroom monster's travelling puff paints confusion through here too.
   // Cell opacity: any gas at all starts from MIN_ALPHA so a thin fringe still
   // reads in its colour over a dark cave floor, rather than murk; a dense

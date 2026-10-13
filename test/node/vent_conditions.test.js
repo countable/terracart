@@ -38,12 +38,12 @@
     assert.falsy(Conditions.apply({ fireResistancePotionUntil: 100 }, 'burning', 0, { durationMs: 6000 }));
     assert.falsy(Conditions.apply(save, 'poison', 0, { durationMs: NaN }));
   });
-  test('vent paralysis: yellow status holds the central body gate and releases at exactly five seconds', () => {
+  test('vent paralysis: blue status holds the central body gate and releases at exactly five seconds', () => {
     const s = Object.assign({ save: { energy: 100 }, _walkHazardSlow: () => false }, methods);
     Conditions.apply(s.save, 'paralysis', 0, { durationMs: 5000 });
     assert.truthy(s._bodyHold().pinned);
     assert.eq(Conditions.movementMul(s.save), 0);
-    assert.eq(Conditions.DEFINITIONS.paralysis.tint, 0xffdf38);
+    assert.eq(Conditions.DEFINITIONS.paralysis.tint, 0x4f9fff);
     Conditions.tick(s.save, 4999);
     assert.truthy(s._bodyHold().pinned);
     Conditions.tick(s.save, 1);
