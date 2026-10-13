@@ -545,7 +545,11 @@ access or tile lifecycle mechanics.
   Do not cache a final answer from a tile still loading (no `layers` yet).
 - Fetch tiles through `fetchTileResponse`, which resolves the live TileJSON
   template and retries resolution on failure. Bumping a dated fallback URL
-  does not repair live fetching.
+  does not repair live fetching. After the centre is playable, surface rings
+  prefetch at most three raw tile payloads ahead through `prefetchTileBytes`;
+  decode, generation and spawning remain serial and sliced. Cache hits and
+  retry backoff skip lookahead; a newer centre stops the older ring. Prefetched
+  failures enter the normal tile failure path when their build turn arrives.
 - Yield during tile-wide cell/object/polygon passes in `rasterizeTileSteps`,
   including helpers via `yield*`. Keep unsliced post-rasterize work linear.
   A profile's worst-block label identifies the block ending at that yield.

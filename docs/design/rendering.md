@@ -216,7 +216,11 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   pad once and rebuilds on the next ordinary frame; it never crops past the
   painted edge. A viewport scratch blends
   old/new masks at their live fade weights and colours them with the radial
-  gradient still centred on the body. Stable world cookies join padded caches
+  gradient still centred on the body. Interrupted fades retain exact weights,
+  but rendering skips masks outside the painted view and an aggregate of less
+  than one 8-bit alpha level; it never renormalises the remaining brightness.
+  Active mask canvases stay pinned until compositing finishes, including when
+  a fade needs more than four masks. Surplus canvases are released as it settles. Stable world cookies join padded caches
   by their exact whole-pixel phase. Player-attached, breathing, flickering and
   transient lights keep the individual stamp path. The full-frame key gates
   before every canvas call. Reach lighting follows `cellInReach`; light conveys
