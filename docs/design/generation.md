@@ -417,21 +417,21 @@ access or tile lifecycle mechanics.
   section attempts a daily shrine before claiming geyser cells, searching its
   length for safe public ground. Poison lends Mending, Fire lends Ember,
   Paralysis lends Shield, and Confusion lends Light; these are ordinary daily
-  boons, not immunity to the matching gas. Geysers carry path provenance
-  through Nexus crossings.
+  boons, not immunity to the matching gas. Geysers yield to Nexus coverage.
 - Spider Path has 5% base selection weight. A seeded 35% of cell-spaced
   path samples receive permanent webs, with a small seeded lateral offset.
   Webs use the hazard spawn gate and reserve their cells; restricted land,
   occupancy, vehicle roads and road-junction safety can leave gaps. One
   two-spider garrison per section seats on safe nearby ground. Both webs
-  and spiders carry path provenance through Nexus crossings. Web contact
+  and spiders yield to Nexus coverage. Web contact
   uses the usual six-second paralysis, once per entry, with flight immunity.
 - Nexus interiors suppress Small-road variants using exact coverage-boundary
   intervals shared by pavement, lamps, stories and hazards. The selected theme
   and its stable identity survive; only outside portions receive themed
   dressing. Coverage also clips area claims and hot-road end caps. Paths keep
   their light paving and lamps inside, but Nexus vegetation and encounters
-  take precedence: ordinary path/road props, guards and slow effects yield.
+  take precedence: all path/road props, plants, rewards, traps, geysers, guards
+  and slow effects yield, including where the Nexus motif leaves a cell empty.
   Affinity is sampled before suppression. Nexus influence follows connected
   routes for up to 150 m, fading with route distance; parallel disconnected
   roads and different bridge/tunnel levels do not inherit it. The path pool's
@@ -517,9 +517,11 @@ access or tile lifecycle mechanics.
   both game and layout lab; `ZoneVariants.placement` caches the configured plan
   and samples it in the canonical POI frame, preserving empty-area reservations,
   spawn gates and per-cell identities through ordinary `ZoneDressing`.
-- Mushroom groves use a Hilbert background of giant and small mushrooms;
-  the themed surface encounter lane scatters individual
-  mushroom monsters across six-cell patches, with a seeded 60% presence roll
+- Mushroom groves use a Hilbert background with a 60:40 giant-to-small mushroom
+  mix. Reduced material affinity distributes giant caps more evenly; the
+  repeating 33-cell plan has 176 giant and 118 small mushrooms before exclusions.
+  Its find guard is a mushroom monster too. The themed surface encounter lane
+  scatters individual mushroom monsters across six-cell patches, with a seeded 60% presence roll
   per patch. Seats stay within grove coverage and obey the shared spawn gate,
   occupied cells, defeat ledger and Home protections; they are not shrine guards.
   `MushroomGas` also selects concealed emitters from the grove's existing
@@ -556,7 +558,9 @@ access or tile lifecycle mechanics.
 - Nexus coverage: `ZoneCoverage` owns the union of the influence footprint and the
   associated park footprint plus park fringe. Its ground and declarative layout
   (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary terrain paint and
-  ambient fill; roads and buildings remain visible. Nexus painting and
+  ambient fill, including procedural residential yard trees; roads and buildings
+  remain visible. Mapped and detected trees also yield to Nexus coverage,
+  including its empty cells. Nexus painting and
   quarry coverage preserve all spawn exclusions, including PRIVATE and
   BEHIND_HOUSE; the shared gate still owns its existing POI-frontage exception.
   Gas-station influence uses the tar row’s own minimum and maximum radii.

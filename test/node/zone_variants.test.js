@@ -211,7 +211,7 @@ test('zone variants: Mushroom Grove repeats the promoted Hilbert layout across s
   const generated = TerrainLayouts.assign(TerrainLayouts.generate(config), config, b.materials);
   const expected = new Map(generated.map(p => [`${p.cx},${p.cy}`, p]));
   const counts = count(row, 0, 0, 33, 33, 'a');
-  assert.eq(counts.giant_mushroom, 136); assert.eq(counts.mushroom, 135);
+  assert.eq(counts.giant_mushroom, 176); assert.eq(counts.mushroom, 118);
   assert.eq(Object.keys(counts).length, 2, 'only giant and small mushrooms');
   for (let y = 0; y < 33; y++) for (let x = 0; x < 33; x++) {
     const point = expected.get(`${x},${y}`), material = point?.material || null;

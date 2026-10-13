@@ -1,8 +1,8 @@
 (() => {
   const drain = it => { let r; do { r = it.next(); } while (!r.done); return r.value; };
-  const isLegacy = o => /^(?:wp|hr|hm|ptree|tree|ft|mr|rb)_-?\d+_/.test(o.id || '');
+  const isLegacy = o => /^(?:wp|hr|hm|ptree|ytree|tree|ft|mr|rb)_-?\d+_/.test(o.id || '');
 
-  test('zone legacy: path-authored grass keeps its seats across nexus coverage', () => {
+  test('zone legacy: path-authored grass yields its seats to nexus coverage', () => {
     const N = 8, coverage = new Uint16Array(N * N);
     coverage[18] = coverage[19] = coverage[20] = 1;
     const grass = (ix) => ({ id: `greenway_grass_0_0_${ix}_2`, x: ix + .5, y: 2.5,
@@ -14,14 +14,15 @@
     const field = { coverage, anchors: [{ kind: 'grove', gx: 99, gy: 100 }] };
     const removed = drain(WorldGen.clearZoneAmbientSteps({ field, objects: [], wildplants: [],
       scenicDress, occupied, tx: 0, ty: 0, N, tileEdgeM: N }));
-    assert.eq(removed, 0);
-    assert.eq(scenicDress.wildplants.length, 4);
+    assert.eq(removed, 2);
+    assert.eq(scenicDress.wildplants.length, 2);
     assert.truthy(scenicDress.wildplants.includes(shell), 'tide-pool rewards remain');
     assert.eq(scenicDress.objects[0], scope, 'scenic landmark remains');
-    for (const cell of [18, 19, 20, 22]) assert.truthy(occupied.has(cell), 'retained placements keep their seats');
+    assert.falsy(occupied.has(18), 'cleared path grass releases its seat');
+    for (const cell of [19, 20, 22]) assert.truthy(occupied.has(cell), 'retained placements keep their seats');
   });
 
-  test('zone legacy: Maude Roxby Wetland retains its crossing greenway grass', () => {
+  test('zone legacy: Maude Roxby Wetland excludes crossing greenway grass', () => {
     const tx = 2753, ty = 5565, N = WorldGen.cellsPerEdgeForTile(ty);
     const edge = WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(ty));
     const r = WorldGen.rasterizeTile(MVT.decodeTile(FIXTURE_TILES[`${tx}_${ty}`]), N, tx, ty, edge);
@@ -30,8 +31,8 @@
     const cell = o => Math.floor((o.y - ty * edge) / (edge / N)) * N + Math.floor((o.x - tx * edge) / (edge / N));
     assert.truthy(r.scenic.grassSeats.some(p => r.zone.coverage[Math.floor(p.y * N / r.scenic.ext) * N + Math.floor(p.x * N / r.scenic.ext)]),
       'fixture has scenic grass candidates inside nexus');
-    assert.truthy(r.scenicDress.wildplants.some(o => o._street === 'greenway' && r.zone.coverage[cell(o)]),
-      'the crossing path retains its own verge plants');
+    assert.falsy(r.scenicDress.wildplants.some(o => o._street === 'greenway' && r.zone.coverage[cell(o)]),
+      'the Nexus owns its verge plants throughout coverage');
   });
 
   test('zone legacy: coverage overrides biome and street decoration while authored, placed and uncovered items survive', () => {
@@ -83,6 +84,20 @@
     for (const id of ['wp_player', 'wp_street', 'wp_variant', 'wp_0_0_6_2']) {
       assert.truthy(wildplants.some(o => o.id === id), id);
     }
+  });
+
+  test('zone legacy: mushroom grove replaces residential yard trees in the map-review fixture', () => {
+    const tx = 2753, ty = 5566, N = WorldGen.cellsPerEdgeForTile(ty);
+    const edge = WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(ty));
+    const r = WorldGen.rasterizeTile(MVT.decodeTile(FIXTURE_TILES[`${tx}_${ty}`]), N, tx, ty, edge);
+    const slot = r.zone.anchors.findIndex(a => a.variant === 'mushroom_grove') + 1;
+    assert.gt(slot, 0, 'real fixture includes the reported grove');
+    const cell = o => Math.floor((o.y - ty * edge) / (edge / N)) * N + Math.floor((o.x - tx * edge) / (edge / N));
+    const inside = o => r.zone.coverage[cell(o)] === slot;
+    assert.truthy(r.zone.caveSource.objects.some(o => inside(o) && o._yardTree), 'original land generated yard trees');
+    assert.falsy([...r.objects, ...r.zoneDress.objects].some(o => inside(o) && ['tree', 'fruittree'].includes(o.kind)),
+      'the mushroom grove has no generated trees');
+    assert.truthy(r.objects.some(o => o._yardTree && !r.zone.coverage[cell(o)]), 'outside yard trees remain');
   });
 
   test('zone legacy: Windermere Park coverage contains its variant without older park flora', () => {

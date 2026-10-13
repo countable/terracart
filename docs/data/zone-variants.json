@@ -1337,7 +1337,7 @@
           "seed": 2718,
           "order": 4,
           "skip": [
-            40,
+            50,
             0,
             0
           ],
@@ -1345,27 +1345,27 @@
           "side": 2,
           "inverted": true,
           "selection": "density",
-          "affinity": 51,
+          "affinity": 30,
           "variation": 35,
           "clusterSize": false
         },
         "materials": [
           {
             "material": "giant_mushroom",
-            "share": 50
+            "share": 60
           },
           {
             "material": "mushroom",
-            "share": 50
+            "share": 40
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.24885215794306703,
+        "nominalDensity": 0.2699724517906336,
         "materialDensity": {
-          "giant_mushroom": 0.1248852157943067,
-          "mushroom": 0.12396694214876033
+          "giant_mushroom": 0.16161616161616163,
+          "mushroom": 0.10835629017447199
         },
         "poiOrigin": {
           "cell": [
@@ -1519,7 +1519,7 @@
       },
       "guards": {
         "mode": "guard_find",
-        "kind": "slime",
+        "kind": "mushroom_monster",
         "count": 1,
         "offsetCells": [
           [
@@ -1528,11 +1528,7 @@
           ]
         ],
         "spawnClass": "enemy",
-        "fallback": "omit_guard_keep_find",
-        "choices": [
-          "slime",
-          "spider"
-        ]
+        "fallback": "omit_guard_keep_find"
       },
       "atmosphere": "Giant woody mushrooms and small red caps share a filled Hilbert grove around the shrine and its luminous flower.",
       "materialFrames": {

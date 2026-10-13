@@ -32,14 +32,16 @@
     assert.eq(JSON.stringify(bin), before, 'shared cached species remain unchanged');
   });
 
-  test('tile bin: authored wooded park coverage excludes ordinary imported trees', () => {
+  test('tile bin: Nexus coverage excludes imported timber and fruit trees, including empty layout cells', () => {
     const e = entry();
     e.grid.fill(T.PARK);
     e.zone = { coverage: new Uint16Array(N * N).fill(1) };
     WorldGen.injectTileBin(e, { trees: [
       { kind: 'tree', id: 'tree_osm_wooded', species: 'pine', lix: 10, liy: 10 },
+    ], fruittrees: [
+      { kind: 'fruittree', id: 'fruit_osm_wooded', species: 'apple', lix: 15, liy: 15 },
     ] }, 0, 0);
-    assert.eq(e.objects.length, 0, 'park layout retains its authored tree species');
+    assert.eq(e.objects.length, 0, 'Nexus layout owns even intentionally empty cells');
   });
 
   test('tile bin: cached rows survive relocation and reuse in a different world frame', () => {
