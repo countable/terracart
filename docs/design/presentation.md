@@ -10,6 +10,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   128px portrait, description, current/max HP and damage per hit. Stats use
   `Combat.maxHp`, `Combat.petBlow` and `Pets.stats`, including accessories and
   individual bonuses. Converted enemies use their main sprite as the portrait.
+  Successful catches open this card immediately with **Close**; the first-pet
+  story stays queued until the card closes. Inventory cards use **Back**.
 
 - Character portraits use `CharacterPortraits` and transparent 80×80 cells
   from the generated 4×4 sheets (320×320 atlases) in `assets/portraits/`.

@@ -69,4 +69,16 @@
       assert.eq(scene.openedInfoFor, pet.id);
     });
   });
+
+  test('pet info: capture Close returns to the map without opening an inventory menu', () => {
+    open('dog', (scene, shell, pet) => {
+      shell.box.children.length = 0;
+      scene.presentPetInfo(pet.id, { fromCatch: true });
+      const close = shell.box.children.find(c => c.textContent === 'Close');
+      assert.truthy(close);
+      close.click();
+      assert.truthy(shell.wrap.removed);
+      assert.falsy(scene.returnedTo);
+    });
+  });
 })();
