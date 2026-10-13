@@ -3746,7 +3746,7 @@ class MapScene extends Phaser.Scene {
     }
 
     const visibleEnemies = typeof Visibility === 'undefined' ? enemies
-      : enemies.filter(c => Visibility.playerCover(this, c.x, c.y) !== 2);
+      : enemies.filter(c => !Visibility.hidden(this, c.x, c.y));
     DragonStory.tick(this, now, px, py, visibleEnemies);
     const relics = Gear.effectiveRelics(this.save);
     const activeWeapon = Gear.activeWeapon(this.save);
@@ -4820,7 +4820,7 @@ class MapScene extends Phaser.Scene {
   // One strike, never a work item. The scene clock survives target changes;
   // every attempt checks the live position and allegiance before spending it.
   startCombat(victim, opts = {}) {
-    if (victim && typeof Visibility !== 'undefined' && Visibility.playerCover(this, victim.x, victim.y) === 2) return false;
+    if (victim && typeof Visibility !== 'undefined' && Visibility.hidden(this, victim.x, victim.y)) return false;
     if (Combat.playerDowned(this.save?.energy) || Conditions.attacksBlocked(this.save)) return false;
     if (this.isShadowActive()) {
       if (!opts.auto) {
@@ -5170,7 +5170,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const tracked = wp.flee || wp.track;
-    if (tracked && typeof Visibility !== 'undefined' && Visibility.playerCover(this, tracked.x, tracked.y) === 2) {
+    if (tracked && typeof Visibility !== 'undefined' && Visibility.hidden(this, tracked.x, tracked.y)) {
       this.cancelWorkProgress();
       return;
     }

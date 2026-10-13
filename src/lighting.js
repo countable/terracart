@@ -1900,8 +1900,7 @@
       for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) {
         const cover = Visibility.coverBetween(scene, eye.x, eye.y, (x0 + x + .5) * stepM, (y0 + y + .5) * stepM);
         mask.field[y * D + x] = cover === Visibility.CLEAR ? 0
-          : cover === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS
-          : (scene.depth > 0 ? 1 : Visibility.FULL_DARKNESS);
+          : cover === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS : Visibility.FULL_DARKNESS;
       }
       // A small separable tent filter broadens the feather to about one cell.
       // Only the visual field is filtered; sight tests stay exact. Uniform
