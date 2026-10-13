@@ -1570,6 +1570,7 @@ const ICON_SHEETS = {
   icon_thunder_scroll: { url: 'assets/Icons/Items/ThunderScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_raven_scroll: { url: 'assets/Icons/Items/RavenScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_wind_scroll: { url: 'assets/Icons/Items/WindScroll.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_moonbeam_scroll: { url: 'assets/Icons/Items/MoonbeamScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_serpent_idol: { url: 'assets/Icons/Items/SerpentIdol.png', cols: 1, srcW: 16, srcH: 16 },
   icon_bones_scroll: { url: 'assets/Icons/Items/SkeletonScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_grip_potion: { url: 'assets/Icons/Items/GripPotion.png', cols: 1, srcW: 16, srcH: 16 },
@@ -3604,6 +3605,7 @@ class MapScene extends Phaser.Scene {
     this._combatTick(dt);
     this._tickBlightAura();
     this._tickFrostAura();
+    this._tickMoonbeam();
     Companions.tickAll(this);
     tickGroundCoins(this);
     this._tickArena(dt);
@@ -4542,6 +4544,7 @@ class MapScene extends Phaser.Scene {
       g.strokePath();
     }
     this._drawStaffCharge(g);
+    this._drawMoonbeam(g);
     for (let i = spearUsed; i < this._spearPool.length; i++) this._spearPool[i].setVisible(false);
     for (let i = this._boltUsed; i < this._boltPool.length; i++) this._boltPool[i].setVisible(false);
   }
@@ -4855,7 +4858,18 @@ class MapScene extends Phaser.Scene {
         texture: equipped ? this._toolTexture(weapon, equipped.tier) : null };
       const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass, Gear.activeWeapon(this.save), isRiding(this.save))
         + this._attackFlat('melee')) * PotionEffects.meleeMul(this.save);
-      if (this._damageEnemy(c, blow)) return true;
+      const hpBefore = Combat.hp(c);
+      const felled = this._damageEnemy(c, blow);
+      // THE VAMPIRE RING (jewelryMeleeLifesteal): a share of what the blow
+      // took comes back as energy, banked to whole points — never from the
+      // undead (Combat.lifestealHeal), never past the bar's max.
+      const drink = bankWhole(this, '_lifestealFraction',
+        Combat.lifestealHeal(jewelryMeleeLifesteal(this.save), hpBefore - Combat.hp(c), c));
+      if (drink > 0) {
+        Energy.set(this.save, (this.save.energy ?? 0) + drink, Energy.maxEnergy(this.save));
+        this.updateEnergyDOM?.();
+      }
+      if (felled) return true;
       // A LIT TORCH (isTorchActive) SETS THE FOE ALIGHT — Combat.ignite,
       // the `burning` row of Conditions.DEFINITIONS, as the player's own
       // kill. The blow lands first; the fire takes on what is left.

@@ -355,7 +355,7 @@ test('falloff: the player ramp ends a cell past the viewport half-diagonal, on z
   // The ramp's extent is the player row of Lighting.KINDS (the torch derives
   // its radius from it), and that row IS the half-diagonal of the view plus
   // the past-corner margin.
-  assert.truthy(/const rMax = radiusCells\('player'\) \* CELL_PX;/.test(LIGHTING_SRC),
+  assert.truthy(/const rMax = radiusCells\('player'\) \* playerLightMul\(scene\) \* CELL_PX;/.test(LIGHTING_SRC),
                 'the ramp is graded over the player row\'s radius');
   assert.eq(Lighting.PLAYER_RAMP_PAST_CORNER_CELLS, 1, 'one cell past the corner — the corners stay just lit');
   const want = Math.hypot(VIEW_CELLS * CELL_PX, VIEW_CELLS * CELL_PX) / 2 + Lighting.PLAYER_RAMP_PAST_CORNER_CELLS * CELL_PX;

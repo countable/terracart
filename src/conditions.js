@@ -23,6 +23,10 @@
   //   pinned  — a sprung trap's jaw (app.js _tickTraps): the body holds still
   //             (_bodyHold) for the row's duration; no drain of its own (the
   //             trap's bleed is the trap's). Antidote / Elixir pry it open.
+  //   blinded — a ghost's touch (its roster row's `condition`): for 15 s the
+  //             player's light and sight run at `lightMul` — the reach
+  //             plateau (coords.js reachRadiusM), the light ramp and a carried
+  //             torch (lighting.js playerLightMul) — read live by lightMul().
   const DEFINITIONS = Object.freeze({
     burning: Object.freeze({ durationMs: 5000, maxDurationMs: 60000, exposureRate: 5, intervalMs: 1000, energyLoss: 1,
       label: 'Burning', tint: 0xff8c42, flicker: true, ink: '#ffb36b', bg: '#2e1a0ee8' }),
@@ -38,6 +42,8 @@
       label: 'Paralysed', tint: 0x4f9fff, flicker: false, ink: '#b4d8ff', bg: '#0e1f3ae8' }),
     pinned: Object.freeze({ durationMs: 3000, blocksMovement: true,
       label: 'Pinned', tint: 0xb8bcc8, flicker: false, ink: '#d6dae6', bg: '#1c1f28e8' }),
+    blinded: Object.freeze({ durationMs: 15000, lightMul: 0.5,
+      label: 'Blinded', tint: 0x8e8ea6, flicker: false, ink: '#cfd2ea', bg: '#16162ae8' }),
   });
   const CONTEXT_STATUS = Object.freeze({
     slowed: Object.freeze({ label: 'Slowed', ink: '#d6dae6', bg: '#1c1f28e8' }),
@@ -74,6 +80,13 @@
     if (movementBlocked(save)) return 0;
     let mul = 1;
     for (const [id, def] of Object.entries(DEFINITIONS)) if (def.moveSpeedMul && active(save, id)) mul *= def.moveSpeedMul;
+    return mul;
+  }
+  // How far the player's light and sight reach, as a fraction (1: whole).
+  // The product of every active row's `lightMul` — the blindness.
+  function lightMul(save) {
+    let mul = 1;
+    for (const [id, def] of Object.entries(DEFINITIONS)) if (def.lightMul && active(save, id)) mul *= def.lightMul;
     return mul;
   }
   function fireRemainder(save) {
@@ -237,5 +250,5 @@
     clearDebuffs(save);
     return true;
   }
-  root.Conditions = { DEFINITIONS, CONTEXT_STATUS, FLICKER_MS, conditionTintOn, normalize, active, confusionSteering, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, setDialogShield, flying, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
+  root.Conditions = { DEFINITIONS, CONTEXT_STATUS, FLICKER_MS, conditionTintOn, normalize, active, confusionSteering, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, lightMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, setDialogShield, flying, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
