@@ -4818,6 +4818,7 @@ Render.drawObjects = function drawObjects(scene) {
     }
     const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);
     const ov = wildplantSprite(p);
+    if (ov?.tint != null) s.setTint(ov.tint);
     if (ov && ov.custom) {
       // Custom-sheet wildplants. Some are one frame (longgrass, the flowers),
       // others vary per cell (the mushroom's two cave caps), so the same world

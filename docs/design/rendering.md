@@ -86,8 +86,9 @@ rendering, lighting or street mechanics. Camera and art geometry live in
 - Procedural wildplant backgrounds carry the shared layout's `_terrainScale`
   into the normal crop renderer as a size multiplier; cell positions, crop art
   and harvest rewards remain owned by their existing records and tables.
-- Revealed gas-emitting mushrooms use separate small and giant context art;
-  the renderer carries `gasEmitter` into the crop view without changing crop
+- Large gas-emitting mushrooms reuse the regular giant mushroom frame, scale
+  and seating with a yellow-green tint shared by gameplay and map review. Small
+  gas mushrooms retain their dedicated art. The renderer carries `gasEmitter` into the crop view without changing crop
   identity, harvest rewards or inventory icons.
 - A creature's contact shadow centres 3 px above its ground point
   (`SHADOW_LOOK.creature.dy`), so its feet stand on the ellipse's middle; the
