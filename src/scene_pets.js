@@ -102,7 +102,7 @@ class ScenePets {
     title.style.cssText = 'margin:0 0 6px;font-size:18px;line-height:1.2;';
     box.appendChild(title);
     const portrait = document.createElement('div');
-    portrait.style.cssText = 'width:128px;height:128px;margin:6px auto;border-radius:12px;overflow:hidden;background:#18251d;';
+    portrait.style.cssText = 'width:128px;height:128px;margin:6px auto;';
     const art = typeof CharacterPortraits !== 'undefined' ? CharacterPortraits.pet(pet.kind) : null;
     if (art) {
       const img = document.createElement('img');
