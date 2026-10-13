@@ -729,6 +729,18 @@ class SceneCreate {
 
     // Ground coin sprites load through ASSETS at their native map sizes.
 
+    // One small metal grate texture shared by all pressure-controlled gas outlets.
+    if (!this.textures.exists('pressure_gas_grate')) {
+      const grate = this.make.graphics({ x: 0, y: 0, add: false });
+      grate.fillStyle(0x24221e, 1).fillRect(3, 6, 18, 13);
+      grate.fillStyle(0x77766b, 1).fillRect(3, 5, 18, 2).fillRect(3, 17, 18, 2);
+      grate.fillStyle(0x55594f, 1);
+      for (let x = 4; x <= 20; x += 4) grate.fillRect(x, 7, 2, 10);
+      grate.fillStyle(0xa4a08a, 1).fillRect(3, 5, 2, 2).fillRect(19, 5, 2, 2)
+        .fillRect(3, 17, 2, 2).fillRect(19, 17, 2, 2);
+      grate.generateTexture('pressure_gas_grate', 24, 24);
+      grate.destroy();
+    }
     // Bake a soft building shadow: a flat dark ellipse that fades at the rim.
     // Drawn as concentric ellipses of decreasing alpha so the edge feathers
     // out instead of hard-cutting. 64×32 texture; render.js scales per object.

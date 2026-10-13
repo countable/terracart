@@ -179,7 +179,7 @@
   // seats. It spends no replacement budget and never moves them elsewhere.
   function busyRoadAllows(scene, creature) {
     const at = creature?._habitatSpawn || creature?._surfaceSpawn;
-    if (!at || (scene?.depth || 0) > 0 || creature.lair || creature.summoned
+    if (!at || creature.lair || creature.summoned
         || root.Combat?.isTame(creature)) return true;
     if (!root.Lighting || root.Lighting.daylight(scene, Date.now()) >= SURFACE_NIGHT_DAYLIGHT) return true;
     const WG = root.WorldGen, entry = WG.tileCache.get(WG.tileKey(at.tx, at.ty));
@@ -261,7 +261,7 @@
       && depth >= row.cave.minDepth && (row.cave.maxDepth == null || depth <= row.cave.maxDepth)
       && (row.cave.depthRule !== 'even' || depth % 2 === 0)
       && (!context || context.kinds.includes(row.id))
-      && (depth >= 5 || !['red_demon', 'purple_demon', 'armoured_demon', 'fiend', 'succubus', 'hell_brute'].includes(row.id))
+      && (depth >= root.WorldGen.LAVA_DEPTH || !['red_demon', 'purple_demon', 'armoured_demon', 'fiend', 'succubus', 'hell_brute'].includes(row.id))
       && row.id !== 'red_dragon');
   }
   // Giants share at most 5% of the total bag, regardless of how many are added.

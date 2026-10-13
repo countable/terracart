@@ -13,17 +13,25 @@ every floor-scoped cave rule (terrain mode, biome label, lava, street mirror,
 fall landings, chest source, quarry provenance, pressure traps, authored cave
 areas, arrival stories and the infernal entry key). Authored warren, mushroom, gemstone and
 dungeon-maze areas already land on floors 1-2 around grove and quarry anchors
-(`WorldGen.floorProfile(depth).caveAreas`); the goblin city extends them to full-floor
-coverage. Still pending: the elevator rework (repair from floor 1, the descent
-module), the terrain shift (deep stone at 3, fungal Underdark at 4, haunted
-city at 5, lava at 6, with biome labels and arrival stories), the dragon layer
-at 7-8, the wizard-tower key for 6 -> 7, and the stair minting rules -
-generated down-ladders still connect the sealed floors today, so only the
-rope, pit and key gates of the matrix below are live. Every input that defines
-a floor is catalogued in
-[floor-design-review.html](floor-design-review.html); the open geometry
-decisions await confirmation in
-[floor-geometry-proposal.md](floor-geometry-proposal.md).
+(`WorldGen.floorProfile(depth).caveAreas`); L2 connects the space between these areas with a continuous goblin warren. The terrain ladder is implemented:
+city at 2 (building-only walls), deep stone at 3, fungal Underdark at 4,
+haunted city at 5, lava at 6, and mirrored dragon strata at 7-8, each with its
+own biome tint and arrival story. Deep-stone settlements carry depth 3;
+existing enemy windows, ore mines, chest ceilings and ghost bands follow the
+new ladder. The existing finite dragon-roost placement starts on floor 8.
+
+Still pending: the elevator rework (repair from floor 1, the descent module),
+the wizard-tower key for 6 -> 7, and stair minting - generated down-ladders
+still connect sealed floors, so only the rope, pit and arena-key gates of the
+matrix below are live. The target rows below also include unimplemented
+geometry: road-variant tunnels on 3, the dug descent
+shaft, surface-shaped fungal beds, fungal vent skins and mushroom foes,
+haunted-city ruin/cache dressing, lava heat shelters, and the largest-opening
+roost/egg design. These remain proposals in
+[floor-geometry-proposal.md](floor-geometry-proposal.md); existing wall digging,
+ordinary mushrooms, crypt haunting and finite roost encounters remain in use.
+Every input that defines a floor is catalogued in
+[floor-design-review.html](floor-design-review.html).
 
 Depth 0 is the surface. Each cave tile is the negative of the tile above it
 (`worldgen.js` `loadCaveTile`), so a floor's identity comes from three things:
@@ -49,9 +57,9 @@ trials still run in the paused overlay scene (`temple_scene.js`).
 
 | Floor | Theme | Terrain and look | Unique to this floor | Signature foes |
 | --- | --- | --- | --- | --- |
-| 1 | Natural caves with some engineered tunnels | Cave: the negative of the surface's walkable cells | Street and path mirror routes with themes, authored spring caves, barrels, floor torches, grey confusion-gas vents (no contact hit; each eruption is a mushroom-sized burst of yellow confusion gas that briefly reaches the adjacent cells; gas vents rest 20 s so a burst disperses even from a one-cell passage before the next), quarry gem seams, double mushroom growth, a thin copper seam (5 % of rocks); pits, holes and sinkhole cave-ins drop into the goblin city below; the only floor where campfires ward monsters (`FIRE_WARD_MAX_DEPTH = 1`) | Slimes above all - green, cave, purple and splitting - with bats and a few goblins (one habitat region in eight is a warren; window 1-2) |
-| 2 | Goblin city | Only buildings turn to rock wall - roads stay open, unlike every other floor - and goblin-warren rooms laid out nexus-style cover the rest of the floor | The warrens are the floor: rooms claim everything except small clearings, which appear only on road variants and at non-goblin nexus places, the same anchors as floor 1; falls from floor 1's pits land in those clearings; a thin copper seam (the floor 1 share); rolling-ball and sliding-wall pressure plates, and poison, fire and paralysis vents, which start here: poison and paralysis vents burst green and blue gas like the floor-1 vent (paralysis gas re-arms after each dose, leaving a window to walk out), and each fire-vent eruption lights its cell and the four beside it as burning ground | The warren family: club, spear and archer goblins, goblin trappers (city window 2-3) |
-| 3 | Deep stone | Only surface park, grove, playground, pitch and commercial ground opens; the rest is stone the player must dig through to get anywhere | Digging is the way around: most places need it, and road variants keep about half the roads cleared as tunnels; the only way down to floor 4 is a shaft dug through the stone; clearings settle as Deep groves and Dwarven cities with residents, caches and shrines; copper is its mine; ghosts walk the even depths from here | Spider, zombie, spear goblin (3-4) |
+| 1 | Natural caves with some engineered tunnels | Cave: surface buildings, water and Small roads become walls; Medium/Large roads and paths stay open, with inherited safety exclusions | Street and path mirror routes with themes, authored spring caves, barrels, floor torches, grey confusion-gas vents (no contact hit; each eruption is a mushroom-sized burst of yellow confusion gas that briefly reaches the adjacent cells; gas vents rest 20 s so a burst disperses even from a one-cell passage before the next), quarry gem seams, double mushroom growth, a thin copper seam (5 % of rocks); pits, holes and sinkhole cave-ins drop into the goblin city below; the only floor where campfires ward monsters (`FIRE_WARD_MAX_DEPTH = 1`) | Slimes above all - green, cave, purple and splitting - with bats and a few goblins (one habitat region in eight is a warren; window 1-2) |
+| 2 | Goblin city | Only buildings turn to rock wall - all road classes stay open - and goblin-warren rooms laid out nexus-style cover the rest of the floor | The warrens are the floor: rooms claim everything except small clearings, which appear only on road variants and at non-goblin nexus places, the same anchors as floor 1; falls from floor 1's pits land in those clearings; a thin copper seam (the floor 1 share); hidden pressure plates (revealed within one cell) controlling rolling balls, spike walls and gas grates, plus poison, fire and paralysis vents, which start here: poison and paralysis vents burst green and blue gas like the floor-1 vent (paralysis gas re-arms after each dose, leaving a window to walk out), and each fire-vent eruption lights its cell and the four beside it as burning ground | The warren family: club, spear and archer goblins, goblin trappers (city window 2-3) |
+| 3 | Deep stone | Only surface park, grove, playground, pitch and commercial ground opens; the rest is stone the player must dig through to get anywhere | Digging is the way around: most places need it, and road variants keep about half the roads cleared as tunnels; the only way down to floor 4 is a shaft dug through the stone; clearings settle as Deep groves and Dwarven cities with residents, caches and shrines; copper is its mine; ambient crypt ghosts begin one floor below | Spider, zombie, spear goblin (3-4) |
 | 4 | Underdark: a fungal world, open like the surface | Every cell opens into one cavern - no corridor maze, open ground under the fungi | The portal stone waits here (the first tier-4-or-better chest a kilometre or more out - the floor's depth bonus lifts every chest to effective T3, so the bar is T4); first floor where chest tiers can reach T6; crypt ghosts appear; double mushroom growth returns with the fungi; the arrival story plays here ("The walls fall away into a barren cavern") | Purple slime, mushroom monsters, troll (4-5, troll 4-4) |
 | 5 | Haunted layer: a dead city | Mirrors the surface grid - the city above, repeated in ruin and silence | Arena-locked hatches from floor 4 - the five tower trials mint the key that opens them; the dead city keeps the shape of home, and its ghosts keep theirs | Ghosts, sword spirits, vampire bats (5-6) |
 | 6 | Lava stratum | Rock under surface buildings turns to lava | Infernal kinds enter the pools; fire elementals appear only here; no ladders or pits drop into the dragon layer - the second wizard tower holds the key | Fire elemental (6-6), fiend, brute (6-7) |

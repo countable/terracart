@@ -107,9 +107,9 @@ test('road junctions: ROAD_CLASS_MAJOR_ROAD uses the half-covered threshold', ()
   assert.falsy(bits(e, 21, 30) & W.ROAD_CLASS_MAJOR_ROAD, 'the under-half east fringe is not direct road');
 });
 
-function movementScene(entry) {
+function movementScene(entry, depth = 0) {
   return {
-    depth: 0, tileEdgeM: EDGE_M, cellM: CELL_M,
+    depth, tileEdgeM: EDGE_M, cellM: CELL_M,
     cellAt: () => ({ loaded: true, type: T.GRASS }),
     _cellBlocked: () => false,
     _nearAny: () => false,
@@ -117,7 +117,7 @@ function movementScene(entry) {
   };
 }
 const centreM = (cell) => (cell + 0.5) * CELL_M;
-function refused(bit, creature, alreadyInside = false) {
+function refused(bit, creature, alreadyInside = false, depth = 0) {
   const entry = { cellsPerEdge: N, grid: new Uint8Array(N * N).fill(T.GRASS),
     roadClass: new Uint8Array(N * N), creatures: [] };
   const fromX = 10, toX = 12, row = 10;
@@ -127,7 +127,7 @@ function refused(bit, creature, alreadyInside = false) {
   W.tileCache.set(key, entry);
   creature.x = centreM(fromX); creature.y = centreM(row);
   try {
-    return creatureStepRefused(movementScene(entry), creature, centreM(toX), centreM(row));
+    return creatureStepRefused(movementScene(entry, depth), creature, centreM(toX), centreM(row));
   } finally {
     if (prior) W.tileCache.set(key, prior); else W.tileCache.delete(key);
   }
@@ -141,4 +141,15 @@ test('road junctions: every non-ally refuses exclusion; only fast movers refuse 
   assert.falsy(refused(W.ROAD_CLASS_JUNCTION_SOFT, { id: 'slow', kind: 'slime' }), 'slow hostile may enter the soft buffer');
   assert.falsy(refused(W.ROAD_CLASS_JUNCTION_SOFT, { id: 'fast-in', kind: 'goblin' }, true), 'a fast mover already inside may leave');
 });
+for (const depth of [1, 5, 20]) {
+  test(`road junctions: inherited movement exclusions and suppression apply on L${depth}`, () => {
+    assert.truthy(refused(W.ROAD_CLASS_JUNCTION_EXCLUDE, { kind: 'slime' }, false, depth));
+    assert.truthy(refused(W.ROAD_CLASS_MAJOR_BAND, { kind: 'slime' }, false, depth));
+    for (const bit of [W.ROAD_CLASS_MAJOR_BUFFER, W.ROAD_CLASS_JUNCTION_SOFT]) {
+      assert.truthy(refused(bit, { kind: 'goblin' }, false, depth), 'fast movers refuse buffer entry');
+      assert.falsy(refused(bit, { kind: 'slime' }, false, depth), 'slow movers remain permitted');
+      assert.falsy(refused(bit, { kind: 'goblin' }, true, depth), 'creatures inside can leave');
+    }
+  });
+}
 })();

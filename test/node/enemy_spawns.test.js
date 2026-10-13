@@ -189,7 +189,7 @@ test('enemy spawns: evening busy-road suppression hides fixed fauna and enemy se
       const c = { kind: 'rabbit', _habitatSpawn: { tx: 321, ty: 654, cx: 0, cy: 0 }, ...extra };
       assert.truthy(EnemySpawns.busyRoadAllows(scene, c));
     }
-    assert.truthy(EnemySpawns.busyRoadAllows({ ...scene, depth: 1 }, {
+    assert.falsy(EnemySpawns.busyRoadAllows({ ...scene, depth: 1 }, {
       kind: 'rabbit', _habitatSpawn: { tx: 321, ty: 654, cx: 0, cy: 0 } }));
     assert.truthy(EnemySpawns.busyRoadAllows(scene, {
       kind: 'rabbit', _habitatSpawn: { tx: 321, ty: 654, cx: 1, cy: 0 } }), 'ordinary free ground stays active in evening');

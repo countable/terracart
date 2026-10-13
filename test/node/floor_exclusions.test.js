@@ -2,12 +2,12 @@
   const W = WorldGen, T = W.T, WHY = W.SPAWN_WHY;
   const spawn = new Function('entry', 'tx', 'ty', 'depth', SPAWN_CAVE_SRC.replace(/\n\s*\}\s*$/, ''));
 
-  test('floor exclusions: immutable field interiors and golf survive overlays without importing roads', () => {
+  test('floor exclusions: immutable field interiors and golf survive overlays including road and access safety', () => {
     const source = { grid: Uint8Array.from([T.FARMLAND, T.GOLF, T.PARK, T.ROAD, T.FARMLAND]),
       spawnWhy: Uint16Array.from([WHY.FARM_INTERIOR, 0, WHY.GOLF | WHY.PRIVATE, WHY.ROAD | WHY.TERRAIN, 0]) };
     const surface = { grid: new Uint8Array(5).fill(T.PARK), caveSource: source };
     const why = W.floorSpawnWhy(surface);
-    assert.eq([...why].join(','), [WHY.FARM_INTERIOR, WHY.GOLF, WHY.GOLF, 0, 0].join(','));
+    assert.eq([...why].join(','), [WHY.FARM_INTERIOR, WHY.GOLF, WHY.GOLF | WHY.PRIVATE, WHY.ROAD, 0].join(','));
     for (const cls of W.SPAWN_CLASSES) for (let x = 0; x < 3; x++) {
       assert.falsy(W.isSpawnCell(new Uint8Array(5).fill(T.CAVE_FLOOR), 5, 1, x, 0,
         { spawnWhy: why, pois: [{ ix: x, iy: 0 }] }, cls), cls + ' cannot reopen an excluded floor');
@@ -16,6 +16,50 @@
       { spawnWhy: why }, 'minor'), 'farmland rim stays available underground');
     why[0] = 0;
     assert.eq(source.grid[0], T.FARMLAND, 'surface evidence stays immutable');
+  });
+
+  test('floor exclusions: surface safety remains class-specific on every cave floor', async () => {
+    const N = 24, tx = 931521, ty = 931522, key = W.tileKey(tx, ty), edge = N * W.CELL_M;
+    const reasons = [WHY.RESTRICTED, WHY.QUIET, WHY.KINDERGARTEN, WHY.SENSITIVE_SITE,
+      WHY.BEHIND_HOUSE, WHY.PRIVATE, WHY.FARMLAND, WHY.PIER_ACCESS, WHY.JUNCTION,
+      WHY.KERB, WHY.SENSITIVE, WHY.JUNCTION_SOFT];
+    const grid = new Uint8Array(N * N).fill(T.PARK), why = new Uint32Array(N * N);
+    const roadClass = new Uint8Array(N * N);
+    reasons.forEach((reason, i) => { why[i] = reason; });
+    roadClass[9] = W.ROAD_CLASS_MAJOR_BUFFER;
+    W.setDepth(0).set(key, { status: 'ready', grid, baseGrid: grid.slice(), spawnWhy: why,
+      roadClass, cellsPerEdge: N, tileEdgeM: edge, objects: [], wildplants: [] });
+    try {
+      for (let depth = 1; depth <= 10; depth++) {
+        const entry = await W.loadTile.atDepth(depth, tx, ty, 49);
+        assert.eq([...entry.spawnWhy].join(), [...why].join(), 'all safety bits survive depth ' + depth);
+        assert.eq(entry.roadClass[9], W.ROAD_CLASS_MAJOR_BUFFER);
+        assert.truthy(entry.roadClass !== roadClass, 'floor owns its copy');
+        const open = new Uint8Array(N * N).fill(T.CAVE_FLOOR);
+        for (const cls of W.SPAWN_CLASSES) for (let i = 0; i < reasons.length; i++) {
+          const blocked = !!(reasons[i] & (W.SPAWN_WHY_HARD | W.SPAWN_CLASS_BLOCKS[cls]));
+          assert.eq(W.isSpawnCell(open, N, N, i, 0, { spawnWhy: entry.spawnWhy }, cls), !blocked,
+            cls + ' safety at depth ' + depth + ' reason ' + reasons[i]);
+        }
+        for (const o of [...entry.objects, ...entry.wildplants, ...entry.extraTreasures, ...entry.caveCoinSeeds]) {
+          const i = Math.floor((o.y - ty * edge) / W.CELL_M) * N + Math.floor((o.x - tx * edge) / W.CELL_M);
+          assert.falsy(why[i] & W.SPAWN_WHY_HARD, 'generated content avoids hard exclusion');
+        }
+      }
+    } finally {
+      for (let depth = 0; depth <= 10; depth++) W.setDepth(depth).delete(key);
+      W.setDepth(0);
+    }
+  });
+
+  test('floor exclusions: kerb suppression blocks cave hazards and rewards but keeps scenery', () => {
+    const N = 64, grid = new Uint8Array(N * N).fill(T.CAVE_FLOOR);
+    const spawnWhy = new Uint32Array(N * N).fill(WHY.KERB);
+    const level = W.cavePassLevel(grid, N, 123, 456, N * W.CELL_M, 1, new Set(), { spawnWhy });
+    for (const id of ['chasms', 'coins', 'drills', 'rocks']) W.runCavePass(W.CAVE_PASSES.find(row => row.id === id), level);
+    assert.falsy(level.objects.some(o => o.kind === 'ground_hole' || o.shrineKind === 'drill'));
+    assert.eq(level.coins.length, 0);
+    assert.truthy(level.objects.some(o => o.kind === 'mineralrock'), 'ordinary static rocks remain allowed');
   });
 
   test('floor exclusions: every generated cave depth keeps resources, stairs and fauna off excluded land', async () => {

@@ -105,7 +105,12 @@ access or tile lifecycle mechanics.
   Retired save formats may be discarded; keep current-state defaults, validation
   and runtime cleanup separate from compatibility conversion.
 
-- Farm and orchard interiors, and entire golf courses, exclude spawns at every dungeon depth.
+- Surface access exclusions and typed safety suppression apply at every dungeon depth.
+  Road bands, junctions, private/restricted/quiet land and sensitive sites retain
+  their reason bits; kerb and sensitive-area buffers retain their spawn-class rules.
+  Terrain alone is recalculated for the current floor. Underground tiles also
+  inherit road geometry for chase boundaries, warnings and night-road hiding/drain.
+  Farm and orchard interiors, and entire golf courses, exclude spawns at every dungeon depth.
   Fields keep an eligible outer rim of `WorldGen.FARM_EDGE_CELLS` cells,
   measured from the source footprint; roads, POIs and later paint cannot create
   interior edges. Farmland rims scatter static T1–T2 wild crops at seeded growth
@@ -114,6 +119,22 @@ access or tile lifecycle mechanics.
   `WorldGen.SPAWN_WHY_ALL_FLOORS` owns the inherited reasons; `floorSpawnWhy`
   derives them from immutable surface evidence. Preserve that mask through cave
   generation and runtime spawns; repainting or digging never grants spawn access.
+
+- L2 fills eligible ground between authored areas with connected goblin-warren
+  rooms (`CaveAreas.planCity`, configured by `floorProfile(2).warren`).
+  Shared walls have two-cell doors; clipped rooms retain open rims, and route
+  clearings, landmarks and stair approaches stay clear. The city owns its empty
+  ground so ordinary rock scatter cannot refill its passages. Room encounters
+  use stable IDs and the class-specific safety gate; finite stores share the
+  existing cave-container budget. The drill budget is placed before the city.
+
+- L2 pressure plates are subtle floor marks, visible only within one cell of
+  the player's body. Stepping on one triggers its paired rolling ball, spike
+  wall or gas grate once per encounter. Gas grates stay inert until pressed,
+  then emit the existing poison/paralysis gas burst rather than a periodic
+  geyser eruption. City passages may host traps despite the city's ambient
+  reservation; actual objects, landmark approaches and the hazard safety gate
+  still exclude placement. Grove ghost plates retain their existing visibility.
 
 - Authored cave areas use `ZoneVariants.anchorFrame` and run before ordinary
   floor passes. Keep their empty-ground reservations separate from object
@@ -143,6 +164,10 @@ access or tile lifecycle mechanics.
   per-depth regions (`THEME_BANDS`), while chest mirrors, torch sites, quarry
   provenance and spring caves inherit surface anchors. The street mirror and
   any per-floor road clearings are level-scoped projections of surface lines.
+  On L1, only Small roads become road-derived cave walls; Medium/Large roads
+  and paths remain open terrain. Route projection cannot carve the L1 Small-road
+  walls. Buildings and water retain their existing wall mapping. Open terrain
+  does not relax inherited spawn safety.
   `docs/design/floors.md` owns the per-floor catalog.
 
 - A per-floor rule - rope seals, fall seals, hazards, lighting levels - reads

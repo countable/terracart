@@ -33,7 +33,7 @@ function withDaylight(value, fn) {
   }
 }
 
-test('night road: the MD/LG buffer is active only after dark on the surface', () => {
+test('night road: the MD/LG buffer is active only after dark', () => {
   const B = WorldGen.ROAD_CLASS_MAJOR_BUFFER;
   const V = WorldGen.ROAD_CLASS_MAJOR_VERGE;
   const scene = nightRoadScene(B);
@@ -49,8 +49,21 @@ test('night road: the MD/LG buffer is active only after dark on the surface', ()
   assert.falsy(RoadSafety.nightRoadZone(verge, 15, 15, 0, 0), 'plain verge stays open');
   assert.falsy(RoadSafety.objectHidden(verge, object, true), 'plain verge object stays visible');
 
-  const cave = nightRoadScene(B, { depth: 1 });
-  assert.falsy(RoadSafety.nightRoadZone(cave, 15, 15, 0, 0), 'underground road mirror is not a safety zone');
+  for (const { depth } of WorldGen.FLOOR_PROFILES) {
+    const cave = nightRoadScene(B | WorldGen.ROAD_CLASS_MAJOR_ROAD, { depth });
+    assert.truthy(RoadSafety.nightRoadZone(cave, 15, 15, 0, 0), `depth ${depth}: night zone`);
+    assert.falsy(RoadSafety.nightRoadZone(cave, 15, 15, 0, 1), `depth ${depth}: daytime open`);
+    assert.truthy(RoadSafety.objectHidden(cave, object, true), `depth ${depth}: hidden object`);
+    assert.truthy(RoadSafety.majorRoadAt(cave, 15, 15), `depth ${depth}: road warning`);
+    const state = RoadSafety.playerState(cave, 0, 0);
+    assert.truthy(state.nightZone && state.majorRoad, `depth ${depth}: warning and drain active`);
+  }
+  for (const depth of [WorldGen.SKY_DEPTH, WorldGen.ARENA_DEPTH]) {
+    const scene = nightRoadScene(B | WorldGen.ROAD_CLASS_MAJOR_ROAD, { depth });
+    assert.falsy(RoadSafety.nightRoadZone(scene, 15, 15, 0, 0), `depth ${depth}: no night zone`);
+    assert.falsy(RoadSafety.objectHidden(scene, object, true), `depth ${depth}: objects visible`);
+    assert.falsy(RoadSafety.playerState(scene, 0, 0).majorRoad, `depth ${depth}: no road warning`);
+  }
 });
 
 test('night road: fractional exposure banks whole pips and app spends through Energy.set', () => {
@@ -63,7 +76,7 @@ test('night road: fractional exposure banks whole pips and app spends through En
   assert.eq(scene._nightRoadDrainAccum, 0, 'leaving drops the partial pip');
 
   const K = liftedRoadSafetyClass();
-  const live = Object.assign(new K(), nightRoadScene(WorldGen.ROAD_CLASS_MAJOR_BUFFER));
+  const live = Object.assign(new K(), nightRoadScene(WorldGen.ROAD_CLASS_MAJOR_BUFFER, { depth: 1 }));
   live._bootOverlayGone = true;
   live._storySplashOnce = () => false;
   live._showSafetyCard = () => {};
@@ -87,7 +100,7 @@ test('night road: fractional exposure banks whole pips and app spends through En
 
 test('night road: the story panel is once per save with exact safety copy', () => {
   const K = liftedRoadSafetyClass();
-  const scene = Object.assign(new K(), nightRoadScene(WorldGen.ROAD_CLASS_MAJOR_BUFFER));
+  const scene = Object.assign(new K(), nightRoadScene(WorldGen.ROAD_CLASS_MAJOR_BUFFER, { depth: 1 }));
   scene._bootOverlayGone = true;
   scene._bankDrain = () => {};
   scene._losePlayerEnergy = () => 0;
@@ -110,7 +123,7 @@ test('night road: the story panel is once per save with exact safety copy', () =
 
 test('night road: majority-covered carriageway warning is once per UTC day', () => {
   const K = liftedRoadSafetyClass();
-  const scene = Object.assign(new K(), nightRoadScene(WorldGen.ROAD_CLASS_MAJOR_ROAD));
+  const scene = Object.assign(new K(), nightRoadScene(WorldGen.ROAD_CLASS_MAJOR_ROAD, { depth: 2 }));
   scene._bootOverlayGone = true;
   scene._bankDrain = () => {};
   scene._losePlayerEnergy = () => 0;

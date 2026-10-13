@@ -11,7 +11,7 @@
   // of paralysis cannot hold the player still until it clears: the gap
   // between doses is the window to walk out.
   const KINDS = Object.freeze({
-    confusion: Object.freeze({ condition: 'confused', durationMs: 5000, colour: 0xffde1a, highlight: 0xffffc4 }),
+    confusion: Object.freeze({ condition: 'confused', durationMs: 5000, densityScaled: true, colour: 0xffde1a, highlight: 0xffffc4 }),
     poison: Object.freeze({ condition: 'poison', durationMs: 30000, colour: 0x7ddc2e, highlight: 0xe2ffb8 }),
     paralysis: Object.freeze({ condition: 'paralysis', durationMs: 5000, rearmMs: 8000,
       colour: 0x3f9dff, highlight: 0xd2ecff }),
@@ -116,7 +116,8 @@
     const key = `${cell.cellIX},${cell.cellIY}`;
     for (const [kind, row] of Object.entries(KINDS)) {
       const c = s.contacts[kind];
-      if (!(s.gases[kind].cells.get(key)?.density > 0)) {
+      const density = s.gases[kind].cells.get(key)?.density || 0;
+      if (!(density > 0)) {
         c.cell = null;
         continue;
       }
@@ -128,8 +129,11 @@
       // Each gas shares its condition's own behaviour (confusion's compass,
       // poison's ticks, paralysis's hold). A brief exposure must not shorten
       // an existing longer effect.
-      if (scene._applyCondition) scene._applyCondition(row.condition, { durationMs: row.durationMs });
-      else root.Conditions.apply(scene.save, row.condition, Date.now(), { durationMs: row.durationMs });
+      const durationMs = row.densityScaled
+        ? Math.max(1, Math.min(root.Conditions.DEFINITIONS[row.condition].maxDurationMs || row.durationMs,
+          Math.round(row.durationMs * density / CONFIG.burstMass))) : row.durationMs;
+      if (scene._applyCondition) scene._applyCondition(row.condition, { durationMs });
+      else root.Conditions.apply(scene.save, row.condition, Date.now(), { durationMs });
     }
   }
 

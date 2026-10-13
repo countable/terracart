@@ -4049,7 +4049,7 @@ Render.drawObjects = function drawObjects(scene) {
     h, dx: h.x - pWorldX, dy: h.y - pWorldY,
   })).filter(it => !it.h.blocked && Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
   const pressureState = PressureTraps.lists(scene);
-  const pressureList = [...pressureState.plates.map(h => ({ h, plate: true })),
+  const pressureList = [...pressureState.plates.filter(h => PressureTraps.plateVisible(scene, h)).map(h => ({ h, plate: true })),
     ...pressureState.traps.map(h => ({ h, plate: false }))].map(it => ({
       ...it, dx: it.h.x - pWorldX, dy: it.h.y - pWorldY,
     })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
@@ -4057,7 +4057,7 @@ Render.drawObjects = function drawObjects(scene) {
   Render.cullCovered(scene, whirlwindList, 'h');
   Render.cullCovered(scene, environmentList, 'h');
   Render.cullCovered(scene, pressureList, 'h');
-  for (const it of pressureList) zList.push({ it, rank: 2, ground: it.plate, groundY: groundY(it) });
+  for (const it of pressureList) zList.push({ it, rank: 2, ground: it.plate || it.h.kind === 'gas', groundY: groundY(it) });
   for (const it of environmentList) zList.push({ it, rank: 1,
     ground: it.h.type !== 'vent', groundY: groundY(it) });
   for (const it of whirlwindList) zList.push({ it, rank: 3, groundY: groundY(it) });
@@ -5083,10 +5083,12 @@ Render.drawObjects = function drawObjects(scene) {
   scene._pressureTrapPool ||= [];
   Render.renderPool(scene, scene._pressureTrapPool, scene.creaturesContainer, pressureList, (s, it) => {
     const { x: sx, y: sy } = project(it.dx, it.dy);
-    const key = it.plate ? 'cave_mechanisms' : it.h.kind === 'ball' ? 'rolling_ball' : 'sliding_spike_wall';
+    const key = it.plate ? 'cave_mechanisms' : it.h.kind === 'gas' ? 'pressure_gas_grate'
+      : it.h.kind === 'ball' ? 'rolling_ball' : 'sliding_spike_wall';
     s.anims?.stop();
-    s.setTexture(key, it.h.frame).setOrigin(.5, .5).setDisplaySize(CELL_PX, CELL_PX)
-      .setPosition(Math.round(sx), Math.round(sy)).setAlpha(1).setTint(0xffffff);
+    s.setTexture(key, it.h.kind === 'gas' ? 0 : it.h.frame).setOrigin(.5, .5).setDisplaySize(CELL_PX, CELL_PX)
+      .setPosition(Math.round(sx), Math.round(sy))
+      .setAlpha(it.plate && it.h.effect !== 'ghost' ? PressureTraps.CONFIG.plateAlpha : 1).setTint(0xffffff);
     setWorldDepth(s, it._z);
   });
 

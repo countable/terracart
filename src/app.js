@@ -3178,7 +3178,14 @@ class MapScene extends Phaser.Scene {
       this._tickWalkHazards(dt, x, y, x, y);
     } else if (Conditions.active(this.save, 'confused')) {
       const { x, y } = playerWorldM(this);
-      this._confusedStep(dt, bodyHold.capMS);
+      const intent = vx || vy ? { x: vx, y: vy } : stick;
+      const steerDt = dt * (1 - Conditions.confusionSteering(this.save));
+      if (steerDt > 0) {
+        if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, steerDt);
+        else this._driftHome(dt);
+        this._steerTarget(vx, vy, speedMul, steerDt);
+      }
+      this._confusedStep(dt, bodyHold.capMS, intent);
       const after = playerWorldM(this);
       this._tickWalkHazards(dt, x, y, after.x, after.y);
     } else {
@@ -6545,9 +6552,9 @@ class MapScene extends Phaser.Scene {
   // single-cell jog around it (_detourDir) and only dig if no such trivial
   // detour exists. _startAutoMine no-ops unless a wall is really ahead, so a
   // body merely outrun by fast steering on open floor won't dig.
-  // Confusion owns direction, while collision and the ordinary hold/slow gates
-  // remain in force. GPS keeps its latest target for a gentle recovery later.
-  _confusedStep(dt, capMS) {
+  // Remaining confusion trades walking intent for the spinning compass. Both
+  // share walking pace, so distant GPS targets cannot overpower the effect.
+  _confusedStep(dt, capMS, intent = null) {
     if (!(dt > 0) || Combat.playerDowned(this.save.energy)) return;
     if (this._busyWheel?.()) { this._playDirected(this.player, 'idle'); return; }
     if (!this._confusedLoop) this._confusedLoop = {
@@ -6557,6 +6564,8 @@ class MapScene extends Phaser.Scene {
       compassBefore: { deg: this.compassDeg ?? null, facing: { ...this.facing } },
     };
     const loop = this._confusedLoop;
+    const takeover = Conditions.confusionSteering(this.save);
+    const manual = intent && (intent.x || intent.y);
     // Keep each random turn for a complete circle before choosing another.
     if (loop.left == null) loop.left = Math.PI * 2 / Math.abs(loop.turn);
     const balanceMul = typeof ObstacleStep !== 'undefined' ? ObstacleStep.speedMul(this._obstacleStep) : 1;
@@ -6567,7 +6576,21 @@ class MapScene extends Phaser.Scene {
       remaining -= step;
       loop.angle += loop.turn * step;
       loop.left -= step;
-      const dx = Math.cos(loop.angle) * speed * step, dy = Math.sin(loop.angle) * speed * step;
+      let ux = 0, uy = 0;
+      if (takeover < 1) {
+        const target = manual ? intent : !this._followPaused && this._targetM;
+        if (target) {
+          const tx = manual ? target.x : target.x - this.playerM.x;
+          const ty = manual ? target.y : target.y - this.playerM.y;
+          const distance = Math.hypot(tx, ty);
+          if (distance > (manual ? 0 : this.cellM * 0.15)) {
+            const strength = manual ? 1 : Math.min(1, distance / (speed * step || 1));
+            ux = tx / distance * strength; uy = ty / distance * strength;
+          }
+        }
+      }
+      const dx = (ux * (1 - takeover) + Math.cos(loop.angle) * takeover) * speed * step;
+      const dy = (uy * (1 - takeover) + Math.sin(loop.angle) * takeover) * speed * step;
       const x = this.playerM.x + dx, y = this.playerM.y + dy;
       if (!this._cellBlocked(this.startWorldM.x + x, this.startWorldM.y + y + (this.feetOffsetM || 0))) {
         this.playerM.x = x; this.playerM.y = y;
@@ -6822,7 +6845,15 @@ class MapScene extends Phaser.Scene {
     if (delta > 0 && !caveFall && arrivalStory === 'dungeon_stone') {
       this._storySplashOnce('dungeon_stone', { art: 'progression_elevator', title: 'Beneath the roots', body: 'Your pick strikes solid stone. Dwarven lamps and pale groves glimmer beyond the passages you dig.' });
     } else if (delta > 0 && arrivalStory === 'dungeon_underdark') {
-      this._storySplashOnce('dungeon_underdark', { art: 'progression_portal', title: 'The Underdark', body: 'The walls fall away into a barren cavern. Your footsteps carry across the open waste.' });
+      this._storySplashOnce('dungeon_underdark', { art: 'progression_portal', title: 'The Underdark', body: 'The walls fall away into a barren cavern. Pale fungi glow across the open ground.' });
+    } else if (delta > 0 && arrivalStory === 'dungeon_city') {
+      this._storySplashOnce(arrivalStory, { art: 'cave_first', title: 'The goblin city', body: 'The streets above continue beneath the earth. Goblin voices echo between the stone foundations.' });
+    } else if (delta > 0 && arrivalStory === 'dungeon_haunted') {
+      this._storySplashOnce(arrivalStory, { art: 'cave_first', title: 'The dead city', body: 'The shape of the town returns in cold stone. Its familiar streets lie silent beneath the earth.' });
+    } else if (delta > 0 && arrivalStory === 'dungeon_lava') {
+      this._storySplashOnce(arrivalStory, { art: 'cave_first', title: 'The lava stratum', body: 'Heat rises from the foundations. Molten pools glow where buildings stand far above.' });
+    } else if (delta > 0 && arrivalStory === 'dungeon_dragon') {
+      this._storySplashOnce(arrivalStory, { art: 'cave_first', title: 'The dragon depths', body: 'Beyond the molten stratum, scorched stone stretches into the dark. Something vast has passed this way.' });
     } else if (delta > 0 && !caveFall) {
       this._storySplashOnce('cave', {
         art: 'cave_first',

@@ -250,3 +250,7 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
 `trail`, `loot`; also `tools/layer_audit.js`.
+
+- Cave pressure plates use a low-opacity floor mark revealed within one body
+  cell. Plate-controlled gas outlets use one cached metal-grate texture and
+  the existing gas-cloud renderer; both grate and plate sort as ground objects.
