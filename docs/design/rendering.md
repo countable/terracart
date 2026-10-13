@@ -180,7 +180,12 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   feather from a small separable filter instead of the exploration ramp. Noise coordinates and both canvases
   are reused; only changes to the sight field repaint the alpha buffer. Surface
   cover retains a faint ground silhouette, while underground full cover is black. Cover queries always
-  originate at the player's body, including during camera peeks.
+  originate at the player's body, including during camera peeks; the mask alone
+  traces from `Visibility.observer`, the body snapped to an eighth-cell lattice
+  inside its own cell, so walking and GPS glide repaint it per step rather than
+  every frame. Rays read a dense typed-array cover grid, never per-cell key
+  strings; the object rescan is gated by a signature (night state included) and
+  a one-second refresh for slow in-place edits.
 - Evertorch uses the shared player-light collector and torch radius with a blue
   `Lighting.KINDS` row. It takes visual precedence while both torches burn;
   neither expands interaction reach. Its icon reuses Torch art with the

@@ -25,10 +25,10 @@ test('large enemies: forest bear, cave troll and citadel guards keep their habit
     assert.falsy(EnemySpawns.surfaceRows(biome).some(r => r.id === 'giant_bear'));
   }
   assert.includes(EnemyHabitats.SURFACE_FAMILIES.ancient_grove, 'giant_bear');
-  for (const depth of [3]) {
+  for (const depth of [4]) {
     assert.truthy(EnemySpawns.caveRows(depth, { kinds: EnemyHabitats.FAMILIES.natural }).some(r => r.id === 'troll'));
   }
-  for (const depth of [1, 2, 4, 5, 9]) assert.falsy(EnemySpawns.caveRows(depth).some(r => r.id === 'troll'));
+  for (const depth of [1, 2, 3, 5, 9]) assert.falsy(EnemySpawns.caveRows(depth).some(r => r.id === 'troll'));
   const entry = { cellsPerEdge: 8, tileEdgeM: 56 };
   assert.eq(EnemyHabitats.buildingKinds(entry, { tier: 12, key: 'citadel', ix: 3, iy: 3 }).join(), 'bugbear');
   assert.falsy(EnemyHabitats.buildingKinds(entry, { tier: 12, key: 'archive', ix: 3, iy: 3 }));

@@ -58,6 +58,7 @@
     assert.truthy(/<svg[^>]*viewBox="0 0 7 7"/.test(Render.tradeArrowHTML(14, '#fff')), 'the arrow is a crisp 7x7 bitmap');
     assert.truthy(/for \(const el of \[piece\(deal\.ask\), arrow, piece\(deal\.give\)\]\)/.test(RENDER_SRC), 'ask, arrow, give in that order');
     assert.truthy(/scene\.peekOrBuildTraderOffer\(o\)/.test(RENDER_SRC), 'the bubble reads the offer the modal opens with');
+    assert.truthy(/ask: \{ kind: 'item', id: offer\.askId, qty: offer\.askQty \}/.test(RENDER_SRC) && /if \(!ic \|\| !\(p\.qty > 1\)\) return ic;/.test(RENDER_SRC), 'the asked count shows on the wanted icon past 1');
     assert.truthy(/if \(role === 'trader' && _traderDeal\(item\.o\)\) continue;/.test(RENDER_SRC), 'a trader with a deal hangs no board');
   });
 })();

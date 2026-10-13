@@ -24,7 +24,8 @@
     } };
     const visibility = { CLEAR: 0, PARTIAL: 1, FULL: 2, PARTIAL_DARKNESS: .5, FULL_DARKNESS: .88,
       revision: () => revision,
-      playerCover(scene, x, y) { samples++; return coverAt(x, y); },
+      observer(scene, q) { const p = scene.playerM; return { x: (Math.floor(p.x / q) + .5) * q, y: (Math.floor(p.y / q) + .5) * q }; },
+      coverBetween(scene, ax, ay, x, y) { samples++; return coverAt(x, y); },
     };
     const start = LIGHTING_SRC.indexOf('  function coverFrame(scene, ax, ay, W, H) {');
     const end = LIGHTING_SRC.indexOf('\n  function draw(scene, ax, ay, halfM) {', start);
@@ -79,7 +80,7 @@
     assert.truthy(values.has(0), 'clear side remains clear');
     assert.truthy(values.has(224), 'full interior keeps the surface darkness');
     assert.gt(values.size, 8, 'the edge contains a smooth gradient instead of flat half-cell squares');
-    f.scene.playerM.x = .25;
+    f.scene.playerM.x = .5;
     f.frame(f.scene, 0, 0, 128, 64);
     assert.eq(f.stats().uploads, 2, 'movement recalculates sight and repaints');
     assert.eq(JSON.stringify(f.rasters[1]), JSON.stringify(initial), 'unchanged cover geometry must not make the wisps swim');
@@ -111,8 +112,12 @@
     assert.eq(camera.x - first.x, -2);
     assert.truthy(camera.key !== first.key, 'lightmap must upload the changed blit position');
     f.scene.playerM.x = .25;
+    const glide = f.frame(f.scene, .25, 0, 128, 64);
+    assert.eq(f.stats().uploads, 1, 'movement inside one eighth-cell observer step reuses the mask');
+    assert.eq(glide.key, camera.key);
+    f.scene.playerM.x = .5;
     const moved = f.frame(f.scene, .25, 0, 128, 64);
-    assert.eq(f.stats().uploads, 2, 'player movement changes sight');
+    assert.eq(f.stats().uploads, 2, 'an observer step changes sight');
     assert.truthy(moved.key !== camera.key);
     f.bumpRevision();
     const changed = f.frame(f.scene, .25, 0, 128, 64);

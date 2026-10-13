@@ -44,7 +44,10 @@ picked, blossoming and ready apple/peach trees through the normal harvest ledger
 ## Floor viewer
 
 `tools/floor-viewer.html` builds its compact region through the live generation
-pipeline. Variant index 0 uses natural selection. Each later index advances
+pipeline. Each floor button renders that actual depth: goblin city at 2, deep
+stone at 3, fungal Underdark at 4, haunted city at 5, lava at 6, and dragon
+strata at 7–8. The former proposed-floor offset is retired.
+Variant index 0 uses natural selection. Each later index advances
 all Nexus kinds and road groups together; each group wraps through its own
 variant rows. The index completes a shared cycle before returning to natural
 selection. Surface paths cycle scenic themes, and cave paths and small roads

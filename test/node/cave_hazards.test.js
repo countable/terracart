@@ -140,9 +140,9 @@
       let stories = 0;
       s.save.energy = 100;
       s.save.dungeonProgression = { level4Key: true };
-      s._storySplashOnce = key => { assert.eq(key, 'cave'); stories++; };
+      s._storySplashOnce = key => { assert.eq(key, 'dungeon_underdark'); stories++; };
       change.call(s, 1, hole);
-      assert.eq(s.depth, 4); assert.eq(stories, 1, 'ordinary descent retains the first-cave story');
+      assert.eq(s.depth, 4); assert.eq(stories, 1, 'ordinary descent presents the receiving floor story');
     } finally { WorldGen.setDepth = previous; }
   });
   test('cave pits: same snare damage path and hidden until adjacent, even with perception', () => {

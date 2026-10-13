@@ -2608,9 +2608,9 @@
   //   underground       → CAVE_ORE_SHARE of the rocks for each of the
   //                       level's ore tiers (caveOreTiers, below), the rest
   //                       plain: level 1 LEVEL1_COPPER_SHARE copper (5 %, a
-  //                       taste), level 2 90 %, then 80 %
+  //                       taste), level 3 90 %, then 80 %
   const CAVE_ORE_SHARE = 0.10;
-  // The first level down is no tier's mine (caveOreTiers(1) is empty), but it
+  // The first two levels are no tier's mine (their ore tiers are empty), but this
   // is where a wood pick first swings, so a thin seam of copper runs through
   // it (owner, Oct 2026): this share of its rocks, the rest plain. The ore
   // table for a level with no tiers of its own is copper (caveOreWeights),
@@ -2618,27 +2618,16 @@
   const LEVEL1_COPPER_SHARE = 0.05;
   function caveRockP(depth) {
     if (!depth || depth <= 0) return 0.90;
-    if (depth === 1) return 1 - LEVEL1_COPPER_SHARE;
+    if (depth <= 2) return 1 - LEVEL1_COPPER_SHARE;
     return 1 - CAVE_ORE_SHARE * caveOreTiers(depth).length;
   }
 
-  // EACH LEVEL IS ITS TIER'S MINE. Level N's ORE ROCKS — the ones drawn with
-  // ore in them, which always break into their bar — are tier N and the tier
-  // below, CAVE_ORE_SHARE (10 %) of the rocks each: level 3 is 10 % iron,
-  // 10 % copper. Only REAL ore counts (tier 2, copper, and up): a "tier 1" ore
-  // rock breaks as plain stone (interactables.js isPlain), so level 1 is no
-  // tier's mine — it carries only the thin LEVEL1_COPPER_SHARE seam above —
-  // and level 2 is 10 % copper. It is the progression ladder in the rocks: a
-  // tier-N ore wants a pick of tier N-1 (requiredTier), so level 2's copper
-  // forges the pick that opens level 3's iron, down to frost and crimson on
-  // level 7 (and below — the table tops out there). Tier 4+ ore carries its
-  // gem (sapphire, ruby, emerald, then the diamond on 7).
-  // Plain rocks keep their own hidden bar roll on break (interactables.js,
-  // 1/(2t²) per tier) on every level — this table is only the visible ore.
-  // Until Sep 2026 every level below the first used the surface's spread, so
-  // frost was 3 % of ore on level 7 exactly as on level 2.
+  // Deep stone (L3) is the copper mine; each deeper floor adds a tier,
+  // retaining the previous tier, up to tiers 6-7 on L8 and below. L1-2
+  // carry only the thin copper seam. Plain rocks retain their hidden bar
+  // roll on break; these weights describe visible ore-bearing rocks.
   function caveOreTiers(depth) {
-    const top = Math.max(1, Math.min(7, depth | 0));
+    const top = Math.max(1, Math.min(7, (depth | 0) - 1));
     return [top - 1, top].filter((t) => t >= 2);
   }
   function caveOreWeights(depth) {
@@ -9141,7 +9130,7 @@
   //                negative mirror), 'surfacePaint' the surface's own
   //                generated paint, 'clearings' only the open-land surface
   //                classes (this mode also seeds `areas` for settlements),
-  //                or 'open' every cell.
+  //                'city' every non-building cell, or 'open' every cell.
   //   biome        the label render and lighting read (entry.undergroundBiome)
   //   lava         this floor's walls under surface BUILDINGS turn to lava
   //   streetMirror Underground projects surface paths/streets as an overlay
@@ -9165,23 +9154,31 @@
       pressureTraps: false, caveAreas: caveAreaProfile([50, 15, 30, 5, 15], false, 12, false),
       streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'above', streetMirror: true,
       fallLandings: false, chestSource: 'above', quarryProvenance: true, lava: false }),
-    Object.freeze({ depth: 2, arrivalStory: 'dungeon_stone', entryKey: null,
+    Object.freeze({ depth: 2, arrivalStory: 'dungeon_city', entryKey: null,
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
       pressureTraps: true, caveAreas: caveAreaProfile([20, 45, 25, 10, 15], true, 16, true),
-      streetGems: Object.freeze({ region: .10, ordinary: .08 }), biome: 'deep_stone', terrain: 'clearings', streetMirror: true,
+      streetGems: Object.freeze({ region: .10, ordinary: .08 }), biome: 'goblin_city', terrain: 'city', streetMirror: true,
       fallLandings: true, chestSource: 'above', quarryProvenance: false, lava: false }),
-    Object.freeze({ depth: 3, arrivalStory: 'dungeon_underdark', entryKey: null,
+    Object.freeze({ depth: 3, arrivalStory: 'dungeon_stone', entryKey: null,
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'deep_stone', terrain: 'clearings', streetMirror: false,
+      fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
+    Object.freeze({ depth: 4, arrivalStory: 'dungeon_underdark', entryKey: null,
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'underdark', terrain: 'open', streetMirror: false,
       fallLandings: false, chestSource: 'surface', quarryProvenance: false, lava: false }),
-    Object.freeze({ depth: 4, arrivalStory: 'cave', entryKey: null,
+    Object.freeze({ depth: 5, arrivalStory: 'dungeon_haunted', entryKey: 'level4Key',
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
-      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'surfacePaint', streetMirror: false,
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'haunted_city', terrain: 'surfacePaint', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
-    Object.freeze({ depth: 5, arrivalStory: 'cave', entryKey: 'level4Key',
+    Object.freeze({ depth: 6, arrivalStory: 'dungeon_lava', entryKey: 'level4Key',
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
-      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'above', streetMirror: false,
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'lava', terrain: 'above', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: true }),
+    ...[7, 8].map(depth => Object.freeze({ depth, arrivalStory: 'dungeon_dragon', entryKey: 'level4Key',
+      vents: Object.freeze(['poison', 'fire', 'paralysis']),
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: depth === 7 ? 'dragon' : 'dragon_roost', terrain: 'above', streetMirror: false,
+      fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false })),
   ]);
   const DEFAULT_FLOOR_PROFILE = Object.freeze({ arrivalStory: 'cave', entryKey: 'level4Key',
     vents: Object.freeze(['poison', 'fire', 'paralysis']),
@@ -9205,6 +9202,10 @@
       fromSurfacePaint = profile.terrain === 'surfacePaint';
     for (let i = 0; i < grid.length; i++) {
       if (open) { grid[i] = T.CAVE_FLOOR; continue; }
+      if (profile.terrain === 'city') {
+        grid[i] = isBuildingTerrain(source[i]) ? T.CAVE_WALL : T.CAVE_FLOOR;
+        continue;
+      }
       if (clearing) {
         const t = source[i];
         const width = surface.cellsPerEdge || source.length;
@@ -9223,7 +9224,7 @@
 
   // One settlement per connected clearing. Its open lanes, shrine/treasure,
   // and resident seats are claimed before rocks or monsters are scattered.
-  function undergroundClearings(areas, grid, N, tx, ty, tileEdgeM, objects, occupied) {
+  function undergroundClearings(areas, grid, N, tx, ty, tileEdgeM, objects, occupied, depth) {
     const seen = new Uint8Array(areas.length), residents = [], clearings = [];
     for (let seed = 0; seed < areas.length; seed++) {
       if (!areas[seed] || seen[seed]) continue;
@@ -9253,9 +9254,9 @@
       };
       const chest = take();
       if (chest) objects.push(makeObject('chest', chest.x, chest.y, cellId('deep_treasure', tx, ty, chest.i % N, Math.floor(chest.i / N)),
-        { depth: 2, poiClass: kind === 2 ? 'shop' : 'park', name: name + ' cache', rank: 1 }));
+        { depth, poiClass: kind === 2 ? 'shop' : 'park', name: name + ' cache', rank: 1 }));
       const shrine = kind === 1 && take();
-      if (shrine) objects.push(makeObject('grove_shrine', shrine.x, shrine.y, cellId('deep_grove', tx, ty, shrine.i % N, Math.floor(shrine.i / N)), { depth: 2 }));
+      if (shrine) objects.push(makeObject('grove_shrine', shrine.x, shrine.y, cellId('deep_grove', tx, ty, shrine.i % N, Math.floor(shrine.i / N)), { depth }));
       for (let n = 0; n < (kind === 2 ? 3 : 1); n++) {
         const seat = take(); if (!seat) break;
         residents.push({ x: seat.x, y: seat.y, id: cellId('deep_resident', tx, ty, seat.i % N, Math.floor(seat.i / N)), culture: kind === 2 ? 'market' : 'grove', dwarf: kind === 2 });
@@ -9396,13 +9397,13 @@
     // Every cave placement pass shares these reservations, including mirrors,
     // torches, gem seams and rewards. Keep the actual terrain walkable.
     for (let i = 0; i < spawnWhy.length; i++) if (spawnWhy[i]) occupied.add(i);
-    // Reuse the pure Nexus focal-layout planner as a reservation prepass: generic D2
+    // Reuse the pure Nexus focal-layout planner as a reservation prepass: generic clearing
     // settlements must not consume its shrine/cache/encounter space first.
     // Final planning below sees the surviving, tiered mirrored caches.
     const proposedAreas = global.CaveAreas.plan({ surface, grid, N, tx: x, ty: y, tileEdgeM, depth,
       objects, occupied, spawnWhy, routeLane: underground?.lane, routeStreetCells: underground?.streetCells });
     const clearingOccupied = new Set([...occupied, ...proposedAreas.reserved]);
-    const { clearings, residents } = undergroundClearings(areas, grid, N, x, y, tileEdgeM, objects, clearingOccupied);
+    const { clearings, residents } = undergroundClearings(areas, grid, N, x, y, tileEdgeM, objects, clearingOccupied, depth);
     for (const i of clearingOccupied) if (!proposedAreas.reserved.has(i)) occupied.add(i);
     const chestSources = profile.chestSource === 'surface'
       ? (surface.genObjects || surface.objects || []) : aboveObjects;

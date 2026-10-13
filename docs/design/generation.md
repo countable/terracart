@@ -150,7 +150,10 @@ access or tile lifecycle mechanics.
   `WorldGen.floorProfile(depth)` owns cave terrain, street projection and gem
   probabilities, flint-bearing rock frequency, authored cave-area weights/carving/garrisons, pressure traps,
   the vent kinds a floor erupts,
-  arrival story IDs and entry keys. Keep story copy in the presentation module;
+  arrival story IDs and entry keys. The terrain ladder is city 2, clearings 3,
+  open fungal 4, haunted surface mirror 5, lava 6, and dragon mirrors 7–8.
+  Clearing rewards carry the receiving depth; biome tints follow the profile.
+  Keep story copy in the presentation module;
   choose its story through the profile. Depths beyond the explicit rows inherit
   the default profile, including the infernal entry key.
   `DungeonProgression.ROPE_SEALED_FLOORS` is the pattern (the rope, the
@@ -196,7 +199,7 @@ access or tile lifecycle mechanics.
   are fixed T5 outside the budget; a Nexus chest can win a seat without
   spending one (+1 on top). Each underground floor re-seats its own pyramid over
   its mirrors (the rank rides down), and the cap CLIMBS underground
-  (`loot.js chestTierMaxFor`: T6 from depth 3, T7 from 6) while the depth
+  (`loot.js chestTierMaxFor`: T6 from depth 4, T7 from 7) while the depth
   bonus stays `+floor(depth/2)`. Unseeded chests (hand-placed, sandbox) are
   the unstamped T2 - the old count ladder is retired, and `o.poiDensity`
   now only feeds restock days and POI coin bursts. Breakable pots and

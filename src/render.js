@@ -398,7 +398,8 @@ const GRASS_FALLBACK_COLOR = 0x7b8d4e;   // matches the approved COLORS[0] grass
 // Cave grit remains an alpha overlay, preserving its existing baked textures.
 // The sky floor (WorldGen.SKY_DEPTH) uses the same lane: white grove floor
 // over pale open air, with no biome texture (see the texture pass).
-Render.UNDERGROUND_GROUND = { underdark: 0x69626c, grove: 0x486653, dwarven_city: 0x8b7760,
+Render.UNDERGROUND_GROUND = { goblin_city: 0x77725b, underdark: 0x69626c,
+  haunted_city: 0x666979, lava: 0x6c5149, dragon: 0x706052, dragon_roost: 0x67554f, grove: 0x486653, dwarven_city: 0x8b7760,
   sky_floor: 0xf7f7f1, sky_air: 0xb9dcf2 };
 Render.undergroundGroundColor = (entry, ix, iy, type) => {
   if (entry?.undergroundBiome === 'sky') {
@@ -406,7 +407,8 @@ Render.undergroundGroundColor = (entry, ix, iy, type) => {
       : type === WorldGen.T.CAVE_WALL ? Render.UNDERGROUND_GROUND.sky_air : null;
   }
   if (type !== WorldGen.T.CAVE_FLOOR || !entry) return null;
-  if (entry.undergroundBiome === 'underdark') return Render.UNDERGROUND_GROUND.underdark;
+  const biomeColor = Render.UNDERGROUND_GROUND[entry.undergroundBiome];
+  if (biomeColor != null) return biomeColor;
   if (entry.undergroundBiome !== 'deep_stone') return null;
   const area = entry.undergroundAreas?.[iy * entry.cellsPerEdge + ix];
   return area === 1 ? Render.UNDERGROUND_GROUND.grove
@@ -4452,7 +4454,7 @@ Render.drawObjects = function drawObjects(scene) {
       const offer = scene.peekOrBuildTraderOffer(o);
       const deal = !offer ? null : offer.gearSwap
         ? { ask: offer.give, give: offer.get }
-        : { ask: { kind: 'item', id: offer.askId }, give: { kind: 'item', id: offer.giveId } };
+        : { ask: { kind: 'item', id: offer.askId, qty: offer.askQty }, give: { kind: 'item', id: offer.giveId } };
       _traderCache.set(o.id, c = { at: now, deal });
     }
     return c.deal;
@@ -4601,7 +4603,7 @@ Render.drawObjects = function drawObjects(scene) {
         // Rebuild contents only when the wishlist / happy state / icon size
         // changes — the produce set is memoized per house, so this is normally
         // a no-op. The 'happy' sentinel in the key flips the bubble on delivery.
-        const pieceKey = (p) => [p.kind, p.id || p.slot, p.tier].join(':');
+        const pieceKey = (p) => [p.kind, p.id || p.slot, p.tier, p.qty].join(':');
         const key = it.o.id + '|' + (deal ? 'trade>' + pieceKey(deal.ask) + '>' + pieceKey(deal.give)
           : happy ? 'happy' : wanted.join(',')) + '|' + sizePx;
         if (slot.key !== key) {
@@ -4611,12 +4613,24 @@ Render.drawObjects = function drawObjects(scene) {
           slot.el.style.border = look.border;
           if (deal) {
             const piece = (p) => {
-              if (p.kind === 'item') return scene.renderItemIcon ? scene.renderItemIcon(p.id, sizePx, 'block') : null;
-              if (!scene.gearIconHTML) return null;
-              const span = document.createElement('span');
-              span.style.cssText = 'display:block;line-height:0;';
-              span.innerHTML = scene.gearIconHTML(p.kind, p.slot, p.tier, sizePx);
-              return span;
+              let ic = null;
+              if (p.kind === 'item') ic = scene.renderItemIcon ? scene.renderItemIcon(p.id, sizePx, 'block') : null;
+              else if (scene.gearIconHTML) {
+                ic = document.createElement('span');
+                ic.style.cssText = 'display:block;line-height:0;';
+                ic.innerHTML = scene.gearIconHTML(p.kind, p.slot, p.tier, sizePx);
+              }
+              if (!ic || !(p.qty > 1)) return ic;
+              // How many the trader asks for, on the icon's corner like a bag stack.
+              const wrap = document.createElement('span');
+              wrap.style.cssText = 'position:relative;display:block;line-height:0;';
+              const n = document.createElement('span');
+              n.textContent = String(p.qty);
+              n.style.cssText = 'position:absolute;right:-3px;bottom:-3px;line-height:1;'
+                + `font:bold ${Math.max(8, Math.round(sizePx * 0.5))}px ${FONT_UI_STACK};`
+                + `color:${TRADER_BUBBLE.ink};text-shadow:0 1px 0 #000,1px 0 0 #000,-1px 0 0 #000,0 -1px 0 #000;`;
+              wrap.append(ic, n);
+              return wrap;
             };
             const arrow = document.createElement('span');
             arrow.style.cssText = 'display:block;line-height:0;';

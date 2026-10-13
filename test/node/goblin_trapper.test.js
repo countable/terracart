@@ -43,8 +43,8 @@ test('trapper: a MONSTERS row that lands no blow and lays a trap', () => {
   assert.truthy(Combat.monsterHits('goblin') && Combat.monsterHits('goblin_archer'), 'the others still hit');
   assert.eq(Combat.monsterLays('goblin_trapper'), 'trap', 'it lays a trap');
   assert.eq(Combat.monsterLays('goblin'), null, 'nothing else does');
-  assert.gte(row.cave.minDepth, Combat.monster('goblin_archer').cave.minDepth,
-    'met no shallower than the archer (the garrison ladder never runs backwards)');
+  assert.gte(row.cave.minDepth, Combat.monster('archer_goblin').cave.minDepth,
+    'city trappers share the city archer window');
   assert.gt(Combat.enemyBounty('goblin_trapper', row.cave.minDepth), 0, 'and it pays a bounty');
 });
 

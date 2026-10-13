@@ -13,7 +13,6 @@
   .seg button { font: inherit; border: 0; background: #22292d; color: #cfc9bc; padding: 5px 11px; cursor: pointer; }
   .seg button + button { border-left: 1px solid #3a4146; }
   .seg button.on { background: #4c6b4a; color: #fff; }
-  .seg button.proposed.on { background: #7a5a3a; }
   .variant { display: flex; align-items: center; gap: 7px; }
   .variant button { font: inherit; width: 26px; height: 26px; border-radius: 6px; border: 1px solid #3a4146;
     background: #22292d; color: #cfc9bc; cursor: pointer; }
@@ -47,10 +46,6 @@
     <output id="safetyValue" for="safetyRadius">50 m</output>
   </div></div>
   <div><label>Floor</label><div class="seg" id="floorSeg"></div></div>
-  <div><label>View</label><div class="seg" id="modeSeg">
-    <button data-mode="current" class="on">Current code</button>
-    <button data-mode="proposed" class="proposed">Proposed design</button>
-  </div></div>
   <div class="variant"><div><label>Creatures</label></div><button id="creatureToggle" class="on" style="width:auto;padding:0 10px;">shown</button></div>
   <div class="variant"><div><label>Labels</label></div><button id="labelToggle" class="on" aria-pressed="true" style="width:auto;padding:0 10px;">shown</button></div>
   <div class="variant"><div><label>Variant index</label></div>
@@ -67,11 +62,11 @@
 <script>
 (() => {
   'use strict';
-  const FLOOR_NAMES = { 0: 'Surface - the town', 1: 'Floor 1 - natural caves', 2: 'Floor 2 - deep stone (city design pending)',
-    3: 'Floor 3 - the open Underdark (target: deep stone)', 4: 'Floor 4 - surface mirror (target: fungal Underdark)',
-    5: 'Floor 5 - plain mirror + lava (target: the haunted dead city)', 6: 'Floor 6 - plain mirror (target: the lava stratum)',
-    7: 'Floor 7 - plain mirror (target: dragon hunting grounds)', 8: 'Floor 8 - plain mirror (target: the roosts)' };
-  let floor = 0, mode = 'current', variantIndex = 0, showCreatures = true, showLabels = true;
+  const FLOOR_NAMES = { 0: 'Surface - the town', 1: 'Floor 1 - natural caves', 2: 'Floor 2 - goblin city',
+    3: 'Floor 3 - deep stone', 4: 'Floor 4 - fungal Underdark',
+    5: 'Floor 5 - the haunted dead city', 6: 'Floor 6 - the lava stratum',
+    7: 'Floor 7 - dragon hunting grounds', 8: 'Floor 8 - the deep roosts' };
+  let floor = 0, variantIndex = 0, showCreatures = true, showLabels = true;
   const seedInput = document.getElementById('seed');
   let seed = Number(new URLSearchParams(location.search).get('seed')) >>> 0;
   seedInput.value = seed;
@@ -84,7 +79,7 @@
   const sprites = {};   // depth -> [{o, appearance, fruit}]
   let assets = null, building = true;
   const variantIndices = new Map();
-  const displayDepth = () => Math.max(0, floor - (mode === 'proposed' && floor >= 3 ? 1 : 0));
+  const displayDepth = () => floor;
 
   const status = t => document.getElementById('status').innerHTML = t;
   const tag = t => document.getElementById('tag').innerHTML = t;
@@ -324,11 +319,7 @@
   function draw() {
     if (!assets || building) return;
     const W = WorldGen, R = FloorViewerRegion, T = W.T;
-    // Proposed = the shift: floor F shows the real pipeline's floor F-1 (the
-    // goblin city has no generator yet, so proposed 2 stays the current 2
-    // with a sketch note). Floor 1 is identical in both.
-    const shift = mode === 'proposed' && floor >= 3 ? 1 : 0;
-    const depth = Math.max(0, floor - shift);
+    const depth = displayDepth();
     const entry = entries[floor === 0 ? 0 : depth];
     if (!entry) return;
     const list = sprites[floor === 0 ? 0 : depth] || [];
@@ -488,8 +479,6 @@
         occupiedLabels.push(el.getBoundingClientRect());
       }
     }
-    const extra = mode === 'proposed' && floor === 2
-      ? '<br>Proposed floor 2 (goblin city) has no generator yet - the sketch lives in the geometry sheet.' : '';
     const selected = FloorViewerVariants.select(depth, variantIndex);
     const nexusNames = selected?.nexuses.map(row => `${row.kind}: ${row.label}`).join(' · ');
     const roadKinds = { minor: 'Small roads', major: 'Major / medium roads', path: 'Paths' };
@@ -501,11 +490,11 @@
       const reasons = [...new Set(records.filter(record => record.status === 'declined').map(record => record.reason.replace(/_/g, ' ')))];
       return `${row.label}: ${placed}${reasons.length ? ` (${reasons.join(', ')})` : ''}`;
     }).join(' · ') : '';
-    tag('<b>' + FLOOR_NAMES[floor] + '</b> - ' + (mode === 'current' ? 'current code' : 'proposed = the shift: floor ' + floor + ' shows the pipeline’s floor ' + depth)
+    tag('<b>' + FLOOR_NAMES[floor] + '</b>'
       + (depth === 0 ? `<br>Home safety: <b>${safetyRadius ? safetyRadius + ' m' : 'off'}</b> · ${hiddenEnemies} enemies hidden (preview)` : '')
       + '<br>Nexuses: <b>' + (nexusNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'
       + '<br>Roads: <b>' + (roadNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'
-      + (placement ? '<br>Placed: ' + placement : '') + extra);
+      + (placement ? '<br>Placed: ' + placement : ''));
   }
 
   // ── Controls ──────────────────────────────────────────────────────────────
@@ -542,11 +531,6 @@
     if (f === 0) b.classList.add('on');
     floorSeg.appendChild(b);
   }
-  document.querySelectorAll('#modeSeg button').forEach(b => b.onclick = () => {
-    mode = b.dataset.mode;
-    document.querySelectorAll('#modeSeg button').forEach(x => x.classList.remove('on'));
-    b.classList.add('on'); changeFloor();
-  });
   const ct = document.getElementById('creatureToggle');
   ct.onclick = () => { showCreatures = !showCreatures; ct.classList.toggle('on', showCreatures); ct.textContent = showCreatures ? 'shown' : 'hidden'; draw(); };
   const lt = document.getElementById('labelToggle');
@@ -561,7 +545,7 @@
     safetyInput.disabled = building || displayDepth() !== 0;
     document.getElementById('safetyValue').textContent = safetyRadius ? `${safetyRadius} m` : 'Off';
     for (const id of ['seed', 'newSeed', 'resetSeed']) document.getElementById(id).disabled = building;
-    document.querySelectorAll('#floorSeg button, #modeSeg button').forEach(b => { b.disabled = building; });
+    document.querySelectorAll('#floorSeg button').forEach(b => { b.disabled = building; });
     document.getElementById('creatureToggle').disabled = building;
     document.getElementById('labelToggle').disabled = building;
     document.getElementById('regionLabels').hidden = building || !showLabels;
