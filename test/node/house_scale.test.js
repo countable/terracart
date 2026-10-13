@@ -164,11 +164,16 @@ test('building scale: a fort roof never exceeds its own footprint', () => {
 
 test('building scale: the fort cull pad covers the widest roof it can draw', () => {
   // render.js pads the house viewport cull by HOUSE_PAD_M = 2.2 cells so a
-  // building whose centroid has left the view still draws the half of its roof
-  // that hasn't. That pad must cover half the widest art the cap allows —
-  // raise HOUSE_PAD_M with BUILDING_ART.fort.max if this ever trips.
+  // building whose anchor has left the view still draws the part of its roof
+  // that hasn't. The art stands bottom-middle on its footprint's centre of
+  // mass, so the pad must cover half the widest art the cap allows sideways,
+  // and its full height (plus the up-to-half-cell anchor offset) north, where
+  // the view's own one-cell margin also counts — raise HOUSE_PAD_M with
+  // BUILDING_ART.fort.max if this ever trips.
   const HOUSE_PAD_CELLS = 2.2;
   assert.lt(FORT.max / 2, HOUSE_PAD_CELLS, 'half the capped roof fits the cull pad');
+  const fort = pngDims('assets/Objects/Approved/house_fort.png');
+  assert.lt(FORT.max * fort.h / fort.w + 0.5, HOUSE_PAD_CELLS + 1, 'the capped roof\'s height fits north of it');
 });
 
 // ── The shape of the table itself ───────────────────────────────────────────
@@ -222,4 +227,15 @@ test('tree scale: a size-less tree classes mid-ladder, never bush or full', () =
     const cls = treeSizeClass({ species, variant: 3 });
     assert.truthy(cls === 'medium' || cls === 'small', `${species} → ${cls}`);
   }
+});
+
+test('building seat: art stands on the footprint\'s centre of mass', () => {
+  // Offsets are in cells from the anchor cell's centre.
+  assert.eq(WorldGen.footprintFootOffset([[3, 4]], [3, 4]).footDx, 0, 'one cell: its own centre');
+  const pair = WorldGen.footprintFootOffset([[3, 4], [4, 4]], [3, 4]);
+  assert.eq(pair.footDx, 0.5, 'a 2x1 block stands between its cells');
+  assert.eq(pair.footDy, 0);
+  const ell = WorldGen.footprintFootOffset([[0, 0], [0, 1], [0, 2], [1, 2], [2, 2]], [0, 2]);
+  assert.eq(ell.footDx, 0.6);
+  assert.truthy(Math.abs(ell.footDy - -0.6) < 1e-12, 'an L stands on its mass, off the anchor cell');
 });

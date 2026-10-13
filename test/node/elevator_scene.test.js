@@ -7,18 +7,18 @@
   };
   const makeMethods = new Function('Elevators', 'HomeArea', 'document',
     `return { ${lift('openElevator(stair) {')} };`);
-  function picker(depth, unlocked) {
+  function picker(depth, unlocked, lift = {}) {
     const buttons = [];
     const anchor = { x: 10, y: 20 }, home = { x: 80, y: 90 };
-    const methods = makeMethods({ unlockedFloors: () => unlocked }, { worldM: anchor },
-      { createElement: () => ({}) });
+    const methods = makeMethods({ unlockedFloors: () => unlocked, ...lift }, { worldM: anchor },
+      { createElement: () => ({ style: {} }) });
     const trips = [];
     const scene = Object.assign({ depth, save: {},
       _elevatorHomePosition: () => home,
       changeDepth: (delta, position) => trips.push({ delta, position }),
       makeModalShell: () => ({ wrap: { remove() {} }, box: { appendChild() {} }, mount() {},
-        mkBtn(label) {
-          const button = { label, style: {}, addEventListener: (event, callback) => { button.click = () => callback({ stopPropagation() {} }); } };
+        mkBtn(label, opts) {
+          const button = { label, opts, disabled: !!opts?.disabled, style: {}, addEventListener: (event, callback) => { button.click = () => callback({ stopPropagation() {} }); } };
           buttons.push(button);
           return button;
         } }),
@@ -28,21 +28,30 @@
   }
   test('elevator: locked cave floors always offer a direct trip Home', () => {
     const p = picker(6, []);
-    assert.eq(p.buttons.map(b => b.label).join(','), 'Home,Cancel');
+    assert.eq(p.buttons.map(b => b.label).join(','), 'Home,Leave');
     p.buttons[0].click();
     assert.eq(p.trips[0].delta, -6);
     assert.eq(p.trips[0].position, p.home);
   });
+  test('elevator: unaffordable repair is a disabled primary and Leave is secondary', () => {
+    const p = picker(0, [], { isRepaired: () => false, canRepair: () => false, REPAIR_COST: { wood: 9, rubble: 9 } });
+    assert.eq(p.buttons.map(b => b.label).join(','), 'Repair — 9 wood + 9 stone,Leave');
+    assert.eq(p.buttons[0].opts.variant, 'primary');
+    assert.truthy(p.buttons[0].opts.disabled, 'repair is disabled through mkBtn so it looks disabled');
+    assert.eq(p.buttons[1].opts.variant, 'ghost');
+    const ok = picker(0, [], { isRepaired: () => false, canRepair: () => true, REPAIR_COST: { wood: 9, rubble: 9 } });
+    assert.falsy(ok.buttons[0].opts.disabled);
+  });
   test('elevator: picks all unlocked floors, excluding the current floor', () => {
     const p = picker(3, [1, 3, 7]);
-    assert.eq(p.buttons.map(b => b.label).join(','), 'Home,Floor 1,Floor 7,Cancel');
+    assert.eq(p.buttons.map(b => b.label).join(','), 'Home,Floor 1,Floor 7,Leave');
     p.buttons[2].click();
     assert.eq(p.trips[0].delta, 4);
     assert.eq(p.trips[0].position, p.anchor);
   });
   test('elevator: surface offers unlocked floors and passes descent through changeDepth', () => {
     const p = picker(0, [2, 4]);
-    assert.eq(p.buttons.map(b => b.label).join(','), 'Floor 2,Floor 4,Cancel');
+    assert.eq(p.buttons.map(b => b.label).join(','), 'Floor 2,Floor 4,Leave');
     p.buttons[1].click();
     assert.eq(p.trips[0].delta, 4);
     assert.eq(p.trips[0].position, p.anchor);

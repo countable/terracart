@@ -44,7 +44,10 @@ picked, blossoming and ready apple/peach trees through the normal harvest ledger
 ## Floor viewer
 
 `tools/floor-viewer.html` builds its compact region through the live generation
-pipeline. Variant index 0 uses natural selection. Each later index advances
+pipeline. Each floor button renders that actual depth: goblin city at 2, deep
+stone at 3, fungal Underdark at 4, haunted city at 5, lava at 6, and dragon
+strata at 7–8. The former proposed-floor offset is retired.
+Variant index 0 uses natural selection. Each later index advances
 all Nexus kinds and road groups together; each group wraps through its own
 variant rows. The index completes a shared cycle before returning to natural
 selection. Surface paths cycle scenic themes, and cave paths and small roads
@@ -244,7 +247,7 @@ whose stable ID passes the real nest roll. The beach has a readable bottle.
 spawn is clear of their contact cells. The web uses the normal saved landing
 record and expiry; stepping off and back on tests paralysis renewal.
 
-`hazards-cave` starts at depth 1 with the floor's grey confusion vent and a
+`hazards-cave` starts at depth 1 with the floor's yellow confusion vent and a
 connected pair of cave-in cells. `hazards-deep` starts at depth 2 with its
 three vents (poison, fire, paralysis), a rolling ball and a sliding wall. Each
 lab seats the vents `EnvironmentHazards.ventKinds` allows on its floor. Arrival

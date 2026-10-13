@@ -400,11 +400,11 @@
       const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, kind, () => .5, kind);
       assert.falsy(EnvironmentHazards.eligible(s, h), kind + ' never vents on L1');
     }
-    const grey = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, 'c', () => .5, 'confusion');
-    assert.truthy(EnvironmentHazards.eligible(s, grey));
-    assert.eq(grey.frame, 15, 'the grey row is the fourth sheet row');
+    const yellow = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, 'c', () => .5, 'confusion');
+    assert.truthy(EnvironmentHazards.eligible(s, yellow));
+    assert.eq(yellow.frame, 15, 'the yellow confusion row is the fourth sheet row');
     s.depth = 2;
-    assert.falsy(EnvironmentHazards.eligible(s, { ...grey, depth: 2 }), 'confusion stays on L1');
+    assert.falsy(EnvironmentHazards.eligible(s, { ...yellow, depth: 2 }), 'confusion stays on L1');
   }));
   test('vents: a confusion eruption bursts mushroom gas onto the adjacent cells and deals no hit', () => fixture(s => {
     s._mushroomGas = null;

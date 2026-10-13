@@ -51,6 +51,24 @@ async function hello(url, name, extra = {}) {
 }
 
 // ── tests ──────────────────────────────────────────────────────────────────
+test('authored cave IDs survive hit, death and aggro validation unchanged', () => {
+  const ids = [
+    'cave_area|grove|3850246176|3850655776|1|enemy|0',
+    'cave_area|grove|3850246176|3850655776|1|enemy|-4,12',
+    'underground-way/123/0/1/bone-guard',
+    'bone_underground/940001/940101/32/33/1/bone-cache',
+  ];
+  for (const id of ids) {
+    assert.strictEqual(cleanHit({ id, f: .25, left: .75, d: 1 }).eid, id);
+    assert.strictEqual(cleanAggro({ eid: id, pid: 1, d: 1 }).eid, id);
+  }
+  assert.deepStrictEqual(cleanIds({ ids, d: 1 }), { ids, d: 1 });
+  for (const id of ['bad id', 'bad\nID', '<script>', 'x'.repeat(97)]) {
+    assert.strictEqual(cleanHit({ id, f: .25, left: .75, d: 1 }), null);
+    assert.strictEqual(cleanIds({ ids: [id], d: 1 }), null);
+  }
+});
+
 test('cleanName strips control chars, collapses space, clamps length', () => {
   assert.strictEqual(cleanName('  Ada  Lovelace  '), 'Ada Lovelace');
   assert.strictEqual(cleanName('x'.repeat(40)).length, 16);

@@ -22,6 +22,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   player takes no damage (`Conditions.setDialogShield`, read through
   `damageImmune`) and hostiles hold still. Shops, trades and other dialogs
   do not pause; a foe's blow still closes a shop.
+  Message dismissal refreshes this shield from the remaining dialogs before
+  running its callback, so consequences such as fall damage apply after the
+  story closes while potion immunity remains effective.
 - The revival storyboard (`_reviveStoryboard`) tells of being carried home,
   so it plays only when the GPS fix is near Home too (`_gpsNearHome`,
   `HomeArea.NEAR_M`), not just a body stick-walked into Home's ring; otherwise
@@ -82,6 +85,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   even when no DOM dialog is open; a reward dialog keeps the gate after exit.
   Shutdown reapplies the current camera scale to the paused surface before
   resuming it, so a viewport resize during a trial also fits the return map.
+- Consumables may select a painting through `art`; timed buffs reuse it after
+  use unless `used.art` overrides it. Lighting or relighting a Torch uses
+  `torch_light`, a close-up of the flame catching.
 - Paired story paintings must use actual image references. Establish the
   introduction first, then edit that image for the completed action; preserve
   object designs, materials and booth identity. After-use panels zoom in on

@@ -102,7 +102,7 @@ class SceneBoss {
       entry.creatures.push(WorldGen.makeCreature(kind, hx + back.x * d, hy + back.y * d, id,
         { shiny: false, boss: key, segIndex: i, _heading: heading, _sharedId: true, ...extra }));
     };
-    piece('serpent_head', `${key}_head`, -1, 0, { _trail: [{ x: hx, y: hy }, {
+    piece('serpent_head', `${key}_head`, -1, 0, { _trail: [{ x: hx, y: hy }, { x: hx, y: hy }, {
       x: hx + back.x * (row.coils + 2) * row.spacingCells * cellM,
       y: hy + back.y * (row.coils + 2) * row.spacingCells * cellM }] });
     for (let i = 0; i < row.coils; i++) {
@@ -216,10 +216,14 @@ class SceneBoss {
     head.y += Math.sin(head._heading) * step;
     }
     // THE TRAIL the body follows: the head's own path, newest first, sampled
-    // by distance and trimmed to the chain's length.
+    // by distance and trimmed to the chain's length. Slot 0 follows the live
+    // head; slot 1 stays fixed until enough movement has accumulated for the
+    // next sample. Comparing against the moving head loses every small step.
     const trail = head._trail;
-    if (Math.hypot(head.x - trail[0].x, head.y - trail[0].y) >= 0.15 * cellM) trail.unshift({ x: head.x, y: head.y });
-    else { trail[0].x = head.x; trail[0].y = head.y; }
+    trail[0].x = head.x; trail[0].y = head.y;
+    if (Math.hypot(head.x - trail[1].x, head.y - trail[1].y) >= 0.15 * cellM) {
+      trail.splice(1, 0, { x: head.x, y: head.y });
+    }
     const sample = (d) => {
       let prev = trail[0];
       for (let i = 1; i < trail.length; i++) {

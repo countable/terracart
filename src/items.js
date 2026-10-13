@@ -158,11 +158,21 @@ const ZONE_ROCK_THEMES = Object.freeze({
   'quarry-abandoned': { frame: 63, tint: 0xcdd9bd },
   mystic_reef: { frame: 64, tint: 0xc1e0dd },
 });
+// One neutral stone palette everywhere; material pairs are adjacent small/large frames.
+// Legacy yield variants still own mining quantities, independently of appearance.
+const ROCK_VARIANT_ART = Object.freeze({
+  columns: 6, rows: 11, smallScale: 1.44, largeScale: 1.92,
+  themedScale: 1.08, placedScale: 2.88,
+  plainFrames: Object.freeze([0, 30, 32, 34]),
+  materials: Object.freeze(['plain', 'flint', 'quartz', 'topaz', 'amethyst',
+    'sapphire', 'ruby', 'emerald', 'diamond', 'copper', 'iron', 'gold',
+    'platinum', 'crimson', 'frost']),
+});
 const WILDPLANT_CONTEXT_ART = {
   gas_mushroom_small: { crop: 'mushroom', sheet: 'gas_mushroom_small', custom: true, frame: 0, scale: CROP_SPRITE.mushroom.scale },
   gas_mushroom_large: { crop: 'giant_mushroom', sheet: 'gas_mushroom_large', custom: true, frame: 0, scale: CROP_SPRITE.giant_mushroom.scale, seat: CROP_SPRITE.giant_mushroom.seat },
   ...Object.fromEntries(Object.entries(ZONE_ROCK_THEMES).map(([zone, theme]) =>
-    ['zone_rock_' + zone, { crop: 'rubble', sheet: 'rock_variants', custom: true, frame: theme.frame, scale: 0.75 }])),
+    ['zone_rock_' + zone, { crop: 'rubble', sheet: 'rock_variants', custom: true, frame: theme.frame, scale: ROCK_VARIANT_ART.themedScale }])),
   zone_hedge: { crop: 'shrub', sheet: 'zone_hedge', custom: true, scale: 4 / 3, seat: false },
   zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frame: 0, scale: (4 / 3) * 0.8, seat: false },
   palm: { crop: 'shrub', sheet: 'beach_palms', custom: true, frames: [2, 3, 4, 5], scale: 2, seat: true, shadow: true },
@@ -359,15 +369,6 @@ function mineralDeposit(o) {
     : (Object.prototype.hasOwnProperty.call(GEM_DEPOSITS, o.deposit) ? GEM_DEPOSITS[o.deposit] : null);
 }
 
-// One neutral stone palette everywhere; material pairs are adjacent small/large frames.
-// Legacy yield variants still own mining quantities, independently of appearance.
-const ROCK_VARIANT_ART = Object.freeze({
-  columns: 6, rows: 11, smallScale: 1, largeScale: 4 / 3,
-  plainFrames: Object.freeze([0, 30, 32, 34]),
-  materials: Object.freeze(['plain', 'flint', 'quartz', 'topaz', 'amethyst',
-    'sapphire', 'ruby', 'emerald', 'diamond', 'copper', 'iron', 'gold',
-    'platinum', 'crimson', 'frost']),
-});
 function mineralRockMaterial(o) {
   const deposit = mineralDeposit(o);
   if (deposit) return deposit.item;
@@ -403,7 +404,7 @@ function mineralRockUsesZoneArt(o) {
 }
 function mineralRockArtScale(o) {
   if (o?.sightBlocking === true) return ROCK_VARIANT_ART.largeScale;
-  return mineralRockUsesZoneArt(o) ? 0.75 : ROCK_VARIANT_ART.smallScale;
+  return mineralRockUsesZoneArt(o) ? ROCK_VARIANT_ART.themedScale : ROCK_VARIANT_ART.smallScale;
 }
 // Shared rocks inherit their authored zone palette. An explicit false keeps
 // neutral art; a named theme overrides the zone. Baked art is never tinted twice.
@@ -1605,7 +1606,7 @@ const CONSUMABLE_SPEC = {
   },
   torch: {
     durationMs: 3 * _CONSUMABLE_MINUTE_MS, radiusMul: 2, buff: 'torch',
-    verb: 'Light', title: 'Light the Torch?',
+    verb: 'Light', title: 'Light the Torch?', art: 'torch_light',
     get: scene => scene.isTorchActive()
       ? 'Fresh flame feeds the light already around you.'
       : 'Firelight opens the dark around you.',

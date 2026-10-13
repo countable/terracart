@@ -3753,7 +3753,7 @@ class MapScene extends Phaser.Scene {
     }
 
     const visibleEnemies = typeof Visibility === 'undefined' ? enemies
-      : enemies.filter(c => Visibility.playerCover(this, c.x, c.y) !== 2);
+      : enemies.filter(c => !Visibility.hidden(this, c.x, c.y));
     DragonStory.tick(this, now, px, py, visibleEnemies);
     const relics = Gear.effectiveRelics(this.save);
     const activeWeapon = Gear.activeWeapon(this.save);
@@ -3898,11 +3898,12 @@ class MapScene extends Phaser.Scene {
     if (this._shots.length) {
       // What stops an ARROW (staff bolts pierce and never consult this):
       // underground, cave rock — _cellBlocked is the SAME test the body walks
-      // against, so what blocks you blocks your arrows; on the surface, a
-      // trunk with real girth — an unchopped tree or fruit tree, MEDIUM size
-      // class or bigger (treeSizeClass — the same ladder the axe-tier gate
-      // reads). A rock never blocks, and a 'small'/'bush' tree is too slight a trunk —
-      // only a medium/full canopy has the girth to stop a shot. The surface set is built lazily
+      // against, so what blocks you blocks your arrows; on the surface, of
+      // the props that give sight cover (Visibility) only an unbroken
+      // stronghold wall and a fully grown trunk stop a shot: an unchopped
+      // tree on its full-canopy art (treeArtFrame 3) or a mature fruit tree.
+      // Tall rocks, bushes, hedges and younger trees all let an arrow by.
+      // The surface set is built lazily
       // when a shot is actually in flight: stepShots samples the test every
       // half-cell of every shot, far too often for a per-sample object scan.
       let solidCells = null;
@@ -3913,11 +3914,15 @@ class MapScene extends Phaser.Scene {
         if (!solidCells) {
           solidCells = new Set();
           const choppedSet = setOf(this.save.chopped);
+          const brokenSet = this.brokenRockSet || setOf(this.save.brokenRocks);
           WorldGen.forEachItemNear('objects', pcTick.tx, pcTick.ty, (o) => {
-            if (o.kind !== 'tree' && o.kind !== 'fruittree') return;
-            if (o.chopped || choppedSet.has(o.id)) return;
-            const cls = treeSizeClass(o);
-            if (cls === 'small' || cls === 'bush') return;   // too slight to stop a shot
+            if (o.kind === 'stronghold_wall') {
+              if (o.broken || brokenSet.has(o.id)) return;
+            } else if (o.kind === 'tree') {
+              if (o.chopped || choppedSet.has(o.id) || treeArtFrame(o) !== 3) return;
+            } else if (o.kind === 'fruittree') {
+              if (o.chopped || choppedSet.has(o.id) || !Crops.fruitTreeState(o).mature) return;
+            } else return;
             if (Math.abs(o.x - px) > halfSpanM * 2 || Math.abs(o.y - py) > halfSpanM * 2) return;
             const c = worldMetersToAbsCell(this, o.x, o.y);
             solidCells.add(c.cellIX + '_' + c.cellIY);
@@ -4822,7 +4827,7 @@ class MapScene extends Phaser.Scene {
   // One strike, never a work item. The scene clock survives target changes;
   // every attempt checks the live position and allegiance before spending it.
   startCombat(victim, opts = {}) {
-    if (victim && typeof Visibility !== 'undefined' && Visibility.playerCover(this, victim.x, victim.y) === 2) return false;
+    if (victim && typeof Visibility !== 'undefined' && Visibility.hidden(this, victim.x, victim.y)) return false;
     if (Combat.playerDowned(this.save?.energy) || Conditions.attacksBlocked(this.save)) return false;
     if (this.isShadowActive()) {
       if (!opts.auto) {
@@ -5172,7 +5177,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const tracked = wp.flee || wp.track;
-    if (tracked && typeof Visibility !== 'undefined' && Visibility.playerCover(this, tracked.x, tracked.y) === 2) {
+    if (tracked && typeof Visibility !== 'undefined' && Visibility.hidden(this, tracked.x, tracked.y)) {
       this.cancelWorkProgress();
       return;
     }
@@ -10581,6 +10586,7 @@ class MapScene extends Phaser.Scene {
       this.showOfferModal({
         kind: 'use',
         title: entry.title,
+        art: entry.art,
         get: typeof entry.get === 'function' ? entry.get(this, entry) : entry.get,
         cost: `1× ${this.iconSpanHTML(id)} ${item?.name || id}`,
         canAfford: typeof entry.usable === 'function' ? entry.usable(this, entry) : true,

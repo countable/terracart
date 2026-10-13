@@ -1,5 +1,5 @@
-// Rendering must conceal the same full-cover targets as interactions, while
-// retaining partial cover and reusing its darkness mask between changes.
+// Rendering must conceal the same covered targets as interactions (any cover
+// hides what stands behind it) and reuse its darkness mask between changes.
 (function () {
   function fixture(coverAt = () => 2) {
     let revision = 1, allocations = 0, clears = 0, samples = 0, uploads = 0, blits = 0, images = 0;
@@ -22,9 +22,10 @@
       };
       return { width: 0, height: 0, getContext: () => ctx };
     } };
-    const visibility = { CLEAR: 0, PARTIAL: 1, FULL: 2, PARTIAL_DARKNESS: .5, FULL_DARKNESS: .88,
+    const visibility = { CLEAR: 0, PARTIAL: 1, FULL: 2, PARTIAL_DARKNESS: .75, FULL_DARKNESS: 1,
       revision: () => revision,
-      playerCover(scene, x, y) { samples++; return coverAt(x, y); },
+      observer(scene, q) { const p = scene.playerM; return { x: (Math.floor(p.x / q) + .5) * q, y: (Math.floor(p.y / q) + .5) * q }; },
+      coverBetween(scene, ax, ay, x, y) { samples++; return coverAt(x, y); },
     };
     const start = LIGHTING_SRC.indexOf('  function coverFrame(scene, ax, ay, W, H) {');
     const end = LIGHTING_SRC.indexOf('\n  function draw(scene, ax, ay, halfM) {', start);
@@ -40,27 +41,27 @@
 
   const alphas = raster => raster.data.filter((value, i) => i % 4 === 3);
 
-  test('cover render: full targets are removed in place, partial targets keep their order', () => {
+  test('cover render: covered targets are removed in place, clear targets keep their order', () => {
     const start = RENDER_SRC.indexOf('Render.coverHidden = function');
     const end = RENDER_SRC.indexOf('\nRender.drawObjects =', start);
     const render = new Function('Visibility',
       'const Render = {};\n' + RENDER_SRC.slice(start, end) + '\nreturn Render;')(
-      { FULL: 2, playerCover: (scene, x) => x });
+      { hidden: (scene, x) => x !== 0 });
     for (const field of ['o', 'p', 'tr', 'h']) {
-      const list = [2, 0, 2, 1, 2].map(x => ({ [field]: { x, y: 0 } }));
-      const clear = list[1], partial = list[3], original = list;
+      const list = [2, 0, 1, 0, 2].map((x, i) => ({ [field]: { x, y: i } }));
+      const first = list[1], second = list[3], original = list;
       render.cullCovered({}, list, field);
       assert.eq(list, original, 'reuse the existing sprite list');
       assert.eq(list.length, 2);
-      assert.eq(list[0], clear);
-      assert.eq(list[1], partial);
-      assert.falsy(render.coverHidden({}, partial[field]));
+      assert.eq(list[0], first);
+      assert.eq(list[1], second);
+      assert.truthy(render.coverHidden({}, { x: 1, y: 0 }), 'partial cover hides');
       assert.truthy(render.coverHidden({}, { x: 2, y: 0 }));
     }
   });
 
-  test('cover render: clear, tree and full interiors retain their darkness in the alpha raster', () => {
-    for (const [cover, depth, alpha] of [[0, 0, 0], [1, 0, 128], [2, 0, 224], [1, 1, 128], [2, 1, 255]]) {
+  test('cover render: partial interiors are strongly dark and full interiors are black', () => {
+    for (const [cover, depth, alpha] of [[0, 0, 0], [1, 0, 191], [2, 0, 255], [1, 1, 191], [2, 1, 255]]) {
       const f = fixture(() => cover);
       f.scene.depth = depth;
       f.frame(f.scene, 0, 0, 128, 64);
@@ -77,9 +78,9 @@
     const initial = f.rasters[0];
     const values = new Set(alphas(initial));
     assert.truthy(values.has(0), 'clear side remains clear');
-    assert.truthy(values.has(224), 'full interior keeps the surface darkness');
+    assert.truthy(values.has(255), 'full interior is completely dark on the surface too');
     assert.gt(values.size, 8, 'the edge contains a smooth gradient instead of flat half-cell squares');
-    f.scene.playerM.x = .25;
+    f.scene.playerM.x = .5;
     f.frame(f.scene, 0, 0, 128, 64);
     assert.eq(f.stats().uploads, 2, 'movement recalculates sight and repaints');
     assert.eq(JSON.stringify(f.rasters[1]), JSON.stringify(initial), 'unchanged cover geometry must not make the wisps swim');
@@ -111,8 +112,12 @@
     assert.eq(camera.x - first.x, -2);
     assert.truthy(camera.key !== first.key, 'lightmap must upload the changed blit position');
     f.scene.playerM.x = .25;
+    const glide = f.frame(f.scene, .25, 0, 128, 64);
+    assert.eq(f.stats().uploads, 1, 'movement inside one eighth-cell observer step reuses the mask');
+    assert.eq(glide.key, camera.key);
+    f.scene.playerM.x = .5;
     const moved = f.frame(f.scene, .25, 0, 128, 64);
-    assert.eq(f.stats().uploads, 2, 'player movement changes sight');
+    assert.eq(f.stats().uploads, 2, 'an observer step changes sight');
     assert.truthy(moved.key !== camera.key);
     f.bumpRevision();
     const changed = f.frame(f.scene, .25, 0, 128, 64);

@@ -67,6 +67,9 @@ test('surface wall shades behind its facing cell; rays are reciprocal', () => {
     assert.eq(Visibility.playerCover(f.scene,4.5,0.5), Visibility.PARTIAL);
     assert.eq(Visibility.coverBetween(f.scene,4.5,0.5,0.5,0.5), Visibility.PARTIAL);
     assert.eq(Visibility.playerCover(f.scene,0.5,4.5), Visibility.CLEAR);
+    assert.falsy(Visibility.hidden(f.scene,2.5,0.5), 'the facing blocker itself stays visible');
+    assert.truthy(Visibility.hidden(f.scene,4.5,0.5), 'partial cover hides what stands behind it');
+    assert.falsy(Visibility.hidden(f.scene,0.5,4.5));
   } finally { f.done(); }
 });
 
@@ -75,7 +78,7 @@ test('multiple trees remain partial and cleared blockers invalidate the retained
   try {
     const revision = Visibility.revision(f.scene);
     assert.eq(Visibility.playerCover(f.scene,4.5,0.5), Visibility.PARTIAL);
-    assert.eq(Visibility.PARTIAL_DARKNESS,0.5);
+    assert.eq(Visibility.PARTIAL_DARKNESS,0.75);
     assert.eq(Visibility.TREE_SIGHT_PENALTY,2);
     f.entry.objects.forEach(o => { o.chopped = true; });
     f.scene.save.chopped = ['tree0', 'tree1'];

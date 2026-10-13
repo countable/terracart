@@ -33,10 +33,12 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   never adjusts an actor's feet or enters the world depth sort. Towers and
   flags retain ordinary world ordering. Walls and footprints use a muted
   palette so interactables remain distinct.
-  Castle courtyard floors start from quarter-cell stone tiles (2×2); each
-  cached texture joins one adjacent pair into a horizontal or vertical half-cell
-  slab with a continuous fill and no internal bevel. This happens only at bake
-  time. Tiles have darker junctions, worn stretches and quiet bevels. Inner
+  Castle courtyard cells mostly retain four quarter-cell stone tiles (2×2).
+  A quarter of the cached variants join one adjacent pair into a horizontal or
+  vertical half-cell slab, with both positions represented. Polygon courtyards
+  scatter those variants across a cached eight-cell-square repeat; tiled floors
+  choose them from a mixed world-cell hash. The pattern stays fixed while the
+  camera moves. Tiles have darker junctions, worn stretches and quiet bevels. Inner
   seams are lighter than cell boundaries, keeping cells legible beside the
   smaller road cobbles.
   Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
@@ -45,8 +47,15 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
   Buildings, moving creatures and canvas-baked street lamps have separate seating.
+  A house sprite (small and medium tiers) stands its bottom-middle on its
+  footprint's centre of mass: the object sits on the nearest footprint cell
+  and carries the remainder (`footDx`/`footDy`, worldgen
+  `footprintFootOffset`); its shadow, sign, roof plate and bubble follow the art.
   Use a stable `seatFrame` for animation. After art changes, run
   `node tools/sprite_audit.js --emit-bounds` and update `src/sprite_layout.js`.
+- Every underground floor uses the same connected cave-wall atlas: raised caps,
+  chipped rims and lighter front faces. Live neighbour masks update after mining
+  and tile arrival; pooled sprites hide when returning to the surface or sky.
 - Connected ground art that must abut its neighbours (chasm sections) seats on
   its terrain slot through `absCellScreenCentre` (coords.js), never on its own
   rounded `deltaMToScreen` point: neighbours' float centres sit `CELL_PX` ± epsilon
@@ -134,8 +143,8 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   plain stone for ordinary cave rubble,
   and flint when marked `rockMaterial: 'flint'`, including flint-bearing L1
   cave rubble. The flint mark takes precedence over the generic cave variant. Partial
-  cover (`sightBlocking: true`) selects the large silhouette at scale 4/3;
-  small stones use scale 1. Outside authored rock zones, wild rubble shares
+  cover (`sightBlocking: true`) selects the large silhouette at scale 1.92;
+  small stones use scale 1.44. Outside authored rock zones, wild rubble shares
   the four generic plain small shapes and skips biome tint; planted crop stages
   and inventory icons retain their existing art. A stable id hash selects plain
   stone shape independently of biome, mining quantity and small/large size.
@@ -147,7 +156,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   the place; Work Yard uses a cut stone slab and Crater Quarry has a glowing lava
   seam painted into the sprite. These contain no collectible mineral inclusions.
   The same 24px
-  frame scales to 0.75 for small stones and 4/3 for sight-blocking boulders.
+  frame scales to 1.08 for small stones and 1.92 for sight-blocking boulders.
+  `ROCK_VARIANT_ART` owns these scales and the placed-rock scale of 2.88.
+  These display sizes leave mining
+  quantities, occupied cells and cover behavior unchanged.
   Named context/variant fields resolve the theme, with legacy zone-object
   frames 64–71 as a fallback. Gem, ore and explicitly flint-bearing rocks always
   retain the shared material silhouettes and readable inclusions.
@@ -171,16 +183,26 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
   short walls, larger standing trees and rocks marked `sightBlocking: true`
-  provide partial cover, with a non-stacking 50% darkness treatment. Small
-  rocks and the smallest tree saplings provide no cover. The facing blocker stays visible. Full cover removes objects,
-  creatures and their associated labels, shadows and target affordances.
+  provide partial cover, with a non-stacking 75% darkness treatment. Small
+  rocks and the smallest tree saplings provide no cover. The facing blocker
+  stays visible. Any cover (`Visibility.hidden`) removes the objects,
+  creatures and peers behind it, with their labels, shadows and target
+  affordances; the ground stays drawn and tappable unless cover is full.
+  Partial and full cover differ only in darkness: full cover is black.
   `Lighting.coverFrame` caches a world-aligned mask and composites it into the
   existing lightmap after light sources. It reuses the exploration fog's
   low-resolution smooth upscale and world-keyed wisps, with a roughly one-cell
   feather from a small separable filter instead of the exploration ramp. Noise coordinates and both canvases
-  are reused; only changes to the sight field repaint the alpha buffer. Surface
-  cover retains a faint ground silhouette, while underground full cover is black. Cover queries always
-  originate at the player's body, including during camera peeks.
+  are reused; only changes to the sight field repaint the alpha buffer. Cover queries always
+  originate at the player's body, including during camera peeks; the mask alone
+  traces from `Visibility.observer`, the body snapped to an eighth-cell lattice
+  inside its own cell, so walking and GPS glide repaint it per step rather than
+  every frame. Rays read a dense typed-array cover grid, never per-cell key
+  strings; the object rescan is gated by a signature (night state included) and
+  a one-second refresh for slow in-place edits. The per-ray cache clears
+  whenever the body moves, so render passes test `Render.coverHidden` only
+  after their view-box cull: a ray per off-screen fish spot, coin or X across
+  the tile ring once cost most of a walking frame.
 - Evertorch uses the shared player-light collector and torch radius with a blue
   `Lighting.KINDS` row. It takes visual precedence while both torches burn;
   neither expands interaction reach. Its icon reuses Torch art with the
@@ -204,7 +226,11 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   pad once and rebuilds on the next ordinary frame; it never crops past the
   painted edge. A viewport scratch blends
   old/new masks at their live fade weights and colours them with the radial
-  gradient still centred on the body. Stable world cookies join padded caches
+  gradient still centred on the body. Interrupted fades retain exact weights,
+  but rendering skips masks outside the painted view and an aggregate of less
+  than one 8-bit alpha level; it never renormalises the remaining brightness.
+  Active mask canvases stay pinned until compositing finishes, including when
+  a fade needs more than four masks. Surplus canvases are released as it settles. Stable world cookies join padded caches
   by their exact whole-pixel phase. Player-attached, breathing, flickering and
   transient lights keep the individual stamp path. The full-frame key gates
   before every canvas call. Reach lighting follows `cellInReach`; light conveys

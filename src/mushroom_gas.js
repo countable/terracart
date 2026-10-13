@@ -12,7 +12,7 @@
   // between doses is the window to walk out.
   const KINDS = Object.freeze({
     confusion: Object.freeze({ condition: 'confused', durationMs: 5000, densityScaled: true, colour: 0xffde1a, highlight: 0xffffc4 }),
-    poison: Object.freeze({ condition: 'poison', durationMs: 30000, colour: 0x7ddc2e, highlight: 0xe2ffb8 }),
+    poison: Object.freeze({ condition: 'poison', durationMs: 30000, colour: 0xa4f02c, highlight: 0xf0ffc8 }),
     paralysis: Object.freeze({ condition: 'paralysis', durationMs: 5000, rearmMs: 8000,
       colour: 0x3f9dff, highlight: 0xd2ecff }),
   });
