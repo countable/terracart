@@ -4456,7 +4456,7 @@ Render.drawObjects = function drawObjects(scene) {
       const offer = scene.peekOrBuildTraderOffer(o);
       const deal = !offer ? null : offer.gearSwap
         ? { ask: offer.give, give: offer.get }
-        : { ask: { kind: 'item', id: offer.askId }, give: { kind: 'item', id: offer.giveId } };
+        : { ask: { kind: 'item', id: offer.askId, qty: offer.askQty }, give: { kind: 'item', id: offer.giveId } };
       _traderCache.set(o.id, c = { at: now, deal });
     }
     return c.deal;
@@ -4605,7 +4605,7 @@ Render.drawObjects = function drawObjects(scene) {
         // Rebuild contents only when the wishlist / happy state / icon size
         // changes — the produce set is memoized per house, so this is normally
         // a no-op. The 'happy' sentinel in the key flips the bubble on delivery.
-        const pieceKey = (p) => [p.kind, p.id || p.slot, p.tier].join(':');
+        const pieceKey = (p) => [p.kind, p.id || p.slot, p.tier, p.qty].join(':');
         const key = it.o.id + '|' + (deal ? 'trade>' + pieceKey(deal.ask) + '>' + pieceKey(deal.give)
           : happy ? 'happy' : wanted.join(',')) + '|' + sizePx;
         if (slot.key !== key) {
@@ -4615,12 +4615,24 @@ Render.drawObjects = function drawObjects(scene) {
           slot.el.style.border = look.border;
           if (deal) {
             const piece = (p) => {
-              if (p.kind === 'item') return scene.renderItemIcon ? scene.renderItemIcon(p.id, sizePx, 'block') : null;
-              if (!scene.gearIconHTML) return null;
-              const span = document.createElement('span');
-              span.style.cssText = 'display:block;line-height:0;';
-              span.innerHTML = scene.gearIconHTML(p.kind, p.slot, p.tier, sizePx);
-              return span;
+              let ic = null;
+              if (p.kind === 'item') ic = scene.renderItemIcon ? scene.renderItemIcon(p.id, sizePx, 'block') : null;
+              else if (scene.gearIconHTML) {
+                ic = document.createElement('span');
+                ic.style.cssText = 'display:block;line-height:0;';
+                ic.innerHTML = scene.gearIconHTML(p.kind, p.slot, p.tier, sizePx);
+              }
+              if (!ic || !(p.qty > 1)) return ic;
+              // How many the trader asks for, on the icon's corner like a bag stack.
+              const wrap = document.createElement('span');
+              wrap.style.cssText = 'position:relative;display:block;line-height:0;';
+              const n = document.createElement('span');
+              n.textContent = String(p.qty);
+              n.style.cssText = 'position:absolute;right:-3px;bottom:-3px;line-height:1;'
+                + `font:bold ${Math.max(8, Math.round(sizePx * 0.5))}px ${FONT_UI_STACK};`
+                + `color:${TRADER_BUBBLE.ink};text-shadow:0 1px 0 #000,1px 0 0 #000,-1px 0 0 #000,0 -1px 0 #000;`;
+              wrap.append(ic, n);
+              return wrap;
             };
             const arrow = document.createElement('span');
             arrow.style.cssText = 'display:block;line-height:0;';
