@@ -53,6 +53,9 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   `footprintFootOffset`); its shadow, sign, roof plate and bubble follow the art.
   Use a stable `seatFrame` for animation. After art changes, run
   `node tools/sprite_audit.js --emit-bounds` and update `src/sprite_layout.js`.
+- Every underground floor uses the same connected cave-wall atlas: raised caps,
+  chipped rims and lighter front faces. Live neighbour masks update after mining
+  and tile arrival; pooled sprites hide when returning to the surface or sky.
 - Connected ground art that must abut its neighbours (chasm sections) seats on
   its terrain slot through `absCellScreenCentre` (coords.js), never on its own
   rounded `deltaMToScreen` point: neighbours' float centres sit `CELL_PX` ± epsilon
@@ -140,8 +143,8 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   plain stone for ordinary cave rubble,
   and flint when marked `rockMaterial: 'flint'`, including flint-bearing L1
   cave rubble. The flint mark takes precedence over the generic cave variant. Partial
-  cover (`sightBlocking: true`) selects the large silhouette at scale 1.6;
-  small stones use scale 1.2. Outside authored rock zones, wild rubble shares
+  cover (`sightBlocking: true`) selects the large silhouette at scale 1.92;
+  small stones use scale 1.44. Outside authored rock zones, wild rubble shares
   the four generic plain small shapes and skips biome tint; planted crop stages
   and inventory icons retain their existing art. A stable id hash selects plain
   stone shape independently of biome, mining quantity and small/large size.
@@ -153,8 +156,9 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   the place; Work Yard uses a cut stone slab and Crater Quarry has a glowing lava
   seam painted into the sprite. These contain no collectible mineral inclusions.
   The same 24px
-  frame scales to 0.9 for small stones and 1.6 for sight-blocking boulders.
-  Placed rockfruit stones use scale 2.4. These display sizes leave mining
+  frame scales to 1.08 for small stones and 1.92 for sight-blocking boulders.
+  `ROCK_VARIANT_ART` owns these scales and the placed-rock scale of 2.88.
+  These display sizes leave mining
   quantities, occupied cells and cover behavior unchanged.
   Named context/variant fields resolve the theme, with legacy zone-object
   frames 64–71 as a fallback. Gem, ore and explicitly flint-bearing rocks always
@@ -249,10 +253,16 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   biome texture (`Render.roadBackdropType`): explicit street ground, then the
   surrounding biome, then grass. Never paint raw road colours or separate path
   pebbles beneath the band; their grid edges read as a second road.
-- Roads and paths use a consistent muted midtone range so ground objects
-  remain the focus. Restored paving has recessed dark joints, tidy courses and
-  small polished bevels; worn cracks and mushroom spots stay low contrast.
-  Keep each theme’s undertone. Burned Row retains its dark stone and glowing embers.
+- Roads and paths use muted colors so ground objects remain the focus.
+  Restored paving has recessed dark joints, tidy courses and small polished
+  bevels; worn cracks and mushroom spots stay low contrast. Keep each theme’s
+  undertone. Burned Row retains its dark stone and glowing embers.
+- Restored Toadstool (Mushroom) and Snare lanes use near-black setts close to
+  the default restored road. Retain their red/brown undertones and mushroom
+  spots; the shared clean-stone bevel supplies the polished highlights.
+- Slime Trail overlays its muted green paving with glossy slime pools and pale
+  bubbles, in both worn and restored states. The same pattern painter serves
+  runtime paving and the map review.
 - Path paving and lamp palettes follow the assigned segment intervals. Scenic
   geography still owns restoration bonuses; first-walk stories use the assigned
   theme on the restored segment.
@@ -269,3 +279,7 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
 `trail`, `loot`; also `tools/layer_audit.js`.
+
+- Cave pressure plates use a low-opacity floor mark revealed within one body
+  cell. Plate-controlled gas outlets use one cached metal-grate texture and
+  the existing gas-cloud renderer; both grate and plate sort as ground objects.

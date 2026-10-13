@@ -316,7 +316,7 @@ test('zones: road terrain leaves real-tile cave source identities unchanged', ()
 
 // ── The nexus ───────────────────────────────────────────────────────────────
 test('zones: every nexus piece is off the road band and off anything already there', () => {
-  const { on, N, edge } = rasterPair();
+  const { on, again, N, edge } = rasterPair();
   const d = on.zoneDress;
   assert.truthy(d && d.nexus.length > 0, 'the fixture laid a nexus');
   const cellOf = (o) => {
@@ -330,7 +330,7 @@ test('zones: every nexus piece is off the road band and off anything already the
   // object sharing its cell; the checks below still catch real overlaps.
   for (const o of authoredStairs) assert.eq(on.objects.filter(p => p === o).length, 1, 'one generated shaft record');
   for (const o of [...on.objects, ...on.wildplants]) if (!authoredStairs.has(o)) before.add(cellOf(o));
-  if (on.streetDress) for (const o of [...on.streetDress.objects, ...on.streetDress.wildplants, ...on.streetDress.treasures]) before.add(cellOf(o));
+  if (on.streetDress) for (const o of [...on.streetDress.objects, ...on.streetDress.wildplants, ...on.streetDress.treasures, ...(on.streetDress.traps || []), ...(on.streetDress.webs || [])]) before.add(cellOf(o));
   const mine = new Set();
   const pieces = [...d.objects, ...d.wildplants];
   assert.gt(pieces.length, 5, `pieces were laid (${pieces.length})`);
@@ -350,8 +350,8 @@ test('zones: every nexus piece is off the road band and off anything already the
     } else assert.truthy(p.zoneLayer === 'find' ? /^zf_(grove|stones|tar)_\d+_\d+_/.test(p.id) : /_\d+_\d+_\d+_\d+$/.test(p.id), `${p.id} has a stable anchor or tile-cell identity`);
     mine.add(i);
   }
-  // Rasterized again: the same pieces, the same ids.
-  const again = WorldGen.rasterizeTile(decode(`${TILE_TX}_${TILE_TY}`), N, TILE_TX, TILE_TY, edge);
+  // Repeat the same isolated zone build; enabling street affinity/paving here
+  // would compare different reservations, not test determinism.
   assert.eq(again.zoneDress.objects.map((o) => o.id).join(), d.objects.map((o) => o.id).join(), 'deterministic');
   // Ordinary nexus pieces remain tappable, traversable or hazardous;
   // zone_prop records are the explicit decorative exception.

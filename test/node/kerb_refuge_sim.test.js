@@ -340,6 +340,18 @@ test('same side: the flood stops at the band — the far pavement is the other s
   });
 });
 
+test('same side: inherited major-road footprints divide underground destinations', () => {
+  const e = street();
+  withStreet(e, () => {
+    for (const depth of [1, 5, 20]) {
+      const scene = { ...sideScene(e, at(20, VERGE_ROW + 3)), depth };
+      const near = at(24, VERGE_ROW), far = at(20, BAND_ROWS[0] - 2);
+      assert.truthy(sameSideAs(scene, near.x, near.y));
+      assert.falsy(sameSideAs(scene, far.x, far.y));
+    }
+  });
+});
+
 test('same side: walkableDestination (the bounty\'s seat) never lands across the road', () => {
   const e = street();
   e._spawned = true;

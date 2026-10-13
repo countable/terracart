@@ -230,11 +230,11 @@ Render.shopTierBadge = (scene, house, role) => {
 // Shop signs identify the line, not the randomly selected stock item.
 // Category glyphs are the inventory tabs' 9×9 pixel art, drawn in the plate's ink.
 Render.SHOP_SIGN_ICONS = Object.freeze({
-  seed: { tab: 'seed' },
+  seed: { tab: 'seeds' },
   supply: { tab: 'supplies' },
   potion: { tab: 'magic' },
-  relic: { tab: 'relic' },
-  pet: { tab: 'animal' },
+  relic: { tab: 'relics' },
+  pet: { tab: 'pets' },
   // No inventory tab for books: the board's own bitmap in the same family.
   book: { px: [
     '.#######.',
@@ -315,7 +315,7 @@ Render.shopSignLook = (badge) => {
 // A non-shop role's symbol: its inventory tab, and `dy` game px to nudge
 // the board down where that role's roof sits lower (the smithy's art).
 Render.ROLE_SIGN_ICONS = Object.freeze({
-  blacksmith: { tab: 'armor', dy: 3 },
+  blacksmith: { tab: 'armour', dy: 3 },
 });
 Render.shopSignGlyph = (theme, role) => {
   const icon = Render.SHOP_SIGN_ICONS[theme] || Render.ROLE_SIGN_ICONS[role];
@@ -2739,10 +2739,10 @@ Render.drawCells = function drawCells(scene) {
     }
   }
   scene.terrainCache?.flush();
-  // Level-one trial. Re-evaluate the live neighbour ring on each ground draw:
+  // All underground floors share this wall style. Re-evaluate the live neighbour ring:
   // mining and arriving tiles immediately update faces, including tile seams.
   // Atlas sprites share the ground-decoration layer, beneath actors and lights.
-  if (scene.depth === 1 && scene.cobbleContainer) {
+  if (scene.depth > 0 && scene.cobbleContainer) {
     const open = (c, r) => T(c, r) !== WorldGen.T.CAVE_WALL && T(c, r) !== UNMAPPED_T;
     for (let row = -1; row <= VIEW_CELLS; row++) for (let col = -1; col <= VIEW_CELLS; col++) {
       if (T(col, row) !== WorldGen.T.CAVE_WALL) continue;
@@ -4055,7 +4055,7 @@ Render.drawObjects = function drawObjects(scene) {
     h, dx: h.x - pWorldX, dy: h.y - pWorldY,
   })).filter(it => !it.h.blocked && Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
   const pressureState = PressureTraps.lists(scene);
-  const pressureList = [...pressureState.plates.map(h => ({ h, plate: true })),
+  const pressureList = [...pressureState.plates.filter(h => PressureTraps.plateVisible(scene, h)).map(h => ({ h, plate: true })),
     ...pressureState.traps.map(h => ({ h, plate: false }))].map(it => ({
       ...it, dx: it.h.x - pWorldX, dy: it.h.y - pWorldY,
     })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
@@ -4063,7 +4063,7 @@ Render.drawObjects = function drawObjects(scene) {
   Render.cullCovered(scene, whirlwindList, 'h');
   Render.cullCovered(scene, environmentList, 'h');
   Render.cullCovered(scene, pressureList, 'h');
-  for (const it of pressureList) zList.push({ it, rank: 2, ground: it.plate, groundY: groundY(it) });
+  for (const it of pressureList) zList.push({ it, rank: 2, ground: it.plate || it.h.kind === 'gas', groundY: groundY(it) });
   for (const it of environmentList) zList.push({ it, rank: 1,
     ground: it.h.type !== 'vent', groundY: groundY(it) });
   for (const it of whirlwindList) zList.push({ it, rank: 3, groundY: groundY(it) });
@@ -4784,7 +4784,7 @@ Render.drawObjects = function drawObjects(scene) {
       s.setFrame(frame);
       // Centre on the rock cell (0.5, 0.5): this is the produce icon, not a
       // bottom-weighted seed frame, which the foot-anchor would float ~11px high.
-      s.setOrigin(0.5, 0.5).setScale(2.4).setPosition(Math.round(sx), Math.round(sy));
+      s.setOrigin(0.5, 0.5).setScale(ROCK_VARIANT_ART.placedScale).setPosition(Math.round(sx), Math.round(sy));
       return;
     }
     const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);
@@ -5098,10 +5098,12 @@ Render.drawObjects = function drawObjects(scene) {
   scene._pressureTrapPool ||= [];
   Render.renderPool(scene, scene._pressureTrapPool, scene.creaturesContainer, pressureList, (s, it) => {
     const { x: sx, y: sy } = project(it.dx, it.dy);
-    const key = it.plate ? 'cave_mechanisms' : it.h.kind === 'ball' ? 'rolling_ball' : 'sliding_spike_wall';
+    const key = it.plate ? 'cave_mechanisms' : it.h.kind === 'gas' ? 'pressure_gas_grate'
+      : it.h.kind === 'ball' ? 'rolling_ball' : 'sliding_spike_wall';
     s.anims?.stop();
-    s.setTexture(key, it.h.frame).setOrigin(.5, .5).setDisplaySize(CELL_PX, CELL_PX)
-      .setPosition(Math.round(sx), Math.round(sy)).setAlpha(1).setTint(0xffffff);
+    s.setTexture(key, it.h.kind === 'gas' ? 0 : it.h.frame).setOrigin(.5, .5).setDisplaySize(CELL_PX, CELL_PX)
+      .setPosition(Math.round(sx), Math.round(sy))
+      .setAlpha(it.plate && it.h.effect !== 'ghost' ? PressureTraps.CONFIG.plateAlpha : 1).setTint(0xffffff);
     setWorldDepth(s, it._z);
   });
 

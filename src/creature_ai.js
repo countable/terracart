@@ -143,7 +143,7 @@ const PEST_RECHECK_MS = 30 * 1000;
 // wanderCreatures' base beat (its STEP_MS): one cell a step at this cadence
 // is the plain wander; a slime's gait and a monster's `speed` scale it.
 const WANDER_STEP_MS = 5000;
-// The tile bits under a world-metre point on the surface (0 underground, on
+// The inherited road bits under a world-metre point on any floor (0 on
 // an unloaded tile, or before its roadClass exists).
 function roadClassBitsAt(scene, x, y) {
   const t = tileCellAt(scene, x, y);
@@ -185,14 +185,13 @@ const ROADSIDE_AHEAD_CELLS = 3;
 const ROADSIDE_VERGE_CELLS = 1;
 const ROADSIDE_JITTER = 0.3;
 const ROADSIDE_YARD_BITS = () => WorldGen.SPAWN_WHY.BEHIND_HOUSE | WorldGen.SPAWN_WHY.PRIVATE;
-// The tile cell under a surface point — the cached tile and its flat index
+// The tile cell under a point on the current floor — the cached tile and its flat index
 // on the tile's OWN grid (entry.cellsPerEdge, the world-frame rule): { entry,
-// N, i } or null (underground, off any cached tile). The one reader every
+// N, i } or null (off any cached tile). The one reader every
 // per-cell question below asks (the kerb bits, the yard reasons, the lot,
 // the road); the entry's arrays may still be missing on a tile mid-build, so
 // a caller checks the one it reads.
 function tileCellAt(scene, x, y) {
-  if ((scene.depth || 0) !== 0) return null;
   const edge = scene.tileEdgeM;
   if (!(edge > 0) || !Number.isFinite(x) || !Number.isFinite(y)) return null;
   const tx = Math.floor(x / edge), ty = Math.floor(y / edge);
@@ -409,8 +408,8 @@ function sameSideField(scene, fx, fy) {
       const i = Math.round((x - this.ox) / this.cm), j = Math.round((y - this.oy) / this.cm);
       return i >= 0 && j >= 0 && i < this.W && j < this.W && this.reached[j * this.W + i] === 1;
     } };
-  // Underground there are no roads: everything in range is the same side.
-  if ((scene.depth || 0) !== 0 || !(edge > 0) || !(cm > 0)) { reached.fill(1); return field; }
+  // Every floor keeps the surface road footprint for safe destinations.
+  if (!(edge > 0) || !(cm > 0)) { reached.fill(1); return field; }
   let partial = false;
   const wall = new Uint8Array(W * W);   // 1 open, 2 blocked
   const blocked = (i, j) => {
@@ -1601,7 +1600,8 @@ function supportAbility(c, row) {
 }
 function enemySupportTick(scene, c, row, now, eligible) {
   const a = supportAbility(c, row);
-  if (!a) return false;
+  // Reactive splitting runs on damage; it never consumes an attack beat.
+  if (!a || !['heal', 'summon'].includes(a.type)) return false;
   const winding = c._abilityWindupUntil != null;
   if (winding && c._lastDamagedT !== c._abilityDamageStamp) eligible = false;
   if (!winding && eligible && now >= (c._abilityNextT || 0) && a.type === 'heal'

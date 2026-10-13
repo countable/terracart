@@ -5,8 +5,8 @@
 // new population. Only the deepest kind of each habitat family (lich,
 // minotaur, armoured_demon, hell_brute, the dragon) is open-ended, so the
 // levels past 9 stay peopled; the three demons all sit on level 9, where the
-// dragon story takes its fire back (dragon_story.js). minDepth is also a
-// kind's introduction depth for elite loot (combat.js eliteRollBonus).
+// dragon story takes its fire back (dragon_story.js). Elite drop strength
+// follows monster tier + 1 (combat.js eliteDropTier).
 // Trolls are the explicit exception: they inhabit level 3 only.
 // PACES (owner, Oct 2026): every orc row moves at TWICE its first figure
 // (3 m/s); goblins doubled too, then goblins, pirates and the thief came down
@@ -17,6 +17,8 @@
   'use strict';
   // Blight uses one damage-rate contract; each carrier can override its radius.
   const BLIGHT_AURA = {"source":"Potion of Blight","rawDps":2,"mitigationPacketSeconds":1,"healsSelf":false,"stacks":"Independent sources add; at most one aura contribution per enemy per target.","damageType":"energy","rule":"Mitigate a one-second damage packet with Combat.mitigate, then accumulate the resulting rate \u00d7 dt. Never apply the minimum-hit floor per rendered frame. Apply player Hard penalty after mitigation."};
+  // eliteDrops lists each kind's signature rewards in 70%, 20%, 10% order.
+  // Equipment tiers and consumable quantities are resolved by the loot engine.
   const ROWS = [
     // Tameable shore crabs attack while wild; beach seats own their population.
     {"id":"crab","name":"Crab","tier":1,"hp":10,"armor":2,"dmg":2,"range":0.6,"attackType":"melee","damageIntervalSeconds":2.5,"windupSeconds":0.3,"attackHits":1,"visionCells":4,"movement":{"pattern":"scuttle_pause","speedMetersPerSecond":1.4,"scuttleSeconds":0.7,"pauseSeconds":0.6,"approachAngleJitterRadians":0.6},"surface":null,"cave":null,"art":{"path":"assets/Farm Animals/Crab.png","frameWidth":16,"frameHeight":16,"directions":{"down":{"idle":[0],"move":[0,1,2]},"up":{"idle":[3],"move":[3,4,5]},"right":{"idle":[6],"move":[6,7,8]},"left":{"idle":[9],"move":[9,10,11]}},"directionSideFacing":"right","bounds":[1,15],"frameMs":180},"artScale":0.48,"eliteEligible":false,"board":false},

@@ -36,6 +36,19 @@ test('loot contexts: the picker reads row fields, never context names', () => {
     assert.eq(LOOT_CONTEXTS['chest:' + theme]?.picker, 'chest', 'every chest theme has a chest-picked row');
   assert.eq(Object.keys(LOOT_CONTEXTS).filter(k => LOOT_CONTEXTS[k].caveSkew).join(','), 'treasure:default',
     'only the buried X takes the cave skew');
+  assert.eq(LOOT_CONTEXTS['treasure:elite'].picker, 'elite', 'elite rewards use authored signatures');
+  const alias = 'test:signature-alias';
+  LOOT_CONTEXTS[alias] = { ...LOOT_CONTEXTS['treasure:elite'] };
+  try {
+    for (const [roll, index] of [[0.35, 0], [0.8, 1], [0.95, 2]]) {
+      const reward = pickReward(alias, { relics: {}, armor: {} }, () => roll, { monsterKind: 'slime' });
+      assert.eq(reward.signatureIndex, index, 'a renamed elite context retains signature odds');
+      assert.eq(reward.id, Combat.monster('slime').eliteDrops[index].id,
+        'a renamed elite context retains the monster signature');
+    }
+  } finally {
+    delete LOOT_CONTEXTS[alias];
+  }
 });
 
 test('pickReward: item rewards reference real catalog entries with qty ≥ 1', () => {
@@ -549,7 +562,7 @@ test('deep hoard: tier-capped — T4+ gems stay rare in T3 chests', () => {
   for (const id of Object.keys(CAVE_DEEP_SKEW.favourite.ids)) {
     assert.truthy(ITEM_BY_ID[id], `${id} is a real item`);
     const k = ITEM_BY_ID[id].kind;
-    assert.truthy(k === 'magic' || k === 'mineral', `${id} is a potion, powder or gem`);
+    assert.truthy(k === 'magic' || k === 'ores', `${id} is a potion, powder or gem`);
   }
 });
 

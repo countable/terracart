@@ -333,6 +333,7 @@ class SceneCreatures {
       entry.wildplants = entry.wildplants || [];
       for (const wp of dressing.wildplants) if (lay(wp)) entry.wildplants.push(wp);
       for (const trap of (dressing.traps || [])) if (lay(trap)) zoneTraps.push({ ...trap });
+      entry.spiderPathWebs = (dressing.webs || []).filter(lay);
       streetTreasures = dressing.treasures.filter(lay);
       entry.streetLairs.push(...dressing.lairs);
       entry.slowCells = slow.size ? slow : null;

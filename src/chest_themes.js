@@ -264,7 +264,7 @@
     if (item.kind === 'magic') return item.uniqueJewelry ? 1 : 6;
     if (item.plants === 'tree') return 5;
     if (item.kind === 'seed') return magicalFlowers.includes(item.grows) ? 1 : 9;
-    if (magicalFlowers.includes(id) || item.kind === 'mineral' || id === 'evertorch') return 3;
+    if (magicalFlowers.includes(id) || item.kind === 'ores' || id === 'evertorch') return 3;
     return 5;
   }
   // THE ROLL BUDGET. Every reward roll sizes its stack (and its purse) from

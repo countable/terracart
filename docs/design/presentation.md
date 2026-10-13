@@ -80,6 +80,14 @@ changing dialogue, story panels, books, toasts or status presentation.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
   with its band layout. Painted headers use a label without emoji/`kindIcon`.
+- The modal HUD gate also covers the isolated upper-temple scene. Its scene
+  flag keeps inventory, movement pads and the objective hidden until shutdown,
+  even when no DOM dialog is open; a reward dialog keeps the gate after exit.
+  Shutdown reapplies the current camera scale to the paused surface before
+  resuming it, so a viewport resize during a trial also fits the return map.
+- Consumables may select a painting through `art`; timed buffs reuse it after
+  use unless `used.art` overrides it. Lighting or relighting a Torch uses
+  `torch_light`, a close-up of the flame catching.
 - Paired story paintings must use actual image references. Establish the
   introduction first, then edit that image for the completed action; preserve
   object designs, materials and booth identity. After-use panels zoom in on
@@ -114,8 +122,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   `Buffs.extend(save, scene, id, ms)` is the one writer of a row's expiry
   (max(now, until) + ms — a second dose extends, never resets or refuses). A status
   LANDING announces itself from those tables (`_announceStatuses`: the body
-  flicks the row's ink, the word pops on the cell) — never at the writer. A
-  creature's status (sleep, charm, frost, fear, psychosis) is a row of
+  flicks the row's ink, the word pops on the cell) — never at the writer.
+  Food energy and condition notices stay separate; the food receipt must not
+  repeat the condition announcement. A creature's status (sleep, charm, frost,
+  fear, psychosis) is a row of
   `Combat.STATUS_LOOKS` and one `Combat.flagStatus` call at its applier;
   render.js flicks and pops it through `_popCreatureText`.
 - Bearings on the map rim are rows of `MARKERS` (app.js). Each row's slot

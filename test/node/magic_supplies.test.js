@@ -39,7 +39,7 @@ test('unique relics: fixed-tier equipment values and no ordinary shop or loot st
   assert.eq(unique.length, 29, 'eighteen finds, two progression relics and nine reusable tomes');
   for (const item of unique) {
     assert.eq(itemValue(item.id), gearPrice('relic', 'sword', item.baseTier), item.id);
-    assert.eq(invCatForItem(item.id), 'relic', item.id);
+    assert.eq(invCatForItem(item.id), 'relics', item.id);
     for (const pool of Object.values(Shops.THEME_POOL)) assert.falsy(pool().includes(item.id), item.id + ' is reward-only');
     for (const pool of Object.values(ITEMS_BY_CLASS_TIER)) assert.falsy(Object.values(pool).flat().includes(item.id), item.id + ' excluded from generic loot');
   }

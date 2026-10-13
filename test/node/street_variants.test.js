@@ -156,7 +156,7 @@ test('variants: minor streets and path sections use their normalized theme pools
 });
 
 test('variants: paths mostly select light scenic themes and never inherit Small-road themes', () => {
-  const expected = { lantern: .10, barricade: .03, promenade: .12, greenway: .35, parkpath: .38, golden_path: .02 };
+  const expected = { lantern: .10, barricade: .03, promenade: .12, greenway: .30, parkpath: .33, golden_path: .02, slime_trail: .05, spider_path: .05 };
   const weights = SV.selectionWeights(null, 'path');
   assert.eq(weights.length, Object.keys(expected).length);
   for (const row of weights) {
@@ -1017,6 +1017,30 @@ test('path sections: a brief affinity patch does not create a transition split',
   const patch = pathIndexWithContext(p => p.x >= 390 && p.x < 410 ? {coastal:1} : {woodland:1});
   assert.eq(pathSectionGeometry(patch), pathSectionGeometry(plain),
     'a 20 m terrain patch is too brief to redirect boundaries');
+});
+
+test('path sections: tiny junction approaches merge without dropping branches or joining gaps', () => {
+  const features = [
+    {id: 51, geom: [[{x:100,y:100},{x:900,y:100}]]},
+    {id: 52, geom: [[{x:110,y:100},{x:110,y:125}]]},
+    {id: 53, geom: [[{x:120,y:100},{x:120,y:125}]]},
+    {id: 54, geom: [[{x:890,y:100},{x:890,y:125}]]},
+  ];
+  const index = pathIndex(features);
+  const through = index.pathSections.filter(r => r.line.every(p => p.y === 100));
+  assert.truthy(through.every(r => r.segmentLengthM >= SV.PATH_SECTION_MIN_M),
+    '10 m approaches and the gap between close forks belong to longer through sections');
+  assert.inRange(index.pathSections.reduce((n,r)=>n+r.segmentLengthM,0),874.999,875.001,
+    'merging preserves every metre of the main path and all three branches');
+  assert.eq(index.pathSections.filter(r => Math.abs(r.segmentLengthM-25)<1e-6).length,3,
+    'actual short dead ends remain separate');
+  assert.eq(pathSectionGeometry(index), pathSectionGeometry(pathIndex(features.slice().reverse()
+    .map(f=>({...f,geom:[f.geom[0].slice().reverse()]})))), 'source direction and ordering cannot change merges');
+  const separate = pathIndex([
+    {id:61,geom:[[{x:100,y:100},{x:120,y:100}]]},
+    {id:62,geom:[[{x:121,y:100},{x:500,y:100}]]},
+  ]);
+  assert.truthy(separate.pathSections.some(r=>r.segmentLengthM===20), 'a one-metre gap is never bridged');
 });
 
 test('path sections: close optional endpoints are thinned deterministically and forks stay short', () => {

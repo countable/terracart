@@ -1,14 +1,14 @@
-// Sparse cell gas: diffusion conserves mass; only ventilated, thin gas vanishes.
+// Sparse cell gas: diffusion conserves mass until a cell falls below the density cutoff.
 (function (root) {
   'use strict';
   const STEP_MS = 1000;
-  const DEFAULTS = Object.freeze({ minDensity: .025, maxCells: 4096, maxTopologyCells: 8192, maxSteps: 5 });
+  const DEFAULTS = Object.freeze({ minDensity: .025, maxCells: 4096, maxSteps: 5 });
   const key = (x, y) => `${x},${y}`;
   const cardinal = (x, y) => [{ x: x + 1, y }, { x: x - 1, y }, { x, y: y + 1 }, { x, y: y - 1 }];
 
   function create(options = {}) {
     const config = { ...DEFAULTS, ...options };
-    for (const name of ['maxCells', 'maxTopologyCells', 'maxSteps']) {
+    for (const name of ['maxCells', 'maxSteps']) {
       if (!Number.isSafeInteger(config[name]) || config[name] < 1) throw new Error(`Invalid gas ${name}`);
     }
     if (!(config.minDensity >= 0) || !Number.isFinite(config.minDensity)) throw new Error('Invalid gas minDensity');
@@ -27,8 +27,7 @@
   }
 
   function step(state, cellAt, neighbors) {
-    const next = new Map(), terrain = new Map(), regions = new Map();
-    let topologyRemaining = state.config.maxTopologyCells;
+    const next = new Map(), terrain = new Map();
     function terrainAt(x, y) {
       const id = key(x, y);
       if (!terrain.has(id)) terrain.set(id, cellAt(x, y));
@@ -54,31 +53,8 @@
         home.density -= share;
       }
     }
-    function ventilated(start) {
-      const startId = key(start.x, start.y);
-      if (regions.has(startId)) return regions.get(startId);
-      if (terrainAt(start.x, start.y) !== 'open' || topologyRemaining === 0) return false;
-      const pending = [start], visited = new Set([startId]);
-      let exterior = false;
-      // Unknown marks the edge of loaded terrain, but never receives diffusion.
-      // A capped search is inconclusive, so keep the gas, including in huge rooms.
-      while (pending.length && topologyRemaining > 0 && !exterior) {
-        const c = pending.pop();
-        topologyRemaining--;
-        for (const p of neighbors(c.x, c.y)) {
-          const id = key(p.x, p.y), kind = terrainAt(p.x, p.y);
-          if (kind === 'unknown') { exterior = true; break; }
-          if (kind !== 'open' || visited.has(id)) continue;
-          if (regions.get(id) === true) { exterior = true; break; }
-          visited.add(id);
-          pending.push(p);
-        }
-      }
-      for (const id of visited) regions.set(id, exterior);
-      return exterior;
-    }
     for (const [id, c] of next) {
-      if (c.density < state.config.minDensity && ventilated(c)) next.delete(id);
+      if (c.density < state.config.minDensity) next.delete(id);
     }
     state.cells = next;
     state.revision++;

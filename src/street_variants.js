@@ -258,8 +258,8 @@
       body: 'Red toadstools crowd the verge, and the air smells of damp earth. You step around their spotted caps.',
       flash: 'Toadstools. They glow at dusk.' },
     // SCENIC PATHS (src/scenic.js) — a third SIZE, 'path', appended LAST so
-    // no older row's code moves. NEVER ROLLED: sizeOfTags never answers
-    // scenic rows stay out of the ordinary draw (share 0); the row is read off a
+    // no older row's code moves. pathWeight supplies the light path pool;
+    // share stays zero for the Small-road pool. Scenic classification reads a
     // way's SCENIC CLASS (Scenic.rowFor — shore → promenade, greenway,
     // park → parkpath). The columns are the street rows' own: `lampGlow` (the
     // lamps on the scenic metres shed it — lampGlowFor), and the story — one
@@ -271,20 +271,20 @@
       story: 'street_scenic', title: 'The promenade',
       body: 'The path runs along the water. You listen to it lapping against the shore as you walk.',
       flash: 'The promenade. Walk it slow.' },
-    { id: 'greenway', pathWeight: .35, terrain: 'GRASS', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'greenway', pathWeight: .30, terrain: 'GRASS', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#74866c', restored: '#91a084' },
       lampGlow: '#a8e07a',
       story: 'street_scenic', art: 'street_greenway', title: 'A greenway',
       body: "Branches hang low over the path. You duck beneath them as leaves brush your hood.",
       flash: 'A greenway. The green holds.' },
-    { id: 'parkpath', pathWeight: .38, terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'parkpath', pathWeight: .33, terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#7b756b', restored: '#898a80' },
       lampGlow: '#a8e07a',
       story: 'street_scenic', art: 'street_parkpath', title: 'The park path',
       body: "Weeds crowd the old park path, and dry leaves cover its edges. You follow it through the overgrowth.",
       flash: 'The park path winds on.' },
     { id: 'golden', terrain: 'ROCK', affinities: ['formal'], size: 'minor', share: 0.02, rung: 'rare',
-      stone: { weathered: '#806747', restored: '#bd9650' }, lampDensity: 1,
+      stone: { weathered: '#96866b', restored: '#af9c75' }, lampDensity: 1,
       // A coin spree half the usual section long (sectionLimits): a whole
       // 500 m of coins on every long road would be a purse, not a find.
       sectionMaxM: 250,
@@ -316,6 +316,18 @@
       story: 'street_golden_path', art: 'street_golden', title: 'Golden Path',
       body: 'A gilded shrine stands beside the path. Touch it each day, and green coins appear in a line down the path.',
       flash: 'Gold glimmers along the path.' },
+    { id: 'slime_trail', pathWeight: .05, terrain: 'WETLAND', affinities: ['damp', 'hostile'], size: 'path', share: 0, rung: 'uncommon',
+      stone: { weathered: '#566746', restored: '#71835a', pattern: 'slime', accent: '#b3d77c' },
+      lampGlow: '#b3d77c', enemyKinds: ['slime', 'purple_slime', 'fire_slime', 'split_slime'],
+      enemyStepM: 70, guardsPerPost: 2,
+      story: 'street_slime_trail', art: 'street_greenway', title: 'Slime Trail',
+      body: 'Wet slime gleams across the path. A colony of slimes has claimed this trail.',
+      flash: 'A glistening trail of slime.' },
+    { id: 'spider_path', pathWeight: .05, terrain: 'FOREST', affinities: ['woodland', 'ruined'], size: 'path', share: 0, rung: 'uncommon',
+      stone: { weathered: '#747079', restored: '#96909a' }, lampGlow: '#d5d2e4', webDensity: .35,
+      story: 'street_spider_path', art: 'street_toadstool', title: 'Spider Path',
+      body: 'Lasting webs lie scattered across the path. Spiders lurk nearby; touching silk briefly pins you in place.',
+      flash: 'Silk glistens across the path.' },
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
@@ -981,6 +993,7 @@
   // explicit local ends: generation never depends on which neighbour loaded.
   const PATH_SECTION_MIN_M = 180, PATH_SECTION_TARGET_M = 300, PATH_SECTION_MAX_M = 550;
   const PATH_CONTEXT_PERSIST_M = 40;
+  const PATH_FRAGMENT_MIN_M = 60;
   // Use the same surroundings for boundary choice and theme affinity. Sample
   // beside the centre cell so the path's own paving cannot select its theme.
   function pathContextSampler(index, zone, N, geography) {
@@ -1010,8 +1023,18 @@
   }
   // Pick a set of cuts together, rather than leaving a tiny final remainder.
   // Candidate rewards express geography preference; the length cost gives a
-  // soft 300 m target. Mandatory ends/forks partition the optimisation.
+  // soft 300 m target. Ends and well-spaced forks partition the optimisation.
   function choosePathCuts(candidates, pointAt, identity) {
+    // Keep the physical junction, but do not make its tiny approach a separate
+    // theme. Canonical chains already choose connected, same-level continuations.
+    const structural = [...candidates.values()].filter(p => p.required).sort((a,b) => a.distance-b.distance);
+    let previous = structural[0].distance;
+    const end = structural[structural.length-1].distance;
+    for (const point of structural.slice(1, -1)) {
+      if (point.fork && (point.distance-previous < PATH_FRAGMENT_MIN_M
+          || end-point.distance < PATH_FRAGMENT_MIN_M)) point.required = false;
+      else previous = point.distance;
+    }
     const required = [...candidates.values()].filter(p => p.required).sort((a,b) => a.distance-b.distance);
     for (let i = 1; i < required.length; i++) {
       const start = required[i-1].distance, span = required[i].distance-start;
@@ -1099,7 +1122,7 @@
       const endpoints = new Map();
       for (const line of clipped) for (const p of [line[0], line[line.length - 1]]) endpoints.set(`${p.x},${p.y}`, p);
       const lines = yield* nodePathEndsSteps(clipped);
-      // Forks are structural boundaries, even when a branch is shorter than the minimum.
+      // Forks prefer structural boundaries; tiny approaches merge into the through chain.
       const neighbours = new Map();
       for (const line of lines) for (let j = 1; j < line.length; j++) {
         const a = `${line[j-1].x},${line[j-1].y}`, b = `${line[j].x},${line[j].y}`;
@@ -1808,7 +1831,7 @@
   // never in the unsliced spawn pass (CLAUDE.md, the worst-block rule).
   function* dressSteps(ctx) {
     const WG = root.WorldGen, S = root.Streets;
-    const res = { objects: [], wildplants: [], treasures: [], coinSeats: new Map(), traps: [], lairs: [], slowCells: new Map(), marks: null };
+    const res = { objects: [], wildplants: [], treasures: [], coinSeats: new Map(), traps: [], webs: [], lairs: [], slowCells: new Map(), marks: null };
     const idx = ctx && ctx.index;
     if (!idx || !WG || !S) return res;
     const { tx, ty, N, grid, spawnOpts } = ctx;
@@ -2007,6 +2030,51 @@
             claim(c.ix, c.iy); habitatSeats.add(sid);
             res.lairs.push({ tier: `street_${v}`, sid,
               lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
+            break;
+          }
+        });
+      }
+      if (v === 'slime_trail') {
+        // One species per stable section, independent of its source fragments.
+        const kind = row.enemyKinds[Math.floor(hash01(`slime-species|${rec.key}`) * row.enemyKinds.length)];
+        const length = S.lineLengthM(rec.line, gM);
+        sampleLine(rec.line, gM, row.enemyStepM, Math.min(row.enemyStepM / 2, length / 2), (s, x, y) => {
+          if (!S.covers(spans, s)) return;
+          const c = foeSeat(cellOfM(x), cellOfM(y));
+          if (!c) return;
+          const sid = WG.cellId(`slime_trail_${kind}`, tx, ty, c.ix, c.iy);
+          if (habitatSeats.has(sid)) return;
+          claim(c.ix, c.iy); habitatSeats.add(sid);
+          res.lairs.push({ tier: `street_slime_trail_${kind}`, sid, _street: v,
+            lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
+        });
+      }
+      if (v === 'spider_path') {
+        // Seeded gaps leave walkable choices; cell IDs deduplicate shared pieces.
+        const webSeats = new Set(res.webs.map(w => w.id));
+        sampleLine(rec.line, gM, CELL_M, CELL_M / 2, (s, x, y, nx, ny) => {
+          if (!S.covers(spans, s)) return;
+          const slot = Math.floor(s / CELL_M);
+          const offset = (hash01(`web-offset|${rec.key}|${slot}`) - .5) * CELL_M;
+          const ix = cellOfM(x + nx * offset), iy = cellOfM(y + ny * offset);
+          const id = WG.cellId('path_web', tx, ty, ix, iy);
+          if (webSeats.has(id) || hash01(`web-density|${rec.key}|${ix},${iy}`) >= row.webDensity
+            || !WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'hazard')) return;
+          webSeats.add(id); claim(ix, iy);
+          res.webs.push({ id, x: cx(ix), y: cy(iy), _street: v, permanent: true });
+        });
+        const sid = `street_spider_path_${tx}_${ty}_${rec.key}`;
+        if (!habitatSeats.has(sid)) sampleLine(rec.line, gM, CELL_M * 4,
+          Math.min(CELL_M * 2, S.lineLengthM(rec.line, gM) / 2), (s, x, y, nx, ny) => {
+          if (habitatSeats.has(sid)) return false;
+          if (!S.covers(spans, s)) return;
+          for (const side of [1, -1]) {
+            const c = vergeCell(rec, x, y, nx, ny, side, 2);
+            const seat = foeSeat(c.ix, c.iy);
+            if (!seat) continue;
+            claim(seat.ix, seat.iy); habitatSeats.add(sid);
+            res.lairs.push({ tier: 'street_spider_path', sid, _street: v,
+              lx: (seat.ix + .5) * frameCellM, ly: (seat.iy + .5) * frameCellM });
             break;
           }
         });
@@ -2546,7 +2614,7 @@
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
     THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
-    PATH_SECTION_MIN_M, PATH_SECTION_TARGET_M, PATH_SECTION_MAX_M, buildPathSectionsSteps, applyPathScenicSteps, syncPathVariants, selectionWeights, applyAffinitiesSteps, nexusExitAffinitySteps, NEXUS_EXIT_AFFINITY_M, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
+    PATH_SECTION_MIN_M, PATH_SECTION_TARGET_M, PATH_SECTION_MAX_M, PATH_FRAGMENT_MIN_M, buildPathSectionsSteps, applyPathScenicSteps, syncPathVariants, selectionWeights, applyAffinitiesSteps, nexusExitAffinitySteps, NEXUS_EXIT_AFFINITY_M, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area, suppressNexusRoadThemesSteps,
     markBanditStops, streetShrineChosen, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, carpetEmblemFor, carpetStyleFor, lineStyles, hotRoadAt, isSlowKind,
   };

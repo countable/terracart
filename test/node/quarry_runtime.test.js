@@ -11,6 +11,14 @@
       spawnOpts: { occupied: new Set(), quiet: new Uint8Array(N * N), spawnWhy: new Uint16Array(N * N), roadMask: new Uint8Array(N * N) } };
   }
   const records = out => [...out.objects, ...out.guards, ...(out.treasures || [])];
+  test('quarry runtime: generated plain rocks receive each quarry signature', () => {
+    for (const zone of ['quarry-strip-mine', 'quarry-crater', 'quarry-abandoned']) {
+      const out = ZoneDressing.dress(context(zone));
+      const plain = out.objects.filter(o => o.kind === 'mineralrock' && mineralRockMaterial(o) === 'plain');
+      assert.gt(plain.length, 0, zone);
+      for (const rock of plain) assert.eq(mineralRockArtFrame(rock), ZONE_ROCK_THEMES[zone].frame);
+    }
+  });
   test('quarry runtime: stronghold walls preserve fitted frames and never replace global stone', () => {
     const ctx = context('quarry-stronghold'), out = ZoneDressing.dress(ctx);
     const walls = out.objects.filter(o => o.kind === 'stronghold_wall');
