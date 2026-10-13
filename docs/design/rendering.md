@@ -185,7 +185,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   inside its own cell, so walking and GPS glide repaint it per step rather than
   every frame. Rays read a dense typed-array cover grid, never per-cell key
   strings; the object rescan is gated by a signature (night state included) and
-  a one-second refresh for slow in-place edits.
+  a one-second refresh for slow in-place edits. The per-ray cache clears
+  whenever the body moves, so render passes test `Render.coverHidden` only
+  after their view-box cull: a ray per off-screen fish spot, coin or X across
+  the tile ring once cost most of a walking frame.
 - Evertorch uses the shared player-light collector and torch radius with a blue
   `Lighting.KINDS` row. It takes visual precedence while both torches burn;
   neither expands interaction reach. Its icon reuses Torch art with the
