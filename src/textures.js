@@ -1271,8 +1271,8 @@ function zoneGroundColor(entry, ix, iy, type, tx = entry && entry.tx, ty = entry
 
 // Rubble rows divide the cell exactly. Stones crossing a frame boundary use
 // the same seed in every variant, so arbitrary neighbours join without a cut.
-function drawCaveWallFaceTex(ctx, size, height, variant) {
-  ctx.fillStyle = '#241f1b'; ctx.fillRect(0, 0, size, height);
+function drawCaveWallFaceTex(ctx, size, height, variant, baseColor = '#241f1b') {
+  ctx.fillStyle = baseColor; ctx.fillRect(0, 0, size, height);
   const columns = 6, step = size / columns;
   for (let row = 0; row < Math.ceil(height / step); row++) {
     const offset = row % 2 ? step / 2 : 0;
@@ -1338,7 +1338,7 @@ function makeCaveWallEdges(scene, size) {
     }
     if (mask & 4) {
       ctx.save(); ctx.translate(0, top);
-      drawCaveWallFaceTex(ctx, size, height, variant);
+      drawCaveWallFaceTex(ctx, size, height, variant, '#302a24');
       ctx.restore();
       ctx.fillStyle = 'rgba(0,0,0,0.16)'; ctx.fillRect(0, frameHeight - 4, size, 3);
       ctx.fillStyle = '#151310'; ctx.fillRect(0, frameHeight - 1, size, 1);
