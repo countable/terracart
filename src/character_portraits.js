@@ -1,5 +1,6 @@
-// Dedicated 128px portraits. Sheets are retained as the authored source;
-// dialogs fetch just the character's cell, independently of world textures.
+// Transparent 80px portraits, displayed at 128px with crisp pixel edges.
+// Sheets are retained as the authored source; dialogs fetch just the
+// character's cell, independently of world textures.
 const CharacterPortraits = (() => {
   const PET_IDS = Object.freeze([
     'chicken', 'cow', 'cat', 'dog', 'deer', 'rabbit', 'butterfly', 'crab',

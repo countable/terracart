@@ -1429,6 +1429,27 @@ for (const f of testFiles) {
 }
 
 // ── Every ASSETS file ships ──────────────────────────────────────────────
+// Portraits must retain actual transparent pixels through the RGBA exporter,
+// rather than merely adding an unused alpha channel to a flat background.
+ctx.__tests.push({ name: 'character portraits: every exported cell and atlas has visible art and transparency', fn: () => {
+  const { decodePng } = require('../../tools/sprite_audit.js');
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/portraits/manifest.json'), 'utf8'));
+  const ids = new Set([...Object.keys(manifest.sheets), ...Object.values(manifest.sheets).flat()]);
+  for (const id of ids) {
+    const image = decodePng(fs.readFileSync(path.join(ROOT, `assets/portraits/${id}.png`)));
+    let transparent = 0, opaque = 0;
+    for (let i = 3; i < image.data.length; i += 4) {
+      if (image.data[i] === 0) transparent++;
+      // Generated cutouts can have 254 alpha even in solid interiors.
+      if (image.data[i] >= 250) opaque++;
+    }
+    const minimum = image.w * image.h * 0.05;
+    if (transparent < minimum || opaque < minimum) {
+      throw new Error(`${id}: expected visible art on a transparent background (${opaque} opaque, ${transparent} transparent pixels)`);
+    }
+  }
+} });
+
 // A key renamed without its file (house_market → house_shop) 404s in the
 // browser and the sprite silently never draws. Files on disk, so node scope.
 ctx.__tests.push({ name: 'assets: every ASSETS path exists on disk', fn: () => {

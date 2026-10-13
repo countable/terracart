@@ -406,7 +406,7 @@ class SceneModals {
         image.alt = '';
         image.width = 128;
         image.height = 128;
-        image.style.cssText = 'display:block;width:128px;height:128px;flex:0 0 128px;align-self:center;object-fit:contain;border-radius:8px;margin:0 0 10px;image-rendering:pixelated;';
+        image.style.cssText = 'display:block;width:128px;height:128px;flex:0 0 128px;align-self:center;object-fit:contain;margin:0 0 10px;image-rendering:pixelated;';
         image.addEventListener('error', () => { image.style.display = 'none'; });
         box.insertBefore(image, body);
       }
