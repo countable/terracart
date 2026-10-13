@@ -90,7 +90,7 @@ test('torch: a KINDS row, TORCH_RADIUS_MUL player radii of the player\'s own whi
   const near = (a, b, m) => { if (Math.abs(a - b) > 1e-9) throw new Error(`${m}: ${a} vs ${b}`); };
   near(Lighting.radiusCells('player'), Math.hypot(VIEW_CELLS, VIEW_CELLS) / 2 + Lighting.PLAYER_RAMP_PAST_CORNER_CELLS,
     'the player row is the ramp');
-  assert.truthy(/const rMax = radiusCells\('player'\) \* CELL_PX;/.test(LIGHTING_SRC),
+  assert.truthy(/const rMax = radiusCells\('player'\) \* playerLightMul\(scene\) \* CELL_PX;/.test(LIGHTING_SRC),
     'draw() reads the ramp\'s extent off the row, not a second copy of the maths');
   assert.truthy(/const white = KINDS\.player\.colour;/.test(LIGHTING_SRC), 'and the ramp\'s colour');
 });

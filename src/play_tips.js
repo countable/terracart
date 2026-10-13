@@ -161,6 +161,7 @@ const PLAY_TIPS = [
   "A creature at the end of a long quarrel is easier to persuade. Mine had lost most of its temper, and a good deal of its strength, before it took the stone and stayed.",
   ITEM_GUIDE_TIPS.barricade,
   ITEM_GUIDE_TIPS.wind_scroll,
+  ITEM_GUIDE_TIPS.moonbeam_scroll,
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -408,6 +409,7 @@ const PLAY_TIP_VOLUMES = [
   "brann",
   "scholar",
   "builder",
+  "wizard",
   "wizard",
 ];
 

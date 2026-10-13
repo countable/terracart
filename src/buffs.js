@@ -42,6 +42,8 @@
         ? Number(save?.sapphireReturn?.until) || 0 : 0 },
     dragon:  { name: 'Dragon',  color: GOLD,      stroke: '#5a1400', scene: '_dragonUntil' },
     shadow:  { name: 'Shadow',  color: '#d9b3ff', stroke: '#2a1040', scene: '_shadowUntil' },
+    // The Scroll of Moonbeam's beam (scene_consumables.js _tickMoonbeam).
+    moonbeam: { name: 'Moonbeam', color: '#cfe6ff', stroke: '#14203a', scene: '_moonbeamUntil' },
     evertorch: { name: 'Evertorch', color: '#75cfff', stroke: '#10233c', save: 'evertorchUntil' },
     torch:   { name: 'Torch',   color: '#ffb347', stroke: '#3a1600', scene: '_torchUntil' },
     frostAura: { name: 'Frost aura', color: '#9ad8ff', stroke: '#10233c', save: 'frostAuraUntil' },

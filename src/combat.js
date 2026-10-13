@@ -853,6 +853,30 @@
     return clamp01(hp(c) / max);
   }
 
+  // THE UNDEAD — the roster rows that say `undead` (the bones, the risen,
+  // the spirits), inherited through baseKind by every variant. Nothing that
+  // lives on stolen life draws any from them (lifestealHeal).
+  function isUndead(kindOrUnit) {
+    const kind = typeof kindOrUnit === 'string' ? kindOrUnit : kindOrUnit?.kind;
+    if (!kind) return false;
+    const R = root.EnemyRoster;
+    return !!(monster(kind)?.undead || (R && (R.get(kind)?.undead || R.get(R.baseKind(kind))?.undead)));
+  }
+  // LIFESTEAL: what a blow that took `dealt` from `target` gives back to a
+  // striker that drinks `fraction` of it — a bat's row (`lifesteal`), the
+  // Vampire Ring's melee (UNIQUE_JEWELRY.vampire_ring). Nothing from the undead.
+  function lifestealHeal(fraction, dealt, target) {
+    if (!(fraction > 0) || !(dealt > 0) || isUndead(target)) return 0;
+    return dealt * fraction;
+  }
+  // A creature's stolen life: added to its HP with NO cap — a feeding bat
+  // swells past its max (a rest, healIfRested, settles it back to whole).
+  function feed(c, amount) {
+    if (!c || !(amount > 0) || isConcealed(c)) return 0;
+    c._hp = hp(c) + amount;
+    return amount;
+  }
+
   // Units and the player share the same burn clock and exposure scaling.
   // Unit clocks are performance.now(); state remains local like `_hp`.
   function burnDef() { return Conditions.DEFINITIONS.burning; }
@@ -1299,6 +1323,18 @@
   // line to the nearest foe for 'nearest' ones; null when nothing to fire at.
   // A CONFUSED caster (Conditions 'confused') cannot pick a target: a
   // homing weapon looses along the facing like the bow (`opts.confused`).
+  // THE MOONBEAM (CONSUMABLE_SPEC.moonbeam_scroll): an instant beam, so no
+  // shot in flight — the units whose centre lies within `halfWidthM` of the
+  // segment (x0, y0)→(x1, y1). Every one of them, in a line: it pierces.
+  function beamHits(x0, y0, x1, y1, halfWidthM, units) {
+    const dx = x1 - x0, dy = y1 - y0, len2 = dx * dx + dy * dy;
+    const hits = [];
+    for (const u of units || []) {
+      const t = len2 > 0 ? Math.max(0, Math.min(1, ((u.x - x0) * dx + (u.y - y0) * dy) / len2)) : 0;
+      if (Math.hypot(u.x - (x0 + dx * t), u.y - (y0 + dy * t)) <= halfWidthM) hits.push(u);
+    }
+    return hits;
+  }
   function shotHeading(slot, x, y, facing, enemies, cellM, reachCells, opts = {}) {
     const spec = SHOT[slot];
     if (!spec) return null;
@@ -1692,7 +1728,7 @@
     STATUS_FLASH_MS, STATUS_LOOKS, statusLook, flagStatus, statusFlashTint, hasStatus, applyStatus, slowMul, paceMul,
     isPsychotic, applyPsychosis, isFrightened, applyFear, isChilled, applyFrost, applyAuraFrost, applyFrostAura, cancelCreatureAction,
     isTame, isAlly,
-    isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, REST_HEAL_MS, healIfRested, damage, damageDealt, hpFraction,
+    isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, REST_HEAL_MS, healIfRested, damage, damageDealt, hpFraction, isUndead, lifestealHeal, feed,
     ENVIRONMENT_SOURCES, isEnvironmentSource,
     canBurn, burning, ignite, burnTick, poisoned, poison, poisonTick,
     ELITE_RANKS, ELITE_MUL, isElite, rollEliteRank, eliteRank, eliteMul, SHINY_SPEED_MUL, shinyMul, shinySpeedMul, ghostSizeMul, RAISED_MUL, raisedMul, powerMul, maxHp,
@@ -1707,7 +1743,7 @@
     RANGED_SLOTS, RANGED_TRIGGER_PAST_REACH, rangedTriggerM, anyEnemyWithin, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,
     OFF_GPS_ATTACK_MUL, OFF_GPS_MIN_CELLS,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, BOLT_MIN_GLOW, boltGlow, shotRadiusM, shotDotPx,
-    aimAtNearest, shotHeading, spawnShot, spawnFireball, spawnExplosiveFlask, stepShots, lineOfFire, healthColor,
+    aimAtNearest, beamHits, shotHeading, spawnShot, spawnFireball, spawnExplosiveFlask, stepShots, lineOfFire, healthColor,
     TURRET, TURRET_RATE_DIV, turretShotDamage, SHINY_ARROW_COLOR, shinyTurretDamage, turretPhaseMs, turretShot, turretTick,
     HOSTILE_ARROW_COLOR, monsterShot,
   };
