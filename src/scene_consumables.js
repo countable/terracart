@@ -509,6 +509,72 @@ class SceneConsumables {
     }
   }
 
+  // THE MOONBEAM (CONSUMABLE_SPEC.moonbeam_scroll) while its Buffs row runs:
+  // the beam's segment from the feet along the facing, cut short at cave
+  // rock (_cellBlocked — what stops the body stops the light), or null.
+  // Asked by the tick and the draw alike, so the light drawn is the light
+  // that burns.
+  _moonbeamSegment(now = Date.now()) {
+    if (Buffs.until('moonbeam', this.save, this) <= now) return null;
+    const f = this.facing, mag = Math.hypot(f?.x || 0, f?.y || 0);
+    if (!(mag > 0)) return null;
+    const spec = CONSUMABLE_SPEC.moonbeam_scroll, { x, y } = playerWorldM(this);
+    const ux = f.x / mag, uy = f.y / mag, stepM = this.cellM / 2;
+    let len = 0;
+    while (len < spec.rangeCells * this.cellM) {
+      const next = Math.min(spec.rangeCells * this.cellM, len + stepM);
+      if (this._cellBlocked?.(x + ux * next, y + uy * next)) break;
+      len = next;
+    }
+    return { x0: x, y0: y, x1: x + ux * len, y1: y + uy * len };
+  }
+  // Each frame the beam runs: `dps` × dt to every foe in its line (a
+  // pierce — Combat.beamHits keeps them all), through _damageEnemy with
+  // bypassArmor (armour does not turn moonlight). Its own perf clock, capped
+  // per step, like the blight. Held while the arm is (paralysis, the
+  // shadow's truce) or the player is down; the timer runs on regardless.
+  _tickMoonbeam() {
+    const nowT = performance.now(), lastT = this._moonbeamLastT;
+    this._moonbeamLastT = nowT;
+    const seg = this._moonbeamSegment();
+    if (!seg || lastT == null) return;
+    if (Combat.playerDowned(this.save.energy) || Conditions.attacksBlocked(this.save) || this.isShadowActive()) return;
+    const dt = Math.min(0.25, (nowT - lastT) / 1000);
+    if (!(dt > 0)) return;
+    const spec = CONSUMABLE_SPEC.moonbeam_scroll;
+    const reachM = (spec.rangeCells + 1) * this.cellM;
+    const near = this._enemiesWhere(c => Math.hypot(c.x - seg.x0, c.y - seg.y0) <= reachM);
+    for (const c of Combat.beamHits(seg.x0, seg.y0, seg.x1, seg.y1, spec.widthCells / 2 * this.cellM, near)) {
+      this._damageEnemy(c, spec.dps * dt, 'player', { bypassArmor: true });
+    }
+  }
+  // Cast the Scroll of Moonbeam: the `moonbeam` row extended by the scroll's
+  // duration (Buffs.extend — a second reading banks on top), the scroll spent.
+  useMoonbeamScroll() {
+    const sel = this._selectedConsumable('moonbeam_scroll');
+    if (!sel || Combat.playerDowned(this.save.energy) || Conditions.attacksBlocked(this.save)) return false;
+    Buffs.extend(this.save, this, 'moonbeam', CONSUMABLE_SPEC.moonbeam_scroll.durationMs);
+    this._moonbeamLastT = performance.now();
+    this._spendScroll(sel.id);
+    this.flashLoot('🌙 Moonlight pours from your hand.', '#cfe6ff', 1.8, sel.id);
+    return true;
+  }
+  // The beam on the shots' layer, lifted to the shots' chest height: a soft
+  // blue halo, a paler body and a white core that shimmers.
+  _drawMoonbeam(g) {
+    const seg = this._moonbeamSegment();
+    if (!seg) return;
+    const a = this.worldMetersToScreen(seg.x0, seg.y0), b = this.worldMetersToScreen(seg.x1, seg.y1);
+    if (!a || !b) return;
+    const shimmer = 0.85 + 0.15 * Math.sin(performance.now() / 60);
+    const ax = Math.round(a.x), ay = Math.round(a.y - SHOT_DRAW_LIFT_PX);
+    const bx = Math.round(b.x), by = Math.round(b.y - SHOT_DRAW_LIFT_PX);
+    for (const [w, colour, alpha] of [[10, 0x6fa8ff, 0.22], [5, 0xbfdcff, 0.55], [2, 0xffffff, 0.95]]) {
+      g.lineStyle(w * shimmer, colour, alpha);
+      g.lineBetween(ax, ay, bx, by);
+    }
+  }
+
   // Frost follows the caster and reaches every other nearby body, using the
   // same non-refreshing ten-second debuff as an iceflower.
   _tickFrostAura() {
