@@ -155,6 +155,77 @@
     });
   });
 
+  for (const hz of [60, 120]) for (const shared of [false, true]) {
+    test(`serpent: ${shared ? 'fed' : 'owned'} coils follow a curved trail at ${hz}Hz`, () => {
+      const entry = { creatures: [], objects: [] };
+      withWorld(entry, () => {
+        const s = bossScene(entry), now = Date.now(), radius = 20;
+        const start = { x: radius, y: 0, h: Math.PI / 2 };
+        const record = BossEncounters.start(s.save, 'serpent', KEY, { own: !shared, depth: 0 }, now);
+        if (shared) { record.pose = start; record.heardAt = now; }
+        assert.truthy(s._spawnSerpent(KEY, start));
+        const { head, coils, tail } = s._serpentPieces(KEY);
+        const history = [{ x: head.x, y: head.y }];
+        const dt = 1 / hz, speed = EnemyRoster.get('serpent_head').movement.speedMetersPerSecond;
+        const angleStep = 2 * Math.asin(speed * dt / (2 * radius));
+        const realNow = performance.now;
+        let t = 0, nextFeed = 0;
+        try {
+          performance.now = () => t;
+          s._tickSerpents(now);
+          for (let i = 0; i < 60 * hz; i++) {
+            t = (i + 1) * dt * 1000;
+            if (shared) {
+              // The network publishes at its own cadence; the scene smooths
+              // that pose on every display frame.
+              if (t >= nextFeed) {
+                const a = speed * t / 1000 / radius;
+                record.pose = { x: radius * Math.cos(a), y: radius * Math.sin(a), h: a + Math.PI / 2 };
+                record.heardAt = now + t;
+                nextFeed += BossEncounters.KINDS.serpent.feedMs;
+              }
+            } else {
+              // Drive the real head mover around a circle with tangent goals,
+              // leaving its speed, turning and body tick untouched.
+              const heading = (i + .5) * angleStep + Math.PI / 2;
+              head._goal = { x: head.x + 30 * Math.cos(heading), y: head.y + 30 * Math.sin(heading) };
+              head._goalUntil = t + 1000;
+            }
+            s._tickSerpents(now + t);
+            history.push({ x: head.x, y: head.y });
+          }
+        } finally { performance.now = realNow; }
+        // Independent reference: retain every frame of the actual head path.
+        const backAlongHistory = distance => {
+          for (let i = history.length - 1; i > 0; i--) {
+            const a = history[i], b = history[i - 1], length = Math.hypot(b.x - a.x, b.y - a.y);
+            if (distance <= length) {
+              const u = distance / length;
+              return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u };
+            }
+            distance -= length;
+          }
+          throw new Error('The head did not walk far enough to seat the full chain');
+        };
+        const chain = [...coils, tail], spacing = BossEncounters.KINDS.serpent.spacingCells * s.cellM;
+        let previous = head;
+        chain.forEach((piece, i) => {
+          const expected = backAlongHistory((i + 1) * spacing);
+          assert.lt(Math.hypot(piece.x - expected.x, piece.y - expected.y), .1,
+            'each coil follows the head history instead of a straight spawn chord');
+          assert.inRange(Math.hypot(piece.x - previous.x, piece.y - previous.y), spacing * .95, spacing * 1.01,
+            'adjacent pieces remain evenly spaced around the curve');
+          previous = piece;
+        });
+        const length = head._trail.slice(1).reduce((sum, point, i) =>
+          sum + Math.hypot(point.x - head._trail[i].x, point.y - head._trail[i].y), 0);
+        const needed = (chain.length + 2) * spacing;
+        assert.inRange(length, needed, needed + .2 * s.cellM, 'old history trims at the chain margin');
+        assert.lt(head._trail.length, needed / (.15 * s.cellM) + 4, 'sampling stays bounded at either frame rate');
+      });
+    });
+  }
+
   test('serpent: it stays near the player and its coils bite for their dmg, once an interval', () => {
     const entry = { creatures: [], objects: [] };
     withWorld(entry, () => {

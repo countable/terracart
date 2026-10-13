@@ -33,6 +33,23 @@
       assert.truthy(!s.plan.lane.has(i), 'through lane is clear');
     }
   });
+  test('underground: authored street holes respect floor seals without changing other hazards', () => {
+    const original = DungeonProgression.ropeCanDescend;
+    const objectsAt = () => {
+      const s = sample(2), objects = [];
+      Underground.decorate(s.plan, s.grid, objects, [], new Set());
+      return objects;
+    };
+    const sealed = objectsAt();
+    assert.falsy(sealed.some(o => o.kind === 'ground_hole'));
+    try {
+      DungeonProgression.ropeCanDescend = () => true;
+      const open = objectsAt();
+      assert.truthy(open.some(o => o.kind === 'ground_hole'), 'fixture exercises the hole roll');
+      assert.eq(JSON.stringify(sealed), JSON.stringify(open.filter(o => o.kind !== 'ground_hole')),
+        'sealing holes leaves every other object and position intact');
+    } finally { DungeonProgression.ropeCanDescend = original; }
+  });
   test('underground: suppression, buildings, large roads and water defeat small-road projection', () => {
     const s = sample();
     const cells = [T.BUILDING, T.ROAD_MD, T.ROAD_LG, T.WATER];

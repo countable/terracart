@@ -199,6 +199,7 @@
       const key = keyAt(i), street = plan.streetCells.has(i);
       if (street && roll(`${key}/hazard`) < .10) {
         const kind = ['inactive_poison_vent', 'stalagmites', 'ground_hole'][hash(`${key}/hazard-kind`) % 3];
+        if (kind === 'ground_hole' && !root.DungeonProgression.ropeCanDescend(depth)) continue;
         put(i, kind, `underground/${key}/${kind}`, { active: false });
       } else if (r.theme === 'gemstone_path' && roll(`${key}/gem-pocket`) < .12) {
         const deposit = gem(depth, `${key}/pocket-kind`);

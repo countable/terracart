@@ -22,6 +22,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   player takes no damage (`Conditions.setDialogShield`, read through
   `damageImmune`) and hostiles hold still. Shops, trades and other dialogs
   do not pause; a foe's blow still closes a shop.
+  Message dismissal refreshes this shield from the remaining dialogs before
+  running its callback, so consequences such as fall damage apply after the
+  story closes while potion immunity remains effective.
 - The revival storyboard (`_reviveStoryboard`) tells of being carried home,
   so it plays only when the GPS fix is near Home too (`_gpsNearHome`,
   `HomeArea.NEAR_M`), not just a body stick-walked into Home's ring; otherwise
