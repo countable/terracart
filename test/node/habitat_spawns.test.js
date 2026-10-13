@@ -202,6 +202,16 @@
       'duplicate historical candidate seats represent one old enemy');
   });
 
+  test('habitat populations: ordinary beach enemy mix favours jellyfish without adding inland water enemies', () => {
+    const shore = HabitatSpawns.shoreProfile('SAND');
+    const draws = Array.from({ length: 4000 }, (_, i) =>
+      HabitatSpawns.enemyKind(shore, `beach_mix_${i}`, 'SAND', { beach: true }));
+    assert.inRange(draws.filter(kind => kind === 'jellyfish').length / draws.length, .77, .83);
+    assert.truthy(draws.every(kind => kind === 'jellyfish' || kind === 'giant_crab'));
+    const inland = HabitatSpawns.landProfile('SAND');
+    assert.falsy(HabitatSpawns.enemyRows(inland, 'SAND').some(row => row.id === 'jellyfish'));
+  });
+
   test('habitat populations: ordinary shoreline uses its explicit aquatic enemy pool and water seats', () => {
     const entry = fixture(WorldGen.T.SAND), mask = new Uint8Array(4096);
     for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
