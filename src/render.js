@@ -1979,9 +1979,9 @@ Render.drawSpiderWebs = function drawSpiderWebs(scene) {
   // Square-bound radial anchors, clockwise from the north-west corner.
   const anchors = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]];
   for (const web of webs) {
-    if (Render.coverHidden(scene, web)) continue;
     const at = worldMetersToScreen(scene, web.x, web.y);
     if (at.x + half < left || at.y + half < top || at.x - half > right || at.y - half > bottom) continue;
+    if (Render.coverHidden(scene, web)) continue;
     if (!scene._spiderWebGfx) {
       scene._spiderWebGfx = scene.add.graphics();
       scene.cobbleContainer.add(scene._spiderWebGfx);
@@ -2019,11 +2019,11 @@ Render.drawSpiderWebs = function drawSpiderWebs(scene) {
   }
   if (!scene.boltContainer) return;
   for (const shot of shots) {
-    if (Render.coverHidden(scene, shot)) continue;
     const from = worldMetersToScreen(scene, shot.fromX, shot.fromY);
     const tip = worldMetersToScreen(scene, shot.x, shot.y);
     if (Math.max(from.x, tip.x) < left || Math.max(from.y, tip.y) < top
       || Math.min(from.x, tip.x) > right || Math.min(from.y, tip.y) > bottom) continue;
+    if (Render.coverHidden(scene, shot)) continue;
     if (!scene._spiderWebShotGfx) {
       scene._spiderWebShotGfx = scene.add.graphics();
       scene.boltContainer.add(scene._spiderWebShotGfx);
@@ -3170,12 +3170,13 @@ Render.drawCells = function drawCells(scene) {
   plainX();
   const drawX = (tr) => {
     if (!treasureExposed(tr, scene) || found.has(tr.id)) return;
+    const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
+    if (!inViewBox(dx, dy, halfM)) return;
+    // After the view box: a cover ray is the costly test (re-traced per step).
     if (Render.coverHidden(scene, tr)) return;
     // Buried until the feet stand beside it (HiddenObjects.tick).
     if (HiddenObjects.treasureHidden(scene.save, tr)) return;
     if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, tr, hideNightRoadTreasure)) return;
-    const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
-    if (!inViewBox(dx, dy, halfM)) return;
     const { x: cx, y: cy } = deltaMToScreen(scene, dx, dy);
     // 15% smaller than the old 6px; X is symmetric so the centroid (cx,cy) is unchanged.
     // A GREAT X (loot.js GREAT_X) is thick and dark red.
@@ -3986,11 +3987,11 @@ Render.drawObjects = function drawObjects(scene) {
   // Only containers with broken art remain after collection (clay pots).
   // Wooden barrels disappear through the ordinary spent-object filter.
   for (const o of HiddenObjects.saved(scene)) {
-    if (Render.coverHidden(scene, o)) continue;
+    const dx = o.x - pWorldX, dy = o.y - pWorldY;
+    if (!inViewBox(dx, dy, halfM) || Render.coverHidden(scene, o)) continue;
     if (HiddenObjects.isHidden(scene.save, o)
         || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) continue;
-    const dx = o.x - pWorldX, dy = o.y - pWorldY;
-    if (Math.abs(dx) <= halfM && Math.abs(dy) <= halfM) objList.push({o, dx, dy});
+    objList.push({o, dx, dy});
   }
   Render.cullCovered(scene, objList, 'o');
   Render.cullCovered(scene, plantedList, 'p');
@@ -4724,10 +4725,11 @@ Render.drawObjects = function drawObjects(scene) {
       const c = entry.coinDrops[r];
       if (c.expiresAt && c.expiresAt <= _coinNow) continue;
       entry.coinDrops[w++] = c;
-      if (Render.coverHidden(scene, c)) continue;
-      if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, c, hideNightRoadObjects)) continue;
       const dx = c.x - pWorldX, dy = c.y - pWorldY;
-      if (inViewBox(dx, dy, halfM)) coinList.push({ c, dx, dy });
+      // View box before the cover ray: Golden Path coins line whole tiles.
+      if (!inViewBox(dx, dy, halfM) || Render.coverHidden(scene, c)) continue;
+      if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, c, hideNightRoadObjects)) continue;
+      coinList.push({ c, dx, dy });
     }
     entry.coinDrops.length = w;
   });
@@ -5223,9 +5225,10 @@ Render.drawObjects = function drawObjects(scene) {
         // ring was re-projected per step.
         if (f._mFrame !== scene.startWorldM) { f._m = tileCellCenterMeters(scene, tx, ty, f.ix, f.iy); f._mFrame = scene.startWorldM; }
         const m = f._m;
-        if (Render.coverHidden(scene, m)) continue;
         const dx = m.x - pWorldX, dy = m.y - pWorldY;
-        if (inViewBox(dx, dy, halfM)) sparkList.push({ dx, dy, id: f.id });
+        // View box first: a cover ray per off-screen spot of the ring cost
+        // most of a walking frame (rays are re-traced whenever the body moves).
+        if (inViewBox(dx, dy, halfM) && !Render.coverHidden(scene, m)) sparkList.push({ dx, dy, id: f.id });
       }
     });
   }
