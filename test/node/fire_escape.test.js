@@ -14,6 +14,36 @@
     _burnState: { remainingMs: 60000, nextTickMs: 1000 }, _burnAtT: 0, _burnExposed: true });
   function light(s, x, y) { GroundFire.ignite(s.save, 2, x, y, Date.now() - 1, () => 1); }
 
+  test('fire slime: accepted cell exits light only departed cells, including long sweeps', () => {
+    const s = scene(), c = { kind: 'fire_slime', id: 'fire-trail', x: 0.5, y: 0.5 };
+    const row = EnemyRoster.get(c.kind), calls = [];
+    s._igniteGroundCell = (cell, now, opts) => {
+      calls.push(cell.cellIX);
+      return GroundFire.ignite(s.save, 2, cell.cellIX, cell.cellIY, now, () => 0, opts);
+    };
+    enemySweep(s, c, row, 0.8, 0.5, 0);
+    assert.eq(calls.length, 0, 'moving inside one cell leaves no fire');
+    enemySweep(s, c, row, 3.5, 0.5, 1);
+    assert.eq(calls.join(), '0,1,2', 'every cell exited burns once');
+    assert.falsy(s.save.groundFire[GroundFire.key(2, 3, 0)], 'current cell stays clear');
+    assert.truthy(fireStepAllowed(s, c, 0.5, 0.5), 'its trail cannot trap it');
+    enemySweep(s, c, null, 2.5, 0.5, 2);
+    assert.eq(calls.at(-1), 3, 'shared movement without a supplied roster row still leaves fire');
+    const before = calls.length;
+    s._cellBlocked = () => true;
+    enemySweep(s, c, row, 1.5, 0.5, 3);
+    assert.eq(calls.length, before, 'refused motion cannot ignite cells');
+    s._cellBlocked = () => false;
+    const old = s.save.groundFire[GroundFire.key(2, 2, 0)];
+    old.until = Date.now() - 1;
+    enemySweep(s, c, row, 3.5, 0.5, 4);
+    assert.truthy(GroundFire.active(s.save.groundFire[GroundFire.key(2, 2, 0)], Date.now()), 'returning can relight expired fire');
+    const normal = { kind: 'slime', id: 'normal', x: 4.5, y: 0.5 };
+    const prior = calls.length;
+    enemySweep(s, normal, EnemyRoster.get(normal.kind), 5.5, 0.5, 5);
+    assert.eq(calls.length, prior, 'ordinary slimes leave no burning ground');
+  });
+
   test('fire escape: ordinary movement cannot enter or hop across a burning cell', () => {
     const s = scene(), c = foe(); light(s, 1, 0);
     assert.falsy(fireStepAllowed(s, c, 1.5, 0.5));

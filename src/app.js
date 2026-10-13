@@ -4252,6 +4252,7 @@ class MapScene extends Phaser.Scene {
 
   _friendlyShotHitsEnemy(target, shot) {
     if (!Combat.isEnemy(target)) return false;
+    if (shot.projectile === 'fireball' && Conditions.fireImmune(target)) return false;
     if (shot.effect === 'sleep') return Combat.applySleep(target, Date.now());
     if (shot.effect === 'charm') return Combat.applyCharm(target, Date.now());
     return this._damageEnemy(target, shot.damage, Combat.shotSource(shot));

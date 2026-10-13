@@ -135,7 +135,7 @@
   // StreetVariants.BANDIT_STRETCH_UNITS) are the same reason again: one guard
   // each, always held, every mode. (There is no 'wagon' tier: a bus stop is on
   // the kerb by definition.)
-  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_orchard: 1, street_toadstool: 1, street_goblin_gang: 5, street_spider_path: 2 };
+  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_forest_bear: 1, street_orchard: 1, street_toadstool: 1, street_goblin_gang: 5, street_spider_path: 2 };
   const SLIME_TRAIL = root.StreetVariants.VARIANT_BY_ID.slime_trail;
   for (const kind of SLIME_TRAIL.enemyKinds) STREET_TIER_GUARDS[`street_slime_trail_${kind}`] = SLIME_TRAIL.guardsPerPost;
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
@@ -236,6 +236,7 @@
     barricade: ['spear_goblin', 'archer_goblin'],
     street_hedgerow: ['slime'],
     street_overgrown: ['plant'],
+    street_forest_bear: ['giant_bear'],
     street_orchard: ['farmer_goblin'],
     street_toadstool: ['spider'],
     street_spider_path: ['spider'],
@@ -538,6 +539,7 @@
     burned: { rate: 1, thinned: false },   // a burned row's stretch
     street_hedgerow: { rate: 1, thinned: false },
     street_overgrown: { rate: 1, thinned: false },
+    street_forest_bear: { rate: 1, thinned: false },
     street_orchard: { rate: 1, thinned: false },
     street_toadstool: { rate: 1, thinned: false },
     street_spider_path: { rate: 1, thinned: false },

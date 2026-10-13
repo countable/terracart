@@ -655,6 +655,10 @@ Higher-priority placements and their access space take precedence in this order:
    per gang, in either difficulty). Fragments share that budget; blocked
    seats reduce the count. Barrels use the attractor gate, and gang posts
    and their guards retain the fast-enemy spawn gate.
+   Overgrown forest roads additionally roll a one-third chance of a Giant Bear
+   from their stable street key. Selected streets attempt one finite bear post
+   per owning tile, alongside the usual plant guard. Geometry fragments share
+   the post; occupancy and the fast-enemy safety gate can prevent placement.
 6. Ambient fill: ordinary plants, rocks and generic scattered content.
    Forest landcover scatters pine only; wooded park characters scatter maple
    only, from their `BiomeProfiles` rows. Both mark `treeSpeciesFixed` so

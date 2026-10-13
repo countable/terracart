@@ -192,7 +192,7 @@
       story: 'street_hedgerow', title: 'The hedged lane',
       body: 'Hedges line the road, with gaps at the garden gates. You look through as you pass.',
       flash: 'A hedged lane, still kept.' },
-    { id: 'overgrown', terrain: 'FOREST', treeSpecies: 'pine', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'common',
+    { id: 'overgrown', terrain: 'FOREST', treeSpecies: 'pine', bonusEncounter: { tier: 'street_forest_bear', chance: 1 / 3 }, affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'common',
       stone: { weathered: '#737f69', restored: '#8c9b7f' }, lampDensity: 1,
       carpet: '#9caa55', carpetWidthCells: 0.28, carpetFeatherCells: 0.14,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
@@ -2038,8 +2038,15 @@
       // One finite encounter per themed street and owning tile, independent
       // of how many geometry fragments represent the street. Scenery streams
       // keep their draws; guards share the existing lair persistence lane.
-      if (['hedgerow', 'overgrown', 'orchard', 'toadstool'].includes(v)) {
-        const sid = `street_habitat_${tx}_${ty}_${v}_${rec.key}`;
+      const encounters = ['hedgerow', 'overgrown', 'orchard', 'toadstool'].includes(v) ? [`street_${v}`] : [];
+      // The bonus roll belongs to the street identity, not its tile fragments
+      // or the scenery RNG. Its own post leaves the ordinary guard intact.
+      if (row.bonusEncounter && hash01(`street-encounter|${row.bonusEncounter.tier}|${rec.key}`) < row.bonusEncounter.chance) {
+        encounters.push(row.bonusEncounter.tier);
+      }
+      for (const tier of encounters) {
+        const sid = tier === `street_${v}` ? `street_habitat_${tx}_${ty}_${v}_${rec.key}`
+          : `street_habitat_${tx}_${ty}_${tier}_${rec.key}`;
         // A hedge encounter sits one cell BEHIND the kerb row (verge k = 2),
         // so the clipped rows stay unbroken; its samples pace by the old gate
         // spacing.
@@ -2053,7 +2060,7 @@
             const c = candidate && foeSeat(candidate.ix, candidate.iy);
             if (!c) continue;
             claim(c.ix, c.iy); habitatSeats.add(sid);
-            res.lairs.push({ tier: `street_${v}`, sid,
+            res.lairs.push({ tier, sid,
               lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
             break;
           }

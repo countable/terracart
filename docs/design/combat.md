@@ -237,8 +237,14 @@ mechanics.
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap
   enemies inside Home's ring.
+- Fire slimes resist burning and fireball damage through their roster row. Each accepted cell
+  exit lights the cell left behind through `GroundFire`, including while
+  wandering or retreating. The occupied destination stays unlit until they
+  leave it. These flames use normal ground-fire duration, spread and fuel
+  rules, and can relight expired cells. Fire immunity also permits crossing
+  burning ground and campfire hearths without fire avoidance.
 - A lit campfire's hearth (`FIRE_TOUCH_CELLS`, where it sets a body burning) is
-  fire to every grounded mover — every enemy kind, lair guards, pets, fauna and
+  fire to susceptible grounded movers — enemies, lair guards, pets, fauna and
   NPCs — through the same `fireStepAllowed` that holds bodies out of burning
   ground: no step or hop enters it, a body already in it may walk out, and a
   chasing foe sidesteps around it when a jog fits. This is separate from the

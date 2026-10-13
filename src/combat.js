@@ -856,7 +856,7 @@
   // Units and the player share the same burn clock and exposure scaling.
   // Unit clocks are performance.now(); state remains local like `_hp`.
   function burnDef() { return Conditions.DEFINITIONS.burning; }
-  function canBurn(c) { return !!c && !isConcealed(c) && !monster(c.kind)?.lavaImmune; }
+  function canBurn(c) { return !!c && !isConcealed(c) && !monster(c.kind)?.lavaImmune && !root.Conditions?.fireImmune(c); }
   function burning(c, now = performance.now()) {
     if (!c?._burnState) return false;
     return c._burnState.remainingMs > (c._burnExposed ? 0 : Math.max(0, now - c._burnAtT));

@@ -1103,7 +1103,7 @@ function creatureFlightEase(t) {
 // fire too, for every grounded mover and every kind; a body that is already
 // standing in one (placed on it, or pushed in) may always walk out.
 function fireStepAllowed(scene, c, x, y, escaping = false) {
-  if (Conditions.flying(c)) return true;
+  if (Conditions.flying(c) || Conditions.fireImmune(c)) return true;
   const ground = scene._groundFireAtWorld, hearths = scene._nearAny && scene.save?.fires?.length;
   if (!ground && !hearths) return true;
   const wallNow = Date.now();
@@ -1363,7 +1363,7 @@ function enemyCanStep(scene, c, row, x, y, escaping = false) {
 // The ward's ring is FIRE_REST_R, the ring the fire lights and warms, never
 // a literal of its own. Both movers read this one predicate through
 // creatureStepRefused (test/node/home_ward.test.js).
-function fireAverse(c, row) { return !Conditions.flying(c) && !c.lair && (row.cave?.minDepth ?? 1) <= FIRE_WARD_MAX_DEPTH; }
+function fireAverse(c, row) { return !Conditions.flying(c) && !Conditions.fireImmune(c) && !c.lair && (row.cave?.minDepth ?? 1) <= FIRE_WARD_MAX_DEPTH; }
 function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = false, allow = null) {
   let dx = x - c.x, dy = y - c.y;
   const distance = Math.hypot(dx, dy);
@@ -1390,6 +1390,13 @@ function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = fal
     const nx = sx + dx * i / n, ny = sy + dy * i / n;
     if ((allow && !allow(nx, ny)) || !enemyCanStep(scene, c, row, nx, ny, escaping)) { clear = false; break; }
     globalThis.EnvironmentHazards?.touch?.(scene, c, c.x, c.y, nx, ny);
+    const fireTrail = (row || EnemyRoster.get(c.kind))?.groundFireTrail;
+    if (fireTrail && scene._igniteGroundCell) {
+      const left = worldMetersToAbsCell(scene, c.x, c.y);
+      const entered = worldMetersToAbsCell(scene, nx, ny);
+      if (left.cellIX !== entered.cellIX || left.cellIY !== entered.cellIY)
+        scene._igniteGroundCell(left, Date.now(), fireTrail);
+    }
     c.x = nx; c.y = ny;
     if (row?.trail && c._laySlimeTrail) enemyLaySlimeTrail(scene, c, row);
   }
