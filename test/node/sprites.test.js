@@ -672,13 +672,13 @@ test('neutral mineral shadows stay under every resolved material and size', () =
     const b = SpriteLayout.ART_BOUNDS[`${p.texKey}:${p.frameVal}`];
     assert.truthy(Math.abs(p.dyPx+(b.maxY-b.fh/2)*p.scl-p.foot.footFromCentre)<1e-10,'depth keeps the true art foot');
   }
-  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65}).scl,4 / 3,'themed rocks use the 24px-to-32px scale');
-  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65,rockStyle:'plain'}).scl,4 / 3,'plain rocks use the same source-cell scale');
-  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:1}).scl,4 / 3);
-  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:4}).scl,4 / 3);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65}).scl,ROCK_VARIANT_ART.themedScale,'themed rocks use the shared rock scale');
+  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65,rockStyle:'plain'}).scl,ROCK_VARIANT_ART.smallScale,'plain rocks use the same source-cell scale');
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:1}).scl,ROCK_VARIANT_ART.smallScale);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:4}).scl,ROCK_VARIANT_ART.largeScale);
   assert.eq(art.resolveAppearance({kind:'mineralrock',deposit:'crystal'}).scl,ROCK_VARIANT_ART.smallScale);
-  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:59}).scl,4 / 3);
-  assert.eq(art.resolveAppearance({kind:'mineralrock',sightBlocking:true}).scl,4 / 3);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:59}).scl,ROCK_VARIANT_ART.themedScale);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',sightBlocking:true}).scl,ROCK_VARIANT_ART.largeScale);
 });
 
 test('campfire: its contact shadow sits 2px above the art bottom, on the logs', () => {

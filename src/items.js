@@ -161,8 +161,8 @@ const ZONE_ROCK_THEMES = Object.freeze({
 // One neutral stone palette everywhere; material pairs are adjacent small/large frames.
 // Legacy yield variants still own mining quantities, independently of appearance.
 const ROCK_VARIANT_ART = Object.freeze({
-  columns: 8, rows: 9, smallScale: 4 / 3, largeScale: 4 / 3,
-  themedScale: 4 / 3, placedScale: 2.88,
+  columns: 8, rows: 9, smallScale: 16 / 15, largeScale: 16 / 15,
+  themedScale: 16 / 15, placedScale: 2.304,
   plainFrames: Object.freeze([0, 30, 32, 34]),
   materials: Object.freeze(['plain', 'flint', 'quartz', 'topaz', 'amethyst',
     'sapphire', 'ruby', 'emerald', 'diamond', 'copper', 'iron', 'gold',
