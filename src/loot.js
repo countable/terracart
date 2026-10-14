@@ -397,8 +397,7 @@ function crateRestoreDays(o) {
 // ── BREAKABLE CONTAINERS ────────────────────────────────────────────────
 // Appearance and loot share a stable identity. Both are smashed permanently;
 // POI containers share a tile density curve; generated containers keep their
-// profile odds. Both size payouts from a coin budget using the treasure rules,
-// except a coin row with its own fixed `amount` (the clay pot's single coin).
+// profile odds. Both size payouts from a coin budget using the treasure rules.
 const BARREL_LOOT = [
   { kind: 'empty', w: 0.7 },
   // Two thirds of full barrels contain practical supplies (torch, rope, kits…).
@@ -410,7 +409,9 @@ const CLAY_POT_LOOT = [
   { kind: 'empty', w: 0.7 },
   { kind: 'magic', w: 0.05, minTier: 1, maxTier: 2 },
   { kind: 'produce', w: 0.05, minTier: 2, maxTier: 2 },
-  { kind: 'coin', w: 0.1, amount: 1 },
+  // Coins pay the budget over `budgetDiv`: 1 at the base 15, 5 at a lone
+  // street pot's 75 (owner, Oct 2026: fifteen times less than the budget).
+  { kind: 'coin', w: 0.1, budgetDiv: 15 },
   { kind: 'seed', w: 0.1, minTier: 1, maxTier: 1 },
 ];
 const BARREL_ART = [
@@ -455,9 +456,7 @@ function rollBarrel(o, rng) {
   const row = weightedPickBy(rows, row => row.kind === 'empty'
     ? 1 - profile.fullChance : row.w / fullWeight * profile.fullChance, r);
   if (row.kind === 'empty') return { kind: 'empty' };
-  // A coin row's `amount` is a FIXED purse (a clay pot holds a single coin,
-  // however sparse its bins); without one the purse is the budget.
-  if (row.kind === 'coin') return { kind: 'gold', amount: row.amount ?? Math.max(1, Math.round(profile.budget)) };
+  if (row.kind === 'coin') return { kind: 'gold', amount: Math.max(1, Math.round(profile.budget / (row.budgetDiv || 1))) };
   const item = weightedPickBy(barrelLootPool(row), item => item.dropWeight ?? 1, r);
   return item ? { kind: 'item', id: item.id, qty: ChestThemes.quantityForBudget(item.id, profile.budget) } : { kind: 'empty' };
 }

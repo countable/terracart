@@ -132,7 +132,7 @@
           const rng = () => first ? (first = false, (i + 0.5) / 1000) : 0.5;
           const result = rollBarrel({ ...o, poiDensity: density }, rng);
           let category = result.kind;
-          if (result.kind === 'gold') { category = 'coin'; assert.eq(result.amount, 1, 'a clay pot holds a single coin'); }
+          if (result.kind === 'gold') { category = 'coin'; assert.eq(result.amount, 1, 'a fifteenth of the 15-coin budget'); }
           if (result.kind === 'item') {
             const item = ITEM_BY_ID[result.id]; category = item.kind;
             assert.eq(result.qty, ChestThemes.quantityForBudget(result.id, 15));
@@ -238,7 +238,7 @@
           const got = rollBarrel(o, () => first ? (first = false, (i + .5) / 1000) : .5);
           if (got.kind === 'empty') continue;
           fullCount++;
-          if (got.kind === 'gold') { coinCount++; assert.eq(got.amount, 1, 'a clay pot holds a single coin, whatever the budget'); }
+          if (got.kind === 'gold') { coinCount++; assert.eq(got.amount, budget / 15, 'a fifteenth of the budget'); }
           else {
             itemCount++;
             assert.eq(got.qty, ChestThemes.quantityForBudget(got.id, budget));
@@ -263,7 +263,7 @@
     assert.includes(save.opened, b.id, 'permanent destruction ledger');
     const said = [...flashes, ...loots];
     assert.eq(said.length, 1, 'one line');
-    const messages = [barrelProfile(b).texKey === 'clay_pot' ? '+1 coin' : '+75 coins', ...barrelProfile(b).loot.flatMap(row => barrelLootPool(row).map(item => '+' + ChestThemes.quantityForBudget(item.id, 75) + ' ' + item.name))];
+    const messages = ['+5 coins', ...barrelProfile(b).loot.flatMap(row => barrelLootPool(row).map(item => '+' + ChestThemes.quantityForBudget(item.id, 75) + ' ' + item.name))];
     assert.includes(messages, said[0], 'the line names an eligible reward');
     runInteractable(makeCtx(scene, save), b);
     assert.eq(flashes[flashes.length - 1], 'Already smashed.', 'a second smash is refused');
