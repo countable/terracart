@@ -142,8 +142,18 @@ gate, with names from `ZoneCoverage`. Site sizes, gaps and module shapes are
 `quarryLayouts` in the JSON. Too-small fragments stay ordinary ground. A site
 touching a tile edge cannot know its full footprint, so it falls back to
 cell-addressed strip-mine scatter with no finite finds, guards or partial
-crater, labelled as an edge site. Mined, opened, dug and defeated things use
-the existing progress ledgers and never refill.
+crater, labelled as an edge site. Mined, opened and dug things use the
+existing progress ledgers and never refill.
+
+Quarries are peaceful resource-gathering ground. No quarry row has guards or
+inhabiting enemies (the Ruined Stronghold's foundations are empty, the strip
+mine has no wurms), no layout places lava, spikes or other hazards (the
+crater's altar stands on a dry pool floor), and the surface spawns no fire
+vents, cave-ins or sinkholes inside quarry coverage (`EnvironmentHazards`).
+Habitat fauna, finds, entrances and the crater's daily altar remain. The
+quarry's spikes and cave-ins moved to the tar yards: Black Ring carries one
+ground spike per motif repeat, and Seep's `caveIns` row lets hidden cave-in
+clusters open on its tar ground (sinkholes keep off it).
 
 <a id="beach-family"></a>
 

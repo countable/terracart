@@ -56,7 +56,7 @@
 
   function nightRoadZone(scene, x, y, now = Date.now(), daylight) {
     return isNight(scene, now, daylight)
-      && !!(roadClassAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BUFFER);
+      && WorldGen.nightZoneBits(roadClassAt(scene, x, y));
   }
 
   function majorRoadAt(scene, x, y) {
@@ -66,7 +66,7 @@
   function objectHidden(scene, object, activeNight) {
     if (!object || !Number.isFinite(object.x) || !Number.isFinite(object.y)) return false;
     const active = activeNight == null ? isNight(scene) : activeNight;
-    return active && !!(roadClassAt(scene, object.x, object.y) & WorldGen.ROAD_CLASS_MAJOR_BUFFER);
+    return active && WorldGen.nightZoneBits(roadClassAt(scene, object.x, object.y));
   }
 
   // Resolve the player's feet once for the runtime tick. The warning reads the
@@ -81,7 +81,7 @@
     return {
       x: feet.x,
       y: feet.y,
-      nightZone: night && !!(bits & WorldGen.ROAD_CLASS_MAJOR_BUFFER),
+      nightZone: night && WorldGen.nightZoneBits(bits),
       majorRoad: !!(bits & WorldGen.ROAD_CLASS_MAJOR_ROAD),
     };
   }

@@ -1,5 +1,6 @@
 // Quarry compositions fit their actual usable footprint. Finite rewards belong
-// to the site, never to each repeating patch or foundation.
+// to the site, never to each repeating patch or foundation. A quarry is a
+// peaceful gathering ground: no layout plans a guard, inhabitant or hazard.
 (function (root) {
   'use strict';
   function noise(x, y, salt = 0) {
@@ -64,7 +65,7 @@
   function* planSteps(s, { N, tx = 0, ty = 0 }) {
     const settings = root.ZoneVariantData.quarryLayouts;
     const { min: minPatch, max: maxPatch } = settings.patchSizeCells;
-    const plan = { background: new Map(), wallFrames: new Map(), finds: [], guards: [], hazards: [], clear: new Set(), landmarks: [] };
+    const plan = { background: new Map(), wallFrames: new Map(), finds: [], pool: [], clear: new Set(), landmarks: [] };
     const cells = s.cells.slice().sort((a, b) => a - b), covered = new Set(cells);
     if (!cells.length) return plan;
     const id = s.variant.id.replace(/_/g, '-');
@@ -84,19 +85,7 @@
         const h = hash(x, y, 113), d = settings.clippedMaterialDensity;
         // Crystal first, then stone, then the barrels past them, so the earlier
         // bands keep the same cells.
-        // One fixed cell owns each sparse inhabitant. Never choose the first
-        // surviving cell in a clipped fragment: that would duplicate it when
-        // another piece of the same site arrives.
-        const spacing = settings.clippedInhabitantSpacingCells;
-        const gx = tx * N + x, gy = ty * N + y;
-        const bx = Math.floor(gx / spacing), by = Math.floor(gy / spacing);
-        const sx = bx * spacing + Math.floor(noise(bx, by, 157) * spacing);
-        const sy = by * spacing + Math.floor(noise(bx, by, 163) * spacing);
-        if (id === 'quarry-strip-mine' && gx === sx && gy === sy) {
-          const kinds = s.variant.guards.kinds || [s.variant.guards.kind];
-          put(x, y, kinds[Math.floor(noise(bx, by, 167) * kinds.length)]);
-        }
-        else if (h < d.crystal) put(x, y, 'crystal');
+        if (h < d.crystal) put(x, y, 'crystal');
         else if (h < d.crystal + d.stone) put(x, y, 'stone');
         else if (h < d.crystal + d.stone + (d.barrel || 0)) put(x, y, 'barrel');
       }
@@ -175,17 +164,17 @@
       }
       bowl.sort((a, b) => hash(a % N, Math.floor(a / N), 59) - hash(b % N, Math.floor(b / N), 59) || a - b);
       if (s.a.owned) for (const i of bowl.slice(0, s.variant.finds.count)) { plan.finds.push({ i, material: 'crimson_ore' }); plan.clear.add(i); }
-      // A dry altar island sits inside a rounded, continuous lava moat. Reserve
-      // its bounding square so clipped corners stay bare; entrances end at lava.
+      // The altar stands at the centre of a dry, rounded pool floor. Reserve
+      // its bounding square so clipped corners stay bare; the south entrance
+      // runs straight to it.
       plan.shrineSeat = centre;
       for (let dy=-poolRadius;dy<=poolRadius;dy++) for (let dx=-poolRadius;dx<=poolRadius;dx++) {
         const i=(cy+dy)*N+cx+dx;
         plan.background.delete(i); plan.clear.add(i);
-        if ((dx || dy) && Math.hypot(dx, dy) <= settings.craterPoolSizeCells / 2) plan.hazards.push(i);
+        if ((dx || dy) && Math.hypot(dx, dy) <= settings.craterPoolSizeCells / 2) plan.pool.push(i);
       }
       return plan;
     }
-    let spikeCount = 0;
     const reserved = new Set();
     const fits = (x, y, width, height = width) => {
       if (x + width > N || y + height > N) return false;
@@ -226,7 +215,7 @@
       if (walls.filter(i => !seats.includes(i)).length < 7) return null;
       return { seats, partial: usable.length !== size*size, available };
     };
-    const centres = [], foundationSeats = [], verticalBenches = bottom - top > right - left;
+    const foundationSeats = [], verticalBenches = bottom - top > right - left;
     for (let y = top; y <= bottom; y++) {
       yield 'quarry patches';
       for (let x = left; x <= right; x++) {
@@ -244,7 +233,7 @@
         const r = x + width - 1, b = y + height - 1, cx = x + Math.floor(width / 2), cy = y + Math.floor(height / 2);
         const module = { kind: id === 'quarry-stronghold' ? 'foundation' : 'patch', bounds: [x, y, r, b], size };
         if (strip) module.axis = verticalBenches ? 'y' : 'x';
-        plan.landmarks.push(module); centres.push(cy * N + cx);
+        plan.landmarks.push(module);
         if (id === 'quarry-stronghold') {
           module.partial = foundation.partial; foundationSeats.push(foundation.seats);
           const door = foundation.available(cx,b) ? [cx,b] : null;
@@ -262,7 +251,6 @@
             if (xx !== cx && (yy === y || xx === x) && hash(xx, yy, 71) < .65) put(xx, yy, 'stone');
           }
           if (hash(x, y, 41) < .5) put(cx, cy, 'copper_rock');
-          else if (spikeCount < settings.abandonedMaxSpikes) { put(cx, cy, 'ground_spikes'); spikeCount++; }
           // Keep the existing patch roll and double each old barrel into a
           // corner pair, clear of the central find and the rubble edges.
           if (hash(x, y, 47) < .5) {
@@ -285,18 +273,13 @@
       for (const i of candidates.slice(0, Math.round(candidates.length * settings.sapphireAbundanceMultiplier))) plan.background.set(i, 'crystal');
     }
     if (s.a.owned) {
-      if (id === 'quarry-strip-mine') for (const centre of centres.slice(0, s.variant.guards.count || 0)) {
-        const kinds = s.variant.guards.kinds || [s.variant.guards.kind];
-        plan.guards.push({ i: centre, material: kinds[plan.guards.length % kinds.length] });
+      if (id === 'quarry-stronghold') for (const seats of foundationSeats.slice(0, s.variant.finds.count)) {
+        plan.finds.push({ i: seats[1], material: 'treasure_chest_t2' });
       }
-      if (id === 'quarry-stronghold') for (const seats of foundationSeats.slice(0, Math.max(s.variant.finds.count, s.variant.guards.count || 0))) {
-        if (plan.guards.length < s.variant.guards.count) plan.guards.push({ i: seats[0], material: 'goblin' });
-        if (plan.finds.length < s.variant.finds.count) plan.finds.push({ i: seats[1], material: 'treasure_chest_t2' });
-      }
-      for (const entry of [...plan.finds, ...plan.guards]) { plan.background.delete(entry.i); plan.clear.add(entry.i); }
+      for (const entry of plan.finds) { plan.background.delete(entry.i); plan.clear.add(entry.i); }
     }
     if (id === 'quarry-stronghold') {
-      // Pot seats are interior, outside doors and finite reward/guard seats.
+      // Pot seats are interior, outside doors and finite reward seats.
       for (const m of plan.landmarks) {
         const [x,y,r,b]=m.bounds;
         if (hash(x,y,197) >= settings.foundationPotChance) continue;
@@ -310,7 +293,7 @@
           if (placed) break;
         }
       }
-      // Resolve joins only after doors, buried finds and guard seats have
+      // Resolve joins only after doors and buried finds have
       // removed their cells, so exposed wall ends receive their matching cap.
       const walls = new Set([...plan.background.keys()].filter(i => plan.background.get(i) === 'stone'));
       for (const i of walls) {
@@ -356,9 +339,8 @@
     const fitting = [];
     for (const variant of candidates) {
       const plan = yield* planSteps({ a: { owned: true }, variant, cells }, context);
-      // Find/guard counts remain maxima, not minimum occupancy requirements.
-      if (!plan.landmarks.length || (variant.finds.count && !plan.finds.length)
-          || (variant.guards.count && !plan.guards.length)) continue;
+      // Find counts remain maxima, not minimum occupancy requirements.
+      if (!plan.landmarks.length || (variant.finds.count && !plan.finds.length)) continue;
       if (variant === original) return variant.id;
       fitting.push(variant);
     }

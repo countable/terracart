@@ -6438,7 +6438,8 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Repeated tar-pit clusters seep around small rubble islands. A lone flower survives beyond the last dark crescent. A splitting slime lurks beside the rare find.",
+      "caveIns": true,
+      "atmosphere": "Repeated tar-pit clusters seep around small rubble islands; the soft ground can cave in underfoot. A lone flower survives beyond the last dark crescent. A splitting slime lurks beside the rare find.",
       "materialLooks": {
         "rubble": "zone_rock_seep"
       }
@@ -6838,20 +6839,28 @@
               4
             ],
             "material": "tar"
+          },
+          {
+            "at": [
+              7,
+              7
+            ],
+            "material": "ground_spikes"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.25,
+        "nominalDensity": 0.265625,
         "materialDensity": {
-          "rubble": 0.25
+          "rubble": 0.25,
+          "ground_spikes": 0.015625
         },
         "type": "repeat_motif",
         "hazardDensity": {
           "tar": 0.125
         },
-        "totalOccupiedDensity": 0.375,
+        "totalOccupiedDensity": 0.390625,
         "poiOrigin": {
           "cell": [
             3,
@@ -6992,7 +7001,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Smaller, near-continuous rubble circles enclose tight tar rings. The circles repeat every eight cells; two gold-bearing rocks stand at the far side.",
+      "atmosphere": "Smaller, near-continuous rubble circles enclose tight tar rings, with a ground spike between them. The circles repeat every eight cells; two gold-bearing rocks stand at the far side.",
       "materialLooks": {
         "rubble": "zone_rock_black_ring"
       }
@@ -7639,7 +7648,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "A central lava pool surrounds a dry island bearing an Ember altar.",
+      "atmosphere": "A dry, rounded pool floor at the bottom of the bowl holds an Ember altar; crimson ore lies in the rubble around it.",
       "quarryLayout": "crater",
       "affinities": [
         "ruined"
@@ -7763,14 +7772,9 @@
         "shape": "none"
       },
       "guards": {
-        "mode": "quarry_layout",
-        "kind": "wurm",
-        "count": 1,
-        "kinds": [
-          "wurm"
-        ]
+        "mode": "none"
       },
-      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Wurms tunnel through the loose earth beneath the open cuts.",
+      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches.",
       "quarryLayout": "strip_mine",
       "affinities": [
         "ruined"
@@ -7841,11 +7845,9 @@
         "shape": "none"
       },
       "guards": {
-        "mode": "quarry_layout",
-        "kind": "goblin",
-        "count": 3
+        "mode": "none"
       },
-      "atmosphere": "Ruined foundations shelter chests, goblins and scattered clay pots.",
+      "atmosphere": "Ruined foundations shelter chests and scattered clay pots. Whoever held these walls is long gone.",
       "quarryLayout": "stronghold",
       "affinities": [
         "ruined"
@@ -7874,7 +7876,6 @@
       "max": 8
     },
     "foundationSizeCells": 5,
-    "clippedInhabitantSpacingCells": 16,
     "sapphireAbundanceMultiplier": 0.25,
     "clusterGapCells": 3,
     "sourceJoinM": 2,
@@ -7958,7 +7959,6 @@
       "barrel": 0.004
     },
     "craterPoolSizeCells": 5,
-    "abandonedMaxSpikes": 6,
     "foundationPotChance": 0.5
   }
 };

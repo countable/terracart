@@ -810,7 +810,7 @@ def quarry_card(v, d):
     rules = art_registry()['quarryRockRules']
     metadata += f'<dt>Mining</dt><dd>Ordinary quarry stones cost {rules["energyMul"]:g}× mining energy and yield {rules["stones"]} stone. The first mined surface rock guarantees the quarry’s assigned gem; later rocks have an additional {art_registry()["quarryGemChance"]*100:g}% chance for that gem.</dd>'
     if v['layout'] == 'crater':
-        metadata += '<dt>Shrine</dt><dd>Ember altar on the dry centre of the lava pool. Cross hazardous lava to reach its daily boon.</dd>'
+        metadata += '<dt>Shrine</dt><dd>Ember altar on the dry pool floor at the centre of the bowl.</dd>'
     elif v.get('shrineChance'):
         metadata += f'<dt>Shrine</dt><dd>{v["shrineChance"]*100:g}% chance of an Ember altar at each complete site, when a safe empty seat exists. Daily boon.</dd>'
 

@@ -46,17 +46,10 @@ CASES = {
       const altar=objects.find(o=>o.zoneVariant==='quarry-crater'&&o.kind==='grove_shrine');
       check(altar,'authored crater altar exists');
       const e=entries.find(e=>e.objects?.includes(altar)), N=e.cellsPerEdge;
-      const vents=objects.filter(o=>o.zoneVariant==='quarry-crater'&&o.kind==='lava_vent');
-      check(vents.length===20,`rounded crater has 20 lava cells, got ${vents.length}`);
-      check(e.grid[altar._iy*N+altar._ix]!==WorldGen.T.CAVE_LAVA,'altar stays dry');
-      for(const dx of [-2,2])for(const dy of [-2,2])check(e.grid[(altar._iy+dy)*N+altar._ix+dx]!==WorldGen.T.CAVE_LAVA,'corners are dry');
-      resetHealth(); move(vents[0]); s._tickLava(1);
-      const lost=100-s.save.energy; check(lost===Combat.LAVA_DMG_PER_S,`lava deals environmental damage (${lost})`);
-      check(Conditions.active(s.save,'burning'),'lava ignites player');
-      resetHealth(); s.save.fireResistancePotionUntil=Date.now()+60000; s._tickLava(1);
-      check(s.save.energy===100,'fire resistance prevents lava damage');
-      move(altar); resetHealth();s._tickLava(1);check(s.save.energy===100,'island is safe');
-      s.drawCells();s.drawObjects();return {lavaCells:vents.length,damagePerSecond:lost};
+      check(!e.grid.includes(WorldGen.T.CAVE_LAVA),'a peaceful crater paints no lava');
+      for(const dx of [-2,0,2])for(const dy of [-2,0,2])check(e.grid[(altar._iy+dy)*N+altar._ix+dx]!==WorldGen.T.CAVE_LAVA,'pool floor is dry');
+      move(altar); resetHealth();s._tickLava(1);check(s.save.energy===100,'altar ground is safe');
+      s.drawCells();s.drawObjects();return {lavaCells:0};
     }"""),
     'meadow': ('meadow', r"""() => {
       const {s,plants,check}=worldProbe;
