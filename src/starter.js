@@ -245,13 +245,11 @@
     const usedSeats = new Set();          // 'cx,cy' of cells already holding a chest
     const placedIdx = new Set();          // loot indices successfully seated
     const MIN_GAP = 3;                    // Chebyshev spacing between consecutive chests
-    // The Home trailer covers its own cell and spills into all eight
-    // neighbours, and clearHomeTrailerOverlap() deletes whatever sits in them.
-    // A crate seated there would be swept away with its starter loot, so the
-    // trail skips the moat rather than losing a chest to it. (The ring
-    // fallback below already starts 2 cells out.)
-    const inTrailerMoat = (cx, cy) =>
-      Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY)) <= 1;
+    // Home's footing — the wagon's cell, the eight its art spills into, and
+    // the firepit (HomeArea.inFooting) — is swept by clearHomeFooting(). A
+    // crate seated there would be swept away with its starter loot, so the
+    // trail skips the footing rather than losing a chest to it.
+    const inTrailerMoat = (cx, cy) => HomeArea.inFooting(cx - spawnIX, cy - spawnIY);
     const seatCrate = (cx, cy, i) => {
       // Snap to the canonical global-cell centre. The tile-relative basis
       // (tx*tileEdgeM + (cx+0.5)*cellM) drifts off the absolute cell grid
@@ -473,7 +471,7 @@
           const [bdx, bdy] = RING[ringPos++];
           let ncx = spawnIX + bdx, ncy = spawnIY + bdy;
           const ringOK = (x, y) => !isSolid(entry.grid[y * N + x]) && !isWay(entry.grid[y * N + x])
-            && !onRoadBand(x, y) && !usedSeats.has(x + ',' + y);
+            && !onRoadBand(x, y) && !usedSeats.has(x + ',' + y) && !inTrailerMoat(x, y);
           for (let step = 0; step < 5; step++) {
             if (!f.inTile(ncx, ncy) || ringOK(ncx, ncy)) break;
             ncx += Math.sign(bdx) || 0;
@@ -811,10 +809,9 @@
     const spawnOpts = WorldGen.spawnOptsOf(entry, { occupied });
 
     const usable = (cx, cy) => {
-      // The Home trailer covers the anchor cell and spills into all eight
-      // neighbours (see inTrailerMoat in the caller) — a plot there would sit
-      // under the building art.
-      if (Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY)) <= 1) return false;
+      // Home's footing (HomeArea.inFooting; see inTrailerMoat in the caller)
+      // — a plot there would sit under the wagon or on the firepit.
+      if (HomeArea.inFooting(cx - spawnIX, cy - spawnIY)) return false;
       if (usedSeats.has(cx + ',' + cy)) return false;
       // `unpaintable` is the road TERRAIN; THE SPAWN GATE (a 'minor' spawn —
       // the plot is placed scenery like the trail crates) catches the rest
@@ -1286,6 +1283,8 @@
           const h = worldMetersToAbsCell(scene, trailer.x, trailer.y);
           if (Math.abs(c.cellIX - h.cellIX) <= 1 && Math.abs(c.cellIY - h.cellIY) <= 1) return false;
         }
+        const pit = scene.save.homeFirepit;
+        if (pit && sameAbsCell(scene, p.x, p.y, pit.x, pit.y)) return false;
         return ![...playerClaims, ...((scene.save.starterHome && scene.save.starterHome.placed) || [])]
           .some(o => o.id !== rec.id && Number.isFinite(o.x) && Number.isFinite(o.y) &&
             SpawnOwnership.overlaps(scene, probe, o));
@@ -1510,8 +1509,8 @@
       const pcy = Math.floor((plot.y - ty0) / cellM);
       for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) taken.add(key(pcx + dx, pcy + dy));
     }
-    // Nothing goes in the Home trailer's moat (clearHomeTrailerOverlap would
-    // sweep it away) or on a crate seat.
+    // Nothing goes on Home's footing (clearHomeFooting would sweep it away)
+    // or on a crate seat.
     // Every kind seated here (tree, rock, wreck, mushroom, and the 'ladder' —
     // a real cave entrance, see _starterHomeObject) shares this one candidate
     // pool, so it reads as the loosest class the ring seats: 'minor'. The
@@ -1520,7 +1519,7 @@
     // ring beside a real graveyard would ever hit, and not worth splitting
     // this shared pool per kind for.
     const free = (cx, cy) => {
-      if (Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY)) <= 1) return false;
+      if (HomeArea.inFooting(cx - spawnIX, cy - spawnIY)) return false;
       if (usedSeats.has(key(cx, cy)) || taken.has(key(cx, cy))) return false;
       // BLOCKED covers the road TERRAIN; THE SPAWN GATE covers the rest of
       // the band the player sees drawn over it, plus a quiet corner or a

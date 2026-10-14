@@ -22,7 +22,9 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   counter-scales the frame and vignette (`_mapChrome`); the HUD is DOM and
   never zooms. Every projection, cull and hit test stays in the 1× view, and
   taps convert back through `_unzoomPt`. Never let it rest zoomed: fog reveal,
-  aggro ranges and boss margins are tuned for `VIEW_CELLS`.
+  aggro ranges and boss margins are tuned for `VIEW_CELLS`. The new-game
+  opening shot (`HomeArea.INTRO`, `_tickHomeIntro`) drives the same `mapZoom`
+  and `peekM`, and always ends at exactly 1× with no offset.
 - The player's feet sit on the GPS fix. Ground marks use that point; body
   effects use `playerBodyDy()` so they also follow the downed pose. Do not
   compensate for sprite seating by changing the projection.

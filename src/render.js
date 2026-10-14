@@ -4014,6 +4014,12 @@ Render.drawObjects = function drawObjects(scene) {
   };
   const scarecrowList = placedAs(PlacedFloor.forDepth(scene.save.scarecrows, _curDepth), '_scarecrow', 'scarecrow');
   const fireList = placedAs(PlacedFloor.forDepth(scene.save.fires, _curDepth), '_fire', 'fire');
+  // Home's empty firepit (save.homeFirepit, seated by _placeHome): a ring of
+  // stones on the surface, until a fire is lit in it — then the fire is drawn.
+  const pit = scene.save.homeFirepit;
+  const firepitList = (pit && _curDepth === 0 && !(scene.save.fires || [])
+    .some(f => PlacedFloor.isSurface(f.depth) && sameAbsCell(scene, f.x, f.y, pit.x, pit.y)))
+    ? placedAs([pit], '_firepit', 'firepit') : [];
   // STREET LAMPS on a restored street — the same treatment, for the same
   // reason: a lamp STANDS on the ground, so it takes its turn in the screen-row
   // z-order (a lamp behind a house is in front of the house north of it).
@@ -4054,6 +4060,7 @@ Render.drawObjects = function drawObjects(scene) {
   // '_scarecrow') anchors the pole base on the placement cell.
   for (const sc of scarecrowList) filteredObj.push(sc);
   for (const fr of fireList) filteredObj.push(fr);
+  for (const fp of firepitList) filteredObj.push(fp);
   for (const L of lampList) filteredObj.push(L);
   Render.cullCovered(scene, filteredObj, 'o', true);
   filteredObj.sort((a, b) => a.dy - b.dy);
@@ -5535,6 +5542,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // → ~18px wide, comfortably inside one 32px cell (QC: one-cell interactable).
     // Seat off the logs (seatFrame 0) so the flickering flame doesn't bob the
     // sprite vertically frame-to-frame; the flame still rises out the top.
+    // Home's empty firepit — a flat ring of stones, drawn on the ground like
+    // the down pit; at the bonfire's scale so the two read as one pit.
+    _firepit: { key: 'firepit', ground: true, origin: [0.5, 0.5], scale: 1.1 },
     _fire: { key: 'bonfire',
              frame: () => Math.floor(performance.now() / 130) % 6,
              origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true,

@@ -259,6 +259,10 @@ class SceneCreate {
     // in the world disarms it (see startGps): from then on the origin is load
     // bearing and moving it would drift everything already placed.
     this._homeCaptureArmed = this._homeCapturePending;
+    // A new game opens close on Home and pulls back (HomeArea.INTRO, app.js
+    // _armHomeIntro). "New" is no Home yet; the sandbox builds its own, and
+    // the browser harness taps at 1× screen positions from the first frame.
+    if (!this.save.starterShopId && !_sandbox && !window.__TEST_MODE) this._armHomeIntro();
     // (The no-fix safety net for home capture is armed in startGps, once
     // GPS is actually watching — sensors now start only after the opening
     // story + the location CTA, so arming it here would count story-reading

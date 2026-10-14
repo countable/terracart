@@ -292,9 +292,9 @@ WORLD GENERATION
    treasure and creatures. A satextract sidecar (`data/`) adds extra real POIs
    (trees, fountains, street furniture).
  - NO SCATTER OBJECT SITS ON (OR BESIDE) A BUILDING: worldgen keeps a one-cell
-   moat around every building cell. The Home trailer is synthetic, so it gets
-   the same moat at runtime (`app.js` `clearHomeTrailerOverlap`); real
-   buildings and ground flora are spared.
+   moat around every building cell. The Home wagon is synthetic, so it gets
+   the same moat at runtime (`scene_venues.js` `clearHomeFooting`), which also
+   erases any unclaimed house on its footing; ground flora is spared.
  - spawn gating, precedence and influence zones: CLAUDE.md ("Generation, saves
    and tiles", "Spawn precedence").
 

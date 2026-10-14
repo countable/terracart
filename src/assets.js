@@ -329,6 +329,10 @@ const ASSETS = {
   // a coal on bare ground (see interact.js 'light-fire'); the _fire render spec
   // cycles the 6 frames for a flicker. Repels slimes + slowly restores energy.
   bonfire:     { kind: 'spritesheet', path: 'assets/Objects/Wilderness/bonfire.png', frameWidth: 16, frameHeight: 32 },
+  // Home's empty firepit — one 24×24 frame: a ring of stones round cold ash
+  // and two charred logs. Seated beside the wagon when Home is placed
+  // (save.homeFirepit); drawn until a fire is lit on its cell.
+  firepit:     { kind: 'image', path: 'assets/Objects/Home/firepit.png' },
   // Cave torch — 64×32 = 4 cols of 16×32 frames: a wooden stake with a wrapped
   // head and a small flame, authored in the bonfire's palette (no torch on any
   // shipped sheet). Planted on a cave level where a lowtier street-furniture

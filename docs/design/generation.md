@@ -646,7 +646,10 @@ Higher-priority placements and their access space take precedence in this order:
 
 1. Saved player-owned objects, Home and story placements. Preserve saved ids and
    progress; a conflicting generated story placement finds a valid alternative
-   rather than moving or deleting a player-owned object.
+   rather than moving or deleting a player-owned object. Home's footing (the
+   wagon's 3x3 and its firepit, `HomeArea.inFooting`) erases any unclaimed
+   house on it entirely — cells, outline and roof — on the built tile only
+   (`clearHomeFooting`); `baseGrid` keeps the building.
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles

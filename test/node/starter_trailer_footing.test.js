@@ -1,171 +1,253 @@
-// THE TRAILER MUST NOT OUTLIVE A REAL HOUSE ON ITS OWN FOOTING.
+// HOME'S FOOTING IS CLEAR GROUND.
 //
-// WHAT BROKE. ensureStarterShopId synthesizes the starter trailer only when
-// no house is visible on screen — but "visible" reads entry.objects, which is
-// the POST cross-tile-dedup list. That dedup's outcome depends on which
-// neighbour tiles happen to be cached at build time (the same volatility
-// CLAUDE.md documents for the cave-entrance staircase: "a tile can be
-// REBUILT under you"), so a house can be deduped away on the build that ran
-// when the trailer was first synthesized, then survive on a later rebuild
-// (warmOverpass's evict-and-rebuild) or on the next page load (a cold tile
-// cache re-runs the whole dedup and can land on a different outcome). Once
-// the trailer is locked in as save.starterShopId, ensureStarterShopId never
-// re-evaluates it — so the phantom trailer and the newly-arrived real house
-// end up sharing one cell: "the trailer takes over a house footing, and the
-// house appears after a refresh."
+// Home is placed round the player (_placeHome): the wagon one cell north, so
+// they start on its doorstep, and an empty firepit at their lower left. Any
+// house standing on that footing — the wagon's cell, the eight its art spills
+// into, and the firepit's — is erased ENTIRELY by clearHomeFooting: every
+// cell of its footprint goes back to the ground around it, its outline and its
+// roof go too. Until Oct 2026 Home ADOPTED the nearest visible house and drew
+// the wagon on its anchor, so the wagon sat on a leftover building footprint;
+// a real house that reappeared on the trailer's cell after a tile rebuild was
+// adopted the same way. The trailer now always wins its own footing.
 //
-// THE FIX. ensureStarterTrailerObject (the per-frame keep-alive for the
-// synthetic trailer) now checks its own owning tile for a real house sharing
-// its exact cell, and defers to it — dropping the synthetic trailer and
-// adopting the real house as Home — instead of leaving both parked on the
-// same footing forever.
-//
-// (app.js needs Phaser and cannot be loaded headlessly, so this drives the
-// shipping method body lifted verbatim by run.js, the same trick
-// spawn_rebuild.test.js uses for rebuildTileWithBin's neighbour, the spawn gate.)
-
-function estScene(save) {
-  return {
-    save,
-    depth: 0,
-    mPerPx: 1,
-    originPx: { x: 0, y: 0 },
-    startWorldM: { x: 0, y: 0 },
-    cellsPerTile: WorldGen.TILE_PX,   // 1 world-metre == 1 cell, for simple arithmetic
+// (app.js needs Phaser and cannot be loaded headlessly, so these drive the
+// shipping method bodies lifted by run.js.)
+(() => {
+  const N = 60, CELL_M = 7, EDGE = N * CELL_M;
+  const KEY = WorldGen.tileKey(0, 0);
+  const BUILDING_TYPES = new Set([9, 11, 12]);
+  const lift = (name) => liftSceneMethod(name, { BUILDING_TYPES });
+  const near = (a, b, msg) => assert.truthy(Math.abs(a - b) < 1e-9, `${msg} (${a} vs ${b})`);
+  const at = (ix, iy) => ({ x: (ix + 0.5) * CELL_M, y: (iy + 0.5) * CELL_M });
+  const scene = (save = {}) => ({
+    save, depth: 0, tileEdgeM: EDGE, cellsPerTile: N, cellM: CELL_M,
+    mPerPx: CELL_M / (WorldGen.TILE_PX / N),
+    originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 },
     _starterTrailerObj: null,
-    _cratesAt: null,
-    _setStarterCratesAt(x, y) { if (!this._cratesAt) this._cratesAt = { x, y }; },
-    clearHomeTrailerOverlap() {},
+    _placeHome: lift('_placeHome'),
+    _firepitGroundOK: lift('_firepitGroundOK'),
+    _makeStarterTrailer: lift('_makeStarterTrailer'),
+    ensureStarterTrailerObject: lift('ensureStarterTrailerObject'),
+    clearHomeFooting: lift('clearHomeFooting'),
+    _homeFootingAnchor: lift('_homeFootingAnchor'),
+    _homeMayClear: lift('_homeMayClear'),
+    _eraseHomeBuildings: lift('_eraseHomeBuildings'),
+    _homeFootingAt: lift('_homeFootingAt'),
+  });
+  // A residential tile with building footprints: each { key, x0, x1, y0, y1 }
+  // paints cells [x0..x1] × [y0..y1] as small-building terrain under its key.
+  const tile = (buildings, objects = []) => {
+    const grid = new Uint8Array(N * N).fill(WorldGen.T.RESIDENTIAL);
+    const owners = new Uint16Array(N * N), ownerKeys = [null];
+    const buildingShapes = [];
+    for (const b of buildings) {
+      const id = ownerKeys.push(b.key) - 1;
+      for (let iy = b.y0; iy <= b.y1; iy++) for (let ix = b.x0; ix <= b.x1; ix++) {
+        grid[iy * N + ix] = WorldGen.T.BUILDING; owners[iy * N + ix] = id;
+      }
+      buildingShapes.push({ key: b.key, ring: new Float32Array(8), tier: 9 });
+    }
+    return { cellsPerEdge: N, grid, baseGrid: grid.slice(), owners, ownerKeys, buildingShapes, objects };
   };
-}
+  const cellsOf = (e, key) => {
+    const id = e.ownerKeys.indexOf(key);
+    let n = 0;
+    for (let i = 0; i < e.grid.length; i++) if (e.owners[i] === id && e.grid[i] === WorldGen.T.BUILDING) n++;
+    return n;
+  };
+  const withTile = (e, fn) => {
+    WorldGen.tileCache.set(KEY, e);
+    try { fn(); } finally { WorldGen.tileCache.delete(KEY); }
+  };
+  // The house north of a player at (30, 30): it reaches row 28, the wagon's
+  // top row (the wagon stands on (30, 29)).
+  const NORTH = { key: 'h_0_0_30_27', x0: 29, x1: 32, y0: 26, y1: 28 };
+  const FAR = { key: 'h_0_0_45_45', x0: 44, x1: 46, y0: 44, y1: 46 };
 
-function runEnsureStarterTrailerObject(scene) {
-  new Function(ENSURE_STARTER_TRAILER_SRC).call(scene);
-}
+  test('home footing: the wagon parks north of the player, the firepit at their lower left', () => {
+    const s = scene();
+    withTile(tile([]), () => {
+      const p = at(30, 30);
+      s._placeHome(p.x, p.y);
+      assert.eq(s.save.starterShopId, 'starter_trailer', 'Home is the wagon');
+      assert.truthy(sameAbsCell(s, s.save.starterTrailer.x, s.save.starterTrailer.y, at(30, 29).x, at(30, 29).y),
+        'the wagon is one cell north, so the player stands at its door');
+      assert.truthy(sameAbsCell(s, s.save.homeFirepit.x, s.save.homeFirepit.y, at(29, 31).x, at(29, 31).y),
+        'the firepit is one cell down and to the left');
+      assert.truthy(WorldGen.tileCache.get(KEY).objects.some(o => o.id === 'starter_trailer'), 'the wagon is injected');
+    });
+  });
 
-// A tile small enough to sit at (0,0) under the trailer's own (mPerPx=1,
-// TILE_PX-cells-per-tile) lookup math: tx = floor((x/mPerPx)/TILE_PX).
-const EST_KEY = WorldGen.tileKey(0, 0);
+  test('home footing: no firepit on water or a road', () => {
+    const s = scene();
+    const e = tile([]);
+    e.grid[31 * N + 29] = WorldGen.T.WATER;
+    withTile(e, () => {
+      const p = at(30, 30);
+      s._placeHome(p.x, p.y);
+      assert.eq(s.save.homeFirepit, null, 'a ring of stones is not dropped in a pond');
+      assert.eq(s.save.starterShopId, 'starter_trailer', 'Home is still placed');
+    });
+  });
 
-test('starter trailer footing: with no real house nearby, the trailer injects as usual', () => {
-  const scene = estScene({ starterTrailer: { id: 'starter_trailer', x: 10.5, y: 20.5, tier: 9, address: 1 },
-    starterShopId: 'starter_trailer' });
-  const entry = { objects: [] };
-  WorldGen.tileCache.set(EST_KEY, entry);
-  try {
-    runEnsureStarterTrailerObject(scene);
-    assert.truthy(entry.objects.some(o => o.id === 'starter_trailer'), 'the trailer is injected');
-    assert.eq(scene.save.starterShopId, 'starter_trailer', 'still Home');
-    assert.truthy(scene.save.starterTrailer, 'trailer record kept');
-  } finally { WorldGen.tileCache.delete(EST_KEY); }
-});
+  test('home footing: a house on the footing is erased entirely; one elsewhere is untouched', () => {
+    const s = scene();
+    const roof = { kind: 'house', id: NORTH.key, ...at(30, 27), tier: 9 };
+    const far = { kind: 'house', id: FAR.key, ...at(45, 45), tier: 9 };
+    const e = tile([NORTH, FAR], [roof, far]);
+    e.grid[25 * N + 30] = WorldGen.T.GRASS;          // one lawn cell beside it still loses the vote
+    withTile(e, () => {
+      const p = at(30, 30);
+      s._placeHome(p.x, p.y);
+      assert.eq(cellsOf(e, NORTH.key), 0, 'every cell of the footprint is gone, not just the wagon\'s');
+      assert.eq(e.grid[26 * N + 32], WorldGen.T.RESIDENTIAL, 'the cells take the ground around them');
+      assert.eq(e.owners[26 * N + 32], 0, 'and no longer name a building');
+      assert.falsy(e.objects.includes(roof), 'its roof goes');
+      assert.falsy(e.buildingShapes.some(sh => sh.key === NORTH.key), 'its outline goes');
+      assert.eq(e.baseGrid[26 * N + 32], WorldGen.T.BUILDING, 'the generated layer is untouched');
+      assert.eq(cellsOf(e, FAR.key), 9, 'a house off the footing keeps its cells');
+      assert.truthy(e.objects.includes(far) && e.buildingShapes.some(sh => sh.key === FAR.key), 'and its roof and outline');
+      assert.eq(s.save.starterShopId, 'starter_trailer', 'the wagon is Home');
+    });
+  });
 
-test('starter trailer footing: a real house on the exact same cell is adopted instead', () => {
-  const scene = estScene({ starterTrailer: { id: 'starter_trailer', x: 10.5, y: 20.5, tier: 9, address: 1 },
-    starterShopId: 'starter_trailer' });
-  // Same absolute cell as the trailer (floor(10.5)=10, floor(20.5)=20) but not
-  // bit-identical coordinates — the two positions are snapped by different
-  // code paths (worldgen's footprint centroid vs the trailer's own snap), so
-  // the fix has to compare CELLS, not exact floats.
-  const realHouse = { kind: 'house', id: 'h_real', x: 10.9, y: 20.1 };
-  const entry = { objects: [realHouse] };
-  WorldGen.tileCache.set(EST_KEY, entry);
-  try {
-    runEnsureStarterTrailerObject(scene);
-    assert.falsy(scene.save.starterTrailer, 'the synthetic trailer record is dropped');
-    assert.eq(scene.save.starterShopId, 'h_real', 'the real house is adopted as Home instead');
-    assert.falsy(entry.objects.some(o => o._synthetic), 'no phantom trailer left in the tile');
-    assert.truthy(entry.objects.includes(realHouse), 'the real house is untouched');
-  } finally { WorldGen.tileCache.delete(EST_KEY); }
-});
+  test('home footing: a house that turns up on the footing after a rebuild is erased too', () => {
+    const s = scene({ starterTrailer: { id: 'starter_trailer', ...at(30, 29), tier: 9, address: 1 },
+      starterShopId: 'starter_trailer', homeFirepit: at(29, 31) });
+    withTile(tile([]), () => s.ensureStarterTrailerObject());
+    // The rebuilt tile is a fresh entry carrying the house on the wagon's cell.
+    const real = { kind: 'house', id: 'h_0_0_30_29', ...at(30, 29), tier: 9 };
+    const e = tile([{ key: real.id, x0: 30, x1: 31, y0: 29, y1: 29 }], [real]);
+    withTile(e, () => {
+      s.ensureStarterTrailerObject();
+      assert.eq(s.save.starterShopId, 'starter_trailer', 'the trailer stays Home');
+      assert.falsy(e.objects.includes(real), 'the house is not adopted: it is erased');
+      assert.eq(cellsOf(e, real.id), 0, 'with its footprint');
+      assert.eq(e.objects.filter(o => o.id === 'starter_trailer').length, 1, 'one wagon');
+    });
+  });
 
-test('starter trailer footing: an already-injected trailer is removed once the house appears', () => {
-  // Simulates the exact regression: the trailer injected on an earlier frame
-  // (or an earlier session), then the tile got rebuilt and now also carries
-  // the real house on the same footing.
-  const scene = estScene({ starterTrailer: { id: 'starter_trailer', x: 10.5, y: 20.5, tier: 9, address: 1 },
-    starterShopId: 'starter_trailer' });
-  const phantom = { kind: 'house', id: 'starter_trailer', x: 10.5, y: 20.5, _synthetic: true };
-  const realHouse = { kind: 'house', id: 'h_real', x: 10.9, y: 20.1 };
-  const entry = { objects: [phantom, realHouse] };
-  WorldGen.tileCache.set(EST_KEY, entry);
-  try {
-    scene._starterTrailerObj = phantom;
-    runEnsureStarterTrailerObject(scene);
-    assert.falsy(entry.objects.includes(phantom), 'the phantom trailer object is removed from the tile');
-    assert.eq(scene.save.starterShopId, 'h_real', 'the real house takes over as Home');
-  } finally { WorldGen.tileCache.delete(EST_KEY); }
-});
+  test('home footing: a restored house, a castle or a temple is never erased', () => {
+    const keep = [
+      { key: 'h_0_0_30_27', x0: 30, x1: 30, y0: 27, y1: 28 },
+      { key: 'b_31_28', x0: 31, x1: 31, y0: 27, y1: 28 },
+      { key: 'tp_0_0_29_28', x0: 29, x1: 29, y0: 27, y1: 28 },
+    ];
+    const s = scene({ restoredHouses: { h_0_0_30_27: 'plain' } });
+    const e = tile(keep);
+    withTile(e, () => {
+      const p = at(30, 30);
+      assert.truthy(s._homeFootingAt(p.x, p.y)?.blocked, 'Move Home refuses here');
+      s._placeHome(p.x, p.y);
+      for (const b of keep) assert.eq(cellsOf(e, b.key), 2, `${b.key} keeps its footprint`);
+    });
+  });
 
-test('starter trailer footing: a house in a NEIGHBOURING cell is left alone (not a footing conflict)', () => {
-  const scene = estScene({ starterTrailer: { id: 'starter_trailer', x: 10.5, y: 20.5, tier: 9, address: 1 },
-    starterShopId: 'starter_trailer' });
-  const neighbour = { kind: 'house', id: 'h_neighbour', x: 25.5, y: 20.5 };   // different cell
-  const entry = { objects: [neighbour] };
-  WorldGen.tileCache.set(EST_KEY, entry);
-  try {
-    runEnsureStarterTrailerObject(scene);
-    assert.eq(scene.save.starterShopId, 'starter_trailer', 'a neighbouring house does not evict the trailer');
-    assert.truthy(scene.save.starterTrailer, 'trailer record kept');
-    assert.truthy(entry.objects.some(o => o.id === 'starter_trailer'), 'the trailer is still injected');
-  } finally { WorldGen.tileCache.delete(EST_KEY); }
-});
+  test('home footing: an adopted Home from an older save loses its footprint, not its object', () => {
+    const home = { kind: 'house', id: 'h_0_0_20_20', ...at(20, 20), tier: 9 };
+    const s = scene({ starterTrailer: null, starterShopId: home.id });
+    const e = tile([{ key: home.id, x0: 19, x1: 21, y0: 19, y1: 21 }], [home]);
+    withTile(e, () => {
+      s.ensureStarterTrailerObject();
+      assert.eq(cellsOf(e, home.id), 0, 'the wagon no longer stands on a roof');
+      assert.truthy(e.objects.includes(home), 'Home itself stays');
+    });
+  });
 
-// "Move Home here" onto a real house's cell crashed: _makeStarterTrailer's
-// inject adopted the house (nulling save.starterTrailer) and the caller then
-// read save.starterTrailer.id. The trailer claims Home INSIDE
-// _makeStarterTrailer, before the inject, and no caller reads the record back.
-test('starter trailer footing: no caller reads the trailer record back after making it', () => {
-  const app = SCENE_SRC;
-  const at = app.indexOf('  _makeStarterTrailer(wmx, wmy) {');
-  const body = app.slice(at, app.indexOf('\n  }\n', at));
-  assert.truthy(body.indexOf('this.save.starterShopId = id;') >= 0
-    && body.indexOf('this.save.starterShopId = id;') < body.indexOf('this.ensureStarterTrailerObject();'),
-    'Home is claimed before the inject that may adopt a real house');
-  let i = 0, calls = 0;
-  while ((i = app.indexOf('this._makeStarterTrailer(', i)) >= 0) {
-    const after = app.slice(i, app.indexOf('\n  }\n', i));
-    assert.falsy(/save\.starterTrailer\.id/.test(after), 'a caller reads save.starterTrailer.id after making it');
-    i++; calls++;
-  }
-  assert.eq(calls, 2, 'the starter placement and Move Home here');
-});
+  test('home footing: clutter on the footing and the firepit cell is swept; saved things stay', () => {
+    const s = scene({ starterTrailer: { id: 'starter_trailer', ...at(30, 29), tier: 9, address: 1 },
+      starterShopId: 'starter_trailer', homeFirepit: at(29, 31),
+      fruittrees: [{ id: 'saved_tree', ...at(31, 29) }] });
+    const saved = { kind: 'tree', id: 'saved_tree', ...at(31, 29) };
+    const planted = { kind: 'tree', id: 'planted_tree', planted: true, ...at(29, 29) };
+    const onPit = { kind: 'mineralrock', id: 'pit_rock', ...at(29, 31) };
+    const loose = { kind: 'mineralrock', id: 'moat_rock', ...at(30, 30) };
+    const beyond = { kind: 'mineralrock', id: 'far_rock', ...at(33, 33) };
+    const e = tile([], [saved, planted, onPit, loose, beyond]);
+    withTile(e, () => {
+      s.ensureStarterTrailerObject();
+      assert.truthy(e.objects.includes(saved) && e.objects.includes(planted), 'owned objects survive');
+      assert.falsy(e.objects.includes(onPit), 'nothing sits in the firepit');
+      assert.falsy(e.objects.includes(loose), 'nothing sits on the doorstep');
+      assert.truthy(e.objects.includes(beyond), 'past the footing is left alone');
+    });
+  });
 
-// "Move Home here" on a house's FOOTPRINT — any of its cells, not just the
-// one its object stands on — takes that house over as Home (it draws as the
-// trailer), so the trailer replaces the building instead of parking on it.
-// A building that is already the player's, or isn't a house, refuses.
-function homeFootingAt(scene, x, y) {
-  const at = SCENE_SRC.indexOf('  _homeFootingAt(x, y) {\n');
-  const body = SCENE_SRC.slice(SCENE_SRC.indexOf('{', at) + 1, SCENE_SRC.indexOf('\n  }\n', at));
-  return new Function('BUILDING_TYPES', 'x', 'y', body).call(scene, new Set([9, 11, 12]), x, y);
-}
+  test('move home: a house on the new footing is one the move clears; open ground is free', () => {
+    const s = scene({ starterShopId: 'starter_trailer' });
+    withTile(tile([NORTH]), () => {
+      assert.eq(s._homeFootingAt(at(30, 30).x, at(30, 30).y)?.house, NORTH.key, 'the house north of the player');
+      assert.eq(s._homeFootingAt(at(10, 10).x, at(10, 10).y), null, 'open ground');
+    });
+  });
 
-function footprintTile(key, objects) {
-  const n = WorldGen.TILE_PX;
-  const grid = new Uint8Array(n * n), owners = new Uint16Array(n * n);
-  for (let iy = 20; iy <= 22; iy++) for (let ix = 10; ix <= 13; ix++) {
-    grid[iy * n + ix] = 9; owners[iy * n + ix] = 1;
-  }
-  return { grid, owners, ownerKeys: [null, key], objects };
-}
+  test('home footing: the starter passes keep clear of the wagon and the firepit', () => {
+    const w = HomeArea.WAGON_OFFSET, p = HomeArea.FIREPIT_OFFSET;
+    assert.truthy(HomeArea.inFooting(w.dx, w.dy - 1), 'the wagon\'s top row');
+    assert.truthy(HomeArea.inFooting(0, 0), 'the doorstep');
+    assert.truthy(HomeArea.inFooting(p.dx, p.dy), 'the firepit');
+    assert.falsy(HomeArea.inFooting(2, 0), 'two cells out is free');
+    assert.falsy(HomeArea.inFooting(0, 2), 'two cells south is free');
+  });
 
-test('move home: any cell of a house footprint resolves to that house', () => {
-  const scene = estScene({ starterTrailer: null, starterShopId: 'starter_trailer' });
-  const house = { kind: 'house', id: 'h_fp', x: 11.5, y: 21.5, tier: 9 };
-  WorldGen.tileCache.set(EST_KEY, footprintTile('h_fp', [house]));
-  try {
-    assert.eq(homeFootingAt(scene, 13.5, 20.5)?.house, house, 'a footprint corner finds its house');
-    assert.eq(homeFootingAt(scene, 15.5, 20.5), null, 'open ground beside it is free');
-    scene.save.restoredHouses = { h_fp: 'plain' };
-    assert.truthy(homeFootingAt(scene, 13.5, 20.5)?.blocked, 'a restored house is not replaced');
-  } finally { WorldGen.tileCache.delete(EST_KEY); }
-});
+  // "Move Home here" onto a real house's cell crashed when the inject adopted
+  // the house and the caller read save.starterTrailer.id back. One placer now
+  // makes the trailer, and nothing reads the record back after it.
+  test('home footing: one placer makes the trailer, and nothing reads the record back', () => {
+    let i = 0, calls = 0;
+    while ((i = SCENE_SRC.indexOf('this._makeStarterTrailer(', i)) >= 0) {
+      const after = SCENE_SRC.slice(i, SCENE_SRC.indexOf('\n  }\n', i));
+      assert.falsy(/save\.starterTrailer\.id/.test(after), 'a caller reads save.starterTrailer.id after making it');
+      i++; calls++;
+    }
+    assert.eq(calls, 1, '_placeHome');
+    assert.eq((SCENE_SRC.match(/this\._placeHome\(/g) || []).length, 2, 'the starter placement and Move Home here');
+  });
 
-test('move home: a castle footprint refuses rather than hosting the trailer', () => {
-  const scene = estScene({ starterTrailer: null, starterShopId: 'starter_trailer' });
-  WorldGen.tileCache.set(EST_KEY, footprintTile('b_11_21', []));
-  try {
-    assert.truthy(homeFootingAt(scene, 12.5, 21.5)?.blocked, 'no house object behind the footprint');
-  } finally { WorldGen.tileCache.delete(EST_KEY); }
-});
+  // The opening shot: zoomed on Home while it is placed or a dialog is up,
+  // a held beat once the map is clear, then a slow pull back to exactly 1×.
+  test('home intro: waits close on Home, holds, then eases out to the normal view', () => {
+    const I = HomeArea.INTRO;
+    let dialog = true;
+    const s = Object.assign(scene(), {
+      peekM: { x: 0, y: 0 }, mapZoom: 1,
+      _dialogOpen: () => dialog, isPeeking() { return this.peekM.x !== 0 || this.peekM.y !== 0; },
+      _armHomeIntro: liftSceneMethod('_armHomeIntro'),
+      _tickHomeIntro: liftSceneMethod('_tickHomeIntro'),
+    });
+    s._armHomeIntro();
+    const zIn = 11 / I.viewCells;
+    near(s.mapZoom, zIn, 'opens zoomed in');
+    near(s.peekM.y, -CELL_M / 2, 'half a cell north: the wagon above, the player below');
+    s._tickHomeIntro(5);
+    near(s.mapZoom, zIn, 'no Home yet: still waiting');
+    s.save.starterShopId = 'starter_trailer';
+    s._tickHomeIntro(5);
+    near(s.mapZoom, zIn, 'a dialog covers the map: still waiting');
+    dialog = false;
+    s._tickHomeIntro(0);
+    s._tickHomeIntro(I.holdMs / 1000 * 0.9);
+    near(s.mapZoom, zIn, 'holds a beat');
+    s._tickHomeIntro(I.holdMs / 1000 * 0.2);
+    s._tickHomeIntro(I.outMs / 2000);
+    assert.truthy(s.mapZoom > 1 && s.mapZoom < zIn, 'pulling back');
+    s._tickHomeIntro(I.outMs / 1000);
+    assert.eq(s.mapZoom, 1, 'ends at exactly 1×');
+    assert.eq(s.peekM.y, 0, 'and on the player');
+    assert.eq(s._homeIntro, null, 'and stops');
+  });
+
+  test('home intro: a finger on the map takes the camera', () => {
+    const s = Object.assign(scene({ starterShopId: 'starter_trailer' }), {
+      peekM: { x: 0, y: 0 }, mapZoom: 1, _dialogOpen: () => false,
+      isPeeking() { return this.peekM.x !== 0 || this.peekM.y !== 0; },
+      _armHomeIntro: liftSceneMethod('_armHomeIntro'),
+      _tickHomeIntro: liftSceneMethod('_tickHomeIntro'),
+    });
+    s._armHomeIntro();
+    s._pinch = { a: 1, b: 2 };
+    s._tickHomeIntro(0.1);
+    assert.eq(s._homeIntro, null, 'the intro ends');
+    assert.truthy(s._mapZoomReturning && s._peekReturning, 'and the camera springs home');
+  });
+})();

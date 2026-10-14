@@ -3085,6 +3085,7 @@ class MapScene extends Phaser.Scene {
     // settled camera position rather than two.
     this._tickPeek(dt);
     this._tickMapZoom(dt);
+    this._tickHomeIntro(dt);
     this._applyMapZoom();
     // Everything drawn AT the player rather than at a world position rides
     // this: the camera is normally on them, so it's the viewport centre, but a
@@ -5669,6 +5670,7 @@ class MapScene extends Phaser.Scene {
     this._pinch = null;
     this.mapZoom = 1;
     this._mapZoomReturning = false;
+    this._homeIntro = null;
     if (!this.peekM) return;      // called before the view was set up
     this.peekM.x = 0;
     this.peekM.y = 0;
@@ -5729,6 +5731,51 @@ class MapScene extends Phaser.Scene {
     if ((this.mapZoom - 1) * this.viewSize / 2 < 0.5) {
       this.mapZoom = 1;
       this._mapZoomReturning = false;
+    }
+  }
+
+  // --- The opening shot (HomeArea.INTRO) ---
+  // A new game opens close on Home: zoomed until INTRO.viewCells span the
+  // frame, the camera half a cell north of the player, so the wagon fills the
+  // top half and the player stands at its door. It waits there while Home is
+  // still being placed or a dialog (the opening story, the location prompt)
+  // covers the map, holds INTRO.holdMs once the map is clear, then widens
+  // back to the normal view over INTRO.outMs. Camera-only, through the same
+  // mapZoom and peekM the pinch and the peek use, and it never rests: it ends
+  // at exactly 1× and no offset. A finger on the map hands the camera to the
+  // drag or the pinch, which spring home as usual.
+  _armHomeIntro() {
+    this._homeIntro = { phase: 'wait', t: 0 };
+    this._tickHomeIntro(0);
+  }
+  _tickHomeIntro(dt) {
+    const it = this._homeIntro;
+    if (!it) return;
+    if (this._peekDragging || this._pinch) {
+      this._homeIntro = null;
+      this._mapZoomReturning = this.mapZoom !== 1;
+      this._peekReturning = this.isPeeking();
+      return;
+    }
+    const I = HomeArea.INTRO;
+    if (it.phase === 'wait') {
+      if (this.save.starterShopId && (this.depth || 0) === 0 && !this._dialogOpen()) it.phase = 'hold';
+    } else {
+      it.t += dt * 1000;
+      if (it.phase === 'hold' && it.t >= I.holdMs) { it.phase = 'out'; it.t = 0; }
+    }
+    // Ease the SPAN of the view, not the zoom factor, so the widening reads
+    // as an even pull back rather than a lurch at the start.
+    const k = it.phase === 'out' ? Math.min(1, it.t / I.outMs) : 0;
+    const e = k * k * (3 - 2 * k);
+    const span = I.viewCells + (VIEW_CELLS - I.viewCells) * e;
+    this.mapZoom = VIEW_CELLS / span;
+    this.peekM.x = 0;
+    this.peekM.y = -this.cellM / 2 * (1 - e);
+    if (k >= 1) {
+      this._homeIntro = null;
+      this.mapZoom = 1;
+      this.peekM.y = 0;
     }
   }
 

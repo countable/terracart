@@ -283,11 +283,15 @@ mechanics.
   ground: no step or hop enters it, a body already in it may walk out, and a
   chasing foe sidesteps around it when a jog fits. This is separate from the
   warmth-ring ward (`FIRE_REST_R`), which turns back only entry-level kinds.
-- Home is `save.starterShopId`: a synthetic trailer or an adopted house, which
-  draws as the trailer. "Move Home here" on any cell of an unclaimed house's
-  footprint adopts that house, so the trailer replaces the building rather than
-  parking on it; a claimed building, temple or castle refuses the move
-  (`_homeFootingAt`, test `starter_trailer_footing`).
+- Home is `save.starterShopId`: the wagon, placed by `_placeHome` one cell
+  north of the player (`HomeArea.WAGON_OFFSET`) with an empty firepit at their
+  lower left (`FIREPIT_OFFSET`, `save.homeFirepit`; flint lights a fire in it).
+  Older saves may still have an adopted house, which draws as the wagon. Any
+  unclaimed house on Home's footing (the wagon's 3x3 and the firepit cell) is
+  erased entirely — footprint, outline and roof — by `clearHomeFooting`, a
+  per-player overlay; a claimed building, temple or castle is never erased,
+  and "Move Home here" refuses on one (`_homeFootingAt`, test
+  `starter_trailer_footing`).
 
 Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_ward`,
 `pet_pickup`.

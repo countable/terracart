@@ -232,3 +232,27 @@ test('campfire: the first fire lit tells its story, through the story ledger', (
     } finally { WorldGen.tileCache.delete(key); }
   });
 })();
+
+// Home's empty firepit (save.homeFirepit) claims its cell while it is cold:
+// a tap says how to light it, nothing is tilled or set down in it, and flint
+// in hand falls through to light-fire. Once lit, the fire's own taps win.
+test('campfire: the empty firepit hints, keeps its cell, and lets flint light it', () => {
+  const firepit = TAP_HANDLERS.find(h => h.name === 'firepit');
+  const flashes = [];
+  const { scene } = fireScene({ flash: (msg) => flashes.push(msg),
+    startWorldM: { x: 0, y: 0 }, originPx: { x: 0, y: 0 },
+    cellsPerTile: 256, mPerPx: 2 / (WorldGen.TILE_PX / 256) });
+  const cold = (inv, fires = []) => {
+    const ctx = fireCtx(scene, inv, fires);
+    ctx.save.homeFirepit = { x: 0, y: 0 };
+    return ctx;
+  };
+  assert.truthy(firepit.try(cold([])), 'an empty-handed tap is the firepit\'s');
+  assert.truthy(flashes.length === 1 && flashes[0].length <= MAP_MSG_MAX, 'one short hint');
+  assert.truthy(firepit.try(cold([{ id: 'potato_seed', count: 1 }])), 'a seed is not sown in it');
+  assert.falsy(firepit.try(cold([{ id: 'flint_shard', count: 1 }])), 'flint falls through to light-fire');
+  assert.falsy(firepit.try(cold([], [{ x: 0, y: 0 }])), 'a lit fire answers its own taps');
+  const elsewhere = fireCtx(scene, []);
+  elsewhere.save.homeFirepit = { x: 50, y: 50 };
+  assert.falsy(firepit.try(elsewhere), 'another cell is not the firepit');
+});
