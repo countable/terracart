@@ -136,7 +136,7 @@ class SceneBoss {
       && (e.record.depth || 0) === (this.depth || 0));
     const t = performance.now(), dt = Math.min(0.1, Math.max(0, (t - (this._serpentT ?? t)) / 1000));
     this._serpentT = t;
-    for (const e of live) this._tickSerpent(e.key, dt, t, e.record);
+    for (const e of live) this._tickSerpent(e.key, dt, t, e.record, now);
   }
 
   // ANOTHER PLAYER'S SERPENT (multiplayer.js onBoss): `pose` is its head in
@@ -160,7 +160,45 @@ class SceneBoss {
     return true;
   }
 
-  _tickSerpent(key, dt, t, record = BossEncounters.get(this.save, 'serpent', key)) {
+  // Mode phase comes from the saved encounter start, so reloading keeps the
+  // cycle. Only the owner chooses goals; peers continue following its poses.
+  _serpentGoal(head, p, record, now, t) {
+    const kind = BossEncounters.KINDS.serpent, cellM = this.cellM;
+    const phase = Math.floor(Math.max(0, now - record.startedAt) / kind.modeMs);
+    const mode = kind.modes[phase % kind.modes.length];
+    if (head._modePhase !== phase) {
+      head._modePhase = phase;
+      head._movementMode = mode;
+      head._goal = null;
+      if (mode === 'encircle') head._orbitDirection = Math.random() < 0.5 ? -1 : 1;
+    }
+    const leash = EnemyRoster.get('serpent_head').movement.leashCells * cellM;
+    if (Math.hypot(head.x - p.x, head.y - p.y) > leash) {
+      head._goal = { ...p };
+      head._goalUntil = t;
+    } else if (mode === 'encircle') {
+      const angle = Math.atan2(head.y - p.y, head.x - p.x)
+        + head._orbitDirection * kind.orbitLookAheadRad;
+      const radius = kind.orbitRadiusCells * cellM;
+      head._goal = { x: p.x + Math.cos(angle) * radius, y: p.y + Math.sin(angle) * radius };
+    } else if (!head._goal || (mode === 'roam' && t >= head._goalUntil)
+        || Math.hypot(head._goal.x - head.x, head._goal.y - head.y) < 0.6 * cellM) {
+      if (mode === 'roam') {
+        const centre = viewAnchorWorldM(this), half = (VIEW_CELLS / 2 - kind.viewportMarginCells) * cellM;
+        head._goal = { x: centre.x + (Math.random() * 2 - 1) * half,
+          y: centre.y + (Math.random() * 2 - 1) * half };
+        head._goalUntil = t + kind.roamGoalMs;
+      } else {
+        // Commit through the player's current position, then line up another
+        // pass. Moving aside can dodge a charge; it does not home each frame.
+        const angle = Math.atan2(p.y - head.y, p.x - head.x), past = kind.chargeThroughCells * cellM;
+        head._goal = { x: p.x + Math.cos(angle) * past, y: p.y + Math.sin(angle) * past };
+      }
+    }
+    return head._goal;
+  }
+
+  _tickSerpent(key, dt, t, record = BossEncounters.get(this.save, 'serpent', key), now = Date.now()) {
     const kind = BossEncounters.KINDS.serpent, cellM = this.cellM;
     const fed = record?.own !== true ? record?.pose : null;
     if (record?.own !== true && !fed) return;
@@ -175,7 +213,7 @@ class SceneBoss {
     const coils = pieces.coils.filter(c => !caught.has(c.id) && !(c._hp <= 0));
     if (!coils.length) { this._serpentDefeated(key, pieces); return; }
     const head = pieces.head, row = EnemyRoster.get('serpent_head');
-    const p = playerWorldM(this), leash = row.movement.leashCells * cellM;
+    const p = playerWorldM(this);
     // Keep every piece in the player's tile entry (see _serpentHostEntry).
     const host = this._serpentHostEntry(p);
     if (host) for (const entry of WorldGen.tileCache.values()) {
@@ -191,29 +229,17 @@ class SceneBoss {
       else { const u = Math.min(1, dt * 8); head.x += (fed.x - head.x) * u; head.y += (fed.y - head.y) * u; }
       head._heading = fed.h;
     } else {
-    // THE HEAD: a new goal when it arrives or its time is up — mostly a point
-    // on the ring inside the leash, sometimes straight through the player —
-    // and always back toward the player once it strays past the leash.
-    const far = Math.hypot(head.x - p.x, head.y - p.y) > leash;
-    const g = head._goal;
-    if (far || !g || t > head._goalUntil || Math.hypot(g.x - head.x, g.y - head.y) < 0.6 * cellM) {
-      if (far || Math.random() < kind.throughP) {
-        const j = Math.random() * Math.PI * 2;
-        head._goal = { x: p.x + Math.cos(j) * 0.4 * cellM, y: p.y + Math.sin(j) * 0.4 * cellM };
-      } else {
-        const j = Math.random() * Math.PI * 2, r = (kind.ringCells[0] + Math.random() * (kind.ringCells[1] - kind.ringCells[0])) * cellM;
-        head._goal = { x: p.x + Math.cos(j) * r, y: p.y + Math.sin(j) * r };
-      }
-      head._goalUntil = t + kind.goalMs;
-    }
-    const want = Math.atan2(head._goal.y - head.y, head._goal.x - head.x);
-    let turn = want - head._heading;
-    turn = Math.atan2(Math.sin(turn), Math.cos(turn));
-    const maxTurn = kind.turnRadPerS * dt;
-    head._heading += Math.max(-maxTurn, Math.min(maxTurn, turn));
-    const step = row.movement.speedMetersPerSecond * dt * Combat.paceMul(head);
-    head.x += Math.cos(head._heading) * step;
-    head.y += Math.sin(head._heading) * step;
+      const goal = this._serpentGoal(head, p, record, now, t);
+      const want = Math.atan2(goal.y - head.y, goal.x - head.x);
+      let turn = want - head._heading;
+      turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+      const maxTurn = kind.turnRadPerS * dt;
+      head._heading += Math.max(-maxTurn, Math.min(maxTurn, turn));
+      const charging = head._movementMode === 'charge';
+      const step = row.movement.speedMetersPerSecond * dt * Combat.paceMul(head)
+        * (charging ? kind.chargeSpeedMul : 1);
+      head.x += Math.cos(head._heading) * step;
+      head.y += Math.sin(head._heading) * step;
     }
     // THE TRAIL the body follows: the head's own path, newest first, sampled
     // by distance and trimmed to the chain's length. Slot 0 follows the live

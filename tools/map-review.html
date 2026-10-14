@@ -297,6 +297,7 @@ async function buildWorld(home, onPreview) {
       else await WorldGen.runStepsSliced(() => scene.spawnInTileSteps(e, e.tx, e.ty));
     } catch (err) { errors.push(`spawnInTile ${e.tx}/${e.ty}: ${err.stack}`); }
   }
+  if (reviewDepth === 0) scene._makeStarterTrailer(home.x, home.y);
   // Preview the same finite garrisons as the game, including path encounters.
   // Lairs owns difficulty-dependent counts and eligibility.
   const guards = [];
@@ -719,7 +720,7 @@ function draw(world, home) {
   // chest's tier is its tile's quota seat, WorldGen.seedChestTiers → loot.js chestTier.)
   const hll = toLL(home.x, home.y, EDGE);
   const ring = (r, c, t) => { const l = L.circle(hll, { radius: r, color: c, weight: 1, fill: false, dashArray: '6 4' }).bindTooltip(t).addTo(map); drawn.push(l); };
-  ring(HomeArea.NEAR_M, '#1f9d3a', `softwood pines within ${HomeArea.NEAR_M} m`);
+  ring(HomeArea.NEAR_M, '#ffffff', `softwood pines within ${HomeArea.NEAR_M} m`);
 }
 
 // ── DENSITY: interactables per game view ────────────────────────────────────

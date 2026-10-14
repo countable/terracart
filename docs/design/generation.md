@@ -653,7 +653,10 @@ Higher-priority placements and their access space take precedence in this order:
 5. Road variants, across their defined corridor and verge, including
    deliberately empty gaps. The claim reaches two cells past the road band
    (`StreetVariants.TERRAIN_VERGE_CELLS`): inside it the variant's ground
-   replaces residential land cover and ambient yard fill, while buildings,
+   replaces residential land cover and ambient yard fill. Generic roadside rocks
+   belong only to normal (non-variant) streets and yield throughout variant
+   coverage, even when sourced from the same road. The original rock substrate
+   remains available for stable cave entrances. Buildings,
    piers and other land-access exclusions keep their paint. Nexus variants
    override road variants where they overlap; the physical road and its
    safety restrictions remain intact. Goblin Gang Street is a Small-road

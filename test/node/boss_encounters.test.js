@@ -165,6 +165,7 @@
         if (shared) { record.pose = start; record.heardAt = now; }
         assert.truthy(s._spawnSerpent(KEY, start));
         const { head, coils, tail } = s._serpentPieces(KEY);
+        if (!shared) s._serpentGoal = h => h._goal || { x: h.x, y: h.y };
         const history = [{ x: head.x, y: head.y }];
         const dt = 1 / hz, speed = EnemyRoster.get('serpent_head').movement.speedMetersPerSecond;
         const angleStep = 2 * Math.asin(speed * dt / (2 * radius));
@@ -225,6 +226,52 @@
       });
     });
   }
+
+  test('serpent modes: eight-second phases repeat and keep their phase after a reload', () => {
+    const s = bossScene({ creatures: [], objects: [] }), record = { startedAt: 1000 };
+    s.peekM = { x: 5, y: -5 };
+    const head = { x: 20, y: 0 }, p = { x: 0, y: 0 };
+    const goalAt = elapsed => s._serpentGoal(head, p, record, record.startedAt + elapsed, elapsed);
+    const roam = goalAt(0), half = (VIEW_CELLS / 2 - BossEncounters.KINDS.serpent.viewportMarginCells) * s.cellM;
+    assert.eq(head._movementMode, 'roam');
+    assert.inRange(roam.x, 5 - half, 5 + half);
+    assert.inRange(roam.y, -5 - half, -5 + half);
+    goalAt(7999); assert.eq(head._movementMode, 'roam');
+    const orbit = goalAt(8000);
+    assert.eq(head._movementMode, 'encircle');
+    assert.lt(Math.abs(Math.hypot(orbit.x, orbit.y) - 2 * s.cellM), 1e-8);
+    assert.gt(Math.abs(orbit.y), 0, 'circle goal leads around the player instead of toward them');
+    goalAt(15999); assert.eq(head._movementMode, 'encircle');
+    const charge = goalAt(16000);
+    assert.eq(head._movementMode, 'charge');
+    assert.lt(charge.x, p.x, 'charge goes through and beyond the player');
+    p.y = 10;
+    assert.eq(goalAt(16500), charge, 'moving aside does not drag a committed charge sideways');
+    head.x = charge.x; head.y = charge.y;
+    const nextCharge = goalAt(17000);
+    assert.gt(nextCharge.y, p.y, 'next pass aims through the new player position');
+    const reloaded = { x: 20, y: 0 };
+    s._serpentGoal(reloaded, p, record, record.startedAt + 17000, 0);
+    assert.eq(reloaded._movementMode, 'charge', 'reloading does not restart roaming');
+    goalAt(23999); assert.eq(head._movementMode, 'charge');
+    goalAt(24000); assert.eq(head._movementMode, 'roam', 'cycle repeats');
+  });
+
+  test('serpent modes: real head movement accelerates only during the charge phase', () => {
+    const entry = { creatures: [], objects: [] };
+    withWorld(entry, () => {
+      const s = bossScene(entry), now = Date.now();
+      const record = BossEncounters.start(s.save, 'serpent', KEY, { own: true, depth: 0 }, now);
+      s._spawnSerpent(KEY, { x: 20, y: 0, h: Math.PI });
+      const head = s._serpentPieces(KEY).head, dt = 0.1;
+      for (const [elapsed, mode, mul] of [[0, 'roam', 1], [8000, 'encircle', 1], [16000, 'charge', 1.6], [24000, 'roam', 1]]) {
+        const x = head.x, y = head.y;
+        s._tickSerpent(KEY, dt, elapsed, record, now + elapsed);
+        assert.eq(head._movementMode, mode);
+        assert.lt(Math.abs(Math.hypot(head.x - x, head.y - y) - 3.9 * dt * mul), 1e-8);
+      }
+    });
+  });
 
   test('serpent: it stays near the player and its coils bite for their dmg, once an interval', () => {
     const entry = { creatures: [], objects: [] };

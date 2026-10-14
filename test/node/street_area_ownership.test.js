@@ -122,20 +122,22 @@
     assert.eq(wildplants.length, 0);
   });
 
-  test('a plain rock street cannot drop verge rocks inside a variant corridor', () => {
+  test('generic street rocks yield to variant corridors regardless of their source road', () => {
     const area = new Uint8Array(N * N);
     area[16 * N + 16] = 1;
     const x = tx * tileEdgeM + 16.5 * WorldGen.CELL_M;
     const y = ty * tileEdgeM + 16.5 * WorldGen.CELL_M;
     const rock = (id, line) => ({ id: `mr_${tx}_${ty}_${id}_16`, x, y, _street: true, _streetLine: line });
-    const objects = [rock(1, 'plain'), rock(2, 'variant')];
-    const it = WorldGen.clearStreetAmbientSteps({ area, objects, wildplants: [], tx, ty, N, tileEdgeM,
-      ownLines: new Set(['variant']) });
+    const outside = { ...rock(3, 'plain'), x: x + WorldGen.CELL_M };
+    const authored = { ...rock(4, 'variant'), _street: 'toadstool' };
+    const objects = [rock(1, 'plain'), rock(2, 'variant'), outside, authored];
+    const it = WorldGen.clearStreetAmbientSteps({ area, objects, wildplants: [], tx, ty, N, tileEdgeM });
     let r = it.next();
     while (!r.done) r = it.next();
-    assert.eq(r.value, 1);
-    assert.eq(objects.length, 1);
-    assert.eq(objects[0]._streetLine, 'variant', 'a variant street keeps its own rocks');
+    assert.eq(r.value, 2);
+    assert.eq(objects.length, 2);
+    assert.truthy(objects.includes(outside), 'normal street rocks outside coverage survive');
+    assert.truthy(objects.includes(authored), 'explicit variant content survives');
   });
 
   test('surface street cleanup keeps the cave entrance tied to its original rock', () => {

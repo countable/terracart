@@ -207,16 +207,17 @@ test('variants: sizes follow the terrain tiers — major = ROAD_MD + ROAD_LG, mi
   assert.eq(SV.sizeOfTags({ class: 'rail' }), null, 'a railway is not a street');
 });
 
-test('variants: a quarter of minor streets are rock-lined, and never a hedgerow', () => {
-  let rocks = 0, hedgeRocks = 0;
+test('variants: only normal minor streets roll generic roadside rocks', () => {
+  let rocks = 0;
   const N = 20000;
   for (let i = 0; i < N; i++) {
-    const k = `st ${i}|0,0`, v = SV.variantFor(k, null, 'minor');
-    if (SV.rocksFor(k, 'minor', v)) { rocks++; if (v === 'hedgerow') hedgeRocks++; }
+    const k = `st ${i}|0,0`;
+    if (SV.rocksFor(k, 'minor', null)) rocks++;
+    for (const row of SV.STREET_VARIANTS) {
+      assert.falsy(SV.rocksFor(k, 'minor', row.id), `${row.id} excludes generic rocks`);
+    }
   }
-  assert.eq(hedgeRocks, 0, 'no hedgerow is ever rock-lined');
-  assert.inRange(rocks / N, SV.ROCK_STREET_SHARE * 0.9 - 0.02, SV.ROCK_STREET_SHARE + 0.02,
-    'about ROCK_STREET_SHARE of the (non-hedgerow) minor streets');
+  assert.inRange(rocks / N, SV.ROCK_STREET_SHARE - 0.02, SV.ROCK_STREET_SHARE + 0.02);
   assert.falsy(SV.rocksFor('st 1|0,0', 'major', null), 'a major road never is');
 });
 

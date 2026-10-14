@@ -17,7 +17,7 @@ function nameFor(hedged) {
   for (let n = 0; n < 10000; n++) {
     const name = 'Affinity probe ' + n;
     const r = SV.buildIndex(layers(name), tx, ty, edge / 4096).lines[0];
-    if (r.variant && r.rocks === !hedged && SV.rocksFor(r.key, r.size, 'orchard')) return name;
+    if (r.variant && r.rocks === !hedged && SV.rocksFor(r.key, r.size, null)) return name;
   }
   throw new Error('No road fixture with the required initial rock eligibility');
 }
@@ -30,9 +30,11 @@ for (const hedged of [false, true]) test(`street affinities: ${hedged ? 'new' : 
     const before = WorldGen.rasterizeTile(layers(name), N, tx, ty, edge);
     SV.applyAffinitiesSteps = function* (index) {
       for (const r of index.lines) {
-        r.variant = hedged ? 'orchard' : 'hedgerow';
+        r.variant = hedged ? null : 'toadstool';
         r.rocks = SV.rocksFor(r.key, r.size, r.variant);
       }
+      if (hedged) index.dressingLines = [];
+      else for (const r of index.dressingLines || []) r.variant = 'toadstool';
       yield 'forced affinity';
     };
     const after = WorldGen.rasterizeTile(layers(name), N, tx, ty, edge);
@@ -44,13 +46,29 @@ for (const hedged of [false, true]) test(`street affinities: ${hedged ? 'new' : 
       const ids = surface.map(o => o.id);
       assert.eq(new Set(ids).size, ids.length, 'new rocks have distinct cell identities');
     } else {
-      assert.eq(surface.length, 0, 'hedgerow has no ambient rock clusters');
+      assert.eq(surface.length, 0, 'Mushroom Lane has no generic rock clusters');
       assert.gt(cave.length, 0, 'original rock clusters still seed caves');
     }
     assert.eq(JSON.stringify(after.caveSource), JSON.stringify(before.caveSource),
       'contextual preference cannot alter cave-generation inputs');
   } finally {
     SV.applyAffinitiesSteps = original;
+  }
+});
+test('Mushroom Lane removes generic rocks through the real affinity and terrain pipeline', () => {
+  const name = nameFor(false), original = SV.variantFor;
+  try {
+    SV.variantFor = () => 'toadstool';
+    const result = WorldGen.rasterizeTile(layers(name), N, tx, ty, edge);
+    assert.truthy(result.streetArea.some(Boolean));
+    assert.truthy(result.streetIndex.lines.every(r => !r.rocks));
+    assert.gt(result.caveSource.objects.filter(o => o._street === true).length, 0,
+      'the original rock substrate remains available to caves');
+    assert.eq(result.objects.filter(o => o._street === true).length, 0,
+      'no generic street rocks survive on the surface');
+    assert.gt(result.streetDress.wildplants.length, 0, 'the variant still supplies its own flora');
+  } finally {
+    SV.variantFor = original;
   }
 });
 })();
