@@ -46,6 +46,22 @@
       assert.falsy(['tower', 'ballista'].includes(plan.kind), 'large trials skipped');
     }
   });
+  test('temple floor: a round temple raises its room over its own ring, never over another building', () => {
+    const ring = f => {
+      f.entry.ownerKeys = [null, f.temple.id, 'other'];
+      for (let y = 8; y <= 10; y++) for (let x = 8; x <= 10; x++) {
+        if (x === 9 && y === 9) continue;
+        f.entry.grid[y * 19 + x] = WorldGen.T.BUILDING_LARGE; f.entry.owners[y * 19 + x] = 1;
+      }
+    };
+    const round = fixture(); round.temple.round = true; ring(round);
+    assert.eq(TempleLayout.plan(round.temple, round.cache, 190).size, 7, 'the ring does not block');
+    const plain = fixture(); ring(plain);
+    assert.falsy(TempleLayout.plan(plain.temple, plain.cache, 190)?.size === 7, 'a building temple still blocks its floor');
+    const foreign = fixture(); foreign.temple.round = true; ring(foreign);
+    for (let i = 0; i < foreign.entry.owners.length; i++) if (foreign.entry.owners[i]) foreign.entry.owners[i] = 2;
+    assert.falsy(TempleLayout.plan(foreign.temple, foreign.cache, 190)?.size === 7, 'another owner\'s ring still blocks');
+  });
   test('temple floor: small or unavailable parks offer no invalid room', () => {
     const f = fixture();
     f.entry.roadMask.fill(1);
