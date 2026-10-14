@@ -296,6 +296,8 @@ const starterWrapper = (name) => {
                       'HOME_REVEAL_CELLS', 'TRAIL_REVEAL_CELLS',
                       // The peek drag's numbers (peek_drag.test.js).
                       'PEEK_MAX_CELLS', 'PEEK_DRAG_SLOP_PX', 'PEEK_RETURN_MS',
+                      // …and the pinch zoom's deepest view (peek_drag.test.js).
+                      'PINCH_VIEW_CELLS',
                       // The campfire's warmth ring; lighting.js resolves the
                       // fire's light radius to it (lighting.test.js).
                       'FIRE_REST_R',
@@ -319,6 +321,8 @@ const starterWrapper = (name) => {
     }
     ctx[name] = parseFloat(m[1]);
   }
+  // Derived in app.js from the two above, as the shipping code reads it.
+  ctx.PINCH_MAX_ZOOM = ctx.VIEW_CELLS / ctx.PINCH_VIEW_CELLS;
 }
 
 // The walk home is BEHAVIOUR: whether a return is walked or placed is decided
@@ -543,7 +547,9 @@ const starterWrapper = (name) => {
     return src.slice(start + 1, end + 4);
   };
   const methods = ['playerScreen() {', 'isPeeking() {', '_setPeekFromDrag(dxPx, dyPx) {',
-                   '_releasePeek() {', 'clearPeek() {', '_tickPeek(dt) {', '_gamePt(p) {']
+                   '_releasePeek() {', 'clearPeek() {', '_tickPeek(dt) {', '_gamePt(p) {',
+                   '_pinchStart(a, b) {', '_pinchMove(a, b) {', '_pinchEnd() {',
+                   '_tickMapZoom(dt) {', '_unzoomPt(pt) {']
     .map(lift).join(',\n');
   // The tap-or-drag decision itself, straight out of create()'s input wiring.
   const relSig = '    const endPeekPointer = (p) => {';
@@ -562,7 +568,8 @@ const starterWrapper = (name) => {
   vm.runInContext(`globalThis.__peek = {\n${methods},\n${release}\n};`, ctx,
                   { filename: 'app.js#peek' });
   for (const k of ['playerScreen', 'isPeeking', '_setPeekFromDrag', '_releasePeek',
-                   'clearPeek', '_tickPeek', '_gamePt', 'endPeekPointer']) {
+                   'clearPeek', '_tickPeek', '_gamePt', 'endPeekPointer',
+                   '_pinchStart', '_pinchMove', '_pinchEnd', '_tickMapZoom', '_unzoomPt']) {
     if (typeof ctx.__peek[k] !== 'function') {
       console.error(`__peek.${k} did not come back as a function — update run.js`);
       process.exit(2);
