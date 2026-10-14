@@ -269,6 +269,19 @@
     const walked = totalMetres(0, Math.max(0, n | 0), playerClass);
     return Math.max(0, Math.min(7, Math.floor(walked / BOOTS_M_PER_TIER + 1e-9)));
   }
+  // ── THE CASH CARD GROWS WITH THE WALK ────────────────────────────────────
+  // The cash card is not a rarity roll: the road context's purse (cashMul)
+  // rounded the early rungs down to a single coin. It pays
+  // CASH_PER_SQRT_KM × √(km + 1), km being everything banked to reach rung
+  // `n` (the same total bootsTierCap reads): 16 coins at the first rung,
+  // ~52 by the tenth, ~150 at 100 km. A square root, so a long walker's
+  // purse keeps growing without outrunning the shops.
+  const CASH_PER_SQRT_KM = 15;
+  function cashPrize(n, playerClass) {
+    const km = totalMetres(0, Math.max(0, n | 0), playerClass) / 1000;
+    return { kind: 'gold', amount: Math.max(1, Math.round(CASH_PER_SQRT_KM * Math.sqrt(km + 1))),
+             tier: 0, cls: 'cash', jackpot: 0, consolation: 0 };
+  }
   // The classes card `groupIdx` may roll for prize `n`: the boots drop out
   // while the cap is 0 or the player already wears boots at the cap (nothing
   // to offer but a cash-out, and the cash card is the next card over).
@@ -307,7 +320,7 @@
   }
 
   root.Trail = {
-    STICK_METRES_MUL, PRIZE_CARDS, BOOTS_M_PER_TIER, bootsTierCap, prizeCardClasses, rollCardRow,
+    STICK_METRES_MUL, PRIZE_CARDS, BOOTS_M_PER_TIER, bootsTierCap, CASH_PER_SQRT_KM, cashPrize, prizeCardClasses, rollCardRow,
     GOAL_STEP_M, RUNNER_GOAL_DIV, goalDiv, goalFor, totalMetres, restoredMetres, distanceLabel, progress, bank, readout, label,
     PRIZE_CONTEXT, FIRST_PRIZE_ID, FIRST_PRIZE_QTY, firstPrize, FIXED_PRIZES, fixedPrize,
     PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey,

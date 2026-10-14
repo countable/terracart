@@ -1001,7 +1001,7 @@ class SceneStreets {
   // with only one thing to give); that opens the plain one-reward ceremony it
   // always did, rather than a choice with one answer.
   //
-  // ONE CARD PER GROUP (Trail.PRIZE_CARDS): cash, a seed or supply, and boots
+  // ONE CARD PER GROUP (Trail.PRIZE_CARDS): cash (Trail.cashPrize, by distance), a seed or supply, and boots
   // gear/unique relic or magic — gear held to one tier per 10 km.
   _fireTrailPrize(n, onDismiss) {
     const bonus = Trail.rollBonusFor(Math.max(0, (n | 0) - 1));
@@ -1012,6 +1012,7 @@ class SceneStreets {
       if (typeof pickReward !== 'function') return null;
       const classes = Trail.prizeCardClasses(g, n, pc, ownedBoots);
       if (!classes.length) return null;
+      if (classes.length === 1 && classes[0] === 'cash') return Trail.cashPrize(n, pc);
       return pickReward(Trail.PRIZE_CONTEXT, this.save, undefined,
         { rollBonus: bonus, classes, classMaxTier: { boots: bootsCap, gear: bootsCap },
           classFallbacks: { boots: 'magic', gear: 'magic' } });
