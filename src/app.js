@@ -336,7 +336,7 @@ const GPS_SNAP_M = 200;
 const CONFUSED_RECOVER_MS = 6000;
 // The dialogs that pause the fight (_storyDialogOpen): modal_shell kinds, and
 // the static index.html overlays that carry no kind.
-const STORY_DIALOG_KINDS = new Set(['story', 'note', 'memory']);
+const STORY_DIALOG_KINDS = new Set(['story', 'note', 'talk', 'memory']);
 const STORY_DIALOG_IDS = new Set(['story', 'howto']);
 // The SNAP's own cut — a placement past GPS_SNAP_M moves the body somewhere
 // the player never walked, so it earns a transition rather than the world

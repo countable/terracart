@@ -241,13 +241,13 @@ const MemoryStory = (() => {
   // as page i is dismissed and may answer false to stop (a stale visit);
   // `onDone` runs after the last page; `onFail(error)` when a page would not
   // open (the error is rethrown).
-  function showPages(scene, pages, { title, art, portrait, kind = 'note', nextLabel = 'Next', lastLabel = 'OK',
+  function showPages(scene, pages, { title, art, portrait, kind = 'note', kindLabel, nextLabel = 'Next', lastLabel = 'OK',
     mustAcknowledge = false, from = 0, onTurn, onDone, onFail } = {}) {
     const show = (i) => {
       const page = pages[i], last = i + 1 >= pages.length;
       try {
         scene.showMessageModal({
-          title, art, portrait, kind, ...(typeof page === 'string' ? { body: page } : page),
+          title, art, portrait, kind, kindLabel, ...(typeof page === 'string' ? { body: page } : page),
           mustAcknowledge, okLabel: last ? lastLabel : nextLabel,
           onDismiss: () => {
             if (onTurn && onTurn(i) === false) return;

@@ -19,6 +19,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   Dialogue passes `portrait` to the modal shell, which keeps the face and
   shoulders at 128px above independently scrolling text, using pixelated scaling
   for chunky pixels. Portraits have no background plate or rounded clipping.
+  A neighbour speaking opens on the `talk` kind (`NPC.speech`): the header is
+  the speaker's name beside a 💬 chat bubble, the title line is their role —
+  never the generic `note` scroll.
   Scene paintings continue to use `art` and the full scene layout.
 
 - Interrupted startup script downloads show a recovery screen and retry the

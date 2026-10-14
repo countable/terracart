@@ -677,6 +677,11 @@ const NPC = (() => {
     const talk = dialogue(scene, c);
     return { portrait: portrait(scene, c), title: talk.title, blurb: talk.body };
   }
+  // A neighbour's talk dialog: their NAME heads it beside the chat bubble
+  // (MODAL_KINDS.talk) and their role is the title line under it.
+  function speech(c) {
+    return { kind: 'talk', kindLabel: c.name, title: c.roleLabel || LABELS[c.culture || 'village'][c.role] };
+  }
   function interact(scene, c, sx, sy) {
     // A dialog SHOWN, not merely present: index.html's static overlays
     // (#story, #howto, …) always carry .game-modal and only toggle display,
@@ -696,7 +701,7 @@ const NPC = (() => {
           until: Date.now() + Scenic.TELESCOPE_DURATION_MS });
         persistSave(scene.save);
       }
-      MemoryStory.showPages(scene, talk.pages, { title: talk.title, portrait: portrait(scene, c), kind: 'note',
+      MemoryStory.showPages(scene, talk.pages, { ...speech(c), portrait: portrait(scene, c),
         onDone: () => meetHomeNeighbour(scene, c) });
     };
     if (isDormant(c)) { say(); return; }
@@ -705,7 +710,7 @@ const NPC = (() => {
       const face = portrait(scene, c);
       let answered = false;
       scene.showChestRewardModal({
-        kind: 'note', header: talk.title, name: conversation.title,
+        kind: 'talk', header: c.name, name: conversation.title,
         sub: conversation.body, portrait: face,
         actions: [
           ...conversation.choices.map(choice => ({
@@ -716,7 +721,7 @@ const NPC = (() => {
               const reply = MemoryStory.acknowledgeArchaeologist(scene.save, conversation.id, choice.id);
               if (!reply) return;
               Save.persist(scene.save);
-              scene.showMessageModal({ kind: 'note', title: talk.title, body: reply.body, portrait: face });
+              scene.showMessageModal({ ...speech(c), body: reply.body, portrait: face });
             },
           })),
           // Leaving or reloading does not consume an introduction or a topic.
@@ -742,5 +747,5 @@ const NPC = (() => {
     else scene.presentThemedShop(sx, sy, c, record);
     meetHomeNeighbour(scene, c);
   }
-  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, CULTURES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, storyNeighbourDue, RETURN_PER_MEMORY, LINGER_CELLS, returnedCount, stayers, anchorsIn, arrivals, meetHomeNeighbour, houseNeighbours, offscreenAt, tickArrivals, KEEPER_DEFAULT, nearestWreck, identity, cultureFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
+  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, CULTURES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, storyNeighbourDue, RETURN_PER_MEMORY, LINGER_CELLS, returnedCount, stayers, anchorsIn, arrivals, meetHomeNeighbour, houseNeighbours, offscreenAt, tickArrivals, KEEPER_DEFAULT, nearestWreck, identity, cultureFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, speech, offerArt, interact };
 })();

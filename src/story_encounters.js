@@ -113,7 +113,7 @@ const StoryEncounters = (() => {
     if (!q.greeted && near && find(q.enemyId) && !held(scene) && !NPC.isDormant?.(c)) {
       q.greeted = true;
       persist(scene);
-      scene.showMessageModal({ title: `${c.name} · ${c.roleLabel}`, body: WORRIED, portrait: NPC.portrait(scene, c), kind: 'note' });
+      scene.showMessageModal({ ...NPC.speech(c), body: WORRIED, portrait: NPC.portrait(scene, c) });
     }
   }
   function interact(scene, c) {
@@ -142,7 +142,7 @@ const StoryEncounters = (() => {
     }
     q.greeted = true;
     persist(scene);
-    scene.showMessageModal({ title: `${c.name} · ${c.roleLabel}`, body, portrait: NPC.portrait(scene, c), kind: 'note' });
+    scene.showMessageModal({ ...NPC.speech(c), body, portrait: NPC.portrait(scene, c) });
     return true;
   }
   return { arm, tick, defeated, interact, WORRIED, THANKS, armAtMemories };
