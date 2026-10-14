@@ -686,6 +686,8 @@
     const chestCtx = context('meadow'), a = chestCtx.field.anchors[0], cell = WorldGen.CELL_M;
     chestCtx.chests.push({ kind: 'chest', id: 'church', _poiAt: `${a.lx},${a.ly}`, x: 35.5 * cell, y: 33.5 * cell });
     chestCtx.spawnOpts.occupied.add(33 * chestCtx.N + 35);
+    // A grove whose Nexus already claimed a building keeps its full clearing.
+    chestCtx.templeZones = new Set([String(a.key)]);
     const chestOut = ZoneDressing.dress(chestCtx);
     assert.eq(chestCtx.chests[0].kind, 'grove_shrine');
     assert.eq(chestCtx.chests[0].id, 'church', 'replacement keeps the POI identity');
@@ -702,6 +704,32 @@
       if (o.crop === 'longgrass') assert.lte(d2, 9, 'no grass outside the clearing');
       if (o.zoneLayer === 'background') assert.eq(o.crop, 'shrub', 'outer background is bushes only');
     }
+  });
+  test('zone dressing: a grove with no temple reserves a 3x3 round-temple ring round its shrine', () => {
+    const ctx = context('meadow'), a = ctx.field.anchors[0], cell = WorldGen.CELL_M, N = ctx.N;
+    ctx.chests.push({ kind: 'chest', id: 'church', _poiAt: `${a.lx},${a.ly}`, x: 35.5 * cell, y: 33.5 * cell });
+    ctx.spawnOpts.occupied.add(33 * N + 35);
+    const out = ZoneDressing.dress(ctx);
+    assert.eq(ctx.chests[0].kind, 'grove_shrine');
+    assert.eq(out.roundTemples.length, 1);
+    const rt = out.roundTemples[0];
+    assert.eq(`${rt.ix},${rt.iy}`, '35,33', 'centred on the shrine cell');
+    assert.eq(rt.cells.slice().sort((p, q) => p - q).join(), [-1, 0, 1].flatMap(dy => [-1, 0, 1]
+      .filter(dx => dx || dy).map(dx => (33 + dy) * N + 35 + dx)).sort((p, q) => p - q).join(), 'the eight ring cells');
+    const ring = new Set(rt.cells);
+    assert.falsy(all(out).some(o => ring.has(o._iy * N + o._ix)), 'no dressing piece stands on the ring');
+    // A claimed building, a footpath or an occupied ring cell means no round temple.
+    const claimed = context('meadow', { templeZones: new Set([String(a.key)]) });
+    claimed.chests.push({ kind: 'chest', id: 'church', _poiAt: `${a.lx},${a.ly}`, x: 35.5 * cell, y: 33.5 * cell });
+    assert.falsy(ZoneDressing.dress(claimed).roundTemples, 'the Nexus already has its temple');
+    const path = context('meadow');
+    path.chests.push({ kind: 'chest', id: 'church', _poiAt: `${a.lx},${a.ly}`, x: 35.5 * cell, y: 33.5 * cell });
+    path.grid[34 * N + 36] = WorldGen.T.PATH;
+    assert.falsy(ZoneDressing.dress(path).roundTemples, 'never over a footpath');
+    const beach = context('meadow');
+    beach.field.anchors[0].kind = 'beach';
+    beach.chests.push({ kind: 'chest', id: 'church', _poiAt: `${a.lx},${a.ly}`, x: 35.5 * cell, y: 33.5 * cell });
+    assert.falsy(ZoneDressing.dress(beach).roundTemples, 'only groves raise one');
   });
   test('zone dressing: Flint Field has a mineable flint-rock disk, rubble rim and rubble-only scatter', () => {
     const out = ZoneDressing.dress(context('flint_field'));

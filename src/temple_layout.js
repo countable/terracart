@@ -39,8 +39,11 @@
           const y1 = Math.min(n - 1, Math.ceil((bottom - row * tileEdgeM) / unit - 1e-9) - 1);
           for (let iy = y0; iy <= y1; iy++) for (let ix = x0; ix <= x1; ix++) {
             const i = iy * n + ix, owner = e.zone?.anchors?.[mask?.[i] - 1];
-            if (owner?.kind !== 'grove' || String(owner.key) !== String(key)
-                || e.owners?.[i] || e.roadMask?.[i]
+            if (owner?.kind !== 'grove' || String(owner.key) !== String(key)) return false;
+            // A round temple stands at the grove's heart; its room is raised
+            // above it, so its own ring never blocks the floor.
+            if (temple.round && e.owners?.[i] && e.ownerKeys?.[e.owners[i]] === temple.id) continue;
+            if (e.owners?.[i] || e.roadMask?.[i]
                 || root.WorldGen.isBuildingTerrain(e.grid[i])
                 || root.WorldGen.isCobbleTerrain(e.grid[i])
                 || !root.WorldGen.isSpawnCell(e.grid, n, n, ix, iy,

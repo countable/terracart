@@ -14,6 +14,15 @@ weight and material; this file states the rules the data and runtime keep.
 The Nexus focal layout is the central arrangement within that whole place.
 A Temple-bearing Nexus is the subset allowed to claim a temple building:
 Grove, Old Stones and Tar Yard under the current `Zones.ZONE_KINDS` flags.
+A building becomes its temple only when at least half of its footprint lies
+on that anchor's coverage; one that merely brushes the edge stays ordinary.
+A grove whose Nexus claims no building in its owner tile's data raises a small
+round temple instead (`ZoneDressing` `roundTemples`, minted in
+`rasterizeTileSteps`): the eight cells round its shrine cell, which stays open
+at the centre. All eight must be the grove's own, in that tile, free and off
+footpaths, or the grove has no temple. A temple building wholly inside a
+neighbouring tile is not seen, so such a grove can hold both. The round
+temple's own ring never blocks its upper room (`TempleLayout.plan`).
 
 The game and map review load the table through `src/zone_variant_data.js`.
 Regenerate it after editing the JSON with

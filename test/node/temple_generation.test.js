@@ -25,10 +25,52 @@
     assert.falsy(out.objects.some(o => o.kind === 'house' || o.kind === 'tower'));
     assert.truthy(Array.from(out.owners).some(owner => out.ownerKeys[owner] === temple.id));
   });
-  test('temple generation: any overlapping footprint cell qualifies, and distant buildings remain ordinary', () => {
+  test('temple generation: a footprint at least half on the nexus qualifies, and distant buildings remain ordinary', () => {
     const out = generate(0, [rect(1200, 1800, 1800, 2200), rect(100, 100, 500, 500)]);
     assert.eq(out.buildingShapes[0].kind, 'temple');
     assert.falsy(out.buildingShapes[1].kind === 'temple');
+  });
+  test('temple generation: a footprint less than half on the nexus stays an ordinary building', () => {
+    const out = generate(0, [rect(1900, 1900, 2300, 2300), rect(200, 1800, 1700, 2200)]);
+    const brushing = out.buildingShapes[1];
+    // The fixture really does brush the Nexus: some, not most, of its cells.
+    let on = 0, all = 0;
+    const cells = [];
+    for (let i = 0; i < N * N; i++) if (out.ownerKeys[out.owners[i]] === brushing.key) { all++; cells.push(i); if (out.zone.coverage[i]) on++; }
+    assert.gt(on, 0, 'the building overlaps the Nexus coverage');
+    assert.lt(on * 2, all, 'but less than half of it');
+    assert.falsy(brushing.kind === 'temple', 'a brushing building is no temple');
+    assert.eq(out.buildingShapes[0].kind, 'temple', 'the building on the Nexus still is');
+  });
+  test('temple generation: a grove with no building raises a round 3x3 temple round its shrine', () => {
+    const out = generate(0, [rect(100, 100, 500, 500)]);
+    const temple = out.objects.find(o => o.kind === 'temple');
+    assert.truthy(temple && temple.round, 'a round temple is minted');
+    assert.eq(temple.templeKind, 'grove');
+    assert.eq(String(temple.templeAnchor.key), temple.templeZone);
+    const shrine = out.objects.find(o => o.kind === 'grove_shrine');
+    assert.truthy(shrine, 'the grove keeps its shrine');
+    const cellM = edge / N, sx = Math.floor(shrine.x / cellM), sy = Math.floor(shrine.y / cellM);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const i = (sy + dy) * N + sx + dx;
+      if (!dx && !dy) {
+        assert.falsy(out.ownerKeys[out.owners[i]] === temple.id, 'the shrine cell stays open');
+        continue;
+      }
+      assert.eq(out.grid[i], WorldGen.T.BUILDING_LARGE, `ring cell ${dx},${dy}`);
+      assert.eq(out.ownerKeys[out.owners[i]], temple.id, 'every ring cell resolves to the temple');
+    }
+    assert.eq(Math.floor(temple.x / cellM), sx, 'the temple door is south of the shrine');
+    assert.eq(Math.floor(temple.y / cellM), sy + 1);
+    const shape = out.buildingShapes.find(s => s.key === temple.id);
+    assert.eq(shape.kind, 'temple');
+    assert.eq(shape.templeZone, temple.templeZone);
+    assert.falsy(out.objects.some(o => o.kind === 'tower' && Math.abs(Math.floor(o.x / cellM) - sx) <= 2
+      && Math.abs(Math.floor(o.y / cellM) - sy) <= 2), 'no castle turrets on the ring');
+    // A grove whose Nexus claimed a building raises no second temple.
+    const claimed = generate();
+    assert.eq(claimed.objects.filter(o => o.kind === 'temple').length, 1);
+    assert.falsy(claimed.objects.some(o => o.round));
   });
   test('temple generation: a seam temple has one stable owner and no turrets on either tile', () => {
     const ring = rect(4000, 1900, 4240, 2300);

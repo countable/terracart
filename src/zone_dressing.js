@@ -261,6 +261,27 @@
         { tierSeed: WRECK_CHEST_TIER, zoneKind: s.a.kind, zoneVariant: s.variant.id,
           zoneLayer: 'wreck', _ix: ix, _iy: iy }));
     }
+    // A grove whose Nexus claimed no building (ctx.templeZones: the keys this
+    // tile's buildings were claimed for) raises a small round temple: a 3x3
+    // ring round its shrine cell, the shrine standing open at its heart. All
+    // eight cells must be the owner's, in this tile and free, or there is none.
+    // Reserved before finds and guards so nothing takes the ring first;
+    // worldgen paints the footprint and mints the temple (rasterizeTileSteps).
+    for (const s of states) {
+      if (s.a.kind !== 'grove' || !s.a.owned || !s.chest || ctx.templeZones?.has(String(s.a.key))) continue;
+      const ring = [];
+      for (const [ux, uy] of WG.RING_ORDER) {
+        const ix = s.poi[0] + ux, iy = s.poi[1] + uy;
+        // Never paved over a mapped footpath: the ring would cut the path.
+        if (!owns(s, ix, iy) || grid[iy * N + ix] === WG.T.PATH || ctx.tideSeats?.has(iy * N + ix)
+            || ctx.poiPadCells?.has(iy * N + ix) || !WG.isSpawnCell(grid, N, N, ix, iy, opts, 'minor')) break;
+        ring.push(iy * N + ix);
+      }
+      if (ring.length !== 8) { s.rec.shortfalls.push('temple:round'); continue; }
+      out.roundTemples ||= [];
+      out.roundTemples.push({ anchor: s.a, ix: s.poi[0], iy: s.poi[1], cells: ring });
+      for (const i of ring) { occ.add(i); s.clear.add(i); }
+    }
     for (const s of states) {
       if (s.a.kind === 'beach' && s.a.orientationSource === 'unresolved') s.rec.shortfalls.push('orientation:shoreline');
       if (!s.variant.quarryLayout) continue;

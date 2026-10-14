@@ -168,11 +168,14 @@ test('park fringe: the Nexus owns source park ground and its placement fringe, r
   const [x0, y0, x1, y1] = [1500, 1500, 2500, 2300];
   const { r, N } = fringeTile(TX, TY, rect(x0, y0, x1, y1), 'park');
   const baseline = fringeTile(TX, TY, null, 'park').r.grid;
+  const roundTemples = new Set(r.objects.filter(o => o.kind === 'temple' && o.round).map(o => o.id));
   let outside = 0, inside = 0;
   for (let iy = 0; iy < N; iy++) for (let ix = 0; ix < N; ix++) {
     const i = iy * N + ix, slot = r.zone.coverage[i];
     const d = distToRect(N, ix, iy, x0, y0, x1, y1);
     if (!slot) { assert.eq(r.grid[i], T.RESIDENTIAL, 'outside the union stays residential'); continue; }
+    // The grove's own round temple (it has no building to claim) stands on its ring.
+    if (roundTemples.has(r.ownerKeys[r.owners[i]])) continue;
     const a = r.zone.anchors[slot - 1];
     assert.eq(a.kind, 'grove'); assert.truthy(a.polygonAnchor);
     assert.eq(r.grid[i], T[ZoneVariants.pick(a).ground] ?? Z.terrainOf(a.kind), 'Nexus variant owns visible ground');
