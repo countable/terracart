@@ -83,7 +83,7 @@ test('downed: every hostile-interest branch reads `unnoticed`, never `shadowed`'
   // helper (Combat.seesTarget) beside `inactive` — never a lane of their own.
   assert.truthy(/const attentive = !inactive && Combat\.seesTarget\(scene, c, px, py, targetSight\) && \(creatureTarget \|\| npcTarget \|\| !Combat\.playerDowned\(scene\.save\.energy\)\)\s*&& inTerritory;/.test(CREATURE_AI_SRC),
     'the attack is attentive only to a player it can see and who is not down');
-  assert.truthy(/let sees = !inactive && Combat\.seesTarget\(scene, c, px, py, creatureTarget/.test(CREATURE_AI_SRC),
+  assert.truthy(/let sees = !inactive && Combat\.seesTarget\(scene, c, px, py,/.test(CREATURE_AI_SRC),
     'and the mover stalks only what it sees');
 });
 

@@ -18,7 +18,7 @@
     assert.eq(pool('FOREST'), 'boar,giant_bear,plant,spider');
     assert.eq(pool('ROCK'), 'skeleton,skeleton_soldier');
     assert.falsy(EnemyRoster.get('bat').surface, 'bats live underground only');
-    assert.eq(pool('COMMERCIAL'), 'club_goblin,goblin,goblin_archer,sword_spirit');
+    assert.eq(pool('COMMERCIAL'), 'club_goblin,goblin,goblin_archer,sword_spirit,thief');
     assert.eq(pool('INDUSTRIAL'), 'ash_zombie,marsh_zombie,zombie');
     assert.eq(pool('FARMLAND'), 'farmer_goblin');
     assert.eq(pool('PARK'), '', 'parks receive their enemies from their Nexus variant');

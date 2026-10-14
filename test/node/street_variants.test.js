@@ -1433,7 +1433,7 @@ test('barricade scenery adds stakes and barriers without multiplying guards', ()
   assert.gt(d.objects.filter((o) => o._streetScenery && o.kind === 'stakes').length, 2);
   assert.eq(d.lairs.filter((o) => o.tier === 'barricade').length, 1);
 });
-test('hedgerow encounters: one stable post holds two ordinary slimes per street and tile', () => {
+test('hedgerow encounters: one stable post holds two hedge-ambush runts per street and tile', () => {
   const {d}=dressed(rasterize());
   const posts=d.lairs.filter(l=>l.tier==='street_hedgerow');
   assert.eq(posts.length,1);
@@ -1446,7 +1446,7 @@ test('hedgerow encounters: one stable post holds two ordinary slimes per street 
   const cand={tier:'street_hedgerow',sid:'hedge-slime-test',tx:0,ty:0,ox:0,oy:0,lx:32.5*7,ly:32.5*7,ix:32,iy:32,halfW:0,halfH:0};
   const wake=(caughtSet)=>Lairs.garrisonFor(entry,cand,{tileEdgeM:edge,caughtSet});
   const guards=wake();
-  assert.eq(guards.length,2);assert.truthy(guards.every(g=>g.kind==='slime'));
+  assert.eq(guards.length,2);assert.truthy(guards.every(g=>g.kind==='goblin_runt'&&g.ambush),'Lairs.GROUPS.street_hedgerow: the ambushers');
   assert.eq(JSON.stringify(wake()),JSON.stringify(guards),'guard positions and IDs repeat');
   assert.eq(wake(new Set(guards.map(g=>g.id))).length,0,'caught ledger spends both guards');
   for(const guard of guards) entry._spawnOpts.occupied.add(Math.floor(guard.y/7)*N+Math.floor(guard.x/7));

@@ -297,7 +297,9 @@
   //                     lifetime starts at the wake, not at the tile load);
   //   `elite`           stamped shiny — Combat.isElite's double pool and
   //                     blow, the elite's drop (the kind must be eliteEligible);
-  //   `band`            a ring placement's radius band (× the ring).
+  //   `band`            a ring placement's radius band (× the ring);
+  //   `ambush`          it hides in the nearest bush or hedge to its seat
+  //                     and springs within hearing (creature_ai.js lurkSeat).
   // PLACES (seatPolar): 'ring' round the footprint outside the walls (a
   // wreck's seating); inside the keep: 'core' the tight knot at the centre
   // (an elite), 'floor' anywhere on the floor (a horde), 'front' the inside
@@ -309,6 +311,12 @@
   // Ghosts are never guards (owner, Oct 2026): they haunt crypts and
   // memorials, not ruins — no row seats a ghost.
   const GROUPS = {
+    // The hedged lane's AMBUSH: runts that slip into the clipped hedge beside
+    // their seat (creature_ai.js lurkSeat — `ambush`), hidden until you are
+    // next to them, and spring out within hearing.
+    street_hedgerow: { label: 'Hedge ambush', tiers: ['street_hedgerow'], modeCap: false,
+      story: 'Two goblin runts crouch inside the clipped hedges. The hedge shivers where one waits.',
+      members: [{ kind: 'goblin_runt', n: 2, place: 'ring', ambush: true }] },
     street_spider_path: { label: 'Spider Path', tiers: ['street_spider_path'], modeCap: false,
       story: 'Two spiders lurk beside a path strewn with lasting webs.',
       members: [{ kind: 'spider', n: 2, place: 'ring' }] },
@@ -1229,6 +1237,7 @@
         // ghost's dormancy, and the group it belongs to (tests, the sheet).
         ...(spec.aggroCells != null ? { aggroCells: spec.aggroCells } : {}),
         ...(spec.proximityCells != null ? { proximityCells: spec.proximityCells } : {}),
+        ...(spec.ambush ? { ambush: true } : {}),
         ...(plan ? { group } : {}),
       });
       // A guard the player wounded and walked away from comes back wounded.

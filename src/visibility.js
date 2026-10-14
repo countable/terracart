@@ -3,7 +3,14 @@
 // latitude-dependent tile rows keep their own grid.
 const Visibility = (() => {
   const CLEAR = 0, PARTIAL = 1, FULL = 2;
-  const TREE_SIGHT_PENALTY = 2, PARTIAL_DARKNESS = 0.5, FULL_DARKNESS = 1;
+  const PARTIAL_DARKNESS = 0.5, FULL_DARKNESS = 1;
+  // HEARING: a foe notices a body this close through partial cover (a bush,
+  // a hedge, a tree — never a cave wall). Past it, partial cover hides fully.
+  const HEAR_CELLS = 2;
+  // A grid slot's low two bits are its cover (CLEAR / PARTIAL / FULL); this
+  // bit marks a CONCEALING cell — a bush, a hedge, a mid-to-large tree — whose
+  // occupant is hidden from every viewer that is not directly adjacent.
+  const CONCEAL = 4;
   const states = new WeakMap();
   const REFRESH_MS = 1000;
   function objectCover(o) {
@@ -16,13 +23,26 @@ const Visibility = (() => {
     if (ObstacleStep.profile(o)) return PARTIAL;
     return CLEAR;
   }
+  // Does standing IN this object's cell hide a body? Bushes and hedges
+  // (ObstacleStep's bush / hedge profiles) and any tree that gives cover at
+  // all (past the sapling / seedling art) — not rocks, walls or rubble.
+  function objectConceals(o) {
+    if (!o || objectCover(o) !== PARTIAL) return false;
+    if (o.kind === 'tree' || o.kind === 'fruittree') return true;
+    const prof = ObstacleStep.profile(o);
+    return prof === ObstacleStep.PROFILES.bush || prof === ObstacleStep.PROFILES.hedge;
+  }
   function key(c) { return c.cellIX + '_' + c.cellIY; }
   // Cover lives in a dense typed array over the local blocker's bounding box:
   // a ray reads one slot per crossed cell, with no key strings or Map probes.
   const EMPTY = { x0: 0, y0: 0, w: 0, h: 0, data: new Uint8Array(0) };
   function coverAt(s, ix, iy) {
     const g = s.grid, x = ix - g.x0, y = iy - g.y0;
-    return x >= 0 && y >= 0 && x < g.w && y < g.h ? g.data[y * g.w + x] : CLEAR;
+    return x >= 0 && y >= 0 && x < g.w && y < g.h ? g.data[y * g.w + x] & 3 : CLEAR;
+  }
+  function concealAt(s, ix, iy) {
+    const g = s.grid, x = ix - g.x0, y = iy - g.y0;
+    return x >= 0 && y >= 0 && x < g.w && y < g.h && (g.data[y * g.w + x] & CONCEAL) !== 0;
   }
   function ready(scene) {
     return !!(scene?.originPx && scene.startWorldM && scene.playerM && scene.mPerPx > 0 && scene.cellsPerTile > 0);
@@ -77,7 +97,7 @@ const Visibility = (() => {
       if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(scene.save, o)) return;
       if (roadNight && RoadSafety.objectHidden(scene, o, true)) return;
       const c = worldMetersToAbsCell(scene, o.x, o.y);
-      cells.push(c.cellIX, c.cellIY, cover);
+      cells.push(c.cellIX, c.cellIY, cover | (objectConceals(o) ? CONCEAL : 0));
       if (c.cellIX < minX) minX = c.cellIX; if (c.cellIX > maxX) maxX = c.cellIX;
       if (c.cellIY < minY) minY = c.cellIY; if (c.cellIY > maxY) maxY = c.cellIY;
     };
@@ -92,7 +112,8 @@ const Visibility = (() => {
       const w = maxX - minX + 1, h = maxY - minY + 1, data = new Uint8Array(w * h);
       for (let i = 0; i < cells.length; i += 3) {
         const at = (cells[i + 1] - minY) * w + cells[i] - minX;
-        if (cells[i + 2] > data[at]) data[at] = cells[i + 2];
+        const v = cells[i + 2];
+        data[at] = Math.max(data[at] & 3, v & 3) | ((data[at] | v) & CONCEAL);
       }
       grid = { x0: minX, y0: minY, w, h, data };
     }
@@ -190,11 +211,30 @@ const Visibility = (() => {
     return cover;
   }
   function coverBetween(scene, ax, ay, bx, by) { return ready(scene) ? trace(scene, state(scene), ax, ay, bx, by) : CLEAR; }
+  // THE CONCEALING CELL: a body standing in a bush, a hedge or a grown tree
+  // is behind PARTIAL cover to any viewer more than one cell away (Chebyshev
+  // — the eight neighbours see in), whatever lies between them.
+  function concealedFrom(scene, s, ax, ay, bx, by) {
+    const b = worldMetersToAbsCell(scene, bx, by);
+    if (!concealAt(s, b.cellIX, b.cellIY)) return false;
+    const a = worldMetersToAbsCell(scene, ax, ay);
+    const d = absCellDelta(scene, a.cellIX, a.cellIY, b.cellIX, b.cellIY);
+    return Math.max(Math.abs(d.dx), Math.abs(d.dy)) > 1;
+  }
+  // What a VIEWER at (ax, ay) sees of a body at (bx, by): the ray's cover
+  // (coverBetween), raised to PARTIAL when the body stands concealed. The one
+  // sight question of the foes (Combat.seesTarget, the guards).
+  function sightCover(scene, ax, ay, bx, by) {
+    const cover = api.coverBetween(scene, ax, ay, bx, by);
+    if (cover !== CLEAR || !ready(scene)) return cover;
+    return concealedFrom(scene, state(scene), ax, ay, bx, by) ? PARTIAL : CLEAR;
+  }
   function playerCover(scene, x, y) {
     if (!ready(scene)) return CLEAR;
     const s = state(scene), k = x + ',' + y;
     if (s.rays.has(k)) return s.rays.get(k);
-    const result = trace(scene, s, s.px, s.py, x, y);
+    let result = trace(scene, s, s.px, s.py, x, y);
+    if (result === CLEAR && concealedFrom(scene, s, s.px, s.py, x, y)) result = PARTIAL;
     // Dynamic creatures must not grow the retained field without bound.
     if (s.rays.size >= 8192) s.rays.clear();
     s.rays.set(k, result);
@@ -216,14 +256,42 @@ const Visibility = (() => {
   // (objects, plants, crops, traps, hazards) stays drawn and tappable in the
   // shadow so the player keeps their bearings; only FULL cover removes it.
   // The facing blocker itself stays visible (trace skips the last cell).
+  // An actor standing IN a bush, a hedge or a grown tree is hidden too unless
+  // the player stands next to it (concealedFrom). The X-RAY RING
+  // (Gear.hasXRay) sees through all of that — only FULL cover still hides.
   function hidden(scene, x, y, scenery = false) {
     const cover = playerCover(scene, x, y);
-    return scenery ? cover === FULL : cover !== CLEAR;
+    if (scenery || (typeof Gear !== 'undefined' && Gear.hasXRay?.(scene.save))) return cover === FULL;
+    return cover !== CLEAR;
+  }
+  // The nearest CONCEALING cell to (x, y) within `radiusCells` (a lurker's
+  // hide — creature_ai.js lurkSpot), as its centre in world metres, or null.
+  // Ties fall to `salt`'s hash so two lurkers spread over a hedge; `taken`
+  // (abs-cell keys) is skipped. Reads the local grid, so it answers near the
+  // player only — where creatures think at all.
+  function concealingCellNear(scene, x, y, radiusCells, salt = '', taken = null) {
+    if (!ready(scene)) return null;
+    const s = state(scene), c = worldMetersToAbsCell(scene, x, y);
+    const r = Math.ceil(radiusCells);
+    let best = null, rank = Infinity;
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const d2 = dx * dx + dy * dy;
+      if (d2 > radiusCells * radiusCells) continue;
+      const ix = c.cellIX + dx, iy = c.cellIY + dy;
+      if (!concealAt(s, ix, iy) || taken?.has(ix + '_' + iy)) continue;
+      const score = d2 + (fnv1a(salt + ':' + ix + '_' + iy) % 1000) / 2000;
+      if (score < rank) { rank = score; best = { ix, iy }; }
+    }
+    if (!best) return null;
+    const m = absCellCenterMeters(scene, best.ix, best.iy);
+    return { x: m.x, y: m.y, key: best.ix + '_' + best.iy };
   }
   function invalidate(scene) {
     const s = states.get(scene);
     if (s) { s.frame = undefined; s.signature = null; s.rays.clear(); s.revision++; }
   }
-  return { CLEAR, PARTIAL, FULL, TREE_SIGHT_PENALTY, PARTIAL_DARKNESS, FULL_DARKNESS,
-    objectCover, coverBetween, playerCover, hidden, observer, revision: scene => ready(scene) ? state(scene).revision : 0, invalidate };
+  const api = { CLEAR, PARTIAL, FULL, HEAR_CELLS, PARTIAL_DARKNESS, FULL_DARKNESS,
+    objectCover, objectConceals, coverBetween, sightCover, playerCover, hidden, concealingCellNear, observer,
+    revision: scene => ready(scene) ? state(scene).revision : 0, invalidate };
+  return api;
 })();
