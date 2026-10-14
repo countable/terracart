@@ -94,8 +94,7 @@ The giant serpent remains a draft prototype and has no live spawn entry.
 Quarries are peaceful: no quarry variant has enemies, lava, fire vents,
 spikes or cave-ins on the surface (`docs/design/zone-variants.md`). Cyclic
 vents (`EnvironmentHazards`) erupt only on cave floors and along seeded hazard
-paths; cave-ins belong to the dungeon floor and the Seep and Black Ring tar
-pits.
+paths; cave-ins belong to the dungeon floor and the Seep tar pits.
 
 ## Caves
 

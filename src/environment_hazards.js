@@ -153,7 +153,7 @@
       elapsedMs: Math.min(CONFIG.cavein.warningMs, h.elapsedMs) };
   }
   // Cave-ins belong to the dungeon floor and, on the surface, to the Nexus
-  // rows that declare `caveIns` (the Seep and Black Ring tar pits).
+  // rows that declare `caveIns` (the Seep tar pits).
   function caveInGround(scene, cell) {
     if (scene.depth === CONFIG.cavein.dungeonDepth) return true;
     if (scene.depth !== 0) return false;

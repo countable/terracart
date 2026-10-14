@@ -245,10 +245,10 @@
     }
     WorldGen.makeRng = () => () => 0;
   }
-  test('environment hazards: Seep and Black Ring tar pits cave in; other tar yards do not', () => fixture((s, entries) => {
+  test('environment hazards: Seep tar pits cave in; other tar yards do not', () => fixture((s, entries) => {
     for (const row of ZoneVariants.forKind('tar')) {
       s.save.caveIns = {}; s._environmentHazards = new Map(); tarPit(s, entries, row.id); EnvironmentHazards.observe(s);
-      const state = EnvironmentHazards.lists(s), expected = ['seep', 'black_ring'].includes(row.id);
+      const state = EnvironmentHazards.lists(s), expected = row.id === 'seep';
       assert.eq(!!row.caveIns, expected, row.id);
       if (expected) assert.inRange(state.caveins.length, 2, 5, row.id);
       else assert.eq(state.caveins.length, 0, row.id);

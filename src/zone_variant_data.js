@@ -6257,29 +6257,21 @@
               3
             ],
             "material": "barrel"
-          },
-          {
-            "at": [
-              7,
-              7
-            ],
-            "material": "ground_spikes"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.109375,
+        "nominalDensity": 0.09375,
         "materialDensity": {
           "rubble": 0.0625,
-          "barrel": 0.03125,
-          "ground_spikes": 0.015625
+          "barrel": 0.03125
         },
         "type": "repeat_motif",
         "hazardDensity": {
           "tar": 0.15625
         },
-        "totalOccupiedDensity": 0.265625,
+        "totalOccupiedDensity": 0.25,
         "poiOrigin": {
           "cell": [
             3,
@@ -6447,7 +6439,7 @@
         "fallback": "omit_guard_keep_find"
       },
       "caveIns": true,
-      "atmosphere": "Repeated tar-pit clusters seep around small rubble islands, with a ground spike in every cluster; the soft ground can cave in underfoot. A lone flower survives beyond the last dark crescent. A splitting slime lurks beside the rare find.",
+      "atmosphere": "Repeated tar-pit clusters seep around small rubble islands; the soft ground can cave in underfoot. A lone flower survives beyond the last dark crescent. A splitting slime lurks beside the rare find.",
       "materialLooks": {
         "rubble": "zone_rock_seep"
       }
@@ -7009,8 +7001,7 @@
       "guards": {
         "mode": "none"
       },
-      "caveIns": true,
-      "atmosphere": "Smaller, near-continuous rubble circles enclose tight tar rings, with a ground spike between them; the soft ground can cave in underfoot. The circles repeat every eight cells; two gold-bearing rocks stand at the far side.",
+      "atmosphere": "Smaller, near-continuous rubble circles enclose tight tar rings, with a ground spike between them. The circles repeat every eight cells; two gold-bearing rocks stand at the far side.",
       "materialLooks": {
         "rubble": "zone_rock_black_ring"
       }

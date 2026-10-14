@@ -589,8 +589,7 @@ access or tile lifecycle mechanics.
   step and stores the stable plate id in `save.pressedPlates`; its depressed
   frame survives reloads and tile regeneration without another summon. Flight
   does not press plates, and a refused ghost spawn leaves a plate unspent.
-- L1 and the surface Nexus rows marked `caveIns` (the Seep and Black Ring tar
-  pits) use `EnvironmentHazards` for hidden cave-in clusters of
+- L1 and the surface Nexus rows marked `caveIns` (the Seep tar pits) use `EnvironmentHazards` for hidden cave-in clusters of
   2–5 connected cells scattered across general eligible ground. Their seeds are
   cell-based and materialized on first contact. Any grounded entity (player,
   enemy, animal, pet or NPC) stepping onto a seeded cell starts the whole cluster's

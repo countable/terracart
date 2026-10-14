@@ -151,9 +151,9 @@ mine has no wurms), no layout places lava, spikes or other hazards (the
 crater's altar stands on a dry pool floor), and the surface spawns no fire
 vents, cave-ins or sinkholes inside quarry coverage (`EnvironmentHazards`).
 Habitat fauna, finds, entrances and the crater's daily altar remain. The
-quarry's spikes and cave-ins moved to the tar pits: Seep and Black Ring each
-carry one ground spike per motif repeat, and their `caveIns` rows let hidden
-cave-in clusters open on their tar ground (sinkholes keep off it).
+quarry's spikes and cave-ins moved to the tar yards: Black Ring carries one
+ground spike per motif repeat, and Seep's `caveIns` row lets hidden cave-in
+clusters open on its tar ground (sinkholes keep off it).
 
 <a id="beach-family"></a>
 
