@@ -27,7 +27,7 @@ test('generated containers retain 70% empty odds and the base budget regardless 
       const result = rollBarrel(o, rng);
       assert.eq(JSON.stringify(result), JSON.stringify(rollBarrel({...o, depth: 1, poiDensity: 1, barrelDensity: 1}, otherRng)));
       if (result.kind === 'empty') empty++;
-      else if (result.kind === 'gold') assert.eq(result.amount, 15);
+      else if (result.kind === 'gold') assert.eq(result.amount, 1, 'a clay pot holds a single coin');
       else assert.eq(result.qty, ChestThemes.quantityForBudget(result.id, 15));
     }
     assert.lt(Math.abs(empty / 1000 - 0.7), 0.05);
