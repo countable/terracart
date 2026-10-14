@@ -3618,6 +3618,23 @@ const CRITTER_SHADOW_W = {
   butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
 };
 
+// The abs cells live enemies stand on (scene._foeBodies — the bubble's
+// foes), never one burrowed or disguised: a disguised treant IS the bush.
+Render.foeCells = function foeCells(scene) {
+  const cells = new Set();
+  for (const c of scene._foeBodies || []) {
+    if (Combat.isConcealed(c) || !Combat.isEnemy(c)) continue;
+    const at = worldMetersToAbsCell(scene, c.x, c.y);
+    cells.add(at.cellIX + '_' + at.cellIY);
+  }
+  return cells;
+};
+// A plant that shivers when a foe stands in it: a bush or a hedge
+// (ObstacleStep's bush / hedge profiles — the shrubs and berry bushes).
+Render.lurkBush = function lurkBush(p) {
+  const prof = ObstacleStep.profile(p.kind ? p : { kind: 'wildplant', crop: p.crop, _plantArt: p._plantArt });
+  return prof === ObstacleStep.PROFILES.bush || prof === ObstacleStep.PROFILES.hedge;
+};
 // Cull before building sprite, label, shadow and effect lists. Any cover
 // removes an actor behind it; scenery (`scenery` true) goes only behind full
 // cover (Visibility.hidden). The sole lighting pass darkens the shadow.
@@ -4780,6 +4797,10 @@ Render.drawObjects = function drawObjects(scene) {
   const _plantNow = Date.now();
   // The nest bush's swing, degrees; its beat length lives in NEST_BUSH_BEAT.
   const NEST_WIGGLE_DEG = 8;
+  // The cells an enemy stands on this frame (the sim bubble's foes — the
+  // ones that move at all), so a bush or hedge over one wiggles on its
+  // LURK_BUSH_BEAT. Empty, and no per-plant cell lookup, when none are near.
+  const foeCells = Render.foeCells(scene);
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
@@ -4788,7 +4809,11 @@ Render.drawObjects = function drawObjects(scene) {
     // baby off) WIGGLES: three quick swings, NEST_WIGGLE_DEG either side of
     // upright, swelling and dying over the beat's show (nestBushPhase, once
     // every 10-30 s). Everything else stands at the pool's reset angle, 0.
-    const wig = (p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow, scene._orbReveal?.get(p.wildId)) : -1;
+    let wig = (p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow, scene._orbReveal?.get(p.wildId)) : -1;
+    if (wig < 0 && foeCells.size && p.wildId != null && Render.lurkBush(p)) {
+      const cell = worldMetersToAbsCell(scene, p.x, p.y);
+      if (foeCells.has(cell.cellIX + '_' + cell.cellIY)) wig = lurkBushPhase(p.wildId, _plantNow);
+    }
     if (wig >= 0) s.setAngle(Math.sin(wig * Math.PI * 6) * NEST_WIGGLE_DEG * Math.sin(wig * Math.PI));
     // Wild flora wears its biome's tint; farmed crops and placed rocks render
     // untinted (the pool's reset). A SHINY plant is not tinted: its light

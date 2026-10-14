@@ -18,6 +18,10 @@
   function hasPerception(save) {
     return Object.entries(UNIQUE_JEWELRY).some(([id, row]) => row.perception && carriesItem(save, id));
   }
+  // The X-Ray Ring (UNIQUE_JEWELRY.xray): Visibility.hidden sees past partial cover.
+  function hasXRay(save) {
+    return Object.entries(UNIQUE_JEWELRY).some(([id, row]) => row.xray && carriesItem(save, id));
+  }
   function hasCompass(save) {
     return Object.entries(CARRIED_ITEM_SPEC).some(([id, row]) => row.treasureCompass && carriesItem(save, id));
   }
@@ -329,7 +333,7 @@
     if (save.activeWeapon === piece.slot) unequipWeapon(save);
   }
 
-  root.Gear = { hasPerception, hasCompass, coinMagnetCells, effectiveRelics, spellSlots, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, gearTier, canUpgrade, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
+  root.Gear = { hasPerception, hasXRay, hasCompass, coinMagnetCells, effectiveRelics, spellSlots, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, gearTier, canUpgrade, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
                 blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS,
                 TRADER_GEAR_CHANCE, uniqueRelics, traderGearSwap, traderSwapValid, surrenderPiece };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
