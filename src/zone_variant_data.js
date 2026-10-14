@@ -6257,21 +6257,29 @@
               3
             ],
             "material": "barrel"
+          },
+          {
+            "at": [
+              7,
+              7
+            ],
+            "material": "ground_spikes"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.09375,
+        "nominalDensity": 0.109375,
         "materialDensity": {
           "rubble": 0.0625,
-          "barrel": 0.03125
+          "barrel": 0.03125,
+          "ground_spikes": 0.015625
         },
         "type": "repeat_motif",
         "hazardDensity": {
           "tar": 0.15625
         },
-        "totalOccupiedDensity": 0.25,
+        "totalOccupiedDensity": 0.265625,
         "poiOrigin": {
           "cell": [
             3,
@@ -6438,7 +6446,8 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Repeated tar-pit clusters seep around small rubble islands. A lone flower survives beyond the last dark crescent. A splitting slime lurks beside the rare find.",
+      "caveIns": true,
+      "atmosphere": "Repeated tar-pit clusters seep around small rubble islands, with a ground spike in every cluster; the soft ground can cave in underfoot. A lone flower survives beyond the last dark crescent. A splitting slime lurks beside the rare find.",
       "materialLooks": {
         "rubble": "zone_rock_seep"
       }
@@ -6838,20 +6847,28 @@
               4
             ],
             "material": "tar"
+          },
+          {
+            "at": [
+              7,
+              7
+            ],
+            "material": "ground_spikes"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.25,
+        "nominalDensity": 0.265625,
         "materialDensity": {
-          "rubble": 0.25
+          "rubble": 0.25,
+          "ground_spikes": 0.015625
         },
         "type": "repeat_motif",
         "hazardDensity": {
           "tar": 0.125
         },
-        "totalOccupiedDensity": 0.375,
+        "totalOccupiedDensity": 0.390625,
         "poiOrigin": {
           "cell": [
             3,
@@ -6992,7 +7009,8 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Smaller, near-continuous rubble circles enclose tight tar rings. The circles repeat every eight cells; two gold-bearing rocks stand at the far side.",
+      "caveIns": true,
+      "atmosphere": "Smaller, near-continuous rubble circles enclose tight tar rings, with a ground spike between them; the soft ground can cave in underfoot. The circles repeat every eight cells; two gold-bearing rocks stand at the far side.",
       "materialLooks": {
         "rubble": "zone_rock_black_ring"
       }

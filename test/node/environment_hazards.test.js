@@ -236,9 +236,33 @@
       const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, 'quarry-vent', () => .5, 'fire');
       assert.falsy(EnvironmentHazards.eligible(s, h), `${row.id}: no ambient surface vent seat`);
     }
+  }));
+  function tarPit(s, entries, variant) {
+    s.depth = 0;
+    for (const e of entries) {
+      e.grid.fill(WorldGen.T.TAR_YARD);
+      e.zone = { anchors: [{ kind: 'tar', variant }], coverage: new Uint16Array(64).fill(1) };
+    }
+    WorldGen.makeRng = () => () => 0;
+  }
+  test('environment hazards: Seep and Black Ring tar pits cave in; other tar yards do not', () => fixture((s, entries) => {
+    for (const row of ZoneVariants.forKind('tar')) {
+      s.save.caveIns = {}; s._environmentHazards = new Map(); tarPit(s, entries, row.id); EnvironmentHazards.observe(s);
+      const state = EnvironmentHazards.lists(s), expected = ['seep', 'black_ring'].includes(row.id);
+      assert.eq(!!row.caveIns, expected, row.id);
+      if (expected) assert.inRange(state.caveins.length, 2, 5, row.id);
+      else assert.eq(state.caveins.length, 0, row.id);
+      if (expected) assert.eq(state.sinkholes.length, 0, `${row.id}: no sinkhole beside a collapsing patch`);
+    }
+  }));
+  test('environment hazards: a pit saved on strip-mine ground is inert, not a live hole', () => fixture((s, entries) => {
+    quarry(s, entries);
     s.save.caveIns = { old: { depth: 0, cellIX: 3, cellIY: 3, elapsedMs: 5000 } };
-    s._environmentHazards = new Map(); quarry(s, entries);
-    assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'a pit saved on quarry ground before the change stays closed');
+    s._environmentHazards = new Map();
+    const h = EnvironmentHazards.lists(s).caveins[0];
+    assert.truthy(h, 'the saved record is kept');
+    s.playerM = { x: 28, y: 28 }; advance(s, 1000);
+    assert.truthy(h.blocked, 'off cave-in ground it never swallows the player');
   }));
   test('environment hazards: stepped L1 cluster cells become permanent pits after exactly five foreground seconds', () => fixture((s, entries) => {
     dungeon(s, entries);

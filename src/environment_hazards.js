@@ -34,8 +34,7 @@
       const s = { vents: [], sinkholes: [], caveins: [], visits: new Set(), elapsedMs: 0 };
       scene._environmentHazards.set(depth, s);
       for (const [id, saved] of Object.entries(scene.save?.caveIns || {})) {
-        // A pit saved on surface quarry ground before quarries became peaceful stays closed.
-        if (saved.depth !== depth || !caveInGround({ depth }) || !Number.isInteger(saved.cellIX) || !Number.isInteger(saved.cellIY)) continue;
+        if (saved.depth !== depth || !Number.isInteger(saved.cellIX) || !Number.isInteger(saved.cellIY)) continue;
         const h = create(scene, 'cavein', saved, id);
         h.elapsedMs = Math.max(0, Number(saved.elapsedMs) || 0);
         update(h); s.caveins.push(h);
@@ -70,9 +69,15 @@
     // docs/design/floors.md): its descent is gated - elevator, dig or key.
     if (h.type !== 'vent' && root.DungeonProgression && !root.DungeonProgression.ropeCanDescend(h.depth)) return false;
     return footprint(scene, h).every(p => {
-      if (!p.loaded || !(pathVent ? W.isWalkable(p.type) : suitable(p.type, scene.depth))) return false;
+      // Cave-ins also open in tar pits (a variant row's `caveIns`).
+      const ground = pathVent ? W.isWalkable(p.type) : suitable(p.type, scene.depth)
+        || (h.type === 'cavein' && p.type === W.T.TAR_YARD);
+      if (!p.loaded || !ground) return false;
       const e = W.tileCache.get(W.tileKey(p.tx, p.ty));
       if (!e?._spawnOpts) return false;
+      // A pit stays only on cave-in ground; one saved anywhere else (an old
+      // strip-mine pit) reads as blocked and stays inert.
+      if (h.type === 'cavein' && !caveInGround(scene, p)) return false;
       const opts = { ...e._spawnOpts, spawnWhy: e.spawnWhy || e._spawnOpts.spawnWhy,
         roadMask: e.roadMask || e._spawnOpts.roadMask, roadClass: e.roadClass || e._spawnOpts.roadClass };
       // Authored seats own their generation occupancy, but never bypass land
@@ -128,21 +133,35 @@
     const p = scene.cellAt(scene.startWorldM.x + scene.playerM.x, scene.startWorldM.y + scene.playerM.y + (scene.feetOffsetM || 0));
     return (h.footprintCells || footprint(scene, h)).some(c => c.cellIX === p.cellIX && c.cellIY === p.cellIY);
   }
-  function quarryVariant(entry, ix, iy) {
+  function zoneAnchorAt(entry, ix, iy) {
     const field = entry?.zone, coverage = field?.coverage || field?.idx;
-    const anchor = field?.anchors?.[(coverage?.[iy * entry.cellsPerEdge + ix] || 0) - 1];
+    return field?.anchors?.[(coverage?.[iy * entry.cellsPerEdge + ix] || 0) - 1] || null;
+  }
+  function quarryVariant(entry, ix, iy) {
+    const anchor = zoneAnchorAt(entry, ix, iy);
     if (anchor?.kind !== 'quarry') return null;
     return root.ZoneVariants.pick(anchor)?.id || null;
+  }
+  // The surface Nexus row covering a cell, when its row opens cave-ins.
+  function caveInVariant(entry, ix, iy) {
+    const anchor = zoneAnchorAt(entry, ix, iy), row = anchor && root.ZoneVariants.pick(anchor);
+    return row?.caveIns ? row.id : null;
   }
   function saveCaveIn(scene, h) {
     scene.save.caveIns ||= {};
     scene.save.caveIns[h.id] = { depth: h.depth, cellIX: h.cellIX, cellIY: h.cellIY,
       elapsedMs: Math.min(CONFIG.cavein.warningMs, h.elapsedMs) };
   }
-  // Cave-ins belong to the dungeon floor only; no surface quarry collapses.
-  function caveInGround(scene) { return scene.depth === CONFIG.cavein.dungeonDepth; }
+  // Cave-ins belong to the dungeon floor and, on the surface, to the Nexus
+  // rows that declare `caveIns` (the Seep and Black Ring tar pits).
+  function caveInGround(scene, cell) {
+    if (scene.depth === CONFIG.cavein.dungeonDepth) return true;
+    if (scene.depth !== 0) return false;
+    const e = root.WorldGen.tileCache.get(root.WorldGen.tileKey(cell.tx, cell.ty));
+    return !!caveInVariant(e, cell.ix, cell.iy);
+  }
   function observeCaveIn(scene, s, at, key) {
-    if (!caveInGround(scene)) return;
+    if (!caveInGround(scene, at)) return;
     const id = `environment:cavein:${key}`;
     if (s.visits.has(id) || s.caveins.some(h => h.id === id)) return;
     s.visits.add(id);
@@ -166,7 +185,7 @@
       const point = absCellCenterMeters(scene, cell.cellIX, cell.cellIY), tileCell = scene.cellAt(point.x, point.y);
       const cellId = `environment:cavein:${scene.depth}:${tileCell.tx}:${tileCell.ty}:${tileCell.ix}:${tileCell.iy}`;
       const h = create(scene, 'cavein', cell, cellId);
-      if (reserved.has(cellKey) || !caveInGround(scene) || !eligible(scene, h, false)) continue;
+      if (reserved.has(cellKey) || !caveInGround(scene, tileCell) || !eligible(scene, h, false)) continue;
       cluster.push(h);
       // Only accepted cells extend the frontier, so a blocked cell never bridges a cluster.
       for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]])
@@ -246,7 +265,9 @@
     const key = `${scene.depth}:${at.tx}:${at.ty}:${at.ix}:${at.iy}`;
     const e = root.WorldGen.tileCache.get(root.WorldGen.tileKey(at.tx, at.ty));
     if (!e?._spawnOpts) return;
-    const quarry = scene.depth === 0 ? quarryVariant(e, at.ix, at.iy) : null;
+    // Sinkholes keep off peaceful quarries and cave-in ground.
+    const noSinkhole = (entry, ix, iy) => !!(quarryVariant(entry, ix, iy) || caveInVariant(entry, ix, iy));
+    const noSinkholeHere = scene.depth === 0 && noSinkhole(e, at.ix, at.iy);
     touch(scene, scene.save, px, py);
     for (const actor of scene._characterBodies || []) {
       if (actor.id !== 'player') touch(scene, actor, actor.x, actor.y);
@@ -262,7 +283,7 @@
     const kinds = ventKinds(scene.depth);
     for (const type of ['vent', 'sinkhole']) {
       if (type === 'vent' && !kinds.length) continue;
-      if (type === 'sinkhole' && (quarry || scene.depth === CONFIG.cavein.dungeonDepth)) continue;
+      if (type === 'sinkhole' && (noSinkholeHere || scene.depth === CONFIG.cavein.dungeonDepth)) continue;
       const visitKey = `${type}:${key}`;
       if (s.visits.has(visitKey)) continue;
       const cfg = CONFIG[type], list = type === 'vent' ? s.vents : s.sinkholes;
@@ -277,7 +298,7 @@
         const h = create(scene, type, cell, id, rng, kind);
         if (!eligible(scene, h)) continue;
         if (type === 'sinkhole' && footprint(scene, h).some(p =>
-          quarryVariant(root.WorldGen.tileCache.get(root.WorldGen.tileKey(p.tx, p.ty)), p.ix, p.iy))) continue;
+          noSinkhole(root.WorldGen.tileCache.get(root.WorldGen.tileKey(p.tx, p.ty)), p.ix, p.iy))) continue;
         const cells = new Set(footprint(scene, h).map(c => `${c.cellIX}:${c.cellIY}`));
         if ([...s.vents, ...s.sinkholes, ...s.caveins].some(other => footprint(scene, other).some(c => cells.has(`${c.cellIX}:${c.cellIY}`)))) continue;
         const pressure = root.PressureTraps?.lists(scene);
@@ -364,5 +385,5 @@
     s.vents = s.vents.filter(h => !h.blocked);
     s.sinkholes = s.sinkholes.filter(h => h.phase !== 'closed');
   }
-  root.EnvironmentHazards = { CONFIG, VENTS, ventKinds, state, lists, footprint, suitable, eligible, create, update, erupt, overlaps, quarryVariant, touch, exposure, observe, tick };
+  root.EnvironmentHazards = { CONFIG, VENTS, ventKinds, state, lists, footprint, suitable, eligible, create, update, erupt, overlaps, quarryVariant, caveInVariant, touch, exposure, observe, tick };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
