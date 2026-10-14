@@ -286,32 +286,17 @@
       if (s.a.owned && s.variant.entrances && entrances.length < root.QuarryLayout.entranceCount(s))
         s.rec.shortfalls.push('entrance:no-safe-seat');
       if (s.a.clipped) s.rec.shortfalls.push('layout:incomplete-source-strip-mine');
-      for (const [layer, entries] of [['find',plan.finds], ['guard',plan.guards]]) {
-        for (let n = 0; n < entries.length; n++) {
-          const {i, material} = entries[n];
-          const seat = yield* findSeat(s, i % N, Math.floor(i / N), material);
-          const record = seat && place(s, seat[0], seat[1], material, layer,
-            `zq_${s.variant.id}_${s.a.gx}_${s.a.gy}_${layer}_${n}`);
-          if (record) {
-            s.clear.add(seat[1] * N + seat[0]);
-            if (layer === 'find') s.rec.findsPlaced++; else s.rec.guardsPlaced++;
-          } else s.rec.shortfalls.push(`${layer}:${n}`);
-        }
+      // A quarry is peaceful: its plan seats finds only, never guards or hazards.
+      for (let n = 0; n < plan.finds.length; n++) {
+        const {i, material} = plan.finds[n];
+        const seat = yield* findSeat(s, i % N, Math.floor(i / N), material);
+        const record = seat && place(s, seat[0], seat[1], material, 'find',
+          `zq_${s.variant.id}_${s.a.gx}_${s.a.gy}_find_${n}`);
+        if (record) { s.clear.add(seat[1] * N + seat[0]); s.rec.findsPlaced++; }
+        else s.rec.shortfalls.push(`find:${n}`);
       }
       for (let n = s.rec.findsPlaced; n < s.rec.findsRequested; n++) {
         const reason = `find:${n}`; if (!s.rec.shortfalls.includes(reason)) s.rec.shortfalls.push(reason);
-      }
-      for (let n = s.rec.guardsPlaced; n < s.rec.guardsRequested; n++) {
-        const reason = `guard:${n}`; if (!s.rec.shortfalls.includes(reason)) s.rec.shortfalls.push(reason);
-      }
-      for (const i of plan.hazards) {
-        const ix = i % N, iy = Math.floor(i / N);
-        if (!WG.isSpawnCell(grid, N, N, ix, iy, opts, 'hazard')) continue;
-        const [x, y] = position(ix, iy);
-        grid[i] = WG.T.CAVE_LAVA;
-        out.objects.push(WG.makeObject('lava_vent', x, y, WG.cellId('qlava', tx, ty, ix, iy),
-          {zoneKind:'quarry', zoneVariant:s.variant.id, zoneLayer:'hazard', _ix:ix, _iy:iy}));
-        occ.add(i);
       }
     }
     for (const s of states) {
@@ -435,10 +420,10 @@
         if ((n & 255) === 0) yield 'generated zone shrine';
         const i = s.cells[n], ix = i % N, iy = Math.floor(i / N);
         const fixed = s.quarryPlan?.shrineSeat;
-        // A safely suppressed lava cell leaves a dry pool; it does not remove
-        // the altar. Occupied or inaccessible pool cells still prevent it.
-        if (v.quarryLayout === 'crater' && (i !== fixed || !s.quarryPlan.hazards.every(j =>
-          grid[j] === WG.T.CAVE_LAVA || WG.isSpawnCell(grid, N, N, j % N, Math.floor(j / N), opts, 'minor')))) continue;
+        // The crater altar stands on its dry pool floor; occupied or
+        // inaccessible pool cells prevent it.
+        if (v.quarryLayout === 'crater' && (i !== fixed || !s.quarryPlan.pool.every(j =>
+          WG.isSpawnCell(grid, N, N, j % N, Math.floor(j / N), opts, 'minor')))) continue;
         if ((s.clear.has(i) && i !== fixed) || s.poiSlots.has(i) || s.connections.has(i)
             || s.quarryPlan?.background.has(i) || ctx.tideSeats?.has(i)
             || ctx.poiPadCells?.has(i) || out.reservedCells?.has(i)

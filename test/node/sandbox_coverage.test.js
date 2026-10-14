@@ -241,7 +241,9 @@ test('sandbox coverage: recent zone layouts and enemy recipients are authored', 
   }
   assert.truthy(chestHidesMimic(e.objects.find(o => o._sandboxProbe === 'mimic')));
   assert.truthy(e.objects.some(o => o.zoneVariant === 'quarry-crater' && o.shrineKind === 'ember_altar'));
-  assert.truthy(Array.from(e.grid).includes(WorldGen.T.CAVE_LAVA), 'crater creates real surface lava');
+  assert.falsy(Array.from(e.grid).includes(WorldGen.T.CAVE_LAVA), 'a peaceful crater paints no surface lava');
+  for (const variant of ['quarry-crater', 'quarry-strip-mine', 'quarry-stronghold'])
+    assert.falsy(e.zoneDress.guards.some(g => g.zoneVariant === variant), `${variant} holds no enemies`);
   for (const kind of ['mushroom_monster', 'treant', 'fire_elemental', 'mimic', 'wurm']) {
     assert.truthy(e.creatures.some(c => c.kind === kind), kind);
   }

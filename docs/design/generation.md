@@ -442,16 +442,18 @@ access or tile lifecycle mechanics.
   curse damage. Selected mapped bus stops off the MD carriageway can retain
   mercenary hiring wagons; LG roads and junctions cannot. Ordinary mapped
   places keep their existing rules.
-- Parking lots join the existing MD/LG safety region (`ROAD_CLASS_MAJOR_BUFFER`,
-  stamped into the spawn gate as `KERB`) without acquiring a road surface or
-  the standing-on-carriageway warning. Mapped parking polygons supply their
-  footprint; retained tagged/inferred parking aisles use the lot detector's
-  12 m radius, and non-streetside parking POIs its 30 m radius. Repainting a
-  lot as a Quarry Nexus preserves this suppression. Fast movers cannot spawn
-  or enter; traps, whirlwinds, vents, sinkholes and cave-ins use the `hazard`
-  gate, including authored crater lava. Suppressing its lava leaves a dry
-  crater without removing its finds or altar. At night the same region supplies the blood aura, interaction hiding
-  and energy drain. Ordinary static content keeps its existing access rules.
+- Parking lots join the MD/LG kerb buffer's suppression at every hour
+  (`ROAD_CLASS_MAJOR_BUFFER`, stamped into the spawn gate as `KERB`) without
+  acquiring a road surface, the standing-on-carriageway warning or the night
+  zone: a cell only a lot puts in the buffer also carries
+  `ROAD_CLASS_LOT_BUFFER`, and every night-zone reader (blood aura,
+  interaction hiding, energy drain) goes through `WorldGen.nightZoneBits`.
+  A lot never removes a road buffer's night zone. Mapped parking polygons
+  supply their footprint; retained tagged/inferred parking aisles use the lot
+  detector's 12 m radius, and non-streetside parking POIs its 30 m radius.
+  Fast movers cannot spawn or enter; traps, whirlwinds and other
+  `hazard`-gated placements stay out. Repainting a lot as a Quarry Nexus keeps
+  this suppression.
 - The road is never a refuge and never a lure. `roadClass` derives all safety
   geometry from the vector bands. `ROAD_CLASS_MAJOR_ROAD` marks an MD/LG cell
   only when that group covers at least half of it, which gives runtime warnings
@@ -587,7 +589,7 @@ access or tile lifecycle mechanics.
   step and stores the stable plate id in `save.pressedPlates`; its depressed
   frame survives reloads and tile regeneration without another summon. Flight
   does not press plates, and a refused ghost spawn leaves a plate unspent.
-- Strip mines and L1 use `EnvironmentHazards` for hidden cave-in clusters of
+- L1 and the surface Nexus rows marked `caveIns` (the Seep tar pits) use `EnvironmentHazards` for hidden cave-in clusters of
   2–5 connected cells scattered across general eligible ground. Their seeds are
   cell-based and materialized on first contact. Any grounded entity (player,
   enemy, animal, pet or NPC) stepping onto a seeded cell starts the whole cluster's

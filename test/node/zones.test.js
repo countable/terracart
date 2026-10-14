@@ -222,10 +222,7 @@ test('zones: zone styling owns coverage while roads, paths, water and buildings 
       continue;
     }
     const winner = on.zone.anchors[on.zone.coverage[i] - 1], kind = winner.kind;
-    if (on.grid[i] === T.CAVE_LAVA) {
-      assert.eq(ZoneVariants.pick(winner).id, 'quarry-crater', 'only crater layouts paint surface lava');
-      assert.truthy(on.zoneDress.objects.some(o => o.kind === 'lava_vent' && o._iy * N + o._ix === i), 'lava has an authored hazard marker');
-    } else assert.eq(on.grid[i], Z.terrainOf(kind), `cell ${i}: the winner's own terrain`);
+    assert.eq(on.grid[i], Z.terrainOf(kind), `cell ${i}: the winner's own terrain (no Nexus paints surface lava)`);
     byKind[kind] = (byKind[kind] || 0) + 1;
   }
   assert.gt(changed, 50, `the halo painted (${changed} cells)`);
@@ -360,10 +357,6 @@ test('zones: every nexus piece is off the road band and off anything already the
       assert.eq(o.id, WorldGen.caveStairId('down', 0, TILE_TX, TILE_TY, o._ix, o._iy));
       assert.truthy(WorldGen.isSpawnCell(on.grid, N, N, o._ix, o._iy,
         { spawnWhy: on.spawnWhy, roadMask: on.roadMask }, 'cave'), 'shafts retain the cave spawn gate');
-    } else if (o.kind === 'lava_vent') {
-      assert.eq(o.zoneVariant, 'quarry-crater');
-      assert.eq(on.grid[cellOf(o)], T.CAVE_LAVA, 'vent marks damaging terrain');
-      assert.eq(Lighting.sourceKind({}, o), 'lava_vent', 'vent lights its hazard');
     } else if (o.kind === 'stronghold_wall') {
       assert.eq(o.zoneKind, 'quarry');
       assert.eq(o.zoneVariant, 'quarry-stronghold');

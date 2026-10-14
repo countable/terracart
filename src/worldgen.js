@@ -1755,9 +1755,12 @@
       ...cut.map(row => ({ ...row, extent: tl.extent || 4096 }))];
     return cut;
   }
-  // Parking uses the same suppression/night-danger region as an MD/LG kerb,
-  // without becoming a road surface. Keep mapped footprints exact; where MVT
-  // supplies only points/aisles, use the existing lot-inference distances.
+  // Parking joins the MD/LG kerb buffer's suppression at every hour, without
+  // becoming a road surface. A cell only a lot puts in the buffer also carries
+  // ROAD_CLASS_LOT_BUFFER, which keeps the night zone (blood aura, interaction
+  // hiding, energy drain) off it (nightZoneBits). Keep mapped footprints
+  // exact; where MVT supplies only points/aisles, use the existing
+  // lot-inference distances.
   function* stampParkingSafetySteps(layers, roadClass, w, h, mvtToCell, mvtToM) {
     const cover = new Uint16Array(w * h);
     const transportation = layers.find(l => l.name === 'transportation');
@@ -1783,7 +1786,7 @@
             && f.tags?.amenity !== 'parking') continue;
         if (f.type === 3) {
           yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell,
-            (x, y) => { roadClass[y * w + x] |= ROAD_CLASS_MAJOR_BUFFER; });
+            (x, y) => { stampParkingBuffer(roadClass, y * w + x); });
         } else if (f.type === 1) {
           const p = f.geom[0]?.[0];
           if (!p) continue;
@@ -1795,8 +1798,12 @@
     }
     for (let i = 0; i < cover.length; i++) {
       if ((i & 4095) === 4095) yield 'parking safety';
-      if (cover[i]) roadClass[i] |= ROAD_CLASS_MAJOR_BUFFER;
+      if (cover[i]) stampParkingBuffer(roadClass, i);
     }
+  }
+  // Stamped after the road buffers, so a lot never removes a road's night zone.
+  function stampParkingBuffer(roadClass, i) {
+    if (!(roadClass[i] & ROAD_CLASS_MAJOR_BUFFER)) roadClass[i] |= ROAD_CLASS_MAJOR_BUFFER | ROAD_CLASS_LOT_BUFFER;
   }
   // Approximate real-world carriageway width, in metres, per transportation
   // class. The rasterizer only reads this for PIER (roads and paths always
@@ -2230,7 +2237,7 @@
   //                          Stamped after the street index is built
   //                          (StreetVariants.stampBanditStretchesSteps).
   const ROAD_CLASS_BANDIT_VERGE = 4;
-  //   ROAD_CLASS_MAJOR_BUFFER the shared safety region: parking lots plus
+  //   ROAD_CLASS_MAJOR_BUFFER the shared suppression region: parking lots plus
   //                          the KERB BUFFER within MAJOR_BUFFER_CELLS of a
   //                          Major-and-Medium road band (the band's own cells included) —
   //                          stamped off the same lines, widened, so it is
@@ -2255,6 +2262,12 @@
   // The runtime road warning reads the same half-covered definition as
   // roadMask, but only for the Major-and-Medium group.
   const ROAD_CLASS_MAJOR_ROAD = 64;
+  // A MAJOR_BUFFER cell put there by a parking lot alone: suppression at every
+  // hour, but never the night zone. Read the night zone through nightZoneBits.
+  const ROAD_CLASS_LOT_BUFFER = 128;
+  function nightZoneBits(bits) {
+    return !!(bits & ROAD_CLASS_MAJOR_BUFFER) && !(bits & ROAD_CLASS_LOT_BUFFER);
+  }
   // About one base reach radius (coords.js reachCells: 2.5 cells) past the
   // band's edge - the ring a player standing on the kerb can act inside.
   const MAJOR_BUFFER_CELLS = 2.5;
@@ -9719,6 +9732,7 @@
     // "drawn as road" and "no spawns here" are the same number.
     roadOverlayWidthM, ROAD_MASK_MIN_COVER, ROAD_CLASS_MAJOR_BAND, ROAD_CLASS_MAJOR_VERGE, ROAD_CLASS_BANDIT_VERGE,
     ROAD_CLASS_MAJOR_BUFFER, ROAD_CLASS_JUNCTION_EXCLUDE, ROAD_CLASS_JUNCTION_SOFT, ROAD_CLASS_MAJOR_ROAD,
+    ROAD_CLASS_LOT_BUFFER, nightZoneBits,
     MAJOR_BUFFER_CELLS, inMajorBuffer, onMajorBand,
     // The path-class Set classifyLine keys off — exported so road_overlay.js
     // colours exactly the classes the terrain classifier treats as PATH,

@@ -142,7 +142,7 @@ test('night road: majority-covered carriageway warning is once per UTC day', () 
 });
 
 test('night road: rendering and taps share the hidden-object predicate', () => {
-  assert.truthy(/_ringRoadSafety[\s\S]*?ROAD_CLASS_MAJOR_BUFFER/.test(RENDER_SRC), 'red cover reads every buffer cell');
+  assert.truthy(/_ringRoadSafety\[si\] = WorldGen\.nightZoneBits\(/.test(RENDER_SRC), 'red cover reads the shared night-zone predicate');
   assert.truthy(/roadSafetyGfx[\s\S]*?GROUND_COLOR[\s\S]*?GROUND_ALPHA/.test(RENDER_SRC), 'cover uses the owning palette');
   assert.truthy(/RoadSafety\.objectHidden\(scene, o, hideNightRoadObjects\)/.test(RENDER_SRC), 'object pass hides the zone');
   assert.truthy(/RoadSafety\.objectHidden\(scene, wp, hideNightRoadObjects\)/.test(RENDER_SRC), 'plant pass hides the zone');
