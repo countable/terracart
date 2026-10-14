@@ -142,8 +142,11 @@
   // reached when textures.js isn't loaded (the headless suite).
   const SLIME_FALLBACK = 0x1e3b24;      // = textures.js UNCLAIMED_SHADE.wash
   const SLIME_FALLBACK_A = 0.73;        // ≈ where three 35% lerps land (1 − 0.65³)
-  // Translucent, so the floor's own material grains through the stain.
+  // Translucent, so the floor's own material grains through the stain. A
+  // castle courtyard's pale stone floor is not pre-shaded like other wrecks',
+  // so the same stain reads twice as dark against it; it takes half the alpha.
   const SLIME_ALPHA = 0.8;
+  const CASTLE_SLIME_ALPHA = SLIME_ALPHA / 2;
   // One splotch per ~30×30 px of floor, capped so a cathedral-sized footprint
   // stays speckled instead of solid.
   const SLIME_PER_PX2 = 1 / (30 * 30);
@@ -1007,7 +1010,7 @@
       // on them) but under the lattice, the rampart and the outline — the
       // building's own lines stay clean, only its floor is overgrown.
       if (!isMine && g.blobsPoly) {
-        g.blobsPoly(d.pts, slimeBlobs(d), d.left, d.north, tune(slimeColor(shaded, shade)), SLIME_ALPHA);
+        g.blobsPoly(d.pts, slimeBlobs(d), d.left, d.north, tune(slimeColor(shaded, shade)), style ? CASTLE_SLIME_ALPHA : SLIME_ALPHA);
       }
       // The cell grid goes on OVER the floor and its material: a hairline this
       // faint loses to a cobble or plank pattern laid on top of it.
