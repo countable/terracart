@@ -442,23 +442,25 @@ access or tile lifecycle mechanics.
   curse damage. Selected mapped bus stops off the MD carriageway can retain
   mercenary hiring wagons; LG roads and junctions cannot. Ordinary mapped
   places keep their existing rules.
-- Parking lots are suppression zones at every hour. They share the Small-road
-  junction's soft bit (`ROAD_CLASS_JUNCTION_SOFT`, stamped into the spawn gate
-  as `JUNCTION_SOFT`), never the MD/LG kerb buffer, so they acquire no road
-  surface, standing-on-carriageway warning, night zone (blood aura,
-  interaction hiding, energy drain) or chase refuge. Mapped parking polygons
+- Parking lots join the MD/LG kerb buffer's suppression at every hour
+  (`ROAD_CLASS_MAJOR_BUFFER`, stamped into the spawn gate as `KERB`) without
+  acquiring a road surface, the standing-on-carriageway warning or the night
+  zone: a cell only a lot puts in the buffer also carries
+  `ROAD_CLASS_LOT_BUFFER`, and every night-zone reader (blood aura,
+  interaction hiding, energy drain) goes through `WorldGen.nightZoneBits`.
+  A lot never removes a road buffer's night zone. Mapped parking polygons
   supply their footprint; retained tagged/inferred parking aisles use the lot
-  detector's 12 m radius, and non-streetside parking POIs its 30 m radius. An
-  MD/LG junction's hard exclusion wins where they overlap. Fast movers cannot
-  spawn or enter; traps, whirlwinds and other `hazard`-gated placements stay
-  out. Repainting a lot as a Quarry Nexus keeps this suppression.
+  detector's 12 m radius, and non-streetside parking POIs its 30 m radius.
+  Fast movers cannot spawn or enter; traps, whirlwinds and other
+  `hazard`-gated placements stay out. Repainting a lot as a Quarry Nexus keeps
+  this suppression.
 - The road is never a refuge and never a lure. `roadClass` derives all safety
   geometry from the vector bands. `ROAD_CLASS_MAJOR_ROAD` marks an MD/LG cell
   only when that group covers at least half of it, which gives runtime warnings
   the same threshold as `roadMask`. `ROAD_CLASS_JUNCTION_EXCLUDE` marks every
   MD/LG-involved junction's overlap plus 2 cells: every spawn and every
   non-allied creature refuses it. `ROAD_CLASS_JUNCTION_SOFT` marks a Small-road
-  junction plus 1 cell (and every parking lot): fast movers and hazards refuse it. Bridge, tunnel and
+  junction plus 1 cell: fast movers and hazards refuse it. Bridge, tunnel and
   causeway crossings do not create ground-level junctions. The Major-and-Medium road group carries a kerb
   buffer (`ROAD_CLASS_MAJOR_BUFFER`): no hostile steps onto the band, no FAST
   mover (foe or animal over `BRISK_WALK_MPS` — `isFastMover`; the wild

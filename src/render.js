@@ -2235,7 +2235,7 @@ Render.drawCells = function drawCells(scene) {
         ?? (typeof zoneGroundColor === 'function'
           ? (zoneGroundColor(e2, ix2, iy2, types[si], tx2, ty2) ?? -1) : -1);
       _ringSyntheticBuilding[si] = e2?.syntheticBuildingCells?.[iy2 * N + ix2] || 0;
-      _ringRoadSafety[si] = e2?.roadClass?.[iy2 * N + ix2] & WorldGen.ROAD_CLASS_MAJOR_BUFFER ? 1 : 0;
+      _ringRoadSafety[si] = WorldGen.nightZoneBits(e2?.roadClass?.[iy2 * N + ix2] | 0) ? 1 : 0;
       _ringVeil[r * RING + c] = mVeil;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
       owners[r * RING + c] = ol ? ((mSalt << 16) | ol) : 0;
