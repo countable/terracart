@@ -43,6 +43,7 @@ function sampleWalkRewards(model, trials) {
       const fixed = Trail.firstPrize(n);
       const cards = Trail.rollCardRow(group => {
         const classes = Trail.prizeCardClasses(group, n, undefined, 0);
+        if (classes.length === 1 && classes[0] === 'cash') return Trail.cashPrize(n);
         return classes.length ? pickReward(Trail.PRIZE_CONTEXT, save, rng, {
           classes, rollBonus: Trail.rollBonusFor(n - 1),
           classMaxTier: { boots: Trail.bootsTierCap(n) },
