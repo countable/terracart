@@ -110,9 +110,10 @@
     assert.falsy(EnvironmentHazards.eligible(s, h), 'newly placed structure blocks');
   }));
   test('environment hazards: cave-ins refuse the shared parking/road suppression reason', () => fixture((s, entries) => {
-    s.depth = 0; entries[0].grid.fill(WorldGen.T.ROCK);
+    s.depth = 0; entries[0].grid.fill(WorldGen.T.TAR_YARD);
+    entries[0].zone = { anchors: [{ kind: 'tar', variant: 'seep' }], coverage: new Uint16Array(64).fill(1) };
     const h = EnvironmentHazards.create(s, 'cavein', { cellIX: 3, cellIY: 3 }, 'parking-cavein');
-    assert.truthy(EnvironmentHazards.eligible(s, h));
+    assert.truthy(EnvironmentHazards.eligible(s, h), 'Seep ground can collapse');
     entries[0]._spawnOpts.spawnWhy[3 * 8 + 3] = WorldGen.SPAWN_WHY.KERB;
     assert.falsy(EnvironmentHazards.eligible(s, h), 'parking or MD/LG suppression excludes collapse');
   }));
