@@ -550,6 +550,17 @@ test('building overlay: slime is dark green, derived from the unclaimed shade', 
   assert.inRange(scene.buildingGeomGfx.only('slime')[0].alpha, 0.2, 0.85, 'a stain, not a blot');
 });
 
+test('building overlay: a wrecked castle courtyard takes half the slime alpha', () => {
+  const house = unclaimedScene();
+  BuildingOverlay.draw(house);
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING_LARGE, CastleStyles.ids[0])]);
+  const castle = makeScene({ isClaimedKey: () => false });
+  BuildingOverlay.draw(castle);
+  const a = castle.buildingGeomGfx.only('slime')[0].alpha, b = house.buildingGeomGfx.only('slime')[0].alpha;
+  assert.eq(a, b / 2, 'its pale stone floor would otherwise read the stain twice as dark');
+});
+
 test('building overlay: slime stays put as the camera moves', () => {
   // The layer repaints on every cell crossing. Splotches re-rolled per rebuild
   // would crawl across the floor as the player walked, which is the whole
