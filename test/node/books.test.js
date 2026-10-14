@@ -316,7 +316,7 @@ test('mechanics: crates, barrels, gold pots, courier posts and gates retain thei
   assert.truthy(barrelLootPool(supply).some(item => item.id === 'rope'), 'barrels use the full ordinary supply pool');
   assert.falsy(supply.maxTier, 'supplies have no tier cap');
   const coin = CLAY_POT_LOOT.find((r) => r.kind === 'coin');
-  assert.eq(coin.amount, 1, 'clay pots give one coin');
+  assert.eq(coin.budgetDiv, 15, 'clay pots give a fifteenth of the budget in coin: one at the base budget');
   assert.eq(potCoinsFor(1), 30, 'a lone pot spills thirty');
   assert.eq(potCoinsFor(1000), 1, 'a crowded one a single coin');
   assert.eq(BIKE_RACK_SPEED_MUL, 2, '"twice as fast"');
