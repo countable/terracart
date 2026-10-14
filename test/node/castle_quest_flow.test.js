@@ -26,6 +26,13 @@
     throw new Error('No castle key for ' + variant);
   };
 
+  // A delivery, as scene_shops.js completes one: the lifetime tally moves,
+  // then the castle quests hear about it.
+  const deliver = save => {
+    save.deliveryCount = (save.deliveryCount ?? 0) + 1;
+    return Quests.onEvent(save, 'deliver');
+  };
+
   test('castle conversation: first talk assigns the variant job and reopening preserves progress', () => {
     for (const [variant, verb] of [['bastion', 'kill'], ['archive', 'deliver'], ['ruin', 'hunt']]) {
       const s = scene(), h = house(variant);
@@ -39,13 +46,14 @@
       // Even a stale or manually triggered locked callback cannot grant ownership.
       s.offers[0].onAccept();
       assert.falsy(s.isCastleClaimed(h));
-      if (verb === 'deliver') Quests.onEvent(s.save, 'deliver');
+      if (verb === 'deliver') deliver(s.save);
       else Quests.onKill(s.save, q.target);
       s.showQuestBoard(0, 0, { ...h, id: 'another-tower' });
       assert.eq(Quests.get(s.save, variant), q);
       assert.eq(q.have, 1);
       assert.eq(s.save.quests.assigned[verb], 1);
-      assert.eq(s.offers[1].canAfford, q.have >= q.need);
+      assert.eq(q.need, 1, 'every castle asks for a single kill, hunt or delivery');
+      assert.truthy(s.offers[1].canAfford, 'one action completes it');
     }
   });
 
@@ -57,9 +65,11 @@
     const secondQuest = Quests.get(s.save, second.castle);
     assert.eq(firstQuest.need, 1);
     assert.eq(secondQuest.need, 1, 'every Archive needs one delivery');
-    Quests.onEvent(s.save, 'deliver');
-    assert.eq(firstQuest.have, firstQuest.need);
-    assert.eq(secondQuest.have, secondQuest.need, 'one delivery completes both active quests');
+    deliver(s.save);
+    assert.eq(firstQuest.have, firstQuest.need, 'the first Archive takes the delivery');
+    assert.eq(secondQuest.have, 0, 'one delivery counts at one castle');
+    deliver(s.save);
+    assert.eq(secondQuest.have, secondQuest.need, 'the next delivery fills the next Archive');
     s.showQuestBoard(0, 0, first);
     const ready = s.offers[s.offers.length - 1];
     assert.truthy(ready.canAfford);
@@ -75,6 +85,58 @@
     assert.eq(s.offers.length, offersBefore);
     assert.eq(Quests.get(s.save, first.castle), firstQuest);
     assert.eq(Quests.get(s.save, second.castle), secondQuest);
+  });
+
+  test('castle conversation: deliveries made before an Archive is visited count there, once each', () => {
+    const s = scene(), first = house('archive'), second = house(nextKey('archive'));
+    s.save.deliveryCount = 2;               // two deliveries before any Archive
+    s.showQuestBoard(0, 0, first);
+    assert.truthy(s.offers[0].canAfford, 'an earlier delivery completes the first Archive');
+    s.showQuestBoard(0, 0, second);
+    assert.truthy(s.offers[1].canAfford, 'the second earlier delivery completes the second');
+    s.showQuestBoard(0, 0, first);
+    s.showQuestBoard(0, 0, second);
+    assert.eq(s.save.quests.deliveriesSpent, 2, 'reopening credits nothing twice');
+    const otherKey = (() => {
+      for (let i = 0; i < 400; i++) {
+        const key = 'later-archive-' + i;
+        if (CastleStyles.get(key).id === 'archive') return key;
+      }
+      throw new Error('No third archive key');
+    })();
+    s.showQuestBoard(0, 0, house(otherKey));
+    const q = Quests.get(s.save, otherKey);
+    assert.eq(q.have, 0, 'the pool is spent: a third Archive waits for a new delivery');
+    deliver(s.save);
+    assert.eq(q.have, 1, 'and takes the next one');
+  });
+
+  test('castle conversation: a save from before the pool keeps its Archives and spends nothing twice', () => {
+    const s = scene(), first = house('archive'), second = house(nextKey('archive'));
+    s.showQuestBoard(0, 0, first);
+    s.showQuestBoard(0, 0, second);
+    // The old rule: one delivery filled both, and no spent count was kept.
+    s.save.deliveryCount = 1;
+    delete s.save.quests.deliveriesSpent;
+    for (const key of [first.castle, second.castle]) Quests.get(s.save, key).have = 1;
+    assert.falsy(Quests.creditDeliveries(s.save), 'nothing new to credit');
+    assert.eq(s.save.quests.deliveriesSpent, 1, 'never more spent than delivered');
+  });
+
+  test('castle conversation: an older three-kill or two-hunt quest asks for one', () => {
+    for (const [variant, need] of [['bastion', 3], ['ruin', 2]]) {
+      const s = scene(), h = house(variant);
+      s.showQuestBoard(0, 0, h);
+      const q = Quests.get(s.save, variant);
+      Object.assign(q, { need, have: 0, body: 'old copy' });
+      Quests.onKill(s.save, q.target);
+      assert.eq(q.need, 1, `${variant} drops to a single target`);
+      assert.eq(q.have, 1, `${variant} one kill completes it`);
+      assert.falsy(/old copy|\d/.test(q.body), `${variant} objective names one target: ${q.body}`);
+      Object.assign(q, { need, have: 2 });
+      s.showQuestBoard(0, 0, h);
+      assert.eq(q.have, 1, 'progress already made carries over, capped at one');
+    }
   });
 
   test('castle conversation: citadel waits for Fight and Later leaves it dormant', () => {
