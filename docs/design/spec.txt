@@ -727,13 +727,16 @@ ECONOMY (buying & selling)
    MACHINE (`presentFortSlots`, odds in `ShopsMath`) that costs what it wins
    on average.
  - CASTLES open individually. On first conversation, each unguarded castle
-   receives one permanent quest determined by its variant. Bastions ask for
-   three enemies of one type, advancing through enemy types in tier order;
-   Archives always ask for one delivery; Weathered Ruins ask for two animals
-   of one huntable species,
-   cycling through the game-animal list. Assignment order advances each type
-   separately. Counters start at first conversation. One delivery or hunt
-   advances every matching active quest. Earlier actions never count. Claiming never rerolls
+   receives one permanent quest determined by its variant. Every quest asks
+   for a single action: Bastions one enemy, advancing through enemy types in
+   tier order; Weathered Ruins one animal, cycling through the game-animal
+   list; Archives one delivery. Assignment order advances each type
+   separately. Kill and hunt counters start at first conversation, and one
+   kill advances every matching active quest; earlier kills never count.
+   Deliveries are a pool (`Quests.creditDeliveries`): each delivery in
+   `save.deliveryCount` credits exactly one Archive, oldest assignment first,
+   so a delivery made before an Archive is first visited still counts there,
+   and no delivery counts at two castles. Claiming never rerolls
    the job, and there are no shared quest slots or random quest templates.
    The board shows the castle as caption, the quest title in bold, then one
    sentence of flavour (`Quests.flavour`) over the objective and progress.

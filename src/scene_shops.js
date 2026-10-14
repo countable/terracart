@@ -1657,7 +1657,7 @@ class SceneShops {
       });
       return;
     }
-    const q = Quests.assign(this.save, key, style.id);
+    const q = Quests.open(this.save, key, style.id);
     if (!q) return;
     persistSave(this.save);
     const done = q.have >= q.need;
