@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
   const CONFIG = Object.freeze({ contactMs: 1000, damage: 8, maxStepMs: 100,
-    vent: Object.freeze({ texture: 'vent_cycle', chance: .12, craterChance: .08, inactiveMs: 5000, gasInactiveMs: 20000, warningMs: 3000, activeMs: 3000,
+    vent: Object.freeze({ texture: 'vent_cycle', chance: .12, inactiveMs: 5000, gasInactiveMs: 20000, warningMs: 3000, activeMs: 3000,
       frameSize: 24, renderAnchor: [0.5, 18.5 / 24], widthCells: 1, heightCells: 1, maxPresent: 24, retainRadiusCells: 24 }),
     cavein: Object.freeze({ texture: 'cavein', chance: .08, warningMs: 5000, crackStages: 3, openTexture: 'cave_chasm', openFrame: 15, frameSize: 24, renderAnchor: [0.5, 0.5],
       widthCells: 1, heightCells: 1, clusterMinCells: 2, clusterMaxCells: 5, dungeonDepth: 1 }),
@@ -11,7 +11,8 @@
   });
   // One row per vent kind: its sheet row and what an eruption does. Which
   // kinds a cave floor erupts is that floor's `vents` (WorldGen.floorProfile);
-  // ambient surface vents are crater fire; seeded paths author any row below.
+  // the surface has no ambient vents (a quarry is peaceful ground); seeded
+  // paths author any row below.
   // - A `gas` vent deals no contact hit: each eruption bursts that kind of
   //   gas (MushroomGas.KINDS: its condition and colour), which spreads to the
   //   adjacent cells. Gas vents rest `gasInactiveMs` instead of the shared
@@ -25,7 +26,7 @@
     fire: { row: 1, condition: 'burning', durationMs: 6000, groundFireMs: 5000 },
     paralysis: { row: 2, gas: 'paralysis' },
     confusion: { row: 3, gas: 'confusion' } });
-  function ventKinds(depth) { return depth ? [...(root.WorldGen.floorProfile(depth).vents || [])] : ['fire']; }
+  function ventKinds(depth) { return depth ? [...(root.WorldGen.floorProfile(depth).vents || [])] : []; }
   function state(scene) {
     scene._environmentHazards ||= new Map();
     const depth = scene.depth || 0;
@@ -33,7 +34,8 @@
       const s = { vents: [], sinkholes: [], caveins: [], visits: new Set(), elapsedMs: 0 };
       scene._environmentHazards.set(depth, s);
       for (const [id, saved] of Object.entries(scene.save?.caveIns || {})) {
-        if (saved.depth !== depth || !Number.isInteger(saved.cellIX) || !Number.isInteger(saved.cellIY)) continue;
+        // A pit saved on surface quarry ground before quarries became peaceful stays closed.
+        if (saved.depth !== depth || !caveInGround({ depth }) || !Number.isInteger(saved.cellIX) || !Number.isInteger(saved.cellIY)) continue;
         const h = create(scene, 'cavein', saved, id);
         h.elapsedMs = Math.max(0, Number(saved.elapsedMs) || 0);
         update(h); s.caveins.push(h);
@@ -71,9 +73,6 @@
       if (!p.loaded || !(pathVent ? W.isWalkable(p.type) : suitable(p.type, scene.depth))) return false;
       const e = W.tileCache.get(W.tileKey(p.tx, p.ty));
       if (!e?._spawnOpts) return false;
-      // Surface fire vents belong to the destroyed crater's dry ground;
-      // the central lava pool is a separate permanent terrain hazard.
-      if (h.type === 'vent' && !scene.depth && !pathVent && quarryVariant(e, p.ix, p.iy) !== 'quarry-crater') return false;
       const opts = { ...e._spawnOpts, spawnWhy: e.spawnWhy || e._spawnOpts.spawnWhy,
         roadMask: e.roadMask || e._spawnOpts.roadMask, roadClass: e.roadClass || e._spawnOpts.roadClass };
       // Authored seats own their generation occupancy, but never bypass land
@@ -140,13 +139,10 @@
     scene.save.caveIns[h.id] = { depth: h.depth, cellIX: h.cellIX, cellIY: h.cellIY,
       elapsedMs: Math.min(CONFIG.cavein.warningMs, h.elapsedMs) };
   }
-  function caveInGround(scene, cell) {
-    if (scene.depth === CONFIG.cavein.dungeonDepth) return true;
-    const e = root.WorldGen.tileCache.get(root.WorldGen.tileKey(cell.tx, cell.ty));
-    return scene.depth === 0 && quarryVariant(e, cell.ix, cell.iy) === 'quarry-strip-mine';
-  }
+  // Cave-ins belong to the dungeon floor only; no surface quarry collapses.
+  function caveInGround(scene) { return scene.depth === CONFIG.cavein.dungeonDepth; }
   function observeCaveIn(scene, s, at, key) {
-    if (!caveInGround(scene, at)) return;
+    if (!caveInGround(scene)) return;
     const id = `environment:cavein:${key}`;
     if (s.visits.has(id) || s.caveins.some(h => h.id === id)) return;
     s.visits.add(id);
@@ -170,7 +166,7 @@
       const point = absCellCenterMeters(scene, cell.cellIX, cell.cellIY), tileCell = scene.cellAt(point.x, point.y);
       const cellId = `environment:cavein:${scene.depth}:${tileCell.tx}:${tileCell.ty}:${tileCell.ix}:${tileCell.iy}`;
       const h = create(scene, 'cavein', cell, cellId);
-      if (reserved.has(cellKey) || !caveInGround(scene, tileCell) || !eligible(scene, h, false)) continue;
+      if (reserved.has(cellKey) || !caveInGround(scene) || !eligible(scene, h, false)) continue;
       cluster.push(h);
       // Only accepted cells extend the frontier, so a blocked cell never bridges a cluster.
       for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]])
@@ -265,7 +261,7 @@
     });
     const kinds = ventKinds(scene.depth);
     for (const type of ['vent', 'sinkhole']) {
-      if (type === 'vent' && (!kinds.length || (!scene.depth && quarry !== 'quarry-crater'))) continue;
+      if (type === 'vent' && !kinds.length) continue;
       if (type === 'sinkhole' && (quarry || scene.depth === CONFIG.cavein.dungeonDepth)) continue;
       const visitKey = `${type}:${key}`;
       if (s.visits.has(visitKey)) continue;
@@ -273,17 +269,15 @@
       if (list.length >= cfg.maxPresent) continue;
       s.visits.add(visitKey);
       const id = `environment:${type}:${key}`, rng = root.WorldGen.makeRng(fnv1a(id));
-      if (rng() >= (type === 'vent' && !scene.depth ? cfg.craterChance : cfg.chance)) continue;
-      // Every type takes this one draw except the surface vent (crater fire),
-      // as it always has, so a floor's later seat draws keep their sequence.
-      const draw = type === 'vent' && !scene.depth ? 0 : rng();
+      if (rng() >= cfg.chance) continue;
+      const draw = rng();
       const kind = type === 'vent' ? kinds[Math.min(kinds.length - 1, Math.floor(draw * kinds.length))] : 'poison';
       for (let attempt = 0; attempt < 12; attempt++) {
         const cell = absCellOffset(scene, at.cellIX, at.cellIY, Math.floor(rng() * 5) - 2, Math.floor(rng() * 5) - 2);
         const h = create(scene, type, cell, id, rng, kind);
         if (!eligible(scene, h)) continue;
         if (type === 'sinkhole' && footprint(scene, h).some(p =>
-          quarryVariant(root.WorldGen.tileCache.get(root.WorldGen.tileKey(p.tx, p.ty)), p.ix, p.iy) === 'quarry-strip-mine')) continue;
+          quarryVariant(root.WorldGen.tileCache.get(root.WorldGen.tileKey(p.tx, p.ty)), p.ix, p.iy))) continue;
         const cells = new Set(footprint(scene, h).map(c => `${c.cellIX}:${c.cellIY}`));
         if ([...s.vents, ...s.sinkholes, ...s.caveins].some(other => footprint(scene, other).some(c => cells.has(`${c.cellIX}:${c.cellIY}`)))) continue;
         const pressure = root.PressureTraps?.lists(scene);

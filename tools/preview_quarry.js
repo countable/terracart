@@ -40,14 +40,14 @@ const position = o => [Math.floor((o.x-tx*tileEdgeM)/WG.CELL_M)-origin,
   Math.floor((o.y-ty*tileEdgeM)/WG.CELL_M)-origin];
 const material = o => o.kind === 'staircase' ? 'staircase' : o.kind === 'stakes' ? 'stakes' : o.kind === 'zone_prop' ? 'zone_prop' : o.kind === 'grove_shrine' ? 'shrine' : o.kind === 'stronghold_wall' ? 'stronghold_wall' : o.quarryCrate ? 'tool_crate' : o.barrelStyle === 'clay_pot' ? 'clay_pot' : o.barrel ? 'barrel' : o.kind === 'chest' ? 'chest'
   : (ctx.SpriteLayout.CREATURE_ART[o.kind] || ctx.EnemyRoster.get(o.kind)) ? o.kind : o.kind === 'wildplant' ? o.crop
-  : o.kind === 'lava_vent' ? 'lava' : o.deposit === 'crystal' ? 'crystal'
+  : o.deposit === 'crystal' ? 'crystal'
   : o.kind === 'mineralrock' && o.yieldTier === 2 ? 'copper_rock'
   : o.kind === 'mineralrock' && o.yieldTier === 6 ? 'crimson_ore'
   : o.kind === 'mineralrock' ? 'stone' : null;
 const dress = tile.zoneDress || {};
 const records = [...(dress.objects || []), ...(dress.wildplants || []), ...(dress.guards || [])]
   .filter(o => o.zoneVariant === variantId);
-const objects = records.filter(o => o.kind !== 'lava_vent').map(o => {
+const objects = records.map(o => {
   const m = material(o);
   if (!m) throw new Error(`Unmapped runtime quarry object: ${o.kind}`);
   const look = o.kind === 'chest' ? ctx.chestLook(o) : null;

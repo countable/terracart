@@ -77,11 +77,11 @@
     entry.grid.fill(WorldGen.T.WATER); s._environmentHazards = new Map();
     EnvironmentHazards.observe(s); assert.eq(EnvironmentHazards.lists(s).vents.length, 0, 'water remains excluded');
   }));
-  test('geyser paths: crater discovery cannot duplicate an authored vent cell', () => fixture((s, entry) => {
+  test('geyser paths: a quarry adds no ambient vent beside an authored one', () => fixture((s, entry) => {
     entry.pathVents = [entry.pathVents[1]];
     s.playerM = { x: 20, y: 28 };
     entry.zone = { anchors: [{ kind: 'quarry', variant: 'quarry-crater' }], coverage: new Uint16Array(64).fill(1) };
-    // Force the crater roll to choose the authored cell on every attempt.
+    // Even a roll that would choose the authored cell finds no ambient vent.
     entry._spawnOpts.occupied.clear();
     WorldGen.makeRng = () => { let n = 0; return () => n++ ? .5 : 0; };
     EnvironmentHazards.observe(s);

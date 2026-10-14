@@ -544,8 +544,9 @@
   //     KERB          a Major-and-Medium road's band touches the cell, or its kerb buffer
   //                   - refused ONLY by FAST MOVERS (fastEnemy / fastFauna:
   //                   creature_ai.js creatureSpawnClass, off BRISK_WALK_MPS)
-  //     JUNCTION_SOFT a Small-road junction's overlapping bands plus one cell;
-  //                   fast movers and player-facing hazards refuse it
+  //     JUNCTION_SOFT a Small-road junction's overlapping bands plus one cell,
+  //                   and every parking lot; fast movers and player-facing
+  //                   hazards refuse it
   //     SENSITIVE     round a sensitive POI, real cemetery land, a church on
   //                   cemetery land (churchyardBufferM)
   // (Superseded Sep 2026: the typed HOUSE reason — a 40 m buffer round every
@@ -1755,9 +1756,12 @@
       ...cut.map(row => ({ ...row, extent: tl.extent || 4096 }))];
     return cut;
   }
-  // Parking uses the same suppression/night-danger region as an MD/LG kerb,
-  // without becoming a road surface. Keep mapped footprints exact; where MVT
-  // supplies only points/aisles, use the existing lot-inference distances.
+  // Parking is a suppression zone at every hour: it shares the Small-road
+  // junction's soft bit (ROAD_CLASS_JUNCTION_SOFT — fast movers and hazards
+  // refuse it), never the MD/LG kerb buffer, so it carries no night zone,
+  // interaction hiding or chase refuge and never becomes a road surface. Keep
+  // mapped footprints exact; where MVT supplies only points/aisles, use the
+  // existing lot-inference distances. An MD/LG junction's hard exclusion wins.
   function* stampParkingSafetySteps(layers, roadClass, w, h, mvtToCell, mvtToM) {
     const cover = new Uint16Array(w * h);
     const transportation = layers.find(l => l.name === 'transportation');
@@ -1783,7 +1787,7 @@
             && f.tags?.amenity !== 'parking') continue;
         if (f.type === 3) {
           yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell,
-            (x, y) => { roadClass[y * w + x] |= ROAD_CLASS_MAJOR_BUFFER; });
+            (x, y) => { stampParkingSoft(roadClass, y * w + x); });
         } else if (f.type === 1) {
           const p = f.geom[0]?.[0];
           if (!p) continue;
@@ -1795,8 +1799,11 @@
     }
     for (let i = 0; i < cover.length; i++) {
       if ((i & 4095) === 4095) yield 'parking safety';
-      if (cover[i]) roadClass[i] |= ROAD_CLASS_MAJOR_BUFFER;
+      if (cover[i]) stampParkingSoft(roadClass, i);
     }
+  }
+  function stampParkingSoft(roadClass, i) {
+    if (!(roadClass[i] & ROAD_CLASS_JUNCTION_EXCLUDE)) roadClass[i] |= ROAD_CLASS_JUNCTION_SOFT;
   }
   // Approximate real-world carriageway width, in metres, per transportation
   // class. The rasterizer only reads this for PIER (roads and paths always
@@ -2230,8 +2237,7 @@
   //                          Stamped after the street index is built
   //                          (StreetVariants.stampBanditStretchesSteps).
   const ROAD_CLASS_BANDIT_VERGE = 4;
-  //   ROAD_CLASS_MAJOR_BUFFER the shared safety region: parking lots plus
-  //                          the KERB BUFFER within MAJOR_BUFFER_CELLS of a
+  //   ROAD_CLASS_MAJOR_BUFFER the KERB BUFFER within MAJOR_BUFFER_CELLS of a
   //                          Major-and-Medium road band (the band's own cells included) —
   //                          stamped off the same lines, widened, so it is
   //                          seam-safe the way the band is. THE SAFETY RULE
@@ -2249,7 +2255,8 @@
   // Junction zones share roadClass because both spawning and moving creatures
   // need the same geometry. A junction involving an MD/LG road excludes every
   // spawn and non-allied creature. A Small-road junction suppresses fast
-  // movers and player-facing hazards.
+  // movers and player-facing hazards; parking lots share that soft bit at
+  // every hour (stampParkingSafetySteps).
   const ROAD_CLASS_JUNCTION_EXCLUDE = 16;
   const ROAD_CLASS_JUNCTION_SOFT = 32;
   // The runtime road warning reads the same half-covered definition as

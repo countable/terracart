@@ -94,28 +94,38 @@
     assert.truthy(large.landmarks[0].radii[0] > small.landmarks[0].radii[0]);
     assert.truthy(large.landmarks[0].radii[1] > small.landmarks[0].radii[1]);
     assert.eq(large.finds.length, 2, 'finite ore does not grow with area');
-    assert.truthy(large.hazards.length > 0);
-    assert.eq(large.hazards.length, 20, 'rounded five by five pool surrounds its dry central island');
+    assert.eq(large.pool.length, 20, 'rounded five by five dry pool floor surrounds the altar');
     for (const i of large.clear) assert.falsy(large.background.has(i), 'entrance and rewards stay clear');
-    for (const f of large.finds) assert.falsy(large.hazards.includes(f.i), 'ore avoids lava');
+    for (const f of large.finds) assert.falsy(large.pool.includes(f.i), 'ore stays in the bowl, off the pool floor');
   });
-  test('quarry layout: rounded lava clips all four corners without opening the altar moat', () => {
+  test('quarry layout: the rounded dry pool clips all four corners around the altar', () => {
     for (const cells of [rect(12, 8), rect(36, 28)]) {
       const p = plan('quarry-crater', cells), [cx, cy] = p.landmarks[0].centre;
-      const lava = new Set(p.hazards), radius = Math.floor(ZoneVariantData.quarryLayouts.craterPoolSizeCells / 2);
+      const pool = new Set(p.pool), radius = Math.floor(ZoneVariantData.quarryLayouts.craterPoolSizeCells / 2);
       assert.eq(p.shrineSeat, cy * N + cx);
-      assert.falsy(lava.has(p.shrineSeat), 'altar island stays dry');
+      assert.falsy(pool.has(p.shrineSeat), 'the altar seat is not a pool cell');
       for (const dx of [-radius, radius]) for (const dy of [-radius, radius]) {
         const i = (cy + dy) * N + cx + dx;
-        assert.falsy(lava.has(i), 'pool corners are clipped');
+        assert.falsy(pool.has(i), 'pool corners are clipped');
         assert.truthy(p.clear.has(i), 'clipped corners stay reserved from fill');
         assert.falsy(p.background.has(i), 'clipped corners remain bare ground');
       }
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        if (dx || dy) assert.truthy(lava.has((cy + dy) * N + cx + dx), 'lava closes every approach to the island');
+      for (const i of pool) assert.falsy(p.background.has(i), 'the pool floor stays bare and walkable');
+      assert.eq(JSON.stringify(p.pool), JSON.stringify(plan('quarry-crater', cells.slice().reverse()).pool), 'pool stays deterministic');
+    }
+  });
+  test('quarry layout: every quarry is peaceful (no guards, inhabitants, lava or spikes)', () => {
+    for (const row of ZoneVariants.forKind('quarry')) {
+      assert.eq(row.guards.mode, 'none', row.id);
+      for (const cells of [rect(48, 48), rect(9, 32)]) {
+        for (const p of [plan(row.id, cells), run(QuarryLayout.planSteps({ a: { owned: false, clipped: true },
+          variant: row, cells }, { N, tx: 4, ty: 5 }))]) {
+          assert.eq(p.guards, undefined, `${row.id} plans no guards`);
+          assert.eq(p.hazards, undefined, `${row.id} plans no hazards`);
+          for (const material of p.background.values())
+            assert.falsy(['ground_spikes', 'wurm', 'goblin', 'split_slime'].includes(material), `${row.id}: ${material}`);
+        }
       }
-      assert.truthy(lava.has((cy + radius) * N + cx), 'south entrance ends at lava');
-      assert.eq(JSON.stringify(p.hazards), JSON.stringify(plan('quarry-crater', cells.slice().reverse()).hazards), 'pool stays deterministic');
     }
   });
   test('quarry layout: crater chooses intact ground beside holes and irregular arms', () => {
@@ -164,7 +174,6 @@
           if ((axis === 'x' ? x : y) === middle) assert.falsy(p.background.has(y * N + x), 'cross-cut stays open');
         }
       }
-      assert.eq(p.guards.length, 1, 'narrow modules do not multiply inhabitants');
       assert.eq(p.finds.length, 0, 'buried finds roll beneath actual stones after layout placement');
     }
   });
@@ -190,13 +199,12 @@
       assert.gt(p.landmarks.length,0,'recognizable surviving walls remain');
       assert.truthy(p.landmarks.some(m=>m.partial),'diagnostics report incomplete foundations');
       assert.gt(p.background.size,4,'the remnant reads as walls rather than one loose rock');
-      for (const i of [...p.background.keys(),...p.clear,...p.finds.map(f=>f.i),...p.guards.map(g=>g.i)]) assert.truthy(covered.has(i),'nothing is placed or reserved through the obstruction');
-      assert.inRange(p.finds.length,1,3); assert.inRange(p.guards.length,1,3);
-      assert.eq(new Set([...p.finds,...p.guards].map(o=>o.i)).size,p.finds.length+p.guards.length,'finds and guards have distinct surviving seats');
+      for (const i of [...p.background.keys(),...p.clear,...p.finds.map(f=>f.i)]) assert.truthy(covered.has(i),'nothing is placed or reserved through the obstruction');
+      assert.inRange(p.finds.length,1,3);
+      assert.eq(new Set(p.finds.map(o=>o.i)).size,p.finds.length,'finds have distinct surviving seats');
       const rebuilt=plan('quarry-stronghold',cells.slice().reverse());
       assert.eq(JSON.stringify([...p.background]),JSON.stringify([...rebuilt.background]));
       assert.eq(JSON.stringify(p.finds),JSON.stringify(rebuilt.finds));
-      assert.eq(JSON.stringify(p.guards),JSON.stringify(rebuilt.guards));
     }
     assert.eq(plan('quarry-stronghold',rect(2,24)).landmarks.length,0,'an isolated thin wall is not a fortress');
   });
@@ -205,18 +213,11 @@
     assert.eq(plan('quarry-abandoned', cells).finds.length, 0);
     const strip = plan('quarry-strip-mine', cells);
     assert.eq(strip.finds.length, 0, 'strip mine treasure is per rock, not a finite site budget');
-    assert.eq(strip.guards.length, 1, 'inhabitant budget does not grow with the number of benches');
-    assert.eq(strip.guards.filter(g => g.material === 'split_slime').length, 0);
-    assert.eq(strip.guards.filter(g => g.material === 'wurm').length, 1);
-    for (const guard of strip.guards) {
-      assert.eq(guard.material, 'wurm');
-      assert.falsy(strip.background.has(guard.i), 'inhabitants occupy open cuts');
-    }
     const stronghold = plan('quarry-stronghold', cells);
-    assert.eq(stronghold.finds.length, 3); assert.eq(stronghold.guards.length, 3);
+    assert.eq(stronghold.finds.length, 3);
     for (const id of ['quarry-abandoned', 'quarry-stronghold', 'quarry-crater', 'quarry-strip-mine']) {
       const observer = plan(id, cells, false);
-      assert.eq(observer.finds.length, 0); assert.eq(observer.guards.length, 0);
+      assert.eq(observer.finds.length, 0);
     }
   });
   test('quarry layout: tiny foundations decline placement and cell ordering cannot reroll a layout', () => {
@@ -233,7 +234,7 @@
     const make = (list, gx) => run(QuarryLayout.planSteps({ a: { owned: false, clipped: true, gx }, variant: ZoneVariants.byId('quarry-strip-mine'), cells: list }, { N, tx: 4, ty: 5 }));
     const a = make(cells, 40), b = make(extended, 1000);
     for (const i of cells) assert.eq(a.background.get(i), b.background.get(i), 'surviving cells never reroll');
-    assert.eq(a.finds.length, 0); assert.eq(a.guards.length, 0); assert.eq(a.hazards.length, 0);
+    assert.eq(a.finds.length, 0); assert.eq(a.pool.length, 0);
   });
   test('quarry selection: retain fitting roll and use actual layouts for narrow or tiny sites', () => {
     const variants = ZoneVariants.forKind('quarry');
@@ -249,7 +250,6 @@
     assert.truthy(selected !== 'quarry', 'narrow ground can still host a smaller authored layout');
     const row = ZoneVariants.byId(selected), fitted = plan(selected, narrow);
     if (row.finds.count) assert.gt(fitted.finds.length, 0);
-    if (row.guards.count) assert.gt(fitted.guards.length, 0);
     assert.eq(choose(narrow.slice().reverse()), selected, 'source order cannot choose another variant');
     assert.eq(choose(rect(2, 2)), null, 'small slivers remain ordinary ground');
   });
@@ -276,20 +276,5 @@
       assert.eq(choose(broadL), id, 'a wide usable pocket keeps its large-site roll');
       assert.eq(choose(broadL.slice().reverse()), id, 'source order cannot change the shape class');
     }
-  });
-  test('quarry clipped inhabitants: one fixed seat per block, independent of fragments and anchor', () => {
-    const cells = rect(48, 48);
-    const make = list => run(QuarryLayout.planSteps({ a: { owned: false, clipped: true },
-      variant: ZoneVariants.byId('quarry-strip-mine'), cells: list }, { N, tx: 4, ty: 5 }));
-    const whole = make(cells), left = make(cells.filter(i => i % N < 24)), right = make(cells.filter(i => i % N >= 24));
-    const inhabitants = [...whole.background].filter(([, material]) => ['split_slime', 'wurm'].includes(material));
-    assert.eq(inhabitants.filter(([, material]) => material === 'split_slime').length, 0);
-    assert.gt(inhabitants.filter(([, material]) => material === 'wurm').length, 0);
-    const spacing = ZoneVariantData.quarryLayouts.clippedInhabitantSpacingCells;
-    const blocks = inhabitants.map(([i]) => `${Math.floor((4 * N + i % N) / spacing)},${Math.floor((5 * N + Math.floor(i / N)) / spacing)}`);
-    assert.eq(new Set(blocks).size, inhabitants.length, 'no block grants two inhabitants');
-    for (const [i, material] of whole.background) assert.eq((i % N < 24 ? left : right).background.get(i), material);
-    assert.eq(whole.guards.length, 0, 'no finite budget is minted');
-    assert.eq(whole.finds.length, 0);
   });
 })();

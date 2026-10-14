@@ -7637,7 +7637,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "A central lava pool surrounds a dry island bearing an Ember altar.",
+      "atmosphere": "A dry, rounded pool floor at the bottom of the bowl holds an Ember altar; crimson ore lies in the rubble around it.",
       "quarryLayout": "crater",
       "affinities": [
         "ruined"
@@ -7761,14 +7761,9 @@
         "shape": "none"
       },
       "guards": {
-        "mode": "quarry_layout",
-        "kind": "wurm",
-        "count": 1,
-        "kinds": [
-          "wurm"
-        ]
+        "mode": "none"
       },
-      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Wurms tunnel through the loose earth beneath the open cuts.",
+      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches.",
       "quarryLayout": "strip_mine",
       "affinities": [
         "ruined"
@@ -7839,11 +7834,9 @@
         "shape": "none"
       },
       "guards": {
-        "mode": "quarry_layout",
-        "kind": "goblin",
-        "count": 3
+        "mode": "none"
       },
-      "atmosphere": "Ruined foundations shelter chests, goblins and scattered clay pots.",
+      "atmosphere": "Ruined foundations shelter chests and scattered clay pots. Whoever held these walls is long gone.",
       "quarryLayout": "stronghold",
       "affinities": [
         "ruined"
@@ -7872,7 +7865,6 @@
       "max": 8
     },
     "foundationSizeCells": 5,
-    "clippedInhabitantSpacingCells": 16,
     "sapphireAbundanceMultiplier": 0.25,
     "clusterGapCells": 3,
     "sourceJoinM": 2,
@@ -7956,7 +7948,6 @@
       "barrel": 0.004
     },
     "craterPoolSizeCells": 5,
-    "abandonedMaxSpikes": 6,
     "foundationPotChance": 0.5
   }
 }

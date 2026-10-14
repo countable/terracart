@@ -268,26 +268,8 @@ class SceneCreatures {
       };
       entry.objects = entry.objects || [];
       const slow = entry.slowCells || new Map();
-      const quarryHome = typeof this.homeWorldPos === 'function' ? this.homeWorldPos() : null;
-      const quarryHomeRadius = HOME_R * (this.cellM || cellM);
-      const liveSeats = new Set();
-      for (const o of entry.objects) if (o.kind !== 'lava_vent') {
-        for (const i of SpawnOwnership.tileCells(this, entry, o, tx, ty)) liveSeats.add(i);
-      }
       const placedZoneObjects = new Set();
       for (const o of zDress.objects) {
-        if (o.kind === 'lava_vent') {
-          const i = cellIdx(o);
-          const protectedSeat = _occupiedIdx.has(i) || liveSeats.has(i)
-            || (quarryHome && Math.hypot(o.x - quarryHome.x, o.y - quarryHome.y) <= quarryHomeRadius);
-          // Home and player objects are a live overlay, never an input to the
-          // shared generated world or the caves derived from its base grid.
-          if (protectedSeat && entry.grid[i] === WorldGen.T.CAVE_LAVA) {
-            if (entry.grid === genGrid) entry.grid = entry.grid.slice();
-            entry.grid[i] = WorldGen.T.ROCK;
-          }
-          if (protectedSeat || entry.grid[i] !== WorldGen.T.CAVE_LAVA) continue;
-        }
         if (!lay(o)) continue;
         entry.objects.push(o);
         placedZoneObjects.add(o.id);

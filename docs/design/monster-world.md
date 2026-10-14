@@ -91,12 +91,10 @@ private-land and occupied-cell exclusions still apply.
 
 The giant serpent remains a draft prototype and has no live spawn entry.
 
-Destroyed Crater has cyclic fire vents on its dry ground, in addition to its
-permanent central lava pool. `EnvironmentHazards` owns their seeded placement,
-inactive/warning/eruption cycle, contact damage and burning; each eruption
-also lights the vent's cell and the four beside it as short-lived
-`GroundFire`, relit every cycle, which can catch nearby fuel. Other surface
-quarry variants do not gain these vents.
+Quarries are peaceful: no quarry variant has enemies, lava, fire vents,
+spikes or cave-ins on the surface (`docs/design/zone-variants.md`). Cyclic
+vents (`EnvironmentHazards`) erupt only on cave floors and along seeded hazard
+paths; cave-ins belong to the dungeon floor.
 
 ## Caves
 

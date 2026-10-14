@@ -3462,7 +3462,7 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
 // and the per-tile list below is derived by.
 function offersPreCullLight(o) {
   const k = o.kind;
-  return isBuilding(k) || k === 'temple' || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope' || k === 'lava_vent'
+  return isBuilding(k) || k === 'temple' || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope'
     || !!(typeof Macros !== 'undefined' && Macros.visitKindForObject(o));
 }
 // A tile's pre-cull lights (util.js derivedObjects — re-derived only when the
@@ -3755,7 +3755,7 @@ Render.drawObjects = function drawObjects(scene) {
     // before the sprite cull, with its own radius as the margin, so a
     // lantern a cell off-screen still lights the edge it stands past.
     const visit = typeof Macros !== 'undefined' && Macros.visitKindForObject(o);
-    if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
+    if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'grove_shrine' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
     // A grove shrine whose gift is still there today ALSO wears the POI
     // light — the one "something to take here" mark (poiLit).
     if ((o.kind === 'grove_shrine' || visit) && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
@@ -5555,8 +5555,6 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // (the 4 frames differ only in the flame, so seat off frame 0 and the
     // stake never bobs). Its light is Lighting.KINDS.torch — offered to the
     // lightmap in the object scan above the sprite cull.
-    // Lava is painted by the ground pass; the object only carries its light.
-    lava_vent: { key: null },
     torch: { key: 'torch',
              frame: (o) => (Math.floor(performance.now() / 130) + ((o.x | 0) & 3)) % 4,
              origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true,
