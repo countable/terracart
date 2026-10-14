@@ -319,6 +319,13 @@ const PEEK_DRAG_SLOP_PX = 8;
 // is the 1/e time rather than a duration — the camera is home (sub-pixel) in
 // about 3× this.
 const PEEK_RETURN_MS = 90;
+// The PINCH ZOOM, the drag's two-finger twin: a pinch on the map magnifies it
+// about the viewport centre until at most PINCH_VIEW_CELLS span the frame, and
+// it springs back on PEEK_RETURN_MS the moment a pinching finger lifts. A
+// look, never a resting view, so fog, aggro and boss margins stay tuned for
+// VIEW_CELLS; and zoom-in only, so it never shows ground the full view hides.
+const PINCH_VIEW_CELLS = 7;
+const PINCH_MAX_ZOOM = VIEW_CELLS / PINCH_VIEW_CELLS;
 // Surface GPS gap (metres) past which a fix PLACES the body instead of being
 // walked off. The body chases the GPS target at up to DEBUG_SPEED_MUL × walk
 // pace (14 m/s), which comfortably keeps up with a real walk or a slow drive;
@@ -3077,6 +3084,8 @@ class MapScene extends Phaser.Scene {
     // every projection below — and every draw pass this frame — reads one
     // settled camera position rather than two.
     this._tickPeek(dt);
+    this._tickMapZoom(dt);
+    this._applyMapZoom();
     // Everything drawn AT the player rather than at a world position rides
     // this: the camera is normally on them, so it's the viewport centre, but a
     // peek drag slides them across the map like anything else standing on it.
@@ -5657,6 +5666,9 @@ class MapScene extends Phaser.Scene {
     this._peekPointerId = null;
     this._peekPointer = null;
     this._peekReturning = false;
+    this._pinch = null;
+    this.mapZoom = 1;
+    this._mapZoomReturning = false;
     if (!this.peekM) return;      // called before the view was set up
     this.peekM.x = 0;
     this.peekM.y = 0;
@@ -5675,6 +5687,89 @@ class MapScene extends Phaser.Scene {
       this.peekM.y = 0;
       this._peekReturning = false;
     }
+  }
+
+  // --- Pinch zoom (PINCH_VIEW_CELLS) ---
+  // Two map fingers start a pinch, and the zoom follows their spread over the
+  // spread they landed at. Neither finger taps when it lifts: the drag owner
+  // is marked dragging, and the other finger never owned anything.
+  _pinchStart(a, b) {
+    const pa = this._gamePt(a), pb = this._gamePt(b);
+    this._pinch = { a: a.id, b: b.id, from: this.mapZoom || 1,
+      dist: Math.max(1, Math.hypot(pa.x - pb.x, pa.y - pb.y)) };
+    this._mapZoomReturning = false;
+    if (this._peekPointerId !== null) this._peekDragging = true;
+  }
+
+  _pinchMove(a, b) {
+    const pa = this._gamePt(a), pb = this._gamePt(b);
+    const dist = Math.hypot(pa.x - pb.x, pa.y - pb.y);
+    this.mapZoom = clamp(this._pinch.from * dist / this._pinch.dist, 1, PINCH_MAX_ZOOM);
+  }
+
+  // A pinching finger lifted: the zoom springs home. A drag owner still on the
+  // glass carries on dragging from where it is now, not from where it landed.
+  _pinchEnd() {
+    this._pinch = null;
+    if (this.mapZoom !== 1) this._mapZoomReturning = true;
+    const p = this._peekPointer;
+    if (p?.isDown && p.id === this._peekPointerId) {
+      const at = this._gamePt(p);
+      this._peekDownX = at.x;
+      this._peekDownY = at.y;
+      this._peekFromM = { x: this.peekM.x, y: this.peekM.y };
+    }
+  }
+
+  // The peek's spring, on the zoom: home within half a screen pixel at the
+  // frame's edge, then exactly 1.
+  _tickMapZoom(dt) {
+    if (!this._mapZoomReturning) return;
+    this.mapZoom = 1 + (this.mapZoom - 1) * Math.exp(-dt / (PEEK_RETURN_MS / 1000));
+    if ((this.mapZoom - 1) * this.viewSize / 2 < 0.5) {
+      this.mapZoom = 1;
+      this._mapZoomReturning = false;
+    }
+  }
+
+  // A logical point on the zoomed map → the point the 1× view draws there,
+  // which is the space every tap path, cell hit test and edge dot measures in.
+  _unzoomPt(pt) {
+    const z = this.mapZoom || 1;
+    if (z === 1) return pt;
+    return { x: this.viewCenterX + (pt.x - this.viewCenterX) / z,
+             y: this.viewCenterY + (pt.y - this.viewCenterY) / z };
+  }
+
+  // Put the zoom on the camera, once per frame. At 1× the camera is
+  // applyRenderScale's pure scale over the whole canvas. Zoomed, its viewport
+  // shrinks to the map square, so nothing magnified spills past the frame, and
+  // zoom and scroll magnify about the viewport centre. The vignette is the
+  // frame's chrome, not map: counter-scaled so it stays on the rim.
+  _applyMapZoom() {
+    const cam = this.cameras?.main;
+    if (!cam) return;
+    const z = this.mapZoom || 1;
+    const chrome = this._mapChrome || [];
+    if (z === 1) {
+      if (!this._mapZoomOn) return;
+      this._mapZoomOn = false;
+      cam.setViewport(0, 0, W * RENDER_SCALE, H * RENDER_SCALE);
+      applyRenderScale(cam);
+      for (const g of chrome) g.setPosition(0, 0).setScale(1);
+      return;
+    }
+    this._mapZoomOn = true;
+    const rs = RENDER_SCALE, k = rs * z;
+    const vx = Math.round(this.viewLeft * rs), vy = Math.round(this.viewTop * rs);
+    const vs = Math.round(this.viewSize * rs);
+    cam.setViewport(vx, vy, vs, vs);
+    cam.setZoom(k);
+    // Device px = viewport + k·(logical − scroll); the centre keeps rs·centre.
+    const sx = this.viewCenterX - (rs * this.viewCenterX - vx) / k;
+    const sy = this.viewCenterY - (rs * this.viewCenterY - vy) / k;
+    cam.setScroll(sx, sy);
+    for (const g of chrome) g.setScale(1 / z).setPosition(sx - vx / k, sy - vy / k);
   }
   // === Interaction ===
   // Dispatch lives in interact.js as a flat TAP_HANDLERS priority array;
