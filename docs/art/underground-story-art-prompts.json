@@ -50,8 +50,9 @@
     },
     {
       "id": "underground_gemstone_path",
-      "source": "/home/claude/.codex/generated_images/01a105df-5005-75a2-af8a-991ee75463db/exec-cf9175a9-8eff-4f15-ad5a-f35b74541ae1.png",
-      "prompt": "Detailed 16-bit pixel art storybook illustration for Dragon Hood, a medieval village rebuilding RPG, crisp SNES pixel clusters and visible dithering, restrained brown rock, cream highlights, subtle amber torchlight and cool subterranean shadows. PORTRAIT 11:14 frame, subject large across TOP 40 percent ONLY, lower 60 percent completely empty dark quiet cave ground with no objects or fine detail, for overlaid dialog copy. No text, letters, UI, watermark, or modern machinery. A narrow cave passage lined with small rose quartz crystal seams among broken rock, subtle pink glimmer."
+      "source": "/home/claude/.artifacts/terracart-art/art-source/paintings/raw/underground_gemstone_path.png",
+      "prompt": "Edit the gemstone passage painting, preserving brown rock, rose quartz, amber torchlight, companion dog and detailed 16-bit pixel clusters. Replace the chibi explorer with a naturally proportioned traveller seen from behind looking into the tunnel. The raised brown hood completely conceals all hair and face: no visible eyes, nose, mouth, chin, facial skin, profile or glowing eyes. Keep backpack, practical medieval clothes and torch. All figures and light stay in the top 40%; lower 60% is empty dark cave floor for dialog copy. Portrait 11:14; no text or UI.",
+      "updated": "2026-10-15"
     },
     {
       "id": "underground_sm_road_passage",

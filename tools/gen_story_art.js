@@ -36,7 +36,9 @@ const STYLE =
   'Warm golden-hour palette: amber and dusty-orange sky with visible dithering, olive-green ' +
   'foliage, brown earth, cream highlights. Retro SNES-era pixel clusters, crisp clusters, no ' +
   'anti-aliased smooth gradients. Wide landscape composition, gentle melancholy turning to hope. ' +
-  'The player survivor always wears a raised brown hood concealing hair and face; NPCs keep their own clothing. ' +
+  'The player survivor always wears a raised brown hood completely concealing hair and face in opaque shadow: ' +
+  'no visible eyes, nose, mouth, chin, facial skin or glowing eyes, even in torchlight or profile. ' +
+  'Use natural figure proportions in story illustrations, never chibi or oversized heads; NPCs keep their own clothing. ' +
   'All currency coins are jade green with a star mark, never yellow gold. ' +
   'No text, no letters, no UI, no watermark.';
 
@@ -82,7 +84,7 @@ const LORE = {
   sigil:   'Subtle background detail: a small scorched horned sigil is burnt into a stone, half covered by grass.',
   shadow:  'Very subtle detail: the survivor\'s long shadow on the ground shows two faint small horn shapes that the survivor does not have - easy to miss.',
   embers:  'Very subtle detail: nearby sparks and embers drift toward the survivor, as if drawn to them.',
-  glint:   'Very subtle detail: a faint red ember glint in the survivor\'s eyes, barely visible.',
+  glint:   'Very subtle detail: a faint red ember caught on the edge of the survivor\'s cloak, away from the fully concealed face.',
   wary:    'Very subtle detail: one onlooker glances at the survivor with quiet unease.',
 };
 // NO LORE ON HOLY OR GRAVE GROUND (Sep 2026). A demon hint on a church, a
@@ -319,7 +321,7 @@ const PIECES = {
   underground_seep_passage: scene("A narrow shallow stream through a rocky cave corridor with dry banks on both sides and a few pale mushrooms."),
   underground_miners_way: scene("A small wooden ore cart parked beside a clear mining path, metal ore seams and broken worked stone along its verges."),
   underground_warren_run: scene("A narrow low cave passage lined with crude stone walls, tiny open side doorways and supply alcoves."),
-  underground_gemstone_path: scene("A narrow cave passage lined with small rose quartz crystal seams among broken rock, subtle pink glimmer."),
+  underground_gemstone_path: scene("A narrow cave passage lined with small rose quartz crystal seams among broken rock, subtle pink glimmer. A naturally proportioned brown-hooded traveller with a backpack and torch, seen from behind looking into the tunnel, with a small companion dog. The hood completely hides all hair and face. Grounded fantasy proportions, no chibi or oversized head."),
   underground_sm_road_passage: scene("A broad rough underground passage with a few stalagmites, a small inert stone vent and separate dark floor openings."),
   underground_depth2_rock_scatter: scene("Sparse small rose quartz and violet amethyst clusters scattered among ordinary cave rocks, no other gems."),
   underground_bone_gallery: scene("A cave passage with clustered pale dry animal bones and skulls and an ominous bulky creature shadow deep beyond. No gore."),
