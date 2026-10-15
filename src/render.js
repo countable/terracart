@@ -415,6 +415,18 @@ Render.undergroundGroundColor = (entry, ix, iy, type) => {
     : area === 2 ? Render.UNDERGROUND_GROUND.dwarven_city : null;
 };
 
+// The ancient rift occupies the existing MD/LG suppression buffer, including
+// the earth beside the paving. Water, structures and other depths retain their
+// material; parking-only suppression is deliberately outside this road zone.
+Render.suppressedGround = (entry, ix, iy, type, depth = 0, n = entry?.cellsPerEdge) => {
+  if (depth !== 0 || (entry?.depth ?? 0) !== 0 || !n
+    || !WorldGen.nightZoneBits(entry?.roadClass?.[iy * n + ix] | 0)
+    || type === WorldGen.T.WATER || type === WorldGen.T.PIER
+    || isBuildingType(type) || type >= WorldGen.T.CAVE_FLOOR && type <= WorldGen.T.CAVE_LAVA
+    || type === 30) return false;
+  return true;
+};
+
 // Pseudo-3D extrusion: a building footprint is the "top surface", and its
 // south-facing edge gets a darker wall projected downward onto the row below.
 // Wall faces recover half the pre-recolour contrast against their floors — deep
@@ -1664,6 +1676,7 @@ let _ringTypes  = null;
 let _ringOwners = null;
 let _ringUnclaimed = null;
 let _ringGroundColor = null;
+let _ringRiftGround = null;
 let _ringSyntheticBuilding = null;
 let _ringRoadSafety = null;
 // Each ring slot's cell, resolved ONCE per pass: its absolute key (coords.js
@@ -2162,6 +2175,7 @@ Render.drawCells = function drawCells(scene) {
     // unclaimed, and gets the dark-green wash below.
     _ringUnclaimed = new Uint8Array(RING * RING);
     _ringGroundColor = new Int32Array(RING * RING);
+    _ringRiftGround = new Uint8Array(RING * RING);
     _ringSyntheticBuilding = new Uint8Array(RING * RING);
     _ringRoadSafety = new Uint8Array(RING * RING);
     _ringAX = new Int32Array(RING * RING);
@@ -2231,7 +2245,9 @@ Render.drawCells = function drawCells(scene) {
       // A cell with no loaded tile renders as UNMAPPED fog (not fake grass —
       // that's the tile-loading indicator; see the _ringVeil comment above).
       types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : UNMAPPED_T;
-      _ringGroundColor[si] = Render.undergroundGroundColor(e2, ix2, iy2, types[si])
+      _ringRiftGround[si] = Render.suppressedGround(e2, ix2, iy2, types[si], scene.depth ?? 0, N) ? 1 : 0;
+      _ringGroundColor[si] = _ringRiftGround[si] ? parseHex(StreetVariants.SUPPRESSED_STYLE.ground)
+        : Render.undergroundGroundColor(e2, ix2, iy2, types[si])
         ?? (typeof zoneGroundColor === 'function'
           ? (zoneGroundColor(e2, ix2, iy2, types[si], tx2, ty2) ?? -1) : -1);
       _ringSyntheticBuilding[si] = e2?.syntheticBuildingCells?.[iy2 * N + ix2] || 0;
@@ -2381,6 +2397,9 @@ Render.drawCells = function drawCells(scene) {
           color = COLORS[polyGround] ?? color;
         }
       }
+      // The road backdrop lookup must not replace the buffer's earth colour.
+      const riftGround = _ringRiftGround[(row + 2) * RING + (col + 2)] && type === T(col, row);
+      if (riftGround) color = groundColor(color, col, row);
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
 
       // Resolve only the cells in view; the permanent burn ledger can grow
@@ -2455,7 +2474,7 @@ Render.drawCells = function drawCells(scene) {
         // Paint diagonal-neighbor color in each rounded corner first so the pixels
         // revealed outside the curve are the correct adjacent-zone colour.
         const cornerColor = (t, dnx, dny) => lookThrough(t, col + dnx, row + dny)
-          ? (scene.neighborNonRoadColor(AX(col + dnx, row + dny), AY(col + dnx, row + dny)) ?? GRASS_FALLBACK_COLOR)
+          ? groundColor(scene.neighborNonRoadColor(AX(col + dnx, row + dny), AY(col + dnx, row + dny)) ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny)
           : courtShaded(t, COLORS[t] ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny);
         if (tl) { g.fillStyle(cornerColor(tnw, -1, -1), 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
         if (tr) { g.fillStyle(cornerColor(tne, 1, -1), 1); g.fillRect(sx + CELL_PX - CORNER_R, sy, CORNER_R, CORNER_R); }
@@ -2498,7 +2517,7 @@ Render.drawCells = function drawCells(scene) {
         const tW = T(col - 1, row), tE = T(col + 1, row);
         // Resolve the inferred colour of a road/path neighbour by looking through it.
         const nbrInferred = (dnx, dny) =>
-          scene.neighborNonRoadColor(AX(col + dnx, row + dny), AY(col + dnx, row + dny)) ?? GRASS_FALLBACK_COLOR;
+          groundColor(scene.neighborNonRoadColor(AX(col + dnx, row + dny), AY(col + dnx, row + dny)) ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny);
         // An edge needs the wavy border exactly when the PAINTED colours differ across
         // it (edgeNeedsBorder, above). A road cell is painted the majority biome of its
         // 7×7 neighbourhood, so a road running ALONG a seam changes colour mid-run and
@@ -2652,6 +2671,9 @@ Render.drawCells = function drawCells(scene) {
           // Roads and polygonal buildings wear the same
           // biome texture as their base fill, including beneath the paving.
           if (polyGround >= 0) baseType = polyGround;
+          // Dry grit is an alpha overlay: the rift's earth remains visible,
+          // and lush biome marks cannot overpaint its surrounding buffer.
+          if (riftGround) baseType = WorldGen.T.WASTELAND;
           const spec = skyLevel ? null : BIOME_TEX[baseType];
           if (spec) {
             const variantHash = baseType === 12 ? avalanche32(h) : Math.abs(h);

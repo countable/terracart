@@ -454,8 +454,8 @@
   // the owner's safety pass, Sep 2026), no foe, no trap.
   // Render-only identity: never enters variant selection or spawn dressing.
   const SUPPRESSED_STYLE = {
-    id: 'suppressed', lampGlow: '#d6ff3f', lampSpacingMul: 2,
-    stone: { weathered: '#11101b', restored: '#201d2b', pattern: 'rift', accent: '#d6ff3f' },
+    id: 'suppressed', lampGlow: '#b3a18c', lampSpacingMul: 2, ground: '#655c60',
+    stone: { weathered: '#514b50', restored: '#625b60', pattern: 'rift', accent: '#9b8790' },
   };
   function pavementFor(variant) {
     return (variant === SUPPRESSED_STYLE.id ? SUPPRESSED_STYLE : VARIANT_BY_ID[variant])?.stone || null;

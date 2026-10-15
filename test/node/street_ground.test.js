@@ -44,3 +44,32 @@
     assert.eq(Render.roadBackdropType(f.scene,WorldGen.T.ROCK,0,0),null,'ordinary ground keeps its own material');
   });
 })();
+
+(function () {
+  test('rift ground: the full road suppression buffer is styled, not just paving', () => {
+    const W = WorldGen;
+    const entry = { depth: 0, cellsPerEdge: 3, roadClass: new Uint8Array(9) };
+    entry.roadClass[4] = W.ROAD_CLASS_MAJOR_BUFFER;
+    for (const type of [W.T.ROAD_MD, W.T.ROAD_LG, W.T.GRASS, W.T.FOREST,
+      W.T.SAND, W.T.PATH, W.T.GROVE, W.T.WASTELAND]) {
+      assert.truthy(Render.suppressedGround(entry, 1, 1, type), 'buffer earth shares rift palette');
+      assert.falsy(Render.suppressedGround(entry, 0, 1, type), 'adjacent terrain beyond buffer retains biome');
+    }
+    entry.roadClass[4] |= W.ROAD_CLASS_LOT_BUFFER;
+    assert.falsy(Render.suppressedGround(entry, 1, 1, W.T.GRASS), 'parking-only buffer is not the ancient road rift');
+    entry.roadClass[4] = W.ROAD_CLASS_MAJOR_BAND;
+    assert.falsy(Render.suppressedGround(entry, 1, 1, W.T.ROAD_MD), 'use actual suppression mask, not road tier');
+  });
+  test('rift ground: surface styling preserves water, structures and underground materials', () => {
+    const W = WorldGen;
+    const entry = { cellsPerEdge: 1, roadClass: new Uint8Array([W.ROAD_CLASS_MAJOR_BUFFER]) };
+    for (const type of [W.T.WATER, W.T.PIER, W.T.BUILDING, W.T.BUILDING_MED,
+      W.T.BUILDING_LARGE, W.T.CAVE_FLOOR, W.T.CAVE_WALL, W.T.CAVE_LAVA, 30]) {
+      assert.falsy(Render.suppressedGround(entry, 0, 0, type), 'material stays intact');
+    }
+    assert.falsy(Render.suppressedGround(entry, 0, 0, W.T.GRASS, 1), 'scene depth excludes inherited surface bits');
+    entry.depth = 1;
+    assert.falsy(Render.suppressedGround(entry, 0, 0, W.T.GRASS), 'cache depth excludes inherited surface bits');
+    assert.falsy(Render.suppressedGround(null, 0, 0, W.T.GRASS), 'unloaded terrain stays unmapped');
+  });
+})();

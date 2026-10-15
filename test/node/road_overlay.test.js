@@ -1789,20 +1789,20 @@ test('road overlay: suppressed MD/LG pavement stays distinct before and after re
     const scene = makeRestoredScene();
     Streets.restore(scene.save, RO_KEY00(), Streets.lineKey(f, 0), [[0, 40]]);
     RoadOverlay.draw(scene);
-    assert.eq(scene.roadGeomGfx.paths[0].style.c, 0x11101b);
-    assert.eq(scene.roadRestoredGfx.paths[0].style.c, 0x201d2b);
+    assert.eq(scene.roadGeomGfx.paths[0].style.c, 0x514b50);
+    assert.eq(scene.roadRestoredGfx.paths[0].style.c, 0x625b60);
     assert.eq(StreetVariants.pavementVariantFor(f.tags, 'orchard'), 'suppressed');
-    assert.eq(StreetVariants.stoneColorFor('suppressed'), '#201d2b');
+    assert.eq(StreetVariants.stoneColorFor('suppressed'), '#625b60');
     assert.falsy(StreetVariants.VARIANT_BY_ID.suppressed, 'render-only: never a gameplay theme');
   }
 });
 
-test('street lamp: suppressed rift posts keep a dark empty silhouette and a narrow alien seam', () => {
+test('street lamp: suppressed rift posts keep a weathered stone silhouette and a sheltered votive light', () => {
   const { ctx, ops } = roRecorder();
   RoadOverlay.paintLamp(ctx, RoadOverlay.LAMP_TEX_PX, StreetVariants.SUPPRESSED_STYLE.lampGlow);
-  assert.truthy(ops.some(([op,,css]) => op === 'addColorStop' && css.includes('214,255,63')), 'rift bloom uses chartreuse');
+  assert.truthy(ops.some(([op,,css]) => op === 'addColorStop' && css.includes('179,161,140')), 'rift bloom uses muted bone light');
   assert.eq(ops.filter(([op]) => op === 'createLinearGradient').length, 0, 'no ornate metal mouldings');
-  assert.eq(ops.filter(([op]) => op === 'createRadialGradient').length, 1, 'restrained seam bloom, no welcoming pool');
+  assert.eq(ops.filter(([op]) => op === 'createRadialGradient').length, 1, 'restrained votive bloom, no welcoming pool');
   const broken = roRecorder();
   RoadOverlay.paintLamp(broken.ctx, RoadOverlay.LAMP_TEX_PX, StreetVariants.SUPPRESSED_STYLE.lampGlow, true);
   assert.eq(broken.ops.filter(([op]) => op === 'createRadialGradient').length, 0, 'broken rift posts shed no light');

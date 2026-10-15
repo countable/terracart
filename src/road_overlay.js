@@ -596,16 +596,28 @@
     cx.restore();
   }
 
-  // Sparse, angular tears in an otherwise empty surface. Edge endpoints
-  // match across repeated tiles; no animated noise or extra render pass.
+  // Old mineral fractures: broken, branching scars rather than continuous
+  // luminous lines. The seeded dust and isolated paths repeat without seams.
   function paintRift(cx, size, accent) {
     cx.save();
-    const points = [[0, .31], [.19, .31], [.28, .40], [.43, .40], [.51, .29], [.72, .29], [.81, .31], [1, .31]];
-    for (const [width, alpha] of [[.045, .10], [.010, .85]]) {
-      cx.strokeStyle = accent; cx.globalAlpha = alpha; cx.lineWidth = size * width;
-      cx.beginPath(); cx.moveTo(points[0][0] * size, points[0][1] * size);
-      for (const [x, y] of points.slice(1)) cx.lineTo(x * size, y * size);
-      cx.stroke();
+    const rnd = lcg(0xa6e17);
+    for (let i = 0; i < 55; i++) {
+      cx.fillStyle = i % 3 ? 'rgba(196,181,171,.06)' : 'rgba(36,31,36,.09)';
+      cx.fillRect(rnd() * size, rnd() * size, size * (.008 + rnd() * .025), size * .012);
+    }
+    const scars = [
+      [[.09,.22],[.18,.27],[.23,.38],[.35,.43],[.41,.55]],
+      [[.23,.38],[.18,.45],[.20,.52]],
+      [[.57,.75],[.62,.64],[.73,.58],[.76,.45],[.89,.39]],
+      [[.73,.58],[.82,.65],[.87,.64]],
+    ];
+    for (const [width, ink, alpha] of [[.022, '#302c32', .45], [.007, accent, .32]]) {
+      cx.strokeStyle = ink; cx.globalAlpha = alpha; cx.lineWidth = size * width;
+      for (const points of scars) {
+        cx.beginPath(); cx.moveTo(points[0][0] * size, points[0][1] * size);
+        for (const [x, y] of points.slice(1)) cx.lineTo(x * size, y * size);
+        cx.stroke();
+      }
     }
     cx.restore();
   }
@@ -1054,35 +1066,37 @@
     cx.fillStyle = metal(c - fr, c + fr, 0.15); cx.fill(); strokeEdge();
   }
 
-  // A spare split monolith: black faces and one narrow, displaced light seam.
-  // Its foot and lantern height match the ordinary post's art/light anchors.
+  // A worn wayside stone with a sheltered votive light. Broad chipped faces
+  // and an unlit carved fracture keep the rift ancient, not technological.
   function paintRiftLamp(cx, S, glow, broken) {
     const c = S / 2, ground = S * LAMP_GROUND_FRAC;
     const top = S * (broken ? lampTilt(.42) : lampTilt(.12));
-    const w = S * .026, foot = S * LAMP_FOOT_FRAC;
-    const ink = StreetVariants.SUPPRESSED_STYLE.stone.weathered;
-    cx.fillStyle = 'rgba(0,0,0,.35)';
-    cx.beginPath(); cx.ellipse(c, ground, foot * 1.1, foot * LAMP_VIEW_K, 0, 0, Math.PI * 2); cx.fill();
-    cx.fillStyle = ink;
+    const w = S * .047, foot = S * LAMP_FOOT_FRAC;
+    cx.fillStyle = 'rgba(30,25,30,.25)';
+    cx.beginPath(); cx.ellipse(c, ground, foot * 1.2, foot * LAMP_VIEW_K, 0, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = '#71666a';
     cx.beginPath();
-    cx.moveTo(c - foot, ground); cx.lineTo(c - w, ground - S * .035);
-    cx.lineTo(c - w, top); cx.lineTo(c + w * .2, top + S * .024);
-    cx.lineTo(c + w, top - S * .008); cx.lineTo(c + w, ground - S * .035);
-    cx.lineTo(c + foot, ground); cx.closePath(); cx.fill();
-    cx.strokeStyle = broken ? 'rgba(137,155,78,.65)' : `rgba(${glow.join(',')},.95)`;
-    cx.lineWidth = Math.max(1, S * .009);
-    cx.beginPath();
-    cx.moveTo(c - w * .3, ground - S * .018);
-    cx.lineTo(c - w * .3, top + (ground - top) * .55);
-    cx.lineTo(c + w * .35, top + (ground - top) * .49);
-    cx.lineTo(c + w * .35, top + S * .018); cx.stroke();
+    cx.moveTo(c - foot, ground - S * .01); cx.lineTo(c - w, ground - S * .055);
+    cx.lineTo(c - w * .8, top + S * .025); cx.lineTo(c - w * .3, top);
+    cx.lineTo(c + w * .65, top + S * .012); cx.lineTo(c + w, ground - S * .045);
+    cx.lineTo(c + foot, ground - S * .01); cx.closePath(); cx.fill();
+    cx.fillStyle = '#524a50';
+    cx.beginPath(); cx.moveTo(c + w * .3, top + S * .018);
+    cx.lineTo(c + w * .65, top + S * .012); cx.lineTo(c + w, ground - S * .045);
+    cx.lineTo(c + foot, ground - S * .01); cx.lineTo(c + w * .15, ground - S * .02); cx.closePath(); cx.fill();
+    cx.strokeStyle = 'rgba(49,43,48,.6)'; cx.lineWidth = Math.max(1, S * .008);
+    cx.beginPath(); cx.moveTo(c-w*.5, ground-S*.05);
+    cx.lineTo(c+w*.15, ground-S*.10); cx.lineTo(c-w*.25, ground-S*.14); cx.stroke();
+    cx.fillStyle = '#8a7d7c'; cx.fillRect(c-foot*.75, ground-S*.025, foot*1.2, S*.012);
     if (broken) return;
-    const y = S * LAMP_LANTERN_FRAC, r = S * .05;
+    const y = S * LAMP_LANTERN_FRAC, r = S * .065;
+    cx.fillStyle = '#3f383e'; cx.fillRect(c-w*.55, y-S*.035, w*1.1, S*.074);
     const bloom = cx.createRadialGradient(c,y,0,c,y,r);
-    bloom.addColorStop(0, `rgba(${glow.join(',')},.28)`);
+    bloom.addColorStop(0, `rgba(${glow.join(',')},.22)`);
     bloom.addColorStop(1, `rgba(${glow.join(',')},0)`);
     cx.fillStyle = bloom; cx.fillRect(c-r,y-r,r*2,r*2);
-    cx.fillStyle = '#f4ffd2'; cx.fillRect(c - S * .006,y - S * .025,S * .012,S * .05);
+    cx.fillStyle = `rgb(${glow.join(',')})`; cx.fillRect(c-S*.01,y-S*.015,S*.02,S*.03);
+    cx.fillStyle = '#8a7d7c'; cx.fillRect(c-w*.8,y-S*.043,w*1.6,S*.014);
   }
 
   // Baked into the existing cobble sheet's dark-lamp frames by the art tool.
