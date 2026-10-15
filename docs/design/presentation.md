@@ -156,6 +156,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   neighbours' directions, telescope finds, maps and the Pairy together. Writers
   add with `Buffs.withMark`: a mark on the same target replaces or extends,
   a new target adds a mark, and nothing refuses or clears another mark.
+  The starter ladder's bearing (`STARTER_MARK`) is the same labelled dot,
+  aimed per step by `_starterGuidanceGoal` rather than stored as marks.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls
