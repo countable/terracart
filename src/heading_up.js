@@ -249,7 +249,7 @@ const HeadingUp = {
     // move with the map, but the ellipse must not turn sideways with it.
     for (const o of scene.shadowContainer?.list || []) {
       if (o.type === 'Image' || o.type === 'Sprite') {
-        o._huAnchor = { x: o.x, y: o.y };
+        o._huAnchor ||= { x: o.x, y: o.y };
         up(o);
       }
     }

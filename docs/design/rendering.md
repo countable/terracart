@@ -38,10 +38,12 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   flags share their owner's anchor; transparent frame padding is not a foot.
   Roof signs and DOM delivery bubbles use that same footprint anchor; batched
   sign boards and smoke counterrotate their drawing commands. Contact shadows
-  keep their ellipse orientation while their centres move with the map.
+  keep their ellipse orientation. Building shadows share the building pivot,
+  retain their screen-vertical inset, and size to the visible art footprint.
+  Broken lamp posts and dropped items stay upright like other raised props.
   Creature appearance directions rotate without changing simulation state.
   Game state stays north-up; taps, peek drags and steering convert back
-  through `HeadingUp.toWorldVec`.
+  through `HeadingUp.toWorldVec`, including the manual GPS stick.
 - Map annotations use `HeadingUp.toOverlayPt` for UI-camera graphics: rotate
   and zoom their ground anchor, then apply the upright body/head lift. Work
   rings, tools, watering effects and enemy health bars mark themselves `_huUI`
