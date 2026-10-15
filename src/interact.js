@@ -1372,8 +1372,13 @@ const TAP_HANDLERS = [
       return !groundObjectBlocker(scene, save, cwmx, cwmy, at.half);
     },
     place: ({ scene, save, cwmx, cwmy }) => {
+      // Home's firepit is drawn off its cell's centre (HomeArea.FIREPIT_NUDGE);
+      // a fire lit in it burns on the ring, not beside it.
+      const pit = save.homeFirepit;
+      const spot = pit && PlacedFloor.isSurface(scene.depth) && sameAbsCell(scene, pit.x, pit.y, cwmx, cwmy)
+        ? pit : { x: cwmx, y: cwmy };
       // Tag the level so it renders / wards only here (see src/placed_floor.js).
-      save.fires.push(PlacedFloor.stampDepth({ x: cwmx, y: cwmy }, scene.depth));
+      save.fires.push(PlacedFloor.stampDepth({ x: spot.x, y: spot.y }, scene.depth));
       // The FIRST fire a save ever lights tells its story. A busy screen
       // returns false unmarked (the story ledger), so the next fire asks again.
       scene._storySplashOnce?.('fire', {

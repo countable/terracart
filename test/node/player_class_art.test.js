@@ -84,6 +84,21 @@
     assert.eq(scene.playerFeetNudgeY, -SL.PLAYER_ART.runner.footDrop * SL.PLAYER_ART.runner.scale);
   });
 
+  test('player art: standing still faces the nearest side to the compass heading', () => {
+    const scene = makeScene({ playerClass: 'runner' });
+    play.call(scene, scene.player, 'walk', -1, 0);
+    // A compass reading NNE: idle turns to face up, not the last walk (left).
+    scene.compassDeg = 20; scene.facing = { x: 0.34, y: -0.94 };
+    play.call(scene, scene.player, 'idle');
+    assert.eq(scene.player.anims.currentAnim.key, 'player_runner-idle-up');
+    scene.compassDeg = 100; scene.facing = { x: 0.98, y: 0.17 };
+    play.call(scene, scene.player, 'idle');
+    assert.eq(scene.player.anims.currentAnim.key, 'player_runner-idle-right');
+    // Walking still faces the step, whatever the compass says.
+    play.call(scene, scene.player, 'walk', 0, 1);
+    assert.eq(scene.player.anims.currentAnim.key, 'player_runner-walk-down');
+  });
+
   test('player art: unavailable sheet or animations safely fall back to the cyan farmer', () => {
     // The farmer is the base sheet every save starts on: while a calling's
     // sheet or cycles are missing, its authored four-direction cycles stand

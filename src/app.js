@@ -5758,7 +5758,7 @@ class MapScene extends Phaser.Scene {
 
   // --- The opening shot (HomeArea.INTRO) ---
   // A new game opens close on Home: zoomed until INTRO.viewCells span the
-  // frame, the camera half a cell north of the player, so the wagon fills the
+  // frame, the camera INTRO.focus off the player, so the wagon fills the
   // top half and the player stands at its door. It waits there while Home is
   // still being placed or a dialog (the opening story, the location prompt)
   // covers the map, holds INTRO.holdMs once the map is clear, then widens
@@ -5792,11 +5792,12 @@ class MapScene extends Phaser.Scene {
     const e = k * k * (3 - 2 * k);
     const span = I.viewCells + (VIEW_CELLS - I.viewCells) * e;
     this.mapZoom = VIEW_CELLS / span;
-    this.peekM.x = 0;
-    this.peekM.y = -this.cellM / 2 * (1 - e);
+    this.peekM.x = I.focus.dx * this.cellM * (1 - e);
+    this.peekM.y = I.focus.dy * this.cellM * (1 - e);
     if (k >= 1) {
       this._homeIntro = null;
       this.mapZoom = 1;
+      this.peekM.x = 0;
       this.peekM.y = 0;
     }
   }
@@ -9459,7 +9460,9 @@ class MapScene extends Phaser.Scene {
   // so calling from updateHUD every frame stays cheap.
   // Play a directional player animation on `sprite`. When dx/dy are supplied
   // (movement frame), updates this._spriteDir so the idle pose holds the last
-  // walking direction. Avoids restarting the anim if the key is unchanged.
+  // walking direction — unless a device compass reading exists, in which case
+  // the idle pose turns to face it. Avoids restarting the anim if the key is
+  // unchanged.
   // Swap the player between the human sheets and the red dragon while the
   // Dragon Powder is active. Sets _dragonActive so
   // _playDirected routes both sprites through the looping 'dragon-fly' anim,
@@ -9522,6 +9525,12 @@ class MapScene extends Phaser.Scene {
     if (dx !== undefined) {
       const d = Math.hypot(dx, dy);
       if (d > 0.001) this._spriteDir = { x: dx / d, y: dy / d };
+    } else if (sprite === this.player && this.compassDeg != null) {
+      // Standing still with a compass: face the device heading (this.facing,
+      // which confusion also drives), snapped to the nearest authored
+      // direction below. Without one, idle holds the last walking direction.
+      const d = Math.hypot(this.facing?.x ?? 0, this.facing?.y ?? 0);
+      if (d > 0.001) this._spriteDir = { x: this.facing.x / d, y: this.facing.y / d };
     }
     const { x, y } = this._spriteDir;
     // Dragon transform: the player flies as a single-direction dragon.

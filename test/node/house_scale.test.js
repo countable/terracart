@@ -80,16 +80,15 @@ test('building scale: no area (trailer / sandbox house) draws the default', () =
   nearCells(houseCells(undefined), HOUSE.def, 'house, undefined area');
 });
 
-test('building scale: Home draws a tenth wider than the village, on its own row', () => {
+test('building scale: Home draws wider than the village, on its own row', () => {
   // The trailer has no footprint, so it draws its row's def — and that row
-  // is the house row's default × 1.331 (Oct 2026, three 10% steps), still under the smallest
-  // fort so Home never reads as a civic block.
+  // is the house row's default × 1.533 (Oct 2026: three 10% steps, then 15%).
   const trailerCells = (area) => cellsWide(houseArtScale(area, HOUSE_FRAMES.trailer, 'trailer', CELL_M, CELL_PX), HOUSE_FRAMES.trailer);
-  nearCells(trailerCells(undefined), HOUSE.def * 1.331, 'Home: house default × 1.331');
-  nearCells(trailerCells(10), HOUSE.def * 1.331, 'and a stray area neither shrinks it');
-  nearCells(trailerCells(50000), HOUSE.def * 1.331, 'nor grows it');
+  nearCells(trailerCells(undefined), HOUSE.def * 1.533, 'Home: house default × 1.533');
+  nearCells(trailerCells(10), HOUSE.def * 1.533, 'and a stray area neither shrinks it');
+  nearCells(trailerCells(50000), HOUSE.def * 1.533, 'nor grows it');
   assert.eq(TRAILER.def, TRAILER.min); assert.eq(TRAILER.def, TRAILER.max);
-  assert.lt(TRAILER.max, FORT.min, 'Home stays under the smallest fort');
+  assert.lt(TRAILER.max, FORT.max, 'Home stays under a full-size fort');
   // Every residential role without a row of its own shares the house row.
   for (const role of ['plain', 'blacksmith', 'trader', 'shop', 'wreck', 'wizard', 'house', undefined]) {
     assert.eq(buildingArt(role), HOUSE, `${role} is a house`);

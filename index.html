@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=beac4886" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=9f271a6a" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1006,6 +1006,13 @@
       font: 700 15px var(--font-ui); cursor: pointer;
       width: 100%; min-height: 48px;
     }
+    /* Skip the whole opening from any slide: a quiet text link under the
+       main button, so the story's own CTA stays the obvious tap. */
+    #story button.story-skip {
+      background: none; color: var(--gold-dark); width: auto; min-height: 44px;
+      margin-top: 6px; padding: 10px 16px;
+      font: 400 13px var(--font-ui); text-decoration: underline;
+    }
     #story.nightmare { background: #000; }
     #story.nightmare .box { background: #000; border-color: transparent; }
     #story.nightmare .art {
@@ -1391,6 +1398,7 @@
       <div class="opening-copy">
         <p id="story-text"></p>
         <button id="story-next">Next</button>
+        <button id="story-skip" class="story-skip" type="button">Skip intro</button>
       </div>
     </div>
   </div>
@@ -2563,6 +2571,7 @@
       const artEl = document.getElementById('story-art');
       const textEl = document.getElementById('story-text');
       const btn = document.getElementById('story-next');
+      const skip = document.getElementById('story-skip');
       if (!overlay || !artEl || !textEl || !btn) return;
       __storyStarted = true;
       let i = 0, wakeTimer;
@@ -2582,21 +2591,25 @@
         btn.disabled = fadeWake;
         if (fadeWake) wakeTimer = setTimeout(() => { btn.disabled = false; }, STORY_WAKE_DELAY_MS);
       };
+      const finish = () => {
+        clearTimeout(wakeTimer);
+        try { localStorage.setItem('terracart.introSeen', '1'); } catch {}
+        overlay.remove();
+        onDone?.();
+        // onDone usually re-shows the safety CTA, in which case this no-ops
+        // and the safety handler flushes instead.
+        window.__flushPendingHowTo?.();
+      };
       const advance = () => {
         if (btn.disabled) return;
         i++;
-        if (i >= STORY_SLIDES.length) {
-          try { localStorage.setItem('terracart.introSeen', '1'); } catch {}
-          overlay.remove();
-          onDone?.();
-          // onDone usually re-shows the safety CTA, in which case this no-ops
-          // and the safety handler flushes instead.
-          window.__flushPendingHowTo?.();
-          return;
-        }
+        if (i >= STORY_SLIDES.length) { finish(); return; }
         render();
       };
       btn.addEventListener('click', (ev) => { ev.stopPropagation(); advance(); });
+      // "Skip intro" ends the opening from any slide, the dream included —
+      // the same finish as the last slide, so the safety CTA follows.
+      skip?.addEventListener('click', (ev) => { ev.stopPropagation(); finish(); });
       render();
       overlay.style.display = 'flex';
     }
@@ -2882,7 +2895,7 @@
   <script src="src/creature_spawns.js?v=dd436e44"></script>
   <script src="src/enemy_habitats.js?v=a7360cc5"></script>
   <script src="src/difficulty.js?v=1d2be4e0"></script>
-  <script src="src/util.js?v=81a1e81d"></script>
+  <script src="src/util.js?v=0d3f6182"></script>
   <script src="src/particles.js?v=4527614a"></script>
   <script src="src/trail.js?v=246ae65b"></script>
   <script src="src/streets.js?v=b5afab2b"></script>
@@ -2900,7 +2913,7 @@
   <script src="src/reef_layout.js?v=5ac55392"></script>
   <script src="src/sprite_layout.js?v=c2db4a64"></script>
   <script src="src/placed_floor.js?v=2d48b4fd"></script>
-  <script src="src/home.js?v=af0e6e93"></script>
+  <script src="src/home.js?v=cec017d1"></script>
   <script src="src/coords.js?v=2a9201fd"></script>
   <script src="src/fog.js?v=e5c1de4f"></script>
   <script src="src/biome_profiles.js?v=86720f9c"></script>
@@ -2937,7 +2950,7 @@
   <script src="src/gear.js?v=9a5ec3b7"></script>
   <script src="src/rewards.js?v=4e15b7b0"></script>
   <script src="src/shops_math.js?v=61fb7d5a"></script>
-  <script src="src/shops.js?v=176f7a5e"></script>
+  <script src="src/shops.js?v=d70ca906"></script>
   <script src="src/egg_hatch.js?v=c8e90711"></script>
   <script src="src/chest_themes.js?v=a2057988"></script>
   <script src="src/loot_contexts.js?v=92eecb4e"></script>
@@ -2971,11 +2984,11 @@
   <script src="src/pet_story_art.js?v=4bf942ec"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
   <script src="src/story_encounters.js?v=5c1055f2"></script>
-  <script src="src/interact.js?v=6196b199"></script>
+  <script src="src/interact.js?v=ec4f2cfc"></script>
   <script src="src/play_tips.js?v=889489e3"></script>
   <script src="src/lighting.js?v=883fb934"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=31c7c023"></script>
+  <script src="src/render.js?v=5b7bcf22"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/multiplayer.js?v=c49edf46"></script>
   <script src="src/road_overlay.js?v=4051bdba"></script>
@@ -2999,7 +3012,7 @@
   <script src="src/scene_sky.js?v=c2698528"></script>
   <script src="src/scene_consumables.js?v=8b2c5819"></script>
   <script src="src/scene_pets.js?v=cb512920"></script>
-  <script src="src/scene_venues.js?v=fece7de8"></script>
+  <script src="src/scene_venues.js?v=64bcfc19"></script>
   <script src="src/scene_streets.js?v=6d7e3c76"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
@@ -3071,7 +3084,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=beac4886';
+      const APP_SRC = 'src/app.js?v=9f271a6a';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
