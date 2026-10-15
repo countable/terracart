@@ -160,6 +160,9 @@ const BIOME_TEX = {
   30: { variants: 1, draw: drawUnmappedTex, animPhases: 8, animMs: 260 },
 };
 
+// Render-only material for the MD/LG roadside buffer, independent of terrain.
+const RIFT_GROUND_VARIANTS = 8;
+
 // Tilled soil is per-cell state (not a terrain class).
 const TILLED_COLOR = 0x927245;        // richer, darker turned earth
 const TILLED_VARIANTS = 2;
@@ -844,6 +847,30 @@ function drawWastelandTex(ctx, size, rng) {
   }
 }
 
+function drawRiftGroundTex(ctx, size, variant) {
+  drawBiomeTexture(ctx, size, 27, variant);
+  // Mineral glints are baked paint, never animated or registered as lights.
+  // Half the cells stay plain so the old earth remains the dominant material.
+  if (variant % 2) return;
+  const rng = seededRand(42971 + variant * 7919);
+  const x = 4 + Math.floor(rng() * (size - 8));
+  const y = 4 + Math.floor(rng() * (size - 8));
+  const style = StreetVariants.SUPPRESSED_STYLE;
+  ctx.save();
+  ctx.fillStyle = style.stone.accent;
+  ctx.globalAlpha = 0.12;
+  ctx.fillRect(x - 2, y - 1, 5, 3);
+  ctx.fillRect(x - 1, y - 2, 3, 1);
+  ctx.fillRect(x - 1, y + 2, 3, 1);
+  ctx.globalAlpha = 0.65;
+  ctx.fillRect(x - 1, y, 3, 1);
+  ctx.fillRect(x, y - 1, 1, 3);
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = style.lampGlow;
+  ctx.fillRect(x, y, 1, 1);
+  ctx.restore();
+}
+
 function drawGroveTex(ctx, size, rng) {
   // Grove — deep yellow-olive clover with a pale blossom or two.
   drawGrassTex(ctx, size, rng);
@@ -856,17 +883,17 @@ function drawGroveTex(ctx, size, rng) {
 }
 
 function drawChurchyardTex(ctx, size, rng) {
-  // Churchyard — earthy heather ground, muted moss tufts and pale stone chips.
+  // Churchyard — grey-purple earth, faded lichen and pale weathered stone chips.
   ctx.clearRect(0, 0, size, size);
   speckle(ctx, size, rng, 22, (rng) => {
     const k = rng();
-    return [k < 0.45 ? 'rgba(76,62,73,0.34)' : k < 0.75 ? 'rgba(112,96,108,0.26)' : 'rgba(150,160,140,0.20)', k < 0.25 ? 2 : 1, 1];
+    return [k < 0.45 ? 'rgba(65,61,76,0.34)' : k < 0.75 ? 'rgba(105,99,117,0.26)' : 'rgba(155,151,162,0.20)', k < 0.25 ? 2 : 1, 1];
   });
   for (let i = 0; i < 3; i++) {
     const x = Math.floor(rng() * (size - 2)), y = Math.floor(rng() * (size - 2));
-    ctx.fillStyle = 'rgba(200,200,190,0.30)';
+    ctx.fillStyle = 'rgba(201,196,209,0.30)';
     ctx.fillRect(x, y, 2, 1);
-    ctx.fillStyle = 'rgba(40,40,36,0.25)';
+    ctx.fillStyle = 'rgba(42,39,48,0.25)';
     ctx.fillRect(x, y + 1, 2, 1);
   }
 }
@@ -1441,6 +1468,9 @@ function makeBiomeTextures(scene, size) {
     }
   }
   makeCastlePavingTexture(scene, size);
+  for (let v = 0; v < RIFT_GROUND_VARIANTS; v++) {
+    bakeCanvas(scene, `rift_ground_${v}`, size, size, (ctx) => drawRiftGroundTex(ctx, size, v));
+  }
   for (let v = 0; v < TILLED_VARIANTS; v++) {
     bakeCanvas(scene, `tilled_${v}`, size, size, (ctx) => drawTilledTex(ctx, size, seededRand(7919 + v)));
   }

@@ -143,8 +143,13 @@ test('street lamps: an UNLIT lamp draws the BROKEN POST baked from the same pain
   assert.truthy(/this\._ensureStreetLampTex\(UI_LAMP_GLOW\);\s*\n\s*this\._ensureBrokenLampTex\(\);/.test(app), 'baked at boot beside the lit lamp');
   // ONE RENDER_SPEC row, two bakes, picked by the one `lit` flag — and the
   // same frame, origin, nudge, size and alpha for both.
-  assert.truthy(/key: \(o\) => \(o\.lit \? streetLampTexKey\(o\.glow\) : STREET_LAMP_BROKEN_TEX\)/.test(lampSpecSrc),
-    'the texture branches on o.lit — a lit lamp by its own glow\'s bake, a dark one the broken post');
+  const keyBody = lampSpecSrc.match(/key: \(o\) => ([\s\S]*?),\s*frame:/)[1];
+  const keyFor = new Function('o', 'streetLampTexKey', 'STREET_LAMP_BROKEN_TEX', `return ${keyBody};`);
+  const key = o => keyFor(o, glow => `lamp:${glow}`, 'broken');
+  assert.eq(key({ lit: true, glow: '#ff8800' }), 'lamp:#ff8800', 'lit normal lamp uses its glow');
+  assert.eq(key({ lit: false, glow: '#ff8800' }), 'broken', 'dark normal lamp uses the shared broken post');
+  assert.eq(key({ lit: true, suppressed: true, glow: '#d6ff3f' }), 'lamp:#d6ff3f', 'lit rift uses its own glow');
+  assert.eq(key({ lit: false, suppressed: true, glow: '#d6ff3f' }), 'lamp:#d6ff3f_broken', 'dark rift uses its distinct broken silhouette');
   assert.truthy(/frame: '__BASE',/.test(lampSpecSrc), 'the baked canvas is the only frame of either');
   assert.truthy(/RoadOverlay\.LAMP_DRAW_CELLS\) \|\| 2\.4\);\s*\n\s*s\.setDisplaySize\(px, px\)\.setAlpha\(1\);/.test(lampSpecSrc), 'both at the lamp\'s size, opaque');
   assert.falsy(/streetLampDark|STREET_LAMP_DARK_TEX|STREET_LAMP_DARK_ALPHA|STREET_LAMP_DARK_FRAME/.test(app + lampSpecSrc), 'no cobble lane left');
@@ -187,10 +192,10 @@ test('street lamps: which lamps are lit is settled before the pass that draws th
 
 
 test('street lamps: the texture is baked once with RoadOverlay.paintLamp, keyed off the module\'s own LAMP_TEX_PX', () => {
-  assert.truthy(/\(ctx, S\) => RoadOverlay\.paintLamp\(ctx, S, glow \|\| UI_LAMP_GLOW\)/.test(app), 'the real painter draws the baked texture, in the lamp\'s glow');
+  assert.truthy(/\(ctx, S\) => RoadOverlay\.paintLamp\(ctx, S, glow \|\| UI_LAMP_GLOW, broken\)/.test(app), 'the real painter draws the baked texture, in the lamp\'s glow');
   assert.truthy(/this\._ensureCanvasTex\(key, RoadOverlay\.LAMP_TEX_PX, /.test(app), 'sized off road_overlay.js\'s own texture constant');
-  assert.truthy(/const key = streetLampTexKey\(glow\);\s*\n\s*if \(this\.textures\.exists\(key\)\) return key;/.test(app),
-    'baked once per colour, not re-painted every boot or every lamp');
+  assert.truthy(/const key = streetLampTexKey\(glow\) \+ \(broken \? '_broken' : ''\);\s*\n\s*if \(this\.textures\.exists\(key\)\) return key;/.test(app),
+    'baked once per colour and broken state');
   assert.truthy(/this\._ensureStreetLampTex\(UI_LAMP_GLOW\);/.test(app), 'the default glow is baked at boot');
 });
 
@@ -548,17 +553,25 @@ test('street lamps: density and glow stop at the same compact theme intervals', 
   assert.lt(themed[0].spacingM,plain[0].spacingM,'only the themed interval has dense lamps');
 });
 
-test('street lamps: medium and large roads have no posts, lights or reserved footprints, even when themed', () => {
-  for (const cls of ['secondary', 'tertiary', 'primary', 'trunk', 'motorway']) {
-    for (const variant of [null, 'lantern']) {
-      const tags = { class: cls }, rec = { fi: 0, li: 0, size: 'major', variant, tags };
-      const entry = withIndex([rec]);
-      entry.layers[0].features[0].tags = tags;
-      assert.eq(RoadOverlay.lampSitesForTile(TX, TY, entry).length, 0, `${cls}: no generated sites`);
-      assert.eq(P._streetLampsForTile.call({}, TX, TY, entry).length, 0, `${cls}: no live lamps`);
-      assert.eq(RoadOverlay.lampReservedCells(TX, TY, entry).size, 0, `${cls}: no phantom reservations`);
+test('street lamps: suppressed medium and large roads retain sparse rift posts inside a nexus', () => {
+  const original = ZoneVariants.lampGlowAt;
+  ZoneVariants.lampGlowAt = () => '#ff88ff';
+  try {
+    const small = RoadOverlay.lampSitesForTile(TX, TY, readyEntry());
+    assert.truthy(small.every(l => l.glow === '#ff88ff'), 'ordinary lamps inherit their enclosing nexus');
+    for (const cls of ['secondary', 'tertiary', 'primary', 'trunk', 'motorway']) {
+      for (const variant of [null, 'lantern']) {
+        const tags = { class: cls }, rec = { fi: 0, li: 0, size: 'major', variant, tags };
+        const entry = withIndex([rec]);
+        entry.layers[0].features[0].tags = tags;
+        const lamps = RoadOverlay.lampSitesForTile(TX, TY, entry);
+        assert.gt(lamps.length, 0, `${cls}: rift posts exist`);
+        assert.lt(lamps.length, small.length, `${cls}: sparse silhouettes`);
+        assert.truthy(lamps.every(l => l.suppressed && l.glow === StreetVariants.SUPPRESSED_STYLE.lampGlow), 'nexus and stale themes cannot override suppression');
+        assert.gt(RoadOverlay.lampReservedCells(TX, TY, entry).size, 0, 'rift feet reserve spawn space');
+      }
     }
-  }
+  } finally { ZoneVariants.lampGlowAt = original; }
 });
 
 test('street lamps: paths and small roads retain their lamps and reserved footprints', () => {
@@ -595,11 +608,12 @@ test('street lamps: the baked art is cached PER COLOUR — the default keeps the
   const STREET_LAMP_TEX_NAME = app.match(/const STREET_LAMP_TEX = '([^']+)';/)[1];
   const keySrc = app.slice(app.indexOf('function streetLampTexKey(glow) {'));
   const keyFn = keySrc.slice(0, keySrc.indexOf('\n}\n') + 2);
-  const ensSrc = app.slice(app.indexOf('  _ensureStreetLampTex(glow) {'), app.indexOf('  // Every lamp of ONE tile'));
+  const ensSrc = app.slice(app.indexOf('  _ensureStreetLampTex(glow, broken = false) {'), app.indexOf('  // Every lamp of ONE tile'));
   const shellAt = app.indexOf('  _ensureCanvasTex(key, sizePx, paint) {');
   const shellSrc = app.slice(shellAt, app.indexOf('\n  }\n', shellAt) + 4);
   const painted = [];
-  const fakeRO = { LAMP_TEX_PX: 8, paintLamp: (cx, S, g) => painted.push(g) };
+  const states = [];
+  const fakeRO = { LAMP_TEX_PX: 8, paintLamp: (cx, S, g, broken) => { painted.push(g); states.push(broken); } };
   const mk = new Function('RoadOverlay', 'STREET_LAMP_TEX', 'UI_LAMP_GLOW', 'bakeCanvas',
     `${keyFn}\nreturn { streetLampTexKey, host: { ${ensSrc.trimEnd()},\n${shellSrc.trimEnd()} } };`);
   // textures.js bakeCanvas (the shell the bake rides) is not loaded headlessly: lift it from its source.
@@ -623,6 +637,16 @@ test('street lamps: the baked art is cached PER COLOUR — the default keeps the
   assert.eq(store.size, 3);
   assert.eq(painted.sort().join(','), ['#4fd8c4', '#ff8c2a', UI_LAMP_GLOW].sort().join(','), 'each baked in its own glow');
   assert.eq(keys[0], streetLampTexKey('#ff8c2a'), 'and the key handed back is the one the sprite asks for');
+  assert.truthy(states.every(s => s === false), 'ordinary bakes pass an explicit intact state');
+  const rift = StreetVariants.SUPPRESSED_STYLE.lampGlow;
+  const brokenKey = host._ensureStreetLampTex(rift, true);
+  assert.eq(brokenKey, streetLampTexKey(rift) + '_broken', 'broken rift cache key matches the sprite');
+  host._ensureStreetLampTex(rift, true);
+  assert.eq(painted.length, 4, 'repeated broken rifts share one bake');
+  assert.eq(states[3], true, 'broken state reaches the painter');
+  assert.eq(host._ensureStreetLampTex(rift), streetLampTexKey(rift), 'restored rift has a separate cache entry');
+  assert.eq(painted.length, 5, 'restoration bakes an intact rift once');
+  assert.eq(states[4], false, 'restored rift reaches the intact painter');
 });
 
 test('street lamps: the frame pass bakes each LIT glow before the sprite pass draws it', () => {

@@ -343,9 +343,20 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 - Path paving and lamp palettes follow the assigned segment intervals. Scenic
   geography still owns restoration bonuses; first-walk stories use the assigned
   theme on the restored segment.
-- Generate lamps only on paths and Small roads, from `Streets.lampSpacingM()`
-  (independent of restoration ladder goals). Medium/Large roads have no lamp
-  sites, including broken lamps and spawn reservations.
+- Suppressed Medium/Large roads use weathered grey-turquoise stone, sparse turquoise mineral
+  fractures and dusty ground across the full road suppression buffer, including
+  after restoration. Restored bands keep the weathered surface color, replacing
+  fractures with a softly glowing turquoise outline around the road geometry. The ground uses the road buffer mask (excluding parking-only
+  suppression), on the surface and outside water/buildings. Dry wasteland texture with sparse baked turquoise gem/star flecks
+  replaces lush biome detail there. Flecks are static paint, never light sources. This render-only palette never enters street
+  theme selection or dressing; runtime and preview share the pavement painter.
+- Old Stones uses grey-purple ground, stone dust, lichen and pale lavender
+  lamps, distinct from the turquoise rift palette.
+- Generate lamps on paths and Small roads from `Streets.lampSpacingM()`
+  (independent of restoration ladder goals), with sparse lamps on Medium/Large
+  roads. Street variants tint ordinary lamps; an enclosing nexus takes precedence.
+  Suppressed roads keep their own muted turquoise light and chipped stone wayside
+  lamps even inside a nexus.
   One list and `lit` flag feed art and lighting. Derive verge offset from road
   width and lamp footprint; art and light share the same world point. Lantern
   rise is a draw-space offset; retune height through `LAMP_PROFILE`.

@@ -452,6 +452,17 @@
   // look is loot.js chestLook's); its story is here beside the others. A LOOK
   // and a story only: no `attracts` (the dogs no longer work Major-and-Medium road verges —
   // the owner's safety pass, Sep 2026), no foe, no trap.
+  // Render-only identity: never enters variant selection or spawn dressing.
+  const SUPPRESSED_STYLE = {
+    id: 'suppressed', lampGlow: '#87c6b9', lampSpacingMul: 2, ground: '#596562',
+    stone: { weathered: '#485553', restored: '#485553', pattern: 'rift', accent: '#66a99e' },
+  };
+  function pavementFor(variant) {
+    return (variant === SUPPRESSED_STYLE.id ? SUPPRESSED_STYLE : VARIANT_BY_ID[variant])?.stone || null;
+  }
+  function pavementVariantFor(tags, variant) {
+    return sizeOfTags(tags) === 'major' ? SUPPRESSED_STYLE.id : variant;
+  }
   const BANDIT_STORY = {
     story: 'street_bandit', title: 'Old Trade Road',
     body: 'Deep wheel ruts run past the remains of broken wagons. You follow the old trade road.',
@@ -2572,7 +2583,7 @@
   }
 
   function stoneColorFor(variant, restored = true) {
-    return VARIANT_BY_ID[variant]?.stone?.[restored ? 'restored' : 'weathered'] || null;
+    return pavementFor(variant)?.[restored ? 'restored' : 'weathered'] || null;
   }
 
   // Use the same source intervals and round-ended band as the paving, not
@@ -2627,17 +2638,13 @@
     return out;
   }
 
-  // THE LAMP'S GLOW: a street's lamps shed its variant's colour (the row's
-  // `lampGlow`), an unthemed road in the Major-and-Medium road group the Old Trade Road's torch orange, and
-  // anything else (a plain Small road, a service way, a footpath) null —
-  // the caller's default, util.js UI_LAMP_GLOW. `rec` is a street-index line
-  // record ({ size, variant }) or null. One value per lamp, read by both the
-  // light and the baked art.
+  // Art and lighting share the street/nexus glow. Suppressed MD/LG roads
+  // retain the rift palette, even if an old record carries a variant.
   function lampGlowFor(rec) {
     if (!rec) return null;
+    if (rec.size === 'major' || (rec.tags && sizeOfTags(rec.tags) === 'major')) return SUPPRESSED_STYLE.lampGlow;
     const row = rec.variant ? VARIANT_BY_ID[rec.variant] : null;
     if (row && row.lampGlow) return row.lampGlow;
-    if (rec.size === 'major') return (roadStoryFor(rec) || BANDIT_STORY).lampGlow;
     return null;
   }
 
@@ -2672,7 +2679,7 @@
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
 
   root.StreetVariants = {
-    VERGE_ROWS, PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, MINOR_VARIANT_SHARE, VERGE_MAX_CELLS,
+    SUPPRESSED_STYLE, pavementFor, pavementVariantFor, VERGE_ROWS, PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, MINOR_VARIANT_SHARE, VERGE_MAX_CELLS,
     BANDIT_STRETCH_UNITS, BANDIT_STRETCH_SHARE, BANDIT_STAMP_OUT_CELLS,
     stretchOf, isBanditStretch, stampBanditStretchesSteps,
     BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, END_SEAT_CELLS,

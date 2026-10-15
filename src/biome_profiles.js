@@ -440,7 +440,7 @@
     [T.ROCK]:       0x8e857a,   // stone powder
     [T.WASTELAND]:  0x928a70,   // dry khaki grit off the scrub
     [T.GROVE]:      0x7d8570,   // the forest's damp leaf-mould air
-    [T.CHURCHYARD]: 0x7c8878,   // stone powder gone mossy (greener since Sep 2026)
+    [T.CHURCHYARD]: 0x89818f,   // cool grey-purple stone dust
     [T.TAR_YARD]:   0x6a6258,   // oily soot
     [T.CAVE_FLOOR]: 0x2a2622,   // underground: no daylight to haze with
     [T.CAVE_WALL]:  0x2a2622,
