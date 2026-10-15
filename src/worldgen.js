@@ -1755,9 +1755,12 @@
       ...cut.map(row => ({ ...row, extent: tl.extent || 4096 }))];
     return cut;
   }
-  // Parking uses the same suppression/night-danger region as an MD/LG kerb,
-  // without becoming a road surface. Keep mapped footprints exact; where MVT
-  // supplies only points/aisles, use the existing lot-inference distances.
+  // Parking joins the MD/LG kerb buffer's suppression at every hour, without
+  // becoming a road surface. A cell only a lot puts in the buffer also carries
+  // ROAD_CLASS_LOT_BUFFER, which keeps the night zone (blood aura, interaction
+  // hiding, energy drain) off it (nightZoneBits). Keep mapped footprints
+  // exact; where MVT supplies only points/aisles, use the existing
+  // lot-inference distances.
   function* stampParkingSafetySteps(layers, roadClass, w, h, mvtToCell, mvtToM) {
     const cover = new Uint16Array(w * h);
     const transportation = layers.find(l => l.name === 'transportation');
@@ -1783,7 +1786,7 @@
             && f.tags?.amenity !== 'parking') continue;
         if (f.type === 3) {
           yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell,
-            (x, y) => { roadClass[y * w + x] |= ROAD_CLASS_MAJOR_BUFFER; });
+            (x, y) => { stampParkingBuffer(roadClass, y * w + x); });
         } else if (f.type === 1) {
           const p = f.geom[0]?.[0];
           if (!p) continue;
@@ -1795,8 +1798,12 @@
     }
     for (let i = 0; i < cover.length; i++) {
       if ((i & 4095) === 4095) yield 'parking safety';
-      if (cover[i]) roadClass[i] |= ROAD_CLASS_MAJOR_BUFFER;
+      if (cover[i]) stampParkingBuffer(roadClass, i);
     }
+  }
+  // Stamped after the road buffers, so a lot never removes a road's night zone.
+  function stampParkingBuffer(roadClass, i) {
+    if (!(roadClass[i] & ROAD_CLASS_MAJOR_BUFFER)) roadClass[i] |= ROAD_CLASS_MAJOR_BUFFER | ROAD_CLASS_LOT_BUFFER;
   }
   // Approximate real-world carriageway width, in metres, per transportation
   // class. The rasterizer only reads this for PIER (roads and paths always
@@ -2230,7 +2237,7 @@
   //                          Stamped after the street index is built
   //                          (StreetVariants.stampBanditStretchesSteps).
   const ROAD_CLASS_BANDIT_VERGE = 4;
-  //   ROAD_CLASS_MAJOR_BUFFER the shared safety region: parking lots plus
+  //   ROAD_CLASS_MAJOR_BUFFER the shared suppression region: parking lots plus
   //                          the KERB BUFFER within MAJOR_BUFFER_CELLS of a
   //                          Major-and-Medium road band (the band's own cells included) —
   //                          stamped off the same lines, widened, so it is
@@ -2255,6 +2262,12 @@
   // The runtime road warning reads the same half-covered definition as
   // roadMask, but only for the Major-and-Medium group.
   const ROAD_CLASS_MAJOR_ROAD = 64;
+  // A MAJOR_BUFFER cell put there by a parking lot alone: suppression at every
+  // hour, but never the night zone. Read the night zone through nightZoneBits.
+  const ROAD_CLASS_LOT_BUFFER = 128;
+  function nightZoneBits(bits) {
+    return !!(bits & ROAD_CLASS_MAJOR_BUFFER) && !(bits & ROAD_CLASS_LOT_BUFFER);
+  }
   // About one base reach radius (coords.js reachCells: 2.5 cells) past the
   // band's edge - the ring a player standing on the kerb can act inside.
   const MAJOR_BUFFER_CELLS = 2.5;
@@ -4447,6 +4460,9 @@
     // building it belongs to in two hops and nothing has to search polygons.
     const ownerKeys = [];
     const templeOwners = new Set();
+    // Every Nexus key a building of this tile's data was claimed for: a grove
+    // missing from it raises its own round temple (ZoneDressing roundTemples).
+    const templeZoneKeys = new Set();
     const castleHalo = new Map();
     const castleSourceRings = [];
     // Road FOOTPRINT mask (1 = under a drawn road band). The terrain grid is a
@@ -5750,7 +5766,8 @@
             geom: f.geom && shiftRings(f.geom, dx, dy) })) });
         for (let i = 0; i < buildingPolys.length; i++) {
           if ((i & 15) === 0) yield 'temple footprint classification';
-          const candidates = new Map();
+          // Cells this footprint lays on each Temple-bearing anchor's coverage.
+          const candidates = new Map(), counts = new Map();
           for (const [x, y] of footprints[i]) {
             const dx = Math.floor(x / w), dy = Math.floor(y / h);
             const fieldKey = `${dx},${dy}`;
@@ -5769,13 +5786,21 @@
             // Only Temple-bearing Nexus kinds raise a temple (Zones.ZONE_KINDS `temple`):
             // the grove (a generated marine grove counts), the old stones and
             // the tar yard. The shore and the quarry never claim a building.
-            if (a && Zones.ZONE_KINDS[a.kind]?.temple) candidates.set(String(a.key ?? Zones.anchorKey(a.gx, a.gy)), a);
+            if (a && Zones.ZONE_KINDS[a.kind]?.temple) {
+              const k = String(a.key ?? Zones.anchorKey(a.gx, a.gy));
+              candidates.set(k, a);
+              counts.set(k, (counts.get(k) || 0) + 1);
+            }
           }
-          const key = [...candidates.keys()].sort()[0];
-          if (key) {
+          // The anchor holding most of the footprint claims it, and only when
+          // it holds at least half: a building that merely brushes a Nexus's
+          // edge stays an ordinary building. Ties break on the key.
+          const key = [...candidates.keys()].sort((a, b) => (counts.get(b) - counts.get(a)) || (a < b ? -1 : a > b ? 1 : 0))[0];
+          if (key && counts.get(key) * 2 >= footprints[i].length) {
             buildingPolys[i].templeAnchor = candidates.get(key);
             buildingPolys[i].templeZone = key;
             buildingPolys[i].tier = T.BUILDING_LARGE;
+            templeZoneKeys.add(key);
           }
         }
         // Tier floors are enforced AFTER assignment, over the buildings that
@@ -6735,7 +6760,34 @@
       dressSpawn();
       zoneDress = yield* ZoneDressing.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
         wreckReservations, poiPadCells, tideSeats: scenicDress && scenicDress.tideSeats,
-        spawnOpts: dressOpts() });
+        templeZones: templeZoneKeys, spawnOpts: dressOpts() });
+      // A grove with no claimed building raises a small round temple on the
+      // ring ZoneDressing reserved round its shrine: eight castle-tier cells
+      // under one temple owner, the shrine cell left open at the centre, and
+      // a round source outline for the overlay. The temple object stands on
+      // the ring's south cell; taps anywhere on the ring resolve through the
+      // owner key like any temple footprint.
+      for (const rt of zoneDress.roundTemples || []) {
+        const ownerId = (++nextBuildingOwnerId) & 0xffff;
+        const id = cellId('tpr', tx, ty, rt.ix, rt.iy);
+        const zoneKey = String(rt.anchor.key ?? Zones.anchorKey(rt.anchor.gx, rt.anchor.gy));
+        templeOwners.add(ownerId);
+        templeZoneKeys.add(zoneKey);
+        ownerKeys[ownerId] = id;
+        for (const i of rt.cells) { grid[i] = T.BUILDING_LARGE; owners[i] = ownerId; }
+        // An octagon over the 3x3, its corners cut half a cell: round at
+        // this scale, and every cell of it still under the outline.
+        const c0 = (rt.ix - 1) * cellWidthM, c1 = (rt.ix + 2) * cellWidthM;
+        const r0 = (rt.iy - 1) * cellWidthM, r1 = (rt.iy + 2) * cellWidthM, cut = cellWidthM / 2;
+        buildingShapes.push({ ring: Float32Array.from([c0 + cut, r0, c1 - cut, r0, c1, r0 + cut, c1, r1 - cut,
+          c1 - cut, r1, c0 + cut, r1, c0, r1 - cut, c0, r0 + cut]),
+          tier: T.BUILDING_LARGE, kind: 'temple', templeZone: zoneKey, templeKind: rt.anchor.kind,
+          areaM2: 8 * cellWidthM * cellWidthM, key: id });
+        const door = cellCenterMeters(rt.ix, rt.iy + 1);
+        deduped.push(makeObject('temple', door.mx, door.my, id, { area: 8 * cellWidthM * cellWidthM,
+          tier: T.BUILDING_LARGE, round: true, templeZone: zoneKey, templeKind: rt.anchor.kind,
+          templeAnchor: { ...rt.anchor } }));
+      }
       // Shafts must enter the generated surface snapshot before caves derive
       // their matching up ladders. The live dressing occupancy pass skips
       // these already-seated stairs when it lays the remaining quarry props.
@@ -9719,6 +9771,7 @@
     // "drawn as road" and "no spawns here" are the same number.
     roadOverlayWidthM, ROAD_MASK_MIN_COVER, ROAD_CLASS_MAJOR_BAND, ROAD_CLASS_MAJOR_VERGE, ROAD_CLASS_BANDIT_VERGE,
     ROAD_CLASS_MAJOR_BUFFER, ROAD_CLASS_JUNCTION_EXCLUDE, ROAD_CLASS_JUNCTION_SOFT, ROAD_CLASS_MAJOR_ROAD,
+    ROAD_CLASS_LOT_BUFFER, nightZoneBits,
     MAJOR_BUFFER_CELLS, inMajorBuffer, onMajorBand,
     // The path-class Set classifyLine keys off — exported so road_overlay.js
     // colours exactly the classes the terrain classifier treats as PATH,

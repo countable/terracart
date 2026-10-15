@@ -172,15 +172,31 @@ mechanics.
   wraiths and includes airborne fauna; the same `Conditions.flying` gate covers
   them without saving an infinite potion expiry or showing an infinite countdown.
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds
-  sight range through `unseen`. Only cave terrain walls fully block detection,
-  pursuit and new attacks across them. Trees, bushes, hedges, short walls and
-  large rocks marked `sightBlocking: true` reduce sight by two cells once per
-  sight line; overlapping partial cover does not stack. Ordinary rocks do not
-  reduce sight. Cover uses the
-  same visibility grid for local players, peers and NPC targets, and cancels
-  an attack wind-up when sight is lost. A foe behind any cover is hidden
-  from the player and cannot be targeted. Guards return to their seats when full
-  cover breaks sight; their notice/leash rings lose two cells through trees.
+  sight range through `unseen`. SIGHT is `Combat.seesTarget` over
+  `Visibility.sightCover`: cave rock (FULL) hides the target outright; PARTIAL
+  cover hides it fully too — trees past the sapling art, bushes, hedges, short
+  walls and large rocks marked `sightBlocking: true` between them, or the
+  target standing IN a CONCEALING cell (a bush, a hedge, a mid-to-large tree)
+  while the viewer is not directly adjacent — except within HEARING
+  (`Visibility.HEAR_CELLS`, 2 cells), where a foe notices what it cannot see.
+  Ordinary rocks give no cover. The same rules hide actors from the player
+  (`Visibility.hidden`: anything behind partial cover, or concealed in a cell
+  more than one away, is undrawn and cannot be targeted; scenery goes only
+  behind FULL cover); the X-Ray Ring (`Gear.hasXRay`) sees through all but
+  FULL cover. Cover cancels an attack wind-up when sight is lost.
+- THE LAST SIGHTING: a roster foe remembers where it last saw the player
+  (`c._lastSeen`); on losing sight it walks there and searches until
+  `LAST_SEEN_MS` after that look, then idles. Guards (`enemyGuardState`) lose
+  interest through FULL cover and through PARTIAL cover past hearing, and walk
+  back to their seats.
+- AMBUSHERS (`isAmbusher`: a roster row's `ambush` — the thief, now also in
+  COMMERCIAL ground — or a `Lairs.GROUPS` member's — the hedged lane's runts)
+  wait in the nearest concealing cell (`Visibility.concealingCellNear`: a
+  garrison's seat moves there, `lurkSeat`; a roamer walks to one near home,
+  `lurkSpot`), notice only within hearing until they spring (`ambushSprings`,
+  a burst of leaves), and return to the same hide once they give up. A bush or
+  hedge with any live foe on its cell wiggles on `LURK_BUSH_BEAT` (render.js
+  `Render.foeCells`), the nest bush's wiggle on a quicker beat.
   Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.
 - A status effect is a row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin): the
@@ -267,11 +283,15 @@ mechanics.
   ground: no step or hop enters it, a body already in it may walk out, and a
   chasing foe sidesteps around it when a jog fits. This is separate from the
   warmth-ring ward (`FIRE_REST_R`), which turns back only entry-level kinds.
-- Home is `save.starterShopId`: a synthetic trailer or an adopted house, which
-  draws as the trailer. "Move Home here" on any cell of an unclaimed house's
-  footprint adopts that house, so the trailer replaces the building rather than
-  parking on it; a claimed building, temple or castle refuses the move
-  (`_homeFootingAt`, test `starter_trailer_footing`).
+- Home is `save.starterShopId`: the wagon, placed by `_placeHome` one cell
+  north of the player (`HomeArea.WAGON_OFFSET`) with an empty firepit at their
+  lower left (`FIREPIT_OFFSET`, `save.homeFirepit`; flint lights a fire in it).
+  Older saves may still have an adopted house, which draws as the wagon. Any
+  unclaimed house on Home's footing (the wagon's 3x3 and the firepit cell) is
+  erased entirely — footprint, outline and roof — by `clearHomeFooting`, a
+  per-player overlay; a claimed building, temple or castle is never erased,
+  and "Move Home here" refuses on one (`_homeFootingAt`, test
+  `starter_trailer_footing`).
 
 Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_ward`,
 `pet_pickup`.

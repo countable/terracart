@@ -14,3 +14,11 @@ Export: crop to alpha bounds, fit within 106×73 using Lanczos, reduce to 48 RGB
 colours without dithering, threshold alpha at 128, then centre horizontally on
 a transparent 108×75 frame with the fitted image ending at y=74. The old camper
 sources and approved palette export remain preserved in their original folders.
+
+# Firepit
+
+`firepit.png` is Home's empty firepit: one 24×24 frame, a ring of irregular
+stones round cold ash and two charred logs, outlined in the bonfire sheet's
+dark (`Wilderness/bonfire.png`) and using its bark browns so the lit fire that
+replaces it reads as the same pit. Drawn procedurally in pixel space (stones as
+small shaded ellipses, south faces darkened for the south camera), no scaling.

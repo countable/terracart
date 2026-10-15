@@ -17,9 +17,9 @@
     const kill = Quests.assign(save, 'b', 'bastion');
     const delivery = Quests.assign(save, 'a', 'archive');
     const hunt = Quests.assign(save, 'r', 'ruin');
-    assert.eq(kill.verb, 'kill'); assert.eq(kill.need, 3);
+    assert.eq(kill.verb, 'kill'); assert.eq(kill.need, 1, 'a single enemy');
     assert.eq(delivery.verb, 'deliver'); assert.eq(delivery.need, 1);
-    assert.eq(hunt.verb, 'hunt'); assert.eq(hunt.need, 2);
+    assert.eq(hunt.verb, 'hunt'); assert.eq(hunt.need, 1, 'a single animal');
     assert.truthy(SpriteLayout.isGame(hunt.target));
   });
 
@@ -29,7 +29,7 @@
     for (let i = 0; i < enemies.length + 2; i++) {
       const q = Quests.assign(save, `b${i}`, 'bastion');
       assert.eq(q.target, enemies[Math.min(i, enemies.length - 1)]);
-      assert.eq(q.need, 3);
+      assert.eq(q.need, 1);
       if (i && i < enemies.length) {
         assert.gte(Combat.monster(q.target)?.tier ?? 1, Combat.monster(enemies[i - 1])?.tier ?? 1);
       }
@@ -64,9 +64,9 @@
     assert.falsy(Quests.onKill(save, 'goblin'));
     assert.falsy(Quests.onEvent(save, 'kill'));
     assert.falsy(Quests.onEvent(save, 'kill', { target: 'deer' }));
-    for (let i = 0; i < 3; i++) assert.truthy(Quests.onKill(save, q.target));
+    assert.truthy(Quests.onKill(save, q.target));
     assert.falsy(Quests.onKill(save, q.target));
-    assert.eq(q.have, 3);
+    assert.eq(q.have, 1);
     for (const event of ['harvest', 'chest', 'fish', 'sell', 'poi', 'plant', 'till', 'restore']) {
       assert.falsy(Quests.onEvent(save, event));
     }
@@ -80,14 +80,30 @@
     assert.eq(hunt.have, 1); assert.eq(kill.have, 1);
   });
 
-  test('castle quests: deliveries credit every assigned unfinished delivery quest', () => {
+  // A delivery as scene_shops.js completes one: the tally, then the event.
+  const deliver = save => {
+    save.deliveryCount = (save.deliveryCount ?? 0) + 1;
+    return Quests.onEvent(save, 'deliver');
+  };
+
+  test('castle quests: one delivery credits one Archive, oldest first', () => {
     const save = {}, a = Quests.assign(save, 'a', 'archive'), b = Quests.assign(save, 'b', 'archive');
-    Quests.onEvent(save, 'deliver');
-    assert.eq(a.have, 1); assert.eq(b.have, 1);
-    assert.eq(a.have, a.need); assert.eq(b.have, b.need);
-    assert.falsy(Quests.onEvent(save, 'deliver'));
-    assert.eq(a.have, 1); assert.eq(b.have, 1);
-    assert.eq(Quests.assign(save, 'c', 'archive').have, 0, 'past deliveries do not count');
+    assert.truthy(deliver(save));
+    assert.eq(a.have, 1); assert.eq(b.have, 0, 'the delivery is spent at the first Archive');
+    assert.truthy(deliver(save));
+    assert.eq(b.have, 1);
+    assert.falsy(deliver(save), 'no Archive left waiting');
+    assert.eq(Quests.assign(save, 'c', 'archive').have, 1,
+      'the spare delivery credits the next Archive met');
+    assert.eq(Quests.assign(save, 'd', 'archive').have, 0, 'and only one Archive');
+    assert.eq(save.quests.deliveriesSpent, save.deliveryCount, 'every delivery spent exactly once');
+  });
+
+  test('castle quests: deliveries before the first Archive count, one per castle', () => {
+    const save = { deliveryCount: 1 };
+    assert.eq(Quests.assign(save, 'a', 'archive').have, 1, 'an earlier delivery counts');
+    assert.eq(Quests.assign(save, 'b', 'archive').have, 0, 'but only at one castle');
+    assert.falsy(Quests.assign(save, 'k', 'bastion').have, 'a delivery never credits a kill');
   });
 
   test('castle quests: one hunt advances all matching active jobs but never credits future jobs', () => {
@@ -96,14 +112,14 @@
     const a = Quests.assign(save, 'a', 'ruin');
     const other = Quests.assign(save, 'other', 'ruin');
     assert.eq(a.have, 0, 'kills before activation do not count');
-    Quests.onKill(save, a.target);
     const b = Quests.assign(save, 'b', 'ruin');
-    assert.eq(b.target, a.target);
-    assert.eq(b.have, 0, 'a later conversation starts a fresh counter');
+    b.target = a.target;               // two Ruins hunting the same animal
     Quests.onKill(save, a.target);
-    assert.eq(a.have, 2); assert.eq(b.have, 1); assert.eq(other.have, 0);
-    Quests.onKill(save, a.target);
-    assert.eq(a.have, 2); assert.eq(b.have, 2);
+    assert.eq(a.have, 1); assert.eq(b.have, 1, 'one hunt fills every matching job');
+    assert.eq(other.have, 0);
+    const c = Quests.assign(save, 'c', 'ruin');
+    c.target = a.target;
+    assert.eq(c.have, 0, 'a later conversation starts a fresh counter');
     assert.truthy(Quests.claim(save, 'a'));
     assert.truthy(Quests.claim(save, 'b'));
   });
@@ -112,12 +128,12 @@
     const save = {}, q = Quests.assign(save, 'a', 'archive');
     assert.eq(Quests.claim(save, 'a'), null);
     assert.eq(Quests.claim(save, 'missing'), null);
-    Quests.onEvent(save, 'deliver');
+    deliver(save);
     assert.eq(Quests.claim(save, 'a'), q);
     assert.truthy(q.claimed);
     assert.eq(Quests.completedCount(save), 1);
     assert.eq(Quests.claim(save, 'a'), null);
-    assert.falsy(Quests.onEvent(save, 'deliver'));
+    assert.falsy(Quests.onEvent(save, 'deliver'), 'no new delivery, nothing to credit');
     assert.eq(Quests.assign(save, 'a', 'archive'), q);
     assert.eq(save.quests.assigned.deliver, 1);
     const restored = JSON.parse(JSON.stringify(save));

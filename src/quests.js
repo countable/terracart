@@ -1,16 +1,41 @@
 // Each castle keeps the quest assigned on its first conversation. Assignment
-// order chooses targets independently; counters begin here and shared actions
-// advance every matching active quest. Completion never creates a job.
+// order chooses targets independently. A Bastion or a Ruin asks for ONE kill
+// or hunt; its counter begins here, and one kill advances every matching
+// active quest. Deliveries are a pool instead (creditDeliveries): each one
+// credits exactly one Archive, including deliveries made before that Archive
+// was first visited. Completion never creates a job.
 function questEnemies() {
   return Combat.enemyKinds().filter(kind => Combat.onQuestBoard(kind))
     .sort((a, b) => (Combat.monster(a)?.tier ?? 1) - (Combat.monster(b)?.tier ?? 1));
 }
 
-// "3 Slimes" / "2 deer": the counted target, shared by objective and flavour.
+// "Slimes" / "deer": the target as a kind, for the flavour line.
 function questPlural(q) {
   if (q.verb === 'hunt') return q.target === 'deer' ? 'deer' : q.target + 's';
   const name = Combat.enemyName(q.target);
   return name.endsWith('s') ? name + 'es' : name + 's';
+}
+
+// "a Slime" / "an Orc" / "a deer": the single target a kill or hunt names.
+function questOne(q) {
+  const name = q.verb === 'hunt' ? q.target : Combat.enemyName(q.target);
+  return (/^[aeiou]/i.test(name) ? 'an ' : 'a ') + name;
+}
+
+function questBody(q) {
+  if (q.verb === 'kill') return `Defeat ${questOne(q)}.`;
+  if (q.verb === 'hunt') return `Hunt ${questOne(q)}.`;
+  return `Complete ${q.need} ${q.need === 1 ? 'delivery' : 'deliveries'}.`;
+}
+
+// A kill or hunt quest assigned when they asked for three or two drops to the
+// single target every new one asks for; progress already made carries over.
+function settleSingleTarget(q) {
+  if (q.claimed || (q.verb !== 'kill' && q.verb !== 'hunt') || q.need === 1) return false;
+  q.need = 1;
+  q.have = Math.min(q.have, 1);
+  q.body = questBody(q);
+  return true;
 }
 
 function questAnimals() {
@@ -28,28 +53,65 @@ const Quests = {
     if (!save.quests?.byCastle) save.quests = { byCastle: {}, assigned: {} };
     const state = save.quests;
     const order = state.assigned[verb] || 0;
-    const q = { verb, event: verb, need: verb === 'kill' ? 3 : verb === 'hunt' ? 2 : 1,
-      have: 0, claimed: false };
+    const q = { verb, event: verb, need: 1, have: 0, claimed: false };
     if (verb === 'kill') {
       const enemies = questEnemies();
       q.target = enemies[Math.min(order, enemies.length - 1)];
       q.title = 'Pest control';
-      q.body = `Defeat 3 ${questPlural(q)}.`;
       q.reward = 66;
     } else if (verb === 'hunt') {
       const animals = questAnimals();
       q.target = animals[order % animals.length];
       q.title = 'The hunt';
-      q.body = `Hunt 2 ${questPlural(q)}.`;
       q.reward = 40;
     } else {
       q.title = 'Neighbourly';
-      q.body = `Complete ${q.need} ${q.need === 1 ? 'delivery' : 'deliveries'}.`;
       q.reward = q.need * 30;
     }
+    q.body = questBody(q);
     state.assigned[verb] = order + 1;
     state.byCastle[key] = q;
+    if (verb === 'deliver') this.creditDeliveries(save);
     return q;
+  },
+
+  // The castle conversation's read of its quest: assigns on first talk, and
+  // brings an older save's quest up to the current rules (one kill or hunt,
+  // deliveries from the pool) before it is shown.
+  open(save, key, variant) {
+    const q = this.assign(save, key, variant);
+    if (!q) return null;
+    settleSingleTarget(q);
+    if (q.verb === 'deliver') this.creditDeliveries(save);
+    return q;
+  },
+
+  // THE DELIVERY POOL. save.deliveryCount is every delivery ever completed;
+  // save.quests.deliveriesSpent is how many of them an Archive has already
+  // been credited with. Each unspent delivery completes one active Archive
+  // quest, oldest assignment first, so one delivery counts at one castle, and
+  // an Archive first visited after some deliveries still takes credit for one.
+  // Returns whether any quest moved.
+  creditDeliveries(save) {
+    const state = save.quests;
+    if (!state?.byCastle) return false;
+    const quests = Object.values(state.byCastle).filter(q => q.verb === 'deliver');
+    // Saves from before the pool: under the old rule one delivery could fill
+    // every active Archive at once, so seed the spent count from the Archives
+    // already filled, never past the deliveries that exist.
+    if (state.deliveriesSpent === undefined) {
+      state.deliveriesSpent = Math.min(save.deliveryCount ?? 0,
+        quests.filter(q => q.have >= q.need).length);
+    }
+    let changed = false;
+    for (const q of quests) {
+      if (q.claimed || q.have >= q.need) continue;
+      if (state.deliveriesSpent >= (save.deliveryCount ?? 0)) break;
+      q.have += 1;
+      state.deliveriesSpent += 1;
+      changed = true;
+    }
+    return changed;
   },
 
   // One sentence of colour under the quest's bold title, by verb. Derived
@@ -72,9 +134,13 @@ const Quests = {
     return q;
   },
 
+  // A completed action. A delivery is already in save.deliveryCount by the
+  // time it arrives here, so it is credited from the pool like any other.
   onEvent(save, event, detail) {
+    if (event === 'deliver') return this.creditDeliveries(save);
     let changed = false;
     for (const q of Object.values(save.quests?.byCastle || {})) {
+      settleSingleTarget(q);
       if (q.claimed || q.event !== event || q.have >= q.need) continue;
       if (q.target && detail?.target !== q.target) continue;
       q.have = Math.min(q.need, q.have + 1);

@@ -13,6 +13,8 @@
 // ── INDEX of home-area customization still living elsewhere ──────────────────
 // (Migrate each into here as it's next touched, routing through HomeArea.)
 //   • Start origin / synthetic trailer ……… scene_shops.js  isStarterShop / ensureStarterShopId
+//   • Home placement + cleared footing …… scene_venues.js _placeHome / clearHomeFooting
+//   • Opening shot on Home ………………… app.js  _armHomeIntro / _tickHomeIntro (INTRO below)
 //   • What a wreck can become, by count … houses.js  BUILD_OPTIONS / STORY_RESTORES
 //   • Starter blacksmith (1st smithy) ……… houses.js  isStarterBlacksmith
 //   • Shops sell a line by restore order … scene_shops.js  shopLine
@@ -50,6 +52,34 @@ const HomeArea = {
     return dx * dx + dy * dy <= radiusM * radiusM;
   },
 
+  // ── Home's footing ────────────────────────────────────────────────────
+  // Where a placed Home sits, in cell offsets from the point it is placed
+  // for (the player's first fix, or where they stand for "Move Home here"):
+  // the wagon one cell NORTH, so the player starts on its doorstep, and an
+  // empty firepit one cell down and to their left. Every Home placement
+  // reads these; nothing restates them.
+  WAGON_OFFSET: { dx: 0, dy: -1 },
+  FIREPIT_OFFSET: { dx: -1, dy: 1 },
+  // Is the cell (dx, dy) from the spawn anchor part of Home's footing — the
+  // wagon's cell and the eight its art spills into, plus the firepit? The
+  // starter passes keep their crates, plot and ring out of it, and
+  // clearHomeFooting (scene_venues.js) sweeps it. The anchor's own 3x3 is
+  // included too: a save placed before the wagon moved north has its
+  // trailer ON the anchor.
+  inFooting(dx, dy) {
+    const w = this.WAGON_OFFSET, p = this.FIREPIT_OFFSET;
+    if (Math.abs(dx - w.dx) <= 1 && Math.abs(dy - w.dy) <= 1) return true;
+    if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) return true;
+    return dx === p.dx && dy === p.dy;
+  },
+
+  // The opening shot of a new game: the camera starts zoomed in until
+  // `viewCells` cells span the map frame, centred half a cell above the
+  // player, so the wagon fills the top half and the player stands at its
+  // door. Once Home stands and no dialog covers the map it holds `holdMs`,
+  // then eases back out to the normal view over `outMs`.
+  INTRO: { viewCells: 3, holdMs: 1000, outMs: 4000 },
+
   // Doubled in Oct 2026 (was 10 trails within 24 cells): the cap and the
   // search area both, so twice the chests get a trail whichever binds.
   CHEST_TRAIL_LIMIT: 20,
@@ -63,13 +93,21 @@ const HomeArea = {
   CHEST_TRAIL_RADIUS_CELLS: 34,
 
   // Optional treasure trails lead to the nearest unopened T2+ surface chests
-  // around the player, anywhere on the surface. Pick by distance and id, so
-  // streaming order never reshuffles the trails.
+  // and unfound, uncovered X marks around the player, anywhere on the surface.
+  // Crates never get one. Pick by distance and id, so streaming order never
+  // reshuffles the trails.
   chestTrailCandidates(scene, anchor = scene.startWorldM && scene.playerM ? playerWorldM(scene) : null) {
     if (!anchor || !Number.isFinite(anchor.x) || (scene.depth || 0) !== 0 || !(scene.cellM > 0)) return [];
     const opened = new Set(scene.save.opened || []), candidates = new Map();
+    const found = new Set(scene.save.foundTreasures || []);
     const radius = this.CHEST_TRAIL_RADIUS_CELLS * scene.cellM;
     for (const entry of WorldGen.tileCache.values()) {
+      if ((entry.depth || 0) !== 0) continue;
+      for (const tr of [entry.treasure, ...(entry.parkingTreasures || []), ...(entry.extraTreasures || [])]) {
+        if (!tr?.id || found.has(tr.id) || !this.isNear(tr.x, tr.y, radius, anchor)
+            || (typeof treasureExposed === 'function' && !treasureExposed(tr, scene))) continue;
+        candidates.set(tr.id, tr);
+      }
       for (const o of entry.objects || []) {
         if (o.kind !== 'chest' || !o.id || String(o.id).startsWith('chest_start_')
             || (o.depth || 0) !== 0 || opened.has(o.id)

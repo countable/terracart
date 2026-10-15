@@ -319,6 +319,13 @@ const PEEK_DRAG_SLOP_PX = 8;
 // is the 1/e time rather than a duration — the camera is home (sub-pixel) in
 // about 3× this.
 const PEEK_RETURN_MS = 90;
+// The PINCH ZOOM, the drag's two-finger twin: a pinch on the map magnifies it
+// about the viewport centre until at most PINCH_VIEW_CELLS span the frame, and
+// it springs back on PEEK_RETURN_MS the moment a pinching finger lifts. A
+// look, never a resting view, so fog, aggro and boss margins stay tuned for
+// VIEW_CELLS; and zoom-in only, so it never shows ground the full view hides.
+const PINCH_VIEW_CELLS = 7;
+const PINCH_MAX_ZOOM = VIEW_CELLS / PINCH_VIEW_CELLS;
 // Surface GPS gap (metres) past which a fix PLACES the body instead of being
 // walked off. The body chases the GPS target at up to DEBUG_SPEED_MUL × walk
 // pace (14 m/s), which comfortably keeps up with a real walk or a slow drive;
@@ -336,7 +343,7 @@ const GPS_SNAP_M = 200;
 const CONFUSED_RECOVER_MS = 6000;
 // The dialogs that pause the fight (_storyDialogOpen): modal_shell kinds, and
 // the static index.html overlays that carry no kind.
-const STORY_DIALOG_KINDS = new Set(['story', 'note', 'memory']);
+const STORY_DIALOG_KINDS = new Set(['story', 'note', 'talk', 'memory']);
 const STORY_DIALOG_IDS = new Set(['story', 'howto']);
 // The SNAP's own cut — a placement past GPS_SNAP_M moves the body somewhere
 // the player never walked, so it earns a transition rather than the world
@@ -869,6 +876,12 @@ const FOOT_STANCE_HALF_ART_PX = 2;   // half the sprite's stance, in frame px
 const PLAYER_FEET_DROP_PX = SpriteLayout.PLAYER_ART.farmer.footDrop;
 const PLAYER_FRAME_PX = SpriteLayout.PLAYER_ART.farmer.fh;
 const PLAYER_ART_SCALE = SpriteLayout.PLAYER_ART.farmer.scale;
+// THE FACING CHEVRON (_drawMarkers): an open V on the ground ahead of the
+// feet, in screen px along the heading (tip, arm) and across it (halfW).
+// TILT squashes ground-plane screen-y for the south camera, so north/south
+// headings read shorter than east/west, as floor paint would.
+const FACING_CHEVRON = { tip: 16, arm: 10, halfW: 4.5, outlineW: 3.2, fillW: 1.6 };
+const FACING_CHEVRON_TILT = 0.6;
 // THE COLLAPSE POSE. At zero energy the player is not standing: the reach is 0,
 // nothing hunts them, no trap springs under them (Combat.playerDowned — the one
 // expression all of that reads). A body that is upright in the picture while
@@ -3077,6 +3090,9 @@ class MapScene extends Phaser.Scene {
     // every projection below — and every draw pass this frame — reads one
     // settled camera position rather than two.
     this._tickPeek(dt);
+    this._tickMapZoom(dt);
+    this._tickHomeIntro(dt);
+    this._applyMapZoom();
     // Everything drawn AT the player rather than at a world position rides
     // this: the camera is normally on them, so it's the viewport centre, but a
     // peek drag slides them across the map like anything else standing on it.
@@ -3381,33 +3397,38 @@ class MapScene extends Phaser.Scene {
       this._houseMutter();
     }
 
-    // Facing-direction indicator: yellow triangle arrow at the player's head,
-    // pointing in the compass heading (or last movement, as fallback). It
-    // rides the player's head at every depth.
-    this.facingGfx.clear();
+    // Facing chevron: an open gold V painted on the ground ahead of the feet,
+    // pointing along the compass heading (or last movement, as fallback).
+    // A ground mark, so it is measured from the feet (pScreen), not the body,
+    // and its screen-y is squashed by FACING_CHEVRON_TILT for the south
+    // camera's tilt (map-perspective.md).
+    this.facingChevronGfx.clear();
     const fmag = Math.hypot(this.facing.x, this.facing.y);
     if (fmag > 0.001) {
       const fx = this.facing.x / fmag, fy = this.facing.y / fmag;
-      // perpendicular for the base of the triangle
-      const px = -fy, py = fx;
-      // Arrow geometry, all measured from the anchor point so the whole shape
-      // scales about it. SCALE 0.85 = 15% smaller than the sizes it was drawn
-      // at before (tip 22 / base 14 / halfW 6).
-      const SCALE = 0.85;
-      const tip = 22 * SCALE; // distance from anchor to arrow tip
-      const base = 14 * SCALE; // distance from anchor to arrow base midpoint
-      const halfW = 6 * SCALE; // half-width of the base
-      // Head offset: how far ABOVE the sprite's centre the arrow is anchored.
-      // 0 sits it on the centre, negative nudges it below — it rode 2px high
-      // once, and now sits 1px under centre, where it lines up with the art.
-      const HEAD_DY = -1;
-      // The sprite's centre is its ground point plus bodyDy (the feet are on
-      // the point and the body rises above it — until it collapses onto it).
-      const cx = pScreen.x, cy = pScreen.y + bodyDy - HEAD_DY;
-      const tx = cx + fx * tip, ty = cy + fy * tip;
-      const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
-      const brx = cx + fx * base - px * halfW, bry = cy + fy * base - py * halfW;
-      this._drawArrowTriangle(this.facingGfx, tx, ty, blx, bly, brx, bry, 0.85, 0xffd24a);
+      // (along, across) on the ground → screen, y foreshortened.
+      const ground = (u, v) => ({
+        x: pScreen.x + fx * u - fy * v,
+        y: pScreen.y + (fy * u + fx * v) * FACING_CHEVRON_TILT,
+      });
+      const { tip, arm, halfW } = FACING_CHEVRON;
+      const pts = [ground(arm, halfW), ground(tip, 0), ground(arm, -halfW)];
+      const g = this.facingChevronGfx;
+      // Graphics has no round caps or joins, so a dot of the stroke's width
+      // at each vertex rounds the ends and closes the apex.
+      const stroke = (w, color, alpha, dy) => {
+        g.lineStyle(w, color, alpha);
+        g.beginPath();
+        g.moveTo(pts[0].x, pts[0].y + dy);
+        g.lineTo(pts[1].x, pts[1].y + dy);
+        g.lineTo(pts[2].x, pts[2].y + dy);
+        g.strokePath();
+        g.fillStyle(color, alpha);
+        for (const p of pts) g.fillCircle(p.x, p.y + dy, w / 2);
+      };
+      stroke(FACING_CHEVRON.outlineW, 0x000000, 0.45, 1);   // drop shadow
+      stroke(FACING_CHEVRON.outlineW, 0x1a1208, 1, 0);      // dark outline
+      stroke(FACING_CHEVRON.fillW, 0xffd24a, 1, 0);         // gold
     }
 
     // Footprint trail. Each ~2m the player moves, fade existing dots by 10%
@@ -5657,6 +5678,10 @@ class MapScene extends Phaser.Scene {
     this._peekPointerId = null;
     this._peekPointer = null;
     this._peekReturning = false;
+    this._pinch = null;
+    this.mapZoom = 1;
+    this._mapZoomReturning = false;
+    this._homeIntro = null;
     if (!this.peekM) return;      // called before the view was set up
     this.peekM.x = 0;
     this.peekM.y = 0;
@@ -5675,6 +5700,134 @@ class MapScene extends Phaser.Scene {
       this.peekM.y = 0;
       this._peekReturning = false;
     }
+  }
+
+  // --- Pinch zoom (PINCH_VIEW_CELLS) ---
+  // Two map fingers start a pinch, and the zoom follows their spread over the
+  // spread they landed at. Neither finger taps when it lifts: the drag owner
+  // is marked dragging, and the other finger never owned anything.
+  _pinchStart(a, b) {
+    const pa = this._gamePt(a), pb = this._gamePt(b);
+    this._pinch = { a: a.id, b: b.id, from: this.mapZoom || 1,
+      dist: Math.max(1, Math.hypot(pa.x - pb.x, pa.y - pb.y)) };
+    this._mapZoomReturning = false;
+    if (this._peekPointerId !== null) this._peekDragging = true;
+  }
+
+  _pinchMove(a, b) {
+    const pa = this._gamePt(a), pb = this._gamePt(b);
+    const dist = Math.hypot(pa.x - pb.x, pa.y - pb.y);
+    this.mapZoom = clamp(this._pinch.from * dist / this._pinch.dist, 1, PINCH_MAX_ZOOM);
+  }
+
+  // A pinching finger lifted: the zoom springs home. A drag owner still on the
+  // glass carries on dragging from where it is now, not from where it landed.
+  _pinchEnd() {
+    this._pinch = null;
+    if (this.mapZoom !== 1) this._mapZoomReturning = true;
+    const p = this._peekPointer;
+    if (p?.isDown && p.id === this._peekPointerId) {
+      const at = this._gamePt(p);
+      this._peekDownX = at.x;
+      this._peekDownY = at.y;
+      this._peekFromM = { x: this.peekM.x, y: this.peekM.y };
+    }
+  }
+
+  // The peek's spring, on the zoom: home within half a screen pixel at the
+  // frame's edge, then exactly 1.
+  _tickMapZoom(dt) {
+    if (!this._mapZoomReturning) return;
+    this.mapZoom = 1 + (this.mapZoom - 1) * Math.exp(-dt / (PEEK_RETURN_MS / 1000));
+    if ((this.mapZoom - 1) * this.viewSize / 2 < 0.5) {
+      this.mapZoom = 1;
+      this._mapZoomReturning = false;
+    }
+  }
+
+  // --- The opening shot (HomeArea.INTRO) ---
+  // A new game opens close on Home: zoomed until INTRO.viewCells span the
+  // frame, the camera half a cell north of the player, so the wagon fills the
+  // top half and the player stands at its door. It waits there while Home is
+  // still being placed or a dialog (the opening story, the location prompt)
+  // covers the map, holds INTRO.holdMs once the map is clear, then widens
+  // back to the normal view over INTRO.outMs. Camera-only, through the same
+  // mapZoom and peekM the pinch and the peek use, and it never rests: it ends
+  // at exactly 1× and no offset. A finger on the map hands the camera to the
+  // drag or the pinch, which spring home as usual.
+  _armHomeIntro() {
+    this._homeIntro = { phase: 'wait', t: 0 };
+    this._tickHomeIntro(0);
+  }
+  _tickHomeIntro(dt) {
+    const it = this._homeIntro;
+    if (!it) return;
+    if (this._peekDragging || this._pinch) {
+      this._homeIntro = null;
+      this._mapZoomReturning = this.mapZoom !== 1;
+      this._peekReturning = this.isPeeking();
+      return;
+    }
+    const I = HomeArea.INTRO;
+    if (it.phase === 'wait') {
+      if (this.save.starterShopId && (this.depth || 0) === 0 && !this._dialogOpen()) it.phase = 'hold';
+    } else {
+      it.t += dt * 1000;
+      if (it.phase === 'hold' && it.t >= I.holdMs) { it.phase = 'out'; it.t = 0; }
+    }
+    // Ease the SPAN of the view, not the zoom factor, so the widening reads
+    // as an even pull back rather than a lurch at the start.
+    const k = it.phase === 'out' ? Math.min(1, it.t / I.outMs) : 0;
+    const e = k * k * (3 - 2 * k);
+    const span = I.viewCells + (VIEW_CELLS - I.viewCells) * e;
+    this.mapZoom = VIEW_CELLS / span;
+    this.peekM.x = 0;
+    this.peekM.y = -this.cellM / 2 * (1 - e);
+    if (k >= 1) {
+      this._homeIntro = null;
+      this.mapZoom = 1;
+      this.peekM.y = 0;
+    }
+  }
+
+  // A logical point on the zoomed map → the point the 1× view draws there,
+  // which is the space every tap path, cell hit test and edge dot measures in.
+  _unzoomPt(pt) {
+    const z = this.mapZoom || 1;
+    if (z === 1) return pt;
+    return { x: this.viewCenterX + (pt.x - this.viewCenterX) / z,
+             y: this.viewCenterY + (pt.y - this.viewCenterY) / z };
+  }
+
+  // Put the zoom on the camera, once per frame. At 1× the camera is
+  // applyRenderScale's pure scale over the whole canvas. Zoomed, its viewport
+  // shrinks to the map square, so nothing magnified spills past the frame, and
+  // zoom and scroll magnify about the viewport centre. The vignette is the
+  // frame's chrome, not map: counter-scaled so it stays on the rim.
+  _applyMapZoom() {
+    const cam = this.cameras?.main;
+    if (!cam) return;
+    const z = this.mapZoom || 1;
+    const chrome = this._mapChrome || [];
+    if (z === 1) {
+      if (!this._mapZoomOn) return;
+      this._mapZoomOn = false;
+      cam.setViewport(0, 0, W * RENDER_SCALE, H * RENDER_SCALE);
+      applyRenderScale(cam);
+      for (const g of chrome) g.setPosition(0, 0).setScale(1);
+      return;
+    }
+    this._mapZoomOn = true;
+    const rs = RENDER_SCALE, k = rs * z;
+    const vx = Math.round(this.viewLeft * rs), vy = Math.round(this.viewTop * rs);
+    const vs = Math.round(this.viewSize * rs);
+    cam.setViewport(vx, vy, vs, vs);
+    cam.setZoom(k);
+    // Device px = viewport + k·(logical − scroll); the centre keeps rs·centre.
+    const sx = this.viewCenterX - (rs * this.viewCenterX - vx) / k;
+    const sy = this.viewCenterY - (rs * this.viewCenterY - vy) / k;
+    cam.setScroll(sx, sy);
+    for (const g of chrome) g.setScale(1 / z).setPosition(sx - vx / k, sy - vy / k);
   }
   // === Interaction ===
   // Dispatch lives in interact.js as a flat TAP_HANDLERS priority array;

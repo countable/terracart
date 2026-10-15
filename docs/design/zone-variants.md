@@ -14,6 +14,15 @@ weight and material; this file states the rules the data and runtime keep.
 The Nexus focal layout is the central arrangement within that whole place.
 A Temple-bearing Nexus is the subset allowed to claim a temple building:
 Grove, Old Stones and Tar Yard under the current `Zones.ZONE_KINDS` flags.
+A building becomes its temple only when at least half of its footprint lies
+on that anchor's coverage; one that merely brushes the edge stays ordinary.
+A grove whose Nexus claims no building in its owner tile's data raises a small
+round temple instead (`ZoneDressing` `roundTemples`, minted in
+`rasterizeTileSteps`): the eight cells round its shrine cell, which stays open
+at the centre. All eight must be the grove's own, in that tile, free and off
+footpaths, or the grove has no temple. A temple building wholly inside a
+neighbouring tile is not seen, so such a grove can hold both. The round
+temple's own ring never blocks its upper room (`TempleLayout.plan`).
 
 The game and map review load the table through `src/zone_variant_data.js`.
 Regenerate it after editing the JSON with
@@ -142,8 +151,18 @@ gate, with names from `ZoneCoverage`. Site sizes, gaps and module shapes are
 `quarryLayouts` in the JSON. Too-small fragments stay ordinary ground. A site
 touching a tile edge cannot know its full footprint, so it falls back to
 cell-addressed strip-mine scatter with no finite finds, guards or partial
-crater, labelled as an edge site. Mined, opened, dug and defeated things use
-the existing progress ledgers and never refill.
+crater, labelled as an edge site. Mined, opened and dug things use the
+existing progress ledgers and never refill.
+
+Quarries are peaceful resource-gathering ground. No quarry row has guards or
+inhabiting enemies (the Ruined Stronghold's foundations are empty, the strip
+mine has no wurms), no layout places lava, spikes or other hazards (the
+crater's altar stands on a dry pool floor), and the surface spawns no fire
+vents, cave-ins or sinkholes inside quarry coverage (`EnvironmentHazards`).
+Habitat fauna, finds, entrances and the crater's daily altar remain. The
+quarry's spikes and cave-ins moved to the tar yards: Black Ring carries one
+ground spike per motif repeat, and Seep's `caveIns` row lets hidden cave-in
+clusters open on its tar ground (sinkholes keep off it).
 
 <a id="beach-family"></a>
 

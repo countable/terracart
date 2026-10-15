@@ -1602,13 +1602,10 @@
 
     // ── Pin Home to a synthetic trailer away from every test house, BEFORE
     //    app.js's ensureStarterShopId() gets a chance to run. That function
-    //    auto-adopts the NEAREST 'house'-kind object to the player's spawn as
-    //    Home — normally harmless, since a real wizard tower only exists after
-    //    15 house restorations. The sandbox pre-seeds 'wizard' immediately
-    //    (loop just above) on a house planted right next to PLAYER SPAWN, so
-    //    without this it wins the "nearest house" search: it renders as the
-    //    Home trailer instead of the wizard tower, and tapping it opens the
-    //    sell modal instead of the tower's offers (docs/process/SANDBOX.md).
+    //    places Home round the player's spawn and clears any house on its
+    //    footing (clearHomeFooting) — and the sandbox plants test houses
+    //    (the pre-seeded wizard among them) right next to PLAYER SPAWN, which
+    //    would be erased (docs/process/SANDBOX.md).
     {
       const { cellIX, cellIY } = sceneCell('PLAZA', 0, 3);
       const { x, y } = cellCenter(cellIX, cellIY);

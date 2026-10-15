@@ -1921,12 +1921,64 @@ function characterMove(scene, c, x, y, now, { pace = Math.hypot(x - c.x, y - c.y
   return Math.hypot(c.x - sx, c.y - sy) > 1e-9;
 }
 
-// Guards keep their authored ruin rings, but lose interest through cover.
+// ── AMBUSHERS ─────────────────────────────────────────────────────────────
+// A roster row's `ambush` (the thief) or a garrison member's (Lairs.GROUPS
+// `ambush` — the hedged lane's runts) makes a foe that waits in a CONCEALING
+// cell (Visibility.concealingCellNear — a bush, a hedge, a grown tree: hidden
+// from the player unless they stand next to it) and notices the player only
+// within hearing (Visibility.HEAR_CELLS). It springs out with a burst of
+// leaves (ambushSprings), hunts like any foe, and once it gives up it walks
+// back to the same hide. A charmed or tame one is no ambusher.
+const LAST_SEEN_MS = 8000;           // a lost sighting: the walk there and the search
+const AMBUSH_ROAM_LURK_CELLS = 4;    // how far from home a roaming ambusher looks for its hide
+const AMBUSH_GUARD_LURK_CELLS = 2;   // …and a garrison ambusher from its seat
+const LURK_RETRY_MS = 2000;          // no hide in view yet: ask again after this
+function isAmbusher(c) {
+  return !!(c && (c.ambush || EnemyRoster.get(c.kind)?.ambush)) && !Combat.isCharmed(c) && !Combat.isTame(c);
+}
+// The hides already chosen, so two lurkers spread along a hedge.
+function lurkTaken(scene, c) {
+  const claims = scene._lurkClaims ||= new Map();
+  return { has: k => { const owner = claims.get(k); return !!owner && owner !== c.id; }, claim: k => claims.set(k, c.id) };
+}
+// A roaming ambusher's hide near its home, kept once found (or null).
+function lurkSpot(scene, c, now = performance.now()) {
+  if (c._lurk) return c._lurk;
+  if (now < (c._lurkAskT || 0)) return null;
+  const taken = lurkTaken(scene, c);
+  const spot = Visibility.concealingCellNear(scene, c.homeX ?? c.x, c.homeY ?? c.y, AMBUSH_ROAM_LURK_CELLS, c.id, taken);
+  if (!spot) { c._lurkAskT = now + LURK_RETRY_MS; return null; }
+  taken.claim(spot.key);
+  return (c._lurk = spot);
+}
+// A garrison ambusher's seat moves into the hide nearest it, once; its walk
+// home (Lairs.guardState 'return') is then the walk back into the hedge.
+function lurkSeat(scene, c, now = performance.now()) {
+  if (c._lurk || now < (c._lurkAskT || 0) || !Number.isFinite(c.seatX)) return;
+  const taken = lurkTaken(scene, c);
+  const spot = Visibility.concealingCellNear(scene, c.seatX, c.seatY, AMBUSH_GUARD_LURK_CELLS, c.id, taken);
+  if (!spot) { c._lurkAskT = now + LURK_RETRY_MS; return; }
+  taken.claim(spot.key);
+  c._lurk = spot; c.seatX = spot.x; c.seatY = spot.y;
+}
+function ambushSprings(scene, c) {
+  c._sprung = true;
+  scene._burstAtWorld?.('sprout', c.x, c.y);
+}
+
+// Guards keep their authored ruin rings, but lose interest through cover:
+// FULL cover always, PARTIAL cover (Visibility.sightCover) past hearing. An
+// AMBUSHER that has not sprung notices only within hearing, whatever its ring.
 function enemyGuardState(scene, c, target, noticed) {
+  const heard = Math.hypot(target.x - c.x, target.y - c.y) <= Visibility.HEAR_CELLS * scene.cellM;
   const cover = !noticed || typeof Visibility === 'undefined' ? 0
-    : Visibility.coverBetween(scene, c.x, c.y, target.x, target.y);
-  return Lairs.guardState(c, target, scene.cellM, noticed && cover !== 2,
-    cover === 1 ? Visibility.TREE_SIGHT_PENALTY : 0);
+    : Visibility.sightCover(scene, c.x, c.y, target.x, target.y);
+  if (cover === 2 || (cover === 1 && !heard)) noticed = false;
+  if (isAmbusher(c) && !c._hunting && !heard) noticed = false;
+  if (isAmbusher(c)) lurkSeat(scene, c);
+  const state = Lairs.guardState(c, target, scene.cellM, noticed);
+  if (isAmbusher(c) && state === 'hunt' && !c._hunting) ambushSprings(scene, c);
+  return state;
 }
 
 // Release/rejoin seats are deterministic for the individual, but checked live
@@ -2067,9 +2119,14 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
   // reads this stamp through enemyCanStep's sweep).
   c._retreating = routed || m.pattern === 'flee';
   const dist = Math.hypot(px - c.x, py - c.y);
-  let sees = !inactive && Combat.seesTarget(scene, c, px, py, creatureTarget
+  // An AMBUSHER that has not sprung (isAmbusher) waits in its hide and
+  // notices only within hearing; once sprung it sees as its row does.
+  const ambusher = !creatureTarget && isAmbusher(c);
+  const sightNow = creatureTarget
     ? Math.max(0, Combat.sightCells(c.kind) - PotionEffects.visionReduction(creatureTarget))
-    : Combat.sightCells(c.kind, scene.save));
+    : Combat.sightCells(c.kind, scene.save);
+  let sees = !inactive && Combat.seesTarget(scene, c, px, py,
+    ambusher && !c._sprung ? Math.min(Visibility.HEAR_CELLS, sightNow) : sightNow);
   if (m.territoryCells) {
     c._territoryX ??= c.homeX ?? c.x; c._territoryY ??= c.homeY ?? c.y;
     const radius = m.territoryCells * scene.cellM;
@@ -2084,6 +2141,13 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
       return;
     }
   }
+  // THE LAST SIGHTING: every look at the player is remembered; a foe that
+  // loses sight walks to where it last saw them and searches there until
+  // LAST_SEEN_MS after that look, then gives up (below).
+  if (sees) {
+    if (ambusher && !c._sprung) ambushSprings(scene, c);
+    if (!creatureTarget) c._lastSeen = { x: px, y: py, until: now + LAST_SEEN_MS };
+  } else if (inactive || routed) c._lastSeen = null;
   let angle = Math.atan2(py - c.y, px - c.x);
   let speed = m.speedMetersPerSecond;
   let maxDistance = m.pattern === 'engulf' ? dist : Math.max(0, dist - scene.cellM * 0.35);
@@ -2108,9 +2172,24 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
     angle = Math.atan2(c.seatY - c.y, c.seatX - c.x);
     maxDistance = Math.hypot(c.seatX - c.x, c.seatY - c.y);
     c._batFlight = null; c._batSwooping = false;
+  } else if (!sees && c._lastSeen && now < c._lastSeen.until) {
+    c._batFlight = null; c._batSwooping = false;
+    c._lungeUntil = null; c._lungeWindupUntil = null;
+    const gap = Math.hypot(c._lastSeen.x - c.x, c._lastSeen.y - c.y);
+    if (gap < scene.cellM * 0.3) return;   // there: it searches where it lost you
+    angle = Math.atan2(c._lastSeen.y - c.y, c._lastSeen.x - c.x);
+    maxDistance = gap;
+  } else if (!sees && ambusher && lurkSpot(scene, c, now)) {
+    // It has lost you: back to its hide (lurkSpot), to wait unsprung again.
+    c._batFlight = null; c._batSwooping = false; c._lastSeen = null; c._sprung = false;
+    const gap = Math.hypot(c._lurk.x - c.x, c._lurk.y - c.y);
+    if (gap < scene.cellM * 0.2) return;
+    angle = Math.atan2(c._lurk.y - c.y, c._lurk.x - c.x);
+    maxDistance = gap;
   } else if (!sees) {
     c._batFlight = null; c._batSwooping = false;
     c._lungeUntil = null; c._lungeWindupUntil = null;
+    c._lastSeen = null;
     if (now >= (c._idleTurnT || 0)) {
       // An idle wander among houses keeps to the street too.
       const idle = enemyMovementRandom(c, 'idle') * Math.PI * 2;

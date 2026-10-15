@@ -15,7 +15,18 @@ rendering, lighting or street mechanics. Camera and art geometry live in
 - Draw from the camera anchor using `coords.js` projection helpers. Reach,
   taps, fog and tile loading use `playerM` / `playerToWorldCell()`.
   Draw player-attached effects at `scene.playerScreen()`, not viewport centre.
-- The player's feet sit on the GPS fix. Ground marks use that point; body
+- The pinch zoom is camera-only and temporary: `scene.mapZoom` (at most
+  `VIEW_CELLS / PINCH_VIEW_CELLS`) magnifies about the viewport centre while
+  two map fingers are down and springs back on `PEEK_RETURN_MS`, like the peek
+  drag. `_applyMapZoom` clips the camera viewport to the map square and
+  counter-scales the frame and vignette (`_mapChrome`); the HUD is DOM and
+  never zooms. Every projection, cull and hit test stays in the 1× view, and
+  taps convert back through `_unzoomPt`. Never let it rest zoomed: fog reveal,
+  aggro ranges and boss margins are tuned for `VIEW_CELLS`. The new-game
+  opening shot (`HomeArea.INTRO`, `_tickHomeIntro`) drives the same `mapZoom`
+  and `peekM`, and always ends at exactly 1× with no offset.
+- The player's feet sit on the GPS fix. Ground marks (shadow, footprints,
+  the facing chevron) use that point; body
   effects use `playerBodyDy()` so they also follow the downed pose. Do not
   compensate for sprite seating by changing the projection.
 - Flight raises the body by the consumable row’s `liftPx` through `playerBodyDy()`;

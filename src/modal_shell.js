@@ -118,6 +118,10 @@ const MODAL_KINDS = {
   use:      { icon: '🎒', label: 'Use', art: 'kind_use' },   // confirming a consumable from the bag
   fire:     { icon: '🔥', label: 'Campfire', art: 'kind_fire' },   // burning a held item (presentBurnConfirm)
   note:     { icon: '📜', label: 'Note', art: 'kind_note' },   // generic message dialog
+  // A neighbour speaking: the header is the speaker's NAME (callers pass it as
+  // kindLabel — NPC.speech), the label below is only the fallback. Always
+  // opened with the speaker's portrait, so the row has no default painting.
+  talk:     { icon: '💬', label: 'Talk' },
   menu:     { icon: '☰', label: 'Menu', art: 'kind_menu' },   // the ☰ menu (_openMenuDialog)
   // A story splash (_storySplashOnce, a badge, a book): always carries its own
   // painting, so the row has no default one.

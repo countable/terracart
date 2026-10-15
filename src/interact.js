@@ -594,7 +594,8 @@ const TAP_HANDLERS = [
     const found = new Set(save.foundTreasures || []);
     const tryClaim = (tr) => {
       if (!treasureExposed(tr, scene, save) || found.has(tr.id)
-          || (typeof HiddenObjects !== 'undefined' && HiddenObjects.treasureHidden(save, tr))
+          || (typeof HiddenObjects !== 'undefined' && HiddenObjects.treasureHidden(save, tr)
+            && !(typeof Starter !== 'undefined' && Starter.isTrailTreasure(scene, tr)))
           || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, tr))) return false;
       if (!sameAbsCell(scene, wm.x, wm.y, tr.x, tr.y)) return false;
       if (tooFar(ctx, tr.x, tr.y)) return 'far';
@@ -1310,6 +1311,21 @@ const TAP_HANDLERS = [
     scene.addToInv('scarecrow', 1, false, { notWild: true });   // reclaimed, not found
     ctx.dirty = true;
     scene.flash('🪦 reclaimed', sx, sy);
+    return true;
+  }},
+
+  // 2-firepit) Home's empty firepit (save.homeFirepit) claims its cell while
+  // it stands cold: nothing is tilled, sown or set down in the ring. With a
+  // flint shard in hand the tap falls through to light-fire, which lights a
+  // fire in it (the renderer then draws the fire, and the pit again once the
+  // fire is put out); anything else says what it is for.
+  { name: 'firepit', try: (ctx) => {
+    const { scene, save, sx, sy, cwmx, cwmy } = ctx;
+    const pit = save.homeFirepit;
+    if (!pit || (scene.depth ?? 0) !== 0 || !sameAbsCell(scene, pit.x, pit.y, cwmx, cwmy)) return false;
+    if (occupantsOf(ctx).fireIdx >= 0) return false;
+    if (getSelectedSlot(save)?.id === 'flint_shard') return false;
+    scene.flash('Light it with flint.', sx, sy);
     return true;
   }},
 

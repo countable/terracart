@@ -404,3 +404,89 @@ test('falloff: under a peek in any direction the corner still sits on the ambien
   assert.gt(beyond, 0, 'a full-magnitude peek does push a corner past the ramp');
   s.clearPeek();
 });
+
+// ── The pinch zoom ──────────────────────────────────────────────────────────
+// Two fingers magnify the map about the viewport centre, never past
+// PINCH_VIEW_CELLS across and never below the full view, and spring back like
+// the drag the moment a pinching finger lifts. Like the drag, it is a LOOK:
+// it taps nothing, and a tap during the spring-back lands where it is drawn.
+
+const finger = (id, x, y) => ({ id, x, y, isDown: true });
+
+test('pinch: the deepest zoom still shows a real neighbourhood, and only zooms in', () => {
+  assert.lt(PINCH_VIEW_CELLS, VIEW_CELLS, 'a pinch magnifies');
+  assert.gte(PINCH_VIEW_CELLS, 5, 'the reach ring and its neighbours stay in frame');
+  near(PINCH_MAX_ZOOM, VIEW_CELLS / PINCH_VIEW_CELLS, 1e-12, 'the cap is the cell ratio');
+});
+
+test('pinch: spreading the fingers zooms in, clamped to the cap and the full view', () => {
+  const s = tapScene({ _peekDragging: false });
+  const a = finger(1, 100, 200), b = finger(2, 200, 200);
+  s._pinchStart(a, b);
+  b.x = 250;                                 // spread 100 → 150
+  s._pinchMove(a, b);
+  near(s.mapZoom, Math.min(1.5, PINCH_MAX_ZOOM), 1e-9, 'zoom follows the spread');
+  b.x = 900;
+  s._pinchMove(a, b);
+  near(s.mapZoom, PINCH_MAX_ZOOM, 1e-9, 'never past PINCH_VIEW_CELLS across');
+  b.x = 110;
+  s._pinchMove(a, b);
+  assert.eq(s.mapZoom, 1, 'pinching in stops at the full view');
+});
+
+test('pinch: neither finger taps anything', () => {
+  const s = tapScene({ _peekDragging: false });
+  const a = finger(1, 100, 200), b = finger(2, 200, 200);
+  s._pinchStart(a, b);
+  for (const p of [b, a]) { p.isDown = false; s._pinchEnd(); s.endPeekPointer(p); }
+  assert.eq(s.taps.length, 0, 'a pinch is never a tap');
+  assert.eq(s._peekPointerId, null, 'and the drag is released');
+});
+
+test('pinch: letting go springs the zoom home, as fast as the drag', () => {
+  const s = tapScene({ _peekDragging: false });
+  const a = finger(1, 100, 200), b = finger(2, 200, 200);
+  s._pinchStart(a, b);
+  b.x = 400;
+  s._pinchMove(a, b);
+  s._pinchEnd();
+  let frames = 0, last = s.mapZoom;
+  while (s.mapZoom !== 1 && frames < 600) {
+    s._tickMapZoom(1 / 60);
+    assert.lte(s.mapZoom, last, 'the zoom only ever eases out');
+    last = s.mapZoom;
+    frames++;
+  }
+  assert.eq(s.mapZoom, 1, 'it lands exactly on the full view');
+  assert.lt(frames / 60, 0.6, 'a zoom that hangs about would read as stuck');
+});
+
+test('pinch: the finger left down keeps dragging from where it is, with no jump', () => {
+  const s = tapScene({ _peekDragging: false });
+  const a = finger(1, 100, 200), b = finger(2, 200, 200);
+  s._peekPointer = a;
+  s._pinchStart(a, b);
+  a.x = 80; b.x = 260;
+  s._pinchMove(a, b);
+  b.isDown = false;
+  s._pinchEnd();
+  assert.eq(s._peekDownX, 80, 'the drag is rebased on the finger as it is now');
+  assert.truthy(s._peekDragging, 'and is still a drag, so it taps nothing on lift');
+});
+
+test('pinch: a tap during the spring-back lands on the cell drawn under it', () => {
+  const s = tapScene({ _peekDragging: false, mapZoom: PINCH_MAX_ZOOM });
+  // A cell centre two cells east of the viewport centre is DRAWN zoom× further out.
+  const drawnX = s.viewCenterX + 2 * CELL_PX * PINCH_MAX_ZOOM;
+  s.endPeekPointer({ id: 1, x: drawnX, y: s.viewCenterY });
+  near(s.taps[0].sx, s.viewCenterX + 2 * CELL_PX, 1e-9, 'resolved in the 1× view');
+  near(s.taps[0].sy, s.viewCenterY, 1e-9, 'the centre row stays the centre row');
+});
+
+test('pinch: a warp drops the zoom with the peek', () => {
+  const s = tapScene({ _peekDragging: false, mapZoom: 1.4 });
+  s._pinch = { a: 1, b: 2, from: 1, dist: 100 };
+  s.clearPeek();
+  assert.eq(s.mapZoom, 1, 'the full view at once');
+  assert.eq(s._pinch, null, 'and the pinch is over');
+});

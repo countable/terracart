@@ -95,14 +95,14 @@
       'collision resolves on the south row cell frame');
   });
 
-  test('saved spawn: Home trailer moat keeps planted and saved objects', () => {
-    const src = SCENE_SRC;
-    const start = src.indexOf('  clearHomeTrailerOverlap() {');
-    const body = src.slice(start + '  clearHomeTrailerOverlap() {'.length, src.indexOf('\n  }\n', start));
-    const clear = new Function(body);
+  test('saved spawn: Home footing sweep keeps planted and saved objects', () => {
+    const lift = (name) => liftSceneMethod(name, { BUILDING_TYPES: new Set([9, 11, 12]) });
     const st = { id: 'starter_trailer', ...at(30, 30) };
-    const s = scene({ starterTrailer: st, starterShopId: st.id,
-      fruittrees: [{ id: 'saved_tree', ...at(31, 30) }] });
+    const s = Object.assign(scene({ starterTrailer: st, starterShopId: st.id,
+      fruittrees: [{ id: 'saved_tree', ...at(31, 30) }] }), {
+      clearHomeFooting: lift('clearHomeFooting'), _homeFootingAnchor: lift('_homeFootingAnchor'),
+      _homeMayClear: lift('_homeMayClear'), _eraseHomeBuildings: lift('_eraseHomeBuildings'),
+    });
     const saved = { kind: 'tree', id: 'saved_tree', ...at(31, 30) };
     const planted = { kind: 'tree', id: 'planted_tree', planted: true, ...at(29, 30) };
     const loose = { kind: 'rock', id: 'generated', ...at(30, 31) };
@@ -110,8 +110,8 @@
     const key = WorldGen.tileKey(0, 0);
     WorldGen.tileCache.set(key, e);
     try {
-      clear.call(s);
-      assert.truthy(e.objects.includes(saved) && e.objects.includes(planted), 'owned objects survive moat');
+      s.clearHomeFooting();
+      assert.truthy(e.objects.includes(saved) && e.objects.includes(planted), 'owned objects survive the sweep');
       assert.falsy(e.objects.includes(loose), 'generated clutter removed');
     } finally { WorldGen.tileCache.delete(key); }
   });

@@ -70,7 +70,8 @@ test('opening: the FULL sequence is three slides, in order, each with its own ar
   assert.eq(arts[0], 'story_nightmare', 'the nightmare comes before waking');
   assert.eq(arts[1], 'story_wake', 'then the trailer');
   assert.eq(arts[2], 'story_wrecks', 'then the neighbourhood');
-  assert.truthy(/text: '', btn: 'wake up', nightmare: true/.test(slides), 'the dream has only its wake-up CTA');
+  assert.truthy(/text: 'Awaken, from fitful dreams…', btn: 'wake up', nightmare: true/.test(slides),
+    'the call to wake is spoken over the dream, beside its wake-up CTA');
   assert.truthy(/btn: 'Next'/.test(slides) && /btn: "Let's go"/.test(slides),
     'the last slide says where it is going, the first just turns the page');
   // Every banner is a real file with real pixels (the vm sandbox has no fs —
@@ -121,7 +122,8 @@ test('opening: wake up fades in with the end of the zoom, taps during the fade s
     const click = () => btn.handlers.click({ stopPropagation() {} });
     assert.eq(btn.textContent, 'wake up');
     assert.truthy(nodes.story.classes.has('nightmare'), 'nightmare gets the opaque backdrop and camera treatment');
-    assert.truthy(text.hidden);
+    assert.falsy(text.hidden, 'the dream carries the call to wake');
+    assert.eq(text.textContent, 'Awaken, from fitful dreams…');
     assert.eq(btn.disabled, !reduced);
     if (!reduced) {
       assert.eq(delay, panMs - fadeMs, 'the button is held only while it is still fully invisible');

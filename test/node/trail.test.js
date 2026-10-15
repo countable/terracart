@@ -1331,3 +1331,15 @@ test('trail prize: third rung offers a wooden pick only when no pick is owned', 
   }
   for (const n of [2, 5, 6]) assert.eq(Trail.fixedPrize(n, {}), null);
 });
+
+test('trail prize: the cash card pays 15 × √(km walked + 1)', () => {
+  // Rung 1 is 200 m; rung 10 is 200 + 400 + … + 2000 = 11 km.
+  assert.eq(Trail.cashPrize(1).amount, Math.round(15 * Math.sqrt(0.2 + 1)));
+  assert.eq(Trail.cashPrize(10).amount, Math.round(15 * Math.sqrt(11 + 1)));
+  assert.gt(Trail.cashPrize(1).amount, 10, 'the first rung is no longer a single coin');
+  assert.eq(Trail.cashPrize(10, 'runner').amount, Math.round(15 * Math.sqrt(5.5 + 1)),
+    'a runner\'s halved rungs are a shorter walk');
+  const c = Trail.cashPrize(5);
+  assert.eq(c.kind, 'gold');
+  assert.eq(c.cls, 'cash', 'it takes the cash card in rollCardRow');
+});

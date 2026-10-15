@@ -239,7 +239,9 @@ access or tile lifecycle mechanics.
   waste-basket/recycling POIs share `barrelDensity`, the combined tile count
   stamped with POI density (including restamps after live additions). At ≤10
   containers, each is full with a 75-coin budget; at ≥200, each has a 20% full
-  chance and a 15-coin budget. Both interpolate linearly between endpoints.
+  chance and a 15-coin budget. Both interpolate linearly between endpoints. Items
+  size to that budget; a clay pot's coin result pays a fifteenth of it
+  (`CLAY_POT_LOOT` `budgetDiv`: 1 coin at 15, 5 at 75).
   Generated non-POI containers keep 30% full odds and a 15-coin budget. Full
   containers pay that budget as coins or use `ChestThemes.quantityForBudget`
   for item stacks, including category shares and caps; higher budgets never
@@ -277,10 +279,12 @@ access or tile lifecycle mechanics.
   X marks in proportion (`X_TOP_UP_MAX`), drawn off the cell hash. Mine mouths
   ignore ambient crates and drop any they land on.
 - Treasure trails (`HomeArea.chestTrailCandidates`, up to `CHEST_TRAIL_LIMIT`)
-  lead to the nearest unopened T2+ surface chests within
-  `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the surface (only the
-  starter crate's guide stays inside Home's ring); the chest at a trail's end
-  rolls `CHEST_TRAIL_TIER_BONUS` tier higher, within its depth cap.
+  lead to the nearest unopened T2+ surface chests and unfound, uncovered X
+  marks within `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the
+  surface; crates never get one. The line is dark ink (`Starter.TRAIL_STYLE`).
+  The chest at a trail's end rolls `CHEST_TRAIL_TIER_BONUS` tier higher, within
+  its depth cap; an X at a trail's end (`Starter.isTrailTreasure`) shows and
+  digs without waiting for the feet to stand beside it.
 - A Small road's end inside the tile that meets no other vehicle way (a
   cul-de-sac) holds one tier-1 supply crate (`o.crate`, no `poiClass`, so it
   gives once): `StreetVariants.dress`, seated like an end piece, capped per
@@ -442,16 +446,18 @@ access or tile lifecycle mechanics.
   curse damage. Selected mapped bus stops off the MD carriageway can retain
   mercenary hiring wagons; LG roads and junctions cannot. Ordinary mapped
   places keep their existing rules.
-- Parking lots join the existing MD/LG safety region (`ROAD_CLASS_MAJOR_BUFFER`,
-  stamped into the spawn gate as `KERB`) without acquiring a road surface or
-  the standing-on-carriageway warning. Mapped parking polygons supply their
-  footprint; retained tagged/inferred parking aisles use the lot detector's
-  12 m radius, and non-streetside parking POIs its 30 m radius. Repainting a
-  lot as a Quarry Nexus preserves this suppression. Fast movers cannot spawn
-  or enter; traps, whirlwinds, vents, sinkholes and cave-ins use the `hazard`
-  gate, including authored crater lava. Suppressing its lava leaves a dry
-  crater without removing its finds or altar. At night the same region supplies the blood aura, interaction hiding
-  and energy drain. Ordinary static content keeps its existing access rules.
+- Parking lots join the MD/LG kerb buffer's suppression at every hour
+  (`ROAD_CLASS_MAJOR_BUFFER`, stamped into the spawn gate as `KERB`) without
+  acquiring a road surface, the standing-on-carriageway warning or the night
+  zone: a cell only a lot puts in the buffer also carries
+  `ROAD_CLASS_LOT_BUFFER`, and every night-zone reader (blood aura,
+  interaction hiding, energy drain) goes through `WorldGen.nightZoneBits`.
+  A lot never removes a road buffer's night zone. Mapped parking polygons
+  supply their footprint; retained tagged/inferred parking aisles use the lot
+  detector's 12 m radius, and non-streetside parking POIs its 30 m radius.
+  Fast movers cannot spawn or enter; traps, whirlwinds and other
+  `hazard`-gated placements stay out. Repainting a lot as a Quarry Nexus keeps
+  this suppression.
 - The road is never a refuge and never a lure. `roadClass` derives all safety
   geometry from the vector bands. `ROAD_CLASS_MAJOR_ROAD` marks an MD/LG cell
   only when that group covers at least half of it, which gives runtime warnings
@@ -587,7 +593,7 @@ access or tile lifecycle mechanics.
   step and stores the stable plate id in `save.pressedPlates`; its depressed
   frame survives reloads and tile regeneration without another summon. Flight
   does not press plates, and a refused ghost spawn leaves a plate unspent.
-- Strip mines and L1 use `EnvironmentHazards` for hidden cave-in clusters of
+- L1 and the surface Nexus rows marked `caveIns` (the Seep tar pits) use `EnvironmentHazards` for hidden cave-in clusters of
   2–5 connected cells scattered across general eligible ground. Their seeds are
   cell-based and materialized on first contact. Any grounded entity (player,
   enemy, animal, pet or NPC) stepping onto a seeded cell starts the whole cluster's
@@ -644,7 +650,10 @@ Higher-priority placements and their access space take precedence in this order:
 
 1. Saved player-owned objects, Home and story placements. Preserve saved ids and
    progress; a conflicting generated story placement finds a valid alternative
-   rather than moving or deleting a player-owned object.
+   rather than moving or deleting a player-owned object. Home's footing (the
+   wagon's 3x3 and its firepit, `HomeArea.inFooting`) erases any unclaimed
+   house on it entirely — cells, outline and roof — on the built tile only
+   (`clearHomeFooting`); `baseGrid` keeps the building.
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles

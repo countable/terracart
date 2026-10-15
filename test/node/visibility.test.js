@@ -80,7 +80,7 @@ test('multiple trees remain partial and cleared blockers invalidate the retained
     const revision = Visibility.revision(f.scene);
     assert.eq(Visibility.playerCover(f.scene,4.5,0.5), Visibility.PARTIAL);
     assert.eq(Visibility.PARTIAL_DARKNESS,0.5);
-    assert.eq(Visibility.TREE_SIGHT_PENALTY,2);
+    assert.eq(Visibility.HEAR_CELLS,2);
     f.entry.objects.forEach(o => { o.chopped = true; });
     f.scene.save.chopped = ['tree0', 'tree1'];
     f.scene.game.loop.frame++;
@@ -162,4 +162,50 @@ test('small surface and cave rocks leave sight clear; boulders cast removable pa
       assert.eq(Visibility.playerCover(f.scene, 4.5, .5), Visibility.CLEAR);
     } finally { f.done(); }
   }
+});
+
+test('a bush, a hedge or a grown tree conceals its occupant from every viewer not directly adjacent', () => {
+  const bush = {id:'bush',kind:'wildplant',crop:'shrub',x:4.5,y:0.5};
+  const f = coverFixture([bush]);
+  try {
+    assert.truthy(Visibility.objectConceals(bush), 'a shrub conceals');
+    assert.truthy(Visibility.objectConceals({kind:'tree',variant:3}), 'a grown tree conceals');
+    assert.falsy(Visibility.objectConceals({kind:'tree',variant:1}), 'a sapling does not');
+    assert.falsy(Visibility.objectConceals({kind:'stronghold_wall'}), 'a wall covers but hides nobody inside it');
+    assert.falsy(Visibility.objectConceals({kind:'mineralrock',sightBlocking:true}), 'nor a tall rock');
+    assert.eq(Visibility.playerCover(f.scene,4.5,0.5), Visibility.PARTIAL, 'concealed from four cells off');
+    assert.truthy(Visibility.hidden(f.scene,4.5,0.5), 'an actor in the bush is undrawn');
+    assert.falsy(Visibility.hidden(f.scene,4.5,0.5,true), 'the bush itself still shows');
+    f.scene.playerM = {x:3.5,y:1.5};
+    assert.eq(Visibility.playerCover(f.scene,4.5,0.5), Visibility.CLEAR, 'a diagonal neighbour sees in');
+    assert.eq(Visibility.sightCover(f.scene,0.5,0.5,4.5,0.5), Visibility.PARTIAL, 'a foe four cells off cannot see a body in it');
+    assert.eq(Visibility.sightCover(f.scene,3.5,0.5,4.5,0.5), Visibility.CLEAR, 'a foe beside it can');
+    assert.eq(Visibility.sightCover(f.scene,4.5,0.5,0.5,0.5), Visibility.CLEAR, 'the one in the bush sees out');
+  } finally { f.done(); }
+});
+
+test('the X-Ray Ring sees through partial cover and into a bush, never through cave rock', () => {
+  const f = coverFixture([{id:'hedge',kind:'wildplant',crop:'shrub',x:4.5,y:0.5},{id:'t',kind:'tree',x:2.5,y:2.5}], ['0_3']);
+  try {
+    assert.truthy(Visibility.hidden(f.scene,4.5,0.5));
+    f.scene.save.inv = [{id:'xray_ring',count:1}];
+    assert.truthy(Gear.hasXRay(f.scene.save));
+    assert.falsy(Gear.hasPerception(f.scene.save), 'apart from the Ring of Perception');
+    assert.falsy(Visibility.hidden(f.scene,4.5,0.5), 'into the hedge');
+    assert.falsy(Visibility.hidden(f.scene,4.5,4.5), 'past the tree');
+    f.scene.depth = 1; Visibility.invalidate(f.scene);
+    assert.truthy(Visibility.hidden(f.scene,0.5,5.5), 'cave rock still hides');
+  } finally { f.done(); }
+});
+
+test('a lurker finds the nearest concealing cell, and two lurkers spread over a hedge', () => {
+  const hedge = [4,5].map(x => ({id:'h'+x,kind:'wildplant',crop:'shrub',x:x+.5,y:3.5}));
+  const f = coverFixture(hedge);
+  try {
+    const a = Visibility.concealingCellNear(f.scene, 4.5, 1.5, 2, 'a');
+    assert.truthy(a && a.y === 3.5 && (a.x === 4.5 || a.x === 5.5), 'a hedge cell');
+    const b = Visibility.concealingCellNear(f.scene, 4.5, 1.5, 3, 'b', new Set([a.key]));
+    assert.truthy(b && b.key !== a.key, 'the second takes the other cell');
+    assert.eq(Visibility.concealingCellNear(f.scene, 20.5, 20.5, 2, 'c'), null, 'none in range');
+  } finally { f.done(); }
 });

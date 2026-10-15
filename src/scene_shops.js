@@ -531,28 +531,20 @@ class SceneShops {
     return this.save.starterShopId === house.id;
   }
 
-  // Resolve (and self-heal) save.starterShopId: the player's Home. Home is the
-  // house nearest the player's ACTUAL location — their first GPS fix — NOT the
+  // Resolve (and self-heal) save.starterShopId: the player's Home. Home is
+  // placed round the player's ACTUAL location — their first GPS fix — NOT the
   // fixed map origin (startWorldM, anchored at START_LAT/LON): a player who
   // starts far from START_LAT would get a trailer off-screen near the origin.
   //
-  // Once a GPS fix is in, the rule is "what you can see is home":
-  //   • if any house is visible ON-SCREEN, adopt the nearest one as the trailer;
-  //   • if NO house is on-screen, synthesize a trailer under the player.
-  // "On-screen" = within the VIEW_CELLS-square map viewport centred on the
-  // player (HALF_VIEW_M each way). This replaces an earlier fixed-metres radius:
-  // tying it to the viewport means the player always either sees the house that
-  // became their trailer, or gets one dropped on themselves — never a Home left
-  // sitting off-screen that they can't find. Tiles stream in asynchronously, so
-  // before concluding "nothing on-screen" we wait for every tile the viewport
-  // overlaps to be ready (the viewport is far smaller than a tile, so that's the
-  // player's own tile, plus its neighbours when they sit near a tile edge — all
-  // kept loaded by the 3×3 ensureTilesAround). A previously chosen home that is
-  // still loaded is kept so the trailer is stable across roaming and reloads
-  // (even once it scrolls off-screen), while a stale origin-anchored memo (whose
-  // tile never loads near the new spawn) self-heals. Cheap after it locks in via
-  // the _starterShopOk early-out; called lazily (isStarterShop) and every frame
-  // from Render.drawObjects.
+  // Once a GPS fix is in and every tile the viewport overlaps is ready, Home
+  // is the wagon parked one cell north of the player, so they start on its
+  // doorstep, with an empty firepit at their lower left (_placeHome); any
+  // house standing there is cleared (clearHomeFooting). An older save whose
+  // Home is an adopted house keeps it while that house is loaded, so Home is
+  // stable across roaming and reloads, while a stale origin-anchored memo
+  // (whose tile never loads near the new spawn) self-heals. Cheap after it
+  // locks in via the _starterShopOk early-out; called lazily (isStarterShop)
+  // and every frame from Render.drawObjects.
   ensureStarterShopId() {
     if (this._starterShopOk) return;
     // A fresh save is still waiting to anchor its home origin to the first GPS
@@ -563,17 +555,10 @@ class SceneShops {
     if (this.save.starterTrailer && this.save.starterShopId === this.save.starterTrailer.id) {
       this.ensureStarterTrailerObject();
       this._starterShopOk = true;
-      // ensureStarterTrailerObject can self-heal onto a real house that has
-      // since appeared on the trailer's own footing (its own comment above
-      // explains why) — save.starterTrailer is then null and starterShopId
-      // already names the adopted house, so don't re-freeze the crate anchor
-      // at the trailer's old, no-longer-Home position.
-      if (this.save.starterTrailer) {
-        // Heal a save whose home capture failed (no save.home): anchor the
-        // starter crate trail on Home, where the player actually is — the
-        // origin-keyed anchor would sit on a tile that never loads.
-        this._setStarterCratesAt(this.save.starterTrailer.x, this.save.starterTrailer.y);
-      }
+      // Heal a save whose home capture failed (no save.home): anchor the
+      // starter crate trail on Home, where the player actually is — the
+      // origin-keyed anchor would sit on a tile that never loads.
+      this._setStarterCratesAt(this.save.starterTrailer.x, this.save.starterTrailer.y);
       return;
     }
     // Anchor on the player's real position: their GPS fix (gpsM, in playerM's
@@ -583,48 +568,31 @@ class SceneShops {
     if (!anchor) return;                       // no fix yet — wait for one
     const ax = this.startWorldM.x + anchor.x;
     const ay = this.startWorldM.y + anchor.y;
-    // "On-screen" = within the visible map viewport (a VIEW_CELLS square centred
-    // on the player). Half-extent each way, in world metres.
+    // Half the visible map viewport (a VIEW_CELLS square centred on the
+    // player), each way, in world metres.
     const HALF_VIEW_M = (VIEW_CELLS / 2) * this.cellM;
-    const cur = this.save.starterShopId;
-    let nearestId = null, nearestD2 = Infinity, curFound = false;
-    for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind !== 'house' || !o.id) continue;
-        if (o.id === cur) curFound = true;       // track the current Home anywhere (roaming)
-        const dx = o.x - ax, dy = o.y - ay;
-        // Only houses inside the viewport count toward "the nearest visible one".
-        if (Math.abs(dx) > HALF_VIEW_M || Math.abs(dy) > HALF_VIEW_M) continue;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < nearestD2) { nearestD2 = d2; nearestId = o.id; }
-      }
-    }
-    // An existing home that is still loaded → keep it (stable across roaming,
-    // even once it scrolls off-screen). A stale far memo simply isn't loaded near
-    // the new spawn, so curFound is false and we re-resolve below.
+    // An adopted house from an older save that is still loaded → keep it
+    // (stable across roaming, even once it scrolls off-screen). A stale far
+    // memo simply isn't loaded near the new spawn, so we place Home below.
     // _setStarterCratesAt on each lock-in below is the no-home heal: it
     // no-ops for anchored saves, and freezes the crate trail at the player's
     // real position for a save whose home capture failed (see
     // _starterTrailAnchor).
-    if (cur != null && curFound) {
-      this._starterShopOk = true;
-      this._setStarterCratesAt(ax, ay);
-      return;
+    const cur = this.save.starterShopId;
+    if (cur != null && cur !== 'starter_trailer') {
+      for (const e of WorldGen.tileCache.values()) {
+        if (!(e.objects || []).some(o => o.kind === 'house' && o.id === cur)) continue;
+        this._starterShopOk = true;
+        this._setStarterCratesAt(ax, ay);
+        return;
+      }
     }
-    // A house is visible on-screen → adopt the nearest one as the trailer.
-    if (nearestId != null) {
-      this.save.starterShopId = nearestId;
-      this.save.starterTrailer = null;         // drop any prior synthetic trailer
-      this._starterShopOk = true;
-      this._setStarterCratesAt(ax, ay);
-      return;
-    }
-    // No house on-screen. Don't synthesize until every tile the viewport overlaps
-    // is ready — otherwise we might be staring at a half-streamed map and would
-    // drop a trailer on top of a house that simply hadn't arrived. The viewport
-    // is tiny next to a tile, so this is the player's own tile, plus its
-    // neighbours when they sit near a tile edge (all kept loaded by
-    // ensureTilesAround). Check the four viewport corners.
+    // Don't place Home until every tile the viewport overlaps is ready —
+    // otherwise the footing sweep (clearHomeFooting) and the firepit's ground
+    // test would read a half-streamed map. The viewport is tiny next to a
+    // tile, so this is the player's own tile, plus its neighbours when they
+    // sit near a tile edge (all kept loaded by ensureTilesAround). Check the
+    // four viewport corners.
     const tileReadyAt = (offMx, offMy) => {
       const { tx, ty } = localMetersToTile(this, anchor.x + offMx, anchor.y + offMy);
       const t = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
@@ -633,8 +601,15 @@ class SceneShops {
     for (const ox of [-HALF_VIEW_M, HALF_VIEW_M])
       for (const oy of [-HALF_VIEW_M, HALF_VIEW_M])
         if (!tileReadyAt(ox, oy)) return;        // a viewport tile is still streaming — wait
-    // Drop a trailer under the player.
-    this._makeStarterTrailer(ax, ay);
+    // Place Home round the player: they start at the wagon's door, the empty
+    // firepit at their lower left, and whatever house stood there is cleared
+    // (_placeHome). Measured from the frozen starter anchor when the player
+    // is still on it, so the wagon sits exactly where the starter passes
+    // kept clear (HomeArea.inFooting).
+    const sc = this.save.starterCratesAt;
+    const fromAnchor = sc && Number.isFinite(sc.x)
+      && Math.max(Math.abs(sc.x - ax), Math.abs(sc.y - ay)) < this.cellM * 2;
+    this._placeHome(fromAnchor ? sc.x : ax, fromAnchor ? sc.y : ay);
     this._starterShopOk = true;
     this._setStarterCratesAt(ax, ay);
   }
@@ -1657,7 +1632,7 @@ class SceneShops {
       });
       return;
     }
-    const q = Quests.assign(this.save, key, style.id);
+    const q = Quests.open(this.save, key, style.id);
     if (!q) return;
     persistSave(this.save);
     const done = q.have >= q.need;

@@ -30,13 +30,15 @@ test('scene art: every dialog painting is cut to the dialog box shape', () => {
   }
 });
 
-test('scene art: every kind has a default painting, except STORY, which brings its own', () => {
+test('scene art: every kind has a default painting, except STORY and TALK, which bring their own', () => {
   const rows = [...kindsSrc.matchAll(/^  (\w+):\s+\{([^}]*)\}/gm)];
   assert.truthy(rows.length >= 20, 'the rows were read');
   for (const [, key, body] of rows) {
     if (key === 'story') {
       assert.truthy(/label: 'Story'/.test(body), 'the STORY label');
       assert.falsy(/art:/.test(body), 'a story always carries its own');
+    } else if (key === 'talk') {
+      assert.falsy(/art:/.test(body), 'a neighbour speaking always carries their portrait');
     } else {
       assert.truthy(new RegExp(`art: 'kind_${key}'`).test(body), `${key} opens on kind_${key}`);
     }

@@ -20,7 +20,7 @@
 
   test('story pause: story kinds and overlays pause; a shop does not', () => {
     const kinds = SCENE_SRC.match(/const STORY_DIALOG_KINDS = new Set\(\[([^\]]*)\]\)/)[1];
-    for (const k of ['story', 'note', 'memory']) assert.truthy(kinds.includes(`'${k}'`), k);
+    for (const k of ['story', 'note', 'talk', 'memory']) assert.truthy(kinds.includes(`'${k}'`), k);
     for (const k of ['shop', 'trade', 'forge']) assert.falsy(kinds.includes(`'${k}'`), k);
     const ids = SCENE_SRC.match(/const STORY_DIALOG_IDS = new Set\(\[([^\]]*)\]\)/)[1];
     assert.truthy(ids.includes("'story'") && ids.includes("'howto'"));

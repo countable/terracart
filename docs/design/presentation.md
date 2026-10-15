@@ -19,6 +19,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   Dialogue passes `portrait` to the modal shell, which keeps the face and
   shoulders at 128px above independently scrolling text, using pixelated scaling
   for chunky pixels. Portraits have no background plate or rounded clipping.
+  A neighbour speaking opens on the `talk` kind (`NPC.speech`): the header is
+  the speaker's name beside a 💬 chat bubble, the title line is their role —
+  never the generic `note` scroll.
   Scene paintings continue to use `art` and the full scene layout.
 
 - Interrupted startup script downloads show a recovery screen and retry the
@@ -127,6 +130,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   shows them with Next). Survivors speak the bible's words: the Breaking,
   fifty years, Mending Lane, the wizard the old folk call Tim; the hood is
   looked at, never asked about twice.
+- A new game opens close on Home (`HomeArea.INTRO`): the wagon fills the top
+  half with the player at its door, held while Home is placed or a dialog is
+  up, then a beat, then a slow pull back to the normal view. A finger on the
+  map ends it early.
 - Map messages fit `MAP_MSG_MAX` (30 characters) per rendered line, including
   interpolations. Cut copy or use a modal; do not interpolate unbounded POI names.
 - Statuses, buffs and timers on the player live in ONE place: the status

@@ -149,6 +149,9 @@ class SceneCreate {
     // so it exists before anything can draw; the drag that moves it and the
     // rules it obeys are in the PEEK DRAG block further down.
     this.peekM = { x: 0, y: 0 };
+    // The pinch zoom's magnification (app.js PINCH_VIEW_CELLS): 1 unless a
+    // pinch is live or springing back.
+    this.mapZoom = 1;
 
     const origin = WorldGen.lonLatToWorldPx(START_LON, START_LAT, WorldGen.Z);
     this.originPx = origin;
@@ -256,6 +259,10 @@ class SceneCreate {
     // in the world disarms it (see startGps): from then on the origin is load
     // bearing and moving it would drift everything already placed.
     this._homeCaptureArmed = this._homeCapturePending;
+    // A new game opens close on Home and pulls back (HomeArea.INTRO, app.js
+    // _armHomeIntro). "New" is no Home yet; the sandbox builds its own, and
+    // the browser harness taps at 1× screen positions from the first frame.
+    if (!this.save.starterShopId && !_sandbox && !window.__TEST_MODE) this._armHomeIntro();
     // (The no-fix safety net for home capture is armed in startGps, once
     // GPS is actually watching — sensors now start only after the opening
     // story + the location CTA, so arming it here would count story-reading
@@ -976,6 +983,8 @@ class SceneCreate {
     this._workProgress = null;
 
     const frame = this.add.graphics();
+    // The frame and vignette stay on the rim while a pinch zooms the map.
+    this._mapChrome = [frame];
     frame.lineStyle(2, 0x000000, 0.6)
       .strokeRect(this.viewLeft - 1, this.viewTop - 1, this.viewSize + 2, this.viewSize + 2);
 
@@ -1011,6 +1020,7 @@ class SceneCreate {
     // below the work-progress wheel (95) + flash text (100+), which are UI and
     // shouldn't be dimmed.
     const vignette = this.add.graphics().setDepth(90);
+    this._mapChrome.push(vignette);
     const VIG_PX = 14;
     const VIG_LIP = 4;                       // outermost rings that go opaque
     // The soft ramp every edge gets: light enough that the outer cell ring
@@ -1059,7 +1069,7 @@ class SceneCreate {
     // Player sprite — not interactive so taps on it fall through to the world
     // handler (which then treats the tap as if it were the cell under the player).
     // Depth 10: above the footprint trail (9) so dots can't draw on the
-    // character's face, below the facing-arrow overlay (11).
+    // character's face, below the rim-bearing overlay (11).
     //
     // The base scale is the cyan farmer's own (SpriteLayout.PLAYER_ART.farmer:
     // 16px frames at 1.5, a 24px body a little under a cell — the size every
@@ -1174,13 +1184,17 @@ class SceneCreate {
     this._autoMineKey = null;
     this._followPaused = false;
     this._detourHold = null;
-    // Facing direction indicator — arrow rendered via Graphics, pointed in the
-    // direction of the device compass (or last movement as a fallback).
+    // Overlay for the rim bearings (edge compass and edge dots), above the body.
     this.facingGfx = this.add.graphics().setDepth(11).setMask(mask);
+    // Facing chevron — painted on the ground ahead of the feet, pointed along
+    // the device compass (or last movement as a fallback). A ground mark, so
+    // it sits with the shadow and trail under the body (9.6: over the
+    // shadow, under the halo) and tucks behind the legs when facing north.
+    this.facingChevronGfx = this.add.graphics().setDepth(9.6);
+    this.shadowContainer.add(this.facingChevronGfx);
     this.compassDeg = null; // degrees clockwise from north, or null if no sensor
-    // Bow / staff shots in flight (see _combatTick). Drawn just above the
-    // facing arrow — a shot travels along that arrow, so it has to read as
-    // coming off the tip rather than sliding under it.
+    // Bow / staff shots in flight (see _combatTick). Drawn above the body and
+    // the rim bearings, so a shot reads as leaving the player.
     this.projGfx = this.add.graphics().setDepth(12).setMask(mask);
     // The staff's bolts and its charging orb are not Graphics: they are soft
     // baked glows (_boltGlowKey) with ADD blending, pooled in their own layer
@@ -1202,8 +1216,8 @@ class SceneCreate {
     this.enemyHealthGfx = this.add.graphics().setDepth(94).setMask(mask);
     // Sword-swing slash — a short arc drawn near the player, toward whatever
     // it's engaged with, on the same beat the melee wheel's damage numbers
-    // pop (see Render.MELEE_LOOKS / _drawSwordSwing). Depth 11: same tier as the
-    // facing arrow, above the body (10).
+    // pop (see Render.MELEE_LOOKS / _drawSwordSwing). Depth 11: above the
+    // body (10).
     this.swordSwingGfx = this.add.graphics().setDepth(11);
     this.playerWorldContainer.add(this.swordSwingGfx);
     this.playerWorldContainer.sort('depth');
@@ -1260,23 +1274,41 @@ class SceneCreate {
     this._peekPointerId = null;        // the one pointer that owns the drag
     this._peekDragging = false;        // past the slop — this is a drag, not a tap
     this._peekReturning = false;       // finger's gone, camera easing home
+    // Every finger down on the map, by pointer id: two of them are a PINCH
+    // (app.js _pinchStart). Fingers on the DOM HUD and the stick never land
+    // here — Phaser reports those as 'pointerdownoutside'.
+    this._mapTouches = new Map();
+    this._pinch = null;
     this.input.on('pointerdown', (p) => {
-      // Second finger down mid-drag is left alone: the drag keeps the pointer
-      // it started with, and a pinch never becomes a tap. But only while that
-      // pointer is REALLY still down — a touch whose release never reached
-      // Phaser (the stuck-touch case the sweeper below exists for) would
-      // otherwise own the map forever and swallow every tap after it.
-      if (this._peekPointerId !== null && this._peekPointer?.isDown) return;
-      const down = this._gamePt(p);
-      this._peekPointer = p;
-      this._peekPointerId = p.id;
-      this._peekDownX = down.x;
-      this._peekDownY = down.y;
-      this._peekDragging = false;
-      this._peekReturning = false;     // a new grab cancels the spring-back
-      this._peekFromM = { x: this.peekM.x, y: this.peekM.y };
+      for (const [id, q] of this._mapTouches) if (!q.isDown) this._mapTouches.delete(id);
+      this._mapTouches.set(p.id, p);
+      // Second finger down mid-drag doesn't take the drag: the drag keeps the
+      // pointer it started with, and a pinch never becomes a tap. But only
+      // while that pointer is REALLY still down — a touch whose release never
+      // reached Phaser (the stuck-touch case the sweeper below exists for)
+      // would otherwise own the map forever and swallow every tap after it.
+      if (this._peekPointerId === null || !this._peekPointer?.isDown) {
+        const down = this._gamePt(p);
+        this._peekPointer = p;
+        this._peekPointerId = p.id;
+        this._peekDownX = down.x;
+        this._peekDownY = down.y;
+        this._peekDragging = false;
+        this._peekReturning = false;   // a new grab cancels the spring-back
+        this._peekFromM = { x: this.peekM.x, y: this.peekM.y };
+      }
+      if (!this._pinch && this._mapTouches.size >= 2) {
+        const [a, b] = this._mapTouches.values();
+        this._pinchStart(a, b);
+      }
     });
     this.input.on('pointermove', (p) => {
+      // A live pinch owns both its fingers; the drag waits until it ends.
+      if (this._pinch) {
+        const a = this._mapTouches.get(this._pinch.a), b = this._mapTouches.get(this._pinch.b);
+        if (a?.isDown && b?.isDown) this._pinchMove(a, b);
+        return;
+      }
       if (p.id !== this._peekPointerId || !p.isDown) return;
       const at = this._gamePt(p);
       const dx = at.x - this._peekDownX, dy = at.y - this._peekDownY;
@@ -1292,17 +1324,24 @@ class SceneCreate {
       const wasDrag = this._peekDragging;
       this._releasePeek();
       if (wasDrag) return;             // dragged the map; nothing was tapped
-      const up = this._gamePt(p);
+      // Taps measure in the 1× view, so one landing while the zoom springs
+      // home still hits the cell drawn under it.
+      const up = this._unzoomPt(this._gamePt(p));
       if (typeof Multiplayer !== 'undefined' && Multiplayer.consumeTap(this, up.x, up.y)) return;
       if (this._tapEdgeDot(up.x, up.y)) return;
       this._resetWalkHome();           // a tap on the world is interacting
       this.handleWorldTap(up.x, up.y);
     };
-    this.input.on('pointerup', endPeekPointer);
+    const endMapPointer = (p) => {
+      this._mapTouches.delete(p.id);
+      if (this._pinch && (p.id === this._pinch.a || p.id === this._pinch.b)) this._pinchEnd();
+      endPeekPointer(p);
+    };
+    this.input.on('pointerup', endMapPointer);
     // A touch that ends off the canvas (or is stolen by the browser) never
     // reaches 'pointerup'. Without this the drag would stay latched and the
     // next tap would be swallowed as its release.
-    this.input.on('pointerupoutside', endPeekPointer);
+    this.input.on('pointerupoutside', endMapPointer);
 
     // Stuck-touch-pointer sweeper. Phaser frees a touch pointer only when its
     // touchend/touchcancel reaches its handlers with a matching identifier —
@@ -1327,6 +1366,8 @@ class SceneCreate {
           // swallow the next tap as its release. The last finger is off the
           // glass here, so let the camera spring home.
           if (this._peekPointerId !== null) this._releasePeek();
+          this._mapTouches.clear();
+          if (this._pinch) this._pinchEnd();
           const pointers = this.input?.manager?.pointers;
           if (!pointers) return;
           for (const p of pointers) {

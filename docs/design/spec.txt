@@ -292,9 +292,9 @@ WORLD GENERATION
    treasure and creatures. A satextract sidecar (`data/`) adds extra real POIs
    (trees, fountains, street furniture).
  - NO SCATTER OBJECT SITS ON (OR BESIDE) A BUILDING: worldgen keeps a one-cell
-   moat around every building cell. The Home trailer is synthetic, so it gets
-   the same moat at runtime (`app.js` `clearHomeTrailerOverlap`); real
-   buildings and ground flora are spared.
+   moat around every building cell. The Home wagon is synthetic, so it gets
+   the same moat at runtime (`scene_venues.js` `clearHomeFooting`), which also
+   erases any unclaimed house on its footing; ground flora is spared.
  - spawn gating, precedence and influence zones: CLAUDE.md ("Generation, saves
    and tiles", "Spawn precedence").
 
@@ -657,6 +657,8 @@ STREET RESTORATION (the road band itself)
    walks get longer (`Trail.rollBonusFor`): the first prize rolls T1, each
    prize won adds `PRIZE_TIER_PER_PRIZE` (0.3) of a tier, so T4 is common by
    prize 10 and sure from prize 11. The first prize's onion-seed card is fixed.
+   The cash card is not rolled: it pays 15 × √(km banked to that rung + 1)
+   coins (`Trail.cashPrize`), 16 at the first rung and ~52 by the tenth.
  - A SINGLE EARNED REWARD IS SHOWN AS A CARD (`app.js` `showRewardCard`),
    framed by its giver; finds on the ground stay toasts.
  - WHICH CELLS ARE PATH is geometric: a cell is PATH only where at least a full
@@ -725,13 +727,16 @@ ECONOMY (buying & selling)
    MACHINE (`presentFortSlots`, odds in `ShopsMath`) that costs what it wins
    on average.
  - CASTLES open individually. On first conversation, each unguarded castle
-   receives one permanent quest determined by its variant. Bastions ask for
-   three enemies of one type, advancing through enemy types in tier order;
-   Archives always ask for one delivery; Weathered Ruins ask for two animals
-   of one huntable species,
-   cycling through the game-animal list. Assignment order advances each type
-   separately. Counters start at first conversation. One delivery or hunt
-   advances every matching active quest. Earlier actions never count. Claiming never rerolls
+   receives one permanent quest determined by its variant. Every quest asks
+   for a single action: Bastions one enemy, advancing through enemy types in
+   tier order; Weathered Ruins one animal, cycling through the game-animal
+   list; Archives one delivery. Assignment order advances each type
+   separately. Kill and hunt counters start at first conversation, and one
+   kill advances every matching active quest; earlier kills never count.
+   Deliveries are a pool (`Quests.creditDeliveries`): each delivery in
+   `save.deliveryCount` credits exactly one Archive, oldest assignment first,
+   so a delivery made before an Archive is first visited still counts there,
+   and no delivery counts at two castles. Claiming never rerolls
    the job, and there are no shared quest slots or random quest templates.
    The board shows the castle as caption, the quest title in bold, then one
    sentence of flavour (`Quests.flavour`) over the objective and progress.

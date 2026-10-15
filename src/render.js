@@ -2235,7 +2235,7 @@ Render.drawCells = function drawCells(scene) {
         ?? (typeof zoneGroundColor === 'function'
           ? (zoneGroundColor(e2, ix2, iy2, types[si], tx2, ty2) ?? -1) : -1);
       _ringSyntheticBuilding[si] = e2?.syntheticBuildingCells?.[iy2 * N + ix2] || 0;
-      _ringRoadSafety[si] = e2?.roadClass?.[iy2 * N + ix2] & WorldGen.ROAD_CLASS_MAJOR_BUFFER ? 1 : 0;
+      _ringRoadSafety[si] = WorldGen.nightZoneBits(e2?.roadClass?.[iy2 * N + ix2] | 0) ? 1 : 0;
       _ringVeil[r * RING + c] = mVeil;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
       owners[r * RING + c] = ol ? ((mSalt << 16) | ol) : 0;
@@ -3178,14 +3178,17 @@ Render.drawCells = function drawCells(scene) {
   const underground = (scene.depth || 0) > 0;
   const plainX = () => underground ? g.lineStyle(2, 0xc9b48a, 0.6) : g.lineStyle(2, 0x2a1d10, 0.55);
   plainX();
+  const trailEnds = new Set(!underground && typeof Starter !== 'undefined'
+    ? Starter.trailPaths(scene, Date.now()).map(p => p.id) : []);
   const drawX = (tr) => {
     if (!treasureExposed(tr, scene) || found.has(tr.id)) return;
     const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
     if (!inViewBox(dx, dy, halfM)) return;
     // After the view box: a cover ray is the costly test (re-traced per step).
     if (Render.coverHidden(scene, tr, true)) return;
-    // Buried until the feet stand beside it (HiddenObjects.tick).
-    if (HiddenObjects.treasureHidden(scene.save, tr)) return;
+    // Buried until the feet stand beside it (HiddenObjects.tick), unless a
+    // treasure trail leads to it.
+    if (HiddenObjects.treasureHidden(scene.save, tr) && !trailEnds.has(tr.id)) return;
     if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, tr, hideNightRoadTreasure)) return;
     const { x: cx, y: cy } = deltaMToScreen(scene, dx, dy);
     // 15% smaller than the old 6px; X is symmetric so the centroid (cx,cy) is unchanged.
@@ -3462,7 +3465,7 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
 // and the per-tile list below is derived by.
 function offersPreCullLight(o) {
   const k = o.kind;
-  return isBuilding(k) || k === 'temple' || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope' || k === 'lava_vent'
+  return isBuilding(k) || k === 'temple' || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope'
     || !!(typeof Macros !== 'undefined' && Macros.visitKindForObject(o));
 }
 // A tile's pre-cull lights (util.js derivedObjects — re-derived only when the
@@ -3618,6 +3621,23 @@ const CRITTER_SHADOW_W = {
   butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
 };
 
+// The abs cells live enemies stand on (scene._foeBodies — the bubble's
+// foes), never one burrowed or disguised: a disguised treant IS the bush.
+Render.foeCells = function foeCells(scene) {
+  const cells = new Set();
+  for (const c of scene._foeBodies || []) {
+    if (Combat.isConcealed(c) || !Combat.isEnemy(c)) continue;
+    const at = worldMetersToAbsCell(scene, c.x, c.y);
+    cells.add(at.cellIX + '_' + at.cellIY);
+  }
+  return cells;
+};
+// A plant that shivers when a foe stands in it: a bush or a hedge
+// (ObstacleStep's bush / hedge profiles — the shrubs and berry bushes).
+Render.lurkBush = function lurkBush(p) {
+  const prof = ObstacleStep.profile(p.kind ? p : { kind: 'wildplant', crop: p.crop, _plantArt: p._plantArt });
+  return prof === ObstacleStep.PROFILES.bush || prof === ObstacleStep.PROFILES.hedge;
+};
 // Cull before building sprite, label, shadow and effect lists. Any cover
 // removes an actor behind it; scenery (`scenery` true) goes only behind full
 // cover (Visibility.hidden). The sole lighting pass darkens the shadow.
@@ -3755,7 +3775,7 @@ Render.drawObjects = function drawObjects(scene) {
     // before the sprite cull, with its own radius as the margin, so a
     // lantern a cell off-screen still lights the edge it stands past.
     const visit = typeof Macros !== 'undefined' && Macros.visitKindForObject(o);
-    if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
+    if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'grove_shrine' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
     // A grove shrine whose gift is still there today ALSO wears the POI
     // light — the one "something to take here" mark (poiLit).
     if ((o.kind === 'grove_shrine' || visit) && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
@@ -3997,6 +4017,12 @@ Render.drawObjects = function drawObjects(scene) {
   };
   const scarecrowList = placedAs(PlacedFloor.forDepth(scene.save.scarecrows, _curDepth), '_scarecrow', 'scarecrow');
   const fireList = placedAs(PlacedFloor.forDepth(scene.save.fires, _curDepth), '_fire', 'fire');
+  // Home's empty firepit (save.homeFirepit, seated by _placeHome): a ring of
+  // stones on the surface, until a fire is lit in it — then the fire is drawn.
+  const pit = scene.save.homeFirepit;
+  const firepitList = (pit && _curDepth === 0 && !(scene.save.fires || [])
+    .some(f => PlacedFloor.isSurface(f.depth) && sameAbsCell(scene, f.x, f.y, pit.x, pit.y)))
+    ? placedAs([pit], '_firepit', 'firepit') : [];
   // STREET LAMPS on a restored street — the same treatment, for the same
   // reason: a lamp STANDS on the ground, so it takes its turn in the screen-row
   // z-order (a lamp behind a house is in front of the house north of it).
@@ -4037,6 +4063,7 @@ Render.drawObjects = function drawObjects(scene) {
   // '_scarecrow') anchors the pole base on the placement cell.
   for (const sc of scarecrowList) filteredObj.push(sc);
   for (const fr of fireList) filteredObj.push(fr);
+  for (const fp of firepitList) filteredObj.push(fp);
   for (const L of lampList) filteredObj.push(L);
   Render.cullCovered(scene, filteredObj, 'o', true);
   filteredObj.sort((a, b) => a.dy - b.dy);
@@ -4780,6 +4807,10 @@ Render.drawObjects = function drawObjects(scene) {
   const _plantNow = Date.now();
   // The nest bush's swing, degrees; its beat length lives in NEST_BUSH_BEAT.
   const NEST_WIGGLE_DEG = 8;
+  // The cells an enemy stands on this frame (the sim bubble's foes — the
+  // ones that move at all), so a bush or hedge over one wiggles on its
+  // LURK_BUSH_BEAT. Empty, and no per-plant cell lookup, when none are near.
+  const foeCells = Render.foeCells(scene);
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
@@ -4788,7 +4819,11 @@ Render.drawObjects = function drawObjects(scene) {
     // baby off) WIGGLES: three quick swings, NEST_WIGGLE_DEG either side of
     // upright, swelling and dying over the beat's show (nestBushPhase, once
     // every 10-30 s). Everything else stands at the pool's reset angle, 0.
-    const wig = (p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow, scene._orbReveal?.get(p.wildId)) : -1;
+    let wig = (p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow, scene._orbReveal?.get(p.wildId)) : -1;
+    if (wig < 0 && foeCells.size && p.wildId != null && Render.lurkBush(p)) {
+      const cell = worldMetersToAbsCell(scene, p.x, p.y);
+      if (foeCells.has(cell.cellIX + '_' + cell.cellIY)) wig = lurkBushPhase(p.wildId, _plantNow);
+    }
     if (wig >= 0) s.setAngle(Math.sin(wig * Math.PI * 6) * NEST_WIGGLE_DEG * Math.sin(wig * Math.PI));
     // Wild flora wears its biome's tint; farmed crops and placed rocks render
     // untinted (the pool's reset). A SHINY plant is not tinted: its light
@@ -5510,6 +5545,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // → ~18px wide, comfortably inside one 32px cell (QC: one-cell interactable).
     // Seat off the logs (seatFrame 0) so the flickering flame doesn't bob the
     // sprite vertically frame-to-frame; the flame still rises out the top.
+    // Home's empty firepit — a flat ring of stones, drawn on the ground like
+    // the down pit; at the bonfire's scale so the two read as one pit.
+    _firepit: { key: 'firepit', ground: true, origin: [0.5, 0.5], scale: 1.1 },
     _fire: { key: 'bonfire',
              frame: () => Math.floor(performance.now() / 130) % 6,
              origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true,
@@ -5555,8 +5593,6 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // (the 4 frames differ only in the flame, so seat off frame 0 and the
     // stake never bobs). Its light is Lighting.KINDS.torch — offered to the
     // lightmap in the object scan above the sprite cull.
-    // Lava is painted by the ground pass; the object only carries its light.
-    lava_vent: { key: null },
     torch: { key: 'torch',
              frame: (o) => (Math.floor(performance.now() / 130) + ((o.x | 0) & 3)) % 4,
              origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true,

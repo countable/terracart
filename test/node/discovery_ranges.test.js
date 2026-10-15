@@ -36,7 +36,7 @@
     assert.truthy(HiddenObjects.treasureHidden(s.save, { id: 'x_covered', coverRockId: 'rock_1' }), 'a mined cover has no rule of its own');
     Inventory.add(s.save, 'perception_ring', 1);
     assert.truthy(HiddenObjects.reveal(s, { ...far, kind: 'treasure' }), 'Perception finds it across the vision disc');
-    assert.truthy(/HiddenObjects\.treasureHidden\(scene\.save, tr\)\) return;/.test(RENDER_SRC), 'the drawer asks');
+    assert.truthy(/HiddenObjects\.treasureHidden\(scene\.save, tr\) && !trailEnds\.has\(tr\.id\)\) return;/.test(RENDER_SRC), 'the drawer asks (a trail end aside)');
     assert.truthy(/HiddenObjects\.treasureHidden\(save, tr\)/.test(INTERACT_SRC), 'and so does the dig');
   });
   test('discovery: hidden enemies cannot be targeted or damaged before awakening', () => {

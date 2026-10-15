@@ -21,14 +21,43 @@
       assert.eq(c._attackWindupUntil, null);
     });
   });
-  test('tree cover subtracts exactly two sight cells including the boundary', () => {
+  test('partial cover hides the target fully past hearing; within two cells a foe hears it', () => {
     const s = scene(), c = { kind: 'goblin', x: 0, y: 0 };
     withCover(0, () => assert.truthy(Combat.seesTarget(s, c, 42, 0, 6)));
     withCover(1, () => {
-      assert.truthy(Combat.seesTarget(s, c, 28, 0, 6));
-      assert.falsy(Combat.seesTarget(s, c, 28.01, 0, 6));
-      assert.falsy(Combat.seesTarget(s, c, 7, 0, 1));
+      assert.truthy(Combat.seesTarget(s, c, 14, 0, 6), 'heard at two cells, the boundary included');
+      assert.falsy(Combat.seesTarget(s, c, 14.01, 0, 6));
+      assert.falsy(Combat.seesTarget(s, c, 28, 0, 6), 'no longer seen through a tree at four cells');
+      assert.falsy(Combat.seesTarget(s, c, 7.01, 0, 1), 'hearing never outranges the sight asked for');
     });
+  });
+  test('a foe that loses sight walks to its last sighting, then gives up', () => {
+    const s = scene(), row = EnemyRoster.get('goblin');
+    s.cellAt = () => ({ loaded: true, type: WorldGen.T.CAVE_FLOOR });
+    s.save.caught = [];
+    const c = { kind: 'goblin', id: 'g_seen', x: 0, y: 0 };
+    withCover(0, () => rosterEnemyMove(s, c, row, 1000, 21, 0, false, false, null, 0.01));
+    assert.truthy(c._lastSeen && c._lastSeen.x === 21, 'the look is remembered');
+    const before = c.x;
+    withCover(2, () => rosterEnemyMove(s, c, row, 1100, 0, 40, false, false, null, 0.1));
+    assert.gt(c.x, before, 'it heads for where it saw the player, not where they are');
+    withCover(2, () => rosterEnemyMove(s, c, row, 1000 + 9000, 0, 40, false, false, null, 0.1));
+    assert.eq(c._lastSeen, null, 'past LAST_SEEN_MS the trail is dropped');
+  });
+  test('an unsprung ambusher notices only within hearing, then springs', () => {
+    const s = scene(), row = EnemyRoster.get('thief');
+    assert.truthy(row.ambush, 'the thief is an ambusher');
+    assert.truthy(row.surface.biomes.includes('COMMERCIAL'), 'and walks commercial ground');
+    const c = { kind: 'thief', id: 'amb', x: 0, y: 0 };
+    withCover(0, () => rosterEnemyMove(s, c, row, 1000, 28, 0, false, false, null, 0.01));
+    assert.falsy(c._sprung, 'four cells off in the open, it waits');
+    withCover(0, () => rosterEnemyMove(s, c, row, 1100, c.x + 13, c.y, false, false, null, 0.01));
+    assert.truthy(c._sprung, 'two cells off, it springs');
+    const guard = { kind: 'goblin_runt', id: 'hg', ambush: true, lair: 'l', x: 0, y: 0, seatX: 0, seatY: 0,
+      lairX: 0, lairY: 0, lairR: 0, aggroCells: 6 };
+    withCover(0, () => assert.eq(enemyGuardState(s, guard, { x: 28, y: 0 }, true), 'hold', 'a hedge ambusher ignores its ring'));
+    withCover(0, () => assert.eq(enemyGuardState(s, guard, { x: 14, y: 0 }, true), 'hunt', 'but not a body within hearing'));
+    assert.eq(Lairs.GROUPS.street_hedgerow.members[0].ambush, true, 'the hedged lane fields ambushers');
   });
   test('range rejection avoids a visibility ray', () => {
     const ray = Visibility.coverBetween;

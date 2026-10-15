@@ -282,6 +282,11 @@ function nestBushContents(id) {
 // wiggle's progress 0..1 while it shows, else -1.
 const NEST_BUSH_BEAT = Object.freeze({ salt: 'nest', minMs: 10000, maxMs: 30000, showMs: 1300 });
 function nestBushPhase(id, nowMs, revealStartedMs) { return beatPhase(id, nowMs, NEST_BUSH_BEAT, revealStartedMs); }
+// A bush or hedge with an ENEMY on its cell (a lurking ambusher, or any foe
+// passing through) gives the nest bush's same wiggle on its own, quicker beat
+// (render.js) — the one tell that something waits in there.
+const LURK_BUSH_BEAT = Object.freeze({ salt: 'lurk', minMs: 3000, maxMs: 6000, showMs: 1300 });
+function lurkBushPhase(id, nowMs) { return beatPhase(id, nowMs, LURK_BUSH_BEAT); }
 // What a pick hands over — the crop itself, unless a row names something else.
 function wildplantOutput(crop) { const r = wildplantRule(crop); return r?.outputs?.[0]?.id || r?.output || crop; }
 // All guaranteed rewards from one harvest; ordinary plants retain their single drop.
@@ -600,6 +605,8 @@ const MINERAL_ICON_SHEET = {
   ember_ring:        { sheet: 'icon_rings',   frame: 9 },
   // The dark band with its blood-red stone (Rings.png row 3).
   vampire_ring:      { sheet: 'icon_rings',   frame: 18 },
+  // The banded ring with its pale blue lens (Rings.png row 2).
+  xray_ring:         { sheet: 'icon_rings',   frame: 12 },
   regeneration_amulet:      { sheet: 'icon_amulets', frame: 10 },
   vigor_amulet:      { sheet: 'icon_amulets', frame: 17 },
   sleep_powder:  { sheet: 'icon_potions', frame: 3 }, // scoop of violet dream dust
@@ -816,7 +823,7 @@ const BASE_TIER = {
   poison_flask: 2,
   // Unique jewelry is intrinsically magical, never a metal rung.
   portal_stone: 3, depth_key: 4,
-  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, regeneration_amulet: 3, vigor_amulet: 5,
+  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, vampire_ring: 4, xray_ring: 3, regeneration_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_reach: 3, tome_raven: 4, tome_thunder: 5, tome_fire_wall: 4,
@@ -1059,6 +1066,7 @@ const ITEMS = [
   { id: 'invisibility_ring', name: 'Ring of Invisibility',  kind: 'unique_relic', uniqueJewelry: true },
   { id: 'ember_ring',        name: 'Ember Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vampire_ring',      name: 'Vampire Ring',          kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'xray_ring',         name: 'X-Ray Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'regeneration_amulet',      name: 'Amulet of Regeneration', kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vigor_amulet',      name: 'Amulet of Vigour',        kind: 'unique_relic', uniqueJewelry: true },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
@@ -1814,7 +1822,7 @@ const PRICES = {
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach chilled (slowed) for 30 s
   // Initial entries are replaced by fixed-tier equipment values after gearPrice is defined.
-  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, vampire_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
+  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, vampire_ring: 0, xray_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's brief round trip); crafted from 5 long grass, so not a money pump
   trap_disarm_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
@@ -2021,6 +2029,7 @@ const ITEM_EFFECTS = {
   depth_key: 'The metal warms in your palm, answering a lock far below.',
   coin_ring: 'Loose coins slide across the ground toward its golden band.',
   ember_ring: 'Its banked ember drinks the heat before it reaches your skin.',
+  xray_ring: 'Leaves and branches thin to glass. Whatever crouches in the hedge is plain to see.',
   vampire_ring: 'Each blow you strike by hand sends a fifth of its wound back into you. The dead have nothing left to give.',
   invisibility_ring: 'The eye forgets the hand it almost saw.',
   regeneration_amulet: 'A slow warmth mends what the day takes.',
@@ -2788,6 +2797,9 @@ const UNIQUE_JEWELRY = Object.freeze({
   // LIFESTEAL in melee: this fraction of what a hand blow takes comes back
   // as energy (app.js startCombat — Combat.lifestealHeal, never from the undead).
   vampire_ring: Object.freeze({ meleeLifesteal: 0.2 }),
+  // X-RAY: sees through partial cover and into concealing cells (bushes,
+  // hedges, trees — Visibility.hidden); cave rock still hides. Not Perception.
+  xray_ring: Object.freeze({ xray: true }),
   regeneration_amulet: Object.freeze({ regenMs: 4000 }),
   vigor_amulet: Object.freeze({ regenMs: 2000 }),
 });

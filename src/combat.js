@@ -107,15 +107,18 @@
   function seesPlayer(kind, distM, cellM, save) {
     return distM <= sightCells(kind, save) * cellM;
   }
-  // Range rejection comes before the grid ray. Tree cover applies one sight
-  // penalty regardless of how many trunks the ray crosses.
+  // Range rejection comes before the grid ray. FULL cover (cave rock) hides
+  // the target outright; PARTIAL cover (a bush, a hedge, a tree between them,
+  // or the target standing concealed in one — Visibility.sightCover) hides it
+  // too, except within HEARING (Visibility.HEAR_CELLS): close enough, a foe
+  // hears what it cannot see.
   function seesTarget(scene, observer, x, y, cells = sightCells(observer.kind, scene.save)) {
     const dist = Math.hypot(x - observer.x, y - observer.y);
     if (dist > Math.max(0, cells) * scene.cellM) return false;
     if (typeof Visibility === 'undefined') return true;
-    const cover = Visibility.coverBetween(scene, observer.x, observer.y, x, y);
-    if (cover === 2) return false;
-    return dist <= Math.max(0, cells - (cover === 1 ? Visibility.TREE_SIGHT_PENALTY : 0)) * scene.cellM;
+    const cover = Visibility.sightCover(scene, observer.x, observer.y, x, y);
+    if (cover === Visibility.FULL) return false;
+    return cover !== Visibility.PARTIAL || dist <= Visibility.HEAR_CELLS * scene.cellM;
   }
   // Is this kind a cave MONSTER? Narrower than isEnemyKind, which also counts
   // the surface slime.

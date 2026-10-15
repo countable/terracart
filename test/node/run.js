@@ -296,6 +296,8 @@ const starterWrapper = (name) => {
                       'HOME_REVEAL_CELLS', 'TRAIL_REVEAL_CELLS',
                       // The peek drag's numbers (peek_drag.test.js).
                       'PEEK_MAX_CELLS', 'PEEK_DRAG_SLOP_PX', 'PEEK_RETURN_MS',
+                      // …and the pinch zoom's deepest view (peek_drag.test.js).
+                      'PINCH_VIEW_CELLS',
                       // The campfire's warmth ring; lighting.js resolves the
                       // fire's light radius to it (lighting.test.js).
                       'FIRE_REST_R',
@@ -319,6 +321,8 @@ const starterWrapper = (name) => {
     }
     ctx[name] = parseFloat(m[1]);
   }
+  // Derived in app.js from the two above, as the shipping code reads it.
+  ctx.PINCH_MAX_ZOOM = ctx.VIEW_CELLS / ctx.PINCH_VIEW_CELLS;
 }
 
 // The walk home is BEHAVIOUR: whether a return is walked or placed is decided
@@ -543,7 +547,9 @@ const starterWrapper = (name) => {
     return src.slice(start + 1, end + 4);
   };
   const methods = ['playerScreen() {', 'isPeeking() {', '_setPeekFromDrag(dxPx, dyPx) {',
-                   '_releasePeek() {', 'clearPeek() {', '_tickPeek(dt) {', '_gamePt(p) {']
+                   '_releasePeek() {', 'clearPeek() {', '_tickPeek(dt) {', '_gamePt(p) {',
+                   '_pinchStart(a, b) {', '_pinchMove(a, b) {', '_pinchEnd() {',
+                   '_tickMapZoom(dt) {', '_unzoomPt(pt) {']
     .map(lift).join(',\n');
   // The tap-or-drag decision itself, straight out of create()'s input wiring.
   const relSig = '    const endPeekPointer = (p) => {';
@@ -562,7 +568,8 @@ const starterWrapper = (name) => {
   vm.runInContext(`globalThis.__peek = {\n${methods},\n${release}\n};`, ctx,
                   { filename: 'app.js#peek' });
   for (const k of ['playerScreen', 'isPeeking', '_setPeekFromDrag', '_releasePeek',
-                   'clearPeek', '_tickPeek', '_gamePt', 'endPeekPointer']) {
+                   'clearPeek', '_tickPeek', '_gamePt', 'endPeekPointer',
+                   '_pinchStart', '_pinchMove', '_pinchEnd', '_tickMapZoom', '_unzoomPt']) {
     if (typeof ctx.__peek[k] !== 'function') {
       console.error(`__peek.${k} did not come back as a function — update run.js`);
       process.exit(2);
@@ -980,7 +987,7 @@ Object.assign(ctx, {
   ctx.STARTER_TRAIL_SRC      = slice(ctx.STARTER_JS_SRC, '  function placeStarterTrail(scene, entry, tx, ty) {\n',
     '\n  function revealStarterTrail', 'the starter trail');
   ctx.ENSURE_STARTER_TRAILER_SRC = slice(appSrc, '  ensureStarterTrailerObject() {\n',
-    '\n  }\n\n  // Nothing sits inside the Home trailer.', 'ensureStarterTrailerObject');
+    '\n  }\n\n  // Nothing stands on Home\'s footing', 'ensureStarterTrailerObject');
   // The sidecar chest injection loop in loadTile (poi_dedup.test.js: it must
   // consult the one-place-one-chest rule before pushing a chest).
   ctx.SX_CHEST_INJECT_SRC    = slice(wgSrc,  'for (const ch of sx.chests) {\n', 'entry.objects.push(ch);', 'the sidecar chest injection');
@@ -1111,6 +1118,20 @@ ctx.BUILDING_OVERLAY_SRC = readSrc('building_overlay.js');
 ctx.APP_JS_SRC = readSrc('app.js');
 ctx.SANDBOX_JS_SRC = readSrc('sandbox.js');
 ctx.SCENE_SRC = SCENE_SRC;
+// Lift one scene method out of SCENE_SRC as a callable `this`-method, for
+// methods whose class cannot be built headlessly. `globals` supplies the
+// app.js constants the body names (e.g. BUILDING_TYPES).
+ctx.liftSceneMethod = (name, globals = {}) => {
+  const m = new RegExp(`\\n  ${name}\\(([^)]*)\\) \\{\\n`).exec(SCENE_SRC);
+  if (!m) throw new Error(`liftSceneMethod: ${name} not found`);
+  const start = m.index + m[0].length;
+  const body = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start));
+  const params = m[1].split(',').map(p => p.replace(/=.*$/, '').trim()).filter(Boolean);
+  const names = Object.keys(globals);
+  // The VM's own Function, so the body sees the loaded scripts' globals.
+  const fn = new (vm.runInContext('Function', ctx))(...names, ...params, body);
+  return function (...args) { return fn.call(this, ...names.map(n => globals[n]), ...args); };
+};
 // The scene's modules by file (app.js first, then each installed mixin's) —
 // scene_mixins.test.js pins that index.html loads every one before app.js.
 ctx.SCENE_FILES = SCENE_FILES;

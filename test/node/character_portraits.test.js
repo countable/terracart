@@ -37,9 +37,14 @@ test('character portraits: every authored role and culture resolves its matching
 test('character portraits: paged NPC speech retains the face through Next', () => {
   const shown = [];
   MemoryStory.showPages({ showMessageModal: options => shown.push(options) }, ['one', 'two'],
-    { title: 'Neighbour', portrait: 'assets/portraits/mason.png' });
+    { ...NPC.speech({ name: 'Bryn', roleLabel: 'Mason' }), portrait: 'assets/portraits/mason.png' });
   assert.eq(shown[0].portrait, 'assets/portraits/mason.png');
   shown[0].onDismiss();
   assert.eq(shown[1].portrait, shown[0].portrait);
+  // Every page is headed by the speaker's name beside the chat bubble.
+  for (const page of shown) {
+    assert.eq(page.kind, 'talk'); assert.eq(page.kindLabel, 'Bryn'); assert.eq(page.title, 'Mason');
+  }
+  assert.truthy(/talk:\s*\{ icon: '💬', label: 'Talk' \}/.test(SCENE_SRC), 'the talk kind is the chat bubble');
   assert.eq(shown[1].body, 'two');
 });
