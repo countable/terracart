@@ -41,7 +41,7 @@ async def run(args):
                     state = await page.evaluate('headingHarness.measure()')
                     result = {'zone': zone, 'width': width, 'targetHeading': deg, **state}
                     errors = []
-                    for key in ['projectionError', 'tapError', 'playerFootError', 'uprightError', 'restoreError']:
+                    for key in ['projectionError', 'tapError', 'playerFootError', 'uprightError', 'objectUprightError', 'shadowAnchorError', 'restoreError']:
                         if state[key] > .01:
                             errors.append(f'{key}={state[key]}')
                     if state['workError'] is None or state['workError'] > 2:
@@ -59,6 +59,20 @@ async def run(args):
                     report['cases'].append(result)
                     if deg in [0, 45, 90, 180, 270]:
                         await page.screenshot(path=str(args.output / f'{zone}-{width}-{deg}.png'))
+                await page.evaluate('headingHarness.heading(90)')
+                stick = await page.evaluate("""() => {
+                  const s=__scene, h=headingHarness;
+                  h.gps(0,0,true);
+                  let error=0;
+                  for(const v of [{x:1,y:0},{x:0,y:-1},{x:-1,y:0},{x:0,y:1}]) {
+                    const before={...s.gpsM}, after=h.gpsStick(v.x,v.y);
+                    const screen=HeadingUp.toScreenVec(s,after.x-before.x,after.y-before.y);
+                    const step=WALK_M_S*DEBUG_SPEED_MUL*0.1;
+                    error=Math.max(error,Math.hypot(screen.x-v.x*step,screen.y-v.y*step));
+                  }
+                  return error;
+                }""")
+                report['cases'].append({'zone':zone,'case':'gps-stick','passed':stick<.01,'error':stick})
                 await page.evaluate('headingHarness.zoom(1.5);headingHarness.peek(7,-7)')
                 await page.evaluate('headingHarness.heading(90)')
                 zoom = await page.evaluate('headingHarness.measure()')

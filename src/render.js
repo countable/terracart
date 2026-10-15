@@ -1063,7 +1063,7 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure,
       if (s._huAnchor && item._appearance) {
         s._huAnchor = Render.objectGroundAnchor(item._appearance, scene.textures, s._huAnchor);
       }
-      s._huGround = container === scene.worldContainer && (!!item._appearance?.ground
+      s._huGround = container === scene.worldContainer && ((!!item._appearance?.ground && !item._appearance?.spec?.upright)
         || !!item.plate || item.h?.kind === 'gas'
         || (item.h?.type != null && item.h.type !== 'vent'));
       configure(s, item);
@@ -3615,6 +3615,24 @@ function seatShadow(s, look, w, x, y, h = w * SHADOW_LOOK[look].aspect) {
   s.setOrigin(0.5, 0.5).setDisplaySize(w, h).setPosition(x, y + (SHADOW_LOOK[look].dy || 0)).setAlpha(SHADOW_LOOK[look].alpha);
 }
 
+// Size contact shadows from visible art bounds, excluding transparent padding.
+// The pivot is shared with the building; the inset remains screen-vertical.
+Render.buildingShadow = function (appearance, textures, point) {
+  const anchor = Render.objectGroundAnchor(appearance, textures, point);
+  const frame = textures?.getFrame?.(appearance.texKey, appearance.frameVal);
+  const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${appearance.frameVal ?? 0}`];
+  const fw = art?.fw ?? frame?.width ?? CELL_PX;
+  const fh = art?.fh ?? frame?.height ?? CELL_PX;
+  const scale = appearance.scl, sy = scale * appearance.scaleYMul;
+  const width = Math.max(8, ((art?.maxX ?? fw) - (art?.minX ?? 0)) * scale * 1.12);
+  const height = width * SHADOW_LOOK.building.aspect;
+  return { anchor, width, height,
+    x: Math.round(point.x) + appearance.dxPx
+      + (((art?.minX ?? 0) + (art?.maxX ?? fw)) / 2 - appearance.origin[0] * fw) * scale,
+    y: Math.round(point.y) + appearance.dyPx
+      + ((art?.maxY ?? fh) - appearance.origin[1] * fh) * sy - height * 0.35 };
+};
+
 // Contact-shadow width under a creature, per kind (px at scale 1). Per-kind
 // rather than measured, because creature sheets animate (a measured shadow
 // would pulse frame to frame).
@@ -4202,29 +4220,10 @@ Render.drawObjects = function drawObjects(scene) {
           Math.round(sy + foot.footFromCentre - (foot.shadowInsetPx || 0)));
         return;
       }
-      // The shadow ellipse is CENTRE-anchored (origin 0.5,0.5) and is placed at
-      // the building's visual BASE so a thin contact crescent grounds it:
-      //   • tower — foot-anchored, base ≈ the cell's front edge.
-      //   • a house — its bottom-middle stands on the footprint's centre of
-      //     mass (_houseFootPx, RENDER_SPEC.house).
-      // The small lift tucks the ellipse's bulk behind the building.
-      const role = o.kind === 'house' ? item.houseRole : null;
-      let w = CELL_PX * 1.5, footX = sx, footY = sy - 4;
-      if (o.kind === 'tower' || role === 'turret') w = CELL_PX * 1.1;
-      if (o.kind === 'tower') footY = sy + 2;
-      else if (o.kind === 'house') {
-        if (role === 'fort') w = CELL_PX * 2.4;
-        // Same art + scale the sprite pass will use, so a house shrunk to fit a
-        // small footprint gets a shadow that shrinks with it — in width as well
-        // as position, or a shrunk house would sit on an oversized ellipse.
-        const appearance = item._appearance;
-        const hscale = appearance.scl ?? _houseScale(o);
-        w *= hscale / _houseBaseScale(o);
-        const foot = _houseFootPx(o);
-        footX = sx + foot.x;
-        footY = sy + foot.y - 6;   // the base, tucked up 6px
-      }
-      seatShadow(s, 'building', w, Math.round(footX), Math.round(footY));
+      const shadow = Render.buildingShadow(item._appearance, scene.textures, { x: sx, y: sy });
+      seatShadow(s, 'building', shadow.width, shadow.x, shadow.y, shadow.height);
+      // Keep the tucked-up offset in screen space as the building turns.
+      s._huAnchor = shadow.anchor;
     });
   }
   // Turrets keep a separate reusable pool inside the shared world layer.
@@ -5663,7 +5662,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // (LAMP_GROUND_FRAC → STREET_LAMP_ORIGIN_Y). Sized through `after` rather than
     // `scale`: the art is sized in CELLS (LAMP_DRAW_CELLS) via setDisplaySize.
     _streetlamp: {
+      // Keep broken posts in their background depth lane, but upright.
       ground: (o) => !o.lit,
+      upright: true,
       // The origin is the painted plinth's ground line. Canvas padding below
       // it belongs to the glow, not the base used to sort against feet.
       groundAtOrigin: true,
@@ -5881,6 +5882,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // Fallen wood always uses the grey log artwork (look 2).
     groundstack: {
       ground: true,
+      upright: true,
       key: (o) => (inventoryIconSource(o.itemId) || {}).sheet || 'wood',
       frame: (o) => {
         // Quantity remains on the stack record; it does not change its artwork.

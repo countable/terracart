@@ -350,8 +350,10 @@ class SceneGeo {
     this._gpsManualOverride = false;
     const off = this._manualOffsetM;
     if (!this.gpsM) this.gpsM = { x: this.playerM.x - off.x, y: this.playerM.y - off.y };
+    // The GPS stick indicates viewport directions, just like the movement stick.
+    const direction = HeadingUp.toWorldVec(this, v.x, v.y);
     const step = WALK_M_S * DEBUG_SPEED_MUL * dt;
-    this._applyGpsFix({ x: this.gpsM.x + v.x * step, y: this.gpsM.y + v.y * step });
+    this._applyGpsFix({ x: this.gpsM.x + direction.x * step, y: this.gpsM.y + direction.y * step });
   }
 
   // Both live fixes and the debug GPS stick use the same follow/snap rules.

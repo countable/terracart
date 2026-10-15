@@ -128,3 +128,35 @@ test('heading up: contact shadows rotate about centre and captions keep origin',
   HeadingUp._upright(caption, -Math.PI / 2, []);
   huNear(caption.x, 130); huNear(caption.y, 120);
 });
+
+ test('heading up: building shadow shares pivot, visible width and upright inset', () => {
+  const appearance = {visible:true,texKey:'test',frameVal:0,scl:2,scaleYMul:1,
+    dxPx:3,dyPx:5,origin:[0.5,1],spec:{groundAtOrigin:true}};
+  const shadow = Render.buildingShadow(appearance, {getFrame:()=>({width:60,height:40})}, {x:100,y:100});
+  huNear(shadow.width,134.4);
+  for (const angle of [0,Math.PI/2,Math.PI,-Math.PI/2]) {
+    const scene=huScene(angle);
+    const sprite=huSprite({type:'Image',x:shadow.x,y:shadow.y,_huAnchor:shadow.anchor});
+    scene.shadowContainer={list:[sprite]};
+    HeadingUp._preRender(scene);
+    const actual=HeadingUp.toScreenPt(scene,sprite.x,sprite.y);
+    const base=HeadingUp.toScreenPt(scene,shadow.anchor.x,shadow.anchor.y);
+    huNear(actual.x,base.x);huNear(actual.y,base.y-shadow.height*0.35);
+    huNear(sprite.rotation+angle,0);
+    HeadingUp._postRender(scene);
+  }
+ });
+ test('heading up: placed fires, torches, all lamps and dropped items stay upright', () => {
+  const {RENDER_SPEC:spec}=Render.objectAppearance({},new Map());
+  for(const kind of ['_fire','torch','_streetlamp','_scarecrow','groundstack']) {
+    assert.truthy(!spec[kind].ground || spec[kind].upright,kind+' stays upright');
+    for(const angle of [Math.PI/4,Math.PI/2,Math.PI]) {
+      const scene=huScene(angle),sprite=huSprite({_huAnchor:{x:130,y:130}});
+      scene.worldContainer={list:[sprite]};
+      HeadingUp._preRender(scene);
+      huNear(sprite.rotation+angle,0);
+      HeadingUp._postRender(scene);
+    }
+  }
+  assert.truthy(spec._firepit.ground,'empty stone ring stays on the ground');
+ });

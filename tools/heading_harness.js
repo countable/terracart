@@ -41,6 +41,13 @@ window.installHeadingHarness = function installHeadingHarness() {
       if (snap) { scene.peekM = { x: 0, y: 0 }; redraw(); }
       return { gps: { ...scene.gpsM }, target: { ...scene._targetM } };
     },
+    gpsStick(x, y, dt = 0.1) {
+      const enabled = scene._debugGpsEnabled, vector = scene._debugGpsVec;
+      scene._debugGpsEnabled = true; scene._debugGpsVec = { x, y };
+      try { scene._stepDebugGps(dt); }
+      finally { scene._debugGpsEnabled = enabled; scene._debugGpsVec = vector; }
+      return { ...scene.gpsM };
+    },
     async heading(deg, ms = 1000) {
       const start = performance.now();
       let prev = start;
@@ -151,10 +158,20 @@ window.installHeadingHarness = function installHeadingHarness() {
       const foot=before._huFoot, expectedFoot=scene.playerScreen();
       const playerFootError=foot ? Math.hypot(foot.x-expectedFoot.x,foot.y-expectedFoot.y) : 0;
       const uprightError=Math.abs(before.rotation + HeadingUp.angle(scene));
+      const objectUprightError = Math.max(0, ...scene.objectPool
+        .filter(o=>o.visible && !o._huGround)
+        .map(o=>Math.abs(Math.sin(o.rotation + HeadingUp.angle(scene)))));
+      const shadowAnchorError = Math.max(0, ...scene.shadowPool
+        .filter(o=>o.visible && o._huAnchor)
+        .map(o=>{const p=HeadingUp.toScreenPt(scene,o.x,o.y);
+          const a=HeadingUp.toScreenPt(scene,o._huAnchor.x,o._huAnchor.y);
+          const rest=scene._huSaved.find(row=>row[0]===o);
+          return rest ? Math.hypot(p.x-a.x-(rest[1]-o._huAnchor.x),
+            p.y-a.y-(rest[2]-o._huAnchor.y)) : 0;}));
       HeadingUp._postRender(scene);
       const restoreError=Math.hypot(before.x-stored.x,before.y-stored.y,before.rotation-stored.rotation);
       return { heading:scene.compassDeg, rotation:scene.mapRot, zoom:scene.mapZoom || 1,
-        projectionError,tapError,workError,textError,lootError,domError,playerFootError,uprightError,restoreError,
+        projectionError,tapError,workError,textError,lootError,domError,playerFootError,uprightError,objectUprightError,shadowAnchorError,restoreError,
         disableCull:main.disableCull,visibleWorld:scene.worldContainer.list.filter(o=>o.visible).length,
         fogVisible:scene.fogImage.visible };
     },
