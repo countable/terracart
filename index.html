@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=0a9593fa" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=d5804a12" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1006,11 +1006,16 @@
       font: 700 15px var(--font-ui); cursor: pointer;
       width: 100%; min-height: 48px;
     }
-    /* Skip the whole opening from any slide: a quiet text link under the
-       main button, so the story's own CTA stays the obvious tap. */
+    /* Skip the whole opening from any slide: a quiet text link pinned to
+       the very bottom of the mask, outside the panel, so the story's own CTA
+       stays the obvious tap. The mask's bottom padding reserves its row so a
+       tall panel never slides under it. */
+    #story { padding-bottom: calc(max(12px, env(safe-area-inset-bottom)) + 48px); }
     #story button.story-skip {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      bottom: max(4px, env(safe-area-inset-bottom));
       background: none; color: var(--gold-dark); width: auto; min-height: 44px;
-      margin-top: 6px; padding: 10px 16px;
+      padding: 10px 16px;
       font: 400 13px var(--font-ui); text-decoration: underline;
     }
     #story.nightmare { background: #000; }
@@ -1398,9 +1403,9 @@
       <div class="opening-copy">
         <p id="story-text"></p>
         <button id="story-next">Next</button>
-        <button id="story-skip" class="story-skip" type="button">Skip intro</button>
       </div>
     </div>
+    <button id="story-skip" class="story-skip" type="button">Skip intro</button>
   </div>
   <script>
     // Fit the fixed 352×844 game box into the viewport using CSS scale.
@@ -3104,7 +3109,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=0a9593fa';
+      const APP_SRC = 'src/app.js?v=d5804a12';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

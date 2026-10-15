@@ -35,6 +35,11 @@
     const block = SCENE_SRC.slice(SCENE_SRC.indexOf('// Starter guidance'), SCENE_SRC.indexOf('// Starter guidance') + 3000);
     assert.truthy(block.includes('_drawEdgeDot(goal.x') && !block.includes('_drawEdgeCompass('), 'the starter bearing is a dot');
   });
+  test('edge dots: the rim layer is wiped every frame before the bearings draw', () => {
+    const at = SCENE_SRC.indexOf('\n    this._drawMarkers();');
+    assert.truthy(at > 0, 'update draws the markers');
+    assert.truthy(SCENE_SRC.slice(at - 300, at).includes('this.facingGfx.clear();'), 'facingGfx cleared just before');
+  });
   test('edge labels: source and destination stay inside the map and stack without overlap', () => {
     const s = fixture();
     s.add = { text() {
