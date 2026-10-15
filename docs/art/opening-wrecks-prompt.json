@@ -1,0 +1,7 @@
+{
+  "generator": "Built-in image_gen",
+  "reference": "assets/art/story_wrecks.webp",
+  "source": "~/.artifacts/terracart-art/art-source/paintings/raw/story_wrecks.png",
+  "prompt": "Edit ONLY the small player character in the center foreground of this pixel-art ruined neighbourhood intro painting. Put a clearly recognizable RAISED BROWN CLOTH HOOD over the character's whole head, attached to a short weathered brown hooded cloak over their shoulders/backpack. Show BACK of hood as traveller faces away down the street. Absolutely no exposed hair, scalp, face, ears or facial features. Hood should have clear draped cloth folds and a slightly pointed fabric crown, not look like a helmet or bare round head. Keep the figure same position, same small scale, grounded natural proportions, backpack and boots retained. Preserve EVERYTHING ELSE exactly: ruined houses, street, rubble, weeds, golden sunset, clouds, pixel clusters, warm muted palette, composition, 3:2 landscape frame. No camera change, no text, no new characters. This is a narrow costume correction, not a scene redesign.",
+  "export": "512x341 WebP, 128 colors, quality 85"
+}

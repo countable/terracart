@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-e22c295f';
+const SHELL_VERSION = 'shell-e80818b1';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -792,9 +792,9 @@ const ASSET_HASHES = {
   "assets/art/shrine_waystone.webp": "e13ef045",
   "assets/art/shrine_wishing_well.webp": "c143ceb5",
   "assets/art/story_nightmare.webp": "62346b56",
-  "assets/art/story_nightmare_frame2.webp": "c43edfc9",
+  "assets/art/story_nightmare_frame2.webp": "8808b379",
   "assets/art/story_wake.webp": "9dffc1e7",
-  "assets/art/story_wrecks.webp": "f9bff7d3",
+  "assets/art/story_wrecks.webp": "b0c8a77b",
   "assets/art/street_bandit.webp": "48c653c9",
   "assets/art/street_barricade.webp": "b5d12a0d",
   "assets/art/street_burned.webp": "dadec213",

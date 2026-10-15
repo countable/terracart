@@ -241,7 +241,7 @@ const PIECES = {
   },
   story_nightmare: { subject: 'Dark nightmarish16-bit pixel story illustration. Five-headed hydra Tiamat fights white dragon Ayo over a burning collapsing medieval city. Crimson fire and cold white magic, black-red smoke, no names or text. Landscape3:2 opening panel.', size: '1536x1024', width: 768 },
   // Edit story_nightmare as the visual reference; preserve its framing for crossfade.
-  story_nightmare_frame2: { subject: 'Adjacent frame of story_nightmare: subtle head and jaw movements only. Exactly five hydra heads and one white dragon head. Keep city, camera, bodies, wings, palette and pixel treatment aligned with the original.', size: '1536x1024', width: 768 },
+  story_nightmare_frame2: { subject: 'Adjacent frame of story_nightmare: subtle head and jaw movements, drifting smoke plumes and flickering flame tongues. Exactly five hydra heads and one white dragon head. Keep architecture, camera, bodies, wings, palette and pixel treatment aligned with the original; fire stays anchored to the same structures.', size: '1536x1024', width: 768 },
   story_wake:
     'Morning inside-and-out of a small travelling home wagon parked in a misty meadow. ' +
     'A survivor stretches awake at the wagon door, face fully hidden by a raised brown hood, ' +
@@ -249,7 +249,9 @@ const PIECES = {
   story_wrecks:
     'A suburban neighbourhood of collapsed houses: boarded windows, caved roofs, rubble piles, ' +
     'weeds through cracked pavement. The same survivor stands small in the middle of the street ' +
-    'taking it in. Golden light, overgrown but not grim.',
+    'taking it in, seen from behind with a raised brown cloth hood and short cloak. ' +
+    'The hood completely hides all hair, scalp, ears and face; show draped fabric, never a bare head or helmet. ' +
+    'Golden light, overgrown but not grim.',
   restore_house:
     scene(
     'A cozy restored cottage with fresh timber repairs, warm light in the windows, a small ' +
