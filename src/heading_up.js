@@ -1,4 +1,4 @@
-// Heading-up map (PROTOTYPE, `?headingUp=true`). The map turns like a car
+// Heading-up map (default; `?headingUp=false` keeps north up). The map turns like a car
 // GPS so the way the phone faces is always the top of the screen, instead of
 // the facing arrow swinging over a north-up map.
 //
@@ -16,10 +16,8 @@
 //     toWorldVec back into north-up.
 // Without a device compass, Q / E turn a fake heading for desktop trials.
 //
-// Known prototype gaps: the art is drawn for a south camera, so building
-// fronts and castle walls (ground geometry) turn with the world; edge dots
-// still park on the square's rim and lose the corners; lighting/fog layers
-// turn as squares under the circle cover.
+// Art is authored for a south camera; ground geometry and its lighting turn
+// with the world while standing sprites retain their upright silhouettes.
 
 const HeadingUp = {
   UI_DEPTH: 90,
@@ -33,8 +31,8 @@ const HeadingUp = {
   enabled: (() => {
     try {
       const v = new URLSearchParams(location.search).get('headingUp');
-      return v !== null && !/^(false|0|no)$/i.test(v);
-    } catch (_) { return false; }
+      return !/^(false|0|no)$/i.test(v);
+    } catch (_) { return true; }
   })(),
 
   active(scene) {
@@ -78,10 +76,29 @@ const HeadingUp = {
     return { x: scene.viewCenterX + c * dx - s * dy, y: scene.viewCenterY + s * dx + c * dy };
   },
 
+  // Map anchor to the unrotated UI camera. Lift stays vertically above its
+  // anchor instead of orbiting it when the heading changes.
+  toOverlayPt(scene, x, y, lift = 0) {
+    if (!HeadingUp.active(scene)) return { x, y: y + lift };
+    const p = HeadingUp.toScreenPt(scene, x, y), z = scene.mapZoom || 1;
+    return { x: scene.viewCenterX + (p.x - scene.viewCenterX) * z,
+      y: scene.viewCenterY + (p.y - scene.viewCenterY) * z + lift * z };
+  },
+
   install(scene) {
     if (!HeadingUp.enabled || scene._headingUp) return;
     scene._headingUp = true;
     scene.mapRot = 0;
+    // Phaser's two-corner camera cull assumes positive axes. At a half turn
+    // its bounds invert and visible sprites disappear. World pools already
+    // cull by map distance; the viewport/mask remains the final clip.
+    const main = scene.cameras.main;
+    const previousCull = main.disableCull, previousRoundPixels = main.roundPixels;
+    main.disableCull = true;
+    // Camera.preRender floors scroll when roundPixels is true, moving the
+    // solved rotation centre by up to one world pixel every frame. Preserve
+    // fractional scroll so map art, UI projection and inverse taps agree.
+    main.roundPixels = false;
     const cx = scene.viewCenterX, cy = scene.viewCenterY, r = scene.viewSize / 2;
 
     scene.uiCam = scene.cameras.add(0, 0, W * RENDER_SCALE, H * RENDER_SCALE);
@@ -137,6 +154,8 @@ const HeadingUp = {
       scene.game.events.off('prerender', pre);
       scene.game.events.off('postrender', post);
       scene._headingUp = false;
+      main.disableCull = previousCull;
+      main.roundPixels = previousRoundPixels;
     });
   },
 
@@ -169,6 +188,29 @@ const HeadingUp = {
     g.strokeTriangle(tx, ty, bx + px * 6, by + py * 6, bx - px * 6, by - py * 6);
   },
 
+  // Appearance inputs are a view of simulation state, never mutations of it.
+  appearanceActor(scene, actor) {
+    const angle = HeadingUp.angle(scene);
+    if (!angle) return actor;
+    const view = Object.create(actor);
+    const axes = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    const axis = axes[actor._facing] || axes.down;
+    const dir = HeadingUp.toScreenVec(scene, ...axis);
+    view._facing = Math.abs(dir.x) > Math.abs(dir.y)
+      ? (dir.x < 0 ? 'left' : 'right') : (dir.y < 0 ? 'up' : 'down');
+    const mirror = HeadingUp.toScreenVec(scene, actor._faceFlip ? -1 : 1, 0);
+    view._faceFlip = Math.abs(dir.x) > 1e-6 ? dir.x < 0 : mirror.x < 0;
+    view._heading = (Number.isFinite(actor._heading) ? actor._heading : 0) + angle;
+    if (actor.kind === 'npc') {
+      const delta = HeadingUp.toScreenVec(scene,
+        (actor._targetX ?? actor.x) - (actor._startX ?? actor.x),
+        (actor._targetY ?? actor.y) - (actor._startY ?? actor.y));
+      view._startX = actor.x; view._startY = actor.y;
+      view._targetX = actor.x + delta.x; view._targetY = actor.y + delta.y;
+    }
+    return view;
+  },
+
   _isUI(o) {
     return o._huUI ?? (o.depth >= HeadingUp.UI_DEPTH);
   },
@@ -183,16 +225,33 @@ const HeadingUp = {
       o.cameraFilter = isUI ? main.id : ui.id;
       // UI pinned to a spot on the map (a tap toast, the work wheel) follows
       // the spot round; the round window's own chrome does not.
-      if (isUI && a && o._huUI === undefined && o.visible && HeadingUp._inMap(scene, o.x, o.y)) {
+      if (isUI && (a || (scene.mapZoom || 1) !== 1) && o._huUI === undefined && o.visible
+          && (o._huAnchor || HeadingUp._inMap(scene, o.x, o.y))) {
         saved.push([o, o.x, o.y, o.rotation]);
-        const p = HeadingUp.toScreenPt(scene, o.x, o.y);
-        o.x = p.x; o.y = p.y;
+        const anchor = o._huAnchor || o;
+        const p = HeadingUp.toOverlayPt(scene, anchor.x, anchor.y);
+        const z = scene.mapZoom || 1;
+        o.x = p.x + (o.x - anchor.x) * z;
+        o.y = p.y + (o.y - anchor.y) * z;
       }
     }
     if (!a) return;
+    // All body-attached effects share the actual ground anchor, including
+    // transparent frame padding and flight lift.
+    if (scene.playerWorldContainer && scene.playerScreen) {
+      scene.playerWorldContainer._huAnchor = scene.playerScreen();
+    }
     const up = (o) => HeadingUp._upright(o, -a, saved);
     for (const c of [scene.worldContainer, scene.labelContainer, scene.coinContainer, scene._sandboxLabels]) {
       if (c) for (const o of c.list) up(o);
+    }
+    // Contact shadows remain flat ellipses below upright art. Their centres
+    // move with the map, but the ellipse must not turn sideways with it.
+    for (const o of scene.shadowContainer?.list || []) {
+      if (o.type === 'Image' || o.type === 'Sprite') {
+        o._huAnchor = { x: o.x, y: o.y };
+        up(o);
+      }
     }
     // Feet lower on the TURNED screen draw in front; ground pieces
     // (Render.sortWorldDepth's lane, scene._worldGroundCount) stay first.
@@ -238,19 +297,20 @@ const HeadingUp = {
     return Math.abs(x - scene.viewCenterX) <= h && Math.abs(y - scene.viewCenterY) <= h;
   },
 
-  // Turn a sprite back upright about its feet (bottom-centre of its frame);
-  // a container at the origin holds screen-placed children, so recurse.
+  // Turn standing art back around its explicit ground anchor. Legacy art
+  // falls back to frame feet; only identity grouping containers recurse.
   _upright(o, rot, saved) {
-    if (!o.visible) return;
+    if (!o.visible || o._huGround) return;
     if (o.type === 'Container') {
-      if (o.x === 0 && o.y === 0 && !o.rotation) {
+      if (!o._huAnchor && o.x === 0 && o.y === 0 && !o.rotation
+          && (o.scaleX ?? 1) === 1 && (o.scaleY ?? 1) === 1) {
         for (const ch of o.list) HeadingUp._upright(ch, rot, saved);
         return;
       }
     } else if (o.type !== 'Sprite' && o.type !== 'Image' && o.type !== 'Text') return;
     saved.push([o, o.x, o.y, o.rotation]);
-    let fx = o.x, fy = o.y;
-    if (o.type !== 'Container' && !o.rotation) {
+    let fx = o._huAnchor?.x ?? o.x, fy = o._huAnchor?.y ?? o.y;
+    if (!o._huAnchor && o.type !== 'Container' && o.type !== 'Text' && !o.rotation) {
       fx += (0.5 - o.originX) * o.displayWidth * (o.flipX ? -1 : 1);
       fy += (1 - o.originY) * o.displayHeight;
     }

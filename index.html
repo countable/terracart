@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=d5804a12" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=191dc8c5" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1251,6 +1251,7 @@
       <!-- Only shown when the objective ladder has been dismissed but isn't
            finished — a dismissal used to be permanent with no way back. -->
       <button id="show-objectives" style="display:none;">Show objectives</button>
+      <button id="toggle-fog-of-war" aria-pressed="false">Fog of war: off</button>
       <button id="toggle-graphics-fx" aria-pressed="false">Graphics FX: off (reloads)</button>
       <!-- Multiplayer is opt-in, per game. Turning it on is the one place the
            game asks for a name; the rename button only shows while it's on. -->
@@ -1812,6 +1813,21 @@
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
       if (window.__scene && window.__scene.openDeliveryMenu) window.__scene.openDeliveryMenu();
+    });
+    // Fog loads with the game modules below; apply this preference live.
+    document.addEventListener('DOMContentLoaded', () => {
+      const button = document.getElementById('toggle-fog-of-war');
+      const refresh = () => {
+        button.textContent = `Fog of war: ${Fog.enabled ? 'on' : 'off'}`;
+        button.setAttribute('aria-pressed', String(Fog.enabled));
+      };
+      refresh();
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        try { Fog.setEnabled(!Fog.enabled); }
+        catch { window.alert('Could not save the fog setting.'); return; }
+        refresh();
+      });
     });
     // FX pools are a renderer boot choice, shared by saves on this device.
     (() => {
@@ -2949,7 +2965,7 @@
   <script src="src/placed_floor.js?v=2d48b4fd"></script>
   <script src="src/home.js?v=17c728b2"></script>
   <script src="src/coords.js?v=2a9201fd"></script>
-  <script src="src/fog.js?v=e5c1de4f"></script>
+  <script src="src/fog.js?v=f59fad6c"></script>
   <script src="src/biome_profiles.js?v=86720f9c"></script>
   <script src="src/habitat_spawns.js?v=210179cd"></script>
   <script src="src/traps.js?v=eda49121"></script>
@@ -3022,9 +3038,9 @@
   <script src="src/play_tips.js?v=889489e3"></script>
   <script src="src/lighting.js?v=883fb934"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=d13c42ec"></script>
+  <script src="src/render.js?v=da283e9b"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
-  <script src="src/multiplayer.js?v=c49edf46"></script>
+  <script src="src/multiplayer.js?v=a57c92a7"></script>
   <script src="src/road_overlay.js?v=4051bdba"></script>
   <script src="src/temple_art.js?v=c50c5db5"></script>
   <script src="src/building_overlay.js?v=3a203952"></script>
@@ -3040,7 +3056,7 @@
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
   <script src="src/scene_shops.js?v=3003dd4a"></script>
-  <script src="src/heading_up.js?v=f5a6061c"></script>
+  <script src="src/heading_up.js?v=b5373336"></script>
   <script src="src/scene_create.js?v=a5456fdc"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=05d59b5d"></script>
@@ -3048,7 +3064,7 @@
   <script src="src/scene_consumables.js?v=8b2c5819"></script>
   <script src="src/scene_pets.js?v=cb512920"></script>
   <script src="src/scene_venues.js?v=64bcfc19"></script>
-  <script src="src/scene_streets.js?v=6d7e3c76"></script>
+  <script src="src/scene_streets.js?v=cf08cd33"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
@@ -3119,7 +3135,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=d5804a12';
+      const APP_SRC = 'src/app.js?v=191dc8c5';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

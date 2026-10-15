@@ -25,12 +25,34 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   aggro ranges and boss margins are tuned for `VIEW_CELLS`. The new-game
   opening shot (`HomeArea.INTRO`, `_tickHomeIntro`) drives the same `mapZoom`
   and `peekM`, and always ends at exactly 1× with no offset.
-- Heading-up is a prototype behind `?headingUp=true` (`heading_up.js`): the
-  main camera turns about the view centre by `-compassDeg` (Q / E fake it on
-  desktop), the map clips to the inscribed circle, depth ≥ 90 draws on an
-  unturned `uiCam`, and upright sprites are turned back and re-sorted only
-  between `prerender` and `postrender`. Game state stays north-up; taps, the
-  peek drag and the stick convert back through `HeadingUp.toWorldVec`.
+- Heading-up is the default (`?headingUp=false` keeps north up). The main
+  camera turns about the view centre by `-compassDeg` (Q / E fake it on
+  desktop), and the map clips to the inscribed circle. Phaser's two-corner
+  camera cull is disabled for that camera because rotated bounds invert;
+  world pools and masks still bound rendering. Camera scroll remains fractional
+  (`roundPixels=false`) so Phaser cannot shift the solved rotation centre away
+  from UI projections and inverse taps. Depth ≥ 90 draws on an
+  unturned `uiCam`. Upright art counterrotates around explicit ground anchors
+  and sorts by rotated feet only between `prerender` and `postrender`.
+  Ground art retains the map rotation. Body effects, tree fruit and tower
+  flags share their owner's anchor; transparent frame padding is not a foot.
+  Roof signs and DOM delivery bubbles use that same footprint anchor; batched
+  sign boards and smoke counterrotate their drawing commands. Contact shadows
+  keep their ellipse orientation while their centres move with the map.
+  Creature appearance directions rotate without changing simulation state.
+  Game state stays north-up; taps, peek drags and steering convert back
+  through `HeadingUp.toWorldVec`.
+- Map annotations use `HeadingUp.toOverlayPt` for UI-camera graphics: rotate
+  and zoom their ground anchor, then apply the upright body/head lift. Work
+  rings, tools, watering effects and enemy health bars mark themselves `_huUI`
+  after projecting, avoiding a second transform. Toasts keep `_huAnchor`
+  separate from stacking, head lift and drift; default loot and banners stay
+  fixed in the UI, including their DOM icons. Rim dots intersect the visible
+  circle at the current zoom; labels stay upright inside it and taps retain
+  the corresponding unzoomed world point.
+  Both cameras refresh their render scale on resize. Multiplayer names,
+  health bars and ping graphics use a counter-rotated annotation container
+  with the same projected anchors and circular rim limits.
 - The player's feet sit on the GPS fix. Ground marks (shadow, footprints,
   the facing chevron) use that point; body
   effects use `playerBodyDy()` so they also follow the downed pose. Do not
@@ -221,6 +243,13 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   require no copies of every ore and gem sprite.
 
 ## Lighting and streets
+
+- Exploration fog is optional and off by default. The menu's **Fog of war**
+  button applies immediately and persists per device as `terracart.fogOfWar`.
+  When enabled, unknown surface ground has a neutral grey wash with a dense
+  interior and smooth, wispy frontier. Exploration continues to record and save
+  while the wash is disabled. This setting does not affect cover visibility,
+  night lighting or cave darkness; underground never draws exploration fog.
 
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,

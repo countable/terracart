@@ -1,6 +1,6 @@
 // Fog of war (src/fog.js) — the per-tile explored-cell bitsets.
 //
-// The feature is "land you have never walked is 80% black until you go there".
+// Optional grey fog covers land you have never walked until you go there.
 // Almost all of it is storage: a bit per 7 m cell, packed per tile, run-length
 // coded and base64'd into the save. These pin the parts that are easy to get
 // quietly wrong — the reveal radius (which has a hard ceiling nobody would

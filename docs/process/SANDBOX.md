@@ -13,6 +13,23 @@ character back to it.
 
 ## Test controls and coverage
 
+### Heading and GPS harness
+
+Open `/tools/heading-harness.html` on the local game server to fake compass
+headings and GPS fixes in the restoration sandbox. It uses the real
+`deviceorientationabsolute` listener and `_applyGpsFix` consumer. Controls
+include 45-degree sweeps, GPS steps, zoom, a work-progress target, and a fog
+toggle. Freeze simulation to inspect a fixed scene while turning the map.
+
+Run the browser regression probe with `python3 tools/probe_heading_up.py`.
+It checks phone and desktop views, full heading sweeps, camera/tap transforms,
+player feet, work progress, anchored text, DOM loot icons, zoom and peek,
+GPS fixes, fog preference persistence and `?headingUp=false` compatibility.
+It writes screenshots and `report.json` under `~/.artifacts/heading-up/` by
+default; `--url`, `--chromium` and `--output` override the local defaults.
+The probe uses isolated browser contexts, so it does not change the player's
+browser saves.
+
 Open **☰ → Sandbox test lab** to choose a destination and reload its fixtures.
 Destinations are grouped by scene, with roads and underground labs separately.
 Choose **Damage test** to remove armour, carried shields and jewellery; the

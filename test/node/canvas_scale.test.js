@@ -127,4 +127,17 @@ test('canvas scale: the canvas follows the screen, and pays for it once', () => 
   assert.truthy(/applyRenderScale\(scene\.cameras\.main\)/.test(fn),
     'and the cameras are re-pointed afterwards');
 });
+test('canvas scale: resizing keeps the heading UI camera aligned with the map', () => {
+  const source = app.match(/window\.__onGameScaleChange = \(\) => \{[\s\S]*?\n\};/)[0];
+  const main = {}, ui = { setViewport(...values) { this.viewport = values; } };
+  const scene = { cameras: { main }, uiCam: ui, _applyMapZoom() { this.reapplied = true; } };
+  const win = {}, game = { scale: { setZoom() {}, resize() {} }, scene: { getScenes: () => [scene] } };
+  const install = new Function('window', 'game', 'renderScale', 'applyRenderScale', 'W', 'H',
+    'let RENDER_SCALE = 1;\n' + source);
+  install(win, game, () => 2, camera => { camera.scale = 2; }, 352, 844);
+  win.__onGameScaleChange();
+  assert.eq(main.scale, 2); assert.eq(ui.scale, 2);
+  assert.eq(ui.viewport.join(','), '0,0,704,1688');
+  assert.truthy(scene.reapplied, 'restore current map rotation and zoom after resize');
+});
 })();

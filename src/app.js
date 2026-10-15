@@ -2486,7 +2486,7 @@ class MapScene extends Phaser.Scene {
       Combat.applyFrost(c, MAGIC_TRAP_HOLD_MS);
       this._damageEnemy(c, magicTrapDamage(), 'player');
       const at = this._cellToastAt(ix, iy, CELL_PX);
-      this.flash('✨ Magic trap sprung', at.x, at.y);
+      this.flash('✨ Magic trap sprung', at.x, at.y, undefined, at.anchor);
     }
     persistSave(this.save);
   }
@@ -2748,12 +2748,15 @@ class MapScene extends Phaser.Scene {
     const sx = ts.x - this.viewCenterX;
     const sy = ts.y - this.viewCenterY;
     const half = this.viewSize / 2 - CELL_PX / 2;
-    if (Math.abs(sx) <= half && Math.abs(sy) <= half) return mag;
+    const zoom = this.mapZoom || 1;
+    if (HeadingUp.active(this)
+      ? Math.hypot(sx, sy) * zoom <= half
+      : Math.abs(sx) * zoom <= half && Math.abs(sy) * zoom <= half) return mag;
     const ps = this.playerScreen();
-    const tipX = ps.x + ux * dist, tipY = ps.y + uy * dist;
+    const tipX = ps.x + ux * dist / zoom, tipY = ps.y + uy * dist / zoom;
     // Perpendicular to the bearing gives the triangle's base.
     const pxN = -uy, pyN = ux;
-    const back = 14, halfW = 7;
+    const back = 14 / zoom, halfW = 7 / zoom;
     this._drawArrowTriangle(this.facingGfx, tipX, tipY,
       tipX - ux * back + pxN * halfW, tipY - uy * back + pyN * halfW,
       tipX - ux * back - pxN * halfW, tipY - uy * back - pyN * halfW,
@@ -2780,11 +2783,25 @@ class MapScene extends Phaser.Scene {
     const tx = dx > 0 ? (right - x) / dx : dx < 0 ? (left - x) / dx : Infinity;
     const ty = dy > 0 ? (bottom - y) / dy : dy < 0 ? (top - y) / dy : Infinity;
     const t = Math.min(tx, ty);
-    const px = x + dx * t, py = y + dy * t;
+    let px = x + dx * t, py = y + dy * t;
+    const zoom = this.mapZoom || 1;
+    if (HeadingUp.active(this)) {
+      // Intersect the player bearing with the visible circle in unzoomed
+      // world coordinates, so diagonals survive the circular corner cover.
+      const radius = (this.viewSize / 2 - inset) / zoom;
+      const cx = this.viewCenterX, cy = this.viewCenterY;
+      let ox = ps.x - cx, oy = ps.y - cy;
+      const length = Math.hypot(ox, oy);
+      if (length >= radius) { ox *= (radius - 1) / length; oy *= (radius - 1) / length; }
+      const mag = Math.hypot(dx, dy), ux = dx / mag, uy = dy / mag;
+      const dot = ox * ux + oy * uy;
+      const ray = -dot + Math.sqrt(Math.max(0, dot * dot + radius * radius - ox * ox - oy * oy));
+      px = cx + ox + ux * ray; py = cy + oy + uy * ray;
+    }
     this.facingGfx.fillStyle(0x000000, 0.85);
-    this.facingGfx.fillCircle(px, py, 4);
+    this.facingGfx.fillCircle(px, py, 4 / zoom);
     this.facingGfx.fillStyle(fillColor, 1);
-    this.facingGfx.fillCircle(px, py, 3);
+    this.facingGfx.fillCircle(px, py, 3 / zoom);
     return { x: px, y: py, left, right, top, bottom };
   }
 
@@ -2836,6 +2853,10 @@ class MapScene extends Phaser.Scene {
     const name = String(raw).replace(/_/g, ' ');
     const destination = name.charAt(0).toUpperCase() + name.slice(1);
     text.setText((marker.source || row.source) + '\n' + (destination.length > 16 ? destination.slice(0, 15) + '…' : destination));
+    if (HeadingUp.active(this)) {
+      text._huUI = true;
+      point = { ...point, ...HeadingUp.toOverlayPt(this, point.x, point.y) };
+    }
     const { left, right, top, bottom } = point;
     let x = point.x <= (left + right) / 2 ? point.x + 8 : point.x - text.width - 8;
     let y = point.y - text.height / 2;
@@ -2848,6 +2869,15 @@ class MapScene extends Phaser.Scene {
     for (let i = 0; i <= bounds.length; i++) {
       if (!bounds.some(b => x < b.right && x + text.width > b.left && y < b.bottom && y + text.height > b.top)) break;
       y = Math.max(top, Math.min(bottom - text.height, y + step * direction));
+    }
+    if (HeadingUp.active(this)) {
+      // Keep the entire upright label inside the circle, including near poles.
+      const radius = this.viewSize / 2 - 8;
+      const cx = this.viewCenterX, cy = this.viewCenterY;
+      y = Math.max(cy - radius + text.height, Math.min(cy + radius - 2 * text.height, y));
+      const farY = Math.max(Math.abs(y - cy), Math.abs(y + text.height - cy));
+      const half = Math.sqrt(Math.max(0, radius * radius - farY * farY));
+      x = Math.max(cx - half, Math.min(cx + half - text.width, x));
     }
     text.setPosition(x, y).setVisible(true);
     bounds.push({ left: x, right: x + text.width, top: y, bottom: y + text.height });
@@ -4715,12 +4745,14 @@ class MapScene extends Phaser.Scene {
     const g = this.enemyHealthGfx;
     if (!g) return;
     g.clear();
+    g._huUI = true;
     const now = performance.now();
     for (const c of enemies) {
       if (!c._hurtUntilT || now >= c._hurtUntilT) continue;
-      const screen = this.worldMetersToScreen(c.x, c.y);
-      this._drawEnemyHealthBar(g, Math.round(screen.x),
-        Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(c.kind, SpriteLayout.creatureInstScale(c))),
+      const feet = this.worldMetersToScreen(c.x, c.y);
+      const screen = HeadingUp.toOverlayPt(this, feet.x, feet.y,
+        SpriteLayout.creatureHealthBarTop(c.kind, SpriteLayout.creatureInstScale(c)));
+      this._drawEnemyHealthBar(g, Math.round(screen.x), Math.round(screen.y),
         Combat.hpFraction(c), 0.62);
     }
   }
@@ -4776,7 +4808,7 @@ class MapScene extends Phaser.Scene {
     const y = Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(c.kind, SpriteLayout.creatureInstScale(c))) - 3;
     // Clip to the map viewport like every other world-anchored layer.
     this._toast(text, {
-      tier: 'damage', color, x, y, stack: false,
+      tier: 'damage', color, x, y, anchor: screen, stack: false,
       mask: this.enemyHealthGfx?.mask,
     });
   }
@@ -5187,7 +5219,9 @@ class MapScene extends Phaser.Scene {
     this._meleeWeaponSprite?.setVisible(false);
     const sw = this._swing;
     if (!sw) return;
-    const pose = Render.meleePose(sw, performance.now(), sw.weapon || 'sword',
+    const screenSwing = HeadingUp.active(this)
+      ? { ...sw, dir: HeadingUp.toScreenVec(this, sw.dir.x, sw.dir.y) } : sw;
+    const pose = Render.meleePose(screenSwing, performance.now(), sw.weapon || 'sword',
       (sw.reachCells ?? Combat.meleeReachM(1, sw.weapon)) * CELL_PX);
     if (!pose) { this._swing = null; return; }
     const ps = this.playerScreen();
@@ -5344,16 +5378,21 @@ class MapScene extends Phaser.Scene {
     const mover = wp.flee || wp.track;
     let cx, cy;
     if (mover) {
-      const screen = this.worldMetersToScreen(mover.x, mover.y);
-      cx = Math.round(screen.x);
-      cy = Math.round(screen.y + SpriteLayout.creatureWheelDy(mover.kind, SpriteLayout.creatureInstScale(mover)));
+      const feet = this.worldMetersToScreen(mover.x, mover.y);
+      const screen = HeadingUp.toOverlayPt(this, feet.x, feet.y,
+        SpriteLayout.creatureWheelDy(mover.kind, SpriteLayout.creatureInstScale(mover)));
+      cx = Math.round(screen.x); cy = Math.round(screen.y);
     } else {
       const ac = worldMetersToAbsCell(this, wp.worldX, wp.worldY);
       const cc = absCellCenterMeters(this, ac.cellIX, ac.cellIY);
-      const screen = this.worldMetersToScreen(cc.x, cc.y);
+      const feet = this.worldMetersToScreen(cc.x, cc.y);
+      const screen = HeadingUp.toOverlayPt(this, feet.x, feet.y);
       cx = Math.round(screen.x); cy = Math.round(screen.y);
     }
     const g = this._workProgressGfx;
+    for (const overlay of [g, this._workToolGfx, this._workProgressIcon]) {
+      if (overlay) overlay._huUI = true;
+    }
     g.clear();
     this._workProgressIcon?.setVisible(false);
     this._workToolGfx?.clear();
@@ -5405,14 +5444,17 @@ class MapScene extends Phaser.Scene {
     this._wateringEffects = (this._wateringEffects || []).filter(effect => {
       const t = (now - effect.startT) / effect.durationMs;
       if (t >= 1) { effect.icon?.destroy(); effect.gfx?.destroy(); return false; }
-      const p = this.worldMetersToScreen(effect.x, effect.y);
+      const feet = this.worldMetersToScreen(effect.x, effect.y);
+      const p = HeadingUp.toOverlayPt(this, feet.x, feet.y);
       const g = effect.gfx ||= this.add.graphics().setDepth(96);
+      g._huUI = true;
       g.clear();
       if (!effect.texture) {
         Render.drawMelee(g, Render.meleePose({ startT: effect.startT, dir: { x: 1, y: 0 } },
           now, 'sword', 12), p.x - 10, p.y);
       } else if (this.textures.exists(effect.texture)) {
         const icon = effect.icon ||= this.add.image(0, 0, effect.texture, 0).setDepth(97);
+        icon._huUI = true;
         const tilt = Math.sin(Math.PI * Math.min(1, t / 0.85));
         icon.setPosition(p.x + 9, p.y - 9).setOrigin(0.5).setScale(0.9)
           .setRotation(-0.7 * tilt).setAlpha(Math.min(1, (1 - t) / 0.15));
@@ -7350,6 +7392,10 @@ class MapScene extends Phaser.Scene {
     }
     const t = this.add.text(x, y, text, style)
       .setOrigin(0.5, opts.originY ?? 1).setDepth(S.depth);
+    // Explicit world positions follow the map; banners/loot stay fixed to UI.
+    // Keep the ground anchor separate from head lift, stacking and drift.
+    if (opts.x != null && opts.y != null) t._huAnchor = opts.anchor || { x, y };
+    else t._huUI = true;
     if (opts.mask) t.setMask(opts.mask);
     // EVERY tier clamps: a tap near an edge must not render half a message.
     t.x = clampTextX(x, t.width, W);
@@ -7570,9 +7616,9 @@ class MapScene extends Phaser.Scene {
 
   // Small status message, placed where the player tapped so it stays attached
   // to the thing they touched. `color` is optional — omit for the default ink.
-  flash(text, x, y, color) {
+  flash(text, x, y, color, anchor) {
     this._offerToastLog?.push({ text, color });   // a repeat offer reprints it (showOfferModal)
-    this._toast(text, { tier: 'note', x, y, color });
+    this._toast(text, { tier: 'note', x, y, color, anchor });
   }
 
   // A note ABOUT a thing on the map that isn't where the finger is — a
@@ -7591,7 +7637,7 @@ class MapScene extends Phaser.Scene {
   // The same note, for a known absolute cell (a wall of fire's middle cell).
   flashAtCell(text, ix, iy, color) {
     const at = this._energyPopAt(ix, iy);
-    this.flash(text, at.x, at.y, color);
+    this.flash(text, at.x, at.y, color, at.anchor);
   }
   // A note about the player's BODY ("You catch fire!") — over the
   // character's head at scene.playerScreen() (which follows a peek drag),
@@ -7601,7 +7647,7 @@ class MapScene extends Phaser.Scene {
     const ps = this.playerScreen ? this.playerScreen() : null;
     const ok = !!ps && isFinite(ps.x) && isFinite(ps.y);
     this.flash(text, ok ? Math.round(ps.x) : undefined,
-      ok ? Math.round(ps.y) - ENERGY_POP_HEAD_PX - 22 : undefined, color);
+      ok ? Math.round(ps.y) - ENERGY_POP_HEAD_PX - 22 : undefined, color, ok ? ps : undefined);
   }
 
   // ── Energy pops ──────────────────────────────────────────────────────────
@@ -7681,7 +7727,7 @@ class MapScene extends Phaser.Scene {
     if (this._isPlayerCell(ix, iy) && this.playerScreen) {
       const ps = this.playerScreen();
       if (!ps || !isFinite(ps.x) || !isFinite(ps.y)) return {};
-      return { x: Math.round(ps.x), y: Math.round(ps.y) - ENERGY_POP_HEAD_PX };
+      return { x: Math.round(ps.x), y: Math.round(ps.y) - ENERGY_POP_HEAD_PX, anchor: ps };
     }
     return this._cellToastAt(ix, iy, CELL_PX / 2 + ENERGY_POP_LIFT_PX);
   }
@@ -10914,5 +10960,15 @@ window.__onGameScaleChange = () => {
   // The resize grows each camera to the new buffer but leaves its transform
   // alone, so the zoom is still the OLD render scale — which would draw the
   // logical grid at the wrong size on a correctly-sized canvas. Re-point it.
-  for (const scene of game.scene.getScenes(true)) applyRenderScale(scene.cameras.main);
+  // Paused scenes still render (including their UI camera), and can resume
+  // after a background resize. Keep their transforms current too.
+  for (const scene of game.scene.getScenes(false)) {
+    if (!scene.cameras?.main) continue;
+    applyRenderScale(scene.cameras.main);
+    if (scene.uiCam) {
+      scene.uiCam.setViewport(0, 0, W * RENDER_SCALE, H * RENDER_SCALE);
+      applyRenderScale(scene.uiCam);
+    }
+    scene._applyMapZoom?.();
+  }
 };

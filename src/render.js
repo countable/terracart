@@ -211,6 +211,12 @@ Render.objectGroundOffsetPx = function (appearance, textures) {
     * appearance.scl * appearance.scaleYMul;
 };
 
+// Ground pivot shared by scenery, its labels, and DOM roof callouts.
+Render.objectGroundAnchor = function (appearance, textures, point) {
+  return { x: Math.round(point.x) + (appearance?.foot ? 0 : appearance?.dxPx || 0),
+    y: Math.round(point.y) + Render.objectGroundOffsetPx(appearance, textures) };
+};
+
 // Shop rank is assigned at restoration (a shop's line tier, a smithy's own,
 // a trader's — Shops.shopTier); stock can fall back to another tier.
 // A shop's tier comes through scene.shopLine (an NPC stall carries its
@@ -1048,6 +1054,18 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure,
     // slot avoids both identity reset and every redundant Phaser setter.
     if (!reuse?.(s, item)) {
       resetSlot(s);
+      // A label or ornament keeps its screen-height offset from the same
+      // ground point as its owner when the map turns.
+      s._huAnchor = (container === scene.worldContainer || container === scene.labelContainer
+        || container === scene.coinContainer || container === scene._sandboxLabels)
+        && Number.isFinite(item.dx) && Number.isFinite(item.dy)
+        ? deltaMToScreen(scene, item.dx, item.dy) : null;
+      if (s._huAnchor && item._appearance) {
+        s._huAnchor = Render.objectGroundAnchor(item._appearance, scene.textures, s._huAnchor);
+      }
+      s._huGround = container === scene.worldContainer && (!!item._appearance?.ground
+        || !!item.plate || item.h?.kind === 'gas'
+        || (item.h?.type != null && item.h.type !== 'vent'));
       configure(s, item);
     }
     i++;
@@ -1300,36 +1318,25 @@ const WATERED_TINT = 0xc7c7c7;
 const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 27, 29, 30, 31]);  // sand, water, residential, all roads, path, all buildings, rock, wasteland, churchyard, unmapped fog, tar yard
 // Fog of war — the wash over land the player has never visited.
 //
-// Pure black, NOT the biome's `atmos.dim` that the lightmap's out-of-reach
-// ambient uses (Render.reachDimColor, read by Lighting.profile). That dim is deliberately tinted so unlit ground still reads as this biome
-// after dark; fog is the opposite claim — it is the absence of information,
-// and colouring it would say "here is a forest you haven't been to" when the
-// point is that the player doesn't know that yet.
-//
-// 0.8 leaves the terrain faintly legible as shape rather than blacking it out,
-// so the world reads as continuous and the revealed region has an edge to it.
-// Note it STACKS with the lightmap's falloff (Lighting.FALLOFF_A 0.90 at the
-// viewport corner, drawn on the layer just below): out at the corners, fogged
-// and explored ground are both close to black and the fog edge is only really
-// legible in the mid-field. Retune the pair together if that ever matters.
-const FOG_COLOR = 0x000000;
-const FOG_ALPHA = 0.8;
+// Neutral grey separates unexplored land from night and cave darkness.
+// A dense interior hides detail while the frontier still feathers smoothly.
+const FOG_COLOR = 0x808080;
+const FOG_ALPHA = 0.95;
 // ── The frontier ramp ─────────────────────────────────────────────────────
 // The fog does not arrive as a wall. Darkness by DISTANCE from the nearest
 // revealed cell, in cells:
 //
 //   0 (revealed ground)   0
-//   1 cell out            0.55
-//   2 cells out           0.70
+//   1 cell out            0.70
+//   2 cells out           0.88
 //   3 cells out and past  FOG_ALPHA
 //
-// The interior deliberately still lands on the old flat value: this softens
-// the EDGE, it does not lighten the unknown.
+// The interior reaches FOG_ALPHA; only the frontier is softened.
 //
 // Between those samples the ramp is CONTINUOUS (smoothstep between the
 // whole-cell entries, evaluated per texture pixel): any 32px alpha step reads as
 // a UI element sitting on the world.
-const FOG_RAMP_A = [0, 0.55, 0.70, FOG_ALPHA];
+const FOG_RAMP_A = [0, 0.70, 0.88, FOG_ALPHA];
 // How deep the ramp runs, in cells.
 const FOG_RAMP_CELLS = FOG_RAMP_A.length - 1;
 // The wash starts at the EDGE of explored ground, not at the centre of the last
@@ -1656,6 +1663,7 @@ if (typeof window !== 'undefined') {
   window.FOG_EDGE_BIAS = FOG_EDGE_BIAS;
   window.FOG_SUB = FOG_SUB;
   window.FOG_ALPHA = FOG_ALPHA;
+  window.FOG_COLOR = FOG_COLOR;
 }
 // Scratch buffers for drawCells' per-frame ring scan, reused across frames.
 // Allocated on first use (their size derives from VIEW_CELLS, which app.js
@@ -3213,7 +3221,7 @@ Render.drawCells = function drawCells(scene) {
   }
 
   // ── Fog of war ────────────────────────────────────────────────────────────
-  // Land the player has never been to is washed FOG_ALPHA black. Load-bearing:
+  // Land the player has never been to is washed FOG_ALPHA grey when enabled. Load-bearing:
   //
   // 1. THE LAYER. It paints scene.fogTex, whose image sits at the very top of the
   //    world display list (above sprites, rim haze, falloff and labels): a darkening
@@ -3237,7 +3245,7 @@ Render.drawCells = function drawCells(scene) {
     // Underground has its own darkness (the torch bubble) and no persistent
     // map to explore, so fog is a surface feature. Hide it on descent rather
     // than leaving the last surface frame frozen over the cave.
-    const fogOn = (scene.depth ?? 0) === 0;
+    const fogOn = typeof Fog !== 'undefined' && Fog.enabled && (scene.depth ?? 0) === 0;
     // ...and the UNMAPPED VEIL: a cell whose tile hasn't arrived is already drawn as
     // the animated survey-line fog, so a fully veiled cell is left alone and picked
     // up as ordinary fog when its tile lands. That handover happens mid-fade on no
@@ -4251,6 +4259,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (typeof spec.after === 'function') spec.after(s, o, scene);
     Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, o, performance.now()),
       Math.round(sx), Math.round(sy) + (appearance.foot?.footFromCentre ?? dyPx));
+    s._huAnchor = Render.objectGroundAnchor(appearance, scene.textures, { x: sx, y: sy });
     s._staticObject = o;
     s._staticAppearance = appearance;
     s._objectBaseAlpha = s.alpha;
@@ -4288,6 +4297,7 @@ Render.drawObjects = function drawObjects(scene) {
      .setPosition(item.x, item.y);
     setWorldDepth(s, item.depth);
     s.setAlpha(item.treeSprite.alpha);
+    s._huAnchor = item.treeSprite._huAnchor;
   });
   // Every unrestored turret flies the square skull flag. Restoring the
   // castle replaces them with the player's existing single flagPost banner.
@@ -4302,6 +4312,7 @@ Render.drawObjects = function drawObjects(scene) {
     const { dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
     const towerH = Render.towerCrownHeight(scene.textures, item.o.castle);
+    s._huAnchor = { x: Math.round(sx), y: Math.round(sy) + CELL_PX / 2 };
     setTextureIfDifferent(s, Render.castleFlagTexture(scene, item.o));
     setWorldDepth(s, (item._z ?? 0) + 0.1);
     s.setOrigin(0.5, 1)
@@ -4602,6 +4613,8 @@ Render.drawObjects = function drawObjects(scene) {
       const S = HomeArea.FIREPIT_SMOKE, now = performance.now();
       if (!scene._reducedMotion) for (const { dx, dy } of firepitList) {
         const { x, y } = project(dx, dy);
+        const turn = typeof HeadingUp !== 'undefined' ? HeadingUp.angle(scene) : 0;
+        if (turn) g.save().translateCanvas(x, y).rotateCanvas(-turn).translateCanvas(-x, -y);
         for (let i = 0; i < S.puffs; i++) {
           const k = (now / S.periodMs + i / S.puffs) % 1;
           const a = S.alpha * Math.sin(Math.PI * k) / 2;
@@ -4612,6 +4625,7 @@ Render.drawObjects = function drawObjects(scene) {
           g.fillCircle(px, py, r);
           g.fillCircle(px + r * 0.3, py - r * 0.2, r * 0.6);
         }
+        if (turn) g.restore();
       }
     }
   }
@@ -4637,7 +4651,13 @@ Render.drawObjects = function drawObjects(scene) {
     const { x, y } = project(item.dx, item.dy);
     const mid = _houseArtMidPx(item.o);
     const dy = (!item.theme && Render.ROLE_SIGN_ICONS[_houseRole(item.o)]?.dy) || 0;
+    const anchor = Render.objectGroundAnchor(item._appearance, scene.textures, { x, y });
+    const turn = typeof HeadingUp !== 'undefined' ? HeadingUp.angle(scene) : 0;
+    // The board is batched Graphics, while its name is a pooled Text. Apply
+    // the same pivot to each board's commands that prerender applies to text.
+    if (turn) gfx.save().translateCanvas(anchor.x, anchor.y).rotateCanvas(-turn).translateCanvas(-anchor.x, -anchor.y);
     Render.drawShopPlate(gfx, item, { x: x + mid.x, y: y + mid.y - SHOP_PLATE.roof * _houseArtH(item.o) + dy }, _playerBox, CANVAS_W);
+    if (turn) gfx.restore();
   }
 
   // Residential delivery plaques use real
@@ -4681,7 +4701,17 @@ Render.drawObjects = function drawObjects(scene) {
       // the bubble's from its CSS box ÷ scale.
       const toastRects = (scene._liveToasts || [])
         .filter((t) => t && t.scene && t.active !== false && t.alpha > 0.05)
-        .map((t) => t.getBounds());
+        .map((t) => {
+          const box = t.getBounds();
+          if (typeof HeadingUp === 'undefined' || !HeadingUp.active(scene) || t._huUI !== undefined
+              || (!t._huAnchor && !HeadingUp._inMap(scene, t.x, t.y))) return box;
+          const anchor = t._huAnchor || t;
+          const p = HeadingUp.toOverlayPt(scene, anchor.x, anchor.y), z = scene.mapZoom || 1;
+          const dx = p.x + (t.x - anchor.x) * z - t.x;
+          const dy = p.y + (t.y - anchor.y) * z - t.y;
+          return { left: box.left + dx, right: box.right + dx,
+            top: box.top + dy, bottom: box.bottom + dy };
+        });
       for (const it of filteredObj) {
         // Every delivery host gets a roof callout: the wishlist of produce icons
         // while hungry, a smiling face once a bundle is delivered. (A shop's
@@ -4697,7 +4727,16 @@ Render.drawObjects = function drawObjects(scene) {
         const look = deal ? TRADER_BUBBLE : QUEST_BUBBLE;
         const anchor = project(it.dx, it.dy);
         const mid = _houseArtMidPx(it.o);   // the bubble floats off the art's middle
-        const sx = anchor.x + mid.x, sy = anchor.y + mid.y;
+        let sx = anchor.x + mid.x, sy = anchor.y + mid.y;
+        if (typeof HeadingUp !== 'undefined' && HeadingUp.active(scene)) {
+          const foot = Render.objectGroundAnchor(it._appearance, scene.textures, anchor);
+          const drawn = HeadingUp.toOverlayPt(scene, foot.x, foot.y);
+          const z = scene.mapZoom || 1;
+          sx = drawn.x + (sx - foot.x) * z;
+          // Keep the bubble's own 18px gap unscaled, matching its DOM size.
+          sy = drawn.y + (sy - foot.y) * z;
+          if (Math.hypot(sx - scene.viewCenterX, sy - 18 - scene.viewCenterY) > scene.viewSize / 2 - 8) continue;
+        }
         let slot = pool[psi];
         if (!slot) {
           const el = document.createElement('div');
@@ -5058,8 +5097,9 @@ Render.drawObjects = function drawObjects(scene) {
     // from the creature table (SpriteLayout: creatureSheet / anim / frameMs /
     // frames / hop / float / foot / scale), so two kinds sharing a sheet cannot
     // drift apart.
-    const npcArt = c.kind === 'npc' ? SL.npcAppearance(c, performance.now()) : null;
-    const appearance = npcArt ? null : creatureAppearance(c, performance.now());
+    const actor = typeof HeadingUp !== 'undefined' ? HeadingUp.appearanceActor(scene, c) : c;
+    const npcArt = c.kind === 'npc' ? SL.npcAppearance(actor, performance.now()) : null;
+    const appearance = npcArt ? null : creatureAppearance(actor, performance.now());
     const pet = Combat.isTame(c) && !npcArt;
     const down = pet && typeof Pets !== 'undefined' && Pets.isDown(c, Date.now());
     const vivid = !pet && !npcArt && Combat.isElite(c);
@@ -5105,6 +5145,7 @@ Render.drawObjects = function drawObjects(scene) {
     // A softened lair guard is drawn smaller (creatureInstScale).
     s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, creatureInstScale(c)))
      .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - lift);
+    s._huAnchor = { x: Math.round(sx), y: Math.round(sy) + CREATURE_GROUND_DY };
     Render.applyEmergence(s, c, performance.now());
     // A resting NPC lies down; every other body stands at the pool's reset.
     if (npcArt && NPC.isDormant(c)) s.setRotation(Math.PI / 2).setOrigin(0.5, 0.5);

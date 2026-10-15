@@ -88,8 +88,10 @@ test('feet anchor: peers are seated exactly like the local player', () => {
     'peer sprite rises by the same nudge');
   assert.truthy(/p\.sh\.setPosition\(p\.dx, p\.dy - 1\)/.test(mp), 'peer shadow at the feet');
   assert.falsy(/p\.dy \+ 13\)/.test(mp), 'no +13 peer shadow anchor');
-  assert.truthy(/p\.lbl\.setPosition\(p\.dx, p\.dy \+ scene\.playerFeetNudgeY - \d+\)/.test(mp),
-    'peer name tag is measured from the sprite centre');
+  assert.truthy(/const label = annotationPoint\(scene, p\.dx, p\.dy\);/.test(mp),
+    'peer label anchor projects the eased ground feet');
+  assert.truthy(/p\.lbl\.setPosition\(label\.x, label\.y \+ scene\.playerFeetNudgeY - \d+\)/.test(mp),
+    'peer name tag keeps the vertical sprite-centre offset above projected feet');
 });
 
 test('feet anchor: the creature hit-test scales pixels from cellPx, not from the feet offset', () => {

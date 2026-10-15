@@ -959,7 +959,7 @@ class SceneStreets {
     if (!this.worldMetersToScreen || !this.startWorldM || !this.originPx) return {};
     const p = this.worldMetersToScreen(wmx, wmy);
     if (!p || !isFinite(p.x) || !isFinite(p.y)) return {};
-    return { x: Math.round(p.x), y: Math.round(p.y) - liftPx };
+    return { x: Math.round(p.x), y: Math.round(p.y) - liftPx, anchor: p };
   }
 
   // The same, for an absolute CELL: its centre, then as above. Read by the

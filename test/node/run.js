@@ -1305,6 +1305,7 @@ ctx.TRAP_TEX = (() => {
 ctx.ASSETS_SRC = readSrc('assets.js');
 // lighting.test.js pins the compositing model (ADD cookies, MULTIPLY map) as text.
 ctx.LIGHTING_SRC = readSrc('lighting.js');
+ctx.FOG_SRC = readSrc('fog.js');
 // reach_corners.test.js pins the lit boundary's corner radius as coords.js' one number.
 ctx.COORDS_SRC = readSrc('coords.js');
 // multiplayer.js seats peers like the local player; feet_anchor.test.js pins both as text.

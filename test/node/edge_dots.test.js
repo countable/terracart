@@ -134,6 +134,23 @@
       assert.eq(p.r, 3);
     }
   });
+  test('edge dots: rotated diagonal bearings stay on the circular rim through zoom and peek', () => {
+    const wasEnabled = HeadingUp.enabled;
+    HeadingUp.enabled = true;
+    try {
+      for (const zoom of [1, 1.8]) for (const angle of [0, Math.PI / 4, Math.PI / 2, Math.PI]) {
+        const s = fixture();
+        Object.assign(s, { _headingUp: true, mapRot: angle, mapZoom: zoom, viewCenterX: 176, viewCenterY: 272 });
+        s.playerScreen = () => ({ x: 155, y: 281 });
+        const point = s._drawEdgeDot(100, 100, 0xffd24a);
+        const screen = HeadingUp.toOverlayPt(s, point.x, point.y);
+        assert.inRange(Math.hypot(screen.x - 176, screen.y - 272), 170.999, 171.001);
+        assert.inRange(s.circles[1].r * zoom, 2.999, 3.001, 'dot stays touch-visible at pinch zoom');
+        s._edgeDotPoints = { target: point };
+        assert.truthy(s._tapEdgeDot(point.x, point.y), 'inverse-transformed tap finds the visible dot');
+      }
+    } finally { HeadingUp.enabled = wasEnabled; }
+  });
   test('edge dots: close targets retain bearings and a peek uses the player location', () => {
     const s = fixture();
     s.playerScreen = () => ({ x: 80, y: 190 });
