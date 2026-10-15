@@ -1929,6 +1929,24 @@ function drawAtmosRim(scene, haze) {
   if (g.flush) g.flush();   // BAKED (app.js): one upload per haze change
 }
 
+// Compare the exact inputs to retained tiled walls. Ring buffers are shared
+// scratch storage, so snapshots must be copied on rebuild rather than retained
+// by reference. Heading and subcell pan deliberately do not invalidate them.
+Render.tiledWallsDirty = function (scene, key, types, owners, unclaimed, synthetic, phases) {
+  const previous = scene._tiledWallFrame;
+  const same = (a, b) => {
+    if (!a || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  };
+  if (previous && previous.key === key && same(previous.types, types)
+    && same(previous.owners, owners) && same(previous.unclaimed, unclaimed)
+    && same(previous.synthetic, synthetic) && same(previous.phases, phases)) return false;
+  scene._tiledWallFrame = { key, types: types.slice(), owners: owners.slice(),
+    unclaimed: unclaimed.slice(), synthetic: synthetic.slice(), phases: phases.slice() };
+  return true;
+};
+
 // Tiled walls stay with the building background, below every world object.
 Render.rampartPiece = function (scene, groundY, rank = 1) {
   const pool = scene._rampartPool || (scene._rampartPool = []);
@@ -2103,6 +2121,14 @@ Render.drawCells = function drawCells(scene) {
   // toggle flipping mid-pass would draw half a building.
   const POLY = polyBuildings();
   const skyLevel = scene.depth === WorldGen.SKY_DEPTH;
+  // Retain footprint geometry between compass updates; only its vertical
+  // projection changes as the view turns. Clear even when leaving the surface.
+  const perspectiveWalls = typeof WallPerspective !== 'undefined'
+    && scene.depth === 0 && WallPerspective.active(scene);
+  if (!perspectiveWalls) {
+    if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'tiled');
+    scene._tiledWallFrame = null;
+  }
   const gb2 = scene.borderGfx;
   scene._uprightPieces = [];
   scene._rampartPoolUsed = 0;
@@ -2875,6 +2901,17 @@ Render.drawCells = function drawCells(scene) {
     if (nb === T(col, row) && (dc === -1 || dr === -1)) return false;   // partner already drew it
     return true;
   };
+  // drawCells also paints animated ground each frame. Walls only rebuild on
+  // exact terrain/ownership/grid changes, then scroll as one retained batch.
+  let tiledWallsDirty = false;
+  if (perspectiveWalls) {
+    const key = `${baseCellIX}|${baseCellIY}|${_bandKey}|${POLY}|${scene.viewCenterX}|${scene.viewCenterY}`
+      + `|${scene.viewLeft}|${scene.viewTop}|${scene.viewSize}`;
+    tiledWallsDirty = Render.tiledWallsDirty(scene, key, types, owners, unclaimed,
+      _ringSyntheticBuilding, _ringPhase) || !scene._wallPerspective?.tiled;
+    if (tiledWallsDirty) WallPerspective.begin(scene, 'tiled');
+    WallPerspective.offset(scene, 'tiled', -fracX * CELL_PX, -fracY * CELL_PX);
+  }
   // Pseudo-3D extrusion: see BUILDING_FACE_COLOR / BUILDING_FACE_PX at module
   // scope — the same wall the polygonal overlay extrudes its rings with.
   const SOUTH_FACE_COLOR = BUILDING_FACE_COLOR;
@@ -2889,8 +2926,65 @@ Render.drawCells = function drawCells(scene) {
       // building_overlay.js. Synthetic civic blocks have no polygon and keep
       // this complete tiled floor/wall path; mapped buildings skip it.
       if (polygonBuilding(col, row)) continue;
+      if (perspectiveWalls && !tiledWallsDirty) continue;
       const ox = col - half, oy = row - half;
-      const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
+      const { x: sx, y: sy } = cellScreenXY(scene, ox, oy,
+        perspectiveWalls ? 0 : fracX, perspectiveWalls ? 0 : fracY, PHASE(row));
+      if (perspectiveWalls) {
+        // Architectural walls stay attached to their ground edges. The shared
+        // renderer extrudes each prism toward screen up, with its cap extending
+        // into the footprint; individual wall sprites must not billboard.
+        const edges = [
+          [0, -1, sx, sy, sx + CELL_PX, sy, 0, 1],
+          [1, 0, sx + CELL_PX, sy, sx + CELL_PX, sy + CELL_PX, -1, 0],
+          [0, 1, sx + CELL_PX, sy + CELL_PX, sx, sy + CELL_PX, 0, -1],
+          [-1, 0, sx, sy + CELL_PX, sx, sy, 1, 0],
+        ];
+        let style;
+        if (type === 12) {
+          const owner = castleOwner(col, row);
+          const material = buildingBackgroundMaterial(CastleStyles.get(owner, !UNCLAIMED(col, row)));
+          const crest = material.rampart.woodTop ? material.wood : material.stone;
+          const si = (row + 2) * RING + (col + 2);
+          const damage = CastleStyles.damageCell(owner, _ringIX[si], _ringIY[si]);
+          const missing = [];
+          if (material.rampart.broken) missing.push(2);
+          if (damage && !missing.includes(damage.missing)) missing.push(damage.missing);
+          style = { height: material.rampart.wallHeight, thickness: material.rampart.topDepth,
+            face: material.stone.FACE, top: crest.BODY, crownTop: crest.LITE, dark: material.stone.SHADOW,
+            merlons: material.rampart.merlons, toothWidth: material.rampart.toothWidth,
+            toothHeight: material.rampart.toothHeight, missing };
+        } else if (type === 11) {
+          const wood = n => buildingBackgroundColor(UNCLAIMED(col, row)
+            && typeof unclaimedMaterialColor === 'function'
+            ? unclaimedMaterialColor(unclaimedShade(n)) : n);
+          style = { height: 5, thickness: 3,
+            face: wood(0xa67434), top: wood(0xa67434), dark: wood(0x6b4520) };
+        } else {
+          const face = buildingBackgroundColor(UNCLAIMED(col, row)
+            && typeof UNCLAIMED_BUILDING_BASE !== 'undefined'
+            ? unclaimedMaterialColor(unclaimedShade(UNCLAIMED_BUILDING_BASE.faces[type]))
+            : SOUTH_FACE_COLOR[type] || 0x444444);
+          style = { height: SOUTH_FACE_PX[type] || 7, thickness: 1,
+            face, top: BiomeProfiles.mixHex(face, 0xffffff, 0.16),
+            dark: BiomeProfiles.mixHex(0x000000, face, 0.65) };
+        }
+        for (const [dc, dr, ax, ay, bx, by, nx, ny] of edges) {
+          if (!wallEdge(col, row, dc, dr)) continue;
+          if (type === 11) {
+            // Separate pickets retain the palisade gaps on every compass axis.
+            for (let i = 0; i < 8; i++) {
+              const t = i / 8, end = t + 3 / CELL_PX;
+              WallPerspective.addSegment(scene, 'tiled', { ...style, nx, ny,
+                ax: ax + (bx - ax) * t, ay: ay + (by - ay) * t,
+                bx: ax + (bx - ax) * end, by: ay + (by - ay) * end });
+            }
+          } else {
+            WallPerspective.addSegment(scene, 'tiled', { ...style, ax, ay, bx, by, nx, ny });
+          }
+        }
+        continue;
+      }
       // Note it for the unclaimed wash below, with the depth its south wall
       // extrudes into the row underneath so the wash covers the wall face too
       // (tier 11 pickets stand 5 px proud; 9 and 12 use their own face depth).
@@ -3097,6 +3191,7 @@ Render.drawCells = function drawCells(scene) {
     paint(gbW, UNCLAIMED_MURK, UNCLAIMED_MURK_A);
     _washCells.length = 0;
   }
+  if (tiledWallsDirty) WallPerspective.finish(scene, 'tiled');
   // Preserve wall-to-wall overlap within the background, independent of actors.
   if (scene._uprightPieces.length) {
     Render.sortWorldDepth(scene._uprightPieces);

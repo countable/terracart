@@ -1213,4 +1213,82 @@ test('building overlay: cached offscreen walls skip rendering and reappear on su
   assert.falsy(right.sprite.visible, 'hide it again without rebuilding');
 });
 
+function makePerspectiveScene() {
+  const fixture = makeWallScene({ _headingUp: true, mapRot: 0 });
+  fixture.scene.add.graphics = () => ({ triangles: [], clears: 0,
+    clear() { this.triangles.length = 0; this.clears++; return this; },
+    fillStyle() { return this; },
+    fillTriangle(...v) { this.triangles.push(v); return this; },
+    setPosition(x, y) { this.x = x; this.y = y; return this; } });
+  return fixture;
+}
+
+test('building overlay: heading-up castle uses retained prisms without an atlas and follows subcell pan', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'citadel')]);
+  const { scene, log } = makePerspectiveScene();
+  BuildingOverlay.draw(scene);
+  const group = scene._wallPerspective.polygon;
+  assert.gt(group.blocks.length, 4, 'walls and crenellations use retained geometry');
+  assert.gt(group.gfx.triangles.length, 0, 'real projection paints triangles');
+  assert.eq(log.pages.length, 0, 'no wall atlas allocated');
+  assert.eq(log.refreshes, 0, 'no wall canvas uploaded');
+  assert.eq(scene._buildingUprightPieces.length, 0, 'old atlas pieces stay absent');
+  assert.eq(group.gfx.parentContainer, scene.buildingWallContainer, 'walls remain background');
+  const first = group.blocks[0], clears = group.gfx.clears;
+  const commits = scene.buildingGeomGfx.commits;
+  scene.playerM.x = 1;
+  BuildingOverlay.draw(scene);
+  assert.eq(group.gfx.x, -PX_PER_M, 'wall translation matches ground movement');
+  assert.eq(group.blocks[0], first, 'pan retains geometry');
+  assert.eq(group.gfx.clears, clears, 'pan does not repaint wall command buffer');
+  scene.mapRot = Math.PI / 3;
+  WallPerspective.update(scene);
+  assert.eq(scene.buildingGeomGfx.commits, commits, 'rotation does not upload the ground canvas');
+  assert.eq(log.refreshes, 0, 'rotation never uploads a wall texture');
+  clearTiles();
+});
+
+test('building overlay: heading-up temple uses temple wall palette without castle teeth', () => {
+  clearTiles();
+  const shape = Object.assign(rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'temple-test'),
+    { templeZone: 'temple-zone', templeKind: 'tar' });
+  putShapes(0, 0, [shape]);
+  const { scene, log } = makePerspectiveScene();
+  BuildingOverlay.draw(scene);
+  const group = scene._wallPerspective.polygon;
+  const palette = TempleArt.palette(false, true, true);
+  assert.gt(group.blocks.length, 0);
+  assert.truthy(group.blocks.every(b => b.bottom === 0), 'temples do not inherit castle merlons');
+  assert.truthy(group.blocks.every(b => b.colors.face === palette.face), 'temple palette owns walls');
+  assert.eq(log.pages.length, 0);
+  clearTiles();
+});
+
+test('building overlay: disabling polygon mode clears retained heading-up walls and restores them on enable', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'citadel')]);
+  const { scene } = makePerspectiveScene();
+  const enabled = BuildingOverlay.enabled();
+  try {
+    BuildingOverlay.draw(scene);
+    const group = scene._wallPerspective.polygon;
+    BuildingOverlay.setEnabled(scene, false);
+    BuildingOverlay.draw(scene);
+    assert.eq(group.blocks.length, 0, 'disabled geometry cannot reappear on a compass update');
+    assert.eq(group.gfx.triangles.length, 0, 'draw commands cleared');
+    WallPerspective.update(scene);
+    assert.eq(group.gfx.triangles.length, 0);
+    BuildingOverlay.setEnabled(scene, true);
+    BuildingOverlay.draw(scene);
+    assert.gt(group.blocks.length, 0, 'enable rebuilds geometry');
+    scene.depth = 1;
+    BuildingOverlay.draw(scene);
+    assert.eq(group.blocks.length, 0, 'cave transition also clears surface walls');
+  } finally {
+    BuildingOverlay.setEnabled(scene, enabled);
+    clearTiles();
+  }
+});
+
 })();

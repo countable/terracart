@@ -40,7 +40,15 @@ that position. Its cold and lit states are both step-over props.
 Continuous architectural walls are background geometry, separate from object
 props (including interactable `stronghold_wall`). Their connected wall meshes
 remain attached to their ground footprints; they cannot use per-object billboard
-rotation without opening gaps between segments.
+rotation without opening gaps between segments. In heading-up mode,
+`wall_perspective.js` retains ground vertices and separate elevations for polygon
+and tiled walls. Each compass change inverse-rotates only the height vector,
+selects camera-facing sides, and orders short wall prisms by screen depth.
+Explicit triangles use Phaser's existing WebGL batching or Canvas fallback;
+there is no wall canvas bake or texture upload on heading changes. At a fixed
+heading the command buffers are reused. Floors remain cached ground textures;
+small building sprites and towers keep their ordinary upright sprite path.
+North-up mode retains the existing wall atlas artwork.
 
 ## Coordinates, rendering and performance
 
@@ -126,7 +134,11 @@ rotation without opening gaps between segments.
   the wall is independent of its thickness. Full end blocks reach each corner;
   the rear highlight stays inside the cap silhouette. Polygon wall bodies and
   crenellations use separate cached passes, with every body drawn before the
-  crowns so adjacent wall sections cannot cover a crenellation top. Castle wall
+  crowns so adjacent wall sections cannot cover a crenellation top. Heading-up
+  prisms order each supporting wall by screen depth, then draw its bodies before
+  its crowns, so a rear crown cannot overpaint a nearer wall. This retained
+  centroid ordering handles ordinary joined walls; intersecting walls are not
+  split into an exact visibility graph. Castle wall
   bodies omit mid-wall shadow stripes; the bottom silhouette and a quiet rear highlight define the edge.
 - Standing objects fade to half their normal opacity only when their art overlaps
   the player's inset body box and their world depth draws them in front. The
@@ -410,3 +422,22 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
 - Cave pressure plates use a low-opacity floor mark revealed within one body
   cell. Plate-controlled gas outlets use one cached metal-grate texture and
   the existing gas-cloud renderer; both grate and plate sort as ground objects.
+
+### GPU migration candidates
+
+Phaser AUTO already uses WebGL for sprites and Graphics when available.
+Measure CPU work and uploads before replacing another renderer. Lighting is the
+strongest next candidate: moving lights and flicker can trigger Canvas blending
+and a full lighting texture refresh. Cached light cookies and masks in a GPU
+render target could remove that work, but must preserve cover and reach fades.
+Dense gas Graphics are another profiling candidate; exploration fog is lower
+priority because it defaults off and changes mainly with cells or state. Roads
+and static terrain already amortize rasterization through cached textures and
+sliced rebuilds; replacing them with live geometry is not inherently faster.
+
+`tools/probe_wall_perspective.py` compares a dense nine-castle fixture under
+continuous injected device heading. It records frame CPU time, render submission,
+wall update time, and texture/buffer calls where WebGL is available. Run identical
+browser/backend settings against separate baseline and candidate servers.
+Headless CPU timings do not establish handset GPU time or a 120fps guarantee;
+validate on the target device before making that claim.

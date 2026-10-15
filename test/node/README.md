@@ -83,3 +83,11 @@ test('plain rock drops stone', () => {
 
 A new module the tests need goes into `FILES` in `run.js` (in `index.html`
 order); a new `const` export a test reads by bare name goes into the bridge.
+
+## Compass wall geometry
+
+`wall_perspective.test.js` covers constant screen-vertical height, face visibility
+for both polygon windings, retained geometry between frames, empty/depth mode
+transitions, merlon gaps, joined segments and wall ordering. Browser comparisons
+use `tools/probe_wall_perspective.py` with separate baseline and candidate URLs;
+its CPU timings are not target-phone GPU measurements.
