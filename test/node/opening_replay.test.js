@@ -65,7 +65,8 @@ test('opening: the FULL sequence is three slides, in order, each with its own ar
   // partly there (the CTA, then the world) with the story and the how-to
   // missing, so what the sequence IS gets pinned beside the flag that plays it.
   const slides = html.slice(html.indexOf('const STORY_SLIDES = ['), html.indexOf('let __storyStarted'));
-  const arts = [...slides.matchAll(/assets\/art\/(story_\w+)\.webp/g)].map((m) => m[1]);
+  const arts = [...slides.matchAll(/assets\/art\/(story_\w+)\.webp/g)].map((m) => m[1])
+    .filter(stem => stem !== 'story_nightmare_frame2');
   assert.eq(arts.length, 3, 'three slides');
   assert.eq(arts[0], 'story_nightmare', 'the nightmare comes before waking');
   assert.eq(arts[1], 'story_wake', 'then the trailer');
@@ -80,6 +81,16 @@ test('opening: the FULL sequence is three slides, in order, each with its own ar
     const d = webpDims('assets/art/' + stem + '.webp');
     assert.truthy(d && d.w > 0 && d.h > 0, `assets/art/${stem}.webp exists`);
   }
+});
+
+test('opening: both nightmare frames have matching dimensions and one accessible description', () => {
+  const first = webpDims('assets/art/story_nightmare.webp');
+  const second = webpDims('assets/art/story_nightmare_frame2.webp');
+  assert.truthy(first && second, 'both animation frames ship');
+  assert.eq(second.w, first.w, 'matching width avoids jumps during fades');
+  assert.eq(second.h, first.h, 'matching height avoids jumps during fades');
+  assert.truthy(/class="nightmare-frame-next"[^>]*alt="" aria-hidden="true"/.test(html),
+    'the second frame does not repeat the description to screen readers');
 });
 
 test('opening: the story plays FIRST, and the safety CTA waits for its last slide', () => {

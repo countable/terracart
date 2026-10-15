@@ -6,6 +6,11 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- The opening dragon-war dream crossfades between two aligned paintings on a
+  six-second loop, with both frames sharing the existing eight-second camera
+  push. Reduced-motion mode shows the first frame without zoom or crossfade.
+  The wake-up button timing and the three-slide opening sequence stay the same.
+
 - The inventory pet menu's **View info** opens an individual pet card with a
   128px portrait, description, current/max HP and damage per hit. Stats use
   `Combat.maxHp`, `Combat.petBlow` and `Pets.stats`, including accessories and

@@ -1,0 +1,7 @@
+{
+  "generator": "Built-in image_gen",
+  "reference": "assets/art/story_nightmare.webp",
+  "source": "~/.artifacts/terracart-art/art-source/paintings/raw/story_nightmare_frame2.png",
+  "prompt": "Edit only the LEFT HALF of this original dragon battle image. Make the five-headed red/dark hydra slightly move its heads: central red snout lowers a few pixels, pale front head raises a few pixels and closes jaw slightly, bottom dark head angles slightly upward. Tiny restrained motion, same five heads and necks, same identities. EVERYTHING IN RIGHT HALF MUST REMAIN EXACTLY UNCHANGED, especially the SINGLE white dragon head breathing ice near center-right and its wing silhouette across top right. The shape above its head is a WING, never another head. Do not draw anything new on right half, do not alter white dragon at all. Keep buildings, city, bridge, fire, smoke, canvas, crop and camera unchanged. Preserve original pixel art. We need a near-identical second frame for crossfade, only subtle LEFT hydra head movement, no new anatomy, no extra heads, no text.",
+  "export": "768x512 WebP, 128 colors, quality 85"
+}
