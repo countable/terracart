@@ -79,8 +79,29 @@
       assert.eq(wagon.footDx, HomeArea.WAGON_ART_FOOT.dx, 'its art stands with the door over the player\'s column');
       assert.eq(wagon.footDy, HomeArea.WAGON_ART_FOOT.dy, 'and its steps on the doorstep');
       const c = at(29, 31), pit = s.save.homeFirepit;
-      assert.truthy(pit.x > c.x && pit.y < c.y, 'the ring is drawn nudged toward the player');
+      near(pit.x, c.x, 'the ring is centred horizontally');
+      near(pit.y, c.y, 'the ring is centred vertically, farther from the trailer');
     });
+  });
+
+  test('home footing: old firepit and its lit fire centre together without changing cells or fire state', () => {
+    const centre = at(29, 31);
+    const pit = { x: centre.x + CELL_M * 0.25, y: centre.y - CELL_M * 0.25 };
+    const fire = { ...pit, depth: 0, litAt: 1234, fuel: 7 };
+    const caveFire = { ...pit, depth: 1, litAt: 5678 };
+    const distantFire = { ...at(40, 40), depth: 0 };
+    const s = scene({ homeFirepit: pit, fires: [fire, caveFire, distantFire] });
+    s.ensureStarterTrailerObject();
+    near(pit.x, centre.x, 'ring centre x');
+    near(pit.y, centre.y, 'ring centre y');
+    near(fire.x, pit.x, 'lit fire shares ring x');
+    near(fire.y, pit.y, 'lit fire shares ring y');
+    assert.eq(fire.litAt, 1234, 'fire timing preserved');
+    assert.eq(fire.fuel, 7, 'fire fuel preserved');
+    near(caveFire.x, centre.x + CELL_M * 0.25, 'cave fire untouched');
+    near(distantFire.x, at(40, 40).x, 'other cells untouched');
+    s.ensureStarterTrailerObject();
+    near(pit.x, centre.x, 'repeat injection is stable');
   });
 
   test('home footing: no firepit on water or a road', () => {

@@ -1137,11 +1137,8 @@ class SceneVenues {
       const c = absCellOffset(this, at.cellIX, at.cellIY, off.dx, off.dy);
       return absCellCenterMeters(this, c.cellIX, c.cellIY);
     };
-    const off = HomeArea.FIREPIT_OFFSET, pit = cellAt(off);
-    // Nudged toward the player inside its own cell (FIREPIT_NUDGE).
-    const nudge = HomeArea.FIREPIT_NUDGE * this.cellM;
-    this.save.homeFirepit = this._firepitGroundOK(pit.x, pit.y)
-      ? { x: pit.x - Math.sign(off.dx) * nudge, y: pit.y - Math.sign(off.dy) * nudge } : null;
+    const pit = cellAt(HomeArea.FIREPIT_OFFSET);
+    this.save.homeFirepit = this._firepitGroundOK(pit.x, pit.y) ? pit : null;
     const wagon = cellAt(HomeArea.WAGON_OFFSET);
     this._makeStarterTrailer(wagon.x, wagon.y);
   }
@@ -1186,6 +1183,23 @@ class SceneVenues {
     // depth's cave map (setDepth), so injecting here would drop a phantom
     // trailer into a cave tile. The trailer lives on the surface — depth 0.
     if ((this.depth || 0) !== 0) return;
+    // Older saves nudged this step-over prop toward the doorstep. Centre its
+    // existing cell once per saved ring; carry its surface fire with it so
+    // artwork, warmth and interactions keep one anchor without moving cells.
+    const pit = this.save.homeFirepit;
+    if (pit && this._centeredHomeFirepit !== pit) {
+      const cell = worldMetersToAbsCell(this, pit.x, pit.y);
+      const centre = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
+      for (const fire of this.save.fires || []) {
+        if (PlacedFloor.onDepth(fire, 0) && sameAbsCell(this, fire.x, fire.y, pit.x, pit.y)) {
+          fire.x = centre.x;
+          fire.y = centre.y;
+        }
+      }
+      pit.x = centre.x;
+      pit.y = centre.y;
+      this._centeredHomeFirepit = pit;
+    }
     const st = this.save.starterTrailer;
     // Only inject while the trailer is actually the active Home. If the player
     // has since adopted a real house (starterShopId points elsewhere), a stale

@@ -286,6 +286,10 @@ mechanics.
 - Home is `save.starterShopId`: the wagon, placed by `_placeHome` one cell
   north of the player (`HomeArea.WAGON_OFFSET`) with an empty firepit at their
   lower left (`FIREPIT_OFFSET`, `save.homeFirepit`; flint lights a fire in it).
+  This step-over prop sits at its cell centre, with its ring, fire, smoke and
+  step-up footprint sharing that anchor. Older saved rings are centred within
+  their existing cell; any surface fire moves with the ring, retaining its
+  state. Cave fires at the same coordinates are unaffected.
   Older saves may still have an adopted house, which draws as the wagon. Any
   unclaimed house on Home's footing (the wagon's 3x3 and the firepit cell) is
   erased entirely — footprint, outline and roof — by `clearHomeFooting`, a

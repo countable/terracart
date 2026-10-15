@@ -810,7 +810,7 @@
         scene.buildingWallContainer.add(sprite);
         const piece = {
           sprite, page, frame, slot, x, y, wx, wy, width: w, height: h, rank: 1,
-          ground: !crownPass,
+          background: !crownPass,
           // Lowest visible masonry, excluding transparent frame padding.
           groundY: (masonryBaseY - projY(0)) * scene.cellM / CELL_PX,
         };
