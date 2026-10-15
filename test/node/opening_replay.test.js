@@ -1,6 +1,6 @@
 // THE OPENING PLAYS FOR EVERY GAME, not once per device.
 //
-// A fresh game opens on three story slides, then the safety / "Go to my
+// A fresh game opens on four story slides, then the safety / "Go to my
 // location" CTA, then the how-to card. Whether that has happened is remembered
 // in localStorage (`terracart.introSeen`, `terracart.howtoSeen`): per-DEVICE
 // storage answering a per-GAME question, so "+ New game" must replay it too.
@@ -60,18 +60,19 @@ test('opening: the gate that reads the flag and the line that sets it spell the 
     'and sets it when the card is closed');
 });
 
-test('opening: the FULL sequence is three slides, in order, each with its own art', () => {
+test('opening: the FULL sequence is four slides, in order, each with its own art', () => {
   // "Full" is the point of this file: the bug showed as an opening that was
   // partly there (the CTA, then the world) with the story and the how-to
   // missing, so what the sequence IS gets pinned beside the flag that plays it.
   const slides = html.slice(html.indexOf('const STORY_SLIDES = ['), html.indexOf('let __storyStarted'));
   const arts = [...slides.matchAll(/assets\/art\/(story_\w+)\.webp/g)].map((m) => m[1])
-    .filter(stem => stem !== 'story_nightmare_frame2');
-  assert.eq(arts.length, 3, 'three slides');
-  assert.eq(arts[0], 'story_nightmare', 'the nightmare comes before waking');
-  assert.eq(arts[1], 'story_wake', 'then the trailer');
-  assert.eq(arts[2], 'story_wrecks', 'then the neighbourhood');
-  assert.truthy(/text: 'Awaken, from fitful dreams…', btn: 'wake up', nightmare: true/.test(slides),
+    .filter(stem => !stem.endsWith('_frame2'));
+  assert.eq(arts.length, 4, 'four slides');
+  assert.eq(arts[0], 'story_compass', 'discovery comes before the dream');
+  assert.eq(arts[1], 'story_nightmare', 'the nightmare comes before waking');
+  assert.eq(arts[2], 'story_wake', 'then the trailer');
+  assert.eq(arts[3], 'story_wrecks', 'then the neighbourhood');
+  assert.truthy(/text: 'That night you enter fitful dreams...', btn: 'wake up', nightmare: true/.test(slides),
     'the call to wake is spoken over the dream, beside its wake-up CTA');
   assert.truthy(/btn: 'Next'/.test(slides) && /btn: "Let's go"/.test(slides),
     'the last slide says where it is going, the first just turns the page');
@@ -83,14 +84,20 @@ test('opening: the FULL sequence is three slides, in order, each with its own ar
   }
 });
 
-test('opening: both nightmare frames have matching dimensions and one accessible description', () => {
-  const first = webpDims('assets/art/story_nightmare.webp');
-  const second = webpDims('assets/art/story_nightmare_frame2.webp');
-  assert.truthy(first && second, 'both animation frames ship');
-  assert.eq(second.w, first.w, 'matching width avoids jumps during fades');
-  assert.eq(second.h, first.h, 'matching height avoids jumps during fades');
-  assert.truthy(/class="nightmare-frame-next"[^>]*alt="" aria-hidden="true"/.test(html),
-    'the second frame does not repeat the description to screen readers');
+test('opening: all four frame pairs align, fade once and describe the image once', () => {
+  for (const stem of ['story_compass', 'story_nightmare', 'story_wake', 'story_wrecks']) {
+    const first = webpDims(`assets/art/${stem}.webp`);
+    const second = webpDims(`assets/art/${stem}_frame2.webp`);
+    assert.truthy(first && second, `${stem}: both animation frames ship`);
+    assert.eq(second.w, first.w, `${stem}: matching width avoids jumps during fades`);
+    assert.eq(second.h, first.h, `${stem}: matching height avoids jumps during fades`);
+  }
+  assert.eq((html.match(/class="story-frame-next"[^>]*alt="" aria-hidden="true"/g) || []).length, 4,
+    'second frames do not repeat descriptions to screen readers');
+  assert.truthy(html.includes('animation: story-crossfade 1.2s ease-in-out 1.5s forwards;'),
+    'each fresh frame pair waits 1.5 seconds and fades once, holding its final frame');
+  assert.truthy(/#story \.story-frame-next \{ animation: none; \}/.test(html),
+    'reduced motion leaves the first frame still');
 });
 
 test('opening: the story plays FIRST, and the safety CTA waits for its last slide', () => {
@@ -131,10 +138,14 @@ test('opening: wake up fades in with the end of the zoom, taps during the fade s
     startStory(() => { done = true; });
     const btn = nodes['story-next'], text = nodes['story-text'];
     const click = () => btn.handlers.click({ stopPropagation() {} });
+    assert.eq(btn.textContent, 'Next');
+    assert.eq(text.textContent, 'You find a strange compass, engraved with dragons and stars.');
+    assert.falsy(btn.disabled, 'discovery can advance immediately');
+    click();
     assert.eq(btn.textContent, 'wake up');
     assert.truthy(nodes.story.classes.has('nightmare'), 'nightmare gets the opaque backdrop and camera treatment');
     assert.falsy(text.hidden, 'the dream carries the call to wake');
-    assert.eq(text.textContent, 'Awaken, from fitful dreams…');
+    assert.eq(text.textContent, 'That night you enter fitful dreams...');
     assert.eq(btn.disabled, !reduced);
     if (!reduced) {
       assert.eq(delay, panMs - fadeMs, 'the button is held only while it is still fully invisible');
@@ -146,6 +157,7 @@ test('opening: wake up fades in with the end of the zoom, taps during the fade s
     }
     click();
     assert.eq(btn.textContent, 'Next');
+    assert.eq(text.textContent, 'You wake up in an unfamiliar trailer, memories a blur.');
     assert.falsy(nodes.story.classes.has('nightmare'), 'normal story panes restore their original framing');
     assert.falsy(btn.classes.has('nightmare-wake'));
     assert.falsy(text.hidden);
@@ -156,9 +168,9 @@ test('opening: wake up fades in with the end of the zoom, taps during the fade s
     click();
     assert.truthy(done && stored && nodes.story.removed);
   }
-  // "Skip intro" finishes the opening from the very first (dream) slide,
-  // even while the wake-up button is still held invisible.
-  {
+  // "Skip intro" finishes the opening from the discovery or dream,
+  // including while the wake-up button is still held invisible.
+  for (const skipFromDream of [false, true]) {
     const nodes = {};
     for (const id of ['story', 'story-art', 'story-text', 'story-next', 'story-skip']) nodes[id] = {
       style: { setProperty() {} }, handlers: {}, classList: { toggle() {} },
@@ -169,6 +181,7 @@ test('opening: wake up fades in with the end of the zoom, taps during the fade s
       { getElementById: id => nodes[id] }, { matchMedia: () => ({ matches: false }) },
       { setItem: () => { stored = true; } }, () => {}, () => {});
     startStory(() => { done = true; });
+    if (skipFromDream) nodes['story-next'].handlers.click({ stopPropagation() {} });
     nodes['story-skip'].handlers.click({ stopPropagation() {} });
     assert.truthy(done && stored && nodes.story.removed, 'skip ends the opening and marks it seen');
   }
