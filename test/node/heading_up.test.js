@@ -32,7 +32,7 @@ test('heading up: padded feet and airborne body use explicit ground anchor', () 
 });
 
 test('heading up: flat ground keeps camera rotation and connected placement', () => {
-  const sprite = huSprite({ _huGround: true }), saved = [];
+  const sprite = huSprite({ _worldLayer: WorldLayers.GROUND_DECAL }), saved = [];
   HeadingUp._upright(sprite, -Math.PI / 2, saved);
   assert.eq(saved.length, 0); assert.eq(sprite.rotation, 0);
   assert.eq(sprite.x, 130); assert.eq(sprite.y, 120);
@@ -64,8 +64,8 @@ test('heading up: screen depth follows rotated ground anchors and restores order
   const scene = huScene(Math.PI / 2);
   const east = huSprite({ _huAnchor: { x: 150, y: 100 }, depth: 1 });
   const west = huSprite({ _huAnchor: { x: 50, y: 100 }, depth: 2 });
-  const ground = huSprite({ _huGround: true, depth: 0 });
-  scene.worldContainer = { list: [ground, east, west] }; scene._worldGroundCount = 1;
+  const ground = huSprite({ _worldLayer: WorldLayers.GROUND_DECAL, depth: 0 });
+  scene.worldContainer = { list: [ground, east, west] }; scene._worldDecalCount = 1;
   HeadingUp._preRender(scene);
   assert.eq(scene.worldContainer.list[0], ground);
   assert.eq(scene.worldContainer.list[1], west);
@@ -149,7 +149,7 @@ test('heading up: contact shadows rotate about centre and captions keep origin',
  test('heading up: placed fires, torches, all lamps and dropped items stay upright', () => {
   const {RENDER_SPEC:spec}=Render.objectAppearance({},new Map());
   for(const kind of ['_fire','torch','_streetlamp','_scarecrow','groundstack']) {
-    assert.truthy(!spec[kind].ground || spec[kind].upright,kind+' stays upright');
+    assert.truthy(WorldLayers.forObject({kind},spec[kind]) !== WorldLayers.GROUND_DECAL,kind+' stays upright');
     for(const angle of [Math.PI/4,Math.PI/2,Math.PI]) {
       const scene=huScene(angle),sprite=huSprite({_huAnchor:{x:130,y:130}});
       scene.worldContainer={list:[sprite]};
@@ -158,5 +158,35 @@ test('heading up: contact shadows rotate about centre and captions keep origin',
       HeadingUp._postRender(scene);
     }
   }
-  assert.truthy(spec._firepit.ground,'empty stone ring stays on the ground');
+  assert.eq(WorldLayers.forObject({kind:'_firepit'},spec._firepit),WorldLayers.STEP_OVER_PROP,'cold firepit is a step-over prop');
  });
+
+test('heading up: supporting props remain below player after rotated depth sort', () => {
+  for (const angle of [Math.PI/2, Math.PI, -Math.PI/2]) {
+    const scene=huScene(angle);
+    const prop=huSprite({_stepSupport:true,_huAnchor:{x:120,y:120},depth:1});
+    const player=huSprite({_huAnchor:{x:100,y:100},depth:2});
+    const tree=huSprite({_huAnchor:{x:140,y:140},depth:3});
+    scene.worldContainer={list:[prop,player,tree]};scene.playerWorldContainer=player;
+    HeadingUp._preRender(scene);
+    assert.gt(scene.worldContainer.list.indexOf(player),scene.worldContainer.list.indexOf(prop));
+    HeadingUp._postRender(scene);
+  }
+});
+test('heading up: flat rune decals retain compass rotation below upright shadows', () => {
+  const scene=huScene(Math.PI/2);
+  const rune=huSprite({_worldLayer:WorldLayers.GROUND_DECAL});
+  scene.shadowContainer={list:[rune]};
+  HeadingUp._preRender(scene);assert.eq(rune.rotation,0);HeadingUp._postRender(scene);
+});
+
+test('heading up: retired support slots cannot change player depth', () => {
+  const scene=huScene(Math.PI/2);
+  const retired=huSprite({visible:false,_stepSupport:true,_huFoot:{x:200,y:100},depth:1});
+  const player=huSprite({_huAnchor:{x:100,y:100},depth:2});
+  const tree=huSprite({_huAnchor:{x:140,y:100},depth:3});
+  scene.worldContainer={list:[retired,player,tree]};scene.playerWorldContainer=player;
+  HeadingUp._preRender(scene);
+  assert.lt(scene.worldContainer.list.indexOf(player),scene.worldContainer.list.indexOf(tree));
+  HeadingUp._postRender(scene);
+});

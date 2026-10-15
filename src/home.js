@@ -56,7 +56,7 @@ const HomeArea = {
   // Where a placed Home sits, in cell offsets from the point it is placed
   // for (the player's first fix, or where they stand for "Move Home here"):
   // the wagon one cell NORTH, so the player starts on its doorstep, and an
-  // empty firepit one cell down and to their left. Every Home placement
+  // empty firepit centred one cell down and to their left. Every Home placement
   // reads these; nothing restates them.
   WAGON_OFFSET: { dx: 0, dy: -1 },
   FIREPIT_OFFSET: { dx: -1, dy: 1 },
@@ -66,10 +66,6 @@ const HomeArea = {
   // player's column, and down so the door's steps meet the doorstep cell —
   // the player stands right in front of the door, not a cell below it.
   WAGON_ART_FOOT: { dx: -0.37, dy: 0.7 },
-  // The firepit's ring is drawn this far (cells) from its cell's centre
-  // toward the player, so it sits by them without leaving its own cell (taps
-  // still resolve the cell). A fire lit in it burns on the same spot.
-  FIREPIT_NUDGE: 0.25,
   // Home's sign over the roof, nudged off its centred spot (render.js).
   SIGN_NUDGE_PX: { x: -3, y: 4 },
   // Smoke wisping off the cold pit (render.js): `puffs` soft grey puffs, each

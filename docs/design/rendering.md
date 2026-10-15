@@ -5,6 +5,42 @@ restoration. The root `CLAUDE.md` owns the overview; read this before changing
 rendering, lighting or street mechanics. Camera and art geometry live in
 [docs/art/map-perspective.md](../art/map-perspective.md).
 
+## World layers
+
+Use these terms for object presentation and walking behavior, not pixel height:
+
+| Category | Code value | Examples | Compass and walking behavior |
+| --- | --- | --- | --- |
+| Groundcover | `WorldLayers.GROUNDCOVER` | Terrain, nexus/variant textures, floors | Follows the map; no support lift |
+| Ground decals | `WorldLayers.GROUND_DECAL` | X marks, tar puddles, holes, flat rune rings | Above groundcover, below props; follows the map; no lift |
+| Step-over props | `WorldLayers.STEP_OVER_PROP` | Cold/lit firepit, rocks, rubble, bushes, low walls | Upright; supports the player's feet while crossing |
+| Standing props | `WorldLayers.STANDING_PROP` | Saplings, trees, lamps, dropped-item icons, houses | Upright; ordinary feet-based depth ordering; no support lift |
+
+`WorldLayers.forObject` uses the explicit `RENDER_SPEC.layer` for decals and
+`ObstacleStep.profile` for step-over props; all other objects are standing props.
+Do not infer a category from image size, shadows, or whether an object is lit.
+Saplings are standing props despite their small size. `ObstacleStep` measures
+support continuously from world coordinates, so stopping on a prop keeps the
+player raised; this is not a timed jump. Connected support masks stay in world
+coordinates when the artwork counterrotates.
+
+Resolved appearances carry `layer`; pooled sprites carry `_worldLayer`. The same
+category controls depth order, fading, and compass compensation. Ground decals
+always precede props. Both prop categories interleave with actors by ground
+anchor, with the player drawn above their current supporting props at every
+compass heading. `_worldDecalCount` marks that prefix for the rotated depth sort.
+Contact shadows are presentation attached to props, not ground decals; flat rune
+rings are decals and retain the map's rotation.
+
+The home firepit is centred in its designated cell, without an inward artwork
+nudge. The ring, matching fire, smoke, interaction and step-over footprint use
+that position. Its cold and lit states are both step-over props.
+
+Continuous architectural walls are background geometry, separate from object
+props (including interactable `stronghold_wall`). Their connected wall meshes
+remain attached to their ground footprints; they cannot use per-object billboard
+rotation without opening gaps between segments.
+
 ## Coordinates, rendering and performance
 
 - `Render.drawSpiderWebs` draws cell-sized ground silk below characters and
@@ -34,7 +70,7 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   from UI projections and inverse taps. Depth ≥ 90 draws on an
   unturned `uiCam`. Upright art counterrotates around explicit ground anchors
   and sorts by rotated feet only between `prerender` and `postrender`.
-  Ground art retains the map rotation. Body effects, tree fruit and tower
+  Groundcover and ground decals retain the map rotation. Body effects, tree fruit and tower
   flags share their owner's anchor; transparent frame padding is not a foot.
   Roof signs and DOM delivery bubbles use that same footprint anchor; batched
   sign boards and smoke counterrotate their drawing commands. Contact shadows
@@ -95,7 +131,7 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   the player's inset body box and their world depth draws them in front. The
   overlap uses cached trimmed `ART_BOUNDS`, with frame bounds for procedural
   art, and updates even on reused sprite slots. Moving clear restores the
-  original opacity; tool access never changes it. Ground art retains its own
+  original opacity; tool access never changes it. Ground decals retain their own
   opacity, and fruit overlays follow their tree.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;

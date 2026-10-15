@@ -45,7 +45,7 @@ test('player occlusion: base opacity survives repeated fades and ground art stay
   assert.eq(s.writes, writes, 'unchanged cached alpha requires no setter');
   Render.fadeObjectOverPlayer(s, appearance, null, 4, 0.6);
   assert.eq(s.alpha, 0.6, 'missing/hidden body restores the original style');
-  Render.fadeObjectOverPlayer(s, { ...appearance, ground: true }, box, 4, 0.6);
+  Render.fadeObjectOverPlayer(s, { ...appearance, layer: WorldLayers.GROUND_DECAL }, box, 4, 0.6);
   assert.eq(s.alpha, 0.6, 'ground art never obscures the body');
 });
 

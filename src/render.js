@@ -162,11 +162,12 @@ Render.enemyMeleeColor = function (c) {
   return c.shiny ? 0xffd36a : colors[SpriteLayout.baseKind(c.kind)] || 0xe8ecf0;
 };
 
-// Flat ground props always precede upright pieces. Within each lane, ground
-// anchors determine occlusion; rank only breaks exact ties, so stepping
+// Ground decals always precede props and actors. Within each lane, ground
+// anchors determine occlusion; architectural pieces may also mark a background
+// pass for wall bodies beneath crowns. Rank only breaks exact ties, so stepping
 // within one cell can still pass behind a tree.
 Render.sortWorldDepth = function (pieces) {
-  pieces.sort((a, b) => Number(!!b.ground) - Number(!!a.ground)
+  pieces.sort((a, b) => Number(!!b.background || b.layer === WorldLayers.GROUND_DECAL) - Number(!!a.background || a.layer === WorldLayers.GROUND_DECAL)
     || (a.groundY - b.groundY) || ((a.rank || 0) - (b.rank || 0)));
   let changed = false;
   pieces.forEach((piece, depth) => {
@@ -1048,6 +1049,14 @@ function resetSlot(s) {
   s.setAlpha(1).setAngle(0).setScale(1).setFlipX(false);
   s.clearTint();
 }
+// One classification feeds pooling, compass orientation and depth sorting.
+Render.itemLayer = function (item) {
+  if (item._appearance) return item._appearance.layer;
+  if (item.plate || item.h?.kind === 'gas' || (item.h?.type != null && item.h.type !== 'vent')) {
+    return WorldLayers.GROUND_DECAL;
+  }
+  return WorldLayers.forObject(item.o || (item.p && { ...item.p, kind: 'wildplant' }));
+};
 Render.renderPool = function renderPool(scene, pool, container, list, configure, create, reuse) {
   let i = 0, membershipChanged = false;
   for (const item of list) {
@@ -1061,6 +1070,9 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure,
     s._poolIdleSince = null;
     s.setActive?.(true);
     s.setVisible(true);
+    // Support membership can change even when cached artwork is reusable.
+    s._stepSupport = !!(item.o || item.p) && (scene._obstacleStep?.supports || [])
+      .some(o => (o._stepSource || o) === (item.o || item.p));
     // A still camera can leave a generated prop on the same pool slot with
     // identical appearance and style. Its caller proves that case here, so the
     // slot avoids both identity reset and every redundant Phaser setter.
@@ -1075,9 +1087,7 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure,
       if (s._huAnchor && item._appearance) {
         s._huAnchor = Render.objectGroundAnchor(item._appearance, scene.textures, s._huAnchor);
       }
-      s._huGround = container === scene.worldContainer && ((!!item._appearance?.ground && !item._appearance?.spec?.upright)
-        || !!item.plate || item.h?.kind === 'gas'
-        || (item.h?.type != null && item.h.type !== 'vent'));
+      s._worldLayer = container === scene.worldContainer ? Render.itemLayer(item) : WorldLayers.STANDING_PROP;
       configure(s, item);
     }
     i++;
@@ -3347,7 +3357,7 @@ function fadeLabelOverPlayer(tx, box) {
 // bounds, never texture pixels; untrimmed procedural art uses its frame box.
 Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha) {
   let obscures = false;
-  if (box && s.visible !== false && !appearance.ground && s.depth > playerDepth) {
+  if (box && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && s.depth > playerDepth) {
     const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
     const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
     const fw = art?.fw ?? s.frame?.realWidth ?? s.frame?.width ?? s.width;
@@ -4167,19 +4177,19 @@ Render.drawObjects = function drawObjects(scene) {
   Render.cullCovered(scene, whirlwindList, 'h');
   Render.cullCovered(scene, environmentList, 'h', true);
   Render.cullCovered(scene, pressureList, 'h', true);
-  for (const it of pressureList) zList.push({ it, rank: 2, ground: it.plate || it.h.kind === 'gas', groundY: groundY(it) });
+  for (const it of pressureList) zList.push({ it, rank: 2, layer: Render.itemLayer(it), groundY: groundY(it) });
   for (const it of environmentList) zList.push({ it, rank: 1,
-    ground: it.h.type !== 'vent', groundY: groundY(it) });
+    layer: Render.itemLayer(it), groundY: groundY(it) });
   for (const it of whirlwindList) zList.push({ it, rank: 3, groundY: groundY(it) });
   for (const it of plantedList) zList.push({ it, rank: 0,
     groundY: groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
   for (const it of filteredObj) zList.push({ it, rank: it.o.kind === 'tower' ? 2 : 1,
-    ground: it._appearance?.ground,
+    layer: Render.itemLayer(it),
     groundY: groundY(it, Render.objectGroundOffsetPx(it._appearance, scene.textures)) });
   for (const it of creatureList) zList.push({ it, rank: 3,
     groundY: groundY(it, SpriteLayout.CREATURE_GROUND_DY) });
   // The ground shadow stays below props. The raised body clears only its
-  // supporting mid-height pieces; tall trees retain ordinary depth ordering.
+  // supporting step-over props; standing props retain ordinary depth ordering.
   const playerGroundY = Math.max(playerWorldM(scene).y,
     ...zList.filter(row => supports.has(row.it?.o || row.it?.p)).map(row => row.groundY + 0.001));
   if (scene.playerWorldContainer) zList.push({ sprite: scene.playerWorldContainer,
@@ -4190,8 +4200,8 @@ Render.drawObjects = function drawObjects(scene) {
   let worldDepthDirty = Render.sortWorldDepth(zList) || !scene._worldDepthSorted
     || scene._worldDepthChildCount !== worldChildCountBefore;
   scene._worldDepthMembershipDirty = false;
-  // Ground pieces hold the lowest depths (heading_up.js keeps them first).
-  scene._worldGroundCount = zList.findIndex(row => !row.ground);
+  // Ground decals hold the lowest depths (heading_up.js keeps them first).
+  scene._worldDecalCount = zList.filter(row => row.layer === WorldLayers.GROUND_DECAL).length;
   // Phaser's Container.sort walks every pooled child. Mark the order dirty
   // only when a visible sprite's assigned depth actually changes; camera
   // motion changes screen positions but not the world-ground order.
@@ -4204,8 +4214,8 @@ Render.drawObjects = function drawObjects(scene) {
   // DERIVED from the table above (`shadow: true` beside `seat: true`). Buildings
   // (house/tower) get the bespoke footprint math below; every flagged row is a
   // seated sprite, so its shadow derives from the same trimmed art bounds the seat
-  // pass uses. Deliberately unflagged: `groundstack` (already on the ground) and
-  // `staircase` (a hole cut INTO the ground).
+  // pass uses. Small dropped-item icons omit extra shadows; down-stair decals
+  // are holes cut into the ground. Shadow styling does not choose the layer.
   // Soft contact shadows under everything that stands up, rendered into
   // shadowContainer (just below objectsContainer): a feathered dark ellipse at the
   // sprite's ground foot, sized to what actually touches the cell.
@@ -5341,6 +5351,7 @@ Render.drawObjects = function drawObjects(scene) {
     const pulseNow = performance.now();
     const bands = elites.flatMap(item => ['outer', 'inner'].map(band => ({ ...item, band })));
     Render.renderPool(scene, scene.eliteRingPool, scene.shadowContainer, bands, (s, item) => {
+      s._worldLayer = WorldLayers.GROUND_DECAL;
       const { x: sx, y: sy } = project(item.dx, item.dy);
       const size = ELITE_RING_PX * giantMul(item.c.kind) * creatureInstScale(item.c);
       const key = item.band === 'outer' ? 'elite_ring' : 'elite_ring_inner';
@@ -5607,7 +5618,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
 
   const RENDER_SPEC = {
     // Temples use their entire source polygon; no house sprite covers the runes.
-    temple: { key: null, ground: true },
+    temple: { key: null, layer: WorldLayers.GROUND_DECAL },
     shrine_spirit: {
       key: 'shrine_spirit',
       frame: () => { const art = SpriteLayout.SHRINE_SPIRIT_ART; return Math.floor(performance.now() / art.frameMs) % art.frames; },
@@ -5655,7 +5666,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // The down pit uses only the lower half of its sheet, centred in the
     // cell. The standalone up ladder keeps its full image.
     staircase: { key: (o) => o.elevator ? 'progression_tiles' : (o.dir === 'up' ? 'stair_up' : 'stair_down'),
-                 ground: (o) => !o.elevator && o.dir !== 'up',
+                 layer: (o) => !o.elevator && o.dir !== 'up' ? WorldLayers.GROUND_DECAL : WorldLayers.STANDING_PROP,
                  frame: (o, scene) => o.elevator ? (Elevators.isRepaired(scene?.save) ? 1 : 0) : (o.dir === 'up' ? '__BASE' : 'down'),
                  origin: [0.5, 0.5], scale: 1.0 },
     // Placed campfire — 16×32 art, foot-anchored near the logs so the flame
@@ -5664,9 +5675,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // → ~18px wide, comfortably inside one 32px cell (QC: one-cell interactable).
     // Seat off the logs (seatFrame 0) so the flickering flame doesn't bob the
     // sprite vertically frame-to-frame; the flame still rises out the top.
-    // Home's empty firepit — a flat ring of stones, drawn on the ground like
-    // the down pit; at the bonfire's scale so the two read as one pit.
-    _firepit: { key: 'firepit', ground: true, origin: [0.5, 0.5], scale: 1.1 },
+    // Home's empty firepit is a step-over prop, just like its lit state.
+    // Both share the cell centre and scale, so lighting it never moves it.
+    _firepit: { key: 'firepit', groundAtOrigin: true, origin: [0.5, 0.5], scale: 1.1 },
     _fire: { key: 'bonfire',
              frame: () => Math.floor(performance.now() / 130) % 6,
              origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true,
@@ -5684,9 +5695,6 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // (LAMP_GROUND_FRAC → STREET_LAMP_ORIGIN_Y). Sized through `after` rather than
     // `scale`: the art is sized in CELLS (LAMP_DRAW_CELLS) via setDisplaySize.
     _streetlamp: {
-      // Keep broken posts in their background depth lane, but upright.
-      ground: (o) => !o.lit,
-      upright: true,
       // The origin is the painted plinth's ground line. Canvas padding below
       // it belongs to the glow, not the base used to sort against feet.
       groundAtOrigin: true,
@@ -5858,13 +5866,13 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
     waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6 * 2 / 3, seat: true, shadow: true },
     stakes:   { key: 'approved_charred_stakes', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
-    ground_hole: { key: 'cave_chasm', frame: o => o._chasmMask ?? 15, origin: [0.5, 0.5], scale: 1, seat: false, ground: true },
+    ground_hole: { key: 'cave_chasm', frame: o => o._chasmMask ?? 15, origin: [0.5, 0.5], scale: 1, seat: false, layer: WorldLayers.GROUND_DECAL },
     // UNDERGROUND STREET SCATTER (src/underground.js decorate): the triple
     // stalagmites prop and an inert poison vent, 24px art at one cell like
     // the stakes. A vent lies flat; the stalagmites stand and cast a shadow.
     stalagmites: { key: 'cave_props', frame: 1, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
-    inactive_poison_vent: { key: 'poison_vent_inactive', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, ground: true },
-    tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, ground: true },
+    inactive_poison_vent: { key: 'poison_vent_inactive', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, layer: WorldLayers.GROUND_DECAL },
+    tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, layer: WorldLayers.GROUND_DECAL },
     // POI PROPS (worldgen.js). A NOTICE BOARD (an information POI) stands like
     // the waystone and reads a Book page the same way (INTERACTABLES.infoboard);
     // a GATE POST is one of the pair either side of a gate — scenery marking
@@ -5904,8 +5912,6 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // inventory icon can sit on the ground without per-kind plumbing.
     // Fallen wood always uses the grey log artwork (look 2).
     groundstack: {
-      ground: true,
-      upright: true,
       key: (o) => (inventoryIconSource(o.itemId) || {}).sheet || 'wood',
       frame: (o) => {
         // Quantity remains on the stack record; it does not change its artwork.
@@ -5913,7 +5919,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
         return (inventoryIconSource(o.itemId) || {}).frame ?? 0;
       },
       // Centred in the cell (origin y 0.5), NOT foot-anchored: ground stacks are
-      // flat props lying ON the tile, so they centre like the wildplants do (a 0.9
+      // small standing props centred like wildplants (a 0.9
       // anchor rendered a dropped stack ~12px high).
       //
       // Frame-box centring rather than the seat pass: this sprite's texture and
@@ -5967,8 +5973,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       dyPx -= lift;
       foot.footFromCentre -= lift;
     }
-    const ground = typeof spec.ground === 'function' ? !!spec.ground(o) : !!spec.ground;
-    return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot, ground };
+    const layer = WorldLayers.forObject(o, spec);
+    return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot, layer };
   };
   return { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseArtH, _houseFootPx, _houseArtMidPx };
 })();
