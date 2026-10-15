@@ -1,0 +1,129 @@
+/* The inventory shares one carved lower deck. All glyphs and actions remain
+   the live inventory controls; metal sockets never contain baked-in labels. */
+body.compass-hud {
+  --inventory-deck-width:calc(100vw - var(--phone-left,0px) - var(--phone-right,0px));
+  --inventory-floor:calc(24px + env(safe-area-inset-bottom, 0px));
+  --inventory-name-height:44px;
+  --inventory-slot-height:70px;
+  --inventory-tab-height:68px;
+}
+body.compass-hud #inv-tabs {
+  bottom:calc(var(--inventory-floor) + var(--inventory-name-height) + var(--inventory-slot-height) + 8px)!important;
+  height:var(--inventory-tab-height)!important;
+  left:calc(var(--phone-left, 0px) + 7px)!important;
+  right:calc(var(--phone-right, 0px) + 7px)!important;
+  gap:1px!important;padding:0!important;overflow:visible!important;
+  border:0;box-shadow:none;
+}
+body.compass-hud #inv-tabs .hud-tab {
+  flex:1 1 0!important;min-width:0!important;height:100%!important;
+  border:2px ridge #c4c5c0;border-radius:22px 22px 15px 15px!important;
+  background:linear-gradient(100deg,#747674,#bcbdb7 36%,#93958f 66%,#626661);
+  box-shadow:inset 0 0 0 2px #505551,inset 0 3px 5px #efeee1,0 1px 2px #101816;
+  gap:5px!important;padding:4px 0!important;opacity:1!important;
+}
+body.compass-hud #inv-tabs .hud-tab > .inventory-category-glyph {
+  color:#d7d8cf!important;filter:drop-shadow(0 1px 0 #242c28) drop-shadow(0 -1px 0 #f5f5eb)!important;
+  opacity:1!important;line-height:1;
+}
+body.compass-hud #inv-tabs .inventory-category-glyph svg {width:28px;height:28px;}
+body.compass-hud #inv-tabs .hud-tab > .inventory-category-caption {
+  color:#18221e!important;filter:none!important;font:600 clamp(8px,2.5vw,11px)/1 Georgia,serif!important;
+  letter-spacing:-.3px!important;text-shadow:0 1px #d9dad1;max-width:100%;
+}
+body.compass-hud #inv-tabs .hud-tab.sel {
+  border-color:#f6d878;background:linear-gradient(110deg,#80602a,#eed28b 40%,#b48435 70%,#d5b367);
+  box-shadow:inset 0 0 0 1px #fff0a4,inset 0 3px 5px #fff2ab,0 0 4px #eab348;
+}
+body.compass-hud #inv-tabs .hud-tab.sel > .inventory-category-glyph {color:#fff4c1!important;filter:drop-shadow(0 1px 1px #5b3510)!important;}
+body.compass-hud #inv-tabs .hud-pip {top:3px!important;right:3px!important;background:transparent;border:0;color:#29332b!important;filter:none!important;opacity:.8!important;font:700 8px/10px Georgia!important;padding:0!important;}
+body.compass-hud #inv {
+  bottom:calc(var(--inventory-floor) + var(--inventory-name-height) + 4px)!important;
+  height:var(--inventory-slot-height)!important;
+  left:calc(var(--phone-left,0px) + 8px)!important;right:calc(var(--phone-right,0px) + 8px)!important;
+  padding:3px 0!important;gap:4px!important;box-sizing:border-box;
+}
+body.compass-hud #inv .hud-slot {
+  flex:1 1 0!important;width:0!important;min-width:0;height:100%!important;
+  border:2px ridge #b4b8b0;border-radius:9px!important;
+  background:linear-gradient(135deg,#172222,#0c1416 60%,#263130);
+  box-shadow:inset 0 0 0 1px #030808,0 1px 1px #e1e1d2;
+  padding:0 0 8px;
+}
+body.compass-hud #inv .hud-slot.sel {
+  border-color:#ffdc6f;box-shadow:inset 0 0 0 1px #9e6c27,0 0 0 1px #e6ba59,0 0 5px #f2b42c;
+  background:linear-gradient(135deg,#384033,#131c19);
+}
+body.compass-hud #inv .hud-slot > .hud-badge {font:16px/18px Georgia,serif!important;bottom:2px!important;right:3px!important;padding:0!important;background:transparent!important;color:#f6f2e7!important;text-shadow:0 1px 2px #000;border:0;}
+body.compass-hud #inv .hud-btn {
+  flex:0 0 28px;width:28px!important;min-width:28px;height:100%!important;
+  border-radius:45%!important;border:2px ridge #c6c9bf;
+  background:linear-gradient(105deg,#696e67,#d4d5ca 45%,#8c9388);
+  box-shadow:inset 0 0 0 1px #565b52,0 1px 2px #101710;
+  color:#ddad38;text-shadow:0 1px #4e3e1e;font:700 25px Georgia!important;padding:0;
+}
+body.compass-hud #inv .inventory-pager {
+  flex:0 0 62px;height:100%;position:relative;display:flex;align-items:center;justify-content:center;
+  border:2px ridge #bcc1b5;border-radius:45%;box-sizing:border-box;
+  background:linear-gradient(100deg,#7a8077,#d2d6c9 48%,#7d867a);
+  box-shadow:inset 0 0 0 2px #586154,0 1px 1px #d5d6c9;
+}
+body.compass-hud #inv .inventory-pager .hud-btn {
+  position:absolute;top:0;width:22px!important;min-width:22px;z-index:2;
+  background:none;border:0;box-shadow:none;font-size:18px!important;
+}
+body.compass-hud #inv .inventory-pager [data-control=previous] {left:-3px;}
+body.compass-hud #inv .inventory-pager [data-control=next] {right:-3px;}
+body.compass-hud #inv .inventory-pager .hud-page {
+  min-width:0!important;padding:0!important;margin:0!important;border:0!important;box-shadow:none;background:none;
+  color:#20271e;font:600 17px Georgia,serif!important;pointer-events:none;
+}
+body.compass-hud #inv-name {
+  left:calc(var(--phone-left,0px) + 12px)!important;right:calc(var(--phone-right,0px) + 12px)!important;
+  bottom:var(--inventory-floor)!important;height:var(--inventory-name-height)!important;
+  border:3px ridge #c2c7bd;border-radius:24px!important;padding:2px 10px!important;
+  background:linear-gradient(#182425,#0d1718)!important;color:#f1eee4;
+  box-shadow:inset 0 0 0 2px #46534d,0 1px 2px #d3d6c8;
+  font:14px/17px Georgia,serif!important;text-shadow:0 1px #000;
+}
+body.compass-hud:has(.hud-action) #inv-name {right:calc(var(--phone-right,0px) + var(--inventory-deck-width) * .4 + 14px)!important;}
+body.compass-hud .hud-action {
+  bottom:var(--inventory-floor)!important;right:calc(var(--phone-right,0px) + 12px)!important;
+  width:calc(var(--inventory-deck-width) * .4 - 4px)!important;height:var(--inventory-name-height)!important;
+  justify-content:center;padding:4px 8px!important;border:3px ridge #f7da85!important;border-radius:24px!important;
+  color:#282006!important;background:linear-gradient(#ffe99b,#edbd48 40%,#c28d1d 85%,#f5cf65)!important;
+  box-shadow:inset 0 0 0 1px #78561c,inset 0 2px 4px #fff4ba,0 1px 2px #1c231c;
+  font:700 15px/16px Georgia,serif!important;text-shadow:0 1px #f4d981;
+}
+/* Potions have Drink + Throw; eggs retain both Eat + Hatch. Keep both real
+   actions reachable in the lower row instead of covering the item slots. */
+body.compass-hud:has(#potion-throw-btn) #inv-name,
+body.compass-hud:has(#eat-btn):has(#consumable-btn) #inv-name {right:calc(var(--phone-right,0px) + var(--inventory-deck-width) * .54 + 14px)!important;}
+body.compass-hud:has(#potion-throw-btn) .hud-action,
+body.compass-hud:has(#eat-btn):has(#consumable-btn) .hud-action {width:calc(var(--inventory-deck-width) * .26)!important;font-size:12px!important;gap:2px!important;padding:3px!important;}
+body.compass-hud #potion-throw-btn,
+body.compass-hud:has(#consumable-btn) #eat-btn {right:calc(var(--phone-right,0px) + var(--inventory-deck-width) * .27 + 12px)!important;}
+body.compass-hud #compass-inventory-shutter {
+  bottom:var(--inventory-floor);left:calc(var(--phone-left,0px) + 8px);right:calc(var(--phone-right,0px) + 8px);
+  height:calc(var(--inventory-name-height) + var(--inventory-slot-height) + var(--inventory-tab-height) + 8px);
+  border:3px ridge #bcc5bd;border-radius:24px;
+  background-image:url('../assets/ui/compass/reference-shutter.webp');
+  background-position:center;background-size:cover;letter-spacing:0;color:transparent;
+  font:600 20px Georgia,serif;text-shadow:none;
+}
+body.compass-hud #compass-inventory-shutter::after {
+  content:'Inventory';position:absolute;bottom:12px;left:25%;right:25%;padding:5px;
+  border:2px ridge #d0d1c8;border-radius:18px;background:linear-gradient(#e1e1d7,#9ba295);
+  color:#202820;text-shadow:0 1px #f0f0e6;box-shadow:0 0 0 2px #3e493e;
+}
+body.compass-hud #inv-tabs button:active,body.compass-hud #inv button:active,body.compass-hud .hud-action:active {filter:brightness(1.25);transform:translateY(1px);}
+body.compass-hud #inv-tabs button:focus-visible,body.compass-hud #inv button:focus-visible,body.compass-hud .hud-action:focus-visible {outline:2px solid #ffdc76;outline-offset:2px;}
+@media(max-height:650px) {
+  body.compass-hud {--inventory-floor:calc(8px + env(safe-area-inset-bottom,0px));--inventory-name-height:34px;--inventory-slot-height:50px;--inventory-tab-height:54px;}
+  body.compass-hud #inv-tabs .inventory-category-glyph svg {width:23px;height:23px;}
+  body.compass-hud #inv-tabs .hud-tab {gap:2px!important;}
+  body.compass-hud #inv .inventory-pager {flex-basis:52px;}
+  body.compass-hud #inv .hud-slot > .hud-badge {font-size:13px!important;}
+  body.compass-hud #inv-name {font-size:11px!important;line-height:13px!important;}
+  body.compass-hud .hud-action {font-size:12px!important;}
+}

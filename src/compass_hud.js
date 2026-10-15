@@ -31,6 +31,11 @@ const CompassHUD = {
       needle.className = 'compass-energy-needle';
       needle.setAttribute('aria-hidden', 'true');
       energy.prepend(needle);
+      const face = document.createElement('span');
+      face.className = 'compass-energy-face';
+      face.setAttribute('aria-hidden', 'true');
+      face.innerHTML = '<i></i><i></i><i></i><b>ϟ</b>';
+      energy.prepend(face);
       energy.tabIndex = 0;
       energy.setAttribute('role', 'button');
       energy.addEventListener('keydown', e => {
@@ -96,6 +101,38 @@ const CompassHUD = {
         }
       }
     }
+    // The owning road HUD still writes its accessible distance label. Re-seat
+    // those same characters in individual physical wheels after each update.
+    const distance = document.querySelector('#roadchip .road-num');
+    if (distance && !distance.querySelector('.compass-wheel')) {
+      const label = distance.textContent.trim();
+      const match = label.match(/^([\d.,]+)\s*(.*)$/);
+      if (match) {
+        distance.setAttribute('aria-label', label);
+        const digits = match[1].padStart(3, '0');
+        distance.replaceChildren();
+        for (const character of digits) {
+          const wheel = document.createElement('span');
+          wheel.className = 'compass-wheel' + (/\d/.test(character) ? '' : ' compass-wheel-separator');
+          wheel.textContent = character;
+          wheel.setAttribute('aria-hidden', 'true');
+          distance.append(wheel);
+        }
+        const unit = document.createElement('span');
+        unit.className = 'compass-wheel compass-wheel-unit';
+        unit.textContent = match[2];
+        unit.setAttribute('aria-hidden', 'true');
+        distance.append(unit);
+      }
+    }
+    const pad = document.getElementById('move-pad');
+    if (pad && !pad.querySelector('.compass-stick-directions')) {
+      const directions = document.createElement('span');
+      directions.className = 'compass-stick-directions';
+      directions.setAttribute('aria-hidden', 'true');
+      directions.innerHTML = '<i>▲</i><i>▶</i><i>▼</i><i>◀</i>';
+      pad.append(directions);
+    }
     const energy = document.getElementById('energy');
     const value = Math.max(0, scene.save.energy || 0), max = scene.getMaxEnergy();
     const key = `${value}|${max}`;
@@ -103,6 +140,8 @@ const CompassHUD = {
       scene._compassEnergy = key;
       energy.style.setProperty('--energy-angle', `${-65 + Math.min(1, value / Math.max(1, max)) * 130}deg`);
       energy.setAttribute('aria-label', `Energy ${value} of ${max}`);
+      const label = document.getElementById('energy-label');
+      if (label) label.textContent = value;
     }
     const bearing = document.querySelector('.compass-bearing');
     const angle = scene.mapRot || 0;

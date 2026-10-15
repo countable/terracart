@@ -10222,6 +10222,8 @@ class MapScene extends Phaser.Scene {
       const tab = document.createElement('button');
       tab.dataset.cat = c.key;
       tab.title = c.label;
+      tab.ariaLabel = c.label;
+      tab.ariaPressed = String(active);
       // Layout inline, paint from .hud-tab / .hud-tab.sel (index.html).
       tab.className = active ? 'hud-tab sel' : 'hud-tab';
       tab.style.cssText =
@@ -10232,7 +10234,8 @@ class MapScene extends Phaser.Scene {
       // tab's icon lights gold, inactive tabs show it dimmed, so the lit-up tab
       // reads as the current category at a glance.
       const glyph = document.createElement('span');
-      glyph.innerHTML = invCatIconHTML(c.key, 18);
+      glyph.className = 'inventory-category-glyph';
+      glyph.innerHTML = invCatIconHTML(c.key, 28);
       glyph.style.cssText = 'line-height:1;' + (active ? `color:${UI_GOLD};` : 'color:var(--bone);opacity:0.55;');
       tab.appendChild(glyph);
       // Word under the glyph. Seven unlabelled emoji left a new player guessing
@@ -10241,6 +10244,7 @@ class MapScene extends Phaser.Scene {
       // where there is nothing to hover.
       const caption = document.createElement('span');
       caption.textContent = c.label;
+      caption.className = 'inventory-category-caption';
       caption.style.cssText =
         'font:700 7px var(--font-ui);letter-spacing:-0.2px;line-height:1;' +
         'max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
@@ -10280,6 +10284,8 @@ class MapScene extends Phaser.Scene {
       const b = document.createElement('button');
       b.textContent = txt;
       b.className = 'hud-btn';
+      b.ariaLabel = txt === '⇅' ? 'Sort inventory' : txt === '◀' ? 'Previous inventory page' : 'Next inventory page';
+      b.dataset.control = txt === '⇅' ? 'sort' : txt === '◀' ? 'previous' : 'next';
       b.style.cssText = `width:${w}px;height:44px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;`;
       b.addEventListener('click', (e) => { e.stopPropagation(); onclick(); });
       return b;
@@ -10313,8 +10319,10 @@ class MapScene extends Phaser.Scene {
     // already wider than the 352px column (5×42 slots + 3×40 buttons + the
     // plate) cost both space and attention for nothing.
     const paged = pageCount > 1;
+    const pager = document.createElement('div');
+    pager.className = 'inventory-pager';
     if (paged) {
-      bar.appendChild(makeBtn('◀', () => {
+      pager.appendChild(makeBtn('◀', () => {
         this.save.invPage = (this.save.invPage - 1 + pageCount) % pageCount;
         persistSave(this.save); this.buildInventoryDOM();
       }));
@@ -10440,7 +10448,7 @@ class MapScene extends Phaser.Scene {
       bar.appendChild(slot);
     }
     if (paged) {
-      bar.appendChild(makeBtn('▶', () => {
+      pager.appendChild(makeBtn('▶', () => {
         this.save.invPage = (this.save.invPage + 1) % pageCount;
         persistSave(this.save); this.buildInventoryDOM();
       }));
@@ -10448,7 +10456,8 @@ class MapScene extends Phaser.Scene {
       pageLbl.textContent = `${this.save.invPage + 1}/${pageCount}`;
       pageLbl.className = 'hud-page';
       pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #4a4238;border-radius:11px;font:700 11px var(--font-ui);margin-left:4px;';
-      bar.appendChild(pageLbl);
+      pager.appendChild(pageLbl);
+      bar.appendChild(pager);
     }
 
     document.body.appendChild(bar);

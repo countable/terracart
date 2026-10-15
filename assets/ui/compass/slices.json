@@ -65,5 +65,51 @@
       ],
       "method": "Preserve original dimensions; fade alpha over48px at top and bottom to blend proportional shoulder ornaments into metal."
     }
+  },
+  "reference_atlas": {
+    "source": "/home/claude/.codex/generated_images/01a14036-de38-7371-93ef-6d140d42ac64/exec-c2a111fd-a65e-4717-b24d-423adb787242.png",
+    "dimensions": [
+      1536,
+      1024
+    ],
+    "slices": {
+      "reference-header": [
+        8,
+        8,
+        759,
+        294
+      ],
+      "reference-footer": [
+        777,
+        8,
+        1528,
+        295
+      ],
+      "reference-joystick": [
+        154,
+        307,
+        615,
+        718
+      ],
+      "reference-shutter": [
+        778,
+        315,
+        1526,
+        708
+      ],
+      "reference-panel-rail": [
+        8,
+        730,
+        758,
+        950
+      ],
+      "reference-shoulders": [
+        778,
+        727,
+        1526,
+        1014
+      ]
+    },
+    "joystick": "Circular collar normalized to square from atlas perspective; CSS circle clips outer background."
   }
 }

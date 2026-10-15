@@ -23,6 +23,12 @@ changing dialogue, story panels, books, toasts or status presentation.
   and closed module shutters. `tools/compass-hud-harness.html` previews active
   and closed states against a frozen sandbox. Opening wake/street sheets use
   an inert face made from the same slices before the game scene exists.
+  The approved consolidated reference uses odometer wheels above two separate
+  knowledge readouts, with gold controls and neutral silver passive surfaces.
+  `css/compass_inventory.css` seats embossed category sockets, item cartridges,
+  and the name/action plate; contextual actions keep their existing semantics.
+  Reference atlas crops live alongside their provenance in `assets/ui/compass/`.
+  Engravings retain their aspect ratio rather than stretching to viewport height.
 
 - Living-silver compass circuits persist their active state and pending
   one-time Dragon Spirit notices in `save.compassModules`. Inventory activates

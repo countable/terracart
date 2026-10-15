@@ -141,7 +141,7 @@ class SceneModals {
   //             something the player drives. Treasure ceremonies override it
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
-    textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose,
+    textAlign = 'center', wrapBg = '#0002', wrapExtra = '', boxExtra = '', onClose,
     kind, kindLabel, kindIcon, story = false, art, portrait, centerBody = false, fullscreen = false, delayInput } = {}) {
     // A dialog swapping itself in place (a pager turn, a tab) is the same
     // dialog already armed; a fresh story or event gets the arming second.
@@ -456,6 +456,8 @@ class SceneModals {
       const o = (opts && typeof opts === 'object') ? opts : { variant: opts ? 'primary' : 'ghost', disabled };
       const primary = o.variant !== 'ghost';
       const b = document.createElement('button');
+      b.classList.add('compass-action', primary ? 'compass-action-primary' : 'compass-action-ghost');
+      if (o.accent) b.classList.add('compass-action-accent');
       b.innerHTML = label;
       b.style.cssText =
         `padding:8px 14px;border-radius:6px;font:700 13px var(--font-ui);cursor:pointer;` +
@@ -528,6 +530,7 @@ class SceneModals {
     }
 
     const row = document.createElement('div');
+    row.className = 'modal-confirm-actions';
     row.style.cssText = 'display:flex;gap:8px;justify-content:center';
     const cancel = mkBtn(cancelLabel, false);
     const accept = mkBtn(acceptLabel, true);

@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=5cb6ca6f" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=b2496e85" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1214,8 +1214,9 @@
     #howto-mode-current span { font-weight: 400; color: #bbb; }
     #howto button#howto-close[hidden] { display: none; }
   </style>
-  <link rel="stylesheet" href="css/compass_hud.css?v=a3ca1551">
-  <link rel="stylesheet" href="css/compass_panels.css?v=72478be0">
+  <link rel="stylesheet" href="css/compass_hud.css?v=4ad54b6b">
+  <link rel="stylesheet" href="css/compass_inventory.css?v=2f6e2be2">
+  <link rel="stylesheet" href="css/compass_panels.css?v=6405aaaa">
 </head>
 <!-- `booting` hides the money/energy row until the scene has a real balance to
      put in it; MapScene.updateHUD drops the class on the first paint. -->
@@ -1429,9 +1430,9 @@
   <div id="story" class="game-modal" style="display:none">
     <div class="opening-compass" aria-hidden="true">
       <div class="opening-compass-header">
-        <span class="opening-sealed">Memories ◇</span><span class="opening-sealed">Books ◇</span>
+        <span class="opening-sealed">Memories</span><span class="opening-sealed">Books</span>
         <span class="opening-dial">· &nbsp; · &nbsp; ·<i></i></span>
-        <span class="opening-sealed opening-distance">Distance ◇</span>
+        <span class="opening-sealed opening-distance">Distance</span>
       </div>
       <div class="opening-compass-map"><span>▲<br>N</span><i>✧</i></div>
     </div>
@@ -1591,8 +1592,11 @@
       // opposite move — slide up under the chip, never past TOP_ROW, because
       // the chip is temporary chrome and the inventory below it is not. Only
       // the overflow that survives that runs under the inventory.
+      // The reference seats the circle directly below the instrument plate.
+      // Keep its width-based proportions on tall phones; short viewports can
+      // spend only the existing one-cell inventory overlap allowance.
       const mapTop = slack >= 0
-        ? TOP_CHROME + Math.min(28, spare * 0.35)
+        ? TOP_CHROME + Math.min(Math.max(0, mapH * 0.37 - TOP_CHROME), spare * 0.35)
         : Math.max(TOP_ROW, TOP_CHROME + slack);
       const mapBottom = mapTop + mapH;
       const top = mapTop - MAP_TOP_GAME * s;
@@ -3084,8 +3088,8 @@
   <script src="src/sandbox.js?v=68cfbb1d"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=0a205c42"></script>
-  <script src="src/art_thumbs.js?v=727d8766"></script>
-  <script src="src/modal_shell.js?v=530ae6a3"></script>
+  <script src="src/art_thumbs.js?v=4904d49b"></script>
+  <script src="src/modal_shell.js?v=d8e024c5"></script>
   <script src="src/scene_geo.js?v=0c08a5f0"></script>
   <script src="src/npc.js?v=eb1e1862"></script>
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
@@ -3093,7 +3097,7 @@
   <script src="src/scene_shops.js?v=3003dd4a"></script>
   <script src="src/heading_up.js?v=dd8b2b8b"></script>
   <script src="src/compass_modules.js?v=cb693548"></script>
-  <script src="src/compass_hud.js?v=f677e609"></script>
+  <script src="src/compass_hud.js?v=3a211216"></script>
   <script src="src/scene_create.js?v=19eda180"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=05d59b5d"></script>
@@ -3172,7 +3176,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=5cb6ca6f';
+      const APP_SRC = 'src/app.js?v=b2496e85';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

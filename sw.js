@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-29bfd6c9';
+const SHELL_VERSION = 'shell-85830c44';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -749,7 +749,7 @@ const ASSET_HASHES = {
   "assets/art/kind_rest.webp": "0552016e",
   "assets/art/kind_shop.webp": "345461ec",
   "assets/art/kind_slots.webp": "907b6057",
-  "assets/art/kind_spirit.webp": "6db4f841",
+  "assets/art/kind_spirit.webp": "5b722bf0",
   "assets/art/kind_supplies.webp": "bd6e166e",
   "assets/art/kind_trade.webp": "82efae87",
   "assets/art/kind_trail.webp": "3b4ff21b",
@@ -916,6 +916,12 @@ const ASSET_HASHES = {
   "assets/ui/compass/joystick.webp": "5d57c13f",
   "assets/ui/compass/living-silver-body.webp": "4b3053a8",
   "assets/ui/compass/panel-top.webp": "02579d75",
+  "assets/ui/compass/reference-footer.webp": "0a76137f",
+  "assets/ui/compass/reference-header.webp": "807654d9",
+  "assets/ui/compass/reference-joystick.webp": "536d7bc5",
+  "assets/ui/compass/reference-panel-rail.webp": "d9048229",
+  "assets/ui/compass/reference-shoulders.webp": "1775a00a",
+  "assets/ui/compass/reference-shutter.webp": "d7173e65",
   "assets/ui/compass/shutter.webp": "10149ae7",
   "assets/ui/compass/silver-metal.webp": "a265599d"
 };
