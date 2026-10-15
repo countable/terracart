@@ -1373,8 +1373,8 @@ const TAP_HANDLERS = [
       return !groundObjectBlocker(scene, save, cwmx, cwmy, at.half);
     },
     place: ({ scene, save, cwmx, cwmy }) => {
-      // Home's firepit is drawn off its cell's centre (HomeArea.FIREPIT_NUDGE);
-      // a fire lit in it burns on the ring, not beside it.
+      // Share the saved ring's anchor, including a legacy save that has not
+      // yet had its firepit centred by ensureStarterTrailerObject.
       const pit = save.homeFirepit;
       const spot = pit && PlacedFloor.isSurface(scene.depth) && sameAbsCell(scene, pit.x, pit.y, cwmx, cwmy)
         ? pit : { x: cwmx, y: cwmy };

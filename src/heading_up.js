@@ -253,17 +253,25 @@ const HeadingUp = {
         up(o);
       }
     }
-    // Feet lower on the TURNED screen draw in front; ground pieces
-    // (Render.sortWorldDepth's lane, scene._worldGroundCount) stay first.
+    // Feet lower on the TURNED screen draw in front; ground decals
+    // (Render.sortWorldDepth's decal lane, scene._worldDecalCount) stay first.
     const wc = scene.worldContainer;
     if (wc) {
-      const g = scene._worldGroundCount || 0;
+      const g = scene._worldDecalCount || 0;
       scene._huOrder = wc.list.slice();
       const s = Math.sin(a), c = Math.cos(a);
       const key = new Map();
       for (const o of wc.list) {
         const f = o._huFoot || HeadingUp._firstFoot(o);
         key.set(o, f ? s * f.x + c * f.y : 0);
+      }
+      // A raised player must clear the supporting step-over prop at every
+      // compass heading; standing props retain ordinary feet ordering.
+      const player = scene.playerWorldContainer;
+      if (player && key.has(player)) {
+        for (const o of wc.list) {
+          if (o.visible && o._stepSupport) key.set(player, Math.max(key.get(player), key.get(o) + 0.001));
+        }
       }
       wc.list.sort((p, q) => {
         const pg = p.depth < g, qg = q.depth < g;
@@ -300,7 +308,7 @@ const HeadingUp = {
   // Turn standing art back around its explicit ground anchor. Legacy art
   // falls back to frame feet; only identity grouping containers recurse.
   _upright(o, rot, saved) {
-    if (!o.visible || o._huGround) return;
+    if (!o.visible || o._worldLayer === WorldLayers.GROUND_DECAL || o._worldLayer === WorldLayers.GROUNDCOVER) return;
     if (o.type === 'Container') {
       if (!o._huAnchor && o.x === 0 && o.y === 0 && !o.rotation
           && (o.scaleX ?? 1) === 1 && (o.scaleY ?? 1) === 1) {

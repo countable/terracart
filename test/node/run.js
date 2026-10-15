@@ -146,7 +146,7 @@ const FILES = [
 const BRIDGE = `;Object.assign(globalThis, {
   Arena,
   GasRender,
-  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, CharacterPortraits, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, Visibility,
+  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, CharacterPortraits, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, WorldLayers, Visibility,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
   REACH_CORNER_PX, ReachCorner,

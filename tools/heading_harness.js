@@ -159,7 +159,7 @@ window.installHeadingHarness = function installHeadingHarness() {
       const playerFootError=foot ? Math.hypot(foot.x-expectedFoot.x,foot.y-expectedFoot.y) : 0;
       const uprightError=Math.abs(before.rotation + HeadingUp.angle(scene));
       const objectUprightError = Math.max(0, ...scene.objectPool
-        .filter(o=>o.visible && !o._huGround)
+        .filter(o=>o.visible && o._worldLayer !== WorldLayers.GROUND_DECAL)
         .map(o=>Math.abs(Math.sin(o.rotation + HeadingUp.angle(scene)))));
       const shadowAnchorError = Math.max(0, ...scene.shadowPool
         .filter(o=>o.visible && o._huAnchor)
