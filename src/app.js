@@ -3100,6 +3100,7 @@ class MapScene extends Phaser.Scene {
     this._tickPeek(dt);
     this._tickMapZoom(dt);
     this._tickHomeIntro(dt);
+    HeadingUp.tick(this, dt);
     this._applyMapZoom();
     // Everything drawn AT the player rather than at a world position rides
     // this: the camera is normally on them, so it's the viewport centre, but a
@@ -3180,7 +3181,12 @@ class MapScene extends Phaser.Scene {
     if (this._fastWalk) speedMul = 25;
     this._stepDebugGps(dt);
     // The movement stick — always on screen, always live.
-    const stick = (this._movePadHeld && this.joystickVec) ? this.joystickVec : null;
+    let stick = (this._movePadHeld && this.joystickVec) ? this.joystickVec : null;
+    // A heading-up map: the stick and keys push in SCREEN directions.
+    if (HeadingUp.active(this)) {
+      if (stick) stick = HeadingUp.toWorldVec(this, stick.x, stick.y);
+      ({ x: vx, y: vy } = HeadingUp.toWorldVec(this, vx, vy));
+    }
     // ONE movement model, at every depth and under every buff (see
     // _steerTarget / _followStep): inputs and GPS fixes move a free-flying
     // TARGET, and the opaque body — still this.playerM, so the camera and the
@@ -5806,9 +5812,10 @@ class MapScene extends Phaser.Scene {
   // which is the space every tap path, cell hit test and edge dot measures in.
   _unzoomPt(pt) {
     const z = this.mapZoom || 1;
-    if (z === 1) return pt;
-    return { x: this.viewCenterX + (pt.x - this.viewCenterX) / z,
-             y: this.viewCenterY + (pt.y - this.viewCenterY) / z };
+    // A heading-up map turns the picture too (heading_up.js): undo both.
+    const r = HeadingUp.toWorldVec(this, (pt.x - this.viewCenterX) / z, (pt.y - this.viewCenterY) / z);
+    if (z === 1 && r.x === pt.x - this.viewCenterX && r.y === pt.y - this.viewCenterY) return pt;
+    return { x: this.viewCenterX + r.x, y: this.viewCenterY + r.y };
   }
 
   // Put the zoom on the camera, once per frame. At 1× the camera is
@@ -5820,11 +5827,13 @@ class MapScene extends Phaser.Scene {
     const cam = this.cameras?.main;
     if (!cam) return;
     const z = this.mapZoom || 1;
+    const rot = HeadingUp.angle(this);
     const chrome = this._mapChrome || [];
-    if (z === 1) {
+    if (z === 1 && !rot) {
       if (!this._mapZoomOn) return;
       this._mapZoomOn = false;
       cam.setViewport(0, 0, W * RENDER_SCALE, H * RENDER_SCALE);
+      cam.setRotation(0);
       applyRenderScale(cam);
       for (const g of chrome) g.setPosition(0, 0).setScale(1);
       return;
@@ -5835,9 +5844,14 @@ class MapScene extends Phaser.Scene {
     const vs = Math.round(this.viewSize * rs);
     cam.setViewport(vx, vy, vs, vs);
     cam.setZoom(k);
-    // Device px = viewport + k·(logical − scroll); the centre keeps rs·centre.
-    const sx = this.viewCenterX - (rs * this.viewCenterX - vx) / k;
-    const sy = this.viewCenterY - (rs * this.viewCenterY - vy) / k;
+    cam.setRotation(rot);
+    // Device px = viewport + R·k·(logical − scroll), R the heading-up turn
+    // (camera origin 0, so it pivots on the viewport corner); solving for the
+    // centre keeping rs·centre puts R⁻¹ on the corner-to-centre offset.
+    const ax = rs * this.viewCenterX - vx, ay = rs * this.viewCenterY - vy;
+    const c = Math.cos(rot), s = Math.sin(rot);
+    const sx = this.viewCenterX - (c * ax + s * ay) / k;
+    const sy = this.viewCenterY - (-s * ax + c * ay) / k;
     cam.setScroll(sx, sy);
     for (const g of chrome) g.setScale(1 / z).setPosition(sx - vx / k, sy - vy / k);
   }

@@ -4142,6 +4142,8 @@ Render.drawObjects = function drawObjects(scene) {
   let worldDepthDirty = Render.sortWorldDepth(zList) || !scene._worldDepthSorted
     || scene._worldDepthChildCount !== worldChildCountBefore;
   scene._worldDepthMembershipDirty = false;
+  // Ground pieces hold the lowest depths (heading_up.js keeps them first).
+  scene._worldGroundCount = zList.findIndex(row => !row.ground);
   // Phaser's Container.sort walks every pooled child. Mark the order dirty
   // only when a visible sprite's assigned depth actually changes; camera
   // motion changes screen positions but not the world-ground order.
