@@ -27,13 +27,13 @@
     s._drawEdgeDotLabel = (row, target, marker, point) => labelled.push({ row, marker, point });
     const point = s._drawEdgeDot(40, 0, lifted.STARTER_MARK.color);
     s._drawEdgeDotLabel(lifted.STARTER_MARK, {}, { label: lifted.starterGoalLabel({ event: 'till' }, { x: 1, y: 1 }) }, point);
-    assert.ok(point && s.circles.length === 2, 'drawn as the rim dot');
-    assert.equal(labelled[0].row.source, 'Tutorial');
-    assert.equal(labelled[0].marker.label, 'Plot');
-    assert.equal(lifted.starterGoalLabel({ event: 'plant' }, { id: 'chest_start_1', crate: true }), 'Supply crate');
-    assert.equal(lifted.starterGoalLabel({ event: 'chest' }, { id: 'chest_start_9' }), 'Relic chest');
+    assert.truthy(point && s.circles.length === 2, 'drawn as the rim dot');
+    assert.eq(labelled[0].row.source, 'Tutorial');
+    assert.eq(labelled[0].marker.label, 'Plot');
+    assert.eq(lifted.starterGoalLabel({ event: 'plant' }, { id: 'chest_start_1', crate: true }), 'Supply crate');
+    assert.eq(lifted.starterGoalLabel({ event: 'chest' }, { id: 'chest_start_9' }), 'Relic chest');
     const block = SCENE_SRC.slice(SCENE_SRC.indexOf('// Starter guidance'), SCENE_SRC.indexOf('// Starter guidance') + 3000);
-    assert.ok(block.includes('_drawEdgeDot(goal.x') && !block.includes('_drawEdgeCompass('), 'the starter bearing is a dot');
+    assert.truthy(block.includes('_drawEdgeDot(goal.x') && !block.includes('_drawEdgeCompass('), 'the starter bearing is a dot');
   });
   test('edge labels: source and destination stay inside the map and stack without overlap', () => {
     const s = fixture();
