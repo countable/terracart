@@ -145,8 +145,9 @@ test('downed: everything hung on the body\'s centre goes down WITH it', () => {
   // In update() the same answer is taken ONCE into a local and shared by the
   // sprite and every label over its head. (update() is far too long for
   // methodBody's brace trick, so this is the span from the projection down to
-  // the footprint trail — the sprite seat, the three powder countdowns and the
-  // facing arrow, i.e. everything in the frame measured off the body centre.)
+  // the footprint trail — the sprite seat and the three powder countdowns,
+  // i.e. everything in the frame measured off the body centre; the facing
+  // chevron in the same span is a ground mark on pScreen.)
   const upd = (() => {
     const a = app.indexOf('    const pScreen = this.playerScreen();');
     const b = app.indexOf('// Footprint trail.', a);
