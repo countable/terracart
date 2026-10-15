@@ -1065,7 +1065,7 @@ class SceneCreate {
     // Player sprite — not interactive so taps on it fall through to the world
     // handler (which then treats the tap as if it were the cell under the player).
     // Depth 10: above the footprint trail (9) so dots can't draw on the
-    // character's face, below the facing-arrow overlay (11).
+    // character's face, below the rim-bearing overlay (11).
     //
     // The base scale is the cyan farmer's own (SpriteLayout.PLAYER_ART.farmer:
     // 16px frames at 1.5, a 24px body a little under a cell — the size every
@@ -1180,13 +1180,17 @@ class SceneCreate {
     this._autoMineKey = null;
     this._followPaused = false;
     this._detourHold = null;
-    // Facing direction indicator — arrow rendered via Graphics, pointed in the
-    // direction of the device compass (or last movement as a fallback).
+    // Overlay for the rim bearings (edge compass and edge dots), above the body.
     this.facingGfx = this.add.graphics().setDepth(11).setMask(mask);
+    // Facing chevron — painted on the ground ahead of the feet, pointed along
+    // the device compass (or last movement as a fallback). A ground mark, so
+    // it sits with the shadow and trail under the body (9.6: over the
+    // shadow, under the halo) and tucks behind the legs when facing north.
+    this.facingChevronGfx = this.add.graphics().setDepth(9.6);
+    this.shadowContainer.add(this.facingChevronGfx);
     this.compassDeg = null; // degrees clockwise from north, or null if no sensor
-    // Bow / staff shots in flight (see _combatTick). Drawn just above the
-    // facing arrow — a shot travels along that arrow, so it has to read as
-    // coming off the tip rather than sliding under it.
+    // Bow / staff shots in flight (see _combatTick). Drawn above the body and
+    // the rim bearings, so a shot reads as leaving the player.
     this.projGfx = this.add.graphics().setDepth(12).setMask(mask);
     // The staff's bolts and its charging orb are not Graphics: they are soft
     // baked glows (_boltGlowKey) with ADD blending, pooled in their own layer
@@ -1208,8 +1212,8 @@ class SceneCreate {
     this.enemyHealthGfx = this.add.graphics().setDepth(94).setMask(mask);
     // Sword-swing slash — a short arc drawn near the player, toward whatever
     // it's engaged with, on the same beat the melee wheel's damage numbers
-    // pop (see Render.MELEE_LOOKS / _drawSwordSwing). Depth 11: same tier as the
-    // facing arrow, above the body (10).
+    // pop (see Render.MELEE_LOOKS / _drawSwordSwing). Depth 11: above the
+    // body (10).
     this.swordSwingGfx = this.add.graphics().setDepth(11);
     this.playerWorldContainer.add(this.swordSwingGfx);
     this.playerWorldContainer.sort('depth');

@@ -876,6 +876,12 @@ const FOOT_STANCE_HALF_ART_PX = 2;   // half the sprite's stance, in frame px
 const PLAYER_FEET_DROP_PX = SpriteLayout.PLAYER_ART.farmer.footDrop;
 const PLAYER_FRAME_PX = SpriteLayout.PLAYER_ART.farmer.fh;
 const PLAYER_ART_SCALE = SpriteLayout.PLAYER_ART.farmer.scale;
+// THE FACING CHEVRON (_drawMarkers): an open V on the ground ahead of the
+// feet, in screen px along the heading (tip, arm) and across it (halfW).
+// TILT squashes ground-plane screen-y for the south camera, so north/south
+// headings read shorter than east/west, as floor paint would.
+const FACING_CHEVRON = { tip: 16, arm: 10, halfW: 4.5, outlineW: 3.2, fillW: 1.6 };
+const FACING_CHEVRON_TILT = 0.6;
 // THE COLLAPSE POSE. At zero energy the player is not standing: the reach is 0,
 // nothing hunts them, no trap springs under them (Combat.playerDowned — the one
 // expression all of that reads). A body that is upright in the picture while
@@ -3390,33 +3396,38 @@ class MapScene extends Phaser.Scene {
       this._houseMutter();
     }
 
-    // Facing-direction indicator: yellow triangle arrow at the player's head,
-    // pointing in the compass heading (or last movement, as fallback). It
-    // rides the player's head at every depth.
-    this.facingGfx.clear();
+    // Facing chevron: an open gold V painted on the ground ahead of the feet,
+    // pointing along the compass heading (or last movement, as fallback).
+    // A ground mark, so it is measured from the feet (pScreen), not the body,
+    // and its screen-y is squashed by FACING_CHEVRON_TILT for the south
+    // camera's tilt (map-perspective.md).
+    this.facingChevronGfx.clear();
     const fmag = Math.hypot(this.facing.x, this.facing.y);
     if (fmag > 0.001) {
       const fx = this.facing.x / fmag, fy = this.facing.y / fmag;
-      // perpendicular for the base of the triangle
-      const px = -fy, py = fx;
-      // Arrow geometry, all measured from the anchor point so the whole shape
-      // scales about it. SCALE 0.85 = 15% smaller than the sizes it was drawn
-      // at before (tip 22 / base 14 / halfW 6).
-      const SCALE = 0.85;
-      const tip = 22 * SCALE; // distance from anchor to arrow tip
-      const base = 14 * SCALE; // distance from anchor to arrow base midpoint
-      const halfW = 6 * SCALE; // half-width of the base
-      // Head offset: how far ABOVE the sprite's centre the arrow is anchored.
-      // 0 sits it on the centre, negative nudges it below — it rode 2px high
-      // once, and now sits 1px under centre, where it lines up with the art.
-      const HEAD_DY = -1;
-      // The sprite's centre is its ground point plus bodyDy (the feet are on
-      // the point and the body rises above it — until it collapses onto it).
-      const cx = pScreen.x, cy = pScreen.y + bodyDy - HEAD_DY;
-      const tx = cx + fx * tip, ty = cy + fy * tip;
-      const blx = cx + fx * base + px * halfW, bly = cy + fy * base + py * halfW;
-      const brx = cx + fx * base - px * halfW, bry = cy + fy * base - py * halfW;
-      this._drawArrowTriangle(this.facingGfx, tx, ty, blx, bly, brx, bry, 0.85, 0xffd24a);
+      // (along, across) on the ground → screen, y foreshortened.
+      const ground = (u, v) => ({
+        x: pScreen.x + fx * u - fy * v,
+        y: pScreen.y + (fy * u + fx * v) * FACING_CHEVRON_TILT,
+      });
+      const { tip, arm, halfW } = FACING_CHEVRON;
+      const pts = [ground(arm, halfW), ground(tip, 0), ground(arm, -halfW)];
+      const g = this.facingChevronGfx;
+      // Graphics has no round caps or joins, so a dot of the stroke's width
+      // at each vertex rounds the ends and closes the apex.
+      const stroke = (w, color, alpha, dy) => {
+        g.lineStyle(w, color, alpha);
+        g.beginPath();
+        g.moveTo(pts[0].x, pts[0].y + dy);
+        g.lineTo(pts[1].x, pts[1].y + dy);
+        g.lineTo(pts[2].x, pts[2].y + dy);
+        g.strokePath();
+        g.fillStyle(color, alpha);
+        for (const p of pts) g.fillCircle(p.x, p.y + dy, w / 2);
+      };
+      stroke(FACING_CHEVRON.outlineW, 0x000000, 0.45, 1);   // drop shadow
+      stroke(FACING_CHEVRON.outlineW, 0x1a1208, 1, 0);      // dark outline
+      stroke(FACING_CHEVRON.fillW, 0xffd24a, 1, 0);         // gold
     }
 
     // Footprint trail. Each ~2m the player moves, fade existing dots by 10%

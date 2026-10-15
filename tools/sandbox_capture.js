@@ -33,7 +33,7 @@ window.setupSandboxCapture = async function setupSandboxCapture(options = {}) {
   const origin = {x:pc.tx*entry.tileEdgeM+ox*cellM,y:pc.ty*entry.tileEdgeM+oy*cellM};
   const labels = scene._sandboxLabelData.map(d=>({name:d.t.text,x:(d.wx-origin.x)/cellM-.5,y:(d.wy-origin.y)/cellM-.5}));
   // Phaser updates are paused: actors keep their captured positions and poses.
-  const hidden = ['fogContainer','lightMap','atmosGroundGfx','atmosRimGfx','reachGfx','auraContainer','fxContainer','sparkContainer','labelContainer','letterContainer','_sandboxLabels','ghostGlowContainer','tierGfx','enemyHealthGfx','_workProgressGfx','player','playerShadow','playerHalo','gpsGhost','blightAura','facingGfx','projGfx','swordSwingGfx','boltContainer'];
+  const hidden = ['fogContainer','lightMap','atmosGroundGfx','atmosRimGfx','reachGfx','auraContainer','fxContainer','sparkContainer','labelContainer','letterContainer','_sandboxLabels','ghostGlowContainer','tierGfx','enemyHealthGfx','_workProgressGfx','player','playerShadow','playerHalo','gpsGhost','blightAura','facingGfx','facingChevronGfx','projGfx','swordSwingGfx','boltContainer'];
   function hide() {
     for (const key of hidden) {
       const obj = scene[key];
