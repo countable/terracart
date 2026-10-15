@@ -979,9 +979,8 @@
       animation: iconpulse 1s ease-in-out infinite alternate;
     }
     @keyframes iconpulse { from { opacity: .45; } to { opacity: .95; } }
-    /* Opening paintings fill the panel width, like in-game scene art.
-       The landscape originals stay uncropped, with the copy below them.
-       These two slides precede the safety message on a fresh save. */
+    /* Four opening paintings precede the safety message on a fresh save.
+       Keep the complete composition visible, with readable copy below it. */
     #story {
       position: fixed; inset: 0; z-index: 101;
       background: rgba(0, 0, 0, 0.82);
@@ -1024,21 +1023,38 @@
       display: block; min-height: 0; aspect-ratio: 3 / 2; overflow: hidden;
       border-radius: 6px;
     }
+    #story .story-frames {
+      position: relative; width: 100%; height: 100%;
+    }
+    #story .story-frame-next {
+      position: absolute; inset: 0; opacity: 0;
+      animation: story-crossfade 1.2s ease-in-out 1.5s forwards;
+    }
+    @keyframes story-crossfade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @media (max-width: 600px) {
+      #story {
+        padding: env(safe-area-inset-top) 0 calc(max(12px, env(safe-area-inset-bottom)) + 48px);
+        background: #1a1612;
+      }
+      #story .box {
+        display: flex; flex-direction: column; width: 100%; max-width: none; height: 100%;
+        border: 0; border-radius: 0; box-shadow: none;
+      }
+      #story .art, #story.nightmare .art {
+        flex: 1; min-height: 180px; aspect-ratio: auto; border-radius: 0; overflow: hidden;
+      }
+      #story .opening-copy { flex: 0 0 auto; padding: 20px max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left)); }
+    }
     /* The camera's slow push toward Tiamat, STORY_PAN_MS long (the script
        sets the variable from the one constant the wake-up timing is derived
        from). */
-    #story.nightmare .nightmare-frames {
+    #story.nightmare .story-frames {
       position: relative; width: 100%; height: 100%;
       display: block; transform-origin: top left;
       animation: nightmare-pan var(--nightmare-pan-ms, 8s) ease-in-out both;
-    }
-    #story.nightmare .nightmare-frame-next {
-      position: absolute; inset: 0; opacity: 0;
-      animation: nightmare-crossfade 6s ease-in-out infinite;
-    }
-    @keyframes nightmare-crossfade {
-      0%, 15%, 100% { opacity: 0; }
-      50%, 65% { opacity: 1; }
     }
     @keyframes nightmare-pan {
       from { transform: translateY(0) scale(1); }
@@ -1053,8 +1069,8 @@
     }
     @keyframes wake-reveal { from { opacity: 0; } to { opacity: 1; } }
     @media (prefers-reduced-motion: reduce) {
-      #story button.nightmare-wake, #story.nightmare .nightmare-frames,
-      #story.nightmare .nightmare-frame-next { animation: none; }
+      #story button.nightmare-wake, #story.nightmare .story-frames,
+      #story .story-frame-next { animation: none; }
     }
     /* How-to-play card. Shown once when a fresh save first reaches the world
        (after the boot reload, so the player can see what it describes behind
@@ -2582,7 +2598,7 @@
       try { localStorage.removeItem('terracart.howtoSeen'); } catch {}
     }
 
-    // Opening dream, then the trailer and wrecked neighbourhood. The fresh-save
+    // Discover the compass, dream, then wake at the trailer and enter the wrecked neighbourhood. The fresh-save
     // gate shows these before the safety/location CTA; replay uses that same gate.
     //
     // The dream's clock: the camera pushes in on the dragons for STORY_PAN_MS
@@ -2596,16 +2612,20 @@
     const STORY_WAKE_DELAY_MS = STORY_PAN_MS - STORY_WAKE_FADE_MS;
     const STORY_SLIDES = [
       {
-        art: '<div class="nightmare-frames"><img src="assets/art/story_nightmare.webp" alt="Two enormous dragons clash above a burning city."><img class="nightmare-frame-next" src="assets/art/story_nightmare_frame2.webp" alt="" aria-hidden="true"></div>',
-        text: 'Awaken, from fitful dreams…', btn: 'wake up', nightmare: true,
+        art: '<div class="story-frames"><img src="assets/art/story_compass.webp" alt="A hand reaches for an ancient silver compass engraved with dragons and stars."><img class="story-frame-next" src="assets/art/story_compass_frame2.webp" alt="" aria-hidden="true"></div>',
+        text: 'You find a strange compass, engraved with dragons and stars.', btn: 'Next',
       },
       {
-        art: '<img src="assets/art/story_wake.webp" alt="">',
-        text: "You stretch, and look outside.",
+        art: '<div class="story-frames"><img src="assets/art/story_nightmare.webp" alt="Two enormous dragons clash above a burning city."><img class="story-frame-next" src="assets/art/story_nightmare_frame2.webp" alt="" aria-hidden="true"></div>',
+        text: 'That night you enter fitful dreams...', btn: 'wake up', nightmare: true,
+      },
+      {
+        art: '<div class="story-frames"><img src="assets/art/story_wake.webp" alt="The survivor stretches at the trailer entrance."><img class="story-frame-next" src="assets/art/story_wake_frame2.webp" alt="" aria-hidden="true"></div>',
+        text: "You wake up in an unfamiliar trailer, memories a blur.",
         btn: 'Next',
       },
       {
-        art: '<img src="assets/art/story_wrecks.webp" alt="">',
+        art: '<div class="story-frames"><img src="assets/art/story_wrecks.webp" alt="The survivor steps onto a ruined neighbourhood street."><img class="story-frame-next" src="assets/art/story_wrecks_frame2.webp" alt="" aria-hidden="true"></div>',
         text: "The neighbourhood is in shambles! What happened here?",
         btn: "Let's go",
       },
