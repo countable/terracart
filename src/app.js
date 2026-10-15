@@ -3506,6 +3506,9 @@ class MapScene extends Phaser.Scene {
     // The bearings at the rim: the Pairy's chest, a telescope or wayfarer
     // sighting, a map's treasure, the delivery's house (MARKERS). The starter
     // dot below draws after, so its label stacks with theirs.
+    // facingGfx holds only these per-frame rim bearings, so it is wiped first —
+    // without the clear every frame's dot stays behind as a trail.
+    this.facingGfx.clear();
     this._drawMarkers();
 
     // Starter guidance — a LIGHT-GREEN rim dot toward whatever the ACTIVE
