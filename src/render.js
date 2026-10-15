@@ -4571,13 +4571,14 @@ Render.drawObjects = function drawObjects(scene) {
     tx.setText(full);
     // Home's sign rides over the roof: the player starts at its door, where
     // a sign across the lower front would sit under them and fade out.
-    const top = home ? Math.round(sy - _houseArtH(o) / 2 - tx.height) : Math.round(sy) + 12;
+    const nudge = home ? HomeArea.SIGN_NUDGE_PX : { x: 0, y: 0 };
+    const top = home ? Math.round(sy - _houseArtH(o) / 2 - tx.height + nudge.y) : Math.round(sy) + 12;
     if (typed === full) {
-      tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), top);
+      tx.setPosition(Math.round(clampTextX(sx + nudge.x, tx.width, CANVAS_W)), top);
     } else {
       // Typing out: the letters land where the whole sign will stand, so the
       // line grows rightward from its final left edge instead of re-centring.
-      const left = clampTextX(sx, tx.width, CANVAS_W) - tx.width / 2;
+      const left = clampTextX(sx + nudge.x, tx.width, CANVAS_W) - tx.width / 2;
       tx.setText(typed);
       tx.setPosition(Math.round(left + tx.width / 2), top);
     }

@@ -70,6 +70,8 @@ const HomeArea = {
   // toward the player, so it sits by them without leaving its own cell (taps
   // still resolve the cell). A fire lit in it burns on the same spot.
   FIREPIT_NUDGE: 0.25,
+  // Home's sign over the roof, nudged off its centred spot (render.js).
+  SIGN_NUDGE_PX: { x: -3, y: 4 },
   // Smoke wisping off the cold pit (render.js): `puffs` soft grey puffs, each
   // rising `risePx` over `periodMs` with a sideways sway, growing from
   // radiusPx[0] to radiusPx[1] and fading out from `alpha`.
