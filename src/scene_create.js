@@ -86,6 +86,10 @@ class SceneCreate {
     );
     // Normalize before building runtime membership views, so history caps stick.
     const needsStatePersist = SaveState.normalize(this.save);
+    if (typeof CompassModules !== 'undefined') {
+      CompassModules.initialize(this.save);
+      persistSave(this.save);
+    }
     // Pin the game mode for the pure modules (prices, enemy HP, offline rest
     // read Difficulty.get(), not the save). Unset — a fresh save the how-to
     // card hasn't asked yet — reads as easy until chooseMode() runs.
@@ -1503,6 +1507,7 @@ class SceneCreate {
       if (window.__compassPerm) this.startSensors();
     }
     // Tests reach into the scene via window.__scene.
+    if (typeof CompassHUD !== 'undefined') CompassHUD.install(this);
     window.__scene = this;
     _endCreate?.();
     // Other players. No-op until the save carries a player name (the

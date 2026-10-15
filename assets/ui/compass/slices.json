@@ -1,0 +1,45 @@
+{
+  "source": "generated living-silver atlas",
+  "dimensions": [
+    1536,
+    1024
+  ],
+  "slices": {
+    "header": [
+      2,
+      2,
+      766,
+      271
+    ],
+    "footer": [
+      770,
+      2,
+      1534,
+      271
+    ],
+    "joystick": [
+      155,
+      274,
+      613,
+      665
+    ],
+    "shutter": [
+      771,
+      275,
+      1533,
+      665
+    ],
+    "panel-top": [
+      2,
+      672,
+      766,
+      868
+    ],
+    "living-silver-body": [
+      771,
+      672,
+      1534,
+      1022
+    ]
+  }
+}

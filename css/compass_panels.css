@@ -1,0 +1,114 @@
+/* Living silver: the stationary rail is ornate; touch controls stay simple.
+   Shared by the existing scene shell and the pre-scene opening storyboard. */
+.compass-panel, #story.compass-story {
+  --panel-metal: #aabcc4;
+  --panel-glow: #92b6c9;
+  --panel-rail: url('../assets/ui/compass/panel-top.webp');
+}
+.compass-panel[data-kind='shop'], .compass-panel[data-kind='trade'],
+.compass-panel[data-kind='forge'], .compass-panel[data-kind='relics'] {
+  --panel-metal: #c1bba6;
+  --panel-glow: #b9a87b;
+}
+.compass-panel[data-kind='talk'], .compass-panel[data-kind='spirit'],
+.compass-panel[data-kind='note'], .compass-panel[data-kind='menu'] {
+  --panel-metal: #b6c4bf;
+  --panel-glow: #a4c8bc;
+}
+.compass-panel > .modal-box {
+  bottom: 0 !important;
+  height: auto !important;
+  top: max(40px, calc(var(--map-top, 110px) - var(--view-top, 0px))) !important;
+  border: 2px solid var(--panel-metal) !important;
+  border-bottom: 0 !important;
+  border-radius: 28px 28px 0 0 !important;
+  padding: 48px 18px max(24px, env(safe-area-inset-bottom)) !important;
+  background-color: #1b252c !important;
+  box-shadow: inset 3px 0 0 #293d48, inset -3px 0 0 #293d48,
+    0 -5px 24px #0009, 0 -1px 0 #e1edf0;
+  isolation: isolate;
+}
+.compass-panel > .modal-box::before, #story.compass-story .box::before {
+  content: '';
+  position: absolute; z-index: 3; top: 0; left: 0; right: 0; height: 42px;
+  background: var(--panel-rail) center top / 100% 100% no-repeat,
+    linear-gradient(180deg, #d5e2e6, #607680 45%, #293c48 52%, #b9c8ce 58%, #415560);
+  border-radius: 25px 25px 0 0;
+  border-bottom: 1px solid var(--panel-glow);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--panel-glow) 30%, transparent);
+  pointer-events: none;
+}
+.compass-panel .modal-kind { top: 48px !important; }
+.compass-panel .modal-body { min-height: 0; scrollbar-width: thin; }
+.compass-panel .modal-portrait { margin-top: 8px !important; }
+.compass-panel.modal-anim > .modal-box {
+  animation: compass-panel-rise 240ms cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes compass-panel-rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
+/* Before Phaser boots, the same rail and sheet frame carry the wake/street
+   paintings. Discovery and the dream are immersive, borderless paintings. */
+#story.story-fullscreen {
+  padding: env(safe-area-inset-top) 0 calc(max(12px, env(safe-area-inset-bottom)) + 48px);
+  background: #000;
+}
+#story.story-fullscreen .box {
+  display: flex; flex-direction: column; width: 100%; max-width: 600px; height: 100%;
+  border: 0; border-radius: 0; box-shadow: none; background: #000;
+}
+#story.story-fullscreen .art { flex: 1; min-height: 0; aspect-ratio: auto; overflow: hidden; }
+#story.story-fullscreen .opening-copy { flex: 0 0 auto; }
+#story.compass-story {
+  align-items: end; padding: 0;
+  background: #10191e;
+}
+#story.compass-story .box {
+  position: relative; display: flex; flex-direction: column;
+  width: min(100%, 480px); max-width: 480px; height: auto; max-height: 86%;
+  padding: 44px 0 calc(60px + env(safe-area-inset-bottom));
+  box-sizing: border-box; overflow-y: auto;
+  border: 2px solid var(--panel-metal); border-bottom: 0; border-radius: 28px 28px 0 0;
+  background: #1b252c; box-shadow: 0 -8px 35px #0009;
+  animation: compass-panel-rise 240ms ease-out both;
+}
+#story.compass-story .art { flex: 0 0 auto; min-height: 0; aspect-ratio: 512 / 341; }
+#story.compass-story .opening-copy { flex: 0 0 auto; padding: 20px; }
+#story.compass-story .story-skip { z-index: 4; }
+@media (prefers-reduced-motion: reduce) {
+  .compass-panel.modal-anim > .modal-box, #story.compass-story .box { animation: none; }
+}
+
+/* A decorative dormant face before the game scene exists. It shares the
+   sliced housing with the live HUD but owns no controls or game state. */
+.opening-compass { display: none; }
+#story.compass-story .opening-compass {
+  display: block; position: absolute; inset: 0; margin: 0 auto;
+  width: min(100%, 480px); overflow: hidden; pointer-events: none;
+  background: #88979b url('../assets/ui/compass/living-silver-body.webp') top / 100% auto repeat-y;
+}
+.opening-compass-header {
+  position: absolute; top: 0; left: 0; right: 0; height: 138px;
+  box-sizing: border-box; padding: 18px 22px 16px;
+  display: grid; grid-template-columns: 1fr 1fr 62px; grid-template-rows: 42px 36px; gap: 8px;
+  background: url('../assets/ui/compass/header.webp') center / 100% 100%;
+}
+.opening-sealed {
+  display: grid; place-items: center; border: 2px ridge #bcc8c9; border-radius: 6px;
+  background: #879a9f url('../assets/ui/compass/shutter.webp') center / cover;
+  color: #d7deda; font: 11px var(--font-ui); text-shadow: 0 1px 2px #142d38;
+}
+.opening-distance { grid-column: 1 / 3; }
+.opening-dial {
+  position: relative; grid-area: 1 / 3 / 3; align-self: start; height: 59px;
+  border: 3px ridge #bcc8c9; border-radius: 50%; background: #7f979e;
+  text-align: center; color: #d0d9d5; font: 15px Georgia;
+}
+.opening-dial i { position: absolute; bottom: 10px; left: 28px; height: 28px; width: 2px; background: #d3dbd5; transform: rotate(-55deg); transform-origin: bottom; }
+.opening-compass-map {
+  position: absolute; top: 138px; left: 0; width: 100%; aspect-ratio: 1;
+  border: 4px ridge #c1cece; border-radius: 50%; box-sizing: border-box;
+  background: repeating-conic-gradient(from -1deg, #a3c4cb22 0deg 1deg, transparent 1deg 30deg), radial-gradient(circle, #36535e, #162c37 65%, #536c74);
+  text-align: center; color: #b6cbcc; font: 19px Georgia;
+  box-shadow: inset 0 0 24px #07181d;
+}
+.opening-compass-map > span { display: inline-block; line-height: 17px; padding-top: 4px; }
+.opening-compass-map > i { position: absolute; top: 42%; left: 0; width: 100%; font: 64px Georgia; opacity: .4; }

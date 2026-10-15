@@ -29,13 +29,10 @@
 // changing the frame or the band here, and tools/modal_audit.js for the
 // every-dialog-has-a-kind check.
 
-// EVERY DIALOG IS THE MAP VIEWPORT: makeModalShell seats its box exactly
-// over the map square (viewLeft/viewTop/viewSize — 352×352 game px) whatever
-// it holds; the content never sizes the box. Short content sits centred in
-// it, long content scrolls inside it. A STORY dialog (one with an art banner
-// — story splashes, ceremonies) may be a little bigger: the square grows by
-// STORY_MODAL_GROW_PX, a quarter of it above the map and the rest below.
-// (The map already spans the column's full width, so "bigger" is taller.)
+// Base geometry follows the map width; compass_panels.css extends the shared
+// box to the visible viewport floor as an attached mechanical sheet. The
+// story growth constants still define scene-painting composition and the
+// fallback geometry before the stylesheet loads.
 const STORY_MODAL_GROW_PX = 96;
 // SCENE ART — the standard for a dialog with a painting (makeModalShell
 // `art`). The piece IS the box: generated tall and cut to the story box's own
@@ -110,6 +107,7 @@ const MODAL_KINDS = {
   build:    { icon: '🛠', label: 'Build', art: 'kind_build' },   // restoring wrecks, unsealing forts, moving home
   craft:    { icon: '🪵', label: 'Craft', art: 'kind_craft' },   // Home's Craft page (HOME_RECIPES)
   wizard:   { icon: '🔮', label: 'Wizard', art: 'kind_wizard' },   // spends memories on gifts
+  spirit:   { icon: '✧', label: 'Dragon Spirit', art: 'kind_spirit' },
   memory:   { icon: '🌟', label: 'Memories', art: 'kind_memory' },   // the memories chip's explainer
   slots:    { icon: '🎰', label: 'Slots', art: 'kind_slots' },   // a fort's slot machine (presentFortSlots)
   farm:     { icon: '🌾', label: 'Farm', art: 'kind_farm' },   // scarecrows, feeding fauna
@@ -167,6 +165,7 @@ class SceneModals {
     // hide the movement pads (which otherwise sit on top of the modal — see the
     // gate). Every modal goes through here, so one class covers them all.
     wrap.classList.add('game-modal');
+    wrap.classList.add('compass-panel');
     // …and its KIND on the same node, so a rule about one category of dialog
     // (a foe's blow closes a shop — _closeShopOnHit) can find it.
     if (typeof kind === 'string') wrap.dataset.kind = kind;

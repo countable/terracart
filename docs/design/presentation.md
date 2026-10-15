@@ -9,10 +9,30 @@ changing dialogue, story panels, books, toasts or status presentation.
 - The four opening panes show the compass discovery, dragon-war dream,
   trailer awakening, then the ruined street. Each has two aligned paintings:
   hold the first for 1.5 seconds, crossfade once over 1.2 seconds, and keep
-  the second frame. Mobile uses a fullscreen panel with uncropped art and
-  readable copy below. The dream retains its eight-second camera push and
+  the second frame. Discovery and the dream are borderless fullscreen panels.
+  Awakening begins “You check the compass.” and uses the living-silver compass
+  story sheet, as does the ruined street and subsequent narrative. Paintings
+  remain uncropped with readable copy below. The dream retains its eight-second camera push and
   wake-up button timing. Reduced-motion mode shows the first frame without
   zoom or crossfade and makes the wake-up button immediately available.
+
+- The living-silver chassis uses sliced surfaces in `css/compass_hud.css`.
+  Layout publishes CSS-pixel `--compass-map-top` and `--compass-map-size`;
+  modal sheets use game-pixel `--map-top`. Existing controls retain their
+  listeners beneath analog energy, separate books/memories, true-north needle
+  and closed module shutters. `tools/compass-hud-harness.html` previews active
+  and closed states against a frozen sandbox. Opening wake/street sheets use
+  an inert face made from the same slices before the game scene exists.
+
+- Living-silver compass circuits persist their active state and pending
+  one-time Dragon Spirit notices in `save.compassModules`. Inventory activates
+  on the first item or gear, books on the first book obtained, memories on the
+  first discovery/memory. Spending cannot close an activated circuit. Distance
+  activates after 200 m of accepted movement; joystick activation requires
+  **Enable spirit walking** in its spirit dialog. Closed controls explain low
+  power. Activation notices wait behind stories and dialogs, and are claimed
+  when shown so reloads cannot repeat them. Existing ownership seeds circuits
+  quietly when upgrading an older save.
 
 - The inventory pet menu's **View info** opens an individual pet card with a
   128px portrait, description, current/max HP and damage per hit. Stats use
@@ -37,14 +57,16 @@ changing dialogue, story panels, books, toasts or status presentation.
   Offline startup waits for connectivity; exhausted retries offer **Try again**.
   Successful map startup resets this budget. Runtime exceptions remain visible
   as diagnostics and do not trigger automatic reloads. Versioned scripts only
-  fall back to an exact cached version, never an older incompatible module.
+  fall back to an exact cached version, never an older incompatible module. Linked local stylesheets use the same
+  content-hashed URLs and worker generation as scripts, and are installed in
+  the offline resource cache; CSS-only changes invalidate the shell too.
 
 - Dungeon arrival splashes select their story ID through
   `WorldGen.floorProfile(depth).arrivalStory`; presentation owns the copy and
   art, while the existing story ledger owns one-time delivery.
 
 - A story dialog pauses the fight: while one is open (`_storyDialogOpen` —
-  kinds `story`, `note`, `memory`, and the `#story` / `#howto` overlays) the
+  kinds `story`, `note`, `talk`, `memory`, `spirit`, and the `#story` / `#howto` overlays) the
   player takes no damage (`Conditions.setDialogShield`, read through
   `damageImmune`) and hostiles hold still. Shops, trades and other dialogs
   do not pause; a foe's blow still closes a shop.
@@ -107,6 +129,12 @@ changing dialogue, story panels, books, toasts or status presentation.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
   with its band layout. Painted headers use a label without emoji/`kindIcon`.
+  `css/compass_panels.css` seats this same shell as a mechanical sheet that
+  slides up from the compass and extends to the viewport floor without a
+  bottom border. Shop/trade, story/event and conversation kinds carry distinct
+  silver rails; controls retain simple gold faces. Safe-area padding and
+  scrolling keep actions reachable. Reduced motion skips the slide. The
+  `spirit` kind is the Dragon Spirit voice used by dormant module controls.
 - The modal HUD gate also covers the isolated upper-temple scene. Its scene
   flag keeps inventory, movement pads and the objective hidden until shutdown,
   even when no DOM dialog is open; a reward dialog keeps the gate after exit.

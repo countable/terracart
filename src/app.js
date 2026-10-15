@@ -343,7 +343,7 @@ const GPS_SNAP_M = 200;
 const CONFUSED_RECOVER_MS = 6000;
 // The dialogs that pause the fight (_storyDialogOpen): modal_shell kinds, and
 // the static index.html overlays that carry no kind.
-const STORY_DIALOG_KINDS = new Set(['story', 'note', 'talk', 'memory']);
+const STORY_DIALOG_KINDS = new Set(['story', 'note', 'talk', 'memory', 'spirit']);
 const STORY_DIALOG_IDS = new Set(['story', 'howto']);
 // The SNAP's own cut — a placement past GPS_SNAP_M moves the body somewhere
 // the player never walked, so it earns a transition rather than the world
@@ -3191,7 +3191,7 @@ class MapScene extends Phaser.Scene {
     // Chromebook) would silently strand the player off their real position
     // with no way back but a reload, which reads as "the character sometimes
     // auto-walks somewhere other than the GPS target."
-    if (DEBUG) {
+    if (DEBUG && (typeof CompassModules === 'undefined' || CompassModules.isActive(this.save, 'joystick'))) {
       const k = this.keys;
       let wasd = false;
       if (k.A.isDown) { vx -= 1; wasd = true; }
@@ -3211,7 +3211,8 @@ class MapScene extends Phaser.Scene {
     if (this._fastWalk) speedMul = 25;
     this._stepDebugGps(dt);
     // The movement stick — always on screen, always live.
-    let stick = (this._movePadHeld && this.joystickVec) ? this.joystickVec : null;
+    let stick = (this._movePadHeld && this.joystickVec
+      && (typeof CompassModules === 'undefined' || CompassModules.isActive(this.save, 'joystick'))) ? this.joystickVec : null;
     // A heading-up map: the stick and keys push in SCREEN directions.
     if (HeadingUp.active(this)) {
       if (stick) stick = HeadingUp.toWorldVec(this, stick.x, stick.y);
@@ -6918,6 +6919,7 @@ class MapScene extends Phaser.Scene {
     const foot = this.feetOffsetM;
     const open = (nx, ny) =>
       !this._cellBlocked(this.startWorldM.x + nx, this.startWorldM.y + ny + foot);
+    const beforeX = body.x, beforeY = body.y;
     const nx = body.x + ux * move, ny = body.y + uy * move;
     if ((ux !== 0) && open(nx, body.y)) body.x = nx;
     if ((uy !== 0) && open(body.x, ny)) body.y = ny;
@@ -6946,6 +6948,7 @@ class MapScene extends Phaser.Scene {
         this._startAutoMine(ux, uy);
       }
     }
+    if (this.save && typeof CompassModules !== 'undefined') CompassModules.recordWalk(this, Math.hypot(body.x - beforeX, body.y - beforeY));
     // Arrival can consume only part of a long frame. Contact hazards charge
     // that walking time, not the idle remainder after reaching the target.
     return move / moveSpeed;
@@ -8041,6 +8044,7 @@ class MapScene extends Phaser.Scene {
     const s = this.save || {};
     return (this._ceremonies || []).filter((c) => c.waits).length
       + (s.memoryStory?.pending?.length || 0)
+      + (s.compassModules?.pending?.length || 0)
       + (s.petStoriesPending?.length || 0)
       + (s.dragonStory?.pending ? 1 : 0);
   }
@@ -8296,6 +8300,7 @@ class MapScene extends Phaser.Scene {
   _drainBadgeStories() {
     if (this._drainCeremonies()) return;
     MemoryStory.drain(this);
+    if (typeof CompassModules !== 'undefined') CompassModules.drain(this);
   }
 
   // THE STORY LEDGER. One story splash per key, ever: `save.storySeen` is
@@ -8450,6 +8455,8 @@ class MapScene extends Phaser.Scene {
   }
 
   updateHUD() {
+    if (typeof CompassModules !== 'undefined') CompassModules.sync(this);
+    if (typeof CompassHUD !== 'undefined') CompassHUD.update(this);
     // Runs every frame, so every write in here is guarded on the value having
     // actually changed. Money and energy move a few times a minute at most,
     // but an unguarded textContent/style assignment still costs a style
@@ -8497,7 +8504,8 @@ class MapScene extends Phaser.Scene {
     // (see _steerManual) — after that it is a permanent line of instructions
     // for something they have already done.
     const text = this.gpsAvailable ? 'waiting for GPS…'
-      : (this._steeredManually ? '' : 'no GPS — use the stick or WASD to move');
+      : (this._steeredManually ? '' : (typeof CompassModules !== 'undefined' && !CompassModules.isActive(this.save, 'joystick')
+        ? 'no GPS — activate spirit walking' : 'no GPS — use the stick or WASD to move'));
     if (this._hudDOM !== text) { this._hudDOM = text; this.hud.textContent = text; }
   }
 
@@ -9747,6 +9755,7 @@ class MapScene extends Phaser.Scene {
     };
     pad.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
+      if (typeof CompassModules !== 'undefined' && !CompassModules.tap(this, 'joystick')) return;
       activePtr = e.pointerId;
       pad.setPointerCapture(e.pointerId);
       pad.classList.add('held');
@@ -10024,6 +10033,7 @@ class MapScene extends Phaser.Scene {
     // _revealPendingBookReads(), or the read is never shown.
     if (id === 'book') {
       if (n <= 0) return 0;
+      if (typeof CompassModules !== 'undefined') CompassModules.activate(this, 'books');
       if (!silent) {
         // THE BOOK CLUB's reading (Macros.booksRead): every Book read counts,
         // found or bought — the brake on buying is

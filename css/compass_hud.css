@@ -1,0 +1,91 @@
+/* A single silver relic surrounds the existing full-bleed map. Art is limited
+   to non-interactive surfaces; gold mechanisms remain plain and readable. */
+body.compass-hud { --compass-silver: #8e9da0; --compass-ink:#202e33; --compass-gold:#ead18a; }
+#compass-body { position:fixed;inset:0 var(--phone-right,0px) 0 var(--phone-left,0px);z-index:5;pointer-events:none;overflow:hidden; }
+.compass-aperture {position:absolute;top:var(--compass-map-top);left:0;width:100%;height:var(--compass-map-size);box-shadow:0 0 0 150vh #8e9da0;outline:5px ridge #c1c9c6;}
+.compass-round .compass-aperture {border-radius:50%;}
+.compass-header,.compass-footer {position:absolute;left:0;right:0;background-color:#8e9da0;background-repeat:no-repeat;background-size:100% 100%;}
+.compass-header {top:0;height:var(--compass-map-top);background-image:url('../assets/ui/compass/header.webp');}
+.compass-footer {top:calc(var(--compass-map-top) + var(--compass-map-size));bottom:0;background-image:url('../assets/ui/compass/footer.webp');}
+.compass-bearing {position:absolute;top:var(--compass-map-top);left:0;width:100%;height:var(--compass-map-size);border-radius:50%;text-align:center;color:#e4e8e2;font:bold 20px Georgia;text-shadow:0 2px 2px #13272d;}
+.compass-bearing span {display:inline-block;line-height:17px;padding-top:4px;}
+body:not(.compass-round) .compass-bearing {display:none;}
+body.compass-hud #hud-row {position:fixed;top:12px;left:calc(var(--phone-left,0px) + 64px);right:calc(var(--phone-right,0px) + 12px);height:100px;display:grid;grid-template-columns:1fr 1fr 70px;grid-template-rows:44px 44px;gap:6px;align-items:center;z-index:7;}
+body.compass-hud #memories,body.compass-hud #bookchip,body.compass-hud #roadchip {position:relative;inset:auto;height:42px;padding:4px 8px;border:2px ridge #d4d9ca;border-radius:7px;background:linear-gradient(#b5c0bd,#73858b 50%,#b8c1b8);color:#182c32;box-shadow:inset 0 1px 4px #344b52;justify-content:center;min-width:0;font:bold 16px var(--font-ui);}
+body.compass-hud #memories {grid-area:1/1;}
+body.compass-hud #bookchip {grid-area:1/2;}
+body.compass-hud #roadchip {grid-area:2/1/3/3;display:flex;}
+body.compass-hud #roadchip svg {width:38px;}
+body.compass-hud .road-num {font:bold 17px monospace;color:#26393e;letter-spacing:2px;background:repeating-linear-gradient(90deg,#d1d6c7 0 11px,#778b8e 11px 12px);padding:3px 5px;border:1px inset #b9c6c7;}
+body.compass-hud #money {grid-area:2/3;height:auto;min-width:0;display:flex;gap:3px;padding:0;border:0;background:none;box-shadow:none;color:#172d35;font:bold 13px var(--font-ui);}
+body.compass-hud #money .coin-ico {width:25px;height:25px;}
+body.compass-hud #energy {grid-area:1/3;width:66px;height:60px;border:3px ridge #bdc8c9!important;border-radius:50%;background:radial-gradient(ellipse at 50% 80%,#bec9c3,#607b85);position:relative;padding:0;display:flex;align-items:end;justify-content:center;overflow:hidden;}
+body.compass-hud #energy::before {content:'•   •   •';position:absolute;top:0;color:#edf0da;letter-spacing:5px;font:bold 12px sans-serif;}
+body.compass-hud #energy-label {position:relative;font:bold 12px var(--font-ui);color:#172b33!important;margin-bottom:3px;z-index:1;}
+body.compass-hud #energy-bar {display:none;}
+.compass-energy-needle {position:absolute;left:calc(50% - 1.5px);bottom:17px;width:3px;height:25px;background:#f6e4a3;transform-origin:bottom;transform:rotate(var(--energy-angle,0deg));border-radius:2px;box-shadow:0 0 2px #192e36;}
+body.compass-hud #menu {left:calc(var(--phone-left,0px) + 10px);top:16px;z-index:8;}
+body.compass-hud #menu summary {width:44px;height:44px;background:linear-gradient(#f5e6ae,#baa05a);border:3px ridge #d7c48a;border-radius:50%;font:26px Georgia;color:#54451f;box-shadow:0 2px 5px #31444a;}
+body.compass-hud #mode-badge,body.compass-hud #mp-btn,body.compass-hud #status-row {display:none!important;}
+body.compass-hud #objective {z-index:9;top:118px;}
+body.compass-hud #hud {top:auto;bottom:174px;color:#20353a;text-shadow:0 1px #d1d8d1;font-size:10px;}
+body.compass-hud #inv-tabs,body.compass-hud #inv {background:transparent!important;}
+body.compass-hud #inv-tabs .hud-tab {background:transparent;border:none;box-shadow:none;opacity:1!important;}
+body.compass-hud #inv-tabs .hud-tab > span {color:#bfc9c8!important;opacity:1!important;filter:drop-shadow(0 1px 0 #f3f2dd) drop-shadow(0 -1px 1px #273f49);}
+body.compass-hud #inv-tabs .hud-tab.sel > span {color:#f6db8d!important;}
+body.compass-hud #inv .hud-slot,body.compass-hud #inv .hud-btn {background:linear-gradient(#d1d3bb,#8e9f9e);border:2px ridge #d8d6b7;box-shadow:inset 0 1px 3px #4d646a;color:#413d28;}
+body.compass-hud #inv .hud-btn {background:linear-gradient(#ead99f,#b4a16b);width:28px!important;min-width:28px;}
+body.compass-hud #inv .hud-slot.sel {border-color:#f6dc8a;box-shadow:0 0 4px #e6cc82;}
+body.compass-hud #move-pad {width:124px;height:124px;right:calc(var(--phone-right,0px) + 10px);bottom:max(172px,calc(100dvh - var(--compass-map-top) - var(--compass-map-size) - 96px));background:#879b9e url('../assets/ui/compass/joystick.webp') center/cover;border:4px ridge #b5c2c0;border-radius:50%;box-shadow:0 3px 7px #253c47;}
+body.compass-hud #move-pad .nub {width:48px;height:48px;left:34px;top:34px;background:radial-gradient(circle at 40% 30%,#f4e4b2,#c1a668 70%);border:2px ridge #e3cf93;}
+body.compass-hud .mem-unspent {font-size:10px;color:#213940;background:#e8d496;border:0;}
+body.compass-hud .mem-unspent::before {content:'(';}
+body.compass-hud .mem-unspent::after {content:')';}
+body.compass-hud .compass-closed {background:#9daba7 url('../assets/ui/compass/shutter.webp') center/cover!important;}
+body.compass-hud .compass-closed > * {visibility:hidden;}
+body.compass-hud .compass-closed::after {content:attr(data-compass-label) ' ◇';color:#efd99a;font:600 10px var(--font-ui);position:absolute;inset:0;display:grid;place-items:center;text-shadow:0 1px #33474d;}
+#compass-inventory-shutter {display:none;position:fixed;bottom:66px;left:calc(var(--phone-left,0px) + 8px);right:calc(var(--phone-right,0px) + 8px);height:96px;z-index:7;background:#93a5a6 url('../assets/ui/compass/shutter.webp') center/cover;border:3px ridge #c0cbc5;color:#ead6a0;font:600 15px var(--font-ui);letter-spacing:3px;text-shadow:0 1px 2px #263c44;}
+body.compass-inventory-closed #compass-inventory-shutter {display:block;}
+body.compass-inventory-closed #inv,body.compass-inventory-closed #inv-tabs,body.compass-inventory-closed #inv-name {visibility:hidden;}
+body.modal-open #compass-inventory-shutter {pointer-events:none;}
+/* Modal shells live in the scaled game stacking context. Keep only the
+   instrument header above them; the rising panel owns everything below. */
+body.modal-open #compass-body {clip-path:inset(0 0 calc(100% - var(--compass-map-top)) 0);}
+body.modal-open #compass-inventory-shutter {display:none;}
+@media (max-height:650px) {
+  body.compass-hud #hud-row {top:5px;height:64px;grid-template-columns:1fr 1fr 58px;grid-template-rows:29px 29px;gap:4px;}
+  body.compass-hud #memories,body.compass-hud #bookchip,body.compass-hud #roadchip {height:28px;padding:2px 5px;font-size:13px;}
+  body.compass-hud #energy {width:54px;height:48px;align-self:start;}
+  body.compass-hud #energy::before {font-size:9px;letter-spacing:3px;}
+  body.compass-hud .compass-energy-needle {height:19px;}
+  body.compass-hud #energy-label {font-size:10px;}
+  body.compass-hud #money {position:absolute;right:0;top:51px;font-size:11px;}
+  body.compass-hud #money .coin-ico {width:18px;height:18px;}
+  body.compass-hud .road-num {font-size:13px;}
+  body.compass-hud #move-pad {width:110px;height:110px;}
+  body.compass-hud #move-pad .nub {left:27px;top:27px;}
+}
+.compass-round #compass-body::before {content:'';position:absolute;inset:0;background:#657579 url('../assets/ui/compass/living-silver-body.webp') center/100% 100%;mask-image:radial-gradient(circle calc(var(--compass-map-size) / 2) at 50% calc(var(--compass-map-top) + var(--compass-map-size) / 2),transparent calc(100% - 1px),#000 100%);}
+.compass-round .compass-aperture {box-shadow:none;}
+body.compass-hud #money {color:#eee0b6;text-shadow:0 1px 2px #17282e;}
+body.compass-hud #energy::before {content:'';top:4px;left:7px;right:7px;height:30px;border:3px solid #dce2cb;border-bottom:0;border-radius:50% 50% 0 0;}
+body.compass-hud #energy::after {content:'';position:absolute;top:6px;left:50%;height:5px;width:2px;background:#405e65;}
+.compass-bearing b {display:block;font:700 18px Georgia;}
+body.compass-hud .hud-page {background:linear-gradient(#e4d9ae,#9e936e);border:2px ridge #c6c4a4!important;color:#253a3e;box-shadow:inset 0 1px 3px #526568;}
+body.compass-hud #inv-name {background:linear-gradient(#6a7c80,#43575e)!important;color:#edf0df;text-shadow:0 1px #263b45;}
+@media (max-height:650px) {body.compass-hud #money {grid-area:auto;}}
+/* Quiet glass for knowledge, solid silver for the odometer. */
+body.compass-hud #memories:not(.compass-closed),body.compass-hud #bookchip:not(.compass-closed) {background:linear-gradient(155deg,#34464b,#152328 55%,#233438);color:#f1edd8;border:1px solid #bac5bd;box-shadow:inset 0 2px 5px #071316,0 1px 1px #e0e1cc;}
+body.compass-hud #roadchip:not(.compass-closed) {justify-self:center;width:138px;max-width:100%;height:30px;background:linear-gradient(#b9c1b7,#6d7c7e 48%,#a9b6b1);border:2px ridge #b9c6bd;box-shadow:inset 0 1px 3px #40555a;gap:8px;}
+body.compass-hud #roadchip:not(.compass-closed) svg {width:30px;flex:0 0 30px;}
+body.compass-hud #roadchip .road-num {border-radius:2px;box-shadow:inset 0 1px 3px #5a6868;}
+.compass-footer {mask-image:linear-gradient(to bottom,transparent,#000 32px);}
+.compass-header {mask-image:linear-gradient(to bottom,#000 calc(100% - 14px),transparent);}
+.compass-bearing .compass-east,.compass-bearing .compass-south,.compass-bearing .compass-west {position:absolute;padding:0;line-height:1;}
+.compass-bearing .compass-east {right:8px;top:calc(50% - 8px);}
+.compass-bearing .compass-west {left:8px;top:calc(50% - 8px);}
+.compass-bearing .compass-south {bottom:8px;left:calc(50% - 6px);}
+.compass-bearing .compass-east b,.compass-bearing .compass-south b,.compass-bearing .compass-west b {font-size:15px;}
+.compass-ticks {position:absolute;inset:3px;border-radius:50%;background:repeating-conic-gradient(#ced8ce 0deg 1deg,transparent 1deg 30deg);mask-image:radial-gradient(closest-side,transparent calc(100% - 6px),#000 calc(100% - 5px));}
+@media (max-height:650px) {body.compass-hud #roadchip:not(.compass-closed) {height:26px;width:122px;}}
+body.compass-hud #roadchip {flex-direction:row;}
