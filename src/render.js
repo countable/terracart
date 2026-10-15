@@ -2671,10 +2671,10 @@ Render.drawCells = function drawCells(scene) {
           // Roads and polygonal buildings wear the same
           // biome texture as their base fill, including beneath the paving.
           if (polyGround >= 0) baseType = polyGround;
-          // Dry grit is an alpha overlay: the rift's earth remains visible,
-          // and lush biome marks cannot overpaint its surrounding buffer.
-          if (riftGround) baseType = WorldGen.T.WASTELAND;
-          const spec = skyLevel ? null : BIOME_TEX[baseType];
+          // Baked grit and sparse mineral glints cover the rift buffer.
+          // These static texture pixels never enter the lighting pass.
+          if (riftGround) texKey = `rift_ground_${avalanche32(h) % RIFT_GROUND_VARIANTS}`;
+          const spec = skyLevel || riftGround ? null : BIOME_TEX[baseType];
           if (spec) {
             const variantHash = baseType === 12 ? avalanche32(h) : Math.abs(h);
             texKey = `biome${baseType}_${variantHash % spec.variants}`;

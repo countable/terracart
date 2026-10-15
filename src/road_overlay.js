@@ -605,13 +605,14 @@
       cx.fillStyle = i % 3 ? 'rgba(196,181,171,.06)' : 'rgba(36,31,36,.09)';
       cx.fillRect(rnd() * size, rnd() * size, size * (.008 + rnd() * .025), size * .012);
     }
+    if (restored) { cx.restore(); return; }
     const scars = [
       [[.09,.22],[.18,.27],[.23,.38],[.35,.43],[.41,.55]],
       [[.23,.38],[.18,.45],[.20,.52]],
       [[.57,.75],[.62,.64],[.73,.58],[.76,.45],[.89,.39]],
       [[.73,.58],[.82,.65],[.87,.64]],
     ];
-    for (const [width, ink, alpha] of [[.022, '#293e3a', restored ? .28 : .45], [.012, accent, restored ? .34 : .68]]) {
+    for (const [width, ink, alpha] of [[.022, '#293e3a', .45], [.012, accent, .68]]) {
       cx.strokeStyle = ink; cx.globalAlpha = alpha; cx.lineWidth = size * width;
       for (const points of scars) {
         cx.beginPath(); cx.moveTo(points[0][0] * size, points[0][1] * size);
@@ -1431,21 +1432,44 @@
       const pat = tile && lx.createPattern(tile, 'repeat');
       yield* strokeOpsSteps(lx, ops, 0);
       if (pat) patternFill(lx, pass, pat, 'source-atop', CLEAN_TILE_PX);
-      // The kerb: wash the band pale, cover all but the outer pixel back up,
-      // then re-lay the setts, leaving a hairline light edge.
-      lx.save();
-      lx.globalCompositeOperation = 'source-atop';
-      yield* strokeOpsSteps(lx, ops, 0, `rgba(255,255,255,${KERB_ALPHA})`);
-      yield* strokeOpsSteps(lx, ops, -KERB_INSET_PX);
-      lx.restore();
-      if (pat) patternFill(lx, pass, pat, 'source-atop', CLEAN_TILE_PX);
+      if (pattern !== 'rift') {
+        // Ordinary repairs retain the pale stone kerb.
+        lx.save();
+        lx.globalCompositeOperation = 'source-atop';
+        yield* strokeOpsSteps(lx, ops, 0, `rgba(255,255,255,${KERB_ALPHA})`);
+        yield* strokeOpsSteps(lx, ops, -KERB_INSET_PX);
+        lx.restore();
+        if (pat) patternFill(lx, pass, pat, 'source-atop', CLEAN_TILE_PX);
+      }
       softenEdge(layer, size, ops, pass.scratch, 1);
+      if (pattern === 'rift') yield* paintRiftBorderSteps(lx, size, ops, pass.scratch);
       ctx.drawImage(layer.canvas, 0, 0); yield;
     }
     for (const [x, y, w, h] of pass.erases) { ctx.clearRect(x, y, w, h); yield; }
     pass.tex.refresh(); yield;
   }
   function commitRestored(pass) { drainSteps(commitRestoredSteps(pass)); }
+
+  // Trace the union of restored road bands, not the repeating texture tile.
+  // Removing the inset leaves a thin continuous edge around bends and ends.
+  function* paintRiftBorderSteps(cx, size, ops, pool) {
+    const border = scratchLayer(size, pool, 1);
+    if (!border) return;
+    const ink = global.StreetVariants.SUPPRESSED_STYLE.stone.accent;
+    yield* strokeOpsSteps(border.ctx, ops, 0, ink);
+    border.ctx.globalCompositeOperation = 'destination-out';
+    yield* strokeOpsSteps(border.ctx, ops, -3, '#000');
+    border.ctx.globalCompositeOperation = 'source-over';
+    cx.save();
+    cx.shadowColor = ink; cx.shadowBlur = 4;
+    cx.globalAlpha = .7;
+    cx.drawImage(border.canvas, 0, 0);
+    cx.restore();
+    yield;
+  }
+  function paintRiftBorder(cx, size, ops, pool) {
+    drainSteps(paintRiftBorderSteps(cx, size, ops, pool));
+  }
 
   function canvasTarget(scene) {
     if (scene._roadGeomTarget) return scene._roadGeomTarget;
@@ -2049,7 +2073,7 @@
     }
   }
 
-  global.RoadOverlay = { lampSitesForTile, lampReservedCells, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
+  global.RoadOverlay = { lampSitesForTile, lampReservedCells, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
                          offsetLine, emitCarpetStrip, emitCarpetEmblems, CARPET_EMBLEMS, CARPET_EMBLEM_STEP_PX, paintLamp, paintBrokenLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,

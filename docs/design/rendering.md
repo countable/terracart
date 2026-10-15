@@ -316,9 +316,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   theme on the restored segment.
 - Suppressed Medium/Large roads use weathered grey-turquoise stone, sparse turquoise mineral
   fractures and dusty ground across the full road suppression buffer, including
-  after restoration, with fainter fractures. The ground uses the road buffer mask (excluding parking-only
-  suppression), on the surface and outside water/buildings. Dry wasteland texture
-  replaces lush biome detail there. This render-only palette never enters street
+  after restoration. Restored bands keep the weathered surface color, replacing
+  fractures with a softly glowing turquoise outline around the road geometry. The ground uses the road buffer mask (excluding parking-only
+  suppression), on the surface and outside water/buildings. Dry wasteland texture with sparse baked turquoise gem/star flecks
+  replaces lush biome detail there. Flecks are static paint, never light sources. This render-only palette never enters street
   theme selection or dressing; runtime and preview share the pavement painter.
 - Old Stones uses grey-purple ground, stone dust, lichen and pale lavender
   lamps, distinct from the turquoise rift palette.

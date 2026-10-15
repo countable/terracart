@@ -1790,9 +1790,9 @@ test('road overlay: suppressed MD/LG pavement stays distinct before and after re
     Streets.restore(scene.save, RO_KEY00(), Streets.lineKey(f, 0), [[0, 40]]);
     RoadOverlay.draw(scene);
     assert.eq(scene.roadGeomGfx.paths[0].style.c, 0x485553);
-    assert.eq(scene.roadRestoredGfx.paths[0].style.c, 0x596562);
+    assert.eq(scene.roadRestoredGfx.paths[0].style.c, 0x485553);
     assert.eq(StreetVariants.pavementVariantFor(f.tags, 'orchard'), 'suppressed');
-    assert.eq(StreetVariants.stoneColorFor('suppressed'), '#596562');
+    assert.eq(StreetVariants.stoneColorFor('suppressed'), '#485553');
     assert.falsy(StreetVariants.VARIANT_BY_ID.suppressed, 'render-only: never a gameplay theme');
   }
 });
@@ -1809,17 +1809,25 @@ test('street lamp: suppressed rift posts keep a weathered stone silhouette and a
 });
 
 
-test('rift pavement: turquoise fractures remain after restoration at reduced intensity', () => {
-  const alpha = [];
+test('rift pavement: restoration retains weathered stone and replaces cracks with a turquoise border', () => {
   for (const restored of [false, true]) {
     const { ctx, ops } = roRecorder();
     RoadOverlay.paintPavementTile(ctx, 128, false, restored, 'suppressed');
-    const cracks = ops.map((op, i) => op[0] === 'stroke'
-      && roStyleAt(ops, i, 'strokeStyle') === StreetVariants.SUPPRESSED_STYLE.stone.accent
-      ? roStyleAt(ops, i, 'globalAlpha') : 0).filter(Boolean);
-    assert.gt(cracks.length, 0, 'both states retain turquoise mineral cracks');
-    alpha.push(Math.max(...cracks));
+    const cracks = ops.filter((op, i) => op[0] === 'stroke'
+      && roStyleAt(ops, i, 'strokeStyle') === StreetVariants.SUPPRESSED_STYLE.stone.accent);
+    assert.eq(cracks.length > 0, !restored, 'only weathered paving has cracks');
   }
-  assert.gt(alpha[0], alpha[1], 'restoration subdues the cracks');
-  assert.gt(alpha[1], 0, 'restoration never removes the rift identity');
+  const real = document.createElement, mask = roRecorder(), target = roRecorder();
+  document.createElement = () => ({ getContext: () => mask.ctx });
+  try {
+    RoadOverlay.paintRiftBorder(target.ctx, 128, [{ w: 24, c: 0, pts: [10, 30, 110, 30] }]);
+    const strokes = mask.ops.map((op, i) => op[0] === 'stroke' ? {
+      width: roStyleAt(mask.ops, i, 'lineWidth'), blend: roStyleAt(mask.ops, i, 'globalCompositeOperation'),
+    } : null).filter(Boolean);
+    assert.eq(strokes[0].width, 24, 'outline follows full road width');
+    assert.eq(strokes[1].width, 21, 'inset removes the middle');
+    assert.eq(strokes[1].blend, 'destination-out', 'glow is confined to the border');
+    assert.truthy(target.ops.some(([op, ink]) => op === 'set:shadowColor'
+      && ink === StreetVariants.SUPPRESSED_STYLE.stone.accent), 'border uses the same turquoise');
+  } finally { document.createElement = real; }
 });

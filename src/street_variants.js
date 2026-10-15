@@ -455,7 +455,7 @@
   // Render-only identity: never enters variant selection or spawn dressing.
   const SUPPRESSED_STYLE = {
     id: 'suppressed', lampGlow: '#87c6b9', lampSpacingMul: 2, ground: '#596562',
-    stone: { weathered: '#485553', restored: '#596562', pattern: 'rift', accent: '#66a99e' },
+    stone: { weathered: '#485553', restored: '#485553', pattern: 'rift', accent: '#66a99e' },
   };
   function pavementFor(variant) {
     return (variant === SUPPRESSED_STYLE.id ? SUPPRESSED_STYLE : VARIANT_BY_ID[variant])?.stone || null;
