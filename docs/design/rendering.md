@@ -314,16 +314,18 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 - Path paving and lamp palettes follow the assigned segment intervals. Scenic
   geography still owns restoration bonuses; first-walk stories use the assigned
   theme on the restored segment.
-- Suppressed Medium/Large roads use weathered mauve-grey stone, sparse mineral
+- Suppressed Medium/Large roads use weathered grey-turquoise stone, sparse turquoise mineral
   fractures and dusty ground across the full road suppression buffer, including
-  after restoration. The ground uses the road buffer mask (excluding parking-only
+  after restoration, with fainter fractures. The ground uses the road buffer mask (excluding parking-only
   suppression), on the surface and outside water/buildings. Dry wasteland texture
   replaces lush biome detail there. This render-only palette never enters street
   theme selection or dressing; runtime and preview share the pavement painter.
+- Old Stones uses grey-purple ground, stone dust, lichen and pale lavender
+  lamps, distinct from the turquoise rift palette.
 - Generate lamps on paths and Small roads from `Streets.lampSpacingM()`
   (independent of restoration ladder goals), with sparse lamps on Medium/Large
   roads. Street variants tint ordinary lamps; an enclosing nexus takes precedence.
-  Suppressed roads keep their own muted bone light and chipped stone wayside
+  Suppressed roads keep their own muted turquoise light and chipped stone wayside
   lamps even inside a nexus.
   One list and `lit` flag feed art and lighting. Derive verge offset from road
   width and lamp footprint; art and light share the same world point. Lantern

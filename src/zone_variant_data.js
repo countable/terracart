@@ -4232,7 +4232,8 @@
       },
       "materialLooks": {
         "rubble": "zone_rock_stone_garden"
-      }
+      },
+      "lampGlow": "#c5b8d2"
     },
     {
       "id": "ordered_graves",
@@ -4493,7 +4494,8 @@
       },
       "materialReplacements": {
         "stone": "grass"
-      }
+      },
+      "lampGlow": "#c5b8d2"
     },
     {
       "id": "overgrown_graves",
@@ -4752,7 +4754,8 @@
           "material": "birdbath",
           "count": 1
         }
-      ]
+      ],
+      "lampGlow": "#c5b8d2"
     },
     {
       "id": "broken_masonry",
@@ -5036,7 +5039,8 @@
       "atmosphere": "Old clay pots stand in a simple checkerboard across the ruined yard, with occasional broken masonry among them. A club goblin watches over a platinum-bearing stone.",
       "materialLooks": {
         "rubble": "zone_rock_broken_masonry"
-      }
+      },
+      "lampGlow": "#c5b8d2"
     },
     {
       "id": "silent_circle",
@@ -5363,7 +5367,8 @@
         "grave": [
           1
         ]
-      }
+      },
+      "lampGlow": "#c5b8d2"
     },
     {
       "id": "flint_field",

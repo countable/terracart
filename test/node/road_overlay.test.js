@@ -1789,10 +1789,10 @@ test('road overlay: suppressed MD/LG pavement stays distinct before and after re
     const scene = makeRestoredScene();
     Streets.restore(scene.save, RO_KEY00(), Streets.lineKey(f, 0), [[0, 40]]);
     RoadOverlay.draw(scene);
-    assert.eq(scene.roadGeomGfx.paths[0].style.c, 0x514b50);
-    assert.eq(scene.roadRestoredGfx.paths[0].style.c, 0x625b60);
+    assert.eq(scene.roadGeomGfx.paths[0].style.c, 0x485553);
+    assert.eq(scene.roadRestoredGfx.paths[0].style.c, 0x596562);
     assert.eq(StreetVariants.pavementVariantFor(f.tags, 'orchard'), 'suppressed');
-    assert.eq(StreetVariants.stoneColorFor('suppressed'), '#625b60');
+    assert.eq(StreetVariants.stoneColorFor('suppressed'), '#596562');
     assert.falsy(StreetVariants.VARIANT_BY_ID.suppressed, 'render-only: never a gameplay theme');
   }
 });
@@ -1800,10 +1800,26 @@ test('road overlay: suppressed MD/LG pavement stays distinct before and after re
 test('street lamp: suppressed rift posts keep a weathered stone silhouette and a sheltered votive light', () => {
   const { ctx, ops } = roRecorder();
   RoadOverlay.paintLamp(ctx, RoadOverlay.LAMP_TEX_PX, StreetVariants.SUPPRESSED_STYLE.lampGlow);
-  assert.truthy(ops.some(([op,,css]) => op === 'addColorStop' && css.includes('179,161,140')), 'rift bloom uses muted bone light');
+  assert.truthy(ops.some(([op,,css]) => op === 'addColorStop' && css.includes('135,198,185')), 'rift bloom uses muted turquoise light');
   assert.eq(ops.filter(([op]) => op === 'createLinearGradient').length, 0, 'no ornate metal mouldings');
   assert.eq(ops.filter(([op]) => op === 'createRadialGradient').length, 1, 'restrained votive bloom, no welcoming pool');
   const broken = roRecorder();
   RoadOverlay.paintLamp(broken.ctx, RoadOverlay.LAMP_TEX_PX, StreetVariants.SUPPRESSED_STYLE.lampGlow, true);
   assert.eq(broken.ops.filter(([op]) => op === 'createRadialGradient').length, 0, 'broken rift posts shed no light');
+});
+
+
+test('rift pavement: turquoise fractures remain after restoration at reduced intensity', () => {
+  const alpha = [];
+  for (const restored of [false, true]) {
+    const { ctx, ops } = roRecorder();
+    RoadOverlay.paintPavementTile(ctx, 128, false, restored, 'suppressed');
+    const cracks = ops.map((op, i) => op[0] === 'stroke'
+      && roStyleAt(ops, i, 'strokeStyle') === StreetVariants.SUPPRESSED_STYLE.stone.accent
+      ? roStyleAt(ops, i, 'globalAlpha') : 0).filter(Boolean);
+    assert.gt(cracks.length, 0, 'both states retain turquoise mineral cracks');
+    alpha.push(Math.max(...cracks));
+  }
+  assert.gt(alpha[0], alpha[1], 'restoration subdues the cracks');
+  assert.gt(alpha[1], 0, 'restoration never removes the rift identity');
 });

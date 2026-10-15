@@ -1207,7 +1207,7 @@ const COLORS = {
   // INFLUENCE ZONES (src/zones.js) — the halo a park / church / fuel yard
   // paints over the lot and commercial ground around it.
   28: 0x687143, // GROVE       — forest-depth yellow-olive sward
-  29: 0x827080, // CHURCHYARD  — earthy heather-purple among the stones
+  29: 0x7c7788, // CHURCHYARD  — weathered grey-purple among the old stones
   31: 0x6f6b55, // TAR_YARD    — dark oily ground
   // UNMAPPED (30) — render-only: render.js stamps this on cells whose map tile
   // hasn't loaded yet (never appears in a tile's grid). Dark fog, deliberately

@@ -598,7 +598,7 @@
 
   // Old mineral fractures: broken, branching scars rather than continuous
   // luminous lines. The seeded dust and isolated paths repeat without seams.
-  function paintRift(cx, size, accent) {
+  function paintRift(cx, size, accent, restored) {
     cx.save();
     const rnd = lcg(0xa6e17);
     for (let i = 0; i < 55; i++) {
@@ -611,7 +611,7 @@
       [[.57,.75],[.62,.64],[.73,.58],[.76,.45],[.89,.39]],
       [[.73,.58],[.82,.65],[.87,.64]],
     ];
-    for (const [width, ink, alpha] of [[.022, '#302c32', .45], [.007, accent, .32]]) {
+    for (const [width, ink, alpha] of [[.022, '#293e3a', restored ? .28 : .45], [.012, accent, restored ? .34 : .68]]) {
       cx.strokeStyle = ink; cx.globalAlpha = alpha; cx.lineWidth = size * width;
       for (const points of scars) {
         cx.beginPath(); cx.moveTo(points[0][0] * size, points[0][1] * size);
@@ -622,8 +622,8 @@
     cx.restore();
   }
 
-  function paintPattern(cx, size, pattern, accent) {
-    if (pattern === 'rift') paintRift(cx, size, accent);
+  function paintPattern(cx, size, pattern, accent, restored = false) {
+    if (pattern === 'rift') paintRift(cx, size, accent, restored);
     if (pattern === 'slime') paintSlime(cx, size, accent);
     if (pattern === 'spots') paintSpots(cx, size, accent);
     if (pattern === 'embers') paintEmbers(cx, size, accent);
@@ -638,7 +638,7 @@
     cx.fillRect(0, 0, size, size);
     if (restored) paintCleanTile(cx, size, CLEAN_MORTAR_ALPHA * (isPath ? CLEAN_PATH_MORTAR_MUL : 1), color, palette?.pattern);
     else if (palette?.pattern !== 'rift') { const tile = stoneTile(palette?.pattern === 'embers'); if (tile) cx.drawImage(tile, 0, 0, size, size); }
-    paintPattern(cx, size, palette?.pattern, palette?.accent);
+    paintPattern(cx, size, palette?.pattern, palette?.accent, restored);
   }
 
   const cleanCanvas = {};
@@ -653,7 +653,7 @@
     const cx = c.getContext('2d');
     if (!cx) return cleanCanvas[k];
     paintCleanTile(cx, CLEAN_TILE_PX, CLEAN_MORTAR_ALPHA * (isPath ? CLEAN_PATH_MORTAR_MUL : 1), stoneColor, pattern);
-    paintPattern(cx, CLEAN_TILE_PX, pattern, accent);
+    paintPattern(cx, CLEAN_TILE_PX, pattern, accent, true);
     cleanCanvas[k] = c;
     return cleanCanvas[k];
   }
@@ -1074,29 +1074,29 @@
     const w = S * .047, foot = S * LAMP_FOOT_FRAC;
     cx.fillStyle = 'rgba(30,25,30,.25)';
     cx.beginPath(); cx.ellipse(c, ground, foot * 1.2, foot * LAMP_VIEW_K, 0, 0, Math.PI * 2); cx.fill();
-    cx.fillStyle = '#71666a';
+    cx.fillStyle = '#667570';
     cx.beginPath();
     cx.moveTo(c - foot, ground - S * .01); cx.lineTo(c - w, ground - S * .055);
     cx.lineTo(c - w * .8, top + S * .025); cx.lineTo(c - w * .3, top);
     cx.lineTo(c + w * .65, top + S * .012); cx.lineTo(c + w, ground - S * .045);
     cx.lineTo(c + foot, ground - S * .01); cx.closePath(); cx.fill();
-    cx.fillStyle = '#524a50';
+    cx.fillStyle = '#485550';
     cx.beginPath(); cx.moveTo(c + w * .3, top + S * .018);
     cx.lineTo(c + w * .65, top + S * .012); cx.lineTo(c + w, ground - S * .045);
     cx.lineTo(c + foot, ground - S * .01); cx.lineTo(c + w * .15, ground - S * .02); cx.closePath(); cx.fill();
     cx.strokeStyle = 'rgba(49,43,48,.6)'; cx.lineWidth = Math.max(1, S * .008);
     cx.beginPath(); cx.moveTo(c-w*.5, ground-S*.05);
     cx.lineTo(c+w*.15, ground-S*.10); cx.lineTo(c-w*.25, ground-S*.14); cx.stroke();
-    cx.fillStyle = '#8a7d7c'; cx.fillRect(c-foot*.75, ground-S*.025, foot*1.2, S*.012);
+    cx.fillStyle = '#7e8b83'; cx.fillRect(c-foot*.75, ground-S*.025, foot*1.2, S*.012);
     if (broken) return;
     const y = S * LAMP_LANTERN_FRAC, r = S * .065;
-    cx.fillStyle = '#3f383e'; cx.fillRect(c-w*.55, y-S*.035, w*1.1, S*.074);
+    cx.fillStyle = '#34443f'; cx.fillRect(c-w*.55, y-S*.035, w*1.1, S*.074);
     const bloom = cx.createRadialGradient(c,y,0,c,y,r);
     bloom.addColorStop(0, `rgba(${glow.join(',')},.22)`);
     bloom.addColorStop(1, `rgba(${glow.join(',')},0)`);
     cx.fillStyle = bloom; cx.fillRect(c-r,y-r,r*2,r*2);
     cx.fillStyle = `rgb(${glow.join(',')})`; cx.fillRect(c-S*.01,y-S*.015,S*.02,S*.03);
-    cx.fillStyle = '#8a7d7c'; cx.fillRect(c-w*.8,y-S*.043,w*1.6,S*.014);
+    cx.fillStyle = '#7e8b83'; cx.fillRect(c-w*.8,y-S*.043,w*1.6,S*.014);
   }
 
   // Baked into the existing cobble sheet's dark-lamp frames by the art tool.
