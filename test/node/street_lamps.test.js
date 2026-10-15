@@ -548,17 +548,25 @@ test('street lamps: density and glow stop at the same compact theme intervals', 
   assert.lt(themed[0].spacingM,plain[0].spacingM,'only the themed interval has dense lamps');
 });
 
-test('street lamps: medium and large roads have no posts, lights or reserved footprints, even when themed', () => {
-  for (const cls of ['secondary', 'tertiary', 'primary', 'trunk', 'motorway']) {
-    for (const variant of [null, 'lantern']) {
-      const tags = { class: cls }, rec = { fi: 0, li: 0, size: 'major', variant, tags };
-      const entry = withIndex([rec]);
-      entry.layers[0].features[0].tags = tags;
-      assert.eq(RoadOverlay.lampSitesForTile(TX, TY, entry).length, 0, `${cls}: no generated sites`);
-      assert.eq(P._streetLampsForTile.call({}, TX, TY, entry).length, 0, `${cls}: no live lamps`);
-      assert.eq(RoadOverlay.lampReservedCells(TX, TY, entry).size, 0, `${cls}: no phantom reservations`);
+test('street lamps: suppressed medium and large roads retain sparse rift posts inside a nexus', () => {
+  const original = ZoneVariants.lampGlowAt;
+  ZoneVariants.lampGlowAt = () => '#ff88ff';
+  try {
+    const small = RoadOverlay.lampSitesForTile(TX, TY, readyEntry());
+    assert.truthy(small.every(l => l.glow === '#ff88ff'), 'ordinary lamps inherit their enclosing nexus');
+    for (const cls of ['secondary', 'tertiary', 'primary', 'trunk', 'motorway']) {
+      for (const variant of [null, 'lantern']) {
+        const tags = { class: cls }, rec = { fi: 0, li: 0, size: 'major', variant, tags };
+        const entry = withIndex([rec]);
+        entry.layers[0].features[0].tags = tags;
+        const lamps = RoadOverlay.lampSitesForTile(TX, TY, entry);
+        assert.gt(lamps.length, 0, `${cls}: rift posts exist`);
+        assert.lt(lamps.length, small.length, `${cls}: sparse silhouettes`);
+        assert.truthy(lamps.every(l => l.suppressed && l.glow === StreetVariants.SUPPRESSED_STYLE.lampGlow), 'nexus and stale themes cannot override suppression');
+        assert.gt(RoadOverlay.lampReservedCells(TX, TY, entry).size, 0, 'rift feet reserve spawn space');
+      }
     }
-  }
+  } finally { ZoneVariants.lampGlowAt = original; }
 });
 
 test('street lamps: paths and small roads retain their lamps and reserved footprints', () => {

@@ -1188,7 +1188,7 @@ test('street lamp: gold ironwork, violet light — one constant each, and they a
       'a light stop is the glow, or the white-hot core of it');
 });
 
-test('street lamp: the glow is a PARAMETER — a themed street bakes its own colour, the metal stays gold', () => {
+test('street lamp: the glow is a PARAMETER — a themed street colours both light and ironwork', () => {
   // paintLamp(cx, size, glowHex): the glass, bloom and pool shed the lamp's
   // own glow (the lamp entry's `glow`, StreetVariants.lampGlowFor off its
   // street); absent or malformed it is UI_LAMP_GLOW.
@@ -1204,7 +1204,9 @@ test('street lamp: the glow is a PARAMETER — a themed street bakes its own col
   const themed = stopsOf(orange);
   assert.truthy(has(themed, oc), 'a themed lamp sheds its own glow');
   assert.falsy(has(themed, violet), 'and none of the default violet');
-  assert.truthy(has(themed, gold), 'its ironwork is the same UI_LAMP_GOLD');
+  assert.falsy(has(themed, gold), 'themed ironwork no longer retains unrelated gold');
+  const metal = themed.filter(s => s.a === 1);
+  assert.truthy(metal.every(s => s.r > s.g && s.g > s.b), 'the ironwork follows the orange street hue');
   // The default: no glow, null, or garbage all paint the violet — the same
   // stops as the one-argument call every existing bake makes.
   const base = JSON.stringify(stopsOf());
@@ -1777,4 +1779,31 @@ test('road overlay: Burned Row shares glowing ember cracks on weathered and rest
     assert.gt(glow[1], core[1], 'soft heat surrounds narrow hot core');
     assert.eq(cx.globalAlpha, 1, 'subsequent pavement painting is opaque');
   } } finally { document.createElement = previousCreate; }
+});
+
+test('road overlay: suppressed MD/LG pavement stays distinct before and after restoration', () => {
+  for (const cls of ['secondary', 'primary']) {
+    clearTiles();
+    const f = line([{ x: 0, y: 0 }, { x: 64, y: 0 }], { class: cls });
+    putTile(0, 0, [f]);
+    const scene = makeRestoredScene();
+    Streets.restore(scene.save, RO_KEY00(), Streets.lineKey(f, 0), [[0, 40]]);
+    RoadOverlay.draw(scene);
+    assert.eq(scene.roadGeomGfx.paths[0].style.c, 0x11101b);
+    assert.eq(scene.roadRestoredGfx.paths[0].style.c, 0x201d2b);
+    assert.eq(StreetVariants.pavementVariantFor(f.tags, 'orchard'), 'suppressed');
+    assert.eq(StreetVariants.stoneColorFor('suppressed'), '#201d2b');
+    assert.falsy(StreetVariants.VARIANT_BY_ID.suppressed, 'render-only: never a gameplay theme');
+  }
+});
+
+test('street lamp: suppressed rift posts keep a dark empty silhouette and a narrow alien seam', () => {
+  const { ctx, ops } = roRecorder();
+  RoadOverlay.paintLamp(ctx, RoadOverlay.LAMP_TEX_PX, StreetVariants.SUPPRESSED_STYLE.lampGlow);
+  assert.truthy(ops.some(([op,,css]) => op === 'addColorStop' && css.includes('214,255,63')), 'rift bloom uses chartreuse');
+  assert.eq(ops.filter(([op]) => op === 'createLinearGradient').length, 0, 'no ornate metal mouldings');
+  assert.eq(ops.filter(([op]) => op === 'createRadialGradient').length, 1, 'restrained seam bloom, no welcoming pool');
+  const broken = roRecorder();
+  RoadOverlay.paintLamp(broken.ctx, RoadOverlay.LAMP_TEX_PX, StreetVariants.SUPPRESSED_STYLE.lampGlow, true);
+  assert.eq(broken.ops.filter(([op]) => op === 'createRadialGradient').length, 0, 'broken rift posts shed no light');
 });

@@ -528,6 +528,10 @@
 
   function paintCleanTile(cx, size, mortarAlpha, stoneColor, pattern, accent) {
     const S = size || CLEAN_TILE_PX;
+    if (pattern === 'rift') {
+      cx.fillStyle = stoneColor; cx.fillRect(0, 0, S, S);
+      return;
+    }
     const rnd = lcg(0xc0bb1e);
     const embers = pattern === 'embers';
     const toneMin = embers ? 0.05 : CLEAN_TONE_MIN;
@@ -592,7 +596,22 @@
     cx.restore();
   }
 
+  // Sparse, angular tears in an otherwise empty surface. Edge endpoints
+  // match across repeated tiles; no animated noise or extra render pass.
+  function paintRift(cx, size, accent) {
+    cx.save();
+    const points = [[0, .31], [.19, .31], [.28, .40], [.43, .40], [.51, .29], [.72, .29], [.81, .31], [1, .31]];
+    for (const [width, alpha] of [[.045, .10], [.010, .85]]) {
+      cx.strokeStyle = accent; cx.globalAlpha = alpha; cx.lineWidth = size * width;
+      cx.beginPath(); cx.moveTo(points[0][0] * size, points[0][1] * size);
+      for (const [x, y] of points.slice(1)) cx.lineTo(x * size, y * size);
+      cx.stroke();
+    }
+    cx.restore();
+  }
+
   function paintPattern(cx, size, pattern, accent) {
+    if (pattern === 'rift') paintRift(cx, size, accent);
     if (pattern === 'slime') paintSlime(cx, size, accent);
     if (pattern === 'spots') paintSpots(cx, size, accent);
     if (pattern === 'embers') paintEmbers(cx, size, accent);
@@ -600,13 +619,13 @@
 
   // Shared preview swatch uses the same authored tiles and palette as the game.
   function paintPavementTile(cx, size, isPath, restored, variant) {
-    const palette = global.StreetVariants?.VARIANT_BY_ID[variant]?.stone;
+    const palette = global.StreetVariants?.pavementFor(variant);
     const color = palette?.[restored ? 'restored' : 'weathered']
       || cssOf(restored ? (isPath ? RESTORED_PATH_COLOR : RESTORED_ROAD_COLOR) : (isPath ? PATH_COLOR : ROAD_COLOR));
     cx.fillStyle = color;
     cx.fillRect(0, 0, size, size);
     if (restored) paintCleanTile(cx, size, CLEAN_MORTAR_ALPHA * (isPath ? CLEAN_PATH_MORTAR_MUL : 1), color, palette?.pattern);
-    else { const tile = stoneTile(palette?.pattern === 'embers'); if (tile) cx.drawImage(tile, 0, 0, size, size); }
+    else if (palette?.pattern !== 'rift') { const tile = stoneTile(palette?.pattern === 'embers'); if (tile) cx.drawImage(tile, 0, 0, size, size); }
     paintPattern(cx, size, palette?.pattern, palette?.accent);
   }
 
@@ -726,9 +745,9 @@
         if (cls === 'rail' || cls === 'transit') continue;
         if (WorldGen.isParkingAisle(f.tags)) continue;
         const tier = WorldGen.classifyLine ? WorldGen.classifyLine('transportation', f.tags || {}) : null;
-        // Only paths and small roads carry lamps, including broken posts and
-        // future footprint reservations. Wider roads keep their verges clear.
-        if (tier !== WorldGen.T.PATH && tier !== WorldGen.T.ROAD) continue;
+        // Suppressed roads carry sparse rift posts, including their broken feet.
+        const suppressed = tier === WorldGen.T.ROAD_MD || tier === WorldGen.T.ROAD_LG;
+        if (!suppressed && tier !== WorldGen.T.PATH && tier !== WorldGen.T.ROAD) continue;
         // How far off the centreline this way's lamps stand: its band's
         // half-width plus the stone (per feature: it depends on class only).
         const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM(f.tags || {}), footRM);
@@ -749,23 +768,24 @@
           const styles = hasVariants ? StreetVariants.lineStyles(entry, f, fi, i, mvtToM)
             : [{ a: 0, b: Streets.lineLengthM(line, mvtToM), variant: null }];
           for (const style of styles) {
-            const lay = { ...baseLay, spacingM: hasVariants
-              ? StreetVariants.lampSpacingFor(style.variant, Streets.lampLayFor(f.tags || {}).spacingM)
+            const lay = { ...baseLay, spacingM: suppressed
+              ? Streets.lampLayFor(f.tags || {}).spacingM * (hasVariants ? StreetVariants.SUPPRESSED_STYLE.lampSpacingMul : 2)
+              : hasVariants ? StreetVariants.lampSpacingFor(style.variant, Streets.lampLayFor(f.tags || {}).spacingM)
               : baseLay.spacingM };
             const part = Streets.subLineM(line, mvtToM, style.a, style.b);
             const at = Streets.lampsAlong(part, 1, lay.spacingM, lay.minLenM);
             if (!at.length) continue;
             const spacingM = (style.b - style.a) / at.length;
             const creditM = Streets.lampCreditM(spacingM, path);
-            const glow = (hasVariants && StreetVariants.lampGlowFor({ variant: style.variant, size: style.size, tags: rec?.tags || f.tags })) || UI_LAMP_GLOW;
+            const glow = (hasVariants && StreetVariants.lampGlowFor({ variant: style.variant, size: suppressed ? 'major' : style.size, tags: rec?.tags || f.tags })) || UI_LAMP_GLOW;
             for (const offset of at) {
               const sM = style.a + offset;
               if (!Streets.covers(spans, sM)) continue;
               const q = Streets.pointAtM(line, mvtToM, sM, offM);
               if (!q) continue;
-              const zoneGlow = typeof ZoneVariants !== 'undefined'
+              const zoneGlow = !suppressed && typeof ZoneVariants !== 'undefined'
                 ? ZoneVariants.lampGlowAt(entry, Math.floor(q.x / cellM), Math.floor(q.y / cellM)) : null;
-              out.push({ tileKey, lineKey, tier, glow: zoneGlow || glow, s: sM, x: ox + q.x, y: oy + q.y, spacingM, path, creditM,
+              out.push({ tileKey, lineKey, tier, suppressed, glow: zoneGlow || glow, s: sM, x: ox + q.x, y: oy + q.y, spacingM, path, creditM,
                          id:`lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });
             }
           }
@@ -854,7 +874,7 @@
 
   // `glowHex` ('#rrggbb') is the colour the lamp SHEDS (the lamp entry's
   // `glow`, the same value Lighting.collectLamps throws); absent or malformed,
-  // LAMP_INK. The ironwork stays UI_LAMP_GOLD whatever the street.
+  // LAMP_INK. Themed ironwork follows the same hue as its glass and light.
   const lampGlowHex = (g) => ((typeof g === 'string' && /^#[0-9a-f]{6}$/i.test(g)) ? g : LAMP_INK);
   function paintLamp(cx, size, glowHex, broken = false) {
     const S = size || LAMP_TEX_PX;
@@ -862,7 +882,10 @@
     const gy = S * LAMP_GROUND_FRAC;          // the ground: where the lamp stands
     const r = S * LAMP_FOOT_FRAC;             // the plinth's half-width
     const lw = Math.max(1, S * 0.012);
-    const glow = lampRgb(lampGlowHex(glowHex)), gold = lampRgb(LAMP_GOLD);
+    const resolvedGlow = lampGlowHex(glowHex), glow = lampRgb(resolvedGlow);
+    const suppressed = typeof StreetVariants !== 'undefined' && resolvedGlow === StreetVariants.SUPPRESSED_STYLE?.lampGlow;
+    if (suppressed) { paintRiftLamp(cx, S, glow, broken); return; }
+    const gold = resolvedGlow === LAMP_INK ? lampRgb(LAMP_GOLD) : lampMix(glow, LAMP_DARK, .2);
     const edge = lampMix(gold, LAMP_DARK, LAMP_EDGE_MIX);
     const rgba = (c3, al) => {
       // Weathered broken metal retains the standing lamp's hue and shading.
@@ -873,7 +896,9 @@
       return `rgba(${c3[0]},${c3[1]},${c3[2]},${al})`;
     };
     // Crisp ochre/gold bands for the metal only; glass, bloom and light stay continuous.
-    const metalRamp = [[76,48,24],[108,67,29],[155,101,38],gold,[230,215,163]];
+    const metalRamp = resolvedGlow === LAMP_INK
+      ? [[76,48,24],[108,67,29],[155,101,38],gold,[230,215,163]]
+      : [.75,.55,.3,0].map(t => lampMix(gold,LAMP_DARK,t)).concat([lampMix(gold,[255,255,255],.55)]);
     const shade = (t) => {
       const target = t >= 0 ? lampMix(gold, [255,244,214], Math.min(1,t))
         : lampMix(gold,LAMP_DARK,Math.min(1,-t));
@@ -1027,6 +1052,37 @@
     const fr = S * LAMP_FINIAL.r, fy = S * LAMP_FINIAL.cy;
     cx.beginPath(); cx.arc(c, fy, fr, 0, Math.PI * 2);
     cx.fillStyle = metal(c - fr, c + fr, 0.15); cx.fill(); strokeEdge();
+  }
+
+  // A spare split monolith: black faces and one narrow, displaced light seam.
+  // Its foot and lantern height match the ordinary post's art/light anchors.
+  function paintRiftLamp(cx, S, glow, broken) {
+    const c = S / 2, ground = S * LAMP_GROUND_FRAC;
+    const top = S * (broken ? lampTilt(.42) : lampTilt(.12));
+    const w = S * .026, foot = S * LAMP_FOOT_FRAC;
+    const ink = StreetVariants.SUPPRESSED_STYLE.stone.weathered;
+    cx.fillStyle = 'rgba(0,0,0,.35)';
+    cx.beginPath(); cx.ellipse(c, ground, foot * 1.1, foot * LAMP_VIEW_K, 0, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = ink;
+    cx.beginPath();
+    cx.moveTo(c - foot, ground); cx.lineTo(c - w, ground - S * .035);
+    cx.lineTo(c - w, top); cx.lineTo(c + w * .2, top + S * .024);
+    cx.lineTo(c + w, top - S * .008); cx.lineTo(c + w, ground - S * .035);
+    cx.lineTo(c + foot, ground); cx.closePath(); cx.fill();
+    cx.strokeStyle = broken ? 'rgba(137,155,78,.65)' : `rgba(${glow.join(',')},.95)`;
+    cx.lineWidth = Math.max(1, S * .009);
+    cx.beginPath();
+    cx.moveTo(c - w * .3, ground - S * .018);
+    cx.lineTo(c - w * .3, top + (ground - top) * .55);
+    cx.lineTo(c + w * .35, top + (ground - top) * .49);
+    cx.lineTo(c + w * .35, top + S * .018); cx.stroke();
+    if (broken) return;
+    const y = S * LAMP_LANTERN_FRAC, r = S * .05;
+    const bloom = cx.createRadialGradient(c,y,0,c,y,r);
+    bloom.addColorStop(0, `rgba(${glow.join(',')},.28)`);
+    bloom.addColorStop(1, `rgba(${glow.join(',')},0)`);
+    cx.fillStyle = bloom; cx.fillRect(c-r,y-r,r*2,r*2);
+    cx.fillStyle = '#f4ffd2'; cx.fillRect(c - S * .006,y - S * .025,S * .012,S * .05);
   }
 
   // Baked into the existing cobble sheet's dark-lamp frames by the art tool.
@@ -1271,7 +1327,7 @@
     // the track furniture so ties and rails stay untextured.
     const stones = patternOf(ctx, pass.pats, 'stone', stoneTile());
     if (stones) { patternFill(ctx, pass, stones, 'source-atop', STONE_TILE_PX); yield; }
-    for (const row of global.StreetVariants?.STREET_VARIANTS || []) {
+    for (const row of [...(global.StreetVariants?.STREET_VARIANTS || []), global.StreetVariants?.SUPPRESSED_STYLE].filter(Boolean)) {
       if (!row.stone?.pattern) continue;
       const ops = pass.ops.filter((op) => op.variant === row.id);
       if (!ops.length) continue;
@@ -1283,6 +1339,9 @@
       yield* strokeOpsSteps(layer.ctx, ops, 0);
       // Burned Row keeps its original dark joints underneath the glowing cracks.
       const embers = row.stone.pattern === 'embers';
+      if (row.stone.pattern === 'rift') {
+        yield* strokeOpsSteps(ctx, ops, 0);
+      }
       if (embers) {
         const stone = patternOf(layer.ctx, pass.pats, 'ember-stone', stoneTile(true));
         if (stone) patternFill(layer.ctx, pass, stone, 'source-atop', STONE_TILE_PX);
@@ -1296,7 +1355,7 @@
     // THAT, and the result drawn back source-atop (re-stroking the rail runs
     // plain would wipe their gravel, and a clip can't be built from a stroke).
     // Rail is identified by its colour: RAIL_COLOR has exactly one source.
-    const roadOps = pass.ops.filter((op) => op.c !== RAIL_COLOR
+    const roadOps = pass.ops.filter((op) => op.c !== RAIL_COLOR && op.variant !== 'suppressed'
       && !global.StreetVariants?.VARIANT_BY_ID[op.variant]?.hotRoad);
     if (roadOps.length) {
       const layer = scratchLayer(size, pass.scratch, 0);
@@ -1348,7 +1407,7 @@
       themes.get(key).ops.push(op);
     }
     for (const { isPath, variant, ops } of [...themes.values()].sort((a, b) => Number(a.isPath) - Number(b.isPath))) {
-      const palette = global.StreetVariants?.VARIANT_BY_ID[variant]?.stone;
+      const palette = global.StreetVariants?.pavementFor(variant);
       const stoneColor = palette?.restored, pattern = palette?.pattern, accent = palette?.accent;
       if (!ops.length) continue;
       const layer = scratchLayer(size, pass.scratch, 0);
@@ -1769,10 +1828,11 @@
         ? StreetVariants.lineStyles(entry, f, fi, i, mvtToM) : null;
       for (const style of styles || [null]) {
         const sub = style ? Streets.subLineM(line, mvtToM, style.a, style.b) : line.map((p) => ({ x: p.x * mvtToM, y: p.y * mvtToM }));
-        const hex = style && StreetVariants.stoneColorFor(style.variant, false);
+        const variant = global.StreetVariants?.pavementVariantFor(f.tags, style?.variant);
+        const hex = global.StreetVariants?.stoneColorFor(variant, false);
         const tint = hex ? parseInt(hex.slice(1), 16) : color;
         const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
-        emitRuns(pts, proj, (run) => addRun(widthPx, tint, run, isRail, style?.variant, PATH_CLASSES.has(f.tags?.class)));
+        emitRuns(pts, proj, (run) => addRun(widthPx, tint, run, isRail, variant, PATH_CLASSES.has(f.tags?.class)));
         if (style && StreetVariants.carpetStyleFor(style.variant)) carpets.push({ pts, variant: style.variant,
           halfM: (widthPx / CELL_PX) * scene.cellM / 2 });
       }
@@ -1832,12 +1892,13 @@
             const color = restoredColorFor(f.tags);
             const styles = global.StreetVariants ? StreetVariants.lineStyles(entry, f, fi, i, mvtToM) : [{ a: 0, b: Infinity }];
             for (const style of styles) for (const iv of S.intersect(list, [[style.a, style.b]])) {
-              const hex = global.StreetVariants && StreetVariants.stoneColorFor(style.variant);
+              const variant = global.StreetVariants?.pavementVariantFor(f.tags, style.variant);
+              const hex = global.StreetVariants?.stoneColorFor(variant);
               const tint = hex ? parseInt(hex.slice(1), 16) : color;
               const sub = S.subLineM(line, mvtToM, iv[0], iv[1]);
               if (!sub || sub.length < 2) continue;
               const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
-              emitRuns(pts, proj, (run) => addRun(widthPx, tint, run, style.variant, PATH_CLASSES.has(f.tags?.class)));
+              emitRuns(pts, proj, (run) => addRun(widthPx, tint, run, variant, PATH_CLASSES.has(f.tags?.class)));
             }
           }
         }

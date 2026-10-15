@@ -264,14 +264,14 @@ class SceneStreets {
   }
 
   // Bake the lamp art for one GLOW colour, once: RoadOverlay.paintLamp with
-  // that colour as its glass, bloom and pool, under streetLampTexKey(glow).
+  // that colour in its metal, glass and glow, under streetLampTexKey(glow).
   // Cached BY COLOUR (the texture manager is the cache), so a street of forty
-  // orange lamps is one bake. Returns the key render.js draws the lamp by.
-  _ensureStreetLampTex(glow) {
-    const key = streetLampTexKey(glow);
+  // orange lamps is one bake. Rift posts also cache their broken silhouette.
+  _ensureStreetLampTex(glow, broken = false) {
+    const key = streetLampTexKey(glow) + (broken ? '_broken' : '');
     if (this.textures.exists(key)) return key;
     if (typeof RoadOverlay === 'undefined' || !RoadOverlay.paintLamp) return key;
-    return this._ensureCanvasTex(key, RoadOverlay.LAMP_TEX_PX, (ctx, S) => RoadOverlay.paintLamp(ctx, S, glow || UI_LAMP_GLOW));
+    return this._ensureCanvasTex(key, RoadOverlay.LAMP_TEX_PX, (ctx, S) => RoadOverlay.paintLamp(ctx, S, glow || UI_LAMP_GLOW, broken));
   }
 
   // Every lamp of ONE tile, in ABSOLUTE world metres — lit or not. Cached on
@@ -404,6 +404,8 @@ class SceneStreets {
       const glows = new Set();
       for (const L of out) if (L.lit) glows.add(L.glow);
       for (const g of glows) this._ensureStreetLampTex(g);
+      for (const g of new Set(out.filter(L => !L.lit && L.suppressed).map(L => L.glow)))
+        this._ensureStreetLampTex(g, true);
     }
     this._streetLamps = out;
     this._streetLampKey = pending ? null : key;

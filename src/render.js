@@ -4030,7 +4030,7 @@ Render.drawObjects = function drawObjects(scene) {
   // drawRoadGeometry a moment before this pass) and the same `lit` flag decides
   // the art here and the light in Lighting.collectLamps.
   const lampList = placedAs(scene._streetLamps || [], '_streetlamp', 'lamp',
-    (L) => ({ lit: L.lit, tier: L.tier, glow: L.glow }), false);
+    (L) => ({ lit: L.lit, tier: L.tier, glow: L.glow, suppressed: L.suppressed }), false);
 
   // Hide objects that are temporarily gone — an opened chest (its pad and label
   // go with it until it refills), a chopped tree, a mined-out mineralrock, a
@@ -5630,7 +5630,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       // STREET_LAMP_TEX for the default, one texture per colour otherwise,
       // baked by app.js _ensureStreetLampTex before this pass runs); a dark
       // one the broken post app.js _ensureBrokenLampTex baked at boot.
-      key: (o) => (o.lit ? streetLampTexKey(o.glow) : STREET_LAMP_BROKEN_TEX),
+      key: (o) => (o.lit ? streetLampTexKey(o.glow)
+        : o.suppressed ? streetLampTexKey(o.glow) + '_broken' : STREET_LAMP_BROKEN_TEX),
       frame: '__BASE',
       // Read lazily (functions, not values): both constants live in app.js,
       // which loads after this table is built.
