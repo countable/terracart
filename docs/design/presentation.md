@@ -29,6 +29,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   and the name/action plate; contextual actions keep their existing semantics.
   Reference atlas crops live alongside their provenance in `assets/ui/compass/`.
   Engravings retain their aspect ratio rather than stretching to viewport height.
+  The modal gate publishes the final sheet edge in viewport pixels so silver
+  shoulders remain visible above scaled sheets without covering their controls.
 
 - Living-silver compass circuits persist their active state and pending
   one-time Dragon Spirit notices in `save.compassModules`. Inventory activates

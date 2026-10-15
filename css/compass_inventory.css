@@ -17,13 +17,13 @@ body.compass-hud #inv-tabs {
 }
 body.compass-hud #inv-tabs .hud-tab {
   flex:1 1 0!important;min-width:0!important;height:100%!important;
-  border:2px ridge #c4c5c0;border-radius:22px 22px 15px 15px!important;
-  background:linear-gradient(100deg,#747674,#bcbdb7 36%,#93958f 66%,#626661);
-  box-shadow:inset 0 0 0 2px #505551,inset 0 3px 5px #efeee1,0 1px 2px #101816;
+  border:2px solid #c9c9c3;border-radius:24px 24px 17px 17px!important;
+  background:radial-gradient(ellipse at 50% 82%,#c5c5be 0%,#a3a49f 42%,#777b78 74%,#444c49 100%);
+  box-shadow:inset 0 0 0 1px #474f4c,inset 0 3px 5px #303b38,inset 0 -2px 2px #f1efe4,0 -1px 0 #f6f4eb,0 2px 3px #111b18;
   gap:5px!important;padding:4px 0!important;opacity:1!important;
 }
 body.compass-hud #inv-tabs .hud-tab > .inventory-category-glyph {
-  color:#d7d8cf!important;filter:drop-shadow(0 1px 0 #242c28) drop-shadow(0 -1px 0 #f5f5eb)!important;
+  color:#deded5!important;filter:drop-shadow(0 2px 1px #434b47) drop-shadow(0 -1px 0 #f8f6ed)!important;
   opacity:1!important;line-height:1;
 }
 body.compass-hud #inv-tabs .inventory-category-glyph svg {width:28px;height:28px;}
@@ -32,8 +32,9 @@ body.compass-hud #inv-tabs .hud-tab > .inventory-category-caption {
   letter-spacing:-.3px!important;text-shadow:0 1px #d9dad1;max-width:100%;
 }
 body.compass-hud #inv-tabs .hud-tab.sel {
-  border-color:#f6d878;background:linear-gradient(110deg,#80602a,#eed28b 40%,#b48435 70%,#d5b367);
-  box-shadow:inset 0 0 0 1px #fff0a4,inset 0 3px 5px #fff2ab,0 0 4px #eab348;
+  border-color:#f6d878;
+  background:radial-gradient(ellipse at 50% 80%,#edcc74 0%,#c99c43 46%,#8d621e 80%,#5e431b);
+  box-shadow:inset 0 0 0 1px #80511a,inset 0 3px 5px #694519,inset 0 -2px 2px #fff1ac,0 -1px 0 #fff0af,0 0 4px #eab348;
 }
 body.compass-hud #inv-tabs .hud-tab.sel > .inventory-category-glyph {color:#fff4c1!important;filter:drop-shadow(0 1px 1px #5b3510)!important;}
 body.compass-hud #inv-tabs .hud-pip {top:3px!important;right:3px!important;background:transparent;border:0;color:#29332b!important;filter:none!important;opacity:.8!important;font:700 8px/10px Georgia!important;padding:0!important;}
@@ -106,15 +107,20 @@ body.compass-hud:has(#consumable-btn) #eat-btn {right:calc(var(--phone-right,0px
 body.compass-hud #compass-inventory-shutter {
   bottom:var(--inventory-floor);left:calc(var(--phone-left,0px) + 8px);right:calc(var(--phone-right,0px) + 8px);
   height:calc(var(--inventory-name-height) + var(--inventory-slot-height) + var(--inventory-tab-height) + 8px);
-  border:3px ridge #bcc5bd;border-radius:24px;
+  border:0;border-radius:27px 27px 20px 20px;
+  box-shadow:inset 0 1px 2px #d9dbd2,inset 0 -1px 2px #a6aaa2;
+  -webkit-mask-image:linear-gradient(to bottom,transparent,#000 9px,#000 calc(100% - 5px),transparent);
+  mask-image:linear-gradient(to bottom,transparent,#000 9px,#000 calc(100% - 5px),transparent);
   background-image:url('../assets/ui/compass/reference-shutter.webp');
   background-position:center;background-size:cover;letter-spacing:0;color:transparent;
   font:600 20px Georgia,serif;text-shadow:none;
 }
 body.compass-hud #compass-inventory-shutter::after {
-  content:'Inventory';position:absolute;bottom:12px;left:25%;right:25%;padding:5px;
-  border:2px ridge #d0d1c8;border-radius:18px;background:linear-gradient(#e1e1d7,#9ba295);
-  color:#202820;text-shadow:0 1px #f0f0e6;box-shadow:0 0 0 2px #3e493e;
+  content:'Inventory';position:absolute;bottom:12px;left:28%;right:28%;padding:5px 3px;
+  border:2px solid #c9c8c3;border-radius:12px 12px 10px 10px;
+  background:radial-gradient(ellipse at 50% 80%,#d8d7cf,#aaa9a5 65%,#6d6d69);
+  color:#33332f;text-shadow:0 1px #f3f1e5;
+  box-shadow:inset 0 2px 3px #53544f,inset 0 -1px 1px #f1efe4,0 0 0 2px #4e504a,0 0 0 4px #c6c5bd;
 }
 body.compass-hud #inv-tabs button:active,body.compass-hud #inv button:active,body.compass-hud .hud-action:active {filter:brightness(1.25);transform:translateY(1px);}
 body.compass-hud #inv-tabs button:focus-visible,body.compass-hud #inv button:focus-visible,body.compass-hud .hud-action:focus-visible {outline:2px solid #ffdc76;outline-offset:2px;}

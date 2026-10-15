@@ -111,5 +111,13 @@
       ]
     },
     "joystick": "Circular collar normalized to square from atlas perspective; CSS circle clips outer background."
+  },
+  "reference_join": {
+    "source": "/home/claude/.codex/generated_images/01a14036-de38-7371-93ef-6d140d42ac64/exec-7e8f2e97-1ab3-4478-afe9-62ad2aaac217.png",
+    "dimensions": [
+      1024,
+      347
+    ],
+    "method": "Proportional downsample of generated continuous feather relief; no stretching."
   }
 }

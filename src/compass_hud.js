@@ -11,7 +11,7 @@ const CompassHUD = {
     const body = document.createElement('div');
     body.id = 'compass-body';
     body.setAttribute('aria-hidden', 'true');
-    body.innerHTML = '<div class="compass-aperture"></div><div class="compass-header"></div><div class="compass-footer"></div><div class="compass-bearing"><i class="compass-ticks"></i><span>▲<b>N</b></span><span class="compass-east"><b>E</b></span><span class="compass-south"><b>S</b></span><span class="compass-west"><b>W</b></span></div>';
+    body.innerHTML = '<div class="compass-aperture"></div><div class="compass-header"></div><div class="compass-footer"></div><div class="compass-lower-join"></div><div class="compass-bearing"><i class="compass-ticks"></i><span>▲<b>N</b></span><span class="compass-east"><b>E</b></span><span class="compass-south"><b>S</b></span><span class="compass-west"><b>W</b></span></div>';
     document.body.append(body);
     const inventory = document.createElement('button');
     inventory.id = 'compass-inventory-shutter';
@@ -34,7 +34,7 @@ const CompassHUD = {
       const face = document.createElement('span');
       face.className = 'compass-energy-face';
       face.setAttribute('aria-hidden', 'true');
-      face.innerHTML = '<i></i><i></i><i></i><b>ϟ</b>';
+      face.innerHTML = '<i></i><i></i><i></i><b>ϟ</b><span class="compass-energy-pivot"></span>';
       energy.prepend(face);
       energy.tabIndex = 0;
       energy.setAttribute('role', 'button');
@@ -132,6 +132,11 @@ const CompassHUD = {
       directions.setAttribute('aria-hidden', 'true');
       directions.innerHTML = '<i>▲</i><i>▶</i><i>▼</i><i>◀</i>';
       pad.append(directions);
+      const seal = document.createElement('span');
+      seal.className = 'compass-stick-seal';
+      seal.setAttribute('aria-hidden', 'true');
+      seal.innerHTML = '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="43"/><circle cx="50" cy="50" r="36"/><path class="rose-shadow" d="M50 6L57 42L79 21L58 46L94 50L58 57L79 79L54 58L50 94L43 58L21 79L42 54L6 50L42 43L21 21L46 42Z"/><path class="rose-light" d="M50 6L50 50L57 42ZM94 50L50 50L58 57ZM50 94L50 50L43 58ZM6 50L50 50L42 43Z"/><circle cx="50" cy="50" r="4"/></svg>';
+      pad.append(seal);
     }
     const energy = document.getElementById('energy');
     const value = Math.max(0, scene.save.energy || 0), max = scene.getMaxEnergy();

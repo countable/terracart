@@ -449,8 +449,8 @@ class SceneModals {
     // stepper's canAfford, the reward card's Take arming), so looks can't
     // drift. `mkBtn(label, { variant, disabled, accent, css })`; the older
     // `mkBtn(label, primary, disabled)` spelling still reads as before.
-    const RAISED = `0 3px 0 ${UI_CONTROL_DIM}, 0 0 10px rgba(255,224,102,0.35)`;
-    const PRESSED = `0 1px 0 ${UI_CONTROL_DIM}, 0 0 6px rgba(255,224,102,0.25)`;
+    const RAISED = 'inset 0 1px 0 #fff5c9, inset 0 -1px 0 #977330, 0 2px 2px #171b1790, 0 0 7px #ffe06624';
+    const PRESSED = 'inset 0 1px 3px #77582099, 0 1px 0 #e8cf8a66';
     const GHOST = 'background:transparent;color:#ddd;border:2px solid #555;';
     const mkBtn = (label, opts = true, disabled = false) => {
       const o = (opts && typeof opts === 'object') ? opts : { variant: opts ? 'primary' : 'ghost', disabled };
@@ -599,6 +599,24 @@ class SceneModals {
       // Keep its HUD gate until TempleScene's shutdown clears the scene flag.
       const any = !!this._templeSceneActive || [...document.querySelectorAll('.game-modal')].some(shown);
       document.body.classList.toggle('modal-open', any);
+      // The chassis lives outside the scaled game. Clip at the sheet's actual
+      // screen edge, retaining silver shoulders around the circular map. Its
+      // layout position ignores the entrance transform and follows resizing.
+      if (document.getElementById('compass-body')) {
+        const tops = [...document.querySelectorAll('.compass-panel > .modal-box')]
+          .filter(shown).map(el => {
+            const wrap = el.parentElement, bounds = wrap.getBoundingClientRect();
+            return bounds.top + el.offsetTop * bounds.height / wrap.offsetHeight;
+          });
+        if (tops.length) {
+          const edge = `${Math.max(0, Math.min(...tops))}px`;
+          if (document.body.style.getPropertyValue('--compass-panel-edge') !== edge) {
+            document.body.style.setProperty('--compass-panel-edge', edge);
+          }
+        } else if (document.body.style.getPropertyValue('--compass-panel-edge')) {
+          document.body.style.removeProperty('--compass-panel-edge');
+        }
+      }
       // The ☰ menu is hidden under the class (index.html); fold it shut as
       // well, so a menu left open behind a dialog doesn't spring back open
       // the moment the dialog is dismissed.
