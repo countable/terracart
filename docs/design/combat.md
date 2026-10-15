@@ -284,12 +284,17 @@ mechanics.
   chasing foe sidesteps around it when a jog fits. This is separate from the
   warmth-ring ward (`FIRE_REST_R`), which turns back only entry-level kinds.
 - Home is `save.starterShopId`: the wagon, placed by `_placeHome` one cell
-  north of the player (`HomeArea.WAGON_OFFSET`) with an empty firepit at their
-  lower left (`FIREPIT_OFFSET`, `save.homeFirepit`; flint lights a fire in it).
+  north of the player (`HomeArea.WAGON_OFFSET`) with an empty firepit three
+  cells due south of the trailer
+  (`FIREPIT_OFFSET`, `save.homeFirepit`; flint lights a fire in it). The first
+  valid device-compass reading unlocks placement once per save
+  (`homeCompassDetected`); `homeFirepitPending` waits for Home and the surface
+  if the reading arrives earlier. Later headings and reloads do not move it.
   This step-over prop sits at its cell centre, with its ring, fire, smoke and
-  step-up footprint sharing that anchor. Older saved rings are centred within
-  their existing cell; any surface fire moves with the ring, retaining its
-  state. Cave fires at the same coordinates are unaffected.
+  step-up footprint sharing that anchor. On the first compass reading, older
+  saved rings move to this southern cell too; a matching surface fire follows
+  the ring and retains its state. Cave fires at the same coordinates are
+  unaffected.
   Older saves may still have an adopted house, which draws as the wagon. Any
   unclaimed house on Home's footing (the wagon's 3x3 and the firepit cell) is
   erased entirely — footprint, outline and roof — by `clearHomeFooting`, a

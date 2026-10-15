@@ -56,10 +56,11 @@ const HomeArea = {
   // Where a placed Home sits, in cell offsets from the point it is placed
   // for (the player's first fix, or where they stand for "Move Home here"):
   // the wagon one cell NORTH, so the player starts on its doorstep, and an
-  // empty firepit centred one cell down and to their left. Every Home placement
+  // firepit centred three cells due south of the wagon, after the first
+  // compass reading. Every Home placement
   // reads these; nothing restates them.
   WAGON_OFFSET: { dx: 0, dy: -1 },
-  FIREPIT_OFFSET: { dx: -1, dy: 1 },
+  FIREPIT_OFFSET: { dx: 0, dy: 2 },
   // Where the placed wagon's art stands on its cell, in cells (render.js
   // _houseFootPx reads it as the house's footDx/footDy): shifted left so
   // its door (0.18 of the art's width right of centre) is over the

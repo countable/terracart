@@ -32,7 +32,8 @@ compass heading. `_worldDecalCount` marks that prefix for the rotated depth sort
 Contact shadows are presentation attached to props, not ground decals; flat rune
 rings are decals and retain the map's rotation.
 
-The home firepit is centred in its designated cell, without an inward artwork
+The home firepit is centred three cells due south of the trailer after the
+first device-compass reading (see [Home](combat.md)), without an inward artwork
 nudge. The ring, matching fire, smoke, interaction and step-over footprint use
 that position. Its cold and lit states are both step-over props.
 
