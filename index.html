@@ -1006,6 +1006,13 @@
       font: 700 15px var(--font-ui); cursor: pointer;
       width: 100%; min-height: 48px;
     }
+    /* Skip the whole opening from any slide: a quiet text link under the
+       main button, so the story's own CTA stays the obvious tap. */
+    #story button.story-skip {
+      background: none; color: var(--gold-dark); width: auto; min-height: 44px;
+      margin-top: 6px; padding: 10px 16px;
+      font: 400 13px var(--font-ui); text-decoration: underline;
+    }
     #story.nightmare { background: #000; }
     #story.nightmare .box { background: #000; border-color: transparent; }
     #story.nightmare .art {
@@ -1391,6 +1398,7 @@
       <div class="opening-copy">
         <p id="story-text"></p>
         <button id="story-next">Next</button>
+        <button id="story-skip" class="story-skip" type="button">Skip intro</button>
       </div>
     </div>
   </div>
@@ -2563,6 +2571,7 @@
       const artEl = document.getElementById('story-art');
       const textEl = document.getElementById('story-text');
       const btn = document.getElementById('story-next');
+      const skip = document.getElementById('story-skip');
       if (!overlay || !artEl || !textEl || !btn) return;
       __storyStarted = true;
       let i = 0, wakeTimer;
@@ -2582,21 +2591,25 @@
         btn.disabled = fadeWake;
         if (fadeWake) wakeTimer = setTimeout(() => { btn.disabled = false; }, STORY_WAKE_DELAY_MS);
       };
+      const finish = () => {
+        clearTimeout(wakeTimer);
+        try { localStorage.setItem('terracart.introSeen', '1'); } catch {}
+        overlay.remove();
+        onDone?.();
+        // onDone usually re-shows the safety CTA, in which case this no-ops
+        // and the safety handler flushes instead.
+        window.__flushPendingHowTo?.();
+      };
       const advance = () => {
         if (btn.disabled) return;
         i++;
-        if (i >= STORY_SLIDES.length) {
-          try { localStorage.setItem('terracart.introSeen', '1'); } catch {}
-          overlay.remove();
-          onDone?.();
-          // onDone usually re-shows the safety CTA, in which case this no-ops
-          // and the safety handler flushes instead.
-          window.__flushPendingHowTo?.();
-          return;
-        }
+        if (i >= STORY_SLIDES.length) { finish(); return; }
         render();
       };
       btn.addEventListener('click', (ev) => { ev.stopPropagation(); advance(); });
+      // "Skip intro" ends the opening from any slide, the dream included —
+      // the same finish as the last slide, so the safety CTA follows.
+      skip?.addEventListener('click', (ev) => { ev.stopPropagation(); finish(); });
       render();
       overlay.style.display = 'flex';
     }
