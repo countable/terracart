@@ -3178,14 +3178,17 @@ Render.drawCells = function drawCells(scene) {
   const underground = (scene.depth || 0) > 0;
   const plainX = () => underground ? g.lineStyle(2, 0xc9b48a, 0.6) : g.lineStyle(2, 0x2a1d10, 0.55);
   plainX();
+  const trailEnds = new Set(!underground && typeof Starter !== 'undefined'
+    ? Starter.trailPaths(scene, Date.now()).map(p => p.id) : []);
   const drawX = (tr) => {
     if (!treasureExposed(tr, scene) || found.has(tr.id)) return;
     const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
     if (!inViewBox(dx, dy, halfM)) return;
     // After the view box: a cover ray is the costly test (re-traced per step).
     if (Render.coverHidden(scene, tr, true)) return;
-    // Buried until the feet stand beside it (HiddenObjects.tick).
-    if (HiddenObjects.treasureHidden(scene.save, tr)) return;
+    // Buried until the feet stand beside it (HiddenObjects.tick), unless a
+    // treasure trail leads to it.
+    if (HiddenObjects.treasureHidden(scene.save, tr) && !trailEnds.has(tr.id)) return;
     if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, tr, hideNightRoadTreasure)) return;
     const { x: cx, y: cy } = deltaMToScreen(scene, dx, dy);
     // 15% smaller than the old 6px; X is symmetric so the centroid (cx,cy) is unchanged.
