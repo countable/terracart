@@ -75,8 +75,8 @@ const HomeArea = {
   // Smoke wisping off the cold pit (render.js): `puffs` soft grey puffs, each
   // rising `risePx` over `periodMs` with a sideways sway, growing from
   // radiusPx[0] to radiusPx[1] and fading out from `alpha`.
-  FIREPIT_SMOKE: { puffs: 5, periodMs: 3600, risePx: 34, swayPx: 3,
-    radiusPx: [2, 6], alpha: 0.45, color: 0xc4beb4 },
+  FIREPIT_SMOKE: { puffs: 3, periodMs: 6500, risePx: 38, swayPx: 4,
+    radiusPx: [3.5, 9], alpha: 0.85, color: 0x57514c },
   // Is the cell (dx, dy) from the spawn anchor part of Home's footing — the
   // wagon's cell and the eight its art spills into, plus the firepit? The
   // starter passes keep their crates, plot and ring out of it, and
