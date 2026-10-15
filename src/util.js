@@ -669,10 +669,11 @@ function derivedObjects(entry, slot, pred) {
 // of the fort range because that is where each role's real buildings cluster.
 //
 // THE TRAILER HAS ITS OWN ROW (Oct 2026, owner's call: 10% bigger, three
-// times over — 1.331× the house). Home is the one building the player returns to
-// every session and the only one with no footprint of its own, so it draws
-// at a fixed width over the village's — big enough to find at a glance,
-// still under the smallest fort. A role with no row of its own is a house.
+// times over, then 15% more — 1.533× the house, a touch past the smallest
+// fort). Home is the one building the player returns to every session and
+// the only one with no footprint of its own, so it draws at a fixed width
+// over the village's — big enough to find at a glance. A role with no row of
+// its own is a house.
 //
 // The fort cap has come down twice: ~7 cells read as oversized against an
 // 11-cell viewport rather than as a landmark you could see around, then ~4.3
@@ -683,7 +684,7 @@ const BUILDING_ART = {
   //          brick margin inside theirs; exact fill read ~25% too big.
   // min/def/max — drawn width in CELLS (a cell is CELL_M = 7 m).
   house:   { fitMul: 1,   min: 1.2,   def: 1.35,  max: 1.35 },
-  trailer: { fitMul: 1,   min: 1.79685, def: 1.79685, max: 1.79685 },   // house × 1.331
+  trailer: { fitMul: 1,   min: 2.07,  def: 2.07,  max: 2.07 },   // house × 1.533
   fort:    { fitMul: 0.8, min: 1.87,  def: 1.87,  max: 3.48 },
   // A restored TURRET (houses.js BUILD_OPTIONS) wears the castle tower sheet,
   // a one-cell-wide column drawn at the castle rim's own size whatever its

@@ -1126,8 +1126,8 @@ class SceneVenues {
   }
 
   // Place Home for a player standing at (x, y): the wagon HomeArea.WAGON_OFFSET
-  // cells away, so they stand at its door, and the empty firepit at
-  // HomeArea.FIREPIT_OFFSET (save.homeFirepit) — unless that cell is water or
+  // cells away, its art drawn at WAGON_ART_FOOT so they stand at its door, and
+  // the empty firepit at HomeArea.FIREPIT_OFFSET (save.homeFirepit) — unless that cell is water or
   // a way, where a ring of stones would read as litter. Whatever building the
   // two land on is cleared by clearHomeFooting. The one Home placer: the
   // starter placement and "Move Home here" both come through here.
@@ -1137,8 +1137,11 @@ class SceneVenues {
       const c = absCellOffset(this, at.cellIX, at.cellIY, off.dx, off.dy);
       return absCellCenterMeters(this, c.cellIX, c.cellIY);
     };
-    const pit = cellAt(HomeArea.FIREPIT_OFFSET);
-    this.save.homeFirepit = this._firepitGroundOK(pit.x, pit.y) ? { x: pit.x, y: pit.y } : null;
+    const off = HomeArea.FIREPIT_OFFSET, pit = cellAt(off);
+    // Nudged toward the player inside its own cell (FIREPIT_NUDGE).
+    const nudge = HomeArea.FIREPIT_NUDGE * this.cellM;
+    this.save.homeFirepit = this._firepitGroundOK(pit.x, pit.y)
+      ? { x: pit.x - Math.sign(off.dx) * nudge, y: pit.y - Math.sign(off.dy) * nudge } : null;
     const wagon = cellAt(HomeArea.WAGON_OFFSET);
     this._makeStarterTrailer(wagon.x, wagon.y);
   }
@@ -1191,7 +1194,8 @@ class SceneVenues {
       // Rebuild the in-memory object after a reload (or position change).
       if (!this._starterTrailerObj || this._starterTrailerObj.id !== st.id) {
         this._starterTrailerObj = { kind: 'house', x: st.x, y: st.y,
-          tier: st.tier, id: st.id, address: st.address, _synthetic: true };
+          tier: st.tier, id: st.id, address: st.address, _synthetic: true,
+          footDx: HomeArea.WAGON_ART_FOOT.dx, footDy: HomeArea.WAGON_ART_FOOT.dy };
       }
       const obj = this._starterTrailerObj;
       const { tx, ty } = worldMetersToTile(this, obj.x, obj.y);

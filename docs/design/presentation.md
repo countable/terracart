@@ -131,9 +131,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   fifty years, Mending Lane, the wizard the old folk call Tim; the hood is
   looked at, never asked about twice.
 - A new game opens close on Home (`HomeArea.INTRO`): the wagon fills the top
-  half with the player at its door, held while Home is placed or a dialog is
-  up, then a beat, then a slow pull back to the normal view. A finger on the
-  map ends it early.
+  half with the player at its door (`WAGON_ART_FOOT`), held while Home is
+  placed or a dialog is up, then a beat, then a slow pull back to the normal
+  view. A finger on the map ends it early. Home's sign, "Your trailer.", is
+  hidden until that beat and types itself out once per session; the cold
+  firepit beside the door wisps smoke (`FIREPIT_SMOKE`).
 - Map messages fit `MAP_MSG_MAX` (30 characters) per rendered line, including
   interpolations. Cut copy or use a modal; do not interpolate unbounded POI names.
 - Statuses, buffs and timers on the player live in ONE place: the status

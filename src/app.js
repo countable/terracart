@@ -5736,7 +5736,7 @@ class MapScene extends Phaser.Scene {
 
   // --- The opening shot (HomeArea.INTRO) ---
   // A new game opens close on Home: zoomed until INTRO.viewCells span the
-  // frame, the camera half a cell north of the player, so the wagon fills the
+  // frame, the camera INTRO.focus off the player, so the wagon fills the
   // top half and the player stands at its door. It waits there while Home is
   // still being placed or a dialog (the opening story, the location prompt)
   // covers the map, holds INTRO.holdMs once the map is clear, then widens
@@ -5770,11 +5770,12 @@ class MapScene extends Phaser.Scene {
     const e = k * k * (3 - 2 * k);
     const span = I.viewCells + (VIEW_CELLS - I.viewCells) * e;
     this.mapZoom = VIEW_CELLS / span;
-    this.peekM.x = 0;
-    this.peekM.y = -this.cellM / 2 * (1 - e);
+    this.peekM.x = I.focus.dx * this.cellM * (1 - e);
+    this.peekM.y = I.focus.dy * this.cellM * (1 - e);
     if (k >= 1) {
       this._homeIntro = null;
       this.mapZoom = 1;
+      this.peekM.x = 0;
       this.peekM.y = 0;
     }
   }
