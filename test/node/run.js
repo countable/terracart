@@ -137,7 +137,7 @@ const FILES = [
   // literal consts, loaded with no app.js in scope, as in the page.
   'scene_geo.js',
   'scene_creatures.js',
-  'scene_fire.js', 'scene_shops.js',
+  'scene_fire.js', 'scene_shops.js', 'heading_up.js',
   'scene_create.js', 'scene_consumables.js', 'scene_venues.js', 'scene_streets.js', 'scene_boss.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files

@@ -1313,7 +1313,9 @@ class SceneCreate {
       // Measured from where the camera was when the finger landed, so grabbing
       // the map again mid-spring-back continues from there rather than jumping.
       const k = CELL_PX / this.cellM;
-      this._setPeekFromDrag(dx - this._peekFromM.x * k, dy - this._peekFromM.y * k);
+      // The finger drags the picture; a heading-up map has turned it.
+      const d = HeadingUp.toWorldVec(this, dx, dy);
+      this._setPeekFromDrag(d.x - this._peekFromM.x * k, d.y - this._peekFromM.y * k);
     });
     const endPeekPointer = (p) => {
       if (p.id !== this._peekPointerId) return;
@@ -1334,6 +1336,7 @@ class SceneCreate {
       endPeekPointer(p);
     };
     this.input.on('pointerup', endMapPointer);
+    HeadingUp.install(this);
     // A touch that ends off the canvas (or is stolen by the browser) never
     // reaches 'pointerup'. Without this the drag would stay latched and the
     // next tap would be swallowed as its release.

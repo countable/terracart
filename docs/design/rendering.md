@@ -25,6 +25,12 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   aggro ranges and boss margins are tuned for `VIEW_CELLS`. The new-game
   opening shot (`HomeArea.INTRO`, `_tickHomeIntro`) drives the same `mapZoom`
   and `peekM`, and always ends at exactly 1× with no offset.
+- Heading-up is a prototype behind `?headingUp=true` (`heading_up.js`): the
+  main camera turns about the view centre by `-compassDeg` (Q / E fake it on
+  desktop), the map clips to the inscribed circle, depth ≥ 90 draws on an
+  unturned `uiCam`, and upright sprites are turned back and re-sorted only
+  between `prerender` and `postrender`. Game state stays north-up; taps, the
+  peek drag and the stick convert back through `HeadingUp.toWorldVec`.
 - The player's feet sit on the GPS fix. Ground marks use that point; body
   effects use `playerBodyDy()` so they also follow the downed pose. Do not
   compensate for sprite seating by changing the projection.

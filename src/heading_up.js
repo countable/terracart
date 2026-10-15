@@ -1,0 +1,249 @@
+// Heading-up map (PROTOTYPE, `?headingUp=true`). The map turns like a car
+// GPS so the way the phone faces is always the top of the screen, instead of
+// the facing arrow swinging over a north-up map.
+//
+// Everything stays in the north-up 1× view the rest of the game measures in;
+// this file only turns the picture and un-turns the input:
+//   · the main camera rotates about the view centre (MapScene._applyMapZoom);
+//   · a second, unrotated camera draws UI (depth ≥ UI_DEPTH and the chrome
+//     here), so toasts and the work wheel stay readable;
+//   · the map is clipped to the circle inscribed in the 11×11 square — the
+//     only shape that a turned square always covers;
+//   · upright sprites are turned back for the render and re-sorted by their
+//     on-screen feet (prerender), then put back exactly (postrender), so no
+//     game code ever sees a counter-rotated sprite;
+//   · taps (_unzoomPt), the peek drag and the stick / keys go through
+//     toWorldVec back into north-up.
+// Without a device compass, Q / E turn a fake heading for desktop trials.
+//
+// Known prototype gaps: the art is drawn for a south camera, so building
+// fronts and castle walls (ground geometry) turn with the world; edge dots
+// still park on the square's rim and lose the corners; lighting/fog layers
+// turn as squares under the circle cover.
+
+const HeadingUp = {
+  UI_DEPTH: 90,
+  // Ease toward the compass: time constant, top speed, and a dead zone so a
+  // hand's tremor doesn't swim the world.
+  TAU_S: 0.25,
+  MAX_DEG_S: 240,
+  DEAD_DEG: 3,
+  KEY_STEP_DEG: 15,
+
+  enabled: (() => {
+    try {
+      const v = new URLSearchParams(location.search).get('headingUp');
+      return v !== null && !/^(false|0|no)$/i.test(v);
+    } catch (_) { return false; }
+  })(),
+
+  active(scene) {
+    return HeadingUp.enabled && !!scene?._headingUp;
+  },
+
+  // Map rotation in radians (the camera's): the world turns by -heading.
+  angle(scene) {
+    return HeadingUp.active(scene) ? (scene.mapRot || 0) : 0;
+  },
+
+  // Screen-space vector → north-up world vector.
+  toWorldVec(scene, x, y) {
+    const a = HeadingUp.angle(scene);
+    if (!a) return { x, y };
+    const c = Math.cos(a), s = Math.sin(a);
+    return { x: c * x + s * y, y: -s * x + c * y };
+  },
+
+  // North-up view point → where it is drawn on screen (about the view centre).
+  toScreenPt(scene, x, y) {
+    const a = HeadingUp.angle(scene);
+    if (!a) return { x, y };
+    const c = Math.cos(a), s = Math.sin(a);
+    const dx = x - scene.viewCenterX, dy = y - scene.viewCenterY;
+    return { x: scene.viewCenterX + c * dx - s * dy, y: scene.viewCenterY + s * dx + c * dy };
+  },
+
+  install(scene) {
+    if (!HeadingUp.enabled || scene._headingUp) return;
+    scene._headingUp = true;
+    scene.mapRot = 0;
+    const cx = scene.viewCenterX, cy = scene.viewCenterY, r = scene.viewSize / 2;
+
+    scene.uiCam = scene.cameras.add(0, 0, W * RENDER_SCALE, H * RENDER_SCALE);
+    applyRenderScale(scene.uiCam);
+
+    // The square frame and its vignette give way to a round window.
+    for (const g of scene._mapChrome || []) g.setVisible(false);
+    const cover = scene.add.graphics().setDepth(89);
+    cover._huUI = true;
+    cover.fillStyle(0x000000, 1);
+    const corners = [[-1, -1, Math.PI, 1.5 * Math.PI], [1, -1, 1.5 * Math.PI, 2 * Math.PI],
+      [1, 1, 0, 0.5 * Math.PI], [-1, 1, 0.5 * Math.PI, Math.PI]];
+    for (const [sx, sy, a0, a1] of corners) {
+      const pts = [{ x: cx + sx * (r + 1), y: cy + sy * (r + 1) }];
+      for (let i = 0; i <= 24; i++) {
+        const a = a0 + (a1 - a0) * i / 24;
+        pts.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
+      }
+      cover.fillPoints(pts, true);
+    }
+    for (let i = 0; i < 10; i++) {
+      cover.lineStyle(1, 0x000000, 0.4 * (1 - i / 10) ** 2);
+      cover.strokeCircle(cx, cy, r - i);
+    }
+    cover.lineStyle(2, 0x000000, 0.6).strokeCircle(cx, cy, r);
+    // A north tick on the rim, so you can still tell where north went.
+    scene._huNorth = scene.add.graphics().setDepth(91);
+    scene._huNorth._huUI = true;
+
+    // Desktop trial: Q / E turn a fake heading when no compass reports.
+    scene.input.keyboard?.on('keydown', (e) => {
+      if (scene._deviceCompass) return;
+      const step = e.key === 'q' || e.key === 'Q' ? -1 : e.key === 'e' || e.key === 'E' ? 1 : 0;
+      if (!step) return;
+      const deg = (((scene.compassDeg ?? 0) + step * HeadingUp.KEY_STEP_DEG) % 360 + 360) % 360;
+      scene.compassDeg = deg;
+      const rad = deg * Math.PI / 180;
+      scene.facing = { x: Math.sin(rad), y: -Math.cos(rad) };
+    });
+
+    const pre = () => HeadingUp._preRender(scene);
+    const post = () => HeadingUp._postRender(scene);
+    scene.game.events.on('prerender', pre);
+    scene.game.events.on('postrender', post);
+    scene.events.once('shutdown', () => {
+      scene.game.events.off('prerender', pre);
+      scene.game.events.off('postrender', post);
+      scene._headingUp = false;
+    });
+  },
+
+  // Once per frame, before the camera is applied.
+  tick(scene, dt) {
+    if (!HeadingUp.active(scene)) return;
+    const deg = scene.compassDeg;
+    if (deg != null) {
+      const target = -deg * Math.PI / 180;
+      let diff = target - scene.mapRot;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+      const dead = HeadingUp.DEAD_DEG * Math.PI / 180;
+      if (Math.abs(diff) > dead || scene._huTurning) {
+        scene._huTurning = Math.abs(diff) > dead / 4;
+        let step = diff * (1 - Math.exp(-dt / HeadingUp.TAU_S));
+        const max = HeadingUp.MAX_DEG_S * Math.PI / 180 * dt;
+        step = Math.max(-max, Math.min(max, step));
+        scene.mapRot = Math.atan2(Math.sin(scene.mapRot + step), Math.cos(scene.mapRot + step));
+      }
+    }
+    const g = scene._huNorth;
+    g.clear();
+    const r = scene.viewSize / 2, a = scene.mapRot - Math.PI / 2;
+    const ux = Math.cos(a), uy = Math.sin(a), px = -uy, py = ux;
+    const tx = scene.viewCenterX + ux * (r - 2), ty = scene.viewCenterY + uy * (r - 2);
+    const bx = scene.viewCenterX + ux * (r - 16), by = scene.viewCenterY + uy * (r - 16);
+    g.fillStyle(0xe8453c, 1).lineStyle(1.5, 0x000000, 0.8);
+    g.fillTriangle(tx, ty, bx + px * 6, by + py * 6, bx - px * 6, by - py * 6);
+    g.strokeTriangle(tx, ty, bx + px * 6, by + py * 6, bx - px * 6, by - py * 6);
+  },
+
+  _isUI(o) {
+    return o._huUI ?? (o.depth >= HeadingUp.UI_DEPTH);
+  },
+
+  _preRender(scene) {
+    if (!HeadingUp.active(scene)) return;
+    const main = scene.cameras.main, ui = scene.uiCam;
+    const a = scene.mapRot || 0;
+    const saved = scene._huSaved = [];
+    for (const o of scene.children.list) {
+      const isUI = HeadingUp._isUI(o);
+      o.cameraFilter = isUI ? main.id : ui.id;
+      // UI pinned to a spot on the map (a tap toast, the work wheel) follows
+      // the spot round; the round window's own chrome does not.
+      if (isUI && a && o._huUI === undefined && o.visible && HeadingUp._inMap(scene, o.x, o.y)) {
+        saved.push([o, o.x, o.y, o.rotation]);
+        const p = HeadingUp.toScreenPt(scene, o.x, o.y);
+        o.x = p.x; o.y = p.y;
+      }
+    }
+    if (!a) return;
+    const up = (o) => HeadingUp._upright(o, -a, saved);
+    for (const c of [scene.worldContainer, scene.labelContainer, scene.coinContainer, scene._sandboxLabels]) {
+      if (c) for (const o of c.list) up(o);
+    }
+    // Feet lower on the TURNED screen draw in front; ground pieces
+    // (Render.sortWorldDepth's lane, scene._worldGroundCount) stay first.
+    const wc = scene.worldContainer;
+    if (wc) {
+      const g = scene._worldGroundCount || 0;
+      scene._huOrder = wc.list.slice();
+      const s = Math.sin(a), c = Math.cos(a);
+      const key = new Map();
+      for (const o of wc.list) {
+        const f = o._huFoot || HeadingUp._firstFoot(o);
+        key.set(o, f ? s * f.x + c * f.y : 0);
+      }
+      wc.list.sort((p, q) => {
+        const pg = p.depth < g, qg = q.depth < g;
+        if (pg || qg) return pg && qg ? p.depth - q.depth : pg ? -1 : 1;
+        return key.get(p) - key.get(q) || p.depth - q.depth;
+      });
+    }
+  },
+
+  _postRender(scene) {
+    const saved = scene._huSaved;
+    if (saved) {
+      for (let i = saved.length - 1; i >= 0; i--) {
+        const [o, x, y, rot] = saved[i];
+        o.x = x; o.y = y; o.rotation = rot;
+        o._huFoot = null;
+      }
+      scene._huSaved = null;
+    }
+    const order = scene._huOrder;
+    if (order && scene.worldContainer) {
+      const wc = scene.worldContainer;
+      // Children added or removed mid-frame keep their own places.
+      if (order.length === wc.list.length) wc.list.splice(0, wc.list.length, ...order);
+      scene._huOrder = null;
+    }
+  },
+
+  _inMap(scene, x, y) {
+    const h = scene.viewSize / 2;
+    return Math.abs(x - scene.viewCenterX) <= h && Math.abs(y - scene.viewCenterY) <= h;
+  },
+
+  // Turn a sprite back upright about its feet (bottom-centre of its frame);
+  // a container at the origin holds screen-placed children, so recurse.
+  _upright(o, rot, saved) {
+    if (!o.visible) return;
+    if (o.type === 'Container') {
+      if (o.x === 0 && o.y === 0 && !o.rotation) {
+        for (const ch of o.list) HeadingUp._upright(ch, rot, saved);
+        return;
+      }
+    } else if (o.type !== 'Sprite' && o.type !== 'Image' && o.type !== 'Text') return;
+    saved.push([o, o.x, o.y, o.rotation]);
+    let fx = o.x, fy = o.y;
+    if (o.type !== 'Container' && !o.rotation) {
+      fx += (0.5 - o.originX) * o.displayWidth * (o.flipX ? -1 : 1);
+      fy += (1 - o.originY) * o.displayHeight;
+    }
+    const c = Math.cos(rot), s = Math.sin(rot);
+    const dx = o.x - fx, dy = o.y - fy;
+    o.x = fx + c * dx - s * dy;
+    o.y = fy + s * dx + c * dy;
+    o.rotation += rot;
+    o._huFoot = { x: fx, y: fy };
+  },
+
+  _firstFoot(o) {
+    if (o._huFoot) return o._huFoot;
+    if (o.type === 'Container') {
+      for (const ch of o.list) { const f = HeadingUp._firstFoot(ch); if (f) return f; }
+    }
+    return null;
+  },
+};
