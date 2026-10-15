@@ -6,11 +6,13 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
-- The opening dragon-war dream crossfades between two aligned paintings on a
-  six-second loop, moving dragon heads, drifting smoke and flickering flames,
-  with both frames sharing the existing eight-second camera
-  push. Reduced-motion mode shows the first frame without zoom or crossfade.
-  The wake-up button timing and the three-slide opening sequence stay the same.
+- The four opening panes show the compass discovery, dragon-war dream,
+  trailer awakening, then the ruined street. Each has two aligned paintings:
+  hold the first for 1.5 seconds, crossfade once over 1.2 seconds, and keep
+  the second frame. Mobile uses a fullscreen panel with uncropped art and
+  readable copy below. The dream retains its eight-second camera push and
+  wake-up button timing. Reduced-motion mode shows the first frame without
+  zoom or crossfade and makes the wake-up button immediately available.
 
 - The inventory pet menu's **View info** opens an individual pet card with a
   128px portrait, description, current/max HP and damage per hit. Stats use
