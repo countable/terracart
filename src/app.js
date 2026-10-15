@@ -1037,6 +1037,16 @@ const MARKERS = [
     clearWhen: (s, m) => Delivery.isSatisfied(s.save, { id: m.id })
       || Math.hypot(m.x - playerWorldM(s).x, m.y - playerWorldM(s).y) < s.cellM * 1.2 },
 ];
+// The starter ladder's bearing (update: _starterGuidanceGoal) wears the same
+// rim dot and label as a MARKERS row, but its target is derived each step
+// rather than stored, so it is drawn beside the rows instead of as one.
+// The label names the place the dot leads to: a crate fallback says so.
+const STARTER_MARK = { key: 'starterGuide', color: 0xa7ffb0, source: 'Tutorial' };
+const STARTER_GOAL_LABELS = { till: 'Plot', plant: 'Soil', restore: 'Wreck', harvest: 'Crop', sell: 'Home' };
+function starterGoalLabel(step, goal) {
+  if (goal && String(goal.id || '').startsWith('chest_start_')) return goal.crate ? 'Supply crate' : 'Relic chest';
+  return STARTER_GOAL_LABELS[step && step.event] || 'Supply crate';
+}
 // ── WHO IS TOLD OF A KILL ───────────────────────────────────────────────────
 // Every ledger resolveDefeat reports a fallen foe to, in order, each judging
 // the credit by ONE question — Macros.slainByPlayer: the id in save.caught
@@ -2701,17 +2711,15 @@ class MapScene extends Phaser.Scene {
   }
 
   // Edge compass: an arrow parked on the rim of the viewport pointing at a
-  // world-space target. The delivery waypoint and starter-crate trail share
-  // it, so the ring geometry
-  // lives here once instead of being re-derived (identically) at each site.
+  // world-space target (the delivery waypoint).
   // Returns the distance to the target in metres so callers can decide when
   // "close enough" retires their arrow.
   //
   // Draws NOTHING for a target already inside the viewport (see below). That
   // is deliberately here and not at the call sites: it is a fact about what an
   // edge compass is for, not a policy any one caller owns, and the callers'
-  // own retire rules (the delivery waypoint's 1.2 cells, the starter arrow's
-  // 1.5) are about clearing their STATE, which still happens on their own
+  // own retire rules (the delivery waypoint's 1.2 cells) are about clearing
+  // their STATE, which still happens on their own
   // terms. The return value is unchanged either way, so that logic is
   // untouched.
   _drawEdgeCompass(targetWX, targetWY, fillColor, outlineAlpha = 0.85) {
@@ -3490,15 +3498,17 @@ class MapScene extends Phaser.Scene {
     }
 
     // The bearings at the rim: the Pairy's chest, a telescope or wayfarer
-    // sighting, a map's treasure, the delivery's house (MARKERS).
+    // sighting, a map's treasure, the delivery's house (MARKERS). The starter
+    // dot below draws after, so its label stacks with theirs.
     this._drawMarkers();
 
-    // Starter guidance — a LIGHT-GREEN arrow toward whatever the ACTIVE ladder
-    // step actually wants, shown only while the first-session ladder is
-    // running. Green is the tutorial's colour: the chip's step tag, the
-    // step-complete toast and this arrow all wear --green (#a7ffb0), so
-    // everything the ladder owns reads as one system — and the arrow can't be
-    // confused with the gold facing triangle on the player.
+    // Starter guidance — a LIGHT-GREEN rim dot toward whatever the ACTIVE
+    // ladder step actually wants, shown only while the first-session ladder is
+    // running. It is the same labelled dot as every MARKERS bearing (tap
+    // toggles its label), so the tutorial teaches the rim the rest of the game
+    // uses. Green is the tutorial's colour: the chip's step tag, the
+    // step-complete toast and this dot all wear --green (#a7ffb0), so
+    // everything the ladder owns reads as one system.
     //
     // The target is PER-STEP (see _starterGuidanceGoal): the crates while the
     // chip says to open one, the carved plot for "Break ground", and the
@@ -3508,7 +3518,7 @@ class MapScene extends Phaser.Scene {
     //
     // Retires itself the moment the ladder finishes or is dismissed, and stops
     // pointing once the player is on top of the target (it is in reach by
-    // then, and the arrow would only cover the sprite).
+    // then).
     if (this.depth === 0 && typeof Quests !== 'undefined' && !Quests.starterHidden(this.save)) {
       const step = Quests.starterCurrent(this.save);
       // Memoise the goal on a 500 ms clock. _starterGuidanceGoal walks every
@@ -3529,7 +3539,8 @@ class MapScene extends Phaser.Scene {
       if (goal) {
         const { x: pWX, y: pWY } = playerWorldM(this);
         if (Math.hypot(goal.x - pWX, goal.y - pWY) > this.cellM * 1.5) {
-          this._drawEdgeCompass(goal.x, goal.y, 0xa7ffb0, 0.9);
+          const point = this._drawEdgeDot(goal.x, goal.y, STARTER_MARK.color);
+          this._drawEdgeDotLabel(STARTER_MARK, {}, { label: starterGoalLabel(step, goal) }, point);
         }
       }
     }
@@ -6570,7 +6581,7 @@ class MapScene extends Phaser.Scene {
   // gold the GPS crosshair itself is drawn in (UI_GOLD, 0xffe066), so the line
   // and the marker it runs to read as one piece of furniture rather than two
   // unrelated marks, and it stays quieter than the coloured compasses (the
-  // green tutorial arrow, the cyan pairy dot) by being translucent.
+  // green tutorial dot, the cyan pairy dot) by being translucent.
   _drawWalkHomeHint(dt) {
     const g = this.walkHomeGfx;
     if (!g) return;

@@ -21,7 +21,7 @@
       label: 'Easy mode',
       blurb: 'Guided steps, supply crates, a quiet home.',
       // ── Tutorial ──
-      tutorial: true,           // starter ladder chip + green arrow + step rewards
+      tutorial: true,           // starter ladder chip + green rim dot + step rewards
       starterCrates: true,      // the supply-crate trail (seeds, rockfruit, wood)
       pestAmnesty: true,        // no slime / crow / raven near home until the first harvest
       // ── Pests ──

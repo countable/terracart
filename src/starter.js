@@ -136,7 +136,7 @@
   //      left along the road nearby", and when there is a road nearby the
   //      trail keeps its word — and the relic chest seats on the shoulder at
   //      the END of that line, about a screen out, so the line of crates
-  //      still leads somewhere. The gold arrow walks the player crate to
+  //      still leads somewhere. The green dot walks the player crate to
   //      crate and hands them the chest last either way.
   //   2. Otherwise they are laid along the walked route from the anchor to
   //      that chest, evenly spaced, so each is in view from the one before
@@ -239,7 +239,7 @@
     // the list. STARTER_CHAIN goes open a crate → till → SOW A SEED → rebuild a
     // wreck, so the first crate has to be the one holding a seed. Wood (5 per plain house, and what
     // unseals a fort) rides at the far end instead, arriving about when step 4
-    // asks for it — and the green arrow, which always points at the nearest
+    // asks for it — and the green rim dot, which always points at the nearest
     // unopened crate, now agrees with the chip instead of contradicting it.
     const COUNT = STARTER_LOOT.length;
     const usedSeats = new Set();          // 'cx,cy' of cells already holding a chest
@@ -498,9 +498,9 @@
   // around home (STARTER_STASH_R_CELLS), each holding one of STARTER_STASH —
   // four Books (the Book is otherwise a rare find outside a school), a Rope
   // and a Trap Disarm Kit. Not on the tutorial trail: the trail is the
-  // ladder's path and the green arrow walks it (`chest_start_*`); these are
+  // ladder's path and the green dot walks it (`chest_start_*`); these are
   // things to stumble on while gathering, so they carry their own id prefix
-  // (`stash_start_*`) and the arrow never points at them.
+  // (`stash_start_*`) and the dot never points at them.
   //   PLACED bucket, like the trail: a pure function of the frozen anchor
   // (save.starterCratesAt) through its own rng stream (seeded off the anchor
   // cell under a 'starter_stash' key — never the trail's), so a rebuild or
@@ -575,7 +575,7 @@
     // ...and each crate / the relic chest, with enough margin that the crate
     // reads as sitting on ground rather than punched out of the dark. Found by
     // id rather than threaded through the seater: `chest_start_` is already the
-    // stamp the onboarding arrow (_nearestStarterCrate) keys off, so the two
+    // stamp the onboarding dot (_nearestStarterCrate) keys off, so the two
     // can't disagree about what the trail consists of.
     for (const o of (entry.objects || [])) {
       if (!o.id || !String(o.id).startsWith('chest_start_')) continue;
@@ -601,7 +601,7 @@
   // is a real treasure chest, not another supply crate: no `crate` flag, so it
   // renders as the trunk with its tier gem rather than a box, and it disappears
   // when opened. Its id carries the `chest_start_` stamp, so the gold onboarding
-  // arrow (_nearestStarterCrate) will point the way to it like any other.
+  // dot (_nearestStarterCrate) will point the way to it like any other.
   //
   // "A screen away": the view is VIEW_CELLS across with the player in the middle
   // of it, so a chest VIEW_CELLS cells out is just past the edge of the opening
@@ -831,7 +831,7 @@
     // if the freeze above were somehow missing.
     const found = WorldGen.nearestRingCell(spawnIX, spawnIY, 2, 8, blockUsable);
     // Nothing within 8 cells can host one (mid-river, deep inside a block of
-    // buildings). Leave the grid alone and freeze nothing — the arrow falls
+    // buildings). Leave the grid alone and freeze nothing — the dot falls
     // back to the crates, which is where it pointed before this existed.
     if (!found) return;
     paint(found.ix, found.iy);
