@@ -161,7 +161,8 @@ test('opening: wake up fades in with the end of the zoom, taps during the fade s
     nodes['story-skip'].handlers.click({ stopPropagation() {} });
     assert.truthy(done && stored && nodes.story.removed, 'skip ends the opening and marks it seen');
   }
-  assert.truthy(/<button id="story-skip"[^>]*>Skip intro<\/button>/.test(html), 'the skip link sits under the story button');
+  assert.truthy(/<\/div>\s*<\/div>\s*<button id="story-skip"[^>]*>Skip intro<\/button>\s*<\/div>/.test(html),
+    'the skip link sits on the mask itself, after the story panel, not inside it');
   assert.truthy(/@keyframes wake-reveal/.test(html));
   assert.truthy(/prefers-reduced-motion: reduce/.test(html));
 });
