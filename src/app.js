@@ -3417,9 +3417,11 @@ class MapScene extends Phaser.Scene {
     // and its screen-y is squashed by FACING_CHEVRON_TILT for the south
     // camera's tilt (map-perspective.md).
     this.facingChevronGfx.clear();
-    const fmag = Math.hypot(this.facing.x, this.facing.y);
+    // A heading-up map points it where the map is turned to: straight up.
+    const facing = HeadingUp.active(this) && this.compassDeg != null ? HeadingUp.facing(this) : this.facing;
+    const fmag = Math.hypot(facing.x, facing.y);
     if (fmag > 0.001) {
-      const fx = this.facing.x / fmag, fy = this.facing.y / fmag;
+      const fx = facing.x / fmag, fy = facing.y / fmag;
       // (along, across) on the ground → screen, y foreshortened.
       const ground = (u, v) => ({
         x: pScreen.x + fx * u - fy * v,
@@ -9546,7 +9548,8 @@ class MapScene extends Phaser.Scene {
       const d = Math.hypot(this.facing?.x ?? 0, this.facing?.y ?? 0);
       if (d > 0.001) this._spriteDir = { x: this.facing.x / d, y: this.facing.y / d };
     }
-    const { x, y } = this._spriteDir;
+    // Poses are screen directions; a heading-up map has turned the world.
+    const { x, y } = HeadingUp.toScreenVec(this, this._spriteDir.x, this._spriteDir.y);
     // Dragon transform: the player flies as a single-direction dragon.
     // Keep the flap looping and just mirror by heading (art faces
     // right at rest), ignoring the human walk/idle directional sheets.

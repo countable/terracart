@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=ee2a03af" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=0a9593fa" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -2484,6 +2484,24 @@
         __consented = true;
       }
     } catch {}
+    // A reload that skips the splash never re-asks for the compass, and iOS
+    // sends no orientation events to a page that hasn't asked. Ask again on the
+    // first tap anywhere: an earlier grant resolves without a prompt.
+    window.__rearmCompassOnGesture = () => {
+      const DOE = window.DeviceOrientationEvent;
+      if (!DOE || typeof DOE.requestPermission !== 'function') return;
+      const ask = () => {
+        document.removeEventListener('touchend', ask, true);
+        document.removeEventListener('click', ask, true);
+        DOE.requestPermission().then((r) => {
+          window.__compassPerm = r;
+          window.__scene?.startSensors?.();
+        }).catch(() => {});
+      };
+      document.addEventListener('touchend', ask, true);
+      document.addEventListener('click', ask, true);
+    };
+    if (__safetyDismissed) window.__rearmCompassOnGesture();
     document.getElementById('safety-dismiss')?.addEventListener('click', async (e) => {
       e.stopPropagation();
       // Guard against the handler running twice. On iOS the permission prompt
@@ -2757,6 +2775,7 @@
       __safetyDismissed = true;
       document.getElementById('safety')?.remove();
       window.__compassPerm = __skipSafetyPerm;
+      window.__rearmCompassOnGesture?.();
       __consented = true;
       window.__onLocationConsent?.();
       window.__scene?.startSensors?.();
@@ -3006,7 +3025,7 @@
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
   <script src="src/scene_shops.js?v=3003dd4a"></script>
-  <script src="src/heading_up.js?v=af2dff4f"></script>
+  <script src="src/heading_up.js?v=f5a6061c"></script>
   <script src="src/scene_create.js?v=a5456fdc"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=05d59b5d"></script>
@@ -3085,7 +3104,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=ee2a03af';
+      const APP_SRC = 'src/app.js?v=0a9593fa';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

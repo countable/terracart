@@ -25,7 +25,7 @@ const HeadingUp = {
   UI_DEPTH: 90,
   // Ease toward the compass: time constant, top speed, and a dead zone so a
   // hand's tremor doesn't swim the world.
-  TAU_S: 0.25,
+  TAU_S: 0.15,
   MAX_DEG_S: 240,
   DEAD_DEG: 3,
   KEY_STEP_DEG: 15,
@@ -52,6 +52,21 @@ const HeadingUp = {
     if (!a) return { x, y };
     const c = Math.cos(a), s = Math.sin(a);
     return { x: c * x + s * y, y: -s * x + c * y };
+  },
+
+  // North-up world vector → the direction it points on the turned screen.
+  toScreenVec(scene, x, y) {
+    const a = HeadingUp.angle(scene);
+    if (!a) return { x, y };
+    const c = Math.cos(a), s = Math.sin(a);
+    return { x: c * x - s * y, y: s * x + c * y };
+  },
+
+  // The heading the map is drawn at, as a north-up world unit vector: what
+  // screen-up points at. The facing chevron uses it so it stays exactly up
+  // while the map eases after the compass.
+  facing(scene) {
+    return HeadingUp.toWorldVec(scene, 0, -1);
   },
 
   // North-up view point → where it is drawn on screen (about the view centre).
@@ -95,6 +110,13 @@ const HeadingUp = {
     // A north tick on the rim, so you can still tell where north went.
     scene._huNorth = scene.add.graphics().setDepth(91);
     scene._huNorth._huUI = true;
+    // Says so when no compass reading has arrived, so a still map reads as a
+    // missing sensor rather than a broken turn.
+    scene._huNoCompass = scene.add.text(cx, cy + r - 22, 'no compass — tap the map', {
+      font: '11px sans-serif', color: '#ffffff', backgroundColor: 'rgba(0,0,0,0.6)',
+      padding: { x: 4, y: 2 },
+    }).setOrigin(0.5).setDepth(91);
+    scene._huNoCompass._huUI = true;
 
     // Desktop trial: Q / E turn a fake heading when no compass reports.
     scene.input.keyboard?.on('keydown', (e) => {
@@ -135,6 +157,7 @@ const HeadingUp = {
         scene.mapRot = Math.atan2(Math.sin(scene.mapRot + step), Math.cos(scene.mapRot + step));
       }
     }
+    scene._huNoCompass.setVisible(!scene._deviceCompass && deg == null);
     const g = scene._huNorth;
     g.clear();
     const r = scene.viewSize / 2, a = scene.mapRot - Math.PI / 2;
