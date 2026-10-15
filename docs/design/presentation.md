@@ -136,9 +136,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   fifty years, Mending Lane, the wizard the old folk call Tim; the hood is
   looked at, never asked about twice.
 - A new game opens close on Home (`HomeArea.INTRO`): the wagon fills the top
-  half with the player at its door, held while Home is placed or a dialog is
-  up, then a beat, then a slow pull back to the normal view. A finger on the
-  map ends it early.
+  half with the player at its door (`WAGON_ART_FOOT`), held while Home is
+  placed or a dialog is up, then a beat, then a slow pull back to the normal
+  view. A finger on the map ends it early. Home's sign, "Your trailer.", is
+  hidden until that beat and types itself out once per session; the cold
+  firepit beside the door wisps smoke (`FIREPIT_SMOKE`).
 - Map messages fit `MAP_MSG_MAX` (30 characters) per rendered line, including
   interpolations. Cut copy or use a modal; do not interpolate unbounded POI names.
 - Statuses, buffs and timers on the player live in ONE place: the status
@@ -161,6 +163,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   neighbours' directions, telescope finds, maps and the Pairy together. Writers
   add with `Buffs.withMark`: a mark on the same target replaces or extends,
   a new target adds a mark, and nothing refuses or clears another mark.
+  The starter ladder's bearing (`STARTER_MARK`) is the same labelled dot,
+  aimed per step by `_starterGuidanceGoal` rather than stored as marks.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls

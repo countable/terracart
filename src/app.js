@@ -1037,6 +1037,16 @@ const MARKERS = [
     clearWhen: (s, m) => Delivery.isSatisfied(s.save, { id: m.id })
       || Math.hypot(m.x - playerWorldM(s).x, m.y - playerWorldM(s).y) < s.cellM * 1.2 },
 ];
+// The starter ladder's bearing (update: _starterGuidanceGoal) wears the same
+// rim dot and label as a MARKERS row, but its target is derived each step
+// rather than stored, so it is drawn beside the rows instead of as one.
+// The label names the place the dot leads to: a crate fallback says so.
+const STARTER_MARK = { key: 'starterGuide', color: 0xa7ffb0, source: 'Tutorial' };
+const STARTER_GOAL_LABELS = { till: 'Plot', plant: 'Soil', restore: 'Wreck', harvest: 'Crop', sell: 'Home' };
+function starterGoalLabel(step, goal) {
+  if (goal && String(goal.id || '').startsWith('chest_start_')) return goal.crate ? 'Supply crate' : 'Relic chest';
+  return STARTER_GOAL_LABELS[step && step.event] || 'Supply crate';
+}
 // ── WHO IS TOLD OF A KILL ───────────────────────────────────────────────────
 // Every ledger resolveDefeat reports a fallen foe to, in order, each judging
 // the credit by ONE question — Macros.slainByPlayer: the id in save.caught
@@ -2701,17 +2711,15 @@ class MapScene extends Phaser.Scene {
   }
 
   // Edge compass: an arrow parked on the rim of the viewport pointing at a
-  // world-space target. The delivery waypoint and starter-crate trail share
-  // it, so the ring geometry
-  // lives here once instead of being re-derived (identically) at each site.
+  // world-space target (the delivery waypoint).
   // Returns the distance to the target in metres so callers can decide when
   // "close enough" retires their arrow.
   //
   // Draws NOTHING for a target already inside the viewport (see below). That
   // is deliberately here and not at the call sites: it is a fact about what an
   // edge compass is for, not a policy any one caller owns, and the callers'
-  // own retire rules (the delivery waypoint's 1.2 cells, the starter arrow's
-  // 1.5) are about clearing their STATE, which still happens on their own
+  // own retire rules (the delivery waypoint's 1.2 cells) are about clearing
+  // their STATE, which still happens on their own
   // terms. The return value is unchanged either way, so that logic is
   // untouched.
   _drawEdgeCompass(targetWX, targetWY, fillColor, outlineAlpha = 0.85) {
@@ -3092,6 +3100,7 @@ class MapScene extends Phaser.Scene {
     this._tickPeek(dt);
     this._tickMapZoom(dt);
     this._tickHomeIntro(dt);
+    HeadingUp.tick(this, dt);
     this._applyMapZoom();
     // Everything drawn AT the player rather than at a world position rides
     // this: the camera is normally on them, so it's the viewport centre, but a
@@ -3172,7 +3181,12 @@ class MapScene extends Phaser.Scene {
     if (this._fastWalk) speedMul = 25;
     this._stepDebugGps(dt);
     // The movement stick — always on screen, always live.
-    const stick = (this._movePadHeld && this.joystickVec) ? this.joystickVec : null;
+    let stick = (this._movePadHeld && this.joystickVec) ? this.joystickVec : null;
+    // A heading-up map: the stick and keys push in SCREEN directions.
+    if (HeadingUp.active(this)) {
+      if (stick) stick = HeadingUp.toWorldVec(this, stick.x, stick.y);
+      ({ x: vx, y: vy } = HeadingUp.toWorldVec(this, vx, vy));
+    }
     // ONE movement model, at every depth and under every buff (see
     // _steerTarget / _followStep): inputs and GPS fixes move a free-flying
     // TARGET, and the opaque body — still this.playerM, so the camera and the
@@ -3403,9 +3417,11 @@ class MapScene extends Phaser.Scene {
     // and its screen-y is squashed by FACING_CHEVRON_TILT for the south
     // camera's tilt (map-perspective.md).
     this.facingChevronGfx.clear();
-    const fmag = Math.hypot(this.facing.x, this.facing.y);
+    // A heading-up map points it where the map is turned to: straight up.
+    const facing = HeadingUp.active(this) && this.compassDeg != null ? HeadingUp.facing(this) : this.facing;
+    const fmag = Math.hypot(facing.x, facing.y);
     if (fmag > 0.001) {
-      const fx = this.facing.x / fmag, fy = this.facing.y / fmag;
+      const fx = facing.x / fmag, fy = facing.y / fmag;
       // (along, across) on the ground → screen, y foreshortened.
       const ground = (u, v) => ({
         x: pScreen.x + fx * u - fy * v,
@@ -3490,15 +3506,20 @@ class MapScene extends Phaser.Scene {
     }
 
     // The bearings at the rim: the Pairy's chest, a telescope or wayfarer
-    // sighting, a map's treasure, the delivery's house (MARKERS).
+    // sighting, a map's treasure, the delivery's house (MARKERS). The starter
+    // dot below draws after, so its label stacks with theirs.
+    // facingGfx holds only these per-frame rim bearings, so it is wiped first —
+    // without the clear every frame's dot stays behind as a trail.
+    this.facingGfx.clear();
     this._drawMarkers();
 
-    // Starter guidance — a LIGHT-GREEN arrow toward whatever the ACTIVE ladder
-    // step actually wants, shown only while the first-session ladder is
-    // running. Green is the tutorial's colour: the chip's step tag, the
-    // step-complete toast and this arrow all wear --green (#a7ffb0), so
-    // everything the ladder owns reads as one system — and the arrow can't be
-    // confused with the gold facing triangle on the player.
+    // Starter guidance — a LIGHT-GREEN rim dot toward whatever the ACTIVE
+    // ladder step actually wants, shown only while the first-session ladder is
+    // running. It is the same labelled dot as every MARKERS bearing (tap
+    // toggles its label), so the tutorial teaches the rim the rest of the game
+    // uses. Green is the tutorial's colour: the chip's step tag, the
+    // step-complete toast and this dot all wear --green (#a7ffb0), so
+    // everything the ladder owns reads as one system.
     //
     // The target is PER-STEP (see _starterGuidanceGoal): the crates while the
     // chip says to open one, the carved plot for "Break ground", and the
@@ -3508,7 +3529,7 @@ class MapScene extends Phaser.Scene {
     //
     // Retires itself the moment the ladder finishes or is dismissed, and stops
     // pointing once the player is on top of the target (it is in reach by
-    // then, and the arrow would only cover the sprite).
+    // then).
     if (this.depth === 0 && typeof Quests !== 'undefined' && !Quests.starterHidden(this.save)) {
       const step = Quests.starterCurrent(this.save);
       // Memoise the goal on a 500 ms clock. _starterGuidanceGoal walks every
@@ -3529,7 +3550,8 @@ class MapScene extends Phaser.Scene {
       if (goal) {
         const { x: pWX, y: pWY } = playerWorldM(this);
         if (Math.hypot(goal.x - pWX, goal.y - pWY) > this.cellM * 1.5) {
-          this._drawEdgeCompass(goal.x, goal.y, 0xa7ffb0, 0.9);
+          const point = this._drawEdgeDot(goal.x, goal.y, STARTER_MARK.color);
+          this._drawEdgeDotLabel(STARTER_MARK, {}, { label: starterGoalLabel(step, goal) }, point);
         }
       }
     }
@@ -5747,7 +5769,7 @@ class MapScene extends Phaser.Scene {
 
   // --- The opening shot (HomeArea.INTRO) ---
   // A new game opens close on Home: zoomed until INTRO.viewCells span the
-  // frame, the camera half a cell north of the player, so the wagon fills the
+  // frame, the camera INTRO.focus off the player, so the wagon fills the
   // top half and the player stands at its door. It waits there while Home is
   // still being placed or a dialog (the opening story, the location prompt)
   // covers the map, holds INTRO.holdMs once the map is clear, then widens
@@ -5781,11 +5803,12 @@ class MapScene extends Phaser.Scene {
     const e = k * k * (3 - 2 * k);
     const span = I.viewCells + (VIEW_CELLS - I.viewCells) * e;
     this.mapZoom = VIEW_CELLS / span;
-    this.peekM.x = 0;
-    this.peekM.y = -this.cellM / 2 * (1 - e);
+    this.peekM.x = I.focus.dx * this.cellM * (1 - e);
+    this.peekM.y = I.focus.dy * this.cellM * (1 - e);
     if (k >= 1) {
       this._homeIntro = null;
       this.mapZoom = 1;
+      this.peekM.x = 0;
       this.peekM.y = 0;
     }
   }
@@ -5794,9 +5817,10 @@ class MapScene extends Phaser.Scene {
   // which is the space every tap path, cell hit test and edge dot measures in.
   _unzoomPt(pt) {
     const z = this.mapZoom || 1;
-    if (z === 1) return pt;
-    return { x: this.viewCenterX + (pt.x - this.viewCenterX) / z,
-             y: this.viewCenterY + (pt.y - this.viewCenterY) / z };
+    // A heading-up map turns the picture too (heading_up.js): undo both.
+    const r = HeadingUp.toWorldVec(this, (pt.x - this.viewCenterX) / z, (pt.y - this.viewCenterY) / z);
+    if (z === 1 && r.x === pt.x - this.viewCenterX && r.y === pt.y - this.viewCenterY) return pt;
+    return { x: this.viewCenterX + r.x, y: this.viewCenterY + r.y };
   }
 
   // Put the zoom on the camera, once per frame. At 1× the camera is
@@ -5808,11 +5832,13 @@ class MapScene extends Phaser.Scene {
     const cam = this.cameras?.main;
     if (!cam) return;
     const z = this.mapZoom || 1;
+    const rot = HeadingUp.angle(this);
     const chrome = this._mapChrome || [];
-    if (z === 1) {
+    if (z === 1 && !rot) {
       if (!this._mapZoomOn) return;
       this._mapZoomOn = false;
       cam.setViewport(0, 0, W * RENDER_SCALE, H * RENDER_SCALE);
+      cam.setRotation(0);
       applyRenderScale(cam);
       for (const g of chrome) g.setPosition(0, 0).setScale(1);
       return;
@@ -5823,9 +5849,14 @@ class MapScene extends Phaser.Scene {
     const vs = Math.round(this.viewSize * rs);
     cam.setViewport(vx, vy, vs, vs);
     cam.setZoom(k);
-    // Device px = viewport + k·(logical − scroll); the centre keeps rs·centre.
-    const sx = this.viewCenterX - (rs * this.viewCenterX - vx) / k;
-    const sy = this.viewCenterY - (rs * this.viewCenterY - vy) / k;
+    cam.setRotation(rot);
+    // Device px = viewport + R·k·(logical − scroll), R the heading-up turn
+    // (camera origin 0, so it pivots on the viewport corner); solving for the
+    // centre keeping rs·centre puts R⁻¹ on the corner-to-centre offset.
+    const ax = rs * this.viewCenterX - vx, ay = rs * this.viewCenterY - vy;
+    const c = Math.cos(rot), s = Math.sin(rot);
+    const sx = this.viewCenterX - (c * ax + s * ay) / k;
+    const sy = this.viewCenterY - (-s * ax + c * ay) / k;
     cam.setScroll(sx, sy);
     for (const g of chrome) g.setScale(1 / z).setPosition(sx - vx / k, sy - vy / k);
   }
@@ -6569,7 +6600,7 @@ class MapScene extends Phaser.Scene {
   // gold the GPS crosshair itself is drawn in (UI_GOLD, 0xffe066), so the line
   // and the marker it runs to read as one piece of furniture rather than two
   // unrelated marks, and it stays quieter than the coloured compasses (the
-  // green tutorial arrow, the cyan pairy dot) by being translucent.
+  // green tutorial dot, the cyan pairy dot) by being translucent.
   _drawWalkHomeHint(dt) {
     const g = this.walkHomeGfx;
     if (!g) return;
@@ -9448,7 +9479,9 @@ class MapScene extends Phaser.Scene {
   // so calling from updateHUD every frame stays cheap.
   // Play a directional player animation on `sprite`. When dx/dy are supplied
   // (movement frame), updates this._spriteDir so the idle pose holds the last
-  // walking direction. Avoids restarting the anim if the key is unchanged.
+  // walking direction — unless a device compass reading exists, in which case
+  // the idle pose turns to face it. Avoids restarting the anim if the key is
+  // unchanged.
   // Swap the player between the human sheets and the red dragon while the
   // Dragon Powder is active. Sets _dragonActive so
   // _playDirected routes both sprites through the looping 'dragon-fly' anim,
@@ -9511,8 +9544,15 @@ class MapScene extends Phaser.Scene {
     if (dx !== undefined) {
       const d = Math.hypot(dx, dy);
       if (d > 0.001) this._spriteDir = { x: dx / d, y: dy / d };
+    } else if (sprite === this.player && this.compassDeg != null) {
+      // Standing still with a compass: face the device heading (this.facing,
+      // which confusion also drives), snapped to the nearest authored
+      // direction below. Without one, idle holds the last walking direction.
+      const d = Math.hypot(this.facing?.x ?? 0, this.facing?.y ?? 0);
+      if (d > 0.001) this._spriteDir = { x: this.facing.x / d, y: this.facing.y / d };
     }
-    const { x, y } = this._spriteDir;
+    // Poses are screen directions; a heading-up map has turned the world.
+    const { x, y } = HeadingUp.toScreenVec(this, this._spriteDir.x, this._spriteDir.y);
     // Dragon transform: the player flies as a single-direction dragon.
     // Keep the flap looping and just mirror by heading (art faces
     // right at rest), ignoring the human walk/idle directional sheets.

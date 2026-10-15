@@ -74,7 +74,12 @@
         'the wagon is one cell north, so the player stands at its door');
       assert.truthy(sameAbsCell(s, s.save.homeFirepit.x, s.save.homeFirepit.y, at(29, 31).x, at(29, 31).y),
         'the firepit is one cell down and to the left');
-      assert.truthy(WorldGen.tileCache.get(KEY).objects.some(o => o.id === 'starter_trailer'), 'the wagon is injected');
+      const wagon = WorldGen.tileCache.get(KEY).objects.find(o => o.id === 'starter_trailer');
+      assert.truthy(wagon, 'the wagon is injected');
+      assert.eq(wagon.footDx, HomeArea.WAGON_ART_FOOT.dx, 'its art stands with the door over the player\'s column');
+      assert.eq(wagon.footDy, HomeArea.WAGON_ART_FOOT.dy, 'and its steps on the doorstep');
+      const c = at(29, 31), pit = s.save.homeFirepit;
+      assert.truthy(pit.x > c.x && pit.y < c.y, 'the ring is drawn nudged toward the player');
     });
   });
 
@@ -218,7 +223,8 @@
     s._armHomeIntro();
     const zIn = 11 / I.viewCells;
     near(s.mapZoom, zIn, 'opens zoomed in');
-    near(s.peekM.y, -CELL_M / 2, 'half a cell north: the wagon above, the player below');
+    near(s.peekM.y, I.focus.dy * CELL_M, 'framed above the player: the wagon above, the player below');
+    near(s.peekM.x, I.focus.dx * CELL_M, 'and toward the wagon\'s middle');
     s._tickHomeIntro(5);
     near(s.mapZoom, zIn, 'no Home yet: still waiting');
     s.save.starterShopId = 'starter_trailer';
@@ -234,6 +240,7 @@
     s._tickHomeIntro(I.outMs / 1000);
     assert.eq(s.mapZoom, 1, 'ends at exactly 1×');
     assert.eq(s.peekM.y, 0, 'and on the player');
+    assert.eq(s.peekM.x, 0, 'exactly');
     assert.eq(s._homeIntro, null, 'and stops');
   });
 

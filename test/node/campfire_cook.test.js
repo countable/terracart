@@ -231,6 +231,32 @@ test('campfire: the first fire lit tells its story, through the story ledger', (
       assert.eq(save.fires.length, 0);
     } finally { WorldGen.tileCache.delete(key); }
   });
+  // Home's cold firepit: a bare tap names the item it needs; holding it, the
+  // tap falls past the firepit to this same light-fire, and the fire burns on
+  // the ring (drawn a quarter cell off its cell's centre), spending one.
+  test('campfire: the item that lights any ground lights Home\'s firepit, on the ring', () => {
+    const firepit = TAP_HANDLERS.find(h => h.name === 'firepit');
+    const geo = { startWorldM: { x: 0, y: 0 }, originPx: { x: 0, y: 0 },
+      cellsPerTile: 256, mPerPx: 5 / (WorldGen.TILE_PX / 256) };
+    const pit = { x: 1003.75, y: 1001.25 };   // inside the tapped cell, off its centre
+    const flashes = [];
+    const bare = fixture(T.GRASS);
+    Object.assign(bare.scene, geo, { flash: (m) => flashes.push(m) });
+    bare.save.homeFirepit = pit;
+    bare.save.selSlot = -1;
+    assert.truthy(firepit.try(bare.ctx), 'empty-handed, the firepit answers');
+    assert.truthy(flashes[0].includes(itemName('flint_shard')), `names what lights it: ${flashes[0]}`);
+    assert.truthy(flashes[0].length <= MAP_MSG_MAX, 'fits a map line');
+    const { scene, save, ctx } = fixture(T.GRASS);
+    Object.assign(scene, geo);
+    save.homeFirepit = pit;
+    assert.falsy(firepit.try(ctx), 'holding it, the tap goes on to light-fire');
+    assert.eq(lightFire.try(ctx), true, 'and lights');
+    assert.eq(save.fires.length, 1);
+    assert.eq(save.fires[0].x, pit.x, 'on the ring');
+    assert.eq(save.fires[0].y, pit.y);
+    assert.eq(save.inv[0].count, 1, 'one spent');
+  });
 })();
 
 // Home's empty firepit (save.homeFirepit) claims its cell while it is cold:

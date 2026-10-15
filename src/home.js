@@ -60,6 +60,23 @@ const HomeArea = {
   // reads these; nothing restates them.
   WAGON_OFFSET: { dx: 0, dy: -1 },
   FIREPIT_OFFSET: { dx: -1, dy: 1 },
+  // Where the placed wagon's art stands on its cell, in cells (render.js
+  // _houseFootPx reads it as the house's footDx/footDy): shifted left so
+  // its door (0.18 of the art's width right of centre) is over the
+  // player's column, and down so the door's steps meet the doorstep cell —
+  // the player stands right in front of the door, not a cell below it.
+  WAGON_ART_FOOT: { dx: -0.37, dy: 0.7 },
+  // The firepit's ring is drawn this far (cells) from its cell's centre
+  // toward the player, so it sits by them without leaving its own cell (taps
+  // still resolve the cell). A fire lit in it burns on the same spot.
+  FIREPIT_NUDGE: 0.25,
+  // Home's sign over the roof, nudged off its centred spot (render.js).
+  SIGN_NUDGE_PX: { x: -3, y: 4 },
+  // Smoke wisping off the cold pit (render.js): `puffs` soft grey puffs, each
+  // rising `risePx` over `periodMs` with a sideways sway, growing from
+  // radiusPx[0] to radiusPx[1] and fading out from `alpha`.
+  FIREPIT_SMOKE: { puffs: 5, periodMs: 3600, risePx: 34, swayPx: 3,
+    radiusPx: [2, 6], alpha: 0.45, color: 0xc4beb4 },
   // Is the cell (dx, dy) from the spawn anchor part of Home's footing — the
   // wagon's cell and the eight its art spills into, plus the firepit? The
   // starter passes keep their crates, plot and ring out of it, and
@@ -74,11 +91,14 @@ const HomeArea = {
   },
 
   // The opening shot of a new game: the camera starts zoomed in until
-  // `viewCells` cells span the map frame, centred half a cell above the
-  // player, so the wagon fills the top half and the player stands at its
-  // door. Once Home stands and no dialog covers the map it holds `holdMs`,
-  // then eases back out to the normal view over `outMs`.
-  INTRO: { viewCells: 3, holdMs: 1000, outMs: 4000 },
+  // `viewCells` cells span the map frame, centred `focus` cells from the
+  // player (up, and a little toward the wagon's middle), so the wagon fills
+  // the top half and the player stands at its door. Once Home stands and no
+  // dialog covers the map it holds `holdMs`, then eases back out to the
+  // normal view over `outMs`. Home's sign is hidden until the hold begins,
+  // then types out one character every `labelCharMs` (every session types
+  // it once; a returning player's starts on the first frame).
+  INTRO: { viewCells: 4.5, focus: { dx: -0.2, dy: -0.5 }, holdMs: 1000, outMs: 4000, labelCharMs: 85 },
 
   // Doubled in Oct 2026 (was 10 trails within 24 cells): the cap and the
   // search area both, so twice the chests get a trail whichever binds.

@@ -1315,17 +1315,18 @@ const TAP_HANDLERS = [
   }},
 
   // 2-firepit) Home's empty firepit (save.homeFirepit) claims its cell while
-  // it stands cold: nothing is tilled, sown or set down in the ring. With a
-  // flint shard in hand the tap falls through to light-fire, which lights a
-  // fire in it (the renderer then draws the fire, and the pit again once the
-  // fire is put out); anything else says what it is for.
+  // it stands cold: nothing is tilled, sown or set down in the ring. With the
+  // fire-lighting item (flint_shard) in hand the tap falls through to
+  // light-fire — the same lighting as on any ground — and the fire burns in
+  // the ring (the renderer then draws the fire, and the pit again once the
+  // fire is put out); anything else says it needs that item.
   { name: 'firepit', try: (ctx) => {
     const { scene, save, sx, sy, cwmx, cwmy } = ctx;
     const pit = save.homeFirepit;
     if (!pit || (scene.depth ?? 0) !== 0 || !sameAbsCell(scene, pit.x, pit.y, cwmx, cwmy)) return false;
     if (occupantsOf(ctx).fireIdx >= 0) return false;
     if (getSelectedSlot(save)?.id === 'flint_shard') return false;
-    scene.flash('Light it with flint.', sx, sy);
+    scene.flash(`Needs ${itemName('flint_shard')} to light.`, sx, sy);
     return true;
   }},
 
@@ -1372,8 +1373,13 @@ const TAP_HANDLERS = [
       return !groundObjectBlocker(scene, save, cwmx, cwmy, at.half);
     },
     place: ({ scene, save, cwmx, cwmy }) => {
+      // Home's firepit is drawn off its cell's centre (HomeArea.FIREPIT_NUDGE);
+      // a fire lit in it burns on the ring, not beside it.
+      const pit = save.homeFirepit;
+      const spot = pit && PlacedFloor.isSurface(scene.depth) && sameAbsCell(scene, pit.x, pit.y, cwmx, cwmy)
+        ? pit : { x: cwmx, y: cwmy };
       // Tag the level so it renders / wards only here (see src/placed_floor.js).
-      save.fires.push(PlacedFloor.stampDepth({ x: cwmx, y: cwmy }, scene.depth));
+      save.fires.push(PlacedFloor.stampDepth({ x: spot.x, y: spot.y }, scene.depth));
       // The FIRST fire a save ever lights tells its story. A busy screen
       // returns false unmarked (the story ledger), so the next fire asks again.
       scene._storySplashOnce?.('fire', {

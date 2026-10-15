@@ -119,7 +119,7 @@ test('opening: wake up fades in with the end of the zoom, taps during the fade s
     'the reveal holds invisible through the delay (both), then fades over the fade');
   for (const reduced of [false, true]) {
     const nodes = {};
-    for (const id of ['story', 'story-art', 'story-text', 'story-next']) nodes[id] = {
+    for (const id of ['story', 'story-art', 'story-text', 'story-next', 'story-skip']) nodes[id] = {
       style: { setProperty() {} }, classes: new Set(), handlers: {},
       classList: { toggle(key, on) { if (on) nodes[id].classes.add(key); else nodes[id].classes.delete(key); } },
       addEventListener(type, cb) { this.handlers[type] = cb; }, remove() { this.removed = true; },
@@ -156,6 +156,24 @@ test('opening: wake up fades in with the end of the zoom, taps during the fade s
     click();
     assert.truthy(done && stored && nodes.story.removed);
   }
+  // "Skip intro" finishes the opening from the very first (dream) slide,
+  // even while the wake-up button is still held invisible.
+  {
+    const nodes = {};
+    for (const id of ['story', 'story-art', 'story-text', 'story-next', 'story-skip']) nodes[id] = {
+      style: { setProperty() {} }, handlers: {}, classList: { toggle() {} },
+      addEventListener(type, cb) { this.handlers[type] = cb; }, remove() { this.removed = true; },
+    };
+    let done = false, stored = false;
+    const startStory = new Function('document', 'window', 'localStorage', 'setTimeout', 'clearTimeout', source + '\nreturn startStory;')(
+      { getElementById: id => nodes[id] }, { matchMedia: () => ({ matches: false }) },
+      { setItem: () => { stored = true; } }, () => {}, () => {});
+    startStory(() => { done = true; });
+    nodes['story-skip'].handlers.click({ stopPropagation() {} });
+    assert.truthy(done && stored && nodes.story.removed, 'skip ends the opening and marks it seen');
+  }
+  assert.truthy(/<\/div>\s*<\/div>\s*<button id="story-skip"[^>]*>Skip intro<\/button>\s*<\/div>/.test(html),
+    'the skip link sits on the mask itself, after the story panel, not inside it');
   assert.truthy(/@keyframes wake-reveal/.test(html));
   assert.truthy(/prefers-reduced-motion: reduce/.test(html));
 });

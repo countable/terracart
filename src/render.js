@@ -4142,6 +4142,8 @@ Render.drawObjects = function drawObjects(scene) {
   let worldDepthDirty = Render.sortWorldDepth(zList) || !scene._worldDepthSorted
     || scene._worldDepthChildCount !== worldChildCountBefore;
   scene._worldDepthMembershipDirty = false;
+  // Ground pieces hold the lowest depths (heading_up.js keeps them first).
+  scene._worldGroundCount = zList.findIndex(row => !row.ground);
   // Phaser's Container.sort walks every pooled child. Mark the order dirty
   // only when a visible sprite's assigned depth actually changes; camera
   // motion changes screen positions but not the world-ground order.
@@ -4463,7 +4465,7 @@ Render.drawObjects = function drawObjects(scene) {
   // tier-coloured plate (Render.drawShopPlate, below); every other sign is
   // the map text family (LABEL_STYLES.sign) floating over the building art,
   // its lettering in the role's ink (_houseSignInk).
-  // Starter shop labels as "Home". Shops.shopLabel() returns null for
+  // Starter shop labels as "Your trailer." Shops.shopLabel() returns null for
   // non-shopType houses, so it is wrapped here to handle the starter case.
   // Display labels for the role-keyed shop signs come from Shops.roleLabel, the
   // one table app.js's restoration card and offer titles read too, so the sign
@@ -4476,6 +4478,17 @@ Render.drawObjects = function drawObjects(scene) {
   const _roleLabel = (role, o) => Shops.roleLabel(role,
     role === 'shop' && typeof scene.shopLine === 'function' ? scene.shopLine(o).theme : null,
     role === 'trader' && typeof scene.traderGoodsName === 'function' ? scene.traderGoodsName(o) : null);
+  // Home's sign types itself out once a session (HomeArea.INTRO.labelCharMs):
+  // hidden while a new game's opening shot still waits on Home, started on
+  // the first frame after that.
+  const _homeSignTyped = (full) => {
+    if (scene._homeSignT0 == null) {
+      if (scene._homeIntro?.phase === 'wait') return '';
+      scene._homeSignT0 = performance.now();
+    }
+    const n = Math.floor((performance.now() - scene._homeSignT0) / HomeArea.INTRO.labelCharMs);
+    return n >= full.length ? full : full.slice(0, n);
+  };
   const _houseSignText = (o) => {
     const role = _houseRole(o);
     // Wrecks have no sign - their identity is hidden until the player
@@ -4553,11 +4566,55 @@ Render.drawObjects = function drawObjects(scene) {
     const sx = px + mid.x, sy = py + mid.y;
     // The label TOP hangs 12px below the art's middle (origin [0.5, 0], so
     // position y = label top): across the building's lower front, by its door.
-    tx.setText(_houseSignText(o));
+    const full = _houseSignText(o);
+    const home = _houseRole(o) === 'trailer';
+    const typed = home ? _homeSignTyped(full) : full;
     setColorOnce(tx, _lighten30(_houseSignInk(o)));
-    tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(sy) + 12);
+    tx.setText(full);
+    // Home's sign rides over the roof: the player starts at its door, where
+    // a sign across the lower front would sit under them and fade out.
+    const nudge = home ? HomeArea.SIGN_NUDGE_PX : { x: 0, y: 0 };
+    const top = home ? Math.round(sy - _houseArtH(o) / 2 - tx.height + nudge.y) : Math.round(sy) + 12;
+    if (typed === full) {
+      tx.setPosition(Math.round(clampTextX(sx + nudge.x, tx.width, CANVAS_W)), top);
+    } else {
+      // Typing out: the letters land where the whole sign will stand, so the
+      // line grows rightward from its final left edge instead of re-centring.
+      const left = clampTextX(sx + nudge.x, tx.width, CANVAS_W) - tx.width / 2;
+      tx.setText(typed);
+      tx.setPosition(Math.round(left + tx.width / 2), top);
+    }
     fadeLabelOverPlayer(tx, _playerBox);
   }, labelFactory('sign'));
+
+  // Smoke wisping off Home's cold firepit (HomeArea.FIREPIT_SMOKE): soft
+  // puffs that rise, sway and fade, each a fraction of a period behind the
+  // last. In the fx layer (masked to the map, under the fog); none under
+  // reduced motion.
+  {
+    let g = scene.firepitSmokeGfx;
+    if (!g && firepitList.length && scene.fxContainer) {
+      g = scene.firepitSmokeGfx = scene.add.graphics();
+      scene.fxContainer.add(g);
+    }
+    if (g) {
+      g.clear();
+      const S = HomeArea.FIREPIT_SMOKE, now = performance.now();
+      if (!scene._reducedMotion) for (const { dx, dy } of firepitList) {
+        const { x, y } = project(dx, dy);
+        for (let i = 0; i < S.puffs; i++) {
+          const k = (now / S.periodMs + i / S.puffs) % 1;
+          const a = S.alpha * Math.sin(Math.PI * k) / 2;
+          const r = S.radiusPx[0] + (S.radiusPx[1] - S.radiusPx[0]) * k;
+          const px = x + Math.sin(k * 2 * Math.PI + i * 1.7) * S.swayPx + k * 2, py = y - 2 - k * S.risePx;
+          // A soft rim and a denser core, so a puff reads as smoke, not a bubble.
+          g.fillStyle(S.color, a);
+          g.fillCircle(px, py, r);
+          g.fillCircle(px + r * 0.3, py - r * 0.2, r * 0.6);
+        }
+      }
+    }
+  }
   // The plate's lettering — a name only where there is no symbol. Laid out
   // first (Text measures itself), the plate drawn round it afterwards; the
   // tier shows only as the board's colour.
