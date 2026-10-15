@@ -2023,9 +2023,9 @@
 
   // Ground hints only: the route uses the placement gate (including suppressed
   // land), never changes terrain, reach, fog, or where the player can walk.
-  // A chest trail is a faint hint (alpha) that begins startCells walking
-  // cells out from its chest — [nearest, farthest], seeded per chest.
-  const TRAIL_STYLE = Object.freeze({ colour: 0xf5dda2, alpha: 0.45, width: 2, dash: 6, gap: 5, bendCells: 0.28,
+  // A treasure trail is a dark ink hint that begins startCells walking cells
+  // out from its chest or X — [nearest, farthest], seeded per target.
+  const TRAIL_STYLE = Object.freeze({ colour: 0x000000, alpha: 0.75, width: 2, dash: 6, gap: 5, bendCells: 0.28,
     startCells: Object.freeze([8, 12]) });
   const trailCellKey = c => `${c.cellIX},${c.cellIY}`;
   const TRAIL_STEPS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
@@ -2080,73 +2080,65 @@
     return out;
   }
 
-  // The starter crate's guide runs only inside Home's ring, from the player;
-  // the treasure trails (HomeArea.chestTrailCandidates) follow the player
-  // anywhere on the surface, each a short seeded lead-in to its chest.
+  // The treasure trails (HomeArea.chestTrailCandidates) follow the player
+  // anywhere on the surface, each a short seeded lead-in to its chest or X.
+  // Crates get no guide.
   function trailPaths(scene, now) {
     if ((scene.depth || 0) !== 0) return [];
-    const anchor = scene.save.starterCratesAt;
-    const player = playerWorldM(scene), radius = HomeArea.RING_MAX_CELLS;
-    const inRing = !!anchor && Number.isFinite(anchor.x)
-      && HomeArea.isNear(player.x, player.y, radius * scene.cellM, anchor);
+    const player = playerWorldM(scene);
     const start = worldMetersToAbsCell(scene, player.x, player.y);
-    const key = `${trailCellKey(start)}|${inRing ? `${anchor.x},${anchor.y}` : '-'}|${(scene.save.opened || []).length}|${WorldGen.tileCache.size}`;
+    const key = `${trailCellKey(start)}|${(scene.save.opened || []).length}|${(scene.save.foundTreasures || []).length}|${WorldGen.tileCache.size}`;
     const old = scene._starterTrailPaths;
     if (old && old.key === key && now - old.at < 1000) return old.paths;
     const paths = [];
     scene._starterTrailPaths = { key, at: now, paths };
-    const target = inRing ? scene._nearestStarterCrate?.() : null;
-    const extra = HomeArea.chestTrailCandidates?.(scene, player) || [];
-    if (!target && !extra.length) return paths;
-    const targets = [target, ...extra].filter(Boolean);
+    const targets = HomeArea.chestTrailCandidates?.(scene, player) || [];
+    if (!targets.length) return paths;
     const targetIds = new Set(targets.map(o => o.id));
     const spent = spentSets(scene, scene.save);
     const tiles = new Map(), checked = new Map();
-    // Ground a trail may cross; the starter guide also keeps inside the ring.
+    // Ground a trail may cross.
     const passable = c => {
       const ck = trailCellKey(c);
       if (checked.has(ck)) return checked.get(ck);
-      let ok = true;
-      {
-        const t = absCellToTile(scene, c.cellIX, c.cellIY), tk = WorldGen.tileKey(t.tx, t.ty);
-        if (!tiles.has(tk)) {
-          const entry = WorldGen.tileCache.get(tk);
-          let opts = null;
-          if (entry?.grid && (!entry.status || entry.status === 'ready')) {
-            const frame = WorldGen.tileFrame(entry, t.tx, t.ty, scene.tileEdgeM);
-            const objects = (entry.objects || []).filter(o => !targetIds.has(o.id) && !isSpent(o, spent));
-            const occupied = WorldGen.occupiedIndexSet(frame, objects);
-            opts = WorldGen.spawnOptsOf(entry, { occupied });
-          }
-          tiles.set(tk, { entry, opts });
+      const t = absCellToTile(scene, c.cellIX, c.cellIY), tk = WorldGen.tileKey(t.tx, t.ty);
+      if (!tiles.has(tk)) {
+        const entry = WorldGen.tileCache.get(tk);
+        let opts = null;
+        if (entry?.grid && (!entry.status || entry.status === 'ready')) {
+          const frame = WorldGen.tileFrame(entry, t.tx, t.ty, scene.tileEdgeM);
+          const objects = (entry.objects || []).filter(o => !targetIds.has(o.id) && !isSpent(o, spent));
+          const occupied = WorldGen.occupiedIndexSet(frame, objects);
+          opts = WorldGen.spawnOptsOf(entry, { occupied });
         }
-        const { entry, opts } = tiles.get(tk);
-        // 'reward' refuses both KERB and SENSITIVE, as well as all hard
-        // reasons. The guide never invites a walk through suppressed land.
-        ok = !!opts && WorldGen.isSpawnCell(entry.grid, t.n, t.n, t.ix, t.iy, opts, 'reward');
+        tiles.set(tk, { entry, opts });
       }
+      const { entry, opts } = tiles.get(tk);
+      // 'reward' refuses both KERB and SENSITIVE, as well as all hard
+      // reasons. The guide never invites a walk through suppressed land.
+      const ok = !!opts && WorldGen.isSpawnCell(entry.grid, t.n, t.n, t.ix, t.iy, opts, 'reward');
       checked.set(ck, ok);
       return ok;
     };
-    const inHomeRing = c => {
-      const world = absCellCenterMeters(scene, c.cellIX, c.cellIY);
-      return HomeArea.isNear(world.x, world.y, radius * scene.cellM, anchor) && passable(c);
-    };
     const neighbour = (c, dx, dy) => absCellOffset(scene, c.cellIX, c.cellIY, dx, dy);
-    const add = (route, id) => {
-      if (route.length > 1) paths.push({ id, points: smoothTrail(route.map(c => absCellCenterMeters(scene, c.cellIX, c.cellIY)), scene.cellM) });
-    };
-    if (target) add(trailRoute(start, worldMetersToAbsCell(scene, target.x, target.y), inHomeRing, neighbour), target.id);
-    for (const chest of extra) {
+    for (const target of targets) {
       if (paths.length >= HomeArea.CHEST_TRAIL_LIMIT) break;
-      const end = worldMetersToAbsCell(scene, chest.x, chest.y);
-      add(trailRoute(end, null, passable, neighbour, strHash31(chest.id)), chest.id);
+      const end = worldMetersToAbsCell(scene, target.x, target.y);
+      const route = trailRoute(end, null, passable, neighbour, strHash31(target.id));
+      if (route.length > 1) paths.push({ id: target.id, points: smoothTrail(route.map(c => absCellCenterMeters(scene, c.cellIX, c.cellIY)), scene.cellM) });
     }
     return paths;
   }
 
+  // Is this X mark a trail's end right now? A trail-end X shows from afar —
+  // the trail has already given it away — instead of waiting for the feet.
+  function isTrailTreasure(scene, tr) {
+    return !!tr?.id && !!scene?.startWorldM && !!scene.playerM
+      && trailPaths(scene, Date.now()).some(p => p.id === tr.id);
+  }
+
   root.Starter = {
-    TRAIL_STYLE, trailRoute, smoothTrail, trailPaths,
+    TRAIL_STYLE, trailRoute, smoothTrail, trailPaths, isTrailTreasure,
     STARTER_LOOT,
     starterTrailAnchor,
     pestFreeZone,
