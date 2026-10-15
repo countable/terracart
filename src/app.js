@@ -9448,7 +9448,9 @@ class MapScene extends Phaser.Scene {
   // so calling from updateHUD every frame stays cheap.
   // Play a directional player animation on `sprite`. When dx/dy are supplied
   // (movement frame), updates this._spriteDir so the idle pose holds the last
-  // walking direction. Avoids restarting the anim if the key is unchanged.
+  // walking direction — unless a device compass reading exists, in which case
+  // the idle pose turns to face it. Avoids restarting the anim if the key is
+  // unchanged.
   // Swap the player between the human sheets and the red dragon while the
   // Dragon Powder is active. Sets _dragonActive so
   // _playDirected routes both sprites through the looping 'dragon-fly' anim,
@@ -9511,6 +9513,12 @@ class MapScene extends Phaser.Scene {
     if (dx !== undefined) {
       const d = Math.hypot(dx, dy);
       if (d > 0.001) this._spriteDir = { x: dx / d, y: dy / d };
+    } else if (sprite === this.player && this.compassDeg != null) {
+      // Standing still with a compass: face the device heading (this.facing,
+      // which confusion also drives), snapped to the nearest authored
+      // direction below. Without one, idle holds the last walking direction.
+      const d = Math.hypot(this.facing?.x ?? 0, this.facing?.y ?? 0);
+      if (d > 0.001) this._spriteDir = { x: this.facing.x / d, y: this.facing.y / d };
     }
     const { x, y } = this._spriteDir;
     // Dragon transform: the player flies as a single-direction dragon.
