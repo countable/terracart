@@ -147,6 +147,11 @@
   const THORNY_SHRINE_RADIUS_CELLS = 2;
   const THORNY_VERGE_MAX_CELLS = 4;
   const THORNY_CLUSTER_DENSITY = 0.6;
+  // Stray brambles scattered past and between the thickets: each verge cell
+  // out to THORNY_SCATTER_CELLS from the road takes one at this chance, on
+  // the same ray rules (nothing behind a building, road or occupied seat).
+  const THORNY_SCATTER_CELLS = 6;
+  const THORNY_SCATTER_DENSITY = 0.2;
   const SNARE_CHEST_TIER = 3;
   const SNARE_TRAP_RADIUS_CELLS = 2;
   const SNARE_MIN_TRAPS = 8;
@@ -299,7 +304,9 @@
       body: 'A chest sits beside the lane, surrounded by iron traps. Open jaws stretch across the road and both verges.',
       flash: 'Iron teeth around a chest.' },
     // Append so saved mark codes retain their existing meanings.
-    { id: 'thorny', terrain: 'FOREST', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'uncommon',
+    // Dry khaki scrub ground (WASTELAND's dusty ochre), not the forest floor:
+    // a thorn lane reads parched (owner, Oct 2026).
+    { id: 'thorny', terrain: 'WASTELAND', terrainVergeCells: THORNY_VERGE_MAX_CELLS, affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'uncommon',
       stone: { weathered: '#827967', restored: '#998c73' }, lampDensity: 1,
       sectionMaxM: 250, words: /(thorn|bramble|briar|brier)/i,
       lampGlow: '#b1bd78', story: 'street_thorny', art: 'street_overgrown', title: 'Thorny Way',
@@ -1667,7 +1674,12 @@
     let candidates = 0;
     for (const rec of records) {
       yield 'street terrain lines';
-      const half = rec.halfW / WG.CELL_M, radius = half + TERRAIN_VERGE_CELLS;
+      // A row may paint its ground further than its claim (terrainVergeCells:
+      // Thorny Way's dry scrub runs as deep as its thickets). Past the claim
+      // the paint is cosmetic only, so land-access exclusions hold there
+      // without the claim's residential exception.
+      const reach = VARIANT_BY_ID[rec.variant]?.terrainVergeCells ?? TERRAIN_VERGE_CELLS;
+      const half = rec.halfW / WG.CELL_M, radius = half + reach;
       for (let j = 1; j < rec.line.length; j++) {
         const a = rec.line[j - 1], b = rec.line[j];
         const ax = a.x * N / ext, ay = a.y * N / ext;
@@ -1683,12 +1695,13 @@
             // exclusions prevent this visual ground paint — except RESIDENTIAL
             // land cover, which the variant's claim blocks out to its verge
             // (the lane owns its two cells; a yard's lawn does not run onto it).
-            if (((spawnWhy?.[i] || 0) & WG.SPAWN_WHY_LAND) && here !== WG.T.RESIDENTIAL) continue;
             if ((!WG.isWalkable(here) && !WG.isCobbleTerrain(here))
                 || WG.isBuildingTerrain(here) || here === WG.T.PIER) continue;
             const t = len2 ? Math.max(0, Math.min(1, ((x+.5-ax)*dx + (y+.5-ay)*dy)/len2)) : 0;
             const distance = Math.hypot(x+.5-ax-t*dx, y+.5-ay-t*dy) - half;
-            if (distance > TERRAIN_VERGE_CELLS || distance >= nearest[i] - 1e-6) continue;
+            if (distance > reach || distance >= nearest[i] - 1e-6) continue;
+            if (((spawnWhy?.[i] || 0) & WG.SPAWN_WHY_LAND)
+                && (here !== WG.T.RESIDENTIAL || distance > TERRAIN_VERGE_CELLS)) continue;
             nearest[i] = distance;
             const terrain = terrainFor(rec.variant);
             if (WG.isCobbleTerrain(here)) {
@@ -2234,6 +2247,17 @@
             if (hash01(WG.cellId('bramble-density',tx,ty,ix,iy)) < THORNY_CLUSTER_DENSITY) bramble(ix,iy);
           });
         });
+        // Strays: a sparse scatter over the verges out to THORNY_SCATTER_CELLS,
+        // between the thickets and past them. Seated brambles are transparent
+        // to these rays; the road band takes none.
+        const strayRays = new Set(brambleSeats);
+        sampleLine(rec.line, gM, CELL_M, CELL_M / 2, (s, x, y, nx, ny) => {
+          if (!S.covers(spans, s)) return;
+          crossSection(rec,x,y,nx,ny,()=>THORNY_SCATTER_CELLS,strayRays,(ix,iy)=>{
+            if (spawnOpts.roadMask?.[iy * N + ix] || brambleSeats.has(iy * N + ix)) return;
+            if (hash01(WG.cellId('bramble-stray',tx,ty,ix,iy)) < THORNY_SCATTER_DENSITY) bramble(ix,iy);
+          });
+        });
       } else if (v === 'pilgrim' || v === 'barricade') {
         if (v === 'barricade') {
           let placed = 0;
@@ -2687,7 +2711,7 @@
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GATE_EVERY_CELLS, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
-    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode,
+    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     PATH_SECTION_MIN_M, PATH_SECTION_TARGET_M, PATH_SECTION_MAX_M, PATH_FRAGMENT_MIN_M, buildPathSectionsSteps, applyPathScenicSteps, syncPathVariants, selectionWeights, applyAffinitiesSteps, nexusExitAffinitySteps, NEXUS_EXIT_AFFINITY_M, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area, suppressNexusRoadThemesSteps,
