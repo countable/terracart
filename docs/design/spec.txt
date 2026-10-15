@@ -132,11 +132,12 @@ ONBOARDING (the first session)
    brings it back). Hard mode has no ladder (`difficulty.js`).
    The starter ladder is INDEPENDENT of castle quests and citadel garrisons.
    It never opens a castle.
- - STARTER COMPASS: a light-green edge arrow (the tutorial's colour) toward
+ - STARTER COMPASS: a light-green rim dot (the tutorial's colour), drawn and
+   labelled like every other map-rim bearing, toward
    the ACTIVE step's own space (`app.js` `_starterGuidanceGoal`): the nearest
    crate, the plot, the soil, a wreck, the crop, Home. When a step needs
    something the bag lacks (a seed, the restore price) it points back at the
-   crates. The arrow must never lead away from what the chip asks for.
+   crates. The dot must never lead away from what the chip asks for.
  - THE STARTER TRAIL: four supply crates are laid along the walk from spawn to
    the relic chest, packed into its near part (`starter.js` `TRAIL_SPAN`) so
    all four are met early. Each stop is in view from the one before. A road
