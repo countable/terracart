@@ -22,7 +22,7 @@ const CompassHUD = {
     document.body.append(inventory);
     const summary = document.querySelector('#menu summary');
     if (summary) {
-      for (const node of [...summary.childNodes]) if (node.nodeType === 3) node.textContent = '✥';
+      for (const node of [...summary.childNodes]) if (node.nodeType === 3) node.textContent = '⊞';
       summary.setAttribute('aria-label', 'Main menu');
     }
     const energy = document.getElementById('energy');
@@ -39,6 +39,17 @@ const CompassHUD = {
     }
     // Capture before existing listeners; inventory nodes are rebuilt on pickup.
     const gate = e => {
+      // Phaser's canvas extends behind the relic. Metal outside the circular
+      // aperture must not turn a decorative-surface tap into a world action.
+      if (e.target.tagName === 'CANVAS' && document.body.classList.contains('compass-round')) {
+        const aperture = body.querySelector('.compass-aperture').getBoundingClientRect();
+        const x = (e.clientX - aperture.left - aperture.width / 2) / (aperture.width / 2);
+        const y = (e.clientY - aperture.top - aperture.height / 2) / (aperture.height / 2);
+        if (x * x + y * y > 1) {
+          e.preventDefault(); e.stopImmediatePropagation();
+          return;
+        }
+      }
       const control = e.target.closest?.('#memories,#bookchip,#roadchip,#inv-tabs,#inv,#move-pad');
       const id = control && this.modules[control.id];
       if (!id || CompassModules.isActive(scene.save, id)) return;

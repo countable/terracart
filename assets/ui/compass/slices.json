@@ -41,5 +41,29 @@
       1534,
       1022
     ]
+  },
+  "derived": {
+    "silver-metal": {
+      "source": "living-silver-body.webp",
+      "crop": [
+        270,
+        95,
+        462,
+        287
+      ],
+      "dimensions": [
+        384,
+        384
+      ],
+      "method": "Mirror a192px square in both axes to create a seamless 2x2 metal tile; no aspect-ratio distortion."
+    },
+    "body-carving": {
+      "source": "living-silver-body.webp",
+      "dimensions": [
+        763,
+        350
+      ],
+      "method": "Preserve original dimensions; fade alpha over48px at top and bottom to blend proportional shoulder ornaments into metal."
+    }
   }
 }

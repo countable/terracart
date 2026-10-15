@@ -31,7 +31,7 @@
 .compass-panel > .modal-box::before, #story.compass-story .box::before {
   content: '';
   position: absolute; z-index: 3; top: 0; left: 0; right: 0; height: 42px;
-  background: var(--panel-rail) center top / 100% 100% no-repeat,
+  background: var(--panel-rail) center top / 100% auto no-repeat,
     linear-gradient(180deg, #d5e2e6, #607680 45%, #293c48 52%, #b9c8ce 58%, #415560);
   border-radius: 25px 25px 0 0;
   border-bottom: 1px solid var(--panel-glow);
@@ -83,13 +83,13 @@
 #story.compass-story .opening-compass {
   display: block; position: absolute; inset: 0; margin: 0 auto;
   width: min(100%, 480px); overflow: hidden; pointer-events: none;
-  background: #88979b url('../assets/ui/compass/living-silver-body.webp') top / 100% auto repeat-y;
+  background: #343a3b url('../assets/ui/compass/silver-metal.webp') center / 192px 192px repeat;
 }
 .opening-compass-header {
   position: absolute; top: 0; left: 0; right: 0; height: 138px;
   box-sizing: border-box; padding: 18px 22px 16px;
   display: grid; grid-template-columns: 1fr 1fr 62px; grid-template-rows: 42px 36px; gap: 8px;
-  background: url('../assets/ui/compass/header.webp') center / 100% 100%;
+  background: url('../assets/ui/compass/header.webp') center top / 100% auto no-repeat;
 }
 .opening-sealed {
   display: grid; place-items: center; border: 2px ridge #bcc8c9; border-radius: 6px;
