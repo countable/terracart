@@ -11,7 +11,7 @@ const CompassHUD = {
     const body = document.createElement('div');
     body.id = 'compass-body';
     body.setAttribute('aria-hidden', 'true');
-    body.innerHTML = '<div class="compass-aperture"></div><div class="compass-header"></div><div class="compass-footer"></div><div class="compass-lower-join"></div><div class="compass-bearing"><i class="compass-ticks"></i><span>▲<b>N</b></span><span class="compass-east"><b>E</b></span><span class="compass-south"><b>S</b></span><span class="compass-west"><b>W</b></span></div>';
+    body.innerHTML = '<div class="compass-aperture"></div><div class="compass-header"></div><div class="compass-footer"></div><div class="compass-upper-join"></div><div class="compass-lower-join"></div><div class="compass-bearing"><i class="compass-ticks"></i><span>▲<b>N</b></span><span class="compass-east"><b>E</b></span><span class="compass-south"><b>S</b></span><span class="compass-west"><b>W</b></span></div>';
     document.body.append(body);
     const inventory = document.createElement('button');
     inventory.id = 'compass-inventory-shutter';
