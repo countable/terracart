@@ -196,6 +196,8 @@ North-up mode retains the existing wall atlas artwork.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
+  Seated art, shadows and labels counterrotate about the cell centre so these
+  offsets stay screen-relative at every heading; depth uses the visible foot.
   Buildings, moving creatures and canvas-baked street lamps have separate seating.
   A house sprite (small and medium tiers) stands its bottom-middle on its
   footprint's centre of mass: the object sits on the nearest footprint cell
