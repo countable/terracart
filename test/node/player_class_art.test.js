@@ -68,7 +68,7 @@
     };
     return { save, player, playerScale: 1, _spriteDir: { x: 0, y: 1 },
       textures: { exists: () => true }, anims: { get: () => ({ frames: [1] }) },
-      _syncPlayerSkin: sync };
+      _syncPlayerSkin: sync, _idleGlance: () => null };
   };
 
   test('player art: directional playback uses authored sides and keeps facing when stopped', () => {
@@ -84,19 +84,36 @@
     assert.eq(scene.playerFeetNudgeY, -SL.PLAYER_ART.runner.footDrop * SL.PLAYER_ART.runner.scale);
   });
 
-  test('player art: standing still faces the nearest side to the compass heading', () => {
+  test('player art: standing still keeps the last walking direction, whatever the compass says', () => {
     const scene = makeScene({ playerClass: 'runner' });
     play.call(scene, scene.player, 'walk', -1, 0);
-    // A compass reading NNE: idle turns to face up, not the last walk (left).
     scene.compassDeg = 20; scene.facing = { x: 0.34, y: -0.94 };
     play.call(scene, scene.player, 'idle');
-    assert.eq(scene.player.anims.currentAnim.key, 'player_runner-idle-up');
-    scene.compassDeg = 100; scene.facing = { x: 0.98, y: 0.17 };
-    play.call(scene, scene.player, 'idle');
-    assert.eq(scene.player.anims.currentAnim.key, 'player_runner-idle-right');
-    // Walking still faces the step, whatever the compass says.
+    assert.eq(scene.player.anims.currentAnim.key, 'player_runner-idle-left', 'turning the phone never spins the sprite');
     play.call(scene, scene.player, 'walk', 0, 1);
     assert.eq(scene.player.anims.currentAnim.key, 'player_runner-walk-down');
+  });
+
+  test('player art: the opening glance looks down, left, right and down, then hands over to walking', () => {
+    const source = SCENE_SRC.match(/^  _idleGlance\(\) \{[\s\S]*?^  \}/m)[0];
+    const GLANCE = (APP_JS_SRC.match(/static PLAYER_GLANCE = (\[[\s\S]*?\]);/) || [])[1];
+    assert.truthy(GLANCE, 'one table holds the glance');
+    let now = 0;
+    const glance = new Function('MapScene', 'HeadingUp', 'performance', 'return ({' + source + '})._idleGlance')(
+      { PLAYER_GLANCE: eval(GLANCE) }, { toWorldVec: (s, x, y) => ({ x, y }) }, { now: () => now });
+    const scene = makeScene({ playerClass: 'runner' });
+    scene._idleGlance = glance;
+    let open = true;
+    scene._dialogOpen = () => open;
+    const pose = () => { play.call(scene, scene.player, 'idle'); return scene.player.anims.currentAnim.key.split('-').pop(); };
+    now = 5000;
+    assert.eq(pose(), 'down', 'faces the camera while a dialog covers the map');
+    open = false;
+    const seen = [];
+    for (now = 6000; now < 9000; now += 50) { const p = pose(); if (seen[seen.length - 1] !== p) seen.push(p); }
+    assert.eq(seen.join(','), 'down,left,right,down', 'the look round, once');
+    play.call(scene, scene.player, 'walk', 1, 0);
+    assert.eq(pose(), 'right', 'from then on the pose is the last step');
   });
 
   test('player art: unavailable sheet or animations safely fall back to the cyan farmer', () => {

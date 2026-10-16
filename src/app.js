@@ -319,12 +319,13 @@ const PEEK_DRAG_SLOP_PX = 8;
 // is the 1/e time rather than a duration — the camera is home (sub-pixel) in
 // about 3× this.
 const PEEK_RETURN_MS = 90;
-// Camera-only zoom: start one cell closer on each edge. Buttons select the
+// Camera-only zoom: start at the closest rack level (PINCH_VIEW_CELLS across),
+// which is also where the new game's opening shot settles. Buttons select the
 // resting view; a pinch temporarily magnifies it and springs back on release.
 // The widest view remains VIEW_CELLS, so loading and gameplay ranges stay fixed.
-const MAP_DEFAULT_ZOOM = VIEW_CELLS / (VIEW_CELLS - 2);
 const PINCH_VIEW_CELLS = 7;
 const PINCH_MAX_ZOOM = VIEW_CELLS / PINCH_VIEW_CELLS;
+const MAP_DEFAULT_ZOOM = VIEW_CELLS / PINCH_VIEW_CELLS;
 // Surface GPS gap (metres) past which a fix PLACES the body instead of being
 // walked off. The body chases the GPS target at up to DEBUG_SPEED_MUL × walk
 // pace (14 m/s), which comfortably keeps up with a real walk or a slow drive;
@@ -5818,6 +5819,10 @@ class MapScene extends Phaser.Scene {
     };
     this._zoomInButton = button('+', 'Zoom in', 1);
     this._zoomOutButton = button('−', 'Zoom out', -1);
+    // The resting level may already be an end stop (the default is the closest).
+    const span = Math.round(VIEW_CELLS / (this._mapZoomRest || MAP_DEFAULT_ZOOM));
+    this._zoomInButton.disabled = span <= PINCH_VIEW_CELLS;
+    this._zoomOutButton.disabled = span >= VIEW_CELLS;
     if (HeadingUp.enabled) {
       const lock = document.createElement('button');
       lock.type = 'button';
@@ -9693,19 +9698,47 @@ class MapScene extends Phaser.Scene {
     this.player.setScale((art?.scale ?? this.playerScale) * giantScale);
     this.playerFeetNudgeY = (art ? -art.footDrop * art.scale : -PLAYER_FEET_DROP_PX * this.playerScale) * giantScale;
   }
+  // The player's opening look round (_idleGlance): screen directions, each
+  // held for `ms`, played once the map is first in view — down at the
+  // camera, a look left, a look right, and back. Then the pose follows
+  // walking alone.
+  static PLAYER_GLANCE = [
+    { ms: 700, x: 0, y: 1 }, { ms: 550, x: -1, y: 0 }, { ms: 550, x: 1, y: 0 }, { ms: 400, x: 0, y: 1 },
+  ];
+  // The glance's pose for now (a SCREEN direction), or null once it is over.
+  // It waits, facing down, while a dialog covers the map; the first step
+  // ends it at once.
+  _idleGlance() {
+    if (this._glanceDone) return null;
+    const down = MapScene.PLAYER_GLANCE[0];
+    if (this._dialogOpen?.()) return down;
+    const now = performance.now();
+    this._glanceT0 ??= now;
+    let t = now - this._glanceT0;
+    for (const step of MapScene.PLAYER_GLANCE) {
+      if (t < step.ms) return step;
+      t -= step.ms;
+    }
+    this._glanceDone = true;
+    // Hold the camera-facing pose it ended on until the first step.
+    this._spriteDir = HeadingUp.toWorldVec(this, 0, 1);
+    return null;
+  }
   _playDirected(sprite, baseKey, dx, dy) {
+    // The player's facing is the way they last walked — not the compass, so
+    // turning the phone never spins the sprite.
+    let screen = null;
     if (dx !== undefined) {
       const d = Math.hypot(dx, dy);
-      if (d > 0.001) this._spriteDir = { x: dx / d, y: dy / d };
-    } else if (sprite === this.player && this.compassDeg != null) {
-      // Standing still with a compass: face the device heading (this.facing,
-      // which confusion also drives), snapped to the nearest authored
-      // direction below. Without one, idle holds the last walking direction.
-      const d = Math.hypot(this.facing?.x ?? 0, this.facing?.y ?? 0);
-      if (d > 0.001) this._spriteDir = { x: this.facing.x / d, y: this.facing.y / d };
+      if (d > 0.001) {
+        this._spriteDir = { x: dx / d, y: dy / d };
+        if (sprite === this.player) this._glanceDone = true;
+      }
+    } else if (sprite === this.player) {
+      screen = this._idleGlance();
     }
     // Poses are screen directions; a heading-up map has turned the world.
-    const { x, y } = HeadingUp.toScreenVec(this, this._spriteDir.x, this._spriteDir.y);
+    const { x, y } = screen || HeadingUp.toScreenVec(this, this._spriteDir.x, this._spriteDir.y);
     // Dragon transform: the player flies as a single-direction dragon.
     // Keep the flap looping and just mirror by heading (art faces
     // right at rest), ignoring the human walk/idle directional sheets.

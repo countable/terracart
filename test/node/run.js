@@ -323,7 +323,7 @@ const starterWrapper = (name) => {
     ctx[name] = parseFloat(m[1]);
   }
   // Derived in app.js from the two above, as the shipping code reads it.
-  ctx.MAP_DEFAULT_ZOOM = ctx.VIEW_CELLS / (ctx.VIEW_CELLS - 2);
+  ctx.MAP_DEFAULT_ZOOM = ctx.VIEW_CELLS / ctx.PINCH_VIEW_CELLS;
   ctx.PINCH_MAX_ZOOM = ctx.VIEW_CELLS / ctx.PINCH_VIEW_CELLS;
 }
 

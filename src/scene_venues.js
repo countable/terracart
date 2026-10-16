@@ -1163,11 +1163,19 @@ class SceneVenues {
     }
     const at = worldMetersToAbsCell(this, trailer.x, trailer.y);
     const { firepit: offset, wagon } = HomeArea.placementOffsets(save.homePlacementHeading || 0);
-    const cell = absCellOffset(this, at.cellIX, at.cellIY, offset.dx - wagon.dx, offset.dy - wagon.dy);
-    const pit = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
+    // The pit's cell: its turned offset if that ground takes it, else the
+    // nearest cell round the player that does (HomeArea.firepitCandidates) —
+    // a heading that points it at a road or the water must not cost a new
+    // game its pit.
+    let pit = null;
+    for (const c of HomeArea.firepitCandidates(offset, wagon)) {
+      const cell = absCellOffset(this, at.cellIX, at.cellIY, c.dx - wagon.dx, c.dy - wagon.dy);
+      const m = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
+      if (this._firepitGroundOK(m.x, m.y)) { pit = m; break; }
+    }
     // Do not relocate a saved lit fire into water or a road. An unsuitable
-    // destination leaves an existing pit intact; a new game simply has none.
-    if (this._firepitGroundOK(pit.x, pit.y)) {
+    // neighbourhood leaves an existing pit intact.
+    if (pit) {
       const old = save.homeFirepit;
       for (const fire of save.fires || []) {
         if (old && PlacedFloor.onDepth(fire, 0) && sameAbsCell(this, fire.x, fire.y, old.x, old.y)) {

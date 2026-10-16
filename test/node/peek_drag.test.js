@@ -492,22 +492,20 @@ test('pinch: a warp drops the zoom with the peek', () => {
 });
 
 
-test('zoom buttons: default removes one cell per edge, steps clamp and mark limits', () => {
-  near(VIEW_CELLS / MAP_DEFAULT_ZOOM, VIEW_CELLS - 2, 1e-9);
+test('zoom buttons: default is the closest level, steps clamp and mark limits', () => {
+  near(VIEW_CELLS / MAP_DEFAULT_ZOOM, PINCH_VIEW_CELLS, 1e-9);
   const s = peekScene({ _mapZoomRest: MAP_DEFAULT_ZOOM, mapZoom: MAP_DEFAULT_ZOOM,
     _zoomInButton: {}, _zoomOutButton: {}, _homeIntro: {}, peekM: { x: 7, y: 7 } });
   s._stepMapZoom(1);
   near(s.mapZoom, PINCH_MAX_ZOOM, 1e-9);
-  assert.eq(s._zoomInButton.disabled, true);
+  assert.eq(s._zoomInButton.disabled, true, 'already the closest');
   assert.eq(s._zoomOutButton.disabled, false);
   assert.eq(s._homeIntro, null);
   assert.eq(s.peekM.x, 0);
   assert.eq(s.peekM.y, 0);
-  s._stepMapZoom(1);
-  near(s.mapZoom, PINCH_MAX_ZOOM, 1e-9);
   s._stepMapZoom(-1);
-  near(s.mapZoom, MAP_DEFAULT_ZOOM, 1e-9);
-  s._stepMapZoom(-1);
+  near(VIEW_CELLS / s.mapZoom, PINCH_VIEW_CELLS + 2, 1e-9);
+  assert.eq(s._zoomInButton.disabled, false);
   s._stepMapZoom(-1);
   assert.eq(s.mapZoom, 1);
   assert.eq(s._zoomOutButton.disabled, true);
