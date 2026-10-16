@@ -8,7 +8,9 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 - Reward acknowledgments and safety reminders use an explicit OK button;
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
-  and confirmations use the NPC portrait layout with the spirit artwork.
+  and confirmations use the NPC portrait layout with a dedicated transparent,
+  square Dragon Spirit head-and-neck portrait (`assets/portraits/dragon_spirit.png`).
+  The original tall spirit painting remains available for scene art.
   Dragon Spirit and NPC spoken copy appears in a pale chat bubble beneath the
   portrait; speaker titles and response choices stay outside the bubble.
   The first earned green coin opens its own `coin_first` scene painting before

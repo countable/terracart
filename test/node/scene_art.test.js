@@ -38,8 +38,11 @@ test('scene art: kinds use paintings or character portraits', () => {
       assert.truthy(/label: 'Story'/.test(body), 'the STORY label');
       assert.falsy(/art:/.test(body), 'a story always carries its own');
     } else if (key === 'spirit') {
-      assert.truthy(/portrait: 'assets\/art\/kind_spirit.webp'/.test(body), 'the spirit uses the NPC portrait slot');
+      assert.truthy(/portrait: 'assets\/portraits\/dragon_spirit.png'/.test(body), 'the spirit uses the NPC portrait slot');
       assert.truthy(/portrait = portrait \|\| kRow\?\.portrait;/.test(shell), 'kind portraits reach the shared portrait layout');
+      const size = pngDims('assets/portraits/dragon_spirit.png');
+      assert.truthy(size, 'dedicated spirit portrait ships');
+      assert.eq(size.w, size.h, 'the portrait fills the square slot without scene-painting letterboxing');
     } else if (key === 'talk') {
       assert.falsy(/art:/.test(body), 'a neighbour speaking always carries their portrait');
     } else {
