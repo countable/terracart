@@ -1069,7 +1069,7 @@
       // The wall, as the ring filled again one face-depth south and painted
       // UNDER the floor: whatever survives is exactly the polygon's
       // south-facing edges, at any angle, with no per-edge normal test.
-      if (!separateUprights || d.tier === 9) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), (style ? style.stone.FACE : tune(shade(faceColor(d.tier, isMine)))));
+      if (!separateUprights || (d.tier === 9 && !perspective)) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), (style ? style.stone.FACE : tune(shade(faceColor(d.tier, isMine)))));
       g.fillPoly(d.pts, floor);
       const damagedFloor = style?.id === 'ruin' && g.damagePoly
         && g.damagePoly(d.pts, d.key, isMine, d.damageOriginX, d.damageOriginY);
@@ -1086,6 +1086,13 @@
       // beside those joints makes the stones read as doubled outlines.
       if (g.gridPoly && d.tier !== CASTLE) g.gridPoly(d.pts, gridInkFor(GRID, floor));
       if (d.columns.length && g.columnsPoly) g.columnsPoly(d.pts, d.columns, isMine);
+      // House foundations descend below the textured floor, unlike ramparts.
+      // Retain the whole perimeter: uncapped sides support concave OSM rings
+      // without tessellating or rebaking their floor when the compass turns.
+      if (perspective && d.tier === 9) {
+        WallPerspective.prism(scene, 'polygon', d.pts, -depth, 0,
+          { face: tune(shade(faceColor(d.tier, isMine))) }, null, false);
+      }
       // Wall sections stay in the building background.
       if (separateUprights && d.tier !== 9) {
         if (perspective) perspectiveEdges(scene, d, isMine);

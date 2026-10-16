@@ -46,7 +46,10 @@ and tiled walls. Each compass change inverse-rotates only the height vector,
 selects camera-facing sides, and orders short wall prisms by screen depth.
 Explicit triangles use Phaser's existing WebGL batching or Canvas fallback;
 there is no wall canvas bake or texture upload on heading changes. At a fixed
-heading the command buffers are reused. Floors remain cached ground textures;
+heading the command buffers are reused. House footprint foundations use the same
+retained perimeter faces, descending below the floor instead of rising as a wall.
+Only camera-facing sides draw; uncapped perimeters also support concave footprints
+without triangulating their textured floors. Floors remain cached ground textures;
 small building sprites and towers keep their ordinary upright sprite path.
 North-up mode retains the existing wall atlas artwork.
 
@@ -122,6 +125,11 @@ North-up mode retains the existing wall atlas artwork.
   the facing chevron) use that point; body
   effects use `playerBodyDy()` so they also follow the downed pose. Do not
   compensate for sprite seating by changing the projection.
+- Water, tar-yard terrain and unburned street tar puddles lower the player's
+  body to the waterline and crop away the lower half of its current sprite frame.
+  This spatial pose stays while paused, clears on dry ground, and yields to
+  flight, the dragon form, collapse and step-over support. It does not change
+  movement, reach or feet-based sorting; heading-up rotates the same cropped body.
 - Flight raises the body by the consumable row’s `liftPx` through `playerBodyDy()`;
   the shadow, world position and ground sorting remain at the feet. Expiry lowers
   the body automatically. Thrown flight potions also raise creature bodies.

@@ -5680,7 +5680,7 @@ class MapScene extends Phaser.Scene {
   // land on the fix; collapsed it is 0, because a body lying down has its
   // midsection where its feet were (see PLAYER_DOWNED_ROTATION).
   playerBodyDy() {
-    return Combat.playerDowned(this.save.energy) ? 0
+    return Combat.playerDowned(this.save.energy) || this._playerSubmerged ? 0
       : this.playerFeetNudgeY - Math.max(this._obstacleStep?.liftPx || 0,
         Conditions.flying(this.save) ? CONSUMABLE_SPEC.flight_potion.liftPx : 0);
   }
@@ -5689,6 +5689,31 @@ class MapScene extends Phaser.Scene {
   // disagree about whether the player is on their feet.
   playerBodyRotation() {
     return Combat.playerDowned(this.save.energy) ? PLAYER_DOWNED_ROTATION : (this._obstacleLean || 0);
+  }
+
+  // The waterline follows the body, not the camera. Crop in frame coordinates
+  // so walking directions and heading-up counterrotation keep the upper half.
+  // This is a pose only: movement, reach and world sorting keep the same feet.
+  _updatePlayerSubmersion() {
+    const airborne = Conditions.flying(this.save) || this.isDragonActive?.();
+    let submerged = false;
+    if (!airborne && !Combat.playerDowned(this.save.energy)
+        && !(this._obstacleStep?.liftPx > 0) && this.startWorldM && this.playerM) {
+      const feet = playerWorldM(this), cell = this.cellAt(feet.x, feet.y);
+      if (cell.loaded) {
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+        const tar = entry?.slowCells?.get(cell.iy * entry.cellsPerEdge + cell.ix) === 'tar';
+        const fire = this.save.groundFire?.[GroundFire.key(this.depth || 0, cell.cellIX, cell.cellIY)];
+        submerged = cell.type === WorldGen.T.WATER || cell.type === WorldGen.T.TAR_YARD
+          || (tar && (!fire || GroundFire.active(fire, Date.now())));
+      }
+    }
+    this._playerSubmerged = submerged;
+    if (!this.player) return;
+    if (submerged) {
+      const frame = this.player.frame;
+      this.player.setCrop(0, 0, frame.realWidth, frame.realHeight / 2);
+    } else if (this.player.isCropped) this.player.setCrop();
   }
 
   // Render supplies the same surviving props it draws, including connected
@@ -5703,6 +5728,7 @@ class MapScene extends Phaser.Scene {
     this._obstaclePoseAt = { x, y, time: now };
     this._obstacleStep = ObstacleStep.sample(x, y,
       Combat.playerDowned(this.save.energy) ? [] : objects, this.cellM);
+    this._updatePlayerSubmersion();
     const moved = distance < this.cellM ? distance : 0; // no lean from teleports
     this._obstaclePhase = (this._obstaclePhase || 0) + moved / this.cellM;
     const motion = Math.min(1, moved / dt / WALK_M_S);
