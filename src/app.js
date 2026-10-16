@@ -5667,11 +5667,8 @@ class MapScene extends Phaser.Scene {
   }
 
   playerScreen() {
-    const k = CELL_PX / this.cellM;
-    return {
-      x: this.viewCenterX - this.peekM.x * k,
-      y: this.viewCenterY - this.peekM.y * k,
-    };
+    const player = playerWorldM(this), anchor = viewAnchorWorldM(this);
+    return deltaMToScreen(this, player.x - anchor.x, player.y - anchor.y);
   }
 
   // How far the BODY's centre sits from the ground point its feet stand on —
