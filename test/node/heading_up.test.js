@@ -106,11 +106,11 @@ test('heading up: stationary north heading still projects zoomed UI', () => {
   assert.eq(label.x, 120); assert.eq(label.y, 90);
 });
 
-test('heading up: object labels share trimmed feet and footprint offsets', () => {
+test('heading up: object labels share cell pivots and footprint offsets', () => {
   const point = { x: 100, y: 150 };
   const tree = { visible: true, foot: { footFromCentre: 15 }, dxPx: -8, dyPx: 3 };
   const foot = Render.objectGroundAnchor(tree, null, point);
-  assert.eq(foot.x, 100); assert.eq(foot.y, 165);
+  assert.eq(foot.x, 100); assert.eq(foot.y, 150); assert.eq(foot.footDy, 15);
   const house = { visible: true, spec: { groundAtOrigin: true }, dxPx: 7, dyPx: -4 };
   const home = Render.objectGroundAnchor(house, null, point);
   assert.eq(home.x, 107); assert.eq(home.y, 146);
@@ -277,4 +277,33 @@ test('heading up: no captured GPS forces the map lock even with a compass sensor
   assert.truthy(scene.mapRot !== held, 'following resumes after capture');
   HeadingUp.toggleLock(scene);
   assert.truthy(HeadingUp.directionLocked(scene), 'manual locking still works with GPS');
+});
+
+// Measure the opaque art, not the padded sprite frame. A foot pivot used to
+// displace short rocks by twice their half-height when facing south.
+test('heading up: seated props retain cell centering, shadows and visible-foot depth at every heading', () => {
+  for (const height of [18, 46]) {
+    const box = { fw: 64, fh: 64, minX: 9, maxX: 35, minY: 7, maxY: 7 + height };
+    const seat = SpriteLayout.seatInCell(box, .5, .5, 1, 1);
+    const footDy = height <= CELL_PX ? height / 2 : CELL_PX / 2 - 1;
+    const appearance = { visible: true, foot: { footFromCentre: footDy }, ...seat };
+    const point = { x: 130, y: 120 };
+    const anchor = Render.objectGroundAnchor(appearance, null, point);
+    for (const angle of [0, Math.PI / 4, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+      const scene = huScene(angle);
+      const sprite = huSprite({ x: point.x + seat.dxPx, y: point.y + seat.dyPx, _huAnchor: anchor });
+      const shadow = huSprite({ type: 'Image', x: point.x, y: point.y + footDy - 2, _huAnchor: anchor });
+      HeadingUp._upright(sprite, -angle, []);
+      HeadingUp._upright(shadow, -angle, []);
+      const drawn = HeadingUp.toScreenPt(scene, sprite.x, sprite.y);
+      const cell = HeadingUp.toScreenPt(scene, point.x, point.y);
+      huNear(drawn.x + (box.minX + box.maxX) / 2 - 32, cell.x);
+      huNear(drawn.y + box.maxY - 32, cell.y + footDy);
+      if (seat.fits) huNear(drawn.y + (box.minY + box.maxY) / 2 - 32, cell.y);
+      const shade = HeadingUp.toScreenPt(scene, shadow.x, shadow.y);
+      huNear(shade.x, cell.x); huNear(shade.y, cell.y + footDy - 2);
+      const depth = HeadingUp.toScreenPt(scene, sprite._huFoot.x, sprite._huFoot.y);
+      huNear(depth.x, cell.x); huNear(depth.y, cell.y + footDy);
+    }
+  }
 });

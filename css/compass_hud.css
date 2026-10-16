@@ -339,32 +339,27 @@ body:not(.compass-round) .compass-bearing {display:none;}
 .compass-rim-art {display:block;width:100%;height:100%;overflow:visible;}
 .compass-bearing span {position:absolute;display:grid;place-items:center;width:6%;height:6%;padding:0;transform:translate(-50%,-50%);filter:brightness(1.18) drop-shadow(0 2px 2px #000c) drop-shadow(0 0 1px #000);}
 .compass-bearing b {display:block;font:700 calc(var(--compass-map-size) * .036) / 1 Georgia,serif;color:#3e2b15;text-shadow:0 .65px .2px #f7e4b3;transform-origin:center;}
-.compass-bearing .compass-north {left:50%;top:calc(3% - 2px);}
+.compass-bearing .compass-north {left:50%;top:calc(3% - 4px);}
 .compass-bearing .compass-north b {font-size:calc(var(--compass-map-size) * .043);}
-.compass-bearing .compass-east {left:calc(98% + 2px);top:50%;}
-.compass-bearing .compass-south {left:50%;top:calc(98% + 2px);}
-.compass-bearing .compass-west {left:calc(2% - 2px);top:50%;}
+.compass-bearing .compass-east {left:calc(98% + 4px);top:50%;}
+.compass-bearing .compass-south {left:50%;top:calc(98% + 4px);}
+.compass-bearing .compass-west {left:calc(2% - 4px);top:50%;}
 
-/* Preserve each atlas rectangle's native aspect ratio; never stretch the metal.
-   Generated transparent PNG fittings; CSS selects atlas rectangles without
-   resampling the master. Background coordinates are recorded in the art manifest. */
+/* Broad, clean fittings stay legible at phone size. Each direction uses a
+   standalone vector, so atlas neighbours and textured alpha cannot bleed in. */
 .compass-bearing span::before,.compass-bead {
-  content:'';position:absolute;background-image:url('../assets/ui/compass/gold-fittings.png');
-  background-repeat:no-repeat;pointer-events:none;
+  content:'';position:absolute;background-repeat:no-repeat;background-size:100% 100%;pointer-events:none;
 }
-.compass-bearing span::before {left:50%;top:50%;width:140%;height:auto;aspect-ratio:532 / 265;transform:translate(-50%,-50%);}
+.compass-bearing span::before {left:50%;top:50%;width:140%;height:auto;aspect-ratio:2 / 1;transform:translate(-50%,-50%);background-image:url('../assets/ui/compass/cardinal-fitting.svg');}
 .compass-bearing b {position:relative;z-index:1;}
-.compass-bearing .compass-north::before {width:330%;height:auto;aspect-ratio:1208 / 420;}
+.compass-bearing .compass-north::before {width:330%;aspect-ratio:3 / 1;background-image:url('../assets/ui/compass/north-fitting.svg');}
 .compass-bearing .compass-east::before {transform:translate(-50%,-50%) rotate(-90deg);}
 .compass-bearing .compass-west::before {transform:translate(-50%,-50%) rotate(90deg);}
-.compass-bead {width:1.4%;height:auto;aspect-ratio:214 / 212;transform:translate(-50%,-50%);}
+.compass-bead {width:1.4%;height:auto;aspect-ratio:214 / 212;transform:translate(-50%,-50%);background-image:url('../assets/ui/compass/gold-fittings.png');background-size:576.635514% 600.943396%;background-position:50.000000% 92.655367%;}
 .compass-bead-ne {left:84.9134%;top:15.0866%;}
 .compass-bead-se {left:84.9134%;top:84.9134%;}
 .compass-bead-sw {left:15.0866%;top:84.9134%;}
 .compass-bead-nw {left:15.0866%;top:15.0866%;}
-.compass-bearing span::before {background-size:231.954887% 480.754717%;background-position:50.000000% 59.563925%;}
-.compass-bearing .compass-north::before {background-size:102.152318% 303.333333%;background-position:57.692308% 5.503513%;}
-.compass-bead {background-size:576.635514% 600.943396%;background-position:50.000000% 92.655367%;}
 
 /* Compact opposed plungers in a silver rack housing. */
 body.compass-hud > #map-zoom {

@@ -48,13 +48,14 @@ changing dialogue, story panels, books, toasts or status presentation.
   close-contact socket shadows and compact recessed category glyphs seat the controls in
   the chassis. Neutral pewter faces and rims match the carved background while
   controls retain brighter text and icons. The fade excludes
-  the circular map aperture. The compass rim is a fine gold celestial inlay: a shallow, flourished north
+  the circular map aperture. The compass rim is a fine gold celestial inlay: a broad, faceted north
   triangle, larger embossed cardinal letters with brighter fittings and dark drop shadows, small gold beads at the four
   45-degree diagonals, and eight engraved intermediate 22.5-degree marks
   contained in the band. The rim follows compass heading while all four
   letters counterrotate to stay upright. `assets/ui/compass/gold-rim.svg`
-  owns the band and engravings; transparent `gold-fittings.png` sprites supply
-  the sculpted metal ornaments at their native aspect ratios. The gold overlay
+  owns the band and engravings; standalone `north-fitting.svg` and `cardinal-fitting.svg` supply
+  simple gold letter plates without fine curls or texture; the small diagonal
+  beads retain their `gold-fittings.png` atlas crop. The gold overlay
   sits outside the silver chassis dimming and uses the controls' brightness,
   with warmer saturation to match their gold. Its letter seats match the HUD CSS.
 
