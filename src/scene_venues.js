@@ -406,7 +406,7 @@ class SceneVenues {
       const why = id && Macros.curioDonated(this.save, id) ? 'It has one of those already. '
         : id ? 'It does not collect that. ' : '';
       this.showMessageModal({
-        kind: dress.kind, art: dress.art, compactArt: true, title: `The curio hall: ${progress}`,
+        kind: dress.kind, art: dress.art, title: `The curio hall: ${progress}`,
         body: `${why}Hold a thing it lacks and tap the hall. ${lacks}`,
       });
       return;
@@ -572,6 +572,7 @@ class SceneVenues {
     previous.addEventListener('click', (e) => { e.stopPropagation(); shelfPage--; render(); });
     next.addEventListener('click', (e) => { e.stopPropagation(); shelfPage++; render(); });
     render();
+    // Paging keeps each tome and its actions together in the fitted panel.
     mount();
   }
 

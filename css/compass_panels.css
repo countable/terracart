@@ -58,7 +58,7 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 /* Full-width artwork begins behind the dragon chrome at the window top.
    Its loading mosaic shares the same square geometry. */
 .compass-panel .modal-art-spacer {
-  padding-bottom: 14px;
+  padding-bottom: 0; overflow: hidden;
 }
 .compass-panel .modal-art-spacer::before { content: ''; display: block; aspect-ratio: 1; }
 .compass-panel .modal-art, .compass-panel .modal-art-mosaic {
@@ -98,10 +98,11 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 .compass-panel .modal-scene .modal-body {
   margin: 0 !important; padding: 0 !important; scrollbar-width: none;
 }
-.compass-panel .modal-scene .modal-content {
-  box-sizing: border-box;
-  padding: 0 var(--panel-content-inset) max(22px, env(safe-area-inset-bottom));
+.compass-panel .modal-scene .modal-copy {
+  margin: 8px var(--panel-content-inset) max(12px, env(safe-area-inset-bottom));
 }
+.compass-panel .modal-scene .modal-content { box-sizing: border-box; padding: 0; }
+.compass-panel .modal-pages { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
 .compass-panel .modal-scene .modal-kind {
   position: static !important; margin: 0 0 10px;
 }
@@ -131,13 +132,13 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   position: relative; display: flex; flex-direction: column;
   width: min(100%, 480px); max-width: 480px; height: 87.5%; max-height: none;
   padding: var(--panel-rail-height) 0 calc(60px + env(safe-area-inset-bottom));
-  box-sizing: border-box; overflow-y: auto;
+  box-sizing: border-box; overflow: hidden;
   border: 0; border-radius: 28px 28px 0 0;
   background: #1b252c; box-shadow: 0 -8px 35px #0009;
   animation: compass-panel-rise 240ms ease-out both;
 }
-#story.compass-story .art { flex: 0 0 auto; min-height: 0; width: calc(100% - 36px); aspect-ratio: 512 / 341; margin: 14px 18px 0; }
-#story.compass-story .opening-copy { flex: 1 0 auto; padding: 20px; }
+#story.compass-story .art { flex: 0 1 auto; min-height: 0; width: calc(100% - 36px); aspect-ratio: 512 / 341; margin: 14px 18px 0; }
+#story.compass-story .opening-copy { flex: 0 0 auto; padding: 20px; }
 #story.compass-story .story-skip { z-index: 4; }
 @media (prefers-reduced-motion: reduce) {
   .compass-panel.modal-anim > .modal-box, #story.compass-story .box { animation: none; }
@@ -204,7 +205,7 @@ body.compass-hud.modal-open #compass-body {
   margin-right: calc(8px - var(--panel-content-inset)) !important;
   padding-left: calc(var(--panel-content-inset) - 8px);
   padding-right: calc(var(--panel-content-inset) - 8px);
-  overflow-y: auto; scrollbar-color: #a99b6e #151c1c;
+  overflow: hidden;
 }
 .compass-panel-close {
   position: absolute; z-index: 5; right: 13px;
@@ -259,29 +260,3 @@ body.compass-hud #menu[open] > summary {
 }
 
 .compass-panel .modal-scene .modal-title { position: relative; top: 4px; }
-
-/* Offers reserve the rail, then fit a smaller square painting above the
-   complete transaction. The shell measures copy height without reducing type. */
-.compass-panel.compact-offer .modal-art-spacer {
-  padding-top: var(--panel-rail-height);
-  padding-bottom: 10px;
-}
-.compass-panel.compact-offer .modal-art-spacer::before {
-  width: var(--offer-art-size, 64px);
-  margin: 0 auto;
-}
-.compass-panel.compact-offer .modal-art,
-.compass-panel.compact-offer .modal-art-mosaic {
-  top: var(--panel-rail-height) !important;
-  left: 50% !important;
-  right: auto !important;
-  width: var(--offer-art-size, 64px);
-  transform: translateX(-50%);
-}
-.compass-panel.compact-offer .modal-kind { margin-bottom: 4px; }
-/* Short phones give transaction controls the space above the usual sheet
-   edge before reducing the painting further. Type and targets stay intact. */
-@media (max-height: 650px) {
-  .compass-panel.compact-offer > .modal-box { top: 0 !important; }
-  .compass-panel[data-kind='wizard'] > .modal-box { padding-bottom: 10px !important; }
-}

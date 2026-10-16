@@ -66,8 +66,9 @@ const { chromium } = require('playwright-core');
           assert.equal(await wrap.count(), 1, 'presenter opens a dialog');
           const measure = () => wrap.evaluate(el => {
             const box = el.querySelector('.modal-box').getBoundingClientRect();
-            const body = el.querySelector('.modal-body'), content = el.querySelector('.modal-content');
-            return { visible: box.top >= -1 && box.bottom <= innerHeight + 1
+            const body = el.querySelector('.modal-copy'), content = el.querySelector('.modal-content');
+            const pages = el.querySelector('.modal-pages');
+            return { paginated: pages && getComputedStyle(pages).display !== 'none', visible: box.top >= -1 && box.bottom <= innerHeight + 1
                 && box.left >= -1 && box.right <= innerWidth + 1,
               horizontal: [...el.querySelectorAll('*')].filter(x => x.clientWidth && x.scrollWidth > x.clientWidth + 2
                 && !['hidden', 'clip'].includes(getComputedStyle(x).overflowX)
@@ -83,10 +84,11 @@ const { chromium } = require('playwright-core');
           assert(m.visible, 'dialog stays inside viewport');
           assert.deepEqual(m.scrolling, [], 'no vertical scrollbars');
           assert.deepEqual(m.horizontal, [], 'no horizontal overflow');
+          assert(!m.paginated, 'counter fits without page controls');
           assert(m.fits, `counter content fits: ${JSON.stringify(m)}`);
           // Every control is fully visible without paging or scrolling.
           const clippedControls = await wrap.evaluate(el => {
-            const b = el.querySelector('.modal-body').getBoundingClientRect();
+            const b = el.querySelector('.modal-copy').getBoundingClientRect();
             return [...el.querySelectorAll('.modal-content button, .modal-content select')].filter(x => {
               const r = x.getBoundingClientRect();
               return !(r.width > 0 && r.height > 0 && r.left >= b.left - 1 && r.right <= b.right + 1

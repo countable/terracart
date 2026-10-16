@@ -1,7 +1,7 @@
 // SCENE ART — the dialog-painting standard (modal_shell.js makeModalShell `art`,
 // css/compass_panels.css; tools/gen_story_art.js
 // scene()). Existing tall and new square assets share one top-centred square
-// display crop above separate copy, with one scroller and no legacy band mode.
+// composition above fitted, paged copy, without scrolling or legacy band modes.
 
 (function () {
 const app = SCENE_SRC;
@@ -55,12 +55,14 @@ test('scene art: a message with a painting is a STORY', () => {
     'art makes it a story; a plain message stays a note');
 });
 
-test('scene art: one scroller and one square crop for every painting', () => {
+test('scene art: shared crop above fitted copy without scrolling', () => {
   const from = shell.indexOf("body.className = 'modal-body'");
   const region = shell.slice(from, shell.indexOf('box.appendChild(body)', from));
-  assert.truthy(region.includes('flex:1 1 auto;') && region.includes('overflow-y:auto;'), 'one body fills the box and scrolls');
+  assert.truthy(region.includes('flex:1 1 auto;') && region.includes('overflow:hidden;'), 'the body fills the box without scrolling');
+  assert.truthy(region.includes("viewport.className = 'modal-copy'") && region.includes('viewport.appendChild(into)'), 'copy has its own fitted viewport below the art');
+  assert.falsy(/overflow-y:auto;/.test(region), 'neither body nor copy scrolls');
   assert.truthy(region.includes("art ? 'margin:0;flex:0 0 auto;'"), 'copy follows the image region, including ceremonies');
-  assert.truthy(region.includes('spacer.append(mosaicLayer, artLayer)'), 'painting and mosaic scroll with copy');
+  assert.truthy(region.includes('spacer.append(mosaicLayer, artLayer)'), 'painting and mosaic share the crop above copy');
   assert.truthy(shell.includes("backgroundSize = 'cover'"), 'crop scales uniformly without distortion');
   assert.truthy(shell.includes("backgroundPosition = 'center top'"), 'tall assets lose their bottom, keeping the subject');
   assert.falsy(/ART_BAND_|ART_DETAIL_FRAC|ART_FRAME_ASPECT|squareArt|readShape|ART_ASPECTS/.test(shell), 'no legacy format-specific layout or load-time switching');
@@ -70,8 +72,10 @@ test('scene art: generic Story is omitted and useful categories follow the image
   assert.truthy(shell.includes("art && kind === 'story' && (!kindLabel || kindLabel === 'Story')"), 'painted stories omit only the generic heading');
   assert.truthy(shell.includes('into.insertBefore(kindNode, into.firstChild)'), 'other category headings belong to the content below the image');
   const sceneShell = shell.slice(shell.indexOf('  makeModalShell('), shell.indexOf('  _placeSpeechBubble('));
-  assert.truthy(sceneShell.includes("if (spacer && (compactArt || id === 'offer-modal' || id === 'scholar-modal'))"), 'only offers resize their square art to keep transaction controls together');
-  assert.truthy(sceneShell.includes('resize.observe(into)'), 'receipts and changing ingredients refit the offer art');
+  assert.truthy(sceneShell.includes('const resize = new ResizeObserver(scheduleFit)'), 'viewport changes refit the content');
+  assert.truthy(sceneShell.includes('const changes = new MutationObserver(scheduleFit)'), 'live content changes refit the content');
+  assert.truthy(sceneShell.includes('body.clientWidth * .9') && sceneShell.includes('Math.max(minimum, full - deficit)'), 'art starts with a bottom ten-percent crop and gives more height to copy above its rail floor');
+  assert.truthy(sceneShell.includes("pages.className = 'modal-pages'") && sceneShell.includes('into.style.columnWidth'), 'long content uses pages at its original text size');
 });
 
 test('scene art: new generated scenes use full square compositions', () => {

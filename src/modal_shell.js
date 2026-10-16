@@ -1,6 +1,6 @@
 // The modal SHELL — the one dialog box every DOM dialog in the game is built
 // in: makeModalShell (the square scene crop, separate copy region, kind header
-// and measured scroll layout), the stock dialogs
+// and measured pagination), the stock dialogs
 // built on it (showMessageModal, showConfirmModal, showOfferModal,
 // showChestRewardModal), and
 // the gate that mirrors "a dialog is open" onto body.modal-open
@@ -24,7 +24,7 @@
 // so do the toasts (TOAST_TIER — a map message is not a dialog) and the icon
 // renderers a dialog's copy uses (iconSpanHTML, worldIconHTML,
 // _prewarmModalIcons). See CLAUDE.md "Every dialog opens on a PAINTING" before
-// changing the frame or painting here, and tools/modal_audit.js for the
+// changing the frame or the band here, and tools/modal_audit.js for the
 // every-dialog-has-a-kind check.
 
 // Base geometry follows the map width; compass_panels.css extends the shared
@@ -32,8 +32,9 @@
 // story growth constants still define scene-painting composition and the
 // fallback geometry before the stylesheet loads.
 const STORY_MODAL_GROW_PX = 96;
-// Scene paintings share one full-width square crop in CSS, tucked slightly
-// under the fixed dragon rail. Copy and actions follow in the same scroller.
+// Scene paintings share a full-width crop under the fixed dragon rail.
+// Fit trims the square composition from the bottom; copy and actions occupy
+// a separate viewport, with pages when the content needs more room.
 
 // ── What KIND of dialog is this? ────────────────────────────────────────────
 // Every modal opens with one of these: a hero icon and a one-word category, so
@@ -117,7 +118,7 @@ class SceneModals {
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0002', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false, compactArt = false } = {}) {
+    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
     // Scene art is a story-sized dialog with a square image above its copy.
@@ -171,9 +172,9 @@ class SceneModals {
       `top:calc(${vTop - Math.round(grow / 4)}px - var(--view-top, 0px));height:${vSize + grow}px;` +
       `box-sizing:border-box;display:flex;flex-direction:column;` +
       `background:#1a1612;color:#fff;` +
-      `border:2px solid ${frameBorder};border-radius:10px;padding:14px 16px;` +
+      `border:2px solid ${frameBorder};border-radius:10px;padding:10px 12px;` +
       `font:13px var(--font-ui);` +
-      // Content that outgrows the sheet uses its body scroller; the box stays fixed.
+      // Content that outgrows the square uses pages; the box never grows to fit.
       `overflow:hidden;` +
       (textAlign ? `text-align:${textAlign};` : '') +
       boxExtra;
@@ -187,7 +188,7 @@ class SceneModals {
     // so the wait reads as LOADING, not as a blurry picture. When the
     // painting lands, the mosaic takes the full thumbnail and the painting
     // fades in over it on a layer of its own. A cached painting skips all of
-    // it and is simply there. Both layers share the same square crop.
+    // it and is simply there. Both layers share the same fitted crop.
     const artLayer = art ? document.createElement('div') : null;
     const mosaicLayer = art ? document.createElement('div') : null;
     let mosaicImg = null;
@@ -309,23 +310,21 @@ class SceneModals {
       kindNode.appendChild(lbl);
     }
     const mount = () => {
-      // ONE SCROLLER. The whole content area under the rail — header,
-      // portrait, copy and buttons — is a single body that scrolls as one;
-      // no dialog keeps a separately scrolling part. Inside it one content
-      // block starts under its painting; unpainted dialogs remain centred
-      // when short and flow from the top when their content overflows.
+      // The body holds the art or portrait above a fitted copy viewport.
+      // Copy and buttons stay together, using pages when they need more
+      // room. Short unpainted dialogs retain their centred content.
       const body = document.createElement('div');
       body.className = 'modal-body';
       body.style.cssText =
-        'flex:1 1 auto;min-height:0;margin:0;overflow-y:auto;overscroll-behavior:contain;' +
+        'flex:1 1 auto;min-height:0;margin:0;overflow:hidden;' +
         'display:flex;flex-direction:column;box-sizing:border-box;' +
         // Leave room for the controls' 2px press travel and raised edge.
         // Without it, pressing the last button briefly creates overflow.
         'padding-bottom:3px;' +
         // Above the painting layer (PIXEL RESOLVE), which is absolute.
         (art ? 'text-shadow:0 1px 2px #000;position:relative;z-index:1;' : '');
-      // A full-width square crop tucks under the rail. Copy follows the
-      // image, including reward ceremonies; CSS owns responsive sizing.
+      // The full-width crop tucks under the rail. Fit trims its bottom
+      // to leave room for the copy, including reward ceremonies.
       const spacer = art ? document.createElement('div') : null;
       if (spacer) {
         spacer.className = 'modal-art-spacer';
@@ -336,7 +335,7 @@ class SceneModals {
       into.className = 'modal-content';
       into.style.cssText = art ? 'margin:0;flex:0 0 auto;' : 'margin:auto 0;flex:0 0 auto;';
       while (box.firstChild) into.appendChild(box.firstChild);
-      // Useful categories scroll with the copy below a painting; generic
+      // Useful categories sit with the copy below a painting; generic
       // Story adds no information and is omitted above.
       if (kindNode && !art) { kindNode.style.flex = '0 0 auto'; body.appendChild(kindNode); }
       if (speech && kindNode) {
@@ -358,7 +357,11 @@ class SceneModals {
         else body.appendChild(image);
       }
       if (spacer) body.appendChild(spacer);
-      body.appendChild(into);
+      const viewport = document.createElement('div');
+      viewport.className = 'modal-copy';
+      viewport.style.cssText = 'flex:1 1 auto;min-height:0;overflow:hidden;';
+      viewport.appendChild(into);
+      body.appendChild(viewport);
       box.style.overflow = 'hidden';
       box.appendChild(body);
       if (kindNode && art) into.insertBefore(kindNode, into.firstChild);
@@ -387,35 +390,82 @@ class SceneModals {
       wrap.appendChild(box);
       (speech ? document.body : document.getElementById('game') || document.body).appendChild(wrap);
       if (speech) { this._syncModalGate?.(); this._placeSpeechBubble(wrap, box, source); }
-      // Shop controls stay together: spend spare height on a square painting,
-      // then shrink that painting as receipts or ingredient shortfalls grow.
-      // Other dialogs retain their full-width scene and single scroll region.
-      if (spacer && (compactArt || id === 'offer-modal' || id === 'scholar-modal')) {
-        wrap.classList.add('compact-offer');
-        let frame = 0;
-        const fitOffer = () => {
-          frame = 0;
-          if (!wrap.isConnected) return;
-          const rail = parseFloat(getComputedStyle(box).getPropertyValue('--panel-rail-height')) || 0;
-          const available = body.clientHeight - into.offsetHeight - rail - 16;
-          const size = Math.max(64, Math.min(body.clientWidth, available));
-          box.style.setProperty('--offer-art-size', `${Math.floor(size)}px`);
-        };
-        const scheduleFit = () => {
-          if (!frame) frame = requestAnimationFrame(fitOffer);
-        };
-        const resize = new ResizeObserver(scheduleFit);
-        resize.observe(body);
-        resize.observe(into);
-        document.fonts?.ready.then(scheduleFit);
-        const removal = new MutationObserver(() => {
-          if (wrap.isConnected) return;
-          resize.disconnect(); removal.disconnect();
-          cancelAnimationFrame(frame);
-        });
-        removal.observe(wrap.parentNode, { childList: true });
-        fitOffer();
-      }
+      // Refit live content and paginate overflow without shrinking type.
+      let page = 0, pageCount = 1, frame = 0;
+      const pages = document.createElement('div');
+      pages.className = 'modal-pages';
+      pages.style.cssText = 'display:none;align-items:center;justify-content:center;gap:10px;flex:0 0 auto;margin-top:6px;';
+      const previous = mkBtn('‹', { variant: 'ghost', css: 'min-width:40px;min-height:36px;padding:4px 10px;' });
+      const next = mkBtn('›', { variant: 'ghost', css: 'min-width:40px;min-height:36px;padding:4px 10px;' });
+      previous.setAttribute('aria-label', 'Previous page');
+      next.setAttribute('aria-label', 'Next page');
+      const count = document.createElement('span');
+      count.setAttribute('aria-live', 'polite');
+      pages.append(previous, count, next);
+      box.appendChild(pages);
+      const showPage = (index) => {
+        page = Math.max(0, Math.min(pageCount - 1, index));
+        into.style.transform = page ? `translateX(${-page * (viewport.clientWidth + 16)}px)` : '';
+        previous._setEnabled(page > 0);
+        next._setEnabled(page < pageCount - 1);
+        count.textContent = `${page + 1} / ${pageCount}`;
+      };
+      previous.addEventListener('click', e => { e.stopPropagation(); showPage(page - 1); });
+      next.addEventListener('click', e => { e.stopPropagation(); showPage(page + 1); });
+      into.addEventListener('focusin', e => {
+        if (pageCount < 2) return;
+        const x = e.target.getBoundingClientRect().left - into.getBoundingClientRect().left;
+        showPage(Math.floor(x / (viewport.getBoundingClientRect().width * (1 + 16 / viewport.clientWidth))));
+      });
+      const fit = () => {
+        frame = 0;
+        if (!wrap.isConnected) return;
+        into.style.height = '';
+        into.style.columnWidth = '';
+        into.style.columnGap = '';
+        into.style.columnFill = '';
+        into.style.transform = '';
+        pages.style.display = 'none';
+        if (spacer) {
+          // Trim the bottom 10% of the square composition first.
+          // Short screens give further art height to readable copy and controls.
+          const full = body.clientWidth * .9;
+          const minimum = Math.min(full, parseFloat(box.style.getPropertyValue('--panel-rail-height')) + 8);
+          spacer.style.height = `${full}px`;
+          const deficit = into.scrollHeight - viewport.clientHeight;
+          if (deficit > 0) spacer.style.height = `${Math.max(minimum, full - deficit)}px`;
+        }
+        pageCount = 1;
+        if (into.scrollHeight > viewport.clientHeight + 1) {
+          pages.style.display = 'flex';
+          // Reserve the pager inside the content region, below the columns.
+          const available = viewport.clientHeight - 3;
+          into.style.margin = '0';
+          into.style.height = `${Math.max(44, available)}px`;
+          into.style.columnWidth = `${viewport.clientWidth}px`;
+          into.style.columnGap = '16px';
+          into.style.columnFill = 'auto';
+          pageCount = Math.max(1, Math.ceil((into.scrollWidth + 16) / (viewport.clientWidth + 16)));
+        }
+        showPage(page);
+      };
+      const scheduleFit = () => {
+        if (!frame) frame = requestAnimationFrame(fit);
+      };
+      const changes = new MutationObserver(scheduleFit);
+      changes.observe(into, { childList: true, subtree: true, characterData: true,
+        attributes: true, attributeFilter: ['open', 'hidden'] });
+      const resize = new ResizeObserver(scheduleFit);
+      resize.observe(box);
+      into.addEventListener('load', scheduleFit, true);
+      document.fonts?.ready.then(scheduleFit);
+      const removal = new MutationObserver(() => {
+        if (wrap.isConnected) return;
+        changes.disconnect(); resize.disconnect(); removal.disconnect();
+        cancelAnimationFrame(frame);
+      });
+      removal.observe(wrap.parentNode, { childList: true });
+      fit();
     };
     // ONE button factory for every button a modal shows, in two VARIANTS:
     //   primary — a CONTROL: gold, always (spec §UI COLOUR LANGUAGE), or a
@@ -585,7 +635,7 @@ class SceneModals {
   // `art` (optional) — the story's own SCENE painting (assets/art/ stem); a
   // dialog with one is a STORY unless the caller names another kind.
   // `kind` (optional) — the MODAL_KINDS category; a plain message is a 'note'.
-  showMessageModal({ title, body, okLabel, onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false, source, bookPage = false, compactArt = false }) {
+  showMessageModal({ title, body, okLabel, onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false, source, bookPage = false }) {
     document.getElementById('offer-modal')?.remove();
     let dismissed = false;
     const dismiss = () => {
@@ -597,7 +647,7 @@ class SceneModals {
       if (typeof onDismiss === 'function') onDismiss();
     };
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
-      { zIndex: 60, onClose: mustAcknowledge ? undefined : dismiss, kind: kind, kindLabel, art: bookPage ? false : art, portrait, source, bookPage, compactArt, header: !bookPage });
+      { zIndex: 60, onClose: mustAcknowledge ? undefined : dismiss, kind: kind, kindLabel, art: bookPage ? false : art, portrait, source, bookPage, header: !bookPage });
     const safeBody = String(body).replace(/\n/g, '<br>');
     // No title, no title line: a page whose own heading is in the body (the
     // Book's volume line) starts on it, with no empty gold row above.
@@ -1219,7 +1269,7 @@ class SceneModals {
       // ceremony with an art banner plus card buttons (the trail pick) has
       // no room for a third picture - an empty div would still cost its
       // margins as a blank band under the banner.
-      (iconHTML ? `<div style="margin:6px 0 10px;font-size:0">${iconHTML}</div>` : '') +
+      (iconHTML ? `<div style="margin:0 0 6px;font-size:0">${iconHTML}</div>` : '') +
       `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}${qtyHtml}</div>` +
       tierHtml +
       subHtml;

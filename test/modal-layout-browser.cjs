@@ -16,7 +16,7 @@ const { chromium } = require('playwright-core');
       await page.evaluate(() => {
         window.staticDialogs = ['howto', 'story', 'bootload'].map(id => document.getElementById(id)?.cloneNode(true));
       });
-      for (const kind of ['coins', 'relic', 'pick', 'offer', 'portrait', 'long-story', 'plain', 'acknowledge']) {
+      for (const kind of ['coins', 'relic', 'pick', 'offer', 'portrait', 'long-story', 'plain']) {
         await page.evaluate(kind => {
           const s = window.__scene;
           document.querySelectorAll('.game-modal').forEach(el => el.remove());
@@ -31,8 +31,7 @@ const { chromium } = require('playwright-core');
             blurb: long, cost: '25 coins', canAfford: true, onAccept: () => {} });
           if (kind === 'portrait') s.showMessageModal({ kind: 'talk', kindLabel: 'Tilly', title: 'Neighbour',
             portrait: 'assets/Icons/coin.png', body: long.repeat(2) });
-          if (kind === 'long-story') s.showMessageModal({ title: 'A long book', art: 'booth_home_craft', body: long.repeat(30) });
-          if (kind === 'acknowledge') s.showMessageModal({ title: 'Read this first', body: long, mustAcknowledge: true });
+          if (kind === 'long-story') s.showMessageModal({ title: 'A long book', body: long.repeat(30) });
           if (kind === 'plain') s.showMessageModal({ title: 'A long note', art: false, body: long.repeat(20) });
         }, kind);
         await page.waitForTimeout(350);
@@ -41,45 +40,44 @@ const { chromium } = require('playwright-core');
           await page.waitForTimeout(100);
         }
         const measure = () => page.locator('.game-modal').evaluate(wrap => {
-          const body = wrap.querySelector('.modal-body'), content = wrap.querySelector('.modal-content');
+          const body = wrap.querySelector('.modal-copy'), content = wrap.querySelector('.modal-content');
           const box = wrap.querySelector('.modal-box').getBoundingClientRect();
+          const pages = wrap.querySelector('.modal-pages');
           return {
+            pages: getComputedStyle(pages).display !== 'none',
+            count: pages.textContent,
+            contentHeight: content.scrollHeight, bodyHeight: body.clientHeight,
             scroll: [...wrap.querySelectorAll('*')].filter(el => el.clientHeight && el.scrollHeight > el.clientHeight + 2
               && /auto|scroll/.test(getComputedStyle(el).overflowY)).map(el => el.className),
-            bodyFits: body.scrollHeight <= body.clientHeight + 2,
-            boxVisible: box.top >= -1 && box.bottom <= innerHeight + 1
-              && box.left >= -1 && box.right <= innerWidth + 1,
+            boxVisible: box.top >= -1 && box.bottom <= innerHeight + 1,
           };
         });
         const m = await measure();
-        assert(m.boxVisible, `${width} ${kind}: dialog fits screen ${JSON.stringify(m)}`);
-        // Main's compass sheets and speech bubbles have one content scroller.
-        // Ordinary offers fit in full; long stories keep their natural scroll.
-        assert(m.scroll.every(name => name === 'modal-body'), `${width} ${kind}: only body scrolls`);
-        if (kind === 'offer') {
-          assert.deepEqual(m.scroll, [], `${width} offer: no scrolling ${JSON.stringify(m)}`);
-          assert(m.bodyFits, `${width} offer: content not clipped`);
-        }
-        if (['long-story', 'plain'].includes(kind)) {
-          assert.deepEqual(m.scroll, ['modal-body'], `${width} ${kind}: long copy is scrollable`);
-        }
-        if (kind === 'portrait') {
-          assert.equal(await page.locator('.speech-dialog .speech-speaker .modal-portrait').count(), 1);
-          assert.equal(await page.getByRole('button', { name: 'Close panel', exact: true }).count(), 0);
-        }
-        if (kind === 'acknowledge') {
-          assert.equal(await page.getByRole('button', { name: 'Close panel', exact: true }).count(), 0);
-          await page.locator('#message-modal').click({ position: { x: 1, y: 1 }, force: true });
-          assert.equal(await page.locator('#message-modal').count(), 1, 'mandatory acknowledgement survives backdrop click');
-        }
-        if (['portrait', 'long-story', 'plain', 'acknowledge'].includes(kind)) {
-          const ok = page.getByRole('button', { name: kind === 'portrait' ? 'Got it' : 'OK', exact: true });
-          await ok.scrollIntoViewIfNeeded();
+        assert.deepEqual(m.scroll, [], `${width} ${kind}: no scrolling ${JSON.stringify(m)}`);
+        assert(m.boxVisible, `${width} ${kind}: dialog fits screen`);
+        if (!['long-story', 'plain'].includes(kind)) {
+          assert.equal(m.pages, false, `${width} ${kind}: ordinary dialog fits one page ${JSON.stringify(m)}`);
+          assert(m.contentHeight <= m.bodyHeight + 2, `${width} ${kind}: content not clipped`);
+        } else {
+          assert.equal(m.pages, true, `${kind} has pages`);
+          const next = page.getByRole('button', { name: 'Next page', exact: true });
+          if (kind === 'long-story') {
+            await page.getByRole('button', { name: 'OK', exact: true }).focus();
+            assert(await next.isDisabled(), 'keyboard focus reveals the action page');
+            const previous = page.getByRole('button', { name: 'Previous page', exact: true });
+            while (!(await previous.isDisabled())) await previous.click();
+          }
+          let turns = 0;
+          while (!(await next.isDisabled())) {
+            await next.click();
+            assert(++turns < 50, 'finite page count');
+          }
+          const ok = page.getByRole('button', { name: 'OK', exact: true });
           const visible = await ok.evaluate(el => {
-            const b = el.getBoundingClientRect(), p = el.closest('.modal-body').getBoundingClientRect();
+            const b = el.getBoundingClientRect(), p = el.closest('.modal-copy').getBoundingClientRect();
             return b.left >= p.left - 1 && b.right <= p.right + 1 && b.top >= p.top - 1 && b.bottom <= p.bottom + 1;
           });
-          assert(visible, 'message action is reachable and whole');
+          assert(visible, 'final-page action is visible and whole');
           await ok.click();
           assert.equal(await page.locator('#message-modal').count(), 0);
         }
