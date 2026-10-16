@@ -122,13 +122,5 @@ body.compass-hud:has(#eat-btn):has(#consumable-btn) #eat-btn .eat-ico {display:n
 /* Disabled actuators stay opaque metal so their labels do not mix with carving. */
 body.compass-hud .hud-action:disabled {opacity:1!important;border-color:#b9c2ae!important;background:linear-gradient(#d3d8c8,#aeb8a3 55%,#88947e)!important;color:#35402f!important;text-shadow:0 1px #e1e7d3;box-shadow:inset 0 0 0 1px #758369,inset 0 2px 2px #edf2dfa6,0 1px 2px #1c231c;}
 
-/* The inactive cover occupies the item window, below the hidden category rail.
-   Its separate mechanical close button never activates the hidden controls. */
-#compass-inventory-dismiss {display:none;position:fixed;z-index:8;right:calc(var(--phone-right,0px) + 16px);bottom:calc(var(--inventory-floor) + var(--inventory-name-height) + var(--inventory-slot-height) - 26px);width:32px;height:32px;padding:0;border:2px ridge #e4d18b;border-radius:50%;background:radial-gradient(circle at 35% 25%,#fff0b0,#c59b3d 65%,#796024);color:#302c20;font:700 23px/1 Georgia;box-shadow:0 1px 3px #253020;cursor:pointer;}
-body.compass-hud.compass-inventory-closed:not(.compass-inventory-dismissed):not(.modal-open) #compass-inventory-dismiss {display:grid;place-items:center;}
-body.compass-hud.compass-inventory-dismissed #compass-inventory-shutter {display:none;}
-#compass-inventory-dismiss:active {transform:translateY(1px);filter:brightness(1.1);}
-#compass-inventory-dismiss:focus-visible {outline:2px solid #ffdc76;outline-offset:2px;}
-
 /* No selection means no description plate or decorative endcaps. */
 body.compass-hud #inv-name:empty {display:none!important;}

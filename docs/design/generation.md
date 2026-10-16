@@ -93,6 +93,10 @@ access or tile lifecycle mechanics.
 
 ## Generation, saves and tiles
 
+- Fresh players start with zero coins in every mode, including sandbox. Mode
+  selection never changes the purse, and sandbox fixture reloads never grant
+  coins. Loading an existing save preserves its earned balance.
+
 - After surface POI placement settles, `assignScholarFallback` upgrades one
   surviving Scriptorium (library or college) to a Scholar when the tile has no
   Scholar. The smallest stable object id wins, independent of input order or

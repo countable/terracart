@@ -79,7 +79,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   page; the lower face selects the next page. The description plate
   appears only for a selected item or piece of gear; empty categories show no plate. Contextual actions
   retain their existing semantics. The dormant inventory cover occupies the lower
-  inventory window and can be dismissed for the scene without unlocking controls.
+  inventory window until the first item activates it; it has no close control.
   Inactive-module Spirit dialogs explain how to power up that specific module;
   distance uses the shared 200-metre threshold, and spirit walking remains opt-in.
   Reference atlas crops live alongside their provenance in `assets/ui/compass/`.

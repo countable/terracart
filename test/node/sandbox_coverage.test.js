@@ -333,3 +333,13 @@ test('sandbox coverage: old stones includes an owned temple footprint for the re
   assert.eq(shape.templeZone, temple.templeZone);
   assert.truthy(entry.ownerKeys.includes(temple.id));
 });
+
+
+test('sandbox coverage: stocking and reloading fixtures never grants or removes coins', () => {
+  for (const money of [STARTING_MONEY, 17, 2500]) {
+    const scene = { save: { money } };
+    Sandbox.stockInventoryForTest(scene);
+    Sandbox.stockInventoryForTest(scene);
+    assert.eq(scene.save.money, money, `preserve balance ${money}`);
+  }
+});
