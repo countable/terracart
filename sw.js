@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-a7f6b9e3';
+const SHELL_VERSION = 'shell-840c033f';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -717,13 +717,13 @@ const ASSET_HASHES = {
   "assets/art/castle_claim.webp": "4d1965b9",
   "assets/art/castle_favour.webp": "574a05fc",
   "assets/art/cave_first.webp": "f9c3f346",
-  "assets/art/chest_t1.webp": "8c2c9b46",
-  "assets/art/chest_t2.webp": "b2767964",
-  "assets/art/chest_t3.webp": "9a4eb023",
-  "assets/art/chest_t4.webp": "2ef746a1",
-  "assets/art/chest_t5.webp": "83a4fecc",
-  "assets/art/chest_t6.webp": "b16e1971",
-  "assets/art/chest_t7.webp": "5df166f8",
+  "assets/art/chest_t1.webp": "3bbe9ad4",
+  "assets/art/chest_t2.webp": "006d2618",
+  "assets/art/chest_t3.webp": "4dc28750",
+  "assets/art/chest_t4.webp": "d4d470d0",
+  "assets/art/chest_t5.webp": "1b73130f",
+  "assets/art/chest_t6.webp": "adad22b5",
+  "assets/art/chest_t7.webp": "8ee9a5a0",
   "assets/art/coin_first.webp": "e5db7b70",
   "assets/art/death_memories.webp": "a2e5b296",
   "assets/art/delivery_first.webp": "c6196484",
@@ -830,9 +830,9 @@ const ASSET_HASHES = {
   "assets/art/trail_prize.webp": "6ecb62eb",
   "assets/art/trap_free.webp": "e4903efb",
   "assets/art/trap_jaw.webp": "26caf9a0",
-  "assets/art/treasure_barrel.webp": "d85dcb4c",
-  "assets/art/treasure_crate.webp": "1dcba52e",
-  "assets/art/treasure_dig.webp": "58317367",
+  "assets/art/treasure_barrel.webp": "cbaf5433",
+  "assets/art/treasure_crate.webp": "46118a52",
+  "assets/art/treasure_dig.webp": "afae11c1",
   "assets/art/turret_watch.webp": "fb3db58d",
   "assets/art/underground_bone_gallery.webp": "c23b9e73",
   "assets/art/underground_depth2_rock_scatter.webp": "e8551cb3",
