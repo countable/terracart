@@ -3116,6 +3116,7 @@ class MapScene extends Phaser.Scene {
       this._drainBadgeStories();
       this._lowHealthStory();
       this._firstSaleStory();
+      this._firstCoinStory();
       PetStories.drain(this);
       DragonStory.drain(this);
       StoryEncounters.tick(this, Date.now());
@@ -3448,10 +3449,11 @@ class MapScene extends Phaser.Scene {
     // and its screen-y is squashed by FACING_CHEVRON_TILT for the south
     // camera's tilt (map-perspective.md).
     this.facingChevronGfx.clear();
-    // A heading-up map points it where the map is turned to: straight up.
-    const facing = HeadingUp.active(this) && this.compassDeg != null ? HeadingUp.facing(this) : this.facing;
+    // With a live device compass, heading-up puts phone heading at screen
+    // top. Desktop keeps its caret when no device heading is available.
+    const facing = this.facing;
     const fmag = Math.hypot(facing.x, facing.y);
-    if (fmag > 0.001) {
+    if (!(HeadingUp.active(this) && this._deviceCompass) && fmag > 0.001) {
       const fx = facing.x / fmag, fy = facing.y / fmag;
       // (along, across) on the ground → screen, y foreshortened.
       const ground = (u, v) => ({
@@ -8264,8 +8266,26 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
   }
 
-  // Both earned stories queue once (`key`) and open through the story ledger
+  // Earned stories queue once (`key`) and open through the story ledger
   // when the screen clears; the pending flag on the save survives a reload.
+  _firstCoinStory() {
+    if (!this.save.firstCoinPending || this.save.storySeen?.['coin:first']) return;
+    this._enqueueCeremony('story', (done) => {
+      if (!this.save.firstCoinPending || this.save.storySeen?.['coin:first']) return false;
+      this.showMessageModal({ kind: 'story', title: 'A green coin',
+        portrait: 'assets/Icons/coin.png',
+        body: 'You find a green coin. The compass now keeps count of your coins.', onDismiss: done,
+      });
+      // Only successful presentation unlocks the chrome; a busy or failed
+      // opening leaves the earned introduction pending across reloads.
+      (this.save.storySeen ||= {})['coin:first'] = 1;
+      delete this.save.firstCoinPending;
+      persistSave(this.save);
+      this.updateHUD?.();
+      return true;
+    }, { key: 'coin:first', defer: true });
+  }
+
   _firstSaleStory() {
     if (!this.save.firstSalePending || this.save.storySeen?.['sale:first']) return;
     // A repeat offer remounts after its accept callback; wait for the gate tick.
@@ -8467,7 +8487,7 @@ class MapScene extends Phaser.Scene {
       const tag = document.getElementById('depth-tag');
       if (tag) tag.textContent = this.depth > 0 ? `Depth ${this.depth | 0}` : '';
     });
-    // Money badge always shown.
+    // The compass reveals its money badge after the first earned-coin story.
     if (this.moneyEl) {
       const money = `${this.save.money ?? 0}`;
       this._paintIfChanged('_moneyDOM', money, () => {
@@ -8579,9 +8599,9 @@ class MapScene extends Phaser.Scene {
     const color = pct > 0.30 ? UI_GREEN : (pct > 0.10 ? UI_GOLD : UI_DANGER_INK);
     el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8c7a2a' : '#a04040');
     const label = els.label;
-    // Just the current energy: the bar under it already shows how full it is,
-    // and the max rides in the tooltip (the top row is tight on a phone).
-    if (label) { label.style.color = color; label.textContent = `⚡${cur}`; }
+    // The compass needle carries current energy; its right-hand numeral is
+    // the maximum. The legacy bar keeps its current-value label.
+    if (label) { label.style.color = color; label.textContent = this._compassHUD ? max : `⚡${cur}`; }
     else { el.style.color = color; el.textContent = `⚡${cur}`; }
     el.title = `Energy ${cur} of ${max}`;
     const fill = els.fill;

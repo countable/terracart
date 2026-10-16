@@ -10,6 +10,10 @@ window.installCompassHudHarness = function () {
     document.body.classList.remove('modal-open');
     scene._compassSpiritOpen = false;
     scene.save = structuredClone(original);
+    scene.save.storySeen ||= {};
+    if (mode === 'active') scene.save.storySeen['coin:first'] = 1;
+    else delete scene.save.storySeen['coin:first'];
+    delete scene.save.firstCoinPending;
     scene.save.memories = Math.min(3, scene.memoriesTotal());
     scene.save.compassModules = { active: Object.fromEntries(ids.map(id => [id, mode === 'active'])), pending: [], walkedM: mode === 'active' ? 200 : 0 };
     if (mode !== 'active') Object.assign(scene.save, { inv: [], relics: {}, armor: {}, discovered: {}, memories: 0, booksRead: 0, tipsRead: 0 });

@@ -34,8 +34,17 @@ changing dialogue, story panels, books, toasts or status presentation.
   Dismissible sheets expose a fixed close control using the same cancellation
   callback and input arming as their backdrop. Required acknowledgments omit
   it. The menu actuator remains visible and depressed while its sheet is open.
+  The energy dial has one lightning-bolt needle for current energy, equal
+  red/yellow/green thirds, and a maximum-energy numeral on the right.
   Dormant inscriptions use invented geometric glyphs at a shared size; their
   accessible names and Spirit explanations still identify the module in English.
+
+- The money area stays blank until an earned coin queues its first-coin story.
+  Starting funds do not unlock it. The story waits behind other interactions;
+  successful presentation records `storySeen['coin:first']` and reveals the coin
+  and count permanently, including after spending or reloading. A pending
+  introduction survives spending and reloads; older saves unlock on their next
+  earned coin.
 
 - Living-silver compass circuits persist their active state and pending
   one-time Dragon Spirit notices in `save.compassModules`. Inventory activates

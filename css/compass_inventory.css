@@ -129,7 +129,7 @@ body.compass-hud #compass-inventory-shutter {
   box-shadow:inset 0 1px 2px #d9dbd2,inset 0 -1px 2px #a6aaa2;
   -webkit-mask-image:linear-gradient(to bottom,transparent,#000 9px,#000 calc(100% - 5px),transparent);
   mask-image:linear-gradient(to bottom,transparent,#000 9px,#000 calc(100% - 5px),transparent);
-  background-image:url('../assets/ui/compass/reference-shutter.webp');
+  background:linear-gradient(160deg,#c5c7c0,#aaaea6 48%,#898f86);
   background-position:center;background-size:cover;letter-spacing:0;color:transparent;
   font:600 20px Georgia,serif;text-shadow:none;
 }

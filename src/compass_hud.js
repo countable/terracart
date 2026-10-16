@@ -14,7 +14,7 @@ const CompassHUD = {
     const body = document.createElement('div');
     body.id = 'compass-body';
     body.setAttribute('aria-hidden', 'true');
-    body.innerHTML = '<div class="compass-aperture"></div><div class="compass-header"></div><div class="compass-footer"></div><div class="compass-upper-join"></div><div class="compass-lower-join"></div><div class="compass-bearing"><i class="compass-ticks"></i><span class="compass-north"><img src="assets/ui/compass/north-arrow.webp" alt="" aria-hidden="true"><b>N</b></span><span class="compass-east"><b>E</b></span><span class="compass-south"><b>S</b></span><span class="compass-west"><b>W</b></span></div>';
+    body.innerHTML = '<div class="compass-aperture"></div><div class="compass-header"></div><div class="compass-footer"></div><div class="compass-upper-join"></div><div class="compass-lower-join"></div><div class="compass-bearing"><i class="compass-ticks"></i><span class="compass-north"><img src="assets/ui/compass/north-arrow.webp" alt="" aria-hidden="true"></span><span class="compass-east"><b>E</b></span><span class="compass-south"><b>S</b></span><span class="compass-west"><b>W</b></span></div>';
     document.body.append(body);
     // The memory's pixel pickup has a pale outline. Its instrument uses a
     // clean faceted gold star, without altering the world pickup artwork.
@@ -49,11 +49,12 @@ const CompassHUD = {
       const needle = document.createElement('i');
       needle.className = 'compass-energy-needle';
       needle.setAttribute('aria-hidden', 'true');
+      needle.innerHTML = '<svg viewBox="0 0 100 100"><defs><linearGradient id="compass-needle-gold" x2="1" y2="0"><stop stop-color="#ac751c"/><stop offset=".45" stop-color="#fff2b0"/><stop offset="1" stop-color="#dfaa32"/></linearGradient></defs><path d="M52 12L39 36H48L43 55L61 29H51Z" fill="url(#compass-needle-gold)" stroke="#78531d" stroke-width="1.4" stroke-linejoin="round"/></svg>';
       energy.prepend(needle);
       const face = document.createElement('span');
       face.className = 'compass-energy-face';
       face.setAttribute('aria-hidden', 'true');
-      face.innerHTML = '<svg viewBox="0 0 100 100"><defs><radialGradient id="compass-dial-metal" cx="35%" cy="24%" r="85%"><stop stop-color="#e0ded2"/><stop offset=".6" stop-color="#9d9f94"/><stop offset="1" stop-color="#53594e"/></radialGradient><linearGradient id="compass-dial-gold" x2="1" y2="1"><stop stop-color="#fff2b0"/><stop offset=".48" stop-color="#e8b63b"/><stop offset="1" stop-color="#a86c12"/></linearGradient></defs><circle cx="50" cy="50" r="45" fill="url(#compass-dial-metal)" stroke="#343a30" stroke-width="2"/><path d="M50 11v13M17 30l11 6M74 24l9-7" fill="none" stroke="#625234" stroke-width="6" stroke-linecap="round"/><path d="M50 11v13M17 30l11 6M74 24l9-7" fill="none" stroke="url(#compass-dial-gold)" stroke-width="3" stroke-linecap="round"/><path d="M83 29a40 40 0 0 1 6 20" fill="none" stroke="#385b23" stroke-width="10"/><path d="M83 29a40 40 0 0 1 6 20" fill="none" stroke="#77d44d" stroke-width="7"/><path d="M40 47L23 72H35L27 89L52 61H40L49 47Z" fill="url(#compass-dial-gold)" stroke="#70551c" stroke-width="1.4"/></svg><span class="compass-energy-pivot"></span>';
+      face.innerHTML = '<svg viewBox="0 0 100 100"><defs><radialGradient id="compass-dial-metal" cx="35%" cy="24%" r="85%"><stop stop-color="#e0ded2"/><stop offset=".6" stop-color="#9d9f94"/><stop offset="1" stop-color="#53594e"/></radialGradient></defs><circle cx="50" cy="50" r="45" fill="url(#compass-dial-metal)" stroke="#343a30" stroke-width="2"/><path d="M14.65 38.52A39 39 0 0 1 85.35 38.52" fill="none" stroke="#41463a" stroke-width="10" stroke-linecap="round"/><g fill="none" stroke-width="6" stroke-linecap="butt"><path d="M14.65 38.52A39 39 0 0 1 35.60 18.75" stroke="#d94c39"/><path d="M37.05 18.22A39 39 0 0 1 62.95 18.22" stroke="#edc34d"/><path d="M64.40 18.75A39 39 0 0 1 85.35 38.52" stroke="#77c54c"/></g></svg><span class="compass-energy-pivot"></span>';
       energy.prepend(face);
       energy.tabIndex = 0;
       energy.setAttribute('role', 'button');
@@ -92,6 +93,9 @@ const CompassHUD = {
   },
   update(scene) {
     if (!scene._compassHUD) return;
+    const money = document.getElementById('money');
+    const moneyHidden = !scene.save.storySeen?.['coin:first'];
+    if (money && money.hidden !== moneyHidden) money.hidden = moneyHidden;
     for (const id of Object.values(this.modules)) {
       const closed = !CompassModules.isActive(scene.save, id);
       document.body.classList.toggle(`compass-${id}-closed`, closed);
@@ -169,7 +173,7 @@ const CompassHUD = {
       energy.style.setProperty('--energy-angle', `${-65 + Math.min(1, value / Math.max(1, max)) * 130}deg`);
       energy.setAttribute('aria-label', `Energy ${value} of ${max}`);
       const label = document.getElementById('energy-label');
-      if (label) label.textContent = value;
+      if (label) label.textContent = max;
     }
     const bearing = document.querySelector('.compass-bearing');
     const angle = scene.mapRot || 0;
