@@ -124,12 +124,14 @@ ONBOARDING (the first session)
  - HOW-TO-PLAY CARD: shown once over the LIVE map on first arrival (after that
    reload), covering movement, reach, the farming loop, energy and home-only
    selling. Reopenable from ☰ "How to play".
- - OBJECTIVE CHIP: a HUD chip naming the ONE next thing to do (`quests.js`
+ - SPIRIT GUIDANCE: the floating Dragon Spirit dialogue sprite speaks the
+   ONE next thing to do in a compact map speech bubble (`quests.js`
    `STARTER_CHAIN` — open a crate → till → plant → restore a wreck → harvest
    → sell at Home). Steps auto-advance on gameplay events fired from the sites
-   that perform them (`scene.questEvent`) and each pays a small reward. The
-   chip retires when the ladder finishes or is dismissed (☰ "Show objectives"
-   brings it back). Hard mode has no ladder (`difficulty.js`).
+   that perform them (`scene.questEvent`), with a spoken acknowledgement and
+   no tutorial coin bonus. Ordinary crate contents and sale proceeds are
+   unchanged. The Spirit retires when the ladder finishes or is dismissed
+   (☰ "Show objectives" brings it back). Hard mode has no ladder (`difficulty.js`).
    The starter ladder is INDEPENDENT of castle quests and citadel garrisons.
    It never opens a castle.
  - STARTER COMPASS: a light-green rim dot (the tutorial's colour), drawn and
@@ -137,13 +139,12 @@ ONBOARDING (the first session)
    the ACTIVE step's own space (`app.js` `_starterGuidanceGoal`): the nearest
    crate, the plot, the soil, a wreck, the crop, Home. When a step needs
    something the bag lacks (a seed, the restore price) it points back at the
-   crates. The dot must never lead away from what the chip asks for.
+   crates. The dot must never lead away from what the Spirit asks for.
  - THE STARTER TRAIL: four supply crates are laid along the walk from spawn to
    the relic chest, packed into its near part (`starter.js` `TRAIL_SPAN`) so
    all four are met early. Each stop is in view from the one before. A road
-   near the anchor takes the trail onto its kerb (the chip says "along the
-   road"); otherwise it follows a walkable route that bends round water and
-   buildings. Contents run in the LADDER's order of need, nearest first —
+   near the anchor takes the trail onto its kerb; otherwise it follows a
+   walkable route that bends round water and buildings. Contents run in the LADDER's order of need, nearest first —
    seeds before the stone and wood a rebuild needs. Crates seat only on legal
    ground, never the road band or the trailer's moat.
  - THE RELIC CHEST: one real treasure chest a screen from spawn, on a cell the

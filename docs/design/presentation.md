@@ -29,7 +29,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   capped at 84 pixels wide beside a 72-pixel energy dial at the top right. The menu is
   46 pixels tall; the shared memories/books window gives these controls more room. A 26-pixel coin with a cast shadow and its
   white inline count sit at the far right, with a seven-pixel gap below the energy dial. The tutorial
-  banner sits 19 pixels below the map top (25 pixels higher than before). Equal responsive
+  floats inside the upper map as a Dragon Spirit portrait and speech bubble. Equal responsive
   gaps separate all four top widgets, with matching 8-pixel outer margins. The simulated-GPS control sits 20 CSS pixels above its
   ordinary stick baseline. The carving stays visible beneath navigation, with a
   darker graphite recess behind the inventory and a soft outer-edge fade.
@@ -107,6 +107,13 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Compass shine is disabled in the live HUD: it installs no reflection layers,
   animation loop, or tilt listeners. The baked emission assets and
   `CompassShine` implementation remain available for the development prototype.
+
+- Starter guidance is a floating Dragon Spirit portrait with a compact, pale
+  speech bubble on the upper map. Each step gives one spoken instruction;
+  completion briefly acknowledges it in the same bubble. Only the dismiss
+  button intercepts taps. Modal dialogs hide it, reduced-motion preferences
+  stop its float, and the menu can restore dismissed guidance. Tutorial steps
+  grant no bonus coins; ordinary loot and sales retain their own rewards.
 
 - The money area stays blank until an earned coin queues its first-coin story.
   Starting funds do not unlock it. The story waits behind other interactions;
