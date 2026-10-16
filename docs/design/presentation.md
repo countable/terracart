@@ -15,7 +15,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   inline count sit at the far right just below the energy dial. The simulated-GPS control sits 20 CSS pixels above its
   ordinary stick baseline. HUD metal uses reduced brightness with a stronger
   outer-edge fade; controls retain brighter text and icons. The fade excludes
-  the circular map aperture.
+  the circular map aperture. The compass rim has ticks every 15 degrees, with
+  longer marks every 30 degrees.
 
 - The four opening panes show the compass discovery, dragon-war dream,
   trailer awakening, then the ruined street. Each has two aligned paintings:
