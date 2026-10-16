@@ -10,10 +10,21 @@ changing dialogue, story panels, books, toasts or status presentation.
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
   and confirmations use the NPC portrait layout with a dedicated transparent,
   80×80 pixel-art Dragon Spirit head-and-neck portrait (`assets/portraits/dragon_spirit.png`).
+  Short informational help and NPC conversations use floating ivory speech
+  bubbles with the participant's portrait. They point to the HUD control or
+  speaking character: below sources in the top half of the viewport, above
+  sources in the bottom half. NPC anchors follow heading, zoom and viewport size.
+  Got it dismisses immediately; after two seconds, a tap anywhere dismisses
+  informational bubbles without passing the tap to the world. Explicit choices
+  still require a response. The main menu, shops, story paintings and book list
+  retain their mechanical panels.
   The original tall spirit painting remains available for scene art.
-  Dragon Spirit and NPC spoken copy appears in a pale chat bubble beneath the
-  portrait; dialogue headers join the speaker name and role with a comma
-  ("Tilly, Wanderer"), without a separate role line. Response choices stay outside the bubble.
+  Energy, distance and memories HUD help use this Spirit portrait and speech bubble.
+  Energy briefly explains refills and capacity; distance reports true restored
+  roads and the next treasure threshold, with scenic bonuses kept separate.
+  Dragon Spirit and NPC bubbles place the portrait beside the speaker name.
+  Dialogue headers join name and role with a comma ("Tilly, Wanderer").
+  Spoken copy and response controls sit below that header inside the bubble.
   The first earned green coin opens its own `coin_first` scene painting before
   revealing the money readout; its raised star matches the compact currency icon.
   Digging an X opens a treasure acknowledgment headed “X marks the spot” with
@@ -128,9 +139,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   first discovery/memory. Spending cannot close an activated circuit. Distance
   activates after 200 m of accepted movement; joystick activation requires
   **Enable spirit walking** in its spirit dialog. Closed controls explain low
-  power. Activation notices are micro toasts over the player, never dialogs;
-  they wait behind stories and dialogs, and are claimed when shown so reloads
-  cannot repeat them. Existing ownership seeds circuits
+  power. Activation notices use Dragon Spirit speech bubbles anchored to the
+  awakened control, with **Got it** immediately available and tap-anywhere
+  dismissal after two seconds. They wait behind stories and dialogs, present
+  one at a time, and are claimed when shown so reloads cannot repeat them. Existing ownership seeds circuits
   quietly when upgrading an older save.
 
 - The inventory pet menu's **View info** opens an individual pet card with a
@@ -318,6 +330,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   during an accept use the ceremony queue with `defer: true`: the gate tick
   waits for the refreshed shop to close. Duplicate keyed requests must also
   respect deferral rather than draining during the remove/remount gap.
+- The Books read list remains a full mechanical panel. Reading or rereading a
+  book puts live, scrollable dark serif text on `assets/art/book_page.webp`,
+  a full-height illustrated half-book beneath the silver dragon rail.
+  `bookPage: true` selects this surface without changing the shared `book_read`
+  painting used elsewhere. Closing a reread returns to the list.
 - Book stories use direct firsthand excerpts in quotation marks. Occasional
   narrator asides sit outside the quotation in italics (`bookPageHTML`), usually
   one short sentence. Vary length, format, mood and author voice across books;

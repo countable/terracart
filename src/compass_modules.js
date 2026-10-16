@@ -5,6 +5,16 @@
   const MODULES = Object.freeze({ inventory: 'Inventory', joystick: 'Spirit walking',
     distance: 'Distance', memories: 'Memories', books: 'Books' });
   const DISTANCE_M = 200;
+  const SOURCES = Object.freeze({ inventory: 'inv', joystick: 'move-pad',
+    distance: 'roadchip', memories: 'memories', books: 'bookchip' });
+  const AWAKENING = Object.freeze({
+    inventory: 'Inventory activated. Your items are now within reach.',
+    memories: 'Memories activated. Gather memories to awaken your abilities.',
+    books: 'Books activated. Your discoveries can now be read here.',
+    distance: 'Distance activated. The compass now records your travels.',
+    joystick: 'Spirit walking activated. Use the compass controls to move.',
+  });
+  function source(id) { return root.document?.getElementById?.(SOURCES[id]); }
   const HINTS = Object.freeze({
     inventory: 'You have no items. Find an item to power up the inventory.',
     memories: 'Discover a memory to power up this mechanism.',
@@ -84,7 +94,7 @@
     if (!Object.hasOwn(MODULES, id)) return false;
     if (isActive(scene.save, id)) return true;
     if (busy(scene, false)) return false;
-    const panel = { kind: 'spirit',
+    const panel = { kind: 'spirit', source: source(id), okLabel: 'Got it',
       body: `${MODULES[id]} not activated. Power low.\n\n${HINTS[id]}` };
     scene._compassSpiritOpen = true;
     const close = () => { scene._compassSpiritOpen = false; };
@@ -107,11 +117,14 @@
     const state = initialize(scene.save);
     if (!state.pending.length || busy(scene, true)) return false;
     const id = state.pending[0];
-    // A panel waking is a micro toast over the player, not a dialog: it
-    // never stops play or needs a tap.
-    scene.flashAtPlayer?.(`${MODULES[id]} activated`);
-    // Claim upon presentation so reload cannot repeat it. A failed toast
-    // (thrown above) leaves it queued and retryable.
+    scene._compassSpiritOpen = true;
+    const close = () => { scene._compassSpiritOpen = false; };
+    try {
+      scene.showMessageModal({ kind: 'spirit', source: source(id),
+        body: AWAKENING[id], okLabel: 'Got it', onDismiss: close });
+    } catch (error) { close(); throw error; }
+    // Claim upon presentation so reload cannot repeat it. A failed dialog
+    // leaves the notice queued and retryable; an open one holds the next notice.
     state.pending.shift();
     persist(scene);
     return true;

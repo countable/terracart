@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=3ed8ee0f" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=e088d8a0" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1207,6 +1207,8 @@
   <link rel="stylesheet" href="css/compass_hud.css?v=82d155b2">
   <link rel="stylesheet" href="css/compass_inventory.css?v=5165fdcf">
   <link rel="stylesheet" href="css/compass_panels.css?v=c44424bf">
+  <link rel="stylesheet" href="css/speech_bubbles.css?v=3f5404dc">
+  <link rel="stylesheet" href="css/book_reader.css?v=e4923b2e">
 </head>
 <!-- `booting` hides the money/energy row until the scene has a real balance to
      put in it; MapScene.updateHUD drops the class on the first paint. -->
@@ -3044,10 +3046,10 @@
 
   <script src="src/wizard.js?v=76454ef2"></script>
   <script src="src/dragon_story.js?v=0ebfab03"></script>
-  <script src="src/memory_story.js?v=e8c08f01"></script>
+  <script src="src/memory_story.js?v=111176ed"></script>
   <script src="src/pet_story_art.js?v=4bf942ec"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
-  <script src="src/story_encounters.js?v=aa9b9863"></script>
+  <script src="src/story_encounters.js?v=b3b3aa16"></script>
   <script src="src/interact.js?v=8a0cc527"></script>
   <script src="src/play_tips.js?v=889489e3"></script>
   <script src="src/lighting_gpu.js?v=c2cf90df"></script>
@@ -3065,22 +3067,22 @@
   <script src="src/sandbox.js?v=8b6cfb58"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=c1099b24"></script>
-  <script src="src/art_thumbs.js?v=cf80f204"></script>
-  <script src="src/modal_shell.js?v=a692409a"></script>
+  <script src="src/art_thumbs.js?v=409fe8a4"></script>
+  <script src="src/modal_shell.js?v=9aec6be2"></script>
   <script src="src/scene_geo.js?v=5440fa32"></script>
-  <script src="src/npc.js?v=18efbb4a"></script>
+  <script src="src/npc.js?v=98dd939b"></script>
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
   <script src="src/scene_shops.js?v=33316904"></script>
   <script src="src/heading_up.js?v=bcd17779"></script>
-  <script src="src/compass_modules.js?v=8397cff2"></script>
+  <script src="src/compass_modules.js?v=de335c76"></script>
   <script src="src/compass_shine.js?v=1533df4e"></script>
   <script src="src/compass_hud.js?v=ac4aa4f2"></script>
   <script src="src/scene_create.js?v=15a4dc31"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=05d59b5d"></script>
   <script src="src/scene_sky.js?v=c2698528"></script>
-  <script src="src/scene_consumables.js?v=b9dbacba"></script>
+  <script src="src/scene_consumables.js?v=60f8d610"></script>
   <script src="src/scene_pets.js?v=cb512920"></script>
   <script src="src/scene_venues.js?v=1ff89167"></script>
   <script src="src/scene_streets.js?v=d84eee30"></script>
@@ -3154,7 +3156,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=3ed8ee0f';
+      const APP_SRC = 'src/app.js?v=e088d8a0';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
