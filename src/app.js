@@ -8925,7 +8925,7 @@ class MapScene extends Phaser.Scene {
   // read showed — bookPageHTML on the parchment page, no title line) and
   // comes back to the list when that is tapped away. Rereading moves no
   // bookmark: save.tipsRead is the course's, not the shelf's.
-  _showBooksRead() {
+  _showBooksRead(shelfPage = 0) {
     if (typeof document === 'undefined' || typeof bookPagesRead !== 'function') return;
     const pages = bookPagesRead(this.save);
     if (!pages.length) {
@@ -8934,9 +8934,12 @@ class MapScene extends Phaser.Scene {
     }
     const { wrap, box, mount, mkBtn } = this.makeModalShell('books-modal',
       { zIndex: 60, kind: 'story', kindLabel: 'Books read', art: 'book_read', textAlign: 'left' });
+    const pageSize = 3;
+    const pageCount = Math.ceil(pages.length / pageSize);
+    shelfPage = Math.max(0, Math.min(shelfPage, pageCount - 1));
     const list = document.createElement('div');
     list.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin:4px 0 12px;';
-    for (const page of pages) {
+    for (const page of pages.slice(shelfPage * pageSize, (shelfPage + 1) * pageSize)) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'book-row';
@@ -8947,11 +8950,23 @@ class MapScene extends Phaser.Scene {
         e.stopPropagation();
         wrap.remove();
         this.showMessageModal({ title: '', body: bookPageHTML(page), bookPage: true, okLabel: 'Back to books',
-          onDismiss: () => this._showBooksRead() });
+          onDismiss: () => this._showBooksRead(shelfPage) });
       });
       list.appendChild(b);
     }
     box.appendChild(list);
+    if (pageCount > 1) {
+      const pager = document.createElement('div');
+      pager.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;';
+      const previous = mkBtn('Previous', { variant: 'ghost', disabled: shelfPage === 0 });
+      const next = mkBtn('Next', { variant: 'ghost', disabled: shelfPage === pageCount - 1 });
+      const label = document.createElement('span');
+      label.textContent = `${shelfPage + 1} / ${pageCount}`;
+      previous.addEventListener('click', (e) => { e.stopPropagation(); this._showBooksRead(shelfPage - 1); });
+      next.addEventListener('click', (e) => { e.stopPropagation(); this._showBooksRead(shelfPage + 1); });
+      pager.append(previous, label, next);
+      box.appendChild(pager);
+    }
     const close = mkBtn('Close');
     close.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
     const row = document.createElement('div');

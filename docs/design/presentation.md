@@ -6,6 +6,9 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- Rewards converted to coins show only the coin reward in dialogs and toasts,
+  without naming the replaced item or explaining the conversion.
+
 - All game text uses the system sans stack in `--font-ui` (`index.html`) and
   its canvas counterpart `FONT_UI_STACK` (`src/util.js`): `-apple-system`,
   `BlinkMacSystemFont`, `"Segoe UI"`, `Roboto`, `"Noto Sans"`, `Ubuntu`, `Cantarell`,
@@ -111,7 +114,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   its chrome stays above scene paintings and loading mosaics without cropping the head.
   Sheets have no duplicate metal side rails or border: the outer compass housing
   supplies that frame. Painted sheets mask the dragon rail along its lower silver silhouette so
-  the image fills the space beneath the ornament without its dark backing; scene artwork has a clean square crop. Painted sheets reserve a separate
+  the image fills the space beneath the ornament without its dark backing; scene artwork uses a uniform crop from its square composition. Painted sheets reserve a separate
   content area below the image for useful category headings; painted stories omit
   the generic “Story” label.
   The modal gate publishes the final sheet edge in viewport pixels so silver
@@ -175,7 +178,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   from the generated 4×4 sheets (320×320 atlases) in `assets/portraits/`.
   NPC identity follows `SpriteLayout.npcSheet` for each role and culture; Tilly has a housed variant.
   Dialogue passes `portrait` to the modal shell, which keeps the face and
-  shoulders at 128px above independently scrolling text, using pixelated scaling
+  shoulders at 128px above text that uses pages when necessary, using pixelated scaling
   for chunky pixels. Portraits have no background plate or rounded clipping.
   A neighbour speaking opens on the `talk` kind (`NPC.speech`): the header is
   the speaker's name beside a 💬 chat bubble, the title line is their role —
@@ -246,7 +249,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   counts and the existing receipt. Recipe selection never spends ingredients;
   acceptance still rechecks unlocks, bag room, and ingredients before spending.
 - The Book Club is a lending catalog shared across scholars. Keep total/free
-  credit visible above the scrolling shelf; All tomes and On loan filters
+  credit visible above the shelf, with one complete tome per page; All tomes and On loan filters
   support preparing spells and returning them. Each row shows its effect,
   credit cost, borrowed/owned counts, and an explicit unlock or affordability
   reason. Borrow and Return update the catalog in place with one receipt;
@@ -263,15 +266,18 @@ changing dialogue, story panels, books, toasts or status presentation.
   painting unless the caller supplies a character `portrait` or `art: false`.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   square, with a complete scene and no baked dark text area. All existing and
-  new paintings use the same square viewport: top-centred `cover` crops the lower
-  portion of tall assets without stretching them. The square spans the full
-  panel width and begins at the window top, behind the fixed silver dragon rail.
+  new paintings share a full-width, top-centred `cover` crop without stretching.
+  The image begins at the window top behind the fixed silver dragon rail.
+  Its visible height starts at 90% of the panel width, cropping the bottom
+  10% of the square composition. If copy needs more room, the crop shortens
+  further, down to the rail height plus eight pixels.
   Copy follows directly below, with comfortable side padding and the specific
   title offset down four pixels. Painted stories omit the generic “Story” label;
-  useful shop/event categories sit with the copy below the image. Art, copy and
-  actions share one scroller, so short screens retain the same full-width art
-  and scroll to their controls. CSS aspect-ratio keeps art and loading mosaics
-  identical during loading and viewport changes, without image-size detection.
+  useful shop/event categories sit with the copy below the image. Dialogs do
+  not scroll. Copy and actions occupy a separate `.modal-copy` viewport;
+  long content uses Previous/Next pages at its original text size, with whole
+  controls. Content, expanded details, image loads, fonts and viewport changes
+  trigger fitting again. Art and loading mosaics share the same crop.
   Framed opening stories without titles keep their separate 14-pixel rail gap.
   `css/compass_panels.css` seats this same shell as a mechanical sheet that
   slides up from the compass and extends to the viewport floor without a
@@ -279,7 +285,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   mask beneath the panel; the mask does not intercept input.
   Shop/trade, story/event and conversation kinds carry distinct
   category headings; controls retain simple gold faces. Safe-area padding and
-  scrolling keep actions reachable. Reduced motion skips the slide. The
+  pagination keep actions reachable. Reduced motion skips the slide. The
   `spirit` kind is the Dragon Spirit voice used by dormant module controls.
 - The modal HUD gate also covers the isolated upper-temple scene. Its scene
   flag keeps inventory, movement pads and the objective hidden until shutdown,
@@ -355,11 +361,12 @@ changing dialogue, story panels, books, toasts or status presentation.
   during an accept use the ceremony queue with `defer: true`: the gate tick
   waits for the refreshed shop to close. Duplicate keyed requests must also
   respect deferral rather than draining during the remove/remount gap.
-- The Books read list remains a full mechanical panel. Reading or rereading a
-  book puts live, scrollable dark serif text on `assets/art/book_page.webp`,
+- The Books read list remains a full mechanical panel with three entries per
+  page. Reading or rereading a book puts live dark serif text, paged when
+  needed, on `assets/art/book_page.webp`,
   a full-height illustrated half-book beneath the silver dragon rail.
   `bookPage: true` selects this surface without changing the shared `book_read`
-  painting used elsewhere. Closing a reread returns to the list.
+  painting used elsewhere. Closing a reread returns to the same shelf page.
 - Book stories use direct firsthand excerpts in quotation marks. Occasional
   narrator asides sit outside the quotation in italics (`bookPageHTML`), usually
   one short sentence. Vary length, format, mood and author voice across books;
