@@ -120,6 +120,15 @@ const HeadingUp = {
       y: scene.viewCenterY + (p.y - scene.viewCenterY) * z + lift * z };
   },
 
+  // ?propDebug=1 on a north-up map: no heading-up pre-render pass runs, so
+  // the overlay keeps its own hook.
+  installPropDebug(scene) {
+    if (!HeadingUp.PROP_DEBUG || scene._huPropDebugHook) return;
+    const hook = scene._huPropDebugHook = () => { if (!HeadingUp.active(scene)) HeadingUp._drawPropDebug(scene, 0); };
+    scene.game.events.on('prerender', hook);
+    scene.events.once('shutdown', () => { scene.game.events.off('prerender', hook); scene._huPropDebugHook = null; });
+  },
+
   install(scene) {
     if (!HeadingUp.enabled || scene._headingUp) return;
     scene._headingUp = true;
@@ -343,7 +352,7 @@ const HeadingUp = {
     if (!g) {
       g = scene._huPropDebug = scene.add.graphics().setDepth(92);
       g._huUI = true;
-      g.cameraFilter = scene.cameras.main.id;
+      if (scene.uiCam) g.cameraFilter = scene.cameras.main.id;
     }
     g.clear();
     let label = scene._huPropDebugText;
@@ -353,7 +362,7 @@ const HeadingUp = {
         padding: { x: 3, y: 2 }, align: 'center',
       }).setOrigin(0.5, 0).setDepth(93);
       label._huUI = true;
-      label.cameraFilter = scene.cameras.main.id;
+      if (scene.uiCam) label.cameraFilter = scene.cameras.main.id;
     }
     let props = 0, turned = 0, faded = 0, tags = 0;
     const pool = scene._huPropDebugTags ||= [];
@@ -364,29 +373,39 @@ const HeadingUp = {
         t = scene.add.text(0, 0, '', { font: '7px monospace', color: '#ffffff',
           backgroundColor: 'rgba(0,0,0,0.6)' }).setDepth(92);
         t._huUI = true;
-        t.cameraFilter = scene.cameras.main.id;
+        if (scene.uiCam) t.cameraFilter = scene.cameras.main.id;
         pool.push(t);
       }
       t.setVisible(true).setPosition(x, y).setText(text);
     };
     const z = scene.mapZoom || 1;
+    // Every drawn world child, not just props: a single invalid vertex can
+    // cost a GPU its whole batch, so list anything non-finite or artless.
+    const bad = [];
+    let peers = 0;
+    const check = (o, why) => bad.length < 4 && bad.push(`${why} ${o.type}:${o._staticObject?.kind || o.texture?.key || o.name || '?'}`);
     const walk = (list) => {
       for (const o of list) {
+        if (!o.visible) continue;
+        if (![o.x, o.y, o.rotation, o.scaleX, o.scaleY, o.alpha].every(Number.isFinite)) check(o, 'nan');
         if (o.type === 'Container') { walk(o.list); continue; }
-        if (!o._staticObject || !o.visible) continue;
+        if (o.texture?.key === '__MISSING') check(o, 'missing');
+        if (o.frame && !(o.frame.cutWidth > 0 && o.frame.cutHeight > 0)) check(o, 'frame0');
+        if (o._mpPeer) peers++;
+        if (!o._staticObject) continue;
         props++;
         if (o.alpha < 1) faded++;
-        if (!o._huFoot) continue;
-        turned++;
-        const f = o._huFoot, p = HeadingUp.toOverlayPt(scene, f.x, f.y);
-        // _upright turned the sprite about its foot; its upright box keeps
-        // the frame's offsets from that foot.
+        if (o._huFoot) turned++;
+        // Turned: _upright moved the sprite about its foot; its upright box
+        // keeps the frame's offsets from that foot. North-up: as placed.
+        const f = o._huFoot || o, p = o._huFoot ? HeadingUp.toOverlayPt(scene, f.x, f.y) : { x: o.x, y: o.y };
+        const zz = o._huFoot ? z : 1;
         const w = o.displayWidth, h = o.displayHeight;
         const ox = o.x - f.x, oy = o.y - f.y;
         const c = Math.cos(a), s = Math.sin(a);
         const rx = c * ox - s * oy, ry = s * ox + c * oy;
-        const x0 = p.x + (rx - o.originX * w) * z, y0 = p.y + (ry - o.originY * h) * z;
-        g.lineStyle(1, o.alpha < 1 ? 0xffe14a : 0x38e8ff, 0.9).strokeRect(x0, y0, w * z, h * z);
+        const x0 = p.x + (rx - o.originX * w) * zz, y0 = p.y + (ry - o.originY * h) * zz;
+        g.lineStyle(1, o.alpha < 1 ? 0xffe14a : 0x38e8ff, 0.9).strokeRect(x0, y0, w * zz, h * zz);
         // What the device was asked to draw: texture:frame, alpha, crop,
         // assigned depth, and draw position in the world list.
         const top = o.parentContainer && o.parentContainer !== scene.worldContainer ? o.parentContainer : o;
@@ -398,7 +417,7 @@ const HeadingUp = {
     for (let i = tags; i < pool.length; i++) pool[i].setVisible(false);
     const shadows = (scene.shadowPool || []).filter(s => s.visible).length;
     const pl = scene.playerWorldContainer ? wl.indexOf(scene.playerWorldContainer) : -1;
-    label.setText(`propDebug v6${HeadingUp.HU_FLAT ? ' flat' : ''} · mt${scene.game.renderer?.maxTextures ?? '?'} mask${scene.worldContainer?.mask ? 1 : 0} light${scene.lightMap?.alpha ?? '?'} · ${scene.game.renderer?.type === 2 ? 'webgl' : 'canvas'}\n${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows} · player #${pl}/${wl.length}`);
+    label.setText(`propDebug v7${HeadingUp.HU_FLAT ? ' flat' : ''}${HeadingUp.active(scene) ? '' : ' northUp'} · mt${scene.game.renderer?.maxTextures ?? '?'} mask${scene.worldContainer?.mask ? 1 : 0} light${scene.lightMap?.alpha ?? '?'} · ${scene.game.renderer?.type === 2 ? 'webgl' : 'canvas'}\n${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows} · player #${pl}/${wl.length} · peers ${peers}\nbad ${bad.length ? bad.join(', ') : 'none'}`);
   },
 
   _postRender(scene) {

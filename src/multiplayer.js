@@ -1323,6 +1323,7 @@ const Multiplayer = (function () {
     // colour, at the farmer's own scale.
     const art = SpriteLayout.PLAYER_ART.farmer;
     p.spr = scene.add.sprite(0, 0, art.sheet, 0).setScale(art.scale).setTint(p.color);
+    p.spr._mpPeer = true;
     playDirected(p.spr, 'idle', 0, 1);
     p.lbl = scene.add.text(0, 0, p.name, {
       ...phaserFontUI('bold 10px'), color: cssOf(p.color),
