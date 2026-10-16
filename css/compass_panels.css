@@ -260,3 +260,7 @@ body.compass-hud #menu[open] > summary {
 }
 
 .compass-panel .modal-scene .modal-title { position: relative; top: 4px; }
+/* Keep the wizard's portrait and choices together on short phones. */
+@media (max-height: 650px) {
+  .compass-panel[data-kind='wizard'] > .modal-box { padding-bottom: 10px !important; }
+}
