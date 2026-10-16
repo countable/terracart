@@ -70,3 +70,14 @@ resampling the master. Source, prompt and rectangles are recorded in
 [compass-rim-art.json](compass-rim-art.json). Letters remain live HUD text so they
 stay upright as the compass turns. See the geometry in
 [the presentation guide](../design/presentation.md).
+
+## Treasure dialog paintings
+
+The X discovery, barrel, crate and seven chest-tier paintings show the concealed
+brown-hooded survivor opening a smaller container. Match the warm amber pixel
+treatment of `book_read` and `fire_first`; the first story panel is intentionally
+a different style and is not a style reference. Containers retain their tier
+materials and show only light inside; reward icons and text supply the contents.
+[treasure-paintings.json](treasure-paintings.json) records generated masters,
+source hashes, final built-in imagegen prompts, style references and export settings.
+The scene definitions in `tools/gen_story_art.js` preserve the same composition intent.

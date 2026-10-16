@@ -1255,9 +1255,10 @@ class SceneVenues {
     if (st && this.save.starterShopId === st.id) {
       // Rebuild the in-memory object after a reload (or position change).
       if (!this._starterTrailerObj || this._starterTrailerObj.id !== st.id) {
+        const foot = HomeArea.wagonArtFoot(this.save.homePlacementHeading || 0);
         this._starterTrailerObj = { kind: 'house', x: st.x, y: st.y,
           tier: st.tier, id: st.id, address: st.address, _synthetic: true,
-          footDx: HomeArea.WAGON_ART_FOOT.dx, footDy: HomeArea.WAGON_ART_FOOT.dy };
+          footDx: foot.dx, footDy: foot.dy };
       }
       const obj = this._starterTrailerObj;
       const { tx, ty } = worldMetersToTile(this, obj.x, obj.y);
@@ -1275,7 +1276,8 @@ class SceneVenues {
   //   BUILDINGS. Any house whose footprint touches the footing is erased
   //   ENTIRELY — every cell of it goes back to the ground around it, its
   //   outline (buildingShapes) and its roof (the house object) go too — so
-  //   the wagon stands in a yard, never half on a roof. An adopted Home's own
+  //   the wagon stands in a yard, never half on a roof. Only a 50% shadow of
+  //   its footprint stays (entry.clearedShapes, building_overlay.js). An adopted Home's own
   //   footprint goes the same way (its object stays: it draws as the wagon).
   //   A building that is yours, a temple or a castle is never erased
   //   (_homeMayClear). A real house that turns up on the footing after a
@@ -1374,8 +1376,8 @@ class SceneVenues {
   // Erase every cell of the buildings keyed in `keys` from one built tile:
   // the cell takes the most common open ground bordering the erased cells
   // (a yard on a residential street, grass in a park; residential land when
-  // nothing borders it), drops its owner, and the outline goes from
-  // buildingShapes. A new buildingShapes array, so the overlay repaints, and
+  // nothing borders it), drops its owner, and the outline moves from
+  // buildingShapes to clearedShapes (drawn as a 50% footprint shadow). A new buildingShapes array, so the overlay repaints, and
   // the ground layer redraws on this frame rather than the next cell crossing.
   _eraseHomeBuildings(entry, keys) {
     const g = entry.grid, own = entry.owners, ok = entry.ownerKeys;
@@ -1411,6 +1413,9 @@ class SceneVenues {
       if (entry.syntheticBuildingCells) entry.syntheticBuildingCells[i] = 0;
     }
     if (entry.buildingShapes?.some(s => keys.has(s.key))) {
+      // The outline moves to clearedShapes: the overlay draws it as a flat
+      // shadow of the footprint the trailer cleared, not a building.
+      entry.clearedShapes = (entry.clearedShapes || []).concat(entry.buildingShapes.filter(s => keys.has(s.key)));
       entry.buildingShapes = entry.buildingShapes.filter(s => !keys.has(s.key));
     }
     this._lastBorderIX = null;

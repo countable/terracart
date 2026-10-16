@@ -29,10 +29,14 @@ category controls depth order, fading, and compass compensation. Ground decals
 always precede props. Both prop categories interleave with actors by ground
 anchor, with the player drawn above their current supporting props at every
 compass heading. `_worldDecalCount` marks that prefix for the rotated depth sort.
+The render camera anchor snaps once to the logical pixel grid before ground,
+sprites and inverse taps project their positions. Physical player/GPS positions
+remain continuous; player art projects against that same snapped anchor.
+
 Contact shadows are presentation attached to props, not ground decals; flat rune
 rings are decals and retain the map's rotation.
 
-The home firepit is centred three cells due south of the trailer after the
+The home firepit is centred two cells due south of the trailer after the
 first device-compass reading (see [Home](combat.md)), without an inward artwork
 nudge. The ring, matching fire, smoke, interaction and step-over footprint use
 that position. Its cold and lit states are both step-over props.
@@ -191,6 +195,8 @@ North-up mode retains the existing wall atlas artwork.
   footprint's centre of mass: the object sits on the nearest footprint cell
   and carries the remainder (`footDx`/`footDy`, worldgen
   `footprintFootOffset`); its shadow, sign, roof plate and bubble follow the art.
+  Building contact shadows, including the trailer and replacement house art, use
+  25% opacity.
   Use a stable `seatFrame` for animation. After art changes, run
   `node tools/sprite_audit.js --emit-bounds` and update `src/sprite_layout.js`.
 - Every underground floor uses the same connected cave-wall atlas: raised caps,

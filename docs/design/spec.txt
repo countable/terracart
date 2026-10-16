@@ -678,8 +678,8 @@ WELLS / FOUNTAINS
 ================================================================================
 ECONOMY (buying & selling)
 ================================================================================
- - currency = coins (`save.money`); a new save starts with a small purse
-   (`STARTING_MONEY`; less on hard). Earn by selling, coin pickups, chests,
+ - currency = coins (`save.money`); a new save starts with zero coins
+   (`STARTING_MONEY`) in every mode. Earn by selling, coin pickups, chests,
    bank deposits, deliveries and enemy bounties.
  - WRECK-HOUSE RESTORATION: every small house starts as a derelict WRECK with
    no shop function (the trailer is exempt — Home works from day one).

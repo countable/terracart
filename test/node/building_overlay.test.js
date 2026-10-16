@@ -33,7 +33,7 @@ function makeGfx() {
   return {
     ops: [], cleared: 0, commits: 0, phase: null,
     clear() { this.ops.length = 0; this.cleared++; },
-    fillPoly(pts, color) { this.ops.push({ op: 'fill', pts: pts.map(p => ({ x: p.x, y: p.y })), color }); },
+    fillPoly(pts, color, alpha) { this.ops.push({ op: 'fill', pts: pts.map(p => ({ x: p.x, y: p.y })), color, alpha }); },
     strokePoly(pts, width, color) { this.ops.push({ op: 'stroke', pts, width, color }); },
     insetStroke(pts, width, color, dash) { this.ops.push({ op: 'inset', pts, width, color, dash }); },
     texturePoly(pts, tier) { this.ops.push({ op: 'texture', pts, tier }); },
@@ -241,6 +241,24 @@ test('building overlay: the LOWER building draws in front', () => {
     assert.eq(fills.length, 4, 'both buildings drawn');
     assert.lt(fills[1].pts[0].y, fills[3].pts[0].y, 'northern building painted first');
   }
+});
+
+test('building overlay: a footprint Home cleared is only a 20% shadow, under every building', () => {
+  clearTiles();
+  // The cleared house sits SOUTH of the standing one, so the painter rule
+  // alone would draw it last.
+  const entry = putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING, 'h_stand')]);
+  entry.clearedShapes = [rectShape(0, 30, 10, 40, T.BUILDING, 'h_gone')];
+  const scene = makeScene();
+  BuildingOverlay.draw(scene);
+  const g = scene.buildingGeomGfx;
+  assert.eq(g.ops[0].op, 'fill', 'the shadow paints first');
+  assert.eq(g.ops[0].color, 0x000000, 'black');
+  assert.eq(g.ops[0].alpha, 0.2, 'at 20% opacity');
+  assert.eq(g.ops[0].pts[0].y, px(30), 'over the cleared footprint');
+  assert.eq(g.only('fill').filter(o => o.alpha != null).length, 1, 'no wall or floor for it');
+  assert.eq(g.only('stroke').length, 1, 'only the standing house is outlined');
+  clearTiles();
 });
 
 // ─── Tier styling ───────────────────────────────────────────────────────────
@@ -1158,7 +1176,7 @@ test('building overlay: polygon walls remain background and scroll independently
   const oldX = north.sprite.x;
   scene.playerM.x = 1;
   BuildingOverlay.draw(scene);
-  assert.eq(north.sprite.x, oldX - PX_PER_M, 'uprights follow subcell camera scrolling');
+  assert.eq(north.sprite.x, oldX - Math.round(PX_PER_M), 'uprights follow pixel-aligned camera scrolling');
   scene.depth = 1;
   BuildingOverlay.draw(scene);
   assert.eq(scene._buildingUprightPieces.length, 0, 'underground removes surface uprights');
@@ -1264,7 +1282,7 @@ test('building overlay: heading-up castle uses retained prisms without an atlas 
   const commits = scene.buildingGeomGfx.commits;
   scene.playerM.x = 1;
   BuildingOverlay.draw(scene);
-  assert.eq(group.gfx.x, -PX_PER_M, 'wall translation matches ground movement');
+  assert.eq(group.gfx.x, -Math.round(PX_PER_M), 'wall translation matches pixel-aligned ground movement');
   assert.eq(group.blocks[0], first, 'pan retains geometry');
   assert.eq(group.gfx.clears, clears, 'pan does not repaint wall command buffer');
   scene.mapRot = Math.PI / 3;
@@ -1318,7 +1336,7 @@ test('building overlay: heading-up house foundations follow the camera without r
     scene.playerM.x = 1;
     BuildingOverlay.draw(scene);
     WallPerspective.update(scene);
-    assert.eq(group.gfx.x, -PX_PER_M, 'foundation pans with floor');
+    assert.eq(group.gfx.x, -Math.round(PX_PER_M), 'foundation pans with pixel-aligned floor');
     assert.eq(group.gfx.clears, clears, 'fixed heading reuses commands');
     assert.eq(scene.buildingGeomGfx.commits, commits, 'heading never uploads floor canvas');
     assert.eq(log.pages.length, 0, 'no wall atlas');

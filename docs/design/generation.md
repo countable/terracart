@@ -93,6 +93,10 @@ access or tile lifecycle mechanics.
 
 ## Generation, saves and tiles
 
+- Fresh players start with zero coins in every mode, including sandbox. Mode
+  selection never changes the purse, and sandbox fixture reloads never grant
+  coins. Loading an existing save preserves its earned balance.
+
 - After surface POI placement settles, `assignScholarFallback` upgrades one
   surviving Scriptorium (library or college) to a Scholar when the tile has no
   Scholar. The smallest stable object id wins, independent of input order or
@@ -659,7 +663,8 @@ Higher-priority placements and their access space take precedence in this order:
    rather than moving or deleting a player-owned object. Home's footing (the
    wagon's 3x3 and its firepit, `HomeArea.inFooting`) erases any unclaimed
    house on it entirely — cells, outline and roof — on the built tile only
-   (`clearHomeFooting`); `baseGrid` keeps the building.
+   (`clearHomeFooting`), leaving a light 20% footprint shadow (`clearedShapes`);
+   `baseGrid` keeps the building.
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles
@@ -735,8 +740,11 @@ Higher-priority placements and their access space take precedence in this order:
 ### Initial Home orientation
 
 A new live game waits for the first compass reading before placing its trailer
-and campfire. The player remains at their GPS position. The starting offsets
-rotate into that heading once, seating the trailer ahead of the player and the
-firepit behind them on the door side. The saved layout stays fixed through later
+and campfire, for at most `HomeArea.FIREPIT_COMPASS_GRACE_MS`; with no reading
+by then it places them north-up. The player remains at their GPS position. The starting offsets
+rotate into that heading once, including the trailer art’s doorway offset so
+the doorway stays close to the player at every initial heading, seating the trailer ahead of the player and the
+firepit one cell behind them on the door side (directly below the player in the
+initial view). If that cell is water or road, it uses the nearest dry fallback. The saved layout stays fixed through later
 heading changes and reloads. Existing Homes keep their saved positions; sandbox
 and north-up previews retain the north-facing layout.

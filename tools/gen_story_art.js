@@ -366,28 +366,37 @@ const PIECES = {
     'A castle notice board by a stone gate, pinned with a single parchment quest and a wax seal, a torch burning beside it at dusk.', 'claws'),
   kind_treasure: scene(
     'An old wooden treasure chest, lid thrown open, a glowing gem and a few jade-green star coins inside, nothing spilled on the ground, dusty light falling on it in a ruined cottage.'),
+  treasure_dig: scene(
+    'A concealed brown-hooded survivor opens a small freshly dug coffer in a shallow hole beside a neglected grassy footpath among ruins, an X scored into the soil and a worn spade nearby. ' +
+    'The open coffer holds only luminous haze; no visible contents, coins, gems or objects.'),
+  treasure_barrel: scene(
+    'A concealed brown-hooded survivor lifts the lid of a small upright weathered oak barrel with dark iron hoops in a ruined storehouse, round lid lifted aside. ' +
+    'Only a soft amber glow inside; no visible contents, coins, gems or objects.'),
+  treasure_crate: scene(
+    'A concealed brown-hooded survivor opens a small rough square wooden shipping crate with diagonal bracing, flat lid pried ajar on worn stone among ruins. ' +
+    'Only a soft amber glow inside; no visible contents, coins, gems or objects.'),
   // The seven source chest tiers, matching the world sprites and chestOpeningArt.
   chest_t1: scene(
     'A humble square wooden supply box with straight plank sides, a flat lid lifted open, weathered warm brown timber and simple dark corner fittings. ' +
-    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+    'Three-quarter view, container 25% smaller with breathing room, a concealed brown-hooded survivor kneeling beside it and lifting its lid, a restrained glow from within, on worn stone in a quiet ruined room. Interior obscured by luminous haze; no visible contents, coins, gems, objects or scattered loot.'),
   chest_t2: scene(
     'A stout copper treasure chest with a curved open lid, warm orange copper metal #e08a4c, heavy dark straps and a bright square latch. ' +
-    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+    'Three-quarter view, container 25% smaller with breathing room, a concealed brown-hooded survivor kneeling beside it and lifting its lid, a restrained glow from within, on worn stone in a quiet ruined room. Interior obscured by luminous haze; no visible contents, coins, gems, objects or scattered loot.'),
   chest_t3: scene(
     'A stout iron treasure chest with a curved open lid, cool silver-grey iron metal #b9c2cc, heavy dark straps and a bright square latch. ' +
-    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+    'Three-quarter view, container 25% smaller with breathing room, a concealed brown-hooded survivor kneeling beside it and lifting its lid, a restrained glow from within, on worn stone in a quiet ruined room. Interior obscured by luminous haze; no visible contents, coins, gems, objects or scattered loot.'),
   chest_t4: scene(
     'A stout golden treasure chest with a curved open lid, rich yellow gold metal #f4cc4a, heavy dark straps and a bright square latch. ' +
-    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+    'Three-quarter view, container 25% smaller with breathing room, a concealed brown-hooded survivor kneeling beside it and lifting its lid, a restrained glow from within, on worn stone in a quiet ruined room. Interior obscured by luminous haze; no visible contents, coins, gems, objects or scattered loot.'),
   chest_t5: scene(
     'An enchanted lavender treasure chest with a curved open lid, pale violet metal #c9a6f2, dark straps and a bright square latch. ' +
-    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+    'Three-quarter view, container 25% smaller with breathing room, a concealed brown-hooded survivor kneeling beside it and lifting its lid, a restrained glow from within, on worn stone in a quiet ruined room. Interior obscured by luminous haze; no visible contents, coins, gems, objects or scattered loot.'),
   chest_t6: scene(
     'A crimson treasure chest with a curved open lid, vivid red metal #e0384f, heavy dark straps and a bright square latch. ' +
-    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+    'Three-quarter view, container 25% smaller with breathing room, a concealed brown-hooded survivor kneeling beside it and lifting its lid, a restrained glow from within, on worn stone in a quiet ruined room. Interior obscured by luminous haze; no visible contents, coins, gems, objects or scattered loot.'),
   chest_t7: scene(
     'A frost treasure chest with a curved open lid, icy cyan metal #8fdcff, heavy dark straps, frost along the edges and a bright square latch. ' +
-    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+    'Three-quarter view, container 25% smaller with breathing room, a concealed brown-hooded survivor kneeling beside it and lifting its lid, a restrained glow from within, on worn stone in a quiet ruined room. Interior obscured by luminous haze; no visible contents, coins, gems, objects or scattered loot.'),
   kind_supplies: scene(
     'Two sturdy wooden supply crates on the grass beside a small travelling home wagon, lids pried open to show seed packets, a trowel and a lantern. Morning of a new start.' + HOME_WAGON),
   kind_trail: scene(
