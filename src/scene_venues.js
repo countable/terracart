@@ -1156,8 +1156,15 @@ class SceneVenues {
 
   _placePendingHomeFirepit() {
     const save = this.save, trailer = save.starterTrailer;
-    if (!save.homeCompassDetected || !save.homeFirepitPending || (this.depth || 0) !== 0
+    if (!save.homeFirepitPending || (this.depth || 0) !== 0
         || !trailer || save.starterShopId !== trailer.id) return false;
+    if (!save.homeCompassDetected) {
+      // No heading yet: wait out HomeArea.FIREPIT_COMPASS_GRACE_MS, then
+      // place anyway (the reading only ever confirms the same cell).
+      const now = performance.now();
+      this._firepitGraceT0 ??= now;
+      if (now - this._firepitGraceT0 < HomeArea.FIREPIT_COMPASS_GRACE_MS) return false;
+    }
     const at = worldMetersToAbsCell(this, trailer.x, trailer.y);
     const offset = HomeArea.FIREPIT_OFFSET, wagon = HomeArea.WAGON_OFFSET;
     const cell = absCellOffset(this, at.cellIX, at.cellIY, offset.dx - wagon.dx, offset.dy - wagon.dy);
