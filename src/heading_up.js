@@ -352,7 +352,20 @@ const HeadingUp = {
       label._huUI = true;
       label.cameraFilter = scene.cameras.main.id;
     }
-    let props = 0, turned = 0, faded = 0;
+    let props = 0, turned = 0, faded = 0, tags = 0;
+    const pool = scene._huPropDebugTags ||= [];
+    const wl = scene.worldContainer?.list || [];
+    const tag = (x, y, text) => {
+      let t = pool[tags++];
+      if (!t) {
+        t = scene.add.text(0, 0, '', { font: '7px monospace', color: '#ffffff',
+          backgroundColor: 'rgba(0,0,0,0.6)' }).setDepth(92);
+        t._huUI = true;
+        t.cameraFilter = scene.cameras.main.id;
+        pool.push(t);
+      }
+      t.setVisible(true).setPosition(x, y).setText(text);
+    };
     const z = scene.mapZoom || 1;
     const walk = (list) => {
       for (const o of list) {
@@ -371,11 +384,17 @@ const HeadingUp = {
         const rx = c * ox - s * oy, ry = s * ox + c * oy;
         const x0 = p.x + (rx - o.originX * w) * z, y0 = p.y + (ry - o.originY * h) * z;
         g.lineStyle(1, o.alpha < 1 ? 0xffe14a : 0x38e8ff, 0.9).strokeRect(x0, y0, w * z, h * z);
+        // What the device was asked to draw: texture:frame, alpha, crop,
+        // assigned depth, and draw position in the world list.
+        const top = o.parentContainer && o.parentContainer !== scene.worldContainer ? o.parentContainer : o;
+        tag(x0 + 1, y0 + 1, `${o.texture?.key}:${o.frame?.name}\na${o.alpha.toFixed(2)} c${o.isCropped ? 1 : 0} d${o.depth} #${wl.indexOf(top)}/${wl.length}`
+          + `\n${o.frame?.cutWidth}x${o.frame?.cutHeight} src${o.texture?.source?.[0]?.width}x${o.texture?.source?.[0]?.height}`);
       }
     };
-    walk(scene.worldContainer?.list || []);
+    walk(wl);
+    for (let i = tags; i < pool.length; i++) pool[i].setVisible(false);
     const shadows = (scene.shadowPool || []).filter(s => s.visible).length;
-    label.setText(`propDebug v2 · ${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows}`);
+    label.setText(`propDebug v3 · ${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows}`);
   },
 
   _postRender(scene) {
