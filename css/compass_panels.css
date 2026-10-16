@@ -129,7 +129,7 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   background: #1b252c; box-shadow: 0 -8px 35px #0009;
   animation: compass-panel-rise 240ms ease-out both;
 }
-#story.compass-story .art { flex: 0 0 auto; min-height: 0; aspect-ratio: 512 / 341; margin: 14px 18px 0; }
+#story.compass-story .art { flex: 0 0 auto; min-height: 0; width: calc(100% - 36px); aspect-ratio: 512 / 341; margin: 14px 18px 0; }
 #story.compass-story .opening-copy { flex: 1 0 auto; padding: 20px; }
 #story.compass-story .story-skip { z-index: 4; }
 @media (prefers-reduced-motion: reduce) {
