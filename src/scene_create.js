@@ -1354,6 +1354,7 @@ class SceneCreate {
     };
     this.input.on('pointerup', endMapPointer);
     HeadingUp.install(this);
+    HeadingUp.installPropDebug(this);
     // A touch that ends off the canvas (or is stolen by the browser) never
     // reaches 'pointerup'. Without this the drag would stay latched and the
     // next tap would be swallowed as its release.
