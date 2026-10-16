@@ -53,8 +53,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   the second frame. The dragon dream instead keeps alternating between its
   two paintings while open, so the heads and flames continue moving after
   the camera push ends. Discovery and the dream are borderless fullscreen panels.
-  Awakening begins “You check the compass.” and uses the living-silver compass
-  story sheet, as does the ruined street and subsequent narrative. Paintings
+  Awakening says “The compass shows you are in a strange trailer.” with a
+  “Go Outside” button and uses the living-silver compass story sheet, as does the ruined street and subsequent narrative. Paintings
   remain uncropped with readable copy below. The dream retains its eight-second camera push and
   immediately available wake-up button. Reduced-motion mode shows the first frame without
   zoom or crossfade.
