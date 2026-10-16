@@ -3108,9 +3108,10 @@ Render.drawCells = function drawCells(scene) {
           // is what makes the descending band end flush at the band's TOP.
           const shoulder = (x, w) => {
             gb.fillStyle(_DBG ? 0x5080e0 : STONE_BODY, 1);
-            gb.fillRect(x, sy - WALL - CAP - 2, w, CAP + 2);
+            const lift = Math.ceil(TOOTH_H);
+            gb.fillRect(x, sy - WALL - CAP - lift, w, CAP + lift);
             gb.fillStyle(STONE_LITE, 1);
-            gb.fillRect(x, sy - WALL - CAP - 2, w, 1);
+            gb.fillRect(x, sy - WALL - CAP - lift, w, 1);
           };
           if (extL) shoulder(sx - extL, extL);
           if (extR) shoulder(sx + CELL_PX, extR);

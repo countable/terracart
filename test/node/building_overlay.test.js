@@ -909,7 +909,7 @@ test('building overlay: atlas wall bodies cannot overpaint crowns across section
   }
 });
 
-test('building overlay: both horizontal castle boundaries expose thinner caps and unchanged shaded faces', () => {
+test('building overlay: both horizontal castle boundaries expose thinner caps over full-height shaded faces', () => {
   clearTiles();
   putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'citadel')]);
   const { scene, log } = makeWallScene();
@@ -922,7 +922,7 @@ test('building overlay: both horizontal castle boundaries expose thinner caps an
   const floorYs = scene.buildingGeomGfx.only('fill')[0].pts.map(p => p.y);
   for (const face of faces) {
     const ys = face.points.map(p => p.y);
-    assert.eq(Math.max(...ys) - Math.min(...ys), 6, 'compressed south-facing plane');
+    assert.eq(Math.max(...ys) - Math.min(...ys), material.rampart.wallHeight, 'the face spans the full wall height');
     if (Math.min(...ys) < Math.min(...floorYs)) {
       assert.eq(Math.max(...ys), Math.min(...floorYs), 'north face still lands exactly at ground');
     } else {
