@@ -1901,7 +1901,7 @@ for (const k of BABY_KINDS) PRICES[babyItemId(k)] = itemValue(k) * 3;
 const BUY_LIST = Object.keys(CROP_ROW)
   .filter(c => (BASE_TIER[c] || 1) <= 3)
   .map(c => `${c}_seed`);
-const STARTING_MONEY = 50;
+const STARTING_MONEY = 0;
 
 // === Energy / food ===
 // Player starts at STARTING_ENERGY; the only thing that ever raises the cap is

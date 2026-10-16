@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=2e9bb3eb" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=d56e7408" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1220,8 +1220,8 @@
   </style>
   <link rel="stylesheet" href="css/compass_shine.css?v=2196f9a5">
   <link rel="stylesheet" href="css/compass_hud.css?v=5fafcdb8">
-  <link rel="stylesheet" href="css/compass_inventory.css?v=d70de04f">
-  <link rel="stylesheet" href="css/compass_panels.css?v=bda118ad">
+  <link rel="stylesheet" href="css/compass_inventory.css?v=3604338f">
+  <link rel="stylesheet" href="css/compass_panels.css?v=45d351ce">
 </head>
 <!-- `booting` hides the money/energy row until the scene has a real balance to
      put in it; MapScene.updateHUD drops the class on the first paint. -->
@@ -2972,7 +2972,7 @@
   <script src="src/enemy_spawns.js?v=bcbfe9ec"></script>
   <script src="src/creature_spawns.js?v=dd436e44"></script>
   <script src="src/enemy_habitats.js?v=a7360cc5"></script>
-  <script src="src/difficulty.js?v=1d2be4e0"></script>
+  <script src="src/difficulty.js?v=ae158edf"></script>
   <script src="src/util.js?v=0d3f6182"></script>
   <script src="src/particles.js?v=4527614a"></script>
   <script src="src/trail.js?v=246ae65b"></script>
@@ -3016,7 +3016,7 @@
   <script src="src/castle_styles.js?v=44481685"></script>
   <script src="src/textures.js?v=a9ab03f5"></script>
   <script src="src/save.js?v=5d02b05e"></script>
-  <script src="src/items.js?v=0cd42972"></script>
+  <script src="src/items.js?v=5f9585ff"></script>
   <script src="src/inventory.js?v=08929c24"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
   <script src="src/conditions.js?v=ebae5f35"></script>
@@ -3035,7 +3035,7 @@
   <script src="src/rarity.js?v=3b10f893"></script>
   <script src="src/loot.js?v=6ea8fcd8"></script>
   <script src="src/macros.js?v=8ebeca54"></script>
-  <script src="src/quests.js?v=113bb733"></script>
+  <script src="src/quests.js?v=cb02f6fc"></script>
   <script src="src/hidden_objects.js?v=4f521b76"></script>
   <script src="src/temple_puzzles.js?v=73f9ce8c"></script>
   <script src="src/temple_layout.js?v=1fd00fbe"></script>
@@ -3076,7 +3076,7 @@
   <script src="src/building_overlay.js?v=62a2c5eb"></script>
   <script src="src/assets.js?v=6a37a018"></script>
   <script src="src/sandbox_destinations.js?v=f0a1f55d"></script>
-  <script src="src/sandbox.js?v=60d9c0d6"></script>
+  <script src="src/sandbox.js?v=6ff3846e"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=0a205c42"></script>
   <script src="src/art_thumbs.js?v=a8195364"></script>
@@ -3089,7 +3089,7 @@
   <script src="src/heading_up.js?v=a95ff359"></script>
   <script src="src/compass_modules.js?v=8397cff2"></script>
   <script src="src/compass_shine.js?v=1533df4e"></script>
-  <script src="src/compass_hud.js?v=36733bb2"></script>
+  <script src="src/compass_hud.js?v=ac4aa4f2"></script>
   <script src="src/scene_create.js?v=15a4dc31"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=05d59b5d"></script>
@@ -3168,7 +3168,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=2e9bb3eb';
+      const APP_SRC = 'src/app.js?v=d56e7408';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

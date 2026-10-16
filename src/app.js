@@ -9011,7 +9011,7 @@ class MapScene extends Phaser.Scene {
   // a free arbitrage. Everything the mode changes is read live through
   // Difficulty.get(); the only things done HERE are the ones that can't be
   // read at use time because they already happened at boot or tile build:
-  // the starting purse, the starter ladder, and the supply crates the starter
+  // the starter ladder and the supply crates the starter
   // tile seated before the player answered.
   chooseMode(mode) {
     if (typeof Difficulty === 'undefined' || !Difficulty.isMode(mode)) return false;
@@ -9019,12 +9019,6 @@ class MapScene extends Phaser.Scene {
     const prof = Difficulty.PROFILES[mode];
     this.save.mode = mode;
     Difficulty.setMode(mode);
-    // The purse: a fresh save opened at STARTING_MONEY (the easy figure). Only
-    // a save that has not been played is re-pursed — the first-run card is the
-    // only path here, but the guard keeps a reset-then-answer honest.
-    if (typeof SaveState !== 'undefined' && !SaveState.hasPlayed(this.save)) {
-      this.save.money = prof.startingMoney;
-    }
     if (!prof.tutorial && typeof Quests !== 'undefined') {
       // Finished, not dismissed: a dismissed ladder keeps tracking and paying
       // its step rewards underneath (questEvent), and "no tutorial" means no
