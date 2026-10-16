@@ -336,10 +336,10 @@ body.compass-hud #compass-inventory-shutter {filter:brightness(.85);}
 .compass-bearing {position:fixed;z-index:5;top:var(--compass-map-top);left:var(--phone-left,0px);width:var(--compass-map-size);height:var(--compass-map-size);pointer-events:none;filter:brightness(.85) saturate(1.35);}
 body:not(.compass-round) .compass-bearing {display:none;}
 .compass-rim-art {display:block;width:100%;height:100%;overflow:visible;}
-.compass-bearing span {position:absolute;display:grid;place-items:center;width:5%;height:5%;padding:0;transform:translate(-50%,-50%);}
-.compass-bearing b {display:block;font:700 calc(var(--compass-map-size) * .030) / 1 Georgia,serif;color:#3e2b15;text-shadow:0 .65px .2px #f7e4b3;transform-origin:center;}
+.compass-bearing span {position:absolute;display:grid;place-items:center;width:6%;height:6%;padding:0;transform:translate(-50%,-50%);filter:brightness(1.18) drop-shadow(0 2px 2px #000c) drop-shadow(0 0 1px #000);}
+.compass-bearing b {display:block;font:700 calc(var(--compass-map-size) * .036) / 1 Georgia,serif;color:#3e2b15;text-shadow:0 .65px .2px #f7e4b3;transform-origin:center;}
 .compass-bearing .compass-north {left:50%;top:3%;}
-.compass-bearing .compass-north b {font-size:calc(var(--compass-map-size) * .036);}
+.compass-bearing .compass-north b {font-size:calc(var(--compass-map-size) * .043);}
 .compass-bearing .compass-east {left:98%;top:50%;}
 .compass-bearing .compass-south {left:50%;top:98%;}
 .compass-bearing .compass-west {left:2%;top:50%;}
