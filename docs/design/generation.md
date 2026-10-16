@@ -118,9 +118,9 @@ access or tile lifecycle mechanics.
   Nettle the rare one. The ordinary spawn gate excludes unsafe seats, road
   nexuses and themed stretches. Both herbs use the standard wildplant harvest
   lane; PetNip feeds pets and Nettle supplies the Home Growth Powder recipe.
-  The same roll grows a sparse ordinary bush above the herb band
-  (`PLAIN_BUSH_P` in `street_variants.js`), so normal small streets carry a
-  few shrubs too.
+  The same roll grows a sparse bush above the herb band (`PLAIN_BUSHES` in
+  `street_variants.js`): mostly ordinary shrubs, with berry and poisonberry
+  bushes mixed in.
 
 - Cleared wild longgrass returns after an independently sampled exponential
   wait averaging two real days (`SaveState.GRASS_REGROWTH_MEAN_MS`). Harvest
