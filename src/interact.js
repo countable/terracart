@@ -807,6 +807,18 @@ const TAP_HANDLERS = [
       return true;
     }
 
+    // A POISONBERRY, offered: an enemy eats it and takes the poison the
+    // player would (CONSUMABLE_SPEC `feedsFoe` — Combat.poison, the Poison
+    // Flask's minute). Spent whether or not the foe was already poisoned.
+    if (Combat.isEnemy(target) && CONSUMABLE_SPEC[held]?.feedsFoe
+      && CONSUMABLE_SPEC[held].condition === 'poison') {
+      Combat.poison(target, performance.now(), 'player');
+      consumeSelected(save);
+      scene.buildInventoryDOM();
+      persistSave(save);
+      return true;
+    }
+
     // A rose befriends an enemy temporarily; it does not make it catchable.
     // A foe goes by its roster name ("Green Slime"), not its pet item's.
     const foeName = (k) => EnemyRoster.get(k)?.name || itemName(k);

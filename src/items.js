@@ -58,6 +58,9 @@ const CROP_SPRITE = {
   // uses the ordinary bush with berries overlaid, including farmed bushes.
   berry:  { sheet: 'springcrops', row: 1,
     mature: { ...BUSH_SPRITE, texture: 'bushes_fruiting' } },
+  // The wild poisonberry: the same bush, its berries teal (textures.js
+  // makeBerryBushTexture). Wild only — no seed, no growth stages.
+  poisonberry: { ...BUSH_SPRITE, texture: 'bushes_poisonberry' },
   cress:  { sheet: 'springcrops', row: 3 },   // spoon-leaf watercress
   onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
   // Long grass — item id 'longgrass', display name 'Long grass'. Props.png
@@ -639,6 +642,8 @@ const MINERAL_ICON_SHEET = {
   torch:         { sheet: 'icon_torch', frame: 0 },
   // The shared icon renderer applies the blue palette on every DOM surface.
   evertorch:     { sheet: 'icon_torch', frame: 0, filter: 'hue-rotate(180deg) saturate(1.4)' },
+  // The berry's own produce icon, its red turned the bush's teal.
+  poisonberry:   { sheet: 'springcrops', frame: 1 * SPRING_CROPS_COLS + 8, filter: 'hue-rotate(190deg) saturate(1.3)' },
   // Cutters from the db32 item library; the tool removes traps, not a backpack.
   trap_disarm_kit:      { sheet: 'icon_kit', frame: 0 },
   // The existing sprung-jaw drawing in the placed magic trap's magenta.
@@ -775,6 +780,7 @@ const BASE_TIER = {
   // (forget-me-not) to the glowing starflower (rarest). Tier drives the
   // shiny-find bonus and loot-value scaling.
   forgetmenot: 2, marigold: 3, wildrose: 3, starflower: 5,
+  poisonberry: 2,
   egg: 2, milk: 3,
   // Fish span the loot ladder, with gaps of at most two tiers.
   minnow: 1, bass: 2, trout: 4, salmon: 5, goldenfish: 7,
@@ -1132,6 +1138,9 @@ const ITEMS = [
   { id: 'barricade', name: 'Barricade', kind: 'supply' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
+  // Wild poisonberry (forest and wetland bushes, pickable). Eaten, it
+  // poisons you; offered to an enemy, it poisons the enemy (interact.js).
+  { id: 'poisonberry',  name: 'Poisonberry',  kind: 'produce', crop: 'poisonberry' },
   // Fish (caught by Fishing Rod on water tiles). dropWeight: 0.4 trims their
   // share within the (produce, tier) pool so chest loot reads as mostly crops
   // and fruit, with fish as an occasional aquatic surprise rather than the
@@ -1273,6 +1282,9 @@ const _CONSUMABLE_MINUTE_MS = 60 * 1000;
 const TOME_MUL = 0.5;
 const CONSUMABLE_SPEC = {
   mushroom: { condition: 'confused', durationMs: 3000 },
+  // `feedsFoe`: offered to an enemy (interact.js), the enemy takes the
+  // condition instead (Combat.poison — the Poison Flask's minute).
+  poisonberry: { condition: 'poison', feedsFoe: true },
   orb: {
     chestRevealMs: 6000,
     immediate: true, reusable: true,
@@ -1870,6 +1882,7 @@ const PRICES = {
   butterfly: 100,  // premium catch — Bug Net required, so it's worth a lot
   // ── Wild mushroom ────────────────────────────────────────
   mushroom: 5,
+  poisonberry: 6,
   // ── Fish ─────────────────────────────────────────────────
   minnow: 3,    bass: 18,   trout: 60,   salmon: 150, goldenfish: 450,
   // ── Orchard fruit ────────────────────────────────────────
@@ -2007,6 +2020,7 @@ const ITEM_EFFECTS = {
   rainberry: 'Rain gathers on nearby leaves when its skin breaks between your teeth.',
   pairy: 'Its sweetness leaves a glimmer of buried treasure behind your eyes.',
   dawnfruit: 'A clear dawn fills your sight when you bite through its skin.',
+  poisonberry: 'Teal and bitter. Whoever swallows it sickens — you, or a foe you feed it to.',
   miracle_lettuce: 'Its crisp leaves leave you feeling unusually lucky.',
   horse: 'It stamps and tosses its head, impatient for the open road.',
   coffee: 'A roasted warmth sets your feet itching for the road.',
@@ -2162,6 +2176,7 @@ const FOOD_ENERGY = {
   egg:        13,
   milk:       52,
   mushroom:   21,
+  poisonberry: 3,   // a mouthful, then the poison's minute
   apple:      16, cherry: 18, worldpeach: 16, banana: 23, orange: 16, mango: 26, coconut: 23, apricot: 13,
   minnow:      7, bass: 20, trout: 60, salmon: 100, goldenfish: 180,
   meat:       59,   // hunted from deer; dog favourite
