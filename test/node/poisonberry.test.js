@@ -34,11 +34,13 @@ test('poisonberry: grows wild in forest and wetland', () => {
     assert.truthy(BiomeProfiles.flora(type).some(r => r.crop === ID), 'flora row on ' + type);
 });
 
-test('poisonberry: fed to an enemy, it poisons the enemy through Combat.poison', () => {
-  const branch = INTERACT_SRC.slice(INTERACT_SRC.indexOf('A POISONBERRY, offered'));
-  assert.truthy(/Combat\.isEnemy\(target\) && CONSUMABLE_SPEC\[held\]\?\.feedsFoe/.test(branch));
+test('poisonberry: fed to an enemy or a pet, it poisons that creature through Combat.poison', () => {
+  const at = INTERACT_SRC.indexOf('A POISONBERRY, offered');
+  const branch = INTERACT_SRC.slice(at);
+  assert.truthy(/\(isTame \|\| Combat\.isEnemy\(target\)\) && CONSUMABLE_SPEC\[held\]\?\.feedsFoe/.test(branch));
   assert.truthy(/Combat\.poison\(target, performance\.now\(\), 'player'\);\s*consumeSelected\(save\);/.test(branch));
-  // The branch precedes the enemy-name tap, which would otherwise swallow it.
-  assert.lt(INTERACT_SRC.indexOf('A POISONBERRY, offered'), INTERACT_SRC.indexOf('if (Combat.isEnemy(target)) {'));
+  // Ahead of the pet menu / produce meal and the enemy-name tap, which would otherwise take it.
+  assert.lt(at, INTERACT_SRC.indexOf('if (isTame && (likes || !producerMeal)) {'));
+  assert.lt(at, INTERACT_SRC.indexOf('if (Combat.isEnemy(target)) {'));
 });
 })();
