@@ -21,7 +21,7 @@ SETUP = r"""() => {
  const bush=find('poisonberry-bush'),enemy=find('poisonberry-enemy'),neutral=find('poisonberry-neutral');
  check(bush&&enemy&&neutral,'all three authored poisonberry fixtures exist');
  const move=o=>{s.playerM={x:o.x-s.startWorldM.x-s.cellM,y:o.y-s.startWorldM.y-(s.feetOffsetM||0)};s.gpsM={...s.playerM};s.peekM={x:0,y:0};s.syncMoveTarget();s.drawCells();s.drawObjects()};
- const tap=o=>{move(o);let y=o.y;if(Combat.isEnemy(o)||o===neutral){const span=SpriteLayout.creatureTapSpanPx(o.kind,SpriteLayout.creatureInstScale(o));y+=(span.top+span.bottom)/2*s.cellM/s.cellPx}const p=s.worldMetersToScreen(o.x,y);interactTap(s,p.x,p.y)};
+ const tap=o=>{move(o);let y=o.y;if(Combat.isEnemy(o)||Combat.isTame(o)||o===neutral){const span=SpriteLayout.creatureTapSpanPx(o.kind,SpriteLayout.creatureInstScale(o));y+=(span.top+span.bottom)/2*s.cellM/s.cellPx}const p=s.worldMetersToScreen(o.x,y);interactTap(s,p.x,p.y)};
  const count=()=>Inventory.count(s.save,'poisonberry');
  const select=()=>{s.save.invCat='produce';s.save.selSlot=s.save.inv.findIndex(i=>i.id==='poisonberry');s.save.invPage=Math.floor(s.invDisplayEntriesForCat('produce').findIndex(e=>e.idx===s.save.selSlot)/5);s.buildInventoryDOM();s.syncEatButton()};
  s.save.armor={};s.save.conditions={};s.save.shrineBuffs={};s.save.inv=s.save.inv.filter(i=>!UNIQUE_JEWELRY[i.id]);
@@ -98,6 +98,26 @@ async def probe(args):
                 await case('eat',eat)
                 await case('feed-enemy',feed)
                 await case('neutral-refusal',neutral)
+                async def pet():return await js("""
+                 const {s,neutral,check,tap,count,select}=p;
+                 const entry=[...WorldGen.tileCache.values()].find(e=>e.creatures?.includes(neutral));
+                 check(entry,'authored deer remains available for bonded-pet fixture');
+                 const row=Pets.bond(s.save,neutral,{carried:false});check(row,'authored deer bonds through pet lifecycle');
+                 const live={...neutral,...row,_hp:row.hp};entry.creatures.push(live);p.pet=live;
+                 check(Combat.isTame(live)&&!Combat.isEnemy(live),'fixture is an actual bonded ally');
+                 select();const before=count(),hp=Combat.hp(live),playerEnergy=s.save.energy;tap(live);
+                 check(count()===before-1,'pet tap consumes one poisonberry');check(Combat.poisoned(live),'bonded pet takes poison');
+                 check(!document.getElementById('pet-modal')&&!document.getElementById('offer-modal'),'poison offer precedes pet menus');
+                 const at=live._poisonAtT;s._tickUnitPoison(live,at+2100);
+                 check(Combat.hp(live)===hp-1,'poison tick damages ally HP');check(s.save.energy===playerEnergy,'pet poison does not damage player');
+                 Pets.tick(s.save,live);check(Pets.get(s.save,live).hp===hp-1,'pet damage synchronizes to durable pet record');
+                 const second=count();tap(live);check(count()===second-1,'repeat offer consumes one even while already poisoned');
+                 check(live._poisonState.remainingMs===60000,'repeat offer refreshes full poison duration');
+                 const emptyBefore=count(),duration=live._poisonState.remainingMs;s.save.selSlot=-1;tap(live);
+                 check(count()===emptyBefore&&live._poisonState.remainingMs===duration,'empty-hand pet tap spends no berry and does not refresh poison');
+                 return {bondedPetId:live.id,consumed:2,hpBefore:hp,hpAfter:Combat.hp(live),savedHp:Pets.get(s.save,live).hp,refreshMs:duration,emptyHandRefused:true};
+                """)
+                await case('feed-bonded-pet',pet)
             except Exception as e:report['cases'].append({'name':'setup','viewport':size,'passed':False,'error':str(e)})
             await context.close()
         await browser.close()

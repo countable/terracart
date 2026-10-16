@@ -401,8 +401,8 @@ python3 tools/probe_sandbox_coins.py --url http://127.0.0.1:8000
 ```
 
 Poisonberry checks desktop/mobile harvest, Eat, hostile feeding, poison damage,
-refresh, duplicate protection and neutral refusal through the interaction
-resolver, DOM buttons and condition consumers. Regrowth checks actual harvests,
+refresh, pet poisoning, duplicate protection and neutral refusal through the interaction
+resolver, DOM buttons and condition consumers. Regrowth checks actual harvests and nettle sting damage,
 Growth Powder crafting, PetNip feeding and a save-storage roundtrip. It shortens
 an earned grass deadline, then waits for the running scene's ordinary heartbeat;
 it does not wait the normal 48-hour mean recovery period. Sandbox reload resets

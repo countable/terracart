@@ -27,14 +27,25 @@ SETUP = r"""() => {
 }"""
 HARVEST = r"""() => {
  const {s,check,find,pick,count}=rp; const result=[];
+ // Clear protective buffs and start at known energy for an exact sting measurement.
+ s.save.armor={};s.save.shrineBuffs={};s.save.conditions={};
+ s.save.inv=s.save.inv.filter(i=>!UNIQUE_JEWELRY[i.id]);
+ for(const key of ['immortalPotionUntil','protectionPotionUntil','shieldPotionUntil'])s.save[key]=0;
+ s._incomingDamageFraction=0;Energy.set(s.save,100);
  for(const tag of ['grass-wild','nettle','petnip','grass-owned']){
-   const o=find(tag),before=count(o.crop);pick(o);
+   const o=find(tag),before=count(o.crop),energyBefore=s.save.energy;pick(o);
+   const harvestDamage=energyBefore-s.save.energy;check(harvestDamage===(tag==='nettle'?7:0),'exact harvest damage '+tag+': '+harvestDamage);
    check(s.save.picked.includes(o.id),'tap harvest writes picked '+tag);
    const gain=count(o.crop)-before;check(gain===1,'exact yield '+tag+': '+gain);
    const deadline=s.save.grassRegrowth?.[o.id]||null;
    check(tag==='grass-wild'?deadline>Date.now():deadline===null,'regrowth eligibility '+tag);
+   // A full tap on empty harvested ground may legitimately start tilling.
+   // Isolate the repeated harvest attempt to distinguish sting from till cost.
+   const energyAfter=s.save.energy;
+   TAP_HANDLERS.find(h=>h.name==='wildplant').try({scene:s,save:s.save,wm:{x:o.x,y:o.y},sx:0,sy:0});
+   check(s.save.energy===energyAfter,'spent plant causes no duplicate sting '+tag);
    pick(o);check(count(o.crop)===before+1,'spent tap cannot duplicate '+tag);if(s._workProgress)s.cancelWorkProgress();
-   result.push({tag,id:o.id,crop:o.crop,yield:gain,deadline,duplicateYield:0});
+   result.push({tag,id:o.id,crop:o.crop,yield:gain,deadline,duplicateYield:0,harvestDamage,duplicateHarvestDamage:0});
  }
  persistSave(s.save);SaveSession.flush();const loaded=loadSave();
  for(const row of result){check(loaded.picked.includes(row.id),'picked persisted '+row.tag);check((loaded.grassRegrowth?.[row.id]||null)===row.deadline,'deadline persisted '+row.tag)}
@@ -55,7 +66,7 @@ FEED = r"""() => {
 
 async def main(args):
  args.output.mkdir(parents=True,exist_ok=True)
- report={'cases':[], 'errors':[], 'failedRequests':[], 'setup':'Isolated save; teleports; recipe ingredient top-ups; recipe discovery unlock; fixture pet bond; earned grass deadline shortened to 1 s. No yield, picked ledger, regrowth result or pet bonus is directly assigned.'}
+ report={'cases':[], 'errors':[], 'failedRequests':[], 'setup':'Isolated save; teleports; damage mitigation removed and energy set100 before harvesting; recipe ingredient top-ups; recipe discovery unlock; fixture pet bond; earned grass deadline shortened to 1 s. No yield, picked ledger, regrowth result or pet bonus is directly assigned.'}
  async with async_playwright() as p:
   browser=await p.chromium.launch(executable_path='/usr/bin/chromium',headless=True)
   for name,viewport in [('desktop',{'width':1100,'height':900}),('mobile',{'width':390,'height':844})]:
