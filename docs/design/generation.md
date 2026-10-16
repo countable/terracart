@@ -118,9 +118,9 @@ access or tile lifecycle mechanics.
   Nettle the rare one. The ordinary spawn gate excludes unsafe seats, road
   nexuses and themed stretches. Both herbs use the standard wildplant harvest
   lane; PetNip feeds pets and Nettle supplies the Home Growth Powder recipe.
-  The same roll grows a sparse ordinary bush above the herb band
-  (`PLAIN_BUSH_P` in `street_variants.js`), so normal small streets carry a
-  few shrubs too.
+  The same roll grows a sparse bush above the herb band (`PLAIN_BUSHES` in
+  `street_variants.js`): mostly ordinary shrubs, with berry and poisonberry
+  bushes mixed in.
 
 - Every house fronting a plain (unthemed) Small street stands 0-2 loot barrels
   on the verge before it, beside the street (`StreetVariants.dressSteps`, the

@@ -37,8 +37,11 @@
   const MINOR_VARIANT_SHARE = 0.40;
   // Plain Small-road verge cells (one sample every 21 m a side): the share
   // that grows a herb, the nettle's share of those, and — above the herbs —
-  // a sparse ordinary bush.
+  // a sparse bush: mostly ordinary, then berry and poisonberry bushes
+  // (cumulative roll bounds, each above the last).
   const PLAIN_NETTLE_P = 0.055, PLAIN_HERB_P = 0.38, PLAIN_BUSH_P = 0.43;
+  const PLAIN_BUSHES = [{ crop: 'shrub', below: 0.415 }, { crop: 'berry', below: 0.425 },
+    { crop: 'poisonberry', below: PLAIN_BUSH_P }];
 
   // ── The verge ────────────────────────────────────────────────────────────
   // Every verge piece searches OUTWARD from the band's edge, k = 1..this
@@ -2702,9 +2705,9 @@
     // Plain Small-road verges share the normal safe spawn/occupancy lane.
     // Run last so herbs fill gaps without taking a themed encounter's seat.
     // One roll per verge cell: below PLAIN_HERB_P a herb (the rarer nettle
-    // under PLAIN_NETTLE_P), then a sparse ordinary bush up to PLAIN_BUSH_P
-    // (owner, Oct 2026) — the same shrub a yard grows, so it chops for wood
-    // and may be a nest bush.
+    // under PLAIN_NETTLE_P), then a sparse bush up to PLAIN_BUSH_P (owner,
+    // Oct 2026): mostly the yard's shrub (chopped for wood, maybe a nest),
+    // with berry and poisonberry bushes mixed in (PLAIN_BUSHES).
     for (const rec of idx.lines || []) {
       if (rec.size !== 'minor') continue;
       const spans = lineParts(rec, gM).filter(p => !p.variant).map(p => [p.a, p.b]);
@@ -2720,7 +2723,8 @@
           const id = WG.cellId('wp_herb', tx, ty, c.ix, c.iy);
           const roll = hash01(id);
           if (roll >= PLAIN_BUSH_P) continue;
-          const crop = roll < PLAIN_NETTLE_P ? 'nettle' : roll < PLAIN_HERB_P ? 'petnip' : 'shrub';
+          const crop = roll < PLAIN_NETTLE_P ? 'nettle' : roll < PLAIN_HERB_P ? 'petnip'
+            : PLAIN_BUSHES.find(b => roll < b.below).crop;
           claim(c.ix, c.iy);
           res.wildplants.push(WG.makeWildplant(crop, cx(c.ix), cy(c.iy), id,
             { _street: 'plain' }));
@@ -2839,7 +2843,7 @@
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
 
   root.StreetVariants = {
-    SUPPRESSED_STYLE, pavementFor, pavementVariantFor, VERGE_ROWS, PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, MINOR_VARIANT_SHARE, PLAIN_HERB_P, PLAIN_BUSH_P, VERGE_MAX_CELLS,
+    SUPPRESSED_STYLE, pavementFor, pavementVariantFor, VERGE_ROWS, PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, MINOR_VARIANT_SHARE, PLAIN_HERB_P, PLAIN_BUSH_P, PLAIN_BUSHES, VERGE_MAX_CELLS,
     BANDIT_STRETCH_UNITS, BANDIT_STRETCH_SHARE, BANDIT_STAMP_OUT_CELLS,
     stretchOf, isBanditStretch, stampBanditStretchesSteps,
     BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, END_SEAT_CELLS,
