@@ -1425,6 +1425,23 @@ class SceneConsumables {
     return lost;
   }
 
+  // A STINGING PLANT, picked (WILDPLANT_RULES `sting`): `line` at the plant
+  // and `energy` off the bar. A blow on bare skin — Combat.playerDamage with
+  // no armour, so the mode's penalty and the damage shield still apply.
+  _sting(sting, x, y) {
+    const before = this.save.energy ?? 0;
+    this.flashAtWorld(sting.line, x, y);
+    if (Combat.playerDowned(before) || Conditions.damageImmune(this.save)) return 0;
+    Energy.set(this.save, before - Combat.playerDamage(sting.energy, {}, 1, this.save.mode));
+    const lost = before - this.save.energy;
+    this._flashPlayerHit(lost);
+    this._popEnergy(-lost);
+    this._warnIfTiring(before);
+    if (this.updateEnergyDOM) this.updateEnergyDOM();
+    persistSave(this.save);
+    return lost;
+  }
+
   // ── THE MACRO STALLS (loot.js macroFor; the rules are src/macros.js) ─────
   // An in-building POI is a place you come BACK to: its tap is a service and
   // it is never consumed (no save.opened). interactables.js INTERACTABLES.chest
