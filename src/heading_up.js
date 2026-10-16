@@ -284,7 +284,8 @@ const HeadingUp = {
     if (scene.playerWorldContainer && scene.playerScreen) {
       scene.playerWorldContainer._huAnchor = scene.playerScreen();
     }
-    const up = (o) => HeadingUp._upright(o, -a, saved);
+    // ?huFlat=1 (device probe): leave standing art turned with the map.
+    const up = HeadingUp.HU_FLAT ? () => {} : (o) => HeadingUp._upright(o, -a, saved);
     for (const c of [scene.worldContainer, scene.labelContainer, scene.coinContainer, scene._sandboxLabels]) {
       if (c) for (const o of c.list) up(o);
     }
@@ -333,6 +334,8 @@ const HeadingUp = {
   // ?propDebug=1: outline every standing prop where this frame turned it, on
   // the unrotated UI camera (cyan solid, yellow faded). An outline with no
   // art inside means the sprite was placed but the device did not draw it.
+  HU_FLAT: typeof location !== 'undefined'
+    && new URLSearchParams(location.search).get('huFlat') === '1',
   PROP_DEBUG: typeof location !== 'undefined'
     && new URLSearchParams(location.search).get('propDebug') === '1',
   _drawPropDebug(scene, a) {
@@ -395,7 +398,7 @@ const HeadingUp = {
     for (let i = tags; i < pool.length; i++) pool[i].setVisible(false);
     const shadows = (scene.shadowPool || []).filter(s => s.visible).length;
     const pl = scene.playerWorldContainer ? wl.indexOf(scene.playerWorldContainer) : -1;
-    label.setText(`propDebug v5 · mt${scene.game.renderer?.maxTextures ?? '?'} mask${scene.worldContainer?.mask ? 1 : 0} light${scene.lightMap?.alpha ?? '?'} · ${scene.game.renderer?.type === 2 ? 'webgl' : 'canvas'}\n${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows} · player #${pl}/${wl.length}`);
+    label.setText(`propDebug v6${HeadingUp.HU_FLAT ? ' flat' : ''} · mt${scene.game.renderer?.maxTextures ?? '?'} mask${scene.worldContainer?.mask ? 1 : 0} light${scene.lightMap?.alpha ?? '?'} · ${scene.game.renderer?.type === 2 ? 'webgl' : 'canvas'}\n${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows} · player #${pl}/${wl.length}`);
   },
 
   _postRender(scene) {
