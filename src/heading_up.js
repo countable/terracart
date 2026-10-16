@@ -345,10 +345,10 @@ const HeadingUp = {
     g.clear();
     let label = scene._huPropDebugText;
     if (!label) {
-      label = scene._huPropDebugText = scene.add.text(scene.viewCenterX, scene.viewTop + 4, '', {
+      label = scene._huPropDebugText = scene.add.text(scene.viewCenterX, scene.viewCenterY + scene.viewSize * 0.3, '', {
         ...phaserFontUI('10px'), color: '#38e8ff', backgroundColor: 'rgba(0,0,0,0.7)',
-        padding: { x: 3, y: 2 },
-      }).setOrigin(0.5, 0).setDepth(92);
+        padding: { x: 3, y: 2 }, align: 'center',
+      }).setOrigin(0.5, 0).setDepth(93);
       label._huUI = true;
       label.cameraFilter = scene.cameras.main.id;
     }
@@ -394,7 +394,8 @@ const HeadingUp = {
     walk(wl);
     for (let i = tags; i < pool.length; i++) pool[i].setVisible(false);
     const shadows = (scene.shadowPool || []).filter(s => s.visible).length;
-    label.setText(`propDebug v4 · mt${scene.game.renderer?.maxTextures ?? '?'} mask${scene.worldContainer?.mask ? 1 : 0} · ${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows}`);
+    const pl = scene.playerWorldContainer ? wl.indexOf(scene.playerWorldContainer) : -1;
+    label.setText(`propDebug v5 · mt${scene.game.renderer?.maxTextures ?? '?'} mask${scene.worldContainer?.mask ? 1 : 0} light${scene.lightMap?.alpha ?? '?'} · ${scene.game.renderer?.type === 2 ? 'webgl' : 'canvas'}\n${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows} · player #${pl}/${wl.length}`);
   },
 
   _postRender(scene) {
