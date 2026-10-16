@@ -169,7 +169,11 @@ North-up mode retains the existing wall atlas artwork.
   the player's inset body box and their world depth draws them in front. The
   overlap uses cached trimmed `ART_BOUNDS`, with frame bounds for procedural
   art, and updates even on reused sprite slots. Moving clear restores the
-  original opacity; tool access never changes it. Ground decals retain their own
+  original opacity; tool access never changes it. On a turned heading-up map
+  both boxes stand at their turned feet and lower turned feet count as in
+  front (`Render.headingFadeView`), matching the heading-up draw order.
+  Prop contact shadows turn about their prop's ground anchor, so a tucked-up
+  shadow stays under the art at every compass heading. Ground decals retain their own
   opacity, and fruit overlays follow their tree.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
