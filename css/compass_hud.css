@@ -60,7 +60,7 @@ body.modal-open #compass-inventory-shutter {display:none;}
   body.compass-hud .compass-energy-needle {height:19px;}
   body.compass-hud #energy-label {font-size:10px;}
   body.compass-hud #money {position:absolute;right:0;top:51px;font-size:11px;}
-  body.compass-hud #money .coin-ico {width:22px;height:22px;}
+  body.compass-hud #money .coin-ico {width:26px;height:26px;filter:drop-shadow(0 2px 1px #000c) drop-shadow(0 4px 3px #0008);}
   body.compass-hud .road-num {font-size:13px;}
   body.compass-hud #move-pad {width:110px;height:110px;}
   body.compass-hud #move-pad .nub {left:27px;top:27px;}
@@ -263,7 +263,7 @@ body.compass-hud .compass-energy-needle {inset:0;width:100%;height:100%;backgrou
 .compass-energy-needle svg {display:block;width:100%;height:100%;}
 .compass-energy-pivot {width:calc(8 * var(--compass-header-unit));height:calc(8 * var(--compass-header-unit));left:50%;top:55%;bottom:auto;transform:translate(-50%,-50%);background:radial-gradient(circle at 35% 30%,#fff0ad,#dfaf3b 50%,#8c651c);border-color:#71551c;box-sizing:border-box;box-shadow:0 1px 1px #28301b;}
 body.compass-hud #energy-label {bottom:19%;left:51%;right:10%;font:800 max(10px,calc(12 * var(--compass-header-unit)))/1 Georgia!important;color:#f0ebe0!important;text-shadow:0 1px 2px #171715;}
-body.compass-hud #hud-row > #money,body.compass-hud #money-num {font:600 calc(16 * var(--compass-header-unit))/1.15 Georgia;color:#8dd9bd;letter-spacing:.15px;text-shadow:0 2px 1px #102821,1px 0 2px #102821,-1px 0 2px #102821,0 3px 5px #000;}
+body.compass-hud #hud-row > #money,body.compass-hud #money-num {font:600 calc(16 * var(--compass-header-unit))/1.15 Georgia;color:#fff;letter-spacing:.15px;text-shadow:0 2px 1px #102821,1px 0 2px #102821,-1px 0 2px #102821,0 3px 5px #000;}
 /* The north vane is a small raised metal pointer; its asymmetric highlights
    remain legible over both dark paving and bright terrain. */
 .compass-bearing {text-shadow:0 2px 1px #10160b,1px 0 1px #10160b,-1px 0 1px #10160b,0 3px 4px #000;color:#f7d77c;}
@@ -310,7 +310,7 @@ body.compass-hud #hud-row {
   top:8px;left:calc(var(--phone-left,0px) + 8px + var(--compass-map-size) * .12 + var(--compass-top-gap));
   right:calc(var(--phone-right,0px) + 8px);
   height:88px;display:grid;grid-template-columns:minmax(0,1fr) 84px 72px;
-  grid-template-rows:72px 22px;column-gap:var(--compass-top-gap);row-gap:4px;align-items:center;
+  grid-template-rows:72px 26px;column-gap:var(--compass-top-gap);row-gap:4px;align-items:center;
 }
 body.compass-hud #menu {top:21px;left:calc(var(--phone-left,0px) + 8px);}
 body.compass-hud #menu summary {width:calc(var(--compass-map-size) * .12);height:46px;border-width:2px;}
@@ -318,11 +318,11 @@ body.compass-hud #hud-row > #compass-knowledge-display,
 body.compass-hud #hud-row > #roadchip,
 body.compass-hud #hud-row > #energy,
 body.compass-hud #hud-row > #money {position:relative;inset:auto;grid-area:auto;width:100%;min-width:0;max-width:none;margin:0;box-sizing:border-box;}
-body.compass-hud #hud-row > #compass-knowledge-display {grid-column:1;grid-row:1;height:32px;min-height:0;border-width:2px;border-radius:7px;}
+body.compass-hud #hud-row > #compass-knowledge-display {grid-column:1;grid-row:1;height:27px;min-height:0;border-width:2px;border-radius:7px;}
 body.compass-hud #hud-row > #roadchip {grid-column:2;grid-row:1;width:min(100%,84px);justify-self:center;height:34px;padding:0 4px;border-width:2px; border-color:#484846; background:repeating-linear-gradient(90deg,#c9c7c1 0,#626260 2px,#94938f 4px,#363635 5px,#b8b7b2 7px); box-shadow:inset 0 5px 6px #202020cc,inset 0 -5px 6px #242424cc,0 0 0 1px #c9c7c1,0 0 0 3px #343434,0 0 0 4px #969591;}
 body.compass-hud #hud-row > #energy {grid-column:3;grid-row:1;height:72px;}
 body.compass-hud #hud-row > #money {grid-column:3;grid-row:2;top:3px;flex-direction:row;align-items:center;justify-content:flex-end;padding-left:0;gap:7px;font-size:16px;}
-body.compass-hud #money .coin-ico {width:22px;height:22px;}
+body.compass-hud #money .coin-ico {width:26px;height:26px;filter:drop-shadow(0 2px 1px #000c) drop-shadow(0 4px 3px #0008);}
 body.compass-hud #money-num {font-size:16px;}
 body.compass-hud #compass-knowledge-display > #memories,
 body.compass-hud #compass-knowledge-display > #bookchip {padding:0 4px;gap:3px;font-size:12px;}
