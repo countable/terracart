@@ -181,7 +181,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   with its band layout. Painted headers use a label without emoji/`kindIcon`.
   `css/compass_panels.css` seats this same shell as a mechanical sheet that
   slides up from the compass and extends to the viewport floor without a
-  bottom border. Shop/trade, story/event and conversation kinds carry distinct
+  bottom border. Open sheets shade the exposed map and upper HUD with a dark
+  mask beneath the panel; the mask does not intercept input.
+  Shop/trade, story/event and conversation kinds carry distinct
   silver rails; controls retain simple gold faces. Safe-area padding and
   scrolling keep actions reachable. Reduced motion skips the slide. The
   `spirit` kind is the Dragon Spirit voice used by dormant module controls.

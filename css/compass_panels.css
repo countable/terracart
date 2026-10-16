@@ -16,6 +16,14 @@
   --panel-metal: #c1c5bd;
   --panel-glow: #aabbb7;
 }
+/* Shade the exposed game behind the sheet and the body-level HUD above it. */
+.compass-panel { background-image: linear-gradient(#0008, #0008) !important; }
+body.compass-hud.modal-open:has(.compass-panel)::after {
+  content: ''; position: fixed; z-index: 9; pointer-events: none;
+  top: 0; left: var(--phone-left, 0px); right: var(--phone-right, 0px);
+  height: var(--compass-panel-edge, 0px);
+  background: linear-gradient(#0008, #000b);
+}
 .compass-panel > .modal-box {
   bottom: 0 !important;
   height: auto !important;
