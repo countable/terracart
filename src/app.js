@@ -2368,15 +2368,23 @@ class MapScene extends Phaser.Scene {
     const contacts = [];
     this._walkHazardExposure(x0, y0, x1, y1, (key, start, end, rate) => contacts.push({ key, start, end, rate }));
     contacts.sort((a, b) => a.start - b.start);
+    // The contact the body is still in when the move ends is the cell under
+    // its feet at (x1, y1) — keyed exactly as _walkHazardExposure keys it.
+    // Never an `end >= 1` float test: interval ends come back a hair under 1
+    // (0.9999998), which dropped the contact every other frame and re-charged
+    // the entry hit ~30 times a second to a body standing in one bush.
+    const at = worldMetersToTileCell(this, x1, y1);
+    const endKey = `${at.tx},${at.ty},${at.ix},${at.iy}`;
+    const GAP = 1e-6;
     let previous = this._walkHazardHere || null, end = 0, damage = 0;
     for (const contact of contacts) {
-      if (contact.start > end + 1e-9) previous = null;
+      if (contact.start > end + GAP) previous = null;
       if (previous !== contact.key) damage += Combat.incomingDamage(this.save, WALK_HAZARD_ENTRY_DAMAGE);
       damage += Combat.incomingDamage(this.save, contact.rate) * (contact.end - contact.start) * dt;
       previous = contact.key;
       end = contact.end;
     }
-    this._walkHazardHere = end >= 1 - 1e-9 ? previous : null;
+    this._walkHazardHere = contacts.some(c => c.key === endKey) ? endKey : null;
     if (Combat.playerDowned(this.save.energy) || Conditions.damageImmune(this.save)) {
       this._walkHazardAccum = 0;
       return;
