@@ -173,7 +173,7 @@ const CompassHUD = {
       const match = label.match(/^([\d.,]+)\s*(.*)$/);
       if (match) {
         distance.setAttribute('aria-label', label);
-        const digits = match[1].padStart(3, '0');
+        const digits = /^0[.,]/.test(match[1]) ? match[1].slice(1) : match[1].padStart(3, '0');
         distance.replaceChildren();
         for (const character of digits) {
           const wheel = document.createElement('span');

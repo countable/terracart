@@ -10242,7 +10242,7 @@ class MapScene extends Phaser.Scene {
       const tab = document.createElement('button');
       tab.dataset.cat = c.key;
       tab.title = c.label;
-      tab.ariaLabel = c.label;
+      tab.ariaLabel = `${c.label}, ${count} ${count === 1 ? 'entry' : 'entries'}`;
       tab.ariaPressed = String(active);
       // Layout inline, paint from .hud-tab / .hud-tab.sel (index.html).
       tab.className = active ? 'hud-tab sel' : 'hud-tab';
@@ -10306,7 +10306,7 @@ class MapScene extends Phaser.Scene {
       mark.className = 'inventory-control-mark';
       mark.ariaHidden = 'true';
       mark.innerHTML = txt === '⇅'
-        ? '<svg viewBox="0 0 24 56"><path class="arrow-dark" d="M12 3 2 22h7v12H2l10 19 10-19h-7V22h7Z"/><path class="arrow-light" d="M12 5 4 21h8Zm0 32H4l8 13Z"/><path class="arrow-face" d="m12 5 8 16h-8Zm0 32h8l-8 13Z"/><path class="arrow-stem" d="M10 22h4v12h-4Z"/></svg>'
+        ? '<svg viewBox="0 0 24 56"><defs><linearGradient id="inventory-lever-gold"><stop stop-color="#815411"/><stop offset=".45" stop-color="#fff3b2"/><stop offset=".7" stop-color="#e8b447"/><stop offset="1" stop-color="#956314"/></linearGradient><radialGradient id="inventory-lever-knob" cx="35%" cy="25%"><stop stop-color="#fff6c6"/><stop offset=".45" stop-color="#f9d15f"/><stop offset="1" stop-color="#a46d15"/></radialGradient></defs><rect x="8" y="15" width="8" height="27" rx="3" fill="url(#inventory-lever-gold)" stroke="#674515"/><path d="M3 37H21L12 54Z" fill="url(#inventory-lever-gold)" stroke="#f2d27b" stroke-width="1.3"/><circle cx="12" cy="10" r="8" fill="url(#inventory-lever-knob)" stroke="#ffdfa0" stroke-width="1.5"/><path d="M3 21H21" stroke="#f4d176" stroke-width="3" stroke-linecap="round"/></svg>'
         : '<svg viewBox="0 0 20 40"><path class="arrow-dark" d="M18 3 1 20l17 17Z"/><path class="arrow-light" d="M17 5 3 20h14Z"/><path class="arrow-face" d="M3 20h14v15Z"/></svg>';
       b.appendChild(mark);
       b.style.cssText = `width:${w}px;height:44px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;`;
@@ -10350,6 +10350,13 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save); this.buildInventoryDOM();
       }));
     }
+
+    // One glass window contains the live item controls; standard HUD uses
+    // display:contents so its established layout is unchanged.
+    const itemWindow = document.createElement('div');
+    itemWindow.className = 'inventory-window';
+    itemWindow.style.display = 'contents';
+    bar.appendChild(itemWindow);
 
     const slotCss = 'position:relative;width:42px;height:42px;flex:0 0 42px;border-radius:6px;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
     const startPos = this.save.invPage * PAGE;
@@ -10468,7 +10475,7 @@ class MapScene extends Phaser.Scene {
         slot.textContent = '';
         slot.style.cursor = 'default';
       }
-      bar.appendChild(slot);
+      itemWindow.appendChild(slot);
     }
     if (paged) {
       pager.appendChild(makeBtn('▶', () => {
@@ -10566,7 +10573,13 @@ class MapScene extends Phaser.Scene {
             + (borrowed ? ` · ${borrowed} on loan` : '');
           const effect = (typeof ITEM_EFFECTS !== 'undefined') ? ITEM_EFFECTS[sel.id] : null;
           const nameSpan = document.createElement('div');
-          nameSpan.textContent = nameTxt;
+          nameSpan.className = 'inventory-selected-name';
+          const nameIcon = this.renderItemIcon(it.id, 20, 'block');
+          nameIcon.className = `${nameIcon.className || ''} inventory-name-icon`;
+          const nameText = document.createElement('span');
+          nameText.textContent = nameTxt;
+          nameSpan.appendChild(nameIcon);
+          nameSpan.appendChild(nameText);
           nameSpan.style.cssText = 'max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
           nameLbl.appendChild(nameSpan);
           if (effect) {

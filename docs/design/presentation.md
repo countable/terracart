@@ -28,8 +28,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   The current compact layout joins those readouts into one glass window with
   smaller icons/numerals and an unused-memory badge on the star. Each half
   retains its own tap action, accessible name, and independent dormant shutter.
-  `css/compass_inventory.css` seats embossed category sockets, item cartridges,
-  and the name/action plate; contextual actions keep their existing semantics.
+  `css/compass_inventory.css` seats eight embossed square category keys on
+  plungers above a shared rail. The selected key and detent glow gold. Small
+  square item controls share one dark-glass window, with a physical sort lever,
+  ivory pager rollers, and an integrated name/action plate. Contextual actions
+  retain their existing semantics, as do the dormant inventory shutter and taps.
   Reference atlas crops live alongside their provenance in `assets/ui/compass/`.
   Engravings retain their aspect ratio rather than stretching to viewport height.
   The modal gate publishes the final sheet edge in viewport pixels so silver
