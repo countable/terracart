@@ -57,3 +57,13 @@ lifting it. The camera and neighbourhood remain aligned for the one-time fade.
 See [opening-compass-prompts.json](opening-compass-prompts.json) for masters,
 full prompts, source hashes and WebP export settings. The older
 `tools/art/reskin_story_compass.py` is not part of this asset pipeline.
+
+## Compass rim
+
+`assets/ui/compass/gold-rim.svg` is hand-authored vector artwork based on the
+approved celestial gold-bead concept at
+`~/.artifacts/compass-art-options/celestial-gold-beads.png`. The editable paths
+and metal gradients are the runtime source; the generated HUD painting is a
+visual reference, not a texture. Letters remain live HUD text so they can stay
+upright as the compass turns. See the compass geometry in
+[the presentation guide](../design/presentation.md).

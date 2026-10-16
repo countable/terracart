@@ -16,8 +16,12 @@ changing dialogue, story panels, books, toasts or status presentation.
   gaps separate all four top widgets, with matching 8-pixel outer margins. The simulated-GPS control sits 20 CSS pixels above its
   ordinary stick baseline. HUD metal uses reduced brightness with a stronger
   outer-edge fade; controls retain brighter text and icons. The fade excludes
-  the circular map aperture. The compass rim has ticks every 15 degrees, with
-  longer marks every 30 degrees.
+  the circular map aperture. The compass rim is a fine gold celestial inlay: a shallow, flourished north
+  triangle, compact embossed cardinal letters, small gold beads at the four
+  45-degree diagonals, and eight engraved intermediate 22.5-degree marks
+  contained in the band. The rim follows compass heading while all four
+  letters counterrotate to stay upright. `assets/ui/compass/gold-rim.svg`
+  owns the metal geometry; its 400-unit letter seats match the HUD CSS.
 
 - The four opening panes show the compass discovery, dragon-war dream,
   trailer awakening, then the ruined street. Each has two aligned paintings:
