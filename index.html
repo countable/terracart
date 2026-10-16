@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=2e17332e" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=c02e4fdd" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -3079,7 +3079,7 @@
   <script src="src/sandbox_destinations.js?v=f0a1f55d"></script>
   <script src="src/sandbox.js?v=8b6cfb58"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
-  <script src="src/geo.js?v=0a205c42"></script>
+  <script src="src/geo.js?v=c1099b24"></script>
   <script src="src/art_thumbs.js?v=cf80f204"></script>
   <script src="src/modal_shell.js?v=a692409a"></script>
   <script src="src/scene_geo.js?v=5440fa32"></script>
@@ -3087,7 +3087,7 @@
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
   <script src="src/scene_shops.js?v=33316904"></script>
-  <script src="src/heading_up.js?v=df8db464"></script>
+  <script src="src/heading_up.js?v=306a53a0"></script>
   <script src="src/compass_modules.js?v=8397cff2"></script>
   <script src="src/compass_shine.js?v=1533df4e"></script>
   <script src="src/compass_hud.js?v=ac4aa4f2"></script>
@@ -3169,7 +3169,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=2e17332e';
+      const APP_SRC = 'src/app.js?v=c02e4fdd';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

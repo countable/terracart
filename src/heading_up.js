@@ -39,6 +39,41 @@ const HeadingUp = {
     return HeadingUp.enabled && !!scene?._headingUp;
   },
 
+  hasGps(scene) {
+    // gpsAvailable means a watch was started, not that a position arrived.
+    // The debug GPS stick also supplies real scene fixes through gpsM.
+    return !!scene.gpsM || (typeof Geo !== 'undefined' && Geo.hasFix);
+  },
+
+  directionLocked(scene) {
+    return !HeadingUp.hasGps(scene) || !!scene._compassDirectionLocked;
+  },
+
+  toggleLock(scene) {
+    if (HeadingUp.hasGps(scene)) {
+      scene._compassDirectionLocked = !scene._compassDirectionLocked;
+      scene._huTurning = false;
+      scene._syncCompassLock?.();
+      return;
+    }
+    if (scene._compassGpsRequest || typeof Geo === 'undefined') return;
+    // Subscribe to the page's one watch. This also works in the sandbox,
+    // where detecting GPS must not relocate the authored test world.
+    const finish = (captured) => {
+      HeadingUp.cancelGpsRequest(scene);
+      if (captured) scene._compassDirectionLocked = false;
+      scene._huTurning = false;
+      scene._syncCompassLock?.();
+    };
+    scene._compassGpsRequest = Geo.subscribe(() => finish(true), () => finish(false));
+    scene._syncCompassLock?.();
+  },
+
+  cancelGpsRequest(scene) {
+    if (scene._compassGpsRequest) Geo.unsubscribe(scene._compassGpsRequest);
+    scene._compassGpsRequest = null;
+  },
+
   // Map rotation in radians (the camera's): the world turns by -heading.
   angle(scene) {
     return HeadingUp.active(scene) ? (scene.mapRot || 0) : 0;
@@ -164,7 +199,8 @@ const HeadingUp = {
   tick(scene, dt) {
     if (!HeadingUp.active(scene)) return;
     const deg = scene.compassDeg;
-    if (deg != null && !scene._compassDirectionLocked) {
+    scene._syncCompassLock?.();
+    if (deg != null && !HeadingUp.directionLocked(scene)) {
       const target = -deg * Math.PI / 180;
       let diff = target - scene.mapRot;
       diff = Math.atan2(Math.sin(diff), Math.cos(diff));
