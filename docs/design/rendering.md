@@ -477,6 +477,9 @@ to the existing noon level. Underground lighting is unchanged.
   width and lamp footprint; art and light share the same world point. Lantern
   rise is a draw-space offset; retune height through `LAMP_PROFILE`.
   Collect/cache lamps about the camera anchor, only after tiles finish loading.
+  A lamp's footing (`RoadOverlay.lampCellsFor`, the same reserved cells
+  dressing keeps clear) is never tillable: `cellAt` flags it `underLamp` and
+  `isTillableCell` refuses it.
 - Restoration ladder rewards use `Trail.PRIZE_CONTEXT`; the first reward uses `firstPrize`.
   Synthetic loot classes need both a `CLASS_MAX_TIER` ceiling and a branch
   before item resolution. Cash rewards have no `slot`.
