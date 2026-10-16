@@ -73,7 +73,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   retains its own tap action, accessible name, and independent dormant shutter.
   `css/compass_inventory.css` seats eight square keys with small stamped-in category symbols on
   plungers above a shared rail. The selected key and detent glow gold. Small
-  square item controls share one dark-glass window, with a physical sort lever,
+  square item controls share one dark-glass window fitted to five slots and their
+  gaps; the window stays snug when sort or paging controls are absent. It retains a physical sort lever,
   a mechanical pager rocker with broad upper/lower touch faces around an ivory count
   window, and an integrated name/action plate. The upper face selects the previous
   page; the lower face selects the next page. The description plate

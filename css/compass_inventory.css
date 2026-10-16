@@ -5,6 +5,7 @@ body.compass-hud {
   --inventory-name-height:42px;
   --inventory-square:calc((var(--inventory-deck-width) - 128px) / 5);
   --inventory-slot-height:calc(var(--inventory-square) + 12px);
+  --inventory-window-width:calc(var(--inventory-square) * 5 + 16px);
   --inventory-key-size:calc((var(--inventory-deck-width) - 44px) / 8);
   --inventory-tab-height:calc(var(--inventory-key-size) + 19px);
 }
@@ -26,8 +27,8 @@ body.compass-hud #inv-tabs .hud-tab.sel > .inventory-category-glyph {color:#c4a1
 body.compass-hud #inv-tabs .hud-tab.sel::before {border-color:#e9c776;background:linear-gradient(90deg,#725015,#d6a332 25%,#ffed9d 48%,#d3a035 73%,#65450f);}
 body.compass-hud #inv-tabs .hud-tab.sel::after {left:50%;width:calc(100% + 2px);background:linear-gradient(#fff2ae,#d39c28);box-shadow:0 1px 1px #64410f;}
 body.compass-hud #inv-tabs .hud-pip {display:none!important;}
-body.compass-hud #inv {bottom:calc(var(--inventory-floor) + var(--inventory-name-height) + 6px)!important;height:var(--inventory-slot-height)!important;left:calc(var(--phone-left,0px) + 8px)!important;right:calc(var(--phone-right,0px) + 8px)!important;padding:0!important;gap:4px!important;box-sizing:border-box;background:none!important;}
-body.compass-hud #inv .inventory-window {display:flex!important;position:relative;flex:1 1 auto;min-width:0;height:100%;align-items:center;justify-content:center;gap:2px;padding:2px;box-sizing:border-box;border:2px solid var(--compass-metal-edge);border-radius:13px;background:linear-gradient(135deg,#1b2a27,#061311 60%,#182722);box-shadow:inset 0 0 0 1px #111714,inset 0 3px 5px #010a07,0 0 0 2px #111510,0 1px 0 3px #70756a,0 3px 4px 3px #070a07;}
+body.compass-hud #inv {bottom:calc(var(--inventory-floor) + var(--inventory-name-height) + 6px)!important;height:var(--inventory-slot-height)!important;left:calc(var(--phone-left,0px) + 8px)!important;right:calc(var(--phone-right,0px) + 8px)!important;padding:0!important;gap:4px!important;justify-content:center;box-sizing:border-box;background:none!important;}
+body.compass-hud #inv .inventory-window {display:flex!important;position:relative;flex:0 0 var(--inventory-window-width);min-width:0;height:100%;align-items:center;justify-content:center;gap:2px;padding:2px;box-sizing:border-box;border:2px solid var(--compass-metal-edge);border-radius:13px;background:linear-gradient(135deg,#1b2a27,#061311 60%,#182722);box-shadow:inset 0 0 0 1px #111714,inset 0 3px 5px #010a07,0 0 0 2px #111510,0 1px 0 3px #70756a,0 3px 4px 3px #070a07;}
 body.compass-hud #inv .hud-slot {flex:0 1 var(--inventory-square)!important;width:var(--inventory-square)!important;min-width:0;height:var(--inventory-square)!important;box-sizing:border-box;aspect-ratio:1;border:1px solid transparent;border-radius:4px!important;background:transparent;box-shadow:none;padding:0 0 6px;}
 body.compass-hud #inv .hud-slot.sel {border-color:#ffe8a0;box-shadow:inset 0 0 0 1px #a67b2a,0 0 0 1px #d9b45e,0 0 4px #e1b851;background:linear-gradient(135deg,#b8b37412,#17251b33);}
 body.compass-hud #inv .hud-slot > .hud-badge {font:16px/18px Georgia,serif!important;bottom:1px!important;right:3px!important;padding:0!important;background:transparent!important;color:#f6f2e7!important;text-shadow:0 1px 2px #000;border:0;}
