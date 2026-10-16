@@ -45,7 +45,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   gaps separate all four top widgets, with matching 8-pixel outer margins. The simulated-GPS control sits 20 CSS pixels above its
   ordinary stick baseline. The carving stays visible beneath navigation, with a
   darker graphite recess behind the inventory and a soft outer-edge fade.
-  The energy dial uses the shared silver texture with contrasting warm grey reflection bands;
+  The energy dial shows current / maximum energy centred in its bottom half,
+  below the needle, and uses the shared silver texture with contrasting warm grey reflection bands;
   close-contact socket shadows and compact recessed category glyphs seat the controls in
   the chassis. Neutral pewter faces and rims match the carved background while
   controls retain brighter text and icons. The fade excludes

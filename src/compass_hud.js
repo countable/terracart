@@ -221,7 +221,7 @@ const CompassHUD = {
       energy.style.setProperty('--energy-angle', `${-65 + Math.min(1, value / Math.max(1, max)) * 130}deg`);
       energy.setAttribute('aria-label', `Energy ${value} of ${max}`);
       const label = document.getElementById('energy-label');
-      if (label) label.textContent = max;
+      if (label) label.textContent = `${value} / ${max}`;
     }
     const bearing = document.querySelector('.compass-bearing');
     const angle = scene.mapRot || 0;

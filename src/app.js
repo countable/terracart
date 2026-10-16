@@ -8698,9 +8698,9 @@ class MapScene extends Phaser.Scene {
     const color = pct > 0.30 ? UI_GREEN : (pct > 0.10 ? UI_GOLD : UI_DANGER_INK);
     el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8c7a2a' : '#a04040');
     const label = els.label;
-    // The compass needle carries current energy; its right-hand numeral is
-    // the maximum. The legacy bar keeps its current-value label.
-    if (label) { label.style.color = color; label.textContent = this._compassHUD ? max : `⚡${cur}`; }
+    // The compass readout shows current / maximum below the needle.
+    // The legacy bar keeps its current-value label.
+    if (label) { label.style.color = color; label.textContent = this._compassHUD ? `${cur} / ${max}` : `⚡${cur}`; }
     else { el.style.color = color; el.textContent = `⚡${cur}`; }
     el.title = `Energy ${cur} of ${max}`;
     const fill = els.fill;

@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=e088d8a0" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=fca8588f" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1204,7 +1204,7 @@
     #howto button#howto-close[hidden] { display: none; }
   </style>
   <link rel="stylesheet" href="css/compass_shine.css?v=2196f9a5">
-  <link rel="stylesheet" href="css/compass_hud.css?v=94a820dc">
+  <link rel="stylesheet" href="css/compass_hud.css?v=47f4da16">
   <link rel="stylesheet" href="css/compass_inventory.css?v=5165fdcf">
   <link rel="stylesheet" href="css/compass_panels.css?v=c44424bf">
   <link rel="stylesheet" href="css/speech_bubbles.css?v=3f5404dc">
@@ -3077,7 +3077,7 @@
   <script src="src/heading_up.js?v=2e3e4c8d"></script>
   <script src="src/compass_modules.js?v=de335c76"></script>
   <script src="src/compass_shine.js?v=1533df4e"></script>
-  <script src="src/compass_hud.js?v=ac4aa4f2"></script>
+  <script src="src/compass_hud.js?v=e9a30166"></script>
   <script src="src/scene_create.js?v=919ca406"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=05d59b5d"></script>
@@ -3156,7 +3156,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=e088d8a0';
+      const APP_SRC = 'src/app.js?v=fca8588f';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
