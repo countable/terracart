@@ -12,7 +12,7 @@
         const scene = makeScene({ save, cellM: WorldGen.CELL_M, cellsPerTile: 48,
           tileEdgeM: 48 * WorldGen.CELL_M, startWorldM: { x: 0, y: 0 },
           originPx: { x: 0, y: 0 }, mPerPx: 1,
-          digTreasureOpts: () => ({ tier: 3, rollBonus: 1 }),
+          digTreasureOpts: () => ({ depth: 2, tier: 3, rollBonus: 1 }),
           flashLoot() { toast++; },
           showChestRewardModal(card) {
             cards++;
@@ -31,6 +31,7 @@
           rolls++;
           assert.eq(context, treasureContextFor(mark));
           assert.eq(opts.tier, 3, 'cave tier stays intact');
+          assert.eq(opts.depth, 2, 'cave depth stays intact');
           assert.eq(opts.rollBonus, mark.rollBonus || 1, 'authored bonus overrides the cave bonus');
           return { kind: 'item', id: 'wood', qty: 2 };
         };
