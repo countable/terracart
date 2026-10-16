@@ -19,10 +19,10 @@ body.compass-hud #inv-tabs::after {content:'';position:absolute;left:0;right:0;b
 body.compass-hud #inv-tabs .hud-tab {position:relative;z-index:1;flex:1 1 0!important;min-width:0!important;height:var(--inventory-key-size)!important;overflow:visible!important;border:2px solid var(--compass-metal-edge);border-radius:10px!important;background:var(--compass-metal-face);box-shadow:inset 0 0 0 1px #424440,inset 0 2px 2px #e8e6dd66,inset 0 -3px 3px #252525b3,0 0 0 2px #171a17,0 1px 0 3px #777972,0 3px 3px 2px #080a08;gap:0!important;padding:2px!important;opacity:1!important;}
 body.compass-hud #inv-tabs .hud-tab::before {content:'';position:absolute;top:calc(100% + 1px);left:50%;transform:translateX(-50%);width:9px;height:15px;box-sizing:border-box;border:1px solid #575d4c;border-top:2px solid #eeecd8;border-bottom:2px solid #d0d2bd;border-radius:2px 2px 3px 3px;background:linear-gradient(90deg,#494948,#93928d 25%,#d8d6cf 48%,#7d7c78 73%,#343433);box-shadow:0 1px 2px #091109;pointer-events:none; border-color:#555553; border-top-color:#d0cec6; border-bottom-color:#aeada7;}
 body.compass-hud #inv-tabs .hud-tab::after {content:'';position:absolute;top:calc(100% + 14px);left:50%;transform:translateX(-50%);width:14px;height:3px;border-radius:3px;background:#aeada7;box-shadow:0 1px 1px #172216;pointer-events:none;}
-body.compass-hud #inv-tabs .hud-tab > .inventory-category-glyph {color:#a6a8a0!important;filter:drop-shadow(0 1px 0 #30332d) drop-shadow(0 -1px 0 #e0e1d5) drop-shadow(1px 0 0 #4c5047)!important;opacity:1!important;line-height:1;}
-body.compass-hud #inv-tabs .inventory-category-glyph svg {width:clamp(23px,calc(var(--inventory-key-size) * .65),29px);height:clamp(23px,calc(var(--inventory-key-size) * .65),29px);stroke:#c3c6ba;stroke-width:.2;paint-order:stroke fill;}
+body.compass-hud #inv-tabs .hud-tab > .inventory-category-glyph {color:#41413c!important;filter:drop-shadow(0 -1px 0 #20211d) drop-shadow(0 1px 0 #d6d2c8)!important;opacity:1!important;line-height:1;}
+body.compass-hud #inv-tabs .inventory-category-glyph svg {width:clamp(19px,calc(var(--inventory-key-size) * .55),24px);height:clamp(19px,calc(var(--inventory-key-size) * .55),24px);stroke:#353631;stroke-width:.15;paint-order:stroke fill;}
 body.compass-hud #inv-tabs .hud-tab.sel {border-color:#fff1b3;background:radial-gradient(ellipse at 40% 25%,#f3d882aa,#ad7b2499 68%,#6c4a16e6),url('../assets/ui/compass/silver-metal.webp') center/90px 90px;box-shadow:inset 0 0 0 1px #b17b24,inset 0 2px 2px #fff3be99,inset 0 -3px 3px #634411b3,0 0 0 2px #242015,0 1px 0 3px #8b7949,0 3px 3px 2px #080a08;}
-body.compass-hud #inv-tabs .hud-tab.sel > .inventory-category-glyph {color:#ddc583!important;filter:drop-shadow(0 1px 0 #523b0f) drop-shadow(0 -1px 0 #fff0b3)!important;}
+body.compass-hud #inv-tabs .hud-tab.sel > .inventory-category-glyph {color:#70501c!important;filter:drop-shadow(0 -1px 0 #49320e) drop-shadow(0 1px 0 #ffe6a3)!important;}
 body.compass-hud #inv-tabs .hud-tab.sel::before {border-color:#e9c776;background:linear-gradient(90deg,#725015,#d6a332 25%,#ffed9d 48%,#d3a035 73%,#65450f);}
 body.compass-hud #inv-tabs .hud-tab.sel::after {left:50%;width:calc(100% + 2px);background:linear-gradient(#fff2ae,#d39c28);box-shadow:0 1px 1px #64410f;}
 body.compass-hud #inv-tabs .hud-pip {display:none!important;}
@@ -93,7 +93,7 @@ body.compass-hud #inv-tabs button:focus-visible,body.compass-hud #inv button:foc
 @media(max-height:650px) {
   body.compass-hud {--inventory-floor:calc(8px + env(safe-area-inset-bottom,0px));--inventory-name-height:38px;}
   body.compass-hud #compass-inventory-shutter::after {font-size:12px;}
-  body.compass-hud #inv-tabs .inventory-category-glyph svg {width:23px;height:23px;}
+  body.compass-hud #inv-tabs .inventory-category-glyph svg {width:20px;height:20px;}
   body.compass-hud #inv-tabs .hud-tab {gap:2px!important;}
   body.compass-hud #inv .inventory-control-mark {height:34px;}
   body.compass-hud #inv .hud-slot > .hud-badge {font-size:13px!important;}

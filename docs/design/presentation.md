@@ -21,7 +21,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   ordinary stick baseline. The carving stays visible beneath navigation, with a
   darker graphite recess behind the inventory and a soft outer-edge fade.
   The energy dial uses the shared silver texture with warm grey shading;
-  close-contact socket shadows and beveled category glyphs seat the controls in
+  close-contact socket shadows and compact recessed category glyphs seat the controls in
   the chassis. Neutral pewter faces and rims match the carved background while
   controls retain brighter text and icons. The fade excludes
   the circular map aperture. The compass rim has ticks every 15 degrees, with
@@ -49,7 +49,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   The current compact layout joins those readouts into one glass window with
   smaller icons/numerals and an unused-memory badge on the star. Each half
   retains its own tap action, accessible name, and independent dormant shutter.
-  `css/compass_inventory.css` seats eight embossed square category keys on
+  `css/compass_inventory.css` seats eight square keys with small stamped-in category symbols on
   plungers above a shared rail. The selected key and detent glow gold. Small
   square item controls share one dark-glass window, with a physical sort lever,
   a mechanical pager rocker with broad upper/lower touch faces around an ivory count
