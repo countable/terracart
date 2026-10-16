@@ -252,14 +252,14 @@ body.compass-hud #roadchip .road-num {width:100%;min-width:0;height:100%;overflo
 .compass-wheel::before {content:attr(data-previous);top:calc(-7 * var(--compass-header-unit));}
 .compass-wheel::after {content:attr(data-next);bottom:calc(-7 * var(--compass-header-unit));}
 /* Reserve a legible unit plate even when the number wheels share a narrow housing. */
-.compass-wheel-unit {box-sizing:border-box;flex:0 0 calc(34 * var(--compass-header-unit));min-width:0;padding:0 2px;font:700 max(14px, calc(18 * var(--compass-header-unit)))/1 Arial,sans-serif;color:#171e15;text-shadow:0 1px #ffffe5;white-space:nowrap;}
+.compass-wheel-unit {box-sizing:border-box;flex:0 0 max(30px,calc(34 * var(--compass-header-unit)));min-width:0;padding:0 2px;font:700 max(14px, calc(18 * var(--compass-header-unit)))/1 Arial,sans-serif;color:#171e15;text-shadow:0 1px #ffffe5;white-space:nowrap;}
 body.compass-hud #hud-row > #energy {border:2px solid #c4c6b7!important;background:#747d69;box-shadow:inset 0 0 0 2px #30372b,0 0 0 1px #3d4534,0 0 0 3px #c6c8b8,0 0 0 4px #3e4538;}
 body.compass-hud #energy::before,body.compass-hud #energy::after {display:none;}
 .compass-energy-face svg {width:100%;height:100%;display:block;}
 body.compass-hud .compass-energy-needle {inset:0;width:100%;height:100%;background:none;clip-path:none;border-radius:0;box-shadow:none;transform-origin:50% 55%;filter:drop-shadow(1px 2px 1px #29301d);}
 .compass-energy-needle svg {display:block;width:100%;height:100%;}
 .compass-energy-pivot {width:calc(8 * var(--compass-header-unit));height:calc(8 * var(--compass-header-unit));left:50%;top:55%;bottom:auto;transform:translate(-50%,-50%);background:radial-gradient(circle at 35% 30%,#fff0ad,#dfaf3b 50%,#8c651c);border-color:#71551c;box-sizing:border-box;box-shadow:0 1px 1px #28301b;}
-body.compass-hud #energy-label {bottom:19%;left:51%;right:10%;font:800 calc(12 * var(--compass-header-unit))/1 Georgia!important;text-shadow:0 1px #d9ddc580;}
+body.compass-hud #energy-label {bottom:19%;left:51%;right:10%;font:800 max(10px,calc(12 * var(--compass-header-unit)))/1 Georgia!important;text-shadow:0 1px #d9ddc580;}
 body.compass-hud #hud-row > #money,body.compass-hud #money-num {font:600 calc(16 * var(--compass-header-unit))/1.15 Georgia;color:#f3cc66;letter-spacing:.15px;text-shadow:0 2px 1px #14170d,1px 0 2px #171b0d,-1px 0 2px #171b0d,0 3px 5px #000;}
 /* The north vane is a small raised metal pointer; its asymmetric highlights
    remain legible over both dark paving and bright terrain. */
@@ -279,16 +279,17 @@ body.compass-hud #memories .compass-memory-star {width:calc(29 * var(--compass-h
 /* The coin pocket stays empty until its discovery story has been seen. */
 body.compass-hud #hud-row > #money[hidden] {display:none;}
 
-/* Dormant compartments are quiet silver plates beneath their inscriptions. */
+/* Locked plates retain quiet worn metal and shallow engraving. */
+body.compass-hud {--compass-dormant-metal:linear-gradient(160deg,#d5d8cbbd,#b4b9ad88 48%,#91998caa),url('../assets/ui/compass/silver-metal.webp') center/128px 128px;}
 body.compass-hud #hud-row > .compass-closed,
-body.compass-hud #move-pad.compass-closed {background:linear-gradient(160deg,#c5c7c0,#aaaea6 48%,#898f86)!important;}
-body.compass-hud #move-pad.compass-closed .compass-stick-seal {background:linear-gradient(160deg,#c5c7c0,#aaaea6 48%,#898f86);}
-body.compass-hud #move-pad.compass-closed .compass-stick-seal svg {display:none;}
+body.compass-hud #move-pad.compass-closed {background:var(--compass-dormant-metal)!important;}
+body.compass-hud #move-pad.compass-closed .compass-stick-seal {background:var(--compass-dormant-metal);}
+body.compass-hud #move-pad.compass-closed .compass-stick-seal svg {display:block;opacity:.5;}
 
 /* Memories and books share one glass window; each half retains its own tap. */
 body.compass-hud #compass-knowledge-display {position:absolute;left:18.5%;top:calc(82 * var(--compass-header-unit));width:47.5%;height:calc(50 * var(--compass-header-unit));min-height:42px;box-sizing:border-box;display:flex;align-items:stretch;overflow:hidden;border:3px ridge #d1cfc5;border-radius:12px;background:linear-gradient(145deg,#202825,#091110 60%,#17201d);box-shadow:inset 0 0 6px #030907,0 0 0 2px #242723,0 0 0 3px #a8aaa0;}
 body.compass-hud #compass-knowledge-display > #memories,
-body.compass-hud #compass-knowledge-display > #bookchip {position:relative;inset:auto;flex:1 1 50%;width:50%;height:100%;min-width:0;padding:0 12px;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;display:flex;align-items:center;justify-content:flex-start;gap:6px;color:#f2eddf;font:600 calc(16 * var(--compass-header-unit))/1 Georgia;}
+body.compass-hud #compass-knowledge-display > #bookchip {position:relative;inset:auto;flex:1 1 50%;width:50%;height:100%;min-width:0;padding:0 12px;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;display:flex;align-items:center;justify-content:flex-start;gap:6px;color:#f2eddf;font:600 max(12px,calc(16 * var(--compass-header-unit)))/1 Georgia;}
 body.compass-hud #compass-knowledge-display > #bookchip {border-left:1px solid #7b82734d;}
 body.compass-hud #compass-knowledge-display .mem-ico,
 body.compass-hud #compass-knowledge-display .book-ico {width:18px;height:18px;transform:none;margin:0;flex-shrink:0;}
@@ -296,6 +297,6 @@ body.compass-hud #compass-knowledge-display .compass-memory-star {width:calc(22 
 body.compass-hud #compass-knowledge-display .mem-unspent {top:3px;left:calc(12px + 14 * var(--compass-header-unit));right:auto;min-width:13px;height:13px;padding:0 3px;display:grid;place-items:center;border:1px solid #8c6a23;border-radius:7px;background:#e8c55d;color:#27291e;font:700 9px/1 Georgia;text-shadow:none;box-shadow:0 1px 2px #000b;}
 body.compass-hud #compass-knowledge-display .mem-unspent::before,
 body.compass-hud #compass-knowledge-display .mem-unspent::after {content:none;}
-body.compass-hud #compass-knowledge-display > .compass-closed {background:linear-gradient(160deg,#c5c7c0,#aaaea6 48%,#898f86)!important;}
+body.compass-hud #compass-knowledge-display > .compass-closed {background:var(--compass-dormant-metal)!important;}
 body.compass-hud #compass-knowledge-display > .compass-closed::after {content:attr(data-compass-label);font:14px/1.2 Georgia,serif;letter-spacing:1px;white-space:nowrap;}
 @media(max-height:650px) {body.compass-hud #compass-knowledge-display > .compass-closed::after {font-size:12px;}}
