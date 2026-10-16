@@ -3235,7 +3235,11 @@ class MapScene extends Phaser.Scene {
     const bodyHold = this._bodyHold();
     if (this._confusedLoop && !Conditions.active(this.save, 'confused')) this._endConfusedWalk();
     this._expireConfusedRecover?.(performance.now());
-    if (bodyHold.pinned) {
+    if (this._storyPause) {
+      // A story can open while a pointer is held or a target is still ahead.
+      // Keep receiving GPS fixes, but hold the body until reading finishes.
+      this._playDirected(this.player, 'idle');
+    } else if (bodyHold.pinned) {
       // Held still, but sharp ground continues hurting.
       const { x, y } = playerWorldM(this);
       this._tickWalkHazards(dt, x, y, x, y);
@@ -9723,6 +9727,8 @@ class MapScene extends Phaser.Scene {
     if (!document.getElementById('move-pad')) this.buildMovePad();
   }
   removeMovePad() {
+    this._resetMovePad?.();
+    delete this._resetMovePad;
     document.getElementById('move-pad')?.remove();
     this.joystickVec = { x: 0, y: 0 };
     this._movePadHeld = false;
@@ -9754,7 +9760,9 @@ class MapScene extends Phaser.Scene {
 
     let activePtr = null;
     const reset = () => {
+      const pointer = activePtr;
       activePtr = null;
+      if (pointer !== null && pad.hasPointerCapture?.(pointer)) pad.releasePointerCapture(pointer);
       // Dropping .held re-arms the nub's transform transition (see the CSS
       // note), so clearing the offset here is what plays the spring-back.
       pad.classList.remove('held');
@@ -9762,6 +9770,7 @@ class MapScene extends Phaser.Scene {
       this.joystickVec = { x: 0, y: 0 };
       this._movePadHeld = false;
     };
+    this._resetMovePad = reset;
     const place = (e) => {
       const rect = pad.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;

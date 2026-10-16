@@ -620,6 +620,7 @@ class SceneModals {
       // Keep its HUD gate until TempleScene's shutdown clears the scene flag.
       const any = !!this._templeSceneActive || [...document.querySelectorAll('.game-modal')].some(shown);
       document.body.classList.toggle('modal-open', any);
+      if (any) this._resetMovePad?.();
       // The chassis lives outside the scaled game. Clip at the sheet's actual
       // screen edge, retaining silver shoulders around the circular map. Its
       // layout position ignores the entrance transform and follows resizing.

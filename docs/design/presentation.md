@@ -106,7 +106,10 @@ changing dialogue, story panels, books, toasts or status presentation.
 - A story dialog pauses the fight: while one is open (`_storyDialogOpen` —
   kinds `story`, `note`, `talk`, `memory`, `spirit`, and the `#story` / `#howto` overlays) the
   player takes no damage (`Conditions.setDialogShield`, read through
-  `damageImmune`) and hostiles hold still. Shops, trades and other dialogs
+  `damageImmune`), hostiles hold still, and the player's body stops following
+  its movement target. GPS fixes still arrive; following resumes after dismissal.
+  Opening any modal releases the held movement stick so a hidden pointer cannot
+  keep steering. Shops, trades and other dialogs
   do not pause; a foe's blow still closes a shop.
   Message dismissal refreshes this shield from the remaining dialogs before
   running its callback, so consequences such as fall damage apply after the
