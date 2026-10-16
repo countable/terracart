@@ -291,7 +291,10 @@ mechanics.
   (`homeCompassDetected`); `homeFirepitPending` waits for Home and the surface
   if the reading arrives earlier. With no reading after
   `FIREPIT_COMPASS_GRACE_MS` on the surface (desktop, no motion permission) the
-  pit is placed anyway, on the same cell. Later headings and reloads do not move it.
+  pit is placed anyway, on the same cell. A pit cell on water, a pier or a
+  road falls back to the nearest suitable cell two, then three, cells out from
+  the player (`HomeArea.firepitCandidates`), so a new game always gets its pit
+  when one fits. Later headings and reloads do not move it.
   This step-over prop sits at its cell centre, with its ring, fire, smoke and
   step-up footprint sharing that anchor. On the first compass reading, older
   saved rings move to this southern cell too; a matching surface fire follows

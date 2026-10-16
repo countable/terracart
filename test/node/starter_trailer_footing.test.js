@@ -211,16 +211,29 @@
     });
   });
 
-  test('home footing: no firepit on water or a road', () => {
+  test('home footing: no firepit on water or a road — it takes the nearest dry cell', () => {
     const s = scene();
     const e = tile([]);
     e.grid[32 * N + 30] = WorldGen.T.WATER;
     withTile(e, () => {
       const p = at(30, 30);
       s._placeHome(p.x, p.y);
-      assert.eq(s.save.homeFirepit, null, 'a ring of stones is not dropped in a pond');
+      assert.truthy(s.save.homeFirepit, 'a new game still gets its pit');
+      near(s.save.homeFirepit.x, at(29, 32).x, 'not dropped in the pond: the next cell along the ring');
+      near(s.save.homeFirepit.y, at(29, 32).y, 'two cells behind, like the default');
       assert.eq(s.save.starterShopId, 'starter_trailer', 'Home is still placed');
     });
+  });
+
+  test('home footing: firepit candidates keep off the doorstep and the wagon', () => {
+    const { firepit, wagon } = HomeArea.placementOffsets(0);
+    const c = HomeArea.firepitCandidates(firepit, wagon);
+    assert.eq(JSON.stringify(c[0]), JSON.stringify(firepit), 'the turned default first');
+    for (const o of c) {
+      assert.truthy(Math.max(Math.abs(o.dx), Math.abs(o.dy)) >= 2, 'never beside the player');
+      assert.falsy(Math.abs(o.dx - wagon.dx) <= 1 && Math.abs(o.dy - wagon.dy) <= 1, 'never on the wagon');
+    }
+    assert.eq(new Set(c.map(o => o.dx + ',' + o.dy)).size, c.length, 'no cell twice');
   });
 
   test('home footing: a house on the footing is erased entirely; one elsewhere is untouched', () => {

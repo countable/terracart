@@ -1274,6 +1274,59 @@ test('building overlay: heading-up castle uses retained prisms without an atlas 
   clearTiles();
 });
 
+test('building overlay: heading-up house foundations follow the camera without repainting textured floors', () => {
+  const rings = [
+    [0, 0, 10, 0, 10, 10, 0, 10],
+    [0, 0, 15, 0, 15, 5, 5, 5, 5, 15, 0, 15],
+  ];
+  for (const ring of rings) for (const reverse of [false, true]) {
+    clearTiles();
+    const points = [];
+    for (let i = 0; i < ring.length; i += 2) points.push(ring.slice(i, i + 2));
+    if (reverse) points.reverse();
+    putShapes(0, 0, [{ ring: Float32Array.from(points.flat()), tier: T.BUILDING,
+      areaM2: 100, key: 'house-foundation' }]);
+    const { scene, log } = makePerspectiveScene();
+    BuildingOverlay.draw(scene);
+    const group = scene._wallPerspective.polygon, block = group.blocks[0];
+    const commits = scene.buildingGeomGfx.commits;
+    assert.eq(scene.buildingGeomGfx.only('fill').length, 1, 'floor cache contains no southward foundation');
+    assert.eq(group.blocks.length, 1, 'one retained perimeter');
+    assert.eq(block.top, 0, 'foundation joins the original floor plane');
+    assert.eq(block.bottom, -Render.BUILDING_FACE_PX[T.BUILDING], 'foundation descends below floor');
+    assert.falsy(block.capped, 'no cap covers floor texture or bridges concave notches');
+    for (const angle of [0, Math.PI / 4, Math.PI / 2, Math.PI, -Math.PI / 3]) {
+      scene.mapRot = angle;
+      WallPerspective.update(scene);
+      assert.eq(group.blocks[0], block, 'heading retains source geometry');
+      assert.gt(group.gfx.triangles.length, 0, 'camera-facing foundation remains visible');
+      const c = Math.cos(angle), sn = Math.sin(angle);
+      for (let i = 0; i < block.points.length; i++) {
+        const j = i * 4, v = block.projected;
+        const dx = v[j] - v[j + 2], dy = v[j + 1] - v[j + 3];
+        assert.lt(Math.abs(c * dx - sn * dy), 1e-7, 'foundation extrudes vertically in screen space');
+        assert.lt(Math.abs(sn * dx + c * dy + block.bottom), 1e-7, 'foundation extends down by its depth');
+      }
+      let visibleEdges = 0;
+      for (let i = 0; i < block.points.length; i++) {
+        const a = block.points[i], b = block.points[(i + 1) % block.points.length];
+        if ((c * (b.x - a.x) - sn * (b.y - a.y)) * block.winding < -1e-6) visibleEdges++;
+      }
+      assert.eq(group.gfx.triangles.length, visibleEdges * 2, 'two triangles per visible face, no filled cap');
+    }
+    const clears = group.gfx.clears;
+    scene.playerM.x = 1;
+    BuildingOverlay.draw(scene);
+    WallPerspective.update(scene);
+    assert.eq(group.gfx.x, -PX_PER_M, 'foundation pans with floor');
+    assert.eq(group.gfx.clears, clears, 'fixed heading reuses commands');
+    assert.eq(scene.buildingGeomGfx.commits, commits, 'heading never uploads floor canvas');
+    assert.eq(log.pages.length, 0, 'no wall atlas');
+    assert.eq(log.refreshes, 0, 'no wall texture uploads');
+  }
+  clearTiles();
+});
+
 test('building overlay: heading-up temple uses temple wall palette without castle teeth', () => {
   clearTiles();
   const shape = Object.assign(rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'temple-test'),

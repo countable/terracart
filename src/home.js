@@ -67,6 +67,26 @@ const HomeArea = {
     const turn = ({ dx, dy }) => ({ dx: Math.round(dx * c - dy * s), dy: Math.round(dx * s + dy * c) });
     return { wagon: turn(this.WAGON_OFFSET), firepit: turn(this.FIREPIT_OFFSET) };
   },
+  // Where Home's firepit may go, best first, as cell offsets from the
+  // player's anchor: the turned FIREPIT_OFFSET, then the ring two cells out
+  // and the ring three out, each by distance from it — never beside the
+  // player's doorstep or on the wagon's 3x3. Fixed order, so the same ground
+  // always picks the same cell.
+  firepitCandidates(preferred, wagon) {
+    const d2 = (c) => (c.dx - preferred.dx) ** 2 + (c.dy - preferred.dy) ** 2;
+    const out = [preferred];
+    for (const r of [2, 3]) {
+      const ring = [];
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        if (Math.abs(dx - wagon.dx) <= 1 && Math.abs(dy - wagon.dy) <= 1) continue;
+        if (dx === preferred.dx && dy === preferred.dy) continue;
+        ring.push({ dx, dy });
+      }
+      out.push(...ring.sort((a, b) => d2(a) - d2(b)));
+    }
+    return out;
+  },
   // The firepit waits for the first compass reading — but only this long
   // (ms, from Home standing on the surface this session). A device that
   // never reports a heading (desktop, a phone without motion permission)

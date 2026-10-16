@@ -603,8 +603,15 @@ class SceneShops {
         if (!tileReadyAt(ox, oy)) return;        // a viewport tile is still streaming — wait
     // Wait for an actual heading before committing a new Home. The sandbox
     // has no device requirement; existing saved Homes returned above.
+    // A device that never reports one (desktop, a phone whose motion
+    // permission lapsed on a reload) gets Home north-up after the same
+    // grace the firepit waits (HomeArea.FIREPIT_COMPASS_GRACE_MS).
     const heading = this._homeInitialHeading ?? this._deviceCompass?.deg ?? this.compassDeg;
-    if (!Number.isFinite(heading) && !this._sandboxMode) return;
+    if (!Number.isFinite(heading) && !this._sandboxMode) {
+      const now = performance.now();
+      this._homeHeadingWaitT0 ??= now;
+      if (now - this._homeHeadingWaitT0 < HomeArea.FIREPIT_COMPASS_GRACE_MS) return;
+    }
     // Place Home round the player: they start at the wagon's door, the empty
     // firepit behind them, and whatever house stood there is cleared
     // (_placeHome). Measured from the frozen starter anchor when the player

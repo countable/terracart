@@ -23,14 +23,14 @@
       group.angle = NaN;
       return group;
     },
-    // A convex footprint extruded between two elevations. Retain projected
+    // A footprint extruded between two elevations (convex when capped). Retain projected
     // coordinates too, avoiding temporary vertex objects during rotation.
-    prism(scene, source, points, bottom, top, colors, support = null) {
+    prism(scene, source, points, bottom, top, colors, support = null, capped = true) {
       const group = scene._wallPerspective[source];
       // Match the padded overlay window. A city-sized footprint may intersect
       // the view while almost all of its perimeter is far away.
       if (Number.isFinite(scene.viewLeft) && Number.isFinite(scene.viewSize)) {
-        const pad = CELL_PX * 2 + top;
+        const pad = CELL_PX * 2 + Math.max(Math.abs(bottom), Math.abs(top));
         let left = Infinity, right = -Infinity, north = Infinity, south = -Infinity;
         for (const p of points) {
           left = Math.min(left, p.x); right = Math.max(right, p.x);
@@ -46,7 +46,7 @@
       }
       if (Math.abs(area) < 1e-6) return;
       support ||= { x: x / points.length, y: y / points.length, order: group.blocks.length };
-      group.blocks.push({ points, bottom, top, colors, support, winding: Math.sign(area),
+      group.blocks.push({ points, bottom, top, colors, support, capped, winding: Math.sign(area),
         x: x / points.length, y: y / points.length, order: group.blocks.length,
         projected: new Float64Array(points.length * 4) });
     },
@@ -128,6 +128,7 @@
             g.fillTriangle(v[j], v[j + 1], v[k], v[k + 1], v[k + 2], v[k + 3]);
             g.fillTriangle(v[j], v[j + 1], v[k + 2], v[k + 3], v[j + 2], v[j + 3]);
           }
+          if (!block.capped) continue;
           g.fillStyle(colors.top, 1);
           for (let i = 1; i < points.length - 1; i++) {
             const j = i * 4 + 2, k = (i + 1) * 4 + 2;

@@ -735,7 +735,8 @@ Higher-priority placements and their access space take precedence in this order:
 ### Initial Home orientation
 
 A new live game waits for the first compass reading before placing its trailer
-and campfire. The player remains at their GPS position. The starting offsets
+and campfire, for at most `HomeArea.FIREPIT_COMPASS_GRACE_MS`; with no reading
+by then it places them north-up. The player remains at their GPS position. The starting offsets
 rotate into that heading once, seating the trailer ahead of the player and the
 firepit behind them on the door side. The saved layout stays fixed through later
 heading changes and reloads. Existing Homes keep their saved positions; sandbox
