@@ -317,6 +317,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   while the wash is disabled. This setting does not affect cover visibility,
   night lighting or cave darkness; underground never draws exploration fog.
 
+Surface daylight follows the player's local sun with a 30-minute extension at
+both dawn and dusk. Nighttime ambient luminance is 10% brighter, blending back
+to the existing noon level. Underground lighting is unchanged.
+
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
   short walls, larger standing trees and rocks marked `sightBlocking: true`
