@@ -63,10 +63,10 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   text-transform: none !important; color: #f3dfa0 !important;
   text-shadow: 0 2px 3px #000, 0 0 12px #000;
 }
-/* The painting hangs square and flush from the rail's lower edge (1px under
-   it, so no seam shows), not with the sheet's rounded top corners. */
+/* Keep both loading and resolved art inside the decorative frame, with
+   breathing room below the rail and beside its raised edge details. */
 .compass-panel .modal-art, .compass-panel .modal-art-mosaic {
-  inset: calc(var(--panel-rail-height) - 1px) 7px 0 !important;
+  inset: calc(var(--panel-rail-height) + 14px) 18px 12px !important;
   border-radius: 0 !important;
 }
 .compass-panel .compass-action { border-radius: 13px !important; min-height: 38px; }
@@ -129,7 +129,7 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   background: #1b252c; box-shadow: 0 -8px 35px #0009;
   animation: compass-panel-rise 240ms ease-out both;
 }
-#story.compass-story .art { flex: 0 0 auto; min-height: 0; aspect-ratio: 512 / 341; }
+#story.compass-story .art { flex: 0 0 auto; min-height: 0; aspect-ratio: 512 / 341; margin: 14px 18px 0; }
 #story.compass-story .opening-copy { flex: 1 0 auto; padding: 20px; }
 #story.compass-story .story-skip { z-index: 4; }
 @media (prefers-reduced-motion: reduce) {
