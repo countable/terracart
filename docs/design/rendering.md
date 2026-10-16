@@ -124,9 +124,10 @@ North-up mode retains the existing wall atlas artwork.
   across their bottom ten pixels so cell-seated bases blend into angled walls;
   this is baked once for both restoration states. Walls and footprints use a muted
   palette so interactables remain distinct.
-  Castle courtyard cells mostly retain four quarter-cell stone tiles (2×2).
-  A quarter of the cached variants join one adjacent pair into a horizontal or
-  vertical half-cell slab, with both positions represented. Polygon courtyards
+  Castle courtyards are cell-tiled. Half of the cached variants are one full
+  cell slab; the rest split it, a quarter into four quarter-cell stones (2×2)
+  and a quarter joining one adjacent pair into a horizontal or vertical
+  half-cell slab, with both positions represented. Polygon courtyards
   scatter those variants across a cached eight-cell-square repeat; tiled floors
   choose them from a mixed world-cell hash. The pattern stays fixed while the
   camera moves. Each joint uses one recessed pixel, with quiet worn stretches

@@ -157,8 +157,8 @@
     const cols = Math.max(1, Math.floor(paving.width / 32)), rows = Math.max(1, Math.floor(paving.height / 32));
     for (let i = 0; i < 9; i++) {
       const x = i % 3 * 32, y = Math.floor(i / 3) * 32;
-      // Reuse the courtyard's quarter tiles and occasional double slabs in
-      // each bounded ruin pattern, with a stable patch for each damage layout.
+      // Reuse the courtyard's cell slabs and split cells in each bounded
+      // ruin pattern, with a stable patch for each damage layout.
       const sx = ((i % 3 + pattern.index * 3) % cols) * 32;
       const sy = ((Math.floor(i / 3) + pattern.index * 2) % rows) * 32;
       ctx.drawImage(paving, sx, sy, 32, 32, x, y, 32, 32);
