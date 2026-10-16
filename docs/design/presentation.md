@@ -6,6 +6,9 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- Shop recipes use compact rows, selector spacing and a shared ingredient/count
+  heading so shortfalls and receipts fit with the actions as artwork contracts.
+
 - Rewards converted to coins show only the coin reward in dialogs and toasts,
   without naming the replaced item or explaining the conversion.
 
