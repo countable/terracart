@@ -43,7 +43,7 @@ async def probe(args):
                     assert abs(data['imageWidth']-data['imageHeight'])<1,data
                     assert data['imageHeight']<data['spacerHeight'],data
                     assert abs(data['imageWidth']-data['boxWidth'])<1 and abs(data['imageLeft'])<1,data
-                    assert 0<data['imageTop']<data['railHeight'] and data['railZ']=='3',data
+                    assert abs(data['imageTop'])<1 and data['railZ']=='3',data
                     if case=='story': assert not data['category'],data
                     else: assert data['category'],data
                     label=f'{width}-{case}-{"long" if long_copy else "short"}'

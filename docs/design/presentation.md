@@ -232,7 +232,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   square, with a complete scene and no baked dark text area. All existing and
   new paintings use the same square viewport: top-centred `cover` crops the lower
   portion of tall assets without stretching them. The square spans the full
-  panel width and tucks 24 game pixels beneath the fixed silver dragon rail.
+  panel width and begins at the window top, behind the fixed silver dragon rail.
   Copy follows directly below, with comfortable side padding and the specific
   title offset down four pixels. Painted stories omit the generic “Story” label;
   useful shop/event categories sit with the copy below the image. Art, copy and

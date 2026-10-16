@@ -49,15 +49,14 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   text-transform: none !important; color: #f3dfa0 !important;
   text-shadow: 0 2px 3px #000, 0 0 12px #000;
 }
-/* Full-width artwork slips 24px beneath the dragon rail. The square and
-   its loading mosaic have identical geometry without image-size detection. */
+/* Full-width artwork begins behind the dragon chrome at the window top.
+   Its loading mosaic shares the same square geometry. */
 .compass-panel .modal-art-spacer {
-  --scene-art-top: max(0px, calc(var(--panel-rail-height) - 24px));
-  padding-top: var(--scene-art-top); padding-bottom: 14px;
+  padding-bottom: 14px;
 }
 .compass-panel .modal-art-spacer::before { content: ''; display: block; aspect-ratio: 1; }
 .compass-panel .modal-art, .compass-panel .modal-art-mosaic {
-  inset: var(--scene-art-top) 0 auto !important;
+  inset: 0 0 auto !important;
   width: 100%; height: auto; aspect-ratio: 1;
   border-radius: 0 !important;
 }
