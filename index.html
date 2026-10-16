@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=a2d391b9" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=3654b998" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1214,6 +1214,10 @@
     #howto-mode-current span { font-weight: 400; color: #bbb; }
     #howto button#howto-close[hidden] { display: none; }
   </style>
+  <link rel="stylesheet" href="css/compass_shine.css?v=db3f4efa">
+  <link rel="stylesheet" href="css/compass_hud.css?v=c269b90b">
+  <link rel="stylesheet" href="css/compass_inventory.css?v=5112b48b">
+  <link rel="stylesheet" href="css/compass_panels.css?v=2a30216c">
 </head>
 <!-- `booting` hides the money/energy row until the scene has a real balance to
      put in it; MapScene.updateHUD drops the class on the first paint. -->
@@ -1249,7 +1253,7 @@
     <!-- The chip is coin icon + bare number: the coin (assets/Icons/coin.png)
          is the game's ONE money symbol, so the readout never grows a "$" back.
          app.js updateHUD writes #money-num. -->
-    <div id="money"><img class="coin-ico" src="assets/Icons/coin.png?v=2" alt=""><span id="money-num">0</span></div>
+    <div id="money" hidden><img class="coin-ico" src="assets/Icons/coin.png?v=2" alt=""><span id="money-num">0</span></div>
   </div>
   <div id="objective" style="display:none">
     <div class="row">
@@ -1425,6 +1429,14 @@
     </div>
   </div>
   <div id="story" class="game-modal" style="display:none">
+    <div class="opening-compass" aria-hidden="true">
+      <div class="opening-compass-header">
+        <span class="opening-sealed">⌖ ⋄ ⋈ ⌇ ⊓</span><span class="opening-sealed">⊓ ⌇ ⋄ ⌖ ⋈</span>
+        <span class="opening-dial">· &nbsp; · &nbsp; ·<i></i></span>
+        <span class="opening-sealed opening-distance">⋄ ⊓ ⌖ ⋈ ⌇</span>
+      </div>
+      <div class="opening-compass-map"><span>▲<br>N</span><i>✧</i></div>
+    </div>
     <div class="box">
       <div class="art" id="story-art"></div>
       <div class="opening-copy">
@@ -1468,7 +1480,7 @@
     // the page shares one global scope — a bare `const W` out here is a
     // redeclaration that kills the whole bundle at parse time.
     const BOX_W = 352, BOX_H = 844;
-    const TOP_CHROME = 106;
+    const TOP_CHROME = 130;
     // TOP_ROW — the money / energy / ☰ row ALONE (top 8, 32-tall chips), which
     // is the part of the top chrome the map may never slide under. The rest of
     // TOP_CHROME is the objective chip, and that part is SPENDABLE: when the
@@ -1581,8 +1593,11 @@
       // opposite move — slide up under the chip, never past TOP_ROW, because
       // the chip is temporary chrome and the inventory below it is not. Only
       // the overflow that survives that runs under the inventory.
+      // The reference seats the circle directly below the instrument plate.
+      // Keep its width-based proportions on tall phones; short viewports can
+      // spend only the existing one-cell inventory overlap allowance.
       const mapTop = slack >= 0
-        ? TOP_CHROME + Math.min(28, spare * 0.35)
+        ? TOP_CHROME + Math.min(Math.max(0, mapH * 0.37 - TOP_CHROME), spare * 0.35)
         : Math.max(TOP_ROW, TOP_CHROME + slack);
       const mapBottom = mapTop + mapH;
       const top = mapTop - MAP_TOP_GAME * s;
@@ -1624,6 +1639,9 @@
     function publishLayout(root, top, s, vh) {
       const viewTop = Math.max(0, -top / s);
       const viewH   = Math.min(BOX_H - viewTop, (vh - Math.max(0, top)) / s);
+      root.style.setProperty('--compass-map-top', (top + MAP_TOP_GAME * s) + 'px');
+      root.style.setProperty('--compass-map-size', (MAP_H_GAME * s) + 'px');
+      root.style.setProperty('--map-top', MAP_TOP_GAME + 'px');
       root.style.setProperty('--view-top', viewTop + 'px');
       root.style.setProperty('--view-h',   Math.max(0, viewH) + 'px');
       window.__gameCssScale = s;
@@ -2613,7 +2631,7 @@
     const STORY_SLIDES = [
       {
         art: '<div class="story-frames"><img src="assets/art/story_compass.webp" alt="A hand reaches for an ancient silver compass engraved with dragons and stars."><img class="story-frame-next" src="assets/art/story_compass_frame2.webp" alt="" aria-hidden="true"></div>',
-        text: 'You find a strange compass, engraved with dragons and stars.', btn: 'Next',
+        text: 'You find a strange compass, engraved with dragons and stars.', btn: 'Next', fullscreen: true,
       },
       {
         art: '<div class="story-frames"><img src="assets/art/story_nightmare.webp" alt="Two enormous dragons clash above a burning city."><img class="story-frame-next" src="assets/art/story_nightmare_frame2.webp" alt="" aria-hidden="true"></div>',
@@ -2621,7 +2639,7 @@
       },
       {
         art: '<div class="story-frames"><img src="assets/art/story_wake.webp" alt="The survivor stretches at the trailer entrance."><img class="story-frame-next" src="assets/art/story_wake_frame2.webp" alt="" aria-hidden="true"></div>',
-        text: "You wake up in an unfamiliar trailer, memories a blur.",
+        text: "You check the compass. You wake up in an unfamiliar trailer, memories a blur.",
         btn: 'Next',
       },
       {
@@ -2648,6 +2666,8 @@
         clearTimeout(wakeTimer);
         const s = STORY_SLIDES[i];
         overlay.classList.toggle('nightmare', !!s.nightmare);
+        overlay.classList.toggle('story-fullscreen', !!s.fullscreen || !!s.nightmare);
+        overlay.classList.toggle('compass-story', !s.fullscreen && !s.nightmare);
         artEl.innerHTML = s.art;
         textEl.textContent = s.text;
         textEl.hidden = !s.text;
@@ -3007,7 +3027,7 @@
   <script src="src/worldgen.js?v=02c9315f"></script>
   <script src="src/castle_styles.js?v=79d35afb"></script>
   <script src="src/textures.js?v=97a11ed6"></script>
-  <script src="src/save.js?v=6ad7b17f"></script>
+  <script src="src/save.js?v=5d02b05e"></script>
   <script src="src/items.js?v=36ef9613"></script>
   <script src="src/inventory.js?v=08929c24"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
@@ -3071,15 +3091,18 @@
   <script src="src/sandbox.js?v=60d9c0d6"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=0a205c42"></script>
-  <script src="src/art_thumbs.js?v=c9282194"></script>
-  <script src="src/modal_shell.js?v=f48587e7"></script>
+  <script src="src/art_thumbs.js?v=4904d49b"></script>
+  <script src="src/modal_shell.js?v=c0a617bb"></script>
   <script src="src/scene_geo.js?v=3f65322a"></script>
   <script src="src/npc.js?v=eb1e1862"></script>
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
   <script src="src/scene_shops.js?v=3003dd4a"></script>
-  <script src="src/heading_up.js?v=dba847f3"></script>
-  <script src="src/scene_create.js?v=a5456fdc"></script>
+  <script src="src/heading_up.js?v=f96711f1"></script>
+  <script src="src/compass_modules.js?v=cb693548"></script>
+  <script src="src/compass_shine.js?v=83af5698"></script>
+  <script src="src/compass_hud.js?v=baedda93"></script>
+  <script src="src/scene_create.js?v=19eda180"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=05d59b5d"></script>
   <script src="src/scene_sky.js?v=c2698528"></script>
@@ -3157,7 +3180,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=a2d391b9';
+      const APP_SRC = 'src/app.js?v=3654b998';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

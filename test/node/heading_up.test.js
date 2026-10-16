@@ -190,3 +190,28 @@ test('heading up: retired support slots cannot change player depth', () => {
   assert.lt(scene.worldContainer.list.indexOf(player),scene.worldContainer.list.indexOf(tree));
   HeadingUp._postRender(scene);
 });
+
+
+test('heading up: player caret hides with device compass and remains without a sensor', () => {
+  const start = SCENE_SRC.indexOf('    this.facingChevronGfx.clear();');
+  const end = SCENE_SRC.indexOf('    // Footprint trail.', start);
+  const draw = new Function('pScreen', 'FACING_CHEVRON_TILT', 'FACING_CHEVRON', SCENE_SRC.slice(start, end));
+  const gfx = { strokes: 0, clear() { this.strokes = 0; }, lineStyle() {}, beginPath() {},
+    moveTo() {}, lineTo() {}, strokePath() { this.strokes++; }, fillStyle() {}, fillCircle() {} };
+  const scene = { _headingUp: false, facing: { x: 1, y: 0 }, facingChevronGfx: gfx };
+  const paint = () => draw.call(scene, { x: 50, y: 50 }, 1, { tip: 12, arm: 8, halfW: 3, outlineW: 2, fillW: 1 });
+  paint();
+  assert.gt(gfx.strokes, 0, 'north-up retains the direction caret');
+  scene._headingUp = true;
+  paint();
+  assert.gt(gfx.strokes, 0, 'desktop without sensor retains the caret in heading-up layout');
+  scene.compassDeg = 90;
+  paint();
+  assert.gt(gfx.strokes, 0, 'Q/E simulated heading is not a device compass');
+  scene._deviceCompass = { deg: 90, facing: { x: 1, y: 0 } };
+  paint();
+  assert.eq(gfx.strokes, 0, 'device heading clears the caret and uses map and rim north marker');
+  scene._headingUp = false;
+  paint();
+  assert.gt(gfx.strokes, 0, 'north-up retains the caret even with a device sensor');
+});

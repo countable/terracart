@@ -29,13 +29,10 @@
 // changing the frame or the band here, and tools/modal_audit.js for the
 // every-dialog-has-a-kind check.
 
-// EVERY DIALOG IS THE MAP VIEWPORT: makeModalShell seats its box exactly
-// over the map square (viewLeft/viewTop/viewSize — 352×352 game px) whatever
-// it holds; the content never sizes the box. Short content sits centred in
-// it, long content scrolls inside it. A STORY dialog (one with an art banner
-// — story splashes, ceremonies) may be a little bigger: the square grows by
-// STORY_MODAL_GROW_PX, a quarter of it above the map and the rest below.
-// (The map already spans the column's full width, so "bigger" is taller.)
+// Base geometry follows the map width; compass_panels.css extends the shared
+// box to the visible viewport floor as an attached mechanical sheet. The
+// story growth constants still define scene-painting composition and the
+// fallback geometry before the stylesheet loads.
 const STORY_MODAL_GROW_PX = 96;
 // SCENE ART — the standard for a dialog with a painting (makeModalShell
 // `art`). The piece IS the box: generated tall and cut to the story box's own
@@ -110,6 +107,7 @@ const MODAL_KINDS = {
   build:    { icon: '🛠', label: 'Build', art: 'kind_build' },   // restoring wrecks, unsealing forts, moving home
   craft:    { icon: '🪵', label: 'Craft', art: 'kind_craft' },   // Home's Craft page (HOME_RECIPES)
   wizard:   { icon: '🔮', label: 'Wizard', art: 'kind_wizard' },   // spends memories on gifts
+  spirit:   { icon: '✧', label: 'Dragon Spirit', art: 'kind_spirit' },
   memory:   { icon: '🌟', label: 'Memories', art: 'kind_memory' },   // the memories chip's explainer
   slots:    { icon: '🎰', label: 'Slots', art: 'kind_slots' },   // a fort's slot machine (presentFortSlots)
   farm:     { icon: '🌾', label: 'Farm', art: 'kind_farm' },   // scarecrows, feeding fauna
@@ -143,7 +141,7 @@ class SceneModals {
   //             something the player drives. Treasure ceremonies override it
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
-    textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose,
+    textAlign = 'center', wrapBg = '#0002', wrapExtra = '', boxExtra = '', onClose,
     kind, kindLabel, kindIcon, story = false, art, portrait, centerBody = false, fullscreen = false, delayInput } = {}) {
     // A dialog swapping itself in place (a pager turn, a tab) is the same
     // dialog already armed; a fresh story or event gets the arming second.
@@ -167,6 +165,7 @@ class SceneModals {
     // hide the movement pads (which otherwise sit on top of the modal — see the
     // gate). Every modal goes through here, so one class covers them all.
     wrap.classList.add('game-modal');
+    wrap.classList.add('compass-panel');
     // …and its KIND on the same node, so a rule about one category of dialog
     // (a foe's blow closes a shop — _closeShopOnHit) can find it.
     if (typeof kind === 'string') wrap.dataset.kind = kind;
@@ -300,8 +299,15 @@ class SceneModals {
         };
       }
     }
+    let closed = false;
+    const dismissShell = () => {
+      if (closed) return;
+      closed = true;
+      wrap.remove();
+      onClose?.();
+    };
     if (onClose !== undefined) {
-      wrap.addEventListener('click', (e) => { if (e.target === wrap) { wrap.remove(); onClose?.(); } });
+      wrap.addEventListener('click', (e) => { if (e.target === wrap) dismissShell(); });
     }
     // ── The kind header ────────────────────────────────────────────────
     // A hero icon plus the one-word category (MODAL_KINDS), so every dialog
@@ -382,7 +388,7 @@ class SceneModals {
           'overflow-y:auto;overscroll-behavior:contain;text-shadow:0 1px 2px #000;' +
           // Above the painting layer (PIXEL RESOLVE), which is absolute.
           'position:relative;z-index:1;'
-        : 'margin:auto 0;flex:0 0 auto;';
+        : 'margin:auto 0;flex:0 1 auto;';
       // `centerBody` (the chest ceremony): the content region is the WHOLE
       // quiet zone and the copy sits centred in it rather than on its floor.
       // An inner block with auto margins does the centring, so long copy
@@ -416,6 +422,20 @@ class SceneModals {
       }
       if (artLayer) { box.insertBefore(artLayer, box.firstChild); box.insertBefore(mosaicLayer, artLayer); }
       if (kindNode) { kindNode.style.flex = '0 0 auto'; box.insertBefore(kindNode, box.firstChild); }
+      // Mount last: caller innerHTML cannot erase the fixed rail control.
+      // The same cancellation path as backdrop dismissal preserves decisions,
+      // mandatory acknowledgements, and the wrapper's capture-phase arming.
+      if (onClose !== undefined) {
+        const close = mkBtn('×', { variant: 'ghost' });
+        close.style.cssText = '';
+        close.type = 'button';
+        close.className = 'compass-panel-close';
+        close.setAttribute('aria-label', 'Close panel');
+        close.title = 'Close panel';
+        close.textContent = '×';
+        close.addEventListener('click', (e) => { e.stopPropagation(); dismissShell(); });
+        box.appendChild(close);
+      }
       // The ENTRANCE (index.html .modal-anim): the backdrop fades in and the
       // box pops up from a touch smaller and lower. Only when nothing was on
       // screen — body.modal-open is synced by a MutationObserver that runs
@@ -450,13 +470,15 @@ class SceneModals {
     // stepper's canAfford, the reward card's Take arming), so looks can't
     // drift. `mkBtn(label, { variant, disabled, accent, css })`; the older
     // `mkBtn(label, primary, disabled)` spelling still reads as before.
-    const RAISED = `0 3px 0 ${UI_CONTROL_DIM}, 0 0 10px rgba(255,224,102,0.35)`;
-    const PRESSED = `0 1px 0 ${UI_CONTROL_DIM}, 0 0 6px rgba(255,224,102,0.25)`;
+    const RAISED = 'inset 0 1px 0 #fff5c9, inset 0 -1px 0 #977330, 0 2px 2px #171b1790, 0 0 7px #ffe06624';
+    const PRESSED = 'inset 0 1px 3px #77582099, 0 1px 0 #e8cf8a66';
     const GHOST = 'background:transparent;color:#ddd;border:2px solid #555;';
     const mkBtn = (label, opts = true, disabled = false) => {
       const o = (opts && typeof opts === 'object') ? opts : { variant: opts ? 'primary' : 'ghost', disabled };
       const primary = o.variant !== 'ghost';
       const b = document.createElement('button');
+      b.classList.add('compass-action', primary ? 'compass-action-primary' : 'compass-action-ghost');
+      if (o.accent) b.classList.add('compass-action-accent');
       b.innerHTML = label;
       b.style.cssText =
         `padding:8px 14px;border-radius:6px;font:700 13px var(--font-ui);cursor:pointer;` +
@@ -529,6 +551,7 @@ class SceneModals {
     }
 
     const row = document.createElement('div');
+    row.className = 'modal-confirm-actions';
     row.style.cssText = 'display:flex;gap:8px;justify-content:center';
     const cancel = mkBtn(cancelLabel, false);
     const accept = mkBtn(acceptLabel, true);
@@ -597,6 +620,25 @@ class SceneModals {
       // Keep its HUD gate until TempleScene's shutdown clears the scene flag.
       const any = !!this._templeSceneActive || [...document.querySelectorAll('.game-modal')].some(shown);
       document.body.classList.toggle('modal-open', any);
+      if (any) this._resetMovePad?.();
+      // The chassis lives outside the scaled game. Clip at the sheet's actual
+      // screen edge, retaining silver shoulders around the circular map. Its
+      // layout position ignores the entrance transform and follows resizing.
+      if (document.getElementById('compass-body')) {
+        const tops = [...document.querySelectorAll('.compass-panel > .modal-box')]
+          .filter(shown).map(el => {
+            const wrap = el.parentElement, bounds = wrap.getBoundingClientRect();
+            return bounds.top + el.offsetTop * bounds.height / wrap.offsetHeight;
+          });
+        if (tops.length) {
+          const edge = `${Math.max(0, Math.min(...tops))}px`;
+          if (document.body.style.getPropertyValue('--compass-panel-edge') !== edge) {
+            document.body.style.setProperty('--compass-panel-edge', edge);
+          }
+        } else if (document.body.style.getPropertyValue('--compass-panel-edge')) {
+          document.body.style.removeProperty('--compass-panel-edge');
+        }
+      }
       // The ☰ menu is hidden under the class (index.html); fold it shut as
       // well, so a menu left open behind a dialog doesn't spring back open
       // the moment the dialog is dismissed.
