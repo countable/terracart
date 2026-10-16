@@ -585,6 +585,10 @@ class SceneCreate {
     try { this.lightTex.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) { /* Canvas: no texture filter */ }
     this.lightMap = this.add.image(this.viewLeft, this.viewTop, 'lightmap')
       .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.MULTIPLY);
+    // ?noLight=1 (device probe): leave the lightmap undrawn.
+    if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('noLight') === '1') {
+      this.lightMap.setAlpha(0);
+    }
     // PARTICLE BURSTS (src/particles.js) — the one-shot puffs: gold stars off
     // a jackpot / shiny banner, pale chips off a street coming back, leaf
     // flecks off a crop reaching its next stage. ABOVE the lightmap because a
