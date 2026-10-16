@@ -65,7 +65,7 @@
     for(const [key,asset] of Object.entries(ASSETS))if(/^(house_|macro_)/.test(key))want(key,asset.kind==='image'?'__BASE':0);
     for (const pile of Render.COIN_PILES) want(pile.texture);
     const crops = [...new Set([...Object.keys(CROP_ROW),...Object.keys(CROP_SPRITE)])];
-    function plantArt(plant){const s=wildplantSprite(plant);return {key:s?.sheet||'crops',frame:s?.custom?wildplantFrame(plant):s?.sheet==='springcrops'?s.row*SPRING_CROPS_COLS+MAX_GROWTH_STAGE:(CROP_ROW[plant.crop]??1)*CROPS_SHEET_COLS+MAX_GROWTH_STAGE};}
+    function plantArt(plant){const s=wildplantSprite(plant);return {key:s?.texture||s?.sheet||'crops',frame:s?.custom?wildplantFrame(plant):s?.sheet==='springcrops'?s.row*SPRING_CROPS_COLS+MAX_GROWTH_STAGE:(CROP_ROW[plant.crop]??1)*CROPS_SHEET_COLS+MAX_GROWTH_STAGE};}
     const plantRows=[];
     for(const crop of crops){const plant={crop,stage:MAX_GROWTH_STAGE,id:'world-art:'+crop},p=plantArt(plant);want(p.key,p.frame);plantRows.push({id:'plant:'+crop,name:CROP_NAMES[crop]||title(crop),key:p.key,frames:[p.frame],category:'Plants & crops',zoneVariants:new Set(),source:'src/items.js'});}
     const usage = new Map();
@@ -109,7 +109,7 @@
         frameWidth:iconSheet.srcW/iconSheet.cols,frameHeight:iconSheet.srcW/iconSheet.cols});if(!asset)return;
       try{const img=new Image();img.src='../'+asset.path;await img.decode();add(key,img,asset.kind==='spritesheet'?asset:null);asset.onLoad?.(scene);}catch(error){failures.push(key);console.warn('World art asset:',key,error);}
     }));
-    makeTowerTexture(scene);makePotOfGoldTexture(scene);makeTrapTextures(scene);
+    makeBerryBushTexture(scene);makeTowerTexture(scene);makePotOfGoldTexture(scene);makeTrapTextures(scene);
     function image(key,frame){const t=textures.get(key),f=t?.get(frame);if(!f)return null;const c=canvas(f.width,f.height);c.getContext('2d').drawImage(t.getSourceImage(),f.x,f.y,f.width,f.height,0,0,f.width,f.height);return c.toDataURL();}
     // Like export_map_art_painters.js, expose the live private polygon painter
     // in a viewer-only namespace without changing the game's public API.

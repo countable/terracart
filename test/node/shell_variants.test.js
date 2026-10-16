@@ -82,7 +82,7 @@ test('beach: a cell keeps its shell across a rebuild', () => {
 // --- The renderer asks the table --------------------------------------------
 
 test('render: the wildplant pass picks its frame through wildplantFrame', () => {
-  assert.truthy(/setTextureIfDifferent\(s, ov\.sheet\);\s*\n\s*s\.setFrame\(wildplantFrame\(p\)\);/
+  assert.truthy(/setTextureIfDifferent\(s, ov\.texture \|\| ov\.sheet\);\s*\n\s*s\.setFrame\(wildplantFrame\(p\)\);/
     .test(RENDER_SRC), 'custom-sheet branch defers to items.js');
   assert.falsy(/% ov\.variants/.test(RENDER_SRC), 'no frame index rolled over a count');
   assert.falsy(/wildId \|\| ''\)\.length/.test(RENDER_SRC), 'no hash off the id LENGTH');

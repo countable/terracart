@@ -25,8 +25,8 @@ test('map review: texture hooks replace numeric frames and skip player animation
   };
   class Image { constructor(){this.width=192;this.height=192;} async decode(){} }
   const noop=()=>{};
-  const art=new Function('L','ASSETS','Image','makeTowerTexture','makePotOfGoldTexture','makeTrapTextures','BIOME_TEX',
-    MAP_REVIEW_ART_SRC+'\nreturn MapReviewArt;')(L,ASSETS,Image,noop,noop,noop,{});
+  const art=new Function('L','ASSETS','Image','makeTowerTexture','makePotOfGoldTexture','makeTrapTextures','makeBerryBushTexture','BIOME_TEX',
+    MAP_REVIEW_ART_SRC+'\nreturn MapReviewArt;')(L,ASSETS,Image,noop,noop,noop,noop,{});
   const layer=art.layer({});
   layer.redraw=noop;
   await layer._load();

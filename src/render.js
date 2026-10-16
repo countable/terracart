@@ -5132,7 +5132,7 @@ Render.drawObjects = function drawObjects(scene) {
       // cell always draws the same art. WHICH frame is items.js' call:
       // wildplantFrame owns both the hash and the crop's declared frame list, so a
       // frame the sheet doesn't carry can't be drawn here (see CROP_SPRITE.shell).
-      setTextureIfDifferent(s, ov.sheet);
+      setTextureIfDifferent(s, ov.texture || ov.sheet);
       s.setFrame(wildplantFrame(p));
     } else if (ov && ov.sheet === 'springcrops') {
       // Spring Crops: col 0 = seed (stage 0), cols 1..4 = growth (4 = mature).
