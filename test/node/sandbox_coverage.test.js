@@ -343,3 +343,27 @@ test('sandbox coverage: stocking and reloading fixtures never grants or removes 
     assert.eq(scene.save.money, money, `preserve balance ${money}`);
   }
 });
+
+test('sandbox coverage: forage lab exercises poisonous berries and herb regrowth on separate cells', () => {
+  const { entry } = Sandbox.buildForTest({ cellsPerEdge: 128 });
+  const crop = tag => entry.wildplants.find(p => p._sandboxProbe === tag);
+  for (const [tag, id] of [['poisonberry-bush', 'poisonberry'], ['grass-wild', 'longgrass'],
+    ['grass-owned', 'longgrass'], ['nettle', 'nettle'], ['petnip', 'petnip']]) {
+    assert.eq(crop(tag)?.crop, id, tag);
+  }
+  assert.truthy(crop('grass-owned').playerOwned, 'owned control cannot acquire a wild regrowth deadline');
+  assert.falsy(crop('grass-wild').playerOwned);
+  const targets = ['poisonberry-enemy', 'poisonberry-neutral'].map(tag => entry.creatures.find(c => c._sandboxProbe === tag));
+  assert.truthy(targets.every(Boolean), 'hostile and neutral feeding recipients exist');
+  const fixtures = [...targets, ...['poisonberry-bush', 'grass-wild', 'grass-owned', 'nettle', 'petnip'].map(crop)];
+  assert.eq(new Set(fixtures.map(o => `${o.x},${o.y}`)).size, fixtures.length, 'no fixtures overlap');
+});
+
+test('sandbox reset: burned forage and its deadline reset without clearing ordinary-world progress', () => {
+  const scene = { save: { picked: ['fixture', 'other'], burnedObjects: ['fixture', 'other'],
+    grassRegrowth: { fixture: 123, other: 456 } } };
+  Sandbox.resetFixtureProgress(scene, { wildplants: [{ id: 'fixture' }] });
+  assert.eq(JSON.stringify(scene.save.picked), JSON.stringify(['other']));
+  assert.eq(JSON.stringify(scene.save.burnedObjects), JSON.stringify(['other']));
+  assert.eq(JSON.stringify(scene.save.grassRegrowth), JSON.stringify({ other: 456 }));
+});
