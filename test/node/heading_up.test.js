@@ -217,6 +217,9 @@ test('heading up: player caret hides with device compass and remains without a s
   assert.gt(gfx.strokes, 0, 'Q/E simulated heading is not a device compass');
   scene._deviceCompass = { deg: 90, facing: { x: 1, y: 0 } };
   paint();
+  assert.gt(gfx.strokes, 0, 'no GPS forces locking and keeps the caret');
+  scene.gpsM = { x: 0, y: 0 };
+  paint();
   assert.eq(gfx.strokes, 0, 'device heading clears the caret and uses map and rim north marker');
   scene._compassDirectionLocked = true;
   paint();
