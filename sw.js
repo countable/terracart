@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-4703742d';
+const SHELL_VERSION = 'shell-8fb09443';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -268,7 +268,7 @@ const ASSET_HASHES = {
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Pickaxe.png": "c60441ea",
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Staff.png": "b2484a06",
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Sword.png": "232136a0",
-  "assets/Icons/coin.png": "c56d5e86",
+  "assets/Icons/coin.png": "4c9e7ebc",
   "assets/NPC/Ayo_human_idle.png": "39297eca",
   "assets/NPC/Ayo_human_walk.png": "ba53a101",
   "assets/NPC/Citizen_woman01_idle.png": "8ab400ca",
@@ -724,6 +724,7 @@ const ASSET_HASHES = {
   "assets/art/chest_t5.webp": "4eff02df",
   "assets/art/chest_t6.webp": "7ad2158a",
   "assets/art/chest_t7.webp": "b1422843",
+  "assets/art/coin_first.webp": "3582b9d4",
   "assets/art/death_memories.webp": "a2e5b296",
   "assets/art/delivery_first.webp": "c6196484",
   "assets/art/discovery_badge.webp": "55979036",

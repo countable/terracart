@@ -26,7 +26,7 @@
     assert.eq(s.panels.length, 0, 'wait for the story lane');
     s._drainCeremonies();
     assert.eq(s.panels.length, 1);
-    assert.eq(s.panels[0].portrait, 'assets/Icons/coin.png');
+    assert.eq(s.panels[0].art, 'coin_first');
     assert.eq(s.panels[0].kind, 'story');
     assert.truthy(s.moneyVisible);
   });

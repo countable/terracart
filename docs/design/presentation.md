@@ -9,13 +9,18 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Reward acknowledgments and safety reminders use an explicit OK button;
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
   and confirmations use the NPC portrait layout with the spirit artwork.
+  The first earned green coin opens its own `coin_first` scene painting before
+  revealing the money readout; its raised star matches the compact currency icon.
 
 - The compass header aligns menu, a memories/books window and compact distance meter
-  capped at 90 pixels wide beside a larger 64-pixel energy dial at the top right. An 18-pixel coin and its
-  inline count sit at the far right just below the energy dial. Equal responsive
+  capped at 84 pixels wide beside a 72-pixel energy dial at the top right. The menu is
+  46 pixels tall; the shared memories/books window gives these controls more room. A 22-pixel coin and its
+  inline count sit at the far right, with a seven-pixel gap below the energy dial. The tutorial
+  banner sits 19 pixels below the map top (25 pixels higher than before). Equal responsive
   gaps separate all four top widgets, with matching 8-pixel outer margins. The simulated-GPS control sits 20 CSS pixels above its
   ordinary stick baseline. HUD metal uses reduced brightness with a stronger
-  outer-edge fade; controls retain brighter text and icons. The fade excludes
+  outer-edge fade; neutral pewter faces and rims match the carved background while
+  controls retain brighter text and icons. The fade excludes
   the circular map aperture. The compass rim has ticks every 15 degrees, with
   longer marks every 30 degrees.
 
@@ -44,7 +49,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   `css/compass_inventory.css` seats eight embossed square category keys on
   plungers above a shared rail. The selected key and detent glow gold. Small
   square item controls share one dark-glass window, with a physical sort lever,
-  ivory pager rollers, and an integrated name/action plate. The description plate
+  a mechanical pager rocker with broad upper/lower touch faces around an ivory count
+  window, and an integrated name/action plate. The upper face selects the previous
+  page; the lower face selects the next page. The description plate
   appears only for a selected item or piece of gear; empty categories show no plate. Contextual actions
   retain their existing semantics. The dormant inventory cover occupies the lower
   inventory window and can be dismissed for the scene without unlocking controls.

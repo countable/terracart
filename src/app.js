@@ -8330,7 +8330,7 @@ class MapScene extends Phaser.Scene {
     this._enqueueCeremony('story', (done) => {
       if (!this.save.firstCoinPending || this.save.storySeen?.['coin:first']) return false;
       this.showMessageModal({ kind: 'story', title: 'A green coin',
-        portrait: 'assets/Icons/coin.png',
+        art: 'coin_first',
         body: 'You find a green coin. The compass now keeps count of your coins.', onDismiss: done,
       });
       // Only successful presentation unlocks the chrome; a busy or failed
