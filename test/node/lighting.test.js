@@ -894,6 +894,34 @@ test('lighting: the map multiplies, the cookies add, and the plateau is per cell
   assert.truthy(/if \(!inReach\(col, row\)\) continue;/.test(L), 'every lit cell passes it');
 });
 
+test('lighting: dimmed reach indicator transfers its light to the smooth player glow', () => {
+  const r0 = 15, cell = 5, rMax = 45, rim = r0 + cell * Math.SQRT1_2;
+  for (const depth of [0, 1, 3, 8]) for (const day of [0, 0.5, 1]) {
+    for (const energy of [100, 20]) {
+      const p = Lighting.profile(scene({ depth, save: { energy, maxEnergy: 100 } }), day);
+      for (const d of [0, r0 / 2, r0, rim]) {
+        const glow = Lighting.playerGlow(p, d, r0, rMax, cell);
+        const level = Lighting.plateauLevel(p, d / rim);
+        const tint = Lighting.plateauCellColour(p, level);
+        const base = Lighting.playerCookieAlpha(Math.max(0, (d - r0) / (rMax - r0)), p);
+        for (const sh of [16, 8, 0]) {
+          const fill = (level - p.edge) * ch(tint, sh) / 255;
+          const total = glow.alpha * ch(glow.colour, sh) / 255 + fill * Lighting.REACH_OUTPUT_K;
+          near(total, base + fill, 0.003, `restores brightness depth ${depth} energy ${energy} channel ${sh}`);
+        }
+      }
+      const inner = Lighting.playerGlow(p, rim - 0.001, r0, rMax, cell);
+      const outer = Lighting.playerGlow(p, rim + 0.001, r0, rMax, cell);
+      near(inner.alpha, outer.alpha, 0.001, 'general glow has no step at the reach rim');
+      assert.gt(outer.alpha, Lighting.playerCookieAlpha((rim - r0) / (rMax - r0), p),
+        'compensation also lights ground outside the indicator');
+      assert.eq(Lighting.playerGlow(p, rMax, r0, rMax, cell).alpha, 0, 'existing radius stays unchanged');
+      assert.eq(Lighting.playerGlow(p, rMax + cell, r0, rMax, cell).alpha, 0);
+    }
+  }
+  assert.eq(Lighting.REACH_OUTPUT_K, 0.5, 'the indicator remains subdued');
+});
+
 test('lighting: the plateau cells land on the lit level, red when tired', () => {
   const ch = (c, sh) => (c >> sh) & 255;
   for (const sv of [{ energy: 100, maxEnergy: 100 }, { energy: 20, maxEnergy: 100 }]) {

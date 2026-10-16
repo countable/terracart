@@ -38,8 +38,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   Awakening begins “You check the compass.” and uses the living-silver compass
   story sheet, as does the ruined street and subsequent narrative. Paintings
   remain uncropped with readable copy below. The dream retains its eight-second camera push and
-  wake-up button timing. Reduced-motion mode shows the first frame without
-  zoom or crossfade and makes the wake-up button immediately available.
+  immediately available wake-up button. Reduced-motion mode shows the first frame without
+  zoom or crossfade.
 
 - The living-silver chassis uses sliced surfaces in `css/compass_hud.css`.
   Layout publishes CSS-pixel `--compass-map-top` and `--compass-map-size`;
@@ -190,6 +190,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   fixed coin fee. An empty list says "Once you find a potion, you can brew it here."
   Keep the selected recipe after brewing and recheck discovery, bag room,
   ingredients and coins before spending either resource.
+- Dialog content and buttons appear immediately, without timed input blocking
+  or delayed button reveals.
 - Dialogs use `makeModalShell` with a kind, which supplies a default scene
   painting unless the caller supplies a character `portrait` or `art: false`.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:

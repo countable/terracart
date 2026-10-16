@@ -400,7 +400,8 @@
   // what binds. If the far field is ever brightened again — AMBIENT_DAY_LUM
   // up, or the dim palette out — re-measure this before raising it.
   const PLATEAU_OUTPUT_K = 0.6;
-  // Scale the added reach-cell light independently of the underlying radial glow.
+  // Keep half the added light on the reach cells; the smooth player glow
+  // carries the remainder so dimming the indicator does not darken the scene.
   const REACH_OUTPUT_K = 0.5;
 
   // ── Time of day ───────────────────────────────────────────────────────────
@@ -1149,16 +1150,15 @@
         inReach = d <= reachM;
       }
     }
+    const rMaxM = radiusCells('player') * playerLightMul(scene) * cellM;
+    const glow = playerGlow(prof, d, reachM, rMaxM, cellM);
+    let light = glow.alpha * lum(glow.colour);
     if (inReach) {
       const rim = reachM + cellM * Math.SQRT1_2;
       const level = plateauLevel(prof, d / rim);
-      const added = (level - prof.edge) * lum(plateauCellColour(prof, level));
-      return prof.edge + added * REACH_OUTPUT_K;
+      light += (level - prof.edge) * lum(plateauCellColour(prof, level)) * REACH_OUTPUT_K;
     }
-    const rMaxM = radiusCells('player') * playerLightMul(scene) * cellM;
-    if (d >= rMaxM) return 0;
-    const t = rMaxM > reachM ? Math.max(0, (d - reachM) / (rMaxM - reachM)) : 1;
-    return playerCookieAlpha(t, prof);
+    return light;
   }
   // `opts.playerGlow: false` leaves out the player's OWN light (the plateau
   // and the ramp, playerLightAt) and keeps everything else — the hand torch
@@ -1400,8 +1400,9 @@
   // falloff to zero PLAYER_RAMP_PAST_CORNER_CELLS beyond the viewport's
   // half-diagonal: one cell past keeps the corners just lit,
   // and the ramp still ends on zero so a peek finds no edge past it (the
-  // ambient beyond is the value it lands on). The PLATEAU is not in here: it
-  // is painted per reach cell in draw(), so the sharp edge of the lit area is
+  // ambient beyond is the value it lands on). It also carries the light
+  // removed from the indicator. The remaining PLATEAU is painted per reach
+  // cell in draw(), so the sharp edge of the lit area is
   // the same staircase the tap gate accepts (cellInReach), not a circle
   // near it.
   // Rebaked only when its inputs move: the reach radius (energy / depth /
@@ -1413,27 +1414,40 @@
   const PLAYER_COOKIE_SCALE = 2;
   const PLAYER_RAMP_PAST_CORNER_CELLS = 1;
 
+  // Move the removed indicator light into a continuous radial source. Inside
+  // the reach rim it replaces exactly the missing fill, including tired tint;
+  // outside it eases to zero with the existing player-light radius.
+  // Distances may be pixels (drawing) or metres (brightnessAt).
+  function playerGlow(prof, d, r0, rMax, cellSize) {
+    if (!(rMax > 0) || d >= rMax) return { alpha: 0, colour: 0xffffff };
+    const t = rMax > r0 ? Math.max(0, (d - r0) / (rMax - r0)) : 0;
+    const base = playerCookieAlpha(t, prof);
+    const rim = Math.min(rMax, r0 + cellSize * Math.SQRT1_2);
+    const level = plateauLevel(prof, rim > 0 ? d / rim : 1);
+    const tail = d <= rim ? 1 : playerCookieAlpha((d - rim) / (rMax - rim), { edge: 1 });
+    const added = r0 > 0 ? Math.max(0, level - prof.edge) * (1 - REACH_OUTPUT_K) * tail : 0;
+    const alpha = base + added;
+    const tint = plateauCellColour(prof, level);
+    const channel = sh => Math.round(255 * (alpha > 0
+      ? (base + added * ((tint >> sh) & 255) / 255) / alpha : 1));
+    return { alpha, colour: (channel(16) << 16) | (channel(8) << 8) | channel(0) };
+  }
+
   function ensurePlayerCookie(scene, prof, r0, rMax) {
-    const key = `${Math.round(r0)}|${Math.round(rMax)}|${prof.edge.toFixed(3)}`;
+    const key = `${Math.round(r0)}|${Math.round(rMax)}|${prof.edge.toFixed(3)}|${prof.lit.toFixed(3)}|${prof.litColour}`;
     const st = scene._lightPlayer || (scene._lightPlayer = { key: null, canvas: null, S: 0 });
     if (st.key === key && st.canvas) return st;
     st.key = key;
     const K = PLAYER_COOKIE_SCALE;
     const rMaxT = rMax / K;
-    const r0T = Math.min(r0, rMax) / K;
     const S = 2 * Math.ceil(rMaxT);
     if (!st.canvas || st.S !== S) { st.canvas = makeCanvas(S); st.S = S; }
-    const fr = (r) => clamp01(r / rMaxT);
-    const white = KINDS.player.colour;
-    const stops = [[0, white, prof.edge]];
-    // The ramp starts at r0 with `edge` and lands on 0 at rMax. Sample the
-    // super-linear curve at RAMP_STOPS points so the gradient's linear
-    // segments track it.
-    const span = rMaxT - r0T;
-    for (let i = 0; i <= RAMP_STOPS; i++) {
-      const t = i / RAMP_STOPS;
-      stops.push([fr(r0T + t * span), white, playerCookieAlpha(t, prof)]);
-    }
+    const radii = new Set([0, Math.min(r0, rMax), Math.min(r0 + CELL_PX * Math.SQRT1_2, rMax), rMax]);
+    for (let i = 1; i < RAMP_STOPS; i++) radii.add(rMax * i / RAMP_STOPS);
+    const stops = [...radii].sort((a, b) => a - b).map(d => {
+      const glow = playerGlow(prof, d, r0, rMax, CELL_PX);
+      return [d / rMax, glow.colour, glow.alpha];
+    });
     bakeRadialCookie(st.canvas, rMaxT, stops);
     return st;
   }
@@ -2191,7 +2205,7 @@
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, CRITICAL_LIGHT_MIX, CRITICAL_LIGHT_DIM, CRITICAL_LIGHT_DIP, CRITICAL_PLAYER_TINT_A, criticalLights, critPaintProfile, mixColour, mixToWhite, scaleColour, lum, atLuminance,
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
-    profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, objectLightPadCells, wildplantLightPadCells,
+    profile, playerCookieAlpha, playerGlow, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, objectLightPadCells, wildplantLightPadCells,
     collectPlayer, playerLightMul, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, REACH_FADE_MS, reachFrames, reachFramesKey, coverFrame, draw,

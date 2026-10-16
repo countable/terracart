@@ -93,9 +93,9 @@ function mosaicCuts(stem) {
 const sceneArtUrl = (stem) => stem.startsWith('data:image/') ? stem : `assets/art/${stem}.webp`;
 const MODAL_KINDS = {
   quest:    { icon: '🏰', label: 'Quest', art: 'kind_quest' },   // castle quest board
-  treasure: { delayInput: true, icon: '💎', label: 'Treasure', art: 'kind_treasure' },   // chests, boxes, loot ceremonies
-  supplies: { delayInput: true, icon: '🧰', label: 'Supplies', art: 'kind_supplies' },   // the starter crates' handout — see below
-  trail:    { delayInput: true, icon: '🗺️', label: 'Trail', art: 'kind_trail' },   // road/trail completion rewards
+  treasure: { icon: '💎', label: 'Treasure', art: 'kind_treasure' },   // chests, boxes, loot ceremonies
+  supplies: { icon: '🧰', label: 'Supplies', art: 'kind_supplies' },   // the starter crates' handout — see below
+  trail:    { icon: '🗺️', label: 'Trail', art: 'kind_trail' },   // road/trail completion rewards
   shop:     { coinIcon: true, label: 'Shop', art: 'kind_shop' },   // buying and selling for money — glyph is the coin asset (header reads `coinIcon`)
   trade:    { icon: '🤝', label: 'Trade', art: 'kind_trade' },   // goods-for-goods barter
   // The smithy's CATEGORY is 'Smithy', never 'Forge': Forge is one of its two
@@ -112,7 +112,7 @@ const MODAL_KINDS = {
   slots:    { icon: '🎰', label: 'Slots', art: 'kind_slots' },   // a fort's slot machine (presentFortSlots)
   farm:     { icon: '🌾', label: 'Farm', art: 'kind_farm' },   // scarecrows, feeding fauna
   energy:   { icon: '⚡', label: 'Energy', art: 'kind_energy' },   // the energy explainer
-  rest:     { delayInput: true, icon: '😵', label: 'Exhausted', art: 'kind_rest' },   // passing out underground
+  rest:     { icon: '😵', label: 'Exhausted', art: 'kind_rest' },   // passing out underground
   use:      { icon: '🎒', label: 'Use', art: 'kind_use' },   // confirming a consumable from the bag
   fire:     { icon: '🔥', label: 'Campfire', art: 'kind_fire' },   // burning a held item (presentBurnConfirm)
   note:     { icon: '📜', label: 'Note', art: 'kind_note' },   // generic message dialog
@@ -123,13 +123,8 @@ const MODAL_KINDS = {
   menu:     { icon: '☰', label: 'Menu', art: 'kind_menu' },   // the ☰ menu (_openMenuDialog)
   // A story splash (_storySplashOnce, a badge, a book): always carries its own
   // painting, so the row has no default one.
-  story:    { delayInput: true, icon: '📜', label: 'Story' },
+  story:    { icon: '📜', label: 'Story' },
 };
-
-// How long a story or event ignores taps before its buttons fade in
-// (makeModalShell's arming second), and that fade (index.html modal-btn-in).
-const MODAL_ARM_MS = 1000;
-const MODAL_UNVEIL_MS = 500;
 
 class SceneModals {
   // Shared factory for all modal overlays. Returns { wrap, box, mount, mkBtn }.
@@ -142,10 +137,7 @@ class SceneModals {
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0002', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, delayInput } = {}) {
-    // A dialog swapping itself in place (a pager turn, a tab) is the same
-    // dialog already armed; a fresh story or event gets the arming second.
-    const swapping = !!document.getElementById(id);
+    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
     // Scene art is a story-sized dialog by definition — its frame is cut to
@@ -170,26 +162,6 @@ class SceneModals {
     // …and its KIND on the same node, so a rule about one category of dialog
     // (a foe's blow closes a shop — _closeShopOnHit) can find it.
     if (typeof kind === 'string') wrap.dataset.kind = kind;
-    // THE ARMING SECOND: a tap meant for the map (or a double tap on the
-    // button that opened this) must not close a dialog the player has not
-    // seen. For MODAL_ARM_MS every click on the dialog is swallowed here,
-    // registered first so it beats the backdrop close and the chest's
-    // tap-anywhere; then .modal-arming lifts and .modal-unveil fades its
-    // buttons in (index.html). Capture phase, so no caller's listener runs first.
-    // Paintings also appear on shops and buildings; art is not an input gate.
-    if (!swapping && (delayInput ?? kRow?.delayInput)) {
-      const armedUntil = Date.now() + MODAL_ARM_MS;
-      wrap.classList.add('modal-arming');
-      wrap.addEventListener('click', (e) => {
-        if (Date.now() >= armedUntil) return;
-        e.stopImmediatePropagation();
-        e.preventDefault();
-      }, true);
-      setTimeout(() => {
-        wrap.classList.replace('modal-arming', 'modal-unveil');
-        setTimeout(() => wrap.classList.remove('modal-unveil'), MODAL_UNVEIL_MS);
-      }, MODAL_ARM_MS);
-    }
     // The backdrop covers the VISIBLE slice of the game box (fitGame
     // publishes it as --view-top/--view-h in game px); the box itself is
     // seated on the MAP VIEWPORT, not centred on the backdrop — see
@@ -1150,7 +1122,7 @@ class SceneModals {
     confirmLabel = 'Take', pickHint = 'Tap one to see what it does' }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('chest-reward-modal', {
       zIndex: 55, borderColor: accent, wrapBg: '#000c', art, portrait, centerBody: true,
-      kind, kindLabel: header, kindIcon, delayInput: true,
+      kind, kindLabel: header, kindIcon,
       wrapExtra: 'animation:chestModalIn 180ms ease-out;',
       boxExtra: `border-width:3px;border-radius:14px;padding:22px 22px 14px;font-size:14px;` +
         `animation:chestRewardPop 320ms cubic-bezier(.34,1.56,.64,1);`,

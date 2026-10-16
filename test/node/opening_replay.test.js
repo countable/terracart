@@ -115,21 +115,11 @@ test('opening: the story plays FIRST, and the safety CTA waits for its last slid
   assert.truthy(/startStory\(\(\) => \{ if \(safetyEl\) safetyEl\.style\.display = 'flex'; \}\);/.test(flow),
     'and comes back when the last slide clears');
 });
-test('opening: wake up fades in with the end of the zoom, taps during the fade skip, early ones do not', () => {
-  const start = html.indexOf('    const STORY_WAKE_FADE_MS');
+test('opening: wake up is available immediately during the zoom', () => {
+  const start = html.indexOf('    const STORY_PAN_MS');
   const end = html.indexOf('    // Is one of the boot overlays', start);
   const source = html.slice(start, end);
-  // The clock: the button comes up over the last STORY_WAKE_FADE_MS of the
-  // STORY_PAN_MS push, quickly — a wait you can see the end of, not a slow
-  // reveal from the first frame — and the CSS reads the same numbers.
-  const num = (name) => Number(new RegExp(`const ${name} = (\\d+);`).exec(source)?.[1]);
-  const fadeMs = num('STORY_WAKE_FADE_MS'), panMs = num('STORY_PAN_MS');
-  assert.truthy(fadeMs >= 800 && fadeMs <= 2000, `a quick fade (${fadeMs}ms)`);
-  assert.truthy(panMs >= 6000, `over a long push (${panMs}ms)`);
-  assert.truthy(/const STORY_WAKE_DELAY_MS = STORY_PAN_MS - STORY_WAKE_FADE_MS;/.test(source), 'the fade ends with the push');
-  assert.truthy(/animation: nightmare-pan var\(--nightmare-pan-ms, 8s\)/.test(html), 'the push reads its length from the script');
-  assert.truthy(/animation: wake-reveal var\(--wake-fade-ms\) ease-in var\(--wake-delay-ms, 0ms\) both;/.test(html),
-    'the reveal holds invisible through the delay (both), then fades over the fade');
+  assert.falsy(/wake-reveal|STORY_WAKE_DELAY_MS/.test(html), 'no delayed wake button');
   for (const reduced of [false, true]) {
     const nodes = {};
     for (const id of ['story', 'story-art', 'story-text', 'story-next', 'story-skip']) nodes[id] = {
@@ -154,15 +144,8 @@ test('opening: wake up fades in with the end of the zoom, taps during the fade s
     assert.truthy(nodes.story.classes.has('nightmare'), 'nightmare gets the opaque backdrop and camera treatment');
     assert.falsy(text.hidden, 'the dream carries the call to wake');
     assert.eq(text.textContent, 'That night you enter fitful dreams...');
-    assert.eq(btn.disabled, !reduced);
-    if (!reduced) {
-      assert.eq(delay, panMs - fadeMs, 'the button is held only while it is still fully invisible');
-      assert.truthy(btn.classes.has('nightmare-wake'));
-      click();
-      assert.eq(btn.textContent, 'wake up', 'invisible CTA cannot advance');
-      ready();
-      assert.falsy(btn.disabled, 'tappable from the first frame of its fade — a tap mid-fade skips');
-    }
+    assert.falsy(btn.disabled, 'wake up can advance immediately');
+    assert.eq(delay, undefined, 'no button timer');
     click();
     assert.eq(btn.textContent, 'Next');
     assert.eq(text.textContent, 'You check the compass. You wake up in an unfamiliar trailer, memories a blur.');
@@ -180,7 +163,7 @@ test('opening: wake up fades in with the end of the zoom, taps during the fade s
     assert.truthy(done && stored && nodes.story.removed);
   }
   // "Skip intro" finishes the opening from the discovery or dream,
-  // including while the wake-up button is still held invisible.
+  // with its button immediately available.
   for (const skipFromDream of [false, true]) {
     const nodes = {};
     for (const id of ['story', 'story-art', 'story-text', 'story-next', 'story-skip']) nodes[id] = {
@@ -198,7 +181,6 @@ test('opening: wake up fades in with the end of the zoom, taps during the fade s
   }
   assert.truthy(/<\/div>\s*<\/div>\s*<button id="story-skip"[^>]*>Skip intro<\/button>\s*<\/div>/.test(html),
     'the skip link sits on the mask itself, after the story panel, not inside it');
-  assert.truthy(/@keyframes wake-reveal/.test(html));
   assert.truthy(/prefers-reduced-motion: reduce/.test(html));
 });
 
