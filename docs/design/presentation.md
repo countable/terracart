@@ -87,6 +87,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   Engravings retain their aspect ratio rather than stretching to viewport height.
   The dragon header reserves its full 750:220 aspect ratio at the panel width;
   its chrome stays above scene paintings and loading mosaics without cropping the head.
+  Sheets have no duplicate metal side rails or border: the outer compass housing
+  supplies that frame. The dragon rail and painting edges feather into the content
+  surface without a bright horizontal seam. Painted sheets reserve a separate
+  title band so scrolling copy cannot overlap their fixed category heading.
   The modal gate publishes the final sheet edge in viewport pixels so silver
   shoulders remain visible above scaled sheets without covering their controls.
   It clips the header readouts at that edge too; story sheets rise above the

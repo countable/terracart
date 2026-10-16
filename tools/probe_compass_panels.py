@@ -25,6 +25,16 @@ async def probe(args):
               document.querySelectorAll('#bootload,#howto,#story').forEach(e=>e.style.display='none');
               s._syncModalGate();
             }""")
+            # Inspect the initial, short-copy composition as well as the long
+            # scrolled state below; background seams can hide behind long copy.
+            for kind in ['story', 'shop', 'spirit']:
+                await page.evaluate("""kind=>__game.scene.getScene('map').showMessageModal({kind,
+                  title:kind==='spirit'?'Dragon Spirit':'Compass '+kind,
+                  body:'The silver mechanism stirs. A path opens beyond the trees.', art:'kind_memory'})""", kind)
+                await page.wait_for_timeout(500)
+                await page.screenshot(path=str(args.output/f'{width}-{kind}-short.png'))
+                await page.locator('#message-modal .compass-action').click()
+                await page.wait_for_function("!document.getElementById('message-modal')")
             for kind in ['story', 'shop', 'spirit']:
                 await page.evaluate("""kind=>__game.scene.getScene('map').showMessageModal({kind,
                   title:kind==='spirit'?'Dragon Spirit':'Compass '+kind,
@@ -35,6 +45,16 @@ async def probe(args):
                 geometry=await page.locator('#message-modal .modal-box').evaluate("""e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e),b=e.querySelector('button').getBoundingClientRect();return {bottom:r.bottom,top:r.top,border:s.borderBottomWidth,buttonBottom:b.bottom,buttonTop:b.top,scroll:e.querySelector('.modal-body').scrollHeight>e.querySelector('.modal-body').clientHeight}}""")
                 assert abs(geometry['bottom']-height)<3, geometry
                 assert geometry['border']=='0px', geometry
+                chrome=await page.locator('#message-modal .modal-box').evaluate("""e=>{
+                  const s=getComputedStyle(e),rail=getComputedStyle(e,'::before'),sides=getComputedStyle(e,'::after');
+                  const body=e.querySelector('.modal-body').getBoundingClientRect(),title=e.querySelector('.modal-kind');
+                  return {left:s.borderLeftWidth,right:s.borderRightWidth,sideContent:sides.content,
+                    railBorder:rail.borderBottomWidth,railShadow:rail.boxShadow,railMask:rail.maskImage,
+                    titleClear:!e.classList.contains('modal-scene')||!title||body.top>=title.getBoundingClientRect().bottom};
+                }""")
+                assert chrome['left']==chrome['right']==chrome['railBorder']=='0px', chrome
+                assert chrome['sideContent']=='none' and chrome['railShadow']=='none', chrome
+                assert chrome['railMask']!='none' and chrome['titleClear'], chrome
                 assert 0<=geometry['buttonTop']<geometry['buttonBottom']<=height, geometry
                 await page.screenshot(path=str(args.output/f'{width}-{kind}.png'))
                 await page.locator('#message-modal .compass-action').click()
@@ -54,7 +74,7 @@ async def probe(args):
         for index, fullscreen in enumerate([True,True,False,False]):
             classes=await page.locator('#story').get_attribute('class') or ''
             assert ('story-fullscreen' in classes)==fullscreen, classes
-            if index==2: assert (await page.locator('#story-text').text_content()).startswith('You check the compass.')
+            if index==2: assert (await page.locator('#story-text').text_content()).startswith('The compass shows you')
             await page.wait_for_function("Array.from(document.querySelectorAll('#story-art img')).every(i=>i.complete && i.naturalWidth>0)")
             await page.wait_for_timeout(150)
             await page.screenshot(path=str(args.output/f'opening-{index+1}.png'))

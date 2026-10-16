@@ -1,20 +1,8 @@
 /* Living silver: the stationary rail is ornate; touch controls stay simple.
    Shared by the existing scene shell and the pre-scene opening storyboard. */
 .compass-panel, #story.compass-story {
-  --panel-metal: #bfc2ba;
-  --panel-glow: #b9c4c0;
   --panel-rail: url('../assets/ui/compass/reference-panel-rail.webp');
-  --panel-rail-height: calc((min(100vw, 480px) - 4px) * 220 / 750);
-}
-.compass-panel[data-kind='shop'], .compass-panel[data-kind='trade'],
-.compass-panel[data-kind='forge'], .compass-panel[data-kind='relics'] {
-  --panel-metal: #c1bba6;
-  --panel-glow: #b9a87b;
-}
-.compass-panel[data-kind='talk'], .compass-panel[data-kind='spirit'],
-.compass-panel[data-kind='note'], .compass-panel[data-kind='menu'] {
-  --panel-metal: #c1c5bd;
-  --panel-glow: #aabbb7;
+  --panel-rail-height: calc(min(100vw, 480px) * 220 / 750);
 }
 /* Shade the exposed game behind the sheet and the body-level HUD above it. */
 .compass-panel { background-image: linear-gradient(#0008, #0008) !important; }
@@ -33,13 +21,11 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   height: auto !important;
   /* Every dialog rises to 7/8 of the screen. */
   top: calc(var(--view-h, 844px) * .125) !important;
-  border: 2px solid var(--panel-metal) !important;
-  border-bottom: 0 !important;
+  border: 0 !important;
   border-radius: 24px 24px 0 0 !important;
   padding: calc(var(--panel-rail-height) + 10px) 22px max(22px, env(safe-area-inset-bottom)) !important;
   background-color: #141b1d !important;
-  box-shadow: inset 4px 0 0 #424a48, inset -4px 0 0 #424a48,
-    0 -5px 24px #0009, 0 -1px 0 #e1edf0;
+  box-shadow: 0 -5px 24px #0009;
   isolation: isolate;
 }
 .compass-panel[data-kind='story'] > .modal-box {
@@ -48,11 +34,11 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 .compass-panel > .modal-box::before, #story.compass-story .box::before {
   content: '';
   position: absolute; z-index: 3; top: 0; left: 0; right: 0; height: var(--panel-rail-height);
-  background: var(--panel-rail) center top / 100% auto no-repeat,
-    linear-gradient(180deg, #d9dbd3, #7c837e 45%, #3f4543 52%, #c4c8bd 58%, #69716c);
+  background: var(--panel-rail) center top / 100% auto no-repeat;
   border-radius: 25px 25px 0 0;
-  border-bottom: 1px solid var(--panel-glow);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--panel-glow) 30%, transparent);
+  /* The housing already frames the sheet. Feather its textured header into
+     the content instead of drawing a bright horizontal joint. */
+  mask-image: linear-gradient(#000 calc(100% - 14px), transparent);
   pointer-events: none;
 }
 .compass-panel .modal-kind {
@@ -68,6 +54,9 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 .compass-panel .modal-art, .compass-panel .modal-art-mosaic {
   inset: calc(var(--panel-rail-height) + 44px) 18px 12px !important;
   border-radius: 0 !important;
+  mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 14px), transparent),
+    linear-gradient(to bottom, transparent, #000 16px, #000 65%, transparent);
+  mask-composite: intersect;
 }
 .compass-panel .compass-action { border-radius: 13px !important; min-height: 38px; }
 .compass-panel .compass-action-primary:not(.compass-action-accent):not(:disabled) {
@@ -94,6 +83,11 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   .compass-panel[data-kind='spirit'] .modal-kind { font-size: 20px !important; }
   .compass-panel[data-kind='spirit'] .modal-body { font-size: 15px; }
   .compass-panel[data-kind='spirit'] .modal-confirm-actions { gap: 9px !important; margin-top: 12px; }
+}
+/* Painted dialogs pin their category below the dragon. The scroll region
+   starts beneath that title, so long copy cannot collide with it. */
+.compass-panel > .modal-box.modal-scene {
+  padding-top: calc(var(--panel-rail-height) + 44px) !important;
 }
 .compass-panel .modal-body { min-height: 0; scrollbar-width: thin; }
 .compass-panel .modal-portrait { margin-top: 8px !important; }
@@ -122,7 +116,7 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   width: min(100%, 480px); max-width: 480px; height: 87.5%; max-height: none;
   padding: var(--panel-rail-height) 0 calc(60px + env(safe-area-inset-bottom));
   box-sizing: border-box; overflow-y: auto;
-  border: 2px solid var(--panel-metal); border-bottom: 0; border-radius: 28px 28px 0 0;
+  border: 0; border-radius: 28px 28px 0 0;
   background: #1b252c; box-shadow: 0 -8px 35px #0009;
   animation: compass-panel-rise 240ms ease-out both;
 }
@@ -177,16 +171,6 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 body.compass-hud.modal-open #compass-body {
   clip-path: inset(0 0 max(0px, calc(100% - var(--compass-panel-edge, var(--compass-map-top)))) 0);
 }
-/* Fine chased rails continue beyond the screen floor; the painting and touch
-   targets remain clear of the fixed ornament. There is no lower frame. */
-.compass-panel > .modal-box::after, #story.compass-story .box::after {
-  content: ''; position: absolute; inset: var(--panel-rail-height) 0 0;
-  z-index: 3; pointer-events: none;
-  background:
-    repeating-linear-gradient(145deg, transparent 0 13px, #f0f1e65e 14px, #333b3766 16px, transparent 18px 28px) left / 7px 100% no-repeat,
-    repeating-linear-gradient(215deg, transparent 0 13px, #f0f1e65e 14px, #333b3766 16px, transparent 18px 28px) right / 7px 100% no-repeat,
-    linear-gradient(90deg, #434b46, #d1d5c8 2px, #727b70 4px, #282f2b 7px, transparent 8px, transparent calc(100% - 8px), #282f2b calc(100% - 7px), #727b70 calc(100% - 4px), #d1d5c8 calc(100% - 2px), #434b46);
-}
 .compass-panel .compass-action-primary:not(.compass-action-accent):not(:disabled) {
   background: linear-gradient(#f7e3a0, #e8c35f 22%, #ce9f3c 82%, #d9b55c) !important;
   border-color: #dfc684 !important;
@@ -196,8 +180,7 @@ body.compass-hud.modal-open #compass-body {
   box-shadow: inset 0 1px 0 #d9ddbf24, 0 1px 2px #0005;
 }
 
-/* Keep the scrolling well aligned with the inner metal edge; copy keeps its
-   comfortable inset, while the scrollbar no longer floats inside the page. */
+/* Keep copy comfortably inset and the scrollbar near the unframed edge. */
 .compass-panel { --panel-content-inset: 22px; }
 .compass-panel > .modal-box { overflow: hidden !important; }
 .compass-panel .modal-body {
