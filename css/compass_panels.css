@@ -49,14 +49,12 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   text-transform: none !important; color: #f3dfa0 !important;
   text-shadow: 0 2px 3px #000, 0 0 12px #000;
 }
-/* Reserve an opaque header/title band: neither painting nor loading mosaic
-   can extend into the dragon rail or the title beneath it. */
+/* Art and loading mosaics share one square crop in the scroll flow. */
 .compass-panel .modal-art, .compass-panel .modal-art-mosaic {
-  inset: calc(var(--panel-rail-height) + 44px) 18px 12px !important;
+  inset: 0 auto auto 50% !important;
+  width: var(--scene-square-size); height: var(--scene-square-size);
+  transform: translateX(-50%);
   border-radius: 0 !important;
-  mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 14px), transparent),
-    linear-gradient(to bottom, transparent, #000 16px, #000 65%, transparent);
-  mask-composite: intersect;
 }
 .compass-panel .compass-action { border-radius: 13px !important; min-height: 38px; }
 .compass-panel .compass-action-primary:not(.compass-action-accent):not(:disabled) {
@@ -240,14 +238,6 @@ body.compass-hud #menu[open] > summary {
 .compass-panel .modal-speech em {color:#485347;}
 @media(max-width:360px) {
   .compass-panel .modal-speech {padding:12px;font-size:14px!important;}
-}
-
-/* Square scene paintings are complete illustrations in the scroll flow.
-   The lower half is copy, not a dark region baked into the image. */
-.compass-panel .modal-square-art .modal-art,
-.compass-panel .modal-square-art .modal-art-mosaic {
-  inset: 0 0 14px !important;
-  mask-image: none;
 }
 
 .compass-panel .modal-scene .modal-title { position: relative; top: 4px; }

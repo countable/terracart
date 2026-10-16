@@ -88,8 +88,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   The dragon header reserves its full 750:220 aspect ratio at the panel width;
   its chrome stays above scene paintings and loading mosaics without cropping the head.
   Sheets have no duplicate metal side rails or border: the outer compass housing
-  supplies that frame. The dragon rail and painting edges feather into the content
-  surface without a bright horizontal seam. Painted sheets reserve a separate
+  supplies that frame. The dragon rail feathers into the content surface
+  without a bright horizontal seam; scene artwork has a clean square crop. Painted sheets reserve a separate
   title band so scrolling copy cannot overlap their fixed category heading.
   The modal gate publishes the final sheet edge in viewport pixels so silver
   shoulders remain visible above scaled sheets without covering their controls.
@@ -228,17 +228,15 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Dialogs use `makeModalShell` with a kind, which supplies a default scene
   painting unless the caller supplies a character `portrait` or `art: false`.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
-  square, with a complete scene and no baked dark text area. Square paintings
-  fit intact in the upper half of the usable dialog body, with copy immediately
-  below in the lower half; image and content scroll together. Intrinsic aspect
-  metadata selects this layout before loading, and loaded image dimensions
-  confirm it. Existing tall paintings keep their quiet lower copy zone: short
-  text starts just below the measured detail line, including reward ceremonies,
-  instead of dropping to the foot of the sheet. Long legacy copy uses the shorter
-  band layout. Painted headers use a label without emoji/`kindIcon`.
-  Popover artwork starts 44 pixels below the dragon rail, leaving a solid
-  title band; its sides clear the trim by 18 pixels. Loading mosaics use the
-  same inset. Framed opening stories without titles keep a 14-pixel rail gap.
+  square, with a complete scene and no baked dark text area. All existing and
+  new paintings use the same square viewport: top-centred `cover` crops the lower
+  portion of tall assets without stretching them. The crop fits within the upper
+  half of the usable body; copy starts directly below that region in the lower
+  half, including reward ceremonies. Art, copy and actions share one scroller.
+  Long copy never changes the crop or its height. Loading mosaics use identical
+  geometry, so image decoding cannot shift the content. Painted headers use a
+  label without emoji/`kindIcon`, with the story title offset down four pixels.
+  Framed opening stories without titles keep their separate 14-pixel rail gap.
   `css/compass_panels.css` seats this same shell as a mechanical sheet that
   slides up from the compass and extends to the viewport floor without a
   bottom border. Open sheets shade the exposed map and upper HUD with a dark

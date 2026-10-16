@@ -1,13 +1,11 @@
 // The modal SHELL — the one dialog box every DOM dialog in the game is built
-// in: makeModalShell (the box seated on the map square, the scene painting as
-// its full-bleed background, the kind header, and mount(), which MEASURES the
-// copy and switches a text-heavy dialog to THE BAND), the three stock dialogs
+// in: makeModalShell (the square scene crop, separate copy region, kind header
+// and measured scroll layout), the stock dialogs
 // built on it (showMessageModal, showConfirmModal, showOfferModal,
 // showChestRewardModal), and
 // the gate that mirrors "a dialog is open" onto body.modal-open
 // (_installModalPadGate). Plus the tables they read: MODAL_KINDS and the
-// scene-art frame constants (STORY_MODAL_GROW_PX, ART_FRAME_ASPECT,
-// ART_DETAIL_FRAC, ART_BAND_*).
+// scene-art layout constants (STORY_MODAL_GROW_PX, ART_CONTENT_FRAC, ART_CONTENT_GAP_PX).
 //
 // The methods live on `class SceneModals`, a
 // MIXIN: app.js installs them onto MapScene.prototype right after the class
@@ -34,21 +32,11 @@
 // story growth constants still define scene-painting composition and the
 // fallback geometry before the stylesheet loads.
 const STORY_MODAL_GROW_PX = 96;
-// Legacy tall paintings reserve their lower portion for copy. New square
-// paintings use a complete image above a separate content region. Both share
-// one scroller; short copy starts immediately after the image/detail spacer.
-const ART_FRAME_ASPECT = 352 / (352 + STORY_MODAL_GROW_PX);
-const ART_DETAIL_FRAC = 0.42;
-// Copy begins below the detail fade, inside the legacy painting's quiet zone.
+// Every scene painting uses one top-aligned square crop above separate copy.
+// The square fits within the upper half of the usable body, leaving a small
+// gap before content; long scenes keep the same layout in one scroller.
 const ART_CONTENT_FRAC = 0.5;
-// THE BAND — the same painting for a TEXT-HEAVY dialog. When the copy will
-// not fit the quiet zone, the shell (mount()) shows only the painting's
-// subject line, rows ART_BAND_FROM..ART_DETAIL_FRAC (the sky above it is what
-// gives), in a band ART_BAND_FRAC of the box tall, and the content region
-// takes the rest. Chosen by MEASURING the copy, never by the caller, so a
-// dialog that grows a paragraph moves to the band by itself.
-const ART_BAND_FROM = 0.14;
-const ART_BAND_FRAC = ART_DETAIL_FRAC - ART_BAND_FROM;
+const ART_CONTENT_GAP_PX = 14;
 
 // ── What KIND of dialog is this? ────────────────────────────────────────────
 // Every modal opens with one of these: a hero icon and a one-word category, so
@@ -135,8 +123,7 @@ class SceneModals {
     kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
-    // Scene art is a story-sized dialog by definition — its frame is cut to
-    // the grown box (ART_FRAME_ASPECT).
+    // Scene art is a story-sized dialog with a square image above its copy.
     const kRow = typeof kind === 'string' ? MODAL_KINDS[kind] : kind;
     portrait = portrait || kRow?.portrait;
     art = portrait || art === false ? null : art || kRow?.art;
@@ -194,11 +181,6 @@ class SceneModals {
       boxExtra;
     // The 750×220 dragon rail must keep its full height at this panel width.
     box.style.setProperty('--panel-rail-height', `${vSize * 220 / 750}px`);
-    // The painting fills the box; the scrim darkens everything below the
-    // art's line, so the content region always sits on near-solid ground.
-    // The box itself stops scrolling — the body does (see mount()). `band`
-    // lifts the painting so only its subject line shows (THE BAND).
-    //
     // PIXEL RESOLVE. The painting is a request; its TONE and thumbnail
     // (ART_TONES / ART_THUMBS, src/art_thumbs.js) are inline. An uncached
     // painting opens on a solid block of its tone and resolves on a MOSAIC
@@ -207,39 +189,17 @@ class SceneModals {
     // so the wait reads as LOADING, not as a blurry picture. When the
     // painting lands, the mosaic takes the full thumbnail and the painting
     // fades in over it on a layer of its own. A cached painting skips all of
-    // it and is simply there. Every layer carries the same scrim, so the copy
-    // sits on the same ground throughout.
+    // it and is simply there. Both layers share the same square crop.
     const artLayer = art ? document.createElement('div') : null;
     const mosaicLayer = art ? document.createElement('div') : null;
-    const artAspect = typeof ART_ASPECTS !== 'undefined' ? ART_ASPECTS[art] : null;
-    let squareArt = Number.isFinite(artAspect) && Math.abs(artAspect - 1) < .05;
-    let layoutArt = () => {};
-    let mosaicImg = null;   // the current cut (a data URL), or null for the bare tone
+    let mosaicImg = null;
     const tone = (art && typeof ART_TONES !== 'undefined' && ART_TONES[art]) || '#1a1612';
-    let scenePos = 'center, center top';
-    let sceneScrim = '';
     const paintLayer = (el, img) => {
-      el.style.backgroundImage = img
-        ? `${sceneScrim}, url(${img})`
-        : `${sceneScrim}, linear-gradient(${tone}, ${tone})`;
-      el.style.backgroundSize = squareArt ? '100% 100%, contain' : '100% 100%, cover';
-      el.style.backgroundPosition = scenePos;
+      el.style.backgroundImage = img ? `url(${img})` : `linear-gradient(${tone}, ${tone})`;
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center top';
       el.style.backgroundRepeat = 'no-repeat';
       el.style.imageRendering = 'pixelated';
-    };
-    const paintScene = (band) => {
-      const line = Math.round((band ? ART_BAND_FRAC : ART_DETAIL_FRAC) * 100);
-      sceneScrim = squareArt ? 'linear-gradient(transparent, transparent)' :
-        `linear-gradient(to bottom, rgba(26,22,18,0) ${line - 8}%, rgba(26,22,18,.82) ${line + 6}%, #1a1612 ${line + 22}%)`;
-      scenePos = squareArt ? 'center, center' : band
-        ? `center, center ${-Math.round(ART_BAND_FROM * vSize / ART_FRAME_ASPECT)}px`
-        : 'center, center top';
-      paintLayer(mosaicLayer, mosaicImg);
-      paintLayer(artLayer, sceneArtUrl(art));
-      box.style.overflow = 'hidden';
-      box.classList.add('modal-scene');
-      box.classList.toggle('modal-scene-band', !squareArt && !!band);
-      box.classList.toggle('modal-square-art', squareArt);
     };
     if (art) {
       for (const el of [mosaicLayer, artLayer]) {
@@ -248,18 +208,13 @@ class SceneModals {
       }
       mosaicLayer.className = 'modal-art-mosaic';
       artLayer.className = 'modal-art';
-      paintScene(false);
+      box.classList.add('modal-scene');
+      paintLayer(mosaicLayer, mosaicImg);
+      paintLayer(artLayer, sceneArtUrl(art));
       const img = new Image();
-      const readShape = () => {
-        if (!img.naturalWidth || !img.naturalHeight) return;
-        squareArt = Math.abs(img.naturalWidth / img.naturalHeight - 1) < .05;
-        paintScene(false);
-        layoutArt();
-      };
       img.src = sceneArtUrl(art);
       if (img.complete) {
         artLayer.style.opacity = '1';
-        readShape();
       } else {
         artLayer.style.opacity = '0';
         artLayer.style.transition = 'opacity 420ms ease-out';
@@ -274,7 +229,6 @@ class SceneModals {
         }
         img.onload = () => {
           timers.forEach(clearTimeout);
-          readShape();
           mosaicLayer.classList.remove('modal-art-waiting');
           if (cuts) setCut(cuts[cuts.length - 1]);
           artLayer.style.opacity = '1';
@@ -372,12 +326,14 @@ class SceneModals {
         'padding-bottom:3px;' +
         // Above the painting layer (PIXEL RESOLVE), which is absolute.
         (art ? 'text-shadow:0 1px 2px #000;position:relative;z-index:1;' : '');
-      // A scene dialog's copy starts below the painting's detail line: a
-      // spacer holds that much of the scroller (sized once laid out, below),
-      // and copy starts there, including reward ceremonies. Square paintings
-      // occupy the upper half of the body without cropping or a text scrim.
+      // A square crop occupies the upper half of the body. Copy begins
+      // immediately after that region, including reward ceremonies.
       const spacer = art ? document.createElement('div') : null;
-      if (spacer) { spacer.className = 'modal-art-spacer'; spacer.style.cssText = 'flex:0 0 auto;'; }
+      if (spacer) {
+        spacer.className = 'modal-art-spacer';
+        spacer.style.cssText = 'position:relative;flex:0 0 auto;';
+        spacer.append(mosaicLayer, artLayer);
+      }
       const into = document.createElement('div');
       into.className = 'modal-content';
       into.style.cssText = art ? 'margin:0;flex:0 0 auto;' : 'margin:auto 0;flex:0 0 auto;';
@@ -402,7 +358,6 @@ class SceneModals {
       body.appendChild(into);
       box.style.overflow = 'hidden';
       box.appendChild(body);
-      if (artLayer) { box.insertBefore(artLayer, box.firstChild); box.insertBefore(mosaicLayer, artLayer); }
       if (kindNode && art) box.insertBefore(kindNode, box.firstChild);
       // Mount last: caller innerHTML cannot erase the fixed rail control.
       // The same cancellation path as backdrop dismissal preserves decisions,
@@ -428,27 +383,13 @@ class SceneModals {
       if (!document.body.classList.contains('modal-open')) wrap.classList.add('modal-anim');
       wrap.appendChild(box);
       (document.getElementById('game') || document.body).appendChild(wrap);
-      // Measured now it is laid out. TEXT-HEAVY → THE BAND only for the
-      // legacy tall compositions; square artwork always remains complete.
-      layoutArt = () => {
+      // All assets, cached or loading, use identical measured geometry.
+      const layoutArt = () => {
         if (!spacer || !box.isConnected) return;
-        const h = body.clientHeight;
-        if (squareArt) {
-          if (artLayer.parentNode !== spacer) spacer.append(mosaicLayer, artLayer);
-          spacer.style.position = 'relative';
-          spacer.style.height = `${Math.round(h * ART_CONTENT_FRAC)}px`;
-          return;
-        }
-        if (artLayer.parentNode === spacer) {
-          box.insertBefore(artLayer, body);
-          box.insertBefore(mosaicLayer, artLayer);
-        }
-        paintScene(false);
-        spacer.style.height = `${Math.round(h * ART_CONTENT_FRAC)}px`;
-        if (body.scrollHeight > h + 1) {
-          paintScene(true);
-          spacer.style.height = `${Math.round(h * ART_BAND_FRAC)}px`;
-        }
+        const upperHeight = Math.round(body.clientHeight * ART_CONTENT_FRAC);
+        const squareSize = Math.max(0, Math.min(spacer.clientWidth, upperHeight - ART_CONTENT_GAP_PX));
+        spacer.style.height = `${upperHeight}px`;
+        spacer.style.setProperty('--scene-square-size', `${squareSize}px`);
       };
       layoutArt();
       if (spacer && typeof ResizeObserver !== 'undefined') {

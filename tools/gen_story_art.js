@@ -45,7 +45,7 @@ const STYLE =
 
 // New dialog paintings are square illustrations. Copy belongs to the shell's
 // lower content area; no part of the generated image is reserved for text.
-// Existing portrait paintings remain supported by the runtime legacy layout.
+// Existing portrait paintings use the same top-aligned square display crop.
 const SCENE_ASPECT = 1;
 const SCENE_RULE =
   'COMPOSITION (strict): square illustration. Fill the square with the scene, ' +
