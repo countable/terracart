@@ -2253,6 +2253,25 @@ class MapScene extends Phaser.Scene {
     }
   }
 
+  // The save heartbeat catches offline deadlines and nearby grass from saves
+  // that predate regrowth, including burned tufts. Chunk queries keep this
+  // bounded to the current neighbourhood rather than scanning the tile cache.
+  _tickGrassRegrowth(now = Date.now()) {
+    let changed = SaveState.regrowGrass(this.save, now);
+    const cleared = new Set([...(this.save.picked || []), ...(this.save.burnedObjects || [])]);
+    if (cleared.size) {
+      const pc = this.playerToWorldCell(), p = playerWorldM(this);
+      const radius = Math.max(16, this.viewCells || 0) * this.cellM;
+      forEachLoadedTile(pc.tx, pc.ty, entry => {
+        WorldGen.forEachItemInBox(entry, 'wildplants',
+          p.x - radius, p.y - radius, p.x + radius, p.y + radius, plant => {
+            if (cleared.has(plant.id)) changed = SaveState.rememberClearedGrass(this.save, plant, now) || changed;
+          });
+      });
+    }
+    if (changed) persistSave(this.save);
+  }
+
   // Sharp obstacles hurt on entry and throughout contact, including pauses.
   // Exact intervals catch briefly crossed cells; overlapping props count once.
   // Fractional mitigated damage carries between frames.
@@ -3337,7 +3356,7 @@ class MapScene extends Phaser.Scene {
 
     // SaveSession samples the wall clock on its own cadence. Its lifecycle
     // flush forces an exact timestamp before the tab hides or closes.
-    SaveSession.touch();
+    if (SaveSession.touch()) this._tickGrassRegrowth();
     this._tickShrineRegen(dt);
     this._tickFishRegen();
 

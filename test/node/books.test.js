@@ -144,7 +144,8 @@ test('course: a page read heads on its volume line, with no title row over it', 
 });
 
 test('course: story topics retain their saved-bookmark positions', () => {
-  assert.eq(PLAY_TIPS.length, 152, 'new guides append after the existing saved bookmarks');
+  assert.eq(PLAY_TIPS.length, 153, 'new guides append after the existing saved bookmarks');
+  assert.eq(PLAY_TIPS[152], ITEM_GUIDE_TIPS.growth_powder, 'Growth Powder appends without moving saved pages');
   assert.truthy(/Joined the book club/.test(PLAY_TIPS[141]), 'the published book club page keeps its bookmark');
   assert.eq(PLAY_TIPS[149], ITEM_GUIDE_TIPS.barricade);
   assert.eq(PLAY_TIPS[150], ITEM_GUIDE_TIPS.wind_scroll);

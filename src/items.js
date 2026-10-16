@@ -65,6 +65,10 @@ const CROP_SPRITE = {
   // 0-indexed = 0*22 + 10 = 10. Renders as leafy green fronds at the
   // wildplant scale (1.16 keeps the tuft from crowding one-cell props).
   longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 },
+  // Previously unused Props frames: green sprig and upright leafy nettle.
+  // Inventory resolves these same frames through each item's crop key.
+  petnip: { sheet: 'props', custom: true, frame: 32, scale: 1.16 },
+  nettle: { sheet: 'props', custom: true, frame: 33, scale: 1.13 },
   // Shrub looks share harvesting; brambles mark thorny groves and roads.
   shrub: { ...BUSH_SPRITE,
     looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frame: 0, scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frame: 0, scale: (4 / 3) * 0.8 } } },
@@ -766,7 +770,7 @@ const BASE_TIER = {
   ...Object.fromEntries(Object.entries(MINERAL_TIERS)
     .map(([tier, row]) => [row.barId, Number(tier)])),
   // Wild produce / animal output
-  longgrass: 1, flowers: 1, mushroom: 1, old_boot: 1,
+  longgrass: 1, flowers: 1, mushroom: 1, old_boot: 1, petnip: 1, nettle: 2,
   // Rare wild flora — foraged flowers, climbing from meadow-common
   // (forget-me-not) to the glowing starflower (rarest). Tier drives the
   // shiny-find bonus and loot-value scaling.
@@ -954,6 +958,8 @@ const ITEMS = [
   // back-compat. The sprite is Props.png's frond frame; in-world + inventory
   // render the baked 'props' frame via ITEM_DATA_URLS.
   { id: 'longgrass', name: 'Long grass', kind: 'produce', crop: 'longgrass' },
+  { id: 'petnip', name: 'PetNip', kind: 'produce', crop: 'petnip', petFood: { maxHp: 1 } },
+  { id: 'nettle', name: 'Nettle', kind: 'produce', crop: 'nettle' },
   // Wild flower pickups (per-polygon color but stacks as a single item).
   { id: 'flowers', name: 'Flowers', kind: 'produce' },
   // Rare wild flora — prized foraged flowers picked from sparse blooms in
@@ -1757,6 +1763,8 @@ const PRICES = {
   dog: 35,         // companion animal (wants meat) — modest sale, never eaten
   // ── Wild-only ────────────────────────────────────────────
   longgrass: 1,
+  petnip: 4,
+  nettle: 8,
   flowers: 2,
   // Rare wild flora — sell value climbs with rarity; the glowing starflower
   // is a premium forage find (between gemfruit and the magical sunflower).
@@ -1940,6 +1948,7 @@ const FEATHER_REVIVE_ENERGY = 1;
 const TRAP_KIT_KEEP_CHANCE = 0.8;
 
 const ITEM_GUIDE_TIPS = {
+  growth_powder: 'At home I ground nettles with long grass into a green powder. The seedlings stirred before I had finished sprinkling it.',
   barricade: 'I lashed the spare timber into a barricade at home, then carried it down to the cave. The narrow passage needed less wood than I feared.',
   crow_feather: 'My legs failed on the long road. I pressed the black feather to my lips. Just enough strength to rise. Sometimes that is all a mercy needs to be.',
   scarecrow: 'The deer have kept to the tree line since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
@@ -2005,6 +2014,8 @@ const ITEM_EFFECTS = {
   mango: 'Even wary animals lean toward its golden scent.',
   worldpeach: 'Its soft sweetness washes every affliction away.',
   longgrass: 'Its tough fibres hold fast when twisted together.',
+  petnip: 'A fragrant sprig that cheers a pet and strengthens its heart.',
+  nettle: 'A prickly herb ground into Growth Powder to wake sleeping crops.',
   rubble: 'Beneath its pale skin lies a stone hard enough for a ruined wall.',
   quartz: 'Soft pink light catches in the stone’s cloudy heart.',
   topaz: 'A honey-gold gleam rests between its sharp edges.',
@@ -2908,6 +2919,7 @@ const HOME_RECIPES = [
   // Four stones knock a snare's jaw shut for good.
   { id: 'trap_disarm_kit',  cost: [{ id: 'rubble', qty: 4 }] },
   { id: 'sugar_potion',      cost: [{ id: 'berry', qty: 2 }] },
+  { id: 'growth_powder', cost: [{ id: 'nettle', qty: 3 }, { id: 'longgrass', qty: 5 }] },
   ...ITEMS.filter(item => item.scroll).map(item => ({
     id: item.id, cost: [{ id: 'blank_scroll', qty: 1 }],
   })),

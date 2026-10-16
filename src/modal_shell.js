@@ -1,13 +1,11 @@
 // The modal SHELL — the one dialog box every DOM dialog in the game is built
-// in: makeModalShell (the box seated on the map square, the scene painting as
-// its full-bleed background, the kind header, and mount(), which MEASURES the
-// copy and switches a text-heavy dialog to THE BAND), the three stock dialogs
+// in: makeModalShell (the square scene crop, separate copy region, kind header
+// and measured scroll layout), the stock dialogs
 // built on it (showMessageModal, showConfirmModal, showOfferModal,
 // showChestRewardModal), and
 // the gate that mirrors "a dialog is open" onto body.modal-open
 // (_installModalPadGate). Plus the tables they read: MODAL_KINDS and the
-// scene-art frame constants (STORY_MODAL_GROW_PX, ART_FRAME_ASPECT,
-// ART_DETAIL_FRAC, ART_BAND_*).
+// scene-art fallback geometry (STORY_MODAL_GROW_PX).
 //
 // The methods live on `class SceneModals`, a
 // MIXIN: app.js installs them onto MapScene.prototype right after the class
@@ -34,26 +32,8 @@
 // story growth constants still define scene-painting composition and the
 // fallback geometry before the stylesheet loads.
 const STORY_MODAL_GROW_PX = 96;
-// SCENE ART — the standard for a dialog with a painting (makeModalShell
-// `art`). The piece IS the box: generated tall and cut to the story box's own
-// shape (ART_FRAME_ASPECT, width:height), drawn full-bleed as its background.
-// Every piece is composed to one rule (tools/gen_story_art.js SCENE): the
-// subject and all the detail in the top ART_DETAIL_FRAC of the frame, and a
-// calm, low-detail QUIET ZONE below it. The copy is the dialog's CONTENT
-// REGION: anchored to the bottom, never taller than the quiet zone (it
-// scrolls inside it rather than climbing onto the subject), over a scrim
-// that darkens exactly the quiet zone — so text and subject cannot collide
-// whatever the dialog says.
-const ART_FRAME_ASPECT = 352 / (352 + STORY_MODAL_GROW_PX);
-const ART_DETAIL_FRAC = 0.42;
-// THE BAND — the same painting for a TEXT-HEAVY dialog. When the copy will
-// not fit the quiet zone, the shell (mount()) shows only the painting's
-// subject line, rows ART_BAND_FROM..ART_DETAIL_FRAC (the sky above it is what
-// gives), in a band ART_BAND_FRAC of the box tall, and the content region
-// takes the rest. Chosen by MEASURING the copy, never by the caller, so a
-// dialog that grows a paragraph moves to the band by itself.
-const ART_BAND_FROM = 0.14;
-const ART_BAND_FRAC = ART_DETAIL_FRAC - ART_BAND_FROM;
+// Scene paintings share one full-width square crop in CSS, tucked slightly
+// under the fixed dragon rail. Copy and actions follow in the same scroller.
 
 // ── What KIND of dialog is this? ────────────────────────────────────────────
 // Every modal opens with one of these: a hero icon and a one-word category, so
@@ -140,8 +120,7 @@ class SceneModals {
     kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
-    // Scene art is a story-sized dialog by definition — its frame is cut to
-    // the grown box (ART_FRAME_ASPECT).
+    // Scene art is a story-sized dialog with a square image above its copy.
     const kRow = typeof kind === 'string' ? MODAL_KINDS[kind] : kind;
     const speech = kind === 'spirit' || kind === 'talk';
     portrait = portrait || kRow?.portrait;
@@ -200,12 +179,7 @@ class SceneModals {
       (textAlign ? `text-align:${textAlign};` : '') +
       boxExtra;
     // The 750×220 dragon rail must keep its full height at this panel width.
-    box.style.setProperty('--panel-rail-height', `${(vSize - 4) * 220 / 750}px`);
-    // The painting fills the box; the scrim darkens everything below the
-    // art's line, so the content region always sits on near-solid ground.
-    // The box itself stops scrolling — the body does (see mount()). `band`
-    // lifts the painting so only its subject line shows (THE BAND).
-    //
+    box.style.setProperty('--panel-rail-height', `${vSize * 220 / 750}px`);
     // PIXEL RESOLVE. The painting is a request; its TONE and thumbnail
     // (ART_TONES / ART_THUMBS, src/art_thumbs.js) are inline. An uncached
     // painting opens on a solid block of its tone and resolves on a MOSAIC
@@ -214,35 +188,17 @@ class SceneModals {
     // so the wait reads as LOADING, not as a blurry picture. When the
     // painting lands, the mosaic takes the full thumbnail and the painting
     // fades in over it on a layer of its own. A cached painting skips all of
-    // it and is simply there. Every layer carries the same scrim, so the copy
-    // sits on the same ground throughout.
+    // it and is simply there. Both layers share the same square crop.
     const artLayer = art ? document.createElement('div') : null;
     const mosaicLayer = art ? document.createElement('div') : null;
-    let mosaicImg = null;   // the current cut (a data URL), or null for the bare tone
+    let mosaicImg = null;
     const tone = (art && typeof ART_TONES !== 'undefined' && ART_TONES[art]) || '#1a1612';
-    let scenePos = 'center, center top';
-    let sceneScrim = '';
     const paintLayer = (el, img) => {
-      el.style.backgroundImage = img
-        ? `${sceneScrim}, url(${img})`
-        : `${sceneScrim}, linear-gradient(${tone}, ${tone})`;
-      el.style.backgroundSize = '100% 100%, cover';
-      el.style.backgroundPosition = scenePos;
+      el.style.backgroundImage = img ? `url(${img})` : `linear-gradient(${tone}, ${tone})`;
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center top';
       el.style.backgroundRepeat = 'no-repeat';
       el.style.imageRendering = 'pixelated';
-    };
-    const paintScene = (band) => {
-      const line = Math.round((band ? ART_BAND_FRAC : ART_DETAIL_FRAC) * 100);
-      sceneScrim =
-        `linear-gradient(to bottom, rgba(26,22,18,0) ${line - 8}%, rgba(26,22,18,.82) ${line + 6}%, #1a1612 ${line + 22}%)`;
-      scenePos = band
-        ? `center, center ${-Math.round(ART_BAND_FROM * vSize / ART_FRAME_ASPECT)}px`
-        : 'center, center top';
-      paintLayer(mosaicLayer, mosaicImg);
-      paintLayer(artLayer, sceneArtUrl(art));
-      box.style.overflow = 'hidden';
-      box.classList.add('modal-scene');
-      box.classList.toggle('modal-scene-band', !!band);
     };
     if (art) {
       for (const el of [mosaicLayer, artLayer]) {
@@ -251,7 +207,9 @@ class SceneModals {
       }
       mosaicLayer.className = 'modal-art-mosaic';
       artLayer.className = 'modal-art';
-      paintScene(false);
+      box.classList.add('modal-scene');
+      paintLayer(mosaicLayer, mosaicImg);
+      paintLayer(artLayer, sceneArtUrl(art));
       const img = new Image();
       img.src = sceneArtUrl(art);
       if (img.complete) {
@@ -302,7 +260,7 @@ class SceneModals {
     let kindNode = null;
     // `header: false` (the ☰ menu): no kind header at all — the list is the
     // whole dialog.
-    if (!header) {
+    if (!header || (art && kind === 'story' && (!kindLabel || kindLabel === 'Story'))) {
       // no header
     } else if (k && art) {
       // With a painting, the painting is the hero: the category shrinks to a
@@ -355,9 +313,8 @@ class SceneModals {
       // ONE SCROLLER. The whole content area under the rail — header,
       // portrait, copy and buttons — is a single body that scrolls as one;
       // no dialog keeps a separately scrolling part. Inside it one content
-      // block rides auto margins: centred when short, flush to the top and
-      // scrolling when long (auto margins collapse on overflow, where
-      // centring would clip the top).
+      // block starts under its painting; unpainted dialogs remain centred
+      // when short and flow from the top when their content overflows.
       const body = document.createElement('div');
       body.className = 'modal-body';
       body.style.cssText =
@@ -368,18 +325,20 @@ class SceneModals {
         'padding-bottom:3px;' +
         // Above the painting layer (PIXEL RESOLVE), which is absolute.
         (art ? 'text-shadow:0 1px 2px #000;position:relative;z-index:1;' : '');
-      // A scene dialog's copy starts below the painting's detail line: a
-      // spacer holds that much of the scroller (sized once laid out, below),
-      // and the copy sits on the floor under it — or, `centerBody` (the chest
-      // ceremony), centred in what is left. Long copy scrolls up over the art.
+      // A full-width square crop tucks under the rail. Copy follows the
+      // image, including reward ceremonies; CSS owns responsive sizing.
       const spacer = art ? document.createElement('div') : null;
-      if (spacer) { spacer.className = 'modal-art-spacer'; spacer.style.cssText = 'flex:0 0 auto;'; }
+      if (spacer) {
+        spacer.className = 'modal-art-spacer';
+        spacer.style.cssText = 'position:relative;flex:0 0 auto;';
+        spacer.append(mosaicLayer, artLayer);
+      }
       const into = document.createElement('div');
       into.className = 'modal-content';
-      into.style.cssText = art && !centerBody ? 'margin-top:auto;flex:0 0 auto;' : 'margin:auto 0;flex:0 0 auto;';
+      into.style.cssText = art ? 'margin:0;flex:0 0 auto;' : 'margin:auto 0;flex:0 0 auto;';
       while (box.firstChild) into.appendChild(box.firstChild);
-      // The kind header scrolls with everything else; a painting's is a chip
-      // pinned on the art instead (placed in the box below).
+      // Useful categories scroll with the copy below a painting; generic
+      // Story adds no information and is omitted above.
       if (kindNode && !art) { kindNode.style.flex = '0 0 auto'; body.appendChild(kindNode); }
       if (speech && kindNode) {
         kindNode.classList.add('speech-speaker');
@@ -403,8 +362,7 @@ class SceneModals {
       body.appendChild(into);
       box.style.overflow = 'hidden';
       box.appendChild(body);
-      if (artLayer) { box.insertBefore(artLayer, box.firstChild); box.insertBefore(mosaicLayer, artLayer); }
-      if (kindNode && art) box.insertBefore(kindNode, box.firstChild);
+      if (kindNode && art) into.insertBefore(kindNode, into.firstChild);
       // Mount last: caller innerHTML cannot erase the fixed rail control.
       // The same cancellation path as backdrop dismissal preserves decisions,
       // mandatory acknowledgements, and the wrapper's capture-phase arming.
@@ -430,16 +388,6 @@ class SceneModals {
       wrap.appendChild(box);
       (speech ? document.body : document.getElementById('game') || document.body).appendChild(wrap);
       if (speech) { this._syncModalGate?.(); this._placeSpeechBubble(wrap, box, source); }
-      // Measured now it is laid out. TEXT-HEAVY → THE BAND: copy that would
-      // not fit under the detail line gets the band's shorter painting.
-      if (spacer) {
-        const h = body.clientHeight;
-        spacer.style.height = `${Math.round(h * ART_DETAIL_FRAC)}px`;
-        if (body.scrollHeight > h + 1) {
-          paintScene(true);
-          spacer.style.height = `${Math.round(h * ART_BAND_FRAC)}px`;
-        }
-      }
     };
     // ONE button factory for every button a modal shows, in two VARIANTS:
     //   primary — a CONTROL: gold, always (spec §UI COLOUR LANGUAGE), or a
@@ -579,6 +527,7 @@ class SceneModals {
 
     if (title) {
       const titleNode = document.createElement('div');
+      titleNode.className = 'modal-title';
       titleNode.style.cssText = 'opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066';
       titleNode.textContent = title;
       box.appendChild(titleNode);
@@ -625,7 +574,7 @@ class SceneModals {
     // No title, no title line: a page whose own heading is in the body (the
     // Book's volume line) starts on it, with no empty gold row above.
     const titleHTML = title
-      ? `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>`
+      ? `<div class="modal-title" style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>`
       : '';
     box.innerHTML = titleHTML + `<div class="${kind === 'spirit' || kind === 'talk' ? 'modal-speech' : ''}" style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
     const speech = kind === 'spirit' || kind === 'talk';

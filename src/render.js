@@ -2012,9 +2012,12 @@ Render.drawChestTrails = function drawChestTrails(scene) {
   const paths = Starter.trailPaths(scene, Date.now());
   if (!paths.length) return;
   if (!g) { g = scene._chestTrailGfx = scene.add.graphics(); scene.cobbleContainer.add(g); }
-  const style = Starter.TRAIL_STYLE;
+  const style = Starter.TRAIL_STYLE, player = playerWorldM(scene);
   g.lineStyle(style.width, style.colour, style.alpha);
   for (const path of paths) {
+    const radius = Math.hypot(player.x - path.target.x, player.y - path.target.y)
+      + scene.cellM * style.behindCells;
+    const radiusSquared = radius * radius;
     let along = 0;
     g.beginPath();
     for (let i = 1; i < path.points.length; i++) {
@@ -2022,17 +2025,23 @@ Render.drawChestTrails = function drawChestTrails(scene) {
       const b = worldMetersToScreen(scene, path.points[i].x, path.points[i].y);
       const length = Math.hypot(b.x - a.x, b.y - a.y);
       if (!length) continue;
-      let at = 0;
-      while (at < length) {
-        const phase = along % (style.dash + style.gap), ink = phase < style.dash;
-        const span = Math.min(length - at, (ink ? style.dash : style.dash + style.gap) - phase);
+      const visible = Starter.trailSegmentRange(path.points[i - 1], path.points[i], path.target, radiusSquared);
+      // Keep dash phase measured from the original route origin, including
+      // hidden segments. Clipping moves every frame without rebuilding routes.
+      if (!visible) { along += length; continue; }
+      let at = visible[0] * length;
+      const end = visible[1] * length;
+      while (at < end) {
+        const phase = (along + at) % (style.dash + style.gap), ink = phase < style.dash;
+        const span = Math.min(end - at, (ink ? style.dash : style.dash + style.gap) - phase);
         if (ink) {
           g.moveTo(a.x + (b.x - a.x) * at / length, a.y + (b.y - a.y) * at / length);
           g.lineTo(a.x + (b.x - a.x) * (at + span) / length, a.y + (b.y - a.y) * (at + span) / length);
         }
-        at += span; along += span;
-        if (span < 1e-8) { along += 1e-7; }
+        at += span;
+        if (span < 1e-8) at += 1e-7;
       }
+      along += length;
     }
     g.strokePath();
   }

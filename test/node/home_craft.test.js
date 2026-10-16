@@ -56,6 +56,18 @@ test('home craft: recipes include the starter Spear and the Sugar Potion from tw
   }
 });
 
+test('home craft: discovered Growth Powder consumes nettles and grass once', () => {
+  const s = scene([['nettle', 3], ['longgrass', 5]]);
+  s.save.foundWild = { growth_powder: 1 };
+  s.presentHomeCraft(0, 0, 'growth_powder');
+  assert.truthy(last(s).canAfford);
+  craft(s);
+  assert.eq(Inventory.count(s.save, 'growth_powder'), 1);
+  assert.eq(Inventory.count(s.save, 'nettle'), 0);
+  assert.eq(Inventory.count(s.save, 'longgrass'), 0);
+  assert.falsy(last(s).canAfford);
+});
+
 test('home craft: recipeCap is the fewest times any ingredient covers its share', () => {
   const bag = { wood: 7, flint_shard: 2 };
   const count = (id) => bag[id] || 0;

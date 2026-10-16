@@ -112,6 +112,23 @@ access or tile lifecycle mechanics.
   24 hours after landing; another shot refreshes that cell without duplicating
   it. Silk in flight is transient and is cleared when depth changes.
 
+- School fields carry denser wild grass plus common PetNip and rarer
+  Nettle, with densities owned by `BiomeProfiles`. Plain Small-road verges
+  sample herb seats on both sides every 21 metres; PetNip is the common roll,
+  Nettle the rare one. The ordinary spawn gate excludes unsafe seats, road
+  nexuses and themed stretches. Both herbs use the standard wildplant harvest
+  lane; PetNip feeds pets and Nettle supplies the Home Growth Powder recipe.
+
+- Cleared wild longgrass returns after an independently sampled exponential
+  wait averaging two real days (`SaveState.GRASS_REGROWTH_MEAN_MS`). Harvest
+  records the deadline in `save.grassRegrowth`; normalization and the ten-second
+  save heartbeat remove expired grass ids from `picked` / `burnedObjects`.
+  Deadlines persist across reloads and run while offline. Generated plants stay
+  in their tile lists, so the ordinary spent-state renderer reveals regrown
+  tufts without rerasterizing. The heartbeat discovers already-cleared grass
+  from older saves in nearby loaded chunks and starts its clock on that visit;
+  grass ids cannot safely be inferred from prefixes shared with other crops.
+  Player-owned plants and all other cleared objects retain their existing rules.
 - Picking a wild berry records its original id in `save.picked` as usual,
   but leaves the same bush at that location, with only its berries removed.
   Mature berry bushes use the ordinary bush frame and scale; a texture baked
@@ -297,6 +314,10 @@ access or tile lifecycle mechanics.
   lead to the nearest unopened T2+ surface chests and unfound, uncovered X
   marks within `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the
   surface; crates never get one. The line is faint dashed black ink (`Starter.TRAIL_STYLE`).
+  Each frame clips the cached route to the player's distance from its treasure
+  plus one cell (`behindCells`): the line recedes behind approaching feet and
+  returns when walking away. Segment clipping preserves dash positions and
+  separate visible stretches, without adding pathfinding as the player moves.
   The chest at a trail's end rolls `CHEST_TRAIL_TIER_BONUS` tier higher, within
   its depth cap; an X at a trail's end (`Starter.isTrailTreasure`) shows and
   digs without waiting for the feet to stand beside it.

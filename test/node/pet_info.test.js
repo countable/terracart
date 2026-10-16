@@ -30,6 +30,33 @@
     } finally { document.createElement = original; }
   }
 
+  test('pet feeding: PetNip is offered, consumed once and opens standard pleased speech', () => {
+    open('dog', (scene, _shell, pet) => {
+      Inventory.add(scene.save,'petnip',2);
+      scene.iconSpanHTML = (id,size) => `<span data-kind="${id}" data-size="${size}"></span>`;
+      scene._petChanged = () => {};
+      let offer, speech;
+      scene.showOfferModal = options => { offer=options; };
+      scene.showMessageModal = options => { speech=options; };
+      scene.presentPetFoodMenu(pet.id);
+      assert.truthy(offer.choices.find(c => c.key === 'petnip'));
+      offer.onAccept('petnip');
+      assert.eq(Inventory.count(scene.save,'petnip'),1);
+      assert.eq(pet.bonuses.maxHp,1);
+      assert.eq(speech.kind,'talk'); assert.truthy(speech.body.includes('dog-portrait.png'));
+      assert.truthy(speech.body.includes('width="128"'), 'large art stays in the speech body');
+      assert.truthy(speech.body.includes('pleased'));
+      speech.onDismiss(); assert.eq(scene.returnedTo,pet.id);
+    });
+  });
+  test('pet feeding: converted enemies get large sprite art in pleased speech', () => {
+    open('goblin', (scene, _shell, pet) => {
+      scene.iconSpanHTML = (id,size) => `${id}:${size}`;
+      let speech; scene.showMessageModal = options => { speech=options; };
+      scene.presentPetPleased(pet.id,'petnip');
+      assert.eq(speech.kind,'talk'); assert.truthy(speech.body.includes('goblin:128'));
+    });
+  });
   test('pet info: individual HP and damage include bonuses and accessories', () => {
     open('dog', (scene, shell, pet) => {
       assert.truthy(shell.mounted);

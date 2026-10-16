@@ -101,6 +101,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   Engravings retain their aspect ratio rather than stretching to viewport height.
   The dragon header reserves its full 750:220 aspect ratio at the panel width;
   its chrome stays above scene paintings and loading mosaics without cropping the head.
+  Sheets have no duplicate metal side rails or border: the outer compass housing
+  supplies that frame. Painted sheets mask the dragon rail along its lower silver silhouette so
+  the image fills the space beneath the ornament without its dark backing; scene artwork has a clean square crop. Painted sheets reserve a separate
+  content area below the image for useful category headings; painted stories omit
+  the generic “Story” label.
   The modal gate publishes the final sheet edge in viewport pixels so silver
   shoulders remain visible above scaled sheets without covering their controls.
   It clips the header readouts at that edge too; story sheets rise above the
@@ -154,6 +159,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   individual bonuses. Converted enemies use their main sprite as the portrait.
   Successful catches open this card immediately with **Close**; the first-pet
   story stays queued until the card closes. Inventory cards use **Back**.
+  Feeding PetNip from this menu or directly on the map opens the standard
+  `talk` speech dialog with a pleased response and the permanent max-HP gain.
+  It shows the pet's 128px portrait, or a 128px main sprite for converted enemies.
 
 - Character portraits use `CharacterPortraits` and transparent 80×80 cells
   from the generated 4×4 sheets (320×320 atlases) in `assets/portraits/`.
@@ -246,17 +254,23 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Dialogs use `makeModalShell` with a kind, which supplies a default scene
   painting unless the caller supplies a character `portrait` or `art: false`.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
-  portrait, subject above, quiet copy zone below. The shell handles overflow
-  with its band layout. Painted headers use a label without emoji/`kindIcon`.
-  Popover artwork starts 44 pixels below the dragon rail, leaving a solid
-  title band; its sides clear the trim by 18 pixels. Loading mosaics use the
-  same inset. Framed opening stories without titles keep a 14-pixel rail gap.
+  square, with a complete scene and no baked dark text area. All existing and
+  new paintings use the same square viewport: top-centred `cover` crops the lower
+  portion of tall assets without stretching them. The square spans the full
+  panel width and begins at the window top, behind the fixed silver dragon rail.
+  Copy follows directly below, with comfortable side padding and the specific
+  title offset down four pixels. Painted stories omit the generic “Story” label;
+  useful shop/event categories sit with the copy below the image. Art, copy and
+  actions share one scroller, so short screens retain the same full-width art
+  and scroll to their controls. CSS aspect-ratio keeps art and loading mosaics
+  identical during loading and viewport changes, without image-size detection.
+  Framed opening stories without titles keep their separate 14-pixel rail gap.
   `css/compass_panels.css` seats this same shell as a mechanical sheet that
   slides up from the compass and extends to the viewport floor without a
   bottom border. Open sheets shade the exposed map and upper HUD with a dark
   mask beneath the panel; the mask does not intercept input.
   Shop/trade, story/event and conversation kinds carry distinct
-  silver rails; controls retain simple gold faces. Safe-area padding and
+  category headings; controls retain simple gold faces. Safe-area padding and
   scrolling keep actions reachable. Reduced motion skips the slide. The
   `spirit` kind is the Dragon Spirit voice used by dormant module controls.
 - The modal HUD gate also covers the isolated upper-temple scene. Its scene

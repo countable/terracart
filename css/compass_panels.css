@@ -1,20 +1,8 @@
 /* Living silver: the stationary rail is ornate; touch controls stay simple.
    Shared by the existing scene shell and the pre-scene opening storyboard. */
 .compass-panel, #story.compass-story {
-  --panel-metal: #bfc2ba;
-  --panel-glow: #b9c4c0;
   --panel-rail: url('../assets/ui/compass/reference-panel-rail.webp');
-  --panel-rail-height: calc((min(100vw, 480px) - 4px) * 220 / 750);
-}
-.compass-panel[data-kind='shop'], .compass-panel[data-kind='trade'],
-.compass-panel[data-kind='forge'], .compass-panel[data-kind='relics'] {
-  --panel-metal: #c1bba6;
-  --panel-glow: #b9a87b;
-}
-.compass-panel[data-kind='talk'], .compass-panel[data-kind='spirit'],
-.compass-panel[data-kind='note'], .compass-panel[data-kind='menu'] {
-  --panel-metal: #c1c5bd;
-  --panel-glow: #aabbb7;
+  --panel-rail-height: calc(min(100vw, 480px) * 220 / 750);
 }
 /* Shade the exposed game behind the sheet and the body-level HUD above it. */
 .compass-panel { background-image: linear-gradient(#0008, #0008) !important; }
@@ -33,13 +21,11 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   height: auto !important;
   /* Every dialog rises to 7/8 of the screen. */
   top: calc(var(--view-h, 844px) * .125) !important;
-  border: 2px solid var(--panel-metal) !important;
-  border-bottom: 0 !important;
+  border: 0 !important;
   border-radius: 24px 24px 0 0 !important;
   padding: calc(var(--panel-rail-height) + 10px) 22px max(22px, env(safe-area-inset-bottom)) !important;
   background-color: #141b1d !important;
-  box-shadow: inset 4px 0 0 #424a48, inset -4px 0 0 #424a48,
-    0 -5px 24px #0009, 0 -1px 0 #e1edf0;
+  box-shadow: 0 -5px 24px #0009;
   isolation: isolate;
 }
 .compass-panel[data-kind='story'] > .modal-box {
@@ -48,12 +34,18 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 .compass-panel > .modal-box::before, #story.compass-story .box::before {
   content: '';
   position: absolute; z-index: 3; top: 0; left: 0; right: 0; height: var(--panel-rail-height);
-  background: var(--panel-rail) center top / 100% auto no-repeat,
-    linear-gradient(180deg, #d9dbd3, #7c837e 45%, #3f4543 52%, #c4c8bd 58%, #69716c);
+  background: var(--panel-rail) center top / 100% auto no-repeat;
   border-radius: 25px 25px 0 0;
-  border-bottom: 1px solid var(--panel-glow);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--panel-glow) 30%, transparent);
+  /* The housing already frames the sheet. Feather its textured header into
+     the content instead of drawing a bright horizontal joint. */
+  mask-image: linear-gradient(#000 calc(100% - 14px), transparent);
   pointer-events: none;
+}
+/* Follow the lower silver silhouette so the painting fills the space
+   beneath the dragons instead of showing the rail image's dark backing. */
+.compass-panel > .modal-box.modal-scene::before {
+  mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20750%20220%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20fill%3D%22white%22%20d%3D%22M0%200H750V220L726%20191L701%20165L678%20150L654%20148H415L375%20165L335%20148H96L72%20150L49%20165L24%20191L0%20220Z%22%2F%3E%3C%2Fsvg%3E");
+  mask-size: 100% 100%;
 }
 .compass-panel .modal-kind {
   top: calc(var(--panel-rail-height) + 6px) !important; left: 17px !important; right: 17px;
@@ -63,10 +55,15 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   text-transform: none !important; color: #f3dfa0 !important;
   text-shadow: 0 2px 3px #000, 0 0 12px #000;
 }
-/* Reserve an opaque header/title band: neither painting nor loading mosaic
-   can extend into the dragon rail or the title beneath it. */
+/* Full-width artwork begins behind the dragon chrome at the window top.
+   Its loading mosaic shares the same square geometry. */
+.compass-panel .modal-art-spacer {
+  padding-bottom: 14px;
+}
+.compass-panel .modal-art-spacer::before { content: ''; display: block; aspect-ratio: 1; }
 .compass-panel .modal-art, .compass-panel .modal-art-mosaic {
-  inset: calc(var(--panel-rail-height) + 44px) 18px 12px !important;
+  inset: 0 0 auto !important;
+  width: 100%; height: auto; aspect-ratio: 1;
   border-radius: 0 !important;
 }
 .compass-panel .compass-action { border-radius: 13px !important; min-height: 38px; }
@@ -95,6 +92,19 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   .compass-panel[data-kind='spirit'] .modal-body { font-size: 15px; }
   .compass-panel[data-kind='spirit'] .modal-confirm-actions { gap: 9px !important; margin-top: 12px; }
 }
+/* Painted sheets use the full width; only their copy is inset. Categories
+   belong with that copy, leaving the image clear beneath the fixed chrome. */
+.compass-panel > .modal-box.modal-scene { padding: 0 !important; }
+.compass-panel .modal-scene .modal-body {
+  margin: 0 !important; padding: 0 !important; scrollbar-width: none;
+}
+.compass-panel .modal-scene .modal-content {
+  box-sizing: border-box;
+  padding: 0 var(--panel-content-inset) max(22px, env(safe-area-inset-bottom));
+}
+.compass-panel .modal-scene .modal-kind {
+  position: static !important; margin: 0 0 10px;
+}
 .compass-panel .modal-body { min-height: 0; scrollbar-width: thin; }
 .compass-panel .modal-portrait { margin-top: 8px !important; }
 .compass-panel.modal-anim > .modal-box {
@@ -122,7 +132,7 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   width: min(100%, 480px); max-width: 480px; height: 87.5%; max-height: none;
   padding: var(--panel-rail-height) 0 calc(60px + env(safe-area-inset-bottom));
   box-sizing: border-box; overflow-y: auto;
-  border: 2px solid var(--panel-metal); border-bottom: 0; border-radius: 28px 28px 0 0;
+  border: 0; border-radius: 28px 28px 0 0;
   background: #1b252c; box-shadow: 0 -8px 35px #0009;
   animation: compass-panel-rise 240ms ease-out both;
 }
@@ -177,16 +187,6 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 body.compass-hud.modal-open #compass-body {
   clip-path: inset(0 0 max(0px, calc(100% - var(--compass-panel-edge, var(--compass-map-top)))) 0);
 }
-/* Fine chased rails continue beyond the screen floor; the painting and touch
-   targets remain clear of the fixed ornament. There is no lower frame. */
-.compass-panel > .modal-box::after, #story.compass-story .box::after {
-  content: ''; position: absolute; inset: var(--panel-rail-height) 0 0;
-  z-index: 3; pointer-events: none;
-  background:
-    repeating-linear-gradient(145deg, transparent 0 13px, #f0f1e65e 14px, #333b3766 16px, transparent 18px 28px) left / 7px 100% no-repeat,
-    repeating-linear-gradient(215deg, transparent 0 13px, #f0f1e65e 14px, #333b3766 16px, transparent 18px 28px) right / 7px 100% no-repeat,
-    linear-gradient(90deg, #434b46, #d1d5c8 2px, #727b70 4px, #282f2b 7px, transparent 8px, transparent calc(100% - 8px), #282f2b calc(100% - 7px), #727b70 calc(100% - 4px), #d1d5c8 calc(100% - 2px), #434b46);
-}
 .compass-panel .compass-action-primary:not(.compass-action-accent):not(:disabled) {
   background: linear-gradient(#f7e3a0, #e8c35f 22%, #ce9f3c 82%, #d9b55c) !important;
   border-color: #dfc684 !important;
@@ -196,8 +196,7 @@ body.compass-hud.modal-open #compass-body {
   box-shadow: inset 0 1px 0 #d9ddbf24, 0 1px 2px #0005;
 }
 
-/* Keep the scrolling well aligned with the inner metal edge; copy keeps its
-   comfortable inset, while the scrollbar no longer floats inside the page. */
+/* Keep copy comfortably inset and the scrollbar near the unframed edge. */
 .compass-panel { --panel-content-inset: 22px; }
 .compass-panel > .modal-box { overflow: hidden !important; }
 .compass-panel .modal-body {
@@ -258,3 +257,5 @@ body.compass-hud #menu[open] > summary {
 @media(max-width:360px) {
   .compass-panel .modal-speech {padding:12px;font-size:14px!important;}
 }
+
+.compass-panel .modal-scene .modal-title { position: relative; top: 4px; }
