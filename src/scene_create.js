@@ -153,9 +153,8 @@ class SceneCreate {
     // so it exists before anything can draw; the drag that moves it and the
     // rules it obeys are in the PEEK DRAG block further down.
     this.peekM = { x: 0, y: 0 };
-    // The pinch zoom's magnification (app.js PINCH_VIEW_CELLS): 1 unless a
-    // pinch is live or springing back.
-    this.mapZoom = 1;
+    // Buttons select the resting zoom; pinches return to it on release.
+    this._mapZoomRest = this.mapZoom = MAP_DEFAULT_ZOOM;
 
     const origin = WorldGen.lonLatToWorldPx(START_LON, START_LAT, WorldGen.Z);
     this.originPx = origin;
@@ -1408,6 +1407,7 @@ class SceneCreate {
     this.banner = document.getElementById('banner');
     this._settleInvCatOnBoot();
     this.buildInventoryDOM();
+    this._buildZoomControl();
 
     document.getElementById('objective-hide')
       ?.addEventListener('click', (e) => { e.stopPropagation(); this.dismissObjective(); });

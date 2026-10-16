@@ -300,3 +300,51 @@ body.compass-hud #compass-knowledge-display .mem-unspent::after {content:none;}
 body.compass-hud #compass-knowledge-display > .compass-closed {background:var(--compass-dormant-metal)!important;}
 body.compass-hud #compass-knowledge-display > .compass-closed::after {content:attr(data-compass-label);font:14px/1.2 Georgia,serif;letter-spacing:1px;white-space:nowrap;}
 @media(max-height:650px) {body.compass-hud #compass-knowledge-display > .compass-closed::after {font-size:12px;}}
+
+/* Compact instruments share one row, including the odometer. */
+body.compass-hud #hud-row {
+  top:18px;left:calc(var(--phone-left,0px) + var(--compass-map-size) * .14);
+  right:calc(var(--phone-right,0px) + var(--compass-map-size) * .025);
+  height:44px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) 42px minmax(0,.5fr);
+  grid-template-rows:44px;gap:6px;align-items:center;
+}
+body.compass-hud #menu {top:18px;left:calc(var(--phone-left,0px) + 8px);}
+body.compass-hud #menu summary {width:calc(var(--compass-map-size) * .095);height:40px;border-width:2px;}
+body.compass-hud #hud-row > #compass-knowledge-display,
+body.compass-hud #hud-row > #roadchip,
+body.compass-hud #hud-row > #energy,
+body.compass-hud #hud-row > #money {position:relative;inset:auto;grid-area:auto;width:100%;min-width:0;max-width:none;margin:0;box-sizing:border-box;}
+body.compass-hud #hud-row > #compass-knowledge-display {grid-column:1;height:38px;min-height:0;border-width:2px;border-radius:7px;}
+body.compass-hud #hud-row > #roadchip {grid-column:2;grid-row:1;height:34px;padding:0 4px;border-width:2px;}
+body.compass-hud #hud-row > #energy {grid-column:3;grid-row:1;height:42px;}
+body.compass-hud #hud-row > #money {grid-column:4;grid-row:1;font-size:13px;}
+body.compass-hud #money .coin-ico {width:22px;height:22px;}
+body.compass-hud #compass-knowledge-display > #memories,
+body.compass-hud #compass-knowledge-display > #bookchip {padding:0 4px;gap:3px;font-size:12px;}
+body.compass-hud #compass-knowledge-display .mem-ico,
+body.compass-hud #compass-knowledge-display .book-ico {width:14px;height:14px;}
+body.compass-hud #compass-knowledge-display .mem-unspent {top:0;left:10px;font-size:8px;height:10px;min-width:10px;}
+body.compass-hud #compass-knowledge-display > .compass-closed::after {font-size:9px;letter-spacing:0;}
+body.compass-hud #hud-row > #roadchip.compass-closed::after {font-size:10px;letter-spacing:0;}
+body.compass-hud #roadchip .road-num {font-size:16px;}
+body.compass-hud .compass-wheel-unit {flex-basis:22px;font-size:10px;}
+body.compass-hud #energy-label {font-size:9px!important;}
+
+/* Darker metal, with the outer chassis fading into its black surround. */
+body.compass-hud #compass-body {filter:brightness(.68);}
+body.compass-hud #compass-body::after {
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(90deg,#000c,transparent 12%,transparent 88%,#000c),
+    linear-gradient(#0009,transparent 14%,transparent 86%,#000c);
+}
+body.compass-round #compass-body::after {
+  mask-image:radial-gradient(circle calc(var(--compass-map-size) / 2) at 50% calc(var(--compass-map-top) + var(--compass-map-size) / 2),transparent calc(100% - 1px),#000 100%);
+}
+body.compass-hud #hud-row,
+body.compass-hud #menu summary,
+body.compass-hud #move-pad,
+body.compass-hud #gps-pad,
+body.compass-hud #inv-tabs,
+body.compass-hud #inv,
+body.compass-hud #inv-name,
+body.compass-hud #compass-inventory-shutter {filter:brightness(.85);}

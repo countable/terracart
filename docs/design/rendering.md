@@ -60,16 +60,18 @@ North-up mode retains the existing wall atlas artwork.
 - Draw from the camera anchor using `coords.js` projection helpers. Reach,
   taps, fog and tile loading use `playerM` / `playerToWorldCell()`.
   Draw player-attached effects at `scene.playerScreen()`, not viewport centre.
-- The pinch zoom is camera-only and temporary: `scene.mapZoom` (at most
-  `VIEW_CELLS / PINCH_VIEW_CELLS`) magnifies about the viewport centre while
-  two map fingers are down and springs back on `PEEK_RETURN_MS`, like the peek
-  drag. `_applyMapZoom` clips the camera viewport to the map square and
-  counter-scales the frame and vignette (`_mapChrome`); the HUD is DOM and
-  never zooms. Every projection, cull and hit test stays in the 1× view, and
-  taps convert back through `_unzoomPt`. Never let it rest zoomed: fog reveal,
-  aggro ranges and boss margins are tuned for `VIEW_CELLS`. The new-game
-  opening shot (`HomeArea.INTRO`, `_tickHomeIntro`) drives the same `mapZoom`
-  and `peekM`, and always ends at exactly 1× with no offset.
+- The circular map and compass rim sit 15 CSS pixels above the layout baseline;
+  the published aperture position follows the canvas so touch targets stay aligned.
+- Zoom is camera-only. The initial view spans nine cells instead of eleven,
+  one cell closer on each edge (`MAP_DEFAULT_ZOOM`). Plain +/− buttons on the
+  right change the resting span by two cells, bounded by `PINCH_VIEW_CELLS`
+  and `VIEW_CELLS`; disabled buttons mark the limits. The choice lasts for the
+  session, including modals and depth changes. Pinch zoom remains temporary
+  and springs back to that selected view on `PEEK_RETURN_MS`.
+  `_applyMapZoom` clips the camera viewport and counter-scales map chrome;
+  the DOM controls never zoom or rotate. Gameplay ranges and loading stay
+  based on `VIEW_CELLS`; taps convert back through `_unzoomPt`.
+  The opening shot uses the same camera and ends at the selected resting zoom.
 - Once Phaser selects its renderer, software Canvas uses a 1× backing store:
   the logical pixel-art grid. WebGL retains its 2× memory budget. This avoids
   CPU-bound high-DPR rasterization during map rotation without changing CSS

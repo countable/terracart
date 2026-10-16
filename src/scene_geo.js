@@ -268,7 +268,7 @@ class SceneGeo {
     pad.setAttribute('aria-label', 'Move simulated GPS');
     pad.title = 'Move GPS (turn the GPS stick off to restore real GPS)';
     pad.style.cssText = `position:fixed;left:calc(var(--phone-left, 0px) + 16px);
-      bottom:calc(var(--stick-bottom, 160px) + env(safe-area-inset-bottom, 0px));
+      bottom:calc(var(--stick-bottom, 160px) + 20px + env(safe-area-inset-bottom, 0px));
       width:110px;height:110px;border-radius:50%;box-sizing:border-box;
       z-index:6;touch-action:none;user-select:none;-webkit-user-select:none;
       border:2px solid #8bcfe0;background:radial-gradient(circle at 50% 38%,#405d69cc,#142c38dd);

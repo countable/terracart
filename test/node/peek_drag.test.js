@@ -490,3 +490,37 @@ test('pinch: a warp drops the zoom with the peek', () => {
   assert.eq(s.mapZoom, 1, 'the full view at once');
   assert.eq(s._pinch, null, 'and the pinch is over');
 });
+
+
+test('zoom buttons: default removes one cell per edge, steps clamp and mark limits', () => {
+  near(VIEW_CELLS / MAP_DEFAULT_ZOOM, VIEW_CELLS - 2, 1e-9);
+  const s = peekScene({ _mapZoomRest: MAP_DEFAULT_ZOOM, mapZoom: MAP_DEFAULT_ZOOM,
+    _zoomInButton: {}, _zoomOutButton: {}, _homeIntro: {}, peekM: { x: 7, y: 7 } });
+  s._stepMapZoom(1);
+  near(s.mapZoom, PINCH_MAX_ZOOM, 1e-9);
+  assert.eq(s._zoomInButton.disabled, true);
+  assert.eq(s._zoomOutButton.disabled, false);
+  assert.eq(s._homeIntro, null);
+  assert.eq(s.peekM.x, 0);
+  assert.eq(s.peekM.y, 0);
+  s._stepMapZoom(1);
+  near(s.mapZoom, PINCH_MAX_ZOOM, 1e-9);
+  s._stepMapZoom(-1);
+  near(s.mapZoom, MAP_DEFAULT_ZOOM, 1e-9);
+  s._stepMapZoom(-1);
+  s._stepMapZoom(-1);
+  assert.eq(s.mapZoom, 1);
+  assert.eq(s._zoomOutButton.disabled, true);
+});
+
+test('zoom selection survives pinch release from either side and clearing a peek', () => {
+  for (const start of [1, PINCH_MAX_ZOOM]) {
+    const s = peekScene({ _mapZoomRest: MAP_DEFAULT_ZOOM, mapZoom: start });
+    s._pinchEnd();
+    for (let i = 0; i < 120; i++) s._tickMapZoom(1 / 60);
+    assert.eq(s.mapZoom, MAP_DEFAULT_ZOOM);
+    s.mapZoom = PINCH_MAX_ZOOM;
+    s.clearPeek();
+    assert.eq(s.mapZoom, MAP_DEFAULT_ZOOM);
+  }
+});
