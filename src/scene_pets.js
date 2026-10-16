@@ -41,9 +41,9 @@ class ScenePets {
       b.addEventListener('click', e => { e.stopPropagation(); if (b.disabled) return; wrap.remove(); fn(); });
       box.appendChild(b);
     };
-    const foods = (this.save.inv || []).filter(s => s.count > 0 && animalLikesFood(pet.kind, s.id));
+    const foods = (this.save.inv || []).filter(s => s.count > 0 && Pets.likes(pet, s.id));
     add('View info', () => this.presentPetInfo(id));
-    add('Feed favourite', () => this.presentPetFoodMenu(id), !foods.length);
+    add('Feed', () => this.presentPetFoodMenu(id), !foods.length);
     if (pet.carried) {
       add('Bring along', () => {
         const at = playerWorldM(this);
@@ -159,14 +159,31 @@ class ScenePets {
   presentPetFoodMenu(id) {
     const pet = Pets.get(this.save, id);
     if (!pet) return;
-    const choices = (this.save.inv || []).filter(s => s.count > 0 && animalLikesFood(pet.kind, s.id))
-      .map(s => ({ key: s.id, label: itemName(s.id), iconHTML: this.iconSpanHTML(s.id, 24) }));
-    this.showOfferModal({ kind: 'farm', title: 'Favourite food', get: 'Restore your pet’s energy.',
+    const choices = (this.save.inv || []).filter(s => s.count > 0 && Pets.likes(pet, s.id))
+      .map(s => ({ key: s.id, label: itemName(s.id), iconHTML: this.iconSpanHTML(s.id, 24),
+        info: ITEM_BY_ID[s.id]?.petFood ? `Permanently +${ITEM_BY_ID[s.id].petFood.maxHp} max HP.` : 'Restore your pet’s energy.' }));
+    this.showOfferModal({ kind: 'farm', title: 'Feed your pet', get: 'Choose a favourite food or medicinal herb.',
       choices, canAfford: choices.length > 0, acceptLabel: 'Feed', cancelLabel: 'Back',
       onCancel: () => this.presentPetMenu(id), onAccept: food => {
-        if (Inventory.count(this.save, food) > 0 && Pets.feed(this.save, pet, food)) Inventory.remove(this.save, food, 1);
-        this._petChanged(); this.presentPetMenu(id);
+        if (Inventory.count(this.save, food) < 1 || !Pets.feed(this.save, pet, food)) return;
+        Inventory.remove(this.save, food, 1);
+        this._petChanged();
+        if (ITEM_BY_ID[food]?.petFood) this.presentPetPleased(id, food, () => this.presentPetMenu(id));
+        else this.presentPetMenu(id);
       },
+    });
+  }
+
+  presentPetPleased(id, food, onDismiss) {
+    const pet = Pets.get(this.save, id);
+    const herb = ITEM_BY_ID[food]?.petFood;
+    if (!pet || !herb) return;
+    const portrait = CharacterPortraits.pet(pet.kind);
+    const art = portrait ? '' : `<div style="text-align:center">${this.iconSpanHTML(pet.kind, 128)}</div>`;
+    this.showMessageModal({ kind: 'talk', kindLabel: itemName(pet.kind), title: 'A happy companion', portrait,
+      body: `${art}<p><em>Your pet nestles closer, looking thoroughly pleased.</em></p>`
+        + `<p>“Mmm! More of that, please!”</p><p>+${herb.maxHp} max HP permanently.</p>`,
+      onDismiss,
     });
   }
 

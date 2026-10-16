@@ -18,6 +18,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   individual bonuses. Converted enemies use their main sprite as the portrait.
   Successful catches open this card immediately with **Close**; the first-pet
   story stays queued until the card closes. Inventory cards use **Back**.
+  Feeding PetNip from this menu or directly on the map opens the standard
+  `talk` speech dialog with a pleased response and the permanent max-HP gain.
+  It shows the pet's 128px portrait, or a 128px main sprite for converted enemies.
 
 - Character portraits use `CharacterPortraits` and transparent 80×80 cells
   from the generated 4×4 sheets (320×320 atlases) in `assets/portraits/`.

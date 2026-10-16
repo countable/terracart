@@ -253,6 +253,10 @@ mechanics.
   Use `Pets.carry/deploy/release`, never inventory stacks or id prefixes, for
   ownership. Stats, tint, accessories, growth and recovery stay on that record.
   Pet shops sell accessories. Eggs hatch wild babies that use the same gate.
+  PetNip is accepted by every owned pet through `Pets.likes/feed`, but cannot
+  catch wildlife. Its item `petFood.maxHp` permanently adds to the individual's
+  saved HP bonus and fills that new capacity without healing old wounds or
+  interrupting knockout recovery. It does not count as a favourite meal.
   Feeding a shiny chicken yields a separate Shiny Egg stack. After 500 m of
   real GPS walking, it hatches a non-shiny green dragon baby; its favourite
   food is meat. Regular eggs still hatch shiny domestic babies. Each egg type
@@ -263,7 +267,8 @@ mechanics.
   the wild unlocks a recipe through `homeRecipeLocked`; buying or brewing never
   unlocks one. Antidote, Hardworking, Grip, Healing, Stoneskin, Blight, Shielding
   and Shrinking are brewable; Revival and Resurrection remain unbrewable.
-  Blight uses Marigolds and Meat; Shielding uses Starflowers and Milk. Shrinking
+  Healing uses berries and Woundwort; Blight uses Marigolds and Meat;
+  Shielding uses Starflowers and Milk. Shrinking
   uses two Mango and four coins, an intentional exception to same-tier inputs
   and the otherwise conservative recipe economics. Sugar Potion retains its
   existing Home recipe. Brewing does not change potion effects.

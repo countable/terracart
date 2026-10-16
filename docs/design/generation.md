@@ -108,6 +108,24 @@ access or tile lifecycle mechanics.
   24 hours after landing; another shot refreshes that cell without duplicating
   it. Silk in flight is transient and is cleared when depth changes.
 
+- School fields carry denser wild grass plus common PetNip and rarer
+  Woundwort, with densities owned by `BiomeProfiles`. Plain Small-road verges
+  sample herb seats on both sides every 21 metres; PetNip is the common roll,
+  Woundwort the rare one. The ordinary spawn gate excludes unsafe seats, road
+  nexuses and themed stretches. Both herbs use the standard wildplant harvest
+  lane; PetNip feeds pets and Woundwort supplies the healing-potion recipe.
+
+- Cleared wild longgrass returns after an independently sampled exponential
+  wait averaging two real days (`SaveState.GRASS_REGROWTH_MEAN_MS`). Harvest
+  records the deadline in `save.grassRegrowth`; normalization and the ten-second
+  save heartbeat remove expired grass ids from `picked` / `burnedObjects`.
+  Deadlines persist across reloads and run while offline. Generated plants stay
+  in their tile lists, so the ordinary spent-state renderer reveals regrown
+  tufts without rerasterizing. The heartbeat discovers already-cleared grass
+  from older saves in nearby loaded chunks and starts its clock on that visit;
+  grass ids cannot safely be inferred from prefixes shared with other crops.
+  Player-owned plants and all other cleared objects retain their existing rules.
+
 - Do not add save/data compatibility migrations until the user requests them.
   Retired save formats may be discarded; keep current-state defaults, validation
   and runtime cleanup separate from compatibility conversion.

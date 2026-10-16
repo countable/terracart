@@ -19,8 +19,9 @@
     const row = typeof EnemyRoster !== 'undefined' ? EnemyRoster.get(species(c.kind)) : null;
     return row ? !row.storyReward : eligible(c.kind);
   };
-  // Does it accept this item? Its favourite (items.js favouriteItems).
-  const likes = (c, itemId) => !!c && !!itemId && animalLikesFood(species(c.kind), itemId);
+  // Favourites can catch wildlife; medicinal herbs are only for owned pets.
+  const likes = (c, itemId) => !!c && !!itemId &&
+    ((c.pet === true && !!ITEM_BY_ID[itemId]?.petFood) || animalLikesFood(species(c.kind), itemId));
   // GIVING the favourite starts the catch; nothing is prepared beforehand.
   const canCatch = (save, c) => catchable(c) && !c.pet && !ownedKind(save, c.kind);
   // THE CATCH'S DIFFICULTY is the creature's CURRENT HP times two, worn down
@@ -127,9 +128,17 @@
   }
   function feed(save,c,food) {
     const row = get(save,c);
-    if (!row || !animalLikesFood(row.kind,food)) return false;
-    row.favouriteFeeds = (row.favouriteFeeds || 0) + 1;
-    row.hp = Combat.maxHp(row); row.regenAt = Date.now();
+    if (!row || !likes(row,food)) return false;
+    const herb = ITEM_BY_ID[food]?.petFood;
+    if (herb) {
+      tick(save,c);
+      (row.bonuses ||= {}).maxHp = (Number(row.bonuses.maxHp) || 0) + herb.maxHp;
+      // Fill the new capacity without healing old wounds or ending recovery.
+      if (!isDown(row)) row.hp = Math.min(Combat.maxHp(row), row.hp + herb.maxHp);
+    } else {
+      row.favouriteFeeds = (row.favouriteFeeds || 0) + 1;
+      row.hp = Combat.maxHp(row); row.regenAt = Date.now();
+    }
     if (c && typeof c === 'object' && c !== row) { sync(row,c); c.favouriteFeeds = row.favouriteFeeds; }
     publish(row);
     return true;

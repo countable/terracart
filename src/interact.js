@@ -755,8 +755,9 @@ const TAP_HANDLERS = [
           if (now?.id !== food || !(now.count > 0) || !Pets.feed(save, target, food)) return;
           consumeSelected(save);
           scene.buildInventoryDOM();
-          scene.flashLoot('Favourite food: full energy', UI_GREEN, 1, food);
           persistSave(save);
+          if (ITEM_BY_ID[food]?.petFood) scene.presentPetPleased(target.id, food);
+          else scene.flashLoot('Favourite food: full energy', UI_GREEN, 1, food);
         });
       } else scene.presentPetMenu(target.id);
       return true;
@@ -996,6 +997,7 @@ const TAP_HANDLERS = [
         } else {
           if (save.picked.includes(wp.id) || (save.burnedObjects || []).includes(wp.id)) return false;
           save.picked = [...save.picked, wp.id];
+          SaveState.rememberClearedGrass(save, wp);
         }
         const rewards = wildplantRewards(wp.crop);
         const outId = rewards[0].id;

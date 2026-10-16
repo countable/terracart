@@ -26,15 +26,16 @@ test('grass: a 1% coin find is banked and saved once alongside the grass', () =>
       assert.eq(handler.try(context), true, `grass is picked at roll ${roll}`);
       assert.eq(scene.invCount('longgrass'), 1, 'the grass still drops');
       assert.eq(save.money, 7 + expected, 'exactly one coin below the 1% boundary');
-      assert.eq(rolls, 1, 'one treasure roll per plant');
+      assert.eq(rolls, 2, 'one regrowth deadline and one treasure roll per plant');
       assert.eq(snapshots.length, 1, 'the harvest persists its result');
       assert.eq(snapshots[0].money, 7 + expected, 'coin balance persists with the harvest');
       assert.includes(snapshots[0].picked, plant.id, 'the picked plant persists');
+      assert.truthy(Number.isFinite(snapshots[0].grassRegrowth[plant.id]), 'regrowth persists with the harvest');
       if (expected) assert.includes(messages[0], 'coin', 'the find is visible');
       assert.eq(handler.try(context), false, 'a picked plant cannot be harvested again');
       assert.eq(save.money, 7 + expected, 'a repeat tap cannot duplicate the coin');
       assert.eq(scene.invCount('longgrass'), 1, 'or the grass');
-      assert.eq(rolls, 1, 'or reroll the treasure');
+      assert.eq(rolls, 2, 'or reroll the treasure or regrowth deadline');
       assert.eq(snapshots.length, 1, 'no second award is saved');
     }
   } finally {
