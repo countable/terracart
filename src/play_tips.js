@@ -417,7 +417,6 @@ const PLAY_TIP_VOLUMES = [
 
 // Narrator observations sit outside the quoted excerpt.
 const PLAY_TIP_ASIDES = {
-  "0": "a few passages stand out",
   "2": "Rain has blurred the final line.",
   "4": "A thumbprint darkens the corner.",
   "6": "Someone had scraped a name from the page.",
