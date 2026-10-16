@@ -147,6 +147,23 @@
     });
   });
 
+  test('home footing: with no compass reading, the pit still appears after the grace period', () => {
+    withTile(tile([]), () => {
+      const s = scene({homeCompassDetected:false});
+      const p = at(30,30); s._placeHome(p.x,p.y);
+      s.ensureStarterTrailerObject();
+      assert.eq(s.save.homeFirepit, null, 'waits for a reading at first');
+      s._firepitGraceT0 = performance.now() - HomeArea.FIREPIT_COMPASS_GRACE_MS - 1;
+      s.ensureStarterTrailerObject();
+      near(s.save.homeFirepit.x, at(30,32).x, 'placed without a compass');
+      near(s.save.homeFirepit.y, at(30,32).y, 'on the same southern cell');
+      const pit = s.save.homeFirepit;
+      s._onFirstCompass();
+      near(s.save.homeFirepit.x, pit.x, 'a late reading keeps the same cell');
+      near(s.save.homeFirepit.y, pit.y);
+    });
+  });
+
   test('home footing: compass before Home and compass underground defer placement until ready', () => {
     withTile(tile([]), () => {
       const early=scene({homeCompassDetected:false});early._onFirstCompass();

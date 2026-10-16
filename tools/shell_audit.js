@@ -28,6 +28,17 @@ function indexScripts() {
 
 const CHECKS = [
   {
+    name: 'shell: every external stylesheet exists and is content-versioned',
+    run() {
+      const { stylesheetUrls, versioned } = require('./cachebust.js');
+      for (const url of stylesheetUrls(read('index.html'))) {
+        if (!fs.existsSync(path.join(ROOT, url.split('?')[0]))) throw new Error(`missing stylesheet: ${url}`);
+        if (versioned(url) !== url) throw new Error(`stale stylesheet: ${url}`);
+      }
+    },
+  },
+
+  {
     name: 'shell: every script index.html loads exists on disk',
     run() {
       const missing = indexScripts()
@@ -47,10 +58,10 @@ const CHECKS = [
     },
   },
   {
-    name: 'shell: the worker derives its script list from index.html',
+    name: 'shell: the worker derives scripts and stylesheets from index.html',
     run() {
       const sw = read('sw.js');
-      if (!/scriptUrlsFromIndex/.test(sw)) {
+      if (!/shellUrlsFromIndex/.test(sw)) {
         throw new Error('sw.js no longer reads the script list out of index.html');
       }
       // A hand-listed subset is the drift that broke a boot once already: the

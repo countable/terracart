@@ -20,7 +20,7 @@
 
   test('story pause: story kinds and overlays pause; a shop does not', () => {
     const kinds = SCENE_SRC.match(/const STORY_DIALOG_KINDS = new Set\(\[([^\]]*)\]\)/)[1];
-    for (const k of ['story', 'note', 'talk', 'memory']) assert.truthy(kinds.includes(`'${k}'`), k);
+    for (const k of ['story', 'note', 'talk', 'memory', 'spirit']) assert.truthy(kinds.includes(`'${k}'`), k);
     for (const k of ['shop', 'trade', 'forge']) assert.falsy(kinds.includes(`'${k}'`), k);
     const ids = SCENE_SRC.match(/const STORY_DIALOG_IDS = new Set\(\[([^\]]*)\]\)/)[1];
     assert.truthy(ids.includes("'story'") && ids.includes("'howto'"));
@@ -28,6 +28,25 @@
       'read each frame and fed to the shield');
     assert.truthy(/if \(enemy && this\._storyPause\) \{ c\._moving = false; Combat\.cancelCreatureAction\(c\); return; \}/.test(SCENE_SRC),
       'hostiles hold still and drop their wind-up');
+  });
+  test('story pause: held steering and existing targets stop, then following resumes', () => {
+    const start = SCENE_SRC.indexOf('const bodyHold = this._bodyHold();');
+    const end = SCENE_SRC.indexOf('// THE DRAIN ROLL-UP', start);
+    const move = new Function('stick', 'vx', 'vy', 'speedMul', 'dt', SCENE_SRC.slice(start, end));
+    const calls = [];
+    const s = { save: {}, player: {}, playerM: { x: 0, y: 0 }, startWorldM: { x: 10, y: 20 },
+      _storyPause: true, _bodyHold: () => ({ pinned: false }),
+      _expireConfusedRecover() {}, _playDirected: () => calls.push('idle'),
+      _steerManual: () => calls.push('stick'), _steerTarget: () => calls.push('keys'),
+      _driftHome: () => calls.push('gps'), _tickWalkHazards() {},
+      _followStep() { this.playerM.x++; calls.push('follow'); return 1; } };
+    move.call(s, { x: 1, y: 0 }, 1, 0, 1, 1);
+    assert.eq(calls.join(','), 'idle', 'no steering, drift or body movement while reading');
+    assert.eq(s.playerM.x, 0);
+    s._storyPause = false;
+    move.call(s, null, 0, 0, 1, 1);
+    assert.eq(calls.join(','), 'idle,gps,keys,follow', 'GPS following resumes after dismissal');
+    assert.eq(s.playerM.x, 1);
   });
   test('story pause: dismissing one message retains protection from another open story', () => {
     const previous = document.getElementById;

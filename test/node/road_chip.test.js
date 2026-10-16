@@ -37,9 +37,12 @@ test('road chip: the tap hint adds every metre restored (Trail.totalMetres)', ()
   assert.lte(line.length, MAP_MSG_MAX, line);
 });
 
-test('energy chip: the readout has no denominator', () => {
-  assert.truthy(/label\.textContent = `⚡\$\{cur\}`;/.test(SCENE_SRC), 'just ⚡N');
-  assert.truthy(!/⚡\$\{cur\}\/\$\{max\}/.test(SCENE_SRC), 'no /max');
+test('energy chip: compass shows only maximum while the legacy readout shows current', () => {
+  const expression = SCENE_SRC.match(/label\.textContent = (this\._compassHUD[^;]+);/)[1];
+  const readout = new Function('cur', 'max', 'return ' + expression);
+  assert.eq(readout.call({ _compassHUD: true }, 20, 120), 120, 'dial shows max, no extra bolt');
+  assert.eq(readout.call({ _compassHUD: true }, 0, 150), 150, 'capacity changes update the numeral');
+  assert.eq(readout.call({ _compassHUD: false }, 20, 120), '⚡20', 'legacy readout keeps current energy');
 });
 
 test('road chip: an SVG road strip is the bar, the number small beneath, no icon', () => {

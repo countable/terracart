@@ -1,0 +1,9 @@
+/* Offline-baked highlights occupy the same stacking levels as their source
+   carving. Controls and map pixels never become part of the reflection. */
+.compass-shine-surface {position:absolute;pointer-events:none;overflow:hidden;}
+.compass-shine-emission {position:absolute;inset:0;pointer-events:none;opacity:.75;
+  background-color:transparent;background-repeat:no-repeat;
+  mask-image:url('../assets/ui/compass/shine/overhead-beam.png');mask-repeat:no-repeat;
+  mask-size:var(--compass-shine-width,100vw) var(--compass-shine-height,100vh);
+  mask-position:calc(var(--compass-shine-x,0px) - var(--compass-shine-local-x,0px)) calc(0px - var(--compass-shine-local-y,0px));}
+body:not(.compass-hud) .compass-shine-surface {display:none;}

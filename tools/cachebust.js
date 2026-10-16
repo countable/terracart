@@ -1,4 +1,4 @@
-// Cache-bust derivation — the `?v=` on every module IS a hash of that module's
+// Cache-bust derivation — each script/stylesheet `?v=` is a hash of that file's
 // bytes, and sw.js's SHELL_VERSION is a hash of the whole resulting list.
 //
 // Why: a hand-bumped `?v=` left combat.js at a stale URL, so returning
@@ -48,12 +48,12 @@ function isOwn(url) {
   return !/^[a-z]+:\/\//i.test(url) && !url.startsWith('//');
 }
 
-// The versioned URL for one script path: `src/combat.js` → `src/combat.js?v=<hash>`.
-// Anything that is not a same-origin .js we can read is handed back untouched,
+// The versioned URL for one script or stylesheet path: `src/combat.js` → `src/combat.js?v=<hash>`.
+// Anything that is not a same-origin .js/.css we can read is handed back untouched,
 // so a future non-script <script src> can't be mangled into a 404.
 function versioned(url) {
   const file = url.split('?')[0];
-  if (!isOwn(url) || !file.endsWith('.js')) return url;
+  if (!isOwn(url) || !/\.(js|css)$/.test(file)) return url;
   if (!fs.existsSync(path.join(ROOT, file))) return url;
   return `${file}?v=${hashOf(file)}`;
 }
@@ -68,6 +68,8 @@ function expectedIndex(html = readFile(INDEX)) {
       (_, a, url, b) => a + versioned(url) + b)
     .replace(/(<link(?=[^>]*\brel=["']preload["'])(?=[^>]*\bas=["']script["'])[^>]+\bhref=["'])([^"']+)(["'][^>]*>)/g,
       (_, a, url, b) => a + versioned(url) + b)
+    .replace(/(<link(?=[^>]*\brel=["']stylesheet["'])[^>]+\bhref=["'])([^"']+)(["'][^>]*>)/g,
+      (_, a, url, b) => a + versioned(url) + b)
     .replace(/(APP_SRC\s*=\s*['"])([^'"]+)(['"])/,
       (_, a, url, b) => a + versioned(url) + b);
 }
@@ -79,6 +81,16 @@ function scriptUrls(html = expectedIndex()) {
   const app = html.match(/APP_SRC\s*=\s*['"]([^'"]+)['"]/);
   if (app) urls.push(app[1]);
   return urls.filter(isOwn);
+}
+
+// Stylesheets participate in the same shell generation and immutable cache.
+// Keep execution order isolated in scriptUrls for boot/harness consumers.
+function stylesheetUrls(html = expectedIndex()) {
+  return [...html.matchAll(/<link(?=[^>]*\brel=["']stylesheet["'])[^>]+\bhref=["']([^"']+)["'][^>]*>/g)]
+    .map(match => match[1]).filter(isOwn);
+}
+function shellUrls(html = expectedIndex()) {
+  return [...scriptUrls(html), ...stylesheetUrls(html)];
 }
 
 // Script preloads are fetch hints rather than execution requests, so they stay
@@ -111,9 +123,9 @@ function assetManifestHash() {
 }
 
 // SHELL_VERSION is derived from that list, so it moves whenever any module's
-// hash or media bytes move. Unchanged resources retain their individual
+// hash, stylesheet hash or media bytes move. Unchanged resources retain their individual
 // content-addressed cache keys across these shell generations.
-function expectedShellVersion(urls = scriptUrls()) {
+function expectedShellVersion(urls = shellUrls()) {
   const h = crypto.createHash('sha256').update(urls.join('\n') + '\n' + assetManifestHash()).digest('hex').slice(0, HASH_LEN);
   return `shell-${h}`;
 }
@@ -132,7 +144,7 @@ function expectedSw(sw = readFile(SW), version = expectedShellVersion()) {
 function staleTags() {
   const html = readFile(INDEX);
   const out = [];
-  const urls = new Set([...scriptUrls(html), ...scriptPreloadUrls(html)]);
+  const urls = new Set([...shellUrls(html), ...scriptPreloadUrls(html)]);
   for (const url of urls) {
     const want = versioned(url);
     if (want !== url) out.push({ url, want });
@@ -177,7 +189,7 @@ function write() {
   const html = expectedIndex();
   const changedHtml = html !== readFile(INDEX);
   if (changedHtml) fs.writeFileSync(path.join(ROOT, INDEX), html);
-  const sw = expectedSw(readFile(SW), expectedShellVersion(scriptUrls(html)));
+  const sw = expectedSw(readFile(SW), expectedShellVersion(shellUrls(html)));
   const changedSw = sw !== readFile(SW);
   if (changedSw) fs.writeFileSync(path.join(ROOT, SW), sw);
   return { changedHtml, changedSw };
@@ -261,6 +273,29 @@ const CHECKS = [
     },
   },
   {
+    name: 'cache-bust: stylesheet-only edits change URLs and the shell without changing script order',
+    run() {
+      const rel = 'tools/.cachebust_probe.css';
+      const abs = path.join(ROOT, rel);
+      const html = `<script src="src/util.js"></script><link href='${rel}?v=old' rel='stylesheet'>`
+        + '<link rel="stylesheet" href="https://cdn.example.com/theme.css">';
+      try {
+        fs.writeFileSync(abs, 'body { color: silver; }');
+        const first = expectedIndex(html);
+        const firstStyles = stylesheetUrls(first);
+        if (firstStyles.length !== 1 || firstStyles[0] !== versioned(rel)) throw new Error('stylesheet scanner missed local CSS or included CDN');
+        if (!first.includes('https://cdn.example.com/theme.css')) throw new Error('CDN stylesheet was rewritten');
+        const shell = expectedShellVersion(shellUrls(first));
+        fs.writeFileSync(abs, 'body { color: gold; }');
+        const second = expectedIndex(html);
+        if (stylesheetUrls(second)[0] === firstStyles[0]) throw new Error('CSS kept its old content URL');
+        if (expectedShellVersion(shellUrls(second)) === shell) throw new Error('CSS-only edit did not invalidate worker');
+        if (scriptUrls(first).join() !== scriptUrls(second).join()) throw new Error('CSS changed script execution order');
+        if (expectedIndex(second) !== second) throw new Error('stylesheet versioning is not idempotent');
+      } finally { fs.rmSync(abs, { force: true }); }
+    },
+  },
+  {
     name: 'cache-bust: changed media changes the worker generation without script edits',
     run() {
       const rel = 'assets/.cachebust_probe.png';
@@ -289,11 +324,11 @@ const CHECKS = [
     // SHELL_VERSION is the worker's cache key, derived from the script list so
     // it moves when any module does. Two branches both hand-bumping it to
     // shell-v182 for different content is the collision derivation retires.
-    name: 'cache-bust: SHELL_VERSION is derived from the script list',
+    name: 'cache-bust: SHELL_VERSION is derived from scripts and stylesheets',
     run() {
       const has = (readFile(SW).match(/const SHELL_VERSION = '([^']*)'/) || [])[1];
       if (has !== expectedShellVersion()) {
-        throw new Error(`sw.js SHELL_VERSION ${has} does not match the scripts index.html loads`);
+        throw new Error(`sw.js SHELL_VERSION ${has} does not match the resources index.html loads`);
       }
       if (expectedShellVersion(['a.js?v=1']) === expectedShellVersion(['a.js?v=2'])) {
         throw new Error('a changed module left SHELL_VERSION where it was');
@@ -303,7 +338,7 @@ const CHECKS = [
 ];
 
 module.exports = {
-  CHECKS, check, write, staleTags, conflictMarkers, expectedShellVersion, scriptUrls, scriptPreloadUrls,
+  CHECKS, check, write, staleTags, conflictMarkers, expectedShellVersion, scriptUrls, scriptPreloadUrls, stylesheetUrls, shellUrls, expectedIndex,
   versioned, HASH_LEN, assetHashes, assetManifestHash,
 };
 
@@ -319,7 +354,7 @@ if (require.main === module) {
   } else {
     const problems = check();
     if (!problems.length) {
-      console.log(`cache-bust: ${scriptUrls().length} scripts, every ?v= matches its file`);
+      console.log(`cache-bust: ${scriptUrls().length} scripts and ${stylesheetUrls().length} stylesheets, every ?v= matches its file`);
     } else {
       console.log('cache-bust: STALE — a changed module still serving its old URL:');
       for (const p of problems) console.log(`  ${p}`);

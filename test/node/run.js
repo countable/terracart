@@ -102,7 +102,7 @@ const FILES = [
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',
   'dungeon_progression.js', 'elevators.js', 'arena.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'worldgen.js', 'save.js',
-  'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
+  'compass_modules.js', 'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',
   'hidden_objects.js', 'temple_puzzles.js', 'temple_layout.js', 'temple_scene.js', 'temples.js', 'interactables.js', 'boss_encounters.js', 'houses.js',
