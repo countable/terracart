@@ -301,14 +301,15 @@ body.compass-hud #compass-knowledge-display > .compass-closed {background:var(--
 body.compass-hud #compass-knowledge-display > .compass-closed::after {content:attr(data-compass-label);font:14px/1.2 Georgia,serif;letter-spacing:1px;white-space:nowrap;}
 @media(max-height:650px) {body.compass-hud #compass-knowledge-display > .compass-closed::after {font-size:12px;}}
 
-/* Compact instruments align beside the energy dial and its coin readout. */
+/* Equal responsive gaps include the menu; the memory window takes spare width. */
+body.compass-hud {--compass-top-gap:clamp(8px,calc((var(--compass-map-size) - 320px) * .1 + 8px),18px);}
 body.compass-hud #hud-row {
-  top:8px;left:calc(var(--phone-left,0px) + var(--compass-map-size) * .14);
-  right:calc(var(--phone-right,0px) + var(--compass-map-size) * .025);
-  height:88px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 64px;
-  grid-template-rows:64px 20px;column-gap:6px;row-gap:4px;align-items:center;
+  top:8px;left:calc(var(--phone-left,0px) + 8px + var(--compass-map-size) * .095 + var(--compass-top-gap));
+  right:calc(var(--phone-right,0px) + 8px);
+  height:88px;display:grid;grid-template-columns:minmax(0,1fr) 90px 64px;
+  grid-template-rows:64px 20px;column-gap:var(--compass-top-gap);row-gap:4px;align-items:center;
 }
-body.compass-hud #menu {top:18px;left:calc(var(--phone-left,0px) + 8px);}
+body.compass-hud #menu {top:20px;left:calc(var(--phone-left,0px) + 8px);}
 body.compass-hud #menu summary {width:calc(var(--compass-map-size) * .095);height:40px;border-width:2px;}
 body.compass-hud #hud-row > #compass-knowledge-display,
 body.compass-hud #hud-row > #roadchip,
