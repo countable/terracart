@@ -275,7 +275,10 @@ const HeadingUp = {
         o.y = p.y + (o.y - anchor.y) * z;
       }
     }
-    if (!a) return;
+    if (!a) {
+      if (HeadingUp.PROP_DEBUG) HeadingUp._drawPropDebug(scene, a);
+      return;
+    }
     // All body-attached effects share the actual ground anchor, including
     // transparent frame padding and flight lift.
     if (scene.playerWorldContainer && scene.playerScreen) {
@@ -340,11 +343,25 @@ const HeadingUp = {
       g.cameraFilter = scene.cameras.main.id;
     }
     g.clear();
+    let label = scene._huPropDebugText;
+    if (!label) {
+      label = scene._huPropDebugText = scene.add.text(scene.viewCenterX, scene.viewTop + 4, '', {
+        font: '10px monospace', color: '#38e8ff', backgroundColor: 'rgba(0,0,0,0.7)',
+        padding: { x: 3, y: 2 },
+      }).setOrigin(0.5, 0).setDepth(92);
+      label._huUI = true;
+      label.cameraFilter = scene.cameras.main.id;
+    }
+    let props = 0, turned = 0, faded = 0;
     const z = scene.mapZoom || 1;
     const walk = (list) => {
       for (const o of list) {
         if (o.type === 'Container') { walk(o.list); continue; }
-        if (!o._staticObject || !o.visible || !o._huFoot) continue;
+        if (!o._staticObject || !o.visible) continue;
+        props++;
+        if (o.alpha < 1) faded++;
+        if (!o._huFoot) continue;
+        turned++;
         const f = o._huFoot, p = HeadingUp.toOverlayPt(scene, f.x, f.y);
         // _upright turned the sprite about its foot; its upright box keeps
         // the frame's offsets from that foot.
@@ -357,6 +374,8 @@ const HeadingUp = {
       }
     };
     walk(scene.worldContainer?.list || []);
+    const shadows = (scene.shadowPool || []).filter(s => s.visible).length;
+    label.setText(`propDebug v2 · ${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows}`);
   },
 
   _postRender(scene) {
