@@ -4549,7 +4549,7 @@ Render.drawObjects = function drawObjects(scene) {
     const macLabel = mac && typeof Macros !== 'undefined' ? Macros.stallLabel(mac.kind, o) : null;
     const label = isFallback
       ? `(${POI_CLASS_FALLBACK[o.poiClass]})`
-      : (macLabel ? `${macLabel}\n${rusticifyName(o.name)}` : rusticifyName(o.name));
+      : (macLabel ? `${macLabel}\n${boothPlaceLabel(o.name)}` : rusticifyName(o.name));
     // Anchored just BELOW the chest sprite: chests and crates are seated centred
     // in their cell, so their art runs to about sy + 12. Crates are smaller, so
     // they need less clearance.

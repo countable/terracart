@@ -9,7 +9,7 @@ test('stall label: kind on line one, the name on line two', () => {
   assert.truthy(/const mac = isFallback \? null : macroFor\(o\);/.test(src), 'only a named macro stall');
   assert.truthy(/Macros\.stallLabel\(mac\.kind, o\)/.test(src), 'the kind word its dialog opens under (a training hall names its discipline)');
   assert.truthy(/kindLabel: Macros\.stallLabel\(kind, o\) \|\| d\.label/.test(SCENE_SRC), 'the same word on the dialog');
-  assert.truthy(/`\$\{macLabel\}\\n\$\{rusticifyName\(o\.name\)\}`/.test(src), 'then the name on the next line');
+  assert.truthy(/`\$\{macLabel\}\\n\$\{boothPlaceLabel\(o\.name\)\}`/.test(src), 'then the name on the next line');
 });
 
 test('stall label: no space between the lines', () => {
@@ -36,4 +36,16 @@ test('stall dialog: every booth kind names its presenter in KIND_DIALOG, shelf c
   }
   assert.eq(['apothecary', 'scriptorium', 'sundries'].map((k) => Macros.KIND_DIALOG[k].present).join(),
     '_presentStallOffer,_presentStallOffer,_presentStallOffer', 'the three shelf counters share the offer presenter');
+});
+
+
+test('stall label: place names stop at two words without dangling connectors', () => {
+  for (const [name, expected] of [
+    ['Willow Brook Village Hall', 'Willow Brook'],
+    ['House of Many Books', 'House'],
+    ['Beyond THE River', 'Beyond'],
+    ['  Willow   Brook  Hall ', 'Willow Brook'],
+    ['Willow', 'Willow'],
+    ['', ''],
+  ]) assert.eq(boothPlaceLabel(name), expected, name);
 });

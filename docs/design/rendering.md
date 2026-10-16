@@ -60,6 +60,9 @@ North-up mode retains the existing wall atlas artwork.
 - Draw from the camera anchor using `coords.js` projection helpers. Reach,
   taps, fog and tile loading use `playerM` / `playerToWorldCell()`.
   Draw player-attached effects at `scene.playerScreen()`, not viewport centre.
+- Named booth signs show the booth kind above at most two words of the rusticified
+  place name. If the second word is an article or connector (such as “the” or
+  “of”), only the first word appears. Full names remain available in dialogs.
 - The circular map and compass rim sit 30 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
 - Zoom is camera-only. The initial view spans nine cells instead of eleven,
