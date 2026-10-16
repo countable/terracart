@@ -5,6 +5,8 @@
 // separate), then balance source endpoints, terrain affinity and a soft
 // 300 m length target. Each section has one deterministic theme; short true
 // ends, forks and tile-edge remnants stay intact.
+// Plain Small streets dress nothing of a theme's, but every house fronting
+// one stands 0-2 loot barrels on the verge before it (the house barrels pass).
 // Source line records carry variantSegments so paving, lamps, stories and
 // review tools share the same boundaries. Section keys own dressing budgets.
 // Geographic scenic credit remains exact; a majority-scenic section takes
@@ -35,8 +37,11 @@
   const MINOR_VARIANT_SHARE = 0.40;
   // Plain Small-road verge cells (one sample every 21 m a side): the share
   // that grows a herb, the nettle's share of those, and — above the herbs —
-  // a sparse ordinary bush.
+  // a sparse bush: mostly ordinary, then berry and poisonberry bushes
+  // (cumulative roll bounds, each above the last).
   const PLAIN_NETTLE_P = 0.055, PLAIN_HERB_P = 0.38, PLAIN_BUSH_P = 0.43;
+  const PLAIN_BUSHES = [{ crop: 'shrub', below: 0.415 }, { crop: 'berry', below: 0.425 },
+    { crop: 'poisonberry', below: PLAIN_BUSH_P }];
 
   // ── The verge ────────────────────────────────────────────────────────────
   // Every verge piece searches OUTWARD from the band's edge, k = 1..this
@@ -98,6 +103,17 @@
   // The hedge encounter's seat samples, every so many cells along the lane
   // (seated one cell BEHIND the kerb row, so the hedges stay unbroken).
   const HEDGE_GATE_EVERY_CELLS = 6;
+  // ── House barrels (plain Small streets) ─────────────────────────────────
+  // Every house fronting an unthemed Small street stands 0..HOUSE_BARRELS_MAX
+  // loot barrels on the verge before it (dressSteps, the house barrels pass).
+  // A house is a run of T.BUILDING cells (the roof tier; forts and castles
+  // are not houses) that a ray out from the band's edge reaches within
+  // HOUSE_FRONT_REACH_CELLS. One house's frontage is at most
+  // HOUSE_FRONT_SPAN_CELLS samples long: a terrace of joined footprints
+  // counts a house per span, not one for the whole row.
+  const HOUSE_BARRELS_MAX = 2;
+  const HOUSE_FRONT_REACH_CELLS = 5;
+  const HOUSE_FRONT_SPAN_CELLS = 6;
   // ── How much of a street wears its theme ────────────────────────────────
   // Complete short streets wear their theme end to end. Longer or clipped
   // streets keep the middle sectionShare of each tile-aligned patch, measured
@@ -2595,12 +2611,103 @@
           x: cx(ix), y: cy(iy), _ix: ix, _iy: iy, _street: 'snare' });
       }
     }
+    // ── HOUSE BARRELS: plain Small streets ──────────────────────────────────
+    // Every house fronting an unthemed Small street (a line's plain parts —
+    // lineParts, as the herbs below) stands 0..HOUSE_BARRELS_MAX loot
+    // barrels on the verge before it, beside the street. A sample every cell
+    // along the way casts a ray out from the band's edge on each side: the
+    // first T.BUILDING cell within HOUSE_FRONT_REACH_CELLS names the house
+    // (its connected footprint, houseOf), the cells the ray crossed are that
+    // sample's frontage; a fort, a castle or another road in the way ends the
+    // ray with no house. A house's rays on one side, in line order, are cut
+    // into spans of HOUSE_FRONT_SPAN_CELLS (a terrace is a house per span).
+    // The span's count is a hash of the tile and its first wall cell (the
+    // same for every player; a house cut by a seam rolls once per side), its
+    // seats spread along the span (one: the middle; two: the thirds), each
+    // the first free verge cell out on its ray — beside the street, not the
+    // wall — on the reward gate, so none stands on a Major-and-Medium kerb.
+    // Before the herbs, which fill what is left.
+    const T = WG.T;
+    const barrelOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
+      && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'reward');
+    const isBuildingCell = (t) => t === T.BUILDING || t === T.BUILDING_MED || t === T.BUILDING_LARGE;
+    // A building cell's house: the lowest cell index of its 4-connected run
+    // of T.BUILDING cells (a flood per house, memoised).
+    const houseLabel = new Map();
+    const houseOf = (i0) => {
+      if (houseLabel.has(i0)) return houseLabel.get(i0);
+      const run = [i0];
+      houseLabel.set(i0, -1);
+      let lo = i0;
+      for (let q = 0; q < run.length; q++) {
+        const i = run[q], ix = i % N, iy = (i - ix) / N;
+        if (i < lo) lo = i;
+        for (const j of [ix > 0 ? i - 1 : -1, ix + 1 < N ? i + 1 : -1, iy > 0 ? i - N : -1, iy + 1 < N ? i + N : -1]) {
+          if (j < 0 || houseLabel.has(j) || grid[j] !== T.BUILDING) continue;
+          houseLabel.set(j, -1); run.push(j);
+        }
+      }
+      for (const i of run) houseLabel.set(i, lo);
+      return lo;
+    };
+    for (const rec of idx.lines || []) {
+      if (rec.size !== 'minor') continue;
+      const spans = lineParts(rec, gM).filter(p => !p.variant).map(p => [p.a, p.b]);
+      if (!spans.length) continue;
+      yield 'house barrels';
+      // `${side}|${house}` → that house's rays on that side, in line order.
+      const fronts = new Map();
+      sampleLine(rec.line, gM, CELL_M, CELL_M / 2, (s, x, y, nx, ny) => {
+        if (!S.covers(spans, s)) return;
+        for (const side of [1, -1]) {
+          const ray = [];
+          let wall = -1;
+          for (let k = 1; k <= HOUSE_FRONT_REACH_CELLS; k++) {
+            const c = vergeCell(rec, x, y, nx, ny, side, k);
+            if (c.ix < 0 || c.iy < 0 || c.ix >= N || c.iy >= N) break;
+            const i = c.iy * N + c.ix, t = grid[i];
+            if (t === T.BUILDING) { wall = i; break; }
+            if (isBuildingCell(t)) break;
+            // This street's own band may raster a cell past halfW (a
+            // diagonal); another road past the verge ends the ray.
+            if (WG.isRoadTerrain(t)) { if (ray.length) break; continue; }
+            ray.push(c);
+          }
+          if (wall < 0 || !ray.length) continue;
+          const key = `${side}|${houseOf(wall)}`;
+          if (!fronts.has(key)) fronts.set(key, []);
+          fronts.get(key).push({ wall, ray });
+        }
+      });
+      for (const rays of fronts.values()) {
+        for (let at = 0; at < rays.length; at += HOUSE_FRONT_SPAN_CELLS) {
+          const span = rays.slice(at, at + HOUSE_FRONT_SPAN_CELLS);
+          const wx = span[0].wall % N, wy = (span[0].wall - wx) / N;
+          const n = Math.floor(hash01(`house-barrels|${WG.cellId('h', tx, ty, wx, wy)}`) * (HOUSE_BARRELS_MAX + 1));
+          for (let b = 0; b < n; b++) {
+            const want = Math.floor(span.length * (b + 1) / (n + 1));
+            let seated = false;
+            for (let d = 0; d < span.length && !seated; d++) {
+              for (const r of d ? [want + d, want - d] : [want]) {
+                if (r < 0 || r >= span.length) continue;
+                const c = span[r].ray.find(c => barrelOk(c.ix, c.iy));
+                if (!c) continue;
+                claim(c.ix, c.iy);
+                res.objects.push(WG.makeObject('chest', cx(c.ix), cy(c.iy),
+                  WG.cellId('hbarrel', tx, ty, c.ix, c.iy), { barrel: true, _houseFront: true }));
+                seated = true; break;
+              }
+            }
+          }
+        }
+      }
+    }
     // Plain Small-road verges share the normal safe spawn/occupancy lane.
     // Run last so herbs fill gaps without taking a themed encounter's seat.
     // One roll per verge cell: below PLAIN_HERB_P a herb (the rarer nettle
-    // under PLAIN_NETTLE_P), then a sparse ordinary bush up to PLAIN_BUSH_P
-    // (owner, Oct 2026) — the same shrub a yard grows, so it chops for wood
-    // and may be a nest bush.
+    // under PLAIN_NETTLE_P), then a sparse bush up to PLAIN_BUSH_P (owner,
+    // Oct 2026): mostly the yard's shrub (chopped for wood, maybe a nest),
+    // with berry and poisonberry bushes mixed in (PLAIN_BUSHES).
     for (const rec of idx.lines || []) {
       if (rec.size !== 'minor') continue;
       const spans = lineParts(rec, gM).filter(p => !p.variant).map(p => [p.a, p.b]);
@@ -2616,7 +2723,8 @@
           const id = WG.cellId('wp_herb', tx, ty, c.ix, c.iy);
           const roll = hash01(id);
           if (roll >= PLAIN_BUSH_P) continue;
-          const crop = roll < PLAIN_NETTLE_P ? 'nettle' : roll < PLAIN_HERB_P ? 'petnip' : 'shrub';
+          const crop = roll < PLAIN_NETTLE_P ? 'nettle' : roll < PLAIN_HERB_P ? 'petnip'
+            : PLAIN_BUSHES.find(b => roll < b.below).crop;
           claim(c.ix, c.iy);
           res.wildplants.push(WG.makeWildplant(crop, cx(c.ix), cy(c.iy), id,
             { _street: 'plain' }));
@@ -2735,13 +2843,13 @@
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
 
   root.StreetVariants = {
-    SUPPRESSED_STYLE, pavementFor, pavementVariantFor, VERGE_ROWS, PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, MINOR_VARIANT_SHARE, PLAIN_HERB_P, PLAIN_BUSH_P, VERGE_MAX_CELLS,
+    SUPPRESSED_STYLE, pavementFor, pavementVariantFor, VERGE_ROWS, PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, MINOR_VARIANT_SHARE, PLAIN_HERB_P, PLAIN_BUSH_P, PLAIN_BUSHES, VERGE_MAX_CELLS,
     BANDIT_STRETCH_UNITS, BANDIT_STRETCH_SHARE, BANDIT_STAMP_OUT_CELLS,
     stretchOf, isBanditStretch, stampBanditStretchesSteps,
     BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, END_SEAT_CELLS,
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
-    HEDGE_GATE_EVERY_CELLS, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
+    HEDGE_GATE_EVERY_CELLS, HOUSE_BARRELS_MAX, HOUSE_FRONT_REACH_CELLS, HOUSE_FRONT_SPAN_CELLS, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
     THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
