@@ -8,11 +8,22 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 - Reward acknowledgments and safety reminders use an explicit OK button;
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
-  and confirmations use the NPC portrait layout with the spirit artwork.
+  and confirmations use the NPC portrait layout with a dedicated transparent,
+  80×80 pixel-art Dragon Spirit head-and-neck portrait (`assets/portraits/dragon_spirit.png`).
+  The original tall spirit painting remains available for scene art.
   Dragon Spirit and NPC spoken copy appears in a pale chat bubble beneath the
-  portrait; speaker titles and response choices stay outside the bubble.
+  portrait; dialogue headers join the speaker name and role with a comma
+  ("Tilly, Wanderer"), without a separate role line. Response choices stay outside the bubble.
   The first earned green coin opens its own `coin_first` scene painting before
   revealing the money readout; its raised star matches the compact currency icon.
+  Digging an X opens a treasure acknowledgment headed “X marks the spot” with
+  its own `treasure_dig` painting. The find is claimed and its single reward paid
+  before the card appears; OK acknowledges the reward without granting it again.
+  Great X marks and underground finds keep their existing reward pools and bonuses.
+  Container paintings follow the visible container, not the reward: crates use
+  `treasure_crate`, barrels use `treasure_barrel`, and ordinary chests use
+  `chest_t1` through `chest_t7` for their source tier. Only a glow inside hints at the contents; the reward card
+  names the actual find. Clay pots retain their brief smash feedback.
 
 - The compass header aligns menu, a memories/books window and compact distance meter
   capped at 84 pixels wide beside a 72-pixel energy dial at the top right. The menu is
@@ -26,8 +37,15 @@ changing dialogue, story panels, books, toasts or status presentation.
   close-contact socket shadows and compact recessed category glyphs seat the controls in
   the chassis. Neutral pewter faces and rims match the carved background while
   controls retain brighter text and icons. The fade excludes
-  the circular map aperture. The compass rim has ticks every 15 degrees, with
-  longer marks every 30 degrees.
+  the circular map aperture. The compass rim is a fine gold celestial inlay: a shallow, flourished north
+  triangle, larger embossed cardinal letters with brighter fittings and dark drop shadows, small gold beads at the four
+  45-degree diagonals, and eight engraved intermediate 22.5-degree marks
+  contained in the band. The rim follows compass heading while all four
+  letters counterrotate to stay upright. `assets/ui/compass/gold-rim.svg`
+  owns the band and engravings; transparent `gold-fittings.png` sprites supply
+  the sculpted metal ornaments at their native aspect ratios. The gold overlay
+  sits outside the silver chassis dimming and uses the controls' brightness,
+  with warmer saturation to match their gold. Its letter seats match the HUD CSS.
 
 - The four opening panes show the compass discovery, dragon-war dream,
   trailer awakening, then the ruined street. Each has two aligned paintings:
@@ -35,8 +53,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   the second frame. The dragon dream instead keeps alternating between its
   two paintings while open, so the heads and flames continue moving after
   the camera push ends. Discovery and the dream are borderless fullscreen panels.
-  Awakening begins “You check the compass.” and uses the living-silver compass
-  story sheet, as does the ruined street and subsequent narrative. Paintings
+  Awakening says “The compass shows you are in a strange trailer.” with a
+  “Go Outside” button and uses the living-silver compass story sheet, as does the ruined street and subsequent narrative. Paintings
   remain uncropped with readable copy below. The dream retains its eight-second camera push and
   immediately available wake-up button. Reduced-motion mode shows the first frame without
   zoom or crossfade.
@@ -55,17 +73,20 @@ changing dialogue, story panels, books, toasts or status presentation.
   retains its own tap action, accessible name, and independent dormant shutter.
   `css/compass_inventory.css` seats eight square keys with small stamped-in category symbols on
   plungers above a shared rail. The selected key and detent glow gold. Small
-  square item controls share one dark-glass window, with a physical sort lever,
+  square item controls share one dark-glass window fitted to five slots and their
+  gaps; the window stays snug when sort or paging controls are absent. It retains a physical sort lever,
   a mechanical pager rocker with broad upper/lower touch faces around an ivory count
   window, and an integrated name/action plate. The upper face selects the previous
   page; the lower face selects the next page. The description plate
   appears only for a selected item or piece of gear; empty categories show no plate. Contextual actions
   retain their existing semantics. The dormant inventory cover occupies the lower
-  inventory window and can be dismissed for the scene without unlocking controls.
+  inventory window until the first item activates it; it has no close control.
   Inactive-module Spirit dialogs explain how to power up that specific module;
   distance uses the shared 200-metre threshold, and spirit walking remains opt-in.
   Reference atlas crops live alongside their provenance in `assets/ui/compass/`.
   Engravings retain their aspect ratio rather than stretching to viewport height.
+  The dragon header reserves its full 750:220 aspect ratio at the panel width;
+  its chrome stays above scene paintings and loading mosaics without cropping the head.
   The modal gate publishes the final sheet edge in viewport pixels so silver
   shoulders remain visible above scaled sheets without covering their controls.
   It clips the header readouts at that edge too; story sheets rise above the
@@ -100,8 +121,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   first discovery/memory. Spending cannot close an activated circuit. Distance
   activates after 200 m of accepted movement; joystick activation requires
   **Enable spirit walking** in its spirit dialog. Closed controls explain low
-  power. Activation notices wait behind stories and dialogs, and are claimed
-  when shown so reloads cannot repeat them. Existing ownership seeds circuits
+  power. Activation notices are micro toasts over the player, never dialogs;
+  they wait behind stories and dialogs, and are claimed when shown so reloads
+  cannot repeat them. Existing ownership seeds circuits
   quietly when upgrading an older save.
 
 - The inventory pet menu's **View info** opens an individual pet card with a
@@ -204,6 +226,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
   with its band layout. Painted headers use a label without emoji/`kindIcon`.
+  Popover artwork starts 44 pixels below the dragon rail, leaving a solid
+  title band; its sides clear the trim by 18 pixels. Loading mosaics use the
+  same inset. Framed opening stories without titles keep a 14-pixel rail gap.
   `css/compass_panels.css` seats this same shell as a mechanical sheet that
   slides up from the compass and extends to the viewport floor without a
   bottom border. Open sheets shade the exposed map and upper HUD with a dark

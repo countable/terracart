@@ -55,17 +55,37 @@ const HomeArea = {
   // ── Home's footing ────────────────────────────────────────────────────
   // Where a placed Home sits, in cell offsets from the point it is placed
   // for (the player's first fix, or where they stand for "Move Home here"):
-  // the wagon one cell ahead and the firepit two cells behind the player.
+  // the wagon one cell ahead and the firepit one cell behind the player.
   // A new game rotates these defaults into its first compass heading.
   // Explicit Home moves retain the north-up defaults.
   WAGON_OFFSET: { dx: 0, dy: -1 },
-  FIREPIT_OFFSET: { dx: 0, dy: 2 },
+  FIREPIT_OFFSET: { dx: 0, dy: 1 },
   // Rotate the starting layout into the first compass heading, then snap to
   // cells once. Saved positions never follow later camera turns.
   placementOffsets(heading = 0) {
     const a = heading * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
     const turn = ({ dx, dy }) => ({ dx: Math.round(dx * c - dy * s), dy: Math.round(dx * s + dy * c) });
     return { wagon: turn(this.WAGON_OFFSET), firepit: turn(this.FIREPIT_OFFSET) };
+  },
+  // Where Home's firepit may go, best first, as cell offsets from the
+  // player's anchor: the turned FIREPIT_OFFSET, then the ring one cell out
+  // and the ring two out, each by distance from it — never the player's own
+  // doorstep cell or the wagon's 3x3. Fixed order, so the same ground always
+  // picks the same cell.
+  firepitCandidates(preferred, wagon) {
+    const d2 = (c) => (c.dx - preferred.dx) ** 2 + (c.dy - preferred.dy) ** 2;
+    const out = [preferred];
+    for (const r of [1, 2]) {
+      const ring = [];
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        if (Math.abs(dx - wagon.dx) <= 1 && Math.abs(dy - wagon.dy) <= 1) continue;
+        if (dx === preferred.dx && dy === preferred.dy) continue;
+        ring.push({ dx, dy });
+      }
+      out.push(...ring.sort((a, b) => d2(a) - d2(b)));
+    }
+    return out;
   },
   // The firepit waits for the first compass reading — but only this long
   // (ms, from Home standing on the surface this session). A device that
@@ -77,7 +97,12 @@ const HomeArea = {
   // its door (0.18 of the art's width right of centre) is over the
   // player's column, and down so the door's steps meet the doorstep cell —
   // the player stands right in front of the door, not a cell below it.
-  WAGON_ART_FOOT: { dx: -0.37, dy: 0.7 },
+  WAGON_ART_FOOT: { dx: -0.37, dy: 1.0 },
+  wagonArtFoot(heading = 0) {
+    const a = heading * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    const { dx, dy } = this.WAGON_ART_FOOT;
+    return { dx: dx * c - dy * s, dy: dx * s + dy * c };
+  },
   // Home's sign over the roof, nudged off its centred spot (render.js).
   SIGN_NUDGE_PX: { x: -3, y: 4 },
   // Smoke wisping off the cold pit (render.js): `puffs` soft grey puffs, each

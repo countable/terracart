@@ -319,12 +319,13 @@ const PEEK_DRAG_SLOP_PX = 8;
 // is the 1/e time rather than a duration — the camera is home (sub-pixel) in
 // about 3× this.
 const PEEK_RETURN_MS = 90;
-// Camera-only zoom: start one cell closer on each edge. Buttons select the
+// Camera-only zoom: start at the closest rack level (PINCH_VIEW_CELLS across),
+// which is also where the new game's opening shot settles. Buttons select the
 // resting view; a pinch temporarily magnifies it and springs back on release.
 // The widest view remains VIEW_CELLS, so loading and gameplay ranges stay fixed.
-const MAP_DEFAULT_ZOOM = VIEW_CELLS / (VIEW_CELLS - 2);
 const PINCH_VIEW_CELLS = 7;
 const PINCH_MAX_ZOOM = VIEW_CELLS / PINCH_VIEW_CELLS;
+const MAP_DEFAULT_ZOOM = VIEW_CELLS / PINCH_VIEW_CELLS;
 // Surface GPS gap (metres) past which a fix PLACES the body instead of being
 // walked off. The body chases the GPS target at up to DEBUG_SPEED_MUL × walk
 // pace (14 m/s), which comfortably keeps up with a real walk or a slow drive;
@@ -5666,11 +5667,8 @@ class MapScene extends Phaser.Scene {
   }
 
   playerScreen() {
-    const k = CELL_PX / this.cellM;
-    return {
-      x: this.viewCenterX - this.peekM.x * k,
-      y: this.viewCenterY - this.peekM.y * k,
-    };
+    const player = playerWorldM(this), anchor = viewAnchorWorldM(this);
+    return deltaMToScreen(this, player.x - anchor.x, player.y - anchor.y);
   }
 
   // How far the BODY's centre sits from the ground point its feet stand on —
@@ -5680,7 +5678,7 @@ class MapScene extends Phaser.Scene {
   // land on the fix; collapsed it is 0, because a body lying down has its
   // midsection where its feet were (see PLAYER_DOWNED_ROTATION).
   playerBodyDy() {
-    return Combat.playerDowned(this.save.energy) ? 0
+    return Combat.playerDowned(this.save.energy) || this._playerSubmerged ? 0
       : this.playerFeetNudgeY - Math.max(this._obstacleStep?.liftPx || 0,
         Conditions.flying(this.save) ? CONSUMABLE_SPEC.flight_potion.liftPx : 0);
   }
@@ -5689,6 +5687,31 @@ class MapScene extends Phaser.Scene {
   // disagree about whether the player is on their feet.
   playerBodyRotation() {
     return Combat.playerDowned(this.save.energy) ? PLAYER_DOWNED_ROTATION : (this._obstacleLean || 0);
+  }
+
+  // The waterline follows the body, not the camera. Crop in frame coordinates
+  // so walking directions and heading-up counterrotation keep the upper half.
+  // This is a pose only: movement, reach and world sorting keep the same feet.
+  _updatePlayerSubmersion() {
+    const airborne = Conditions.flying(this.save) || this.isDragonActive?.();
+    let submerged = false;
+    if (!airborne && !Combat.playerDowned(this.save.energy)
+        && !(this._obstacleStep?.liftPx > 0) && this.startWorldM && this.playerM) {
+      const feet = playerWorldM(this), cell = this.cellAt(feet.x, feet.y);
+      if (cell.loaded) {
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+        const tar = entry?.slowCells?.get(cell.iy * entry.cellsPerEdge + cell.ix) === 'tar';
+        const fire = this.save.groundFire?.[GroundFire.key(this.depth || 0, cell.cellIX, cell.cellIY)];
+        submerged = cell.type === WorldGen.T.WATER || cell.type === WorldGen.T.TAR_YARD
+          || (tar && (!fire || GroundFire.active(fire, Date.now())));
+      }
+    }
+    this._playerSubmerged = submerged;
+    if (!this.player) return;
+    if (submerged) {
+      const frame = this.player.frame;
+      this.player.setCrop(0, 0, frame.realWidth, frame.realHeight / 2);
+    } else if (this.player.isCropped) this.player.setCrop();
   }
 
   // Render supplies the same surviving props it draws, including connected
@@ -5703,6 +5726,7 @@ class MapScene extends Phaser.Scene {
     this._obstaclePoseAt = { x, y, time: now };
     this._obstacleStep = ObstacleStep.sample(x, y,
       Combat.playerDowned(this.save.energy) ? [] : objects, this.cellM);
+    this._updatePlayerSubmersion();
     const moved = distance < this.cellM ? distance : 0; // no lean from teleports
     this._obstaclePhase = (this._obstaclePhase || 0) + moved / this.cellM;
     const motion = Math.min(1, moved / dt / WALK_M_S);
@@ -5818,6 +5842,10 @@ class MapScene extends Phaser.Scene {
     };
     this._zoomInButton = button('+', 'Zoom in', 1);
     this._zoomOutButton = button('−', 'Zoom out', -1);
+    // The resting level may already be an end stop (the default is the closest).
+    const span = Math.round(VIEW_CELLS / (this._mapZoomRest || MAP_DEFAULT_ZOOM));
+    this._zoomInButton.disabled = span <= PINCH_VIEW_CELLS;
+    this._zoomOutButton.disabled = span >= VIEW_CELLS;
     if (HeadingUp.enabled) {
       const lock = document.createElement('button');
       lock.type = 'button';
@@ -7885,7 +7913,9 @@ class MapScene extends Phaser.Scene {
     const list = this.save[listKey];
     if (!list || !list.length) return false;
     const r2 = (cells * this.cellM) * (cells * this.cellM);
+    const now = Date.now();
     for (const e of list) {
+      if (listKey === 'fires' && !Campfires.active(e, now)) continue;
       // Wards (scarecrows / fires) only repel on their own level — the world is
       // GPS-mirrored across depths, so a surface ward must not reach a cave
       // creature at the same (x, y). See src/placed_floor.js.
@@ -8983,7 +9013,7 @@ class MapScene extends Phaser.Scene {
   // a free arbitrage. Everything the mode changes is read live through
   // Difficulty.get(); the only things done HERE are the ones that can't be
   // read at use time because they already happened at boot or tile build:
-  // the starting purse, the starter ladder, and the supply crates the starter
+  // the starter ladder and the supply crates the starter
   // tile seated before the player answered.
   chooseMode(mode) {
     if (typeof Difficulty === 'undefined' || !Difficulty.isMode(mode)) return false;
@@ -8991,12 +9021,6 @@ class MapScene extends Phaser.Scene {
     const prof = Difficulty.PROFILES[mode];
     this.save.mode = mode;
     Difficulty.setMode(mode);
-    // The purse: a fresh save opened at STARTING_MONEY (the easy figure). Only
-    // a save that has not been played is re-pursed — the first-run card is the
-    // only path here, but the guard keeps a reset-then-answer honest.
-    if (typeof SaveState !== 'undefined' && !SaveState.hasPlayed(this.save)) {
-      this.save.money = prof.startingMoney;
-    }
     if (!prof.tutorial && typeof Quests !== 'undefined') {
       // Finished, not dismissed: a dismissed ladder keeps tracking and paying
       // its step rewards underneath (questEvent), and "no tutorial" means no
@@ -9693,19 +9717,47 @@ class MapScene extends Phaser.Scene {
     this.player.setScale((art?.scale ?? this.playerScale) * giantScale);
     this.playerFeetNudgeY = (art ? -art.footDrop * art.scale : -PLAYER_FEET_DROP_PX * this.playerScale) * giantScale;
   }
+  // The player's opening look round (_idleGlance): screen directions, each
+  // held for `ms`, played once the map is first in view — down at the
+  // camera, a look left, a look right, and back. Then the pose follows
+  // walking alone.
+  static PLAYER_GLANCE = [
+    { ms: 700, x: 0, y: 1 }, { ms: 550, x: -1, y: 0 }, { ms: 550, x: 1, y: 0 }, { ms: 400, x: 0, y: 1 },
+  ];
+  // The glance's pose for now (a SCREEN direction), or null once it is over.
+  // It waits, facing down, while a dialog covers the map; the first step
+  // ends it at once.
+  _idleGlance() {
+    if (this._glanceDone) return null;
+    const down = MapScene.PLAYER_GLANCE[0];
+    if (this._dialogOpen?.()) return down;
+    const now = performance.now();
+    this._glanceT0 ??= now;
+    let t = now - this._glanceT0;
+    for (const step of MapScene.PLAYER_GLANCE) {
+      if (t < step.ms) return step;
+      t -= step.ms;
+    }
+    this._glanceDone = true;
+    // Hold the camera-facing pose it ended on until the first step.
+    this._spriteDir = HeadingUp.toWorldVec(this, 0, 1);
+    return null;
+  }
   _playDirected(sprite, baseKey, dx, dy) {
+    // The player's facing is the way they last walked — not the compass, so
+    // turning the phone never spins the sprite.
+    let screen = null;
     if (dx !== undefined) {
       const d = Math.hypot(dx, dy);
-      if (d > 0.001) this._spriteDir = { x: dx / d, y: dy / d };
-    } else if (sprite === this.player && this.compassDeg != null) {
-      // Standing still with a compass: face the device heading (this.facing,
-      // which confusion also drives), snapped to the nearest authored
-      // direction below. Without one, idle holds the last walking direction.
-      const d = Math.hypot(this.facing?.x ?? 0, this.facing?.y ?? 0);
-      if (d > 0.001) this._spriteDir = { x: this.facing.x / d, y: this.facing.y / d };
+      if (d > 0.001) {
+        this._spriteDir = { x: dx / d, y: dy / d };
+        if (sprite === this.player) this._glanceDone = true;
+      }
+    } else if (sprite === this.player) {
+      screen = this._idleGlance();
     }
     // Poses are screen directions; a heading-up map has turned the world.
-    const { x, y } = HeadingUp.toScreenVec(this, this._spriteDir.x, this._spriteDir.y);
+    const { x, y } = screen || HeadingUp.toScreenVec(this, this._spriteDir.x, this._spriteDir.y);
     // Dragon transform: the player flies as a single-direction dragon.
     // Keep the flap looping and just mirror by heading (art faces
     // right at rest), ignoring the human walk/idle directional sheets.

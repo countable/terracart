@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=5a64ba54" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=2e17332e" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1219,9 +1219,9 @@
     #howto button#howto-close[hidden] { display: none; }
   </style>
   <link rel="stylesheet" href="css/compass_shine.css?v=2196f9a5">
-  <link rel="stylesheet" href="css/compass_hud.css?v=a4b4ce63">
-  <link rel="stylesheet" href="css/compass_inventory.css?v=6a84fa90">
-  <link rel="stylesheet" href="css/compass_panels.css?v=4750586a">
+  <link rel="stylesheet" href="css/compass_hud.css?v=36866479">
+  <link rel="stylesheet" href="css/compass_inventory.css?v=5165fdcf">
+  <link rel="stylesheet" href="css/compass_panels.css?v=c44424bf">
 </head>
 <!-- `booting` hides the money/energy row until the scene has a real balance to
      put in it; MapScene.updateHUD drops the class on the first paint. -->
@@ -2634,8 +2634,8 @@
       },
       {
         art: '<div class="story-frames"><img src="assets/art/story_wake.webp" alt="The survivor stretches at the trailer entrance."><img class="story-frame-next" src="assets/art/story_wake_frame2.webp" alt="" aria-hidden="true"></div>',
-        text: "You check the compass. You wake up in an unfamiliar trailer, memories a blur.",
-        btn: 'Next',
+        text: "The compass shows you are in a strange trailer.",
+        btn: 'Go Outside',
       },
       {
         art: '<div class="story-frames"><img src="assets/art/story_wrecks.webp" alt="The survivor steps onto a ruined neighbourhood street."><img class="story-frame-next" src="assets/art/story_wrecks_frame2.webp" alt="" aria-hidden="true"></div>',
@@ -2972,7 +2972,7 @@
   <script src="src/enemy_spawns.js?v=bcbfe9ec"></script>
   <script src="src/creature_spawns.js?v=dd436e44"></script>
   <script src="src/enemy_habitats.js?v=a7360cc5"></script>
-  <script src="src/difficulty.js?v=1d2be4e0"></script>
+  <script src="src/difficulty.js?v=ae158edf"></script>
   <script src="src/util.js?v=0d3f6182"></script>
   <script src="src/particles.js?v=4527614a"></script>
   <script src="src/trail.js?v=246ae65b"></script>
@@ -2991,8 +2991,9 @@
   <script src="src/reef_layout.js?v=5ac55392"></script>
   <script src="src/sprite_layout.js?v=c2db4a64"></script>
   <script src="src/placed_floor.js?v=2d48b4fd"></script>
-  <script src="src/home.js?v=c05b1307"></script>
-  <script src="src/coords.js?v=2a9201fd"></script>
+  <script src="src/campfires.js?v=de1dbe54"></script>
+  <script src="src/home.js?v=ca3a4349"></script>
+  <script src="src/coords.js?v=5bb3fc3d"></script>
   <script src="src/fog.js?v=f59fad6c"></script>
   <script src="src/biome_profiles.js?v=4749298a"></script>
   <script src="src/habitat_spawns.js?v=210179cd"></script>
@@ -3014,9 +3015,9 @@
   <script src="src/underground_stories.js?v=deb09860"></script>
   <script src="src/worldgen.js?v=02c9315f"></script>
   <script src="src/castle_styles.js?v=44481685"></script>
-  <script src="src/textures.js?v=a9ab03f5"></script>
+  <script src="src/textures.js?v=e86c72b5"></script>
   <script src="src/save.js?v=5d02b05e"></script>
-  <script src="src/items.js?v=0cd42972"></script>
+  <script src="src/items.js?v=5f9585ff"></script>
   <script src="src/inventory.js?v=08929c24"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
   <script src="src/conditions.js?v=ebae5f35"></script>
@@ -3024,7 +3025,7 @@
   <script src="src/potion_effects.js?v=cec6c482"></script>
   <script src="src/crops.js?v=cbbbf8f0"></script>
   <script src="src/delivery.js?v=66bf194d"></script>
-  <script src="src/save_state.js?v=3a9c6be4"></script>
+  <script src="src/save_state.js?v=0e5053e5"></script>
   <script src="src/gear.js?v=9a5ec3b7"></script>
   <script src="src/rewards.js?v=4e15b7b0"></script>
   <script src="src/shops_math.js?v=61fb7d5a"></script>
@@ -3033,15 +3034,15 @@
   <script src="src/chest_themes.js?v=a2057988"></script>
   <script src="src/loot_contexts.js?v=92eecb4e"></script>
   <script src="src/rarity.js?v=3b10f893"></script>
-  <script src="src/loot.js?v=3fda6cb1"></script>
-  <script src="src/macros.js?v=4251e299"></script>
-  <script src="src/quests.js?v=113bb733"></script>
+  <script src="src/loot.js?v=6ea8fcd8"></script>
+  <script src="src/macros.js?v=8ebeca54"></script>
+  <script src="src/quests.js?v=cb02f6fc"></script>
   <script src="src/hidden_objects.js?v=4f521b76"></script>
   <script src="src/temple_puzzles.js?v=73f9ce8c"></script>
   <script src="src/temple_layout.js?v=1fd00fbe"></script>
   <script src="src/temple_scene.js?v=a309e529"></script>
   <script src="src/temples.js?v=566836d0"></script>
-  <script src="src/interactables.js?v=234082d9"></script>
+  <script src="src/interactables.js?v=e1bf2fd7"></script>
   <script src="src/boss_encounters.js?v=6b33000d"></script>
   <script src="src/houses.js?v=cc51e6a0"></script>
   <script src="src/obstacle_step.js?v=90d02a9b"></script>
@@ -3054,49 +3055,49 @@
   <script src="src/pets.js?v=73ac430f"></script>
   <script src="src/character_portraits.js?v=6b8fd6c4"></script>
   <script src="src/companions.js?v=a9ca22bf"></script>
-  <script src="src/creature_ai.js?v=20bf9867"></script>
+  <script src="src/creature_ai.js?v=401ee27c"></script>
 
   <script src="src/wizard.js?v=76454ef2"></script>
   <script src="src/dragon_story.js?v=0ebfab03"></script>
   <script src="src/memory_story.js?v=e8c08f01"></script>
   <script src="src/pet_story_art.js?v=4bf942ec"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
-  <script src="src/story_encounters.js?v=5c1055f2"></script>
-  <script src="src/interact.js?v=a312ad0d"></script>
+  <script src="src/story_encounters.js?v=aa9b9863"></script>
+  <script src="src/interact.js?v=8a0cc527"></script>
   <script src="src/play_tips.js?v=889489e3"></script>
   <script src="src/lighting_gpu.js?v=c2cf90df"></script>
-  <script src="src/lighting.js?v=fa0da791"></script>
+  <script src="src/lighting.js?v=da2d7003"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=cac15241"></script>
+  <script src="src/render.js?v=c61f43ef"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/multiplayer.js?v=a57c92a7"></script>
   <script src="src/road_overlay.js?v=d8ee1725"></script>
   <script src="src/temple_art.js?v=ef92c84b"></script>
-  <script src="src/wall_perspective.js?v=3be71b5e"></script>
-  <script src="src/building_overlay.js?v=4d8cca1c"></script>
+  <script src="src/wall_perspective.js?v=028ee9f0"></script>
+  <script src="src/building_overlay.js?v=042cb26e"></script>
   <script src="src/assets.js?v=6a37a018"></script>
   <script src="src/sandbox_destinations.js?v=f0a1f55d"></script>
-  <script src="src/sandbox.js?v=60d9c0d6"></script>
+  <script src="src/sandbox.js?v=8b6cfb58"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=0a205c42"></script>
-  <script src="src/art_thumbs.js?v=19a4f216"></script>
-  <script src="src/modal_shell.js?v=4feec18d"></script>
+  <script src="src/art_thumbs.js?v=cf80f204"></script>
+  <script src="src/modal_shell.js?v=a692409a"></script>
   <script src="src/scene_geo.js?v=5440fa32"></script>
-  <script src="src/npc.js?v=eb1e1862"></script>
+  <script src="src/npc.js?v=18efbb4a"></script>
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
-  <script src="src/scene_shops.js?v=cafaf139"></script>
-  <script src="src/heading_up.js?v=a95ff359"></script>
-  <script src="src/compass_modules.js?v=cf28a241"></script>
+  <script src="src/scene_shops.js?v=33316904"></script>
+  <script src="src/heading_up.js?v=df8db464"></script>
+  <script src="src/compass_modules.js?v=8397cff2"></script>
   <script src="src/compass_shine.js?v=1533df4e"></script>
-  <script src="src/compass_hud.js?v=826ae3c4"></script>
+  <script src="src/compass_hud.js?v=ac4aa4f2"></script>
   <script src="src/scene_create.js?v=15a4dc31"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=05d59b5d"></script>
   <script src="src/scene_sky.js?v=c2698528"></script>
-  <script src="src/scene_consumables.js?v=c59efb58"></script>
+  <script src="src/scene_consumables.js?v=b9dbacba"></script>
   <script src="src/scene_pets.js?v=cb512920"></script>
-  <script src="src/scene_venues.js?v=883900a3"></script>
+  <script src="src/scene_venues.js?v=1ff89167"></script>
   <script src="src/scene_streets.js?v=d84eee30"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
@@ -3168,7 +3169,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=5a64ba54';
+      const APP_SRC = 'src/app.js?v=2e17332e';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

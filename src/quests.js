@@ -172,7 +172,7 @@ const Quests = {
 // is no claim step — so the chip always shows the next thing to do.
 //
 // Rewards are small on purpose: $5 a step and $25 at the end, $50 across an
-// entire first session, against a STARTING_MONEY of 50. Enough that finishing a
+// entire first session, starting from an empty purse. Enough that finishing a
 // step reads as progress, small enough that it can't outrun farming as an
 // income source. Tune here — nothing else reads these numbers.
 const STARTER_CHAIN = [

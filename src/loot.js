@@ -926,7 +926,8 @@ function chestLook(o) {
 // Places and other special looks retain their own ceremony art.
 function chestOpeningArt(o) {
   const look = chestLook(o);
-  if (look.texKey === 'box') return o.crate ? 'kind_supplies' : 'chest_t1';
+  if (look.texKey === 'box') return o.crate || o.quarryCrate ? 'treasure_crate' : 'chest_t1';
+  if (look.texKey === 'barrel') return 'treasure_barrel';
   if (look.texKey === 'chest') return 'chest_t' + chestTier(o);
   return null;
 }

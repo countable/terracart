@@ -4,7 +4,7 @@
   --panel-metal: #bfc2ba;
   --panel-glow: #b9c4c0;
   --panel-rail: url('../assets/ui/compass/reference-panel-rail.webp');
-  --panel-rail-height: 72px;
+  --panel-rail-height: calc((min(100vw, 480px) - 4px) * 220 / 750);
 }
 .compass-panel[data-kind='shop'], .compass-panel[data-kind='trade'],
 .compass-panel[data-kind='forge'], .compass-panel[data-kind='relics'] {
@@ -63,7 +63,12 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   text-transform: none !important; color: #f3dfa0 !important;
   text-shadow: 0 2px 3px #000, 0 0 12px #000;
 }
-.compass-panel .modal-art, .compass-panel .modal-art-mosaic { inset: var(--panel-rail-height) 7px 0 !important; }
+/* Reserve an opaque header/title band: neither painting nor loading mosaic
+   can extend into the dragon rail or the title beneath it. */
+.compass-panel .modal-art, .compass-panel .modal-art-mosaic {
+  inset: calc(var(--panel-rail-height) + 44px) 18px 12px !important;
+  border-radius: 0 !important;
+}
 .compass-panel .compass-action { border-radius: 13px !important; min-height: 38px; }
 .compass-panel .compass-action-primary:not(.compass-action-accent):not(:disabled) {
   background: linear-gradient(#fff0a0, #f4c844 22%, #d79a20 78%, #f4cd63) !important;
@@ -96,9 +101,6 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   animation: compass-panel-rise 240ms cubic-bezier(.2,.8,.2,1) both;
 }
 @keyframes compass-panel-rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
-@media (max-width: 360px) {
-  .compass-panel, #story.compass-story { --panel-rail-height: 62px; }
-}
 /* Before Phaser boots, the same rail and sheet frame carry the wake/street
    paintings. Discovery and the dream are immersive, borderless paintings. */
 #story.story-fullscreen {
@@ -124,7 +126,7 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   background: #1b252c; box-shadow: 0 -8px 35px #0009;
   animation: compass-panel-rise 240ms ease-out both;
 }
-#story.compass-story .art { flex: 0 0 auto; min-height: 0; aspect-ratio: 512 / 341; }
+#story.compass-story .art { flex: 0 0 auto; min-height: 0; width: calc(100% - 36px); aspect-ratio: 512 / 341; margin: 14px 18px 0; }
 #story.compass-story .opening-copy { flex: 1 0 auto; padding: 20px; }
 #story.compass-story .story-skip { z-index: 4; }
 @media (prefers-reduced-motion: reduce) {

@@ -107,7 +107,7 @@ const MODAL_KINDS = {
   build:    { icon: '🛠', label: 'Build', art: 'kind_build' },   // restoring wrecks, unsealing forts, moving home
   craft:    { icon: '🪵', label: 'Craft', art: 'kind_craft' },   // Home's Craft page (HOME_RECIPES)
   wizard:   { icon: '🔮', label: 'Wizard', art: 'kind_wizard' },   // spends memories on gifts
-  spirit:   { icon: '✧', label: 'Dragon Spirit', portrait: 'assets/art/kind_spirit.webp' },
+  spirit:   { icon: '✧', label: 'Dragon Spirit', portrait: 'assets/portraits/dragon_spirit.png' },
   memory:   { icon: '🌟', label: 'Memories', art: 'kind_memory' },   // the memories chip's explainer
   slots:    { icon: '🎰', label: 'Slots', art: 'kind_slots' },   // a fort's slot machine (presentFortSlots)
   farm:     { icon: '🌾', label: 'Farm', art: 'kind_farm' },   // scarecrows, feeding fauna
@@ -116,7 +116,7 @@ const MODAL_KINDS = {
   use:      { icon: '🎒', label: 'Use', art: 'kind_use' },   // confirming a consumable from the bag
   fire:     { icon: '🔥', label: 'Campfire', art: 'kind_fire' },   // burning a held item (presentBurnConfirm)
   note:     { icon: '📜', label: 'Note', art: 'kind_note' },   // generic message dialog
-  // A neighbour speaking: the header is the speaker's NAME (callers pass it as
+  // A neighbour speaking: the header is the speaker's name and role (callers pass it as
   // kindLabel — NPC.speech), the label below is only the fallback. Always
   // opened with the speaker's portrait, so the row has no default painting.
   talk:     { icon: '💬', label: 'Talk' },
@@ -197,6 +197,8 @@ class SceneModals {
       `overflow-y:auto;overscroll-behavior:contain;` +
       (textAlign ? `text-align:${textAlign};` : '') +
       boxExtra;
+    // The 750×220 dragon rail must keep its full height at this panel width.
+    box.style.setProperty('--panel-rail-height', `${(vSize - 4) * 220 / 750}px`);
     // The painting fills the box; the scrim darkens everything below the
     // art's line, so the content region always sits on near-solid ground.
     // The box itself stops scrolling — the body does (see mount()). `band`

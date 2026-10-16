@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none">
+  <!-- Fine gold band and engraved notches; raster fittings and live letters sit above it. -->
+  <defs>
+    <linearGradient id="rim" x1="50" y1="20" x2="340" y2="390" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b08b4d"/><stop offset=".16" stop-color="#f0dca3"/>
+      <stop offset=".38" stop-color="#ad8744"/><stop offset=".62" stop-color="#d9bc7c"/>
+      <stop offset=".83" stop-color="#8b672f"/><stop offset="1" stop-color="#ddc38a"/>
+    </linearGradient>
+  </defs>
+  <circle cx="200" cy="200" r="197.5" stroke="#30271b" stroke-width="4"/>
+  <circle cx="200" cy="200" r="197.5" stroke="url(#rim)" stroke-width="2.6"/>
+  <circle cx="200" cy="200" r="198.25" stroke="#f3dfaf" stroke-opacity=".72" stroke-width=".5"/>
+  <circle cx="200" cy="200" r="196.5" stroke="#71562e" stroke-width=".5"/>
+  <path class="rim-engraving" d="M275.1973,18.4577 L275.9627,16.6099" stroke="#70532c" stroke-width=".7"/>
+  <path class="rim-engraving" d="M381.5423,124.8027 L383.3901,124.0373" stroke="#70532c" stroke-width=".7"/>
+  <path class="rim-engraving" d="M381.5423,275.1973 L383.3901,275.9627" stroke="#70532c" stroke-width=".7"/>
+  <path class="rim-engraving" d="M275.1973,381.5423 L275.9627,383.3901" stroke="#70532c" stroke-width=".7"/>
+  <path class="rim-engraving" d="M124.8027,381.5423 L124.0373,383.3901" stroke="#70532c" stroke-width=".7"/>
+  <path class="rim-engraving" d="M18.4577,275.1973 L16.6099,275.9627" stroke="#70532c" stroke-width=".7"/>
+  <path class="rim-engraving" d="M18.4577,124.8027 L16.6099,124.0373" stroke="#70532c" stroke-width=".7"/>
+  <path class="rim-engraving" d="M124.8027,18.4577 L124.0373,16.6099" stroke="#70532c" stroke-width=".7"/>
+</svg>

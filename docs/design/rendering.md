@@ -29,10 +29,14 @@ category controls depth order, fading, and compass compensation. Ground decals
 always precede props. Both prop categories interleave with actors by ground
 anchor, with the player drawn above their current supporting props at every
 compass heading. `_worldDecalCount` marks that prefix for the rotated depth sort.
+The render camera anchor snaps once to the logical pixel grid before ground,
+sprites and inverse taps project their positions. Physical player/GPS positions
+remain continuous; player art projects against that same snapped anchor.
+
 Contact shadows are presentation attached to props, not ground decals; flat rune
 rings are decals and retain the map's rotation.
 
-The home firepit is centred three cells due south of the trailer after the
+The home firepit is centred two cells due south of the trailer after the
 first device-compass reading (see [Home](combat.md)), without an inward artwork
 nudge. The ring, matching fire, smoke, interaction and step-over footprint use
 that position. Its cold and lit states are both step-over props.
@@ -46,7 +50,10 @@ and tiled walls. Each compass change inverse-rotates only the height vector,
 selects camera-facing sides, and orders short wall prisms by screen depth.
 Explicit triangles use Phaser's existing WebGL batching or Canvas fallback;
 there is no wall canvas bake or texture upload on heading changes. At a fixed
-heading the command buffers are reused. Floors remain cached ground textures;
+heading the command buffers are reused. House footprint foundations use the same
+retained perimeter faces, descending below the floor instead of rising as a wall.
+Only camera-facing sides draw; uncapped perimeters also support concave footprints
+without triangulating their textured floors. Floors remain cached ground textures;
 small building sprites and towers keep their ordinary upright sprite path.
 North-up mode retains the existing wall atlas artwork.
 
@@ -122,6 +129,11 @@ North-up mode retains the existing wall atlas artwork.
   the facing chevron) use that point; body
   effects use `playerBodyDy()` so they also follow the downed pose. Do not
   compensate for sprite seating by changing the projection.
+- Water, tar-yard terrain and unburned street tar puddles lower the player's
+  body to the waterline and crop away the lower half of its current sprite frame.
+  This spatial pose stays while paused, clears on dry ground, and yields to
+  flight, the dragon form, collapse and step-over support. It does not change
+  movement, reach or feet-based sorting; heading-up rotates the same cropped body.
 - Flight raises the body by the consumable row’s `liftPx` through `playerBodyDy()`;
   the shadow, world position and ground sorting remain at the feet. Expiry lowers
   the body automatically. Thrown flight potions also raise creature bodies.
@@ -133,7 +145,9 @@ North-up mode retains the existing wall atlas artwork.
   ground state (such as oil spills), then objects and characters.
   Building footprints and walls are background. House and temple foundations
   share the floor canvas: draw the shaded base below the top surface, with a
-  thin rim rather than an upright perimeter wall. Polygon fort walls and tiled castle
+  thin rim rather than an upright perimeter wall. House sidewalls stay close to
+  the footprint's brick colour, with a modest shadow in both restoration states.
+  Polygon fort walls and tiled castle
   ramparts live in `buildingWallContainer`, immediately above the footprint
   layer and below pads, traps, shadows and every interactable. Wall geometry
   never adjusts an actor's feet or enters the world depth sort. Towers and
@@ -169,7 +183,11 @@ North-up mode retains the existing wall atlas artwork.
   the player's inset body box and their world depth draws them in front. The
   overlap uses cached trimmed `ART_BOUNDS`, with frame bounds for procedural
   art, and updates even on reused sprite slots. Moving clear restores the
-  original opacity; tool access never changes it. Ground decals retain their own
+  original opacity; tool access never changes it. On a turned heading-up map
+  both boxes stand at their turned feet and lower turned feet count as in
+  front (`Render.headingFadeView`), matching the heading-up draw order.
+  Prop contact shadows turn about their prop's ground anchor, so a tucked-up
+  shadow stays under the art at every compass heading. Ground decals retain their own
   opacity, and fruit overlays follow their tree.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
@@ -179,6 +197,8 @@ North-up mode retains the existing wall atlas artwork.
   footprint's centre of mass: the object sits on the nearest footprint cell
   and carries the remainder (`footDx`/`footDy`, worldgen
   `footprintFootOffset`); its shadow, sign, roof plate and bubble follow the art.
+  Building contact shadows, including the trailer and replacement house art, use
+  25% opacity.
   Use a stable `seatFrame` for animation. After art changes, run
   `node tools/sprite_audit.js --emit-bounds` and update `src/sprite_layout.js`.
 - Every underground floor uses the same connected cave-wall atlas: raised caps,

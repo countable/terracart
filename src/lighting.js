@@ -934,7 +934,7 @@
       (fire, dx, dy) => ({ kind: 'ground_fire', dx, dy, id: GroundFire.key(fire.depth, fire.cellIX, fire.cellIY) }),
       (fire) => absCellCenterMeters(scene, fire.cellIX, fire.cellIY));
     if (!PF || !fires || !fires.length) return n;
-    return n + collectPoints(scene, PF.forDepth(fires, depth), ax, ay, halfM, 'fire',
+    return n + collectPoints(scene, PF.forDepth(fires, depth).filter(fire => Campfires.active(fire, now)), ax, ay, halfM, 'fire',
       (fr, dx, dy) => ({ kind: 'fire', dx, dy, id: `fire_${fr.x.toFixed(2)}_${fr.y.toFixed(2)}` }));
   }
 

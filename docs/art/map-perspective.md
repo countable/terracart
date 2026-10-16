@@ -38,4 +38,7 @@ the one-line version; this file owns the geometry. The
   retain those connections while their height projects vertically toward screen
   up. Select visible faces from the rotated footprint; do not counter-rotate
   individual wall segments. Castle caps and merlons follow the footprint in plan
-  and remain raised above it. North-up asset authoring rules above still apply.
+  and remain raised above it. House foundations extend below their floor plane,
+  with their visible faces following the same screen-down direction as castle
+  wall faces; they never become a raised rim. North-up asset authoring rules above
+  still apply.

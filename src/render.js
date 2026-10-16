@@ -450,9 +450,8 @@ Render.suppressedGround = (entry, ix, iy, type, depth = 0, n = entry?.cellsPerEd
 
 // Pseudo-3D extrusion: a building footprint is the "top surface", and its
 // south-facing edge gets a darker wall projected downward onto the row below.
-// Wall faces recover half the pre-recolour contrast against their floors — deep
-// shadow under the lit top surface, but with enough hue to read as the
-// building's own material rather than a generic dark stripe. Houses get a 7px
+// House faces stay close to their footprint colour, with a shallow shadow
+// that keeps the foundation readable as the same brick material. Houses get a 7px
 // wall; civic slabs (LARGE) keep a thicker 11px one to read at their bigger
 // footprint scale.
 //
@@ -461,7 +460,7 @@ Render.suppressedGround = (entry, ix, iy, type, depth = 0, n = entry?.cellsPerEd
 // POLYGON with the same colours at the same depths, and a wall that changed
 // height when the footprint stopped being square would give the two modes
 // different silhouettes for the same building.
-const BUILDING_FACE_COLOR = { 9: 0x613833, 11: 0x625441, 12: 0x5a5e58 };
+const BUILDING_FACE_COLOR = { 9: 0x7e4138, 11: 0x625441, 12: 0x5a5e58 };
 const BUILDING_FACE_PX = { 9: 7, 11: 7, 12: 11 };
 // Building tiers, as a predicate; module scope because the base terrain fill needs it too.
 const isBuildingType = (t) => t === 9 || t === 11 || t === 12;
@@ -3465,9 +3464,14 @@ function fadeLabelOverPlayer(tx, box) {
 // Upright props fade only while their visible art covers the player's body
 // and their shared world depth places them in front. Read the boot-time art
 // bounds, never texture pixels; untrimmed procedural art uses its frame box.
-Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha) {
+// On a turned heading-up map (`view`, from Render.headingFadeView) each body
+// stands upright at its turned feet, and lower turned feet draw in front, so
+// both the boxes and the front test follow the turned feet instead.
+Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha, view = null) {
   let obscures = false;
-  if (box && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && s.depth > playerDepth) {
+  const foot = view && (s._huAnchor || s);
+  const front = view ? view.sin * foot.x + view.cos * foot.y > view.playerKey : s.depth > playerDepth;
+  if (box && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && front) {
     const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
     const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
     const fw = art?.fw ?? s.frame?.realWidth ?? s.frame?.width ?? s.width;
@@ -3476,10 +3480,29 @@ Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, 
     const x1 = s.x + ((art?.maxX ?? fw) - s.originX * fw) * s.scaleX;
     const y0 = s.y + ((art?.minY ?? 0) - s.originY * fh) * s.scaleY;
     const y1 = s.y + ((art?.maxY ?? fh) - s.originY * fh) * s.scaleY;
-    obscures = x0 < box.x1 && x1 > box.x0 && y0 < box.y1 && y1 > box.y0;
+    // The art keeps its offsets from its feet; only the feet turn.
+    const ox = view ? view.cos * foot.x - view.sin * foot.y - foot.x : 0;
+    const oy = view ? view.sin * foot.x + view.cos * foot.y - foot.y : 0;
+    obscures = x0 + ox < box.x1 && x1 + ox > box.x0 && y0 + oy < box.y1 && y1 + oy > box.y0;
   }
   const alpha = baseAlpha * (obscures ? 0.5 : 1);
   if (s.alpha !== alpha) s.setAlpha(alpha);
+};
+
+// The turned-map inputs for fadeObjectOverPlayer: the rotation, the player's
+// turned feet key, and the player's body box moved to its turned feet. Null on
+// a north-up map. Rotating about the origin is enough: only differences
+// between turned feet matter, and every position turns the same way.
+Render.headingFadeView = function headingFadeView(scene, box) {
+  const a = typeof HeadingUp !== 'undefined' ? HeadingUp.angle(scene) : 0;
+  const feet = a && scene.playerScreen ? scene.playerScreen() : null;
+  if (!feet) return { view: null, box };
+  const sin = Math.sin(a), cos = Math.cos(a);
+  const ox = cos * feet.x - sin * feet.y - feet.x, oy = sin * feet.x + cos * feet.y - feet.y;
+  return {
+    view: { sin, cos, playerKey: sin * feet.x + cos * feet.y },
+    box: box && { x0: box.x0 + ox, x1: box.x1 + ox, y0: box.y0 + oy, y1: box.y1 + oy },
+  };
 };
 
 // QC labels read the generated selections, never choose another variant.
@@ -3744,7 +3767,7 @@ function labelFactory(style) {
 // shares the creature look's centre).
 const SHADOW_LOOK = {
   prop:     { aspect: 0.42, alpha: 0.45 },
-  building: { aspect: 0.42, alpha: 0.5 },
+  building: { aspect: 0.42, alpha: 0.25 },
   creature: { aspect: 0.34, alpha: 0.32, dy: -3 },
   airborne: { aspect: 0.34, alpha: 0.20, dy: -3 },
   plant:    { alpha: 0.55 },
@@ -4184,13 +4207,16 @@ Render.drawObjects = function drawObjects(scene) {
     return out;
   };
   const scarecrowList = placedAs(PlacedFloor.forDepth(scene.save.scarecrows, _curDepth), '_scarecrow', 'scarecrow');
-  const fireList = placedAs(PlacedFloor.forDepth(scene.save.fires, _curDepth), '_fire', 'fire');
+  const fireNow = Date.now();
+  const firesOnDepth = PlacedFloor.forDepth(scene.save.fires, _curDepth);
+  const fireList = placedAs(firesOnDepth.filter(f => Campfires.active(f, fireNow)), '_fire', 'fire');
   // Home's empty firepit (save.homeFirepit, seated by _placeHome): a ring of
   // stones on the surface, until a fire is lit in it — then the fire is drawn.
   const pit = scene.save.homeFirepit;
   const firepitList = (pit && _curDepth === 0 && !(scene.save.fires || [])
     .some(f => PlacedFloor.isSurface(f.depth) && sameAbsCell(scene, f.x, f.y, pit.x, pit.y)))
     ? placedAs([pit], '_firepit', 'firepit') : [];
+  firepitList.push(...placedAs(firesOnDepth.filter(f => !Campfires.active(f, fireNow)), '_firepit', 'firepit'));
   // STREET LAMPS on a restored street — the same treatment, for the same
   // reason: a lamp STANDS on the ground, so it takes its turn in the screen-row
   // z-order (a lamp behind a house is in front of the house north of it).
@@ -4346,6 +4372,9 @@ Render.drawObjects = function drawObjects(scene) {
     Render.renderPool(scene, scene.shadowPool, scene.shadowContainer, shadowList, (s, item) => {
       const { o, dx, dy } = item;
       const { x: sx, y: sy } = project(dx, dy);
+      // Heading-up turns a shadow about `_huAnchor`. A pooled slot must not
+      // keep the anchor of whatever it shadowed before.
+      s._huAnchor = null;
       if (item._plantShadow) {
         const shadow = item._plantShadow;
         seatShadow(s, 'plant', shadow.width, Math.round(sx), Math.round(sy) + shadow.dyPx, shadow.height);
@@ -4360,6 +4389,9 @@ Render.drawObjects = function drawObjects(scene) {
         const foot = item._foot;
         seatShadow(s, 'prop', Math.max(8, foot.w * 0.9), Math.round(sx),
           Math.round(sy + foot.footFromCentre - (foot.shadowInsetPx || 0)));
+        // Turn with the prop about its own ground anchor, so the tuck-up
+        // inset stays screen-up instead of swinging below the art.
+        s._huAnchor = Render.objectGroundAnchor(item._appearance, scene.textures, { x: sx, y: sy });
         return;
       }
       const shadow = Render.buildingShadow(item._appearance, scene.textures, { x: sx, y: sy });
@@ -4369,10 +4401,10 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
   // Turrets keep a separate reusable pool inside the shared world layer.
-  const bodyBox = playerScreenBox(scene);
+  const { box: bodyBox, view: fadeView } = Render.headingFadeView(scene, playerScreenBox(scene));
   const playerDepth = scene.playerWorldContainer?.depth ?? Infinity;
   const fadeObject = (s, appearance) => Render.fadeObjectOverPlayer(s, appearance,
-    bodyBox, playerDepth, s._objectBaseAlpha ?? 1);
+    bodyBox, playerDepth, s._objectBaseAlpha ?? 1, fadeView);
   const configureObject = (s, item) => {
     const { o, dx, dy } = item;
     const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
@@ -4739,7 +4771,7 @@ Render.drawObjects = function drawObjects(scene) {
     fadeLabelOverPlayer(tx, _playerBox);
   }, labelFactory('sign'));
 
-  // Smoke wisping off Home's cold firepit (HomeArea.FIREPIT_SMOKE): soft
+  // Smoke wisping off cold firepits (HomeArea.FIREPIT_SMOKE): soft
   // puffs that rise, sway and fade, each a fraction of a period behind the
   // last. In the fx layer (masked to the map, under the fog); none under
   // reduced motion.

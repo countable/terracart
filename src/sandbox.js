@@ -1504,8 +1504,8 @@
   function seedCoverageState(save, entry, originIX, originIY, tx, ty, cellM) {
     const plaza = sceneByName('PLAZA');
     const ix = originIX + plaza.lx + 1, iy = originIY + plaza.ly + 6;
-    save.fires = [{ x: tx * entry.tileEdgeM + (ix + 0.5) * cellM,
-      y: ty * entry.tileEdgeM + (iy + 0.5) * cellM, depth: 0 }];
+    save.fires = [Campfires.light({ x: tx * entry.tileEdgeM + (ix + 0.5) * cellM,
+      y: ty * entry.tileEdgeM + (iy + 0.5) * cellM, depth: 0 })];
     save.streets = {};
     save.streetsEpoch = 0;
     const lantern = entry.streetIndex?.lines?.find((r) => r.variant === 'lantern');
@@ -1756,7 +1756,6 @@
       for (const id of byKind[kind]) inv.push({ id, count: COUNT });
     }
     for (const stack of inv) if (['wood', 'rubble'].includes(stack.id)) stack.count = 120;
-    scene.save.money = Math.max(scene.save.money || 0, 2000);
     scene.save.inv = inv;
     scene.save.selSlot = 0;
     // Unspent memories (a save counter, not a bag stack) so the wizard

@@ -253,8 +253,13 @@ const HeadingUp = {
     // move with the map, but the ellipse must not turn sideways with it.
     for (const o of scene.shadowContainer?.list || []) {
       if (o.type === 'Image' || o.type === 'Sprite') {
-        o._huAnchor ||= { x: o.x, y: o.y };
+        // Without a renderer-set anchor a shadow turns about where it is this
+        // frame. Never keep that point: an unpooled shadow (the player's, a
+        // peer's) moves on, and a stale anchor throws it off its owner.
+        const own = !o._huAnchor;
+        if (own) o._huAnchor = { x: o.x, y: o.y };
         up(o);
+        if (own) o._huAnchor = null;
       }
     }
     // Feet lower on the TURNED screen draw in front; ground decals

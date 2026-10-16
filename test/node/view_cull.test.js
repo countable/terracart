@@ -12,12 +12,12 @@ const S = () => ({
   viewCenterX: 176, viewCenterY: 176, cellM: 5,
 });
 
-test('view: playerWorldM is startWorldM + playerM, and the anchor adds only the peek', () => {
+test('view: playerWorldM stays exact while the peek camera aligns to pixels', () => {
   const s = S();
   assert.eq(JSON.stringify(playerWorldM(s)), JSON.stringify({ x: 1030, y: 1990 }));
   assert.eq(JSON.stringify(viewAnchorWorldM(s)), JSON.stringify({ x: 1030, y: 1990 }), 'no peek: the anchor is the player');
   s.peekM = { x: 4, y: -6 };
-  assert.eq(JSON.stringify(viewAnchorWorldM(s)), JSON.stringify({ x: 1034, y: 1984 }), 'a peek slides the anchor, not the player');
+  assert.eq(JSON.stringify(viewAnchorWorldM(s)), JSON.stringify({ x: 1034.0625, y: 1984.0625 }), 'peek camera snaps within half a pixel, without moving the player');
   assert.eq(playerWorldM(s).x, 1030, 'playerWorldM ignores the peek');
 });
 

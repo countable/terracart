@@ -8,7 +8,7 @@ test('warden: explains safety and why rebuilding matters, as a talker not a shop
   const talk = NPC.dialogue({ save: {} }, w);   // the first talk, whenever she arrives
   assert.truthy(talk.body.includes(NPC.WARDEN_LINE), 'still explains the safe area');
   assert.truthy(talk.body.includes(MemoryStory.HOME.body), 'a family gives the player a reason to rebuild');
-  assert.truthy(/· Warden$/.test(talk.title), 'titled as the warden');
+  assert.truthy(/, Warden$/.test(talk.title), 'titled as the warden');
   assert.eq(JSON.stringify(NPC.warden('npc_warden_1_2')), JSON.stringify(NPC.warden('npc_warden_1_2')), 'a stable look');
 });
 

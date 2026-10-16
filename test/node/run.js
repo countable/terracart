@@ -95,7 +95,7 @@ const FILES = [
   'scenic.js',
   // Influence zones. Pure (reads WorldGen at CALL time), before worldgen.js like the page.
   'zones.js', 'zone_variant_data.js', 'terrain.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
-  'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js',
+  'multiplayer.js', 'placed_floor.js', 'campfires.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js',
   // Traps — pure (reads WorldGen at CALL time); index.html puts it first, so do we.
   'traps.js', 'whirlwinds.js', 'hazard_falls.js', 'environment_hazards.js', 'pressure_traps.js', 'spider_webs.js',
   'gas.js', 'mushroom_gas.js',
@@ -323,7 +323,7 @@ const starterWrapper = (name) => {
     ctx[name] = parseFloat(m[1]);
   }
   // Derived in app.js from the two above, as the shipping code reads it.
-  ctx.MAP_DEFAULT_ZOOM = ctx.VIEW_CELLS / (ctx.VIEW_CELLS - 2);
+  ctx.MAP_DEFAULT_ZOOM = ctx.VIEW_CELLS / ctx.PINCH_VIEW_CELLS;
   ctx.PINCH_MAX_ZOOM = ctx.VIEW_CELLS / ctx.PINCH_VIEW_CELLS;
 }
 

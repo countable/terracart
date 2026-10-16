@@ -21,6 +21,25 @@ test('player occlusion: foreground props fade only while covering the body', () 
   assert.eq(s.alpha, 1, 'being behind a nearby object without overlap does not fade it');
 });
 
+test('player occlusion: a turned heading-up map fades by the turned feet', () => {
+  const scene = { _headingUp: true, mapRot: Math.PI, playerScreen: () => ({ x: 100, y: 100 }) };
+  const { view, box: turned } = Render.headingFadeView(scene, box);
+  assert.truthy(view, 'a turned map supplies turned feet');
+  // North of the player: behind it north-up, in front of it at a half turn.
+  const north = sprite(); north.y = 80; north.depth = 3; north._huAnchor = { x: 100, y: 80 };
+  Render.fadeObjectOverPlayer(north, appearance, box, 4, 1);
+  assert.eq(north.alpha, 1, 'north-up, the prop behind the player stays opaque');
+  Render.fadeObjectOverPlayer(north, appearance, turned, 4, 1, view);
+  assert.eq(north.alpha, 0.5, 'turned to face south, the same prop stands over the body');
+  // South of the player: in front north-up, behind it at a half turn.
+  const south = sprite(); south.y = 120; south.depth = 6; south._huAnchor = { x: 100, y: 120 };
+  Render.fadeObjectOverPlayer(south, appearance, turned, 4, 1, view);
+  assert.eq(south.alpha, 1, 'a prop now behind the player never fades');
+  const still = Render.headingFadeView({ ...scene, mapRot: 0 }, box);
+  assert.eq(still.view, null, 'a north-up map keeps the depth test');
+  assert.eq(still.box, box);
+});
+
 test('player occlusion: trimmed art excludes transparent frame margins', () => {
   const s = sprite(), art = { fw: 32, fh: 48, minX: 12, maxX: 20, minY: 8, maxY: 40 };
   SpriteLayout.ART_BOUNDS['occlusion_fixture:0'] = art;

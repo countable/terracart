@@ -690,6 +690,16 @@ test('campfire: its contact shadow sits 2px above the art bottom, on the logs', 
   assert.eq(fire.foot.shadowInsetPx, 2);
 });
 
+test('heading-up: prop shadows turn about their prop\'s ground anchor', () => {
+  // A shadow turned about its own centre swings its tuck-up inset below the
+  // art once the compass turns; the prop turns about its ground anchor.
+  const start = RENDER_SRC.indexOf('Render.renderPool(scene, scene.shadowPool');
+  const body = RENDER_SRC.slice(start, RENDER_SRC.indexOf('\n    });', start));
+  assert.truthy(body.indexOf('s._huAnchor = null;') < body.indexOf('item._plantShadow'),
+    'every reused slot drops the previous anchor first');
+  assert.truthy(body.includes('s._huAnchor = Render.objectGroundAnchor(item._appearance, scene.textures, { x: sx, y: sy });'),
+    'prop shadows share the anchor their sprite turns about');
+});
 
 test('picked wild berries leave a plain bush across redraw and save reload without restoring the pickup', () => {
   const plant = { kind: 'wildplant', crop: 'berry', id: 'berry_remains', x: 2, y: 3 };

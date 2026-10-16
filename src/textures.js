@@ -49,7 +49,7 @@ function unclaimedShade(rgb) {
 // so mortar, translucent sludge and outlines keep their contrast.
 const UNCLAIMED_BUILDING_BASE = {
   floors: { 9: 0x984f45, 11: 0x9b8365, 12: 0x787a80 },
-  faces: { 9: 0x401f1c, 11: 0x3c2e22, 12: 0x36373a },
+  faces: { 9: 0x6c372f, 11: 0x3c2e22, 12: 0x36373a },
   stone: { LITE: 0xb9bcc2, BODY: 0x8f9298, FACE: 0x7e8188,
     SIDE: 0x7a7d84, SHADOW: 0x5a5d63, DARK: 0x303134 },
 };

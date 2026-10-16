@@ -33,7 +33,7 @@ function makeGfx() {
   return {
     ops: [], cleared: 0, commits: 0, phase: null,
     clear() { this.ops.length = 0; this.cleared++; },
-    fillPoly(pts, color) { this.ops.push({ op: 'fill', pts: pts.map(p => ({ x: p.x, y: p.y })), color }); },
+    fillPoly(pts, color, alpha) { this.ops.push({ op: 'fill', pts: pts.map(p => ({ x: p.x, y: p.y })), color, alpha }); },
     strokePoly(pts, width, color) { this.ops.push({ op: 'stroke', pts, width, color }); },
     insetStroke(pts, width, color, dash) { this.ops.push({ op: 'inset', pts, width, color, dash }); },
     texturePoly(pts, tier) { this.ops.push({ op: 'texture', pts, tier }); },
@@ -241,6 +241,24 @@ test('building overlay: the LOWER building draws in front', () => {
     assert.eq(fills.length, 4, 'both buildings drawn');
     assert.lt(fills[1].pts[0].y, fills[3].pts[0].y, 'northern building painted first');
   }
+});
+
+test('building overlay: a footprint Home cleared is only a 20% shadow, under every building', () => {
+  clearTiles();
+  // The cleared house sits SOUTH of the standing one, so the painter rule
+  // alone would draw it last.
+  const entry = putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING, 'h_stand')]);
+  entry.clearedShapes = [rectShape(0, 30, 10, 40, T.BUILDING, 'h_gone')];
+  const scene = makeScene();
+  BuildingOverlay.draw(scene);
+  const g = scene.buildingGeomGfx;
+  assert.eq(g.ops[0].op, 'fill', 'the shadow paints first');
+  assert.eq(g.ops[0].color, 0x000000, 'black');
+  assert.eq(g.ops[0].alpha, 0.2, 'at 20% opacity');
+  assert.eq(g.ops[0].pts[0].y, px(30), 'over the cleared footprint');
+  assert.eq(g.only('fill').filter(o => o.alpha != null).length, 1, 'no wall or floor for it');
+  assert.eq(g.only('stroke').length, 1, 'only the standing house is outlined');
+  clearTiles();
 });
 
 // ─── Tier styling ───────────────────────────────────────────────────────────
@@ -1158,7 +1176,7 @@ test('building overlay: polygon walls remain background and scroll independently
   const oldX = north.sprite.x;
   scene.playerM.x = 1;
   BuildingOverlay.draw(scene);
-  assert.eq(north.sprite.x, oldX - PX_PER_M, 'uprights follow subcell camera scrolling');
+  assert.eq(north.sprite.x, oldX - Math.round(PX_PER_M), 'uprights follow pixel-aligned camera scrolling');
   scene.depth = 1;
   BuildingOverlay.draw(scene);
   assert.eq(scene._buildingUprightPieces.length, 0, 'underground removes surface uprights');
@@ -1264,13 +1282,66 @@ test('building overlay: heading-up castle uses retained prisms without an atlas 
   const commits = scene.buildingGeomGfx.commits;
   scene.playerM.x = 1;
   BuildingOverlay.draw(scene);
-  assert.eq(group.gfx.x, -PX_PER_M, 'wall translation matches ground movement');
+  assert.eq(group.gfx.x, -Math.round(PX_PER_M), 'wall translation matches pixel-aligned ground movement');
   assert.eq(group.blocks[0], first, 'pan retains geometry');
   assert.eq(group.gfx.clears, clears, 'pan does not repaint wall command buffer');
   scene.mapRot = Math.PI / 3;
   WallPerspective.update(scene);
   assert.eq(scene.buildingGeomGfx.commits, commits, 'rotation does not upload the ground canvas');
   assert.eq(log.refreshes, 0, 'rotation never uploads a wall texture');
+  clearTiles();
+});
+
+test('building overlay: heading-up house foundations follow the camera without repainting textured floors', () => {
+  const rings = [
+    [0, 0, 10, 0, 10, 10, 0, 10],
+    [0, 0, 15, 0, 15, 5, 5, 5, 5, 15, 0, 15],
+  ];
+  for (const ring of rings) for (const reverse of [false, true]) {
+    clearTiles();
+    const points = [];
+    for (let i = 0; i < ring.length; i += 2) points.push(ring.slice(i, i + 2));
+    if (reverse) points.reverse();
+    putShapes(0, 0, [{ ring: Float32Array.from(points.flat()), tier: T.BUILDING,
+      areaM2: 100, key: 'house-foundation' }]);
+    const { scene, log } = makePerspectiveScene();
+    BuildingOverlay.draw(scene);
+    const group = scene._wallPerspective.polygon, block = group.blocks[0];
+    const commits = scene.buildingGeomGfx.commits;
+    assert.eq(scene.buildingGeomGfx.only('fill').length, 1, 'floor cache contains no southward foundation');
+    assert.eq(group.blocks.length, 1, 'one retained perimeter');
+    assert.eq(block.top, 0, 'foundation joins the original floor plane');
+    assert.eq(block.bottom, -Render.BUILDING_FACE_PX[T.BUILDING], 'foundation descends below floor');
+    assert.falsy(block.capped, 'no cap covers floor texture or bridges concave notches');
+    for (const angle of [0, Math.PI / 4, Math.PI / 2, Math.PI, -Math.PI / 3]) {
+      scene.mapRot = angle;
+      WallPerspective.update(scene);
+      assert.eq(group.blocks[0], block, 'heading retains source geometry');
+      assert.gt(group.gfx.triangles.length, 0, 'camera-facing foundation remains visible');
+      const c = Math.cos(angle), sn = Math.sin(angle);
+      for (let i = 0; i < block.points.length; i++) {
+        const j = i * 4, v = block.projected;
+        const dx = v[j] - v[j + 2], dy = v[j + 1] - v[j + 3];
+        assert.lt(Math.abs(c * dx - sn * dy), 1e-7, 'foundation extrudes vertically in screen space');
+        assert.lt(Math.abs(sn * dx + c * dy + block.bottom), 1e-7, 'foundation extends down by its depth');
+      }
+      let visibleEdges = 0;
+      for (let i = 0; i < block.points.length; i++) {
+        const a = block.points[i], b = block.points[(i + 1) % block.points.length];
+        if ((c * (b.x - a.x) - sn * (b.y - a.y)) * block.winding < -1e-6) visibleEdges++;
+      }
+      assert.eq(group.gfx.triangles.length, visibleEdges * 2, 'two triangles per visible face, no filled cap');
+    }
+    const clears = group.gfx.clears;
+    scene.playerM.x = 1;
+    BuildingOverlay.draw(scene);
+    WallPerspective.update(scene);
+    assert.eq(group.gfx.x, -Math.round(PX_PER_M), 'foundation pans with pixel-aligned floor');
+    assert.eq(group.gfx.clears, clears, 'fixed heading reuses commands');
+    assert.eq(scene.buildingGeomGfx.commits, commits, 'heading never uploads floor canvas');
+    assert.eq(log.pages.length, 0, 'no wall atlas');
+    assert.eq(log.refreshes, 0, 'no wall texture uploads');
+  }
   clearTiles();
 });
 

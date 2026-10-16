@@ -17,8 +17,12 @@ const CompassHUD = {
     const body = document.createElement('div');
     body.id = 'compass-body';
     body.setAttribute('aria-hidden', 'true');
-    body.innerHTML = '<div class="compass-aperture"></div><div class="compass-header"></div><div class="compass-footer"></div><div class="compass-upper-join"></div><div class="compass-lower-join"></div><div class="compass-bearing"><i class="compass-ticks"></i><span class="compass-north"><img src="assets/ui/compass/north-arrow.webp" alt="" aria-hidden="true"></span><span class="compass-east"><b>E</b></span><span class="compass-south"><b>S</b></span><span class="compass-west"><b>W</b></span></div>';
+    body.innerHTML = '<div class="compass-aperture"></div><div class="compass-header"></div><div class="compass-footer"></div><div class="compass-upper-join"></div><div class="compass-lower-join"></div><div class="compass-bearing"><img class="compass-rim-art" src="assets/ui/compass/gold-rim.svg" alt="" draggable="false"><i class="compass-bead compass-bead-ne"></i><i class="compass-bead compass-bead-se"></i><i class="compass-bead compass-bead-sw"></i><i class="compass-bead compass-bead-nw"></i><span class="compass-north"><b>N</b></span><span class="compass-east"><b>E</b></span><span class="compass-south"><b>S</b></span><span class="compass-west"><b>W</b></span></div>';
     document.body.append(body);
+    // Gold uses the controls' finish, outside the silver chassis dimming/fade.
+    const bearing = body.querySelector('.compass-bearing');
+    bearing.setAttribute('aria-hidden', 'true');
+    document.body.append(bearing);
     // The memory's pixel pickup has a pale outline. Its instrument uses a
     // clean faceted gold star, without altering the world pickup artwork.
     const memoryIcon = document.querySelector('#memories .mem-ico');
@@ -49,18 +53,6 @@ const CompassHUD = {
     inventory.setAttribute('aria-label', 'Inventory not activated');
     inventory.addEventListener('click', () => CompassModules.tap(scene, 'inventory'));
     document.body.append(inventory);
-    // Dismiss only this scene's cover, never its underlying power circuit.
-    // Keep the close control beside the shutter, not nested in its button.
-    const dismissInventory = document.createElement('button');
-    dismissInventory.id = 'compass-inventory-dismiss';
-    dismissInventory.type = 'button';
-    dismissInventory.textContent = '×';
-    dismissInventory.setAttribute('aria-label', 'Dismiss inactive inventory cover');
-    dismissInventory.addEventListener('click', event => {
-      event.stopPropagation();
-      document.body.classList.add('compass-inventory-dismissed');
-    });
-    document.body.append(dismissInventory);
     const summary = document.querySelector('#menu summary');
     if (summary) {
       for (const node of [...summary.childNodes]) if (node.nodeType === 3) {
@@ -130,9 +122,9 @@ const CompassHUD = {
       }
       for (const elementId of Object.keys(this.modules)) document.getElementById(elementId)?.classList.remove('compass-closed');
       for (const id of new Set(Object.values(this.modules))) document.body.classList.remove(`compass-${id}-closed`);
-      body.remove(); inventory.remove(); dismissInventory.remove();
+      body.remove(); bearing.remove(); inventory.remove();
       knowledge.replaceWith(...knowledge.children);
-      document.body.classList.remove('compass-hud', 'compass-round', 'compass-inventory-dismissed');
+      document.body.classList.remove('compass-hud', 'compass-round');
       scene._compassHUD = false;
       delete scene._compassEnergy;
       delete scene._compassBearing;
