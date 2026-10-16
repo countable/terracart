@@ -504,7 +504,11 @@ function renderScale() {
   const dpr = window.devicePixelRatio || 1;
   // ?rscale=N (see urlNumParam) lowers the cap for one run — the A/B that
   // tells GPU fill from main-thread cost, which no JS timer can measure.
-  const cap = window.__renderScaleCap > 0 ? clamp(window.__renderScaleCap, 1, RENDER_SCALE_MAX) : RENDER_SCALE_MAX;
+  // Software Canvas rotation is CPU-bound at high DPR. Keep its backing
+  // store at the logical pixel-art grid; WebGL retains the 2× budget. The
+  // explicit query override remains available for controlled A/B profiles.
+  const defaultCap = window.__canvasRenderer ? 1 : RENDER_SCALE_MAX;
+  const cap = window.__renderScaleCap > 0 ? clamp(window.__renderScaleCap, 1, RENDER_SCALE_MAX) : defaultCap;
   return clamp(css * dpr, 1, cap);
 }
 // Live value: read by the pointer conversion below and re-applied on resize.

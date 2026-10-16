@@ -70,6 +70,12 @@ North-up mode retains the existing wall atlas artwork.
   aggro ranges and boss margins are tuned for `VIEW_CELLS`. The new-game
   opening shot (`HomeArea.INTRO`, `_tickHomeIntro`) drives the same `mapZoom`
   and `peekM`, and always ends at exactly 1× with no offset.
+- Once Phaser selects its renderer, software Canvas uses a 1× backing store:
+  the logical pixel-art grid. WebGL retains its 2× memory budget. This avoids
+  CPU-bound high-DPR rasterization during map rotation without changing CSS
+  layout, camera projection or pointer coordinates. Both cameras use the same
+  existing resize path. Explicit `?rscale=N` remains a diagnostic override,
+  bounded to 1–2×; game cadence is unchanged.
 - Heading-up is the default (`?headingUp=false` keeps north up). The main
   camera turns about the view centre by `-compassDeg` (Q / E fake it on
   desktop), and the map clips to the inscribed circle. Phaser's two-corner

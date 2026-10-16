@@ -32,9 +32,9 @@ const html = INDEX_HTML_SRC;
 // ── renderScale(): the real function, driven at real screens ───────────────
 
 // Drive it by setting the globals it reads, the way the browser does.
-function at(cssScale, dpr, cap) {
+function at(cssScale, dpr, cap, canvas = false) {
   const prevW = globalThis.window, prevD = globalThis.devicePixelRatio;
-  globalThis.window = { __gameCssScale: cssScale, devicePixelRatio: dpr, __renderScaleCap: cap };
+  globalThis.window = { __gameCssScale: cssScale, devicePixelRatio: dpr, __renderScaleCap: cap, __canvasRenderer: canvas };
   globalThis.devicePixelRatio = dpr;
   try { return renderScale(); }
   finally { globalThis.window = prevW; globalThis.devicePixelRatio = prevD; }
@@ -48,6 +48,15 @@ test('canvas scale: high-DPR phones stay within the backing-store budget', () =>
   }
   assert.eq(at(430 / 352, 2), 2, 'a wide DPR-2 phone is also bounded');
   assert.eq(at(1, 1), 1, 'a plain 1x screen is unchanged');
+});
+
+test('canvas scale: software Canvas stays at the logical grid while WebGL keeps its budget', () => {
+  for (const width of [320, 352, 393, 430]) {
+    assert.eq(at(width / 352, 3, undefined, true), 1, 'Canvas does not rotate a DPR-sized buffer');
+    assert.eq(at(width / 352, 3, undefined, false), 2, 'WebGL retains its existing cap');
+  }
+  assert.eq(at(393 / 352, 3, 2, true), 2, 'explicit diagnostics can compare the old Canvas resolution');
+  assert.eq(at(393 / 352, 3, 4, true), 2, 'diagnostics cannot exceed the memory ceiling');
 });
 
 test('canvas scale: never coarser than the grid it replaced', () => {
