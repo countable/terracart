@@ -19,7 +19,8 @@
 .compass-panel > .modal-box {
   bottom: 0 !important;
   height: auto !important;
-  top: max(calc(var(--map-top, 110px) - var(--view-top, 0px)), calc(var(--view-h, 844px) * .37)) !important;
+  /* Every dialog rises to 7/8 of the screen. */
+  top: calc(var(--view-h, 844px) * .125) !important;
   border: 2px solid var(--panel-metal) !important;
   border-bottom: 0 !important;
   border-radius: 24px 24px 0 0 !important;
@@ -28,11 +29,6 @@
   box-shadow: inset 4px 0 0 #424a48, inset -4px 0 0 #424a48,
     0 -5px 24px #0009, 0 -1px 0 #e1edf0;
   isolation: isolate;
-}
-/* Story panels (a painting, or a speaker's portrait) open higher: 7/8 of
-   the screen, so the painting has room above the copy. */
-.compass-panel.story-panel > .modal-box {
-  top: calc(var(--view-h, 844px) * .125) !important;
 }
 .compass-panel > .modal-box::before, #story.compass-story .box::before {
   content: '';
@@ -217,3 +213,5 @@ body.compass-hud #menu[open] > summary {
 }
 
 @media(max-height:650px) {.opening-sealed {font-size:12px;}}
+/* A list reads from the top, not centred in the tall sheet. */
+.compass-panel[data-kind='menu'] .modal-content { margin-top: 0 !important; }

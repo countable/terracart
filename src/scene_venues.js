@@ -463,7 +463,7 @@ class SceneVenues {
     box.appendChild(tabs);
     const list = document.createElement('div');
     list.id = 'scholar-shelf';
-    list.style.cssText = 'height:180px;overflow-y:auto;overscroll-behavior:contain;text-align:left;';
+    list.style.cssText = 'min-height:180px;text-align:left;';
     list.setAttribute('aria-label', 'Tomes available to borrow');
     box.appendChild(list);
     const receipt = document.createElement('div');
@@ -557,17 +557,9 @@ class SceneVenues {
     allTab.addEventListener('click', (e) => { e.stopPropagation(); onLoanOnly = false; list.scrollTop = 0; render(); });
     loansTab.addEventListener('click', (e) => { e.stopPropagation(); onLoanOnly = true; list.scrollTop = 0; render(); });
     render();
+    // The whole panel scrolls as one (makeModalShell); the shelf is just
+    // part of it.
     mount();
-    // Only the shelf scrolls; credit, receipt and Done remain reachable.
-    const body = box.querySelector('.modal-body');
-    body.style.display = 'flex';
-    body.style.flexDirection = 'column';
-    body.style.height = body.style.maxHeight;
-    body.style.overflow = 'hidden';
-    for (const child of body.children) child.style.flexShrink = '0';
-    list.style.flex = '1 1 0';
-    list.style.minHeight = '0';
-    list.style.height = 'auto';
   }
 
   _scholarSpellDetail(id) {

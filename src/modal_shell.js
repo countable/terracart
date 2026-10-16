@@ -166,8 +166,6 @@ class SceneModals {
     // gate). Every modal goes through here, so one class covers them all.
     wrap.classList.add('game-modal');
     wrap.classList.add('compass-panel');
-    // A painted (story) panel rises to 7/8 of the screen (compass_panels.css).
-    if (story) wrap.classList.add('story-panel');
     // …and its KIND on the same node, so a rule about one category of dialog
     // (a foe's blow closes a shop — _closeShopOnHit) can find it.
     if (typeof kind === 'string') wrap.dataset.kind = kind;
@@ -377,45 +375,38 @@ class SceneModals {
       kindNode.appendChild(lbl);
     }
     const mount = () => {
-      // Everything the caller put in the box rides in one body block with
-      // auto margins: centred in the square when it is short, flush to the
-      // top (and scrolling) when it is long — auto margins collapse to zero
-      // on overflow, where centring would clip the top. The kind header stays
-      // pinned to the top edge above it.
+      // ONE SCROLLER. The whole content area under the rail — header,
+      // portrait, copy and buttons — is a single body that scrolls as one;
+      // no dialog keeps a separately scrolling part. Inside it one content
+      // block rides auto margins: centred when short, flush to the top and
+      // scrolling when long (auto margins collapse on overflow, where
+      // centring would clip the top).
       const body = document.createElement('div');
       body.className = 'modal-body';
-      body.style.cssText = art
-        // THE CONTENT REGION of a scene dialog: bottom-anchored, capped at the
-        // quiet zone, scrolling inside it when the copy is long.
-        ? `margin-top:auto;flex:0 1 auto;max-height:${Math.round((1 - ART_DETAIL_FRAC) * 100)}%;` +
-          // Leave room for the controls' 2px press travel and raised edge.
-          // Without it, pressing the last button briefly creates overflow.
-          'padding-bottom:3px;box-sizing:border-box;' +
-          'overflow-y:auto;overscroll-behavior:contain;text-shadow:0 1px 2px #000;' +
-          // Above the painting layer (PIXEL RESOLVE), which is absolute.
-          'position:relative;z-index:1;'
-        : 'margin:auto 0;flex:0 1 auto;';
-      // `centerBody` (the chest ceremony): the content region is the WHOLE
-      // quiet zone and the copy sits centred in it rather than on its floor.
-      // An inner block with auto margins does the centring, so long copy
-      // still starts at the top and scrolls instead of clipping.
-      let into = body;
-      if (art && centerBody) {
-        body.style.flex = '0 0 auto';
-        body.style.height = body.style.maxHeight;
-        body.style.display = 'flex';
-        body.style.flexDirection = 'column';
-        into = document.createElement('div');
-        into.style.cssText = 'margin:auto 0;flex:0 0 auto;';
-        body.appendChild(into);
-      }
+      body.style.cssText =
+        'flex:1 1 auto;min-height:0;margin:0;overflow-y:auto;overscroll-behavior:contain;' +
+        'display:flex;flex-direction:column;box-sizing:border-box;' +
+        // Leave room for the controls' 2px press travel and raised edge.
+        // Without it, pressing the last button briefly creates overflow.
+        'padding-bottom:3px;' +
+        // Above the painting layer (PIXEL RESOLVE), which is absolute.
+        (art ? 'text-shadow:0 1px 2px #000;position:relative;z-index:1;' : '');
+      // A scene dialog's copy starts below the painting's detail line: a
+      // spacer holds that much of the scroller (sized once laid out, below),
+      // and the copy sits on the floor under it — or, `centerBody` (the chest
+      // ceremony), centred in what is left. Long copy scrolls up over the art.
+      const spacer = art ? document.createElement('div') : null;
+      if (spacer) { spacer.className = 'modal-art-spacer'; spacer.style.cssText = 'flex:0 0 auto;'; }
+      const into = document.createElement('div');
+      into.className = 'modal-content';
+      into.style.cssText = art && !centerBody ? 'margin-top:auto;flex:0 0 auto;' : 'margin:auto 0;flex:0 0 auto;';
       while (box.firstChild) into.appendChild(box.firstChild);
-      box.appendChild(body);
+      // The kind header scrolls with everything else; a painting's is a chip
+      // pinned on the art instead (placed in the box below).
+      if (kindNode && !art) { kindNode.style.flex = '0 0 auto'; body.appendChild(kindNode); }
       if (portrait) {
-        // A square character portrait keeps its own size, separate from the
-        // scrollable copy. It is never stretched into a scene painting.
-        box.style.overflowY = 'hidden';
-        body.style.cssText = 'margin:0;min-height:0;flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;padding-bottom:3px;';
+        // A square character portrait keeps its own size above the copy. It
+        // is never stretched into a scene painting.
         const image = document.createElement('img');
         image.className = 'modal-portrait';
         image.src = portrait;
@@ -424,10 +415,14 @@ class SceneModals {
         image.height = 128;
         image.style.cssText = 'display:block;width:128px;height:128px;flex:0 0 128px;align-self:center;object-fit:contain;margin:0 0 10px;image-rendering:pixelated;';
         image.addEventListener('error', () => { image.style.display = 'none'; });
-        box.insertBefore(image, body);
+        body.appendChild(image);
       }
+      if (spacer) body.appendChild(spacer);
+      body.appendChild(into);
+      box.style.overflow = 'hidden';
+      box.appendChild(body);
       if (artLayer) { box.insertBefore(artLayer, box.firstChild); box.insertBefore(mosaicLayer, artLayer); }
-      if (kindNode) { kindNode.style.flex = '0 0 auto'; box.insertBefore(kindNode, box.firstChild); }
+      if (kindNode && art) box.insertBefore(kindNode, box.firstChild);
       // Mount last: caller innerHTML cannot erase the fixed rail control.
       // The same cancellation path as backdrop dismissal preserves decisions,
       // mandatory acknowledgements, and the wrapper's capture-phase arming.
@@ -452,12 +447,15 @@ class SceneModals {
       if (!document.body.classList.contains('modal-open')) wrap.classList.add('modal-anim');
       wrap.appendChild(box);
       (document.getElementById('game') || document.body).appendChild(wrap);
-      // TEXT-HEAVY → THE BAND. Measured now it is laid out: copy that
-      // overflows the quiet zone gets the band's taller content region.
-      if (art && body.scrollHeight > body.clientHeight + 1) {
-        paintScene(true);
-        body.style.maxHeight = `${Math.round((1 - ART_BAND_FRAC) * 100)}%`;
-        if (centerBody) body.style.height = body.style.maxHeight;
+      // Measured now it is laid out. TEXT-HEAVY → THE BAND: copy that would
+      // not fit under the detail line gets the band's shorter painting.
+      if (spacer) {
+        const h = body.clientHeight;
+        spacer.style.height = `${Math.round(h * ART_DETAIL_FRAC)}px`;
+        if (body.scrollHeight > h + 1) {
+          paintScene(true);
+          spacer.style.height = `${Math.round(h * ART_BAND_FRAC)}px`;
+        }
       }
     };
     // ONE button factory for every button a modal shows, in two VARIANTS:

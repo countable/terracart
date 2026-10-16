@@ -8816,7 +8816,7 @@ class MapScene extends Phaser.Scene {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('books-modal',
       { zIndex: 60, kind: 'story', kindLabel: 'Books read', art: 'book_read', textAlign: 'left' });
     const list = document.createElement('div');
-    list.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin:4px 0 12px;max-height:46vh;overflow-y:auto;overscroll-behavior:contain;';
+    list.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin:4px 0 12px;';
     for (const page of pages) {
       const b = document.createElement('button');
       b.type = 'button';
