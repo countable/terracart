@@ -66,7 +66,7 @@
   const NORTH = { key: 'h_0_0_30_27', x0: 29, x1: 32, y0: 26, y1: 28 };
   const FAR = { key: 'h_0_0_45_45', x0: 44, x1: 46, y0: 44, y1: 46 };
 
-  test('home footing: the wagon parks north of the player, the firepit one cell south of the player after compass detection', () => {
+  test('home footing: the wagon parks north of the player, the firepit two cells due south after compass detection', () => {
     const s = scene();
     withTile(tile([]), () => {
       const p = at(30, 30);
@@ -74,13 +74,13 @@
       assert.eq(s.save.starterShopId, 'starter_trailer', 'Home is the wagon');
       assert.truthy(sameAbsCell(s, s.save.starterTrailer.x, s.save.starterTrailer.y, at(30, 29).x, at(30, 29).y),
         'the wagon is one cell north, so the player stands at its door');
-      assert.truthy(sameAbsCell(s, s.save.homeFirepit.x, s.save.homeFirepit.y, at(30, 31).x, at(30, 31).y),
-        'the firepit is one cell due south of the player');
+      assert.truthy(sameAbsCell(s, s.save.homeFirepit.x, s.save.homeFirepit.y, at(30,31).x, at(30,31).y),
+        'the firepit is two cells due south of the wagon');
       const wagon = WorldGen.tileCache.get(KEY).objects.find(o => o.id === 'starter_trailer');
       assert.truthy(wagon, 'the wagon is injected');
       assert.eq(wagon.footDx, HomeArea.WAGON_ART_FOOT.dx, 'its art stands with the door over the player\'s column');
       assert.eq(wagon.footDy, HomeArea.WAGON_ART_FOOT.dy, 'and its steps on the doorstep');
-      const c = at(30, 31), pit = s.save.homeFirepit;
+      const c = at(30,31), pit = s.save.homeFirepit;
       near(pit.x, c.x, 'the ring is centred horizontally');
       near(pit.y, c.y, 'the ring is centred vertically, farther from the trailer');
     });
@@ -219,8 +219,8 @@
       const p = at(30, 30);
       s._placeHome(p.x, p.y);
       assert.truthy(s.save.homeFirepit, 'a new game still gets its pit');
-      near(s.save.homeFirepit.x, at(30, 32).x, 'not dropped in the pond: the nearest dry fallback');
-      near(s.save.homeFirepit.y, at(30, 32).y, 'two cells behind when the adjacent cell is wet');
+      near(s.save.homeFirepit.x, at(29, 31).x, 'not dropped in the pond: the next cell along the ring');
+      near(s.save.homeFirepit.y, at(29, 31).y, 'one cell behind, like the default');
       assert.eq(s.save.starterShopId, 'starter_trailer', 'Home is still placed');
     });
   });
@@ -230,7 +230,7 @@
     const c = HomeArea.firepitCandidates(firepit, wagon);
     assert.eq(JSON.stringify(c[0]), JSON.stringify(firepit), 'the turned default first');
     for (const o of c) {
-      assert.truthy(o === c[0] || Math.max(Math.abs(o.dx), Math.abs(o.dy)) >= 2, 'fallbacks stay beyond the doorstep');
+      assert.truthy(o.dx || o.dy, 'never the player\'s own doorstep cell');
       assert.falsy(Math.abs(o.dx - wagon.dx) <= 1 && Math.abs(o.dy - wagon.dy) <= 1, 'never on the wagon');
     }
     assert.eq(new Set(c.map(o => o.dx + ',' + o.dy)).size, c.length, 'no cell twice');

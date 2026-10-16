@@ -68,14 +68,14 @@ const HomeArea = {
     return { wagon: turn(this.WAGON_OFFSET), firepit: turn(this.FIREPIT_OFFSET) };
   },
   // Where Home's firepit may go, best first, as cell offsets from the
-  // player's anchor: the turned FIREPIT_OFFSET, then the ring two cells out
-  // and the ring three out, each by distance from it, clear of the
-  // wagon's 3x3. Fixed order, so the same ground
-  // always picks the same cell.
+  // player's anchor: the turned FIREPIT_OFFSET, then the ring one cell out
+  // and the ring two out, each by distance from it — never the player's own
+  // doorstep cell or the wagon's 3x3. Fixed order, so the same ground always
+  // picks the same cell.
   firepitCandidates(preferred, wagon) {
     const d2 = (c) => (c.dx - preferred.dx) ** 2 + (c.dy - preferred.dy) ** 2;
     const out = [preferred];
-    for (const r of [2, 3]) {
+    for (const r of [1, 2]) {
       const ring = [];
       for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;

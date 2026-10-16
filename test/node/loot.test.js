@@ -597,8 +597,8 @@ test('cave X: a dig underground leans the cave way, a surface dig does not', () 
   assert.truthy(deep > surfH * 2, `hoard ${surfH.toFixed(3)} → ${deep.toFixed(3)} deep down`);
   assert.truthy(/digTreasureOpts\(\) \{[\s\S]{0,400}?return \{ depth, tier: 2 \+ bonus \};/.test(SCENE_SRC),
     'app.js hands a cave dig its depth and the depth\'s tier');
-  assert.truthy(/const dig = scene\.digTreasureOpts\?\.\(\);\s*grantTreasureRoll\(scene, save, sx, sy, '✕', treasureContextFor\(tr\),\s*tr\.rollBonus > 0 \? \{ \.\.\.\(dig \|\| \{\}\), rollBonus: tr\.rollBonus \} : dig\)/.test(INTERACT_SRC),
-    'the fallback dig passes them too');
+  // treasure_dialog.test.js exercises the live tap handler to verify cave
+  // options and mark bonuses reach the picker alongside the ceremony.
 });
 
 // The bike rack is a COURIER'S POST in the world (copy must not imply riding a

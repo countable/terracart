@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-1865bd67';
+const SHELL_VERSION = 'shell-7844087e';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -717,13 +717,13 @@ const ASSET_HASHES = {
   "assets/art/castle_claim.webp": "4d1965b9",
   "assets/art/castle_favour.webp": "574a05fc",
   "assets/art/cave_first.webp": "f9c3f346",
-  "assets/art/chest_t1.webp": "650a6075",
-  "assets/art/chest_t2.webp": "2eedc83c",
-  "assets/art/chest_t3.webp": "26a41e29",
-  "assets/art/chest_t4.webp": "499dc2f3",
-  "assets/art/chest_t5.webp": "4eff02df",
-  "assets/art/chest_t6.webp": "7ad2158a",
-  "assets/art/chest_t7.webp": "b1422843",
+  "assets/art/chest_t1.webp": "8c2c9b46",
+  "assets/art/chest_t2.webp": "b2767964",
+  "assets/art/chest_t3.webp": "9a4eb023",
+  "assets/art/chest_t4.webp": "2ef746a1",
+  "assets/art/chest_t5.webp": "83a4fecc",
+  "assets/art/chest_t6.webp": "b16e1971",
+  "assets/art/chest_t7.webp": "5df166f8",
   "assets/art/coin_first.webp": "e5db7b70",
   "assets/art/death_memories.webp": "a2e5b296",
   "assets/art/delivery_first.webp": "c6196484",
@@ -830,6 +830,9 @@ const ASSET_HASHES = {
   "assets/art/trail_prize.webp": "6ecb62eb",
   "assets/art/trap_free.webp": "e4903efb",
   "assets/art/trap_jaw.webp": "26caf9a0",
+  "assets/art/treasure_barrel.webp": "d85dcb4c",
+  "assets/art/treasure_crate.webp": "1dcba52e",
+  "assets/art/treasure_dig.webp": "58317367",
   "assets/art/turret_watch.webp": "fb3db58d",
   "assets/art/underground_bone_gallery.webp": "c23b9e73",
   "assets/art/underground_depth2_rock_scatter.webp": "e8551cb3",
@@ -873,6 +876,7 @@ const ASSET_HASHES = {
   "assets/portraits/deer.png": "84cb09d2",
   "assets/portraits/den_keeper.png": "d1ba2749",
   "assets/portraits/dog.png": "77c6588c",
+  "assets/portraits/dragon_spirit.png": "a991910c",
   "assets/portraits/fieldwalker.png": "0ce2e812",
   "assets/portraits/forager.png": "8171160e",
   "assets/portraits/fox_storyteller.png": "02e58471",

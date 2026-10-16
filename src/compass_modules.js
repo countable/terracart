@@ -107,17 +107,13 @@
     const state = initialize(scene.save);
     if (!state.pending.length || busy(scene, true)) return false;
     const id = state.pending[0];
-    scene._compassSpiritOpen = true;
-    scene._storyRun = true;
-    try {
-      scene.showMessageModal({ kind: 'spirit',
-        body: `${MODULES[id]} activated.`, mustAcknowledge: true,
-        onDismiss: () => { scene._compassSpiritOpen = false; } });
-      // Claim upon successful presentation so reload cannot repeat a ceremony.
-      // A failed open leaves it queued and retryable.
-      state.pending.shift();
-      persist(scene);
-    } catch (error) { scene._compassSpiritOpen = false; throw error; }
+    // A panel waking is a micro toast over the player, not a dialog: it
+    // never stops play or needs a tap.
+    scene.flashAtPlayer?.(`${MODULES[id]} activated`);
+    // Claim upon presentation so reload cannot repeat it. A failed toast
+    // (thrown above) leaves it queued and retryable.
+    state.pending.shift();
+    persist(scene);
     return true;
   }
   root.CompassModules = { MODULES, DISTANCE_M, initialize, isActive, activate, sync, recordWalk, tap, drain };

@@ -8,12 +8,22 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 - Reward acknowledgments and safety reminders use an explicit OK button;
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
-  and confirmations use the NPC portrait layout with the spirit artwork.
+  and confirmations use the NPC portrait layout with a dedicated transparent,
+  square Dragon Spirit head-and-neck portrait (`assets/portraits/dragon_spirit.png`).
+  The original tall spirit painting remains available for scene art.
   Dragon Spirit and NPC spoken copy appears in a pale chat bubble beneath the
   portrait; dialogue headers join the speaker name and role with a comma
   ("Tilly, Wanderer"), without a separate role line. Response choices stay outside the bubble.
   The first earned green coin opens its own `coin_first` scene painting before
   revealing the money readout; its raised star matches the compact currency icon.
+  Digging an X opens a treasure acknowledgment headed “X marks the spot” with
+  its own `treasure_dig` painting. The find is claimed and its single reward paid
+  before the card appears; OK acknowledges the reward without granting it again.
+  Great X marks and underground finds keep their existing reward pools and bonuses.
+  Container paintings follow the visible container, not the reward: crates use
+  `treasure_crate`, barrels use `treasure_barrel`, and ordinary chests use
+  `chest_t1` through `chest_t7` for their source tier. Only a glow inside hints at the contents; the reward card
+  names the actual find. Clay pots retain their brief smash feedback.
 
 - The compass header aligns menu, a memories/books window and compact distance meter
   capped at 84 pixels wide beside a 72-pixel energy dial at the top right. The menu is
@@ -108,8 +118,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   first discovery/memory. Spending cannot close an activated circuit. Distance
   activates after 200 m of accepted movement; joystick activation requires
   **Enable spirit walking** in its spirit dialog. Closed controls explain low
-  power. Activation notices wait behind stories and dialogs, and are claimed
-  when shown so reloads cannot repeat them. Existing ownership seeds circuits
+  power. Activation notices are micro toasts over the player, never dialogs;
+  they wait behind stories and dialogs, and are claimed when shown so reloads
+  cannot repeat them. Existing ownership seeds circuits
   quietly when upgrading an older save.
 
 - The inventory pet menu's **View info** opens an individual pet card with a

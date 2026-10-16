@@ -160,7 +160,7 @@
       locations: ['Mapped churches'], spent: 'The chapel is quiet',
       body: 'You leave a small offering beneath the bell and are given a blessing in return.' },
     // A CRATE (interactables.js restocks): the one chest that comes back.
-    crate: { name: 'Crate', art: 'chest_t1', sprite: 'box', light: 0xf2d9a0, ledger: 'day',
+    crate: { name: 'Crate', art: 'treasure_crate', sprite: 'box', light: 0xf2d9a0, ledger: 'day',
       days: (o) => crateRestoreDays(o), reward: 'treasure', effect: 'A chest roll; bare for a day, up to a week where its kind crowds the tile', durationMs: 0,
       locations: ['Mapped POIs the tile left at the plain tier'], spent: 'The crate is bare',
       body: 'You lift the lid of the crate.' },
