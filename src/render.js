@@ -49,6 +49,20 @@
 
 const Render = {};
 
+// Picked fruit can leave its plant standing. This is a render-only view:
+// the original id stays spent, including after reloading the saved ledger.
+Render.wildplantView = function (plant, sets) {
+  if (sets.burned?.has(plant.id) || sets.burnedGround?.(plant)) return null;
+  const picked = !plant.tide && sets.picked.has(plant.id);
+  if (picked) {
+    const crop = wildplantRule(plant.crop)?.pickedCrop;
+    return crop ? { ...plant, crop, _pickedRemnant: true, _plantArt: 'ordinary', _hedgeFrame: undefined,
+      _zoneObjectFrame: undefined, _streetArt: undefined } : null;
+  }
+  return isSpent(plant, sets) ? null : plant;
+};
+
+
 // Shared, short-lived melee art. The event is authored by the damage lane;
 // drawing never changes attack cadence or reach.
 Render.MELEE_LOOKS = {
@@ -4031,10 +4045,10 @@ Render.drawObjects = function drawObjects(scene) {
     if (entry.wildplants) {
       WorldGen.forEachItemInBox(entry, 'wildplants', pWorldX - wM, pWorldY - wM, pWorldX + wM, pWorldY + wM, (wp) => {
         _boot_scanned++;
-        // Gone: picked (save.picked), or a TIDE pickup (src/scenic.js) that
-        // is not on the waterline today or was taken today — one predicate,
-        // interactables.js isSpent, the tap asks the same.
-        if (isSpent(wp, spentIds) || (!wp.tide && pickedSet.has(wp.id))) return;
+        // Most picked plants disappear; fruit bushes leave a plain bush.
+        // The source record stays spent for interaction and persistence.
+        wp = Render.wildplantView(wp, spentIds);
+        if (!wp) return;
         if (Render.coverHidden(scene, wp, true)) return;
         if (HiddenObjects.isHidden(scene.save, wp)
             || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, wp, hideNightRoadObjects))) return;
@@ -4049,7 +4063,7 @@ Render.drawObjects = function drawObjects(scene) {
         // tint below reads it); _ix/_iy only survive on the wildplants the
         // occupancy pass never saw (cave mushrooms, the sandbox scatter), so
         // the id is what the per-cell variant hash actually keys off.
-        plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: wp.stage ?? MAX_GROWTH_STAGE, wildId: wp.id, gasEmitter: wp.gasEmitter,
+        plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: wp.stage ?? MAX_GROWTH_STAGE, wildId: wp.id, _pickedRemnant: wp._pickedRemnant, gasEmitter: wp.gasEmitter,
                                 sightBlocking: wp.sightBlocking, zoneVariant: wp.zoneVariant, rockStyle: wp.rockStyle, rockTheme: wp.rockTheme,
                                 _cave: wp._cave, _biome: wp._biome, _terrainScale: wp._terrainScale, _plantArt: wp._plantArt, _hedgeFrame: wp._hedgeFrame, _zoneObjectFrame: wp._zoneObjectFrame, _streetArt: wp._streetArt, _ix: wp._ix, _iy: wp._iy, ...connectedArt.get(wp) }, dx, dy });
         _boot_kept++;
@@ -5042,7 +5056,7 @@ Render.drawObjects = function drawObjects(scene) {
     // baby off) WIGGLES: three quick swings, NEST_WIGGLE_DEG either side of
     // upright, swelling and dying over the beat's show (nestBushPhase, once
     // every 10-30 s). Everything else stands at the pool's reset angle, 0.
-    let wig = (p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow, scene._orbReveal?.get(p.wildId)) : -1;
+    let wig = (!p._pickedRemnant && p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow, scene._orbReveal?.get(p.wildId)) : -1;
     if (wig < 0 && foeCells.size && p.wildId != null && Render.lurkBush(p)) {
       const cell = worldMetersToAbsCell(scene, p.x, p.y);
       if (foeCells.has(cell.cellIX + '_' + cell.cellIY)) wig = lurkBushPhase(p.wildId, _plantNow);
