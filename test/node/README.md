@@ -91,3 +91,9 @@ for both polygon windings, retained geometry between frames, empty/depth mode
 transitions, merlon gaps, joined segments and wall ordering. Browser comparisons
 use `tools/probe_wall_perspective.py` with separate baseline and candidate URLs;
 its CPU timings are not target-phone GPU measurements.
+
+`tools/probe_castle_shapes.py` exercises individual trapezoid, five-point star,
+concave and angled footprints in both winding directions at eight headings,
+plus pan/zoom. It checks perimeter coverage, screen-vertical height and retained
+geometry, and captures screenshots for corner and occlusion review. It also
+checks the baked tower-base alpha for every material in both restoration states.

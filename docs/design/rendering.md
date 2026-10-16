@@ -117,7 +117,9 @@ North-up mode retains the existing wall atlas artwork.
   ramparts live in `buildingWallContainer`, immediately above the footprint
   layer and below pads, traps, shadows and every interactable. Wall geometry
   never adjusts an actor's feet or enters the world depth sort. Towers and
-  flags retain ordinary world ordering. Walls and footprints use a muted
+  flags retain ordinary world ordering. Tower textures fade fully to transparent
+  across their bottom ten pixels so cell-seated bases blend into angled walls;
+  this is baked once for both restoration states. Walls and footprints use a muted
   palette so interactables remain distinct.
   Castle courtyard cells mostly retain four quarter-cell stone tiles (2×2).
   A quarter of the cached variants join one adjacent pair into a horizontal or
