@@ -49,7 +49,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   `treasure_crate`, barrels use `treasure_barrel`, and ordinary chests use
   `chest_t1` through `chest_t7` for their source tier. Only a glow inside hints at the contents; the reward card
   names the actual find as “Item name × quantity”, with its tier badge on the
-  next line. Clay pots retain their brief smash feedback.
+  next line. When the find has a description (`Rewards.desc`: the item's
+  `ITEM_EFFECTS` line or the gear blurb) the card splits: the find on the left,
+  the description on the right. Clay pots retain their brief smash feedback.
 
 - The compass header aligns menu, a memories/books window and compact distance meter
   capped at 84 pixels wide beside a 72-pixel energy dial at the top right. The menu is

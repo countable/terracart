@@ -140,3 +140,16 @@ test('reward card: the first vista\'s relic is a card after the story, never a t
     globalThis.grantTreasureRoll = realGrant;
   }
 });
+
+test('reward card: the card carries what the reward IS, and the ceremony splits to show it', () => {
+  const fxId = Object.keys(ITEM_EFFECTS).find((id) => ITEM_BY_ID[id]);
+  const scene = makeScene();
+  assert.eq(Rewards.card(scene, { kind: 'item', id: fxId, qty: 1 }).desc, ITEM_EFFECTS[fxId], 'an item: its ITEM_EFFECTS line');
+  assert.eq(Rewards.card(scene, { kind: 'relic', slot: 'axe', tier: 3 }).desc, RELIC_DEFS.axe.blurb, 'gear: its def blurb');
+  assert.eq(Rewards.card(scene, { kind: 'gold', amount: 5 }).desc, undefined, 'gold says nothing');
+  const at = MODAL_SHELL_SRC.indexOf('  showChestRewardModal({');
+  const body = MODAL_SHELL_SRC.slice(at, MODAL_SHELL_SRC.indexOf('\n  }\n', at));
+  assert.truthy(/box\.innerHTML = desc\s*\n?\s*\? '<div class="reward-split"/.test(body), 'a desc splits the body');
+  assert.truthy(/<div style="flex:1 1 0;min-width:0">\$\{found\}<\/div>` \+\s*\n\s*`<div class="reward-desc"/.test(body), 'found on the left, desc on the right');
+  assert.truthy(/: found;/.test(body), 'no desc keeps the single column');
+});
