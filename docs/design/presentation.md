@@ -85,6 +85,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   distance uses the shared 200-metre threshold, and spirit walking remains opt-in.
   Reference atlas crops live alongside their provenance in `assets/ui/compass/`.
   Engravings retain their aspect ratio rather than stretching to viewport height.
+  The dragon header reserves its full 750:220 aspect ratio at the panel width;
+  its chrome stays above scene paintings and loading mosaics without cropping the head.
   The modal gate publishes the final sheet edge in viewport pixels so silver
   shoulders remain visible above scaled sheets without covering their controls.
   It clips the header readouts at that edge too; story sheets rise above the

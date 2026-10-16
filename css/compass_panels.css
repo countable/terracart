@@ -4,7 +4,7 @@
   --panel-metal: #bfc2ba;
   --panel-glow: #b9c4c0;
   --panel-rail: url('../assets/ui/compass/reference-panel-rail.webp');
-  --panel-rail-height: 72px;
+  --panel-rail-height: calc((min(100vw, 480px) - 4px) * 220 / 750);
 }
 .compass-panel[data-kind='shop'], .compass-panel[data-kind='trade'],
 .compass-panel[data-kind='forge'], .compass-panel[data-kind='relics'] {
@@ -101,9 +101,6 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   animation: compass-panel-rise 240ms cubic-bezier(.2,.8,.2,1) both;
 }
 @keyframes compass-panel-rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
-@media (max-width: 360px) {
-  .compass-panel, #story.compass-story { --panel-rail-height: 62px; }
-}
 /* Before Phaser boots, the same rail and sheet frame carry the wake/street
    paintings. Discovery and the dream are immersive, borderless paintings. */
 #story.story-fullscreen {
