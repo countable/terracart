@@ -1613,17 +1613,31 @@ function vergeFixture(variant = 'overgrown') {
     key:'road', variant, halfW:3.5, line:[{x:1.5,y:6.5},{x:10.5,y:6.5}]
   }]}};
 }
+// The overgrown street's posts (SV.dress → res.lairs) for a street `key`;
+// `fragments` doubles the geometry, `blocked` restricts every cell.
+function overgrownPosts(key, fragments = false, blocked = false) {
+  const f = vergeFixture(), rec = f.index.dressingLines[0];
+  rec.key = key;
+  if (fragments) f.index.dressingLines.push({...rec, line: rec.line.slice()});
+  if (blocked) f.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+  return SV.dress({...f, tx:0, ty:0, tileEdgeM:f.N*7,
+    spawnOpts:{roadMask:f.roadMask, spawnWhy:f.spawnWhy, occupied:new Set()}}).lairs;
+}
+// Wake one street post's garrison on a 64-cell grass tile; `marked` stamps
+// the whole tile as an overgrown street (entry.streetMarks), the way a real
+// tile carries its dressing.
+function wakeStreetPost(tier, sid, caughtSet, marked = false) {
+  const N=64,entry={cellsPerEdge:N,tileEdgeM:N*7,grid:new Uint8Array(N*N).fill(T.GRASS),objects:[],buildingShapes:[],
+    _spawnOpts:{occupied:new Set(),roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N)}};
+  if (marked) entry.streetMarks = new Uint8Array(N*N).fill(SV.VARIANT_BY_ID.overgrown.code);
+  const cand={tier,sid,tx:0,ty:0,ox:0,oy:0,lx:32.5*7,ly:32.5*7,ix:32,iy:32,halfW:0,halfH:0};
+  return Lairs.garrisonFor(entry,cand,{tileEdgeM:N*7,caughtSet});
+}
 test('forest roads: one third add one finite giant bear without replacing the plant', () => {
   const tier = 'street_forest_bear';
-  assert.eq(SV.VARIANT_BY_ID.overgrown.bonusEncounter.chance, 1 / 3);
-  const build = (key, fragments = false, blocked = false) => {
-    const f = vergeFixture(), rec = f.index.dressingLines[0];
-    rec.key = key;
-    if (fragments) f.index.dressingLines.push({...rec, line: rec.line.slice()});
-    if (blocked) f.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
-    return SV.dress({...f, tx:0, ty:0, tileEdgeM:f.N*7,
-      spawnOpts:{roadMask:f.roadMask, spawnWhy:f.spawnWhy, occupied:new Set()}}).lairs;
-  };
+  assert.eq(SV.VARIANT_BY_ID.overgrown.extraEncounters.find(e => e.tier === tier).chance, 1 / 3);
+  assert.truthy(SV.EXTRA_ENCOUNTER_TIERS.has(tier));
+  const build = overgrownPosts;
   let selected = 0, chosen;
   for (let i=0;i<300;i++) {
     const key = `forest-test-${i}`, posts = build(key), bears = posts.filter(p=>p.tier===tier);
@@ -1636,12 +1650,44 @@ test('forest roads: one third add one finite giant bear without replacing the pl
   assert.eq(JSON.stringify(build(chosen).filter(p=>p.tier===tier)),JSON.stringify(posts),'reload is stable');
   assert.eq(JSON.stringify(build(chosen,true).filter(p=>p.tier===tier)),JSON.stringify(posts),'duplicate fragments do not multiply posts');
   assert.eq(build(chosen,false,true).filter(p=>p.tier===tier).length,0,'restricted land excludes bears');
-  const N=64,entry={cellsPerEdge:N,grid:new Uint8Array(N*N).fill(T.GRASS),objects:[],buildingShapes:[],
-    _spawnOpts:{occupied:new Set(),roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N)}};
-  const cand={tier,sid:posts[0].sid,tx:0,ty:0,ox:0,oy:0,lx:32.5*7,ly:32.5*7,ix:32,iy:32,halfW:0,halfH:0};
-  const wake=caughtSet=>Lairs.garrisonFor(entry,cand,{tileEdgeM:N*7,caughtSet});
+  const wake=caughtSet=>wakeStreetPost(tier,posts[0].sid,caughtSet);
   const bears=wake();assert.eq(bears.length,1);assert.eq(bears[0].kind,'giant_bear');
   assert.eq(wake(new Set([bears[0].id])).length,0,'defeated bear stays gone');
+  // On a real tile the street's marks name a building family (EnemyHabitats
+  // BUILDING_FAMILIES.overgrown: plants and spiders); the bear's post is
+  // authored by its own ladder and keeps its bear.
+  const marked=wakeStreetPost(tier,posts[0].sid,undefined,true);
+  assert.eq(marked.map(g=>g.kind).join(),'giant_bear','the street family never re-themes the bear');
+  assert.falsy(Lairs.DAILY_TIERS.has(tier));
+});
+test('forest roads: every overgrown street posts a sounder of two wild boars beside the plant', () => {
+  const tier = 'street_wild_boar';
+  assert.eq(SV.VARIANT_BY_ID.overgrown.extraEncounters.find(e => e.tier === tier).chance, 1, 'every overgrown street');
+  assert.truthy(SV.EXTRA_ENCOUNTER_TIERS.has(tier));
+  assert.eq(Lairs.STREET_TIER_GUARDS[tier], 2, 'a sounder of two');
+  assert.eq(Lairs.KIND_ORDER[tier].join(), 'boar', 'held by boars');
+  assert.truthy(Lairs.FIXED_GUARD_TIERS.has(tier) && Lairs.ALWAYS_AWAKE_TIERS.has(tier), 'a street post: fixed count, every mode');
+  assert.eq(Lairs.OCCUPANCY[tier].rate, 1, 'always held');
+  let chosen;
+  for (let i=0;i<40;i++) {
+    const key = `boar-test-${i}`, posts = overgrownPosts(key);
+    assert.eq(posts.filter(p=>p.tier===tier).length,1,`${key}: one boar post`);
+    assert.eq(posts.filter(p=>p.tier==='street_overgrown').length,1,`${key}: the plant remains`);
+    chosen = key;
+  }
+  const posts = overgrownPosts(chosen).filter(p=>p.tier===tier);
+  assert.eq(JSON.stringify(overgrownPosts(chosen).filter(p=>p.tier===tier)),JSON.stringify(posts),'reload is stable');
+  assert.eq(JSON.stringify(overgrownPosts(chosen,true).filter(p=>p.tier===tier)),JSON.stringify(posts),'duplicate fragments do not multiply posts');
+  assert.eq(overgrownPosts(chosen,false,true).filter(p=>p.tier===tier).length,0,'restricted land excludes boars');
+  const plant = overgrownPosts(chosen).find(p=>p.tier==='street_overgrown');
+  assert.truthy(plant.sid !== posts[0].sid && (plant.lx !== posts[0].lx || plant.ly !== posts[0].ly), 'its own post, not the plant\'s seat');
+  const wake=(caughtSet,marked)=>wakeStreetPost(tier,posts[0].sid,caughtSet,marked);
+  const boars=wake();
+  assert.eq(boars.map(g=>g.kind).join(),'boar,boar','two boars wake');
+  assert.eq(wake(new Set([boars[0].id])).map(g=>g.id).join(),boars[1].id,'a defeated boar stays gone, the other keeps its seat');
+  assert.eq(wake(undefined,true).map(g=>g.kind).join(),'boar,boar','the street family never re-themes the sounder');
+  // The street's own stretch still takes the street family (its plants, a spider).
+  for (const g of wakeStreetPost('street_overgrown',plant.sid,undefined,true)) assert.includes(['plant','spider'],g.kind);
   assert.falsy(Lairs.DAILY_TIERS.has(tier));
 });
 

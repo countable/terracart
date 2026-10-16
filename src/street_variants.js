@@ -197,7 +197,12 @@
       story: 'street_hedgerow', title: 'The hedged lane',
       body: 'Hedges line the road, with gaps at the garden gates. You look through as you pass.',
       flash: 'A hedged lane, still kept.' },
-    { id: 'overgrown', terrain: 'FOREST', treeSpecies: 'pine', bonusEncounter: { tier: 'street_forest_bear', chance: 1 / 3 }, affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'common',
+    { id: 'overgrown', terrain: 'FOREST', treeSpecies: 'pine', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'common',
+      // EXTRA ENCOUNTERS beside the plant guard, each its own finite post
+      // (lairs.js STREET_TIER_GUARDS / KIND_ORDER rows), rolled off the
+      // street key: a sounder of wild boars on every overgrown street, a
+      // giant bear on a third of them.
+      extraEncounters: [{ tier: 'street_wild_boar', chance: 1 }, { tier: 'street_forest_bear', chance: 1 / 3 }],
       stone: { weathered: '#737f69', restored: '#8c9b7f' }, lampDensity: 1,
       carpet: '#9caa55', carpetWidthCells: 0.28, carpetFeatherCells: 0.14,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
@@ -363,6 +368,10 @@
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
+  // The extra-encounter tiers of every row (the bear's, the boars'): a post
+  // whose garrison is authored by its own ladder, so Lairs.garrisonFor never
+  // re-themes it through the street's building family.
+  const EXTRA_ENCOUNTER_TIERS = new Set(STREET_VARIANTS.flatMap((r) => (r.extraEncounters || []).map((e) => e.tier)));
   // ── THE VERGE DRESSING (VERGE_ROWS) ──────────────────────────────────────
   // What a variant lays along its verges: rows walked by dressSteps'
   // dressVerge, one sampleLine over each line piece (every `step` metres from
@@ -2068,10 +2077,11 @@
       // of how many geometry fragments represent the street. Scenery streams
       // keep their draws; guards share the existing lair persistence lane.
       const encounters = ['hedgerow', 'overgrown', 'orchard', 'toadstool'].includes(v) ? [`street_${v}`] : [];
-      // The bonus roll belongs to the street identity, not its tile fragments
-      // or the scenery RNG. Its own post leaves the ordinary guard intact.
-      if (row.bonusEncounter && hash01(`street-encounter|${row.bonusEncounter.tier}|${rec.key}`) < row.bonusEncounter.chance) {
-        encounters.push(row.bonusEncounter.tier);
+      // An extra encounter's roll belongs to the street identity, not its
+      // tile fragments or the scenery RNG. Each has its own post and leaves
+      // the ordinary guard intact; chance 1 lands on every street.
+      for (const extra of row.extraEncounters || []) {
+        if (hash01(`street-encounter|${extra.tier}|${rec.key}`) < extra.chance) encounters.push(extra.tier);
       }
       for (const tier of encounters) {
         const sid = tier === `street_${v}` ? `street_habitat_${tx}_${ty}_${v}_${rec.key}`
@@ -2735,7 +2745,7 @@
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GATE_EVERY_CELLS, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
-    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode,
+    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     PATH_SECTION_MIN_M, PATH_SECTION_TARGET_M, PATH_SECTION_MAX_M, PATH_FRAGMENT_MIN_M, buildPathSectionsSteps, applyPathScenicSteps, syncPathVariants, selectionWeights, applyAffinitiesSteps, nexusExitAffinitySteps, NEXUS_EXIT_AFFINITY_M, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area, suppressNexusRoadThemesSteps,

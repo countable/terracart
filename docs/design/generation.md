@@ -711,10 +711,15 @@ Higher-priority placements and their access space take precedence in this order:
    per gang, in either difficulty). Fragments share that budget; blocked
    seats reduce the count. Barrels use the attractor gate, and gang posts
    and their guards retain the fast-enemy spawn gate.
-   Overgrown forest roads additionally roll a one-third chance of a Giant Bear
-   from their stable street key. Selected streets attempt one finite bear post
-   per owning tile, alongside the usual plant guard. Geometry fragments share
-   the post; occupancy and the fast-enemy safety gate can prevent placement.
+   Overgrown forest roads add extra encounters beside the usual plant guard,
+   each a row of the variant's `extraEncounters` rolled from the stable street
+   key: a sounder of two wild boars on every overgrown street, and a Giant
+   Bear on one third of them. Each selected encounter attempts one finite post
+   per owning tile (its own `street_*` tier in `src/lairs.js`). Geometry
+   fragments share the post; occupancy and the fast-enemy safety gate can
+   prevent placement. An extra encounter's garrison is its own ladder
+   (`StreetVariants.EXTRA_ENCOUNTER_TIERS`): the street's building family,
+   which themes the plant stretch, never re-themes the boars or the bear.
 6. Ambient fill: ordinary plants, rocks and generic scattered content.
    Forest landcover scatters pine only; wooded park characters scatter maple
    only, from their `BiomeProfiles` rows. Both mark `treeSpeciesFixed` so
