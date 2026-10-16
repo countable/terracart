@@ -63,7 +63,7 @@ North-up mode retains the existing wall atlas artwork.
 - Named booth signs show the booth kind above at most two words of the rusticified
   place name. If the second word is an article or connector (such as “the” or
   “of”), only the first word appears. Full names remain available in dialogs.
-- The circular map and compass rim sit 30 CSS pixels above the layout baseline;
+- The circular map and compass rim sit 55 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
 - Zoom is camera-only. The initial view spans nine cells instead of eleven,
   one cell closer on each edge (`MAP_DEFAULT_ZOOM`). Plain +/− buttons on the
