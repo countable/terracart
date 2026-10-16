@@ -19,21 +19,30 @@ const CompassShine = {
       const emission = document.createElement('div');
       emission.className = 'compass-shine-emission';
       emission.style.backgroundImage = `url("assets/ui/compass/shine/${name}.webp")`;
-      surface.append(emission);
+      const beam = document.createElement('div');
+      beam.className = 'compass-shine-beam';
+      beam.append(emission); surface.append(beam);
       // The base stays behind all endcaps. Each other emission is a child of
       // its own art surface, inheriting that surface's mask and occlusion.
       source.prepend(surface);
-      layers.push({ source, pseudo, surface, emission });
+      layers.push({ source, pseudo, surface, emission, beam, x: 0, y: 0 });
     }
     let raf = 0, layoutRaf = 0, lastTime = 0, destroyed = false;
     let width = 0, height = 0, visible = false, pitch = .5, roll = 0;
     let targetPitch = .5, targetRoll = 0, baseBeta = null, baseGamma = null;
     let hasSensor = false, bodyClass = document.body.className;
-    function paint() {
-      const beamWidth = width * (.75 + pitch * .8);
-      body.style.setProperty('--compass-shine-width', `${beamWidth.toFixed(2)}px`);
-      body.style.setProperty('--compass-shine-height', `${(height * (.7 + pitch * .9)).toFixed(2)}px`);
-      body.style.setProperty('--compass-shine-x', `${((width - beamWidth) / 2 + roll * width / 217).toFixed(2)}px`);
+    let paintedX = null, paintedY = null;
+    function paint(force = false) {
+      // Integer translations reuse the cached beam raster without rescaling
+      // five masked textures or shifting engraving edges between pixel samples.
+      const tx = Math.round(-width * .075 + roll * width / 217);
+      const ty = Math.round(-height * pitch * .2);
+      if (!force && tx === paintedX && ty === paintedY) return;
+      paintedX = tx; paintedY = ty;
+      for (const layer of layers) {
+        layer.beam.style.transform = `translate3d(${tx}px,${ty}px,0)`;
+        layer.emission.style.transform = `translate3d(${layer.x - tx}px,${layer.y - ty}px,0)`;
+      }
     }
     function canMove() { return !destroyed && visible && !document.hidden && !reduced.matches; }
     function wake() { if (canMove() && !raf) { lastTime = 0; raf = requestAnimationFrame(tick); } }
@@ -41,8 +50,8 @@ const CompassShine = {
     function tick(time) {
       raf = 0;
       if (!canMove()) return;
-      if (lastTime && time - lastTime < 32) { raf = requestAnimationFrame(tick); return; }
-      const dt = lastTime ? Math.min(80, time - lastTime) : 33.3;
+      if (lastTime && time - lastTime < 66) { raf = requestAnimationFrame(tick); return; }
+      const dt = lastTime ? Math.min(80, time - lastTime) : 66.7;
       lastTime = time;
       if (!hasSensor) {
         targetPitch = .5 + .25 * Math.sin(time / 18000);
@@ -71,12 +80,15 @@ const CompassShine = {
         for (const key of ['backgroundSize', 'backgroundPosition', 'backgroundRepeat']) emission.style[key] = style[key];
       }
       // Geometry is read only on install/resize, never in the animation loop.
-      for (const { surface, emission } of layers) {
+      for (const layer of layers) {
+        const { surface, emission, beam } = layer;
         const box = surface.getBoundingClientRect();
-        emission.style.setProperty('--compass-shine-local-x', `${box.left - rect.left}px`);
-        emission.style.setProperty('--compass-shine-local-y', `${box.top - rect.top}px`);
+        layer.x = box.left - rect.left; layer.y = box.top - rect.top;
+        beam.style.width = `${width * 1.15}px`; beam.style.height = `${height * 1.35}px`;
+        beam.style.left = `${-layer.x}px`; beam.style.top = `${-layer.y}px`;
+        emission.style.width = `${box.width}px`; emission.style.height = `${box.height}px`;
       }
-      paint(); stop(); wake();
+      paint(true); stop(); wake();
     }
     function queueLayout() { if (!destroyed && !layoutRaf) layoutRaf = requestAnimationFrame(layout); }
     function orientation(event) {

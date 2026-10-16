@@ -51,7 +51,8 @@
   test('compass circuits: closed taps explain power; spirit walking requires explicit enable', () => {
     const scene = sceneFor();
     assert.falsy(CompassModules.tap(scene, 'inventory'));
-    assert.eq(scene.panels[0].body, 'Inventory not activated. power low.');
+    assert.truthy(scene.panels[0].body.includes('You have no items.'));
+    assert.truthy(scene.panels[0].body.includes('Find an item'));
     assert.eq(scene.panels[0].kind, 'spirit');
     assert.falsy(CompassModules.tap(scene, 'joystick'), 'cannot replace the open dialog');
     assert.eq(scene.panels.length, 1);
