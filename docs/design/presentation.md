@@ -9,7 +9,7 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Reward acknowledgments and safety reminders use an explicit OK button;
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
   and confirmations use the NPC portrait layout with a dedicated transparent,
-  square Dragon Spirit head-and-neck portrait (`assets/portraits/dragon_spirit.png`).
+  80×80 pixel-art Dragon Spirit head-and-neck portrait (`assets/portraits/dragon_spirit.png`).
   The original tall spirit painting remains available for scene art.
   Dragon Spirit and NPC spoken copy appears in a pale chat bubble beneath the
   portrait; dialogue headers join the speaker name and role with a comma
@@ -73,7 +73,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   retains its own tap action, accessible name, and independent dormant shutter.
   `css/compass_inventory.css` seats eight square keys with small stamped-in category symbols on
   plungers above a shared rail. The selected key and detent glow gold. Small
-  square item controls share one dark-glass window, with a physical sort lever,
+  square item controls share one dark-glass window fitted to five slots and their
+  gaps; the window stays snug when sort or paging controls are absent. It retains a physical sort lever,
   a mechanical pager rocker with broad upper/lower touch faces around an ivory count
   window, and an integrated name/action plate. The upper face selects the previous
   page; the lower face selects the next page. The description plate

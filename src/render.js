@@ -3768,7 +3768,7 @@ function labelFactory(style) {
 // shares the creature look's centre).
 const SHADOW_LOOK = {
   prop:     { aspect: 0.42, alpha: 0.45 },
-  building: { aspect: 0.42, alpha: 0.5 },
+  building: { aspect: 0.42, alpha: 0.25 },
   creature: { aspect: 0.34, alpha: 0.32, dy: -3 },
   airborne: { aspect: 0.34, alpha: 0.20, dy: -3 },
   plant:    { alpha: 0.55 },

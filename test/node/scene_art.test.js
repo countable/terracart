@@ -42,7 +42,8 @@ test('scene art: kinds use paintings or character portraits', () => {
       assert.truthy(/portrait = portrait \|\| kRow\?\.portrait;/.test(shell), 'kind portraits reach the shared portrait layout');
       const size = pngDims('assets/portraits/dragon_spirit.png');
       assert.truthy(size, 'dedicated spirit portrait ships');
-      assert.eq(size.w, size.h, 'the portrait fills the square slot without scene-painting letterboxing');
+      assert.eq(size.w, 80, 'the spirit uses the shared portrait pixel scale');
+      assert.eq(size.h, 80, 'the spirit fills an 80px square');
     } else if (key === 'talk') {
       assert.falsy(/art:/.test(body), 'a neighbour speaking always carries their portrait');
     } else {
