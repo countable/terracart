@@ -119,6 +119,17 @@ access or tile lifecycle mechanics.
   nexuses and themed stretches. Both herbs use the standard wildplant harvest
   lane; PetNip feeds pets and Nettle supplies the Home Growth Powder recipe.
 
+- Every house fronting a plain (unthemed) Small street stands 0-2 loot barrels
+  on the verge before it, beside the street (`StreetVariants.dressSteps`, the
+  house barrels pass; `HOUSE_BARRELS_MAX`, `HOUSE_FRONT_REACH_CELLS`,
+  `HOUSE_FRONT_SPAN_CELLS`). A house is a run of house-tier building cells a
+  ray out from the band's edge reaches within five cells; forts, castles and
+  another road in the way end the ray. The count is a hash of the tile and
+  the house's first wall cell, so every player sees the same; a terrace counts
+  a house per frontage span. Seats take the first free verge cell out on the
+  reward gate, so none stands on a Major-and-Medium kerb; themed stretches
+  and Major roads stand none.
+
 - Cleared wild longgrass returns after an independently sampled exponential
   wait averaging two real days (`SaveState.GRASS_REGROWTH_MEAN_MS`). Harvest
   records the deadline in `save.grassRegrowth`; normalization and the ten-second
