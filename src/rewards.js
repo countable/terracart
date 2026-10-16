@@ -10,15 +10,13 @@
 // the painting, the chest glyph, the caller's own line, onDismiss) or as a
 // toast (mode 'toast', led by opts.mark, or opts.text in full) — and fires
 // the jackpot fanfare once for any reward the roll stamped (`jackpot`). A
-// beaten gear roll (a gold reward WITH a slot: reconcileRelicOffer cashed it
-// out) wears the one line, BEATEN_GEAR, wherever it is shown. Depends on
+// converted reward is presented as ordinary coins. Depends on
 // (call time): items.js (ITEM_BY_ID, itemName, itemTierOf, gearName),
 // loot.js (lootFlashColor), util.js (UI_GOLD, UI_TREASURE) and the scene's
 // icon helpers (app.js iconSpanHTML / coinIconHTML / gearIconHTML).
 (function (root) {
   'use strict';
 
-  const BEATEN_GEAR = 'Already better — paid in coin.';
   function gearCard(scene, kind, slot, tier, iconPx) {
     return {
       iconHTML: scene.gearIconHTML ? scene.gearIconHTML(kind, slot, tier, iconPx) : '★',
@@ -36,15 +34,6 @@
         color: lootFlashColor(reward.id),
         tier: itemTierOf(reward.id),
       };
-    }
-    if (reward.kind === 'gold' && reward.slot) {
-      // A beaten piece pays in coin: the COINS lead the card (it is what the
-      // player got), the piece they stood in for is the small print — a card
-      // headed by a Wood Staff read as a second staff.
-      const piece = gearCard(scene, reward.gearKind || 'relic', reward.slot, reward.tier, iconPx);
-      return { iconHTML: scene.coinIconHTML ? scene.coinIconHTML(Math.round(iconPx * 0.75)) : '',
-        name: `+${reward.amount || 0}`, color: UI_GOLD, tier: piece.tier,
-        sub: `${piece.name} · ${BEATEN_GEAR}` };
     }
     if (reward.kind === 'gold') {
       return {
@@ -67,7 +56,7 @@
     if (!c) return false;
     if (mode === 'card') {
       if (typeof scene.showChestRewardModal !== 'function') return false;
-      // The card's own line ("equipped", the beaten line) follows the
+      // The card's own line ("equipped") follows the
       // caller's framing line rather than being dropped.
       const own = c.sub ? c.sub[0].toUpperCase() + c.sub.slice(1) + (/[.!?]$/.test(c.sub) ? '' : '.') : '';
       const sub = [extra.sub, own].filter(Boolean).join(' ') || undefined;
@@ -76,8 +65,6 @@
       const lead = mark ? `${mark} ` : '';
       if (reward.kind === 'relic' || reward.kind === 'armor') {
         scene.flashLoot(`${lead}→ ✨ ${c.name} (equipped!)`, UI_GOLD, 1.6);
-      } else if (reward.kind === 'gold' && reward.slot) {
-        scene.flashLoot(`${lead}Already better — ${reward.amount}`, '#aaa', 1.2, null, scene.coinIconEl?.());
       } else if (reward.kind === 'item') {
         scene.flashLoot(text ?? `${c.name}${reward.qty > 1 ? ` ×${reward.qty}` : ''}`, c.color, 1, reward.id);
       } else {
@@ -122,5 +109,5 @@
     return result;
   }
 
-  root.Rewards = { apply, reconcileUnique, BEATEN_GEAR, card, present, jackpot };
+  root.Rewards = { apply, reconcileUnique, card, present, jackpot };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

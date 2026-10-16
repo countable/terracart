@@ -502,8 +502,7 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
   }
   Rewards.apply(save, reward, scene);
   // Shown by the one presenter: a card under the caller's framing, or the
-  // toast led by `mark`; a beaten relic roll (cashed out by
-  // reconcileRelicOffer) wears Rewards.BEATEN_GEAR either way.
+  // toast led by `mark`. Converted rewards show only the coins received.
   if (!(ceremony && Rewards.present(scene, reward, { extra: ceremony }))) {
     Rewards.present(scene, reward, { mode: 'toast', mark });
   }

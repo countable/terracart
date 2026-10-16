@@ -38,11 +38,11 @@ test('tier badge: the reward ceremony hangs it under the name', () => {
   assert.truthy(/const badge = \(tier > 0 && typeof tierBadgeHTML === 'function'\) \? tierBadgeHTML\(tier, 11\) : '';/.test(src));
   assert.truthy(/\$\{name\}<\/div>` \+\s*\n\s*tierHtml \+/.test(src), 'right under the name');
   // The chest's ceremonies take the one card ladder (Rewards.card): the
-  // item's tier, and gear's own tier kept or beaten.
+  // item's tier and equipped gear's tier; coins have no item badge.
   const scene = makeScene();
   assert.eq(Rewards.card(scene, { kind: 'item', id: 'potato', qty: 1 }).tier, itemTierOf('potato'), 'chest loot: the item\'s tier');
   assert.eq(Rewards.card(scene, { kind: 'relic', slot: 'axe', tier: 3 }).tier, 3, 'gear: its own tier, kept');
-  assert.eq(Rewards.card(scene, { kind: 'gold', amount: 3, slot: 'axe', tier: 2 }).tier, 2, 'gear: its own tier, beaten');
+  assert.eq(Rewards.card(scene, { kind: 'gold', amount: 3, slot: 'axe', tier: 2 }).tier, undefined, 'converted gear shows ordinary coins');
   assert.eq(Rewards.card(scene, { kind: 'gold', amount: 3 }).tier, undefined, 'plain cash wears none');
   const inter = INTERACTABLES_SRC;
   assert.eq((inter.match(/Rewards\.present\(scene, result,/g) || []).length, 2, 'the fits and the gear / cash ceremonies present the card');

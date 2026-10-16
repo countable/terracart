@@ -6,6 +6,9 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- Rewards converted to coins show only the coin reward in dialogs and toasts,
+  without naming the replaced item or explaining the conversion.
+
 - The opening dragon-war dream crossfades between two aligned paintings on a
   six-second loop, moving dragon heads, drifting smoke and flickering flames,
   with both frames sharing the existing eight-second camera
