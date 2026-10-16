@@ -236,6 +236,10 @@ mechanics.
   the cancelled job. Already launched projectiles continue their flight.
 - Eating a raw mushroom applies three seconds of confusion through the shared
   condition, preserving any longer confusion already active.
+- A poisonberry (wild teal-berried bush, forest and wetland) is the same
+  `CONSUMABLE_SPEC` condition lane: eaten, the player takes `poison`; offered
+  to an enemy (`feedsFoe`), the enemy takes it through `Combat.poison`, the
+  Poison Flask's call. The berry is spent either way.
 - Job costs use `spendEnergy`; passive restoration pauses while `working`
   (work wheel or rest hold). Walking drains and enemy blows are not jobs.
 - `Pets` owns individual pet records in `save.released` (`pet: true`), including
