@@ -1141,6 +1141,35 @@ const SHINY_GLOW_PADDING = 12; // texture pixels reserved around the silhouette
 // A shiny wears the gold glow and the sweep; an elite (glow false) the sweep
 // alone over its baked vivid sheet (Render.vividTexture), so the rune circle
 // and the creature's own art read clearly.
+// Phaser 3.87's PreFX pipeline (the shine sweep and glow Render.setShine
+// attaches) draws the sprite into its full-size FX target, then every FX
+// pass into the small square targets, with the camera's SCISSOR still on.
+// A camera over the whole canvas scissors nothing, so Phaser never notices.
+// This game's main camera is the map square (_applyMapZoom's setViewport —
+// every zoom but 1, and every heading-up turn), whose scissor is a band of
+// canvas rows: it cuts the sprite in the full-size target along a straight
+// line and empties the small targets, so a shiny prop vanishes or shows a
+// slice of itself as the camera moves (the clipped-rock report). Lift the
+// scissor for the pipeline's quad and put it back for the next ordinary
+// batch; the circle mask is a stencil, which the pipeline restores itself,
+// so the copy back to the game still clips to the map. Patched on the
+// prototype, once, so the FX pipeline instance picks it up at call time.
+Render.guardPreFxScissor = function guardPreFxScissor(PhaserNS = typeof Phaser !== 'undefined' ? Phaser : null) {
+  const proto = PhaserNS?.Renderer?.WebGL?.Pipelines?.PreFXPipeline?.prototype;
+  if (!proto || typeof proto.batchQuad !== 'function') return false;
+  if (proto._scissorGuarded) return true;
+  const batchQuad = proto.batchQuad;
+  proto.batchQuad = function guardedBatchQuad() {
+    const gl = this.gl;
+    const had = !!gl && gl.isEnabled(gl.SCISSOR_TEST);
+    if (had) gl.disable(gl.SCISSOR_TEST);
+    try { return batchQuad.apply(this, arguments); }
+    finally { if (had) gl.enable(gl.SCISSOR_TEST); }
+  };
+  proto._scissorGuarded = true;
+  return true;
+};
+
 Render.setShine = function setShine(s, on, id, glow = true) {
   const fx = s && s.preFX;
   if (!fx) return false;
