@@ -284,15 +284,15 @@ mechanics.
   chasing foe sidesteps around it when a jog fits. This is separate from the
   warmth-ring ward (`FIRE_REST_R`), which turns back only entry-level kinds.
 - Home is `save.starterShopId`: the wagon, placed by `_placeHome` one cell
-  north of the player (`HomeArea.WAGON_OFFSET`) with an empty firepit three
-  cells due south of the trailer
+  north of the player (`HomeArea.WAGON_OFFSET`) with an empty firepit two
+  cells due south of the trailer (one behind the player)
   (`FIREPIT_OFFSET`, `save.homeFirepit`; flint lights a fire in it). The first
   valid device-compass reading unlocks placement once per save
   (`homeCompassDetected`); `homeFirepitPending` waits for Home and the surface
   if the reading arrives earlier. With no reading after
   `FIREPIT_COMPASS_GRACE_MS` on the surface (desktop, no motion permission) the
   pit is placed anyway, on the same cell. A pit cell on water, a pier or a
-  road falls back to the nearest suitable cell two, then three, cells out from
+  road falls back to the nearest suitable cell one, then two, cells out from
   the player (`HomeArea.firepitCandidates`), so a new game always gets its pit
   when one fits. Later headings and reloads do not move it.
   This step-over prop sits at its cell centre, with its ring, fire, smoke and
