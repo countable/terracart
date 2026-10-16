@@ -128,7 +128,9 @@ North-up mode retains the existing wall atlas artwork.
   Add sprite appearances to `RENDER_SPEC`; ground surfaces stay underneath.
 - Layer order is landcover, variant surfaces, building footprints, walls,
   ground state (such as oil spills), then objects and characters.
-  Building footprints and walls are background. Polygon walls and tiled castle
+  Building footprints and walls are background. House and temple foundations
+  share the floor canvas: draw the shaded base below the top surface, with a
+  thin rim rather than an upright perimeter wall. Polygon fort walls and tiled castle
   ramparts live in `buildingWallContainer`, immediately above the footprint
   layer and below pads, traps, shadows and every interactable. Wall geometry
   never adjusts an actor's feet or enters the world depth sort. Towers and

@@ -1052,13 +1052,10 @@
       if (d.templeZone) {
         const active = Temples.isActive(scene.save, d);
         const palette = TempleArt.palette(active, d.templeKind === 'tar', true);
-        if (!separateUprights) g.fillPoly(d.pts.map(p => ({ x: p.x, y: p.y + facePx(d.tier) })), palette.face);
+        // Foundations stay joined to the floor silhouette, beneath its top surface.
+        g.fillPoly(d.pts.map(p => ({ x: p.x, y: p.y + facePx(d.tier) })), palette.face);
         if (g.templePoly) g.templePoly(d.pts, active, d.templeKind === 'tar');
         else { g.fillPoly(d.pts, palette.floor); g.strokePoly(d.pts, OUTLINE_PX, palette.outline); }
-        if (separateUprights) {
-          if (perspective) perspectiveEdges(scene, d, active);
-          else uprightEdges(scene, d, active, projX, projY, seen);
-        }
         continue;
       }
       const isMine = claimed(d.key);
@@ -1072,7 +1069,7 @@
       // The wall, as the ring filled again one face-depth south and painted
       // UNDER the floor: whatever survives is exactly the polygon's
       // south-facing edges, at any angle, with no per-edge normal test.
-      if (!separateUprights) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), (style ? style.stone.FACE : tune(shade(faceColor(d.tier, isMine)))));
+      if (!separateUprights || d.tier === 9) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), (style ? style.stone.FACE : tune(shade(faceColor(d.tier, isMine)))));
       g.fillPoly(d.pts, floor);
       const damagedFloor = style?.id === 'ruin' && g.damagePoly
         && g.damagePoly(d.pts, d.key, isMine, d.damageOriginX, d.damageOriginY);
@@ -1090,7 +1087,7 @@
       if (g.gridPoly && d.tier !== CASTLE) g.gridPoly(d.pts, gridInkFor(GRID, floor));
       if (d.columns.length && g.columnsPoly) g.columnsPoly(d.pts, d.columns, isMine);
       // Wall sections stay in the building background.
-      if (separateUprights) {
+      if (separateUprights && d.tier !== 9) {
         if (perspective) perspectiveEdges(scene, d, isMine);
         else uprightEdges(scene, d, isMine, projX, projY, seen);
       } else if (d.tier === CASTLE) {
