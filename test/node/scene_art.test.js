@@ -67,7 +67,7 @@ test('scene art: text-heavy copy moves to THE BAND by measurement', () => {
   const tail = shell.slice(i, shell.indexOf('const scheduleFit', i));
   assert.truthy(/body\.scrollHeight > body\.clientHeight/.test(tail), 'it measures the copy');
   assert.truthy(/paintScene\(true\)/.test(tail), 'and repaints as the band');
-  assert.truthy(/\(1 - ART_BAND_FRAC\)/.test(tail), 'with the band\'s taller content region');
+  assert.truthy(/\(1 - bandFrac\)/.test(tail), 'with the band\'s taller content region');
 });
 
 test('scene art: the hero becomes a bare label chip — no emoji, no sprite', () => {

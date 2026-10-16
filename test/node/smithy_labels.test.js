@@ -33,7 +33,7 @@ test('smithy: showOfferModal renders getLabel / costLabel captions, costLabel re
     'the receive caption sits directly above the get line');
   // (Priced choice cards — the wreck's build pick — skip the caption first:
   // their one cost line is the caption; see showOfferModal's `priced`.)
-  assert.truthy(/if \(hasCost\) \{\n      if \(priced\) \{\n[^}]*\} else if \(costLabel\) \{\n        box\.appendChild\(mkCaption\(costLabel\)\);\n      \} else \{\n        const forDiv/.test(SCENE_SRC),
+  assert.truthy(/if \(hasCost\) \{\n      if \(priced\) \{\n[^}]*\} else if \(costLabel\) \{\n        box\.appendChild\(mkCaption\(costLabel\)\);\n      \} else if \(forLabel\) \{\n        const forDiv/.test(SCENE_SRC),
     'the give caption stands in for the "for" row, never beside it');
 });
 
