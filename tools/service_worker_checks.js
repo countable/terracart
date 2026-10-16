@@ -52,6 +52,27 @@ function worker(caches, version, hash, network = () => new Response('network')) 
   };
 }
 const CHECKS = [
+  { name: 'worker: installed stylesheets remain available offline and in the resource manifest', async run() {
+    const caches = storage();
+    const css = 'css/compass.css?v=1234abcd';
+    const w = worker(caches, 'shell-styles', 'aaaaaaaa', req => {
+      if (urlOf(req).endsWith('/index.html')) return new Response(`<link href="${css}" rel="stylesheet"><link rel="stylesheet" href="https://cdn.example/theme.css"><script src="src/a.js?v=11111111"></script>`);
+      return new Response(urlOf(req) === origin + css ? 'body { color: silver; }' : 'script');
+    });
+    await w.event('install');
+    assert.ok(w.calls.includes(origin + css), 'installation fetches CSS before it is needed');
+    assert.ok(!w.calls.some(url => url.startsWith('https://cdn.example/')), 'external CSS is not cached');
+    const shell = await caches.open('shell-styles');
+    const manifests = await shell.keys();
+    const manifest = manifests.find(req => req.url.includes('resource_manifest'));
+    assert.ok(manifest, 'worker publishes its resource manifest');
+    assert.ok((await (await shell.match(manifest)).json()).includes(origin + css), 'activation pruning retains CSS');
+    await w.event('activate');
+    const offline = worker(caches, 'shell-styles', 'aaaaaaaa', () => { throw Error('offline'); });
+    assert.equal(await (await offline.event('fetch', css)).text(), 'body { color: silver; }');
+    assert.equal(offline.calls.length, 0, 'exact stylesheet cache hit never refetches');
+  } },
+
   { name: 'worker: immutable scripts and images survive deploys without background requests', async run() {
     const caches = storage();
     let w = worker(caches, 'shell-one', 'aaaaaaaa');

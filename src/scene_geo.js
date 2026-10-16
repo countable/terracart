@@ -268,7 +268,7 @@ class SceneGeo {
     pad.setAttribute('aria-label', 'Move simulated GPS');
     pad.title = 'Move GPS (turn the GPS stick off to restore real GPS)';
     pad.style.cssText = `position:fixed;left:calc(var(--phone-left, 0px) + 16px);
-      bottom:calc(var(--stick-bottom, 160px) + env(safe-area-inset-bottom, 0px));
+      bottom:calc(var(--stick-bottom, 160px) + 20px + env(safe-area-inset-bottom, 0px));
       width:110px;height:110px;border-radius:50%;box-sizing:border-box;
       z-index:6;touch-action:none;user-select:none;-webkit-user-select:none;
       border:2px solid #8bcfe0;background:radial-gradient(circle at 50% 38%,#405d69cc,#142c38dd);
@@ -609,6 +609,7 @@ class SceneGeo {
       const facing = { x: this._facingSmooth.x / m, y: this._facingSmooth.y / m };
       const heading = (Math.atan2(facing.x, -facing.y) * 180 / Math.PI + 360) % 360;
       this._deviceCompass = { facing, deg: heading };
+      this._onFirstCompass?.();
       // Confusion owns the visible compass and walking direction. Continue
       // sampling the real device so expiry restores its current orientation.
       if (Conditions.active(this.save, 'confused') || this._confusedLoop) return;

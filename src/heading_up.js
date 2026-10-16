@@ -179,6 +179,8 @@ const HeadingUp = {
     scene._huNoCompass.setVisible(!scene._deviceCompass && deg == null);
     const g = scene._huNorth;
     g.clear();
+    // The silver chassis supplies the same true-north needle above the map.
+    if (scene._compassHUD) return;
     const r = scene.viewSize / 2, a = scene.mapRot - Math.PI / 2;
     const ux = Math.cos(a), uy = Math.sin(a), px = -uy, py = ux;
     const tx = scene.viewCenterX + ux * (r - 2), ty = scene.viewCenterY + uy * (r - 2);
@@ -217,6 +219,7 @@ const HeadingUp = {
 
   _preRender(scene) {
     if (!HeadingUp.active(scene)) return;
+    WallPerspective.update(scene);
     const main = scene.cameras.main, ui = scene.uiCam;
     const a = scene.mapRot || 0;
     const saved = scene._huSaved = [];

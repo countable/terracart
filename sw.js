@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-2c01dcda';
+const SHELL_VERSION = 'shell-65fd4a1f';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -749,6 +749,7 @@ const ASSET_HASHES = {
   "assets/art/kind_rest.webp": "0552016e",
   "assets/art/kind_shop.webp": "345461ec",
   "assets/art/kind_slots.webp": "907b6057",
+  "assets/art/kind_spirit.webp": "5b722bf0",
   "assets/art/kind_supplies.webp": "bd6e166e",
   "assets/art/kind_trade.webp": "82efae87",
   "assets/art/kind_trail.webp": "3b4ff21b",
@@ -908,7 +909,31 @@ const ASSET_HASHES = {
   "assets/portraits/warden.png": "05a9cfd1",
   "assets/portraits/wayfinder.png": "19802fcd",
   "assets/portraits/witness.png": "20421b46",
-  "assets/portraits/wizard.png": "d58efb40"
+  "assets/portraits/wizard.png": "d58efb40",
+  "assets/ui/compass/body-carving.webp": "ba67176c",
+  "assets/ui/compass/footer.webp": "cf76e3c7",
+  "assets/ui/compass/header.webp": "3001dc79",
+  "assets/ui/compass/joystick.webp": "5d57c13f",
+  "assets/ui/compass/living-silver-body.webp": "4b3053a8",
+  "assets/ui/compass/memory-star.svg": "c3041026",
+  "assets/ui/compass/north-arrow.webp": "d656d114",
+  "assets/ui/compass/panel-top.webp": "02579d75",
+  "assets/ui/compass/reference-carving-tile.webp": "e3c0c746",
+  "assets/ui/compass/reference-footer.webp": "0a76137f",
+  "assets/ui/compass/reference-header.webp": "807654d9",
+  "assets/ui/compass/reference-join.webp": "6df6da02",
+  "assets/ui/compass/reference-joystick.webp": "536d7bc5",
+  "assets/ui/compass/reference-panel-rail.webp": "d9048229",
+  "assets/ui/compass/reference-shoulders.webp": "1775a00a",
+  "assets/ui/compass/reference-shutter.webp": "d7173e65",
+  "assets/ui/compass/shine/overhead-beam.png": "1db1ae48",
+  "assets/ui/compass/shine/reference-carving-tile.webp": "97dc3090",
+  "assets/ui/compass/shine/reference-footer.webp": "26cb3d25",
+  "assets/ui/compass/shine/reference-header.webp": "588378e9",
+  "assets/ui/compass/shine/reference-join.webp": "c0f429d4",
+  "assets/ui/compass/shine/reference-shoulders.webp": "26683922",
+  "assets/ui/compass/shutter.webp": "10149ae7",
+  "assets/ui/compass/silver-metal.webp": "a265599d"
 };
 /* ASSET_HASHES_END */
 const TILE_CACHE    = 'tiles-v1';
@@ -918,24 +943,24 @@ const TILE_CACHE    = 'tiles-v1';
 // moves, and re-fetching costs the player data.
 const TILE_REFRESH_MS = 30 * 24 * 60 * 60 * 1000;   // 30 days
 
-// The non-script shell. The SCRIPTS are not listed here on purpose — they're
-// read out of index.html at install time (see scriptUrlsFromIndex), because a
+// The base shell. Scripts and stylesheets are not listed here — they are
+// read out of index.html at install time (see shellUrlsFromIndex), because a
 // hand-maintained list drifts: this one once named 6 of the ~25 modules the
 // page loads, app.js among them and save.js not, which is exactly how a boot
 // could end up with the app but not its save layer ("loadSave is not defined").
 // That includes vendor/phaser.js — it is a same-origin <script src> like the
 // rest, so the page scan already covers it (tools/shell_audit.js fails on any
-// .js hand-listed here).
+// .js hand-listed here). Stylesheets follow the same derived list.
 const SHELL_ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
 ];
 
-// Every same-origin script index.html pulls in, at the exact ?v= URLs it asks
+// Every same-origin script and stylesheet, at the exact ?v= URLs index.html asks
 // for. Covers both the plain <script src> tags and app.js, which the boot gate
 // injects from the APP_SRC string rather than a tag.
-async function scriptUrlsFromIndex() {
+async function shellUrlsFromIndex() {
   try {
     const resp = await fetch('./index.html', { cache: 'no-cache' });
     if (!resp.ok) return [];
@@ -944,6 +969,7 @@ async function scriptUrlsFromIndex() {
     for (const m of html.matchAll(/<script[^>]+src=["']([^"']+)["']/g)) urls.push(m[1]);
     const app = html.match(/APP_SRC\s*=\s*['"]([^'"]+)['"]/);
     if (app) urls.push(app[1]);
+    for (const m of html.matchAll(/<link(?=[^>]*\brel=["']stylesheet["'])[^>]+\bhref=["']([^"']+)["'][^>]*>/g)) urls.push(m[1]);
     // Same-origin only — a CDN URL isn't ours to cache.
     return urls.filter(u => !/^[a-z]+:\/\//i.test(u) && !u.startsWith('//'));
   } catch (_) {
@@ -991,15 +1017,15 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL_VERSION);
-    const scripts = await scriptUrlsFromIndex();
+    const shell = await shellUrlsFromIndex();
     await Promise.allSettled(SHELL_ASSETS.map(u => cache.add(u)));
-    await Promise.allSettled(scripts.map(u => {
+    await Promise.allSettled(shell.map(u => {
       const req = new Request(new URL(u, self.location.href));
       return immutableResource(req, resourceKey(new URL(req.url)) || req.url);
     }));
     // An offline/failed index fetch must not authorize pruning older resources.
-    if (scripts.length) {
-      const resources = scripts.map(u => new URL(u, self.location.href).href);
+    if (shell.length) {
+      const resources = shell.map(u => new URL(u, self.location.href).href);
       for (const rel of Object.keys(ASSET_HASHES)) resources.push(resourceKey(new URL(rel, self.location.href)));
       await cache.put(RESOURCE_MANIFEST, new Response(JSON.stringify(resources)));
     }
@@ -1075,7 +1101,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML is network-first with offline fallback; immutable media/scripts
+  // HTML is network-first with offline fallback; immutable media/scripts/styles
   // use the persistent cache and never re-fetch a successful cache hit.
   if (url.origin === self.location.origin) {
     const isHTML = req.mode === 'navigate' || req.destination === 'document'

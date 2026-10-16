@@ -965,16 +965,16 @@ function makeTowerTexture(scene, palette, key) {
   const crowns = CastleStyles.ids.map(() => H);
   const materials = CastleStyles.ids.map(id => CastleStyles.get(id, claimed));
   // Soften the masonry's join with irregular castle geometry. The bottom
-  // ten rows rise from 30% opacity at the foot to fully opaque above it.
-  const fadeRows = 10, footAlpha = 0.3;
+  // ten rows rise from transparent at the foot to fully opaque above it;
+  // a residual opaque rim exposes the cell-seated base against angled walls.
+  const fadeRows = 10;
   for (let y = 0; y < H; y++) for (let x = 0; x < W * materials.length; x++) {
     const i = (y * W * materials.length + x) * 4, pixels = image.data;
     if (pixels[i + 3] < 128) { pixels[i + 3] = 0; continue; }
     const frame = Math.floor(x / W);
     const ink = castleTowerInk(pixels[i], pixels[i + 1], pixels[i + 2], materials[frame]);
     pixels[i] = ink >> 16; pixels[i + 1] = (ink >> 8) & 255; pixels[i + 2] = ink & 255;
-    pixels[i + 3] = Math.round(255 * (footAlpha + (1 - footAlpha)
-      * Math.min(1, (H - 1 - y) / (fadeRows - 1))));
+    pixels[i + 3] = Math.round(255 * Math.min(1, (H - 1 - y) / (fadeRows - 1)));
     crowns[frame] = Math.min(crowns[frame], y);
   }
   ctx.putImageData(image, 0, 0);

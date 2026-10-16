@@ -1127,7 +1127,8 @@ class SceneVenues {
 
   // Place Home for a player standing at (x, y): the wagon HomeArea.WAGON_OFFSET
   // cells away, its art drawn at WAGON_ART_FOOT so they stand at its door, and
-  // the empty firepit at HomeArea.FIREPIT_OFFSET (save.homeFirepit) — unless that cell is water or
+  // the firepit after compass detection at HomeArea.FIREPIT_OFFSET
+  // (save.homeFirepit) — unless that cell is water or
   // a way, where a ring of stones would read as litter. Whatever building the
   // two land on is cleared by clearHomeFooting. The one Home placer: the
   // starter placement and "Move Home here" both come through here.
@@ -1137,10 +1138,51 @@ class SceneVenues {
       const c = absCellOffset(this, at.cellIX, at.cellIY, off.dx, off.dy);
       return absCellCenterMeters(this, c.cellIX, c.cellIY);
     };
-    const pit = cellAt(HomeArea.FIREPIT_OFFSET);
-    this.save.homeFirepit = this._firepitGroundOK(pit.x, pit.y) ? pit : null;
+    this.save.homeFirepit = null;
+    this.save.homeFirepitPending = true;
     const wagon = cellAt(HomeArea.WAGON_OFFSET);
     this._makeStarterTrailer(wagon.x, wagon.y);
+  }
+
+  // A real compass reading unlocks placement once per save. Heading changes
+  // never move the pit: south is geographic south in the world cell grid.
+  _onFirstCompass() {
+    if (this.save.homeCompassDetected) return;
+    this.save.homeCompassDetected = true;
+    this.save.homeFirepitPending = true;
+    this._placePendingHomeFirepit();
+    persistSave(this.save);
+  }
+
+  _placePendingHomeFirepit() {
+    const save = this.save, trailer = save.starterTrailer;
+    if (!save.homeFirepitPending || (this.depth || 0) !== 0
+        || !trailer || save.starterShopId !== trailer.id) return false;
+    if (!save.homeCompassDetected) {
+      // No heading yet: wait out HomeArea.FIREPIT_COMPASS_GRACE_MS, then
+      // place anyway (the reading only ever confirms the same cell).
+      const now = performance.now();
+      this._firepitGraceT0 ??= now;
+      if (now - this._firepitGraceT0 < HomeArea.FIREPIT_COMPASS_GRACE_MS) return false;
+    }
+    const at = worldMetersToAbsCell(this, trailer.x, trailer.y);
+    const offset = HomeArea.FIREPIT_OFFSET, wagon = HomeArea.WAGON_OFFSET;
+    const cell = absCellOffset(this, at.cellIX, at.cellIY, offset.dx - wagon.dx, offset.dy - wagon.dy);
+    const pit = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
+    // Do not relocate a saved lit fire into water or a road. An unsuitable
+    // destination leaves an existing pit intact; a new game simply has none.
+    if (this._firepitGroundOK(pit.x, pit.y)) {
+      const old = save.homeFirepit;
+      for (const fire of save.fires || []) {
+        if (old && PlacedFloor.onDepth(fire, 0) && sameAbsCell(this, fire.x, fire.y, old.x, old.y)) {
+          fire.x = pit.x; fire.y = pit.y;
+        }
+      }
+      save.homeFirepit = pit;
+    }
+    save.homeFirepitPending = false;
+    this.clearHomeFooting();
+    return true;
   }
 
   // May Home's firepit sit at (x, y)? Not in water, on a road or path, or on
@@ -1183,6 +1225,8 @@ class SceneVenues {
     // depth's cave map (setDepth), so injecting here would drop a phantom
     // trailer into a cave tile. The trailer lives on the surface — depth 0.
     if ((this.depth || 0) !== 0) return;
+    // A reading may arrive before Home exists or while underground.
+    if (this._placePendingHomeFirepit()) persistSave(this.save);
     // Older saves nudged this step-over prop toward the doorstep. Centre its
     // existing cell once per saved ring; carry its surface fire with it so
     // artwork, warmth and interactions keep one anchor without moving cells.

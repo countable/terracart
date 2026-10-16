@@ -61,6 +61,7 @@ ctx.Symbol = Symbol; ctx.Error = Error; ctx.Infinity = Infinity; ctx.NaN = NaN;
 ctx.isNaN = isNaN; ctx.parseInt = parseInt; ctx.parseFloat = parseFloat;
 // mvt.js's Reader.readString decodes tag-value strings with TextDecoder.
 ctx.TextDecoder = TextDecoder;
+ctx.URLSearchParams = URLSearchParams;
 // save.js debounces with setTimeout; tests don't need the flush to fire, so the
 // timer is a no-op (persistSave just parks _pendingSave in memory).
 ctx.setTimeout = () => 0; ctx.clearTimeout = () => {};
@@ -101,7 +102,7 @@ const FILES = [
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',
   'dungeon_progression.js', 'elevators.js', 'arena.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'worldgen.js', 'save.js',
-  'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
+  'compass_modules.js', 'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',
   'hidden_objects.js', 'temple_puzzles.js', 'temple_layout.js', 'temple_scene.js', 'temples.js', 'interactables.js', 'boss_encounters.js', 'houses.js',
@@ -120,14 +121,14 @@ const FILES = [
   // Pure draw math over WorldGen + a stub Graphics, so projection/culling pin without Phaser.
   'road_overlay.js',
   // The POLYGONAL building overlay: pure draw math over WorldGen + a stub fill target.
-  'castle_styles.js', 'temple_art.js', 'building_overlay.js',
+  'castle_styles.js', 'temple_art.js', 'wall_perspective.js', 'building_overlay.js',
   // The sandbox's pure tile builder: the same authored scenes, roads and dressing install() uses.
   'sandbox_destinations.js',
   'sandbox.js',
   // render.js reads no globals at load time (see the CANVAS_W comment in
   // drawObjects), so it loads safely and exposes pure helpers (edgeNeedsBorder).
   // The lightmap: only draw() touches Phaser, and no test calls it.
-  'lighting.js', 'safety.js', 'obstacle_step.js', 'visibility.js',
+  'lighting_gpu.js', 'lighting.js', 'safety.js', 'obstacle_step.js', 'visibility.js',
   'render.js',
   'gas_render.js',
   // The modal shell: its methods are DOM work nobody runs here, but its top

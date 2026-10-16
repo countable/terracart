@@ -1213,4 +1213,147 @@ test('building overlay: cached offscreen walls skip rendering and reappear on su
   assert.falsy(right.sprite.visible, 'hide it again without rebuilding');
 });
 
+function makePerspectiveScene() {
+  const fixture = makeWallScene({ _headingUp: true, mapRot: 0 });
+  fixture.scene.add.graphics = () => ({ triangles: [], clears: 0,
+    clear() { this.triangles.length = 0; this.clears++; return this; },
+    fillStyle() { return this; },
+    fillTriangle(...v) { this.triangles.push(v); return this; },
+    setPosition(x, y) { this.x = x; this.y = y; return this; } });
+  return fixture;
+}
+
+test('building overlay: heading-up castle uses retained prisms without an atlas and follows subcell pan', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'citadel')]);
+  const { scene, log } = makePerspectiveScene();
+  BuildingOverlay.draw(scene);
+  const group = scene._wallPerspective.polygon;
+  assert.gt(group.blocks.length, 4, 'walls and crenellations use retained geometry');
+  assert.gt(group.gfx.triangles.length, 0, 'real projection paints triangles');
+  assert.eq(log.pages.length, 0, 'no wall atlas allocated');
+  assert.eq(log.refreshes, 0, 'no wall canvas uploaded');
+  assert.eq(scene._buildingUprightPieces.length, 0, 'old atlas pieces stay absent');
+  assert.eq(group.gfx.parentContainer, scene.buildingWallContainer, 'walls remain background');
+  const first = group.blocks[0], clears = group.gfx.clears;
+  const commits = scene.buildingGeomGfx.commits;
+  scene.playerM.x = 1;
+  BuildingOverlay.draw(scene);
+  assert.eq(group.gfx.x, -PX_PER_M, 'wall translation matches ground movement');
+  assert.eq(group.blocks[0], first, 'pan retains geometry');
+  assert.eq(group.gfx.clears, clears, 'pan does not repaint wall command buffer');
+  scene.mapRot = Math.PI / 3;
+  WallPerspective.update(scene);
+  assert.eq(scene.buildingGeomGfx.commits, commits, 'rotation does not upload the ground canvas');
+  assert.eq(log.refreshes, 0, 'rotation never uploads a wall texture');
+  clearTiles();
+});
+
+test('building overlay: heading-up temple uses temple wall palette without castle teeth', () => {
+  clearTiles();
+  const shape = Object.assign(rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'temple-test'),
+    { templeZone: 'temple-zone', templeKind: 'tar' });
+  putShapes(0, 0, [shape]);
+  const { scene, log } = makePerspectiveScene();
+  BuildingOverlay.draw(scene);
+  const group = scene._wallPerspective.polygon;
+  const palette = TempleArt.palette(false, true, true);
+  assert.gt(group.blocks.length, 0);
+  assert.truthy(group.blocks.every(b => b.bottom === 0), 'temples do not inherit castle merlons');
+  assert.truthy(group.blocks.every(b => b.colors.face === palette.face), 'temple palette owns walls');
+  assert.eq(log.pages.length, 0);
+  clearTiles();
+});
+
+test('building overlay: disabling polygon mode clears retained heading-up walls and restores them on enable', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'citadel')]);
+  const { scene } = makePerspectiveScene();
+  const enabled = BuildingOverlay.enabled();
+  try {
+    BuildingOverlay.draw(scene);
+    const group = scene._wallPerspective.polygon;
+    BuildingOverlay.setEnabled(scene, false);
+    BuildingOverlay.draw(scene);
+    assert.eq(group.blocks.length, 0, 'disabled geometry cannot reappear on a compass update');
+    assert.eq(group.gfx.triangles.length, 0, 'draw commands cleared');
+    WallPerspective.update(scene);
+    assert.eq(group.gfx.triangles.length, 0);
+    BuildingOverlay.setEnabled(scene, true);
+    BuildingOverlay.draw(scene);
+    assert.gt(group.blocks.length, 0, 'enable rebuilds geometry');
+    scene.depth = 1;
+    BuildingOverlay.draw(scene);
+    assert.eq(group.blocks.length, 0, 'cave transition also clears surface walls');
+  } finally {
+    BuildingOverlay.setEnabled(scene, enabled);
+    clearTiles();
+  }
+});
+
+test('building overlay: irregular castle rings retain closed edges and bounded joins in both windings', () => {
+  const shapes = {
+    L: [[0, 0], [24, 0], [24, 8], [8, 8], [8, 24], [0, 24]],
+    U: [[0, 0], [24, 0], [24, 24], [16, 24], [16, 8], [8, 8], [8, 24], [0, 24]],
+    acute: [[0, 0], [28, 12], [0, 14]],
+    elongated: [[0, 0], [32, 0], [32, 4], [0, 4]],
+    trapezoid: [[4, 0], [20, 0], [24, 20], [0, 20]],
+    star: Array.from({ length: 10 }, (_, i) => {
+      const radius = i % 2 ? 5 : 12, angle = -Math.PI / 2 + i * Math.PI / 5;
+      return [12 + radius * Math.cos(angle), 12 + radius * Math.sin(angle)];
+    }),
+  };
+  for (const [name, ring] of Object.entries(shapes)) {
+    let canonical;
+    for (const reverse of [false, true]) {
+      clearTiles();
+      const ordered = (reverse ? ring.slice().reverse() : ring).map(p => p.map(Math.fround));
+      const shape = { ring: Float32Array.from(ordered.flat()), tier: T.BUILDING_LARGE,
+        areaM2: 400, key: 'citadel' };
+      putShapes(0, 0, [shape]);
+      const { scene, log } = makePerspectiveScene();
+      BuildingOverlay.draw(scene);
+      const group = scene._wallPerspective.polygon;
+      const bodies = group.blocks.filter(b => b.bottom === 0);
+      const caps = bodies.filter(b => b.points.length === 4);
+      const bevels = bodies.filter(b => b.points.length === 3);
+      assert.eq(bevels.length, name === 'L' ? 1 : name === 'U' ? 2 : name === 'star' ? 5 : 0,
+        `${name}: concave turns get one bounded join each`);
+      for (let i = 0; i < ordered.length; i++) {
+        const a = { x: px(ordered[i][0]), y: px(ordered[i][1]) };
+        const next = ordered[(i + 1) % ordered.length];
+        const b = { x: px(next[0]), y: px(next[1]) };
+        const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
+        const sections = caps.filter(block => block.points.slice(0, 2).every(p =>
+          Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) < 1e-6
+          && (p.x - a.x) * dx + (p.y - a.y) * dy >= -1e-6
+          && (p.x - a.x) * dx + (p.y - a.y) * dy <= length * length + 1e-6));
+        const covered = sections.reduce((sum, block) => sum + Math.hypot(
+          block.points[1].x - block.points[0].x, block.points[1].y - block.points[0].y), 0);
+        assert.lt(Math.abs(covered - length), 1e-6, `${name}: complete source edge coverage`);
+      }
+      const signature = bodies.map(b => b.points.map(p =>
+        `${p.x.toFixed(6)},${p.y.toFixed(6)}`).sort().join('|')).sort().join(';');
+      if (canonical === undefined) canonical = signature;
+      else assert.eq(signature, canonical, `${name}: winding cannot change wall footprint geometry`);
+      for (let step = 0; step < 8; step++) {
+        scene.mapRot = step * Math.PI / 4;
+        WallPerspective.update(scene);
+        assert.truthy(group.gfx.triangles.every(triangle => triangle.every(Number.isFinite)),
+          `${name}: every projected triangle remains finite`);
+        for (const block of group.blocks) {
+          const sin = Math.sin(scene.mapRot), cos = Math.cos(scene.mapRot), v = block.projected;
+          for (let j = 0; j < v.length; j += 4) {
+            const dx = v[j + 2] - v[j], dy = v[j + 3] - v[j + 1];
+            assert.lt(Math.abs(cos * dx - sin * dy), 1e-7, `${name}: all joints extrude vertically`);
+            assert.lt(Math.abs(sin * dx + cos * dy + block.top - block.bottom), 1e-7);
+          }
+        }
+      }
+      assert.eq(log.pages.length, 0, `${name}: shape complexity does not require atlas uploads`);
+    }
+  }
+  clearTiles();
+});
+
 })();

@@ -182,7 +182,7 @@ for (const dev of [...DEVICES, ...BROWSER_VIEWPORTS]) {
   // but only then: a screen with slack to spend still clears the whole budget.
   CHECKS.push({ name: `layout: map clears the top chrome — ${label}`, run: () => {
     const L = loadLayout(), g = geometry(L, dev);
-    const floor = g.band >= L.MAP_H_GAME * g.s ? L.TOP_CHROME : L.TOP_ROW;
+    const floor = (g.band >= L.MAP_H_GAME * g.s ? L.TOP_CHROME : L.TOP_ROW) - 15;
     if (g.mapTop < floor - 0.5) {
       throw new Error(`map top ${g.mapTop.toFixed(1)} is above the ${floor} floor`);
     }

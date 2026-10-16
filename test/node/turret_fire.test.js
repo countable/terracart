@@ -75,10 +75,10 @@ test('turret art: atlas variants bake shared stone and wood in both restoration 
       assert.eq(tex.get(frame).castleCrownY, frame + 2, 'crown follows opaque art, not the atlas top');
       assert.eq(tex.get(frame).x, frame * W);
       assert.eq(tex.get(frame).width, W);
-      assert.eq(tex.pixel(frame * W, H - 1)[3], 77, 'foot is 30% opaque');
+      assert.eq(tex.pixel(frame * W, H - 1)[3], 0, 'foot blends fully into the wall beneath');
       assert.eq(tex.pixel(frame * W, H - 10)[3], 255, 'fade reaches full opacity within ten rows');
       assert.eq(tex.pixel(frame * W, H - 11)[3], 255, 'shaft above the fade stays opaque');
-      let previous = 0;
+      let previous = -1;
       for (let y = H - 1; y >= H - 10; y--) {
         const alpha = tex.pixel(frame * W, y)[3];
         assert.gt(alpha, previous, 'each row grows more opaque upward');

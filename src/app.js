@@ -342,7 +342,7 @@ const GPS_SNAP_M = 200;
 const CONFUSED_RECOVER_MS = 6000;
 // The dialogs that pause the fight (_storyDialogOpen): modal_shell kinds, and
 // the static index.html overlays that carry no kind.
-const STORY_DIALOG_KINDS = new Set(['story', 'note', 'talk', 'memory']);
+const STORY_DIALOG_KINDS = new Set(['story', 'note', 'talk', 'memory', 'spirit']);
 const STORY_DIALOG_IDS = new Set(['story', 'howto']);
 // The SNAP's own cut — a placement past GPS_SNAP_M moves the body somewhere
 // the player never walked, so it earns a transition rather than the world
@@ -3115,6 +3115,7 @@ class MapScene extends Phaser.Scene {
       this._drainBadgeStories();
       this._lowHealthStory();
       this._firstSaleStory();
+      this._firstCoinStory();
       PetStories.drain(this);
       DragonStory.drain(this);
       StoryEncounters.tick(this, Date.now());
@@ -3190,7 +3191,7 @@ class MapScene extends Phaser.Scene {
     // Chromebook) would silently strand the player off their real position
     // with no way back but a reload, which reads as "the character sometimes
     // auto-walks somewhere other than the GPS target."
-    if (DEBUG) {
+    if (DEBUG && (typeof CompassModules === 'undefined' || CompassModules.isActive(this.save, 'joystick'))) {
       const k = this.keys;
       let wasd = false;
       if (k.A.isDown) { vx -= 1; wasd = true; }
@@ -3210,7 +3211,8 @@ class MapScene extends Phaser.Scene {
     if (this._fastWalk) speedMul = 25;
     this._stepDebugGps(dt);
     // The movement stick — always on screen, always live.
-    let stick = (this._movePadHeld && this.joystickVec) ? this.joystickVec : null;
+    let stick = (this._movePadHeld && this.joystickVec
+      && (typeof CompassModules === 'undefined' || CompassModules.isActive(this.save, 'joystick'))) ? this.joystickVec : null;
     // A heading-up map: the stick and keys push in SCREEN directions.
     if (HeadingUp.active(this)) {
       if (stick) stick = HeadingUp.toWorldVec(this, stick.x, stick.y);
@@ -3232,7 +3234,11 @@ class MapScene extends Phaser.Scene {
     const bodyHold = this._bodyHold();
     if (this._confusedLoop && !Conditions.active(this.save, 'confused')) this._endConfusedWalk();
     this._expireConfusedRecover?.(performance.now());
-    if (bodyHold.pinned) {
+    if (this._storyPause) {
+      // A story can open while a pointer is held or a target is still ahead.
+      // Keep receiving GPS fixes, but hold the body until reading finishes.
+      this._playDirected(this.player, 'idle');
+    } else if (bodyHold.pinned) {
       // Held still, but sharp ground continues hurting.
       const { x, y } = playerWorldM(this);
       this._tickWalkHazards(dt, x, y, x, y);
@@ -3446,10 +3452,11 @@ class MapScene extends Phaser.Scene {
     // and its screen-y is squashed by FACING_CHEVRON_TILT for the south
     // camera's tilt (map-perspective.md).
     this.facingChevronGfx.clear();
-    // A heading-up map points it where the map is turned to: straight up.
-    const facing = HeadingUp.active(this) && this.compassDeg != null ? HeadingUp.facing(this) : this.facing;
+    // With a live device compass, heading-up puts phone heading at screen
+    // top. Desktop keeps its caret when no device heading is available.
+    const facing = this.facing;
     const fmag = Math.hypot(facing.x, facing.y);
-    if (fmag > 0.001) {
+    if (!(HeadingUp.active(this) && this._deviceCompass) && fmag > 0.001) {
       const fx = facing.x / fmag, fy = facing.y / fmag;
       // (along, across) on the ground → screen, y foreshortened.
       const ground = (u, v) => ({
@@ -6956,6 +6963,7 @@ class MapScene extends Phaser.Scene {
     const foot = this.feetOffsetM;
     const open = (nx, ny) =>
       !this._cellBlocked(this.startWorldM.x + nx, this.startWorldM.y + ny + foot);
+    const beforeX = body.x, beforeY = body.y;
     const nx = body.x + ux * move, ny = body.y + uy * move;
     if ((ux !== 0) && open(nx, body.y)) body.x = nx;
     if ((uy !== 0) && open(body.x, ny)) body.y = ny;
@@ -6984,6 +6992,7 @@ class MapScene extends Phaser.Scene {
         this._startAutoMine(ux, uy);
       }
     }
+    if (this.save && typeof CompassModules !== 'undefined') CompassModules.recordWalk(this, Math.hypot(body.x - beforeX, body.y - beforeY));
     // Arrival can consume only part of a long frame. Contact hazards charge
     // that walking time, not the idle remainder after reaching the target.
     return move / moveSpeed;
@@ -8079,6 +8088,7 @@ class MapScene extends Phaser.Scene {
     const s = this.save || {};
     return (this._ceremonies || []).filter((c) => c.waits).length
       + (s.memoryStory?.pending?.length || 0)
+      + (s.compassModules?.pending?.length || 0)
       + (s.petStoriesPending?.length || 0)
       + (s.dragonStory?.pending ? 1 : 0);
   }
@@ -8298,8 +8308,26 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
   }
 
-  // Both earned stories queue once (`key`) and open through the story ledger
+  // Earned stories queue once (`key`) and open through the story ledger
   // when the screen clears; the pending flag on the save survives a reload.
+  _firstCoinStory() {
+    if (!this.save.firstCoinPending || this.save.storySeen?.['coin:first']) return;
+    this._enqueueCeremony('story', (done) => {
+      if (!this.save.firstCoinPending || this.save.storySeen?.['coin:first']) return false;
+      this.showMessageModal({ kind: 'story', title: 'A green coin',
+        portrait: 'assets/Icons/coin.png',
+        body: 'You find a green coin. The compass now keeps count of your coins.', onDismiss: done,
+      });
+      // Only successful presentation unlocks the chrome; a busy or failed
+      // opening leaves the earned introduction pending across reloads.
+      (this.save.storySeen ||= {})['coin:first'] = 1;
+      delete this.save.firstCoinPending;
+      persistSave(this.save);
+      this.updateHUD?.();
+      return true;
+    }, { key: 'coin:first', defer: true });
+  }
+
   _firstSaleStory() {
     if (!this.save.firstSalePending || this.save.storySeen?.['sale:first']) return;
     // A repeat offer remounts after its accept callback; wait for the gate tick.
@@ -8334,6 +8362,7 @@ class MapScene extends Phaser.Scene {
   _drainBadgeStories() {
     if (this._drainCeremonies()) return;
     MemoryStory.drain(this);
+    if (typeof CompassModules !== 'undefined') CompassModules.drain(this);
   }
 
   // THE STORY LEDGER. One story splash per key, ever: `save.storySeen` is
@@ -8488,6 +8517,8 @@ class MapScene extends Phaser.Scene {
   }
 
   updateHUD() {
+    if (typeof CompassModules !== 'undefined') CompassModules.sync(this);
+    if (typeof CompassHUD !== 'undefined') CompassHUD.update(this);
     // Runs every frame, so every write in here is guarded on the value having
     // actually changed. Money and energy move a few times a minute at most,
     // but an unguarded textContent/style assignment still costs a style
@@ -8498,7 +8529,7 @@ class MapScene extends Phaser.Scene {
       const tag = document.getElementById('depth-tag');
       if (tag) tag.textContent = this.depth > 0 ? `Depth ${this.depth | 0}` : '';
     });
-    // Money badge always shown.
+    // The compass reveals its money badge after the first earned-coin story.
     if (this.moneyEl) {
       const money = `${this.save.money ?? 0}`;
       this._paintIfChanged('_moneyDOM', money, () => {
@@ -8535,7 +8566,8 @@ class MapScene extends Phaser.Scene {
     // (see _steerManual) — after that it is a permanent line of instructions
     // for something they have already done.
     const text = this.gpsAvailable ? 'waiting for GPS…'
-      : (this._steeredManually ? '' : 'no GPS — use the stick or WASD to move');
+      : (this._steeredManually ? '' : (typeof CompassModules !== 'undefined' && !CompassModules.isActive(this.save, 'joystick')
+        ? 'no GPS — activate spirit walking' : 'no GPS — use the stick or WASD to move'));
     if (this._hudDOM !== text) { this._hudDOM = text; this.hud.textContent = text; }
   }
 
@@ -8609,9 +8641,9 @@ class MapScene extends Phaser.Scene {
     const color = pct > 0.30 ? UI_GREEN : (pct > 0.10 ? UI_GOLD : UI_DANGER_INK);
     el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8c7a2a' : '#a04040');
     const label = els.label;
-    // Just the current energy: the bar under it already shows how full it is,
-    // and the max rides in the tooltip (the top row is tight on a phone).
-    if (label) { label.style.color = color; label.textContent = `⚡${cur}`; }
+    // The compass needle carries current energy; its right-hand numeral is
+    // the maximum. The legacy bar keeps its current-value label.
+    if (label) { label.style.color = color; label.textContent = this._compassHUD ? max : `⚡${cur}`; }
     else { el.style.color = color; el.textContent = `⚡${cur}`; }
     el.title = `Energy ${cur} of ${max}`;
     const fill = els.fill;
@@ -9701,7 +9733,9 @@ class MapScene extends Phaser.Scene {
     const items = this._menuItemsEl;
     if (!menu || !items || document.getElementById('menu-modal')) return;
     const { box, mount, mkBtn } = this.makeModalShell('menu-modal', {
-      kind: 'menu', textAlign: 'left',
+      // No painting and no header: the whole panel is the list, and it
+      // scrolls as one.
+      kind: 'menu', textAlign: 'left', art: false, header: false,
       // A tap on the backdrop closes it like any dialog; the shell has
       // already removed the wrap, and the toggle brings the list home.
       onClose: () => { menu.open = false; },
@@ -9733,6 +9767,8 @@ class MapScene extends Phaser.Scene {
     if (!document.getElementById('move-pad')) this.buildMovePad();
   }
   removeMovePad() {
+    this._resetMovePad?.();
+    delete this._resetMovePad;
     document.getElementById('move-pad')?.remove();
     this.joystickVec = { x: 0, y: 0 };
     this._movePadHeld = false;
@@ -9764,7 +9800,9 @@ class MapScene extends Phaser.Scene {
 
     let activePtr = null;
     const reset = () => {
+      const pointer = activePtr;
       activePtr = null;
+      if (pointer !== null && pad.hasPointerCapture?.(pointer)) pad.releasePointerCapture(pointer);
       // Dropping .held re-arms the nub's transform transition (see the CSS
       // note), so clearing the offset here is what plays the spring-back.
       pad.classList.remove('held');
@@ -9772,6 +9810,7 @@ class MapScene extends Phaser.Scene {
       this.joystickVec = { x: 0, y: 0 };
       this._movePadHeld = false;
     };
+    this._resetMovePad = reset;
     const place = (e) => {
       const rect = pad.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
@@ -9785,6 +9824,7 @@ class MapScene extends Phaser.Scene {
     };
     pad.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
+      if (typeof CompassModules !== 'undefined' && !CompassModules.tap(this, 'joystick')) return;
       activePtr = e.pointerId;
       pad.setPointerCapture(e.pointerId);
       pad.classList.add('held');
@@ -10062,6 +10102,7 @@ class MapScene extends Phaser.Scene {
     // _revealPendingBookReads(), or the read is never shown.
     if (id === 'book') {
       if (n <= 0) return 0;
+      if (typeof CompassModules !== 'undefined') CompassModules.activate(this, 'books');
       if (!silent) {
         // THE BOOK CLUB's reading (Macros.booksRead): every Book read counts,
         // found or bought — the brake on buying is
@@ -10250,6 +10291,8 @@ class MapScene extends Phaser.Scene {
       const tab = document.createElement('button');
       tab.dataset.cat = c.key;
       tab.title = c.label;
+      tab.ariaLabel = `${c.label}, ${count} ${count === 1 ? 'entry' : 'entries'}`;
+      tab.ariaPressed = String(active);
       // Layout inline, paint from .hud-tab / .hud-tab.sel (index.html).
       tab.className = active ? 'hud-tab sel' : 'hud-tab';
       tab.style.cssText =
@@ -10260,20 +10303,12 @@ class MapScene extends Phaser.Scene {
       // tab's icon lights gold, inactive tabs show it dimmed, so the lit-up tab
       // reads as the current category at a glance.
       const glyph = document.createElement('span');
-      glyph.innerHTML = invCatIconHTML(c.key, 18);
+      glyph.className = 'inventory-category-glyph';
+      glyph.innerHTML = invCatIconHTML(c.key, 28);
       glyph.style.cssText = 'line-height:1;' + (active ? `color:${UI_GOLD};` : 'color:var(--bone);opacity:0.55;');
       tab.appendChild(glyph);
-      // Word under the glyph. Seven unlabelled emoji left a new player guessing
-      // which one holds seeds — and the seed tab is the first thing the starter
-      // ladder asks them to find. `title` alone doesn't help on a touch device,
-      // where there is nothing to hover.
-      const caption = document.createElement('span');
-      caption.textContent = c.label;
-      caption.style.cssText =
-        'font:700 7px var(--font-ui);letter-spacing:-0.2px;line-height:1;' +
-        'max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
-        (active ? `color:${UI_GOLD};` : 'color:#999;');
-      tab.appendChild(caption);
+      // Category symbols are embossed into the metal; retain their names for
+      // assistive technology and the native long-press/hover tooltip.
       // An EMPTY tab reads as empty: without this a fresh save's Relics and
       // Armor tabs looked identical to stocked ones bar a missing pip (UX audit
       // §20). The active tab always stays full strength — you're looking at it.
@@ -10306,8 +10341,23 @@ class MapScene extends Phaser.Scene {
     // well under the 44px guideline (QC/UX audit §13).
     const makeBtn = (txt, onclick, w = 40) => {
       const b = document.createElement('button');
-      b.textContent = txt;
       b.className = 'hud-btn';
+      b.ariaLabel = txt === '⇅' ? 'Sort inventory' : txt === '◀' ? 'Previous inventory page' : 'Next inventory page';
+      b.title = b.ariaLabel;
+      b.dataset.control = txt === '⇅' ? 'sort' : txt === '◀' ? 'previous' : 'next';
+      // Retain text for the standard HUD; the compass uses the same live
+      // buttons with faceted gold arrowheads, independent of font rendering.
+      const label = document.createElement('span');
+      label.className = 'inventory-control-text';
+      label.textContent = txt;
+      b.appendChild(label);
+      const mark = document.createElement('span');
+      mark.className = 'inventory-control-mark';
+      mark.ariaHidden = 'true';
+      mark.innerHTML = txt === '⇅'
+        ? '<svg viewBox="0 0 24 56"><defs><linearGradient id="inventory-lever-gold"><stop stop-color="#815411"/><stop offset=".45" stop-color="#fff3b2"/><stop offset=".7" stop-color="#e8b447"/><stop offset="1" stop-color="#956314"/></linearGradient><radialGradient id="inventory-lever-knob" cx="35%" cy="25%"><stop stop-color="#fff6c6"/><stop offset=".45" stop-color="#f9d15f"/><stop offset="1" stop-color="#a46d15"/></radialGradient></defs><rect x="8" y="15" width="8" height="27" rx="3" fill="url(#inventory-lever-gold)" stroke="#674515"/><path d="M3 37H21L12 54Z" fill="url(#inventory-lever-gold)" stroke="#f2d27b" stroke-width="1.3"/><circle cx="12" cy="10" r="8" fill="url(#inventory-lever-knob)" stroke="#ffdfa0" stroke-width="1.5"/><path d="M3 21H21" stroke="#f4d176" stroke-width="3" stroke-linecap="round"/></svg>'
+        : '<svg viewBox="0 0 20 40"><path class="arrow-dark" d="M18 3 1 20l17 17Z"/><path class="arrow-light" d="M17 5 3 20h14Z"/><path class="arrow-face" d="M3 20h14v15Z"/></svg>';
+      b.appendChild(mark);
       b.style.cssText = `width:${w}px;height:44px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;`;
       b.addEventListener('click', (e) => { e.stopPropagation(); onclick(); });
       return b;
@@ -10341,12 +10391,21 @@ class MapScene extends Phaser.Scene {
     // already wider than the 352px column (5×42 slots + 3×40 buttons + the
     // plate) cost both space and attention for nothing.
     const paged = pageCount > 1;
+    const pager = document.createElement('div');
+    pager.className = 'inventory-pager';
     if (paged) {
-      bar.appendChild(makeBtn('◀', () => {
+      pager.appendChild(makeBtn('◀', () => {
         this.save.invPage = (this.save.invPage - 1 + pageCount) % pageCount;
         persistSave(this.save); this.buildInventoryDOM();
       }));
     }
+
+    // One glass window contains the live item controls; standard HUD uses
+    // display:contents so its established layout is unchanged.
+    const itemWindow = document.createElement('div');
+    itemWindow.className = 'inventory-window';
+    itemWindow.style.display = 'contents';
+    bar.appendChild(itemWindow);
 
     const slotCss = 'position:relative;width:42px;height:42px;flex:0 0 42px;border-radius:6px;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
     const startPos = this.save.invPage * PAGE;
@@ -10362,7 +10421,7 @@ class MapScene extends Phaser.Scene {
           slot.title = (typeof gearName === 'function') ? gearName(g.kind, g.slot, g.tier) : g.slot;
           const wrap = document.createElement('span');
           wrap.style.cssText = 'display:inline-block;line-height:0;';
-          wrap.innerHTML = this.gearIconHTML(g.kind, g.slot, g.tier, 32);
+          wrap.innerHTML = this.gearIconHTML(g.kind, g.slot, g.tier, 24);
           slot.appendChild(wrap);
           // Rarity uses the shared word/color badge; numeric tiers stay internal.
           const badge = document.createElement('span');
@@ -10410,14 +10469,14 @@ class MapScene extends Phaser.Scene {
         const pet = displayList[p].pet;
         slot.dataset.pet = pet.id;
         slot.title = itemName(pet.kind);
-        slot.appendChild(this.renderItemIcon(pet.kind, 32, 'block'));
+        slot.appendChild(this.renderItemIcon(pet.kind, 24, 'block'));
         slot.addEventListener('click', e => { e.stopPropagation(); this.presentPetMenu(pet.id); });
       } else if (displayList[p]?.entry) {
         const { idx, entry } = displayList[p];
         const item = ITEM_BY_ID[entry.id];
         slot.dataset.slot = idx;
         slot.title = item ? `${item.name}${entry.count != null ? ' ×' + entry.count : ''}` : 'empty';
-        if (item) slot.appendChild(this.renderItemIcon(item.id, 32, 'block'));
+        if (item) slot.appendChild(this.renderItemIcon(item.id, 24, 'block'));
         else slot.textContent = '·';
         if (entry.count != null) {
           const badge = document.createElement('span');
@@ -10465,10 +10524,10 @@ class MapScene extends Phaser.Scene {
         slot.textContent = '';
         slot.style.cursor = 'default';
       }
-      bar.appendChild(slot);
+      itemWindow.appendChild(slot);
     }
     if (paged) {
-      bar.appendChild(makeBtn('▶', () => {
+      pager.appendChild(makeBtn('▶', () => {
         this.save.invPage = (this.save.invPage + 1) % pageCount;
         persistSave(this.save); this.buildInventoryDOM();
       }));
@@ -10476,7 +10535,8 @@ class MapScene extends Phaser.Scene {
       pageLbl.textContent = `${this.save.invPage + 1}/${pageCount}`;
       pageLbl.className = 'hud-page';
       pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #4a4238;border-radius:11px;font:700 11px var(--font-ui);margin-left:4px;';
-      bar.appendChild(pageLbl);
+      pager.appendChild(pageLbl);
+      bar.appendChild(pager);
     }
 
     document.body.appendChild(bar);
@@ -10562,7 +10622,13 @@ class MapScene extends Phaser.Scene {
             + (borrowed ? ` · ${borrowed} on loan` : '');
           const effect = (typeof ITEM_EFFECTS !== 'undefined') ? ITEM_EFFECTS[sel.id] : null;
           const nameSpan = document.createElement('div');
-          nameSpan.textContent = nameTxt;
+          nameSpan.className = 'inventory-selected-name';
+          const nameIcon = this.renderItemIcon(it.id, 20, 'block');
+          nameIcon.className = `${nameIcon.className || ''} inventory-name-icon`;
+          const nameText = document.createElement('span');
+          nameText.textContent = nameTxt;
+          nameSpan.appendChild(nameIcon);
+          nameSpan.appendChild(nameText);
           nameSpan.style.cssText = 'max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
           nameLbl.appendChild(nameSpan);
           if (effect) {

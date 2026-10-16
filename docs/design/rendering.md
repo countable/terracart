@@ -32,14 +32,23 @@ compass heading. `_worldDecalCount` marks that prefix for the rotated depth sort
 Contact shadows are presentation attached to props, not ground decals; flat rune
 rings are decals and retain the map's rotation.
 
-The home firepit is centred in its designated cell, without an inward artwork
+The home firepit is centred three cells due south of the trailer after the
+first device-compass reading (see [Home](combat.md)), without an inward artwork
 nudge. The ring, matching fire, smoke, interaction and step-over footprint use
 that position. Its cold and lit states are both step-over props.
 
 Continuous architectural walls are background geometry, separate from object
 props (including interactable `stronghold_wall`). Their connected wall meshes
 remain attached to their ground footprints; they cannot use per-object billboard
-rotation without opening gaps between segments.
+rotation without opening gaps between segments. In heading-up mode,
+`wall_perspective.js` retains ground vertices and separate elevations for polygon
+and tiled walls. Each compass change inverse-rotates only the height vector,
+selects camera-facing sides, and orders short wall prisms by screen depth.
+Explicit triangles use Phaser's existing WebGL batching or Canvas fallback;
+there is no wall canvas bake or texture upload on heading changes. At a fixed
+heading the command buffers are reused. Floors remain cached ground textures;
+small building sprites and towers keep their ordinary upright sprite path.
+North-up mode retains the existing wall atlas artwork.
 
 ## Coordinates, rendering and performance
 
@@ -51,6 +60,8 @@ rotation without opening gaps between segments.
 - Draw from the camera anchor using `coords.js` projection helpers. Reach,
   taps, fog and tile loading use `playerM` / `playerToWorldCell()`.
   Draw player-attached effects at `scene.playerScreen()`, not viewport centre.
+- The circular map and compass rim sit 15 CSS pixels above the layout baseline;
+  the published aperture position follows the canvas so touch targets stay aligned.
 - Zoom is camera-only. The initial view spans nine cells instead of eleven,
   one cell closer on each edge (`MAP_DEFAULT_ZOOM`). Plain +/− buttons on the
   right change the resting span by two cells, bounded by `PINCH_VIEW_CELLS`
@@ -78,6 +89,9 @@ rotation without opening gaps between segments.
   retain their screen-vertical inset, and size to the visible art footprint.
   Broken lamp posts and dropped items stay upright like other raised props.
   Creature appearance directions rotate without changing simulation state.
+  The player facing chevron is omitted in heading-up mode when a device
+  compass reports; desktop without a heading sensor and north-up mode retain
+  it. The heading-up compass rim keeps its north marker.
   Game state stays north-up; taps, peek drags and steering convert back
   through `HeadingUp.toWorldVec`, including the manual GPS stick.
 - Map annotations use `HeadingUp.toOverlayPt` for UI-camera graphics: rotate
@@ -108,7 +122,9 @@ rotation without opening gaps between segments.
   ramparts live in `buildingWallContainer`, immediately above the footprint
   layer and below pads, traps, shadows and every interactable. Wall geometry
   never adjusts an actor's feet or enters the world depth sort. Towers and
-  flags retain ordinary world ordering. Walls and footprints use a muted
+  flags retain ordinary world ordering. Tower textures fade fully to transparent
+  across their bottom ten pixels so cell-seated bases blend into angled walls;
+  this is baked once for both restoration states. Walls and footprints use a muted
   palette so interactables remain distinct.
   Castle courtyard cells mostly retain four quarter-cell stone tiles (2×2).
   A quarter of the cached variants join one adjacent pair into a horizontal or
@@ -125,7 +141,11 @@ rotation without opening gaps between segments.
   the wall is independent of its thickness. Full end blocks reach each corner;
   the rear highlight stays inside the cap silhouette. Polygon wall bodies and
   crenellations use separate cached passes, with every body drawn before the
-  crowns so adjacent wall sections cannot cover a crenellation top. Castle wall
+  crowns so adjacent wall sections cannot cover a crenellation top. Heading-up
+  prisms order each supporting wall by screen depth, then draw its bodies before
+  its crowns, so a rear crown cannot overpaint a nearer wall. This retained
+  centroid ordering handles ordinary joined walls; intersecting walls are not
+  split into an exact visibility graph. Castle wall
   bodies omit mid-wall shadow stripes; the bottom silhouette and a quiet rear highlight define the edge.
 - Standing objects fade to half their normal opacity only when their art overlaps
   the player's inset body box and their world depth draws them in front. The
@@ -331,8 +351,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   its colour over a dim cave floor. Mushroom projectiles use the same cloud
   painter and confusion palette, at three-quarters of a cell wide.
 
-- `lighting.js` owns the sole lighting pass: additive source cookies on a 2D
-  canvas multiplied over the world. Do not add darkness passes or dim sprites
+- `lighting.js` owns the sole lighting pass: additive source cookies composed
+  into a lightmap and multiplied over the world. Canvas is the default compositor;
+  the opt-in GPU compositor below consumes the same shapes and fade weights.
+  Do not add darkness passes or dim sprites
   again. Its screen-attached base (ambient plus player ramp) stays baked while
   walking; transparent, padded reach-cell masks crop with the camera and rebuild
   only when their geometry or validity edge changes. If the normal validity edge
@@ -411,3 +433,35 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
 - Cave pressure plates use a low-opacity floor mark revealed within one body
   cell. Plate-controlled gas outlets use one cached metal-grate texture and
   the existing gas-cloud renderer; both grate and plate sort as ground objects.
+
+### GPU migration candidates
+
+Phaser AUTO already uses WebGL for sprites and Graphics when available.
+Measure CPU work and uploads before replacing another renderer. Moving lights
+and flicker can trigger Canvas blending and a full lighting texture refresh.
+The lighting prototype (`?gpuLighting=true`) moves composition into Phaser's
+WebGL context. `lighting.js` supplies cached source canvases with repaint
+revisions, crop positions and fade weights; `lighting_gpu.js` uploads changed
+sources and composites them into a retained GPU lightmap. Reach masks blend
+before receiving their radial colour; cover composites last. Explicit
+premultiplied-alpha blend factors preserve Canvas additive semantics.
+
+The prototype defaults off. Unsupported renderers and compositor failures use
+the Canvas path. `LightingGPU.status(scene)` reports the active backend,
+fallback reason and upload/composition counters. A successful fallback is not
+a GPU benchmark. `tools/probe_gpu_lighting.py` compares both modes under the
+same scripted lighting and camera changes. Target-device visual, frame-time and
+power measurements are required before enabling it by default; lower CPU time
+alone does not establish a battery saving.
+
+Dense gas Graphics are another profiling candidate; exploration fog is lower
+priority because it defaults off and changes mainly with cells or state. Roads
+and static terrain already amortize rasterization through cached textures and
+sliced rebuilds; replacing them with live geometry is not inherently faster.
+
+`tools/probe_wall_perspective.py` compares a dense nine-castle fixture under
+continuous injected device heading. It records frame CPU time, render submission,
+wall update time, and texture/buffer calls where WebGL is available. Run identical
+browser/backend settings against separate baseline and candidate servers.
+Headless CPU timings do not establish handset GPU time or a 120fps guarantee;
+validate on the target device before making that claim.
