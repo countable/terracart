@@ -610,6 +610,7 @@ class SceneModals {
   // wrap there, and pads created mid-dialog are caught by the CSS rule itself.
   _installModalPadGate() {
     if (typeof MutationObserver === 'undefined') return;
+    this._modalPadObserver?.disconnect();
     const gameEl = document.getElementById('game');
     // The four hand-written overlays in index.html (#story / #safety /
     // #locating / #howto) carry .game-modal too, but unlike makeModalShell's
@@ -622,9 +623,10 @@ class SceneModals {
     const sync = () => {
       // The upper temple is a Phaser scene, so it has no DOM modal to query.
       // Keep its HUD gate until TempleScene's shutdown clears the scene flag.
-      const any = !!this._templeSceneActive || [...document.querySelectorAll('.game-modal')].some(shown);
+      const openModals = [...document.querySelectorAll('.game-modal')].filter(shown);
+      const any = !!this._templeSceneActive || openModals.length > 0;
       document.body.classList.toggle('modal-open', any);
-      if (any) this._resetMovePad?.();
+      if (any && this._movePadHeld) this._resetMovePad?.();
       // The chassis lives outside the scaled game. Clip at the sheet's actual
       // screen edge, retaining silver shoulders around the circular map. Its
       // layout position ignores the entrance transform and follows resizing.
@@ -648,7 +650,7 @@ class SceneModals {
       // the moment the dialog is dismissed.
       // Its OWN dialog (#menu-modal, _openMenuDialog) is the menu itself, not
       // a dialog over it — counting it would shut the menu the frame it opens.
-      if ([...document.querySelectorAll('.game-modal')].some(el => el.id !== 'menu-modal' && shown(el))) {
+      if (openModals.some(el => el.id !== 'menu-modal')) {
         const m = document.getElementById('menu'); if (m && m.open) m.open = false;
       }
       // Nothing covering the screen: anything the starter ladder is holding can
@@ -667,6 +669,14 @@ class SceneModals {
       const el = document.getElementById(id);
       if (el) this._modalPadObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
     }
+    const observer = this._modalPadObserver;
+    this.events?.once('shutdown', () => {
+      observer.disconnect();
+      if (this._modalPadObserver === observer) {
+        delete this._modalPadObserver;
+        delete this._syncModalGate;
+      }
+    });
     // The observer alone is not enough: an overlay that is REMOVED from the
     // document (the story and safety cards are, rather than hidden) fires no
     // mutation any of the above watches, so the class latched on and the whole

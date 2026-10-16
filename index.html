@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=61dd9bf9" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=c5eebed8" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -375,6 +375,19 @@
        pinch and double-tap zoom land directly on the canvas. Phaser's pointer
        events still fire; this only suppresses the browser's default zoom/pan. */
     #game, #game canvas { touch-action: none; }
+    #map-zoom {
+      position: absolute; right: 28px; transform: translateY(-50%);
+      z-index: 3; display: flex; flex-direction: column;
+    }
+    #map-zoom button {
+      width: 36px; height: 36px; padding: 0; border: 1px solid #777;
+      border-radius: 0; background: #222; color: #fff;
+      font: 24px monospace; touch-action: manipulation; cursor: pointer;
+    }
+    #map-zoom button + button { border-top: 0; }
+    #map-zoom button:disabled { color: #777; cursor: default; }
+    #map-zoom button:active:not(:disabled) { background: #444; }
+    #map-zoom button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
     /* Every body-level HUD surface (inventory bars, chips, menu, multiplayer
        button): manipulation kills iOS's double-tap zoom WITHOUT needing the
        touchend preventDefault guard below — which must never fire for these
@@ -400,6 +413,7 @@
        are body-level too — the Use button sat over the safety card. Every
        element appended to <body> needs a rule here
        (test/node/modal_layering.test.js). */
+    body.modal-open #map-zoom,
     body.modal-open #move-pad,
     body.modal-open #gps-pad,
     body.modal-open #inv-tabs,
@@ -1214,9 +1228,9 @@
     #howto-mode-current span { font-weight: 400; color: #bbb; }
     #howto button#howto-close[hidden] { display: none; }
   </style>
-  <link rel="stylesheet" href="css/compass_shine.css?v=db3f4efa">
-  <link rel="stylesheet" href="css/compass_hud.css?v=14be13c4">
-  <link rel="stylesheet" href="css/compass_inventory.css?v=5112b48b">
+  <link rel="stylesheet" href="css/compass_shine.css?v=2196f9a5">
+  <link rel="stylesheet" href="css/compass_hud.css?v=2e25cdcd">
+  <link rel="stylesheet" href="css/compass_inventory.css?v=bb7fb3e0">
   <link rel="stylesheet" href="css/compass_panels.css?v=6ba72e93">
 </head>
 <!-- `booting` hides the money/energy row until the scene has a real balance to
@@ -1596,9 +1610,9 @@
       // The reference seats the circle directly below the instrument plate.
       // Keep its width-based proportions on tall phones; short viewports can
       // spend only the existing one-cell inventory overlap allowance.
-      const mapTop = slack >= 0
+      const mapTop = (slack >= 0
         ? TOP_CHROME + Math.min(Math.max(0, mapH * 0.37 - TOP_CHROME), spare * 0.35)
-        : Math.max(TOP_ROW, TOP_CHROME + slack);
+        : Math.max(TOP_ROW, TOP_CHROME + slack)) - 30;
       const mapBottom = mapTop + mapH;
       const top = mapTop - MAP_TOP_GAME * s;
       // The stick goes in the gap between the map and the tabs when it fits
@@ -3023,8 +3037,8 @@
   <script src="src/underground.js?v=66423e51"></script>
   <script src="src/underground_stories.js?v=deb09860"></script>
   <script src="src/worldgen.js?v=02c9315f"></script>
-  <script src="src/castle_styles.js?v=79d35afb"></script>
-  <script src="src/textures.js?v=97a11ed6"></script>
+  <script src="src/castle_styles.js?v=ac2f7f2e"></script>
+  <script src="src/textures.js?v=a9ab03f5"></script>
   <script src="src/save.js?v=5d02b05e"></script>
   <script src="src/items.js?v=36ef9613"></script>
   <script src="src/inventory.js?v=08929c24"></script>
@@ -3075,7 +3089,7 @@
   <script src="src/interact.js?v=a312ad0d"></script>
   <script src="src/play_tips.js?v=889489e3"></script>
   <script src="src/lighting_gpu.js?v=c2cf90df"></script>
-  <script src="src/lighting.js?v=ab2db7e7"></script>
+  <script src="src/lighting.js?v=02cb7275"></script>
   <script src="src/safety.js?v=4da84751"></script>
   <script src="src/render.js?v=6a46e2e3"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
@@ -3090,17 +3104,17 @@
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=0a205c42"></script>
   <script src="src/art_thumbs.js?v=4904d49b"></script>
-  <script src="src/modal_shell.js?v=ce30a7fe"></script>
-  <script src="src/scene_geo.js?v=3f65322a"></script>
+  <script src="src/modal_shell.js?v=b8fe03f0"></script>
+  <script src="src/scene_geo.js?v=5440fa32"></script>
   <script src="src/npc.js?v=eb1e1862"></script>
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
   <script src="src/scene_shops.js?v=3003dd4a"></script>
   <script src="src/heading_up.js?v=f96711f1"></script>
-  <script src="src/compass_modules.js?v=cb693548"></script>
-  <script src="src/compass_shine.js?v=83af5698"></script>
-  <script src="src/compass_hud.js?v=9fe79f2d"></script>
-  <script src="src/scene_create.js?v=19eda180"></script>
+  <script src="src/compass_modules.js?v=cf28a241"></script>
+  <script src="src/compass_shine.js?v=1533df4e"></script>
+  <script src="src/compass_hud.js?v=4c5bc4ea"></script>
+  <script src="src/scene_create.js?v=15a4dc31"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=05d59b5d"></script>
   <script src="src/scene_sky.js?v=c2698528"></script>
@@ -3178,7 +3192,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=61dd9bf9';
+      const APP_SRC = 'src/app.js?v=c5eebed8';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

@@ -323,6 +323,7 @@ const starterWrapper = (name) => {
     ctx[name] = parseFloat(m[1]);
   }
   // Derived in app.js from the two above, as the shipping code reads it.
+  ctx.MAP_DEFAULT_ZOOM = ctx.VIEW_CELLS / (ctx.VIEW_CELLS - 2);
   ctx.PINCH_MAX_ZOOM = ctx.VIEW_CELLS / ctx.PINCH_VIEW_CELLS;
 }
 
@@ -550,7 +551,7 @@ const starterWrapper = (name) => {
   const methods = ['playerScreen() {', 'isPeeking() {', '_setPeekFromDrag(dxPx, dyPx) {',
                    '_releasePeek() {', 'clearPeek() {', '_tickPeek(dt) {', '_gamePt(p) {',
                    '_pinchStart(a, b) {', '_pinchMove(a, b) {', '_pinchEnd() {',
-                   '_tickMapZoom(dt) {', '_unzoomPt(pt) {']
+                   '_tickMapZoom(dt) {', '_stepMapZoom(direction) {', '_unzoomPt(pt) {']
     .map(lift).join(',\n');
   // The tap-or-drag decision itself, straight out of create()'s input wiring.
   const relSig = '    const endPeekPointer = (p) => {';

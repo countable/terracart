@@ -138,7 +138,7 @@ test('lighting: the levels reproduce the old wash, on the surface and below', ()
     for (const daylight of [1, 0.5, 0]) {
       const q = Lighting.profile(s, daylight);
       const floor0 = Lighting.mixToWhite(q.dimColour, q.farA);
-      const nightLum = Lighting.AMBIENT_K * Lighting.lum(floor0);
+      const nightLum = Lighting.AMBIENT_K * Lighting.lum(floor0) * (depth > 0 ? 1 : 1.10);
       const wantLum = depth > 0 ? nightLum
         : nightLum + (Lighting.AMBIENT_DAY_LUM - nightLum) * (1 - q.night);
       assert.eq(q.ambient, Lighting.atLuminance(floor0, wantLum), `ambient @${depth} daylight ${daylight}`);
@@ -771,6 +771,19 @@ test('lighting: daylight is a twilight ramp around the horizon', () => {
   near(Lighting.daylightFromElevation(0), 0.5, 1e-9, 'sunset is halfway');
   let prev = 0;
   for (let e = -10; e <= 10; e += 0.5) { const d = Lighting.daylightFromElevation(e); assert.gte(d, prev); prev = d; }
+});
+
+test('lighting: daylight starts 30 minutes earlier and ends 30 minutes later', () => {
+  const halfHour = 30 * 60 * 1000;
+  for (const [iso, shift] of [['2024-03-20T05:37:00Z', halfHour], ['2024-03-20T18:37:00Z', -halfHour]]) {
+    const now = Date.parse(iso);
+    near(Lighting.daylightAtTime(now, 0, 0),
+      Lighting.daylightFromElevation(Lighting.sunElevationDeg(now + shift, 0, 0)), 1e-12);
+    assert.gt(Lighting.daylightAtTime(now, 0, 0),
+      Lighting.daylightFromElevation(Lighting.sunElevationDeg(now, 0, 0)));
+  }
+  assert.eq(Lighting.daylightAtTime(Date.parse('2024-03-20T12:07:00Z'), 0, 0), 1);
+  assert.eq(Lighting.daylightAtTime(Date.parse('2024-03-20T00:07:00Z'), 0, 0), 0);
 });
 
 test('lighting: night darkens the world but not the Inner Light, and never a cave', () => {

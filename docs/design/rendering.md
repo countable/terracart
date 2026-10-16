@@ -60,16 +60,25 @@ North-up mode retains the existing wall atlas artwork.
 - Draw from the camera anchor using `coords.js` projection helpers. Reach,
   taps, fog and tile loading use `playerM` / `playerToWorldCell()`.
   Draw player-attached effects at `scene.playerScreen()`, not viewport centre.
-- The pinch zoom is camera-only and temporary: `scene.mapZoom` (at most
-  `VIEW_CELLS / PINCH_VIEW_CELLS`) magnifies about the viewport centre while
-  two map fingers are down and springs back on `PEEK_RETURN_MS`, like the peek
-  drag. `_applyMapZoom` clips the camera viewport to the map square and
-  counter-scales the frame and vignette (`_mapChrome`); the HUD is DOM and
-  never zooms. Every projection, cull and hit test stays in the 1× view, and
-  taps convert back through `_unzoomPt`. Never let it rest zoomed: fog reveal,
-  aggro ranges and boss margins are tuned for `VIEW_CELLS`. The new-game
-  opening shot (`HomeArea.INTRO`, `_tickHomeIntro`) drives the same `mapZoom`
-  and `peekM`, and always ends at exactly 1× with no offset.
+- The circular map and compass rim sit 30 CSS pixels above the layout baseline;
+  the published aperture position follows the canvas so touch targets stay aligned.
+- Zoom is camera-only. The initial view spans nine cells instead of eleven,
+  one cell closer on each edge (`MAP_DEFAULT_ZOOM`). Plain +/− buttons on the
+  right change the resting span by two cells, bounded by `PINCH_VIEW_CELLS`
+  and `VIEW_CELLS`; disabled buttons mark the limits. The choice lasts for the
+  session, including modals and depth changes. Pinch zoom remains temporary
+  and springs back to that selected view on `PEEK_RETURN_MS`.
+  `_applyMapZoom` clips the camera viewport and counter-scales map chrome;
+  the DOM controls never zoom or rotate. Gameplay ranges and loading stay
+  based on `VIEW_CELLS`; taps convert back through `_unzoomPt`.
+  The opening shot uses the same camera and ends at the selected resting zoom.
+- Once Phaser selects its renderer, software Canvas uses a 1× backing store:
+  the logical pixel-art grid. WebGL retains its 2× memory budget. This avoids
+  CPU-bound high-DPR rasterization during map rotation without changing CSS
+  layout, camera projection or pointer coordinates. Both cameras use the same
+  existing resize path, which explicitly restores the logical CSS size before
+  refreshing input bounds when returning to scale 1. Explicit `?rscale=N` remains a diagnostic override,
+  bounded to 1–2×; game cadence is unchanged.
 - Heading-up is the default (`?headingUp=false` keeps north up). The main
   camera turns about the view centre by `-compassDeg` (Q / E fake it on
   desktop), and the map clips to the inscribed circle. Phaser's two-corner
@@ -124,9 +133,10 @@ North-up mode retains the existing wall atlas artwork.
   across their bottom ten pixels so cell-seated bases blend into angled walls;
   this is baked once for both restoration states. Walls and footprints use a muted
   palette so interactables remain distinct.
-  Castle courtyard cells mostly retain four quarter-cell stone tiles (2×2).
-  A quarter of the cached variants join one adjacent pair into a horizontal or
-  vertical half-cell slab, with both positions represented. Polygon courtyards
+  Castle courtyards are cell-tiled. Half of the cached variants are one full
+  cell slab; the rest split it, a quarter into four quarter-cell stones (2×2)
+  and a quarter joining one adjacent pair into a horizontal or vertical
+  half-cell slab, with both positions represented. Polygon courtyards
   scatter those variants across a cached eight-cell-square repeat; tiled floors
   choose them from a mixed world-cell hash. The pattern stays fixed while the
   camera moves. Each joint uses one recessed pixel, with quiet worn stretches
@@ -306,6 +316,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   interior and smooth, wispy frontier. Exploration continues to record and save
   while the wash is disabled. This setting does not affect cover visibility,
   night lighting or cave darkness; underground never draws exploration fog.
+
+Surface daylight follows the player's local sun with a 30-minute extension at
+both dawn and dusk. Nighttime ambient luminance is 10% brighter, blending back
+to the existing noon level. Underground lighting is unchanged.
 
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
