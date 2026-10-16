@@ -1,10 +1,7 @@
 // SCENE ART — the dialog-painting standard (modal_shell.js makeModalShell `art`,
-// ART_FRAME_ASPECT / ART_DETAIL_FRAC / ART_BAND_*; tools/gen_story_art.js
-// scene()). Every dialog opens on a painting — its caller's, or its kind's
-// MODAL_KINDS default. The piece IS the box: cut to the box's shape, subject
-// in the top ART_DETAIL_FRAC, the copy bottom-anchored over a scrim and capped
-// at the quiet zone so it can never climb onto the subject; copy too long for
-// the quiet zone switches the dialog to THE BAND by measurement.
+// css/compass_panels.css; tools/gen_story_art.js
+// scene()). Existing tall and new square assets share one top-centred square
+// display crop above separate copy, with one scroller and no legacy band mode.
 
 (function () {
 const app = SCENE_SRC;
@@ -21,12 +18,12 @@ for (const m of INTERACT_SRC.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
 for (const r of ['house', 'blacksmith', 'market', 'trader', 'wizard']) stems.add('restore_' + r);
 for (const row of [...Object.values(Shrines.SHRINE_KINDS), ...Object.values(Shrines.REWARD_KINDS), ...Object.values(Macros.DAILY_VISIT_KINDS), ...Object.values(Macros.KIND_DIALOG), ...Object.values(Macros.KIND_TRANSACTION)]) stems.add(row.art);
 
-test('scene art: every dialog painting is cut to the dialog box shape', () => {
+test('scene art: dialog paintings use square or legacy tall composition', () => {
   assert.truthy(stems.size > 30, `the stems were collected (${stems.size})`);
   for (const stem of stems) {
     const d = webpDims(`assets/art/${stem}.webp`);
     assert.truthy(d, `${stem}.png exists`);
-    assert.truthy(Math.abs(d.w / d.h - 352 / 448) < 0.01, `${stem} is 11:14 (got ${d && d.w}x${d && d.h})`);
+    assert.truthy(Math.abs(d.w / d.h - 352 / 448) < 0.01 || Math.abs(d.w / d.h - 1) < .05, `${stem} is square or legacy 11:14 (got ${d.w}x${d.h})`);
   }
 });
 
@@ -58,28 +55,27 @@ test('scene art: a message with a painting is a STORY', () => {
     'art makes it a story; a plain message stays a note');
 });
 
-test('scene art: one scroller is the whole content area; the copy starts under the detail line', () => {
-  assert.truthy(/const ART_DETAIL_FRAC = 0\.\d+;/.test(shell), 'the detail line is one constant');
+test('scene art: one scroller and one square crop for every painting', () => {
   const from = shell.indexOf("body.className = 'modal-body'");
   const region = shell.slice(from, shell.indexOf('box.appendChild(body)', from));
-  assert.truthy(region.includes('flex:1 1 auto;') && region.includes('overflow-y:auto;'), 'the body fills the box and scrolls');
-  assert.truthy(region.includes("box.style.overflow = 'hidden'"), 'the box itself never scrolls');
-  assert.falsy(/max-height/.test(region), 'no capped, separately scrolling region');
-  assert.truthy(region.includes('margin-top:auto;'), 'the copy sits on the floor');
-  const i = shell.indexOf('TEXT-HEAVY → THE BAND');
-  assert.truthy(/spacer\.style\.height = `\$\{Math\.round\(h \* ART_DETAIL_FRAC\)\}px`/.test(shell.slice(i, i + 500)),
-    'a spacer holds the painting\'s detail line');
+  assert.truthy(region.includes('flex:1 1 auto;') && region.includes('overflow-y:auto;'), 'one body fills the box and scrolls');
+  assert.truthy(region.includes("art ? 'margin:0;flex:0 0 auto;'"), 'copy follows the image region, including ceremonies');
+  assert.truthy(region.includes('spacer.append(mosaicLayer, artLayer)'), 'painting and mosaic scroll with copy');
+  assert.truthy(shell.includes("backgroundSize = 'cover'"), 'crop scales uniformly without distortion');
+  assert.truthy(shell.includes("backgroundPosition = 'center top'"), 'tall assets lose their bottom, keeping the subject');
+  assert.falsy(/ART_BAND_|ART_DETAIL_FRAC|ART_FRAME_ASPECT|squareArt|readShape|ART_ASPECTS/.test(shell), 'no legacy format-specific layout or load-time switching');
 });
 
-test('scene art: text-heavy copy moves to THE BAND by measurement', () => {
-  assert.truthy(/const ART_BAND_FRAC = ART_DETAIL_FRAC - ART_BAND_FROM;/.test(shell),
-    'the band shows the subject line, the sky above it gives');
-  const i = shell.indexOf('TEXT-HEAVY → THE BAND');
-  assert.truthy(i > 0, 'mount() decides');
-  const tail = shell.slice(i, i + 500);
-  assert.truthy(/body\.scrollHeight > h/.test(tail), 'it measures the copy');
-  assert.truthy(/paintScene\(true\)/.test(tail), 'and repaints as the band');
-  assert.truthy(/h \* ART_BAND_FRAC/.test(tail), 'with the band\'s shorter painting');
+test('scene art: generic Story is omitted and useful categories follow the image', () => {
+  assert.truthy(shell.includes("art && kind === 'story' && (!kindLabel || kindLabel === 'Story')"), 'painted stories omit only the generic heading');
+  assert.truthy(shell.includes('into.insertBefore(kindNode, into.firstChild)'), 'other category headings belong to the content below the image');
+  const sceneShell = shell.slice(shell.indexOf('  makeModalShell('), shell.indexOf('  _placeSpeechBubble('));
+  assert.falsy(/layoutArt|ResizeObserver/.test(sceneShell), 'CSS owns square geometry without resize-driven JS layout');
+});
+
+test('scene art: new generated scenes use full square compositions', () => {
+  assert.truthy(/const SCENE_ASPECT = 1;/.test(STORY_ART_GEN_SRC), 'new scene generation is square');
+  assert.truthy(/size: '1024x1024', width: 512, aspect: SCENE_ASPECT/.test(STORY_ART_GEN_SRC), 'square source and export agree');
 });
 
 test('scene art: the hero becomes a bare label chip — no emoji, no sprite', () => {

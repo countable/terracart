@@ -323,7 +323,8 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   seam painted into the sprite. These contain no collectible mineral inclusions.
   The same 24px
   frame scales to 4/3 for both small stones and sight-blocking boulders.
-  `ROCK_VARIANT_ART` owns these scales and the placed-rock scale of 2.88.
+  `ROCK_VARIANT_ART` owns these scales; placed rocks draw their 16px produce
+  frame at 1.6×, comfortably inside a cell.
   These display sizes leave mining
   quantities, occupied cells and cover behavior unchanged.
   Named context/variant fields resolve the theme, with legacy zone-object

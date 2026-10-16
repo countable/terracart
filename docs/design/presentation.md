@@ -34,7 +34,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   Container paintings follow the visible container, not the reward: crates use
   `treasure_crate`, barrels use `treasure_barrel`, and ordinary chests use
   `chest_t1` through `chest_t7` for their source tier. Only a glow inside hints at the contents; the reward card
-  names the actual find. Clay pots retain their brief smash feedback.
+  names the actual find as “Item name × quantity”, with its tier badge on the
+  next line. Clay pots retain their brief smash feedback.
 
 - The compass header aligns menu, a memories/books window and compact distance meter
   capped at 84 pixels wide beside a 72-pixel energy dial at the top right. The menu is
@@ -44,18 +45,19 @@ changing dialogue, story panels, books, toasts or status presentation.
   gaps separate all four top widgets, with matching 8-pixel outer margins. The simulated-GPS control sits 20 CSS pixels above its
   ordinary stick baseline. The carving stays visible beneath navigation, with a
   darker graphite recess behind the inventory and a soft outer-edge fade.
-  The energy dial uses the shared silver texture with contrasting warm grey reflection bands;
+  The energy dial shows current / maximum energy centred in its bottom half,
+  below the needle, and uses the shared silver texture with contrasting warm grey reflection bands;
   close-contact socket shadows and compact recessed category glyphs seat the controls in
   the chassis. Neutral pewter faces and rims match the carved background while
   controls retain brighter text and icons. The fade excludes
-  the circular map aperture. The compass rim is a fine gold celestial inlay: a broad, faceted north
+  the circular map aperture. The compass rim is a fine gold celestial inlay: a shallow, flourished north
   triangle, larger embossed cardinal letters with brighter fittings and dark drop shadows, small gold beads at the four
   45-degree diagonals, and eight engraved intermediate 22.5-degree marks
   contained in the band. The rim follows compass heading while all four
   letters counterrotate to stay upright. `assets/ui/compass/gold-rim.svg`
-  owns the band and engravings; standalone `north-fitting.svg` and `cardinal-fitting.svg` supply
-  simple gold letter plates without fine curls or texture; the small diagonal
-  beads retain their `gold-fittings.png` atlas crop. The gold overlay
+  owns the band and engravings; transparent `gold-fittings.png` sprites supply
+  sculpted metal ornaments with broad raised edges and curled flourishes.
+  E/S/W letters are 1 pt smaller than their original scale; north retains its larger type. The gold overlay
   sits outside the silver chassis dimming and uses the controls' brightness,
   with warmer saturation to match their gold. Its letter seats match the HUD CSS.
 
@@ -99,6 +101,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   Engravings retain their aspect ratio rather than stretching to viewport height.
   The dragon header reserves its full 750:220 aspect ratio at the panel width;
   its chrome stays above scene paintings and loading mosaics without cropping the head.
+  Sheets have no duplicate metal side rails or border: the outer compass housing
+  supplies that frame. Painted sheets mask the dragon rail along its lower silver silhouette so
+  the image fills the space beneath the ornament without its dark backing; scene artwork has a clean square crop. Painted sheets reserve a separate
+  content area below the image for useful category headings; painted stories omit
+  the generic “Story” label.
   The modal gate publishes the final sheet edge in viewport pixels so silver
   shoulders remain visible above scaled sheets without covering their controls.
   It clips the header readouts at that edge too; story sheets rise above the
@@ -152,6 +159,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   individual bonuses. Converted enemies use their main sprite as the portrait.
   Successful catches open this card immediately with **Close**; the first-pet
   story stays queued until the card closes. Inventory cards use **Back**.
+  Feeding PetNip from this menu or directly on the map opens the standard
+  `talk` speech dialog with a pleased response and the permanent max-HP gain.
+  It shows the pet's 128px portrait, or a 128px main sprite for converted enemies.
 
 - Character portraits use `CharacterPortraits` and transparent 80×80 cells
   from the generated 4×4 sheets (320×320 atlases) in `assets/portraits/`.
@@ -244,17 +254,23 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Dialogs use `makeModalShell` with a kind, which supplies a default scene
   painting unless the caller supplies a character `portrait` or `art: false`.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
-  portrait, subject above, quiet copy zone below. The shell handles overflow
-  with its band layout. Painted headers use a label without emoji/`kindIcon`.
-  Popover artwork starts 44 pixels below the dragon rail, leaving a solid
-  title band; its sides clear the trim by 18 pixels. Loading mosaics use the
-  same inset. Framed opening stories without titles keep a 14-pixel rail gap.
+  square, with a complete scene and no baked dark text area. All existing and
+  new paintings use the same square viewport: top-centred `cover` crops the lower
+  portion of tall assets without stretching them. The square spans the full
+  panel width and begins at the window top, behind the fixed silver dragon rail.
+  Copy follows directly below, with comfortable side padding and the specific
+  title offset down four pixels. Painted stories omit the generic “Story” label;
+  useful shop/event categories sit with the copy below the image. Art, copy and
+  actions share one scroller, so short screens retain the same full-width art
+  and scroll to their controls. CSS aspect-ratio keeps art and loading mosaics
+  identical during loading and viewport changes, without image-size detection.
+  Framed opening stories without titles keep their separate 14-pixel rail gap.
   `css/compass_panels.css` seats this same shell as a mechanical sheet that
   slides up from the compass and extends to the viewport floor without a
   bottom border. Open sheets shade the exposed map and upper HUD with a dark
   mask beneath the panel; the mask does not intercept input.
   Shop/trade, story/event and conversation kinds carry distinct
-  silver rails; controls retain simple gold faces. Safe-area padding and
+  category headings; controls retain simple gold faces. Safe-area padding and
   scrolling keep actions reachable. Reduced motion skips the slide. The
   `spirit` kind is the Dragon Spirit voice used by dormant module controls.
 - The modal HUD gate also covers the isolated upper-temple scene. Its scene

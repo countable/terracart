@@ -786,12 +786,14 @@ const INTERACTABLES = {
   },
 
   // ---- Well / fountain: a landmark on the quest trail ----------------------
-  // OSM amenity=fountain — a water source on dry land. Visited FOR the quest
-  // tick; otherwise it reads as scenery.
+  // OSM amenity=fountain — a water source on dry land that cures conditions.
   well: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
-      scene.flash('Cool, clear water.', sx, sy);
+      const cleared = Conditions.clearDebuffs(save);
+      if (cleared) ctx.dirty = true;
+      if (cleared) scene.flash('Debuffs cleared.', sx, sy);
+      else scene.flash('Cool, clear water.', sx, sy);
       return true;
     },
   },

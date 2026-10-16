@@ -629,8 +629,9 @@ test('stronghold walls keep their tile frame alignment instead of centering corn
 test('berry bush: mature map art replaces wild and farmed berries while growth and inventory remain distinct', () => {
   for (const plant of [{kind:'wildplant',crop:'berry'}, {crop:'berry',wildId:'wz:berry'}, {crop:'berry',stage:MAX_GROWTH_STAGE}]) {
     const art = wildplantSprite(plant);
-    assert.eq(art.sheet, 'zone_berry_bush');
-    assert.eq(art.scale, 4 / 3);
+    assert.eq(art.sheet, CROP_SPRITE.shrub.sheet);
+    assert.eq(art.scale, CROP_SPRITE.shrub.scale);
+    assert.eq(art.texture, 'bushes_fruiting');
     assert.eq(wildplantFrame(plant), 0);
   }
   for (let stage=0; stage<MAX_GROWTH_STAGE; stage++) {
@@ -713,6 +714,9 @@ test('picked wild berries leave a plain bush across redraw and save reload witho
     assert.eq(view._pickedRemnant, true, 'fruitless scenery cannot pose as a nest bush');
     assert.eq(wildplantSprite({ ...view, _biome: 2 }).sheet, CROP_SPRITE.shrub.sheet, 'a berry bush does not become a palm');
     assert.eq(wildplantSprite(view).sheet, CROP_SPRITE.shrub.sheet);
+    const before = wildplantSprite(plant), after = wildplantSprite(view);
+    for (const key of ['sheet', 'frame', 'scale', 'seat']) assert.eq(after[key], before[key], key + ' remains identical');
+    assert.eq(after.texture, undefined, 'only the berry overlay disappears');
     assert.eq(view.x, plant.x); assert.eq(view.y, plant.y);
     assert.eq(view.id, plant.id);
     assert.eq(plant.crop, 'berry', 'never mutate the tile or reward record');
@@ -723,4 +727,30 @@ test('picked wild berries leave a plain bush across redraw and save reload witho
   assert.eq(Render.wildplantView(plant, sets), null, 'burned bushes do not return');
   sets.burned.clear(); sets.burnedGround = () => true;
   assert.eq(Render.wildplantView(plant, sets), null, 'burned ground suppresses the remnant');
+});
+
+
+test('berry bush: fruit texture copies the plain bush at native size and only paints berries once', () => {
+  const source = { width: 48, height: 32 };
+  const draws = [], berries = [], frames = [];
+  let baked = false, refreshes = 0;
+  const ctx = { drawImage(...args) { draws.push(args); }, fillRect(...args) { berries.push(args); } };
+  const scene = { textures: {
+    exists() { return baked; },
+    get(key) { assert.eq(key, 'bushes'); return { getSourceImage: () => source }; },
+    createCanvas(key, w, h) {
+      assert.eq(key, CROP_SPRITE.berry.mature.texture);
+      assert.eq(w, 48); assert.eq(h, 32);
+      baked = true;
+      return { getContext: () => ctx, add: (...args) => frames.push(args), refresh() { refreshes++; } };
+    },
+  } };
+  TILLED_TEX.makeBerryBushTexture(scene);
+  TILLED_TEX.makeBerryBushTexture(scene);
+  assert.eq(draws.length, 1, 'the foliage is copied once at startup');
+  assert.eq(draws[0][0], source);
+  assert.eq(JSON.stringify(draws[0].slice(1)), JSON.stringify([0, 0]), 'no crop or resize');
+  assert.eq(berries.length, 15, 'five berries, each with shade, body and highlight');
+  assert.eq(JSON.stringify(frames), JSON.stringify([[0, 0, 0, 0, 48, 32]]));
+  assert.eq(refreshes, 1, 'no per-cell texture rebuilds');
 });

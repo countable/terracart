@@ -2591,6 +2591,30 @@
           x: cx(ix), y: cy(iy), _ix: ix, _iy: iy, _street: 'snare' });
       }
     }
+    // Plain Small-road verges share the normal safe spawn/occupancy lane.
+    // Run last so herbs fill gaps without taking a themed encounter's seat.
+    for (const rec of idx.lines || []) {
+      if (rec.size !== 'minor') continue;
+      const spans = lineParts(rec, gM).filter(p => !p.variant).map(p => [p.a, p.b]);
+      if (!spans.length) continue;
+      yield 'plain road herbs';
+      sampleLine(rec.line, gM, 21, 10.5, (s, x, y, nx, ny) => {
+        if (!S.covers(spans, s)) return;
+        for (const side of [1, -1]) {
+          const c = verge(rec, x, y, nx, ny, side);
+          if (!c) continue;
+          const i = c.iy * N + c.ix;
+          if (idx.nexusCoverage?.[i] || marks[i]) continue;
+          const id = WG.cellId('wp_herb', tx, ty, c.ix, c.iy);
+          const roll = hash01(id);
+          if (roll >= 0.38) continue;
+          const crop = roll < 0.055 ? 'nettle' : 'petnip';
+          claim(c.ix, c.iy);
+          res.wildplants.push(WG.makeWildplant(crop, cx(c.ix), cy(c.iy), id,
+            { _street: 'plain' }));
+        }
+      });
+    }
     if (marked) res.marks = marks;
     return res;
   }

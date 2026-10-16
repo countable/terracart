@@ -15,6 +15,13 @@ async def probe(args):
         await page.goto(args.url)
         await page.wait_for_function("window.__game?.scene.getScene('map')?._sandboxMode")
         await page.wait_for_timeout(2500)
+        await page.evaluate("""() => {
+          const scene = __game.scene.getScene('map');
+          scene.scene.pause();
+          document.querySelectorAll('.game-modal').forEach(e => e.remove());
+          document.querySelectorAll('#bootload,#howto,#story').forEach(e => e.style.display = 'none');
+          scene._syncModalGate();
+        }""")
         results = []
         for width, height in [(390, 844), (1100, 900)]:
             await page.set_viewport_size({'width': width, 'height': height})
@@ -27,7 +34,7 @@ async def probe(args):
                 await body.evaluate('(e) => e.scrollTop=e.scrollHeight')
                 inspect = '(e) => ({height:e.clientHeight,scrollHeight:e.scrollHeight,width:e.clientWidth})'
                 before = await body.evaluate(inspect)
-                button = page.locator('#message-modal button')
+                button = page.locator('#message-modal .compass-action')
                 box = await button.bounding_box()
                 await page.mouse.move(box['x'] + box['width']/2, box['y'] + box['height']/2)
                 await page.mouse.down()

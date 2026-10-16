@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-0539bac3';
+const SHELL_VERSION = 'shell-bcfc3bd3';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -918,16 +918,14 @@ const ASSET_HASHES = {
   "assets/portraits/witness.png": "20421b46",
   "assets/portraits/wizard.png": "d58efb40",
   "assets/ui/compass/body-carving.webp": "ba67176c",
-  "assets/ui/compass/cardinal-fitting.svg": "2e84ff3a",
   "assets/ui/compass/footer.webp": "cf76e3c7",
-  "assets/ui/compass/gold-fittings.png": "2c0eb8ff",
+  "assets/ui/compass/gold-fittings.png": "f2de995b",
   "assets/ui/compass/gold-rim.svg": "cf748ed9",
   "assets/ui/compass/header.webp": "3001dc79",
   "assets/ui/compass/joystick.webp": "5d57c13f",
   "assets/ui/compass/living-silver-body.webp": "4b3053a8",
   "assets/ui/compass/memory-star.svg": "c3041026",
   "assets/ui/compass/north-arrow.webp": "d656d114",
-  "assets/ui/compass/north-fitting.svg": "76515a68",
   "assets/ui/compass/panel-top.webp": "02579d75",
   "assets/ui/compass/reference-carving-tile.webp": "e3c0c746",
   "assets/ui/compass/reference-footer.webp": "0a76137f",

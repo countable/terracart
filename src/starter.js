@@ -2026,7 +2026,7 @@
   // A treasure trail is a dark ink hint that begins startCells walking cells
   // out from its chest or X — [nearest, farthest], seeded per target.
   const TRAIL_STYLE = Object.freeze({ colour: 0x000000, alpha: 0.375, width: 2, dash: 6, gap: 5, bendCells: 0.28,
-    startCells: Object.freeze([8, 12]) });
+    behindCells: 1, startCells: Object.freeze([8, 12]) });
   const trailCellKey = c => `${c.cellIX},${c.cellIY}`;
   const TRAIL_STEPS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
@@ -2080,6 +2080,26 @@
     return out;
   }
 
+  // Visible parameter range of a route segment inside the player's treasure
+  // radius. Both outside endpoints can still cross the circle; clip each
+  // segment independently so winding routes never bridge invisible stretches.
+  function trailSegmentRange(a, b, target, radiusSquared) {
+    const ax = a.x - target.x, ay = a.y - target.y;
+    const bx = b.x - target.x, by = b.y - target.y;
+    const aInside = ax * ax + ay * ay <= radiusSquared;
+    const bInside = bx * bx + by * by <= radiusSquared;
+    if (aInside && bInside) return [0, 1];
+    const dx = b.x - a.x, dy = b.y - a.y, lengthSquared = dx * dx + dy * dy;
+    if (!lengthSquared) return null;
+    const dot = ax * dx + ay * dy;
+    const discriminant = dot * dot - lengthSquared * (ax * ax + ay * ay - radiusSquared);
+    if (discriminant <= 0) return null;
+    const root = Math.sqrt(discriminant);
+    const from = Math.max(0, (-dot - root) / lengthSquared);
+    const to = Math.min(1, (-dot + root) / lengthSquared);
+    return from < to ? [from, to] : null;
+  }
+
   // The treasure trails (HomeArea.chestTrailCandidates) follow the player
   // anywhere on the surface, each a short seeded lead-in to its chest or X.
   // Crates get no guide.
@@ -2125,7 +2145,7 @@
       if (paths.length >= HomeArea.CHEST_TRAIL_LIMIT) break;
       const end = worldMetersToAbsCell(scene, target.x, target.y);
       const route = trailRoute(end, null, passable, neighbour, strHash31(target.id));
-      if (route.length > 1) paths.push({ id: target.id, points: smoothTrail(route.map(c => absCellCenterMeters(scene, c.cellIX, c.cellIY)), scene.cellM) });
+      if (route.length > 1) paths.push({ id: target.id, target: { x: target.x, y: target.y }, points: smoothTrail(route.map(c => absCellCenterMeters(scene, c.cellIX, c.cellIY)), scene.cellM) });
     }
     return paths;
   }
@@ -2138,7 +2158,7 @@
   }
 
   root.Starter = {
-    TRAIL_STYLE, trailRoute, smoothTrail, trailPaths, isTrailTreasure,
+    TRAIL_STYLE, trailRoute, smoothTrail, trailSegmentRange, trailPaths, isTrailTreasure,
     STARTER_LOOT,
     starterTrailAnchor,
     pestFreeZone,

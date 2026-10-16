@@ -437,7 +437,7 @@ function collectGroundCoin(scene, entry, coin, mercenary = null, sx, sy, save = 
 
 // Coins are a small, transient array (also walked by their renderer). Run at
 // ten Hz, around the player's feet, independently of the camera's peek offset.
-const COIN_COLLECTION = { intervalMs: 100, pullCellsPerSecond: 6, arrivalCells: 0.25, speechMs: 3000 };
+const COIN_COLLECTION = { intervalMs: 100, pullCellsPerSecond: 1.5, arrivalCells: 0.25, speechMs: 3000 };
 function tickGroundCoins(scene, now = Date.now()) {
   if (!scene.startWorldM || !scene.playerM || scene.isTooFast?.()) return;
   if (now < (scene._nextCoinCollectionAt || 0)) return;
@@ -757,8 +757,9 @@ const TAP_HANDLERS = [
           if (now?.id !== food || !(now.count > 0) || !Pets.feed(save, target, food)) return;
           consumeSelected(save);
           scene.buildInventoryDOM();
-          scene.flashLoot('Favourite food: full energy', UI_GREEN, 1, food);
           persistSave(save);
+          if (ITEM_BY_ID[food]?.petFood) scene.presentPetPleased(target.id, food);
+          else scene.flashLoot('Favourite food: full energy', UI_GREEN, 1, food);
         });
       } else scene.presentPetMenu(target.id);
       return true;
@@ -998,6 +999,7 @@ const TAP_HANDLERS = [
         } else {
           if (save.picked.includes(wp.id) || (save.burnedObjects || []).includes(wp.id)) return false;
           save.picked = [...save.picked, wp.id];
+          SaveState.rememberClearedGrass(save, wp);
         }
         const rewards = wildplantRewards(wp.crop);
         const outId = rewards[0].id;

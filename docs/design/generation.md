@@ -112,8 +112,27 @@ access or tile lifecycle mechanics.
   24 hours after landing; another shot refreshes that cell without duplicating
   it. Silk in flight is transient and is cleared when depth changes.
 
+- School fields carry denser wild grass plus common PetNip and rarer
+  Nettle, with densities owned by `BiomeProfiles`. Plain Small-road verges
+  sample herb seats on both sides every 21 metres; PetNip is the common roll,
+  Nettle the rare one. The ordinary spawn gate excludes unsafe seats, road
+  nexuses and themed stretches. Both herbs use the standard wildplant harvest
+  lane; PetNip feeds pets and Nettle supplies the Home Growth Powder recipe.
+
+- Cleared wild longgrass returns after an independently sampled exponential
+  wait averaging two real days (`SaveState.GRASS_REGROWTH_MEAN_MS`). Harvest
+  records the deadline in `save.grassRegrowth`; normalization and the ten-second
+  save heartbeat remove expired grass ids from `picked` / `burnedObjects`.
+  Deadlines persist across reloads and run while offline. Generated plants stay
+  in their tile lists, so the ordinary spent-state renderer reveals regrown
+  tufts without rerasterizing. The heartbeat discovers already-cleared grass
+  from older saves in nearby loaded chunks and starts its clock on that visit;
+  grass ids cannot safely be inferred from prefixes shared with other crops.
+  Player-owned plants and all other cleared objects retain their existing rules.
 - Picking a wild berry records its original id in `save.picked` as usual,
-  but leaves an ordinary, fruitless bush silhouette at that location. The
+  but leaves the same bush at that location, with only its berries removed.
+  Mature berry bushes use the ordinary bush frame and scale; a texture baked
+  once at scene creation adds the berries without changing the foliage. The
   `WILDPLANT_RULES.pickedCrop` render view survives reloads without another
   save field; the remnant is scenery, not another berry or wood reward.
   Burned bushes/ground stay cleared. Farmed crop harvesting is unchanged.
@@ -256,6 +275,9 @@ access or tile lifecycle mechanics.
   containers pay that budget as coins or use `ChestThemes.quantityForBudget`
   for item stacks, including category shares and caps; higher budgets never
   promote item tiers. All containers remain permanently smashed after use.
+- The Ring of Gathering draws loose coins gradually toward the player;
+  `COIN_COLLECTION` owns the pull speed and arrival distance. Collection pays
+  only on arrival and preserves the generated coin’s one-time ledger.
 - An X mark is hidden (`HiddenObjects.treasureHidden`) until the feet stand
   on a neighbouring cell (`HiddenObjects.tick` records it in
   `save.hiddenDiscoveries`), or within the vision disc with Perception; until
@@ -292,6 +314,10 @@ access or tile lifecycle mechanics.
   lead to the nearest unopened T2+ surface chests and unfound, uncovered X
   marks within `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the
   surface; crates never get one. The line is faint dashed black ink (`Starter.TRAIL_STYLE`).
+  Each frame clips the cached route to the player's distance from its treasure
+  plus one cell (`behindCells`): the line recedes behind approaching feet and
+  returns when walking away. Segment clipping preserves dash positions and
+  separate visible stretches, without adding pathfinding as the player moves.
   The chest at a trail's end rolls `CHEST_TRAIL_TIER_BONUS` tier higher, within
   its depth cap; an X at a trail's end (`Starter.isTrailTreasure`) shows and
   digs without waiting for the feet to stand beside it.

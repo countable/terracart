@@ -57,7 +57,7 @@ const MapReviewArt = (() => {
           if(spec.onLoad) spec.onLoad(scene);
         } catch(error) { failures.push(key); console.warn('Map art asset:',key,error); }
       }));
-      makeTowerTexture(scene); makePotOfGoldTexture(scene); makeTrapTextures(scene);
+      makeBerryBushTexture(scene);makeTowerTexture(scene); makePotOfGoldTexture(scene); makeTrapTextures(scene);
       // Only phase zero is needed. Use the very same painter and seed as the game.
       for(const [type,spec] of Object.entries(BIOME_TEX)) for(let v=0;v<spec.variants;v++) {
         const t=textures.createCanvas(`biome${type}_${v}`,32,32);
@@ -70,7 +70,7 @@ const MapReviewArt = (() => {
   function cropAppearance(o) {
     const spec=wildplantSprite(o), stage=Math.min(MAX_GROWTH_STAGE,o.stage ?? MAX_GROWTH_STAGE);
     const custom=spec?.custom, spring=spec?.sheet==='springcrops';
-    return { visible:true, texKey:custom?spec.sheet:spring?'springcrops':'crops',
+    return { visible:true, texKey:custom?(spec.texture||spec.sheet):spring?'springcrops':'crops',
       frameVal:custom?wildplantFrame(o):spring?spec.row*SPRING_CROPS_COLS+stage:(CROP_ROW[o.crop]??1)*CROPS_SHEET_COLS+stage,
       scl:spec?.scale??2,scaleYMul:1,tint:spec?.tint??(BiomeProfiles.tint(o._biome,o.crop)||0xffffff),origin:[.5,stage===0&&!custom&&!spring?.85:.5],dxPx:0,dyPx:0 };
   }

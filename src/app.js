@@ -2253,6 +2253,25 @@ class MapScene extends Phaser.Scene {
     }
   }
 
+  // The save heartbeat catches offline deadlines and nearby grass from saves
+  // that predate regrowth, including burned tufts. Chunk queries keep this
+  // bounded to the current neighbourhood rather than scanning the tile cache.
+  _tickGrassRegrowth(now = Date.now()) {
+    let changed = SaveState.regrowGrass(this.save, now);
+    const cleared = new Set([...(this.save.picked || []), ...(this.save.burnedObjects || [])]);
+    if (cleared.size) {
+      const pc = this.playerToWorldCell(), p = playerWorldM(this);
+      const radius = Math.max(16, this.viewCells || 0) * this.cellM;
+      forEachLoadedTile(pc.tx, pc.ty, entry => {
+        WorldGen.forEachItemInBox(entry, 'wildplants',
+          p.x - radius, p.y - radius, p.x + radius, p.y + radius, plant => {
+            if (cleared.has(plant.id)) changed = SaveState.rememberClearedGrass(this.save, plant, now) || changed;
+          });
+      });
+    }
+    if (changed) persistSave(this.save);
+  }
+
   // Sharp obstacles hurt on entry and throughout contact, including pauses.
   // Exact intervals catch briefly crossed cells; overlapping props count once.
   // Fractional mitigated damage carries between frames.
@@ -3337,7 +3356,7 @@ class MapScene extends Phaser.Scene {
 
     // SaveSession samples the wall clock on its own cadence. Its lifecycle
     // flush forces an exact timestamp before the tab hides or closes.
-    SaveSession.touch();
+    if (SaveSession.touch()) this._tickGrassRegrowth();
     this._tickShrineRegen(dt);
     this._tickFishRegen();
 
@@ -8698,9 +8717,9 @@ class MapScene extends Phaser.Scene {
     const color = pct > 0.30 ? UI_GREEN : (pct > 0.10 ? UI_GOLD : UI_DANGER_INK);
     el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8c7a2a' : '#a04040');
     const label = els.label;
-    // The compass needle carries current energy; its right-hand numeral is
-    // the maximum. The legacy bar keeps its current-value label.
-    if (label) { label.style.color = color; label.textContent = this._compassHUD ? max : `⚡${cur}`; }
+    // The compass readout shows current / maximum below the needle.
+    // The legacy bar keeps its current-value label.
+    if (label) { label.style.color = color; label.textContent = this._compassHUD ? `${cur} / ${max}` : `⚡${cur}`; }
     else { el.style.color = color; el.textContent = `⚡${cur}`; }
     el.title = `Energy ${cur} of ${max}`;
     const fill = els.fill;

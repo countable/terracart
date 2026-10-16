@@ -34,6 +34,26 @@
     Pets.tick(s,c,160000); assert.eq(c._hp,Combat.maxHp(c)); assert.falsy(Pets.isDown(c,160000));
     c._hp=1; c._lastDamagedT=null; Pets.tick(s,c,190000); assert.eq(c._hp,2);
   });
+  test('pets: PetNip permanently grows owned pets, preserves wounds and survives reload', () => {
+    const s=save(), r=capture(s), c={...r,_hp:1};
+    const before=Combat.maxHp(r), feeds=r.favouriteFeeds;
+    assert.falsy(Pets.likes(wild(),'petnip'));
+    assert.falsy(Pets.feed(s,wild('unowned'),'petnip'));
+    assert.truthy(Pets.likes(c,'petnip'));
+    assert.truthy(Pets.feed(s,c,'petnip'));
+    assert.eq(Combat.maxHp(c),before+1); assert.eq(c._hp,2);
+    assert.eq(r.favouriteFeeds,feeds);
+    const restored=JSON.parse(JSON.stringify(s)), pet=Pets.get(restored,r.id);
+    Pets.feed(restored,pet,'petnip');
+    assert.eq(Combat.maxHp(pet),before+2); assert.eq(pet.bonuses.maxHp,2);
+  });
+  test('pets: PetNip does not wake a knocked-out pet', () => {
+    const s=save(),r=capture(s),c={...r,_hp:0};
+    Pets.knockedOut(s,c);
+    const until=c.recoverUntil;
+    assert.truthy(Pets.feed(s,c,'petnip'));
+    assert.eq(c._hp,0); assert.eq(c.recoverUntil,until); assert.eq(r.bonuses.maxHp,1);
+  });
   test('pets: accessories transfer without duplication and apply effective stats', () => {
     const s=save(),r=capture(s); Inventory.add(s,'pet_collar',1); Inventory.add(s,'pet_fang_charm',1);
     const base=Combat.maxHp(r), attack=Combat.petBlow(r);
