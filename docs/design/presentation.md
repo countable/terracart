@@ -71,6 +71,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   Dismissible sheets expose a fixed close control using the same cancellation
   callback and input arming as their backdrop. Required acknowledgments omit
   it. The menu actuator remains visible and depressed while its sheet is open.
+  Gold zoom plungers sit just below the map window in a silver rack; the gold
+  direction lock occupies the upper-left corner of the compass. These controls
+  live outside Phaser’s scaled wrapper and yield to modal sheets. The lock
+  depresses while engaged. Unselected inventory items have no individual border;
+  the selected item retains its gold outline.
   The energy dial has one lightning-bolt needle for current energy, equal
   red/yellow/green thirds, and a maximum-energy numeral on the right.
   Dormant inscriptions use invented geometric glyphs at a shared size; their

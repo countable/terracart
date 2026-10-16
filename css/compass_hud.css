@@ -353,3 +353,38 @@ body.compass-hud #inv-tabs,
 body.compass-hud #inv,
 body.compass-hud #inv-name,
 body.compass-hud #compass-inventory-shutter {filter:brightness(.85);}
+
+/* Compact opposed plungers in a silver rack housing. */
+body.compass-hud > #map-zoom {
+ position:fixed;top:calc(var(--compass-map-top) + var(--compass-map-size) - 4px)!important;
+ left:calc(var(--phone-left,0px) + 14px);right:auto;transform:none;z-index:7;
+ display:flex;flex-direction:row;align-items:center;gap:16px;padding:4px;
+ border:2px solid #a6afb0;border-radius:9px;background:linear-gradient(#d6d9d6 0 3%,#626e70 8%,#354346 45%,#1d2b2f 52%,#687679 90%,#bcc3c0);
+ box-shadow:0 2px 3px #080e10,inset 0 0 0 1px #27363b,inset 0 2px 1px #f0efdf88;
+}
+body.compass-hud > #map-zoom::before {
+ content:'';position:absolute;left:39px;right:auto;width:26px;top:9px;bottom:9px;border:1px solid #1d292d;border-radius:3px;
+ background:repeating-linear-gradient(90deg,#303c40 0 2px,#b8bfbb 2px 3px,#647174 3px 5px);
+ box-shadow:inset 0 3px 3px #111a1e,inset 0 -2px 1px #d4d8d2;pointer-events:none;
+}
+body.compass-hud > #map-zoom::after {
+ content:'';position:absolute;left:54px;top:3px;bottom:3px;width:8px;transform:translateX(-50%);border:1px solid #202c30;border-radius:2px;
+ background:linear-gradient(90deg,#535f61,#d4dad3 35%,#919e9d 65%,#3e4b4f);box-shadow:1px 0 2px #081216aa;pointer-events:none;
+}
+body.compass-hud > #map-zoom button {
+ position:relative;width:40px;height:40px;padding:0;z-index:1;border:2px solid #8d713e;border-radius:5px;
+ color:#3d3019;background:linear-gradient(#fff0bc 0 5%,#d8bd73 6% 12%,#efdc9b 13% 22%,#c4a25b 65%,#a6833d 86%,#e6cc86 90%);
+ box-shadow:inset 1px 0 #f5e4ad,inset -1px 0 #80612d,inset 0 -3px #735625,0 2px 1px #142024;
+ font:700 25px/1 Georgia;text-shadow:0 1px #f6e8b9;touch-action:manipulation;
+}
+body.compass-hud > #map-zoom button::after {content:'';position:absolute;left:5px;right:5px;bottom:3px;height:3px;background:repeating-linear-gradient(90deg,#685021 0 1px,transparent 1px 3px);opacity:.6;}
+body.compass-hud > #map-zoom button:active:not(:disabled) {transform:translateY(2px);background:linear-gradient(#a58a4c,#d2b979 65%,#9c7a35);box-shadow:inset 0 2px 3px #59441e;color:#2c2416;}
+body.compass-hud > #map-zoom button:disabled {filter:grayscale(1);color:#465052;}
+body.compass-hud > #map-zoom button:focus-visible {outline:2px solid #ffe7a1;outline-offset:3px;}
+body.compass-hud > #map-zoom button:first-child {order:1;}
+body.compass-hud > #map-zoom button:nth-child(2) {order:0;}
+body.compass-hud > #map-zoom .direction-lock {position:fixed;top:calc(var(--compass-map-top) + 12px);left:calc(var(--phone-left,0px) + 14px);margin:0;border-radius:50%;box-shadow:inset 0 1px #fff0ba,inset 0 -2px #765b28,0 0 0 2px #a6afb0,0 0 0 3px #354346,0 3px 4px #071014;}
+body.compass-hud > #map-zoom .direction-lock svg {width:24px;height:24px;vertical-align:middle;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 1px #f6e8b9);}
+body.compass-hud > #map-zoom .direction-lock::after {display:none;}
+body.compass-hud > #map-zoom .direction-lock[aria-pressed=true] {transform:translateY(2px);background:linear-gradient(#9b7937,#c5a45f 70%,#ddc17f);box-shadow:inset 0 2px 4px #49391d,inset 0 0 0 1px #80632f;}
+@media(max-height:650px) {body.compass-hud > #map-zoom button {height:36px;}}

@@ -3465,10 +3465,10 @@ class MapScene extends Phaser.Scene {
     // camera's tilt (map-perspective.md).
     this.facingChevronGfx.clear();
     // With a live device compass, heading-up puts phone heading at screen
-    // top. Desktop keeps its caret when no device heading is available.
+    // top. Locking the map restores the caret; desktop keeps its fallback.
     const facing = this.facing;
     const fmag = Math.hypot(facing.x, facing.y);
-    if (!(HeadingUp.active(this) && this._deviceCompass) && fmag > 0.001) {
+    if (!(HeadingUp.active(this) && this._deviceCompass && !this._compassDirectionLocked) && fmag > 0.001) {
       const fx = facing.x / fmag, fy = facing.y / fmag;
       // (along, across) on the ground → screen, y foreshortened.
       const ground = (u, v) => ({
@@ -5801,7 +5801,7 @@ class MapScene extends Phaser.Scene {
     const control = document.createElement('div');
     control.id = 'map-zoom';
     control.setAttribute('role', 'group');
-    control.setAttribute('aria-label', 'Map zoom');
+    control.setAttribute('aria-label', 'Map zoom and direction');
     control.style.top = `${this.viewCenterY}px`;
     const button = (label, title, direction) => {
       const el = document.createElement('button');
@@ -5818,7 +5818,29 @@ class MapScene extends Phaser.Scene {
     };
     this._zoomInButton = button('+', 'Zoom in', 1);
     this._zoomOutButton = button('−', 'Zoom out', -1);
-    document.getElementById('game').appendChild(control);
+    if (HeadingUp.enabled) {
+      const lock = document.createElement('button');
+      lock.type = 'button';
+      lock.className = 'direction-lock';
+      const syncLock = () => {
+        const locked = !!this._compassDirectionLocked;
+        lock.setAttribute('aria-pressed', String(locked));
+        lock.setAttribute('aria-label', locked ? 'Unlock compass direction' : 'Lock compass direction');
+        lock.title = lock.getAttribute('aria-label');
+        const shackle = locked ? 'M8 10V6a4 4 0 0 1 8 0v4' : 'M8 10V6a4 4 0 0 1 7-2.6';
+        lock.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="${shackle}"/><path d="M12 14v3"/></svg>`;
+      };
+      lock.addEventListener('click', e => {
+        e.stopPropagation();
+        this._compassDirectionLocked = !this._compassDirectionLocked;
+        this._huTurning = false;
+        syncLock();
+      });
+      syncLock();
+      control.appendChild(lock);
+    }
+    // CSS-pixel chassis controls live outside Phaser's scaled game wrapper.
+    document.body.appendChild(control);
     this.events.once('shutdown', () => control.remove());
   }
 

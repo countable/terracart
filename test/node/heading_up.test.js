@@ -211,7 +211,43 @@ test('heading up: player caret hides with device compass and remains without a s
   scene._deviceCompass = { deg: 90, facing: { x: 1, y: 0 } };
   paint();
   assert.eq(gfx.strokes, 0, 'device heading clears the caret and uses map and rim north marker');
+  scene._compassDirectionLocked = true;
+  paint();
+  assert.gt(gfx.strokes, 0, 'locking a device heading restores the player direction caret');
+  scene._compassDirectionLocked = false;
+  paint();
+  assert.eq(gfx.strokes, 0, 'unlocking resumes compass-following without a player caret');
   scene._headingUp = false;
   paint();
   assert.gt(gfx.strokes, 0, 'north-up retains the caret even with a device sensor');
+});
+
+test('heading up: direction lock holds the current nonzero rotation through changing readings', () => {
+  const heldAngle = -Math.PI / 3;
+  const scene = { ...huScene(heldAngle), _compassDirectionLocked: true, _huTurning: true,
+    _compassHUD: {}, _huNoCompass: { setVisible() {} }, _huNorth: { clear() {} } };
+  const point = HeadingUp.toScreenPt(scene, 130, 120);
+  for (const deg of [90, 180, 270, 0]) {
+    scene.compassDeg = deg;
+    for (let frame = 0; frame < 60; frame++) HeadingUp.tick(scene, 1 / 60);
+    huNear(scene.mapRot, heldAngle);
+    const projected = HeadingUp.toScreenPt(scene, 130, 120);
+    huNear(projected.x, point.x); huNear(projected.y, point.y);
+    const input = HeadingUp.toWorldVec(scene, projected.x - 100, projected.y - 100);
+    huNear(input.x, 30); huNear(input.y, 20);
+  }
+});
+
+test('heading up: unlocking eases from the held angle toward the latest compass reading', () => {
+  const heldAngle = -Math.PI / 3, target = -Math.PI / 2;
+  const scene = { ...huScene(heldAngle), compassDeg: 90, _compassDirectionLocked: true,
+    _compassHUD: {}, _huNoCompass: { setVisible() {} }, _huNorth: { clear() {} } };
+  HeadingUp.tick(scene, 1 / 60);
+  huNear(scene.mapRot, heldAngle);
+  scene._compassDirectionLocked = false;
+  HeadingUp.tick(scene, 1 / 60);
+  assert.lt(scene.mapRot, heldAngle, 'unlock resumes turning');
+  assert.gt(scene.mapRot, target, 'unlock does not snap to the latest heading');
+  for (let frame = 0; frame < 120; frame++) HeadingUp.tick(scene, 1 / 60);
+  assert.lt(Math.abs(scene.mapRot - target), HeadingUp.DEAD_DEG * Math.PI / 180);
 });
