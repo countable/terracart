@@ -197,6 +197,8 @@ class SceneModals {
       `overflow-y:auto;overscroll-behavior:contain;` +
       (textAlign ? `text-align:${textAlign};` : '') +
       boxExtra;
+    // The 750×220 dragon rail must keep its full height at this panel width.
+    box.style.setProperty('--panel-rail-height', `${(vSize - 4) * 220 / 750}px`);
     // The painting fills the box; the scrim darkens everything below the
     // art's line, so the content region always sits on near-solid ground.
     // The box itself stops scrolling — the body does (see mount()). `band`

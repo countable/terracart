@@ -97,7 +97,12 @@ const HomeArea = {
   // its door (0.18 of the art's width right of centre) is over the
   // player's column, and down so the door's steps meet the doorstep cell —
   // the player stands right in front of the door, not a cell below it.
-  WAGON_ART_FOOT: { dx: -0.37, dy: 0.7 },
+  WAGON_ART_FOOT: { dx: -0.37, dy: 1.0 },
+  wagonArtFoot(heading = 0) {
+    const a = heading * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    const { dx, dy } = this.WAGON_ART_FOOT;
+    return { dx: dx * c - dy * s, dy: dx * s + dy * c };
+  },
   // Home's sign over the roof, nudged off its centred spot (render.js).
   SIGN_NUDGE_PX: { x: -3, y: 4 },
   // Smoke wisping off the cold pit (render.js): `puffs` soft grey puffs, each

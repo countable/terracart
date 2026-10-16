@@ -124,6 +124,13 @@ test('heading up: contact shadows rotate about centre and captions keep origin',
   huNear(shadow.x, 120); huNear(shadow.y, 130);
   huNear(shadow.rotation, -Math.PI / 2);
   HeadingUp._postRender(scene);
+  // An unpooled shadow (the player's) moves on: no anchor may survive the
+  // frame, or the next frame turns it about where it used to be.
+  shadow.x = 150; shadow.y = 160;
+  HeadingUp._preRender(scene);
+  huNear(shadow.x, 150); huNear(shadow.y, 160);
+  HeadingUp._postRender(scene);
+  assert.eq(shadow._huAnchor, null);
   const caption = huSprite({ type: 'Text', originY: 0 });
   HeadingUp._upright(caption, -Math.PI / 2, []);
   huNear(caption.x, 130); huNear(caption.y, 120);

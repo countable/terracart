@@ -1255,9 +1255,10 @@ class SceneVenues {
     if (st && this.save.starterShopId === st.id) {
       // Rebuild the in-memory object after a reload (or position change).
       if (!this._starterTrailerObj || this._starterTrailerObj.id !== st.id) {
+        const foot = HomeArea.wagonArtFoot(this.save.homePlacementHeading || 0);
         this._starterTrailerObj = { kind: 'house', x: st.x, y: st.y,
           tier: st.tier, id: st.id, address: st.address, _synthetic: true,
-          footDx: HomeArea.WAGON_ART_FOOT.dx, footDy: HomeArea.WAGON_ART_FOOT.dy };
+          footDx: foot.dx, footDy: foot.dy };
       }
       const obj = this._starterTrailerObj;
       const { tx, ty } = worldMetersToTile(this, obj.x, obj.y);

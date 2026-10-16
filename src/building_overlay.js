@@ -110,7 +110,7 @@
 
   // A footprint Home's trailer cleared keeps only its shadow on the ground.
   const CLEARED_SHADOW = 0x000000;
-  const CLEARED_SHADOW_ALPHA = 0.5;
+  const CLEARED_SHADOW_ALPHA = 0.2;
   const OUTLINE_PX = 1;
 
   // Castle rampart: a stone band run INSIDE the ring (the cell version's
