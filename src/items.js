@@ -50,12 +50,14 @@ const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide
 // (the seed/produce *inventory* columns are 7/8 — see inventoryIconSource;
 // don't confuse col 0's in-world stage-0 sprite with the col-7 seed icon.)
 const SPRING_CROPS_COLS = 14;
+// Fruiting and ordinary bushes share every foliage pixel and the same geometry.
+const BUSH_SPRITE = { sheet: 'bushes', custom: true, frame: 0, scale: 0.667 };
 const CROP_SPRITE = {
   potato: { sheet: 'springcrops', row: 5 },
   // Preserve seed, produce and growing-stage art; every mature berry bush
-  // uses the approved map sprite, including farmed bushes.
+  // uses the ordinary bush with berries overlaid, including farmed bushes.
   berry:  { sheet: 'springcrops', row: 1,
-    mature: { sheet: 'zone_berry_bush', custom: true, frame: 0, scale: 4 / 3 } },
+    mature: { ...BUSH_SPRITE, texture: 'bushes_fruiting' } },
   cress:  { sheet: 'springcrops', row: 3 },   // spoon-leaf watercress
   onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
   // Long grass — item id 'longgrass', display name 'Long grass'. Props.png
@@ -68,7 +70,7 @@ const CROP_SPRITE = {
   petnip: { sheet: 'props', custom: true, frame: 32, scale: 1.16 },
   nettle: { sheet: 'props', custom: true, frame: 33, scale: 1.13 },
   // Shrub looks share harvesting; brambles mark thorny groves and roads.
-  shrub: { sheet: 'bushes', custom: true, frame: 0, scale: 0.667,
+  shrub: { ...BUSH_SPRITE,
     looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frame: 0, scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frame: 0, scale: (4 / 3) * 0.8 } } },
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
@@ -166,7 +168,7 @@ const ZONE_ROCK_THEMES = Object.freeze({
 // Legacy yield variants still own mining quantities, independently of appearance.
 const ROCK_VARIANT_ART = Object.freeze({
   columns: 8, rows: 9, smallScale: 16 / 15, largeScale: 16 / 15,
-  themedScale: 16 / 15, placedScale: 2.304,
+  themedScale: 16 / 15, placedScale: 1.6,
   plainFrames: Object.freeze([0, 30, 32, 34]),
   materials: Object.freeze(['plain', 'flint', 'quartz', 'topaz', 'amethyst',
     'sapphire', 'ruby', 'emerald', 'diamond', 'copper', 'iron', 'gold',

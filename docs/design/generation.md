@@ -130,7 +130,9 @@ access or tile lifecycle mechanics.
   grass ids cannot safely be inferred from prefixes shared with other crops.
   Player-owned plants and all other cleared objects retain their existing rules.
 - Picking a wild berry records its original id in `save.picked` as usual,
-  but leaves an ordinary, fruitless bush silhouette at that location. The
+  but leaves the same bush at that location, with only its berries removed.
+  Mature berry bushes use the ordinary bush frame and scale; a texture baked
+  once at scene creation adds the berries without changing the foliage. The
   `WILDPLANT_RULES.pickedCrop` render view survives reloads without another
   save field; the remnant is scenery, not another berry or wood reward.
   Burned bushes/ground stay cleared. Farmed crop harvesting is unchanged.
@@ -273,6 +275,9 @@ access or tile lifecycle mechanics.
   containers pay that budget as coins or use `ChestThemes.quantityForBudget`
   for item stacks, including category shares and caps; higher budgets never
   promote item tiers. All containers remain permanently smashed after use.
+- The Ring of Gathering draws loose coins gradually toward the player;
+  `COIN_COLLECTION` owns the pull speed and arrival distance. Collection pays
+  only on arrival and preserves the generated coin’s one-time ledger.
 - An X mark is hidden (`HiddenObjects.treasureHidden`) until the feet stand
   on a neighbouring cell (`HiddenObjects.tick` records it in
   `save.hiddenDiscoveries`), or within the vision disc with Perception; until

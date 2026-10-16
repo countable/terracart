@@ -1287,7 +1287,7 @@ ctx.RENDER_SRC = readSrc('render.js');
 ctx.TILLED_TEX = (() => {
   const c = vm.createContext({ window: { addEventListener() {} }, console });
   vm.runInContext(readSrc('util.js') + '\n' + readSrc('textures.js')
-    + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR, SHRINE_PAD };',
+    + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR, SHRINE_PAD, makeBerryBushTexture };',
     c, { filename: 'textures.js#tilled' });
   return c.__x;
 })();
