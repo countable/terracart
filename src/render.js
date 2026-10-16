@@ -2694,14 +2694,17 @@ Render.drawCells = function drawCells(scene) {
       // tilled, mirroring items.js isTillableCell's own roadMask read.
       // Road-BAND cells heal away too (tilling consults the roadMask, app.js
       // isTillableCell). The mask lookup runs only for cells marked tilled.
-      let _tilledUnderRoad = false;
+      let _tilledOffSoil = false;
       if (isTilled) {
         const e3 = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
         const N3 = e3 && (e3.cellsPerEdge || rowCells(scene, _ringTY[_si]));
-        _tilledUnderRoad = !!(e3 && e3.roadMask
+        _tilledOffSoil = !!(e3 && e3.roadMask
           && e3.roadMask[_ringIY[_si] * N3 + _ringIX[_si]]);
+        // …and a lamp's footing (isTillableCell's underLamp).
+        if (!_tilledOffSoil && e3 && typeof RoadOverlay !== 'undefined'
+          && RoadOverlay.lampCellsFor(_ringTX[_si], _ringTY[_si], e3).has(_ringIY[_si] * N3 + _ringIX[_si])) _tilledOffSoil = true;
       }
-      if (isTilled && (!isTillable(type) || _tilledUnderRoad)) {
+      if (isTilled && (!isTillable(type) || _tilledOffSoil)) {
         const cc = absCellCenterMeters(scene, absCellIX, absCellIY);
         const hasPlant = _plantedNear.some(pp =>
           Math.abs(pp.x - cc.x) < 0.1 && Math.abs(pp.y - cc.y) < 0.1);
