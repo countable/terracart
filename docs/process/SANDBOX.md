@@ -110,7 +110,7 @@ Band 2  WATER & PASTURE  BARNYARD · PETTING PADDOCK · BEACH/PIER · WETLAND/GO
    -- Main Street: Lantern Row (path) --
 Band 3  CENTRE           PLAYER SPAWN · FARMLAND · SPELLS/POTIONS/FIRE · SERVICES
    -- Mill Lane: Burned Row (road) --
-Band 4  TOWN             RESIDENTIAL ST · CIVIC BLOCK/PATH · SMALL HOUSE
+Band 4  TOWN             RESIDENTIAL ST · CIVIC BLOCK/PATH · SMALL HOUSE · FORAGE
    -- Garden Row: Toadstool Lane (road) --
 Band 5  RECREATION       PARK/PARK PATH · PLAYGROUND · PITCH · CASTLE/FORT · HAZARDS
 Band 6  NEW MECHANICS    STREETS · ZONES/MEADOW/CRATER · RESTORATION/ENCOUNTERS · QUARRY/RUINS
@@ -259,6 +259,16 @@ paddock includes a newborn shiny chicken, an adult shiny chicken and a bush
 whose stable ID passes the real nest roll. The beach has a readable bottle.
 `encounters` jumps directly to the enemy recipients. `thorny-road` visits the existing bramble corridor.
 
+### Herbs, poisonberries and transactions
+
+`forage`, `poisonberries` and `herbs` visit the labelled forage lab. Separate
+cells hold poisonberries, nettle, PetNip, wild grass and player-owned grass
+(the non-regrowing control). A skeleton and deer compare hostile feeding with
+neutral refusal. Harvest through normal taps; use Eat to test self-poison,
+craft Growth Powder at Home, and feed PetNip to a bonded paddock pet.
+`brewing` goes directly to the ranked Magic Shop. Reload clears authored
+harvest/burn history and grass recovery deadlines, preserving other-world entries.
+
 ### Hazard lab
 
 `hazards` visits a live spider, a landed web and a temporary sinkhole. The
@@ -379,3 +389,33 @@ falls, cave-in warning art, Flight, reset-label taps and foreground pause/resume
 It advances isolated hazard clocks in bounded steps and waits for a live render
 frame before capture. Each case clears browser saves while retaining the
 static asset cache.
+
+
+The focused mechanics probes use the same isolated-save approach:
+
+```sh
+python3 tools/probe_sandbox_poisonberry.py --url http://127.0.0.1:8000/index.html
+python3 tools/probe_sandbox_regrowth.py --url http://127.0.0.1:8000/index.html
+python3 tools/probe_sandbox_transactions.py --url 'http://127.0.0.1:8000/index.html?sandbox=true&sandboxZone=brewing'
+python3 tools/probe_sandbox_coins.py --url http://127.0.0.1:8000
+```
+
+Poisonberry checks desktop/mobile harvest, Eat, hostile feeding, poison damage,
+refresh, pet poisoning, duplicate protection and neutral refusal through the interaction
+resolver, DOM buttons and condition consumers. Regrowth checks actual harvests and nettle sting damage,
+Growth Powder crafting, PetNip feeding and a save-storage roundtrip. It shortens
+an earned grass deadline, then waits for the running scene's ordinary heartbeat;
+it does not wait the normal 48-hour mean recovery period. Sandbox reload resets
+fixtures, so persistence is checked through save/flush/load instead.
+Transactions checks every Home/Brew recipe, exact costs and outputs, depletion,
+stale buttons, discovery gates, scroll learning, selling and authored shop entry.
+Coins records frame-by-frame movement and payment in an unpaused scene, with a
+no-ring control. Position, inventory and isolated clocks are test setup; outcomes
+come from gameplay handlers. These are runtime probes, not full GPS journeys.
+Results default to `~/.artifacts/mechanics-probes/` by mechanic.
+
+`tools/probe_sandbox_waystones.py` requires an explicit `--url` pointing to a
+server with the Waystones runtime. It checks live step activation, flight refusal,
+expiry/revisit, permanent completion, single T3 reward and actual reload recovery,
+including blocked reward space. It records served-source hashes and distinguishes
+draft-feature evidence from the main build; unavailable runtimes fail explicitly.

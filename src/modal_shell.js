@@ -1196,6 +1196,8 @@ class SceneModals {
   //                          on that line and the button is disabled.
   //   confirmLabel  string? → the pick's button (default 'Take').
   //   pickHint      string? → the line under an unselected row.
+  //   desc          string? → what the reward IS (Rewards.desc); when present
+  //                          the body splits, found on the left, desc right.
   //   kindIcon      string? → HTML for the kind header's hero GLYPH, replacing
   //                          the MODAL_KINDS emoji (see makeModalShell). The
   //                          chest ceremony passes the sprite the chest it came
@@ -1230,7 +1232,7 @@ class SceneModals {
     });
   }
   showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
-    onDismiss, header, kind = 'treasure', kindIcon, actions, art, portrait, source, cards = false, tier = 0,
+    onDismiss, header, kind = 'treasure', kindIcon, actions, art, portrait, source, cards = false, tier = 0, desc,
     confirmLabel = 'Take', pickHint = 'Tap one to see what it does' }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('chest-reward-modal', {
       zIndex: 55, borderColor: accent, wrapBg: '#000c', art, portrait, centerBody: true,
@@ -1263,7 +1265,7 @@ class SceneModals {
     const badge = (tier > 0 && typeof tierBadgeHTML === 'function') ? tierBadgeHTML(tier, 11) : '';
     const tierHtml = badge ? `<div style="margin-top:6px;line-height:0">${badge}</div>` : '';
     const hasActions = Array.isArray(actions) && actions.length > 0;
-    box.innerHTML =
+    const found =
       // The icon row is optional and collapses when a card passes no
       // iconHTML: the story cards let the banner carry the picture, and a
       // ceremony with an art banner plus card buttons (the trail pick) has
@@ -1273,6 +1275,16 @@ class SceneModals {
       `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}${qtyHtml}</div>` +
       tierHtml +
       subHtml;
+    // A reward card with a `desc` (Rewards.desc — the item's own ITEM_EFFECTS
+    // line or gear blurb) splits in two: what was found on the left, what it
+    // is on the right. No desc (gold, a story card) keeps the single column.
+    box.innerHTML = desc
+      ? '<div class="reward-split" style="display:flex;gap:12px;align-items:center">' +
+          `<div style="flex:1 1 0;min-width:0">${found}</div>` +
+          `<div class="reward-desc" style="flex:1 1 0;min-width:0;text-align:left;font-size:13px;line-height:1.4;` +
+            `opacity:.9;padding-left:12px;border-left:1px solid ${accent}55">${desc}</div>` +
+        '</div>'
+      : found;
     const close = () => {
       wrap.remove();
       if (typeof onDismiss === 'function') onDismiss();
