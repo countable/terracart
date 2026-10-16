@@ -11076,7 +11076,9 @@ installSceneMixin(MapScene, SceneStreets);
 installSceneMixin(MapScene, SceneBoss);
 
 const game = window.__game = new Phaser.Game({
-  type: Phaser.AUTO,
+  // ?canvas=1 (device probe): the Canvas 2D renderer instead of WebGL.
+  type: (typeof location !== 'undefined' && new URLSearchParams(location.search).get('canvas') === '1')
+    ? Phaser.CANVAS : Phaser.AUTO,
   parent: 'game',
   // The canvas BACKING STORE, in device px — see the canvas-resolution note by
   // W/H. With Scale.NONE, Phaser sets canvas.width to the game size and the
