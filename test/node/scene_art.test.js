@@ -30,13 +30,16 @@ test('scene art: every dialog painting is cut to the dialog box shape', () => {
   }
 });
 
-test('scene art: every kind has a default painting, except STORY and TALK, which bring their own', () => {
+test('scene art: kinds use paintings or character portraits', () => {
   const rows = [...kindsSrc.matchAll(/^  (\w+):\s+\{([^}]*)\}/gm)];
   assert.truthy(rows.length >= 20, 'the rows were read');
   for (const [, key, body] of rows) {
     if (key === 'story') {
       assert.truthy(/label: 'Story'/.test(body), 'the STORY label');
       assert.falsy(/art:/.test(body), 'a story always carries its own');
+    } else if (key === 'spirit') {
+      assert.truthy(/portrait: 'assets\/art\/kind_spirit.webp'/.test(body), 'the spirit uses the NPC portrait slot');
+      assert.truthy(/portrait = portrait \|\| kRow\?\.portrait;/.test(shell), 'kind portraits reach the shared portrait layout');
     } else if (key === 'talk') {
       assert.falsy(/art:/.test(body), 'a neighbour speaking always carries their portrait');
     } else {
