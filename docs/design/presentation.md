@@ -13,6 +13,14 @@ changing dialogue, story panels, books, toasts or status presentation.
   portrait; speaker titles and response choices stay outside the bubble.
   The first earned green coin opens its own `coin_first` scene painting before
   revealing the money readout; its raised star matches the compact currency icon.
+  Digging an X opens a treasure acknowledgment headed “X marks the spot” with
+  its own `treasure_dig` painting. The find is claimed and its single reward paid
+  before the card appears; OK acknowledges the reward without granting it again.
+  Great X marks and underground finds keep their existing reward pools and bonuses.
+  Container paintings follow the visible container, not the reward: crates use
+  `treasure_crate`, barrels use `treasure_barrel`, and ordinary chests use
+  `chest_t1` through `chest_t7` for their source tier. Only a glow inside hints at the contents; the reward card
+  names the actual find. Clay pots retain their brief smash feedback.
 
 - The compass header aligns menu, a memories/books window and compact distance meter
   capped at 84 pixels wide beside a 72-pixel energy dial at the top right. The menu is

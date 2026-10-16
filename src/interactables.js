@@ -559,7 +559,11 @@ const INTERACTABLES = {
         const got = rollBarrel(o);
         if (got.kind === 'empty') { scene.flash(barrelFlash(got), sx, sy); return true; }
         Rewards.apply(save, got, scene);
-        Rewards.present(scene, got, { mode: 'toast', text: barrelFlash(got) });
+        const art = chestOpeningArt(o);
+        if (!(art && Rewards.present(scene, got, { extra: { kind: 'treasure',
+          header: 'Inside the barrel', art } }))) {
+          Rewards.present(scene, got, { mode: 'toast', text: barrelFlash(got) });
+        }
         return true;
       }
       // Produce/food stands are MARKETS, not one-shot chests: tapping opens a

@@ -70,3 +70,11 @@ resampling the master. Source, prompt and rectangles are recorded in
 [compass-rim-art.json](compass-rim-art.json). Letters remain live HUD text so they
 stay upright as the compass turns. See the geometry in
 [the presentation guide](../design/presentation.md).
+
+## Treasure dialog paintings
+
+The X discovery, barrel, crate and seven chest-tier paintings show only light
+inside their containers; reward icons and text supply the actual contents.
+[treasure-paintings.json](treasure-paintings.json) records generated masters,
+source hashes and export settings. Composition prompts live alongside the
+other scene definitions in `tools/gen_story_art.js`.
