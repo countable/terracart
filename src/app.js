@@ -11075,6 +11075,9 @@ installSceneMixin(MapScene, SceneVenues);
 installSceneMixin(MapScene, SceneStreets);
 installSceneMixin(MapScene, SceneBoss);
 
+// Before any pipeline exists: the shine/glow FX draw under the map camera's
+// scissor otherwise (render.js guardPreFxScissor).
+Render.guardPreFxScissor();
 const game = window.__game = new Phaser.Game({
   // ?canvas=1 (device probe): the Canvas 2D renderer instead of WebGL.
   type: (typeof location !== 'undefined' && new URLSearchParams(location.search).get('canvas') === '1')

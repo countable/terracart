@@ -41,4 +41,20 @@
     assert.eq(herbs('minor', true).length, 0, 'shared road gate excludes blocked cells');
     assert.eq(herbs('minor', false, true).length, 0, 'Nexus retains its authored content');
   });
+
+  test('plain Small roads: a few sparse ordinary bushes among the herbs', () => {
+    const plants = herbs();
+    const bushCrops = StreetVariants.PLAIN_BUSHES.map(b => b.crop);
+    const bushes = plants.filter(p => bushCrops.includes(p.crop));
+    const herbCount = plants.filter(p => p.crop === 'petnip' || p.crop === 'nettle').length;
+    assert.gt(bushes.length, 0, 'some bushes');
+    assert.lt(bushes.length * 4, herbCount, 'sparse beside the herbs');
+    assert.truthy(bushes.every(p => p._street === 'plain'));
+    assert.eq(herbs('major').filter(p => bushCrops.includes(p.crop)).length, 0, 'normal Small roads only');
+    // Ordinary bushes lead; berry and poisonberry bushes are mixed in.
+    assert.eq(JSON.stringify(bushCrops), JSON.stringify(['shrub', 'berry', 'poisonberry']));
+    assert.eq(StreetVariants.PLAIN_BUSHES.at(-1).below, StreetVariants.PLAIN_BUSH_P);
+    const count = crop => bushes.filter(p => p.crop === crop).length;
+    assert.gt(count('shrub'), count('berry'));
+  });
 })();
