@@ -223,8 +223,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
   with its band layout. Painted headers use a label without emoji/`kindIcon`.
-  Framed story art leaves 14 pixels below the top rail and 18 pixels beside
-  the chrome details; loading mosaics use the same inset as the finished art.
+  Popover artwork starts 44 pixels below the dragon rail, leaving a solid
+  title band; its sides clear the trim by 18 pixels. Loading mosaics use the
+  same inset. Framed opening stories without titles keep a 14-pixel rail gap.
   `css/compass_panels.css` seats this same shell as a mechanical sheet that
   slides up from the compass and extends to the viewport floor without a
   bottom border. Open sheets shade the exposed map and upper HUD with a dark
