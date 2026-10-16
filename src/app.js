@@ -7376,10 +7376,13 @@ class MapScene extends Phaser.Scene {
     // fix.
     const underRoad = !!(loaded && entry.roadMask
       && entry.roadMask[iy * N + ix]);
+    // A street lamp's footing (surface only — caves have no streets).
+    const underLamp = !!(loaded && (this.depth ?? 0) === 0 && typeof RoadOverlay !== 'undefined'
+      && RoadOverlay.lampCellsFor(tx, ty, entry).has(iy * N + ix));
     // cellIX / cellIY: the same cell as an ABSOLUTE key (coords.js encoding) —
     // what dug-wall keys and _popEnergy take. Never tx * N + ix by hand.
     const abs = tileCellToAbs(this, tx, ty, ix, iy);
-    return { tx, ty, ix, iy, cellIX: abs.cellIX, cellIY: abs.cellIY, loaded, underRoad,
+    return { tx, ty, ix, iy, cellIX: abs.cellIX, cellIY: abs.cellIY, loaded, underRoad, underLamp,
       type: loaded ? entry.grid[iy * N + ix] : 0 };
   }
 

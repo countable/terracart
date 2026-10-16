@@ -41,4 +41,14 @@
     assert.eq(herbs('minor', true).length, 0, 'shared road gate excludes blocked cells');
     assert.eq(herbs('minor', false, true).length, 0, 'Nexus retains its authored content');
   });
+
+  test('plain Small roads: a few sparse ordinary bushes among the herbs', () => {
+    const plants = herbs();
+    const bushes = plants.filter(p => p.crop === 'shrub');
+    const herbCount = plants.filter(p => p.crop === 'petnip' || p.crop === 'nettle').length;
+    assert.gt(bushes.length, 0, 'some bushes');
+    assert.lt(bushes.length * 4, herbCount, 'sparse beside the herbs');
+    assert.truthy(bushes.every(p => p._street === 'plain'));
+    assert.eq(herbs('major').filter(p => p.crop === 'shrub').length, 0, 'normal Small roads only');
+  });
 })();

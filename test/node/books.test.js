@@ -487,7 +487,7 @@ test('books: every saved page has a named volume and a consistent author voice',
     const volume = BOOK_VOLUMES[id];
     assert.truthy(volume && volume.title && volume.author && volume.voice, id);
   }
-  assert.eq(PLAY_TIP_ASIDES[0], 'a few passages stand out');
+  assert.eq(PLAY_TIP_ASIDES[0], undefined);
   assert.eq(PLAY_TIPS[10], 'Your wandering shadow can scout ahead. It cannot put your weight behind a blow. Plant your own boots where the fighting is. Strike true.');
   assert.eq(PLAY_TIPS[14], 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.');
   for (let page = 0; page < PLAY_TIPS.length; page++) {

@@ -296,6 +296,9 @@ const TERRAIN_FLAVOR = {
   [TERRAIN.TAR_YARD]:       'Oily ground. Nothing roots.',
 };
 
+// …and the refusal on soil a street lamp stands on (cellAt's underLamp).
+const LAMP_FOOT_FLAVOR = 'A lamp post. Nothing to till.';
+
 // ── Naming things the player can see ────────────────────────────────────────
 // Two helpers behind the till refusal and the plant flash, both here for the
 // same reason: a raw INTERNAL ID must never reach the screen (QC_RULES §4).
@@ -749,6 +752,19 @@ const TAP_HANDLERS = [
     const likes = !!held && Pets.likes(target, held);
     const producerMeal = held && ITEM_BY_ID[held]?.crop
       && ITEM_BY_ID[held]?.kind === 'produce' && !!SpriteLayout.creatureProduce(target.kind);
+    // A POISONBERRY, offered: an enemy or a pet eats it and takes the poison
+    // the player would (CONSUMABLE_SPEC `feedsFoe` — Combat.poison, the
+    // Poison Flask's minute; a pet's bites come off its HP as an ally's).
+    // Ahead of the pet menu and a farm animal's produce meal, which would
+    // otherwise take it. Spent whether or not it was already poisoned.
+    if ((isTame || Combat.isEnemy(target)) && CONSUMABLE_SPEC[held]?.feedsFoe
+      && CONSUMABLE_SPEC[held].condition === 'poison') {
+      Combat.poison(target, performance.now(), 'player');
+      consumeSelected(save);
+      scene.buildInventoryDOM();
+      persistSave(save);
+      return true;
+    }
     if (isTame && (likes || !producerMeal)) {
       if (likes) {
         const food = held;
@@ -1020,6 +1036,8 @@ const TAP_HANDLERS = [
         const outName = itemName(outId);
         if (bonus) scene.flashLoot(`${outName}${bonus}`, '#ff8aff', 1, outId);
         else scene.flashLoot(wildplantHarvestLine(wp.crop), undefined, rewards[0].qty, outId);
+        // A stinging plant (WILDPLANT_RULES `sting`: the nettle) hurts the hand that picks it.
+        if (rule?.sting) scene._sting?.(rule.sting, wp.x, wp.y);
         // Rare shiny flora — 10× money + a memory, on top of the
         // normal pickup, with fanfare.
         if (isShiny(wp.id, SHINY_RATE.flora)) scene.awardShinyBonus(outId, sx, sy);
@@ -1702,7 +1720,9 @@ const TAP_HANDLERS = [
   { name: 'flavor', try: (ctx) => {
     const { scene, sx, sy, cell } = ctx;
     if (isTillableCell(cell)) return false;
-    const flavor = TERRAIN_FLAVOR[cell.underRoad ? TERRAIN.ROAD : cell.type] || '·';
+    const flavor = cell.underRoad ? TERRAIN_FLAVOR[TERRAIN.ROAD]
+      : cell.underLamp && isTillable(cell.type) ? LAMP_FOOT_FLAVOR
+      : TERRAIN_FLAVOR[cell.type] || '·';
     scene.flash(flavor, sx, sy);
     return true;
   }},

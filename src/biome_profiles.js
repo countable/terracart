@@ -45,6 +45,8 @@
     MARIGOLD: 0xf10a0002,
     WILDROSE: 0xf10a0003,
     STARFLOWER: 0xf10a0004,
+    POISONBERRY: 0xf10a000b,
+    WET_POISONBERRY: 0xf10a000c,
     PETNIP: 0xf10a0009,
     NETTLE: 0xf10a000a,
     // Newly-wired biomes — fresh salts.
@@ -186,7 +188,8 @@
               fix('nut', 0.008, 0.033, S.NUT),
               fix('mushroom', 0.055, 0.125, S.MUSH_FOREST),
               fix('wildrose', 0.0015, 0.0045, S.WILDROSE),
-              fix('starflower', 0.003, 0.009, S.STARFLOWER)],
+              fix('starflower', 0.003, 0.009, S.STARFLOWER),
+              fix('poisonberry', 0.003, 0.008, S.POISONBERRY)],
     },
     [T.SAND]: { ...FAMILY_PROFILE.sand, staticObjects: { plainRockFrame: 34, plainRockVariant: 3 } },
     // Wild field-edge crops: five equal independent scatters, together about
@@ -229,7 +232,8 @@
     [T.WETLAND]: { staticObjects: { noRocks: true }, blockedFlora: ['flowers', 'forgetmenot', 'marigold', 'wildrose', 'starflower'],
       flora: [fix('longgrass', 0.15, 0.21, S.WET_LG),
               fix('shrub', 0.035, 0.070, S.WET_SHRUB),
-              fix('mushroom', 0.055, 0.105, S.WET_MUSH)],
+              fix('mushroom', 0.055, 0.105, S.WET_MUSH),
+              fix('poisonberry', 0.002, 0.006, S.WET_POISONBERRY)],
     },
     [T.GOLF]: { flora: [] },
     [T.ORCHARD]: { staticObjects: { fruitTreeSpacingM: 15.2, noRocks: true }, blockedFlora: ['marigold'],

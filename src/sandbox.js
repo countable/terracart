@@ -314,6 +314,24 @@
     },
   };
 
+  // Recent forage mechanics, separated from fire practice so harvesting and
+  // condition ticks can be compared without collateral burns or hostile AI.
+  const FORAGE = {
+    name: 'FORAGE', label: 'HERBS · POISONBERRIES', w: 22, h: 12, fill: T.GRASS,
+    ambientFlora: false, spawn: { dx: 4, dy: 4 },
+    subLabels: [{ label: 'POISONBERRIES', dx: 4, dy: 3 },
+      { label: 'HERBS AND REGROWTH', dx: 16, dy: 3 }],
+    populate(s) {
+      s.wildplant('poisonberry', 2, 5, { _sandboxProbe: 'poisonberry-bush' });
+      s.creature('skeleton', 4, 8, 1, { _sandboxProbe: 'poisonberry-enemy' });
+      s.creature('deer', 8, 8, 1, { _sandboxProbe: 'poisonberry-neutral' });
+      s.wildplant('longgrass', 14, 5, { _sandboxProbe: 'grass-wild' });
+      s.wildplant('nettle', 16, 5, { _sandboxProbe: 'nettle' });
+      s.wildplant('petnip', 18, 5, { _sandboxProbe: 'petnip' });
+      s.wildplant('longgrass', 20, 5, { playerOwned: true, _sandboxProbe: 'grass-owned' });
+    },
+  };
+
   // ── RECREATION — PARK + PLAYGROUND + PITCH. Park / playground / pitch chests
   //    all share the one rounded pad. Shrubs, longgrass, a cat & dog,
   //    a CROW pest (scarecrow seeded nearby), and a second wild butterfly.
@@ -469,7 +487,8 @@
     name: 'RESTORATION', label: 'RESTORATION · ENCOUNTERS', w: 16, h: 40, fill: T.GRASS,
     ambientFlora: false, spawn: { dx: 4, dy: 13 },
     subLabels: [{ label: 'RANKED SHOPS', dx: 7, dy: 3 },
-      { label: 'RESTORE A WRECK', dx: 7, dy: 13 }, { label: 'RECENT ENEMIES', dx: 7, dy: 25 }],
+      { label: 'RESTORE A WRECK', dx: 7, dy: 13 }, { label: 'RECENT ENEMIES', dx: 7, dy: 25 },
+      { label: 'MAGIC SHOP', dx: 5, dy: 10 }],
     populate(s) {
       const picks = ['blacksmith:1', 'blacksmith:2', 'blacksmith:3', 'trader:2',
         'shop:seed:2', 'shop:supply:2', 'petshop', 'bookshop', 'turret', 'shop:potion:3'];
@@ -554,7 +573,7 @@
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Oak Road', thick: 1, variant: 'hedgerow' }, scenes: [FOREST, ORCHARD, ROCK, FLINT_FIELD] },
     { roadAfter: { type: T.PATH, class: 'path', name: 'Main Street', thick: 2, variant: 'lantern' }, scenes: [BARNYARD, PADDOCK, BEACH, MARSH] },
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Mill Lane', thick: 1, variant: 'burned' }, scenes: [PLAZA, FARMLAND, PRACTICE, SERVICES] },
-    { roadAfter: { type: T.ROAD, class: 'minor', name: 'Garden Row', thick: 1, variant: 'toadstool' }, scenes: [RESIDENTIAL, CIVIC, SMALLHOUSE] },
+    { roadAfter: { type: T.ROAD, class: 'minor', name: 'Garden Row', thick: 1, variant: 'toadstool' }, scenes: [RESIDENTIAL, CIVIC, SMALLHOUSE, FORAGE] },
     { roadAfter: null, scenes: [RECREATION, CASTLE, HAZARDS] },
     { roadAfter: null, scenes: [SHOWCASE, ZONES, RESTORATION, QUARRY] },
     { roadAfter: null, scenes: [COMBAT] },
@@ -1566,10 +1585,10 @@
     // Mining reads the runtime binding created before Sandbox.install. Delete
     // through it as well as clearing saved history, so reload restores the rock.
     for (const id of ids) scene.brokenRockSet?.delete(id);
-    for (const key of ['picked', 'caught', 'chopped', 'brokenRocks', 'opened', 'foundTreasures']) {
+    for (const key of ['picked', 'caught', 'chopped', 'brokenRocks', 'opened', 'foundTreasures', 'burnedObjects']) {
       if (Array.isArray(save[key])) save[key] = save[key].filter(id => !ids.has(id));
     }
-    for (const key of ['lastProduce', 'fruitPicked', 'chestHold', 'quarryMined']) {
+    for (const key of ['lastProduce', 'fruitPicked', 'chestHold', 'quarryMined', 'grassRegrowth']) {
       for (const id of Object.keys(save[key] || {})) if (ids.has(id)) delete save[key][id];
     }
   }

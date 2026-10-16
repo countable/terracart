@@ -314,7 +314,7 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   and flint when marked `rockMaterial: 'flint'`, including flint-bearing L1
   cave rubble. The flint mark takes precedence over the generic cave variant. Partial
   cover (`sightBlocking: true`) selects the taller boulder silhouette.
-  Regular rocks and boulders both use 24px frames at scale 16/15 (placed
+  Regular rocks and boulders both use 24px frames at 92% of scale 16/15 (`ROCK_WORLD_SCALE`; placed
   stones 2.304, the produce icon); their height
   difference is authored into the graphic-storybook atlas (8 columns, 9 rows).
   Outside authored rock zones, wild rubble shares
@@ -481,6 +481,9 @@ to the existing noon level. Underground lighting is unchanged.
   width and lamp footprint; art and light share the same world point. Lantern
   rise is a draw-space offset; retune height through `LAMP_PROFILE`.
   Collect/cache lamps about the camera anchor, only after tiles finish loading.
+  A lamp's footing (`RoadOverlay.lampCellsFor`, the same reserved cells
+  dressing keeps clear) is never tillable: `cellAt` flags it `underLamp` and
+  `isTillableCell` refuses it.
 - Restoration ladder rewards use `Trail.PRIZE_CONTEXT`; the first reward uses `firstPrize`.
   Synthetic loot classes need both a `CLASS_MAX_TIER` ceiling and a branch
   before item resolution. Cash rewards have no `slot`.

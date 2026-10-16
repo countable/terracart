@@ -58,6 +58,9 @@ const CROP_SPRITE = {
   // uses the ordinary bush with berries overlaid, including farmed bushes.
   berry:  { sheet: 'springcrops', row: 1,
     mature: { ...BUSH_SPRITE, texture: 'bushes_fruiting' } },
+  // The wild poisonberry: the same bush, its berries teal (textures.js
+  // makeBerryBushTexture). Wild only — no seed, no growth stages.
+  poisonberry: { ...BUSH_SPRITE, texture: 'bushes_poisonberry' },
   cress:  { sheet: 'springcrops', row: 3 },   // spoon-leaf watercress
   onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
   // Long grass — item id 'longgrass', display name 'Long grass'. Props.png
@@ -166,9 +169,11 @@ const ZONE_ROCK_THEMES = Object.freeze({
 });
 // One neutral stone palette everywhere; material pairs are adjacent small/large frames.
 // Legacy yield variants still own mining quantities, independently of appearance.
+// World rocks draw at 92% of the 16/15 source-cell scale (owner, Oct 2026).
+const ROCK_WORLD_SCALE = (16 / 15) * 0.92;
 const ROCK_VARIANT_ART = Object.freeze({
-  columns: 8, rows: 9, smallScale: 16 / 15, largeScale: 16 / 15,
-  themedScale: 16 / 15, placedScale: 1.6,
+  columns: 8, rows: 9, smallScale: ROCK_WORLD_SCALE, largeScale: ROCK_WORLD_SCALE,
+  themedScale: ROCK_WORLD_SCALE, placedScale: 1.6,
   plainFrames: Object.freeze([0, 30, 32, 34]),
   materials: Object.freeze(['plain', 'flint', 'quartz', 'topaz', 'amethyst',
     'sapphire', 'ruby', 'emerald', 'diamond', 'copper', 'iron', 'gold',
@@ -236,6 +241,9 @@ function wildplantFrame(p) {
 // no treasure and casts no light.
 const WILDPLANT_RULES = {
   berry: { pickedCrop: 'shrub' },
+  // `sting`: picking it hurts — `energy` off the bar as a bare-handed blow
+  // (scene _sting: Combat.playerDamage, no armour) and `line` at the plant.
+  nettle: { sting: { energy: 7, line: 'Ouch!' } },
   // A woody bush. Chopping one yields the WOOD item, not a 'shrub' item
   // (tree + shrub have no inventory counterparts), and it is real felling
   // work: bare hands take 5 seconds, axes use their usual ladder, and
@@ -639,6 +647,8 @@ const MINERAL_ICON_SHEET = {
   torch:         { sheet: 'icon_torch', frame: 0 },
   // The shared icon renderer applies the blue palette on every DOM surface.
   evertorch:     { sheet: 'icon_torch', frame: 0, filter: 'hue-rotate(180deg) saturate(1.4)' },
+  // The berry's own produce icon, its red turned the bush's teal.
+  poisonberry:   { sheet: 'springcrops', frame: 1 * SPRING_CROPS_COLS + 8, filter: 'hue-rotate(190deg) saturate(1.3)' },
   // Cutters from the db32 item library; the tool removes traps, not a backpack.
   trap_disarm_kit:      { sheet: 'icon_kit', frame: 0 },
   // The existing sprung-jaw drawing in the placed magic trap's magenta.
@@ -775,6 +785,7 @@ const BASE_TIER = {
   // (forget-me-not) to the glowing starflower (rarest). Tier drives the
   // shiny-find bonus and loot-value scaling.
   forgetmenot: 2, marigold: 3, wildrose: 3, starflower: 5,
+  poisonberry: 2,
   egg: 2, milk: 3,
   // Fish span the loot ladder, with gaps of at most two tiers.
   minnow: 1, bass: 2, trout: 4, salmon: 5, goldenfish: 7,
@@ -1132,6 +1143,9 @@ const ITEMS = [
   { id: 'barricade', name: 'Barricade', kind: 'supply' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
+  // Wild poisonberry (forest and wetland bushes, pickable). Eaten, it
+  // poisons you; offered to an enemy or a pet, it poisons that (interact.js).
+  { id: 'poisonberry',  name: 'Poisonberry',  kind: 'produce', crop: 'poisonberry' },
   // Fish (caught by Fishing Rod on water tiles). dropWeight: 0.4 trims their
   // share within the (produce, tier) pool so chest loot reads as mostly crops
   // and fruit, with fish as an occasional aquatic surprise rather than the
@@ -1273,6 +1287,9 @@ const _CONSUMABLE_MINUTE_MS = 60 * 1000;
 const TOME_MUL = 0.5;
 const CONSUMABLE_SPEC = {
   mushroom: { condition: 'confused', durationMs: 3000 },
+  // `feedsFoe`: offered to an enemy or a pet (interact.js), that creature
+  // takes the condition instead (Combat.poison — the Poison Flask's minute).
+  poisonberry: { condition: 'poison', feedsFoe: true },
   orb: {
     chestRevealMs: 6000,
     immediate: true, reusable: true,
@@ -1870,6 +1887,7 @@ const PRICES = {
   butterfly: 100,  // premium catch — Bug Net required, so it's worth a lot
   // ── Wild mushroom ────────────────────────────────────────
   mushroom: 5,
+  poisonberry: 6,
   // ── Fish ─────────────────────────────────────────────────
   minnow: 3,    bass: 18,   trout: 60,   salmon: 150, goldenfish: 450,
   // ── Orchard fruit ────────────────────────────────────────
@@ -2007,6 +2025,7 @@ const ITEM_EFFECTS = {
   rainberry: 'Rain gathers on nearby leaves when its skin breaks between your teeth.',
   pairy: 'Its sweetness leaves a glimmer of buried treasure behind your eyes.',
   dawnfruit: 'A clear dawn fills your sight when you bite through its skin.',
+  poisonberry: 'Teal and bitter. Whoever swallows it sickens — you, or any creature you feed it to.',
   miracle_lettuce: 'Its crisp leaves leave you feeling unusually lucky.',
   horse: 'It stamps and tosses its head, impatient for the open road.',
   coffee: 'A roasted warmth sets your feet itching for the road.',
@@ -2015,7 +2034,7 @@ const ITEM_EFFECTS = {
   worldpeach: 'Its soft sweetness washes every affliction away.',
   longgrass: 'Its tough fibres hold fast when twisted together.',
   petnip: 'A fragrant sprig that cheers a pet and strengthens its heart.',
-  nettle: 'A prickly herb ground into Growth Powder to wake sleeping crops.',
+  nettle: 'A stinging herb ground into Growth Powder to wake sleeping crops. Pick it with care.',
   rubble: 'Beneath its pale skin lies a stone hard enough for a ruined wall.',
   quartz: 'Soft pink light catches in the stone’s cloudy heart.',
   topaz: 'A honey-gold gleam rests between its sharp edges.',
@@ -2162,6 +2181,7 @@ const FOOD_ENERGY = {
   egg:        13,
   milk:       52,
   mushroom:   21,
+  poisonberry: 3,   // a mouthful, then the poison's minute
   apple:      16, cherry: 18, worldpeach: 16, banana: 23, orange: 16, mango: 26, coconut: 23, apricot: 13,
   minnow:      7, bass: 20, trout: 60, salmon: 100, goldenfish: 180,
   meat:       59,   // hunted from deer; dog favourite
@@ -2992,9 +3012,10 @@ function isTillable(type) { return !NON_TILLABLE.has(type); }
 // soil-ish terrain AND no drawn road band over it. A cell's terrain says
 // "grass" for most of the ground a road actually covers (see cellAt's
 // underRoad note), so type-only checks let players till the middle of a
-// street. Takes a cellAt() result; a stub cell without underRoad (tests)
-// behaves exactly like the old type-only check.
-function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad; }
+// street. Nor is a street lamp's footing (cellAt's underLamp: the cells
+// RoadOverlay.lampCellsFor reserves, lit or broken). Takes a cellAt() result;
+// a stub cell without those flags (tests) behaves like the type-only check.
+function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad && !cell.underLamp; }
 
 // ── The inventory's type tabs ──────────────────────────────────────────────
 // The two-bar inventory's category row. Order here is the on-screen left→right
