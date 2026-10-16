@@ -41,6 +41,12 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   mask-image: linear-gradient(#000 calc(100% - 14px), transparent);
   pointer-events: none;
 }
+/* Follow the lower silver silhouette so the painting fills the space
+   beneath the dragons instead of showing the rail image's dark backing. */
+.compass-panel > .modal-box.modal-scene::before {
+  mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20750%20220%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20fill%3D%22white%22%20d%3D%22M0%200H750V220L726%20191L701%20165L678%20150L654%20148H415L375%20165L335%20148H96L72%20150L49%20165L24%20191L0%20220Z%22%2F%3E%3C%2Fsvg%3E");
+  mask-size: 100% 100%;
+}
 .compass-panel .modal-kind {
   top: calc(var(--panel-rail-height) + 6px) !important; left: 17px !important; right: 17px;
   justify-content: center; padding: 3px 7px !important;

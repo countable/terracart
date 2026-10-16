@@ -88,8 +88,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   The dragon header reserves its full 750:220 aspect ratio at the panel width;
   its chrome stays above scene paintings and loading mosaics without cropping the head.
   Sheets have no duplicate metal side rails or border: the outer compass housing
-  supplies that frame. The dragon rail feathers into the content surface
-  without a bright horizontal seam; scene artwork has a clean square crop. Painted sheets reserve a separate
+  supplies that frame. Painted sheets mask the dragon rail along its lower silver silhouette so
+  the image fills the space beneath the ornament without its dark backing; scene artwork has a clean square crop. Painted sheets reserve a separate
   content area below the image for useful category headings; painted stories omit
   the generic “Story” label.
   The modal gate publishes the final sheet edge in viewport pixels so silver
