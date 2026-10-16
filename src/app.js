@@ -9912,24 +9912,22 @@ class MapScene extends Phaser.Scene {
       /* Walk-home countdown: the seconds until the character heads back to
          the GPS, stamped on the resting cap. Gold, because it is a readout of
          a CONTROL (spec §UI COLOUR LANGUAGE) — the stick it sits on — and its
-         box is the cap's box exactly (same left/top/size, and the cap is
-         border-box above), so the digit centres on the cap rather than near
-         it. The shadow is CENTRED — no x/y offset — a dark halo ringing the
+         box is the whole pad, centring the digit where the resting cap sits
+         whatever size a skin (css/compass_hud.css) gives the pad and cap. The shadow is CENTRED — no x/y offset — a dark halo ringing the
          glyph evenly, so the gold holds up over the cap's bright highlight and
          its darker rim alike without reading as lit from one side. Hidden
          while the stick is held (the cap is under a thumb, and there is
          nothing to count down to). */
       #move-pad .countdown {
-        position: absolute; left: ${HALF}px; top: ${HALF}px;
-        box-sizing: border-box;
-        width: ${NUB}px; height: ${NUB}px; line-height: ${NUB}px;
-        text-align: center; pointer-events: none;
-        font: ${fontUI(`700 18px/${NUB}px`)};
+        position: absolute; inset: 0;
+        align-items: center; justify-content: center;
+        pointer-events: none;
+        font: ${fontUI('700 18px/1')};
         color: ${UI_GOLD};
         text-shadow: 0 0 2px rgba(12,9,4,0.95), 0 0 5px rgba(12,9,4,0.8);
         display: none;
       }
-      #move-pad .countdown.on { display: block; }
+      #move-pad .countdown.on { display: flex; }
       #move-pad.held .countdown { display: none; }
       /* The spring-back is decoration — the nub is already back at centre as
          far as movement is concerned the moment the finger leaves. */

@@ -29,6 +29,11 @@
     0 -5px 24px #0009, 0 -1px 0 #e1edf0;
   isolation: isolate;
 }
+/* Story panels (a painting, or a speaker's portrait) open higher: 7/8 of
+   the screen, so the painting has room above the copy. */
+.compass-panel.story-panel > .modal-box {
+  top: calc(var(--view-h, 844px) * .125) !important;
+}
 .compass-panel > .modal-box::before, #story.compass-story .box::before {
   content: '';
   position: absolute; z-index: 3; top: 0; left: 0; right: 0; height: var(--panel-rail-height);
@@ -101,7 +106,7 @@
 }
 #story.compass-story .box {
   position: relative; display: flex; flex-direction: column;
-  width: min(100%, 480px); max-width: 480px; height: auto; max-height: 86%;
+  width: min(100%, 480px); max-width: 480px; height: 87.5%; max-height: none;
   padding: var(--panel-rail-height) 0 calc(60px + env(safe-area-inset-bottom));
   box-sizing: border-box; overflow-y: auto;
   border: 2px solid var(--panel-metal); border-bottom: 0; border-radius: 28px 28px 0 0;
@@ -109,7 +114,7 @@
   animation: compass-panel-rise 240ms ease-out both;
 }
 #story.compass-story .art { flex: 0 0 auto; min-height: 0; aspect-ratio: 512 / 341; }
-#story.compass-story .opening-copy { flex: 0 0 auto; padding: 20px; }
+#story.compass-story .opening-copy { flex: 1 0 auto; padding: 20px; }
 #story.compass-story .story-skip { z-index: 4; }
 @media (prefers-reduced-motion: reduce) {
   .compass-panel.modal-anim > .modal-box, #story.compass-story .box { animation: none; }
