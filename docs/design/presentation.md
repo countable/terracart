@@ -342,6 +342,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   order, and only a tap outside a dialog ends it. A panel answering the
   player's own act (a receipt, a Book read, a neighbour's talk) asks only
   `_dialogOpen`. A new deferred lane asks the hold and adds to the count.
+- The first road-repair panel shows the Hood working alone: “You Start Fixing
+  The Roads” / “They are the arteries of civilization.” It keeps the existing
+  50 m threshold and two-second delay. Neighbours enter the story at the first
+  reward, headed “The survivors are watching”; later rewards use the thank-you
+  heading. The first repair and first gift remain separate moments.
 - A street variant tells its story once, on the feet's first entry
   (`_tickStreetFeet`). After that its map line (`StreetVariants` row `flash`)
   pops when a street of that kind enters the lit reach (`_tickStreetSight`,
