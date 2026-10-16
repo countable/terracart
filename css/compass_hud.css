@@ -337,9 +337,9 @@ body.compass-hud #compass-inventory-shutter {filter:brightness(.85);}
 body:not(.compass-round) .compass-bearing {display:none;}
 .compass-rim-art {display:block;width:100%;height:100%;overflow:visible;}
 .compass-bearing span {position:absolute;display:grid;place-items:center;width:5%;height:5%;padding:0;transform:translate(-50%,-50%);}
-.compass-bearing b {display:block;font:700 calc(var(--compass-map-size) * .024) / 1 Georgia,serif;color:#3e2b15;text-shadow:0 .65px .2px #f7e4b3;transform-origin:center;}
+.compass-bearing b {display:block;font:700 calc(var(--compass-map-size) * .030) / 1 Georgia,serif;color:#3e2b15;text-shadow:0 .65px .2px #f7e4b3;transform-origin:center;}
 .compass-bearing .compass-north {left:50%;top:3%;}
-.compass-bearing .compass-north b {font-size:calc(var(--compass-map-size) * .029);}
+.compass-bearing .compass-north b {font-size:calc(var(--compass-map-size) * .036);}
 .compass-bearing .compass-east {left:98%;top:50%;}
 .compass-bearing .compass-south {left:50%;top:98%;}
 .compass-bearing .compass-west {left:2%;top:50%;}
