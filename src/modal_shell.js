@@ -142,7 +142,7 @@ class SceneModals {
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0002', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, story = false, art, portrait, centerBody = false, fullscreen = false, delayInput } = {}) {
+    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, delayInput } = {}) {
     // A dialog swapping itself in place (a pager turn, a tab) is the same
     // dialog already armed; a fresh story or event gets the arming second.
     const swapping = !!document.getElementById(id);
@@ -323,7 +323,11 @@ class SceneModals {
     // so injecting at the top there is the one placement no caller can undo.
     const k = typeof kind === 'string' ? MODAL_KINDS[kind] : kind;
     let kindNode = null;
-    if (k && art) {
+    // `header: false` (the ☰ menu): no kind header at all — the list is the
+    // whole dialog.
+    if (!header) {
+      // no header
+    } else if (k && art) {
       // With a painting, the painting is the hero: the category shrinks to a
       // bare label chip on its top-left corner.
       kindNode = document.createElement('div');
