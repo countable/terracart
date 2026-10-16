@@ -8,7 +8,9 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 - Dialogs do not scroll. The shared shell reserves 68% of the painting for
   content, with compact padding and reward spacing before using the 82%
-  content band. It refits after content,
+  content band (88% for busy shop offers). Recipe rows and selector spacing
+  stay compact so ingredient shortfalls and receipts fit beside the actions.
+  It refits after content,
   expanded details, fonts, images or box dimensions change. Long prose uses
   Previous/Next pages at the original text size; actions remain whole.
   Book Club shows one complete tome per page. The books-read shelf shows
