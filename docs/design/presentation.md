@@ -44,7 +44,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   `css/compass_inventory.css` seats eight embossed square category keys on
   plungers above a shared rail. The selected key and detent glow gold. Small
   square item controls share one dark-glass window, with a physical sort lever,
-  ivory pager rollers, and an integrated name/action plate. Contextual actions
+  ivory pager rollers, and an integrated name/action plate. The description plate
+  appears only for a selected item or piece of gear; empty categories show no plate. Contextual actions
   retain their existing semantics. The dormant inventory cover occupies the lower
   inventory window and can be dismissed for the scene without unlocking controls.
   Inactive-module Spirit dialogs explain how to power up that specific module;

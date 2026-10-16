@@ -130,3 +130,6 @@ body.compass-hud.compass-inventory-closed:not(.compass-inventory-dismissed):not(
 body.compass-hud.compass-inventory-dismissed #compass-inventory-shutter {display:none;}
 #compass-inventory-dismiss:active {transform:translateY(1px);filter:brightness(1.1);}
 #compass-inventory-dismiss:focus-visible {outline:2px solid #ffdc76;outline-offset:2px;}
+
+/* No selection means no description plate or decorative endcaps. */
+body.compass-hud #inv-name:empty {display:none!important;}

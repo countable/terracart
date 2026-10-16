@@ -118,7 +118,7 @@
     s.click(s.slots().find(slot => slot.dataset.slot === -1));
     assert.eq(s.save.selSlot, -1); assert.falsy(s.save.selGear);
     assert.eq(s.useMethod, undefined);
-    assert.eq(s.document.getElementById('inv-name').textContent, 'Select a relic');
+    assert.eq(s.document.getElementById('inv-name').textContent, '', 'no description without a selected item');
   });
 })();
 

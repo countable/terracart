@@ -10603,15 +10603,7 @@ class MapScene extends Phaser.Scene {
       nameLbl.textContent = '';
       if (isGear) {
         const g = this.save.selGear;
-        if (!g) {
-          // Empty gear tab — tell the player where this gear comes from.
-          const hint = document.createElement('div');
-          hint.textContent = cat.key === 'armour'
-            ? 'No armour yet — forge or find it'
-            : this.invDisplayEntriesForCat(cat.key).length ? 'Select a relic' : 'No relics yet — forge or find them';
-          hint.style.cssText = 'opacity:0.7;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-          nameLbl.appendChild(hint);
-        } else {
+        if (g) {
           const nameSpan = document.createElement('div');
           nameSpan.textContent = (typeof gearName === 'function') ? gearName(g.kind, g.slot, (g.kind === 'armor' ? this.save.armor : Gear.effectiveRelics(this.save))?.[g.slot]?.tier) : g.slot;
           nameSpan.style.cssText = 'max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
