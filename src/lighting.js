@@ -1910,6 +1910,7 @@
   // interpolation only softens the visual edge. Full interiors retain their
   // exact opacity, and no second lighting texture or pixel readback is needed.
   function coverFrame(scene, ax, ay, W, H) {
+    if (scene.save?.energy != null && Combat.playerDowned(scene.save.energy)) return null;
     if (typeof Visibility === 'undefined' || !(scene.cellM > 0)
         || !scene.playerM || !scene.startWorldM) return null;
     const revision = Visibility.revision(scene);
@@ -1961,7 +1962,7 @@
         mask.latticeKey = latticeKey;
       }
       for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) {
-        const cover = Visibility.coverBetween(scene, eye.x, eye.y, (x0 + x + .5) * stepM, (y0 + y + .5) * stepM);
+        const cover = Visibility.sightCover(scene, eye.x, eye.y, (x0 + x + .5) * stepM, (y0 + y + .5) * stepM);
         mask.field[y * D + x] = cover === Visibility.CLEAR ? 0
           : cover === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS : Visibility.FULL_DARKNESS;
       }

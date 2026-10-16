@@ -25,19 +25,31 @@
     const visibility = { CLEAR: 0, PARTIAL: 1, FULL: 2, PARTIAL_DARKNESS: .5, FULL_DARKNESS: 1,
       revision: () => revision,
       observer(scene, q) { const p = scene.playerM; return { x: (Math.floor(p.x / q) + .5) * q, y: (Math.floor(p.y / q) + .5) * q }; },
-      coverBetween(scene, ax, ay, x, y) { samples++; return coverAt(x, y); },
+      sightCover(scene, ax, ay, x, y) { samples++; return coverAt(x, y); },
     };
     const start = LIGHTING_SRC.indexOf('  function coverFrame(scene, ax, ay, W, H) {');
     const end = LIGHTING_SRC.indexOf('\n  function draw(scene, ax, ay, halfM) {', start);
     assert.gte(start, 0, 'fog mask helpers exist');
-    const frame = new Function('Visibility', 'document', 'playerWorldM', 'CELL_PX', 'FOG_SUB', 'fogWisp', 'fogSample',
+    const frame = new Function('Combat', 'Visibility', 'document', 'playerWorldM', 'CELL_PX', 'FOG_SUB', 'fogWisp', 'fogSample',
       LIGHTING_SRC.slice(start, end) + '\nreturn coverFrame;')(
-      visibility, document, scene => scene.playerM, 32, FOG_SUB, fogWisp, fogSample);
+      Combat, visibility, document, scene => scene.playerM, 32, FOG_SUB, fogWisp, fogSample);
     const scene = { depth: 0, cellM: 4, playerM: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 },
       viewCenterX: 0, viewCenterY: 0, viewLeft: 0, viewTop: 0 };
     return { scene, frame, rasters, bumpRevision() { revision++; },
       stats: () => ({ allocations, clears, samples, uploads, blits, images }) };
   }
+
+
+  test('cover render: downed view drops obstruction shading and restores it on revival', () => {
+    const f = fixture(() => 1);
+    f.scene.save = { energy: 10 };
+    const alive = f.frame(f.scene, 0, 0, 128, 64);
+    assert.truthy(alive);
+    f.scene.save.energy = 0;
+    assert.eq(f.frame(f.scene, 0, 0, 128, 64), null);
+    f.scene.save.energy = 1;
+    assert.eq(f.frame(f.scene, 0, 0, 128, 64).key, alive.key);
+  });
 
   const alphas = raster => raster.data.filter((value, i) => i % 4 === 3);
 

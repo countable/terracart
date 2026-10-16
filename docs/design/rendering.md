@@ -315,7 +315,9 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   the ground stay drawn and tappable in the shadow so the player keeps their
   bearings; full cover is black and removes scenery as well. The cover
   mask's feather spreads outward only, so every hidden cell keeps its full
-  darkness.
+  darkness, including the occupied cells of concealing bushes and trees.
+  At zero energy, cover stops hiding actors/scenery and the obstruction mask
+  clears; both return on revival. Physical cover for enemy sight is unchanged.
   `Lighting.coverFrame` caches a world-aligned mask and composites it into the
   existing lightmap after light sources. It reuses the exploration fog's
   low-resolution smooth upscale and world-keyed wisps, with a roughly one-cell
