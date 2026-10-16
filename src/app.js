@@ -9149,35 +9149,14 @@ class MapScene extends Phaser.Scene {
     if (Quests.onEvent(this.save, event)) persistSave(this.save);
     const done = Quests.onStarterEvent(this.save, event);
     if (!done) return;
-    // Bank the step NOW — the money and the advanced ladder are earned whether
-    // or not the player ever looks at the celebration.
-    if (done.reward?.money) addMoney(this.save, done.reward.money);
+    // Tutorial progress is guidance, not an extra source of coins.
     persistSave(this.save);
     this.buildInventoryDOM();
     this._celebrateStarterStep(done);
   }
 
-  // Say that a starter step just completed: a green toast at the view centre
-  // and a 1400 ms hold on the objective chip.
-  //
-  // Always QUEUED, never played inline, because the first step of the ladder —
-  // the one EVERY player completes first — fires from inside the chest
-  // handler, one line before it opens the reward modal. Both halves of the
-  // celebration then played underneath that card: the toast clipped to a
-  // sliver at the modal's top edge, and the chip hold (which body.modal-open
-  // hides outright) expiring before the player had tapped through. They came
-  // back to a chip reading 2/6 with nothing having acknowledged step 1.
-  //
-  // Testing "is a modal open?" right here does NOT work and was the first
-  // attempt: at that moment the reward modal has not been created and
-  // body.modal-open still says no. So the decision waits a frame, for
-  // _installModalPadGate's sync to have looked at the real DOM — that sync
-  // owns the flush. With no dialog in the way the delay is one frame, which
-  // is not perceptible; with one, the cheer waits for it to close.
-  //
-  // Gated on ANY modal rather than on the chest path specifically, so
-  // restoring a wreck (its own ceremony) and any future step that completes
-  // behind a dialog get the same treatment without their call sites knowing.
+  // Queue the Spirit's acknowledgement behind any loot or restoration dialog.
+  // The same on-map bubble then advances to the next instruction.
   _celebrateStarterStep(done) {
     this._enqueueCeremony('cheer', (finish) => {
       // Only the LAST one gets the full ceremony: two cheers racing for the
@@ -9186,12 +9165,8 @@ class MapScene extends Phaser.Scene {
       // The rest are already banked; the chip resync at the end of the play
       // shows where the ladder actually stands.
       if (this._pendingStarterCheers.length) return false;
-      // Own try/catch: the drain also runs from _installModalPadGate's
-      // MutationObserver callback, outside update()'s guard — a throw
-      // escaping from a microtask there is uncatchable by the game loop.
-      const quiet = !!this._starterCheerBehindDialog;
       this._starterCheerBehindDialog = false;
-      try { this._playStarterCheer(done, { quiet }); }
+      try { this._playStarterCheer(done); }
       catch (e) { this._reportLoopError?.(e); }
       finish();   // a toast and a chip hold, not a dialog: the queue moves on
       return true;
@@ -9202,10 +9177,9 @@ class MapScene extends Phaser.Scene {
   get _pendingStarterCheers() { return (this._ceremonies || []).filter((c) => c.kind === 'cheer'); }
   _flushStarterCheers() { this._drainCeremonies(); }
 
-  // `quiet`: the step completed behind a dialog, which was the notice — the
-  // chip still holds the green ✓, but no toast repeats it.
-  _playStarterCheer(done, { quiet = false } = {}) {
-    if (!quiet) this.flashLoot(`✅ ${done.title}${done.reward?.money ? ` +${done.reward.money}` : ''}`, UI_GREEN, 1.3);
+  // Acknowledge completion where the Spirit was already speaking.
+  _playStarterCheer(done) {
+    // The Spirit acknowledges progress in the same bubble, without a second toast.
     // Hold the COMPLETED step on screen in green for a beat before swapping in
     // the next one, so finishing something is legible instead of an instant
     // relabel. The held text is written from `done` rather than left as
@@ -9217,9 +9191,7 @@ class MapScene extends Phaser.Scene {
     el.classList.add('done');
     el.querySelector('.step').textContent  = '✓';
     el.querySelector('.title').textContent = done.title;
-    el.querySelector('.body').textContent  = done.reward?.money
-      ? `Done — ${done.reward.money} coins earned.`
-      : 'Done.';
+    el.querySelector('.body').textContent = done.completion || 'Well done. Let’s keep going.';
     if (this._objectiveTimer) clearTimeout(this._objectiveTimer);
     this._objectiveTimer = setTimeout(() => {
       el.classList.remove('done');

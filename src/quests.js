@@ -169,48 +169,46 @@ const Quests = {
 //
 // Each step is completed by an EVENT fired from the gameplay site that performs
 // it (see scene.questEvent in app.js). Steps auto-advance on completion — there
-// is no claim step — so the chip always shows the next thing to do.
+// is no claim step — so the Dragon Spirit always explains the next thing to do.
 //
-// Rewards are small on purpose: $5 a step and $25 at the end, $50 across an
-// entire first session, starting from an empty purse. Enough that finishing a
-// step reads as progress, small enough that it can't outrun farming as an
-// income source. Tune here — nothing else reads these numbers.
+// The Spirit acknowledges progress without granting money. Supplies, harvests
+// and sales keep their ordinary gameplay rewards; guidance adds no bonus.
 const STARTER_CHAIN = [
   {
     id: 's1_crate', event: 'chest',
     title: 'Gather your supplies',
-    body: 'Supply crates line the road nearby. Open one.',
-    reward: { money: 5 },
+    body: 'Open a nearby supply crate to gather your first supplies.',
+    completion: 'These supplies will help you begin.',
   },
   {
     id: 's2_till', event: 'till',
     title: 'Break ground',
-    body: 'Turn a patch of grass into a bed for seeds.',
-    reward: { money: 5 },
+    body: 'Till a patch of grass to make a bed for seeds.',
+    completion: 'Good. The earth is ready.',
   },
   {
     id: 's3_plant', event: 'plant',
     title: 'Sow a seed',
-    body: 'A seed from your bag belongs in that fresh earth.',
-    reward: { money: 5 },
+    body: 'Choose a seed from your bag and plant it in the tilled soil.',
+    completion: 'Let it take root.',
   },
   {
     id: 's4_restore', event: 'restore',
     title: 'Rebuild a neighbour',
-    body: 'A ruined house waits for your hands to mend it.',
-    reward: { money: 5 },
+    body: 'While your crop grows, use your supplies to mend a ruined house.',
+    completion: 'A little more of the neighbourhood is home again.',
   },
   {
     id: 's5_harvest', event: 'harvest',
     title: 'Bring in the crop',
-    body: 'Water your young crop whenever the soil dries, until it is ready to gather.',
-    reward: { money: 5 },
+    body: 'Water your crop when the soil dries, then harvest it when ripe.',
+    completion: 'Your first harvest. Well tended.',
   },
   {
     id: 's6_sell', event: 'sell',
     title: 'Cash out at Home',
-    body: 'Bring your harvest Home, where someone will pay for it.',
-    reward: { money: 25 },
+    body: 'Bring your harvest Home and sell it.',
+    completion: 'You know the way now. Keep growing, exploring and mending.',
   },
 ];
 
@@ -241,8 +239,8 @@ Object.assign(Quests, {
     return STARTER_CHAIN.length;
   },
 
-  // True once the player has hidden the chip (or finished the ladder). The
-  // chip is guidance, not an obligation — a player who knows the game can
+  // True once the player has hidden the Spirit (or finished the ladder). The
+  // Spirit offers guidance, not an obligation — a player who knows the game can
   // dismiss it and never see it again.
   starterHidden(save) {
     return !!this._ss(save).dismissed || this.starterAllDone(save);
@@ -264,7 +262,7 @@ Object.assign(Quests, {
     return !!this._ss(save).dismissed && !this.starterAllDone(save);
   },
 
-  // Mark the whole ladder finished without walking it — used to keep the chip
+  // Mark the whole ladder finished without walking it — used to keep the Spirit
   // off the screen of a save that predates the starter chain, and by the
   // sandbox, where the player is plainly not a beginner.
   starterSkipAll(save) {
@@ -273,7 +271,7 @@ Object.assign(Quests, {
   },
 
   // Fire a gameplay event at the starter ladder. Returns the step it just
-  // completed (so the caller can show its reward), or null when the event
+  // completed (so the Spirit can acknowledge it), or null when the event
   // isn't what the current step is waiting for.
   onStarterEvent(save, event) {
     if (this.starterAllDone(save)) return null;

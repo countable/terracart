@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=ca2b5955" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=357f3f50" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -578,64 +578,49 @@
       content: ''; position: absolute; inset: 0 0 50% 0; border-radius: 2px 2px 0 0;
       background: linear-gradient(180deg, #ffffff88, #ffffff11);
     }
-    /* Objective chip — the first-session guidance ladder (quests.js
-       STARTER_CHAIN). Sits just under the top HUD row and names the ONE thing
-       the player should do next; it retires itself when the ladder finishes or
-       the player taps ×. The container is pointer-events:none so it never eats
-       a world tap — only the × re-enables them. */
+    /* The Spirit teaches on the map; only dismiss intercepts world taps. */
     #objective {
-      position: fixed;
-      top: calc(56px + env(safe-area-inset-top, 0px));
-      left:  calc(var(--phone-left,  0px) + 10px);
-      right: calc(var(--phone-right, 0px) + 10px);
-      background: var(--chrome-scuff), var(--chrome-panel);
-      border: 2px solid var(--chrome-rim); border-radius: 8px;
-      padding: 6px 8px; z-index: 6;
-      pointer-events: none;
-      font-family: var(--font-ui);
-      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
-      -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+      position:fixed;top:calc(72px + env(safe-area-inset-top,0px));
+      left:calc(var(--phone-left,0px) + 32px);right:calc(var(--phone-right,0px) + 32px);
+      z-index:9;pointer-events:none;font-family:var(--font-ui);
+      padding-left:54px;min-height:64px;
     }
-    #objective .row { display: flex; align-items: center; gap: 6px; }
-    /* The step number is the one MINTED thing on the chip — a struck tag,
-       lit from the top like everything else raised. Green, not gold: the
-       tutorial's elements (this chip's accents, the step-complete toast, the
-       guidance arrow on the map) all wear --green so the ladder reads as one
-       system, distinct from the gold money/highlight language. Rest state is
-       the dimmer pair; .done below lights it, same rest→lit rule as the
-       chrome's gold controls. */
-    #objective .step {
-      color: #1a1612;
-      background: linear-gradient(180deg, var(--green), #6fbf7d);
-      border-radius: 4px; padding: 1px 5px;
-      font: 700 10px var(--font-ui); flex: none;
-      box-shadow: inset 0 -1px 0 #0006, 0 1px 2px #0008;
+    #objective .tutorial-spirit {
+      position:absolute;left:-4px;top:5px;width:60px;height:76px;
+      object-fit:contain;image-rendering:pixelated;
+      filter:drop-shadow(0 2px 2px #10251bcc) drop-shadow(0 0 5px #dbeab84d);
+      animation:tutorial-spirit-float 3.6s ease-in-out infinite;
     }
-    #objective .title {
-      color: var(--bone); font: 700 13px var(--font-ui);
-      flex: 1; min-width: 0; text-shadow: 0 1px 0 #000;
+    #objective .tutorial-bubble {
+      position:relative;padding:9px 12px 11px;border:1px solid #bfc9ae;
+      border-radius:15px;background:linear-gradient(150deg,#edf0df,#d6dec9);
+      color:#26382d;box-shadow:0 2px 5px #06120d66,inset 0 1px #ffffed;
     }
-    /* 13×15px was a stray-thumb away from ending the onboarding ladder for a
-       save permanently. Same glyph, a 44×44 target around it (padding, and a
-       negative margin so the chip doesn't grow to fit). */
+    #objective .tutorial-bubble::before {
+      content:'';position:absolute;left:-8px;top:30px;width:13px;height:13px;
+      background:#e6ebd8;border-left:1px solid #bfc9ae;border-bottom:1px solid #bfc9ae;
+      transform:rotate(45deg);
+    }
+    #objective .row {display:flex;align-items:center;gap:7px;padding-right:22px;}
+    #objective .speaker {font:700 10px/1.2 var(--font-ui);color:#58694b;}
+    #objective .step {font:600 9px/1.2 var(--font-ui);color:#647254;white-space:nowrap;}
+    #objective .title {display:none;}
+    #objective .body {position:relative;margin-top:5px;font:13px/1.35 var(--font-ui);}
     #objective .close {
-      pointer-events: auto; cursor: pointer; flex: none;
-      background: transparent; color: var(--green); border: 0;
-      font: 700 15px var(--font-ui); line-height: 1;
-      min-width: 44px; min-height: 44px; margin: -14px -10px -14px 0;
-      display: flex; align-items: center; justify-content: center;
+      position:absolute;right:0;top:-7px;min-width:44px;min-height:44px;
+      display:grid;place-items:center;pointer-events:auto;cursor:pointer;
+      border:0;background:none;color:#58694b;font:20px/1 var(--font-ui);
     }
-    #objective .body {
-      color: var(--dust); font: 11px/1.35 var(--font-ui); margin-top: 3px;
+    #objective .close:focus-visible {outline:2px solid #927024;outline-offset:-6px;border-radius:12px;}
+    #objective.done .tutorial-bubble {background:#e5efd7;border-color:#bbd59e;}
+    @keyframes tutorial-spirit-float {50% {transform:translateY(-4px);}}
+    @media (max-width:360px), (max-height:650px) {
+      #objective {left:calc(var(--phone-left,0px) + 22px);right:calc(var(--phone-right,0px) + 22px);padding-left:45px;}
+      #objective .tutorial-spirit {width:50px;height:64px;}
+      #objective .tutorial-bubble {padding:8px 10px 9px;}
+      #objective .body {font-size:12px;}
     }
-    /* Brief green flash when a step is completed, before the next one renders. */
-    #objective.done { border-color: var(--green); box-shadow:
-      var(--chrome-lip), var(--chrome-lift), var(--chrome-key),
-      0 0 12px rgba(167,255,176,0.35); }
-    #objective.done .title { color: var(--green); }
-    #objective.done .step {
-      background: linear-gradient(180deg, #d9ffdd, var(--green));
-    }
+    @media (prefers-reduced-motion:reduce) {#objective .tutorial-spirit {animation:none;}}
     #menu { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px));
             left: calc(var(--phone-left, 0px) + 8px); z-index: 8; }
     #menu summary {
@@ -1219,7 +1204,7 @@
     #howto button#howto-close[hidden] { display: none; }
   </style>
   <link rel="stylesheet" href="css/compass_shine.css?v=2196f9a5">
-  <link rel="stylesheet" href="css/compass_hud.css?v=36866479">
+  <link rel="stylesheet" href="css/compass_hud.css?v=82d155b2">
   <link rel="stylesheet" href="css/compass_inventory.css?v=5165fdcf">
   <link rel="stylesheet" href="css/compass_panels.css?v=c44424bf">
 </head>
@@ -1260,12 +1245,12 @@
     <div id="money" hidden><img class="coin-ico" src="assets/Icons/coin.png?v=2" alt=""><span id="money-num">0</span></div>
   </div>
   <div id="objective" style="display:none">
-    <div class="row">
-      <span class="step"></span>
-      <span class="title"></span>
-      <button type="button" class="close" id="objective-hide" aria-label="Hide objective">&times;</button>
+    <img class="tutorial-spirit" src="assets/portraits/dragon_spirit.png" alt="" aria-hidden="true">
+    <div class="tutorial-bubble">
+      <div class="row"><span class="speaker">Dragon Spirit</span><span class="step"></span><span class="title"></span></div>
+      <div class="body" role="status" aria-live="polite" aria-atomic="true"></div>
+      <button type="button" class="close" id="objective-hide" aria-label="Hide tutorial">&times;</button>
     </div>
-    <div class="body"></div>
   </div>
   <details id="menu">
     <summary>☰<span id="mode-badge" class="mode-badge" hidden></span></summary>
@@ -3036,7 +3021,7 @@
   <script src="src/rarity.js?v=3b10f893"></script>
   <script src="src/loot.js?v=6ea8fcd8"></script>
   <script src="src/macros.js?v=8ebeca54"></script>
-  <script src="src/quests.js?v=cb02f6fc"></script>
+  <script src="src/quests.js?v=4f3ff90f"></script>
   <script src="src/hidden_objects.js?v=4f521b76"></script>
   <script src="src/temple_puzzles.js?v=73f9ce8c"></script>
   <script src="src/temple_layout.js?v=1fd00fbe"></script>
@@ -3169,7 +3154,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=ca2b5955';
+      const APP_SRC = 'src/app.js?v=357f3f50';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

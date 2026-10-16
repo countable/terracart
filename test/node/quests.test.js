@@ -3,14 +3,15 @@
 
 // ── Starter chain: shape ────────────────────────────────────────────────────
 
-test('starter chain: every step has an event, title, body and reward', () => {
+test('starter chain: every step has guidance and acknowledgement without a money bonus', () => {
   assert.gt(STARTER_CHAIN.length, 0, 'chain is non-empty');
   for (const s of STARTER_CHAIN) {
     assert.truthy(s.id, 'id');
     assert.truthy(s.event, `${s.id} event`);
     assert.truthy(s.title, `${s.id} title`);
     assert.truthy(s.body, `${s.id} body`);
-    assert.gt(s.reward?.money ?? 0, 0, `${s.id} reward`);
+    assert.truthy(s.completion, `${s.id} spoken acknowledgement`);
+    assert.eq(s.reward?.money ?? 0, 0, `${s.id} grants no tutorial money`);
   }
 });
 
