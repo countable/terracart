@@ -3465,9 +3465,14 @@ function fadeLabelOverPlayer(tx, box) {
 // Upright props fade only while their visible art covers the player's body
 // and their shared world depth places them in front. Read the boot-time art
 // bounds, never texture pixels; untrimmed procedural art uses its frame box.
-Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha) {
+// On a turned heading-up map (`view`, from Render.headingFadeView) each body
+// stands upright at its turned feet, and lower turned feet draw in front, so
+// both the boxes and the front test follow the turned feet instead.
+Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha, view = null) {
   let obscures = false;
-  if (box && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && s.depth > playerDepth) {
+  const foot = view && (s._huAnchor || s);
+  const front = view ? view.sin * foot.x + view.cos * foot.y > view.playerKey : s.depth > playerDepth;
+  if (box && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && front) {
     const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
     const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
     const fw = art?.fw ?? s.frame?.realWidth ?? s.frame?.width ?? s.width;
@@ -3476,10 +3481,29 @@ Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, 
     const x1 = s.x + ((art?.maxX ?? fw) - s.originX * fw) * s.scaleX;
     const y0 = s.y + ((art?.minY ?? 0) - s.originY * fh) * s.scaleY;
     const y1 = s.y + ((art?.maxY ?? fh) - s.originY * fh) * s.scaleY;
-    obscures = x0 < box.x1 && x1 > box.x0 && y0 < box.y1 && y1 > box.y0;
+    // The art keeps its offsets from its feet; only the feet turn.
+    const ox = view ? view.cos * foot.x - view.sin * foot.y - foot.x : 0;
+    const oy = view ? view.sin * foot.x + view.cos * foot.y - foot.y : 0;
+    obscures = x0 + ox < box.x1 && x1 + ox > box.x0 && y0 + oy < box.y1 && y1 + oy > box.y0;
   }
   const alpha = baseAlpha * (obscures ? 0.5 : 1);
   if (s.alpha !== alpha) s.setAlpha(alpha);
+};
+
+// The turned-map inputs for fadeObjectOverPlayer: the rotation, the player's
+// turned feet key, and the player's body box moved to its turned feet. Null on
+// a north-up map. Rotating about the origin is enough: only differences
+// between turned feet matter, and every position turns the same way.
+Render.headingFadeView = function headingFadeView(scene, box) {
+  const a = typeof HeadingUp !== 'undefined' ? HeadingUp.angle(scene) : 0;
+  const feet = a && scene.playerScreen ? scene.playerScreen() : null;
+  if (!feet) return { view: null, box };
+  const sin = Math.sin(a), cos = Math.cos(a);
+  const ox = cos * feet.x - sin * feet.y - feet.x, oy = sin * feet.x + cos * feet.y - feet.y;
+  return {
+    view: { sin, cos, playerKey: sin * feet.x + cos * feet.y },
+    box: box && { x0: box.x0 + ox, x1: box.x1 + ox, y0: box.y0 + oy, y1: box.y1 + oy },
+  };
 };
 
 // QC labels read the generated selections, never choose another variant.
@@ -4346,6 +4370,9 @@ Render.drawObjects = function drawObjects(scene) {
     Render.renderPool(scene, scene.shadowPool, scene.shadowContainer, shadowList, (s, item) => {
       const { o, dx, dy } = item;
       const { x: sx, y: sy } = project(dx, dy);
+      // Heading-up turns a shadow about `_huAnchor`. A pooled slot must not
+      // keep the anchor of whatever it shadowed before.
+      s._huAnchor = null;
       if (item._plantShadow) {
         const shadow = item._plantShadow;
         seatShadow(s, 'plant', shadow.width, Math.round(sx), Math.round(sy) + shadow.dyPx, shadow.height);
@@ -4360,6 +4387,9 @@ Render.drawObjects = function drawObjects(scene) {
         const foot = item._foot;
         seatShadow(s, 'prop', Math.max(8, foot.w * 0.9), Math.round(sx),
           Math.round(sy + foot.footFromCentre - (foot.shadowInsetPx || 0)));
+        // Turn with the prop about its own ground anchor, so the tuck-up
+        // inset stays screen-up instead of swinging below the art.
+        s._huAnchor = Render.objectGroundAnchor(item._appearance, scene.textures, { x: sx, y: sy });
         return;
       }
       const shadow = Render.buildingShadow(item._appearance, scene.textures, { x: sx, y: sy });
@@ -4369,10 +4399,10 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
   // Turrets keep a separate reusable pool inside the shared world layer.
-  const bodyBox = playerScreenBox(scene);
+  const { box: bodyBox, view: fadeView } = Render.headingFadeView(scene, playerScreenBox(scene));
   const playerDepth = scene.playerWorldContainer?.depth ?? Infinity;
   const fadeObject = (s, appearance) => Render.fadeObjectOverPlayer(s, appearance,
-    bodyBox, playerDepth, s._objectBaseAlpha ?? 1);
+    bodyBox, playerDepth, s._objectBaseAlpha ?? 1, fadeView);
   const configureObject = (s, item) => {
     const { o, dx, dy } = item;
     const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);

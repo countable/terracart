@@ -18,6 +18,10 @@
 }
 /* Shade the exposed game behind the sheet and the body-level HUD above it. */
 .compass-panel { background-image: linear-gradient(#0008, #0008) !important; }
+/* Body-level readouts stop at the sheet edge instead of painting over its rail. */
+body.compass-hud.modal-open:has(.compass-panel) #hud-row {
+  clip-path: inset(-12px -12px calc(100% + var(--compass-hud-top, 8px) - var(--compass-panel-edge, 100vh)) -12px);
+}
 body.compass-hud.modal-open:has(.compass-panel)::after {
   content: ''; position: fixed; z-index: 9; pointer-events: none;
   top: 0; left: var(--phone-left, 0px); right: var(--phone-right, 0px);
@@ -37,6 +41,9 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   box-shadow: inset 4px 0 0 #424a48, inset -4px 0 0 #424a48,
     0 -5px 24px #0009, 0 -1px 0 #e1edf0;
   isolation: isolate;
+}
+.compass-panel[data-kind='story'] > .modal-box {
+  top: min(calc(var(--view-h, 844px) * .125), var(--story-panel-top, 100vh)) !important;
 }
 .compass-panel > .modal-box::before, #story.compass-story .box::before {
   content: '';
@@ -228,3 +235,29 @@ body.compass-hud #menu[open] > summary {
 @media(max-height:650px) {.opening-sealed {font-size:12px;}}
 /* A list reads from the top, not centred in the tall sheet. */
 .compass-panel[data-kind='menu'] .modal-content { margin-top: 0 !important; }
+
+/* Spoken copy is one chat bubble beneath the speaker. Titles and choices
+   remain outside it, and the shared body remains the only scroll region. */
+.compass-panel:is([data-kind='spirit'],[data-kind='talk']) .modal-content {
+  margin-top:8px!important;margin-bottom:auto!important;
+}
+.compass-panel .modal-speech {
+  position:relative;box-sizing:border-box;
+  margin:16px 2px 18px!important;padding:14px 16px;
+  border:1px solid #bfc5b7;border-radius:18px;
+  background:linear-gradient(145deg,#e0e3d8,#c8cebf);
+  color:#222a24;font-size:15px!important;line-height:1.5;
+  text-align:left;text-shadow:none;opacity:1!important;
+  overflow-wrap:anywhere;
+  box-shadow:inset 0 1px #f5f6ed,0 2px 5px #050a07a6;
+}
+.compass-panel .modal-speech::before {
+  content:'';position:absolute;top:-8px;left:calc(50% - 7px);
+  width:14px;height:14px;transform:rotate(45deg);
+  border-top:1px solid #bfc5b7;border-left:1px solid #bfc5b7;
+  background:#dce0d4;
+}
+.compass-panel .modal-speech em {color:#485347;}
+@media(max-width:360px) {
+  .compass-panel .modal-speech {padding:12px;font-size:14px!important;}
+}

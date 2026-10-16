@@ -1039,6 +1039,11 @@
       position: absolute; inset: 0; opacity: 0;
       animation: story-crossfade 1.2s ease-in-out 1.5s forwards;
     }
+    /* Keep the dragon heads and flames moving while the dream is open. */
+    #story.nightmare .story-frame-next {
+      animation-iteration-count: infinite;
+      animation-direction: alternate;
+    }
     @keyframes story-crossfade {
       from { opacity: 0; }
       to { opacity: 1; }
@@ -1214,9 +1219,9 @@
     #howto button#howto-close[hidden] { display: none; }
   </style>
   <link rel="stylesheet" href="css/compass_shine.css?v=2196f9a5">
-  <link rel="stylesheet" href="css/compass_hud.css?v=3143f55c">
+  <link rel="stylesheet" href="css/compass_hud.css?v=a4b4ce63">
   <link rel="stylesheet" href="css/compass_inventory.css?v=6a84fa90">
-  <link rel="stylesheet" href="css/compass_panels.css?v=730b00d3">
+  <link rel="stylesheet" href="css/compass_panels.css?v=8c8a4d91">
 </head>
 <!-- `booting` hides the money/energy row until the scene has a real balance to
      put in it; MapScene.updateHUD drops the class on the first paint. -->
@@ -3062,7 +3067,7 @@
   <script src="src/lighting_gpu.js?v=c2cf90df"></script>
   <script src="src/lighting.js?v=fa0da791"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=cac15241"></script>
+  <script src="src/render.js?v=596a7fec"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/multiplayer.js?v=a57c92a7"></script>
   <script src="src/road_overlay.js?v=d8ee1725"></script>
@@ -3074,8 +3079,8 @@
   <script src="src/sandbox.js?v=60d9c0d6"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=0a205c42"></script>
-  <script src="src/art_thumbs.js?v=980f45a4"></script>
-  <script src="src/modal_shell.js?v=063b1fd6"></script>
+  <script src="src/art_thumbs.js?v=19a4f216"></script>
+  <script src="src/modal_shell.js?v=4feec18d"></script>
   <script src="src/scene_geo.js?v=5440fa32"></script>
   <script src="src/npc.js?v=eb1e1862"></script>
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
