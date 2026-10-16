@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-2767ef39';
+const SHELL_VERSION = 'shell-2d8270e2';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -692,6 +692,7 @@ const ASSET_HASHES = {
   "assets/Objects/trunk.png": "77fdcb98",
   "assets/art/barehand_tree.webp": "43a9b645",
   "assets/art/barehand_work.webp": "0ce150a1",
+  "assets/art/book_page.webp": "7d3a2759",
   "assets/art/book_read.webp": "a63f3011",
   "assets/art/booth_apothecary_intro.webp": "52174659",
   "assets/art/booth_apothecary_used.webp": "6f3875fe",
@@ -778,6 +779,7 @@ const ASSET_HASHES = {
   "assets/art/revive_fall.webp": "dd0d9e1c",
   "assets/art/revive_found.webp": "b60fd32a",
   "assets/art/revive_wake.webp": "4d7765d7",
+  "assets/art/road_repair.webp": "73ddeb0d",
   "assets/art/safety_phone.webp": "8bd11d00",
   "assets/art/safety_welcome.webp": "abec3033",
   "assets/art/shiny_first.webp": "dfe262b9",
@@ -847,7 +849,7 @@ const ASSET_HASHES = {
   "assets/art/underground_sm_road_passage.webp": "ad391ba5",
   "assets/art/underground_spring_cave.webp": "dcffdfb0",
   "assets/art/underground_warren_run.webp": "91fdf52a",
-  "assets/art/visit_bike.webp": "3caf14ae",
+  "assets/art/visit_bike.webp": "5197dffc",
   "assets/art/visit_gold.webp": "837def87",
   "assets/art/visit_hive.webp": "606baf3a",
   "assets/art/visit_wagon.webp": "8b5fb551",

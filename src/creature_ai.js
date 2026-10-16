@@ -859,7 +859,9 @@ function fireWardTrip(scene, c) {
   const fires = scene.save && scene.save.fires;
   if (!fires || !fires.length) return null;
   let best = null, bestD2 = (FIRE_REST_R * scene.cellM) * (FIRE_REST_R * scene.cellM);
+  const now = Date.now();
   for (const f of fires) {
+    if (!Campfires.active(f, now)) continue;
     if (!PlacedFloor.onDepth(f, scene.depth ?? 0)) continue;
     const dx = c.x - f.x, dy = c.y - f.y, d2 = dx * dx + dy * dy;
     if (d2 <= bestD2) { best = f; bestD2 = d2; }

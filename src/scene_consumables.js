@@ -291,7 +291,9 @@ class SceneConsumables {
   readBook() {
     if (!this._selectedConsumable('book')) return false;
     const { title, body } = this._bookRead();
-    return this._finishConsumable(title, body);
+    this._consumeSelected();
+    this.showMessageModal({ title, body, bookPage: true });
+    return true;
   }
 
   // The auto-read fired by addToInv on pickup — framed as involuntary
@@ -310,9 +312,7 @@ class SceneConsumables {
     this.showMessageModal({
       title: read.title.replace(/^📖\s*/, ''),
       body: read.body,
-      // A book read by firelight — the picture of the places of learning the
-      // Book comes from, survivors sharing what they know.
-      art: 'book_read',
+      bookPage: true,
       onDismiss,
     });
   }
@@ -1353,7 +1353,7 @@ class SceneConsumables {
   //   'forge'    → blacksmith forge offer
   // Anything held over a campfire that the fire can't MAKE something of
   // (items.js CAMPFIRE_MAKES) is burned — one of it, after this confirm.
-  // Tapped from interact.js 'fire-held' with the fire's world point. The
+  // Tapped from interact.js 'fire-held' with the saved fire row. The
   // accept re-checks the hand: the selection can change while the dialog is
   // up, and only what is still held goes in. What the fire does with it is
   // items.js fireBurnOutcome: ash, a potion TRANSMUTED, or a potion that
@@ -1379,6 +1379,8 @@ class SceneConsumables {
       acceptLabel: 'Burn',
       cancelLabel: 'Keep',
       onAccept: () => {
+        // A fire can burn out while its confirmation is open.
+        if (fire && (!this.save.fires?.includes(fire) || !Campfires.active(fire))) return;
         const sel = getSelectedSlot(this.save);
         if (!sel || sel.id !== id || Inventory.ownedCount(this.save, id) < 1) return;
         consumeSelected(this.save);

@@ -65,13 +65,13 @@ const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';
 // The line under a road prize's card: who gave it, in one sentence. Shared by
 // the single-reward ceremony and the card the pick opens for the kept gift.
 const TRAIL_PRIZE_THANKS = 'Your neighbours thank you for repairing the road and hand you a gift.';
-// The first repaired stretch introduces the neighbours who leave gifts.
-const TRAIL_INTRO_TITLE = 'The survivors are watching';
+// The first repaired stretch introduces the work; neighbours arrive with the first prize.
+const TRAIL_INTRO_TITLE = 'You Start Fixing The Roads';
 // The tail of both "Without a tool" stories (_barehandWorkStory): the joke
 // that carries the hint — a tool would be the easier way.
 const BAREHAND_STORY_ASIDE = ' (but to be honest tools would be much less tiring!)';
 const trailIntroBody = (playerClass) =>
-  'You clear the rubble from the road. A survivor watches from a doorway, then brings you a gift.';
+  'They are the arteries of civilization.';
 // …but not on the same beat as the repair. The first stretch to come back
 // under a new player is a flash, a scatter of chips and a counter on the
 // street itself, and a dialog opening over the top of that covers the very
@@ -82,7 +82,7 @@ const trailIntroBody = (playerClass) =>
 // enough to still read as part of it.
 const TRAIL_INTRO_DELAY_MS = 2000;
 // …and not on the FIRST stretch either. One reach of street coming back is a
-// single flash; a greeting that says "you clear the rubble from the road"
+// single flash; a panel that says "You Start Fixing The Roads"
 // over that one moment lands before the player has seen the repair as a
 // thing they are doing. So the greeting waits until this much road is truly
 // restored (Trail.restoredMetres — the road chip's own number, so the dialog
@@ -90,8 +90,8 @@ const TRAIL_INTRO_DELAY_MS = 2000;
 // cells, 35 m, under the player's own feet) and a couple more cells along
 // it, so the second flash is already in the player's eye — and still well
 // short of the first prize (Trail.goalFor(0, …), 200 m or a runner's 100 m):
-// the greeting is what introduces the neighbours who leave gifts, so it must
-// land before the first gift does (trail.test.js pins both bounds). Tuned by
+// the repair introduction must land before neighbours bring the first gift
+// (trail.test.js pins both bounds). Tuned by
 // feel (owner, Oct 2026): 60 m read as too long a wait, 40 m as too soon;
 // it is not a milestone, only a beat past the first stretch.
 const TRAIL_INTRO_MIN_M = 50;
@@ -1789,30 +1789,11 @@ class MapScene extends Phaser.Scene {
   // and how much this save's armor allows.
   showEnergyHelp() {
     const cur = Math.floor(this.save.energy ?? 0), max = this.getMaxEnergy();
-    const { wrap, box, mount, mkBtn } = this.makeModalShell('energy-help',
-      { textAlign: 'left', onClose: () => {}, kind: 'energy' });
-    const h = document.createElement('div');
-    h.style.cssText = 'font:700 14px var(--font-ui);color:var(--green);'
-      + 'margin-bottom:8px;text-align:center;';
-    h.textContent = `${cur} / ${max}`;   // the kind header already says ENERGY
-    box.appendChild(h);
-    const body = document.createElement('div');
-    body.style.cssText = 'font:12px/1.5 var(--font-ui);color:#ddd;';
-    body.innerHTML =
-      'Energy pays for tilling, chopping, mining and walking off the GPS.<br><br>'
-      + '• <b>Eat</b> — select any food in the bag and use the Eat button.<br>'
-      + '• <b>Rest</b> — it refills slowly on its own over time.<br>'
-      + '• <b>Taste</b> — every new food eaten for the first time raises the '
-      + 'cap by one, for good (currently ' + max + ').<br><br>'
-      + 'Armour does not lengthen this bar — it soaks the damage attacks take '
-      + 'off it.';
-    box.appendChild(body);
-    const close = mkBtn('Got it');
-    close.style.marginTop = '12px';
-    close.style.width = '100%';
-    close.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
-    box.appendChild(close);
-    mount();
+    this.showMessageModal({ kind: 'spirit', title: `Energy · ${cur} / ${max}`, okLabel: 'Got it',
+      source: document.getElementById('energy'),
+      body: 'Work and spirit walking use energy. Eat or rest to refill it. '
+        + 'Each new food you taste permanently adds 1 to your maximum. '
+        + 'Armour reduces energy lost to attacks.' });
   }
 
   // `reason` is the failure as the tile path reported it ("HTTP 504",
@@ -3469,7 +3450,7 @@ class MapScene extends Phaser.Scene {
     // top. Locking the map restores the caret; desktop keeps its fallback.
     const facing = this.facing;
     const fmag = Math.hypot(facing.x, facing.y);
-    if (!(HeadingUp.active(this) && this._deviceCompass && !this._compassDirectionLocked) && fmag > 0.001) {
+    if (!(HeadingUp.active(this) && this._deviceCompass && !HeadingUp.directionLocked(this)) && fmag > 0.001) {
       const fx = facing.x / fmag, fy = facing.y / fmag;
       // (along, across) on the ground → screen, y foreshortened.
       const ground = (u, v) => ({
@@ -5850,26 +5831,35 @@ class MapScene extends Phaser.Scene {
       const lock = document.createElement('button');
       lock.type = 'button';
       lock.className = 'direction-lock';
-      const syncLock = () => {
-        const locked = !!this._compassDirectionLocked;
+      let lastLockState;
+      const syncLock = this._syncCompassLock = () => {
+        const locked = HeadingUp.directionLocked(this);
+        const noGps = !HeadingUp.hasGps(this);
+        const pending = !!this._compassGpsRequest;
+        const state = `${locked}:${noGps}:${pending}`;
+        if (state === lastLockState) return;
+        lastLockState = state;
         lock.setAttribute('aria-pressed', String(locked));
-        lock.setAttribute('aria-label', locked ? 'Unlock compass direction' : 'Lock compass direction');
+        lock.setAttribute('aria-label', noGps ? (pending ? 'Detecting GPS — compass locked' : 'Detect GPS to unlock compass direction') : locked ? 'Unlock compass direction' : 'Lock compass direction');
+        lock.setAttribute('aria-busy', String(pending));
         lock.title = lock.getAttribute('aria-label');
         const shackle = locked ? 'M8 10V6a4 4 0 0 1 8 0v4' : 'M8 10V6a4 4 0 0 1 7-2.6';
         lock.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="${shackle}"/><path d="M12 14v3"/></svg>`;
       };
       lock.addEventListener('click', e => {
         e.stopPropagation();
-        this._compassDirectionLocked = !this._compassDirectionLocked;
-        this._huTurning = false;
-        syncLock();
+        HeadingUp.toggleLock(this);
       });
       syncLock();
       control.appendChild(lock);
     }
     // CSS-pixel chassis controls live outside Phaser's scaled game wrapper.
     document.body.appendChild(control);
-    this.events.once('shutdown', () => control.remove());
+    this.events.once('shutdown', () => {
+      HeadingUp.cancelGpsRequest(this);
+      this._syncCompassLock = null;
+      control.remove();
+    });
   }
 
   // --- Pinch zoom (PINCH_VIEW_CELLS) ---
@@ -7913,7 +7903,9 @@ class MapScene extends Phaser.Scene {
     const list = this.save[listKey];
     if (!list || !list.length) return false;
     const r2 = (cells * this.cellM) * (cells * this.cellM);
+    const now = Date.now();
     for (const e of list) {
+      if (listKey === 'fires' && !Campfires.active(e, now)) continue;
       // Wards (scarecrows / fires) only repel on their own level — the world is
       // GPS-mirrored across depths, so a surface ward must not reach a cave
       // creature at the same (x, y). See src/placed_floor.js.
@@ -8861,7 +8853,12 @@ class MapScene extends Phaser.Scene {
     const toGoM = Math.max(0, Math.ceil(p.target - p.pos));   // metres, not a countdown
     const st = this.save?.trail || { metres: 0, prizes: 0 };
     const doneM = Trail.restoredMetres(st, this.save?.playerClass);
-    this.flash(`${toGoM}m to go · ${Trail.distanceLabel(doneM)} fixed`, this.viewCenterX, 60);
+    this.showMessageModal({ kind: 'spirit', title: 'Distance', okLabel: 'Got it',
+      source: document.getElementById('roadchip'),
+      body: `${Trail.distanceLabel(doneM)} of roads restored. ${toGoM}m to your next treasure.\n\n`
+        + 'Walking along damaged roads repairs them and earns treasure. '
+        + 'This counter records newly restored distance, not every step. '
+        + 'Scenic paths boost treasure progress without inflating the distance.' });
   }
 
   // ── The books chip ────────────────────────────────────────────────────
@@ -8906,7 +8903,7 @@ class MapScene extends Phaser.Scene {
 
   // THE SHELF OF PAGES READ: every page of the course this save has turned,
   // newest last, each a row that opens the page again (the same panel the
-  // read showed — bookPageHTML on the book painting, no title line) and
+  // read showed — bookPageHTML on the parchment page, no title line) and
   // comes back to the list when that is tapped away. Rereading moves no
   // bookmark: save.tipsRead is the course's, not the shelf's.
   _showBooksRead() {
@@ -8930,7 +8927,7 @@ class MapScene extends Phaser.Scene {
       b.addEventListener('click', (e) => {
         e.stopPropagation();
         wrap.remove();
-        this.showMessageModal({ title: '', body: bookPageHTML(page), art: 'book_read',
+        this.showMessageModal({ title: '', body: bookPageHTML(page), bookPage: true, okLabel: 'Back to books',
           onDismiss: () => this._showBooksRead() });
       });
       list.appendChild(b);
@@ -8961,7 +8958,7 @@ class MapScene extends Phaser.Scene {
     const key = typeof Wizard !== 'undefined' ? Wizard.playerClass(this.save) : null;
     const cls = key ? Wizard.CLASSES.find((c) => c.key === key) : null;
     this.showMessageModal({
-      kind: 'memory',
+      kind: 'spirit', source: document.getElementById('memories'),
       title: `${total} recovered · ${unspent} unspent`,
       body: MemoryStory.objective(this.save) || (cls ? `Your calling feels familiar: ${cls.icon} ${cls.name}. ${cls.blurb()}`
         : this._metWizard() ? 'The memories hum in your chest. At the Wizard Tower, someone knows how to answer.'
@@ -9147,35 +9144,14 @@ class MapScene extends Phaser.Scene {
     if (Quests.onEvent(this.save, event)) persistSave(this.save);
     const done = Quests.onStarterEvent(this.save, event);
     if (!done) return;
-    // Bank the step NOW — the money and the advanced ladder are earned whether
-    // or not the player ever looks at the celebration.
-    if (done.reward?.money) addMoney(this.save, done.reward.money);
+    // Tutorial progress is guidance, not an extra source of coins.
     persistSave(this.save);
     this.buildInventoryDOM();
     this._celebrateStarterStep(done);
   }
 
-  // Say that a starter step just completed: a green toast at the view centre
-  // and a 1400 ms hold on the objective chip.
-  //
-  // Always QUEUED, never played inline, because the first step of the ladder —
-  // the one EVERY player completes first — fires from inside the chest
-  // handler, one line before it opens the reward modal. Both halves of the
-  // celebration then played underneath that card: the toast clipped to a
-  // sliver at the modal's top edge, and the chip hold (which body.modal-open
-  // hides outright) expiring before the player had tapped through. They came
-  // back to a chip reading 2/6 with nothing having acknowledged step 1.
-  //
-  // Testing "is a modal open?" right here does NOT work and was the first
-  // attempt: at that moment the reward modal has not been created and
-  // body.modal-open still says no. So the decision waits a frame, for
-  // _installModalPadGate's sync to have looked at the real DOM — that sync
-  // owns the flush. With no dialog in the way the delay is one frame, which
-  // is not perceptible; with one, the cheer waits for it to close.
-  //
-  // Gated on ANY modal rather than on the chest path specifically, so
-  // restoring a wreck (its own ceremony) and any future step that completes
-  // behind a dialog get the same treatment without their call sites knowing.
+  // Queue the Spirit's acknowledgement behind any loot or restoration dialog.
+  // The same on-map bubble then advances to the next instruction.
   _celebrateStarterStep(done) {
     this._enqueueCeremony('cheer', (finish) => {
       // Only the LAST one gets the full ceremony: two cheers racing for the
@@ -9184,12 +9160,8 @@ class MapScene extends Phaser.Scene {
       // The rest are already banked; the chip resync at the end of the play
       // shows where the ladder actually stands.
       if (this._pendingStarterCheers.length) return false;
-      // Own try/catch: the drain also runs from _installModalPadGate's
-      // MutationObserver callback, outside update()'s guard — a throw
-      // escaping from a microtask there is uncatchable by the game loop.
-      const quiet = !!this._starterCheerBehindDialog;
       this._starterCheerBehindDialog = false;
-      try { this._playStarterCheer(done, { quiet }); }
+      try { this._playStarterCheer(done); }
       catch (e) { this._reportLoopError?.(e); }
       finish();   // a toast and a chip hold, not a dialog: the queue moves on
       return true;
@@ -9200,10 +9172,9 @@ class MapScene extends Phaser.Scene {
   get _pendingStarterCheers() { return (this._ceremonies || []).filter((c) => c.kind === 'cheer'); }
   _flushStarterCheers() { this._drainCeremonies(); }
 
-  // `quiet`: the step completed behind a dialog, which was the notice — the
-  // chip still holds the green ✓, but no toast repeats it.
-  _playStarterCheer(done, { quiet = false } = {}) {
-    if (!quiet) this.flashLoot(`✅ ${done.title}${done.reward?.money ? ` +${done.reward.money}` : ''}`, UI_GREEN, 1.3);
+  // Acknowledge completion where the Spirit was already speaking.
+  _playStarterCheer(done) {
+    // The Spirit acknowledges progress in the same bubble, without a second toast.
     // Hold the COMPLETED step on screen in green for a beat before swapping in
     // the next one, so finishing something is legible instead of an instant
     // relabel. The held text is written from `done` rather than left as
@@ -9215,9 +9186,7 @@ class MapScene extends Phaser.Scene {
     el.classList.add('done');
     el.querySelector('.step').textContent  = '✓';
     el.querySelector('.title').textContent = done.title;
-    el.querySelector('.body').textContent  = done.reward?.money
-      ? `Done — ${done.reward.money} coins earned.`
-      : 'Done.';
+    el.querySelector('.body').textContent = done.completion || 'Well done. Let’s keep going.';
     if (this._objectiveTimer) clearTimeout(this._objectiveTimer);
     this._objectiveTimer = setTimeout(() => {
       el.classList.remove('done');

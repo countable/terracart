@@ -54,7 +54,7 @@ test('scene art: kinds use paintings or character portraits', () => {
 });
 
 test('scene art: a message with a painting is a STORY', () => {
-  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, portrait, kind = art \? 'story' : 'note', kindLabel, mustAcknowledge = false \}\)/.test(shell),
+  assert.truthy(/showMessageModal\(\{[^}]*kind = art \? 'story' : 'note'[^}]*\}\)/.test(shell),
     'art makes it a story; a plain message stays a note');
 });
 
