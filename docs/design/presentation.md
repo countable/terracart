@@ -9,6 +9,8 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Reward acknowledgments and safety reminders use an explicit OK button;
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
   and confirmations use the NPC portrait layout with the spirit artwork.
+  Dragon Spirit and NPC spoken copy appears in a pale chat bubble beneath the
+  portrait; speaker titles and response choices stay outside the bubble.
   The first earned green coin opens its own `coin_first` scene painting before
   revealing the money readout; its raised star matches the compact currency icon.
 
@@ -30,7 +32,9 @@ changing dialogue, story panels, books, toasts or status presentation.
 - The four opening panes show the compass discovery, dragon-war dream,
   trailer awakening, then the ruined street. Each has two aligned paintings:
   hold the first for 1.5 seconds, crossfade once over 1.2 seconds, and keep
-  the second frame. Discovery and the dream are borderless fullscreen panels.
+  the second frame. The dragon dream instead keeps alternating between its
+  two paintings while open, so the heads and flames continue moving after
+  the camera push ends. Discovery and the dream are borderless fullscreen panels.
   Awakening begins “You check the compass.” and uses the living-silver compass
   story sheet, as does the ruined street and subsequent narrative. Paintings
   remain uncropped with readable copy below. The dream retains its eight-second camera push and

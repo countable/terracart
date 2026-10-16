@@ -1044,6 +1044,11 @@
       position: absolute; inset: 0; opacity: 0;
       animation: story-crossfade 1.2s ease-in-out 1.5s forwards;
     }
+    /* Keep the dragon heads and flames moving while the dream is open. */
+    #story.nightmare .story-frame-next {
+      animation-iteration-count: infinite;
+      animation-direction: alternate;
+    }
     @keyframes story-crossfade {
       from { opacity: 0; }
       to { opacity: 1; }
@@ -1229,9 +1234,9 @@
     #howto button#howto-close[hidden] { display: none; }
   </style>
   <link rel="stylesheet" href="css/compass_shine.css?v=2196f9a5">
-  <link rel="stylesheet" href="css/compass_hud.css?v=78408560">
+  <link rel="stylesheet" href="css/compass_hud.css?v=da646081">
   <link rel="stylesheet" href="css/compass_inventory.css?v=b2babd71">
-  <link rel="stylesheet" href="css/compass_panels.css?v=d214ab07">
+  <link rel="stylesheet" href="css/compass_panels.css?v=4750586a">
 </head>
 <!-- `booting` hides the money/energy row until the scene has a real balance to
      put in it; MapScene.updateHUD drops the class on the first paint. -->
@@ -3103,8 +3108,8 @@
   <script src="src/sandbox.js?v=60d9c0d6"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=0a205c42"></script>
-  <script src="src/art_thumbs.js?v=980f45a4"></script>
-  <script src="src/modal_shell.js?v=bcd655df"></script>
+  <script src="src/art_thumbs.js?v=19a4f216"></script>
+  <script src="src/modal_shell.js?v=9cc03d68"></script>
   <script src="src/scene_geo.js?v=5440fa32"></script>
   <script src="src/npc.js?v=eb1e1862"></script>
   <script src="src/scene_creatures.js?v=e2bd723e"></script>

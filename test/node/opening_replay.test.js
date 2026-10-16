@@ -84,7 +84,7 @@ test('opening: the FULL sequence is four slides, in order, each with its own art
   }
 });
 
-test('opening: all four frame pairs align, fade once and describe the image once', () => {
+test('opening: all four frame pairs align and describe the image once', () => {
   for (const stem of ['story_compass', 'story_nightmare', 'story_wake', 'story_wrecks']) {
     const first = webpDims(`assets/art/${stem}.webp`);
     const second = webpDims(`assets/art/${stem}_frame2.webp`);
@@ -95,9 +95,15 @@ test('opening: all four frame pairs align, fade once and describe the image once
   assert.eq((html.match(/class="story-frame-next"[^>]*alt="" aria-hidden="true"/g) || []).length, 4,
     'second frames do not repeat descriptions to screen readers');
   assert.truthy(html.includes('animation: story-crossfade 1.2s ease-in-out 1.5s forwards;'),
-    'each fresh frame pair waits 1.5 seconds and fades once, holding its final frame');
+    'ordinary frame pairs wait 1.5 seconds and fade once, holding their final frame');
   assert.truthy(/#story \.story-frame-next \{ animation: none; \}/.test(html),
     'reduced motion leaves the first frame still');
+});
+
+test('opening: dragon heads and flames alternate continuously while the dream is open', () => {
+  const rule = html.match(/#story\.nightmare \.story-frame-next\s*\{([^}]+)\}/)?.[1] || '';
+  assert.truthy(/animation-iteration-count:\s*infinite/.test(rule), 'movement continues beyond the camera push');
+  assert.truthy(/animation-direction:\s*alternate/.test(rule), 'the second painting fades back to the first');
 });
 
 test('opening: the story plays FIRST, and the safety CTA waits for its last slide', () => {

@@ -305,9 +305,9 @@ body.compass-hud #compass-knowledge-display > .compass-closed::after {content:at
 @media(max-height:650px) {body.compass-hud #compass-knowledge-display > .compass-closed::after {font-size:12px;}}
 
 /* Equal responsive gaps include the menu; the memory window takes spare width. */
-body.compass-hud {--compass-top-gap:clamp(8px,calc((var(--compass-map-size) - 320px) * .1 + 8px),18px);}
+body.compass-hud {--compass-hud-top:8px;--compass-top-gap:clamp(8px,calc((var(--compass-map-size) - 320px) * .1 + 8px),18px);}
 body.compass-hud #hud-row {
-  top:8px;left:calc(var(--phone-left,0px) + 8px + var(--compass-map-size) * .12 + var(--compass-top-gap));
+  top:var(--compass-hud-top);left:calc(var(--phone-left,0px) + 8px + var(--compass-map-size) * .12 + var(--compass-top-gap));
   right:calc(var(--phone-right,0px) + 8px);
   height:88px;display:grid;grid-template-columns:minmax(0,1fr) 84px 72px;
   grid-template-rows:72px 26px;column-gap:var(--compass-top-gap);row-gap:4px;align-items:center;
