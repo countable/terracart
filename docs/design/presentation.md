@@ -22,7 +22,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   contained in the band. The rim follows compass heading while all four
   letters counterrotate to stay upright. `assets/ui/compass/gold-rim.svg`
   owns the band and engravings; transparent `gold-fittings.png` sprites supply
-  the sculpted metal ornaments. Their 400-unit letter seats match the HUD CSS.
+  the sculpted metal ornaments at their native aspect ratios. The gold overlay
+  sits outside the silver chassis dimming and uses the controls' brightness,
+  with warmer saturation to match their gold. Its letter seats match the HUD CSS.
 
 - The four opening panes show the compass discovery, dragon-war dream,
   trailer awakening, then the ruined street. Each has two aligned paintings:

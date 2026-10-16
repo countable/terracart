@@ -19,6 +19,10 @@ const CompassHUD = {
     body.setAttribute('aria-hidden', 'true');
     body.innerHTML = '<div class="compass-aperture"></div><div class="compass-header"></div><div class="compass-footer"></div><div class="compass-upper-join"></div><div class="compass-lower-join"></div><div class="compass-bearing"><img class="compass-rim-art" src="assets/ui/compass/gold-rim.svg" alt="" draggable="false"><i class="compass-bead compass-bead-ne"></i><i class="compass-bead compass-bead-se"></i><i class="compass-bead compass-bead-sw"></i><i class="compass-bead compass-bead-nw"></i><span class="compass-north"><b>N</b></span><span class="compass-east"><b>E</b></span><span class="compass-south"><b>S</b></span><span class="compass-west"><b>W</b></span></div>';
     document.body.append(body);
+    // Gold uses the controls' finish, outside the silver chassis dimming/fade.
+    const bearing = body.querySelector('.compass-bearing');
+    bearing.setAttribute('aria-hidden', 'true');
+    document.body.append(bearing);
     // The memory's pixel pickup has a pale outline. Its instrument uses a
     // clean faceted gold star, without altering the world pickup artwork.
     const memoryIcon = document.querySelector('#memories .mem-ico');
@@ -130,7 +134,7 @@ const CompassHUD = {
       }
       for (const elementId of Object.keys(this.modules)) document.getElementById(elementId)?.classList.remove('compass-closed');
       for (const id of new Set(Object.values(this.modules))) document.body.classList.remove(`compass-${id}-closed`);
-      body.remove(); inventory.remove(); dismissInventory.remove();
+      body.remove(); bearing.remove(); inventory.remove(); dismissInventory.remove();
       knowledge.replaceWith(...knowledge.children);
       document.body.classList.remove('compass-hud', 'compass-round', 'compass-inventory-dismissed');
       scene._compassHUD = false;

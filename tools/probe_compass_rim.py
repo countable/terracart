@@ -98,6 +98,21 @@ async def main(args):
                         map: map.toJSON(),
                         beads: document.querySelectorAll('.compass-bead').length,
                         rasterArt,
+                        bearingOnBody: document.querySelector('.compass-bearing').parentElement === document.body,
+                        bearingFilter: getComputedStyle(document.querySelector('.compass-bearing')).filter,
+                        menuFilter: getComputedStyle(document.querySelector('#menu summary')).filter,
+                        cropRatios: [
+                            ['.compass-north', '::before', 1208 / 420],
+                            ['.compass-east', '::before', 532 / 265],
+                            ['.compass-south', '::before', 532 / 265],
+                            ['.compass-west', '::before', 532 / 265],
+                            ['.compass-bead', null, 214 / 212]
+                        ].map(([selector, pseudo, expected]) => {
+                            const style = getComputedStyle(document.querySelector(selector), pseudo);
+                            const parts = style.aspectRatio.split('/').map(Number);
+                            return {selector, expected, declared: parts[0] / parts[1],
+                                actual: parseFloat(style.width) / parseFloat(style.height)};
+                        }),
                         engravings: xml.querySelectorAll('.rim-engraving').length,
                         mapTarget: document.elementFromPoint(
                             map.x + map.width / 2, map.y + map.height / 2
@@ -111,6 +126,12 @@ async def main(args):
                 assert ''.join(letter['text'] for letter in result['letters']) == 'NESW', result
                 assert all(abs(letter['netRotation']) < 1e-5 for letter in result['letters']), result
                 assert result['beads'] == 4 and result['engravings'] == 8, result
+                assert result['bearingOnBody'], result
+                assert 'brightness(0.85)' in result['bearingFilter'], result
+                assert 'brightness(0.85)' in result['menuFilter'], result
+                for crop in result['cropRatios']:
+                    assert abs(crop['declared'] - crop['expected']) < 1e-5, crop
+                    assert abs(crop['actual'] - crop['expected']) < 0.02, crop
                 assert result['rasterArt'], result
                 for art in result['rasterArt']:
                     assert art['url'].split('?')[0].endswith('.png'), art
@@ -124,7 +145,7 @@ async def main(args):
             if width == 390:
                 await page.set_viewport_size({'width': 430, 'height': 932})
                 await page.wait_for_function("""
-                    Math.abs(document.querySelector('.compass-aperture')
+                    Math.abs(document.querySelector('.compass-bearing')
                         .getBoundingClientRect().width - 430) < 1
                 """)
                 anchor = await page.evaluate("""() => {

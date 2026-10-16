@@ -48,6 +48,7 @@ body.modal-open #compass-inventory-shutter {pointer-events:none;}
 /* Modal shells live in the scaled game stacking context. Keep only the
    instrument header above them; the rising panel owns everything below. */
 body.modal-open #compass-body {clip-path:inset(0 0 calc(100% - var(--compass-map-top)) 0);}
+body.modal-open .compass-bearing {visibility:hidden;}
 body.modal-open #compass-inventory-shutter {display:none;}
 @media (max-height:650px) {
   body.compass-hud #hud-row {top:5px;height:64px;grid-template-columns:1fr 1fr 58px;grid-template-rows:29px 29px;gap:4px;}
@@ -329,29 +330,30 @@ body.compass-hud #compass-inventory-shutter {filter:brightness(.85);}
 /* Gold astrolabe inlay; artwork and letter seats share a 400-unit circle.
    Text counterrotates in CompassHUD.update, staying readable at any heading. */
 .compass-round .compass-aperture {border:0;outline:0;box-shadow:0 0 0 1px #302c24;}
-.compass-bearing {position:absolute;top:var(--compass-map-top);left:0;width:100%;height:var(--compass-map-size);pointer-events:none;filter:brightness(1.18);}
+.compass-bearing {position:fixed;z-index:5;top:var(--compass-map-top);left:var(--phone-left,0px);width:var(--compass-map-size);height:var(--compass-map-size);pointer-events:none;filter:brightness(.85) saturate(1.35);}
 body:not(.compass-round) .compass-bearing {display:none;}
 .compass-rim-art {display:block;width:100%;height:100%;overflow:visible;}
 .compass-bearing span {position:absolute;display:grid;place-items:center;width:5%;height:5%;padding:0;transform:translate(-50%,-50%);}
 .compass-bearing b {display:block;font:700 calc(var(--compass-map-size) * .024) / 1 Georgia,serif;color:#3e2b15;text-shadow:0 .65px .2px #f7e4b3;transform-origin:center;}
 .compass-bearing .compass-north {left:50%;top:3%;}
 .compass-bearing .compass-north b {font-size:calc(var(--compass-map-size) * .029);}
-.compass-bearing .compass-east {left:98.625%;top:50%;}
-.compass-bearing .compass-south {left:50%;top:98.625%;}
-.compass-bearing .compass-west {left:1.375%;top:50%;}
+.compass-bearing .compass-east {left:98%;top:50%;}
+.compass-bearing .compass-south {left:50%;top:98%;}
+.compass-bearing .compass-west {left:2%;top:50%;}
 
-/* Generated transparent PNG fittings; CSS selects atlas rectangles without
+/* Preserve each atlas rectangle's native aspect ratio; never stretch the metal.
+   Generated transparent PNG fittings; CSS selects atlas rectangles without
    resampling the master. Background coordinates are recorded in the art manifest. */
 .compass-bearing span::before,.compass-bead {
   content:'';position:absolute;background-image:url('../assets/ui/compass/gold-fittings.png');
   background-repeat:no-repeat;pointer-events:none;
 }
-.compass-bearing span::before {left:50%;top:50%;width:110%;height:55%;transform:translate(-50%,-50%);}
+.compass-bearing span::before {left:50%;top:50%;width:140%;height:auto;aspect-ratio:532 / 265;transform:translate(-50%,-50%);}
 .compass-bearing b {position:relative;z-index:1;}
-.compass-bearing .compass-north::before {width:360%;height:120%;}
+.compass-bearing .compass-north::before {width:330%;height:auto;aspect-ratio:1208 / 420;}
 .compass-bearing .compass-east::before {transform:translate(-50%,-50%) rotate(-90deg);}
 .compass-bearing .compass-west::before {transform:translate(-50%,-50%) rotate(90deg);}
-.compass-bead {width:1.4%;height:1.4%;transform:translate(-50%,-50%);}
+.compass-bead {width:1.4%;height:auto;aspect-ratio:214 / 212;transform:translate(-50%,-50%);}
 .compass-bead-ne {left:84.9134%;top:15.0866%;}
 .compass-bead-se {left:84.9134%;top:84.9134%;}
 .compass-bead-sw {left:15.0866%;top:84.9134%;}
