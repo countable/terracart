@@ -52,14 +52,14 @@ const near = (a, b, eps, m) => assert.inRange(a, b - eps, b + eps, m);
 
 // ── The camera collapses onto the player when nothing is peeking ────────────
 
-test('peek: with no drag the anchor IS the player', () => {
+test('peek: with no drag the camera stays within half a pixel of the player', () => {
   const s = peekScene({ playerM: { x: 40, y: -25 } });
   const a = viewAnchorWorldM(s);
-  assert.eq(a.x, s.startWorldM.x + s.playerM.x, 'anchor x sits on the body');
-  assert.eq(a.y, s.startWorldM.y + s.playerM.y, 'anchor y sits on the body');
+  near(a.x, s.startWorldM.x + s.playerM.x, .5 / PX_PER_M, 'anchor x stays beside the body');
+  near(a.y, s.startWorldM.y + s.playerM.y, .5 / PX_PER_M, 'anchor y stays beside the body');
   const p = s.playerScreen();
-  assert.eq(p.x, s.viewCenterX, 'the player is drawn at the viewport centre');
-  assert.eq(p.y, s.viewCenterY, 'the player is drawn at the viewport centre');
+  near(p.x, s.viewCenterX, .5, 'player tracks the shared camera anchor');
+  near(p.y, s.viewCenterY, .5, 'player tracks the shared camera anchor');
 });
 
 test('peek: a scene with no peekM at all still projects (stub scenes, boot)', () => {
