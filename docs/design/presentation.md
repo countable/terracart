@@ -228,8 +228,14 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Dialogs use `makeModalShell` with a kind, which supplies a default scene
   painting unless the caller supplies a character `portrait` or `art: false`.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
-  portrait, subject above, quiet copy zone below. The shell handles overflow
-  with its band layout. Painted headers use a label without emoji/`kindIcon`.
+  square, with a complete scene and no baked dark text area. Square paintings
+  fit intact in the upper half of the usable dialog body, with copy immediately
+  below in the lower half; image and content scroll together. Intrinsic aspect
+  metadata selects this layout before loading, and loaded image dimensions
+  confirm it. Existing tall paintings keep their quiet lower copy zone: short
+  text starts just below the measured detail line, including reward ceremonies,
+  instead of dropping to the foot of the sheet. Long legacy copy uses the shorter
+  band layout. Painted headers use a label without emoji/`kindIcon`.
   Popover artwork starts 44 pixels below the dragon rail, leaving a solid
   title band; its sides clear the trim by 18 pixels. Loading mosaics use the
   same inset. Framed opening stories without titles keep a 14-pixel rail gap.
@@ -238,7 +244,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   bottom border. Open sheets shade the exposed map and upper HUD with a dark
   mask beneath the panel; the mask does not intercept input.
   Shop/trade, story/event and conversation kinds carry distinct
-  silver rails; controls retain simple gold faces. Safe-area padding and
+  category headings; controls retain simple gold faces. Safe-area padding and
   scrolling keep actions reachable. Reduced motion skips the slide. The
   `spirit` kind is the Dragon Spirit voice used by dormant module controls.
 - The modal HUD gate also covers the isolated upper-temple scene. Its scene

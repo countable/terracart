@@ -27,7 +27,7 @@ Unrestored places use weathered materials, subdued colour, and signs of neglect.
 ## Player concealment and story illustrations
 
 - Never show the player's face or hair. Keep the brown hood raised and the face fully hidden by opaque shadow or a rear view, including in profile and torchlight. No visible eyes, facial skin or glowing eyes.
-- Story illustrations use grounded, natural figure proportions without oversized chibi heads. Preserve the subdued pixel treatment and the empty lower dialog area.
+- Story illustrations use grounded, natural figure proportions without oversized chibi heads. Preserve the subdued pixel treatment. New dialog scene paintings are square and use the whole frame; the interface places text in a separate lower content area. Existing tall paintings retain their dark copy zone until replaced.
 
 ## Spritesheet generation
 - Generate spritesheets as an 8 × 8 grid of sprites: eight columns and eight rows, for 64 frames. Design each frame in a 24 × 24 px pixel-art style, with deliberate pixel clusters, crisp edges and restrained detail.

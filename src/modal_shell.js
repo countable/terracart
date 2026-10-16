@@ -34,18 +34,13 @@
 // story growth constants still define scene-painting composition and the
 // fallback geometry before the stylesheet loads.
 const STORY_MODAL_GROW_PX = 96;
-// SCENE ART — the standard for a dialog with a painting (makeModalShell
-// `art`). The piece IS the box: generated tall and cut to the story box's own
-// shape (ART_FRAME_ASPECT, width:height), drawn full-bleed as its background.
-// Every piece is composed to one rule (tools/gen_story_art.js SCENE): the
-// subject and all the detail in the top ART_DETAIL_FRAC of the frame, and a
-// calm, low-detail QUIET ZONE below it. The copy is the dialog's CONTENT
-// REGION: anchored to the bottom, never taller than the quiet zone (it
-// scrolls inside it rather than climbing onto the subject), over a scrim
-// that darkens exactly the quiet zone — so text and subject cannot collide
-// whatever the dialog says.
+// Legacy tall paintings reserve their lower portion for copy. New square
+// paintings use a complete image above a separate content region. Both share
+// one scroller; short copy starts immediately after the image/detail spacer.
 const ART_FRAME_ASPECT = 352 / (352 + STORY_MODAL_GROW_PX);
 const ART_DETAIL_FRAC = 0.42;
+// Copy begins below the detail fade, inside the legacy painting's quiet zone.
+const ART_CONTENT_FRAC = 0.5;
 // THE BAND — the same painting for a TEXT-HEAVY dialog. When the copy will
 // not fit the quiet zone, the shell (mount()) shows only the painting's
 // subject line, rows ART_BAND_FROM..ART_DETAIL_FRAC (the sky above it is what
@@ -216,6 +211,9 @@ class SceneModals {
     // sits on the same ground throughout.
     const artLayer = art ? document.createElement('div') : null;
     const mosaicLayer = art ? document.createElement('div') : null;
+    const artAspect = typeof ART_ASPECTS !== 'undefined' ? ART_ASPECTS[art] : null;
+    let squareArt = Number.isFinite(artAspect) && Math.abs(artAspect - 1) < .05;
+    let layoutArt = () => {};
     let mosaicImg = null;   // the current cut (a data URL), or null for the bare tone
     const tone = (art && typeof ART_TONES !== 'undefined' && ART_TONES[art]) || '#1a1612';
     let scenePos = 'center, center top';
@@ -224,23 +222,24 @@ class SceneModals {
       el.style.backgroundImage = img
         ? `${sceneScrim}, url(${img})`
         : `${sceneScrim}, linear-gradient(${tone}, ${tone})`;
-      el.style.backgroundSize = '100% 100%, cover';
+      el.style.backgroundSize = squareArt ? '100% 100%, contain' : '100% 100%, cover';
       el.style.backgroundPosition = scenePos;
       el.style.backgroundRepeat = 'no-repeat';
       el.style.imageRendering = 'pixelated';
     };
     const paintScene = (band) => {
       const line = Math.round((band ? ART_BAND_FRAC : ART_DETAIL_FRAC) * 100);
-      sceneScrim =
+      sceneScrim = squareArt ? 'linear-gradient(transparent, transparent)' :
         `linear-gradient(to bottom, rgba(26,22,18,0) ${line - 8}%, rgba(26,22,18,.82) ${line + 6}%, #1a1612 ${line + 22}%)`;
-      scenePos = band
+      scenePos = squareArt ? 'center, center' : band
         ? `center, center ${-Math.round(ART_BAND_FROM * vSize / ART_FRAME_ASPECT)}px`
         : 'center, center top';
       paintLayer(mosaicLayer, mosaicImg);
       paintLayer(artLayer, sceneArtUrl(art));
       box.style.overflow = 'hidden';
       box.classList.add('modal-scene');
-      box.classList.toggle('modal-scene-band', !!band);
+      box.classList.toggle('modal-scene-band', !squareArt && !!band);
+      box.classList.toggle('modal-square-art', squareArt);
     };
     if (art) {
       for (const el of [mosaicLayer, artLayer]) {
@@ -251,9 +250,16 @@ class SceneModals {
       artLayer.className = 'modal-art';
       paintScene(false);
       const img = new Image();
+      const readShape = () => {
+        if (!img.naturalWidth || !img.naturalHeight) return;
+        squareArt = Math.abs(img.naturalWidth / img.naturalHeight - 1) < .05;
+        paintScene(false);
+        layoutArt();
+      };
       img.src = sceneArtUrl(art);
       if (img.complete) {
         artLayer.style.opacity = '1';
+        readShape();
       } else {
         artLayer.style.opacity = '0';
         artLayer.style.transition = 'opacity 420ms ease-out';
@@ -268,6 +274,7 @@ class SceneModals {
         }
         img.onload = () => {
           timers.forEach(clearTimeout);
+          readShape();
           mosaicLayer.classList.remove('modal-art-waiting');
           if (cuts) setCut(cuts[cuts.length - 1]);
           artLayer.style.opacity = '1';
@@ -353,9 +360,8 @@ class SceneModals {
       // ONE SCROLLER. The whole content area under the rail — header,
       // portrait, copy and buttons — is a single body that scrolls as one;
       // no dialog keeps a separately scrolling part. Inside it one content
-      // block rides auto margins: centred when short, flush to the top and
-      // scrolling when long (auto margins collapse on overflow, where
-      // centring would clip the top).
+      // block starts under its painting; unpainted dialogs remain centred
+      // when short and flow from the top when their content overflows.
       const body = document.createElement('div');
       body.className = 'modal-body';
       body.style.cssText =
@@ -368,13 +374,13 @@ class SceneModals {
         (art ? 'text-shadow:0 1px 2px #000;position:relative;z-index:1;' : '');
       // A scene dialog's copy starts below the painting's detail line: a
       // spacer holds that much of the scroller (sized once laid out, below),
-      // and the copy sits on the floor under it — or, `centerBody` (the chest
-      // ceremony), centred in what is left. Long copy scrolls up over the art.
+      // and copy starts there, including reward ceremonies. Square paintings
+      // occupy the upper half of the body without cropping or a text scrim.
       const spacer = art ? document.createElement('div') : null;
       if (spacer) { spacer.className = 'modal-art-spacer'; spacer.style.cssText = 'flex:0 0 auto;'; }
       const into = document.createElement('div');
       into.className = 'modal-content';
-      into.style.cssText = art && !centerBody ? 'margin-top:auto;flex:0 0 auto;' : 'margin:auto 0;flex:0 0 auto;';
+      into.style.cssText = art ? 'margin:0;flex:0 0 auto;' : 'margin:auto 0;flex:0 0 auto;';
       while (box.firstChild) into.appendChild(box.firstChild);
       // The kind header scrolls with everything else; a painting's is a chip
       // pinned on the art instead (placed in the box below).
@@ -422,15 +428,35 @@ class SceneModals {
       if (!document.body.classList.contains('modal-open')) wrap.classList.add('modal-anim');
       wrap.appendChild(box);
       (document.getElementById('game') || document.body).appendChild(wrap);
-      // Measured now it is laid out. TEXT-HEAVY → THE BAND: copy that would
-      // not fit under the detail line gets the band's shorter painting.
-      if (spacer) {
+      // Measured now it is laid out. TEXT-HEAVY → THE BAND only for the
+      // legacy tall compositions; square artwork always remains complete.
+      layoutArt = () => {
+        if (!spacer || !box.isConnected) return;
         const h = body.clientHeight;
-        spacer.style.height = `${Math.round(h * ART_DETAIL_FRAC)}px`;
+        if (squareArt) {
+          if (artLayer.parentNode !== spacer) spacer.append(mosaicLayer, artLayer);
+          spacer.style.position = 'relative';
+          spacer.style.height = `${Math.round(h * ART_CONTENT_FRAC)}px`;
+          return;
+        }
+        if (artLayer.parentNode === spacer) {
+          box.insertBefore(artLayer, body);
+          box.insertBefore(mosaicLayer, artLayer);
+        }
+        paintScene(false);
+        spacer.style.height = `${Math.round(h * ART_CONTENT_FRAC)}px`;
         if (body.scrollHeight > h + 1) {
           paintScene(true);
           spacer.style.height = `${Math.round(h * ART_BAND_FRAC)}px`;
         }
+      };
+      layoutArt();
+      if (spacer && typeof ResizeObserver !== 'undefined') {
+        const observer = new ResizeObserver(() => {
+          if (!box.isConnected) { observer.disconnect(); return; }
+          layoutArt();
+        });
+        observer.observe(body);
       }
     };
     // ONE button factory for every button a modal shows, in two VARIANTS:

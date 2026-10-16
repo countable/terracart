@@ -241,3 +241,11 @@ body.compass-hud #menu[open] > summary {
 @media(max-width:360px) {
   .compass-panel .modal-speech {padding:12px;font-size:14px!important;}
 }
+
+/* Square scene paintings are complete illustrations in the scroll flow.
+   The lower half is copy, not a dark region baked into the image. */
+.compass-panel .modal-square-art .modal-art,
+.compass-panel .modal-square-art .modal-art-mosaic {
+  inset: 0 0 14px !important;
+  mask-image: none;
+}
