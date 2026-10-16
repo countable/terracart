@@ -68,6 +68,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   Engravings retain their aspect ratio rather than stretching to viewport height.
   The modal gate publishes the final sheet edge in viewport pixels so silver
   shoulders remain visible above scaled sheets without covering their controls.
+  It clips the header readouts at that edge too; story sheets rise above the
+  coin indicator, using its measured position across phone and desktop scaling.
   Dismissible sheets expose a fixed close control using the same cancellation
   callback and input arming as their backdrop. Required acknowledgments omit
   it. The menu actuator remains visible and depressed while its sheet is open.
