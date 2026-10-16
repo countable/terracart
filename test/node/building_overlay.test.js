@@ -1176,7 +1176,7 @@ test('building overlay: polygon walls remain background and scroll independently
   const oldX = north.sprite.x;
   scene.playerM.x = 1;
   BuildingOverlay.draw(scene);
-  assert.eq(north.sprite.x, oldX - PX_PER_M, 'uprights follow subcell camera scrolling');
+  assert.eq(north.sprite.x, oldX - Math.round(PX_PER_M), 'uprights follow pixel-aligned camera scrolling');
   scene.depth = 1;
   BuildingOverlay.draw(scene);
   assert.eq(scene._buildingUprightPieces.length, 0, 'underground removes surface uprights');
@@ -1282,7 +1282,7 @@ test('building overlay: heading-up castle uses retained prisms without an atlas 
   const commits = scene.buildingGeomGfx.commits;
   scene.playerM.x = 1;
   BuildingOverlay.draw(scene);
-  assert.eq(group.gfx.x, -PX_PER_M, 'wall translation matches ground movement');
+  assert.eq(group.gfx.x, -Math.round(PX_PER_M), 'wall translation matches pixel-aligned ground movement');
   assert.eq(group.blocks[0], first, 'pan retains geometry');
   assert.eq(group.gfx.clears, clears, 'pan does not repaint wall command buffer');
   scene.mapRot = Math.PI / 3;
@@ -1336,7 +1336,7 @@ test('building overlay: heading-up house foundations follow the camera without r
     scene.playerM.x = 1;
     BuildingOverlay.draw(scene);
     WallPerspective.update(scene);
-    assert.eq(group.gfx.x, -PX_PER_M, 'foundation pans with floor');
+    assert.eq(group.gfx.x, -Math.round(PX_PER_M), 'foundation pans with pixel-aligned floor');
     assert.eq(group.gfx.clears, clears, 'fixed heading reuses commands');
     assert.eq(scene.buildingGeomGfx.commits, commits, 'heading never uploads floor canvas');
     assert.eq(log.pages.length, 0, 'no wall atlas');
