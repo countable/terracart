@@ -166,6 +166,8 @@ class SceneModals {
     // gate). Every modal goes through here, so one class covers them all.
     wrap.classList.add('game-modal');
     wrap.classList.add('compass-panel');
+    // A painted (story) panel rises to 7/8 of the screen (compass_panels.css).
+    if (story) wrap.classList.add('story-panel');
     // …and its KIND on the same node, so a rule about one category of dialog
     // (a foe's blow closes a shop — _closeShopOnHit) can find it.
     if (typeof kind === 'string') wrap.dataset.kind = kind;

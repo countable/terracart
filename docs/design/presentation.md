@@ -8,7 +8,9 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 - The compass header uses one compact row for menu, memories/books, distance,
   energy and money. The simulated-GPS control sits 20 CSS pixels above its
-  ordinary stick baseline.
+  ordinary stick baseline. HUD metal uses reduced brightness with a stronger
+  outer-edge fade; controls retain brighter text and icons. The fade excludes
+  the circular map aperture.
 
 - The four opening panes show the compass discovery, dragon-war dream,
   trailer awakening, then the ruined street. Each has two aligned paintings:

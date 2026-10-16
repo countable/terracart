@@ -177,7 +177,7 @@ body.compass-hud #move-pad {right:calc(var(--phone-right,0px) + 13 * var(--compa
 body.compass-hud #move-pad::before {inset:13%;opacity:1;background:radial-gradient(circle,#202722 50%,#303a32 65%,#9ca091 69%,#30372c 73%,transparent 75%);}
 body.compass-hud #move-pad .nub {width:44%;height:44%;left:28%;top:28%;background:radial-gradient(circle at 35% 26%,#fff5af,#ffd35a 35%,#d79618 72%,#a56709);border:3px ridge #f5d46c;}
 .compass-stick-directions {position:absolute;inset:14%;pointer-events:none;color:#f9d363;font:21px Georgia;text-shadow:0 2px 2px #2c2b1a;}
-.compass-stick-directions i {position:absolute;font-style:normal;line-height:1;}
+.compass-stick-directions i {position:absolute;font-style:normal;line-height:1;font-variant-emoji:text;}
 .compass-stick-directions i:nth-child(1) {top:0;left:calc(50% - 10px);}.compass-stick-directions i:nth-child(2) {right:0;top:calc(50% - 10px);}.compass-stick-directions i:nth-child(3) {bottom:0;left:calc(50% - 10px);}.compass-stick-directions i:nth-child(4) {left:0;top:calc(50% - 10px);}
 body.compass-hud #hud-row > .compass-closed {background:#8f938a url('../assets/ui/compass/shutter.webp') center/cover!important;}
 body.compass-hud .compass-closed::after {content:attr(data-compass-label);inset:18% 5%;border:2px ridge #d1d0c6;border-radius:14px;color:#20271e;background:linear-gradient(#c9ccc0,#f0eee2 43%,#a4a99d);text-shadow:0 1px #e7e6d7;font:bold calc(14 * var(--compass-unit)) Georgia;letter-spacing:-0.5px;box-shadow:0 0 0 2px #454e42;}
@@ -329,3 +329,22 @@ body.compass-hud #hud-row > #roadchip.compass-closed::after {font-size:10px;lett
 body.compass-hud #roadchip .road-num {font-size:16px;}
 body.compass-hud .compass-wheel-unit {flex-basis:22px;font-size:10px;}
 body.compass-hud #energy-label {font-size:9px!important;}
+
+/* Darker metal, with the outer chassis fading into its black surround. */
+body.compass-hud #compass-body {filter:brightness(.68);}
+body.compass-hud #compass-body::after {
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(90deg,#000c,transparent 12%,transparent 88%,#000c),
+    linear-gradient(#0009,transparent 14%,transparent 86%,#000c);
+}
+body.compass-round #compass-body::after {
+  mask-image:radial-gradient(circle calc(var(--compass-map-size) / 2) at 50% calc(var(--compass-map-top) + var(--compass-map-size) / 2),transparent calc(100% - 1px),#000 100%);
+}
+body.compass-hud #hud-row,
+body.compass-hud #menu summary,
+body.compass-hud #move-pad,
+body.compass-hud #gps-pad,
+body.compass-hud #inv-tabs,
+body.compass-hud #inv,
+body.compass-hud #inv-name,
+body.compass-hud #compass-inventory-shutter {filter:brightness(.85);}
