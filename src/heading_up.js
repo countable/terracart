@@ -345,6 +345,8 @@ const HeadingUp = {
   // art inside means the sprite was placed but the device did not draw it.
   HU_FLAT: typeof location !== 'undefined'
     && new URLSearchParams(location.search).get('huFlat') === '1',
+  SOLO_WORLD: typeof location !== 'undefined'
+    && new URLSearchParams(location.search).get('soloWorld') === '1',
   PROP_DEBUG: typeof location !== 'undefined'
     && new URLSearchParams(location.search).get('propDebug') === '1',
   _drawPropDebug(scene, a) {
@@ -355,6 +357,11 @@ const HeadingUp = {
       if (scene.uiCam) g.cameraFilter = scene.cameras.main.id;
     }
     g.clear();
+    // ?soloWorld=1 (device probe): draw the prop layer alone over black.
+    if (HeadingUp.SOLO_WORLD) {
+      const keep = new Set([scene.worldContainer, g, scene._huPropDebugText, ...(scene._huPropDebugTags || [])]);
+      for (const o of scene.children.list) if (!keep.has(o) && o.depth < 89 && o.visible) o.setVisible(false);
+    }
     let label = scene._huPropDebugText;
     if (!label) {
       label = scene._huPropDebugText = scene.add.text(scene.viewCenterX, scene.viewCenterY + scene.viewSize * 0.08, '', {
@@ -417,7 +424,7 @@ const HeadingUp = {
     for (let i = tags; i < pool.length; i++) pool[i].setVisible(false);
     const shadows = (scene.shadowPool || []).filter(s => s.visible).length;
     const pl = scene.playerWorldContainer ? wl.indexOf(scene.playerWorldContainer) : -1;
-    label.setText(`propDebug v8${HeadingUp.HU_FLAT ? ' flat' : ''}${HeadingUp.active(scene) ? '' : ' northUp'} · mt${scene.game.renderer?.maxTextures ?? '?'} mask${scene.worldContainer?.mask ? 1 : 0} light${scene.lightMap?.alpha ?? '?'} · ${scene.game.renderer?.type === 2 ? 'webgl' : 'canvas'}\n${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows} · player #${pl}/${wl.length} · peers ${peers}\nbad ${bad.length ? bad.join(', ') : 'none'}`);
+    label.setText(`propDebug v9${HeadingUp.SOLO_WORLD ? ' solo' : ''}${HeadingUp.HU_FLAT ? ' flat' : ''}${HeadingUp.active(scene) ? '' : ' northUp'} · mt${scene.game.renderer?.maxTextures ?? '?'} mask${scene.worldContainer?.mask ? 1 : 0} light${scene.lightMap?.alpha ?? '?'} · ${scene.game.renderer?.type === 2 ? 'webgl' : 'canvas'}\n${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows} · player #${pl}/${wl.length} · peers ${peers}\nbad ${bad.length ? bad.join(', ') : 'none'}`);
   },
 
   _postRender(scene) {
