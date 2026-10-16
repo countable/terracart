@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Review the shared square crop across story, event, shop and reward dialogs."""
+"""Review full-width square artwork tucked beneath dialog chrome."""
 import argparse
 import asyncio
 import json
@@ -33,16 +33,19 @@ async def probe(args):
                     await page.wait_for_timeout(600)
                     data=await page.locator('.game-modal .modal-box').evaluate("""e=>{
                       const body=e.querySelector('.modal-body'),spacer=e.querySelector('.modal-art-spacer'),copy=e.querySelector('.modal-content'),art=e.querySelector('.modal-art');
-                      const b=body.getBoundingClientRect(),s=spacer.getBoundingClientRect(),c=copy.getBoundingClientRect(),a=art.getBoundingClientRect(),style=getComputedStyle(art);
+                      const b=body.getBoundingClientRect(),s=spacer.getBoundingClientRect(),c=copy.getBoundingClientRect(),a=art.getBoundingClientRect(),style=getComputedStyle(art),box=e.getBoundingClientRect(),rail=getComputedStyle(e,'::before');
                       return {gap:c.top-s.bottom,bodyHeight:b.height,spacerHeight:s.height,imageWidth:a.width,imageHeight:a.height,
-                        contentTop:c.top,bodyTop:b.top,size:style.backgroundSize,position:style.backgroundPosition,
+                        contentTop:c.top,bodyTop:b.top,boxWidth:box.width,imageLeft:a.left-box.left,imageTop:a.top-box.top,railHeight:parseFloat(rail.height)*(box.width/e.offsetWidth),railZ:rail.zIndex,category:e.querySelector('.modal-kind')?.textContent||'',size:style.backgroundSize,position:style.backgroundPosition,
                         inSpacer:art.parentNode===spacer,overflow:body.scrollHeight>body.clientHeight};
                     }""")
                     assert abs(data['gap'])<2,data
                     assert data['inSpacer'] and data['size']=='cover' and data['position']=='50% 0%',data
                     assert abs(data['imageWidth']-data['imageHeight'])<1,data
                     assert data['imageHeight']<data['spacerHeight'],data
-                    assert abs(data['spacerHeight']/data['bodyHeight']-.5)<.02,data
+                    assert abs(data['imageWidth']-data['boxWidth'])<1 and abs(data['imageLeft'])<1,data
+                    assert 0<data['imageTop']<data['railHeight'] and data['railZ']=='3',data
+                    if case=='story': assert not data['category'],data
+                    else: assert data['category'],data
                     label=f'{width}-{case}-{"long" if long_copy else "short"}'
                     await page.screenshot(path=str(args.output/f'{label}.png'))
                     body=page.locator('.game-modal .modal-body')

@@ -1,5 +1,5 @@
 // SCENE ART — the dialog-painting standard (modal_shell.js makeModalShell `art`,
-// ART_CONTENT_FRAC / ART_CONTENT_GAP_PX; tools/gen_story_art.js
+// css/compass_panels.css; tools/gen_story_art.js
 // scene()). Existing tall and new square assets share one top-centred square
 // display crop above separate copy, with one scroller and no legacy band mode.
 
@@ -66,18 +66,10 @@ test('scene art: one scroller and one square crop for every painting', () => {
   assert.falsy(/ART_BAND_|ART_DETAIL_FRAC|ART_FRAME_ASPECT|squareArt|readShape|ART_ASPECTS/.test(shell), 'no legacy format-specific layout or load-time switching');
 });
 
-test('scene art: square geometry fits narrow and short bodies and keeps a stable text boundary', () => {
-  const start = shell.indexOf('      const layoutArt = () => {');
-  const end = shell.indexOf('      layoutArt();', start);
-  const layout = new Function('body', 'spacer', 'box', 'ART_CONTENT_FRAC', 'ART_CONTENT_GAP_PX',
-    shell.slice(start, end) + '; layoutArt();');
-  for (const [width, height] of [[280, 320], [340, 520], [180, 600]]) {
-    const vars = {};
-    const spacer = { clientWidth: width, style: { setProperty(k, v) { vars[k] = v; } } };
-    layout({ clientHeight: height }, spacer, { isConnected: true }, .5, 14);
-    assert.eq(spacer.style.height, `${Math.round(height * .5)}px`);
-    assert.eq(vars['--scene-square-size'], `${Math.min(width, Math.round(height * .5) - 14)}px`);
-  }
+test('scene art: generic Story is omitted and useful categories follow the image', () => {
+  assert.truthy(shell.includes("art && kind === 'story' && (!kindLabel || kindLabel === 'Story')"), 'painted stories omit only the generic heading');
+  assert.truthy(shell.includes('into.insertBefore(kindNode, into.firstChild)'), 'other category headings belong to the content below the image');
+  assert.falsy(/layoutArt|ResizeObserver/.test(shell), 'CSS owns square geometry without resize-driven JS layout');
 });
 
 test('scene art: new generated scenes use full square compositions', () => {

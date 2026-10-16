@@ -50,11 +50,12 @@ async def probe(args):
                   const body=e.querySelector('.modal-body').getBoundingClientRect(),title=e.querySelector('.modal-kind');
                   return {left:s.borderLeftWidth,right:s.borderRightWidth,sideContent:sides.content,
                     railBorder:rail.borderBottomWidth,railShadow:rail.boxShadow,railMask:rail.maskImage,
-                    titleClear:!e.classList.contains('modal-scene')||!title||body.top>=title.getBoundingClientRect().bottom};
+                    titleClear:!e.classList.contains('modal-scene')||!title||!!title.closest('.modal-content')&&title.getBoundingClientRect().top>=e.querySelector('.modal-art').getBoundingClientRect().bottom,
+                    genericStory:e.closest('[data-kind=story]')&&title?.textContent==='Story'};
                 }""")
                 assert chrome['left']==chrome['right']==chrome['railBorder']=='0px', chrome
                 assert chrome['sideContent']=='none' and chrome['railShadow']=='none', chrome
-                assert chrome['railMask']!='none' and chrome['titleClear'], chrome
+                assert chrome['railMask']!='none' and chrome['titleClear'] and not chrome['genericStory'], chrome
                 assert 0<=geometry['buttonTop']<geometry['buttonBottom']<=height, geometry
                 await page.screenshot(path=str(args.output/f'{width}-{kind}.png'))
                 await page.locator('#message-modal .compass-action').click()

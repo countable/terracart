@@ -90,7 +90,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   Sheets have no duplicate metal side rails or border: the outer compass housing
   supplies that frame. The dragon rail feathers into the content surface
   without a bright horizontal seam; scene artwork has a clean square crop. Painted sheets reserve a separate
-  title band so scrolling copy cannot overlap their fixed category heading.
+  content area below the image for useful category headings; painted stories omit
+  the generic “Story” label.
   The modal gate publishes the final sheet edge in viewport pixels so silver
   shoulders remain visible above scaled sheets without covering their controls.
   It clips the header readouts at that edge too; story sheets rise above the
@@ -230,12 +231,14 @@ changing dialogue, story panels, books, toasts or status presentation.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   square, with a complete scene and no baked dark text area. All existing and
   new paintings use the same square viewport: top-centred `cover` crops the lower
-  portion of tall assets without stretching them. The crop fits within the upper
-  half of the usable body; copy starts directly below that region in the lower
-  half, including reward ceremonies. Art, copy and actions share one scroller.
-  Long copy never changes the crop or its height. Loading mosaics use identical
-  geometry, so image decoding cannot shift the content. Painted headers use a
-  label without emoji/`kindIcon`, with the story title offset down four pixels.
+  portion of tall assets without stretching them. The square spans the full
+  panel width and tucks 24 game pixels beneath the fixed silver dragon rail.
+  Copy follows directly below, with comfortable side padding and the specific
+  title offset down four pixels. Painted stories omit the generic “Story” label;
+  useful shop/event categories sit with the copy below the image. Art, copy and
+  actions share one scroller, so short screens retain the same full-width art
+  and scroll to their controls. CSS aspect-ratio keeps art and loading mosaics
+  identical during loading and viewport changes, without image-size detection.
   Framed opening stories without titles keep their separate 14-pixel rail gap.
   `css/compass_panels.css` seats this same shell as a mechanical sheet that
   slides up from the compass and extends to the viewport floor without a

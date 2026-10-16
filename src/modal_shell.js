@@ -5,7 +5,7 @@
 // showChestRewardModal), and
 // the gate that mirrors "a dialog is open" onto body.modal-open
 // (_installModalPadGate). Plus the tables they read: MODAL_KINDS and the
-// scene-art layout constants (STORY_MODAL_GROW_PX, ART_CONTENT_FRAC, ART_CONTENT_GAP_PX).
+// scene-art fallback geometry (STORY_MODAL_GROW_PX).
 //
 // The methods live on `class SceneModals`, a
 // MIXIN: app.js installs them onto MapScene.prototype right after the class
@@ -32,11 +32,8 @@
 // story growth constants still define scene-painting composition and the
 // fallback geometry before the stylesheet loads.
 const STORY_MODAL_GROW_PX = 96;
-// Every scene painting uses one top-aligned square crop above separate copy.
-// The square fits within the upper half of the usable body, leaving a small
-// gap before content; long scenes keep the same layout in one scroller.
-const ART_CONTENT_FRAC = 0.5;
-const ART_CONTENT_GAP_PX = 14;
+// Scene paintings share one full-width square crop in CSS, tucked slightly
+// under the fixed dragon rail. Copy and actions follow in the same scroller.
 
 // ── What KIND of dialog is this? ────────────────────────────────────────────
 // Every modal opens with one of these: a hero icon and a one-word category, so
@@ -261,7 +258,7 @@ class SceneModals {
     let kindNode = null;
     // `header: false` (the ☰ menu): no kind header at all — the list is the
     // whole dialog.
-    if (!header) {
+    if (!header || (art && kind === 'story' && (!kindLabel || kindLabel === 'Story'))) {
       // no header
     } else if (k && art) {
       // With a painting, the painting is the hero: the category shrinks to a
@@ -326,8 +323,8 @@ class SceneModals {
         'padding-bottom:3px;' +
         // Above the painting layer (PIXEL RESOLVE), which is absolute.
         (art ? 'text-shadow:0 1px 2px #000;position:relative;z-index:1;' : '');
-      // A square crop occupies the upper half of the body. Copy begins
-      // immediately after that region, including reward ceremonies.
+      // A full-width square crop tucks under the rail. Copy follows the
+      // image, including reward ceremonies; CSS owns responsive sizing.
       const spacer = art ? document.createElement('div') : null;
       if (spacer) {
         spacer.className = 'modal-art-spacer';
@@ -338,8 +335,8 @@ class SceneModals {
       into.className = 'modal-content';
       into.style.cssText = art ? 'margin:0;flex:0 0 auto;' : 'margin:auto 0;flex:0 0 auto;';
       while (box.firstChild) into.appendChild(box.firstChild);
-      // The kind header scrolls with everything else; a painting's is a chip
-      // pinned on the art instead (placed in the box below).
+      // Useful categories scroll with the copy below a painting; generic
+      // Story adds no information and is omitted above.
       if (kindNode && !art) { kindNode.style.flex = '0 0 auto'; body.appendChild(kindNode); }
       if (portrait) {
         // A square character portrait keeps its own size above the copy. It
@@ -358,7 +355,7 @@ class SceneModals {
       body.appendChild(into);
       box.style.overflow = 'hidden';
       box.appendChild(body);
-      if (kindNode && art) box.insertBefore(kindNode, box.firstChild);
+      if (kindNode && art) into.insertBefore(kindNode, into.firstChild);
       // Mount last: caller innerHTML cannot erase the fixed rail control.
       // The same cancellation path as backdrop dismissal preserves decisions,
       // mandatory acknowledgements, and the wrapper's capture-phase arming.
@@ -383,22 +380,7 @@ class SceneModals {
       if (!document.body.classList.contains('modal-open')) wrap.classList.add('modal-anim');
       wrap.appendChild(box);
       (document.getElementById('game') || document.body).appendChild(wrap);
-      // All assets, cached or loading, use identical measured geometry.
-      const layoutArt = () => {
-        if (!spacer || !box.isConnected) return;
-        const upperHeight = Math.round(body.clientHeight * ART_CONTENT_FRAC);
-        const squareSize = Math.max(0, Math.min(spacer.clientWidth, upperHeight - ART_CONTENT_GAP_PX));
-        spacer.style.height = `${upperHeight}px`;
-        spacer.style.setProperty('--scene-square-size', `${squareSize}px`);
-      };
-      layoutArt();
-      if (spacer && typeof ResizeObserver !== 'undefined') {
-        const observer = new ResizeObserver(() => {
-          if (!box.isConnected) { observer.disconnect(); return; }
-          layoutArt();
-        });
-        observer.observe(body);
-      }
+
     };
     // ONE button factory for every button a modal shows, in two VARIANTS:
     //   primary — a CONTROL: gold, always (spec §UI COLOUR LANGUAGE), or a

@@ -49,11 +49,16 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   text-transform: none !important; color: #f3dfa0 !important;
   text-shadow: 0 2px 3px #000, 0 0 12px #000;
 }
-/* Art and loading mosaics share one square crop in the scroll flow. */
+/* Full-width artwork slips 24px beneath the dragon rail. The square and
+   its loading mosaic have identical geometry without image-size detection. */
+.compass-panel .modal-art-spacer {
+  --scene-art-top: max(0px, calc(var(--panel-rail-height) - 24px));
+  padding-top: var(--scene-art-top); padding-bottom: 14px;
+}
+.compass-panel .modal-art-spacer::before { content: ''; display: block; aspect-ratio: 1; }
 .compass-panel .modal-art, .compass-panel .modal-art-mosaic {
-  inset: 0 auto auto 50% !important;
-  width: var(--scene-square-size); height: var(--scene-square-size);
-  transform: translateX(-50%);
+  inset: var(--scene-art-top) 0 auto !important;
+  width: 100%; height: auto; aspect-ratio: 1;
   border-radius: 0 !important;
 }
 .compass-panel .compass-action { border-radius: 13px !important; min-height: 38px; }
@@ -82,10 +87,18 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   .compass-panel[data-kind='spirit'] .modal-body { font-size: 15px; }
   .compass-panel[data-kind='spirit'] .modal-confirm-actions { gap: 9px !important; margin-top: 12px; }
 }
-/* Painted dialogs pin their category below the dragon. The scroll region
-   starts beneath that title, so long copy cannot collide with it. */
-.compass-panel > .modal-box.modal-scene {
-  padding-top: calc(var(--panel-rail-height) + 44px) !important;
+/* Painted sheets use the full width; only their copy is inset. Categories
+   belong with that copy, leaving the image clear beneath the fixed chrome. */
+.compass-panel > .modal-box.modal-scene { padding: 0 !important; }
+.compass-panel .modal-scene .modal-body {
+  margin: 0 !important; padding: 0 !important; scrollbar-width: none;
+}
+.compass-panel .modal-scene .modal-content {
+  box-sizing: border-box;
+  padding: 0 var(--panel-content-inset) max(22px, env(safe-area-inset-bottom));
+}
+.compass-panel .modal-scene .modal-kind {
+  position: static !important; margin: 0 0 10px;
 }
 .compass-panel .modal-body { min-height: 0; scrollbar-width: thin; }
 .compass-panel .modal-portrait { margin-top: 8px !important; }
