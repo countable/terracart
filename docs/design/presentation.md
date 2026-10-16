@@ -54,7 +54,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   contained in the band. The rim follows compass heading while all four
   letters counterrotate to stay upright. `assets/ui/compass/gold-rim.svg`
   owns the band and engravings; transparent `gold-fittings.png` sprites supply
-  the sculpted metal ornaments at their native aspect ratios. The gold overlay
+  sculpted metal ornaments with broad raised edges and curled flourishes.
+  E/S/W letters are 1 pt smaller than their original scale; north retains its larger type. The gold overlay
   sits outside the silver chassis dimming and uses the controls' brightness,
   with warmer saturation to match their gold. Its letter seats match the HUD CSS.
 
