@@ -1506,6 +1506,10 @@ class SceneCreate {
       this.setupLifecycle();
       if (window.__compassPerm) this.startSensors();
     }
+    // Phaser.AUTO has now selected its renderer. Reuse the resize path so
+    // Canvas fallback sheds high-DPR raster work without changing coordinates.
+    window.__canvasRenderer = this.game.renderer.type === Phaser.CANVAS;
+    window.__onGameScaleChange?.();
     // Tests reach into the scene via window.__scene.
     if (typeof CompassHUD !== 'undefined') CompassHUD.install(this);
     window.__scene = this;

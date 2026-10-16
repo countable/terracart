@@ -1,9 +1,9 @@
-/* Offline-baked highlights occupy the same stacking levels as their source
-   carving. Controls and map pixels never become part of the reflection. */
+/* Each emissive slice stays in its original art stacking level. The moving
+   beam owns a STATIC raster mask; only GPU-friendly transforms animate. */
 .compass-shine-surface {position:absolute;pointer-events:none;overflow:hidden;}
-.compass-shine-emission {position:absolute;inset:0;pointer-events:none;opacity:.75;
-  background-color:transparent;background-repeat:no-repeat;
+.compass-shine-beam {position:absolute;pointer-events:none;transform-origin:0 0;will-change:transform;
   mask-image:url('../assets/ui/compass/shine/overhead-beam.png');mask-repeat:no-repeat;
-  mask-size:var(--compass-shine-width,100vw) var(--compass-shine-height,100vh);
-  mask-position:calc(var(--compass-shine-x,0px) - var(--compass-shine-local-x,0px)) calc(0px - var(--compass-shine-local-y,0px));}
+  mask-size:100% 100%;mask-position:0 0;}
+.compass-shine-emission {position:absolute;left:0;top:0;pointer-events:none;opacity:.75;
+  background-color:transparent;background-repeat:no-repeat;transform-origin:0 0;will-change:transform;}
 body:not(.compass-hud) .compass-shine-surface {display:none;}
