@@ -92,7 +92,8 @@ test('torch: a KINDS row, TORCH_RADIUS_MUL player radii of the player\'s own whi
     'the player row is the ramp');
   assert.truthy(/const rMax = radiusCells\('player'\) \* playerLightMul\(scene\) \* CELL_PX;/.test(LIGHTING_SRC),
     'draw() reads the ramp\'s extent off the row, not a second copy of the maths');
-  assert.truthy(/const white = KINDS\.player\.colour;/.test(LIGHTING_SRC), 'and the ramp\'s colour');
+  assert.eq(Lighting.playerGlow(Lighting.profile(scene()), 0, 15, 45, 5).colour, P.colour,
+    'the healthy player glow retains the row’s white');
 });
 
 test('torch: the collector emits `torch` for the player while it burns, `player` otherwise', () => {

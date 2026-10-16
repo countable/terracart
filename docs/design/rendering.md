@@ -394,7 +394,9 @@ to the existing noon level. Underground lighting is unchanged.
   before every canvas call. Reach lighting follows `cellInReach`; light conveys
   reach and live POIs without outline rings. The radial player glow uses
   `PLAYER_OUTPUT_K = 0.44`; the added reach-cell light is halved by
-  `REACH_OUTPUT_K = 0.5`, with interaction distance unchanged.
+  `REACH_OUTPUT_K = 0.5`. The smooth player glow carries the removed half,
+  preserving nearby brightness on the surface and underground. It fades beyond
+  the reach rim within the existing light radius; interaction distance is unchanged.
   Day/night leaves the reach plateau bright;
   caves ignore it.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors
