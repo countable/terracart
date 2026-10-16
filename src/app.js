@@ -9695,7 +9695,9 @@ class MapScene extends Phaser.Scene {
     const items = this._menuItemsEl;
     if (!menu || !items || document.getElementById('menu-modal')) return;
     const { box, mount, mkBtn } = this.makeModalShell('menu-modal', {
-      kind: 'menu', textAlign: 'left',
+      // No painting and no header: the whole panel is the list, and it
+      // scrolls as one.
+      kind: 'menu', textAlign: 'left', art: false, header: false,
       // A tap on the backdrop closes it like any dialog; the shell has
       // already removed the wrap, and the toggle brings the list home.
       onClose: () => { menu.open = false; },
