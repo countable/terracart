@@ -247,7 +247,11 @@ North-up mode retains the existing wall atlas artwork.
   being squashed tilts the ellipse, so a turning ground decal is a strip.
   The shine sweep and a warping rank's space warp (`Render.setEliteWarp`, a
   camera post pass attached only while one is on screen) need the device's
-  graphics-FX opt-in (`Render.canShine`).
+  graphics-FX opt-in (`Render.canShine`). Phaser's PreFX pipeline draws its
+  offscreen passes under the current camera scissor, and the map camera is a
+  sub-viewport, so `Render.guardPreFxScissor` lifts the scissor around each
+  FX quad (app.js installs it before the game boots); without it a shiny
+  prop vanishes or shows a slice at every zoom but 1 and every heading.
 - Centre a static target's work wheel in its cell; a creature's (a net
   capture, a hunt) rides the creature, on its body (`creatureWheelDy`). Use a
   small, solid disc at 50% opacity. Seat enemy health bars from `CREATURE_ART`
