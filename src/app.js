@@ -11076,6 +11076,9 @@ const game = window.__game = new Phaser.Game({
   // Default to the light/spark fallback; the menu can opt in on this device.
   disablePreFX: !GRAPHICS_FX_ENABLED,
   disablePostFX: true,
+  // ?maxTextures=N caps the WebGL texture units a batch may bind. A probe for
+  // devices that drop sprites bound to high units; -1 keeps Phaser's default.
+  maxTextures: urlNumParam('maxTextures') ?? -1,
   // Keep the configured cadence across display rates; 0 = uncapped (?fps=0).
   fps: { limit: FPS_LIMIT },
   callbacks: { preBoot: (game) => installFrameCadence(game.loop) },
