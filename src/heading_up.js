@@ -89,6 +89,7 @@ const HeadingUp = {
     if (!HeadingUp.enabled || scene._headingUp) return;
     scene._headingUp = true;
     scene.mapRot = 0;
+    scene._compassDirectionLocked = false;
     // Phaser's two-corner camera cull assumes positive axes. At a half turn
     // its bounds invert and visible sprites disappear. World pools already
     // cull by map distance; the viewport/mask remains the final clip.
@@ -163,7 +164,7 @@ const HeadingUp = {
   tick(scene, dt) {
     if (!HeadingUp.active(scene)) return;
     const deg = scene.compassDeg;
-    if (deg != null) {
+    if (deg != null && !scene._compassDirectionLocked) {
       const target = -deg * Math.PI / 180;
       let diff = target - scene.mapRot;
       diff = Math.atan2(Math.sin(diff), Math.cos(diff));
