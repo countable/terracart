@@ -299,8 +299,15 @@ class SceneModals {
         };
       }
     }
+    let closed = false;
+    const dismissShell = () => {
+      if (closed) return;
+      closed = true;
+      wrap.remove();
+      onClose?.();
+    };
     if (onClose !== undefined) {
-      wrap.addEventListener('click', (e) => { if (e.target === wrap) { wrap.remove(); onClose?.(); } });
+      wrap.addEventListener('click', (e) => { if (e.target === wrap) dismissShell(); });
     }
     // ── The kind header ────────────────────────────────────────────────
     // A hero icon plus the one-word category (MODAL_KINDS), so every dialog
@@ -381,7 +388,7 @@ class SceneModals {
           'overflow-y:auto;overscroll-behavior:contain;text-shadow:0 1px 2px #000;' +
           // Above the painting layer (PIXEL RESOLVE), which is absolute.
           'position:relative;z-index:1;'
-        : 'margin:auto 0;flex:0 0 auto;';
+        : 'margin:auto 0;flex:0 1 auto;';
       // `centerBody` (the chest ceremony): the content region is the WHOLE
       // quiet zone and the copy sits centred in it rather than on its floor.
       // An inner block with auto margins does the centring, so long copy
@@ -415,6 +422,20 @@ class SceneModals {
       }
       if (artLayer) { box.insertBefore(artLayer, box.firstChild); box.insertBefore(mosaicLayer, artLayer); }
       if (kindNode) { kindNode.style.flex = '0 0 auto'; box.insertBefore(kindNode, box.firstChild); }
+      // Mount last: caller innerHTML cannot erase the fixed rail control.
+      // The same cancellation path as backdrop dismissal preserves decisions,
+      // mandatory acknowledgements, and the wrapper's capture-phase arming.
+      if (onClose !== undefined) {
+        const close = mkBtn('×', { variant: 'ghost' });
+        close.style.cssText = '';
+        close.type = 'button';
+        close.className = 'compass-panel-close';
+        close.setAttribute('aria-label', 'Close panel');
+        close.title = 'Close panel';
+        close.textContent = '×';
+        close.addEventListener('click', (e) => { e.stopPropagation(); dismissShell(); });
+        box.appendChild(close);
+      }
       // The ENTRANCE (index.html .modal-anim): the backdrop fades in and the
       // box pops up from a touch smaller and lower. Only when nothing was on
       // screen — body.modal-open is synced by a MutationObserver that runs

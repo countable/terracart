@@ -239,3 +239,38 @@ body.compass-hud #energy::before {inset:7px;border-right:5px solid #78c454;clip-
 .compass-energy-face b {bottom:10px;left:15px;font-size:23px;color:#bf953e;text-shadow:0 1px #f6e9c3;}
 body.compass-hud .compass-energy-needle {width:6px;left:calc(50% - 3px);height:calc(26 * var(--compass-header-unit));}
 .compass-energy-pivot {position:absolute;width:7px;height:7px;left:calc(50% - 3.5px);bottom:calc(29 * var(--compass-header-unit) - 3px);border:1px solid #735a27;border-radius:50%;background:#d2ac58;z-index:2;}
+
+/* Physical instrument faces: recessed menu apertures, rounded counter drums,
+   and an uncluttered cast dial. Values stay in the existing live controls. */
+body.compass-hud #menu summary {border:2px solid #6b603d;border-radius:48%;background:radial-gradient(ellipse at 34% 20%,#fff4a6 0,#fbd153 25%,#e9ac25 54%,#bd7c11 80%,#f4ce6b 96%);box-shadow:inset 0 0 0 2px #ffe6a1,inset 0 0 0 4px #e7b84c,inset -3px -4px 5px #6f460b80,0 0 0 2px #e0dfce,0 0 0 4px #33382e,0 0 0 5px #babcae;}
+.compass-menu-glyph {width:calc(26 * var(--compass-header-unit));height:calc(26 * var(--compass-header-unit));display:block;filter:drop-shadow(0 1px 0 #ffec9a);}
+.compass-menu-glyph svg {display:block;width:100%;height:100%;fill:#262919;stroke:#b78726;stroke-width:.8;}
+body.compass-hud #hud-row > #roadchip {border:2px solid #41463c;border-radius:34% / 48%;padding:0 calc(13 * var(--compass-header-unit));background:repeating-linear-gradient(90deg,#e6e3d5 0,#62665c 2px,#999d91 4px,#343b30 5px,#ced0c1 7px);box-shadow:inset 0 5px 6px #20261dcc,inset 0 -5px 6px #242c20cc,0 0 0 1px #e7e5d7,0 0 0 3px #343a30,0 0 0 4px #aeb4a3;}
+body.compass-hud #roadchip .road-num {height:100%;overflow:hidden;box-shadow:0 0 4px 2px #1f281c;line-height:1;}
+.compass-wheel {min-width:calc(26 * var(--compass-header-unit));padding:0 2px;border-right:1px solid #353b30;border-left:1px solid #f0efdf;background:linear-gradient(#363c31 0%,#888e7e 13%,#dadccd 33%,#eeeede 48%,#c7cbbb 68%,#7a8270 89%,#343c2c);font-weight:600;text-shadow:0 1px #ffffe580;box-shadow:inset 2px 0 3px #26302077,inset -1px 0 2px #26302088;}
+.compass-wheel::before,.compass-wheel::after {font:600 calc(15 * var(--compass-header-unit))/1 Georgia;color:#30382a;opacity:.65;transform:scaleY(.55);}
+.compass-wheel::before {content:attr(data-previous);top:calc(-7 * var(--compass-header-unit));}
+.compass-wheel::after {content:attr(data-next);bottom:calc(-7 * var(--compass-header-unit));}
+.compass-wheel-unit {min-width:calc(27 * var(--compass-header-unit));font-size:calc(14 * var(--compass-header-unit));}
+body.compass-hud #hud-row > #energy {border:2px solid #c4c6b7!important;background:#747d69;box-shadow:inset 0 0 0 2px #30372b,0 0 0 1px #3d4534,0 0 0 3px #c6c8b8,0 0 0 4px #3e4538;}
+body.compass-hud #energy::before,body.compass-hud #energy::after {display:none;}
+.compass-energy-face svg {width:100%;height:100%;display:block;}
+body.compass-hud .compass-energy-needle {bottom:calc(31 * var(--compass-header-unit));height:calc(29 * var(--compass-header-unit));width:calc(8 * var(--compass-header-unit));left:calc(50% - 4 * var(--compass-header-unit));clip-path:polygon(50% 0,100% 91%,50% 100%,0 91%);background:linear-gradient(90deg,#906315 0,#dfaa32 35%,#fff1b0 48%,#ffdc6d 63%,#b87f1c 100%);filter:drop-shadow(1px 2px 1px #29301d);}
+.compass-energy-pivot {width:calc(8 * var(--compass-header-unit));height:calc(8 * var(--compass-header-unit));left:calc(50% - 4 * var(--compass-header-unit));bottom:calc(31 * var(--compass-header-unit) - 4 * var(--compass-header-unit));background:radial-gradient(circle at 35% 30%,#fff0ad,#dfaf3b 50%,#8c651c);border-color:#71551c;box-sizing:border-box;box-shadow:0 1px 1px #28301b;}
+body.compass-hud #energy-label {bottom:calc(5 * var(--compass-header-unit));left:53%;right:10%;font:bold calc(8 * var(--compass-header-unit))/1 Georgia!important;text-shadow:0 1px #d9ddc580;}
+body.compass-hud #hud-row > #money,body.compass-hud #money-num {font:600 calc(16 * var(--compass-header-unit))/1.15 Georgia;color:#f3cc66;letter-spacing:.15px;text-shadow:0 2px 1px #14170d,1px 0 2px #171b0d,-1px 0 2px #171b0d,0 3px 5px #000;}
+/* The north vane is a small raised metal pointer; its asymmetric highlights
+   remain legible over both dark paving and bright terrain. */
+.compass-bearing {text-shadow:0 2px 1px #10160b,1px 0 1px #10160b,-1px 0 1px #10160b,0 3px 4px #000;color:#f7d77c;}
+.compass-bearing .compass-north {padding-top:calc(4 * var(--compass-unit));}
+.compass-north img {object-fit:contain;display:block;width:calc(25 * var(--compass-unit));height:calc(29 * var(--compass-unit));margin:0 auto;filter:drop-shadow(0 2px 1px #10180b) drop-shadow(1px 3px 2px #0008);}
+.compass-bearing .compass-north b {font-size:calc(27 * var(--compass-unit));line-height:1.1;color:#ffe08a;}
+.compass-ticks,.compass-bearing::before {filter:drop-shadow(0 1px 1px #071007);}
+/* The mirrored carving is a continuous backing, at the atlas's proportions.
+   Endcaps and shoulder reliefs sit over it without exposing blank metal. */
+.compass-round #compass-body::before {background-image:url('../assets/ui/compass/reference-carving-tile.webp');background-size:100% auto;background-position:center top;background-repeat:repeat-y;}
+.compass-round .compass-header {background-color:transparent;mask-image:radial-gradient(ellipse 40% 76% at 50% 100%,transparent 53%,#000 88%);}
+body.compass-hud #hud-row > .compass-closed::after,body.compass-hud #move-pad.compass-closed::after {content:attr(data-compass-label);font:14px/1.2 Georgia,serif;letter-spacing:1px;white-space:nowrap;}
+@media(max-height:650px) {body.compass-hud #hud-row > .compass-closed::after,body.compass-hud #move-pad.compass-closed::after {font-size:12px;}}
+/* A crisp faceted instrument star has no white pickup-sprite fringe. */
+body.compass-hud #memories .compass-memory-star {width:calc(29 * var(--compass-header-unit));height:calc(29 * var(--compass-header-unit));transform:none;margin:0 3px;object-fit:contain;image-rendering:auto;filter:drop-shadow(0 2px 1px #000b);}

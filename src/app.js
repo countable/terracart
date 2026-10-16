@@ -10238,18 +10238,8 @@ class MapScene extends Phaser.Scene {
       glyph.innerHTML = invCatIconHTML(c.key, 28);
       glyph.style.cssText = 'line-height:1;' + (active ? `color:${UI_GOLD};` : 'color:var(--bone);opacity:0.55;');
       tab.appendChild(glyph);
-      // Word under the glyph. Seven unlabelled emoji left a new player guessing
-      // which one holds seeds — and the seed tab is the first thing the starter
-      // ladder asks them to find. `title` alone doesn't help on a touch device,
-      // where there is nothing to hover.
-      const caption = document.createElement('span');
-      caption.textContent = c.label;
-      caption.className = 'inventory-category-caption';
-      caption.style.cssText =
-        'font:700 7px var(--font-ui);letter-spacing:-0.2px;line-height:1;' +
-        'max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
-        (active ? `color:${UI_GOLD};` : 'color:#999;');
-      tab.appendChild(caption);
+      // Category symbols are embossed into the metal; retain their names for
+      // assistive technology and the native long-press/hover tooltip.
       // An EMPTY tab reads as empty: without this a fresh save's Relics and
       // Armor tabs looked identical to stocked ones bar a missing pip (UX audit
       // §20). The active tab always stays full strength — you're looking at it.
@@ -10282,10 +10272,23 @@ class MapScene extends Phaser.Scene {
     // well under the 44px guideline (QC/UX audit §13).
     const makeBtn = (txt, onclick, w = 40) => {
       const b = document.createElement('button');
-      b.textContent = txt;
       b.className = 'hud-btn';
       b.ariaLabel = txt === '⇅' ? 'Sort inventory' : txt === '◀' ? 'Previous inventory page' : 'Next inventory page';
+      b.title = b.ariaLabel;
       b.dataset.control = txt === '⇅' ? 'sort' : txt === '◀' ? 'previous' : 'next';
+      // Retain text for the standard HUD; the compass uses the same live
+      // buttons with faceted gold arrowheads, independent of font rendering.
+      const label = document.createElement('span');
+      label.className = 'inventory-control-text';
+      label.textContent = txt;
+      b.appendChild(label);
+      const mark = document.createElement('span');
+      mark.className = 'inventory-control-mark';
+      mark.ariaHidden = 'true';
+      mark.innerHTML = txt === '⇅'
+        ? '<svg viewBox="0 0 24 56"><path class="arrow-dark" d="M12 3 2 22h7v12H2l10 19 10-19h-7V22h7Z"/><path class="arrow-light" d="M12 5 4 21h8Zm0 32H4l8 13Z"/><path class="arrow-face" d="m12 5 8 16h-8Zm0 32h8l-8 13Z"/><path class="arrow-stem" d="M10 22h4v12h-4Z"/></svg>'
+        : '<svg viewBox="0 0 20 40"><path class="arrow-dark" d="M18 3 1 20l17 17Z"/><path class="arrow-light" d="M17 5 3 20h14Z"/><path class="arrow-face" d="M3 20h14v15Z"/></svg>';
+      b.appendChild(mark);
       b.style.cssText = `width:${w}px;height:44px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;`;
       b.addEventListener('click', (e) => { e.stopPropagation(); onclick(); });
       return b;
@@ -10342,7 +10345,7 @@ class MapScene extends Phaser.Scene {
           slot.title = (typeof gearName === 'function') ? gearName(g.kind, g.slot, g.tier) : g.slot;
           const wrap = document.createElement('span');
           wrap.style.cssText = 'display:inline-block;line-height:0;';
-          wrap.innerHTML = this.gearIconHTML(g.kind, g.slot, g.tier, 32);
+          wrap.innerHTML = this.gearIconHTML(g.kind, g.slot, g.tier, 24);
           slot.appendChild(wrap);
           // Rarity uses the shared word/color badge; numeric tiers stay internal.
           const badge = document.createElement('span');
@@ -10390,14 +10393,14 @@ class MapScene extends Phaser.Scene {
         const pet = displayList[p].pet;
         slot.dataset.pet = pet.id;
         slot.title = itemName(pet.kind);
-        slot.appendChild(this.renderItemIcon(pet.kind, 32, 'block'));
+        slot.appendChild(this.renderItemIcon(pet.kind, 24, 'block'));
         slot.addEventListener('click', e => { e.stopPropagation(); this.presentPetMenu(pet.id); });
       } else if (displayList[p]?.entry) {
         const { idx, entry } = displayList[p];
         const item = ITEM_BY_ID[entry.id];
         slot.dataset.slot = idx;
         slot.title = item ? `${item.name}${entry.count != null ? ' ×' + entry.count : ''}` : 'empty';
-        if (item) slot.appendChild(this.renderItemIcon(item.id, 32, 'block'));
+        if (item) slot.appendChild(this.renderItemIcon(item.id, 24, 'block'));
         else slot.textContent = '·';
         if (entry.count != null) {
           const badge = document.createElement('span');

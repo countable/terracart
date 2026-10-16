@@ -64,6 +64,14 @@
         350
       ],
       "method": "Preserve original dimensions; fade alpha over48px at top and bottom to blend proportional shoulder ornaments into metal."
+    },
+    "reference-carving-tile": {
+      "source": "reference-join.webp",
+      "dimensions": [
+        1024,
+        694
+      ],
+      "method": "Original carving mirrored vertically to create a continuous proportional repeating metal surface; no aspect ratio distortion."
     }
   },
   "reference_atlas": {
@@ -119,5 +127,19 @@
       347
     ],
     "method": "Proportional downsample of generated continuous feather relief; no stretching."
+  },
+  "north_arrow": {
+    "source": "/home/claude/.codex/generated_images/01a14036-de38-7371-93ef-6d140d42ac64/exec-1303bb8f-a8e2-4386-a4ff-abe026ad8a1f.png",
+    "crop": [
+      283,
+      161,
+      890,
+      1106
+    ],
+    "dimensions": [
+      103,
+      160
+    ],
+    "method": "Transparent sprite cropped around visible alpha; proportional downsample."
   }
 }

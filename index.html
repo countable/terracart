@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=b2496e85" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=0da259da" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1214,9 +1214,9 @@
     #howto-mode-current span { font-weight: 400; color: #bbb; }
     #howto button#howto-close[hidden] { display: none; }
   </style>
-  <link rel="stylesheet" href="css/compass_hud.css?v=a6fc7ef3">
-  <link rel="stylesheet" href="css/compass_inventory.css?v=d16d8fa0">
-  <link rel="stylesheet" href="css/compass_panels.css?v=ed88e805">
+  <link rel="stylesheet" href="css/compass_hud.css?v=5802b1c3">
+  <link rel="stylesheet" href="css/compass_inventory.css?v=5afcd839">
+  <link rel="stylesheet" href="css/compass_panels.css?v=2a30216c">
 </head>
 <!-- `booting` hides the money/energy row until the scene has a real balance to
      put in it; MapScene.updateHUD drops the class on the first paint. -->
@@ -1430,9 +1430,9 @@
   <div id="story" class="game-modal" style="display:none">
     <div class="opening-compass" aria-hidden="true">
       <div class="opening-compass-header">
-        <span class="opening-sealed">Memories</span><span class="opening-sealed">Books</span>
+        <span class="opening-sealed">⌖ ⋄ ⋈ ⌇ ⊓</span><span class="opening-sealed">⊓ ⌇ ⋄ ⌖ ⋈</span>
         <span class="opening-dial">· &nbsp; · &nbsp; ·<i></i></span>
-        <span class="opening-sealed opening-distance">Distance</span>
+        <span class="opening-sealed opening-distance">⋄ ⊓ ⌖ ⋈ ⌇</span>
       </div>
       <div class="opening-compass-map"><span>▲<br>N</span><i>✧</i></div>
     </div>
@@ -3089,7 +3089,7 @@
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=0a205c42"></script>
   <script src="src/art_thumbs.js?v=4904d49b"></script>
-  <script src="src/modal_shell.js?v=d61f6b72"></script>
+  <script src="src/modal_shell.js?v=9856a744"></script>
   <script src="src/scene_geo.js?v=0c08a5f0"></script>
   <script src="src/npc.js?v=eb1e1862"></script>
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
@@ -3097,7 +3097,7 @@
   <script src="src/scene_shops.js?v=3003dd4a"></script>
   <script src="src/heading_up.js?v=dd8b2b8b"></script>
   <script src="src/compass_modules.js?v=cb693548"></script>
-  <script src="src/compass_hud.js?v=a1a390e9"></script>
+  <script src="src/compass_hud.js?v=0369fcee"></script>
   <script src="src/scene_create.js?v=19eda180"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=05d59b5d"></script>
@@ -3176,7 +3176,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=b2496e85';
+      const APP_SRC = 'src/app.js?v=0da259da';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

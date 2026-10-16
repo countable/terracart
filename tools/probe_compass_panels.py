@@ -37,12 +37,12 @@ async def probe(args):
                 assert geometry['border']=='0px', geometry
                 assert 0<=geometry['buttonTop']<geometry['buttonBottom']<=height, geometry
                 await page.screenshot(path=str(args.output/f'{width}-{kind}.png'))
-                await page.locator('#message-modal button').click()
+                await page.locator('#message-modal .compass-action').click()
                 await page.wait_for_function("!document.getElementById('message-modal')")
                 results.append(dict(viewport=[width,height],kind=kind,geometry=geometry))
             for accept in [False,True]:
                 await page.evaluate("""()=>{window.panelSettled=[];__game.scene.getScene('map').showConfirmModal({kind:'spirit',body:'Joystick not activated. power low.',acceptLabel:'Enable spirit walking',onAccept:()=>panelSettled.push('accept'),onCancel:()=>panelSettled.push('cancel')})}""")
-                await page.locator('#confirm-modal button').nth(1 if accept else 0).click()
+                await page.locator('#confirm-modal .compass-action').nth(1 if accept else 0).click()
                 assert await page.evaluate('panelSettled')==(['accept'] if accept else ['cancel'])
             assert not errors, errors
             await page.close()

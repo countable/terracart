@@ -132,7 +132,7 @@
 .opening-sealed {
   display: grid; place-items: center; border: 2px ridge #bcc8c9; border-radius: 6px;
   background: linear-gradient(#e0e1d9, #959b98 52%, #c5c8bf);
-  color: #343b39; font: 13px Georgia, serif; text-shadow: 0 1px #edf0e7;
+  color: #343b39; font: 14px/1.2 Georgia, serif; letter-spacing: 1px; text-shadow: 0 1px #edf0e7;
   box-shadow: inset 0 0 0 2px #6a726e, 0 1px 3px #0008;
 }
 .opening-sealed:nth-child(1) { grid-area: 2 / 2; }
@@ -177,3 +177,38 @@ body.compass-hud.modal-open #compass-body {
   border-color: #9c9c86 !important;
   box-shadow: inset 0 1px 0 #d9ddbf24, 0 1px 2px #0005;
 }
+
+/* Keep the scrolling well aligned with the inner metal edge; copy keeps its
+   comfortable inset, while the scrollbar no longer floats inside the page. */
+.compass-panel { --panel-content-inset: 22px; }
+.compass-panel > .modal-box { overflow: hidden !important; }
+.compass-panel .modal-body {
+  margin-left: calc(8px - var(--panel-content-inset)) !important;
+  margin-right: calc(8px - var(--panel-content-inset)) !important;
+  padding-left: calc(var(--panel-content-inset) - 8px);
+  padding-right: calc(var(--panel-content-inset) - 8px);
+  overflow-y: auto; scrollbar-color: #a99b6e #151c1c;
+}
+.compass-panel-close {
+  position: absolute; z-index: 5; right: 13px;
+  top: calc((var(--panel-rail-height) - 36px) / 2);
+  width: 36px; height: 36px; padding: 0; display: grid; place-items: center;
+  border: 1px solid #806128; border-radius: 50%;
+  background: radial-gradient(circle at 35% 24%, #fff0b4, #dfb759 55%, #9f7028);
+  color: #453419; font: 28px/1 Georgia, serif; cursor: pointer;
+  text-shadow: 0 1px #fff0b2;
+  box-shadow: inset 0 1px 1px #fff3c5, inset 0 -2px 2px #765322, 0 2px 3px #131a17b3, 0 0 0 2px #d5d6c3;
+}
+.compass-panel-close:active { transform: translateY(1px); box-shadow: inset 0 2px 4px #614615, 0 0 0 2px #b4b7a6; }
+.compass-panel-close:focus-visible { outline: 2px solid #fff3b5; outline-offset: 3px; }
+@media (max-height: 650px) { .compass-panel { --panel-content-inset: 16px; } }
+/* The menu actuator stays accessible above its own sheet, in its latched
+   position. Native details toggling remains the single open/close owner. */
+body.compass-hud.modal-open:has(#menu-modal) #menu { display: block !important; z-index: 80; }
+body.compass-hud #menu[open] > summary {
+  transform: translateY(2px);
+  filter: brightness(.88);
+  box-shadow: inset 0 3px 7px #5a3e13, inset 0 0 0 2px #d7b761, 0 0 0 2px #b8baab, 0 0 0 4px #33382e;
+}
+
+@media(max-height:650px) {.opening-sealed {font-size:12px;}}

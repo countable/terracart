@@ -1,6 +1,9 @@
 // Living-silver chassis. Existing game controls keep their listeners and state;
 // this layer only seats them in the relic and closes unpowered mechanisms.
 const CompassHUD = {
+  // These geometric inscriptions are decorative, not a translated language.
+  // English module names remain in accessible labels and Spirit dialog copy.
+  inscriptions: { inventory: '⋈ ⌖ ⋄ ⊓ ⌇', memories: '⌖ ⋄ ⋈ ⌇ ⊓', books: '⊓ ⌇ ⋄ ⌖ ⋈', distance: '⋄ ⊓ ⌖ ⋈ ⌇', joystick: '⌇ ⋈ ⊓ ⋄ ⌖' },
   modules: { memories: 'memories', bookchip: 'books', roadchip: 'distance',
     'inv-tabs': 'inventory', inv: 'inventory', 'move-pad': 'joystick' },
   install(scene) {
@@ -11,18 +14,34 @@ const CompassHUD = {
     const body = document.createElement('div');
     body.id = 'compass-body';
     body.setAttribute('aria-hidden', 'true');
-    body.innerHTML = '<div class="compass-aperture"></div><div class="compass-header"></div><div class="compass-footer"></div><div class="compass-upper-join"></div><div class="compass-lower-join"></div><div class="compass-bearing"><i class="compass-ticks"></i><span>▲<b>N</b></span><span class="compass-east"><b>E</b></span><span class="compass-south"><b>S</b></span><span class="compass-west"><b>W</b></span></div>';
+    body.innerHTML = '<div class="compass-aperture"></div><div class="compass-header"></div><div class="compass-footer"></div><div class="compass-upper-join"></div><div class="compass-lower-join"></div><div class="compass-bearing"><i class="compass-ticks"></i><span class="compass-north"><img src="assets/ui/compass/north-arrow.webp" alt="" aria-hidden="true"><b>N</b></span><span class="compass-east"><b>E</b></span><span class="compass-south"><b>S</b></span><span class="compass-west"><b>W</b></span></div>';
     document.body.append(body);
+    // The memory's pixel pickup has a pale outline. Its instrument uses a
+    // clean faceted gold star, without altering the world pickup artwork.
+    const memoryIcon = document.querySelector('#memories .mem-ico');
+    if (memoryIcon) {
+      const star = document.createElement('img');
+      star.className = 'mem-ico compass-memory-star';
+      star.src = 'assets/ui/compass/memory-star.svg';
+      star.alt = '';
+      memoryIcon.replaceWith(star);
+    }
     const inventory = document.createElement('button');
     inventory.id = 'compass-inventory-shutter';
     inventory.type = 'button';
     inventory.textContent = 'Inventory';
+    inventory.dataset.runeLabel = this.inscriptions.inventory;
     inventory.setAttribute('aria-label', 'Inventory not activated');
     inventory.addEventListener('click', () => CompassModules.tap(scene, 'inventory'));
     document.body.append(inventory);
     const summary = document.querySelector('#menu summary');
     if (summary) {
-      for (const node of [...summary.childNodes]) if (node.nodeType === 3) node.textContent = '⊞';
+      for (const node of [...summary.childNodes]) if (node.nodeType === 3) node.textContent = '';
+      const menuGlyph = document.createElement('span');
+      menuGlyph.className = 'compass-menu-glyph';
+      menuGlyph.setAttribute('aria-hidden', 'true');
+      menuGlyph.innerHTML = '<svg viewBox="0 0 32 32"><path d="M4 4h10v10H4zM18 4h10v10H18zM4 18h10v10H4zM18 18h10v10H18z"/></svg>';
+      summary.prepend(menuGlyph);
       summary.setAttribute('aria-label', 'Main menu');
     }
     const energy = document.getElementById('energy');
@@ -34,7 +53,7 @@ const CompassHUD = {
       const face = document.createElement('span');
       face.className = 'compass-energy-face';
       face.setAttribute('aria-hidden', 'true');
-      face.innerHTML = '<i></i><i></i><i></i><b>ϟ</b><span class="compass-energy-pivot"></span>';
+      face.innerHTML = '<svg viewBox="0 0 100 100"><defs><radialGradient id="compass-dial-metal" cx="35%" cy="24%" r="85%"><stop stop-color="#e0ded2"/><stop offset=".6" stop-color="#9d9f94"/><stop offset="1" stop-color="#53594e"/></radialGradient><linearGradient id="compass-dial-gold" x2="1" y2="1"><stop stop-color="#fff2b0"/><stop offset=".48" stop-color="#e8b63b"/><stop offset="1" stop-color="#a86c12"/></linearGradient></defs><circle cx="50" cy="50" r="45" fill="url(#compass-dial-metal)" stroke="#343a30" stroke-width="2"/><path d="M50 11v13M17 30l11 6M74 24l9-7" fill="none" stroke="#625234" stroke-width="6" stroke-linecap="round"/><path d="M50 11v13M17 30l11 6M74 24l9-7" fill="none" stroke="url(#compass-dial-gold)" stroke-width="3" stroke-linecap="round"/><path d="M83 29a40 40 0 0 1 6 20" fill="none" stroke="#385b23" stroke-width="10"/><path d="M83 29a40 40 0 0 1 6 20" fill="none" stroke="#77d44d" stroke-width="7"/><path d="M40 47L23 72H35L27 89L52 61H40L49 47Z" fill="url(#compass-dial-gold)" stroke="#70551c" stroke-width="1.4"/></svg><span class="compass-energy-pivot"></span>';
       energy.prepend(face);
       energy.tabIndex = 0;
       energy.setAttribute('role', 'button');
@@ -86,7 +105,7 @@ const CompassHUD = {
         el._compassActive = active;
         el.setAttribute('aria-label', CompassModules.MODULES[id] + (active ? '' : ' not activated, power low'));
       }
-      if (!el.dataset.compassLabel) el.dataset.compassLabel = CompassModules.MODULES[id];
+      if (!el.dataset.compassLabel) el.dataset.compassLabel = this.inscriptions[id];
       if (elementId !== 'inv' && elementId !== 'inv-tabs') {
         if (!el._compassKeyboard) {
           el.tabIndex = 0;
@@ -115,6 +134,10 @@ const CompassHUD = {
           const wheel = document.createElement('span');
           wheel.className = 'compass-wheel' + (/\d/.test(character) ? '' : ' compass-wheel-separator');
           wheel.textContent = character;
+          if (/\d/.test(character)) {
+            wheel.dataset.previous = (Number(character) + 9) % 10;
+            wheel.dataset.next = (Number(character) + 1) % 10;
+          }
           wheel.setAttribute('aria-hidden', 'true');
           distance.append(wheel);
         }
