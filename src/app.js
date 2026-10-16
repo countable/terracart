@@ -1789,30 +1789,11 @@ class MapScene extends Phaser.Scene {
   // and how much this save's armor allows.
   showEnergyHelp() {
     const cur = Math.floor(this.save.energy ?? 0), max = this.getMaxEnergy();
-    const { wrap, box, mount, mkBtn } = this.makeModalShell('energy-help',
-      { textAlign: 'left', onClose: () => {}, kind: 'energy' });
-    const h = document.createElement('div');
-    h.style.cssText = 'font:700 14px var(--font-ui);color:var(--green);'
-      + 'margin-bottom:8px;text-align:center;';
-    h.textContent = `${cur} / ${max}`;   // the kind header already says ENERGY
-    box.appendChild(h);
-    const body = document.createElement('div');
-    body.style.cssText = 'font:12px/1.5 var(--font-ui);color:#ddd;';
-    body.innerHTML =
-      'Energy pays for tilling, chopping, mining and walking off the GPS.<br><br>'
-      + '• <b>Eat</b> — select any food in the bag and use the Eat button.<br>'
-      + '• <b>Rest</b> — it refills slowly on its own over time.<br>'
-      + '• <b>Taste</b> — every new food eaten for the first time raises the '
-      + 'cap by one, for good (currently ' + max + ').<br><br>'
-      + 'Armour does not lengthen this bar — it soaks the damage attacks take '
-      + 'off it.';
-    box.appendChild(body);
-    const close = mkBtn('Got it');
-    close.style.marginTop = '12px';
-    close.style.width = '100%';
-    close.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
-    box.appendChild(close);
-    mount();
+    this.showMessageModal({ kind: 'spirit', title: `Energy · ${cur} / ${max}`, okLabel: 'Got it',
+      source: document.getElementById('energy'),
+      body: 'Work and spirit walking use energy. Eat or rest to refill it. '
+        + 'Each new food you taste permanently adds 1 to your maximum. '
+        + 'Armour reduces energy lost to attacks.' });
   }
 
   // `reason` is the failure as the tile path reported it ("HTTP 504",
@@ -8863,7 +8844,12 @@ class MapScene extends Phaser.Scene {
     const toGoM = Math.max(0, Math.ceil(p.target - p.pos));   // metres, not a countdown
     const st = this.save?.trail || { metres: 0, prizes: 0 };
     const doneM = Trail.restoredMetres(st, this.save?.playerClass);
-    this.flash(`${toGoM}m to go · ${Trail.distanceLabel(doneM)} fixed`, this.viewCenterX, 60);
+    this.showMessageModal({ kind: 'spirit', title: 'Distance', okLabel: 'Got it',
+      source: document.getElementById('roadchip'),
+      body: `${Trail.distanceLabel(doneM)} of roads restored. ${toGoM}m to your next treasure.\n\n`
+        + 'Walking along damaged roads repairs them and earns treasure. '
+        + 'This counter records newly restored distance, not every step. '
+        + 'Scenic paths boost treasure progress without inflating the distance.' });
   }
 
   // ── The books chip ────────────────────────────────────────────────────
@@ -8908,7 +8894,7 @@ class MapScene extends Phaser.Scene {
 
   // THE SHELF OF PAGES READ: every page of the course this save has turned,
   // newest last, each a row that opens the page again (the same panel the
-  // read showed — bookPageHTML on the book painting, no title line) and
+  // read showed — bookPageHTML on the parchment page, no title line) and
   // comes back to the list when that is tapped away. Rereading moves no
   // bookmark: save.tipsRead is the course's, not the shelf's.
   _showBooksRead() {
@@ -8932,7 +8918,7 @@ class MapScene extends Phaser.Scene {
       b.addEventListener('click', (e) => {
         e.stopPropagation();
         wrap.remove();
-        this.showMessageModal({ title: '', body: bookPageHTML(page), art: 'book_read',
+        this.showMessageModal({ title: '', body: bookPageHTML(page), bookPage: true, okLabel: 'Back to books',
           onDismiss: () => this._showBooksRead() });
       });
       list.appendChild(b);
@@ -8963,7 +8949,7 @@ class MapScene extends Phaser.Scene {
     const key = typeof Wizard !== 'undefined' ? Wizard.playerClass(this.save) : null;
     const cls = key ? Wizard.CLASSES.find((c) => c.key === key) : null;
     this.showMessageModal({
-      kind: 'memory',
+      kind: 'spirit', source: document.getElementById('memories'),
       title: `${total} recovered · ${unspent} unspent`,
       body: MemoryStory.objective(this.save) || (cls ? `Your calling feels familiar: ${cls.icon} ${cls.name}. ${cls.blurb()}`
         : this._metWizard() ? 'The memories hum in your chest. At the Wizard Tower, someone knows how to answer.'

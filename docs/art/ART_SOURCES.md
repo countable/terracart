@@ -81,3 +81,10 @@ materials and show only light inside; reward icons and text supply the contents.
 [treasure-paintings.json](treasure-paintings.json) records generated masters,
 source hashes, final built-in imagegen prompts, style references and export settings.
 The scene definitions in `tools/gen_story_art.js` preserve the same composition intent.
+
+## Book-reading page
+
+`assets/art/book_page.webp` is the blank half-book background for live reading
+text; the library list and non-book scenes keep their existing paintings.
+The approved master is `~/.artifacts/dialog-style-exploration/book-page.png`;
+`book-reading.png` beside it records the panel composition.

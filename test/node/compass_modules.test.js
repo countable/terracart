@@ -68,31 +68,59 @@
     assert.eq(scene.save.compassModules.pending.join(','), 'joystick');
   });
 
-  test('compass circuits: activation is a micro toast that waits for stories, survives pending reload, never repeats', () => {
+  test('compass circuits: dormant and activation dialogs point to their own HUD control', () => {
+    const previous = document.getElementById;
+    const controls = Object.fromEntries(['inv', 'move-pad', 'roadchip', 'memories', 'bookchip']
+      .map(id => [id, { id }]));
+    document.getElementById = id => controls[id];
+    try {
+      for (const [id, control] of Object.entries({ inventory: 'inv', joystick: 'move-pad',
+        distance: 'roadchip', memories: 'memories', books: 'bookchip' })) {
+        const scene = sceneFor();
+        CompassModules.tap(scene, id);
+        assert.eq(scene.panels[0].source, controls[control]);
+        if (id === 'joystick') scene.panels[0].onCancel();
+        else dismiss(scene);
+        CompassModules.activate(scene, id);
+        CompassModules.drain(scene);
+        assert.eq(scene.panels[1].source, controls[control]);
+        dismiss(scene);
+      }
+    } finally { document.getElementById = previous; }
+  });
+
+  test('compass circuits: activation uses queued Dragon Spirit dialogs and never repeats on reload', () => {
     const scene = sceneFor();
     CompassModules.activate(scene, 'inventory'); CompassModules.activate(scene, 'books');
     scene.held = true;
     assert.falsy(CompassModules.drain(scene));
-    assert.eq(scene.toasts.length, 0);
+    assert.eq(scene.panels.length, 0);
     const resumed = sceneFor(copy(scene.save));
     assert.truthy(CompassModules.drain(resumed));
-    assert.eq(resumed.toasts[0], 'Inventory activated');
-    assert.eq(resumed.panels.length, 0, 'no dialog');
-    assert.falsy(resumed._compassSpiritOpen, 'nothing holds play');
+    assert.eq(resumed.panels[0].kind, 'spirit');
+    assert.eq(resumed.panels[0].okLabel, 'Got it');
+    assert.truthy(resumed.panels[0].body.startsWith('Inventory activated.'));
+    assert.eq(resumed.toasts.length, 0, 'activation belongs in the spirit dialog');
+    assert.truthy(resumed._compassSpiritOpen);
+    assert.falsy(CompassModules.drain(resumed), 'next notice waits for dismissal');
+    dismiss(resumed);
+    assert.falsy(resumed._compassSpiritOpen);
     const reloaded = sceneFor(copy(resumed.save));
     assert.truthy(CompassModules.drain(reloaded));
-    assert.eq(reloaded.toasts[0], 'Books activated');
+    assert.truthy(reloaded.panels[0].body.startsWith('Books activated.'));
+    dismiss(reloaded);
     assert.falsy(CompassModules.drain(reloaded), 'each panel once');
   });
 
-  test('compass circuits: a failed toast preserves activation for retry', () => {
+  test('compass circuits: a failed dialog preserves activation for retry and releases the hold', () => {
     const scene = sceneFor(); CompassModules.activate(scene, 'books');
-    scene.flashAtPlayer = () => { throw new Error('unavailable'); };
+    scene.showMessageModal = () => { throw new Error('unavailable'); };
     let threw = false;
     try { CompassModules.drain(scene); } catch (_) { threw = true; }
     assert.truthy(threw);
+    assert.falsy(scene._compassSpiritOpen);
     assert.eq(scene.save.compassModules.pending.join(','), 'books');
-    scene.flashAtPlayer = text => scene.toasts.push(text);
+    scene.showMessageModal = panel => scene.panels.push(panel);
     assert.truthy(CompassModules.drain(scene));
   });
 })();

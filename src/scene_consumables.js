@@ -291,7 +291,9 @@ class SceneConsumables {
   readBook() {
     if (!this._selectedConsumable('book')) return false;
     const { title, body } = this._bookRead();
-    return this._finishConsumable(title, body);
+    this._consumeSelected();
+    this.showMessageModal({ title, body, bookPage: true });
+    return true;
   }
 
   // The auto-read fired by addToInv on pickup — framed as involuntary
@@ -310,9 +312,7 @@ class SceneConsumables {
     this.showMessageModal({
       title: read.title.replace(/^📖\s*/, ''),
       body: read.body,
-      // A book read by firelight — the picture of the places of learning the
-      // Book comes from, survivors sharing what they know.
-      art: 'book_read',
+      bookPage: true,
       onDismiss,
     });
   }
