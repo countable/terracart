@@ -23,18 +23,32 @@
       const style = doc.createElement('style');
       // A fixed aperture mask and a translated gradient: no per-frame pixel readback,
       // canvas upload, layout query, shader context, or animation of the mask itself.
-      style.textContent = `.tilt-shine-mask{position:absolute;inset:0;overflow:hidden;pointer-events:none;isolation:isolate;mask-image:radial-gradient(circle calc(var(--compass-map-size) / 2) at 50% calc(var(--compass-map-top) + var(--compass-map-size) / 2),transparent calc(100% - 2px),#000 100%);mix-blend-mode:screen}.tilt-shine-band{position:absolute;left:-25%;top:-30%;width:150%;height:60%;will-change:transform;background:linear-gradient(166deg,transparent 15%,rgba(154,196,226,.04) 28%,rgba(202,221,235,.20) 40%,rgba(255,246,211,.58) 48%,rgba(242,249,255,.8) 50%,rgba(194,225,245,.25) 54%,rgba(177,204,230,.07) 67%,transparent 80%);pointer-events:none}`;
+      style.textContent = `.tilt-shine-mask{position:absolute;inset:0;overflow:hidden;pointer-events:none;isolation:isolate;mask-image:radial-gradient(circle calc(var(--compass-map-size) / 2) at 50% calc(var(--compass-map-top) + var(--compass-map-size) / 2),transparent calc(100% - 2px),#000 100%);mix-blend-mode:soft-light}.tilt-shine-band{position:absolute;left:-25%;top:-30%;width:150%;height:60%;will-change:transform;background:linear-gradient(166deg,transparent 15%,rgba(154,196,226,.04) 28%,rgba(202,221,235,.20) 40%,rgba(255,246,211,.58) 48%,rgba(242,249,255,.8) 50%,rgba(194,225,245,.25) 54%,rgba(177,204,230,.07) 67%,transparent 80%);pointer-events:none}`;
       doc.head.append(style);
       layer = doc.createElement('div'); layer.className = 'tilt-shine-mask'; layer.setAttribute('aria-hidden', 'true');
       band = doc.createElement('div'); band.className = 'tilt-shine-band'; layer.append(band);
       doc.querySelector('#compass-body').append(layer);
       layer.style.opacity = $('#strength').value / 100;
+      applyBlend();
       status.textContent = 'Ready · metal only; map and controls retain their original appearance.';
       window.shineProbe = { setAngle, get stats() { return { writes, frames, jsMs, elapsed, mode, current, target, sensor }; }, layer, band };
       wake();
     };
     doc.head.append(script);
   }, 200);
+  function applyBlend() {
+    if (!layer) return;
+    const blend = $('#blend').value;
+    layer.style.mixBlendMode = blend;
+    // Multiply can only shade the existing texture. Soft light keeps its dark
+    // grooves while lifting the ridges; neither reconstructs surface normals.
+    band.style.background = blend === 'multiply'
+      ? 'linear-gradient(166deg,transparent 15%,rgba(55,70,87,.25) 30%,rgba(32,42,54,.85) 50%,rgba(55,70,87,.25) 68%,transparent 80%)'
+      : blend === 'soft-light'
+        ? 'linear-gradient(166deg,transparent 15%,rgba(40,55,75,.30) 30%,rgba(225,239,255,.65) 42%,rgba(255,250,235,1) 50%,rgba(225,239,255,.65) 58%,rgba(40,55,75,.30) 70%,transparent 85%)'
+        : '';
+  }
+  $('#blend').onchange = applyBlend;
   function wake() { if (!raf && layer && !document.hidden) { lastTime = 0; raf = requestAnimationFrame(tick); } }
   function tick(time) {
     raf = 0;
