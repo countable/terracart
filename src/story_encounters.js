@@ -135,7 +135,7 @@ const StoryEncounters = (() => {
         // The gift is SHOWN — the seed's own card under her portrait, her
         // thanks as its line — not described in a note (Rewards.present).
         Rewards.present(scene, { kind: 'item', id: 'starfruit_seed', qty: 1 },
-          { extra: { kind: 'story', header: `${c.name} · ${c.roleLabel}`, portrait: NPC.portrait(scene, c), sub: THANKS } });
+          { extra: { kind: 'story', header: NPC.speech(c).kindLabel, portrait: NPC.portrait(scene, c), sub: THANKS } });
         return true;
       }
       body = 'Thank you for stopping the archer. Make room in your bag; I have a starfruit seed for you.';

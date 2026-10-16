@@ -592,7 +592,7 @@ const NPC = (() => {
   };
   function dialogue(scene, c, now = Date.now()) {
     const day = utcDayIndex(now), seed = fnv1a(`${c.id}:talk`);
-    const title = `${c.name} · ${c.roleLabel || LABELS[c.culture || 'village'][c.role]}`;
+    const title = `${c.name}, ${c.roleLabel || LABELS[c.culture || 'village'][c.role]}`;
     const daily = a => a[((seed + day) >>> 0) % a.length];
     let body, target = null;
     restore(scene, c);
@@ -677,10 +677,10 @@ const NPC = (() => {
     const talk = dialogue(scene, c);
     return { portrait: portrait(scene, c), title: talk.title, blurb: talk.body };
   }
-  // A neighbour's talk dialog: their NAME heads it beside the chat bubble
-  // (MODAL_KINDS.talk) and their role is the title line under it.
+  // A neighbour's name and role share the dialogue header beside the chat icon.
   function speech(c) {
-    return { kind: 'talk', kindLabel: c.name, title: c.roleLabel || LABELS[c.culture || 'village'][c.role] };
+    const role = c.roleLabel || LABELS[c.culture || 'village'][c.role];
+    return { kind: 'talk', kindLabel: [c.name, role].filter(Boolean).join(', ') };
   }
   function interact(scene, c, sx, sy) {
     // A dialog SHOWN, not merely present: index.html's static overlays
@@ -710,7 +710,7 @@ const NPC = (() => {
       const face = portrait(scene, c);
       let answered = false;
       scene.showChestRewardModal({
-        kind: 'talk', header: c.name, name: conversation.title,
+        kind: 'talk', header: speech(c).kindLabel, name: conversation.title,
         sub: conversation.body, portrait: face,
         actions: [
           ...conversation.choices.map(choice => ({

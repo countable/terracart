@@ -66,7 +66,7 @@
   const NORTH = { key: 'h_0_0_30_27', x0: 29, x1: 32, y0: 26, y1: 28 };
   const FAR = { key: 'h_0_0_45_45', x0: 44, x1: 46, y0: 44, y1: 46 };
 
-  test('home footing: the wagon parks north of the player, the firepit three cells due south after compass detection', () => {
+  test('home footing: the wagon parks north of the player, the firepit one cell south of the player after compass detection', () => {
     const s = scene();
     withTile(tile([]), () => {
       const p = at(30, 30);
@@ -74,13 +74,13 @@
       assert.eq(s.save.starterShopId, 'starter_trailer', 'Home is the wagon');
       assert.truthy(sameAbsCell(s, s.save.starterTrailer.x, s.save.starterTrailer.y, at(30, 29).x, at(30, 29).y),
         'the wagon is one cell north, so the player stands at its door');
-      assert.truthy(sameAbsCell(s, s.save.homeFirepit.x, s.save.homeFirepit.y, at(30, 32).x, at(30, 32).y),
-        'the firepit is three cells due south of the wagon');
+      assert.truthy(sameAbsCell(s, s.save.homeFirepit.x, s.save.homeFirepit.y, at(30, 31).x, at(30, 31).y),
+        'the firepit is one cell due south of the player');
       const wagon = WorldGen.tileCache.get(KEY).objects.find(o => o.id === 'starter_trailer');
       assert.truthy(wagon, 'the wagon is injected');
       assert.eq(wagon.footDx, HomeArea.WAGON_ART_FOOT.dx, 'its art stands with the door over the player\'s column');
       assert.eq(wagon.footDy, HomeArea.WAGON_ART_FOOT.dy, 'and its steps on the doorstep');
-      const c = at(30, 32), pit = s.save.homeFirepit;
+      const c = at(30, 31), pit = s.save.homeFirepit;
       near(pit.x, c.x, 'the ring is centred horizontally');
       near(pit.y, c.y, 'the ring is centred vertically, farther from the trailer');
     });
@@ -99,7 +99,7 @@
       s._onFirstCompass();
       s.ensureStarterShopId();
       near(s.save.starterTrailer.y, at(30,31).y, 'trailer ahead when facing south');
-      near(s.save.homeFirepit.y, at(30,28).y, 'firepit behind the player');
+      near(s.save.homeFirepit.y, at(30,29).y, 'firepit behind the player');
       near(s.playerM.y, at(30,30).y, 'the player never moves');
       const trailer = JSON.stringify(s.save.starterTrailer), pit = JSON.stringify(s.save.homeFirepit);
       s._deviceCompass.deg = 0; s._onFirstCompass(); s.ensureStarterShopId();
@@ -147,8 +147,8 @@
       const p = at(30,30);s._placeHome(p.x,p.y);
       assert.eq(s.save.homeFirepit,null,'no pit before a sensor reading');
       s._onFirstCompass();
-      near(s.save.homeFirepit.x,at(30,32).x,'same column as trailer');
-      near(s.save.homeFirepit.y,at(30,32).y,'one row farther south');
+      near(s.save.homeFirepit.x,at(30,31).x,'same column as trailer');
+      near(s.save.homeFirepit.y,at(30,31).y,'one row farther south');
       const pit=s.save.homeFirepit;
       s._onFirstCompass();assert.eq(s.save.homeFirepit,pit,'later readings do not replace it');
       const reloaded=scene(JSON.parse(JSON.stringify(s.save))), saved=reloaded.save.homeFirepit;
@@ -164,8 +164,8 @@
       callbacks.deviceorientationabsolute({absolute:true,alpha:null});
       assert.eq(s.save.homeFirepit,null);
       callbacks.deviceorientationabsolute({absolute:true,alpha:270});
-      near(s.save.homeFirepit.x,at(30,32).x,'east-facing device still places geographically south');
-      near(s.save.homeFirepit.y,at(30,32).y,'sensor places pit');
+      near(s.save.homeFirepit.x,at(30,31).x,'east-facing device still places geographically south');
+      near(s.save.homeFirepit.y,at(30,31).y,'sensor places pit');
       const pit=s.save.homeFirepit;
       callbacks.deviceorientationabsolute({absolute:true,alpha:90});
       assert.eq(s.save.homeFirepit,pit,'turning west does not reposition it');
@@ -177,7 +177,7 @@
       const s=scene({homeCompassDetected:false,homeFirepit:old,fires:[fire],
         starterShopId:'starter_trailer',starterTrailer:{id:'starter_trailer',...at(30,29)}});
       s._onFirstCompass();
-      near(fire.x,at(30,32).x,'surface fire follows pit');near(fire.y,at(30,32).y,'new southern cell');
+      near(fire.x,at(30,31).x,'surface fire follows pit');near(fire.y,at(30,31).y,'new southern cell');
       assert.eq(fire.litAt,1234);assert.eq(fire.fuel,7);
     });
   });
@@ -190,8 +190,8 @@
       assert.eq(s.save.homeFirepit, null, 'waits for a reading at first');
       s._firepitGraceT0 = performance.now() - HomeArea.FIREPIT_COMPASS_GRACE_MS - 1;
       s.ensureStarterTrailerObject();
-      near(s.save.homeFirepit.x, at(30,32).x, 'placed without a compass');
-      near(s.save.homeFirepit.y, at(30,32).y, 'on the same southern cell');
+      near(s.save.homeFirepit.x, at(30,31).x, 'placed without a compass');
+      near(s.save.homeFirepit.y, at(30,31).y, 'on the same southern cell');
       const pit = s.save.homeFirepit;
       s._onFirstCompass();
       near(s.save.homeFirepit.x, pit.x, 'a late reading keeps the same cell');
@@ -203,24 +203,24 @@
     withTile(tile([]), () => {
       const early=scene({homeCompassDetected:false});early._onFirstCompass();
       const p=at(30,30);early._placeHome(p.x,p.y);
-      near(early.save.homeFirepit.y,at(30,32).y,'early reading remembered');
+      near(early.save.homeFirepit.y,at(30,31).y,'early reading remembered');
       const late=scene({homeCompassDetected:false});late._placeHome(p.x,p.y);late.depth=1;
       late._onFirstCompass();assert.eq(late.save.homeFirepit,null);
       late.depth=0;late.ensureStarterTrailerObject();
-      near(late.save.homeFirepit.y,at(30,32).y,'surface return finishes pending placement');
+      near(late.save.homeFirepit.y,at(30,31).y,'surface return finishes pending placement');
     });
   });
 
   test('home footing: no firepit on water or a road — it takes the nearest dry cell', () => {
     const s = scene();
     const e = tile([]);
-    e.grid[32 * N + 30] = WorldGen.T.WATER;
+    e.grid[31 * N + 30] = WorldGen.T.WATER;
     withTile(e, () => {
       const p = at(30, 30);
       s._placeHome(p.x, p.y);
       assert.truthy(s.save.homeFirepit, 'a new game still gets its pit');
-      near(s.save.homeFirepit.x, at(29, 32).x, 'not dropped in the pond: the next cell along the ring');
-      near(s.save.homeFirepit.y, at(29, 32).y, 'two cells behind, like the default');
+      near(s.save.homeFirepit.x, at(30, 32).x, 'not dropped in the pond: the nearest dry fallback');
+      near(s.save.homeFirepit.y, at(30, 32).y, 'two cells behind when the adjacent cell is wet');
       assert.eq(s.save.starterShopId, 'starter_trailer', 'Home is still placed');
     });
   });
@@ -230,7 +230,7 @@
     const c = HomeArea.firepitCandidates(firepit, wagon);
     assert.eq(JSON.stringify(c[0]), JSON.stringify(firepit), 'the turned default first');
     for (const o of c) {
-      assert.truthy(Math.max(Math.abs(o.dx), Math.abs(o.dy)) >= 2, 'never beside the player');
+      assert.truthy(o === c[0] || Math.max(Math.abs(o.dx), Math.abs(o.dy)) >= 2, 'fallbacks stay beyond the doorstep');
       assert.falsy(Math.abs(o.dx - wagon.dx) <= 1 && Math.abs(o.dy - wagon.dy) <= 1, 'never on the wagon');
     }
     assert.eq(new Set(c.map(o => o.dx + ',' + o.dy)).size, c.length, 'no cell twice');
@@ -333,7 +333,7 @@
     assert.truthy(HomeArea.inFooting(0, 0), 'the doorstep');
     assert.truthy(HomeArea.inFooting(p.dx, p.dy), 'the firepit');
     assert.falsy(HomeArea.inFooting(2, 0), 'two cells out is free');
-    assert.falsy(HomeArea.inFooting(0, 3), 'the cell beyond the firepit is free');
+    assert.falsy(HomeArea.inFooting(0, 2), 'the cell beyond the firepit is free');
   });
 
   // "Move Home here" onto a real house's cell crashed when the inject adopted

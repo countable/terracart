@@ -10,7 +10,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
   and confirmations use the NPC portrait layout with the spirit artwork.
   Dragon Spirit and NPC spoken copy appears in a pale chat bubble beneath the
-  portrait; speaker titles and response choices stay outside the bubble.
+  portrait; dialogue headers join the speaker name and role with a comma
+  ("Tilly, Wanderer"), without a separate role line. Response choices stay outside the bubble.
   The first earned green coin opens its own `coin_first` scene painting before
   revealing the money readout; its raised star matches the compact currency icon.
 
