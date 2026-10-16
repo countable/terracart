@@ -23,7 +23,7 @@
     return {
       iconHTML: scene.gearIconHTML ? scene.gearIconHTML(kind, slot, tier, iconPx) : '★',
       name: (typeof gearName === 'function') ? gearName(kind, slot, tier) : slot,
-      tier,
+      tier, qty: '× 1',
     };
   }
   function card(scene, reward, iconPx = 64) {
@@ -32,7 +32,7 @@
       return {
         iconHTML: scene.iconSpanHTML ? scene.iconSpanHTML(reward.id, iconPx) : '',
         name: String(itemName(reward.id)),
-        qty: reward.qty > 1 ? `× ${reward.qty}` : null,
+        qty: `× ${reward.qty || 1}`,
         color: lootFlashColor(reward.id),
         tier: itemTierOf(reward.id),
       };

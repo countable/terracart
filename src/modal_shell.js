@@ -117,11 +117,12 @@ class SceneModals {
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0002', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false } = {}) {
+    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
     // Scene art is a story-sized dialog with a square image above its copy.
     const kRow = typeof kind === 'string' ? MODAL_KINDS[kind] : kind;
+    const speech = kind === 'spirit' || kind === 'talk';
     portrait = portrait || kRow?.portrait;
     art = portrait || art === false ? null : art || kRow?.art;
     if (portrait) story = true;
@@ -137,7 +138,8 @@ class SceneModals {
     // hide the movement pads (which otherwise sit on top of the modal — see the
     // gate). Every modal goes through here, so one class covers them all.
     wrap.classList.add('game-modal');
-    wrap.classList.add('compass-panel');
+    wrap.classList.add(speech ? 'speech-dialog' : 'compass-panel');
+    if (bookPage) wrap.classList.add('book-page-modal');
     // …and its KIND on the same node, so a rule about one category of dialog
     // (a foe's blow closes a shop — _closeShopOnHit) can find it.
     if (typeof kind === 'string') wrap.dataset.kind = kind;
@@ -240,7 +242,7 @@ class SceneModals {
       onClose?.();
     };
     if (onClose !== undefined) {
-      wrap.addEventListener('click', (e) => { if (e.target === wrap) dismissShell(); });
+      wrap.addEventListener('click', (e) => { if (e.target === wrap && !speech) dismissShell(); });
     }
     // ── The kind header ────────────────────────────────────────────────
     // A hero icon plus the one-word category (MODAL_KINDS), so every dialog
@@ -338,6 +340,10 @@ class SceneModals {
       // Useful categories scroll with the copy below a painting; generic
       // Story adds no information and is omitted above.
       if (kindNode && !art) { kindNode.style.flex = '0 0 auto'; body.appendChild(kindNode); }
+      if (speech && kindNode) {
+        kindNode.classList.add('speech-speaker');
+        kindNode.firstElementChild?.remove();
+      }
       if (portrait) {
         // A square character portrait keeps its own size above the copy. It
         // is never stretched into a scene painting.
@@ -349,7 +355,8 @@ class SceneModals {
         image.height = 128;
         image.style.cssText = 'display:block;width:128px;height:128px;flex:0 0 128px;align-self:center;object-fit:contain;margin:0 0 10px;image-rendering:pixelated;';
         image.addEventListener('error', () => { image.style.display = 'none'; });
-        body.appendChild(image);
+        if (speech && kindNode) kindNode.insertBefore(image, kindNode.firstChild);
+        else body.appendChild(image);
       }
       if (spacer) body.appendChild(spacer);
       body.appendChild(into);
@@ -359,7 +366,7 @@ class SceneModals {
       // Mount last: caller innerHTML cannot erase the fixed rail control.
       // The same cancellation path as backdrop dismissal preserves decisions,
       // mandatory acknowledgements, and the wrapper's capture-phase arming.
-      if (onClose !== undefined) {
+      if (onClose !== undefined && !speech) {
         const close = mkBtn('×', { variant: 'ghost' });
         close.style.cssText = '';
         close.type = 'button';
@@ -379,8 +386,8 @@ class SceneModals {
       box.classList.add('modal-box');
       if (!document.body.classList.contains('modal-open')) wrap.classList.add('modal-anim');
       wrap.appendChild(box);
-      (document.getElementById('game') || document.body).appendChild(wrap);
-
+      (speech ? document.body : document.getElementById('game') || document.body).appendChild(wrap);
+      if (speech) { this._syncModalGate?.(); this._placeSpeechBubble(wrap, box, source); }
     };
     // ONE button factory for every button a modal shows, in two VARIANTS:
     //   primary — a CONTROL: gold, always (spec §UI COLOUR LANGUAGE), or a
@@ -438,11 +445,64 @@ class SceneModals {
     return { wrap, box, mount, mkBtn };
   }
 
+  // Sources use viewport coordinates, independent of Phaser's scaled wrapper.
+  // Reposition only for resize/content changes or moving world anchors.
+  _placeSpeechBubble(wrap, box, source) {
+    let frame = 0, resizeFrame = 0, lastRect = null, lastLayout = null;
+    const position = () => {
+      if (!wrap.isConnected) return;
+      const game = document.getElementById('game');
+      const bounds = game?.getBoundingClientRect();
+      const viewportWidth = window.innerWidth, viewportHeight = window.innerHeight;
+      const leftLimit = Math.max(10, bounds?.left || 0);
+      const rightLimit = Math.min(viewportWidth - 10, bounds?.right || viewportWidth);
+      const width = Math.max(180, Math.min(330, rightLimit - leftLimit));
+      const target = typeof source === 'function' ? source() : source;
+      const candidate = target?.getBoundingClientRect ? target.getBoundingClientRect() : target;
+      if (candidate && Number.isFinite(candidate.left ?? candidate.x)) lastRect = candidate;
+      const rect = lastRect;
+      const x = rect ? (rect.left ?? rect.x) + (rect.width || 0) / 2 : (leftLimit + rightLimit) / 2;
+      const y = Math.max(20, Math.min(viewportHeight - 20, rect ? (rect.top ?? rect.y) + (rect.height || 0) / 2 : viewportHeight * .4));
+      const below = y < viewportHeight / 2;
+      const sourceEdge = y + (below ? 1 : -1) * (rect?.height || 0) / 2;
+      const gap = 18;
+      const available = Math.max(100, below ? viewportHeight - sourceEdge - gap - 12 : sourceEdge - gap - 12);
+      const left = Math.max(leftLimit, Math.min(rightLimit - width, x - width / 2));
+      const layout = [width, left, x, sourceEdge, below, available].join(',');
+      if (layout === lastLayout) return;
+      lastLayout = layout;
+      box.style.setProperty('--speech-width', `${width}px`);
+      box.style.setProperty('--speech-max-height', `${available}px`);
+      box.style.setProperty('--speech-left', `${left}px`);
+      box.style.setProperty('--speech-tail-x', `${Math.max(22, Math.min(width - 22, x - left))}px`);
+      wrap.dataset.placement = below ? 'below' : 'above';
+      box.style.setProperty('--speech-top', `${below ? sourceEdge + gap : sourceEdge - gap - box.offsetHeight}px`);
+    };
+    const refresh = () => { lastLayout = null; cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(position); };
+    const resize = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(refresh) : null;
+    resize?.observe(box);
+    window.addEventListener('resize', refresh);
+    window.visualViewport?.addEventListener('resize', refresh);
+    const follow = () => { position(); if (wrap.isConnected) frame = requestAnimationFrame(follow); };
+    position();
+    if (typeof source === 'function') frame = requestAnimationFrame(follow);
+    const removed = new MutationObserver(() => {
+      if (wrap.isConnected) return;
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(resizeFrame);
+      resize?.disconnect();
+      removed.disconnect();
+      window.removeEventListener('resize', refresh);
+      window.visualViewport?.removeEventListener('resize', refresh);
+    });
+    removed.observe(document.body, { childList: true });
+  }
+
   // Canonical accept/cancel modal for a simple decision. The caller supplies
   // trusted body HTML because feed icons and prices are richer than plain
   // text; this method owns dismissal so every exit closes before one callback.
   showConfirmModal({ id = 'confirm-modal', kind = 'note', title, body,
-    acceptLabel = 'OK', cancelLabel = 'Cancel', onAccept, onCancel, art, kindIcon }) {
+    acceptLabel = 'OK', cancelLabel = 'Cancel', onAccept, onCancel, art, kindIcon, source }) {
     // A rapid second tap must not replace the first decision or transfer its
     // action to a fresh set of buttons.
     if (document.getElementById(id)) return;
@@ -460,7 +520,7 @@ class SceneModals {
       onClose: () => settle(onCancel),
       kind,
       kindIcon,
-      art,
+      art, source,
     });
     ({ wrap } = shell);
     const { box, mount, mkBtn } = shell;
@@ -497,7 +557,7 @@ class SceneModals {
   // `art` (optional) — the story's own SCENE painting (assets/art/ stem); a
   // dialog with one is a STORY unless the caller names another kind.
   // `kind` (optional) — the MODAL_KINDS category; a plain message is a 'note'.
-  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false }) {
+  showMessageModal({ title, body, okLabel, onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false, source, bookPage = false }) {
     document.getElementById('offer-modal')?.remove();
     let dismissed = false;
     const dismiss = () => {
@@ -509,7 +569,7 @@ class SceneModals {
       if (typeof onDismiss === 'function') onDismiss();
     };
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
-      { zIndex: 60, onClose: mustAcknowledge ? undefined : dismiss, kind: kind, kindLabel, art, portrait });
+      { zIndex: 60, onClose: mustAcknowledge ? undefined : dismiss, kind: kind, kindLabel, art: bookPage ? false : art, portrait, source, bookPage, header: !bookPage });
     const safeBody = String(body).replace(/\n/g, '<br>');
     // No title, no title line: a page whose own heading is in the body (the
     // Book's volume line) starts on it, with no empty gold row above.
@@ -517,7 +577,8 @@ class SceneModals {
       ? `<div class="modal-title" style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>`
       : '';
     box.innerHTML = titleHTML + `<div class="${kind === 'spirit' || kind === 'talk' ? 'modal-speech' : ''}" style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
-    const btn = mkBtn(okLabel);
+    const speech = kind === 'spirit' || kind === 'talk';
+    const btn = mkBtn(okLabel || (speech ? 'Got it' : 'OK'));
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       wrap.remove();
@@ -525,6 +586,16 @@ class SceneModals {
     });
     box.appendChild(btn);
     mount();
+    if (speech) {
+      const opened = performance.now();
+      wrap.addEventListener('click', (e) => {
+        if (e.target.closest('button, a, input, select, textarea') || performance.now() - opened < 2000) return;
+        e.preventDefault();
+        e.stopPropagation();
+        wrap.remove();
+        dismiss();
+      });
+    }
   }
 
   // Watch #game for modal dialogs and mirror their presence onto a
@@ -551,7 +622,17 @@ class SceneModals {
       // Keep its HUD gate until TempleScene's shutdown clears the scene flag.
       const openModals = [...document.querySelectorAll('.game-modal')].filter(shown);
       const any = !!this._templeSceneActive || openModals.length > 0;
+      const speechOnly = any && !this._templeSceneActive && openModals.every(el => el.classList.contains('speech-dialog'));
+      if (speechOnly && !document.body.classList.contains('speech-open')) {
+        // A bubble may replace a mechanical panel in the same event turn.
+        // Sample the HUD's normal display, not the outgoing sheet's gate.
+        document.body.classList.remove('modal-open');
+        for (const el of document.querySelectorAll('#map-zoom, #move-pad, #gps-pad, #inv-tabs, #inv, #inv-name, #hud, #objective, #menu, #mp-btn, #compass-inventory-shutter')) {
+          el.style.setProperty('--speech-display', getComputedStyle(el).display);
+        }
+      }
       document.body.classList.toggle('modal-open', any);
+      document.body.classList.toggle('speech-open', speechOnly);
       if (any && this._movePadHeld) this._resetMovePad?.();
       // The chassis lives outside the scaled game. Clip at the sheet's actual
       // screen edge, retaining silver shoulders around the circular map. Its
@@ -604,6 +685,7 @@ class SceneModals {
     this._modalPadObserver = new MutationObserver(sync);
     // makeModalShell appends its wrap as a direct child of #game…
     if (gameEl) this._modalPadObserver.observe(gameEl, { childList: true });
+    this._modalPadObserver.observe(document.body, { childList: true });
     // …and the static overlays just flip their own style, so watch that.
     for (const id of ['story', 'safety', 'locating', 'howto', 'tooshort']) {
       const el = document.getElementById(id);
@@ -670,13 +752,13 @@ class SceneModals {
   //                 the start (a single card is selected on its own, so the
   //                 dialog reads as the plain price tag it is). A `suggested`
   //                 card wears a soft outline until something is picked.
-  showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, portrait, fullscreen = false, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
+  showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, portrait, fullscreen = false, source, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     // What the last accept of a REPEAT offer said (its flashLoot / flash
     // toasts, captured by the accept below): those draw on the map behind
     // this dialog, so the dialog that reopens prints them as its receipt.
     const offerToasts = this._offerToasts; this._offerToasts = null;
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art, portrait, fullscreen });
+      { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art, portrait, fullscreen, source });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
     // and calls onSelect, which re-presents the sibling modal — cheap "tabs"
@@ -1070,11 +1152,11 @@ class SceneModals {
     });
   }
   showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
-    onDismiss, header, kind = 'treasure', kindIcon, actions, art, portrait, cards = false, tier = 0,
+    onDismiss, header, kind = 'treasure', kindIcon, actions, art, portrait, source, cards = false, tier = 0,
     confirmLabel = 'Take', pickHint = 'Tap one to see what it does' }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('chest-reward-modal', {
       zIndex: 55, borderColor: accent, wrapBg: '#000c', art, portrait, centerBody: true,
-      kind, kindLabel: header, kindIcon,
+      kind, kindLabel: header, kindIcon, source,
       wrapExtra: 'animation:chestModalIn 180ms ease-out;',
       boxExtra: `border-width:3px;border-radius:14px;padding:22px 22px 14px;font-size:14px;` +
         `animation:chestRewardPop 320ms cubic-bezier(.34,1.56,.64,1);`,
@@ -1095,12 +1177,8 @@ class SceneModals {
         '}';
       document.head.appendChild(s);
     }
-    // `qty` (e.g. "× 5") renders as a bold, full-size, coloured line so the
-    // amount the player just received reads at a glance. `sub` stays the
-    // quiet descriptive line ("equipped", "already owned", flavour text).
-    const qtyHtml = qty
-      ? `<div style="margin-top:6px;font-size:22px;font-weight:700;color:${color};line-height:1.1">${qty}</div>`
-      : '';
+    // Keep the item and its amount together; rarity sits on the next line.
+    const qtyHtml = qty ? ` <span style="white-space:nowrap">${qty}</span>` : '';
     const subHtml = sub
       ? `<div class="${kind === 'spirit' || kind === 'talk' ? 'modal-speech' : ''}" style="margin-top:4px;font-size:13px;opacity:.85">${sub}</div>`
       : '';
@@ -1114,9 +1192,8 @@ class SceneModals {
       // no room for a third picture - an empty div would still cost its
       // margins as a blank band under the banner.
       (iconHTML ? `<div style="margin:6px 0 10px;font-size:0">${iconHTML}</div>` : '') +
-      `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}</div>` +
+      `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}${qtyHtml}</div>` +
       tierHtml +
-      qtyHtml +
       subHtml;
     const close = () => {
       wrap.remove();
@@ -1175,11 +1252,21 @@ class SceneModals {
         box.appendChild(take);
       }
     } else {
-      const ok = mkBtn('OK', { accent, css: 'margin-top:14px;min-width:90px;padding:10px 18px;' });
+      const ok = mkBtn(kind === 'spirit' || kind === 'talk' ? 'Got it' : 'OK', { accent, css: 'margin-top:14px;min-width:90px;padding:10px 18px;' });
       ok.addEventListener('click', (e) => { e.stopPropagation(); close(); });
       box.appendChild(ok);
     }
     mount();
+    if (kind === 'spirit' || kind === 'talk') {
+      if (!hasActions) {
+        const opened = performance.now();
+        wrap.addEventListener('click', (e) => {
+          if (e.target.closest('button, a, input, select, textarea') || performance.now() - opened < 2000) return;
+          e.preventDefault(); e.stopPropagation(); close();
+        });
+      }
+      return;
+    }
     // Sparkle burst around the modal. Spawned AFTER the wrap is in the DOM so
     // getBoundingClientRect() gives the box's real footprint; each sparkle
     // animates from a random perimeter point outward along its --dx/--dy.

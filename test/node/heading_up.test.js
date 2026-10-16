@@ -1,6 +1,6 @@
 // Rendering transforms must not leak into the north-up simulation.
 function huScene(angle = Math.PI / 2) {
-  return { _headingUp: true, mapRot: angle, viewCenterX: 100, viewCenterY: 100,
+  return { _headingUp: true, gpsM: { x: 0, y: 0 }, mapRot: angle, viewCenterX: 100, viewCenterY: 100,
     viewSize: 200, mapZoom: 1, cameras: { main: { id: 1 } }, uiCam: { id: 2 },
     children: { list: [] } };
 }
@@ -106,11 +106,11 @@ test('heading up: stationary north heading still projects zoomed UI', () => {
   assert.eq(label.x, 120); assert.eq(label.y, 90);
 });
 
-test('heading up: object labels share trimmed feet and footprint offsets', () => {
+test('heading up: object labels share cell pivots and footprint offsets', () => {
   const point = { x: 100, y: 150 };
   const tree = { visible: true, foot: { footFromCentre: 15 }, dxPx: -8, dyPx: 3 };
   const foot = Render.objectGroundAnchor(tree, null, point);
-  assert.eq(foot.x, 100); assert.eq(foot.y, 165);
+  assert.eq(foot.x, 100); assert.eq(foot.y, 150); assert.eq(foot.footDy, 15);
   const house = { visible: true, spec: { groundAtOrigin: true }, dxPx: 7, dyPx: -4 };
   const home = Render.objectGroundAnchor(house, null, point);
   assert.eq(home.x, 107); assert.eq(home.y, 146);
@@ -217,6 +217,9 @@ test('heading up: player caret hides with device compass and remains without a s
   assert.gt(gfx.strokes, 0, 'Q/E simulated heading is not a device compass');
   scene._deviceCompass = { deg: 90, facing: { x: 1, y: 0 } };
   paint();
+  assert.gt(gfx.strokes, 0, 'no GPS forces locking and keeps the caret');
+  scene.gpsM = { x: 0, y: 0 };
+  paint();
   assert.eq(gfx.strokes, 0, 'device heading clears the caret and uses map and rim north marker');
   scene._compassDirectionLocked = true;
   paint();
@@ -257,4 +260,50 @@ test('heading up: unlocking eases from the held angle toward the latest compass 
   assert.gt(scene.mapRot, target, 'unlock does not snap to the latest heading');
   for (let frame = 0; frame < 120; frame++) HeadingUp.tick(scene, 1 / 60);
   assert.lt(Math.abs(scene.mapRot - target), HeadingUp.DEAD_DEG * Math.PI / 180);
+});
+
+
+test('heading up: no captured GPS forces the map lock even with a compass sensor', () => {
+  const scene = { ...huScene(-Math.PI / 3), gpsM: null, gpsAvailable: true,
+    compassDeg: 180, _deviceCompass: true, _compassDirectionLocked: false,
+    _compassHUD: {}, _huNoCompass: { setVisible() {} }, _huNorth: { clear() {} } };
+  const held = scene.mapRot;
+  assert.truthy(HeadingUp.directionLocked(scene), 'a running watch is not a captured fix');
+  HeadingUp.tick(scene, 1 / 60);
+  huNear(scene.mapRot, held);
+  scene.gpsM = { x: 0, y: 0 };
+  assert.falsy(HeadingUp.directionLocked(scene), 'an actual fix releases the forced lock');
+  HeadingUp.tick(scene, 1 / 60);
+  assert.truthy(scene.mapRot !== held, 'following resumes after capture');
+  HeadingUp.toggleLock(scene);
+  assert.truthy(HeadingUp.directionLocked(scene), 'manual locking still works with GPS');
+});
+
+// Measure the opaque art, not the padded sprite frame. A foot pivot used to
+// displace short rocks by twice their half-height when facing south.
+test('heading up: seated props retain cell centering, shadows and visible-foot depth at every heading', () => {
+  for (const height of [18, 46]) {
+    const box = { fw: 64, fh: 64, minX: 9, maxX: 35, minY: 7, maxY: 7 + height };
+    const seat = SpriteLayout.seatInCell(box, .5, .5, 1, 1);
+    const footDy = height <= CELL_PX ? height / 2 : CELL_PX / 2 - 1;
+    const appearance = { visible: true, foot: { footFromCentre: footDy }, ...seat };
+    const point = { x: 130, y: 120 };
+    const anchor = Render.objectGroundAnchor(appearance, null, point);
+    for (const angle of [0, Math.PI / 4, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+      const scene = huScene(angle);
+      const sprite = huSprite({ x: point.x + seat.dxPx, y: point.y + seat.dyPx, _huAnchor: anchor });
+      const shadow = huSprite({ type: 'Image', x: point.x, y: point.y + footDy - 2, _huAnchor: anchor });
+      HeadingUp._upright(sprite, -angle, []);
+      HeadingUp._upright(shadow, -angle, []);
+      const drawn = HeadingUp.toScreenPt(scene, sprite.x, sprite.y);
+      const cell = HeadingUp.toScreenPt(scene, point.x, point.y);
+      huNear(drawn.x + (box.minX + box.maxX) / 2 - 32, cell.x);
+      huNear(drawn.y + box.maxY - 32, cell.y + footDy);
+      if (seat.fits) huNear(drawn.y + (box.minY + box.maxY) / 2 - 32, cell.y);
+      const shade = HeadingUp.toScreenPt(scene, shadow.x, shadow.y);
+      huNear(shade.x, cell.x); huNear(shade.y, cell.y + footDy - 2);
+      const depth = HeadingUp.toScreenPt(scene, sprite._huFoot.x, sprite._huFoot.y);
+      huNear(depth.x, cell.x); huNear(depth.y, cell.y + footDy);
+    }
+  }
 });

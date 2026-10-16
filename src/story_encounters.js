@@ -113,7 +113,7 @@ const StoryEncounters = (() => {
     if (!q.greeted && near && find(q.enemyId) && !held(scene) && !NPC.isDormant?.(c)) {
       q.greeted = true;
       persist(scene);
-      scene.showMessageModal({ ...NPC.speech(c), body: WORRIED, portrait: NPC.portrait(scene, c) });
+      scene.showMessageModal({ ...NPC.speech(c), body: WORRIED, portrait: NPC.portrait(scene, c), source: NPC.dialogSource(scene, c) });
     }
   }
   function interact(scene, c) {
@@ -135,14 +135,14 @@ const StoryEncounters = (() => {
         // The gift is SHOWN — the seed's own card under her portrait, her
         // thanks as its line — not described in a note (Rewards.present).
         Rewards.present(scene, { kind: 'item', id: 'starfruit_seed', qty: 1 },
-          { extra: { kind: 'story', header: NPC.speech(c).kindLabel, portrait: NPC.portrait(scene, c), sub: THANKS } });
+          { extra: { kind: 'talk', header: NPC.speech(c).kindLabel, portrait: NPC.portrait(scene, c), source: NPC.dialogSource(scene, c), sub: THANKS } });
         return true;
       }
       body = 'Thank you for stopping the archer. Make room in your bag; I have a starfruit seed for you.';
     }
     q.greeted = true;
     persist(scene);
-    scene.showMessageModal({ ...NPC.speech(c), body, portrait: NPC.portrait(scene, c) });
+    scene.showMessageModal({ ...NPC.speech(c), body, portrait: NPC.portrait(scene, c), source: NPC.dialogSource(scene, c) });
     return true;
   }
   return { arm, tick, defeated, interact, WORRIED, THANKS, armAtMemories };

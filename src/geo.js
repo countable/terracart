@@ -101,7 +101,7 @@ const Geo = (function () {
     }, RELEASE_GRACE_MS);
   }
 
-  return { subscribe, unsubscribe };
+  return { subscribe, unsubscribe, get hasFix() { return lastFix !== null; } };
 })();
 
 if (typeof window !== 'undefined') window.Geo = Geo;

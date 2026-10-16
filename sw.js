@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-73135557';
+const SHELL_VERSION = 'shell-a71091f1';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -692,6 +692,7 @@ const ASSET_HASHES = {
   "assets/Objects/trunk.png": "77fdcb98",
   "assets/art/barehand_tree.webp": "43a9b645",
   "assets/art/barehand_work.webp": "0ce150a1",
+  "assets/art/book_page.webp": "7d3a2759",
   "assets/art/book_read.webp": "a63f3011",
   "assets/art/booth_apothecary_intro.webp": "52174659",
   "assets/art/booth_apothecary_used.webp": "6f3875fe",
@@ -918,7 +919,7 @@ const ASSET_HASHES = {
   "assets/portraits/wizard.png": "d58efb40",
   "assets/ui/compass/body-carving.webp": "ba67176c",
   "assets/ui/compass/footer.webp": "cf76e3c7",
-  "assets/ui/compass/gold-fittings.png": "2c0eb8ff",
+  "assets/ui/compass/gold-fittings.png": "f2de995b",
   "assets/ui/compass/gold-rim.svg": "cf748ed9",
   "assets/ui/compass/header.webp": "3001dc79",
   "assets/ui/compass/joystick.webp": "5d57c13f",

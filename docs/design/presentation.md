@@ -10,10 +10,21 @@ changing dialogue, story panels, books, toasts or status presentation.
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
   and confirmations use the NPC portrait layout with a dedicated transparent,
   80×80 pixel-art Dragon Spirit head-and-neck portrait (`assets/portraits/dragon_spirit.png`).
+  Short informational help and NPC conversations use floating ivory speech
+  bubbles with the participant's portrait. They point to the HUD control or
+  speaking character: below sources in the top half of the viewport, above
+  sources in the bottom half. NPC anchors follow heading, zoom and viewport size.
+  Got it dismisses immediately; after two seconds, a tap anywhere dismisses
+  informational bubbles without passing the tap to the world. Explicit choices
+  still require a response. The main menu, shops, story paintings and book list
+  retain their mechanical panels.
   The original tall spirit painting remains available for scene art.
-  Dragon Spirit and NPC spoken copy appears in a pale chat bubble beneath the
-  portrait; dialogue headers join the speaker name and role with a comma
-  ("Tilly, Wanderer"), without a separate role line. Response choices stay outside the bubble.
+  Energy, distance and memories HUD help use this Spirit portrait and speech bubble.
+  Energy briefly explains refills and capacity; distance reports true restored
+  roads and the next treasure threshold, with scenic bonuses kept separate.
+  Dragon Spirit and NPC bubbles place the portrait beside the speaker name.
+  Dialogue headers join name and role with a comma ("Tilly, Wanderer").
+  Spoken copy and response controls sit below that header inside the bubble.
   The first earned green coin opens its own `coin_first` scene painting before
   revealing the money readout; its raised star matches the compact currency icon.
   Digging an X opens a treasure acknowledgment headed “X marks the spot” with
@@ -23,13 +34,14 @@ changing dialogue, story panels, books, toasts or status presentation.
   Container paintings follow the visible container, not the reward: crates use
   `treasure_crate`, barrels use `treasure_barrel`, and ordinary chests use
   `chest_t1` through `chest_t7` for their source tier. Only a glow inside hints at the contents; the reward card
-  names the actual find. Clay pots retain their brief smash feedback.
+  names the actual find as “Item name × quantity”, with its tier badge on the
+  next line. Clay pots retain their brief smash feedback.
 
 - The compass header aligns menu, a memories/books window and compact distance meter
   capped at 84 pixels wide beside a 72-pixel energy dial at the top right. The menu is
   46 pixels tall; the shared memories/books window gives these controls more room. A 26-pixel coin with a cast shadow and its
   white inline count sit at the far right, with a seven-pixel gap below the energy dial. The tutorial
-  banner sits 19 pixels below the map top (25 pixels higher than before). Equal responsive
+  floats inside the upper map as a Dragon Spirit portrait and speech bubble. Equal responsive
   gaps separate all four top widgets, with matching 8-pixel outer margins. The simulated-GPS control sits 20 CSS pixels above its
   ordinary stick baseline. The carving stays visible beneath navigation, with a
   darker graphite recess behind the inventory and a soft outer-edge fade.
@@ -43,7 +55,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   contained in the band. The rim follows compass heading while all four
   letters counterrotate to stay upright. `assets/ui/compass/gold-rim.svg`
   owns the band and engravings; transparent `gold-fittings.png` sprites supply
-  the sculpted metal ornaments at their native aspect ratios. The gold overlay
+  sculpted metal ornaments with broad raised edges and curled flourishes.
+  E/S/W letters are 1 pt smaller than their original scale; north retains its larger type. The gold overlay
   sits outside the silver chassis dimming and uses the controls' brightness,
   with warmer saturation to match their gold. Its letter seats match the HUD CSS.
 
@@ -113,6 +126,13 @@ changing dialogue, story panels, books, toasts or status presentation.
   animation loop, or tilt listeners. The baked emission assets and
   `CompassShine` implementation remain available for the development prototype.
 
+- Starter guidance is a floating Dragon Spirit portrait with a compact, pale
+  speech bubble on the upper map. Each step gives one spoken instruction;
+  completion briefly acknowledges it in the same bubble. Only the dismiss
+  button intercepts taps. Modal dialogs hide it, reduced-motion preferences
+  stop its float, and the menu can restore dismissed guidance. Tutorial steps
+  grant no bonus coins; ordinary loot and sales retain their own rewards.
+
 - The money area stays blank until an earned coin queues its first-coin story.
   Starting funds do not unlock it. The story waits behind other interactions;
   successful presentation records `storySeen['coin:first']` and reveals the coin
@@ -126,9 +146,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   first discovery/memory. Spending cannot close an activated circuit. Distance
   activates after 200 m of accepted movement; joystick activation requires
   **Enable spirit walking** in its spirit dialog. Closed controls explain low
-  power. Activation notices are micro toasts over the player, never dialogs;
-  they wait behind stories and dialogs, and are claimed when shown so reloads
-  cannot repeat them. Existing ownership seeds circuits
+  power. Activation notices use Dragon Spirit speech bubbles anchored to the
+  awakened control, with **Got it** immediately available and tap-anywhere
+  dismissal after two seconds. They wait behind stories and dialogs, present
+  one at a time, and are claimed when shown so reloads cannot repeat them. Existing ownership seeds circuits
   quietly when upgrading an older save.
 
 - The inventory pet menu's **View info** opens an individual pet card with a
@@ -137,6 +158,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   individual bonuses. Converted enemies use their main sprite as the portrait.
   Successful catches open this card immediately with **Close**; the first-pet
   story stays queued until the card closes. Inventory cards use **Back**.
+  Feeding PetNip from this menu or directly on the map opens the standard
+  `talk` speech dialog with a pleased response and the permanent max-HP gain.
+  It shows the pet's 128px portrait, or a 128px main sprite for converted enemies.
 
 - Character portraits use `CharacterPortraits` and transparent 80×80 cells
   from the generated 4×4 sheets (320×320 atlases) in `assets/portraits/`.
@@ -322,6 +346,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   during an accept use the ceremony queue with `defer: true`: the gate tick
   waits for the refreshed shop to close. Duplicate keyed requests must also
   respect deferral rather than draining during the remove/remount gap.
+- The Books read list remains a full mechanical panel. Reading or rereading a
+  book puts live, scrollable dark serif text on `assets/art/book_page.webp`,
+  a full-height illustrated half-book beneath the silver dragon rail.
+  `bookPage: true` selects this surface without changing the shared `book_read`
+  painting used elsewhere. Closing a reread returns to the list.
 - Book stories use direct firsthand excerpts in quotation marks. Occasional
   narrator asides sit outside the quotation in italics (`bookPageHTML`), usually
   one short sentence. Vary length, format, mood and author voice across books;

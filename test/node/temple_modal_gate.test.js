@@ -5,7 +5,7 @@ test('modal gate: stable open dialogs do not repeatedly reset the stick and obse
   let reads = 0, resets = 0, disconnected = 0, shutdown;
   const doc = {
     getElementById: () => null,
-    querySelectorAll: () => [{ id: 'message-modal', getClientRects() { reads++; return [1]; } }],
+    querySelectorAll: () => [{ id: 'message-modal', classList: { contains: () => false }, getClientRects() { reads++; return [1]; } }],
     body: { classList: { toggle() {} } },
   };
   const Observer = class { observe() {} disconnect() { disconnected++; } };
@@ -34,7 +34,7 @@ test('temple modal gate: observer sync preserves the trial and restores HUD only
   const doc = {
     getElementById() { return null; },
     querySelectorAll() { return dialogs; },
-    body: { classList: { toggle(name, on) { assert.eq(name, 'modal-open'); gated = on; } } },
+    body: { classList: { toggle(name, on) { if (name === 'modal-open') gated = on; else assert.eq(name, 'speech-open'); } } },
   };
   const Observer = class { constructor(callback) { this.callback = callback; } observe() {} };
   const Scene = new Function('document', 'MutationObserver', `return class { ${method} }`)(doc, Observer);
@@ -48,7 +48,7 @@ test('temple modal gate: observer sync preserves the trial and restores HUD only
   scene._modalPadObserver.callback();
   assert.truthy(gated, 'an unrelated DOM mutation cannot reveal HUD');
   scene._templeSceneActive = false;
-  dialogs = [{ getClientRects: () => [1] }];
+  dialogs = [{ classList: { contains: () => false }, getClientRects: () => [1] }];
   scene._syncModalGate();
   assert.truthy(gated, 'reward dialog retains gate after trial shutdown');
   dialogs = [];

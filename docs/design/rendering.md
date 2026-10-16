@@ -110,7 +110,11 @@ North-up mode retains the existing wall atlas artwork.
   compass reports, unless direction lock is engaged. The gold lock beside zoom
   holds the current map rotation while sensor readings continue; the caret then
   shows phone direction. Unlocking eases toward the current sensor heading. This
-  scene-local choice resets on scene creation. Desktop without a heading sensor
+  scene-local choice resets on scene creation. Until a GPS fix is captured,
+  direction is forced locked even if the heading sensor reports. Tapping the
+  lock subscribes to the shared GPS watch and unlocks on success; failure keeps
+  it locked. Repeated taps share one pending request, released on shutdown.
+  Detection alone does not relocate a sandbox or teleport world. Desktop without a heading sensor
   and north-up mode retain the caret. The heading-up compass rim keeps its north marker.
   Game state stays north-up; taps, peek drags and steering convert back
   through `HeadingUp.toWorldVec`, including the manual GPS stick.
@@ -192,6 +196,8 @@ North-up mode retains the existing wall atlas artwork.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
+  Seated art, shadows and labels counterrotate about the cell centre so these
+  offsets stay screen-relative at every heading; depth uses the visible foot.
   Buildings, moving creatures and canvas-baked street lamps have separate seating.
   A house sprite (small and medium tiers) stands its bottom-middle on its
   footprint's centre of mass: the object sits on the nearest footprint cell
@@ -317,7 +323,8 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   seam painted into the sprite. These contain no collectible mineral inclusions.
   The same 24px
   frame scales to 4/3 for both small stones and sight-blocking boulders.
-  `ROCK_VARIANT_ART` owns these scales and the placed-rock scale of 2.88.
+  `ROCK_VARIANT_ART` owns these scales; placed rocks draw their 16px produce
+  frame at 1.6×, comfortably inside a cell.
   These display sizes leave mining
   quantities, occupied cells and cover behavior unchanged.
   Named context/variant fields resolve the theme, with legacy zone-object

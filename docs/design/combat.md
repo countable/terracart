@@ -206,6 +206,9 @@ mechanics.
   its roster row's `condition`) carries `lightMul`: `Conditions.lightMul`
   halves the reach plateau (`reachRadiusM`, never under one cell), the light
   ramp and a carried torch (`Lighting.playerLightMul`) for fifteen seconds.
+- Tapping a well within reach clears every harmful condition through
+  `Conditions.clearDebuffs`, including burning and a trap's pin. Positive
+  buffs survive; the well costs no item or energy and remains reusable.
 - Confusion chooses a random compass heading and turn direction. Its share
   of movement increases linearly with the remaining duration: five seconds
   gives the compass 25% and player intent 75%; ten seconds splits control
@@ -253,6 +256,10 @@ mechanics.
   Use `Pets.carry/deploy/release`, never inventory stacks or id prefixes, for
   ownership. Stats, tint, accessories, growth and recovery stay on that record.
   Pet shops sell accessories. Eggs hatch wild babies that use the same gate.
+  PetNip is accepted by every owned pet through `Pets.likes/feed`, but cannot
+  catch wildlife. Its item `petFood.maxHp` permanently adds to the individual's
+  saved HP bonus and fills that new capacity without healing old wounds or
+  interrupting knockout recovery. It does not count as a favourite meal.
   Feeding a shiny chicken yields a separate Shiny Egg stack. After 500 m of
   real GPS walking, it hatches a non-shiny green dragon baby; its favourite
   food is meat. Regular eggs still hatch shiny domestic babies. Each egg type
@@ -263,10 +270,12 @@ mechanics.
   the wild unlocks a recipe through `homeRecipeLocked`; buying or brewing never
   unlocks one. Antidote, Hardworking, Grip, Healing, Stoneskin, Blight, Shielding
   and Shrinking are brewable; Revival and Resurrection remain unbrewable.
-  Blight uses Marigolds and Meat; Shielding uses Starflowers and Milk. Shrinking
+  Healing uses berries and onions; Blight uses Marigolds and Meat;
+  Shielding uses Starflowers and Milk. Shrinking
   uses two Mango and four coins, an intentional exception to same-tier inputs
   and the otherwise conservative recipe economics. Sugar Potion retains its
-  existing Home recipe. Brewing does not change potion effects.
+  existing Home recipe. Growth Powder is crafted at Home from three Nettles
+  and five Long Grass after finding the powder in the wild. Brewing does not change potion effects.
 - Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap

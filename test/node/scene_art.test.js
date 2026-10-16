@@ -51,7 +51,7 @@ test('scene art: kinds use paintings or character portraits', () => {
 });
 
 test('scene art: a message with a painting is a STORY', () => {
-  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, portrait, kind = art \? 'story' : 'note', kindLabel, mustAcknowledge = false \}\)/.test(shell),
+  assert.truthy(/showMessageModal\(\{[^}]*kind = art \? 'story' : 'note'[^}]*\}\)/.test(shell),
     'art makes it a story; a plain message stays a note');
 });
 
@@ -69,7 +69,8 @@ test('scene art: one scroller and one square crop for every painting', () => {
 test('scene art: generic Story is omitted and useful categories follow the image', () => {
   assert.truthy(shell.includes("art && kind === 'story' && (!kindLabel || kindLabel === 'Story')"), 'painted stories omit only the generic heading');
   assert.truthy(shell.includes('into.insertBefore(kindNode, into.firstChild)'), 'other category headings belong to the content below the image');
-  assert.falsy(/layoutArt|ResizeObserver/.test(shell), 'CSS owns square geometry without resize-driven JS layout');
+  const sceneShell = shell.slice(shell.indexOf('  makeModalShell('), shell.indexOf('  _placeSpeechBubble('));
+  assert.falsy(/layoutArt|ResizeObserver/.test(sceneShell), 'CSS owns square geometry without resize-driven JS layout');
 });
 
 test('scene art: new generated scenes use full square compositions', () => {

@@ -66,8 +66,8 @@ test('books chip: counts the pages read off the bookmark, built after the road c
   assert.truthy(/this\.updateRoadChipDOM\(\);\s*this\.updateBookChipDOM\(\);/.test(app), 'repainted with the HUD');
   assert.truthy(/body\.modal-open #bookchip \{ opacity: 0\.25; pointer-events: none; \}/.test(app), 'dims under a dialog like its neighbours');
   assert.truthy(/const n = bookPagesRead\(this\.save\)\.length;/.test(app), 'the count is the shelf\'s');
-  // A row reopens its page on the book painting with no title line, and the
+  // A row reopens its page on the parchment page with no title line, and the
   // list comes back when that page is tapped away; rereading moves no bookmark.
-  assert.truthy(/this\.showMessageModal\(\{ title: '', body: bookPageHTML\(page\), art: 'book_read',\n\s+onDismiss: \(\) => this\._showBooksRead\(\) \}\);/.test(app), 'a row rereads the page and returns to the list');
+  assert.truthy(/this\.showMessageModal\(\{ title: '', body: bookPageHTML\(page\), bookPage: true, okLabel: 'Back to books',\n\s+onDismiss: \(\) => this\._showBooksRead\(\) \}\);/.test(app), 'a row rereads the page and returns to the list');
   assert.falsy(/_showBooksRead\(\) \{[\s\S]*?tipsRead[\s\S]*?\n  \}\n/.test(app.slice(app.indexOf('  _showBooksRead() {'), app.indexOf('  _showBooksRead() {') + 2500)), 'the shelf never writes the bookmark');
 });

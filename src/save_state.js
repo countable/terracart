@@ -12,7 +12,7 @@
     caught: [], released: [], wildAnimals: [], picked: [], opened: [], chopped: [], fires: [], scarecrows: [], fruittrees: [],
     magicTraps: [], barricades: [], donated: [],
     lastProduce: {}, fruitPicked: {}, chestHold: {}, coinBurstClaimed: {},
-    trainingDrills: {}, training: {}, quarryMined: {}, npcRestUntil: {}, boonUntil: {},
+    grassRegrowth: {}, trainingDrills: {}, training: {}, quarryMined: {}, npcRestUntil: {}, boonUntil: {},
     castleServiceClaimed: {}, claimedCastles: {}, shinyHouses: {}, shopLines: {}, shopTiers: {}, dragonStory: {}, tilledQuality: {},
   });
   function defaults(save) {
@@ -27,6 +27,7 @@
   function normalize(save) {
     let needsPersist = false;
     defaults(save);
+    if (regrowGrass(save)) needsPersist = true;
     if (Campfires.migrate(save)) needsPersist = true;
     if (typeof ITEM_BY_ID !== 'undefined' && Array.isArray(save.inv) && save.inv.some(row => ITEM_BY_ID[row.id]?.kind === 'animal')) {
       save.inv = save.inv.filter(row => ITEM_BY_ID[row.id]?.kind !== 'animal');
@@ -137,6 +138,41 @@
     return needsPersist;
   }
 
+  // Remember only grass: generated wildplant ids can also name valuable crops,
+  // bushes and barriers, so a prefix test on `picked` would revive those too.
+  // An exponential waiting time has a two-real-day mean, independent of play
+  // frequency. Persist the roll once; reloads must never reroll its deadline.
+  const GRASS_REGROWTH_MEAN_MS = 2 * 24 * 60 * 60 * 1000;
+  function rememberClearedGrass(save, plant, now = Date.now(), random = Math.random) {
+    if (plant?.crop !== 'longgrass' || !plant.id || plant.playerOwned) return false;
+    const deadlines = save.grassRegrowth ||= {};
+    if (Number.isFinite(deadlines[plant.id])) return false;
+    const roll = Math.max(0, Math.min(1 - Number.EPSILON, random()));
+    deadlines[plant.id] = now + Math.max(1, -Math.log1p(-roll) * GRASS_REGROWTH_MEAN_MS);
+    return true;
+  }
+  function regrowGrass(save, now = Date.now()) {
+    const deadlines = save.grassRegrowth;
+    if (!deadlines || typeof deadlines !== 'object' || Array.isArray(deadlines)) return false;
+    const cleared = new Set([...(save.picked || []), ...(save.burnedObjects || [])]);
+    const grown = new Set();
+    let changed = false;
+    for (const [id, until] of Object.entries(deadlines)) {
+      if (!cleared.has(id) || !Number.isFinite(until) || until <= now) {
+        if (cleared.has(id) && Number.isFinite(until) && until <= now) grown.add(id);
+        delete deadlines[id];
+        changed = true;
+      }
+    }
+    if (grown.size) {
+      // Replace the arrays to invalidate the shared setOf membership cache.
+      for (const field of ['picked', 'burnedObjects']) {
+        if (Array.isArray(save[field])) save[field] = save[field].filter(id => !grown.has(id));
+      }
+    }
+    return changed;
+  }
+
   // Used by the fresh-game welcome flow, not to infer missing save history.
   function hasPlayed(save) {
     if (!save) return false;
@@ -148,5 +184,6 @@
             && (save.money ?? STARTING_MONEY) !== STARTING_MONEY);
   }
 
-  root.SaveState = { SAVE_DEFAULTS, defaults, normalize, hasPlayed };
+  root.SaveState = { SAVE_DEFAULTS, defaults, normalize, hasPlayed,
+    GRASS_REGROWTH_MEAN_MS, rememberClearedGrass, regrowGrass };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
