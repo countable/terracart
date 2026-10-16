@@ -107,6 +107,10 @@
   // the same black into the floor colour lands the identical pixel without a
   // translucent stroke that would double up where two rings touch.
   const OUTLINE_MUL = 0.5;
+
+  // A footprint Home's trailer cleared keeps only its shadow on the ground.
+  const CLEARED_SHADOW = 0x000000;
+  const CLEARED_SHADOW_ALPHA = 0.5;
   const OUTLINE_PX = 1;
 
   // Castle rampart: a stone band run INSIDE the ring (the cell version's
@@ -343,10 +347,10 @@
     };
     const target = {
       clear() { ctx.clearRect(0, 0, size, size); },
-      fillPoly(pts, color) {
+      fillPoly(pts, color, alpha) {
         if (!pts || pts.length < 3) return;
         trace(pts);
-        ctx.fillStyle = cssOf(color);
+        ctx.fillStyle = alpha == null ? cssOf(color) : rgbaOf(color, alpha);
         ctx.fill();
       },
       strokePoly(pts, width, color) {
@@ -1010,7 +1014,10 @@
     for (const { tx, ty, entry } of tiles) {
       const originMx = tx * entry.tileEdgeM;
       const originMy = ty * entry.tileEdgeM;
-      for (const shape of entry.buildingShapes) {
+      const shapes = entry.clearedShapes
+        ? entry.clearedShapes.map(s => ({ ...s, cleared: true })).concat(entry.buildingShapes)
+        : entry.buildingShapes;
+      for (const shape of shapes) {
         const r = shape.ring;
         if (!r || r.length < 6) continue;        // fewer than 3 points is not a footprint
         const pts = [];
@@ -1028,7 +1035,7 @@
         // off the north edge still drops its face into view.
         if (bx1 < minX || bx0 > maxX || by1 + facePx(shape.tier) < minY || by0 > maxY) continue;
         draws.push({
-          pts, south: by1, left: bx0, north: by0, right: bx1,
+          pts, south: by1, left: bx0, north: by0, right: bx1, cleared: !!shape.cleared,
           tier: shape.tier, key: shape.key, templeZone: shape.templeZone, templeKind: shape.templeKind,
           damageOriginX: projX(originMx), damageOriginY: projY(originMy),
           columns: shape.tier === CASTLE && !shape.templeZone ? CastleStyles.columnSites(shape.key, r,
@@ -1042,13 +1049,17 @@
     // Painter rule: the LOWER building draws in front. Ties break on the
     // leftmost x so the order is fully determined by the geometry rather than
     // by which tile happened to load first.
-    draws.sort((a, b) => (a.south - b.south) || (a.left - b.left));
+    // A cleared footprint's shadow lies on the ground, under every building.
+    draws.sort((a, b) => (b.cleared - a.cleared) || (a.south - b.south) || (a.left - b.left));
 
     // Anchor the material patterns to the WORLD before anything is filled:
     // texturePoly paints immediately, so the phase has to be in hand first.
     if (g.texturePhase) g.texturePhase(projX(0), projY(0));
 
     for (const d of draws) {
+      // A house Home's trailer cleared (scene_venues.js _eraseHomeBuildings):
+      // just the footprint, as a flat shadow — no walls, floor or outline.
+      if (d.cleared) { g.fillPoly(d.pts, CLEARED_SHADOW, CLEARED_SHADOW_ALPHA); continue; }
       if (d.templeZone) {
         const active = Temples.isActive(scene.save, d);
         const palette = TempleArt.palette(active, d.templeKind === 'tar', true);
