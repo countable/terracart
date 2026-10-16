@@ -966,11 +966,6 @@
     .modal-art-waiting { animation: modal-art-breathe 1.1s ease-in-out infinite alternate; }
     @keyframes modal-art-breathe { from { filter: brightness(.8); } to { filter: brightness(1.15); } }
     .modal-anim > .modal-box { animation: modal-pop 190ms cubic-bezier(.2, .9, .3, 1.15) both; }
-    /* The ARMING SECOND (modal_shell.js MODAL_ARM_MS): a fresh dialog's
-       buttons stay hidden and untappable, then fade in over half a second. */
-    .game-modal.modal-arming button { visibility: hidden; pointer-events: none; }
-    .game-modal.modal-unveil button { animation: modal-btn-in 500ms ease-out; }
-    @keyframes modal-btn-in { from { opacity: 0; } }
     @keyframes modal-fade { from { opacity: 0; } to { opacity: 1; } }
     @keyframes modal-pop {
       from { opacity: 0; transform: translateY(10px) scale(.94); }
@@ -1062,9 +1057,7 @@
       }
       #story .opening-copy { flex: 0 0 auto; padding: 20px max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left)); }
     }
-    /* The camera's slow push toward Tiamat, STORY_PAN_MS long (the script
-       sets the variable from the one constant the wake-up timing is derived
-       from). */
+    /* The camera's slow push toward Tiamat, STORY_PAN_MS long. */
     #story.nightmare .story-frames {
       position: relative; width: 100%; height: 100%;
       display: block; transform-origin: top left;
@@ -1074,16 +1067,8 @@
       from { transform: translateY(0) scale(1); }
       to { transform: translateY(-6%) scale(1.6); }
     }
-    /* "wake up" holds invisible (`both` keeps the from-frame through the
-       delay) until the push is nearly done, then comes up quickly and lands
-       with it. It is tappable from the first frame of the fade: a player who
-       sees it coming can skip the rest. */
-    #story button.nightmare-wake {
-      animation: wake-reveal var(--wake-fade-ms) ease-in var(--wake-delay-ms, 0ms) both;
-    }
-    @keyframes wake-reveal { from { opacity: 0; } to { opacity: 1; } }
     @media (prefers-reduced-motion: reduce) {
-      #story button.nightmare-wake, #story.nightmare .story-frames,
+      #story.nightmare .story-frames,
       #story .story-frame-next { animation: none; }
     }
     /* How-to-play card. Shown once when a fresh save first reaches the world
@@ -2232,7 +2217,7 @@
     function showDebugSearch(scene, { id, title, subject, hint, catalog, obtain, onClose = () => {} }) {
       const m = document.getElementById('menu'); if (m) m.open = false;
       const { wrap, box, mount, mkBtn } = scene.makeModalShell(id, {
-        kind: 'supplies', kindLabel: title, fullscreen: true, delayInput: false,
+        kind: 'supplies', kindLabel: title, fullscreen: true,
         boxExtra: 'display:flex;flex-direction:column;gap:8px;overflow:hidden;', onClose,
       });
       const search = document.createElement('input');
@@ -2631,15 +2616,8 @@
     // Discover the compass, dream, then wake at the trailer and enter the wrecked neighbourhood. The fresh-save
     // gate shows these before the safety/location CTA; replay uses that same gate.
     //
-    // The dream's clock: the camera pushes in on the dragons for STORY_PAN_MS
-    // (the nightmare-pan animation reads it), and "wake up" fades in over the
-    // LAST STORY_WAKE_FADE_MS of that push, so it lands as the zoom does. The
-    // button is disabled only while it is still fully invisible (an unseen
-    // tap is an accident, not a skip); from the first frame of its fade a
-    // tap wakes the player — anyone who sees it coming can skip the rest.
-    const STORY_WAKE_FADE_MS = 1500;
+    // The dream camera animates while its button remains immediately available.
     const STORY_PAN_MS = 8000;
-    const STORY_WAKE_DELAY_MS = STORY_PAN_MS - STORY_WAKE_FADE_MS;
     const STORY_SLIDES = [
       {
         art: '<div class="story-frames"><img src="assets/art/story_compass.webp" alt="An ancient silver compass engraved with dragons and stars lies in grass beside a residential sidewalk."><img class="story-frame-next" src="assets/art/story_compass_frame2.webp" alt="" aria-hidden="true"></div>',
@@ -2673,9 +2651,8 @@
       const skip = document.getElementById('story-skip');
       if (!overlay || !artEl || !textEl || !btn) return;
       __storyStarted = true;
-      let i = 0, wakeTimer;
+      let i = 0;
       const render = () => {
-        clearTimeout(wakeTimer);
         const s = STORY_SLIDES[i];
         overlay.classList.toggle('nightmare', !!s.nightmare);
         overlay.classList.toggle('story-fullscreen', !!s.fullscreen || !!s.nightmare);
@@ -2684,16 +2661,10 @@
         textEl.textContent = s.text;
         textEl.hidden = !s.text;
         btn.textContent = s.btn;
-        const fadeWake = !!s.nightmare && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-        btn.classList.toggle('nightmare-wake', fadeWake);
-        btn.style.setProperty('--wake-fade-ms', `${STORY_WAKE_FADE_MS}ms`);
-        btn.style.setProperty('--wake-delay-ms', `${STORY_WAKE_DELAY_MS}ms`);
         artEl.style.setProperty('--nightmare-pan-ms', `${STORY_PAN_MS}ms`);
-        btn.disabled = fadeWake;
-        if (fadeWake) wakeTimer = setTimeout(() => { btn.disabled = false; }, STORY_WAKE_DELAY_MS);
+        btn.disabled = false;
       };
       const finish = () => {
-        clearTimeout(wakeTimer);
         try { localStorage.setItem('terracart.introSeen', '1'); } catch {}
         overlay.remove();
         onDone?.();
@@ -3058,7 +3029,7 @@
   <script src="src/loot_contexts.js?v=92eecb4e"></script>
   <script src="src/rarity.js?v=3b10f893"></script>
   <script src="src/loot.js?v=3fda6cb1"></script>
-  <script src="src/macros.js?v=082f7fe9"></script>
+  <script src="src/macros.js?v=4251e299"></script>
   <script src="src/quests.js?v=113bb733"></script>
   <script src="src/hidden_objects.js?v=4f521b76"></script>
   <script src="src/temple_puzzles.js?v=73f9ce8c"></script>
@@ -3071,7 +3042,7 @@
   <script src="src/obstacle_step.js?v=90d02a9b"></script>
   <script src="src/visibility.js?v=aabd91f3"></script>
   <script src="src/spawn_ownership.js?v=d5742249"></script>
-  <script src="src/starter.js?v=417fd693"></script>
+  <script src="src/starter.js?v=88fdb1b1"></script>
   <script src="src/ground_fire.js?v=ed5509fb"></script>
   <script src="src/combat.js?v=7e3c9e9d"></script>
   <script src="src/pirates.js?v=c810956f"></script>
@@ -3089,7 +3060,7 @@
   <script src="src/interact.js?v=a312ad0d"></script>
   <script src="src/play_tips.js?v=889489e3"></script>
   <script src="src/lighting_gpu.js?v=c2cf90df"></script>
-  <script src="src/lighting.js?v=02cb7275"></script>
+  <script src="src/lighting.js?v=fa0da791"></script>
   <script src="src/safety.js?v=4da84751"></script>
   <script src="src/render.js?v=8e91b6b6"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
@@ -3104,7 +3075,7 @@
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=0a205c42"></script>
   <script src="src/art_thumbs.js?v=980f45a4"></script>
-  <script src="src/modal_shell.js?v=bcd655df"></script>
+  <script src="src/modal_shell.js?v=063b1fd6"></script>
   <script src="src/scene_geo.js?v=5440fa32"></script>
   <script src="src/npc.js?v=eb1e1862"></script>
   <script src="src/scene_creatures.js?v=e2bd723e"></script>

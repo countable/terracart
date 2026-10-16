@@ -23,7 +23,7 @@ test('modal entrance: short, and off for reduced motion', () => {
 });
 
 
-test('modal delay: stories and events wait; booths and building choices are immediate', () => {
+test('modal delay: all dialog kinds are immediately usable', () => {
   const kindsStart = SCENE_SRC.indexOf('const MODAL_KINDS = {');
   const kindsEnd = SCENE_SRC.indexOf('\n};', kindsStart);
   const kinds = (0, eval)('(' + SCENE_SRC.slice(kindsStart + 'const MODAL_KINDS = '.length, kindsEnd + 2) + ')');
@@ -38,23 +38,16 @@ test('modal delay: stories and events wait; booths and building choices are imme
       addEventListener(...args) { this.listeners.push(args); },
     }),
   };
-  const shell = new Function('document', 'MODAL_KINDS', 'setTimeout', 'UI_CONTROL_DIM', 'MODAL_ARM_MS', 'MODAL_UNVEIL_MS',
+  const shell = new Function('document', 'MODAL_KINDS', 'setTimeout', 'UI_CONTROL_DIM',
     'return ({' + SCENE_SRC.slice(start, end) + 'return wrap; }});')
-    (document, kinds, (...args) => timers.push(args), '#000', 1000, 500);
-  for (const kind of ['shop', 'trade', 'forge', 'relics', 'delivery', 'quest', 'build', 'craft', 'wizard', 'slots', 'menu']) {
-    const wrap = shell.makeModalShell('test', { kind, art: 'building_painting' });
-    assert.falsy(wrap.classes.has('modal-arming'), kind + ' is immediately usable');
-    assert.eq(wrap.listeners.length, 0, kind + ' does not swallow clicks');
+    (document, kinds, (...args) => timers.push(args), '#000');
+  for (const replacing of [false, true]) {
+    swapping = replacing;
+    for (const kind of Object.keys(kinds)) {
+      const wrap = shell.makeModalShell('test', { kind });
+      assert.falsy(wrap.classes.has('modal-arming'), kind + ' is immediately usable');
+      assert.eq(wrap.listeners.length, 0, kind + ' does not swallow clicks');
+    }
   }
-  assert.eq(timers.length, 0);
-  for (const kind of ['story', 'treasure', 'supplies', 'trail', 'rest']) {
-    const wrap = shell.makeModalShell('test', { kind });
-    assert.truthy(wrap.classes.has('modal-arming'), kind + ' protects its opening');
-    assert.eq(wrap.listeners[0][0], 'click');
-    assert.eq(wrap.listeners[0][2], true, 'blocks clicks in capture phase');
-  }
-  assert.truthy(shell.makeModalShell('test', { kind: 'farm', delayInput: true }).classes.has('modal-arming'),
-    'events such as hatching retain the delay regardless of category');
-  swapping = true;
-  assert.falsy(shell.makeModalShell('test', { kind: 'story' }).classes.has('modal-arming'), 'page turns do not wait again');
+  assert.eq(timers.length, 0, 'no delayed button reveal');
 });
