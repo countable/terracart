@@ -2608,7 +2608,7 @@
           const id = WG.cellId('wp_herb', tx, ty, c.ix, c.iy);
           const roll = hash01(id);
           if (roll >= 0.38) continue;
-          const crop = roll < 0.055 ? 'woundwort' : 'petnip';
+          const crop = roll < 0.055 ? 'nettle' : 'petnip';
           claim(c.ix, c.iy);
           res.wildplants.push(WG.makeWildplant(crop, cx(c.ix), cy(c.iy), id,
             { _street: 'plain' }));

@@ -267,11 +267,12 @@ mechanics.
   the wild unlocks a recipe through `homeRecipeLocked`; buying or brewing never
   unlocks one. Antidote, Hardworking, Grip, Healing, Stoneskin, Blight, Shielding
   and Shrinking are brewable; Revival and Resurrection remain unbrewable.
-  Healing uses berries and Woundwort; Blight uses Marigolds and Meat;
+  Healing uses berries and onions; Blight uses Marigolds and Meat;
   Shielding uses Starflowers and Milk. Shrinking
   uses two Mango and four coins, an intentional exception to same-tier inputs
   and the otherwise conservative recipe economics. Sugar Potion retains its
-  existing Home recipe. Brewing does not change potion effects.
+  existing Home recipe. Growth Powder is crafted at Home from three Nettles
+  and five Long Grass after finding the powder in the wild. Brewing does not change potion effects.
 - Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap

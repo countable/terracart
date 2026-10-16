@@ -1,16 +1,16 @@
 (function () {
-  test('medicinal herbs: shared map/inventory art, pet effect and healing ingredient', () => {
-    for (const id of ['petnip', 'woundwort']) {
+  test('medicinal herbs: shared map/inventory art, pet effect and Growth Powder ingredient', () => {
+    for (const id of ['petnip', 'nettle']) {
       const icon = inventoryIconSource(id), sprite = CROP_SPRITE[id];
       assert.eq(icon.sheet, sprite.sheet);
       assert.eq(icon.frame, sprite.frame);
       assert.truthy(PRICES[id] > 0);
     }
     assert.eq(ITEM_BY_ID.petnip.petFood.maxHp, 1);
-    assert.truthy(BREW_RECIPES.find(r => r.id === 'healing_potion').cost.some(c => c.id === 'woundwort'));
+    assert.truthy(HOME_RECIPES.find(r => r.id === 'growth_powder').cost.some(c => c.id === 'nettle'));
     const flora = BiomeProfiles.flora(WorldGen.T.SCHOOL);
     assert.truthy(flora.some(r => r.crop === 'petnip'));
-    assert.truthy(flora.some(r => r.crop === 'woundwort'));
+    assert.truthy(flora.some(r => r.crop === 'nettle'));
   });
 
   function herbs(size = 'minor', blocked = false, nexus = false) {
@@ -28,10 +28,10 @@
     }).wildplants;
   }
 
-  test('medicinal herbs: deterministic plain Small-road forage with a rarer potion herb', () => {
+  test('medicinal herbs: deterministic plain Small-road forage with a rarer powder herb', () => {
     const plants = herbs();
     const common = plants.filter(p => p.crop === 'petnip').length;
-    const rare = plants.filter(p => p.crop === 'woundwort').length;
+    const rare = plants.filter(p => p.crop === 'nettle').length;
     assert.gt(rare, 0);
     assert.gt(common, rare * 3);
     assert.eq(JSON.stringify(plants), JSON.stringify(herbs()));

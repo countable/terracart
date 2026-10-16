@@ -113,11 +113,11 @@ access or tile lifecycle mechanics.
   it. Silk in flight is transient and is cleared when depth changes.
 
 - School fields carry denser wild grass plus common PetNip and rarer
-  Woundwort, with densities owned by `BiomeProfiles`. Plain Small-road verges
+  Nettle, with densities owned by `BiomeProfiles`. Plain Small-road verges
   sample herb seats on both sides every 21 metres; PetNip is the common roll,
-  Woundwort the rare one. The ordinary spawn gate excludes unsafe seats, road
+  Nettle the rare one. The ordinary spawn gate excludes unsafe seats, road
   nexuses and themed stretches. Both herbs use the standard wildplant harvest
-  lane; PetNip feeds pets and Woundwort supplies the healing-potion recipe.
+  lane; PetNip feeds pets and Nettle supplies the Home Growth Powder recipe.
 
 - Cleared wild longgrass returns after an independently sampled exponential
   wait averaging two real days (`SaveState.GRASS_REGROWTH_MEAN_MS`). Harvest

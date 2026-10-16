@@ -46,7 +46,7 @@
     WILDROSE: 0xf10a0003,
     STARFLOWER: 0xf10a0004,
     PETNIP: 0xf10a0009,
-    WOUNDWORT: 0xf10a000a,
+    NETTLE: 0xf10a000a,
     // Newly-wired biomes — fresh salts.
     FARM_LG: 0x5a17b107,
     FARM_MAR: 0xf10a0005,
@@ -213,7 +213,7 @@
     [T.SCHOOL]: { blockedFlora: ['marigold'],
       flora: [fix('longgrass', 0.055, 0.085, S.LONGGRASS),
               { ...fix('petnip', 0.012, 0.020, S.PETNIP), terrainOnly: true },
-              { ...fix('woundwort', 0.002, 0.004, S.WOUNDWORT), terrainOnly: true },
+              { ...fix('nettle', 0.002, 0.004, S.NETTLE), terrainOnly: true },
               { ...fix('forgetmenot', 0.011, 0.023, S.FORGETMENOT), terrainOnly: true }],
     },
     [T.COMMERCIAL]: { blockedFlora: ['marigold'],
