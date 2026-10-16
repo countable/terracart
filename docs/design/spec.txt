@@ -868,10 +868,15 @@ CONSUMABLES
  - BOOK: read on pickup (it never sits in the bag). Each Book is the next page
    of `PLAY_TIPS` in curriculum order (`save.tipsRead`); after the course, a
    random tip or a bearing to the nearest unopened chest.
- - CAMPFIRE: a coal lights a fire on an empty bare cell. A fire lights, rests
+ - CAMPFIRE: flint lights a fire on an empty clear cell. A fire lights, rests
    and wards on one ring (`FIRE_REST_R`), so it doubles as a perimeter ward in
    the wild; underground it wards only the shallow levels' monsters
-   (`FIRE_WARD_MAX_DEPTH`). It persists (`save.fires`) until tapped out.
+   (`FIRE_WARD_MAX_DEPTH`). After 24 real hours, including offline time, it
+   becomes a smoking pit: no healing, ward, light, cooking or fire damage.
+   The pit persists in `save.fires`; tapping it with flint consumes one and
+   relights it for another day. Other taps clear the ashes. Lit fires can
+   still be tapped out. `Campfires` owns the saved `litAt` clock; old saves
+   receive their first timestamp once on load.
 
 ================================================================================
 INVENTORY

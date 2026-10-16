@@ -7913,7 +7913,9 @@ class MapScene extends Phaser.Scene {
     const list = this.save[listKey];
     if (!list || !list.length) return false;
     const r2 = (cells * this.cellM) * (cells * this.cellM);
+    const now = Date.now();
     for (const e of list) {
+      if (listKey === 'fires' && !Campfires.active(e, now)) continue;
       // Wards (scarecrows / fires) only repel on their own level — the world is
       // GPS-mirrored across depths, so a surface ward must not reach a cave
       // creature at the same (x, y). See src/placed_floor.js.

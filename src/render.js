@@ -450,9 +450,8 @@ Render.suppressedGround = (entry, ix, iy, type, depth = 0, n = entry?.cellsPerEd
 
 // Pseudo-3D extrusion: a building footprint is the "top surface", and its
 // south-facing edge gets a darker wall projected downward onto the row below.
-// Wall faces recover half the pre-recolour contrast against their floors — deep
-// shadow under the lit top surface, but with enough hue to read as the
-// building's own material rather than a generic dark stripe. Houses get a 7px
+// House faces stay close to their footprint colour, with a shallow shadow
+// that keeps the foundation readable as the same brick material. Houses get a 7px
 // wall; civic slabs (LARGE) keep a thicker 11px one to read at their bigger
 // footprint scale.
 //
@@ -461,7 +460,7 @@ Render.suppressedGround = (entry, ix, iy, type, depth = 0, n = entry?.cellsPerEd
 // POLYGON with the same colours at the same depths, and a wall that changed
 // height when the footprint stopped being square would give the two modes
 // different silhouettes for the same building.
-const BUILDING_FACE_COLOR = { 9: 0x613833, 11: 0x625441, 12: 0x5a5e58 };
+const BUILDING_FACE_COLOR = { 9: 0x7e4138, 11: 0x625441, 12: 0x5a5e58 };
 const BUILDING_FACE_PX = { 9: 7, 11: 7, 12: 11 };
 // Building tiers, as a predicate; module scope because the base terrain fill needs it too.
 const isBuildingType = (t) => t === 9 || t === 11 || t === 12;
@@ -4208,13 +4207,16 @@ Render.drawObjects = function drawObjects(scene) {
     return out;
   };
   const scarecrowList = placedAs(PlacedFloor.forDepth(scene.save.scarecrows, _curDepth), '_scarecrow', 'scarecrow');
-  const fireList = placedAs(PlacedFloor.forDepth(scene.save.fires, _curDepth), '_fire', 'fire');
+  const fireNow = Date.now();
+  const firesOnDepth = PlacedFloor.forDepth(scene.save.fires, _curDepth);
+  const fireList = placedAs(firesOnDepth.filter(f => Campfires.active(f, fireNow)), '_fire', 'fire');
   // Home's empty firepit (save.homeFirepit, seated by _placeHome): a ring of
   // stones on the surface, until a fire is lit in it — then the fire is drawn.
   const pit = scene.save.homeFirepit;
   const firepitList = (pit && _curDepth === 0 && !(scene.save.fires || [])
     .some(f => PlacedFloor.isSurface(f.depth) && sameAbsCell(scene, f.x, f.y, pit.x, pit.y)))
     ? placedAs([pit], '_firepit', 'firepit') : [];
+  firepitList.push(...placedAs(firesOnDepth.filter(f => !Campfires.active(f, fireNow)), '_firepit', 'firepit'));
   // STREET LAMPS on a restored street — the same treatment, for the same
   // reason: a lamp STANDS on the ground, so it takes its turn in the screen-row
   // z-order (a lamp behind a house is in front of the house north of it).
@@ -4769,7 +4771,7 @@ Render.drawObjects = function drawObjects(scene) {
     fadeLabelOverPlayer(tx, _playerBox);
   }, labelFactory('sign'));
 
-  // Smoke wisping off Home's cold firepit (HomeArea.FIREPIT_SMOKE): soft
+  // Smoke wisping off cold firepits (HomeArea.FIREPIT_SMOKE): soft
   // puffs that rise, sway and fade, each a fraction of a period behind the
   // last. In the fx layer (masked to the map, under the fog); none under
   // reduced motion.

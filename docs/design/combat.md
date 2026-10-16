@@ -270,7 +270,9 @@ mechanics.
 - Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap
-  enemies inside Home's ring.
+  enemies inside Home's ring. Campfires burn for 24 real hours, including offline
+  time (`Campfires.active`, saved `litAt`). After expiry their smoking pits give
+  no rest, ward, light or burning contact; flint relights them for another day.
 - Fire slimes resist burning and fireball damage through their roster row. Each accepted cell
   exit lights the cell left behind through `GroundFire`, including while
   wandering or retreating. The occupied destination stays unlit until they
