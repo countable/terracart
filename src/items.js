@@ -169,9 +169,11 @@ const ZONE_ROCK_THEMES = Object.freeze({
 });
 // One neutral stone palette everywhere; material pairs are adjacent small/large frames.
 // Legacy yield variants still own mining quantities, independently of appearance.
+// World rocks draw at 92% of the 16/15 source-cell scale (owner, Oct 2026).
+const ROCK_WORLD_SCALE = (16 / 15) * 0.92;
 const ROCK_VARIANT_ART = Object.freeze({
-  columns: 8, rows: 9, smallScale: 16 / 15, largeScale: 16 / 15,
-  themedScale: 16 / 15, placedScale: 1.6,
+  columns: 8, rows: 9, smallScale: ROCK_WORLD_SCALE, largeScale: ROCK_WORLD_SCALE,
+  themedScale: ROCK_WORLD_SCALE, placedScale: 1.6,
   plainFrames: Object.freeze([0, 30, 32, 34]),
   materials: Object.freeze(['plain', 'flint', 'quartz', 'topaz', 'amethyst',
     'sapphire', 'ruby', 'emerald', 'diamond', 'copper', 'iron', 'gold',
@@ -239,6 +241,9 @@ function wildplantFrame(p) {
 // no treasure and casts no light.
 const WILDPLANT_RULES = {
   berry: { pickedCrop: 'shrub' },
+  // `sting`: picking it hurts — `energy` off the bar as a bare-handed blow
+  // (scene _sting: Combat.playerDamage, no armour) and `line` at the plant.
+  nettle: { sting: { energy: 7, line: 'Ouch!' } },
   // A woody bush. Chopping one yields the WOOD item, not a 'shrub' item
   // (tree + shrub have no inventory counterparts), and it is real felling
   // work: bare hands take 5 seconds, axes use their usual ladder, and
@@ -1139,7 +1144,7 @@ const ITEMS = [
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
   // Wild poisonberry (forest and wetland bushes, pickable). Eaten, it
-  // poisons you; offered to an enemy, it poisons the enemy (interact.js).
+  // poisons you; offered to an enemy or a pet, it poisons that (interact.js).
   { id: 'poisonberry',  name: 'Poisonberry',  kind: 'produce', crop: 'poisonberry' },
   // Fish (caught by Fishing Rod on water tiles). dropWeight: 0.4 trims their
   // share within the (produce, tier) pool so chest loot reads as mostly crops
@@ -1282,8 +1287,8 @@ const _CONSUMABLE_MINUTE_MS = 60 * 1000;
 const TOME_MUL = 0.5;
 const CONSUMABLE_SPEC = {
   mushroom: { condition: 'confused', durationMs: 3000 },
-  // `feedsFoe`: offered to an enemy (interact.js), the enemy takes the
-  // condition instead (Combat.poison — the Poison Flask's minute).
+  // `feedsFoe`: offered to an enemy or a pet (interact.js), that creature
+  // takes the condition instead (Combat.poison — the Poison Flask's minute).
   poisonberry: { condition: 'poison', feedsFoe: true },
   orb: {
     chestRevealMs: 6000,
@@ -2020,7 +2025,7 @@ const ITEM_EFFECTS = {
   rainberry: 'Rain gathers on nearby leaves when its skin breaks between your teeth.',
   pairy: 'Its sweetness leaves a glimmer of buried treasure behind your eyes.',
   dawnfruit: 'A clear dawn fills your sight when you bite through its skin.',
-  poisonberry: 'Teal and bitter. Whoever swallows it sickens — you, or a foe you feed it to.',
+  poisonberry: 'Teal and bitter. Whoever swallows it sickens — you, or any creature you feed it to.',
   miracle_lettuce: 'Its crisp leaves leave you feeling unusually lucky.',
   horse: 'It stamps and tosses its head, impatient for the open road.',
   coffee: 'A roasted warmth sets your feet itching for the road.',
@@ -2029,7 +2034,7 @@ const ITEM_EFFECTS = {
   worldpeach: 'Its soft sweetness washes every affliction away.',
   longgrass: 'Its tough fibres hold fast when twisted together.',
   petnip: 'A fragrant sprig that cheers a pet and strengthens its heart.',
-  nettle: 'A prickly herb ground into Growth Powder to wake sleeping crops.',
+  nettle: 'A stinging herb ground into Growth Powder to wake sleeping crops. Pick it with care.',
   rubble: 'Beneath its pale skin lies a stone hard enough for a ruined wall.',
   quartz: 'Soft pink light catches in the stone’s cloudy heart.',
   topaz: 'A honey-gold gleam rests between its sharp edges.',
