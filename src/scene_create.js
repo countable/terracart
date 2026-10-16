@@ -975,6 +975,11 @@ class SceneCreate {
     this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
     this.fogContainer.setMask(mask);
+    // ?noMask=1 (device probe): drop the stencil clip from every world layer.
+    // The camera viewport and the round heading-up window still bound the map.
+    if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('noMask') === '1') {
+      for (const o of this.children.list) if (o.mask === mask) o.clearMask();
+    }
 
     // Work-progress wheel — drawn above all world objects, not masked.
     this._workProgressGfx = this.add.graphics().setDepth(95);

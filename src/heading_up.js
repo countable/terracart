@@ -394,7 +394,7 @@ const HeadingUp = {
     walk(wl);
     for (let i = tags; i < pool.length; i++) pool[i].setVisible(false);
     const shadows = (scene.shadowPool || []).filter(s => s.visible).length;
-    label.setText(`propDebug v3 · ${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows}`);
+    label.setText(`propDebug v4 · mt${scene.game.renderer?.maxTextures ?? '?'} mask${scene.worldContainer?.mask ? 1 : 0} · ${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows}`);
   },
 
   _postRender(scene) {
