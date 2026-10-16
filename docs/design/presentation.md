@@ -6,8 +6,9 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
-- The compass header uses one compact row for menu, memories/books, distance,
-  energy and money. The simulated-GPS control sits 20 CSS pixels above its
+- The compass header aligns menu, a short memories/books window, and distance
+  beside a larger 64-pixel energy dial at the top right. A small coin and its
+  inline count sit directly below the dial. The simulated-GPS control sits 20 CSS pixels above its
   ordinary stick baseline. HUD metal uses reduced brightness with a stronger
   outer-edge fade; controls retain brighter text and icons. The fade excludes
   the circular map aperture.
