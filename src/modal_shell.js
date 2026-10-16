@@ -116,7 +116,7 @@ const MODAL_KINDS = {
   use:      { icon: '🎒', label: 'Use', art: 'kind_use' },   // confirming a consumable from the bag
   fire:     { icon: '🔥', label: 'Campfire', art: 'kind_fire' },   // burning a held item (presentBurnConfirm)
   note:     { icon: '📜', label: 'Note', art: 'kind_note' },   // generic message dialog
-  // A neighbour speaking: the header is the speaker's NAME (callers pass it as
+  // A neighbour speaking: the header is the speaker's name and role (callers pass it as
   // kindLabel — NPC.speech), the label below is only the fallback. Always
   // opened with the speaker's portrait, so the row has no default painting.
   talk:     { icon: '💬', label: 'Talk' },

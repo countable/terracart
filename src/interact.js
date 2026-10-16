@@ -489,8 +489,8 @@ function grantFoundTreasure(scene, save, sx, sy, mark, tier, headline) {
 
 // `opts.ceremony` ({ kind, header, sub, art, onDismiss }) shows the paid
 // reward as a card (scene.showRewardCard) instead of the toast lines below —
-// a reward the player earned (an elite's drop) rather than a find on the
-// ground. The rest of `opts` is the roll's own (rollBonus, tier, classes).
+// a dug X or an elite's drop. The rest of `opts` is the roll's own
+// (rollBonus, tier, classes).
 function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:default', opts) {
   const { ceremony, ...rollOpts } = opts || {};
   const reward = pickReward(contextKey, save, undefined, opts ? rollOpts : undefined);
@@ -607,7 +607,9 @@ const TAP_HANDLERS = [
       // StreetVariants.dress) pays that many extra roll steps on top.
       const dig = scene.digTreasureOpts?.();
       grantTreasureRoll(scene, save, sx, sy, '✕', treasureContextFor(tr),
-        tr.rollBonus > 0 ? { ...(dig || {}), rollBonus: tr.rollBonus } : dig);
+        { ...(dig || {}), ...(tr.rollBonus > 0 ? { rollBonus: tr.rollBonus } : {}),
+          ceremony: { kind: 'treasure', header: 'X marks the spot', art: 'treasure_dig',
+            sub: 'You uncover a buried treasure.' } });
       ctx.dirty = true;
       return true;
     };

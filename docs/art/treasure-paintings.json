@@ -1,0 +1,52 @@
+{
+  "treasure_dig": {
+    "master": "/home/claude/.artifacts/terracart-art/art-source/paintings/raw/treasure_dig-glow-20261016.png",
+    "sha256": "28d54ab0d2e49cf3407eb7de61edb56e7ceb9237fe966ae90eb8dd418057d047",
+    "export": "512x652 WebP, quality 88, top-anchored fit"
+  },
+  "treasure_barrel": {
+    "master": "/home/claude/.artifacts/terracart-art/art-source/paintings/raw/treasure_barrel-glow-20261016.png",
+    "sha256": "1f7a62e6b969470ef07263719a8fed65d7803fdd08a95add3adf39a679a452a6",
+    "export": "512x652 WebP, quality 88, top-anchored fit"
+  },
+  "treasure_crate": {
+    "master": "/home/claude/.artifacts/terracart-art/art-source/paintings/raw/treasure_crate-glow-20261016.png",
+    "sha256": "018a66c3d4c76cc586c2d6f35d81209a139a98716746a5b8229c85d04bcd76a1",
+    "export": "512x652 WebP, quality 88, top-anchored fit"
+  },
+  "chest_t1": {
+    "master": "/home/claude/.artifacts/terracart-art/art-source/paintings/raw/chest_t1-glow-20261016.png",
+    "sha256": "5e16f07ba374da1bb8037f45203660725d55286869a5fc5f68feb4a5680495bc",
+    "export": "512x652 WebP, quality 88, top-anchored fit"
+  },
+  "chest_t2": {
+    "master": "/home/claude/.artifacts/terracart-art/art-source/paintings/raw/chest_t2-glow-20261016.png",
+    "sha256": "0fdc808f914d55e3d633a94615a35c8c0086542e5d3b4695963873e9b8cd1013",
+    "export": "512x652 WebP, quality 88, top-anchored fit"
+  },
+  "chest_t3": {
+    "master": "/home/claude/.artifacts/terracart-art/art-source/paintings/raw/chest_t3-glow-20261016.png",
+    "sha256": "6d41aa1903a4b70e02f9245fe2c3f09ecd957f75ab10ce2a4a693b6dc5d4db1f",
+    "export": "512x652 WebP, quality 88, top-anchored fit"
+  },
+  "chest_t4": {
+    "master": "/home/claude/.artifacts/terracart-art/art-source/paintings/raw/chest_t4-glow-20261016.png",
+    "sha256": "a50a32872a483ac75732e499e441494034e4288a8fc7c5df51c546f726b21638",
+    "export": "512x652 WebP, quality 88, top-anchored fit"
+  },
+  "chest_t5": {
+    "master": "/home/claude/.artifacts/terracart-art/art-source/paintings/raw/chest_t5-glow-20261016.png",
+    "sha256": "4e314af1a39eb99c0d35324a1749652e17f835b01b52fcb3d790ab4012f9d5bb",
+    "export": "512x652 WebP, quality 88, top-anchored fit"
+  },
+  "chest_t6": {
+    "master": "/home/claude/.artifacts/terracart-art/art-source/paintings/raw/chest_t6-glow-20261016.png",
+    "sha256": "63a4af303e7ccced2c429bb972788ae313f0db9d790abc17752284206e4e2cc9",
+    "export": "512x652 WebP, quality 88, top-anchored fit"
+  },
+  "chest_t7": {
+    "master": "/home/claude/.artifacts/terracart-art/art-source/paintings/raw/chest_t7-glow-20261016.png",
+    "sha256": "88dd8b0c3bbcb540de4dc66106c51665e56c42ae892a9987435b990c33f43a6e",
+    "export": "512x652 WebP, quality 88, top-anchored fit"
+  }
+}

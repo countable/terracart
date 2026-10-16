@@ -334,7 +334,7 @@
     assert.truthy(HomeArea.inFooting(0, 0), 'the doorstep');
     assert.truthy(HomeArea.inFooting(p.dx, p.dy), 'the firepit');
     assert.falsy(HomeArea.inFooting(2, 0), 'two cells out is free');
-    assert.falsy(HomeArea.inFooting(0, 3), 'the cell beyond the firepit is free');
+    assert.falsy(HomeArea.inFooting(0, 2), 'the cell beyond the firepit is free');
   });
 
   // "Move Home here" onto a real house's cell crashed when the inject adopted

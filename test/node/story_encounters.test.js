@@ -31,11 +31,10 @@
     const portrait = NPC.portrait; NPC.portrait = () => 'portrait';
     try {
       assert.truthy(StoryEncounters.interact(s, maud));
-      // Her NAME heads the dialog beside the chat bubble, never a NOTE scroll;
-      // her role is the title line beneath it.
+      // Her name and role share the dialogue header.
       assert.eq(s.lastDialog.kind, 'talk');
-      assert.eq(s.lastDialog.kindLabel, 'Maud');
-      assert.eq(s.lastDialog.title, 'Survivor');
+      assert.eq(s.lastDialog.kindLabel, 'Maud, Survivor');
+      assert.eq(s.lastDialog.title, undefined);
       s.save.caught.push(q.enemyId);   // resolveDefeat's mark, then the credit
       StoryEncounters.defeated(s, { id: q.enemyId });
       StoryEncounters.interact(s, maud);
