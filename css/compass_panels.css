@@ -56,7 +56,12 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   text-transform: none !important; color: #f3dfa0 !important;
   text-shadow: 0 2px 3px #000, 0 0 12px #000;
 }
-.compass-panel .modal-art, .compass-panel .modal-art-mosaic { inset: var(--panel-rail-height) 7px 0 !important; }
+/* The painting hangs square and flush from the rail's lower edge (1px under
+   it, so no seam shows), not with the sheet's rounded top corners. */
+.compass-panel .modal-art, .compass-panel .modal-art-mosaic {
+  inset: calc(var(--panel-rail-height) - 1px) 7px 0 !important;
+  border-radius: 0 !important;
+}
 .compass-panel .compass-action { border-radius: 13px !important; min-height: 38px; }
 .compass-panel .compass-action-primary:not(.compass-action-accent):not(:disabled) {
   background: linear-gradient(#fff0a0, #f4c844 22%, #d79a20 78%, #f4cd63) !important;
