@@ -22,7 +22,7 @@ body.compass-hud #inv-tabs .hud-tab::after {content:'';position:absolute;top:cal
 body.compass-hud #inv-tabs .hud-tab > .inventory-category-glyph {color:#41413c!important;filter:drop-shadow(0 -1px 0 #20211d) drop-shadow(0 1px 0 #d6d2c8)!important;opacity:1!important;line-height:1;}
 body.compass-hud #inv-tabs .inventory-category-glyph svg {width:clamp(19px,calc(var(--inventory-key-size) * .55),24px);height:clamp(19px,calc(var(--inventory-key-size) * .55),24px);stroke:#353631;stroke-width:.15;paint-order:stroke fill;}
 body.compass-hud #inv-tabs .hud-tab.sel {border-color:#fff1b3;background:radial-gradient(ellipse at 40% 25%,#f3d882aa,#ad7b2499 68%,#6c4a16e6),url('../assets/ui/compass/silver-metal.webp') center/90px 90px;box-shadow:inset 0 0 0 1px #b17b24,inset 0 2px 2px #fff3be99,inset 0 -3px 3px #634411b3,0 0 0 2px #242015,0 1px 0 3px #8b7949,0 3px 3px 2px #080a08;}
-body.compass-hud #inv-tabs .hud-tab.sel > .inventory-category-glyph {color:#70501c!important;filter:drop-shadow(0 -1px 0 #49320e) drop-shadow(0 1px 0 #ffe6a3)!important;}
+body.compass-hud #inv-tabs .hud-tab.sel > .inventory-category-glyph {color:#c4a15b!important;filter:drop-shadow(0 -1px 0 #49320e) drop-shadow(0 1px 0 #ffe6a3)!important;}
 body.compass-hud #inv-tabs .hud-tab.sel::before {border-color:#e9c776;background:linear-gradient(90deg,#725015,#d6a332 25%,#ffed9d 48%,#d3a035 73%,#65450f);}
 body.compass-hud #inv-tabs .hud-tab.sel::after {left:50%;width:calc(100% + 2px);background:linear-gradient(#fff2ae,#d39c28);box-shadow:0 1px 1px #64410f;}
 body.compass-hud #inv-tabs .hud-pip {display:none!important;}
