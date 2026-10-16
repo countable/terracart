@@ -60,10 +60,13 @@ full prompts, source hashes and WebP export settings. The older
 
 ## Compass rim
 
-`assets/ui/compass/gold-rim.svg` is hand-authored vector artwork based on the
-approved celestial gold-bead concept at
-`~/.artifacts/compass-art-options/celestial-gold-beads.png`. The editable paths
-and metal gradients are the runtime source; the generated HUD painting is a
-visual reference, not a texture. Letters remain live HUD text so they can stay
-upright as the compass turns. See the compass geometry in
+`assets/ui/compass/gold-rim.svg` owns the fine ring and engraved marks.
+`assets/ui/compass/gold-fittings.png` supplies the north flourish, shared cardinal
+fitting and diagonal bead, generated from the approved celestial gold-bead concept
+at `~/.artifacts/compass-art-options/celestial-gold-beads.png` with the built-in
+image tool. The generated HUD painting is a visual reference, not a texture.
+The PNG retains its original alpha; CSS selects the three atlas regions without
+resampling the master. Source, prompt and rectangles are recorded in
+[compass-rim-art.json](compass-rim-art.json). Letters remain live HUD text so they
+stay upright as the compass turns. See the geometry in
 [the presentation guide](../design/presentation.md).

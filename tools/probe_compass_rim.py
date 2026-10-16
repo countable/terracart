@@ -40,7 +40,7 @@ async def main(args):
             """)
             await page.wait_for_function("document.querySelector('.compass-rim-art')?.complete")
             for angle in [0, 45, 90, 180]:
-                result = await page.evaluate("""async angle => {
+                result = await page.evaluate(r"""async angle => {
                     const scene = window.__scene;
                     scene.mapRot = angle * Math.PI / 180;
                     CompassHUD.update(scene);
@@ -61,12 +61,43 @@ async def main(args):
                     const xml = new DOMParser().parseFromString(
                         await (await fetch(rim.src)).text(), 'image/svg+xml'
                     );
+                    const ornaments = [...document.querySelectorAll(
+                        '.compass-north, .compass-east, .compass-south, .compass-west, .compass-bead'
+                    )];
+                    const rasterUrls = ornaments.flatMap(el => {
+                        const backgrounds = [null, '::before', '::after'].map(pseudo =>
+                            getComputedStyle(el, pseudo).backgroundImage
+                        );
+                        return backgrounds.flatMap(background =>
+                            [...background.matchAll(/url\(["']?([^"')]+)["']?\)/g)].map(match => match[1])
+                        );
+                    });
+                    const rasterArt = await Promise.all([...new Set(rasterUrls)].map(async url => {
+                        const image = new Image();
+                        image.src = url;
+                        await image.decode();
+                        const canvas = document.createElement('canvas');
+                        canvas.width = image.naturalWidth;
+                        canvas.height = image.naturalHeight;
+                        const context = canvas.getContext('2d');
+                        context.drawImage(image, 0, 0);
+                        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+                        let transparent = false, opaque = false;
+                        for (let index = 3; index < pixels.length; index += 4) {
+                            transparent ||= pixels[index] === 0;
+                            opaque ||= pixels[index] > 0;
+                            if (transparent && opaque) break;
+                        }
+                        return {url, width: image.naturalWidth, height: image.naturalHeight,
+                            transparent, opaque};
+                    }));
                     const pad = document.querySelector('#move-pad').getBoundingClientRect();
                     return {
                         angle,
                         letters,
                         map: map.toJSON(),
-                        beads: xml.querySelectorAll('.rim-bead').length,
+                        beads: document.querySelectorAll('.compass-bead').length,
+                        rasterArt,
                         engravings: xml.querySelectorAll('.rim-engraving').length,
                         mapTarget: document.elementFromPoint(
                             map.x + map.width / 2, map.y + map.height / 2
@@ -80,6 +111,11 @@ async def main(args):
                 assert ''.join(letter['text'] for letter in result['letters']) == 'NESW', result
                 assert all(abs(letter['netRotation']) < 1e-5 for letter in result['letters']), result
                 assert result['beads'] == 4 and result['engravings'] == 8, result
+                assert result['rasterArt'], result
+                for art in result['rasterArt']:
+                    assert art['url'].split('?')[0].endswith('.png'), art
+                    assert art['width'] > 0 and art['height'] > 0, art
+                    assert art['transparent'] and art['opaque'], art
                 assert result['rimPointerEvents'] == 'none', result
                 assert result['mapTarget'] == 'CANVAS', result
                 assert result['joystickTarget'] == 'move-pad', result

@@ -334,8 +334,28 @@ body:not(.compass-round) .compass-bearing {display:none;}
 .compass-rim-art {display:block;width:100%;height:100%;overflow:visible;}
 .compass-bearing span {position:absolute;display:grid;place-items:center;width:5%;height:5%;padding:0;transform:translate(-50%,-50%);}
 .compass-bearing b {display:block;font:700 calc(var(--compass-map-size) * .024) / 1 Georgia,serif;color:#3e2b15;text-shadow:0 .65px .2px #f7e4b3;transform-origin:center;}
-.compass-bearing .compass-north {left:50%;top:2.5%;}
+.compass-bearing .compass-north {left:50%;top:3%;}
 .compass-bearing .compass-north b {font-size:calc(var(--compass-map-size) * .029);}
 .compass-bearing .compass-east {left:98.625%;top:50%;}
 .compass-bearing .compass-south {left:50%;top:98.625%;}
 .compass-bearing .compass-west {left:1.375%;top:50%;}
+
+/* Generated transparent PNG fittings; CSS selects atlas rectangles without
+   resampling the master. Background coordinates are recorded in the art manifest. */
+.compass-bearing span::before,.compass-bead {
+  content:'';position:absolute;background-image:url('../assets/ui/compass/gold-fittings.png');
+  background-repeat:no-repeat;pointer-events:none;
+}
+.compass-bearing span::before {left:50%;top:50%;width:110%;height:55%;transform:translate(-50%,-50%);}
+.compass-bearing b {position:relative;z-index:1;}
+.compass-bearing .compass-north::before {width:360%;height:120%;}
+.compass-bearing .compass-east::before {transform:translate(-50%,-50%) rotate(-90deg);}
+.compass-bearing .compass-west::before {transform:translate(-50%,-50%) rotate(90deg);}
+.compass-bead {width:1.4%;height:1.4%;transform:translate(-50%,-50%);}
+.compass-bead-ne {left:84.9134%;top:15.0866%;}
+.compass-bead-se {left:84.9134%;top:84.9134%;}
+.compass-bead-sw {left:15.0866%;top:84.9134%;}
+.compass-bead-nw {left:15.0866%;top:15.0866%;}
+.compass-bearing span::before {background-size:231.954887% 480.754717%;background-position:50.000000% 59.563925%;}
+.compass-bearing .compass-north::before {background-size:102.152318% 303.333333%;background-position:57.692308% 5.503513%;}
+.compass-bead {background-size:576.635514% 600.943396%;background-position:50.000000% 92.655367%;}

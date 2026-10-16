@@ -1,0 +1,31 @@
+{
+  "tool": "built-in image_gen",
+  "reference": "~/.artifacts/compass-art-options/celestial-gold-beads.png",
+  "master": "/home/claude/.codex/generated_images/01a142a6-6397-72a0-a3d5-a1a2f626fa3b/exec-b02d7e96-9305-4223-8658-dabf37243384.png",
+  "runtime": "assets/ui/compass/gold-fittings.png",
+  "size": [
+    1234,
+    1274
+  ],
+  "rectangles": {
+    "north": [
+      15,
+      47,
+      1208,
+      420
+    ],
+    "cardinal": [
+      351,
+      601,
+      532,
+      265
+    ],
+    "bead": [
+      510,
+      984,
+      214,
+      212
+    ]
+  },
+  "prompt": "Create a production-ready transparent PNG SPRITE ATLAS of exactly THREE isolated antique gold compass fittings derived closely from the supplied approved compass UI. TRANSPARENT BACKGROUND, no screenshot, no map, no silver body, no text or labels. Arrange three separate horizontal rows with generous transparent gaps: TOP ROW: the north ornament, wide and shallow, spanning about 80% of the canvas width. A broad shallow triangular gold astrolabe index with a BLANK smooth central face for a live letter N, flanked symmetrically by delicate compact sculpted curls like the approved reference. Small pointed downward tip / tiny attached four-point star below the central plate. Keep ornament overall width-to-height about 4:1, thin fine openwork scrolls with ample transparent holes, not large baroque foliage. MIDDLE ROW: one small matching south-facing cardinal fitting, horizontally centred, spanning about 30% of canvas width. A compact BLANK gold shield/saddle plate with a gently pointed bottom, wide enough for a live single letter, a fine recessed border and tiny curls extending slightly to both sides. Approximate overall width-to-height 2:1. BOTTOM ROW: one round gold bead centred, spanning only about 12% of canvas width, a polished hemispherical rivet, perfect circular silhouette and restrained highlight. Each of the three sprites is wholly separate, fully inside its own row, and no object touches canvas edges. Match the realistic carved metal quality and subdued warm antique gold of the reference: warm ivory specular edges, varied pale gold face, darker bronze recesses, fine bevels, slight brushed patina, consistent light from upper-left. NOT flat vector, not cartoon outline, not yellow-orange glow, not granular noise. Details must survive small runtime sizes. Blank metal plate interiors on both ornaments: absolutely NO letters, symbols, glyphs, inscriptions or numbers anywhere. The only star is the tiny lower tip of the north ornament. Do not include connecting ring segments or any background. This is one coherent three-component texture atlas, not concept art. Genuine alpha transparency including inside all scrollwork openings."
+}
