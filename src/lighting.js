@@ -415,8 +415,11 @@
   // `daylight` is 0..1 from the sun's elevation at the player's lon/lat
   // (sunElevationDeg — the NOAA low-precision algorithm, good to a fraction
   // of a degree): 1 above DAY_ELEV_DEG, 0 below NIGHT_ELEV_DEG (civil
-  // twilight's end), smoothstep between. Sunset is exactly halfway.
+  // twilight's end), smoothstep between. Sample 30 minutes toward daylight
+  // at either end so dawn starts earlier and dusk finishes later.
   // window.__DAYLIGHT = 0..1 forces it for eyeballing.
+  const DAY_EXTENSION_MS = 30 * 60 * 1000;
+  const NIGHT_AMBIENT_GAIN = 1.10;
   const NIGHT_DIM_A = 0.74;
   const NIGHT_TINT_KEEP = 0.15;
   const DAY_ELEV_DEG = 6;
@@ -443,6 +446,13 @@
     return u * u * (3 - 2 * u);
   }
 
+  function daylightAtTime(now, lat, lon) {
+    return daylightFromElevation(Math.max(
+      sunElevationDeg(now - DAY_EXTENSION_MS, lat, lon),
+      sunElevationDeg(now, lat, lon),
+      sunElevationDeg(now + DAY_EXTENSION_MS, lat, lon)));
+  }
+
   // The frame's daylight, 0..1. Recomputed once a minute (the sun moves a
   // quarter degree in that time); the player's position is read through the
   // projection coords.js owns. Noon when there is no fix to place the sun by.
@@ -459,7 +469,7 @@
       if (typeof localMToLonLat === 'function' && scene.playerM && scene.startWorldM && scene.mPerPx) {
         const ll = localMToLonLat(scene, scene.playerM.x, scene.playerM.y);
         if (Number.isFinite(ll.lat) && Number.isFinite(ll.lon)) {
-          value = daylightFromElevation(sunElevationDeg(now, ll.lat, ll.lon));
+          value = daylightAtTime(now, ll.lat, ll.lon);
         }
       }
     } catch (e) { value = 1; }
@@ -658,10 +668,9 @@
     }
     const farA = 1 - (1 - dimA) * (1 - FALLOFF_A);
     const floor0 = mixToWhite(dimColour, farA);
-    // The night floor's luminance is the old expression exactly (atLuminance
-    // reaches a target under the colour's own by scaling); noon lifts it to
-    // AMBIENT_DAY_LUM, and the sun blends between the two.
-    const nightLum = AMBIENT_K * lum(floor0);
+    // Lift surface night ambient by 10%, blending back to the same noon.
+    // Caves retain their existing ambient floor.
+    const nightLum = AMBIENT_K * lum(floor0) * (depth > 0 ? 1 : NIGHT_AMBIENT_GAIN);
     const targetLum = depth > 0 ? nightLum
       : nightLum + (AMBIENT_DAY_LUM - nightLum) * (1 - night);
     const ambient = atLuminance(floor0, targetLum);
@@ -2178,7 +2187,7 @@
   window.Lighting = {
     KINDS, radiusCells, TORCH_RADIUS_MUL, TORCH_DAY_FLOOR, torchStrength, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, REACH_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
-    sunElevationDeg, daylightFromElevation, daylight,
+    sunElevationDeg, daylightFromElevation, daylightAtTime, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, CRITICAL_LIGHT_MIX, CRITICAL_LIGHT_DIM, CRITICAL_LIGHT_DIP, CRITICAL_PLAYER_TINT_A, criticalLights, critPaintProfile, mixColour, mixToWhite, scaleColour, lum, atLuminance,
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
