@@ -523,6 +523,7 @@ class SceneModals {
     if (body != null && body !== '') {
       const bodyNode = document.createElement('div');
       bodyNode.style.cssText = 'margin:6px 0 12px';
+      if (kind === 'spirit' || kind === 'talk') bodyNode.className = 'modal-speech';
       bodyNode.innerHTML = body;
       box.appendChild(bodyNode);
     }
@@ -563,7 +564,7 @@ class SceneModals {
     const titleHTML = title
       ? `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>`
       : '';
-    box.innerHTML = titleHTML + `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
+    box.innerHTML = titleHTML + `<div class="${kind === 'spirit' || kind === 'talk' ? 'modal-speech' : ''}" style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
     const btn = mkBtn(okLabel);
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -604,6 +605,20 @@ class SceneModals {
       // screen edge, retaining silver shoulders around the circular map. Its
       // layout position ignores the entrance transform and follows resizing.
       if (document.getElementById('compass-body')) {
+        const money = document.getElementById('money');
+        const moneyTop = money && shown(money) ? money.getBoundingClientRect().top : null;
+        for (const box of document.querySelectorAll('.compass-panel[data-kind="story"] > .modal-box')) {
+          const wrap = box.parentElement, bounds = wrap.getBoundingClientRect();
+          const scale = bounds.height / wrap.offsetHeight;
+          if (moneyTop != null && scale > 0) {
+            // Keep the story rail above the whole coin readout, even when
+            // the scaled game and body-level HUD use different coordinates.
+            const top = `${Math.max(0, (moneyTop - 6 - bounds.top) / scale)}px`;
+            if (box.style.getPropertyValue('--story-panel-top') !== top) {
+              box.style.setProperty('--story-panel-top', top);
+            }
+          }
+        }
         const tops = [...document.querySelectorAll('.compass-panel > .modal-box')]
           .filter(shown).map(el => {
             const wrap = el.parentElement, bounds = wrap.getBoundingClientRect();
@@ -1135,7 +1150,7 @@ class SceneModals {
       ? `<div style="margin-top:6px;font-size:22px;font-weight:700;color:${color};line-height:1.1">${qty}</div>`
       : '';
     const subHtml = sub
-      ? `<div style="margin-top:4px;font-size:13px;opacity:.85">${sub}</div>`
+      ? `<div class="${kind === 'spirit' || kind === 'talk' ? 'modal-speech' : ''}" style="margin-top:4px;font-size:13px;opacity:.85">${sub}</div>`
       : '';
     const badge = (tier > 0 && typeof tierBadgeHTML === 'function') ? tierBadgeHTML(tier, 11) : '';
     const tierHtml = badge ? `<div style="margin-top:6px;line-height:0">${badge}</div>` : '';
