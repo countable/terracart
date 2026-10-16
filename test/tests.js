@@ -2942,7 +2942,7 @@ test('mineralrock mining: ore rocks drop the yield-tier bar (each tier its own n
 
 // Real Phaser integration: world tap -> arena menu -> trial button -> spatial
 // victory -> reward dismissal -> surface exit. Keep the scene paused so test
-// movement and simulation ticks are deterministic; modal arming uses real time.
+// movement and simulation ticks are deterministic.
 test('arena: portal tap, actual menu buttons, trial victory and safe return', async (scene) => {
   const original = {
     save: scene.save, depth: scene.depth, playerM: { ...scene.playerM },
@@ -2956,10 +2956,6 @@ test('arena: portal tap, actual menu buttons, trial victory and safe return', as
   const clickButton = async (id, text) => {
     const modal = document.getElementById(id);
     assert.truthy(modal, id + ' is mounted');
-    const until = performance.now() + 4000;
-    while (modal.classList.contains('modal-arming') && performance.now() < until)
-      await new Promise(resolve => setTimeout(resolve, 25));
-    assert.falsy(modal.classList.contains('modal-arming'), id + ' became interactive');
     const button = [...modal.querySelectorAll('button')].find(b => b.textContent.trim() === text);
     assert.truthy(button, 'actual ' + text + ' button exists');
     button.click();

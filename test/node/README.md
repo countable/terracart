@@ -83,3 +83,32 @@ test('plain rock drops stone', () => {
 
 A new module the tests need goes into `FILES` in `run.js` (in `index.html`
 order); a new `const` export a test reads by bare name goes into the bridge.
+
+## Compass wall geometry
+
+`wall_perspective.test.js` covers constant screen-vertical height, face visibility
+for both polygon windings, retained geometry between frames, empty/depth mode
+transitions, merlon gaps, joined segments and wall ordering. Browser comparisons
+use `tools/probe_wall_perspective.py` with separate baseline and candidate URLs;
+its CPU timings are not target-phone GPU measurements.
+
+`tools/probe_castle_shapes.py` exercises individual trapezoid, five-point star,
+concave and angled footprints in both winding directions at eight headings,
+plus pan/zoom. It checks perimeter coverage, screen-vertical height and retained
+geometry, and captures screenshots for corner and occlusion review. It also
+checks the baked tower-base alpha for every material in both restoration states.
+
+## GPU lighting prototype
+
+`gpu_lighting.test.js` checks backend selection, cached texture revisions and
+same-frame Canvas fallback. GPU pixel output requires the browser probe:
+
+```sh
+python3 tools/probe_gpu_lighting.py --url http://127.0.0.1:8000/index.html
+```
+
+The probe compares `gpuLighting=false` and `gpuLighting=true` using isolated
+saves and deterministic lighting clocks. It records runtime backend status,
+lighting submission time, uploads, lightmaps and screenshots. A Canvas fallback
+leaves GPU rendering unverified; these timings do not measure GPU completion,
+frame-rate headroom or device power.

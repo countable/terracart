@@ -43,7 +43,8 @@
       offer.onAccept('petnip');
       assert.eq(Inventory.count(scene.save,'petnip'),1);
       assert.eq(pet.bonuses.maxHp,1);
-      assert.eq(speech.kind,'talk'); assert.eq(speech.portrait,'dog-portrait.png');
+      assert.eq(speech.kind,'talk'); assert.truthy(speech.body.includes('dog-portrait.png'));
+      assert.truthy(speech.body.includes('width="128"'), 'large art stays in the speech body');
       assert.truthy(speech.body.includes('pleased'));
       speech.onDismiss(); assert.eq(scene.returnedTo,pet.id);
     });

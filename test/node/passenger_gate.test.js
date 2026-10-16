@@ -96,7 +96,7 @@ test('passenger gate: the scene wiring — every fix steps it, and three things 
   assert.truthy(/title: 'Too fast — are you a passenger\?'/.test(app), 'the card asks');
 });
 
-test('safety card: full-screen, bold, tap to continue — resume and dusk', () => {
+test('safety card: full-screen, bold, explicit OK — resume and dusk', () => {
   const app = SCENE_SRC;
   const body = app.slice(app.indexOf('  _showSafetyCard(which) {'));
   const card = body.slice(0, body.indexOf('\n  }\n'));
@@ -105,7 +105,7 @@ test('safety card: full-screen, bold, tap to continue — resume and dusk', () =
   assert.truthy(/art: 'safety_phone'/.test(card), 'both reminders use the safety painting');
   assert.truthy(/setAttribute\('role', 'alertdialog'\)/.test(card), 'safety remains an alert dialog');
   assert.truthy(/font-weight:900/.test(card) && /font-weight:700/.test(card), 'bold');
-  assert.truthy(/Tap to continue/.test(card) && /addEventListener\('pointerup', done\)/.test(card), 'dismissed by a tap');
+  assert.truthy(/mkBtn\('OK'/.test(card) && /ok.addEventListener\('click'/.test(card), 'dismissed by OK');
   assert.truthy(/this\._safetyOnResume\?\.\(Date\.now\(\) - this\._hiddenAt\)/.test(SCENE_GEO_SRC), 'on resume');
   assert.truthy(/this\._showSafetyCard\('dusk'\)/.test(app), 'and at dusk');
   assert.truthy(/this\._tickGuildBounty\(\);\s*this\._tickSafetyReminders\(\);/.test(app), 'the dusk check ticks');
@@ -163,7 +163,7 @@ test('tips: real-world safety stays direct', () => {
 
 })();
 
-test('safety card: resume and dusk keep their own copy, painted shell and tap dismissal', () => {
+test('safety card: resume and dusk keep their own copy, painted shell and OK dismissal', () => {
   const start = SCENE_SRC.indexOf('  _showSafetyCard(which) {');
   const method = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start) + 4);
   const cards = /const SAFETY_CARDS = (\{[\s\S]*?\n\});/.exec(SCENE_SRC)[1];
@@ -180,7 +180,8 @@ test('safety card: resume and dusk keep their own copy, painted shell and tap di
     let options, mounted = false;
     s.makeModalShell = (id, opts) => {
       assert.eq(id, 'safety-card'); options = opts;
-      return { wrap, box, mount: () => { mounted = true; } };
+      return { wrap, box, mount: () => { mounted = true; },
+        mkBtn: label => Object.assign(element(), { textContent: label }) };
     };
     s._showSafetyCard(which);
     assert.truthy(mounted);
@@ -191,8 +192,10 @@ test('safety card: resume and dusk keep their own copy, painted shell and tap di
     const copy = box.children.map(c => c.textContent).join('\n');
     assert.truthy(copy.includes(which === 'resume' ? 'Welcome back.' : 'Stay on lit pavements'));
     assert.truthy(copy.includes('Out of reach? Use the stick — never the street.'));
-    assert.truthy(copy.includes('Tap to continue'));
-    wrap.handlers.pointerup({});
+    assert.truthy(copy.includes('OK'));
+    assert.eq(wrap.handlers.pointerup, undefined);
+    assert.eq(wrap.handlers.click, undefined);
+    box.children.find(c => c.textContent === 'OK').handlers.click({ stopPropagation() {} });
     assert.truthy(wrap.removed);
   }
 });

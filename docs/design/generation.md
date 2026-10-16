@@ -93,6 +93,10 @@ access or tile lifecycle mechanics.
 
 ## Generation, saves and tiles
 
+- Fresh players start with zero coins in every mode, including sandbox. Mode
+  selection never changes the purse, and sandbox fixture reloads never grant
+  coins. Loading an existing save preserves its earned balance.
+
 - After surface POI placement settles, `assignScholarFallback` upgrades one
   surviving Scriptorium (library or college) to a Scholar when the tile has no
   Scholar. The smallest stable object id wins, independent of input order or
@@ -125,6 +129,11 @@ access or tile lifecycle mechanics.
   from older saves in nearby loaded chunks and starts its clock on that visit;
   grass ids cannot safely be inferred from prefixes shared with other crops.
   Player-owned plants and all other cleared objects retain their existing rules.
+- Picking a wild berry records its original id in `save.picked` as usual,
+  but leaves an ordinary, fruitless bush silhouette at that location. The
+  `WILDPLANT_RULES.pickedCrop` render view survives reloads without another
+  save field; the remnant is scenery, not another berry or wood reward.
+  Burned bushes/ground stay cleared. Farmed crop harvesting is unchanged.
 
 - Do not add save/data compatibility migrations until the user requests them.
   Retired save formats may be discarded; keep current-state defaults, validation
@@ -299,7 +308,7 @@ access or tile lifecycle mechanics.
 - Treasure trails (`HomeArea.chestTrailCandidates`, up to `CHEST_TRAIL_LIMIT`)
   lead to the nearest unopened T2+ surface chests and unfound, uncovered X
   marks within `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the
-  surface; crates never get one. The line is dark ink (`Starter.TRAIL_STYLE`).
+  surface; crates never get one. The line is faint dashed black ink (`Starter.TRAIL_STYLE`).
   The chest at a trail's end rolls `CHEST_TRAIL_TIER_BONUS` tier higher, within
   its depth cap; an X at a trail's end (`Starter.isTrailTreasure`) shows and
   digs without waiting for the feet to stand beside it.
@@ -671,7 +680,8 @@ Higher-priority placements and their access space take precedence in this order:
    rather than moving or deleting a player-owned object. Home's footing (the
    wagon's 3x3 and its firepit, `HomeArea.inFooting`) erases any unclaimed
    house on it entirely — cells, outline and roof — on the built tile only
-   (`clearHomeFooting`); `baseGrid` keeps the building.
+   (`clearHomeFooting`), leaving a light 20% footprint shadow (`clearedShapes`);
+   `baseGrid` keeps the building.
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles
@@ -743,3 +753,15 @@ Higher-priority placements and their access space take precedence in this order:
   Apply saved-player changes as overlays without rerolling the generated world.
   If an authored footprint cannot fit, use its deterministic eligible fallback
   or report a shortfall; never spill it into forbidden or higher-priority space.
+
+### Initial Home orientation
+
+A new live game waits for the first compass reading before placing its trailer
+and campfire, for at most `HomeArea.FIREPIT_COMPASS_GRACE_MS`; with no reading
+by then it places them north-up. The player remains at their GPS position. The starting offsets
+rotate into that heading once, including the trailer art’s doorway offset so
+the doorway stays close to the player at every initial heading, seating the trailer ahead of the player and the
+firepit one cell behind them on the door side (directly below the player in the
+initial view). If that cell is water or road, it uses the nearest dry fallback. The saved layout stays fixed through later
+heading changes and reloads. Existing Homes keep their saved positions; sandbox
+and north-up previews retain the north-facing layout.

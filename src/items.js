@@ -233,6 +233,7 @@ function wildplantFrame(p) {
 // the vast majority — it drops itself, is picked instantly for nothing, hides
 // no treasure and casts no light.
 const WILDPLANT_RULES = {
+  berry: { pickedCrop: 'shrub' },
   // A woody bush. Chopping one yields the WOOD item, not a 'shrub' item
   // (tree + shrub have no inventory counterparts), and it is real felling
   // work: bare hands take 5 seconds, axes use their usual ladder, and
@@ -1908,7 +1909,7 @@ for (const k of BABY_KINDS) PRICES[babyItemId(k)] = itemValue(k) * 3;
 const BUY_LIST = Object.keys(CROP_ROW)
   .filter(c => (BASE_TIER[c] || 1) <= 3)
   .map(c => `${c}_seed`);
-const STARTING_MONEY = 50;
+const STARTING_MONEY = 0;
 
 // === Energy / food ===
 // Player starts at STARTING_ENERGY; the only thing that ever raises the cap is

@@ -1,6 +1,6 @@
 // Current-save initialization, validation and bounded runtime cleanup.
 // This module does not translate retired save formats or track schema versions.
-// normalize returns true only when initializing durable first-session fields.
+// normalize returns true when initializing durable defaults that need saving.
 (function (root) {
   'use strict';
   // THE COLLECTIONS THE GAME WRITES INTO: an id list or a keyed map, empty
@@ -28,6 +28,7 @@
     let needsPersist = false;
     defaults(save);
     if (regrowGrass(save)) needsPersist = true;
+    if (Campfires.migrate(save)) needsPersist = true;
     if (typeof ITEM_BY_ID !== 'undefined' && Array.isArray(save.inv) && save.inv.some(row => ITEM_BY_ID[row.id]?.kind === 'animal')) {
       save.inv = save.inv.filter(row => ITEM_BY_ID[row.id]?.kind !== 'animal');
     }

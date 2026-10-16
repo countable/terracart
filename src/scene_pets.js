@@ -179,8 +179,10 @@ class ScenePets {
     const herb = ITEM_BY_ID[food]?.petFood;
     if (!pet || !herb) return;
     const portrait = CharacterPortraits.pet(pet.kind);
-    const art = portrait ? '' : `<div style="text-align:center">${this.iconSpanHTML(pet.kind, 128)}</div>`;
-    this.showMessageModal({ kind: 'talk', kindLabel: itemName(pet.kind), title: 'A happy companion', portrait,
+    const art = `<div style="text-align:center">${portrait
+      ? `<img class="pet-food-portrait" src="${portrait}" alt="" width="128" height="128" style="width:128px;height:128px;object-fit:contain;image-rendering:pixelated">`
+      : this.iconSpanHTML(pet.kind, 128)}</div>`;
+    this.showMessageModal({ kind: 'talk', kindLabel: itemName(pet.kind), title: 'A happy companion',
       body: `${art}<p><em>Your pet nestles closer, looking thoroughly pleased.</em></p>`
         + `<p>“Mmm! More of that, please!”</p><p>+${herb.maxHp} max HP permanently.</p>`,
       onDismiss,

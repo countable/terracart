@@ -6,11 +6,144 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
-- The opening dragon-war dream crossfades between two aligned paintings on a
-  six-second loop, moving dragon heads, drifting smoke and flickering flames,
-  with both frames sharing the existing eight-second camera
-  push. Reduced-motion mode shows the first frame without zoom or crossfade.
-  The wake-up button timing and the three-slide opening sequence stay the same.
+- Reward acknowledgments and safety reminders use an explicit OK button;
+  tapping the body or backdrop does not dismiss them. Dragon Spirit messages
+  and confirmations use the NPC portrait layout with a dedicated transparent,
+  80×80 pixel-art Dragon Spirit head-and-neck portrait (`assets/portraits/dragon_spirit.png`).
+  Short informational help and NPC conversations use floating ivory speech
+  bubbles with the participant's portrait. They point to the HUD control or
+  speaking character: below sources in the top half of the viewport, above
+  sources in the bottom half. NPC anchors follow heading, zoom and viewport size.
+  Got it dismisses immediately; after two seconds, a tap anywhere dismisses
+  informational bubbles without passing the tap to the world. Explicit choices
+  still require a response. The main menu, shops, story paintings and book list
+  retain their mechanical panels.
+  The original tall spirit painting remains available for scene art.
+  Energy, distance and memories HUD help use this Spirit portrait and speech bubble.
+  Energy briefly explains refills and capacity; distance reports true restored
+  roads and the next treasure threshold, with scenic bonuses kept separate.
+  Dragon Spirit and NPC bubbles place the portrait beside the speaker name.
+  Dialogue headers join name and role with a comma ("Tilly, Wanderer").
+  Spoken copy and response controls sit below that header inside the bubble.
+  The first earned green coin opens its own `coin_first` scene painting before
+  revealing the money readout; its raised star matches the compact currency icon.
+  Digging an X opens a treasure acknowledgment headed “X marks the spot” with
+  its own `treasure_dig` painting. The find is claimed and its single reward paid
+  before the card appears; OK acknowledges the reward without granting it again.
+  Great X marks and underground finds keep their existing reward pools and bonuses.
+  Container paintings follow the visible container, not the reward: crates use
+  `treasure_crate`, barrels use `treasure_barrel`, and ordinary chests use
+  `chest_t1` through `chest_t7` for their source tier. Only a glow inside hints at the contents; the reward card
+  names the actual find. Clay pots retain their brief smash feedback.
+
+- The compass header aligns menu, a memories/books window and compact distance meter
+  capped at 84 pixels wide beside a 72-pixel energy dial at the top right. The menu is
+  46 pixels tall; the shared memories/books window gives these controls more room. A 26-pixel coin with a cast shadow and its
+  white inline count sit at the far right, with a seven-pixel gap below the energy dial. The tutorial
+  floats inside the upper map as a Dragon Spirit portrait and speech bubble. Equal responsive
+  gaps separate all four top widgets, with matching 8-pixel outer margins. The simulated-GPS control sits 20 CSS pixels above its
+  ordinary stick baseline. The carving stays visible beneath navigation, with a
+  darker graphite recess behind the inventory and a soft outer-edge fade.
+  The energy dial uses the shared silver texture with contrasting warm grey reflection bands;
+  close-contact socket shadows and compact recessed category glyphs seat the controls in
+  the chassis. Neutral pewter faces and rims match the carved background while
+  controls retain brighter text and icons. The fade excludes
+  the circular map aperture. The compass rim is a fine gold celestial inlay: a shallow, flourished north
+  triangle, larger embossed cardinal letters with brighter fittings and dark drop shadows, small gold beads at the four
+  45-degree diagonals, and eight engraved intermediate 22.5-degree marks
+  contained in the band. The rim follows compass heading while all four
+  letters counterrotate to stay upright. `assets/ui/compass/gold-rim.svg`
+  owns the band and engravings; transparent `gold-fittings.png` sprites supply
+  the sculpted metal ornaments at their native aspect ratios. The gold overlay
+  sits outside the silver chassis dimming and uses the controls' brightness,
+  with warmer saturation to match their gold. Its letter seats match the HUD CSS.
+
+- The four opening panes show the compass discovery, dragon-war dream,
+  trailer awakening, then the ruined street. Each has two aligned paintings:
+  hold the first for 1.5 seconds, crossfade once over 1.2 seconds, and keep
+  the second frame. The dragon dream instead keeps alternating between its
+  two paintings while open, so the heads and flames continue moving after
+  the camera push ends. Discovery and the dream are borderless fullscreen panels.
+  Awakening says “The compass shows you are in a strange trailer.” with a
+  “Go Outside” button and uses the living-silver compass story sheet, as does the ruined street and subsequent narrative. Paintings
+  remain uncropped with readable copy below. The dream retains its eight-second camera push and
+  immediately available wake-up button. Reduced-motion mode shows the first frame without
+  zoom or crossfade.
+
+- The living-silver chassis uses sliced surfaces in `css/compass_hud.css`.
+  Layout publishes CSS-pixel `--compass-map-top` and `--compass-map-size`;
+  modal sheets use game-pixel `--map-top`. Existing controls retain their
+  listeners beneath analog energy, shared books/memories display, true-north needle
+  and closed module shutters. `tools/compass-hud-harness.html` previews active
+  and closed states against a frozen sandbox. Opening wake/street sheets use
+  an inert face made from the same slices before the game scene exists.
+  The approved consolidated reference uses odometer wheels above two separate
+  knowledge readouts, with gold controls and neutral silver passive surfaces.
+  The current compact layout joins those readouts into one glass window with
+  smaller icons/numerals and an unused-memory badge on the star. Each half
+  retains its own tap action, accessible name, and independent dormant shutter.
+  `css/compass_inventory.css` seats eight square keys with small stamped-in category symbols on
+  plungers above a shared rail. The selected key and detent glow gold. Small
+  square item controls share one dark-glass window fitted to five slots and their
+  gaps; the window stays snug when sort or paging controls are absent. It retains a physical sort lever,
+  a mechanical pager rocker with broad upper/lower touch faces around an ivory count
+  window, and an integrated name/action plate. The upper face selects the previous
+  page; the lower face selects the next page. The description plate
+  appears only for a selected item or piece of gear; empty categories show no plate. Contextual actions
+  retain their existing semantics. The dormant inventory cover occupies the lower
+  inventory window until the first item activates it; it has no close control.
+  Inactive-module Spirit dialogs explain how to power up that specific module;
+  distance uses the shared 200-metre threshold, and spirit walking remains opt-in.
+  Reference atlas crops live alongside their provenance in `assets/ui/compass/`.
+  Engravings retain their aspect ratio rather than stretching to viewport height.
+  The dragon header reserves its full 750:220 aspect ratio at the panel width;
+  its chrome stays above scene paintings and loading mosaics without cropping the head.
+  The modal gate publishes the final sheet edge in viewport pixels so silver
+  shoulders remain visible above scaled sheets without covering their controls.
+  It clips the header readouts at that edge too; story sheets rise above the
+  coin indicator, using its measured position across phone and desktop scaling.
+  Dismissible sheets expose a fixed close control using the same cancellation
+  callback and input arming as their backdrop. Required acknowledgments omit
+  it. The menu actuator remains visible and depressed while its sheet is open.
+  Gold zoom plungers sit just below the map window in a silver rack; the gold
+  direction lock occupies the upper-left corner of the compass. These controls
+  live outside Phaser’s scaled wrapper and yield to modal sheets. The lock
+  depresses while engaged. Unselected inventory items have no individual border;
+  the selected item retains its gold outline.
+  The energy dial has one lightning-bolt needle for current energy, equal
+  red/yellow/green thirds, and a maximum-energy numeral on the right.
+  Dormant inscriptions use invented geometric glyphs at a shared size; their
+  accessible names and Spirit explanations still identify the module in English.
+
+- Compass shine is disabled in the live HUD: it installs no reflection layers,
+  animation loop, or tilt listeners. The baked emission assets and
+  `CompassShine` implementation remain available for the development prototype.
+
+- Starter guidance is a floating Dragon Spirit portrait with a compact, pale
+  speech bubble on the upper map. Each step gives one spoken instruction;
+  completion briefly acknowledges it in the same bubble. Only the dismiss
+  button intercepts taps. Modal dialogs hide it, reduced-motion preferences
+  stop its float, and the menu can restore dismissed guidance. Tutorial steps
+  grant no bonus coins; ordinary loot and sales retain their own rewards.
+
+- The money area stays blank until an earned coin queues its first-coin story.
+  Starting funds do not unlock it. The story waits behind other interactions;
+  successful presentation records `storySeen['coin:first']` and reveals the coin
+  and count permanently, including after spending or reloading. A pending
+  introduction survives spending and reloads; older saves unlock on their next
+  earned coin.
+
+- Living-silver compass circuits persist their active state and pending
+  one-time Dragon Spirit notices in `save.compassModules`. Inventory activates
+  on the first item or gear, books on the first book obtained, memories on the
+  first discovery/memory. Spending cannot close an activated circuit. Distance
+  activates after 200 m of accepted movement; joystick activation requires
+  **Enable spirit walking** in its spirit dialog. Closed controls explain low
+  power. Activation notices use Dragon Spirit speech bubbles anchored to the
+  awakened control, with **Got it** immediately available and tap-anywhere
+  dismissal after two seconds. They wait behind stories and dialogs, present
+  one at a time, and are claimed when shown so reloads cannot repeat them. Existing ownership seeds circuits
+  quietly when upgrading an older save.
 
 - The inventory pet menu's **View info** opens an individual pet card with a
   128px portrait, description, current/max HP and damage per hit. Stats use
@@ -38,16 +171,21 @@ changing dialogue, story panels, books, toasts or status presentation.
   Offline startup waits for connectivity; exhausted retries offer **Try again**.
   Successful map startup resets this budget. Runtime exceptions remain visible
   as diagnostics and do not trigger automatic reloads. Versioned scripts only
-  fall back to an exact cached version, never an older incompatible module.
+  fall back to an exact cached version, never an older incompatible module. Linked local stylesheets use the same
+  content-hashed URLs and worker generation as scripts, and are installed in
+  the offline resource cache; CSS-only changes invalidate the shell too.
 
 - Dungeon arrival splashes select their story ID through
   `WorldGen.floorProfile(depth).arrivalStory`; presentation owns the copy and
   art, while the existing story ledger owns one-time delivery.
 
 - A story dialog pauses the fight: while one is open (`_storyDialogOpen` —
-  kinds `story`, `note`, `memory`, and the `#story` / `#howto` overlays) the
+  kinds `story`, `note`, `talk`, `memory`, `spirit`, and the `#story` / `#howto` overlays) the
   player takes no damage (`Conditions.setDialogShield`, read through
-  `damageImmune`) and hostiles hold still. Shops, trades and other dialogs
+  `damageImmune`), hostiles hold still, and the player's body stops following
+  its movement target. GPS fixes still arrive; following resumes after dismissal.
+  Opening any modal releases the held movement stick so a hidden pointer cannot
+  keep steering. Shops, trades and other dialogs
   do not pause; a foe's blow still closes a shop.
   Message dismissal refreshes this shield from the remaining dialogs before
   running its callback, so consequences such as fall damage apply after the
@@ -103,11 +241,24 @@ changing dialogue, story panels, books, toasts or status presentation.
   fixed coin fee. An empty list says "Once you find a potion, you can brew it here."
   Keep the selected recipe after brewing and recheck discovery, bag room,
   ingredients and coins before spending either resource.
+- Dialog content and buttons appear immediately, without timed input blocking
+  or delayed button reveals.
 - Dialogs use `makeModalShell` with a kind, which supplies a default scene
   painting unless the caller supplies a character `portrait` or `art: false`.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
   with its band layout. Painted headers use a label without emoji/`kindIcon`.
+  Popover artwork starts 44 pixels below the dragon rail, leaving a solid
+  title band; its sides clear the trim by 18 pixels. Loading mosaics use the
+  same inset. Framed opening stories without titles keep a 14-pixel rail gap.
+  `css/compass_panels.css` seats this same shell as a mechanical sheet that
+  slides up from the compass and extends to the viewport floor without a
+  bottom border. Open sheets shade the exposed map and upper HUD with a dark
+  mask beneath the panel; the mask does not intercept input.
+  Shop/trade, story/event and conversation kinds carry distinct
+  silver rails; controls retain simple gold faces. Safe-area padding and
+  scrolling keep actions reachable. Reduced motion skips the slide. The
+  `spirit` kind is the Dragon Spirit voice used by dormant module controls.
 - The modal HUD gate also covers the isolated upper-temple scene. Its scene
   flag keeps inventory, movement pads and the objective hidden until shutdown,
   even when no DOM dialog is open; a reward dialog keeps the gate after exit.
@@ -182,6 +333,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   during an accept use the ceremony queue with `defer: true`: the gate tick
   waits for the refreshed shop to close. Duplicate keyed requests must also
   respect deferral rather than draining during the remove/remount gap.
+- The Books read list remains a full mechanical panel. Reading or rereading a
+  book puts live, scrollable dark serif text on `assets/art/book_page.webp`,
+  a full-height illustrated half-book beneath the silver dragon rail.
+  `bookPage: true` selects this surface without changing the shared `book_read`
+  painting used elsewhere. Closing a reread returns to the list.
 - Book stories use direct firsthand excerpts in quotation marks. Occasional
   narrator asides sit outside the quotation in italics (`bookPageHTML`), usually
   one short sentence. Vary length, format, mood and author voice across books;
@@ -209,6 +365,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   order, and only a tap outside a dialog ends it. A panel answering the
   player's own act (a receipt, a Book read, a neighbour's talk) asks only
   `_dialogOpen`. A new deferred lane asks the hold and adds to the count.
+- The first road-repair panel shows the Hood working alone: “You Start Fixing
+  The Roads” / “They are the arteries of civilization.” It keeps the existing
+  50 m threshold and two-second delay. Neighbours enter the story at the first
+  reward, headed “The survivors are watching”; later rewards use the thank-you
+  heading. The first repair and first gift remain separate moments.
 - A street variant tells its story once, on the feet's first entry
   (`_tickStreetFeet`). After that its map line (`StreetVariants` row `flash`)
   pops when a street of that kind enters the lit reach (`_tickStreetSight`,

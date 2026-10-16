@@ -13,12 +13,29 @@ character back to it.
 
 ## Test controls and coverage
 
+### Heading and GPS harness
+
+Open `/tools/heading-harness.html` on the local game server to fake compass
+headings and GPS fixes in the restoration sandbox. It uses the real
+`deviceorientationabsolute` listener and `_applyGpsFix` consumer. Controls
+include 45-degree sweeps, GPS steps, zoom, a work-progress target, and a fog
+toggle. Freeze simulation to inspect a fixed scene while turning the map.
+
+Run the browser regression probe with `python3 tools/probe_heading_up.py`.
+It checks phone and desktop views, full heading sweeps, camera/tap transforms,
+player feet, work progress, anchored text, DOM loot icons, zoom and peek,
+GPS fixes, fog preference persistence and `?headingUp=false` compatibility.
+It writes screenshots and `report.json` under `~/.artifacts/heading-up/` by
+default; `--url`, `--chromium` and `--output` override the local defaults.
+The probe uses isolated browser contexts, so it does not change the player's
+browser saves.
+
 Open **☰ → Sandbox test lab** to choose a destination and reload its fixtures.
 Destinations are grouped by scene, with roads and underground labs separately.
 Choose **Damage test** to remove armour, carried shields and jewellery; the
 full kit otherwise masks damage, aggro and regeneration checks. Both kits keep
-tools and consumables. Reload restores inventory, at least 2,000 coins, 120 Wood
-and 120 Rock. Authored harvests, mined rocks, defeated enemies, opened chests, fruit, fire,
+tools and consumables. Reload restores inventory, 120 Wood and 120 Rock, but never grants coins.
+Fresh saves start with zero coins; existing balances are preserved. Authored harvests, mined rocks, defeated enemies, opened chests, fruit, fire,
 potion, house and fort fixtures are reset;
 this is not a wipe of the player's other progress or service cooldowns.
 
@@ -302,7 +319,7 @@ The yard uses the real runtime paths; effects expire and targets move normally.
 Generation-only chest top-ups and cave tier caps remain covered by node tests.
 
 - The full inventory starts with five of every item, except 120 Wood and Rock,
-  plus at least 20 memories and 2,000 coins. The Damage test kit omits carried
+  plus at least 20 memories, but no free coins. The Damage test kit omits carried
   shields and jewellery and starts without armour.
 - Every relic and armour piece starts at T3. The pickaxe and axe start at T7 so every
   ore deposit and barricade can be cleared.

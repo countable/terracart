@@ -260,6 +260,7 @@ const Visibility = (() => {
   // the player stands next to it (concealedFrom). The X-RAY RING
   // (Gear.hasXRay) sees through all of that — only FULL cover still hides.
   function hidden(scene, x, y, scenery = false) {
+    if (scene.save?.energy != null && Combat.playerDowned(scene.save.energy)) return false;
     const cover = playerCover(scene, x, y);
     if (scenery || (typeof Gear !== 'undefined' && Gear.hasXRay?.(scene.save))) return cover === FULL;
     return cover !== CLEAR;

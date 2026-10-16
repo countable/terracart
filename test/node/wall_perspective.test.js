@@ -1,0 +1,189 @@
+(() => {
+  function scene() {
+    const list = [];
+    return { _headingUp: true, depth: 0, mapRot: 0,
+      buildingWallContainer: { add(g) { list.push(g); } },
+      add: { graphics() { return { visible: true, clears: 0, triangles: [], color: 0,
+        clear() { this.clears++; this.triangles.length = 0; return this; },
+        fillStyle(c) { this.color = c; return this; },
+        fillTriangle(...points) { this.triangles.push({ color: this.color, points }); return this; },
+        setPosition(x, y) { this.x = x; this.y = y; return this; } }; } }, list };
+  }
+  const segment = { ax: 10, ay: 20, bx: 42, by: 20,
+    height: 6, thickness: 3.6, face: 1, top: 2, dark: 3 };
+  function build(s, spec = segment) {
+    const group = WallPerspective.begin(s, 'tiled');
+    WallPerspective.addSegment(s, 'tiled', spec);
+    WallPerspective.finish(s, 'tiled');
+    return group;
+  }
+  function close(a, b, message) { assert.lt(Math.abs(a - b), 1e-8, message); }
+
+  test('wall perspective: wall height projects vertically at every compass octant', () => {
+    const s = scene(), group = build(s), block = group.blocks[0];
+    for (let step = 0; step <= 8; step++) {
+      s.mapRot = step * Math.PI / 4;
+      WallPerspective.update(s);
+      const c = Math.cos(s.mapRot), sin = Math.sin(s.mapRot);
+      for (let j = 0; j < block.projected.length; j += 4) {
+        const v = block.projected, dx = v[j + 2] - v[j], dy = v[j + 3] - v[j + 1];
+        close(c * dx - sin * dy, 0, 'top shares the foot screen x');
+        close(sin * dx + c * dy, -6, 'height is constant and points screen up');
+      }
+    }
+  });
+
+  test('wall perspective: only camera-facing prism faces draw for either winding', () => {
+    for (const reverse of [false, true]) {
+      const s = scene();
+      const points = [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 5 }, { x: 0, y: 5 }];
+      if (reverse) points.reverse();
+      const group = WallPerspective.begin(s, 'polygon');
+      WallPerspective.prism(s, 'polygon', points, 0, 6, { face: 1, top: 2, dark: 3 });
+      for (const angle of [0, Math.PI / 4, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+        s.mapRot = angle;
+        WallPerspective.update(s);
+        const faces = group.gfx.triangles.filter(t => t.color === 1);
+        assert.eq(faces.length, angle === Math.PI / 4 ? 4 : 2, 'one face on axis, two diagonally');
+        for (let i = 0; i < faces.length; i += 2) {
+          const p = faces[i].points;
+          const screenDx = Math.cos(angle) * (p[2] - p[0]) - Math.sin(angle) * (p[3] - p[1]);
+          assert.lt(screenDx * (reverse ? -1 : 1), 0, 'visible face normal points toward viewer');
+        }
+        assert.eq(group.gfx.triangles.filter(t => t.color === 2).length, 2, 'cap remains filled');
+      }
+    }
+  });
+
+  test('wall perspective: fixed heading reuses geometry and command buffer', () => {
+    const s = scene(), group = build(s), block = group.blocks[0], projected = block.projected;
+    const clears = group.gfx.clears;
+    for (let i = 0; i < 20; i++) WallPerspective.update(s);
+    assert.eq(group.gfx.clears, clears, 'stationary frames do not repaint');
+    WallPerspective.offset(s, 'tiled', 4, -7);
+    WallPerspective.update(s);
+    assert.eq(group.gfx.clears, clears, 'panning translates the retained graphics');
+    assert.eq(group.gfx.x, 4); assert.eq(group.gfx.y, -7);
+    s.mapRot = 0.7; WallPerspective.update(s);
+    assert.eq(group.gfx.clears, clears + 1, 'one repaint for changed heading');
+    assert.eq(group.blocks[0], block, 'block is retained');
+    assert.eq(block.projected, projected, 'vertex buffer is retained');
+  });
+
+  test('wall perspective: mode and depth transitions hide walls and empty rebuild removes stale faces', () => {
+    const s = scene(), group = build(s);
+    s._headingUp = false; WallPerspective.update(s);
+    assert.eq(group.gfx.visible, false);
+    s._headingUp = true; s.depth = 1; WallPerspective.update(s);
+    assert.eq(group.gfx.visible, false);
+    s.depth = 0; WallPerspective.update(s);
+    assert.eq(group.gfx.visible, true);
+    WallPerspective.begin(s, 'tiled'); WallPerspective.finish(s, 'tiled');
+    assert.eq(group.blocks.length, 0); assert.eq(group.gfx.triangles.length, 0);
+    assert.eq(s.list.length, 1, 'rebuild reuses background graphics');
+  });
+
+  test('wall perspective: tiled ramparts preserve dimensions and damaged merlon gaps', () => {
+    const s = scene(), group = build(s, { ...segment, merlons: 4,
+      toothWidth: 6, toothHeight: 2, missing: [1, 2] });
+    const teeth = group.blocks.filter(b => b.bottom === 6);
+    assert.eq(teeth.length, 2, 'only intact endpoint teeth remain');
+    for (const tooth of teeth) {
+      close(tooth.top - tooth.bottom, 2);
+      close(Math.hypot(tooth.points[1].x - tooth.points[0].x,
+        tooth.points[1].y - tooth.points[0].y), 6);
+      close(Math.hypot(tooth.points[2].x - tooth.points[1].x,
+        tooth.points[2].y - tooth.points[1].y), 3.6);
+    }
+    close(teeth[0].points[0].x, 10); close(teeth[1].points[1].x, 42);
+  });
+
+  test('wall perspective: connected tile segments have identical ground and raised seams', () => {
+    const s = scene(), group = WallPerspective.begin(s, 'tiled');
+    WallPerspective.addSegment(s, 'tiled', segment);
+    WallPerspective.addSegment(s, 'tiled', { ...segment, ax: 42, bx: 74 });
+    for (const angle of [0, 0.4, 1.7, 3.8, 5.4]) {
+      s.mapRot = angle; WallPerspective.update(s);
+      const a = group.blocks.find(b => b.order === 0).projected;
+      const b = group.blocks.find(b => b.order === 1).projected;
+      for (let k = 0; k < 4; k++) {
+        close(a[4 + k], b[k], 'outer seam joins at both elevations');
+        close(a[8 + k], b[12 + k], 'inner seam joins at both elevations');
+      }
+    }
+  });
+
+  test('wall perspective: reversed view reverses local wall ordering without moving crowns below bodies', () => {
+    const s = scene(), group = WallPerspective.begin(s, 'tiled');
+    WallPerspective.addSegment(s, 'tiled', segment);
+    WallPerspective.addSegment(s, 'tiled', { ...segment, ay: 60, by: 60,
+      merlons: 1, toothWidth: 6, toothHeight: 2 });
+    WallPerspective.finish(s, 'tiled');
+    assert.eq(group.blocks[0].y, 21.8);
+    s.mapRot = Math.PI; WallPerspective.update(s);
+    assert.eq(group.blocks[0].y, 61.8);
+    assert.eq(group.blocks[1].bottom, 6, 'rear wall crown follows its own body');
+    assert.eq(group.blocks[2].bottom, 0, 'nearer wall body follows the rear crown');
+  });
+  test('wall perspective: nearby taller wall occludes a rear crown using actual building heights', () => {
+    const s = scene(), group = WallPerspective.begin(s, 'polygon');
+    WallPerspective.addSegment(s, 'polygon', { ...segment,
+      merlons: 1, toothWidth: 6, toothHeight: 2 });
+    WallPerspective.addSegment(s, 'polygon', { ...segment,
+      ay: 22, by: 22, height: 7, thickness: 1, face: 7, top: 8 });
+    WallPerspective.finish(s, 'polygon');
+    const crown = group.blocks.findIndex(b => b.bottom === 6);
+    const nearer = group.blocks.findIndex(b => b.colors.face === 7);
+    assert.lt(crown, nearer, 'nearer 7px wall paints over the rear 6px wall crown');
+    assert.eq(group.blocks[crown].support, group.blocks[0].support,
+      'crown and supporting body share retained ordering metadata');
+    s.mapRot = Math.PI; WallPerspective.update(s);
+    assert.eq(group.blocks[0].colors.face, 7, 'turning reverses wall ordering');
+    assert.eq(group.blocks[group.blocks.length - 1].bottom, 6,
+      'crown still follows its own body after turning');
+  });
+  test('wall perspective: padded culling drops distant perimeter but retains raised edge geometry', () => {
+    const s = Object.assign(scene(), { viewLeft: 0, viewTop: 0, viewSize: 352 });
+    const group = WallPerspective.begin(s, 'polygon');
+    WallPerspective.addSegment(s, 'polygon', { ...segment,
+      ax: -2000, bx: 2000, ay: -1000, by: -1000 });
+    assert.eq(group.blocks.length, 0, 'distant city-sized perimeter allocates no retained blocks');
+    WallPerspective.addSegment(s, 'polygon', { ...segment,
+      ax: -2000, bx: 2000, ay: 100, by: 100 });
+    assert.lt(group.blocks.length, 20, 'long crossing edge retains only nearby sections');
+    const nearby = group.blocks.length;
+    const edgeY = s.viewSize + CELL_PX * 2 + segment.height - 1;
+    WallPerspective.addSegment(s, 'polygon', { ...segment, ay: edgeY, by: edgeY });
+    assert.eq(group.blocks.length, nearby + 1, 'height extends the retained pad beyond the ground bound');
+    WallPerspective.prism(s, 'polygon', [{ x: 20, y: 20 }, { x: 40, y: 20 }, { x: 30, y: 30 }],
+      0, 6, { face: 1, top: 2, dark: 3 });
+    assert.eq(group.blocks.length, nearby + 2, 'nearby polygon join remains visible');
+    WallPerspective.finish(s, 'polygon');
+    assert.lt(0, group.gfx.triangles.length, 'retained geometry still renders');
+  });
+  test('wall perspective: tiled cache compares exact scratch inputs and snapshots only on changes', () => {
+    const s = scene();
+    const types = new Int8Array([12, 12, 0]), owners = new Int32Array([1, 1, 0]);
+    const unclaimed = new Uint8Array([1, 1, 0]), synthetic = new Uint8Array([1, 1, 0]);
+    const phases = new Float32Array([0, 0, 0]);
+    const dirty = key => Render.tiledWallsDirty(s, key, types, owners, unclaimed, synthetic, phases);
+    assert.eq(dirty('cell|bands|mode|viewport'), true);
+    let frame = s._tiledWallFrame;
+    for (let i = 0; i < 10; i++) {
+      s.mapRot = i * 0.1;
+      assert.eq(dirty('cell|bands|mode|viewport'), false, 'compass frames retain tiled geometry');
+      assert.eq(s._tiledWallFrame, frame, 'no replacement snapshots on clean frames');
+    }
+    for (const array of [types, owners, unclaimed, synthetic, phases]) {
+      array[0] += 1;
+      assert.eq(dirty('cell|bands|mode|viewport'), true, 'each exact ring input invalidates');
+      assert.eq(dirty('cell|bands|mode|viewport'), false, 'new input stabilizes immediately');
+      frame = s._tiledWallFrame;
+    }
+    owners[0] += 1; owners[1] -= 1;
+    assert.eq(dirty('cell|bands|mode|viewport'), true, 'equal-sum ownership changes cannot collide');
+    assert.eq(dirty('new-cell|bands|mode|viewport'), true, 'projection key changes rebuild');
+    s._tiledWallFrame = null;
+    assert.eq(dirty('new-cell|bands|mode|viewport'), true, 'mode/depth invalidation rebuilds on return');
+  });
+})();

@@ -1,0 +1,112 @@
+{
+  "chest_t1": {
+    "master": "/home/claude/.artifacts/treasure-story-art/chest_t1.png",
+    "sha256": "c80c37045fdb43756ffee2b15fb98d8740ba2d8ec1595111f8a08c4f2bdad435",
+    "export": "512x652 WebP, quality 88",
+    "generator": "built-in imagegen",
+    "styleReferences": [
+      "assets/art/book_read.webp",
+      "assets/art/fire_first.webp"
+    ],
+    "prompt": "Edit wooden supply box to match book_read and fire_first; hooded survivor lifting lid, container 25% smaller, amber pixel art, concealed face, upper 40% action and dark lower quiet zone."
+  },
+  "chest_t2": {
+    "master": "/home/claude/.artifacts/treasure-story-art/chest_t2.png",
+    "sha256": "0780b8ca2c48a0842f592df34b77a4aa9015844d4d073800af872c684b91b61b",
+    "export": "512x652 WebP, quality 88",
+    "generator": "built-in imagegen",
+    "styleReferences": [
+      "assets/art/book_read.webp",
+      "assets/art/fire_first.webp"
+    ],
+    "prompt": "Use case: style-transfer. Edit image 1 (copper curved-lid chest) to match the later story art of images 2 and 3. Warm amber golden-hour 16-bit pixel storybook art, crisp chunky pixel clusters and dithering, dusty-orange sky, brown shadows, cream highlights. Keep the container's material/color and physical identity from image1, but make it 25% smaller in the frame. Add the brown-hooded survivor kneeling beside it and actively lifting its lid open. Hood completely hides face/hair in opaque black shadow: no eyes/skin/glowing eyes. Natural proportions. Ruined village setting. Container interior contains only soft luminous haze, no loot/coins/items. STRICT portrait 11:14: all figures, container, action and detail in TOP 40%; bottom 60% is empty dark brown low-detail foreground fading darker for dialog copy. Spacious composition. No text, border, UI, watermark. One finished painting."
+  },
+  "chest_t3": {
+    "master": "/home/claude/.artifacts/treasure-story-art/chest_t3.png",
+    "sha256": "87b13e66d27cceb86e21b7e1a89a081b9d043ff7d97b17a8c5af1a01f75e0d6c",
+    "export": "512x652 WebP, quality 88",
+    "generator": "built-in imagegen",
+    "styleReferences": [
+      "assets/art/book_read.webp",
+      "assets/art/fire_first.webp"
+    ],
+    "prompt": "Use case: style-transfer. Edit image 1 (silver-grey iron curved-lid chest) to match the later story art of images 2 and 3. Warm amber golden-hour 16-bit pixel storybook art, crisp chunky pixel clusters and dithering, dusty-orange sky, brown shadows, cream highlights. Keep the container's material/color and physical identity from image1, but make it 25% smaller in the frame. Add the brown-hooded survivor kneeling beside it and actively lifting its lid open. Hood completely hides face/hair in opaque black shadow: no eyes/skin/glowing eyes. Natural proportions. Ruined village setting. Container interior contains only soft luminous haze, no loot/coins/items. STRICT portrait 11:14: all figures, container, action and detail in TOP 40%; bottom 60% is empty dark brown low-detail foreground fading darker for dialog copy. Spacious composition. No text, border, UI, watermark. One finished painting."
+  },
+  "chest_t4": {
+    "master": "/home/claude/.artifacts/treasure-story-art/chest_t4.png",
+    "sha256": "8f1c896aaf8f844971814a7c1825d1bf9e5c651a4dbe56e4179d0891d693883c",
+    "export": "512x652 WebP, quality 88",
+    "generator": "built-in imagegen",
+    "styleReferences": [
+      "assets/art/book_read.webp",
+      "assets/art/fire_first.webp"
+    ],
+    "prompt": "Use case: style-transfer. Edit image 1 (gold curved-lid chest) to match the later story art of images 2 and 3. Warm amber golden-hour 16-bit pixel storybook art, crisp chunky pixel clusters and dithering, dusty-orange sky, brown shadows, cream highlights. Keep the container's material/color and physical identity from image1, but make it 25% smaller in the frame. Add the brown-hooded survivor kneeling beside it and actively lifting its lid open. Hood completely hides face/hair in opaque black shadow: no eyes/skin/glowing eyes. Natural proportions. Ruined village setting. Container interior contains only soft luminous haze, no loot/coins/items. STRICT portrait 11:14: all figures, container, action and detail in TOP 40%; bottom 60% is empty dark brown low-detail foreground fading darker for dialog copy. Spacious composition. No text, border, UI, watermark. One finished painting."
+  },
+  "chest_t5": {
+    "master": "/home/claude/.artifacts/treasure-story-art/chest_t5.png",
+    "sha256": "d9f6526acf5bd645fc54c807df7085a2835e1106e9372a3e522a186a668f40d1",
+    "export": "512x652 WebP, quality 88",
+    "generator": "built-in imagegen",
+    "styleReferences": [
+      "assets/art/book_read.webp",
+      "assets/art/fire_first.webp"
+    ],
+    "prompt": "Use case: style-transfer. Edit image 1 (lavender enchanted curved-lid chest) to match the later story art of images 2 and 3. Warm amber golden-hour 16-bit pixel storybook art, crisp chunky pixel clusters and dithering, dusty-orange sky, brown shadows, cream highlights. Keep the container's material/color and physical identity from image1, but make it 25% smaller in the frame. Add the brown-hooded survivor kneeling beside it and actively lifting its lid open. Hood completely hides face/hair in opaque black shadow: no eyes/skin/glowing eyes. Natural proportions. Ruined village setting. Container interior contains only soft luminous haze, no loot/coins/items. STRICT portrait 11:14: all figures, container, action and detail in TOP 40%; bottom 60% is empty dark brown low-detail foreground fading darker for dialog copy. Spacious composition. No text, border, UI, watermark. One finished painting."
+  },
+  "chest_t6": {
+    "master": "/home/claude/.artifacts/treasure-story-art/chest_t6.png",
+    "sha256": "2759fd93180d2525216111d6be56f3a2404aa29f14efaf6cbe8c4b8ec4814e49",
+    "export": "512x652 WebP, quality 88",
+    "generator": "built-in imagegen",
+    "styleReferences": [
+      "assets/art/book_read.webp",
+      "assets/art/fire_first.webp"
+    ],
+    "prompt": "Use case: style-transfer. Edit image 1 (crimson curved-lid chest) to match the later story art of images 2 and 3. Warm amber golden-hour 16-bit pixel storybook art, crisp chunky pixel clusters and dithering, dusty-orange sky, brown shadows, cream highlights. Keep the container's material/color and physical identity from image1, but make it 25% smaller in the frame. Add the brown-hooded survivor kneeling beside it and actively lifting its lid open. Hood completely hides face/hair in opaque black shadow: no eyes/skin/glowing eyes. Natural proportions. Ruined village setting. Container interior contains only soft luminous haze, no loot/coins/items. STRICT portrait 11:14: all figures, container, action and detail in TOP 40%; bottom 60% is empty dark brown low-detail foreground fading darker for dialog copy. Spacious composition. No text, border, UI, watermark. One finished painting."
+  },
+  "chest_t7": {
+    "master": "/home/claude/.artifacts/treasure-story-art/chest_t7.png",
+    "sha256": "ce4c5727a3c377e664d000ed533ae157762a9c05f938f822d9ac0a11a86297ab",
+    "export": "512x652 WebP, quality 88",
+    "generator": "built-in imagegen",
+    "styleReferences": [
+      "assets/art/book_read.webp",
+      "assets/art/fire_first.webp"
+    ],
+    "prompt": "Use case: style-transfer. Edit image 1 (icy cyan frost curved-lid chest) to match the later story art of images 2 and 3. Warm amber golden-hour 16-bit pixel storybook art, crisp chunky pixel clusters and dithering, dusty-orange sky, brown shadows, cream highlights. Keep the container's material/color and physical identity from image1, but make it 25% smaller in the frame. Add the brown-hooded survivor kneeling beside it and actively lifting its lid open. Hood completely hides face/hair in opaque black shadow: no eyes/skin/glowing eyes. Natural proportions. Ruined village setting. Container interior contains only soft luminous haze, no loot/coins/items. STRICT portrait 11:14: all figures, container, action and detail in TOP 40%; bottom 60% is empty dark brown low-detail foreground fading darker for dialog copy. Spacious composition. No text, border, UI, watermark. One finished painting."
+  },
+  "treasure_barrel": {
+    "master": "/home/claude/.artifacts/treasure-story-art/treasure_barrel.png",
+    "sha256": "fd205e3e29b8db8844dbc9f4bbdaab131963526a907fdd214238ebf48f6c9837",
+    "export": "512x652 WebP, quality 88",
+    "generator": "built-in imagegen",
+    "styleReferences": [
+      "assets/art/book_read.webp",
+      "assets/art/fire_first.webp"
+    ],
+    "prompt": "Use case: style-transfer. Edit image 1 (oak barrel with iron hoops, lifting its circular lid) to match the later story art of images 2 and 3. Warm amber golden-hour 16-bit pixel storybook art, crisp chunky pixel clusters and dithering, dusty-orange sky, brown shadows, cream highlights. Keep the container's material/color and physical identity from image1, but make it 25% smaller in the frame. Add the brown-hooded survivor kneeling beside it and actively lifting its lid open. Hood completely hides face/hair in opaque black shadow: no eyes/skin/glowing eyes. Natural proportions. Ruined village setting. Container interior contains only soft luminous haze, no loot/coins/items. STRICT portrait 11:14: all figures, container, action and detail in TOP 40%; bottom 60% is empty dark brown low-detail foreground fading darker for dialog copy. Spacious composition. No text, border, UI, watermark. One finished painting."
+  },
+  "treasure_crate": {
+    "master": "/home/claude/.artifacts/treasure-story-art/treasure_crate.png",
+    "sha256": "9635509aecbf7d9edde9b91dfc9770cddd4ef4957a91b3bdfe57fdfe5c7dc295",
+    "export": "512x652 WebP, quality 88",
+    "generator": "built-in imagegen",
+    "styleReferences": [
+      "assets/art/book_read.webp",
+      "assets/art/fire_first.webp"
+    ],
+    "prompt": "Use case: style-transfer. Edit image 1 (wood shipping crate with diagonal bracing, lifting its flat plank lid) to match the later story art of images 2 and 3. Warm amber golden-hour 16-bit pixel storybook art, crisp chunky pixel clusters and dithering, dusty-orange sky, brown shadows, cream highlights. Keep the container's material/color and physical identity from image1, but make it 25% smaller in the frame. Add the brown-hooded survivor kneeling beside it and actively lifting its lid open. Hood completely hides face/hair in opaque black shadow: no eyes/skin/glowing eyes. Natural proportions. Ruined village setting. Container interior contains only soft luminous haze, no loot/coins/items. STRICT portrait 11:14: all figures, container, action and detail in TOP 40%; bottom 60% is empty dark brown low-detail foreground fading darker for dialog copy. Spacious composition. No text, border, UI, watermark. One finished painting."
+  },
+  "treasure_dig": {
+    "master": "/home/claude/.artifacts/treasure-story-art/treasure_dig.png",
+    "sha256": "f507a2a1787a7b6c2b4baf0fecd261759deb8b03f56d21d6adbb16cb6f4af3cb",
+    "export": "512x652 WebP, quality 88",
+    "generator": "built-in imagegen",
+    "styleReferences": [
+      "assets/art/book_read.webp",
+      "assets/art/fire_first.webp"
+    ],
+    "prompt": "Use case: style-transfer. Edit image 1 (small buried coffer in shallow hole, X scored in dirt and spade nearby) to match the later story art of images 2 and 3. Warm amber golden-hour 16-bit pixel storybook art, crisp chunky pixel clusters and dithering, dusty-orange sky, brown shadows, cream highlights. Keep the container's material/color and physical identity from image1, but make it 25% smaller in the frame. Add the brown-hooded survivor kneeling beside it and actively lifting its lid open. Hood completely hides face/hair in opaque black shadow: no eyes/skin/glowing eyes. Natural proportions. Ruined village setting. Container interior contains only soft luminous haze, no loot/coins/items. STRICT portrait 11:14: all figures, container, action and detail in TOP 40%; bottom 60% is empty dark brown low-detail foreground fading darker for dialog copy. Spacious composition. No text, border, UI, watermark. One finished painting."
+  }
+}

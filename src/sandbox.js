@@ -372,8 +372,11 @@
     { name: 'Cherry Lane', class: 'minor', type: T.ROAD, y: 4, thick: 1, x0: 0, x1: 23, variant: 'orchard' },
     { name: 'Abbey Walk', class: 'minor', type: T.ROAD, y: 7, thick: 1, x0: 0, x1: 23, variant: 'pilgrim' },
     { name: 'Coin Row', class: 'minor', type: T.ROAD, y: 10, thick: 1, x0: 0, x1: 23, variant: 'golden' },
-    { name: 'Market Close', class: 'minor', type: T.ROAD, y: 13, thick: 1, x0: 0, x1: 23, variant: null },
-    { name: 'Thorny Way', class: 'minor', type: T.ROAD, y: 35, thick: 1, x0: 0, x1: 23, variant: 'thorny' },
+    // Clear of the Ancient Highway's kerb buffer, which refuses every thorn
+    // ray (at y 35 the lane drew no brambles at all); the plain Market Close
+    // takes the row beside the highway instead.
+    { name: 'Thorny Way', class: 'minor', type: T.ROAD, y: 13, thick: 1, x0: 0, x1: 23, variant: 'thorny' },
+    { name: 'Market Close', class: 'minor', type: T.ROAD, y: 35, thick: 1, x0: 0, x1: 23, variant: null },
     { name: 'Iron Lane', class: 'minor', type: T.ROAD, y: 18, thick: 1, x0: 0, x1: 23, variant: 'snare' },
     { name: 'Goblin Gang Street', class: 'minor', type: T.ROAD, y: 21, thick: 1, x0: 0, x1: 23, variant: 'goblin_gang' },
     { name: 'Fort Road', class: 'path', type: T.PATH, y: 25, thick: 2, x0: 0, x1: 23, variant: 'barricade' },
@@ -1230,6 +1233,13 @@
 
     const index = buildStreetIndex(entry, originIX, originIY, c, transport);
     entry.streetIndex = index;
+    // The variants' verge ground, painted as a fetched tile paints it
+    // (worldgen rasterize: paintTerrainSteps, before the dressing), so a
+    // themed street shows its own ground here too.
+    entry.streetGround = new Uint8Array(c.cellsPerEdge * c.cellsPerEdge);
+    driveSteps(StreetVariants.paintTerrainSteps({ index, grid: entry.grid, N: c.cellsPerEdge,
+      roadMask: spawnOpts.roadMask, spawnWhy: spawnOpts.spawnWhy, zone: entry.zone,
+      streetGround: entry.streetGround }));
     driveSteps(StreetVariants.stampBanditStretchesSteps(index, entry.roadClass, c.cellsPerEdge, c.tx, c.ty));
     const dressing = StreetVariants.dress({ index, tx: c.tx, ty: c.ty, N: c.cellsPerEdge,
       tileEdgeM: c.tileEdgeM, grid: entry.grid, spawnOpts });
@@ -1494,8 +1504,8 @@
   function seedCoverageState(save, entry, originIX, originIY, tx, ty, cellM) {
     const plaza = sceneByName('PLAZA');
     const ix = originIX + plaza.lx + 1, iy = originIY + plaza.ly + 6;
-    save.fires = [{ x: tx * entry.tileEdgeM + (ix + 0.5) * cellM,
-      y: ty * entry.tileEdgeM + (iy + 0.5) * cellM, depth: 0 }];
+    save.fires = [Campfires.light({ x: tx * entry.tileEdgeM + (ix + 0.5) * cellM,
+      y: ty * entry.tileEdgeM + (iy + 0.5) * cellM, depth: 0 })];
     save.streets = {};
     save.streetsEpoch = 0;
     const lantern = entry.streetIndex?.lines?.find((r) => r.variant === 'lantern');
@@ -1746,7 +1756,6 @@
       for (const id of byKind[kind]) inv.push({ id, count: COUNT });
     }
     for (const stack of inv) if (['wood', 'rubble'].includes(stack.id)) stack.count = 120;
-    scene.save.money = Math.max(scene.save.money || 0, 2000);
     scene.save.inv = inv;
     scene.save.selSlot = 0;
     // Unspent memories (a save counter, not a bag stack) so the wizard

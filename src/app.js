@@ -65,13 +65,13 @@ const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';
 // The line under a road prize's card: who gave it, in one sentence. Shared by
 // the single-reward ceremony and the card the pick opens for the kept gift.
 const TRAIL_PRIZE_THANKS = 'Your neighbours thank you for repairing the road and hand you a gift.';
-// The first repaired stretch introduces the neighbours who leave gifts.
-const TRAIL_INTRO_TITLE = 'The survivors are watching';
+// The first repaired stretch introduces the work; neighbours arrive with the first prize.
+const TRAIL_INTRO_TITLE = 'You Start Fixing The Roads';
 // The tail of both "Without a tool" stories (_barehandWorkStory): the joke
 // that carries the hint — a tool would be the easier way.
 const BAREHAND_STORY_ASIDE = ' (but to be honest tools would be much less tiring!)';
 const trailIntroBody = (playerClass) =>
-  'You clear the rubble from the road. A survivor watches from a doorway, then brings you a gift.';
+  'They are the arteries of civilization.';
 // …but not on the same beat as the repair. The first stretch to come back
 // under a new player is a flash, a scatter of chips and a counter on the
 // street itself, and a dialog opening over the top of that covers the very
@@ -82,7 +82,7 @@ const trailIntroBody = (playerClass) =>
 // enough to still read as part of it.
 const TRAIL_INTRO_DELAY_MS = 2000;
 // …and not on the FIRST stretch either. One reach of street coming back is a
-// single flash; a greeting that says "you clear the rubble from the road"
+// single flash; a panel that says "You Start Fixing The Roads"
 // over that one moment lands before the player has seen the repair as a
 // thing they are doing. So the greeting waits until this much road is truly
 // restored (Trail.restoredMetres — the road chip's own number, so the dialog
@@ -90,8 +90,8 @@ const TRAIL_INTRO_DELAY_MS = 2000;
 // cells, 35 m, under the player's own feet) and a couple more cells along
 // it, so the second flash is already in the player's eye — and still well
 // short of the first prize (Trail.goalFor(0, …), 200 m or a runner's 100 m):
-// the greeting is what introduces the neighbours who leave gifts, so it must
-// land before the first gift does (trail.test.js pins both bounds). Tuned by
+// the repair introduction must land before neighbours bring the first gift
+// (trail.test.js pins both bounds). Tuned by
 // feel (owner, Oct 2026): 60 m read as too long a wait, 40 m as too soon;
 // it is not a milestone, only a beat past the first stretch.
 const TRAIL_INTRO_MIN_M = 50;
@@ -319,13 +319,13 @@ const PEEK_DRAG_SLOP_PX = 8;
 // is the 1/e time rather than a duration — the camera is home (sub-pixel) in
 // about 3× this.
 const PEEK_RETURN_MS = 90;
-// The PINCH ZOOM, the drag's two-finger twin: a pinch on the map magnifies it
-// about the viewport centre until at most PINCH_VIEW_CELLS span the frame, and
-// it springs back on PEEK_RETURN_MS the moment a pinching finger lifts. A
-// look, never a resting view, so fog, aggro and boss margins stay tuned for
-// VIEW_CELLS; and zoom-in only, so it never shows ground the full view hides.
+// Camera-only zoom: start at the closest rack level (PINCH_VIEW_CELLS across),
+// which is also where the new game's opening shot settles. Buttons select the
+// resting view; a pinch temporarily magnifies it and springs back on release.
+// The widest view remains VIEW_CELLS, so loading and gameplay ranges stay fixed.
 const PINCH_VIEW_CELLS = 7;
 const PINCH_MAX_ZOOM = VIEW_CELLS / PINCH_VIEW_CELLS;
+const MAP_DEFAULT_ZOOM = VIEW_CELLS / PINCH_VIEW_CELLS;
 // Surface GPS gap (metres) past which a fix PLACES the body instead of being
 // walked off. The body chases the GPS target at up to DEBUG_SPEED_MUL × walk
 // pace (14 m/s), which comfortably keeps up with a real walk or a slow drive;
@@ -343,7 +343,7 @@ const GPS_SNAP_M = 200;
 const CONFUSED_RECOVER_MS = 6000;
 // The dialogs that pause the fight (_storyDialogOpen): modal_shell kinds, and
 // the static index.html overlays that carry no kind.
-const STORY_DIALOG_KINDS = new Set(['story', 'note', 'talk', 'memory']);
+const STORY_DIALOG_KINDS = new Set(['story', 'note', 'talk', 'memory', 'spirit']);
 const STORY_DIALOG_IDS = new Set(['story', 'howto']);
 // The SNAP's own cut — a placement past GPS_SNAP_M moves the body somewhere
 // the player never walked, so it earns a transition rather than the world
@@ -504,7 +504,11 @@ function renderScale() {
   const dpr = window.devicePixelRatio || 1;
   // ?rscale=N (see urlNumParam) lowers the cap for one run — the A/B that
   // tells GPU fill from main-thread cost, which no JS timer can measure.
-  const cap = window.__renderScaleCap > 0 ? clamp(window.__renderScaleCap, 1, RENDER_SCALE_MAX) : RENDER_SCALE_MAX;
+  // Software Canvas rotation is CPU-bound at high DPR. Keep its backing
+  // store at the logical pixel-art grid; WebGL retains the 2× budget. The
+  // explicit query override remains available for controlled A/B profiles.
+  const defaultCap = window.__canvasRenderer ? 1 : RENDER_SCALE_MAX;
+  const cap = window.__renderScaleCap > 0 ? clamp(window.__renderScaleCap, 1, RENDER_SCALE_MAX) : defaultCap;
   return clamp(css * dpr, 1, cap);
 }
 // Live value: read by the pointer conversion below and re-applied on resize.
@@ -1785,30 +1789,11 @@ class MapScene extends Phaser.Scene {
   // and how much this save's armor allows.
   showEnergyHelp() {
     const cur = Math.floor(this.save.energy ?? 0), max = this.getMaxEnergy();
-    const { wrap, box, mount, mkBtn } = this.makeModalShell('energy-help',
-      { textAlign: 'left', onClose: () => {}, kind: 'energy' });
-    const h = document.createElement('div');
-    h.style.cssText = 'font:700 14px var(--font-ui);color:var(--green);'
-      + 'margin-bottom:8px;text-align:center;';
-    h.textContent = `${cur} / ${max}`;   // the kind header already says ENERGY
-    box.appendChild(h);
-    const body = document.createElement('div');
-    body.style.cssText = 'font:12px/1.5 var(--font-ui);color:#ddd;';
-    body.innerHTML =
-      'Energy pays for tilling, chopping, mining and walking off the GPS.<br><br>'
-      + '• <b>Eat</b> — select any food in the bag and use the Eat button.<br>'
-      + '• <b>Rest</b> — it refills slowly on its own over time.<br>'
-      + '• <b>Taste</b> — every new food eaten for the first time raises the '
-      + 'cap by one, for good (currently ' + max + ').<br><br>'
-      + 'Armour does not lengthen this bar — it soaks the damage attacks take '
-      + 'off it.';
-    box.appendChild(body);
-    const close = mkBtn('Got it');
-    close.style.marginTop = '12px';
-    close.style.width = '100%';
-    close.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
-    box.appendChild(close);
-    mount();
+    this.showMessageModal({ kind: 'spirit', title: `Energy · ${cur} / ${max}`, okLabel: 'Got it',
+      source: document.getElementById('energy'),
+      body: 'Work and spirit walking use energy. Eat or rest to refill it. '
+        + 'Each new food you taste permanently adds 1 to your maximum. '
+        + 'Armour reduces energy lost to attacks.' });
   }
 
   // `reason` is the failure as the tile path reported it ("HTTP 504",
@@ -2388,15 +2373,23 @@ class MapScene extends Phaser.Scene {
     const contacts = [];
     this._walkHazardExposure(x0, y0, x1, y1, (key, start, end, rate) => contacts.push({ key, start, end, rate }));
     contacts.sort((a, b) => a.start - b.start);
+    // The contact the body is still in when the move ends is the cell under
+    // its feet at (x1, y1) — keyed exactly as _walkHazardExposure keys it.
+    // Never an `end >= 1` float test: interval ends come back a hair under 1
+    // (0.9999998), which dropped the contact every other frame and re-charged
+    // the entry hit ~30 times a second to a body standing in one bush.
+    const at = worldMetersToTileCell(this, x1, y1);
+    const endKey = `${at.tx},${at.ty},${at.ix},${at.iy}`;
+    const GAP = 1e-6;
     let previous = this._walkHazardHere || null, end = 0, damage = 0;
     for (const contact of contacts) {
-      if (contact.start > end + 1e-9) previous = null;
+      if (contact.start > end + GAP) previous = null;
       if (previous !== contact.key) damage += Combat.incomingDamage(this.save, WALK_HAZARD_ENTRY_DAMAGE);
       damage += Combat.incomingDamage(this.save, contact.rate) * (contact.end - contact.start) * dt;
       previous = contact.key;
       end = contact.end;
     }
-    this._walkHazardHere = end >= 1 - 1e-9 ? previous : null;
+    this._walkHazardHere = contacts.some(c => c.key === endKey) ? endKey : null;
     if (Combat.playerDowned(this.save.energy) || Conditions.damageImmune(this.save)) {
       this._walkHazardAccum = 0;
       return;
@@ -2505,7 +2498,7 @@ class MapScene extends Phaser.Scene {
       Combat.applyFrost(c, MAGIC_TRAP_HOLD_MS);
       this._damageEnemy(c, magicTrapDamage(), 'player');
       const at = this._cellToastAt(ix, iy, CELL_PX);
-      this.flash('✨ Magic trap sprung', at.x, at.y);
+      this.flash('✨ Magic trap sprung', at.x, at.y, undefined, at.anchor);
     }
     persistSave(this.save);
   }
@@ -2767,12 +2760,15 @@ class MapScene extends Phaser.Scene {
     const sx = ts.x - this.viewCenterX;
     const sy = ts.y - this.viewCenterY;
     const half = this.viewSize / 2 - CELL_PX / 2;
-    if (Math.abs(sx) <= half && Math.abs(sy) <= half) return mag;
+    const zoom = this.mapZoom || 1;
+    if (HeadingUp.active(this)
+      ? Math.hypot(sx, sy) * zoom <= half
+      : Math.abs(sx) * zoom <= half && Math.abs(sy) * zoom <= half) return mag;
     const ps = this.playerScreen();
-    const tipX = ps.x + ux * dist, tipY = ps.y + uy * dist;
+    const tipX = ps.x + ux * dist / zoom, tipY = ps.y + uy * dist / zoom;
     // Perpendicular to the bearing gives the triangle's base.
     const pxN = -uy, pyN = ux;
-    const back = 14, halfW = 7;
+    const back = 14 / zoom, halfW = 7 / zoom;
     this._drawArrowTriangle(this.facingGfx, tipX, tipY,
       tipX - ux * back + pxN * halfW, tipY - uy * back + pyN * halfW,
       tipX - ux * back - pxN * halfW, tipY - uy * back - pyN * halfW,
@@ -2799,11 +2795,25 @@ class MapScene extends Phaser.Scene {
     const tx = dx > 0 ? (right - x) / dx : dx < 0 ? (left - x) / dx : Infinity;
     const ty = dy > 0 ? (bottom - y) / dy : dy < 0 ? (top - y) / dy : Infinity;
     const t = Math.min(tx, ty);
-    const px = x + dx * t, py = y + dy * t;
+    let px = x + dx * t, py = y + dy * t;
+    const zoom = this.mapZoom || 1;
+    if (HeadingUp.active(this)) {
+      // Intersect the player bearing with the visible circle in unzoomed
+      // world coordinates, so diagonals survive the circular corner cover.
+      const radius = (this.viewSize / 2 - inset) / zoom;
+      const cx = this.viewCenterX, cy = this.viewCenterY;
+      let ox = ps.x - cx, oy = ps.y - cy;
+      const length = Math.hypot(ox, oy);
+      if (length >= radius) { ox *= (radius - 1) / length; oy *= (radius - 1) / length; }
+      const mag = Math.hypot(dx, dy), ux = dx / mag, uy = dy / mag;
+      const dot = ox * ux + oy * uy;
+      const ray = -dot + Math.sqrt(Math.max(0, dot * dot + radius * radius - ox * ox - oy * oy));
+      px = cx + ox + ux * ray; py = cy + oy + uy * ray;
+    }
     this.facingGfx.fillStyle(0x000000, 0.85);
-    this.facingGfx.fillCircle(px, py, 4);
+    this.facingGfx.fillCircle(px, py, 4 / zoom);
     this.facingGfx.fillStyle(fillColor, 1);
-    this.facingGfx.fillCircle(px, py, 3);
+    this.facingGfx.fillCircle(px, py, 3 / zoom);
     return { x: px, y: py, left, right, top, bottom };
   }
 
@@ -2855,6 +2865,10 @@ class MapScene extends Phaser.Scene {
     const name = String(raw).replace(/_/g, ' ');
     const destination = name.charAt(0).toUpperCase() + name.slice(1);
     text.setText((marker.source || row.source) + '\n' + (destination.length > 16 ? destination.slice(0, 15) + '…' : destination));
+    if (HeadingUp.active(this)) {
+      text._huUI = true;
+      point = { ...point, ...HeadingUp.toOverlayPt(this, point.x, point.y) };
+    }
     const { left, right, top, bottom } = point;
     let x = point.x <= (left + right) / 2 ? point.x + 8 : point.x - text.width - 8;
     let y = point.y - text.height / 2;
@@ -2867,6 +2881,15 @@ class MapScene extends Phaser.Scene {
     for (let i = 0; i <= bounds.length; i++) {
       if (!bounds.some(b => x < b.right && x + text.width > b.left && y < b.bottom && y + text.height > b.top)) break;
       y = Math.max(top, Math.min(bottom - text.height, y + step * direction));
+    }
+    if (HeadingUp.active(this)) {
+      // Keep the entire upright label inside the circle, including near poles.
+      const radius = this.viewSize / 2 - 8;
+      const cx = this.viewCenterX, cy = this.viewCenterY;
+      y = Math.max(cy - radius + text.height, Math.min(cy + radius - 2 * text.height, y));
+      const farY = Math.max(Math.abs(y - cy), Math.abs(y + text.height - cy));
+      const half = Math.sqrt(Math.max(0, radius * radius - farY * farY));
+      x = Math.max(cx - half, Math.min(cx + half - text.width, x));
     }
     text.setPosition(x, y).setVisible(true);
     bounds.push({ left: x, right: x + text.width, top: y, bottom: y + text.height });
@@ -3105,6 +3128,7 @@ class MapScene extends Phaser.Scene {
       this._drainBadgeStories();
       this._lowHealthStory();
       this._firstSaleStory();
+      this._firstCoinStory();
       PetStories.drain(this);
       DragonStory.drain(this);
       StoryEncounters.tick(this, Date.now());
@@ -3180,7 +3204,7 @@ class MapScene extends Phaser.Scene {
     // Chromebook) would silently strand the player off their real position
     // with no way back but a reload, which reads as "the character sometimes
     // auto-walks somewhere other than the GPS target."
-    if (DEBUG) {
+    if (DEBUG && (typeof CompassModules === 'undefined' || CompassModules.isActive(this.save, 'joystick'))) {
       const k = this.keys;
       let wasd = false;
       if (k.A.isDown) { vx -= 1; wasd = true; }
@@ -3200,7 +3224,8 @@ class MapScene extends Phaser.Scene {
     if (this._fastWalk) speedMul = 25;
     this._stepDebugGps(dt);
     // The movement stick — always on screen, always live.
-    let stick = (this._movePadHeld && this.joystickVec) ? this.joystickVec : null;
+    let stick = (this._movePadHeld && this.joystickVec
+      && (typeof CompassModules === 'undefined' || CompassModules.isActive(this.save, 'joystick'))) ? this.joystickVec : null;
     // A heading-up map: the stick and keys push in SCREEN directions.
     if (HeadingUp.active(this)) {
       if (stick) stick = HeadingUp.toWorldVec(this, stick.x, stick.y);
@@ -3222,7 +3247,11 @@ class MapScene extends Phaser.Scene {
     const bodyHold = this._bodyHold();
     if (this._confusedLoop && !Conditions.active(this.save, 'confused')) this._endConfusedWalk();
     this._expireConfusedRecover?.(performance.now());
-    if (bodyHold.pinned) {
+    if (this._storyPause) {
+      // A story can open while a pointer is held or a target is still ahead.
+      // Keep receiving GPS fixes, but hold the body until reading finishes.
+      this._playDirected(this.player, 'idle');
+    } else if (bodyHold.pinned) {
       // Held still, but sharp ground continues hurting.
       const { x, y } = playerWorldM(this);
       this._tickWalkHazards(dt, x, y, x, y);
@@ -3436,10 +3465,11 @@ class MapScene extends Phaser.Scene {
     // and its screen-y is squashed by FACING_CHEVRON_TILT for the south
     // camera's tilt (map-perspective.md).
     this.facingChevronGfx.clear();
-    // A heading-up map points it where the map is turned to: straight up.
-    const facing = HeadingUp.active(this) && this.compassDeg != null ? HeadingUp.facing(this) : this.facing;
+    // With a live device compass, heading-up puts phone heading at screen
+    // top. Locking the map restores the caret; desktop keeps its fallback.
+    const facing = this.facing;
     const fmag = Math.hypot(facing.x, facing.y);
-    if (fmag > 0.001) {
+    if (!(HeadingUp.active(this) && this._deviceCompass && !HeadingUp.directionLocked(this)) && fmag > 0.001) {
       const fx = facing.x / fmag, fy = facing.y / fmag;
       // (along, across) on the ground → screen, y foreshortened.
       const ground = (u, v) => ({
@@ -4734,12 +4764,14 @@ class MapScene extends Phaser.Scene {
     const g = this.enemyHealthGfx;
     if (!g) return;
     g.clear();
+    g._huUI = true;
     const now = performance.now();
     for (const c of enemies) {
       if (!c._hurtUntilT || now >= c._hurtUntilT) continue;
-      const screen = this.worldMetersToScreen(c.x, c.y);
-      this._drawEnemyHealthBar(g, Math.round(screen.x),
-        Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(c.kind, SpriteLayout.creatureInstScale(c))),
+      const feet = this.worldMetersToScreen(c.x, c.y);
+      const screen = HeadingUp.toOverlayPt(this, feet.x, feet.y,
+        SpriteLayout.creatureHealthBarTop(c.kind, SpriteLayout.creatureInstScale(c)));
+      this._drawEnemyHealthBar(g, Math.round(screen.x), Math.round(screen.y),
         Combat.hpFraction(c), 0.62);
     }
   }
@@ -4795,7 +4827,7 @@ class MapScene extends Phaser.Scene {
     const y = Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(c.kind, SpriteLayout.creatureInstScale(c))) - 3;
     // Clip to the map viewport like every other world-anchored layer.
     this._toast(text, {
-      tier: 'damage', color, x, y, stack: false,
+      tier: 'damage', color, x, y, anchor: screen, stack: false,
       mask: this.enemyHealthGfx?.mask,
     });
   }
@@ -5206,7 +5238,9 @@ class MapScene extends Phaser.Scene {
     this._meleeWeaponSprite?.setVisible(false);
     const sw = this._swing;
     if (!sw) return;
-    const pose = Render.meleePose(sw, performance.now(), sw.weapon || 'sword',
+    const screenSwing = HeadingUp.active(this)
+      ? { ...sw, dir: HeadingUp.toScreenVec(this, sw.dir.x, sw.dir.y) } : sw;
+    const pose = Render.meleePose(screenSwing, performance.now(), sw.weapon || 'sword',
       (sw.reachCells ?? Combat.meleeReachM(1, sw.weapon)) * CELL_PX);
     if (!pose) { this._swing = null; return; }
     const ps = this.playerScreen();
@@ -5363,16 +5397,21 @@ class MapScene extends Phaser.Scene {
     const mover = wp.flee || wp.track;
     let cx, cy;
     if (mover) {
-      const screen = this.worldMetersToScreen(mover.x, mover.y);
-      cx = Math.round(screen.x);
-      cy = Math.round(screen.y + SpriteLayout.creatureWheelDy(mover.kind, SpriteLayout.creatureInstScale(mover)));
+      const feet = this.worldMetersToScreen(mover.x, mover.y);
+      const screen = HeadingUp.toOverlayPt(this, feet.x, feet.y,
+        SpriteLayout.creatureWheelDy(mover.kind, SpriteLayout.creatureInstScale(mover)));
+      cx = Math.round(screen.x); cy = Math.round(screen.y);
     } else {
       const ac = worldMetersToAbsCell(this, wp.worldX, wp.worldY);
       const cc = absCellCenterMeters(this, ac.cellIX, ac.cellIY);
-      const screen = this.worldMetersToScreen(cc.x, cc.y);
+      const feet = this.worldMetersToScreen(cc.x, cc.y);
+      const screen = HeadingUp.toOverlayPt(this, feet.x, feet.y);
       cx = Math.round(screen.x); cy = Math.round(screen.y);
     }
     const g = this._workProgressGfx;
+    for (const overlay of [g, this._workToolGfx, this._workProgressIcon]) {
+      if (overlay) overlay._huUI = true;
+    }
     g.clear();
     this._workProgressIcon?.setVisible(false);
     this._workToolGfx?.clear();
@@ -5424,14 +5463,17 @@ class MapScene extends Phaser.Scene {
     this._wateringEffects = (this._wateringEffects || []).filter(effect => {
       const t = (now - effect.startT) / effect.durationMs;
       if (t >= 1) { effect.icon?.destroy(); effect.gfx?.destroy(); return false; }
-      const p = this.worldMetersToScreen(effect.x, effect.y);
+      const feet = this.worldMetersToScreen(effect.x, effect.y);
+      const p = HeadingUp.toOverlayPt(this, feet.x, feet.y);
       const g = effect.gfx ||= this.add.graphics().setDepth(96);
+      g._huUI = true;
       g.clear();
       if (!effect.texture) {
         Render.drawMelee(g, Render.meleePose({ startT: effect.startT, dir: { x: 1, y: 0 } },
           now, 'sword', 12), p.x - 10, p.y);
       } else if (this.textures.exists(effect.texture)) {
         const icon = effect.icon ||= this.add.image(0, 0, effect.texture, 0).setDepth(97);
+        icon._huUI = true;
         const tilt = Math.sin(Math.PI * Math.min(1, t / 0.85));
         icon.setPosition(p.x + 9, p.y - 9).setOrigin(0.5).setScale(0.9)
           .setRotation(-0.7 * tilt).setAlpha(Math.min(1, (1 - t) / 0.15));
@@ -5625,11 +5667,8 @@ class MapScene extends Phaser.Scene {
   }
 
   playerScreen() {
-    const k = CELL_PX / this.cellM;
-    return {
-      x: this.viewCenterX - this.peekM.x * k,
-      y: this.viewCenterY - this.peekM.y * k,
-    };
+    const player = playerWorldM(this), anchor = viewAnchorWorldM(this);
+    return deltaMToScreen(this, player.x - anchor.x, player.y - anchor.y);
   }
 
   // How far the BODY's centre sits from the ground point its feet stand on —
@@ -5639,7 +5678,7 @@ class MapScene extends Phaser.Scene {
   // land on the fix; collapsed it is 0, because a body lying down has its
   // midsection where its feet were (see PLAYER_DOWNED_ROTATION).
   playerBodyDy() {
-    return Combat.playerDowned(this.save.energy) ? 0
+    return Combat.playerDowned(this.save.energy) || this._playerSubmerged ? 0
       : this.playerFeetNudgeY - Math.max(this._obstacleStep?.liftPx || 0,
         Conditions.flying(this.save) ? CONSUMABLE_SPEC.flight_potion.liftPx : 0);
   }
@@ -5648,6 +5687,31 @@ class MapScene extends Phaser.Scene {
   // disagree about whether the player is on their feet.
   playerBodyRotation() {
     return Combat.playerDowned(this.save.energy) ? PLAYER_DOWNED_ROTATION : (this._obstacleLean || 0);
+  }
+
+  // The waterline follows the body, not the camera. Crop in frame coordinates
+  // so walking directions and heading-up counterrotation keep the upper half.
+  // This is a pose only: movement, reach and world sorting keep the same feet.
+  _updatePlayerSubmersion() {
+    const airborne = Conditions.flying(this.save) || this.isDragonActive?.();
+    let submerged = false;
+    if (!airborne && !Combat.playerDowned(this.save.energy)
+        && !(this._obstacleStep?.liftPx > 0) && this.startWorldM && this.playerM) {
+      const feet = playerWorldM(this), cell = this.cellAt(feet.x, feet.y);
+      if (cell.loaded) {
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+        const tar = entry?.slowCells?.get(cell.iy * entry.cellsPerEdge + cell.ix) === 'tar';
+        const fire = this.save.groundFire?.[GroundFire.key(this.depth || 0, cell.cellIX, cell.cellIY)];
+        submerged = cell.type === WorldGen.T.WATER || cell.type === WorldGen.T.TAR_YARD
+          || (tar && (!fire || GroundFire.active(fire, Date.now())));
+      }
+    }
+    this._playerSubmerged = submerged;
+    if (!this.player) return;
+    if (submerged) {
+      const frame = this.player.frame;
+      this.player.setCrop(0, 0, frame.realWidth, frame.realHeight / 2);
+    } else if (this.player.isCropped) this.player.setCrop();
   }
 
   // Render supplies the same surviving props it draws, including connected
@@ -5662,6 +5726,7 @@ class MapScene extends Phaser.Scene {
     this._obstaclePoseAt = { x, y, time: now };
     this._obstacleStep = ObstacleStep.sample(x, y,
       Combat.playerDowned(this.save.energy) ? [] : objects, this.cellM);
+    this._updatePlayerSubmersion();
     const moved = distance < this.cellM ? distance : 0; // no lean from teleports
     this._obstaclePhase = (this._obstaclePhase || 0) + moved / this.cellM;
     const motion = Math.min(1, moved / dt / WALK_M_S);
@@ -5720,7 +5785,7 @@ class MapScene extends Phaser.Scene {
     this._peekPointer = null;
     this._peekReturning = false;
     this._pinch = null;
-    this.mapZoom = 1;
+    this.mapZoom = this._mapZoomRest || 1;
     this._mapZoomReturning = false;
     this._homeIntro = null;
     if (!this.peekM) return;      // called before the view was set up
@@ -5741,6 +5806,79 @@ class MapScene extends Phaser.Scene {
       this.peekM.y = 0;
       this._peekReturning = false;
     }
+  }
+
+  _stepMapZoom(direction) {
+    if (this._homeIntro) this.clearPeek();
+    const span = VIEW_CELLS / (this._mapZoomRest || MAP_DEFAULT_ZOOM);
+    const next = clamp(span - direction * 2, PINCH_VIEW_CELLS, VIEW_CELLS);
+    this._mapZoomRest = this.mapZoom = VIEW_CELLS / next;
+    this._mapZoomReturning = false;
+    this._pinch = null;
+    this._homeIntro = null;
+    if (this._zoomInButton) this._zoomInButton.disabled = next <= PINCH_VIEW_CELLS;
+    if (this._zoomOutButton) this._zoomOutButton.disabled = next >= VIEW_CELLS;
+  }
+
+  _buildZoomControl() {
+    document.getElementById('map-zoom')?.remove();
+    const control = document.createElement('div');
+    control.id = 'map-zoom';
+    control.setAttribute('role', 'group');
+    control.setAttribute('aria-label', 'Map zoom and direction');
+    control.style.top = `${this.viewCenterY}px`;
+    const button = (label, title, direction) => {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.textContent = label;
+      el.setAttribute('aria-label', title);
+      el.title = title;
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        this._stepMapZoom(direction);
+      });
+      control.appendChild(el);
+      return el;
+    };
+    this._zoomInButton = button('+', 'Zoom in', 1);
+    this._zoomOutButton = button('−', 'Zoom out', -1);
+    // The resting level may already be an end stop (the default is the closest).
+    const span = Math.round(VIEW_CELLS / (this._mapZoomRest || MAP_DEFAULT_ZOOM));
+    this._zoomInButton.disabled = span <= PINCH_VIEW_CELLS;
+    this._zoomOutButton.disabled = span >= VIEW_CELLS;
+    if (HeadingUp.enabled) {
+      const lock = document.createElement('button');
+      lock.type = 'button';
+      lock.className = 'direction-lock';
+      let lastLockState;
+      const syncLock = this._syncCompassLock = () => {
+        const locked = HeadingUp.directionLocked(this);
+        const noGps = !HeadingUp.hasGps(this);
+        const pending = !!this._compassGpsRequest;
+        const state = `${locked}:${noGps}:${pending}`;
+        if (state === lastLockState) return;
+        lastLockState = state;
+        lock.setAttribute('aria-pressed', String(locked));
+        lock.setAttribute('aria-label', noGps ? (pending ? 'Detecting GPS — compass locked' : 'Detect GPS to unlock compass direction') : locked ? 'Unlock compass direction' : 'Lock compass direction');
+        lock.setAttribute('aria-busy', String(pending));
+        lock.title = lock.getAttribute('aria-label');
+        const shackle = locked ? 'M8 10V6a4 4 0 0 1 8 0v4' : 'M8 10V6a4 4 0 0 1 7-2.6';
+        lock.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="${shackle}"/><path d="M12 14v3"/></svg>`;
+      };
+      lock.addEventListener('click', e => {
+        e.stopPropagation();
+        HeadingUp.toggleLock(this);
+      });
+      syncLock();
+      control.appendChild(lock);
+    }
+    // CSS-pixel chassis controls live outside Phaser's scaled game wrapper.
+    document.body.appendChild(control);
+    this.events.once('shutdown', () => {
+      HeadingUp.cancelGpsRequest(this);
+      this._syncCompassLock = null;
+      control.remove();
+    });
   }
 
   // --- Pinch zoom (PINCH_VIEW_CELLS) ---
@@ -5765,7 +5903,7 @@ class MapScene extends Phaser.Scene {
   // glass carries on dragging from where it is now, not from where it landed.
   _pinchEnd() {
     this._pinch = null;
-    if (this.mapZoom !== 1) this._mapZoomReturning = true;
+    if (this.mapZoom !== (this._mapZoomRest || 1)) this._mapZoomReturning = true;
     const p = this._peekPointer;
     if (p?.isDown && p.id === this._peekPointerId) {
       const at = this._gamePt(p);
@@ -5776,12 +5914,13 @@ class MapScene extends Phaser.Scene {
   }
 
   // The peek's spring, on the zoom: home within half a screen pixel at the
-  // frame's edge, then exactly 1.
+  // frame's edge, then exactly the selected resting zoom.
   _tickMapZoom(dt) {
     if (!this._mapZoomReturning) return;
-    this.mapZoom = 1 + (this.mapZoom - 1) * Math.exp(-dt / (PEEK_RETURN_MS / 1000));
-    if ((this.mapZoom - 1) * this.viewSize / 2 < 0.5) {
-      this.mapZoom = 1;
+    const home = this._mapZoomRest || 1;
+    this.mapZoom = home + (this.mapZoom - home) * Math.exp(-dt / (PEEK_RETURN_MS / 1000));
+    if (Math.abs(this.mapZoom - home) * this.viewSize / 2 < 0.5) {
+      this.mapZoom = this._mapZoomRest || 1;
       this._mapZoomReturning = false;
     }
   }
@@ -5794,8 +5933,8 @@ class MapScene extends Phaser.Scene {
   // covers the map, holds INTRO.holdMs once the map is clear, then widens
   // back to the normal view over INTRO.outMs. Camera-only, through the same
   // mapZoom and peekM the pinch and the peek use, and it never rests: it ends
-  // at exactly 1× and no offset. A finger on the map hands the camera to the
-  // drag or the pinch, which spring home as usual.
+  // at the selected resting zoom and no offset. A finger on the map hands
+  // the camera to the drag or pinch, which spring home as usual.
   _armHomeIntro() {
     this._homeIntro = { phase: 'wait', t: 0 };
     this._tickHomeIntro(0);
@@ -5805,7 +5944,7 @@ class MapScene extends Phaser.Scene {
     if (!it) return;
     if (this._peekDragging || this._pinch) {
       this._homeIntro = null;
-      this._mapZoomReturning = this.mapZoom !== 1;
+      this._mapZoomReturning = this.mapZoom !== (this._mapZoomRest || 1);
       this._peekReturning = this.isPeeking();
       return;
     }
@@ -5820,13 +5959,16 @@ class MapScene extends Phaser.Scene {
     // as an even pull back rather than a lurch at the start.
     const k = it.phase === 'out' ? Math.min(1, it.t / I.outMs) : 0;
     const e = k * k * (3 - 2 * k);
-    const span = I.viewCells + (VIEW_CELLS - I.viewCells) * e;
+    const span = I.viewCells + (VIEW_CELLS / (this._mapZoomRest || 1) - I.viewCells) * e;
     this.mapZoom = VIEW_CELLS / span;
-    this.peekM.x = I.focus.dx * this.cellM * (1 - e);
-    this.peekM.y = I.focus.dy * this.cellM * (1 - e);
+    // Keep the opening close-up on the entrance side chosen at placement.
+    const a = (this.save.homePlacementHeading || 0) * Math.PI / 180;
+    const c = Math.cos(a), s = Math.sin(a);
+    this.peekM.x = (I.focus.dx * c - I.focus.dy * s) * this.cellM * (1 - e);
+    this.peekM.y = (I.focus.dx * s + I.focus.dy * c) * this.cellM * (1 - e);
     if (k >= 1) {
       this._homeIntro = null;
-      this.mapZoom = 1;
+      this.mapZoom = this._mapZoomRest || 1;
       this.peekM.x = 0;
       this.peekM.y = 0;
     }
@@ -6895,6 +7037,7 @@ class MapScene extends Phaser.Scene {
     const foot = this.feetOffsetM;
     const open = (nx, ny) =>
       !this._cellBlocked(this.startWorldM.x + nx, this.startWorldM.y + ny + foot);
+    const beforeX = body.x, beforeY = body.y;
     const nx = body.x + ux * move, ny = body.y + uy * move;
     if ((ux !== 0) && open(nx, body.y)) body.x = nx;
     if ((uy !== 0) && open(body.x, ny)) body.y = ny;
@@ -6923,6 +7066,7 @@ class MapScene extends Phaser.Scene {
         this._startAutoMine(ux, uy);
       }
     }
+    if (this.save && typeof CompassModules !== 'undefined') CompassModules.recordWalk(this, Math.hypot(body.x - beforeX, body.y - beforeY));
     // Arrival can consume only part of a long frame. Contact hazards charge
     // that walking time, not the idle remainder after reaching the target.
     return move / moveSpeed;
@@ -7369,6 +7513,10 @@ class MapScene extends Phaser.Scene {
     }
     const t = this.add.text(x, y, text, style)
       .setOrigin(0.5, opts.originY ?? 1).setDepth(S.depth);
+    // Explicit world positions follow the map; banners/loot stay fixed to UI.
+    // Keep the ground anchor separate from head lift, stacking and drift.
+    if (opts.x != null && opts.y != null) t._huAnchor = opts.anchor || { x, y };
+    else t._huUI = true;
     if (opts.mask) t.setMask(opts.mask);
     // EVERY tier clamps: a tap near an edge must not render half a message.
     t.x = clampTextX(x, t.width, W);
@@ -7589,9 +7737,9 @@ class MapScene extends Phaser.Scene {
 
   // Small status message, placed where the player tapped so it stays attached
   // to the thing they touched. `color` is optional — omit for the default ink.
-  flash(text, x, y, color) {
+  flash(text, x, y, color, anchor) {
     this._offerToastLog?.push({ text, color });   // a repeat offer reprints it (showOfferModal)
-    this._toast(text, { tier: 'note', x, y, color });
+    this._toast(text, { tier: 'note', x, y, color, anchor });
   }
 
   // A note ABOUT a thing on the map that isn't where the finger is — a
@@ -7610,7 +7758,7 @@ class MapScene extends Phaser.Scene {
   // The same note, for a known absolute cell (a wall of fire's middle cell).
   flashAtCell(text, ix, iy, color) {
     const at = this._energyPopAt(ix, iy);
-    this.flash(text, at.x, at.y, color);
+    this.flash(text, at.x, at.y, color, at.anchor);
   }
   // A note about the player's BODY ("You catch fire!") — over the
   // character's head at scene.playerScreen() (which follows a peek drag),
@@ -7620,7 +7768,7 @@ class MapScene extends Phaser.Scene {
     const ps = this.playerScreen ? this.playerScreen() : null;
     const ok = !!ps && isFinite(ps.x) && isFinite(ps.y);
     this.flash(text, ok ? Math.round(ps.x) : undefined,
-      ok ? Math.round(ps.y) - ENERGY_POP_HEAD_PX - 22 : undefined, color);
+      ok ? Math.round(ps.y) - ENERGY_POP_HEAD_PX - 22 : undefined, color, ok ? ps : undefined);
   }
 
   // ── Energy pops ──────────────────────────────────────────────────────────
@@ -7700,7 +7848,7 @@ class MapScene extends Phaser.Scene {
     if (this._isPlayerCell(ix, iy) && this.playerScreen) {
       const ps = this.playerScreen();
       if (!ps || !isFinite(ps.x) || !isFinite(ps.y)) return {};
-      return { x: Math.round(ps.x), y: Math.round(ps.y) - ENERGY_POP_HEAD_PX };
+      return { x: Math.round(ps.x), y: Math.round(ps.y) - ENERGY_POP_HEAD_PX, anchor: ps };
     }
     return this._cellToastAt(ix, iy, CELL_PX / 2 + ENERGY_POP_LIFT_PX);
   }
@@ -7774,7 +7922,9 @@ class MapScene extends Phaser.Scene {
     const list = this.save[listKey];
     if (!list || !list.length) return false;
     const r2 = (cells * this.cellM) * (cells * this.cellM);
+    const now = Date.now();
     for (const e of list) {
+      if (listKey === 'fires' && !Campfires.active(e, now)) continue;
       // Wards (scarecrows / fires) only repel on their own level — the world is
       // GPS-mirrored across depths, so a surface ward must not reach a cave
       // creature at the same (x, y). See src/placed_floor.js.
@@ -8014,6 +8164,7 @@ class MapScene extends Phaser.Scene {
     const s = this.save || {};
     return (this._ceremonies || []).filter((c) => c.waits).length
       + (s.memoryStory?.pending?.length || 0)
+      + (s.compassModules?.pending?.length || 0)
       + (s.petStoriesPending?.length || 0)
       + (s.dragonStory?.pending ? 1 : 0);
   }
@@ -8233,8 +8384,26 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
   }
 
-  // Both earned stories queue once (`key`) and open through the story ledger
+  // Earned stories queue once (`key`) and open through the story ledger
   // when the screen clears; the pending flag on the save survives a reload.
+  _firstCoinStory() {
+    if (!this.save.firstCoinPending || this.save.storySeen?.['coin:first']) return;
+    this._enqueueCeremony('story', (done) => {
+      if (!this.save.firstCoinPending || this.save.storySeen?.['coin:first']) return false;
+      this.showMessageModal({ kind: 'story', title: 'A green coin',
+        art: 'coin_first',
+        body: 'You find a green coin. The compass now keeps count of your coins.', onDismiss: done,
+      });
+      // Only successful presentation unlocks the chrome; a busy or failed
+      // opening leaves the earned introduction pending across reloads.
+      (this.save.storySeen ||= {})['coin:first'] = 1;
+      delete this.save.firstCoinPending;
+      persistSave(this.save);
+      this.updateHUD?.();
+      return true;
+    }, { key: 'coin:first', defer: true });
+  }
+
   _firstSaleStory() {
     if (!this.save.firstSalePending || this.save.storySeen?.['sale:first']) return;
     // A repeat offer remounts after its accept callback; wait for the gate tick.
@@ -8269,6 +8438,7 @@ class MapScene extends Phaser.Scene {
   _drainBadgeStories() {
     if (this._drainCeremonies()) return;
     MemoryStory.drain(this);
+    if (typeof CompassModules !== 'undefined') CompassModules.drain(this);
   }
 
   // THE STORY LEDGER. One story splash per key, ever: `save.storySeen` is
@@ -8423,6 +8593,8 @@ class MapScene extends Phaser.Scene {
   }
 
   updateHUD() {
+    if (typeof CompassModules !== 'undefined') CompassModules.sync(this);
+    if (typeof CompassHUD !== 'undefined') CompassHUD.update(this);
     // Runs every frame, so every write in here is guarded on the value having
     // actually changed. Money and energy move a few times a minute at most,
     // but an unguarded textContent/style assignment still costs a style
@@ -8433,7 +8605,7 @@ class MapScene extends Phaser.Scene {
       const tag = document.getElementById('depth-tag');
       if (tag) tag.textContent = this.depth > 0 ? `Depth ${this.depth | 0}` : '';
     });
-    // Money badge always shown.
+    // The compass reveals its money badge after the first earned-coin story.
     if (this.moneyEl) {
       const money = `${this.save.money ?? 0}`;
       this._paintIfChanged('_moneyDOM', money, () => {
@@ -8451,7 +8623,7 @@ class MapScene extends Phaser.Scene {
       // the moment the world came up. (body.modal-open, which dims these two
       // for a dialog, cannot cover that stretch: it is toggled from the
       // scene's own update loop, and there is no scene yet.)
-      document.body.classList.remove('booting');
+      if (document.body.classList.contains('booting')) document.body.classList.remove('booting');
     }
     this.updateEnergyDOM();
     this.updateMemoriesDOM();
@@ -8470,7 +8642,8 @@ class MapScene extends Phaser.Scene {
     // (see _steerManual) — after that it is a permanent line of instructions
     // for something they have already done.
     const text = this.gpsAvailable ? 'waiting for GPS…'
-      : (this._steeredManually ? '' : 'no GPS — use the stick or WASD to move');
+      : (this._steeredManually ? '' : (typeof CompassModules !== 'undefined' && !CompassModules.isActive(this.save, 'joystick')
+        ? 'no GPS — activate spirit walking' : 'no GPS — use the stick or WASD to move'));
     if (this._hudDOM !== text) { this._hudDOM = text; this.hud.textContent = text; }
   }
 
@@ -8544,9 +8717,9 @@ class MapScene extends Phaser.Scene {
     const color = pct > 0.30 ? UI_GREEN : (pct > 0.10 ? UI_GOLD : UI_DANGER_INK);
     el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8c7a2a' : '#a04040');
     const label = els.label;
-    // Just the current energy: the bar under it already shows how full it is,
-    // and the max rides in the tooltip (the top row is tight on a phone).
-    if (label) { label.style.color = color; label.textContent = `⚡${cur}`; }
+    // The compass needle carries current energy; its right-hand numeral is
+    // the maximum. The legacy bar keeps its current-value label.
+    if (label) { label.style.color = color; label.textContent = this._compassHUD ? max : `⚡${cur}`; }
     else { el.style.color = color; el.textContent = `⚡${cur}`; }
     el.title = `Energy ${cur} of ${max}`;
     const fill = els.fill;
@@ -8699,7 +8872,12 @@ class MapScene extends Phaser.Scene {
     const toGoM = Math.max(0, Math.ceil(p.target - p.pos));   // metres, not a countdown
     const st = this.save?.trail || { metres: 0, prizes: 0 };
     const doneM = Trail.restoredMetres(st, this.save?.playerClass);
-    this.flash(`${toGoM}m to go · ${Trail.distanceLabel(doneM)} fixed`, this.viewCenterX, 60);
+    this.showMessageModal({ kind: 'spirit', title: 'Distance', okLabel: 'Got it',
+      source: document.getElementById('roadchip'),
+      body: `${Trail.distanceLabel(doneM)} of roads restored. ${toGoM}m to your next treasure.\n\n`
+        + 'Walking along damaged roads repairs them and earns treasure. '
+        + 'This counter records newly restored distance, not every step. '
+        + 'Scenic paths boost treasure progress without inflating the distance.' });
   }
 
   // ── The books chip ────────────────────────────────────────────────────
@@ -8744,7 +8922,7 @@ class MapScene extends Phaser.Scene {
 
   // THE SHELF OF PAGES READ: every page of the course this save has turned,
   // newest last, each a row that opens the page again (the same panel the
-  // read showed — bookPageHTML on the book painting, no title line) and
+  // read showed — bookPageHTML on the parchment page, no title line) and
   // comes back to the list when that is tapped away. Rereading moves no
   // bookmark: save.tipsRead is the course's, not the shelf's.
   _showBooksRead() {
@@ -8757,7 +8935,7 @@ class MapScene extends Phaser.Scene {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('books-modal',
       { zIndex: 60, kind: 'story', kindLabel: 'Books read', art: 'book_read', textAlign: 'left' });
     const list = document.createElement('div');
-    list.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin:4px 0 12px;max-height:46vh;overflow-y:auto;overscroll-behavior:contain;';
+    list.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin:4px 0 12px;';
     for (const page of pages) {
       const b = document.createElement('button');
       b.type = 'button';
@@ -8768,7 +8946,7 @@ class MapScene extends Phaser.Scene {
       b.addEventListener('click', (e) => {
         e.stopPropagation();
         wrap.remove();
-        this.showMessageModal({ title: '', body: bookPageHTML(page), art: 'book_read',
+        this.showMessageModal({ title: '', body: bookPageHTML(page), bookPage: true, okLabel: 'Back to books',
           onDismiss: () => this._showBooksRead() });
       });
       list.appendChild(b);
@@ -8799,7 +8977,7 @@ class MapScene extends Phaser.Scene {
     const key = typeof Wizard !== 'undefined' ? Wizard.playerClass(this.save) : null;
     const cls = key ? Wizard.CLASSES.find((c) => c.key === key) : null;
     this.showMessageModal({
-      kind: 'memory',
+      kind: 'spirit', source: document.getElementById('memories'),
       title: `${total} recovered · ${unspent} unspent`,
       body: MemoryStory.objective(this.save) || (cls ? `Your calling feels familiar: ${cls.icon} ${cls.name}. ${cls.blurb()}`
         : this._metWizard() ? 'The memories hum in your chest. At the Wizard Tower, someone knows how to answer.'
@@ -8849,7 +9027,7 @@ class MapScene extends Phaser.Scene {
   // a free arbitrage. Everything the mode changes is read live through
   // Difficulty.get(); the only things done HERE are the ones that can't be
   // read at use time because they already happened at boot or tile build:
-  // the starting purse, the starter ladder, and the supply crates the starter
+  // the starter ladder and the supply crates the starter
   // tile seated before the player answered.
   chooseMode(mode) {
     if (typeof Difficulty === 'undefined' || !Difficulty.isMode(mode)) return false;
@@ -8857,12 +9035,6 @@ class MapScene extends Phaser.Scene {
     const prof = Difficulty.PROFILES[mode];
     this.save.mode = mode;
     Difficulty.setMode(mode);
-    // The purse: a fresh save opened at STARTING_MONEY (the easy figure). Only
-    // a save that has not been played is re-pursed — the first-run card is the
-    // only path here, but the guard keeps a reset-then-answer honest.
-    if (typeof SaveState !== 'undefined' && !SaveState.hasPlayed(this.save)) {
-      this.save.money = prof.startingMoney;
-    }
     if (!prof.tutorial && typeof Quests !== 'undefined') {
       // Finished, not dismissed: a dismissed ladder keeps tracking and paying
       // its step rewards underneath (questEvent), and "no tutorial" means no
@@ -8991,35 +9163,14 @@ class MapScene extends Phaser.Scene {
     if (Quests.onEvent(this.save, event)) persistSave(this.save);
     const done = Quests.onStarterEvent(this.save, event);
     if (!done) return;
-    // Bank the step NOW — the money and the advanced ladder are earned whether
-    // or not the player ever looks at the celebration.
-    if (done.reward?.money) addMoney(this.save, done.reward.money);
+    // Tutorial progress is guidance, not an extra source of coins.
     persistSave(this.save);
     this.buildInventoryDOM();
     this._celebrateStarterStep(done);
   }
 
-  // Say that a starter step just completed: a green toast at the view centre
-  // and a 1400 ms hold on the objective chip.
-  //
-  // Always QUEUED, never played inline, because the first step of the ladder —
-  // the one EVERY player completes first — fires from inside the chest
-  // handler, one line before it opens the reward modal. Both halves of the
-  // celebration then played underneath that card: the toast clipped to a
-  // sliver at the modal's top edge, and the chip hold (which body.modal-open
-  // hides outright) expiring before the player had tapped through. They came
-  // back to a chip reading 2/6 with nothing having acknowledged step 1.
-  //
-  // Testing "is a modal open?" right here does NOT work and was the first
-  // attempt: at that moment the reward modal has not been created and
-  // body.modal-open still says no. So the decision waits a frame, for
-  // _installModalPadGate's sync to have looked at the real DOM — that sync
-  // owns the flush. With no dialog in the way the delay is one frame, which
-  // is not perceptible; with one, the cheer waits for it to close.
-  //
-  // Gated on ANY modal rather than on the chest path specifically, so
-  // restoring a wreck (its own ceremony) and any future step that completes
-  // behind a dialog get the same treatment without their call sites knowing.
+  // Queue the Spirit's acknowledgement behind any loot or restoration dialog.
+  // The same on-map bubble then advances to the next instruction.
   _celebrateStarterStep(done) {
     this._enqueueCeremony('cheer', (finish) => {
       // Only the LAST one gets the full ceremony: two cheers racing for the
@@ -9028,12 +9179,8 @@ class MapScene extends Phaser.Scene {
       // The rest are already banked; the chip resync at the end of the play
       // shows where the ladder actually stands.
       if (this._pendingStarterCheers.length) return false;
-      // Own try/catch: the drain also runs from _installModalPadGate's
-      // MutationObserver callback, outside update()'s guard — a throw
-      // escaping from a microtask there is uncatchable by the game loop.
-      const quiet = !!this._starterCheerBehindDialog;
       this._starterCheerBehindDialog = false;
-      try { this._playStarterCheer(done, { quiet }); }
+      try { this._playStarterCheer(done); }
       catch (e) { this._reportLoopError?.(e); }
       finish();   // a toast and a chip hold, not a dialog: the queue moves on
       return true;
@@ -9044,10 +9191,9 @@ class MapScene extends Phaser.Scene {
   get _pendingStarterCheers() { return (this._ceremonies || []).filter((c) => c.kind === 'cheer'); }
   _flushStarterCheers() { this._drainCeremonies(); }
 
-  // `quiet`: the step completed behind a dialog, which was the notice — the
-  // chip still holds the green ✓, but no toast repeats it.
-  _playStarterCheer(done, { quiet = false } = {}) {
-    if (!quiet) this.flashLoot(`✅ ${done.title}${done.reward?.money ? ` +${done.reward.money}` : ''}`, UI_GREEN, 1.3);
+  // Acknowledge completion where the Spirit was already speaking.
+  _playStarterCheer(done) {
+    // The Spirit acknowledges progress in the same bubble, without a second toast.
     // Hold the COMPLETED step on screen in green for a beat before swapping in
     // the next one, so finishing something is legible instead of an instant
     // relabel. The held text is written from `done` rather than left as
@@ -9059,9 +9205,7 @@ class MapScene extends Phaser.Scene {
     el.classList.add('done');
     el.querySelector('.step').textContent  = '✓';
     el.querySelector('.title').textContent = done.title;
-    el.querySelector('.body').textContent  = done.reward?.money
-      ? `Done — ${done.reward.money} coins earned.`
-      : 'Done.';
+    el.querySelector('.body').textContent = done.completion || 'Well done. Let’s keep going.';
     if (this._objectiveTimer) clearTimeout(this._objectiveTimer);
     this._objectiveTimer = setTimeout(() => {
       el.classList.remove('done');
@@ -9559,19 +9703,47 @@ class MapScene extends Phaser.Scene {
     this.player.setScale((art?.scale ?? this.playerScale) * giantScale);
     this.playerFeetNudgeY = (art ? -art.footDrop * art.scale : -PLAYER_FEET_DROP_PX * this.playerScale) * giantScale;
   }
+  // The player's opening look round (_idleGlance): screen directions, each
+  // held for `ms`, played once the map is first in view — down at the
+  // camera, a look left, a look right, and back. Then the pose follows
+  // walking alone.
+  static PLAYER_GLANCE = [
+    { ms: 700, x: 0, y: 1 }, { ms: 550, x: -1, y: 0 }, { ms: 550, x: 1, y: 0 }, { ms: 400, x: 0, y: 1 },
+  ];
+  // The glance's pose for now (a SCREEN direction), or null once it is over.
+  // It waits, facing down, while a dialog covers the map; the first step
+  // ends it at once.
+  _idleGlance() {
+    if (this._glanceDone) return null;
+    const down = MapScene.PLAYER_GLANCE[0];
+    if (this._dialogOpen?.()) return down;
+    const now = performance.now();
+    this._glanceT0 ??= now;
+    let t = now - this._glanceT0;
+    for (const step of MapScene.PLAYER_GLANCE) {
+      if (t < step.ms) return step;
+      t -= step.ms;
+    }
+    this._glanceDone = true;
+    // Hold the camera-facing pose it ended on until the first step.
+    this._spriteDir = HeadingUp.toWorldVec(this, 0, 1);
+    return null;
+  }
   _playDirected(sprite, baseKey, dx, dy) {
+    // The player's facing is the way they last walked — not the compass, so
+    // turning the phone never spins the sprite.
+    let screen = null;
     if (dx !== undefined) {
       const d = Math.hypot(dx, dy);
-      if (d > 0.001) this._spriteDir = { x: dx / d, y: dy / d };
-    } else if (sprite === this.player && this.compassDeg != null) {
-      // Standing still with a compass: face the device heading (this.facing,
-      // which confusion also drives), snapped to the nearest authored
-      // direction below. Without one, idle holds the last walking direction.
-      const d = Math.hypot(this.facing?.x ?? 0, this.facing?.y ?? 0);
-      if (d > 0.001) this._spriteDir = { x: this.facing.x / d, y: this.facing.y / d };
+      if (d > 0.001) {
+        this._spriteDir = { x: dx / d, y: dy / d };
+        if (sprite === this.player) this._glanceDone = true;
+      }
+    } else if (sprite === this.player) {
+      screen = this._idleGlance();
     }
     // Poses are screen directions; a heading-up map has turned the world.
-    const { x, y } = HeadingUp.toScreenVec(this, this._spriteDir.x, this._spriteDir.y);
+    const { x, y } = screen || HeadingUp.toScreenVec(this, this._spriteDir.x, this._spriteDir.y);
     // Dragon transform: the player flies as a single-direction dragon.
     // Keep the flap looping and just mirror by heading (art faces
     // right at rest), ignoring the human walk/idle directional sheets.
@@ -9636,7 +9808,9 @@ class MapScene extends Phaser.Scene {
     const items = this._menuItemsEl;
     if (!menu || !items || document.getElementById('menu-modal')) return;
     const { box, mount, mkBtn } = this.makeModalShell('menu-modal', {
-      kind: 'menu', textAlign: 'left',
+      // No painting and no header: the whole panel is the list, and it
+      // scrolls as one.
+      kind: 'menu', textAlign: 'left', art: false, header: false,
       // A tap on the backdrop closes it like any dialog; the shell has
       // already removed the wrap, and the toggle brings the list home.
       onClose: () => { menu.open = false; },
@@ -9668,6 +9842,8 @@ class MapScene extends Phaser.Scene {
     if (!document.getElementById('move-pad')) this.buildMovePad();
   }
   removeMovePad() {
+    this._resetMovePad?.();
+    delete this._resetMovePad;
     document.getElementById('move-pad')?.remove();
     this.joystickVec = { x: 0, y: 0 };
     this._movePadHeld = false;
@@ -9699,7 +9875,9 @@ class MapScene extends Phaser.Scene {
 
     let activePtr = null;
     const reset = () => {
+      const pointer = activePtr;
       activePtr = null;
+      if (pointer !== null && pad.hasPointerCapture?.(pointer)) pad.releasePointerCapture(pointer);
       // Dropping .held re-arms the nub's transform transition (see the CSS
       // note), so clearing the offset here is what plays the spring-back.
       pad.classList.remove('held');
@@ -9707,6 +9885,7 @@ class MapScene extends Phaser.Scene {
       this.joystickVec = { x: 0, y: 0 };
       this._movePadHeld = false;
     };
+    this._resetMovePad = reset;
     const place = (e) => {
       const rect = pad.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
@@ -9720,6 +9899,7 @@ class MapScene extends Phaser.Scene {
     };
     pad.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
+      if (typeof CompassModules !== 'undefined' && !CompassModules.tap(this, 'joystick')) return;
       activePtr = e.pointerId;
       pad.setPointerCapture(e.pointerId);
       pad.classList.add('held');
@@ -9845,24 +10025,22 @@ class MapScene extends Phaser.Scene {
       /* Walk-home countdown: the seconds until the character heads back to
          the GPS, stamped on the resting cap. Gold, because it is a readout of
          a CONTROL (spec §UI COLOUR LANGUAGE) — the stick it sits on — and its
-         box is the cap's box exactly (same left/top/size, and the cap is
-         border-box above), so the digit centres on the cap rather than near
-         it. The shadow is CENTRED — no x/y offset — a dark halo ringing the
+         box is the whole pad, centring the digit where the resting cap sits
+         whatever size a skin (css/compass_hud.css) gives the pad and cap. The shadow is CENTRED — no x/y offset — a dark halo ringing the
          glyph evenly, so the gold holds up over the cap's bright highlight and
          its darker rim alike without reading as lit from one side. Hidden
          while the stick is held (the cap is under a thumb, and there is
          nothing to count down to). */
       #move-pad .countdown {
-        position: absolute; left: ${HALF}px; top: ${HALF}px;
-        box-sizing: border-box;
-        width: ${NUB}px; height: ${NUB}px; line-height: ${NUB}px;
-        text-align: center; pointer-events: none;
-        font: ${fontUI(`700 18px/${NUB}px`)};
+        position: absolute; inset: 0;
+        align-items: center; justify-content: center;
+        pointer-events: none;
+        font: ${fontUI('700 18px/1')};
         color: ${UI_GOLD};
         text-shadow: 0 0 2px rgba(12,9,4,0.95), 0 0 5px rgba(12,9,4,0.8);
         display: none;
       }
-      #move-pad .countdown.on { display: block; }
+      #move-pad .countdown.on { display: flex; }
       #move-pad.held .countdown { display: none; }
       /* The spring-back is decoration — the nub is already back at centre as
          far as movement is concerned the moment the finger leaves. */
@@ -9997,6 +10175,7 @@ class MapScene extends Phaser.Scene {
     // _revealPendingBookReads(), or the read is never shown.
     if (id === 'book') {
       if (n <= 0) return 0;
+      if (typeof CompassModules !== 'undefined') CompassModules.activate(this, 'books');
       if (!silent) {
         // THE BOOK CLUB's reading (Macros.booksRead): every Book read counts,
         // found or bought — the brake on buying is
@@ -10185,6 +10364,8 @@ class MapScene extends Phaser.Scene {
       const tab = document.createElement('button');
       tab.dataset.cat = c.key;
       tab.title = c.label;
+      tab.ariaLabel = `${c.label}, ${count} ${count === 1 ? 'entry' : 'entries'}`;
+      tab.ariaPressed = String(active);
       // Layout inline, paint from .hud-tab / .hud-tab.sel (index.html).
       tab.className = active ? 'hud-tab sel' : 'hud-tab';
       tab.style.cssText =
@@ -10195,20 +10376,12 @@ class MapScene extends Phaser.Scene {
       // tab's icon lights gold, inactive tabs show it dimmed, so the lit-up tab
       // reads as the current category at a glance.
       const glyph = document.createElement('span');
-      glyph.innerHTML = invCatIconHTML(c.key, 18);
+      glyph.className = 'inventory-category-glyph';
+      glyph.innerHTML = invCatIconHTML(c.key, 28);
       glyph.style.cssText = 'line-height:1;' + (active ? `color:${UI_GOLD};` : 'color:var(--bone);opacity:0.55;');
       tab.appendChild(glyph);
-      // Word under the glyph. Seven unlabelled emoji left a new player guessing
-      // which one holds seeds — and the seed tab is the first thing the starter
-      // ladder asks them to find. `title` alone doesn't help on a touch device,
-      // where there is nothing to hover.
-      const caption = document.createElement('span');
-      caption.textContent = c.label;
-      caption.style.cssText =
-        'font:700 7px var(--font-ui);letter-spacing:-0.2px;line-height:1;' +
-        'max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
-        (active ? `color:${UI_GOLD};` : 'color:#999;');
-      tab.appendChild(caption);
+      // Category symbols are embossed into the metal; retain their names for
+      // assistive technology and the native long-press/hover tooltip.
       // An EMPTY tab reads as empty: without this a fresh save's Relics and
       // Armor tabs looked identical to stocked ones bar a missing pip (UX audit
       // §20). The active tab always stays full strength — you're looking at it.
@@ -10241,8 +10414,23 @@ class MapScene extends Phaser.Scene {
     // well under the 44px guideline (QC/UX audit §13).
     const makeBtn = (txt, onclick, w = 40) => {
       const b = document.createElement('button');
-      b.textContent = txt;
       b.className = 'hud-btn';
+      b.ariaLabel = txt === '⇅' ? 'Sort inventory' : txt === '◀' ? 'Previous inventory page' : 'Next inventory page';
+      b.title = b.ariaLabel;
+      b.dataset.control = txt === '⇅' ? 'sort' : txt === '◀' ? 'previous' : 'next';
+      // Retain text for the standard HUD; the compass uses the same live
+      // buttons with faceted gold arrowheads, independent of font rendering.
+      const label = document.createElement('span');
+      label.className = 'inventory-control-text';
+      label.textContent = txt;
+      b.appendChild(label);
+      const mark = document.createElement('span');
+      mark.className = 'inventory-control-mark';
+      mark.ariaHidden = 'true';
+      mark.innerHTML = txt === '⇅'
+        ? '<svg viewBox="0 0 24 56"><defs><linearGradient id="inventory-lever-gold"><stop stop-color="#815411"/><stop offset=".45" stop-color="#fff3b2"/><stop offset=".7" stop-color="#e8b447"/><stop offset="1" stop-color="#956314"/></linearGradient><radialGradient id="inventory-lever-knob" cx="35%" cy="25%"><stop stop-color="#fff6c6"/><stop offset=".45" stop-color="#f9d15f"/><stop offset="1" stop-color="#a46d15"/></radialGradient></defs><rect x="8" y="15" width="8" height="27" rx="3" fill="url(#inventory-lever-gold)" stroke="#674515"/><path d="M3 37H21L12 54Z" fill="url(#inventory-lever-gold)" stroke="#f2d27b" stroke-width="1.3"/><circle cx="12" cy="10" r="8" fill="url(#inventory-lever-knob)" stroke="#ffdfa0" stroke-width="1.5"/><path d="M3 21H21" stroke="#f4d176" stroke-width="3" stroke-linecap="round"/></svg>'
+        : '<svg viewBox="0 0 20 40"><path class="arrow-dark" d="M18 3 1 20l17 17Z"/><path class="arrow-light" d="M17 5 3 20h14Z"/><path class="arrow-face" d="M3 20h14v15Z"/></svg>';
+      b.appendChild(mark);
       b.style.cssText = `width:${w}px;height:44px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;`;
       b.addEventListener('click', (e) => { e.stopPropagation(); onclick(); });
       return b;
@@ -10276,12 +10464,21 @@ class MapScene extends Phaser.Scene {
     // already wider than the 352px column (5×42 slots + 3×40 buttons + the
     // plate) cost both space and attention for nothing.
     const paged = pageCount > 1;
+    const pager = document.createElement('div');
+    pager.className = 'inventory-pager';
     if (paged) {
-      bar.appendChild(makeBtn('◀', () => {
+      pager.appendChild(makeBtn('◀', () => {
         this.save.invPage = (this.save.invPage - 1 + pageCount) % pageCount;
         persistSave(this.save); this.buildInventoryDOM();
       }));
     }
+
+    // One glass window contains the live item controls; standard HUD uses
+    // display:contents so its established layout is unchanged.
+    const itemWindow = document.createElement('div');
+    itemWindow.className = 'inventory-window';
+    itemWindow.style.display = 'contents';
+    bar.appendChild(itemWindow);
 
     const slotCss = 'position:relative;width:42px;height:42px;flex:0 0 42px;border-radius:6px;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
     const startPos = this.save.invPage * PAGE;
@@ -10297,7 +10494,7 @@ class MapScene extends Phaser.Scene {
           slot.title = (typeof gearName === 'function') ? gearName(g.kind, g.slot, g.tier) : g.slot;
           const wrap = document.createElement('span');
           wrap.style.cssText = 'display:inline-block;line-height:0;';
-          wrap.innerHTML = this.gearIconHTML(g.kind, g.slot, g.tier, 32);
+          wrap.innerHTML = this.gearIconHTML(g.kind, g.slot, g.tier, 24);
           slot.appendChild(wrap);
           // Rarity uses the shared word/color badge; numeric tiers stay internal.
           const badge = document.createElement('span');
@@ -10345,14 +10542,14 @@ class MapScene extends Phaser.Scene {
         const pet = displayList[p].pet;
         slot.dataset.pet = pet.id;
         slot.title = itemName(pet.kind);
-        slot.appendChild(this.renderItemIcon(pet.kind, 32, 'block'));
+        slot.appendChild(this.renderItemIcon(pet.kind, 24, 'block'));
         slot.addEventListener('click', e => { e.stopPropagation(); this.presentPetMenu(pet.id); });
       } else if (displayList[p]?.entry) {
         const { idx, entry } = displayList[p];
         const item = ITEM_BY_ID[entry.id];
         slot.dataset.slot = idx;
         slot.title = item ? `${item.name}${entry.count != null ? ' ×' + entry.count : ''}` : 'empty';
-        if (item) slot.appendChild(this.renderItemIcon(item.id, 32, 'block'));
+        if (item) slot.appendChild(this.renderItemIcon(item.id, 24, 'block'));
         else slot.textContent = '·';
         if (entry.count != null) {
           const badge = document.createElement('span');
@@ -10400,10 +10597,10 @@ class MapScene extends Phaser.Scene {
         slot.textContent = '';
         slot.style.cursor = 'default';
       }
-      bar.appendChild(slot);
+      itemWindow.appendChild(slot);
     }
     if (paged) {
-      bar.appendChild(makeBtn('▶', () => {
+      pager.appendChild(makeBtn('▶', () => {
         this.save.invPage = (this.save.invPage + 1) % pageCount;
         persistSave(this.save); this.buildInventoryDOM();
       }));
@@ -10411,7 +10608,8 @@ class MapScene extends Phaser.Scene {
       pageLbl.textContent = `${this.save.invPage + 1}/${pageCount}`;
       pageLbl.className = 'hud-page';
       pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #4a4238;border-radius:11px;font:700 11px var(--font-ui);margin-left:4px;';
-      bar.appendChild(pageLbl);
+      pager.appendChild(pageLbl);
+      bar.appendChild(pager);
     }
 
     document.body.appendChild(bar);
@@ -10468,15 +10666,7 @@ class MapScene extends Phaser.Scene {
       nameLbl.textContent = '';
       if (isGear) {
         const g = this.save.selGear;
-        if (!g) {
-          // Empty gear tab — tell the player where this gear comes from.
-          const hint = document.createElement('div');
-          hint.textContent = cat.key === 'armour'
-            ? 'No armour yet — forge or find it'
-            : this.invDisplayEntriesForCat(cat.key).length ? 'Select a relic' : 'No relics yet — forge or find them';
-          hint.style.cssText = 'opacity:0.7;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-          nameLbl.appendChild(hint);
-        } else {
+        if (g) {
           const nameSpan = document.createElement('div');
           nameSpan.textContent = (typeof gearName === 'function') ? gearName(g.kind, g.slot, (g.kind === 'armor' ? this.save.armor : Gear.effectiveRelics(this.save))?.[g.slot]?.tier) : g.slot;
           nameSpan.style.cssText = 'max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
@@ -10497,7 +10687,13 @@ class MapScene extends Phaser.Scene {
             + (borrowed ? ` · ${borrowed} on loan` : '');
           const effect = (typeof ITEM_EFFECTS !== 'undefined') ? ITEM_EFFECTS[sel.id] : null;
           const nameSpan = document.createElement('div');
-          nameSpan.textContent = nameTxt;
+          nameSpan.className = 'inventory-selected-name';
+          const nameIcon = this.renderItemIcon(it.id, 20, 'block');
+          nameIcon.className = `${nameIcon.className || ''} inventory-name-icon`;
+          const nameText = document.createElement('span');
+          nameText.textContent = nameTxt;
+          nameSpan.appendChild(nameIcon);
+          nameSpan.appendChild(nameText);
           nameSpan.style.cssText = 'max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
           nameLbl.appendChild(nameSpan);
           if (effect) {
@@ -10929,9 +11125,25 @@ window.__onGameScaleChange = () => {
   // canvas's CSS size, so a stale one would lay the new buffer out at the wrong
   // number of CSS px and #game's transform would compound the error.
   game.scale.setZoom(1 / RENDER_SCALE);
+  // Phaser skips CSS size writes in resize() when zoom is exactly 1. The
+  // preceding setZoom then leaves the OLD backing size as CSS pixels when
+  // switching to the Canvas cap. Seat the new buffer in the logical box
+  // before resize refreshes input bounds, without reallocating twice.
+  game.canvas.style.width = `${W}px`;
+  game.canvas.style.height = `${H}px`;
   game.scale.resize(W * RENDER_SCALE, H * RENDER_SCALE);
   // The resize grows each camera to the new buffer but leaves its transform
   // alone, so the zoom is still the OLD render scale — which would draw the
   // logical grid at the wrong size on a correctly-sized canvas. Re-point it.
-  for (const scene of game.scene.getScenes(true)) applyRenderScale(scene.cameras.main);
+  // Paused scenes still render (including their UI camera), and can resume
+  // after a background resize. Keep their transforms current too.
+  for (const scene of game.scene.getScenes(false)) {
+    if (!scene.cameras?.main) continue;
+    applyRenderScale(scene.cameras.main);
+    if (scene.uiCam) {
+      scene.uiCam.setViewport(0, 0, W * RENDER_SCALE, H * RENDER_SCALE);
+      applyRenderScale(scene.uiCam);
+    }
+    scene._applyMapZoom?.();
+  }
 };

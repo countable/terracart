@@ -17,7 +17,8 @@
       assert.eq(face.y + face.h, 20 + depth, 'front face meets the cap at its front foot');
       assert.eq(r.toothWidth, 6, 'along-wall length remains unchanged');
       assert.eq(r.topDepth, 3.6, 'across-wall depth is 40 percent thinner');
-      assert.eq(r.toothHeight, ['ruin', 'archive'].includes(id) ? 1.5 : 2, 'merlons stand half their original height');
+      assert.eq(r.toothHeight, ['ruin', 'archive'].includes(id) ? 2.5 : 3, 'merlons rise clear of the narrow cap');
+      assert.gte(r.wallHeight, r.topDepth * 2.5, 'the shaded face, not the cap, carries the three-quarter read');
     }
   });
   test('castle art: clean wall faces retain only the bottom silhouette and top highlight', () => {

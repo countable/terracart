@@ -209,3 +209,20 @@ test('a lurker finds the nearest concealing cell, and two lurkers spread over a 
     assert.eq(Visibility.concealingCellNear(f.scene, 20.5, 20.5, 2, 'c'), null, 'none in range');
   } finally { f.done(); }
 });
+
+
+test('downed players retain covered actors and scenery, with cover restored on revival', () => {
+  const f = coverFixture([{id:'hedge',kind:'wildplant',crop:'shrub',x:2.5,y:.5}], ['0_2']);
+  try {
+    f.scene.save.energy = 10;
+    assert.truthy(Visibility.hidden(f.scene,4.5,.5));
+    f.scene.save.energy = 0;
+    assert.falsy(Visibility.hidden(f.scene,4.5,.5));
+    f.scene.depth = 1;
+    assert.falsy(Visibility.hidden(f.scene,.5,4.5,true));
+    assert.eq(Visibility.coverBetween(f.scene,.5,.5,.5,4.5),Visibility.FULL,
+      'physical cover and enemy sight remain independent of the player state');
+    f.scene.save.energy = 1;
+    assert.truthy(Visibility.hidden(f.scene,.5,4.5,true));
+  } finally { f.done(); }
+});

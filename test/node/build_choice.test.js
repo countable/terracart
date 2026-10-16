@@ -142,7 +142,10 @@ test('turret: a restored turret wears the castle tower and fires on the castle l
   assert.eq(BUILDING_ART.turret.def, 1, 'drawn one cell wide, the castle rim\'s own size');
   assert.truthy(/if \(role === 'turret'\) return CastleStyles\.get\(o\.id\)\.towerFrame;/.test(RENDER_SRC), 'its material family is its own id');
   assert.truthy(/origin: \[0\.5, 1\.0\],\s*dxPx: \(o\) => _houseFootPx\(o\)\.x,/.test(RENDER_SRC), 'foot-seated on its footprint like every building');
-  assert.truthy(/if \(o\.kind === 'tower' \|\| role === 'turret'\) w = CELL_PX \* 1\.1;/.test(RENDER_SRC), 'and shadowed as wide as the tower row');
+  const shadow = Render.buildingShadow({visible:true,texKey:'tower',frameVal:0,scl:1,scaleYMul:1,
+    dxPx:0,dyPx:0,origin:[0.5,1],spec:{groundAtOrigin:true}},
+    {getFrame:()=>({width:32,height:32})}, {x:0,y:0});
+  assert.inRange(shadow.width, 32, 40, 'tower-sized art gets a matching contact shadow');
   const fire = SCENE_SRC.slice(SCENE_SRC.indexOf('  _turretFire(now, px, py, halfSpanM, enemies, pc) {'));
   const body = fire.slice(0, fire.indexOf('\n  }\n'));
   assert.truthy(/this\._forEachHouseNear\(pc, \(o\) => \{\s*if \(Houses\.displayRole\(this\.save, o\) !== 'turret'\) return;/.test(body), 'turret houses join the scan');

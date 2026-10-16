@@ -32,9 +32,9 @@ const html = INDEX_HTML_SRC;
 // ── renderScale(): the real function, driven at real screens ───────────────
 
 // Drive it by setting the globals it reads, the way the browser does.
-function at(cssScale, dpr, cap) {
+function at(cssScale, dpr, cap, canvas = false) {
   const prevW = globalThis.window, prevD = globalThis.devicePixelRatio;
-  globalThis.window = { __gameCssScale: cssScale, devicePixelRatio: dpr, __renderScaleCap: cap };
+  globalThis.window = { __gameCssScale: cssScale, devicePixelRatio: dpr, __renderScaleCap: cap, __canvasRenderer: canvas };
   globalThis.devicePixelRatio = dpr;
   try { return renderScale(); }
   finally { globalThis.window = prevW; globalThis.devicePixelRatio = prevD; }
@@ -48,6 +48,15 @@ test('canvas scale: high-DPR phones stay within the backing-store budget', () =>
   }
   assert.eq(at(430 / 352, 2), 2, 'a wide DPR-2 phone is also bounded');
   assert.eq(at(1, 1), 1, 'a plain 1x screen is unchanged');
+});
+
+test('canvas scale: software Canvas stays at the logical grid while WebGL keeps its budget', () => {
+  for (const width of [320, 352, 393, 430]) {
+    assert.eq(at(width / 352, 3, undefined, true), 1, 'Canvas does not rotate a DPR-sized buffer');
+    assert.eq(at(width / 352, 3, undefined, false), 2, 'WebGL retains its existing cap');
+  }
+  assert.eq(at(393 / 352, 3, 2, true), 2, 'explicit diagnostics can compare the old Canvas resolution');
+  assert.eq(at(393 / 352, 3, 4, true), 2, 'diagnostics cannot exceed the memory ceiling');
 });
 
 test('canvas scale: never coarser than the grid it replaced', () => {
@@ -126,5 +135,37 @@ test('canvas scale: the canvas follows the screen, and pays for it once', () => 
   // is still the OLD scale until this puts the logical grid back on them.
   assert.truthy(/applyRenderScale\(scene\.cameras\.main\)/.test(fn),
     'and the cameras are re-pointed afterwards');
+});
+test('canvas scale: resizing keeps the heading UI camera aligned with the map', () => {
+  const source = app.match(/window\.__onGameScaleChange = \(\) => \{[\s\S]*?\n\};/)[0];
+  const main = {}, ui = { setViewport(...values) { this.viewport = values; } };
+  const scene = { cameras: { main }, uiCam: ui, _applyMapZoom() { this.reapplied = true; } };
+  const win = {}, game = { canvas: { style: {} }, scale: { setZoom() {}, resize() {} }, scene: { getScenes: () => [scene] } };
+  const install = new Function('window', 'game', 'renderScale', 'applyRenderScale', 'W', 'H',
+    'let RENDER_SCALE = 1;\n' + source);
+  install(win, game, () => 2, camera => { camera.scale = 2; }, 352, 844);
+  win.__onGameScaleChange();
+  assert.eq(main.scale, 2); assert.eq(ui.scale, 2);
+  assert.eq(ui.viewport.join(','), '0,0,704,1688');
+  assert.truthy(scene.reapplied, 'restore current map rotation and zoom after resize');
+});
+test('canvas scale: returning to zoom one restores CSS size before input bounds refresh', () => {
+  const source = app.match(/window\.__onGameScaleChange = \(\) => \{[\s\S]*?\n\};/)[0];
+  const style = { width: '352px', height: '844px' };
+  let resizes = 0;
+  const game = { canvas: { style }, scene: { getScenes: () => [] }, scale: {
+    setZoom() { style.width = '390px'; style.height = '935px'; },
+    resize() {
+      resizes++;
+      assert.eq(style.width, '352px');
+      assert.eq(style.height, '844px');
+    },
+  } };
+  const win = {};
+  new Function('window', 'game', 'renderScale', 'applyRenderScale', 'W', 'H',
+    'let RENDER_SCALE = 1.108;\n' + source)(win, game, () => 1, () => {}, 352, 844);
+  win.__onGameScaleChange();
+  win.__onGameScaleChange();
+  assert.eq(resizes, 1, 'unchanged cap does not reallocate the buffer');
 });
 })();

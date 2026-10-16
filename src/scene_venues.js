@@ -463,7 +463,7 @@ class SceneVenues {
     box.appendChild(tabs);
     const list = document.createElement('div');
     list.id = 'scholar-shelf';
-    list.style.cssText = 'height:180px;overflow-y:auto;overscroll-behavior:contain;text-align:left;';
+    list.style.cssText = 'min-height:180px;text-align:left;';
     list.setAttribute('aria-label', 'Tomes available to borrow');
     box.appendChild(list);
     const receipt = document.createElement('div');
@@ -557,17 +557,9 @@ class SceneVenues {
     allTab.addEventListener('click', (e) => { e.stopPropagation(); onLoanOnly = false; list.scrollTop = 0; render(); });
     loansTab.addEventListener('click', (e) => { e.stopPropagation(); onLoanOnly = true; list.scrollTop = 0; render(); });
     render();
+    // The whole panel scrolls as one (makeModalShell); the shelf is just
+    // part of it.
     mount();
-    // Only the shelf scrolls; credit, receipt and Done remain reachable.
-    const body = box.querySelector('.modal-body');
-    body.style.display = 'flex';
-    body.style.flexDirection = 'column';
-    body.style.height = body.style.maxHeight;
-    body.style.overflow = 'hidden';
-    for (const child of body.children) child.style.flexShrink = '0';
-    list.style.flex = '1 1 0';
-    list.style.minHeight = '0';
-    list.style.height = 'auto';
   }
 
   _scholarSpellDetail(id) {
@@ -1127,23 +1119,74 @@ class SceneVenues {
 
   // Place Home for a player standing at (x, y): the wagon HomeArea.WAGON_OFFSET
   // cells away, its art drawn at WAGON_ART_FOOT so they stand at its door, and
-  // the empty firepit at HomeArea.FIREPIT_OFFSET (save.homeFirepit) — unless that cell is water or
+  // the firepit after compass detection at HomeArea.FIREPIT_OFFSET
+  // (save.homeFirepit) — unless that cell is water or
   // a way, where a ring of stones would read as litter. Whatever building the
   // two land on is cleared by clearHomeFooting. The one Home placer: the
   // starter placement and "Move Home here" both come through here.
-  _placeHome(x, y) {
+  _placeHome(x, y, heading = 0) {
     const at = worldMetersToAbsCell(this, x, y);
     const cellAt = (off) => {
       const c = absCellOffset(this, at.cellIX, at.cellIY, off.dx, off.dy);
       return absCellCenterMeters(this, c.cellIX, c.cellIY);
     };
-    const off = HomeArea.FIREPIT_OFFSET, pit = cellAt(off);
-    // Nudged toward the player inside its own cell (FIREPIT_NUDGE).
-    const nudge = HomeArea.FIREPIT_NUDGE * this.cellM;
-    this.save.homeFirepit = this._firepitGroundOK(pit.x, pit.y)
-      ? { x: pit.x - Math.sign(off.dx) * nudge, y: pit.y - Math.sign(off.dy) * nudge } : null;
-    const wagon = cellAt(HomeArea.WAGON_OFFSET);
+    this.save.homeFirepit = null;
+    this.save.homeFirepitPending = true;
+    this.save.homePlacementHeading = heading;
+    const wagon = cellAt(HomeArea.placementOffsets(heading).wagon);
     this._makeStarterTrailer(wagon.x, wagon.y);
+  }
+
+  // A real compass reading unlocks placement once per save. Heading changes
+  // never move the saved layout after its initial placement.
+  _onFirstCompass() {
+    if (!Number.isFinite(this._homeInitialHeading) && Number.isFinite(this._deviceCompass?.deg)) {
+      this._homeInitialHeading = this._deviceCompass.deg;
+    }
+    if (this.save.homeCompassDetected) return;
+    this.save.homeCompassDetected = true;
+    this.save.homeFirepitPending = true;
+    this._placePendingHomeFirepit();
+    persistSave(this.save);
+  }
+
+  _placePendingHomeFirepit() {
+    const save = this.save, trailer = save.starterTrailer;
+    if (!save.homeFirepitPending || (this.depth || 0) !== 0
+        || !trailer || save.starterShopId !== trailer.id) return false;
+    if (!save.homeCompassDetected) {
+      // No heading yet: wait out HomeArea.FIREPIT_COMPASS_GRACE_MS, then
+      // place anyway (the reading only ever confirms the same cell).
+      const now = performance.now();
+      this._firepitGraceT0 ??= now;
+      if (now - this._firepitGraceT0 < HomeArea.FIREPIT_COMPASS_GRACE_MS) return false;
+    }
+    const at = worldMetersToAbsCell(this, trailer.x, trailer.y);
+    const { firepit: offset, wagon } = HomeArea.placementOffsets(save.homePlacementHeading || 0);
+    // The pit's cell: its turned offset if that ground takes it, else the
+    // nearest cell round the player that does (HomeArea.firepitCandidates) —
+    // a heading that points it at a road or the water must not cost a new
+    // game its pit.
+    let pit = null;
+    for (const c of HomeArea.firepitCandidates(offset, wagon)) {
+      const cell = absCellOffset(this, at.cellIX, at.cellIY, c.dx - wagon.dx, c.dy - wagon.dy);
+      const m = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
+      if (this._firepitGroundOK(m.x, m.y)) { pit = m; break; }
+    }
+    // Do not relocate a saved lit fire into water or a road. An unsuitable
+    // neighbourhood leaves an existing pit intact.
+    if (pit) {
+      const old = save.homeFirepit;
+      for (const fire of save.fires || []) {
+        if (old && PlacedFloor.onDepth(fire, 0) && sameAbsCell(this, fire.x, fire.y, old.x, old.y)) {
+          fire.x = pit.x; fire.y = pit.y;
+        }
+      }
+      save.homeFirepit = pit;
+    }
+    save.homeFirepitPending = false;
+    this.clearHomeFooting();
+    return true;
   }
 
   // May Home's firepit sit at (x, y)? Not in water, on a road or path, or on
@@ -1186,6 +1229,25 @@ class SceneVenues {
     // depth's cave map (setDepth), so injecting here would drop a phantom
     // trailer into a cave tile. The trailer lives on the surface — depth 0.
     if ((this.depth || 0) !== 0) return;
+    // A reading may arrive before Home exists or while underground.
+    if (this._placePendingHomeFirepit()) persistSave(this.save);
+    // Older saves nudged this step-over prop toward the doorstep. Centre its
+    // existing cell once per saved ring; carry its surface fire with it so
+    // artwork, warmth and interactions keep one anchor without moving cells.
+    const pit = this.save.homeFirepit;
+    if (pit && this._centeredHomeFirepit !== pit) {
+      const cell = worldMetersToAbsCell(this, pit.x, pit.y);
+      const centre = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
+      for (const fire of this.save.fires || []) {
+        if (PlacedFloor.onDepth(fire, 0) && sameAbsCell(this, fire.x, fire.y, pit.x, pit.y)) {
+          fire.x = centre.x;
+          fire.y = centre.y;
+        }
+      }
+      pit.x = centre.x;
+      pit.y = centre.y;
+      this._centeredHomeFirepit = pit;
+    }
     const st = this.save.starterTrailer;
     // Only inject while the trailer is actually the active Home. If the player
     // has since adopted a real house (starterShopId points elsewhere), a stale
@@ -1193,9 +1255,10 @@ class SceneVenues {
     if (st && this.save.starterShopId === st.id) {
       // Rebuild the in-memory object after a reload (or position change).
       if (!this._starterTrailerObj || this._starterTrailerObj.id !== st.id) {
+        const foot = HomeArea.wagonArtFoot(this.save.homePlacementHeading || 0);
         this._starterTrailerObj = { kind: 'house', x: st.x, y: st.y,
           tier: st.tier, id: st.id, address: st.address, _synthetic: true,
-          footDx: HomeArea.WAGON_ART_FOOT.dx, footDy: HomeArea.WAGON_ART_FOOT.dy };
+          footDx: foot.dx, footDy: foot.dy };
       }
       const obj = this._starterTrailerObj;
       const { tx, ty } = worldMetersToTile(this, obj.x, obj.y);
@@ -1213,7 +1276,8 @@ class SceneVenues {
   //   BUILDINGS. Any house whose footprint touches the footing is erased
   //   ENTIRELY — every cell of it goes back to the ground around it, its
   //   outline (buildingShapes) and its roof (the house object) go too — so
-  //   the wagon stands in a yard, never half on a roof. An adopted Home's own
+  //   the wagon stands in a yard, never half on a roof. Only a 50% shadow of
+  //   its footprint stays (entry.clearedShapes, building_overlay.js). An adopted Home's own
   //   footprint goes the same way (its object stays: it draws as the wagon).
   //   A building that is yours, a temple or a castle is never erased
   //   (_homeMayClear). A real house that turns up on the footing after a
@@ -1312,8 +1376,8 @@ class SceneVenues {
   // Erase every cell of the buildings keyed in `keys` from one built tile:
   // the cell takes the most common open ground bordering the erased cells
   // (a yard on a residential street, grass in a park; residential land when
-  // nothing borders it), drops its owner, and the outline goes from
-  // buildingShapes. A new buildingShapes array, so the overlay repaints, and
+  // nothing borders it), drops its owner, and the outline moves from
+  // buildingShapes to clearedShapes (drawn as a 50% footprint shadow). A new buildingShapes array, so the overlay repaints, and
   // the ground layer redraws on this frame rather than the next cell crossing.
   _eraseHomeBuildings(entry, keys) {
     const g = entry.grid, own = entry.owners, ok = entry.ownerKeys;
@@ -1349,6 +1413,9 @@ class SceneVenues {
       if (entry.syntheticBuildingCells) entry.syntheticBuildingCells[i] = 0;
     }
     if (entry.buildingShapes?.some(s => keys.has(s.key))) {
+      // The outline moves to clearedShapes: the overlay draws it as a flat
+      // shadow of the footprint the trailer cleared, not a building.
+      entry.clearedShapes = (entry.clearedShapes || []).concat(entry.buildingShapes.filter(s => keys.has(s.key)));
       entry.buildingShapes = entry.buildingShapes.filter(s => !keys.has(s.key));
     }
     this._lastBorderIX = null;

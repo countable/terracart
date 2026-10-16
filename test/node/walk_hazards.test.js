@@ -25,6 +25,19 @@ test('walk hazards: entry hit plus one energy per contact second at different fr
   }
 });
 
+// GPS wobble inside one bramble: every frame's contact covers the whole move
+// but its interval end comes back a hair under 1. The body is still in the
+// same cell, so it is one entry hit, not one per frame (was ~30/s).
+test('walk hazards: wobbling inside one bush charges its entry once', () => {
+  const s = scene({ _walkHazardExposure(x0, y0, x1, y1, visit) {
+    const c = worldMetersToTileCell(this, x1, y1);
+    visit(`${c.tx},${c.ty},${c.ix},${c.iy}`, 0, 0.9999998, 1);
+    return 1;
+  } });
+  for (let i = 0; i < 60; i++) tick.call(s, 1 / 60, 4 + (i % 2) * 0.2, 4, 4 + ((i + 1) % 2) * 0.2, 4);
+  assert.eq(s.save.energy, 95, 'one entry hit (the second of contact is a hair short of a whole point)');
+});
+
 test('walk hazards: charred spikes drain two per second at every frame rate', () => {
   assert.eq(walkHazardDamageRate({kind: 'stakes', _street: 'burned'}), 2);
   assert.eq(walkHazardDamageRate({kind: 'stakes', _street: 'barricade'}), 0);

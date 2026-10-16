@@ -160,7 +160,7 @@
       locations: ['Mapped churches'], spent: 'The chapel is quiet',
       body: 'You leave a small offering beneath the bell and are given a blessing in return.' },
     // A CRATE (interactables.js restocks): the one chest that comes back.
-    crate: { name: 'Crate', art: 'chest_t1', sprite: 'box', light: 0xf2d9a0, ledger: 'day',
+    crate: { name: 'Crate', art: 'treasure_crate', sprite: 'box', light: 0xf2d9a0, ledger: 'day',
       days: (o) => crateRestoreDays(o), reward: 'treasure', effect: 'A chest roll; bare for a day, up to a week where its kind crowds the tile', durationMs: 0,
       locations: ['Mapped POIs the tile left at the plain tier'], spent: 'The crate is bare',
       body: 'You lift the lid of the crate.' },
@@ -813,7 +813,7 @@
     sundries: { title: 'A sundries shop', body: 'Mended sacks and bundled tools fill the counter. Pay coins for the supplies offered here.' },
     training: { title: 'A training hall', body: 'Practice rings out beneath the crossed weapons. Pay coins for a permanent lesson when you have enough memories, or buy a temporary drill.' },
     scholar: { title: 'A book club', body: `You join the book club beneath the scholar’s open-book sign. Each Book collected adds one lending credit. Every ${SCHOLAR_BOOKS_PER_PRIZE} Books opens another tome for loan. Borrow for its tier plus two credits; return it at any school to free those credits.` },
-    bank: { title: 'A bank', body: `The banker keeps a strongbox behind the counter. Some days it lends coins and some days it takes deposits, at ${Math.round(BANK_INTEREST * 100)}% after a day either way. A pirate collects each loan, and fights anyone who refuses to pay.` },
+    bank: { title: 'A bank', body: `“Welcome to our bank! We fund enterprising folks like you. Care to take a loan?”` },
   };
 
   root.Macros = {

@@ -520,12 +520,13 @@ test('lighting: collectLamps converts absolute lamp metres against the anchor, c
   assert.eq(byId.edge.dyPx, byId.near.dyPx, 'every lamp by the same rise — one art, one lantern');
   // The stamp adds it to the anchored screen point, and the still-frame key
   // names it: a light the key does not name is a light that cannot repaint.
-  const st = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function paintLight('));
+  const st = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function lightStamp('));
   // (Both through lightCentrePx — the stamp's whole-px centre is the key's.)
   const lc = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function lightCentrePx('));
   assert.truthy(/const c = deltaMToScreen\(scene, L\.dx, L\.dy\);[\s\S]{0,120}y: Math\.round\(c\.y \+ \(L\.dyPx \|\| 0\)\)/.test(lc),
     'the stamp lifts the cookie by dyPx, on top of the anchored metres — the sprites\' own projection (coords.js)');
-  assert.truthy(/const c = lightCentrePx\(scene, L\);/.test(st) && /ctx\.drawImage\(ck\.canvas, c\.x - ox - d \/ 2, c\.y - oy - d \/ 2, d, d\);/.test(st),
+  assert.truthy(/const c = lightCentrePx\(scene, L\);/.test(st) && /stamp\.x = c\.x - ox - d \/ 2; stamp\.y = c\.y - oy - d \/ 2;/.test(st)
+    && /ctx\.drawImage\(stamp\.canvas, stamp\.x, stamp\.y, stamp\.width, stamp\.height\);/.test(st),
     'the stamp is placed at that centre');
   assert.truthy(/const c = lightCentrePx\(scene, L\); at = `\$\{c\.x\},\$\{c\.y\}`;/.test(LIGHTING_SRC)
     && /\$\{L\.id\},\$\{at\},\$\{L\.dyPx\}/.test(LIGHTING_SRC),
@@ -667,7 +668,7 @@ test('lighting: a blast is stored in WORLD metres and re-anchored every frame, s
   // The stamp reads the entry's radius and colour, so one row serves every size.
   const L = LIGHTING_SRC;
   const d = L.slice(L.indexOf('  function draw(scene, ax, ay, halfM) {'));
-  const stamp = L.slice(L.indexOf('  function paintLight('), L.indexOf('  function contributionKey('));
+  const stamp = L.slice(L.indexOf('  function lightStamp('), L.indexOf('  function contributionKey('));
   assert.truthy(/ensureKindCookie\(scene, L\.kind, L\.r, colour\)/.test(stamp)
     && /: L\.colour;/.test(stamp),
     'the cookie is baked at the entry\'s own radius and colour');
@@ -680,7 +681,7 @@ test('lighting: draw() stamps a light with its own alpha and scale', () => {
   // them null and gets the flicker curve alone.
   const L = LIGHTING_SRC;
   const d = L.slice(L.indexOf('  function draw(scene, ax, ay, halfM) {'));
-  const stamp = L.slice(L.indexOf('  function paintLight('), L.indexOf('  function contributionKey('));
+  const stamp = L.slice(L.indexOf('  function lightStamp('), L.indexOf('  function contributionKey('));
   assert.truthy(/\* \(L\.a == null \? 1 : L\.a\)/.test(stamp), 'a light\'s own alpha multiplies in');
   assert.truthy(/\* \(L\.s == null \? 1 : L\.s\)/.test(stamp), 'and its own scale');
   assert.truthy(/worldCookieFrames\(scene, W, H, ax, ay, ox, oy, crit, now, pnow\)/.test(d),
@@ -891,6 +892,34 @@ test('lighting: the map multiplies, the cookies add, and the plateau is per cell
     && /const ddx = d\.dx \* scene\.cellM;/.test(L) && /return ddx \* ddx \+ ddy \* ddy <= reachM2;/.test(L),
     'the plateau cells are picked by the reach test, not a circle');
   assert.truthy(/if \(!inReach\(col, row\)\) continue;/.test(L), 'every lit cell passes it');
+});
+
+test('lighting: dimmed reach indicator transfers its light to the smooth player glow', () => {
+  const r0 = 15, cell = 5, rMax = 45, rim = r0 + cell * Math.SQRT1_2;
+  for (const depth of [0, 1, 3, 8]) for (const day of [0, 0.5, 1]) {
+    for (const energy of [100, 20]) {
+      const p = Lighting.profile(scene({ depth, save: { energy, maxEnergy: 100 } }), day);
+      for (const d of [0, r0 / 2, r0, rim]) {
+        const glow = Lighting.playerGlow(p, d, r0, rMax, cell);
+        const level = Lighting.plateauLevel(p, d / rim);
+        const tint = Lighting.plateauCellColour(p, level);
+        const base = Lighting.playerCookieAlpha(Math.max(0, (d - r0) / (rMax - r0)), p);
+        for (const sh of [16, 8, 0]) {
+          const fill = (level - p.edge) * ch(tint, sh) / 255;
+          const total = glow.alpha * ch(glow.colour, sh) / 255 + fill * Lighting.REACH_OUTPUT_K;
+          near(total, base + fill, 0.003, `restores brightness depth ${depth} energy ${energy} channel ${sh}`);
+        }
+      }
+      const inner = Lighting.playerGlow(p, rim - 0.001, r0, rMax, cell);
+      const outer = Lighting.playerGlow(p, rim + 0.001, r0, rMax, cell);
+      near(inner.alpha, outer.alpha, 0.001, 'general glow has no step at the reach rim');
+      assert.gt(outer.alpha, Lighting.playerCookieAlpha((rim - r0) / (rMax - r0), p),
+        'compensation also lights ground outside the indicator');
+      assert.eq(Lighting.playerGlow(p, rMax, r0, rMax, cell).alpha, 0, 'existing radius stays unchanged');
+      assert.eq(Lighting.playerGlow(p, rMax + cell, r0, rMax, cell).alpha, 0);
+    }
+  }
+  assert.eq(Lighting.REACH_OUTPUT_K, 0.5, 'the indicator remains subdued');
 });
 
 test('lighting: the plateau cells land on the lit level, red when tired', () => {

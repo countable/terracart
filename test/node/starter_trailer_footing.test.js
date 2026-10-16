@@ -1,7 +1,7 @@
 // HOME'S FOOTING IS CLEAR GROUND.
 //
 // Home is placed round the player (_placeHome): the wagon one cell north, so
-// they start on its doorstep, and an empty firepit at their lower left. Any
+// they start on its doorstep, and a firepit due south after compass detection. Any
 // house standing on that footing — the wagon's cell, the eight its art spills
 // into, and the firepit's — is erased ENTIRELY by clearHomeFooting: every
 // cell of its footprint goes back to the ground around it, its outline and its
@@ -20,11 +20,13 @@
   const near = (a, b, msg) => assert.truthy(Math.abs(a - b) < 1e-9, `${msg} (${a} vs ${b})`);
   const at = (ix, iy) => ({ x: (ix + 0.5) * CELL_M, y: (iy + 0.5) * CELL_M });
   const scene = (save = {}) => ({
-    save, depth: 0, tileEdgeM: EDGE, cellsPerTile: N, cellM: CELL_M,
+    save: { homeCompassDetected: true, ...save }, depth: 0, tileEdgeM: EDGE, cellsPerTile: N, cellM: CELL_M,
     mPerPx: CELL_M / (WorldGen.TILE_PX / N),
     originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 },
     _starterTrailerObj: null,
     _placeHome: lift('_placeHome'),
+    _onFirstCompass: lift('_onFirstCompass'),
+    _placePendingHomeFirepit: lift('_placePendingHomeFirepit'),
     _firepitGroundOK: lift('_firepitGroundOK'),
     _makeStarterTrailer: lift('_makeStarterTrailer'),
     ensureStarterTrailerObject: lift('ensureStarterTrailerObject'),
@@ -64,7 +66,7 @@
   const NORTH = { key: 'h_0_0_30_27', x0: 29, x1: 32, y0: 26, y1: 28 };
   const FAR = { key: 'h_0_0_45_45', x0: 44, x1: 46, y0: 44, y1: 46 };
 
-  test('home footing: the wagon parks north of the player, the firepit at their lower left', () => {
+  test('home footing: the wagon parks north of the player, the firepit two cells due south after compass detection', () => {
     const s = scene();
     withTile(tile([]), () => {
       const p = at(30, 30);
@@ -72,27 +74,169 @@
       assert.eq(s.save.starterShopId, 'starter_trailer', 'Home is the wagon');
       assert.truthy(sameAbsCell(s, s.save.starterTrailer.x, s.save.starterTrailer.y, at(30, 29).x, at(30, 29).y),
         'the wagon is one cell north, so the player stands at its door');
-      assert.truthy(sameAbsCell(s, s.save.homeFirepit.x, s.save.homeFirepit.y, at(29, 31).x, at(29, 31).y),
-        'the firepit is one cell down and to the left');
+      assert.truthy(sameAbsCell(s, s.save.homeFirepit.x, s.save.homeFirepit.y, at(30,31).x, at(30,31).y),
+        'the firepit is two cells due south of the wagon');
       const wagon = WorldGen.tileCache.get(KEY).objects.find(o => o.id === 'starter_trailer');
       assert.truthy(wagon, 'the wagon is injected');
       assert.eq(wagon.footDx, HomeArea.WAGON_ART_FOOT.dx, 'its art stands with the door over the player\'s column');
       assert.eq(wagon.footDy, HomeArea.WAGON_ART_FOOT.dy, 'and its steps on the doorstep');
-      const c = at(29, 31), pit = s.save.homeFirepit;
-      assert.truthy(pit.x > c.x && pit.y < c.y, 'the ring is drawn nudged toward the player');
+      const c = at(30,31), pit = s.save.homeFirepit;
+      near(pit.x, c.x, 'the ring is centred horizontally');
+      near(pit.y, c.y, 'the ring is centred vertically, farther from the trailer');
     });
   });
 
-  test('home footing: no firepit on water or a road', () => {
+  test('home footing: a new live Home waits for compass, then freezes its entrance-side layout', () => {
+    withTile(tile([]), () => {
+      const s = scene({ homeCompassDetected: false });
+      s.gpsM = at(30,30); s.playerM = { ...s.gpsM };
+      s._setStarterCratesAt = () => {};
+      s.ensureStarterShopId = lift('ensureStarterShopId');
+      s.ensureStarterShopId();
+      assert.eq(s.save.starterTrailer, undefined, 'no trailer before the reading');
+      assert.eq(s.save.homeFirepit, undefined, 'no firepit before the reading');
+      s._deviceCompass = { deg: 180 };
+      s._onFirstCompass();
+      s.ensureStarterShopId();
+      near(s.save.starterTrailer.y, at(30,31).y, 'trailer ahead when facing south');
+      near(s.save.homeFirepit.y, at(30,29).y, 'firepit behind the player');
+      near(s.playerM.y, at(30,30).y, 'the player never moves');
+      const trailer = JSON.stringify(s.save.starterTrailer), pit = JSON.stringify(s.save.homeFirepit);
+      s._deviceCompass.deg = 0; s._onFirstCompass(); s.ensureStarterShopId();
+      assert.eq(JSON.stringify(s.save.starterTrailer), trailer, 'turning cannot move Home');
+      assert.eq(JSON.stringify(s.save.homeFirepit), pit, 'turning cannot move the firepit');
+      const reload = scene(JSON.parse(JSON.stringify(s.save)));
+      reload.ensureStarterTrailerObject();
+      assert.eq(JSON.stringify(reload.save.homeFirepit), pit, 'reload retains the saved layout');
+    });
+  });
+
+  test('home footing: entrance-side offsets follow cardinal and diagonal compass headings', () => {
+    for (const heading of [0,45,90,135,180,225,270,315]) {
+      const { wagon, firepit } = HomeArea.placementOffsets(heading);
+      const a = heading * Math.PI / 180;
+      const screenY = p => -Math.sin(a) * p.dx + Math.cos(a) * p.dy;
+      assert.truthy(screenY(wagon) < 0, `${heading}: trailer above player`);
+      const foot = HomeArea.wagonArtFoot(heading);
+      near(screenY(foot), HomeArea.WAGON_ART_FOOT.dy, `${heading}: doorway offset follows initial heading`);
+      assert.truthy(Math.abs(screenY(wagon) + screenY(foot)) < 0.5, `${heading}: doorway within half a cell of player`);
+      assert.truthy(screenY(firepit) > 0, `${heading}: firepit below player`);
+    }
+  });
+
+  test('home footing: old firepit and its lit fire centre together without changing cells or fire state', () => {
+    const centre = at(29, 31);
+    const pit = { x: centre.x + CELL_M * 0.25, y: centre.y - CELL_M * 0.25 };
+    const fire = { ...pit, depth: 0, litAt: 1234, fuel: 7 };
+    const caveFire = { ...pit, depth: 1, litAt: 5678 };
+    const distantFire = { ...at(40, 40), depth: 0 };
+    const s = scene({ homeFirepit: pit, fires: [fire, caveFire, distantFire] });
+    s.ensureStarterTrailerObject();
+    near(pit.x, centre.x, 'ring centre x');
+    near(pit.y, centre.y, 'ring centre y');
+    near(fire.x, pit.x, 'lit fire shares ring x');
+    near(fire.y, pit.y, 'lit fire shares ring y');
+    assert.eq(fire.litAt, 1234, 'fire timing preserved');
+    assert.eq(fire.fuel, 7, 'fire fuel preserved');
+    near(caveFire.x, centre.x + CELL_M * 0.25, 'cave fire untouched');
+    near(distantFire.x, at(40, 40).x, 'other cells untouched');
+    s.ensureStarterTrailerObject();
+    near(pit.x, centre.x, 'repeat injection is stable');
+  });
+
+  test('home footing: first compass reading places the pit once, including across reloads', () => {
+    withTile(tile([]), () => {
+      const s = scene({homeCompassDetected:false});
+      const p = at(30,30);s._placeHome(p.x,p.y);
+      assert.eq(s.save.homeFirepit,null,'no pit before a sensor reading');
+      s._onFirstCompass();
+      near(s.save.homeFirepit.x,at(30,31).x,'same column as trailer');
+      near(s.save.homeFirepit.y,at(30,31).y,'one row farther south');
+      const pit=s.save.homeFirepit;
+      s._onFirstCompass();assert.eq(s.save.homeFirepit,pit,'later readings do not replace it');
+      const reloaded=scene(JSON.parse(JSON.stringify(s.save))), saved=reloaded.save.homeFirepit;
+      reloaded._onFirstCompass();assert.eq(reloaded.save.homeFirepit,saved,'reload preserves first-detection latch');
+    });
+  });
+  test('home footing: sensor event unlocks placement, invalid readings do not', () => {
+    withTile(tile([]), () => {
+      const s=scene({homeCompassDetected:false}), callbacks={};
+      const win={screen:{orientation:{angle:0}},addEventListener(name,fn){callbacks[name]=fn;}};
+      const p=at(30,30);s._placeHome(p.x,p.y);
+      liftSceneMethod('_attachCompass',{window:win}).call(s);
+      callbacks.deviceorientationabsolute({absolute:true,alpha:null});
+      assert.eq(s.save.homeFirepit,null);
+      callbacks.deviceorientationabsolute({absolute:true,alpha:270});
+      near(s.save.homeFirepit.x,at(30,31).x,'east-facing device still places geographically south');
+      near(s.save.homeFirepit.y,at(30,31).y,'sensor places pit');
+      const pit=s.save.homeFirepit;
+      callbacks.deviceorientationabsolute({absolute:true,alpha:90});
+      assert.eq(s.save.homeFirepit,pit,'turning west does not reposition it');
+    });
+  });
+  test('home footing: first compass relocates an existing lit pit without resetting its fire', () => {
+    withTile(tile([]), () => {
+      const old=at(29,31), fire={...old,depth:0,litAt:1234,fuel:7};
+      const s=scene({homeCompassDetected:false,homeFirepit:old,fires:[fire],
+        starterShopId:'starter_trailer',starterTrailer:{id:'starter_trailer',...at(30,29)}});
+      s._onFirstCompass();
+      near(fire.x,at(30,31).x,'surface fire follows pit');near(fire.y,at(30,31).y,'new southern cell');
+      assert.eq(fire.litAt,1234);assert.eq(fire.fuel,7);
+    });
+  });
+
+  test('home footing: with no compass reading, the pit still appears after the grace period', () => {
+    withTile(tile([]), () => {
+      const s = scene({homeCompassDetected:false});
+      const p = at(30,30); s._placeHome(p.x,p.y);
+      s.ensureStarterTrailerObject();
+      assert.eq(s.save.homeFirepit, null, 'waits for a reading at first');
+      s._firepitGraceT0 = performance.now() - HomeArea.FIREPIT_COMPASS_GRACE_MS - 1;
+      s.ensureStarterTrailerObject();
+      near(s.save.homeFirepit.x, at(30,31).x, 'placed without a compass');
+      near(s.save.homeFirepit.y, at(30,31).y, 'on the same southern cell');
+      const pit = s.save.homeFirepit;
+      s._onFirstCompass();
+      near(s.save.homeFirepit.x, pit.x, 'a late reading keeps the same cell');
+      near(s.save.homeFirepit.y, pit.y);
+    });
+  });
+
+  test('home footing: compass before Home and compass underground defer placement until ready', () => {
+    withTile(tile([]), () => {
+      const early=scene({homeCompassDetected:false});early._onFirstCompass();
+      const p=at(30,30);early._placeHome(p.x,p.y);
+      near(early.save.homeFirepit.y,at(30,31).y,'early reading remembered');
+      const late=scene({homeCompassDetected:false});late._placeHome(p.x,p.y);late.depth=1;
+      late._onFirstCompass();assert.eq(late.save.homeFirepit,null);
+      late.depth=0;late.ensureStarterTrailerObject();
+      near(late.save.homeFirepit.y,at(30,31).y,'surface return finishes pending placement');
+    });
+  });
+
+  test('home footing: no firepit on water or a road — it takes the nearest dry cell', () => {
     const s = scene();
     const e = tile([]);
-    e.grid[31 * N + 29] = WorldGen.T.WATER;
+    e.grid[31 * N + 30] = WorldGen.T.WATER;
     withTile(e, () => {
       const p = at(30, 30);
       s._placeHome(p.x, p.y);
-      assert.eq(s.save.homeFirepit, null, 'a ring of stones is not dropped in a pond');
+      assert.truthy(s.save.homeFirepit, 'a new game still gets its pit');
+      near(s.save.homeFirepit.x, at(29, 31).x, 'not dropped in the pond: the next cell along the ring');
+      near(s.save.homeFirepit.y, at(29, 31).y, 'one cell behind, like the default');
       assert.eq(s.save.starterShopId, 'starter_trailer', 'Home is still placed');
     });
+  });
+
+  test('home footing: firepit candidates keep off the doorstep and the wagon', () => {
+    const { firepit, wagon } = HomeArea.placementOffsets(0);
+    const c = HomeArea.firepitCandidates(firepit, wagon);
+    assert.eq(JSON.stringify(c[0]), JSON.stringify(firepit), 'the turned default first');
+    for (const o of c) {
+      assert.truthy(o.dx || o.dy, 'never the player\'s own doorstep cell');
+      assert.falsy(Math.abs(o.dx - wagon.dx) <= 1 && Math.abs(o.dy - wagon.dy) <= 1, 'never on the wagon');
+    }
+    assert.eq(new Set(c.map(o => o.dx + ',' + o.dy)).size, c.length, 'no cell twice');
   });
 
   test('home footing: a house on the footing is erased entirely; one elsewhere is untouched', () => {
@@ -109,6 +253,7 @@
       assert.eq(e.owners[26 * N + 32], 0, 'and no longer name a building');
       assert.falsy(e.objects.includes(roof), 'its roof goes');
       assert.falsy(e.buildingShapes.some(sh => sh.key === NORTH.key), 'its outline goes');
+      assert.eq((e.clearedShapes || []).filter(sh => sh.key === NORTH.key).length, 1, 'only its footprint shadow stays');
       assert.eq(e.baseGrid[26 * N + 32], WorldGen.T.BUILDING, 'the generated layer is untouched');
       assert.eq(cellsOf(e, FAR.key), 9, 'a house off the footing keeps its cells');
       assert.truthy(e.objects.includes(far) && e.buildingShapes.some(sh => sh.key === FAR.key), 'and its roof and outline');
@@ -192,7 +337,7 @@
     assert.truthy(HomeArea.inFooting(0, 0), 'the doorstep');
     assert.truthy(HomeArea.inFooting(p.dx, p.dy), 'the firepit');
     assert.falsy(HomeArea.inFooting(2, 0), 'two cells out is free');
-    assert.falsy(HomeArea.inFooting(0, 2), 'two cells south is free');
+    assert.falsy(HomeArea.inFooting(0, 2), 'the cell beyond the firepit is free');
   });
 
   // "Move Home here" onto a real house's cell crashed when the inject adopted

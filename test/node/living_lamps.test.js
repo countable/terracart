@@ -123,8 +123,23 @@ test('living lamps: the light carries the brightness as a STEADY gain in frameKe
   // what it hands over is already quantised.
   const b1 = S.lampBrightness(T0 - 5 * H, T0), b2 = S.lampBrightness(T0 - 5 * H, T0 + S.LAMP_REFRESH_MS);
   assert.eq(key(sc(b1), 0), key(sc(b2), 0), 'a refresh within one step paints nothing new');
-  assert.truthy(/let left = clamp01\(a\) \* \(L\.g == null \? 1 : L\.g\);/.test(LIGHTING_SRC),
-    'the stamp scales by the gain (and stamps twice past 1 — the lighter composite adds)');
+  const start = LIGHTING_SRC.indexOf('  function lightStamp(');
+  const end = LIGHTING_SRC.indexOf('  function cacheableWorldLight(', start);
+  const helpers = new Function('KINDS', 'ensureKindCookie', 'flickerAlpha', 'lightCentrePx', 'clamp01',
+    LIGHTING_SRC.slice(start, end) + '; return { lightStamp, paintLight };')(
+    { lamp: { flicker: 0 } }, () => ({ canvas: {}, R: 8 }), () => 1,
+    () => ({ x: 40, y: 50 }), v => Math.max(0, Math.min(1, v)));
+  const stamped = [];
+  const ctx = { drawImage(...args) { stamped.push({ alpha: this.globalAlpha, args }); } };
+  const light = { kind: 'lamp', dx: 0, dy: 0, g: 1.5 };
+  const stamp = helpers.lightStamp({}, light, null, 0, 0, 3, 4);
+  assert.eq(stamp.gain, 1.5, 'shared stamp carries steady gain to both renderers');
+  helpers.paintLight(ctx, {}, light, null, 0, 0, 3, 4);
+  assert.eq(stamped.length, 2, 'Canvas lighter composition stamps gains above one in passes');
+  assert.eq(stamped[0].alpha, 1);
+  assert.eq(stamped[1].alpha, 0.5);
+  assert.eq(stamped[0].args[1], 29, 'stamp position retains its lightmap-local centre');
+  assert.eq(stamped[0].args[2], 38);
 });
 
 // ── The app.js visit pass, RUN ────────────────────────────────────────────

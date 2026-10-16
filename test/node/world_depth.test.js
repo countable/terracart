@@ -46,14 +46,14 @@
       }
     }
   });
-  test('world depth: flat prop definitions stay behind actors and upright props at every baseline', () => {
+  test('world depth: ground decal definitions stay behind actors and upright props at every baseline', () => {
     const { resolveAppearance, RENDER_SPEC } = Render.objectAppearance({ textures: { exists: () => true }, save: {} }, new Map());
-    for (const o of [{ kind: 'tar' }, { kind: 'groundstack', itemId: 'wood' },
+    for (const o of [{ kind: 'tar' },
       { kind: 'staircase', dir: 'down' }]) {
       const appearance = resolveAppearance(o);
-      assert.eq(appearance.ground, true, o.kind);
+      assert.eq(appearance.layer, WorldLayers.GROUND_DECAL, o.kind);
       for (const y of [-1000, 0, 1000]) {
-        const flat = { it: {}, ground: appearance.ground, groundY: y, rank: 1 };
+        const flat = { it: {}, layer: appearance.layer, groundY: y, rank: 1 };
         const upright = { sprite: sprite(), groundY: 0, rank: 1 };
         const actor = { sprite: sprite(), groundY: -1, rank: 3 };
         Render.sortWorldDepth([actor, flat, upright]);
@@ -62,11 +62,11 @@
         assert.lt(actor.sprite.depth, upright.sprite.depth, 'upright ground-Y order remains');
       }
     }
-    for (const o of [{ kind: 'stakes' }, { kind: 'staircase', dir: 'up' }]) {
-      assert.eq(resolveAppearance(o).ground, false, `${o.kind} stands upright`);
+    for (const o of [{ kind: 'stakes' }, { kind: 'groundstack', itemId: 'wood' }, { kind: 'staircase', dir: 'up' }]) {
+      assert.eq(resolveAppearance(o).layer, WorldLayers.STANDING_PROP, `${o.kind} stands upright`);
     }
-    assert.eq(RENDER_SPEC._streetlamp.ground({ lit: false }), true, 'unrestored cobble lies flat');
-    assert.eq(RENDER_SPEC._streetlamp.ground({ lit: true }), false, 'restored lamp stands upright');
+    assert.eq(WorldLayers.forObject({kind:'_streetlamp',lit:false}, RENDER_SPEC._streetlamp), WorldLayers.STANDING_PROP, 'broken lamp stands upright');
+    assert.eq(WorldLayers.forObject({kind:'_streetlamp',lit:true}, RENDER_SPEC._streetlamp), WorldLayers.STANDING_PROP, 'restored lamp stands upright');
   });
 })();
 

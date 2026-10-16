@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Heading and GPS harness</title>
+<style>
+body{margin:0;background:#202329;color:#eee;font:15px system-ui;display:flex;flex-wrap:wrap;gap:20px;padding:16px}
+iframe{width:390px;height:844px;border:0;background:#000;max-width:100%}aside{max-width:440px}button,input,select{font:inherit;margin:5px;padding:8px}pre{white-space:pre-wrap}label{display:block}
+</style>
+<iframe id="game" title="Sandbox game"></iframe>
+<aside><h1>Heading and GPS harness</h1><p>Sandbox only. Compass events and GPS fixes use the game's real input handlers.</p>
+<label>Heading <input id="heading" type="range" min="0" max="360" step="15" value="0"><output id="degrees">0°</output></label>
+<button id="turn">Turn 90°</button><button id="sweep">Sweep all headings</button>
+<p>GPS steps (7 metres)</p><button data-move="0,-7">North</button><button data-move="7,0">East</button><button data-move="0,7">South</button><button data-move="-7,0">West</button>
+<button id="work">Show work wheel</button><button id="fog">Toggle fog</button>
+<label><input id="freeze" type="checkbox"> Freeze simulation for inspection</label>
+<label>Zoom <select id="zoom"><option value="1">1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
+<pre id="status">Loading sandbox…</pre></aside>
+<script>
+const frame=document.querySelector('#game'),status=document.querySelector('#status');
+localStorage.setItem('terracart.introSeen','1');localStorage.setItem('terracart.howtoSeen','1');sessionStorage.setItem('terracart.safetySeen','1');
+frame.src='../index.html?sandbox=true&sandboxZone=restoration';
+let api,busy=false,x=0,y=0;
+const ready=setInterval(async()=>{
+ if(!frame.contentWindow.__scene?._bootOverlayGone || api)return;
+ clearInterval(ready);
+ const script=frame.contentDocument.createElement('script');script.src='tools/heading_harness.js';
+ script.onload=()=>{api=frame.contentWindow.installHeadingHarness();status.textContent='Ready';};
+ frame.contentDocument.head.append(script);
+},250);
+async function heading(deg){if(!api||busy)return;busy=true;try{document.querySelector('#degrees').textContent=deg+'°';await api.heading(deg);status.textContent=JSON.stringify(api.measure(),null,2);}finally{busy=false;}}
+document.querySelector('#heading').onchange=e=>heading(+e.target.value);
+document.querySelector('#turn').onclick=()=>{const slider=document.querySelector('#heading');slider.value=(+slider.value+90)%360;heading(+slider.value);};
+document.querySelector('#sweep').onclick=async()=>{for(let deg=0;deg<=360;deg+=45)await heading(deg);};
+document.querySelectorAll('[data-move]').forEach(b=>b.onclick=()=>{if(!api)return;const [dx,dy]=b.dataset.move.split(',').map(Number);x+=dx;y+=dy;api.gps(x,y,document.querySelector('#freeze').checked);});
+document.querySelector('#freeze').onchange=e=>api?.freeze(e.target.checked);
+document.querySelector('#zoom').onchange=e=>{api?.freeze(true);document.querySelector('#freeze').checked=true;api?.zoom(+e.target.value);};
+document.querySelector('#work').onclick=()=>{api?.work();api?.text();};
+document.querySelector('#fog').onclick=()=>{const w=frame.contentWindow;w.Fog.setEnabled(!w.Fog.enabled);api?.redraw();};
+</script></html>

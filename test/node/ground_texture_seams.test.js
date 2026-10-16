@@ -76,8 +76,11 @@
       const alpha = (x, y) => Number(joints.find(r => r.x === x && r.y === y).ink.split(',')[3].slice(0, -1));
       assert.lte(alpha(5, 0), 0.05, 'cell-boundary middles stay understated');
       assert.gt(alpha(0, 0), alpha(5, 0) * 4, 'corners retain the stone shape');
-      assert.eq(rects.filter(r => r.w > 1 && r.h > 1).length, layout < 4 ? 3 : 4,
-        'occasional joined pairs preserve mostly quarter-cell slabs');
+      const slabs = rects.filter(r => r.w > 1 && r.h > 1);
+      assert.eq(slabs.length, layout < 8 ? 1 : layout < 12 ? 3 : 4,
+        'half the variants are one full cell; the rest split into quarters or a joined pair');
+      if (layout < 8) assert.falsy(joints.some(r => r.x > 0 && r.y > 0),
+        'a full slab carries no interior seam');
     }
   });
   test('ground seams: marsh reeds fit entirely within the cell', () => {

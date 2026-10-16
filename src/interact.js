@@ -489,8 +489,8 @@ function grantFoundTreasure(scene, save, sx, sy, mark, tier, headline) {
 
 // `opts.ceremony` ({ kind, header, sub, art, onDismiss }) shows the paid
 // reward as a card (scene.showRewardCard) instead of the toast lines below —
-// a reward the player earned (an elite's drop) rather than a find on the
-// ground. The rest of `opts` is the roll's own (rollBonus, tier, classes).
+// a dug X or an elite's drop. The rest of `opts` is the roll's own
+// (rollBonus, tier, classes).
 function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:default', opts) {
   const { ceremony, ...rollOpts } = opts || {};
   const reward = pickReward(contextKey, save, undefined, opts ? rollOpts : undefined);
@@ -607,7 +607,9 @@ const TAP_HANDLERS = [
       // StreetVariants.dress) pays that many extra roll steps on top.
       const dig = scene.digTreasureOpts?.();
       grantTreasureRoll(scene, save, sx, sy, '✕', treasureContextFor(tr),
-        tr.rollBonus > 0 ? { ...(dig || {}), rollBonus: tr.rollBonus } : dig);
+        { ...(dig || {}), ...(tr.rollBonus > 0 ? { rollBonus: tr.rollBonus } : {}),
+          ceremony: { kind: 'treasure', header: 'X marks the spot', art: 'treasure_dig',
+            sub: 'You uncover a buried treasure.' } });
       ctx.dirty = true;
       return true;
     };
@@ -1268,9 +1270,9 @@ const TAP_HANDLERS = [
     if (!sel || (sel.count ?? 0) <= 0) return false;
     const at = occupantsOf(ctx);
     const fire = at.fireIdx >= 0 ? save.fires[at.fireIdx] : null;
-    if (!fire) return false;
+    if (!Campfires.active(fire)) return false;
     const made = CAMPFIRE_MAKES[sel.id];
-    if (!made) { scene.presentBurnConfirm(sel.id, { x: fire.x, y: fire.y }); return true; }
+    if (!made) { scene.presentBurnConfirm(sel.id, fire); return true; }
     // The product has to fit before the input goes — unless this is the last
     // one, whose own slot frees up for it.
     const input = sel.id;
@@ -1354,6 +1356,21 @@ const TAP_HANDLERS = [
     // Only a fire lit on this level (cellOccupants) — fires are placeable
     // underground (they ward slimes), so the GPS-mirror depth gate matters.
     if (at.fireIdx < 0) return false;
+    const fire = save.fires[at.fireIdx];
+    if (!Campfires.active(fire)) {
+      const sel = getSelectedSlot(save);
+      if (sel?.id === 'flint_shard' && sel.count > 0) {
+        consumeSelected(save);
+        Campfires.light(fire);
+        scene.buildInventoryDOM();
+        scene.flash('🔥 The fire crackles.', sx, sy);
+      } else {
+        save.fires.splice(at.fireIdx, 1);
+        scene.flash('The ashes scatter.', sx, sy);
+      }
+      ctx.dirty = true;
+      return true;
+    }
     save.fires.splice(at.fireIdx, 1);
     ctx.dirty = true;
     scene.flash('🔥 out', sx, sy);
@@ -1364,7 +1381,7 @@ const TAP_HANDLERS = [
   // (isFireGroundCell — paved lots and cave floor too, not just soil) with
   // nothing standing on it. The fire repels slimes within 4 m — the same way a
   // scarecrow repels crows/deer — and slowly restores energy to anyone resting
-  // near it (see app.js). Flint is consumed; the fire persists until tapped out.
+  // near it (see app.js). Flint is consumed; after 24 hours a smoking pit remains.
   { name: 'light-fire', try: (ctx) => placeOnEmptyCell(ctx, {
     itemId: 'flint_shard',
     ground: isFireGroundCell,
@@ -1375,13 +1392,13 @@ const TAP_HANDLERS = [
       return !groundObjectBlocker(scene, save, cwmx, cwmy, at.half);
     },
     place: ({ scene, save, cwmx, cwmy }) => {
-      // Home's firepit is drawn off its cell's centre (HomeArea.FIREPIT_NUDGE);
-      // a fire lit in it burns on the ring, not beside it.
+      // Share the saved ring's anchor, including a legacy save that has not
+      // yet had its firepit centred by ensureStarterTrailerObject.
       const pit = save.homeFirepit;
       const spot = pit && PlacedFloor.isSurface(scene.depth) && sameAbsCell(scene, pit.x, pit.y, cwmx, cwmy)
         ? pit : { x: cwmx, y: cwmy };
       // Tag the level so it renders / wards only here (see src/placed_floor.js).
-      save.fires.push(PlacedFloor.stampDepth({ x: spot.x, y: spot.y }, scene.depth));
+      save.fires.push(Campfires.light(PlacedFloor.stampDepth({ x: spot.x, y: spot.y }, scene.depth)));
       // The FIRST fire a save ever lights tells its story. A busy screen
       // returns false unmarked (the story ledger), so the next fire asks again.
       scene._storySplashOnce?.('fire', {

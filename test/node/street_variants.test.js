@@ -1309,7 +1309,14 @@ test('thorny path: dense deterministic brambles cross their minor road and enclo
   assert.eq(SV.VARIANT_BY_ID.thorny.title, 'Thorny Way');
   assert.eq(SV.VARIANT_BY_ID.thorny.code, SV.VARIANT_BY_ID.snare.code + 1, 'append preserves existing codes');
   assert.eq(SV.THORNY_VERGE_MAX_CELLS, 4);
-  assert.inRange(result.wildplants.length / 264, 0.35, 0.57, 'thicket clusters retain about 60% of their former fill');
+  assert.eq(SV.VARIANT_BY_ID.thorny.terrain, 'WASTELAND', 'a thorn lane\'s verge is dry khaki scrub');
+  assert.eq(SV.VARIANT_BY_ID.thorny.terrainVergeCells, SV.THORNY_VERGE_MAX_CELLS, 'painted as deep as its thickets');
+  const strays = result.wildplants.filter(p => Math.abs(cellOf(p.y,TY) - 25) > SV.THORNY_VERGE_MAX_CELLS);
+  assert.gt(strays.length, 0, 'stray brambles scatter past the thickets');
+  assert.falsy(result.wildplants.some(p => Math.abs(cellOf(p.y,TY) - 25) > SV.THORNY_SCATTER_CELLS + 1),
+    'and stop at the scatter reach');
+  const thicket = result.wildplants.length - strays.length;
+  assert.inRange(thicket / 264, 0.35, 0.75, 'thickets plus the strays among them');
   assert.eq(new Set(result.wildplants.map(p => p.id)).size, result.wildplants.length, 'unique shrubs');
   assert.eq(JSON.stringify(result), JSON.stringify(build(name, [[line[1],mid],[mid,line[0]]]).result),
     'reversal and fragments keep identical generated content');
@@ -1579,6 +1586,22 @@ test('street ground: the claim reaches two cells and paints over residential lan
   assert.eq(f.grid[8*N+5], T.GRASS, 'other land-access exclusions still block the paint');
   assert.truthy(painted[4*N+5] && !painted[3*N+5]);
   assert.eq(SV.TERRAIN_VERGE_CELLS, 2);
+});
+
+test('street ground: Thorny Way paints its dry scrub as deep as its thickets', () => {
+  // Same lane on row 6 (halfW 0). Rows 2..10 sit within four cells; a
+  // residential lot three cells out keeps its lawn (past the claim the paint
+  // is cosmetic, so land access holds), open ground there turns to scrub.
+  const f = vergeFixture('thorny');
+  f.index.dressingLines[0].halfW = 0;
+  const N = f.N, W = WorldGen.SPAWN_WHY;
+  f.grid[3*N+4] = T.RESIDENTIAL; f.spawnWhy[3*N+4] = W.PRIVATE;
+  paintVerge(f);
+  assert.eq(f.grid[5*N+5], T.WASTELAND, 'the kerb row');
+  assert.eq(f.grid[2*N+5], T.WASTELAND, 'four cells out');
+  assert.eq(f.grid[10*N+5], T.WASTELAND, 'four cells out on the other side');
+  assert.eq(f.grid[3*N+4], T.RESIDENTIAL, 'a lot past the claim keeps its lawn');
+  assert.truthy(f.grid[1*N+5] !== T.WASTELAND, 'five cells out is untouched');
 });
 
 function vergeFixture(variant = 'overgrown') {

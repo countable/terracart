@@ -1,3 +1,17 @@
+// Shared world presentation categories. Groundcover is terrain; ground decals
+// are flat marks above it. Both prop categories stay screen-upright. A step-over
+// prop is defined by its support profile, not by the height of its artwork.
+const WorldLayers = Object.freeze({
+  GROUNDCOVER: 'groundcover',
+  GROUND_DECAL: 'groundDecal',
+  STEP_OVER_PROP: 'stepOverProp',
+  STANDING_PROP: 'standingProp',
+  forObject(object, spec = {}) {
+    const layer = typeof spec.layer === 'function' ? spec.layer(object) : spec.layer;
+    return layer || (ObstacleStep.profile(object) ? this.STEP_OVER_PROP : this.STANDING_PROP);
+  },
+});
+
 // Visual support height only: coordinates, movement and collision stay on the
 // ground. Position owns the lift, so stopping or reversing never runs a timer
 // out while the player's feet are still inside a prop.
@@ -10,7 +24,7 @@ const ObstacleStep = (() => {
     bush: Object.freeze({ liftPx: 3, radius: 0.25, top: 0.19, shape: 'round' }),
     hedge: Object.freeze({ liftPx: 6, radius: 0.29, top: 0.21, shape: 'band' }),
   });
-  const KINDS = { mineralrock: 'rock', stronghold_wall: 'wall' };
+  const KINDS = { mineralrock: 'rock', stronghold_wall: 'wall', _firepit: 'rock', _fire: 'rock' };
   const CROPS = { rubble: 'rock', shrub: 'bush', berry: 'bush' };
 
   function profile(o) {

@@ -30,13 +30,20 @@ test('scene art: every dialog painting is cut to the dialog box shape', () => {
   }
 });
 
-test('scene art: every kind has a default painting, except STORY and TALK, which bring their own', () => {
+test('scene art: kinds use paintings or character portraits', () => {
   const rows = [...kindsSrc.matchAll(/^  (\w+):\s+\{([^}]*)\}/gm)];
   assert.truthy(rows.length >= 20, 'the rows were read');
   for (const [, key, body] of rows) {
     if (key === 'story') {
       assert.truthy(/label: 'Story'/.test(body), 'the STORY label');
       assert.falsy(/art:/.test(body), 'a story always carries its own');
+    } else if (key === 'spirit') {
+      assert.truthy(/portrait: 'assets\/portraits\/dragon_spirit.png'/.test(body), 'the spirit uses the NPC portrait slot');
+      assert.truthy(/portrait = portrait \|\| kRow\?\.portrait;/.test(shell), 'kind portraits reach the shared portrait layout');
+      const size = pngDims('assets/portraits/dragon_spirit.png');
+      assert.truthy(size, 'dedicated spirit portrait ships');
+      assert.eq(size.w, 80, 'the spirit uses the shared portrait pixel scale');
+      assert.eq(size.h, 80, 'the spirit fills an 80px square');
     } else if (key === 'talk') {
       assert.falsy(/art:/.test(body), 'a neighbour speaking always carries their portrait');
     } else {
@@ -47,16 +54,21 @@ test('scene art: every kind has a default painting, except STORY and TALK, which
 });
 
 test('scene art: a message with a painting is a STORY', () => {
-  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, portrait, kind = art \? 'story' : 'note', kindLabel, mustAcknowledge = false \}\)/.test(shell),
+  assert.truthy(/showMessageModal\(\{[^}]*kind = art \? 'story' : 'note'[^}]*\}\)/.test(shell),
     'art makes it a story; a plain message stays a note');
 });
 
-test('scene art: the content region is capped at the quiet zone and scrolls inside it', () => {
+test('scene art: one scroller is the whole content area; the copy starts under the detail line', () => {
   assert.truthy(/const ART_DETAIL_FRAC = 0\.\d+;/.test(shell), 'the detail line is one constant');
-  assert.truthy(/max-height:\$\{Math\.round\(\(1 - ART_DETAIL_FRAC\) \* 100\)\}%;/.test(shell),
-    'the body never grows past the quiet zone');
-  const region = shell.slice(shell.indexOf("body.className = 'modal-body'"), shell.indexOf('let into = body'));
-  assert.truthy(region.includes('margin-top:auto;') && region.includes('overflow-y:auto;'), 'bottom-anchored, scrolling');
+  const from = shell.indexOf("body.className = 'modal-body'");
+  const region = shell.slice(from, shell.indexOf('box.appendChild(body)', from));
+  assert.truthy(region.includes('flex:1 1 auto;') && region.includes('overflow-y:auto;'), 'the body fills the box and scrolls');
+  assert.truthy(region.includes("box.style.overflow = 'hidden'"), 'the box itself never scrolls');
+  assert.falsy(/max-height/.test(region), 'no capped, separately scrolling region');
+  assert.truthy(region.includes('margin-top:auto;'), 'the copy sits on the floor');
+  const i = shell.indexOf('TEXT-HEAVY → THE BAND');
+  assert.truthy(/spacer\.style\.height = `\$\{Math\.round\(h \* ART_DETAIL_FRAC\)\}px`/.test(shell.slice(i, i + 500)),
+    'a spacer holds the painting\'s detail line');
 });
 
 test('scene art: text-heavy copy moves to THE BAND by measurement', () => {
@@ -64,10 +76,10 @@ test('scene art: text-heavy copy moves to THE BAND by measurement', () => {
     'the band shows the subject line, the sky above it gives');
   const i = shell.indexOf('TEXT-HEAVY → THE BAND');
   assert.truthy(i > 0, 'mount() decides');
-  const tail = shell.slice(i, i + 400);
-  assert.truthy(/body\.scrollHeight > body\.clientHeight/.test(tail), 'it measures the copy');
+  const tail = shell.slice(i, i + 500);
+  assert.truthy(/body\.scrollHeight > h/.test(tail), 'it measures the copy');
   assert.truthy(/paintScene\(true\)/.test(tail), 'and repaints as the band');
-  assert.truthy(/\(1 - ART_BAND_FRAC\)/.test(tail), 'with the band\'s taller content region');
+  assert.truthy(/h \* ART_BAND_FRAC/.test(tail), 'with the band\'s shorter painting');
 });
 
 test('scene art: the hero becomes a bare label chip — no emoji, no sprite', () => {
