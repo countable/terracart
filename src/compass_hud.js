@@ -9,6 +9,9 @@ const CompassHUD = {
   install(scene) {
     if (typeof document === 'undefined' || scene._compassHUD) return;
     scene._compassHUD = true;
+    const cleanup = [];
+    scene._compassKeyboardBindings = [];
+    scene._compassDecorations = [];
     document.body.classList.add('compass-hud');
     document.body.classList.toggle('compass-round', typeof HeadingUp !== 'undefined' && HeadingUp.enabled);
     const body = document.createElement('div');
@@ -16,6 +19,7 @@ const CompassHUD = {
     body.setAttribute('aria-hidden', 'true');
     body.innerHTML = '<div class="compass-aperture"></div><div class="compass-header"></div><div class="compass-footer"></div><div class="compass-upper-join"></div><div class="compass-lower-join"></div><div class="compass-bearing"><i class="compass-ticks"></i><span class="compass-north"><img src="assets/ui/compass/north-arrow.webp" alt="" aria-hidden="true"></span><span class="compass-east"><b>E</b></span><span class="compass-south"><b>S</b></span><span class="compass-west"><b>W</b></span></div>';
     document.body.append(body);
+    if (typeof CompassShine !== 'undefined') CompassShine.install(scene, body);
     // The memory's pixel pickup has a pale outline. Its instrument uses a
     // clean faceted gold star, without altering the world pickup artwork.
     const memoryIcon = document.querySelector('#memories .mem-ico');
@@ -25,7 +29,19 @@ const CompassHUD = {
       star.src = 'assets/ui/compass/memory-star.svg';
       star.alt = '';
       memoryIcon.replaceWith(star);
+      cleanup.push(() => star.replaceWith(memoryIcon));
     }
+    // One glass display, with two independent controls and power circuits.
+    const knowledge = document.createElement('div');
+    knowledge.id = 'compass-knowledge-display';
+    knowledge.setAttribute('role', 'group');
+    knowledge.setAttribute('aria-label', 'Memories and books');
+    const hudRow = document.getElementById('hud-row');
+    for (const id of ['memories', 'bookchip']) {
+      const chip = document.getElementById(id);
+      if (chip) knowledge.append(chip);
+    }
+    hudRow?.append(knowledge);
     const inventory = document.createElement('button');
     inventory.id = 'compass-inventory-shutter';
     inventory.type = 'button';
@@ -36,12 +52,17 @@ const CompassHUD = {
     document.body.append(inventory);
     const summary = document.querySelector('#menu summary');
     if (summary) {
-      for (const node of [...summary.childNodes]) if (node.nodeType === 3) node.textContent = '';
+      for (const node of [...summary.childNodes]) if (node.nodeType === 3) {
+        const text = node.textContent;
+        cleanup.push(() => { node.textContent = text; });
+        node.textContent = '';
+      }
       const menuGlyph = document.createElement('span');
       menuGlyph.className = 'compass-menu-glyph';
       menuGlyph.setAttribute('aria-hidden', 'true');
       menuGlyph.innerHTML = '<svg viewBox="0 0 32 32"><path d="M4 4h10v10H4zM18 4h10v10H18zM4 18h10v10H4zM18 18h10v10H18z"/></svg>';
       summary.prepend(menuGlyph);
+      scene._compassDecorations.push(menuGlyph);
       summary.setAttribute('aria-label', 'Main menu');
     }
     const energy = document.getElementById('energy');
@@ -56,11 +77,14 @@ const CompassHUD = {
       face.setAttribute('aria-hidden', 'true');
       face.innerHTML = '<svg viewBox="0 0 100 100"><defs><radialGradient id="compass-dial-metal" cx="35%" cy="24%" r="85%"><stop stop-color="#e0ded2"/><stop offset=".6" stop-color="#9d9f94"/><stop offset="1" stop-color="#53594e"/></radialGradient></defs><circle cx="50" cy="50" r="45" fill="url(#compass-dial-metal)" stroke="#343a30" stroke-width="2"/><path d="M14.65 38.52A39 39 0 0 1 85.35 38.52" fill="none" stroke="#41463a" stroke-width="10" stroke-linecap="round"/><g fill="none" stroke-width="6" stroke-linecap="butt"><path d="M14.65 38.52A39 39 0 0 1 35.60 18.75" stroke="#d94c39"/><path d="M37.05 18.22A39 39 0 0 1 62.95 18.22" stroke="#edc34d"/><path d="M64.40 18.75A39 39 0 0 1 85.35 38.52" stroke="#77c54c"/></g></svg><span class="compass-energy-pivot"></span>';
       energy.prepend(face);
+      scene._compassDecorations.push(needle, face);
       energy.tabIndex = 0;
       energy.setAttribute('role', 'button');
-      energy.addEventListener('keydown', e => {
+      const energyKeydown = e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); energy.click(); }
-      });
+      };
+      energy.addEventListener('keydown', energyKeydown);
+      cleanup.push(() => energy.removeEventListener('keydown', energyKeydown));
     }
     // Capture before existing listeners; inventory nodes are rebuilt on pickup.
     const gate = e => {
@@ -86,8 +110,23 @@ const CompassHUD = {
     scene.events?.once('shutdown', () => {
       document.removeEventListener('click', gate, true);
       document.removeEventListener('pointerdown', gate, true);
+      for (const dispose of cleanup) dispose();
+      for (const node of scene._compassDecorations) node.remove();
+      for (const [el, handler] of scene._compassKeyboardBindings) {
+        el.removeEventListener('keydown', handler);
+        delete el._compassKeyboard;
+        delete el._compassActive;
+      }
+      for (const elementId of Object.keys(this.modules)) document.getElementById(elementId)?.classList.remove('compass-closed');
+      for (const id of new Set(Object.values(this.modules))) document.body.classList.remove(`compass-${id}-closed`);
       body.remove(); inventory.remove();
+      knowledge.replaceWith(...knowledge.children);
       document.body.classList.remove('compass-hud', 'compass-round');
+      scene._compassHUD = false;
+      delete scene._compassEnergy;
+      delete scene._compassBearing;
+      delete scene._compassKeyboardBindings;
+      delete scene._compassDecorations;
     });
     this.update(scene);
   },
@@ -115,12 +154,14 @@ const CompassHUD = {
           el.tabIndex = 0;
           el.setAttribute('role', 'button');
           el._compassKeyboard = true;
-          el.addEventListener('keydown', e => {
+          const handler = e => {
             if (e.key !== 'Enter' && e.key !== ' ') return;
             e.preventDefault();
             if (id === 'joystick') CompassModules.tap(scene, id);
             else el.click();
-          });
+          };
+          el.addEventListener('keydown', handler);
+          scene._compassKeyboardBindings.push([el, handler]);
         }
       }
     }
@@ -159,11 +200,13 @@ const CompassHUD = {
       directions.setAttribute('aria-hidden', 'true');
       directions.innerHTML = '<i>▲</i><i>▶</i><i>▼</i><i>◀</i>';
       pad.append(directions);
+      scene._compassDecorations.push(directions);
       const seal = document.createElement('span');
       seal.className = 'compass-stick-seal';
       seal.setAttribute('aria-hidden', 'true');
       seal.innerHTML = '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="43"/><circle cx="50" cy="50" r="36"/><path class="rose-shadow" d="M50 6L57 42L79 21L58 46L94 50L58 57L79 79L54 58L50 94L43 58L21 79L42 54L6 50L42 43L21 21L46 42Z"/><path class="rose-light" d="M50 6L50 50L57 42ZM94 50L50 50L58 57ZM50 94L50 50L43 58ZM6 50L50 50L42 43Z"/><circle cx="50" cy="50" r="4"/></svg>';
       pad.append(seal);
+      scene._compassDecorations.push(seal);
     }
     const energy = document.getElementById('energy');
     const value = Math.max(0, scene.save.energy || 0), max = scene.getMaxEnergy();

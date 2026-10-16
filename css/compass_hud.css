@@ -284,3 +284,18 @@ body.compass-hud #hud-row > .compass-closed,
 body.compass-hud #move-pad.compass-closed {background:linear-gradient(160deg,#c5c7c0,#aaaea6 48%,#898f86)!important;}
 body.compass-hud #move-pad.compass-closed .compass-stick-seal {background:linear-gradient(160deg,#c5c7c0,#aaaea6 48%,#898f86);}
 body.compass-hud #move-pad.compass-closed .compass-stick-seal svg {display:none;}
+
+/* Memories and books share one glass window; each half retains its own tap. */
+body.compass-hud #compass-knowledge-display {position:absolute;left:18.5%;top:calc(82 * var(--compass-header-unit));width:47.5%;height:calc(50 * var(--compass-header-unit));min-height:42px;box-sizing:border-box;display:flex;align-items:stretch;overflow:hidden;border:3px ridge #d1cfc5;border-radius:12px;background:linear-gradient(145deg,#202825,#091110 60%,#17201d);box-shadow:inset 0 0 6px #030907,0 0 0 2px #242723,0 0 0 3px #a8aaa0;}
+body.compass-hud #compass-knowledge-display > #memories,
+body.compass-hud #compass-knowledge-display > #bookchip {position:relative;inset:auto;flex:1 1 50%;width:50%;height:100%;min-width:0;padding:0 6px;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;display:flex;align-items:center;justify-content:center;gap:6px;color:#f2eddf;font:600 calc(16 * var(--compass-header-unit))/1 Georgia;}
+body.compass-hud #compass-knowledge-display > #bookchip {border-left:1px solid #7b82734d;}
+body.compass-hud #compass-knowledge-display .mem-ico,
+body.compass-hud #compass-knowledge-display .book-ico {width:18px;height:18px;transform:none;margin:0;flex-shrink:0;}
+body.compass-hud #compass-knowledge-display .compass-memory-star {width:calc(22 * var(--compass-header-unit));height:calc(22 * var(--compass-header-unit));}
+body.compass-hud #compass-knowledge-display .mem-unspent {top:3px;left:calc(50% - 6px);right:auto;min-width:13px;height:13px;padding:0 3px;display:grid;place-items:center;border:1px solid #8c6a23;border-radius:7px;background:#e8c55d;color:#27291e;font:700 9px/1 Georgia;text-shadow:none;box-shadow:0 1px 2px #000b;}
+body.compass-hud #compass-knowledge-display .mem-unspent::before,
+body.compass-hud #compass-knowledge-display .mem-unspent::after {content:none;}
+body.compass-hud #compass-knowledge-display > .compass-closed {background:linear-gradient(160deg,#c5c7c0,#aaaea6 48%,#898f86)!important;}
+body.compass-hud #compass-knowledge-display > .compass-closed::after {content:attr(data-compass-label);font:14px/1.2 Georgia,serif;letter-spacing:1px;white-space:nowrap;}
+@media(max-height:650px) {body.compass-hud #compass-knowledge-display > .compass-closed::after {font-size:12px;}}
