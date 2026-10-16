@@ -74,7 +74,8 @@ North-up mode retains the existing wall atlas artwork.
   the logical pixel-art grid. WebGL retains its 2× memory budget. This avoids
   CPU-bound high-DPR rasterization during map rotation without changing CSS
   layout, camera projection or pointer coordinates. Both cameras use the same
-  existing resize path. Explicit `?rscale=N` remains a diagnostic override,
+  existing resize path, which explicitly restores the logical CSS size before
+  refreshing input bounds when returning to scale 1. Explicit `?rscale=N` remains a diagnostic override,
   bounded to 1–2×; game cadence is unchanged.
 - Heading-up is the default (`?headingUp=false` keeps north up). The main
   camera turns about the view centre by `-compassDeg` (Q / E fake it on

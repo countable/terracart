@@ -11024,6 +11024,12 @@ window.__onGameScaleChange = () => {
   // canvas's CSS size, so a stale one would lay the new buffer out at the wrong
   // number of CSS px and #game's transform would compound the error.
   game.scale.setZoom(1 / RENDER_SCALE);
+  // Phaser skips CSS size writes in resize() when zoom is exactly 1. The
+  // preceding setZoom then leaves the OLD backing size as CSS pixels when
+  // switching to the Canvas cap. Seat the new buffer in the logical box
+  // before resize refreshes input bounds, without reallocating twice.
+  game.canvas.style.width = `${W}px`;
+  game.canvas.style.height = `${H}px`;
   game.scale.resize(W * RENDER_SCALE, H * RENDER_SCALE);
   // The resize grows each camera to the new buffer but leaves its transform
   // alone, so the zoom is still the OLD render scale — which would draw the

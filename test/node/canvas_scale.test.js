@@ -140,7 +140,7 @@ test('canvas scale: resizing keeps the heading UI camera aligned with the map', 
   const source = app.match(/window\.__onGameScaleChange = \(\) => \{[\s\S]*?\n\};/)[0];
   const main = {}, ui = { setViewport(...values) { this.viewport = values; } };
   const scene = { cameras: { main }, uiCam: ui, _applyMapZoom() { this.reapplied = true; } };
-  const win = {}, game = { scale: { setZoom() {}, resize() {} }, scene: { getScenes: () => [scene] } };
+  const win = {}, game = { canvas: { style: {} }, scale: { setZoom() {}, resize() {} }, scene: { getScenes: () => [scene] } };
   const install = new Function('window', 'game', 'renderScale', 'applyRenderScale', 'W', 'H',
     'let RENDER_SCALE = 1;\n' + source);
   install(win, game, () => 2, camera => { camera.scale = 2; }, 352, 844);
@@ -148,5 +148,24 @@ test('canvas scale: resizing keeps the heading UI camera aligned with the map', 
   assert.eq(main.scale, 2); assert.eq(ui.scale, 2);
   assert.eq(ui.viewport.join(','), '0,0,704,1688');
   assert.truthy(scene.reapplied, 'restore current map rotation and zoom after resize');
+});
+test('canvas scale: returning to zoom one restores CSS size before input bounds refresh', () => {
+  const source = app.match(/window\.__onGameScaleChange = \(\) => \{[\s\S]*?\n\};/)[0];
+  const style = { width: '352px', height: '844px' };
+  let resizes = 0;
+  const game = { canvas: { style }, scene: { getScenes: () => [] }, scale: {
+    setZoom() { style.width = '390px'; style.height = '935px'; },
+    resize() {
+      resizes++;
+      assert.eq(style.width, '352px');
+      assert.eq(style.height, '844px');
+    },
+  } };
+  const win = {};
+  new Function('window', 'game', 'renderScale', 'applyRenderScale', 'W', 'H',
+    'let RENDER_SCALE = 1.108;\n' + source)(win, game, () => 1, () => {}, 352, 844);
+  win.__onGameScaleChange();
+  win.__onGameScaleChange();
+  assert.eq(resizes, 1, 'unchanged cap does not reallocate the buffer');
 });
 })();
