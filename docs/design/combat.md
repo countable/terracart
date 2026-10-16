@@ -206,6 +206,9 @@ mechanics.
   its roster row's `condition`) carries `lightMul`: `Conditions.lightMul`
   halves the reach plateau (`reachRadiusM`, never under one cell), the light
   ramp and a carried torch (`Lighting.playerLightMul`) for fifteen seconds.
+- Tapping a well within reach clears every harmful condition through
+  `Conditions.clearDebuffs`, including burning and a trap's pin. Positive
+  buffs survive; the well costs no item or energy and remains reusable.
 - Confusion chooses a random compass heading and turn direction. Its share
   of movement increases linearly with the remaining duration: five seconds
   gives the compass 25% and player intent 75%; ten seconds splits control

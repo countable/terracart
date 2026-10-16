@@ -437,7 +437,7 @@ function collectGroundCoin(scene, entry, coin, mercenary = null, sx, sy, save = 
 
 // Coins are a small, transient array (also walked by their renderer). Run at
 // ten Hz, around the player's feet, independently of the camera's peek offset.
-const COIN_COLLECTION = { intervalMs: 100, pullCellsPerSecond: 6, arrivalCells: 0.25, speechMs: 3000 };
+const COIN_COLLECTION = { intervalMs: 100, pullCellsPerSecond: 1.5, arrivalCells: 0.25, speechMs: 3000 };
 function tickGroundCoins(scene, now = Date.now()) {
   if (!scene.startWorldM || !scene.playerM || scene.isTooFast?.()) return;
   if (now < (scene._nextCoinCollectionAt || 0)) return;

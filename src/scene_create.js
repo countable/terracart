@@ -273,6 +273,7 @@ class SceneCreate {
 
     // Bake terrain patterns and the two castle restoration-state atlases once.
     makeBiomeTextures(this, CELL_PX);
+    makeBerryBushTexture(this);
     makeTowerTexture(this);
     // Both tower atlases share their colours with the walls and courtyard.
     makeTowerTexture(this, CASTLE_STONE_UNCLAIMED, 'tower_unclaimed');

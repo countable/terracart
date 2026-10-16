@@ -1228,12 +1228,8 @@ class SceneModals {
         '}';
       document.head.appendChild(s);
     }
-    // `qty` (e.g. "× 5") renders as a bold, full-size, coloured line so the
-    // amount the player just received reads at a glance. `sub` stays the
-    // quiet descriptive line ("equipped", "already owned", flavour text).
-    const qtyHtml = qty
-      ? `<div style="margin-top:6px;font-size:22px;font-weight:700;color:${color};line-height:1.1">${qty}</div>`
-      : '';
+    // Keep the item and its amount together; rarity sits on the next line.
+    const qtyHtml = qty ? ` <span style="white-space:nowrap">${qty}</span>` : '';
     const subHtml = sub
       ? `<div class="${kind === 'spirit' || kind === 'talk' ? 'modal-speech' : ''}" style="margin-top:4px;font-size:13px;opacity:.85">${sub}</div>`
       : '';
@@ -1247,9 +1243,8 @@ class SceneModals {
       // no room for a third picture - an empty div would still cost its
       // margins as a blank band under the banner.
       (iconHTML ? `<div style="margin:6px 0 10px;font-size:0">${iconHTML}</div>` : '') +
-      `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}</div>` +
+      `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}${qtyHtml}</div>` +
       tierHtml +
-      qtyHtml +
       subHtml;
     const close = () => {
       wrap.remove();
