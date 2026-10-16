@@ -61,6 +61,11 @@ const HomeArea = {
   // reads these; nothing restates them.
   WAGON_OFFSET: { dx: 0, dy: -1 },
   FIREPIT_OFFSET: { dx: 0, dy: 2 },
+  // The firepit waits for the first compass reading — but only this long
+  // (ms, from Home standing on the surface this session). A device that
+  // never reports a heading (desktop, a phone without motion permission)
+  // still gets its pit; the reading never changes which cell it takes.
+  FIREPIT_COMPASS_GRACE_MS: 2000,
   // Where the placed wagon's art stands on its cell, in cells (render.js
   // _houseFootPx reads it as the house's footDx/footDy): shifted left so
   // its door (0.18 of the art's width right of centre) is over the
