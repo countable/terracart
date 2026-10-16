@@ -108,7 +108,7 @@ class SceneSky {
     let labelIndex = 0;
     const label = (x, y, text, hud = false) => {
       let t = this._skyLabels[labelIndex];
-      if (!t) { t = this.add.text(0, 0, '', { fontSize: '12px' }).setMask(this.cellGfx.mask); this._skyLabels[labelIndex] = t; }
+      if (!t) { t = this.add.text(0, 0, '', { fontFamily: FONT_UI_STACK, fontSize: '12px' }).setMask(this.cellGfx.mask); this._skyLabels[labelIndex] = t; }
       labelIndex++;
       t.setVisible(true).setPosition(x, y).setText(text).setOrigin(hud ? 0 : .5).setDepth(hud ? 89 : 9)
         .setStyle({ color: hud ? '#ffe3a1' : '#5c451f', backgroundColor: hud ? '#22383fdd' : null,

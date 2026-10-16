@@ -51,7 +51,7 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   top: calc(var(--panel-rail-height) + 6px) !important; left: 17px !important; right: 17px;
   justify-content: center; padding: 3px 7px !important;
   border: 0 !important; background: transparent !important;
-  font: 700 17px Georgia, serif !important; letter-spacing: .035em !important;
+  font: 700 17px var(--font-ui) !important; letter-spacing: .035em !important;
   text-transform: none !important; color: #f3dfa0 !important;
   text-shadow: 0 2px 3px #000, 0 0 12px #000;
 }
@@ -78,12 +78,12 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 .compass-panel .compass-action:focus-visible { outline: 2px solid #fff3b5; outline-offset: 3px; }
 .compass-panel[data-kind='spirit'] .modal-kind { font-size: 23px !important; }
 .compass-panel[data-kind='spirit'] .modal-body {
-  text-align: center; font: 18px/1.35 Georgia, serif; color: #eeede3;
+  text-align: center; font: 18px/1.35 var(--font-ui); color: #eeede3;
 }
 .compass-panel[data-kind='spirit'] .modal-confirm-actions {
   flex-direction: column-reverse; gap: 14px !important; margin: 17px 8px 0;
 }
-.compass-panel[data-kind='spirit'] .compass-action { font: 700 18px Georgia, serif !important; min-height: 43px; }
+.compass-panel[data-kind='spirit'] .compass-action { font: 700 18px var(--font-ui) !important; min-height: 43px; }
 .compass-panel[data-kind='spirit'] .compass-action-ghost { font-weight: 400 !important; }
 @media (max-height: 650px) {
   .compass-panel > .modal-box { padding: calc(var(--panel-rail-height) + 8px) 16px 16px !important; }
@@ -160,7 +160,7 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 .opening-sealed {
   display: grid; place-items: center; border: 2px ridge #bcc8c9; border-radius: 6px;
   background: linear-gradient(#e0e1d9, #959b98 52%, #c5c8bf);
-  color: #343b39; font: 14px/1.2 Georgia, serif; letter-spacing: 1px; text-shadow: 0 1px #edf0e7;
+  color: #343b39; font: 14px/1.2 var(--font-ui); letter-spacing: 1px; text-shadow: 0 1px #edf0e7;
   box-shadow: inset 0 0 0 2px #6a726e, 0 1px 3px #0008;
 }
 .opening-sealed:nth-child(1) { grid-area: 2 / 2; }
@@ -169,18 +169,18 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 .opening-dial {
   position: relative; grid-area: 2 / 4; align-self: start; height: 45px; width: 45px; justify-self: center;
   border: 3px ridge #bcc8c9; border-radius: 50%; background: radial-gradient(circle at 40% 30%, #e0e1d9, #a2a9a5 65%, #555e5a);
-  text-align: center; color: #d0d9d5; font: 15px Georgia;
+  text-align: center; color: #d0d9d5; font: 15px var(--font-ui);
 }
 .opening-dial i { position: absolute; bottom: 8px; left: 50%; height: 23px; width: 3px; background: #e6bd54; transform: rotate(-55deg); transform-origin: bottom; }
 .opening-compass-map {
   position: absolute; top: 138px; left: 0; width: 100%; aspect-ratio: 1;
   border: 4px ridge #c1cece; border-radius: 50%; box-sizing: border-box;
   background: repeating-conic-gradient(from -1deg, #a3c4cb22 0deg 1deg, transparent 1deg 30deg), radial-gradient(circle, #36535e, #162c37 65%, #536c74);
-  text-align: center; color: #b6cbcc; font: 19px Georgia;
+  text-align: center; color: #b6cbcc; font: 19px var(--font-ui);
   box-shadow: inset 0 0 24px #07181d;
 }
 .opening-compass-map > span { display: inline-block; line-height: 17px; padding-top: 4px; }
-.opening-compass-map > i { position: absolute; top: 42%; left: 0; width: 100%; font: 64px Georgia; opacity: .4; }
+.opening-compass-map > i { position: absolute; top: 42%; left: 0; width: 100%; font: 64px var(--font-ui); opacity: .4; }
 
 /* The fixed housing must survive above the raised sheet, including its curved
    shoulders. ModalShell supplies viewport pixels across the game's scaling. */
@@ -212,7 +212,7 @@ body.compass-hud.modal-open #compass-body {
   width: 36px; height: 36px; padding: 0; display: grid; place-items: center;
   border: 1px solid #806128; border-radius: 50%;
   background: radial-gradient(circle at 35% 24%, #fff0b4, #dfb759 55%, #9f7028);
-  color: #453419; font: 28px/1 Georgia, serif; cursor: pointer;
+  color: #453419; font: 28px/1 var(--font-ui); cursor: pointer;
   text-shadow: 0 1px #fff0b2;
   box-shadow: inset 0 1px 1px #fff3c5, inset 0 -2px 2px #765322, 0 2px 3px #131a17b3, 0 0 0 2px #d5d6c3;
 }

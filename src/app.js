@@ -7496,7 +7496,7 @@ class MapScene extends Phaser.Scene {
     const bg = opts.bg !== undefined ? opts.bg
              : (S.bg !== undefined ? S.bg : TOAST_BG);
     const style = {
-      font: fontUI(S.font),
+      ...phaserFontUI(S.font),
       color: opts.color || UI_INK,
       stroke: UI_SHADOW, strokeThickness: S.stroke,
       padding: {
@@ -9605,8 +9605,8 @@ class MapScene extends Phaser.Scene {
   _prewarmFx() {
     if (typeof Particles !== 'undefined') Particles.warm(this, ['stone', 'trailspark', 'stonegather']);
     try {
-      const fonts = new Set(Object.values(TOAST_TIER).map((t) => fontUI(t.font)));
-      for (const font of fonts) this.add.text(-999, -999, '0m', { font }).setVisible(false).destroy();
+      const fonts = new Set(Object.values(TOAST_TIER).map((t) => t.font));
+      for (const font of fonts) this.add.text(-999, -999, '0m', phaserFontUI(font)).setVisible(false).destroy();
     } catch (e) { /* a warm-up never breaks the game */ }
   }
 

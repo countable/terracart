@@ -1325,7 +1325,7 @@ const Multiplayer = (function () {
     p.spr = scene.add.sprite(0, 0, art.sheet, 0).setScale(art.scale).setTint(p.color);
     playDirected(p.spr, 'idle', 0, 1);
     p.lbl = scene.add.text(0, 0, p.name, {
-      font: fontUI('bold 10px'), color: cssOf(p.color),
+      ...phaserFontUI('bold 10px'), color: cssOf(p.color),
       stroke: '#000', strokeThickness: 3, padding: { x: 2, y: 1 },
     }).setOrigin(0.5, 1);
     scene.shadowContainer.add(p.sh);
@@ -1452,7 +1452,7 @@ const Multiplayer = (function () {
       if (!q.gfx) {
         q.gfx = scene.add.graphics();
         q.txt = scene.add.text(0, 0, '', {
-          font: fontUI('bold 10px'), color: cssOf(q.color),
+          ...phaserFontUI('bold 10px'), color: cssOf(q.color),
           stroke: '#000', strokeThickness: 3, padding: { x: 2, y: 1 },
         }).setOrigin(0.5, 1);
         S.container.add([q.gfx, q.txt]);

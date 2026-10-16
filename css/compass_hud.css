@@ -13,16 +13,16 @@ body.compass-hud #memories {grid-area:1/1;}
 body.compass-hud #bookchip {grid-area:1/2;}
 body.compass-hud #roadchip {grid-area:2/1/3/3;display:flex;}
 body.compass-hud #roadchip svg {width:38px;}
-body.compass-hud .road-num {font:bold 17px monospace;color:#26393e;letter-spacing:2px;background:repeating-linear-gradient(90deg,#d1d6c7 0 11px,#778b8e 11px 12px);padding:3px 5px;border:1px inset #b9c6c7;}
+body.compass-hud .road-num {font:bold 17px var(--font-ui);color:#26393e;letter-spacing:2px;background:repeating-linear-gradient(90deg,#d1d6c7 0 11px,#778b8e 11px 12px);padding:3px 5px;border:1px inset #b9c6c7;}
 body.compass-hud #money {grid-area:2/3;height:auto;min-width:0;display:flex;gap:3px;padding:0;border:0;background:none;box-shadow:none;color:#172d35;font:bold 13px var(--font-ui);}
 body.compass-hud #money .coin-ico {width:25px;height:25px;}
 body.compass-hud #energy {grid-area:1/3;width:66px;height:60px;border:3px ridge #bdc8c9!important;border-radius:50%;background:radial-gradient(ellipse at 50% 80%,#bec9c3,#607b85);position:relative;padding:0;display:flex;align-items:end;justify-content:center;overflow:hidden;}
-body.compass-hud #energy::before {content:'•   •   •';position:absolute;top:0;color:#edf0da;letter-spacing:5px;font:bold 12px sans-serif;}
+body.compass-hud #energy::before {content:'•   •   •';position:absolute;top:0;color:#edf0da;letter-spacing:5px;font:bold 12px var(--font-ui);}
 body.compass-hud #energy-label {position:relative;font:bold 12px var(--font-ui);color:#172b33!important;margin-bottom:3px;z-index:1;}
 body.compass-hud #energy-bar {display:none;}
 .compass-energy-needle {position:absolute;left:calc(50% - 1.5px);bottom:17px;width:3px;height:25px;background:#f6e4a3;transform-origin:bottom;transform:rotate(var(--energy-angle,0deg));border-radius:2px;box-shadow:0 0 2px #192e36;}
 body.compass-hud #menu {left:calc(var(--phone-left,0px) + 10px);top:16px;z-index:8;}
-body.compass-hud #menu summary {width:44px;height:44px;background:linear-gradient(#f5e6ae,#baa05a);border:3px ridge #d7c48a;border-radius:50%;font:26px Georgia;color:#54451f;box-shadow:0 2px 5px #31444a;}
+body.compass-hud #menu summary {width:44px;height:44px;background:linear-gradient(#f5e6ae,#baa05a);border:3px ridge #d7c48a;border-radius:50%;font:26px var(--font-ui);color:#54451f;box-shadow:0 2px 5px #31444a;}
 body.compass-hud #mode-badge,body.compass-hud #mp-btn,body.compass-hud #status-row {display:none!important;}
 body.compass-hud #objective {z-index:9;top:118px;}
 body.compass-hud #hud {top:auto;bottom:174px;color:#20353a;text-shadow:0 1px #d1d8d1;font-size:10px;}
@@ -127,31 +127,31 @@ body.compass-hud {--compass-unit:calc(var(--compass-map-size) / 390);--compass-h
 body.compass-hud #hud-row {left:var(--phone-left,0px);right:var(--phone-right,0px);top:0;height:var(--compass-map-top);display:block;}
 body.compass-hud #hud-row > #roadchip {position:absolute;top:calc(15 * var(--compass-header-unit));left:32%;width:39%;max-width:none;height:calc(49 * var(--compass-header-unit));padding:0 10px;border:3px ridge #c1c0b7;border-radius:45%;background:linear-gradient(90deg,#4f504a,#cccac0 22%,#77796f 50%,#c9c8be 80%,#4b4c47);gap:0;box-shadow:inset 0 0 6px #20211e,0 0 0 2px #242723,0 0 0 4px #bab9b0;overflow:hidden;}
 body.compass-hud #roadchip svg {display:none;}
-body.compass-hud #roadchip .road-num {display:flex;justify-content:center;align-items:stretch;height:100%;border:0;padding:0;background:none;box-shadow:none;letter-spacing:0;opacity:1;font:700 calc(26 * var(--compass-header-unit))/1 Georgia;}
+body.compass-hud #roadchip .road-num {display:flex;justify-content:center;align-items:stretch;height:100%;border:0;padding:0;background:none;box-shadow:none;letter-spacing:0;opacity:1;font:700 calc(26 * var(--compass-header-unit))/1 var(--font-ui);}
 .compass-wheel {position:relative;display:grid;place-items:center;min-width:calc(25 * var(--compass-header-unit));padding:0 2px;background:linear-gradient(#65665e,#d1d0c5 23%,#eeede3 48%,#b7b7ac 72%,#5a5c54);color:#171a17;border-right:2px solid #41433b;border-left:1px solid #e3e1d4;text-shadow:0 1px #fff7;box-shadow:inset 2px 0 3px #25272066;}
-.compass-wheel::before,.compass-wheel::after {content:'•';position:absolute;left:0;right:0;text-align:center;font:9px Georgia;color:#383d35;}
+.compass-wheel::before,.compass-wheel::after {content:'•';position:absolute;left:0;right:0;text-align:center;font:9px var(--font-ui);color:#383d35;}
 .compass-wheel::before {top:1px;}.compass-wheel::after {bottom:1px;}
 .compass-wheel-unit {font-size:calc(14 * var(--compass-header-unit));min-width:calc(30 * var(--compass-header-unit));}
 .compass-wheel-unit::before,.compass-wheel-unit::after,.compass-wheel-separator::before,.compass-wheel-separator::after {display:none;}
 .compass-wheel-separator {min-width:8px;padding:0;border:0;}
-body.compass-hud #hud-row > #memories,body.compass-hud #hud-row > #bookchip {position:absolute;top:calc(78 * var(--compass-header-unit));width:23%;height:calc(57 * var(--compass-header-unit));padding:4px;min-width:0;border:3px ridge #d1cfc5;border-radius:14px;box-shadow:inset 0 0 6px #030907,0 0 0 2px #242723,0 0 0 3px #a8aaa0;font:bold calc(22 * var(--compass-header-unit)) Georgia;background:linear-gradient(145deg,#202825,#091110 60%,#17201d);color:#f2eddf;gap:5px;}
+body.compass-hud #hud-row > #memories,body.compass-hud #hud-row > #bookchip {position:absolute;top:calc(78 * var(--compass-header-unit));width:23%;height:calc(57 * var(--compass-header-unit));padding:4px;min-width:0;border:3px ridge #d1cfc5;border-radius:14px;box-shadow:inset 0 0 6px #030907,0 0 0 2px #242723,0 0 0 3px #a8aaa0;font:bold calc(22 * var(--compass-header-unit)) var(--font-ui);background:linear-gradient(145deg,#202825,#091110 60%,#17201d);color:#f2eddf;gap:5px;}
 body.compass-hud #hud-row > #memories {left:18.5%;}
 body.compass-hud #hud-row > #bookchip {left:43%;}
 body.compass-hud #memories .mem-star {font-size:calc(32 * var(--compass-header-unit));}
 body.compass-hud #bookchip .book-ico {width:calc(29 * var(--compass-header-unit));height:calc(29 * var(--compass-header-unit));}
-body.compass-hud #memories .mem-unspent {position:absolute;top:3px;left:38%;font:bold calc(12 * var(--compass-header-unit)) Georgia;background:transparent;color:#ffdd43;padding:0;text-shadow:0 1px #080b07;}
+body.compass-hud #memories .mem-unspent {position:absolute;top:3px;left:38%;font:bold calc(12 * var(--compass-header-unit)) var(--font-ui);background:transparent;color:#ffdd43;padding:0;text-shadow:0 1px #080b07;}
 body.compass-hud #menu {top:calc(78 * var(--compass-header-unit));left:calc(var(--phone-left,0px) + 10 * var(--compass-header-unit));}
-body.compass-hud #menu summary {width:calc(53 * var(--compass-header-unit));height:calc(57 * var(--compass-header-unit));border:3px ridge #f2d77e;font:bold calc(32 * var(--compass-header-unit)) Georgia;color:#302500;background:radial-gradient(ellipse at 35% 22%,#fff7b3,#ffd459 35%,#d79918 78%,#a16c12);box-shadow:inset 0 2px 2px #fff8cb,0 0 0 3px #282a25,0 0 0 5px #c0bfb4;}
+body.compass-hud #menu summary {width:calc(53 * var(--compass-header-unit));height:calc(57 * var(--compass-header-unit));border:3px ridge #f2d77e;font:bold calc(32 * var(--compass-header-unit)) var(--font-ui);color:#302500;background:radial-gradient(ellipse at 35% 22%,#fff7b3,#ffd459 35%,#d79918 78%,#a16c12);box-shadow:inset 0 2px 2px #fff8cb,0 0 0 3px #282a25,0 0 0 5px #c0bfb4;}
 body.compass-hud #hud-row > #energy {position:absolute;left:68%;top:calc(69 * var(--compass-header-unit));width:calc(72 * var(--compass-header-unit));height:calc(72 * var(--compass-header-unit));border:3px ridge #d2d0c8!important;background:radial-gradient(ellipse at 36% 30%,#f0efdf,#afafa5 60%,#666c64);box-shadow:inset 0 0 0 2px #3b3e37,0 0 0 2px #252923,0 0 0 3px #b5b8ad;overflow:hidden;}
 body.compass-hud #energy::before {inset:6px;border:0;border-right:6px solid #6be44c;width:auto;height:auto;border-radius:50%;clip-path:polygon(50% 0,100% 0,100% 45%,50% 50%);}
 body.compass-hud #energy::after {display:none;}
 .compass-energy-face {position:absolute;inset:0;}
 .compass-energy-face i {position:absolute;left:calc(50% - 1.5px);top:5px;width:3px;height:12px;background:#edb644;border:1px solid #886329;transform-origin:center calc(29 * var(--compass-header-unit));box-shadow:0 1px 1px #333;}
 .compass-energy-face i:first-child {transform:rotate(-62deg);}.compass-energy-face i:last-of-type {transform:rotate(62deg);}
-.compass-energy-face b {position:absolute;bottom:8px;left:14px;font:bold 33px Georgia;color:#f7cc53;text-shadow:1px 1px #49412b;}
+.compass-energy-face b {position:absolute;bottom:8px;left:14px;font:bold 33px var(--font-ui);color:#f7cc53;text-shadow:1px 1px #49412b;}
 body.compass-hud .compass-energy-needle {bottom:calc(29 * var(--compass-header-unit));height:calc(29 * var(--compass-header-unit));width:8px;left:calc(50% - 4px);background:linear-gradient(90deg,#b27e19,#ffe696 60%,#e9b333);clip-path:polygon(50% 0,100% 85%,50% 100%,0 85%);filter:drop-shadow(1px 1px 1px #383b32);z-index:1;}
-body.compass-hud #energy-label {font:10px Georgia!important;margin-bottom:1px;color:#333b2f!important;}
-body.compass-hud #hud-row > #money {position:absolute;left:88.5%;right:1%;top:calc(79 * var(--compass-header-unit));display:flex;flex-direction:column;gap:0;font:italic bold calc(22 * var(--compass-header-unit))/1 Georgia;color:#f3dfa0;text-shadow:0 2px 2px #161b16;}
+body.compass-hud #energy-label {font:10px var(--font-ui)!important;margin-bottom:1px;color:#333b2f!important;}
+body.compass-hud #hud-row > #money {position:absolute;left:88.5%;right:1%;top:calc(79 * var(--compass-header-unit));display:flex;flex-direction:column;gap:0;font:italic bold calc(22 * var(--compass-header-unit))/1 var(--font-ui);color:#f3dfa0;text-shadow:0 2px 2px #161b16;}
 body.compass-hud #money .coin-ico {width:calc(35 * var(--compass-header-unit));height:calc(35 * var(--compass-header-unit));}
 body.compass-hud #objective {top:calc(var(--compass-map-top) + 62px);}
 @media (max-height:650px) {body.compass-hud #objective {top:calc(var(--compass-map-top) + var(--compass-map-size) * .5 + 24px);}}
@@ -159,11 +159,11 @@ body.compass-hud #objective {top:calc(var(--compass-map-top) + 62px);}
 body.compass-hud #move-pad {right:calc(var(--phone-right,0px) + 13 * var(--compass-unit));bottom:auto;top:calc(var(--compass-map-top) + var(--compass-map-size) - 93 * var(--compass-unit));width:calc(125 * var(--compass-unit));height:calc(125 * var(--compass-unit));border:3px ridge #c5c5b9;background:#303832 url('../assets/ui/compass/joystick.webp') center/cover;box-shadow:0 0 0 2px #222922,0 0 0 5px #b0b3a5,0 3px 6px #132017;backdrop-filter:none;}
 body.compass-hud #move-pad::before {inset:13%;opacity:1;background:radial-gradient(circle,#202722 50%,#303a32 65%,#9ca091 69%,#30372c 73%,transparent 75%);}
 body.compass-hud #move-pad .nub {width:44%;height:44%;left:28%;top:28%;background:radial-gradient(circle at 35% 26%,#fff5af,#ffd35a 35%,#d79618 72%,#a56709);border:3px ridge #f5d46c;}
-.compass-stick-directions {position:absolute;inset:14%;pointer-events:none;color:#f9d363;font:21px Georgia;text-shadow:0 2px 2px #2c2b1a;}
+.compass-stick-directions {position:absolute;inset:14%;pointer-events:none;color:#f9d363;font:21px var(--font-ui);text-shadow:0 2px 2px #2c2b1a;}
 .compass-stick-directions i {position:absolute;font-style:normal;line-height:1;font-variant-emoji:text;}
 .compass-stick-directions i:nth-child(1) {top:0;left:calc(50% - 10px);}.compass-stick-directions i:nth-child(2) {right:0;top:calc(50% - 10px);}.compass-stick-directions i:nth-child(3) {bottom:0;left:calc(50% - 10px);}.compass-stick-directions i:nth-child(4) {left:0;top:calc(50% - 10px);}
 body.compass-hud #hud-row > .compass-closed {background:#8f938a url('../assets/ui/compass/shutter.webp') center/cover!important;}
-body.compass-hud .compass-closed::after {content:attr(data-compass-label);inset:18% 5%;border:2px ridge #d1d0c6;border-radius:14px;color:#20271e;background:linear-gradient(#c9ccc0,#f0eee2 43%,#a4a99d);text-shadow:0 1px #e7e6d7;font:bold calc(14 * var(--compass-unit)) Georgia;letter-spacing:-0.5px;box-shadow:0 0 0 2px #454e42;}
+body.compass-hud .compass-closed::after {content:attr(data-compass-label);inset:18% 5%;border:2px ridge #d1d0c6;border-radius:14px;color:#20271e;background:linear-gradient(#c9ccc0,#f0eee2 43%,#a4a99d);text-shadow:0 1px #e7e6d7;font:bold calc(14 * var(--compass-unit)) var(--font-ui);letter-spacing:-0.5px;box-shadow:0 0 0 2px #454e42;}
 body.compass-hud #move-pad.compass-closed::after {inset:auto 0 -4px;min-height:24px;font-size:12px;content:'Spirit walking';}
 body.compass-hud #move-pad.compass-closed {background-image:url('../assets/ui/compass/shutter.webp')!important;}
 body.compass-hud #hud-row [role=button]:active,body.compass-hud #menu summary:active {filter:brightness(1.18);}
@@ -231,11 +231,11 @@ body.compass-hud #menu summary {border:2px solid #6b603d;border-radius:48%;backg
 body.compass-hud #hud-row > #roadchip {border:2px solid #41463c;border-radius:34% / 48%;padding:0 calc(13 * var(--compass-header-unit));background:repeating-linear-gradient(90deg,#e6e3d5 0,#62665c 2px,#999d91 4px,#343b30 5px,#ced0c1 7px);box-shadow:inset 0 5px 6px #20261dcc,inset 0 -5px 6px #242c20cc,0 0 0 1px #e7e5d7,0 0 0 3px #343a30,0 0 0 4px #aeb4a3;}
 body.compass-hud #roadchip .road-num {width:100%;min-width:0;height:100%;overflow:hidden;box-shadow:0 0 4px 2px #1f281c;line-height:1;}
 .compass-wheel {flex:1 1 0;min-width:0;padding:0 2px;border-right:1px solid #353b30;border-left:1px solid #f0efdf;background:linear-gradient(#393938,#83837f 13%,#c8c7c1 33%,#e2e0d9 48%,#cbcac4 62%,#898984 84%,#3d3d3b);font-weight:600;text-shadow:0 1px #ffffe580;box-shadow:inset 2px 0 3px #26302077,inset -1px 0 2px #26302088; border-right-color:#393938; border-left-color:#d7d5cf;}
-.compass-wheel::before,.compass-wheel::after {font:600 calc(15 * var(--compass-header-unit))/1 Georgia;color:#30382a;opacity:.65;transform:scaleY(.55);}
+.compass-wheel::before,.compass-wheel::after {font:600 calc(15 * var(--compass-header-unit))/1 var(--font-ui);color:#30382a;opacity:.65;transform:scaleY(.55);}
 .compass-wheel::before {content:attr(data-previous);top:calc(-7 * var(--compass-header-unit));}
 .compass-wheel::after {content:attr(data-next);bottom:calc(-7 * var(--compass-header-unit));}
 /* Reserve a legible unit plate even when the number wheels share a narrow housing. */
-.compass-wheel-unit {box-sizing:border-box;flex:0 0 max(30px,calc(34 * var(--compass-header-unit)));min-width:0;padding:0 2px;font:700 max(14px, calc(18 * var(--compass-header-unit)))/1 Arial,sans-serif;color:#171e15;text-shadow:0 1px #ffffe5;white-space:nowrap;}
+.compass-wheel-unit {box-sizing:border-box;flex:0 0 max(30px,calc(34 * var(--compass-header-unit)));min-width:0;padding:0 2px;font:700 max(14px, calc(18 * var(--compass-header-unit)))/1 var(--font-ui);color:#171e15;text-shadow:0 1px #ffffe5;white-space:nowrap;}
 /* The dial sits in a dark socket cut into the same silver as the chassis. */
 body.compass-hud #hud-row > #energy {border:2px solid #a8a59f!important;background:var(--compass-metal-face);box-shadow:inset 0 0 0 2px #454440,inset 0 2px 3px #e3dfd680,0 0 0 2px #232321,0 0 0 3px #6e6b65,0 1px 0 4px #c1bdb340;}
 body.compass-hud #energy::before,body.compass-hud #energy::after {display:none;}
@@ -243,15 +243,15 @@ body.compass-hud #energy::before,body.compass-hud #energy::after {display:none;}
 body.compass-hud .compass-energy-needle {inset:0;width:100%;height:100%;background:none;clip-path:none;border-radius:0;box-shadow:none;transform-origin:50% 55%;filter:drop-shadow(1px 2px 1px #29301d);}
 .compass-energy-needle svg {display:block;width:100%;height:100%;}
 .compass-energy-pivot {width:calc(8 * var(--compass-header-unit));height:calc(8 * var(--compass-header-unit));left:50%;top:55%;bottom:auto;transform:translate(-50%,-50%);background:radial-gradient(circle at 35% 30%,#fff0ad,#dfaf3b 50%,#8c651c);border-color:#71551c;box-sizing:border-box;box-shadow:0 1px 1px #28301b;}
-body.compass-hud #energy-label {bottom:15%;left:8%;right:8%;white-space:nowrap;font:800 max(10px,calc(12 * var(--compass-header-unit)))/1 Georgia!important;color:#f0ebe0!important;text-shadow:0 1px 2px #171715;}
-body.compass-hud #hud-row > #money,body.compass-hud #money-num {font:600 calc(16 * var(--compass-header-unit))/1.15 Georgia;color:#fff;letter-spacing:.15px;text-shadow:0 2px 1px #102821,1px 0 2px #102821,-1px 0 2px #102821,0 3px 5px #000;}
+body.compass-hud #energy-label {bottom:15%;left:8%;right:8%;white-space:nowrap;font:800 max(10px,calc(12 * var(--compass-header-unit)))/1 var(--font-ui)!important;color:#f0ebe0!important;text-shadow:0 1px 2px #171715;}
+body.compass-hud #hud-row > #money,body.compass-hud #money-num {font:600 calc(16 * var(--compass-header-unit))/1.15 var(--font-ui);color:#fff;letter-spacing:.15px;text-shadow:0 2px 1px #102821,1px 0 2px #102821,-1px 0 2px #102821,0 3px 5px #000;}
 /* The north vane is a small raised metal pointer; its asymmetric highlights
    remain legible over both dark paving and bright terrain. */
 /* The mirrored carving is a continuous backing, at the atlas's proportions.
    Endcaps and shoulder reliefs sit over it without exposing blank metal. */
 .compass-round #compass-body::before {background-image:url('../assets/ui/compass/reference-carving-tile.webp');background-size:100% auto;background-position:center top;background-repeat:repeat-y;}
 .compass-round .compass-header {background-color:transparent;mask-image:radial-gradient(ellipse 40% 76% at 50% 100%,transparent 53%,#000 88%);}
-body.compass-hud #hud-row > .compass-closed::after,body.compass-hud #move-pad.compass-closed::after {content:attr(data-compass-label);font:14px/1.2 Georgia,serif;letter-spacing:1px;white-space:nowrap;}
+body.compass-hud #hud-row > .compass-closed::after,body.compass-hud #move-pad.compass-closed::after {content:attr(data-compass-label);font:14px/1.2 var(--font-ui);letter-spacing:1px;white-space:nowrap;}
 @media(max-height:650px) {body.compass-hud #hud-row > .compass-closed::after,body.compass-hud #move-pad.compass-closed::after {font-size:12px;}}
 /* A crisp faceted instrument star has no white pickup-sprite fringe. */
 body.compass-hud #memories .compass-memory-star {width:calc(29 * var(--compass-header-unit));height:calc(29 * var(--compass-header-unit));transform:none;margin:0 3px;object-fit:contain;image-rendering:auto;filter:drop-shadow(0 2px 1px #000b);}
@@ -269,16 +269,16 @@ body.compass-hud #move-pad.compass-closed .compass-stick-seal svg {display:block
 /* Memories and books share one glass window; each half retains its own tap. */
 body.compass-hud #compass-knowledge-display {position:absolute;left:18.5%;top:calc(82 * var(--compass-header-unit));width:47.5%;height:calc(50 * var(--compass-header-unit));min-height:42px;box-sizing:border-box;display:flex;align-items:stretch;overflow:hidden;border:3px ridge #d1cfc5;border-radius:12px;background:linear-gradient(145deg,#202825,#091110 60%,#17201d);box-shadow:inset 0 0 6px #080909,0 0 0 2px #262626,0 0 0 3px #8e8d89; border-color:var(--compass-metal-edge);}
 body.compass-hud #compass-knowledge-display > #memories,
-body.compass-hud #compass-knowledge-display > #bookchip {position:relative;inset:auto;flex:1 1 50%;width:50%;height:100%;min-width:0;padding:0 12px;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;display:flex;align-items:center;justify-content:flex-start;gap:6px;color:#f2eddf;font:600 max(12px,calc(16 * var(--compass-header-unit)))/1 Georgia;}
+body.compass-hud #compass-knowledge-display > #bookchip {position:relative;inset:auto;flex:1 1 50%;width:50%;height:100%;min-width:0;padding:0 12px;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;display:flex;align-items:center;justify-content:flex-start;gap:6px;color:#f2eddf;font:600 max(12px,calc(16 * var(--compass-header-unit)))/1 var(--font-ui);}
 body.compass-hud #compass-knowledge-display > #bookchip {border-left:1px solid #7b82734d;}
 body.compass-hud #compass-knowledge-display .mem-ico,
 body.compass-hud #compass-knowledge-display .book-ico {width:18px;height:18px;transform:none;margin:0;flex-shrink:0;}
 body.compass-hud #compass-knowledge-display .compass-memory-star {width:calc(22 * var(--compass-header-unit));height:calc(22 * var(--compass-header-unit));}
-body.compass-hud #compass-knowledge-display .mem-unspent {top:3px;left:calc(12px + 14 * var(--compass-header-unit));right:auto;min-width:13px;height:13px;padding:0 3px;display:grid;place-items:center;border:1px solid #8c6a23;border-radius:7px;background:#e8c55d;color:#27291e;font:700 9px/1 Georgia;text-shadow:none;box-shadow:0 1px 2px #000b;}
+body.compass-hud #compass-knowledge-display .mem-unspent {top:3px;left:calc(12px + 14 * var(--compass-header-unit));right:auto;min-width:13px;height:13px;padding:0 3px;display:grid;place-items:center;border:1px solid #8c6a23;border-radius:7px;background:#e8c55d;color:#27291e;font:700 9px/1 var(--font-ui);text-shadow:none;box-shadow:0 1px 2px #000b;}
 body.compass-hud #compass-knowledge-display .mem-unspent::before,
 body.compass-hud #compass-knowledge-display .mem-unspent::after {content:none;}
 body.compass-hud #compass-knowledge-display > .compass-closed {background:var(--compass-dormant-metal)!important;}
-body.compass-hud #compass-knowledge-display > .compass-closed::after {content:attr(data-compass-label);font:14px/1.2 Georgia,serif;letter-spacing:1px;white-space:nowrap;}
+body.compass-hud #compass-knowledge-display > .compass-closed::after {content:attr(data-compass-label);font:14px/1.2 var(--font-ui);letter-spacing:1px;white-space:nowrap;}
 @media(max-height:650px) {body.compass-hud #compass-knowledge-display > .compass-closed::after {font-size:12px;}}
 
 /* Equal responsive gaps include the menu; the memory window takes spare width. */
@@ -338,7 +338,7 @@ body.compass-hud #compass-inventory-shutter {filter:brightness(.85);}
 body:not(.compass-round) .compass-bearing {display:none;}
 .compass-rim-art {display:block;width:100%;height:100%;overflow:visible;}
 .compass-bearing span {position:absolute;display:grid;place-items:center;width:6%;height:6%;padding:0;transform:translate(-50%,-50%);filter:brightness(1.18) drop-shadow(0 2px 2px #000c) drop-shadow(0 0 1px #000);}
-.compass-bearing b {display:block;font:700 calc(var(--compass-map-size) * .036 - 1pt) / 1 Georgia,serif;color:#3e2b15;text-shadow:0 .65px .2px #f7e4b3;transform-origin:center;}
+.compass-bearing b {display:block;font:700 calc(var(--compass-map-size) * .036 - 1pt) / 1 var(--font-ui);color:#3e2b15;text-shadow:0 .65px .2px #f7e4b3;transform-origin:center;}
 .compass-bearing .compass-north {left:50%;top:calc(3% - 9px);}
 .compass-bearing .compass-north b {font-size:calc(var(--compass-map-size) * .043);}
 .compass-bearing .compass-east {left:calc(98% + 9px);top:50%;}
@@ -387,7 +387,7 @@ body.compass-hud > #map-zoom button {
  position:relative;width:32px;height:32px;padding:0;z-index:1;border:2px solid #8d713e;border-radius:4px;
  color:#3d3019;background:linear-gradient(#fff0bc 0 5%,#d8bd73 6% 12%,#efdc9b 13% 22%,#c4a25b 65%,#a6833d 86%,#e6cc86 90%);
  box-shadow:inset 1px 0 #f5e4ad,inset -1px 0 #80612d,inset 0 -3px #735625,0 2px 1px #142024;
- font:700 20px/1 Georgia;text-shadow:0 1px #f6e8b9;touch-action:manipulation;
+ font:700 20px/1 var(--font-ui);text-shadow:0 1px #f6e8b9;touch-action:manipulation;
 }
 body.compass-hud > #map-zoom button::after {content:'';position:absolute;left:5px;right:5px;bottom:3px;height:3px;background:repeating-linear-gradient(90deg,#685021 0 1px,transparent 1px 3px);opacity:.6;}
 body.compass-hud > #map-zoom button:active:not(:disabled) {transform:translateY(2px);background:linear-gradient(#a58a4c,#d2b979 65%,#9c7a35);box-shadow:inset 0 2px 3px #59441e;color:#2c2416;}
@@ -404,3 +404,6 @@ body.compass-hud > #map-zoom .direction-lock[aria-pressed=true] {transform:trans
 /* The developer GPS stick sits centred under the map, between the zoom rack
    and the joystick, a touch smaller so it clears both. */
 body.compass-hud #gps-pad {left:var(--phone-left,0px)!important;right:var(--phone-right,0px);margin:0 auto;transform:scale(.9);}
+
+/* Stable counter widths without switching away from the shared UI font. */
+body.compass-hud #energy-label,body.compass-hud #money-num,body.compass-hud .compass-wheel {font-variant-numeric:tabular-nums;}
