@@ -86,7 +86,7 @@ test('story splash: the Unsealed! card shows the fort_unseal banner, not the bui
 test('story splash: the chest reward modal collapses an empty icon row', () => {
   const modal = lift('showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,',
     'showChestRewardModal', SCENE_SRC, 'modal_shell.js');
-  assert.truthy(/iconHTML \? `<div style="margin:6px 0 10px;font-size:0">\$\{iconHTML\}<\/div>` : ''/.test(modal),
+  assert.truthy(/iconHTML \? `<div style="[^"]*">\$\{iconHTML\}<\/div>` : ''/.test(modal),
     'an empty iconHTML leaves no blank band under the banner');
 });
 

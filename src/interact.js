@@ -435,13 +435,14 @@ function collectGroundCoin(scene, entry, coin, mercenary = null, sx, sy, save = 
   return amount;
 }
 
-// Coins are a small, transient array (also walked by their renderer). Run at
-// ten Hz, around the player's feet, independently of the camera's peek offset.
-const COIN_COLLECTION = { intervalMs: 100, pullCellsPerSecond: 1.5, arrivalCells: 0.25, speechMs: 3000 };
+// Move every frame around the player's feet, independently of camera peek.
+// Cap elapsed time so returning from a suspended tab cannot jump a whole pull.
+const COIN_COLLECTION = { maxDeltaMs: 100, pullCellsPerSecond: 1.5, arrivalCells: 0.25, speechMs: 3000 };
 function tickGroundCoins(scene, now = Date.now()) {
+  const elapsedMs = Math.max(0, Math.min(COIN_COLLECTION.maxDeltaMs,
+    now - (scene._lastCoinCollectionAt ?? (now - 1000 / 30))));
+  scene._lastCoinCollectionAt = now;
   if (!scene.startWorldM || !scene.playerM || scene.isTooFast?.()) return;
-  if (now < (scene._nextCoinCollectionAt || 0)) return;
-  scene._nextCoinCollectionAt = now + COIN_COLLECTION.intervalMs;
   const radius = Combat.playerDowned(scene.save.energy) ? 0 : Gear.coinMagnetCells(scene.save) * scene.cellM;
   const merc = scene._mercenary;
   const collector = merc && !merc._spent && Combat.hp(merc) > 0 && Companions.active(scene.save, 'mercenary', now)
@@ -462,7 +463,7 @@ function tickGroundCoins(scene, now = Date.now()) {
       }
       const distance = Math.hypot(coin.x - px, coin.y - py);
       if (!radius || distance > radius) continue;
-      const step = COIN_COLLECTION.pullCellsPerSecond * scene.cellM * COIN_COLLECTION.intervalMs / 1000;
+      const step = COIN_COLLECTION.pullCellsPerSecond * scene.cellM * elapsedMs / 1000;
       if (distance <= Math.max(step, COIN_COLLECTION.arrivalCells * scene.cellM)) {
         playerCoins += collectGroundCoin(scene, entry, coin);
       } else {
@@ -502,8 +503,7 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
   }
   Rewards.apply(save, reward, scene);
   // Shown by the one presenter: a card under the caller's framing, or the
-  // toast led by `mark`; a beaten relic roll (cashed out by
-  // reconcileRelicOffer) wears Rewards.BEATEN_GEAR either way.
+  // toast led by `mark`. Converted rewards show only the coins received.
   if (!(ceremony && Rewards.present(scene, reward, { extra: ceremony }))) {
     Rewards.present(scene, reward, { mode: 'toast', mark });
   }

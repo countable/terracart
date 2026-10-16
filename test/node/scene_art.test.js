@@ -70,7 +70,8 @@ test('scene art: generic Story is omitted and useful categories follow the image
   assert.truthy(shell.includes("art && kind === 'story' && (!kindLabel || kindLabel === 'Story')"), 'painted stories omit only the generic heading');
   assert.truthy(shell.includes('into.insertBefore(kindNode, into.firstChild)'), 'other category headings belong to the content below the image');
   const sceneShell = shell.slice(shell.indexOf('  makeModalShell('), shell.indexOf('  _placeSpeechBubble('));
-  assert.falsy(/layoutArt|ResizeObserver/.test(sceneShell), 'CSS owns square geometry without resize-driven JS layout');
+  assert.truthy(sceneShell.includes("if (spacer && (compactArt || id === 'offer-modal' || id === 'scholar-modal'))"), 'only offers resize their square art to keep transaction controls together');
+  assert.truthy(sceneShell.includes('resize.observe(into)'), 'receipts and changing ingredients refit the offer art');
 });
 
 test('scene art: new generated scenes use full square compositions', () => {

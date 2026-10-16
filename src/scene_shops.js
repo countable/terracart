@@ -1249,10 +1249,11 @@ class SceneShops {
     const moneyShort = () => (this.save.money ?? 0) < coinCost;
     let cost = craft
       ? '<div class="recipe-ingredients" style="text-align:left;font-size:13px;font-weight:400">'
-        + '<div style="text-align:right;color:#bdb5a4;font-size:11px;margin-bottom:4px">Have / Need</div>'
+        + '<div style="display:flex;justify-content:space-between;gap:8px;color:#bdb5a4;font-size:11px;margin-bottom:4px">'
+        + `<span>${coinCost > 0 ? 'Ingredients and fee' : 'Ingredients'}</span><span>Have / Need</span></div>`
         + recipe.map(r => {
           const have = held(r.id), missing = Math.max(0, r.qty - have);
-          return '<div class="recipe-ingredient" style="display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #ffffff1f">'
+          return '<div class="recipe-ingredient" style="display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;padding:4px 0;border-top:1px solid #ffffff1f">'
             + `<span style="line-height:0">${this.iconSpanHTML(r.id, 24)}</span>`
             + `<span style="color:#eee">${itemName(r.id)}</span>`
             + `<span style="text-align:right;color:${missing ? UI_DANGER_INK : UI_GREEN}">`
@@ -1262,12 +1263,14 @@ class SceneShops {
         }).join('') + '</div>'
       : recipe.map(r => `<span style="color:${held(r.id) >= r.qty ? UI_GREEN : UI_DANGER_INK}">`
         + `${r.qty}× ${this.iconSpanHTML(r.id)} ${itemName(r.id)}</span>`).join(' + ');
-    if (coinCost > 0) cost += `<div style="margin-top:8px;color:${moneyShort() ? UI_DANGER_INK : UI_GREEN}">`
+    if (coinCost > 0) cost += `<div style="margin-top:4px;color:${moneyShort() ? UI_DANGER_INK : UI_GREEN}">`
       + `Brewing fee: ${this.moneyHTML(coinCost)}</div>`;
     this.showOfferModal({
       kind: 'forge',
       costLabel: 'You give',
       ...modal,
+      // The table captions its ingredients and counts together on one row.
+      ...(craft ? { costLabel: '', forLabel: '' } : {}),
       cost,
       disabledReason: modal.disabledReason || (craft && short() ? 'Missing ingredients'
         : moneyShort() ? purseShort(coinCost) : undefined),

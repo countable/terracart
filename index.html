@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=a0673eb2" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=3cf04b0c" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -884,7 +884,7 @@
     }
     #bootload .box, #story .box {
       position: relative; width: 100%; max-width: 520px; max-height: 100%;
-      box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain;
+      box-sizing: border-box; overflow: hidden;
       background-color: #1a1612; color: #fff;
       border: 1px solid #6b5a2c; border-radius: 10px;
       box-shadow: 0 8px 40px rgba(0,0,0,.7);
@@ -946,6 +946,9 @@
        pops up from slightly smaller and lower. Short — a dialog should feel
        placed, not performed. Skipped for a dialog that replaces another in
        the same tap, and for anyone who asks the OS for less motion. */
+    .modal-content { overflow-wrap: anywhere; }
+    .modal-content button, .modal-content img, .modal-content tr,
+    .modal-content details { break-inside: avoid; }
     .modal-anim { animation: modal-fade 140ms ease-out both; }
     /* PIXEL RESOLVE's wait (modal_shell.js): the last mosaic cut breathes
        while the painting is still on its way, so a slow load reads as one. */
@@ -982,17 +985,18 @@
       display: flex; align-items: center; justify-content: center;
     }
     #story .box {
+      display: flex; flex-direction: column;
       text-align: center;
       font: 15px var(--font-ui); line-height: 1.5;
     }
     #story .art {
-      width: 100%; aspect-ratio: 512 / 341;
+      width: 100%; aspect-ratio: 512 / 341; min-height: 0; flex: 0 1 auto;
     }
     #story .art img {
       display: block; image-rendering: pixelated;
       width: 100%; height: 100%; object-fit: contain;
     }
-    #story .opening-copy { padding: 24px 20px; }
+    #story .opening-copy { padding: 16px 18px; flex: 0 0 auto; }
     #story p { margin: 0 0 18px; min-height: 3em; }
     #story button {
       background: var(--gold-dark); color: #1a1612; border: 0;
@@ -1075,9 +1079,9 @@
       max-width: 320px; width: 100%;
       background: #1a1612; color: #fff;
       border: 2px solid var(--dialog-border); border-radius: 12px;
-      padding: 20px; text-align: left;
+      box-sizing: border-box; padding: 14px; text-align: left;
       font: 13px var(--font-ui); line-height: 1.45;
-      max-height: 80vh; overflow-y: auto;
+      max-height: calc(100dvh - 24px); overflow: hidden;
     }
     #howto h2 {
       margin: 0 0 14px; text-align: center;
@@ -1088,7 +1092,7 @@
        SpriteLayout.PLAYER_ART.farmer, the sheet every save starts on) toward
        the GPS crosshair the scene draws at your real position. The farmer's
        16px frames are drawn at exactly 4x so the pixel grid stays square. */
-    #howto .demo { margin: 0 0 16px; }
+    #howto .demo { margin: 0 0 8px; }
     /* Stage + labels share one column track list, so each caption sits exactly
        under its sprite without any nudging. */
     #howto .demo .stage, #howto .demo .labels {
@@ -1149,7 +1153,7 @@
        what the game IS; the objective chip (quests.js STARTER_CHAIN) teaches
        the verbs, so nothing here repeats a ladder step. */
     #howto .lead {
-      margin: 0 0 14px; color: #fff; font-size: 14px; line-height: 1.5;
+      margin: 0 0 8px; color: #fff; font-size: 14px; line-height: 1.5;
     }
     /* The keyboard aside is only true where there IS a keyboard. A coarse
        primary pointer means a phone or tablet, where "WASD on a computer" is
@@ -1158,7 +1162,7 @@
     @media (pointer: coarse) {
       #howto .lead .kbd-only { display: none; }
     }
-    #howto dl { margin: 0 0 14px; }
+    #howto dl { margin: 0 0 8px; }
     #howto dt {
       color: var(--green); font-weight: 700; margin-top: 11px;
     }
@@ -1207,7 +1211,7 @@
   <link rel="stylesheet" href="css/compass_shine.css?v=2196f9a5">
   <link rel="stylesheet" href="css/compass_hud.css?v=4cf8bc12">
   <link rel="stylesheet" href="css/compass_inventory.css?v=2c3aceb5">
-  <link rel="stylesheet" href="css/compass_panels.css?v=2755fdac">
+  <link rel="stylesheet" href="css/compass_panels.css?v=4a6c8733">
   <link rel="stylesheet" href="css/speech_bubbles.css?v=03979abe">
   <link rel="stylesheet" href="css/book_reader.css?v=79db504e">
 </head>
@@ -2225,18 +2229,30 @@
       const results = document.createElement('div');
       results.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
       catalog = [...catalog].sort((a, b) => a.name.localeCompare(b.name));
+      let resultPage = 0;
+      const pageSize = 4;
+      const pager = document.createElement('div');
+      pager.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;';
+      const previous = mkBtn('Previous', { variant: 'ghost' });
+      const next = mkBtn('Next', { variant: 'ghost' });
+      const pageLabel = document.createElement('span');
+      pager.append(previous, pageLabel, next);
       const render = () => {
         const query = search.value.trim().toLocaleLowerCase();
         results.replaceChildren();
-        for (const item of catalog) {
-          if (!item.name.toLocaleLowerCase().includes(query)) continue;
+        const matches = catalog.filter(item => item.name.toLocaleLowerCase().includes(query));
+        const count = Math.max(1, Math.ceil(matches.length / pageSize));
+        resultPage = Math.min(resultPage, count - 1);
+        previous._setEnabled(resultPage > 0);
+        next._setEnabled(resultPage < count - 1);
+        pageLabel.textContent = `${resultPage + 1} / ${count}`;
+        for (const item of matches.slice(resultPage * pageSize, (resultPage + 1) * pageSize)) {
           const button = mkBtn('', { variant: 'ghost', css: 'flex-shrink:0;min-height:44px;text-align:left;' });
           button.textContent = item.name;
           button.addEventListener('click', () => { status.textContent = obtain(item); });
           results.appendChild(button);
         }
         if (!results.childElementCount) results.textContent = `No ${subject} found.`;
-        results.scrollTop = 0;
       };
       const close = () => { wrap.remove(); onClose(); };
       const closeButton = mkBtn('Close', { variant: 'ghost', css: 'flex-shrink:0;' });
@@ -2245,8 +2261,10 @@
         event.stopPropagation();
         if (event.key === 'Escape') { event.preventDefault(); close(); }
       });
-      search.addEventListener('input', render);
-      box.append(search, status, results, closeButton);
+      search.addEventListener('input', () => { resultPage = 0; render(); });
+      previous.addEventListener('click', () => { resultPage--; render(); });
+      next.addEventListener('click', () => { resultPage++; render(); });
+      box.append(search, status, results, pager, closeButton);
       render();
       mount();
       search.focus();
@@ -3015,7 +3033,7 @@
   <script src="src/delivery.js?v=66bf194d"></script>
   <script src="src/save_state.js?v=ae7cd584"></script>
   <script src="src/gear.js?v=9a5ec3b7"></script>
-  <script src="src/rewards.js?v=6fe55996"></script>
+  <script src="src/rewards.js?v=96c1ee94"></script>
   <script src="src/shops_math.js?v=61fb7d5a"></script>
   <script src="src/shops.js?v=d70ca906"></script>
   <script src="src/egg_hatch.js?v=c8e90711"></script>
@@ -3051,7 +3069,7 @@
   <script src="src/pet_story_art.js?v=4bf942ec"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
   <script src="src/story_encounters.js?v=b3b3aa16"></script>
-  <script src="src/interact.js?v=d1038e96"></script>
+  <script src="src/interact.js?v=4b40e15f"></script>
   <script src="src/play_tips.js?v=127e4634"></script>
   <script src="src/lighting_gpu.js?v=c2cf90df"></script>
   <script src="src/lighting.js?v=da2d7003"></script>
@@ -3069,12 +3087,12 @@
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=c1099b24"></script>
   <script src="src/art_thumbs.js?v=d8fea2bb"></script>
-  <script src="src/modal_shell.js?v=4c0c30f0"></script>
+  <script src="src/modal_shell.js?v=9f7162b0"></script>
   <script src="src/scene_geo.js?v=5440fa32"></script>
   <script src="src/npc.js?v=98dd939b"></script>
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
-  <script src="src/scene_shops.js?v=33316904"></script>
+  <script src="src/scene_shops.js?v=9727d3f5"></script>
   <script src="src/heading_up.js?v=a4d84659"></script>
   <script src="src/compass_modules.js?v=de335c76"></script>
   <script src="src/compass_shine.js?v=1533df4e"></script>
@@ -3085,7 +3103,7 @@
   <script src="src/scene_sky.js?v=4d74ca34"></script>
   <script src="src/scene_consumables.js?v=60f8d610"></script>
   <script src="src/scene_pets.js?v=b0c58511"></script>
-  <script src="src/scene_venues.js?v=1ff89167"></script>
+  <script src="src/scene_venues.js?v=017cdc62"></script>
   <script src="src/scene_streets.js?v=d84eee30"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
@@ -3157,7 +3175,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=a0673eb2';
+      const APP_SRC = 'src/app.js?v=3cf04b0c';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

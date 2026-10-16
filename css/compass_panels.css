@@ -259,3 +259,29 @@ body.compass-hud #menu[open] > summary {
 }
 
 .compass-panel .modal-scene .modal-title { position: relative; top: 4px; }
+
+/* Offers reserve the rail, then fit a smaller square painting above the
+   complete transaction. The shell measures copy height without reducing type. */
+.compass-panel.compact-offer .modal-art-spacer {
+  padding-top: var(--panel-rail-height);
+  padding-bottom: 10px;
+}
+.compass-panel.compact-offer .modal-art-spacer::before {
+  width: var(--offer-art-size, 64px);
+  margin: 0 auto;
+}
+.compass-panel.compact-offer .modal-art,
+.compass-panel.compact-offer .modal-art-mosaic {
+  top: var(--panel-rail-height) !important;
+  left: 50% !important;
+  right: auto !important;
+  width: var(--offer-art-size, 64px);
+  transform: translateX(-50%);
+}
+.compass-panel.compact-offer .modal-kind { margin-bottom: 4px; }
+/* Short phones give transaction controls the space above the usual sheet
+   edge before reducing the painting further. Type and targets stay intact. */
+@media (max-height: 650px) {
+  .compass-panel.compact-offer > .modal-box { top: 0 !important; }
+  .compass-panel[data-kind='wizard'] > .modal-box { padding-bottom: 10px !important; }
+}

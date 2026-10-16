@@ -6,6 +6,12 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- Shop offers compact recipe rows, selector spacing and ingredient headings.
+  Their artwork shrinks when needed to keep prices, shortfalls, receipts and
+  actions visible together in the current compass sheet.
+- Rewards converted to coins show only the coin reward in dialogs and toasts,
+  without naming the replaced item or explaining the conversion.
+
 - All game text uses the system sans stack in `--font-ui` (`index.html`) and
   its canvas counterpart `FONT_UI_STACK` (`src/util.js`): `-apple-system`,
   `BlinkMacSystemFont`, `"Segoe UI"`, `Roboto`, `"Noto Sans"`, `Ubuntu`, `Cantarell`,
@@ -246,7 +252,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   counts and the existing receipt. Recipe selection never spends ingredients;
   acceptance still rechecks unlocks, bag room, and ingredients before spending.
 - The Book Club is a lending catalog shared across scholars. Keep total/free
-  credit visible above the scrolling shelf; All tomes and On loan filters
+  credit visible above the paged shelf; All tomes and On loan filters
   support preparing spells and returning them. Each row shows its effect,
   credit cost, borrowed/owned counts, and an explicit unlock or affordability
   reason. Borrow and Return update the catalog in place with one receipt;

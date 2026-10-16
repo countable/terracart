@@ -24,7 +24,7 @@
 // so do the toasts (TOAST_TIER — a map message is not a dialog) and the icon
 // renderers a dialog's copy uses (iconSpanHTML, worldIconHTML,
 // _prewarmModalIcons). See CLAUDE.md "Every dialog opens on a PAINTING" before
-// changing the frame or the band here, and tools/modal_audit.js for the
+// changing the frame or painting here, and tools/modal_audit.js for the
 // every-dialog-has-a-kind check.
 
 // Base geometry follows the map width; compass_panels.css extends the shared
@@ -117,7 +117,7 @@ class SceneModals {
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0002', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false } = {}) {
+    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false, compactArt = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
     // Scene art is a story-sized dialog with a square image above its copy.
@@ -162,7 +162,7 @@ class SceneModals {
       ? 'position:absolute;inset:0;box-sizing:border-box;display:flex;flex-direction:column;' +
         'background:#1a1612;color:#fff;border:0;border-radius:0;' +
         'padding:max(14px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom));' +
-        'font:13px var(--font-ui);overflow-y:auto;overscroll-behavior:contain;' +
+        'font:13px var(--font-ui);overflow:hidden;' +
         (textAlign ? `text-align:${textAlign};` : '') + boxExtra
       :
       // Seated on the map square, in #game's own (game px) space; the wrap
@@ -173,9 +173,8 @@ class SceneModals {
       `background:#1a1612;color:#fff;` +
       `border:2px solid ${frameBorder};border-radius:10px;padding:14px 16px;` +
       `font:13px var(--font-ui);` +
-      // Content that outgrows the square scrolls INSIDE it — the box never
-      // grows to fit. (Stats & Relics is the long one.)
-      `overflow-y:auto;overscroll-behavior:contain;` +
+      // Content that outgrows the sheet uses its body scroller; the box stays fixed.
+      `overflow:hidden;` +
       (textAlign ? `text-align:${textAlign};` : '') +
       boxExtra;
     // The 750×220 dragon rail must keep its full height at this panel width.
@@ -388,6 +387,35 @@ class SceneModals {
       wrap.appendChild(box);
       (speech ? document.body : document.getElementById('game') || document.body).appendChild(wrap);
       if (speech) { this._syncModalGate?.(); this._placeSpeechBubble(wrap, box, source); }
+      // Shop controls stay together: spend spare height on a square painting,
+      // then shrink that painting as receipts or ingredient shortfalls grow.
+      // Other dialogs retain their full-width scene and single scroll region.
+      if (spacer && (compactArt || id === 'offer-modal' || id === 'scholar-modal')) {
+        wrap.classList.add('compact-offer');
+        let frame = 0;
+        const fitOffer = () => {
+          frame = 0;
+          if (!wrap.isConnected) return;
+          const rail = parseFloat(getComputedStyle(box).getPropertyValue('--panel-rail-height')) || 0;
+          const available = body.clientHeight - into.offsetHeight - rail - 16;
+          const size = Math.max(64, Math.min(body.clientWidth, available));
+          box.style.setProperty('--offer-art-size', `${Math.floor(size)}px`);
+        };
+        const scheduleFit = () => {
+          if (!frame) frame = requestAnimationFrame(fitOffer);
+        };
+        const resize = new ResizeObserver(scheduleFit);
+        resize.observe(body);
+        resize.observe(into);
+        document.fonts?.ready.then(scheduleFit);
+        const removal = new MutationObserver(() => {
+          if (wrap.isConnected) return;
+          resize.disconnect(); removal.disconnect();
+          cancelAnimationFrame(frame);
+        });
+        removal.observe(wrap.parentNode, { childList: true });
+        fitOffer();
+      }
     };
     // ONE button factory for every button a modal shows, in two VARIANTS:
     //   primary — a CONTROL: gold, always (spec §UI COLOUR LANGUAGE), or a
@@ -557,7 +585,7 @@ class SceneModals {
   // `art` (optional) — the story's own SCENE painting (assets/art/ stem); a
   // dialog with one is a STORY unless the caller names another kind.
   // `kind` (optional) — the MODAL_KINDS category; a plain message is a 'note'.
-  showMessageModal({ title, body, okLabel, onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false, source, bookPage = false }) {
+  showMessageModal({ title, body, okLabel, onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false, source, bookPage = false, compactArt = false }) {
     document.getElementById('offer-modal')?.remove();
     let dismissed = false;
     const dismiss = () => {
@@ -569,7 +597,7 @@ class SceneModals {
       if (typeof onDismiss === 'function') onDismiss();
     };
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
-      { zIndex: 60, onClose: mustAcknowledge ? undefined : dismiss, kind: kind, kindLabel, art: bookPage ? false : art, portrait, source, bookPage, header: !bookPage });
+      { zIndex: 60, onClose: mustAcknowledge ? undefined : dismiss, kind: kind, kindLabel, art: bookPage ? false : art, portrait, source, bookPage, compactArt, header: !bookPage });
     const safeBody = String(body).replace(/\n/g, '<br>');
     // No title, no title line: a page whose own heading is in the body (the
     // Book's volume line) starts on it, with no empty gold row above.
@@ -765,7 +793,7 @@ class SceneModals {
     // without restructuring the single-offer modal into a stateful panel.
     if (tabs && tabs.length) {
       const tabRow = document.createElement('div');
-      tabRow.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-bottom:8px;';
+      tabRow.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-bottom:4px;';
       for (const t of tabs) {
         const tb = mkBtn(t.label, { variant: 'ghost', css:
           'flex:1;padding:6px 4px;border-radius:6px 6px 0 0;font:700 12px var(--font-ui);border-bottom:none;'
@@ -812,7 +840,7 @@ class SceneModals {
       // unavailable ones whose ingredient requirements the player wants to see.
       const picker = document.createElement('div');
       picker.className = 'recipe-picker';
-      picker.style.cssText = 'display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:10px;margin:8px 0;';
+      picker.style.cssText = 'display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:10px;margin:4px 0;';
       const icon = document.createElement('span');
       icon.style.cssText = 'line-height:0;text-align:center;';
       icon.innerHTML = pager.iconHTML || '';
@@ -835,7 +863,7 @@ class SceneModals {
       picker.appendChild(icon); picker.appendChild(select); box.appendChild(picker);
       const caption = document.createElement('div');
       caption.id = 'offer-recipe-caption';
-      caption.style.cssText = 'font-size:12px;color:#c9c1af;margin:0 0 8px;';
+      caption.style.cssText = 'font-size:12px;color:#c9c1af;margin:0 0 4px;';
       caption.textContent = pager.caption || `${pager.index + 1} / ${pager.count}`;
       box.appendChild(caption);
     } else if (pager && pager.count > 1) {
@@ -936,7 +964,7 @@ class SceneModals {
         // no caption: the line below is the cost
       } else if (costLabel) {
         box.appendChild(mkCaption(costLabel));
-      } else {
+      } else if (forLabel) {
         const forDiv = document.createElement('div');
         forDiv.style.cssText = 'opacity:.85;margin:6px 0 4px';
         forDiv.textContent = forLabel;
@@ -954,7 +982,7 @@ class SceneModals {
     if (disabledReason) {
       const reason = document.createElement('div');
       reason.className = 'offer-disabled-reason';
-      reason.style.cssText = 'color:#ffcf8a;font-size:13px;margin:4px 0 10px;';
+      reason.style.cssText = 'color:#ffcf8a;font-size:13px;margin:4px 0;';
       reason.textContent = disabledReason;
       box.appendChild(reason);
     }
@@ -1158,7 +1186,7 @@ class SceneModals {
       zIndex: 55, borderColor: accent, wrapBg: '#000c', art, portrait, centerBody: true,
       kind, kindLabel: header, kindIcon, source,
       wrapExtra: 'animation:chestModalIn 180ms ease-out;',
-      boxExtra: `border-width:3px;border-radius:14px;padding:22px 22px 14px;font-size:14px;` +
+      boxExtra: `border-width:3px;border-radius:14px;padding:12px 14px 10px;font-size:14px;` +
         `animation:chestRewardPop 320ms cubic-bezier(.34,1.56,.64,1);`,
     });
     // Keyframes injected once. The sparkle keyframe reads its drift vector
@@ -1209,7 +1237,7 @@ class SceneModals {
       // One shared line under the row: the pick's hint, then the SELECTED
       // card's info. Word buttons (no cards) have no line.
       const infoLine = document.createElement('div');
-      infoLine.style.cssText = 'margin-top:10px;font-size:12px;line-height:1.35;opacity:.9;min-height:1.35em;'
+      infoLine.style.cssText = 'margin-top:6px;font-size:12px;line-height:1.35;opacity:.9;min-height:1.35em;'
         + (cards ? '' : 'display:none;');
       if (cards) infoLine.innerHTML = `<span style="opacity:.6">${pickHint}</span>`;
       const choose = (a) => {
@@ -1222,7 +1250,7 @@ class SceneModals {
       // The card buttons: a primary word in the ceremony's accent (the shell's
       // raised control), the rest ghosts. A card row's buttons share the row.
       const cardCss = 'position:relative;border-radius:7px;font:700 12px var(--font-ui);' +
-        (cards ? 'flex:1 1 0;min-width:0;padding:12px 4px 9px;' : 'padding:9px 14px;');
+        (cards ? 'flex:1 1 0;min-width:0;padding:8px 4px 6px;' : 'padding:9px 14px;');
       for (const a of actions) {
         const b = mkBtn(a.label, a.primary ? { accent, css: cardCss } : { variant: 'ghost', css: cardCss });
         b.addEventListener('click', (e) => {
@@ -1243,7 +1271,7 @@ class SceneModals {
         // The one button that pays: the shell's primary in the ceremony's
         // accent, dead until a card is selected.
         take = mkBtn(confirmLabel, { accent, css:
-          'margin-top:12px;min-width:55%;padding:10px 18px;border-radius:7px;font:700 14px var(--font-ui);' });
+          'margin-top:8px;min-width:55%;padding:10px 18px;border-radius:7px;font:700 14px var(--font-ui);' });
         take._setEnabled(false);
         take.addEventListener('click', (e) => {
           e.stopPropagation();
