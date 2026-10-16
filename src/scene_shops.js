@@ -537,8 +537,8 @@ class SceneShops {
   // starts far from START_LAT would get a trailer off-screen near the origin.
   //
   // Once a GPS fix is in and every tile the viewport overlaps is ready, Home
-  // is the wagon parked one cell north of the player, so they start on its
-  // doorstep, with an empty firepit at their lower left (_placeHome); any
+  // waits for the first compass reading, then parks ahead of the player,
+  // with an empty firepit behind them on the door side (_placeHome); any
   // house standing there is cleared (clearHomeFooting). An older save whose
   // Home is an adopted house keeps it while that house is loaded, so Home is
   // stable across roaming and reloads, while a stale origin-anchored memo
@@ -601,15 +601,20 @@ class SceneShops {
     for (const ox of [-HALF_VIEW_M, HALF_VIEW_M])
       for (const oy of [-HALF_VIEW_M, HALF_VIEW_M])
         if (!tileReadyAt(ox, oy)) return;        // a viewport tile is still streaming — wait
+    // Wait for an actual heading before committing a new Home. The sandbox
+    // has no device requirement; existing saved Homes returned above.
+    const heading = this._homeInitialHeading ?? this._deviceCompass?.deg ?? this.compassDeg;
+    if (!Number.isFinite(heading) && !this._sandboxMode) return;
     // Place Home round the player: they start at the wagon's door, the empty
-    // firepit at their lower left, and whatever house stood there is cleared
+    // firepit behind them, and whatever house stood there is cleared
     // (_placeHome). Measured from the frozen starter anchor when the player
     // is still on it, so the wagon sits exactly where the starter passes
     // kept clear (HomeArea.inFooting).
     const sc = this.save.starterCratesAt;
     const fromAnchor = sc && Number.isFinite(sc.x)
       && Math.max(Math.abs(sc.x - ax), Math.abs(sc.y - ay)) < this.cellM * 2;
-    this._placeHome(fromAnchor ? sc.x : ax, fromAnchor ? sc.y : ay);
+    this._placeHome(fromAnchor ? sc.x : ax, fromAnchor ? sc.y : ay,
+      typeof HeadingUp !== 'undefined' && HeadingUp.enabled ? (heading || 0) : 0);
     this._starterShopOk = true;
     this._setStarterCratesAt(ax, ay);
   }

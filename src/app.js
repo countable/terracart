@@ -5902,8 +5902,11 @@ class MapScene extends Phaser.Scene {
     const e = k * k * (3 - 2 * k);
     const span = I.viewCells + (VIEW_CELLS / (this._mapZoomRest || 1) - I.viewCells) * e;
     this.mapZoom = VIEW_CELLS / span;
-    this.peekM.x = I.focus.dx * this.cellM * (1 - e);
-    this.peekM.y = I.focus.dy * this.cellM * (1 - e);
+    // Keep the opening close-up on the entrance side chosen at placement.
+    const a = (this.save.homePlacementHeading || 0) * Math.PI / 180;
+    const c = Math.cos(a), s = Math.sin(a);
+    this.peekM.x = (I.focus.dx * c - I.focus.dy * s) * this.cellM * (1 - e);
+    this.peekM.y = (I.focus.dx * s + I.focus.dy * c) * this.cellM * (1 - e);
     if (k >= 1) {
       this._homeIntro = null;
       this.mapZoom = this._mapZoomRest || 1;

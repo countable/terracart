@@ -86,6 +86,41 @@
     });
   });
 
+  test('home footing: a new live Home waits for compass, then freezes its entrance-side layout', () => {
+    withTile(tile([]), () => {
+      const s = scene({ homeCompassDetected: false });
+      s.gpsM = at(30,30); s.playerM = { ...s.gpsM };
+      s._setStarterCratesAt = () => {};
+      s.ensureStarterShopId = lift('ensureStarterShopId');
+      s.ensureStarterShopId();
+      assert.eq(s.save.starterTrailer, undefined, 'no trailer before the reading');
+      assert.eq(s.save.homeFirepit, undefined, 'no firepit before the reading');
+      s._deviceCompass = { deg: 180 };
+      s._onFirstCompass();
+      s.ensureStarterShopId();
+      near(s.save.starterTrailer.y, at(30,31).y, 'trailer ahead when facing south');
+      near(s.save.homeFirepit.y, at(30,28).y, 'firepit behind the player');
+      near(s.playerM.y, at(30,30).y, 'the player never moves');
+      const trailer = JSON.stringify(s.save.starterTrailer), pit = JSON.stringify(s.save.homeFirepit);
+      s._deviceCompass.deg = 0; s._onFirstCompass(); s.ensureStarterShopId();
+      assert.eq(JSON.stringify(s.save.starterTrailer), trailer, 'turning cannot move Home');
+      assert.eq(JSON.stringify(s.save.homeFirepit), pit, 'turning cannot move the firepit');
+      const reload = scene(JSON.parse(JSON.stringify(s.save)));
+      reload.ensureStarterTrailerObject();
+      assert.eq(JSON.stringify(reload.save.homeFirepit), pit, 'reload retains the saved layout');
+    });
+  });
+
+  test('home footing: entrance-side offsets follow cardinal and diagonal compass headings', () => {
+    for (const heading of [0,45,90,135,180,225,270,315]) {
+      const { wagon, firepit } = HomeArea.placementOffsets(heading);
+      const a = heading * Math.PI / 180;
+      const screenY = p => -Math.sin(a) * p.dx + Math.cos(a) * p.dy;
+      assert.truthy(screenY(wagon) < 0, `${heading}: trailer above player`);
+      assert.truthy(screenY(firepit) > 0, `${heading}: firepit below player`);
+    }
+  });
+
   test('home footing: old firepit and its lit fire centre together without changing cells or fire state', () => {
     const centre = at(29, 31);
     const pit = { x: centre.x + CELL_M * 0.25, y: centre.y - CELL_M * 0.25 };
