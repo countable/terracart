@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=ec642a30" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=8b006c5f" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1219,7 +1219,7 @@
     #howto button#howto-close[hidden] { display: none; }
   </style>
   <link rel="stylesheet" href="css/compass_shine.css?v=2196f9a5">
-  <link rel="stylesheet" href="css/compass_hud.css?v=5c34b447">
+  <link rel="stylesheet" href="css/compass_hud.css?v=fd367abf">
   <link rel="stylesheet" href="css/compass_inventory.css?v=6a84fa90">
   <link rel="stylesheet" href="css/compass_panels.css?v=8c8a4d91">
 </head>
@@ -3072,8 +3072,8 @@
   <script src="src/multiplayer.js?v=a57c92a7"></script>
   <script src="src/road_overlay.js?v=d8ee1725"></script>
   <script src="src/temple_art.js?v=ef92c84b"></script>
-  <script src="src/wall_perspective.js?v=3be71b5e"></script>
-  <script src="src/building_overlay.js?v=4d8cca1c"></script>
+  <script src="src/wall_perspective.js?v=028ee9f0"></script>
+  <script src="src/building_overlay.js?v=78e15705"></script>
   <script src="src/assets.js?v=6a37a018"></script>
   <script src="src/sandbox_destinations.js?v=f0a1f55d"></script>
   <script src="src/sandbox.js?v=60d9c0d6"></script>
@@ -3168,7 +3168,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=ec642a30';
+      const APP_SRC = 'src/app.js?v=8b006c5f';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
