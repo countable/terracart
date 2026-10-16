@@ -117,6 +117,9 @@
       const a = heading * Math.PI / 180;
       const screenY = p => -Math.sin(a) * p.dx + Math.cos(a) * p.dy;
       assert.truthy(screenY(wagon) < 0, `${heading}: trailer above player`);
+      const foot = HomeArea.wagonArtFoot(heading);
+      near(screenY(foot), HomeArea.WAGON_ART_FOOT.dy, `${heading}: doorway offset follows initial heading`);
+      assert.truthy(Math.abs(screenY(wagon) + screenY(foot)) < 0.5, `${heading}: doorway within half a cell of player`);
       assert.truthy(screenY(firepit) > 0, `${heading}: firepit below player`);
     }
   });

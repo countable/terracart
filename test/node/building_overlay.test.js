@@ -243,7 +243,7 @@ test('building overlay: the LOWER building draws in front', () => {
   }
 });
 
-test('building overlay: a footprint Home cleared is only a 50% shadow, under every building', () => {
+test('building overlay: a footprint Home cleared is only a 20% shadow, under every building', () => {
   clearTiles();
   // The cleared house sits SOUTH of the standing one, so the painter rule
   // alone would draw it last.
@@ -254,7 +254,7 @@ test('building overlay: a footprint Home cleared is only a 50% shadow, under eve
   const g = scene.buildingGeomGfx;
   assert.eq(g.ops[0].op, 'fill', 'the shadow paints first');
   assert.eq(g.ops[0].color, 0x000000, 'black');
-  assert.eq(g.ops[0].alpha, 0.5, 'at 50% opacity');
+  assert.eq(g.ops[0].alpha, 0.2, 'at 20% opacity');
   assert.eq(g.ops[0].pts[0].y, px(30), 'over the cleared footprint');
   assert.eq(g.only('fill').filter(o => o.alpha != null).length, 1, 'no wall or floor for it');
   assert.eq(g.only('stroke').length, 1, 'only the standing house is outlined');
