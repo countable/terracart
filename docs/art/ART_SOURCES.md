@@ -50,8 +50,10 @@ export an existing master without changing the painting.
 
 ## Opening compass slide
 
-`story_compass` and `story_compass_frame2` are composites, not fresh paintings:
-`tools/art/reskin_story_compass.py` re-skins the generated device in the HUD's
-living-silver dragonscale (`assets/ui/compass/reference-carving-tile.webp`) and
-blurs, greys and darkens everything past it, so the world behind the discovery
-stays unreadable. Its header names the pre-reskin paintings it reads.
+`story_compass` and `story_compass_frame2` are generated, matching portrait
+paintings based on the selected living-silver HUD mockup. The first shows the
+compass in grass beside a residential sidewalk; the second shows a gloved hand
+lifting it. The camera and neighbourhood remain aligned for the one-time fade.
+See [opening-compass-prompts.json](opening-compass-prompts.json) for masters,
+full prompts, source hashes and WebP export settings. The older
+`tools/art/reskin_story_compass.py` is not part of this asset pipeline.
