@@ -867,9 +867,8 @@ class SceneStreets {
     this.showMessageModal({
       title: TRAIL_INTRO_TITLE,
       body: trailIntroBody(this.save.playerClass),
-      // The banner the promise is made in: survivors watching the repair —
-      // the story this dialog tells, drawn rather than described.
-      art: 'trail_intro',
+      // The Hood begins the work alone; neighbours arrive at the first reward.
+      art: 'road_repair',
       onDismiss: onDone,
     });
     const st = this.save.trail = this.save.trail || { metres: 0, prizes: 0 };
@@ -1022,7 +1021,7 @@ class SceneStreets {
     const fixed = Trail.fixedPrize(n, this.save);
     const choices = fixed?.sole ? [fixed] : Trail.rollCardRow(rollFor, fixed ? [fixed] : []);
     // The ceremony carries the survivors' thanks; the road counter shows progress.
-    const header = TRAIL_PRIZE_HEADER;
+    const header = n === 1 ? 'The survivors are watching' : TRAIL_PRIZE_HEADER;
     if (!choices.length) {
       // Defensive fallback — give 5 coins so the player isn't stiffed.
       addMoney(this.save, 5);

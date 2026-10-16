@@ -110,7 +110,11 @@ North-up mode retains the existing wall atlas artwork.
   compass reports, unless direction lock is engaged. The gold lock beside zoom
   holds the current map rotation while sensor readings continue; the caret then
   shows phone direction. Unlocking eases toward the current sensor heading. This
-  scene-local choice resets on scene creation. Desktop without a heading sensor
+  scene-local choice resets on scene creation. Until a GPS fix is captured,
+  direction is forced locked even if the heading sensor reports. Tapping the
+  lock subscribes to the shared GPS watch and unlocks on success; failure keeps
+  it locked. Repeated taps share one pending request, released on shutdown.
+  Detection alone does not relocate a sandbox or teleport world. Desktop without a heading sensor
   and north-up mode retain the caret. The heading-up compass rim keeps its north marker.
   Game state stays north-up; taps, peek drags and steering convert back
   through `HeadingUp.toWorldVec`, including the manual GPS stick.

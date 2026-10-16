@@ -376,7 +376,7 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
   // the ceremony, with the count it paid at on the pick's flavour line.
   assert.truthy(/const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';/.test(app),
     'the header constant');
-  assert.truthy(/const header = TRAIL_PRIZE_HEADER;/.test(body), 'the ceremony uses it');
+  assert.truthy(/const header = n === 1 \? 'The survivors are watching' : TRAIL_PRIZE_HEADER;/.test(body), 'the first reward introduces survivors; later rewards thank the player');
   assert.eq((body.match(/header,/g) || []).length, 3, 'all three shapes carry the header');
   assert.falsy(/sub: 'Your neighbours offer/.test(body), 'no flavour line under the pick: header, row, line, button');
   assert.falsy(/\$\{walked\}|\$\{next\}/.test(body), 'the ceremony does not duplicate road counters');
@@ -1146,7 +1146,9 @@ test('streets: the one-time dialog opens once enough road is repaired', () => {
     assert.eq(s.intros[0].title, TRAIL_INTRO_TITLE, 'with the greeting title');
     assert.truthy(s.save.trail.greeted, 'and the save remembers it');
     assert.falsy(/\d/.test(s.intros[0].body), 'thresholds stay on the road counter');
-    assert.truthy(/survivor/i.test(s.intros[0].body) && /gift/.test(s.intros[0].body), 'the road has people to thank you');
+    assert.eq(s.intros[0].title, 'You Start Fixing The Roads', 'the first beat introduces road repair');
+    assert.eq(s.intros[0].body, 'They are the arteries of civilization.', 'the repair stands on its own before neighbours arrive');
+    assert.eq(s.intros[0].art, 'road_repair', 'the painting shows the player repairing the road');
     // …and never again.
     s.playerM = { x: MID_M + CELL_M * 10, y: MID_M };
     clock.at(PATH_STONE_DWELL_MS * 6); sweep(s);

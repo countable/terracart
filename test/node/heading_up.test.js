@@ -1,6 +1,6 @@
 // Rendering transforms must not leak into the north-up simulation.
 function huScene(angle = Math.PI / 2) {
-  return { _headingUp: true, mapRot: angle, viewCenterX: 100, viewCenterY: 100,
+  return { _headingUp: true, gpsM: { x: 0, y: 0 }, mapRot: angle, viewCenterX: 100, viewCenterY: 100,
     viewSize: 200, mapZoom: 1, cameras: { main: { id: 1 } }, uiCam: { id: 2 },
     children: { list: [] } };
 }
@@ -217,6 +217,9 @@ test('heading up: player caret hides with device compass and remains without a s
   assert.gt(gfx.strokes, 0, 'Q/E simulated heading is not a device compass');
   scene._deviceCompass = { deg: 90, facing: { x: 1, y: 0 } };
   paint();
+  assert.gt(gfx.strokes, 0, 'no GPS forces locking and keeps the caret');
+  scene.gpsM = { x: 0, y: 0 };
+  paint();
   assert.eq(gfx.strokes, 0, 'device heading clears the caret and uses map and rim north marker');
   scene._compassDirectionLocked = true;
   paint();
@@ -257,4 +260,21 @@ test('heading up: unlocking eases from the held angle toward the latest compass 
   assert.gt(scene.mapRot, target, 'unlock does not snap to the latest heading');
   for (let frame = 0; frame < 120; frame++) HeadingUp.tick(scene, 1 / 60);
   assert.lt(Math.abs(scene.mapRot - target), HeadingUp.DEAD_DEG * Math.PI / 180);
+});
+
+
+test('heading up: no captured GPS forces the map lock even with a compass sensor', () => {
+  const scene = { ...huScene(-Math.PI / 3), gpsM: null, gpsAvailable: true,
+    compassDeg: 180, _deviceCompass: true, _compassDirectionLocked: false,
+    _compassHUD: {}, _huNoCompass: { setVisible() {} }, _huNorth: { clear() {} } };
+  const held = scene.mapRot;
+  assert.truthy(HeadingUp.directionLocked(scene), 'a running watch is not a captured fix');
+  HeadingUp.tick(scene, 1 / 60);
+  huNear(scene.mapRot, held);
+  scene.gpsM = { x: 0, y: 0 };
+  assert.falsy(HeadingUp.directionLocked(scene), 'an actual fix releases the forced lock');
+  HeadingUp.tick(scene, 1 / 60);
+  assert.truthy(scene.mapRot !== held, 'following resumes after capture');
+  HeadingUp.toggleLock(scene);
+  assert.truthy(HeadingUp.directionLocked(scene), 'manual locking still works with GPS');
 });
