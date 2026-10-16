@@ -303,7 +303,8 @@ mechanics.
   Older saves may still have an adopted house, which draws as the wagon. Any
   unclaimed house on Home's footing (the wagon's 3x3 and the firepit cell) is
   erased entirely — footprint, outline and roof — by `clearHomeFooting`, a
-  per-player overlay; a claimed building, temple or castle is never erased,
+  per-player overlay, leaving only a black 50% shadow of its footprint
+  (`entry.clearedShapes`, drawn by `building_overlay.js`); a claimed building, temple or castle is never erased,
   and "Move Home here" refuses on one (`_homeFootingAt`, test
   `starter_trailer_footing`).
 

@@ -250,6 +250,7 @@
       assert.eq(e.owners[26 * N + 32], 0, 'and no longer name a building');
       assert.falsy(e.objects.includes(roof), 'its roof goes');
       assert.falsy(e.buildingShapes.some(sh => sh.key === NORTH.key), 'its outline goes');
+      assert.eq((e.clearedShapes || []).filter(sh => sh.key === NORTH.key).length, 1, 'only its footprint shadow stays');
       assert.eq(e.baseGrid[26 * N + 32], WorldGen.T.BUILDING, 'the generated layer is untouched');
       assert.eq(cellsOf(e, FAR.key), 9, 'a house off the footing keeps its cells');
       assert.truthy(e.objects.includes(far) && e.buildingShapes.some(sh => sh.key === FAR.key), 'and its roof and outline');

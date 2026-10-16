@@ -33,7 +33,7 @@ function makeGfx() {
   return {
     ops: [], cleared: 0, commits: 0, phase: null,
     clear() { this.ops.length = 0; this.cleared++; },
-    fillPoly(pts, color) { this.ops.push({ op: 'fill', pts: pts.map(p => ({ x: p.x, y: p.y })), color }); },
+    fillPoly(pts, color, alpha) { this.ops.push({ op: 'fill', pts: pts.map(p => ({ x: p.x, y: p.y })), color, alpha }); },
     strokePoly(pts, width, color) { this.ops.push({ op: 'stroke', pts, width, color }); },
     insetStroke(pts, width, color, dash) { this.ops.push({ op: 'inset', pts, width, color, dash }); },
     texturePoly(pts, tier) { this.ops.push({ op: 'texture', pts, tier }); },
@@ -241,6 +241,24 @@ test('building overlay: the LOWER building draws in front', () => {
     assert.eq(fills.length, 4, 'both buildings drawn');
     assert.lt(fills[1].pts[0].y, fills[3].pts[0].y, 'northern building painted first');
   }
+});
+
+test('building overlay: a footprint Home cleared is only a 50% shadow, under every building', () => {
+  clearTiles();
+  // The cleared house sits SOUTH of the standing one, so the painter rule
+  // alone would draw it last.
+  const entry = putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING, 'h_stand')]);
+  entry.clearedShapes = [rectShape(0, 30, 10, 40, T.BUILDING, 'h_gone')];
+  const scene = makeScene();
+  BuildingOverlay.draw(scene);
+  const g = scene.buildingGeomGfx;
+  assert.eq(g.ops[0].op, 'fill', 'the shadow paints first');
+  assert.eq(g.ops[0].color, 0x000000, 'black');
+  assert.eq(g.ops[0].alpha, 0.5, 'at 50% opacity');
+  assert.eq(g.ops[0].pts[0].y, px(30), 'over the cleared footprint');
+  assert.eq(g.only('fill').filter(o => o.alpha != null).length, 1, 'no wall or floor for it');
+  assert.eq(g.only('stroke').length, 1, 'only the standing house is outlined');
+  clearTiles();
 });
 
 // ─── Tier styling ───────────────────────────────────────────────────────────
