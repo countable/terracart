@@ -153,7 +153,7 @@ const PIECES = {
   shrine_grove: scene("A small ancient moss-covered stone sanctuary beneath mature forest trees, with a weathered carved stone votive figure and a humble wrapped gift at its feet. Soft green sacred light, ferns and fallen leaves, fifty years of wild regrowth. Peaceful and respectful, no demons or horns."),
   visit_wagon: scene("A medieval hired guard in worn steel armour and a closed helmet concealing the entire face stands beside a weathered covered wooden wagon and a warm lantern. The guard rests a hand on a sheathed sword, ready to accompany a traveller. Wild grass, ruined medieval buildings, intact old trade road. No player, no visible faces."),
   visit_hive: scene("Close view of a golden straw bee skep on a rough wooden stand in a deep forest. Three thick amber syrup jars and cropped gloved hands at the top of the image, three large angry bees rising beside the hive, green canopy and moss. No face or full body. Quiet dark empty forest floor fills the bottom sixty percent."),
-  visit_bike: scene("A saddled chestnut horse waits at a weathered courier's hitching post beside an intact cobbled trade road, small blue courier pennant and warm lantern, ruined medieval buildings and wild vegetation behind. No rider or people, no bicycle. A faint blue magical gleam suggests swift borrowed travel."),
+  visit_bike: scene("Chunky pixel art with deliberate square clusters, crisp stepped edges and a limited amber-brown palette, matching the opening story paintings; no photographic detail. A saddled chestnut horse waits at a weathered courier's hitching post beside an intact cobbled trade road, small blue courier pennant and warm lantern, ruined medieval buildings and wild vegetation behind. No rider or people, no bicycle. A faint blue magical gleam suggests swift borrowed travel."),
   visit_gold: scene("An old black iron pot filled with muted cool teal-jade metal coins bearing embossed five-point stars, matching assets/Icons/coin.png exactly, never lime or yellow-green, in a mossy nook beside an intact cobbled path. A handful of green star coins glimmers in the surrounding grass. The coins give a restrained pale cool teal glimmer. Absolutely no yellow or gold-colored coins despite the traditional pot-of-gold name."),
 
   trap_jaw:
@@ -358,6 +358,8 @@ const PIECES = {
     'Keep the hood raised and the entire face and hair concealed. No readable words on the parchment.'),
   castle_favour: scene(
     'A grey-moustached castellan in a tabard stands at an open castle gate offering a small purse of coins and a steaming mug to a young survivor. Torches lit, banners stirring. Hospitality.'),
+  road_repair: scene(
+    'The brown-hooded player kneels with their back to the viewer, setting a cobblestone into a damaged village road with gloved hands. Face and hair fully hidden. Rubble and ruined timber houses, warm amber sunrise, chunky pixel clusters, quiet dark foreground for dialog text. No onlookers.'),
   trail_intro: scene(
     'A band of weary survivors - a farmer, an old man, two children - look along a cracked, overgrown old road winding toward a distant village at dusk, one pointing ahead. The road home.', 'claws'),
   trail_prize: scene(

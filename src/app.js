@@ -65,13 +65,13 @@ const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';
 // The line under a road prize's card: who gave it, in one sentence. Shared by
 // the single-reward ceremony and the card the pick opens for the kept gift.
 const TRAIL_PRIZE_THANKS = 'Your neighbours thank you for repairing the road and hand you a gift.';
-// The first repaired stretch introduces the neighbours who leave gifts.
-const TRAIL_INTRO_TITLE = 'The survivors are watching';
+// The first repaired stretch introduces the work; neighbours arrive with the first prize.
+const TRAIL_INTRO_TITLE = 'You Start Fixing The Roads';
 // The tail of both "Without a tool" stories (_barehandWorkStory): the joke
 // that carries the hint — a tool would be the easier way.
 const BAREHAND_STORY_ASIDE = ' (but to be honest tools would be much less tiring!)';
 const trailIntroBody = (playerClass) =>
-  'You clear the rubble from the road. A survivor watches from a doorway, then brings you a gift.';
+  'They are the arteries of civilization.';
 // …but not on the same beat as the repair. The first stretch to come back
 // under a new player is a flash, a scatter of chips and a counter on the
 // street itself, and a dialog opening over the top of that covers the very
@@ -82,7 +82,7 @@ const trailIntroBody = (playerClass) =>
 // enough to still read as part of it.
 const TRAIL_INTRO_DELAY_MS = 2000;
 // …and not on the FIRST stretch either. One reach of street coming back is a
-// single flash; a greeting that says "you clear the rubble from the road"
+// single flash; a panel that says "You Start Fixing The Roads"
 // over that one moment lands before the player has seen the repair as a
 // thing they are doing. So the greeting waits until this much road is truly
 // restored (Trail.restoredMetres — the road chip's own number, so the dialog
@@ -90,8 +90,8 @@ const TRAIL_INTRO_DELAY_MS = 2000;
 // cells, 35 m, under the player's own feet) and a couple more cells along
 // it, so the second flash is already in the player's eye — and still well
 // short of the first prize (Trail.goalFor(0, …), 200 m or a runner's 100 m):
-// the greeting is what introduces the neighbours who leave gifts, so it must
-// land before the first gift does (trail.test.js pins both bounds). Tuned by
+// the repair introduction must land before neighbours bring the first gift
+// (trail.test.js pins both bounds). Tuned by
 // feel (owner, Oct 2026): 60 m read as too long a wait, 40 m as too soon;
 // it is not a milestone, only a beat past the first stretch.
 const TRAIL_INTRO_MIN_M = 50;
