@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=a2d391b9" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=6db411d1" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -375,6 +375,19 @@
        pinch and double-tap zoom land directly on the canvas. Phaser's pointer
        events still fire; this only suppresses the browser's default zoom/pan. */
     #game, #game canvas { touch-action: none; }
+    #map-zoom {
+      position: absolute; right: 8px; transform: translateY(-50%);
+      z-index: 3; display: flex; flex-direction: column;
+    }
+    #map-zoom button {
+      width: 36px; height: 36px; padding: 0; border: 1px solid #777;
+      border-radius: 0; background: #222; color: #fff;
+      font: 24px monospace; touch-action: manipulation; cursor: pointer;
+    }
+    #map-zoom button + button { border-top: 0; }
+    #map-zoom button:disabled { color: #777; cursor: default; }
+    #map-zoom button:active:not(:disabled) { background: #444; }
+    #map-zoom button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
     /* Every body-level HUD surface (inventory bars, chips, menu, multiplayer
        button): manipulation kills iOS's double-tap zoom WITHOUT needing the
        touchend preventDefault guard below — which must never fire for these
@@ -400,6 +413,7 @@
        are body-level too — the Use button sat over the safety card. Every
        element appended to <body> needs a rule here
        (test/node/modal_layering.test.js). */
+    body.modal-open #map-zoom,
     body.modal-open #move-pad,
     body.modal-open #gps-pad,
     body.modal-open #inv-tabs,
@@ -3077,7 +3091,7 @@
   <script src="src/scene_fire.js?v=4ab3475a"></script>
   <script src="src/scene_shops.js?v=3003dd4a"></script>
   <script src="src/heading_up.js?v=42176f64"></script>
-  <script src="src/scene_create.js?v=a5456fdc"></script>
+  <script src="src/scene_create.js?v=51ef82fd"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=05d59b5d"></script>
   <script src="src/scene_sky.js?v=c2698528"></script>
@@ -3155,7 +3169,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=a2d391b9';
+      const APP_SRC = 'src/app.js?v=6db411d1';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

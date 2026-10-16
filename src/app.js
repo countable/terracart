@@ -319,11 +319,10 @@ const PEEK_DRAG_SLOP_PX = 8;
 // is the 1/e time rather than a duration — the camera is home (sub-pixel) in
 // about 3× this.
 const PEEK_RETURN_MS = 90;
-// The PINCH ZOOM, the drag's two-finger twin: a pinch on the map magnifies it
-// about the viewport centre until at most PINCH_VIEW_CELLS span the frame, and
-// it springs back on PEEK_RETURN_MS the moment a pinching finger lifts. A
-// look, never a resting view, so fog, aggro and boss margins stay tuned for
-// VIEW_CELLS; and zoom-in only, so it never shows ground the full view hides.
+// Camera-only zoom: start one cell closer on each edge. Buttons select the
+// resting view; a pinch temporarily magnifies it and springs back on release.
+// The widest view remains VIEW_CELLS, so loading and gameplay ranges stay fixed.
+const MAP_DEFAULT_ZOOM = VIEW_CELLS / (VIEW_CELLS - 2);
 const PINCH_VIEW_CELLS = 7;
 const PINCH_MAX_ZOOM = VIEW_CELLS / PINCH_VIEW_CELLS;
 // Surface GPS gap (metres) past which a fix PLACES the body instead of being
@@ -5743,7 +5742,7 @@ class MapScene extends Phaser.Scene {
     this._peekPointer = null;
     this._peekReturning = false;
     this._pinch = null;
-    this.mapZoom = 1;
+    this.mapZoom = this._mapZoomRest || 1;
     this._mapZoomReturning = false;
     this._homeIntro = null;
     if (!this.peekM) return;      // called before the view was set up
@@ -5764,6 +5763,44 @@ class MapScene extends Phaser.Scene {
       this.peekM.y = 0;
       this._peekReturning = false;
     }
+  }
+
+  _stepMapZoom(direction) {
+    if (this._homeIntro) this.clearPeek();
+    const span = VIEW_CELLS / (this._mapZoomRest || MAP_DEFAULT_ZOOM);
+    const next = clamp(span - direction * 2, PINCH_VIEW_CELLS, VIEW_CELLS);
+    this._mapZoomRest = this.mapZoom = VIEW_CELLS / next;
+    this._mapZoomReturning = false;
+    this._pinch = null;
+    this._homeIntro = null;
+    if (this._zoomInButton) this._zoomInButton.disabled = next <= PINCH_VIEW_CELLS;
+    if (this._zoomOutButton) this._zoomOutButton.disabled = next >= VIEW_CELLS;
+  }
+
+  _buildZoomControl() {
+    document.getElementById('map-zoom')?.remove();
+    const control = document.createElement('div');
+    control.id = 'map-zoom';
+    control.setAttribute('role', 'group');
+    control.setAttribute('aria-label', 'Map zoom');
+    control.style.top = `${this.viewCenterY}px`;
+    const button = (label, title, direction) => {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.textContent = label;
+      el.setAttribute('aria-label', title);
+      el.title = title;
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        this._stepMapZoom(direction);
+      });
+      control.appendChild(el);
+      return el;
+    };
+    this._zoomInButton = button('+', 'Zoom in', 1);
+    this._zoomOutButton = button('−', 'Zoom out', -1);
+    document.getElementById('game').appendChild(control);
+    this.events.once('shutdown', () => control.remove());
   }
 
   // --- Pinch zoom (PINCH_VIEW_CELLS) ---
@@ -5788,7 +5825,7 @@ class MapScene extends Phaser.Scene {
   // glass carries on dragging from where it is now, not from where it landed.
   _pinchEnd() {
     this._pinch = null;
-    if (this.mapZoom !== 1) this._mapZoomReturning = true;
+    if (this.mapZoom !== (this._mapZoomRest || 1)) this._mapZoomReturning = true;
     const p = this._peekPointer;
     if (p?.isDown && p.id === this._peekPointerId) {
       const at = this._gamePt(p);
@@ -5799,12 +5836,13 @@ class MapScene extends Phaser.Scene {
   }
 
   // The peek's spring, on the zoom: home within half a screen pixel at the
-  // frame's edge, then exactly 1.
+  // frame's edge, then exactly the selected resting zoom.
   _tickMapZoom(dt) {
     if (!this._mapZoomReturning) return;
-    this.mapZoom = 1 + (this.mapZoom - 1) * Math.exp(-dt / (PEEK_RETURN_MS / 1000));
-    if ((this.mapZoom - 1) * this.viewSize / 2 < 0.5) {
-      this.mapZoom = 1;
+    const home = this._mapZoomRest || 1;
+    this.mapZoom = home + (this.mapZoom - home) * Math.exp(-dt / (PEEK_RETURN_MS / 1000));
+    if (Math.abs(this.mapZoom - home) * this.viewSize / 2 < 0.5) {
+      this.mapZoom = this._mapZoomRest || 1;
       this._mapZoomReturning = false;
     }
   }
@@ -5817,8 +5855,8 @@ class MapScene extends Phaser.Scene {
   // covers the map, holds INTRO.holdMs once the map is clear, then widens
   // back to the normal view over INTRO.outMs. Camera-only, through the same
   // mapZoom and peekM the pinch and the peek use, and it never rests: it ends
-  // at exactly 1× and no offset. A finger on the map hands the camera to the
-  // drag or the pinch, which spring home as usual.
+  // at the selected resting zoom and no offset. A finger on the map hands
+  // the camera to the drag or pinch, which spring home as usual.
   _armHomeIntro() {
     this._homeIntro = { phase: 'wait', t: 0 };
     this._tickHomeIntro(0);
@@ -5828,7 +5866,7 @@ class MapScene extends Phaser.Scene {
     if (!it) return;
     if (this._peekDragging || this._pinch) {
       this._homeIntro = null;
-      this._mapZoomReturning = this.mapZoom !== 1;
+      this._mapZoomReturning = this.mapZoom !== (this._mapZoomRest || 1);
       this._peekReturning = this.isPeeking();
       return;
     }
@@ -5843,13 +5881,13 @@ class MapScene extends Phaser.Scene {
     // as an even pull back rather than a lurch at the start.
     const k = it.phase === 'out' ? Math.min(1, it.t / I.outMs) : 0;
     const e = k * k * (3 - 2 * k);
-    const span = I.viewCells + (VIEW_CELLS - I.viewCells) * e;
+    const span = I.viewCells + (VIEW_CELLS / (this._mapZoomRest || 1) - I.viewCells) * e;
     this.mapZoom = VIEW_CELLS / span;
     this.peekM.x = I.focus.dx * this.cellM * (1 - e);
     this.peekM.y = I.focus.dy * this.cellM * (1 - e);
     if (k >= 1) {
       this._homeIntro = null;
-      this.mapZoom = 1;
+      this.mapZoom = this._mapZoomRest || 1;
       this.peekM.x = 0;
       this.peekM.y = 0;
     }
