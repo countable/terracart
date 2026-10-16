@@ -146,7 +146,9 @@ North-up mode retains the existing wall atlas artwork.
   and stronger corners. Polygon courtyards use these stone seams without a
   second cell-grid overlay.
   Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
-  renderers; polygon corners use bounded bevel joins with faces beneath them.
+  renderers. The cap stays narrow while the shaded face stands well over
+  twice its depth, so walls read as three-quarter uprights rather than a
+  top-down outline; polygon corners use bounded bevel joins with faces beneath them.
   Merlons have low rectangular tops spanning the full wall-cap width, with both
   opposing faces flush with the wall below at every angle. Their length along
   the wall is independent of its thickness. Full end blocks reach each corner;
