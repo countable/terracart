@@ -73,8 +73,11 @@ stay upright as the compass turns. See the geometry in
 
 ## Treasure dialog paintings
 
-The X discovery, barrel, crate and seven chest-tier paintings show only light
-inside their containers; reward icons and text supply the actual contents.
+The X discovery, barrel, crate and seven chest-tier paintings show the concealed
+brown-hooded survivor opening a smaller container. Match the warm amber pixel
+treatment of `book_read` and `fire_first`; the first story panel is intentionally
+a different style and is not a style reference. Containers retain their tier
+materials and show only light inside; reward icons and text supply the contents.
 [treasure-paintings.json](treasure-paintings.json) records generated masters,
-source hashes and export settings. Composition prompts live alongside the
-other scene definitions in `tools/gen_story_art.js`.
+source hashes, final built-in imagegen prompts, style references and export settings.
+The scene definitions in `tools/gen_story_art.js` preserve the same composition intent.
