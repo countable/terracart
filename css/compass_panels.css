@@ -249,3 +249,5 @@ body.compass-hud #menu[open] > summary {
   inset: 0 0 14px !important;
   mask-image: none;
 }
+
+.compass-panel .modal-scene .modal-title { position: relative; top: 4px; }

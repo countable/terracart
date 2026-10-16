@@ -544,6 +544,7 @@ class SceneModals {
 
     if (title) {
       const titleNode = document.createElement('div');
+      titleNode.className = 'modal-title';
       titleNode.style.cssText = 'opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066';
       titleNode.textContent = title;
       box.appendChild(titleNode);
@@ -590,7 +591,7 @@ class SceneModals {
     // No title, no title line: a page whose own heading is in the body (the
     // Book's volume line) starts on it, with no empty gold row above.
     const titleHTML = title
-      ? `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>`
+      ? `<div class="modal-title" style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>`
       : '';
     box.innerHTML = titleHTML + `<div class="${kind === 'spirit' || kind === 'talk' ? 'modal-speech' : ''}" style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
     const btn = mkBtn(okLabel);
