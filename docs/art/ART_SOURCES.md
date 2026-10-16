@@ -47,3 +47,11 @@ the hooded player resting in the existing bed while pale light swirls away.
 must not be used to recreate either half of these established pairs. Use the
 built-in image editor with the recorded visual reference, or `--reprocess` to
 export an existing master without changing the painting.
+
+## Opening compass slide
+
+`story_compass` and `story_compass_frame2` are composites, not fresh paintings:
+`tools/art/reskin_story_compass.py` re-skins the generated device in the HUD's
+living-silver dragonscale (`assets/ui/compass/reference-carving-tile.webp`) and
+blurs, greys and darkens everything past it, so the world behind the discovery
+stays unreadable. Its header names the pre-reskin paintings it reads.
