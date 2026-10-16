@@ -137,6 +137,9 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   hide an 8.3 ms refresh as a 16.7 ms frame. Per-frame tile scans use
   `WorldGen.forEachItemInBox`, not flat object arrays. Widen queries for
   offers/lights beyond the sprite cull. Indexed objects do not move in place.
+- Ground coins pulled by the Ring of Gathering move every scene frame using
+  elapsed time, capped at 100 ms after a stall. Their speed is independent of
+  display cadence; collection still resolves at the player's feet.
 - Cached drawing keys must include every input. `Lighting.frameKey` uses the
   quantised light clock; new tile arrays read per frame need a derived index.
   `drawObjects` caches appearance by identity only for generation-immutable
