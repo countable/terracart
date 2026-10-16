@@ -296,6 +296,9 @@ const TERRAIN_FLAVOR = {
   [TERRAIN.TAR_YARD]:       'Oily ground. Nothing roots.',
 };
 
+// …and the refusal on soil a street lamp stands on (cellAt's underLamp).
+const LAMP_FOOT_FLAVOR = 'A lamp post. Nothing to till.';
+
 // ── Naming things the player can see ────────────────────────────────────────
 // Two helpers behind the till refusal and the plant flash, both here for the
 // same reason: a raw INTERNAL ID must never reach the screen (QC_RULES §4).
@@ -1717,7 +1720,9 @@ const TAP_HANDLERS = [
   { name: 'flavor', try: (ctx) => {
     const { scene, sx, sy, cell } = ctx;
     if (isTillableCell(cell)) return false;
-    const flavor = TERRAIN_FLAVOR[cell.underRoad ? TERRAIN.ROAD : cell.type] || '·';
+    const flavor = cell.underRoad ? TERRAIN_FLAVOR[TERRAIN.ROAD]
+      : cell.underLamp && isTillable(cell.type) ? LAMP_FOOT_FLAVOR
+      : TERRAIN_FLAVOR[cell.type] || '·';
     scene.flash(flavor, sx, sy);
     return true;
   }},

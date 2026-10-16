@@ -829,6 +829,20 @@
     return cells;
   }
 
+  // The same reserved cells for a LOADED tile entry, cached on the entry (a
+  // rebuilt tile is a new entry with no cache; a loading one is never cached).
+  // What "under a street lamp" means at runtime: app.js cellAt's `underLamp`
+  // (items.js isTillableCell — nothing is farmed under a lamp) and render.js's
+  // tilled-cell self-heal both read it.
+  const NO_LAMP_CELLS = new Set();
+  function lampCellsFor(tx, ty, entry) {
+    if (!entry) return NO_LAMP_CELLS;
+    if (entry._lampCells) return entry._lampCells;
+    if (!entry.layers || !(entry.tileEdgeM > 0) || !(entry.cellsPerEdge > 0)) return NO_LAMP_CELLS;
+    entry._lampCells = lampReservedCells(tx, ty, entry);
+    return entry._lampCells;
+  }
+
   const LAMP_INK = (typeof UI_LAMP_GLOW === 'string') ? UI_LAMP_GLOW : '#9a8cff';
   const LAMP_GOLD = (typeof UI_LAMP_GOLD === 'string') ? UI_LAMP_GOLD : '#d9a441';
   const LAMP_DARK = [28, 24, 20];  // the outline ink every sprite in here is drawn with
@@ -2073,7 +2087,7 @@
     }
   }
 
-  global.RoadOverlay = { lampSitesForTile, lampReservedCells, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
+  global.RoadOverlay = { lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
                          offsetLine, emitCarpetStrip, emitCarpetEmblems, CARPET_EMBLEMS, CARPET_EMBLEM_STEP_PX, paintLamp, paintBrokenLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,

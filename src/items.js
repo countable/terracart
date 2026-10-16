@@ -3012,9 +3012,10 @@ function isTillable(type) { return !NON_TILLABLE.has(type); }
 // soil-ish terrain AND no drawn road band over it. A cell's terrain says
 // "grass" for most of the ground a road actually covers (see cellAt's
 // underRoad note), so type-only checks let players till the middle of a
-// street. Takes a cellAt() result; a stub cell without underRoad (tests)
-// behaves exactly like the old type-only check.
-function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad; }
+// street. Nor is a street lamp's footing (cellAt's underLamp: the cells
+// RoadOverlay.lampCellsFor reserves, lit or broken). Takes a cellAt() result;
+// a stub cell without those flags (tests) behaves like the type-only check.
+function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad && !cell.underLamp; }
 
 // ── The inventory's type tabs ──────────────────────────────────────────────
 // The two-bar inventory's category row. Order here is the on-screen left→right
