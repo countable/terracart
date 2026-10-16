@@ -1096,18 +1096,8 @@ class SceneStreets {
   // item with no ✦ line): that card's line stays empty rather than saying
   // nothing at length.
   _trailRewardBlurb(reward) {
-    if (!reward) return null;
-    if (reward.kind === 'item') {
-      const fx = (typeof ITEM_EFFECTS !== 'undefined') ? ITEM_EFFECTS[reward.id] : null;
-      return fx ? `✦ ${fx}` : null;
-    }
-    if (reward.kind === 'relic') {
-      return (typeof gearDef === 'function' ? gearDef('relic', reward.slot)?.blurb : null) || null;
-    }
-    if (reward.kind === 'armor') {
-      return ARMOR_DEFS[reward.slot]?.blurb || null;
-    }
-    return null;
+    const text = Rewards.desc(reward);
+    return text && reward.kind === 'item' ? `✦ ${text}` : text;
   }
 
   // ONE REWARD, SHOWN. The ceremony for a single reward already paid: its
