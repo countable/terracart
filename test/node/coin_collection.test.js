@@ -44,6 +44,33 @@
     tickGroundCoins(s, NOW + 2100);
     assert.eq(s.save.money, 17, 'a regenerated duplicate cannot pay again');
   }));
+  test('ground coins: ring moves each frame at the same speed across frame rates', () => withCoins((s, e, coin) => {
+    s.save.inv.push({ id: 'coin_ring', count: 1 });
+    for (const fps of [30, 60, 120]) {
+      const c = coin('smooth', 14);
+      e.coinDrops = [c];
+      s._lastCoinCollectionAt = NOW;
+      const start = c.x;
+      for (let frame = 1; frame <= fps / 5; frame++) {
+        const previous = c.x;
+        tickGroundCoins(s, NOW + frame * 1000 / fps);
+        assert.lt(c.x, previous, `coin moves on every ${fps} fps frame`);
+      }
+      assert.inRange(start - c.x, 1.499, 1.501, '1.5 metres in 200 ms');
+      assert.eq(s.save.money, 10, 'no payment before arrival');
+    }
+  }));
+  test('ground coins: a stalled clock caps movement and a backwards clock cannot reverse it', () => withCoins((s, e, coin) => {
+    s.save.inv.push({ id: 'coin_ring', count: 1 });
+    const c = coin('paused', 14); e.coinDrops.push(c);
+    s._lastCoinCollectionAt = NOW;
+    const start = c.x;
+    tickGroundCoins(s, NOW + 60000);
+    assert.inRange(start - c.x, 0.749, 0.751);
+    const stopped = c.x;
+    tickGroundCoins(s, NOW + 59900);
+    assert.eq(c.x, stopped);
+  }));
   test('ground coins: ring requires ownership, energy and on-foot speed', () => withCoins((s, e, coin) => {
     const c = coin('untouched', 8); e.coinDrops.push(c);
     tickGroundCoins(s, NOW);
