@@ -183,7 +183,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   WILDPLANT_RULES, wildplantRule, wildplantOutput, wildplantWorkRelic,
   wildplantWorkCost, wildplantTreasure, wildplantLight,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
-  TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
+  TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR, LAMP_FOOT_FLAVOR, isTillableCell,
   Quests, questEnemies, questAnimals, STARTER_CHAIN,
 });`;
 try {

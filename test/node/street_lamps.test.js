@@ -274,6 +274,17 @@ test('street lamps: future lamp reservations cover the exact rendered feet and t
   assert.truthy(reserved.size > lamps.length, 'feet straddling a grid boundary also reserve the adjoining cell');
 });
 
+test('street lamps: lampCellsFor is the reserved footprint, cached per loaded entry', () => {
+  const entry = readyEntry();
+  const cells = RoadOverlay.lampCellsFor(TX, TY, entry);
+  assert.eq(JSON.stringify([...cells]), JSON.stringify([...RoadOverlay.lampReservedCells(TX, TY, readyEntry())]));
+  assert.gt(cells.size, 0);
+  assert.truthy(RoadOverlay.lampCellsFor(TX, TY, entry) === cells, 'computed once per tile entry');
+  const loading = { tileEdgeM: TILE_EDGE_M, cellsPerEdge: CELLS };
+  assert.eq(RoadOverlay.lampCellsFor(TX, TY, loading).size, 0);
+  assert.falsy(loading._lampCells, 'a loading tile never caches an empty footprint');
+});
+
 test('street lamps: rasterized road decorations cannot occupy future lamp footprints', () => {
   let props = 0, sites = 0;
   for (let sample = 0; sample < 12; sample++) {
