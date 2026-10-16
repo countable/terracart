@@ -1,0 +1,145 @@
+{
+  "source": "generated living-silver atlas",
+  "dimensions": [
+    1536,
+    1024
+  ],
+  "slices": {
+    "header": [
+      2,
+      2,
+      766,
+      271
+    ],
+    "footer": [
+      770,
+      2,
+      1534,
+      271
+    ],
+    "joystick": [
+      155,
+      274,
+      613,
+      665
+    ],
+    "shutter": [
+      771,
+      275,
+      1533,
+      665
+    ],
+    "panel-top": [
+      2,
+      672,
+      766,
+      868
+    ],
+    "living-silver-body": [
+      771,
+      672,
+      1534,
+      1022
+    ]
+  },
+  "derived": {
+    "silver-metal": {
+      "source": "living-silver-body.webp",
+      "crop": [
+        270,
+        95,
+        462,
+        287
+      ],
+      "dimensions": [
+        384,
+        384
+      ],
+      "method": "Mirror a192px square in both axes to create a seamless 2x2 metal tile; no aspect-ratio distortion."
+    },
+    "body-carving": {
+      "source": "living-silver-body.webp",
+      "dimensions": [
+        763,
+        350
+      ],
+      "method": "Preserve original dimensions; fade alpha over48px at top and bottom to blend proportional shoulder ornaments into metal."
+    },
+    "reference-carving-tile": {
+      "source": "reference-join.webp",
+      "dimensions": [
+        1024,
+        694
+      ],
+      "method": "Original carving mirrored vertically to create a continuous proportional repeating metal surface; no aspect ratio distortion."
+    }
+  },
+  "reference_atlas": {
+    "source": "/home/claude/.codex/generated_images/01a14036-de38-7371-93ef-6d140d42ac64/exec-c2a111fd-a65e-4717-b24d-423adb787242.png",
+    "dimensions": [
+      1536,
+      1024
+    ],
+    "slices": {
+      "reference-header": [
+        8,
+        8,
+        759,
+        294
+      ],
+      "reference-footer": [
+        777,
+        8,
+        1528,
+        295
+      ],
+      "reference-joystick": [
+        154,
+        307,
+        615,
+        718
+      ],
+      "reference-shutter": [
+        778,
+        315,
+        1526,
+        708
+      ],
+      "reference-panel-rail": [
+        8,
+        730,
+        758,
+        950
+      ],
+      "reference-shoulders": [
+        778,
+        727,
+        1526,
+        1014
+      ]
+    },
+    "joystick": "Circular collar normalized to square from atlas perspective; CSS circle clips outer background."
+  },
+  "reference_join": {
+    "source": "/home/claude/.codex/generated_images/01a14036-de38-7371-93ef-6d140d42ac64/exec-7e8f2e97-1ab3-4478-afe9-62ad2aaac217.png",
+    "dimensions": [
+      1024,
+      347
+    ],
+    "method": "Proportional downsample of generated continuous feather relief; no stretching."
+  },
+  "north_arrow": {
+    "source": "/home/claude/.codex/generated_images/01a14036-de38-7371-93ef-6d140d42ac64/exec-1303bb8f-a8e2-4386-a4ff-abe026ad8a1f.png",
+    "crop": [
+      283,
+      161,
+      890,
+      1106
+    ],
+    "dimensions": [
+      103,
+      160
+    ],
+    "method": "Transparent sprite cropped around visible alpha; proportional downsample."
+  }
+}

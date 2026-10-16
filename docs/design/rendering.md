@@ -87,6 +87,9 @@ North-up mode retains the existing wall atlas artwork.
   retain their screen-vertical inset, and size to the visible art footprint.
   Broken lamp posts and dropped items stay upright like other raised props.
   Creature appearance directions rotate without changing simulation state.
+  The player facing chevron is omitted in heading-up mode when a device
+  compass reports; desktop without a heading sensor and north-up mode retain
+  it. The heading-up compass rim keeps its north marker.
   Game state stays north-up; taps, peek drags and steering convert back
   through `HeadingUp.toWorldVec`, including the manual GPS stick.
 - Map annotations use `HeadingUp.toOverlayPt` for UI-camera graphics: rotate

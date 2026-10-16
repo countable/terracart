@@ -141,6 +141,8 @@ test('opening: wake up fades in with the end of the zoom, taps during the fade s
     assert.eq(btn.textContent, 'Next');
     assert.eq(text.textContent, 'You find a strange compass, engraved with dragons and stars.');
     assert.falsy(btn.disabled, 'discovery can advance immediately');
+    assert.truthy(nodes.story.classes.has('story-fullscreen'), 'discovery is borderless fullscreen');
+    assert.falsy(nodes.story.classes.has('compass-story'), 'discovery precedes the compass panel');
     click();
     assert.eq(btn.textContent, 'wake up');
     assert.truthy(nodes.story.classes.has('nightmare'), 'nightmare gets the opaque backdrop and camera treatment');
@@ -157,13 +159,16 @@ test('opening: wake up fades in with the end of the zoom, taps during the fade s
     }
     click();
     assert.eq(btn.textContent, 'Next');
-    assert.eq(text.textContent, 'You wake up in an unfamiliar trailer, memories a blur.');
-    assert.falsy(nodes.story.classes.has('nightmare'), 'normal story panes restore their original framing');
+    assert.eq(text.textContent, 'You check the compass. You wake up in an unfamiliar trailer, memories a blur.');
+    assert.falsy(nodes.story.classes.has('nightmare'));
+    assert.truthy(nodes.story.classes.has('compass-story'), 'awakening is inside the compass');
+    assert.falsy(nodes.story.classes.has('story-fullscreen'), 'awakening leaves fullscreen');
     assert.falsy(btn.classes.has('nightmare-wake'));
     assert.falsy(text.hidden);
     assert.falsy(btn.disabled);
     click();
     assert.eq(btn.textContent, "Let's go");
+    assert.truthy(nodes.story.classes.has('compass-story'), 'later opening pages remain in the compass');
     assert.falsy(done);
     click();
     assert.truthy(done && stored && nodes.story.removed);
