@@ -60,7 +60,7 @@ North-up mode retains the existing wall atlas artwork.
 - Draw from the camera anchor using `coords.js` projection helpers. Reach,
   taps, fog and tile loading use `playerM` / `playerToWorldCell()`.
   Draw player-attached effects at `scene.playerScreen()`, not viewport centre.
-- The circular map and compass rim sit 15 CSS pixels above the layout baseline;
+- The circular map and compass rim sit 30 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
 - Zoom is camera-only. The initial view spans nine cells instead of eleven,
   one cell closer on each edge (`MAP_DEFAULT_ZOOM`). Plain +/− buttons on the

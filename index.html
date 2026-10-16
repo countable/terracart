@@ -1229,7 +1229,7 @@
     #howto button#howto-close[hidden] { display: none; }
   </style>
   <link rel="stylesheet" href="css/compass_shine.css?v=2196f9a5">
-  <link rel="stylesheet" href="css/compass_hud.css?v=2a99933e">
+  <link rel="stylesheet" href="css/compass_hud.css?v=2e25cdcd">
   <link rel="stylesheet" href="css/compass_inventory.css?v=bb7fb3e0">
   <link rel="stylesheet" href="css/compass_panels.css?v=5a48a77f">
 </head>
@@ -1612,7 +1612,7 @@
       // spend only the existing one-cell inventory overlap allowance.
       const mapTop = (slack >= 0
         ? TOP_CHROME + Math.min(Math.max(0, mapH * 0.37 - TOP_CHROME), spare * 0.35)
-        : Math.max(TOP_ROW, TOP_CHROME + slack)) - 15;
+        : Math.max(TOP_ROW, TOP_CHROME + slack)) - 30;
       const mapBottom = mapTop + mapH;
       const top = mapTop - MAP_TOP_GAME * s;
       // The stick goes in the gap between the map and the tabs when it fits
@@ -3115,7 +3115,7 @@
   <script src="src/heading_up.js?v=f96711f1"></script>
   <script src="src/compass_modules.js?v=cf28a241"></script>
   <script src="src/compass_shine.js?v=1533df4e"></script>
-  <script src="src/compass_hud.js?v=4c5bc4ea"></script>
+  <script src="src/compass_hud.js?v=fb7bcc44"></script>
   <script src="src/scene_create.js?v=15a4dc31"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=05d59b5d"></script>

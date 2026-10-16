@@ -19,7 +19,6 @@ const CompassHUD = {
     body.setAttribute('aria-hidden', 'true');
     body.innerHTML = '<div class="compass-aperture"></div><div class="compass-header"></div><div class="compass-footer"></div><div class="compass-upper-join"></div><div class="compass-lower-join"></div><div class="compass-bearing"><i class="compass-ticks"></i><span class="compass-north"><img src="assets/ui/compass/north-arrow.webp" alt="" aria-hidden="true"></span><span class="compass-east"><b>E</b></span><span class="compass-south"><b>S</b></span><span class="compass-west"><b>W</b></span></div>';
     document.body.append(body);
-    if (typeof CompassShine !== 'undefined') CompassShine.install(scene, body);
     // The memory's pixel pickup has a pale outline. Its instrument uses a
     // clean faceted gold star, without altering the world pickup artwork.
     const memoryIcon = document.querySelector('#memories .mem-ico');
