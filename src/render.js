@@ -226,9 +226,12 @@ Render.objectGroundOffsetPx = function (appearance, textures) {
     * appearance.scl * appearance.scaleYMul;
 };
 
-// Ground pivot shared by scenery, its labels, and DOM roof callouts.
+// Cell-seated art keeps its seating offsets screen-relative as the map turns.
+// Its foot is still used for depth; buildings retain their footprint pivot.
 Render.objectGroundAnchor = function (appearance, textures, point) {
-  return { x: Math.round(point.x) + (appearance?.foot ? 0 : appearance?.dxPx || 0),
+  if (appearance?.foot) return { x: Math.round(point.x), y: Math.round(point.y),
+    footDy: appearance.foot.footFromCentre };
+  return { x: Math.round(point.x) + (appearance?.dxPx || 0),
     y: Math.round(point.y) + Render.objectGroundOffsetPx(appearance, textures) };
 };
 
