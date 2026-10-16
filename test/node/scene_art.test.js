@@ -51,12 +51,12 @@ test('scene art: a message with a painting is a STORY', () => {
     'art makes it a story; a plain message stays a note');
 });
 
-test('scene art: the content region is capped at the quiet zone and scrolls inside it', () => {
+test('scene art: the content region is capped at the quiet zone without scrolling', () => {
   assert.truthy(/const ART_DETAIL_FRAC = 0\.\d+;/.test(shell), 'the detail line is one constant');
   assert.truthy(/max-height:\$\{Math\.round\(\(1 - ART_DETAIL_FRAC\) \* 100\)\}%;/.test(shell),
     'the body never grows past the quiet zone');
-  const region = shell.slice(shell.indexOf("body.className = 'modal-body'"), shell.indexOf('let into = body'));
-  assert.truthy(region.includes('margin-top:auto;') && region.includes('overflow-y:auto;'), 'bottom-anchored, scrolling');
+  const region = shell.slice(shell.indexOf("body.className = 'modal-body'"), shell.indexOf('const into = document.createElement'));
+  assert.truthy(region.includes('margin-top:auto;') && region.includes('overflow:hidden;'), 'bottom-anchored, no scrolling');
 });
 
 test('scene art: text-heavy copy moves to THE BAND by measurement', () => {
@@ -64,7 +64,7 @@ test('scene art: text-heavy copy moves to THE BAND by measurement', () => {
     'the band shows the subject line, the sky above it gives');
   const i = shell.indexOf('TEXT-HEAVY → THE BAND');
   assert.truthy(i > 0, 'mount() decides');
-  const tail = shell.slice(i, i + 400);
+  const tail = shell.slice(i, shell.indexOf('const scheduleFit', i));
   assert.truthy(/body\.scrollHeight > body\.clientHeight/.test(tail), 'it measures the copy');
   assert.truthy(/paintScene\(true\)/.test(tail), 'and repaints as the band');
   assert.truthy(/\(1 - ART_BAND_FRAC\)/.test(tail), 'with the band\'s taller content region');

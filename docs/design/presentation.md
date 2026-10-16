@@ -6,6 +6,14 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- Dialogs do not scroll. The shared shell reserves 68% of the painting for
+  content, with compact padding and reward spacing before using the 82%
+  content band. It refits after content,
+  expanded details, fonts, images or box dimensions change. Long prose uses
+  Previous/Next pages at the original text size; actions remain whole.
+  Book Club shows one complete tome per page. The books-read shelf shows
+  three entries per page and returns to the same page after reading.
+
 - Rewards converted to coins show only the coin reward in dialogs and toasts,
   without naming the replaced item or explaining the conversion.
 
@@ -26,7 +34,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   from the generated 4×4 sheets (320×320 atlases) in `assets/portraits/`.
   NPC identity follows `SpriteLayout.npcSheet` for each role and culture; Tilly has a housed variant.
   Dialogue passes `portrait` to the modal shell, which keeps the face and
-  shoulders at 128px above independently scrolling text, using pixelated scaling
+  shoulders at 128px above text that uses pages when necessary, using pixelated scaling
   for chunky pixels. Portraits have no background plate or rounded clipping.
   A neighbour speaking opens on the `talk` kind (`NPC.speech`): the header is
   the speaker's name beside a 💬 chat bubble, the title line is their role —
@@ -92,7 +100,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   counts and the existing receipt. Recipe selection never spends ingredients;
   acceptance still rechecks unlocks, bag room, and ingredients before spending.
 - The Book Club is a lending catalog shared across scholars. Keep total/free
-  credit visible above the scrolling shelf; All tomes and On loan filters
+  credit visible above the paged shelf; All tomes and On loan filters
   support preparing spells and returning them. Each row shows its effect,
   credit cost, borrowed/owned counts, and an explicit unlock or affordability
   reason. Borrow and Return update the catalog in place with one receipt;

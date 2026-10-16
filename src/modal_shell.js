@@ -32,7 +32,7 @@
 // EVERY DIALOG IS THE MAP VIEWPORT: makeModalShell seats its box exactly
 // over the map square (viewLeft/viewTop/viewSize — 352×352 game px) whatever
 // it holds; the content never sizes the box. Short content sits centred in
-// it, long content scrolls inside it. A STORY dialog (one with an art banner
+// it, long content uses pages. A STORY dialog (one with an art banner
 // — story splashes, ceremonies) may be a little bigger: the square grows by
 // STORY_MODAL_GROW_PX, a quarter of it above the map and the rest below.
 // (The map already spans the column's full width, so "bigger" is taller.)
@@ -41,14 +41,14 @@ const STORY_MODAL_GROW_PX = 96;
 // `art`). The piece IS the box: generated tall and cut to the story box's own
 // shape (ART_FRAME_ASPECT, width:height), drawn full-bleed as its background.
 // Every piece is composed to one rule (tools/gen_story_art.js SCENE): the
-// subject and all the detail in the top ART_DETAIL_FRAC of the frame, and a
+// subject and all the detail in the top 42% of the frame, and a
 // calm, low-detail QUIET ZONE below it. The copy is the dialog's CONTENT
-// REGION: anchored to the bottom, never taller than the quiet zone (it
-// scrolls inside it rather than climbing onto the subject), over a scrim
+// REGION: anchored to the bottom, never taller than the quiet zone, over a scrim
 // that darkens exactly the quiet zone — so text and subject cannot collide
 // whatever the dialog says.
 const ART_FRAME_ASPECT = 352 / (352 + STORY_MODAL_GROW_PX);
-const ART_DETAIL_FRAC = 0.42;
+// Reclaim ten percentage points from the bottom of the painted area.
+const ART_DETAIL_FRAC = 0.32;
 // THE BAND — the same painting for a TEXT-HEAVY dialog. When the copy will
 // not fit the quiet zone, the shell (mount()) shows only the painting's
 // subject line, rows ART_BAND_FROM..ART_DETAIL_FRAC (the sky above it is what
@@ -209,7 +209,7 @@ class SceneModals {
       ? 'position:absolute;inset:0;box-sizing:border-box;display:flex;flex-direction:column;' +
         'background:#1a1612;color:#fff;border:0;border-radius:0;' +
         'padding:max(14px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom));' +
-        'font:13px var(--font-ui);overflow-y:auto;overscroll-behavior:contain;' +
+        'font:13px var(--font-ui);overflow:hidden;' +
         (textAlign ? `text-align:${textAlign};` : '') + boxExtra
       :
       // Seated on the map square, in #game's own (game px) space; the wrap
@@ -218,16 +218,15 @@ class SceneModals {
       `top:calc(${vTop - Math.round(grow / 4)}px - var(--view-top, 0px));height:${vSize + grow}px;` +
       `box-sizing:border-box;display:flex;flex-direction:column;` +
       `background:#1a1612;color:#fff;` +
-      `border:2px solid ${frameBorder};border-radius:10px;padding:14px 16px;` +
+      `border:2px solid ${frameBorder};border-radius:10px;padding:10px 12px;` +
       `font:13px var(--font-ui);` +
-      // Content that outgrows the square scrolls INSIDE it — the box never
-      // grows to fit. (Stats & Relics is the long one.)
-      `overflow-y:auto;overscroll-behavior:contain;` +
+      // Content that outgrows the square uses pages; the box never grows to fit.
+      `overflow:hidden;` +
       (textAlign ? `text-align:${textAlign};` : '') +
       boxExtra;
     // The painting fills the box; the scrim darkens everything below the
     // art's line, so the content region always sits on near-solid ground.
-    // The box itself stops scrolling — the body does (see mount()). `band`
+    // Both box and body stay fixed (see mount()). `band`
     // lifts the painting so only its subject line shows (THE BAND).
     //
     // PIXEL RESOLVE. The painting is a request; its TONE and thumbnail
@@ -367,43 +366,45 @@ class SceneModals {
     const mount = () => {
       // Everything the caller put in the box rides in one body block with
       // auto margins: centred in the square when it is short, flush to the
-      // top (and scrolling) when it is long — auto margins collapse to zero
+      // top when it is long — auto margins collapse to zero
       // on overflow, where centring would clip the top. The kind header stays
       // pinned to the top edge above it.
       const body = document.createElement('div');
       body.className = 'modal-body';
       body.style.cssText = art
         // THE CONTENT REGION of a scene dialog: bottom-anchored, capped at the
-        // quiet zone, scrolling inside it when the copy is long.
+        // quiet zone, switching to pages when the copy is long.
         ? `margin-top:auto;flex:0 1 auto;max-height:${Math.round((1 - ART_DETAIL_FRAC) * 100)}%;` +
           // Leave room for the controls' 2px press travel and raised edge.
           // Without it, pressing the last button briefly creates overflow.
           'padding-bottom:3px;box-sizing:border-box;' +
-          'overflow-y:auto;overscroll-behavior:contain;text-shadow:0 1px 2px #000;' +
+          'overflow:hidden;text-shadow:0 1px 2px #000;' +
           // Above the painting layer (PIXEL RESOLVE), which is absolute.
           'position:relative;z-index:1;'
-        : 'margin:auto 0;flex:0 0 auto;';
+        : 'margin:auto 0;min-height:0;flex:0 1 auto;overflow:hidden;';
       // `centerBody` (the chest ceremony): the content region is the WHOLE
       // quiet zone and the copy sits centred in it rather than on its floor.
       // An inner block with auto margins does the centring, so long copy
-      // still starts at the top and scrolls instead of clipping.
-      let into = body;
+      // still starts at the top before it is split into pages.
+      const into = document.createElement('div');
+      into.className = 'modal-content';
+      into.style.cssText = 'display:flow-root;min-width:0;';
+      body.appendChild(into);
       if (art && centerBody) {
         body.style.flex = '0 0 auto';
         body.style.height = body.style.maxHeight;
         body.style.display = 'flex';
         body.style.flexDirection = 'column';
-        into = document.createElement('div');
-        into.style.cssText = 'margin:auto 0;flex:0 0 auto;';
-        body.appendChild(into);
+        into.style.margin = 'auto 0';
+        into.style.flex = '0 0 auto';
       }
       while (box.firstChild) into.appendChild(box.firstChild);
       box.appendChild(body);
       if (portrait) {
         // A square character portrait keeps its own size, separate from the
-        // scrollable copy. It is never stretched into a scene painting.
+        // paged copy. It is never stretched into a scene painting.
         box.style.overflowY = 'hidden';
-        body.style.cssText = 'margin:0;min-height:0;flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;padding-bottom:3px;';
+        body.style.cssText = 'margin:0;min-height:0;flex:1 1 auto;overflow:hidden;padding-bottom:3px;';
         const image = document.createElement('img');
         image.className = 'modal-portrait';
         image.src = portrait;
@@ -426,13 +427,89 @@ class SceneModals {
       if (!document.body.classList.contains('modal-open')) wrap.classList.add('modal-anim');
       wrap.appendChild(box);
       (document.getElementById('game') || document.body).appendChild(wrap);
-      // TEXT-HEAVY → THE BAND. Measured now it is laid out: copy that
-      // overflows the quiet zone gets the band's taller content region.
-      if (art && body.scrollHeight > body.clientHeight + 1) {
-        paintScene(true);
-        body.style.maxHeight = `${Math.round((1 - ART_BAND_FRAC) * 100)}%`;
-        if (centerBody) body.style.height = body.style.maxHeight;
-      }
+      // TEXT-HEAVY → THE BAND. Refit after selections, fonts and images load,
+      // not just on the first paint. Long copy uses discrete pages, never a
+      // scroll container or smaller type. Columns preserve the original DOM
+      // and its handlers, and split prose at line boundaries.
+      let page = 0, pageCount = 1, frame = 0;
+      const pages = document.createElement('div');
+      pages.className = 'modal-pages';
+      pages.style.cssText = 'display:none;align-items:center;justify-content:center;gap:10px;flex:0 0 auto;margin-top:6px;';
+      const previous = mkBtn('‹', { variant: 'ghost', css: 'min-width:40px;min-height:36px;padding:4px 10px;' });
+      const next = mkBtn('›', { variant: 'ghost', css: 'min-width:40px;min-height:36px;padding:4px 10px;' });
+      previous.setAttribute('aria-label', 'Previous page');
+      next.setAttribute('aria-label', 'Next page');
+      const count = document.createElement('span');
+      count.setAttribute('aria-live', 'polite');
+      pages.append(previous, count, next);
+      box.appendChild(pages);
+      const showPage = (index) => {
+        page = Math.max(0, Math.min(pageCount - 1, index));
+        into.style.transform = page ? `translateX(${-page * (body.clientWidth + 16)}px)` : '';
+        previous._setEnabled(page > 0);
+        next._setEnabled(page < pageCount - 1);
+        count.textContent = `${page + 1} / ${pageCount}`;
+      };
+      previous.addEventListener('click', e => { e.stopPropagation(); showPage(page - 1); });
+      next.addEventListener('click', e => { e.stopPropagation(); showPage(page + 1); });
+      into.addEventListener('focusin', e => {
+        if (pageCount < 2) return;
+        const x = e.target.getBoundingClientRect().left - into.getBoundingClientRect().left;
+        showPage(Math.floor(x / (body.getBoundingClientRect().width * (1 + 16 / body.clientWidth))));
+      });
+      const fit = () => {
+        frame = 0;
+        if (!wrap.isConnected) return;
+        into.style.height = '';
+        into.style.columnWidth = '';
+        into.style.columnGap = '';
+        into.style.columnFill = '';
+        into.style.transform = '';
+        pages.style.display = 'none';
+        body.style.flexShrink = '1';
+        if (art) {
+          paintScene(false);
+          body.style.maxHeight = `${Math.round((1 - ART_DETAIL_FRAC) * 100)}%`;
+          if (centerBody) body.style.height = body.style.maxHeight;
+          if (body.scrollHeight > body.clientHeight + 1) {
+            paintScene(true);
+            body.style.maxHeight = `${Math.round((1 - ART_BAND_FRAC) * 100)}%`;
+            if (centerBody) body.style.height = body.style.maxHeight;
+          }
+        }
+        pageCount = 1;
+        if (body.scrollHeight > body.clientHeight + 1) {
+          pages.style.display = 'flex';
+          // Reserve the pager inside the content region, below the columns.
+          const available = body.clientHeight - pages.offsetHeight - 6;
+          into.style.margin = '0';
+          into.style.height = `${Math.max(44, available)}px`;
+          into.style.columnWidth = `${body.clientWidth}px`;
+          into.style.columnGap = '16px';
+          into.style.columnFill = 'auto';
+          pageCount = Math.max(1, Math.ceil((into.scrollWidth + 16) / (body.clientWidth + 16)));
+        } else if (art && centerBody) {
+          into.style.margin = 'auto 0';
+        }
+        showPage(page);
+      };
+      const scheduleFit = () => {
+        if (!frame) frame = requestAnimationFrame(fit);
+      };
+      const changes = new MutationObserver(scheduleFit);
+      changes.observe(into, { childList: true, subtree: true, characterData: true,
+        attributes: true, attributeFilter: ['open', 'hidden'] });
+      const resize = new ResizeObserver(scheduleFit);
+      resize.observe(box);
+      into.addEventListener('load', scheduleFit, true);
+      document.fonts?.ready.then(scheduleFit);
+      const removal = new MutationObserver(() => {
+        if (wrap.isConnected) return;
+        changes.disconnect(); resize.disconnect(); removal.disconnect();
+        cancelAnimationFrame(frame);
+      });
+      removal.observe(wrap.parentNode, { childList: true });
+      fit();
     };
     // ONE button factory for every button a modal shows, in two VARIANTS:
     //   primary — a CONTROL: gold, always (spec §UI COLOUR LANGUAGE), or a
@@ -1080,7 +1157,7 @@ class SceneModals {
       zIndex: 55, borderColor: accent, wrapBg: '#000c', art, portrait, centerBody: true,
       kind, kindLabel: header, kindIcon, delayInput: true,
       wrapExtra: 'animation:chestModalIn 180ms ease-out;',
-      boxExtra: `border-width:3px;border-radius:14px;padding:22px 22px 14px;font-size:14px;` +
+      boxExtra: `border-width:3px;border-radius:14px;padding:12px 14px 10px;font-size:14px;` +
         `animation:chestRewardPop 320ms cubic-bezier(.34,1.56,.64,1);`,
     });
     // Keyframes injected once. The sparkle keyframe reads its drift vector
@@ -1117,12 +1194,12 @@ class SceneModals {
       // ceremony with an art banner plus card buttons (the trail pick) has
       // no room for a third picture - an empty div would still cost its
       // margins as a blank band under the banner.
-      (iconHTML ? `<div style="margin:6px 0 10px;font-size:0">${iconHTML}</div>` : '') +
+      (iconHTML ? `<div style="margin:0 0 6px;font-size:0">${iconHTML}</div>` : '') +
       `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}</div>` +
       tierHtml +
       qtyHtml +
       subHtml +
-      (hasActions ? '' : '<div style="margin-top:14px;opacity:.45;font-size:10px;letter-spacing:.06em">tap to continue</div>');
+      (hasActions ? '' : '<div style="margin-top:8px;opacity:.6;font-size:10px;letter-spacing:.06em">tap to continue</div>');
     const close = () => {
       wrap.remove();
       if (typeof onDismiss === 'function') onDismiss();
@@ -1137,7 +1214,7 @@ class SceneModals {
       // One shared line under the row: the pick's hint, then the SELECTED
       // card's info. Word buttons (no cards) have no line.
       const infoLine = document.createElement('div');
-      infoLine.style.cssText = 'margin-top:10px;font-size:12px;line-height:1.35;opacity:.9;min-height:1.35em;'
+      infoLine.style.cssText = 'margin-top:6px;font-size:12px;line-height:1.35;opacity:.9;min-height:1.35em;'
         + (cards ? '' : 'display:none;');
       if (cards) infoLine.innerHTML = `<span style="opacity:.6">${pickHint}</span>`;
       const choose = (a) => {
@@ -1150,7 +1227,7 @@ class SceneModals {
       // The card buttons: a primary word in the ceremony's accent (the shell's
       // raised control), the rest ghosts. A card row's buttons share the row.
       const cardCss = 'position:relative;border-radius:7px;font:700 12px var(--font-ui);' +
-        (cards ? 'flex:1 1 0;min-width:0;padding:12px 4px 9px;' : 'padding:9px 14px;');
+        (cards ? 'flex:1 1 0;min-width:0;padding:8px 4px 6px;' : 'padding:9px 14px;');
       for (const a of actions) {
         const b = mkBtn(a.label, a.primary ? { accent, css: cardCss } : { variant: 'ghost', css: cardCss });
         b.addEventListener('click', (e) => {
@@ -1171,7 +1248,7 @@ class SceneModals {
         // The one button that pays: the shell's primary in the ceremony's
         // accent, dead until a card is selected.
         take = mkBtn(confirmLabel, { accent, css:
-          'margin-top:12px;min-width:55%;padding:10px 18px;border-radius:7px;font:700 14px var(--font-ui);' });
+          'margin-top:8px;min-width:55%;padding:10px 18px;border-radius:7px;font:700 14px var(--font-ui);' });
         take._setEnabled(false);
         take.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1183,7 +1260,10 @@ class SceneModals {
       // Dismiss on any tap — overlay or box, doesn't matter (this is a "tap
       // to acknowledge" not a "choose action" modal). stopPropagation on the
       // box would otherwise let the player click-through it.
-      wrap.addEventListener('click', (e) => { e.stopPropagation(); close(); }, true);
+      wrap.addEventListener('click', (e) => {
+        if (e.target.closest('.modal-pages')) return;
+        e.stopPropagation(); close();
+      }, true);
     }
     mount();
     // Sparkle burst around the modal. Spawned AFTER the wrap is in the DOM so
