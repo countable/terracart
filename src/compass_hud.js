@@ -210,7 +210,9 @@ const CompassHUD = {
       const directions = document.createElement('span');
       directions.className = 'compass-stick-directions';
       directions.setAttribute('aria-hidden', 'true');
-      directions.innerHTML = '<i>▲</i><i>▶</i><i>▼</i><i>◀</i>';
+      // U+FE0E asks for the TEXT glyph: phones otherwise draw ▶ and ◀ as
+      // blue emoji keys.
+      directions.innerHTML = '<i>▲\uFE0E</i><i>▶\uFE0E</i><i>▼\uFE0E</i><i>◀\uFE0E</i>';
       pad.append(directions);
       scene._compassDecorations.push(directions);
       const seal = document.createElement('span');
