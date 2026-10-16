@@ -246,20 +246,28 @@ function bakeCanvas(scene, key, w, h, paint) {
 
 // Bake once at scene creation: the ordinary bush is untouched underneath five
 // pixel berries. Picking swaps to its source frame, preserving shape and seat.
+// One bake per berry kind: shadow, body and highlight inks (CROP_SPRITE's
+// `texture` names the key).
+const BERRY_BUSH_INKS = {
+  bushes_fruiting: ['#713243', '#c65360', '#ef9290'],      // berry
+  bushes_poisonberry: ['#1d5a5c', '#2fb3a8', '#9ff0e2'],   // poisonberry
+};
 function makeBerryBushTexture(scene) {
   const source = scene.textures.get('bushes').getSourceImage();
-  bakeCanvas(scene, 'bushes_fruiting', source.width, source.height, (ctx, texture) => {
-    ctx.drawImage(source, 0, 0);
-    for (const [x, y] of [[20, 9], [29, 12], [16, 17], [25, 20], [33, 21]]) {
-      ctx.fillStyle = '#713243';
-      ctx.fillRect(x, y, 3, 3);
-      ctx.fillStyle = '#c65360';
-      ctx.fillRect(x, y, 2, 2);
-      ctx.fillStyle = '#ef9290';
-      ctx.fillRect(x, y, 1, 1);
-    }
-    texture.add(0, 0, 0, 0, source.width, source.height);
-  });
+  for (const [key, [shade, body, light]] of Object.entries(BERRY_BUSH_INKS)) {
+    bakeCanvas(scene, key, source.width, source.height, (ctx, texture) => {
+      ctx.drawImage(source, 0, 0);
+      for (const [x, y] of [[20, 9], [29, 12], [16, 17], [25, 20], [33, 21]]) {
+        ctx.fillStyle = shade;
+        ctx.fillRect(x, y, 3, 3);
+        ctx.fillStyle = body;
+        ctx.fillRect(x, y, 2, 2);
+        ctx.fillStyle = light;
+        ctx.fillRect(x, y, 1, 1);
+      }
+      texture.add(0, 0, 0, 0, source.width, source.height);
+    });
+  }
 }
 
 function drawGrassTex(ctx, size, rng) {
