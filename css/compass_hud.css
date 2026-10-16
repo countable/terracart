@@ -255,13 +255,14 @@ body.compass-hud #roadchip .road-num {width:100%;min-width:0;height:100%;overflo
 .compass-wheel::after {content:attr(data-next);bottom:calc(-7 * var(--compass-header-unit));}
 /* Reserve a legible unit plate even when the number wheels share a narrow housing. */
 .compass-wheel-unit {box-sizing:border-box;flex:0 0 max(30px,calc(34 * var(--compass-header-unit)));min-width:0;padding:0 2px;font:700 max(14px, calc(18 * var(--compass-header-unit)))/1 Arial,sans-serif;color:#171e15;text-shadow:0 1px #ffffe5;white-space:nowrap;}
-body.compass-hud #hud-row > #energy {border:2px solid #c4c6b7!important;background:#747d69;box-shadow:inset 0 0 0 2px #30372b,0 0 0 1px #3d4534,0 0 0 3px #c6c8b8,0 0 0 4px #3e4538;}
+/* The dial sits in a dark socket cut into the same silver as the chassis. */
+body.compass-hud #hud-row > #energy {border:2px solid #a8a59f!important;background:var(--compass-metal-face);box-shadow:inset 0 0 0 2px #454440,inset 0 2px 3px #e3dfd680,0 0 0 2px #232321,0 0 0 3px #6e6b65,0 1px 0 4px #c1bdb340;}
 body.compass-hud #energy::before,body.compass-hud #energy::after {display:none;}
 .compass-energy-face svg {width:100%;height:100%;display:block;}
 body.compass-hud .compass-energy-needle {inset:0;width:100%;height:100%;background:none;clip-path:none;border-radius:0;box-shadow:none;transform-origin:50% 55%;filter:drop-shadow(1px 2px 1px #29301d);}
 .compass-energy-needle svg {display:block;width:100%;height:100%;}
 .compass-energy-pivot {width:calc(8 * var(--compass-header-unit));height:calc(8 * var(--compass-header-unit));left:50%;top:55%;bottom:auto;transform:translate(-50%,-50%);background:radial-gradient(circle at 35% 30%,#fff0ad,#dfaf3b 50%,#8c651c);border-color:#71551c;box-sizing:border-box;box-shadow:0 1px 1px #28301b;}
-body.compass-hud #energy-label {bottom:19%;left:51%;right:10%;font:800 max(10px,calc(12 * var(--compass-header-unit)))/1 Georgia!important;text-shadow:0 1px #d9ddc580;}
+body.compass-hud #energy-label {bottom:19%;left:51%;right:10%;font:800 max(10px,calc(12 * var(--compass-header-unit)))/1 Georgia!important;color:#f0ebe0!important;text-shadow:0 1px 2px #171715;}
 body.compass-hud #hud-row > #money,body.compass-hud #money-num {font:600 calc(16 * var(--compass-header-unit))/1.15 Georgia;color:#f3cc66;letter-spacing:.15px;text-shadow:0 2px 1px #14170d,1px 0 2px #171b0d,-1px 0 2px #171b0d,0 3px 5px #000;}
 /* The north vane is a small raised metal pointer; its asymmetric highlights
    remain legible over both dark paving and bright terrain. */
@@ -334,12 +335,12 @@ body.compass-hud #roadchip .road-num {font-size:16px;}
 body.compass-hud .compass-wheel-unit {flex-basis:22px;font-size:10px;}
 body.compass-hud #energy-label {font-size:11px!important;}
 
-/* Darker metal, with the outer chassis fading into its black surround. */
-body.compass-hud #compass-body {filter:brightness(.68);}
+/* Keep carving visible beneath the navigation; inventory has its own recess. */
+body.compass-hud #compass-body {filter:brightness(.8);}
 body.compass-hud #compass-body::after {
   content:'';position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(90deg,#000c,transparent 12%,transparent 88%,#000c),
-    linear-gradient(#0009,transparent 14%,transparent 86%,#000c);
+    linear-gradient(#0003,transparent 10%,transparent 88%,#0008);
 }
 body.compass-round #compass-body::after {
   mask-image:radial-gradient(circle calc(var(--compass-map-size) / 2) at 50% calc(var(--compass-map-top) + var(--compass-map-size) / 2),transparent calc(100% - 1px),#000 100%);
