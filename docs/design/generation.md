@@ -108,6 +108,12 @@ access or tile lifecycle mechanics.
   24 hours after landing; another shot refreshes that cell without duplicating
   it. Silk in flight is transient and is cleared when depth changes.
 
+- Picking a wild berry records its original id in `save.picked` as usual,
+  but leaves an ordinary, fruitless bush silhouette at that location. The
+  `WILDPLANT_RULES.pickedCrop` render view survives reloads without another
+  save field; the remnant is scenery, not another berry or wood reward.
+  Burned bushes/ground stay cleared. Farmed crop harvesting is unchanged.
+
 - Do not add save/data compatibility migrations until the user requests them.
   Retired save formats may be discarded; keep current-state defaults, validation
   and runtime cleanup separate from compatibility conversion.
