@@ -10,8 +10,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
   and confirmations use the NPC portrait layout with the spirit artwork.
 
-- The compass header aligns menu, equally wide memories/books and distance windows
-  beside a larger 64-pixel energy dial at the top right. An 18-pixel coin and its
+- The compass header aligns menu, a memories/books window and compact distance meter
+  capped at 90 pixels wide beside a larger 64-pixel energy dial at the top right. An 18-pixel coin and its
   inline count sit at the far right just below the energy dial. The simulated-GPS control sits 20 CSS pixels above its
   ordinary stick baseline. HUD metal uses reduced brightness with a stronger
   outer-edge fade; controls retain brighter text and icons. The fade excludes
