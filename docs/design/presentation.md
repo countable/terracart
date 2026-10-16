@@ -32,7 +32,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   plungers above a shared rail. The selected key and detent glow gold. Small
   square item controls share one dark-glass window, with a physical sort lever,
   ivory pager rollers, and an integrated name/action plate. Contextual actions
-  retain their existing semantics, as do the dormant inventory shutter and taps.
+  retain their existing semantics. The dormant inventory cover occupies the lower
+  inventory window and can be dismissed for the scene without unlocking controls.
+  Inactive-module Spirit dialogs explain how to power up that specific module;
+  distance uses the shared 200-metre threshold, and spirit walking remains opt-in.
   Reference atlas crops live alongside their provenance in `assets/ui/compass/`.
   Engravings retain their aspect ratio rather than stretching to viewport height.
   The modal gate publishes the final sheet edge in viewport pixels so silver
@@ -52,8 +55,12 @@ changing dialogue, story panels, books, toasts or status presentation.
   widens at the top and narrows below; granted device pitch/roll steer it, with
   slow drift when sensor readings are unavailable. It adds no permission prompt.
   Reduced motion leaves a static reflection; hidden pages stop animation and
-  scene shutdown removes listeners and layers. Updates are capped at 30 Hz, with
-  no runtime blur or pixel readback. Mask movement may repaint on some browsers.
+  scene shutdown removes listeners and layers. Reflection updates are capped at 15 Hz, with
+  no runtime blur or pixel readback. The feathered beam mask is rasterized at
+  layout time, then moves by integer-pixel compositor transforms; an inverse
+  transform keeps the highlighted carving aligned. Pitch moves the tapered
+  reflection along the face and roll moves it sideways. Unchanged positions
+  skip style writes. Mask dimensions and inherited CSS variables never animate.
 
 - The money area stays blank until an earned coin queues its first-coin story.
   Starting funds do not unlock it. The story waits behind other interactions;

@@ -5,6 +5,13 @@
   const MODULES = Object.freeze({ inventory: 'Inventory', joystick: 'Spirit walking',
     distance: 'Distance', memories: 'Memories', books: 'Books' });
   const DISTANCE_M = 200;
+  const HINTS = Object.freeze({
+    inventory: 'You have no items. Find an item to power up the inventory.',
+    memories: 'Discover a memory to power up this mechanism.',
+    books: 'Find a book to power up this mechanism.',
+    distance: `Cover ${DISTANCE_M} metres on foot to power up.`,
+    joystick: 'Enable spirit walking to move with the compass controls.',
+  });
   // HUD checks run every frame. Normalize each loaded state once, and stop
   // inspecting collection histories after their circuit has awakened.
   const normalized = new WeakSet();
@@ -78,7 +85,7 @@
     if (isActive(scene.save, id)) return true;
     if (busy(scene, false)) return false;
     const panel = { kind: 'spirit',
-      body: `${MODULES[id]} not activated. power low.` };
+      body: `${MODULES[id]} not activated. Power low.\n\n${HINTS[id]}` };
     scene._compassSpiritOpen = true;
     const close = () => { scene._compassSpiritOpen = false; };
     try {

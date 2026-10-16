@@ -504,7 +504,11 @@ function renderScale() {
   const dpr = window.devicePixelRatio || 1;
   // ?rscale=N (see urlNumParam) lowers the cap for one run — the A/B that
   // tells GPU fill from main-thread cost, which no JS timer can measure.
-  const cap = window.__renderScaleCap > 0 ? clamp(window.__renderScaleCap, 1, RENDER_SCALE_MAX) : RENDER_SCALE_MAX;
+  // Software Canvas rotation is CPU-bound at high DPR. Keep its backing
+  // store at the logical pixel-art grid; WebGL retains the 2× budget. The
+  // explicit query override remains available for controlled A/B profiles.
+  const defaultCap = window.__canvasRenderer ? 1 : RENDER_SCALE_MAX;
+  const cap = window.__renderScaleCap > 0 ? clamp(window.__renderScaleCap, 1, RENDER_SCALE_MAX) : defaultCap;
   return clamp(css * dpr, 1, cap);
 }
 // Live value: read by the pointer conversion below and re-applied on resize.
@@ -8517,7 +8521,7 @@ class MapScene extends Phaser.Scene {
       // the moment the world came up. (body.modal-open, which dims these two
       // for a dialog, cannot cover that stretch: it is toggled from the
       // scene's own update loop, and there is no scene yet.)
-      document.body.classList.remove('booting');
+      if (document.body.classList.contains('booting')) document.body.classList.remove('booting');
     }
     this.updateEnergyDOM();
     this.updateMemoriesDOM();
@@ -11028,6 +11032,12 @@ window.__onGameScaleChange = () => {
   // canvas's CSS size, so a stale one would lay the new buffer out at the wrong
   // number of CSS px and #game's transform would compound the error.
   game.scale.setZoom(1 / RENDER_SCALE);
+  // Phaser skips CSS size writes in resize() when zoom is exactly 1. The
+  // preceding setZoom then leaves the OLD backing size as CSS pixels when
+  // switching to the Canvas cap. Seat the new buffer in the logical box
+  // before resize refreshes input bounds, without reallocating twice.
+  game.canvas.style.width = `${W}px`;
+  game.canvas.style.height = `${H}px`;
   game.scale.resize(W * RENDER_SCALE, H * RENDER_SCALE);
   // The resize grows each camera to the new buffer but leaves its transform
   // alone, so the zoom is still the OLD render scale — which would draw the
