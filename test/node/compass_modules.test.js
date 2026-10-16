@@ -2,7 +2,8 @@
   const copy = value => JSON.parse(JSON.stringify(value));
   function sceneFor(save = {}) {
     CompassModules.initialize(save);
-    return { save, panels: [], held: false,
+    return { save, panels: [], toasts: [], held: false,
+      flashAtPlayer(text) { this.toasts.push(text); },
       _dialogOpen() { return this.held; }, _storyHeld() { return this.held; },
       showMessageModal(panel) { this.panels.push(panel); },
       showConfirmModal(panel) { this.panels.push(panel); } };
@@ -67,31 +68,31 @@
     assert.eq(scene.save.compassModules.pending.join(','), 'joystick');
   });
 
-  test('compass circuits: activation queue waits for stories, survives pending reload, never repeats a shown panel', () => {
+  test('compass circuits: activation is a micro toast that waits for stories, survives pending reload, never repeats', () => {
     const scene = sceneFor();
     CompassModules.activate(scene, 'inventory'); CompassModules.activate(scene, 'books');
     scene.held = true;
     assert.falsy(CompassModules.drain(scene));
-    assert.eq(scene.panels.length, 0);
+    assert.eq(scene.toasts.length, 0);
     const resumed = sceneFor(copy(scene.save));
     assert.truthy(CompassModules.drain(resumed));
-    assert.eq(resumed.panels[0].body, 'Inventory activated.');
-    assert.falsy(CompassModules.drain(resumed), 'one panel at a time');
+    assert.eq(resumed.toasts[0], 'Inventory activated');
+    assert.eq(resumed.panels.length, 0, 'no dialog');
+    assert.falsy(resumed._compassSpiritOpen, 'nothing holds play');
     const reloaded = sceneFor(copy(resumed.save));
     assert.truthy(CompassModules.drain(reloaded));
-    assert.eq(reloaded.panels[0].body, 'Books activated.');
-    dismiss(reloaded);
-    assert.falsy(CompassModules.drain(reloaded));
+    assert.eq(reloaded.toasts[0], 'Books activated');
+    assert.falsy(CompassModules.drain(reloaded), 'each panel once');
   });
 
-  test('compass circuits: failed dialog opening preserves activation for retry', () => {
+  test('compass circuits: a failed toast preserves activation for retry', () => {
     const scene = sceneFor(); CompassModules.activate(scene, 'books');
-    scene.showMessageModal = () => { throw new Error('unavailable'); };
+    scene.flashAtPlayer = () => { throw new Error('unavailable'); };
     let threw = false;
     try { CompassModules.drain(scene); } catch (_) { threw = true; }
-    assert.truthy(threw); assert.falsy(scene._compassSpiritOpen);
+    assert.truthy(threw);
     assert.eq(scene.save.compassModules.pending.join(','), 'books');
-    scene.showMessageModal = panel => scene.panels.push(panel);
+    scene.flashAtPlayer = text => scene.toasts.push(text);
     assert.truthy(CompassModules.drain(scene));
   });
 })();
