@@ -109,8 +109,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   first discovery/memory. Spending cannot close an activated circuit. Distance
   activates after 200 m of accepted movement; joystick activation requires
   **Enable spirit walking** in its spirit dialog. Closed controls explain low
-  power. Activation notices wait behind stories and dialogs, and are claimed
-  when shown so reloads cannot repeat them. Existing ownership seeds circuits
+  power. Activation notices are micro toasts over the player, never dialogs;
+  they wait behind stories and dialogs, and are claimed when shown so reloads
+  cannot repeat them. Existing ownership seeds circuits
   quietly when upgrading an older save.
 
 - The inventory pet menu's **View info** opens an individual pet card with a
