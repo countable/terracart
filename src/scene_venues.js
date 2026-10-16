@@ -1124,7 +1124,7 @@ class SceneVenues {
   // a way, where a ring of stones would read as litter. Whatever building the
   // two land on is cleared by clearHomeFooting. The one Home placer: the
   // starter placement and "Move Home here" both come through here.
-  _placeHome(x, y) {
+  _placeHome(x, y, heading = 0) {
     const at = worldMetersToAbsCell(this, x, y);
     const cellAt = (off) => {
       const c = absCellOffset(this, at.cellIX, at.cellIY, off.dx, off.dy);
@@ -1132,13 +1132,17 @@ class SceneVenues {
     };
     this.save.homeFirepit = null;
     this.save.homeFirepitPending = true;
-    const wagon = cellAt(HomeArea.WAGON_OFFSET);
+    this.save.homePlacementHeading = heading;
+    const wagon = cellAt(HomeArea.placementOffsets(heading).wagon);
     this._makeStarterTrailer(wagon.x, wagon.y);
   }
 
   // A real compass reading unlocks placement once per save. Heading changes
-  // never move the pit: south is geographic south in the world cell grid.
+  // never move the saved layout after its initial placement.
   _onFirstCompass() {
+    if (!Number.isFinite(this._homeInitialHeading) && Number.isFinite(this._deviceCompass?.deg)) {
+      this._homeInitialHeading = this._deviceCompass.deg;
+    }
     if (this.save.homeCompassDetected) return;
     this.save.homeCompassDetected = true;
     this.save.homeFirepitPending = true;
@@ -1158,7 +1162,7 @@ class SceneVenues {
       if (now - this._firepitGraceT0 < HomeArea.FIREPIT_COMPASS_GRACE_MS) return false;
     }
     const at = worldMetersToAbsCell(this, trailer.x, trailer.y);
-    const offset = HomeArea.FIREPIT_OFFSET, wagon = HomeArea.WAGON_OFFSET;
+    const { firepit: offset, wagon } = HomeArea.placementOffsets(save.homePlacementHeading || 0);
     const cell = absCellOffset(this, at.cellIX, at.cellIY, offset.dx - wagon.dx, offset.dy - wagon.dy);
     const pit = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
     // Do not relocate a saved lit fire into water or a road. An unsuitable

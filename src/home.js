@@ -55,12 +55,18 @@ const HomeArea = {
   // ── Home's footing ────────────────────────────────────────────────────
   // Where a placed Home sits, in cell offsets from the point it is placed
   // for (the player's first fix, or where they stand for "Move Home here"):
-  // the wagon one cell NORTH, so the player starts on its doorstep, and an
-  // firepit centred three cells due south of the wagon, after the first
-  // compass reading. Every Home placement
-  // reads these; nothing restates them.
+  // the wagon one cell ahead and the firepit two cells behind the player.
+  // A new game rotates these defaults into its first compass heading.
+  // Explicit Home moves retain the north-up defaults.
   WAGON_OFFSET: { dx: 0, dy: -1 },
   FIREPIT_OFFSET: { dx: 0, dy: 2 },
+  // Rotate the starting layout into the first compass heading, then snap to
+  // cells once. Saved positions never follow later camera turns.
+  placementOffsets(heading = 0) {
+    const a = heading * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    const turn = ({ dx, dy }) => ({ dx: Math.round(dx * c - dy * s), dy: Math.round(dx * s + dy * c) });
+    return { wagon: turn(this.WAGON_OFFSET), firepit: turn(this.FIREPIT_OFFSET) };
+  },
   // The firepit waits for the first compass reading — but only this long
   // (ms, from Home standing on the surface this session). A device that
   // never reports a heading (desktop, a phone without motion permission)

@@ -725,3 +725,12 @@ Higher-priority placements and their access space take precedence in this order:
   Apply saved-player changes as overlays without rerolling the generated world.
   If an authored footprint cannot fit, use its deterministic eligible fallback
   or report a shortfall; never spill it into forbidden or higher-priority space.
+
+### Initial Home orientation
+
+A new live game waits for the first compass reading before placing its trailer
+and campfire. The player remains at their GPS position. The starting offsets
+rotate into that heading once, seating the trailer ahead of the player and the
+firepit behind them on the door side. The saved layout stays fixed through later
+heading changes and reloads. Existing Homes keep their saved positions; sandbox
+and north-up previews retain the north-facing layout.
