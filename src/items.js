@@ -229,6 +229,7 @@ function wildplantFrame(p) {
 // the vast majority — it drops itself, is picked instantly for nothing, hides
 // no treasure and casts no light.
 const WILDPLANT_RULES = {
+  berry: { pickedCrop: 'shrub' },
   // A woody bush. Chopping one yields the WOOD item, not a 'shrub' item
   // (tree + shrub have no inventory counterparts), and it is real felling
   // work: bare hands take 5 seconds, axes use their usual ladder, and

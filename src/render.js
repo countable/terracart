@@ -49,6 +49,20 @@
 
 const Render = {};
 
+// Picked fruit can leave its plant standing. This is a render-only view:
+// the original id stays spent, including after reloading the saved ledger.
+Render.wildplantView = function (plant, sets) {
+  if (sets.burned?.has(plant.id) || sets.burnedGround?.(plant)) return null;
+  const picked = !plant.tide && sets.picked.has(plant.id);
+  if (picked) {
+    const crop = wildplantRule(plant.crop)?.pickedCrop;
+    return crop ? { ...plant, crop, _pickedRemnant: true, _plantArt: 'ordinary', _hedgeFrame: undefined,
+      _zoneObjectFrame: undefined, _streetArt: undefined } : null;
+  }
+  return isSpent(plant, sets) ? null : plant;
+};
+
+
 // Shared, short-lived melee art. The event is authored by the damage lane;
 // drawing never changes attack cadence or reach.
 Render.MELEE_LOOKS = {
@@ -3451,9 +3465,14 @@ function fadeLabelOverPlayer(tx, box) {
 // Upright props fade only while their visible art covers the player's body
 // and their shared world depth places them in front. Read the boot-time art
 // bounds, never texture pixels; untrimmed procedural art uses its frame box.
-Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha) {
+// On a turned heading-up map (`view`, from Render.headingFadeView) each body
+// stands upright at its turned feet, and lower turned feet draw in front, so
+// both the boxes and the front test follow the turned feet instead.
+Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha, view = null) {
   let obscures = false;
-  if (box && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && s.depth > playerDepth) {
+  const foot = view && (s._huAnchor || s);
+  const front = view ? view.sin * foot.x + view.cos * foot.y > view.playerKey : s.depth > playerDepth;
+  if (box && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && front) {
     const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
     const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
     const fw = art?.fw ?? s.frame?.realWidth ?? s.frame?.width ?? s.width;
@@ -3462,10 +3481,29 @@ Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, 
     const x1 = s.x + ((art?.maxX ?? fw) - s.originX * fw) * s.scaleX;
     const y0 = s.y + ((art?.minY ?? 0) - s.originY * fh) * s.scaleY;
     const y1 = s.y + ((art?.maxY ?? fh) - s.originY * fh) * s.scaleY;
-    obscures = x0 < box.x1 && x1 > box.x0 && y0 < box.y1 && y1 > box.y0;
+    // The art keeps its offsets from its feet; only the feet turn.
+    const ox = view ? view.cos * foot.x - view.sin * foot.y - foot.x : 0;
+    const oy = view ? view.sin * foot.x + view.cos * foot.y - foot.y : 0;
+    obscures = x0 + ox < box.x1 && x1 + ox > box.x0 && y0 + oy < box.y1 && y1 + oy > box.y0;
   }
   const alpha = baseAlpha * (obscures ? 0.5 : 1);
   if (s.alpha !== alpha) s.setAlpha(alpha);
+};
+
+// The turned-map inputs for fadeObjectOverPlayer: the rotation, the player's
+// turned feet key, and the player's body box moved to its turned feet. Null on
+// a north-up map. Rotating about the origin is enough: only differences
+// between turned feet matter, and every position turns the same way.
+Render.headingFadeView = function headingFadeView(scene, box) {
+  const a = typeof HeadingUp !== 'undefined' ? HeadingUp.angle(scene) : 0;
+  const feet = a && scene.playerScreen ? scene.playerScreen() : null;
+  if (!feet) return { view: null, box };
+  const sin = Math.sin(a), cos = Math.cos(a);
+  const ox = cos * feet.x - sin * feet.y - feet.x, oy = sin * feet.x + cos * feet.y - feet.y;
+  return {
+    view: { sin, cos, playerKey: sin * feet.x + cos * feet.y },
+    box: box && { x0: box.x0 + ox, x1: box.x1 + ox, y0: box.y0 + oy, y1: box.y1 + oy },
+  };
 };
 
 // QC labels read the generated selections, never choose another variant.
@@ -4031,10 +4069,10 @@ Render.drawObjects = function drawObjects(scene) {
     if (entry.wildplants) {
       WorldGen.forEachItemInBox(entry, 'wildplants', pWorldX - wM, pWorldY - wM, pWorldX + wM, pWorldY + wM, (wp) => {
         _boot_scanned++;
-        // Gone: picked (save.picked), or a TIDE pickup (src/scenic.js) that
-        // is not on the waterline today or was taken today — one predicate,
-        // interactables.js isSpent, the tap asks the same.
-        if (isSpent(wp, spentIds) || (!wp.tide && pickedSet.has(wp.id))) return;
+        // Most picked plants disappear; fruit bushes leave a plain bush.
+        // The source record stays spent for interaction and persistence.
+        wp = Render.wildplantView(wp, spentIds);
+        if (!wp) return;
         if (Render.coverHidden(scene, wp, true)) return;
         if (HiddenObjects.isHidden(scene.save, wp)
             || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, wp, hideNightRoadObjects))) return;
@@ -4049,7 +4087,7 @@ Render.drawObjects = function drawObjects(scene) {
         // tint below reads it); _ix/_iy only survive on the wildplants the
         // occupancy pass never saw (cave mushrooms, the sandbox scatter), so
         // the id is what the per-cell variant hash actually keys off.
-        plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: wp.stage ?? MAX_GROWTH_STAGE, wildId: wp.id, gasEmitter: wp.gasEmitter,
+        plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: wp.stage ?? MAX_GROWTH_STAGE, wildId: wp.id, _pickedRemnant: wp._pickedRemnant, gasEmitter: wp.gasEmitter,
                                 sightBlocking: wp.sightBlocking, zoneVariant: wp.zoneVariant, rockStyle: wp.rockStyle, rockTheme: wp.rockTheme,
                                 _cave: wp._cave, _biome: wp._biome, _terrainScale: wp._terrainScale, _plantArt: wp._plantArt, _hedgeFrame: wp._hedgeFrame, _zoneObjectFrame: wp._zoneObjectFrame, _streetArt: wp._streetArt, _ix: wp._ix, _iy: wp._iy, ...connectedArt.get(wp) }, dx, dy });
         _boot_kept++;
@@ -4332,6 +4370,9 @@ Render.drawObjects = function drawObjects(scene) {
     Render.renderPool(scene, scene.shadowPool, scene.shadowContainer, shadowList, (s, item) => {
       const { o, dx, dy } = item;
       const { x: sx, y: sy } = project(dx, dy);
+      // Heading-up turns a shadow about `_huAnchor`. A pooled slot must not
+      // keep the anchor of whatever it shadowed before.
+      s._huAnchor = null;
       if (item._plantShadow) {
         const shadow = item._plantShadow;
         seatShadow(s, 'plant', shadow.width, Math.round(sx), Math.round(sy) + shadow.dyPx, shadow.height);
@@ -4346,6 +4387,9 @@ Render.drawObjects = function drawObjects(scene) {
         const foot = item._foot;
         seatShadow(s, 'prop', Math.max(8, foot.w * 0.9), Math.round(sx),
           Math.round(sy + foot.footFromCentre - (foot.shadowInsetPx || 0)));
+        // Turn with the prop about its own ground anchor, so the tuck-up
+        // inset stays screen-up instead of swinging below the art.
+        s._huAnchor = Render.objectGroundAnchor(item._appearance, scene.textures, { x: sx, y: sy });
         return;
       }
       const shadow = Render.buildingShadow(item._appearance, scene.textures, { x: sx, y: sy });
@@ -4355,10 +4399,10 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
   // Turrets keep a separate reusable pool inside the shared world layer.
-  const bodyBox = playerScreenBox(scene);
+  const { box: bodyBox, view: fadeView } = Render.headingFadeView(scene, playerScreenBox(scene));
   const playerDepth = scene.playerWorldContainer?.depth ?? Infinity;
   const fadeObject = (s, appearance) => Render.fadeObjectOverPlayer(s, appearance,
-    bodyBox, playerDepth, s._objectBaseAlpha ?? 1);
+    bodyBox, playerDepth, s._objectBaseAlpha ?? 1, fadeView);
   const configureObject = (s, item) => {
     const { o, dx, dy } = item;
     const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
@@ -5042,7 +5086,7 @@ Render.drawObjects = function drawObjects(scene) {
     // baby off) WIGGLES: three quick swings, NEST_WIGGLE_DEG either side of
     // upright, swelling and dying over the beat's show (nestBushPhase, once
     // every 10-30 s). Everything else stands at the pool's reset angle, 0.
-    let wig = (p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow, scene._orbReveal?.get(p.wildId)) : -1;
+    let wig = (!p._pickedRemnant && p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow, scene._orbReveal?.get(p.wildId)) : -1;
     if (wig < 0 && foeCells.size && p.wildId != null && Render.lurkBush(p)) {
       const cell = worldMetersToAbsCell(scene, p.x, p.y);
       if (foeCells.has(cell.cellIX + '_' + cell.cellIY)) wig = lurkBushPhase(p.wildId, _plantNow);

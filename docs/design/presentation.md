@@ -9,13 +9,23 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Reward acknowledgments and safety reminders use an explicit OK button;
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
   and confirmations use the NPC portrait layout with the spirit artwork.
+  Dragon Spirit and NPC spoken copy appears in a pale chat bubble beneath the
+  portrait; speaker titles and response choices stay outside the bubble.
+  The first earned green coin opens its own `coin_first` scene painting before
+  revealing the money readout; its raised star matches the compact currency icon.
 
 - The compass header aligns menu, a memories/books window and compact distance meter
-  capped at 90 pixels wide beside a larger 64-pixel energy dial at the top right. An 18-pixel coin and its
-  inline count sit at the far right just below the energy dial. Equal responsive
+  capped at 84 pixels wide beside a 72-pixel energy dial at the top right. The menu is
+  46 pixels tall; the shared memories/books window gives these controls more room. A 26-pixel coin with a cast shadow and its
+  white inline count sit at the far right, with a seven-pixel gap below the energy dial. The tutorial
+  banner sits 19 pixels below the map top (25 pixels higher than before). Equal responsive
   gaps separate all four top widgets, with matching 8-pixel outer margins. The simulated-GPS control sits 20 CSS pixels above its
-  ordinary stick baseline. HUD metal uses reduced brightness with a stronger
-  outer-edge fade; controls retain brighter text and icons. The fade excludes
+  ordinary stick baseline. The carving stays visible beneath navigation, with a
+  darker graphite recess behind the inventory and a soft outer-edge fade.
+  The energy dial uses the shared silver texture with contrasting warm grey reflection bands;
+  close-contact socket shadows and compact recessed category glyphs seat the controls in
+  the chassis. Neutral pewter faces and rims match the carved background while
+  controls retain brighter text and icons. The fade excludes
   the circular map aperture. The compass rim is a fine gold celestial inlay: a shallow, flourished north
   triangle, compact embossed cardinal letters, small gold beads at the four
   45-degree diagonals, and eight engraved intermediate 22.5-degree marks
@@ -29,12 +39,14 @@ changing dialogue, story panels, books, toasts or status presentation.
 - The four opening panes show the compass discovery, dragon-war dream,
   trailer awakening, then the ruined street. Each has two aligned paintings:
   hold the first for 1.5 seconds, crossfade once over 1.2 seconds, and keep
-  the second frame. Discovery and the dream are borderless fullscreen panels.
+  the second frame. The dragon dream instead keeps alternating between its
+  two paintings while open, so the heads and flames continue moving after
+  the camera push ends. Discovery and the dream are borderless fullscreen panels.
   Awakening begins “You check the compass.” and uses the living-silver compass
   story sheet, as does the ruined street and subsequent narrative. Paintings
   remain uncropped with readable copy below. The dream retains its eight-second camera push and
-  wake-up button timing. Reduced-motion mode shows the first frame without
-  zoom or crossfade and makes the wake-up button immediately available.
+  immediately available wake-up button. Reduced-motion mode shows the first frame without
+  zoom or crossfade.
 
 - The living-silver chassis uses sliced surfaces in `css/compass_hud.css`.
   Layout publishes CSS-pixel `--compass-map-top` and `--compass-map-size`;
@@ -48,10 +60,12 @@ changing dialogue, story panels, books, toasts or status presentation.
   The current compact layout joins those readouts into one glass window with
   smaller icons/numerals and an unused-memory badge on the star. Each half
   retains its own tap action, accessible name, and independent dormant shutter.
-  `css/compass_inventory.css` seats eight embossed square category keys on
+  `css/compass_inventory.css` seats eight square keys with small stamped-in category symbols on
   plungers above a shared rail. The selected key and detent glow gold. Small
   square item controls share one dark-glass window, with a physical sort lever,
-  ivory pager rollers, and an integrated name/action plate. The description plate
+  a mechanical pager rocker with broad upper/lower touch faces around an ivory count
+  window, and an integrated name/action plate. The upper face selects the previous
+  page; the lower face selects the next page. The description plate
   appears only for a selected item or piece of gear; empty categories show no plate. Contextual actions
   retain their existing semantics. The dormant inventory cover occupies the lower
   inventory window and can be dismissed for the scene without unlocking controls.
@@ -61,9 +75,16 @@ changing dialogue, story panels, books, toasts or status presentation.
   Engravings retain their aspect ratio rather than stretching to viewport height.
   The modal gate publishes the final sheet edge in viewport pixels so silver
   shoulders remain visible above scaled sheets without covering their controls.
+  It clips the header readouts at that edge too; story sheets rise above the
+  coin indicator, using its measured position across phone and desktop scaling.
   Dismissible sheets expose a fixed close control using the same cancellation
   callback and input arming as their backdrop. Required acknowledgments omit
   it. The menu actuator remains visible and depressed while its sheet is open.
+  Gold zoom plungers sit just below the map window in a silver rack; the gold
+  direction lock occupies the upper-left corner of the compass. These controls
+  live outside Phaser’s scaled wrapper and yield to modal sheets. The lock
+  depresses while engaged. Unselected inventory items have no individual border;
+  the selected item retains its gold outline.
   The energy dial has one lightning-bolt needle for current energy, equal
   red/yellow/green thirds, and a maximum-energy numeral on the right.
   Dormant inscriptions use invented geometric glyphs at a shared size; their
@@ -183,6 +204,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   fixed coin fee. An empty list says "Once you find a potion, you can brew it here."
   Keep the selected recipe after brewing and recheck discovery, bag room,
   ingredients and coins before spending either resource.
+- Dialog content and buttons appear immediately, without timed input blocking
+  or delayed button reveals.
 - Dialogs use `makeModalShell` with a kind, which supplies a default scene
   painting unless the caller supplies a character `portrait` or `art: false`.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:

@@ -108,6 +108,12 @@ access or tile lifecycle mechanics.
   24 hours after landing; another shot refreshes that cell without duplicating
   it. Silk in flight is transient and is cleared when depth changes.
 
+- Picking a wild berry records its original id in `save.picked` as usual,
+  but leaves an ordinary, fruitless bush silhouette at that location. The
+  `WILDPLANT_RULES.pickedCrop` render view survives reloads without another
+  save field; the remnant is scenery, not another berry or wood reward.
+  Burned bushes/ground stay cleared. Farmed crop harvesting is unchanged.
+
 - Do not add save/data compatibility migrations until the user requests them.
   Retired save formats may be discarded; keep current-state defaults, validation
   and runtime cleanup separate from compatibility conversion.
@@ -281,7 +287,7 @@ access or tile lifecycle mechanics.
 - Treasure trails (`HomeArea.chestTrailCandidates`, up to `CHEST_TRAIL_LIMIT`)
   lead to the nearest unopened T2+ surface chests and unfound, uncovered X
   marks within `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the
-  surface; crates never get one. The line is dark ink (`Starter.TRAIL_STYLE`).
+  surface; crates never get one. The line is faint dashed black ink (`Starter.TRAIL_STYLE`).
   The chest at a trail's end rolls `CHEST_TRAIL_TIER_BONUS` tier higher, within
   its depth cap; an X at a trail's end (`Starter.isTrailTreasure`) shows and
   digs without waiting for the feet to stand beside it.

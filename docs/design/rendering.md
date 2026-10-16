@@ -100,8 +100,11 @@ North-up mode retains the existing wall atlas artwork.
   Broken lamp posts and dropped items stay upright like other raised props.
   Creature appearance directions rotate without changing simulation state.
   The player facing chevron is omitted in heading-up mode when a device
-  compass reports; desktop without a heading sensor and north-up mode retain
-  it. The heading-up compass rim keeps its north marker.
+  compass reports, unless direction lock is engaged. The gold lock beside zoom
+  holds the current map rotation while sensor readings continue; the caret then
+  shows phone direction. Unlocking eases toward the current sensor heading. This
+  scene-local choice resets on scene creation. Desktop without a heading sensor
+  and north-up mode retain the caret. The heading-up compass rim keeps its north marker.
   Game state stays north-up; taps, peek drags and steering convert back
   through `HeadingUp.toWorldVec`, including the manual GPS stick.
 - Map annotations use `HeadingUp.toOverlayPt` for UI-camera graphics: rotate
@@ -166,7 +169,11 @@ North-up mode retains the existing wall atlas artwork.
   the player's inset body box and their world depth draws them in front. The
   overlap uses cached trimmed `ART_BOUNDS`, with frame bounds for procedural
   art, and updates even on reused sprite slots. Moving clear restores the
-  original opacity; tool access never changes it. Ground decals retain their own
+  original opacity; tool access never changes it. On a turned heading-up map
+  both boxes stand at their turned feet and lower turned feet count as in
+  front (`Render.headingFadeView`), matching the heading-up draw order.
+  Prop contact shadows turn about their prop's ground anchor, so a tucked-up
+  shadow stays under the art at every compass heading. Ground decals retain their own
   opacity, and fruit overlays follow their tree.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
@@ -391,7 +398,9 @@ to the existing noon level. Underground lighting is unchanged.
   before every canvas call. Reach lighting follows `cellInReach`; light conveys
   reach and live POIs without outline rings. The radial player glow uses
   `PLAYER_OUTPUT_K = 0.44`; the added reach-cell light is halved by
-  `REACH_OUTPUT_K = 0.5`, with interaction distance unchanged.
+  `REACH_OUTPUT_K = 0.5`. The smooth player glow carries the removed half,
+  preserving nearby brightness on the surface and underground. It fades beyond
+  the reach rim within the existing light radius; interaction distance is unchanged.
   Day/night leaves the reach plateau bright;
   caves ignore it.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors

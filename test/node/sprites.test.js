@@ -689,3 +689,38 @@ test('campfire: its contact shadow sits 2px above the art bottom, on the logs', 
   assert.truthy(fire.foot, 'the fire is seated and shadowed');
   assert.eq(fire.foot.shadowInsetPx, 2);
 });
+
+test('heading-up: prop shadows turn about their prop\'s ground anchor', () => {
+  // A shadow turned about its own centre swings its tuck-up inset below the
+  // art once the compass turns; the prop turns about its ground anchor.
+  const start = RENDER_SRC.indexOf('Render.renderPool(scene, scene.shadowPool');
+  const body = RENDER_SRC.slice(start, RENDER_SRC.indexOf('\n    });', start));
+  assert.truthy(body.indexOf('s._huAnchor = null;') < body.indexOf('item._plantShadow'),
+    'every reused slot drops the previous anchor first');
+  assert.truthy(body.includes('s._huAnchor = Render.objectGroundAnchor(item._appearance, scene.textures, { x: sx, y: sy });'),
+    'prop shadows share the anchor their sprite turns about');
+});
+
+test('picked wild berries leave a plain bush across redraw and save reload without restoring the pickup', () => {
+  const plant = { kind: 'wildplant', crop: 'berry', id: 'berry_remains', x: 2, y: 3 };
+  const sets = { picked: new Set(), burned: new Set() };
+  assert.eq(Render.wildplantView(plant, sets), plant);
+  const save = JSON.parse(JSON.stringify({ picked: [plant.id] }));
+  sets.picked = new Set(save.picked);
+  for (let redraw = 0; redraw < 2; redraw++) {
+    const view = Render.wildplantView(plant, sets);
+    assert.eq(view.crop, 'shrub');
+    assert.eq(view._pickedRemnant, true, 'fruitless scenery cannot pose as a nest bush');
+    assert.eq(wildplantSprite({ ...view, _biome: 2 }).sheet, CROP_SPRITE.shrub.sheet, 'a berry bush does not become a palm');
+    assert.eq(wildplantSprite(view).sheet, CROP_SPRITE.shrub.sheet);
+    assert.eq(view.x, plant.x); assert.eq(view.y, plant.y);
+    assert.eq(view.id, plant.id);
+    assert.eq(plant.crop, 'berry', 'never mutate the tile or reward record');
+    assert.truthy(isSpent(plant, sets), 'the original berry cannot be harvested twice');
+  }
+  assert.eq(Render.wildplantView({ ...plant, crop: 'onion' }, sets), null, 'other plants are removed');
+  sets.burned.add(plant.id);
+  assert.eq(Render.wildplantView(plant, sets), null, 'burned bushes do not return');
+  sets.burned.clear(); sets.burnedGround = () => true;
+  assert.eq(Render.wildplantView(plant, sets), null, 'burned ground suppresses the remnant');
+});
