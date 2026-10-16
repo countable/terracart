@@ -50,6 +50,18 @@ const CompassHUD = {
     inventory.setAttribute('aria-label', 'Inventory not activated');
     inventory.addEventListener('click', () => CompassModules.tap(scene, 'inventory'));
     document.body.append(inventory);
+    // Dismiss only this scene's cover, never its underlying power circuit.
+    // Keep the close control beside the shutter, not nested in its button.
+    const dismissInventory = document.createElement('button');
+    dismissInventory.id = 'compass-inventory-dismiss';
+    dismissInventory.type = 'button';
+    dismissInventory.textContent = '×';
+    dismissInventory.setAttribute('aria-label', 'Dismiss inactive inventory cover');
+    dismissInventory.addEventListener('click', event => {
+      event.stopPropagation();
+      document.body.classList.add('compass-inventory-dismissed');
+    });
+    document.body.append(dismissInventory);
     const summary = document.querySelector('#menu summary');
     if (summary) {
       for (const node of [...summary.childNodes]) if (node.nodeType === 3) {
@@ -119,9 +131,9 @@ const CompassHUD = {
       }
       for (const elementId of Object.keys(this.modules)) document.getElementById(elementId)?.classList.remove('compass-closed');
       for (const id of new Set(Object.values(this.modules))) document.body.classList.remove(`compass-${id}-closed`);
-      body.remove(); inventory.remove();
+      body.remove(); inventory.remove(); dismissInventory.remove();
       knowledge.replaceWith(...knowledge.children);
-      document.body.classList.remove('compass-hud', 'compass-round');
+      document.body.classList.remove('compass-hud', 'compass-round', 'compass-inventory-dismissed');
       scene._compassHUD = false;
       delete scene._compassEnergy;
       delete scene._compassBearing;

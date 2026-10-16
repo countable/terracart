@@ -8509,7 +8509,7 @@ class MapScene extends Phaser.Scene {
       // the moment the world came up. (body.modal-open, which dims these two
       // for a dialog, cannot cover that stretch: it is toggled from the
       // scene's own update loop, and there is no scene yet.)
-      document.body.classList.remove('booting');
+      if (document.body.classList.contains('booting')) document.body.classList.remove('booting');
     }
     this.updateEnergyDOM();
     this.updateMemoriesDOM();

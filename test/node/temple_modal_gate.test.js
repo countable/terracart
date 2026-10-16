@@ -1,4 +1,30 @@
 // An isolated Phaser trial must stay in front of the DOM HUD until it exits.
+test('modal gate: stable open dialogs do not repeatedly reset the stick and observers stop on shutdown', () => {
+  const start = MODAL_SHELL_SRC.indexOf('\n  _installModalPadGate() {');
+  const method = MODAL_SHELL_SRC.slice(start + 1, MODAL_SHELL_SRC.indexOf('\n  }\n', start) + 4);
+  let reads = 0, resets = 0, disconnected = 0, shutdown;
+  const doc = {
+    getElementById: () => null,
+    querySelectorAll: () => [{ id: 'message-modal', getClientRects() { reads++; return [1]; } }],
+    body: { classList: { toggle() {} } },
+  };
+  const Observer = class { observe() {} disconnect() { disconnected++; } };
+  const Scene = new Function('document', 'MutationObserver', `return class { ${method} }`)(doc, Observer);
+  const scene = new Scene();
+  scene.events = { once(name, fn) { assert.eq(name, 'shutdown'); shutdown = fn; } };
+  scene._movePadHeld = true;
+  scene._resetMovePad = () => { resets++; scene._movePadHeld = false; };
+  scene._installModalPadGate();
+  for (let i = 0; i < 10; i++) scene._syncModalGate();
+  assert.eq(resets, 1, 'only the held pointer needs releasing');
+  assert.eq(reads, 11, 'one visibility read per dialog per sync');
+  scene._installModalPadGate();
+  assert.eq(disconnected, 1, 'reinstall retires the previous observer');
+  shutdown();
+  assert.eq(disconnected, 2, 'shutdown disconnects the current observer');
+  assert.eq(scene._syncModalGate, undefined);
+});
+
 test('temple modal gate: observer sync preserves the trial and restores HUD only after all overlays close', () => {
   const source = MODAL_SHELL_SRC;
   const start = source.indexOf('\n  _installModalPadGate() {');
