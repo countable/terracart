@@ -24,7 +24,7 @@
           panel = document.createElement('div');
           panel.id = 'boot-recovery';
           panel.setAttribute('role', 'alert');
-          panel.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#17251f;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:28px;text-align:center;font:18px system-ui';
+          panel.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#17251f;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:28px;text-align:center;font:18px var(--font-ui)';
           const message = document.createElement('p');
           const button = document.createElement('button');
           button.textContent = 'Try again';
@@ -81,7 +81,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=8cf62997" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=a0673eb2" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -311,7 +311,8 @@
       --hud-chip-pad: 0 10px;
       --hud-chip-rim: 0px;
     }
-    :root { --font-ui: system-ui, sans-serif; }
+    :root { --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", Ubuntu, Cantarell, system-ui, Tahoma, "Liberation Sans", Arial, sans-serif; }
+    button, input, select, textarea, code, pre, kbd, samp { font-family: var(--font-ui); }
     html, body {
       margin: 0; padding: 0; height: 100%;
       background: #000; color: #ddd;
@@ -382,7 +383,7 @@
     #map-zoom button {
       width: 36px; height: 36px; padding: 0; border: 1px solid #777;
       border-radius: 0; background: #222; color: #fff;
-      font: 24px monospace; touch-action: manipulation; cursor: pointer;
+      font: 24px var(--font-ui); touch-action: manipulation; cursor: pointer;
     }
     #map-zoom button + button { border-top: 0; }
     #map-zoom button:disabled { color: #777; cursor: default; }
@@ -1204,11 +1205,11 @@
     #howto button#howto-close[hidden] { display: none; }
   </style>
   <link rel="stylesheet" href="css/compass_shine.css?v=2196f9a5">
-  <link rel="stylesheet" href="css/compass_hud.css?v=47f4da16">
-  <link rel="stylesheet" href="css/compass_inventory.css?v=5165fdcf">
-  <link rel="stylesheet" href="css/compass_panels.css?v=ed32e366">
-  <link rel="stylesheet" href="css/speech_bubbles.css?v=3f5404dc">
-  <link rel="stylesheet" href="css/book_reader.css?v=e4923b2e">
+  <link rel="stylesheet" href="css/compass_hud.css?v=4cf8bc12">
+  <link rel="stylesheet" href="css/compass_inventory.css?v=2c3aceb5">
+  <link rel="stylesheet" href="css/compass_panels.css?v=2755fdac">
+  <link rel="stylesheet" href="css/speech_bubbles.css?v=03979abe">
+  <link rel="stylesheet" href="css/book_reader.css?v=79db504e">
 </head>
 <!-- `booting` hides the money/energy row until the scene has a real balance to
      put in it; MapScene.updateHUD drops the class on the first paint. -->
@@ -2960,7 +2961,7 @@
   <script src="src/creature_spawns.js?v=dd436e44"></script>
   <script src="src/enemy_habitats.js?v=a7360cc5"></script>
   <script src="src/difficulty.js?v=ae158edf"></script>
-  <script src="src/util.js?v=0d3f6182"></script>
+  <script src="src/util.js?v=ef36f2f0"></script>
   <script src="src/particles.js?v=4527614a"></script>
   <script src="src/trail.js?v=246ae65b"></script>
   <script src="src/streets.js?v=b5afab2b"></script>
@@ -3055,16 +3056,16 @@
   <script src="src/lighting_gpu.js?v=c2cf90df"></script>
   <script src="src/lighting.js?v=da2d7003"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=2ed2dcd6"></script>
+  <script src="src/render.js?v=ca29847f"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
-  <script src="src/multiplayer.js?v=a57c92a7"></script>
+  <script src="src/multiplayer.js?v=cdf71d9f"></script>
   <script src="src/road_overlay.js?v=d8ee1725"></script>
   <script src="src/temple_art.js?v=ef92c84b"></script>
   <script src="src/wall_perspective.js?v=028ee9f0"></script>
   <script src="src/building_overlay.js?v=042cb26e"></script>
   <script src="src/assets.js?v=6a37a018"></script>
   <script src="src/sandbox_destinations.js?v=f0a1f55d"></script>
-  <script src="src/sandbox.js?v=8b6cfb58"></script>
+  <script src="src/sandbox.js?v=65401674"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=c1099b24"></script>
   <script src="src/art_thumbs.js?v=d8fea2bb"></script>
@@ -3074,14 +3075,14 @@
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
   <script src="src/scene_shops.js?v=33316904"></script>
-  <script src="src/heading_up.js?v=8b5a8e46"></script>
+  <script src="src/heading_up.js?v=52b72343"></script>
   <script src="src/compass_modules.js?v=de335c76"></script>
   <script src="src/compass_shine.js?v=1533df4e"></script>
   <script src="src/compass_hud.js?v=e9a30166"></script>
-  <script src="src/scene_create.js?v=919ca406"></script>
+  <script src="src/scene_create.js?v=74bfa337"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
-  <script src="src/scene_arena.js?v=05d59b5d"></script>
-  <script src="src/scene_sky.js?v=c2698528"></script>
+  <script src="src/scene_arena.js?v=f444910f"></script>
+  <script src="src/scene_sky.js?v=4d74ca34"></script>
   <script src="src/scene_consumables.js?v=60f8d610"></script>
   <script src="src/scene_pets.js?v=b0c58511"></script>
   <script src="src/scene_venues.js?v=1ff89167"></script>
@@ -3156,7 +3157,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=8cf62997';
+      const APP_SRC = 'src/app.js?v=a0673eb2';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

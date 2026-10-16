@@ -7,7 +7,7 @@
   padding: 48px 34px max(48px, env(safe-area-inset-bottom)) !important;
   background: #f4dfa8 url('../assets/art/book_page.webp') center / 100% 100% no-repeat;
   color: #4c3c23;
-  font: 17px/1.65 Georgia, 'Times New Roman', serif;
+  font: 17px/1.65 var(--font-ui);
   text-shadow: none !important;
   scrollbar-color: #a2854c #e9cd91;
 }

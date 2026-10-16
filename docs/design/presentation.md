@@ -6,6 +6,14 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- All game text uses the system sans stack in `--font-ui` (`index.html`) and
+  its canvas counterpart `FONT_UI_STACK` (`src/util.js`): `-apple-system`,
+  `BlinkMacSystemFont`, `"Segoe UI"`, `Roboto`, `"Noto Sans"`, `Ubuntu`, `Cantarell`,
+  `system-ui`, `Tahoma`, `"Liberation Sans"`, `Arial`, `sans-serif`, in that order.
+  Use `var(--font-ui)` for DOM text and `phaserFontUI()` / `FONT_UI_STACK` for Phaser
+  text, including books, speaker names, compass letters and decorative glyphs.
+  Do not add serif or monospace overrides. Numeric counters use tabular figures.
+
 - Reward acknowledgments and safety reminders use an explicit OK button;
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
   and confirmations use the NPC portrait layout with a dedicated transparent,

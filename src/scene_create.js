@@ -715,7 +715,7 @@ class SceneCreate {
         // 11px, up one from 10: at dpr 3 on a phone the street name was
         // legible but not comfortably so, and a map label the player has to
         // squint at is doing half its job.
-        font: fontUI('bold 11px'), color: UI_SHADOW,
+        ...phaserFontUI('bold 11px'), color: UI_SHADOW,
         stroke: '#d8cdb4', strokeThickness: 3,
       }).setOrigin(0.5, 0.5).setAlpha(0.88).setDepth(0).setVisible(false);
       this.letterContainer.add(t);

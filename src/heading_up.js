@@ -166,7 +166,7 @@ const HeadingUp = {
     // Says so when no compass reading has arrived, so a still map reads as a
     // missing sensor rather than a broken turn.
     scene._huNoCompass = scene.add.text(cx, cy + r - 22, 'no compass — tap the map', {
-      font: '11px sans-serif', color: '#ffffff', backgroundColor: 'rgba(0,0,0,0.6)',
+      ...phaserFontUI('11px'), color: '#ffffff', backgroundColor: 'rgba(0,0,0,0.6)',
       padding: { x: 4, y: 2 },
     }).setOrigin(0.5).setDepth(91);
     scene._huNoCompass._huUI = true;
@@ -346,7 +346,7 @@ const HeadingUp = {
     let label = scene._huPropDebugText;
     if (!label) {
       label = scene._huPropDebugText = scene.add.text(scene.viewCenterX, scene.viewTop + 4, '', {
-        font: '10px monospace', color: '#38e8ff', backgroundColor: 'rgba(0,0,0,0.7)',
+        ...phaserFontUI('10px'), color: '#38e8ff', backgroundColor: 'rgba(0,0,0,0.7)',
         padding: { x: 3, y: 2 },
       }).setOrigin(0.5, 0).setDepth(92);
       label._huUI = true;
