@@ -8,7 +8,9 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 - Reward acknowledgments and safety reminders use an explicit OK button;
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
-  and confirmations use the NPC portrait layout with the spirit artwork.
+  and confirmations use the NPC portrait layout with a dedicated transparent,
+  square Dragon Spirit head-and-neck portrait (`assets/portraits/dragon_spirit.png`).
+  The original tall spirit painting remains available for scene art.
   Dragon Spirit and NPC spoken copy appears in a pale chat bubble beneath the
   portrait; speaker titles and response choices stay outside the bubble.
   The first earned green coin opens its own `coin_first` scene painting before
@@ -107,8 +109,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   first discovery/memory. Spending cannot close an activated circuit. Distance
   activates after 200 m of accepted movement; joystick activation requires
   **Enable spirit walking** in its spirit dialog. Closed controls explain low
-  power. Activation notices wait behind stories and dialogs, and are claimed
-  when shown so reloads cannot repeat them. Existing ownership seeds circuits
+  power. Activation notices are micro toasts over the player, never dialogs;
+  they wait behind stories and dialogs, and are claimed when shown so reloads
+  cannot repeat them. Existing ownership seeds circuits
   quietly when upgrading an older save.
 
 - The inventory pet menu's **View info** opens an individual pet card with a

@@ -107,7 +107,7 @@ const MODAL_KINDS = {
   build:    { icon: '🛠', label: 'Build', art: 'kind_build' },   // restoring wrecks, unsealing forts, moving home
   craft:    { icon: '🪵', label: 'Craft', art: 'kind_craft' },   // Home's Craft page (HOME_RECIPES)
   wizard:   { icon: '🔮', label: 'Wizard', art: 'kind_wizard' },   // spends memories on gifts
-  spirit:   { icon: '✧', label: 'Dragon Spirit', portrait: 'assets/art/kind_spirit.webp' },
+  spirit:   { icon: '✧', label: 'Dragon Spirit', portrait: 'assets/portraits/dragon_spirit.png' },
   memory:   { icon: '🌟', label: 'Memories', art: 'kind_memory' },   // the memories chip's explainer
   slots:    { icon: '🎰', label: 'Slots', art: 'kind_slots' },   // a fort's slot machine (presentFortSlots)
   farm:     { icon: '🌾', label: 'Farm', art: 'kind_farm' },   // scarecrows, feeding fauna
