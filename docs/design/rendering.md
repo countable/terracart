@@ -60,6 +60,9 @@ North-up mode retains the existing wall atlas artwork.
 - Draw from the camera anchor using `coords.js` projection helpers. Reach,
   taps, fog and tile loading use `playerM` / `playerToWorldCell()`.
   Draw player-attached effects at `scene.playerScreen()`, not viewport centre.
+- Named booth signs show the booth kind above at most two words of the rusticified
+  place name. If the second word is an article or connector (such as “the” or
+  “of”), only the first word appears. Full names remain available in dialogs.
 - The circular map and compass rim sit 30 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
 - Zoom is camera-only. The initial view spans nine cells instead of eleven,
@@ -125,7 +128,9 @@ North-up mode retains the existing wall atlas artwork.
   Add sprite appearances to `RENDER_SPEC`; ground surfaces stay underneath.
 - Layer order is landcover, variant surfaces, building footprints, walls,
   ground state (such as oil spills), then objects and characters.
-  Building footprints and walls are background. Polygon walls and tiled castle
+  Building footprints and walls are background. House and temple foundations
+  share the floor canvas: draw the shaded base below the top surface, with a
+  thin rim rather than an upright perimeter wall. Polygon fort walls and tiled castle
   ramparts live in `buildingWallContainer`, immediately above the footprint
   layer and below pads, traps, shadows and every interactable. Wall geometry
   never adjusts an actor's feet or enters the world depth sort. Towers and

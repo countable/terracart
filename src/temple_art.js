@@ -111,9 +111,9 @@
         ctx.strokeRect(x, y, step, step);
       }
     }
-    trace(ctx, ring); ctx.lineWidth = 13 * scale; ctx.strokeStyle = paint.shadow; ctx.stroke();
-    trace(ctx, ring); ctx.lineWidth = 10 * scale; ctx.strokeStyle = paint.coping; ctx.stroke();
-    trace(ctx, ring); ctx.lineWidth = 2 * scale; ctx.strokeStyle = paint.edge; ctx.stroke();
+    trace(ctx, ring); ctx.lineWidth = 4 * scale; ctx.strokeStyle = paint.shadow; ctx.stroke();
+    trace(ctx, ring); ctx.lineWidth = 3 * scale; ctx.strokeStyle = paint.coping; ctx.stroke();
+    trace(ctx, ring); ctx.lineWidth = 1 * scale; ctx.strokeStyle = paint.edge; ctx.stroke();
     ctx.restore();
     drawRunes(ctx, ring, options);
   }

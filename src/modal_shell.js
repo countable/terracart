@@ -107,7 +107,7 @@ const MODAL_KINDS = {
   build:    { icon: '🛠', label: 'Build', art: 'kind_build' },   // restoring wrecks, unsealing forts, moving home
   craft:    { icon: '🪵', label: 'Craft', art: 'kind_craft' },   // Home's Craft page (HOME_RECIPES)
   wizard:   { icon: '🔮', label: 'Wizard', art: 'kind_wizard' },   // spends memories on gifts
-  spirit:   { icon: '✧', label: 'Dragon Spirit', art: 'kind_spirit' },
+  spirit:   { icon: '✧', label: 'Dragon Spirit', portrait: 'assets/art/kind_spirit.webp' },
   memory:   { icon: '🌟', label: 'Memories', art: 'kind_memory' },   // the memories chip's explainer
   slots:    { icon: '🎰', label: 'Slots', art: 'kind_slots' },   // a fort's slot machine (presentFortSlots)
   farm:     { icon: '🌾', label: 'Farm', art: 'kind_farm' },   // scarecrows, feeding fauna
@@ -151,6 +151,7 @@ class SceneModals {
     // Scene art is a story-sized dialog by definition — its frame is cut to
     // the grown box (ART_FRAME_ASPECT).
     const kRow = typeof kind === 'string' ? MODAL_KINDS[kind] : kind;
+    portrait = portrait || kRow?.portrait;
     art = portrait || art === false ? null : art || kRow?.art;
     if (portrait) story = true;
     // FULLSCREEN (the wreck's build pick): the box fills the whole visible
@@ -1177,8 +1178,7 @@ class SceneModals {
       `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}</div>` +
       tierHtml +
       qtyHtml +
-      subHtml +
-      (hasActions ? '' : '<div style="margin-top:14px;opacity:.45;font-size:10px;letter-spacing:.06em">tap to continue</div>');
+      subHtml;
     const close = () => {
       wrap.remove();
       if (typeof onDismiss === 'function') onDismiss();
@@ -1236,10 +1236,9 @@ class SceneModals {
         box.appendChild(take);
       }
     } else {
-      // Dismiss on any tap — overlay or box, doesn't matter (this is a "tap
-      // to acknowledge" not a "choose action" modal). stopPropagation on the
-      // box would otherwise let the player click-through it.
-      wrap.addEventListener('click', (e) => { e.stopPropagation(); close(); }, true);
+      const ok = mkBtn('OK', { accent, css: 'margin-top:14px;min-width:90px;padding:10px 18px;' });
+      ok.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+      box.appendChild(ok);
     }
     mount();
     // Sparkle burst around the modal. Spawned AFTER the wrap is in the DOM so

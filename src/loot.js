@@ -135,6 +135,13 @@ const POI_CLASS_FALLBACK = {
   tower:            'Watch Tower',
 };
 
+// Map signs keep at most two place-name words, without a trailing connector.
+function boothPlaceLabel(name) {
+  const words = (rusticifyName(name) || '').trim().split(/\s+/);
+  const connector = /^(?:a|an|the|of|at|in|on|to|for|from|by|with|and|or|&)$/i;
+  return words.slice(0, connector.test(words[1] || '') ? 1 : 2).join(' ');
+}
+
 const RUSTIC_CACHE = new Map();
 function rusticifyName(name) {
   if (!name) return name;

@@ -6,9 +6,13 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- Reward acknowledgments and safety reminders use an explicit OK button;
+  tapping the body or backdrop does not dismiss them. Dragon Spirit messages
+  and confirmations use the NPC portrait layout with the spirit artwork.
+
 - The compass header aligns menu, a short memories/books window, and distance
-  beside a larger 64-pixel energy dial at the top right. A small coin and its
-  inline count sit directly below the dial. The simulated-GPS control sits 20 CSS pixels above its
+  beside a larger 64-pixel energy dial at the top right. An 18-pixel coin and its
+  inline count sit below the memories/books window. The simulated-GPS control sits 20 CSS pixels above its
   ordinary stick baseline. HUD metal uses reduced brightness with a stronger
   outer-edge fade; controls retain brighter text and icons. The fade excludes
   the circular map aperture.

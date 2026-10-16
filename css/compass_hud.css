@@ -317,8 +317,9 @@ body.compass-hud #hud-row > #money {position:relative;inset:auto;grid-area:auto;
 body.compass-hud #hud-row > #compass-knowledge-display {grid-column:1;grid-row:1;height:32px;min-height:0;border-width:2px;border-radius:7px;}
 body.compass-hud #hud-row > #roadchip {grid-column:2;grid-row:1;height:34px;padding:0 4px;border-width:2px;}
 body.compass-hud #hud-row > #energy {grid-column:3;grid-row:1;height:64px;}
-body.compass-hud #hud-row > #money {grid-column:3;grid-row:2;flex-direction:row;align-items:center;justify-content:center;gap:4px;font-size:12px;}
-body.compass-hud #money .coin-ico {width:14px;height:14px;}
+body.compass-hud #hud-row > #money {grid-column:1;grid-row:2;flex-direction:row;align-items:center;justify-content:flex-start;padding-left:4px;gap:5px;font-size:16px;}
+body.compass-hud #money .coin-ico {width:18px;height:18px;}
+body.compass-hud #money-num {font-size:16px;}
 body.compass-hud #compass-knowledge-display > #memories,
 body.compass-hud #compass-knowledge-display > #bookchip {padding:0 4px;gap:3px;font-size:12px;}
 body.compass-hud #compass-knowledge-display .mem-ico,
