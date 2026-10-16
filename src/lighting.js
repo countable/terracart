@@ -1619,7 +1619,7 @@
     ctx.fill();
   }
 
-  function paintLight(ctx, scene, L, crit, now, pnow, ox, oy) {
+  function lightStamp(scene, L, crit, now, pnow, ox, oy) {
     const row = KINDS[L.kind];
     const colour = crit ? mixColour(L.colour == null ? row.colour : L.colour, LOW_ENERGY_TINT, crit.mix)
                         : L.colour;
@@ -1629,11 +1629,18 @@
     const sc = (row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1) * (L.s == null ? 1 : L.s);
     const d = 2 * ck.R * sc;
     const c = lightCentrePx(scene, L);
-    let left = clamp01(a) * (L.g == null ? 1 : L.g);
-    while (left > 0.001) {
+    const stamp = scene._lightStampScratch || (scene._lightStampScratch = {});
+    stamp.canvas = ck.canvas; stamp.revision = 0;
+    stamp.x = c.x - ox - d / 2; stamp.y = c.y - oy - d / 2;
+    stamp.width = d; stamp.height = d;
+    stamp.gain = clamp01(a) * (L.g == null ? 1 : L.g);
+    return stamp;
+  }
+  function paintLight(ctx, scene, L, crit, now, pnow, ox, oy) {
+    const stamp = lightStamp(scene, L, crit, now, pnow, ox, oy);
+    for (let left = stamp.gain; left > 0.001; left -= 1) {
       ctx.globalAlpha = clamp01(left);
-      ctx.drawImage(ck.canvas, c.x - ox - d / 2, c.y - oy - d / 2, d, d);
-      left -= 1;
+      ctx.drawImage(stamp.canvas, stamp.x, stamp.y, stamp.width, stamp.height);
     }
   }
 
@@ -1715,6 +1722,7 @@
         for (const L of g.lights) paintLight(ctx, scene, L, crit, now, pnow, ox - pad, oy - pad);
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = 'source-over';
+        entry.revision = (entry.revision || 0) + 1;
         entry.key = key;
         entry.centres = centres;
         entry.ox = ox; entry.oy = oy;
@@ -1723,7 +1731,7 @@
         rebuilt = true;
       }
       entry.used = ++st.serial;
-      items.push({ canvas: entry.canvas, sx: pad + qx, sy: pad + qy });
+      items.push({ canvas: entry.canvas, revision: entry.revision, sx: pad + qx, sy: pad + qy });
       cached += g.lights.length;
     }
     return { items, excluded, rebuilt, cached };
@@ -1839,6 +1847,7 @@
         ctx.imageSmoothingEnabled = true;
         paintReachMask(ctx, scene, ox - pad, oy - pad, frame.rp, pc, frame.reachM);
         ctx.globalCompositeOperation = 'source-over';
+        entry.revision = (entry.revision || 0) + 1;
         entry.key = key;
         entry.placement = placement;
         entry.ox = ox; entry.oy = oy;
@@ -1848,7 +1857,7 @@
         rebuilt = true;
       }
       entry.used = ++st.serial;
-      items.push({ canvas: entry.canvas, sx: pad + qx, sy: pad + qy, weight: frame.weight });
+      items.push({ canvas: entry.canvas, revision: entry.revision, sx: pad + qx, sy: pad + qy, weight: frame.weight });
     }
     // A mask that left the fade before repayment needs no rebuild; do not let
     // its stale pending bit bypass the still gate forever.
@@ -1994,7 +2003,7 @@
     }
     const x = Math.round(scene.viewCenterX - scene.viewLeft + ((x0 + 2) * stepM - ax) * CELL_PX / scene.cellM);
     const y = Math.round(scene.viewCenterY - scene.viewTop + ((y0 + 2) * stepM - ay) * CELL_PX / scene.cellM);
-    return { canvas: mask.canvas, x, y, key: key + '|' + x + ',' + y };
+    return { canvas: mask.canvas, revision: mask.key, x, y, key: key + '|' + x + ',' + y };
   }
 
   function draw(scene, ax, ay, halfM) {
@@ -2043,7 +2052,8 @@
     const fadeKey = reachFramesKey(frames);
     const B = (typeof window !== 'undefined') ? window.__boot : null;
     const cover = coverFrame(scene, ax, ay, tex.width, tex.height);
-    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx) + '|' + fadeKey + '|cover:' + (cover?.key || '');
+    const gpu = typeof LightingGPU !== 'undefined' && LightingGPU.active(scene);
+    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx) + '|' + fadeKey + '|cover:' + (cover?.key || '') + '|gpu:' + gpu;
     // A crossing may have borrowed the cache's last half-cell of physical
     // pad. Even if every visual key holds, the next ordinary frame must pay
     // back that deferred rebuild before the still gate can return.
@@ -2057,51 +2067,98 @@
     const ctx = tex.context;
     const W = tex.width, H = tex.height;
 
-    // THE SCREEN-ATTACHED BASE — ambient plus player ramp. It remains still
-    // while the camera follows the walking body, so its bake survives the
-    // walk. The more expensive world contribution below crops independently.
-    const sk = baseFrameKey(ps, ox, oy, prof, r0, rMax);
-    const args = [scene, prof, player, ps, ox, oy];
-    let st = scene._lightStatic;
-    if (st && st.key === sk && st.canvas.width === W && st.canvas.height === H) {
-      blitStatic(ctx, st.canvas);
-    } else if (tex.__lightStaticKey === sk) {
-      if (!st || st.canvas.width !== W || st.canvas.height !== H) {
-        const c = document.createElement('canvas');
-        c.width = W; c.height = H;
-        st = scene._lightStatic = { canvas: c, key: null };
-      }
-      paintStaticLayer(st.canvas.getContext('2d'), W, H, ...args);
-      st.key = sk;
-      blitStatic(ctx, st.canvas);
-    } else {
-      paintStaticLayer(ctx, W, H, ...args);
-    }
-    tex.__lightStaticKey = sk;
-
-    // THE WORLD-ATTACHED CONTRIBUTION — plateau plus every non-player light.
-    // Rebuild at state/pad/rounding changes; otherwise copy one viewport crop.
     const contribution = contributionFrames(scene, W, H, ox, oy, plateau, pc, frames);
-    paintReachContribution(ctx, scene, contribution, prof, ps, ox, oy, r0, W, H);
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 1;
-    ctx.imageSmoothingEnabled = false;
     const cookies = worldCookieFrames(scene, W, H, ax, ay, ox, oy, crit, now, pnow);
-    for (const item of cookies.items) ctx.drawImage(item.canvas, item.sx, item.sy, W, H, 0, 0, W, H);
-    ctx.imageSmoothingEnabled = true;
-    // Only independently flickering/transient/player lights and small overflow
-    // phase groups take the per-step stamp path. Stable world cookies move as
-    // exact whole-pixel crops above.
-    for (const L of cookies.excluded) paintLight(ctx, scene, L, crit, now, pnow, ox, oy);
+    let gpuPainted = false;
+    if (gpu) {
+      const sk = baseFrameKey(ps, ox, oy, prof, r0, rMax);
+      let base = scene._lightGPUBase;
+      if (!base || base.canvas.width !== W || base.canvas.height !== H) {
+        const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+        base = scene._lightGPUBase = { canvas, revision: 0 };
+      }
+      if (base.key !== sk) {
+        paintStaticLayer(base.canvas.getContext('2d'), W, H, scene, prof, player, ps, ox, oy);
+        base.key = sk; base.revision++;
+      }
+      let gradient = null;
+      if (contribution.items.length) {
+        const gk = `${ps.x - ox},${ps.y - oy},${r0}|${prof.lit},${prof.edge},${prof.litColour}`;
+        gradient = scene._lightGPUGradient;
+        if (!gradient || gradient.canvas.width !== W || gradient.canvas.height !== H) {
+          const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+          gradient = scene._lightGPUGradient = { canvas, revision: 0 };
+        }
+        if (gradient.key !== gk) {
+          const gc = gradient.canvas.getContext('2d');
+          gc.clearRect(0, 0, W, H);
+          gc.fillStyle = plateauFill(gc, prof, ps.x - ox, ps.y - oy, r0);
+          gc.fillRect(0, 0, W, H);
+          gradient.key = gk; gradient.revision++;
+        }
+      }
+      const stamps = [];
+      for (const L of cookies.excluded) {
+        const stamp = lightStamp(scene, L, crit, now, pnow, ox, oy);
+        for (let left = stamp.gain; left > 0.001; left -= 1)
+          stamps.push({ canvas: stamp.canvas, revision: stamp.revision,
+            x: stamp.x, y: stamp.y, width: stamp.width, height: stamp.height, alpha: clamp01(left) });
+      }
+      const plan = scene._lightGPUPlan = { key, width: W, height: H, base,
+        reach: { masks: contribution.items, gradient, gain: REACH_OUTPUT_K },
+        world: cookies.items, stamps, cover };
+      gpuPainted = LightingGPU.draw(scene, plan);
+      // The backend restores the Canvas image on failure. Paint it immediately,
+      // then invalidate the mode key so the next frame cannot reuse stale work.
+      if (!gpuPainted) tex.__lightKey = null;
+    }
+    if (!gpuPainted) {
+      // THE SCREEN-ATTACHED BASE — ambient plus player ramp. It remains still
+      // while the camera follows the walking body, so its bake survives the
+      // walk. The more expensive world contribution below crops independently.
+      const sk = baseFrameKey(ps, ox, oy, prof, r0, rMax);
+      const args = [scene, prof, player, ps, ox, oy];
+      let st = scene._lightStatic;
+      if (st && st.key === sk && st.canvas.width === W && st.canvas.height === H) {
+        blitStatic(ctx, st.canvas);
+      } else if (tex.__lightStaticKey === sk) {
+        if (!st || st.canvas.width !== W || st.canvas.height !== H) {
+          const c = document.createElement('canvas');
+          c.width = W; c.height = H;
+          st = scene._lightStatic = { canvas: c, key: null };
+        }
+        paintStaticLayer(st.canvas.getContext('2d'), W, H, ...args);
+        st.key = sk;
+        blitStatic(ctx, st.canvas);
+      } else {
+        paintStaticLayer(ctx, W, H, ...args);
+      }
+      tex.__lightStaticKey = sk;
+
+      // THE WORLD-ATTACHED CONTRIBUTION — plateau plus every non-player light.
+      // Rebuild at state/pad/rounding changes; otherwise copy one viewport crop.
+      paintReachContribution(ctx, scene, contribution, prof, ps, ox, oy, r0, W, H);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 1;
+      ctx.imageSmoothingEnabled = false;
+      for (const item of cookies.items) ctx.drawImage(item.canvas, item.sx, item.sy, W, H, 0, 0, W, H);
+      ctx.imageSmoothingEnabled = true;
+      // Only independently flickering/transient/player lights and small overflow
+      // phase groups take the per-step stamp path. Stable world cookies move as
+      // exact whole-pixel crops above.
+      for (const L of cookies.excluded) paintLight(ctx, scene, L, crit, now, pnow, ox, oy);
+    }
     scene._boot_lightExcludedStamps = cookies.excluded.length;
     scene._boot_lightWorldStamps = cookies.excluded.reduce((n, L) => n + (L.kind === 'handtorch' || L.kind === 'evertorch' ? 0 : 1), 0);
     scene._boot_lightCachedCookies = cookies.cached;
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over';
-    const uploadT0 = B ? performance.now() : 0;
-    if (cover) ctx.drawImage(cover.canvas, cover.x, cover.y);
-    tex.refresh();
-    if (B) B.tick('lighting upload', performance.now() - uploadT0);
+    if (!gpuPainted) {
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+      const uploadT0 = B ? performance.now() : 0;
+      if (cover) ctx.drawImage(cover.canvas, cover.x, cover.y);
+      tex.refresh();
+      if (B) B.tick('lighting upload', performance.now() - uploadT0);
+    }
     if (B) {
       const dt = performance.now() - t0;
       scene._boot_lightMs = dt;

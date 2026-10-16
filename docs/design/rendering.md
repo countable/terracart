@@ -346,8 +346,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   its colour over a dim cave floor. Mushroom projectiles use the same cloud
   painter and confusion palette, at three-quarters of a cell wide.
 
-- `lighting.js` owns the sole lighting pass: additive source cookies on a 2D
-  canvas multiplied over the world. Do not add darkness passes or dim sprites
+- `lighting.js` owns the sole lighting pass: additive source cookies composed
+  into a lightmap and multiplied over the world. Canvas is the default compositor;
+  the opt-in GPU compositor below consumes the same shapes and fade weights.
+  Do not add darkness passes or dim sprites
   again. Its screen-attached base (ambient plus player ramp) stays baked while
   walking; transparent, padded reach-cell masks crop with the camera and rebuild
   only when their geometry or validity edge changes. If the normal validity edge
@@ -430,10 +432,23 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
 ### GPU migration candidates
 
 Phaser AUTO already uses WebGL for sprites and Graphics when available.
-Measure CPU work and uploads before replacing another renderer. Lighting is the
-strongest next candidate: moving lights and flicker can trigger Canvas blending
-and a full lighting texture refresh. Cached light cookies and masks in a GPU
-render target could remove that work, but must preserve cover and reach fades.
+Measure CPU work and uploads before replacing another renderer. Moving lights
+and flicker can trigger Canvas blending and a full lighting texture refresh.
+The lighting prototype (`?gpuLighting=true`) moves composition into Phaser's
+WebGL context. `lighting.js` supplies cached source canvases with repaint
+revisions, crop positions and fade weights; `lighting_gpu.js` uploads changed
+sources and composites them into a retained GPU lightmap. Reach masks blend
+before receiving their radial colour; cover composites last. Explicit
+premultiplied-alpha blend factors preserve Canvas additive semantics.
+
+The prototype defaults off. Unsupported renderers and compositor failures use
+the Canvas path. `LightingGPU.status(scene)` reports the active backend,
+fallback reason and upload/composition counters. A successful fallback is not
+a GPU benchmark. `tools/probe_gpu_lighting.py` compares both modes under the
+same scripted lighting and camera changes. Target-device visual, frame-time and
+power measurements are required before enabling it by default; lower CPU time
+alone does not establish a battery saving.
+
 Dense gas Graphics are another profiling candidate; exploration fog is lower
 priority because it defaults off and changes mainly with cells or state. Roads
 and static terrain already amortize rasterization through cached textures and

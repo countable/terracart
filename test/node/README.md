@@ -97,3 +97,18 @@ concave and angled footprints in both winding directions at eight headings,
 plus pan/zoom. It checks perimeter coverage, screen-vertical height and retained
 geometry, and captures screenshots for corner and occlusion review. It also
 checks the baked tower-base alpha for every material in both restoration states.
+
+## GPU lighting prototype
+
+`gpu_lighting.test.js` checks backend selection, cached texture revisions and
+same-frame Canvas fallback. GPU pixel output requires the browser probe:
+
+```sh
+python3 tools/probe_gpu_lighting.py --url http://127.0.0.1:8000/index.html
+```
+
+The probe compares `gpuLighting=false` and `gpuLighting=true` using isolated
+saves and deterministic lighting clocks. It records runtime backend status,
+lighting submission time, uploads, lightmaps and screenshots. A Canvas fallback
+leaves GPU rendering unverified; these timings do not measure GPU completion,
+frame-rate headroom or device power.

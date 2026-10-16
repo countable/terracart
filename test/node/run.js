@@ -61,6 +61,7 @@ ctx.Symbol = Symbol; ctx.Error = Error; ctx.Infinity = Infinity; ctx.NaN = NaN;
 ctx.isNaN = isNaN; ctx.parseInt = parseInt; ctx.parseFloat = parseFloat;
 // mvt.js's Reader.readString decodes tag-value strings with TextDecoder.
 ctx.TextDecoder = TextDecoder;
+ctx.URLSearchParams = URLSearchParams;
 // save.js debounces with setTimeout; tests don't need the flush to fire, so the
 // timer is a no-op (persistSave just parks _pendingSave in memory).
 ctx.setTimeout = () => 0; ctx.clearTimeout = () => {};
@@ -127,7 +128,7 @@ const FILES = [
   // render.js reads no globals at load time (see the CANVAS_W comment in
   // drawObjects), so it loads safely and exposes pure helpers (edgeNeedsBorder).
   // The lightmap: only draw() touches Phaser, and no test calls it.
-  'lighting.js', 'safety.js', 'obstacle_step.js', 'visibility.js',
+  'lighting_gpu.js', 'lighting.js', 'safety.js', 'obstacle_step.js', 'visibility.js',
   'render.js',
   'gas_render.js',
   // The modal shell: its methods are DOM work nobody runs here, but its top
