@@ -652,10 +652,9 @@ class SceneConsumables {
         ? RoadSafety.ROAD_WARNING : null);
     const host = document.getElementById('game');
     if (!card || !host) return;
-    const { wrap, box, mount } = this.makeModalShell('safety-card', {
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('safety-card', {
       kind: 'story', kindLabel: 'Safety', art: 'safety_phone',
       zIndex: 400, wrapBg: 'rgba(12,9,6,0.96)',
-      wrapExtra: 'cursor:pointer;',
       boxExtra: 'color:#fff4e0;font-weight:700;line-height:1.35;',
     });
     wrap.setAttribute('role', 'alertdialog');
@@ -672,14 +671,9 @@ class SceneConsumables {
       p.style.cssText = 'font-size:17px;margin:6px 0;max-width:340px;';
       box.appendChild(p);
     }
-    const tap = document.createElement('div');
-    tap.textContent = 'Tap to continue';
-    tap.style.cssText = `margin-top:14px;font-size:15px;font-weight:800;color:${UI_GOLD};`
-      + `border:2px solid ${UI_GOLD};border-radius:8px;padding:10px 18px;`;
-    box.appendChild(tap);
-    const done = (e) => { e?.stopPropagation?.(); e?.preventDefault?.(); wrap.remove(); };
-    wrap.addEventListener('pointerup', done);
-    wrap.addEventListener('click', done);
+    const ok = mkBtn('OK', { accent: UI_GOLD, css: 'margin-top:14px;padding:10px 18px;min-width:90px;' });
+    ok.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    box.appendChild(ok);
     mount();
   }
   // The resume and dusk reminders. RESUME is stamped by the lifecycle's
