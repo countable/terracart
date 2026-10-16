@@ -288,6 +288,39 @@ const HeadingUp = {
         return key.get(p) - key.get(q) || p.depth - q.depth;
       });
     }
+    if (HeadingUp.PROP_DEBUG) HeadingUp._drawPropDebug(scene, a);
+  },
+
+  // ?propDebug=1: outline every standing prop where this frame turned it, on
+  // the unrotated UI camera (cyan solid, yellow faded). An outline with no
+  // art inside means the sprite was placed but the device did not draw it.
+  PROP_DEBUG: typeof location !== 'undefined'
+    && new URLSearchParams(location.search).get('propDebug') === '1',
+  _drawPropDebug(scene, a) {
+    let g = scene._huPropDebug;
+    if (!g) {
+      g = scene._huPropDebug = scene.add.graphics().setDepth(92);
+      g._huUI = true;
+      g.cameraFilter = scene.cameras.main.id;
+    }
+    g.clear();
+    const z = scene.mapZoom || 1;
+    const walk = (list) => {
+      for (const o of list) {
+        if (o.type === 'Container') { walk(o.list); continue; }
+        if (!o._staticObject || !o.visible || !o._huFoot) continue;
+        const f = o._huFoot, p = HeadingUp.toOverlayPt(scene, f.x, f.y);
+        // _upright turned the sprite about its foot; its upright box keeps
+        // the frame's offsets from that foot.
+        const w = o.displayWidth, h = o.displayHeight;
+        const ox = o.x - f.x, oy = o.y - f.y;
+        const c = Math.cos(a), s = Math.sin(a);
+        const rx = c * ox - s * oy, ry = s * ox + c * oy;
+        const x0 = p.x + (rx - o.originX * w) * z, y0 = p.y + (ry - o.originY * h) * z;
+        g.lineStyle(1, o.alpha < 1 ? 0xffe14a : 0x38e8ff, 0.9).strokeRect(x0, y0, w * z, h * z);
+      }
+    };
+    walk(scene.worldContainer?.list || []);
   },
 
   _postRender(scene) {
