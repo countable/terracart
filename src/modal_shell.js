@@ -843,7 +843,7 @@ class SceneModals {
     // without restructuring the single-offer modal into a stateful panel.
     if (tabs && tabs.length) {
       const tabRow = document.createElement('div');
-      tabRow.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-bottom:8px;';
+      tabRow.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-bottom:4px;';
       for (const t of tabs) {
         const tb = mkBtn(t.label, { variant: 'ghost', css:
           'flex:1;padding:6px 4px;border-radius:6px 6px 0 0;font:700 12px var(--font-ui);border-bottom:none;'
@@ -890,7 +890,7 @@ class SceneModals {
       // unavailable ones whose ingredient requirements the player wants to see.
       const picker = document.createElement('div');
       picker.className = 'recipe-picker';
-      picker.style.cssText = 'display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:10px;margin:8px 0;';
+      picker.style.cssText = 'display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:10px;margin:4px 0;';
       const icon = document.createElement('span');
       icon.style.cssText = 'line-height:0;text-align:center;';
       icon.innerHTML = pager.iconHTML || '';
@@ -913,7 +913,7 @@ class SceneModals {
       picker.appendChild(icon); picker.appendChild(select); box.appendChild(picker);
       const caption = document.createElement('div');
       caption.id = 'offer-recipe-caption';
-      caption.style.cssText = 'font-size:12px;color:#c9c1af;margin:0 0 8px;';
+      caption.style.cssText = 'font-size:12px;color:#c9c1af;margin:0 0 4px;';
       caption.textContent = pager.caption || `${pager.index + 1} / ${pager.count}`;
       box.appendChild(caption);
     } else if (pager && pager.count > 1) {
@@ -1014,7 +1014,7 @@ class SceneModals {
         // no caption: the line below is the cost
       } else if (costLabel) {
         box.appendChild(mkCaption(costLabel));
-      } else {
+      } else if (forLabel) {
         const forDiv = document.createElement('div');
         forDiv.style.cssText = 'opacity:.85;margin:6px 0 4px';
         forDiv.textContent = forLabel;
@@ -1032,7 +1032,7 @@ class SceneModals {
     if (disabledReason) {
       const reason = document.createElement('div');
       reason.className = 'offer-disabled-reason';
-      reason.style.cssText = 'color:#ffcf8a;font-size:13px;margin:4px 0 10px;';
+      reason.style.cssText = 'color:#ffcf8a;font-size:13px;margin:4px 0;';
       reason.textContent = disabledReason;
       box.appendChild(reason);
     }
