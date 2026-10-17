@@ -116,9 +116,12 @@ class SceneModals {
   //   borderColor — defaults to the CONTROL gold: an ordinary dialog is
   //             something the player drives. Treasure ceremonies override it
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
+  //   scroll — the copy viewport SCROLLS instead of turning pages (the ☰
+  //             menu: one list, thumbed through, never split across pages —
+  //             owner, Oct 2026). Copy that is read, not browsed, keeps pages.
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0002', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false } = {}) {
+    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false, scroll = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
     // Scene art is a story-sized dialog with a 4:3 image above its copy.
@@ -363,7 +366,11 @@ class SceneModals {
       if (spacer) body.appendChild(spacer);
       const viewport = document.createElement('div');
       viewport.className = 'modal-copy';
-      viewport.style.cssText = 'flex:1 1 auto;min-height:0;overflow:hidden;';
+      // A scrolling dialog (the menu) thumbs its one list; every other dialog
+      // keeps its copy still and turns pages (fit, below).
+      viewport.style.cssText = scroll
+        ? 'flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;'
+        : 'flex:1 1 auto;min-height:0;overflow:hidden;';
       viewport.appendChild(into);
       body.appendChild(viewport);
       box.style.overflow = 'hidden';
@@ -441,7 +448,8 @@ class SceneModals {
           if (deficit > 0) spacer.style.height = `${Math.max(minimum, full - deficit)}px`;
         }
         pageCount = 1;
-        if (into.scrollHeight > viewport.clientHeight + 1) {
+        // A scrolling dialog never pages: its overflow is the viewport's to scroll.
+        if (!scroll && into.scrollHeight > viewport.clientHeight + 1) {
           pages.style.display = 'flex';
           // Reserve the pager inside the content region, below the columns.
           const available = viewport.clientHeight - 3;
