@@ -6003,8 +6003,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // out above); clay pots retain their broken art (o._smashed, stamped
     // by the filter). Wooden barrels disappear when collected.
     chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? L.smashedKey : L.texKey; },
-              // The shared look selects each tier's recoloured chest frame and
-              // the produce stand's awning.
+              // The shared look selects chest tiers, stand awnings and contextual
+              // containers; intact pots and their shards share a frame index.
               frame: (o) => chestLook(o).frame,
               // THE WAGON (a bus stop on an old trade road): 32×32 art, drawn at
               // WAGON_SCALE (~1.5 cells wide) and foot-anchored like the stall —

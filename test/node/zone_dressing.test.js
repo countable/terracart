@@ -483,7 +483,10 @@
     for (const p of hedges) {
       const frame = QuarryLayout.wallFrameAt(cells, p._iy * c.N + p._ix, c.N);
       assert.eq(wildplantSprite(p).sheet, frame == null ? 'zone_hedge_single' : 'zone_hedge');
-      assert.eq(wildplantFrame(p), frame ?? 0);
+      if (frame == null) {
+        assert.truthy(wildplantSprite(p).frames.includes(wildplantFrame(p)), 'isolated hedge uses an approved canopy');
+        assert.eq(wildplantFrame({...p}), wildplantFrame(p), 'isolated canopy survives rebuilding');
+      } else assert.eq(wildplantFrame(p), frame, 'connected hedges retain their cardinal mask');
       assert.eq(wildplantSprite(p).seat, false, 'joins keep the full frame centered');
       assert.eq(WILDPLANT_RULES[p.crop].output, 'wood', 'hedges retain shrub harvest');
     }
