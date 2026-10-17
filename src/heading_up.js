@@ -120,15 +120,6 @@ const HeadingUp = {
       y: scene.viewCenterY + (p.y - scene.viewCenterY) * z + lift * z };
   },
 
-  // ?propDebug=1 on a north-up map: no heading-up pre-render pass runs, so
-  // the overlay keeps its own hook.
-  installPropDebug(scene) {
-    if (!HeadingUp.PROP_DEBUG || scene._huPropDebugHook) return;
-    const hook = scene._huPropDebugHook = () => { if (!HeadingUp.active(scene)) HeadingUp._drawPropDebug(scene, 0); };
-    scene.game.events.on('prerender', hook);
-    scene.events.once('shutdown', () => { scene.game.events.off('prerender', hook); scene._huPropDebugHook = null; });
-  },
-
   install(scene) {
     if (!HeadingUp.enabled || scene._headingUp) return;
     scene._headingUp = true;
@@ -284,17 +275,13 @@ const HeadingUp = {
         o.y = p.y + (o.y - anchor.y) * z;
       }
     }
-    if (!a) {
-      if (HeadingUp.PROP_DEBUG) HeadingUp._drawPropDebug(scene, a);
-      return;
-    }
+    if (!a) return;
     // All body-attached effects share the actual ground anchor, including
     // transparent frame padding and flight lift.
     if (scene.playerWorldContainer && scene.playerScreen) {
       scene.playerWorldContainer._huAnchor = scene.playerScreen();
     }
-    // ?huFlat=1 (device probe): leave standing art turned with the map.
-    const up = HeadingUp.HU_FLAT ? () => {} : (o) => HeadingUp._upright(o, -a, saved);
+    const up = (o) => HeadingUp._upright(o, -a, saved);
     for (const c of [scene.worldContainer, scene.labelContainer, scene.coinContainer, scene._sandboxLabels]) {
       if (c) for (const o of c.list) up(o);
     }
@@ -341,97 +328,6 @@ const HeadingUp = {
         return key.get(p) - key.get(q) || p.depth - q.depth;
       });
     }
-    if (HeadingUp.PROP_DEBUG) HeadingUp._drawPropDebug(scene, a);
-  },
-
-  // ?propDebug=1: outline every standing prop where this frame turned it, on
-  // the unrotated UI camera (cyan solid, yellow faded). An outline with no
-  // art inside means the sprite was placed but the device did not draw it.
-  HU_FLAT: typeof location !== 'undefined'
-    && new URLSearchParams(location.search).get('huFlat') === '1',
-  SOLO_WORLD: typeof location !== 'undefined'
-    && new URLSearchParams(location.search).get('soloWorld') === '1',
-  PROP_DEBUG: typeof location !== 'undefined'
-    && new URLSearchParams(location.search).get('propDebug') === '1',
-  _drawPropDebug(scene, a) {
-    let g = scene._huPropDebug;
-    if (!g) {
-      g = scene._huPropDebug = scene.add.graphics().setDepth(92);
-      g._huUI = true;
-      if (scene.uiCam) g.cameraFilter = scene.cameras.main.id;
-    }
-    g.clear();
-    // ?soloWorld=1 (device probe): draw the prop layer alone over black.
-    if (HeadingUp.SOLO_WORLD) {
-      const keep = new Set([scene.worldContainer, g, scene._huPropDebugText, ...(scene._huPropDebugTags || [])]);
-      for (const o of scene.children.list) if (!keep.has(o) && o.depth < 89 && o.visible) o.setVisible(false);
-    }
-    let label = scene._huPropDebugText;
-    if (!label) {
-      label = scene._huPropDebugText = scene.add.text(scene.viewCenterX, scene.viewCenterY + scene.viewSize * 0.08, '', {
-        ...phaserFontUI('10px'), color: '#38e8ff', backgroundColor: 'rgba(0,0,0,0.7)',
-        padding: { x: 3, y: 2 }, align: 'center',
-      }).setOrigin(0.5, 0).setDepth(93);
-      label._huUI = true;
-      if (scene.uiCam) label.cameraFilter = scene.cameras.main.id;
-    }
-    let props = 0, turned = 0, faded = 0, tags = 0;
-    const pool = scene._huPropDebugTags ||= [];
-    const wl = scene.worldContainer?.list || [];
-    const tag = (x, y, text) => {
-      let t = pool[tags++];
-      if (!t) {
-        t = scene.add.text(0, 0, '', { font: '7px monospace', color: '#ffffff',
-          backgroundColor: 'rgba(0,0,0,0.6)' }).setDepth(92);
-        t._huUI = true;
-        if (scene.uiCam) t.cameraFilter = scene.cameras.main.id;
-        pool.push(t);
-      }
-      t.setVisible(true).setPosition(x, y).setText(text);
-    };
-    const z = scene.mapZoom || 1;
-    // Every drawn world child, not just props: a single invalid vertex can
-    // cost a GPU its whole batch, so list anything non-finite or artless.
-    const bad = [];
-    let peers = 0;
-    const check = (o, why) => bad.length < 4 && bad.push(`${why} ${o.type}:${o._staticObject?.kind || o.texture?.key || o.name || '?'}`);
-    const walk = (list) => {
-      for (const o of list) {
-        if (!o.visible) continue;
-        if (![o.x, o.y, o.rotation, o.scaleX, o.scaleY, o.alpha].every(Number.isFinite)) check(o, 'nan');
-        if (o.type === 'Container') { walk(o.list); continue; }
-        if (o.texture?.key === '__MISSING') check(o, 'missing');
-        if (o.frame && !(o.frame.cutWidth > 0 && o.frame.cutHeight > 0)) check(o, 'frame0');
-        if (o._mpPeer) peers++;
-        if (!o._staticObject) continue;
-        props++;
-        if (o.alpha < 1) faded++;
-        if (o._huFoot) turned++;
-        // Turned: _upright moved the sprite about its foot; its upright box
-        // keeps the frame's offsets from that foot. North-up: as placed.
-        const f = o._huFoot || o, p = o._huFoot ? HeadingUp.toOverlayPt(scene, f.x, f.y) : { x: o.x, y: o.y };
-        const zz = o._huFoot ? z : 1;
-        const w = o.displayWidth, h = o.displayHeight;
-        const ox = o.x - f.x, oy = o.y - f.y;
-        const c = Math.cos(a), s = Math.sin(a);
-        const rx = c * ox - s * oy, ry = s * ox + c * oy;
-        const x0 = p.x + (rx - o.originX * w) * zz, y0 = p.y + (ry - o.originY * h) * zz;
-        g.lineStyle(1, o.alpha < 1 ? 0xffe14a : 0x38e8ff, 0.9).strokeRect(x0, y0, w * zz, h * zz);
-        // What the device was asked to draw: texture:frame, alpha, crop,
-        // assigned depth, and draw position in the world list.
-        const top = o.parentContainer && o.parentContainer !== scene.worldContainer ? o.parentContainer : o;
-        tag(x0 + 1, y0 + 1, `${o.texture?.key}:${o.frame?.name}\na${o.alpha.toFixed(2)} c${o.isCropped ? 1 : 0} d${o.depth} #${wl.indexOf(top)}/${wl.length}`
-          + `\n${o.frame?.cutWidth}x${o.frame?.cutHeight} src${o.texture?.source?.[0]?.width}x${o.texture?.source?.[0]?.height}`);
-      }
-    };
-    walk(wl);
-    for (let i = tags; i < pool.length; i++) pool[i].setVisible(false);
-    const shadows = (scene.shadowPool || []).filter(s => s.visible).length;
-    // The last WebGL error the device reported, kept until a later one.
-    const gl = scene.game.renderer?.gl;
-    if (gl) { const e = gl.getError(); if (e) { scene._huGlError = e; scene._huGlErrors = (scene._huGlErrors || 0) + 1; } }
-    const pl = scene.playerWorldContainer ? wl.indexOf(scene.playerWorldContainer) : -1;
-    label.setText(`propDebug v11${HeadingUp.SOLO_WORLD ? ' solo' : ''}${HeadingUp.HU_FLAT ? ' flat' : ''}${HeadingUp.active(scene) ? '' : ' northUp'} · mt${scene.game.renderer?.maxTextures ?? '?'} pipe${scene.game.renderer?.pipelines?.default?.name ?? '-'} desk${typeof Phaser !== 'undefined' && Phaser.Device?.os?.desktop ? 1 : 0} mask${scene.worldContainer?.mask ? 1 : 0} light${scene.lightMap?.alpha ?? '?'} · ${scene.game.renderer?.type === 2 ? 'webgl' : 'canvas'}\n${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows} · player #${pl}/${wl.length} · peers ${peers}\nbad ${bad.length ? bad.join(', ') : 'none'} · glErr ${scene._huGlErrors || 0}${scene._huGlError ? ' 0x' + scene._huGlError.toString(16) : ''}`);
   },
 
   _postRender(scene) {
