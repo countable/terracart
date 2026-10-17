@@ -540,3 +540,19 @@ wall update time, and texture/buffer calls where WebGL is available. Run identic
 browser/backend settings against separate baseline and candidate servers.
 Headless CPU timings do not establish handset GPU time or a 120fps guarantee;
 validate on the target device before making that claim.
+
+## Bush and container artwork
+
+`assets/Objects/CelProps/` supplies native 24px bushes, brambles, clipped hedges,
+coastal palms, barrels and pots. Stable plant IDs select canopy frames. Berry
+textures bake red, teal or gold fruit onto all eight canopies once at startup;
+picking retains the same foliage frame and transparency. Square clipped bushes
+present a broad side toward the camera. Connected hedges retain their fifteen
+cardinal masks and use matched edge pixels from `assets/Objects/Hedges/`.
+
+`CONTAINER_CONTEXT_ART` in `loot.js` selects cosmetic barrel/pot frames from
+zone, then street, then biome; unknown contexts use oak and terracotta. Coastal
+contexts use rope-bound or painted wood and turquoise pots, industrial contexts
+use copper-rimmed or repaired barrels and charcoal pottery, and wetland contexts
+use mossy rain barrels. Pot shards retain the intact pot's frame. Selection does
+not change rewards, material identity, saved IDs or restocking behavior.
