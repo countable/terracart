@@ -472,7 +472,8 @@
   }
   function tilesetSheet(scene,recipe){
     const wallId=SHEET_SRC.walls[recipe.material]?recipe.material:'plaster',roofId=SHEET_SRC.roofs[recipe.roofMaterial]?recipe.roofMaterial:'slate';
-    const wreck=recipe.shape==='wreck',S=LOOK.sheet,key='lowpoly:tileset-v1:'+wallId+':'+roofId+':'+S+(wreck?':wreck':'');
+    // `blank` recipes (ramparts) take plain bays: no windows, no door.
+    const wreck=recipe.shape==='wreck',S=LOOK.sheet,key='lowpoly:tileset-v1:'+wallId+':'+roofId+':'+S+(wreck?':wreck':'')+(recipe.blank?':blank':'');
     if(scene.textures.exists(key))return scene.textures.get(key);
     const img={};for(const [k,name] of Object.entries(SHEET_IMAGES))img[k]=scene.textures.get(name).getSourceImage();
     const K=S/512,tex=scene.textures.createCanvas(key,S,S),ctx=tex.getContext();
@@ -495,7 +496,7 @@
     const wall=SHEET_SRC.walls[wallId];
     ctx.save();ctx.beginPath();ctx.rect(0,0,S,128*K);ctx.clip();
     for(let k=-1;k<=12;k++)bay(SHEET_SRC.walls.stone,'plain',2+39*k,105); // plinth; chimney sides sample it
-    for(let floor=0;floor<3;floor++)for(let k=-1;k<=12;k++)bay(wall,floor===0&&k===6?'door':'window',2+39*k,105-24*(floor+1));
+    for(let floor=0;floor<3;floor++)for(let k=-1;k<=12;k++)bay(wall,recipe.blank?'plain':floor===0&&k===6?'door':'window',2+39*k,105-24*(floor+1));
     ctx.restore();
     paintOpenings(ctx,S,Math.round(128*K),wreck);
     const roof=SHEET_SRC.roofs[roofId],[tw,th]=roof.tile;
