@@ -303,8 +303,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   full painting loads.
   Copy follows directly below, with comfortable side padding and the specific
   title offset down four pixels. Painted stories omit the generic “Story” label;
-  useful shop/event categories sit with the copy below the image. Dialogs do
-  not scroll. Copy and actions occupy a separate `.modal-copy` viewport;
+  useful shop/event categories sit with the copy below the image. The Build
+  chooser uses a vertically scrolling card grid with a compact painting and
+  a fixed price/action footer; it never paginates. Selected cards expose their
+  pressed state to assistive technology. Other dialogs do not scroll.
+  Copy and actions occupy a separate `.modal-copy` viewport;
   long content uses Previous/Next pages at its original text size, with whole
   controls. Content, expanded details, image loads, fonts and viewport changes
   trigger fitting again. Art and loading mosaics share the same crop.

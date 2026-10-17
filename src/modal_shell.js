@@ -118,7 +118,7 @@ class SceneModals {
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0002', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false } = {}) {
+    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false, scrollContent = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
     // Scene art is a story-sized dialog with a square image above its copy.
@@ -391,6 +391,22 @@ class SceneModals {
       wrap.appendChild(box);
       (speech ? document.body : document.getElementById('game') || document.body).appendChild(wrap);
       if (speech) { this._syncModalGate?.(); this._placeSpeechBubble(wrap, box, source); }
+      // Build cards stay in one scrollable grid; price and actions remain visible.
+      if (scrollContent) {
+        wrap.classList.add('modal-scroll-content');
+        viewport.style.overflowY = 'auto';
+        viewport.style.overflowX = 'hidden';
+        viewport.style.overscrollBehavior = 'contain';
+        into.style.margin = '0';
+        into.style.padding = '4px';
+        if (spacer) spacer.style.height = 'clamp(100px, 28vh, 220px)';
+        const footer = document.createElement('div');
+        footer.className = 'modal-offer-footer';
+        footer.style.cssText = 'flex:0 0 auto;padding:8px 16px max(12px, env(safe-area-inset-bottom));';
+        for (const node of into.querySelectorAll('.offer-cost, .offer-actions')) footer.appendChild(node);
+        body.appendChild(footer);
+        return;
+      }
       // Refit live content and paginate overflow without shrinking type.
       let page = 0, pageCount = 1, frame = 0;
       const pages = document.createElement('div');
@@ -839,7 +855,8 @@ class SceneModals {
     // this dialog, so the dialog that reopens prints them as its receipt.
     const offerToasts = this._offerToasts; this._offerToasts = null;
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art, portrait, fullscreen, source });
+      { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art, portrait, fullscreen, source,
+        scrollContent: kind === 'build' && choices?.length > 0 });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
     // and calls onSelect, which re-presents the sibling modal — cheap "tabs"
@@ -985,6 +1002,7 @@ class SceneModals {
       const cards = [];
       const paint = () => {
         for (const { c, b } of cards) {
+          b.setAttribute('aria-pressed', String(selected === c));
           b.style.outline = selected === c ? '2px solid #ffe066'
             : (!selected && c.suggested) ? '2px dashed #a7ffb0' : '';
         }
@@ -1024,6 +1042,8 @@ class SceneModals {
         box.appendChild(forDiv);
       }
       costDiv = document.createElement('div');
+      costDiv.className = 'offer-cost';
+      costDiv.setAttribute('aria-live', 'polite');
       costDiv.style.cssText = priced ? 'font-size:15px;font-weight:700;margin:4px 0 6px;' : 'font-size:16px;font-weight:700;margin:3px 0 8px;';
       costDiv.style.color = canAfford ? '#a7ffb0' : '#ff8a7a';
       // No price until a card is picked: the hint sits on the line instead.
@@ -1146,6 +1166,7 @@ class SceneModals {
       }
       wrap.remove(); secondary.onClick();
     });
+    row.classList.add('offer-actions');
     row.appendChild(cancel);
     if (sec) row.appendChild(sec);
     row.appendChild(accept);
