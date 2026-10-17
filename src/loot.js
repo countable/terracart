@@ -285,13 +285,16 @@ function chestThemeFor(o) {
 // the one cell directly under the chest (see PAD_SHAPES.round1 in textures.js).
 // The shape no longer conveys POI type — it's just a clean base under the chest.
 // Lowtier POIs (bus stops, intersections, fuel, etc.) still skip the pad and
-// render a bare chest, as do any classes outside the pad-bearing categories.
+// render a bare chest, as do any classes outside the pad-bearing categories —
+// except the BIN POIs (BARREL_CLASSES: waste_basket, recycling), which wear
+// the full pad (owner, Oct 2026): a real map place that happens to be a
+// barrel must read as a place beside the generated barrels, which have none.
 const PAD_CATEGORIES = new Set([
   'food', 'commerce', 'civic', 'school', 'health', 'park', 'flora', 'farm',
 ]);
 function padShapeKeyForPoi(poiClass) {
   if (!poiClass) return null;
-  return PAD_CATEGORIES.has(POI_CATEGORY[poiClass]) ? 'round1' : null;
+  return PAD_CATEGORIES.has(POI_CATEGORY[poiClass]) || BARREL_CLASSES.has(poiClass) ? 'round1' : null;
 }
 
 // A generated POI chest receives a deterministic quota seed from

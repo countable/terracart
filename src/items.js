@@ -244,7 +244,11 @@ function wildplantFrame(p) {
 // the vast majority — it drops itself, is picked instantly for nothing, hides
 // no treasure and casts no light.
 const WILDPLANT_RULES = {
+  // `pickedCrop`: picking the fruit leaves the plant standing as this crop
+  // (render.js wildplantView — a plain bush; the id stays spent). Every
+  // berry bush, the poisonberry's included (owner, Oct 2026).
   berry: { pickedCrop: 'shrub' },
+  poisonberry: { pickedCrop: 'shrub' },
   goldenberry: { pickedCrop: 'shrub' },
   // `sting`: picking it hurts — `energy` off the bar as a bare-handed blow
   // (scene _sting: Combat.playerDamage, no armour) and `line` at the plant.

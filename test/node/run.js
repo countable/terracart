@@ -1261,6 +1261,9 @@ ctx.webpDims = (rel) => {
 // index.html MEASURES the screen (the CSS scale app.js sizes the canvas from is
 // published by its fitGame); canvas_scale.test.js pins the two halves together.
 ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+// The compass skin's stylesheet (css/compass_hud.css): where the skin seats
+// the HUD's rows (buffs.test.js pins the status row's seat).
+ctx.COMPASS_CSS_SRC = fs.readFileSync(path.join(ROOT, 'css/compass_hud.css'), 'utf8');
 ctx.PHASER_SRC = fs.readFileSync(path.join(ROOT, 'vendor/phaser.js'), 'utf8');
 // The browser harness page: harness_scripts.test.js pins its script list against
 // index.html's (a missing module once took the whole browser suite dark).

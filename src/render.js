@@ -4547,7 +4547,8 @@ Render.drawObjects = function drawObjects(scene) {
   // barrel on a Small-street verge, industrial salvage, a gang's stack): it
   // is smashed for its loot and stands for no real place, so it carries no
   // "a place lives here" slab. A bin POI (waste_basket / recycling, loot.js
-  // isPoiBarrel) keeps its mini pad: there is an OSM place behind it.
+  // isPoiBarrel) wears the FULL pad (padShapeKeyForPoi): there is an OSM
+  // place behind it, and the pad is what tells it from a generated barrel.
   // Pads persist even when the chest is opened — only the chest itself disappears.
   const padList = [];
   for (const item of objList) {

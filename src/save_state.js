@@ -139,18 +139,23 @@
   }
 
   // THE WILD PLANTS THAT GROW BACK (WILD_REGROWTH): a crop → the mean of its
-  // exponential waiting time. Long grass and the herbs (the wild flowers,
-  // PetNip, the nettle) share the two-real-day mean, independent of play
-  // frequency. Only these crops: generated wildplant ids can also name
-  // valuable crops, bushes and barriers, so a prefix test on `picked` would
-  // revive those too. Persist the roll once; reloads must never reroll its
-  // deadline. The save field keeps its grass name (`grassRegrowth`).
+  // exponential waiting time. Long grass, the herbs (the wild flowers,
+  // PetNip, the nettle) and the berry bushes (berry, poisonberry — the bush
+  // stands bare meanwhile, items.js WILDPLANT_RULES pickedCrop, and fruits
+  // again when its id leaves `picked`; owner, Oct 2026) share the
+  // two-real-day mean, independent of play frequency. Only these crops:
+  // generated wildplant ids can also name valuable crops, bushes and
+  // barriers, so a prefix test on `picked` would revive those too — the
+  // golden berry bush is a one-time find and has no row. Persist the roll
+  // once; reloads must never reroll its deadline. The save field keeps its
+  // grass name (`grassRegrowth`).
   const GRASS_REGROWTH_MEAN_MS = 2 * 24 * 60 * 60 * 1000;
   const WILD_REGROWTH = Object.freeze({
     longgrass: GRASS_REGROWTH_MEAN_MS,
     flowers: GRASS_REGROWTH_MEAN_MS, forgetmenot: GRASS_REGROWTH_MEAN_MS, marigold: GRASS_REGROWTH_MEAN_MS,
     wildrose: GRASS_REGROWTH_MEAN_MS, starflower: GRASS_REGROWTH_MEAN_MS,
     petnip: GRASS_REGROWTH_MEAN_MS, nettle: GRASS_REGROWTH_MEAN_MS,
+    berry: GRASS_REGROWTH_MEAN_MS, poisonberry: GRASS_REGROWTH_MEAN_MS,
   });
   // Does a cleared plant of this crop grow back on its own (a row above)?
   function regrows(crop) { return Object.hasOwn(WILD_REGROWTH, crop); }

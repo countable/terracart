@@ -118,14 +118,17 @@ access or tile lifecycle mechanics.
   Nettle the rare one. The ordinary spawn gate excludes unsafe seats, road
   nexuses and themed stretches. Both herbs use the standard wildplant harvest
   lane; PetNip feeds pets and Nettle supplies the Home Growth Powder recipe.
-  The same roll grows a sparse bush above the herb band (`PLAIN_BUSHES` in
-  `street_variants.js`): mostly ordinary shrubs, with berry and poisonberry
-  bushes mixed in.
+  The same roll grows a bush above the herb band (`PLAIN_BUSHES` in
+  `street_variants.js`; 8% shrub, 2.5% berry, 1.5% poisonberry of the
+  seats): mostly ordinary shrubs, with berry and poisonberry bushes mixed
+  in, still fewer than the herbs.
 
 - Every house fronting a plain (unthemed) Small street stands 0-2 loot barrels
+  (`HOUSE_BARREL_ODDS`: 40% none, 40% one, 20% two)
   on the verge before it, clustered side by side a cell back from the kerb
   (`StreetVariants.dressSteps`, the house barrels pass; `HOUSE_BARRELS_MAX`,
-  `HOUSE_FRONT_REACH_CELLS`, `HOUSE_FRONT_SPAN_CELLS`). A house is a run of house-tier building cells a
+  `HOUSE_FRONT_REACH_CELLS`, `HOUSE_FRONT_SPAN_CELLS`). They are always
+  wooden barrels (`barrelStyle`); clay pots belong to Pottery Road. A house is a run of house-tier building cells a
   ray out from the band's edge reaches within five cells; forts, castles and
   another road in the way end the ray. The count is a hash of the tile and
   the house's first wall cell, so every player sees the same; a terrace counts
@@ -133,14 +136,18 @@ access or tile lifecycle mechanics.
   the kerb cell, on the reward gate, so none stands on a Major-and-Medium
   kerb; the kerb cell itself is the last resort for a one-deep frontage.
   Themed stretches and Major roads stand none. A generated barrel is not a
-  place: it draws no POI pad (`render.js`, the pad pass), unlike a bin POI. One seat in ten (`HOUSE_CRATE_SHARE`, a hash
+  place: it draws no POI pad (`render.js`, the pad pass); a bin POI (a waste
+  basket or recycling point) wears the full pad (`padShapeKeyForPoi`). One seat in ten (`HOUSE_CRATE_SHARE`, a hash
   of the seat) stands a tier-1 restocking crate instead of a barrel.
 
-- Cleared wild longgrass and the wild herbs (the wild flowers, PetNip and
-  the nettle: the rows of `SaveState.WILD_REGROWTH`, read through
-  `SaveState.regrows`) return after an independently sampled exponential wait
-  averaging two real days (`SaveState.GRASS_REGROWTH_MEAN_MS`, every row's
-  mean today). A crop grows back by having a row; the mechanism is one.
+- Cleared wild longgrass, the wild herbs (the wild flowers, PetNip and
+  the nettle) and the picked berry and poisonberry bushes (the rows of
+  `SaveState.WILD_REGROWTH`, read through `SaveState.regrows`) return after
+  an independently sampled exponential wait averaging two real days
+  (`SaveState.GRASS_REGROWTH_MEAN_MS`, every row's mean today). A crop grows
+  back by having a row; the mechanism is one. A picked berry bush stands as
+  a bare bush meanwhile (`WILDPLANT_RULES` `pickedCrop`) and fruits again
+  when its id leaves `picked`; the golden berry bush has no row.
   Harvest records the deadline in `save.grassRegrowth`; normalization and
   the ten-second save heartbeat remove expired ids from `picked` /
   `burnedObjects`. Deadlines persist across reloads and run while offline.
@@ -752,6 +759,19 @@ Higher-priority placements and their access space take precedence in this order:
    third of them held (`BERRY_RUNT_CHANCE`), seats the `street_berry`
    garrison one cell behind the bush row: one ambusher that hides in the
    nearest bush.
+   Pottery Road (a Small-road row, sections up to 250 m) lines both verges
+   with generated clay pots (`VERGE_ROWS.pottery`): one sample a cell with
+   `POTTERY_GAP` (35%) left empty, each pot the first free cell from the
+   second verge cell out on the reward gate, so none stands on the kerb cell
+   or a Major-and-Medium kerb. No guards and no POI: a pot is a smashable
+   prop (`CLAY_POT_LOOT`, a coin a quarter of the time). It is the only
+   street that stands clay pots.
+   Trade Row (a Small-road row, sections up to 250 m) lines both verges with
+   generated wooden barrels the same way (`VERGE_ROWS.trade`,
+   `TRADE_BARREL_GAP` 30% left empty, a cell back from the kerb on the reward
+   gate) and seats a two-runt `street_trade` garrison post every 25 m
+   (`TRADE_GRUNT_STEP_M`), two thirds of them held (`TRADE_GRUNT_CHANCE`),
+   a cell behind the barrel row on the fast-foe gate.
    Overgrown forest roads add extra encounters beside the usual plant guard,
    each a row of the variant's `extraEncounters` rolled from the stable street
    key: a sounder of two wild boars on every overgrown street, and a Giant
