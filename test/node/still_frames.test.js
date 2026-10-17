@@ -24,11 +24,9 @@ function scene(over) {
   }, over);
 }
 const PS = { x: 176, y: 422 };
-const RP = { cellIX: 10, cellIY: 20 };
-const PC = { tx: 1, ty: 2, cx: 3.25, cy: 4.5 };
 function keyFor(s, over = {}) {
-  const o = Object.assign({ ps: PS, ox: 0, oy: 0, prof: Lighting.profile(s), r0: 64, rMax: 300, reachM: 10, rp: RP, pc: PC, now: 1000 }, over);
-  return Lighting.frameKey(s, o.ps, o.ox, o.oy, o.prof, o.r0, o.rMax, o.reachM, o.rp, o.pc, o.now, o.pulseNow);
+  const o = Object.assign({ ps: PS, ox: 0, oy: 0, prof: Lighting.profile(s), r0: 64, rMax: 300, reachM: 10, now: 1000 }, over);
+  return Lighting.frameKey(s, o.ps, o.ox, o.oy, o.prof, o.r0, o.rMax, o.reachM, o.now, o.pulseNow);
 }
 
 test('still frames: the lightmap clock steps, and steps fast enough', () => {
@@ -44,11 +42,8 @@ test('still frames: a still view keys the same, a moved one differently', () => 
   const s = scene();
   assert.eq(keyFor(s), keyFor(s), 'identical inputs, identical key');
   assert.truthy(keyFor(s) !== keyFor(s, { ps: { x: 177, y: 422 } }), 'the feet moved (a peek)');
-  assert.truthy(keyFor(s) !== keyFor(s, { pc: { tx: 1, ty: 2, cx: 3.3, cy: 4.5 } }), 'the anchor slid a fraction of a cell');
-  assert.truthy(keyFor(s) !== keyFor(s, { rp: { cellIX: 11, cellIY: 20 } }), 'the reach cell changed');
   assert.truthy(keyFor(s) !== keyFor(s, { reachM: 5 }), 'the reach shrank (the dark, or an empty bar)');
   assert.truthy(keyFor(s) !== keyFor(s, { prof: Lighting.profile(s, 0.2) }), 'the sun went down');
-  assert.truthy(keyFor(s) !== keyFor(s, { rp: null, pc: null }), 'the plateau went away');
   // The list of lights is in the key, field by field.
   const lit = scene({ _lights: [{ kind: 'cobble', dx: 3, dy: -4, id: 'lamp1' }] });
   assert.truthy(keyFor(s) !== keyFor(lit), 'a lamp came into view');
@@ -110,7 +105,7 @@ test('still frames: a view that only BREATHES keys on the slower pulse clock', (
     'and is read off the pulse clock handed in, not the light clock');
   const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function draw(scene, ax, ay, halfM) {'));
   assert.truthy(/const pnow = pulseClock\(wall\);/.test(d), 'draw() reads the breath off the wall clock, on its own grid');
-  assert.truthy(/frameKey\(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx\)/.test(d), 'and keys on it');
+  assert.truthy(/frameKey\(scene, ps, ox, oy, prof, r0, rMax, reachM, now, pnow\)/.test(d), 'and keys on it');
   assert.truthy(/flickerAlpha\(row, L\.dx, L\.dy, now, L\.id, pnow\)/.test(LIGHTING_SRC), 'and the shared light painter uses it');
 });
 
@@ -122,7 +117,7 @@ test('still frames: draw() reads the quantised clock and gates before it touches
   const refresh = d.indexOf('tex.refresh();');
   assert.truthy(gate > 0 && paint > gate && refresh > paint, 'the gate sits before the first canvas call, the upload last');
   assert.eq((d.match(/tex\.refresh\(\);/g) || []).length, 1, 'one upload per painted step, none on a reused one');
-  assert.truthy(/if \(key === tex\.__lightKey && !contributionPending\(scene\)\) \{[\s\S]*?return false;/.test(d),
+  assert.truthy(/if \(key === tex\.__lightKey\) \{[\s\S]*?return false;/.test(d),
     'a matching key returns without painting unless a deferred contribution rebuild is due');
   assert.truthy(/tex\.__lightKey = key;/.test(d), 'and a painted key is remembered on the texture itself, so a rebuilt texture starts fresh');
 });

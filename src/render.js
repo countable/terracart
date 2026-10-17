@@ -900,8 +900,6 @@ Render.petTexture = function petTexture(scene, kind, sheet, tint = 0xffffff) {
 // Phaser's Canvas renderer ignores sprite tint. Bake each used tint of a
 // texture once there, frames and all (a pet's palette, an elite's ring);
 // WebGL keeps the shared neutral texture and its cheap vertex tint.
-// Muted oak brown brings the default barrel closer to the supply crate.
-Render.DEFAULT_BARREL_TINT = 0xd9c9b8;
 Render.canvasTint = function canvasTint(scene, neutral, tint) {
   if (typeof Phaser === 'undefined' || scene.sys?.game?.renderer?.type !== Phaser.CANVAS
       || !Number.isFinite(tint) || tint === 0xffffff) return neutral;
@@ -1817,7 +1815,7 @@ Render.reachDimAlpha = (scene) => {
 // One reversible building-art selection; query choice is per page, never saved.
 Render.buildingArtStyle = (() => {
   const choice = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('buildingArt') : null;
-  return ['legacy', 'rounded'].includes(choice) ? choice : 'procedural';
+  return choice === 'legacy' ? 'legacy' : 'procedural';
 })();
 Render.proceduralBuildings = () => Render.buildingArtStyle === 'procedural' && typeof BuildingStyles !== 'undefined';
 Render.BUILDING_STYLE_ROLES = Object.freeze({
@@ -1847,23 +1845,8 @@ Render.buildingStyleFor = (o, scene) => Render.buildingProfileFor(o, scene).styl
 Render.proceduralHouse = (o, scene) => Render.proceduralBuildings()
   && typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled()
   && (scene.depth ?? 0) === 0 && scene._proceduralBuildings?.has(o.id);
-Render.roundedBuildings = () => Render.buildingArtStyle !== 'legacy'
-  && typeof ASSETS !== 'undefined' && !!ASSETS.rounded_buildings;
-Render.HOUSE_ART_FRAMES = Object.freeze({ plain: 'house', house: 'house',
-  blacksmith: 'blacksmith', trader: 'trader', market: 'market',
-  wizard: 'wizard_tower', turret: 'turret', trailer: 'home_wagon', wreck: 'wreck' });
-Render.SHOP_ART_FRAMES = Object.freeze({ seed: 'seed_shop', supply: 'supply_shop',
-  potion: 'magic_shop', relic: 'relic_shop', pet: 'pet_shop', book: 'book_shop' });
-// Map art and dialog icons resolve the same frame. A restore card can supply
-// its future shop theme before the building has been restored.
+// Map sprites and restoration cards use the original role artwork.
 Render.houseTextureFrame = (role, o, scene, theme) => {
-  if(role==='wizard')return 3;
-  if(role==='turret')return CastleStyles.get(o.id).towerFrame;
-  if (Render.roundedBuildings()) {
-    if (role === 'fort') return scene?.isClaimedKey && !scene.isClaimedKey(o.id) ? 'fort_unclaimed' : 'fort';
-    if (role === 'shop') return Render.SHOP_ART_FRAMES[theme ?? scene?.shopLine?.(o)?.theme] || 'market';
-    return Render.HOUSE_ART_FRAMES[role];
-  }
   if (role === 'plain') return 'front';
   if (role === 'wizard') return 3;
   if (role === 'turret') return CastleStyles.get(o.id).towerFrame;
@@ -1871,9 +1854,6 @@ Render.houseTextureFrame = (role, o, scene, theme) => {
 };
 // Baked unclaimed art already contains its wear: never apply a second wash.
 Render.houseTextureKey = (role, o, scene) => {
-  if(role==='wizard')return 'shrine';
-  if(role==='turret')return 'tower';
-  if (Render.roundedBuildings()) return 'rounded_buildings';
   if (role === 'plain') return 'house';
   if (role === 'wizard') return 'shrine';
   if (role === 'turret') return 'tower';
@@ -6066,15 +6046,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands, macro stalls and the wagon are structure-like and stay foot-anchored.
               seat: (o) => { const L = chestLook(o); return !L.stand && !L.macro && !L.wagon; },
-              shadow: true,
-              after: (sprite, o, scene) => {
-                const look = chestLook(o);
-                if (look.texKey === 'barrel' && look.frame === 0) {
-                  sprite.setTint(Render.DEFAULT_BARREL_TINT);
-                  setTextureIfDifferent(sprite, Render.canvasTint(scene, 'barrel', Render.DEFAULT_BARREL_TINT));
-                  sprite.setFrame(0);
-                }
-              } },
+              shadow: true },
     fruittree: { key: (o) => `${o.species === 'worldpeach' ? 'worldpeach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o), state = _ftState(o);

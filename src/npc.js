@@ -293,7 +293,7 @@ const NPC = (() => {
   // name given — the lane calls her the white-haired woman — in town from
   // eleven memories. She is `transient`: passing through, so no talk ever
   // moves her into a restored house (meetHomeNeighbour).
-  const CHILD_SCALE = 0.7;
+  const CHILD_SCALE = 0.77;
   const STORY_ROLES = {
     warden: { label: 'Warden', name: 'Bryn', art: 'npc_bryn', minMemories: 3 },
     witness: { label: 'Survivor', name: 'Maud', art: 'npc_maud', minMemories: 6, arrives: 'rescue' },

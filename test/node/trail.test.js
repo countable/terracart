@@ -1087,15 +1087,15 @@ test('streets: the live pass previews the dwell and shines on the rebuild', () =
   }
 });
 
-test('streets: the sweep is memoised on the reach cell, and the ripen runs every frame', () => {
+test('streets: the sweep is memoised on the exact player position, and the ripen runs every frame', () => {
   // The SCAN is the expensive half — a grid traversal per line of every way in
   // the 3×3 tiles — and standing still can't bring fresh street into the
   // bubble. The RIPEN half is waiting on the clock, not the player, so it runs
   // regardless.
   const src = SCENE_SRC.slice(SCENE_SRC.indexOf('  _sweepStreets() {'));
   const body = src.slice(0, src.indexOf('\n  }\n'));
-  assert.truthy(/const sweepKey = `\$\{p\.cellIX\},\$\{p\.cellIY\},\$\{Math\.round\(reachM\)\}`;/.test(body),
-    'the memo key is the reach cell plus the radius');
+  assert.truthy(/const sweepKey = `\$\{player\.x\},\$\{player\.y\},\$\{reachM\}`;/.test(body),
+    'the memo key includes sub-cell movement and the exact radius');
   assert.truthy(/if \(this\._streetSweepKey !== sweepKey\) \{[\s\S]*?this\._rescanStreets\(/.test(body),
     'and only a change rescans');
   assert.truthy(/this\._ripenStreets\(now, sight\);/.test(body),
