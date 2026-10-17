@@ -135,7 +135,7 @@
   // StreetVariants.BANDIT_STRETCH_UNITS) are the same reason again: one guard
   // each, always held, every mode. (There is no 'wagon' tier: a bus stop is on
   // the kerb by definition.)
-  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_forest_bear: 1, street_orchard: 1, street_toadstool: 1, street_goblin_gang: 5, street_spider_path: 2, street_berry: 1 };
+  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_wild_boar: 2, street_forest_bear: 1, street_orchard: 1, street_toadstool: 1, street_goblin_gang: 5, street_spider_path: 2, street_berry: 1 };
   const SLIME_TRAIL = root.StreetVariants.VARIANT_BY_ID.slime_trail;
   for (const kind of SLIME_TRAIL.enemyKinds) STREET_TIER_GUARDS[`street_slime_trail_${kind}`] = SLIME_TRAIL.guardsPerPost;
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
@@ -237,6 +237,9 @@
     barricade: ['spear_goblin', 'archer_goblin'],
     street_hedgerow: ['slime'],
     street_overgrown: ['plant'],
+    // An overgrown street's extra posts (StreetVariants extraEncounters): a
+    // sounder of wild boars on every one, a giant bear on a third.
+    street_wild_boar: ['boar'],
     street_forest_bear: ['giant_bear'],
     street_orchard: ['farmer_goblin'],
     street_toadstool: ['spider'],
@@ -553,6 +556,7 @@
     burned: { rate: 1, thinned: false },   // a burned row's stretch
     street_hedgerow: { rate: 1, thinned: false },
     street_overgrown: { rate: 1, thinned: false },
+    street_wild_boar: { rate: 1, thinned: false },
     street_forest_bear: { rate: 1, thinned: false },
     street_orchard: { rate: 1, thinned: false },
     street_toadstool: { rate: 1, thinned: false },
@@ -1071,9 +1075,14 @@
     // A BUILDING's garrison comes out after you, so its themed family drops
     // the rooted kinds (EnemyRoster.isRooted — the plants); a road variant's
     // stretch (a street tier) keeps them. The kind is picked off the filtered
-    // list, so no seat draw moves.
-    const pathAuthored = root.StreetVariants?.VARIANT_BY_ID[cand._street]?.size === 'path';
-    const rawFamily = pathAuthored ? null : root.EnemyHabitats?.buildingKinds(entry, cand);
+    // list, so no seat draw moves. A street's EXTRA encounter (StreetVariants
+    // EXTRA_ENCOUNTER_TIERS — the overgrown street's boars and bear) is
+    // authored by its own ladder: the street's family (the nearest mark's
+    // BUILDING_FAMILIES row) never re-themes it into the plant guard's kinds.
+    const SVar = root.StreetVariants;
+    const pathAuthored = SVar?.VARIANT_BY_ID[cand._street]?.size === 'path';
+    const ownLadder = !!SVar?.EXTRA_ENCOUNTER_TIERS?.has(cand.tier);
+    const rawFamily = pathAuthored || ownLadder ? null : root.EnemyHabitats?.buildingKinds(entry, cand);
     const mobile = rawFamily && TIERS.includes(cand.tier)
       ? rawFamily.filter((k) => !root.EnemyRoster?.isRooted(k)) : rawFamily;
     const family = mobile && mobile.length ? mobile : null;
