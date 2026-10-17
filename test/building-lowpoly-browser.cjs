@@ -9,8 +9,11 @@ const sharing=await page.evaluate(()=>{
  BuildingLowPoly.begin(scene);
  for(const stories of [1,2,3])BuildingLowPoly.add(scene,pts,{...recipe,stories},'ridge');
  const sheets=new Set(scene._lowpoly.faces.map(f=>f.texture)).size,added=scene.textures.getTextureKeys().length-before;
- rebuild();return {sheets,added};
-});assert.equal(sharing.sheets,1);assert.equal(sharing.added,0);
+ const heights=scene._lowpoly.buildings.map(m=>m.height);
+ const texture=scene._lowpoly.faces[0].texture,pixels=texture.getContext().getImageData(0,0,512,512).data,colors=new Set();
+ for(let i=0;i<pixels.length;i+=4)colors.add(`${pixels[i]},${pixels[i+1]},${pixels[i+2]}`);
+ rebuild();return {sheets,added,heights,colors:colors.size};
+});assert.equal(sharing.sheets,1);assert.equal(sharing.added,0);assert(sharing.colors<=160,"posterised atlas tiles keep a bounded palette");sharing.heights.forEach((height,i)=>assert(Math.abs(height-((i+1)*31.2+5))<1e-6));
 const result=await page.evaluate(()=>{
  const s=reviewScene,state=s._lowpoly,original=state.faces.slice(),textures=s.textures.getTextureKeys().length,builds=state.builds;
  let refreshes=0;for(const texture of new Set(original.map(f=>f.texture))){const refresh=texture.refresh.bind(texture);texture.refresh=()=>{refreshes++;return refresh();};}
@@ -22,12 +25,23 @@ const result=await page.evaluate(()=>{
 assert.equal(result.refreshes,0);assert.equal(result.builds,0);assert.equal(result.textures,0);assert(result.retained);assert(result.maxDrift<1e-6);
 for(const angle of [0,37,90,180,270]){await page.locator('#angle').fill(String(angle));await page.waitForTimeout(100);await page.screenshot({path:`/tmp/lowpoly-${angle}.png`});}
 for(const roof of ['inset','shallow','flat','styles']){await page.selectOption('#roof',roof);await page.locator('#angle').fill('25');await page.waitForTimeout(100);await page.screenshot({path:`/tmp/lowpoly-${roof}.png`});}
+// The cross fixture previously exhausted the roof atlas and smeared its edge.
+await page.selectOption('#footprints','cottages');await page.selectOption('#roof','ridge');
+await page.locator('#angle').fill('37');await page.waitForTimeout(100);
+const crossUV=await page.evaluate(()=>{
+ const mesh=reviewScene._lowpoly.buildings[3];
+ return mesh.faces.filter(f=>f.kind==='roof').every(f=>f.points.every((p,i)=>
+  Math.abs(f.projected[i].v-(.25+p.v/(512*1.3)))<1e-8&&
+  Math.abs(f.projected[i].u-p.u/(512*1.3))<1e-8));
+});assert(crossUV,'cross-shaped roof retains unclamped texture coordinates');
+await page.screenshot({path:'/tmp/lowpoly-pixel-cottages.png'});
+console.log('pixel material',sharing,'cross UVs',crossUV);
 assert.deepEqual(errors,[]);console.log(JSON.stringify(result));
 const game=await browser.newPage();const gameErrors=[];game.on('pageerror',e=>gameErrors.push(e.message));await game.goto('http://localhost:7731/index.html?sandbox=true&sandboxZone=restoration');await game.waitForFunction(()=>window.__scene?._bootOverlayGone,{},{timeout:60000});await game.waitForTimeout(500);const runtime=await game.evaluate(()=>{
  const scene=__scene,frame=overlayFrame(scene,()=>true),{entry,tx,ty}=frame.tiles[0],anchor=viewAnchorWorldM(scene);
  const x=anchor.x-tx*entry.tileEdgeM,y=anchor.y-ty*entry.tileEdgeM,m=scene.cellM;
  entry.buildingShapes.push({key:'lowpoly-browser-fixture',tier:9,ring:Float32Array.from([x-m,y-m,x+m,y-m,x+m,y+m,x,y+m,x,y,x-m,y])});
  BuildingOverlay.setEnabled(scene,true);scene._overlayFrameSeq++;scene.drawBuildingGeometry();scene.drawObjects();
- const state=scene._lowpoly;return {lowpoly:!!state,buildings:state?.buildings.length,covered:state?.keys.has('lowpoly-browser-fixture'),keys:[...state.keys],renderer:scene.game.renderer.type};
-});console.log('game',runtime);assert(runtime.lowpoly&&runtime.buildings>0&&runtime.covered,'actual game renders the injected notched footprint');await game.evaluate(()=>document.querySelectorAll('#bootload,#story,#safety-card').forEach(e=>e.remove()));await game.waitForTimeout(100);await game.screenshot({path:'/tmp/lowpoly-game.png'});assert.deepEqual(gameErrors,[]);
+ const state=scene._lowpoly;return {lowpoly:!!state,buildings:state?.buildings.length,covered:state?.keys.has('lowpoly-browser-fixture'),keys:[...state.keys],renderer:scene.game.renderer.type,generated:scene.textures.exists('building_material_reference'),wizardKey:Render.houseTextureKey('wizard',{id:'test'},scene),turretKey:Render.houseTextureKey('turret',{id:'test'},scene),towerMeshes:state.buildings.filter(m=>['wizard','turret'].includes(m.role)).length};
+});console.log('game',runtime);assert(runtime.generated);assert.equal(runtime.wizardKey,'shrine');assert.equal(runtime.turretKey,'tower');assert.equal(runtime.towerMeshes,0);assert(runtime.lowpoly&&runtime.buildings>0&&runtime.covered,'actual game renders the injected notched footprint');await game.evaluate(()=>document.querySelectorAll('#bootload,#story,#safety-card').forEach(e=>e.remove()));await game.waitForTimeout(100);await game.screenshot({path:'/tmp/lowpoly-game.png'});assert.deepEqual(gameErrors,[]);
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

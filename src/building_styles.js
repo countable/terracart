@@ -235,7 +235,17 @@
       slab(current, z, z + 0.7 * scale, palette.trim);
     } else if (styleId === 'multistorey') {
       slab(ring, h - scale, h + scale, palette.trim);
-      const upper = inset(ring, 3 * scale) || ring;
+      let upper = null;
+      // A deep setback can pinch a narrow wing into a sliver; halve it instead.
+      const pinched = (p, setback) => p.some((a, i) => {
+        const b = p[(i + 1) % p.length], c = ring[i], d = ring[(i + 1) % ring.length];
+        return Math.hypot(b.x - a.x, b.y - a.y) < Math.min(setback, Math.hypot(d.x - c.x, d.y - c.y) * 0.5);
+      });
+      for(let setback=options.upperSetback ?? 3 * scale;setback>=.5&&!upper;setback/=2){
+        upper=inset(ring,setback);
+        if(upper&&upper.length===ring.length&&pinched(upper,setback))upper=null;
+      }
+      upper ||= ring;
       slab(upper, h + scale, h * 2, palette.wall);
       courses(upper, h + scale, h * 2, 1, shade(palette.wall, 0.9));
       windows(upper, h * 1.5);

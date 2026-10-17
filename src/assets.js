@@ -2,6 +2,7 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  building_material_reference: { kind: 'image', path: 'assets/Objects/BuildingMaterials/reference-materials-v3.png' },
   // Rounded alternatives preserve all legacy building textures. Tight native
   // 64px house / 80px fort frames end at the sheet's common ground row 88.
   rounded_buildings: { kind: 'image', path: 'assets/Objects/RoundedBuildings/buildings.png', unclaimedArt: true,
@@ -220,7 +221,7 @@ const ASSETS = {
   // Pine uses the upper 32×48 growth strip; the lower band is separate
   // ground decoration and must not enter the standing tree frame.
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
-  // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
+  // Approved cel-shaded rocks — 192×216 atlas of 24px frames; 65 runtime identities.
   rock_variants: { kind: 'spritesheet', path: 'assets/Objects/Rocks/rocks-24.png', frameWidth: 24, frameHeight: 24 },
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
   // Five complete 32px columns; the trailing 16px mask column is unused.

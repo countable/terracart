@@ -1823,7 +1823,7 @@ Render.BUILDING_STYLE_ROLES = Object.freeze({
   trailer: { style: 'adobe' },
   blacksmith: { style: 'multistorey', palette: { wall: 0xa96e59, roof: 0x687a83, trim: 0xc79673 } },
   trader: { style: 'japanese' }, shop: { style: 'japanese' },
-  wizard: { style: 'pyramid', palette: { roof: 0x8b78a8, trim: 0xc6afcf } },
+  wizard: { style: 'pyramid', palette: { wall: 0x8c8796, roof: 0x8b78a8, trim: 0xc6afcf } },
   turret: { style: 'fort' },
   fort: { style: 'multistorey', palette: { wall: 0x9b9e91, roof: 0xb6b6a2, trim: 0xd5ceb2 } },
   wreck: { style: 'ruin' },
@@ -1855,6 +1855,8 @@ Render.SHOP_ART_FRAMES = Object.freeze({ seed: 'seed_shop', supply: 'supply_shop
 // Map art and dialog icons resolve the same frame. A restore card can supply
 // its future shop theme before the building has been restored.
 Render.houseTextureFrame = (role, o, scene, theme) => {
+  if(role==='wizard')return 3;
+  if(role==='turret')return CastleStyles.get(o.id).towerFrame;
   if (Render.roundedBuildings()) {
     if (role === 'fort') return scene?.isClaimedKey && !scene.isClaimedKey(o.id) ? 'fort_unclaimed' : 'fort';
     if (role === 'shop') return Render.SHOP_ART_FRAMES[theme ?? scene?.shopLine?.(o)?.theme] || 'market';
@@ -1867,6 +1869,8 @@ Render.houseTextureFrame = (role, o, scene, theme) => {
 };
 // Baked unclaimed art already contains its wear: never apply a second wash.
 Render.houseTextureKey = (role, o, scene) => {
+  if(role==='wizard')return 'shrine';
+  if(role==='turret')return 'tower';
   if (Render.roundedBuildings()) return 'rounded_buildings';
   if (role === 'plain') return 'house';
   if (role === 'wizard') return 'shrine';

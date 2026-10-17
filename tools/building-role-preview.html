@@ -1,0 +1,19 @@
+<!doctype html><meta charset="utf-8"><title>Building role review</title>
+<style>body{margin:0;background:#243947;color:#efe8da;font:16px system-ui}header{padding:16px}canvas{display:block}input,button{font:inherit}</style>
+<header><b>In-game building variations</b><p>Dark, quiet walls · eave shading · smaller roof tiles · actual role materials and roof shapes. Wizard/turret show their original in-game artwork.</p><label>Compass <input id="angle" type="range" min="0" max="360" value="0"></label> <button id="sweep">Sweep</button> <span id="stats"></span></header><div id="game"></div>
+<script src="../vendor/phaser.js"></script><script src="../src/util.js"></script><script src="../src/castle_styles.js"></script><script src="../src/textures.js"></script><script src="../src/building_styles.js"></script><script src="../src/building_lowpoly.js"></script>
+<script>
+let reviewScene,sweeping=false;const roles=Object.keys(BuildingLowPoly.ROLES).filter(r=>r!=='shop');
+// These are the role/shop palette overrides used by Render.buildingProfileFor.
+const palettes={trader:{wall:0xd8c6a1,roof:0x567e83},plain:{wall:0xd4cdb4,roof:0x709b9a},blacksmith:{wall:0xa96e59,roof:0x687a83},wizard:{wall:0x8c8796,roof:0x8b78a8},seed:{roof:0x82916b},supply:{roof:0xb09a69},potion:{roof:0x957ca9},relic:{roof:0x6e9a91},pet:{roof:0x8b9678},book:{roof:0x967577}};
+function rebuild(){const s=reviewScene;BuildingLowPoly.begin(s);s.labels?.forEach(t=>t.destroy());s.labels=[];s.legacySprites?.forEach(t=>t.destroy());s.legacySprites=[];
+roles.forEach((role,i)=>{const x=55+(i%4)*265,y=125+Math.floor(i/4)*250;
+const pts=[{x,y},{x:x+120,y},{x:x+120,y:y+65},{x:x+150,y:y+65},{x:x+150,y:y+115},{x,y:y+115}];
+if(role==='wizard'||role==='turret'){const sprite=s.add.image(x+75,y+115,role==='wizard'?'shrine':'tower',role==='wizard'?3:CastleStyles.get('citadel').towerFrame).setOrigin(.5,1).setScale(2);s.legacySprites.push(sprite);s.labels.push(s.add.text(x,y+140,role+' · original game art',{fontSize:'15px',color:'#efe8da'}));return;}
+const recipe=BuildingLowPoly.recipeFor(role,{...palettes[role],trim:role==='turret'?0x9b9e91:0x614534});
+const mesh=BuildingLowPoly.add(s,pts,recipe,recipe.variant||'ridge',role);
+s.labels.push(s.add.text(x,y+140,(role==='trader'?'market / trader':role)+' · '+mesh.faces.length+' triangles',{fontSize:'15px',color:'#efe8da'}));});
+BuildingLowPoly.update(s);document.querySelector('#stats').textContent=s._lowpoly.faces.length+' triangles / '+roles.length+' types';}
+new Phaser.Game({type:Phaser.WEBGL,width:1100,height:1080,parent:'game',backgroundColor:'#476878',scene:{preload(){this.load.spritesheet('shrine','../assets/Objects/Approved/shrine.png',{frameWidth:80,frameHeight:104});this.load.image('castle_tower_shapes','../assets/Objects/Castle/tower_shapes.png');this.load.image('building_material_reference','../assets/Objects/BuildingMaterials/reference-materials-v3.png');},create(){makeTowerTexture(this,CASTLE_STONE);reviewScene=window.reviewScene=this;this._headingUp=true;this.buildingWallContainer=this.add.container();rebuild();window.ready=true;},update(t,dt){if(sweeping)document.querySelector('#angle').value=(+document.querySelector('#angle').value+dt*.02)%360;this.mapRot=+document.querySelector('#angle').value*Math.PI/180;this.cameras.main.setRotation(this.mapRot);for(const sprite of this.legacySprites||[])sprite.setRotation(-this.mapRot);BuildingLowPoly.update(this);}}});
+document.querySelector('#sweep').onclick=()=>sweeping=!sweeping;
+</script>

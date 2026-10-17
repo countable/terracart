@@ -1492,6 +1492,10 @@
         continue;
       }
       const isMine = claimed(d.object?.id || d.key);
+      // Wizard and turret keep their original sprite artwork, not generated shells.
+      if(d.object&&['wizard','turret'].includes(Houses.displayRole(scene.save,d.object))){
+        g.fillPoly(d.pts,tuneOf(isMine)(shadeOf(isMine)(floorColor(d.tier,isMine))));continue;
+      }
       if (procedural && !d.shared && (d.tier === 9 || d.tier === 11)) {
         const object = d.object || { kind: 'house', id: d.key, tier: d.tier };
         const profile = Render.buildingProfileFor(object, scene);
@@ -1508,12 +1512,13 @@
           const role = specialtyFor(scene.save, object);
           const base = BuildingStyles.STYLES[styleId], palette = {...base,...profile.palette};
           const paint = c => tuneOf(isMine)(shadeOf(isMine)(c));
-          const recipe = {...wallRecipe(role,scene.buildingStoreys,isMine),style:styleId,
-            body:paint(palette.wall),roof:paint(palette.roof),trim:paint(0x614534),
-            finish:'cottage',roofMaterial:role==='seed'?'thatch':role==='trader'||role==='book'?'clay':'slate'};
-          if (!scene.buildingStoreys && styleId==='multistorey') recipe.stories=2;
+          const recipe = role==='fort'
+            ? {...wallRecipe(role,scene.buildingStoreys,isMine),role:'fort',style:styleId,body:paint(palette.wall),roof:paint(palette.roof),trim:paint(0x614534),finish:'cottage',roofMaterial:'slate'}
+            : BuildingLowPoly.recipeFor(role,{wall:paint(palette.wall),roof:paint(palette.roof),
+                trim:paint(role==='turret'?palette.wall:0x614534)},scene.buildingStoreys);
+          if(role==='fort'&&!scene.buildingStoreys)recipe.stories=2;
           const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant
-            || (styleId==='ruin'||styleId==='fort'?null:styleId==='pyramid'?'inset':'ridge');
+            || (role==='fort'?'ridge':recipe.variant||'ridge');
           model = BuildingLowPoly.add(scene,d.pts,recipe,variant,object.id);
         } else model = BuildingStyles.emit(scene, 'polygon', d.pts, styleId, { claimed: isMine, palette: profile.palette });
         if (model && (model.faces?.length || model.prisms?.length)) {
