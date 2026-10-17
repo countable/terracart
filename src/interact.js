@@ -752,6 +752,22 @@ const TAP_HANDLERS = [
     const likes = !!held && Pets.likes(target, held);
     const producerMeal = held && ITEM_BY_ID[held]?.crop
       && ITEM_BY_ID[held]?.kind === 'produce' && !!SpriteLayout.creatureProduce(target.kind);
+    // A GOLDEN BERRY, offered (CONSUMABLE_SPEC `charmsFoe`): an enemy takes
+    // the `charm` status for charmFeedMs — a minute less its tier squared in
+    // seconds (Combat.applyCharm: it fights beside you, and does not flee
+    // the net); a wild animal takes the calm of the same length. A kind too
+    // high to charm, or a pet, keeps the berry.
+    if (!isTame && CONSUMABLE_SPEC[held]?.charmsFoe) {
+      const ms = charmFeedMs(target.kind);
+      const took = ms > 0 && (Combat.isEnemy(target) ? Combat.applyCharm(target, Date.now(), ms) : Combat.calm(target, ms));
+      if (took) {
+        consumeSelected(save);
+        scene.buildInventoryDOM();
+        persistSave(save);
+        scene.flash(`Charmed — ${Math.round(ms / 1000)} s`, sx, sy);
+        return true;
+      }
+    }
     // A POISONBERRY, offered: an enemy or a pet eats it and takes the poison
     // the player would (CONSUMABLE_SPEC `feedsFoe` — Combat.poison, the
     // Poison Flask's minute; a pet's bites come off its HP as an ally's).

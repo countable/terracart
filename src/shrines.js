@@ -79,7 +79,7 @@
       name: 'Wishing well', flash: 'A coin sinks. Luck stirs.',
       body: "Green coins glint at the bottom of the well. You lean over the edge and make a wish." },
     harvest_idol: { art: 'shrine_harvest_idol', frame: 7, light: 0xffd07a, lever: 'work', durationMs: 15 * MIN, boon: 'Hardworking',
-      zoneVariants: ['orchard'], streets: ['orchard'],
+      zoneVariants: ['orchard'], streets: ['orchard', 'berry', 'berry_trail'],
       name: 'Harvest shrine', flash: 'Your hands move swiftly.',
       body: "You lay your hand on the straw figure. Your weariness lifts, and your hands move swiftly through their work." },
     toad_idol: { art: 'shrine_toad_idol', frame: 8, light: 0x7fe0a0, lever: 'regen', durationMs: 8 * MIN, boon: 'Mending',

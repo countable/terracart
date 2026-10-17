@@ -42,6 +42,23 @@
   const PLAIN_NETTLE_P = 0.055, PLAIN_HERB_P = 0.38, PLAIN_BUSH_P = 0.43;
   const PLAIN_BUSHES = [{ crop: 'shrub', below: 0.415 }, { crop: 'berry', below: 0.425 },
     { crop: 'poisonberry', below: PLAIN_BUSH_P }];
+  // ── Berry Lane / Berry Trail ─────────────────────────────────────────────
+  // Bushes line both verges, a sample every cell with BERRY_LANE_GAP of them
+  // left empty (the row's stream): the mix is cumulative roll bounds off the
+  // seat's id — ordinary shrubs, berry and poisonberry bushes, and brambles
+  // (the thorn: a shrub in its bramble look, a walk hazard) never more than
+  // a third. A bush is then GOLDEN at GOLDEN_BUSH_SHARE.street (items.js
+  // goldenBushCrop — the same salt every bush placement rolls, so the wild
+  // share is a subset of the lane's). Behind the bushes, a goblin runt every
+  // so often (BERRY_RUNT_STEP_M, BERRY_RUNT_CHANCE of the posts): the
+  // street_berry garrison (lairs.js GROUPS), an ambusher that slips into the
+  // nearest bush.
+  const BERRY_LANE_BUSHES = [{ crop: 'shrub', below: 0.30 }, { crop: 'berry', below: 0.55 },
+    { crop: 'poisonberry', below: 0.70 }, { crop: 'shrub', art: 'bramble', below: 1 }];
+  const BERRY_LANE_THORN_MAX = 1 / 3;
+  const BERRY_LANE_GAP = 0.25;
+  const BERRY_RUNT_STEP_M = 40, BERRY_RUNT_CHANCE = 1 / 3;
+  const BERRY_VARIANTS = new Set(['berry', 'berry_trail']);
 
   // ── The verge ────────────────────────────────────────────────────────────
   // Every verge piece searches OUTWARD from the band's edge, k = 1..this
@@ -300,7 +317,7 @@
       story: 'street_scenic', title: 'The promenade',
       body: 'The path runs along the water. You listen to it lapping against the shore as you walk.',
       flash: 'The promenade. Walk it slow.' },
-    { id: 'greenway', pathWeight: .24, terrain: 'GRASS', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'greenway', pathWeight: .20, terrain: 'GRASS', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#74866c', restored: '#91a084' },
       lampGlow: '#a8e07a',
       story: 'street_scenic', art: 'street_greenway', title: 'A greenway',
@@ -383,6 +400,21 @@
       story: 'street_confusion_path', art: 'street_toadstool', title: 'Confusion Path',
       body: 'Confusion geysers erupt beside the path. A shrine offers a daily boon along the way.',
       flash: 'Confusion geysers hiss.' },
+    // BERRY LANE (Small road) and BERRY TRAIL (path): every kind of bush along
+    // both verges (BERRY_LANE_BUSHES), the rare golden berry bush among them,
+    // and goblin runts hiding behind (street_berry). Appended last.
+    { id: 'berry', terrain: 'GRASS', affinities: ['cultivated', 'woodland'], size: 'minor', share: 0.05, rung: 'uncommon',
+      stone: { weathered: '#7d7a64', restored: '#948f74' }, lampDensity: 1,
+      words: /(berr(?:y|ies)|beere|bush|busch|strauch|currant|bramble)/i,
+      lampGlow: '#f2c14e', fauna: { rabbit: [2, 5] },
+      story: 'street_berry', art: 'street_orchard', title: 'Berry Lane',
+      body: 'Bushes crowd both verges: berries, poison berries and thorns, and once in a long while a golden one. Something small may be hiding behind them.',
+      flash: 'Berry bushes line the lane.' },
+    { id: 'berry_trail', pathWeight: .04, terrain: 'GRASS', affinities: ['cultivated', 'woodland'], size: 'path', share: 0, rung: 'uncommon',
+      stone: { weathered: '#7d7a64', restored: '#948f74' }, lampGlow: '#f2c14e',
+      story: 'street_berry_trail', art: 'street_orchard', title: 'Berry Trail',
+      body: 'Bushes crowd the trail: berries, poison berries and thorns, and once in a long while a golden one. Something small may be hiding behind them.',
+      flash: 'Berry bushes line the trail.' },
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
@@ -415,7 +447,20 @@
   // A variant may have several rows (burned: the debris, then the torches),
   // walked in order; what is not a verge walk (the snare cache, the thorny
   // thickets, the barricade's cross-sections, the guards) stays in dressSteps.
+  // One Berry Lane bush at cell c: its kind off the seat's id (the lane's
+  // mix), then the golden roll (items.js goldenBushCrop, the lane's share).
+  const berryLaneBush = (D, at, c) => {
+    const id = D.WG.cellId('wp_berrylane', D.tx, D.ty, c.ix, c.iy);
+    const pick = BERRY_LANE_BUSHES.find(b => hash01(id + '|kind') < b.below) || BERRY_LANE_BUSHES.at(-1);
+    const crop = typeof goldenBushCrop === 'function' ? goldenBushCrop(pick.crop, id, GOLDEN_BUSH_SHARE.street) : pick.crop;
+    const art = crop === pick.crop && pick.art ? { _streetArt: pick.art } : {};
+    D.res.wildplants.push(D.WG.makeWildplant(crop, D.cx(c.ix), D.cy(c.iy), id, { _street: D.v, ...art }));
+  };
+  const BERRY_LANE_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 2, stream: true,
+    draw: (at) => { at.gap = at.rng() < BERRY_LANE_GAP; }, skip: (at) => at.gap,
+    emit: berryLaneBush }];
   const VERGE_ROWS = {
+    berry: BERRY_LANE_ROWS, berry_trail: BERRY_LANE_ROWS,
     // FULLY HEDGED: half-cell samples so a diagonal lane's kerb cells are all
     // reached (a claimed cell is simply skipped), no gate stations.
     hedgerow: [{ step: () => root.WorldGen.CELL_M / 2, side: 'both', walk: 1,
@@ -2118,6 +2163,27 @@
           }
         });
       }
+      if (BERRY_VARIANTS.has(v)) {
+        // THE RUNTS BEHIND THE BUSHES: a post every BERRY_RUNT_STEP_M, held at
+        // BERRY_RUNT_CHANCE off the street key and the post's index (the same
+        // for every player), seated one cell behind the bush row (verge
+        // k = 2) on the fast-foe gate — the street_berry garrison's one
+        // ambusher, which lurkSeat slips into the nearest bush.
+        sampleLine(rec.line, gM, BERRY_RUNT_STEP_M, BERRY_RUNT_STEP_M / 2, (s, x, y, nx, ny) => {
+          if (!S.covers(spans, s)) return;
+          const post = Math.floor(s / BERRY_RUNT_STEP_M);
+          if (hash01(`berry-runt|${rec.key}|${post}`) >= BERRY_RUNT_CHANCE) return;
+          const side = hash01(`berry-runt-side|${rec.key}|${post}`) < 0.5 ? 1 : -1;
+          const candidate = verge(rec, x, y, nx, ny, side, 2) || verge(rec, x, y, nx, ny, -side, 2);
+          const c = candidate && foeSeat(candidate.ix, candidate.iy);
+          if (!c) return;
+          const sid = WG.cellId('berry_runt', tx, ty, c.ix, c.iy);
+          if (habitatSeats.has(sid)) return;
+          claim(c.ix, c.iy); habitatSeats.add(sid);
+          res.lairs.push({ tier: 'street_berry', sid, _street: v,
+            lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
+        });
+      }
       if (v === 'slime_trail') {
         // One species per stable section, independent of its source fragments.
         const kind = row.enemyKinds[Math.floor(hash01(`slime-species|${rec.key}`) * row.enemyKinds.length)];
@@ -2731,8 +2797,10 @@
           const id = WG.cellId('wp_herb', tx, ty, c.ix, c.iy);
           const roll = hash01(id);
           if (roll >= PLAIN_BUSH_P) continue;
-          const crop = roll < PLAIN_NETTLE_P ? 'nettle' : roll < PLAIN_HERB_P ? 'petnip'
+          let crop = roll < PLAIN_NETTLE_P ? 'nettle' : roll < PLAIN_HERB_P ? 'petnip'
             : PLAIN_BUSHES.find(b => roll < b.below).crop;
+          // A verge bush is an ambient bush placement: the wild golden roll.
+          if (typeof goldenBushCrop === 'function') crop = goldenBushCrop(crop, id);
           claim(c.ix, c.iy);
           res.wildplants.push(WG.makeWildplant(crop, cx(c.ix), cy(c.iy), id,
             { _street: 'plain' }));
@@ -2857,6 +2925,7 @@
     BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, END_SEAT_CELLS,
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
+    BERRY_LANE_BUSHES, BERRY_LANE_THORN_MAX, BERRY_LANE_GAP, BERRY_RUNT_STEP_M, BERRY_RUNT_CHANCE, BERRY_VARIANTS,
     HEDGE_GATE_EVERY_CELLS, HOUSE_BARRELS_MAX, HOUSE_FRONT_REACH_CELLS, HOUSE_FRONT_SPAN_CELLS, HOUSE_CRATE_SHARE, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
     THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode,

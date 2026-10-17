@@ -2262,8 +2262,9 @@ class MapScene extends Phaser.Scene {
     }
   }
 
-  // The save heartbeat catches offline deadlines and nearby grass from saves
-  // that predate regrowth, including burned tufts. Chunk queries keep this
+  // The save heartbeat catches offline deadlines and nearby grass and herbs
+  // (SaveState.WILD_REGROWTH) from saves that predate regrowth, including
+  // burned tufts. Chunk queries keep this
   // bounded to the current neighbourhood rather than scanning the tile cache.
   _tickGrassRegrowth(now = Date.now()) {
     let changed = SaveState.regrowGrass(this.save, now);

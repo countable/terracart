@@ -156,7 +156,7 @@ test('variants: minor streets and path sections use their normalized theme pools
 });
 
 test('variants: paths mostly select light scenic themes and never inherit Small-road themes', () => {
-  const expected = { lantern: .10, barricade: .03, promenade: .12, greenway: .24, parkpath: .27, golden_path: .02, slime_trail: .05, spider_path: .05, poison_path: .03, fire_path: .03, paralysis_path: .03, confusion_path: .03 };
+  const expected = { lantern: .10, barricade: .03, promenade: .12, greenway: .20, parkpath: .27, golden_path: .02, slime_trail: .05, spider_path: .05, poison_path: .03, fire_path: .03, paralysis_path: .03, confusion_path: .03, berry_trail: .04 };
   const weights = SV.selectionWeights(null, 'path');
   assert.eq(weights.length, Object.keys(expected).length);
   for (const row of weights) {
@@ -551,7 +551,7 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
   // Appended after the seven older rows (code 8), and only the never-rolled
   // scenic 'path' rows (src/scenic.js) after it: no older row's code moves.
   assert.eq(row.code, 8, 'appended: no older row\'s code moves');
-  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.size === 'path' || r.id === 'golden' || r.id === 'snare' || r.id === 'thorny' || r.id === 'goblin_gang'), 'new rows append without changing existing codes');
+  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.size === 'path' || r.id === 'golden' || r.id === 'snare' || r.id === 'thorny' || r.id === 'goblin_gang' || r.id === 'berry'), 'new rows append without changing existing codes');
   let plain = 0, named = 0;
   for (let i = 0; i < 20000; i++) {
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'toadstool') plain++;
@@ -1996,5 +1996,80 @@ test('house barrels: a terrace rolls a house per frontage span', () => {
     assert.lte(n, 4); most = Math.max(most, n);
   }
   assert.gt(most, 2, 'a terrace stands more than one house\'s worth');
+});
+
+// ── Berry Lane / Berry Trail ─────────────────────────────────────────────
+// The lane on row 6 of vergeFixture (halfW half a cell): its bushes stand on
+// rows 5 and 7 (k = 1) or, where a seat is taken, rows 4 and 8 (walk 2).
+function berryLane(tx, variant = 'berry', key = `berry-${tx}`) {
+  const f = vergeFixture(variant);
+  f.index.dressingLines[0].key = key;
+  const d = SV.dress({ ...f, tx, ty: 0, tileEdgeM: f.N * 7,
+    spawnOpts: { roadMask: f.roadMask, spawnWhy: f.spawnWhy, occupied: new Set() } });
+  const cellOfM = v => Math.floor((v - 0) / 7);
+  const bushes = d.wildplants.filter(p => /^wp_berrylane_/.test(p.id))
+    .map(p => ({ ...p, ix: cellOfM(p.x - tx * f.N * 7), iy: cellOfM(p.y) }));
+  return { d, bushes, f };
+}
+test('berry lane: a Small-road row and a path row, appended last, bushes of every kind on both verges', () => {
+  const lane = SV.VARIANT_BY_ID.berry, trail = SV.VARIANT_BY_ID.berry_trail;
+  assert.eq(lane.size, 'minor'); assert.eq(lane.share, 0.05);
+  assert.eq(trail.size, 'path'); assert.eq(trail.pathWeight, 0.04);
+  assert.eq(lane.code, SV.STREET_VARIANTS.length - 1); assert.eq(trail.code, SV.STREET_VARIANTS.length);
+  assert.eq(lane.art, 'street_orchard', 'an existing painting');
+  assert.truthy(SV.VERGE_ROWS.berry === SV.VERGE_ROWS.berry_trail, 'one dressing for the lane and the trail');
+  let named = 0, plain = 0;
+  for (let i = 0; i < 20000; i++) {
+    if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'berry') plain++;
+    if (SV.variantFor(`s${i}|0,0`, `Blueberry ${i}`, 'minor') === 'berry') named++;
+  }
+  assert.gt(named, plain * 2, `a berry street is likelier a Berry Lane (${named} vs ${plain})`);
+  const counts = {}, total = { n: 0 };
+  let thorns = 0, gold = 0;
+  for (let tx = 0; tx < 300; tx++) {
+    const { bushes } = berryLane(tx, tx % 2 ? 'berry' : 'berry_trail');
+    for (const b of bushes) {
+      assert.truthy(b.iy !== 6 && Math.abs(b.iy - 6) <= 2, `on a verge: ${b.ix},${b.iy}`);
+      assert.truthy(['shrub', 'berry', 'poisonberry', 'goldenberry'].includes(b.crop), b.crop);
+      assert.truthy(b._street === 'berry' || b._street === 'berry_trail');
+      counts[b.crop] = (counts[b.crop] || 0) + 1; total.n++;
+      if (b._streetArt === 'bramble') { thorns++; assert.eq(b.crop, 'shrub', 'a thorn is a shrub in its bramble look'); }
+      if (b.crop === 'goldenberry') { gold++; assert.falsy(b._streetArt, 'a golden bush wears no other look'); }
+    }
+  }
+  assert.gt(total.n, 2000, 'both verges are lined');
+  for (const crop of ['shrub', 'berry', 'poisonberry']) assert.gt(counts[crop], total.n / 10, `${crop} bushes are common`);
+  assert.gt(thorns, total.n / 6, 'thorns are common too');
+  assert.lte(thorns / total.n, SV.BERRY_LANE_THORN_MAX, 'but never more than a third of the bushes');
+  assert.inRange(SV.BERRY_LANE_BUSHES.find(b => b.art === 'bramble').below - SV.BERRY_LANE_BUSHES[2].below, 0.3 - 1e-9, 0.3 + 1e-9, 'the table says so');
+  assert.inRange(gold / total.n, GOLDEN_BUSH_SHARE.street * 0.6, GOLDEN_BUSH_SHARE.street * 1.5, 'one bush in fifty is golden');
+  assert.eq(GOLDEN_BUSH_SHARE.street, 1 / 50);
+  const a = berryLane(7), b = berryLane(7);
+  assert.eq(JSON.stringify(a.bushes), JSON.stringify(b.bushes), 'a reload lays the same bushes');
+});
+
+test('berry lane: goblin runts hide behind the bushes — one-runt ambush posts, a third of them held', () => {
+  assert.eq(Lairs.STREET_TIER_GUARDS.street_berry, 1);
+  assert.eq(Lairs.KIND_ORDER.street_berry.join(','), 'goblin_runt');
+  assert.eq(SV.BERRY_RUNT_CHANCE, 1 / 3);
+  let posts = 0, lanes = 0;
+  for (let tx = 0; tx < 200; tx++) {
+    const { d } = berryLane(tx);
+    const runts = d.lairs.filter(l => l.tier === 'street_berry');
+    for (const r of runts) {
+      const iy = Math.floor(r.ly / 7);
+      assert.truthy(iy === 4 || iy === 8, `behind the bush row: row ${iy}`);
+    }
+    posts += runts.length; lanes++;
+  }
+  // The 63 m lane holds two 40 m posts (at 20 m and 60 m), a third of them held.
+  assert.inRange(posts / lanes, 0.45, 0.85, 'a third of the posts are held');
+  assert.eq(JSON.stringify(berryLane(3).d.lairs), JSON.stringify(berryLane(3).d.lairs), 'stable');
+  const N=64,edge=N*7,grid=new Uint8Array(N*N).fill(WorldGen.T.GRASS);
+  const entry={cellsPerEdge:N,grid,objects:[],buildingShapes:[],_spawnOpts:{occupied:new Set(),roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N)}};
+  const cand={tier:'street_berry',sid:'berry-runt-test',tx:0,ty:0,ox:0,oy:0,lx:32.5*7,ly:32.5*7,ix:32,iy:32,halfW:0,halfH:0};
+  const guards=Lairs.garrisonFor(entry,cand,{tileEdgeM:edge,caughtSet:new Set()});
+  assert.eq(guards.length,1);
+  assert.truthy(guards[0].kind==='goblin_runt'&&guards[0].ambush,'Lairs.GROUPS.street_berry: one ambusher');
 });
 })();

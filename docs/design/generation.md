@@ -134,16 +134,20 @@ access or tile lifecycle mechanics.
   and Major roads stand none. One seat in ten (`HOUSE_CRATE_SHARE`, a hash
   of the seat) stands a tier-1 restocking crate instead of a barrel.
 
-- Cleared wild longgrass returns after an independently sampled exponential
-  wait averaging two real days (`SaveState.GRASS_REGROWTH_MEAN_MS`). Harvest
-  records the deadline in `save.grassRegrowth`; normalization and the ten-second
-  save heartbeat remove expired grass ids from `picked` / `burnedObjects`.
-  Deadlines persist across reloads and run while offline. Generated plants stay
-  in their tile lists, so the ordinary spent-state renderer reveals regrown
-  tufts without rerasterizing. The heartbeat discovers already-cleared grass
-  from older saves in nearby loaded chunks and starts its clock on that visit;
-  grass ids cannot safely be inferred from prefixes shared with other crops.
-  Player-owned plants and all other cleared objects retain their existing rules.
+- Cleared wild longgrass and the wild herbs (the wild flowers, PetNip and
+  the nettle: the rows of `SaveState.WILD_REGROWTH`, read through
+  `SaveState.regrows`) return after an independently sampled exponential wait
+  averaging two real days (`SaveState.GRASS_REGROWTH_MEAN_MS`, every row's
+  mean today). A crop grows back by having a row; the mechanism is one.
+  Harvest records the deadline in `save.grassRegrowth`; normalization and
+  the ten-second save heartbeat remove expired ids from `picked` /
+  `burnedObjects`. Deadlines persist across reloads and run while offline.
+  Generated plants stay in their tile lists, so the ordinary spent-state
+  renderer reveals regrown plants without rerasterizing. The heartbeat
+  discovers already-cleared plants from older saves in nearby loaded chunks
+  and starts their clocks on that visit; ids cannot safely be inferred from
+  prefixes shared with other crops. Player-owned plants and all other cleared
+  objects (bushes, berries, barriers) retain their existing rules.
 - Picking a wild berry records its original id in `save.picked` as usual,
   but leaves the same bush at that location, with only its berries removed.
   Mature berry bushes use the ordinary bush frame and scale; a texture baked
@@ -726,6 +730,19 @@ Higher-priority placements and their access space take precedence in this order:
    per gang, in either difficulty). Fragments share that budget; blocked
    seats reduce the count. Barrels use the attractor gate, and gang posts
    and their guards retain the fast-enemy spawn gate.
+   Berry Lane (a Small-road row) and Berry Trail (a path row) line both
+   verges with bushes of every kind (`BERRY_LANE_BUSHES`: shrubs, berry and
+   poisonberry bushes, and brambles never more than a third), one sample a
+   cell with a quarter left empty; `GOLDEN_BUSH_SHARE.street` (one in
+   fifty) of those bushes is the golden berry bush, and every other ambient
+   bush the world seats (the biome scatter, yards, park pads, mapped tree
+   rows and plain verges: `WorldGen.ambientBush`) rolls it at `.wild` (one in
+   a hundred and fifty) through `goldenBushCrop` (items.js) — one salt, so
+   the wild roll is a subset of the lane's; authored zone, hedge and thicket
+   pieces never roll it. A goblin runt post every 40 m, a
+   third of them held (`BERRY_RUNT_CHANCE`), seats the `street_berry`
+   garrison one cell behind the bush row: one ambusher that hides in the
+   nearest bush.
    Overgrown forest roads additionally roll a one-third chance of a Giant Bear
    from their stable street key. Selected streets attempt one finite bear post
    per owning tile, alongside the usual plant guard. Geometry fragments share

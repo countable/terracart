@@ -251,6 +251,7 @@ function bakeCanvas(scene, key, w, h, paint) {
 const BERRY_BUSH_INKS = {
   bushes_fruiting: ['#713243', '#c65360', '#ef9290'],      // berry
   bushes_poisonberry: ['#1d5a5c', '#2fb3a8', '#9ff0e2'],   // poisonberry
+  bushes_goldenberry: ['#8a5a12', '#e9b62a', '#fff0a6'],    // golden berry
 };
 function makeBerryBushTexture(scene) {
   const source = scene.textures.get('bushes').getSourceImage();
