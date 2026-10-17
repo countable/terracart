@@ -760,9 +760,10 @@ class SceneModals {
       // The ☰ menu is hidden under the class (index.html); fold it shut as
       // well, so a menu left open behind a dialog doesn't spring back open
       // the moment the dialog is dismissed.
-      // Its OWN dialog (#menu-modal, _openMenuDialog) is the menu itself, not
-      // a dialog over it — counting it would shut the menu the frame it opens.
-      if (openModals.some(el => el.id !== 'menu-modal')) {
+      // Its OWN dialogs (#menu-modal, _openMenuDialog; #menu-page-modal, a
+      // page of it, _openMenuPage) are the menu itself, not a dialog over
+      // it — counting one would shut the menu the frame it opens.
+      if (openModals.some(el => el.id !== 'menu-modal' && el.id !== 'menu-page-modal')) {
         const m = document.getElementById('menu'); if (m && m.open) m.open = false;
       }
       // Nothing covering the screen: anything the starter ladder is holding can
