@@ -592,7 +592,7 @@ test('lighting: a lamp throws its STREET\'s glow — a hue, keyed in frameKey, d
   assert.eq(orange._lights[0].a, undefined); assert.eq(orange._lights[0].s, undefined);
   assert.eq(orange._lights[0].r, undefined, 'and the row\'s radius');
   // frameKey names each light's colour, so a lamp changing colour repaints.
-  const key = (s) => Lighting.frameKey(s, { x: 0, y: 0 }, 0, 0, Lighting.profile(s), 64, 300, 10, null, null, 0);
+  const key = (s) => Lighting.frameKey(s, { x: 0, y: 0 }, 0, 0, Lighting.profile(s), 64, 300, 10, 0);
   assert.truthy(key(plain) !== key(orange), 'a colour change moves the still-frame key');
   assert.eq(key(plain), key(none), 'and the default is one key whichever way it is spelt');
 });
@@ -914,35 +914,18 @@ test('lighting: the map multiplies, the cookies add, and the plateau is circular
   assert.truthy(/ctx\.fillStyle = cssOf\(prof\.ambient\)/.test(L), 'the floor is the derived ambient');
   assert.truthy(/scene\.playerScreen\(\)/.test(L), 'the ramp is centred on the feet-on-the-fix point');
   assert.truthy(/tex\.refresh\(\)/.test(L), 'and the texture is refreshed each frame');
-  const begin = L.indexOf('  function reachCellsPath(');
-  const end = L.indexOf('  function paintReachMask(', begin);
-  const draw = new Function('absCellScreenCentre', 'CELL_PX',
-    L.slice(begin, end) + '; return reachCellsPath;')(
-    () => ({ x: 120, y: 90 }), 32);
-  const arcs = [];
-  draw({ beginPath() {}, arc(...args) { arcs.push(args); }, closePath() {} },
-    { cellM: 5 }, 10, 20, { cellIX: 0, cellIY: 0 }, {}, 13.5);
-  assert.eq(arcs.length, 1, 'one circle replaces the cell union');
-  assert.eq(arcs[0][0], 110, 'circle follows the reach cell with camera offset');
-  assert.eq(arcs[0][1], 70, 'vertical camera offset');
-  assert.eq(arcs[0][2], 13.5 / 5 * 32, 'full interaction radius');
-  for (let x = -4; x <= 4; x++) for (let y = -4; y <= 4; y++) {
-    if (Math.hypot(x, y) * 5 > 13.5) continue;
-    assert.lt(Math.hypot(Math.max(0, Math.abs(x) - .5),
-      Math.max(0, Math.abs(y) - .5)) * 32, arcs[0][2],
-      'every reachable cell has positive area inside the circle');
-  }
+
 });
 
 test('lighting: dimmed reach indicator transfers its light to the smooth player glow', () => {
-  const r0 = 15, cell = 5, rMax = 45, rim = r0 + cell * Math.SQRT1_2;
+  const r0 = 15, cell = 5, rMax = 45, rim = r0;
   for (const depth of [0, 1, 3, 8]) for (const day of [0, 0.5, 1]) {
     for (const energy of [100, 20]) {
       const p = Lighting.profile(scene({ depth, save: { energy, maxEnergy: 100 } }), day);
       for (const d of [0, r0 / 2, r0, rim]) {
-        const glow = Lighting.playerGlow(p, d, r0, rMax, cell);
+        const glow = Lighting.playerGlow(p, d, r0, rMax);
         const level = Lighting.plateauLevel(p, d / rim);
-        const tint = Lighting.plateauCellColour(p, level);
+        const tint = Lighting.plateauColour(p, level);
         const base = Lighting.playerCookieAlpha(Math.max(0, (d - r0) / (rMax - r0)), p);
         for (const sh of [16, 8, 0]) {
           const fill = (level - p.edge) * ch(tint, sh) / 255;
@@ -950,13 +933,13 @@ test('lighting: dimmed reach indicator transfers its light to the smooth player 
           near(total, base + fill, 0.003, `restores brightness depth ${depth} energy ${energy} channel ${sh}`);
         }
       }
-      const inner = Lighting.playerGlow(p, rim - 0.001, r0, rMax, cell);
-      const outer = Lighting.playerGlow(p, rim + 0.001, r0, rMax, cell);
+      const inner = Lighting.playerGlow(p, rim - 0.001, r0, rMax);
+      const outer = Lighting.playerGlow(p, rim + 0.001, r0, rMax);
       near(inner.alpha, outer.alpha, 0.001, 'general glow has no step at the reach rim');
       assert.gt(outer.alpha, Lighting.playerCookieAlpha((rim - r0) / (rMax - r0), p),
         'compensation also lights ground outside the indicator');
-      assert.eq(Lighting.playerGlow(p, rMax, r0, rMax, cell).alpha, 0, 'existing radius stays unchanged');
-      assert.eq(Lighting.playerGlow(p, rMax + cell, r0, rMax, cell).alpha, 0);
+      assert.eq(Lighting.playerGlow(p, rMax, r0, rMax).alpha, 0, 'existing radius stays unchanged');
+      assert.eq(Lighting.playerGlow(p, rMax + cell, r0, rMax).alpha, 0);
     }
   }
   assert.eq(Lighting.REACH_OUTPUT_K, 0.5, 'the indicator remains subdued');
@@ -967,7 +950,7 @@ test('lighting: the plateau cells land on the lit level, red when tired', () => 
   for (const sv of [{ energy: 100, maxEnergy: 100 }, { energy: 20, maxEnergy: 100 }]) {
     for (const depth of [0, 2]) {
       const prof = Lighting.profile(scene({ depth, save: sv }));
-      const cell = Lighting.plateauCellColour(prof);
+      const cell = Lighting.plateauColour(prof);
       for (const sh of [16, 8, 0]) {
         const got = prof.edge + (prof.lit - prof.edge) * (ch(cell, sh) / 255);
         const want = prof.lit * (ch(prof.litColour, sh) / 255);
@@ -975,7 +958,7 @@ test('lighting: the plateau cells land on the lit level, red when tired', () => 
       }
     }
   }
-  const tired = Lighting.plateauCellColour(Lighting.profile(scene({ save: { energy: 20, maxEnergy: 100 } })));
+  const tired = Lighting.plateauColour(Lighting.profile(scene({ save: { energy: 20, maxEnergy: 100 } })));
   assert.lt(ch(tired, 8), ch(tired, 16), 'the cell fill carries the red');
 });
 
@@ -1003,7 +986,7 @@ test('lighting: the plateau eases down toward the reach rim, and the step at the
       // And each stop's fill lands on its own level × litColour, per channel.
       for (const t of [0, 0.5, 1]) {
         const level = Lighting.plateauLevel(p, t);
-        const cell = Lighting.plateauCellColour(p, level);
+        const cell = Lighting.plateauColour(p, level);
         for (const sh of [16, 8, 0]) {
           const got = p.edge + (level - p.edge) * (ch(cell, sh) / 255);
           const want = level * (ch(p.litColour, sh) / 255);
@@ -1012,15 +995,14 @@ test('lighting: the plateau eases down toward the reach rim, and the step at the
       }
     }
   }
-  // draw() fills the reach-cell path with the gradient about the feet, out
-  // to the furthest corner a reach cell can put on the plateau.
+  // draw() shades the player circle to its actual radius.
   const L = LIGHTING_SRC;
   assert.truthy(/m\.fillStyle = plateauFill\(m, prof, ps\.x - ox, ps\.y - oy, r0\);/.test(L),
-    'the cached cell mask is recoloured by a live gradient centred on the feet-on-the-fix point');
-  assert.truthy(/const rim = r0 \+ CELL_PX \* Math\.SQRT1_2;/.test(L), 'the rim is the reach radius plus half a cell diagonal');
-  assert.truthy(/g\.addColorStop\(t, rgba\(plateauCellColour\(prof, level\), level - prof\.edge\)\);/.test(L),
+    'the player circle is recoloured by a live gradient centred on the feet-on-the-fix point');
+  assert.truthy(/const rim = r0;/.test(L), 'the rim is the exact circular reach radius');
+  assert.truthy(/g\.addColorStop\(t, rgba\(plateauColour\(prof, level\), level - prof\.edge\)\);/.test(L),
     'each stop is the cell colour at its level, over the ramp\'s edge');
-  assert.falsy(/rgba\(plateauCellColour\(prof\), prof\.lit - prof\.edge\)/.test(L), 'the flat plateau fill is gone');
+  assert.falsy(/rgba\(plateauColour\(prof\), prof\.lit - prof\.edge\)/.test(L), 'the flat plateau fill is gone');
 });
 
 test('lighting: the reach area is as bright as noon leaves room for', () => {
@@ -1066,43 +1048,3 @@ test('lighting: the reach area is as bright as noon leaves room for', () => {
 });
 
 })();
-
-test('lighting: reach changes fade across cells without dimming their overlap', () => {
-  const s = { depth: 0, cellM: 7 };
-  const a = { cellIX: 10, cellIY: 20 }, b = { cellIX: 11, cellIY: 20 };
-  const frames = (cell, now) => Lighting.reachFrames(s, cell, 17.5, now);
-  assert.eq(frames(a, 0)[0].weight, 1, 'initial light appears immediately');
-  const start = frames(b, 100);
-  assert.eq(start[0].rp.cellIX, 10, 'crossing starts with the previous visible mask');
-  assert.eq(start[0].weight, 1);
-  const mid = frames(b, 100 + Lighting.REACH_FADE_MS / 2);
-  assert.eq(mid.length, 2);
-  assert.eq(mid[0].weight, 0.5, 'departing cells half lit');
-  assert.eq(mid[1].weight, 0.5, 'arriving cells half lit');
-  assert.eq(mid.reduce((sum, f) => sum + f.weight, 0), 1, 'shared cells keep full light');
-  assert.falsy(Lighting.reachFramesKey(start) === Lighting.reachFramesKey(mid), 'both lightmap caches repaint through the fade');
-  const end = frames(b, 100 + Lighting.REACH_FADE_MS);
-  assert.eq(end.length, 1, 'settled light keeps only the exact current reach mask');
-  assert.eq(end[0].rp.cellIX, 11);
-  assert.eq(end[0].weight, 1);
-  assert.eq(Lighting.reachFramesKey(end), Lighting.reachFramesKey(frames(b, 1000)), 'standing still reuses the cache');
-});
-
-test('lighting: reversing during a reach fade preserves the displayed brightness', () => {
-  const s = { depth: 0, cellM: 7 };
-  const a = { cellIX: 10, cellIY: 20 }, b = { cellIX: 11, cellIY: 20 };
-  Lighting.reachFrames(s, a, 17.5, 0);
-  Lighting.reachFrames(s, b, 17.5, 100);
-  const midTime = 100 + Lighting.REACH_FADE_MS / 2;
-  const before = Lighting.reachFrames(s, b, 17.5, midTime);
-  const reverse = Lighting.reachFrames(s, a, 17.5, midTime);
-  assert.eq(Lighting.reachFramesKey(before), Lighting.reachFramesKey(reverse));
-  const after = Lighting.reachFrames(s, a, 17.5, midTime + Lighting.REACH_FADE_MS / 2);
-  assert.eq(after.find(f => f.rp.cellIX === 10).weight, 0.75);
-  assert.eq(after.find(f => f.rp.cellIX === 11).weight, 0.25);
-  s.depth = 1;
-  const cave = Lighting.reachFrames(s, a, 10.5, midTime + Lighting.REACH_FADE_MS / 2);
-  assert.eq(cave.length, 1, 'changing depth cannot carry old surface cells into cave light');
-  assert.eq(cave[0].weight, 1);
-  assert.eq(cave[0].reachM, 10.5);
-});

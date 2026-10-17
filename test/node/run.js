@@ -150,7 +150,6 @@ const BRIDGE = `;Object.assign(globalThis, {
   GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, CharacterPortraits, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, WorldLayers, Visibility,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
-  REACH_CORNER_PX, ReachCorner,
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE, MAP_MSG_MAX,
   // Which ground takes a hoe, and the inventory's type tabs.
   NON_TILLABLE, INV_CATS, INV_CAT_BY_KEY, invCatIconHTML,

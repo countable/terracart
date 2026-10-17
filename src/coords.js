@@ -38,7 +38,6 @@
 //   timedOverlayRebuild(label, fn)             — one rebuild under the boot profiler
 //   lonLatToLocalM(scene, lon, lat)          — a GPS fix in playerM's frame
 //   localMToLonLat(scene, mx, my)            — and back out to lon/lat
-//   REACH_CORNER_PX / ReachCorner            — the lit boundary's corner rule
 
 function cellKeyFromAbsCell(absIX, absIY) {
   return `${absIX}_${absIY}`;
@@ -668,14 +667,8 @@ function timedOverlayRebuild(label, fn) {
   B.tick(label, performance.now() - t0);
 }
 
-// Player's "reach origin" — the absolute cell the visual reach silhouette
-// and every too-far gate measure distance from. X is the body cell column
-// (no horizontal feet offset); Y is the FEET cell row (feetOffsetM south
-// of the body), so the reach snaps when the visible feet cross a gridline.
-// feetOffsetM is 0 in the game now — the sprite is seated with its feet ON
-// playerM (app.js create()) — but the term stays so the rule reads as
-// "the feet", and so a scene that seats them elsewhere still gets it right.
-// Returns { cellIX, cellIY }.
+// The cell containing the player's feet, for tile lookups and neighbourhood
+// scans. Interaction reach uses the continuous player position below.
 function playerReachCell(scene) {
   const wx = scene.originPx.x + scene.playerM.x / scene.mPerPx;
   const wy = scene.originPx.y + (scene.playerM.y + scene.feetOffsetM) / scene.mPerPx;
@@ -741,45 +734,14 @@ function reachRadiusM(scene) {
 function cellInReach(scene, cellIX, cellIY) {
   const reachM = reachRadiusM(scene);
   if (reachM <= 0) return false;
-  const p = playerReachCell(scene);
-  // Whole cells from the reach cell — across a row whose grid differs, by
-  // position (absCellDelta), never raw cellIX arithmetic.
-  const d = absCellDelta(scene, p.cellIX, p.cellIY, cellIX, cellIY);
-  const dx = Math.max(0, Math.abs(d.dx) - 0.5) * scene.cellM;
-  const dy = Math.max(0, Math.abs(d.dy) - 0.5) * scene.cellM;
+  const player = playerWorldM(scene);
+  const centre = absCellCenterMeters(scene, cellIX, cellIY);
+  const row = absRowOf(scene, cellIY);
+  const half = WorldGen.TILE_PX / rowCells(scene, row) * scene.mPerPx / 2;
+  const dx = Math.max(0, Math.abs(centre.x - player.x) - half);
+  const dy = Math.max(0, Math.abs(centre.y - player.y) - half);
   return dx * dx + dy * dy < reachM * reachM;
 }
-
-// ─── The lit boundary's corners ──────────────────────────────────────────────
-// The reach silhouette is a staircase of whole cells, and the lightmap plateau
-// (lighting.js draw()) draws its edge — the bright area's sharp boundary, and
-// since Sep 2026 the tap affordance itself. Its corners are rounded by
-// REACH_CORNER_PX — a smidge, so the edge reads as a shape rather than a grid.
-// The rule lives here rather than in the pass that uses it; a filled path's
-// arcTo does the shortening, so only the corner classification (which decides
-// the SHAPE) is needed.
-//
-// Look at one corner of a reach cell with three flags:
-//   h — the neighbour across the corner's VERTICAL edge (left / right) is out
-//       of reach, i.e. that vertical edge is exposed
-//   v — the neighbour across the corner's HORIZONTAL edge (above / below) is
-//       out of reach, i.e. that horizontal edge is exposed
-//   d — the DIAGONAL cell is in reach
-// Then the corner is one of:
-//   convex   both edges exposed — an OUTER corner, rounded off inside the cell.
-//   fillet   the horizontal edge exposed, the cell beside lit and the diagonal
-//            too — an INNER corner, where the diagonal cell's vertical edge
-//            meets this cell's horizontal one. A fillet of radius R is added in
-//            the empty cell above / below. The diagonal cell sees the same
-//            corner with h and v swapped; only the cell whose HORIZONTAL edge
-//            is exposed owns the fillet, so it is drawn once.
-//   (else)   square — the edge runs straight through it.
-const REACH_CORNER_PX = 2;
-const ReachCorner = {
-  R: REACH_CORNER_PX,
-  convex: (h, v) => h && v,
-  fillet: (h, v, d) => v && !h && d,
-};
 
 // ─── GPS ⇄ the local metre frame ─────────────────────────────────────────────
 // The world is drawn in Web-Mercator: every tile, object and cell lives at

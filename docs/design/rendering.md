@@ -440,20 +440,13 @@ the reach rim within the existing player-light radius.
   the opt-in GPU compositor below consumes the same shapes and fade weights.
   Do not add darkness passes or dim sprites
   again. Its screen-attached base (ambient plus player ramp) stays baked while
-  walking; transparent, padded circular reach masks crop with the camera and rebuild
-  only when their geometry or validity edge changes. If the normal validity edge
-  lands on `drawCells`' crossing frame, the mask borrows the remaining physical
-  pad once and rebuilds on the next ordinary frame; it never crops past the
-  painted edge. A viewport scratch blends
-  old/new masks at their live fade weights and colours them with the radial
-  gradient still centred on the body. Interrupted fades retain exact weights,
-  but rendering skips masks outside the painted view and an aggregate of less
-  than one 8-bit alpha level; it never renormalises the remaining brightness.
-  Active mask canvases stay pinned until compositing finishes, including when
-  a fade needs more than four masks. Surplus canvases are released as it settles. Stable world cookies join padded caches
+  walking; the player circle retains fractional-pixel positioning without cell-change fades.
+  Reach and street restoration follow movement within a cell, independently of
+  camera peeks. Canvas and GPU share one circular mask, rebuilt only when its screen position,
+  radius or viewport changes. Stable world cookies use padded caches
   by their exact whole-pixel phase. Player-attached, breathing, flickering and
   transient lights keep the individual stamp path. The full-frame key gates
-  before every canvas call. Reach lighting uses a circle centred on the reach cell with the interaction
+  before every canvas call. Reach lighting uses a circle centred continuously on the exact player position with the interaction
   radius. `cellInReach` accepts a cell exactly when its square overlaps the
   circle; tangency alone does not count. Each Inner Light upgrade crosses only
   the next overlap threshold, unlocking tied cells together. Depth and blindness
@@ -523,7 +516,7 @@ the reach rim within the existing player-light radius.
   Synthetic loot classes need both a `CLASS_MAX_TIER` ceiling and a branch
   before item resolution. Cash rewards have no `slot`.
 
-Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
+Tests: `lighting`, `lighting_player_circle`, `streets`, `street_lamps`, `road_overlay`,
 `trail`, `loot`; also `tools/layer_audit.js`.
 
 - Cave pressure plates use a low-opacity floor mark revealed within one body
