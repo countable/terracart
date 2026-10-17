@@ -32,7 +32,7 @@ test('grass regrowth: reload retains the roll, expiry removes only grass memorie
 test('grass regrowth: revisited old grass qualifies, other flora and player planting do not', () => {
   const save = { picked: ['old-grass', 'shrub', 'herb'] };
   assert.truthy(SaveState.rememberClearedGrass(save, { id: 'old-grass', crop: 'longgrass' }, 1000, () => 0.5));
-  for (const crop of ['shrub', 'berry', 'poisonberry', 'potato', 'barricade', 'mushroom', 'rubble']) {
+  for (const crop of ['shrub', 'goldenberry', 'potato', 'barricade', 'mushroom', 'rubble']) {
     assert.falsy(SaveState.rememberClearedGrass(save, { id: crop, crop }, 1000));
     assert.falsy(SaveState.regrows(crop));
   }
@@ -71,3 +71,32 @@ test('grass regrowth: runtime heartbeat and harvest use the shared save mechanis
   assert.truthy(SCENE_SRC.includes('if (SaveSession.touch()) this._tickGrassRegrowth();'));
   assert.truthy(SCENE_SRC.includes('SaveState.regrowGrass(this.save, now)'));
 });
+
+test('berry regrowth: a picked berry or poisonberry bush stands bare, then fruits again through the one grass table', () => {
+  // The bush stays (WILDPLANT_RULES pickedCrop → the plain bush) while its
+  // id is in `picked`; the regrowth sweep removes the id, and the berries are
+  // back. The golden berry bush is a one-time find: no row, no regrowth.
+  for (const crop of ['berry', 'poisonberry']) {
+    assert.truthy(SaveState.regrows(crop), crop + ' regrows');
+    assert.eq(SaveState.WILD_REGROWTH[crop], SaveState.GRASS_REGROWTH_MEAN_MS, crop + ' shares the grass mean');
+    assert.eq(WILDPLANT_RULES[crop].pickedCrop, 'shrub', crop + ': picked, the bush stays');
+  }
+  assert.falsy(SaveState.regrows('goldenberry'), 'the golden bush does not');
+  const save = { picked: ['wp-berry', 'wp-poisonberry', 'wp-goldenberry'] };
+  const plants = { 'wp-berry': { id: 'wp-berry', crop: 'berry' }, 'wp-poisonberry': { id: 'wp-poisonberry', crop: 'poisonberry' },
+    'wp-goldenberry': { id: 'wp-goldenberry', crop: 'goldenberry' } };
+  for (const p of Object.values(plants)) SaveState.rememberClearedGrass(save, p, 1000, () => 0.5);
+  assert.eq(Object.keys(save.grassRegrowth).sort().join(','), 'wp-berry,wp-poisonberry', 'two clocks, none for the golden bush');
+  const sets = { picked: new Set(save.picked), burned: new Set() };
+  for (const id of ['wp-berry', 'wp-poisonberry']) {
+    const view = Render.wildplantView(plants[id], sets);
+    assert.eq(view.crop, 'shrub', id + ' stands as a bare bush meanwhile');
+    assert.truthy(view._pickedRemnant);
+  }
+  const deadline = Math.max(save.grassRegrowth['wp-berry'], save.grassRegrowth['wp-poisonberry']);
+  assert.truthy(SaveState.regrowGrass(save, deadline + 1));
+  assert.eq(JSON.stringify(save.picked), JSON.stringify(['wp-goldenberry']), 'both bushes fruit again; the golden one stays picked');
+  const back = { picked: new Set(save.picked), burned: new Set() };
+  assert.eq(Render.wildplantView(plants['wp-poisonberry'], back), plants['wp-poisonberry'], 'the poisonberry bush is whole again');
+});
+

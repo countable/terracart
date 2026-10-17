@@ -138,11 +138,14 @@ access or tile lifecycle mechanics.
   place: it draws no POI pad (`render.js`, the pad pass), unlike a bin POI. One seat in ten (`HOUSE_CRATE_SHARE`, a hash
   of the seat) stands a tier-1 restocking crate instead of a barrel.
 
-- Cleared wild longgrass and the wild herbs (the wild flowers, PetNip and
-  the nettle: the rows of `SaveState.WILD_REGROWTH`, read through
-  `SaveState.regrows`) return after an independently sampled exponential wait
-  averaging two real days (`SaveState.GRASS_REGROWTH_MEAN_MS`, every row's
-  mean today). A crop grows back by having a row; the mechanism is one.
+- Cleared wild longgrass, the wild herbs (the wild flowers, PetNip and
+  the nettle) and the picked berry and poisonberry bushes (the rows of
+  `SaveState.WILD_REGROWTH`, read through `SaveState.regrows`) return after
+  an independently sampled exponential wait averaging two real days
+  (`SaveState.GRASS_REGROWTH_MEAN_MS`, every row's mean today). A crop grows
+  back by having a row; the mechanism is one. A picked berry bush stands as
+  a bare bush meanwhile (`WILDPLANT_RULES` `pickedCrop`) and fruits again
+  when its id leaves `picked`; the golden berry bush has no row.
   Harvest records the deadline in `save.grassRegrowth`; normalization and
   the ten-second save heartbeat remove expired ids from `picked` /
   `burnedObjects`. Deadlines persist across reloads and run while offline.

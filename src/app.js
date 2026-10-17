@@ -1471,7 +1471,10 @@ body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 // Buffs.KINDS); only a row with an action accepts pointer events.
 // Dimmed with the HUD chips while a dialog is up, hidden with them while the
 // page boots. While the objective chip shows, _syncStatusRow seats the row
-// under it instead (an inline top).
+// under it instead (an inline top). The compass skin (css/compass_hud.css,
+// body.compass-hud) seats the row on the footer plate instead — left of the
+// joystick, under the zoom slider, off the round map — and the objective
+// bubble never moves it there.
 const STATUS_ROW_CSS = `
 #status-row {
   position: fixed;
@@ -4229,8 +4232,11 @@ class MapScene extends Phaser.Scene {
     // IT. Its bottom is read back only when what decides it changes (the
     // chip's display, its text, a dialog hiding it, a resize) — a rect read
     // every frame would force a layout every frame.
+    // The compass skin seats the row on the footer plate (css/compass_hud.css);
+    // the objective bubble over the map never re-seats it there.
     const obj = document.getElementById('objective');
-    const shown = obj && obj.style.display !== 'none' && !this._dialogOpen();
+    const shown = obj && obj.style.display !== 'none' && !this._dialogOpen()
+      && !document.body.classList.contains('compass-hud');
     const seatKey = shown ? `${obj.textContent}|${window.innerWidth}x${window.innerHeight}` : '';
     if (this._statusRowSeat !== seatKey) {
       this._statusRowSeat = seatKey;

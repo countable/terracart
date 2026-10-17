@@ -723,6 +723,9 @@ test('picked wild berries leave a plain bush across redraw and save reload witho
     assert.truthy(isSpent(plant, sets), 'the original berry cannot be harvested twice');
   }
   assert.eq(Render.wildplantView({ ...plant, crop: 'onion' }, sets), null, 'other plants are removed');
+  const poison = Render.wildplantView({ ...plant, crop: 'poisonberry' }, sets);
+  assert.eq(poison.crop, 'shrub', 'a picked poisonberry leaves its bush too (owner, Oct 2026)');
+  assert.eq(wildplantSprite(poison).texture, undefined, 'without its teal berries');
   sets.burned.add(plant.id);
   assert.eq(Render.wildplantView(plant, sets), null, 'burned bushes do not return');
   sets.burned.clear(); sets.burnedGround = () => true;

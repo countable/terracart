@@ -340,7 +340,9 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Map messages fit `MAP_MSG_MAX` (30 characters) per rendered line, including
   interpolations. Cut copy or use a modal; do not interpolate unbounded POI names.
 - Statuses, buffs and timers on the player live in ONE place: the status
-  row under the top HUD (`_syncStatusRow`, `STATUS_ROW_CSS`), one chip per
+  row (`_syncStatusRow`, `STATUS_ROW_CSS`; under the top HUD, or on the
+  compass skin's footer plate left of the joystick, `css/compass_hud.css`,
+  where it never covers the round map), one chip per
   row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin) and of `Buffs.KINDS`
   (`src/buffs.js`: a potion, powder, torch, coffee, the bike, the compass, a
   shrine boon — its expiry field, word and ink). A new timed effect is a
