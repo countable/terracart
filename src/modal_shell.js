@@ -1002,7 +1002,7 @@ class SceneModals {
       const cards = [];
       const paint = () => {
         for (const { c, b } of cards) {
-          b.setAttribute('aria-pressed', String(selected === c));
+          b.ariaPressed = String(selected === c);
           b.style.outline = selected === c ? '2px solid #ffe066'
             : (!selected && c.suggested) ? '2px dashed #a7ffb0' : '';
         }
@@ -1166,7 +1166,7 @@ class SceneModals {
       }
       wrap.remove(); secondary.onClick();
     });
-    row.classList.add('offer-actions');
+    row.className = 'offer-actions';
     row.appendChild(cancel);
     if (sec) row.appendChild(sec);
     row.appendChild(accept);
