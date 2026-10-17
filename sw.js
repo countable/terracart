@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-9b5096ee';
+const SHELL_VERSION = 'shell-50ee91a4';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -454,7 +454,7 @@ const ASSET_HASHES = {
   "assets/Objects/Cave/source/selected.png": "b82da57c",
   "assets/Objects/Cave/source/supplement.png": "7958b7b6",
   "assets/Objects/CelProps/approved-study-24.png": "0ab4451a",
-  "assets/Objects/CelProps/barrels.png": "fbd0209f",
+  "assets/Objects/CelProps/barrels.png": "7ef9bfee",
   "assets/Objects/CelProps/bramble.png": "cf9d88c8",
   "assets/Objects/CelProps/bushes.png": "a3a79221",
   "assets/Objects/CelProps/clipped.png": "918330b3",
@@ -590,7 +590,6 @@ const ASSET_HASHES = {
   "assets/Objects/RollingBallAndWall/ball.png": "70123961",
   "assets/Objects/RollingBallAndWall/spike-wall-source.png": "2abefe42",
   "assets/Objects/RollingBallAndWall/spike-wall.png": "9b213e0b",
-  "assets/Objects/RoundedBuildings/buildings.png": "c098e6cc",
   "assets/Objects/Rustic/Props.png": "10f4f186",
   "assets/Objects/Rustic/bush.png": "60a976a5",
   "assets/Objects/Rustic/pot.png": "67fa95e9",

@@ -193,8 +193,8 @@
     assert.eq(sheets.wanderer, sheets.believer, 'Tilly is the believer sheet at child scale');
   });
 
-  test('story neighbours: the wanderer is a child, drawn at seven tenths through the instance-size lane', () => {
-    assert.eq(NPC.CHILD_SCALE, 0.7);
+  test('story neighbours: the wanderer is a child, drawn at 77% through the instance-size lane', () => {
+    assert.eq(NPC.CHILD_SCALE, 0.77);
     const child = person('wanderer');
     assert.eq(child.artScale, NPC.CHILD_SCALE, 'the row stamps the instance size');
     assert.eq(SpriteLayout.creatureInstScale(child), NPC.CHILD_SCALE, 'the one lane every reader of drawn size uses');
