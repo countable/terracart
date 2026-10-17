@@ -1515,6 +1515,10 @@ function makeBiomeTextures(scene, size) {
               ctx.globalCompositeOperation = 'destination-over';
               GroundAtlas.draw(ctx, size, type, v);
               ctx.restore();
+            } else if (typeof GroundAtlas !== 'undefined' && GroundAtlas.striped.has(Number(type)) && variants === 3) {
+              // Retain the approved mowing pattern under each sparse relief slot.
+              drawBiomeTexture(ctx, size, type, 0, p / phases);
+              GroundAtlas.draw(ctx, size, type, v);
             } else if (typeof GroundAtlas === 'undefined' || !GroundAtlas.draw(ctx, size, type, v)) {
               drawBiomeTexture(ctx, size, type, v, p / phases);
             }

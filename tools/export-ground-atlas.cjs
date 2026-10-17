@@ -14,8 +14,13 @@ const source = path.resolve(sourceArg);
 const output = path.resolve(option('--output') || (args[1] && !args[0].startsWith('--') ? args[1] : null) || path.join(root, 'assets/ground'));
 const parseBounds = name => option(name) ? option(name).split(',').map(Number) : null;
 const rowBounds = parseBounds('--row-bounds'), columnBounds = parseBounds('--column-bounds');
+const sourceGrid = parseBounds('--source-grid') || [12,8];
+if(sourceGrid.length!==2 || sourceGrid.some(n=>!Number.isInteger(n)||n<1)) throw Error('Source grid must be columns,rows');
 const inset = Number(option('--inset') || 0);
 const celShaded = args.includes('--cel-shaded');
+const keepFrom = option('--keep-from');
+const keepMaterials = (option('--keep-materials') || '').split(',').filter(Boolean).map(Number);
+const keptSheets = keepFrom ? Object.fromEntries(['terrain-atlas-32.png','terrain-detail-32.png'].map(name => [name, fs.readFileSync(path.join(keepFrom,name))])) : null;
 const fullBleedMaterials = (option('--full-bleed-materials') || '').split(',').filter(Boolean).map(Number);
 if (fullBleedMaterials.some(type => !Number.isInteger(type) || type < 0 || type > 31)) throw new Error('Full-bleed material IDs must be 0..31');
 const sourceMaterials = Object.fromEntries((option('--source-materials') || '').split(',').filter(Boolean).map(pair => pair.split(':').map(Number)));
@@ -29,15 +34,31 @@ const colors = vm.runInNewContext('(' + app.match(/const COLORS = (\{[\s\S]*?\n\
   try {
     const page = await browser.newPage();
     await page.addScriptTag({ path: path.join(root, 'src/ground_atlas.js') });
-    const result = await page.evaluate(async ({ uri, colors, rowBounds, columnBounds, inset, celShaded, sourceMaterials, fullBleedMaterials }) => {
+    const result = await page.evaluate(async ({ uri, colors, rowBounds, columnBounds, inset, celShaded, sourceMaterials, fullBleedMaterials, keptImages, keepMaterials, sourceGrid }) => {
       const image = new Image(); image.src = uri; await image.decode();
+      const kept = keptImages ? await Promise.all(keptImages.map(async uri => { const i = new Image(); i.src = uri; await i.decode(); if(i.width!==384 || i.height!==256) throw Error('Kept sheets must be384x256'); return i; })) : null;
+      // Median background anchoring prevents a large decoration from tinting the
+      // entire cell. Striped materials remove the generated bands by row/column;
+      // the actual approved stripe painter is composited separately at runtime.
+      function relativeToBackground(data, type, size) {
+        const out = new Float32Array(size*size*3);
+        const horizontal = type===15 || type===19, vertical = type===21;
+        const groups = horizontal || vertical ? size : 1;
+        for(let g=0;g<groups;g++) for(let c=0;c<3;c++) {
+          const values=[];
+          for(let y=0;y<size;y++) for(let x=0;x<size;x++) if(!horizontal&&!vertical || horizontal&&y===g || vertical&&x===g) values.push(data[(y*size+x)*4+c]);
+          values.sort((a,b)=>a-b); const bg=values[Math.floor(values.length/2)];
+          for(let y=0;y<size;y++) for(let x=0;x<size;x++) if(!horizontal&&!vertical || horizontal&&y===g || vertical&&x===g) out[(y*size+x)*3+c]=(data[(y*size+x)*4+c]-bg)*.7;
+        }
+        return out;
+      }
       const size = 32, columns = 12, rowsCount = 8, variants = 3, crops = [];
       const bounds = (input, extent, count) => {
         const values = input || Array.from({ length: count + 1 }, (_, n) => Math.round(n * extent / count));
         if (values.length !== count + 1 || values[0] !== 0 || values[count] !== extent || values.some((v, i) => !Number.isInteger(v) || (i && v <= values[i - 1]))) throw new Error('Crop bounds must contain count + 1 increasing pixel positions from zero to the source extent');
         return values;
       };
-      const rows = bounds(rowBounds, image.height, rowsCount), cols = bounds(columnBounds, image.width, columns);
+      const rows = bounds(rowBounds, image.height, sourceGrid[1]), cols = bounds(columnBounds, image.width, sourceGrid[0]);
       const make = (width, height = width) => { const c = document.createElement('canvas'); c.width = width; c.height = height; return c; };
       const scratch = make(size), sample = scratch.getContext('2d', { willReadFrequently: true });
       sample.imageSmoothingEnabled = false;
@@ -46,7 +67,7 @@ const colors = vm.runInNewContext('(' + app.match(/const COLORS = (\{[\s\S]*?\n\
       for (let type = 0; type < 32; type++) {
         const residuals = [];
         for (let variant = 0; variant < variants; variant++) {
-          const frame = type * variants + variant, sourceFrame = (sourceMaterials[type] ?? type) * variants + variant, column = sourceFrame % columns, row = Math.floor(sourceFrame / columns);
+          const frame = type * variants + variant, sourceFrame = (sourceMaterials[type] ?? (keepMaterials.includes(type) ? 0 : type)) * variants + variant, column = sourceFrame % sourceGrid[0], row = Math.floor(sourceFrame / sourceGrid[0]);
           const cropInset = fullBleedMaterials.includes(type) ? 0 : inset;
           const x = cols[column] + cropInset, y = rows[row] + cropInset;
           const width = cols[column + 1] - cropInset - x, height = rows[row + 1] - cropInset - y;
@@ -54,9 +75,10 @@ const colors = vm.runInNewContext('(' + app.match(/const COLORS = (\{[\s\S]*?\n\
           crops.push({ frame, type, variant, sourceFrame, x, y, width, height });
           sample.clearRect(0, 0, size, size);
           sample.drawImage(image, x, y, width, height, 0, 0, size, size);
-          residuals.push(GroundAtlas.residual(sample.getImageData(0, 0, size, size).data, size));
+          residuals.push(relativeToBackground(sample.getImageData(0, 0, size, size).data, type, size));
         }
-        const boundary = GroundAtlas.periodic(residuals[0], size);
+        const striped = [15,19,21].includes(type);
+        const boundary = striped ? new Float32Array(size*size*3) : GroundAtlas.periodic(residuals[0], size);
         for (let variant = 0; variant < variants; variant++) {
           const frame = type * variants + variant, x = (frame % columns) * size, y = Math.floor(frame / columns) * size;
           const pixels = sample.createImageData(size, size);
@@ -95,15 +117,20 @@ const colors = vm.runInNewContext('(' + app.match(/const COLORS = (\{[\s\S]*?\n\
             }
           }
           // Keep terrain IDs stable while retiring unused road/path artwork.
-          if ([7, 8, 13, 14].includes(type)) pixels.data.fill(0);
+          if ([7, 8, 13, 14].includes(type) || striped && variant===0) pixels.data.fill(0);
           dc.putImageData(pixels, x, y);
           sample.putImageData(pixels, 0, 0);
           oc.fillStyle = '#' + colors[type].toString(16).padStart(6, '0');
           oc.fillRect(x, y, size, size); oc.drawImage(scratch, x, y);
+          if(kept && keepMaterials.includes(type)) {
+            oc.clearRect(x,y,size,size); dc.clearRect(x,y,size,size);
+            oc.drawImage(kept[0],x,y,size,size,x,y,size,size);
+            dc.drawImage(kept[1],x,y,size,size,x,y,size,size);
+          }
         }
       }
       return { opaque: opaque.toDataURL(), detail: detail.toDataURL(), sourceWidth: image.width, sourceHeight: image.height, rowBounds: rows, columnBounds: cols, crops };
-    }, { uri: 'data:image/png;base64,' + bytes.toString('base64'), colors, rowBounds, columnBounds, inset, celShaded, sourceMaterials, fullBleedMaterials });
+    }, { uri: 'data:image/png;base64,' + bytes.toString('base64'), colors, rowBounds, columnBounds, inset, celShaded, sourceMaterials, fullBleedMaterials, keepMaterials, sourceGrid, keptImages: keptSheets ? Object.values(keptSheets).map(bytes => 'data:image/png;base64,'+bytes.toString('base64')) : null });
     fs.mkdirSync(output, { recursive: true });
     const hashes = {};
     for (const [key, name] of [['opaque', 'terrain-atlas-32.png'], ['detail', 'terrain-detail-32.png']]) {
@@ -114,13 +141,16 @@ const colors = vm.runInNewContext('(' + app.match(/const COLORS = (\{[\s\S]*?\n\
     const metadata = {
       source: path.basename(source), sourceSha256: crypto.createHash('sha256').update(bytes).digest('hex'),
       sourceWidth: result.sourceWidth, sourceHeight: result.sourceHeight,
-      rowBounds: result.rowBounds, columnBounds: result.columnBounds, inset, sourceMaterials, fullBleedMaterials,
+      rowBounds: result.rowBounds, columnBounds: result.columnBounds, inset, sourceMaterials, fullBleedMaterials, sourceGrid,
       width: 384, height: 256, tileSize: 32, columns: 12, rows: 8, materials: 32, variants: 3,
-      preparation: 'Nearest-neighbour source directly to 32px; shared residual, periodic and overlay helpers; four-pixel shared boundary band; no 24px intermediate.',
+      preparation: 'Nearest-neighbour source directly to 32px; median background anchoring, periodic and overlay helpers; four-pixel shared boundary band; no 24px intermediate.',
       palette: Object.fromEntries(Array.from({ length: 32 }, (_, t) => [t, '#' + colors[t].toString(16).padStart(6, '0')])),
       style: celShaded ? 'Four-tone cel-shaded pixel art; palette snapping after edge matching' : 'Continuous residual shading',
       maxColorsPerMaterial: celShaded ? 4 : null,
       omittedMaterials: [7, 8, 13, 14],
+      keptMaterials: keepMaterials,
+      keptSheetHashes: keptSheets ? Object.fromEntries(Object.entries(keptSheets).map(([name,bytes])=>[name,crypto.createHash('sha256').update(bytes).digest('hex')])) : null,
+      backgroundAnchor: 'Median per cell; stripes by row/column. Original striped bases are composed at runtime.',
       lavaPalette: ['#9b2c12', '#cf3d10', '#ff7516', '#ffcf48'],
       shadeOffsets: celShaded ? [-10, 0, 6, 10] : null,
       hashes, crops: result.crops,

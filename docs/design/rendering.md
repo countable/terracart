@@ -4,13 +4,17 @@ The opt-in ground atlas (`?groundAtlas=true`) uses pre-baked 32×32 transparent
 detail tiles. Offline export owns palette-relative pixels and shared seamless
 variant edges. Road/path slots (7, 8, 13, 14) stay reserved and transparent;
 the report displays the remaining 28 materials. Each active material has a mostly plain base and two subtle decoration
-variants, selected deterministically at 80% / 10% / 10%; runtime loading only
+variants, selected deterministically at 80% / 10% / 10% (lava mixes its three
+patterns evenly); runtime loading only
 crops the 384×256 sheet. Ground colour fills, biome/shore borders and animated ripple frames keep their existing
 layer order. Sand keeps its approved original procedural painter even with the
 trial enabled. Brick uses the new periodic masonry; castle retains all sixteen
 original slab variants and its single-owner horizontal/vertical joints. The report places the procedural original beside the latest
 export, including identical original sand in both panels; its atlas edge
-metric excludes unused roads/paths, sand and castle slabs. Commercial paving
+metric excludes unused roads/paths, preserved painters, striped lawns and animated
+surfaces; native export tests still check every detail edge. Wood, cave walls and
+fog retain their specialized painters. Schoolyard, pitch and golf preserve
+the original mowing pattern under both sparse decorations. Commercial paving
 repeats square joints on both axes. The four-colour lava palette deliberately
 brightens the molten surface; other materials keep low contrast against their
 terrain colour. Decorations use material-specific shallow forms and scrub

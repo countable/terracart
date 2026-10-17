@@ -6,6 +6,7 @@ const GroundAtlas = (() => {
   // Keep the approved procedural sand and specialized structural painters.
   const preserved = new Set([2, 11, 12, 25, 30]);
   const animated = new Set([3, 23, 26]);
+  const striped = new Set([15, 19, 21]);
   const enabled = () => typeof location !== 'undefined'
     && new URLSearchParams(location.search).get('groundAtlas') === 'true';
 
@@ -96,8 +97,9 @@ const GroundAtlas = (() => {
   const variantCount = (type, fallback) => canvases.has(`${type}_0`) ? VARIANTS : fallback;
   function pickVariant(type, hash, fallback) {
     if (!canvases.has(`${type}_0`)) return hash % fallback;
+    if (Number(type) === 26) return hash % VARIANTS;
     const roll = hash % 10;
     return roll < 8 ? 0 : roll - 7;
   }
-  return { KEY, enabled, prepare, draw, variantCount, pickVariant, animated, residual, periodic, overlay };
+  return { KEY, enabled, prepare, draw, variantCount, pickVariant, animated, striped, residual, periodic, overlay };
 })();

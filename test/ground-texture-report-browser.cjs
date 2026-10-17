@@ -19,6 +19,7 @@ const { chromium } = require('playwright-core');
         cards: document.querySelectorAll('.card').length,
         changedMaterials: report.visibleMaterials.filter(i => report.banks.old[i * 3].toDataURL() !== report.banks.new[i * 3].toDataURL()).length,
         seams: report.seamMetric(),
+        stripesPreserved: [15,19,21].every(t => report.banks.new[t*3].toDataURL() === report.banks.procedural[t*3].toDataURL()),
         sandPreserved: [0, 1, 2].every(v => report.banks.new[6 + v].toDataURL() === report.banks.procedural[6 + v].toDataURL()),
       };
     });
@@ -28,8 +29,9 @@ const { chromium } = require('playwright-core');
     assert.equal(result.cards, 28);
     assert.equal(result.changedMaterials, 28);
     assert.equal(result.seams.max, 0, 'All replacement native variant edges must match');
-    assert.equal(result.seams.materials, 26);
-    assert.deepEqual(result.seams.excluded, [2, 7, 8, 12, 13, 14]);
+    assert.equal(result.seams.materials, 17);
+    assert.deepEqual(result.seams.excluded, [2, 3, 7, 8, 11, 12, 13, 14, 15, 19, 21, 23, 25, 26, 30]);
+    assert.equal(result.stripesPreserved, true, 'Striped bases preserve original mowing pixels');
     assert.equal(result.sandPreserved, true, 'Latest sand retains all original procedural slots');
     const pixels = id => page.locator('#' + id).evaluate(c => c.toDataURL());
     assert.notEqual(await pixels('old'), await pixels('new'));
@@ -48,7 +50,7 @@ const { chromium } = require('playwright-core');
     for (const i of materialIds) await page.selectOption('#material', String(i));
     await page.selectOption('#material', '2');
     assert.equal(await pixels('new'), await pixels('procedural'), 'Sand patches match the original');
-    for (const t of [12]) {
+    for (const t of [11, 12, 25, 30]) {
       await page.selectOption('#material', String(t));
       assert.equal(await pixels('new'), await pixels('procedural'), 'Masonry patches preserve the real procedural renderer');
     }

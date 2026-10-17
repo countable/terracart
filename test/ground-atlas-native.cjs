@@ -71,7 +71,8 @@ const directory = path.resolve(process.argv[2] || path.join(root, 'assets/ground
       const scene = { textures: { exists: () => true, get: () => ({ getSourceImage: () => images[1] }) } };
       GroundAtlas.prepare(scene, {});
       const variantCounts = [[0, 2], [2, 2], [9, 1], [12, 16]].map(([t, fallback]) => GroundAtlas.variantCount(t, fallback));
-      const distribution = [0, 0, 0];
+      const distribution = [0, 0, 0], lavaDistribution = [0, 0, 0];
+      for (let h = 0; h < 99; h++) lavaDistribution[GroundAtlas.pickVariant(26, h, 1)]++;
       for (let h = 0; h < 100; h++) distribution[GroundAtlas.pickVariant(0, h, 2)]++;
       const drawn = Array.from({ length: 32 }, (_, t) => GroundAtlas.draw(context, 32, t, 0));
       CanvasRenderingContext2D.prototype.getImageData = readback;
@@ -83,7 +84,7 @@ const directory = path.resolve(process.argv[2] || path.join(root, 'assets/ground
       const pierSharesWater = pier.every((value, i) => value === water[i]);
       GroundAtlas.prepare({ textures: { exists: () => false } }, {});
       const missingFallsBack = !GroundAtlas.draw(context, 32, 0, 0);
-      return { omittedDetailAlphaMax, lavaRedMean, lavaSaturationMean, dimensions: images.map(i => [i.width, i.height]), edgeMax, maxChannelContrast, composedColorCounts, meanError, opaqueAlphaMin, detailAlphaMin, detailAlphaMax, distinctVariants, variantCounts, distribution, drawn, pierSharesWater, runtimeMatchesNative, missingFallsBack };
+      return { omittedDetailAlphaMax, lavaRedMean, lavaSaturationMean, dimensions: images.map(i => [i.width, i.height]), edgeMax, maxChannelContrast, composedColorCounts, meanError, opaqueAlphaMin, detailAlphaMin, detailAlphaMax, distinctVariants, variantCounts, distribution, lavaDistribution, drawn, pierSharesWater, runtimeMatchesNative, missingFallsBack };
     }, {
       opaque: 'data:image/png;base64,' + fs.readFileSync(path.join(directory, 'terrain-atlas-32.png')).toString('base64'),
       detail: 'data:image/png;base64,' + fs.readFileSync(path.join(directory, 'terrain-detail-32.png')).toString('base64'),
@@ -104,6 +105,7 @@ const directory = path.resolve(process.argv[2] || path.join(root, 'assets/ground
     assert.equal(result.distinctVariants, 28, 'Every active material needs three distinct variants');
     assert.deepEqual(result.variantCounts, [3, 2, 3, 16]);
     assert.deepEqual(result.distribution, [80, 10, 10]);
+    assert.deepEqual(result.lavaDistribution, [33, 33, 33], 'Lava mixes all three motifs evenly');
     assert.deepEqual(result.drawn, Array.from({ length: 32 }, (_, t) => ![2, 11, 12, 25, 30].includes(t)));
     assert.equal(result.runtimeMatchesNative, true, 'Runtime must use the exported pixels at 1:1 native scale');
     assert.equal(result.pierSharesWater, true); assert.equal(result.missingFallsBack, true);
