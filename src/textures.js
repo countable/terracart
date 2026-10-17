@@ -1522,6 +1522,8 @@ function makeBiomeTextures(scene, size) {
 const PAD_CELL = 32;
 // Shared with render.js: seat the shrine's south-facing feet farther inside
 // the pedestal's top plane, while the pad itself stays centred on its ground cell.
+// The plinth's face is drawn at the bottom for a south camera; on a turned
+// heading-up map render.js counter-rotates it about that centre.
 const SHRINE_PAD = { sizePx: PAD_CELL, facePx: 6, seatLiftPx: 11 };
 // The pad is drawn a touch larger than its cell so it spills ~10% past the
 // cell boundary into neighbouring cells, reading as a soft oversized base

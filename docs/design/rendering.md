@@ -191,7 +191,9 @@ North-up mode retains the existing wall atlas artwork.
   both boxes stand at their turned feet and lower turned feet count as in
   front (`Render.headingFadeView`), matching the heading-up draw order.
   Prop contact shadows turn about their prop's ground anchor, so a tucked-up
-  shadow stays under the art at every compass heading. Ground decals retain their own
+  shadow stays under the art at every compass heading; the shrine pedestal
+  (`pad_shrine`, drawn with its masonry face south) turns back about its cell
+  centre the same way, while flat POI pads turn with the ground. Ground decals retain their own
   opacity, and fruit overlays follow their tree.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;

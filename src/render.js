@@ -4593,8 +4593,13 @@ Render.drawObjects = function drawObjects(scene) {
     if (shrine) {
       s.setOrigin(0.5, 0.5).setScale(CELL_PX / SHRINE_PAD.sizePx)
         .setPosition(Math.round(sx), Math.round(sy)).setAlpha(1).clearTint();
+      // The plinth is drawn for a south camera (its masonry face at the
+      // bottom), so heading-up turns it back about its cell centre like a
+      // contact shadow; the anchor is the opt-in (HeadingUp._preRender).
+      s._huAnchor = { x: Math.round(sx), y: Math.round(sy) };
       return;
     }
+    s._huAnchor = null;
     // Origin = the chest cell's centre within the pad image, so that the
     // pad's chest cell sits exactly at the chest's ground point (sx, sy).
     const [cc, cr] = shape.chest;

@@ -311,6 +311,10 @@ const HeadingUp = {
         if (own) o._huAnchor = null;
       }
     }
+    // A pedestal with a camera-facing side (the shrine plinth) turns back
+    // about its cell centre too; the pad renderer marks one with `_huAnchor`.
+    // Flat pads keep turning with the ground.
+    for (const o of scene.padContainer?.list || []) if (o._huAnchor) up(o);
     // Feet lower on the TURNED screen draw in front; ground decals
     // (Render.sortWorldDepth's decal lane, scene._worldDecalCount) stay first.
     const wc = scene.worldContainer;
