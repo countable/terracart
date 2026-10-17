@@ -694,7 +694,17 @@ function reachCells(scene) {
   const start = (sight < 1 ? Math.max(1, base * sight) : base) + margin;
   const key = `${start}|${upgrades}`;
   if (_reachRadiusSteps.has(key)) return _reachRadiusSteps.get(key) - margin;
-  let radius = start;
+  // Fit the largest circle that does not overlap any cell excluded by the
+  // original centre-distance rule, with the player at a cell centre. This
+  // preserves the starting footprint despite accepting partially lit cells.
+  let radius = Infinity;
+  const baseLimit = Math.ceil(start + 1);
+  for (let x = 0; x <= baseLimit; x++) for (let y = 0; y <= baseLimit; y++) {
+    if (Math.hypot(x, y) <= start) continue;
+    radius = Math.min(radius, Math.hypot(Math.max(0, x - 0.5), Math.max(0, y - 0.5)));
+  }
+  radius -= 1e-6; // Stay below tangency despite floating-point projection.
+
   for (let step = 0; step < upgrades; step++) {
     let next = Infinity;
     const limit = Math.ceil(radius + 1.5);

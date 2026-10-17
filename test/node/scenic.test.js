@@ -284,15 +284,15 @@ test('scenic: bonusMetres pays (mul − 1) on the restored metres that ARE sceni
   const sweep = (s, clock) => { clock.at(0); s._sweepStreets(); clock.at(PATH_STONE_DWELL_MS); s._sweepStreets(); };
 
   test('scenic: a restore on a scenic way banks the bonus on the ONE ladder; the km chip reads true metres', () => {
-    // The player's reach restores metres 154..203 of the way; its first half
+    // The player's reach restores metres 161..196 of the way; its first half
     // (0..2048 units = 0..178.5 m) is a promenade.
     let plain = 0;
     withScenic(null, (clock) => { const s = scene(); sweep(s, clock); plain = s.save.trail.metres; });
-    assert.inRange(plain, 49 - 0.01, 49 + 0.01, 'a plain path banks what it restored');
+    assert.inRange(plain, 35 - 0.01, 35 + 0.01, 'a plain path banks what it restored');
     withScenic([[0, EXT / 2, 'shore']], (clock) => {
       const s = scene();
       sweep(s, clock);
-      const shoreM = TILE_EDGE_M / 2 - 22 * CELL_M;        // 154 → 178.5 m
+      const shoreM = TILE_EDGE_M / 2 - 23 * CELL_M;        // 161 → 178.5 m
       const bonus = shoreM * (S.SCENIC_MUL.shore - 1);
       assert.inRange(s.save.trail.metres, plain + bonus - 0.01, plain + bonus + 0.01,
         'the ladder banked the true metres plus the promenade\'s bonus');
