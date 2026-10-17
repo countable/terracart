@@ -9324,8 +9324,7 @@ class MapScene extends Phaser.Scene {
       || Shops.roleLabel(row.role, row.role === 'shop' ? (row.theme || theme) : null) || 'House';
     const iconFor = (row) => {
       const texKey = Render.houseTextureKey(row.role, house, this);
-      const frame = row.role === 'plain' ? 'front' : row.role === 'wizard' ? 3
-        : row.role === 'turret' ? CastleStyles.get(house.id).towerFrame : 0;
+      const frame = Render.houseTextureFrame(row.role, house, this, row.solo || row.theme) ?? 0;
       return this.worldIconHTML(texKey, 30, frame);
     };
     const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;

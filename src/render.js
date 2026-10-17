@@ -1809,12 +1809,35 @@ Render.reachDimAlpha = (scene) => {
   return d > 0 ? Math.min(0.88, 0.74 + 0.06 * (d - 1)) : 0.38;
 };
 
-// Baked unclaimed art carries the approved wash and lightness adjustment.
-// Resolve the same key for appearance and tint so it is never shaded twice.
+// One reversible building-art selection; query choice is per page, never saved.
+Render.buildingArtStyle = typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('buildingArt') === 'legacy' ? 'legacy' : 'rounded';
+Render.roundedBuildings = () => Render.buildingArtStyle !== 'legacy'
+  && typeof ASSETS !== 'undefined' && !!ASSETS.rounded_buildings;
+Render.HOUSE_ART_FRAMES = Object.freeze({ plain: 'house', house: 'house',
+  blacksmith: 'blacksmith', trader: 'trader', market: 'market',
+  wizard: 'wizard_tower', turret: 'turret', trailer: 'home_wagon', wreck: 'wreck' });
+Render.SHOP_ART_FRAMES = Object.freeze({ seed: 'seed_shop', supply: 'supply_shop',
+  potion: 'magic_shop', relic: 'relic_shop', pet: 'pet_shop', book: 'book_shop' });
+// Map art and dialog icons resolve the same frame. A restore card can supply
+// its future shop theme before the building has been restored.
+Render.houseTextureFrame = (role, o, scene, theme) => {
+  if (Render.roundedBuildings()) {
+    if (role === 'fort') return scene?.isClaimedKey && !scene.isClaimedKey(o.id) ? 'fort_unclaimed' : 'fort';
+    if (role === 'shop') return Render.SHOP_ART_FRAMES[theme ?? scene?.shopLine?.(o)?.theme] || 'market';
+    return Render.HOUSE_ART_FRAMES[role];
+  }
+  if (role === 'plain') return 'front';
+  if (role === 'wizard') return 3;
+  if (role === 'turret') return CastleStyles.get(o.id).towerFrame;
+  return undefined;
+};
+// Baked unclaimed art already contains its wear: never apply a second wash.
 Render.houseTextureKey = (role, o, scene) => {
+  if (Render.roundedBuildings()) return 'rounded_buildings';
   if (role === 'plain') return 'house';
   if (role === 'wizard') return 'shrine';
-  if (role === 'turret') return 'tower';   // the castle tower sheet, claimed palette: it is yours
+  if (role === 'turret') return 'tower';
   if (role === 'fort' && scene.isClaimedKey && !scene.isClaimedKey(o.id)
       && typeof ASSETS !== 'undefined' && ASSETS.house_fort_unclaimed) return 'house_fort_unclaimed';
   return `house_${role}`;
@@ -5771,18 +5794,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // RENDER_SPEC) because the scale fit and the shadow pass both need to look
   // up the same art the sprite will actually draw.
   const _houseKey = (o) => Render.houseTextureKey(_houseRole(o), o, _pass.scene);
-  // Plain houses pick the 'front' sub-rect of the house tileset; wizard towers
-  // pick the fully-restored top-row tower frame (frame 3) of the wizard sheet;
-  // other themed PNGs are single-image (frame undefined).
-  const _houseFrame = (o) => {
-    const role = _houseRole(o);
-    if (role === 'plain')  return 'front';
-    if (role === 'wizard') return 3;
-    // A turret picks its material family off its own id, the way a castle
-    // does off its footprint key, so two turrets on a street can differ.
-    if (role === 'turret') return CastleStyles.get(o.id).towerFrame;
-    return undefined;
-  };
+  const _houseFrame = (o) => Render.houseTextureFrame(_houseRole(o), o, _pass.scene);
     // Every building is sized by ONE rule (BUILDING_ART / houseArtScale in
     // util.js): draw at your own footprint, clamped to a range stated in DRAWN
     // CELLS. render.js reads the art's real frame width (which turns a cell count

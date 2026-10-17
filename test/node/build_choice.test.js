@@ -39,7 +39,7 @@ test('build choice: every offered card restores in one step, each with its own p
   const present = new Function('Houses', 'Shops', 'Inventory', 'ITEM_BY_ID', 'Render',
     'CastleStyles', 'tierBadgeHTML', 'persistSave', 'newBadgeHTML',
     `return ({${body}}).presentWreckRestoreModal;`)(Houses, Shops, inventory, ITEM_BY_ID,
-      { houseTextureKey: () => 'house' }, { get: () => ({ towerFrame: 0 }) },
+      { houseTextureKey: () => 'house', houseTextureFrame: () => 'front' }, { get: () => ({ towerFrame: 0 }) },
       (tier) => `quality-${tier}`, () => {}, () => 'NEW');
   let modal;
   const scene = {

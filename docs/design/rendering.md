@@ -535,3 +535,23 @@ wall update time, and texture/buffer calls where WebGL is available. Run identic
 browser/backend settings against separate baseline and candidate servers.
 Headless CPU timings do not establish handset GPU time or a 120fps guarantee;
 validate on the target device before making that claim.
+
+## Rounded building artwork
+
+The default building set is `assets/Objects/RoundedBuildings/buildings.png`.
+`ASSETS.rounded_buildings.frameRects` registers its sixteen named frames,
+cut from the 96px cells into 64×64 house and 80×80 fort frames ending at the
+shared ground row (88px within each cell). `Render.houseTextureKey` and
+`Render.houseTextureFrame` route map buildings, restoration choices and Home's
+icon through the same role and shop-line mapping. The existing footprint-based
+world scale, bottom-centre anchor and ground position remain the sizing rules;
+the native frame dimensions do not introduce a second world-scale multiplier.
+
+Use `?buildingArt=legacy` (or `&buildingArt=legacy` with other query options)
+to compare the original artwork. Omit it, or use `buildingArt=rounded`, for
+the new set. `Render.buildingArtStyle` is the single runtime selection; it is
+not saved. All original assets and registrations remain available for rollback.
+Castle perimeter towers retain their existing material-family art. The rounded
+wreck and unclaimed fort contain their weathering and receive no second wash.
+The source sheet and extraction metadata are archived under
+`~/.artifacts/house-rounded/`.
