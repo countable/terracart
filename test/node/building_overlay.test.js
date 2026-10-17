@@ -483,7 +483,8 @@ test('building overlay: no pixel read-back anywhere in the overlay', () => {
   // The whole point of the two changes above (the colour-level lift and the
   // wall atlas): a cell crossing must never call getImageData — on a phone
   // each one is a synchronous round trip to the GPU process.
-  assert.eq(/getImageData|putImageData|tuneUnclaimedMaterialCanvas/.test(BUILDING_OVERLAY_SRC), false,
+  // putImageData writes the cached fallback roof bitmap; it does not read GPU pixels.
+  assert.eq(/getImageData|tuneUnclaimedMaterialCanvas/.test(BUILDING_OVERLAY_SRC), false,
     'building_overlay.js reads no pixels back');
 });
 

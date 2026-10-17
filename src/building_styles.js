@@ -116,6 +116,7 @@
     let materialBudget = 80;
     const materialCap = (p, z, color) => {
       cap(p, z, color);
+      if (options.geometryOnly) return;
       // Keep the finish clear of the raised parapet and its projected face.
       const finish = inset(p, 2 * scale);
       if (!finish) return;
@@ -163,12 +164,14 @@
     };
     const h = style.height * scale;
     const courses = (p, lo, hi, count, color) => {
+      if (options.geometryOnly) return;
       for (let i = 1; i <= count; i++) {
         const z = lo + (hi - lo) * i / (count + 1);
         add(p, z, z + 0.28 * scale, color);
       }
     };
     const windows = (p, z) => {
+      if (options.geometryOnly) return;
       let budget = 20;
       for (let i = 0; i < p.length && budget > 0; i++) {
         const a = p[i], b = p[(i + 1) % p.length], dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
@@ -211,20 +214,22 @@
       // together; a large rectangular roof does not retain a huge flat centre.
       for (let i = 0; i < 8; i++) { const mid = (lo + hi) / 2; if (inset(current, mid)) lo = mid; else hi = mid; }
       const reach = lo * 0.94 / scale;
-      const widths = japanese ? [reach * 0.2, reach * 0.35, reach * 0.45] : [reach / 4, reach / 4, reach / 4, reach / 4];
-      const rises = japanese ? [0.45, 1.5, 3.5] : [2.3, 2.3, 2.3, 2.3];
+      const widths = options.geometryOnly && !japanese ? [reach] : japanese ? [reach * 0.2, reach * 0.35, reach * 0.45] : [reach / 4, reach / 4, reach / 4, reach / 4];
+      const rises = options.geometryOnly && !japanese ? [9.2] : japanese ? [0.45, 1.5, 3.5] : [2.3, 2.3, 2.3, 2.3];
       for (let i = 0; i < widths.length; i++) {
         const next = inset(current, widths[i] * scale);
         if (!next) break;
         // Quiet material rows are retained loft strips; they follow every
         // roof edge and require no per-frame texture upload. Three strips per
         // slope band bounds the detail even on a city-sized footprint.
-        for (let row = 0; row < 3; row++) {
+        const rows = options.geometryOnly ? 1 : 3;
+        const rise = options.geometryOnly ? Math.min(rises[i], widths[i] * 0.45) : rises[i];
+        for (let row = 0; row < rows; row++) {
           const interpolate = t => current.map((p, j) => ({ x: p.x + (next[j].x - p.x) * t, y: p.y + (next[j].y - p.y) * t }));
-          add(interpolate(row / 3), z + rises[i] * scale * row / 3,
-            z + rises[i] * scale * (row + 1) / 3, shade(palette.roof, row === 0 ? 0.92 : 1), false, interpolate((row + 1) / 3), true);
+          add(interpolate(row / rows), z + rise * scale * row / rows,
+            z + rise * scale * (row + 1) / rows, shade(palette.roof, options.geometryOnly ? 1 : row === 0 ? 0.92 : 1), false, interpolate((row + 1) / rows), true);
         }
-        current = next; z += rises[i] * scale;
+        current = next; z += rise * scale;
       }
       cap(current, z, palette.roof);
       slab(current, z, z + 0.7 * scale, palette.trim);
