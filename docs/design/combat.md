@@ -168,6 +168,13 @@ mechanics.
   skips harmful floor contact (including holes, flames and traps), while gases,
   attacks and existing conditions still affect the flyer. A second dose adds a minute.
   Naturally flying enemies carry `permanentBuffs: ['flight']` on their roster row.
+  An `orbit_swoop` flier flies eased legs round its target and swoops every
+  few; a row's `movement.erratic` block (the bats, and the hive bee that
+  shares the bat's row) lets the orbit turn about (`reverseChance`), spreads
+  the advance (`angleSpread`) and bows each leg sideways (`jinkCells`), the
+  bow budgeted so the peak pace stays under the row's speed
+  (`creature_ai.js` `enemyBatMove`). The bow rides the multiplayer flight
+  snapshot as an optional vector; a peer without it flies the leg straight.
   `SpriteLayout.creatureAirborne` inherits that flag for variants and summoned
   wraiths and includes airborne fauna; the same `Conditions.flying` gate covers
   them without saving an infinite potion expiry or showing an infinite countdown.

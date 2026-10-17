@@ -193,6 +193,11 @@ access or tile lifecycle mechanics.
   reservation; actual objects, landmark approaches and the hazard safety gate
   still exclude placement. Grove ghost plates retain their existing visibility.
 
+- No goblin walks L1 (owner, Oct 2026): L1's cave-area weights give the
+  goblin warrens nothing and seat no goblins (`floorProfile(1).caveAreas`),
+  the L1 habitat theme band is all natural (`EnemyHabitats.THEME_BANDS`), and
+  every goblin row's cave window opens on L2 or deeper (the club goblin at
+  2..3). L1 is slimes, bats and what a campfire wards off.
 - Authored cave areas use `ZoneVariants.anchorFrame` and run before ordinary
   floor passes. Keep their empty-ground reservations separate from object
   occupancy (`CaveAreas`); ambient spawns must respect both. Derive deeper

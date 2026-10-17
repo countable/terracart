@@ -243,6 +243,48 @@
       }
     }
   });
+  test('enemy AI: bats fly erratically — the orbit turns about, the advance spreads, each leg bows and still lands', () => {
+    // Deterministic decisions (a shared id), so the run below is the same every time.
+    const flights = (kind, n) => {
+      const s = scene(7), c = { ...foe(kind), id: `${kind}-erratic`, _sharedId: true }, row = EnemyRoster.get(kind);
+      const out = [];
+      let now = 10000;
+      for (let i = 0; i < n; i++) {
+        enemyBatMove(s, c, row, now, 0, 0);
+        const f = c._batFlight;
+        assert.truthy(f, 'a leg begins once the pause is over');
+        const from = Math.atan2(f.y, f.x), to = Math.atan2(f.ty, f.tx);
+        out.push({ f, turn: Math.sign(Math.atan2(Math.sin(to - from), Math.cos(to - from))) });
+        // Fly it out: the sweep is clear, so the body lands exactly on the aimed point.
+        for (let t = now + 10; t < now + f.duration; t += 10) enemyBatMove(s, c, row, t, 0, 0);
+        enemyBatMove(s, c, row, now + f.duration, 0, 0);
+        assert.inRange(Math.hypot(c.x - f.tx, c.y - f.ty), 0, 1e-6, 'the bow is nothing at the end: the leg lands where it was aimed');
+        now += f.duration + 1500;
+      }
+      return out;
+    };
+    const bat = flights('bat', 24);
+    const m = EnemyRoster.get('bat').movement;
+    assert.eq(m.erratic.reverseChance, 0.4); assert.eq(m.erratic.angleSpread, 1.6); assert.eq(m.erratic.jinkCells, 0.6);
+    const turns = new Set(bat.filter(l => l.turn).map(l => l.turn));
+    assert.eq(turns.size, 2, 'the orbit turns both ways across the legs');
+    const bowed = bat.filter(({ f }) => Math.hypot(f.jx || 0, f.jy || 0) > 0.5);
+    assert.gt(bowed.length, bat.length / 2, 'most legs carry a sideways bow');
+    for (const { f } of bowed) {
+      const ux = (f.tx - f.x), uy = (f.ty - f.y), len = Math.hypot(ux, uy);
+      assert.inRange(Math.abs(f.jx * ux + f.jy * uy) / len, 0, 1e-6, 'the bow is sideways of the leg');
+      // Mid-leg the body is off the straight chord by the bow.
+      const c2 = { kind: 'bat', x: f.x, y: f.y, _batFlight: { ...f } };
+      enemyBatMove(scene(7), c2, EnemyRoster.get('bat'), f.start + f.duration / 2, 0, 0);
+      const mid = { x: (f.x + f.tx) / 2, y: (f.y + f.ty) / 2 };
+      assert.inRange(Math.hypot(c2.x - mid.x, c2.y - mid.y), Math.hypot(f.jx, f.jy) - 1e-6, Math.hypot(f.jx, f.jy) + 1e-6);
+    }
+    // A row without the block flies the plain orbit: one way round, no bow.
+    const spirit = flights('sword_spirit', 12);
+    assert.eq(new Set(spirit.filter(l => l.turn).map(l => l.turn)).size, 1, 'the sword spirit never turns about');
+    assert.truthy(spirit.every(({ f }) => !f.jx && !f.jy), 'and its legs are straight');
+    assert.falsy(EnemyRoster.get('sword_spirit').movement.erratic);
+  });
   test('shiny movement: walking and raven/bat flight are exactly 1.5x', () => {
     const originalRandom = Math.random;
     try {

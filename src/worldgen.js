@@ -9223,7 +9223,10 @@
   });
   const FLOOR_PROFILES = Object.freeze([
     Object.freeze({ depth: 1, flintRockP: .25, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
-      pressureTraps: false, caveAreas: caveAreaProfile([50, 15, 30, 5, 15], false, 12, false),
+      // No goblin warrens and no goblins on L1 (owner, Oct 2026; enemy_roster.js
+      // moved the club goblin to L2 the same day): slime springs, mushroom
+      // caverns, gem caverns and mazes share the L1 groves.
+      pressureTraps: false, caveAreas: caveAreaProfile([50, 0, 30, 5, 15], false, 0, false),
       streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'above', roadWalls: 'small', streetMirror: true,
       fallLandings: false, chestSource: 'above', quarryProvenance: true, lava: false }),
     Object.freeze({ depth: 2, arrivalStory: 'dungeon_city', entryKey: null,

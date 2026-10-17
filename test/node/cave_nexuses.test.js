@@ -1,6 +1,9 @@
 (function () {
   const W = WorldGen, T = W.T, N = 64, edge = N * W.CELL_M;
   const kinds = ['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern', 'mine_tunnels'];
+  // No goblin walks L1 (owner, Oct 2026): the warrens never select on D1, so
+  // a D1 fixture of them does not exist; they are exercised on D2.
+  const kindsAt = depth => kinds.filter(kind => depth !== 1 || kind !== 'goblin_warrens');
   function fixture(kind, depth, start = 950201) {
     const ty = 950101, cx = 32, cy = 32;
     let tx, anchor;
@@ -25,7 +28,8 @@
     objects: p.objects, plants: p.wildplants, encounters: p.encounters });
 
   test('cave nexuses: all five definitions select and place on both shallow floors', () => {
-    for (const depth of [1, 2]) for (const kind of kinds) {
+    assert.falsy(kindsAt(1).includes('goblin_warrens'), 'no warren fixture on D1');
+    for (const depth of [1, 2]) for (const kind of kindsAt(depth)) {
       const f = fixture(kind, depth), p = CaveAreas.plan(f);
       assert.eq(p.areas.length, 1, kind + ' D' + depth);
       assert.eq(p.areas[0].kind, kind); assert.gt(p.reserved.size, 0);
@@ -41,7 +45,7 @@
   });
 
   test('cave nexuses: immutable protected ground survives even if the visible surface was repainted', () => {
-    for (const depth of [1, 2]) for (const kind of kinds) for (const [terrain, why] of [
+    for (const depth of [1, 2]) for (const kind of kindsAt(depth)) for (const [terrain, why] of [
       [T.BUILDING, 0], [T.WATER, 0], [T.ROAD, W.SPAWN_WHY.ROAD],
       [T.PARK, W.SPAWN_WHY.FARMLAND], [T.PARK, W.SPAWN_WHY.GOLF]
     ]) {
@@ -95,7 +99,7 @@
   });
 
   test('cave nexuses: anchor reordering and neighbouring observers cannot duplicate owned slots', () => {
-    for (const kind of kinds) {
+    for (const kind of kindsAt(1)) {
       const f = fixture(kind, 1), expected = CaveAreas.plan(f);
       const foreign = { ...f.surface.zone.anchors[0], kind: 'seep', gx: 1, gy: 1 };
       f.surface.zone.anchors.unshift(foreign); f.surface.zone.coverage.fill(2);
@@ -109,7 +113,7 @@
   });
 
   test('cave nexuses: every fitted warren room has a clear route to the central court', () => {
-    for (const depth of [1, 2]) for (const start of [950201, 950501, 950801]) {
+    for (const depth of [2]) for (const start of [950201, 950501, 950801]) {
       const f = fixture('goblin_warrens', depth, start), p = CaveAreas.plan(f);
       CaveAreas.apply(p, f.grid, f.objects, [], f.occupied);
       const solid = new Set(p.objects.map(o => idx(f, o)));
@@ -184,7 +188,7 @@
   });
 
   test('cave nexuses: actual loader preserves area ownership through ordinary cave generation', async () => {
-    for (const depth of [1, 2]) for (const kind of kinds) {
+    for (const depth of [1, 2]) for (const kind of kindsAt(depth)) {
       // Park evidence opens natural D2 clearings, which must defer to authored
       // nexuses; this exercises the real order of carving, settlements and fill.
       const f = fixture(kind, depth), key = W.tileKey(f.tx, f.ty);
