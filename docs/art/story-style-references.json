@@ -40,7 +40,13 @@
       "dimensions": [
         512,
         652
-      ]
+      ],
+      "preview_crop": {
+        "x": 0,
+        "y": 0,
+        "w": 512,
+        "h": 384
+      }
     },
     {
       "id": "story_wrecks",

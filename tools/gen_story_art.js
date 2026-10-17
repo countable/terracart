@@ -583,7 +583,8 @@ for (const name of REFERENCE_SCENES) {
 // Approved masters supersede historical raw generations, including the crops.
 // Fail if a listed master is missing; falling back would resurrect rejected art.
 const APPROVED_MANIFEST = path.join(__dirname, '..', 'docs', 'art', 'approved-story-art.json');
-const approvedRows = JSON.parse(fs.readFileSync(APPROVED_MANIFEST, 'utf8')).pieces;
+const approvedManifest = JSON.parse(fs.readFileSync(APPROVED_MANIFEST, 'utf8'));
+const approvedRows = [...approvedManifest.pieces, ...(approvedManifest.opening_frames || [])];
 const APPROVED = new Map(approvedRows.map(row => [row.key, row]));
 function approvedMaster(name) {
   const row = APPROVED.get(name);
@@ -706,7 +707,7 @@ else:
     const raw = reprocess ? (approved || rawPath) : await generate(key, name, piece);
     const approvedRow = APPROVED.get(name);
     const width = approved ? (approvedRow.export_width || approvedRow.width) : piece.width;
-    const out = downscale(raw, name, width, piece.colors, piece.trim, approved ? SCENE_ASPECT : piece.aspect, !!approved);
+    const out = downscale(raw, name, width, piece.colors, piece.trim, approved ? (approvedRow.aspect || SCENE_ASPECT) : piece.aspect, !!approved);
     const kb = Math.round(fs.statSync(out).size / 1024);
     console.log(`ok (${kb}KB)`);
     // Gentle pacing: the images endpoint rate-limits bursty accounts.

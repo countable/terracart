@@ -95,8 +95,9 @@ The approved master is `~/.artifacts/dialog-style-exploration/book-page.png`;
 [approved-story-art.json](approved-story-art.json) owns the 171 final 4:3
 paintings: 135 original crops and 36 exports from 35 approved generations. Full-resolution
 masters live in `approved-story-art/` under the archive root. These supersede
-older raw masters and review rounds. Six special opening/book/safety panels
-retain their original shapes. Copy belongs below the art; no text zone is baked in.
+older raw masters and review rounds. The first two opening panels use 2:3 portrait frames; nightmare masters
+are recorded separately in `opening_frames`. The book page and title splash
+retain their special-purpose shapes. Copy belongs below the art; no text zone is baked in.
 
 `node tools/gen_story_art.js --reprocess <key>` exports an approved master
 losslessly at its recorded runtime width, without another palette conversion.

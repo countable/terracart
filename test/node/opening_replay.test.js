@@ -89,6 +89,8 @@ test('opening: all four frame pairs align and describe the image once', () => {
     const first = webpDims(`assets/art/${stem}.webp`);
     const second = webpDims(`assets/art/${stem}_frame2.webp`);
     assert.truthy(first && second, `${stem}: both animation frames ship`);
+    if (stem === 'story_compass' || stem === 'story_nightmare')
+      assert.eq(first.w / first.h, 2 / 3, `${stem}: full-height portrait opening`);
     assert.eq(second.w, first.w, `${stem}: matching width avoids jumps during fades`);
     assert.eq(second.h, first.h, `${stem}: matching height avoids jumps during fades`);
   }

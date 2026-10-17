@@ -2907,8 +2907,34 @@
     "book_page",
     "safety_welcome",
     "story_compass",
-    "story_compass_frame2",
-    "story_nightmare",
-    "story_nightmare_frame2"
+    "story_compass_frame2"
+  ],
+  "opening_frames": [
+    {
+      "key": "story_nightmare",
+      "master_path": "approved-story-art/story_nightmare.png",
+      "master_sha256": "6485d774d1fb97dd18a5d6f8cd33df6fad31f615c606e64e3d9e9d194f817469",
+      "width": 1024,
+      "height": 1536,
+      "export_width": 1024,
+      "export_height": 1536,
+      "aspect": 0.6666666666666666,
+      "sha256": "f9bbf8cbfe21781fbaa1fe5ef08b186982fdbf515eb42707423b8c2df4a52499",
+      "method": "regenerated",
+      "reference": "story_nightmare original; compass portrait format; frame2 edited from new frame1"
+    },
+    {
+      "key": "story_nightmare_frame2",
+      "master_path": "approved-story-art/story_nightmare_frame2.png",
+      "master_sha256": "f656af09259bb23f4f5e236cc54a29dfe55bf38f0c9a1bddc73866de3754569f",
+      "width": 1024,
+      "height": 1536,
+      "export_width": 1024,
+      "export_height": 1536,
+      "aspect": 0.6666666666666666,
+      "sha256": "2af0b1010df2628b49e01417ff0b67a13256200a24512707b47da9dd71ea919b",
+      "method": "regenerated",
+      "reference": "story_nightmare original; compass portrait format; frame2 edited from new frame1"
+    }
   ]
 }
