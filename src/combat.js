@@ -682,7 +682,9 @@
     if (!c || c.kind === 'npc' || isEnemyKind(c.kind) || !Number.isFinite(durationMs)) return false;
     return landStatus(c, 'calm', durationMs, now);
   }
-  function isCalm(c, now = Date.now()) { return hasStatus(c, 'calm', now); }
+  // Calm, or charmed: a charmed foe fights beside you, and it no more runs
+  // from the net than a calmed animal — every escape lane reads this.
+  function isCalm(c, now = Date.now()) { return hasStatus(c, 'calm', now) || hasStatus(c, 'charm', now); }
   // Paid passage and an open negotiation are neutral, never allied.
   function isPacified(c, now = Date.now()) {
     return !!monster(c?.kind)?.pirate
@@ -728,8 +730,10 @@
   //   FEAR (the Fear Scroll): the rout, away from the player, for `durationMs`.
   //   FROST (the Frost Powder, the magic trap's hold): a SLOW, never a freeze.
   function applySleep(c, now) { return applyStatus(c, 'sleep', FLOWER_STATUS_MS, now); }
-  function applyCharm(c, now) {
-    if (!applyStatus(c, 'charm', FLOWER_STATUS_MS, now)) return false;
+  // `durationMs`: the flower's minute unless the caller names one (a golden
+  // berry's minute less the tier squared — items.js charmFeedMs).
+  function applyCharm(c, now, durationMs = FLOWER_STATUS_MS) {
+    if (!applyStatus(c, 'charm', durationMs, now)) return false;
     c._wardFrom = null;
     c._wanderOffUntilT = null;
     return true;

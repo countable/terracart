@@ -32,10 +32,29 @@ test('grass regrowth: reload retains the roll, expiry removes only grass memorie
 test('grass regrowth: revisited old grass qualifies, other flora and player planting do not', () => {
   const save = { picked: ['old-grass', 'shrub', 'herb'] };
   assert.truthy(SaveState.rememberClearedGrass(save, { id: 'old-grass', crop: 'longgrass' }, 1000, () => 0.5));
-  for (const crop of ['shrub', 'petnip', 'potato', 'barricade']) {
+  for (const crop of ['shrub', 'berry', 'poisonberry', 'potato', 'barricade', 'mushroom', 'rubble']) {
     assert.falsy(SaveState.rememberClearedGrass(save, { id: crop, crop }, 1000));
+    assert.falsy(SaveState.regrows(crop));
   }
   assert.falsy(SaveState.rememberClearedGrass(save, { id: 'owned', crop: 'longgrass', playerOwned: true }, 1000));
+});
+
+test('herb regrowth: the wild flowers, PetNip and the nettle grow back through the one grass table', () => {
+  // One mechanism (WILD_REGROWTH): the same exponential wait, the same save
+  // field, the same expiry sweep — a crop grows back by having a row.
+  const herbs = ['flowers', 'forgetmenot', 'marigold', 'wildrose', 'starflower', 'petnip', 'nettle'];
+  for (const crop of ['longgrass', ...herbs]) {
+    assert.truthy(SaveState.regrows(crop), crop + ' regrows');
+    assert.eq(SaveState.WILD_REGROWTH[crop], SaveState.GRASS_REGROWTH_MEAN_MS, crop + ' shares the grass mean');
+  }
+  const save = { picked: herbs.map(c => 'wp-' + c) };
+  for (const crop of herbs) assert.truthy(SaveState.rememberClearedGrass(save, { id: 'wp-' + crop, crop }, 1000, () => 0.5));
+  const deadline = save.grassRegrowth['wp-petnip'];
+  assert.falsy(SaveState.rememberClearedGrass(save, { id: 'wp-petnip', crop: 'petnip' }, 1500, () => 0.9), 'no reroll');
+  assert.falsy(SaveState.regrowGrass(save, deadline - 1));
+  assert.truthy(SaveState.regrowGrass(save, deadline + 1));
+  assert.eq(save.picked.length, 0, 'every herb is back once its wait has passed');
+  assert.falsy(SaveState.rememberClearedGrass(save, { id: 'owned-herb', crop: 'petnip', playerOwned: true }, 1000), 'a planted herb keeps its rules');
 });
 
 test('grass regrowth: offline boot expires grass and prunes orphan deadlines', () => {

@@ -251,6 +251,7 @@ function bakeCanvas(scene, key, w, h, paint) {
 const BERRY_BUSH_INKS = {
   bushes_fruiting: ['#713243', '#c65360', '#ef9290'],      // berry
   bushes_poisonberry: ['#1d5a5c', '#2fb3a8', '#9ff0e2'],   // poisonberry
+  bushes_goldenberry: ['#8a5a12', '#e9b62a', '#fff0a6'],    // golden berry
 };
 function makeBerryBushTexture(scene) {
   const source = scene.textures.get('bushes').getSourceImage();
@@ -1521,6 +1522,8 @@ function makeBiomeTextures(scene, size) {
 const PAD_CELL = 32;
 // Shared with render.js: seat the shrine's south-facing feet farther inside
 // the pedestal's top plane, while the pad itself stays centred on its ground cell.
+// The plinth's face is drawn at the bottom for a south camera; on a turned
+// heading-up map render.js counter-rotates it about that centre.
 const SHRINE_PAD = { sizePx: PAD_CELL, facePx: 6, seatLiftPx: 11 };
 // The pad is drawn a touch larger than its cell so it spills ~10% past the
 // cell boundary into neighbouring cells, reading as a soft oversized base

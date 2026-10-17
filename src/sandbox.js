@@ -397,6 +397,7 @@
     { name: 'Market Close', class: 'minor', type: T.ROAD, y: 35, thick: 1, x0: 0, x1: 23, variant: null },
     { name: 'Iron Lane', class: 'minor', type: T.ROAD, y: 18, thick: 1, x0: 0, x1: 23, variant: 'snare' },
     { name: 'Goblin Gang Street', class: 'minor', type: T.ROAD, y: 21, thick: 1, x0: 0, x1: 23, variant: 'goblin_gang' },
+    { name: 'Berry Lane', class: 'minor', type: T.ROAD, y: 38, thick: 1, x0: 0, x1: 23, variant: 'berry' },
     { name: 'Fort Road', class: 'path', type: T.PATH, y: 25, thick: 2, x0: 0, x1: 23, variant: 'barricade' },
     { name: 'Old Trade Road', class: 'tertiary', type: T.ROAD_MD, y: 28, thick: 2, x0: 0, x1: 23, variant: null, bandit: true },
     { name: 'Ancient Highway', class: 'primary', type: T.ROAD_LG, y: 31, thick: 2, x0: 0, x1: 23, variant: null },

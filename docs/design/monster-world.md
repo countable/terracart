@@ -62,9 +62,12 @@ Mystic Reef also keeps its giant crab. Ordinary shoreline seats make crabs
 common outside Nexus coverage. Wild crabs attack, while caught and tamed crabs
 remain pets.
 
-Themed streets carry at most one finite garrison per street and owning tile,
-however many fragments the map splits the line into (`StreetVariants`, the
-`street_*` tiers in `src/lairs.js`). Barricades are held by their goblins.
+Themed streets carry at most one finite garrison per encounter tier, street
+and owning tile, however many fragments the map splits the line into
+(`StreetVariants`, the `street_*` tiers in `src/lairs.js`). Most themes have
+one tier; an overgrown street posts its plant stretch, a sounder of two wild
+boars and, on a third of streets, a giant bear (the variant row's
+`extraEncounters`). Barricades are held by their goblins.
 Scenic path themes gain no guards. Road Variant fauna are supplied locally,
 while attraction may still draw existing residents onto eligible ground.
 

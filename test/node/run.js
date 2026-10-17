@@ -1314,6 +1314,7 @@ ctx.COORDS_SRC = readSrc('coords.js');
 ctx.MULTIPLAYER_SRC = readSrc('multiplayer.js');
 ctx.INTERACT_SRC = readSrc('interact.js');
 ctx.WORLDGEN_SRC = readSrc('worldgen.js');   // map_review.test.js (the review salt)
+ctx.STREET_VARIANTS_SRC = readSrc('street_variants.js');   // goldenberry.test.js (the plain verges' golden roll)
 ctx.GAME_LOADER_SRC = fs.readFileSync(path.join(ROOT, 'tools', 'game-loader.js'), 'utf8');   // map_review.test.js
 ctx.MAP_REVIEW_ART_SRC = fs.readFileSync(path.join(ROOT, 'tools', 'map-review-art.js'), 'utf8');
 // The multiplayer relay mirrors client regexes (multiplayer_shared.test.js).

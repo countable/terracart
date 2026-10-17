@@ -156,7 +156,7 @@ test('variants: minor streets and path sections use their normalized theme pools
 });
 
 test('variants: paths mostly select light scenic themes and never inherit Small-road themes', () => {
-  const expected = { lantern: .10, barricade: .03, promenade: .12, greenway: .24, parkpath: .27, golden_path: .02, slime_trail: .05, spider_path: .05, poison_path: .03, fire_path: .03, paralysis_path: .03, confusion_path: .03 };
+  const expected = { lantern: .10, barricade: .03, promenade: .12, greenway: .20, parkpath: .27, golden_path: .02, slime_trail: .05, spider_path: .05, poison_path: .03, fire_path: .03, paralysis_path: .03, confusion_path: .03, berry_trail: .04 };
   const weights = SV.selectionWeights(null, 'path');
   assert.eq(weights.length, Object.keys(expected).length);
   for (const row of weights) {
@@ -551,7 +551,7 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
   // Appended after the seven older rows (code 8), and only the never-rolled
   // scenic 'path' rows (src/scenic.js) after it: no older row's code moves.
   assert.eq(row.code, 8, 'appended: no older row\'s code moves');
-  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.size === 'path' || r.id === 'golden' || r.id === 'snare' || r.id === 'thorny' || r.id === 'goblin_gang'), 'new rows append without changing existing codes');
+  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.size === 'path' || r.id === 'golden' || r.id === 'snare' || r.id === 'thorny' || r.id === 'goblin_gang' || r.id === 'berry'), 'new rows append without changing existing codes');
   let plain = 0, named = 0;
   for (let i = 0; i < 20000; i++) {
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'toadstool') plain++;
@@ -1613,17 +1613,31 @@ function vergeFixture(variant = 'overgrown') {
     key:'road', variant, halfW:3.5, line:[{x:1.5,y:6.5},{x:10.5,y:6.5}]
   }]}};
 }
+// The overgrown street's posts (SV.dress → res.lairs) for a street `key`;
+// `fragments` doubles the geometry, `blocked` restricts every cell.
+function overgrownPosts(key, fragments = false, blocked = false) {
+  const f = vergeFixture(), rec = f.index.dressingLines[0];
+  rec.key = key;
+  if (fragments) f.index.dressingLines.push({...rec, line: rec.line.slice()});
+  if (blocked) f.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+  return SV.dress({...f, tx:0, ty:0, tileEdgeM:f.N*7,
+    spawnOpts:{roadMask:f.roadMask, spawnWhy:f.spawnWhy, occupied:new Set()}}).lairs;
+}
+// Wake one street post's garrison on a 64-cell grass tile; `marked` stamps
+// the whole tile as an overgrown street (entry.streetMarks), the way a real
+// tile carries its dressing.
+function wakeStreetPost(tier, sid, caughtSet, marked = false) {
+  const N=64,entry={cellsPerEdge:N,tileEdgeM:N*7,grid:new Uint8Array(N*N).fill(T.GRASS),objects:[],buildingShapes:[],
+    _spawnOpts:{occupied:new Set(),roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N)}};
+  if (marked) entry.streetMarks = new Uint8Array(N*N).fill(SV.VARIANT_BY_ID.overgrown.code);
+  const cand={tier,sid,tx:0,ty:0,ox:0,oy:0,lx:32.5*7,ly:32.5*7,ix:32,iy:32,halfW:0,halfH:0};
+  return Lairs.garrisonFor(entry,cand,{tileEdgeM:N*7,caughtSet});
+}
 test('forest roads: one third add one finite giant bear without replacing the plant', () => {
   const tier = 'street_forest_bear';
-  assert.eq(SV.VARIANT_BY_ID.overgrown.bonusEncounter.chance, 1 / 3);
-  const build = (key, fragments = false, blocked = false) => {
-    const f = vergeFixture(), rec = f.index.dressingLines[0];
-    rec.key = key;
-    if (fragments) f.index.dressingLines.push({...rec, line: rec.line.slice()});
-    if (blocked) f.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
-    return SV.dress({...f, tx:0, ty:0, tileEdgeM:f.N*7,
-      spawnOpts:{roadMask:f.roadMask, spawnWhy:f.spawnWhy, occupied:new Set()}}).lairs;
-  };
+  assert.eq(SV.VARIANT_BY_ID.overgrown.extraEncounters.find(e => e.tier === tier).chance, 1 / 3);
+  assert.truthy(SV.EXTRA_ENCOUNTER_TIERS.has(tier));
+  const build = overgrownPosts;
   let selected = 0, chosen;
   for (let i=0;i<300;i++) {
     const key = `forest-test-${i}`, posts = build(key), bears = posts.filter(p=>p.tier===tier);
@@ -1636,12 +1650,44 @@ test('forest roads: one third add one finite giant bear without replacing the pl
   assert.eq(JSON.stringify(build(chosen).filter(p=>p.tier===tier)),JSON.stringify(posts),'reload is stable');
   assert.eq(JSON.stringify(build(chosen,true).filter(p=>p.tier===tier)),JSON.stringify(posts),'duplicate fragments do not multiply posts');
   assert.eq(build(chosen,false,true).filter(p=>p.tier===tier).length,0,'restricted land excludes bears');
-  const N=64,entry={cellsPerEdge:N,grid:new Uint8Array(N*N).fill(T.GRASS),objects:[],buildingShapes:[],
-    _spawnOpts:{occupied:new Set(),roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N)}};
-  const cand={tier,sid:posts[0].sid,tx:0,ty:0,ox:0,oy:0,lx:32.5*7,ly:32.5*7,ix:32,iy:32,halfW:0,halfH:0};
-  const wake=caughtSet=>Lairs.garrisonFor(entry,cand,{tileEdgeM:N*7,caughtSet});
+  const wake=caughtSet=>wakeStreetPost(tier,posts[0].sid,caughtSet);
   const bears=wake();assert.eq(bears.length,1);assert.eq(bears[0].kind,'giant_bear');
   assert.eq(wake(new Set([bears[0].id])).length,0,'defeated bear stays gone');
+  // On a real tile the street's marks name a building family (EnemyHabitats
+  // BUILDING_FAMILIES.overgrown: plants and spiders); the bear's post is
+  // authored by its own ladder and keeps its bear.
+  const marked=wakeStreetPost(tier,posts[0].sid,undefined,true);
+  assert.eq(marked.map(g=>g.kind).join(),'giant_bear','the street family never re-themes the bear');
+  assert.falsy(Lairs.DAILY_TIERS.has(tier));
+});
+test('forest roads: every overgrown street posts a sounder of two wild boars beside the plant', () => {
+  const tier = 'street_wild_boar';
+  assert.eq(SV.VARIANT_BY_ID.overgrown.extraEncounters.find(e => e.tier === tier).chance, 1, 'every overgrown street');
+  assert.truthy(SV.EXTRA_ENCOUNTER_TIERS.has(tier));
+  assert.eq(Lairs.STREET_TIER_GUARDS[tier], 2, 'a sounder of two');
+  assert.eq(Lairs.KIND_ORDER[tier].join(), 'boar', 'held by boars');
+  assert.truthy(Lairs.FIXED_GUARD_TIERS.has(tier) && Lairs.ALWAYS_AWAKE_TIERS.has(tier), 'a street post: fixed count, every mode');
+  assert.eq(Lairs.OCCUPANCY[tier].rate, 1, 'always held');
+  let chosen;
+  for (let i=0;i<40;i++) {
+    const key = `boar-test-${i}`, posts = overgrownPosts(key);
+    assert.eq(posts.filter(p=>p.tier===tier).length,1,`${key}: one boar post`);
+    assert.eq(posts.filter(p=>p.tier==='street_overgrown').length,1,`${key}: the plant remains`);
+    chosen = key;
+  }
+  const posts = overgrownPosts(chosen).filter(p=>p.tier===tier);
+  assert.eq(JSON.stringify(overgrownPosts(chosen).filter(p=>p.tier===tier)),JSON.stringify(posts),'reload is stable');
+  assert.eq(JSON.stringify(overgrownPosts(chosen,true).filter(p=>p.tier===tier)),JSON.stringify(posts),'duplicate fragments do not multiply posts');
+  assert.eq(overgrownPosts(chosen,false,true).filter(p=>p.tier===tier).length,0,'restricted land excludes boars');
+  const plant = overgrownPosts(chosen).find(p=>p.tier==='street_overgrown');
+  assert.truthy(plant.sid !== posts[0].sid && (plant.lx !== posts[0].lx || plant.ly !== posts[0].ly), 'its own post, not the plant\'s seat');
+  const wake=(caughtSet,marked)=>wakeStreetPost(tier,posts[0].sid,caughtSet,marked);
+  const boars=wake();
+  assert.eq(boars.map(g=>g.kind).join(),'boar,boar','two boars wake');
+  assert.eq(wake(new Set([boars[0].id])).map(g=>g.id).join(),boars[1].id,'a defeated boar stays gone, the other keeps its seat');
+  assert.eq(wake(undefined,true).map(g=>g.kind).join(),'boar,boar','the street family never re-themes the sounder');
+  // The street's own stretch still takes the street family (its plants, a spider).
+  for (const g of wakeStreetPost('street_overgrown',plant.sid,undefined,true)) assert.includes(['plant','spider'],g.kind);
   assert.falsy(Lairs.DAILY_TIERS.has(tier));
 });
 
@@ -1901,5 +1947,180 @@ test('Goblin Gang Street: six barrel stacks and thirty grunts, deterministic and
   const blocked = run(true).d;
   assert.eq(blocked.lairs.length, 0);
   assert.eq(blocked.objects.filter(o => o.barrel).length, 0);
+});
+
+// ── House barrels on plain Small streets ────────────────────────────────
+// A plain Small street along row 6 (halfW half a cell: the verge's k = 1 is
+// row 5 / row 7). North of it a HOUSE (T.BUILDING, rows 2-3, cols 3-5: the
+// ray hits its wall at k = 3, its frontage is rows 5 and 4), a FORT
+// (BUILDING_MED, rows 2-3, cols 8-9) and a house out of reach (row 0, cols
+// 1-2: k = 6). South a second house (rows 9-10, cols 7-8).
+function houseFixture(tx = 0, ty = 0, over = {}) {
+  const N = 12;
+  const grid = new Uint8Array(N * N).fill(T.GRASS);
+  const roadMask = new Uint8Array(N * N), spawnWhy = new Uint16Array(N * N);
+  for (let x = 1; x < 11; x++) { grid[6 * N + x] = T.ROAD; roadMask[6 * N + x] = 1; spawnWhy[6 * N + x] = WorldGen.SPAWN_WHY.ROAD; }
+  for (const y of [2, 3]) for (const x of [3, 4, 5]) grid[y * N + x] = T.BUILDING;
+  for (const y of [2, 3]) for (const x of [8, 9]) grid[y * N + x] = T.BUILDING_MED;
+  for (const x of [1, 2]) grid[x] = T.BUILDING;
+  for (const y of [9, 10]) for (const x of [7, 8]) grid[y * N + x] = T.BUILDING;
+  for (let i = 0; i < N * N; i++) if (grid[i] !== T.GRASS && grid[i] !== T.ROAD) spawnWhy[i] = WorldGen.SPAWN_WHY.TERRAIN;
+  const rec = { key: 'plain', name: 'Plain Street', size: 'minor', variant: null, variantRanges: null,
+    halfW: 3.5, lineKey: 'plain-row-6', line: [{ x: 1.5, y: 6.5 }, { x: 10.5, y: 6.5 }], ...over };
+  const index = { extent: N, lines: [rec], dressingLines: [] };
+  const spawnOpts = { roadMask, spawnWhy, occupied: new Set() };
+  return { N, grid, roadMask, spawnWhy, index, rec, spawnOpts, tx, ty };
+}
+const houseBarrels = (f) => SV.dress({ index: f.index, tx: f.tx, ty: f.ty, N: f.N, tileEdgeM: f.N * 7,
+  grid: f.grid, spawnOpts: f.spawnOpts }).objects.filter(o => /^h(?:barrel|crate)_/.test(o.id));
+const cellsOf = (f, list) => list.map(o => ({ ix: Math.floor((o.x - f.tx * f.N * 7) / 7), iy: Math.floor((o.y - f.ty * f.N * 7) / 7) }));
+const northOf = (f) => cellsOf(f, houseBarrels(f)).filter(c => c.iy < 6);
+
+test('house barrels: 0-2 per house, on the verge between the house and the street', () => {
+  assert.eq(SV.HOUSE_BARRELS_MAX, 2);
+  let north = 0, south = 0, seen = new Set();
+  for (let tx = 0; tx < 120; tx++) {
+    const f = houseFixture(tx, 3), got = cellsOf(f, houseBarrels(f));
+    for (const o of houseBarrels(f)) assert.truthy(o.kind === 'chest' && o._houseFront && (o.barrel === true || (o.crate && o.tierSeed === 1)), 'a loot barrel or a tier-1 crate');
+    const n = got.filter(c => c.iy < 6), s = got.filter(c => c.iy > 6);
+    assert.lte(n.length, 2, 'at most two before the north house'); assert.lte(s.length, 2, 'and the south');
+    for (const c of n) assert.truthy(c.ix >= 3 && c.ix <= 5 && (c.iy === 4 || c.iy === 5), `north frontage only: ${c.ix},${c.iy}`);
+    for (const c of s) assert.truthy(c.ix >= 7 && c.ix <= 8 && (c.iy === 7 || c.iy === 8), `south frontage only: ${c.ix},${c.iy}`);
+    assert.eq(got.filter(c => c.iy === 5 && c.ix >= 1 && c.ix <= 2).length, 0, 'the house out of reach stands none');
+    assert.eq(got.filter(c => c.iy === 5 && c.ix >= 8).length, 0, 'the fort stands none');
+    north += n.length; south += s.length; seen.add(n.length);
+  }
+  assert.eq([...seen].sort().join(','), '0,1,2', 'every count of 0, 1 and 2 occurs');
+  assert.inRange(north / 120, 0.7, 1.3, 'about one a house on average');
+  assert.inRange(south / 120, 0.7, 1.3);
+});
+
+test('house barrels: a cluster a cell back from the kerb, the reward gate, and stable', () => {
+  let f = null;
+  for (let tx = 0; tx < 200 && !f; tx++) if (northOf(houseFixture(tx, 3)).length === 2) f = houseFixture(tx, 3);
+  assert.truthy(f, 'a house that rolls two');
+  const cells = northOf(f);
+  assert.truthy(cells.every(c => c.iy === 4), 'both a cell back from the kerb cell (row 5), never on it');
+  assert.eq(Math.abs(cells[0].ix - cells[1].ix), 1, 'clustered: adjacent along the frontage');
+  assert.eq(JSON.stringify(houseBarrels(houseFixture(f.tx, f.ty))), JSON.stringify(houseBarrels(houseFixture(f.tx, f.ty))), 'a reload lays the same');
+  // Occupied back cells pull a barrel onto the kerb cell — the last resort —
+  // never into the wall.
+  const g = houseFixture(f.tx, f.ty);
+  for (let x = 0; x < g.N; x++) g.spawnOpts.occupied.add(4 * g.N + x);
+  const back = northOf(g);
+  assert.eq(back.length, 2); assert.truthy(back.every(c => c.iy === 5), 'the kerb cell, only when nothing deeper is free');
+  // A frontage one cell deep (the wall at k = 2) stands its barrels on that cell.
+  const one = houseFixture(f.tx, f.ty);
+  for (const x of [3, 4, 5]) { one.grid[4 * one.N + x] = T.BUILDING; one.spawnWhy[4 * one.N + x] = WorldGen.SPAWN_WHY.TERRAIN; }
+  assert.truthy(northOf(one).every(c => c.iy === 5), 'a one-deep frontage uses its only cell');
+  // A Major-and-Medium kerb (the reward gate's KERB) refuses the seat.
+  const k = houseFixture(f.tx, f.ty);
+  for (let x = 0; x < k.N; x++) for (const y of [4, 5]) k.spawnWhy[y * k.N + x] |= WorldGen.SPAWN_WHY.KERB;
+  assert.eq(northOf(k).length, 0, 'none on a kerb');
+  // A themed street or a Major road dresses no house barrels.
+  assert.eq(houseBarrels(houseFixture(f.tx, f.ty, { variant: 'hedgerow' })).length, 0, 'a themed street');
+  assert.eq(houseBarrels(houseFixture(f.tx, f.ty, { size: 'major', variant: null })).length, 0, 'a Major road');
+});
+
+test('house barrels: one in ten seats stands a tier-1 crate, decided by the seat', () => {
+  assert.eq(SV.HOUSE_CRATE_SHARE, 0.1);
+  let all = 0, crates = 0;
+  for (let tx = 0; tx < 400; tx++) for (const o of houseBarrels(houseFixture(tx, 11))) {
+    all++;
+    if (o.crate) { crates++; assert.truthy(/^hcrate_/.test(o.id) && o.tierSeed === 1 && !o.barrel, 'a dead-end style crate'); }
+    else assert.truthy(o.barrel === true && /^hbarrel_/.test(o.id));
+  }
+  assert.gt(all, 300);
+  assert.inRange(crates / all, 0.06, 0.14, 'about a tenth are crates');
+});
+
+test('house barrels: a terrace rolls a house per frontage span', () => {
+  // One joined footprint along the whole north verge: rows 2-3, cols 1..10
+  // (ten samples) — two spans of HOUSE_FRONT_SPAN_CELLS, up to four barrels.
+  assert.eq(SV.HOUSE_FRONT_SPAN_CELLS, 6);
+  let most = 0;
+  for (let tx = 0; tx < 150; tx++) {
+    const f = houseFixture(tx, 9);
+    for (let x = 1; x < 11; x++) for (const y of [2, 3]) { f.grid[y * f.N + x] = T.BUILDING; f.spawnWhy[y * f.N + x] = WorldGen.SPAWN_WHY.TERRAIN; }
+    for (const x of [1, 2]) { f.grid[x] = T.GRASS; f.spawnWhy[x] = 0; }
+    const n = northOf(f).length;
+    assert.lte(n, 4); most = Math.max(most, n);
+  }
+  assert.gt(most, 2, 'a terrace stands more than one house\'s worth');
+});
+
+// ── Berry Lane / Berry Trail ─────────────────────────────────────────────
+// The lane on row 6 of vergeFixture (halfW half a cell): its bushes stand on
+// rows 5 and 7 (k = 1) or, where a seat is taken, rows 4 and 8 (walk 2).
+function berryLane(tx, variant = 'berry', key = `berry-${tx}`) {
+  const f = vergeFixture(variant);
+  f.index.dressingLines[0].key = key;
+  const d = SV.dress({ ...f, tx, ty: 0, tileEdgeM: f.N * 7,
+    spawnOpts: { roadMask: f.roadMask, spawnWhy: f.spawnWhy, occupied: new Set() } });
+  const cellOfM = v => Math.floor((v - 0) / 7);
+  const bushes = d.wildplants.filter(p => /^wp_berrylane_/.test(p.id))
+    .map(p => ({ ...p, ix: cellOfM(p.x - tx * f.N * 7), iy: cellOfM(p.y) }));
+  return { d, bushes, f };
+}
+test('berry lane: a Small-road row and a path row, appended last, bushes of every kind on both verges', () => {
+  const lane = SV.VARIANT_BY_ID.berry, trail = SV.VARIANT_BY_ID.berry_trail;
+  assert.eq(lane.size, 'minor'); assert.eq(lane.share, 0.05);
+  assert.eq(trail.size, 'path'); assert.eq(trail.pathWeight, 0.04);
+  assert.eq(lane.code, SV.STREET_VARIANTS.length - 1); assert.eq(trail.code, SV.STREET_VARIANTS.length);
+  assert.eq(lane.art, 'street_orchard', 'an existing painting');
+  assert.truthy(SV.VERGE_ROWS.berry === SV.VERGE_ROWS.berry_trail, 'one dressing for the lane and the trail');
+  let named = 0, plain = 0;
+  for (let i = 0; i < 20000; i++) {
+    if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'berry') plain++;
+    if (SV.variantFor(`s${i}|0,0`, `Blueberry ${i}`, 'minor') === 'berry') named++;
+  }
+  assert.gt(named, plain * 2, `a berry street is likelier a Berry Lane (${named} vs ${plain})`);
+  const counts = {}, total = { n: 0 };
+  let thorns = 0, gold = 0;
+  for (let tx = 0; tx < 300; tx++) {
+    const { bushes } = berryLane(tx, tx % 2 ? 'berry' : 'berry_trail');
+    for (const b of bushes) {
+      assert.truthy(b.iy !== 6 && Math.abs(b.iy - 6) <= 2, `on a verge: ${b.ix},${b.iy}`);
+      assert.truthy(['shrub', 'berry', 'poisonberry', 'goldenberry'].includes(b.crop), b.crop);
+      assert.truthy(b._street === 'berry' || b._street === 'berry_trail');
+      counts[b.crop] = (counts[b.crop] || 0) + 1; total.n++;
+      if (b._streetArt === 'bramble') { thorns++; assert.eq(b.crop, 'shrub', 'a thorn is a shrub in its bramble look'); }
+      if (b.crop === 'goldenberry') { gold++; assert.falsy(b._streetArt, 'a golden bush wears no other look'); }
+    }
+  }
+  assert.gt(total.n, 2000, 'both verges are lined');
+  for (const crop of ['shrub', 'berry', 'poisonberry']) assert.gt(counts[crop], total.n / 10, `${crop} bushes are common`);
+  assert.gt(thorns, total.n / 6, 'thorns are common too');
+  assert.lte(thorns / total.n, SV.BERRY_LANE_THORN_MAX, 'but never more than a third of the bushes');
+  assert.inRange(SV.BERRY_LANE_BUSHES.find(b => b.art === 'bramble').below - SV.BERRY_LANE_BUSHES[2].below, 0.3 - 1e-9, 0.3 + 1e-9, 'the table says so');
+  assert.inRange(gold / total.n, GOLDEN_BUSH_SHARE.street * 0.6, GOLDEN_BUSH_SHARE.street * 1.5, 'one bush in fifty is golden');
+  assert.eq(GOLDEN_BUSH_SHARE.street, 1 / 50);
+  const a = berryLane(7), b = berryLane(7);
+  assert.eq(JSON.stringify(a.bushes), JSON.stringify(b.bushes), 'a reload lays the same bushes');
+});
+
+test('berry lane: goblin runts hide behind the bushes — one-runt ambush posts, a third of them held', () => {
+  assert.eq(Lairs.STREET_TIER_GUARDS.street_berry, 1);
+  assert.eq(Lairs.KIND_ORDER.street_berry.join(','), 'goblin_runt');
+  assert.eq(SV.BERRY_RUNT_CHANCE, 1 / 3);
+  let posts = 0, lanes = 0;
+  for (let tx = 0; tx < 200; tx++) {
+    const { d } = berryLane(tx);
+    const runts = d.lairs.filter(l => l.tier === 'street_berry');
+    for (const r of runts) {
+      const iy = Math.floor(r.ly / 7);
+      assert.truthy(iy === 4 || iy === 8, `behind the bush row: row ${iy}`);
+    }
+    posts += runts.length; lanes++;
+  }
+  // The 63 m lane holds two 40 m posts (at 20 m and 60 m), a third of them held.
+  assert.inRange(posts / lanes, 0.45, 0.85, 'a third of the posts are held');
+  assert.eq(JSON.stringify(berryLane(3).d.lairs), JSON.stringify(berryLane(3).d.lairs), 'stable');
+  const N=64,edge=N*7,grid=new Uint8Array(N*N).fill(WorldGen.T.GRASS);
+  const entry={cellsPerEdge:N,grid,objects:[],buildingShapes:[],_spawnOpts:{occupied:new Set(),roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N)}};
+  const cand={tier:'street_berry',sid:'berry-runt-test',tx:0,ty:0,ox:0,oy:0,lx:32.5*7,ly:32.5*7,ix:32,iy:32,halfW:0,halfH:0};
+  const guards=Lairs.garrisonFor(entry,cand,{tileEdgeM:edge,caughtSet:new Set()});
+  assert.eq(guards.length,1);
+  assert.truthy(guards[0].kind==='goblin_runt'&&guards[0].ambush,'Lairs.GROUPS.street_berry: one ambusher');
 });
 })();

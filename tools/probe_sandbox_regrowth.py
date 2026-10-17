@@ -38,7 +38,7 @@ HARVEST = r"""() => {
    check(s.save.picked.includes(o.id),'tap harvest writes picked '+tag);
    const gain=count(o.crop)-before;check(gain===1,'exact yield '+tag+': '+gain);
    const deadline=s.save.grassRegrowth?.[o.id]||null;
-   check(tag==='grass-wild'?deadline>Date.now():deadline===null,'regrowth eligibility '+tag);
+   check(tag!=='grass-owned'?deadline>Date.now():deadline===null,'regrowth eligibility '+tag);
    // A full tap on empty harvested ground may legitimately start tilling.
    // Isolate the repeated harvest attempt to distinguish sting from till cost.
    const energyAfter=s.save.energy;

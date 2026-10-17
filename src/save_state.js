@@ -138,17 +138,28 @@
     return needsPersist;
   }
 
-  // Remember only grass: generated wildplant ids can also name valuable crops,
-  // bushes and barriers, so a prefix test on `picked` would revive those too.
-  // An exponential waiting time has a two-real-day mean, independent of play
-  // frequency. Persist the roll once; reloads must never reroll its deadline.
+  // THE WILD PLANTS THAT GROW BACK (WILD_REGROWTH): a crop → the mean of its
+  // exponential waiting time. Long grass and the herbs (the wild flowers,
+  // PetNip, the nettle) share the two-real-day mean, independent of play
+  // frequency. Only these crops: generated wildplant ids can also name
+  // valuable crops, bushes and barriers, so a prefix test on `picked` would
+  // revive those too. Persist the roll once; reloads must never reroll its
+  // deadline. The save field keeps its grass name (`grassRegrowth`).
   const GRASS_REGROWTH_MEAN_MS = 2 * 24 * 60 * 60 * 1000;
+  const WILD_REGROWTH = Object.freeze({
+    longgrass: GRASS_REGROWTH_MEAN_MS,
+    flowers: GRASS_REGROWTH_MEAN_MS, forgetmenot: GRASS_REGROWTH_MEAN_MS, marigold: GRASS_REGROWTH_MEAN_MS,
+    wildrose: GRASS_REGROWTH_MEAN_MS, starflower: GRASS_REGROWTH_MEAN_MS,
+    petnip: GRASS_REGROWTH_MEAN_MS, nettle: GRASS_REGROWTH_MEAN_MS,
+  });
+  // Does a cleared plant of this crop grow back on its own (a row above)?
+  function regrows(crop) { return Object.hasOwn(WILD_REGROWTH, crop); }
   function rememberClearedGrass(save, plant, now = Date.now(), random = Math.random) {
-    if (plant?.crop !== 'longgrass' || !plant.id || plant.playerOwned) return false;
+    if (!plant || !regrows(plant.crop) || !plant.id || plant.playerOwned) return false;
     const deadlines = save.grassRegrowth ||= {};
     if (Number.isFinite(deadlines[plant.id])) return false;
     const roll = Math.max(0, Math.min(1 - Number.EPSILON, random()));
-    deadlines[plant.id] = now + Math.max(1, -Math.log1p(-roll) * GRASS_REGROWTH_MEAN_MS);
+    deadlines[plant.id] = now + Math.max(1, -Math.log1p(-roll) * WILD_REGROWTH[plant.crop]);
     return true;
   }
   function regrowGrass(save, now = Date.now()) {
@@ -185,5 +196,5 @@
   }
 
   root.SaveState = { SAVE_DEFAULTS, defaults, normalize, hasPlayed,
-    GRASS_REGROWTH_MEAN_MS, rememberClearedGrass, regrowGrass };
+    GRASS_REGROWTH_MEAN_MS, WILD_REGROWTH, regrows, rememberClearedGrass, regrowGrass };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

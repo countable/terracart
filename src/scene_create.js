@@ -585,10 +585,6 @@ class SceneCreate {
     try { this.lightTex.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) { /* Canvas: no texture filter */ }
     this.lightMap = this.add.image(this.viewLeft, this.viewTop, 'lightmap')
       .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.MULTIPLY);
-    // ?noLight=1 (device probe): leave the lightmap undrawn.
-    if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('noLight') === '1') {
-      this.lightMap.setAlpha(0);
-    }
     // PARTICLE BURSTS (src/particles.js) — the one-shot puffs: gold stars off
     // a jackpot / shiny banner, pale chips off a street coming back, leaf
     // flecks off a crop reaching its next stage. ABOVE the lightmap because a
@@ -979,11 +975,6 @@ class SceneCreate {
     this.labelContainer.setMask(mask);
     this.tierGfx.setMask(mask);
     this.fogContainer.setMask(mask);
-    // ?noMask=1 (device probe): drop the stencil clip from every world layer.
-    // The camera viewport and the round heading-up window still bound the map.
-    if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('noMask') === '1') {
-      for (const o of this.children.list) if (o.mask === mask) o.clearMask();
-    }
 
     // Work-progress wheel — drawn above all world objects, not masked.
     this._workProgressGfx = this.add.graphics().setDepth(95);
@@ -1354,7 +1345,6 @@ class SceneCreate {
     };
     this.input.on('pointerup', endMapPointer);
     HeadingUp.install(this);
-    HeadingUp.installPropDebug(this);
     // A touch that ends off the canvas (or is stolen by the browser) never
     // reaches 'pointerup'. Without this the drag would stay latched and the
     // next tap would be swallowed as its release.

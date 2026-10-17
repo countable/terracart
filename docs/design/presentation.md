@@ -19,6 +19,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   Use `var(--font-ui)` for DOM text and `phaserFontUI()` / `FONT_UI_STACK` for Phaser
   text, including books, speaker names, compass letters and decorative glyphs.
   Do not add serif or monospace overrides. Numeric counters use tabular figures.
+  Never hand Phaser a `font:` shorthand string with this stack: Phaser cuts the
+  family at its first comma, the canvas rejects the broken shorthand and draws
+  the text at its own 10px regular, so the size in the string never shows.
+  Toast tiers (`TOAST_TIER`) all set bold 10px for that reason.
 
 - Reward acknowledgments and safety reminders use an explicit OK button;
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages

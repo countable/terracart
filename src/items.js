@@ -61,6 +61,10 @@ const CROP_SPRITE = {
   // The wild poisonberry: the same bush, its berries teal (textures.js
   // makeBerryBushTexture). Wild only — no seed, no growth stages.
   poisonberry: { ...BUSH_SPRITE, texture: 'bushes_poisonberry' },
+  // THE GOLDEN BERRY BUSH: the same bush, its berries gold — rare (items.js
+  // goldenBushCrop: GOLDEN_BUSH_SHARE of a Berry Lane's bushes, a sixth of
+  // that of every other bush placement). Wild only.
+  goldenberry: { ...BUSH_SPRITE, texture: 'bushes_goldenberry' },
   cress:  { sheet: 'springcrops', row: 3 },   // spoon-leaf watercress
   onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
   // Long grass — item id 'longgrass', display name 'Long grass'. Props.png
@@ -241,6 +245,7 @@ function wildplantFrame(p) {
 // no treasure and casts no light.
 const WILDPLANT_RULES = {
   berry: { pickedCrop: 'shrub' },
+  goldenberry: { pickedCrop: 'shrub' },
   // `sting`: picking it hurts — `energy` off the bar as a bare-handed blow
   // (scene _sting: Combat.playerDamage, no armour) and `line` at the plant.
   nettle: { sting: { energy: 7, line: 'Ouch!' } },
@@ -276,6 +281,19 @@ const WILDPLANT_RULES = {
   mushroom:  { light: 'mushroom' },
 };
 function wildplantRule(crop) { return WILDPLANT_RULES[crop] || null; }
+// THE GOLDEN BERRY BUSH: a bush placement (BUSH_CROPS — a shrub, a berry or
+// a poisonberry bush) whose id hashes under its share is the rare golden
+// berry bush instead — GOLDEN_BUSH_SHARE.street of a Berry Lane's bushes
+// (street_variants.js berryLaneBush), .wild of every other ambient bush the
+// world seats (WorldGen.ambientBush: the biome scatter, yards, park pads,
+// mapped tree rows, plain verges — never an authored zone, hedge or thicket
+// piece). One salt for both, so the wild roll is a subset of the lane's: a
+// lane bush never rolls twice.
+const BUSH_CROPS = new Set(['shrub', 'berry', 'poisonberry']);
+const GOLDEN_BUSH_SHARE = Object.freeze({ street: 1 / 50, wild: 1 / 150 });
+function goldenBushCrop(crop, id, share = GOLDEN_BUSH_SHARE.wild) {
+  return BUSH_CROPS.has(crop) && id != null && hash01(`${id}|golden`) < share ? 'goldenberry' : crop;
+}
 // Can a plant of this crop be a nest bush at all (its row's `nest`)?
 function wildplantNests(crop) { return !!wildplantRule(crop)?.nest; }
 // THE NEST BUSH: a nesting crop whose id hashes under SHINY_RATE.nest — the
@@ -649,6 +667,8 @@ const MINERAL_ICON_SHEET = {
   evertorch:     { sheet: 'icon_torch', frame: 0, filter: 'hue-rotate(180deg) saturate(1.4)' },
   // The berry's own produce icon, its red turned the bush's teal.
   poisonberry:   { sheet: 'springcrops', frame: 1 * SPRING_CROPS_COLS + 8, filter: 'hue-rotate(190deg) saturate(1.3)' },
+  // The berry's icon turned gold.
+  goldenberry:   { sheet: 'springcrops', frame: 1 * SPRING_CROPS_COLS + 8, filter: 'hue-rotate(50deg) saturate(1.6) brightness(1.15)' },
   // Cutters from the db32 item library; the tool removes traps, not a backpack.
   trap_disarm_kit:      { sheet: 'icon_kit', frame: 0 },
   // The existing sprung-jaw drawing in the placed magic trap's magenta.
@@ -786,6 +806,7 @@ const BASE_TIER = {
   // shiny-find bonus and loot-value scaling.
   forgetmenot: 2, marigold: 3, wildrose: 3, starflower: 5,
   poisonberry: 2,
+  goldenberry: 5,
   egg: 2, milk: 3,
   // Fish span the loot ladder, with gaps of at most two tiers.
   minnow: 1, bass: 2, trout: 4, salmon: 5, goldenfish: 7,
@@ -1146,6 +1167,10 @@ const ITEMS = [
   // Wild poisonberry (forest and wetland bushes, pickable). Eaten, it
   // poisons you; offered to an enemy or a pet, it poisons that (interact.js).
   { id: 'poisonberry',  name: 'Poisonberry',  kind: 'produce', crop: 'poisonberry' },
+  // The rare golden berry (a Berry Lane's bushes, now and then any bush).
+  // Eaten, a mouthful; offered to a foe, it charms it (CONSUMABLE_SPEC
+  // `charmsFoe`, interact.js) — a minute less its tier squared in seconds.
+  { id: 'goldenberry',  name: 'Golden berry',  kind: 'produce', crop: 'goldenberry' },
   // Fish (caught by Fishing Rod on water tiles). dropWeight: 0.4 trims their
   // share within the (produce, tier) pool so chest loot reads as mostly crops
   // and fruit, with fish as an occasional aquatic surprise rather than the
@@ -1290,6 +1315,12 @@ const CONSUMABLE_SPEC = {
   // `feedsFoe`: offered to an enemy or a pet (interact.js), that creature
   // takes the condition instead (Combat.poison — the Poison Flask's minute).
   poisonberry: { condition: 'poison', feedsFoe: true },
+  // `charmsFoe`: offered to an enemy (interact.js), it takes the `charm`
+  // status (Combat.applyCharm — the thrown Potion of Taming's, fighting
+  // beside you and, charmed, never fleeing the net) for charmFeedMs: a
+  // minute less its tier squared in seconds; a wild animal takes the calm
+  // of the same length. Eaten, it is only a mouthful.
+  goldenberry: { charmsFoe: { minuteMs: _CONSUMABLE_MINUTE_MS, tierSquaredMs: 1000 } },
   orb: {
     chestRevealMs: 6000,
     immediate: true, reusable: true,
@@ -1698,6 +1729,14 @@ const CONSUMABLE_SPEC = {
     secondary: { label: 'Up', method: 'useRopeUp', disabled: scene => !(scene.depth > 0) },
   },
 };
+// How long a golden berry (CONSUMABLE_SPEC `charmsFoe`) holds `kind`: its
+// minute less the kind's roster tier squared, in seconds — a runt's 59 s, a
+// T3 goblin's 51, a T7 lord's 11; an animal (no tier) the whole minute.
+// Never below zero: a kind too high is simply not charmed.
+function charmFeedMs(kind, spec = CONSUMABLE_SPEC.goldenberry.charmsFoe) {
+  const tier = (typeof EnemyRoster !== 'undefined' && EnemyRoster.get(kind)?.tier) || 0;
+  return Math.max(0, spec.minuteMs - tier * tier * spec.tierSquaredMs);
+}
 
 // The throwables' button (see the rows): one install, read at click time.
 for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
@@ -1888,6 +1927,7 @@ const PRICES = {
   // ── Wild mushroom ────────────────────────────────────────
   mushroom: 5,
   poisonberry: 6,
+  goldenberry: 60,
   // ── Fish ─────────────────────────────────────────────────
   minnow: 3,    bass: 18,   trout: 60,   salmon: 150, goldenfish: 450,
   // ── Orchard fruit ────────────────────────────────────────
@@ -2026,6 +2066,7 @@ const ITEM_EFFECTS = {
   pairy: 'Its sweetness leaves a glimmer of buried treasure behind your eyes.',
   dawnfruit: 'A clear dawn fills your sight when you bite through its skin.',
   poisonberry: 'Teal and bitter. Whoever swallows it sickens — you, or any creature you feed it to.',
+  goldenberry: 'Gold and sweet. A foe that eats one fights beside you for a while, and will not run from your net.',
   miracle_lettuce: 'Its crisp leaves leave you feeling unusually lucky.',
   horse: 'It stamps and tosses its head, impatient for the open road.',
   coffee: 'A roasted warmth sets your feet itching for the road.',
@@ -2182,6 +2223,7 @@ const FOOD_ENERGY = {
   milk:       52,
   mushroom:   21,
   poisonberry: 3,   // a mouthful, then the poison's minute
+  goldenberry: 4,   // a mouthful; its charm is for a foe's mouth
   apple:      16, cherry: 18, worldpeach: 16, banana: 23, orange: 16, mango: 26, coconut: 23, apricot: 13,
   minnow:      7, bass: 20, trout: 60, salmon: 100, goldenfish: 180,
   meat:       59,   // hunted from deer; dog favourite

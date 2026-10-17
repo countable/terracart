@@ -1141,6 +1141,35 @@ const SHINY_GLOW_PADDING = 12; // texture pixels reserved around the silhouette
 // A shiny wears the gold glow and the sweep; an elite (glow false) the sweep
 // alone over its baked vivid sheet (Render.vividTexture), so the rune circle
 // and the creature's own art read clearly.
+// Phaser 3.87's PreFX pipeline (the shine sweep and glow Render.setShine
+// attaches) draws the sprite into its full-size FX target, then every FX
+// pass into the small square targets, with the camera's SCISSOR still on.
+// A camera over the whole canvas scissors nothing, so Phaser never notices.
+// This game's main camera is the map square (_applyMapZoom's setViewport —
+// every zoom but 1, and every heading-up turn), whose scissor is a band of
+// canvas rows: it cuts the sprite in the full-size target along a straight
+// line and empties the small targets, so a shiny prop vanishes or shows a
+// slice of itself as the camera moves (the clipped-rock report). Lift the
+// scissor for the pipeline's quad and put it back for the next ordinary
+// batch; the circle mask is a stencil, which the pipeline restores itself,
+// so the copy back to the game still clips to the map. Patched on the
+// prototype, once, so the FX pipeline instance picks it up at call time.
+Render.guardPreFxScissor = function guardPreFxScissor(PhaserNS = typeof Phaser !== 'undefined' ? Phaser : null) {
+  const proto = PhaserNS?.Renderer?.WebGL?.Pipelines?.PreFXPipeline?.prototype;
+  if (!proto || typeof proto.batchQuad !== 'function') return false;
+  if (proto._scissorGuarded) return true;
+  const batchQuad = proto.batchQuad;
+  proto.batchQuad = function guardedBatchQuad() {
+    const gl = this.gl;
+    const had = !!gl && gl.isEnabled(gl.SCISSOR_TEST);
+    if (had) gl.disable(gl.SCISSOR_TEST);
+    try { return batchQuad.apply(this, arguments); }
+    finally { if (had) gl.enable(gl.SCISSOR_TEST); }
+  };
+  proto._scissorGuarded = true;
+  return true;
+};
+
 Render.setShine = function setShine(s, on, id, glow = true) {
   const fx = s && s.preFX;
   if (!fx) return false;
@@ -4514,6 +4543,11 @@ Render.drawObjects = function drawObjects(scene) {
   // version of the same slab — smaller and dimmer, but still a marked place —
   // instead of skipping it outright. Genuine loose supply crates (o.crate,
   // no poiClass) get no pad at all: they're a transient pickup, not a place.
+  // Neither does a generated loot barrel (o.barrel, no poiClass — a house
+  // barrel on a Small-street verge, industrial salvage, a gang's stack): it
+  // is smashed for its loot and stands for no real place, so it carries no
+  // "a place lives here" slab. A bin POI (waste_basket / recycling, loot.js
+  // isPoiBarrel) keeps its mini pad: there is an OSM place behind it.
   // Pads persist even when the chest is opened — only the chest itself disappears.
   const padList = [];
   for (const item of objList) {
@@ -4529,7 +4563,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (produceStandFor(o) || macroFor(o)) continue;
     const shapeKey = padShapeKeyForPoi(o.poiClass);
     if (!shapeKey) {
-      if (o.crate) continue;
+      if (o.crate || o.barrel) continue;
       padList.push({ o, dx, dy, texKey: 'pad_round1', shape: PAD_SHAPES.round1, mini: true });
       continue;
     }
@@ -4564,8 +4598,13 @@ Render.drawObjects = function drawObjects(scene) {
     if (shrine) {
       s.setOrigin(0.5, 0.5).setScale(CELL_PX / SHRINE_PAD.sizePx)
         .setPosition(Math.round(sx), Math.round(sy)).setAlpha(1).clearTint();
+      // The plinth is drawn for a south camera (its masonry face at the
+      // bottom), so heading-up turns it back about its cell centre like a
+      // contact shadow; the anchor is the opt-in (HeadingUp._preRender).
+      s._huAnchor = { x: Math.round(sx), y: Math.round(sy) };
       return;
     }
+    s._huAnchor = null;
     // Origin = the chest cell's centre within the pad image, so that the
     // pad's chest cell sits exactly at the chest's ground point (sx, sy).
     const [cc, cr] = shape.chest;
@@ -5681,10 +5720,13 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // Bike racks use their original small-prop scale. Wooden barrels use a
   // 24px frame at half their former size, including the smashed frame.
   const SMALL_POI_SCALE = 1.3;
-  const BARREL_SCALE = 2 / 3;
+  // Barrels read too small and pots too big beside each other at 2/3 and
+  // (4/3)*0.8 (owner, Oct 2026, two passes of 5% each); the two factors
+  // below are that correction.
+  const BARREL_SCALE = (2 / 3) * 1.1;
   // Clay pots (and their smashed frame, the same look) drew at 4/3 and read a
   // fifth too large beside the barrels; 20% off that, per the Oct 2026 pass.
-  const CLAY_POT_SCALE = (4 / 3) * 0.8;
+  const CLAY_POT_SCALE = (4 / 3) * 0.8 * 0.9;
   // The broken WAGON an old-trade-road bus stop wears (loot.js chestLook): the
   // compact 32×32 frame fits within a 2×2-cell footprint at the usual prop
   // scale. Its one blank bottom row seats the wheels above the anchor edge.

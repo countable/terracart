@@ -116,6 +116,18 @@ test('heading up: object labels share cell pivots and footprint offsets', () => 
   assert.eq(home.x, 107); assert.eq(home.y, 146);
 });
 
+test('heading up: shrine pedestal turns back about its cell centre, flat pads do not', () => {
+  const scene = huScene(Math.PI / 2);
+  const plinth = huSprite({ type: 'Image', x: 120, y: 130, originY: 0.5, _huAnchor: { x: 120, y: 130 } });
+  const disc = huSprite({ type: 'Image', x: 160, y: 130, originY: 0.5, _huAnchor: null });
+  scene.padContainer = { list: [plinth, disc] };
+  HeadingUp._preRender(scene);
+  huNear(plinth.x, 120); huNear(plinth.y, 130); huNear(plinth.rotation, -Math.PI / 2);
+  assert.eq(disc.rotation, 0); assert.eq(disc.x, 160);
+  HeadingUp._postRender(scene);
+  assert.eq(plinth.rotation, 0); assert.eq(plinth.x, 120); assert.eq(plinth.y, 130);
+});
+
 test('heading up: contact shadows rotate about centre and captions keep origin', () => {
   const scene = huScene(Math.PI / 2);
   const shadow = huSprite({ type: 'Image', x: 120, y: 130, originY: 0.5 });
