@@ -59,6 +59,14 @@ North-up mode retains the existing wall atlas artwork.
 
 ## Coordinates, rendering and performance
 
+Enemy roster sheets load when their kind enters the active creature bubble, before
+viewport culling; a depth change or new spawn uses the same path. Sheets needed
+for boot-baked inventory portraits remain eager. The loader deduplicates requests
+and retains its single retry and palette hooks. During a cold transition the
+actor uses a neutral warning marker until its own sheet arrives; the next
+draw restores its directional/attack frame. Pet and elite recoloring waits for
+the real source so a missing texture cannot become a permanent cached palette.
+
 - `Render.drawSpiderWebs` draws cell-sized ground silk below characters and
   a strand from the fixed launch point to the moving projectile tip above
   the world. It reuses two graphics layers, culls to the viewport and clears
