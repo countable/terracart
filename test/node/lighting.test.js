@@ -902,7 +902,7 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
     'the map is drawn last, from the camera anchor drawObjects measures with');
 });
 
-test('lighting: the map multiplies, the cookies add, and the plateau is per cell', () => {
+test('lighting: the map multiplies, the cookies add, and the plateau is circular', () => {
   const a = SCENE_SRC;
   assert.truthy(/this\.lightTex = Render\.viewportCanvas\(this, 'lightmap', 0\)\.tex;/.test(a), 'the lightmap is a viewport canvas texture (the one layer shell)');
   assert.truthy(/this\.lightMap = this\.add\.image\(this\.viewLeft, this\.viewTop, 'lightmap'\)\s*\n\s*\.setOrigin\(0, 0\)\.setBlendMode\(Phaser\.BlendModes\.MULTIPLY\)/.test(a),
@@ -914,13 +914,24 @@ test('lighting: the map multiplies, the cookies add, and the plateau is per cell
   assert.truthy(/ctx\.fillStyle = cssOf\(prof\.ambient\)/.test(L), 'the floor is the derived ambient');
   assert.truthy(/scene\.playerScreen\(\)/.test(L), 'the ramp is centred on the feet-on-the-fix point');
   assert.truthy(/tex\.refresh\(\)/.test(L), 'and the texture is refreshed each frame');
-  // The plateau uses cellInReach's own expressions (whole cells from the reach
-  // cell, by position across a row whose grid differs — coords.js
-  // absCellDelta — then the metre test), and every lit cell passes it.
-  assert.truthy(/const d = absCellDelta\(scene, rp\.cellIX, rp\.cellIY,/.test(L)
-    && /const ddx = d\.dx \* scene\.cellM;/.test(L) && /return ddx \* ddx \+ ddy \* ddy <= reachM2;/.test(L),
-    'the plateau cells are picked by the reach test, not a circle');
-  assert.truthy(/if \(!inReach\(col, row\)\) continue;/.test(L), 'every lit cell passes it');
+  const begin = L.indexOf('  function reachCellsPath(');
+  const end = L.indexOf('  function paintReachMask(', begin);
+  const draw = new Function('absCellScreenCentre', 'CELL_PX',
+    L.slice(begin, end) + '; return reachCellsPath;')(
+    () => ({ x: 120, y: 90 }), 32);
+  const arcs = [];
+  draw({ beginPath() {}, arc(...args) { arcs.push(args); }, closePath() {} },
+    { cellM: 5 }, 10, 20, { cellIX: 0, cellIY: 0 }, {}, 13.5);
+  assert.eq(arcs.length, 1, 'one circle replaces the cell union');
+  assert.eq(arcs[0][0], 110, 'circle follows the reach cell with camera offset');
+  assert.eq(arcs[0][1], 70, 'vertical camera offset');
+  assert.eq(arcs[0][2], 13.5 / 5 * 32, 'full interaction radius');
+  for (let x = -4; x <= 4; x++) for (let y = -4; y <= 4; y++) {
+    if (Math.hypot(x, y) * 5 > 13.5) continue;
+    assert.lt(Math.hypot(Math.max(0, Math.abs(x) - .5),
+      Math.max(0, Math.abs(y) - .5)) * 32, arcs[0][2],
+      'every reachable cell has positive area inside the circle');
+  }
 });
 
 test('lighting: dimmed reach indicator transfers its light to the smooth player glow', () => {

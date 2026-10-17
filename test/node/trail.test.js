@@ -654,23 +654,23 @@ test('streets: two seconds in the bubble and the stretch in reach comes back', (
     const got = restoredM(s);
     assert.gt(got, 0, 'the reach really does cover some street');
     // EXACTLY the cells the lit reach area covers, no more: the reach is
-    // 2.5 cells + 1 m, so on the player's own row that is cells 23..27 — five
-    // cells, 35 m — and the arclength along this way IS its x in metres.
+    // 2.5 cells + 1 m, overlapping cells 22..28 on the player's row — seven
+    // cells, 49 m — and the arclength along this way IS its x in metres.
     const iv = restoredIvs(s, WorldGen.tileKey(0, 0));
     assert.eq(iv.length, 1, 'one line, one row in the save');
     assert.eq(iv[0].length, 1, 'and one unbroken stretch of it');
     const [a, b] = iv[0][0];
-    assert.inRange(a, 23 * CELL_M - 0.01, 23 * CELL_M + 0.01, 'starts at the western rim cell');
-    assert.inRange(b, 28 * CELL_M - 0.01, 28 * CELL_M + 0.01, 'and ends at the eastern one');
-    assert.inRange(got, 35 - 0.01, 35 + 0.01, 'five cells of street');
+    assert.inRange(a, 22 * CELL_M - 0.01, 22 * CELL_M + 0.01, 'starts at the western rim cell');
+    assert.inRange(b, 29 * CELL_M - 0.01, 29 * CELL_M + 0.01, 'and ends at the eastern one');
+    assert.inRange(got, 49 - 0.01, 49 + 0.01, 'seven partially or fully lit cells of street');
     // Every restored metre is inside the lit reach, measured the way the
     // outline is: no metre may come back that the player could not have
     // touched.
     const reachM = reachRadiusM(s);
     const p = playerReachCell(s);
     assert.lte(Math.abs(b - MID_M), reachM + CELL_M, 'nothing past the bubble');
-    assert.truthy(cellInReach(s, p.cellIX + 2, p.cellIY), 'the rim cell is in reach');
-    assert.falsy(cellInReach(s, p.cellIX + 3, p.cellIY), 'the one past it is not');
+    assert.truthy(cellInReach(s, p.cellIX + 3, p.cellIY), 'the rim cell is in reach');
+    assert.falsy(cellInReach(s, p.cellIX + 4, p.cellIY), 'the one past it is not');
 
     // The ladder banked exactly what came back.
     assert.inRange(s.save.trail.metres, got - 0.01, got + 0.01, 'the metres are the ladder');
@@ -912,7 +912,7 @@ test('streets: the prize fires at two hundred metres, wherever they were restore
     // street and the ceremony beside it print the same rung.
     assert.eq(s.toasts[0].text, Trail.label(Trail.GOAL_STEP_M, Trail.GOAL_STEP_M),
       'the counter reads the completed goal');
-    assert.inRange(s.save.trail.metres, 14.99, 15.01, 'with the remainder carried');
+    assert.inRange(s.save.trail.metres, 28.99, 29.01, 'with the remainder carried');
   });
 });
 

@@ -384,7 +384,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 Surface daylight follows the player's local sun with a 30-minute extension at
 both dawn and dusk. Nighttime ambient luminance is 10% brighter, blending back
-to the existing noon level. Underground lighting is unchanged.
+to the existing noon level. The circular reach indicator keeps half its added
+light; the smooth player glow carries the other half, preserving nearby
+brightness on the surface and underground. This compensation fades beyond
+the reach rim within the existing player-light radius.
 
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
@@ -433,7 +436,7 @@ to the existing noon level. Underground lighting is unchanged.
   the opt-in GPU compositor below consumes the same shapes and fade weights.
   Do not add darkness passes or dim sprites
   again. Its screen-attached base (ambient plus player ramp) stays baked while
-  walking; transparent, padded reach-cell masks crop with the camera and rebuild
+  walking; transparent, padded circular reach masks crop with the camera and rebuild
   only when their geometry or validity edge changes. If the normal validity edge
   lands on `drawCells`' crossing frame, the mask borrows the remaining physical
   pad once and rebuilds on the next ordinary frame; it never crops past the
@@ -446,12 +449,15 @@ to the existing noon level. Underground lighting is unchanged.
   a fade needs more than four masks. Surplus canvases are released as it settles. Stable world cookies join padded caches
   by their exact whole-pixel phase. Player-attached, breathing, flickering and
   transient lights keep the individual stamp path. The full-frame key gates
-  before every canvas call. Reach lighting follows `cellInReach`; light conveys
-  reach and live POIs without outline rings. The radial player glow uses
-  `PLAYER_OUTPUT_K = 0.44`; the added reach-cell light is halved by
+  before every canvas call. Reach lighting uses a circle centred on the reach cell with the interaction
+  radius. `cellInReach` accepts a cell exactly when its square overlaps the
+  circle; tangency alone does not count. Each Inner Light upgrade crosses only
+  the next overlap threshold, unlocking tied cells together. Depth and blindness
+  adjust the base radius before upgrades, so every upgrade adds reachable cells; light conveys reach and live POIs without outline rings. The radial player glow uses
+  `PLAYER_OUTPUT_K = 0.44`; the added circular reach light is halved by
   `REACH_OUTPUT_K = 0.5`. The smooth player glow carries the removed half,
   preserving nearby brightness on the surface and underground. It fades beyond
-  the reach rim within the existing light radius; interaction distance is unchanged.
+  the reach rim within the existing light radius.
   Day/night leaves the reach plateau bright;
   caves ignore it.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors
