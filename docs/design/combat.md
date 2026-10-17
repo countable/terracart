@@ -168,6 +168,13 @@ mechanics.
   skips harmful floor contact (including holes, flames and traps), while gases,
   attacks and existing conditions still affect the flyer. A second dose adds a minute.
   Naturally flying enemies carry `permanentBuffs: ['flight']` on their roster row.
+  An `orbit_swoop` flier flies eased legs round its target and swoops every
+  few; a row's `movement.erratic` block (the bats, and the hive bee that
+  shares the bat's row) lets the orbit turn about (`reverseChance`), spreads
+  the advance (`angleSpread`) and bows each leg sideways (`jinkCells`), the
+  bow budgeted so the peak pace stays under the row's speed
+  (`creature_ai.js` `enemyBatMove`). The bow rides the multiplayer flight
+  snapshot as an optional vector; a peer without it flies the leg straight.
   `SpriteLayout.creatureAirborne` inherits that flag for variants and summoned
   wraiths and includes airborne fauna; the same `Conditions.flying` gate covers
   them without saving an infinite potion expiry or showing an infinite countdown.
@@ -253,7 +260,12 @@ mechanics.
   (`UNIVERSAL_FAVOURITE`, read in `animalLikesFood`). The Sugar Potion (T2,
   two berries at Home) is the cheap half: offered, thrown or set out, it lands
   the `calm` status (`Combat.calm`, animals only) and the animal does not
-  bolt, flee a blow or run from the net while it holds. Giving a wild one its favourite starts
+  bolt, flee a blow or run from the net while it holds. A golden berry
+  (`CONSUMABLE_SPEC.goldenberry.charmsFoe`) offered to an enemy lands the
+  `charm` status through `Combat.applyCharm` for `charmFeedMs`: a minute less
+  the kind's tier squared in seconds (a runt 59 s, a T3 goblin 51 s, never
+  below zero); a wild animal takes the calm of the same length. A charmed body
+  reads as calm (`Combat.isCalm`), so it does not flee the net either. Giving a wild one its favourite starts
   a catch attempt (`Pets.catchMs`: current HP × 2 at the net's tool rate)
   while it flees for the edge of reach; no attack runs and it is no one's
   enemy until the attempt ends. A refused item is never consumed. Story foes

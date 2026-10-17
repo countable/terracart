@@ -23,7 +23,14 @@ body.compass-hud #energy-bar {display:none;}
 .compass-energy-needle {position:absolute;left:calc(50% - 1.5px);bottom:17px;width:3px;height:25px;background:#f6e4a3;transform-origin:bottom;transform:rotate(var(--energy-angle,0deg));border-radius:2px;box-shadow:0 0 2px #192e36;}
 body.compass-hud #menu {left:calc(var(--phone-left,0px) + 10px);top:16px;z-index:8;}
 body.compass-hud #menu summary {width:44px;height:44px;background:linear-gradient(#f5e6ae,#baa05a);border:3px ridge #d7c48a;border-radius:50%;font:26px var(--font-ui);color:#54451f;box-shadow:0 2px 5px #31444a;}
-body.compass-hud #mode-badge,body.compass-hud #mp-btn,body.compass-hud #status-row {display:none!important;}
+body.compass-hud #mode-badge,body.compass-hud #mp-btn {display:none!important;}
+/* THE STATUS ROW (app.js _syncStatusRow, STATUS_ROW_CSS): statuses, buffs and
+   timers as chips on the footer plate — left of the joystick, under the zoom
+   slider, clear of the round map (owner, Oct 2026: the skin had hidden them).
+   Wraps into rows from the top-left; clipped above the inventory tabs. The
+   objective bubble never re-seats it here (the top anchor is the skin's). */
+body.compass-hud #status-row {top:calc(var(--compass-map-top) + var(--compass-map-size) + 34px);bottom:212px;left:calc(var(--phone-left,0px) + 12px);right:auto;width:226px;flex-direction:row;flex-wrap:wrap;align-items:flex-start;align-content:flex-start;justify-content:flex-start;overflow:hidden;}
+@media (max-height:650px) {body.compass-hud #status-row {top:calc(var(--compass-map-top) + var(--compass-map-size) + 6px);bottom:186px;width:200px;}}
 body.compass-hud #objective {z-index:9;top:118px;}
 body.compass-hud #hud {top:auto;bottom:174px;color:#20353a;text-shadow:0 1px #d1d8d1;font-size:10px;}
 body.compass-hud #inv-tabs,body.compass-hud #inv {background:transparent!important;}

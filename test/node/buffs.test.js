@@ -106,6 +106,12 @@
     assert.truthy(/#status-row \{\n  position: fixed;\n  top: calc\(8px \+ env\(safe-area-inset-top, 0px\) \+ var\(--hud-chip-h\) \+ 6px\);/.test(app),
       'seated one chip height under the HUD row');
     assert.truthy(/body\.modal-open #status-row \{ opacity: 0\.25; \}/.test(app), 'dimmed with the HUD chips under a dialog');
+    // The compass skin SEATS the row (on the footer plate, left of the
+    // joystick) — it had hidden it (owner, Oct 2026: "we no longer show buffs").
+    assert.falsy(/#status-row[^\n]*display:none/.test(COMPASS_CSS_SRC), 'the compass skin never hides the status row');
+    assert.truthy(/body\.compass-hud #status-row \{top:calc\(var\(--compass-map-top\) \+ var\(--compass-map-size\) \+ 34px\);bottom:212px;left:calc\(var\(--phone-left,0px\) \+ 12px\);right:auto;width:226px;flex-direction:row;flex-wrap:wrap;/.test(COMPASS_CSS_SRC),
+      'seated under the map on the footer plate, wrapping into rows');
+    assert.truthy(/&& !document\.body\.classList\.contains\('compass-hud'\);/.test(body), 'the objective bubble never re-seats it under the compass skin');
     assert.falsy(/TimerText|_tickBuffTimers|buffTimerTexts/.test(app), 'nothing is drawn over the player\'s head');
     assert.falsy(/boonRemainingMs|shrineBoon = /.test(app + Object.values(Shrines).join('')), 'the last-boon countdown is gone');
   });

@@ -391,10 +391,16 @@
     { name: 'Abbey Walk', class: 'minor', type: T.ROAD, y: 7, thick: 1, x0: 0, x1: 23, variant: 'pilgrim' },
     { name: 'Coin Row', class: 'minor', type: T.ROAD, y: 10, thick: 1, x0: 0, x1: 23, variant: 'golden' },
     // Clear of the Ancient Highway's kerb buffer, which refuses every thorn
-    // ray (at y 35 the lane drew no brambles at all); the plain Market Close
-    // takes the row beside the highway instead.
+    // ray (at y 35 the lane drew no brambles at all) and every reward seat
+    // (Kiln Row's pots): Berry Lane's bushes are scenery, so it takes the
+    // row beside the highway; the pots stand a row further down and Trade
+    // Row (Market Close — the name fits) takes the scene's last row. The
+    // plain Small street for comparison is the Residential scene's Maple
+    // Street.
     { name: 'Thorny Way', class: 'minor', type: T.ROAD, y: 13, thick: 1, x0: 0, x1: 23, variant: 'thorny' },
-    { name: 'Market Close', class: 'minor', type: T.ROAD, y: 35, thick: 1, x0: 0, x1: 23, variant: null },
+    { name: 'Berry Lane', class: 'minor', type: T.ROAD, y: 34, thick: 1, x0: 0, x1: 23, variant: 'berry' },
+    { name: 'Kiln Row', class: 'minor', type: T.ROAD, y: 38, thick: 1, x0: 0, x1: 23, variant: 'pottery' },
+    { name: 'Market Close', class: 'minor', type: T.ROAD, y: 41, thick: 1, x0: 0, x1: 23, variant: 'trade' },
     { name: 'Iron Lane', class: 'minor', type: T.ROAD, y: 18, thick: 1, x0: 0, x1: 23, variant: 'snare' },
     { name: 'Goblin Gang Street', class: 'minor', type: T.ROAD, y: 21, thick: 1, x0: 0, x1: 23, variant: 'goblin_gang' },
     { name: 'Fort Road', class: 'path', type: T.PATH, y: 25, thick: 2, x0: 0, x1: 23, variant: 'barricade' },
@@ -402,7 +408,7 @@
     { name: 'Ancient Highway', class: 'primary', type: T.ROAD_LG, y: 31, thick: 2, x0: 0, x1: 23, variant: null },
   ];
   const SHOWCASE = {
-    name: 'STREETS', label: 'STREET VARIANTS', w: 24, h: 40, fill: T.GRASS,
+    name: 'STREETS', label: 'STREET VARIANTS', w: 24, h: 42, fill: T.GRASS,
     routes: SHOWCASE_ROUTES,
     subLabels: SHOWCASE_ROUTES.map((r) => ({
       label: r.variant ? r.variant.toUpperCase() : (r.bandit ? 'OLD TRADE ROAD' : r.name.toUpperCase()),

@@ -544,6 +544,45 @@ const PIECES = {
   kind_inn: scene("An ordinary innkeeper offers a mug from a modest inn doorway to a survivor whose raised brown hood hides all hair and face. No castle or steward."),
 };
 
+// Reference-edited masters must retain their established scene and character
+// designs. Re-export these masters; do not recreate them from a text prompt.
+const REFERENCE_SCENES = new Set([
+  'booth_apothecary_intro',
+  'booth_apothecary_used',
+  'booth_bank_intro',
+  'booth_bank_used',
+  'booth_chapel_intro',
+  'booth_chapel_used',
+  'booth_curio_intro',
+  'booth_curio_used',
+  'booth_guildhall_intro',
+  'booth_guildhall_used',
+  'booth_inn_intro',
+  'booth_inn_used',
+  'booth_scholar_intro',
+  'booth_scholar_used',
+  'booth_scriptorium_intro',
+  'booth_scriptorium_used',
+  'booth_sundries_intro',
+  'booth_sundries_used',
+  'booth_training_intro',
+  'booth_training_used',
+  'death_memories',
+  'first_sale',
+  'health_low',
+  'safety_phone',
+  'tool_catch',
+  'tool_catch_chicken',
+  'torch_light',
+  'turret_watch',
+  'visit_gold',
+  'visit_hive',
+]);
+for (const name of REFERENCE_SCENES) {
+  // An edited scene may have no historical text prompt at all.
+  PIECES[name] = { ...PIECES[name], size: '1024x1024', width: 512, aspect: 1, colors: 128 };
+}
+
 function loadKey() {
   if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
   const envFile = path.join(process.env.HOME, '.env');
@@ -637,7 +676,7 @@ else:
   const reprocess = args.includes('--reprocess');
   const only = args.filter(a => !a.startsWith('--'));
   fs.mkdirSync(RAW_DIR, { recursive: true });
-  const key = reprocess ? null : loadKey();
+  let key;
   const names = only.length ? only : Object.keys(PIECES);
   for (const name of names) {
     if (!PIECES[name]) { console.error(`unknown piece: ${name}`); process.exitCode = 1; continue; }
@@ -646,6 +685,10 @@ else:
       : PIECES[name];
     const outPath = outputPath(name, piece.trim);
     if (!force && !reprocess && fs.existsSync(outPath)) { console.log(`skip ${name} (exists)`); continue; }
+    if (!reprocess && (REFERENCE_SCENES.has(name) || name.startsWith('booth_'))) {
+      throw new Error(`${name}: use a reference image edit, or --reprocess its existing master (docs/art/ART_SOURCES.md)`);
+    }
+    if (!reprocess && !key) key = loadKey();
     const rawPath = path.join(RAW_DIR, `${name}.png`);
     const raw = reprocess ? rawPath : await generate(key, name, piece);
     const out = downscale(raw, name, piece.width, piece.colors, piece.trim, piece.aspect);

@@ -162,8 +162,11 @@ and plain-rock examples remain in the surrounding grid.
 | thorny | Thorny Way | brambles and a narrow road corridor |
 | snare | Iron Lane | a snare chest ringed by iron teeth, a few stray snares down the lane |
 | goblin_gang | Goblin Gang Street | clustered barrels and goblin grunt guards |
+| berry | Berry Lane | every kind of bush on both verges, a rare golden one, runts hiding behind |
+| pottery | Kiln Row | clay pots a cell back from both kerbs |
+| trade | Market Close | barrels of goods on both verges, goblin grunt pairs behind them |
 | barricade path | Fort Road | barricades, stakes and guard lair |
-| plain minor | Market Close / Maple Street | ordinary street comparison |
+| plain minor | Maple Street | ordinary street comparison |
 | plain MD | Old Trade Road | suppression zone, night curse and wagon stop |
 | plain LG | Ancient Highway | suppression zone and night curse |
 | parkpath | Common Walk | scenic path colour, lamps and reward multiplier |

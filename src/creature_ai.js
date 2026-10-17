@@ -2286,12 +2286,30 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
   }
 }
 
+// THE ERRATIC FLIER: a bat row's movement.erratic block (enemy_roster.js)
+// makes three things of the plain orbit — the orbit may turn the OTHER WAY
+// from one leg to the next (reverseChance), the advance round it spreads
+// wider (angleSpread, radians past the 0.7 base), and each leg BOWS
+// sideways (jinkCells: a sine swell, nothing at either end, so the leg still
+// lands on its aimed point and the sweep still ends where it says). The bow
+// is budgeted against the row's speed: its peak sideways pace is at the
+// ends of the leg, where the eased along-track pace is zero, and the budget
+// (BAT_JINK_SPEED_SHARE of speed·duration/π) keeps the combined pace under
+// the row's figure everywhere between — the ceiling test on bat flight
+// holds with it. A row without the block flies exactly as before.
+const BAT_JINK_SPEED_SHARE = 0.4;
+function batFlightBow(f, now) {
+  if (!f.jx && !f.jy) return 0;
+  return Math.sin(Math.PI * Math.max(0, Math.min(1, (now - f.start) / f.duration)));
+}
 function enemyBatMove(scene, c, row, now, px, py) {
-  const m = row.movement;
+  const m = row.movement, erratic = m.erratic;
   if (c._batFlight) {
     const f = c._batFlight;
     const u = creatureFlightEase((now - f.start) / f.duration);
-    const clear = enemySweep(scene, c, row, f.x + (f.tx - f.x) * u, f.y + (f.ty - f.y) * u, now);
+    const bow = batFlightBow(f, now);
+    const clear = enemySweep(scene, c, row, f.x + (f.tx - f.x) * u + (f.jx || 0) * bow,
+      f.y + (f.ty - f.y) * u + (f.jy || 0) * bow, now);
     if (!clear || now >= f.start + f.duration) {
       c._batFlight = null;
       c._batPauseUntil = now + (m.pauseSeconds[0]
@@ -2307,7 +2325,11 @@ function enemyBatMove(scene, c, row, now, px, py) {
   c._batHit = false;
   const radius = c._batSwooping ? m.swoopTargetRadiusCells
     : m.orbitRadiusCells[0] + enemyMovementRandom(c, 'bat-radius') * (m.orbitRadiusCells[1] - m.orbitRadiusCells[0]);
-  const a = Math.atan2(c.y - py, c.x - px) + 0.7 + enemyMovementRandom(c, 'bat-angle') * 0.7;
+  // Which way round, and how far round: the plain orbit always advances
+  // 0.7..1.4 rad the same way; an erratic row may turn about and spreads wider.
+  if (erratic?.reverseChance > 0 && enemyMovementRandom(c, 'bat-reverse') < erratic.reverseChance) c._batTurn = -(c._batTurn || 1);
+  const turn = c._batTurn || 1;
+  const a = Math.atan2(c.y - py, c.x - px) + turn * (0.7 + enemyMovementRandom(c, 'bat-angle') * (erratic?.angleSpread ?? 0.7));
   const tx = px + Math.cos(a) * radius * scene.cellM;
   const ty = py + Math.sin(a) * radius * scene.cellM;
   const distance = Math.hypot(tx - c.x, ty - c.y);
@@ -2316,8 +2338,17 @@ function enemyBatMove(scene, c, row, now, px, py) {
   const leg = Math.min(distance, m.maxLegCells * scene.cellM,
     m.speedMetersPerSecond * paceMul * duration / 2);
   const scale = distance > 0 ? leg / distance : 0;
-  c._batFlight = { start: now, duration: duration * 1000,
+  const flight = { start: now, duration: duration * 1000,
     x: c.x, y: c.y, tx: c.x + (tx - c.x) * scale, ty: c.y + (ty - c.y) * scale };
+  // The bow: sideways of the leg, a seeded hand, within the speed budget.
+  if (erratic?.jinkCells > 0 && leg > 0) {
+    const jinkM = Math.min(erratic.jinkCells * scene.cellM,
+      BAT_JINK_SPEED_SHARE * m.speedMetersPerSecond * paceMul * duration / Math.PI);
+    const hand = enemyMovementRandom(c, 'bat-jink') < 0.5 ? -1 : 1;
+    const ux = (flight.tx - flight.x) / leg, uy = (flight.ty - flight.y) / leg;
+    flight.jx = -uy * jinkM * hand; flight.jy = ux * jinkM * hand;
+  }
+  c._batFlight = flight;
 }
 
 // Temporary allies keep their species' movement, reach and attack cadence.

@@ -516,7 +516,14 @@
     cow:           { sheet: 'cow',       anim: 'cow-idle',     fw: 32, fh: 32, scale: 1.30, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
     cat:           { sheet: 'cat',       anim: 'cat-idle',     fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 18, maxY: 29 },
     dog:           { sheet: 'dog',       anim: 'dog-idle',     fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 15, maxY: 29 },
-    deer:          { sheet: 'deer',      fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 0,  minY: 11, maxY: 31 },
+    // The deer's one sheet ('Deer Idle.png') is 2 cols x 3 rows: a side
+    // view (facing left), a front and a back, two breathing frames each. No
+    // walk cycle exists, so `move` is left to fall back on `idle`; the
+    // directions table at least turns the deer where it walks (owner, Oct
+    // 2026: a side-on frame 0 sliding north read as floating).
+    deer:          { sheet: 'deer',      frameMs: 320, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 0,  minY: 11, maxY: 31,
+                     directionSideFacing: 'left', directions: {
+                       side: { idle: [0, 1] }, down: { idle: [2, 3] }, up: { idle: [4, 5] } } },
     rabbit:        { sheet: 'rabbit',    fw: 16, fh: 16, scale: 1.50, foot: 16 / 16, float: 0,  minY: 3,  maxY: 16 },
     // The shiny egg's peaceful hatchling shares the dragon poses, with its
     // own green palette. Baby growth supplies the instance's half scale.

@@ -598,17 +598,17 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
   assert.truthy(/g\.strokeCircle\(centre\.x, centre\.y, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
 });
 
-test('wooden barrels render at half their former size and have no broken art', () => {
+test('wooden barrels render at half their former size plus 10% and have no broken art', () => {
   const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
   for (const smashed of [false, true]) {
     const look = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'barrel',_smashed:smashed});
     if (smashed) assert.falsy(look.visible, 'no broken barrel sprite');
-    else { assert.eq(look.texKey, 'barrel'); assert.eq(look.scl, 2 / 3); }
+    else { assert.eq(look.texKey, 'barrel'); assert.eq(look.scl, (2 / 3) * 1.1, 'half the old size, up 10% (Oct 2026)'); }
   }
   for (const smashed of [false, true]) {
     const pot = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot',_smashed:smashed});
     assert.eq(pot.texKey, smashed ? 'clay_pot_smashed' : 'clay_pot');
-    assert.eq(pot.scl, (4 / 3) * 0.8, 'clay pots, whole or smashed, a fifth smaller than their old 4/3');
+    assert.eq(pot.scl, (4 / 3) * 0.8 * 0.9 * 0.92, 'clay pots, whole or smashed, a fifth smaller than their old 4/3, then 10% off, then 8% off');
   }
 });
 
@@ -654,7 +654,7 @@ test('neutral mineral art overrides stale zone frames without changing interacti
   const pot = {kind:'chest',barrel:true,barrelStyle:'clay_pot',id:'selected-pot'};
   assert.eq(art.resolveAppearance(pot).texKey,'clay_pot');
   assert.eq(art.resolveAppearance({...pot,_smashed:true}).texKey,'clay_pot_smashed');
-  assert.eq(art.resolveAppearance(pot).scl*24,32*0.8,'the pot draws a fifth under its old 32px');
+  assert.lt(Math.abs(art.resolveAppearance(pot).scl*24-32*0.8*0.9*0.92),1e-9,'the pot draws a fifth under its old 32px, then 10% off, then 8% off');
   assert.truthy(/_zoneObjectFrame: wp\._zoneObjectFrame/.test(RENDER_SRC),'wild mushroom appearance reaches the plant renderer');
 });
 
@@ -723,6 +723,9 @@ test('picked wild berries leave a plain bush across redraw and save reload witho
     assert.truthy(isSpent(plant, sets), 'the original berry cannot be harvested twice');
   }
   assert.eq(Render.wildplantView({ ...plant, crop: 'onion' }, sets), null, 'other plants are removed');
+  const poison = Render.wildplantView({ ...plant, crop: 'poisonberry' }, sets);
+  assert.eq(poison.crop, 'shrub', 'a picked poisonberry leaves its bush too (owner, Oct 2026)');
+  assert.eq(wildplantSprite(poison).texture, undefined, 'without its teal berries');
   sets.burned.add(plant.id);
   assert.eq(Render.wildplantView(plant, sets), null, 'burned bushes do not return');
   sets.burned.clear(); sets.burnedGround = () => true;
@@ -750,7 +753,7 @@ test('berry bush: fruit texture copies the plain bush at native size and only pa
   assert.eq(draws.length, 1, 'the foliage is copied once at startup');
   assert.eq(draws[0][0], source);
   assert.eq(JSON.stringify(draws[0].slice(1)), JSON.stringify([0, 0]), 'no crop or resize');
-  assert.eq(berries.length, 15, 'five berries, each with shade, body and highlight');
+  assert.eq(berries.length, 21, 'seven berries, each with shade, body and highlight');
   assert.eq(JSON.stringify(frames), JSON.stringify([[0, 0, 0, 0, 48, 32]]));
   assert.eq(refreshes, 1, 'no per-cell texture rebuilds');
 });

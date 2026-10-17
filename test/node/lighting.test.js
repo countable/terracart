@@ -363,6 +363,12 @@ test('lighting: what lights is what is yours', () => {
   assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'c', poiClass: 'shop' }), 'poi', 'a POI is a place, and glows');
   assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'c', crate: true }), null,
     'a loose supply crate is a pickup, not a place — no pad, no light');
+  for (const barrelStyle of ['barrel', 'clay_pot']) {
+    assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'hbarrel_0_0_1_1', barrel: true, barrelStyle }), null,
+      'a generated barrel or pot is a prop, not a place — no pad, no light (owner, Oct 2026)');
+  }
+  assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'c', poiClass: 'waste_basket' }), 'poi',
+    'a bin POI is a real map place and keeps its light');
   assert.eq(Lighting.sourceKind(s, { kind: 'torch', id: 'torch_bus_1_d1' }), 'torch', 'a cave torch burns');
   // A wild plant now SAYS it is one (kind: 'wildplant', stamped by
   // WorldGen.makeWildplant at every mint site) instead of being recognised by
@@ -523,8 +529,31 @@ test('lighting: collectLamps converts absolute lamp metres against the anchor, c
   const st = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function lightStamp('));
   // (Both through lightCentrePx — the stamp's whole-px centre is the key's.)
   const lc = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function lightCentrePx('));
-  assert.truthy(/const c = deltaMToScreen\(scene, L\.dx, L\.dy\);[\s\S]{0,120}y: Math\.round\(c\.y \+ \(L\.dyPx \|\| 0\)\)/.test(lc),
-    'the stamp lifts the cookie by dyPx, on top of the anchored metres — the sprites\' own projection (coords.js)');
+  assert.truthy(/const c = deltaMToScreen\(scene, L\.dx, L\.dy\);[\s\S]{0,160}const l = liftPx\(scene, L\);[\s\S]{0,80}y: Math\.round\(c\.y \+ l\.y\)/.test(lc),
+    'the stamp lifts the cookie by dyPx (through liftPx), on top of the anchored metres — the sprites\' own projection (coords.js)');
+  // THE LIFT IS SCREEN-UP, NOT MAP-UP. The lamp stands upright on screen at
+  // every heading (HeadingUp._upright), while the lightmap is a map layer the
+  // camera turns with the ground; so on a turned map the lift is turned back
+  // by the map's angle (the inverse of HeadingUp.toScreenPt) before it is
+  // added to the anchored point. North-up it is the plain dyPx; at a quarter
+  // turn clockwise, screen-up is map-LEFT, and the glow stays on the lantern
+  // instead of sitting a lantern's height off the post sideways.
+  {
+    const view = { viewCenterX: 100, viewCenterY: 200, cellM, _headingUp: true, mapRot: 0 };
+    const L = { kind: 'cobble', dx: 0, dy: 0, dyPx: -20, id: 'turned' };
+    assert.eq(JSON.stringify(Lighting.liftPx(view, L)), JSON.stringify({ x: 0, y: -20 }), 'north-up: straight up the map');
+    assert.eq(JSON.stringify(Lighting.lightCentrePx(view, L)), JSON.stringify({ x: 100, y: 180 }));
+    view.mapRot = Math.PI / 2;
+    const q = Lighting.liftPx(view, L);
+    assert.inRange(q.x, -20.001, -19.999, 'a quarter turn: the lift points map-left…');
+    assert.inRange(q.y, -0.001, 0.001, '…and not up the map at all');
+    const turned = HeadingUp.toScreenPt(view, 100 + q.x, 200 + q.y);
+    assert.inRange(turned.x, 99.999, 100.001, 'which the camera turns back to screen-up over the foot');
+    assert.inRange(turned.y, 179.999, 180.001);
+    assert.eq(JSON.stringify(Lighting.lightCentrePx(view, L)), JSON.stringify({ x: 80, y: 200 }), 'and the stamp centre is placed there');
+    assert.eq(JSON.stringify(Lighting.lightCentrePx({ ...view, _headingUp: false }, L)), JSON.stringify({ x: 100, y: 180 }), 'north-up mode ignores a stale angle');
+    assert.eq(JSON.stringify(Lighting.lightCentrePx(view, { ...L, dyPx: 0 })), JSON.stringify({ x: 100, y: 200 }), 'no lift, nothing to turn');
+  }
   assert.truthy(/const c = lightCentrePx\(scene, L\);/.test(st) && /stamp\.x = c\.x - ox - d \/ 2; stamp\.y = c\.y - oy - d \/ 2;/.test(st)
     && /ctx\.drawImage\(stamp\.canvas, stamp\.x, stamp\.y, stamp\.width, stamp\.height\);/.test(st),
     'the stamp is placed at that centre');

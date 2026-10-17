@@ -118,17 +118,45 @@ access or tile lifecycle mechanics.
   Nettle the rare one. The ordinary spawn gate excludes unsafe seats, road
   nexuses and themed stretches. Both herbs use the standard wildplant harvest
   lane; PetNip feeds pets and Nettle supplies the Home Growth Powder recipe.
+  The same roll grows a bush above the herb band (`PLAIN_BUSHES` in
+  `street_variants.js`; 8% shrub, 2.5% berry, 1.5% poisonberry of the
+  seats): mostly ordinary shrubs, with berry and poisonberry bushes mixed
+  in, still fewer than the herbs.
 
-- Cleared wild longgrass returns after an independently sampled exponential
-  wait averaging two real days (`SaveState.GRASS_REGROWTH_MEAN_MS`). Harvest
-  records the deadline in `save.grassRegrowth`; normalization and the ten-second
-  save heartbeat remove expired grass ids from `picked` / `burnedObjects`.
-  Deadlines persist across reloads and run while offline. Generated plants stay
-  in their tile lists, so the ordinary spent-state renderer reveals regrown
-  tufts without rerasterizing. The heartbeat discovers already-cleared grass
-  from older saves in nearby loaded chunks and starts its clock on that visit;
-  grass ids cannot safely be inferred from prefixes shared with other crops.
-  Player-owned plants and all other cleared objects retain their existing rules.
+- Every house fronting a plain (unthemed) Small street stands 0-2 loot barrels
+  (`HOUSE_BARREL_ODDS`: 40% none, 40% one, 20% two)
+  on the verge before it, clustered side by side a cell back from the kerb
+  (`StreetVariants.dressSteps`, the house barrels pass; `HOUSE_BARRELS_MAX`,
+  `HOUSE_FRONT_REACH_CELLS`, `HOUSE_FRONT_SPAN_CELLS`). They are always
+  wooden barrels (`barrelStyle`); clay pots belong to Pottery Road. A house is a run of house-tier building cells a
+  ray out from the band's edge reaches within five cells; forts, castles and
+  another road in the way end the ray. The count is a hash of the tile and
+  the house's first wall cell, so every player sees the same; a terrace counts
+  a house per frontage span. Seats take the first free verge cell out past
+  the kerb cell, on the reward gate, so none stands on a Major-and-Medium
+  kerb; the kerb cell itself is the last resort for a one-deep frontage.
+  Themed stretches and Major roads stand none. A generated barrel is not a
+  place: it draws no POI pad (`render.js`, the pad pass); a bin POI (a waste
+  basket or recycling point) wears the full pad (`padShapeKeyForPoi`). One seat in ten (`HOUSE_CRATE_SHARE`, a hash
+  of the seat) stands a tier-1 restocking crate instead of a barrel.
+
+- Cleared wild longgrass, the wild herbs (the wild flowers, PetNip and
+  the nettle) and the picked berry and poisonberry bushes (the rows of
+  `SaveState.WILD_REGROWTH`, read through `SaveState.regrows`) return after
+  an independently sampled exponential wait averaging two real days
+  (`SaveState.GRASS_REGROWTH_MEAN_MS`, every row's mean today). A crop grows
+  back by having a row; the mechanism is one. A picked berry bush stands as
+  a bare bush meanwhile (`WILDPLANT_RULES` `pickedCrop`) and fruits again
+  when its id leaves `picked`; the golden berry bush has no row.
+  Harvest records the deadline in `save.grassRegrowth`; normalization and
+  the ten-second save heartbeat remove expired ids from `picked` /
+  `burnedObjects`. Deadlines persist across reloads and run while offline.
+  Generated plants stay in their tile lists, so the ordinary spent-state
+  renderer reveals regrown plants without rerasterizing. The heartbeat
+  discovers already-cleared plants from older saves in nearby loaded chunks
+  and starts their clocks on that visit; ids cannot safely be inferred from
+  prefixes shared with other crops. Player-owned plants and all other cleared
+  objects (bushes, berries, barriers) retain their existing rules.
 - Picking a wild berry records its original id in `save.picked` as usual,
   but leaves the same bush at that location, with only its berries removed.
   Mature berry bushes use the ordinary bush frame and scale; a texture baked
@@ -172,6 +200,11 @@ access or tile lifecycle mechanics.
   reservation; actual objects, landmark approaches and the hazard safety gate
   still exclude placement. Grove ghost plates retain their existing visibility.
 
+- No goblin walks L1 (owner, Oct 2026): L1's cave-area weights give the
+  goblin warrens nothing and seat no goblins (`floorProfile(1).caveAreas`),
+  the L1 habitat theme band is all natural (`EnemyHabitats.THEME_BANDS`), and
+  every goblin row's cave window opens on L2 or deeper (the club goblin at
+  2..3). L1 is slimes, bats and what a campfire wards off.
 - Authored cave areas use `ZoneVariants.anchorFrame` and run before ordinary
   floor passes. Keep their empty-ground reservations separate from object
   occupancy (`CaveAreas`); ambient spawns must respect both. Derive deeper
@@ -271,7 +304,9 @@ access or tile lifecycle mechanics.
   chance and a 15-coin budget. Both interpolate linearly between endpoints. Items
   size to that budget; a clay pot's coin result pays a fifteenth of it
   (`CLAY_POT_LOOT` `budgetDiv`: 1 coin at 15, 5 at 75).
-  Generated non-POI containers keep 30% full odds and a 15-coin budget. Full
+  Generated non-POI containers keep the table's 45% full odds and a 15-coin
+  budget, where about a quarter of smashes pay the signature find: a barrel's
+  one apple, a pot's one coin (`BARREL_LOOT` / `CLAY_POT_LOOT`). Full
   containers pay that budget as coins or use `ChestThemes.quantityForBudget`
   for item stacks, including category shares and caps; higher budgets never
   promote item tiers. All containers remain permanently smashed after use.
@@ -315,8 +350,8 @@ access or tile lifecycle mechanics.
   marks within `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the
   surface; crates never get one. The line is faint dashed black ink (`Starter.TRAIL_STYLE`).
   Each frame clips the cached route to the player's distance from its treasure
-  plus one cell (`behindCells`): the line recedes behind approaching feet and
-  returns when walking away. Segment clipping preserves dash positions and
+  (`behindCells`, 0: no slack beyond the feet): the line recedes ahead of
+  approaching feet and returns when walking away. Segment clipping preserves dash positions and
   separate visible stretches, without adding pathfinding as the player moves.
   The chest at a trail's end rolls `CHEST_TRAIL_TIER_BONUS` tier higher, within
   its depth cap; an X at a trail's end (`Starter.isTrailTreasure`) shows and
@@ -711,10 +746,41 @@ Higher-priority placements and their access space take precedence in this order:
    per gang, in either difficulty). Fragments share that budget; blocked
    seats reduce the count. Barrels use the attractor gate, and gang posts
    and their guards retain the fast-enemy spawn gate.
-   Overgrown forest roads additionally roll a one-third chance of a Giant Bear
-   from their stable street key. Selected streets attempt one finite bear post
-   per owning tile, alongside the usual plant guard. Geometry fragments share
-   the post; occupancy and the fast-enemy safety gate can prevent placement.
+   Berry Lane (a Small-road row) and Berry Trail (a path row) line both
+   verges with bushes of every kind (`BERRY_LANE_BUSHES`: shrubs, berry and
+   poisonberry bushes, and brambles never more than a third), one sample a
+   cell with a quarter left empty; `GOLDEN_BUSH_SHARE.street` (one in
+   fifty) of those bushes is the golden berry bush, and every other ambient
+   bush the world seats (the biome scatter, yards, park pads, mapped tree
+   rows and plain verges: `WorldGen.ambientBush`) rolls it at `.wild` (one in
+   a hundred and fifty) through `goldenBushCrop` (items.js) — one salt, so
+   the wild roll is a subset of the lane's; authored zone, hedge and thicket
+   pieces never roll it. A goblin runt post every 40 m, a
+   third of them held (`BERRY_RUNT_CHANCE`), seats the `street_berry`
+   garrison one cell behind the bush row: one ambusher that hides in the
+   nearest bush.
+   Pottery Road (a Small-road row, sections up to 250 m) lines both verges
+   with generated clay pots (`VERGE_ROWS.pottery`): one sample a cell with
+   `POTTERY_GAP` (35%) left empty, each pot the first free cell from the
+   second verge cell out on the reward gate, so none stands on the kerb cell
+   or a Major-and-Medium kerb. No guards and no POI: a pot is a smashable
+   prop (`CLAY_POT_LOOT`, a coin a quarter of the time). It is the only
+   street that stands clay pots.
+   Trade Row (a Small-road row, sections up to 250 m) lines both verges with
+   generated wooden barrels the same way (`VERGE_ROWS.trade`,
+   `TRADE_BARREL_GAP` 30% left empty, a cell back from the kerb on the reward
+   gate) and seats a two-runt `street_trade` garrison post every 25 m
+   (`TRADE_GRUNT_STEP_M`), two thirds of them held (`TRADE_GRUNT_CHANCE`),
+   a cell behind the barrel row on the fast-foe gate.
+   Overgrown forest roads add extra encounters beside the usual plant guard,
+   each a row of the variant's `extraEncounters` rolled from the stable street
+   key: a sounder of two wild boars on every overgrown street, and a Giant
+   Bear on one third of them. Each selected encounter attempts one finite post
+   per owning tile (its own `street_*` tier in `src/lairs.js`). Geometry
+   fragments share the post; occupancy and the fast-enemy safety gate can
+   prevent placement. An extra encounter's garrison is its own ladder
+   (`StreetVariants.EXTRA_ENCOUNTER_TIERS`): the street's building family,
+   which themes the plant stretch, never re-themes the boars or the bear.
 6. Ambient fill: ordinary plants, rocks and generic scattered content.
    Forest landcover scatters pine only; wooded park characters scatter maple
    only, from their `BiomeProfiles` rows. Both mark `treeSpeciesFixed` so

@@ -285,13 +285,16 @@ function chestThemeFor(o) {
 // the one cell directly under the chest (see PAD_SHAPES.round1 in textures.js).
 // The shape no longer conveys POI type — it's just a clean base under the chest.
 // Lowtier POIs (bus stops, intersections, fuel, etc.) still skip the pad and
-// render a bare chest, as do any classes outside the pad-bearing categories.
+// render a bare chest, as do any classes outside the pad-bearing categories —
+// except the BIN POIs (BARREL_CLASSES: waste_basket, recycling), which wear
+// the full pad (owner, Oct 2026): a real map place that happens to be a
+// barrel must read as a place beside the generated barrels, which have none.
 const PAD_CATEGORIES = new Set([
   'food', 'commerce', 'civic', 'school', 'health', 'park', 'flora', 'farm',
 ]);
 function padShapeKeyForPoi(poiClass) {
   if (!poiClass) return null;
-  return PAD_CATEGORIES.has(POI_CATEGORY[poiClass]) ? 'round1' : null;
+  return PAD_CATEGORIES.has(POI_CATEGORY[poiClass]) || BARREL_CLASSES.has(poiClass) ? 'round1' : null;
 }
 
 // A generated POI chest receives a deterministic quota seed from
@@ -405,20 +408,30 @@ function crateRestoreDays(o) {
 // Appearance and loot share a stable identity. Both are smashed permanently;
 // POI containers share a tile density curve; generated containers keep their
 // profile odds. Both size payouts from a coin budget using the treasure rules.
+// A generated container (a house barrel, a street pot) rolls these weights
+// as they stand — 55% empty. The rest is mostly the signature find (owner,
+// Oct 2026: "fairly often"): a barrel's one apple, a pot's one coin — one
+// each at the generated 15-coin budget (an apple prices at 8; a coin row
+// pays budget / budgetDiv). A POI bin's density curve rescales the full
+// share (barrelRewardProfile) but keeps these proportions among full rolls.
 const BARREL_LOOT = [
-  { kind: 'empty', w: 0.7 },
-  // Two thirds of full barrels contain practical supplies (torch, rope, kits…).
-  { kind: 'supply', w: 0.2 },
+  { kind: 'empty', w: 0.55 },
+  // The signature find: ONE apple at the generated budget (a sparse POI bin's
+  // bigger budget pays a small stack, like every item row).
+  { kind: 'produce', w: 0.25, ids: ['apple'] },
+  // Practical supplies (torch, rope, kits…) from the full ordinary pool.
+  { kind: 'supply', w: 0.1 },
   { kind: 'ores', w: 0.05, minTier: 1, maxTier: 2 },
   { kind: 'produce', w: 0.05, minTier: 1, maxTier: 1 },
 ];
 const CLAY_POT_LOOT = [
-  { kind: 'empty', w: 0.7 },
+  { kind: 'empty', w: 0.55 },
+  // The signature find. Coins pay the budget over `budgetDiv`: 1 at the base
+  // 15, 5 at a lone street pot's 75 (owner, Oct 2026: fifteen times less
+  // than the budget).
+  { kind: 'coin', w: 0.25, budgetDiv: 15 },
   { kind: 'magic', w: 0.05, minTier: 1, maxTier: 2 },
   { kind: 'produce', w: 0.05, minTier: 2, maxTier: 2 },
-  // Coins pay the budget over `budgetDiv`: 1 at the base 15, 5 at a lone
-  // street pot's 75 (owner, Oct 2026: fifteen times less than the budget).
-  { kind: 'coin', w: 0.1, budgetDiv: 15 },
   { kind: 'seed', w: 0.1, minTier: 1, maxTier: 1 },
 ];
 const BARREL_ART = [

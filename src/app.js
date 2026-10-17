@@ -62,8 +62,9 @@ const CELL_PX = 32;
 const STREET_COUNTER_LIFT_PX = Math.round(CELL_PX * 0.6);
 // Road ceremonies carry the survivors' thanks; progress stays on the road counter.
 const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';
-// The line under a road prize's card: who gave it, in one sentence. Shared by
-// the single-reward ceremony and the card the pick opens for the kept gift.
+// The line under a single-reward road ceremony's card: who gave it, in one
+// sentence. The card a pick opens for the kept gift carries no line (owner,
+// Oct 2026): its header already thanked the player.
 const TRAIL_PRIZE_THANKS = 'Your neighbours thank you for repairing the road and hand you a gift.';
 // The first repaired stretch introduces the work; neighbours arrive with the first prize.
 const TRAIL_INTRO_TITLE = 'You Start Fixing The Roads';
@@ -528,9 +529,18 @@ function applyRenderScale(cam) {
 // the MODAL_KINDS table live in modal_shell.js with the shell that reads them.
 
 // ── Toast style ────────────────────────────────────────────────────────────
-// One dark chip for every in-world message, and one four-step type scale. The
-// old code had #000a, #000c and rgba(0,0,0,.6) for what was meant to be the
-// same chip, and 12 / 16 / 22 / 26px picked independently per call site.
+// One dark chip for every in-world message, and one type size. The old code
+// had #000a, #000c and rgba(0,0,0,.6) for what was meant to be the same chip,
+// and 12 / 16 / 22 / 26px picked independently per call site.
+//
+// The bold tiers all read 10px, and that is the size that has always shown:
+// their rows once said 13 / 11 / 16 / 22 / 26px, but a Phaser `font:` string
+// carrying a comma-separated family is cut at the first comma, the canvas
+// rejects the broken shorthand and falls back to its own 10px, so those numbers
+// never rendered. phaserFontUI() now passes the size through, and the first
+// time it did the 22 and 26px toasts covered the map. The tiers differ by
+// chip, stroke, padding and motion, not by type size; raise a size here only
+// after looking at it on a phone.
 //
 // The four tiers are the distinctions worth keeping:
 //   note    — "that didn't work", small status. Lands where the player TAPPED
@@ -542,7 +552,7 @@ function applyRenderScale(cam) {
 //   sub     — a second line under a fanfare. Fades rather than pops so it
 //             doesn't compete with the headline it belongs to.
 //   gain    — "you got something". Centred, pops in, can carry an icon.
-//   fanfare — jackpot / shiny. Biggest, keeps its own chip colour, overshoots
+//   fanfare — jackpot / shiny. Widest chip, keeps its own chip colour, overshoots
 //             and settles, and stacks ABOVE a gain (hence the depth gap).
 //   cell    — a NUMBER ON THE CELL it belongs to: "+N⚡" / "−N⚡" on the tilled
 //             plot, the felled tree or the player's own cell for a rest tick
@@ -570,17 +580,17 @@ const TOAST_TIER = {
   note:    { font: '12px',      stroke: 0, pad: 6,  padY: 4, depth: 100, dy:  -70,
              bg: null, shadow: { offsetX: 1, offsetY: 1, blur: 4 },
              pop: 0,   hold: 1300, fade: 700, rise: 30 },
-  cell:    { font: 'bold 13px', stroke: 2, pad: 6,  padY: 4, depth: 100, dy:  -70,
+  cell:    { font: 'bold 10px', stroke: 2, pad: 6,  padY: 4, depth: 100, dy:  -70,
              bg: null, shadow: { offsetX: 1, offsetY: 2, blur: 3 },
              pop: 90, popScale: 0.7, hold: 700, fade: 500, rise: 14, ease: 'Sine.In' },
-  damage:  { font: 'bold 11px', stroke: 3, pad: 6,  padY: 4, depth: 96,  dy:  -70,
+  damage:  { font: 'bold 10px', stroke: 3, pad: 6,  padY: 4, depth: 96,  dy:  -70,
              bg: null, shadow: { offsetX: 1, offsetY: 2, blur: 3 },
              pop: 90, popScale: 0.7, hold: 90, fade: 520, rise: 13, ease: 'Sine.Out' },
-  sub:     { font: 'bold 16px', stroke: 3, pad: 8,  padY: 3, depth: 110, dy: -142,
+  sub:     { font: 'bold 10px', stroke: 3, pad: 8,  padY: 3, depth: 110, dy: -142,
              pop: 0,   fadeIn: 240, hold: 1800, fade: 700, rise: 60, ease: 'Sine.In' },
-  gain:    { font: 'bold 22px', stroke: 3, pad: 10, padY: 5, depth: 101, dy:  -90,
+  gain:    { font: 'bold 10px', stroke: 3, pad: 10, padY: 5, depth: 101, dy:  -90,
              pop: 140, popScale: 0.6, hold: 1440, fade: 700, rise: 50, ease: 'Sine.In' },
-  fanfare: { font: 'bold 26px', stroke: 4, pad: 14, padY: 6, depth: 110, dy: -150,
+  fanfare: { font: 'bold 10px', stroke: 4, pad: 14, padY: 6, depth: 110, dy: -150,
              pop: 220, popScale: 0.2, overshoot: 1.1, hold: 1800, fade: 700, rise: 60,
              ease: 'Sine.In' },
 };
@@ -1461,7 +1471,10 @@ body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 // Buffs.KINDS); only a row with an action accepts pointer events.
 // Dimmed with the HUD chips while a dialog is up, hidden with them while the
 // page boots. While the objective chip shows, _syncStatusRow seats the row
-// under it instead (an inline top).
+// under it instead (an inline top). The compass skin (css/compass_hud.css,
+// body.compass-hud) seats the row on the footer plate instead — left of the
+// joystick, under the zoom slider, off the round map — and the objective
+// bubble never moves it there.
 const STATUS_ROW_CSS = `
 #status-row {
   position: fixed;
@@ -2254,8 +2267,9 @@ class MapScene extends Phaser.Scene {
     }
   }
 
-  // The save heartbeat catches offline deadlines and nearby grass from saves
-  // that predate regrowth, including burned tufts. Chunk queries keep this
+  // The save heartbeat catches offline deadlines and nearby grass and herbs
+  // (SaveState.WILD_REGROWTH) from saves that predate regrowth, including
+  // burned tufts. Chunk queries keep this
   // bounded to the current neighbourhood rather than scanning the tile cache.
   _tickGrassRegrowth(now = Date.now()) {
     let changed = SaveState.regrowGrass(this.save, now);
@@ -4219,8 +4233,11 @@ class MapScene extends Phaser.Scene {
     // IT. Its bottom is read back only when what decides it changes (the
     // chip's display, its text, a dialog hiding it, a resize) — a rect read
     // every frame would force a layout every frame.
+    // The compass skin seats the row on the footer plate (css/compass_hud.css);
+    // the objective bubble over the map never re-seats it there.
     const obj = document.getElementById('objective');
-    const shown = obj && obj.style.display !== 'none' && !this._dialogOpen();
+    const shown = obj && obj.style.display !== 'none' && !this._dialogOpen()
+      && !document.body.classList.contains('compass-hud');
     const seatKey = shown ? `${obj.textContent}|${window.innerWidth}x${window.innerHeight}` : '';
     if (this._statusRowSeat !== seatKey) {
       this._statusRowSeat = seatKey;
@@ -11076,6 +11093,9 @@ installSceneMixin(MapScene, SceneVenues);
 installSceneMixin(MapScene, SceneStreets);
 installSceneMixin(MapScene, SceneBoss);
 
+// Before any pipeline exists: the shine/glow FX draw under the map camera's
+// scissor otherwise (render.js guardPreFxScissor).
+Render.guardPreFxScissor();
 const game = window.__game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
@@ -11095,9 +11115,6 @@ const game = window.__game = new Phaser.Game({
   // Default to the light/spark fallback; the menu can opt in on this device.
   disablePreFX: !GRAPHICS_FX_ENABLED,
   disablePostFX: true,
-  // ?maxTextures=N caps the WebGL texture units a batch may bind. A probe for
-  // devices that drop sprites bound to high units; -1 keeps Phaser's default.
-  maxTextures: urlNumParam('maxTextures') ?? -1,
   // Keep the configured cadence across display rates; 0 = uncapped (?fps=0).
   fps: { limit: FPS_LIMIT },
   callbacks: { preBoot: (game) => installFrameCadence(game.loop) },

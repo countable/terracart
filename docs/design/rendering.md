@@ -191,7 +191,9 @@ North-up mode retains the existing wall atlas artwork.
   both boxes stand at their turned feet and lower turned feet count as in
   front (`Render.headingFadeView`), matching the heading-up draw order.
   Prop contact shadows turn about their prop's ground anchor, so a tucked-up
-  shadow stays under the art at every compass heading. Ground decals retain their own
+  shadow stays under the art at every compass heading; the shrine pedestal
+  (`pad_shrine`, drawn with its masonry face south) turns back about its cell
+  centre the same way, while flat POI pads turn with the ground. Ground decals retain their own
   opacity, and fruit overlays follow their tree.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
@@ -247,7 +249,11 @@ North-up mode retains the existing wall atlas artwork.
   being squashed tilts the ellipse, so a turning ground decal is a strip.
   The shine sweep and a warping rank's space warp (`Render.setEliteWarp`, a
   camera post pass attached only while one is on screen) need the device's
-  graphics-FX opt-in (`Render.canShine`).
+  graphics-FX opt-in (`Render.canShine`). Phaser's PreFX pipeline draws its
+  offscreen passes under the current camera scissor, and the map camera is a
+  sub-viewport, so `Render.guardPreFxScissor` lifts the scissor around each
+  FX quad (app.js installs it before the game boots); without it a shiny
+  prop vanishes or shows a slice at every zoom but 1 and every heading.
 - Centre a static target's work wheel in its cell; a creature's (a net
   capture, a hunt) rides the creature, on its body (`creatureWheelDy`). Use a
   small, solid disc at 50% opacity. Seat enemy health bars from `CREATURE_ART`
@@ -430,7 +436,9 @@ to the existing noon level. Underground lighting is unchanged.
   Day/night leaves the reach plateau bright;
   caves ignore it.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors
-  cull by viewport plus light radius, not sprite bounds. Use the existing
+  cull by viewport plus light radius, not sprite bounds. The POI pad and the
+  `poi` light together mark a real map POI: a loose crate and a generated
+  barrel or pot (`o.barrel`, no `poiClass`) get neither. Use the existing
   derived luminance/contrast controls; remeasure the plateau ceiling before
   raising it.
 - Streets restore metre intervals along each transportation line, keyed by
@@ -475,7 +483,9 @@ to the existing noon level. Underground lighting is unchanged.
   lamps even inside a nexus.
   One list and `lit` flag feed art and lighting. Derive verge offset from road
   width and lamp footprint; art and light share the same world point. Lantern
-  rise is a draw-space offset; retune height through `LAMP_PROFILE`.
+  rise is a draw-space, screen-up offset (`dyPx`); on a turned heading-up map
+  `Lighting.liftPx` turns it back into the map's frame so the glow stays on
+  the upright lamp's lantern. Retune height through `LAMP_PROFILE`.
   Collect/cache lamps about the camera anchor, only after tiles finish loading.
   A lamp's footing (`RoadOverlay.lampCellsFor`, the same reserved cells
   dressing keeps clear) is never tillable: `cellAt` flags it `underLamp` and

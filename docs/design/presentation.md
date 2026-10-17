@@ -19,6 +19,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   Use `var(--font-ui)` for DOM text and `phaserFontUI()` / `FONT_UI_STACK` for Phaser
   text, including books, speaker names, compass letters and decorative glyphs.
   Do not add serif or monospace overrides. Numeric counters use tabular figures.
+  Never hand Phaser a `font:` shorthand string with this stack: Phaser cuts the
+  family at its first comma, the canvas rejects the broken shorthand and draws
+  the text at its own 10px regular, so the size in the string never shows.
+  Toast tiers (`TOAST_TIER`) all set bold 10px for that reason.
 
 - Reward acknowledgments and safety reminders use an explicit OK button;
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
@@ -271,11 +275,15 @@ changing dialogue, story panels, books, toasts or status presentation.
   painting unless the caller supplies a character `portrait` or `art: false`.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   square, with a complete scene and no baked dark text area. All existing and
-  new paintings share a full-width, top-centred `cover` crop without stretching.
+  new paintings fit the full width, anchored at the top without stretching.
   The image begins at the window top behind the fixed silver dragon rail.
   Its visible height starts at 90% of the panel width, cropping the bottom
   10% of the square composition. If copy needs more room, the crop shortens
-  further, down to the rail height plus eight pixels.
+  further. Square paintings retain at least 70% of their height so the subject
+  stays visible; longer copy paginates. Legacy portraits can shorten to the
+  rail height plus eight pixels. `tools/art_thumbs.js` bakes `ART_ASPECTS`
+  alongside aspect-preserving thumbnails, so this layout is ready before the
+  full painting loads.
   Copy follows directly below, with comfortable side padding and the specific
   title offset down four pixels. Painted stories omit the generic “Story” label;
   useful shop/event categories sit with the copy below the image. Dialogs do
@@ -332,7 +340,9 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Map messages fit `MAP_MSG_MAX` (30 characters) per rendered line, including
   interpolations. Cut copy or use a modal; do not interpolate unbounded POI names.
 - Statuses, buffs and timers on the player live in ONE place: the status
-  row under the top HUD (`_syncStatusRow`, `STATUS_ROW_CSS`), one chip per
+  row (`_syncStatusRow`, `STATUS_ROW_CSS`; under the top HUD, or on the
+  compass skin's footer plate left of the joystick, `css/compass_hud.css`,
+  where it never covers the round map), one chip per
   row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin) and of `Buffs.KINDS`
   (`src/buffs.js`: a potion, powder, torch, coffee, the bike, the compass, a
   shrine boon — its expiry field, word and ink). A new timed effect is a

@@ -78,12 +78,13 @@ test('reward card: the road pick opens the kept gift as a card, and the queue wa
   assert.truthy(/_claimTrailReward\(reward, \{ deferBookRead: true \}\)/.test(pick), 'a book taken reads after the card');
   assert.truthy(/const done = \(\) => this\._revealPendingBookReads\(onDismiss\);/.test(pick),
     'the caller\'s onDismiss waits for the card (and any book read)');
-  assert.truthy(/if \(!taken \|\| !this\.showRewardCard\(taken, \{ kind, header, art, kindIcon, sub: takenSub, onDismiss: done \}\)\) done\(\);/.test(pick),
-    'the kept reward opens as a card under the pick\'s own banner; a pick closed without a take just walks on');
+  assert.truthy(/if \(!taken \|\| !this\.showRewardCard\(taken, \{ kind, header, art, kindIcon, onDismiss: done \}\)\) done\(\);/.test(pick),
+    'the kept reward opens as a card under the pick\'s own banner, with no line of its own; a pick closed without a take just walks on');
+  assert.falsy(/takenSub|sub:/.test(pick), 'no thanks line under the kept gift (owner, Oct 2026)');
   const fa = SCENE_SRC.indexOf('_fireTrailPrize(n, onDismiss) {');
   const fire = SCENE_SRC.slice(fa, SCENE_SRC.indexOf('\n  _trailChoiceLabel', fa));
-  assert.truthy(/takenSub: TRAIL_PRIZE_THANKS/.test(fire), 'the road\'s thanks line rides to the kept card');
-  assert.eq((fire.match(/TRAIL_PRIZE_THANKS/g) || []).length, 3, 'one thanks line for all three shapes of the ceremony');
+  assert.falsy(/takenSub/.test(fire), 'the road\'s thanks line does not ride to the kept card');
+  assert.eq((fire.match(/TRAIL_PRIZE_THANKS/g) || []).length, 2, 'the thanks line only under the one-step ceremonies');
 });
 
 // ── The first vista's relic ───────────────────────────────────────────────

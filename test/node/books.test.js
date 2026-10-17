@@ -79,6 +79,9 @@ test('school category: the split re-priced nothing — tier, pad and cave mirror
     assert.eq(chestTier({ kind: 'chest', poiClass: 'school', poiDensity: n }),
       chestTier({ kind: 'chest', poiClass: 'town_hall', poiDensity: n }), `the same tier at ${n} of a kind`);
   }
+  assert.eq(padShapeKeyForPoi('waste_basket'), 'round1', 'a bin POI wears the full pad (owner, Oct 2026)');
+  assert.eq(padShapeKeyForPoi('recycling'), 'round1');
+  assert.eq(padShapeKeyForPoi('bus'), null, 'other lowtier POIs still take the mini pad');
   assert.eq(padShapeKeyForPoi('school'), padShapeKeyForPoi('town_hall'),
     'and it keeps the civic pad');
   for (const cls of SCHOOL_CLASSES) {

@@ -675,8 +675,11 @@ const Multiplayer = (function () {
     r.hp = Combat.hpFraction(c);
     const now = performance.now(), m = {};
     for (const k of MOVE_FLAGS) m[k] = !!c[k];
+    // The leg's bow (creature_ai.js enemyBatMove jx/jy) rides along as a
+    // vector — scaled like the points, shifted by no correction.
     m._batFlight = c._batFlight ? { x: c._batFlight.x / scene.mPerPx, y: c._batFlight.y / scene.mPerPx,
       tx: c._batFlight.tx / scene.mPerPx, ty: c._batFlight.ty / scene.mPerPx,
+      jx: (c._batFlight.jx || 0) / scene.mPerPx, jy: (c._batFlight.jy || 0) / scene.mPerPx,
       start: Math.max(-300000, Math.min(300000, c._batFlight.start - now)), duration: c._batFlight.duration } : null;
     for (const k of MOVE_NUMBERS) if (Number.isFinite(c[k])) m[k] = c[k];
     for (const k of MOVE_TIMERS) if (Number.isFinite(c[k])) m[k] = Math.min(300000, Math.max(-300000, c[k] - now));
@@ -708,7 +711,11 @@ const Multiplayer = (function () {
       if (MOVE_FLAGS.includes(k)) { if (typeof value !== 'boolean') return false; }
       else if (k === '_batFlight') {
         if (value !== null && (!value || typeof value !== 'object' || Array.isArray(value)
-            || Object.keys(value).length !== 6 || !['x', 'y', 'tx', 'ty'].every(p => Number.isFinite(value[p]) && value[p] >= 0 && value[p] <= 4194304)
+            || ![6, 8].includes(Object.keys(value).length) || !['x', 'y', 'tx', 'ty'].every(p => Number.isFinite(value[p]) && value[p] >= 0 && value[p] <= 4194304)
+            // The bow (jx/jy) is optional on the wire: a peer on a build before
+            // the erratic bats sends the six-key flight, and flies it straight.
+            || (value.jx === undefined) !== (value.jy === undefined)
+            || !['jx', 'jy'].every(p => value[p] === undefined || (Number.isFinite(value[p]) && Math.abs(value[p]) <= 4194304))
             || !Number.isFinite(value.start) || Math.abs(value.start) > 300000
             || !Number.isFinite(value.duration) || value.duration <= 0 || value.duration > 300000)) return false;
       }
@@ -798,6 +805,7 @@ const Multiplayer = (function () {
     c._batFlight = s.m._batFlight ? {
       x: s.m._batFlight.x * scene.mPerPx - dx, y: s.m._batFlight.y * scene.mPerPx - dy,
       tx: s.m._batFlight.tx * scene.mPerPx - dx, ty: s.m._batFlight.ty * scene.mPerPx - dy,
+      jx: (s.m._batFlight.jx || 0) * scene.mPerPx, jy: (s.m._batFlight.jy || 0) * scene.mPerPx,
       start: performance.now() + s.m._batFlight.start, duration: s.m._batFlight.duration } : null;
     for (const k of MOVE_NUMBERS) c[k] = s.m[k] ?? null;
     for (const k of MOVE_TIMERS) c[k] = s.m[k] === undefined ? null : performance.now() + s.m[k];

@@ -79,6 +79,14 @@
   function makeWildplant(crop, x, y, id, extra) {
     return { kind: 'wildplant', crop, x, y, id, ...extra };
   }
+  // AN AMBIENT BUSH PLACEMENT — the biome scatter's, a yard's, a park pad's,
+  // a mapped tree row's (and a plain verge's, street_variants.js): a bush
+  // (items.js BUSH_CROPS) rolls the rare golden berry bush at the wild share
+  // (goldenBushCrop — the one salt a Berry Lane's own, larger, roll shares).
+  // Authored pieces (a zone's, a hedge's, a thicket's) never pass here.
+  function ambientBush(crop, id) {
+    return typeof goldenBushCrop === 'function' ? goldenBushCrop(crop, id) : crop;
+  }
   function makeCreature(kind, x, y, id, extra) {
     // Wild animals wait for discovery; released pets are already known.
     const behaviour = SpriteLayout.creatureBehaviour(kind);
@@ -4611,7 +4619,7 @@
           if (prng() < d) {
             // Stash local ix/iy on the wp so the post-pass filter can read grid[] directly.
             const stage = stageCount ? Math.floor(makeRng((cellHash(tx, ty, localIX, localIY) ^ polyKey) >>> 0)() * stageCount) : undefined;
-            wildplants.push(makeWildplant(crop, cx, cy,
+            wildplants.push(makeWildplant(ambientBush(crop, cellId('wp', tx, ty, localIX, localIY)), cx, cy,
               cellId('wp', tx, ty, localIX, localIY), { _ix: localIX, _iy: localIY,
                 ...(stageCount ? { stage } : {}),
                 ...(floraTerrain != null ? { _floraTerrain: floraTerrain } : {}) }));
@@ -5266,7 +5274,7 @@
                     pick -= c.share;
                   }
                   const { mx, my } = cellCenterMeters(ix, iy);
-                  yardFlora.push(makeWildplant(crop, mx, my,
+                  yardFlora.push(makeWildplant(ambientBush(crop, `wp_${tx}_${ty}_${ix}_${iy}_ry`), mx, my,
                     `wp_${tx}_${ty}_${ix}_${iy}_ry`, { _ix: ix, _iy: iy, _yard: true }));
                 }
               }
@@ -5712,7 +5720,7 @@
                   const pm = padPatch ? BiomeProfiles.patchMul(padPatch,
                     tx * TILE_EXTENT + (ix + 0.5) / mvtToCell, ty * TILE_EXTENT + (iy + 0.5) / mvtToCell) : 1;
                   if (r1 < shrubDensity * pm) {
-                    wildplants.push(makeWildplant('shrub', cellCenterMx, cellCenterMy,
+                    wildplants.push(makeWildplant(ambientBush('shrub', `wp_${tx}_${ty}_${ix}_${iy}_pp`), cellCenterMx, cellCenterMy,
                       `wp_${tx}_${ty}_${ix}_${iy}_pp`, { _ix: ix, _iy: iy }));
                   } else if (r2 < longgrassDensity * pm) {
                     wildplants.push(makeWildplant('longgrass', cellCenterMx, cellCenterMy,
@@ -7561,7 +7569,7 @@
       // missing the new field for as long as it lives in the cache. The
       // bin carries the facts (position, id); the stream's shape is this
       // file's, applied at the moment the row joins the stream.
-      entry.wildplants.push(makeWildplant(s.crop, c.x, c.y, s.id));
+      entry.wildplants.push(makeWildplant(ambientBush(s.crop, s.id), c.x, c.y, s.id));
     }
     // (No poles: utility poles, masts, bollards and OSM street lamps were a
     // non-interactive stone pillar, cut by the no-decorative-props rule. A
@@ -9215,7 +9223,10 @@
   });
   const FLOOR_PROFILES = Object.freeze([
     Object.freeze({ depth: 1, flintRockP: .25, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
-      pressureTraps: false, caveAreas: caveAreaProfile([50, 15, 30, 5, 15], false, 12, false),
+      // No goblin warrens and no goblins on L1 (owner, Oct 2026; enemy_roster.js
+      // moved the club goblin to L2 the same day): slime springs, mushroom
+      // caverns, gem caverns and mazes share the L1 groves.
+      pressureTraps: false, caveAreas: caveAreaProfile([50, 0, 30, 5, 15], false, 0, false),
       streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'above', roadWalls: 'small', streetMirror: true,
       fallLandings: false, chestSource: 'above', quarryProvenance: true, lava: false }),
     Object.freeze({ depth: 2, arrivalStory: 'dungeon_city', entryKey: null,
@@ -9706,7 +9717,7 @@
     // preservation pinned by tile_bin_injection.test.js.
     injectTileBin, injectTileBinSteps,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isParkingAisle, isLotLane, pruneLotLanesSteps, LOT_POI_R_M, LOT_AISLE_R_M, LOT_STREETSIDE_M, LOT_MAX_M, isSpawnCell, nearBuildingCell, nearPoiCell, poiWithin, relocateToSpawnCell,
+    ambientBush, forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isParkingAisle, isLotLane, pruneLotLanesSteps, LOT_POI_R_M, LOT_AISLE_R_M, LOT_STREETSIDE_M, LOT_MAX_M, isSpawnCell, nearBuildingCell, nearPoiCell, poiWithin, relocateToSpawnCell,
     // The cell walks (one ring scan, one disc order, one box scan) and the
     // polygon geometry every module used to re-type.
     ringCells, nearestRingCell, RING_ORDER, discOffsets, boxCells, anyNeighbour8, countNeighbours8,
