@@ -904,6 +904,7 @@
     if (scene.buildingWallContainer) scene.buildingWallContainer.setVisible((scene.depth ?? 0) === 0);
     if (!on) {
       clearUprights(scene);
+      scene._proceduralBuildings = new Map();
       if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'polygon');
       // Wipe the canvas the first time it goes off: setEnabled() invalidates
       // on its way out, and a hidden container full of last frame's buildings
@@ -922,7 +923,7 @@
     // Keep padded paint across crossings. New tile inputs and the claim epoch
     // still repaint immediately: restoring a wreck or taking a castle must
     // lift the shade off that footprint on the next frame.
-    const frame = overlayFrame(scene, (entry) => !!entry.buildingShapes);
+    const frame = overlayFrame(scene, (entry) => !!entry.buildingShapes || (Render.proceduralBuildings?.() && !!entry.objects));
     const { tiles } = frame;
     const previous = scene._buildingGeomKey ? scene._buildingGeomFrame : null;
     const paint = overlayPaintFrame(scene, frame, previous, claimEpoch(scene));
@@ -969,7 +970,8 @@
     const s = scene.save || {};
     const n = (o) => (o ? (Array.isArray(o) ? o.length : Object.keys(o).length) : 0);
     return n(s.restoredHouses) + ',' + n(s.unlockedForts) + ',' + n(s.claimedCastles)
-      + ',' + (s.starterShopId || '') + ',' + Object.values(s.temples || {}).filter(r => r.active).length;
+      + ',' + (s.starterShopId || '') + ',' + Object.values(s.temples || {}).filter(r => r.active).length
+      + ',' + Render.buildingArtStyle + ',' + JSON.stringify([s.restoredHouses, s.shopLines, typeof Shops === 'undefined' ? [] : Object.values(Shops.SOLO_LINES).map(key => s[key])]);
   }
 
   function rebuild(scene, tiles, fracX, fracY) {
@@ -988,7 +990,9 @@
       });
     }
     // Standalone art exporters load the legacy Canvas painter without Phaser.
-    const perspective = typeof WallPerspective !== 'undefined' && WallPerspective.active(scene) && !!scene.buildingWallContainer;
+    const procedural = Render.proceduralBuildings?.() && !!scene.buildingWallContainer && typeof scene.add?.graphics === 'function';
+    scene._proceduralBuildings = new Map();
+    const perspective = typeof WallPerspective !== 'undefined' && (WallPerspective.active(scene) || procedural) && !!scene.buildingWallContainer;
     if (perspective) WallPerspective.begin(scene, 'polygon');
     else if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'polygon');
     const separateUprights = !!(scene.buildingWallContainer && scene.add && scene.textures);
@@ -1014,10 +1018,14 @@
     for (const { tx, ty, entry } of tiles) {
       const originMx = tx * entry.tileEdgeM;
       const originMy = ty * entry.tileEdgeM;
+      const objects = (entry.objects || []).filter(o => o.kind === 'house');
+      const objectsById = new Map(objects.map(o => [o.id, o]));
+      const matched = new Set();
       const shapes = entry.clearedShapes
-        ? entry.clearedShapes.map(s => ({ ...s, cleared: true })).concat(entry.buildingShapes)
-        : entry.buildingShapes;
+        ? entry.clearedShapes.map(s => ({ ...s, cleared: true })).concat(entry.buildingShapes || [])
+        : (entry.buildingShapes || []);
       for (const shape of shapes) {
+        if (!shape.cleared && objectsById.has(shape.key)) matched.add(shape.key);
         const r = shape.ring;
         if (!r || r.length < 6) continue;        // fewer than 3 points is not a footprint
         const pts = [];
@@ -1033,9 +1041,23 @@
         }
         // Cull on the bounding box, grown by the wall depth so a building just
         // off the north edge still drops its face into view.
-        if (bx1 < minX || bx0 > maxX || by1 + facePx(shape.tier) < minY || by0 > maxY) continue;
+        const pad = procedural ? CELL_PX * 3 : facePx(shape.tier);
+        if (bx1 + pad < minX || bx0 - pad > maxX || by1 + pad < minY || by0 - pad > maxY) continue;
+        // Sandbox blocks can predate their hand-placed object IDs. Match only
+        // an unambiguous contained house; shared blocks keep separate houses.
+        let object = objectsById.get(shape.key), shared = false;
+        if (procedural && !shape.cleared && String(shape.key).startsWith('sb_')) {
+          const inside = objects.filter(o => inPoly(pts, projX(o.x), projY(o.y)));
+          if (inside.length === 1) object = inside[0];
+          shared = inside.length > 1;
+          if (shared) {
+            if (object) matched.delete(object.id);
+            object = null;
+          }
+        }
+        if (object && !shape.cleared) matched.add(object.id);
         draws.push({
-          pts, south: by1, left: bx0, north: by0, right: bx1, cleared: !!shape.cleared,
+          object, shared, pts, south: by1, left: bx0, north: by0, right: bx1, cleared: !!shape.cleared,
           tier: shape.tier, key: shape.key, templeZone: shape.templeZone, templeKind: shape.templeKind,
           damageOriginX: projX(originMx), damageOriginY: projY(originMy),
           columns: shape.tier === CASTLE && !shape.templeZone ? CastleStyles.columnSites(shape.key, r,
@@ -1043,6 +1065,20 @@
             .map(p => ({ x: projX(originMx + p.x), y: projY(originMy + p.y), height: p.height })) : [],
           seed: seedOf(tx, ty, r, shape.key),
         });
+      }
+      // Objects without a source polygon (Home and authored sandbox fixtures)
+      // still get a footprint-derived building, without changing world data.
+      if (procedural) for (const o of objects) {
+        if (matched.has(o.id) || o.tier === CASTLE) continue;
+        const x = projX(o.x) + (o.footDx || 0) * CELL_PX;
+        const y = projY(o.y) + (o.footDy || 0) * CELL_PX;
+        const size = Math.max(CELL_PX, Math.min(CELL_PX * 3,
+          Math.sqrt(o.area || scene.cellM * scene.cellM) / scene.cellM * CELL_PX));
+        if (x + size < minX || x - size > maxX || y + size * 2 < minY || y - size * 2 > maxY) continue;
+        const h = size / 2;
+        draws.push({ object: o, key: o.id, tier: o.tier || 9, seed: 0, columns: [],
+          pts: [{ x: x-h, y: y-h }, { x: x+h, y: y-h }, { x: x+h, y: y+h }, { x: x-h, y: y+h }],
+          left: x-h, right: x+h, north: y-h, south: y+h });
       }
     }
 
@@ -1069,7 +1105,24 @@
         else { g.fillPoly(d.pts, palette.floor); g.strokePoly(d.pts, OUTLINE_PX, palette.outline); }
         continue;
       }
-      const isMine = claimed(d.key);
+      const isMine = claimed(d.object?.id || d.key);
+      if (procedural && !d.shared && (d.tier === 9 || d.tier === 11)) {
+        const object = d.object || { kind: 'house', id: d.key, tier: d.tier };
+        const profile = Render.buildingProfileFor(object, scene);
+        const styleId = profile.style;
+        if (styleId === 'ruin') {
+          const floor = tuneOf(isMine)(shadeOf(isMine)(floorColor(d.tier, isMine)));
+          g.fillPoly(d.pts, floor);
+          if (g.texturePoly) g.texturePoly(d.pts, d.tier);
+          if (g.blobsPoly) g.blobsPoly(d.pts, slimeBlobs(d), d.left, d.north,
+            slimeColor(floor, shadeOf(false)), SLIME_ALPHA);
+        }
+        const model = BuildingStyles.emit(scene, 'polygon', d.pts, styleId, { claimed: isMine, palette: profile.palette });
+        if (model && model.prisms.length) {
+          if (object.id) scene._proceduralBuildings.set(object.id, { height: model.height });
+          continue;
+        }
+      }
       const shade = shadeOf(isMine), tune = tuneOf(isMine);
       // The shaded floor is what the slime derives from (three shades deep —
       // see slimeColor); the material lift goes over every colour after.

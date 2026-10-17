@@ -54,8 +54,9 @@ heading the command buffers are reused. House footprint foundations use the same
 retained perimeter faces, descending below the floor instead of rising as a wall.
 Only camera-facing sides draw; uncapped perimeters also support concave footprints
 without triangulating their textured floors. Floors remain cached ground textures;
-small building sprites and towers keep their ordinary upright sprite path.
-North-up mode retains the existing wall atlas artwork.
+Procedural house roofs use triangulated caps and retained sloped roof faces.
+They share the same elevation projection in north-up and heading-up modes;
+legacy sprite modes retain the north-up wall atlas artwork.
 
 ## Coordinates, rendering and performance
 
@@ -158,7 +159,10 @@ North-up mode retains the existing wall atlas artwork.
   flags retain ordinary world ordering. Tower textures fade fully to transparent
   across their bottom ten pixels so cell-seated bases blend into angled walls;
   this is baked once for both restoration states. Walls and footprints use a muted
-  palette so interactables remain distinct.
+  palette so interactables remain distinct. Unclaimed house and fort floors
+  retain a little more brick red and weathered timber warmth beneath the green
+  wash; their existing slime, grain, cracks and dark foundation edges preserve
+  the dilapidated state. Restored floors and castle materials keep their palettes.
   Castle courtyards are cell-tiled. Half of the cached variants are one full
   cell slab; the rest split it, a quarter into four quarter-cell stones (2×2)
   and a quarter joining one adjacent pair into a horizontal or vertical
@@ -532,3 +536,49 @@ wall update time, and texture/buffer calls where WebGL is available. Run identic
 browser/backend settings against separate baseline and candidate servers.
 Headless CPU timings do not establish handset GPU time or a 120fps guarantee;
 validate on the target device before making that claim.
+
+## Footprint building styles
+
+The default house and fort architecture comes from `building_styles.js`, using
+source building polygons rather than a freestanding sprite. `Render` owns the
+role and shop-line style tables: plaster terraces for residences, brick for the
+blacksmith, Japanese roofs for traders and book/pet shops, stepped pyramid roofs
+for the wizard and potion/relic shops, stone tiers for forts and low broken walls
+for wrecks. Restoring a building changes its material and geometry together.
+
+`BuildingOverlay` emits retained prisms only when footprint inputs or restoration
+state change. Roof insets stop when narrow or concave wings cannot support another
+level; they never scale toward a centroid outside the building. The existing
+source data exports individual rings, so courtyard holes are not reconstructed.
+Source polygons without surviving house icons still receive architecture. Home
+and synthetic houses without polygons get a bounded square footprint using their
+existing area and ground anchor. A house sprite hides only after geometry has
+actually been emitted; interaction cells, shop signs and delivery badges remain.
+Badge elevation reads the emitted building height. Geometry remains in the existing
+building background layer below actors, including on tall roofs.
+
+`?buildingArt=rounded` selects the previous rounded sprite set;
+`?buildingArt=legacy` selects the original sprites. Omit the query or use
+`buildingArt=procedural` for footprint architecture. This per-page selection is
+not saved; all original assets remain available. The rounded sprite set also
+continues to supply restoration cards and Home icons.
+
+## Rounded building artwork
+
+The retained building set is `assets/Objects/RoundedBuildings/buildings.png`.
+`ASSETS.rounded_buildings.frameRects` registers its sixteen named frames,
+cut from the 96px cells into 64×64 house and 80×80 fort frames ending at the
+shared ground row (88px within each cell). `Render.houseTextureKey` and
+`Render.houseTextureFrame` route map buildings, restoration choices and Home's
+icon through the same role and shop-line mapping. The existing footprint-based
+world scale, bottom-centre anchor and ground position remain the sizing rules;
+the native frame dimensions do not introduce a second world-scale multiplier.
+
+Use `?buildingArt=legacy` (or `&buildingArt=legacy` with other query options)
+to compare the original artwork. Use `buildingArt=rounded` for
+the rounded set. `Render.buildingArtStyle` is the single runtime selection; it is
+not saved. All original assets and registrations remain available for rollback.
+Castle perimeter towers retain their existing material-family art. The rounded
+wreck and unclaimed fort contain their weathering and receive no second wash.
+The source sheet and extraction metadata are archived under
+`~/.artifacts/house-rounded/`.

@@ -694,7 +694,8 @@ class SceneVenues {
   _homeKindIcon() {
     const st = this.save.starterTrailer;
     return (st && st.id === this.save.starterShopId)
-      ? (this.worldIconHTML('house_trailer', 30) || undefined) : undefined;
+      ? (this.worldIconHTML(Render.houseTextureKey('trailer', st, this), 30,
+        Render.houseTextureFrame('trailer', st, this) ?? 0) || undefined) : undefined;
   }
 
   // SELL page: one item per tap from the selected stack — confirm first so

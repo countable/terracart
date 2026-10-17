@@ -1,7 +1,7 @@
 // The material lift preserves alpha/ink and the green sludge contrast. It is
 // applied to a completed unclaimed layer, never to a restored building.
 (function () {
-const material = new Function(TEXTURES_SRC + '\nreturn { tuneUnclaimedMaterialPixels, UNCLAIMED_BUILDING_BASE, CASTLE_STONE, CASTLE_STONE_UNCLAIMED };')();
+const material = new Function(TEXTURES_SRC + '\nreturn { tuneUnclaimedMaterialPixels, unclaimedShade, unclaimedMaterialColor, UNCLAIMED_BUILDING_BASE, CASTLE_STONE, CASTLE_STONE_UNCLAIMED };')();
 test('building materials: gentle unclaimed lift preserves alpha and silhouette ink', () => {
   const pixels = new Uint8ClampedArray([23,23,23,255, 99,94,70,255, 44,57,34,210, 180,180,180,0]);
   const before = [...pixels];
@@ -13,6 +13,22 @@ test('building materials: gentle unclaimed lift preserves alpha and silhouette i
   assert.gt(brightness(4), 94, 'the weathered floor receives a small lift');
   assert.lt(brightness(4), 104, 'half-strength lift avoids washing out the weathered floor');
   assert.gt(brightness(4)-brightness(8), 30, 'sludge remains visibly darker than the floor');
+});
+test('building materials: wreck floors regain modest warmth without losing their weathering', () => {
+  const finish = c => {
+    const rgb = buildingBackgroundColor(material.unclaimedMaterialColor(material.unclaimedShade(c)));
+    return [(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255];
+  };
+  const light = c => c[0] * .2126 + c[1] * .7152 + c[2] * .0722;
+  const chroma = c => Math.max(...c) - Math.min(...c);
+  for (const [tier, previous] of [[9, 0x984f45], [11, 0x9b8365]]) {
+    const before = finish(previous), floor = finish(material.UNCLAIMED_BUILDING_BASE.floors[tier]);
+    const foundation = finish(material.UNCLAIMED_BUILDING_BASE.faces[tier]);
+    assert.gt(light(floor), light(before), 'weathered floor is easier to read');
+    assert.lt(light(floor) - light(before), 12, 'the lift stays modest');
+    assert.gt(chroma(floor), chroma(before), 'brick and timber retain more colour');
+    assert.gt(light(floor) - light(foundation), 18, 'dark foundation still separates the raised floor');
+  }
 });
 test('building materials: restored palette cannot brighten the unclaimed source', () => {
   const old = material.CASTLE_STONE.BODY.n;
