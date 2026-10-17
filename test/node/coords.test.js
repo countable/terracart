@@ -314,34 +314,12 @@ test('reachRadiusM: expired Potion of Reach (past) does NOT override — normal 
 // We use a simple scene where the player stands at the reach-cell origin and
 // we can compute exact distances in cell units.
 function reachScene(over) {
-  // cellM = 5: distances in metres are easy multiples.
-  // Player at playerM={0,0}, feetOffsetM=0 to put reach cell at the pixel origin.
-  // That way playerReachCell = worldMetersToAbsCell(scene, startWorldM).
-  // With originPx=(0,0), startWorldM=(0,0), mPerPx=1, cellsPerTile=1:
-  //   cellPxSize = 256, cps=256, mPerPx=1 → cell is 256 m wide.
-  //   That's huge — use cellsPerTile=51, mPerPx=1.
-  //   cellPxSize=256/51≈5.02 px, cell width = 5.02 m ≈ cellM.
-  // Simplest: use originPx={0,0}, startWorldM={0,0}, mPerPx=1, cellsPerTile=51.
-  //   Then cellPxSize=256/51 px, and world metres map through /mPerPx=1 → px.
-  //   A point at wmx=0 → wx=0 px → cellIX=0.
-  //   Player at playerM={0,0}, feetOffsetM=0 → reach cell = {0,0}.
-  // reachRadiusM = reachCells * cellM + 1 = 2.5*5+1 = 13.5 m (default).
-  // cellInReach: dx = (cellIX - 0) * cellM = cellIX * 5.
-  // So cell (1,0): dx=5, r²=25 ≤ 13.5²=182.25 → IN reach.
-  // Cell (2,0): dx=10, r²=100 ≤ 182.25 → IN reach.
-  // Cell (3,0): dx=15, r²=225 > 182.25 → OUT of reach.
-  const base = {
-    startWorldM: { x: 0, y: 0 },
-    mPerPx: 1,
-    originPx: { x: 0, y: 0 },
-    cellsPerTile: 51,
-    cellM: 5,
-    playerM: { x: 0, y: 0 },
-    feetOffsetM: 0,   // simplify: feet = body
-    depth: 0,
+  return Object.assign({
+    startWorldM: { x: 0, y: 0 }, originPx: { x: 0, y: 0 },
+    mPerPx: 1, cellsPerTile: WorldGen.TILE_PX / 5, cellM: 5,
+    playerM: { x: 2.5, y: 2.5 }, feetOffsetM: 0, depth: 0,
     save: { energy: 100, reachUpgrades: 0 },
-  };
-  return Object.assign({}, base, over);
+  }, over);
 }
 
 test('cellInReach: origin cell (0,0) is always reachable', () => {
@@ -508,4 +486,16 @@ test('two saves anchored at different latitudes agree on where a peer is', () =>
   const mineM = lonLatToLocalM(mine, spot.lon, spot.lat);
   assert.inRange(wm.x - (mine.startWorldM.x + mineM.x), -1e-6, 1e-6);
   assert.inRange(wm.y - (mine.startWorldM.y + mineM.y), -1e-6, 1e-6);
+});
+
+test('cellInReach: moving within a cell moves the circle without waiting for a crossing', () => {
+  const s = reachScene();
+  s.playerM.x = 1;
+  assert.falsy(cellInReach(s, 3, 0), 'east cell starts outside');
+  assert.truthy(cellInReach(s, -3, 0), 'west cell starts inside');
+  s.playerM.x = 4;
+  assert.truthy(cellInReach(s, 3, 0), 'east cell enters before the player crosses a cell');
+  assert.falsy(cellInReach(s, -3, 0), 'west cell leaves before the crossing');
+  s.peekM = { x: 500, y: -500 };
+  assert.truthy(cellInReach(s, 3, 0), 'camera peeks cannot move interaction reach');
 });

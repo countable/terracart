@@ -1160,9 +1160,7 @@
     const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
     let inReach = false;
     if (reachM > 0 && prof.lit > prof.edge) {
-      const rp = playerReachCell(scene);
-      const centre = absCellCenterMeters(scene, rp.cellIX, rp.cellIY);
-      inReach = Math.hypot(wx - centre.x, wy - centre.y) <= reachM;
+      inReach = d <= reachM;
     }
     const rMaxM = radiusCells('player') * playerLightMul(scene) * cellM;
     const glow = playerGlow(prof, d, reachM, rMaxM, cellM);
@@ -1875,6 +1873,29 @@
     return !!scene._lightContribution?.entries?.some(e => e.pending);
   }
 
+  // One screen-space circle follows the exact player point. It is shared by
+  // Canvas and GPU compositors, with no grid snapping or old-position fade.
+  function playerCircleContribution(scene, W, H, ox, oy, ps, radius) {
+    if (!(radius > 0)) return { items: [], rebuilt: false };
+    let entry = scene._lightPlayerCircle;
+    if (!entry) entry = scene._lightPlayerCircle = { canvas: document.createElement('canvas'), revision: 0 };
+    const key = `${W},${H},${ps.x - ox},${ps.y - oy},${radius}`;
+    const rebuilt = entry.key !== key;
+    if (rebuilt) {
+      if (entry.canvas.width !== W) entry.canvas.width = W;
+      if (entry.canvas.height !== H) entry.canvas.height = H;
+      const ctx = entry.canvas.getContext('2d');
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(ps.x - ox, ps.y - oy, radius, 0, Math.PI * 2);
+      ctx.fill();
+      entry.key = key;
+      entry.revision++;
+    }
+    return { items: [{ canvas: entry.canvas, revision: entry.revision, sx: 0, sy: 0, weight: 1 }], rebuilt };
+  }
+
   // Combine the cached CELL SHAPES at their live fade weights, then colour
   // that mask with a fresh radial gradient centred on the player's current
   // feet. Geometry follows the world; brightness follows the body. This small
@@ -2043,20 +2064,14 @@
     const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
     const r0 = Math.max(0, reachM * k);
     const player = ensurePlayerCookie(scene, prof, r0, rMax);
-    // The feet in whole px, like everything else on the map (WHOLE PIXELS,
-    // above): the ramp and the plateau's gradient are centred there.
+    // Keep the exact player point: both the circle and its gradient follow
+    // sub-cell movement continuously, including camera peeks.
     const ps0 = scene.playerScreen ? scene.playerScreen() : { x: scene.viewCenterX, y: scene.viewCenterY };
-    const ps = { x: Math.round(ps0.x), y: Math.round(ps0.y) };
+    const ps = ps0;
     const ox = scene.viewLeft, oy = scene.viewTop;   // lightmap-local origin
-    // The plateau's placement, hoisted out of its branch below so the gate
-    // can key on it: the reach cell and the anchor cell + fraction.
-    const plateau = reachM > 0 && prof.lit > prof.edge && typeof playerReachCell === 'function'
-      && typeof viewAnchorCell === 'function';
-    const rp = plateau ? playerReachCell(scene) : null;
-    const pc = plateau ? viewAnchorCell(scene) : null;
-    const pcPx = plateau ? plateauPxKey(scene, pc) : null;
-    const frames = reachFrames(scene, rp, reachM, wall);
-    const fadeKey = reachFramesKey(frames);
+    const plateau = reachM > 0 && prof.lit > prof.edge;
+    const rp = null, pc = null, pcPx = null;
+    const fadeKey = '';
     const B = (typeof window !== 'undefined') ? window.__boot : null;
     const cover = coverFrame(scene, ax, ay, tex.width, tex.height);
     const gpu = typeof LightingGPU !== 'undefined' && LightingGPU.active(scene);
@@ -2074,7 +2089,7 @@
     const ctx = tex.context;
     const W = tex.width, H = tex.height;
 
-    const contribution = contributionFrames(scene, W, H, ox, oy, plateau, pc, frames);
+    const contribution = playerCircleContribution(scene, W, H, ox, oy, ps, plateau ? r0 : 0);
     const cookies = worldCookieFrames(scene, W, H, ax, ay, ox, oy, crit, now, pnow);
     let gpuPainted = false;
     if (gpu) {

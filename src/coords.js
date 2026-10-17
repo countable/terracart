@@ -741,12 +741,12 @@ function reachRadiusM(scene) {
 function cellInReach(scene, cellIX, cellIY) {
   const reachM = reachRadiusM(scene);
   if (reachM <= 0) return false;
-  const p = playerReachCell(scene);
-  // Whole cells from the reach cell — across a row whose grid differs, by
-  // position (absCellDelta), never raw cellIX arithmetic.
-  const d = absCellDelta(scene, p.cellIX, p.cellIY, cellIX, cellIY);
-  const dx = Math.max(0, Math.abs(d.dx) - 0.5) * scene.cellM;
-  const dy = Math.max(0, Math.abs(d.dy) - 0.5) * scene.cellM;
+  const player = playerWorldM(scene);
+  const centre = absCellCenterMeters(scene, cellIX, cellIY);
+  const row = absRowOf(scene, cellIY);
+  const half = WorldGen.TILE_PX / rowCells(scene, row) * scene.mPerPx / 2;
+  const dx = Math.max(0, Math.abs(centre.x - player.x) - half);
+  const dy = Math.max(0, Math.abs(centre.y - player.y) - half);
   return dx * dx + dy * dy < reachM * reachM;
 }
 

@@ -38,9 +38,9 @@ class SceneStreets {
   //   save.trail        = { metres, prizes }
   //
   // THE SWEEP, in two halves. The SCAN (which metres of which lines are in
-  // reach and not yet restored) is memoised on the reach CELL plus the radius:
+  // reach and not yet restored) is memoised on the exact player position plus the radius:
   // standing still finds nothing new, and the only things that can bring fresh
-  // street into the bubble are moving to another cell or the reach itself
+  // street into the bubble are player movement or the reach itself
   // changing (an upgrade, a potion, running out of energy). The RIPEN pass
   // runs every frame over the sight's small history, because the thing it is
   // waiting on is the clock, not the player.
@@ -57,7 +57,8 @@ class SceneStreets {
     const now = Date.now();
     const p = playerReachCell(this);
     const sight = this._streetSight || (this._streetSight = Streets.createSight());
-    const sweepKey = `${p.cellIX},${p.cellIY},${Math.round(reachM)}`;
+    const player = playerWorldM(this);
+    const sweepKey = `${player.x},${player.y},${reachM}`;
     if (this._streetSweepKey !== sweepKey) {
       this._streetSweepKey = sweepKey;
       this._rescanStreets(p, reachM, now, sight);
@@ -78,7 +79,7 @@ class SceneStreets {
   // the player, snapshotted with the metres of it that are in reach, inside
   // this tile's own square, and not already restored.
   //
-  // Measured from the REACH CELL, never the camera anchor (QC rules: a peek
+  // Measured from the PLAYER POSITION, never the camera anchor (QC rules: a peek
   // drag must not restore three cells further than the arm reaches).
   // `cellInReach` is the same gate the lit silhouette and every tap use, so
   // what rebuilds is exactly what the lit area covers.
@@ -96,7 +97,7 @@ class SceneStreets {
     // The reach circle's centre in ABSOLUTE metres — the bbox prefilter below
     // works in each tile's local metres, so this is shifted per tile rather
     // than recomputed.
-    const rc = absCellCenterMeters(this, p.cellIX, p.cellIY);
+    const rc = playerWorldM(this);
     // A cell of slack: reachIntervals charges a whole cell to the reach, so a
     // line grazing the cell at the rim is still in bounds.
     const pad = reachM + this.cellM;

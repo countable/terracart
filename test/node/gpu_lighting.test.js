@@ -17,7 +17,7 @@
       reachFrames: () => [], reachFramesKey: () => 'fade',
       coverFrame: () => ({ canvas: canvas(), revision: 'cover', key: 'cover', x: 0, y: 0 }),
       frameKey: () => 'frame', contributionPending: () => false,
-      contributionFrames: () => ({ items: [], rebuilt: false, deferred: false }),
+      playerCircleContribution: () => ({ items: [], rebuilt: false, deferred: false }),
       worldCookieFrames: () => ({ items: [], excluded: [], cached: 0 }),
       baseFrameKey: () => 'base',
       paintStaticLayer: () => { calls.base++; }, blitStatic: noop,
