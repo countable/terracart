@@ -1,5 +1,19 @@
 # Sprite art direction
 
+## Ground atlas trial
+
+`assets/ground/terrain-atlas.png` supplies 32 material pairs (base/decorated),
+with exact frame bounds and the generation prompt alongside it. Inspect
+`tools/ground-atlas-viewer.html` for repetition and blend comparisons; use
+`index.html?sandbox=true&groundAtlas=true` for the opt-in game trial. The trial
+prepares palette-relative translucent detail and shared tile edges at startup.
+Existing ripple animation and the border layer remain responsible for water
+motion and transitions. Structural masonry, elevated cave walls, polygon roads
+and uncharted fog retain their specialised renderers. The sheet is a candidate
+for those materials, not a change to their geometry or state rendering.
+
+
+
 The natural and unrestored world uses muted post-apocalyptic rustic colours.
 Players, restored assets, and special or sacred places may deliberately introduce
 cleaner, brighter or cooler colours. Colour signals care and significance; the
