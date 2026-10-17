@@ -688,23 +688,33 @@ function playerReachCell(scene) {
 // the object/creature/treasure far-gate (interact.js tooFar) — so the lit area
 // and every tap-accept test stay byte-identical and can't drift.
 //
-// Reach depends on the Inner Light the player controls, dimmed by the dark as
-// they descend. On the surface it starts at 2.5 cells and grows to 5.5 via the
-// six +0.5-cell upgrades (save.reachUpgrades, 0..6) bought as the wizard
-// tower's Inner Light track (wizard.js TRACKS). Underground the bubble is
-// smothered: each level down trims it by half a cell, floored at 1.5 so the
-// immediate ring is always workable — so each descent both darkens the
-// surroundings (render.js) AND tightens the lit reach. It does NOT shrink when
-// merely tired; the special cases are the Potion of Reach (lights the whole
-// view) and 0 energy (you can't reach at all).
-// The +1 m epsilon keeps the cardinal cell included with a hair of margin so the
-// silhouette reads as a rounded diamond at every level.
+// Start with the depth-adjusted light radius. Each Inner Light upgrade
+// crosses only the next circle/square overlap threshold. Equal-distance cells
+// unlock together; depth and blindness are applied before stepping upgrades.
+const _reachRadiusSteps = new Map();
 function reachCells(scene) {
-  const upgrades = scene.save?.reachUpgrades ?? 0;
-  const base = Math.min(5.5, 2.5 + 0.5 * upgrades);
-  const depth = scene.depth ?? 0;
-  if (depth > 0) return Math.max(1.5, base - 0.5 * depth);
-  return base;
+  const upgrades = Math.max(0, Math.min(6, Math.floor(scene.save?.reachUpgrades || 0)));
+  const base = Math.max(1.5, 2.5 - 0.5 * Math.max(0, scene.depth || 0));
+  const sight = (typeof Conditions !== 'undefined' && Conditions.lightMul) ? Conditions.lightMul(scene.save) : 1;
+  // Keep the existing one-metre margin outside the nominal weapon range.
+  const margin = scene.cellM > 0 ? 1 / scene.cellM : 0;
+  const start = (sight < 1 ? Math.max(1, base * sight) : base) + margin;
+  const key = `${start}|${upgrades}`;
+  if (_reachRadiusSteps.has(key)) return _reachRadiusSteps.get(key) - margin;
+  let radius = start;
+  for (let step = 0; step < upgrades; step++) {
+    let next = Infinity;
+    const limit = Math.ceil(radius + 1.5);
+    for (let x = 0; x <= limit; x++) for (let y = 0; y <= limit; y++) {
+      const distance = Math.hypot(Math.max(0, x - 0.5), Math.max(0, y - 0.5));
+      if (distance >= radius && distance < next) next = distance;
+    }
+    // Cross the threshold, rather than merely touching a cell at zero area.
+    radius = next + 1e-6;
+  }
+  if (_reachRadiusSteps.size > 128) _reachRadiusSteps.clear();
+  _reachRadiusSteps.set(key, radius);
+  return radius - margin;
 }
 function reachRadiusM(scene) {
   // Potion of Reach or Dawnfruit: for its duration the whole visible view
@@ -721,13 +731,13 @@ function reachRadiusM(scene) {
   const energy = scene.save?.energy ?? 0;
   if (energy <= 0) return 0;
   const cells = reachCells(scene);
-  return (sight < 1 ? Math.max(Math.min(1, cells), cells * sight) : cells) * scene.cellM + 1;
+  return cells * scene.cellM + 1;
 }
 
-// "Is this absolute cell within the player's reach?" Both drawCells (visual
-// reach silhouette) and interact.js' cell-resolve tap test call this — keeps
-// the lit area and the tap-accept area byte-identical regardless of intra-cell
-// player position, FP drift, or rounding mode.
+// A cell is reachable when the light circle overlaps its square footprint.
+// Test the nearest point on the square, rather than its centre, so even a
+// partially lit boundary cell accepts interactions. Tangency alone has no area.
+
 function cellInReach(scene, cellIX, cellIY) {
   const reachM = reachRadiusM(scene);
   if (reachM <= 0) return false;
@@ -735,9 +745,9 @@ function cellInReach(scene, cellIX, cellIY) {
   // Whole cells from the reach cell — across a row whose grid differs, by
   // position (absCellDelta), never raw cellIX arithmetic.
   const d = absCellDelta(scene, p.cellIX, p.cellIY, cellIX, cellIY);
-  const dx = d.dx * scene.cellM;
-  const dy = d.dy * scene.cellM;
-  return dx * dx + dy * dy <= reachM * reachM;
+  const dx = Math.max(0, Math.abs(d.dx) - 0.5) * scene.cellM;
+  const dy = Math.max(0, Math.abs(d.dy) - 0.5) * scene.cellM;
+  return dx * dx + dy * dy < reachM * reachM;
 }
 
 // ─── The lit boundary's corners ──────────────────────────────────────────────

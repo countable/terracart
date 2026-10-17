@@ -58,16 +58,9 @@
 // shown as a MULTIPLY-blended image, so it is the same picture on WebGL, on
 // the Canvas fallback and on every GPU — see the note at draw().
 //
-// The player's PLATEAU is painted per reach cell with cellInReach's own
-// maths, so the sharp edge of the lit area IS the staircase the tap gate
-// accepts once its brief cell-change crossfade settles. Only the falloff
-// outside it is a circle. That edge is the WHOLE
-// affordance (no outline is stroked over it; if the boundary stops reading,
-// widen the step at its edge). Inside the staircase the plateau is the
-// player's own lamp, full at the feet and easing down PLATEAU_FALL of the way
-// by the reach rim (plateauLevel), so the lit area reads as light thrown
-// from the body, with the step down at its edge still the biggest thing in
-// the picture.
+// The player's PLATEAU is a circle with the interaction radius, centred on
+// the reach cell. A cell is reachable when its footprint overlaps the circle.
+// Its brightness eases from the player's feet, and cell changes crossfade.
 //
 // ── The numbers are DERIVED, not tuned ────────────────────────────────────
 // profile() derives the white channel from Render.reachDimAlpha /
@@ -1167,12 +1160,9 @@
     const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
     let inReach = false;
     if (reachM > 0 && prof.lit > prof.edge) {
-      if (typeof cellInReach === 'function' && typeof worldMetersToAbsCell === 'function') {
-        const c = worldMetersToAbsCell(scene, wx, wy);
-        inReach = cellInReach(scene, c.cellIX, c.cellIY);
-      } else {
-        inReach = d <= reachM;
-      }
+      const rp = playerReachCell(scene);
+      const centre = absCellCenterMeters(scene, rp.cellIX, rp.cellIY);
+      inReach = Math.hypot(wx - centre.x, wy - centre.y) <= reachM;
     }
     const rMaxM = radiusCells('player') * playerLightMul(scene) * cellM;
     const glow = playerGlow(prof, d, reachM, rMaxM, cellM);
@@ -1431,10 +1421,8 @@
   // half-diagonal: one cell past keeps the corners just lit,
   // and the ramp still ends on zero so a peek finds no edge past it (the
   // ambient beyond is the value it lands on). It also carries the light
-  // removed from the indicator. The remaining PLATEAU is painted per reach
-  // cell in draw(), so the sharp edge of the lit area is
-  // the same staircase the tap gate accepts (cellInReach), not a circle
-  // near it.
+  // removed from the indicator. The remaining PLATEAU is clipped to a reach-radius
+  // circle in draw(), covering at least part of every reachable cell.
   // Rebaked only when its inputs move: the reach radius (energy / depth /
   // Potion of Reach) and the depth's levels.
   //
@@ -1502,7 +1490,7 @@
   // cell colour at that stop's level. The rim is the furthest a reach cell's
   // corner can sit from the reach radius (half a cell's diagonal), so the
   // darkest of the plateau is its true extremity; past it the last stop
-  // continues flat. Clipped by the per-cell path, so the staircase is exact.
+  // continues flat. Clipped by the circular reach mask.
   function plateauFill(ctx, prof, cx, cy, r0) {
     const rim = r0 + CELL_PX * Math.SQRT1_2;
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rim);
@@ -1622,49 +1610,13 @@
     ctx.drawImage(player.canvas, ps.x - ox - D / 2, ps.y - oy - D / 2, D, D);
   }
 
+  // The circle defines reach: partially lit boundary cells accept interactions
+  // without a staircase silhouette.
   function reachCellsPath(ctx, scene, ox, oy, rp, pc, reachM) {
-      const reachM2 = reachM * reachM;
-      const fracX = pc.cx - Math.floor(pc.cx);
-      const fracY = pc.cy - Math.floor(pc.cy);
-      const { cellIX: baseCellIX, cellIY: baseCellIY } = viewAnchorAbsCell(scene, pc);
-      const half = (VIEW_CELLS - 1) / 2;
-      // Each slot row's band (coords.js viewBand): the column shift and screen
-      // phase of a row whose tile row has a different grid to the anchor's —
-      // the same slots render.js drawCells paints, so the plateau lights
-      // exactly the cells drawn under it. Rows -2..VIEW_CELLS+1 (the probe
-      // reaches one past the drawn range).
-      const bandDX = new Int32Array(VIEW_CELLS + 4), bandPh = new Float32Array(VIEW_CELLS + 4);
-      for (let r = -2; r <= VIEW_CELLS + 1; r++) {
-        const b = viewBand(scene, pc, baseCellIY + (r - half));
-        bandDX[r + 2] = b.dX; bandPh[r + 2] = b.phaseX;
-      }
-      // The neighbour probe for the corner rounding — the same test again, so
-      // a corner is rounded by exactly the cells the loop below lights. It is
-      // cellInReach's expression; across a row whose grid differs the
-      // distance is measured by position (coords.js absCellDelta), which on a
-      // shared grid is the plain subtraction.
-      const inReach = (c, r) => {
-        const d = absCellDelta(scene, rp.cellIX, rp.cellIY,
-          baseCellIX + (c - half) + bandDX[r + 2], baseCellIY + (r - half));
-        const ddx = d.dx * scene.cellM;
-        const ddy = d.dy * scene.cellM;
-        return ddx * ddx + ddy * ddy <= reachM2;
-      };
-      // ONE path, ONE fill: the cells abut on integer px so the union fills
-      // seamlessly, and under 'lighter' a single fill adds the plateau once
-      // (a fillet a second cell repeated would not double up either).
-      ctx.beginPath();
-      for (let row = -1; row <= VIEW_CELLS; row++) {
-        for (let col = -1; col <= VIEW_CELLS; col++) {
-          if (!inReach(col, row)) continue;
-          // drawCells' own slot (coords.js cellScreenXY), in lightmap-local px.
-          const c = cellScreenXY(scene, col - half, row - half, fracX, fracY, bandPh[row + 2]);
-          const sx = c.x - ox, sy = c.y - oy;
-          plateauCellPath(ctx, sx, sy,
-            !inReach(col, row - 1), !inReach(col, row + 1), !inReach(col - 1, row), !inReach(col + 1, row),
-            inReach(col - 1, row - 1), inReach(col + 1, row - 1), inReach(col - 1, row + 1), inReach(col + 1, row + 1));
-        }
-      }
+    const centre = absCellScreenCentre(scene, pc, rp.cellIX, rp.cellIY);
+    ctx.beginPath();
+    ctx.arc(centre.x - ox, centre.y - oy, reachM / scene.cellM * CELL_PX, 0, Math.PI * 2);
+    ctx.closePath();
   }
   function paintReachMask(ctx, scene, ox, oy, rp, pc, reachM) {
     ctx.fillStyle = '#fff';

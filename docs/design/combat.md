@@ -211,7 +211,8 @@ mechanics.
   the HUD chip and the body tint all derive from it. A new status is a row
   there, never a timer, colour or label of its own. BLINDED (a ghost's touch,
   its roster row's `condition`) carries `lightMul`: `Conditions.lightMul`
-  halves the reach plateau (`reachRadiusM`, never under one cell), the light
+  halves the base reach before Inner Light upgrade steps (`reachRadiusM`,
+  never under one cell), the light
   ramp and a carried torch (`Lighting.playerLightMul`) for fifteen seconds.
 - Tapping a well within reach clears every harmful condition through
   `Conditions.clearDebuffs`, including burning and a trap's pin. Positive
