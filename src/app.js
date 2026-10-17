@@ -10024,6 +10024,16 @@ class MapScene extends Phaser.Scene {
       onClose: () => { menu.open = false; },
     });
     box.appendChild(items);
+    // THE MENU'S PAGES: "Load game" and "Developer" each open a second menu
+    // (_openMenuPage) over the same <details> state, with a Back button.
+    // Looked up INSIDE the list: it sits in the unmounted box here, where
+    // document.getElementById cannot see it.
+    for (const [id, page, title] of [['load-game', 'saves-section', 'Load game'], ['dev-tools', 'devtools', 'Developer']]) {
+      const btn = items.querySelector('#' + id);
+      if (!btn || btn._wired) continue;
+      btn._wired = true;
+      btn.addEventListener('click', (e) => { e.stopPropagation(); this._openMenuPage(page, title); });
+    }
     const done = mkBtn('Close', false);
     done.style.marginTop = '10px';
     done.style.alignSelf = 'center';
@@ -10034,9 +10044,55 @@ class MapScene extends Phaser.Scene {
     box.appendChild(row);
     mount();
   }
+  // A PAGE of the menu (owner, Oct 2026: the saved games under "Load game",
+  // the developer tools under "Developer"): the page's markup (#menu-pages
+  // › `pageId`, hidden in the list) is MOVED into a second scrolling dialog
+  // (#menu-page-modal) under a Back row, and moved home when it closes —
+  // the same move-and-return the list itself makes, so every id-bound
+  // handler keeps its element. The <details id="menu"> stays open
+  // throughout: Back reopens the main dialog, the backdrop or any other
+  // dialog closes the menu (its toggle closes the page too,
+  // _closeMenuDialog), and the modal gate counts neither menu dialog as a
+  // dialog over the menu (modal_shell.js _syncModalGate).
+  _openMenuPage(pageId, title) {
+    const menu = document.getElementById('menu');
+    const items = this._menuItemsEl;
+    const page = document.getElementById(pageId);
+    if (!menu || !items || !page) return;
+    this._closeMenuPage();
+    if (items.parentNode !== menu) menu.appendChild(items);
+    document.getElementById('menu-modal')?.remove();
+    const { box, mount, mkBtn } = this.makeModalShell('menu-page-modal', {
+      kind: 'menu', textAlign: 'left', art: false, header: false, scroll: true,
+      onClose: () => { menu.open = false; },
+    });
+    const head = document.createElement('div');
+    head.className = 'menu-page-head';
+    const back = mkBtn('‹ Back', false);
+    back.addEventListener('click', (e) => { e.stopPropagation(); this._closeMenuPage(); this._openMenuDialog(); });
+    const heading = document.createElement('div');
+    heading.className = 'menu-page-title';
+    heading.textContent = title;
+    head.append(back, heading);
+    box.appendChild(head);
+    page.classList.add('menu-page');
+    if (page.tagName === 'DETAILS') page.open = true;
+    box.appendChild(page);
+    this._menuPageEl = page;
+    mount();
+  }
+  _closeMenuPage() {
+    const page = this._menuPageEl;
+    const home = document.getElementById('menu-pages');
+    if (page && home && page.parentNode !== home) home.appendChild(page);
+    if (page) { page.classList.remove('menu-page'); if (page.tagName === 'DETAILS') page.open = false; }
+    this._menuPageEl = null;
+    document.getElementById('menu-page-modal')?.remove();
+  }
   _closeMenuDialog() {
     const menu = document.getElementById('menu');
     const items = this._menuItemsEl;
+    this._closeMenuPage();
     if (menu && items && items.parentNode !== menu) menu.appendChild(items);
     document.getElementById('menu-modal')?.remove();
     this._syncModalGate?.();
