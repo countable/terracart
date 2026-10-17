@@ -62,8 +62,9 @@ billboard sprites: `BuildingLowPoly.LOOK` owns the height foreshortening, the
 ink outline pass, eave shadow, flat-deck bands and chimney numbers, and the
 material sheets are cut once per material from the tilesets.
 [Low-poly building styles](../art/lowpoly-building-styles.md) owns the detail.
-`WallPerspective` prisms (castle ramparts, Canvas fallback) still project
-height at full scale with flat colours and no outline; aligning them is open.
+`WallPerspective` prisms (castle ramparts, Canvas fallback) read the same
+table: height through `LOOK.heightScale`, and each wall run gets the ink
+outline before its flat-colour fills. They remain untextured.
 
 ## Coordinates, rendering and performance
 

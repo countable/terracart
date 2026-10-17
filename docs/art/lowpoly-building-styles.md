@@ -173,10 +173,21 @@ review is published as a Claude artifact.
   sheet's stone plinth rows), a wider cap and a dark mouth, as ink group 2.
   `ROLES[role].chimneys`/`chimneyScale` place a pair at 26%/74% of the ridge
   (the smithy, 1.5×); the default is one at 28%.
-- Wreck: the surviving roof is bitten along the break, fallen beams lie across
-  the open half, the rubble floor is lightened, textured faces are tinted
-  `LOOK.wreck.tint`, and its sheet boards the windows and adds soot, moss and
-  missing tiles.
+- Wreck: mostly wall. Thick sections (the ring inset by 4 units, 2 where a
+  notch forbids) run around the whole footprint, each with its own broken
+  height and a flat `wallTop`; the step up to a taller neighbour shows as an
+  end face. Three axis-aligned `roofPatches` keep their tiles over bare
+  rafters; inside, a dark rubble floor, fallen roof slabs and beams. Textured
+  faces are tinted `LOOK.wreck.tint`; the sheet boards the windows and adds
+  soot, moss and missing tiles.
+- Awnings (the `inset` variant: potion, relic): the flat top is a solid cap
+  in the roof's mean tone from its sheet (`tex.roofTone`), with rim bands and
+  its own ink group; each skirt is tiled from its own eave so courses stay
+  level and point downhill on all four sides.
+- Untextured mode: `LOOK.textured=false` draws every face in its base colour
+  (`face.flat`) through the solid texel, keeping cel steps and the ink. The
+  review page toggles it; castle ramparts (`WallPerspective`) share the
+  height scale and ink pass and are flat-coloured either way.
 - Sprite roles: `ROLES[role].sprite` (the trailer) keeps its sprite art; the
   overlay skips the shell for it as it does for the wizard tower and turret.
 
@@ -188,7 +199,9 @@ tileset: timber frame, plaster, brick, stone walls; thatch, shingle, slate
 roofs), `painterly-tileset-v1.png` (the user's painterly sheet: dark stone and
 cobble walls, red tiles, for the potion and relic shops) and the generated
 `reference-materials-v3.png` (clapboard, glazed). `SHEET_SRC` holds the crop
-rectangles; brick repeats 1.35× and slate 1.5× larger than their crops. The
+rectangles; `zoom` crops the centre of a bay so brick (1.7×) and cobble (2.4×)
+repeat larger, and slate tiles 1.5× larger than its crop. A `blank` recipe
+takes plain bays (no windows or door) for ramparts. The
 pixel tileset leaves openings white, so `paintOpenings` flood-fills them: the
 ground-floor entrance bay becomes a plank door, the rest blue glass with a
 lighter pane; a wreck boards them over. Sheets are cut once per material key
