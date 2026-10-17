@@ -21,7 +21,8 @@ Unrestored places use weathered materials, subdued colour, and signs of neglect.
 - Design the fort at 64 pixels wide. Use broad shapes, restrained trim and a single readable gambling emblem. Review the actual 64px export; shrinking a detailed illustration does not make its detail appropriate for this resolution.
 - Everything except roads, buildings, and game characters lives on a 24px tile grid, scaled to the device for a crisp pixel look. Larger tiled objects can span multiple cells.
 - Match apparent pixel size across assets. Use crisp scaling for raster art; avoid mixing tiny detailed pixels with enlarged coarse pixels in neighbouring objects.
-- The 24px grid is the art target. Source sprites may be 16px or 24px; the current runtime display cell is 32px (`src/sprite_layout.js` and `src/app.js`). These are separate sizes; assess assets together at their final display scale.
+- Ground textures are an explicit exception: author and export them at 32×32 pixels per tile, matching the runtime cell without intermediate scaling. Judge their restrained detail beside the character at native size.
+- The 24px grid is the art target for the other assets. Source sprites may be 16px or 24px; the current runtime display cell is 32px (`src/sprite_layout.js` and `src/app.js`). These are separate sizes; assess assets together at their final display scale.
 - Characters and enemies have chunky proportions and move continuously, including between cells, to accommodate GPS movement. The art grid does not constrain movement.
 
 ## Player concealment and story illustrations

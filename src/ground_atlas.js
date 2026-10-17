@@ -1,7 +1,7 @@
-// Optional image-ground trial. Source pixels are read only at startup; the
+// Optional image-ground trial. Native detail pixels are prepared offline; the
 // renderer keeps its existing palette, blend masks and cached biome keys.
 const GroundAtlas = (() => {
-  const KEY = 'ground_atlas_trial', ART_SIZE = 24;
+  const KEY = 'ground_atlas_trial', ART_SIZE = 32;
   const canvases = new Map();
   const preserved = new Set([9, 11, 12, 25, 30]);
   const animated = new Set([3, 23, 26]);
@@ -65,31 +65,19 @@ const GroundAtlas = (() => {
     canvases.clear();
     if (!enabled() || !scene.textures.exists(KEY)) return;
     const image = scene.textures.get(KEY).getSourceImage();
-    const scratch = document.createElement('canvas');
-    scratch.width = scratch.height = ART_SIZE;
-    const ctx = scratch.getContext('2d', { willReadFrequently: true });
-    ctx.imageSmoothingEnabled = false;
+    if (image.width !== ART_SIZE * 8 || image.height !== ART_SIZE * 8) return;
     for (let type = 0; type < 32; type++) {
       if (preserved.has(type)) continue;
-      // Pier water shares water art and animation; its planks remain a separate layer.
+      // Pier water shares water art and animation; planks remain a separate layer.
       const sourceType = type === 23 ? 3 : type;
-      const details = [];
       for (let v = 0; v < 2; v++) {
-        const frame = sourceType * 2 + v, col = frame % 8, row = Math.floor(frame / 8);
-        const x = Math.round(col * image.width / 8), y = Math.round(row * image.height / 8);
-        const w = Math.round((col + 1) * image.width / 8) - x;
-        const h = Math.round((row + 1) * image.height / 8) - y;
-        ctx.clearRect(0, 0, ART_SIZE, ART_SIZE);
-        ctx.drawImage(image, x, y, w, h, 0, 0, ART_SIZE, ART_SIZE);
-        details.push(residual(ctx.getImageData(0, 0, ART_SIZE, ART_SIZE).data, ART_SIZE));
-      }
-      const boundary = periodic(details[0], ART_SIZE);
-      for (let v = 0; v < 2; v++) {
+        const frame = sourceType * 2 + v;
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = ART_SIZE;
-        const target = canvas.getContext('2d'), pixels = target.createImageData(ART_SIZE, ART_SIZE);
-        pixels.data.set(overlay(boundary, details[v], ART_SIZE, colors[type]));
-        target.putImageData(pixels, 0, 0);
+        const target = canvas.getContext('2d');
+        target.imageSmoothingEnabled = false;
+        target.drawImage(image, (frame % 8) * ART_SIZE, Math.floor(frame / 8) * ART_SIZE,
+          ART_SIZE, ART_SIZE, 0, 0, ART_SIZE, ART_SIZE);
         canvases.set(`${type}_${v}`, canvas);
       }
     }

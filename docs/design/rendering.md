@@ -1,5 +1,12 @@
 # Rendering, lighting and streets
 
+The opt-in ground atlas (`?groundAtlas=true`) uses pre-baked 32×32 transparent
+detail tiles. Offline export owns palette-relative pixels and shared seamless
+variant edges; runtime loading only crops the 256×256 sheet. Ground colour
+fills, biome/shore borders and animated ripple frames keep their existing
+layer order. The report compares the native export with the former 24→32
+trial; it does not replace the in-game transition geometry.
+
 Detail doc for projection, sprite seating, performance, lighting and street
 restoration. The root `CLAUDE.md` owns the overview; read this before changing
 rendering, lighting or street mechanics. Camera and art geometry live in

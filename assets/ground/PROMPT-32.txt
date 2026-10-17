@@ -1,0 +1,18 @@
+Tool: built-in image_gen
+References: docs/art/direction-reference.png; assets/Character/FarmerCyan.png
+Output target: 256 x 256 atlas, 8 x 8 frames, each exactly 32 x 32 pixels.
+The generated master is exported through the game's shared texture preparation at 32 pixels; the runtime loads the baked detail sheet without resampling.
+
+New game asset: one perfectly regular 8×8 ground-texture atlas, 64 square cells. Use image1 dungeon as the PRIMARY ART DIRECTION: quiet broad surfaces, deliberate small cracks, widely separated compact flecks, clean carved pixel forms and restrained details. Use image2 character for compatible crisp chunky pixel scale and limited shading. DO NOT create an illustration, objects, perspective/isometric blocks, panels or ground islands. Every cell is full-bleed flat ground. No text, labels, margins, separators or drop shadows.
+Grid MUST have eight identical-height rows and eight identical-width columns, including the bottom row. Each cell is authored as32×32 pixels, nearest-neighbour enlarged; each mark should occupy whole logical pixels and read at actual32px. Aim for1024×1024 sheet (4× enlargement of256×256 native export). No tiny texture noise, dither, blurry brush marks, gradients, or excessive random speckles. Most of each tile should be quiet base colour. 4–6 shades per material. Sparse 2–5px clusters provide material identity. It should feel like a pixel artist made deliberate32px tiles matching the dungeon floor and player, NOT a high-resolution texture shrunk down.
+The64cells are32 horizontal pairs: plain base, subtly decorated variant. Decoration examples: a few tiny leaf fragments, a small crack, worn/chipped patch. NO flowers, coins, gems, mushrooms or collectibles. Pair outer3px identical and each tile seamless on bothaxes. No dark dividing lines around cells. No strong central motif repeated everytile. Uniform flat lighting. Keep base average colours as below, but translate materials into the restrained pixel language of image1. Grass uses short low scattered pixels, NOT tall tuft sprites, NO dense repeated rows.
+Order each row has FOUR material pairs:
+Row1 grass olive #7b8d4e; forest leafdust #546540; pale sand #cab48b; calm teal water #4f8a97.
+Row2 farmland packed mud #908353; residential concrete #a69779; park turf #8ea253; dark small-road grit #312a24.
+Row3 dirt path #a08a67; red brick paving #9b4a3d; rock #958664; wood planks #9e7e50.
+Row4 castle slate #6b7988 with sparse four-quarter joints like dungeon floor; darkest road #23201b; dark medium road #2a261f; school turf #8c985c.
+Row5 commercial floor tile #a39b84; industrial concrete #a68c6d; playground mulch #a28f64; pitch turf #78884a without chalk.
+Row6 dark marsh #2f462e; golf turf #6f833f; orchard floor #6a7844 with small leafbits; pier WATER #4f8a97 (water NOTwood).
+Row7 cave packed grit #5b4f40; dark cave stone #332e26 flatcap; lava #78240f sparse red-orange veins; wasteland dust #a9985d.
+Row8 grove ground #687143 with a few low moss patches NOdense flowers; churchyard ground #7c7788; uncharted charcoal #2b2926; dull oily yard #6f6b55.
+MANDATORY all rows equal, bottomrow exactly sameheight; allcolumns equal. Image1's quiet intentional pixelwork is the visual goal. Surface colours preserved. Tile art stays visually below the readable character.

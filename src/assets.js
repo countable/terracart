@@ -2,7 +2,7 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
-  ground_atlas_trial: { deferred: true, kind: 'image', path: 'assets/ground/terrain-atlas.png' },
+  ground_atlas_trial: { deferred: true, kind: 'image', path: 'assets/ground/terrain-detail-32.png' },
   progression_tiles: { kind: 'spritesheet', path: 'assets/Objects/Progression/tiles.png', frameWidth: 24, frameHeight: 24 },
   icon_progression: { kind: 'spritesheet', path: 'assets/Objects/Progression/icons.png', frameWidth: 16, frameHeight: 16 },
   pet_story_clearing: { deferred: true, kind: 'image', path: 'assets/art/pet_clearing.webp' },
