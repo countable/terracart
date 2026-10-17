@@ -122,7 +122,8 @@
   const HEDGE_GATE_EVERY_CELLS = 6;
   // ── House barrels (plain Small streets) ─────────────────────────────────
   // Every house fronting an unthemed Small street stands 0..HOUSE_BARRELS_MAX
-  // loot barrels on the verge before it (dressSteps, the house barrels pass).
+  // loot barrels on the verge before it (dressSteps, the house barrels pass),
+  // clustered side by side a cell back from the kerb.
   // A house is a run of T.BUILDING cells (the roof tier; forts and castles
   // are not houses) that a ray out from the band's edge reaches within
   // HOUSE_FRONT_REACH_CELLS. One house's frontage is at most
@@ -2702,9 +2703,13 @@
     // into spans of HOUSE_FRONT_SPAN_CELLS (a terrace is a house per span).
     // The span's count is a hash of the tile and its first wall cell (the
     // same for every player; a house cut by a seam rolls once per side), its
-    // seats spread along the span (one: the middle; two: the thirds), each
-    // the first free verge cell out on its ray — beside the street, not the
-    // wall — on the reward gate, so none stands on a Major-and-Medium kerb.
+    // seats a CLUSTER about the span's middle (two: adjacent samples), each
+    // the first free verge cell out on its ray PAST THE KERB CELL — a cell
+    // back from the street, not on its edge and not at the wall (owner, Oct
+    // 2026: a barrel on the kerb reads as street furniture; these are loot).
+    // The kerb cell is the last resort, for a frontage one cell deep or
+    // with every deeper cell taken. All on the reward gate, so none stands
+    // on a Major-and-Medium kerb.
     // HOUSE_CRATE_SHARE of the seats stand a tier-1 crate instead of a
     // barrel. Before the herbs, which fill what is left.
     const T = WG.T;
@@ -2764,13 +2769,17 @@
           const span = rays.slice(at, at + HOUSE_FRONT_SPAN_CELLS);
           const wx = span[0].wall % N, wy = (span[0].wall - wx) / N;
           const n = Math.floor(hash01(`house-barrels|${WG.cellId('h', tx, ty, wx, wy)}`) * (HOUSE_BARRELS_MAX + 1));
+          // The cluster: n adjacent samples centred on the span's middle.
+          const first = Math.floor((span.length - n) / 2);
           for (let b = 0; b < n; b++) {
-            const want = Math.floor(span.length * (b + 1) / (n + 1));
+            const want = Math.min(span.length - 1, Math.max(0, first + b));
             let seated = false;
             for (let d = 0; d < span.length && !seated; d++) {
               for (const r of d ? [want + d, want - d] : [want]) {
                 if (r < 0 || r >= span.length) continue;
-                const c = span[r].ray.find(c => barrelOk(c.ix, c.iy));
+                // Past the kerb cell first; the kerb cell is the last resort.
+                const ray = span[r].ray;
+                const c = [...ray.slice(1), ray[0]].find(c => barrelOk(c.ix, c.iy));
                 if (!c) continue;
                 claim(c.ix, c.iy);
                 const crate = hash01(WG.cellId('hcrate', tx, ty, c.ix, c.iy)) < HOUSE_CRATE_SHARE;

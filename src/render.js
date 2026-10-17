@@ -4543,6 +4543,11 @@ Render.drawObjects = function drawObjects(scene) {
   // version of the same slab — smaller and dimmer, but still a marked place —
   // instead of skipping it outright. Genuine loose supply crates (o.crate,
   // no poiClass) get no pad at all: they're a transient pickup, not a place.
+  // Neither does a generated loot barrel (o.barrel, no poiClass — a house
+  // barrel on a Small-street verge, industrial salvage, a gang's stack): it
+  // is smashed for its loot and stands for no real place, so it carries no
+  // "a place lives here" slab. A bin POI (waste_basket / recycling, loot.js
+  // isPoiBarrel) keeps its mini pad: there is an OSM place behind it.
   // Pads persist even when the chest is opened — only the chest itself disappears.
   const padList = [];
   for (const item of objList) {
@@ -4558,7 +4563,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (produceStandFor(o) || macroFor(o)) continue;
     const shapeKey = padShapeKeyForPoi(o.poiClass);
     if (!shapeKey) {
-      if (o.crate) continue;
+      if (o.crate || o.barrel) continue;
       padList.push({ o, dx, dy, texKey: 'pad_round1', shape: PAD_SHAPES.round1, mini: true });
       continue;
     }
