@@ -1,912 +1,522 @@
 [
   {
     "frame": 0,
+    "sourceFrame": 0,
+    "identity": "plain",
     "kind": "regular",
-    "width": 20,
-    "height": 14,
-    "sourceBounds": {
-      "x": 16,
-      "y": 63,
-      "w": 102,
-      "h": 71,
-      "bottom": 133,
-      "area": 5283
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 1,
+    "sourceFrame": 1,
+    "identity": "plain",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 128,
-      "y": 16,
-      "w": 130,
-      "h": 123,
-      "bottom": 138,
-      "area": 12167
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 2,
+    "sourceFrame": 2,
+    "identity": "flint",
     "kind": "regular",
-    "width": 21,
-    "height": 14,
-    "sourceBounds": {
-      "x": 302,
-      "y": 65,
-      "w": 107,
-      "h": 72,
-      "bottom": 136,
-      "area": 5659
-    }
+    "width": 22,
+    "height": 17
   },
   {
     "frame": 3,
+    "sourceFrame": 3,
+    "identity": "flint",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 420,
-      "y": 15,
-      "w": 130,
-      "h": 123,
-      "bottom": 137,
-      "area": 12328
-    }
+    "width": 22,
+    "height": 20
   },
   {
     "frame": 4,
+    "sourceFrame": 4,
+    "identity": "quartz",
     "kind": "regular",
-    "width": 21,
-    "height": 14,
-    "sourceBounds": {
-      "x": 604,
-      "y": 66,
-      "w": 107,
-      "h": 73,
-      "bottom": 138,
-      "area": 5689
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 5,
+    "sourceFrame": 5,
+    "identity": "quartz",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 718,
-      "y": 15,
-      "w": 132,
-      "h": 124,
-      "bottom": 138,
-      "area": 12406
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 6,
+    "sourceFrame": 6,
+    "identity": "topaz",
     "kind": "regular",
-    "width": 21,
-    "height": 14,
-    "sourceBounds": {
-      "x": 905,
-      "y": 63,
-      "w": 112,
-      "h": 74,
-      "bottom": 136,
-      "area": 6200
-    }
+    "width": 22,
+    "height": 17
   },
   {
     "frame": 7,
+    "sourceFrame": 7,
+    "identity": "topaz",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 1027,
-      "y": 15,
-      "w": 129,
-      "h": 123,
-      "bottom": 137,
-      "area": 12306
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 8,
+    "sourceFrame": 8,
+    "identity": "amethyst",
     "kind": "regular",
-    "width": 20,
-    "height": 14,
-    "sourceBounds": {
-      "x": 17,
-      "y": 208,
-      "w": 107,
-      "h": 74,
-      "bottom": 281,
-      "area": 5901
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 9,
+    "sourceFrame": 9,
+    "identity": "amethyst",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 134,
-      "y": 157,
-      "w": 134,
-      "h": 126,
-      "bottom": 282,
-      "area": 13120
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 10,
+    "sourceFrame": 10,
+    "identity": "sapphire",
     "kind": "regular",
-    "width": 20,
-    "height": 14,
-    "sourceBounds": {
-      "x": 308,
-      "y": 206,
-      "w": 108,
-      "h": 75,
-      "bottom": 280,
-      "area": 6012
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 11,
+    "sourceFrame": 11,
+    "identity": "sapphire",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 428,
-      "y": 156,
-      "w": 131,
-      "h": 126,
-      "bottom": 281,
-      "area": 12772
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 12,
+    "sourceFrame": 12,
+    "identity": "ruby",
     "kind": "regular",
-    "width": 21,
-    "height": 14,
-    "sourceBounds": {
-      "x": 609,
-      "y": 208,
-      "w": 111,
-      "h": 75,
-      "bottom": 282,
-      "area": 6068
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 13,
+    "sourceFrame": 13,
+    "identity": "ruby",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 731,
-      "y": 158,
-      "w": 131,
-      "h": 125,
-      "bottom": 282,
-      "area": 12730
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 14,
+    "sourceFrame": 14,
+    "identity": "emerald",
     "kind": "regular",
-    "width": 20,
-    "height": 14,
-    "sourceBounds": {
-      "x": 910,
-      "y": 206,
-      "w": 109,
-      "h": 75,
-      "bottom": 280,
-      "area": 6016
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 15,
+    "sourceFrame": 15,
+    "identity": "emerald",
     "kind": "boulder",
-    "width": 21,
-    "height": 21,
-    "sourceBounds": {
-      "x": 1030,
-      "y": 158,
-      "w": 130,
-      "h": 127,
-      "bottom": 284,
-      "area": 12680
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 16,
+    "sourceFrame": 16,
+    "identity": "diamond",
     "kind": "regular",
-    "width": 20,
-    "height": 14,
-    "sourceBounds": {
-      "x": 18,
-      "y": 357,
-      "w": 106,
-      "h": 74,
-      "bottom": 430,
-      "area": 5678
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 17,
+    "sourceFrame": 17,
+    "identity": "diamond",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 133,
-      "y": 306,
-      "w": 132,
-      "h": 127,
-      "bottom": 432,
-      "area": 12483
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 18,
+    "sourceFrame": 18,
+    "identity": "copper",
     "kind": "regular",
-    "width": 20,
-    "height": 14,
-    "sourceBounds": {
-      "x": 312,
-      "y": 359,
-      "w": 108,
-      "h": 76,
-      "bottom": 434,
-      "area": 5980
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 19,
+    "sourceFrame": 19,
+    "identity": "copper",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 429,
-      "y": 309,
-      "w": 132,
-      "h": 126,
-      "bottom": 434,
-      "area": 12633
-    }
+    "width": 22,
+    "height": 20
   },
   {
     "frame": 20,
+    "sourceFrame": 20,
+    "identity": "iron",
     "kind": "regular",
-    "width": 20,
-    "height": 14,
-    "sourceBounds": {
-      "x": 613,
-      "y": 357,
-      "w": 109,
-      "h": 77,
-      "bottom": 433,
-      "area": 6138
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 21,
+    "sourceFrame": 21,
+    "identity": "iron",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 732,
-      "y": 311,
-      "w": 131,
-      "h": 126,
-      "bottom": 436,
-      "area": 12703
-    }
+    "width": 22,
+    "height": 20
   },
   {
     "frame": 22,
+    "sourceFrame": 22,
+    "identity": "gold",
     "kind": "regular",
-    "width": 20,
-    "height": 14,
-    "sourceBounds": {
-      "x": 908,
-      "y": 359,
-      "w": 109,
-      "h": 77,
-      "bottom": 435,
-      "area": 6175
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 23,
+    "sourceFrame": 23,
+    "identity": "gold",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 1027,
-      "y": 308,
-      "w": 135,
-      "h": 131,
-      "bottom": 438,
-      "area": 13047
-    }
+    "width": 22,
+    "height": 21
   },
   {
     "frame": 24,
+    "sourceFrame": 24,
+    "identity": "platinum",
     "kind": "regular",
-    "width": 20,
-    "height": 14,
-    "sourceBounds": {
-      "x": 20,
-      "y": 509,
-      "w": 109,
-      "h": 75,
-      "bottom": 583,
-      "area": 6110
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 25,
+    "sourceFrame": 25,
+    "identity": "platinum",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 138,
-      "y": 460,
-      "w": 132,
-      "h": 127,
-      "bottom": 586,
-      "area": 12738
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 26,
+    "sourceFrame": 26,
+    "identity": "crimson",
     "kind": "regular",
-    "width": 19,
-    "height": 14,
-    "sourceBounds": {
-      "x": 314,
-      "y": 508,
-      "w": 111,
-      "h": 80,
-      "bottom": 587,
-      "area": 6305
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 27,
+    "sourceFrame": 27,
+    "identity": "crimson",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 435,
-      "y": 461,
-      "w": 133,
-      "h": 128,
-      "bottom": 588,
-      "area": 12966
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 28,
+    "sourceFrame": 28,
+    "identity": "frost",
     "kind": "regular",
-    "width": 20,
-    "height": 14,
-    "sourceBounds": {
-      "x": 609,
-      "y": 509,
-      "w": 111,
-      "h": 78,
-      "bottom": 586,
-      "area": 6310
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 29,
+    "sourceFrame": 29,
+    "identity": "frost",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 732,
-      "y": 463,
-      "w": 132,
-      "h": 125,
-      "bottom": 587,
-      "area": 12567
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 30,
+    "sourceFrame": 30,
+    "identity": "plain broad",
     "kind": "regular",
     "width": 22,
-    "height": 13,
-    "sourceBounds": {
-      "x": 902,
-      "y": 516,
-      "w": 120,
-      "h": 73,
-      "bottom": 588,
-      "area": 6306
-    }
+    "height": 18
   },
   {
     "frame": 31,
+    "sourceFrame": 31,
+    "identity": "plain broad",
     "kind": "boulder",
-    "width": 21,
-    "height": 18,
-    "sourceBounds": {
-      "x": 1028,
-      "y": 468,
-      "w": 134,
-      "h": 118,
-      "bottom": 585,
-      "area": 12234
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 32,
+    "sourceFrame": 32,
+    "identity": "plain chipped",
     "kind": "regular",
-    "width": 19,
-    "height": 14,
-    "sourceBounds": {
-      "x": 17,
-      "y": 649,
-      "w": 118,
-      "h": 85,
-      "bottom": 733,
-      "area": 6561
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 33,
+    "sourceFrame": 33,
+    "identity": "plain chipped",
     "kind": "boulder",
-    "width": 20,
-    "height": 21,
-    "sourceBounds": {
-      "x": 145,
-      "y": 609,
-      "w": 124,
-      "h": 132,
-      "bottom": 740,
-      "area": 11285
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 34,
+    "sourceFrame": 36,
+    "identity": "plain cracked",
     "kind": "regular",
-    "width": 18,
-    "height": 14,
-    "sourceBounds": {
-      "x": 309,
-      "y": 649,
-      "w": 115,
-      "h": 88,
-      "bottom": 736,
-      "area": 6545
-    }
+    "width": 22,
+    "height": 17
   },
   {
     "frame": 35,
+    "sourceFrame": 37,
+    "identity": "plain cracked",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 433,
-      "y": 610,
-      "w": 134,
-      "h": 130,
-      "bottom": 739,
-      "area": 11660
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 36,
+    "sourceFrame": 34,
+    "identity": "stone_garden",
     "kind": "regular",
-    "width": 19,
-    "height": 14,
-    "sourceBounds": {
-      "x": 604,
-      "y": 657,
-      "w": 107,
-      "h": 79,
-      "bottom": 735,
-      "area": 6091
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 37,
+    "sourceFrame": 35,
+    "identity": "stone_garden",
     "kind": "boulder",
-    "width": 21,
-    "height": 21,
-    "sourceBounds": {
-      "x": 719,
-      "y": 608,
-      "w": 133,
-      "h": 130,
-      "bottom": 737,
-      "area": 12989
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 38,
+    "sourceFrame": 40,
+    "identity": "broken_masonry",
     "kind": "regular",
-    "width": 19,
-    "height": 14,
-    "sourceBounds": {
-      "x": 898,
-      "y": 648,
-      "w": 119,
-      "h": 89,
-      "bottom": 736,
-      "area": 7901
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 39,
+    "sourceFrame": 41,
+    "identity": "broken_masonry",
     "kind": "boulder",
-    "width": 21,
-    "height": 19,
-    "sourceBounds": {
-      "x": 1026,
-      "y": 610,
-      "w": 137,
-      "h": 127,
-      "bottom": 736,
-      "area": 12982
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 40,
+    "sourceFrame": 38,
+    "identity": "flint_field",
     "kind": "regular",
-    "width": 19,
-    "height": 14,
-    "sourceBounds": {
-      "x": 17,
-      "y": 799,
-      "w": 116,
-      "h": 87,
-      "bottom": 885,
-      "area": 7187
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 41,
+    "sourceFrame": 39,
+    "identity": "flint_field",
     "kind": "boulder",
-    "width": 21,
-    "height": 21,
-    "sourceBounds": {
-      "x": 142,
-      "y": 760,
-      "w": 126,
-      "h": 126,
-      "bottom": 885,
-      "area": 12298
-    }
+    "width": 22,
+    "height": 20
   },
   {
     "frame": 42,
+    "sourceFrame": 40,
+    "identity": "broken_depot",
     "kind": "regular",
-    "width": 19,
-    "height": 14,
-    "sourceBounds": {
-      "x": 310,
-      "y": 802,
-      "w": 119,
-      "h": 87,
-      "bottom": 888,
-      "area": 7199
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 43,
+    "sourceFrame": 41,
+    "identity": "broken_depot",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 439,
-      "y": 760,
-      "w": 135,
-      "h": 130,
-      "bottom": 889,
-      "area": 12823
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 44,
+    "sourceFrame": 42,
+    "identity": "seep",
     "kind": "regular",
-    "width": 18,
-    "height": 14,
-    "sourceBounds": {
-      "x": 604,
-      "y": 801,
-      "w": 116,
-      "h": 88,
-      "bottom": 888,
-      "area": 7390
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 45,
+    "sourceFrame": 43,
+    "identity": "seep",
     "kind": "boulder",
-    "width": 21,
-    "height": 21,
-    "sourceBounds": {
-      "x": 729,
-      "y": 759,
-      "w": 128,
-      "h": 131,
-      "bottom": 889,
-      "area": 12568
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 46,
+    "sourceFrame": 44,
+    "identity": "work_yard",
     "kind": "regular",
-    "width": 20,
-    "height": 14,
-    "sourceBounds": {
-      "x": 906,
-      "y": 803,
-      "w": 124,
-      "h": 86,
-      "bottom": 888,
-      "area": 7330
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 47,
+    "sourceFrame": 45,
+    "identity": "work_yard",
     "kind": "boulder",
-    "width": 20,
-    "height": 21,
-    "sourceBounds": {
-      "x": 1040,
-      "y": 760,
-      "w": 125,
-      "h": 129,
-      "bottom": 888,
-      "area": 12335
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 48,
+    "sourceFrame": 46,
+    "identity": "black_ring",
     "kind": "regular",
-    "width": 21,
-    "height": 14,
-    "sourceBounds": {
-      "x": 16,
-      "y": 954,
-      "w": 115,
-      "h": 77,
-      "bottom": 1030,
-      "area": 6391
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 49,
+    "sourceFrame": 47,
+    "identity": "black_ring",
     "kind": "boulder",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 139,
-      "y": 907,
-      "w": 132,
-      "h": 126,
-      "bottom": 1032,
-      "area": 12528
-    }
+    "width": 22,
+    "height": 20
   },
   {
     "frame": 50,
+    "sourceFrame": 48,
+    "identity": "pirate_cove",
     "kind": "regular",
-    "width": 20,
-    "height": 14,
-    "sourceBounds": {
-      "x": 309,
-      "y": 945,
-      "w": 124,
-      "h": 88,
-      "bottom": 1032,
-      "area": 8006
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 51,
+    "sourceFrame": 49,
+    "identity": "pirate_cove",
     "kind": "boulder",
-    "width": 21,
-    "height": 18,
-    "sourceBounds": {
-      "x": 443,
-      "y": 910,
-      "w": 139,
-      "h": 122,
-      "bottom": 1031,
-      "area": 12262
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 52,
+    "sourceFrame": 34,
+    "identity": "stone_garden",
     "kind": "signature",
-    "width": 21,
-    "height": 18,
-    "sourceBounds": {
-      "x": 605,
-      "y": 929,
-      "w": 120,
-      "h": 104,
-      "bottom": 1032,
-      "area": 9327
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 53,
+    "sourceFrame": 40,
+    "identity": "broken_masonry",
     "kind": "signature",
-    "width": 21,
-    "height": 19,
-    "sourceBounds": {
-      "x": 736,
-      "y": 913,
-      "w": 131,
-      "h": 121,
-      "bottom": 1033,
-      "area": 12054
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 54,
+    "sourceFrame": 2,
+    "identity": "flint_field",
     "kind": "signature",
-    "width": 21,
-    "height": 15,
-    "sourceBounds": {
-      "x": 890,
-      "y": 944,
-      "w": 125,
-      "h": 89,
-      "bottom": 1032,
-      "area": 8129
-    }
+    "width": 22,
+    "height": 17
   },
   {
     "frame": 55,
+    "sourceFrame": 40,
+    "identity": "broken_depot",
     "kind": "signature",
-    "width": 21,
-    "height": 19,
-    "sourceBounds": {
-      "x": 1025,
-      "y": 911,
-      "w": 137,
-      "h": 123,
-      "bottom": 1033,
-      "area": 12443
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 56,
+    "sourceFrame": 56,
+    "identity": "seep",
     "kind": "signature",
-    "width": 21,
-    "height": 16,
-    "sourceBounds": {
-      "x": 15,
-      "y": 1076,
-      "w": 127,
-      "h": 99,
-      "bottom": 1174,
-      "area": 9583
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 57,
+    "sourceFrame": 57,
+    "identity": "work_yard",
     "kind": "signature",
-    "width": 21,
-    "height": 20,
-    "sourceBounds": {
-      "x": 161,
-      "y": 1066,
-      "w": 115,
-      "h": 109,
-      "bottom": 1174,
-      "area": 9498
-    }
+    "width": 22,
+    "height": 20
   },
   {
     "frame": 58,
+    "sourceFrame": 63,
+    "identity": "black_ring",
     "kind": "signature",
-    "width": 21,
-    "height": 16,
-    "sourceBounds": {
-      "x": 293,
-      "y": 1071,
-      "w": 134,
-      "h": 103,
-      "bottom": 1173,
-      "area": 9398
-    }
+    "width": 22,
+    "height": 20
   },
   {
     "frame": 59,
+    "sourceFrame": 48,
+    "identity": "pirate_cove",
     "kind": "signature",
-    "width": 21,
-    "height": 18,
-    "sourceBounds": {
-      "x": 439,
-      "y": 1059,
-      "w": 137,
-      "h": 117,
-      "bottom": 1175,
-      "area": 11477
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 60,
+    "sourceFrame": 58,
+    "identity": "quarry-strip-mine",
     "kind": "signature",
-    "width": 21,
-    "height": 17,
-    "sourceBounds": {
-      "x": 591,
-      "y": 1068,
-      "w": 135,
-      "h": 107,
-      "bottom": 1174,
-      "area": 10412
-    }
+    "width": 22,
+    "height": 19
   },
   {
     "frame": 61,
+    "sourceFrame": 40,
+    "identity": "quarry-stronghold",
     "kind": "signature",
-    "width": 21,
-    "height": 18,
-    "sourceBounds": {
-      "x": 739,
-      "y": 1068,
-      "w": 126,
-      "h": 109,
-      "bottom": 1176,
-      "area": 9692
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 62,
+    "sourceFrame": 59,
+    "identity": "quarry-crater",
     "kind": "signature",
-    "width": 21,
-    "height": 17,
-    "sourceBounds": {
-      "x": 883,
-      "y": 1063,
-      "w": 140,
-      "h": 114,
-      "bottom": 1176,
-      "area": 10798
-    }
+    "width": 22,
+    "height": 20
   },
   {
     "frame": 63,
+    "sourceFrame": 60,
+    "identity": "quarry-abandoned",
     "kind": "signature",
-    "width": 21,
-    "height": 19,
-    "sourceBounds": {
-      "x": 1036,
-      "y": 1061,
-      "w": 130,
-      "h": 116,
-      "bottom": 1176,
-      "area": 11014
-    }
+    "width": 22,
+    "height": 18
   },
   {
     "frame": 64,
+    "sourceFrame": 61,
+    "identity": "mystic_reef",
     "kind": "signature",
-    "width": 21,
-    "height": 18,
-    "sourceBounds": {
-      "x": 17,
-      "y": 1200,
-      "w": 137,
-      "h": 117,
-      "bottom": 1316,
-      "area": 11559
-    }
+    "width": 22,
+    "height": 20
   }
 ]

@@ -1,8 +1,10 @@
-// Re-export the graphic-storybook sheet into 24px frames; no generative calls.
+// Repack the approved 8×8 study without resampling or changing its pixels.
+// Runtime retains its 65 frame identities, including Mystic Reef at frame 64.
 // CHROMIUM_PATH=/usr/bin/chromium node assets/Objects/Rocks/export.cjs
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright-core');
+const manifest = require('./manifest.json');
 
 (async () => {
   const browser = await chromium.launch({
@@ -10,67 +12,29 @@ const { chromium } = require('playwright-core');
   });
   try {
     const page = await browser.newPage();
-    const source = fs.readFileSync(path.join(__dirname, 'graphic-storybook-source.png'));
-    const result = await page.evaluate(async src => {
+    const source = fs.readFileSync(path.join(__dirname, manifest.sources.celShaded.file));
+    const result = await page.evaluate(async ({ src, mapping }) => {
       const image = new Image(); image.src = src; await image.decode();
-      const canvas = document.createElement('canvas');
-      canvas.width = image.width; canvas.height = image.height;
-      const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0);
-      const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const w = canvas.width, h = canvas.height, seen = new Uint8Array(w * h), boxes = [];
-      // Find connected silhouettes instead of trusting generated cell spacing.
-      for (let start = 0; start < seen.length; start++) {
-        if (seen[start] || data[start * 4 + 3] < 128) continue;
-        const queue = [start]; seen[start] = 1;
-        let x0 = w, y0 = h, x1 = 0, y1 = 0;
-        for (let n = 0; n < queue.length; n++) {
-          const at = queue[n], x = at % w, y = Math.floor(at / w);
-          x0 = Math.min(x0, x); x1 = Math.max(x1, x);
-          y0 = Math.min(y0, y); y1 = Math.max(y1, y);
-          for (const next of [x > 0 ? at - 1 : -1, x < w - 1 ? at + 1 : -1, at - w, at + w]) {
-            if (next >= 0 && next < seen.length && !seen[next] && data[next * 4 + 3] >= 128) {
-              seen[next] = 1; queue.push(next);
-            }
-          }
+      if (image.width !== 192 || image.height !== 192) throw Error('Expected 8×8 study with 24px cells');
+      const canvas = document.createElement('canvas'); canvas.width = 192; canvas.height = 216;
+      const ctx = canvas.getContext('2d'); ctx.imageSmoothingEnabled = false;
+      const frames = mapping.map(({ sourceFrame, ...entry }, frame) => {
+        const x = frame % 8 * 24, y = Math.floor(frame / 8) * 24;
+        ctx.drawImage(image, sourceFrame % 8 * 24, Math.floor(sourceFrame / 8) * 24, 24, 24, x, y, 24, 24);
+        const { data } = ctx.getImageData(x, y, 24, 24);
+        let minX = 24, minY = 24, maxX = -1, maxY = -1;
+        for (let py = 0; py < 24; py++) for (let px = 0; px < 24; px++) {
+          if (data[(py * 24 + px) * 4 + 3] < 16) continue;
+          minX = Math.min(minX, px); minY = Math.min(minY, py);
+          maxX = Math.max(maxX, px); maxY = Math.max(maxY, py);
         }
-        if (queue.length > 500) boxes.push({ x: x0, y: y0, w: x1 - x0 + 1,
-          h: y1 - y0 + 1, bottom: y1, area: queue.length });
-      }
-      const groups = Array.from({ length: 9 }, () => []);
-      for (const box of boxes) {
-        const row = Math.round(box.bottom / h * 9) - 1;
-        if (!groups[row]) throw Error('Silhouette outside source rows');
-        groups[row].push(box);
-      }
-      for (const group of groups) group.sort((a, b) => a.x - b.x);
-      const sourceCounts = groups.map(group => group.length);
-      if (sourceCounts.join() !== '8,8,8,8,8,8,8,8,1') {
-        throw Error('Unexpected source row counts: ' + sourceCounts);
-      }
-      const output = document.createElement('canvas'); output.width = 192; output.height = 216;
-      const out = output.getContext('2d'); out.imageSmoothingEnabled = false;
-      const frames = groups.flat().map((box, frame) => {
-        const regular = frame < 52 && frame % 2 === 0;
-        const boulder = frame < 52 && frame % 2 === 1;
-        const scale = Math.min((regular ? 22 : 21) / box.w, (regular ? 14 : 21) / box.h);
-        const width = Math.round(box.w * scale), height = Math.round(box.h * scale);
-        const x = frame % 8 * 24 + Math.floor((24 - width) / 2);
-        const y = Math.floor(frame / 8) * 24 + 22 - height;
-        out.drawImage(canvas, box.x, box.y, box.w, box.h, x, y, width, height);
-        return { frame, kind: regular ? 'regular' : boulder ? 'boulder' : 'signature',
-          width, height, sourceBounds: box };
+        if (maxX < 0) throw Error('Empty runtime frame ' + frame);
+        return { frame, sourceFrame, ...entry, width: maxX - minX + 1, height: maxY - minY + 1 };
       });
-      for (let frame = 0; frame < 52; frame += 2) {
-        if (frames[frame + 1].height <= frames[frame].height) {
-          throw Error('Boulder must be taller than regular rock: ' + frame);
-        }
-      }
-      return { png: output.toDataURL().split(',')[1], frames, sourceCounts };
-    }, 'data:image/png;base64,' + source.toString('base64'));
+      return { png: canvas.toDataURL().split(',')[1], frames };
+    }, { src: 'data:image/png;base64,' + source.toString('base64'), mapping: manifest.mapping });
     fs.writeFileSync(path.join(__dirname, 'rocks-24.png'), Buffer.from(result.png, 'base64'));
     fs.writeFileSync(path.join(__dirname, 'export.json'), JSON.stringify(result.frames, null, 2) + '\n');
-    console.log('Exported 65 sprites in an 8×9 atlas; all regular/boulder pairs retain their height distinction.');
-  } finally {
-    await browser.close();
-  }
+    console.log('Exported all 65 runtime frames from the approved 24px study.');
+  } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
