@@ -1334,9 +1334,9 @@
     scene._sandboxMode = true;
     scene.depth = scene.save.depth = 0;
     WorldGen.setDepth(0);
-    // Authored buildings use the tile painter; only the castle also carries
-    // a source ring for shared floor decoration such as ruined columns.
-    if (typeof BuildingOverlay !== 'undefined') BuildingOverlay.setEnabled(scene, false);
+    // Procedural architecture exercises authored source rings and synthesized
+    // house footprints; sprite comparisons retain the original tile painter.
+    if (typeof BuildingOverlay !== 'undefined') BuildingOverlay.setEnabled(scene, !!Render.proceduralBuildings?.());
     // If a previous session had already started watching GPS, kill the watch so
     // an incoming fix doesn't race the teleport at the bottom of this function.
     if (scene.gpsWatchId != null && typeof Geo !== 'undefined') {

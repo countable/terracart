@@ -1,6 +1,7 @@
 {
   "scripts": {
     "test": "node test/node/run.js",
+    "test:roofs": "node test/building-roofs.cjs",
     "test:browser": "python3 test/run_tests.py",
     "test:viewers": "python3 test/viewer_smoke.py",
     "test:browser:docker": "sh test/run_tests_docker.sh",
@@ -11,7 +12,8 @@
     "qa": "node tools/qa/run.js",
     "qa:play": "node tools/qa/play.js",
     "qa:report": "node tools/qa/report.js",
-    "test:qa": "node test/qa-clock.test.js && node test/qa-runner.test.js && node test/qa-bridge.test.js"
+    "test:qa": "node test/qa-clock.test.js && node test/qa-runner.test.js && node test/qa-bridge.test.js",
+    "test:lowpoly": "node test/building-lowpoly.cjs"
   },
   "devDependencies": {
     "playwright-core": "^1.62.1"

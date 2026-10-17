@@ -112,3 +112,8 @@ saves and deterministic lighting clocks. It records runtime backend status,
 lighting submission time, uploads, lightmaps and screenshots. A Canvas fallback
 leaves GPU rendering unverified; these timings do not measure GPU completion,
 frame-rate headroom or device power.
+
+`--webkit /path/to/pw_run.sh` uses an installed Playwright WebKit browser for
+Safari-family WebGL checks. The probe injects both compass formats and explicitly
+renders the paused scene before capture. Device emulation does not replace
+testing on the physical phone.

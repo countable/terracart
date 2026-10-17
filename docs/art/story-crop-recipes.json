@@ -1,0 +1,2062 @@
+{
+  "barehand_tree": {
+    "source": "repo:assets/art/barehand_tree.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "barehand_work": {
+    "source": "repo:assets/art/barehand_work.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "book_page": {
+    "source": "repo:assets/art/book_page.webp",
+    "width": 900,
+    "height": 1145,
+    "source_kind": "runtime_original",
+    "exception": "Parchment texture",
+    "crop": null
+  },
+  "book_read": {
+    "source": "repo:assets/art/book_read.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "booth_apothecary_intro": {
+    "source": "artifact:art-square-remakes/before/booth_apothecary_intro.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_apothecary_used": {
+    "source": "artifact:art-square-remakes/before/booth_apothecary_used.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_bank_intro": {
+    "source": "artifact:art-square-remakes/before/booth_bank_intro.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "booth_bank_used": {
+    "source": "artifact:art-square-remakes/before/booth_bank_used.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "booth_chapel_intro": {
+    "source": "artifact:art-square-remakes/before/booth_chapel_intro.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_chapel_used": {
+    "source": "artifact:art-square-remakes/before/booth_chapel_used.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_curio_intro": {
+    "source": "artifact:art-square-remakes/before/booth_curio_intro.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_curio_used": {
+    "source": "artifact:art-square-remakes/before/booth_curio_used.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_guildhall_intro": {
+    "source": "artifact:art-square-remakes/before/booth_guildhall_intro.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_guildhall_used": {
+    "source": "artifact:art-square-remakes/before/booth_guildhall_used.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_inn_intro": {
+    "source": "artifact:art-square-remakes/before/booth_inn_intro.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_inn_used": {
+    "source": "artifact:art-square-remakes/before/booth_inn_used.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_scholar_intro": {
+    "source": "artifact:art-square-remakes/before/booth_scholar_intro.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_scholar_used": {
+    "source": "artifact:art-square-remakes/before/booth_scholar_used.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_scriptorium_intro": {
+    "source": "artifact:art-square-remakes/before/booth_scriptorium_intro.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_scriptorium_used": {
+    "source": "artifact:art-square-remakes/before/booth_scriptorium_used.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_sundries_intro": {
+    "source": "artifact:art-square-remakes/before/booth_sundries_intro.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_sundries_used": {
+    "source": "artifact:art-square-remakes/before/booth_sundries_used.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_training_intro": {
+    "source": "artifact:art-square-remakes/before/booth_training_intro.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "booth_training_used": {
+    "source": "artifact:art-square-remakes/before/booth_training_used.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "note": "Hard lower text field removed; tighter horizontal framing needs review.",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "bottle_read": {
+    "source": "repo:assets/art/bottle_read.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "castle_claim": {
+    "source": "repo:assets/art/castle_claim.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "castle_favour": {
+    "source": "repo:assets/art/castle_favour.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "cave_first": {
+    "source": "repo:assets/art/cave_first.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 0,
+      "y": 0,
+      "w": 512,
+      "h": 384
+    },
+    "note": "Retain atmospheric cave-edge darkness; approved initial crop40,0,432,324."
+  },
+  "chest_t1": {
+    "source": "repo:assets/art/chest_t1.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "chest_t2": {
+    "source": "repo:assets/art/chest_t2.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "chest_t3": {
+    "source": "repo:assets/art/chest_t3.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "chest_t4": {
+    "source": "repo:assets/art/chest_t4.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "chest_t5": {
+    "source": "repo:assets/art/chest_t5.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "chest_t6": {
+    "source": "repo:assets/art/chest_t6.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "chest_t7": {
+    "source": "repo:assets/art/chest_t7.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "coin_first": {
+    "source": "repo:assets/art/coin_first.webp",
+    "width": 704,
+    "height": 896,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 56,
+      "y": 0,
+      "w": 592,
+      "h": 444
+    }
+  },
+  "death_memories": {
+    "source": "artifact:art-square-remakes/before/death_memories.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "delivery_first": {
+    "source": "repo:assets/art/delivery_first.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "discovery_badge": {
+    "source": "repo:assets/art/discovery_badge.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "fire_first": {
+    "source": "repo:assets/art/fire_first.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "first_sale": {
+    "source": "artifact:art-square-remakes/before/first_sale.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "forge_done": {
+    "source": "repo:assets/art/forge_done.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "fort_unseal": {
+    "source": "repo:assets/art/fort_unseal.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "health_low": {
+    "source": "artifact:art-square-remakes/before/health_low.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "home_sell": {
+    "source": "repo:assets/art/home_sell.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_build": {
+    "source": "repo:assets/art/kind_build.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_craft": {
+    "source": "repo:assets/art/kind_craft.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_delivery": {
+    "source": "repo:assets/art/kind_delivery.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_energy": {
+    "source": "repo:assets/art/kind_energy.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_farm": {
+    "source": "repo:assets/art/kind_farm.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_fire": {
+    "source": "repo:assets/art/kind_fire.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_forge": {
+    "source": "repo:assets/art/kind_forge.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_inn": {
+    "source": "repo:assets/art/kind_inn.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_memory": {
+    "source": "repo:assets/art/kind_memory.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_menu": {
+    "source": "repo:assets/art/kind_menu.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_note": {
+    "source": "repo:assets/art/kind_note.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_quest": {
+    "source": "repo:assets/art/kind_quest.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_relics": {
+    "source": "repo:assets/art/kind_relics.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_rest": {
+    "source": "repo:assets/art/kind_rest.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_shop": {
+    "source": "repo:assets/art/kind_shop.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_slots": {
+    "source": "repo:assets/art/kind_slots.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_spirit": {
+    "source": "repo:assets/art/kind_spirit.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_supplies": {
+    "source": "repo:assets/art/kind_supplies.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_trade": {
+    "source": "repo:assets/art/kind_trade.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_trail": {
+    "source": "repo:assets/art/kind_trail.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_treasure": {
+    "source": "repo:assets/art/kind_treasure.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_use": {
+    "source": "repo:assets/art/kind_use.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "kind_wizard": {
+    "source": "repo:assets/art/kind_wizard.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "memory_doorway": {
+    "source": "repo:assets/art/memory_doorway.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 0,
+      "y": 0,
+      "w": 512,
+      "h": 384
+    }
+  },
+  "memory_grip": {
+    "source": "repo:assets/art/memory_grip.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "npc_bryn": {
+    "source": "repo:assets/art/npc_bryn.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "npc_edda": {
+    "source": "repo:assets/art/npc_edda.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "npc_maud": {
+    "source": "repo:assets/art/npc_maud.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    },
+    "note": "Original portrait; approved initial crop40,0,432,324; no invented foliage."
+  },
+  "npc_orrin": {
+    "source": "repo:assets/art/npc_orrin.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "npc_tilly": {
+    "source": "repo:assets/art/npc_tilly.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "npc_tilly_happy": {
+    "source": "repo:assets/art/npc_tilly_happy.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "pet_clearing": {
+    "source": "repo:assets/art/pet_clearing.webp",
+    "width": 352,
+    "height": 448,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 28,
+      "y": 0,
+      "w": 296,
+      "h": 222
+    }
+  },
+  "progression_arena": {
+    "source": "repo:assets/art/progression_arena.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "progression_elevator": {
+    "source": "repo:assets/art/progression_elevator.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "progression_portal": {
+    "source": "repo:assets/art/progression_portal.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "quarry_sapphire": {
+    "source": "repo:assets/art/quarry_sapphire.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "restore_blacksmith": {
+    "source": "repo:assets/art/restore_blacksmith.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "restore_house": {
+    "source": "repo:assets/art/restore_house.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "restore_market": {
+    "source": "repo:assets/art/restore_market.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "restore_trader": {
+    "source": "repo:assets/art/restore_trader.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "restore_wizard": {
+    "source": "repo:assets/art/restore_wizard.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "revive_fall": {
+    "source": "repo:assets/art/revive_fall.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "revive_found": {
+    "source": "repo:assets/art/revive_found.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "revive_wake": {
+    "source": "repo:assets/art/revive_wake.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "road_repair": {
+    "source": "repo:assets/art/road_repair.webp",
+    "width": 704,
+    "height": 896,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 56,
+      "y": 0,
+      "w": 592,
+      "h": 444
+    }
+  },
+  "safety_phone": {
+    "source": "artifact:art-square-remakes/before/safety_phone.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "safety_welcome": {
+    "source": "repo:assets/art/safety_welcome.webp",
+    "width": 640,
+    "height": 960,
+    "source_kind": "runtime_original",
+    "exception": "Portrait title splash",
+    "crop": null
+  },
+  "shiny_first": {
+    "source": "repo:assets/art/shiny_first.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "shrine_bone_watcher": {
+    "source": "repo:assets/art/shrine_bone_watcher.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "shrine_ember_altar": {
+    "source": "repo:assets/art/shrine_ember_altar.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "shrine_grove": {
+    "source": "repo:assets/art/shrine_grove.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "shrine_harvest_idol": {
+    "source": "repo:assets/art/shrine_harvest_idol.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "shrine_lantern_saint": {
+    "source": "repo:assets/art/shrine_lantern_saint.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "shrine_moss_cairn": {
+    "source": "repo:assets/art/shrine_moss_cairn.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "shrine_rust_totem": {
+    "source": "repo:assets/art/shrine_rust_totem.webp",
+    "width": 512,
+    "height": 651,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "shrine_tide_bell": {
+    "source": "repo:assets/art/shrine_tide_bell.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "shrine_toad_idol": {
+    "source": "repo:assets/art/shrine_toad_idol.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "shrine_wayfarer_post": {
+    "source": "repo:assets/art/shrine_wayfarer_post.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "shrine_waystone": {
+    "source": "repo:assets/art/shrine_waystone.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "shrine_wishing_well": {
+    "source": "repo:assets/art/shrine_wishing_well.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "story_compass": {
+    "source": "repo:assets/art/story_compass.webp",
+    "width": 1024,
+    "height": 1536,
+    "source_kind": "runtime_original",
+    "exception": "Opening panel format retained",
+    "crop": null
+  },
+  "story_compass_frame2": {
+    "source": "repo:assets/art/story_compass_frame2.webp",
+    "width": 1024,
+    "height": 1536,
+    "source_kind": "runtime_original",
+    "exception": "Opening panel format retained",
+    "crop": null
+  },
+  "story_nightmare": {
+    "source": "repo:assets/art/story_nightmare.webp",
+    "width": 768,
+    "height": 512,
+    "source_kind": "runtime_original",
+    "exception": "Opening panel format retained",
+    "crop": null
+  },
+  "story_nightmare_frame2": {
+    "source": "repo:assets/art/story_nightmare_frame2.webp",
+    "width": 768,
+    "height": 512,
+    "source_kind": "runtime_original",
+    "exception": "Opening panel format retained",
+    "crop": null
+  },
+  "story_wake": {
+    "source": "repo:assets/art/story_wake.webp",
+    "width": 512,
+    "height": 341,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 30,
+      "y": 1,
+      "w": 452,
+      "h": 339
+    }
+  },
+  "story_wake_frame2": {
+    "source": "repo:assets/art/story_wake_frame2.webp",
+    "width": 512,
+    "height": 341,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 30,
+      "y": 1,
+      "w": 452,
+      "h": 339
+    }
+  },
+  "story_wrecks": {
+    "source": "repo:assets/art/story_wrecks.webp",
+    "width": 512,
+    "height": 341,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 30,
+      "y": 1,
+      "w": 452,
+      "h": 339
+    }
+  },
+  "story_wrecks_frame2": {
+    "source": "repo:assets/art/story_wrecks_frame2.webp",
+    "width": 512,
+    "height": 341,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 30,
+      "y": 1,
+      "w": 452,
+      "h": 339
+    }
+  },
+  "street_bandit": {
+    "source": "repo:assets/art/street_bandit.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "street_barricade": {
+    "source": "repo:assets/art/street_barricade.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "street_burned": {
+    "source": "repo:assets/art/street_burned.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "street_golden": {
+    "source": "repo:assets/art/street_golden.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "street_greenway": {
+    "source": "repo:assets/art/street_greenway.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "street_hedgerow": {
+    "source": "repo:assets/art/street_hedgerow.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "street_lantern": {
+    "source": "repo:assets/art/street_lantern.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "street_orchard": {
+    "source": "repo:assets/art/street_orchard.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "street_overgrown": {
+    "source": "repo:assets/art/street_overgrown.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "street_parkpath": {
+    "source": "repo:assets/art/street_parkpath.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "street_pilgrim": {
+    "source": "repo:assets/art/street_pilgrim.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "street_scenic": {
+    "source": "repo:assets/art/street_scenic.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "street_snare": {
+    "source": "repo:assets/art/street_snare.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "street_toadstool": {
+    "source": "repo:assets/art/street_toadstool.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "temple_activated": {
+    "source": "repo:assets/art/temple_activated.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "tool_catch": {
+    "source": "artifact:art-square-remakes/before/tool_catch.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "crop": {
+      "x": 80,
+      "y": 0,
+      "w": 352,
+      "h": 264
+    }
+  },
+  "tool_catch_chicken": {
+    "source": "artifact:art-square-remakes/before/tool_catch_chicken.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "tool_chop": {
+    "source": "repo:assets/art/tool_chop.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "tool_dig": {
+    "source": "repo:assets/art/tool_dig.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "tool_shoot": {
+    "source": "repo:assets/art/tool_shoot.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "tool_staff": {
+    "source": "repo:assets/art/tool_staff.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "tool_sword": {
+    "source": "repo:assets/art/tool_sword.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "tool_till": {
+    "source": "repo:assets/art/tool_till.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 56,
+      "y": 0,
+      "w": 400,
+      "h": 300
+    }
+  },
+  "tool_water": {
+    "source": "repo:assets/art/tool_water.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "torch_light": {
+    "source": "artifact:art-square-remakes/before/torch_light.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "trail_intro": {
+    "source": "repo:assets/art/trail_intro.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "trail_prize": {
+    "source": "repo:assets/art/trail_prize.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "trap_free": {
+    "source": "repo:assets/art/trap_free.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "trap_jaw": {
+    "source": "repo:assets/art/trap_jaw.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "treasure_barrel": {
+    "source": "repo:assets/art/treasure_barrel.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "treasure_crate": {
+    "source": "repo:assets/art/treasure_crate.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "treasure_dig": {
+    "source": "repo:assets/art/treasure_dig.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "turret_watch": {
+    "source": "artifact:art-square-remakes/before/turret_watch.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "underground_bone_gallery": {
+    "source": "repo:assets/art/underground_bone_gallery.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "underground_depth2_rock_scatter": {
+    "source": "repo:assets/art/underground_depth2_rock_scatter.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "underground_gemstone_cavern": {
+    "source": "repo:assets/art/underground_gemstone_cavern.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "underground_gemstone_path": {
+    "source": "repo:assets/art/underground_gemstone_path.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "underground_goblin_warrens": {
+    "source": "repo:assets/art/underground_goblin_warrens.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "underground_mine_tunnels": {
+    "source": "repo:assets/art/underground_mine_tunnels.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "underground_miners_way": {
+    "source": "repo:assets/art/underground_miners_way.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "underground_mushroom_cavern": {
+    "source": "repo:assets/art/underground_mushroom_cavern.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "underground_root_passage": {
+    "source": "repo:assets/art/underground_root_passage.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "underground_seep_passage": {
+    "source": "repo:assets/art/underground_seep_passage.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "underground_sm_road_passage": {
+    "source": "repo:assets/art/underground_sm_road_passage.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "underground_spring_cave": {
+    "source": "repo:assets/art/underground_spring_cave.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "underground_warren_run": {
+    "source": "repo:assets/art/underground_warren_run.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "visit_bike": {
+    "source": "repo:assets/art/visit_bike.webp",
+    "width": 704,
+    "height": 896,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 56,
+      "y": 0,
+      "w": 592,
+      "h": 444
+    }
+  },
+  "visit_gold": {
+    "source": "artifact:art-square-remakes/before/visit_gold.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "preserved_pre_square_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "visit_hive": {
+    "source": "artifact:art-square-remakes/before/visit_hive.webp",
+    "width": 352,
+    "height": 448,
+    "source_kind": "preserved_pre_square_original",
+    "crop": {
+      "x": 28,
+      "y": 0,
+      "w": 296,
+      "h": 222
+    }
+  },
+  "visit_wagon": {
+    "source": "repo:assets/art/visit_wagon.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "wizard_cold": {
+    "source": "repo:assets/art/wizard_cold.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "wizard_dragon": {
+    "source": "repo:assets/art/wizard_dragon.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "wizard_map": {
+    "source": "repo:assets/art/wizard_map.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "zone_grove": {
+    "source": "repo:assets/art/zone_grove.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "zone_quarry": {
+    "source": "repo:assets/art/zone_quarry.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "zone_shore": {
+    "source": "repo:assets/art/zone_shore.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "zone_stones": {
+    "source": "repo:assets/art/zone_stones.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "zone_tar": {
+    "source": "repo:assets/art/zone_tar.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  },
+  "zone_viewpoint": {
+    "source": "repo:assets/art/zone_viewpoint.webp",
+    "width": 512,
+    "height": 652,
+    "source_kind": "runtime_original",
+    "crop": {
+      "x": 40,
+      "y": 0,
+      "w": 432,
+      "h": 324
+    }
+  }
+}
