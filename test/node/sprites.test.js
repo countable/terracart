@@ -152,8 +152,8 @@ test('CROP_SPRITE: longgrass frame is 10 (col 10 row 0 of 22-col Props.png grid)
   assert.eq(0 * 22 + 10, 10, 'frame derivation');
 });
 
-test('CROP_SPRITE: longgrass scale is 1.16', () => {
-  assert.eq(CROP_SPRITE['longgrass'].scale, 1.16);
+test('CROP_SPRITE: longgrass scale is reduced by 10%', () => {
+  assert.eq(CROP_SPRITE['longgrass'].scale, 1.16 * 0.9);
 });
 
 // ── CROP_SPRITE: mushroom (bug 1d5ac29) ───────────────────────────────────
@@ -600,12 +600,31 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
   assert.truthy(/g\.strokeCircle\(centre\.x, centre\.y, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
 });
 
-test('wooden barrels render at half their former size plus 10% and have no broken art', () => {
+test('every chest tier centers its visible art on its cell', () => {
+  const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  const frames = new Set();
+  for (const depth of [0, 3, 6, 9]) {
+    for (let tierSeed = 2; tierSeed <= 5; tierSeed++) {
+      const look = art.resolveAppearance({kind:'chest', poiClass:'memorial', tierSeed, depth});
+      assert.eq(look.texKey, 'chest');
+      frames.add(look.frameVal);
+      assert.eq(look.scl, 1.6 * 0.8);
+      const b = SpriteLayout.ART_BOUNDS[`chest:${look.frameVal}`];
+      assert.truthy(b, 'each recolored tier has measured bounds');
+      assert.truthy(look.foot, 'seating also supplies the shadow footprint');
+      assert.inRange(look.dxPx + ((b.minX+b.maxX)/2 - look.origin[0]*b.fw)*look.scl, -1e-9, 1e-9);
+      assert.inRange(look.dyPx + ((b.minY+b.maxY)/2 - look.origin[1]*b.fh)*look.scl, -1e-9, 1e-9);
+    }
+  }
+  assert.eq(frames.size, 6, 'all trunk chest tiers exercised');
+});
+
+test('wooden barrels retain their size increases and have no broken art', () => {
   const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
   for (const smashed of [false, true]) {
     const look = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'barrel',_smashed:smashed});
     if (smashed) assert.falsy(look.visible, 'no broken barrel sprite');
-    else { assert.eq(look.texKey, 'barrel'); assert.eq(look.scl, (2 / 3) * 1.1, 'half the old size, up 10% (Oct 2026)'); }
+    else { assert.eq(look.texKey, 'barrel'); assert.eq(look.scl, (2 / 3) * 1.1 * 1.1, 'barrels enlarged another 10%'); }
   }
   for (const smashed of [false, true]) {
     const pot = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot',_smashed:smashed});
@@ -673,7 +692,7 @@ test('neutral mineral shadows stay under every resolved material and size', () =
     const p = art.resolveAppearance(o);
     const shadowHeight = Math.max(8,p.foot.w*0.9)*0.42;
     const shadowBottom = p.foot.footFromCentre-p.foot.shadowInsetPx+shadowHeight/2;
-    assert.eq(shadowBottom,p.foot.footFromCentre,'shadow ends at the seated art bottom');
+    assert.truthy(Math.abs(shadowBottom-p.foot.footFromCentre)<1e-10,'shadow ends at the seated art bottom');
     const b = SpriteLayout.ART_BOUNDS[`${p.texKey}:${p.frameVal}`];
     assert.truthy(Math.abs(p.dyPx+(b.maxY-b.fh/2)*p.scl-p.foot.footFromCentre)<1e-10,'depth keeps the true art foot');
   }

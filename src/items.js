@@ -70,8 +70,8 @@ const CROP_SPRITE = {
   // Long grass — item id 'longgrass', display name 'Long grass'. Props.png
   // is a 22-col grid; frame (col 11, row 1) 1-indexed = col 10 row 0
   // 0-indexed = 0*22 + 10 = 10. Renders as leafy green fronds at the
-  // wildplant scale (1.16 keeps the tuft from crowding one-cell props).
-  longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 },
+  // wildplant scale, reduced 10% to keep the tuft inside one-cell props.
+  longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 * 0.9 },
   // Previously unused Props frames: green sprig and upright leafy nettle.
   // Inventory resolves these same frames through each item's crop key.
   petnip: { sheet: 'props', custom: true, frame: 32, scale: 1.16 },
@@ -173,11 +173,11 @@ const ZONE_ROCK_THEMES = Object.freeze({
 });
 // One neutral stone palette everywhere; material pairs are adjacent small/large frames.
 // Legacy yield variants still own mining quantities, independently of appearance.
-// World rocks draw at 92% of the 16/15 source-cell scale (owner, Oct 2026).
-const ROCK_WORLD_SCALE = (16 / 15) * 0.92;
+// World rocks use the source-cell scale with the shared size corrections.
+const ROCK_WORLD_SCALE = (16 / 15) * 0.92 * 0.88;
 const ROCK_VARIANT_ART = Object.freeze({
   columns: 8, rows: 9, smallScale: ROCK_WORLD_SCALE, largeScale: ROCK_WORLD_SCALE,
-  themedScale: ROCK_WORLD_SCALE, placedScale: 1.6,
+  themedScale: ROCK_WORLD_SCALE, placedScale: 1.6 * 0.88,
   plainFrames: Object.freeze([0, 30, 32, 34]),
   materials: Object.freeze(['plain', 'flint', 'quartz', 'topaz', 'amethyst',
     'sapphire', 'ruby', 'emerald', 'diamond', 'copper', 'iron', 'gold',

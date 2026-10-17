@@ -55,11 +55,11 @@ const HomeArea = {
   // ── Home's footing ────────────────────────────────────────────────────
   // Where a placed Home sits, in cell offsets from the point it is placed
   // for (the player's first fix, or where they stand for "Move Home here"):
-  // the wagon one cell ahead and the firepit one cell behind the player.
+  // the wagon one cell ahead and the firepit two cells behind the player.
   // A new game rotates these defaults into its first compass heading.
   // Explicit Home moves retain the north-up defaults.
   WAGON_OFFSET: { dx: 0, dy: -1 },
-  FIREPIT_OFFSET: { dx: 0, dy: 1 },
+  FIREPIT_OFFSET: { dx: 0, dy: 2 },
   // Rotate the starting layout into the first compass heading, then snap to
   // cells once. Saved positions never follow later camera turns.
   placementOffsets(heading = 0) {
@@ -72,7 +72,7 @@ const HomeArea = {
   // and the ring two out, each by distance from it — never the player's own
   // doorstep cell or the wagon's 3x3. Fixed order, so the same ground always
   // picks the same cell.
-  firepitCandidates(preferred, wagon) {
+  firepitCandidates(preferred, wagon, heading = 0) {
     const d2 = (c) => (c.dx - preferred.dx) ** 2 + (c.dy - preferred.dy) ** 2;
     const out = [preferred];
     for (const r of [1, 2]) {
@@ -85,7 +85,24 @@ const HomeArea = {
       }
       out.push(...ring.sort((a, b) => d2(a) - d2(b)));
     }
-    return out;
+    return out.filter(c => this.firepitTrailerGap(c, wagon, heading) >= 0.5);
+  },
+  // Conservative gap in cells between the trailer frame and the pit CELL.
+  // Art stays upright in the initial view; project the world-grid cell into
+  // that view and enclose it in a box. The square frame also covers legacy
+  // wagon art, which is shorter. Account for renderer foot-offset rounding.
+  firepitTrailerGap(cell, wagon, heading = 0) {
+    const a = heading * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    const foot = this.wagonArtFoot(heading);
+    const fx = Math.round(foot.dx * CELL_PX) / CELL_PX;
+    const fy = Math.round(foot.dy * CELL_PX) / CELL_PX;
+    const dx = cell.dx - wagon.dx - fx, dy = cell.dy - wagon.dy - fy;
+    const x = dx * c + dy * s, y = -dx * s + dy * c;
+    const halfCell = (Math.abs(c) + Math.abs(s)) / 2;
+    const width = buildingArt('trailer').max;
+    const gapX = Math.max(0, Math.abs(x) - halfCell - width / 2);
+    const gapY = Math.max(0, y - halfCell, -width - y - halfCell);
+    return Math.hypot(gapX, gapY);
   },
   // The firepit waits for the first compass reading — but only this long
   // (ms, from Home standing on the surface this session). A device that
@@ -95,9 +112,9 @@ const HomeArea = {
   // Where the placed wagon's art stands on its cell, in cells (render.js
   // _houseFootPx reads it as the house's footDx/footDy): shifted left so
   // its door (0.18 of the art's width right of centre) is over the
-  // player's column, and down so the door's steps meet the doorstep cell —
-  // the player stands right in front of the door, not a cell below it.
-  WAGON_ART_FOOT: { dx: -0.37, dy: 1.0 },
+  // player's column. Keep the bottom ahead of the player's entire cell,
+  // including diagonal headings where snapping brings the wagon closer.
+  WAGON_ART_FOOT: { dx: -0.37, dy: 0.1 },
   wagonArtFoot(heading = 0) {
     const a = heading * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
     const { dx, dy } = this.WAGON_ART_FOOT;
@@ -126,7 +143,7 @@ const HomeArea = {
   // The opening shot of a new game: the camera starts zoomed in until
   // `viewCells` cells span the map frame, centred `focus` cells from the
   // player (up, and a little toward the wagon's middle), so the wagon fills
-  // the top half and the player stands at its door. Once Home stands and no
+  // the top half and the player stands below its door. Once Home stands and no
   // dialog covers the map it holds `holdMs`, then eases back out to the
   // normal view over `outMs`. Home's sign is hidden until the hold begins,
   // then types out one character every `labelCharMs` (every session types

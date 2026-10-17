@@ -1133,7 +1133,7 @@ class SceneVenues {
   }
 
   // Place Home for a player standing at (x, y): the wagon HomeArea.WAGON_OFFSET
-  // cells away, its art drawn at WAGON_ART_FOOT so they stand at its door, and
+  // cells away, its art drawn at WAGON_ART_FOOT clear of their starting cell, and
   // the firepit after compass detection at HomeArea.FIREPIT_OFFSET
   // (save.homeFirepit) — unless that cell is water or
   // a way, where a ring of stones would read as litter. Whatever building the
@@ -1183,7 +1183,7 @@ class SceneVenues {
     // a heading that points it at a road or the water must not cost a new
     // game its pit.
     let pit = null;
-    for (const c of HomeArea.firepitCandidates(offset, wagon)) {
+    for (const c of HomeArea.firepitCandidates(offset, wagon, save.homePlacementHeading || 0)) {
       const cell = absCellOffset(this, at.cellIX, at.cellIY, c.dx - wagon.dx, c.dy - wagon.dy);
       const m = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
       if (this._firepitGroundOK(m.x, m.y)) { pit = m; break; }
