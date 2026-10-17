@@ -1502,7 +1502,8 @@ function makeBiomeTextures(scene, size) {
   makeCaveWallEdges(scene, size);
   for (const [type, spec] of Object.entries(BIOME_TEX)) {
     const phases = spec.animPhases || 1;
-    for (let v = 0; v < spec.variants; v++) {
+    const variants = typeof GroundAtlas === 'undefined' ? spec.variants : GroundAtlas.variantCount(type, spec.variants);
+    for (let v = 0; v < variants; v++) {
       for (let p = 0; p < phases; p++) {
         bakeCanvas(scene, `biome${type}_${v}` + (p ? `p${p}` : ''), size, size,
           (ctx) => {
