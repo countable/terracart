@@ -75,7 +75,7 @@
       name: 'Rust totem', flash: 'Your grip hardens like iron.',
       body: "You touch the rusted iron. Your arms feel stronger as you grip your weapon." },
     wishing_well: { art: 'shrine_wishing_well', frame: 6, light: 0xefc46a, lever: 'fortune', durationMs: 15 * MIN, boon: 'Luck',
-      zoneVariants: ['meadow', 'hedge_garden'], streets: ['hedgerow'],
+      zoneVariants: ['meadow', 'hedge_garden'], streets: ['hedgerow', 'pottery'],
       name: 'Wishing well', flash: 'A coin sinks. Luck stirs.',
       body: "Green coins glint at the bottom of the well. You lean over the edge and make a wish." },
     harvest_idol: { art: 'shrine_harvest_idol', frame: 7, light: 0xffd07a, lever: 'work', durationMs: 15 * MIN, boon: 'Hardworking',

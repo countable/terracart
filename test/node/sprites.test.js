@@ -750,7 +750,7 @@ test('berry bush: fruit texture copies the plain bush at native size and only pa
   assert.eq(draws.length, 1, 'the foliage is copied once at startup');
   assert.eq(draws[0][0], source);
   assert.eq(JSON.stringify(draws[0].slice(1)), JSON.stringify([0, 0]), 'no crop or resize');
-  assert.eq(berries.length, 15, 'five berries, each with shade, body and highlight');
+  assert.eq(berries.length, 21, 'seven berries, each with shade, body and highlight');
   assert.eq(JSON.stringify(frames), JSON.stringify([[0, 0, 0, 0, 48, 32]]));
   assert.eq(refreshes, 1, 'no per-cell texture rebuilds');
 });

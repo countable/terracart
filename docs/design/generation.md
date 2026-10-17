@@ -118,14 +118,16 @@ access or tile lifecycle mechanics.
   Nettle the rare one. The ordinary spawn gate excludes unsafe seats, road
   nexuses and themed stretches. Both herbs use the standard wildplant harvest
   lane; PetNip feeds pets and Nettle supplies the Home Growth Powder recipe.
-  The same roll grows a sparse bush above the herb band (`PLAIN_BUSHES` in
-  `street_variants.js`): mostly ordinary shrubs, with berry and poisonberry
-  bushes mixed in.
+  The same roll grows a bush above the herb band (`PLAIN_BUSHES` in
+  `street_variants.js`; 8% shrub, 2.5% berry, 1.5% poisonberry of the
+  seats): mostly ordinary shrubs, with berry and poisonberry bushes mixed
+  in, still fewer than the herbs.
 
 - Every house fronting a plain (unthemed) Small street stands 0-2 loot barrels
   on the verge before it, clustered side by side a cell back from the kerb
   (`StreetVariants.dressSteps`, the house barrels pass; `HOUSE_BARRELS_MAX`,
-  `HOUSE_FRONT_REACH_CELLS`, `HOUSE_FRONT_SPAN_CELLS`). A house is a run of house-tier building cells a
+  `HOUSE_FRONT_REACH_CELLS`, `HOUSE_FRONT_SPAN_CELLS`). They are always
+  wooden barrels (`barrelStyle`); clay pots belong to Pottery Road. A house is a run of house-tier building cells a
   ray out from the band's edge reaches within five cells; forts, castles and
   another road in the way end the ray. The count is a hash of the tile and
   the house's first wall cell, so every player sees the same; a terrace counts
@@ -747,6 +749,13 @@ Higher-priority placements and their access space take precedence in this order:
    third of them held (`BERRY_RUNT_CHANCE`), seats the `street_berry`
    garrison one cell behind the bush row: one ambusher that hides in the
    nearest bush.
+   Pottery Road (a Small-road row, sections up to 250 m) lines both verges
+   with generated clay pots (`VERGE_ROWS.pottery`): one sample a cell with
+   `POTTERY_GAP` (35%) left empty, each pot the first free cell from the
+   second verge cell out on the reward gate, so none stands on the kerb cell
+   or a Major-and-Medium kerb. No guards and no POI: a pot is a smashable
+   prop (`CLAY_POT_LOOT`, a coin a quarter of the time). It is the only
+   street that stands clay pots.
    Overgrown forest roads add extra encounters beside the usual plant guard,
    each a row of the variant's `extraEncounters` rolled from the stable street
    key: a sounder of two wild boars on every overgrown street, and a Giant

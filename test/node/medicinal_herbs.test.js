@@ -48,7 +48,7 @@
     const bushes = plants.filter(p => bushCrops.includes(p.crop));
     const herbCount = plants.filter(p => p.crop === 'petnip' || p.crop === 'nettle').length;
     assert.gt(bushes.length, 0, 'some bushes');
-    assert.lt(bushes.length * 4, herbCount, 'sparse beside the herbs');
+    assert.lt(bushes.length * 2, herbCount, 'still fewer than half as many as the herbs (owner, Oct 2026: more of every bush)');
     assert.truthy(bushes.every(p => p._street === 'plain'));
     assert.eq(herbs('major').filter(p => bushCrops.includes(p.crop)).length, 0, 'normal Small roads only');
     // Ordinary bushes lead; berry and poisonberry bushes are mixed in.
