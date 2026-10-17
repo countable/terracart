@@ -1995,19 +1995,24 @@ test('house barrels: 0-2 per house, on the verge between the house and the stree
   assert.inRange(south / 120, 0.7, 1.3);
 });
 
-test('house barrels: beside the street (the kerb cell first), the reward gate, and stable', () => {
+test('house barrels: a cluster a cell back from the kerb, the reward gate, and stable', () => {
   let f = null;
   for (let tx = 0; tx < 200 && !f; tx++) if (northOf(houseFixture(tx, 3)).length === 2) f = houseFixture(tx, 3);
   assert.truthy(f, 'a house that rolls two');
   const cells = northOf(f);
-  assert.truthy(cells.every(c => c.iy === 5), 'both on the kerb cell, beside the street');
-  assert.truthy(cells[0].ix !== cells[1].ix, 'spread along the frontage');
+  assert.truthy(cells.every(c => c.iy === 4), 'both a cell back from the kerb cell (row 5), never on it');
+  assert.eq(Math.abs(cells[0].ix - cells[1].ix), 1, 'clustered: adjacent along the frontage');
   assert.eq(JSON.stringify(houseBarrels(houseFixture(f.tx, f.ty))), JSON.stringify(houseBarrels(houseFixture(f.tx, f.ty))), 'a reload lays the same');
-  // Occupied kerb cells push a barrel back a cell, never into the wall.
+  // Occupied back cells pull a barrel onto the kerb cell — the last resort —
+  // never into the wall.
   const g = houseFixture(f.tx, f.ty);
-  for (let x = 0; x < g.N; x++) g.spawnOpts.occupied.add(5 * g.N + x);
+  for (let x = 0; x < g.N; x++) g.spawnOpts.occupied.add(4 * g.N + x);
   const back = northOf(g);
-  assert.eq(back.length, 2); assert.truthy(back.every(c => c.iy === 4), 'the next verge cell out');
+  assert.eq(back.length, 2); assert.truthy(back.every(c => c.iy === 5), 'the kerb cell, only when nothing deeper is free');
+  // A frontage one cell deep (the wall at k = 2) stands its barrels on that cell.
+  const one = houseFixture(f.tx, f.ty);
+  for (const x of [3, 4, 5]) { one.grid[4 * one.N + x] = T.BUILDING; one.spawnWhy[4 * one.N + x] = WorldGen.SPAWN_WHY.TERRAIN; }
+  assert.truthy(northOf(one).every(c => c.iy === 5), 'a one-deep frontage uses its only cell');
   // A Major-and-Medium kerb (the reward gate's KERB) refuses the seat.
   const k = houseFixture(f.tx, f.ty);
   for (let x = 0; x < k.N; x++) for (const y of [4, 5]) k.spawnWhy[y * k.N + x] |= WorldGen.SPAWN_WHY.KERB;

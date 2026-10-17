@@ -123,15 +123,17 @@ access or tile lifecycle mechanics.
   bushes mixed in.
 
 - Every house fronting a plain (unthemed) Small street stands 0-2 loot barrels
-  on the verge before it, beside the street (`StreetVariants.dressSteps`, the
-  house barrels pass; `HOUSE_BARRELS_MAX`, `HOUSE_FRONT_REACH_CELLS`,
-  `HOUSE_FRONT_SPAN_CELLS`). A house is a run of house-tier building cells a
+  on the verge before it, clustered side by side a cell back from the kerb
+  (`StreetVariants.dressSteps`, the house barrels pass; `HOUSE_BARRELS_MAX`,
+  `HOUSE_FRONT_REACH_CELLS`, `HOUSE_FRONT_SPAN_CELLS`). A house is a run of house-tier building cells a
   ray out from the band's edge reaches within five cells; forts, castles and
   another road in the way end the ray. The count is a hash of the tile and
   the house's first wall cell, so every player sees the same; a terrace counts
-  a house per frontage span. Seats take the first free verge cell out on the
-  reward gate, so none stands on a Major-and-Medium kerb; themed stretches
-  and Major roads stand none. One seat in ten (`HOUSE_CRATE_SHARE`, a hash
+  a house per frontage span. Seats take the first free verge cell out past
+  the kerb cell, on the reward gate, so none stands on a Major-and-Medium
+  kerb; the kerb cell itself is the last resort for a one-deep frontage.
+  Themed stretches and Major roads stand none. A generated barrel is not a
+  place: it draws no POI pad (`render.js`, the pad pass), unlike a bin POI. One seat in ten (`HOUSE_CRATE_SHARE`, a hash
   of the seat) stands a tier-1 restocking crate instead of a barrel.
 
 - Cleared wild longgrass and the wild herbs (the wild flowers, PetNip and
