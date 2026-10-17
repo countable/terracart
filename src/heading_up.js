@@ -423,8 +423,11 @@ const HeadingUp = {
     walk(wl);
     for (let i = tags; i < pool.length; i++) pool[i].setVisible(false);
     const shadows = (scene.shadowPool || []).filter(s => s.visible).length;
+    // The last WebGL error the device reported, kept until a later one.
+    const gl = scene.game.renderer?.gl;
+    if (gl) { const e = gl.getError(); if (e) { scene._huGlError = e; scene._huGlErrors = (scene._huGlErrors || 0) + 1; } }
     const pl = scene.playerWorldContainer ? wl.indexOf(scene.playerWorldContainer) : -1;
-    label.setText(`propDebug v9${HeadingUp.SOLO_WORLD ? ' solo' : ''}${HeadingUp.HU_FLAT ? ' flat' : ''}${HeadingUp.active(scene) ? '' : ' northUp'} · mt${scene.game.renderer?.maxTextures ?? '?'} mask${scene.worldContainer?.mask ? 1 : 0} light${scene.lightMap?.alpha ?? '?'} · ${scene.game.renderer?.type === 2 ? 'webgl' : 'canvas'}\n${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows} · player #${pl}/${wl.length} · peers ${peers}\nbad ${bad.length ? bad.join(', ') : 'none'}`);
+    label.setText(`propDebug v10${HeadingUp.SOLO_WORLD ? ' solo' : ''}${HeadingUp.HU_FLAT ? ' flat' : ''}${HeadingUp.active(scene) ? '' : ' northUp'} · mt${scene.game.renderer?.maxTextures ?? '?'} mask${scene.worldContainer?.mask ? 1 : 0} light${scene.lightMap?.alpha ?? '?'} · ${scene.game.renderer?.type === 2 ? 'webgl' : 'canvas'}\n${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows} · player #${pl}/${wl.length} · peers ${peers}\nbad ${bad.length ? bad.join(', ') : 'none'} · glErr ${scene._huGlErrors || 0}${scene._huGlError ? ' 0x' + scene._huGlError.toString(16) : ''}`);
   },
 
   _postRender(scene) {
