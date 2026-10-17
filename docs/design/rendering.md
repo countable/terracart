@@ -158,7 +158,10 @@ North-up mode retains the existing wall atlas artwork.
   flags retain ordinary world ordering. Tower textures fade fully to transparent
   across their bottom ten pixels so cell-seated bases blend into angled walls;
   this is baked once for both restoration states. Walls and footprints use a muted
-  palette so interactables remain distinct.
+  palette so interactables remain distinct. Unclaimed house and fort floors
+  retain a little more brick red and weathered timber warmth beneath the green
+  wash; their existing slime, grain, cracks and dark foundation edges preserve
+  the dilapidated state. Restored floors and castle materials keep their palettes.
   Castle courtyards are cell-tiled. Half of the cached variants are one full
   cell slab; the rest split it, a quarter into four quarter-cell stones (2×2)
   and a quarter joining one adjacent pair into a horizontal or vertical
