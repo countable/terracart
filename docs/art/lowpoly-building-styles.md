@@ -198,10 +198,17 @@ below when the tilesets are loaded): per wall/roof pair, one `LOOK.sheet`-pixel
 tileset: timber frame, plaster, brick, stone walls; thatch, shingle, slate
 roofs), `painterly-tileset-v1.png` (the user's painterly sheet: dark stone and
 cobble walls, red tiles, for the potion and relic shops) and the generated
-`reference-materials-v3.png` (clapboard, glazed). `SHEET_SRC` holds the crop
-rectangles; `zoom` crops the centre of a bay so brick (1.7×) and cobble (2.4×)
-repeat larger, and slate tiles 1.5× larger than its crop. A `blank` recipe
-takes plain bays (no windows or door) for ramparts. The
+`reference-materials-v3.png` (fish-scale clay and thatch cells, tinted to the
+role colour by luminance like the generated sheets). The approved set, which
+every role draws from: walls are the pixel tileset's plaster (plain, market,
+seed, potion), timber (pet, supply, relic, wreck) and brick (blacksmith,
+book); roofs are tinted atlas clay (plain, potion, book), tinted atlas thatch
+(seed, pet), pixel slate (blacksmith, wreck), painterly red tile (relic) or
+a flat deck (market, supply). `SHEET_SRC` holds the crop rectangles; `zoom`
+crops the centre of a bay so brick (1.7×) repeats larger, and slate tiles
+1.5× larger than its crop. A `blank` recipe takes plain bays (no windows or
+door) for ramparts. The painterly dark stone and cobble walls remain in the
+table but no role uses them. The
 pixel tileset leaves openings white, so `paintOpenings` flood-fills them: the
 ground-floor entrance bay becomes a plank door, the rest blue glass with a
 lighter pane; a wreck boards them over. Sheets are cut once per material key
