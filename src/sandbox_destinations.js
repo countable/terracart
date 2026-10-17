@@ -64,7 +64,8 @@
     { id: 'parkpath', label: 'Park path', roadName: 'Common Walk', aliases: ['path', 'road:parkpath'] },
     { id: 'trade-road', label: 'Old trade road', roadName: 'Old Trade Road', aliases: ['road_md', 'road:street_bandit'] },
     { id: 'ancient-highway', label: 'Ancient highway', roadName: 'Ancient Highway', aliases: ['road_lg', 'road:major', 'road:street_highway'] },
-    { id: 'market-road', label: 'Market close', roadName: 'Market Close', aliases: ['road', 'road:minor'] },
+    { id: 'market-road', label: 'Trade Row (Market Close)', roadName: 'Market Close', aliases: ['trade', 'road:trade'] },
+    { id: 'plain-road', label: 'Plain street (Maple Street)', roadName: 'Maple Street', aliases: ['road', 'road:minor'] },
   ];
   const normalize = value => String(value || '').trim().toLowerCase().replace(/[ _]+/g, '-');
   const byName = new Map();

@@ -135,7 +135,7 @@
   // StreetVariants.BANDIT_STRETCH_UNITS) are the same reason again: one guard
   // each, always held, every mode. (There is no 'wagon' tier: a bus stop is on
   // the kerb by definition.)
-  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_wild_boar: 2, street_forest_bear: 1, street_orchard: 1, street_toadstool: 1, street_goblin_gang: 5, street_spider_path: 2, street_berry: 1 };
+  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_wild_boar: 2, street_forest_bear: 1, street_orchard: 1, street_toadstool: 1, street_goblin_gang: 5, street_spider_path: 2, street_berry: 1, street_trade: 2 };
   const SLIME_TRAIL = root.StreetVariants.VARIANT_BY_ID.slime_trail;
   for (const kind of SLIME_TRAIL.enemyKinds) STREET_TIER_GUARDS[`street_slime_trail_${kind}`] = SLIME_TRAIL.guardsPerPost;
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
@@ -231,6 +231,7 @@
     // 'close' tier's ladder; there is no 'wagon' tier — the safety pass.)
     cafe: ['skeleton_soldier', 'orc'],
     street_berry: ['goblin_runt'],                 // a Berry Lane's bush runt (GROUPS.street_berry)
+    street_trade: ['goblin_runt'],                 // a Trade Row's pair of grunts (GROUPS.street_trade)
     // A tar yard: fire slimes (the enemy_roster.js fire_slime row).
     tar: ['fire_slime'],
     // A barricade: the goblin who holds it.
@@ -332,6 +333,10 @@
     street_goblin_gang: { label: 'Street goblin gang', tiers: ['street_goblin_gang'], modeCap: false,
       story: 'Five weak goblin grunts gather beside the street, with barrel stacks nearby.',
       members: [{ kind: 'goblin_runt', n: 5, place: 'ring' }] },
+    // A Trade Row's grunts: a pair at every held post along the barrel row.
+    street_trade: { label: 'Trade Row grunts', tiers: ['street_trade'], modeCap: false,
+      story: 'Two weak goblin grunts pick through the barrels of goods beside the road.',
+      members: [{ kind: 'goblin_runt', n: 2, place: 'ring' }] },
     // ── A wrecked house: small ──
     grunt_gang: { label: 'Goblin grunt gang', tiers: [9], minT: 0, chance: .1, modeCap: false,
       story: 'Three to eight weak goblins crowd around the wreck. Each falls quickly; the gang comes together.',
@@ -563,6 +568,7 @@
     street_spider_path: { rate: 1, thinned: false },
     street_goblin_gang: { rate: 1, thinned: false },
     street_berry: { rate: 1, thinned: false },
+    street_trade: { rate: 1, thinned: false },
     gate:   { rate: 1, thinned: false },   // a gate's posts — held every day
     habitat_marsh: { rate: 1, thinned: false },      // a habitat site — always held
     habitat_stronghold: { rate: 1, thinned: false },

@@ -124,6 +124,7 @@ access or tile lifecycle mechanics.
   in, still fewer than the herbs.
 
 - Every house fronting a plain (unthemed) Small street stands 0-2 loot barrels
+  (`HOUSE_BARREL_ODDS`: 40% none, 40% one, 20% two)
   on the verge before it, clustered side by side a cell back from the kerb
   (`StreetVariants.dressSteps`, the house barrels pass; `HOUSE_BARRELS_MAX`,
   `HOUSE_FRONT_REACH_CELLS`, `HOUSE_FRONT_SPAN_CELLS`). They are always
@@ -135,7 +136,8 @@ access or tile lifecycle mechanics.
   the kerb cell, on the reward gate, so none stands on a Major-and-Medium
   kerb; the kerb cell itself is the last resort for a one-deep frontage.
   Themed stretches and Major roads stand none. A generated barrel is not a
-  place: it draws no POI pad (`render.js`, the pad pass), unlike a bin POI. One seat in ten (`HOUSE_CRATE_SHARE`, a hash
+  place: it draws no POI pad (`render.js`, the pad pass); a bin POI (a waste
+  basket or recycling point) wears the full pad (`padShapeKeyForPoi`). One seat in ten (`HOUSE_CRATE_SHARE`, a hash
   of the seat) stands a tier-1 restocking crate instead of a barrel.
 
 - Cleared wild longgrass, the wild herbs (the wild flowers, PetNip and
@@ -759,6 +761,12 @@ Higher-priority placements and their access space take precedence in this order:
    or a Major-and-Medium kerb. No guards and no POI: a pot is a smashable
    prop (`CLAY_POT_LOOT`, a coin a quarter of the time). It is the only
    street that stands clay pots.
+   Trade Row (a Small-road row, sections up to 250 m) lines both verges with
+   generated wooden barrels the same way (`VERGE_ROWS.trade`,
+   `TRADE_BARREL_GAP` 30% left empty, a cell back from the kerb on the reward
+   gate) and seats a two-runt `street_trade` garrison post every 25 m
+   (`TRADE_GRUNT_STEP_M`), two thirds of them held (`TRADE_GRUNT_CHANCE`),
+   a cell behind the barrel row on the fast-foe gate.
    Overgrown forest roads add extra encounters beside the usual plant guard,
    each a row of the variant's `extraEncounters` rolled from the stable street
    key: a sounder of two wild boars on every overgrown street, and a Giant

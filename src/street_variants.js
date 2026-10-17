@@ -53,6 +53,16 @@
   // CLAY_POT_LOOT: a coin a quarter of the time) — no guards, no POI. The
   // only street that stands pots: plain Small streets stand barrels alone.
   const POTTERY_GAP = 0.35;
+  // ── Trade Row ────────────────────────────────────────────────────────────
+  // Barrels of goods line both verges (VERGE_ROWS.trade: a sample every cell,
+  // TRADE_BARREL_GAP left empty, a cell back from the kerb on the reward
+  // gate — wooden barrels, loot.js BARREL_LOOT) and goblin grunts pick
+  // through them: a post every TRADE_GRUNT_STEP_M, TRADE_GRUNT_CHANCE of
+  // them held off the street key and the post's index, each the
+  // street_trade garrison (lairs.js GROUPS: two runts), seated a cell
+  // behind the barrel row on the fast-foe gate.
+  const TRADE_BARREL_GAP = 0.3;
+  const TRADE_GRUNT_STEP_M = 25, TRADE_GRUNT_CHANCE = 2 / 3;
   // ── Berry Lane / Berry Trail ─────────────────────────────────────────────
   // Bushes line both verges, a sample every cell with BERRY_LANE_GAP of them
   // left empty (the row's stream): the mix is cumulative roll bounds off the
@@ -141,6 +151,9 @@
   // HOUSE_FRONT_SPAN_CELLS samples long: a terrace of joined footprints
   // counts a house per span, not one for the whole row.
   const HOUSE_BARRELS_MAX = 2;
+  // The share of houses standing 0, 1 and 2 barrels (owner, Oct 2026: a
+  // little fewer than the even thirds — 0.8 a house on average).
+  const HOUSE_BARREL_ODDS = [0.4, 0.4, 0.2];
   const HOUSE_FRONT_REACH_CELLS = 5;
   const HOUSE_FRONT_SPAN_CELLS = 6;
   // This share of the seated house barrels stand as a tier-1 crate instead
@@ -440,6 +453,15 @@
       lampGlow: '#e0a060', story: 'street_pottery', art: 'street_golden', title: 'Pottery Road',
       body: 'Clay pots stand along both sides of the road. Most are empty, but a coin rolls out of the odd one you smash.',
       flash: 'Clay pots line the road.' },
+    // TRADE ROW (Small road): barrels of goods along both verges and goblin
+    // grunts picking through them in twos (VERGE_ROWS.trade, the trade
+    // grunt posts, lairs.js street_trade). Appended last.
+    { id: 'trade', terrain: 'WASTELAND', affinities: ['ruined', 'destination'], size: 'minor', share: 0.04, rung: 'rare',
+      stone: { weathered: '#857a66', restored: '#9b8d72' }, lampDensity: 1,
+      sectionMaxM: 250, words: /(trade|market|merchant|handel|markt|bazaar)/i,
+      lampGlow: '#dca452', story: 'street_trade', art: 'street_bandit', title: 'Trade Row',
+      body: 'Barrels of goods line both sides of the road, and goblin grunts pick through them in twos.',
+      flash: 'Barrels and goblin grunts.' },
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
@@ -498,8 +520,14 @@
   const POTTERY_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', start: () => 2, walk: 3, gate: 'reward',
     stream: true, draw: (at) => { at.gap = at.rng() < POTTERY_GAP; }, skip: (at) => at.gap,
     emit: potteryPot }];
+  // One Trade Row barrel at cell c: a generated wooden barrel.
+  const tradeBarrel = (D, at, c) => D.res.objects.push(D.WG.makeObject('chest', D.cx(c.ix), D.cy(c.iy),
+    D.WG.cellId('trade_barrel', D.tx, D.ty, c.ix, c.iy), { barrel: true, barrelStyle: 'barrel', _street: D.v }));
+  const TRADE_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', start: () => 2, walk: 3, gate: 'reward',
+    stream: true, draw: (at) => { at.gap = at.rng() < TRADE_BARREL_GAP; }, skip: (at) => at.gap,
+    emit: tradeBarrel }];
   const VERGE_ROWS = {
-    berry: BERRY_LANE_ROWS, berry_trail: BERRY_LANE_ROWS, pottery: POTTERY_ROWS,
+    berry: BERRY_LANE_ROWS, berry_trail: BERRY_LANE_ROWS, pottery: POTTERY_ROWS, trade: TRADE_ROWS,
     // FULLY HEDGED: half-cell samples so a diagonal lane's kerb cells are all
     // reached (a claimed cell is simply skipped), no gate stations.
     hedgerow: [{ step: () => root.WorldGen.CELL_M / 2, side: 'both', walk: 1,
@@ -2234,6 +2262,27 @@
             lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
         });
       }
+      if (v === 'trade') {
+        // THE GRUNTS AMONG THE BARRELS: a post every TRADE_GRUNT_STEP_M, held
+        // at TRADE_GRUNT_CHANCE off the street key and the post's index (the
+        // same for every player), seated a cell behind the barrel row (verge
+        // k = 3, the barrels stand at k = 2) on the fast-foe gate — the
+        // street_trade garrison's pair of runts.
+        sampleLine(rec.line, gM, TRADE_GRUNT_STEP_M, TRADE_GRUNT_STEP_M / 2, (s, x, y, nx, ny) => {
+          if (!S.covers(spans, s)) return;
+          const post = Math.floor(s / TRADE_GRUNT_STEP_M);
+          if (hash01(`trade-grunt|${rec.key}|${post}`) >= TRADE_GRUNT_CHANCE) return;
+          const side = hash01(`trade-grunt-side|${rec.key}|${post}`) < 0.5 ? 1 : -1;
+          const candidate = verge(rec, x, y, nx, ny, side, 3) || verge(rec, x, y, nx, ny, -side, 3);
+          const c = candidate && foeSeat(candidate.ix, candidate.iy);
+          if (!c) return;
+          const sid = WG.cellId('trade_grunt', tx, ty, c.ix, c.iy);
+          if (habitatSeats.has(sid)) return;
+          claim(c.ix, c.iy); habitatSeats.add(sid);
+          res.lairs.push({ tier: 'street_trade', sid, _street: v,
+            lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
+        });
+      }
       if (v === 'slime_trail') {
         // One species per stable section, independent of its source fragments.
         const kind = row.enemyKinds[Math.floor(hash01(`slime-species|${rec.key}`) * row.enemyKinds.length)];
@@ -2808,7 +2857,9 @@
         for (let at = 0; at < rays.length; at += HOUSE_FRONT_SPAN_CELLS) {
           const span = rays.slice(at, at + HOUSE_FRONT_SPAN_CELLS);
           const wx = span[0].wall % N, wy = (span[0].wall - wx) / N;
-          const n = Math.floor(hash01(`house-barrels|${WG.cellId('h', tx, ty, wx, wy)}`) * (HOUSE_BARRELS_MAX + 1));
+          const roll = hash01(`house-barrels|${WG.cellId('h', tx, ty, wx, wy)}`);
+          let n = 0, acc = 0;
+          while (n < HOUSE_BARRELS_MAX && roll >= (acc += HOUSE_BARREL_ODDS[n])) n++;
           // The cluster: n adjacent samples centred on the span's middle.
           const first = Math.floor((span.length - n) / 2);
           for (let b = 0; b < n; b++) {
@@ -2986,7 +3037,7 @@
     BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, END_SEAT_CELLS,
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
-    BERRY_LANE_BUSHES, BERRY_LANE_THORN_MAX, BERRY_LANE_GAP, BERRY_RUNT_STEP_M, BERRY_RUNT_CHANCE, BERRY_VARIANTS, POTTERY_GAP,
+    BERRY_LANE_BUSHES, BERRY_LANE_THORN_MAX, BERRY_LANE_GAP, BERRY_RUNT_STEP_M, BERRY_RUNT_CHANCE, BERRY_VARIANTS, POTTERY_GAP, TRADE_BARREL_GAP, TRADE_GRUNT_STEP_M, TRADE_GRUNT_CHANCE, HOUSE_BARREL_ODDS,
     HEDGE_GATE_EVERY_CELLS, HOUSE_BARRELS_MAX, HOUSE_FRONT_REACH_CELLS, HOUSE_FRONT_SPAN_CELLS, HOUSE_CRATE_SHARE, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
     THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode,
