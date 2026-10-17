@@ -338,8 +338,8 @@ access or tile lifecycle mechanics.
   marks within `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the
   surface; crates never get one. The line is faint dashed black ink (`Starter.TRAIL_STYLE`).
   Each frame clips the cached route to the player's distance from its treasure
-  plus one cell (`behindCells`): the line recedes behind approaching feet and
-  returns when walking away. Segment clipping preserves dash positions and
+  (`behindCells`, 0: no slack beyond the feet): the line recedes ahead of
+  approaching feet and returns when walking away. Segment clipping preserves dash positions and
   separate visible stretches, without adding pathfinding as the player moves.
   The chest at a trail's end rolls `CHEST_TRAIL_TIER_BONUS` tier higher, within
   its depth cap; an X at a trail's end (`Starter.isTrailTreasure`) shows and

@@ -150,7 +150,8 @@
         assert.eq(JSON.stringify(paths), original, 'draw never trims or mutates the cached route');
       }
       paths[0].points = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 0 }];
-      scene.playerM.x = 0;
+      // Stand so the visible circle is exactly one cell around the target.
+      scene.playerM.x = scene.cellM * (1 - Starter.TRAIL_STYLE.behindCells);
       Render.drawChestTrails(scene);
       assert.truthy(segments.some(([a, b]) => b.y > 0), 'route reenters the visible circle');
       for (const [a, b] of segments) {
