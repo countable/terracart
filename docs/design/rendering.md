@@ -436,7 +436,9 @@ to the existing noon level. Underground lighting is unchanged.
   Day/night leaves the reach plateau bright;
   caves ignore it.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors
-  cull by viewport plus light radius, not sprite bounds. Use the existing
+  cull by viewport plus light radius, not sprite bounds. The POI pad and the
+  `poi` light together mark a real map POI: a loose crate and a generated
+  barrel or pot (`o.barrel`, no `poiClass`) get neither. Use the existing
   derived luminance/contrast controls; remeasure the plateau ceiling before
   raising it.
 - Streets restore metre intervals along each transportation line, keyed by

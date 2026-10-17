@@ -363,6 +363,12 @@ test('lighting: what lights is what is yours', () => {
   assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'c', poiClass: 'shop' }), 'poi', 'a POI is a place, and glows');
   assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'c', crate: true }), null,
     'a loose supply crate is a pickup, not a place — no pad, no light');
+  for (const barrelStyle of ['barrel', 'clay_pot']) {
+    assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'hbarrel_0_0_1_1', barrel: true, barrelStyle }), null,
+      'a generated barrel or pot is a prop, not a place — no pad, no light (owner, Oct 2026)');
+  }
+  assert.eq(Lighting.sourceKind(s, { kind: 'chest', id: 'c', poiClass: 'waste_basket' }), 'poi',
+    'a bin POI is a real map place and keeps its light');
   assert.eq(Lighting.sourceKind(s, { kind: 'torch', id: 'torch_bus_1_d1' }), 'torch', 'a cave torch burns');
   // A wild plant now SAYS it is one (kind: 'wildplant', stamped by
   // WorldGen.makeWildplant at every mint site) instead of being recognised by

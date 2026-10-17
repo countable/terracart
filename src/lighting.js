@@ -166,8 +166,10 @@
     fire:     { radiusCells: () => (typeof FIRE_REST_R !== 'undefined' ? FIRE_REST_R : 3),
                 colour: 0xff9a3c, peak: 1.00, flicker: 0.18 },
     // A live POI — a chest with something still in it (loose supply crates
-    // are excluded for the reason they get no pad: a transient pickup is not
-    // a place). Places read as places from across the map without shouting: a
+    // and generated barrels / pots are excluded for the reason they get no
+    // pad: a transient pickup or a smashable prop is not a place; the pad and
+    // this light together say "a real map POI"). Places read as places from
+    // across the map without shouting: a
     // small treasure blue-white light that breathes
     // SLOWLY (POI_PULSE_PERIOD_S — anything brisk turns a street of POIs into
     // a strobe), each on its own phase hashed from its id so a street doesn't
@@ -745,7 +747,10 @@
     // Opened chests (and a daily crate / chapel taken today) are the CALLER's
     // to drop: drawObjects asks interactables.js poiLit off the frame's sets.
     if (o.kind === 'chest') {
-      if (o.crate) return null;
+      // No pad, no light: a crate or a generated barrel / pot (o.barrel, no
+      // poiClass — render.js' pad pass skips the same two). A bin POI
+      // (waste_basket / recycling) is a real map place and keeps both.
+      if (o.crate || o.barrel) return null;
       const tier = chestTier(o);
       return chestLook(o).texKey === 'chest' && tier >= 3 ? 'chest_' + tier : 'poi';
     }
