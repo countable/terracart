@@ -13,15 +13,15 @@
   // Cell order of assets/Objects/BuildingMaterials/reference-materials-v3.png.
   const MATERIAL_TILE=96,MATERIAL_CELLS=['clay','slate','thatch','shingle','glazed','plaster','boards','rubble','brick','clapboard','flagstone','moss'];
   const ROLES={
-    plain:{material:'plaster',finish:'cottage',roofMaterial:'slate',stories:2,style:'multistorey'},
+    plain:{material:'plaster',finish:'cottage',roofMaterial:'clay',stories:2,style:'multistorey'},
     trailer:{material:'timber',finish:'siding',roofMaterial:'shingle',stories:1,style:'adobe',variant:'shallow',sprite:true},
     blacksmith:{material:'brick',finish:'workshop',roofMaterial:'slate',stories:1,style:'brick',chimneys:2,chimneyScale:1.5},
     trader:{material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
     shop:{material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
     seed:{material:'plaster',finish:'plaster',roofMaterial:'thatch',stories:1,style:'adobe'},
-    supply:{material:'clapboard',finish:'siding',roofMaterial:'flat',stories:2,style:'whitewash',variant:'flat'},
-    potion:{material:'darkstone',finish:'plaster',roofMaterial:'redtile',stories:2,style:'pyramid',variant:'inset'},
-    relic:{material:'cobble',finish:'masonry',roofMaterial:'redtile',stories:1,style:'pyramid',variant:'inset'},
+    supply:{material:'timber',finish:'siding',roofMaterial:'flat',stories:2,style:'whitewash',variant:'flat'},
+    potion:{material:'plaster',finish:'plaster',roofMaterial:'clay',stories:2,style:'pyramid',variant:'inset'},
+    relic:{material:'timber',finish:'masonry',roofMaterial:'redtile',stories:1,style:'pyramid',variant:'inset'},
     pet:{material:'timber',finish:'siding',roofMaterial:'thatch',stories:1,style:'japanese'},
     book:{material:'brick',finish:'masonry',roofMaterial:'clay',stories:2,style:'japanese'},
     wizard:{material:'stone',finish:'tower',roofMaterial:'slate',stories:3,style:'pyramid',shape:'wizard'},
@@ -439,9 +439,12 @@
       cobble:{src:'paint',window:[0,235,130,390],plain:[0,235,130,390],doorInset:[405,20,462,205],zoom:2.4},
       clapboard:{src:'atlas',cell:[1,2]}},
     // rect [x0,y0,x1,y1] and the 512-basis tile size; both sizes divide 360.
-    roofs:{thatch:{src:'px',rect:[215,418,388,446],tile:[120,19.5]},shingle:{src:'px',rect:[215,462,388,513],tile:[120,36]},slate:{src:'px',rect:[100,527,396,596],tile:[180,40]},
-      redtile:{src:'paint',rect:[195,240,380,385],tile:[60,45]},glazed:{src:'atlas',cell:[0,1],tile:[60,60]}}};
-  SHEET_SRC.roofs.clay=SHEET_SRC.roofs.shingle;
+    // Roofs: the approved set. Atlas cells (fish-scale clay, thatch) take the
+    // role colour by luminance like the generated sheets; slate is the pixel
+    // tileset's, red tile the painterly sheet's. Tile sizes divide 360.
+    roofs:{clay:{src:'atlas',cell:[0,0],tile:[90,90],tint:.7},thatch:{src:'atlas',cell:[2,0],tile:[90,90],tint:.7},glazed:{src:'atlas',cell:[0,1],tile:[90,90],tint:.7},
+      slate:{src:'px',rect:[100,527,396,596],tile:[180,40]},shingle:{src:'px',rect:[215,462,388,513],tile:[120,36]},pxthatch:{src:'px',rect:[215,418,388,446],tile:[120,19.5]},
+      redtile:{src:'paint',rect:[195,240,380,385],tile:[60,45]}}};
   const SHEET_IMAGES={px:'pixel_tileset_v3',paint:'painterly_tileset_v1',atlas:'reference_materials_v3'};
   // The pixel tileset leaves openings white (meant for transparency). Flood-fill
   // each white region: the ground-floor entrance bay becomes a plank door, the
@@ -467,7 +470,7 @@
   function tilesetSheet(scene,recipe){
     const wallId=SHEET_SRC.walls[recipe.material]?recipe.material:'plaster',roofId=SHEET_SRC.roofs[recipe.roofMaterial]?recipe.roofMaterial:'slate';
     // `blank` recipes (ramparts) take plain bays: no windows, no door.
-    const wreck=recipe.shape==='wreck',S=LOOK.sheet,key='lowpoly:tileset-v1:'+wallId+':'+roofId+':'+S+(wreck?':wreck':'')+(recipe.blank?':blank':'');
+    const roofSpec=SHEET_SRC.roofs[roofId],wreck=recipe.shape==='wreck',S=LOOK.sheet,key='lowpoly:tileset-v1:'+wallId+':'+roofId+(roofSpec.tint?':'+recipe.roof.toString(16):'')+':'+S+(wreck?':wreck':'')+(recipe.blank?':blank':'');
     if(scene.textures.exists(key))return scene.textures.get(key);
     const img={};for(const [k,name] of Object.entries(SHEET_IMAGES))img[k]=scene.textures.get(name).getSourceImage();
     const K=S/512,tex=scene.textures.createCanvas(key,S,S),ctx=tex.getContext();
@@ -502,6 +505,13 @@
       else ctx.drawImage(img[roof.src],roof.rect[0],roof.rect[1],roof.rect[2]-roof.rect[0],roof.rect[3]-roof.rect[1],dx,dy,dw,dh);
     }
     ctx.restore();
+    if(roof.tint){ // the role colour by luminance ratio, keeping the cell's own ramps
+      const y0=Math.round(128*K),img=ctx.getImageData(0,y0,S,S-y0),d=img.data,base=recipe.roof,t=roof.tint;
+      let average=0;for(let i=0;i<d.length;i+=4)average+=d[i]*.299+d[i+1]*.587+d[i+2]*.114;average/=d.length/4;
+      for(let i=0;i<d.length;i+=4){const f=Math.max(.25,Math.min(1.8,(d[i]*.299+d[i+1]*.587+d[i+2]*.114)/Math.max(1,average)));
+        for(let c=0;c<3;c++){const b=(base>>(16-c*8))&255,tinted=f<=1?b*f:b+(255-b)*(f-1)*.7;d[i+c]=Math.min(255,Math.round(d[i+c]*(1-t)+tinted*t));}}
+      ctx.putImageData(img,0,y0);
+    }
     if(wreck){ // soot under every floor beam, moss at the footing, missing tiles
       for(let floor=0;floor<3;floor++){const y=105-24*(floor+1);
         for(let x=-37;x<512;x+=7){const n=hash(x,floor);if(n<.35)continue;ctx.fillStyle=`rgba(20,16,14,${.35+n*.3})`;ctx.fillRect(...T(x,y,7,3+n*4));}}
