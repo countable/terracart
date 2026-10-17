@@ -596,6 +596,7 @@ const NPC = (() => {
     const daily = a => a[((seed + day) >>> 0) % a.length];
     let body, target = null;
     restore(scene, c);
+    const firstStrangerMeeting = c.role === 'stranger' && !scene.save.memoryStory?.stranger?.met;
     const story = !isDormant(c, now) && typeof MemoryStory !== 'undefined'
       && MemoryStory.npcDialogue(scene, c);
     if (isDormant(c, now)) {
@@ -664,6 +665,7 @@ const NPC = (() => {
       } else body = daily(['“Quiet lanes today. Nothing new to show you. Come back tomorrow.”', '<em>Shrugs.</em>\n“Nothing new on this stretch today. Try me tomorrow.”', '“No fresh sightings today. I will keep looking.”']);
     }
     const talk = talkOf(title, body);
+    if (story && firstStrangerMeeting) talk.art = 'story_ayo_arrival';
     if (target) talk.target = target;
     return talk;
   }
@@ -703,7 +705,7 @@ const NPC = (() => {
     c._npcRestUntil = performance.now() + 12000;
     const talk = dialogue(scene, c);
     // A talk of several pages is one dialog per page, "Next" between them
-    // (MemoryStory.showPages — the wizard's lane), the same portrait throughout.
+    // (MemoryStory.showPages — the wizard's lane), retaining its painting or portrait.
     const say = () => {
       if (talk.target && !isDormant(c)) {
         // The rim label names who gave the directions (Wayfinder, Fieldwalker…).
@@ -713,7 +715,8 @@ const NPC = (() => {
           until: Date.now() + Scenic.TELESCOPE_DURATION_MS });
         persistSave(scene.save);
       }
-      MemoryStory.showPages(scene, talk.pages, { ...speech(c), portrait: portrait(scene, c), source: dialogSource(scene, c),
+      MemoryStory.showPages(scene, talk.pages, { ...speech(c),
+        ...(talk.art ? { art: talk.art } : { portrait: portrait(scene, c) }), source: dialogSource(scene, c),
         onDone: () => meetHomeNeighbour(scene, c) });
     };
     if (isDormant(c)) { say(); return; }

@@ -187,7 +187,7 @@ test('torch: lighting it runs for the row\'s length, extending from the current 
     assert.eq(s.save.inv[0].count, 1, 'two spent');
     assert.eq(paintings.join('|'), 'torch_light|torch_light', 'lighting and relighting show the torch painting');
     const dims = webpDims('assets/art/torch_light.webp');
-    assert.truthy(dims && dims.w === 512 && dims.h === 512, 'torch painting ships as a full square scene');
+    assert.truthy(dims && dims.w * 3 === dims.h * 4, 'torch painting ships as a full 4:3 scene');
     assert.eq(titles.join('|'), '🔥 You light the Torch|🔥 You light another Torch', 'the title knows a torch was burning');
   } finally { Date.now = old; }
   assert.falsy(/shortDuration/.test(JSON.stringify(titles)), 'the story leaves time to the live torch readout');

@@ -8,7 +8,7 @@
       assert.eq(chestOpeningArt(o), 'chest_t' + tier);
       const art = chestOpeningArt(o);
       const dims = webpDims('assets/art/' + art + '.webp');
-      assert.truthy(dims && Math.abs(dims.w / dims.h - 352 / 448) < 0.01,
+      assert.truthy(dims && Math.abs(dims.w / dims.h - 4 / 3) < 0.01,
         art + ' exists at the story panel aspect ratio');
       assert.truthy(ART_THUMBS_SRC.includes(art + ": 'data:image/webp;base64,"),
         art + ' has a loading thumbnail');

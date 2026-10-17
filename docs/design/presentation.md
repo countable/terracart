@@ -135,7 +135,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   its chrome stays above scene paintings and loading mosaics without cropping the head.
   Sheets have no duplicate metal side rails or border: the outer compass housing
   supplies that frame. Painted sheets mask the dragon rail along its lower silver silhouette so
-  the image fills the space beneath the ornament without its dark backing; scene artwork uses a uniform crop from its square composition. Painted sheets reserve a separate
+  the image fills the space beneath the ornament without its dark backing; scene artwork preserves its approved 4:3 composition. Painted sheets reserve a separate
   content area below the image for useful category headings; painted stories omit
   the generic “Story” label.
   The modal gate publishes the final sheet edge in viewport pixels so silver
@@ -204,7 +204,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   A neighbour speaking opens on the `talk` kind (`NPC.speech`): the header is
   the speaker's name beside a 💬 chat bubble, the title line is their role —
   never the generic `note` scroll.
-  Scene paintings continue to use `art` and the full scene layout.
+  Scene paintings continue to use `art` and the full scene layout. The
+  white-haired newcomer’s first conversation uses `story_ayo_arrival`; later
+  conversations use her portrait, without revealing her name or identity.
 
 - Interrupted startup script downloads show a recovery screen and retry the
   whole page at most twice per tab, preserving script order and saved progress.
@@ -291,14 +293,12 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Dialogs use `makeModalShell` with a kind, which supplies a default scene
   painting unless the caller supplies a character `portrait` or `art: false`.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
-  square, with a complete scene and no baked dark text area. All existing and
-  new paintings fit the full width, anchored at the top without stretching.
-  The image begins at the window top behind the fixed silver dragon rail.
-  Its visible height starts at 90% of the panel width, cropping the bottom
-  10% of the square composition. If copy needs more room, the crop shortens
-  further. Square paintings retain at least 70% of their height so the subject
-  stays visible; longer copy paginates. Legacy portraits can shorten to the
-  rail height plus eight pixels. `tools/art_thumbs.js` bakes `ART_ASPECTS`
+  4:3, with a complete scene and no baked dark text area. Paintings fit the
+  full width, anchored at the top without stretching. The image begins at the
+  window top behind the fixed silver dragon rail. Approved 4:3 paintings keep
+  their full height; longer copy paginates below them. Legacy squares begin at
+  90% of panel width and can shorten to 70%; legacy portraits can shorten to
+  the rail height plus eight pixels. `tools/art_thumbs.js` bakes `ART_ASPECTS`
   alongside aspect-preserving thumbnails, so this layout is ready before the
   full painting loads.
   Copy follows directly below, with comfortable side padding and the specific
@@ -323,7 +323,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   Shutdown reapplies the current camera scale to the paused surface before
   resuming it, so a viewport resize during a trial also fits the return map.
 - Consumables may select a painting through `art`; timed buffs reuse it after
-  use unless `used.art` overrides it. Lighting or relighting a Torch uses
+  use unless `used.art` overrides it. Dragon Powder uses `event_dragon_powder`
+  only for the completed transformation. Lighting or relighting a Torch uses
   `torch_light`, a close-up of the flame catching.
 - Paired story paintings must use actual image references. Establish the
   introduction first, then edit that image for the completed action; preserve

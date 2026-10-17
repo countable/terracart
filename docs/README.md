@@ -23,6 +23,8 @@ when a file moves.
 | design/presentation.md | dialogs, story delivery, feedback, teaching |
 | art/README.md | sprite art direction and active audits |
 | art/art-direction-brief.md | camera, scale and palette brief |
+| art/approved-story-art.json | approved story masters, export hashes and crop coordinates |
+| art/story-style-references.json | approved illustration reference masters and roles |
 | art/map-perspective.md | map camera and art geometry rules |
 | art/ART_SOURCES.md | external art archive rules |
 | art/ASSET_INVENTORY.md | asset inventory tool guide |

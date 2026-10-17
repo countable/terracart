@@ -1671,7 +1671,7 @@ const CONSUMABLE_SPEC = {
     durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 8, damageMul: 2, buff: 'dragon',
     verb: 'Use', title: 'Use the Dragon Powder?',
     get: 'The powder lets you soar in dragon form, for a short time.',
-    used: { title: '🐉 You toss the Dragon Powder',
+    used: { art: 'event_dragon_powder', title: '🐉 You toss the Dragon Powder',
       body: 'Scales ripple across your skin. Heat swells in your chest, and the ground shakes beneath your claws.' },
   },
   growth_powder: {

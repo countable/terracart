@@ -39,15 +39,17 @@
     assert.eq(sheet.role, 'stranger');
     assert.eq(sheet.path, 'assets/NPC/Ayo_human_idle.png');
     assert.eq(sheet.tint, 0xffffff, 'the white is baked into the sheet, not a tint');
-    assert.falsy(NPC.STORY_ROLES.stranger.art, 'no painting yet');
+    assert.falsy(NPC.STORY_ROLES.stranger.art, 'the arrival painting is only for the first meeting');
   });
 
   test('stranger: she almost knows you, and denies it; she never moves into a house', () => {
     const s = scene(save(11)), her = person('stranger');
     const first = NPC.dialogue(s, her);
+    assert.eq(first.art, 'story_ayo_arrival', 'the first meeting shows her arrival in town');
     assert.eq(JSON.stringify(first.pages), JSON.stringify(MemoryStory.STRANGER.first), 'two pages on first meeting');
     assert.truthy(/thought you were someone I knew/.test(first.pages[0]));
     assert.truthy(/don’t give it/.test(first.pages[1]), 'she gives no name');
+    assert.falsy(NPC.dialogue(s, her).art, 'later conversations return to her portrait');
     const seen = new Set();
     for (let i = 0; i < MemoryStory.STRANGER.warm.length; i++) seen.add(NPC.dialogue(s, her).body);
     assert.eq(seen.size, MemoryStory.STRANGER.warm.length, 'later talks rotate through her lines');
@@ -57,6 +59,20 @@
     const live = { ...her, _homeAnchor: '' };
     assert.falsy(NPC.meetHomeNeighbour({ depth: 0, save: s.save }, live), 'passing through: no roof');
     assert.falsy(s.save.npcHomes, 'nothing recorded for her');
+  });
+
+  test('stranger: the first talk displays the arrival scene and repeat talks show her portrait', () => {
+    const s = scene(save(11)), her = person('stranger'), shown = [];
+    s._dialogOpen = () => false;
+    s.showMessageModal = panel => shown.push(panel);
+    NPC.interact(s, her, 0, 0);
+    assert.eq(shown[0].art, 'story_ayo_arrival');
+    assert.falsy(shown[0].portrait, 'a portrait must not replace the arrival painting');
+    shown[0].onDismiss();
+    assert.eq(shown[1].art, 'story_ayo_arrival', 'both introductory pages retain the scene');
+    NPC.interact(s, her, 0, 0);
+    assert.falsy(shown[2].art);
+    assert.eq(shown[2].portrait, NPC.portrait(s, her));
   });
 
   test('stranger: each neighbour gossips about her once, and not before she comes', () => {

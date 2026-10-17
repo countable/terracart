@@ -1,5 +1,5 @@
 // The modal SHELL — the one dialog box every DOM dialog in the game is built
-// in: makeModalShell (the square scene crop, separate copy region, kind header
+// in: makeModalShell (the 4:3 scene frame, separate copy region, kind header
 // and measured pagination), the stock dialogs
 // built on it (showMessageModal, showConfirmModal, showOfferModal,
 // showChestRewardModal), and
@@ -33,7 +33,7 @@
 // fallback geometry before the stylesheet loads.
 const STORY_MODAL_GROW_PX = 96;
 // Scene paintings share a full-width crop under the fixed dragon rail.
-// Fit trims the square composition from the bottom; copy and actions occupy
+// Approved 4:3 scenes keep their full frame; copy and actions occupy
 // a separate viewport, with pages when the content needs more room.
 
 // ── What KIND of dialog is this? ────────────────────────────────────────────
@@ -121,7 +121,7 @@ class SceneModals {
     kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
-    // Scene art is a story-sized dialog with a square image above its copy.
+    // Scene art is a story-sized dialog with a 4:3 image above its copy.
     const kRow = typeof kind === 'string' ? MODAL_KINDS[kind] : kind;
     const speech = kind === 'spirit' || kind === 'talk';
     portrait = portrait || kRow?.portrait;
@@ -192,7 +192,10 @@ class SceneModals {
     const artLayer = art ? document.createElement('div') : null;
     const mosaicLayer = art ? document.createElement('div') : null;
     let mosaicImg = null;
-    const squareArt = art && typeof ART_ASPECTS !== 'undefined' && Math.abs(ART_ASPECTS[art] - 1) < 0.01;
+    // Dynamic pet paintings use the same 4:3 frame as installed scenes.
+    const artAspect = (art && typeof ART_ASPECTS !== 'undefined' && ART_ASPECTS[art]) || 4 / 3;
+    const fullFrameArt = Math.abs(artAspect - 4 / 3) < 0.01;
+    const squareArt = Math.abs(artAspect - 1) < 0.01;
     const tone = (art && typeof ART_TONES !== 'undefined' && ART_TONES[art]) || '#1a1612';
     const paintLayer = (el, img) => {
       el.style.backgroundImage = img ? `url(${img})` : `linear-gradient(${tone}, ${tone})`;
@@ -428,11 +431,10 @@ class SceneModals {
         into.style.transform = '';
         pages.style.display = 'none';
         if (spacer) {
-          // Trim the bottom 10% of the square composition first.
-          // Full square scenes keep their subject visible and paginate sooner;
-          // legacy paintings can give their empty lower area to copy.
-          const full = body.clientWidth * .9;
-          const minimum = squareArt ? body.clientWidth * .7
+          // Preserve approved 4:3 compositions and paginate their copy.
+          // Legacy squares/portraits retain their existing bottom crop.
+          const full = fullFrameArt ? body.clientWidth / artAspect : body.clientWidth * .9;
+          const minimum = fullFrameArt ? full : squareArt ? body.clientWidth * .7
             : Math.min(full, parseFloat(box.style.getPropertyValue('--panel-rail-height')) + 8);
           spacer.style.height = `${full}px`;
           const deficit = into.scrollHeight - viewport.clientHeight;
