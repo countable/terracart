@@ -60,8 +60,8 @@ console.table(overhangRows);
 for(const role of Object.keys(api.ROLES)){
  const recipe=api.recipeFor(role),points=fixtures[0].points.map(([x,y])=>({x,y}));
  const mesh=recipe.shape?api.specialGeometry(points,recipe):recipe.terraced?api.styleGeometry(points,recipe.style,recipe):api.geometry(points,recipe.variant||'ridge',recipe.stories*31.2+5,5);
- // Torn wreck roofs (bites along the break, fallen beams) carry more triangles.
- assert(mesh.faces.length>0&&mesh.faces.length<(role==='wreck'?420:300),role+' bounded geometry');
+ // Thick broken walls, roof patches, rafters and rubble carry more triangles.
+ assert(mesh.faces.length>0&&mesh.faces.length<(role==='wreck'?600:300),role+' bounded geometry');
  assert(mesh.faces.every(f=>f.points.every(p=>[p.x,p.y,p.z,p.u,p.v].every(Number.isFinite))),role+' finite vertices');
  if(role==='wizard'||role==='turret'){
   const large=api.specialGeometry(points.map(p=>({x:p.x*3,y:p.y*3})),recipe);
@@ -71,7 +71,9 @@ for(const role of Object.keys(api.ROLES)){
  if(role==='wreck'){const roofs=mesh.faces.filter(f=>f.kind==='roof'&&f.layer===2);assert(roofs.length&&roofs.reduce((n,f)=>n+area(f.points),0)<area(points)*.7,'wreck roof is partly missing');}
 }
 console.log('All role variants: bounded geometry, footprint-independent towers, damaged cottage passed.');
-for(const fixture of fixtures)for(const variant of ['ridge','shallow','inset']){
+// Inset skirts are tiled per slope (seams sit under the hip beams), so only
+// ridge and shallow roofs promise one continuous mapping across their cap.
+for(const fixture of fixtures)for(const variant of ['ridge','shallow']){
  const pts=fixture.points.map(([x,y])=>({x,y})),mesh=api.geometry(pts,variant,36.2,5),uv=new Map();
  for(const f of mesh.faces.filter(f=>f.kind==='roof'))for(const p of f.points){
   const key=[p.x,p.y,p.z].map(n=>n.toFixed(6)).join(',');
@@ -79,15 +81,26 @@ for(const fixture of fixtures)for(const variant of ['ridge','shallow','inset']){
  }
 }
 console.log('Roof slope/cap texture continuity passed.');
+// Awning skirts: on every sloped face v climbs with z (courses level, pointing
+// downhill from each eave) and the flat cap is a solid, untextured deck.
+for(const fixture of fixtures){
+ const mesh=api.geometry(fixture.points.map(([x,y])=>({x,y})),'inset',36.2,5);
+ const cap=mesh.faces.filter(f=>f.kind==='roof'&&f.solid);assert(cap.length>0,'inset roof has a solid cap');
+ for(const f of mesh.faces.filter(f=>f.kind==='roof'&&!f.solid))for(let i=0;i<3;i++){const a=f.points[i],b=f.points[(i+1)%3];
+  if(Math.abs(b.z-a.z)>1e-6)assert((b.v-a.v)*(b.z-a.z)>0,'skirt courses climb with the slope');
+  assert(a.u>=-1e-6&&a.v>=-1e-6,'skirt UVs start at the eave');}
+}
+console.log('Awning skirt orientation passed.');
 
 const wreckPoints=[{x:0,y:0},{x:120,y:0},{x:120,y:100},{x:0,y:100}];
 const wreck=api.specialGeometry(wreckPoints,api.recipeFor('wreck'));
-assert.equal(wreck.roofHoles.length,2,'two real roof openings');
-for(const h of wreck.roofHoles){
- const c={x:h.cx,y:h.cy};
- const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
- assert(!wreck.faces.filter(f=>f.kind==='roof'&&!f.debris).some(f=>f.points.every((p,i)=>cross(p,f.points[(i+1)%3],c)>=-1e-7)),'hole center contains no roof triangle');
-}
+assert(wreck.roofPatches.length>=2,'a few roof patches survive');
+const patchArea=wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.layer===2).reduce((n,f)=>n+area(f.points),0);
+assert(patchArea>0&&patchArea<area(wreckPoints)*.45,'most of the roof is gone');
+for(const f of wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.layer===2))for(const p of f.points)
+ assert(wreck.roofPatches.some(b=>p.x>=b.x0-1e-6&&p.x<=b.x1+1e-6&&p.y>=b.y0-1e-6&&p.y<=b.y1+1e-6),'surviving tiles lie inside a patch');
+assert(wreck.faces.some(f=>f.wallTop),'walls have thickness: broken tops exist');
+assert(wreck.faces.some(f=>f.interior),'inner wall faces are seen from inside');
 const market=api.recipeFor('trader'),terrace=api.styleGeometry(wreckPoints,market.style,market);
 assert(market.terraced&&market.stories===2,'market has a second storey');
 const top=terrace.faces.filter(f=>f.kind==='roof'&&f.points.every(p=>p.z>40)).flatMap(f=>f.points);

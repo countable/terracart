@@ -5,9 +5,9 @@
   // The billboard look (docs/art/lowpoly-building-styles.md): every number
   // the ink pass, projection and dressing share, so sprites and meshes keep
   // agreeing. tools/building-billboard-preview.html edits this table live.
-  const LOOK={heightScale:.6,inkPx:1,ink:0x2a2229,eaveBand:9,eaveShade:.5,flatRim:3.5,flatShade:9,sheet:768,
+  const LOOK={heightScale:.6,inkPx:1,ink:0x2a2229,textured:true,eaveBand:9,eaveShade:.5,flatRim:3.5,flatShade:9,sheet:768,
     chimney:{radius:4.4,cap:5.8,mouth:3.4,rise:7,capHeight:2.2,sides:0xd9c9b8,capColor:0x9c8f84,mouthColor:0x2a2229},
-    wreck:{tint:0xb3a89e,debris:0xb0a59a,beam:0x3b2a1f}};
+    wreck:{tint:0xb3a89e,debris:0x5e564f,beam:0x3b2a1f,top:0x6b6059}};
   const mix=(a,b,t)=>{const c=i=>Math.round(((a>>i)&255)*(1-t)+((b>>i)&255)*t);return (c(16)<<16)|(c(8)<<8)|c(0);};
   const hash=(x,y)=>{let h=(x*374761393+y*668265263)|0;h=(h^(h>>>13))*1274126177;return ((h^(h>>>16))>>>0)/4294967296;};
   // Cell order of assets/Objects/BuildingMaterials/reference-materials-v3.png.
@@ -123,8 +123,22 @@
       if(poly.length<3)continue;
       planePolys.push({i,poly});
       const light=Math.max(.48,Math.min(1,.80-planes[i].x*.65-planes[i].y*.80));
-      for(let j=1;j<poly.length-1;j++)add([poly[0],poly[j],poly[j+1]].map(p=>({...p,z:roofZ(p),u:p.x*ux+p.y*uy-bounds[0][0],v:roofV(p)})),'roof',light);
+      // An inset roof's flat top is a plain cap over its tiled skirt (the shop
+      // awning look): solid colour, its own ink group, rim bands below.
+      const flatCap=variant==='inset'&&i===planes.length-1;
+      // Each awning skirt is tiled from its own eave: u runs along the eave,
+      // v climbs the slope, so courses stay level and point downhill on all
+      // four sides (hip beams cover the seams). Ridge roofs keep one
+      // continuous mapping across their cap.
+      let uv=p=>({u:p.x*ux+p.y*uy-bounds[0][0],v:roofV(p)});
+      if(variant==='inset'&&!flatCap){const n={x:planes[i].x/pitch,y:planes[i].y/pitch},t={x:-n.y,y:n.x},rise=Math.hypot(1,pitch);
+        const lo=Math.min(...roofRing.map(p=>p.x*n.x+p.y*n.y)),ulo=Math.min(...roofRing.map(p=>p.x*t.x+p.y*t.y));
+        uv=p=>({u:p.x*t.x+p.y*t.y-ulo,v:(p.x*n.x+p.y*n.y-lo)*rise});}
+      for(let j=1;j<poly.length-1;j++){add([poly[0],poly[j],poly[j+1]].map(p=>({...p,z:roofZ(p),...uv(p)})),'roof',flatCap?1:light);
+        if(flatCap)Object.assign(faces.at(-1),{solid:true,tileCap:true,inkGroup:1,layer:2.2});}
     }
+    if(variant==='inset'){const cap=faces.filter(f=>f.solid);
+      for(const loop of boundaryLoops(cap.map(f=>f.points)))flatBands(loop,height+planes.at(-1).c,add,faces);}
     const roofTriangles=faces.length;
     let entranceEdge=edge;
     ring.forEach((p,i)=>{const q=ring[(i+1)%ring.length],a=ring[entranceEdge],b=ring[(entranceEdge+1)%ring.length];
@@ -308,97 +322,77 @@
     const key='special:'+recipe.shape+':'+cx+':'+cy+(recipe.shape==='wreck'?':'+points.map(p=>p.x+','+p.y).join(';'):'');
     if(meshCache.has(key))return meshCache.get(key);
     if(recipe.shape==='wreck'){
-      const base=geometry(points,'ridge',18,0),mid=(Math.min(...xs)+Math.max(...xs))/2;
-      const faces=base.faces.filter(f=>f.kind!=='roof'&&!f.beam&&!f.chimney),breaks=[];
-      // Clip the surviving roof as a connected half, rather than dropping whole
-      // triangles (which leaves long unsupported spikes along the break).
-      for(const f of base.faces.filter(f=>f.kind==='roof')){
-        const poly=[];
-        f.points.forEach((a,i)=>{const b=f.points[(i+1)%3],da=mid-a.x,db=mid-b.x;
-          if(da>=0)poly.push(a);
-          if((da<0&&db>0)||(da>0&&db<0)){const t=da/(da-db),p={};for(const k of ['x','y','z','u','v'])p[k]=a[k]+(b[k]-a[k])*t;poly.push(p);}
+      // A wreck is mostly wall: thick, broken-topped sections around the whole
+      // footprint, a few patches of roof still up on bare rafters, and dark
+      // rubble with fallen roof slabs inside.
+      const H=18,base=geometry(points,'ridge',H,0),faces=[],W=LOOK.wreck;
+      const xs2=points.map(p=>p.x),ys=points.map(p=>p.y),[xlo,xhi,ylo,yhi]=[Math.min(...xs2),Math.max(...xs2),Math.min(...ys),Math.max(...ys)];
+      const ring=base.ring,inner=(typeof BuildingStyles!=='undefined'&&(BuildingStyles.inset(ring,4)||BuildingStyles.inset(ring,2)))||null;
+      const tri=(pts,kind,extra)=>{faces.push({points:pts,kind,light:1,layer:0,...extra});return faces.at(-1);};
+      const quad=(a,b,c,d,kind,extra)=>{tri([a,b,c],kind,extra);tri([a,c,d],kind,extra);};
+      const wallUV=(p,offset,z)=>({...p,z,u:offset/DETAIL_SCALE,v:H+28-z});
+      if(inner&&inner.length===ring.length){
+        // Wall sections around the ring, each with its own broken height.
+        const parts=[];
+        ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],ai=inner[i],bi=inner[(i+1)%ring.length],len=Math.hypot(b.x-a.x,b.y-a.y);
+          const count=Math.max(1,Math.round(len/30)),dir={x:b.x-a.x,y:b.y-a.y};
+          for(let k=0;k<count;k++){const t0=k/count,t1=(k+1)/count;
+            parts.push({dir,len,t0,t1,h:H*(.45+.55*hash(i*7+k,11)),o0:{x:a.x+dir.x*t0,y:a.y+dir.y*t0},o1:{x:a.x+dir.x*t1,y:a.y+dir.y*t1},i0:{x:ai.x+(bi.x-ai.x)*t0,y:ai.y+(bi.y-ai.y)*t0},i1:{x:ai.x+(bi.x-ai.x)*t1,y:ai.y+(bi.y-ai.y)*t1}});}});
+        parts.forEach((p,k)=>{const {dir,len,t0,t1,h,o0,o1,i0,i1}=p;
+          // Outer face (textured, lit by direction), inner face seen from inside, broken top.
+          quad(wallUV(o0,len*t0,0),wallUV(o1,len*t1,0),wallUV(o1,len*t1,h),wallUV(o0,len*t0,h),'wall',{wallDirection:dir});
+          quad(wallUV(i1,len*t1,0),wallUV(i0,len*t0,0),wallUV(i0,len*t0,h),wallUV(i1,len*t1,h),'wall',{wallDirection:{x:-dir.x,y:-dir.y},interior:true,light:.55});
+          const top=[o0,o1,i1,i0].map(q=>({...q,z:h,u:0,v:0}));
+          quad(top[0],top[1],top[2],top[3],'trim',{color:W.top,layer:2.4,wallTop:true});
+          // The step up to a taller neighbour shows its end above this top.
+          const next=parts[(k+1)%parts.length];
+          if(next.h-h>.5){const e=[{...o1,z:h},{...i1,z:h},{...i1,z:next.h},{...o1,z:next.h}].map(v=>({...v,u:0,v:0}));
+            quad(e[0],e[1],e[2],e[3],'trim',{color:W.top,layer:2.3,wallDirection:{x:i1.x-o1.x,y:i1.y-o1.y}});}
+          else if(h-next.h>.5){const e=[{...next.i0,z:next.h},{...next.o0,z:next.h},{...next.o0,z:h},{...next.i0,z:h}].map(v=>({...v,u:0,v:0}));
+            quad(e[0],e[1],e[2],e[3],'trim',{color:W.top,layer:2.3,wallDirection:{x:next.o0.x-next.i0.x,y:next.o0.y-next.i0.y}});}
         });
-        for(let i=1;i<poly.length-1;i++)faces.push({...f,points:[poly[0],poly[i],poly[i+1]]});
-        poly.forEach((a,i)=>{const b=poly[(i+1)%poly.length];if(Math.abs(a.x-mid)<1e-6&&Math.abs(b.x-mid)<1e-6)breaks.push([a,b]);});
-      }
-      // Two-sided timber: a broken eave and bare rafters are seen from both sides.
-      const timber=(quad,light)=>{const p=quad.map(q=>({...q,u:0,v:0}));
-        for(const tri of [[p[0],p[1],p[2]],[p[0],p[2],p[3]],[p[2],p[1],p[0]],[p[3],p[2],p[0]]])faces.push({points:tri,kind:'trim',color:0x3b2a1f,light,layer:2.5});
-      };
-      // Roof triangles split the break line; rejoin pieces along one slope.
-      const joined=[];
-      for(const [a,b] of breaks.map(([a,b])=>a.y<b.y?[a,b]:[b,a]).sort((m,n)=>m[0].y-n[0].y)){
-        const last=joined.at(-1),slope=(q,r)=>(r.z-q.z)/(r.y-q.y||1e-9);
-        if(last&&Math.abs(last[1].y-a.y)<1e-6&&Math.abs(last[1].z-a.z)<1e-6&&Math.abs(slope(...last)-slope(a,b))<1e-6)last[1]=b;else joined.push([a,b]);
-      }
-      for(const [a,b] of joined)timber([a,b,{...b,z:b.z-2.4},{...a,z:a.z-2.4}],.6);
-      // Rafters follow the lost slope, perpendicular to the ridge.
-      const along=base.ridge,across={x:-along.y,y:along.x},inside=p=>{let hit=false;
-        points.forEach((a,i)=>{const b=points[(i+1)%points.length];if((a.y>p.y)!==(b.y>p.y)&&p.x<a.x+(b.x-a.x)*(p.y-a.y)/(b.y-a.y))hit=!hit;});return hit;};
-      const span=v=>points.map(p=>p.x*v.x+p.y*v.y),[alo,ahi]=[Math.min(...span(along)),Math.max(...span(along))],[clo,chi]=[Math.min(...span(across)),Math.max(...span(across))];
-      for(let k=1;k<8;k++){const o=alo+(ahi-alo)*k/8;let run=[];
-        const flush=()=>{for(let i=1;i<run.length;i++){const a=run[i-1],b=run[i],w=1.1;
-          // One upward strip per run; wound like the roof so it faces the camera.
-          let q=[{x:a.x-along.x*w,y:a.y-along.y*w,z:a.z},{x:b.x-along.x*w,y:b.y-along.y*w,z:b.z},{x:b.x+along.x*w,y:b.y+along.y*w,z:b.z},{x:a.x+along.x*w,y:a.y+along.y*w,z:a.z}].map(p=>({...p,u:0,v:0}));
-          if(cross(q[0],q[1],q[2])<0)q=q.reverse();
-          for(const tri of [[q[0],q[1],q[2]],[q[0],q[2],q[3]]])faces.push({points:tri,kind:'trim',color:0x3b2a1f,light:1,layer:2.5});}run=[];};
-        for(let c=clo+.5;c<=chi-.5;c+=1){const p={x:along.x*o+across.x*c,y:along.y*o+across.y*c};
-          if(p.x>mid+3&&inside(p)){p.z=base.roofZ(p);
-            // Keep only vertices where the slope changes.
-            if(run.length>1){const q=run.at(-1),r=run.at(-2);if(Math.abs((q.z-r.z)-(p.z-q.z)*Math.hypot(q.x-r.x,q.y-r.y)/Math.hypot(p.x-q.x,p.y-q.y))<1e-6)run.pop();}
-            run.push(p);}else flush();}
-        flush();
-      }
-      // Punch real openings through the surviving roof. Subtract convex boxes
-      // from triangles; texture UVs interpolate at the cut, with no sampled grid.
+      }else for(const f of base.faces.filter(f=>f.kind==='wall')){faces.push(f);faces.push({...f,interior:true,light:.55,points:[...f.points].reverse()});}
+      // Roof patches: axis-aligned boxes that keep their tiles; everything else is lost.
       const cut=(poly,axis,bound,side)=>{
         const out=[];poly.forEach((a,i)=>{const b=poly[(i+1)%poly.length],da=(a[axis]-bound)*side,db=(b[axis]-bound)*side;
           if(da>=-1e-8)out.push(a);
           if((da<0&&db>0)||(da>0&&db<0)){const t=da/(da-db),p={};for(const k of ['x','y','z','u','v'])p[k]=a[k]+(b[k]-a[k])*t;out.push(p);}
         });return out;
       };
-      const roofHoles=[],candidates=faces.filter(f=>f.kind==='roof').sort((a,b)=>Math.abs(cross(...b.points))-Math.abs(cross(...a.points)));
-      for(const f of candidates){
-        const c={x:f.points.reduce((n,p)=>n+p.x,0)/3,y:f.points.reduce((n,p)=>n+p.y,0)/3};
-        const clearance=Math.min(...f.points.map((a,i)=>{const b=f.points[(i+1)%3];return Math.abs(cross(a,b,c))/Math.hypot(b.x-a.x,b.y-a.y);}));
-        const r=Math.min(12,clearance*.65);
-        if(r<2.5||roofHoles.some(h=>Math.hypot(c.x-h.cx,c.y-h.cy)<r+h.r+10))continue;
-        roofHoles.push({cx:c.x,cy:c.y,r,x0:c.x-r,y0:c.y-r*.8,x1:c.x+r,y1:c.y+r*.8});
-        if(roofHoles.length===2)break;
+      const roofPatches=[];
+      for(let k=0;k<3;k++){const n=hash(k,13),m=hash(k,17),w=(xhi-xlo)*(.22+.14*n),h=(yhi-ylo)*(.3+.3*m);
+        const x0=xlo+(xhi-xlo-w)*(k/2.2+n*.2),y0=ylo+(yhi-ylo-h)*m;roofPatches.push({x0,x1:x0+w,y0,y1:y0+h});}
+      const inPatch=p=>roofPatches.some(b=>p.x>b.x0&&p.x<b.x1&&p.y>b.y0&&p.y<b.y1);
+      for(const f of base.faces.filter(f=>f.kind==='roof'))for(const b of roofPatches){
+        let inside=f.points;
+        for(const [axis,bound,side] of [['x',b.x0,1],['x',b.x1,-1],['y',b.y0,1],['y',b.y1,-1]]){inside=cut(inside,axis,bound,side);if(!inside.length)break;}
+        for(let i=1;i<inside.length-1;i++)if(Math.abs(cross(inside[0],inside[i],inside[i+1]))>1e-8)faces.push({...f,points:[inside[0],inside[i],inside[i+1]]});
       }
-      let damaged=faces;
-      for(const hole of roofHoles){const next=[];
-        for(const f of damaged){if(f.kind!=='roof'||Math.max(...f.points.map(p=>p.x))<=hole.x0||Math.min(...f.points.map(p=>p.x))>=hole.x1||Math.max(...f.points.map(p=>p.y))<=hole.y0||Math.min(...f.points.map(p=>p.y))>=hole.y1){next.push(f);continue;}
-          let inside=f.points;
-          for(const [axis,bound,side] of [['x',hole.x0,1],['x',hole.x1,-1],['y',hole.y0,1],['y',hole.y1,-1]]){
-            const outside=cut(inside,axis,bound,-side);
-            for(let i=1;i<outside.length-1;i++)if(Math.abs(cross(outside[0],outside[i],outside[i+1]))>1e-8)next.push({...f,points:[outside[0],outside[i],outside[i+1]]});
-            inside=cut(inside,axis,bound,side);if(!inside.length)break;
-          }
-        }damaged=next;
+      for(const f of base.faces.filter(f=>f.beam))faces.push(f);
+      // Bare rafters across the lost roof, perpendicular to the ridge.
+      const along=base.ridge,across={x:-along.y,y:along.x},inside=p=>{let hit=false;
+        points.forEach((a,i)=>{const b=points[(i+1)%points.length];if((a.y>p.y)!==(b.y>p.y)&&p.x<a.x+(b.x-a.x)*(p.y-a.y)/(b.y-a.y))hit=!hit;});return hit;};
+      const span=v=>points.map(p=>p.x*v.x+p.y*v.y),[alo,ahi]=[Math.min(...span(along)),Math.max(...span(along))],[clo,chi]=[Math.min(...span(across)),Math.max(...span(across))];
+      for(let k=1;k<7;k++){const o=alo+(ahi-alo)*k/7;let run=[];
+        const flush=()=>{for(let i=1;i<run.length;i++){const a=run[i-1],b=run[i],w=1.1;
+          let q=[{x:a.x-along.x*w,y:a.y-along.y*w,z:a.z},{x:b.x-along.x*w,y:b.y-along.y*w,z:b.z},{x:b.x+along.x*w,y:b.y+along.y*w,z:b.z},{x:a.x+along.x*w,y:a.y+along.y*w,z:a.z}].map(p=>({...p,u:0,v:0}));
+          if(cross(q[0],q[1],q[2])<0)q=q.reverse();
+          for(const t of [[q[0],q[1],q[2]],[q[0],q[2],q[3]]])faces.push({points:t,kind:'trim',color:W.beam,light:1,layer:2.5});}run=[];};
+        for(let c=clo+.5;c<=chi-.5;c+=1){const p={x:along.x*o+across.x*c,y:along.y*o+across.y*c};
+          if(!inPatch(p)&&inside(p)){p.z=base.roofZ(p);
+            if(run.length>1){const q=run.at(-1),r=run.at(-2);if(Math.abs((q.z-r.z)-(p.z-q.z)*Math.hypot(q.x-r.x,q.y-r.y)/Math.hypot(p.x-q.x,p.y-q.y))<1e-6)run.pop();}
+            run.push(p);}else flush();}
+        flush();
       }
-      // Bites along the straight break so the surviving roof reads torn.
-      const ys=points.map(p=>p.y),ylo=Math.min(...ys),yhi=Math.max(...ys),bites=[];
-      for(let k=0;k<5;k++){const n=hash(k,7),y=ylo+(yhi-ylo)*(.1+.8*k/4)+(n-.5)*6,r=5+n*6;bites.push({x0:mid-r*1.4,x1:mid+r*1.4,y0:y-r,y1:y+r});}
-      for(const hole of bites){const next=[];
-        for(const f of damaged){if(f.kind!=='roof'||Math.max(...f.points.map(p=>p.x))<=hole.x0||Math.min(...f.points.map(p=>p.x))>=hole.x1||Math.max(...f.points.map(p=>p.y))<=hole.y0||Math.min(...f.points.map(p=>p.y))>=hole.y1){next.push(f);continue;}
-          let inside=f.points;
-          for(const [axis,bound,side] of [['x',hole.x0,1],['x',hole.x1,-1],['y',hole.y0,1],['y',hole.y1,-1]]){
-            const outside=cut(inside,axis,bound,-side);
-            for(let i=1;i<outside.length-1;i++)if(Math.abs(cross(outside[0],outside[i],outside[i+1]))>1e-8)next.push({...f,points:[outside[0],outside[i],outside[i+1]]});
-            inside=cut(inside,axis,bound,side);if(!inside.length)break;
-          }
-        }damaged=next;
-      }
-      // The open half shows soot-dark but still textured interior walls.
-      for(const f of base.faces.filter(f=>f.kind==='wall'))damaged.push({...f,interior:true,light:.55,points:[...f.points].reverse()});
-      // Fallen tiles litter the floor: the roof sheet, lightened, reads as rubble.
-      for(const tri of triangulate(points).triangles)damaged.push({kind:'roof',debris:true,layer:-1,color:LOOK.wreck.debris,light:.9,points:tri.map(p=>({...p,z:0,u:p.x*1.7,v:p.y*1.7}))});
-      // Fallen beams lie across the open half.
-      for(let k=0;k<3;k++){const n=hash(k,3),x=mid+8+n*18,y=ylo+8+(yhi-ylo-16)*hash(k,5),a=n*Math.PI,L=14+n*10,w=1.4,dx=Math.cos(a),dy=Math.sin(a);
-        let q=[{x:x-dy*w,y:y+dx*w},{x:x+dx*L-dy*w,y:y+dy*L+dx*w},{x:x+dx*L+dy*w,y:y+dy*L-dx*w},{x:x+dy*w,y:y-dx*w}];if(cross(q[0],q[1],q[2])<0)q=q.reverse();
-        for(const tri of [[q[0],q[1],q[2]],[q[0],q[2],q[3]]])damaged.push({kind:'trim',layer:-.5,color:LOOK.wreck.beam,light:1,points:tri.map(p=>({...p,z:1.2,u:0,v:0}))});}
-      const mesh={...base,faces:damaged,roofHoles,roofTriangles:damaged.filter(f=>f.kind==='roof').length,trimTriangles:damaged.filter(f=>f.kind==='trim').length,damaged:true};
+      // Dark rubble floor, fallen roof slabs and beams inside.
+      for(const t of triangulate(points).triangles)faces.push({kind:'roof',debris:true,layer:-1,color:W.debris,light:.6,points:t.map(p=>({...p,z:0,u:p.x*1.7,v:p.y*1.7}))});
+      const fallen=(k,kind,color,L,w,lift)=>{const n=hash(k,3),m=hash(k,5),x=xlo+8+(xhi-xlo-16)*n,y=ylo+8+(yhi-ylo-16)*m,a=n*Math.PI,dx=Math.cos(a),dy=Math.sin(a);
+        let q=[{x:x-dy*w,y:y+dx*w,z:1},{x:x+dx*L-dy*w,y:y+dy*L+dx*w,z:1},{x:x+dx*L+dy*w,y:y+dy*L-dx*w,z:1+lift},{x:x+dy*w,y:y-dx*w,z:1+lift}];if(cross(q[0],q[1],q[2])<0)q=q.reverse();
+        q=q.map((p,i)=>({...p,u:i<2?0:L,v:i===1||i===2?w*2:0}));
+        for(const t of [[q[0],q[1],q[2]],[q[0],q[2],q[3]]])faces.push({points:t,kind,color,light:kind==='roof'?.7:1,layer:-.5});};
+      for(let k=0;k<3;k++)fallen(k,'roof',undefined,14+hash(k,3)*10,5,4);
+      for(let k=3;k<6;k++)fallen(k,'trim',W.beam,14+hash(k,3)*10,1.4,0);
+      const mesh={...base,faces,roofPatches,roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,damaged:true};
       if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(key,mesh);return mesh;
     }
     const faces=[],wizard=recipe.shape==='wizard',radius=wizard?23:26,h=wizard?78:34;
@@ -439,10 +433,10 @@
   const SHEET_SRC={bands:{top:[167,247],mid:[247,322],bot:[322,399]},
     walls:{plaster:{src:'px',window:['top',212,317],plain:['mid',170,300],door:['bot',215,320]},
       timber:{src:'px',window:['mid',0,130],plain:['mid',0,130],door:['bot',55,160]},
-      brick:{src:'px',window:['bot',400,500],plain:['mid',410,540],door:['bot',465,575],zoom:1.35},
+      brick:{src:'px',window:['bot',400,500],plain:['mid',410,540],door:['bot',465,575],zoom:1.7},
       stone:{src:'px',window:['top',625,715],plain:['mid',605,715],door:['bot',625,705]},
       darkstone:{src:'paint',window:[100,70,335,230],plain:[100,0,335,110],doorInset:[340,20,398,205]},
-      cobble:{src:'paint',window:[0,235,130,390],plain:[0,235,130,390],doorInset:[405,20,462,205]},
+      cobble:{src:'paint',window:[0,235,130,390],plain:[0,235,130,390],doorInset:[405,20,462,205],zoom:2.4},
       clapboard:{src:'atlas',cell:[1,2]}},
     // rect [x0,y0,x1,y1] and the 512-basis tile size; both sizes divide 360.
     roofs:{thatch:{src:'px',rect:[215,418,388,446],tile:[120,19.5]},shingle:{src:'px',rect:[215,462,388,513],tile:[120,36]},slate:{src:'px',rect:[100,527,396,596],tile:[180,40]},
@@ -485,7 +479,8 @@
         const [band,x0,x1]=spec[kind],[y0,y1]=SHEET_SRC.bands[band],z=spec.zoom||1,cw=(x1-x0)/z,ch=(y1-y0)/z;
         ctx.drawImage(img.px,(x0+x1)/2-cw/2,(y0+y1)/2-ch/2,cw,ch,dx,dy,dw,dh);
       }else if(spec.src==='paint'){
-        const r=spec[kind==='door'?'plain':kind]||spec.plain;ctx.drawImage(img.paint,r[0],r[1],r[2]-r[0],r[3]-r[1],dx,dy,dw,dh);
+        const r=spec[kind==='door'?'plain':kind]||spec.plain,z=spec.zoom||1,cw=(r[2]-r[0])/z,ch=(r[3]-r[1])/z;
+        ctx.drawImage(img.paint,(r[0]+r[2])/2-cw/2,(r[1]+r[3])/2-ch/2,cw,ch,dx,dy,dw,dh);
         if(kind==='window'){ctx.fillStyle='#ffffff';ctx.fillRect(...T(bx+14,by+6,10,11));} // glass via paintOpenings
         if(kind==='door'&&spec.doorInset){const w=spec.doorInset,[ix,iy,iw,ih]=T(bx+12.5,by+4,14,20);ctx.drawImage(img.paint,w[0],w[1],w[2]-w[0],w[3]-w[1],ix,iy,iw,ih);}
       }else{ // seamless atlas cell, then white openings for paintOpenings to dress
@@ -514,6 +509,9 @@
       for(let y=130;y<512;y+=31)for(let x=3;x<512;x+=47){const n=hash(x,y);if(n<.55)continue;ctx.fillStyle='#262120';ctx.fillRect(...T(x+n*20,y+n*9,6+n*4,4+n*3));}
     }
     ctx.fillStyle='#ffffff';ctx.fillRect(Math.floor(508*K),Math.floor(124*K),Math.ceil(4*K),Math.ceil(4*K)); // shared solid texel
+    // The roof's mean tone: an untextured cap over a tiled skirt takes it.
+    {const d=ctx.getImageData(0,Math.round(200*K),S,Math.round(100*K)).data;let r=0,g=0,b=0,n=0;
+      for(let i=0;i<d.length;i+=16){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}tex.roofTone=(Math.round(r/n)<<16)|(Math.round(g/n)<<8)|Math.round(b/n);}
     tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
   }
   const tilesetReady=scene=>Object.values(SHEET_IMAGES).every(name=>scene.textures.exists(name));
@@ -717,15 +715,15 @@
           // Flat, three-step cel lighting keeps gradients off the pixel palette.
           let shade=f.light<.65?140:f.light<.88?199:255;
           if(f.eaveShadow)shade=Math.round(shade*LOOK.eaveShade);
-          const color=f.color??0xffffff;
-          const litColor=(((color>>16)*shade/255)<<16)|((Math.round(((color>>8)&255)*shade/255))<<8)|Math.round((color&255)*shade/255);
-          const tint=Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(litColor,camera.alpha*src.alpha);
+          const textured=LOOK.textured||f.solid||f.kind==='trim';
+          const color=LOOK.textured?(f.color??0xffffff):f.flat??f.color??0xffffff;
+          const lit=k=>(Math.round((color>>16)*k)<<16)|(Math.round(((color>>8)&255)*k)<<8)|Math.round((color&255)*k);
+          const tint=Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(lit(shade/255),camera.alpha*src.alpha);
           for(let i=0;i<3;i++){
             const p=f.projected[i];
             const contact=f.kind==='wall'&&!f.preserveWalls?1-.22*Math.min(1,f.points[i].z/Math.max(1,f.eaveHeight)):1;
-            const wallTint=contact===1?tint:Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(
-              (Math.round(shade*contact)<<16)|(Math.round(shade*contact)<<8)|Math.round(shade*contact),camera.alpha*src.alpha);
-            pipeline.batchVert(matrix.getX(p.x,p.y),matrix.getY(p.x,p.y),p.u,p.v,unit,0,wallTint);
+            const wallTint=contact===1?tint:Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(lit(shade*contact/255),camera.alpha*src.alpha);
+            pipeline.batchVert(matrix.getX(p.x,p.y),matrix.getY(p.x,p.y),textured?p.u:tu,textured?p.v:tv,unit,0,wallTint);
           }
         }};
         let group=[],support=null,groupId=0;
@@ -813,9 +811,12 @@
     mesh.role=recipe.role;mesh.x=left;mesh.y=top;state.buildings.push(mesh);if(key&&mesh.faces.length)state.keys.add(key);
     const support={x:left+local.reduce((s,p)=>s+p.x,0)/local.length,y:top+local.reduce((s,p)=>s+p.y,0)/local.length,order:state.buildings.length};
     for(const face of mesh.faces){
-      if(face.rim)face.color=mix(recipe.roof,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(recipe.roof,0x2a2229,.22);else if(face.solid)face.color=recipe.roof;
+      const roofTone=face.tileCap&&texture.roofTone!=null?mix(texture.roofTone,0x2a2229,.12):recipe.roof;
+      if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
       else if(face.kind==='trim'&&face.color==null)face.color=recipe.trim;
       else if(recipe.shape==='wreck'&&(face.kind==='wall'||face.kind==='roof')&&!face.debris&&!face.chimney)face.color=LOOK.wreck.tint;
+      // The untextured look (LOOK.textured=false) draws each face in its base colour.
+      face.flat=face.tileCap?mix(recipe.roof,0x2a2229,.12):face.kind==='roof'&&!face.solid?recipe.roof:face.kind==='wall'?(face.chimney?LOOK.chimney.sides:recipe.body):face.color??recipe.trim;
       face.preserveWalls=recipe.role==='fort'||!!face.chimney;face.eaveHeight=mesh.eaveHeight??mesh.height;face.support=support;face.cottage=recipe.finish==='cottage';face.texture=texture;face.vOffset=mesh.uvBaseline?0:77-mesh.height;face.x=left;face.y=top;face.projected=face.points.map(()=>({}));state.faces.push(face);}
     return mesh;
   }

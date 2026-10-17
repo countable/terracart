@@ -5,6 +5,7 @@
 <label>Ink px <input id="ink" type="range" min="0" max="3" step="1"><span id="inkv"></span></label>
 <label>Height ×<input id="zscale" type="range" min="0.3" max="1" step="0.05"><span id="zv"></span></label>
 <label><input id="tileset" type="checkbox" checked> Tileset sheets</label>
+<label><input id="textured" type="checkbox" checked> Textures</label>
 <span id="stats"></span></header><div id="game"></div>
 <script src="../vendor/phaser.js"></script><script src="../src/util.js"></script><script src="../src/castle_styles.js"></script><script src="../src/textures.js"></script><script src="../src/wall_perspective.js"></script><script src="../src/building_styles.js"></script><script src="../src/building_lowpoly.js"></script>
 <script>
@@ -41,10 +42,22 @@ function rebuild(){const s=reviewScene;
     WallPerspective.finish(s,'review');label(x,y,'rampart · WallPerspective (×2)');}
   {const x=55+265,y=125+3*250,m=CastleStyles.get('citadel'),w=150,h=100,t=7.2;
     // The same ring through the low-poly path: windowless stone from the
-    // tileset, flat deck, ink outline. No merlons yet (add() has no base z).
-    const recipe={role:'rampart',material:'stone',finish:'masonry',roofMaterial:'flat',stories:(m.rampart.wallHeight*2-5)/31.2,body:m.stone.BODY,roof:m.stone.BODY,trim:m.stone.SHADOW,blank:true};
-    let n=0;for(const r of [[x,y+20,w,t],[x+w-t,y+20,t,h],[x,y+20+h-t,w,t],[x,y+20,t,h]]){const [rx,ry,rw,rh]=r;
-      n+=BuildingLowPoly.add(s,[{x:rx,y:ry},{x:rx+rw,y:ry},{x:rx+rw,y:ry+rh},{x:rx,y:ry+rh}],recipe,'flat','rampart'+n).faces.length;}
+    // tileset, flat decks, ink outline, merlons lifted onto the wall top. The
+    // four slabs and their teeth share one support, as WallPerspective's
+    // sections of a wall do, so the ring is one ink group with no seams.
+    const H=m.rampart.wallHeight*2,tooth={w:(m.rampart.toothWidth||6)*2,h:m.rampart.toothHeight*2};
+    const recipe=z=>({role:'rampart',material:'stone',finish:'masonry',roofMaterial:'flat',stories:(z-5)/31.2,body:m.stone.BODY,roof:m.stone.BODY,trim:m.stone.SHADOW,blank:true});
+    const box=(rx,ry,rw,rh,z,lift,key)=>BuildingLowPoly.add(s,[{x:rx,y:ry},{x:rx+rw,y:ry},{x:rx+rw,y:ry+rh},{x:rx,y:ry+rh}],recipe(z),'flat',key);
+    let n=0,support=null;const ring=[];
+    const slab=(...r)=>{const mesh=box(...r,H,0,'rampart'+n);ring.push(mesh);n+=mesh.faces.length;return mesh;};
+    slab(x,y+20,w,t);slab(x,y+20+h-t,w,t);slab(x,y+20+t,t,h-2*t);slab(x+w-t,y+20+t,t,h-2*t);
+    // Teeth along each edge, pitched like WallPerspective.addSegment.
+    const teeth=(ax,ay,bx,by)=>{const L=Math.hypot(bx-ax,by-ay),count=Math.max(1,Math.round((L-tooth.w)/16)+1),pitch=count>1?(L-tooth.w)/(count-1):0,ux=(bx-ax)/L,uy=(by-ay)/L;
+      for(let i=0;i<count;i++){const sx=ax+ux*i*pitch,sy=ay+uy*i*pitch,rw=ux?tooth.w:t,rh=uy?tooth.w:t;
+        const mesh=box(sx,sy,rw,rh,tooth.h,H,'tooth'+n);ring.push(mesh);n+=mesh.faces.length;
+        for(const f of mesh.faces){for(const p of f.points)p.z+=H;f.inkGroup=2;f.layer+=40;}}}; // above the slab's rim bands (layer ≈ height)
+    teeth(x,y+20,x+w-tooth.w,y+20);teeth(x,y+20+h-t,x+w-tooth.w,y+20+h-t);teeth(x,y+20+t,x,y+20+h-t-tooth.w+t);teeth(x+w-t,y+20+t,x+w-t,y+20+h-t-tooth.w+t);
+    for(const mesh of ring)for(const f of mesh.faces){support??=f.support;f.support=support;}
     label(x,y,'rampart · low-poly path (×2, '+n+' tris)');}
   {const x=55+2*265,y=125+3*250;
     // Cave walls: masked 2D frames from the cave_wall_edges atlas (textures.js),
@@ -66,7 +79,8 @@ new Phaser.Game({type:Phaser.WEBGL,width:1100,height:1330,parent:'game',backgrou
   if(sweeping)document.querySelector('#angle').value=(+document.querySelector('#angle').value+dt*.02)%360;
   this.mapRot=+document.querySelector('#angle').value*Math.PI/180;this.cameras.main.setRotation(this.mapRot);for(const sprite of this.legacySprites||[])sprite.setRotation(-this.mapRot);
   const z=+document.querySelector('#zscale').value;if(z!==LOOK.heightScale){LOOK.heightScale=z;this._lowpoly.angle=NaN;}
-  LOOK.inkPx=+document.querySelector('#ink').value;document.querySelector('#zv').textContent=LOOK.heightScale.toFixed(2);document.querySelector('#inkv').textContent=LOOK.inkPx;
+  LOOK.inkPx=+document.querySelector('#ink').value;LOOK.textured=document.querySelector('#textured').checked;
+  if(this._wallPerspective)for(const g of Object.values(this._wallPerspective))if(g.inkPx!==LOOK.inkPx){g.inkPx=LOOK.inkPx;g.angle=NaN;}document.querySelector('#zv').textContent=LOOK.heightScale.toFixed(2);document.querySelector('#inkv').textContent=LOOK.inkPx;
   BuildingLowPoly.update(this);WallPerspective.update(this);}}});
 document.querySelector('#sweep').onclick=()=>sweeping=!sweeping;
 document.querySelector('#tileset').onchange=()=>rebuild();

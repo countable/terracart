@@ -113,12 +113,31 @@
         group.blocks.sort((a, b) => a.support.depth - b.support.depth
           || a.support.order - b.support.order || a.bottom - b.bottom
           || a.depth - b.depth || a.order - b.order);
+        // Heights foreshorten like the low-poly houses (BuildingLowPoly.LOOK),
+        // and each wall run (one support) gets the same ink outline: its
+        // visible triangles in ink at eight one-pixel offsets, then the fills.
+        const look = global.BuildingLowPoly?.LOOK, k = look?.heightScale ?? 1;
+        const inkPx = look?.inkPx || 0, ink = [];
+        const flushInk = () => {
+          if (!ink.length) return;
+          g.fillStyle(look.ink, 1);
+          for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]])
+            for (const t of ink) g.fillTriangle(t[0] + ox * inkPx, t[1] + oy * inkPx, t[2] + ox * inkPx, t[3] + oy * inkPx, t[4] + ox * inkPx, t[5] + oy * inkPx);
+          for (const t of ink) { g.fillStyle(t[6], 1); g.fillTriangle(t[0], t[1], t[2], t[3], t[4], t[5]); }
+          ink.length = 0;
+        };
+        const tri = (x1, y1, x2, y2, x3, y3, color) => {
+          if (inkPx) ink.push([x1, y1, x2, y2, x3, y3, color]);
+          else { g.fillStyle(color, 1); g.fillTriangle(x1, y1, x2, y2, x3, y3); }
+        };
+        let run = null;
         for (const block of group.blocks) {
           const { points, topPoints, projected: v, bottom, top, colors, winding } = block;
+          if (block.support !== run) { flushInk(); run = block.support; }
           for (let i = 0; i < points.length; i++) {
             const p = points[i], j = i * 4;
-            v[j] = p.x - s * bottom; v[j + 1] = p.y - c * bottom;
-            v[j + 2] = topPoints[i].x - s * top; v[j + 3] = topPoints[i].y - c * top;
+            v[j] = p.x - s * bottom * k; v[j + 1] = p.y - c * bottom * k;
+            v[j + 2] = topPoints[i].x - s * top * k; v[j + 3] = topPoints[i].y - c * top * k;
           }
           if (block.allFaces) {
             for (let i = 0; i < points.length; i++) {
@@ -133,18 +152,17 @@
             // Only faces whose outward normal points toward screen-bottom.
             const screenDx = c * (b.x - a.x) - s * (b.y - a.y);
             if (!block.allFaces && screenDx * winding >= -1e-6) continue;
-            const j = i * 4, k = next * 4;
-            g.fillStyle(block.allFaces && screenDx * winding >= 0 ? colors.top : colors.face, 1);
-            g.fillTriangle(v[j], v[j + 1], v[k], v[k + 1], v[k + 2], v[k + 3]);
-            g.fillTriangle(v[j], v[j + 1], v[k + 2], v[k + 3], v[j + 2], v[j + 3]);
+            const j = i * 4, n = next * 4, color = block.allFaces && screenDx * winding >= 0 ? colors.top : colors.face;
+            tri(v[j], v[j + 1], v[n], v[n + 1], v[n + 2], v[n + 3], color);
+            tri(v[j], v[j + 1], v[n + 2], v[n + 3], v[j + 2], v[j + 3], color);
           }
           if (!block.capped) continue;
-          g.fillStyle(colors.top, 1);
           for (let i = 1; i < points.length - 1; i++) {
-            const j = i * 4 + 2, k = (i + 1) * 4 + 2;
-            g.fillTriangle(v[2], v[3], v[j], v[j + 1], v[k], v[k + 1]);
+            const j = i * 4 + 2, n = (i + 1) * 4 + 2;
+            tri(v[2], v[3], v[j], v[j + 1], v[n], v[n + 1], colors.top);
           }
         }
+        flushInk();
       }
     },
   };
