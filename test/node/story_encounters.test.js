@@ -3,11 +3,14 @@
   function scene(memories = StoryEncounters.armAtMemories()) {
     // Maud's rescue arms on her row's memory gate (NPC.STORY_ROLES.witness).
     const s = { save: { discovered: remembered(memories), restoredHouses: {}, caught: [] },
+      ensureStarterShopId() {}, homeWorldPos: __home.homeWorldPos, inHomeRing: __home.inHomeRing,
       depth: 0, cellM: 7, tileEdgeM: 224, startWorldM: { x: 0, y: 0 }, playerM: { x: 112, y: 112 },
       _dialogOpen: () => false, showMessageModal: p => s.lastDialog = p,
       // The gift lands on the chest shell (Rewards.present → showChestRewardModal).
       showChestRewardModal: (card) => { s.lastCard = card; },
       addToInv: (id, n) => { const accepted = Inventory.add(s.save, id, n).accepted; s.gifts = (s.gifts || 0) + accepted; s.giftId = id; return accepted; } };
+    s.save.starterShopId = 'home';
+    s.save.starterTrailer = { id: 'home', x: 112, y: 112 };
     return s;
   }
   test('Maud\'s rescue arms only once, at her memory gate', () => {
@@ -101,24 +104,64 @@
       _spawnOpts: { roadMask: new Uint8Array(N * N), occupied: new Set() } });
     const e = makeEntry();
     s.cellAt = (x,y) => ({ loaded: true, tx: 0, ty: 0, ix: Math.floor(x/7), iy: Math.floor(y/7) });
-    s.inHomeRing = (x,y) => x < 112;
     const portrait = NPC.portrait; NPC.portrait = () => 'portrait';
     cache.clear(); cache.set(WorldGen.tileKey(0,0), e);
     try {
+      s.playerM = { x: 210, y: 210 };
       StoryEncounters.tick(s, 1000);
+      assert.falsy(s.save.storyEncounter.npc, 'six memories far from home stay pending');
+      assert.eq(e.creatures.length, 0);
+      s.playerM = { x: 126, y: 112 };
+      StoryEncounters.tick(s, 2000);
       assert.eq(e.creatures.length, 2);
+      assert.truthy(s.inHomeRing(s.save.storyEncounter.npc.x, s.save.storyEncounter.npc.y));
+      assert.eq(s.save.storyEncounter.homeAnchor.x, 112, 'anchor is Home, not player');
       const enemy = e.creatures.find(c => c.kind === 'goblin_archer');
       assert.truthy(enemy); assert.falsy(s.inHomeRing(enemy.x, enemy.y));
-      StoryEncounters.tick(s, 2000); assert.eq(e.creatures.length, 2);
+      StoryEncounters.tick(s, 3000); assert.eq(e.creatures.length, 2);
       const replacement = makeEntry(); cache.set(WorldGen.tileKey(0,0), replacement);
       s.save = JSON.parse(JSON.stringify(s.save));
-      StoryEncounters.tick(s, 3000); assert.eq(replacement.creatures.length, 2);
+      StoryEncounters.tick(s, 4000); assert.eq(replacement.creatures.length, 2);
       s.save.caught.push(enemy.id);
       const afterKill = makeEntry(); cache.set(WorldGen.tileKey(0,0), afterKill);
-      StoryEncounters.tick(s, 4000);
+      StoryEncounters.tick(s, 5000);
       assert.eq(afterKill.creatures.length, 1);
       assert.eq(afterKill.creatures[0].kind, 'npc');
       assert.eq(s.save.storyEncounter.status, 'grateful');
+    } finally { NPC.portrait = portrait; cache.clear(); for (const [k,v] of old) cache.set(k,v); }
+  });
+  test('old remote Maud encounters migrate home once without replaying rewards or dead archers', () => {
+    const cache = WorldGen.tileCacheFor(0), old = Array.from(cache.entries());
+    const portrait = NPC.portrait; NPC.portrait = () => 'portrait';
+    try {
+      for (const status of ['hunted', 'grateful', 'rewarded']) {
+        const s = scene(); StoryEncounters.arm(s);
+        const q = s.save.storyEncounter;
+        Object.assign(q, { status, greeted: true, npc: { x: 210, y: 210, tx: 0, ty: 0 }, enemy: { x: 203, y: 210, tx: 0, ty: 0 } });
+        if (status !== 'hunted') s.save.caught.push(q.enemyId);
+        const e = { _spawned: true, cellsPerEdge: 32,
+          grid: new Uint8Array(1024).fill(WorldGen.T.GRASS),
+          creatures: [{ id: q.npcId, kind: 'npc', ...q.npc }, { id: q.enemyId, kind: 'goblin_archer', ...q.enemy }],
+          _spawnOpts: { roadMask: new Uint8Array(1024), occupied: new Set() } };
+        cache.clear(); cache.set(WorldGen.tileKey(0,0), e);
+        s.cellAt = (x,y) => ({ loaded: true, tx: 0, ty: 0, ix: Math.floor(x/7), iy: Math.floor(y/7) });
+        s.playerM = { x: 210, y: 210 };
+        StoryEncounters.tick(s, 1000);
+        assert.eq(q.npc.x, 210, 'migration waits for home');
+        assert.falsy(s.lastDialog);
+        s.playerM = { x: 112, y: 112 };
+        StoryEncounters.tick(s, 2000);
+        assert.truthy(s.inHomeRing(q.npc.x, q.npc.y));
+        assert.eq(q.status, status); assert.truthy(q.greeted);
+        assert.eq(e.creatures.length, status === 'hunted' ? 2 : 1);
+        assert.eq(e.creatures.filter(c => c.id === q.npcId).length, 1);
+        assert.falsy(e.creatures.some(c => c.x === 210 || c.x === 203), 'old cached pair removed');
+        const position = JSON.stringify(q.npc);
+        s.playerM = { x: 210, y: 210 };
+        StoryEncounters.tick(s, 3000);
+        assert.eq(JSON.stringify(q.npc), position, 'Maud stays home while player travels');
+        assert.eq(s.gifts || 0, 0, 'migration never grants a second gift');
+      }
     } finally { NPC.portrait = portrait; cache.clear(); for (const [k,v] of old) cache.set(k,v); }
   });
   test('starfruit reward uses the real seed, planting, growth and harvest path', () => {

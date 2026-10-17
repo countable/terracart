@@ -464,3 +464,15 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,
 `item_descriptions`, `books`, `story_neighbours`, `stranger`, `buffs`.
+
+### Home-bound memory events
+
+Memory discoveries still bank immediately, but their queued narrative panels wait
+until the player returns inside Home's surface ring. Pending memories survive
+reload and are consumed only when acknowledged. Deliberately opened NPC and
+wizard conversations remain tied to their own locations.
+
+Maud's rescue unlocks at six lifetime memories, then waits for a home visit.
+Her encounter is seated around Home, never around the travelling player; her
+archer still obeys the normal Home ward and spawn gate. Existing remote rescue
+placements move home without resetting rescue progress or granting a second gift.
