@@ -900,8 +900,6 @@ Render.petTexture = function petTexture(scene, kind, sheet, tint = 0xffffff) {
 // Phaser's Canvas renderer ignores sprite tint. Bake each used tint of a
 // texture once there, frames and all (a pet's palette, an elite's ring);
 // WebGL keeps the shared neutral texture and its cheap vertex tint.
-// Muted oak brown brings the default barrel closer to the supply crate.
-Render.DEFAULT_BARREL_TINT = 0xd9c9b8;
 Render.canvasTint = function canvasTint(scene, neutral, tint) {
   if (typeof Phaser === 'undefined' || scene.sys?.game?.renderer?.type !== Phaser.CANVAS
       || !Number.isFinite(tint) || tint === 0xffffff) return neutral;
@@ -6048,15 +6046,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands, macro stalls and the wagon are structure-like and stay foot-anchored.
               seat: (o) => { const L = chestLook(o); return !L.stand && !L.macro && !L.wagon; },
-              shadow: true,
-              after: (sprite, o, scene) => {
-                const look = chestLook(o);
-                if (look.texKey === 'barrel' && look.frame === 0) {
-                  sprite.setTint(Render.DEFAULT_BARREL_TINT);
-                  setTextureIfDifferent(sprite, Render.canvasTint(scene, 'barrel', Render.DEFAULT_BARREL_TINT));
-                  sprite.setFrame(0);
-                }
-              } },
+              shadow: true },
     fruittree: { key: (o) => `${o.species === 'worldpeach' ? 'worldpeach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o), state = _ftState(o);

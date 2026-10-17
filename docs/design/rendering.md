@@ -607,6 +607,8 @@ Procedural buildings remain the default on the map. `?buildingArt=legacy`
 selects the original sprites instead. Both modes use the original artwork
 for dialog icons and sprite fallbacks.
 
-Default oak barrels use a muted brown tint to match supply crates and scale to
+Default oak barrel art uses the supply crate’s manufactured-wood palette directly,
+without a runtime tint. Only frame 0 of the barrel sheet is replaced; the other
+seven variants retain their original pixels. Default barrels scale to
 `(2/3) × 1.1 × 1.1`. Long grass uses `1.16 × 0.9`; trunk chests use
 `1.6 × 0.8`, and supply crates use `0.8 × 1.1`. Chests have trimmed bounds for every tier to keep their art centered.
