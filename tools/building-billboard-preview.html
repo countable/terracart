@@ -1,0 +1,107 @@
+<!doctype html><meta charset="utf-8"><title>Billboard-look prototype</title>
+<style>body{margin:0;background:#243947;color:#efe8da;font:16px system-ui}header{padding:16px;line-height:1.7}canvas{display:block}input,button,select{font:inherit}label{margin-right:14px}</style>
+<header><b>Billboard-look prototype</b> · silhouette outline, offset drop shadow and compressed height, applied as extra batches over the retained low-poly meshes. Nothing in <code>src/</code> changes; this page wraps <code>BuildingLowPoly.update</code> and the WebGL draw.<br>
+<label>Compass <input id="angle" type="range" min="0" max="360" value="0"></label><button id="sweep">Sweep</button>
+<label><input id="outline" type="checkbox" checked> Outline</label>
+<label><input id="shadow" type="checkbox" checked> Drop shadow</label>
+<label>Height ×<input id="zscale" type="range" min="0.3" max="1" step="0.05" value="0.6"><span id="zv">0.60</span></label>
+<label>Shadow offset <input id="soff" type="range" min="0" max="14" step="1" value="7"></label>
+<span id="stats"></span></header><div id="game"></div>
+<script src="../vendor/phaser.js"></script><script src="../src/util.js"></script><script src="../src/castle_styles.js"></script><script src="../src/textures.js"></script><script src="../src/building_styles.js"></script><script src="../src/building_lowpoly.js"></script>
+<script>
+// ── Prototype wrapper ───────────────────────────────────────────────────────
+// 1. Height compression: project z through a scale so upright forms foreshorten
+//    (map-perspective.md: "compressed front-facing planes"). Done by re-running
+//    the projection here rather than editing src/building_lowpoly.js.
+// 2. Outline: each building's visible triangles re-emitted in the solid trim
+//    texel, tinted ink, at eight 1-art-pixel screen offsets, before its faces.
+// 3. Drop shadow: the same silhouette once more, translucent blue-grey, offset
+//    down-left, before the outline. Shadows precede nearer buildings in the
+//    depth-sorted stream, so a closer roof always covers a farther shadow.
+const UI={outline:()=>document.querySelector('#outline').checked,shadow:()=>document.querySelector('#shadow').checked,
+  zscale:()=>+document.querySelector('#zscale').value,soff:()=>+document.querySelector('#soff').value};
+const INK=0x2a2229, SHADOW=0x27304a, SHADOW_ALPHA=.42;
+const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+const originalUpdate=BuildingLowPoly.update;
+BuildingLowPoly.update=function(scene){
+  const state=scene._lowpoly;if(!state)return;
+  const angle=scene.mapRot||0,k=UI.zscale();
+  const dirty=state.angle!==angle||state._zscale!==k;
+  originalUpdate(scene);
+  if(!dirty)return;state._zscale=k;
+  const c=Math.cos(angle),s=Math.sin(angle);
+  for(const face of state.faces){
+    face.points.forEach((p,i)=>{const v=face.projected[i];v.x=face.x+p.x-s*p.z*k;v.y=face.y+p.y-c*p.z*k;});
+    const p=face.projected;face.visible=cross(p[0],p[1],p[2])>1e-8;
+  }
+};
+function installDraw(scene){
+  const state=scene._lowpoly;
+  state.obj.renderWebGL=function(renderer,src,camera,parentMatrix){
+    camera.addToRenderList(src);
+    const matrix=Phaser.GameObjects.GetCalcMatrix(src,camera,parentMatrix).calc;
+    const pipeline=renderer.pipelines.set(renderer.pipelines.get('MultiPipeline'),src);
+    renderer.pipelines.preBatch(src);
+    const px=camera.zoom; // one art pixel on the canvas
+    const tu=510/512,tv=126/512; // shared solid texel
+    const solid=(faces,ox,oy,color,alpha)=>{
+      const tint=Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(color,alpha*camera.alpha*src.alpha);
+      for(const f of faces){
+        if(pipeline.shouldFlush(3))pipeline.flush();
+        const unit=pipeline.setTexture2D(f.texture.source[0].glTexture);
+        for(let i=0;i<3;i++){const p=f.projected[i];pipeline.batchVert(matrix.getX(p.x,p.y)+ox,matrix.getY(p.x,p.y)+oy,tu,tv,unit,0,tint);}
+      }
+    };
+    const faces=(group)=>{
+      for(const f of group){
+        if(pipeline.shouldFlush(3))pipeline.flush();
+        const unit=pipeline.setTexture2D(f.texture.source[0].glTexture);
+        const shade=f.light<.65?140:f.light<.88?199:255;
+        const color=f.color??0xffffff;
+        const litColor=(((color>>16)*shade/255)<<16)|((Math.round(((color>>8)&255)*shade/255))<<8)|Math.round((color&255)*shade/255);
+        const tint=Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(litColor,camera.alpha*src.alpha);
+        for(let i=0;i<3;i++){
+          const p=f.projected[i];
+          const contact=f.kind==='wall'&&!f.preserveWalls?1-.22*Math.min(1,f.points[i].z/Math.max(1,f.eaveHeight)):1;
+          const wallTint=contact===1?tint:Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(
+            (Math.round(shade*contact)<<16)|(Math.round(shade*contact)<<8)|Math.round(shade*contact),camera.alpha*src.alpha);
+          pipeline.batchVert(matrix.getX(p.x,p.y),matrix.getY(p.x,p.y),p.u,p.v,unit,0,wallTint);
+        }
+      }
+    };
+    // Faces arrive sorted by building (support.depth, support.order), so one
+    // building is a contiguous run.
+    let group=[],support=null;
+    const flush=()=>{
+      if(!group.length)return;
+      const o=UI.soff()*px;
+      if(UI.shadow()&&o)solid(group,-o,o*.8,SHADOW,SHADOW_ALPHA);
+      if(UI.outline())for(const [ox,oy] of [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]])solid(group,ox*px,oy*px,INK,1);
+      faces(group);group=[];
+    };
+    for(const f of state.faces){
+      if(!f.visible)continue;
+      if(f.support!==support){flush();support=f.support;}
+      group.push(f);
+    }
+    flush();
+    renderer.pipelines.postBatch(src);
+  };
+}
+// ── Review scene (mirrors building-role-preview.html, plus the 2D house) ──
+let reviewScene,sweeping=false;const roles=Object.keys(BuildingLowPoly.ROLES).filter(r=>!['shop','wizard','turret'].includes(r));
+const palettes={trader:{wall:0xd8c6a1,roof:0x567e83},plain:{wall:0xd4cdb4,roof:0x709b9a},blacksmith:{wall:0xa96e59,roof:0x687a83},wizard:{wall:0x8c8796,roof:0x8b78a8},seed:{roof:0x82916b},supply:{roof:0xb09a69},potion:{roof:0x957ca9},relic:{roof:0x6e9a91},pet:{roof:0x8b9678},book:{roof:0x967577}};
+function rebuild(){const s=reviewScene;BuildingLowPoly.begin(s);installDraw(s);s.labels?.forEach(t=>t.destroy());s.labels=[];s.legacySprites?.forEach(t=>t.destroy());s.legacySprites=[];
+roles.forEach((role,i)=>{const x=55+(i%4)*265,y=125+Math.floor(i/4)*250;
+const pts=[{x,y},{x:x+120,y},{x:x+120,y:y+65},{x:x+150,y:y+65},{x:x+150,y:y+115},{x,y:y+115}];
+const recipe=BuildingLowPoly.recipeFor(role,{...palettes[role],trim:0x614534});
+const mesh=BuildingLowPoly.add(s,pts,recipe,recipe.variant||'ridge',role);
+s.labels.push(s.add.text(x,y+140,(role==='trader'?'market / trader':role)+' · '+mesh.faces.length+' triangles',{fontSize:'15px',color:'#efe8da'}));});
+// The game's own 2D house sprite, upright (billboarded) for direct comparison.
+{const i=roles.length,x=55+(i%4)*265,y=125+Math.floor(i/4)*250;
+ const sprite=s.add.image(x+75,y+115,'house','front').setOrigin(.5,1).setScale(2);s.legacySprites.push(sprite);
+ s.labels.push(s.add.text(x,y+140,'2D house sprite (house.png, ×2)',{fontSize:'15px',color:'#efe8da'}));}
+BuildingLowPoly.update(s);document.querySelector('#stats').textContent=s._lowpoly.faces.length+' triangles / '+roles.length+' types';}
+new Phaser.Game({type:Phaser.WEBGL,width:1100,height:1080,parent:'game',backgroundColor:'#6f8a4e',scene:{preload(){this.load.image('house','../assets/Objects/Approved/house.png');this.load.image('building_material_reference','../assets/Objects/BuildingMaterials/reference-materials-v2.png');},create(){this.textures.get('house').add('front',0,148,3,72,95);reviewScene=window.reviewScene=this;this._headingUp=true;this.buildingWallContainer=this.add.container();rebuild();window.ready=true;},update(t,dt){if(sweeping)document.querySelector('#angle').value=(+document.querySelector('#angle').value+dt*.02)%360;this.mapRot=+document.querySelector('#angle').value*Math.PI/180;this.cameras.main.setRotation(this.mapRot);for(const sprite of this.legacySprites||[])sprite.setRotation(-this.mapRot);document.querySelector('#zv').textContent=UI.zscale().toFixed(2);BuildingLowPoly.update(this);}}});
+document.querySelector('#sweep').onclick=()=>sweeping=!sweeping;
+</script>

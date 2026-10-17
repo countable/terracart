@@ -1355,9 +1355,9 @@ const STARTER_RELIC_TIER = 1;
 //      that sheet the moment it decodes. Probe and background-image share
 //      the HTTP cache, so the swap is atomic — no double fetch.
 //   2. PREWARM — a few seconds after boot (deliberately after the map tiles
-//      have had first claim on the connection) every modal-only sheet is
-//      trickled into the cache two at a time, so by the first chest the
-//      plate never shows at all. ~110 small PNGs, idle bandwidth only.
+//      have had first claim on the connection) the shared DOM icon atlas is
+//      decoded once, so by the first chest the plate rarely shows. Future
+//      sheets not yet packed into it retain the throttled source fallback.
 const IconNet = {
   _loaded: new Set(),    // URLs known decoded + cached this session
   _loading: new Map(),   // URL → [afterFns] while a probe is in flight
@@ -1658,6 +1658,178 @@ const ICON_SHEETS = {
   // silently falling through to SHEETS.crops → a grass sprout.
   wood:          { url: 'assets/Objects/Wilderness/wood.png',                cols: 3,  srcW: 48,  srcH: 16 },
 };
+
+// BEGIN GENERATED DOM ICON ATLAS
+// Regenerate with node tools/build-dom-icon-atlas.cjs; original sheets remain the art source.
+const DOM_ICON_ATLAS = {
+  "url": "assets/Icons/dom-atlas.png?v=e077cb1b",
+  "width": 1024,
+  "height": 720,
+  "rects": {
+    "assets/Icons/AltWeapons/1/Dagger.png": [0, 0, 32, 16],
+    "assets/Icons/AltWeapons/1/Lance.png": [32, 0, 32, 16],
+    "assets/Icons/AltWeapons/1/Musket.png": [64, 0, 32, 16],
+    "assets/Icons/AltWeapons/3/Dagger.png": [96, 0, 32, 16],
+    "assets/Icons/AltWeapons/3/Lance.png": [128, 0, 32, 16],
+    "assets/Icons/AltWeapons/3/Musket.png": [160, 0, 32, 16],
+    "assets/Icons/AltWeapons/5/Dagger.png": [192, 0, 32, 16],
+    "assets/Icons/AltWeapons/5/Lance.png": [224, 0, 32, 16],
+    "assets/Icons/AltWeapons/5/Musket.png": [256, 0, 32, 16],
+    "assets/Icons/Fish/River/Golden Fish.png": [288, 0, 64, 16],
+    "assets/Icons/Fish/River/Large Mouth Bass.png": [352, 0, 64, 16],
+    "assets/Icons/Fish/River/Tiger Trout.png": [416, 0, 64, 16],
+    "assets/Icons/Fish/Sea/Creatures/Shell-24.png": [480, 0, 72, 96],
+    "assets/Icons/Fish/Sea/Salmon.png": [552, 0, 64, 16],
+    "assets/Icons/Fish/Sea/Smallmouth Bass.png": [616, 0, 64, 16],
+    "assets/Icons/Food Icons/Apple.png": [680, 0, 32, 16],
+    "assets/Icons/Food Icons/Apricot.png": [712, 0, 32, 16],
+    "assets/Icons/Food Icons/Banana.png": [744, 0, 32, 16],
+    "assets/Icons/Food Icons/Beef.png": [776, 0, 32, 32],
+    "assets/Icons/Food Icons/Black rabbit Fur.png": [808, 0, 32, 16],
+    "assets/Icons/Food Icons/Cherry.png": [840, 0, 32, 16],
+    "assets/Icons/Food Icons/Chicken Egg.png": [872, 0, 32, 16],
+    "assets/Icons/Food Icons/Coconut.png": [904, 0, 32, 16],
+    "assets/Icons/Food Icons/Cooked.png": [0, 96, 144, 16],
+    "assets/Icons/Food Icons/Mango.png": [144, 96, 32, 16],
+    "assets/Icons/Food Icons/Orange.png": [176, 96, 32, 16],
+    "assets/Icons/Food Icons/Peach.png": [208, 96, 32, 16],
+    "assets/Icons/Food Icons/Small Cow Milk.png": [240, 96, 32, 16],
+    "assets/Icons/Items/GiantMushroom.png": [272, 96, 16, 16],
+    "assets/Icons/Items/GripPotion.png": [288, 96, 16, 16],
+    "assets/Icons/Items/Honey.png": [304, 96, 16, 16],
+    "assets/Icons/Items/MagicHammer.png": [320, 96, 16, 16],
+    "assets/Icons/Items/MagicTrap.png": [336, 96, 16, 16],
+    "assets/Icons/Items/MoonbeamScroll.png": [352, 96, 16, 16],
+    "assets/Icons/Items/Potion_light.png": [368, 96, 16, 16],
+    "assets/Icons/Items/Potions.png": [384, 96, 80, 112],
+    "assets/Icons/Items/RavenScroll.png": [464, 96, 16, 16],
+    "assets/Icons/Items/Rope.png": [480, 96, 16, 16],
+    "assets/Icons/Items/SerpentIdol.png": [496, 96, 16, 16],
+    "assets/Icons/Items/SkeletonScroll.png": [512, 96, 16, 16],
+    "assets/Icons/Items/Spear.png": [528, 96, 32, 16],
+    "assets/Icons/Items/ThunderScroll.png": [560, 96, 16, 16],
+    "assets/Icons/Items/Torch.png": [576, 96, 16, 16],
+    "assets/Icons/Items/TrapDisarmKit.png": [592, 96, 16, 16],
+    "assets/Icons/Items/WindScroll.png": [608, 96, 16, 16],
+    "assets/Icons/Items/WraithScroll.png": [624, 96, 16, 16],
+    "assets/Icons/Items/compass.png": [640, 96, 16, 16],
+    "assets/Icons/Items/field_scope.png": [656, 96, 16, 16],
+    "assets/Icons/Items/goblet.png": [672, 96, 16, 16],
+    "assets/Icons/Items/gold_shield.png": [688, 96, 16, 16],
+    "assets/Icons/Items/lucky_key.png": [704, 96, 16, 16],
+    "assets/Icons/Items/marketeers_guild_badge.png": [720, 96, 16, 16],
+    "assets/Icons/Items/metal_shield.png": [736, 96, 16, 16],
+    "assets/Icons/Items/orb.png": [752, 96, 16, 16],
+    "assets/Icons/Items/smiths_guild_badge.png": [768, 96, 16, 16],
+    "assets/Icons/Items/traders_guild_badge.png": [784, 96, 16, 16],
+    "assets/Icons/Items/wood_shield.png": [800, 96, 16, 16],
+    "assets/Icons/RPG icons/Extras/Amulet.png": [816, 96, 96, 64],
+    "assets/Icons/RPG icons/Extras/Bags.png": [912, 96, 112, 16],
+    "assets/Icons/RPG icons/Extras/Bars and ores.png": [0, 208, 256, 64],
+    "assets/Icons/RPG icons/Extras/Books.png": [256, 208, 240, 64],
+    "assets/Icons/RPG icons/Extras/Bug net.png": [496, 208, 16, 16],
+    "assets/Icons/RPG icons/Extras/Chicken feather.png": [512, 208, 144, 32],
+    "assets/Icons/RPG icons/Extras/Coal.png": [656, 208, 32, 32],
+    "assets/Icons/RPG icons/Extras/Gemstones.png": [688, 208, 112, 64],
+    "assets/Icons/RPG icons/Extras/Rings.png": [800, 208, 96, 64],
+    "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Axe.png": [896, 208, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Boots.png": [928, 208, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Bow.png": [960, 208, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Bug net.png": [992, 208, 16, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Chestplate.png": [0, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Fishing Rod.png": [32, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Helmet.png": [64, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Hoe.png": [96, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Leggings.png": [128, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Pickaxe.png": [160, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Staff.png": [192, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Sword.png": [224, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Watering can.png": [256, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Axe.png": [288, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Boots.png": [320, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Bow.png": [352, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Chestplate.png": [384, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Fishing Rod.png": [416, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Helmet.png": [448, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Hoe.png": [480, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Leggings.png": [512, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Pickaxe.png": [544, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Staff.png": [576, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Sword.png": [608, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Axe.png": [640, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Boots.png": [672, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Bow.png": [704, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Chestplate.png": [736, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Fishing Rod.png": [768, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Helmet.png": [800, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Hoe.png": [832, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Leggings.png": [864, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Pickaxe.png": [896, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Staff.png": [928, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Sword.png": [960, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Axe.png": [992, 272, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Boots.png": [0, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Bow.png": [32, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Chestplate.png": [64, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Fishing Rod.png": [96, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Helmet.png": [128, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Hoe.png": [160, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Leggings.png": [192, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Pickaxe.png": [224, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Staff.png": [256, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Sword.png": [288, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Axe.png": [320, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Boots.png": [352, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Bow.png": [384, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Chestplate.png": [416, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Fishing Rod.png": [448, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Helmet.png": [480, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Hoe.png": [512, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Leggings.png": [544, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Pickaxe.png": [576, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Staff.png": [608, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Sword.png": [640, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Axe.png": [672, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Boots.png": [704, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Bow.png": [736, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Chestplate.png": [768, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Fishing Rod.png": [800, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Helmet.png": [832, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Hoe.png": [864, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Leggings.png": [896, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Pickaxe.png": [928, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Staff.png": [960, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Sword.png": [992, 288, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Axe.png": [0, 304, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Boots.png": [32, 304, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Bow.png": [64, 304, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Chestplate.png": [96, 304, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Fishing Rod.png": [128, 304, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Helmet.png": [160, 304, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Hoe.png": [192, 304, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Leggings.png": [224, 304, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Pickaxe.png": [256, 304, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Staff.png": [288, 304, 32, 16],
+    "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Sword.png": [320, 304, 32, 16],
+    "assets/Objects/Approved/barricade.png": [352, 304, 24, 24],
+    "assets/Objects/Approved/crops.png": [376, 304, 144, 256],
+    "assets/Objects/Approved/props.png": [520, 304, 352, 192],
+    "assets/Objects/Approved/springcrops.png": [0, 560, 224, 128],
+    "assets/Objects/Pickup_Items.png": [224, 560, 224, 160],
+    "assets/Objects/Progression/icons.png": [448, 560, 32, 16],
+    "assets/Objects/Wilderness/wood.png": [480, 560, 48, 16]
+  }
+};
+// END GENERATED DOM ICON ATLAS
+
+// Original sheet coordinates stay authoritative for every frame. Missing/new
+// sheets fall back to their source until the generated atlas is rebuilt.
+function domIconSheet(url, width, height) {
+  const rect = DOM_ICON_ATLAS.rects[url.split('?')[0]];
+  return rect ? { url: DOM_ICON_ATLAS.url, width: DOM_ICON_ATLAS.width,
+    height: DOM_ICON_ATLAS.height, x: rect[0], y: rect[1] }
+    : { url, width, height, x: 0, y: 0 };
+}
 
 class MapScene extends Phaser.Scene {
   constructor() { super('map'); }
@@ -9521,10 +9693,11 @@ class MapScene extends Phaser.Scene {
       const col = src.frame % sheet.cols;
       const row = Math.floor(src.frame / sheet.cols);
       const scale = sizePx / 16;
-      css = base + `background-image:url('${sheet.url}');`
-        + `background-size:${sheet.srcW * scale}px ${sheet.srcH * scale}px;`
-        + `background-position:-${col * sizePx}px -${row * sizePx}px;`;
-      if (!IconNet.ready(sheet.url)) netUrl = sheet.url;
+      const image = domIconSheet(sheet.url, sheet.srcW, sheet.srcH);
+      css = base + `background-image:url('${image.url}');`
+        + `background-size:${image.width * scale}px ${image.height * scale}px;`
+        + `background-position:-${image.x * scale + col * sizePx}px -${image.y * scale + row * sizePx}px;`;
+      if (!IconNet.ready(image.url)) netUrl = image.url;
     }
     if (css && src?.filter) css += `filter:${src.filter};`;
     // Shiny variants tint the base sprite warm-gold with a sheen.
@@ -9626,8 +9799,8 @@ class MapScene extends Phaser.Scene {
     } catch (e) { return null; }
   }
 
-  // Every PNG a DOM modal can ask for outside the Phaser preloader: the
-  // CSS-clip icon sheets (ICON_SHEETS) plus each gear slot's per-tier art.
+  // DOM inventory and gear art share one atlas. The prewarmer deduplicates
+  // their resolved URLs, retaining original-source fallback for new art.
   // Handed to IconNet.prewarm shortly after boot (see update()) so the
   // treasure / trade / forge modals open with their icons already cached.
   // FIRST-USE costs, paid while nothing is happening rather than in the
@@ -9646,13 +9819,13 @@ class MapScene extends Phaser.Scene {
 
   _prewarmModalIcons() {
     const urls = new Set();
-    for (const s of Object.values(ICON_SHEETS)) urls.add(s.url);
+    for (const s of Object.values(ICON_SHEETS)) urls.add(domIconSheet(s.url, s.srcW, s.srcH).url);
     for (const kind of ['relic', 'armor']) {
       const defs = kind === 'relic' ? RELIC_DEFS : ARMOR_DEFS;
       for (const slot of Object.keys(defs)) {
         for (const tier of Object.keys(TIER_BY_NUM)) {
           const p = gearAssetPath(kind, slot, Number(tier));
-          if (p) urls.add(p);
+          if (p) urls.add(domIconSheet(p).url);
         }
       }
     }
@@ -10170,15 +10343,17 @@ class MapScene extends Phaser.Scene {
     }
     const col = frame % sheetCols;
     const row = Math.floor(frame / sheetCols) % sheetRows;
-    const bgW = sheetCols * sizePx, bgH = sheetRows * sizePx;
+    const image = domIconSheet(path, sheetCols * 16, sheetRows * 16);
+    const scale = sizePx / 16;
+    const bgW = image.width * scale, bgH = image.height * scale;
     // Gear PNGs load only when a modal first shows them — never through the
     // Phaser preloader — so on a cold cache the icon is blank for the whole
     // fetch. IconNet holds the footprint with a pulsing plate until it lands.
-    const net = IconNet.ready(path) ? '' : ` class="px-icon icon-loading" data-iconsrc="${path}"`;
+    const net = IconNet.ready(image.url) ? '' : ` class="px-icon icon-loading" data-iconsrc="${image.url}"`;
     return `<span${net} style="display:inline-block;vertical-align:middle;`
       + `width:${sizePx}px;height:${sizePx}px;image-rendering:pixelated;`
-      + `background-image:url('${path}');background-size:${bgW}px ${bgH}px;`
-      + `background-position:-${col * sizePx}px -${row * sizePx}px;"></span>`;
+      + `background-image:url('${image.url}');background-size:${bgW}px ${bgH}px;`
+      + `background-position:-${image.x * scale + col * sizePx}px -${image.y * scale + row * sizePx}px;"></span>`;
   }
 
   // How many more of `id` would fit right now (0 = full for that item).

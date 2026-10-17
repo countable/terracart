@@ -81,6 +81,31 @@
     assert.eq(requests.filter((r) => r.key === 'house').length, 1, 'loaded core art is not requested twice');
   });
 
+  test('deferred assets: roster sheets load once on demand and keep complete directional frames', () => {
+    const { scene, assets, requests, complete } = fixture();
+    const row = EnemyRoster.ROWS.find(row => assets[row.id]?.deferred && !row.palette);
+    assert.truthy(row, 'uncaught enemy art is deferred');
+    scene.preload();
+    assert.falsy(requests.some(request => request.key === row.id));
+    for (let i = 0; i < 10; i++) scene._ensureAsset(row.id);
+    const loaded = requests.filter(request => request.key === row.id);
+    assert.eq(loaded.length, 1);
+    assert.eq(loaded[0].path, row.art.path);
+    assert.eq(loaded[0].config.frameWidth, row.art.frameWidth);
+    assert.eq(loaded[0].config.frameHeight, row.art.frameHeight);
+    complete(row.id);
+    assert.truthy(scene._ensureAsset(row.id));
+    for (const kind of ['slime', 'cave_slime', 'purple_slime', 'fire_slime', 'crab', 'green_dragon']) {
+      assert.falsy(assets[SpriteLayout.creatureSheet(kind)].deferred, `${kind} portrait remains available at create`);
+    }
+  });
+
+  test('deferred assets: missing source never becomes a cached pet or elite palette', () => {
+    const scene = { textures: { exists: () => false, get: () => { throw new Error('missing source was accessed'); } } };
+    assert.eq(Render.petTexture(scene, 'bat', 'bat'), 'bat');
+    assert.eq(Render.vividTexture(scene, 'bat', 'bat'), 'bat');
+  });
+
   test('deferred assets: late dragon completion transforms only an unexpired buff after animation setup', () => {
     for (const activeOnCompletion of [true, false]) {
       const { scene, complete, animations } = fixture();
