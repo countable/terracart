@@ -139,24 +139,71 @@ wall/deck ordering at the exact shared height.
 
 Cottage reference pass (`/tmp/houseref.webp`, `/tmp/more-houses.webp`): every
 line where two roof planes meet (ridge, hip, valley) gets a two-sided timber beam
-(`beam` faces, 1 unit proud of the ridge); ridge and shallow roofs with a level
-ridge over 24 units long add a stone chimney (`chimney` faces, 13 units above the
-ridge) at 28% along it. Flat roofs sample the stone-flag atlas cell and the
-`flat` variant adds a 3-unit parapet with an inset coping. Plaster and timber
-walls gain a knee-high rubble plinth; windows are four-pane casements with blue
-glass exempt from the muted wall wash. A terraced market halves its upper-storey
-setback until no wing collapses below half its edge, and terrace caps sort below
-walls rising from the same height. The geometry test bounds beam and chimney
+(`beam` faces, 1 unit proud of the ridge). Plaster and timber walls gain a
+knee-high rubble plinth. A terraced market halves its upper-storey setback
+until no wing collapses below half its edge, and terrace caps sort below walls
+rising from the same height. The geometry test bounds beam and chimney
 triangles separately from fascia.
 
-Materials (supersedes the GIF reference pass and roof-scale notes above): the
-renderer samples `reference-materials-v3.png`, twelve seamless 96px tiles
-built by `tools/build_building_materials.py` and drawn 1:1, so texel density is
-set in the build script, not by a browser downsample. Roof UVs wrap every 288
-texels (three tiles). Each tile is blended toward the role colour (roofs 0.7,
-plaster and clapboard 0.55, other walls 0.4) by luminance ratio, keeping its own
-outlines and highlights; the old narrow contrast clamp and 12-colour sheet
-quantisation now apply only to the no-atlas fallback. Wall cells follow
-`ROLES[role].material` (plaster, timber boards, clapboard, brick, otherwise
+## Billboard look
+
+The low-poly path is drawn to match the game's 2D billboard sprites
+(`house.png`, `home_wagon.png`, the reference houses at `/tmp/houses3.webp`).
+`BuildingLowPoly.LOOK` owns every number below; `tools/building-billboard-preview.html`
+edits that table live beside the sprites, and a phone-viewable copy of the same
+review is published as a Claude artifact.
+
+- Height: `update()` projects z through `LOOK.heightScale` (0.6), so walls and
+  roof rise foreshorten like the sprites. Sign and flag placement still reads
+  the model height; the browser regression checks drift against the scaled z.
+- Ink outline: `renderWebGL` re-emits each ink group's visible triangles in the
+  solid trim texel, tinted `LOOK.ink`, at eight screen offsets of
+  `LOOK.inkPx` art pixels (× camera zoom), then draws the group. A building is
+  one contiguous sorted run; its ink groups (body, flat deck, chimney) draw in
+  layer order so each gets a line where it meets the surface below it. Same
+  retained vertices; nothing allocates on a heading change.
+- Flat roofs: no parapet lip. The deck is one colour (`solid` faces draw the
+  recipe roof colour from the solid texel) with a lighter 3.5-unit rim and a
+  darker 9-unit band inside it (`flatBands`, flags `rim`/`rimShade`, coloured
+  in `add()`); terraced decks get the same from their prism rings.
+- Eave shadow: `eaveSplit` (run by `atlasFaces`) splits every wall triangle
+  whose top meets a roof level 9 units below it; the strip above draws at half
+  shade. Walls rising above a terrace deck get it too.
+- Chimneys: a cobbled stack (sides are `wall` faces with `rawUV` into the
+  sheet's stone plinth rows), a wider cap and a dark mouth, as ink group 2.
+  `ROLES[role].chimneys`/`chimneyScale` place a pair at 26%/74% of the ridge
+  (the smithy, 1.5×); the default is one at 28%.
+- Wreck: the surviving roof is bitten along the break, fallen beams lie across
+  the open half, the rubble floor is lightened, textured faces are tinted
+  `LOOK.wreck.tint`, and its sheet boards the windows and adds soot, moss and
+  missing tiles.
+- Sprite roles: `ROLES[role].sprite` (the trailer) keeps its sprite art; the
+  overlay skips the shell for it as it does for the wizard tower and turret.
+
+Material sheets (`tilesetSheet`, supersedes the generated-atlas materials
+below when the tilesets are loaded): per wall/roof pair, one `LOOK.sheet`-pixel
+(768) canvas in the layout `atlasFaces` expects, cut from
+`assets/Objects/BuildingMaterials/pixel-tileset-v3.png` (the user's pixel
+tileset: timber frame, plaster, brick, stone walls; thatch, shingle, slate
+roofs), `painterly-tileset-v1.png` (the user's painterly sheet: dark stone and
+cobble walls, red tiles, for the potion and relic shops) and the generated
+`reference-materials-v3.png` (clapboard, glazed). `SHEET_SRC` holds the crop
+rectangles; brick repeats 1.35× and slate 1.5× larger than their crops. The
+pixel tileset leaves openings white, so `paintOpenings` flood-fills them: the
+ground-floor entrance bay becomes a plank door, the rest blue glass with a
+lighter pane; a wreck boards them over. Sheets are cut once per material key
+and shared across story counts and footprints, like the generated ones.
+
+Generated-atlas materials (the fallback for forts, headless review and
+missing art): the renderer samples `reference-materials-v3.png`, twelve
+seamless 96px tiles built by `tools/build_building_materials.py` and drawn
+1:1, so texel density is set in the build script, not by a browser
+downsample. Roof UVs wrap every 288 texels (three tiles). Each tile is
+blended toward the role colour (roofs 0.7, plaster and clapboard 0.55, other
+walls 0.4) by luminance ratio, keeping its own outlines and highlights; the
+old narrow contrast clamp and 12-colour sheet quantisation apply only here.
+Wall cells follow `ROLES[role].material` (plaster, timber boards, clapboard,
+brick, otherwise rubble; the painterly dark stone and cobble fall back to
 rubble); roof cells follow `roofMaterial` (clay, slate, thatch, shingle,
-glazed; flat roofs use flagstone). The plinth is rubble, or moss on a wreck.
+glazed; red tile falls back to clay; flat roofs use flagstone). The plinth is
+rubble, or moss on a wreck.

@@ -1492,8 +1492,9 @@
         continue;
       }
       const isMine = claimed(d.object?.id || d.key);
-      // Wizard and turret keep their original sprite artwork, not generated shells.
-      if(d.object&&['wizard','turret'].includes(Houses.displayRole(scene.save,d.object))){
+      // Wizard, turret and the trailer keep their original sprite artwork, not
+      // generated shells (BuildingLowPoly.ROLES rows flagged `sprite`).
+      if(d.object&&['wizard','turret','trailer'].includes(Houses.displayRole(scene.save,d.object))){
         g.fillPoly(d.pts,tuneOf(isMine)(shadeOf(isMine)(floorColor(d.tier,isMine))));continue;
       }
       if (procedural && !d.shared && (d.tier === 9 || d.tier === 11)) {
@@ -1522,7 +1523,8 @@
           model = BuildingLowPoly.add(scene,d.pts,recipe,variant,object.id);
         } else model = BuildingStyles.emit(scene, 'polygon', d.pts, styleId, { claimed: isMine, palette: profile.palette });
         if (model && (model.faces?.length || model.prisms?.length)) {
-          if (object.id) scene._proceduralBuildings.set(object.id, { height: model.height });
+          // Signs and flags seat on the drawn top: the low-poly path foreshortens height.
+          if (object.id) scene._proceduralBuildings.set(object.id, { height: model.height * (lowpoly ? BuildingLowPoly.LOOK.heightScale : 1) });
           continue;
         }
       }

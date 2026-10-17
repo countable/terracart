@@ -19,7 +19,7 @@ const result=await page.evaluate(()=>{
  let refreshes=0;for(const texture of new Set(original.map(f=>f.texture))){const refresh=texture.refresh.bind(texture);texture.refresh=()=>{refreshes++;return refresh();};}
  const times=[];let maxDrift=0;
  for(let deg=0;deg<=360;deg++){s.mapRot=deg*Math.PI/180;const t=performance.now();BuildingLowPoly.update(s);times.push(performance.now()-t);
- for(const f of state.faces)for(let i=0;i<3;i++){const p=f.points[i],q=f.projected[i],dx=q.x-f.x-p.x,dy=q.y-f.y-p.y;maxDrift=Math.max(maxDrift,Math.abs(Math.cos(s.mapRot)*dx-Math.sin(s.mapRot)*dy),Math.abs(Math.sin(s.mapRot)*dx+Math.cos(s.mapRot)*dy+p.z));}}
+ for(const f of state.faces)for(let i=0;i<3;i++){const p=f.points[i],q=f.projected[i],dx=q.x-f.x-p.x,dy=q.y-f.y-p.y;maxDrift=Math.max(maxDrift,Math.abs(Math.cos(s.mapRot)*dx-Math.sin(s.mapRot)*dy),Math.abs(Math.sin(s.mapRot)*dx+Math.cos(s.mapRot)*dy+p.z*BuildingLowPoly.LOOK.heightScale));}}
  times.sort((a,b)=>a-b);return {refreshes,builds:state.builds-builds,textures:s.textures.getTextureKeys().length-textures,maxDrift,retained:original.every(f=>state.faces.includes(f)),p95:times[Math.floor(times.length*.95)],triangles:state.faces.length};
 });
 assert.equal(result.refreshes,0);assert.equal(result.builds,0);assert.equal(result.textures,0);assert(result.retained);assert(result.maxDrift<1e-6);

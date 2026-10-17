@@ -3,6 +3,11 @@
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
   building_material_reference: { kind: 'image', path: 'assets/Objects/BuildingMaterials/reference-materials-v3.png' },
+  // Low-poly building sheets are cut from these at runtime (BuildingLowPoly.tilesetSheet):
+  // the pixel tileset, the painterly shop sheet and the seamless generated atlas.
+  pixel_tileset_v3: { kind: 'image', path: 'assets/Objects/BuildingMaterials/pixel-tileset-v3.png' },
+  painterly_tileset_v1: { kind: 'image', path: 'assets/Objects/BuildingMaterials/painterly-tileset-v1.png' },
+  reference_materials_v3: { kind: 'image', path: 'assets/Objects/BuildingMaterials/reference-materials-v3.png' },
   // Rounded alternatives preserve all legacy building textures. Tight native
   // 64px house / 80px fort frames end at the sheet's common ground row 88.
   rounded_buildings: { kind: 'image', path: 'assets/Objects/RoundedBuildings/buildings.png', unclaimedArt: true,

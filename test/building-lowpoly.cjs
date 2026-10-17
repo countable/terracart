@@ -7,8 +7,8 @@ for(const fixture of fixtures)for(const variant of ['ridge','inset','shallow','f
  const pts=fixture.points.map(([x,y])=>({x,y})),m=api.geometry(pts,variant,77);
  assert(Math.abs(m.faces.filter(f=>f.kind==='roof').reduce((n,f)=>n+area(f.points),0)-area(pts))<1e-5,'exact footprint area');
  assert(m.roofTriangles<200,'bounded roof budget');
- // Only a ridge beam (1) or chimney stack (14) may rise above the ridge.
- for(const f of m.faces)for(const p of f.points)assert(Number.isFinite(p.z)&&p.z>=0&&p.z<=105+(f.chimney?14:f.beam?1:0));
+ // Only a ridge beam (1) or chimney stack (13 + LOOK.chimney.rise) may rise above the ridge.
+ for(const f of m.faces)for(const p of f.points)assert(Number.isFinite(p.z)&&p.z>=0&&p.z<=105+(f.chimney?14+api.LOOK.chimney.rise+.05:f.beam?1:0));
  for(let angle=0;angle<Math.PI*2;angle+=.13)for(const f of m.faces.filter(f=>f.kind==='roof')){
   const p=f.points.map(v=>({x:v.x-Math.sin(angle)*v.z,y:v.y-Math.cos(angle)*v.z}));assert((p[1].x-p[0].x)*(p[2].y-p[0].y)-(p[1].y-p[0].y)*(p[2].x-p[0].x)>1e-10,'no folded or degenerate rotated roof');
  }
@@ -60,7 +60,8 @@ console.table(overhangRows);
 for(const role of Object.keys(api.ROLES)){
  const recipe=api.recipeFor(role),points=fixtures[0].points.map(([x,y])=>({x,y}));
  const mesh=recipe.shape?api.specialGeometry(points,recipe):recipe.terraced?api.styleGeometry(points,recipe.style,recipe):api.geometry(points,recipe.variant||'ridge',recipe.stories*31.2+5,5);
- assert(mesh.faces.length>0&&mesh.faces.length<300,role+' bounded geometry');
+ // Torn wreck roofs (bites along the break, fallen beams) carry more triangles.
+ assert(mesh.faces.length>0&&mesh.faces.length<(role==='wreck'?420:300),role+' bounded geometry');
  assert(mesh.faces.every(f=>f.points.every(p=>[p.x,p.y,p.z,p.u,p.v].every(Number.isFinite))),role+' finite vertices');
  if(role==='wizard'||role==='turret'){
   const large=api.specialGeometry(points.map(p=>({x:p.x*3,y:p.y*3})),recipe);
@@ -96,14 +97,15 @@ console.log('Roof holes and terraced market passed.');
 const surfaceArea=f=>{const [a,b,c]=f.points,u={x:b.x-a.x,y:b.y-a.y,z:b.z-a.z},v={x:c.x-a.x,y:c.y-a.y,z:c.z-a.z};return Math.hypot(u.y*v.z-u.z*v.y,u.z*v.x-u.x*v.z,u.x*v.y-u.y*v.x)/2;};
 for(const size of [150,800,1400]){
  const mesh=api.geometry([{x:0,y:0},{x:size,y:0},{x:size,y:size},{x:0,y:size}],'ridge',98.6,5),mapped=api.atlasFaces(mesh);
- if(size===150)assert.equal(mapped.length,mesh.faces.length,'normal buildings need no UV subdivision');
+ // Walls split once at the eave band; nothing else subdivides on a normal building.
+ if(size===150){assert.equal(mapped.filter(f=>f.kind!=='wall').length,mesh.faces.filter(f=>f.kind!=='wall').length,'normal buildings need no UV subdivision');assert(mapped.filter(f=>f.kind==='wall').length<=mesh.faces.filter(f=>f.kind==='wall').length*3,'eave band adds at most two pieces per wall triangle');}
  for(const kind of ['roof','wall','trim']){
   const before=mesh.faces.filter(f=>f.kind===kind).reduce((n,f)=>n+surfaceArea(f),0),after=mapped.filter(f=>f.kind===kind).reduce((n,f)=>n+surfaceArea(f),0);
   assert(Math.abs(before-after)<1e-5,'atlas wrapping preserves '+kind+' surface area');
  }
  for(const f of mapped){
   assert(f.points.every(p=>p.tu>=-1e-8&&p.tu<=1&&p.tv>=-1e-8&&p.tv<=1),'wrapped UVs stay within the sheet');
-  if(f.kind==='trim')continue;
+  if(f.kind==='trim'||f.rawUV||f.solid)continue; // solid texel and chimney plinth UVs are not facade mappings
   for(let i=0;i<3;i++){const a=f.points[i],b=f.points[(i+1)%3];
    assert(Math.abs((b.tu-a.tu)*512-(b.u-a.u)/(f.kind==='roof'?1.3:1))<1e-6,'no horizontal stretch');
    assert(Math.abs((b.tv-a.tv)*512-(b.v-a.v)/1.3)<1e-6,'no vertical stretch');
