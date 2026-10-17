@@ -121,7 +121,7 @@ const FILES = [
   // Pure draw math over WorldGen + a stub Graphics, so projection/culling pin without Phaser.
   'road_overlay.js',
   // The POLYGONAL building overlay: pure draw math over WorldGen + a stub fill target.
-  'castle_styles.js', 'temple_art.js', 'wall_perspective.js', 'building_overlay.js',
+  'castle_styles.js', 'temple_art.js', 'wall_perspective.js', 'building_styles.js', 'building_overlay.js',
   // The sandbox's pure tile builder: the same authored scenes, roads and dressing install() uses.
   'sandbox_destinations.js',
   'sandbox.js',

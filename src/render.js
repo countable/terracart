@@ -216,6 +216,7 @@ Render.towerCrownHeight = function (textures, castle) {
 };
 
 Render.objectGroundOffsetPx = function (appearance, textures) {
+  if (appearance?.groundGeometry) return appearance.dyPx;
   if (!appearance?.visible) return 0;
   if (appearance.foot) return appearance.foot.footFromCentre;
   if (appearance.spec?.groundAtOrigin) return appearance.dyPx;
@@ -1810,8 +1811,38 @@ Render.reachDimAlpha = (scene) => {
 };
 
 // One reversible building-art selection; query choice is per page, never saved.
-Render.buildingArtStyle = typeof location !== 'undefined'
-  && new URLSearchParams(location.search).get('buildingArt') === 'legacy' ? 'legacy' : 'rounded';
+Render.buildingArtStyle = (() => {
+  const choice = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('buildingArt') : null;
+  return ['legacy', 'rounded'].includes(choice) ? choice : 'procedural';
+})();
+Render.proceduralBuildings = () => Render.buildingArtStyle === 'procedural' && typeof BuildingStyles !== 'undefined';
+Render.BUILDING_STYLE_ROLES = Object.freeze({
+  plain: { style: 'multistorey', palette: { wall: 0xd4cdb4, roof: 0x709b9a, trim: 0xe8dfc6 } },
+  trailer: { style: 'adobe' },
+  blacksmith: { style: 'multistorey', palette: { wall: 0xa96e59, roof: 0x687a83, trim: 0xc79673 } },
+  trader: { style: 'japanese' }, shop: { style: 'japanese' },
+  wizard: { style: 'pyramid', palette: { roof: 0x8b78a8, trim: 0xc6afcf } },
+  turret: { style: 'fort' },
+  fort: { style: 'multistorey', palette: { wall: 0x9b9e91, roof: 0xb6b6a2, trim: 0xd5ceb2 } },
+  wreck: { style: 'ruin' },
+});
+Render.BUILDING_STYLE_SHOPS = Object.freeze({
+  seed: { style: 'adobe', palette: { roof: 0x82916b } },
+  supply: { style: 'whitewash', palette: { roof: 0xb09a69 } },
+  potion: { style: 'pyramid', palette: { roof: 0x957ca9, trim: 0xc7accf } },
+  relic: { style: 'pyramid', palette: { roof: 0x6e9a91, trim: 0xa8c2a1 } },
+  pet: { style: 'japanese', palette: { roof: 0x8b9678 } },
+  book: { style: 'japanese', palette: { roof: 0x967577 } },
+});
+Render.buildingProfileFor = (o, scene) => {
+  const role = Houses.displayRole(scene.save, o);
+  const theme = role === 'shop' ? scene.shopLine?.(o)?.theme ?? scene.save?.shopLines?.[o.id] ?? Shops.lineFor(scene.save, o)?.theme : null;
+  return Render.BUILDING_STYLE_SHOPS[theme] || Render.BUILDING_STYLE_ROLES[role] || Render.BUILDING_STYLE_ROLES.plain;
+};
+Render.buildingStyleFor = (o, scene) => Render.buildingProfileFor(o, scene).style;
+Render.proceduralHouse = (o, scene) => Render.proceduralBuildings()
+  && typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled()
+  && (scene.depth ?? 0) === 0 && scene._proceduralBuildings?.has(o.id);
 Render.roundedBuildings = () => Render.buildingArtStyle !== 'legacy'
   && typeof ASSETS !== 'undefined' && !!ASSETS.rounded_buildings;
 Render.HOUSE_ART_FRAMES = Object.freeze({ plain: 'house', house: 'house',
@@ -4426,7 +4457,7 @@ Render.drawObjects = function drawObjects(scene) {
     const shadowList = [];
     for (const item of filteredObj) {
       const k = item.o.kind;
-      if (k === 'temple') continue;
+      if (k === 'temple' || item._appearance?.groundGeometry) continue;
       if (isBuilding(k)) { shadowList.push(item); continue; }
       if (!RENDER_SPEC[k]?.shadow) continue;
       const foot = item._appearance?.foot;
@@ -5811,6 +5842,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     buildingBaseScale(_houseFrameW(o), _houseRole(o), CELL_PX);
   // The house art's drawn height, game px (0 before its texture loads).
   const _houseArtH = (o) => {
+    if (Render.proceduralHouse(o, _pass.scene)) return _pass.scene._proceduralBuildings.get(o.id).height;
     const T = _pass.scene.textures;
     if (!T || !T.exists(_houseKey(o))) return 0;
     const fr = T.get(_houseKey(o)).get(_houseFrame(o));
@@ -5854,7 +5886,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // themed PNGs are single-image, so frame must be undefined for them. Tint is
     // suppressed for themed houses (see the `themedHouse` flag below).
     house:  {
-      key: _houseKey,
+      key: o => Render.proceduralHouse(o, _pass.scene) ? null : _houseKey(o),
       frame: _houseFrame,
       // Every building stands its bottom-middle on its footprint's centre of
       // mass (_houseFootPx): the object sits on the footprint cell nearest
@@ -6152,6 +6184,10 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       frame: o._zoneObjectFrame,
       scale: 4 / 3, origin: [0.5, 0.5], seat: true };
     const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
+    if (texKey == null && o.kind === 'house' && Render.proceduralHouse(o, scene)) {
+      const foot = _houseFootPx(o);
+      return { spec, visible: false, groundGeometry: true, dxPx: foot.x, dyPx: foot.y };
+    }
     if (texKey == null || !scene.textures.exists(texKey)) return { spec, visible: false };
     const frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
