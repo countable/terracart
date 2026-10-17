@@ -7,7 +7,8 @@
 // live outside the checkout; see docs/art/ART_SOURCES.md.
 //
 // Reads OPENAI_API_KEY from ~/.env (or the environment), renders each piece at
-// 1536x1024, then downscales to 512px wide (the size the dialogs lazy-load)
+// its declared shape (square for new dialog scenes), then downscales to
+// 512px wide (the size the dialogs lazy-load)
 // with PIL. Usage:
 //
 //   node tools/gen_story_art.js              # all pieces missing from assets/art/
@@ -35,28 +36,22 @@ const STYLE =
   'Detailed 16-bit pixel art storybook illustration for a cozy village-rebuilding RPG. ' +
   'Warm golden-hour palette: amber and dusty-orange sky with visible dithering, olive-green ' +
   'foliage, brown earth, cream highlights. Retro SNES-era pixel clusters, crisp clusters, no ' +
-  'anti-aliased smooth gradients. Wide landscape composition, gentle melancholy turning to hope. ' +
+  'anti-aliased smooth gradients. Gentle melancholy turning to hope. ' +
   'The player survivor always wears a raised brown hood completely concealing hair and face in opaque shadow: ' +
   'no visible eyes, nose, mouth, chin, facial skin or glowing eyes, even in torchlight or profile. ' +
   'Use natural figure proportions in story illustrations, never chibi or oversized heads; NPCs keep their own clothing. ' +
   'All currency coins are jade green with a star mark, never yellow gold. ' +
   'No text, no letters, no UI, no watermark.';
 
-// SCENE ART — the standard every dialog painting is made to (modal_shell.js
-// makeModalShell `art`, ART_FRAME_ASPECT / ART_DETAIL_FRAC / SCENE_ART). The
-// piece IS the dialog box: generated portrait, cut top-anchored to the box's
-// 11:14 shape, and the copy sits over its lower part. So the composition is a
-// rule, not a taste: subject and detail in the top ~40%, and a QUIET ZONE
-// below it - broad, dark, low-detail ground with nothing in it - that a scrim
-// darkens and the text sits on. scene('subject') builds such a piece.
-const SCENE_ASPECT = 352 / 448;
+// New dialog paintings are square illustrations. Copy belongs to the shell's
+// lower content area; no part of the generated image is reserved for text.
+// Existing portrait paintings use the same top-aligned square display crop.
+const SCENE_ASPECT = 1;
 const SCENE_RULE =
-  'COMPOSITION (strict): tall portrait frame. Put the subject and ALL detail, figures and ' +
-  'bright light in the TOP 40% of the frame, drawn LARGE and close so it fills the full width ' +
-  'of that top band. The BOTTOM 60% is a ' +
-  'calm, empty QUIET ZONE: broad dark foreground ground (soil, grass or shadow) in large ' +
-  'simple dithered areas, darkening toward the bottom edge, with no objects, no figures, no ' +
-  'bright spots and no fine detail - text will be printed over it.';
+  'COMPOSITION (strict): square illustration. Fill the square with the scene, ' +
+  'using its full height for the subject and environment. Keep the whole subject ' +
+  'inside the frame. Do not reserve a dark or empty text zone: dialog text is ' +
+  'rendered separately below the image. No text, captions, borders or UI.';
 const WIZARD_CONCEALMENT =
   ' His low pointed-hat brim hides his entire face in deep natural shadow: no visible eyes, ' +
   'nose, mouth or facial skin. Only his white beard emerges below. No glowing eyes or mask.';
@@ -100,7 +95,7 @@ const scene = (subject, lore) => {
     throw new Error(`no LORE hint ('${lore}') on a sacred / grave subject: ${subject.slice(0, 60)}…`);
   }
   return {
-    size: '1024x1536', width: 512, aspect: SCENE_ASPECT, colors: 128,
+    size: '1024x1024', width: 512, aspect: SCENE_ASPECT, colors: 128,
     subject: `${subject}${lore ? ' ' + LORE[lore] : ''}\n\n${SCENE_RULE}`,
   };
 };
@@ -111,32 +106,34 @@ const scene = (subject, lore) => {
 const PIECES = {
   // Runtime adds the actual creature frame and tint (PetStoryArt), preserving
   // every species palette rather than painting approximate pet colours.
-  pet_clearing: scene('An EMPTY grassy clearing in a ruined medieval village, low weathered stone walls and olive foliage at the sides. Leave a neutral brown earth patch empty at the centre of the upper 40% for a pet sprite. No animals or people. The lower 60% is dark, quiet brown earth.'),
-  temple_activated: scene('An ancient low grey limestone temple in a woodland park, with a broad stone courtyard and continuous smooth-coped walls. No towers, turrets, spires or crenellations. Geometric engraved runes awaken with icy cyan light over the stone; a modest tied scroll lies beside the central diamond rune. Respectful and peaceful, subdued painterly stone and moss. All architecture and light in the top 40 percent; empty dark earth below.'),
+  // The runtime pet compositor still seats sprites on a 352×448 legacy canvas.
+  pet_clearing: { size: '1024x1536', width: 512, aspect: 352 / 448, colors: 128,
+    subject: 'An EMPTY grassy clearing in a ruined medieval village, low weathered stone walls and olive foliage at the sides. Portrait composition: leave a neutral brown earth patch at the centre of the upper 40% for a pet sprite. No animals or people. The lower 60% is dark, quiet brown earth.' },
+  temple_activated: scene('An ancient low grey limestone temple in a woodland park, with a broad stone courtyard and continuous smooth-coped walls. No towers, turrets, spires or crenellations. Geometric engraved runes awaken with icy cyan light over the stone; a modest tied scroll lies beside the central diamond rune. Respectful and peaceful, subdued painterly stone and moss.'),
   // Paired macro booths: built-in reference edits, never independent text-only
   // calls. After-use paintings focus closely on the transaction object.
   // scene() owns export framing; see docs/art/ART_SOURCES.md.
-  booth_inn_intro: scene('Humble rebuilt timber inn booth with a moss green awning and ivory bed sign. Innkeeper welcomes a survivor to a clean bed, explaining paid rest. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_inn_used: scene('Close-up of the existing inn bed: hooded player under its green blanket, face concealed, pale light swirling away. Frame only the bed and its immediate surroundings, no keeper or full booth view. Preserve the introduction’s darker painterly style and bed design. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_chapel_intro: scene('A humble wooden chapel booth with a blue pointed canopy and small gold bell in its niche. A peaceful keeper welcomes a brown-hooded visitor for a free daily blessing. Respectful sacred place, no sinister imagery. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_chapel_used: scene('The same blue pointed chapel booth with a small gold bell. A peaceful keeper gives a modest wrapped blessing gift to the hooded visitor. No coins are requested; respectful and serene. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_apothecary_intro: scene('Rebuilt timber apothecary booth with a plum awning and green potion sign. An herbalist presents a small shelf of healing flasks to a brown-hooded survivor. Herbs grow among old foundations. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_apothecary_used: scene('The plum-awning apothecary hands a green potion flask to the brown-hooded survivor, with jade green star coins paid on the counter. Mended wood and drying herbs. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  torch_light: scene('Close-up of cropped hands in weathered brown sleeves striking flint and steel to light a cloth-wrapped wooden torch in a dark stone passage. Amber flame and sparks illuminate rough stone. Restrained painterly realism, no face or full figure. Keep hands and the entire torch in the top band, with empty dark shadow below.'),
-  booth_scriptorium_intro: scene('Small red-awning timber scriptorium with a parchment and quill sign. A scribe repairs salvaged singed books and offers books or a torch to a brown-hooded survivor. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_bank_intro: scene('Small crimson-awning timber bank counter with a gold coin sign. A banker behind a strongbox offers a ledger to a brown-hooded survivor: a loan or a deposit. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_bank_used: scene('At the same crimson-awning coin-sign counter the banker counts jade green star coins into the brown-hooded survivor\'s hand beside an open ledger. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_scriptorium_used: scene('At the same red-awning parchment-sign booth a scribe hands a repaired book to the brown-hooded survivor. A reading torch rests beside the purchase; jade green star coins on counter. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_guildhall_intro: scene('Small rebuilt blue-awning guildhall booth with a gold shield sign. A keeper shows a bounty board with creature sketches but no lettering to a brown-hooded survivor. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_guildhall_used: scene('At the blue-awning gold-shield guildhall booth, the keeper pays the returning brown-hooded survivor a pouch of jade green star coins for a completed monster bounty. No violence, no words. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_curio_intro: scene('Small timber curio booth with teal awning and a purple crystal sign. A keeper shows empty spaces among salvaged keepsakes to the brown-hooded survivor, inviting a donation. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_curio_used: scene('At the teal-awning purple-crystal curio booth, the keeper places a donated old artifact on the collection shelf. The brown-hooded visitor quietly recognises something familiar; no literal flashback or revealed identity. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_sundries_intro: scene('Rebuilt yellow-striped awning supply booth with a sack sign. A practical keeper shows bundled tools, rope, and supplies for sale to a brown-hooded survivor. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_sundries_used: scene('At the yellow-striped sack-sign booth, the keeper hands a parcel of supplies to the brown-hooded survivor after payment in jade green star coins. Mended sacks and repaired timber. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_training_intro: scene('Small red-awning training booth with crossed sword and shield sign. A tutor welcomes a brown-hooded survivor for paid practice, with open space beside the booth. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_training_used: scene('At the red-awning crossed-weapons training booth the tutor finishes a lesson with the brown-hooded survivor standing confidently. Paid practice, respectful and nonviolent; no claimed permanent transformation. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_scholar_intro: scene('A scholar under an indigo awning with an open-book sign and stacked tomes. The scholar shows repaired books and ornate reusable tomes to a brown-hooded visitor at the Book Club. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
-  booth_scholar_used: scene('At the indigo open-book booth, the scholar hands an ornate spell tome to the brown-hooded reader as a reading milestone prize. Several ordinary books nearby; no coin payment or surrender of books. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
+  booth_inn_intro: scene('Humble rebuilt timber inn booth with a moss green awning and ivory bed sign. Innkeeper welcomes a survivor to a clean bed, explaining paid rest. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_inn_used: scene('Close-up of the existing inn bed: hooded player under its green blanket, face concealed, pale light swirling away. Frame only the bed and its immediate surroundings, no keeper or full booth view. Preserve the introduction’s darker painterly style and bed design. No text.'),
+  booth_chapel_intro: scene('A humble wooden chapel booth with a blue pointed canopy and small gold bell in its niche. A peaceful keeper welcomes a brown-hooded visitor for a free daily blessing. Respectful sacred place, no sinister imagery. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_chapel_used: scene('The same blue pointed chapel booth with a small gold bell. A peaceful keeper gives a modest wrapped blessing gift to the hooded visitor. No coins are requested; respectful and serene. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_apothecary_intro: scene('Rebuilt timber apothecary booth with a plum awning and green potion sign. An herbalist presents a small shelf of healing flasks to a brown-hooded survivor. Herbs grow among old foundations. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_apothecary_used: scene('The plum-awning apothecary hands a green potion flask to the brown-hooded survivor, with jade green star coins paid on the counter. Mended wood and drying herbs. Keep the hood raised and the entire face and hair concealed. No text.'),
+  torch_light: scene('Close-up of cropped hands in weathered brown sleeves striking flint and steel to light a cloth-wrapped wooden torch in a dark stone passage. Amber flame and sparks illuminate rough stone. Restrained painterly realism, no face or full figure. Keep hands and the entire torch inside the square frame.'),
+  booth_scriptorium_intro: scene('Small red-awning timber scriptorium with a parchment and quill sign. A scribe repairs salvaged singed books and offers books or a torch to a brown-hooded survivor. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_bank_intro: scene('Small crimson-awning timber bank counter with a gold coin sign. A banker behind a strongbox offers a ledger to a brown-hooded survivor: a loan or a deposit. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_bank_used: scene('At the same crimson-awning coin-sign counter the banker counts jade green star coins into the brown-hooded survivor\'s hand beside an open ledger. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_scriptorium_used: scene('At the same red-awning parchment-sign booth a scribe hands a repaired book to the brown-hooded survivor. A reading torch rests beside the purchase; jade green star coins on counter. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_guildhall_intro: scene('Small rebuilt blue-awning guildhall booth with a gold shield sign. A keeper shows a bounty board with creature sketches but no lettering to a brown-hooded survivor. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_guildhall_used: scene('At the blue-awning gold-shield guildhall booth, the keeper pays the returning brown-hooded survivor a pouch of jade green star coins for a completed monster bounty. No violence, no words. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_curio_intro: scene('Small timber curio booth with teal awning and a purple crystal sign. A keeper shows empty spaces among salvaged keepsakes to the brown-hooded survivor, inviting a donation. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_curio_used: scene('At the teal-awning purple-crystal curio booth, the keeper places a donated old artifact on the collection shelf. The brown-hooded visitor quietly recognises something familiar; no literal flashback or revealed identity. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_sundries_intro: scene('Rebuilt yellow-striped awning supply booth with a sack sign. A practical keeper shows bundled tools, rope, and supplies for sale to a brown-hooded survivor. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_sundries_used: scene('At the yellow-striped sack-sign booth, the keeper hands a parcel of supplies to the brown-hooded survivor after payment in jade green star coins. Mended sacks and repaired timber. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_training_intro: scene('Small red-awning training booth with crossed sword and shield sign. A tutor welcomes a brown-hooded survivor for paid practice, with open space beside the booth. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_training_used: scene('At the red-awning crossed-weapons training booth the tutor finishes a lesson with the brown-hooded survivor standing confidently. Paid practice, respectful and nonviolent; no claimed permanent transformation. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_scholar_intro: scene('A scholar under an indigo awning with an open-book sign and stacked tomes. The scholar shows repaired books and ornate reusable tomes to a brown-hooded visitor at the Book Club. Keep the hood raised and the entire face and hair concealed. No text.'),
+  booth_scholar_used: scene('At the indigo open-book booth, the scholar hands an ornate spell tome to the brown-hooded reader as a reading milestone prize. Several ordinary books nearby; no coin payment or surrender of books. Keep the hood raised and the entire face and hair concealed. No text.'),
 
   // Daily visit paintings: generated with the built-in image tool; exported here.
   shrine_wayfarer_post: scene("A weathered wooden roadside post holding a small bronze bell and rope, beside an intact cobbled path in wild meadow. A tiny offering of a pairy fruit at its foot, faint amber-green enchanted light flowing from the bell toward the trail. The shrine lends the same moment of sustenance and treasure sense as eating the magical fruit."),
@@ -152,8 +149,8 @@ const PIECES = {
   shrine_waystone: scene("A short ancient weathered stone waystone with an indistinct shallow carved mark, beside an intact lonely cobbled road and overgrown meadow. Soft warm ivory magical light emerges from the stone; a faint suggestion of parchment-shaped light hints at remembered stories. No readable words or text."),
   shrine_grove: scene("A small ancient moss-covered stone sanctuary beneath mature forest trees, with a weathered carved stone votive figure and a humble wrapped gift at its feet. Soft green sacred light, ferns and fallen leaves, fifty years of wild regrowth. Peaceful and respectful, no demons or horns."),
   visit_wagon: scene("A medieval hired guard in worn steel armour and a closed helmet concealing the entire face stands beside a weathered covered wooden wagon and a warm lantern. The guard rests a hand on a sheathed sword, ready to accompany a traveller. Wild grass, ruined medieval buildings, intact old trade road. No player, no visible faces."),
-  visit_hive: scene("Close view of a golden straw bee skep on a rough wooden stand in a deep forest. Three thick amber syrup jars and cropped gloved hands at the top of the image, three large angry bees rising beside the hive, green canopy and moss. No face or full body. Quiet dark empty forest floor fills the bottom sixty percent."),
-  visit_bike: scene("A saddled chestnut horse waits at a weathered courier's hitching post beside an intact cobbled trade road, small blue courier pennant and warm lantern, ruined medieval buildings and wild vegetation behind. No rider or people, no bicycle. A faint blue magical gleam suggests swift borrowed travel."),
+  visit_hive: scene("Close view of a golden straw bee skep on a rough wooden stand in a deep forest. Three thick amber syrup jars and cropped gloved hands at the top of the image, three large angry bees rising beside the hive, green canopy and moss. No face or full body."),
+  visit_bike: scene("Chunky pixel art with deliberate square clusters, crisp stepped edges and a limited amber-brown palette, matching the opening story paintings; no photographic detail. A saddled chestnut horse waits at a weathered courier's hitching post beside an intact cobbled trade road, small blue courier pennant and warm lantern, ruined medieval buildings and wild vegetation behind. No rider or people, no bicycle. A faint blue magical gleam suggests swift borrowed travel."),
   visit_gold: scene("An old black iron pot filled with muted cool teal-jade metal coins bearing embossed five-point stars, matching assets/Icons/coin.png exactly, never lime or yellow-green, in a mossy nook beside an intact cobbled path. A handful of green star coins glimmers in the surrounding grass. The coins give a restrained pale cool teal glimmer. Absolutely no yellow or gold-colored coins despite the traditional pot-of-gold name."),
 
   trap_jaw:
@@ -187,7 +184,7 @@ const PIECES = {
     scene(
     'A farmer gently lowers a bug net over a startled chicken in long grass, the net hoop ' +
     'about to settle, playful tension, warm light.'),
-  health_low: scene('An exhausted brown-hooded survivor braces against a rough stone wall beside a ruined village, one hand on a bent knee. Face concealed, alive but struggling to keep going. No wounds. All detail in the top forty percent, empty dark brown foreground below.'),
+  health_low: scene('An exhausted brown-hooded survivor braces against a rough stone wall beside a ruined village, one hand on a bent knee. Face concealed, alive but struggling to keep going. No wounds.'),
   tool_catch:
     scene(
     'A hooded survivor sweeps a bug net through tall grass. The target is completely hidden ' +
@@ -358,6 +355,8 @@ const PIECES = {
     'Keep the hood raised and the entire face and hair concealed. No readable words on the parchment.'),
   castle_favour: scene(
     'A grey-moustached castellan in a tabard stands at an open castle gate offering a small purse of coins and a steaming mug to a young survivor. Torches lit, banners stirring. Hospitality.'),
+  road_repair: scene(
+    'The brown-hooded player kneels with their back to the viewer, setting a cobblestone into a damaged village road with gloved hands. Face and hair fully hidden. Rubble and ruined timber houses, warm amber sunrise, chunky pixel clusters, quiet dark foreground for dialog text. No onlookers.'),
   trail_intro: scene(
     'A band of weary survivors - a farmer, an old man, two children - look along a cracked, overgrown old road winding toward a distant village at dusk, one pointing ahead. The road home.', 'claws'),
   trail_prize: scene(
@@ -366,28 +365,37 @@ const PIECES = {
     'A castle notice board by a stone gate, pinned with a single parchment quest and a wax seal, a torch burning beside it at dusk.', 'claws'),
   kind_treasure: scene(
     'An old wooden treasure chest, lid thrown open, a glowing gem and a few jade-green star coins inside, nothing spilled on the ground, dusty light falling on it in a ruined cottage.'),
+  treasure_dig: scene(
+    'A concealed brown-hooded survivor opens a small freshly dug coffer in a shallow hole beside a neglected grassy footpath among ruins, an X scored into the soil and a worn spade nearby. ' +
+    'The open coffer holds only luminous haze; no visible contents, coins, gems or objects.'),
+  treasure_barrel: scene(
+    'A concealed brown-hooded survivor lifts the lid of a small upright weathered oak barrel with dark iron hoops in a ruined storehouse, round lid lifted aside. ' +
+    'Only a soft amber glow inside; no visible contents, coins, gems or objects.'),
+  treasure_crate: scene(
+    'A concealed brown-hooded survivor opens a small rough square wooden shipping crate with diagonal bracing, flat lid pried ajar on worn stone among ruins. ' +
+    'Only a soft amber glow inside; no visible contents, coins, gems or objects.'),
   // The seven source chest tiers, matching the world sprites and chestOpeningArt.
   chest_t1: scene(
     'A humble square wooden supply box with straight plank sides, a flat lid lifted open, weathered warm brown timber and simple dark corner fittings. ' +
-    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+    'Three-quarter view, container 25% smaller with breathing room, a concealed brown-hooded survivor kneeling beside it and lifting its lid, a restrained glow from within, on worn stone in a quiet ruined room. Interior obscured by luminous haze; no visible contents, coins, gems, objects or scattered loot.'),
   chest_t2: scene(
     'A stout copper treasure chest with a curved open lid, warm orange copper metal #e08a4c, heavy dark straps and a bright square latch. ' +
-    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+    'Three-quarter view, container 25% smaller with breathing room, a concealed brown-hooded survivor kneeling beside it and lifting its lid, a restrained glow from within, on worn stone in a quiet ruined room. Interior obscured by luminous haze; no visible contents, coins, gems, objects or scattered loot.'),
   chest_t3: scene(
     'A stout iron treasure chest with a curved open lid, cool silver-grey iron metal #b9c2cc, heavy dark straps and a bright square latch. ' +
-    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+    'Three-quarter view, container 25% smaller with breathing room, a concealed brown-hooded survivor kneeling beside it and lifting its lid, a restrained glow from within, on worn stone in a quiet ruined room. Interior obscured by luminous haze; no visible contents, coins, gems, objects or scattered loot.'),
   chest_t4: scene(
     'A stout golden treasure chest with a curved open lid, rich yellow gold metal #f4cc4a, heavy dark straps and a bright square latch. ' +
-    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+    'Three-quarter view, container 25% smaller with breathing room, a concealed brown-hooded survivor kneeling beside it and lifting its lid, a restrained glow from within, on worn stone in a quiet ruined room. Interior obscured by luminous haze; no visible contents, coins, gems, objects or scattered loot.'),
   chest_t5: scene(
     'An enchanted lavender treasure chest with a curved open lid, pale violet metal #c9a6f2, dark straps and a bright square latch. ' +
-    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+    'Three-quarter view, container 25% smaller with breathing room, a concealed brown-hooded survivor kneeling beside it and lifting its lid, a restrained glow from within, on worn stone in a quiet ruined room. Interior obscured by luminous haze; no visible contents, coins, gems, objects or scattered loot.'),
   chest_t6: scene(
     'A crimson treasure chest with a curved open lid, vivid red metal #e0384f, heavy dark straps and a bright square latch. ' +
-    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+    'Three-quarter view, container 25% smaller with breathing room, a concealed brown-hooded survivor kneeling beside it and lifting its lid, a restrained glow from within, on worn stone in a quiet ruined room. Interior obscured by luminous haze; no visible contents, coins, gems, objects or scattered loot.'),
   chest_t7: scene(
     'A frost treasure chest with a curved open lid, icy cyan metal #8fdcff, heavy dark straps, frost along the edges and a bright square latch. ' +
-    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+    'Three-quarter view, container 25% smaller with breathing room, a concealed brown-hooded survivor kneeling beside it and lifting its lid, a restrained glow from within, on worn stone in a quiet ruined room. Interior obscured by luminous haze; no visible contents, coins, gems, objects or scattered loot.'),
   kind_supplies: scene(
     'Two sturdy wooden supply crates on the grass beside a small travelling home wagon, lids pried open to show seed packets, a trowel and a lantern. Morning of a new start.' + HOME_WAGON),
   kind_trail: scene(
@@ -536,6 +544,45 @@ const PIECES = {
   kind_inn: scene("An ordinary innkeeper offers a mug from a modest inn doorway to a survivor whose raised brown hood hides all hair and face. No castle or steward."),
 };
 
+// Reference-edited masters must retain their established scene and character
+// designs. Re-export these masters; do not recreate them from a text prompt.
+const REFERENCE_SCENES = new Set([
+  'booth_apothecary_intro',
+  'booth_apothecary_used',
+  'booth_bank_intro',
+  'booth_bank_used',
+  'booth_chapel_intro',
+  'booth_chapel_used',
+  'booth_curio_intro',
+  'booth_curio_used',
+  'booth_guildhall_intro',
+  'booth_guildhall_used',
+  'booth_inn_intro',
+  'booth_inn_used',
+  'booth_scholar_intro',
+  'booth_scholar_used',
+  'booth_scriptorium_intro',
+  'booth_scriptorium_used',
+  'booth_sundries_intro',
+  'booth_sundries_used',
+  'booth_training_intro',
+  'booth_training_used',
+  'death_memories',
+  'first_sale',
+  'health_low',
+  'safety_phone',
+  'tool_catch',
+  'tool_catch_chicken',
+  'torch_light',
+  'turret_watch',
+  'visit_gold',
+  'visit_hive',
+]);
+for (const name of REFERENCE_SCENES) {
+  // An edited scene may have no historical text prompt at all.
+  PIECES[name] = { ...PIECES[name], size: '1024x1024', width: 512, aspect: 1, colors: 128 };
+}
+
 function loadKey() {
   if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
   const envFile = path.join(process.env.HOME, '.env');
@@ -603,8 +650,7 @@ else:
 w, h = im.size
 aspect = ${aspect || 0}
 if aspect:
-    # A SCENE piece: cut to the dialog box's shape, keeping the TOP (the
-    # subject lives there; the quiet zone is what gives).
+    # Keep the authored aspect. Legacy portrait compositions remain top-anchored.
     ch = min(h, round(w / aspect))
     im = im.crop((0, 0, w, ch))
     w, h = im.size
@@ -630,7 +676,7 @@ else:
   const reprocess = args.includes('--reprocess');
   const only = args.filter(a => !a.startsWith('--'));
   fs.mkdirSync(RAW_DIR, { recursive: true });
-  const key = reprocess ? null : loadKey();
+  let key;
   const names = only.length ? only : Object.keys(PIECES);
   for (const name of names) {
     if (!PIECES[name]) { console.error(`unknown piece: ${name}`); process.exitCode = 1; continue; }
@@ -639,6 +685,10 @@ else:
       : PIECES[name];
     const outPath = outputPath(name, piece.trim);
     if (!force && !reprocess && fs.existsSync(outPath)) { console.log(`skip ${name} (exists)`); continue; }
+    if (!reprocess && (REFERENCE_SCENES.has(name) || name.startsWith('booth_'))) {
+      throw new Error(`${name}: use a reference image edit, or --reprocess its existing master (docs/art/ART_SOURCES.md)`);
+    }
+    if (!reprocess && !key) key = loadKey();
     const rawPath = path.join(RAW_DIR, `${name}.png`);
     const raw = reprocess ? rawPath : await generate(key, name, piece);
     const out = downscale(raw, name, piece.width, piece.colors, piece.trim, piece.aspect);

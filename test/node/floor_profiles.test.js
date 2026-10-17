@@ -30,11 +30,11 @@
       assert.eq(row.streetMirror, depth === 1 || depth === 2);
     }
     const first = WorldGen.floorProfile(1).caveAreas, second = WorldGen.floorProfile(2).caveAreas;
-    assert.eq(first.weights.map(r => r.weight).join(','), '50,15,30,5,15', 'L1 favours slime springs over goblin warrens');
+    assert.eq(first.weights.map(r => r.weight).join(','), '50,0,30,5,15', 'L1 selects no goblin warrens (owner, Oct 2026)');
     assert.eq(second.weights.map(r => r.weight).join(','), '20,45,25,10,15');
     assert.eq(first.carveWalls, false);
     assert.eq(second.carveWalls, true);
-    assert.eq(first.goblins, 12);
+    assert.eq(first.goblins, 0, 'and seats no goblins');
     assert.eq(second.goblins, 16);
   });
 

@@ -598,17 +598,17 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
   assert.truthy(/g\.strokeCircle\(centre\.x, centre\.y, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
 });
 
-test('wooden barrels render at half their former size and have no broken art', () => {
+test('wooden barrels render at half their former size plus 10% and have no broken art', () => {
   const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
   for (const smashed of [false, true]) {
     const look = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'barrel',_smashed:smashed});
     if (smashed) assert.falsy(look.visible, 'no broken barrel sprite');
-    else { assert.eq(look.texKey, 'barrel'); assert.eq(look.scl, 2 / 3); }
+    else { assert.eq(look.texKey, 'barrel'); assert.eq(look.scl, (2 / 3) * 1.1, 'half the old size, up 10% (Oct 2026)'); }
   }
   for (const smashed of [false, true]) {
     const pot = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot',_smashed:smashed});
     assert.eq(pot.texKey, smashed ? 'clay_pot_smashed' : 'clay_pot');
-    assert.eq(pot.scl, (4 / 3) * 0.8, 'clay pots, whole or smashed, a fifth smaller than their old 4/3');
+    assert.eq(pot.scl, (4 / 3) * 0.8 * 0.9 * 0.92, 'clay pots, whole or smashed, a fifth smaller than their old 4/3, then 10% off, then 8% off');
   }
 });
 
@@ -629,8 +629,9 @@ test('stronghold walls keep their tile frame alignment instead of centering corn
 test('berry bush: mature map art replaces wild and farmed berries while growth and inventory remain distinct', () => {
   for (const plant of [{kind:'wildplant',crop:'berry'}, {crop:'berry',wildId:'wz:berry'}, {crop:'berry',stage:MAX_GROWTH_STAGE}]) {
     const art = wildplantSprite(plant);
-    assert.eq(art.sheet, 'zone_berry_bush');
-    assert.eq(art.scale, 4 / 3);
+    assert.eq(art.sheet, CROP_SPRITE.shrub.sheet);
+    assert.eq(art.scale, CROP_SPRITE.shrub.scale);
+    assert.eq(art.texture, 'bushes_fruiting');
     assert.eq(wildplantFrame(plant), 0);
   }
   for (let stage=0; stage<MAX_GROWTH_STAGE; stage++) {
@@ -653,7 +654,7 @@ test('neutral mineral art overrides stale zone frames without changing interacti
   const pot = {kind:'chest',barrel:true,barrelStyle:'clay_pot',id:'selected-pot'};
   assert.eq(art.resolveAppearance(pot).texKey,'clay_pot');
   assert.eq(art.resolveAppearance({...pot,_smashed:true}).texKey,'clay_pot_smashed');
-  assert.eq(art.resolveAppearance(pot).scl*24,32*0.8,'the pot draws a fifth under its old 32px');
+  assert.lt(Math.abs(art.resolveAppearance(pot).scl*24-32*0.8*0.9*0.92),1e-9,'the pot draws a fifth under its old 32px, then 10% off, then 8% off');
   assert.truthy(/_zoneObjectFrame: wp\._zoneObjectFrame/.test(RENDER_SRC),'wild mushroom appearance reaches the plant renderer');
 });
 
@@ -688,4 +689,71 @@ test('campfire: its contact shadow sits 2px above the art bottom, on the logs', 
   const fire = art.resolveAppearance({kind:'_fire',id:'f'});
   assert.truthy(fire.foot, 'the fire is seated and shadowed');
   assert.eq(fire.foot.shadowInsetPx, 2);
+});
+
+test('heading-up: prop shadows turn about their prop\'s ground anchor', () => {
+  // A shadow turned about its own centre swings its tuck-up inset below the
+  // art once the compass turns; the prop turns about its ground anchor.
+  const start = RENDER_SRC.indexOf('Render.renderPool(scene, scene.shadowPool');
+  const body = RENDER_SRC.slice(start, RENDER_SRC.indexOf('\n    });', start));
+  assert.truthy(body.indexOf('s._huAnchor = null;') < body.indexOf('item._plantShadow'),
+    'every reused slot drops the previous anchor first');
+  assert.truthy(body.includes('s._huAnchor = Render.objectGroundAnchor(item._appearance, scene.textures, { x: sx, y: sy });'),
+    'prop shadows share the anchor their sprite turns about');
+});
+
+test('picked wild berries leave a plain bush across redraw and save reload without restoring the pickup', () => {
+  const plant = { kind: 'wildplant', crop: 'berry', id: 'berry_remains', x: 2, y: 3 };
+  const sets = { picked: new Set(), burned: new Set() };
+  assert.eq(Render.wildplantView(plant, sets), plant);
+  const save = JSON.parse(JSON.stringify({ picked: [plant.id] }));
+  sets.picked = new Set(save.picked);
+  for (let redraw = 0; redraw < 2; redraw++) {
+    const view = Render.wildplantView(plant, sets);
+    assert.eq(view.crop, 'shrub');
+    assert.eq(view._pickedRemnant, true, 'fruitless scenery cannot pose as a nest bush');
+    assert.eq(wildplantSprite({ ...view, _biome: 2 }).sheet, CROP_SPRITE.shrub.sheet, 'a berry bush does not become a palm');
+    assert.eq(wildplantSprite(view).sheet, CROP_SPRITE.shrub.sheet);
+    const before = wildplantSprite(plant), after = wildplantSprite(view);
+    for (const key of ['sheet', 'frame', 'scale', 'seat']) assert.eq(after[key], before[key], key + ' remains identical');
+    assert.eq(after.texture, undefined, 'only the berry overlay disappears');
+    assert.eq(view.x, plant.x); assert.eq(view.y, plant.y);
+    assert.eq(view.id, plant.id);
+    assert.eq(plant.crop, 'berry', 'never mutate the tile or reward record');
+    assert.truthy(isSpent(plant, sets), 'the original berry cannot be harvested twice');
+  }
+  assert.eq(Render.wildplantView({ ...plant, crop: 'onion' }, sets), null, 'other plants are removed');
+  const poison = Render.wildplantView({ ...plant, crop: 'poisonberry' }, sets);
+  assert.eq(poison.crop, 'shrub', 'a picked poisonberry leaves its bush too (owner, Oct 2026)');
+  assert.eq(wildplantSprite(poison).texture, undefined, 'without its teal berries');
+  sets.burned.add(plant.id);
+  assert.eq(Render.wildplantView(plant, sets), null, 'burned bushes do not return');
+  sets.burned.clear(); sets.burnedGround = () => true;
+  assert.eq(Render.wildplantView(plant, sets), null, 'burned ground suppresses the remnant');
+});
+
+
+test('berry bush: fruit texture copies the plain bush at native size and only paints berries once', () => {
+  const source = { width: 48, height: 32 };
+  const draws = [], berries = [], frames = [];
+  let baked = false, refreshes = 0;
+  const ctx = { drawImage(...args) { draws.push(args); }, fillRect(...args) { berries.push(args); } };
+  const scene = { textures: {
+    exists() { return baked; },
+    get(key) { assert.eq(key, 'bushes'); return { getSourceImage: () => source }; },
+    createCanvas(key, w, h) {
+      assert.eq(key, CROP_SPRITE.berry.mature.texture);
+      assert.eq(w, 48); assert.eq(h, 32);
+      baked = true;
+      return { getContext: () => ctx, add: (...args) => frames.push(args), refresh() { refreshes++; } };
+    },
+  } };
+  TILLED_TEX.makeBerryBushTexture(scene);
+  TILLED_TEX.makeBerryBushTexture(scene);
+  assert.eq(draws.length, 1, 'the foliage is copied once at startup');
+  assert.eq(draws[0][0], source);
+  assert.eq(JSON.stringify(draws[0].slice(1)), JSON.stringify([0, 0]), 'no crop or resize');
+  assert.eq(berries.length, 21, 'seven berries, each with shade, body and highlight');
+  assert.eq(JSON.stringify(frames), JSON.stringify([[0, 0, 0, 0, 48, 32]]));
+  assert.eq(refreshes, 1, 'no per-cell texture rebuilds');
 });

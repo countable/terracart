@@ -53,7 +53,6 @@
       // slimes stay. 0 = off. Metres, off the live Home.
       quietHomeM: 350,
       // ── Economy ──
-      startingMoney: 50,        // items.js STARTING_MONEY — the easy figure IS the base
       buyMul: 1,                // over buyMarkupRange — the trader / castle markup
                                 // (NOT the roadside stands: ShopsMath.standPrice
                                 // is the same in both modes)
@@ -109,7 +108,6 @@
       derelictLairs: true,      // every ruin is held; its strength is the building's own (lairs.js), never distance from Home
       lairGuardMax: null,       // no group cap: a maxed castle wakes its whole ten
       quietHomeM: 0,            // no quiet home: a fort by the trailer is held for you too
-      startingMoney: 20,        // $20 against $50 — a bag of seeds, not a plan
       // FARMING BREAKS EVEN ON HARD (owner, Oct 2026): a seed bought at an
       // average trader and sold at Home as its average harvest no longer
       // loses money (difficulty.test.js pins it). Easy prices the T3 crops at

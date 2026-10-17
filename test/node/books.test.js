@@ -79,6 +79,9 @@ test('school category: the split re-priced nothing — tier, pad and cave mirror
     assert.eq(chestTier({ kind: 'chest', poiClass: 'school', poiDensity: n }),
       chestTier({ kind: 'chest', poiClass: 'town_hall', poiDensity: n }), `the same tier at ${n} of a kind`);
   }
+  assert.eq(padShapeKeyForPoi('waste_basket'), 'round1', 'a bin POI wears the full pad (owner, Oct 2026)');
+  assert.eq(padShapeKeyForPoi('recycling'), 'round1');
+  assert.eq(padShapeKeyForPoi('bus'), null, 'other lowtier POIs still take the mini pad');
   assert.eq(padShapeKeyForPoi('school'), padShapeKeyForPoi('town_hall'),
     'and it keeps the civic pad');
   for (const cls of SCHOOL_CLASSES) {
@@ -144,7 +147,8 @@ test('course: a page read heads on its volume line, with no title row over it', 
 });
 
 test('course: story topics retain their saved-bookmark positions', () => {
-  assert.eq(PLAY_TIPS.length, 152, 'new guides append after the existing saved bookmarks');
+  assert.eq(PLAY_TIPS.length, 153, 'new guides append after the existing saved bookmarks');
+  assert.eq(PLAY_TIPS[152], ITEM_GUIDE_TIPS.growth_powder, 'Growth Powder appends without moving saved pages');
   assert.truthy(/Joined the book club/.test(PLAY_TIPS[141]), 'the published book club page keeps its bookmark');
   assert.eq(PLAY_TIPS[149], ITEM_GUIDE_TIPS.barricade);
   assert.eq(PLAY_TIPS[150], ITEM_GUIDE_TIPS.wind_scroll);
@@ -486,7 +490,7 @@ test('books: every saved page has a named volume and a consistent author voice',
     const volume = BOOK_VOLUMES[id];
     assert.truthy(volume && volume.title && volume.author && volume.voice, id);
   }
-  assert.eq(PLAY_TIP_ASIDES[0], 'a few passages stand out');
+  assert.eq(PLAY_TIP_ASIDES[0], undefined);
   assert.eq(PLAY_TIPS[10], 'Your wandering shadow can scout ahead. It cannot put your weight behind a blow. Plant your own boots where the fighting is. Strike true.');
   assert.eq(PLAY_TIPS[14], 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.');
   for (let page = 0; page < PLAY_TIPS.length; page++) {

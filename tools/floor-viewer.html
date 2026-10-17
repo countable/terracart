@@ -203,7 +203,7 @@
           if (spec.onLoad) spec.onLoad(scene);
         } catch (error) { failures.push(key); console.warn('asset', key, error); }
       }));
-      try { makeTowerTexture(scene); makePotOfGoldTexture(scene); makeTrapTextures(scene); } catch (e) { console.warn(e); }
+      try { makeBerryBushTexture(scene);makeTowerTexture(scene); makePotOfGoldTexture(scene); makeTrapTextures(scene); } catch (e) { console.warn(e); }
       try {
         for (const [type, spec] of Object.entries(BIOME_TEX)) for (let v = 0; v < spec.variants; v++) {
           const t = store.createCanvas('biome' + type + '_' + v, 32, 32);
@@ -246,7 +246,7 @@
       const art = connected.has(o) ? { ...o, ...connected.get(o) } : o;
       const spec = wildplantSprite(art), stage = Math.min(MAX_GROWTH_STAGE, o.stage ?? MAX_GROWTH_STAGE);
       const custom = spec?.custom, spring = spec?.sheet === 'springcrops';
-      push(o, { visible: true, texKey: custom ? spec.sheet : spring ? 'springcrops' : 'crops',
+      push(o, { visible: true, texKey: custom ? (spec.texture || spec.sheet) : spring ? 'springcrops' : 'crops',
         frameVal: custom ? wildplantFrame(art) : spring ? spec.row * SPRING_CROPS_COLS + stage : (CROP_ROW[o.crop] ?? 1) * CROPS_SHEET_COLS + stage,
         scl: spec?.scale ?? 2, scaleYMul: 1, tint: BiomeProfiles.tint(o._biome, o.crop) || 0xffffff, origin: [.5, .5], dxPx: 0, dyPx: 0 });
     }

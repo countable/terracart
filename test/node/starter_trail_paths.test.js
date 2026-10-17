@@ -82,9 +82,9 @@
       for (const [k, e] of prior) WorldGen.tileCache.set(k, e);
     }
   });
-  test('chest trails: the line is dark ink, not a pale wash', () => {
+  test('chest trails: the dashed line uses half-opacity ink', () => {
     assert.eq(Starter.TRAIL_STYLE.colour, 0x000000);
-    assert.truthy(Starter.TRAIL_STYLE.alpha >= 0.7);
+    assert.eq(Starter.TRAIL_STYLE.alpha, 0.375);
   });
   test('chest trails: treasure trails follow the player away from Home', () => {
     const prior = [...WorldGen.tileCache];
@@ -106,5 +106,61 @@
       WorldGen.tileCache.clear();
       for (const [k, e] of prior) WorldGen.tileCache.set(k, e);
     }
+  });
+  test('chest trails: radial clipping includes crossings with both ends outside and excludes tangencies', () => {
+    const target = { x: 1000000, y: -1000000 };
+    const p = (x, y) => ({ x: target.x + x, y: target.y + y });
+    const clip = (a, b) => Starter.trailSegmentRange(a, b, target, 25);
+    assert.eq(JSON.stringify(clip(p(-10, 0), p(10, 0))), '[0.25,0.75]');
+    assert.eq(JSON.stringify(clip(p(0, 0), p(10, 0))), '[0,0.5]');
+    assert.eq(JSON.stringify(clip(p(-10, 0), p(0, 0))), '[0.5,1]');
+    assert.eq(clip(p(-10, 5), p(10, 5)), null, 'a tangent has no visible length');
+    assert.eq(clip(p(6, 0), p(6, 9)), null);
+    assert.eq(clip(p(6, 0), p(6, 0)), null, 'outside zero-length segment');
+    assert.eq(JSON.stringify(clip(p(0, 0), p(0, 0))), '[0,1]');
+  });
+
+  test('chest trails: draw cutoff tracks subcell approach and retreat without shifting dashes or cached routes', () => {
+    const old = Starter.trailPaths;
+    const paths = [{ id: 'cutoff', target: { x: 0, y: 0 },
+      points: [{ x: 20, y: 0 }, { x: 13, y: 0 }, { x: 0, y: 0 }] }];
+    const original = JSON.stringify(paths);
+    const scene = { cellM: 7, cellsPerTile: 32, mPerPx: 7 * 32 / WorldGen.TILE_PX,
+      originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 },
+      playerM: { x: 30, y: 0 }, peekM: { x: 0, y: 0 }, viewCenterX: 176, viewCenterY: 200,
+      cobbleContainer: { add() {} } };
+    let strokes = [], segments = [], pen;
+    const gfx = { clear() { strokes = []; segments = []; }, lineStyle() {}, beginPath() {}, strokePath() {},
+      moveTo(x, y) { pen = screenToWorldMeters(scene, x, y); },
+      lineTo(x, y) { const end = screenToWorldMeters(scene, x, y); strokes.push([pen.x, end.x]); segments.push([pen, end]); } };
+    scene.add = { graphics() { return gfx; } };
+    Starter.trailPaths = () => paths;
+    const near = (actual, expected) => assert.inRange(actual, expected - 1e-6, expected + 1e-6);
+    try {
+      Render.drawChestTrails(scene);
+      const full = strokes.map(pair => pair.slice());
+      for (const playerX of [2.5, 2.25, 2.1, 2.5, 0, 30]) {
+        scene.playerM.x = playerX;
+        Render.drawChestTrails(scene);
+        const cutoff = playerX + scene.cellM * Starter.TRAIL_STYLE.behindCells;
+        const expected = full.filter(pair => pair[1] < cutoff)
+          .map(pair => [Math.min(pair[0], cutoff), pair[1]]);
+        assert.eq(strokes.length, expected.length);
+        strokes.forEach((pair, i) => { near(pair[0], expected[i][0]); near(pair[1], expected[i][1]); });
+        assert.eq(JSON.stringify(paths), original, 'draw never trims or mutates the cached route');
+      }
+      paths[0].points = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 0 }];
+      // Stand so the visible circle is exactly one cell around the target.
+      scene.playerM.x = scene.cellM * (1 - Starter.TRAIL_STYLE.behindCells);
+      Render.drawChestTrails(scene);
+      assert.truthy(segments.some(([a, b]) => b.y > 0), 'route reenters the visible circle');
+      for (const [a, b] of segments) {
+        assert.lte(Math.hypot(a.x, a.y), scene.cellM + 1e-6);
+        assert.lte(Math.hypot(b.x, b.y), scene.cellM + 1e-6);
+        assert.truthy((Math.abs(a.y) < 1e-6 && Math.abs(b.y) < 1e-6)
+          || (Math.abs(a.x - a.y) < 1e-6 && Math.abs(b.x - b.y) < 1e-6),
+          'visible runs stay on original segments instead of bridging the hidden bend');
+      }
+    } finally { Starter.trailPaths = old; }
   });
 })();

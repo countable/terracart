@@ -246,6 +246,20 @@ test('flavor handler: the same grass cell without the road band still tills', ()
   assert.falsy(flavor.try(ctx), 'missing underRoad field = tillable as before');
 });
 
+// A street lamp's footing (cellAt's underLamp — RoadOverlay.lampCellsFor) is
+// not farmland either: flavor claims the tap before till can reach it.
+test('flavor handler: grass under a street lamp is NOT tillable — tap names the lamp', () => {
+  const flavor = TAP_HANDLERS.find(h => h.name === 'flavor');
+  const seen = [];
+  const scene = makeScene({ flash: (msg) => seen.push(msg) });
+  const ctx = makeCtx(scene, {});
+  ctx.cell = { type: TERRAIN.GRASS, underRoad: false, underLamp: true };
+  assert.truthy(flavor.try(ctx), 'flavor consumes the tap — till never runs');
+  assert.eq(seen[0], LAMP_FOOT_FLAVOR);
+  assert.falsy(isTillableCell(ctx.cell), 'placements that share the tillable gate refuse it too');
+  assert.lte([...LAMP_FOOT_FLAVOR].length, MAP_MSG_MAX);
+});
+
 test('pet placement: animal inventory stacks have no release tap handler', () => {
   assert.falsy(TAP_HANDLERS.some(h => h.name === 'release'));
 });

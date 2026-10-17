@@ -867,9 +867,8 @@ class SceneStreets {
     this.showMessageModal({
       title: TRAIL_INTRO_TITLE,
       body: trailIntroBody(this.save.playerClass),
-      // The banner the promise is made in: survivors watching the repair —
-      // the story this dialog tells, drawn rather than described.
-      art: 'trail_intro',
+      // The Hood begins the work alone; neighbours arrive at the first reward.
+      art: 'road_repair',
       onDismiss: onDone,
     });
     const st = this.save.trail = this.save.trail || { metres: 0, prizes: 0 };
@@ -961,7 +960,7 @@ class SceneStreets {
     if (!this.worldMetersToScreen || !this.startWorldM || !this.originPx) return {};
     const p = this.worldMetersToScreen(wmx, wmy);
     if (!p || !isFinite(p.x) || !isFinite(p.y)) return {};
-    return { x: Math.round(p.x), y: Math.round(p.y) - liftPx };
+    return { x: Math.round(p.x), y: Math.round(p.y) - liftPx, anchor: p };
   }
 
   // The same, for an absolute CELL: its centre, then as above. Read by the
@@ -1022,7 +1021,7 @@ class SceneStreets {
     const fixed = Trail.fixedPrize(n, this.save);
     const choices = fixed?.sole ? [fixed] : Trail.rollCardRow(rollFor, fixed ? [fixed] : []);
     // The ceremony carries the survivors' thanks; the road counter shows progress.
-    const header = TRAIL_PRIZE_HEADER;
+    const header = n === 1 ? 'The survivors are watching' : TRAIL_PRIZE_HEADER;
     if (!choices.length) {
       // Defensive fallback — give 5 coins so the player isn't stiffed.
       addMoney(this.save, 5);
@@ -1057,8 +1056,9 @@ class SceneStreets {
     }
     // No flavour line: the header already carries the thanks, and the pick
     // names itself ("Choose one gift"). One picture row, one line, one button.
-    // The thanks are the line under the card the kept gift then opens as.
-    this._offerTreasurePick({ kind: 'trail', header, art: 'trail_prize', choices, takenSub: TRAIL_PRIZE_THANKS, onDismiss });
+    // The kept gift's card carries no thanks line either (owner, Oct 2026):
+    // the header said it once; the card is the gift alone.
+    this._offerTreasurePick({ kind: 'trail', header, art: 'trail_prize', choices, onDismiss });
   }
 
   // The button face for one option: the reward's own icon over its name, so
@@ -1097,18 +1097,8 @@ class SceneStreets {
   // item with no ✦ line): that card's line stays empty rather than saying
   // nothing at length.
   _trailRewardBlurb(reward) {
-    if (!reward) return null;
-    if (reward.kind === 'item') {
-      const fx = (typeof ITEM_EFFECTS !== 'undefined') ? ITEM_EFFECTS[reward.id] : null;
-      return fx ? `✦ ${fx}` : null;
-    }
-    if (reward.kind === 'relic') {
-      return (typeof gearDef === 'function' ? gearDef('relic', reward.slot)?.blurb : null) || null;
-    }
-    if (reward.kind === 'armor') {
-      return ARMOR_DEFS[reward.slot]?.blurb || null;
-    }
-    return null;
+    const text = Rewards.desc(reward);
+    return text && reward.kind === 'item' ? `✦ ${text}` : text;
   }
 
   // ONE REWARD, SHOWN. The ceremony for a single reward already paid: its
@@ -1150,7 +1140,7 @@ class SceneStreets {
   // AND THE KEPT GIFT IS SHOWN (Oct 2026, owner's call: every quest reward
   // that is an item shows the item). Take closes the pick and opens the kept
   // reward as its own card — sprite, name, tier and amount under the same
-  // banner, `takenSub` (the giver's thanks) as its line — through
+  // banner, no line of its own (the header carried the thanks) — through
   // showRewardCard, the lane the single-reward ceremony and every other
   // earned reward use (a toast under a closing dialog is missed).
   //
@@ -1160,7 +1150,7 @@ class SceneStreets {
   // replace the card before it was read (makeModalShell drops a same-id
   // dialog). A book taken from the row reads after the card, as on the
   // single-reward path (deferBookRead → _revealPendingBookReads).
-  _offerTreasurePick({ kind, header, art, choices, takenSub, kindIcon, onDismiss }) {
+  _offerTreasurePick({ kind, header, art, choices, kindIcon, onDismiss }) {
     let taken = null;
     this.showChestRewardModal({
       kind,
@@ -1188,7 +1178,7 @@ class SceneStreets {
       })),
       onDismiss: () => {
         const done = () => this._revealPendingBookReads(onDismiss);
-        if (!taken || !this.showRewardCard(taken, { kind, header, art, kindIcon, sub: takenSub, onDismiss: done })) done();
+        if (!taken || !this.showRewardCard(taken, { kind, header, art, kindIcon, onDismiss: done })) done();
       },
     });
   }

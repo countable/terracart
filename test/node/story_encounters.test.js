@@ -31,11 +31,10 @@
     const portrait = NPC.portrait; NPC.portrait = () => 'portrait';
     try {
       assert.truthy(StoryEncounters.interact(s, maud));
-      // Her NAME heads the dialog beside the chat bubble, never a NOTE scroll;
-      // her role is the title line beneath it.
+      // Her name and role share the dialogue header.
       assert.eq(s.lastDialog.kind, 'talk');
-      assert.eq(s.lastDialog.kindLabel, 'Maud');
-      assert.eq(s.lastDialog.title, 'Survivor');
+      assert.eq(s.lastDialog.kindLabel, 'Maud, Survivor');
+      assert.eq(s.lastDialog.title, undefined);
       s.save.caught.push(q.enemyId);   // resolveDefeat's mark, then the credit
       StoryEncounters.defeated(s, { id: q.enemyId });
       StoryEncounters.interact(s, maud);
@@ -63,7 +62,8 @@
       // The seed is SHOWN as a card under her portrait, her thanks its line.
       assert.eq(s.lastCard.name, itemName('starfruit_seed')); assert.eq(s.lastCard.tier, itemTierOf('starfruit_seed'));
       assert.eq(s.lastCard.sub, StoryEncounters.THANKS); assert.eq(s.lastCard.portrait, 'portrait');
-      assert.eq(s.lastCard.kind, 'story'); assert.eq(s.lastDialog, notes, 'no note on top of the card');
+      assert.eq(s.lastCard.kind, 'talk');
+      assert.eq(typeof s.lastCard.source, 'function', 'the gift speech follows the neighbour'); assert.eq(s.lastDialog, notes, 'no note on top of the card');
       s.save = JSON.parse(JSON.stringify(s.save));
       StoryEncounters.interact(s, c);
       assert.eq(s.gifts, 1);

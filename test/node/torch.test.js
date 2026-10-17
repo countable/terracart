@@ -92,7 +92,8 @@ test('torch: a KINDS row, TORCH_RADIUS_MUL player radii of the player\'s own whi
     'the player row is the ramp');
   assert.truthy(/const rMax = radiusCells\('player'\) \* playerLightMul\(scene\) \* CELL_PX;/.test(LIGHTING_SRC),
     'draw() reads the ramp\'s extent off the row, not a second copy of the maths');
-  assert.truthy(/const white = KINDS\.player\.colour;/.test(LIGHTING_SRC), 'and the ramp\'s colour');
+  assert.eq(Lighting.playerGlow(Lighting.profile(scene()), 0, 15, 45, 5).colour, P.colour,
+    'the healthy player glow retains the row’s white');
 });
 
 test('torch: the collector emits `torch` for the player while it burns, `player` otherwise', () => {
@@ -186,7 +187,7 @@ test('torch: lighting it runs for the row\'s length, extending from the current 
     assert.eq(s.save.inv[0].count, 1, 'two spent');
     assert.eq(paintings.join('|'), 'torch_light|torch_light', 'lighting and relighting show the torch painting');
     const dims = webpDims('assets/art/torch_light.webp');
-    assert.truthy(dims && Math.abs(dims.w / dims.h - 352 / 448) < 0.01, 'painting fits the dialog');
+    assert.truthy(dims && dims.w === 512 && dims.h === 512, 'torch painting ships as a full square scene');
     assert.eq(titles.join('|'), '🔥 You light the Torch|🔥 You light another Torch', 'the title knows a torch was burning');
   } finally { Date.now = old; }
   assert.falsy(/shortDuration/.test(JSON.stringify(titles)), 'the story leaves time to the live torch readout');

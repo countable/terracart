@@ -14,7 +14,9 @@
   };
   // Floor 1 is slime country: one region in eight is a goblin warren.
   const THEME_BANDS = [
-    { max: 1, themes: ['natural', 'natural', 'natural', 'natural', 'natural', 'natural', 'natural', 'warren'] },
+    // L1 is all natural: no goblin walks the first level (owner, Oct 2026;
+    // the roster and worldgen's L1 cave areas agree).
+    { max: 1, themes: ['natural'] },
     { max: 2, themes: ['warren', 'warren', 'warren', 'natural'] },
     { max: 4, themes: ['natural', 'roots', 'warren', 'crypt', 'stronghold'] },
     { max: 5, themes: ['crypt'] },

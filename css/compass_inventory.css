@@ -1,0 +1,127 @@
+/* Eight physical category keys drive a shared dark-glass inventory window. */
+body.compass-hud {
+  --inventory-deck-width:calc(100vw - var(--phone-left,0px) - var(--phone-right,0px));
+  --inventory-floor:calc(18px + env(safe-area-inset-bottom,0px));
+  --inventory-name-height:42px;
+  --inventory-square:calc((var(--inventory-deck-width) - 128px) / 5);
+  --inventory-slot-height:calc(var(--inventory-square) + 12px);
+  --inventory-window-width:calc(var(--inventory-square) * 5 + 16px);
+  --inventory-key-size:calc((var(--inventory-deck-width) - 44px) / 8);
+  --inventory-tab-height:calc(var(--inventory-key-size) + 19px);
+}
+body.compass-hud #inv-tabs {
+  bottom:calc(var(--inventory-floor) + var(--inventory-name-height) + var(--inventory-slot-height) + 12px)!important;
+  height:var(--inventory-tab-height)!important;
+  left:calc(var(--phone-left,0px) + 10px)!important;right:calc(var(--phone-right,0px) + 10px)!important;
+  gap:4px!important;padding:0 0 19px!important;overflow:visible!important;box-sizing:border-box;border:0;box-shadow:none;
+}
+body.compass-hud #inv-tabs::before {content:'';position:absolute;z-index:-1;pointer-events:none;top:-12px;left:-10px;right:-10px;height:calc(var(--inventory-tab-height) + var(--inventory-slot-height) + var(--inventory-name-height) + var(--inventory-floor) + 24px);background:linear-gradient(#10121166,#080b0ae6 75%),url('../assets/ui/compass/reference-join.webp') center/cover no-repeat;mask-image:linear-gradient(transparent,#000 12px,#000 calc(100% - 10px),transparent);}
+body.compass-hud #inv-tabs::after {content:'';position:absolute;left:0;right:0;bottom:0;height:8px;border:1px solid #b7c0af;border-radius:8px;background:linear-gradient(#c9c7c0,#91908b 22%,#343534 40%,#1b201e 68%,#999893);box-shadow:0 0 0 1px #292a29,inset 0 1px #dedbd3,0 2px 3px #111;pointer-events:none; border-color:#969591;}
+body.compass-hud #inv-tabs .hud-tab {position:relative;z-index:1;flex:1 1 0!important;min-width:0!important;height:var(--inventory-key-size)!important;overflow:visible!important;border:2px solid var(--compass-metal-edge);border-radius:10px!important;background:var(--compass-metal-face);box-shadow:inset 0 0 0 1px #424440,inset 0 2px 2px #e8e6dd66,inset 0 -3px 3px #252525b3,0 0 0 2px #171a17,0 1px 0 3px #777972,0 3px 3px 2px #080a08;gap:0!important;padding:2px!important;opacity:1!important;}
+body.compass-hud #inv-tabs .hud-tab::before {content:'';position:absolute;top:calc(100% + 1px);left:50%;transform:translateX(-50%);width:9px;height:15px;box-sizing:border-box;border:1px solid #575d4c;border-top:2px solid #eeecd8;border-bottom:2px solid #d0d2bd;border-radius:2px 2px 3px 3px;background:linear-gradient(90deg,#494948,#93928d 25%,#d8d6cf 48%,#7d7c78 73%,#343433);box-shadow:0 1px 2px #091109;pointer-events:none; border-color:#555553; border-top-color:#d0cec6; border-bottom-color:#aeada7;}
+body.compass-hud #inv-tabs .hud-tab::after {content:'';position:absolute;top:calc(100% + 14px);left:50%;transform:translateX(-50%);width:14px;height:3px;border-radius:3px;background:#aeada7;box-shadow:0 1px 1px #172216;pointer-events:none;}
+body.compass-hud #inv-tabs .hud-tab > .inventory-category-glyph {color:#41413c!important;filter:drop-shadow(0 -1px 0 #20211d) drop-shadow(0 1px 0 #d6d2c8)!important;opacity:1!important;line-height:1;}
+body.compass-hud #inv-tabs .inventory-category-glyph svg {width:clamp(19px,calc(var(--inventory-key-size) * .55),24px);height:clamp(19px,calc(var(--inventory-key-size) * .55),24px);stroke:#353631;stroke-width:.15;paint-order:stroke fill;}
+body.compass-hud #inv-tabs .hud-tab.sel {border-color:#fff1b3;background:radial-gradient(ellipse at 40% 25%,#f3d882aa,#ad7b2499 68%,#6c4a16e6),url('../assets/ui/compass/silver-metal.webp') center/90px 90px;box-shadow:inset 0 0 0 1px #b17b24,inset 0 2px 2px #fff3be99,inset 0 -3px 3px #634411b3,0 0 0 2px #242015,0 1px 0 3px #8b7949,0 3px 3px 2px #080a08;}
+body.compass-hud #inv-tabs .hud-tab.sel > .inventory-category-glyph {color:#c4a15b!important;filter:drop-shadow(0 -1px 0 #49320e) drop-shadow(0 1px 0 #ffe6a3)!important;}
+body.compass-hud #inv-tabs .hud-tab.sel::before {border-color:#e9c776;background:linear-gradient(90deg,#725015,#d6a332 25%,#ffed9d 48%,#d3a035 73%,#65450f);}
+body.compass-hud #inv-tabs .hud-tab.sel::after {left:50%;width:calc(100% + 2px);background:linear-gradient(#fff2ae,#d39c28);box-shadow:0 1px 1px #64410f;}
+body.compass-hud #inv-tabs .hud-pip {display:none!important;}
+body.compass-hud #inv {bottom:calc(var(--inventory-floor) + var(--inventory-name-height) + 6px)!important;height:var(--inventory-slot-height)!important;left:calc(var(--phone-left,0px) + 8px)!important;right:calc(var(--phone-right,0px) + 8px)!important;padding:0!important;gap:4px!important;justify-content:center;box-sizing:border-box;background:none!important;}
+body.compass-hud #inv .inventory-window {display:flex!important;position:relative;flex:0 0 var(--inventory-window-width);min-width:0;height:100%;align-items:center;justify-content:center;gap:2px;padding:2px;box-sizing:border-box;border:2px solid var(--compass-metal-edge);border-radius:13px;background:linear-gradient(135deg,#1b2a27,#061311 60%,#182722);box-shadow:inset 0 0 0 1px #111714,inset 0 3px 5px #010a07,0 0 0 2px #111510,0 1px 0 3px #70756a,0 3px 4px 3px #070a07;}
+body.compass-hud #inv .hud-slot {flex:0 1 var(--inventory-square)!important;width:var(--inventory-square)!important;min-width:0;height:var(--inventory-square)!important;box-sizing:border-box;aspect-ratio:1;border:1px solid transparent;border-radius:4px!important;background:transparent;box-shadow:none;padding:0 0 6px;}
+body.compass-hud #inv .hud-slot.sel {border-color:#ffe8a0;box-shadow:inset 0 0 0 1px #a67b2a,0 0 0 1px #d9b45e,0 0 4px #e1b851;background:linear-gradient(135deg,#b8b37412,#17251b33);}
+body.compass-hud #inv .hud-slot > .hud-badge {font:16px/18px var(--font-ui)!important;bottom:1px!important;right:3px!important;padding:0!important;background:transparent!important;color:#f6f2e7!important;text-shadow:0 1px 2px #000;border:0;}
+.inventory-control-mark {display:none;}
+body.compass-hud #inv .inventory-control-text {display:none;}
+body.compass-hud #inv .inventory-control-mark {display:block;width:20px;height:48px;filter:drop-shadow(0 1px 1px #342b17);}
+body.compass-hud #inv .inventory-control-mark svg {width:100%;height:100%;overflow:visible;}
+body.compass-hud #inv .arrow-dark {fill:#9b6e1f;stroke:#553c15;stroke-width:1;stroke-linejoin:round;}
+body.compass-hud #inv .arrow-light {fill:#ffe798;}
+body.compass-hud #inv .arrow-face {fill:#dfab34;}
+body.compass-hud #inv .hud-btn {position:relative;flex:0 0 28px;width:28px!important;min-width:28px;height:100%!important;border-radius:45% / 25%!important;border:1px solid #bfc8b4;background:linear-gradient(90deg,#777772,#222724 35%,#101713 60%,#82817c);box-shadow:0 0 0 1px #223023,inset 0 0 0 1px #26362a,0 1px 2px #10190f;color:#ddad38;padding:1px; border-color:#a5a49e;}
+body.compass-hud #inv .inventory-pager {flex:0 0 60px;height:100%;position:relative;display:flex;align-items:center;justify-content:center;border:1px solid var(--compass-metal-edge);border-radius:18% / 35%;box-sizing:border-box;background:linear-gradient(90deg,#41413e,#b1afa8 12%,#373734 20%,#454541 80%,#b1afa8 88%,#41413e);box-shadow:0 0 0 1px #292a28,inset 0 0 0 1px #333430,0 1px 2px #111;}
+body.compass-hud #inv .inventory-pager::before {content:'';position:absolute;inset:4px 10px;background:repeating-linear-gradient(#bdbbb4 0 1px,#575752 1px 2px);border:1px solid #363f2e;border-radius:12%;pointer-events:none; border-color:#383935;}
+body.compass-hud #inv .inventory-pager .hud-btn {position:absolute;left:3px;right:3px;top:2px;width:calc(100% - 6px)!important;min-width:0;height:calc(50% - 2px)!important;z-index:2;display:flex;align-items:flex-start;justify-content:center;background:linear-gradient(#aaa9a3,#666762 60%,#3b3d38);border:1px solid #c0beb5;border-radius:8px 8px 3px 3px!important;box-shadow:inset 0 1px #e0dcd1,inset 0 -2px 2px #292b26,0 1px 1px #141612;padding:1px;}
+body.compass-hud #inv .inventory-pager .inventory-control-mark {width:10px;height:24px;transform:rotate(90deg);margin-top:-6px;}
+body.compass-hud #inv .inventory-pager [data-control=previous] {left:3px;}
+body.compass-hud #inv .inventory-pager [data-control=next] {top:auto;bottom:2px;right:3px;align-items:flex-end;border-radius:3px 3px 8px 8px!important;background:linear-gradient(#3b3d38,#666762 40%,#aaa9a3);}
+body.compass-hud #inv .inventory-pager [data-control=next] .inventory-control-mark {transform:rotate(270deg);margin-top:0;margin-bottom:-6px;}
+body.compass-hud #inv .inventory-pager .hud-page {position:relative;min-width:0!important;width:36px;height:22px!important;z-index:3;padding:0!important;margin:0!important;border:1px solid #b6b39d!important;border-radius:4px!important;box-shadow:inset 0 4px 3px #514f3b,inset 0 -4px 3px #585d44;background:linear-gradient(#62625c,#c8c6ba 18%,#e7e4d8 35%,#d8d5c9 60%,#b1afa3 83%,#6a6a63);color:#161f15;font:600 16px var(--font-ui)!important;pointer-events:none;text-shadow:0 1px #ffffee; border-color:#a6a39c!important;}
+body.compass-hud #inv-name {left:calc(var(--phone-left,0px) + 34px)!important;right:calc(var(--phone-right,0px) + 34px)!important;bottom:var(--inventory-floor)!important;height:var(--inventory-name-height)!important;border:2px solid var(--compass-metal-edge);border-radius:24px!important;padding:2px 10px!important;background:linear-gradient(#182c28,#061612 65%,#1c3028)!important;color:#f1eee4;box-shadow:inset 0 0 0 1px #303430,inset 0 3px 4px #0008,0 0 0 2px #151a13,0 1px 0 3px #777d70,0 3px 4px 3px #080b07;font:14px/17px var(--font-ui)!important;text-shadow:0 1px #000;overflow:visible!important;}
+body.compass-hud #inv-name::before,body.compass-hud #inv-name::after {content:'✦';position:absolute;top:50%;transform:translateY(-50%);font:32px var(--font-ui);color:#edce78;text-shadow:0 1px #65451b,1px 0 #fff3b8,0 2px 2px #101c0f;pointer-events:none;}
+body.compass-hud #inv-name::before {left:-29px;}
+body.compass-hud #inv-name::after {right:-29px;}
+.inventory-name-icon {display:none!important;}
+body.compass-hud .inventory-selected-name .inventory-name-icon {display:inline-block!important;flex:none;vertical-align:middle;margin-right:7px;}
+body.compass-hud:has(.hud-action) #inv-name {left:calc(var(--phone-left,0px) + 12px)!important;right:calc(var(--phone-right,0px) + var(--inventory-deck-width) * .4 + 14px)!important;}
+body.compass-hud .hud-action {
+  bottom:var(--inventory-floor)!important;right:calc(var(--phone-right,0px) + 12px)!important;
+  width:calc(var(--inventory-deck-width) * .4 - 4px)!important;height:var(--inventory-name-height)!important;
+  justify-content:center;padding:4px 8px!important;border:2px solid #ead18b!important;border-radius:24px!important;
+  color:#282006!important;background:linear-gradient(#ffe99b,#edbd48 40%,#c28d1d 85%,#f5cf65)!important;
+  box-shadow:inset 0 0 0 1px #987128,inset 0 2px 3px #fff4bab3,inset 0 -2px 2px #7b531659,0 1px 2px #1c231c;
+  font:700 15px/16px var(--font-ui)!important;text-shadow:0 1px #f4d981;
+}
+/* Potions have Drink + Throw; eggs retain both Eat + Hatch. Keep both real
+   actions reachable in the lower row instead of covering the item slots. */
+body.compass-hud:has(#potion-throw-btn) #inv-name,
+body.compass-hud:has(#eat-btn):has(#consumable-btn) #inv-name {right:calc(var(--phone-right,0px) + var(--inventory-deck-width) * .54 + 14px)!important;}
+body.compass-hud:has(#potion-throw-btn) .hud-action,
+body.compass-hud:has(#eat-btn):has(#consumable-btn) .hud-action {width:calc(var(--inventory-deck-width) * .26)!important;font-size:12px!important;gap:2px!important;padding:3px!important;}
+body.compass-hud #potion-throw-btn,
+body.compass-hud:has(#consumable-btn) #eat-btn {right:calc(var(--phone-right,0px) + var(--inventory-deck-width) * .27 + 12px)!important;}
+body.compass-hud #compass-inventory-shutter {
+  bottom:var(--inventory-floor);left:calc(var(--phone-left,0px) + 8px);right:calc(var(--phone-right,0px) + 8px);
+  height:calc(var(--inventory-name-height) + var(--inventory-slot-height) + 8px);
+  border:2px solid var(--compass-metal-edge);border-radius:12px 12px 20px 20px;
+  box-sizing:border-box;
+  box-shadow:inset 0 0 0 1px #4b4d48,inset 0 3px 3px #dddcd2a6,inset 0 -4px 6px #30322c99,0 0 0 1px #33352f,0 2px 4px #151711;
+  -webkit-mask-image:none;mask-image:none;
+  background:linear-gradient(160deg,#b9b8b2cc,#93938ecc 50%,#72736ecc),url('../assets/ui/compass/reference-shutter.webp') center/cover no-repeat,var(--compass-dormant-metal);
+  letter-spacing:0;color:transparent;
+  font:600 20px var(--font-ui);text-shadow:none;}
+body.compass-hud #compass-inventory-shutter::after {
+  content:attr(data-rune-label);position:absolute;bottom:12px;left:28%;right:28%;padding:5px 3px;
+  font:600 14px/1.2 var(--font-ui);letter-spacing:1px;
+  border:2px solid #c9c8c3;border-radius:12px 12px 10px 10px;
+  background:var(--compass-dormant-metal);
+  color:#33332f;text-shadow:0 1px #f3f1e5;
+  box-shadow:inset 0 2px 3px #53544f,inset 0 -1px 1px #f1efe4,0 0 0 1px #4e504a,0 1px 2px #37482c;
+}
+body.compass-hud #inv-tabs button:active,body.compass-hud #inv button:active,body.compass-hud .hud-action:active {filter:brightness(1.25);transform:translateY(1px);}
+body.compass-hud #inv-tabs button:focus-visible,body.compass-hud #inv button:focus-visible,body.compass-hud .hud-action:focus-visible {outline:2px solid #ffdc76;outline-offset:2px;}
+@media(max-height:650px) {
+  body.compass-hud {--inventory-floor:calc(8px + env(safe-area-inset-bottom,0px));--inventory-name-height:38px;}
+  body.compass-hud #compass-inventory-shutter::after {font-size:12px;}
+  body.compass-hud #inv-tabs .inventory-category-glyph svg {width:20px;height:20px;}
+  body.compass-hud #inv-tabs .hud-tab {gap:2px!important;}
+  body.compass-hud #inv .inventory-control-mark {height:34px;}
+  body.compass-hud #inv .hud-slot > .hud-badge {font-size:13px!important;}
+  body.compass-hud #inv-name {font-size:11px!important;line-height:13px!important;}
+  body.compass-hud .hud-action {font-size:12px!important;}
+}
+
+/* Action strips reserve the full width for readable labels, not end ornaments. */
+body.compass-hud:has(.hud-action) #inv-name::before,
+body.compass-hud:has(.hud-action) #inv-name::after {display:none;}
+body.compass-hud:has(#potion-throw-btn) .hud-action,
+body.compass-hud:has(#eat-btn):has(#consumable-btn) .hud-action {line-height:13px!important;border-radius:16px!important;}
+body.compass-hud:has(#potion-throw-btn) #consumable-btn > span:first-child,
+body.compass-hud:has(#eat-btn):has(#consumable-btn) #consumable-btn > span:first-child,
+body.compass-hud:has(#eat-btn):has(#consumable-btn) #eat-btn .eat-ico {display:none!important;}
+@media(max-height:650px) {
+  body.compass-hud .inventory-selected-name .inventory-name-icon {zoom:.8;}
+}
+@media(max-width:360px) {
+  body.compass-hud:has(#potion-throw-btn) #inv-name .inventory-name-icon,
+  body.compass-hud:has(#eat-btn):has(#consumable-btn) #inv-name .inventory-name-icon {display:none!important;}
+  body.compass-hud:has(#potion-throw-btn) .hud-action,
+  body.compass-hud:has(#eat-btn):has(#consumable-btn) .hud-action {font-size:11px!important;line-height:12px!important;}
+}
+
+/* Disabled actuators stay opaque metal so their labels do not mix with carving. */
+body.compass-hud .hud-action:disabled {opacity:1!important;border-color:#b9c2ae!important;background:linear-gradient(#d3d8c8,#aeb8a3 55%,#88947e)!important;color:#35402f!important;text-shadow:0 1px #e1e7d3;box-shadow:inset 0 0 0 1px #758369,inset 0 2px 2px #edf2dfa6,0 1px 2px #1c231c;}
+
+/* No selection means no description plate or decorative endcaps. */
+body.compass-hud #inv-name:empty {display:none!important;}

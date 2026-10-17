@@ -33,3 +33,12 @@ the one-line version; this file owns the geometry. The
   Do not put a dark groove behind a row of teeth on the front lip.
   Merlon faces rise fully above the coping, with small lit tops and open
   crenel gaps between them; they must not read as dashes painted on the cap.
+
+- In heading-up mode, the compass rotates ground footprints. Architectural walls
+  retain those connections while their height projects vertically toward screen
+  up. Select visible faces from the rotated footprint; do not counter-rotate
+  individual wall segments. Castle caps and merlons follow the footprint in plan
+  and remain raised above it. House foundations extend below their floor plane,
+  with their visible faces following the same screen-down direction as castle
+  wall faces; they never become a raised rim. North-up asset authoring rules above
+  still apply.

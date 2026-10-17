@@ -142,7 +142,8 @@
       for (const berry of berries) {
         assert.eq(berry.kind, 'wildplant');
         assert.eq(wildplantOutput(berry.crop), 'berry');
-        assert.eq(wildplantSprite(berry).sheet, 'zone_berry_bush');
+        assert.eq(wildplantSprite(berry).sheet, CROP_SPRITE.shrub.sheet);
+        assert.eq(wildplantSprite(berry).texture, 'bushes_fruiting');
       }
     }
   });

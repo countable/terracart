@@ -559,7 +559,11 @@ const INTERACTABLES = {
         const got = rollBarrel(o);
         if (got.kind === 'empty') { scene.flash(barrelFlash(got), sx, sy); return true; }
         Rewards.apply(save, got, scene);
-        Rewards.present(scene, got, { mode: 'toast', text: barrelFlash(got) });
+        const art = chestOpeningArt(o);
+        if (!(art && Rewards.present(scene, got, { extra: { kind: 'treasure',
+          header: 'Inside the barrel', art } }))) {
+          Rewards.present(scene, got, { mode: 'toast', text: barrelFlash(got) });
+        }
         return true;
       }
       // Produce/food stands are MARKETS, not one-shot chests: tapping opens a
@@ -782,12 +786,14 @@ const INTERACTABLES = {
   },
 
   // ---- Well / fountain: a landmark on the quest trail ----------------------
-  // OSM amenity=fountain — a water source on dry land. Visited FOR the quest
-  // tick; otherwise it reads as scenery.
+  // OSM amenity=fountain — a water source on dry land that cures conditions.
   well: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
-      scene.flash('Cool, clear water.', sx, sy);
+      const cleared = Conditions.clearDebuffs(save);
+      if (cleared) ctx.dirty = true;
+      if (cleared) scene.flash('Debuffs cleared.', sx, sy);
+      else scene.flash('Cool, clear water.', sx, sy);
       return true;
     },
   },

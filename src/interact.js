@@ -296,6 +296,9 @@ const TERRAIN_FLAVOR = {
   [TERRAIN.TAR_YARD]:       'Oily ground. Nothing roots.',
 };
 
+// …and the refusal on soil a street lamp stands on (cellAt's underLamp).
+const LAMP_FOOT_FLAVOR = 'A lamp post. Nothing to till.';
+
 // ── Naming things the player can see ────────────────────────────────────────
 // Two helpers behind the till refusal and the plant flash, both here for the
 // same reason: a raw INTERNAL ID must never reach the screen (QC_RULES §4).
@@ -437,7 +440,7 @@ function collectGroundCoin(scene, entry, coin, mercenary = null, sx, sy, save = 
 
 // Move every frame around the player's feet, independently of camera peek.
 // Cap elapsed time so returning from a suspended tab cannot jump a whole pull.
-const COIN_COLLECTION = { maxDeltaMs: 100, pullCellsPerSecond: 6, arrivalCells: 0.25, speechMs: 3000 };
+const COIN_COLLECTION = { maxDeltaMs: 100, pullCellsPerSecond: 1.5, arrivalCells: 0.25, speechMs: 3000 };
 function tickGroundCoins(scene, now = Date.now()) {
   const elapsedMs = Math.max(0, Math.min(COIN_COLLECTION.maxDeltaMs,
     now - (scene._lastCoinCollectionAt ?? (now - 1000 / 30))));
@@ -490,8 +493,8 @@ function grantFoundTreasure(scene, save, sx, sy, mark, tier, headline) {
 
 // `opts.ceremony` ({ kind, header, sub, art, onDismiss }) shows the paid
 // reward as a card (scene.showRewardCard) instead of the toast lines below —
-// a reward the player earned (an elite's drop) rather than a find on the
-// ground. The rest of `opts` is the roll's own (rollBonus, tier, classes).
+// a dug X or an elite's drop. The rest of `opts` is the roll's own
+// (rollBonus, tier, classes).
 function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:default', opts) {
   const { ceremony, ...rollOpts } = opts || {};
   const reward = pickReward(contextKey, save, undefined, opts ? rollOpts : undefined);
@@ -607,7 +610,9 @@ const TAP_HANDLERS = [
       // StreetVariants.dress) pays that many extra roll steps on top.
       const dig = scene.digTreasureOpts?.();
       grantTreasureRoll(scene, save, sx, sy, '✕', treasureContextFor(tr),
-        tr.rollBonus > 0 ? { ...(dig || {}), rollBonus: tr.rollBonus } : dig);
+        { ...(dig || {}), ...(tr.rollBonus > 0 ? { rollBonus: tr.rollBonus } : {}),
+          ceremony: { kind: 'treasure', header: 'X marks the spot', art: 'treasure_dig',
+            sub: 'You uncover a buried treasure.' } });
       ctx.dirty = true;
       return true;
     };
@@ -747,6 +752,35 @@ const TAP_HANDLERS = [
     const likes = !!held && Pets.likes(target, held);
     const producerMeal = held && ITEM_BY_ID[held]?.crop
       && ITEM_BY_ID[held]?.kind === 'produce' && !!SpriteLayout.creatureProduce(target.kind);
+    // A GOLDEN BERRY, offered (CONSUMABLE_SPEC `charmsFoe`): an enemy takes
+    // the `charm` status for charmFeedMs — a minute less its tier squared in
+    // seconds (Combat.applyCharm: it fights beside you, and does not flee
+    // the net); a wild animal takes the calm of the same length. A kind too
+    // high to charm, or a pet, keeps the berry.
+    if (!isTame && CONSUMABLE_SPEC[held]?.charmsFoe) {
+      const ms = charmFeedMs(target.kind);
+      const took = ms > 0 && (Combat.isEnemy(target) ? Combat.applyCharm(target, Date.now(), ms) : Combat.calm(target, ms));
+      if (took) {
+        consumeSelected(save);
+        scene.buildInventoryDOM();
+        persistSave(save);
+        scene.flash(`Charmed — ${Math.round(ms / 1000)} s`, sx, sy);
+        return true;
+      }
+    }
+    // A POISONBERRY, offered: an enemy or a pet eats it and takes the poison
+    // the player would (CONSUMABLE_SPEC `feedsFoe` — Combat.poison, the
+    // Poison Flask's minute; a pet's bites come off its HP as an ally's).
+    // Ahead of the pet menu and a farm animal's produce meal, which would
+    // otherwise take it. Spent whether or not it was already poisoned.
+    if ((isTame || Combat.isEnemy(target)) && CONSUMABLE_SPEC[held]?.feedsFoe
+      && CONSUMABLE_SPEC[held].condition === 'poison') {
+      Combat.poison(target, performance.now(), 'player');
+      consumeSelected(save);
+      scene.buildInventoryDOM();
+      persistSave(save);
+      return true;
+    }
     if (isTame && (likes || !producerMeal)) {
       if (likes) {
         const food = held;
@@ -755,8 +789,9 @@ const TAP_HANDLERS = [
           if (now?.id !== food || !(now.count > 0) || !Pets.feed(save, target, food)) return;
           consumeSelected(save);
           scene.buildInventoryDOM();
-          scene.flashLoot('Favourite food: full energy', UI_GREEN, 1, food);
           persistSave(save);
+          if (ITEM_BY_ID[food]?.petFood) scene.presentPetPleased(target.id, food);
+          else scene.flashLoot('Favourite food: full energy', UI_GREEN, 1, food);
         });
       } else scene.presentPetMenu(target.id);
       return true;
@@ -996,6 +1031,7 @@ const TAP_HANDLERS = [
         } else {
           if (save.picked.includes(wp.id) || (save.burnedObjects || []).includes(wp.id)) return false;
           save.picked = [...save.picked, wp.id];
+          SaveState.rememberClearedGrass(save, wp);
         }
         const rewards = wildplantRewards(wp.crop);
         const outId = rewards[0].id;
@@ -1016,6 +1052,8 @@ const TAP_HANDLERS = [
         const outName = itemName(outId);
         if (bonus) scene.flashLoot(`${outName}${bonus}`, '#ff8aff', 1, outId);
         else scene.flashLoot(wildplantHarvestLine(wp.crop), undefined, rewards[0].qty, outId);
+        // A stinging plant (WILDPLANT_RULES `sting`: the nettle) hurts the hand that picks it.
+        if (rule?.sting) scene._sting?.(rule.sting, wp.x, wp.y);
         // Rare shiny flora — 10× money + a memory, on top of the
         // normal pickup, with fanfare.
         if (isShiny(wp.id, SHINY_RATE.flora)) scene.awardShinyBonus(outId, sx, sy);
@@ -1266,9 +1304,9 @@ const TAP_HANDLERS = [
     if (!sel || (sel.count ?? 0) <= 0) return false;
     const at = occupantsOf(ctx);
     const fire = at.fireIdx >= 0 ? save.fires[at.fireIdx] : null;
-    if (!fire) return false;
+    if (!Campfires.active(fire)) return false;
     const made = CAMPFIRE_MAKES[sel.id];
-    if (!made) { scene.presentBurnConfirm(sel.id, { x: fire.x, y: fire.y }); return true; }
+    if (!made) { scene.presentBurnConfirm(sel.id, fire); return true; }
     // The product has to fit before the input goes — unless this is the last
     // one, whose own slot frees up for it.
     const input = sel.id;
@@ -1352,6 +1390,21 @@ const TAP_HANDLERS = [
     // Only a fire lit on this level (cellOccupants) — fires are placeable
     // underground (they ward slimes), so the GPS-mirror depth gate matters.
     if (at.fireIdx < 0) return false;
+    const fire = save.fires[at.fireIdx];
+    if (!Campfires.active(fire)) {
+      const sel = getSelectedSlot(save);
+      if (sel?.id === 'flint_shard' && sel.count > 0) {
+        consumeSelected(save);
+        Campfires.light(fire);
+        scene.buildInventoryDOM();
+        scene.flash('🔥 The fire crackles.', sx, sy);
+      } else {
+        save.fires.splice(at.fireIdx, 1);
+        scene.flash('The ashes scatter.', sx, sy);
+      }
+      ctx.dirty = true;
+      return true;
+    }
     save.fires.splice(at.fireIdx, 1);
     ctx.dirty = true;
     scene.flash('🔥 out', sx, sy);
@@ -1362,7 +1415,7 @@ const TAP_HANDLERS = [
   // (isFireGroundCell — paved lots and cave floor too, not just soil) with
   // nothing standing on it. The fire repels slimes within 4 m — the same way a
   // scarecrow repels crows/deer — and slowly restores energy to anyone resting
-  // near it (see app.js). Flint is consumed; the fire persists until tapped out.
+  // near it (see app.js). Flint is consumed; after 24 hours a smoking pit remains.
   { name: 'light-fire', try: (ctx) => placeOnEmptyCell(ctx, {
     itemId: 'flint_shard',
     ground: isFireGroundCell,
@@ -1373,13 +1426,13 @@ const TAP_HANDLERS = [
       return !groundObjectBlocker(scene, save, cwmx, cwmy, at.half);
     },
     place: ({ scene, save, cwmx, cwmy }) => {
-      // Home's firepit is drawn off its cell's centre (HomeArea.FIREPIT_NUDGE);
-      // a fire lit in it burns on the ring, not beside it.
+      // Share the saved ring's anchor, including a legacy save that has not
+      // yet had its firepit centred by ensureStarterTrailerObject.
       const pit = save.homeFirepit;
       const spot = pit && PlacedFloor.isSurface(scene.depth) && sameAbsCell(scene, pit.x, pit.y, cwmx, cwmy)
         ? pit : { x: cwmx, y: cwmy };
       // Tag the level so it renders / wards only here (see src/placed_floor.js).
-      save.fires.push(PlacedFloor.stampDepth({ x: spot.x, y: spot.y }, scene.depth));
+      save.fires.push(Campfires.light(PlacedFloor.stampDepth({ x: spot.x, y: spot.y }, scene.depth)));
       // The FIRST fire a save ever lights tells its story. A busy screen
       // returns false unmarked (the story ledger), so the next fire asks again.
       scene._storySplashOnce?.('fire', {
@@ -1683,7 +1736,9 @@ const TAP_HANDLERS = [
   { name: 'flavor', try: (ctx) => {
     const { scene, sx, sy, cell } = ctx;
     if (isTillableCell(cell)) return false;
-    const flavor = TERRAIN_FLAVOR[cell.underRoad ? TERRAIN.ROAD : cell.type] || '·';
+    const flavor = cell.underRoad ? TERRAIN_FLAVOR[TERRAIN.ROAD]
+      : cell.underLamp && isTillable(cell.type) ? LAMP_FOOT_FLAVOR
+      : TERRAIN_FLAVOR[cell.type] || '·';
     scene.flash(flavor, sx, sy);
     return true;
   }},

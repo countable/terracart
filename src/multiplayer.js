@@ -213,16 +213,41 @@ const Multiplayer = (function () {
   // int → '#rrggbb': cssOf, from util.js.
 
   // Where an edge marker for something off-screen sits: the point on the
-  // square view edge along the line from the view centre toward it, `inset`
+  // square or circular view edge along the centre-to-target line, `inset`
   // px inside so the marker's art isn't sliced by the mask. vx/vy is the
   // screen-space offset from the view centre; returns offsets from the centre,
   // or null for a zero vector (nothing to point at). Pure — the peer edge dot
   // draws from it, and the tests pin it.
-  function edgeDot(vx, vy, half, inset) {
-    const m = Math.max(Math.abs(vx), Math.abs(vy));
+  function edgeDot(vx, vy, half, inset, circular = false) {
+    const m = circular ? Math.hypot(vx, vy) : Math.max(Math.abs(vx), Math.abs(vy));
     if (!(m > 0)) return null;
     const k = (half - inset) / m;
     return { x: vx * k, y: vy * k };
+  }
+
+  // Annotation graphics use turned coordinates in a counter-rotated map
+  // container. The map camera still supplies zoom and the world mask.
+  function annotationPoint(scene, x, y) {
+    return typeof HeadingUp === 'undefined' ? { x, y } : HeadingUp.toScreenPt(scene, x, y);
+  }
+  function roundView(scene) {
+    return typeof HeadingUp !== 'undefined' && HeadingUp.active(scene);
+  }
+  function annotationHalf(scene) {
+    return scene.viewSize / (2 * (scene.mapZoom || 1));
+  }
+  function clampAnnotation(scene, x, y, width, height) {
+    const half = annotationHalf(scene), tw = width / 2 + 2, th = height / 2 + 2;
+    if (roundView(scene)) {
+      // Reserving the rectangle's half diagonal keeps all four corners in
+      // the circular mask, even when the target lies on a diagonal.
+      const r = Math.max(0, half - Math.hypot(tw, th));
+      const dx = x - scene.viewCenterX, dy = y - scene.viewCenterY;
+      const k = Math.min(1, r / (Math.hypot(dx, dy) || 1));
+      return { x: scene.viewCenterX + dx * k, y: scene.viewCenterY + dy * k };
+    }
+    return { x: Math.min(scene.viewCenterX + half - tw, Math.max(scene.viewCenterX - half + tw, x)),
+      y: Math.min(scene.viewCenterY + half - th, Math.max(scene.viewCenterY - half + th, y)) };
   }
 
   // What's at a world-metre spot, in the words a player would use: the object
@@ -650,8 +675,11 @@ const Multiplayer = (function () {
     r.hp = Combat.hpFraction(c);
     const now = performance.now(), m = {};
     for (const k of MOVE_FLAGS) m[k] = !!c[k];
+    // The leg's bow (creature_ai.js enemyBatMove jx/jy) rides along as a
+    // vector — scaled like the points, shifted by no correction.
     m._batFlight = c._batFlight ? { x: c._batFlight.x / scene.mPerPx, y: c._batFlight.y / scene.mPerPx,
       tx: c._batFlight.tx / scene.mPerPx, ty: c._batFlight.ty / scene.mPerPx,
+      jx: (c._batFlight.jx || 0) / scene.mPerPx, jy: (c._batFlight.jy || 0) / scene.mPerPx,
       start: Math.max(-300000, Math.min(300000, c._batFlight.start - now)), duration: c._batFlight.duration } : null;
     for (const k of MOVE_NUMBERS) if (Number.isFinite(c[k])) m[k] = c[k];
     for (const k of MOVE_TIMERS) if (Number.isFinite(c[k])) m[k] = Math.min(300000, Math.max(-300000, c[k] - now));
@@ -683,7 +711,11 @@ const Multiplayer = (function () {
       if (MOVE_FLAGS.includes(k)) { if (typeof value !== 'boolean') return false; }
       else if (k === '_batFlight') {
         if (value !== null && (!value || typeof value !== 'object' || Array.isArray(value)
-            || Object.keys(value).length !== 6 || !['x', 'y', 'tx', 'ty'].every(p => Number.isFinite(value[p]) && value[p] >= 0 && value[p] <= 4194304)
+            || ![6, 8].includes(Object.keys(value).length) || !['x', 'y', 'tx', 'ty'].every(p => Number.isFinite(value[p]) && value[p] >= 0 && value[p] <= 4194304)
+            // The bow (jx/jy) is optional on the wire: a peer on a build before
+            // the erratic bats sends the six-key flight, and flies it straight.
+            || (value.jx === undefined) !== (value.jy === undefined)
+            || !['jx', 'jy'].every(p => value[p] === undefined || (Number.isFinite(value[p]) && Math.abs(value[p]) <= 4194304))
             || !Number.isFinite(value.start) || Math.abs(value.start) > 300000
             || !Number.isFinite(value.duration) || value.duration <= 0 || value.duration > 300000)) return false;
       }
@@ -773,6 +805,7 @@ const Multiplayer = (function () {
     c._batFlight = s.m._batFlight ? {
       x: s.m._batFlight.x * scene.mPerPx - dx, y: s.m._batFlight.y * scene.mPerPx - dy,
       tx: s.m._batFlight.tx * scene.mPerPx - dx, ty: s.m._batFlight.ty * scene.mPerPx - dy,
+      jx: (s.m._batFlight.jx || 0) * scene.mPerPx, jy: (s.m._batFlight.jy || 0) * scene.mPerPx,
       start: performance.now() + s.m._batFlight.start, duration: s.m._batFlight.duration } : null;
     for (const k of MOVE_NUMBERS) c[k] = s.m[k] ?? null;
     for (const k of MOVE_TIMERS) c[k] = s.m[k] === undefined ? null : performance.now() + s.m[k];
@@ -1298,9 +1331,10 @@ const Multiplayer = (function () {
     // colour, at the farmer's own scale.
     const art = SpriteLayout.PLAYER_ART.farmer;
     p.spr = scene.add.sprite(0, 0, art.sheet, 0).setScale(art.scale).setTint(p.color);
+    p.spr._mpPeer = true;
     playDirected(p.spr, 'idle', 0, 1);
     p.lbl = scene.add.text(0, 0, p.name, {
-      font: fontUI('bold 10px'), color: cssOf(p.color),
+      ...phaserFontUI('bold 10px'), color: cssOf(p.color),
       stroke: '#000', strokeThickness: 3, padding: { x: 2, y: 1 },
     }).setOrigin(0.5, 1);
     scene.shadowContainer.add(p.sh);
@@ -1316,7 +1350,7 @@ const Multiplayer = (function () {
     if (spr.anims.currentAnim?.key !== key) spr.play(key);
   }
   function drawPeers(scene, now, dt) {
-    const half = scene.viewSize / 2 + 24;
+    const half = annotationHalf(scene);
     S.dotGfx?.clear();
     S.barGfx?.clear();
     // Time-based easing (~90% of the way in 150 ms) so a peer walks the same
@@ -1331,20 +1365,25 @@ const Multiplayer = (function () {
       // Ease toward the newest fix so 8 Hz updates read as a walk, not hops.
       if (p.dx == null || Math.hypot(s.x - p.dx, s.y - p.dy) > 96) { p.dx = s.x; p.dy = s.y; }
       else { p.dx += (s.x - p.dx) * k; p.dy += (s.y - p.dy) * k; }
+      const vx = p.dx - scene.viewCenterX, vy = p.dy - scene.viewCenterY;
       const onScreen = (p.d || 0) === (scene.depth || 0)
-        && Math.abs(p.dx - scene.viewCenterX) < half && Math.abs(p.dy - scene.viewCenterY) < half;
+        && (roundView(scene) ? Math.hypot(vx, vy) < half
+          : Math.abs(vx) < half + 24 && Math.abs(vy) < half + 24);
       if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, wm.x, wm.y)) {
         hidePeerArt(p, false); continue;
       }
       if (!onScreen) { hidePeerArt(p, false); drawPeerDot(scene, p); continue; }
       if (!p.spr) makePeerArt(scene, p);
       const walking = p.m && (now - p.seenAt) < 1500;
-      playDirected(p.spr, walking ? 'walk' : 'idle', p.fx, p.fy);
+      const facing = typeof HeadingUp === 'undefined' ? { x: p.fx, y: p.fy }
+        : HeadingUp.toScreenVec(scene, p.fx, p.fy);
+      playDirected(p.spr, walking ? 'walk' : 'idle', facing.x, facing.y);
       // (dx, dy) is the peer's fix on screen, and their FEET stand on it —
       // the sprite rises playerFeetNudgeY above it exactly like the local
       // player's (app.js), the contact shadow sits on it, and the name tag
       // floats a fixed gap over the head (23px above the sprite centre).
       p.spr.setPosition(p.dx, p.dy + scene.playerFeetNudgeY).setVisible(true);
+      p.spr._huAnchor = { x: p.dx, y: p.dy };
       // Use the eased feet position, not the latest network fix: depth must
       // change when the visible body crosses a trunk, including during peeks.
       const feet = screenToWorldMeters(scene, p.dx, p.dy);
@@ -1353,7 +1392,8 @@ const Multiplayer = (function () {
         wallSeat: { x: feet.x, halfW: scene.cellM / 2 },   // judged against angled walls like the player (Render.seatAgainstWalls)
       });
       p.sh.setPosition(p.dx, p.dy - 1).setVisible(true);
-      p.lbl.setPosition(p.dx, p.dy + scene.playerFeetNudgeY - 23).setVisible(true);
+      const label = annotationPoint(scene, p.dx, p.dy);
+      p.lbl.setPosition(label.x, label.y + scene.playerFeetNudgeY - 23).setVisible(true);
       drawPeerHealth(scene, p);
     }
   }
@@ -1364,23 +1404,25 @@ const Multiplayer = (function () {
   // as names alone. A downed peer shows the empty track.
   function drawPeerHealth(scene, p) {
     if (!S.barGfx || !scene._drawEnemyHealthBar || !(p.e < 1)) return;
-    const top = Math.round(p.dy + scene.playerFeetNudgeY - 23) + 1;
-    scene._drawEnemyHealthBar(S.barGfx, Math.round(p.dx), top, p.e, 1);
+    const anchor = annotationPoint(scene, p.dx, p.dy);
+    const top = Math.round(anchor.y + scene.playerFeetNudgeY - 23) + 1;
+    scene._drawEnemyHealthBar(S.barGfx, Math.round(anchor.x), top, p.e, 1);
   }
 
   // An off-screen NEAR peer (within PEER_NEAR_M — isNear gates the caller, so
   // no distance check here) shows as a small dot in their colour on the very
   // edge of the view, in the direction they are — so a friend a street over
   // registers without a name label cluttering the rim. Same clamp the ping
-  // edge arrow uses (the point where the centre→peer line leaves the square),
+  // edge arrow uses (the point where the centre→peer line leaves the view),
   // just further out: a dot needs less clearance than an arrow plus its
   // distance label. A peer on another depth is skipped — they aren't on your
   // map.
   function drawPeerDot(scene, p) {
     if (!S.dotGfx) return;
     if ((p.d || 0) !== (scene.depth || 0)) return;
-    const e = edgeDot(p.dx - scene.viewCenterX, p.dy - scene.viewCenterY,
-      scene.viewSize / 2, PEER_DOT_INSET);
+    const anchor = annotationPoint(scene, p.dx, p.dy);
+    const e = edgeDot(anchor.x - scene.viewCenterX, anchor.y - scene.viewCenterY,
+      annotationHalf(scene), PEER_DOT_INSET, roundView(scene));
     if (!e) return;
     const x = scene.viewCenterX + e.x, y = scene.viewCenterY + e.y;
     // Dark halo first so the dot reads on pale terrain, like every rim marker.
@@ -1400,7 +1442,8 @@ const Multiplayer = (function () {
       const wm = fromWorldPx(scene, ping.x, ping.y), me = playerWorldM(scene);
       const dx = wm.x - me.x, dy = wm.y - me.y;
       const dist = Math.round(Math.hypot(dx, dy));
-      const arrow = ['→', '↘', '↓', '↙', '←', '↖', '↑', '↗'][((Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) % 8) + 8) % 8];
+      const direction = typeof HeadingUp === 'undefined' ? { x: dx, y: dy } : HeadingUp.toScreenVec(scene, dx, dy);
+      const arrow = ['→', '↘', '↓', '↙', '←', '↖', '↑', '↗'][((Math.round(Math.atan2(direction.y, direction.x) / (Math.PI / 4)) % 8) + 8) % 8];
       scene._toast?.(`📍 ${ping.name}: ${ping.label || 'here'} · ${dist} m ${arrow}`, { tier: 'sub', color: cssOf(ping.color) });
     }
   }
@@ -1410,14 +1453,15 @@ const Multiplayer = (function () {
       const q = S.pings[i];
       if (now - q.at > PING_TTL_MS) { q.gfx?.destroy(); q.txt?.destroy(); S.pings.splice(i, 1); }
     }
-    const half = scene.viewSize / 2;
+    const half = annotationHalf(scene);
     for (const q of S.pings) {
       const wm = fromWorldPx(scene, q.x, q.y);
-      const s = worldMetersToScreen(scene, wm.x, wm.y);
+      const world = worldMetersToScreen(scene, wm.x, wm.y);
+      const s = annotationPoint(scene, world.x, world.y);
       if (!q.gfx) {
         q.gfx = scene.add.graphics();
         q.txt = scene.add.text(0, 0, '', {
-          font: fontUI('bold 10px'), color: cssOf(q.color),
+          ...phaserFontUI('bold 10px'), color: cssOf(q.color),
           stroke: '#000', strokeThickness: 3, padding: { x: 2, y: 1 },
         }).setOrigin(0.5, 1);
         S.container.add([q.gfx, q.txt]);
@@ -1425,7 +1469,7 @@ const Multiplayer = (function () {
       const t = (now - q.at) / 1000;
       const vx = s.x - scene.viewCenterX, vy = s.y - scene.viewCenterY;
       q.gfx.clear();
-      if (Math.abs(vx) <= half && Math.abs(vy) <= half) {
+      if (roundView(scene) ? Math.hypot(vx, vy) <= half : Math.abs(vx) <= half && Math.abs(vy) <= half) {
         // On screen: a ring that breathes over the cell, and a bobbing label —
         // a marker that moves reads as "look here" where a static one reads
         // as terrain.
@@ -1434,7 +1478,8 @@ const Multiplayer = (function () {
         q.gfx.lineStyle(2, q.color, 0.9).strokeCircle(s.x, s.y, r);
         q.gfx.lineStyle(1, 0x000000, 0.5).strokeCircle(s.x, s.y, r + 1.5);
         setPingText(q, `📍 ${q.name}${q.label ? ': ' + q.label : ''}`);
-        q.txt.setOrigin(0.5, 1).setPosition(s.x, s.y - 18 + bob).setVisible(true);
+        const label = clampAnnotation(scene, s.x, s.y - 18 + bob - q.txt.height / 2, q.txt.width, q.txt.height);
+        q.txt.setOrigin(0.5, 0.5).setPosition(label.x, label.y).setVisible(true);
         continue;
       }
       // Off screen: an arrow on the view edge pointing at the spot, with the
@@ -1444,8 +1489,9 @@ const Multiplayer = (function () {
       const dxm = wm.x - me.x, dym = wm.y - me.y;
       const dist = Math.hypot(dxm, dym);
       if (dist > PING_ARROW_MAX_M) { q.txt.setVisible(false); continue; }
-      const kk = (half - PING_ARROW_INSET) / Math.max(Math.abs(vx), Math.abs(vy));
-      const ex = scene.viewCenterX + vx * kk, ey = scene.viewCenterY + vy * kk;
+      const edge = edgeDot(vx, vy, half, PING_ARROW_INSET, roundView(scene));
+      if (!edge) { q.txt.setVisible(false); continue; }
+      const ex = scene.viewCenterX + edge.x, ey = scene.viewCenterY + edge.y;
       const cos = Math.cos(Math.atan2(vy, vx)), sin = Math.sin(Math.atan2(vy, vx));
       const len = 9 + 2 * (0.5 + 0.5 * Math.sin(t * 3));   // same breath as the ring
       const tipX = ex + cos * len, tipY = ey + sin * len;
@@ -1455,10 +1501,8 @@ const Multiplayer = (function () {
       q.gfx.lineStyle(1, 0x000000, 0.6).strokeTriangle(tipX, tipY, ax, ay, bx, by);
       setPingText(q, `📍 ${q.name} · ${Math.round(dist)} m`);
       // Label sits inward of the arrow, clamped so it never clips the mask.
-      const tw = q.txt.width / 2 + 2, th = q.txt.height / 2 + 2;
-      const tx = Math.min(scene.viewCenterX + half - tw, Math.max(scene.viewCenterX - half + tw, ex - cos * 24));
-      const ty = Math.min(scene.viewCenterY + half - th, Math.max(scene.viewCenterY - half + th, ey - sin * 24));
-      q.txt.setOrigin(0.5, 0.5).setPosition(tx, ty).setVisible(true);
+      const label = clampAnnotation(scene, ex - cos * 24, ey - sin * 24, q.txt.width, q.txt.height);
+      q.txt.setOrigin(0.5, 0.5).setPosition(label.x, label.y).setVisible(true);
     }
   }
   // Re-rendering a Phaser text is the expensive part; only do it on change.
@@ -1557,6 +1601,11 @@ const Multiplayer = (function () {
       flushAggro(now);
       flushState(scene, now);
       correctEnemies(scene, dt);
+    }
+    if (roundView(scene)) {
+      const a = HeadingUp.angle(scene), c = Math.cos(a), s = Math.sin(a);
+      const cx = scene.viewCenterX, cy = scene.viewCenterY;
+      S.container.setPosition(cx - c * cx - s * cy, cy + s * cx - c * cy).setRotation(-a);
     }
     drawPeers(scene, now, dt);
     drawPings(scene, now);

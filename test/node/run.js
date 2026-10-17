@@ -95,14 +95,14 @@ const FILES = [
   'scenic.js',
   // Influence zones. Pure (reads WorldGen at CALL time), before worldgen.js like the page.
   'zones.js', 'zone_variant_data.js', 'terrain.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
-  'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js',
+  'multiplayer.js', 'placed_floor.js', 'campfires.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js',
   // Traps — pure (reads WorldGen at CALL time); index.html puts it first, so do we.
   'traps.js', 'whirlwinds.js', 'hazard_falls.js', 'environment_hazards.js', 'pressure_traps.js', 'spider_webs.js',
   'gas.js', 'mushroom_gas.js',
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',
   'dungeon_progression.js', 'elevators.js', 'arena.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'worldgen.js', 'save.js',
-  'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
+  'compass_modules.js', 'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',
   'hidden_objects.js', 'temple_puzzles.js', 'temple_layout.js', 'temple_scene.js', 'temples.js', 'interactables.js', 'boss_encounters.js', 'houses.js',
@@ -121,14 +121,14 @@ const FILES = [
   // Pure draw math over WorldGen + a stub Graphics, so projection/culling pin without Phaser.
   'road_overlay.js',
   // The POLYGONAL building overlay: pure draw math over WorldGen + a stub fill target.
-  'castle_styles.js', 'temple_art.js', 'building_overlay.js',
+  'castle_styles.js', 'temple_art.js', 'wall_perspective.js', 'building_overlay.js',
   // The sandbox's pure tile builder: the same authored scenes, roads and dressing install() uses.
   'sandbox_destinations.js',
   'sandbox.js',
   // render.js reads no globals at load time (see the CANVAS_W comment in
   // drawObjects), so it loads safely and exposes pure helpers (edgeNeedsBorder).
   // The lightmap: only draw() touches Phaser, and no test calls it.
-  'lighting.js', 'safety.js', 'obstacle_step.js', 'visibility.js',
+  'lighting_gpu.js', 'lighting.js', 'safety.js', 'obstacle_step.js', 'visibility.js',
   'render.js',
   'gas_render.js',
   // The modal shell: its methods are DOM work nobody runs here, but its top
@@ -147,7 +147,7 @@ const FILES = [
 const BRIDGE = `;Object.assign(globalThis, {
   Arena,
   GasRender,
-  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, CharacterPortraits, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, Visibility,
+  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, CharacterPortraits, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, WorldLayers, Visibility,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
   REACH_CORNER_PX, ReachCorner,
@@ -183,7 +183,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   WILDPLANT_RULES, wildplantRule, wildplantOutput, wildplantWorkRelic,
   wildplantWorkCost, wildplantTreasure, wildplantLight,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
-  TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
+  TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR, LAMP_FOOT_FLAVOR, isTillableCell,
   Quests, questEnemies, questAnimals, STARTER_CHAIN,
 });`;
 try {
@@ -323,6 +323,7 @@ const starterWrapper = (name) => {
     ctx[name] = parseFloat(m[1]);
   }
   // Derived in app.js from the two above, as the shipping code reads it.
+  ctx.MAP_DEFAULT_ZOOM = ctx.VIEW_CELLS / ctx.PINCH_VIEW_CELLS;
   ctx.PINCH_MAX_ZOOM = ctx.VIEW_CELLS / ctx.PINCH_VIEW_CELLS;
 }
 
@@ -550,7 +551,7 @@ const starterWrapper = (name) => {
   const methods = ['playerScreen() {', 'isPeeking() {', '_setPeekFromDrag(dxPx, dyPx) {',
                    '_releasePeek() {', 'clearPeek() {', '_tickPeek(dt) {', '_gamePt(p) {',
                    '_pinchStart(a, b) {', '_pinchMove(a, b) {', '_pinchEnd() {',
-                   '_tickMapZoom(dt) {', '_unzoomPt(pt) {']
+                   '_tickMapZoom(dt) {', '_stepMapZoom(direction) {', '_unzoomPt(pt) {']
     .map(lift).join(',\n');
   // The tap-or-drag decision itself, straight out of create()'s input wiring.
   const relSig = '    const endPeekPointer = (p) => {';
@@ -1260,6 +1261,9 @@ ctx.webpDims = (rel) => {
 // index.html MEASURES the screen (the CSS scale app.js sizes the canvas from is
 // published by its fitGame); canvas_scale.test.js pins the two halves together.
 ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+// The compass skin's stylesheet (css/compass_hud.css): where the skin seats
+// the HUD's rows (buffs.test.js pins the status row's seat).
+ctx.COMPASS_CSS_SRC = fs.readFileSync(path.join(ROOT, 'css/compass_hud.css'), 'utf8');
 ctx.PHASER_SRC = fs.readFileSync(path.join(ROOT, 'vendor/phaser.js'), 'utf8');
 // The browser harness page: harness_scripts.test.js pins its script list against
 // index.html's (a missing module once took the whole browser suite dark).
@@ -1286,7 +1290,7 @@ ctx.RENDER_SRC = readSrc('render.js');
 ctx.TILLED_TEX = (() => {
   const c = vm.createContext({ window: { addEventListener() {} }, console });
   vm.runInContext(readSrc('util.js') + '\n' + readSrc('textures.js')
-    + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR, SHRINE_PAD };',
+    + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR, SHRINE_PAD, makeBerryBushTexture };',
     c, { filename: 'textures.js#tilled' });
   return c.__x;
 })();
@@ -1306,12 +1310,14 @@ ctx.TRAP_TEX = (() => {
 ctx.ASSETS_SRC = readSrc('assets.js');
 // lighting.test.js pins the compositing model (ADD cookies, MULTIPLY map) as text.
 ctx.LIGHTING_SRC = readSrc('lighting.js');
+ctx.FOG_SRC = readSrc('fog.js');
 // reach_corners.test.js pins the lit boundary's corner radius as coords.js' one number.
 ctx.COORDS_SRC = readSrc('coords.js');
 // multiplayer.js seats peers like the local player; feet_anchor.test.js pins both as text.
 ctx.MULTIPLAYER_SRC = readSrc('multiplayer.js');
 ctx.INTERACT_SRC = readSrc('interact.js');
 ctx.WORLDGEN_SRC = readSrc('worldgen.js');   // map_review.test.js (the review salt)
+ctx.STREET_VARIANTS_SRC = readSrc('street_variants.js');   // goldenberry.test.js (the plain verges' golden roll)
 ctx.GAME_LOADER_SRC = fs.readFileSync(path.join(ROOT, 'tools', 'game-loader.js'), 'utf8');   // map_review.test.js
 ctx.MAP_REVIEW_ART_SRC = fs.readFileSync(path.join(ROOT, 'tools', 'map-review-art.js'), 'utf8');
 // The multiplayer relay mirrors client regexes (multiplayer_shared.test.js).

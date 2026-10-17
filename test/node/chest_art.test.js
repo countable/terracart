@@ -20,16 +20,40 @@
   });
 
   test('chest art: supplies and special appearances keep their own paintings', () => {
-    assert.eq(chestOpeningArt(chest({ crate: true, tierSeed: 5 })), 'kind_supplies');
-    assert.eq(chestOpeningArt(chest({ quarryCrate: true, tierSeed: 5 })), 'chest_t1', 'a physical box stays wooden');
+    assert.eq(chestOpeningArt(chest({ crate: true, tierSeed: 5 })), 'treasure_crate');
+    assert.eq(chestOpeningArt(chest({ quarryCrate: true, tierSeed: 5 })), 'treasure_crate', 'a physical box keeps its own painting');
     assert.eq(chestOpeningArt(chest({ fixedLoot: { kind: 'relic', slot: 'axe', tier: 1 } })), 'chest_t2',
       'the starter relic reward does not recolor its source trunk');
-    for (const poiClass of ['atm', 'bicycle_parking', 'waste_basket', 'lodging', 'place_of_worship', 'bakery']) {
+    for (const poiClass of ['atm', 'bicycle_parking', 'lodging', 'place_of_worship', 'bakery']) {
       assert.eq(chestOpeningArt(chest({ poiClass })), null, poiClass + ' keeps its special ceremony');
       assert.eq(chestOpeningArt(chest({ poiClass, depth: 2, tierSeed: 3 })), 'chest_t4',
         poiClass + ' underground is an ordinary chest');
     }
     assert.eq(chestOpeningArt(chest({ banditStop: true })), null, 'a wagon stays a wagon');
+  });
+
+  test('barrel art: paid finds use the barrel painting once, while pots retain their own feedback', () => {
+    const original = globalThis.rollBarrel;
+    try {
+      globalThis.rollBarrel = () => ({ kind: 'item', id: 'wood', qty: 2 });
+      for (const barrelStyle of ['barrel', 'clay_pot']) {
+        let cards = 0, toasts = 0;
+        const save = { opened: [] };
+        const o = chest({ id: 'art_' + barrelStyle, barrel: true, barrelStyle });
+        const scene = makeScene({ flashLoot() { toasts++; }, showChestRewardModal(card) {
+          cards++;
+          assert.eq(card.art, 'treasure_barrel');
+          assert.includes(save.opened, o.id);
+          assert.eq(scene.invCount('wood'), 2);
+        } });
+        const ctx = makeCtx(scene, save);
+        INTERACTABLES.chest.custom(ctx, o);
+        INTERACTABLES.chest.custom(ctx, o);
+        assert.eq(cards, barrelStyle === 'barrel' ? 1 : 0);
+        assert.eq(toasts, barrelStyle === 'barrel' ? 0 : 1);
+        assert.eq(scene.invCount('wood'), 2);
+      }
+    } finally { globalThis.rollBarrel = original; }
   });
 
   test('chest art: item, relic, armor, cash and discarded gear share source art despite reward tier', () => {

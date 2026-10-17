@@ -49,6 +49,20 @@
 
 const Render = {};
 
+// Picked fruit can leave its plant standing. This is a render-only view:
+// the original id stays spent, including after reloading the saved ledger.
+Render.wildplantView = function (plant, sets) {
+  if (sets.burned?.has(plant.id) || sets.burnedGround?.(plant)) return null;
+  const picked = !plant.tide && sets.picked.has(plant.id);
+  if (picked) {
+    const crop = wildplantRule(plant.crop)?.pickedCrop;
+    return crop ? { ...plant, crop, _pickedRemnant: true, _plantArt: 'ordinary', _hedgeFrame: undefined,
+      _zoneObjectFrame: undefined, _streetArt: undefined } : null;
+  }
+  return isSpent(plant, sets) ? null : plant;
+};
+
+
 // Shared, short-lived melee art. The event is authored by the damage lane;
 // drawing never changes attack cadence or reach.
 Render.MELEE_LOOKS = {
@@ -162,11 +176,12 @@ Render.enemyMeleeColor = function (c) {
   return c.shiny ? 0xffd36a : colors[SpriteLayout.baseKind(c.kind)] || 0xe8ecf0;
 };
 
-// Flat ground props always precede upright pieces. Within each lane, ground
-// anchors determine occlusion; rank only breaks exact ties, so stepping
+// Ground decals always precede props and actors. Within each lane, ground
+// anchors determine occlusion; architectural pieces may also mark a background
+// pass for wall bodies beneath crowns. Rank only breaks exact ties, so stepping
 // within one cell can still pass behind a tree.
 Render.sortWorldDepth = function (pieces) {
-  pieces.sort((a, b) => Number(!!b.ground) - Number(!!a.ground)
+  pieces.sort((a, b) => Number(!!b.background || b.layer === WorldLayers.GROUND_DECAL) - Number(!!a.background || a.layer === WorldLayers.GROUND_DECAL)
     || (a.groundY - b.groundY) || ((a.rank || 0) - (b.rank || 0)));
   let changed = false;
   pieces.forEach((piece, depth) => {
@@ -209,6 +224,15 @@ Render.objectGroundOffsetPx = function (appearance, textures) {
   // ground line. Short props retain their actual art placement as well.
   return appearance.dyPx + (1 - appearance.origin[1]) * (frame?.height || CELL_PX)
     * appearance.scl * appearance.scaleYMul;
+};
+
+// Cell-seated art keeps its seating offsets screen-relative as the map turns.
+// Its foot is still used for depth; buildings retain their footprint pivot.
+Render.objectGroundAnchor = function (appearance, textures, point) {
+  if (appearance?.foot) return { x: Math.round(point.x), y: Math.round(point.y),
+    footDy: appearance.foot.footFromCentre };
+  return { x: Math.round(point.x) + (appearance?.dxPx || 0),
+    y: Math.round(point.y) + Render.objectGroundOffsetPx(appearance, textures) };
 };
 
 // Shop rank is assigned at restoration (a shop's line tier, a smithy's own,
@@ -429,9 +453,8 @@ Render.suppressedGround = (entry, ix, iy, type, depth = 0, n = entry?.cellsPerEd
 
 // Pseudo-3D extrusion: a building footprint is the "top surface", and its
 // south-facing edge gets a darker wall projected downward onto the row below.
-// Wall faces recover half the pre-recolour contrast against their floors — deep
-// shadow under the lit top surface, but with enough hue to read as the
-// building's own material rather than a generic dark stripe. Houses get a 7px
+// House faces stay close to their footprint colour, with a shallow shadow
+// that keeps the foundation readable as the same brick material. Houses get a 7px
 // wall; civic slabs (LARGE) keep a thicker 11px one to read at their bigger
 // footprint scale.
 //
@@ -440,7 +463,7 @@ Render.suppressedGround = (entry, ix, iy, type, depth = 0, n = entry?.cellsPerEd
 // POLYGON with the same colours at the same depths, and a wall that changed
 // height when the footprint stopped being square would give the two modes
 // different silhouettes for the same building.
-const BUILDING_FACE_COLOR = { 9: 0x613833, 11: 0x625441, 12: 0x5a5e58 };
+const BUILDING_FACE_COLOR = { 9: 0x7e4138, 11: 0x625441, 12: 0x5a5e58 };
 const BUILDING_FACE_PX = { 9: 7, 11: 7, 12: 11 };
 // Building tiers, as a predicate; module scope because the base terrain fill needs it too.
 const isBuildingType = (t) => t === 9 || t === 11 || t === 12;
@@ -1042,6 +1065,14 @@ function resetSlot(s) {
   s.setAlpha(1).setAngle(0).setScale(1).setFlipX(false);
   s.clearTint();
 }
+// One classification feeds pooling, compass orientation and depth sorting.
+Render.itemLayer = function (item) {
+  if (item._appearance) return item._appearance.layer;
+  if (item.plate || item.h?.kind === 'gas' || (item.h?.type != null && item.h.type !== 'vent')) {
+    return WorldLayers.GROUND_DECAL;
+  }
+  return WorldLayers.forObject(item.o || (item.p && { ...item.p, kind: 'wildplant' }));
+};
 Render.renderPool = function renderPool(scene, pool, container, list, configure, create, reuse) {
   let i = 0, membershipChanged = false;
   for (const item of list) {
@@ -1055,11 +1086,24 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure,
     s._poolIdleSince = null;
     s.setActive?.(true);
     s.setVisible(true);
+    // Support membership can change even when cached artwork is reusable.
+    s._stepSupport = !!(item.o || item.p) && (scene._obstacleStep?.supports || [])
+      .some(o => (o._stepSource || o) === (item.o || item.p));
     // A still camera can leave a generated prop on the same pool slot with
     // identical appearance and style. Its caller proves that case here, so the
     // slot avoids both identity reset and every redundant Phaser setter.
     if (!reuse?.(s, item)) {
       resetSlot(s);
+      // A label or ornament keeps its screen-height offset from the same
+      // ground point as its owner when the map turns.
+      s._huAnchor = (container === scene.worldContainer || container === scene.labelContainer
+        || container === scene.coinContainer || container === scene._sandboxLabels)
+        && Number.isFinite(item.dx) && Number.isFinite(item.dy)
+        ? deltaMToScreen(scene, item.dx, item.dy) : null;
+      if (s._huAnchor && item._appearance) {
+        s._huAnchor = Render.objectGroundAnchor(item._appearance, scene.textures, s._huAnchor);
+      }
+      s._worldLayer = container === scene.worldContainer ? Render.itemLayer(item) : WorldLayers.STANDING_PROP;
       configure(s, item);
     }
     i++;
@@ -1097,6 +1141,35 @@ const SHINY_GLOW_PADDING = 12; // texture pixels reserved around the silhouette
 // A shiny wears the gold glow and the sweep; an elite (glow false) the sweep
 // alone over its baked vivid sheet (Render.vividTexture), so the rune circle
 // and the creature's own art read clearly.
+// Phaser 3.87's PreFX pipeline (the shine sweep and glow Render.setShine
+// attaches) draws the sprite into its full-size FX target, then every FX
+// pass into the small square targets, with the camera's SCISSOR still on.
+// A camera over the whole canvas scissors nothing, so Phaser never notices.
+// This game's main camera is the map square (_applyMapZoom's setViewport —
+// every zoom but 1, and every heading-up turn), whose scissor is a band of
+// canvas rows: it cuts the sprite in the full-size target along a straight
+// line and empties the small targets, so a shiny prop vanishes or shows a
+// slice of itself as the camera moves (the clipped-rock report). Lift the
+// scissor for the pipeline's quad and put it back for the next ordinary
+// batch; the circle mask is a stencil, which the pipeline restores itself,
+// so the copy back to the game still clips to the map. Patched on the
+// prototype, once, so the FX pipeline instance picks it up at call time.
+Render.guardPreFxScissor = function guardPreFxScissor(PhaserNS = typeof Phaser !== 'undefined' ? Phaser : null) {
+  const proto = PhaserNS?.Renderer?.WebGL?.Pipelines?.PreFXPipeline?.prototype;
+  if (!proto || typeof proto.batchQuad !== 'function') return false;
+  if (proto._scissorGuarded) return true;
+  const batchQuad = proto.batchQuad;
+  proto.batchQuad = function guardedBatchQuad() {
+    const gl = this.gl;
+    const had = !!gl && gl.isEnabled(gl.SCISSOR_TEST);
+    if (had) gl.disable(gl.SCISSOR_TEST);
+    try { return batchQuad.apply(this, arguments); }
+    finally { if (had) gl.enable(gl.SCISSOR_TEST); }
+  };
+  proto._scissorGuarded = true;
+  return true;
+};
+
 Render.setShine = function setShine(s, on, id, glow = true) {
   const fx = s && s.preFX;
   if (!fx) return false;
@@ -1312,36 +1385,25 @@ const WATERED_TINT = 0xc7c7c7;
 const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 27, 29, 30, 31]);  // sand, water, residential, all roads, path, all buildings, rock, wasteland, churchyard, unmapped fog, tar yard
 // Fog of war — the wash over land the player has never visited.
 //
-// Pure black, NOT the biome's `atmos.dim` that the lightmap's out-of-reach
-// ambient uses (Render.reachDimColor, read by Lighting.profile). That dim is deliberately tinted so unlit ground still reads as this biome
-// after dark; fog is the opposite claim — it is the absence of information,
-// and colouring it would say "here is a forest you haven't been to" when the
-// point is that the player doesn't know that yet.
-//
-// 0.8 leaves the terrain faintly legible as shape rather than blacking it out,
-// so the world reads as continuous and the revealed region has an edge to it.
-// Note it STACKS with the lightmap's falloff (Lighting.FALLOFF_A 0.90 at the
-// viewport corner, drawn on the layer just below): out at the corners, fogged
-// and explored ground are both close to black and the fog edge is only really
-// legible in the mid-field. Retune the pair together if that ever matters.
-const FOG_COLOR = 0x000000;
-const FOG_ALPHA = 0.8;
+// Neutral grey separates unexplored land from night and cave darkness.
+// A dense interior hides detail while the frontier still feathers smoothly.
+const FOG_COLOR = 0x808080;
+const FOG_ALPHA = 0.95;
 // ── The frontier ramp ─────────────────────────────────────────────────────
 // The fog does not arrive as a wall. Darkness by DISTANCE from the nearest
 // revealed cell, in cells:
 //
 //   0 (revealed ground)   0
-//   1 cell out            0.55
-//   2 cells out           0.70
+//   1 cell out            0.70
+//   2 cells out           0.88
 //   3 cells out and past  FOG_ALPHA
 //
-// The interior deliberately still lands on the old flat value: this softens
-// the EDGE, it does not lighten the unknown.
+// The interior reaches FOG_ALPHA; only the frontier is softened.
 //
 // Between those samples the ramp is CONTINUOUS (smoothstep between the
 // whole-cell entries, evaluated per texture pixel): any 32px alpha step reads as
 // a UI element sitting on the world.
-const FOG_RAMP_A = [0, 0.55, 0.70, FOG_ALPHA];
+const FOG_RAMP_A = [0, 0.70, 0.88, FOG_ALPHA];
 // How deep the ramp runs, in cells.
 const FOG_RAMP_CELLS = FOG_RAMP_A.length - 1;
 // The wash starts at the EDGE of explored ground, not at the centre of the last
@@ -1668,6 +1730,7 @@ if (typeof window !== 'undefined') {
   window.FOG_EDGE_BIAS = FOG_EDGE_BIAS;
   window.FOG_SUB = FOG_SUB;
   window.FOG_ALPHA = FOG_ALPHA;
+  window.FOG_COLOR = FOG_COLOR;
 }
 // Scratch buffers for drawCells' per-frame ring scan, reused across frames.
 // Allocated on first use (their size derives from VIEW_CELLS, which app.js
@@ -1911,6 +1974,24 @@ function drawAtmosRim(scene, haze) {
   if (g.flush) g.flush();   // BAKED (app.js): one upload per haze change
 }
 
+// Compare the exact inputs to retained tiled walls. Ring buffers are shared
+// scratch storage, so snapshots must be copied on rebuild rather than retained
+// by reference. Heading and subcell pan deliberately do not invalidate them.
+Render.tiledWallsDirty = function (scene, key, types, owners, unclaimed, synthetic, phases) {
+  const previous = scene._tiledWallFrame;
+  const same = (a, b) => {
+    if (!a || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  };
+  if (previous && previous.key === key && same(previous.types, types)
+    && same(previous.owners, owners) && same(previous.unclaimed, unclaimed)
+    && same(previous.synthetic, synthetic) && same(previous.phases, phases)) return false;
+  scene._tiledWallFrame = { key, types: types.slice(), owners: owners.slice(),
+    unclaimed: unclaimed.slice(), synthetic: synthetic.slice(), phases: phases.slice() };
+  return true;
+};
+
 // Tiled walls stay with the building background, below every world object.
 Render.rampartPiece = function (scene, groundY, rank = 1) {
   const pool = scene._rampartPool || (scene._rampartPool = []);
@@ -1960,9 +2041,12 @@ Render.drawChestTrails = function drawChestTrails(scene) {
   const paths = Starter.trailPaths(scene, Date.now());
   if (!paths.length) return;
   if (!g) { g = scene._chestTrailGfx = scene.add.graphics(); scene.cobbleContainer.add(g); }
-  const style = Starter.TRAIL_STYLE;
+  const style = Starter.TRAIL_STYLE, player = playerWorldM(scene);
   g.lineStyle(style.width, style.colour, style.alpha);
   for (const path of paths) {
+    const radius = Math.hypot(player.x - path.target.x, player.y - path.target.y)
+      + scene.cellM * style.behindCells;
+    const radiusSquared = radius * radius;
     let along = 0;
     g.beginPath();
     for (let i = 1; i < path.points.length; i++) {
@@ -1970,17 +2054,23 @@ Render.drawChestTrails = function drawChestTrails(scene) {
       const b = worldMetersToScreen(scene, path.points[i].x, path.points[i].y);
       const length = Math.hypot(b.x - a.x, b.y - a.y);
       if (!length) continue;
-      let at = 0;
-      while (at < length) {
-        const phase = along % (style.dash + style.gap), ink = phase < style.dash;
-        const span = Math.min(length - at, (ink ? style.dash : style.dash + style.gap) - phase);
+      const visible = Starter.trailSegmentRange(path.points[i - 1], path.points[i], path.target, radiusSquared);
+      // Keep dash phase measured from the original route origin, including
+      // hidden segments. Clipping moves every frame without rebuilding routes.
+      if (!visible) { along += length; continue; }
+      let at = visible[0] * length;
+      const end = visible[1] * length;
+      while (at < end) {
+        const phase = (along + at) % (style.dash + style.gap), ink = phase < style.dash;
+        const span = Math.min(end - at, (ink ? style.dash : style.dash + style.gap) - phase);
         if (ink) {
           g.moveTo(a.x + (b.x - a.x) * at / length, a.y + (b.y - a.y) * at / length);
           g.lineTo(a.x + (b.x - a.x) * (at + span) / length, a.y + (b.y - a.y) * (at + span) / length);
         }
-        at += span; along += span;
-        if (span < 1e-8) { along += 1e-7; }
+        at += span;
+        if (span < 1e-8) at += 1e-7;
       }
+      along += length;
     }
     g.strokePath();
   }
@@ -2085,6 +2175,14 @@ Render.drawCells = function drawCells(scene) {
   // toggle flipping mid-pass would draw half a building.
   const POLY = polyBuildings();
   const skyLevel = scene.depth === WorldGen.SKY_DEPTH;
+  // Retain footprint geometry between compass updates; only its vertical
+  // projection changes as the view turns. Clear even when leaving the surface.
+  const perspectiveWalls = typeof WallPerspective !== 'undefined'
+    && scene.depth === 0 && WallPerspective.active(scene);
+  if (!perspectiveWalls) {
+    if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'tiled');
+    scene._tiledWallFrame = null;
+  }
   const gb2 = scene.borderGfx;
   scene._uprightPieces = [];
   scene._rampartPoolUsed = 0;
@@ -2625,14 +2723,17 @@ Render.drawCells = function drawCells(scene) {
       // tilled, mirroring items.js isTillableCell's own roadMask read.
       // Road-BAND cells heal away too (tilling consults the roadMask, app.js
       // isTillableCell). The mask lookup runs only for cells marked tilled.
-      let _tilledUnderRoad = false;
+      let _tilledOffSoil = false;
       if (isTilled) {
         const e3 = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
         const N3 = e3 && (e3.cellsPerEdge || rowCells(scene, _ringTY[_si]));
-        _tilledUnderRoad = !!(e3 && e3.roadMask
+        _tilledOffSoil = !!(e3 && e3.roadMask
           && e3.roadMask[_ringIY[_si] * N3 + _ringIX[_si]]);
+        // …and a lamp's footing (isTillableCell's underLamp).
+        if (!_tilledOffSoil && e3 && typeof RoadOverlay !== 'undefined'
+          && RoadOverlay.lampCellsFor(_ringTX[_si], _ringTY[_si], e3).has(_ringIY[_si] * N3 + _ringIX[_si])) _tilledOffSoil = true;
       }
-      if (isTilled && (!isTillable(type) || _tilledUnderRoad)) {
+      if (isTilled && (!isTillable(type) || _tilledOffSoil)) {
         const cc = absCellCenterMeters(scene, absCellIX, absCellIY);
         const hasPlant = _plantedNear.some(pp =>
           Math.abs(pp.x - cc.x) < 0.1 && Math.abs(pp.y - cc.y) < 0.1);
@@ -2857,6 +2958,17 @@ Render.drawCells = function drawCells(scene) {
     if (nb === T(col, row) && (dc === -1 || dr === -1)) return false;   // partner already drew it
     return true;
   };
+  // drawCells also paints animated ground each frame. Walls only rebuild on
+  // exact terrain/ownership/grid changes, then scroll as one retained batch.
+  let tiledWallsDirty = false;
+  if (perspectiveWalls) {
+    const key = `${baseCellIX}|${baseCellIY}|${_bandKey}|${POLY}|${scene.viewCenterX}|${scene.viewCenterY}`
+      + `|${scene.viewLeft}|${scene.viewTop}|${scene.viewSize}`;
+    tiledWallsDirty = Render.tiledWallsDirty(scene, key, types, owners, unclaimed,
+      _ringSyntheticBuilding, _ringPhase) || !scene._wallPerspective?.tiled;
+    if (tiledWallsDirty) WallPerspective.begin(scene, 'tiled');
+    WallPerspective.offset(scene, 'tiled', -fracX * CELL_PX, -fracY * CELL_PX);
+  }
   // Pseudo-3D extrusion: see BUILDING_FACE_COLOR / BUILDING_FACE_PX at module
   // scope — the same wall the polygonal overlay extrudes its rings with.
   const SOUTH_FACE_COLOR = BUILDING_FACE_COLOR;
@@ -2871,8 +2983,65 @@ Render.drawCells = function drawCells(scene) {
       // building_overlay.js. Synthetic civic blocks have no polygon and keep
       // this complete tiled floor/wall path; mapped buildings skip it.
       if (polygonBuilding(col, row)) continue;
+      if (perspectiveWalls && !tiledWallsDirty) continue;
       const ox = col - half, oy = row - half;
-      const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
+      const { x: sx, y: sy } = cellScreenXY(scene, ox, oy,
+        perspectiveWalls ? 0 : fracX, perspectiveWalls ? 0 : fracY, PHASE(row));
+      if (perspectiveWalls) {
+        // Architectural walls stay attached to their ground edges. The shared
+        // renderer extrudes each prism toward screen up, with its cap extending
+        // into the footprint; individual wall sprites must not billboard.
+        const edges = [
+          [0, -1, sx, sy, sx + CELL_PX, sy, 0, 1],
+          [1, 0, sx + CELL_PX, sy, sx + CELL_PX, sy + CELL_PX, -1, 0],
+          [0, 1, sx + CELL_PX, sy + CELL_PX, sx, sy + CELL_PX, 0, -1],
+          [-1, 0, sx, sy + CELL_PX, sx, sy, 1, 0],
+        ];
+        let style;
+        if (type === 12) {
+          const owner = castleOwner(col, row);
+          const material = buildingBackgroundMaterial(CastleStyles.get(owner, !UNCLAIMED(col, row)));
+          const crest = material.rampart.woodTop ? material.wood : material.stone;
+          const si = (row + 2) * RING + (col + 2);
+          const damage = CastleStyles.damageCell(owner, _ringIX[si], _ringIY[si]);
+          const missing = [];
+          if (material.rampart.broken) missing.push(2);
+          if (damage && !missing.includes(damage.missing)) missing.push(damage.missing);
+          style = { height: material.rampart.wallHeight, thickness: material.rampart.topDepth,
+            face: material.stone.FACE, top: crest.BODY, crownTop: crest.LITE, dark: material.stone.SHADOW,
+            merlons: material.rampart.merlons, toothWidth: material.rampart.toothWidth,
+            toothHeight: material.rampart.toothHeight, missing };
+        } else if (type === 11) {
+          const wood = n => buildingBackgroundColor(UNCLAIMED(col, row)
+            && typeof unclaimedMaterialColor === 'function'
+            ? unclaimedMaterialColor(unclaimedShade(n)) : n);
+          style = { height: 5, thickness: 3,
+            face: wood(0xa67434), top: wood(0xa67434), dark: wood(0x6b4520) };
+        } else {
+          const face = buildingBackgroundColor(UNCLAIMED(col, row)
+            && typeof UNCLAIMED_BUILDING_BASE !== 'undefined'
+            ? unclaimedMaterialColor(unclaimedShade(UNCLAIMED_BUILDING_BASE.faces[type]))
+            : SOUTH_FACE_COLOR[type] || 0x444444);
+          style = { height: SOUTH_FACE_PX[type] || 7, thickness: 1,
+            face, top: BiomeProfiles.mixHex(face, 0xffffff, 0.16),
+            dark: BiomeProfiles.mixHex(0x000000, face, 0.65) };
+        }
+        for (const [dc, dr, ax, ay, bx, by, nx, ny] of edges) {
+          if (!wallEdge(col, row, dc, dr)) continue;
+          if (type === 11) {
+            // Separate pickets retain the palisade gaps on every compass axis.
+            for (let i = 0; i < 8; i++) {
+              const t = i / 8, end = t + 3 / CELL_PX;
+              WallPerspective.addSegment(scene, 'tiled', { ...style, nx, ny,
+                ax: ax + (bx - ax) * t, ay: ay + (by - ay) * t,
+                bx: ax + (bx - ax) * end, by: ay + (by - ay) * end });
+            }
+          } else {
+            WallPerspective.addSegment(scene, 'tiled', { ...style, ax, ay, bx, by, nx, ny });
+          }
+        }
+        continue;
+      }
       // Note it for the unclaimed wash below, with the depth its south wall
       // extrudes into the row underneath so the wash covers the wall face too
       // (tier 11 pickets stand 5 px proud; 9 and 12 use their own face depth).
@@ -2996,9 +3165,10 @@ Render.drawCells = function drawCells(scene) {
           // is what makes the descending band end flush at the band's TOP.
           const shoulder = (x, w) => {
             gb.fillStyle(_DBG ? 0x5080e0 : STONE_BODY, 1);
-            gb.fillRect(x, sy - WALL - CAP - 2, w, CAP + 2);
+            const lift = Math.ceil(TOOTH_H);
+            gb.fillRect(x, sy - WALL - CAP - lift, w, CAP + lift);
             gb.fillStyle(STONE_LITE, 1);
-            gb.fillRect(x, sy - WALL - CAP - 2, w, 1);
+            gb.fillRect(x, sy - WALL - CAP - lift, w, 1);
           };
           if (extL) shoulder(sx - extL, extL);
           if (extR) shoulder(sx + CELL_PX, extR);
@@ -3079,6 +3249,7 @@ Render.drawCells = function drawCells(scene) {
     paint(gbW, UNCLAIMED_MURK, UNCLAIMED_MURK_A);
     _washCells.length = 0;
   }
+  if (tiledWallsDirty) WallPerspective.finish(scene, 'tiled');
   // Preserve wall-to-wall overlap within the background, independent of actors.
   if (scene._uprightPieces.length) {
     Render.sortWorldDepth(scene._uprightPieces);
@@ -3235,7 +3406,7 @@ Render.drawCells = function drawCells(scene) {
   }
 
   // ── Fog of war ────────────────────────────────────────────────────────────
-  // Land the player has never been to is washed FOG_ALPHA black. Load-bearing:
+  // Land the player has never been to is washed FOG_ALPHA grey when enabled. Load-bearing:
   //
   // 1. THE LAYER. It paints scene.fogTex, whose image sits at the very top of the
   //    world display list (above sprites, rim haze, falloff and labels): a darkening
@@ -3259,7 +3430,7 @@ Render.drawCells = function drawCells(scene) {
     // Underground has its own darkness (the torch bubble) and no persistent
     // map to explore, so fog is a surface feature. Hide it on descent rather
     // than leaving the last surface frame frozen over the cave.
-    const fogOn = (scene.depth ?? 0) === 0;
+    const fogOn = typeof Fog !== 'undefined' && Fog.enabled && (scene.depth ?? 0) === 0;
     // ...and the UNMAPPED VEIL: a cell whose tile hasn't arrived is already drawn as
     // the animated survey-line fog, so a fully veiled cell is left alone and picked
     // up as ordinary fog when its tile lands. That handover happens mid-fade on no
@@ -3337,9 +3508,14 @@ function fadeLabelOverPlayer(tx, box) {
 // Upright props fade only while their visible art covers the player's body
 // and their shared world depth places them in front. Read the boot-time art
 // bounds, never texture pixels; untrimmed procedural art uses its frame box.
-Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha) {
+// On a turned heading-up map (`view`, from Render.headingFadeView) each body
+// stands upright at its turned feet, and lower turned feet draw in front, so
+// both the boxes and the front test follow the turned feet instead.
+Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha, view = null) {
   let obscures = false;
-  if (box && s.visible !== false && !appearance.ground && s.depth > playerDepth) {
+  const foot = view && (s._huAnchor || s);
+  const front = view ? view.sin * foot.x + view.cos * foot.y > view.playerKey : s.depth > playerDepth;
+  if (box && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && front) {
     const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
     const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
     const fw = art?.fw ?? s.frame?.realWidth ?? s.frame?.width ?? s.width;
@@ -3348,10 +3524,29 @@ Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, 
     const x1 = s.x + ((art?.maxX ?? fw) - s.originX * fw) * s.scaleX;
     const y0 = s.y + ((art?.minY ?? 0) - s.originY * fh) * s.scaleY;
     const y1 = s.y + ((art?.maxY ?? fh) - s.originY * fh) * s.scaleY;
-    obscures = x0 < box.x1 && x1 > box.x0 && y0 < box.y1 && y1 > box.y0;
+    // The art keeps its offsets from its feet; only the feet turn.
+    const ox = view ? view.cos * foot.x - view.sin * foot.y - foot.x : 0;
+    const oy = view ? view.sin * foot.x + view.cos * foot.y - foot.y : 0;
+    obscures = x0 + ox < box.x1 && x1 + ox > box.x0 && y0 + oy < box.y1 && y1 + oy > box.y0;
   }
   const alpha = baseAlpha * (obscures ? 0.5 : 1);
   if (s.alpha !== alpha) s.setAlpha(alpha);
+};
+
+// The turned-map inputs for fadeObjectOverPlayer: the rotation, the player's
+// turned feet key, and the player's body box moved to its turned feet. Null on
+// a north-up map. Rotating about the origin is enough: only differences
+// between turned feet matter, and every position turns the same way.
+Render.headingFadeView = function headingFadeView(scene, box) {
+  const a = typeof HeadingUp !== 'undefined' ? HeadingUp.angle(scene) : 0;
+  const feet = a && scene.playerScreen ? scene.playerScreen() : null;
+  if (!feet) return { view: null, box };
+  const sin = Math.sin(a), cos = Math.cos(a);
+  const ox = cos * feet.x - sin * feet.y - feet.x, oy = sin * feet.x + cos * feet.y - feet.y;
+  return {
+    view: { sin, cos, playerKey: sin * feet.x + cos * feet.y },
+    box: box && { x0: box.x0 + ox, x1: box.x1 + ox, y0: box.y0 + oy, y1: box.y1 + oy },
+  };
 };
 
 // QC labels read the generated selections, never choose another variant.
@@ -3592,7 +3787,7 @@ const LABEL_STYLES = {
 function labelFactory(style) {
   const st = LABEL_STYLES[style];
   return (scene) => {
-    const cfg = { font: fontUI(`${st.weight ?? 'bold'} ${st.size || 10}px`.trim()), color: st.color || LABEL_INK };
+    const cfg = { ...phaserFontUI(`${st.weight ?? 'bold'} ${st.size || 10}px`.trim()), color: st.color || LABEL_INK };
     if (st.align) cfg.align = st.align;
     if (st.stroke !== false) { cfg.stroke = LABEL_STROKE; cfg.strokeThickness = LABEL_STROKE_W; }
     if (st.background) cfg.backgroundColor = st.background;
@@ -3616,7 +3811,7 @@ function labelFactory(style) {
 // shares the creature look's centre).
 const SHADOW_LOOK = {
   prop:     { aspect: 0.42, alpha: 0.45 },
-  building: { aspect: 0.42, alpha: 0.5 },
+  building: { aspect: 0.42, alpha: 0.25 },
   creature: { aspect: 0.34, alpha: 0.32, dy: -3 },
   airborne: { aspect: 0.34, alpha: 0.20, dy: -3 },
   plant:    { alpha: 0.55 },
@@ -3628,6 +3823,24 @@ function seatShadow(s, look, w, x, y, h = w * SHADOW_LOOK[look].aspect) {
   setTextureIfDifferent(s, 'bldg_shadow');
   s.setOrigin(0.5, 0.5).setDisplaySize(w, h).setPosition(x, y + (SHADOW_LOOK[look].dy || 0)).setAlpha(SHADOW_LOOK[look].alpha);
 }
+
+// Size contact shadows from visible art bounds, excluding transparent padding.
+// The pivot is shared with the building; the inset remains screen-vertical.
+Render.buildingShadow = function (appearance, textures, point) {
+  const anchor = Render.objectGroundAnchor(appearance, textures, point);
+  const frame = textures?.getFrame?.(appearance.texKey, appearance.frameVal);
+  const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${appearance.frameVal ?? 0}`];
+  const fw = art?.fw ?? frame?.width ?? CELL_PX;
+  const fh = art?.fh ?? frame?.height ?? CELL_PX;
+  const scale = appearance.scl, sy = scale * appearance.scaleYMul;
+  const width = Math.max(8, ((art?.maxX ?? fw) - (art?.minX ?? 0)) * scale * 1.12);
+  const height = width * SHADOW_LOOK.building.aspect;
+  return { anchor, width, height,
+    x: Math.round(point.x) + appearance.dxPx
+      + (((art?.minX ?? 0) + (art?.maxX ?? fw)) / 2 - appearance.origin[0] * fw) * scale,
+    y: Math.round(point.y) + appearance.dyPx
+      + ((art?.maxY ?? fh) - appearance.origin[1] * fh) * sy - height * 0.35 };
+};
 
 // Contact-shadow width under a creature, per kind (px at scale 1). Per-kind
 // rather than measured, because creature sheets animate (a measured shadow
@@ -3899,10 +4112,10 @@ Render.drawObjects = function drawObjects(scene) {
     if (entry.wildplants) {
       WorldGen.forEachItemInBox(entry, 'wildplants', pWorldX - wM, pWorldY - wM, pWorldX + wM, pWorldY + wM, (wp) => {
         _boot_scanned++;
-        // Gone: picked (save.picked), or a TIDE pickup (src/scenic.js) that
-        // is not on the waterline today or was taken today — one predicate,
-        // interactables.js isSpent, the tap asks the same.
-        if (isSpent(wp, spentIds) || (!wp.tide && pickedSet.has(wp.id))) return;
+        // Most picked plants disappear; fruit bushes leave a plain bush.
+        // The source record stays spent for interaction and persistence.
+        wp = Render.wildplantView(wp, spentIds);
+        if (!wp) return;
         if (Render.coverHidden(scene, wp, true)) return;
         if (HiddenObjects.isHidden(scene.save, wp)
             || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, wp, hideNightRoadObjects))) return;
@@ -3917,7 +4130,7 @@ Render.drawObjects = function drawObjects(scene) {
         // tint below reads it); _ix/_iy only survive on the wildplants the
         // occupancy pass never saw (cave mushrooms, the sandbox scatter), so
         // the id is what the per-cell variant hash actually keys off.
-        plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: wp.stage ?? MAX_GROWTH_STAGE, wildId: wp.id, gasEmitter: wp.gasEmitter,
+        plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: wp.stage ?? MAX_GROWTH_STAGE, wildId: wp.id, _pickedRemnant: wp._pickedRemnant, gasEmitter: wp.gasEmitter,
                                 sightBlocking: wp.sightBlocking, zoneVariant: wp.zoneVariant, rockStyle: wp.rockStyle, rockTheme: wp.rockTheme,
                                 _cave: wp._cave, _biome: wp._biome, _terrainScale: wp._terrainScale, _plantArt: wp._plantArt, _hedgeFrame: wp._hedgeFrame, _zoneObjectFrame: wp._zoneObjectFrame, _streetArt: wp._streetArt, _ix: wp._ix, _iy: wp._iy, ...connectedArt.get(wp) }, dx, dy });
         _boot_kept++;
@@ -4038,13 +4251,16 @@ Render.drawObjects = function drawObjects(scene) {
     return out;
   };
   const scarecrowList = placedAs(PlacedFloor.forDepth(scene.save.scarecrows, _curDepth), '_scarecrow', 'scarecrow');
-  const fireList = placedAs(PlacedFloor.forDepth(scene.save.fires, _curDepth), '_fire', 'fire');
+  const fireNow = Date.now();
+  const firesOnDepth = PlacedFloor.forDepth(scene.save.fires, _curDepth);
+  const fireList = placedAs(firesOnDepth.filter(f => Campfires.active(f, fireNow)), '_fire', 'fire');
   // Home's empty firepit (save.homeFirepit, seated by _placeHome): a ring of
   // stones on the surface, until a fire is lit in it — then the fire is drawn.
   const pit = scene.save.homeFirepit;
   const firepitList = (pit && _curDepth === 0 && !(scene.save.fires || [])
     .some(f => PlacedFloor.isSurface(f.depth) && sameAbsCell(scene, f.x, f.y, pit.x, pit.y)))
     ? placedAs([pit], '_firepit', 'firepit') : [];
+  firepitList.push(...placedAs(firesOnDepth.filter(f => !Campfires.active(f, fireNow)), '_firepit', 'firepit'));
   // STREET LAMPS on a restored street — the same treatment, for the same
   // reason: a lamp STANDS on the ground, so it takes its turn in the screen-row
   // z-order (a lamp behind a house is in front of the house north of it).
@@ -4141,19 +4357,19 @@ Render.drawObjects = function drawObjects(scene) {
   Render.cullCovered(scene, whirlwindList, 'h');
   Render.cullCovered(scene, environmentList, 'h', true);
   Render.cullCovered(scene, pressureList, 'h', true);
-  for (const it of pressureList) zList.push({ it, rank: 2, ground: it.plate || it.h.kind === 'gas', groundY: groundY(it) });
+  for (const it of pressureList) zList.push({ it, rank: 2, layer: Render.itemLayer(it), groundY: groundY(it) });
   for (const it of environmentList) zList.push({ it, rank: 1,
-    ground: it.h.type !== 'vent', groundY: groundY(it) });
+    layer: Render.itemLayer(it), groundY: groundY(it) });
   for (const it of whirlwindList) zList.push({ it, rank: 3, groundY: groundY(it) });
   for (const it of plantedList) zList.push({ it, rank: 0,
     groundY: groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
   for (const it of filteredObj) zList.push({ it, rank: it.o.kind === 'tower' ? 2 : 1,
-    ground: it._appearance?.ground,
+    layer: Render.itemLayer(it),
     groundY: groundY(it, Render.objectGroundOffsetPx(it._appearance, scene.textures)) });
   for (const it of creatureList) zList.push({ it, rank: 3,
     groundY: groundY(it, SpriteLayout.CREATURE_GROUND_DY) });
   // The ground shadow stays below props. The raised body clears only its
-  // supporting mid-height pieces; tall trees retain ordinary depth ordering.
+  // supporting step-over props; standing props retain ordinary depth ordering.
   const playerGroundY = Math.max(playerWorldM(scene).y,
     ...zList.filter(row => supports.has(row.it?.o || row.it?.p)).map(row => row.groundY + 0.001));
   if (scene.playerWorldContainer) zList.push({ sprite: scene.playerWorldContainer,
@@ -4164,8 +4380,8 @@ Render.drawObjects = function drawObjects(scene) {
   let worldDepthDirty = Render.sortWorldDepth(zList) || !scene._worldDepthSorted
     || scene._worldDepthChildCount !== worldChildCountBefore;
   scene._worldDepthMembershipDirty = false;
-  // Ground pieces hold the lowest depths (heading_up.js keeps them first).
-  scene._worldGroundCount = zList.findIndex(row => !row.ground);
+  // Ground decals hold the lowest depths (heading_up.js keeps them first).
+  scene._worldDecalCount = zList.filter(row => row.layer === WorldLayers.GROUND_DECAL).length;
   // Phaser's Container.sort walks every pooled child. Mark the order dirty
   // only when a visible sprite's assigned depth actually changes; camera
   // motion changes screen positions but not the world-ground order.
@@ -4178,8 +4394,8 @@ Render.drawObjects = function drawObjects(scene) {
   // DERIVED from the table above (`shadow: true` beside `seat: true`). Buildings
   // (house/tower) get the bespoke footprint math below; every flagged row is a
   // seated sprite, so its shadow derives from the same trimmed art bounds the seat
-  // pass uses. Deliberately unflagged: `groundstack` (already on the ground) and
-  // `staircase` (a hole cut INTO the ground).
+  // pass uses. Small dropped-item icons omit extra shadows; down-stair decals
+  // are holes cut into the ground. Shadow styling does not choose the layer.
   // Soft contact shadows under everything that stands up, rendered into
   // shadowContainer (just below objectsContainer): a feathered dark ellipse at the
   // sprite's ground foot, sized to what actually touches the cell.
@@ -4200,6 +4416,9 @@ Render.drawObjects = function drawObjects(scene) {
     Render.renderPool(scene, scene.shadowPool, scene.shadowContainer, shadowList, (s, item) => {
       const { o, dx, dy } = item;
       const { x: sx, y: sy } = project(dx, dy);
+      // Heading-up turns a shadow about `_huAnchor`. A pooled slot must not
+      // keep the anchor of whatever it shadowed before.
+      s._huAnchor = null;
       if (item._plantShadow) {
         const shadow = item._plantShadow;
         seatShadow(s, 'plant', shadow.width, Math.round(sx), Math.round(sy) + shadow.dyPx, shadow.height);
@@ -4214,38 +4433,22 @@ Render.drawObjects = function drawObjects(scene) {
         const foot = item._foot;
         seatShadow(s, 'prop', Math.max(8, foot.w * 0.9), Math.round(sx),
           Math.round(sy + foot.footFromCentre - (foot.shadowInsetPx || 0)));
+        // Turn with the prop about its own ground anchor, so the tuck-up
+        // inset stays screen-up instead of swinging below the art.
+        s._huAnchor = Render.objectGroundAnchor(item._appearance, scene.textures, { x: sx, y: sy });
         return;
       }
-      // The shadow ellipse is CENTRE-anchored (origin 0.5,0.5) and is placed at
-      // the building's visual BASE so a thin contact crescent grounds it:
-      //   • tower — foot-anchored, base ≈ the cell's front edge.
-      //   • a house — its bottom-middle stands on the footprint's centre of
-      //     mass (_houseFootPx, RENDER_SPEC.house).
-      // The small lift tucks the ellipse's bulk behind the building.
-      const role = o.kind === 'house' ? item.houseRole : null;
-      let w = CELL_PX * 1.5, footX = sx, footY = sy - 4;
-      if (o.kind === 'tower' || role === 'turret') w = CELL_PX * 1.1;
-      if (o.kind === 'tower') footY = sy + 2;
-      else if (o.kind === 'house') {
-        if (role === 'fort') w = CELL_PX * 2.4;
-        // Same art + scale the sprite pass will use, so a house shrunk to fit a
-        // small footprint gets a shadow that shrinks with it — in width as well
-        // as position, or a shrunk house would sit on an oversized ellipse.
-        const appearance = item._appearance;
-        const hscale = appearance.scl ?? _houseScale(o);
-        w *= hscale / _houseBaseScale(o);
-        const foot = _houseFootPx(o);
-        footX = sx + foot.x;
-        footY = sy + foot.y - 6;   // the base, tucked up 6px
-      }
-      seatShadow(s, 'building', w, Math.round(footX), Math.round(footY));
+      const shadow = Render.buildingShadow(item._appearance, scene.textures, { x: sx, y: sy });
+      seatShadow(s, 'building', shadow.width, shadow.x, shadow.y, shadow.height);
+      // Keep the tucked-up offset in screen space as the building turns.
+      s._huAnchor = shadow.anchor;
     });
   }
   // Turrets keep a separate reusable pool inside the shared world layer.
-  const bodyBox = playerScreenBox(scene);
+  const { box: bodyBox, view: fadeView } = Render.headingFadeView(scene, playerScreenBox(scene));
   const playerDepth = scene.playerWorldContainer?.depth ?? Infinity;
   const fadeObject = (s, appearance) => Render.fadeObjectOverPlayer(s, appearance,
-    bodyBox, playerDepth, s._objectBaseAlpha ?? 1);
+    bodyBox, playerDepth, s._objectBaseAlpha ?? 1, fadeView);
   const configureObject = (s, item) => {
     const { o, dx, dy } = item;
     const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
@@ -4273,6 +4476,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (typeof spec.after === 'function') spec.after(s, o, scene);
     Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, o, performance.now()),
       Math.round(sx), Math.round(sy) + (appearance.foot?.footFromCentre ?? dyPx));
+    s._huAnchor = Render.objectGroundAnchor(appearance, scene.textures, { x: sx, y: sy });
     s._staticObject = o;
     s._staticAppearance = appearance;
     s._objectBaseAlpha = s.alpha;
@@ -4310,6 +4514,7 @@ Render.drawObjects = function drawObjects(scene) {
      .setPosition(item.x, item.y);
     setWorldDepth(s, item.depth);
     s.setAlpha(item.treeSprite.alpha);
+    s._huAnchor = item.treeSprite._huAnchor;
   });
   // Every unrestored turret flies the square skull flag. Restoring the
   // castle replaces them with the player's existing single flagPost banner.
@@ -4324,6 +4529,7 @@ Render.drawObjects = function drawObjects(scene) {
     const { dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
     const towerH = Render.towerCrownHeight(scene.textures, item.o.castle);
+    s._huAnchor = { x: Math.round(sx), y: Math.round(sy) + CELL_PX / 2 };
     setTextureIfDifferent(s, Render.castleFlagTexture(scene, item.o));
     setWorldDepth(s, (item._z ?? 0) + 0.1);
     s.setOrigin(0.5, 1)
@@ -4337,6 +4543,12 @@ Render.drawObjects = function drawObjects(scene) {
   // version of the same slab — smaller and dimmer, but still a marked place —
   // instead of skipping it outright. Genuine loose supply crates (o.crate,
   // no poiClass) get no pad at all: they're a transient pickup, not a place.
+  // Neither does a generated loot barrel (o.barrel, no poiClass — a house
+  // barrel on a Small-street verge, industrial salvage, a gang's stack): it
+  // is smashed for its loot and stands for no real place, so it carries no
+  // "a place lives here" slab. A bin POI (waste_basket / recycling, loot.js
+  // isPoiBarrel) wears the FULL pad (padShapeKeyForPoi): there is an OSM
+  // place behind it, and the pad is what tells it from a generated barrel.
   // Pads persist even when the chest is opened — only the chest itself disappears.
   const padList = [];
   for (const item of objList) {
@@ -4352,7 +4564,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (produceStandFor(o) || macroFor(o)) continue;
     const shapeKey = padShapeKeyForPoi(o.poiClass);
     if (!shapeKey) {
-      if (o.crate) continue;
+      if (o.crate || o.barrel) continue;
       padList.push({ o, dx, dy, texKey: 'pad_round1', shape: PAD_SHAPES.round1, mini: true });
       continue;
     }
@@ -4387,8 +4599,13 @@ Render.drawObjects = function drawObjects(scene) {
     if (shrine) {
       s.setOrigin(0.5, 0.5).setScale(CELL_PX / SHRINE_PAD.sizePx)
         .setPosition(Math.round(sx), Math.round(sy)).setAlpha(1).clearTint();
+      // The plinth is drawn for a south camera (its masonry face at the
+      // bottom), so heading-up turns it back about its cell centre like a
+      // contact shadow; the anchor is the opt-in (HeadingUp._preRender).
+      s._huAnchor = { x: Math.round(sx), y: Math.round(sy) };
       return;
     }
+    s._huAnchor = null;
     // Origin = the chest cell's centre within the pad image, so that the
     // pad's chest cell sits exactly at the chest's ground point (sx, sy).
     const [cc, cr] = shape.chest;
@@ -4434,7 +4651,7 @@ Render.drawObjects = function drawObjects(scene) {
     const macLabel = mac && typeof Macros !== 'undefined' ? Macros.stallLabel(mac.kind, o) : null;
     const label = isFallback
       ? `(${POI_CLASS_FALLBACK[o.poiClass]})`
-      : (macLabel ? `${macLabel}\n${rusticifyName(o.name)}` : rusticifyName(o.name));
+      : (macLabel ? `${macLabel}\n${boothPlaceLabel(o.name)}` : rusticifyName(o.name));
     // Anchored just BELOW the chest sprite: chests and crates are seated centred
     // in their cell, so their art runs to about sy + 12. Crates are smaller, so
     // they need less clearance.
@@ -4609,7 +4826,7 @@ Render.drawObjects = function drawObjects(scene) {
     fadeLabelOverPlayer(tx, _playerBox);
   }, labelFactory('sign'));
 
-  // Smoke wisping off Home's cold firepit (HomeArea.FIREPIT_SMOKE): soft
+  // Smoke wisping off cold firepits (HomeArea.FIREPIT_SMOKE): soft
   // puffs that rise, sway and fade, each a fraction of a period behind the
   // last. In the fx layer (masked to the map, under the fog); none under
   // reduced motion.
@@ -4624,6 +4841,8 @@ Render.drawObjects = function drawObjects(scene) {
       const S = HomeArea.FIREPIT_SMOKE, now = performance.now();
       if (!scene._reducedMotion) for (const { dx, dy } of firepitList) {
         const { x, y } = project(dx, dy);
+        const turn = typeof HeadingUp !== 'undefined' ? HeadingUp.angle(scene) : 0;
+        if (turn) g.save().translateCanvas(x, y).rotateCanvas(-turn).translateCanvas(-x, -y);
         for (let i = 0; i < S.puffs; i++) {
           const k = (now / S.periodMs + i / S.puffs) % 1;
           const a = S.alpha * Math.sin(Math.PI * k) / 2;
@@ -4634,6 +4853,7 @@ Render.drawObjects = function drawObjects(scene) {
           g.fillCircle(px, py, r);
           g.fillCircle(px + r * 0.3, py - r * 0.2, r * 0.6);
         }
+        if (turn) g.restore();
       }
     }
   }
@@ -4659,7 +4879,13 @@ Render.drawObjects = function drawObjects(scene) {
     const { x, y } = project(item.dx, item.dy);
     const mid = _houseArtMidPx(item.o);
     const dy = (!item.theme && Render.ROLE_SIGN_ICONS[_houseRole(item.o)]?.dy) || 0;
+    const anchor = Render.objectGroundAnchor(item._appearance, scene.textures, { x, y });
+    const turn = typeof HeadingUp !== 'undefined' ? HeadingUp.angle(scene) : 0;
+    // The board is batched Graphics, while its name is a pooled Text. Apply
+    // the same pivot to each board's commands that prerender applies to text.
+    if (turn) gfx.save().translateCanvas(anchor.x, anchor.y).rotateCanvas(-turn).translateCanvas(-anchor.x, -anchor.y);
     Render.drawShopPlate(gfx, item, { x: x + mid.x, y: y + mid.y - SHOP_PLATE.roof * _houseArtH(item.o) + dy }, _playerBox, CANVAS_W);
+    if (turn) gfx.restore();
   }
 
   // Residential delivery plaques use real
@@ -4703,7 +4929,17 @@ Render.drawObjects = function drawObjects(scene) {
       // the bubble's from its CSS box ÷ scale.
       const toastRects = (scene._liveToasts || [])
         .filter((t) => t && t.scene && t.active !== false && t.alpha > 0.05)
-        .map((t) => t.getBounds());
+        .map((t) => {
+          const box = t.getBounds();
+          if (typeof HeadingUp === 'undefined' || !HeadingUp.active(scene) || t._huUI !== undefined
+              || (!t._huAnchor && !HeadingUp._inMap(scene, t.x, t.y))) return box;
+          const anchor = t._huAnchor || t;
+          const p = HeadingUp.toOverlayPt(scene, anchor.x, anchor.y), z = scene.mapZoom || 1;
+          const dx = p.x + (t.x - anchor.x) * z - t.x;
+          const dy = p.y + (t.y - anchor.y) * z - t.y;
+          return { left: box.left + dx, right: box.right + dx,
+            top: box.top + dy, bottom: box.bottom + dy };
+        });
       for (const it of filteredObj) {
         // Every delivery host gets a roof callout: the wishlist of produce icons
         // while hungry, a smiling face once a bundle is delivered. (A shop's
@@ -4719,7 +4955,16 @@ Render.drawObjects = function drawObjects(scene) {
         const look = deal ? TRADER_BUBBLE : QUEST_BUBBLE;
         const anchor = project(it.dx, it.dy);
         const mid = _houseArtMidPx(it.o);   // the bubble floats off the art's middle
-        const sx = anchor.x + mid.x, sy = anchor.y + mid.y;
+        let sx = anchor.x + mid.x, sy = anchor.y + mid.y;
+        if (typeof HeadingUp !== 'undefined' && HeadingUp.active(scene)) {
+          const foot = Render.objectGroundAnchor(it._appearance, scene.textures, anchor);
+          const drawn = HeadingUp.toOverlayPt(scene, foot.x, foot.y);
+          const z = scene.mapZoom || 1;
+          sx = drawn.x + (sx - foot.x) * z;
+          // Keep the bubble's own 18px gap unscaled, matching its DOM size.
+          sy = drawn.y + (sy - foot.y) * z;
+          if (Math.hypot(sx - scene.viewCenterX, sy - 18 - scene.viewCenterY) > scene.viewSize / 2 - 8) continue;
+        }
         let slot = pool[psi];
         if (!slot) {
           const el = document.createElement('div');
@@ -4898,7 +5143,7 @@ Render.drawObjects = function drawObjects(scene) {
     // baby off) WIGGLES: three quick swings, NEST_WIGGLE_DEG either side of
     // upright, swelling and dying over the beat's show (nestBushPhase, once
     // every 10-30 s). Everything else stands at the pool's reset angle, 0.
-    let wig = (p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow, scene._orbReveal?.get(p.wildId)) : -1;
+    let wig = (!p._pickedRemnant && p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow, scene._orbReveal?.get(p.wildId)) : -1;
     if (wig < 0 && foeCells.size && p.wildId != null && Render.lurkBush(p)) {
       const cell = worldMetersToAbsCell(scene, p.x, p.y);
       if (foeCells.has(cell.cellIX + '_' + cell.cellIY)) wig = lurkBushPhase(p.wildId, _plantNow);
@@ -4939,7 +5184,7 @@ Render.drawObjects = function drawObjects(scene) {
       // cell always draws the same art. WHICH frame is items.js' call:
       // wildplantFrame owns both the hash and the crop's declared frame list, so a
       // frame the sheet doesn't carry can't be drawn here (see CROP_SPRITE.shell).
-      setTextureIfDifferent(s, ov.sheet);
+      setTextureIfDifferent(s, ov.texture || ov.sheet);
       s.setFrame(wildplantFrame(p));
     } else if (ov && ov.sheet === 'springcrops') {
       // Spring Crops: col 0 = seed (stage 0), cols 1..4 = growth (4 = mature).
@@ -5080,8 +5325,9 @@ Render.drawObjects = function drawObjects(scene) {
     // from the creature table (SpriteLayout: creatureSheet / anim / frameMs /
     // frames / hop / float / foot / scale), so two kinds sharing a sheet cannot
     // drift apart.
-    const npcArt = c.kind === 'npc' ? SL.npcAppearance(c, performance.now()) : null;
-    const appearance = npcArt ? null : creatureAppearance(c, performance.now());
+    const actor = typeof HeadingUp !== 'undefined' ? HeadingUp.appearanceActor(scene, c) : c;
+    const npcArt = c.kind === 'npc' ? SL.npcAppearance(actor, performance.now()) : null;
+    const appearance = npcArt ? null : creatureAppearance(actor, performance.now());
     const pet = Combat.isTame(c) && !npcArt;
     const down = pet && typeof Pets !== 'undefined' && Pets.isDown(c, Date.now());
     const vivid = !pet && !npcArt && Combat.isElite(c);
@@ -5127,6 +5373,7 @@ Render.drawObjects = function drawObjects(scene) {
     // A softened lair guard is drawn smaller (creatureInstScale).
     s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, creatureInstScale(c)))
      .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - lift);
+    s._huAnchor = { x: Math.round(sx), y: Math.round(sy) + CREATURE_GROUND_DY };
     Render.applyEmergence(s, c, performance.now());
     // A resting NPC lies down; every other body stands at the pool's reset.
     if (npcArt && NPC.isDormant(c)) s.setRotation(Math.PI / 2).setOrigin(0.5, 0.5);
@@ -5301,6 +5548,7 @@ Render.drawObjects = function drawObjects(scene) {
     const pulseNow = performance.now();
     const bands = elites.flatMap(item => ['outer', 'inner'].map(band => ({ ...item, band })));
     Render.renderPool(scene, scene.eliteRingPool, scene.shadowContainer, bands, (s, item) => {
+      s._worldLayer = WorldLayers.GROUND_DECAL;
       const { x: sx, y: sy } = project(item.dx, item.dy);
       const size = ELITE_RING_PX * giantMul(item.c.kind) * creatureInstScale(item.c);
       const key = item.band === 'outer' ? 'elite_ring' : 'elite_ring_inner';
@@ -5473,10 +5721,13 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // Bike racks use their original small-prop scale. Wooden barrels use a
   // 24px frame at half their former size, including the smashed frame.
   const SMALL_POI_SCALE = 1.3;
-  const BARREL_SCALE = 2 / 3;
+  // Barrels read too small and pots too big beside each other at 2/3 and
+  // (4/3)*0.8 (owner, Oct 2026: two passes of 5% each, then pots a further
+  // 8%); the two factors below are that correction.
+  const BARREL_SCALE = (2 / 3) * 1.1;
   // Clay pots (and their smashed frame, the same look) drew at 4/3 and read a
   // fifth too large beside the barrels; 20% off that, per the Oct 2026 pass.
-  const CLAY_POT_SCALE = (4 / 3) * 0.8;
+  const CLAY_POT_SCALE = (4 / 3) * 0.8 * 0.9 * 0.92;
   // The broken WAGON an old-trade-road bus stop wears (loot.js chestLook): the
   // compact 32×32 frame fits within a 2×2-cell footprint at the usual prop
   // scale. Its one blank bottom row seats the wheels above the anchor edge.
@@ -5567,7 +5818,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
 
   const RENDER_SPEC = {
     // Temples use their entire source polygon; no house sprite covers the runes.
-    temple: { key: null, ground: true },
+    temple: { key: null, layer: WorldLayers.GROUND_DECAL },
     shrine_spirit: {
       key: 'shrine_spirit',
       frame: () => { const art = SpriteLayout.SHRINE_SPIRIT_ART; return Math.floor(performance.now() / art.frameMs) % art.frames; },
@@ -5615,7 +5866,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // The down pit uses only the lower half of its sheet, centred in the
     // cell. The standalone up ladder keeps its full image.
     staircase: { key: (o) => o.elevator ? 'progression_tiles' : (o.dir === 'up' ? 'stair_up' : 'stair_down'),
-                 ground: (o) => !o.elevator && o.dir !== 'up',
+                 layer: (o) => !o.elevator && o.dir !== 'up' ? WorldLayers.GROUND_DECAL : WorldLayers.STANDING_PROP,
                  frame: (o, scene) => o.elevator ? (Elevators.isRepaired(scene?.save) ? 1 : 0) : (o.dir === 'up' ? '__BASE' : 'down'),
                  origin: [0.5, 0.5], scale: 1.0 },
     // Placed campfire — 16×32 art, foot-anchored near the logs so the flame
@@ -5624,9 +5875,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // → ~18px wide, comfortably inside one 32px cell (QC: one-cell interactable).
     // Seat off the logs (seatFrame 0) so the flickering flame doesn't bob the
     // sprite vertically frame-to-frame; the flame still rises out the top.
-    // Home's empty firepit — a flat ring of stones, drawn on the ground like
-    // the down pit; at the bonfire's scale so the two read as one pit.
-    _firepit: { key: 'firepit', ground: true, origin: [0.5, 0.5], scale: 1.1 },
+    // Home's empty firepit is a step-over prop, just like its lit state.
+    // Both share the cell centre and scale, so lighting it never moves it.
+    _firepit: { key: 'firepit', groundAtOrigin: true, origin: [0.5, 0.5], scale: 1.1 },
     _fire: { key: 'bonfire',
              frame: () => Math.floor(performance.now() / 130) % 6,
              origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true,
@@ -5644,7 +5895,6 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // (LAMP_GROUND_FRAC → STREET_LAMP_ORIGIN_Y). Sized through `after` rather than
     // `scale`: the art is sized in CELLS (LAMP_DRAW_CELLS) via setDisplaySize.
     _streetlamp: {
-      ground: (o) => !o.lit,
       // The origin is the painted plinth's ground line. Canvas padding below
       // it belongs to the glow, not the base used to sort against feet.
       groundAtOrigin: true,
@@ -5816,13 +6066,13 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
     waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6 * 2 / 3, seat: true, shadow: true },
     stakes:   { key: 'approved_charred_stakes', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
-    ground_hole: { key: 'cave_chasm', frame: o => o._chasmMask ?? 15, origin: [0.5, 0.5], scale: 1, seat: false, ground: true },
+    ground_hole: { key: 'cave_chasm', frame: o => o._chasmMask ?? 15, origin: [0.5, 0.5], scale: 1, seat: false, layer: WorldLayers.GROUND_DECAL },
     // UNDERGROUND STREET SCATTER (src/underground.js decorate): the triple
     // stalagmites prop and an inert poison vent, 24px art at one cell like
     // the stakes. A vent lies flat; the stalagmites stand and cast a shadow.
     stalagmites: { key: 'cave_props', frame: 1, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
-    inactive_poison_vent: { key: 'poison_vent_inactive', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, ground: true },
-    tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, ground: true },
+    inactive_poison_vent: { key: 'poison_vent_inactive', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, layer: WorldLayers.GROUND_DECAL },
+    tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, layer: WorldLayers.GROUND_DECAL },
     // POI PROPS (worldgen.js). A NOTICE BOARD (an information POI) stands like
     // the waystone and reads a Book page the same way (INTERACTABLES.infoboard);
     // a GATE POST is one of the pair either side of a gate — scenery marking
@@ -5862,7 +6112,6 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // inventory icon can sit on the ground without per-kind plumbing.
     // Fallen wood always uses the grey log artwork (look 2).
     groundstack: {
-      ground: true,
       key: (o) => (inventoryIconSource(o.itemId) || {}).sheet || 'wood',
       frame: (o) => {
         // Quantity remains on the stack record; it does not change its artwork.
@@ -5870,7 +6119,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
         return (inventoryIconSource(o.itemId) || {}).frame ?? 0;
       },
       // Centred in the cell (origin y 0.5), NOT foot-anchored: ground stacks are
-      // flat props lying ON the tile, so they centre like the wildplants do (a 0.9
+      // small standing props centred like wildplants (a 0.9
       // anchor rendered a dropped stack ~12px high).
       //
       // Frame-box centring rather than the seat pass: this sprite's texture and
@@ -5924,8 +6173,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       dyPx -= lift;
       foot.footFromCentre -= lift;
     }
-    const ground = typeof spec.ground === 'function' ? !!spec.ground(o) : !!spec.ground;
-    return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot, ground };
+    const layer = WorldLayers.forObject(o, spec);
+    return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot, layer };
   };
   return { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseArtH, _houseFootPx, _houseArtMidPx };
 })();

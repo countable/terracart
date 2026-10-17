@@ -168,6 +168,13 @@ mechanics.
   skips harmful floor contact (including holes, flames and traps), while gases,
   attacks and existing conditions still affect the flyer. A second dose adds a minute.
   Naturally flying enemies carry `permanentBuffs: ['flight']` on their roster row.
+  An `orbit_swoop` flier flies eased legs round its target and swoops every
+  few; a row's `movement.erratic` block (the bats, and the hive bee that
+  shares the bat's row) lets the orbit turn about (`reverseChance`), spreads
+  the advance (`angleSpread`) and bows each leg sideways (`jinkCells`), the
+  bow budgeted so the peak pace stays under the row's speed
+  (`creature_ai.js` `enemyBatMove`). The bow rides the multiplayer flight
+  snapshot as an optional vector; a peer without it flies the leg straight.
   `SpriteLayout.creatureAirborne` inherits that flag for variants and summoned
   wraiths and includes airborne fauna; the same `Conditions.flying` gate covers
   them without saving an infinite potion expiry or showing an infinite countdown.
@@ -206,6 +213,9 @@ mechanics.
   its roster row's `condition`) carries `lightMul`: `Conditions.lightMul`
   halves the reach plateau (`reachRadiusM`, never under one cell), the light
   ramp and a carried torch (`Lighting.playerLightMul`) for fifteen seconds.
+- Tapping a well within reach clears every harmful condition through
+  `Conditions.clearDebuffs`, including burning and a trap's pin. Positive
+  buffs survive; the well costs no item or energy and remains reusable.
 - Confusion chooses a random compass heading and turn direction. Its share
   of movement increases linearly with the remaining duration: five seconds
   gives the compass 25% and player intent 75%; ten seconds splits control
@@ -233,6 +243,13 @@ mechanics.
   the cancelled job. Already launched projectiles continue their flight.
 - Eating a raw mushroom applies three seconds of confusion through the shared
   condition, preserving any longer confusion already active.
+- A poisonberry (wild teal-berried bush, forest and wetland) is the same
+  `CONSUMABLE_SPEC` condition lane: eaten, the player takes `poison`; offered
+  to an enemy or a pet (`feedsFoe`), that creature takes it through
+  `Combat.poison`, the Poison Flask's call. The berry is spent either way.
+- A stinging wild plant (`WILDPLANT_RULES` `sting`: the nettle, 7 energy,
+  "Ouch!") hurts as it is picked: a bare-handed blow through
+  `Combat.playerDamage` with no armour, so mode and the damage shield apply.
 - Job costs use `spendEnergy`; passive restoration pauses while `working`
   (work wheel or rest hold). Walking drains and enemy blows are not jobs.
 - `Pets` owns individual pet records in `save.released` (`pet: true`), including
@@ -243,7 +260,12 @@ mechanics.
   (`UNIVERSAL_FAVOURITE`, read in `animalLikesFood`). The Sugar Potion (T2,
   two berries at Home) is the cheap half: offered, thrown or set out, it lands
   the `calm` status (`Combat.calm`, animals only) and the animal does not
-  bolt, flee a blow or run from the net while it holds. Giving a wild one its favourite starts
+  bolt, flee a blow or run from the net while it holds. A golden berry
+  (`CONSUMABLE_SPEC.goldenberry.charmsFoe`) offered to an enemy lands the
+  `charm` status through `Combat.applyCharm` for `charmFeedMs`: a minute less
+  the kind's tier squared in seconds (a runt 59 s, a T3 goblin 51 s, never
+  below zero); a wild animal takes the calm of the same length. A charmed body
+  reads as calm (`Combat.isCalm`), so it does not flee the net either. Giving a wild one its favourite starts
   a catch attempt (`Pets.catchMs`: current HP × 2 at the net's tool rate)
   while it flees for the edge of reach; no attack runs and it is no one's
   enemy until the attempt ends. A refused item is never consumed. Story foes
@@ -253,6 +275,10 @@ mechanics.
   Use `Pets.carry/deploy/release`, never inventory stacks or id prefixes, for
   ownership. Stats, tint, accessories, growth and recovery stay on that record.
   Pet shops sell accessories. Eggs hatch wild babies that use the same gate.
+  PetNip is accepted by every owned pet through `Pets.likes/feed`, but cannot
+  catch wildlife. Its item `petFood.maxHp` permanently adds to the individual's
+  saved HP bonus and fills that new capacity without healing old wounds or
+  interrupting knockout recovery. It does not count as a favourite meal.
   Feeding a shiny chicken yields a separate Shiny Egg stack. After 500 m of
   real GPS walking, it hatches a non-shiny green dragon baby; its favourite
   food is meat. Regular eggs still hatch shiny domestic babies. Each egg type
@@ -263,14 +289,18 @@ mechanics.
   the wild unlocks a recipe through `homeRecipeLocked`; buying or brewing never
   unlocks one. Antidote, Hardworking, Grip, Healing, Stoneskin, Blight, Shielding
   and Shrinking are brewable; Revival and Resurrection remain unbrewable.
-  Blight uses Marigolds and Meat; Shielding uses Starflowers and Milk. Shrinking
+  Healing uses berries and onions; Blight uses Marigolds and Meat;
+  Shielding uses Starflowers and Milk. Shrinking
   uses two Mango and four coins, an intentional exception to same-tier inputs
   and the otherwise conservative recipe economics. Sugar Potion retains its
-  existing Home recipe. Brewing does not change potion effects.
+  existing Home recipe. Growth Powder is crafted at Home from three Nettles
+  and five Long Grass after finding the powder in the wild. Brewing does not change potion effects.
 - Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap
-  enemies inside Home's ring.
+  enemies inside Home's ring. Campfires burn for 24 real hours, including offline
+  time (`Campfires.active`, saved `litAt`). After expiry their smoking pits give
+  no rest, ward, light or burning contact; flint relights them for another day.
 - Fire slimes resist burning and fireball damage through their roster row. Each accepted cell
   exit lights the cell left behind through `GroundFire`, including while
   wandering or retreating. The occupied destination stays unlit until they
@@ -284,12 +314,27 @@ mechanics.
   chasing foe sidesteps around it when a jog fits. This is separate from the
   warmth-ring ward (`FIRE_REST_R`), which turns back only entry-level kinds.
 - Home is `save.starterShopId`: the wagon, placed by `_placeHome` one cell
-  north of the player (`HomeArea.WAGON_OFFSET`) with an empty firepit at their
-  lower left (`FIREPIT_OFFSET`, `save.homeFirepit`; flint lights a fire in it).
+  north of the player (`HomeArea.WAGON_OFFSET`) with an empty firepit two
+  cells due south of the trailer (one behind the player)
+  (`FIREPIT_OFFSET`, `save.homeFirepit`; flint lights a fire in it). The first
+  valid device-compass reading unlocks placement once per save
+  (`homeCompassDetected`); `homeFirepitPending` waits for Home and the surface
+  if the reading arrives earlier. With no reading after
+  `FIREPIT_COMPASS_GRACE_MS` on the surface (desktop, no motion permission) the
+  pit is placed anyway, on the same cell. A pit cell on water, a pier or a
+  road falls back to the nearest suitable cell one, then two, cells out from
+  the player (`HomeArea.firepitCandidates`), so a new game always gets its pit
+  when one fits. Later headings and reloads do not move it.
+  This step-over prop sits at its cell centre, with its ring, fire, smoke and
+  step-up footprint sharing that anchor. On the first compass reading, older
+  saved rings move to this southern cell too; a matching surface fire follows
+  the ring and retains its state. Cave fires at the same coordinates are
+  unaffected.
   Older saves may still have an adopted house, which draws as the wagon. Any
   unclaimed house on Home's footing (the wagon's 3x3 and the firepit cell) is
   erased entirely — footprint, outline and roof — by `clearHomeFooting`, a
-  per-player overlay; a claimed building, temple or castle is never erased,
+  per-player overlay, leaving only a black 50% shadow of its footprint
+  (`entry.clearedShapes`, drawn by `building_overlay.js`); a claimed building, temple or castle is never erased,
   and "Move Home here" refuses on one (`_homeFootingAt`, test
   `starter_trailer_footing`).
 

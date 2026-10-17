@@ -26,6 +26,7 @@
       cellCenterMeters: (ix, iy) => ({ mx: ix + .5, my: iy + .5 }),
       cellId: (_, tx, ty, ix, iy) => `${tx}/${ty}/${ix}/${iy}`,
       makeWildplant: (crop, x, y, id, meta) => ({ crop, x, y, id, ...meta }),
+      ambientBush: (crop) => crop,
       BiomeProfiles: { patchMul: (_, x, y) => (Math.sin(x + y) + 1) / 2 },
       wildplants: [],
     };

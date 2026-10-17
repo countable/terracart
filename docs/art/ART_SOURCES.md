@@ -47,3 +47,56 @@ the hooded player resting in the existing bed while pale light swirls away.
 must not be used to recreate either half of these established pairs. Use the
 built-in image editor with the recorded visual reference, or `--reprocess` to
 export an existing master without changing the painting.
+
+## Opening compass slide
+
+`story_compass` and `story_compass_frame2` are generated, matching portrait
+paintings based on the selected living-silver HUD mockup. The first shows the
+compass in grass beside a residential sidewalk; the second shows a gloved hand
+lifting it. The camera and neighbourhood remain aligned for the one-time fade.
+See [opening-compass-prompts.json](opening-compass-prompts.json) for masters,
+full prompts, source hashes and WebP export settings. The older
+`tools/art/reskin_story_compass.py` is not part of this asset pipeline.
+
+## Compass rim
+
+`assets/ui/compass/gold-rim.svg` owns the fine ring and engraved marks.
+`assets/ui/compass/gold-fittings.png` supplies the north flourish, shared cardinal
+fitting and diagonal bead, generated from the approved celestial gold-bead concept
+at `~/.artifacts/compass-art-options/celestial-gold-beads.png` with the built-in
+image tool. The generated HUD painting is a visual reference, not a texture.
+The PNG retains its original alpha; CSS selects the three atlas regions without
+resampling the master. Source, prompt and rectangles are recorded in
+[compass-rim-art.json](compass-rim-art.json). Letters remain live HUD text so they
+stay upright as the compass turns. See the geometry in
+[the presentation guide](../design/presentation.md).
+
+## Treasure dialog paintings
+
+The X discovery, barrel, crate and seven chest-tier paintings show the concealed
+brown-hooded survivor opening a smaller container. Match the warm amber pixel
+treatment of `book_read` and `fire_first`; the first story panel is intentionally
+a different style and is not a style reference. Containers retain their tier
+materials and show only light inside; reward icons and text supply the contents.
+[treasure-paintings.json](treasure-paintings.json) records generated masters,
+source hashes, final built-in imagegen prompts, style references and export settings.
+The scene definitions in `tools/gen_story_art.js` preserve the same composition intent.
+
+## Book-reading page
+
+`assets/art/book_page.webp` is the blank half-book background for live reading
+text; the library list and non-book scenes keep their existing paintings.
+The approved master is `~/.artifacts/dialog-style-exploration/book-page.png`;
+`book-reading.png` beside it records the panel composition.
+
+## Square scene remakes
+
+The 30 reference-edited scenes in `gen_story_art.js`'s `REFERENCE_SCENES`
+export from archived square PNG masters at 512×512. Fill the frame with a
+complete scene; no lower black field is reserved for text. The generator
+refuses text-only regeneration for these masters and all paired booths.
+Use an explicit reference image edit, or `--reprocess` an existing master.
+
+After direct runtime asset edits, run `node tools/art_thumbs.js`. It preserves
+image aspect in the thumbnails and mosaic cuts and emits `ART_ASPECTS` for
+layout before the full painting loads. Legacy 11:14 paintings remain supported.

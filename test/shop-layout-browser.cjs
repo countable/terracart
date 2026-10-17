@@ -21,7 +21,7 @@ const { chromium } = require('playwright-core');
         return [...HOME_RECIPES.flatMap(r => [['home', r.id], ['home-receipt', r.id]]),
           ...BREW_RECIPES.flatMap(r => [['brew', r.id], ['brew-receipt', r.id]]),
           ...[...Shops.THEMES, 'book', 'pet'].map(theme => ['shop', theme]), ...Gear.smeltUnlockedBars().map(id => ['smelt', id]),
-          ...['sell', 'sell-stock', 'market', 'castle', 'forge', 'trader', 'wizard', 'inn', 'guildhall', 'bank', 'curio', 'scholar', 'training'].map(k => [k, null])];
+          ...['sell', 'sell-stock', 'market', 'castle', 'forge', 'trader', 'wizard', 'inn', 'guildhall', 'bank', 'curio', 'curio-donate', 'scholar', 'training'].map(k => [k, null])];
       });
       for (const [kind, id] of cases) {
         const label = `${width}×${height} ${kind}${id ? ':' + id : ''}`;
@@ -45,6 +45,10 @@ const { chromium } = require('playwright-core');
               s.save.inv = [{ id: 'growth_powder', count: 10 }]; s.save.selSlot = 0;
               s.presentHomeSell(0, 0);
             }
+            else if (kind === 'curio-donate') {
+              s.save.inv = [{ id: Macros.curioMissing(s.save)[0], count: 1 }]; s.save.selSlot = 0;
+              s._presentCurio(0, 0, house, { kind: 'trade', art: 'booth_curio_intro' });
+            }
             else if (kind === 'market') s.presentMarketStandOffer(0, 0, { item: 'berry' });
             else if (kind === 'castle') s.presentCastleServiceOffer(0, 0, house);
             else if (kind === 'forge') s.presentBlacksmithOffer(0, 0, { kind: 'relic', slot: 'pickaxe', tier: 2 }, done, house);
@@ -62,16 +66,15 @@ const { chromium } = require('playwright-core');
           assert.equal(await wrap.count(), 1, 'presenter opens a dialog');
           const measure = () => wrap.evaluate(el => {
             const box = el.querySelector('.modal-box').getBoundingClientRect();
-            const body = el.querySelector('.modal-body'), content = el.querySelector('.modal-content');
+            const body = el.querySelector('.modal-copy'), content = el.querySelector('.modal-content');
             const pages = el.querySelector('.modal-pages');
-            return { visible: box.top >= -1 && box.bottom <= innerHeight + 1
+            return { paginated: pages && getComputedStyle(pages).display !== 'none', visible: box.top >= -1 && box.bottom <= innerHeight + 1
                 && box.left >= -1 && box.right <= innerWidth + 1,
               horizontal: [...el.querySelectorAll('*')].filter(x => x.clientWidth && x.scrollWidth > x.clientWidth + 2
                 && !['hidden', 'clip'].includes(getComputedStyle(x).overflowX)
                 && getComputedStyle(x).columnWidth === 'auto').map(x => x.className),
               scrolling: [...el.querySelectorAll('*')].filter(x => x.clientHeight && x.scrollHeight > x.clientHeight + 2
                 && /auto|scroll/.test(getComputedStyle(x).overflowY)).map(x => x.className),
-              paginated: pages && getComputedStyle(pages).display !== 'none',
               fits: content.scrollHeight <= body.clientHeight + 2 };
           });
           const m = await measure();
@@ -81,30 +84,18 @@ const { chromium } = require('playwright-core');
           assert(m.visible, 'dialog stays inside viewport');
           assert.deepEqual(m.scrolling, [], 'no vertical scrollbars');
           assert.deepEqual(m.horizontal, [], 'no horizontal overflow');
-          if (!['curio', 'scholar'].includes(kind)) {
-            assert(!m.paginated && m.fits, `ordinary counter fits one page: ${JSON.stringify(m)}`);
-          }
-          // Every button/select must be reachable whole on at least one page.
-          const reached = new Set();
-          let turns = 0;
-          while (true) {
-            const controls = await wrap.evaluate(el => {
-              const b = el.querySelector('.modal-body').getBoundingClientRect();
-              return [...el.querySelectorAll('.modal-content button, .modal-content select')].map((x, i) => {
-                const r = x.getBoundingClientRect();
-                return { i, visible: r.width > 0 && r.height > 0 && r.left >= b.left - 1 && r.right <= b.right + 1
-                  && r.top >= b.top - 1 && r.bottom <= b.bottom + 1, label: x.textContent };
-              });
-            });
-            controls.filter(c => c.visible).forEach(c => reached.add(c.i));
-            const next = wrap.getByRole('button', { name: 'Next page', exact: true });
-            if (!(await next.isVisible()) || await next.isDisabled()) {
-              assert.deepEqual(controls.filter(c => !reached.has(c.i)).map(c => c.label), [], 'all controls fully reachable');
-              break;
-            }
-            assert(++turns < 50, 'finite page count');
-            await next.click();
-          }
+          assert(!m.paginated, 'counter fits without page controls');
+          assert(m.fits, `counter content fits: ${JSON.stringify(m)}`);
+          // Every control is fully visible without paging or scrolling.
+          const clippedControls = await wrap.evaluate(el => {
+            const b = el.querySelector('.modal-copy').getBoundingClientRect();
+            return [...el.querySelectorAll('.modal-content button, .modal-content select')].filter(x => {
+              const r = x.getBoundingClientRect();
+              return !(r.width > 0 && r.height > 0 && r.left >= b.left - 1 && r.right <= b.right + 1
+                && r.top >= b.top - 1 && r.bottom <= b.bottom + 1);
+            }).map(x => x.textContent);
+          });
+          assert.deepEqual(clippedControls, [], 'all controls fully visible');
         } catch (error) {
           failures.push(`${label}: ${error.message}`);
           console.error(failures.at(-1));

@@ -24,6 +24,20 @@
     return { scene, doc, callbacks: () => callbacks, removed: () => removed, watched: () => watched };
   }
 
+  test('debug GPS: every stick direction stays viewport-relative through compass turns', () => {
+    for (const angle of [0, Math.PI / 4, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+      for (const v of [{x:1,y:0},{x:0,y:-1},{x:-1,y:0},{x:0,y:1}]) {
+        const { scene: s } = setup();
+        s._headingUp = true; s.mapRot = angle;
+        s._debugGpsVec = v; s.gpsM = {x:20,y:30};
+        s._stepDebugGps(1);
+        const drawn = HeadingUp.toScreenVec(s, s.gpsM.x-20, s.gpsM.y-30);
+        assert.inRange(drawn.x-v.x*14, -1e-8, 1e-8);
+        assert.inRange(drawn.y-v.y*14, -1e-8, 1e-8);
+      }
+    }
+  });
+
   test('debug GPS: first movement replaces live watch and queued callbacks cannot overwrite it', () => {
     const f = setup(), s = f.scene;
     s.startGps();

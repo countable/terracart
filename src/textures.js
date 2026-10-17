@@ -49,7 +49,7 @@ function unclaimedShade(rgb) {
 // so mortar, translucent sludge and outlines keep their contrast.
 const UNCLAIMED_BUILDING_BASE = {
   floors: { 9: 0x984f45, 11: 0x9b8365, 12: 0x787a80 },
-  faces: { 9: 0x401f1c, 11: 0x3c2e22, 12: 0x36373a },
+  faces: { 9: 0x6c372f, 11: 0x3c2e22, 12: 0x36373a },
   stone: { LITE: 0xb9bcc2, BODY: 0x8f9298, FACE: 0x7e8188,
     SIDE: 0x7a7d84, SHADOW: 0x5a5d63, DARK: 0x303134 },
 };
@@ -124,7 +124,7 @@ const BIOME_TEX = {
   8:  { variants: 2, draw: drawPathTex },         // path: pebble grain
   9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
   11: { variants: 1, draw: drawWoodFloorTex },    // building_med: wooden plank floor
-  12: { variants: 16, draw: drawCastleFloorTex }, // castle: mostly quarters, occasional double slabs
+  12: { variants: 16, draw: drawCastleFloorTex }, // castle: cell slabs, half split into quarters or a joined pair
   10: { variants: 2, patternOpacity: 0.9, draw: drawRockTex },         // rock: cracks
   // Subtype splits — each biome gets its own low-res texture so it reads
   // qualitatively different from the others (see src/biome_profiles.js for the
@@ -242,6 +242,38 @@ function bakeCanvas(scene, key, w, h, paint) {
   const tex = scene.textures.createCanvas(key, w, h);
   paint(tex.getContext(), tex);
   tex.refresh();
+}
+
+// Bake once at scene creation: the ordinary bush is untouched underneath
+// BERRY_BUSH_SEATS pixel berries. Picking swaps to its source frame,
+// preserving shape and seat. One bake per berry kind: shadow, body and
+// highlight inks (CROP_SPRITE's `texture` names the key). The berries are
+// BERRY_PX square on the 48×32 frame (a 5 px shadow square, a 4 px body on
+// it, a 2 px highlight): the bush draws at two thirds, so anything smaller
+// vanished into the foliage (owner, Oct 2026: "I can't see the berries").
+const BERRY_PX = 5;
+const BERRY_BUSH_SEATS = [[18, 6], [29, 7], [12, 13], [22, 13], [33, 13], [16, 20], [27, 21]];
+const BERRY_BUSH_INKS = {
+  bushes_fruiting: ['#6e1f33', '#e63950', '#ffb0b8'],      // berry
+  bushes_poisonberry: ['#1d5a5c', '#2fb3a8', '#9ff0e2'],   // poisonberry
+  bushes_goldenberry: ['#8a5a12', '#e9b62a', '#fff0a6'],    // golden berry
+};
+function makeBerryBushTexture(scene) {
+  const source = scene.textures.get('bushes').getSourceImage();
+  for (const [key, [shade, body, light]] of Object.entries(BERRY_BUSH_INKS)) {
+    bakeCanvas(scene, key, source.width, source.height, (ctx, texture) => {
+      ctx.drawImage(source, 0, 0);
+      for (const [x, y] of BERRY_BUSH_SEATS) {
+        ctx.fillStyle = shade;
+        ctx.fillRect(x, y, BERRY_PX, BERRY_PX);
+        ctx.fillStyle = body;
+        ctx.fillRect(x, y, BERRY_PX - 1, BERRY_PX - 1);
+        ctx.fillStyle = light;
+        ctx.fillRect(x, y, 2, 2);
+      }
+      texture.add(0, 0, 0, 0, source.width, source.height);
+    });
+  }
 }
 
 function drawGrassTex(ctx, size, rng) {
@@ -583,35 +615,44 @@ function drawBuildingTex(ctx, size, rng) {
 }
 
 function drawCastleFloorTex(ctx, size, rng) {
-  // Twelve of the sixteen baked variants keep all four quarters; the other
-  // four join one pair, covering both halves and orientations. The low bits
-  // distribute adjacent texture seeds evenly across those sixteen layouts.
+  // The court is cell-tiled. Half of the sixteen baked variants are one full
+  // cell slab; the rest split as courts always have: four quarter variants and
+  // four that join one pair of quarters (both halves, both orientations). The
+  // low bits distribute adjacent texture seeds evenly across those layouts.
   ctx.clearRect(0, 0, size, size);
   const step = size / 2;
   const layout = Math.round(rng() * 0xffffffff) % 16;
-  const combined = layout < 4, horizontal = layout < 2, pair = layout % 2;
-  for (let row = 0; row < 2; row++) {
-    for (let col = 0; col < 2; col++) {
-      const joined = combined && (horizontal ? row === pair : col === pair);
-      if (joined && (horizontal ? col : row) === 1) continue;
-      const w = joined && horizontal ? size : step;
-      const h = joined && !horizontal ? size : step;
-      ctx.fillStyle = `rgba(255,255,255,${0.015 + rng() * 0.025})`;
-      ctx.fillRect(col * step + 1, row * step + 1, w - 1, h - 1);
-    }
+  const pair = layout % 2;
+  // Slabs in half-cell units: [col, row, cols, rows].
+  const slabs = layout < 8 ? [[0, 0, 2, 2]]
+    : layout < 10 ? [[0, pair, 2, 1], [0, 1 - pair, 1, 1], [1, 1 - pair, 1, 1]]
+    : layout < 12 ? [[pair, 0, 1, 2], [1 - pair, 0, 1, 1], [1 - pair, 1, 1, 1]]
+    : [[0, 0, 1, 1], [1, 0, 1, 1], [0, 1, 1, 1], [1, 1, 1, 1]];
+  for (const [col, row, w, h] of slabs) {
+    ctx.fillStyle = `rgba(255,255,255,${0.015 + rng() * 0.025})`;
+    ctx.fillRect(col * step + 1, row * step + 1, w * step - 1, h * step - 1);
   }
-  function seam(isHorizontal, at) {
-    const outer = at === 0;
-    const gaps = [0, 1].map(() => Math.floor(step * (0.38 + rng() * 0.24)));
+  // A seam runs along the edge a slab starts on; its corners are where any
+  // slab edge meets that line (the cell's own corners always do).
+  function seam(isHorizontal, line) {
+    const at = line * step, outer = line === 0;
+    const runs = slabs.filter(s => (isHorizontal ? s[1] : s[0]) === line)
+      .map(s => isHorizontal ? [s[0] * step, (s[0] + s[2]) * step] : [s[1] * step, (s[1] + s[3]) * step]);
+    if (!runs.length) return;
+    const corners = new Set([0, size]);
+    for (const s of slabs) for (const edge of isHorizontal ? [s[0], s[0] + s[2]] : [s[1], s[1] + s[3]]) {
+      const [a, b] = isHorizontal ? [s[1], s[1] + s[3]] : [s[0], s[0] + s[2]];
+      if (a <= line && line <= b) corners.add(edge * step);
+    }
+    const stops = [...corners].sort((a, b) => a - b);
+    const gaps = stops.slice(1).map((end, k) => stops[k] + Math.floor((end - stops[k]) * (0.38 + rng() * 0.24)));
     for (let i = 0; i < size; i++) {
-      // Omit the shared edge inside the double slab.
-      if (combined && !outer && isHorizontal !== horizontal && i > pair * step
-          && i < (pair + 1) * step) continue;
-      const along = i % step, distance = Math.min(along, step - along);
+      if (!runs.some(([a, b]) => i >= a && i <= b)) continue;
+      const k = stops.findIndex((s, n) => i >= s && i < stops[n + 1]);
+      const distance = Math.min(i - stops[k], stops[k + 1] - i);
       // Horizontal seams own intersections, avoiding doubled dark pixels.
-      if (!isHorizontal && along === 0) continue;
-      const gap = gaps[Math.floor(i / step)];
-      const worn = along >= gap && along < gap + 2;
+      if (!isHorizontal && distance === 0) continue;
+      const worn = i >= gaps[k] && i < gaps[k] + 2;
       // One recessed pixel owns each joint. A parallel bright bevel reads as
       // a second grid line; keep the definition concentrated at the corners.
       const alpha = distance <= 1 ? (outer ? 0.22 : 0.17)
@@ -621,8 +662,8 @@ function drawCastleFloorTex(ctx, size, rng) {
       ctx.fillRect(isHorizontal ? i : at, isHorizontal ? at : i, 1, 1);
     }
   }
-  seam(true, 0); seam(true, step);
-  seam(false, 0); seam(false, step);
+  seam(true, 0); seam(true, 1);
+  seam(false, 0); seam(false, 1);
 }
 
 function drawWoodFloorTex(ctx, size, rng) {
@@ -965,16 +1006,16 @@ function makeTowerTexture(scene, palette, key) {
   const crowns = CastleStyles.ids.map(() => H);
   const materials = CastleStyles.ids.map(id => CastleStyles.get(id, claimed));
   // Soften the masonry's join with irregular castle geometry. The bottom
-  // ten rows rise from 30% opacity at the foot to fully opaque above it.
-  const fadeRows = 10, footAlpha = 0.3;
+  // ten rows rise from transparent at the foot to fully opaque above it;
+  // a residual opaque rim exposes the cell-seated base against angled walls.
+  const fadeRows = 10;
   for (let y = 0; y < H; y++) for (let x = 0; x < W * materials.length; x++) {
     const i = (y * W * materials.length + x) * 4, pixels = image.data;
     if (pixels[i + 3] < 128) { pixels[i + 3] = 0; continue; }
     const frame = Math.floor(x / W);
     const ink = castleTowerInk(pixels[i], pixels[i + 1], pixels[i + 2], materials[frame]);
     pixels[i] = ink >> 16; pixels[i + 1] = (ink >> 8) & 255; pixels[i + 2] = ink & 255;
-    pixels[i + 3] = Math.round(255 * (footAlpha + (1 - footAlpha)
-      * Math.min(1, (H - 1 - y) / (fadeRows - 1))));
+    pixels[i + 3] = Math.round(255 * Math.min(1, (H - 1 - y) / (fadeRows - 1)));
     crowns[frame] = Math.min(crowns[frame], y);
   }
   ctx.putImageData(image, 0, 0);
@@ -1486,6 +1527,8 @@ function makeBiomeTextures(scene, size) {
 const PAD_CELL = 32;
 // Shared with render.js: seat the shrine's south-facing feet farther inside
 // the pedestal's top plane, while the pad itself stays centred on its ground cell.
+// The plinth's face is drawn at the bottom for a south camera; on a turned
+// heading-up map render.js counter-rotates it about that centre.
 const SHRINE_PAD = { sizePx: PAD_CELL, facePx: 6, seatLiftPx: 11 };
 // The pad is drawn a touch larger than its cell so it spills ~10% past the
 // cell boundary into neighbouring cells, reading as a soft oversized base

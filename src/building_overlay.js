@@ -48,7 +48,8 @@
 // by running the unclaimed shade over the floor twice more.
 //
 // Floors share the cached ground canvas. Wall faces and castle ramparts use
-// cached atlas pieces in a background container immediately above the floors.
+// retained prisms in heading-up mode, or cached atlas pieces in north-up mode,
+// in a background container immediately above the floors.
 // Every interactable and character draws above both layers.
 //
 // Depends on:
@@ -106,6 +107,10 @@
   // the same black into the floor colour lands the identical pixel without a
   // translucent stroke that would double up where two rings touch.
   const OUTLINE_MUL = 0.5;
+
+  // A footprint Home's trailer cleared keeps only its shadow on the ground.
+  const CLEARED_SHADOW = 0x000000;
+  const CLEARED_SHADOW_ALPHA = 0.2;
   const OUTLINE_PX = 1;
 
   // Castle rampart: a stone band run INSIDE the ring (the cell version's
@@ -342,10 +347,10 @@
     };
     const target = {
       clear() { ctx.clearRect(0, 0, size, size); },
-      fillPoly(pts, color) {
+      fillPoly(pts, color, alpha) {
         if (!pts || pts.length < 3) return;
         trace(pts);
-        ctx.fillStyle = cssOf(color);
+        ctx.fillStyle = alpha == null ? cssOf(color) : rgbaOf(color, alpha);
         ctx.fill();
       },
       strokePoly(pts, width, color) {
@@ -575,6 +580,66 @@
     scene._buildingWallAtlas = null;
     scene._buildingUprightCache = new Map();
     scene._buildingUprightPieces = [];
+  }
+
+  // Compass-aware walls keep the same footprint and material as the atlas.
+  // Elevation is independent of map rotation; joins share ground vertices.
+  function perspectiveEdges(scene, d, isMine) {
+    const shade = shadeOf(isMine), tune = tuneOf(isMine);
+    const stone = d.tier === CASTLE && !d.templeZone ? castleStone(isMine, d.key) : null;
+    const temple = d.templeZone ? TempleArt.palette(isMine, d.templeKind === 'tar', true) : null;
+    const rampart = stone?.style.rampart;
+    const height = rampart ? rampart.wallHeight : d.tier === 11 ? 5 : facePx(d.tier);
+    const face = temple ? temple.face : stone ? stone.style.stone.FACE : tune(shade(faceColor(d.tier, isMine)));
+    const top = temple ? temple.face : stone ? stone.top : tune(shade(floorColor(d.tier, isMine)));
+    const dark = temple ? temple.outline : stone ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
+    const thickness = rampart ? rampart.topDepth : d.tier === 11 ? 3 : 1;
+    const points = d.pts;
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      area += a.x * b.y - b.x * a.y;
+    }
+    const winding = Math.sign(area);
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
+      if (!length) continue;
+      const nx = -dy / length * winding, ny = dx / length * winding;
+      const spec = { ax: a.x, ay: a.y, bx: b.x, by: b.y, nx, ny, height, thickness, face, top, dark };
+      if (rampart) {
+        const count = length < rampart.toothWidth ? 0 : Math.max(1, Math.round((length - rampart.toothWidth) / 8) + 1);
+        const pitch = count > 1 ? (length - rampart.toothWidth) / (count - 1) : 0;
+        const missing = [];
+        for (let tooth = 0; tooth < count; tooth++) {
+          const t = tooth * pitch / length;
+          const damage = CastleStyles.damageCell(d.key,
+            Math.floor((a.x + dx * t + nx * 0.01 - d.damageOriginX) / CELL_PX),
+            Math.floor((a.y + dy * t + ny * 0.01 - d.damageOriginY) / CELL_PX));
+          if ((rampart.broken && tooth % 4 === 2) || damage?.missing === tooth % 4) missing.push(tooth);
+        }
+        Object.assign(spec, { crownTop: stone.lite, toothWidth: rampart.toothWidth, toothHeight: rampart.toothHeight, missing });
+      }
+      if (d.tier === 11 && !temple) {
+        const count = Math.max(1, Math.ceil(length / 4));
+        for (let j = 0; j < count; j++) {
+          const lo = j / count, hi = Math.min(1, lo + 3 / length);
+          WallPerspective.addSegment(scene, 'polygon', { ...spec,
+            ax: a.x + dx * lo, ay: a.y + dy * lo, bx: a.x + dx * hi, by: a.y + dy * hi });
+        }
+      } else {
+        WallPerspective.addSegment(scene, 'polygon', spec);
+        // Bounded bevel at a concave turn fills the wedge between inward
+        // offsets. At convex turns the strips already overlap inside the ring.
+        const previous = points[(i + points.length - 1) % points.length];
+        const px = a.x - previous.x, py = a.y - previous.y, plen = Math.hypot(px, py);
+        if (plen && (px * dy - py * dx) * winding < 0) {
+          WallPerspective.prism(scene, 'polygon', [a,
+            { x: a.x - py / plen * winding * thickness, y: a.y + px / plen * winding * thickness },
+            { x: a.x + nx * thickness, y: a.y + ny * thickness }], 0, height, { face, top, dark });
+        }
+      }
+    }
   }
 
   function uprightEdges(scene, d, isMine, projX, projY, seen) {
@@ -810,7 +875,7 @@
         scene.buildingWallContainer.add(sprite);
         const piece = {
           sprite, page, frame, slot, x, y, wx, wy, width: w, height: h, rank: 1,
-          ground: !crownPass,
+          background: !crownPass,
           // Lowest visible masonry, excluding transparent frame padding.
           groundY: (masonryBaseY - projY(0)) * scene.cellM / CELL_PX,
         };
@@ -839,6 +904,7 @@
     if (scene.buildingWallContainer) scene.buildingWallContainer.setVisible((scene.depth ?? 0) === 0);
     if (!on) {
       clearUprights(scene);
+      if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'polygon');
       // Wipe the canvas the first time it goes off: setEnabled() invalidates
       // on its way out, and a hidden container full of last frame's buildings
       // would come back. `_buildingGeomPainted` tracks what is ON the canvas.
@@ -880,6 +946,8 @@
       }
     }
     if (container) container.setPosition(-offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
+    if (typeof WallPerspective !== 'undefined')
+      WallPerspective.offset(scene, 'polygon', -offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
     for (const p of scene._buildingUprightPieces || []) {
       const x = p.x - offset.fracX * CELL_PX, y = p.y - offset.fracY * CELL_PX;
       p.sprite.setPosition(x, y);
@@ -919,6 +987,10 @@
         scene._buildingGeomTarget = null;
       });
     }
+    // Standalone art exporters load the legacy Canvas painter without Phaser.
+    const perspective = typeof WallPerspective !== 'undefined' && WallPerspective.active(scene) && !!scene.buildingWallContainer;
+    if (perspective) WallPerspective.begin(scene, 'polygon');
+    else if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'polygon');
     const separateUprights = !!(scene.buildingWallContainer && scene.add && scene.textures);
     // Cell-snapped projection (the container re-applies the sub-cell offset) —
     // the same one the road overlay strokes with — and its padded cull bounds.
@@ -942,7 +1014,10 @@
     for (const { tx, ty, entry } of tiles) {
       const originMx = tx * entry.tileEdgeM;
       const originMy = ty * entry.tileEdgeM;
-      for (const shape of entry.buildingShapes) {
+      const shapes = entry.clearedShapes
+        ? entry.clearedShapes.map(s => ({ ...s, cleared: true })).concat(entry.buildingShapes)
+        : entry.buildingShapes;
+      for (const shape of shapes) {
         const r = shape.ring;
         if (!r || r.length < 6) continue;        // fewer than 3 points is not a footprint
         const pts = [];
@@ -960,7 +1035,7 @@
         // off the north edge still drops its face into view.
         if (bx1 < minX || bx0 > maxX || by1 + facePx(shape.tier) < minY || by0 > maxY) continue;
         draws.push({
-          pts, south: by1, left: bx0, north: by0, right: bx1,
+          pts, south: by1, left: bx0, north: by0, right: bx1, cleared: !!shape.cleared,
           tier: shape.tier, key: shape.key, templeZone: shape.templeZone, templeKind: shape.templeKind,
           damageOriginX: projX(originMx), damageOriginY: projY(originMy),
           columns: shape.tier === CASTLE && !shape.templeZone ? CastleStyles.columnSites(shape.key, r,
@@ -974,20 +1049,24 @@
     // Painter rule: the LOWER building draws in front. Ties break on the
     // leftmost x so the order is fully determined by the geometry rather than
     // by which tile happened to load first.
-    draws.sort((a, b) => (a.south - b.south) || (a.left - b.left));
+    // A cleared footprint's shadow lies on the ground, under every building.
+    draws.sort((a, b) => (b.cleared - a.cleared) || (a.south - b.south) || (a.left - b.left));
 
     // Anchor the material patterns to the WORLD before anything is filled:
     // texturePoly paints immediately, so the phase has to be in hand first.
     if (g.texturePhase) g.texturePhase(projX(0), projY(0));
 
     for (const d of draws) {
+      // A house Home's trailer cleared (scene_venues.js _eraseHomeBuildings):
+      // just the footprint, as a flat shadow — no walls, floor or outline.
+      if (d.cleared) { g.fillPoly(d.pts, CLEARED_SHADOW, CLEARED_SHADOW_ALPHA); continue; }
       if (d.templeZone) {
         const active = Temples.isActive(scene.save, d);
         const palette = TempleArt.palette(active, d.templeKind === 'tar', true);
-        if (!separateUprights) g.fillPoly(d.pts.map(p => ({ x: p.x, y: p.y + facePx(d.tier) })), palette.face);
+        // Foundations stay joined to the floor silhouette, beneath its top surface.
+        g.fillPoly(d.pts.map(p => ({ x: p.x, y: p.y + facePx(d.tier) })), palette.face);
         if (g.templePoly) g.templePoly(d.pts, active, d.templeKind === 'tar');
         else { g.fillPoly(d.pts, palette.floor); g.strokePoly(d.pts, OUTLINE_PX, palette.outline); }
-        if (separateUprights) uprightEdges(scene, d, active, projX, projY, seen);
         continue;
       }
       const isMine = claimed(d.key);
@@ -1001,7 +1080,7 @@
       // The wall, as the ring filled again one face-depth south and painted
       // UNDER the floor: whatever survives is exactly the polygon's
       // south-facing edges, at any angle, with no per-edge normal test.
-      if (!separateUprights) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), (style ? style.stone.FACE : tune(shade(faceColor(d.tier, isMine)))));
+      if (!separateUprights || (d.tier === 9 && !perspective)) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), (style ? style.stone.FACE : tune(shade(faceColor(d.tier, isMine)))));
       g.fillPoly(d.pts, floor);
       const damagedFloor = style?.id === 'ruin' && g.damagePoly
         && g.damagePoly(d.pts, d.key, isMine, d.damageOriginX, d.damageOriginY);
@@ -1018,9 +1097,17 @@
       // beside those joints makes the stones read as doubled outlines.
       if (g.gridPoly && d.tier !== CASTLE) g.gridPoly(d.pts, gridInkFor(GRID, floor));
       if (d.columns.length && g.columnsPoly) g.columnsPoly(d.pts, d.columns, isMine);
+      // House foundations descend below the textured floor, unlike ramparts.
+      // Retain the whole perimeter: uncapped sides support concave OSM rings
+      // without tessellating or rebaking their floor when the compass turns.
+      if (perspective && d.tier === 9) {
+        WallPerspective.prism(scene, 'polygon', d.pts, -depth, 0,
+          { face: tune(shade(faceColor(d.tier, isMine))) }, null, false);
+      }
       // Wall sections stay in the building background.
-      if (separateUprights) {
-        uprightEdges(scene, d, isMine, projX, projY, seen);
+      if (separateUprights && d.tier !== 9) {
+        if (perspective) perspectiveEdges(scene, d, isMine);
+        else uprightEdges(scene, d, isMine, projX, projY, seen);
       } else if (d.tier === CASTLE) {
         // Rampart: the stone band inside the wall line, then the merlon teeth
         // dashed along it in the light stone — the polygon's answer to the
@@ -1045,6 +1132,7 @@
       scene.buildingWallContainer.sort('depth');
       commitWallAtlas(scene);
     }
+    if (perspective) WallPerspective.finish(scene, 'polygon');
     if (g.commit) g.commit();
   }
 

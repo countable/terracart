@@ -18,7 +18,7 @@ test('generated barrel: a `barrel: true` chest is a barrel at any depth; a bin\'
   assert.falsy(isBarrel({ kind: 'mineralrock', barrel: true }), 'only a chest');
 });
 
-test('generated containers retain 70% empty odds and the base budget regardless of POI density', () => {
+test('generated containers retain the table\'s 55% empty odds and the base budget regardless of POI density', () => {
   for (const barrelStyle of ['barrel', 'clay_pot']) {
     const o = {kind: 'chest', barrel: true, barrelStyle, id: 'cbarrel_1_0_0_1_1'};
     const rng = seeded(7), otherRng = seeded(7);
@@ -30,7 +30,7 @@ test('generated containers retain 70% empty odds and the base budget regardless 
       else if (result.kind === 'gold') assert.eq(result.amount, 1);
       else assert.eq(result.qty, ChestThemes.quantityForBudget(result.id, 15));
     }
-    assert.lt(Math.abs(empty / 1000 - 0.7), 0.05);
+    assert.lt(Math.abs(empty / 1000 - 0.55), 0.05);
   }
 });
 

@@ -52,14 +52,14 @@ const near = (a, b, eps, m) => assert.inRange(a, b - eps, b + eps, m);
 
 // ── The camera collapses onto the player when nothing is peeking ────────────
 
-test('peek: with no drag the anchor IS the player', () => {
+test('peek: with no drag the camera stays within half a pixel of the player', () => {
   const s = peekScene({ playerM: { x: 40, y: -25 } });
   const a = viewAnchorWorldM(s);
-  assert.eq(a.x, s.startWorldM.x + s.playerM.x, 'anchor x sits on the body');
-  assert.eq(a.y, s.startWorldM.y + s.playerM.y, 'anchor y sits on the body');
+  near(a.x, s.startWorldM.x + s.playerM.x, .5 / PX_PER_M, 'anchor x stays beside the body');
+  near(a.y, s.startWorldM.y + s.playerM.y, .5 / PX_PER_M, 'anchor y stays beside the body');
   const p = s.playerScreen();
-  assert.eq(p.x, s.viewCenterX, 'the player is drawn at the viewport centre');
-  assert.eq(p.y, s.viewCenterY, 'the player is drawn at the viewport centre');
+  near(p.x, s.viewCenterX, .5, 'player tracks the shared camera anchor');
+  near(p.y, s.viewCenterY, .5, 'player tracks the shared camera anchor');
 });
 
 test('peek: a scene with no peekM at all still projects (stub scenes, boot)', () => {
@@ -489,4 +489,36 @@ test('pinch: a warp drops the zoom with the peek', () => {
   s.clearPeek();
   assert.eq(s.mapZoom, 1, 'the full view at once');
   assert.eq(s._pinch, null, 'and the pinch is over');
+});
+
+
+test('zoom buttons: default is the closest level, steps clamp and mark limits', () => {
+  near(VIEW_CELLS / MAP_DEFAULT_ZOOM, PINCH_VIEW_CELLS, 1e-9);
+  const s = peekScene({ _mapZoomRest: MAP_DEFAULT_ZOOM, mapZoom: MAP_DEFAULT_ZOOM,
+    _zoomInButton: {}, _zoomOutButton: {}, _homeIntro: {}, peekM: { x: 7, y: 7 } });
+  s._stepMapZoom(1);
+  near(s.mapZoom, PINCH_MAX_ZOOM, 1e-9);
+  assert.eq(s._zoomInButton.disabled, true, 'already the closest');
+  assert.eq(s._zoomOutButton.disabled, false);
+  assert.eq(s._homeIntro, null);
+  assert.eq(s.peekM.x, 0);
+  assert.eq(s.peekM.y, 0);
+  s._stepMapZoom(-1);
+  near(VIEW_CELLS / s.mapZoom, PINCH_VIEW_CELLS + 2, 1e-9);
+  assert.eq(s._zoomInButton.disabled, false);
+  s._stepMapZoom(-1);
+  assert.eq(s.mapZoom, 1);
+  assert.eq(s._zoomOutButton.disabled, true);
+});
+
+test('zoom selection survives pinch release from either side and clearing a peek', () => {
+  for (const start of [1, PINCH_MAX_ZOOM]) {
+    const s = peekScene({ _mapZoomRest: MAP_DEFAULT_ZOOM, mapZoom: start });
+    s._pinchEnd();
+    for (let i = 0; i < 120; i++) s._tickMapZoom(1 / 60);
+    assert.eq(s.mapZoom, MAP_DEFAULT_ZOOM);
+    s.mapZoom = PINCH_MAX_ZOOM;
+    s.clearPeek();
+    assert.eq(s.mapZoom, MAP_DEFAULT_ZOOM);
+  }
 });

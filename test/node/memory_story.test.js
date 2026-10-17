@@ -30,9 +30,9 @@ const HELP_SRC = lift('showMemoriesHelp() {', 'showMemoriesHelp');
 const MET_SRC = lift('_metWizard() {', '_metWizard');
 
 function mkScene({ energy = 100, max = 100 } = {}) {
-  const methods = new Function('persistSave',
+  const methods = new Function('persistSave', 'document',
     `return class { ${BANK_SRC}\n${DRAIN_SRC}\n${QUEUE_SRC}\n${TOTAL_SRC}\n${UNSPENT_SRC}\n${SPEND_SRC}\n${HELP_SRC}\n${MET_SRC} }`);
-  const s = new (methods((save) => { s.persisted = (s.persisted || 0) + 1; }))();
+  const s = new (methods((save) => { s.persisted = (s.persisted || 0) + 1; }, { getElementById: id => ({ id }) }))();
   s.save = { inv: [], energy };
   s.getMaxEnergy = () => max;
   s.pops = [];
@@ -129,7 +129,8 @@ test('memory chip: the explainer is a declared kind, and says both numbers', () 
   s.save.memories = 1;
   s.showMemoriesHelp();
   const m = s.modals[0];
-  assert.eq(m.kind, 'memory');
+  assert.eq(m.kind, 'spirit');
+  assert.eq(m.source.id, 'memories', 'the explainer points to its HUD control');
   assert.truthy(/const MODAL_KINDS = \{[\s\S]*?\n  memory:/.test(SCENE_SRC), 'memory is a MODAL_KINDS row');
   assert.truthy(/2 recovered/.test(m.title) && /1 unspent/.test(m.title), 'both numbers');
   assert.falsy(/wizard/i.test(m.body), 'the wizard is a secret until his tower is restored');
@@ -141,7 +142,7 @@ test('memory chip: the explainer is a declared kind, and says both numbers', () 
   s.save.wizardBuys = 1;
   s.showMemoriesHelp();
   assert.truthy(/Wizard Tower/.test(s.modals[2].body), 'a save that has already bought from him knows him too');
-  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, portrait, kind = art \? 'story' : 'note', kindLabel, mustAcknowledge = false \}\)/.test(SCENE_SRC),
+  assert.truthy(/showMessageModal\(\{[^}]*kind = art \? 'story' : 'note'/.test(SCENE_SRC),
     'showMessageModal forwards a kind, defaulting to note (a story when it has a painting)');
 });
 

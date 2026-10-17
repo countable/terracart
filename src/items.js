@@ -50,12 +50,21 @@ const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide
 // (the seed/produce *inventory* columns are 7/8 — see inventoryIconSource;
 // don't confuse col 0's in-world stage-0 sprite with the col-7 seed icon.)
 const SPRING_CROPS_COLS = 14;
+// Fruiting and ordinary bushes share every foliage pixel and the same geometry.
+const BUSH_SPRITE = { sheet: 'bushes', custom: true, frame: 0, scale: 0.667 };
 const CROP_SPRITE = {
   potato: { sheet: 'springcrops', row: 5 },
   // Preserve seed, produce and growing-stage art; every mature berry bush
-  // uses the approved map sprite, including farmed bushes.
+  // uses the ordinary bush with berries overlaid, including farmed bushes.
   berry:  { sheet: 'springcrops', row: 1,
-    mature: { sheet: 'zone_berry_bush', custom: true, frame: 0, scale: 4 / 3 } },
+    mature: { ...BUSH_SPRITE, texture: 'bushes_fruiting' } },
+  // The wild poisonberry: the same bush, its berries teal (textures.js
+  // makeBerryBushTexture). Wild only — no seed, no growth stages.
+  poisonberry: { ...BUSH_SPRITE, texture: 'bushes_poisonberry' },
+  // THE GOLDEN BERRY BUSH: the same bush, its berries gold — rare (items.js
+  // goldenBushCrop: GOLDEN_BUSH_SHARE of a Berry Lane's bushes, a sixth of
+  // that of every other bush placement). Wild only.
+  goldenberry: { ...BUSH_SPRITE, texture: 'bushes_goldenberry' },
   cress:  { sheet: 'springcrops', row: 3 },   // spoon-leaf watercress
   onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
   // Long grass — item id 'longgrass', display name 'Long grass'. Props.png
@@ -63,8 +72,12 @@ const CROP_SPRITE = {
   // 0-indexed = 0*22 + 10 = 10. Renders as leafy green fronds at the
   // wildplant scale (1.16 keeps the tuft from crowding one-cell props).
   longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 },
+  // Previously unused Props frames: green sprig and upright leafy nettle.
+  // Inventory resolves these same frames through each item's crop key.
+  petnip: { sheet: 'props', custom: true, frame: 32, scale: 1.16 },
+  nettle: { sheet: 'props', custom: true, frame: 33, scale: 1.13 },
   // Shrub looks share harvesting; brambles mark thorny groves and roads.
-  shrub: { sheet: 'bushes', custom: true, frame: 0, scale: 0.667,
+  shrub: { ...BUSH_SPRITE,
     looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frame: 0, scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frame: 0, scale: (4 / 3) * 0.8 } } },
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
@@ -160,9 +173,11 @@ const ZONE_ROCK_THEMES = Object.freeze({
 });
 // One neutral stone palette everywhere; material pairs are adjacent small/large frames.
 // Legacy yield variants still own mining quantities, independently of appearance.
+// World rocks draw at 92% of the 16/15 source-cell scale (owner, Oct 2026).
+const ROCK_WORLD_SCALE = (16 / 15) * 0.92;
 const ROCK_VARIANT_ART = Object.freeze({
-  columns: 8, rows: 9, smallScale: 16 / 15, largeScale: 16 / 15,
-  themedScale: 16 / 15, placedScale: 2.304,
+  columns: 8, rows: 9, smallScale: ROCK_WORLD_SCALE, largeScale: ROCK_WORLD_SCALE,
+  themedScale: ROCK_WORLD_SCALE, placedScale: 1.6,
   plainFrames: Object.freeze([0, 30, 32, 34]),
   materials: Object.freeze(['plain', 'flint', 'quartz', 'topaz', 'amethyst',
     'sapphire', 'ruby', 'emerald', 'diamond', 'copper', 'iron', 'gold',
@@ -229,6 +244,15 @@ function wildplantFrame(p) {
 // the vast majority — it drops itself, is picked instantly for nothing, hides
 // no treasure and casts no light.
 const WILDPLANT_RULES = {
+  // `pickedCrop`: picking the fruit leaves the plant standing as this crop
+  // (render.js wildplantView — a plain bush; the id stays spent). Every
+  // berry bush, the poisonberry's included (owner, Oct 2026).
+  berry: { pickedCrop: 'shrub' },
+  poisonberry: { pickedCrop: 'shrub' },
+  goldenberry: { pickedCrop: 'shrub' },
+  // `sting`: picking it hurts — `energy` off the bar as a bare-handed blow
+  // (scene _sting: Combat.playerDamage, no armour) and `line` at the plant.
+  nettle: { sting: { energy: 7, line: 'Ouch!' } },
   // A woody bush. Chopping one yields the WOOD item, not a 'shrub' item
   // (tree + shrub have no inventory counterparts), and it is real felling
   // work: bare hands take 5 seconds, axes use their usual ladder, and
@@ -261,6 +285,19 @@ const WILDPLANT_RULES = {
   mushroom:  { light: 'mushroom' },
 };
 function wildplantRule(crop) { return WILDPLANT_RULES[crop] || null; }
+// THE GOLDEN BERRY BUSH: a bush placement (BUSH_CROPS — a shrub, a berry or
+// a poisonberry bush) whose id hashes under its share is the rare golden
+// berry bush instead — GOLDEN_BUSH_SHARE.street of a Berry Lane's bushes
+// (street_variants.js berryLaneBush), .wild of every other ambient bush the
+// world seats (WorldGen.ambientBush: the biome scatter, yards, park pads,
+// mapped tree rows, plain verges — never an authored zone, hedge or thicket
+// piece). One salt for both, so the wild roll is a subset of the lane's: a
+// lane bush never rolls twice.
+const BUSH_CROPS = new Set(['shrub', 'berry', 'poisonberry']);
+const GOLDEN_BUSH_SHARE = Object.freeze({ street: 1 / 50, wild: 1 / 150 });
+function goldenBushCrop(crop, id, share = GOLDEN_BUSH_SHARE.wild) {
+  return BUSH_CROPS.has(crop) && id != null && hash01(`${id}|golden`) < share ? 'goldenberry' : crop;
+}
 // Can a plant of this crop be a nest bush at all (its row's `nest`)?
 function wildplantNests(crop) { return !!wildplantRule(crop)?.nest; }
 // THE NEST BUSH: a nesting crop whose id hashes under SHINY_RATE.nest — the
@@ -632,6 +669,10 @@ const MINERAL_ICON_SHEET = {
   torch:         { sheet: 'icon_torch', frame: 0 },
   // The shared icon renderer applies the blue palette on every DOM surface.
   evertorch:     { sheet: 'icon_torch', frame: 0, filter: 'hue-rotate(180deg) saturate(1.4)' },
+  // The berry's own produce icon, its red turned the bush's teal.
+  poisonberry:   { sheet: 'springcrops', frame: 1 * SPRING_CROPS_COLS + 8, filter: 'hue-rotate(190deg) saturate(1.3)' },
+  // The berry's icon turned gold.
+  goldenberry:   { sheet: 'springcrops', frame: 1 * SPRING_CROPS_COLS + 8, filter: 'hue-rotate(50deg) saturate(1.6) brightness(1.15)' },
   // Cutters from the db32 item library; the tool removes traps, not a backpack.
   trap_disarm_kit:      { sheet: 'icon_kit', frame: 0 },
   // The existing sprung-jaw drawing in the placed magic trap's magenta.
@@ -763,11 +804,13 @@ const BASE_TIER = {
   ...Object.fromEntries(Object.entries(MINERAL_TIERS)
     .map(([tier, row]) => [row.barId, Number(tier)])),
   // Wild produce / animal output
-  longgrass: 1, flowers: 1, mushroom: 1, old_boot: 1,
+  longgrass: 1, flowers: 1, mushroom: 1, old_boot: 1, petnip: 1, nettle: 2,
   // Rare wild flora — foraged flowers, climbing from meadow-common
   // (forget-me-not) to the glowing starflower (rarest). Tier drives the
   // shiny-find bonus and loot-value scaling.
   forgetmenot: 2, marigold: 3, wildrose: 3, starflower: 5,
+  poisonberry: 2,
+  goldenberry: 5,
   egg: 2, milk: 3,
   // Fish span the loot ladder, with gaps of at most two tiers.
   minnow: 1, bass: 2, trout: 4, salmon: 5, goldenfish: 7,
@@ -951,6 +994,8 @@ const ITEMS = [
   // back-compat. The sprite is Props.png's frond frame; in-world + inventory
   // render the baked 'props' frame via ITEM_DATA_URLS.
   { id: 'longgrass', name: 'Long grass', kind: 'produce', crop: 'longgrass' },
+  { id: 'petnip', name: 'PetNip', kind: 'produce', crop: 'petnip', petFood: { maxHp: 1 } },
+  { id: 'nettle', name: 'Nettle', kind: 'produce', crop: 'nettle' },
   // Wild flower pickups (per-polygon color but stacks as a single item).
   { id: 'flowers', name: 'Flowers', kind: 'produce' },
   // Rare wild flora — prized foraged flowers picked from sparse blooms in
@@ -1123,6 +1168,13 @@ const ITEMS = [
   { id: 'barricade', name: 'Barricade', kind: 'supply' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
+  // Wild poisonberry (forest and wetland bushes, pickable). Eaten, it
+  // poisons you; offered to an enemy or a pet, it poisons that (interact.js).
+  { id: 'poisonberry',  name: 'Poisonberry',  kind: 'produce', crop: 'poisonberry' },
+  // The rare golden berry (a Berry Lane's bushes, now and then any bush).
+  // Eaten, a mouthful; offered to a foe, it charms it (CONSUMABLE_SPEC
+  // `charmsFoe`, interact.js) — a minute less its tier squared in seconds.
+  { id: 'goldenberry',  name: 'Golden berry',  kind: 'produce', crop: 'goldenberry' },
   // Fish (caught by Fishing Rod on water tiles). dropWeight: 0.4 trims their
   // share within the (produce, tier) pool so chest loot reads as mostly crops
   // and fruit, with fish as an occasional aquatic surprise rather than the
@@ -1264,6 +1316,15 @@ const _CONSUMABLE_MINUTE_MS = 60 * 1000;
 const TOME_MUL = 0.5;
 const CONSUMABLE_SPEC = {
   mushroom: { condition: 'confused', durationMs: 3000 },
+  // `feedsFoe`: offered to an enemy or a pet (interact.js), that creature
+  // takes the condition instead (Combat.poison — the Poison Flask's minute).
+  poisonberry: { condition: 'poison', feedsFoe: true },
+  // `charmsFoe`: offered to an enemy (interact.js), it takes the `charm`
+  // status (Combat.applyCharm — the thrown Potion of Taming's, fighting
+  // beside you and, charmed, never fleeing the net) for charmFeedMs: a
+  // minute less its tier squared in seconds; a wild animal takes the calm
+  // of the same length. Eaten, it is only a mouthful.
+  goldenberry: { charmsFoe: { minuteMs: _CONSUMABLE_MINUTE_MS, tierSquaredMs: 1000 } },
   orb: {
     chestRevealMs: 6000,
     immediate: true, reusable: true,
@@ -1672,6 +1733,14 @@ const CONSUMABLE_SPEC = {
     secondary: { label: 'Up', method: 'useRopeUp', disabled: scene => !(scene.depth > 0) },
   },
 };
+// How long a golden berry (CONSUMABLE_SPEC `charmsFoe`) holds `kind`: its
+// minute less the kind's roster tier squared, in seconds — a runt's 59 s, a
+// T3 goblin's 51, a T7 lord's 11; an animal (no tier) the whole minute.
+// Never below zero: a kind too high is simply not charmed.
+function charmFeedMs(kind, spec = CONSUMABLE_SPEC.goldenberry.charmsFoe) {
+  const tier = (typeof EnemyRoster !== 'undefined' && EnemyRoster.get(kind)?.tier) || 0;
+  return Math.max(0, spec.minuteMs - tier * tier * spec.tierSquaredMs);
+}
 
 // The throwables' button (see the rows): one install, read at click time.
 for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
@@ -1754,6 +1823,8 @@ const PRICES = {
   dog: 35,         // companion animal (wants meat) — modest sale, never eaten
   // ── Wild-only ────────────────────────────────────────────
   longgrass: 1,
+  petnip: 4,
+  nettle: 8,
   flowers: 2,
   // Rare wild flora — sell value climbs with rarity; the glowing starflower
   // is a premium forage find (between gemfruit and the magical sunflower).
@@ -1859,6 +1930,8 @@ const PRICES = {
   butterfly: 100,  // premium catch — Bug Net required, so it's worth a lot
   // ── Wild mushroom ────────────────────────────────────────
   mushroom: 5,
+  poisonberry: 6,
+  goldenberry: 60,
   // ── Fish ─────────────────────────────────────────────────
   minnow: 3,    bass: 18,   trout: 60,   salmon: 150, goldenfish: 450,
   // ── Orchard fruit ────────────────────────────────────────
@@ -1900,7 +1973,7 @@ for (const k of BABY_KINDS) PRICES[babyItemId(k)] = itemValue(k) * 3;
 const BUY_LIST = Object.keys(CROP_ROW)
   .filter(c => (BASE_TIER[c] || 1) <= 3)
   .map(c => `${c}_seed`);
-const STARTING_MONEY = 50;
+const STARTING_MONEY = 0;
 
 // === Energy / food ===
 // Player starts at STARTING_ENERGY; the only thing that ever raises the cap is
@@ -1937,6 +2010,7 @@ const FEATHER_REVIVE_ENERGY = 1;
 const TRAP_KIT_KEEP_CHANCE = 0.8;
 
 const ITEM_GUIDE_TIPS = {
+  growth_powder: 'At home I ground nettles with long grass into a green powder. The seedlings stirred before I had finished sprinkling it.',
   barricade: 'I lashed the spare timber into a barricade at home, then carried it down to the cave. The narrow passage needed less wood than I feared.',
   crow_feather: 'My legs failed on the long road. I pressed the black feather to my lips. Just enough strength to rise. Sometimes that is all a mercy needs to be.',
   scarecrow: 'The deer have kept to the tree line since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
@@ -1995,6 +2069,8 @@ const ITEM_EFFECTS = {
   rainberry: 'Rain gathers on nearby leaves when its skin breaks between your teeth.',
   pairy: 'Its sweetness leaves a glimmer of buried treasure behind your eyes.',
   dawnfruit: 'A clear dawn fills your sight when you bite through its skin.',
+  poisonberry: 'Teal and bitter. Whoever swallows it sickens — you, or any creature you feed it to.',
+  goldenberry: 'Gold and sweet. A foe that eats one fights beside you for a while, and will not run from your net.',
   miracle_lettuce: 'Its crisp leaves leave you feeling unusually lucky.',
   horse: 'It stamps and tosses its head, impatient for the open road.',
   coffee: 'A roasted warmth sets your feet itching for the road.',
@@ -2002,6 +2078,8 @@ const ITEM_EFFECTS = {
   mango: 'Even wary animals lean toward its golden scent.',
   worldpeach: 'Its soft sweetness washes every affliction away.',
   longgrass: 'Its tough fibres hold fast when twisted together.',
+  petnip: 'A fragrant sprig that cheers a pet and strengthens its heart.',
+  nettle: 'A stinging herb ground into Growth Powder to wake sleeping crops. Pick it with care.',
   rubble: 'Beneath its pale skin lies a stone hard enough for a ruined wall.',
   quartz: 'Soft pink light catches in the stone’s cloudy heart.',
   topaz: 'A honey-gold gleam rests between its sharp edges.',
@@ -2148,6 +2226,8 @@ const FOOD_ENERGY = {
   egg:        13,
   milk:       52,
   mushroom:   21,
+  poisonberry: 3,   // a mouthful, then the poison's minute
+  goldenberry: 4,   // a mouthful; its charm is for a foe's mouth
   apple:      16, cherry: 18, worldpeach: 16, banana: 23, orange: 16, mango: 26, coconut: 23, apricot: 13,
   minnow:      7, bass: 20, trout: 60, salmon: 100, goldenfish: 180,
   meat:       59,   // hunted from deer; dog favourite
@@ -2905,6 +2985,7 @@ const HOME_RECIPES = [
   // Four stones knock a snare's jaw shut for good.
   { id: 'trap_disarm_kit',  cost: [{ id: 'rubble', qty: 4 }] },
   { id: 'sugar_potion',      cost: [{ id: 'berry', qty: 2 }] },
+  { id: 'growth_powder', cost: [{ id: 'nettle', qty: 3 }, { id: 'longgrass', qty: 5 }] },
   ...ITEMS.filter(item => item.scroll).map(item => ({
     id: item.id, cost: [{ id: 'blank_scroll', qty: 1 }],
   })),
@@ -2977,9 +3058,10 @@ function isTillable(type) { return !NON_TILLABLE.has(type); }
 // soil-ish terrain AND no drawn road band over it. A cell's terrain says
 // "grass" for most of the ground a road actually covers (see cellAt's
 // underRoad note), so type-only checks let players till the middle of a
-// street. Takes a cellAt() result; a stub cell without underRoad (tests)
-// behaves exactly like the old type-only check.
-function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad; }
+// street. Nor is a street lamp's footing (cellAt's underLamp: the cells
+// RoadOverlay.lampCellsFor reserves, lit or broken). Takes a cellAt() result;
+// a stub cell without those flags (tests) behaves like the type-only check.
+function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad && !cell.underLamp; }
 
 // ── The inventory's type tabs ──────────────────────────────────────────────
 // The two-bar inventory's category row. Order here is the on-screen left→right

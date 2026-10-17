@@ -380,9 +380,13 @@ function playerWorldM(scene) {
 // The world point (metres, same frame as an object's x/y) the viewport centres
 // on. worldMetersToScreen / screenToWorldMeters are both defined against it.
 function viewAnchorWorldM(scene) {
-  const p = peekM(scene), w = playerWorldM(scene);
-  w.x += p.x; w.y += p.y;
-  return w;
+  const p = peekM(scene), k = CELL_PX / scene.cellM;
+  // Snap the camera once, before terrain and sprites project their positions.
+  // Independent screen rounding otherwise makes props slip against fractional
+  // ground pan. Keep the physical player and GPS coordinates untouched.
+  const snap = value => Number.isFinite(k) && k > 0 ? Math.round(value * k) / k : value;
+  return { x: scene.startWorldM.x + snap(scene.playerM.x + p.x),
+    y: scene.startWorldM.y + snap(scene.playerM.y + p.y) };
 }
 
 // ─── Metres from the anchor → screen px ──────────────────────────────────────
@@ -449,10 +453,9 @@ function cullToView(list, ax, ay, halfM, fn) {
 // Same shape as scene.playerToWorldCell() (which is this with no peek), so a
 // pass can swap one for the other and keep its fracX/fracY / baseCellI* maths.
 function viewAnchorCell(scene) {
-  const p = peekM(scene);
-  const wx = scene.originPx.x + (scene.playerM.x + p.x) / scene.mPerPx;
-  const wy = scene.originPx.y + (scene.playerM.y + p.y) / scene.mPerPx;
-  return tilePxToTileCellF(scene, wx, wy);
+  const anchor = viewAnchorWorldM(scene);
+  const point = worldMetersToTilePx(scene, anchor.x, anchor.y);
+  return tilePxToTileCellF(scene, point.x, point.y);
 }
 
 // The anchor's absolute cell — the (baseCellIX, baseCellIY) every drawn window

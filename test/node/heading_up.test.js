@@ -1,0 +1,321 @@
+// Rendering transforms must not leak into the north-up simulation.
+function huScene(angle = Math.PI / 2) {
+  return { _headingUp: true, gpsM: { x: 0, y: 0 }, mapRot: angle, viewCenterX: 100, viewCenterY: 100,
+    viewSize: 200, mapZoom: 1, cameras: { main: { id: 1 } }, uiCam: { id: 2 },
+    children: { list: [] } };
+}
+function huNear(actual, expected) { assert.truthy(Math.abs(actual - expected) < 1e-8, `${actual} ≠ ${expected}`); }
+function huSprite(over = {}) {
+  return { type: 'Sprite', visible: true, x: 130, y: 120, rotation: 0,
+    originX: 0.5, originY: 32 / 48, displayWidth: 48, displayHeight: 48,
+    depth: 0, ...over };
+}
+
+test('heading up: vectors and points round trip at every compass quadrant', () => {
+  for (const angle of [0, Math.PI / 4, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+    const scene = huScene(angle), screen = HeadingUp.toScreenVec(scene, 18, -7);
+    const world = HeadingUp.toWorldVec(scene, screen.x, screen.y);
+    huNear(world.x, 18); huNear(world.y, -7);
+  }
+});
+
+test('heading up: padded feet and airborne body use explicit ground anchor', () => {
+  const scene = huScene(Math.PI), sprite = huSprite({ _huAnchor: { x: 130, y: 130 } });
+  const saved = [];
+  HeadingUp._upright(sprite, -scene.mapRot, saved);
+  const drawn = HeadingUp.toScreenPt(scene, sprite.x, sprite.y);
+  const feet = HeadingUp.toScreenPt(scene, 130, 130);
+  huNear(drawn.x, feet.x); huNear(drawn.y, feet.y - 10);
+  scene._huSaved = saved; HeadingUp._postRender(scene);
+  assert.eq(sprite.x, 130); assert.eq(sprite.y, 120); assert.eq(sprite.rotation, 0);
+  assert.eq(sprite._huAnchor.y, 130);
+});
+
+test('heading up: flat ground keeps camera rotation and connected placement', () => {
+  const sprite = huSprite({ _worldLayer: WorldLayers.GROUND_DECAL }), saved = [];
+  HeadingUp._upright(sprite, -Math.PI / 2, saved);
+  assert.eq(saved.length, 0); assert.eq(sprite.rotation, 0);
+  assert.eq(sprite.x, 130); assert.eq(sprite.y, 120);
+});
+
+test('heading up: body container shares ground anchor without double rotating children', () => {
+  const child = huSprite(), saved = [];
+  const body = { type: 'Container', visible: true, x: 0, y: 0, rotation: 0,
+    list: [child], _huAnchor: { x: 130, y: 130 }, scaleX: 1, scaleY: 1 };
+  HeadingUp._upright(body, -Math.PI / 2, saved);
+  assert.eq(saved.length, 1); assert.eq(child.rotation, 0);
+  huNear(body.rotation, -Math.PI / 2);
+  const scaled = { ...body, x: 0, y: 0, rotation: 0, _huAnchor: null, scaleX: 2 };
+  const other = []; HeadingUp._upright(scaled, -Math.PI / 2, other);
+  assert.eq(other.length, 1); assert.eq(other[0][0], scaled);
+});
+
+test('heading up: creature, octant and NPC presentation turns without changing actor', () => {
+  const scene = huScene(-Math.PI / 2);
+  const c = { kind: 'npc', x: 5, y: 8, _facing: 'right', _faceFlip: false,
+    _heading: 0, _targetX: 15, _targetY: 8, _startX: 5, _startY: 8 };
+  const view = HeadingUp.appearanceActor(scene, c);
+  assert.eq(view._facing, 'up'); huNear(view._heading, -Math.PI / 2);
+  huNear(view._targetX, 5); huNear(view._targetY, -2);
+  assert.eq(c._facing, 'right'); assert.eq(c._heading, 0); assert.eq(c._targetX, 15);
+});
+
+test('heading up: screen depth follows rotated ground anchors and restores order', () => {
+  const scene = huScene(Math.PI / 2);
+  const east = huSprite({ _huAnchor: { x: 150, y: 100 }, depth: 1 });
+  const west = huSprite({ _huAnchor: { x: 50, y: 100 }, depth: 2 });
+  const ground = huSprite({ _worldLayer: WorldLayers.GROUND_DECAL, depth: 0 });
+  scene.worldContainer = { list: [ground, east, west] }; scene._worldDecalCount = 1;
+  HeadingUp._preRender(scene);
+  assert.eq(scene.worldContainer.list[0], ground);
+  assert.eq(scene.worldContainer.list[1], west);
+  assert.eq(scene.worldContainer.list[2], east);
+  HeadingUp._postRender(scene);
+  assert.eq(scene.worldContainer.list[1], east);
+  assert.eq(scene.worldContainer.list[2], west);
+});
+
+test('heading up: UI lifts remain above zoomed and rotated anchors', () => {
+  const scene = huScene(Math.PI / 2); scene.mapZoom = 2;
+  const p = HeadingUp.toOverlayPt(scene, 120, 100, -10);
+  huNear(p.x, 100); huNear(p.y, 120);
+  scene._headingUp = false;
+  const unchanged = HeadingUp.toOverlayPt(scene, 120, 100, -10);
+  assert.eq(unchanged.x, 120); assert.eq(unchanged.y, 90);
+});
+
+test('heading up: lifted UI follows anchor outside map and restores after render', () => {
+  const scene = huScene(Math.PI / 2); scene.mapZoom = 2;
+  const label = huSprite({ type: 'Text', depth: 100, x: 120, y: -20,
+    _huAnchor: { x: 120, y: 20 } });
+  scene.children.list = [label];
+  HeadingUp._preRender(scene);
+  huNear(label.x, 260); huNear(label.y, 60);
+  assert.eq(label.cameraFilter, 1);
+  HeadingUp._postRender(scene);
+  assert.eq(label.x, 120); assert.eq(label.y, -20);
+});
+
+test('heading up: stationary north heading still projects zoomed UI', () => {
+  const scene = huScene(0); scene.mapZoom = 2;
+  const label = huSprite({ type: 'Text', depth: 100, x: 120, y: 90 });
+  scene.children.list = [label];
+  HeadingUp._preRender(scene);
+  huNear(label.x, 140); huNear(label.y, 80);
+  HeadingUp._postRender(scene);
+  assert.eq(label.x, 120); assert.eq(label.y, 90);
+});
+
+test('heading up: object labels share cell pivots and footprint offsets', () => {
+  const point = { x: 100, y: 150 };
+  const tree = { visible: true, foot: { footFromCentre: 15 }, dxPx: -8, dyPx: 3 };
+  const foot = Render.objectGroundAnchor(tree, null, point);
+  assert.eq(foot.x, 100); assert.eq(foot.y, 150); assert.eq(foot.footDy, 15);
+  const house = { visible: true, spec: { groundAtOrigin: true }, dxPx: 7, dyPx: -4 };
+  const home = Render.objectGroundAnchor(house, null, point);
+  assert.eq(home.x, 107); assert.eq(home.y, 146);
+});
+
+test('heading up: shrine pedestal turns back about its cell centre, flat pads do not', () => {
+  const scene = huScene(Math.PI / 2);
+  const plinth = huSprite({ type: 'Image', x: 120, y: 130, originY: 0.5, _huAnchor: { x: 120, y: 130 } });
+  const disc = huSprite({ type: 'Image', x: 160, y: 130, originY: 0.5, _huAnchor: null });
+  scene.padContainer = { list: [plinth, disc] };
+  HeadingUp._preRender(scene);
+  huNear(plinth.x, 120); huNear(plinth.y, 130); huNear(plinth.rotation, -Math.PI / 2);
+  assert.eq(disc.rotation, 0); assert.eq(disc.x, 160);
+  HeadingUp._postRender(scene);
+  assert.eq(plinth.rotation, 0); assert.eq(plinth.x, 120); assert.eq(plinth.y, 130);
+});
+
+test('heading up: contact shadows rotate about centre and captions keep origin', () => {
+  const scene = huScene(Math.PI / 2);
+  const shadow = huSprite({ type: 'Image', x: 120, y: 130, originY: 0.5 });
+  scene.shadowContainer = { list: [shadow] };
+  HeadingUp._preRender(scene);
+  huNear(shadow.x, 120); huNear(shadow.y, 130);
+  huNear(shadow.rotation, -Math.PI / 2);
+  HeadingUp._postRender(scene);
+  // An unpooled shadow (the player's) moves on: no anchor may survive the
+  // frame, or the next frame turns it about where it used to be.
+  shadow.x = 150; shadow.y = 160;
+  HeadingUp._preRender(scene);
+  huNear(shadow.x, 150); huNear(shadow.y, 160);
+  HeadingUp._postRender(scene);
+  assert.eq(shadow._huAnchor, null);
+  const caption = huSprite({ type: 'Text', originY: 0 });
+  HeadingUp._upright(caption, -Math.PI / 2, []);
+  huNear(caption.x, 130); huNear(caption.y, 120);
+});
+
+ test('heading up: building shadow shares pivot, visible width and upright inset', () => {
+  const appearance = {visible:true,texKey:'test',frameVal:0,scl:2,scaleYMul:1,
+    dxPx:3,dyPx:5,origin:[0.5,1],spec:{groundAtOrigin:true}};
+  const shadow = Render.buildingShadow(appearance, {getFrame:()=>({width:60,height:40})}, {x:100,y:100});
+  huNear(shadow.width,134.4);
+  for (const angle of [0,Math.PI/2,Math.PI,-Math.PI/2]) {
+    const scene=huScene(angle);
+    const sprite=huSprite({type:'Image',x:shadow.x,y:shadow.y,_huAnchor:shadow.anchor});
+    scene.shadowContainer={list:[sprite]};
+    HeadingUp._preRender(scene);
+    const actual=HeadingUp.toScreenPt(scene,sprite.x,sprite.y);
+    const base=HeadingUp.toScreenPt(scene,shadow.anchor.x,shadow.anchor.y);
+    huNear(actual.x,base.x);huNear(actual.y,base.y-shadow.height*0.35);
+    huNear(sprite.rotation+angle,0);
+    HeadingUp._postRender(scene);
+  }
+ });
+ test('heading up: placed fires, torches, all lamps and dropped items stay upright', () => {
+  const {RENDER_SPEC:spec}=Render.objectAppearance({},new Map());
+  for(const kind of ['_fire','torch','_streetlamp','_scarecrow','groundstack']) {
+    assert.truthy(WorldLayers.forObject({kind},spec[kind]) !== WorldLayers.GROUND_DECAL,kind+' stays upright');
+    for(const angle of [Math.PI/4,Math.PI/2,Math.PI]) {
+      const scene=huScene(angle),sprite=huSprite({_huAnchor:{x:130,y:130}});
+      scene.worldContainer={list:[sprite]};
+      HeadingUp._preRender(scene);
+      huNear(sprite.rotation+angle,0);
+      HeadingUp._postRender(scene);
+    }
+  }
+  assert.eq(WorldLayers.forObject({kind:'_firepit'},spec._firepit),WorldLayers.STEP_OVER_PROP,'cold firepit is a step-over prop');
+ });
+
+test('heading up: supporting props remain below player after rotated depth sort', () => {
+  for (const angle of [Math.PI/2, Math.PI, -Math.PI/2]) {
+    const scene=huScene(angle);
+    const prop=huSprite({_stepSupport:true,_huAnchor:{x:120,y:120},depth:1});
+    const player=huSprite({_huAnchor:{x:100,y:100},depth:2});
+    const tree=huSprite({_huAnchor:{x:140,y:140},depth:3});
+    scene.worldContainer={list:[prop,player,tree]};scene.playerWorldContainer=player;
+    HeadingUp._preRender(scene);
+    assert.gt(scene.worldContainer.list.indexOf(player),scene.worldContainer.list.indexOf(prop));
+    HeadingUp._postRender(scene);
+  }
+});
+test('heading up: flat rune decals retain compass rotation below upright shadows', () => {
+  const scene=huScene(Math.PI/2);
+  const rune=huSprite({_worldLayer:WorldLayers.GROUND_DECAL});
+  scene.shadowContainer={list:[rune]};
+  HeadingUp._preRender(scene);assert.eq(rune.rotation,0);HeadingUp._postRender(scene);
+});
+
+test('heading up: retired support slots cannot change player depth', () => {
+  const scene=huScene(Math.PI/2);
+  const retired=huSprite({visible:false,_stepSupport:true,_huFoot:{x:200,y:100},depth:1});
+  const player=huSprite({_huAnchor:{x:100,y:100},depth:2});
+  const tree=huSprite({_huAnchor:{x:140,y:100},depth:3});
+  scene.worldContainer={list:[retired,player,tree]};scene.playerWorldContainer=player;
+  HeadingUp._preRender(scene);
+  assert.lt(scene.worldContainer.list.indexOf(player),scene.worldContainer.list.indexOf(tree));
+  HeadingUp._postRender(scene);
+});
+
+
+test('heading up: player caret hides with device compass and remains without a sensor', () => {
+  const start = SCENE_SRC.indexOf('    this.facingChevronGfx.clear();');
+  const end = SCENE_SRC.indexOf('    // Footprint trail.', start);
+  const draw = new Function('pScreen', 'FACING_CHEVRON_TILT', 'FACING_CHEVRON', SCENE_SRC.slice(start, end));
+  const gfx = { strokes: 0, clear() { this.strokes = 0; }, lineStyle() {}, beginPath() {},
+    moveTo() {}, lineTo() {}, strokePath() { this.strokes++; }, fillStyle() {}, fillCircle() {} };
+  const scene = { _headingUp: false, facing: { x: 1, y: 0 }, facingChevronGfx: gfx };
+  const paint = () => draw.call(scene, { x: 50, y: 50 }, 1, { tip: 12, arm: 8, halfW: 3, outlineW: 2, fillW: 1 });
+  paint();
+  assert.gt(gfx.strokes, 0, 'north-up retains the direction caret');
+  scene._headingUp = true;
+  paint();
+  assert.gt(gfx.strokes, 0, 'desktop without sensor retains the caret in heading-up layout');
+  scene.compassDeg = 90;
+  paint();
+  assert.gt(gfx.strokes, 0, 'Q/E simulated heading is not a device compass');
+  scene._deviceCompass = { deg: 90, facing: { x: 1, y: 0 } };
+  paint();
+  assert.gt(gfx.strokes, 0, 'no GPS forces locking and keeps the caret');
+  scene.gpsM = { x: 0, y: 0 };
+  paint();
+  assert.eq(gfx.strokes, 0, 'device heading clears the caret and uses map and rim north marker');
+  scene._compassDirectionLocked = true;
+  paint();
+  assert.gt(gfx.strokes, 0, 'locking a device heading restores the player direction caret');
+  scene._compassDirectionLocked = false;
+  paint();
+  assert.eq(gfx.strokes, 0, 'unlocking resumes compass-following without a player caret');
+  scene._headingUp = false;
+  paint();
+  assert.gt(gfx.strokes, 0, 'north-up retains the caret even with a device sensor');
+});
+
+test('heading up: direction lock holds the current nonzero rotation through changing readings', () => {
+  const heldAngle = -Math.PI / 3;
+  const scene = { ...huScene(heldAngle), _compassDirectionLocked: true, _huTurning: true,
+    _compassHUD: {}, _huNoCompass: { setVisible() {} }, _huNorth: { clear() {} } };
+  const point = HeadingUp.toScreenPt(scene, 130, 120);
+  for (const deg of [90, 180, 270, 0]) {
+    scene.compassDeg = deg;
+    for (let frame = 0; frame < 60; frame++) HeadingUp.tick(scene, 1 / 60);
+    huNear(scene.mapRot, heldAngle);
+    const projected = HeadingUp.toScreenPt(scene, 130, 120);
+    huNear(projected.x, point.x); huNear(projected.y, point.y);
+    const input = HeadingUp.toWorldVec(scene, projected.x - 100, projected.y - 100);
+    huNear(input.x, 30); huNear(input.y, 20);
+  }
+});
+
+test('heading up: unlocking eases from the held angle toward the latest compass reading', () => {
+  const heldAngle = -Math.PI / 3, target = -Math.PI / 2;
+  const scene = { ...huScene(heldAngle), compassDeg: 90, _compassDirectionLocked: true,
+    _compassHUD: {}, _huNoCompass: { setVisible() {} }, _huNorth: { clear() {} } };
+  HeadingUp.tick(scene, 1 / 60);
+  huNear(scene.mapRot, heldAngle);
+  scene._compassDirectionLocked = false;
+  HeadingUp.tick(scene, 1 / 60);
+  assert.lt(scene.mapRot, heldAngle, 'unlock resumes turning');
+  assert.gt(scene.mapRot, target, 'unlock does not snap to the latest heading');
+  for (let frame = 0; frame < 120; frame++) HeadingUp.tick(scene, 1 / 60);
+  assert.lt(Math.abs(scene.mapRot - target), HeadingUp.DEAD_DEG * Math.PI / 180);
+});
+
+
+test('heading up: no captured GPS forces the map lock even with a compass sensor', () => {
+  const scene = { ...huScene(-Math.PI / 3), gpsM: null, gpsAvailable: true,
+    compassDeg: 180, _deviceCompass: true, _compassDirectionLocked: false,
+    _compassHUD: {}, _huNoCompass: { setVisible() {} }, _huNorth: { clear() {} } };
+  const held = scene.mapRot;
+  assert.truthy(HeadingUp.directionLocked(scene), 'a running watch is not a captured fix');
+  HeadingUp.tick(scene, 1 / 60);
+  huNear(scene.mapRot, held);
+  scene.gpsM = { x: 0, y: 0 };
+  assert.falsy(HeadingUp.directionLocked(scene), 'an actual fix releases the forced lock');
+  HeadingUp.tick(scene, 1 / 60);
+  assert.truthy(scene.mapRot !== held, 'following resumes after capture');
+  HeadingUp.toggleLock(scene);
+  assert.truthy(HeadingUp.directionLocked(scene), 'manual locking still works with GPS');
+});
+
+// Measure the opaque art, not the padded sprite frame. A foot pivot used to
+// displace short rocks by twice their half-height when facing south.
+test('heading up: seated props retain cell centering, shadows and visible-foot depth at every heading', () => {
+  for (const height of [18, 46]) {
+    const box = { fw: 64, fh: 64, minX: 9, maxX: 35, minY: 7, maxY: 7 + height };
+    const seat = SpriteLayout.seatInCell(box, .5, .5, 1, 1);
+    const footDy = height <= CELL_PX ? height / 2 : CELL_PX / 2 - 1;
+    const appearance = { visible: true, foot: { footFromCentre: footDy }, ...seat };
+    const point = { x: 130, y: 120 };
+    const anchor = Render.objectGroundAnchor(appearance, null, point);
+    for (const angle of [0, Math.PI / 4, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+      const scene = huScene(angle);
+      const sprite = huSprite({ x: point.x + seat.dxPx, y: point.y + seat.dyPx, _huAnchor: anchor });
+      const shadow = huSprite({ type: 'Image', x: point.x, y: point.y + footDy - 2, _huAnchor: anchor });
+      HeadingUp._upright(sprite, -angle, []);
+      HeadingUp._upright(shadow, -angle, []);
+      const drawn = HeadingUp.toScreenPt(scene, sprite.x, sprite.y);
+      const cell = HeadingUp.toScreenPt(scene, point.x, point.y);
+      huNear(drawn.x + (box.minX + box.maxX) / 2 - 32, cell.x);
+      huNear(drawn.y + box.maxY - 32, cell.y + footDy);
+      if (seat.fits) huNear(drawn.y + (box.minY + box.maxY) / 2 - 32, cell.y);
+      const shade = HeadingUp.toScreenPt(scene, shadow.x, shadow.y);
+      huNear(shade.x, cell.x); huNear(shade.y, cell.y + footDy - 2);
+      const depth = HeadingUp.toScreenPt(scene, sprite._huFoot.x, sprite._huFoot.y);
+      huNear(depth.x, cell.x); huNear(depth.y, cell.y + footDy);
+    }
+  }
+});

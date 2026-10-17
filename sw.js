@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-33347409';
+const SHELL_VERSION = 'shell-85d7fb2e';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -268,7 +268,7 @@ const ASSET_HASHES = {
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Pickaxe.png": "c60441ea",
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Staff.png": "b2484a06",
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Sword.png": "232136a0",
-  "assets/Icons/coin.png": "c56d5e86",
+  "assets/Icons/coin.png": "4c9e7ebc",
   "assets/NPC/Ayo_human_idle.png": "39297eca",
   "assets/NPC/Ayo_human_walk.png": "ba53a101",
   "assets/NPC/Citizen_woman01_idle.png": "8ab400ca",
@@ -692,46 +692,48 @@ const ASSET_HASHES = {
   "assets/Objects/trunk.png": "77fdcb98",
   "assets/art/barehand_tree.webp": "43a9b645",
   "assets/art/barehand_work.webp": "0ce150a1",
+  "assets/art/book_page.webp": "7d3a2759",
   "assets/art/book_read.webp": "a63f3011",
-  "assets/art/booth_apothecary_intro.webp": "52174659",
-  "assets/art/booth_apothecary_used.webp": "6f3875fe",
-  "assets/art/booth_bank_intro.webp": "241b53f4",
-  "assets/art/booth_bank_used.webp": "304b7a1f",
-  "assets/art/booth_chapel_intro.webp": "d1ddf3ac",
-  "assets/art/booth_chapel_used.webp": "3e8dbc29",
-  "assets/art/booth_curio_intro.webp": "2be40e27",
-  "assets/art/booth_curio_used.webp": "69acca97",
-  "assets/art/booth_guildhall_intro.webp": "a41849c0",
-  "assets/art/booth_guildhall_used.webp": "174ab701",
-  "assets/art/booth_inn_intro.webp": "9ca9c830",
-  "assets/art/booth_inn_used.webp": "6a6e60f6",
-  "assets/art/booth_scholar_intro.webp": "4932e85b",
-  "assets/art/booth_scholar_used.webp": "f3dffdbe",
-  "assets/art/booth_scriptorium_intro.webp": "cd0b9e63",
-  "assets/art/booth_scriptorium_used.webp": "a67c1ce5",
-  "assets/art/booth_sundries_intro.webp": "a2e8afb9",
-  "assets/art/booth_sundries_used.webp": "4d69afd3",
-  "assets/art/booth_training_intro.webp": "37d5675b",
-  "assets/art/booth_training_used.webp": "f6c69bde",
+  "assets/art/booth_apothecary_intro.webp": "b2d650e5",
+  "assets/art/booth_apothecary_used.webp": "e44fbe65",
+  "assets/art/booth_bank_intro.webp": "7883ad55",
+  "assets/art/booth_bank_used.webp": "2f78f949",
+  "assets/art/booth_chapel_intro.webp": "79f0af89",
+  "assets/art/booth_chapel_used.webp": "eb907d9b",
+  "assets/art/booth_curio_intro.webp": "e1155e1f",
+  "assets/art/booth_curio_used.webp": "982d0234",
+  "assets/art/booth_guildhall_intro.webp": "80ae683e",
+  "assets/art/booth_guildhall_used.webp": "61f1f30d",
+  "assets/art/booth_inn_intro.webp": "b81149fa",
+  "assets/art/booth_inn_used.webp": "64144d13",
+  "assets/art/booth_scholar_intro.webp": "104a766b",
+  "assets/art/booth_scholar_used.webp": "e8083abf",
+  "assets/art/booth_scriptorium_intro.webp": "8aaff139",
+  "assets/art/booth_scriptorium_used.webp": "960d2cb6",
+  "assets/art/booth_sundries_intro.webp": "e1ec748e",
+  "assets/art/booth_sundries_used.webp": "d49eea44",
+  "assets/art/booth_training_intro.webp": "0a318b2e",
+  "assets/art/booth_training_used.webp": "7130b7bb",
   "assets/art/bottle_read.webp": "2aaf32d2",
   "assets/art/castle_claim.webp": "4d1965b9",
   "assets/art/castle_favour.webp": "574a05fc",
   "assets/art/cave_first.webp": "f9c3f346",
-  "assets/art/chest_t1.webp": "650a6075",
-  "assets/art/chest_t2.webp": "2eedc83c",
-  "assets/art/chest_t3.webp": "26a41e29",
-  "assets/art/chest_t4.webp": "499dc2f3",
-  "assets/art/chest_t5.webp": "4eff02df",
-  "assets/art/chest_t6.webp": "7ad2158a",
-  "assets/art/chest_t7.webp": "b1422843",
-  "assets/art/death_memories.webp": "a2e5b296",
+  "assets/art/chest_t1.webp": "3bbe9ad4",
+  "assets/art/chest_t2.webp": "006d2618",
+  "assets/art/chest_t3.webp": "4dc28750",
+  "assets/art/chest_t4.webp": "d4d470d0",
+  "assets/art/chest_t5.webp": "1b73130f",
+  "assets/art/chest_t6.webp": "adad22b5",
+  "assets/art/chest_t7.webp": "8ee9a5a0",
+  "assets/art/coin_first.webp": "e5db7b70",
+  "assets/art/death_memories.webp": "f1784ded",
   "assets/art/delivery_first.webp": "c6196484",
   "assets/art/discovery_badge.webp": "55979036",
   "assets/art/fire_first.webp": "bb94f252",
-  "assets/art/first_sale.webp": "044386cf",
+  "assets/art/first_sale.webp": "9ef897bf",
   "assets/art/forge_done.webp": "7dd57706",
   "assets/art/fort_unseal.webp": "be197b73",
-  "assets/art/health_low.webp": "a5510010",
+  "assets/art/health_low.webp": "8bbbf000",
   "assets/art/home_sell.webp": "20ee6910",
   "assets/art/kind_build.webp": "9bc3120a",
   "assets/art/kind_craft.webp": "690d8ab7",
@@ -749,6 +751,7 @@ const ASSET_HASHES = {
   "assets/art/kind_rest.webp": "0552016e",
   "assets/art/kind_shop.webp": "345461ec",
   "assets/art/kind_slots.webp": "907b6057",
+  "assets/art/kind_spirit.webp": "5b722bf0",
   "assets/art/kind_supplies.webp": "bd6e166e",
   "assets/art/kind_trade.webp": "82efae87",
   "assets/art/kind_trail.webp": "3b4ff21b",
@@ -776,7 +779,8 @@ const ASSET_HASHES = {
   "assets/art/revive_fall.webp": "dd0d9e1c",
   "assets/art/revive_found.webp": "b60fd32a",
   "assets/art/revive_wake.webp": "4d7765d7",
-  "assets/art/safety_phone.webp": "8bd11d00",
+  "assets/art/road_repair.webp": "73ddeb0d",
+  "assets/art/safety_phone.webp": "84d5cd57",
   "assets/art/safety_welcome.webp": "abec3033",
   "assets/art/shiny_first.webp": "dfe262b9",
   "assets/art/shrine_bone_watcher.webp": "6a5f9fce",
@@ -791,10 +795,14 @@ const ASSET_HASHES = {
   "assets/art/shrine_wayfarer_post.webp": "fe8ce1b7",
   "assets/art/shrine_waystone.webp": "e13ef045",
   "assets/art/shrine_wishing_well.webp": "c143ceb5",
+  "assets/art/story_compass.webp": "7d32b225",
+  "assets/art/story_compass_frame2.webp": "479a4c0c",
   "assets/art/story_nightmare.webp": "62346b56",
   "assets/art/story_nightmare_frame2.webp": "8808b379",
   "assets/art/story_wake.webp": "9dffc1e7",
+  "assets/art/story_wake_frame2.webp": "89fad264",
   "assets/art/story_wrecks.webp": "b0c8a77b",
+  "assets/art/story_wrecks_frame2.webp": "e624dad6",
   "assets/art/street_bandit.webp": "48c653c9",
   "assets/art/street_barricade.webp": "b5d12a0d",
   "assets/art/street_burned.webp": "dadec213",
@@ -810,8 +818,8 @@ const ASSET_HASHES = {
   "assets/art/street_snare.webp": "575052b7",
   "assets/art/street_toadstool.webp": "00102038",
   "assets/art/temple_activated.webp": "93666835",
-  "assets/art/tool_catch.webp": "97ab42e3",
-  "assets/art/tool_catch_chicken.webp": "d5ece4c4",
+  "assets/art/tool_catch.webp": "63df2468",
+  "assets/art/tool_catch_chicken.webp": "a79340d0",
   "assets/art/tool_chop.webp": "5b25a164",
   "assets/art/tool_dig.webp": "72478c35",
   "assets/art/tool_shoot.webp": "edf8f5dd",
@@ -819,12 +827,15 @@ const ASSET_HASHES = {
   "assets/art/tool_sword.webp": "d2babcc7",
   "assets/art/tool_till.webp": "0b48fd33",
   "assets/art/tool_water.webp": "0b772cb4",
-  "assets/art/torch_light.webp": "f919dce8",
+  "assets/art/torch_light.webp": "dc1584cf",
   "assets/art/trail_intro.webp": "97c8d508",
   "assets/art/trail_prize.webp": "6ecb62eb",
   "assets/art/trap_free.webp": "e4903efb",
   "assets/art/trap_jaw.webp": "26caf9a0",
-  "assets/art/turret_watch.webp": "fb3db58d",
+  "assets/art/treasure_barrel.webp": "cbaf5433",
+  "assets/art/treasure_crate.webp": "46118a52",
+  "assets/art/treasure_dig.webp": "afae11c1",
+  "assets/art/turret_watch.webp": "d5759857",
   "assets/art/underground_bone_gallery.webp": "c23b9e73",
   "assets/art/underground_depth2_rock_scatter.webp": "e8551cb3",
   "assets/art/underground_gemstone_cavern.webp": "81b47df2",
@@ -838,9 +849,9 @@ const ASSET_HASHES = {
   "assets/art/underground_sm_road_passage.webp": "ad391ba5",
   "assets/art/underground_spring_cave.webp": "dcffdfb0",
   "assets/art/underground_warren_run.webp": "91fdf52a",
-  "assets/art/visit_bike.webp": "3caf14ae",
-  "assets/art/visit_gold.webp": "837def87",
-  "assets/art/visit_hive.webp": "606baf3a",
+  "assets/art/visit_bike.webp": "5197dffc",
+  "assets/art/visit_gold.webp": "d0d2e261",
+  "assets/art/visit_hive.webp": "1a4de0cf",
   "assets/art/visit_wagon.webp": "8b5fb551",
   "assets/art/wizard_cold.webp": "dfdc743d",
   "assets/art/wizard_dragon.webp": "5751a794",
@@ -867,6 +878,7 @@ const ASSET_HASHES = {
   "assets/portraits/deer.png": "84cb09d2",
   "assets/portraits/den_keeper.png": "d1ba2749",
   "assets/portraits/dog.png": "77c6588c",
+  "assets/portraits/dragon_spirit.png": "b6b5585f",
   "assets/portraits/fieldwalker.png": "0ce2e812",
   "assets/portraits/forager.png": "8171160e",
   "assets/portraits/fox_storyteller.png": "02e58471",
@@ -904,7 +916,33 @@ const ASSET_HASHES = {
   "assets/portraits/warden.png": "05a9cfd1",
   "assets/portraits/wayfinder.png": "19802fcd",
   "assets/portraits/witness.png": "20421b46",
-  "assets/portraits/wizard.png": "d58efb40"
+  "assets/portraits/wizard.png": "d58efb40",
+  "assets/ui/compass/body-carving.webp": "ba67176c",
+  "assets/ui/compass/footer.webp": "cf76e3c7",
+  "assets/ui/compass/gold-fittings.png": "f2de995b",
+  "assets/ui/compass/gold-rim.svg": "cf748ed9",
+  "assets/ui/compass/header.webp": "3001dc79",
+  "assets/ui/compass/joystick.webp": "5d57c13f",
+  "assets/ui/compass/living-silver-body.webp": "4b3053a8",
+  "assets/ui/compass/memory-star.svg": "c3041026",
+  "assets/ui/compass/north-arrow.webp": "d656d114",
+  "assets/ui/compass/panel-top.webp": "02579d75",
+  "assets/ui/compass/reference-carving-tile.webp": "e3c0c746",
+  "assets/ui/compass/reference-footer.webp": "0a76137f",
+  "assets/ui/compass/reference-header.webp": "807654d9",
+  "assets/ui/compass/reference-join.webp": "6df6da02",
+  "assets/ui/compass/reference-joystick.webp": "536d7bc5",
+  "assets/ui/compass/reference-panel-rail.webp": "d9048229",
+  "assets/ui/compass/reference-shoulders.webp": "1775a00a",
+  "assets/ui/compass/reference-shutter.webp": "d7173e65",
+  "assets/ui/compass/shine/overhead-beam.png": "1db1ae48",
+  "assets/ui/compass/shine/reference-carving-tile.webp": "97dc3090",
+  "assets/ui/compass/shine/reference-footer.webp": "26cb3d25",
+  "assets/ui/compass/shine/reference-header.webp": "588378e9",
+  "assets/ui/compass/shine/reference-join.webp": "c0f429d4",
+  "assets/ui/compass/shine/reference-shoulders.webp": "26683922",
+  "assets/ui/compass/shutter.webp": "10149ae7",
+  "assets/ui/compass/silver-metal.webp": "a265599d"
 };
 /* ASSET_HASHES_END */
 const TILE_CACHE    = 'tiles-v1';
@@ -914,24 +952,24 @@ const TILE_CACHE    = 'tiles-v1';
 // moves, and re-fetching costs the player data.
 const TILE_REFRESH_MS = 30 * 24 * 60 * 60 * 1000;   // 30 days
 
-// The non-script shell. The SCRIPTS are not listed here on purpose — they're
-// read out of index.html at install time (see scriptUrlsFromIndex), because a
+// The base shell. Scripts and stylesheets are not listed here — they are
+// read out of index.html at install time (see shellUrlsFromIndex), because a
 // hand-maintained list drifts: this one once named 6 of the ~25 modules the
 // page loads, app.js among them and save.js not, which is exactly how a boot
 // could end up with the app but not its save layer ("loadSave is not defined").
 // That includes vendor/phaser.js — it is a same-origin <script src> like the
 // rest, so the page scan already covers it (tools/shell_audit.js fails on any
-// .js hand-listed here).
+// .js hand-listed here). Stylesheets follow the same derived list.
 const SHELL_ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
 ];
 
-// Every same-origin script index.html pulls in, at the exact ?v= URLs it asks
+// Every same-origin script and stylesheet, at the exact ?v= URLs index.html asks
 // for. Covers both the plain <script src> tags and app.js, which the boot gate
 // injects from the APP_SRC string rather than a tag.
-async function scriptUrlsFromIndex() {
+async function shellUrlsFromIndex() {
   try {
     const resp = await fetch('./index.html', { cache: 'no-cache' });
     if (!resp.ok) return [];
@@ -940,6 +978,7 @@ async function scriptUrlsFromIndex() {
     for (const m of html.matchAll(/<script[^>]+src=["']([^"']+)["']/g)) urls.push(m[1]);
     const app = html.match(/APP_SRC\s*=\s*['"]([^'"]+)['"]/);
     if (app) urls.push(app[1]);
+    for (const m of html.matchAll(/<link(?=[^>]*\brel=["']stylesheet["'])[^>]+\bhref=["']([^"']+)["'][^>]*>/g)) urls.push(m[1]);
     // Same-origin only — a CDN URL isn't ours to cache.
     return urls.filter(u => !/^[a-z]+:\/\//i.test(u) && !u.startsWith('//'));
   } catch (_) {
@@ -987,15 +1026,15 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL_VERSION);
-    const scripts = await scriptUrlsFromIndex();
+    const shell = await shellUrlsFromIndex();
     await Promise.allSettled(SHELL_ASSETS.map(u => cache.add(u)));
-    await Promise.allSettled(scripts.map(u => {
+    await Promise.allSettled(shell.map(u => {
       const req = new Request(new URL(u, self.location.href));
       return immutableResource(req, resourceKey(new URL(req.url)) || req.url);
     }));
     // An offline/failed index fetch must not authorize pruning older resources.
-    if (scripts.length) {
-      const resources = scripts.map(u => new URL(u, self.location.href).href);
+    if (shell.length) {
+      const resources = shell.map(u => new URL(u, self.location.href).href);
       for (const rel of Object.keys(ASSET_HASHES)) resources.push(resourceKey(new URL(rel, self.location.href)));
       await cache.put(RESOURCE_MANIFEST, new Response(JSON.stringify(resources)));
     }
@@ -1071,7 +1110,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML is network-first with offline fallback; immutable media/scripts
+  // HTML is network-first with offline fallback; immutable media/scripts/styles
   // use the persistent cache and never re-fetch a successful cache hit.
   if (url.origin === self.location.origin) {
     const isHTML = req.mode === 'navigate' || req.destination === 'document'

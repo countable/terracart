@@ -1,9 +1,11 @@
 // Fog of war — which cells the player has actually been to.
 //
 // Depends on:
-//   nothing external. Pure data + math (no Phaser, no DOM, no WorldGen).
+//   localStorage for the display preference; exploration is pure data + math
+//   (no Phaser, no DOM, no WorldGen).
 //
 // Exports as globals:
+//   Fog.enabled / Fog.setEnabled(on) — device preference; off by default
 //   Fog.REVEAL_CELLS      — vision radius, in cells, around the player
 //   Fog.init(save, w, geom) — load the persisted masks; w = the frame's
 //                           reference cells per edge (scene.cellsPerTile), geom
@@ -40,6 +42,21 @@
 // state and outlives both.
 (function (window) {
   'use strict';
+
+  const SETTING_KEY = 'terracart.fogOfWar';
+  let _enabled = false;
+  try { _enabled = window.localStorage.getItem(SETTING_KEY) === '1'; } catch {}
+
+  // Only the exploration wash is optional. Keep revealing and saving masks
+  // while it is off; cover visibility and night/cave lighting are independent.
+  function setEnabled(on) {
+    const enabled = !!on;
+    // Persist first: if storage fails, the menu can report it without leaving
+    // the displayed setting and the next session disagreeing.
+    window.localStorage.setItem(SETTING_KEY, enabled ? '1' : '0');
+    _enabled = enabled;
+  }
+
 
   // The VISION CIRCLE: how far around the player a step reveals, in cells
   // (7 m each). This radius is the whole of the walk-time reveal — what the
@@ -293,6 +310,8 @@
 
   window.Fog = {
     REVEAL_CELLS,
+    get enabled() { return _enabled; },
+    setEnabled,
     init, reveal, revealDisc, seen, maskFor, bit, flush,
     get revision() { return _revision; },
     // Test seams — the codec is the one part with a round-trip worth pinning.

@@ -459,9 +459,17 @@ function treeWoodMul(o) {
 // Native system UI fonts keep small labels readable without a font download.
 // Canvas cannot resolve CSS variables; keep this stack in sync with
 // --font-ui in index.html, which owns DOM text.
-const FONT_UI_STACK = 'system-ui, sans-serif';
+const FONT_UI_STACK = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", Ubuntu, Cantarell, system-ui, Tahoma, "Liberation Sans", Arial, sans-serif';
 // `spec` is everything before the family: 'bold 10px', '700 12px'.
 const fontUI = (spec) => `${spec} ${FONT_UI_STACK}`;
+// Phaser's font shorthand parser truncates comma-separated families. Supply
+// explicit fields so canvas text keeps the same complete fallback stack as DOM.
+function phaserFontUI(spec) {
+  const parts = spec.trim().split(/\s+/);
+  const fontSize = parts.pop();
+  return { fontFamily: FONT_UI_STACK, fontSize, fontStyle: parts.join(' ') };
+}
+
 
 // Combine two packed-RGB tints channel-wise (each channel a 0..1 multiplier),
 // so a dim/red state tint can stack on the player's own colour instead of

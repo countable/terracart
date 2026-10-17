@@ -106,7 +106,7 @@
     assert.truthy(/not changed a day/.test(act2.pages[1]), 'the elder notices the Hood has not aged');
     const late = towerSave(30, { second: true }); late.memoryStory.act3Started = true;
     assert.eq(NPC.dialogue(scene(late), w).body, MemoryStory.NEIGHBOURS.witness[3].join('\n\n'));
-    assert.truthy(/· Survivor$/.test(NPC.dialogue(scene(), w).title));
+    assert.truthy(/, Survivor$/.test(NPC.dialogue(scene(), w).title));
     const every = [...Object.values(MemoryStory.NEIGHBOURS.witness).flat(), ...Object.values(MemoryStory.NEIGHBOURS.wanderer), ...Object.values(MemoryStory.NEIGHBOURS.believer),
       ...MemoryStory.SURVIVORS, ...Object.values(MemoryStory.STRANGER).flat(),
       ...Object.values(MemoryStory.STRANGER_RUMOURS).flatMap(Object.values), MemoryStory.HOME.body, MemoryStory.FIRST_ROOF, MemoryStory.RUMOUR,
@@ -139,7 +139,7 @@
     assert.eq(NPC.portrait(stamped, w), 'assets/portraits/wanderer_housed.png');
     const later = scene(towerSave(12)); later.save.memoryStory.met = { [w.id]: 3 };
     assert.eq(NPC.dialogue(later, w).body, MemoryStory.NEIGHBOURS.wanderer.settled, 'settled by the second act');
-    assert.truthy(/· Wanderer$/.test(NPC.dialogue(s, w).title));
+    assert.truthy(/, Wanderer$/.test(NPC.dialogue(s, w).title));
   });
 
   test('roles: every role a culture draws has its own untinted sheet, one per label', () => {
@@ -220,7 +220,7 @@
     assert.eq(NPC.dialogue(scene(towerSave(30, { second: true })), b).body, L.moved);
     const late = towerSave(30, { second: true }); late.memoryStory.act3Started = true;
     assert.eq(NPC.dialogue(scene(late), b).body, L.moved, 'never learns what the player learns');
-    assert.truthy(/· Believer$/.test(NPC.dialogue(scene(), b).title));
+    assert.truthy(/, Believer$/.test(NPC.dialogue(scene(), b).title));
   });
 
   test('story neighbours: the warden still opens with the family and the safe area', () => {
@@ -268,7 +268,7 @@
       assert.truthy(/wreck/.test(NPC.dialogue(s, c).body), 'nothing mended yet: the wrecks are waiting');
       houses.length = 0;
       assert.truthy(/No wreck near here/.test(NPC.dialogue(s, c).body));
-      assert.truthy(/· Mason$/.test(NPC.dialogue(s, c).title));
+      assert.truthy(/, Mason$/.test(NPC.dialogue(s, c).title));
     } finally {
       WorldGen.forEachItemInBox = realWalk;
       WorldGen.tileCache.clear(); for (const [key, value] of cache) WorldGen.tileCache.set(key, value);

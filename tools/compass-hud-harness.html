@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Living silver compass preview</title>
+<style>body{margin:0;background:#18262b;color:#e6e8dc;font:15px system-ui;display:flex;gap:24px;flex-wrap:wrap;padding:16px}iframe{width:390px;height:844px;max-width:100%;border:0}aside{max-width:340px}button,select{font:inherit;padding:9px;margin:4px}pre{white-space:pre-wrap}</style>
+<iframe id="preview" title="Living silver compass"></iframe>
+<aside><h1>Living silver compass</h1><p>Production HUD and controls, in a frozen sandbox scene.</p><button data-mode="active">Activated mechanisms</button><button data-mode="closed">Dormant mechanisms</button><p>Tap a closed mechanism to speak with the Dragon Spirit.</p><label>Size <select id="size"><option value="390,844">390 × 844</option><option value="320,568">320 × 568</option><option value="430,932">430 × 932</option></select></label><pre id="status">Loading…</pre></aside>
+<script>
+localStorage.setItem('terracart.introSeen','1');localStorage.setItem('terracart.howtoSeen','1');sessionStorage.setItem('terracart.safetySeen','1');
+const frame=document.querySelector('#preview'), status=document.querySelector('#status');
+frame.src='../index.html?sandbox=true&sandboxZone=restoration';let api;
+const timer=setInterval(()=>{if(!frame.contentWindow.__scene?._bootOverlayGone||api)return;clearInterval(timer);const script=frame.contentDocument.createElement('script');script.src='tools/compass_hud_harness.js';script.onload=()=>{api=frame.contentWindow.installCompassHudHarness();api.preview('active');status.textContent='Ready';};frame.contentDocument.head.append(script);},250);
+document.querySelectorAll('[data-mode]').forEach(button=>button.onclick=()=>{if(api){api.preview(button.dataset.mode);status.textContent=button.textContent;}});
+document.querySelector('#size').onchange=e=>{const [width,height]=e.target.value.split(',');frame.style.width=width+'px';frame.style.height=height+'px';};
+</script></html>

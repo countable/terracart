@@ -53,9 +53,9 @@ function withDom(fn) {
 }
 
 function mkScene(save) {
-  const methods = new Function('persistSave', 'UI_TREASURE', 'UI_CONTROL_DIM',
+  const methods = new Function('persistSave', 'UI_TREASURE', 'UI_CONTROL_DIM', 'document',
     `return class { ${PRESENT_SRC}\n${BUY_SRC}\n${UNSPENT_SRC}\n${SPEND_SRC}\n${HELP_SRC}\n${MET_SRC} }`);
-  const s = new (methods((sv) => { s.persisted = (s.persisted || 0) + 1; }, '#treasure', '#gold'))();
+  const s = new (methods((sv) => { s.persisted = (s.persisted || 0) + 1; }, '#treasure', '#gold', { createElement: (...args) => document.createElement(...args), getElementById: id => ({ id }) }))();
   s.save = save;
   s.flashes = [];
   s.flash = (m) => s.flashes.push(m);

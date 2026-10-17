@@ -592,7 +592,7 @@ const NPC = (() => {
   };
   function dialogue(scene, c, now = Date.now()) {
     const day = utcDayIndex(now), seed = fnv1a(`${c.id}:talk`);
-    const title = `${c.name} · ${c.roleLabel || LABELS[c.culture || 'village'][c.role]}`;
+    const title = `${c.name}, ${c.roleLabel || LABELS[c.culture || 'village'][c.role]}`;
     const daily = a => a[((seed + day) >>> 0) % a.length];
     let body, target = null;
     restore(scene, c);
@@ -677,10 +677,22 @@ const NPC = (() => {
     const talk = dialogue(scene, c);
     return { portrait: portrait(scene, c), title: talk.title, blurb: talk.body };
   }
-  // A neighbour's talk dialog: their NAME heads it beside the chat bubble
-  // (MODAL_KINDS.talk) and their role is the title line under it.
+  // A neighbour's name and role share the dialogue header beside the chat icon.
   function speech(c) {
-    return { kind: 'talk', kindLabel: c.name, title: c.roleLabel || LABELS[c.culture || 'village'][c.role] };
+    const role = c.roleLabel || LABELS[c.culture || 'village'][c.role];
+    return { kind: 'talk', kindLabel: [c.name, role].filter(Boolean).join(', ') };
+  }
+  // Follow the speaking neighbour through heading, zoom and CSS game scaling.
+  function dialogSource(scene, c) {
+    return () => {
+      const rect = gameScreenRect();
+      if (!rect) return null;
+      const feet = scene.worldMetersToScreen(c.x, c.y);
+      const head = HeadingUp.toOverlayPt(scene, feet.x, feet.y, -CELL_PX * .65);
+      const sx = rect.width / W, sy = rect.height / H;
+      return { left: rect.left + head.x * sx - 8 * sx,
+        top: rect.top + head.y * sy - 8 * sy, width: 16 * sx, height: 16 * sy };
+    };
   }
   function interact(scene, c, sx, sy) {
     // A dialog SHOWN, not merely present: index.html's static overlays
@@ -701,7 +713,7 @@ const NPC = (() => {
           until: Date.now() + Scenic.TELESCOPE_DURATION_MS });
         persistSave(scene.save);
       }
-      MemoryStory.showPages(scene, talk.pages, { ...speech(c), portrait: portrait(scene, c),
+      MemoryStory.showPages(scene, talk.pages, { ...speech(c), portrait: portrait(scene, c), source: dialogSource(scene, c),
         onDone: () => meetHomeNeighbour(scene, c) });
     };
     if (isDormant(c)) { say(); return; }
@@ -710,8 +722,8 @@ const NPC = (() => {
       const face = portrait(scene, c);
       let answered = false;
       scene.showChestRewardModal({
-        kind: 'talk', header: c.name, name: conversation.title,
-        sub: conversation.body, portrait: face,
+        kind: 'talk', header: speech(c).kindLabel, name: conversation.title,
+        sub: conversation.body, portrait: face, source: dialogSource(scene, c),
         actions: [
           ...conversation.choices.map(choice => ({
             label: choice.label,
@@ -721,7 +733,7 @@ const NPC = (() => {
               const reply = MemoryStory.acknowledgeArchaeologist(scene.save, conversation.id, choice.id);
               if (!reply) return;
               Save.persist(scene.save);
-              scene.showMessageModal({ ...speech(c), body: reply.body, portrait: face });
+              scene.showMessageModal({ ...speech(c), body: reply.body, portrait: face, source: dialogSource(scene, c) });
             },
           })),
           // Leaving or reloading does not consume an introduction or a topic.
@@ -739,7 +751,7 @@ const NPC = (() => {
     // the trader's stock turnover and that cooldown.
     const dealWait = ShopsMath.dealWaitMs(scene.save, c, c.role);
     if (dealWait > 0) {
-      scene.showMessageModal({ title: talk.title, body: `I have just traded. Come back in ${spokenDuration(dealWait)}.`, portrait: portrait(scene, c), kind: 'trade' });
+      scene.showMessageModal({ title: talk.title, body: `I have just traded. Come back in ${spokenDuration(dealWait)}.`, portrait: portrait(scene, c), ...speech(c), source: dialogSource(scene, c) });
       return;
     }
     const record = () => { ShopsMath.recordDeal(scene.save, c); };
@@ -747,5 +759,5 @@ const NPC = (() => {
     else scene.presentThemedShop(sx, sy, c, record);
     meetHomeNeighbour(scene, c);
   }
-  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, CULTURES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, storyNeighbourDue, RETURN_PER_MEMORY, LINGER_CELLS, returnedCount, stayers, anchorsIn, arrivals, meetHomeNeighbour, houseNeighbours, offscreenAt, tickArrivals, KEEPER_DEFAULT, nearestWreck, identity, cultureFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, speech, offerArt, interact };
+  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, CULTURES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, storyNeighbourDue, RETURN_PER_MEMORY, LINGER_CELLS, returnedCount, stayers, anchorsIn, arrivals, meetHomeNeighbour, houseNeighbours, offscreenAt, tickArrivals, KEEPER_DEFAULT, nearestWreck, identity, cultureFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, speech, dialogSource, offerArt, interact };
 })();

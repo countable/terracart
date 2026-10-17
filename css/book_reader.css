@@ -1,0 +1,26 @@
+/* A page inside the compass: the rail stays metal, and the text stays live. */
+.compass-panel.book-page-modal > .modal-box {
+  padding: calc(var(--panel-rail-height) + 8px) 6px 0 !important;
+}
+.compass-panel.book-page-modal .modal-body {
+  margin: 0 !important;
+  padding: 48px 34px max(48px, env(safe-area-inset-bottom)) !important;
+  background: #f4dfa8 url('../assets/art/book_page.webp') center / 100% 100% no-repeat;
+  color: #4c3c23;
+  font: 17px/1.65 var(--font-ui);
+  text-shadow: none !important;
+  scrollbar-color: #a2854c #e9cd91;
+}
+.compass-panel.book-page-modal .modal-content {
+  margin: 0 !important;
+  text-align: center;
+}
+.compass-panel.book-page-modal .modal-content > div {
+  color: #4c3c23 !important;
+}
+.compass-panel.book-page-modal .book-volume { font-size: 16px; line-height: 1.5; }
+.compass-panel.book-page-modal .story-copy { color: inherit; }
+.compass-panel.book-page-modal .compass-action { margin-top: 20px; font-family: var(--font-ui); }
+@media (max-height: 650px) {
+  .compass-panel.book-page-modal .modal-body { padding: 24px 30px 36px !important; font-size: 16px; }
+}

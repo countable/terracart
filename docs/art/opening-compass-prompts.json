@@ -1,0 +1,31 @@
+{
+  "generator": "Built-in image_gen",
+  "direction": "Two aligned portrait frames: the living-silver celestial dragon compass lying in grass beside a residential sidewalk, then picked up by a gloved hand. Preserve the reference compass design and surrounding residential scene.",
+  "reference": "http://localhost:8765/living-silver-reference/consolidated-reference.png",
+  "sourceArchive": "~/.artifacts/compass-discovery-sidewalk/",
+  "frames": [
+    {
+      "asset": "assets/art/story_compass.webp",
+      "source": "exec-c35e6750-de73-47c4-a9f0-e163f5789411.png",
+      "sourceSha256": "e82b121311147d13388877bc9cfa81b889ff9e4981f7294608b228948a91ee4f",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "export": "WebP quality 90, method 6; original framing and dimensions, no crop or visual edits",
+      "archivedSource": "on-ground.png"
+    },
+    {
+      "asset": "assets/art/story_compass_frame2.webp",
+      "source": "exec-20c8fad3-5c9e-42f2-94a6-9383a5783d53.png",
+      "sourceSha256": "de63b4098d32fb38cfc040fdc1203c0f1a39288952c79929521420b39834a0a6",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "export": "WebP quality 90, method 6; original framing and dimensions, no crop or visual edits",
+      "archivedSource": "gloved-pickup.png"
+    }
+  ],
+  "fullPrompts": "http://localhost:8765/compass-discovery-sidewalk/prompts.json"
+}

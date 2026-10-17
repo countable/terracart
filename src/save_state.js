@@ -1,6 +1,6 @@
 // Current-save initialization, validation and bounded runtime cleanup.
 // This module does not translate retired save formats or track schema versions.
-// normalize returns true only when initializing durable first-session fields.
+// normalize returns true when initializing durable defaults that need saving.
 (function (root) {
   'use strict';
   // THE COLLECTIONS THE GAME WRITES INTO: an id list or a keyed map, empty
@@ -12,7 +12,7 @@
     caught: [], released: [], wildAnimals: [], picked: [], opened: [], chopped: [], fires: [], scarecrows: [], fruittrees: [],
     magicTraps: [], barricades: [], donated: [],
     lastProduce: {}, fruitPicked: {}, chestHold: {}, coinBurstClaimed: {},
-    trainingDrills: {}, training: {}, quarryMined: {}, npcRestUntil: {}, boonUntil: {},
+    grassRegrowth: {}, trainingDrills: {}, training: {}, quarryMined: {}, npcRestUntil: {}, boonUntil: {},
     castleServiceClaimed: {}, claimedCastles: {}, shinyHouses: {}, shopLines: {}, shopTiers: {}, dragonStory: {}, tilledQuality: {},
   });
   function defaults(save) {
@@ -27,6 +27,8 @@
   function normalize(save) {
     let needsPersist = false;
     defaults(save);
+    if (regrowGrass(save)) needsPersist = true;
+    if (Campfires.migrate(save)) needsPersist = true;
     if (typeof ITEM_BY_ID !== 'undefined' && Array.isArray(save.inv) && save.inv.some(row => ITEM_BY_ID[row.id]?.kind === 'animal')) {
       save.inv = save.inv.filter(row => ITEM_BY_ID[row.id]?.kind !== 'animal');
     }
@@ -136,6 +138,57 @@
     return needsPersist;
   }
 
+  // THE WILD PLANTS THAT GROW BACK (WILD_REGROWTH): a crop → the mean of its
+  // exponential waiting time. Long grass, the herbs (the wild flowers,
+  // PetNip, the nettle) and the berry bushes (berry, poisonberry — the bush
+  // stands bare meanwhile, items.js WILDPLANT_RULES pickedCrop, and fruits
+  // again when its id leaves `picked`; owner, Oct 2026) share the
+  // two-real-day mean, independent of play frequency. Only these crops:
+  // generated wildplant ids can also name valuable crops, bushes and
+  // barriers, so a prefix test on `picked` would revive those too — the
+  // golden berry bush is a one-time find and has no row. Persist the roll
+  // once; reloads must never reroll its deadline. The save field keeps its
+  // grass name (`grassRegrowth`).
+  const GRASS_REGROWTH_MEAN_MS = 2 * 24 * 60 * 60 * 1000;
+  const WILD_REGROWTH = Object.freeze({
+    longgrass: GRASS_REGROWTH_MEAN_MS,
+    flowers: GRASS_REGROWTH_MEAN_MS, forgetmenot: GRASS_REGROWTH_MEAN_MS, marigold: GRASS_REGROWTH_MEAN_MS,
+    wildrose: GRASS_REGROWTH_MEAN_MS, starflower: GRASS_REGROWTH_MEAN_MS,
+    petnip: GRASS_REGROWTH_MEAN_MS, nettle: GRASS_REGROWTH_MEAN_MS,
+    berry: GRASS_REGROWTH_MEAN_MS, poisonberry: GRASS_REGROWTH_MEAN_MS,
+  });
+  // Does a cleared plant of this crop grow back on its own (a row above)?
+  function regrows(crop) { return Object.hasOwn(WILD_REGROWTH, crop); }
+  function rememberClearedGrass(save, plant, now = Date.now(), random = Math.random) {
+    if (!plant || !regrows(plant.crop) || !plant.id || plant.playerOwned) return false;
+    const deadlines = save.grassRegrowth ||= {};
+    if (Number.isFinite(deadlines[plant.id])) return false;
+    const roll = Math.max(0, Math.min(1 - Number.EPSILON, random()));
+    deadlines[plant.id] = now + Math.max(1, -Math.log1p(-roll) * WILD_REGROWTH[plant.crop]);
+    return true;
+  }
+  function regrowGrass(save, now = Date.now()) {
+    const deadlines = save.grassRegrowth;
+    if (!deadlines || typeof deadlines !== 'object' || Array.isArray(deadlines)) return false;
+    const cleared = new Set([...(save.picked || []), ...(save.burnedObjects || [])]);
+    const grown = new Set();
+    let changed = false;
+    for (const [id, until] of Object.entries(deadlines)) {
+      if (!cleared.has(id) || !Number.isFinite(until) || until <= now) {
+        if (cleared.has(id) && Number.isFinite(until) && until <= now) grown.add(id);
+        delete deadlines[id];
+        changed = true;
+      }
+    }
+    if (grown.size) {
+      // Replace the arrays to invalidate the shared setOf membership cache.
+      for (const field of ['picked', 'burnedObjects']) {
+        if (Array.isArray(save[field])) save[field] = save[field].filter(id => !grown.has(id));
+      }
+    }
+    return changed;
+  }
+
   // Used by the fresh-game welcome flow, not to infer missing save history.
   function hasPlayed(save) {
     if (!save) return false;
@@ -147,5 +200,6 @@
             && (save.money ?? STARTING_MONEY) !== STARTING_MONEY);
   }
 
-  root.SaveState = { SAVE_DEFAULTS, defaults, normalize, hasPlayed };
+  root.SaveState = { SAVE_DEFAULTS, defaults, normalize, hasPlayed,
+    GRASS_REGROWTH_MEAN_MS, WILD_REGROWTH, regrows, rememberClearedGrass, regrowGrass };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

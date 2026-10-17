@@ -21,8 +21,23 @@
     return {
       iconHTML: scene.gearIconHTML ? scene.gearIconHTML(kind, slot, tier, iconPx) : '★',
       name: (typeof gearName === 'function') ? gearName(kind, slot, tier) : slot,
-      tier,
+      tier, qty: '× 1',
     };
+  }
+  // What ONE reward IS, in the words the item already carries elsewhere — an
+  // item's ITEM_EFFECTS line (the inventory's selected-stack hint), gear's
+  // def blurb — never a second description. Plain text, or null (gold, an
+  // item with no line). The card carries it as `desc`: the right half of the
+  // loot ceremony (showChestRewardModal).
+  function desc(reward) {
+    if (!reward) return null;
+    if (reward.kind === 'item') {
+      return (typeof ITEM_EFFECTS !== 'undefined' && ITEM_EFFECTS[reward.id]) || null;
+    }
+    if (reward.kind === 'relic' || reward.kind === 'armor') {
+      return (typeof gearDef === 'function' && gearDef(reward.kind, reward.slot)?.blurb) || null;
+    }
+    return null;
   }
   function card(scene, reward, iconPx = 64) {
     if (!reward) return null;
@@ -30,9 +45,10 @@
       return {
         iconHTML: scene.iconSpanHTML ? scene.iconSpanHTML(reward.id, iconPx) : '',
         name: String(itemName(reward.id)),
-        qty: reward.qty > 1 ? `× ${reward.qty}` : null,
+        qty: `× ${reward.qty || 1}`,
         color: lootFlashColor(reward.id),
         tier: itemTierOf(reward.id),
+        desc: desc(reward),
       };
     }
     if (reward.kind === 'gold') {
@@ -43,7 +59,7 @@
       };
     }
     if (reward.kind === 'relic' || reward.kind === 'armor') {
-      return { ...gearCard(scene, reward.kind, reward.slot, reward.tier, iconPx), sub: 'equipped', color: UI_TREASURE };
+      return { ...gearCard(scene, reward.kind, reward.slot, reward.tier, iconPx), sub: 'equipped', color: UI_TREASURE, desc: desc(reward) };
     }
     return null;   // an unrecognised kind draws no card and opens no modal
   }
@@ -109,5 +125,5 @@
     return result;
   }
 
-  root.Rewards = { apply, reconcileUnique, card, present, jackpot };
+  root.Rewards = { apply, reconcileUnique, card, desc, present, jackpot };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -13,12 +13,29 @@ character back to it.
 
 ## Test controls and coverage
 
+### Heading and GPS harness
+
+Open `/tools/heading-harness.html` on the local game server to fake compass
+headings and GPS fixes in the restoration sandbox. It uses the real
+`deviceorientationabsolute` listener and `_applyGpsFix` consumer. Controls
+include 45-degree sweeps, GPS steps, zoom, a work-progress target, and a fog
+toggle. Freeze simulation to inspect a fixed scene while turning the map.
+
+Run the browser regression probe with `python3 tools/probe_heading_up.py`.
+It checks phone and desktop views, full heading sweeps, camera/tap transforms,
+player feet, work progress, anchored text, DOM loot icons, zoom and peek,
+GPS fixes, fog preference persistence and `?headingUp=false` compatibility.
+It writes screenshots and `report.json` under `~/.artifacts/heading-up/` by
+default; `--url`, `--chromium` and `--output` override the local defaults.
+The probe uses isolated browser contexts, so it does not change the player's
+browser saves.
+
 Open **☰ → Sandbox test lab** to choose a destination and reload its fixtures.
 Destinations are grouped by scene, with roads and underground labs separately.
 Choose **Damage test** to remove armour, carried shields and jewellery; the
 full kit otherwise masks damage, aggro and regeneration checks. Both kits keep
-tools and consumables. Reload restores inventory, at least 2,000 coins, 120 Wood
-and 120 Rock. Authored harvests, mined rocks, defeated enemies, opened chests, fruit, fire,
+tools and consumables. Reload restores inventory, 120 Wood and 120 Rock, but never grants coins.
+Fresh saves start with zero coins; existing balances are preserved. Authored harvests, mined rocks, defeated enemies, opened chests, fruit, fire,
 potion, house and fort fixtures are reset;
 this is not a wipe of the player's other progress or service cooldowns.
 
@@ -107,7 +124,7 @@ Band 2  WATER & PASTURE  BARNYARD · PETTING PADDOCK · BEACH/PIER · WETLAND/GO
    -- Main Street: Lantern Row (path) --
 Band 3  CENTRE           PLAYER SPAWN · FARMLAND · SPELLS/POTIONS/FIRE · SERVICES
    -- Mill Lane: Burned Row (road) --
-Band 4  TOWN             RESIDENTIAL ST · CIVIC BLOCK/PATH · SMALL HOUSE
+Band 4  TOWN             RESIDENTIAL ST · CIVIC BLOCK/PATH · SMALL HOUSE · FORAGE
    -- Garden Row: Toadstool Lane (road) --
 Band 5  RECREATION       PARK/PARK PATH · PLAYGROUND · PITCH · CASTLE/FORT · HAZARDS
 Band 6  NEW MECHANICS    STREETS · ZONES/MEADOW/CRATER · RESTORATION/ENCOUNTERS · QUARRY/RUINS
@@ -159,8 +176,11 @@ and plain-rock examples remain in the surrounding grid.
 | thorny | Thorny Way | brambles and a narrow road corridor |
 | snare | Iron Lane | a snare chest ringed by iron teeth, a few stray snares down the lane |
 | goblin_gang | Goblin Gang Street | clustered barrels and goblin grunt guards |
+| berry | Berry Lane | every kind of bush on both verges, a rare golden one, runts hiding behind |
+| pottery | Kiln Row | clay pots a cell back from both kerbs |
+| trade | Market Close | barrels of goods on both verges, goblin grunt pairs behind them |
 | barricade path | Fort Road | barricades, stakes and guard lair |
-| plain minor | Market Close / Maple Street | ordinary street comparison |
+| plain minor | Maple Street | ordinary street comparison |
 | plain MD | Old Trade Road | suppression zone, night curse and wagon stop |
 | plain LG | Ancient Highway | suppression zone and night curse |
 | parkpath | Common Walk | scenic path colour, lamps and reward multiplier |
@@ -256,6 +276,16 @@ paddock includes a newborn shiny chicken, an adult shiny chicken and a bush
 whose stable ID passes the real nest roll. The beach has a readable bottle.
 `encounters` jumps directly to the enemy recipients. `thorny-road` visits the existing bramble corridor.
 
+### Herbs, poisonberries and transactions
+
+`forage`, `poisonberries` and `herbs` visit the labelled forage lab. Separate
+cells hold poisonberries, nettle, PetNip, wild grass and player-owned grass
+(the non-regrowing control). A skeleton and deer compare hostile feeding with
+neutral refusal. Harvest through normal taps; use Eat to test self-poison,
+craft Growth Powder at Home, and feed PetNip to a bonded paddock pet.
+`brewing` goes directly to the ranked Magic Shop. Reload clears authored
+harvest/burn history and grass recovery deadlines, preserving other-world entries.
+
 ### Hazard lab
 
 `hazards` visits a live spider, a landed web and a temporary sinkhole. The
@@ -316,7 +346,7 @@ The yard uses the real runtime paths; effects expire and targets move normally.
 Generation-only chest top-ups and cave tier caps remain covered by node tests.
 
 - The full inventory starts with five of every item, except 120 Wood and Rock,
-  plus at least 20 memories and 2,000 coins. The Damage test kit omits carried
+  plus at least 20 memories, but no free coins. The Damage test kit omits carried
   shields and jewellery and starts without armour.
 - Every relic and armour piece starts at T3. The pickaxe and axe start at T7 so every
   ore deposit and barricade can be cleared.
@@ -376,3 +406,33 @@ falls, cave-in warning art, Flight, reset-label taps and foreground pause/resume
 It advances isolated hazard clocks in bounded steps and waits for a live render
 frame before capture. Each case clears browser saves while retaining the
 static asset cache.
+
+
+The focused mechanics probes use the same isolated-save approach:
+
+```sh
+python3 tools/probe_sandbox_poisonberry.py --url http://127.0.0.1:8000/index.html
+python3 tools/probe_sandbox_regrowth.py --url http://127.0.0.1:8000/index.html
+python3 tools/probe_sandbox_transactions.py --url 'http://127.0.0.1:8000/index.html?sandbox=true&sandboxZone=brewing'
+python3 tools/probe_sandbox_coins.py --url http://127.0.0.1:8000
+```
+
+Poisonberry checks desktop/mobile harvest, Eat, hostile feeding, poison damage,
+refresh, pet poisoning, duplicate protection and neutral refusal through the interaction
+resolver, DOM buttons and condition consumers. Regrowth checks actual harvests and nettle sting damage,
+Growth Powder crafting, PetNip feeding and a save-storage roundtrip. It shortens
+an earned grass deadline, then waits for the running scene's ordinary heartbeat;
+it does not wait the normal 48-hour mean recovery period. Sandbox reload resets
+fixtures, so persistence is checked through save/flush/load instead.
+Transactions checks every Home/Brew recipe, exact costs and outputs, depletion,
+stale buttons, discovery gates, scroll learning, selling and authored shop entry.
+Coins records frame-by-frame movement and payment in an unpaused scene, with a
+no-ring control. Position, inventory and isolated clocks are test setup; outcomes
+come from gameplay handlers. These are runtime probes, not full GPS journeys.
+Results default to `~/.artifacts/mechanics-probes/` by mechanic.
+
+`tools/probe_sandbox_waystones.py` requires an explicit `--url` pointing to a
+server with the Waystones runtime. It checks live step activation, flight refusal,
+expiry/revisit, permanent completion, single T3 reward and actual reload recovery,
+including blocked reward space. It records served-source hashes and distinguishes
+draft-feature evidence from the main build; unavailable runtimes fail explicitly.

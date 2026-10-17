@@ -162,6 +162,7 @@ const PLAY_TIPS = [
   ITEM_GUIDE_TIPS.barricade,
   ITEM_GUIDE_TIPS.wind_scroll,
   ITEM_GUIDE_TIPS.moonbeam_scroll,
+  ITEM_GUIDE_TIPS.growth_powder,
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -411,11 +412,11 @@ const PLAY_TIP_VOLUMES = [
   "builder",
   "wizard",
   "wizard",
+  "garden",
 ];
 
 // Narrator observations sit outside the quoted excerpt.
 const PLAY_TIP_ASIDES = {
-  "0": "a few passages stand out",
   "2": "Rain has blurred the final line.",
   "4": "A thumbprint darkens the corner.",
   "6": "Someone had scraped a name from the page.",

@@ -291,7 +291,9 @@ class SceneConsumables {
   readBook() {
     if (!this._selectedConsumable('book')) return false;
     const { title, body } = this._bookRead();
-    return this._finishConsumable(title, body);
+    this._consumeSelected();
+    this.showMessageModal({ title, body, bookPage: true });
+    return true;
   }
 
   // The auto-read fired by addToInv on pickup — framed as involuntary
@@ -310,9 +312,7 @@ class SceneConsumables {
     this.showMessageModal({
       title: read.title.replace(/^📖\s*/, ''),
       body: read.body,
-      // A book read by firelight — the picture of the places of learning the
-      // Book comes from, survivors sharing what they know.
-      art: 'book_read',
+      bookPage: true,
       onDismiss,
     });
   }
@@ -652,10 +652,9 @@ class SceneConsumables {
         ? RoadSafety.ROAD_WARNING : null);
     const host = document.getElementById('game');
     if (!card || !host) return;
-    const { wrap, box, mount } = this.makeModalShell('safety-card', {
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('safety-card', {
       kind: 'story', kindLabel: 'Safety', art: 'safety_phone',
       zIndex: 400, wrapBg: 'rgba(12,9,6,0.96)',
-      wrapExtra: 'cursor:pointer;',
       boxExtra: 'color:#fff4e0;font-weight:700;line-height:1.35;',
     });
     wrap.setAttribute('role', 'alertdialog');
@@ -672,14 +671,9 @@ class SceneConsumables {
       p.style.cssText = 'font-size:17px;margin:6px 0;max-width:340px;';
       box.appendChild(p);
     }
-    const tap = document.createElement('div');
-    tap.textContent = 'Tap to continue';
-    tap.style.cssText = `margin-top:14px;font-size:15px;font-weight:800;color:${UI_GOLD};`
-      + `border:2px solid ${UI_GOLD};border-radius:8px;padding:10px 18px;`;
-    box.appendChild(tap);
-    const done = (e) => { e?.stopPropagation?.(); e?.preventDefault?.(); wrap.remove(); };
-    wrap.addEventListener('pointerup', done);
-    wrap.addEventListener('click', done);
+    const ok = mkBtn('OK', { accent: UI_GOLD, css: 'margin-top:14px;padding:10px 18px;min-width:90px;' });
+    ok.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    box.appendChild(ok);
     mount();
   }
   // The resume and dusk reminders. RESUME is stamped by the lifecycle's
@@ -1359,7 +1353,7 @@ class SceneConsumables {
   //   'forge'    → blacksmith forge offer
   // Anything held over a campfire that the fire can't MAKE something of
   // (items.js CAMPFIRE_MAKES) is burned — one of it, after this confirm.
-  // Tapped from interact.js 'fire-held' with the fire's world point. The
+  // Tapped from interact.js 'fire-held' with the saved fire row. The
   // accept re-checks the hand: the selection can change while the dialog is
   // up, and only what is still held goes in. What the fire does with it is
   // items.js fireBurnOutcome: ash, a potion TRANSMUTED, or a potion that
@@ -1385,6 +1379,8 @@ class SceneConsumables {
       acceptLabel: 'Burn',
       cancelLabel: 'Keep',
       onAccept: () => {
+        // A fire can burn out while its confirmation is open.
+        if (fire && (!this.save.fires?.includes(fire) || !Campfires.active(fire))) return;
         const sel = getSelectedSlot(this.save);
         if (!sel || sel.id !== id || Inventory.ownedCount(this.save, id) < 1) return;
         consumeSelected(this.save);
@@ -1426,6 +1422,23 @@ class SceneConsumables {
     this._popEnergy(-lost);
     this._warnIfTiring(before);
     if (this.updateEnergyDOM) this.updateEnergyDOM();
+    return lost;
+  }
+
+  // A STINGING PLANT, picked (WILDPLANT_RULES `sting`): `line` at the plant
+  // and `energy` off the bar. A blow on bare skin — Combat.playerDamage with
+  // no armour, so the mode's penalty and the damage shield still apply.
+  _sting(sting, x, y) {
+    const before = this.save.energy ?? 0;
+    this.flashAtWorld(sting.line, x, y);
+    if (Combat.playerDowned(before) || Conditions.damageImmune(this.save)) return 0;
+    Energy.set(this.save, before - Combat.playerDamage(sting.energy, {}, 1, this.save.mode));
+    const lost = before - this.save.energy;
+    this._flashPlayerHit(lost);
+    this._popEnergy(-lost);
+    this._warnIfTiring(before);
+    if (this.updateEnergyDOM) this.updateEnergyDOM();
+    persistSave(this.save);
     return lost;
   }
 

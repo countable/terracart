@@ -1,0 +1,9 @@
+/* Each emissive slice stays in its original art stacking level. The moving
+   beam owns a STATIC raster mask; only GPU-friendly transforms animate. */
+.compass-shine-surface {position:absolute;pointer-events:none;overflow:hidden;}
+.compass-shine-beam {position:absolute;pointer-events:none;transform-origin:0 0;will-change:transform;
+  mask-image:url('../assets/ui/compass/shine/overhead-beam.png');mask-repeat:no-repeat;
+  mask-size:100% 100%;mask-position:0 0;}
+.compass-shine-emission {position:absolute;left:0;top:0;pointer-events:none;opacity:.75;
+  background-color:transparent;background-repeat:no-repeat;transform-origin:0 0;will-change:transform;}
+body:not(.compass-hud) .compass-shine-surface {display:none;}

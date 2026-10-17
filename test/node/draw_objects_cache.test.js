@@ -204,3 +204,18 @@ test('drawObjects pool: an object with no appearance hides its reused slot', () 
 });
 
 })();
+
+test('world layers: cached props refresh support membership and decal labels stay upright', () => {
+  const make=()=>{const s={};for(const n of ['setAlpha','setAngle','setScale','setFlipX','clearTint','setActive','setVisible'])s[n]=()=>s;return s;};
+  const world={add(){}}, labels={add(){}}, o={kind:'_firepit'};
+  const scene={worldContainer:world,labelContainer:labels,add:{sprite:make},_obstacleStep:{supports:[o]}};
+  const pool=[], item={o,_appearance:{layer:WorldLayers.STEP_OVER_PROP}};
+  Render.renderPool(scene,pool,world,[item],s=>{s.ready=true;});
+  assert.truthy(pool[0]._stepSupport);
+  scene._obstacleStep.supports=[];
+  Render.renderPool(scene,pool,world,[item],()=>{throw Error('should reuse');},undefined,s=>s.ready);
+  assert.falsy(pool[0]._stepSupport,'leaving a cached prop clears support ordering');
+  const labelPool=[];
+  Render.renderPool(scene,labelPool,labels,[{_appearance:{layer:WorldLayers.GROUND_DECAL}}],()=>{});
+  assert.eq(labelPool[0]._worldLayer,WorldLayers.STANDING_PROP,'label orientation does not inherit its flat owner');
+});

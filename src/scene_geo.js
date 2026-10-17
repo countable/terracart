@@ -268,7 +268,7 @@ class SceneGeo {
     pad.setAttribute('aria-label', 'Move simulated GPS');
     pad.title = 'Move GPS (turn the GPS stick off to restore real GPS)';
     pad.style.cssText = `position:fixed;left:calc(var(--phone-left, 0px) + 16px);
-      bottom:calc(var(--stick-bottom, 160px) + env(safe-area-inset-bottom, 0px));
+      bottom:calc(var(--stick-bottom, 160px) + 20px + env(safe-area-inset-bottom, 0px));
       width:110px;height:110px;border-radius:50%;box-sizing:border-box;
       z-index:6;touch-action:none;user-select:none;-webkit-user-select:none;
       border:2px solid #8bcfe0;background:radial-gradient(circle at 50% 38%,#405d69cc,#142c38dd);
@@ -350,8 +350,10 @@ class SceneGeo {
     this._gpsManualOverride = false;
     const off = this._manualOffsetM;
     if (!this.gpsM) this.gpsM = { x: this.playerM.x - off.x, y: this.playerM.y - off.y };
+    // The GPS stick indicates viewport directions, just like the movement stick.
+    const direction = HeadingUp.toWorldVec(this, v.x, v.y);
     const step = WALK_M_S * DEBUG_SPEED_MUL * dt;
-    this._applyGpsFix({ x: this.gpsM.x + v.x * step, y: this.gpsM.y + v.y * step });
+    this._applyGpsFix({ x: this.gpsM.x + direction.x * step, y: this.gpsM.y + direction.y * step });
   }
 
   // Both live fixes and the debug GPS stick use the same follow/snap rules.
@@ -607,6 +609,7 @@ class SceneGeo {
       const facing = { x: this._facingSmooth.x / m, y: this._facingSmooth.y / m };
       const heading = (Math.atan2(facing.x, -facing.y) * 180 / Math.PI + 360) % 360;
       this._deviceCompass = { facing, deg: heading };
+      this._onFirstCompass?.();
       // Confusion owns the visible compass and walking direction. Continue
       // sampling the real device so expiry restores its current orientation.
       if (Conditions.active(this.save, 'confused') || this._confusedLoop) return;

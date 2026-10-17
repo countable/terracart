@@ -46,7 +46,17 @@ test('creature hop: while moving, hop on a beat — the row, then a rest on idle
 
 test('creature hop: renderer and preview share the appearance resolver; sim stamps the step', () => {
   assert.truthy(/s\.setFrame\(appearance\.frame\)/.test(RENDER_SRC), 'uses resolved frame');
-  assert.truthy(/creatureAppearance\(c, performance\.now\(\)\)/.test(RENDER_SRC), 'resolves current creature');
+  assert.truthy(/const actor = typeof HeadingUp !== 'undefined' \? HeadingUp\.appearanceActor\(scene, c\) : c;/.test(RENDER_SRC),
+    'presentation actor derives from current creature without changing simulation');
+  assert.truthy(/creatureAppearance\(actor, performance\.now\(\)\)/.test(RENDER_SRC),
+    'heading-adjusted actor still uses the shared appearance resolver');
+  const creature = { kind: 'green_dragon', _facing: 'right', _moveUntil: 2000 };
+  const scene = { _headingUp: true, mapRot: -Math.PI / 2 };
+  const actor = HeadingUp.appearanceActor(scene, creature);
+  const drawn = SpriteLayout.creatureAppearance(actor, 500);
+  const expected = SpriteLayout.creatureAppearance({ ...creature, _facing: 'up' }, 500);
+  assert.eq(drawn.frame, expected.frame, 'turned creature keeps the shared animation timing');
+  assert.eq(creature._facing, 'right', 'rendering leaves simulation facing untouched');
   assert.truthy(/launchStep\(c, tx, ty, now\);\s*c\._hopMs = stepMs;/.test(SCENE_SRC),
     'wanderCreatures stamps the step it picks (launchStep: start, target, _stepT0)');
   assert.truthy(/c\[clockField\] = now;/.test(CREATURE_AI_SRC));

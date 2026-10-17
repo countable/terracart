@@ -33,12 +33,15 @@
     assert.lt(c.x, s.startWorldM.x + s.playerM.x + 12, 'visibly pulled toward player');
     assert.eq(s.save.money, 10, 'pays on arrival');
     for (let i = 1; i <= 5; i++) tickGroundCoins(s, NOW + i * 100);
+    assert.eq(s.save.money, 10, 'the pull remains visible after half a second');
+    assert.gt(c.x, s.startWorldM.x + s.playerM.x + 6, 'coins travel at a leisurely pace');
+    for (let i = 6; i <= 20; i++) tickGroundCoins(s, NOW + i * 100);
     assert.eq(s.save.money, 17);
     assert.includes(s.save.foundTreasures, c.id);
     assert.eq(e.coinDrops.length, 2, 'distant and expired coins never paid');
     assert.truthy(s.moneyUpdated);
     e.coinDrops.push(coin(c.id, 0, { seeded: true, amount: 7 }));
-    tickGroundCoins(s, NOW + 600);
+    tickGroundCoins(s, NOW + 2100);
     assert.eq(s.save.money, 17, 'a regenerated duplicate cannot pay again');
   }));
   test('ground coins: ring moves each frame at the same speed across frame rates', () => withCoins((s, e, coin) => {
@@ -53,7 +56,7 @@
         tickGroundCoins(s, NOW + frame * 1000 / fps);
         assert.lt(c.x, previous, `coin moves on every ${fps} fps frame`);
       }
-      assert.inRange(start - c.x, 5.999, 6.001, 'six metres in 200 ms');
+      assert.inRange(start - c.x, 1.499, 1.501, '1.5 metres in 200 ms');
       assert.eq(s.save.money, 10, 'no payment before arrival');
     }
   }));
@@ -63,7 +66,7 @@
     s._lastCoinCollectionAt = NOW;
     const start = c.x;
     tickGroundCoins(s, NOW + 60000);
-    assert.inRange(start - c.x, 2.999, 3.001);
+    assert.inRange(start - c.x, 0.749, 0.751);
     const stopped = c.x;
     tickGroundCoins(s, NOW + 59900);
     assert.eq(c.x, stopped);

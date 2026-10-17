@@ -86,6 +86,10 @@ class SceneCreate {
     );
     // Normalize before building runtime membership views, so history caps stick.
     const needsStatePersist = SaveState.normalize(this.save);
+    if (typeof CompassModules !== 'undefined') {
+      CompassModules.initialize(this.save);
+      persistSave(this.save);
+    }
     // Pin the game mode for the pure modules (prices, enemy HP, offline rest
     // read Difficulty.get(), not the save). Unset — a fresh save the how-to
     // card hasn't asked yet — reads as easy until chooseMode() runs.
@@ -149,9 +153,8 @@ class SceneCreate {
     // so it exists before anything can draw; the drag that moves it and the
     // rules it obeys are in the PEEK DRAG block further down.
     this.peekM = { x: 0, y: 0 };
-    // The pinch zoom's magnification (app.js PINCH_VIEW_CELLS): 1 unless a
-    // pinch is live or springing back.
-    this.mapZoom = 1;
+    // Buttons select the resting zoom; pinches return to it on release.
+    this._mapZoomRest = this.mapZoom = MAP_DEFAULT_ZOOM;
 
     const origin = WorldGen.lonLatToWorldPx(START_LON, START_LAT, WorldGen.Z);
     this.originPx = origin;
@@ -270,6 +273,7 @@ class SceneCreate {
 
     // Bake terrain patterns and the two castle restoration-state atlases once.
     makeBiomeTextures(this, CELL_PX);
+    makeBerryBushTexture(this);
     makeTowerTexture(this);
     // Both tower atlases share their colours with the walls and courtyard.
     makeTowerTexture(this, CASTLE_STONE_UNCLAIMED, 'tower_unclaimed');
@@ -711,7 +715,7 @@ class SceneCreate {
         // 11px, up one from 10: at dpr 3 on a phone the street name was
         // legible but not comfortably so, and a map label the player has to
         // squint at is doing half its job.
-        font: fontUI('bold 11px'), color: UI_SHADOW,
+        ...phaserFontUI('bold 11px'), color: UI_SHADOW,
         stroke: '#d8cdb4', strokeThickness: 3,
       }).setOrigin(0.5, 0.5).setAlpha(0.88).setDepth(0).setVisible(false);
       this.letterContainer.add(t);
@@ -1404,6 +1408,7 @@ class SceneCreate {
     this.banner = document.getElementById('banner');
     this._settleInvCatOnBoot();
     this.buildInventoryDOM();
+    this._buildZoomControl();
 
     document.getElementById('objective-hide')
       ?.addEventListener('click', (e) => { e.stopPropagation(); this.dismissObjective(); });
@@ -1502,7 +1507,12 @@ class SceneCreate {
       this.setupLifecycle();
       if (window.__compassPerm) this.startSensors();
     }
+    // Phaser.AUTO has now selected its renderer. Reuse the resize path so
+    // Canvas fallback sheds high-DPR raster work without changing coordinates.
+    window.__canvasRenderer = this.game.renderer.type === Phaser.CANVAS;
+    window.__onGameScaleChange?.();
     // Tests reach into the scene via window.__scene.
+    if (typeof CompassHUD !== 'undefined') CompassHUD.install(this);
     window.__scene = this;
     _endCreate?.();
     // Other players. No-op until the save carries a player name (the

@@ -78,12 +78,13 @@ test('reward card: the road pick opens the kept gift as a card, and the queue wa
   assert.truthy(/_claimTrailReward\(reward, \{ deferBookRead: true \}\)/.test(pick), 'a book taken reads after the card');
   assert.truthy(/const done = \(\) => this\._revealPendingBookReads\(onDismiss\);/.test(pick),
     'the caller\'s onDismiss waits for the card (and any book read)');
-  assert.truthy(/if \(!taken \|\| !this\.showRewardCard\(taken, \{ kind, header, art, kindIcon, sub: takenSub, onDismiss: done \}\)\) done\(\);/.test(pick),
-    'the kept reward opens as a card under the pick\'s own banner; a pick closed without a take just walks on');
+  assert.truthy(/if \(!taken \|\| !this\.showRewardCard\(taken, \{ kind, header, art, kindIcon, onDismiss: done \}\)\) done\(\);/.test(pick),
+    'the kept reward opens as a card under the pick\'s own banner, with no line of its own; a pick closed without a take just walks on');
+  assert.falsy(/takenSub|sub:/.test(pick), 'no thanks line under the kept gift (owner, Oct 2026)');
   const fa = SCENE_SRC.indexOf('_fireTrailPrize(n, onDismiss) {');
   const fire = SCENE_SRC.slice(fa, SCENE_SRC.indexOf('\n  _trailChoiceLabel', fa));
-  assert.truthy(/takenSub: TRAIL_PRIZE_THANKS/.test(fire), 'the road\'s thanks line rides to the kept card');
-  assert.eq((fire.match(/TRAIL_PRIZE_THANKS/g) || []).length, 3, 'one thanks line for all three shapes of the ceremony');
+  assert.falsy(/takenSub/.test(fire), 'the road\'s thanks line does not ride to the kept card');
+  assert.eq((fire.match(/TRAIL_PRIZE_THANKS/g) || []).length, 2, 'the thanks line only under the one-step ceremonies');
 });
 
 // ── The first vista's relic ───────────────────────────────────────────────
@@ -139,4 +140,17 @@ test('reward card: the first vista\'s relic is a card after the story, never a t
   } finally {
     globalThis.grantTreasureRoll = realGrant;
   }
+});
+
+test('reward card: the card carries what the reward IS, and the ceremony splits to show it', () => {
+  const fxId = Object.keys(ITEM_EFFECTS).find((id) => ITEM_BY_ID[id]);
+  const scene = makeScene();
+  assert.eq(Rewards.card(scene, { kind: 'item', id: fxId, qty: 1 }).desc, ITEM_EFFECTS[fxId], 'an item: its ITEM_EFFECTS line');
+  assert.eq(Rewards.card(scene, { kind: 'relic', slot: 'axe', tier: 3 }).desc, RELIC_DEFS.axe.blurb, 'gear: its def blurb');
+  assert.eq(Rewards.card(scene, { kind: 'gold', amount: 5 }).desc, undefined, 'gold says nothing');
+  const at = MODAL_SHELL_SRC.indexOf('  showChestRewardModal({');
+  const body = MODAL_SHELL_SRC.slice(at, MODAL_SHELL_SRC.indexOf('\n  }\n', at));
+  assert.truthy(/box\.innerHTML = desc\s*\n?\s*\? '<div class="reward-split"/.test(body), 'a desc splits the body');
+  assert.truthy(/<div style="flex:1 1 0;min-width:0">\$\{found\}<\/div>` \+\s*\n\s*`<div class="reward-desc"/.test(body), 'found on the left, desc on the right');
+  assert.truthy(/: found;/.test(body), 'no desc keeps the single column');
 });

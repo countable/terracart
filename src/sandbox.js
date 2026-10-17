@@ -314,6 +314,24 @@
     },
   };
 
+  // Recent forage mechanics, separated from fire practice so harvesting and
+  // condition ticks can be compared without collateral burns or hostile AI.
+  const FORAGE = {
+    name: 'FORAGE', label: 'HERBS · POISONBERRIES', w: 22, h: 12, fill: T.GRASS,
+    ambientFlora: false, spawn: { dx: 4, dy: 4 },
+    subLabels: [{ label: 'POISONBERRIES', dx: 4, dy: 3 },
+      { label: 'HERBS AND REGROWTH', dx: 16, dy: 3 }],
+    populate(s) {
+      s.wildplant('poisonberry', 2, 5, { _sandboxProbe: 'poisonberry-bush' });
+      s.creature('skeleton', 4, 8, 1, { _sandboxProbe: 'poisonberry-enemy' });
+      s.creature('deer', 8, 8, 1, { _sandboxProbe: 'poisonberry-neutral' });
+      s.wildplant('longgrass', 14, 5, { _sandboxProbe: 'grass-wild' });
+      s.wildplant('nettle', 16, 5, { _sandboxProbe: 'nettle' });
+      s.wildplant('petnip', 18, 5, { _sandboxProbe: 'petnip' });
+      s.wildplant('longgrass', 20, 5, { playerOwned: true, _sandboxProbe: 'grass-owned' });
+    },
+  };
+
   // ── RECREATION — PARK + PLAYGROUND + PITCH. Park / playground / pitch chests
   //    all share the one rounded pad. Shrubs, longgrass, a cat & dog,
   //    a CROW pest (scarecrow seeded nearby), and a second wild butterfly.
@@ -372,8 +390,17 @@
     { name: 'Cherry Lane', class: 'minor', type: T.ROAD, y: 4, thick: 1, x0: 0, x1: 23, variant: 'orchard' },
     { name: 'Abbey Walk', class: 'minor', type: T.ROAD, y: 7, thick: 1, x0: 0, x1: 23, variant: 'pilgrim' },
     { name: 'Coin Row', class: 'minor', type: T.ROAD, y: 10, thick: 1, x0: 0, x1: 23, variant: 'golden' },
-    { name: 'Market Close', class: 'minor', type: T.ROAD, y: 13, thick: 1, x0: 0, x1: 23, variant: null },
-    { name: 'Thorny Way', class: 'minor', type: T.ROAD, y: 35, thick: 1, x0: 0, x1: 23, variant: 'thorny' },
+    // Clear of the Ancient Highway's kerb buffer, which refuses every thorn
+    // ray (at y 35 the lane drew no brambles at all) and every reward seat
+    // (Kiln Row's pots): Berry Lane's bushes are scenery, so it takes the
+    // row beside the highway; the pots stand a row further down and Trade
+    // Row (Market Close — the name fits) takes the scene's last row. The
+    // plain Small street for comparison is the Residential scene's Maple
+    // Street.
+    { name: 'Thorny Way', class: 'minor', type: T.ROAD, y: 13, thick: 1, x0: 0, x1: 23, variant: 'thorny' },
+    { name: 'Berry Lane', class: 'minor', type: T.ROAD, y: 34, thick: 1, x0: 0, x1: 23, variant: 'berry' },
+    { name: 'Kiln Row', class: 'minor', type: T.ROAD, y: 38, thick: 1, x0: 0, x1: 23, variant: 'pottery' },
+    { name: 'Market Close', class: 'minor', type: T.ROAD, y: 41, thick: 1, x0: 0, x1: 23, variant: 'trade' },
     { name: 'Iron Lane', class: 'minor', type: T.ROAD, y: 18, thick: 1, x0: 0, x1: 23, variant: 'snare' },
     { name: 'Goblin Gang Street', class: 'minor', type: T.ROAD, y: 21, thick: 1, x0: 0, x1: 23, variant: 'goblin_gang' },
     { name: 'Fort Road', class: 'path', type: T.PATH, y: 25, thick: 2, x0: 0, x1: 23, variant: 'barricade' },
@@ -381,7 +408,7 @@
     { name: 'Ancient Highway', class: 'primary', type: T.ROAD_LG, y: 31, thick: 2, x0: 0, x1: 23, variant: null },
   ];
   const SHOWCASE = {
-    name: 'STREETS', label: 'STREET VARIANTS', w: 24, h: 40, fill: T.GRASS,
+    name: 'STREETS', label: 'STREET VARIANTS', w: 24, h: 42, fill: T.GRASS,
     routes: SHOWCASE_ROUTES,
     subLabels: SHOWCASE_ROUTES.map((r) => ({
       label: r.variant ? r.variant.toUpperCase() : (r.bandit ? 'OLD TRADE ROAD' : r.name.toUpperCase()),
@@ -466,7 +493,8 @@
     name: 'RESTORATION', label: 'RESTORATION · ENCOUNTERS', w: 16, h: 40, fill: T.GRASS,
     ambientFlora: false, spawn: { dx: 4, dy: 13 },
     subLabels: [{ label: 'RANKED SHOPS', dx: 7, dy: 3 },
-      { label: 'RESTORE A WRECK', dx: 7, dy: 13 }, { label: 'RECENT ENEMIES', dx: 7, dy: 25 }],
+      { label: 'RESTORE A WRECK', dx: 7, dy: 13 }, { label: 'RECENT ENEMIES', dx: 7, dy: 25 },
+      { label: 'MAGIC SHOP', dx: 5, dy: 10 }],
     populate(s) {
       const picks = ['blacksmith:1', 'blacksmith:2', 'blacksmith:3', 'trader:2',
         'shop:seed:2', 'shop:supply:2', 'petshop', 'bookshop', 'turret', 'shop:potion:3'];
@@ -551,7 +579,7 @@
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Oak Road', thick: 1, variant: 'hedgerow' }, scenes: [FOREST, ORCHARD, ROCK, FLINT_FIELD] },
     { roadAfter: { type: T.PATH, class: 'path', name: 'Main Street', thick: 2, variant: 'lantern' }, scenes: [BARNYARD, PADDOCK, BEACH, MARSH] },
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Mill Lane', thick: 1, variant: 'burned' }, scenes: [PLAZA, FARMLAND, PRACTICE, SERVICES] },
-    { roadAfter: { type: T.ROAD, class: 'minor', name: 'Garden Row', thick: 1, variant: 'toadstool' }, scenes: [RESIDENTIAL, CIVIC, SMALLHOUSE] },
+    { roadAfter: { type: T.ROAD, class: 'minor', name: 'Garden Row', thick: 1, variant: 'toadstool' }, scenes: [RESIDENTIAL, CIVIC, SMALLHOUSE, FORAGE] },
     { roadAfter: null, scenes: [RECREATION, CASTLE, HAZARDS] },
     { roadAfter: null, scenes: [SHOWCASE, ZONES, RESTORATION, QUARRY] },
     { roadAfter: null, scenes: [COMBAT] },
@@ -1230,6 +1258,13 @@
 
     const index = buildStreetIndex(entry, originIX, originIY, c, transport);
     entry.streetIndex = index;
+    // The variants' verge ground, painted as a fetched tile paints it
+    // (worldgen rasterize: paintTerrainSteps, before the dressing), so a
+    // themed street shows its own ground here too.
+    entry.streetGround = new Uint8Array(c.cellsPerEdge * c.cellsPerEdge);
+    driveSteps(StreetVariants.paintTerrainSteps({ index, grid: entry.grid, N: c.cellsPerEdge,
+      roadMask: spawnOpts.roadMask, spawnWhy: spawnOpts.spawnWhy, zone: entry.zone,
+      streetGround: entry.streetGround }));
     driveSteps(StreetVariants.stampBanditStretchesSteps(index, entry.roadClass, c.cellsPerEdge, c.tx, c.ty));
     const dressing = StreetVariants.dress({ index, tx: c.tx, ty: c.ty, N: c.cellsPerEdge,
       tileEdgeM: c.tileEdgeM, grid: entry.grid, spawnOpts });
@@ -1494,8 +1529,8 @@
   function seedCoverageState(save, entry, originIX, originIY, tx, ty, cellM) {
     const plaza = sceneByName('PLAZA');
     const ix = originIX + plaza.lx + 1, iy = originIY + plaza.ly + 6;
-    save.fires = [{ x: tx * entry.tileEdgeM + (ix + 0.5) * cellM,
-      y: ty * entry.tileEdgeM + (iy + 0.5) * cellM, depth: 0 }];
+    save.fires = [Campfires.light({ x: tx * entry.tileEdgeM + (ix + 0.5) * cellM,
+      y: ty * entry.tileEdgeM + (iy + 0.5) * cellM, depth: 0 })];
     save.streets = {};
     save.streetsEpoch = 0;
     const lantern = entry.streetIndex?.lines?.find((r) => r.variant === 'lantern');
@@ -1556,10 +1591,10 @@
     // Mining reads the runtime binding created before Sandbox.install. Delete
     // through it as well as clearing saved history, so reload restores the rock.
     for (const id of ids) scene.brokenRockSet?.delete(id);
-    for (const key of ['picked', 'caught', 'chopped', 'brokenRocks', 'opened', 'foundTreasures']) {
+    for (const key of ['picked', 'caught', 'chopped', 'brokenRocks', 'opened', 'foundTreasures', 'burnedObjects']) {
       if (Array.isArray(save[key])) save[key] = save[key].filter(id => !ids.has(id));
     }
-    for (const key of ['lastProduce', 'fruitPicked', 'chestHold', 'quarryMined']) {
+    for (const key of ['lastProduce', 'fruitPicked', 'chestHold', 'quarryMined', 'grassRegrowth']) {
       for (const id of Object.keys(save[key] || {})) if (ids.has(id)) delete save[key][id];
     }
   }
@@ -1746,7 +1781,6 @@
       for (const id of byKind[kind]) inv.push({ id, count: COUNT });
     }
     for (const stack of inv) if (['wood', 'rubble'].includes(stack.id)) stack.count = 120;
-    scene.save.money = Math.max(scene.save.money || 0, 2000);
     scene.save.inv = inv;
     scene.save.selSlot = 0;
     // Unspent memories (a save counter, not a bag stack) so the wizard
@@ -1892,7 +1926,7 @@
       const wx = tx * tileEdgeM + (cellIX + 0.5) * cellM;
       const wy = ty * tileEdgeM + (cellIY + 0.5) * cellM;
       const t = scene.add.text(0, 0, text, {
-        font: fontUI('bold 8px'),
+        ...phaserFontUI('bold 8px'),
         color: '#ffffff',
         backgroundColor: 'rgba(0,0,0,0.6)',
         padding: { x: 3, y: 1 },

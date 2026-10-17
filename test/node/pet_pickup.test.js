@@ -127,3 +127,14 @@ test('pets: a food that is not its favourite is refused and kept (mango included
     assert.eq(Pets.list(save).length, 0);
   }
 });
+
+
+test('pets: feeding PetNip on the map spends one herb and opens the pleased dialog', () => {
+  const save = { inv: [], caught: [], released: [], selSlot: -1 };
+  const pet = Pets.bond(save,{id:'nip-dog',kind:'dog',x:2.5,y:2.5,_hp:2});
+  let pleased;
+  tapPet(pet,save,'petnip',{presentPetPleased:(id,food) => { pleased={id,food}; }});
+  assert.eq(Inventory.count(save,'petnip'),0);
+  assert.eq(pet.bonuses.maxHp,1);
+  assert.eq(pleased.id,pet.id); assert.eq(pleased.food,'petnip');
+});

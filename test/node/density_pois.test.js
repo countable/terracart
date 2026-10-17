@@ -119,8 +119,10 @@
 
   test('generated breakables: exact category odds and budget-driven quantities ignore POI density', () => {
     const expected = {
-      barrel: { empty: 700, supply: 200, ores: 50, produce: 50 },
-      clay_pot: { empty: 700, magic: 50, produce: 50, coin: 100, seed: 100 },
+      // In table order (the sweep meets the rows in turn); a barrel's produce
+      // is the apple row's 250 plus the T1 produce row's 50.
+      barrel: { empty: 550, produce: 300, supply: 100, ores: 50 },
+      clay_pot: { empty: 550, coin: 250, magic: 50, produce: 50, seed: 100 },
     };
     for (const art of BARREL_ART) {
       const o = Array.from({ length: 40 }, (_, i) => ({ id: `container_${i}` }))
@@ -136,9 +138,8 @@
           if (result.kind === 'item') {
             const item = ITEM_BY_ID[result.id]; category = item.kind;
             assert.eq(result.qty, ChestThemes.quantityForBudget(result.id, 15));
-            const row = art.loot.find(row => row.kind === category);
-            if (row.ids) assert.includes(row.ids, item.id);
-            else assert.inRange(item.baseTier, row.minTier ?? 1, row.maxTier ?? Infinity);
+            assert.truthy(art.loot.some(row => row.kind === category && barrelLootPool(row).some(it => it.id === item.id)),
+              `${item.id} comes from one of the ${category} rows`);
           }
           counts[category] = (counts[category] || 0) + 1;
         }
@@ -156,8 +157,9 @@
     }
   });
 
-  test('barrels: practical supplies dominate full rolls at sparse and dense POI counts', () => {
+  test('barrels: the supply share of full rolls survives sparse and dense POI counts', () => {
     const supply = BARREL_LOOT.find(row => row.kind === 'supply');
+    const fullW = BARREL_LOOT.filter(row => row.kind !== 'empty').reduce((sum, row) => sum + row.w, 0);
     const ids = barrelLootPool(supply).map(item => item.id);
     for (const id of ['torch', 'rope', 'trap_disarm_kit']) assert.includes(ids, id);
     for (const density of [10, 105, 200]) {
@@ -170,7 +172,26 @@
         full++;
         if (got.kind === 'item' && ITEM_BY_ID[got.id].kind === 'supply') supplies++;
       }
-      assert.lt(Math.abs(supplies / full - 2 / 3), .001, 'supply share survives density scaling');
+      assert.lt(Math.abs(supplies / full - supply.w / fullW), .002, 'supply share survives density scaling');
+    }
+  });
+
+  test('generated containers: a barrel\'s one apple and a pot\'s one coin, fairly often', () => {
+    // A house barrel / street pot (barrel: true, no poiClass) rolls the table
+    // as it stands at the 15-coin budget: about a quarter of smashes pay the
+    // signature find, and it is exactly ONE (owner, Oct 2026).
+    for (const [barrelStyle, want] of [['barrel', 'apple'], ['clay_pot', 'gold']]) {
+      const o = { kind: 'chest', id: `hbarrel_0_0_1_${barrelStyle}`, barrel: true, barrelStyle };
+      let empty = 0, signature = 0;
+      for (let i = 0; i < 1000; i++) {
+        let first = true;
+        const got = rollBarrel(o, () => first ? (first = false, (i + .5) / 1000) : .5);
+        if (got.kind === 'empty') { empty++; continue; }
+        if (want === 'gold' && got.kind === 'gold') { signature++; assert.eq(got.amount, 1, 'one coin'); }
+        if (want === 'apple' && got.kind === 'item' && got.id === 'apple') { signature++; assert.eq(got.qty, 1, 'one apple'); }
+      }
+      assert.inRange(empty / 1000, .5, .6, barrelStyle + ': a little over half are empty');
+      assert.inRange(signature / 1000, .2, .35, barrelStyle + ': the signature find about a quarter of the time');
     }
   });
 
@@ -212,7 +233,7 @@
     }
     assert.eq(barrelRewardProfile(poi('waste_basket')).budget, 75, 'unstamped POI defaults to one');
     const generated = barrelRewardProfile({kind: 'chest', barrel: true, barrelDensity: 1});
-    assert.lt(Math.abs(generated.fullChance - .3), 1e-12, 'authored containers do not gain a sparse-POI bonus');
+    assert.lt(Math.abs(generated.fullChance - .45), 1e-12, 'authored containers do not gain a sparse-POI bonus');
     assert.eq(generated.budget, 15);
   });
 

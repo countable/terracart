@@ -4,16 +4,16 @@
   const variants = [
     { id: 'citadel', name: 'Citadel', floor: 0xaaa7a4,
       stone: { LITE: 0xc4c0bb, BODY: 0x999795, FACE: 0x858487, SIDE: 0x797a80, SHADOW: 0x5b5d67, DARK: 0x393d49 },
-      rampart: { merlons: 4, toothHeight: 2, wallHeight: 6, topDepth: 3.6 } },
+      rampart: { merlons: 4, toothHeight: 3, wallHeight: 10, topDepth: 3.6 } },
     { id: 'ruin', name: 'Weathered Ruin', guards: false, questType: 'hunt', floor: 0xa6a087,
       stone: { LITE: 0xbdb9a4, BODY: 0x959a85, FACE: 0x858c79, SIDE: 0x747e6c, SHADOW: 0x596957, DARK: 0x384b3f },
-      rampart: { merlons: 4, toothHeight: 1.5, wallHeight: 6, topDepth: 3.6, broken: true } },
+      rampart: { merlons: 4, toothHeight: 2.5, wallHeight: 10, topDepth: 3.6, broken: true } },
     { id: 'bastion', name: 'Intact Bastion', guards: false, questType: 'kill', floor: 0xc3b597,
       stone: { LITE: 0xd4cbb7, BODY: 0xb7aa91, FACE: 0xa2977f, SIDE: 0x968b77, SHADOW: 0x756d5d, DARK: 0x4f4a41 },
-      rampart: { merlons: 4, toothHeight: 2, wallHeight: 6, topDepth: 3.6 } },
+      rampart: { merlons: 4, toothHeight: 3, wallHeight: 10, topDepth: 3.6 } },
     { id: 'archive', name: 'Old Archive Court', guards: false, questType: 'deliver', floor: 0xb3a88c,
       stone: { LITE: 0xc6bca5, BODY: 0xa49c88, FACE: 0x928b7b, SIDE: 0x827e72, SHADOW: 0x656559, DARK: 0x444a43 },
-      rampart: { merlons: 4, toothHeight: 1.5, wallHeight: 6, topDepth: 3.6, woodTop: true } },
+      rampart: { merlons: 4, toothHeight: 2.5, wallHeight: 10, topDepth: 3.6, woodTop: true } },
   ];
   const wood = { LITE: 0xc2a16b, BODY: 0x967549, FACE: 0x80613e, SHADOW: 0x624e37, DARK: 0x423b2d };
   const ids = variants.map(v => v.id);
@@ -157,8 +157,8 @@
     const cols = Math.max(1, Math.floor(paving.width / 32)), rows = Math.max(1, Math.floor(paving.height / 32));
     for (let i = 0; i < 9; i++) {
       const x = i % 3 * 32, y = Math.floor(i / 3) * 32;
-      // Reuse the courtyard's quarter tiles and occasional double slabs in
-      // each bounded ruin pattern, with a stable patch for each damage layout.
+      // Reuse the courtyard's cell slabs and split cells in each bounded
+      // ruin pattern, with a stable patch for each damage layout.
       const sx = ((i % 3 + pattern.index * 3) % cols) * 32;
       const sy = ((Math.floor(i / 3) + pattern.index * 2) % rows) * 32;
       ctx.drawImage(paving, sx, sy, 32, 32, x, y, 32, 32);

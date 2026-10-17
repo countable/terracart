@@ -407,6 +407,9 @@ function disableSave() {
 // across many sites collapses to a single call.
 function addMoney(save, delta) {
   save.money = (save.money ?? 0) + delta;
+  // Starting funds are not a discovery. Earned coins queue their introduction
+  // even if spent before the story lane becomes free.
+  if (delta > 0 && !save.storySeen?.['coin:first']) save.firstCoinPending = true;
 }
 function getSelectedSlot(save) {
   return save.inv?.[save.selSlot] || null;

@@ -43,7 +43,7 @@ test('corner and junction support respects arms and leaves unused corners on gro
   for (const [x, y] of [[0.5, 0], [-0.5, 0], [0, 0.5], [0, -0.5]]) assert.eq(at(cross, x, y), 5);
 });
 
-test('bushes are centred, joined hedges follow their rendered frame, short plants stay flat', () => {
+test('bushes are centred, joined hedges follow their rendered frame, standing plants do not lift the player', () => {
   const bush = { kind: 'wildplant', crop: 'shrub', x: 0, y: 0 };
   const hedge = { ...bush, _plantArt: 'zone_hedge', _hedgeFrame: 1 };
   assert.eq(ObstacleStep.sample(0, 0, [bush], 1).liftPx, 3);
@@ -90,5 +90,17 @@ test('step support follows player feet while the camera peeks away', () => {
     assert.eq(support.liftPx, 4, 'camera movement cannot drop the body off its rock');
     assert.eq(support.supports.length, 2, 'the bush underfoot remains a support too');
     assert.eq(ObstacleStep.speedMul(support),0.7,'the same balancing slowdown remains active');
+  }
+});
+
+test('world layers: step-over category uses the same support profiles as walking', () => {
+  for (const kind of ['_firepit','_fire','mineralrock','stronghold_wall']) {
+    const o={kind,x:0,y:0};
+    assert.eq(WorldLayers.forObject(o),WorldLayers.STEP_OVER_PROP);
+    assert.gt(ObstacleStep.sample(0,0,[o],1).liftPx,0);
+  }
+  for (const o of [{kind:'tree',size:'small'},{kind:'_streetlamp'},{kind:'house'}]) {
+    assert.eq(WorldLayers.forObject(o),WorldLayers.STANDING_PROP);
+    assert.eq(ObstacleStep.sample(0,0,[{...o,x:0,y:0}],1).liftPx,0);
   }
 });

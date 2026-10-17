@@ -135,7 +135,7 @@
   // StreetVariants.BANDIT_STRETCH_UNITS) are the same reason again: one guard
   // each, always held, every mode. (There is no 'wagon' tier: a bus stop is on
   // the kerb by definition.)
-  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_forest_bear: 1, street_orchard: 1, street_toadstool: 1, street_goblin_gang: 5, street_spider_path: 2 };
+  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_wild_boar: 2, street_forest_bear: 1, street_orchard: 1, street_toadstool: 1, street_goblin_gang: 5, street_spider_path: 2, street_berry: 1, street_trade: 2 };
   const SLIME_TRAIL = root.StreetVariants.VARIANT_BY_ID.slime_trail;
   for (const kind of SLIME_TRAIL.enemyKinds) STREET_TIER_GUARDS[`street_slime_trail_${kind}`] = SLIME_TRAIL.guardsPerPost;
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
@@ -230,12 +230,17 @@
     // elite roll and every café would flood the map with gear. (The old
     // 'close' tier's ladder; there is no 'wagon' tier — the safety pass.)
     cafe: ['skeleton_soldier', 'orc'],
+    street_berry: ['goblin_runt'],                 // a Berry Lane's bush runt (GROUPS.street_berry)
+    street_trade: ['goblin_runt'],                 // a Trade Row's pair of grunts (GROUPS.street_trade)
     // A tar yard: fire slimes (the enemy_roster.js fire_slime row).
     tar: ['fire_slime'],
     // A barricade: the goblin who holds it.
     barricade: ['spear_goblin', 'archer_goblin'],
     street_hedgerow: ['slime'],
     street_overgrown: ['plant'],
+    // An overgrown street's extra posts (StreetVariants extraEncounters): a
+    // sounder of wild boars on every one, a giant bear on a third.
+    street_wild_boar: ['boar'],
     street_forest_bear: ['giant_bear'],
     street_orchard: ['farmer_goblin'],
     street_toadstool: ['spider'],
@@ -317,12 +322,21 @@
     street_hedgerow: { label: 'Hedge ambush', tiers: ['street_hedgerow'], modeCap: false,
       story: 'Two goblin runts crouch inside the clipped hedges. The hedge shivers where one waits.',
       members: [{ kind: 'goblin_runt', n: 2, place: 'ring', ambush: true }] },
+    // A Berry Lane's bush runt: one, hiding behind a bush beside its seat
+    // (lurkSeat — `ambush`), a post every so often along the lane.
+    street_berry: { label: 'Bush runt', tiers: ['street_berry'], modeCap: false,
+      story: 'A goblin runt crouches behind a berry bush. The bush shivers where it waits.',
+      members: [{ kind: 'goblin_runt', n: 1, place: 'ring', ambush: true }] },
     street_spider_path: { label: 'Spider Path', tiers: ['street_spider_path'], modeCap: false,
       story: 'Two spiders lurk beside a path strewn with lasting webs.',
       members: [{ kind: 'spider', n: 2, place: 'ring' }] },
     street_goblin_gang: { label: 'Street goblin gang', tiers: ['street_goblin_gang'], modeCap: false,
       story: 'Five weak goblin grunts gather beside the street, with barrel stacks nearby.',
       members: [{ kind: 'goblin_runt', n: 5, place: 'ring' }] },
+    // A Trade Row's grunts: a pair at every held post along the barrel row.
+    street_trade: { label: 'Trade Row grunts', tiers: ['street_trade'], modeCap: false,
+      story: 'Two weak goblin grunts pick through the barrels of goods beside the road.',
+      members: [{ kind: 'goblin_runt', n: 2, place: 'ring' }] },
     // ── A wrecked house: small ──
     grunt_gang: { label: 'Goblin grunt gang', tiers: [9], minT: 0, chance: .1, modeCap: false,
       story: 'Three to eight weak goblins crowd around the wreck. Each falls quickly; the gang comes together.',
@@ -547,11 +561,14 @@
     burned: { rate: 1, thinned: false },   // a burned row's stretch
     street_hedgerow: { rate: 1, thinned: false },
     street_overgrown: { rate: 1, thinned: false },
+    street_wild_boar: { rate: 1, thinned: false },
     street_forest_bear: { rate: 1, thinned: false },
     street_orchard: { rate: 1, thinned: false },
     street_toadstool: { rate: 1, thinned: false },
     street_spider_path: { rate: 1, thinned: false },
     street_goblin_gang: { rate: 1, thinned: false },
+    street_berry: { rate: 1, thinned: false },
+    street_trade: { rate: 1, thinned: false },
     gate:   { rate: 1, thinned: false },   // a gate's posts — held every day
     habitat_marsh: { rate: 1, thinned: false },      // a habitat site — always held
     habitat_stronghold: { rate: 1, thinned: false },
@@ -1064,9 +1081,14 @@
     // A BUILDING's garrison comes out after you, so its themed family drops
     // the rooted kinds (EnemyRoster.isRooted — the plants); a road variant's
     // stretch (a street tier) keeps them. The kind is picked off the filtered
-    // list, so no seat draw moves.
-    const pathAuthored = root.StreetVariants?.VARIANT_BY_ID[cand._street]?.size === 'path';
-    const rawFamily = pathAuthored ? null : root.EnemyHabitats?.buildingKinds(entry, cand);
+    // list, so no seat draw moves. A street's EXTRA encounter (StreetVariants
+    // EXTRA_ENCOUNTER_TIERS — the overgrown street's boars and bear) is
+    // authored by its own ladder: the street's family (the nearest mark's
+    // BUILDING_FAMILIES row) never re-themes it into the plant guard's kinds.
+    const SVar = root.StreetVariants;
+    const pathAuthored = SVar?.VARIANT_BY_ID[cand._street]?.size === 'path';
+    const ownLadder = !!SVar?.EXTRA_ENCOUNTER_TIERS?.has(cand.tier);
+    const rawFamily = pathAuthored || ownLadder ? null : root.EnemyHabitats?.buildingKinds(entry, cand);
     const mobile = rawFamily && TIERS.includes(cand.tier)
       ? rawFamily.filter((k) => !root.EnemyRoster?.isRooted(k)) : rawFamily;
     const family = mobile && mobile.length ? mobile : null;

@@ -37,7 +37,6 @@
     }
     assert.eq(e.trapCountMul, 10, 'easy still multiplies the base trap rate, just less than hard');
     assert.eq(e.crowCountMul, 0.5, 'easy halves the base wild crow count');
-    assert.eq(e.startingMoney, STARTING_MONEY, 'the easy purse IS items.js STARTING_MONEY');
     assert.truthy(e.tutorial && e.starterCrates && e.pestAmnesty, 'the guided opening is on');
     assert.falsy(e.cropPests, 'easy never dispatches a deer at a planted field');
   });
@@ -48,7 +47,6 @@
     assert.falsy(h.starterCrates, 'no supply crates');
     assert.falsy(h.pestAmnesty, 'pests from minute one');
     assert.truthy(h.cropPests, 'and deer are sent to the crops you plant');
-    assert.lt(h.startingMoney, e.startingMoney, 'thinner purse');
     assert.gt(h.buyMul, 1, 'dearer to buy');
     assert.lt(h.sellMul, 1, 'poorer to sell');
     assert.eq(h.enemyHpMul, 1); assert.eq(h.enemyDmgMul, 1);
@@ -62,6 +60,25 @@
     for (const k of ['bountyMul', 'eliteRateMul', 'passOutLossFrac', 'offlineRestCapFrac']) {
       assert.eq(k in h, false, `${k} is not a mode difference`);
     }
+  });
+
+  test('difficulty: every mode starts penniless and choosing a mode preserves earned coins', () => {
+    assert.eq(STARTING_MONEY, 0);
+    const chooseMode = liftSceneMethod('chooseMode', {
+      Difficulty, Quests, WorldGen: { tileCache: new Map() }, persistSave() {},
+    });
+    const previous = Difficulty.mode();
+    try {
+      for (const mode of Object.keys(Difficulty.PROFILES)) {
+        for (const money of [STARTING_MONEY, 17, 50]) {
+          const save = SaveState.defaults({ money });
+          const scene = { save, _starterTileEntry: () => null, _relayTrapsForMode() {},
+            updateObjectiveDOM() {}, buildInventoryDOM() {} };
+          assert.truthy(chooseMode.call(scene, mode));
+          assert.eq(save.money, money, `${mode}: mode selection preserves balance ${money}`);
+        }
+      }
+    } finally { Difficulty.setMode(previous); }
   });
 
   test('difficulty: a shop-bought crop at least breaks even on hard', () => {
