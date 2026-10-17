@@ -1972,7 +1972,7 @@ function houseFixture(tx = 0, ty = 0, over = {}) {
   return { N, grid, roadMask, spawnWhy, index, rec, spawnOpts, tx, ty };
 }
 const houseBarrels = (f) => SV.dress({ index: f.index, tx: f.tx, ty: f.ty, N: f.N, tileEdgeM: f.N * 7,
-  grid: f.grid, spawnOpts: f.spawnOpts }).objects.filter(o => /^hbarrel_/.test(o.id));
+  grid: f.grid, spawnOpts: f.spawnOpts }).objects.filter(o => /^h(?:barrel|crate)_/.test(o.id));
 const cellsOf = (f, list) => list.map(o => ({ ix: Math.floor((o.x - f.tx * f.N * 7) / 7), iy: Math.floor((o.y - f.ty * f.N * 7) / 7) }));
 const northOf = (f) => cellsOf(f, houseBarrels(f)).filter(c => c.iy < 6);
 
@@ -1981,7 +1981,7 @@ test('house barrels: 0-2 per house, on the verge between the house and the stree
   let north = 0, south = 0, seen = new Set();
   for (let tx = 0; tx < 120; tx++) {
     const f = houseFixture(tx, 3), got = cellsOf(f, houseBarrels(f));
-    for (const o of houseBarrels(f)) assert.truthy(o.kind === 'chest' && o.barrel === true && o._houseFront, 'a loot barrel');
+    for (const o of houseBarrels(f)) assert.truthy(o.kind === 'chest' && o._houseFront && (o.barrel === true || (o.crate && o.tierSeed === 1)), 'a loot barrel or a tier-1 crate');
     const n = got.filter(c => c.iy < 6), s = got.filter(c => c.iy > 6);
     assert.lte(n.length, 2, 'at most two before the north house'); assert.lte(s.length, 2, 'and the south');
     for (const c of n) assert.truthy(c.ix >= 3 && c.ix <= 5 && (c.iy === 4 || c.iy === 5), `north frontage only: ${c.ix},${c.iy}`);
@@ -2015,6 +2015,18 @@ test('house barrels: beside the street (the kerb cell first), the reward gate, a
   // A themed street or a Major road dresses no house barrels.
   assert.eq(houseBarrels(houseFixture(f.tx, f.ty, { variant: 'hedgerow' })).length, 0, 'a themed street');
   assert.eq(houseBarrels(houseFixture(f.tx, f.ty, { size: 'major', variant: null })).length, 0, 'a Major road');
+});
+
+test('house barrels: one in ten seats stands a tier-1 crate, decided by the seat', () => {
+  assert.eq(SV.HOUSE_CRATE_SHARE, 0.1);
+  let all = 0, crates = 0;
+  for (let tx = 0; tx < 400; tx++) for (const o of houseBarrels(houseFixture(tx, 11))) {
+    all++;
+    if (o.crate) { crates++; assert.truthy(/^hcrate_/.test(o.id) && o.tierSeed === 1 && !o.barrel, 'a dead-end style crate'); }
+    else assert.truthy(o.barrel === true && /^hbarrel_/.test(o.id));
+  }
+  assert.gt(all, 300);
+  assert.inRange(crates / all, 0.06, 0.14, 'about a tenth are crates');
 });
 
 test('house barrels: a terrace rolls a house per frontage span', () => {

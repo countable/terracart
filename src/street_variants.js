@@ -114,6 +114,9 @@
   const HOUSE_BARRELS_MAX = 2;
   const HOUSE_FRONT_REACH_CELLS = 5;
   const HOUSE_FRONT_SPAN_CELLS = 6;
+  // This share of the seated house barrels stand as a tier-1 crate instead
+  // (restocking, like a dead-end crate): a hash of the seat's id decides.
+  const HOUSE_CRATE_SHARE = 0.1;
   // ── How much of a street wears its theme ────────────────────────────────
   // Complete short streets wear their theme end to end. Longer or clipped
   // streets keep the middle sectionShare of each tile-aligned patch, measured
@@ -2636,7 +2639,8 @@
     // seats spread along the span (one: the middle; two: the thirds), each
     // the first free verge cell out on its ray — beside the street, not the
     // wall — on the reward gate, so none stands on a Major-and-Medium kerb.
-    // Before the herbs, which fill what is left.
+    // HOUSE_CRATE_SHARE of the seats stand a tier-1 crate instead of a
+    // barrel. Before the herbs, which fill what is left.
     const T = WG.T;
     const barrelOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
       && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'reward');
@@ -2703,8 +2707,12 @@
                 const c = span[r].ray.find(c => barrelOk(c.ix, c.iy));
                 if (!c) continue;
                 claim(c.ix, c.iy);
-                res.objects.push(WG.makeObject('chest', cx(c.ix), cy(c.iy),
-                  WG.cellId('hbarrel', tx, ty, c.ix, c.iy), { barrel: true, _houseFront: true }));
+                const crate = hash01(WG.cellId('hcrate', tx, ty, c.ix, c.iy)) < HOUSE_CRATE_SHARE;
+                res.objects.push(crate
+                  ? WG.makeObject('chest', cx(c.ix), cy(c.iy), WG.cellId('hcrate', tx, ty, c.ix, c.iy),
+                    { crate: true, tierSeed: DEAD_END_CRATE_TIER, _houseFront: true })
+                  : WG.makeObject('chest', cx(c.ix), cy(c.iy), WG.cellId('hbarrel', tx, ty, c.ix, c.iy),
+                    { barrel: true, _houseFront: true }));
                 seated = true; break;
               }
             }
@@ -2859,7 +2867,7 @@
     BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, END_SEAT_CELLS,
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
-    HEDGE_GATE_EVERY_CELLS, HOUSE_BARRELS_MAX, HOUSE_FRONT_REACH_CELLS, HOUSE_FRONT_SPAN_CELLS, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
+    HEDGE_GATE_EVERY_CELLS, HOUSE_BARRELS_MAX, HOUSE_FRONT_REACH_CELLS, HOUSE_FRONT_SPAN_CELLS, HOUSE_CRATE_SHARE, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
     THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,

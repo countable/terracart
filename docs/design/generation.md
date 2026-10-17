@@ -131,7 +131,8 @@ access or tile lifecycle mechanics.
   the house's first wall cell, so every player sees the same; a terrace counts
   a house per frontage span. Seats take the first free verge cell out on the
   reward gate, so none stands on a Major-and-Medium kerb; themed stretches
-  and Major roads stand none.
+  and Major roads stand none. One seat in ten (`HOUSE_CRATE_SHARE`, a hash
+  of the seat) stands a tier-1 restocking crate instead of a barrel.
 
 - Cleared wild longgrass returns after an independently sampled exponential
   wait averaging two real days (`SaveState.GRASS_REGROWTH_MEAN_MS`). Harvest
