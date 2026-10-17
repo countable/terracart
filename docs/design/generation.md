@@ -292,7 +292,9 @@ access or tile lifecycle mechanics.
   chance and a 15-coin budget. Both interpolate linearly between endpoints. Items
   size to that budget; a clay pot's coin result pays a fifteenth of it
   (`CLAY_POT_LOOT` `budgetDiv`: 1 coin at 15, 5 at 75).
-  Generated non-POI containers keep 30% full odds and a 15-coin budget. Full
+  Generated non-POI containers keep the table's 45% full odds and a 15-coin
+  budget, where about a quarter of smashes pay the signature find: a barrel's
+  one apple, a pot's one coin (`BARREL_LOOT` / `CLAY_POT_LOOT`). Full
   containers pay that budget as coins or use `ChestThemes.quantityForBudget`
   for item stacks, including category shares and caps; higher budgets never
   promote item tiers. All containers remain permanently smashed after use.
