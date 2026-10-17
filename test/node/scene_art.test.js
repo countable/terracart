@@ -60,7 +60,7 @@ test('scene art: shared crop above fitted copy without scrolling', () => {
   const region = shell.slice(from, shell.indexOf('box.appendChild(body)', from));
   assert.truthy(region.includes('flex:1 1 auto;') && region.includes('overflow:hidden;'), 'the body fills the box without scrolling');
   assert.truthy(region.includes("viewport.className = 'modal-copy'") && region.includes('viewport.appendChild(into)'), 'copy has its own fitted viewport below the art');
-  assert.falsy(/overflow-y:auto;/.test(region), 'neither body nor copy scrolls');
+  assert.falsy(/overflow-y:auto;/.test(region.replace(/scroll\n\s*\? '[^']*'/, '')), 'neither body nor copy scrolls — except the menu\'s `scroll` viewport');
   assert.truthy(region.includes("art ? 'margin:0;flex:0 0 auto;'"), 'copy follows the image region, including ceremonies');
   assert.truthy(region.includes('spacer.append(mosaicLayer, artLayer)'), 'painting and mosaic share the crop above copy');
   assert.truthy(shell.includes("backgroundSize = '100% auto'"), 'crop scales uniformly without distortion');
@@ -76,6 +76,12 @@ test('scene art: generic Story is omitted and useful categories follow the image
   assert.truthy(sceneShell.includes('const changes = new MutationObserver(scheduleFit)'), 'live content changes refit the content');
   assert.truthy(sceneShell.includes('body.clientWidth * .9') && sceneShell.includes('Math.max(minimum, full - deficit)'), 'art starts with a bottom ten-percent crop and gives more height to copy above its minimum');
   assert.truthy(sceneShell.includes("pages.className = 'modal-pages'") && sceneShell.includes('into.style.columnWidth'), 'long content uses pages at its original text size');
+  // The ☰ menu is the one dialog that scrolls instead (owner, Oct 2026: "the
+  // main menu shouldn't be paginated"): the shell's `scroll` option turns the
+  // copy viewport into a scroller and the fit never pages it.
+  assert.truthy(sceneShell.includes('if (!scroll && into.scrollHeight > viewport.clientHeight + 1) {'), 'a scrolling dialog never pages');
+  assert.truthy(/viewport\.style\.cssText = scroll\n\s*\? 'flex:1 1 auto;min-height:0;overflow-y:auto;/.test(sceneShell), 'its viewport scrolls');
+  assert.truthy(/makeModalShell\('menu-modal', \{\n(?:.*\n){0,4}.*scroll: true,/.test(SCENE_SRC), 'the menu dialog asks for it');
 });
 
 test('scene art: new generated scenes use full square compositions', () => {

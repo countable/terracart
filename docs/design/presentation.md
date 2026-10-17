@@ -289,7 +289,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   useful shop/event categories sit with the copy below the image. Dialogs do
   not scroll. Copy and actions occupy a separate `.modal-copy` viewport;
   long content uses Previous/Next pages at its original text size, with whole
-  controls. Content, expanded details, image loads, fonts and viewport changes
+  controls. The one exception is the ☰ menu (`makeModalShell` `scroll`): a
+  list thumbed through, it scrolls as one and is never paged. Content, expanded details, image loads, fonts and viewport changes
   trigger fitting again. Art and loading mosaics share the same crop.
   Framed opening stories without titles keep their separate 14-pixel rail gap.
   `css/compass_panels.css` seats this same shell as a mechanical sheet that
