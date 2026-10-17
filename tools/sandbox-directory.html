@@ -13,7 +13,7 @@
 <body><main>
 <a href="../design/">← Design dashboards</a>
 <h1>Sandbox test directory</h1>
-<p>Jump straight to an existing test setup. Each link opens the sandbox in a new tab with its stocked test kit. Reloading restores authored fixtures; service cooldowns and other player progress can persist.</p>
+<p>Jump straight to an existing test setup. Each test link clears all local game saves and settings, skips the intro and location setup, and opens the sandbox in a new tab with its stocked test kit. Reloading resets it again.</p>
 <label for="search">Find a mechanic or setup</label>
 <input id="search" type="search" placeholder="Castle, bank, forest, traps…">
 <nav id="categories" aria-label="Test categories"></nav>
@@ -56,10 +56,11 @@ for (const group of groups) {
     const li = document.createElement('li'); li.dataset.destination = entry.id;
     const label = entry.label + (entry.depth ? ` · L${entry.depth}` : '');
     li.dataset.search = [group.title, label, entry.id, ...(entry.aliases || [])].join(' ').toLowerCase();
-    li.className = 'row'; li.append(anchor(label + ' ↗', SandboxDestinations.href(entry.id)));
+    const href = SandboxDestinations.href(entry.id) + '&reset=true&skipStory=true';
+    li.className = 'row'; li.append(anchor(label + ' ↗', href));
     if (group.id === 'combat') {
       const options = document.createElement('span'); options.className = 'options';
-      options.append(anchor('Full kit', SandboxDestinations.href(entry.id)), anchor('Damage test', SandboxDestinations.href(entry.id) + '&sandboxKit=raw'));
+      options.append(anchor('Full kit', href), anchor('Damage test', href + '&sandboxKit=raw'));
       li.append(options);
     }
     list.append(li);
