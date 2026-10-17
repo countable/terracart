@@ -33,6 +33,13 @@ removing a runtime painting.
 
 ## Story-panel style references
 
+The original art is preferred over all ten regenerated review scenes for its
+restricted palette and painterly quality. Keep those originals as the reference
+sources; the review generations are not approved replacements. Prefer crops for
+4:3 framing while preserving the original texture, colour and atmosphere.
+For `cave_first.webp`, retain its atmospheric dark edges when framing; that
+scene-specific darkness is not a text field and is not a global vignette rule.
+
 Every new or regenerated story panel must include an approved existing panel
 showing the Hood as an explicit image reference. Select it from the story-panel
 presentation with the user; record its asset path and hash with the prompt.
