@@ -20,12 +20,13 @@
         group = scene._wallPerspective[source] = { gfx, blocks: [], x: 0, y: 0 };
       }
       group.blocks.length = 0;
+      group.alwaysActive = false;
       group.angle = NaN;
       return group;
     },
     // A footprint extruded between two elevations (convex when capped). Retain projected
     // coordinates too, avoiding temporary vertex objects during rotation.
-    prism(scene, source, points, bottom, top, colors, support = null, capped = true) {
+    prism(scene, source, points, bottom, top, colors, support = null, capped = true, geometry = {}) {
       const group = scene._wallPerspective[source];
       // Match the padded overlay window. A city-sized footprint may intersect
       // the view while almost all of its perimeter is far away.
@@ -46,8 +47,9 @@
       }
       if (Math.abs(area) < 1e-6) return;
       support ||= { x: x / points.length, y: y / points.length, order: group.blocks.length };
-      group.blocks.push({ points, bottom, top, colors, support, capped, winding: Math.sign(area),
+      group.blocks.push({ points, topPoints: geometry.topPoints || points, allFaces: !!geometry.allFaces, bottom, top, colors, support, capped, winding: Math.sign(area),
         x: x / points.length, y: y / points.length, order: group.blocks.length,
+        faceOrder: Array.from({ length: points.length }, (_, i) => i), faceDepth: new Float64Array(points.length),
         projected: new Float64Array(points.length * 4) });
     },
     addSegment(scene, source, spec) {
@@ -94,12 +96,12 @@
     },
     clear(scene, source) {
       const group = scene._wallPerspective?.[source];
-      if (group) { group.blocks.length = 0; group.gfx.clear(); group.angle = NaN; }
+      if (group) { group.blocks.length = 0; group.alwaysActive = false; group.gfx.clear(); group.angle = NaN; }
     },
     update(scene) {
       const angle = scene.mapRot || 0, c = Math.cos(angle), s = Math.sin(angle);
       for (const group of Object.values(scene._wallPerspective || {})) {
-        group.gfx.visible = this.active(scene);
+        group.gfx.visible = this.active(scene) || (group.alwaysActive && (scene.depth ?? 0) === 0);
         if (!group.gfx.visible || group.angle === angle) continue;
         group.angle = angle;
         const g = group.gfx;
@@ -112,19 +114,27 @@
           || a.support.order - b.support.order || a.bottom - b.bottom
           || a.depth - b.depth || a.order - b.order);
         for (const block of group.blocks) {
-          const { points, projected: v, bottom, top, colors, winding } = block;
+          const { points, topPoints, projected: v, bottom, top, colors, winding } = block;
           for (let i = 0; i < points.length; i++) {
             const p = points[i], j = i * 4;
             v[j] = p.x - s * bottom; v[j + 1] = p.y - c * bottom;
-            v[j + 2] = p.x - s * top; v[j + 3] = p.y - c * top;
+            v[j + 2] = topPoints[i].x - s * top; v[j + 3] = topPoints[i].y - c * top;
           }
-          for (let i = 0; i < points.length; i++) {
+          if (block.allFaces) {
+            for (let i = 0; i < points.length; i++) {
+              const j = (i + 1) % points.length;
+              block.faceDepth[i] = s * (points[i].x + points[j].x + topPoints[i].x + topPoints[j].x)
+                + c * (points[i].y + points[j].y + topPoints[i].y + topPoints[j].y);
+            }
+            block.faceOrder.sort((a, b) => block.faceDepth[a] - block.faceDepth[b]);
+          }
+          for (const i of block.faceOrder) {
             const next = (i + 1) % points.length, a = points[i], b = points[next];
             // Only faces whose outward normal points toward screen-bottom.
             const screenDx = c * (b.x - a.x) - s * (b.y - a.y);
-            if (screenDx * winding >= -1e-6) continue;
+            if (!block.allFaces && screenDx * winding >= -1e-6) continue;
             const j = i * 4, k = next * 4;
-            g.fillStyle(colors.face, 1);
+            g.fillStyle(block.allFaces && screenDx * winding >= 0 ? colors.top : colors.face, 1);
             g.fillTriangle(v[j], v[j + 1], v[k], v[k + 1], v[k + 2], v[k + 3]);
             g.fillTriangle(v[j], v[j + 1], v[k + 2], v[k + 3], v[j + 2], v[j + 3]);
           }

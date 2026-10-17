@@ -6,8 +6,8 @@
   the rasterizer squared them onto (see the header of src/building_overlay.js).
   The headless suite pins its maths against a recording stub, which is the
   right test but shows you nothing; the game itself needs live map tiles. This
-  page is the middle ground: a hand-written fixture of rings — a rotated house,
-  an unclaimed one, an L-shaped mid-rise, a castle with a cut corner — fed to
+  page is the middle ground: a hand-written fixture of detailed concave footprints
+  with selectable roof slopes — fed to
   the REAL canvas adapter through a Phaser-shaped shim thin enough to read in
   one screen (textures.createCanvas / add.image backed by DOM canvases).
   Everything you see is the module's own drawing code.
@@ -18,11 +18,18 @@
 -->
 <html lang="en"><head><meta charset="utf-8"><title>polygonal footprints preview</title><style>
 body{margin:0;background:#4b7f4b;}
-#stage{position:relative;width:352px;height:352px;overflow:hidden;}
+#stage{position:relative;width:960px;height:760px;overflow:hidden;}
 canvas{position:absolute;image-rendering:pixelated;}
 </style></head><body>
-<div id="stage"></div>
+<div style="padding:18px 28px;color:#fff0cb;font:16px system-ui">
+<b>Building material + roof study</b> &nbsp;
+<select id="roof"><option value="ridge">Slopes meeting at ridges</option><option value="inset">Inset flat roof + steep skirt</option><option value="shallow">Inset flat roof + shallow skirt</option></select>
+<select id="detail"><option value="clean">Simplified roof</option><option value="detailed">Previous dense roof</option></select>
+<select id="stories"><option value="1">1 storey</option><option value="2">2 storeys</option><option value="3">3 storeys</option><option value="0">Shop defaults</option></select>
+<div style="margin-top:8px;font-size:13px">Same six outlines, including 4px bays, narrow wings and deep open courtyards. Existing game signs are unchanged.</div>
+</div><div id="stage"></div>
 <script src="game-loader.js"></script>
+<script src="building-roof-fixtures.js"></script>
 <script>
 (async () => {
 await loadGame();
@@ -32,7 +39,7 @@ const stage = document.getElementById('stage');
 const scene = {
   startWorldM: { x: 32 * 7, y: 32 * 7 }, playerM: { x: 0, y: 0 },
   mPerPx: 10, originPx: { x: 0, y: 0 }, cellM: 7, cellsPerTile: 64, depth: 0, save: {},
-  viewCenterX: 176, viewCenterY: 176, viewLeft: 0, viewTop: 0, viewSize: 352,
+  viewCenterX: 480, viewCenterY: 480, viewLeft: 0, viewTop: 0, viewSize: 960,
   isClaimedKey: (k) => k !== 'unclaimed',
   textures: {
     _m: new Map(),
@@ -41,7 +48,7 @@ const scene = {
     get(k) { return this._m.get(k); },
     createCanvas(k, w, h) {
       const c = document.createElement('canvas'); c.width = w; c.height = h;
-      const t = { canvas: c, getContext: () => c.getContext('2d'), refresh() {}, getSourceImage: () => c };
+      const t = { canvas: c, getContext: () => c.getContext('2d'), add() {}, refresh() {}, getSourceImage: () => c };
       this._m.set(k, t); return t;
     },
   },
@@ -68,14 +75,36 @@ const rot = (cx, cy, w, h, a) => {
   const c = Math.cos(a), s = Math.sin(a);
   return [[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]].map(([x,y]) => [cx + x*c - y*s, cy + x*s + y*c]);
 };
+const params=new URLSearchParams(location.search);
+scene.buildingRoofVariant = params.get('roof') || 'ridge';
+scene.buildingRoofDetail=params.get('detail') || 'clean';
+scene.buildingStoreys=Number(params.get('stories') || 2);
+for(const [id,field] of [['detail','buildingRoofDetail'],['stories','buildingStoreys']]) {
+  document.getElementById(id).value=scene[field];
+  document.getElementById(id).onchange=e=>{scene[field]=id==='stories'?Number(e.target.value):e.target.value;BuildingOverlay.draw(scene);};
+}
+document.getElementById('roof').value=scene.buildingRoofVariant;
+document.getElementById('roof').onchange=e=>{scene.buildingRoofVariant=e.target.value;BuildingOverlay.draw(scene);};
+scene.save.restoredHouses = {};
+scene.save.shopLines={};
+const roles=['plain','blacksmith','supply','trader','relic','potion'];
+const labels=['House · lime plaster','Blacksmith · soot brick','Supply · timber','Trader · sandstone','Relic · cut stone','Magic · tinted plaster'];
+const fixtures = BuildingRoofFixtures.map((fixture, i) => {
+  const x=55+(i%3)*310, y=115+Math.floor(i/3)*350, key='roof-'+i;
+  const scale=1.25;
+  const role=roles[i],shop=['supply','relic','potion'].includes(role);
+  scene.save.restoredHouses[key] = shop?'shop':role;
+  if(shop)scene.save.shopLines[key]=role;
+  const label=document.createElement('div'); label.textContent=labels[i]+' — '+fixture.name;
+  Object.assign(label.style,{position:'absolute',left:(x-15)+'px',top:(y+220)+'px',
+    width:'270px',textAlign:'center',color:'#fff0cb',font:'bold 14px system-ui',zIndex:2});
+  stage.appendChild(label);
+  return {ring:Float32Array.from(fixture.points.flatMap(([px,py])=>
+    [224+(x+px*scale-496)*7/32,224+(y+py*scale-496)*7/32])),tier:9,areaM2:200,key};
+});
 WorldGen.tileCache.set(WorldGen.tileKey(0, 0), {
-  tileEdgeM: TILE_EDGE_M,
-  buildingShapes: [
-    { ring: ring(rot(30, 30, 5, 3.5, 0.42)), tier: 9, areaM2: 200, key: 'a' },
-    { ring: ring(rot(30.5, 34.5, 4, 3, -0.25)), tier: 9, areaM2: 150, key: 'unclaimed' },
-    { ring: ring([[34,29],[38,29],[38,31],[36.5,31],[36.5,33],[34,33]]), tier: 11, areaM2: 700, key: 'b' },
-    { ring: ring([[27,33],[31,33],[32.5,34.5],[32.5,36.5],[27,36.5]]), tier: 12, areaM2: 3000, key: 'c' },
-  ],
+  tileEdgeM: TILE_EDGE_M, buildingShapes: fixtures,
+  objects: fixtures.map(f => ({kind:'house',id:f.key,tier:9})),
 });
 // The GROUND the footprints stand on, drawn the way the game's ground layers
 // draw it: a flat biome fill, the per-cell procedural texture over it, then
@@ -85,13 +114,13 @@ WorldGen.tileCache.set(WorldGen.tileKey(0, 0), {
 // squares still read across one.
 (function ground() {
   const c = document.createElement('canvas');
-  c.width = c.height = 352; c.style.left = '0px'; c.style.top = '0px';
+  c.width = c.height = 960; c.style.left = '0px'; c.style.top = '0px';
   stage.insertBefore(c, stage.firstChild);
   const x = c.getContext('2d');
-  x.fillStyle = '#479757'; x.fillRect(0, 0, 352, 352);
+  x.fillStyle = '#479757'; x.fillRect(0, 0, 960, 960);
   const tex = scene.textures.get('biome0_0');
-  for (let r = -1; r <= 12; r++) {
-    for (let col = -1; col <= 12; col++) {
+  for (let r = -1; r <= 32; r++) {
+    for (let col = -1; col <= 32; col++) {
       const t = scene.textures.get(`biome0_${(col * 7 + r * 13) & 1}`);
       if (t) x.drawImage(t.canvas, col * CELL_PX, r * CELL_PX, CELL_PX, CELL_PX);
     }
@@ -101,13 +130,14 @@ WorldGen.tileCache.set(WorldGen.tileKey(0, 0), {
   x.lineWidth = G.width;
   x.setLineDash([G.dash, G.gap]);
   x.beginPath();
-  for (let i = -1; i <= 12; i++) {
+  for (let i = -1; i <= 32; i++) {
     const p = Math.round(i * CELL_PX + CELL_PX / 2);
-    x.moveTo(p, 0); x.lineTo(p, 352);
-    x.moveTo(0, p); x.lineTo(352, p);
+    x.moveTo(p, 0); x.lineTo(p, 960);
+    x.moveTo(0, p); x.lineTo(960, p);
   }
   x.stroke();
 })();
+window.previewScene = scene;
 BuildingOverlay.draw(scene);
 document.title = 'ready';
 })().catch((error) => {

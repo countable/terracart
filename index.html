@@ -97,7 +97,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=42c22154" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=2a6c54d2" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -3041,7 +3041,7 @@
   <script src="src/underground_stories.js?v=deb09860"></script>
   <script src="src/worldgen.js?v=210026af"></script>
   <script src="src/castle_styles.js?v=44481685"></script>
-  <script src="src/textures.js?v=6400127e"></script>
+  <script src="src/textures.js?v=feebc7b3"></script>
   <script src="src/save.js?v=5d02b05e"></script>
   <script src="src/items.js?v=5211ef6e"></script>
   <script src="src/inventory.js?v=08929c24"></script>
@@ -3094,16 +3094,18 @@
   <script src="src/lighting_gpu.js?v=c2cf90df"></script>
   <script src="src/lighting.js?v=fcb254ea"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=8af1ac81"></script>
+  <script src="src/render.js?v=77b2c9fd"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/multiplayer.js?v=0061380e"></script>
   <script src="src/road_overlay.js?v=d39b1528"></script>
   <script src="src/temple_art.js?v=ef92c84b"></script>
-  <script src="src/wall_perspective.js?v=028ee9f0"></script>
-  <script src="src/building_overlay.js?v=042cb26e"></script>
-  <script src="src/assets.js?v=544e7bf9"></script>
+  <script src="src/wall_perspective.js?v=2460819e"></script>
+  <script src="src/building_styles.js?v=d52a1298"></script>
+  <script src="src/building_lowpoly.js?v=9288d1ab"></script>
+  <script src="src/building_overlay.js?v=f3a7f106"></script>
+  <script src="src/assets.js?v=6272938e"></script>
   <script src="src/sandbox_destinations.js?v=e6dc29cb"></script>
-  <script src="src/sandbox.js?v=cf387ff8"></script>
+  <script src="src/sandbox.js?v=2356eb1e"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=c1099b24"></script>
   <script src="src/art_thumbs.js?v=bcb1a6f0"></script>
@@ -3113,7 +3115,7 @@
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
   <script src="src/scene_shops.js?v=9727d3f5"></script>
-  <script src="src/heading_up.js?v=576d9191"></script>
+  <script src="src/heading_up.js?v=9bb5ef1e"></script>
   <script src="src/compass_modules.js?v=de335c76"></script>
   <script src="src/compass_shine.js?v=1533df4e"></script>
   <script src="src/compass_hud.js?v=e9a30166"></script>
@@ -3123,7 +3125,7 @@
   <script src="src/scene_sky.js?v=4d74ca34"></script>
   <script src="src/scene_consumables.js?v=13f93c2c"></script>
   <script src="src/scene_pets.js?v=b0c58511"></script>
-  <script src="src/scene_venues.js?v=95af6fa9"></script>
+  <script src="src/scene_venues.js?v=db8cfcc2"></script>
   <script src="src/scene_streets.js?v=96d6889a"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
@@ -3195,7 +3197,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=42c22154';
+      const APP_SRC = 'src/app.js?v=2a6c54d2';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
