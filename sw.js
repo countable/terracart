@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-257f0c60';
+const SHELL_VERSION = 'shell-8b3f67eb';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -438,13 +438,13 @@ const ASSET_HASHES = {
   "assets/Objects/Beach/palms.png": "6520c5b7",
   "assets/Objects/Beach/shipwreck_shrine.png": "4948c3c0",
   "assets/Objects/Beach/shipwreck_shrine_runtime.png": "0eddaf3a",
-  "assets/Objects/BuildingMaterials/painterly-tileset-v1.png": "528ca2a1",
-  "assets/Objects/BuildingMaterials/pixel-tileset-v3.png": "d3d5415a",
   "assets/Objects/BuildingMaterials/reference-materials-v1.png": "bda4fb3a",
   "assets/Objects/BuildingMaterials/reference-materials-v2.png": "1a55bdaa",
   "assets/Objects/BuildingMaterials/reference-materials-v3.png": "38fc2ff3",
   "assets/Objects/BuildingMaterials/source/materials-gen-a.png": "3ee4002b",
   "assets/Objects/BuildingMaterials/source/materials-gen-b.png": "5d01594c",
+  "assets/Objects/BuildingMaterials/source/painterly-tileset-v1.png": "528ca2a1",
+  "assets/Objects/BuildingMaterials/source/pixel-tileset-v3.png": "d3d5415a",
   "assets/Objects/Castle/tower_master.png": "195b2576",
   "assets/Objects/Castle/tower_ruin_master.png": "42d55bee",
   "assets/Objects/Castle/tower_shapes.png": "0b7d9e6d",
