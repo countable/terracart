@@ -1079,6 +1079,7 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 ctx.SHOPS_MATH_SRC = readSrc('shops_math.js');
 // The building overlay's, for building_overlay.test.js's read-back sweep.
 ctx.BUILDING_OVERLAY_SRC = readSrc('building_overlay.js');
+ctx.BUILDING_LOWPOLY_SRC = readSrc('building_lowpoly.js');
 
 // ── The STREET LAMPS' two placement passes (app.js) ───────────────────────
 // Where the lamp stones stand is decided by these two methods alone. They reach

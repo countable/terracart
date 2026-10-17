@@ -60,7 +60,16 @@ legacy sprite modes retain the north-up wall atlas artwork.
 The WebGL low-poly path (`building_lowpoly.js`) draws houses to match the 2D
 billboard sprites: `BuildingLowPoly.LOOK` owns the height foreshortening, the
 ink outline pass, eave shadow, flat-deck bands and chimney numbers, and the
-material sheets are cut once per material from the tilesets.
+material sheets are cut once per material from the tilesets. Each low-poly
+building has a pooled render object in `worldContainer`, interleaved with props
+and actors by its footprint's vertex-average ground anchor. Faces and ink groups
+remain ordered within that building. This is whole-building painter ordering,
+not per-pixel occlusion for long or concave footprints. Buildings retain map
+rotation; only their elevation vector compensates for heading. The retained
+geometry's pan offset also moves its sorting anchor, including at a fixed heading.
+Ground floors and the legacy architectural walls remain in their background
+passes. Standalone building viewers without a world container sort buildings
+in their existing wall container.
 [Low-poly building styles](../art/lowpoly-building-styles.md) owns the detail.
 `WallPerspective` prisms (castle ramparts, Canvas fallback) read the same
 table: height through `LOOK.heightScale`, and each wall run gets the ink
