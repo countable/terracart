@@ -244,12 +244,17 @@ function bakeCanvas(scene, key, w, h, paint) {
   tex.refresh();
 }
 
-// Bake once at scene creation: the ordinary bush is untouched underneath five
-// pixel berries. Picking swaps to its source frame, preserving shape and seat.
-// One bake per berry kind: shadow, body and highlight inks (CROP_SPRITE's
-// `texture` names the key).
+// Bake once at scene creation: the ordinary bush is untouched underneath
+// BERRY_BUSH_SEATS pixel berries. Picking swaps to its source frame,
+// preserving shape and seat. One bake per berry kind: shadow, body and
+// highlight inks (CROP_SPRITE's `texture` names the key). The berries are
+// BERRY_PX square on the 48×32 frame (a 5 px shadow square, a 4 px body on
+// it, a 2 px highlight): the bush draws at two thirds, so anything smaller
+// vanished into the foliage (owner, Oct 2026: "I can't see the berries").
+const BERRY_PX = 5;
+const BERRY_BUSH_SEATS = [[18, 6], [29, 7], [12, 13], [22, 13], [33, 13], [16, 20], [27, 21]];
 const BERRY_BUSH_INKS = {
-  bushes_fruiting: ['#713243', '#c65360', '#ef9290'],      // berry
+  bushes_fruiting: ['#6e1f33', '#e63950', '#ffb0b8'],      // berry
   bushes_poisonberry: ['#1d5a5c', '#2fb3a8', '#9ff0e2'],   // poisonberry
   bushes_goldenberry: ['#8a5a12', '#e9b62a', '#fff0a6'],    // golden berry
 };
@@ -258,13 +263,13 @@ function makeBerryBushTexture(scene) {
   for (const [key, [shade, body, light]] of Object.entries(BERRY_BUSH_INKS)) {
     bakeCanvas(scene, key, source.width, source.height, (ctx, texture) => {
       ctx.drawImage(source, 0, 0);
-      for (const [x, y] of [[20, 9], [29, 12], [16, 17], [25, 20], [33, 21]]) {
+      for (const [x, y] of BERRY_BUSH_SEATS) {
         ctx.fillStyle = shade;
-        ctx.fillRect(x, y, 3, 3);
+        ctx.fillRect(x, y, BERRY_PX, BERRY_PX);
         ctx.fillStyle = body;
-        ctx.fillRect(x, y, 2, 2);
+        ctx.fillRect(x, y, BERRY_PX - 1, BERRY_PX - 1);
         ctx.fillStyle = light;
-        ctx.fillRect(x, y, 1, 1);
+        ctx.fillRect(x, y, 2, 2);
       }
       texture.add(0, 0, 0, 0, source.width, source.height);
     });
