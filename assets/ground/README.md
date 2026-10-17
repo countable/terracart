@@ -4,10 +4,10 @@ The current export is a 384×256 sheet containing 96 native 32×32 tiles:
 28 active materials, each with a plain base and two decorated variants. Four unused road/path material slots remain transparent to preserve terrain IDs. `terrain-atlas-32.png`
 is the opaque, palette-matched review sheet; `terrain-detail-32.png` is the
 transparent runtime detail. `terrain-atlas-32.json` records source crops,
-output hashes, dimensions and the export process. The current full-bleed master is sampled without an inset so masonry courses reach the tile edges. `PROMPT-32.txt` records the
+output hashes, dimensions and the export process. The export removes generated dividers with a five-source-pixel inset; brick, castle and commercial masonry retain full-bleed edges. Explicit source mappings correct misplaced source cells. `PROMPT-32.txt` records the
 built-in imagegen prompt and art references.
 
-Material-specific leaf litter, clover, bark chips, mineral flakes, reed stubble and divots draw on the user reference `docs/art/ground-style-reference.gif`. Grove defaults stay almost flat; commercial paving uses square joints in both axes.
+Material-specific leaf litter, clover, bark chips, mineral flakes, reed stubble and divots draw on the user reference `docs/art/ground-style-reference.gif`. Grove defaults stay almost flat; commercial paving uses exactly one square slab per32px cell, with a flat interior and perimeter-only joints. Decorations contain one or two larger connected forms with clean flat shadows and highlight lips; scattered noise is removed.
 
 The art takes its restrained surface detail from `docs/art/direction-reference.png`
 and its crisp pixel shapes from `assets/Character/FarmerCyan.png`. Ground tiles
@@ -42,5 +42,5 @@ remain separate. The generation change does not replace their animation loop.
 Rebuild this revision from the archived master:
 
 ```sh
-node tools/export-ground-atlas.cjs --source ~/.artifacts/ground-atlas-32/terrain-atlas-distinct-master.png --row-bounds 0,114,226,340,454,576,692,830,1024 --cel-shaded
+node tools/export-ground-atlas.cjs --source ~/.artifacts/ground-atlas-32/terrain-atlas-clean-master.png --row-bounds 0,126,254,382,510,638,764,890,1024 --source-materials 15:14,30:31 --inset 5 --full-bleed-materials 9,12,16 --cel-shaded
 ```

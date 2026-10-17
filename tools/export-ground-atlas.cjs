@@ -16,6 +16,10 @@ const parseBounds = name => option(name) ? option(name).split(',').map(Number) :
 const rowBounds = parseBounds('--row-bounds'), columnBounds = parseBounds('--column-bounds');
 const inset = Number(option('--inset') || 0);
 const celShaded = args.includes('--cel-shaded');
+const fullBleedMaterials = (option('--full-bleed-materials') || '').split(',').filter(Boolean).map(Number);
+if (fullBleedMaterials.some(type => !Number.isInteger(type) || type < 0 || type > 31)) throw new Error('Full-bleed material IDs must be 0..31');
+const sourceMaterials = Object.fromEntries((option('--source-materials') || '').split(',').filter(Boolean).map(pair => pair.split(':').map(Number)));
+if (Object.entries(sourceMaterials).some(([type, source]) => !Number.isInteger(Number(type)) || !Number.isInteger(source) || Number(type) < 0 || Number(type) > 31 || source < 0 || source > 31)) throw new Error('Source material remaps must use IDs 0..31');
 if (!Number.isInteger(inset) || inset < 0) throw new Error('Inset must be a nonnegative integer');
 const app = fs.readFileSync(path.join(root, 'src/app.js'), 'utf8');
 const colors = vm.runInNewContext('(' + app.match(/const COLORS = (\{[\s\S]*?\n\});/)[1] + ')');
@@ -25,7 +29,7 @@ const colors = vm.runInNewContext('(' + app.match(/const COLORS = (\{[\s\S]*?\n\
   try {
     const page = await browser.newPage();
     await page.addScriptTag({ path: path.join(root, 'src/ground_atlas.js') });
-    const result = await page.evaluate(async ({ uri, colors, rowBounds, columnBounds, inset, celShaded }) => {
+    const result = await page.evaluate(async ({ uri, colors, rowBounds, columnBounds, inset, celShaded, sourceMaterials, fullBleedMaterials }) => {
       const image = new Image(); image.src = uri; await image.decode();
       const size = 32, columns = 12, rowsCount = 8, variants = 3, crops = [];
       const bounds = (input, extent, count) => {
@@ -42,11 +46,12 @@ const colors = vm.runInNewContext('(' + app.match(/const COLORS = (\{[\s\S]*?\n\
       for (let type = 0; type < 32; type++) {
         const residuals = [];
         for (let variant = 0; variant < variants; variant++) {
-          const frame = type * variants + variant, column = frame % columns, row = Math.floor(frame / columns);
-          const x = cols[column] + inset, y = rows[row] + inset;
-          const width = cols[column + 1] - inset - x, height = rows[row + 1] - inset - y;
+          const frame = type * variants + variant, sourceFrame = (sourceMaterials[type] ?? type) * variants + variant, column = sourceFrame % columns, row = Math.floor(sourceFrame / columns);
+          const cropInset = fullBleedMaterials.includes(type) ? 0 : inset;
+          const x = cols[column] + cropInset, y = rows[row] + cropInset;
+          const width = cols[column + 1] - cropInset - x, height = rows[row + 1] - cropInset - y;
           if (width <= 0 || height <= 0) throw new Error('Inset must leave a positive source crop');
-          crops.push({ frame, type, variant, x, y, width, height });
+          crops.push({ frame, type, variant, sourceFrame, x, y, width, height });
           sample.clearRect(0, 0, size, size);
           sample.drawImage(image, x, y, width, height, 0, 0, size, size);
           residuals.push(GroundAtlas.residual(sample.getImageData(0, 0, size, size).data, size));
@@ -60,7 +65,8 @@ const colors = vm.runInNewContext('(' + app.match(/const COLORS = (\{[\s\S]*?\n\
             // Snap the prepared detail to four shared tones AFTER edge matching.
             // Fixed RGBA entries retain transparent biome blending without gradients.
             const rgb = [(colors[type] >> 16) & 255, (colors[type] >> 8) & 255, colors[type] & 255];
-            const levels = type === 26 ? [-25, 0, 35, 90] : [-12, 0, 8, 16];
+            // Keep the broad commercial slab face in one tone; reserve highlights for its bevel.
+            const levels = type === 26 ? [-25, 0, 35, 90] : type === 16 ? [-12, 0, 16, 28] : [-12, 0, 8, 16];
             const outputLevels = [-10, 0, 6, 10];
             let tones = outputLevels.map(level => {
               const residual = new Float32Array(size * size * 3).fill(level);
@@ -97,7 +103,7 @@ const colors = vm.runInNewContext('(' + app.match(/const COLORS = (\{[\s\S]*?\n\
         }
       }
       return { opaque: opaque.toDataURL(), detail: detail.toDataURL(), sourceWidth: image.width, sourceHeight: image.height, rowBounds: rows, columnBounds: cols, crops };
-    }, { uri: 'data:image/png;base64,' + bytes.toString('base64'), colors, rowBounds, columnBounds, inset, celShaded });
+    }, { uri: 'data:image/png;base64,' + bytes.toString('base64'), colors, rowBounds, columnBounds, inset, celShaded, sourceMaterials, fullBleedMaterials });
     fs.mkdirSync(output, { recursive: true });
     const hashes = {};
     for (const [key, name] of [['opaque', 'terrain-atlas-32.png'], ['detail', 'terrain-detail-32.png']]) {
@@ -108,7 +114,7 @@ const colors = vm.runInNewContext('(' + app.match(/const COLORS = (\{[\s\S]*?\n\
     const metadata = {
       source: path.basename(source), sourceSha256: crypto.createHash('sha256').update(bytes).digest('hex'),
       sourceWidth: result.sourceWidth, sourceHeight: result.sourceHeight,
-      rowBounds: result.rowBounds, columnBounds: result.columnBounds, inset,
+      rowBounds: result.rowBounds, columnBounds: result.columnBounds, inset, sourceMaterials, fullBleedMaterials,
       width: 384, height: 256, tileSize: 32, columns: 12, rows: 8, materials: 32, variants: 3,
       preparation: 'Nearest-neighbour source directly to 32px; shared residual, periodic and overlay helpers; four-pixel shared boundary band; no 24px intermediate.',
       palette: Object.fromEntries(Array.from({ length: 32 }, (_, t) => [t, '#' + colors[t].toString(16).padStart(6, '0')])),

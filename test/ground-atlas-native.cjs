@@ -28,6 +28,14 @@ const directory = path.resolve(process.argv[2] || path.join(root, 'assets/ground
       }
       context.drawImage(images[1], 0, 0);
       const composed = context.getImageData(0, 0, 384, 256).data;
+      // One slab per32px cell: its broad face must not contain a mini-tile grid
+      // or the quantization speckle that previously made the paving noisy.
+      const commercialFace = new Set();
+      for (let y = 6; y < 26; y++) for (let x = 6; x < 26; x++) {
+        const offset = ((128+y)*384+x)*4;
+        commercialFace.add(Array.from(composed.slice(offset,offset+3)).join(','));
+      }
+      if (commercialFace.size !== 1) throw new Error('Commercial base must have one flat slab face per cell');
       const composedColorCounts = [];
       const omitted = new Set(omittedMaterials);
       let omittedDetailAlphaMax = 0, lavaRedMean = 0, lavaSaturationMean = 0;
