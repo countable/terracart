@@ -1,9 +1,10 @@
 // Optional image-ground trial. Native detail pixels are prepared offline; the
 // renderer keeps its existing palette, blend masks and cached biome keys.
 const GroundAtlas = (() => {
-  const KEY = 'ground_atlas_trial', ART_SIZE = 32;
+  const KEY = 'ground_atlas_trial', ART_SIZE = 32, VARIANTS = 3, COLUMNS = 12;
   const canvases = new Map();
-  const preserved = new Set([9, 11, 12, 25, 30]);
+  // Keep the approved procedural sand and specialized structural painters.
+  const preserved = new Set([2, 9, 11, 12, 25, 30]);
   const animated = new Set([3, 23, 26]);
   const enabled = () => typeof location !== 'undefined'
     && new URLSearchParams(location.search).get('groundAtlas') === 'true';
@@ -65,18 +66,18 @@ const GroundAtlas = (() => {
     canvases.clear();
     if (!enabled() || !scene.textures.exists(KEY)) return;
     const image = scene.textures.get(KEY).getSourceImage();
-    if (image.width !== ART_SIZE * 8 || image.height !== ART_SIZE * 8) return;
+    if (image.width !== ART_SIZE * COLUMNS || image.height !== ART_SIZE * 8) return;
     for (let type = 0; type < 32; type++) {
       if (preserved.has(type)) continue;
       // Pier water shares water art and animation; planks remain a separate layer.
       const sourceType = type === 23 ? 3 : type;
-      for (let v = 0; v < 2; v++) {
-        const frame = sourceType * 2 + v;
+      for (let v = 0; v < VARIANTS; v++) {
+        const frame = sourceType * VARIANTS + v;
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = ART_SIZE;
         const target = canvas.getContext('2d');
         target.imageSmoothingEnabled = false;
-        target.drawImage(image, (frame % 8) * ART_SIZE, Math.floor(frame / 8) * ART_SIZE,
+        target.drawImage(image, (frame % COLUMNS) * ART_SIZE, Math.floor(frame / COLUMNS) * ART_SIZE,
           ART_SIZE, ART_SIZE, 0, 0, ART_SIZE, ART_SIZE);
         canvases.set(`${type}_${v}`, canvas);
       }
@@ -84,7 +85,7 @@ const GroundAtlas = (() => {
   }
 
   function draw(ctx, size, type, variant) {
-    const canvas = canvases.get(`${type}_${variant % 2}`);
+    const canvas = canvases.get(`${type}_${variant % VARIANTS}`);
     if (!canvas) return false;
     ctx.save();
     ctx.imageSmoothingEnabled = false;
@@ -92,5 +93,11 @@ const GroundAtlas = (() => {
     ctx.restore();
     return true;
   }
-  return { KEY, enabled, prepare, draw, animated, residual, periodic, overlay };
+  const variantCount = (type, fallback) => canvases.has(`${type}_0`) ? VARIANTS : fallback;
+  function pickVariant(type, hash, fallback) {
+    if (!canvases.has(`${type}_0`)) return hash % fallback;
+    const roll = hash % 10;
+    return roll < 8 ? 0 : roll - 7;
+  }
+  return { KEY, enabled, prepare, draw, variantCount, pickVariant, animated, residual, periodic, overlay };
 })();

@@ -2,10 +2,14 @@
 
 The opt-in ground atlas (`?groundAtlas=true`) uses pre-baked 32×32 transparent
 detail tiles. Offline export owns palette-relative pixels and shared seamless
-variant edges; runtime loading only crops the 256×256 sheet. Ground colour
-fills, biome/shore borders and animated ripple frames keep their existing
-layer order. The report compares the native export with the former 24→32
-trial; it does not replace the in-game transition geometry.
+variant edges. Each material has a mostly plain base and two subtle decoration
+variants, selected deterministically at 80% / 10% / 10%; runtime loading only
+crops the 384×256 sheet. Ground colour fills, biome/shore borders and animated ripple frames keep their existing
+layer order. Sand keeps its approved original procedural painter even with the
+trial enabled. The report places the procedural original beside the latest
+export, including identical original sand in both panels; its atlas edge
+metric excludes sand. The former 24→32 trial remains available for reference.
+The report does not replace the in-game transition geometry.
 
 Detail doc for projection, sprite seating, performance, lighting and street
 restoration. The root `CLAUDE.md` owns the overview; read this before changing
