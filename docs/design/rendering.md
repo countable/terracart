@@ -97,6 +97,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   existing resize path, which explicitly restores the logical CSS size before
   refreshing input bounds when returning to scale 1. Explicit `?rscale=N` remains a diagnostic override,
   bounded to 1–2×; game cadence is unchanged.
+- iPhone compass samples with negative headings or negative/non-finite accuracy
+  are ignored, retaining the last usable bearing while the sensor recalibrates.
+  The first absolute bearing replaces any relative startup smoothing history.
 - Heading-up is the default (`?headingUp=false` keeps north up). The main
   camera turns about the view centre by `-compassDeg` (Q / E fake it on
   desktop), and the map clips to the inscribed circle. Phaser's two-corner
