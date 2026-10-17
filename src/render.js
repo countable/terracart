@@ -900,6 +900,8 @@ Render.petTexture = function petTexture(scene, kind, sheet, tint = 0xffffff) {
 // Phaser's Canvas renderer ignores sprite tint. Bake each used tint of a
 // texture once there, frames and all (a pet's palette, an elite's ring);
 // WebGL keeps the shared neutral texture and its cheap vertex tint.
+// Muted oak brown brings the default barrel closer to the supply crate.
+Render.DEFAULT_BARREL_TINT = 0xd9c9b8;
 Render.canvasTint = function canvasTint(scene, neutral, tint) {
   if (typeof Phaser === 'undefined' || scene.sys?.game?.renderer?.type !== Phaser.CANVAS
       || !Number.isFinite(tint) || tint === 0xffffff) return neutral;
@@ -5788,16 +5790,13 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
   // hides — used for variants that haven't baked yet.
   // Supply-crate / lowtier-chest sprite scale (the 16×16 `box` art).
-  // 0.8 (down 20% from 1.0, Sep 2026 playtest) — 16 × 0.8 = ~13px inside the
-  // 32px cell.
-  const CRATE_SCALE = 0.8;
+  // Supply crates fill about 14px of the 32px cell.
+  const CRATE_SCALE = 0.8 * 1.1;
   // Bike racks use their original small-prop scale. Wooden barrels use a
-  // 24px frame at half their former size, including the smashed frame.
+  // 24px frame, with two successive 10% size increases.
   const SMALL_POI_SCALE = 1.3;
-  // Barrels read too small and pots too big beside each other at 2/3 and
-  // (4/3)*0.8 (owner, Oct 2026: two passes of 5% each, then pots a further
-  // 8%); the two factors below are that correction.
-  const BARREL_SCALE = (2 / 3) * 1.1;
+  // Keep barrel and pot tuning independent so the two silhouettes balance.
+  const BARREL_SCALE = (2 / 3) * 1.1 * 1.1;
   // Clay pots (and their smashed frame, the same look) drew at 4/3 and read a
   // fifth too large beside the barrels; 20% off that, per the Oct 2026 pass.
   const CLAY_POT_SCALE = (4 / 3) * 0.8 * 0.9 * 0.92;
@@ -6040,8 +6039,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // Chest kinds and the market stall are drawn smaller than their sheet (they
               // crowded the cell) about the SAME centre: seated kinds (trunk chest, crates)
               // are re-centred by the seat pass, and the stall's dxPx/dyPx are derived for
-              // its scale. Crates (box, 16×16) sit at CRATE_SCALE (16 × 0.8 = ~13px) so a
-              // crate reads as a small prop; the gold chest uses CHEST_SCALE (~22px wide).
+              // its scale. Crates (box, 16×16) sit at CRATE_SCALE (16 × 0.88 = ~14px) so a
+              // crate reads as a small prop; the gold chest uses CHEST_SCALE (~18px wide).
               // The stall is a structure, not a chest. Wooden barrels fill 16px; clay pots draw at CLAY_POT_SCALE.
               // The shared spec also sizes the map-review artwork.
               scale: (o) => { const L = chestLook(o);
@@ -6067,7 +6066,15 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // Plain chests + crates obey the "one cell" rule (centred); produce
               // stands, macro stalls and the wagon are structure-like and stay foot-anchored.
               seat: (o) => { const L = chestLook(o); return !L.stand && !L.macro && !L.wagon; },
-              shadow: true },
+              shadow: true,
+              after: (sprite, o, scene) => {
+                const look = chestLook(o);
+                if (look.texKey === 'barrel' && look.frame === 0) {
+                  sprite.setTint(Render.DEFAULT_BARREL_TINT);
+                  setTextureIfDifferent(sprite, Render.canvasTint(scene, 'barrel', Render.DEFAULT_BARREL_TINT));
+                  sprite.setFrame(0);
+                }
+              } },
     fruittree: { key: (o) => `${o.species === 'worldpeach' ? 'worldpeach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o), state = _ftState(o);

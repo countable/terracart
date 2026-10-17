@@ -835,8 +835,11 @@ A new live game waits for the first compass reading before placing its trailer
 and campfire, for at most `HomeArea.FIREPIT_COMPASS_GRACE_MS`; with no reading
 by then it places them north-up. The player remains at their GPS position. The starting offsets
 rotate into that heading once, including the trailer art’s doorway offset so
-the doorway stays close to the player at every initial heading, seating the trailer ahead of the player and the
-firepit one cell behind them on the door side (directly below the player in the
-initial view). If that cell is water or road, it uses the nearest dry fallback. The saved layout stays fixed through later
+the trailer bottom stays above the player’s entire starting cell at every
+initial heading, seating the trailer ahead of the player and the
+firepit two cells behind them on the door side (directly below the player in the
+initial view). If that cell is water or road, it uses the nearest dry fallback. Both the
+preferred cell and every fallback leave at least half a cell between the
+trailer art extent and the firepit cell edge at the initial heading. The saved layout stays fixed through later
 heading changes and reloads. Existing Homes keep their saved positions; sandbox
 and north-up previews retain the north-facing layout.

@@ -335,8 +335,8 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   and flint when marked `rockMaterial: 'flint'`, including flint-bearing L1
   cave rubble. The flint mark takes precedence over the generic cave variant. Partial
   cover (`sightBlocking: true`) selects the taller boulder silhouette.
-  Regular rocks and boulders both use 24px frames at 92% of scale 16/15 (`ROCK_WORLD_SCALE`; placed
-  stones 2.304, the produce icon); their height
+  Regular rocks and boulders both use 24px frames at 80.96% of scale 16/15 (`ROCK_WORLD_SCALE`; placed
+  stones 1.408, the produce icon); their height
   difference is authored into the graphic-storybook atlas (8 columns, 9 rows).
   Outside authored rock zones, wild rubble shares
   the four generic plain small shapes and skips biome tint; planted crop stages
@@ -350,9 +350,9 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   the place; Work Yard uses a cut stone slab and Crater Quarry has a glowing lava
   seam painted into the sprite. These contain no collectible mineral inclusions.
   The same 24px
-  frame scales to 4/3 for both small stones and sight-blocking boulders.
+  frame uses the same `ROCK_WORLD_SCALE` for small stones and sight-blocking boulders.
   `ROCK_VARIANT_ART` owns these scales; placed rocks draw their 16px produce
-  frame at 1.6×, comfortably inside a cell.
+  frame at 1.408×, comfortably inside a cell.
   These display sizes leave mining
   quantities, occupied cells and cover behavior unchanged.
   Named context/variant fields resolve the theme, with legacy zone-object
@@ -613,3 +613,7 @@ Castle perimeter towers retain their existing material-family art. The rounded
 wreck and unclaimed fort contain their weathering and receive no second wash.
 The source sheet and extraction metadata are archived under
 `~/.artifacts/house-rounded/`.
+
+Default oak barrels use a muted brown tint to match supply crates and scale to
+`(2/3) × 1.1 × 1.1`. Long grass uses `1.16 × 0.9`; trunk chests use
+`1.6 × 0.8`, and supply crates use `0.8 × 1.1`. Chests have trimmed bounds for every tier to keep their art centered.
