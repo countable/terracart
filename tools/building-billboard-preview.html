@@ -1,11 +1,10 @@
 <!doctype html><meta charset="utf-8"><title>Billboard-look prototype</title>
 <style>body{margin:0;background:#243947;color:#efe8da;font:16px system-ui}header{padding:16px;line-height:1.7}canvas{display:block}input,button,select{font:inherit}label{margin-right:14px}</style>
-<header><b>Billboard-look prototype</b> · silhouette outline, offset drop shadow and compressed height, applied as extra batches over the retained low-poly meshes. Nothing in <code>src/</code> changes; this page wraps <code>BuildingLowPoly.update</code> and the WebGL draw.<br>
+<header><b>Billboard-look prototype</b> · ink outline and compressed height as extra batches over the retained low-poly meshes; flat roofs drawn as a plain outlined slab; rebuilt chimney stack. Nothing in <code>src/</code> changes; this page wraps <code>BuildingLowPoly.update</code>, <code>add</code> and the WebGL draw.<br>
 <label>Compass <input id="angle" type="range" min="0" max="360" value="0"></label><button id="sweep">Sweep</button>
 <label><input id="outline" type="checkbox" checked> Outline</label>
-<label><input id="shadow" type="checkbox" checked> Drop shadow</label>
+<label>Ink px <input id="ink" type="range" min="1" max="3" step="1" value="2"><span id="inkv">2</span></label>
 <label>Height ×<input id="zscale" type="range" min="0.3" max="1" step="0.05" value="0.6"><span id="zv">0.60</span></label>
-<label>Shadow offset <input id="soff" type="range" min="0" max="14" step="1" value="7"></label>
 <span id="stats"></span></header><div id="game"></div>
 <script src="../vendor/phaser.js"></script><script src="../src/util.js"></script><script src="../src/castle_styles.js"></script><script src="../src/textures.js"></script><script src="../src/building_styles.js"></script><script src="../src/building_lowpoly.js"></script>
 <script>
@@ -13,14 +12,68 @@
 // 1. Height compression: project z through a scale so upright forms foreshorten
 //    (map-perspective.md: "compressed front-facing planes"). Done by re-running
 //    the projection here rather than editing src/building_lowpoly.js.
-// 2. Outline: each building's visible triangles re-emitted in the solid trim
-//    texel, tinted ink, at eight 1-art-pixel screen offsets, before its faces.
-// 3. Drop shadow: the same silhouette once more, translucent blue-grey, offset
-//    down-left, before the outline. Shadows precede nearer buildings in the
-//    depth-sorted stream, so a closer roof always covers a farther shadow.
-const UI={outline:()=>document.querySelector('#outline').checked,shadow:()=>document.querySelector('#shadow').checked,
-  zscale:()=>+document.querySelector('#zscale').value,soff:()=>+document.querySelector('#soff').value};
-const INK=0x2a2229, SHADOW=0x27304a, SHADOW_ALPHA=.42;
+// 2. Outline: each ink group's visible triangles re-emitted in the solid trim
+//    texel, tinted ink, at eight screen offsets of N art pixels, before its
+//    faces. Ink groups within one building: body, then a flat roof slab, then
+//    the chimney, so each gets a line where it meets the surface below it.
+// 3. Flat roofs: parapet lips dropped; the slab draws as one flat colour with
+//    only its outline (reference: outlined plain slabs, no masonry texture).
+// 4. Chimney: the 9-unit grey block becomes a taller brick stack with a wider
+//    lit cap and a dark opening, as its own ink group.
+const UI={outline:()=>document.querySelector('#outline').checked,ink:()=>+document.querySelector('#ink').value,
+  zscale:()=>+document.querySelector('#zscale').value};
+const INK=0x2a2229;
+const blend=(a,b,t)=>{const c=i=>Math.round(((a>>i)&255)*(1-t)+((b>>i)&255)*t);return (c(16)<<16)|(c(8)<<8)|c(0);};
+// Post-process one building's faces (prototype stand-in for geometry changes).
+function decorate(scene,mesh,recipe){
+  const state=scene._lowpoly,remove=new Set();
+  const flat=recipe.roofMaterial==='flat';
+  if(flat){
+    for(const f of mesh.faces){
+      if(f.kind==='trim')remove.add(f);
+      else if(f.kind==='roof'){f.solid=recipe.roof;f.light=1;f.inkGroup=1;}
+    }
+    // Wall-top indication: a 3.5-unit lighter rim inside the slab edge. Only
+    // where the mesh exposes its ring (the plain flat variant); the terraced
+    // market needs this in styleGeometry once folded into src/.
+    const inner=!mesh.uvBaseline&&BuildingStyles.inset(mesh.ring,3.5);
+    if(inner&&inner.length===mesh.ring.length){
+      const sample=mesh.faces.find(f=>f.kind==='roof'),rim=blend(recipe.roof,0xf3e6c8,.5);
+      mesh.ring.forEach((a,i)=>{const b=mesh.ring[(i+1)%mesh.ring.length],c=inner[(i+1)%inner.length],d=inner[i];
+        for(const tri of [[a,b,c],[a,c,d]]){
+          const face={...sample,points:tri.map(p=>({...p,z:mesh.height+.01,tu:510/512,tv:126/512})),kind:'trim',color:rim,solid:rim,light:1,layer:2.05,inkGroup:1,wallDirection:undefined,projected:tri.map(()=>({}))};
+          mesh.faces.push(face);state.faces.push(face);
+        }});
+    }
+  }
+  const chimney=mesh.faces.filter(f=>f.chimney);
+  if(chimney.length){
+    const top=chimney.filter(f=>f.layer===2.7).flatMap(f=>f.points);
+    const hi=top[0].z,lo=Math.min(...chimney.flatMap(f=>f.points.map(p=>p.z)));
+    const cx=top.reduce((s,p)=>s+p.x,0)/top.length,cy=top.reduce((s,p)=>s+p.y,0)/top.length;
+    const {x:ux,y:uy}=mesh.ridge;
+    for(const f of chimney)remove.add(f);
+    const sample=chimney[0];
+    const push=(points,color,wallDirection,layer)=>{
+      const face={...sample,points:points.map(p=>({...p,tu:510/512,tv:126/512})),kind:'trim',color,light:1,layer,wallDirection,chimney:true,inkGroup:2,projected:points.map(()=>({}))};
+      mesh.faces.push(face);state.faces.push(face);
+    };
+    const box=(r,z0,z1,color,layer)=>{
+      const c=[[-1,-1],[1,-1],[1,1],[-1,1]].map(([sx,sy])=>({x:cx+(ux*sx-uy*sy)*r,y:cy+(uy*sx+ux*sy)*r}));
+      c.forEach((a,k)=>{const b=c[(k+1)%4],d={x:b.x-a.x,y:b.y-a.y};
+        push([{...a,z:z0},{...b,z:z0},{...b,z:z1}],color,d,layer);push([{...a,z:z0},{...b,z:z1},{...a,z:z1}],color,d,layer);});
+      return c;
+    };
+    const stackTop=hi+5,brick=blend(recipe.roof,0x9a6b58,.75),cap=blend(brick,0xf0dcc4,.42),mouth=0x2a2229;
+    box(3.8,lo,stackTop-3,brick,2.6);
+    const rim=box(5.2,stackTop-3,stackTop,cap,2.62);
+    push([{...rim[0],z:stackTop},{...rim[1],z:stackTop},{...rim[2],z:stackTop}],cap,null,2.7);
+    push([{...rim[0],z:stackTop},{...rim[2],z:stackTop},{...rim[3],z:stackTop}],cap,null,2.7);
+    const hole=[[-1,-1],[1,-1],[1,1],[-1,1]].map(([sx,sy])=>({x:cx+(ux*sx-uy*sy)*3,y:cy+(uy*sx+ux*sy)*3,z:stackTop+.01}));
+    push([hole[0],hole[1],hole[2]],mouth,null,2.71);push([hole[0],hole[2],hole[3]],mouth,null,2.71);
+  }
+  if(remove.size){state.faces=state.faces.filter(f=>!remove.has(f));mesh.faces=mesh.faces.filter(f=>!remove.has(f));}
+}
 const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
 const originalUpdate=BuildingLowPoly.update;
 BuildingLowPoly.update=function(scene){
@@ -57,7 +110,7 @@ function installDraw(scene){
         if(pipeline.shouldFlush(3))pipeline.flush();
         const unit=pipeline.setTexture2D(f.texture.source[0].glTexture);
         const shade=f.light<.65?140:f.light<.88?199:255;
-        const color=f.color??0xffffff;
+        const color=f.solid??f.color??0xffffff;
         const litColor=(((color>>16)*shade/255)<<16)|((Math.round(((color>>8)&255)*shade/255))<<8)|Math.round((color&255)*shade/255);
         const tint=Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(litColor,camera.alpha*src.alpha);
         for(let i=0;i<3;i++){
@@ -65,23 +118,23 @@ function installDraw(scene){
           const contact=f.kind==='wall'&&!f.preserveWalls?1-.22*Math.min(1,f.points[i].z/Math.max(1,f.eaveHeight)):1;
           const wallTint=contact===1?tint:Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(
             (Math.round(shade*contact)<<16)|(Math.round(shade*contact)<<8)|Math.round(shade*contact),camera.alpha*src.alpha);
-          pipeline.batchVert(matrix.getX(p.x,p.y),matrix.getY(p.x,p.y),p.u,p.v,unit,0,wallTint);
+          pipeline.batchVert(matrix.getX(p.x,p.y),matrix.getY(p.x,p.y),f.solid?tu:p.u,f.solid?tv:p.v,unit,0,wallTint);
         }
       }
     };
     // Faces arrive sorted by building (support.depth, support.order), so one
     // building is a contiguous run.
-    let group=[],support=null;
+    let group=[],support=null,ink=0;
     const flush=()=>{
       if(!group.length)return;
-      const o=UI.soff()*px;
-      if(UI.shadow()&&o)solid(group,-o,o*.8,SHADOW,SHADOW_ALPHA);
-      if(UI.outline())for(const [ox,oy] of [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]])solid(group,ox*px,oy*px,INK,1);
+      const t=UI.ink()*px;
+      if(UI.outline())for(const [ox,oy] of [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]])solid(group,ox*t,oy*t,INK,1);
       faces(group);group=[];
     };
     for(const f of state.faces){
       if(!f.visible)continue;
-      if(f.support!==support){flush();support=f.support;}
+      const g=f.inkGroup||0;
+      if(f.support!==support||g!==ink){flush();support=f.support;ink=g;}
       group.push(f);
     }
     flush();
@@ -95,13 +148,13 @@ function rebuild(){const s=reviewScene;BuildingLowPoly.begin(s);installDraw(s);s
 roles.forEach((role,i)=>{const x=55+(i%4)*265,y=125+Math.floor(i/4)*250;
 const pts=[{x,y},{x:x+120,y},{x:x+120,y:y+65},{x:x+150,y:y+65},{x:x+150,y:y+115},{x,y:y+115}];
 const recipe=BuildingLowPoly.recipeFor(role,{...palettes[role],trim:0x614534});
-const mesh=BuildingLowPoly.add(s,pts,recipe,recipe.variant||'ridge',role);
+const mesh=BuildingLowPoly.add(s,pts,recipe,recipe.variant||'ridge',role);decorate(s,mesh,recipe);
 s.labels.push(s.add.text(x,y+140,(role==='trader'?'market / trader':role)+' · '+mesh.faces.length+' triangles',{fontSize:'15px',color:'#efe8da'}));});
 // The game's own 2D house sprite, upright (billboarded) for direct comparison.
 {const i=roles.length,x=55+(i%4)*265,y=125+Math.floor(i/4)*250;
  const sprite=s.add.image(x+75,y+115,'house','front').setOrigin(.5,1).setScale(2);s.legacySprites.push(sprite);
  s.labels.push(s.add.text(x,y+140,'2D house sprite (house.png, ×2)',{fontSize:'15px',color:'#efe8da'}));}
 BuildingLowPoly.update(s);document.querySelector('#stats').textContent=s._lowpoly.faces.length+' triangles / '+roles.length+' types';}
-new Phaser.Game({type:Phaser.WEBGL,width:1100,height:1080,parent:'game',backgroundColor:'#6f8a4e',scene:{preload(){this.load.image('house','../assets/Objects/Approved/house.png');this.load.image('building_material_reference','../assets/Objects/BuildingMaterials/reference-materials-v2.png');},create(){this.textures.get('house').add('front',0,148,3,72,95);reviewScene=window.reviewScene=this;this._headingUp=true;this.buildingWallContainer=this.add.container();rebuild();window.ready=true;},update(t,dt){if(sweeping)document.querySelector('#angle').value=(+document.querySelector('#angle').value+dt*.02)%360;this.mapRot=+document.querySelector('#angle').value*Math.PI/180;this.cameras.main.setRotation(this.mapRot);for(const sprite of this.legacySprites||[])sprite.setRotation(-this.mapRot);document.querySelector('#zv').textContent=UI.zscale().toFixed(2);BuildingLowPoly.update(this);}}});
+new Phaser.Game({type:Phaser.WEBGL,width:1100,height:1080,parent:'game',backgroundColor:'#6f8a4e',scene:{preload(){this.load.image('house','../assets/Objects/Approved/house.png');this.load.image('building_material_reference','../assets/Objects/BuildingMaterials/reference-materials-v2.png');},create(){this.textures.get('house').add('front',0,148,3,72,95);reviewScene=window.reviewScene=this;this._headingUp=true;this.buildingWallContainer=this.add.container();rebuild();window.ready=true;},update(t,dt){if(sweeping)document.querySelector('#angle').value=(+document.querySelector('#angle').value+dt*.02)%360;this.mapRot=+document.querySelector('#angle').value*Math.PI/180;this.cameras.main.setRotation(this.mapRot);for(const sprite of this.legacySprites||[])sprite.setRotation(-this.mapRot);document.querySelector('#zv').textContent=UI.zscale().toFixed(2);document.querySelector('#inkv').textContent=UI.ink();BuildingLowPoly.update(this);}}});
 document.querySelector('#sweep').onclick=()=>sweeping=!sweeping;
 </script>
