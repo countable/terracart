@@ -43,5 +43,33 @@ const game=await browser.newPage();const gameErrors=[];game.on('pageerror',e=>ga
  entry.buildingShapes.push({key:'lowpoly-browser-fixture',tier:9,ring:Float32Array.from([x-m,y-m,x+m,y-m,x+m,y+m,x,y+m,x,y,x-m,y])});
  BuildingOverlay.setEnabled(scene,true);scene._overlayFrameSeq++;scene.drawBuildingGeometry();scene.drawObjects();
  const state=scene._lowpoly;return {lowpoly:!!state,buildings:state?.buildings.length,covered:state?.keys.has('lowpoly-browser-fixture'),keys:[...state.keys],renderer:scene.game.renderer.type,generated:scene.textures.exists('building_material_reference'),wizardKey:Render.houseTextureKey('wizard',{id:'test'},scene),turretKey:Render.houseTextureKey('turret',{id:'test'},scene),towerMeshes:state.buildings.filter(m=>['wizard','turret'].includes(m.role)).length};
-});console.log('game',runtime);assert(runtime.generated);assert.equal(runtime.wizardKey,'shrine');assert.equal(runtime.turretKey,'tower');assert.equal(runtime.towerMeshes,0);assert(runtime.lowpoly&&runtime.buildings>0&&runtime.covered,'actual game renders the injected notched footprint');await game.evaluate(()=>document.querySelectorAll('#bootload,#story,#safety-card').forEach(e=>e.remove()));await game.waitForTimeout(100);await game.screenshot({path:'/tmp/lowpoly-game.png'});assert.deepEqual(gameErrors,[]);
+});
+// Check the live Phaser container order, including the north-up path.
+const mixed=await game.evaluate(async()=>{
+ const s=__scene,mesh=s._lowpoly.buildings.find(m=>m.obj.visible),objects=[];
+ const previousPeers=s._peerUprightPieces;
+ for(const dy of [-24,24]){
+  const a=mesh.obj._huAnchor,o=s.add.image(a.x,a.y+dy,'__WHITE').setDisplaySize(12,70).setOrigin(.5,1);
+  o._huAnchor={x:a.x,y:a.y+dy};s.worldContainer.add(o);objects.push(o);
+ }
+ const anchor=viewAnchorWorldM(s);
+ s._peerUprightPieces=objects.map(o=>({sprite:o,rank:3,groundY:anchor.y+(o.y-s.viewCenterY)*s.cellM/CELL_PX}));
+ const results=[];
+ try{
+  s.drawObjects();
+  // Run the shipping pre-render synchronously so sensor easing cannot change
+  // the requested heading between sorting and inspection.
+  for(const angle of [0,.37,Math.PI/2+.1,Math.PI,Math.PI*1.5+.1]){
+   s.mapRot=angle;HeadingUp._preRender(s);
+   const list=s.worldContainer.list.filter(o=>o===mesh.obj||objects.includes(o));
+   const key=o=>Math.sin(angle)*o._huAnchor.x+Math.cos(angle)*o._huAnchor.y;
+   results.push({angle,ordered:list.every((o,i)=>!i||key(list[i-1])<=key(o)),count:list.length,rotation:mesh.obj.rotation});
+   HeadingUp._postRender(s);
+  }
+ }finally{for(const o of objects)o.destroy();s._peerUprightPieces=previousPeers;}
+ return results;
+});
+assert(mixed.every(r=>r.ordered&&r.count===3&&r.rotation===0),'live world interleaves buildings and billboards at every heading');
+console.log('mixed ordering',mixed);
+console.log('game',runtime);assert(runtime.generated);assert.equal(runtime.wizardKey,'shrine');assert.equal(runtime.turretKey,'tower');assert.equal(runtime.towerMeshes,0);assert(runtime.lowpoly&&runtime.buildings>0&&runtime.covered,'actual game renders the injected notched footprint');await game.evaluate(()=>document.querySelectorAll('#bootload,#story,#safety-card').forEach(e=>e.remove()));await game.waitForTimeout(100);await game.screenshot({path:'/tmp/lowpoly-game.png'});assert.deepEqual(gameErrors,[]);
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
