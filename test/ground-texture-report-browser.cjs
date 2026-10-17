@@ -48,11 +48,11 @@ const { chromium } = require('playwright-core');
     }
     await page.selectOption('#zoom', '1');
     const adjacent = await page.evaluate(() => {
-      const old = document.querySelector('#old').closest('figure').getBoundingClientRect();
+      const old = document.querySelector('#procedural').closest('figure').getBoundingClientRect();
       const next = document.querySelector('#new').closest('figure').getBoundingClientRect();
       return old.top === next.top && old.right <= next.left;
     });
-    assert.equal(adjacent, true, 'Old and new remain side by side');
+    assert.equal(adjacent, true, 'Procedural original and latest remain side by side');
     assert.deepEqual(errors, []);
     if (process.env.GROUND_REPORT_SCREENSHOT) await page.screenshot({ path: process.env.GROUND_REPORT_SCREENSHOT, fullPage: true });
     console.log(JSON.stringify(result, null, 2));
