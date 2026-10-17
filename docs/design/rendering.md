@@ -483,7 +483,9 @@ to the existing noon level. Underground lighting is unchanged.
   lamps even inside a nexus.
   One list and `lit` flag feed art and lighting. Derive verge offset from road
   width and lamp footprint; art and light share the same world point. Lantern
-  rise is a draw-space offset; retune height through `LAMP_PROFILE`.
+  rise is a draw-space, screen-up offset (`dyPx`); on a turned heading-up map
+  `Lighting.liftPx` turns it back into the map's frame so the glow stays on
+  the upright lamp's lantern. Retune height through `LAMP_PROFILE`.
   Collect/cache lamps about the camera anchor, only after tiles finish loading.
   A lamp's footing (`RoadOverlay.lampCellsFor`, the same reserved cells
   dressing keeps clear) is never tillable: `cellAt` flags it `underLamp` and

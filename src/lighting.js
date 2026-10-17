@@ -979,7 +979,10 @@
   // lift in screen pixels — the shape RENDER_SPEC's own dyPx has for the
   // sprite — rather than as metres folded into dy, so the light's world
   // position stays exactly the lamp's, and one number lifts the glow and the
-  // glass together whatever a cell is worth in metres.
+  // glass together whatever a cell is worth in metres. On a turned map
+  // (heading-up) the lift is turned back into the map's frame where it is
+  // read (liftPx), because the lamp stands upright on screen while the
+  // lightmap turns with the ground.
   function lampRiseCells() {
     return (typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_LANTERN_RISE_CELLS) || 0;
   }
@@ -1134,10 +1137,26 @@
     const t = 1 - d / R;
     return clamp01(a) * (L.g == null ? 1 : L.g) * row.peak * t * t * lum(L.colour == null ? row.colour : L.colour);
   }
-  // A light's draw-space lift (a lamp's lantern), back in metres.
-  function liftM(L, cellM) {
-    if (!L.dyPx) return 0;
-    return L.dyPx / ((typeof CELL_PX !== 'undefined') ? CELL_PX : 32) * cellM;
+  // A light's draw-space lift (a lamp's lantern, a bolt's orb), as the
+  // vector it is on the LIGHTMAP, in px. `dyPx` is a SCREEN-up lift — the
+  // art it belongs to stands upright on screen whatever the map's heading
+  // (HeadingUp._upright turns every sprite back about its foot) — but the
+  // lightmap is a map layer the camera turns with the ground, so screen-up
+  // is map-up only north-up. Turned back by the map's angle (the inverse
+  // of HeadingUp.toScreenPt, the sprites' own turn), the lift lands on the
+  // lantern at every heading; applied straight down the map's y it sat
+  // off the post sideways at a quarter turn.
+  function liftPx(scene, L) {
+    const d = L.dyPx || 0;
+    if (!d) return { x: 0, y: 0 };
+    const a = (typeof HeadingUp !== 'undefined' && HeadingUp.angle) ? HeadingUp.angle(scene) : 0;
+    return a ? { x: Math.sin(a) * d, y: Math.cos(a) * d } : { x: 0, y: d };
+  }
+  // …and back in metres, for the brightness readers.
+  function liftM(scene, L, cellM) {
+    const p = liftPx(scene, L);
+    const k = cellM / ((typeof CELL_PX !== 'undefined') ? CELL_PX : 32);
+    return { x: p.x * k, y: p.y * k };
   }
   function playerLightAt(scene, wx, wy, prof) {
     if (!scene.playerM || !scene.startWorldM) return 0;
@@ -1190,12 +1209,16 @@
     } finally {
       scene._lights = frame;
     }
-    for (const L of own) b += cookieLevel(L, -L.dx, -(L.dy + liftM(L, cellM)), cellM, now, pnow);
+    for (const L of own) {
+      const l = liftM(scene, L, cellM);
+      b += cookieLevel(L, -(L.dx + l.x), -(L.dy + l.y), cellM, now, pnow);
+    }
     const A = scene._lightAnchor;
     if (frame && A) {
       for (const L of frame) {
         if (COLLECTED_KINDS.has(L.kind)) continue;
-        b += cookieLevel(L, wx - (A.x + L.dx), wy - (A.y + L.dy + liftM(L, cellM)), cellM, now, pnow);
+        const l = liftM(scene, L, cellM);
+        b += cookieLevel(L, wx - (A.x + L.dx + l.x), wy - (A.y + L.dy + l.y), cellM, now, pnow);
       }
     }
     return clamp01(b);
@@ -1266,11 +1289,13 @@
   // which also keeps a glow locked to the sprite it belongs to.
   //
   // A light's centre on the lightmap canvas (before the origin comes off),
-  // in whole px: the sprite's own rounding of the same projection. Without a
-  // view centre to place it by (a bare scene), the raw offsets.
+  // in whole px: the sprite's own rounding of the same projection, plus its
+  // lift turned into the map's frame (liftPx). Without a view centre to
+  // place it by (a bare scene), the raw offsets.
   function lightCentrePx(scene, L) {
     const c = deltaMToScreen(scene, L.dx, L.dy);   // coords.js — the sprites' own projection
-    return { x: Math.round(c.x), y: Math.round(c.y + (L.dyPx || 0)) };
+    const l = liftPx(scene, L);
+    return { x: Math.round(c.x + l.x), y: Math.round(c.y + l.y) };
   }
   function placesInPx(scene) {
     return Number.isFinite(scene.viewCenterX) && Number.isFinite(scene.viewCenterY) && scene.cellM > 0;
@@ -1683,14 +1708,16 @@
   function cookiePhase(scene, L, ax, ay) {
     const k = CELL_PX / scene.cellM;
     const frac = (v) => Math.round(((v - Math.floor(v)) + 1) % 1 * 1e6);
-    return `${frac((ax + L.dx) * k)},${frac((ay + L.dy) * k + (L.dyPx || 0))}`;
+    const l = liftPx(scene, L);
+    return `${frac((ax + L.dx) * k + l.x)},${frac((ay + L.dy) * k + l.y)}`;
   }
   function cookieGroupKey(scene, lights, ax, ay, crit) {
     const k = CELL_PX / scene.cellM;
     let out = `${scene.cellM}|${crit ? `${crit.mix},${crit.a}` : '-'}`;
     for (const L of lights) {
-      const x = Math.round((ax + L.dx) * k * 1e6);
-      const y = Math.round(((ay + L.dy) * k + (L.dyPx || 0)) * 1e6);
+      const l = liftPx(scene, L);
+      const x = Math.round(((ax + L.dx) * k + l.x) * 1e6);
+      const y = Math.round(((ay + L.dy) * k + l.y) * 1e6);
       out += `|${L.kind},${L.id},${x},${y},${L.dyPx},${L.r},${L.colour},${L.g}`;
     }
     return out;
@@ -2214,6 +2241,6 @@
     collectPlayer, playerLightMul, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, REACH_FADE_MS, reachFrames, reachFramesKey, coverFrame, draw,
-    LIGHT_TICK_MS, lightClock, baseFrameKey, staticFrameKey, lightCentrePx, plateauPxKey, LIGHT_CACHE_PAD_CELLS, LIGHT_CACHE_LIMIT_CELLS, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,
+    LIGHT_TICK_MS, lightClock, baseFrameKey, staticFrameKey, lightCentrePx, liftPx, plateauPxKey, LIGHT_CACHE_PAD_CELLS, LIGHT_CACHE_LIMIT_CELLS, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,
   };
 })(window);
