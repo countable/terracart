@@ -33,32 +33,26 @@ removing a runtime painting.
 
 ## Story-panel style references
 
-The original art is preferred over all ten regenerated review scenes for its
-restricted palette and painterly quality. Keep those originals as the reference
-sources; the review generations are not approved replacements. Prefer crops for
-4:3 framing while preserving the original texture, colour and atmosphere.
-For `cave_first.webp`, retain its atmospheric dark edges when framing; that
-scene-specific darkness is not a text field and is not a global vignette rule.
+The user-approved set is archived at
+`~/.artifacts/terracart-art/story-style-references/`. Exact paths, source
+provenance, dimensions, roles and SHA-256 hashes are tracked in
+[story-style-references.json](story-style-references.json):
 
-Every new or regenerated story panel must include an approved existing panel
-showing the Hood as an explicit image reference. Select it from the story-panel
-presentation with the user; record its asset path and hash with the prompt.
-Include scene-specific references as well when preserving a booth, prop or
-composition. Do not replace the visual reference with prose describing a style.
+- `cave.png`: edited original cave, 4:3 and slightly taller Hood.
+- `sundries.png`: approved painterly shop with the original close framing.
+- `outdoor_work.png`: approved working-without-tools outdoor treatment.
+- `grove_shrine.webp`: original shrine unchanged; disregard its lower copy zone.
 
-The approved references are `assets/art/cave_first.webp` for Hood's appearance,
-`assets/art/npc_orrin.webp` for pixel illustration treatment, and the original
-`assets/art/restore_house.webp` for outdoor skies, landscape and warm palette.
-The original `assets/art/street_bandit.webp` supplies the restricted palette,
-deliberate pixel clusters and stepped shading; prefer its simpler pixel style
-over the more finely textured roadside-wagon remake.
-For outdoor scenes include that third reference explicitly. Keep rich warm
-colour while making time of day ambiguous; do not default to gray or desaturation.
-Their old lower text zones are not part of the reference style.
-New story/event art targets 4:3 landscape with all copy below
-the image in the dialog. Review a deliberate crop before regenerating an
-otherwise suitable painting. Keep the first two opening panel formats (compass
-and nightmare, both animation frames each); exclude the book-reading UI background.
+Supply these as image references, not just prose descriptions. Include the
+original target painting for scene identity and camera framing, and record the
+actual reference paths/hashes with each prompt. The art-direction brief owns
+the style, palette, framing and concealment rules. Earlier unselected review
+remakes are not approved references or live replacements.
+
+The masters are outside the checkout, like other archived source art. Preserve
+these exact files; regeneration is not a reproducible substitute. Crop a good
+original before repainting when only aspect ratio needs changing. The cave's
+atmospheric dark edges are scene-specific, not a text field or global vignette.
 
 ## Paired booth paintings
 

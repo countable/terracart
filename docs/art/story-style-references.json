@@ -1,0 +1,50 @@
+{
+  "status": "User-approved visual reference set",
+  "archive_root": "~/.artifacts/terracart-art/",
+  "references": [
+    {
+      "id": "cave",
+      "archive_path": "story-style-references/cave.png",
+      "source": "/home/claude/.artifacts/cave-shop-reference/after/cave_first.png",
+      "role": "Hood appearance and slightly taller proportions; softly painterly pixels; cave darkness is scene-specific",
+      "sha256": "6ab0f755d8be79fa588524dc1057bcd522f32d7059f527d4b3cab11d755288c7",
+      "dimensions": [
+        1448,
+        1086
+      ]
+    },
+    {
+      "id": "sundries",
+      "archive_path": "story-style-references/sundries.png",
+      "source": "/home/claude/.artifacts/cave-shop-reference/after/booth_sundries_intro-close.png",
+      "role": "Close shop framing, Hood outfit and concealed face, painterly texture and restrained colour",
+      "sha256": "8e5cf81f701a28d9b83b3c9602b99e43f2f438246eed27f71061f7cf3510d4e4",
+      "dimensions": [
+        1448,
+        1086
+      ]
+    },
+    {
+      "id": "outdoor_work",
+      "archive_path": "story-style-references/outdoor_work.png",
+      "source": "/home/claude/.artifacts/outdoor-shrine-references/after/barehand_work.png",
+      "role": "Outdoor palette and painterly treatment; close action composition",
+      "sha256": "cb730bb598b35926fe65fde6386dfc34d7dfc282da809ef72714e67df3f74ce0",
+      "dimensions": [
+        1448,
+        1086
+      ]
+    },
+    {
+      "id": "grove_shrine",
+      "archive_path": "story-style-references/grove_shrine.webp",
+      "source": "/home/claude/terracart/assets/art/shrine_grove.webp",
+      "role": "Original unchanged; contextual olive greens, mossy stone and forest light; exclude lower text zone",
+      "sha256": "ceb821073c00b705d3a0ac757a4446637bdff6a10aa522ec0d0b94a99f292041",
+      "dimensions": [
+        512,
+        652
+      ]
+    }
+  ]
+}

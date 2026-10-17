@@ -27,21 +27,37 @@ Unrestored places use weathered materials, subdued colour, and signs of neglect.
 
 ## Player concealment and story illustrations
 
-- Story/event illustrations intentionally use a different visual style from the main game world. The illustration references and rules in this section govern dialog paintings, not map sprites, terrain, buildings or other in-world assets. Do not try to make the two styles converge: retain the world-art camera, scale and material rules above for gameplay assets, and the approved narrative illustration treatment for story panels.
+Story/event illustrations intentionally differ from the main game world. These
+rules govern dialog paintings, not map sprites, terrain, buildings or other
+in-world assets; retain the world-art camera, scale and material rules above.
 
-- The original paintings are preferred over all ten regenerated review examples for their palette restriction and painterly quality. Preserve the original balance of limited colour, irregular hand-painted pixel texture, subtle shading and atmosphere. Do not interpret "pixel art" as a mandate for harder outlines, uniformly large blocks, brighter saturation or simplified flat shapes. Prefer an aspect-ratio crop of the original; regenerate only when a specific composition problem cannot be resolved by cropping, using that original as the primary visual reference. The review remakes are studies, not approved replacements or new style references.
-- For `cave_first.webp` specifically, retain the original painting and change only its framing to 4:3. Its dark edges convey entry into a dark environment and should survive the crop. This is scene-specific atmospheric darkness, not an embedded text zone to erase, and not a general vignette rule for other art.
-- Preserve the original camera distance and subject framing when adapting aspect ratio. A 4:3 frame does not require a wider establishing shot or a full-body player. For sundries, retain the original close foreground Hood and emphasis on the keeper and counter; crop the player's lower body rather than pulling back to reveal feet and extra ground.
+### Approved visual references
 
-- For every new or regenerated story panel, supply an approved existing story painting that shows the Hood as an explicit image reference, alongside any scene-specific reference. Match its character proportions, concealed brown hood, palette and painting treatment; a text-only style description is not enough. Record the selected reference with the prompt.
+Use the four user-approved masters recorded with exact paths, roles and hashes
+in [story-style-references.json](story-style-references.json). They are archived
+under `~/.artifacts/terracart-art/story-style-references/`:
 
-- Never show the player's face or hair. Keep the brown hood raised and the face fully hidden by opaque shadow or a rear view, including in profile and torchlight. No visible eyes, facial skin or glowing eyes.
-- Story and event illustrations target a 4:3 landscape image area, with dialog copy and controls in a separate content area below. Fill the artwork with the scene; never reserve a blank, dark or faded text zone inside it. Preserve the original formats of the first two opening panels (compass discovery and nightmare, including both animation frames of each). The book reading background is a separate UI asset. Prefer a deliberate crop of existing artwork when it preserves the subject and removes the old copy zone; regenerate when framing or style cannot be fixed by cropping.
-- Approved story style references are `assets/art/cave_first.webp` and `assets/art/npc_orrin.webp`: match their deliberate pixel clusters, earthy palette and character treatment, not their tall format or embedded text zones. Use the cave painting for Hood's concealed appearance. Story illustrations use grounded, natural figure proportions without oversized chibi heads.
-- Hood must read as an adult of ordinary height beside other adults and furniture: avoid a large hood/head, compressed torso or short legs that make the player look child-sized. Keep time of day ambiguous in general, using diffuse subdued light with at most a subtle dawn/dusk tint. Avoid conspicuous orange sunsets, visible sun discs and strong time-specific shadows unless the story explicitly requires them; local lantern, fire and magical light can still provide warmth.
-- Use `cave_first.webp` as Hood's canonical appearance reference, not only a style sample: preserve the brown hood and clothing, backpack, belt, boots, concealed face and consistent outfit silhouette across scenes. Keep the short outer garment and visible trousered legs rather than substituting a floor-length robe. Use `npc_orrin.webp` for the broader pixel treatment and palette. A scene-specific source with a different outfit must not override the approved Hood reference.
-- For outdoor story scenes, also supply the original `assets/art/restore_house.webp` as the sky, landscape and palette reference. Preserve its rich ochres, warm earth colours, olive foliage and luminous warmth. Ambiguous time of day does not mean gray weather, cold light or desaturation: retain warm colour while softening explicit sunset cues. The original palette is preferred over the cooler restored-home sample from the second 4:3 review. Use each reference for its stated role; the outdoor reference does not override Hood's appearance or reintroduce a text zone.
-- Use the original `assets/art/street_bandit.webp` (roadside wagon) as a reference for its restricted palette together with its painterly pixel texture. Preserve the natural variation in its pixel marks and shading; neither extra fine detail nor uniformly blockier forms are improvements by themselves. Match the original rather than applying a pixel filter to a new digital painting.
+- **Cave:** Hood's appearance and slightly taller proportions; restrained brown/ochre light and irregular painterly pixel marks. Its dark edges convey entering a dark environment, not a general vignette rule.
+- **Close sundries:** the approved shop style and framing, consistent Hood outfit, and fully concealed face. Keep the player cropped in the foreground and emphasize the keeper and counter.
+- **Working without tools:** outdoor palette, painterly treatment and close action framing.
+- **Original grove shrine:** unchanged reference for olive greens, mossy stone, foliage and forest light. Its old lower copy zone is not part of the style.
+
+Supply actual reference images with every generation, plus the original scene
+for content and framing. Include the cave or sundries reference whenever Hood
+appears. Match each reference's stated role rather than mixing every palette
+into every setting. Earlier unselected ten-scene remakes are comparison studies,
+not style references. The original scene remains authoritative for its subjects,
+objects, camera distance and narrative context.
+
+### Style, framing and character rules
+
+- Preserve limited colour, irregular softly painted pixel marks, subtle shade variation and atmosphere. Do not interpret pixel art as hard comic contours, uniform large blocks, flat posterization, brighter saturation or extra fine detail. Retain the originals' painterly quality while matching the approved masters.
+- Target 4:3 landscape, with dialog copy and controls in a separate area below. Remove old reserved text zones; do not erase meaningful darkness inside a scene. Preserve the first two opening panels' formats (compass and nightmare, both animation frames each); the book-reading background is a separate UI asset.
+- Preserve original camera distance and subject framing. A 4:3 image does not require a wider establishing shot or full-body player. Prefer a deliberate crop when it preserves the painting; regenerate when requested or when a specific composition problem requires it.
+- Keep palettes contextual: warm restrained earth colours for village/outdoor scenes, olive greens for forest shrines, local lantern/fire light in dark settings. Ambiguous time of day does not mean gray weather or desaturation. At most suggest dawn/dusk subtly; avoid a visible sun disc, conspicuous sunset bands or strong time-specific shadows unless the scene requires them.
+- Never show Hood's face or hair, including a cheek or nose in profile. Use opaque hood shadow or a rear view; no eyes or glowing eyes. Preserve the approved brown hood, short outer garment, belted clothing, backpack/bedroll, trousers and boots where visible, rather than substituting a floor-length robe.
+- Hood reads as an ordinary adult beside people and furniture, with the cave reference's slight increase in height: proportionate hood/head, balanced torso and limbs, no miniature build. Do not widen the camera just to demonstrate those proportions.
+- Keep the cave's original muted palette, irregular rock texture, quiet entrance composition and atmospheric dark edges. The approved cave reference changes framing and modestly adjusts Hood's height; it does not authorize brightening or filling every shadow.
 
 ## Spritesheet generation
 - Generate spritesheets as an 8 × 8 grid of sprites: eight columns and eight rows, for 64 frames. Design each frame in a 24 × 24 px pixel-art style, with deliberate pixel clusters, crisp edges and restrained detail.
