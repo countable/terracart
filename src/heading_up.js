@@ -427,7 +427,7 @@ const HeadingUp = {
     const gl = scene.game.renderer?.gl;
     if (gl) { const e = gl.getError(); if (e) { scene._huGlError = e; scene._huGlErrors = (scene._huGlErrors || 0) + 1; } }
     const pl = scene.playerWorldContainer ? wl.indexOf(scene.playerWorldContainer) : -1;
-    label.setText(`propDebug v10${HeadingUp.SOLO_WORLD ? ' solo' : ''}${HeadingUp.HU_FLAT ? ' flat' : ''}${HeadingUp.active(scene) ? '' : ' northUp'} · mt${scene.game.renderer?.maxTextures ?? '?'} mask${scene.worldContainer?.mask ? 1 : 0} light${scene.lightMap?.alpha ?? '?'} · ${scene.game.renderer?.type === 2 ? 'webgl' : 'canvas'}\n${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows} · player #${pl}/${wl.length} · peers ${peers}\nbad ${bad.length ? bad.join(', ') : 'none'} · glErr ${scene._huGlErrors || 0}${scene._huGlError ? ' 0x' + scene._huGlError.toString(16) : ''}`);
+    label.setText(`propDebug v11${HeadingUp.SOLO_WORLD ? ' solo' : ''}${HeadingUp.HU_FLAT ? ' flat' : ''}${HeadingUp.active(scene) ? '' : ' northUp'} · mt${scene.game.renderer?.maxTextures ?? '?'} pipe${scene.game.renderer?.pipelines?.default?.name ?? '-'} desk${typeof Phaser !== 'undefined' && Phaser.Device?.os?.desktop ? 1 : 0} mask${scene.worldContainer?.mask ? 1 : 0} light${scene.lightMap?.alpha ?? '?'} · ${scene.game.renderer?.type === 2 ? 'webgl' : 'canvas'}\n${Math.round(a * 180 / Math.PI)}° · props ${props} turned ${turned} faded ${faded} · shadows ${shadows} · player #${pl}/${wl.length} · peers ${peers}\nbad ${bad.length ? bad.join(', ') : 'none'} · glErr ${scene._huGlErrors || 0}${scene._huGlError ? ' 0x' + scene._huGlError.toString(16) : ''}`);
   },
 
   _postRender(scene) {
