@@ -1,15 +1,17 @@
 # Ground atlas candidate
 
 The current export is a 384×256 sheet containing 96 native 32×32 tiles:
-32 materials, each with a plain base and two subtly decorated variants. `terrain-atlas-32.png`
+28 active materials, each with a plain base and two decorated variants. Four unused road/path material slots remain transparent to preserve terrain IDs. `terrain-atlas-32.png`
 is the opaque, palette-matched review sheet; `terrain-detail-32.png` is the
 transparent runtime detail. `terrain-atlas-32.json` records source crops,
 output hashes, dimensions and the export process. The current full-bleed master is sampled without an inset so masonry courses reach the tile edges. `PROMPT-32.txt` records the
 built-in imagegen prompt and art references.
 
+Material-specific leaf litter, clover, bark chips, mineral flakes, reed stubble and divots draw on the user reference `docs/art/ground-style-reference.gif`. Grove defaults stay almost flat; commercial paving uses square joints in both axes.
+
 The art takes its restrained surface detail from `docs/art/direction-reference.png`
 and its crisp pixel shapes from `assets/Character/FarmerCyan.png`. Ground tiles
-use four closely related cel-shaded tones per material (RGB offsets −10, 0, +6, +10), with sparse decorations selected at an 80/10/10 base/A/B ratio. Shallow highlighted bumps, worn depressions and low scrub give the decoration variants shape without prop-like contrast. Palette snapping happens after edge preparation, preserving hard shade boundaries. Tiles
+use four closely related cel-shaded tones per material (RGB offsets −10, 0, +6, +10), except lava with its saturated red/orange/gold palette, with sparse decorations selected at an 80/10/10 base/A/B ratio. Shallow highlighted bumps, worn depressions and low scrub give the decoration variants shape without prop-like contrast. Palette snapping happens after edge preparation, preserving hard shade boundaries. Tiles
 have an explicit 32px art target: no intermediate 24px sampling or runtime resize.
 The original `terrain-atlas.png`, metadata and prompt remain for comparison with
 the previous 24→32 trial.
@@ -40,5 +42,5 @@ remain separate. The generation change does not replace their animation loop.
 Rebuild this revision from the archived master:
 
 ```sh
-node tools/export-ground-atlas.cjs --source ~/.artifacts/ground-atlas-32/terrain-atlas-relief-master.png --inset 0 --cel-shaded
+node tools/export-ground-atlas.cjs --source ~/.artifacts/ground-atlas-32/terrain-atlas-distinct-master.png --row-bounds 0,114,226,340,454,576,692,830,1024 --cel-shaded
 ```

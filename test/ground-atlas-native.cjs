@@ -13,7 +13,7 @@ const directory = path.resolve(process.argv[2] || path.join(root, 'assets/ground
     await page.goto('http://atlas.test/?groundAtlas=true');
     await page.addScriptTag({ path: path.join(root, 'src/ground_atlas.js') });
     const metadata = JSON.parse(fs.readFileSync(path.join(directory, 'terrain-atlas-32.json')));
-    const result = await page.evaluate(async ({ opaque, detail, palette }) => {
+    const result = await page.evaluate(async ({ opaque, detail, palette, omittedMaterials }) => {
       const load = async data => { const i = new Image(); i.src = data; await i.decode(); return i; };
       const images = await Promise.all([load(opaque), load(detail)]);
       const context = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
@@ -29,6 +29,8 @@ const directory = path.resolve(process.argv[2] || path.join(root, 'assets/ground
       context.drawImage(images[1], 0, 0);
       const composed = context.getImageData(0, 0, 384, 256).data;
       const composedColorCounts = [];
+      const omitted = new Set(omittedMaterials);
+      let omittedDetailAlphaMax = 0, lavaRedMean = 0, lavaSaturationMean = 0;
       let edgeMax = 0, maxChannelContrast = 0, meanError = 0, opaqueAlphaMin = 255, detailAlphaMin = 255, detailAlphaMax = 0, distinctVariants = 0;
       const offset = (t, v, x, y) => { const f = t * 3 + v; return ((Math.floor(f / 12) * 32 + y) * 384 + (f % 12) * 32 + x) * 4; };
       for (let t = 0; t < 32; t++) {
@@ -40,17 +42,19 @@ const directory = path.resolve(process.argv[2] || path.join(root, 'assets/ground
           for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
             const p = offset(t, v, x, y);
             colors.add(`${composed[p]},${composed[p + 1]},${composed[p + 2]}`);
-            for (let c = 0; c < 3; c++) { maxChannelContrast = Math.max(maxChannelContrast, Math.abs(composed[p + c] - color[c])); mean[c] += pixels[0][p + c] / 1024; signature.push(pixels[0][p + c]); }
+            for (let c = 0; c < 3; c++) { if (t !== 26) maxChannelContrast = Math.max(maxChannelContrast, Math.abs(composed[p + c] - color[c])); mean[c] += pixels[0][p + c] / 1024; signature.push(pixels[0][p + c]); }
+            if (omitted.has(t)) omittedDetailAlphaMax = Math.max(omittedDetailAlphaMax, pixels[1][p + 3]);
+            if (t === 26 && v === 0) { lavaRedMean += composed[p] / 1024; lavaSaturationMean += (composed[p] - Math.min(composed[p + 1], composed[p + 2])) / 1024; }
             opaqueAlphaMin = Math.min(opaqueAlphaMin, pixels[0][p + 3]);
             detailAlphaMin = Math.min(detailAlphaMin, pixels[1][p + 3]); detailAlphaMax = Math.max(detailAlphaMax, pixels[1][p + 3]);
           }
           signatures.add(signature.join(','));
-          meanError = Math.max(meanError, ...mean.map((value, c) => Math.abs(value - color[c])));
+          if (t !== 26) meanError = Math.max(meanError, ...mean.map((value, c) => Math.abs(value - color[c])));
           for (let w = 0; w < 3; w++) for (let n = 0; n < 32; n++) for (let c = 0; c < 4; c++) for (const data of pixels) {
             edgeMax = Math.max(edgeMax, Math.abs(data[offset(t, v, 31, n) + c] - data[offset(t, w, 0, n) + c]), Math.abs(data[offset(t, v, n, 31) + c] - data[offset(t, w, n, 0) + c]));
           }
         }
-        if (signatures.size === 3) distinctVariants++;
+        if (!omitted.has(t) && signatures.size === 3) distinctVariants++;
         composedColorCounts.push(colors.size);
       }
       // Runtime preparation must only crop the prebaked pixels, with no readbacks.
@@ -71,21 +75,25 @@ const directory = path.resolve(process.argv[2] || path.join(root, 'assets/ground
       const pierSharesWater = pier.every((value, i) => value === water[i]);
       GroundAtlas.prepare({ textures: { exists: () => false } }, {});
       const missingFallsBack = !GroundAtlas.draw(context, 32, 0, 0);
-      return { dimensions: images.map(i => [i.width, i.height]), edgeMax, maxChannelContrast, composedColorCounts, meanError, opaqueAlphaMin, detailAlphaMin, detailAlphaMax, distinctVariants, variantCounts, distribution, drawn, pierSharesWater, runtimeMatchesNative, missingFallsBack };
+      return { omittedDetailAlphaMax, lavaRedMean, lavaSaturationMean, dimensions: images.map(i => [i.width, i.height]), edgeMax, maxChannelContrast, composedColorCounts, meanError, opaqueAlphaMin, detailAlphaMin, detailAlphaMax, distinctVariants, variantCounts, distribution, drawn, pierSharesWater, runtimeMatchesNative, missingFallsBack };
     }, {
       opaque: 'data:image/png;base64,' + fs.readFileSync(path.join(directory, 'terrain-atlas-32.png')).toString('base64'),
       detail: 'data:image/png;base64,' + fs.readFileSync(path.join(directory, 'terrain-detail-32.png')).toString('base64'),
       palette: metadata.palette,
+      omittedMaterials: metadata.omittedMaterials,
     });
+    assert.deepEqual(metadata.omittedMaterials, [7, 8, 13, 14]);
+    assert.equal(result.omittedDetailAlphaMax, 0, 'Reserved roads/paths must have no detail');
+    assert(result.lavaRedMean > 150 && result.lavaSaturationMean > 90, 'Lava must have a brighter, saturated molten base');
     assert.equal(metadata.maxColorsPerMaterial, 4);
     assert.equal(metadata.variants, 3);
     result.composedColorCounts.forEach((count, type) => assert(count <= 4, `Material ${type} uses ${count} composed colours; maximum is four`));
     assert.deepEqual(result.dimensions, [[384, 256], [384, 256]]);
     assert.equal(result.edgeMax, 0, 'Every opposite base/decor edge must match, including runtime alpha');
-    assert(result.maxChannelContrast <= 11, 'Composed atlas tones must stay within eleven RGB levels of their ground colour');
-    assert(result.meanError < 10, 'Tile means must stay within ten RGB levels of the game palette');
+    assert(result.maxChannelContrast <= 11, 'Non-lava composed atlas tones must stay within eleven RGB levels of their ground colour');
+    assert(result.meanError < 10, 'Non-lava tile means must stay within ten RGB levels of the game palette');
     assert.equal(result.opaqueAlphaMin, 255); assert(result.detailAlphaMin < 255); assert(result.detailAlphaMax > 0);
-    assert.equal(result.distinctVariants, 32, 'Every material needs three distinct variants');
+    assert.equal(result.distinctVariants, 28, 'Every active material needs three distinct variants');
     assert.deepEqual(result.variantCounts, [3, 2, 3, 16]);
     assert.deepEqual(result.distribution, [80, 10, 10]);
     assert.deepEqual(result.drawn, Array.from({ length: 32 }, (_, t) => ![2, 11, 12, 25, 30].includes(t)));

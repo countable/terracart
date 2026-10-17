@@ -17,7 +17,7 @@ const { chromium } = require('playwright-core');
         coverage: Object.fromEntries(Object.entries(report.banks).map(([key, tiles]) => [key, tiles.length])),
         nativeDimensions: report.banks.new.every(tile => tile.width === 32 && tile.height === 32),
         cards: document.querySelectorAll('.card').length,
-        changedMaterials: report.names.filter((_, i) => report.banks.old[i * 3].toDataURL() !== report.banks.new[i * 3].toDataURL()).length,
+        changedMaterials: report.visibleMaterials.filter(i => report.banks.old[i * 3].toDataURL() !== report.banks.new[i * 3].toDataURL()).length,
         seams: report.seamMetric(),
         sandPreserved: [0, 1, 2].every(v => report.banks.new[6 + v].toDataURL() === report.banks.procedural[6 + v].toDataURL()),
       };
@@ -25,11 +25,11 @@ const { chromium } = require('playwright-core');
     assert.deepEqual(result.dimensions, { width: 384, height: 256 });
     assert.deepEqual(result.coverage, { old: 96, new: 96, procedural: 96 });
     assert.equal(result.nativeDimensions, true);
-    assert.equal(result.cards, 32);
-    assert.equal(result.changedMaterials, 32);
+    assert.equal(result.cards, 28);
+    assert.equal(result.changedMaterials, 28);
     assert.equal(result.seams.max, 0, 'All replacement native variant edges must match');
-    assert.equal(result.seams.materials, 30);
-    assert.deepEqual(result.seams.excluded, [2, 12]);
+    assert.equal(result.seams.materials, 26);
+    assert.deepEqual(result.seams.excluded, [2, 7, 8, 12, 13, 14]);
     assert.equal(result.sandPreserved, true, 'Latest sand retains all original procedural slots');
     const pixels = id => page.locator('#' + id).evaluate(c => c.toDataURL());
     assert.notEqual(await pixels('old'), await pixels('new'));
@@ -43,7 +43,9 @@ const { chromium } = require('playwright-core');
     await page.locator('#character').uncheck();
     assert.notEqual(await pixels('new'), withCharacter, 'Character control changes actual pixels');
     await page.locator('#character').check();
-    for (let i = 0; i < 32; i++) await page.selectOption('#material', String(i));
+    const materialIds = await page.locator('#material option').evaluateAll(options => options.map(option => Number(option.value)));
+    assert.deepEqual(materialIds, Array.from({length: 32}, (_, i) => i).filter(i => ![7, 8, 13, 14].includes(i)));
+    for (const i of materialIds) await page.selectOption('#material', String(i));
     await page.selectOption('#material', '2');
     assert.equal(await pixels('new'), await pixels('procedural'), 'Sand patches match the original');
     for (const t of [12]) {
@@ -61,6 +63,7 @@ const { chromium } = require('playwright-core');
     assert.deepEqual(masonry.counts, {9: 1, 12: 16});
     assert.equal(masonry.used, 16, 'Castle patch includes all original slab layouts across both axes');
     assert.equal(masonry.rows, 64, 'Masonry catalogue shows both horizontal and vertical repeats');
+    assert.equal(await page.locator('.card[data-material="16"] canvas').first().evaluate(c => c.height), 64, 'Commercial paving shows both horizontal and vertical repeats');
     await page.selectOption('#material', '0');
     assert.equal(await pixels('new'), decorated, 'Material controls restore the deterministic comparison');
     for (const zoom of [2, 4]) {

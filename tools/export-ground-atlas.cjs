@@ -60,20 +60,36 @@ const colors = vm.runInNewContext('(' + app.match(/const COLORS = (\{[\s\S]*?\n\
             // Snap the prepared detail to four shared tones AFTER edge matching.
             // Fixed RGBA entries retain transparent biome blending without gradients.
             const rgb = [(colors[type] >> 16) & 255, (colors[type] >> 8) & 255, colors[type] & 255];
-            const levels = [-12, 0, 8, 16];
+            const levels = type === 26 ? [-25, 0, 35, 90] : [-12, 0, 8, 16];
             const outputLevels = [-10, 0, 6, 10];
-            const tones = outputLevels.map(level => {
+            let tones = outputLevels.map(level => {
               const residual = new Float32Array(size * size * 3).fill(level);
               return GroundAtlas.overlay(residual, residual, size, colors[type]).slice(0, 4);
             });
+            if (type === 26) {
+              // Molten lava needs warm chromatic highlights, not grey relief.
+              tones = [[155,44,18],[207,61,16],[255,117,22],[255,207,72]].map(target => {
+                const alpha = Math.ceil(Math.max(...target.map((value,c) => Math.abs(value-rgb[c]) / Math.max(1,value < rgb[c] ? rgb[c] : 255-rgb[c]))) * 255) / 255;
+                return new Uint8ClampedArray([...target.map((value,c) => rgb[c] + (value-rgb[c])/alpha),alpha*255]);
+              });
+            }
             for (let i = 0; i < pixels.data.length; i += 4) {
               const alpha = pixels.data[i + 3] / 255;
-              const delta = (.2126 * (pixels.data[i] - rgb[0]) + .7152 * (pixels.data[i + 1] - rgb[1]) + .0722 * (pixels.data[i + 2] - rgb[2])) * alpha;
+              let delta = (.2126 * (pixels.data[i] - rgb[0]) + .7152 * (pixels.data[i + 1] - rgb[1]) + .0722 * (pixels.data[i + 2] - rgb[2])) * alpha;
+              if (type === 26) {
+                // Preserve the source's full hot/cool range before residual clamping:
+                // gold belongs to the hottest cores, not every orange channel.
+                const index = i / 4, px = index % size, py = Math.floor(index / size);
+                const weight = Math.min(1, Math.min(px, py, size-1-px, size-1-py) / 4);
+                delta = [.2126,.7152,.0722].reduce((sum,luma,c) => sum + luma * (boundary[index*3+c]*(1-weight) + residuals[variant][index*3+c]*weight),0);
+              }
               let nearest = 0;
               for (let tone = 1; tone < levels.length; tone++) if (Math.abs(delta - levels[tone]) < Math.abs(delta - levels[nearest])) nearest = tone;
               pixels.data.set(tones[nearest], i);
             }
           }
+          // Keep terrain IDs stable while retiring unused road/path artwork.
+          if ([7, 8, 13, 14].includes(type)) pixels.data.fill(0);
           dc.putImageData(pixels, x, y);
           sample.putImageData(pixels, 0, 0);
           oc.fillStyle = '#' + colors[type].toString(16).padStart(6, '0');
@@ -98,6 +114,8 @@ const colors = vm.runInNewContext('(' + app.match(/const COLORS = (\{[\s\S]*?\n\
       palette: Object.fromEntries(Array.from({ length: 32 }, (_, t) => [t, '#' + colors[t].toString(16).padStart(6, '0')])),
       style: celShaded ? 'Four-tone cel-shaded pixel art; palette snapping after edge matching' : 'Continuous residual shading',
       maxColorsPerMaterial: celShaded ? 4 : null,
+      omittedMaterials: [7, 8, 13, 14],
+      lavaPalette: ['#9b2c12', '#cf3d10', '#ff7516', '#ffcf48'],
       shadeOffsets: celShaded ? [-10, 0, 6, 10] : null,
       hashes, crops: result.crops,
     };
