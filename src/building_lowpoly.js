@@ -5,7 +5,7 @@
   // The billboard look (docs/art/lowpoly-building-styles.md): every number
   // the ink pass, projection and dressing share, so sprites and meshes keep
   // agreeing. tools/building-billboard-preview.html edits this table live.
-  const LOOK={heightScale:.6,inkPx:1,ink:0x2a2229,textured:true,eaveBand:9,eaveShade:.5,flatRim:3.5,flatShade:9,sheet:768,
+  const LOOK={heightScale:.6,inkPx:2,ink:0x2a2229,textured:true,eaveBand:9,eaveShade:.5,flatRim:3.5,flatShade:9,sheet:768,
     chimney:{radius:4.4,cap:5.8,mouth:3.4,rise:7,capHeight:2.2,sides:0xd9c9b8,capColor:0x9c8f84,mouthColor:0x2a2229},
     wreck:{tint:0xb3a89e,debris:0x5e564f,beam:0x3b2a1f,top:0x6b6059}};
   const mix=(a,b,t)=>{const c=i=>Math.round(((a>>i)&255)*(1-t)+((b>>i)&255)*t);return (c(16)<<16)|(c(8)<<8)|c(0);};
@@ -697,10 +697,11 @@
     tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
   }
   function active(scene){return !!scene._headingUp&&scene.game?.renderer?.type===2;}
-  function begin(scene){
-    if(!scene._lowpoly){
-      const obj=scene.add.graphics();scene.buildingWallContainer.add(obj);
-      const state=scene._lowpoly={obj,buildings:[],faces:[],builds:0,angle:NaN};
+  function renderObject(scene){
+      const obj=scene.add.graphics();
+      (scene.worldContainer||scene.buildingWallContainer).add(obj);
+      obj._worldGeometry=true;
+      obj._huAnchor={x:0,y:0};
       obj.renderWebGL=function(renderer,src,camera,parentMatrix){
         camera.addToRenderList(src);
         const matrix=Phaser.GameObjects.GetCalcMatrix(src,camera,parentMatrix).calc;
@@ -738,7 +739,7 @@
         }};
         let group=[],support=null,groupId=0;
         const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0)ink(group);paint(group);group=[];};
-        for(const f of state.faces){
+        for(const f of src._lowpolyFaces){
           if(!f.visible)continue;
           const g=f.inkGroup||0;
           if(f.support!==support||g!==groupId){flush();support=f.support;groupId=g;}
@@ -747,10 +748,17 @@
         flush();
         renderer.pipelines.postBatch(src);
       };
+      return obj;
+  }
+  function begin(scene){
+    if(!scene._lowpoly){
+      const state=scene._lowpoly={pool:[],buildings:[],faces:[],builds:0,angle:NaN,offsetX:0,offsetY:0};
       scene.events?.once('shutdown',()=>{for(const key of state.textures||[])scene.textures.remove(key);scene._lowpoly=null;});
     }
-    const state=scene._lowpoly;state.buildings=[];state.faces=[];state.keys=new Set();state.angle=NaN;state.builds++;
-    state.obj.visible=true;return state;
+    const state=scene._lowpoly;
+    for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
+    state.buildings=[];state.faces=[];state.keys=new Set();state.angle=NaN;state.builds++;
+    state.enabled=true;return state;
   }
   // Atlas boundaries cannot use GL_REPEAT: that would repeat windows into
   // roofs. Split only overflowing faces at repeat boundaries, once on rebuild.
@@ -820,6 +828,9 @@
     const texture=material(scene,recipe);(state.textures||=new Set()).add(texture.key);
     mesh.role=recipe.role;mesh.x=left;mesh.y=top;state.buildings.push(mesh);if(key&&mesh.faces.length)state.keys.add(key);
     const support={x:left+local.reduce((s,p)=>s+p.x,0)/local.length,y:top+local.reduce((s,p)=>s+p.y,0)/local.length,order:state.buildings.length};
+    const index=state.buildings.length-1;
+    const obj=state.pool[index]||(state.pool[index]=renderObject(scene));
+    mesh.obj=obj;mesh.support=support;obj._lowpolyFaces=mesh.faces;
     for(const face of mesh.faces){
       const roofTone=face.tileCap&&texture.roofTone!=null?mix(texture.roofTone,0x2a2229,.12):recipe.roof;
       if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
@@ -830,7 +841,19 @@
       face.preserveWalls=recipe.role==='fort'||!!face.chimney;face.eaveHeight=mesh.eaveHeight??mesh.height;face.support=support;face.cottage=recipe.finish==='cottage';face.texture=texture;face.vOffset=mesh.uvBaseline?0:77-mesh.height;face.x=left;face.y=top;face.projected=face.points.map(()=>({}));state.faces.push(face);}
     return mesh;
   }
-  function update(scene){const state=scene._lowpoly;if(!state)return;state.obj.visible=active(scene)&&(scene.depth??0)===0;
+  function offset(scene,x,y){
+    const state=scene._lowpoly;if(!state)return;
+    state.offsetX=x;state.offsetY=y;update(scene);
+  }
+  function update(scene){const state=scene._lowpoly;if(!state)return;
+    const visible=state.enabled&&active(scene)&&(scene.depth??0)===0;
+    // The retained geometry's pan changes even when its projected faces do not.
+    for(const mesh of state.buildings){
+      const obj=mesh.obj;obj.visible=visible;
+      obj.setPosition(state.offsetX,state.offsetY);
+      obj._huAnchor.x=mesh.support.x+state.offsetX;
+      obj._huAnchor.y=mesh.support.y+state.offsetY;
+    }
     const angle=scene.mapRot||0;if(state.angle===angle)return;state.angle=angle;
     const c=Math.cos(angle),s=Math.sin(angle);
     for(const face of state.faces){let depth=0;
@@ -842,9 +865,25 @@
       if((face.kind==='wall'&&!face.interior)||(face.kind==='trim'&&face.wallDirection)){const a=face.points[0],b=face.points[1],dx=face.wallDirection?.x??b.x-a.x,dy=face.wallDirection?.y??b.y-a.y,len=Math.hypot(dx,dy)||1;face.light=.76+.23*(c*dx-s*dy)/-len;}
       const p=face.projected;face.visible=cross(p[0],p[1],p[2])>1e-8;
     }
-    state.faces.sort((a,b)=>a.support.depth-b.support.depth||a.support.order-b.support.order||(a.layer??0)-(b.layer??0)||a.depth-b.depth);
+    for(const mesh of state.buildings){
+      mesh.faces.sort((a,b)=>(a.layer??0)-(b.layer??0)||a.depth-b.depth);
+      // Standalone art viewers have no shared world sorter.
+      if(!scene.worldContainer)mesh.obj.setDepth(mesh.support.depth);
+    }
+    if(!scene.worldContainer)scene.buildingWallContainer.sort('depth');
   }
-  function clear(scene){if(scene._lowpoly){scene._lowpoly.faces=[];scene._lowpoly.keys.clear();scene._lowpoly.obj.visible=false;}}
-  const covers=(scene,o)=>active(scene)&&scene._lowpoly?.obj.visible&&!!scene._lowpoly?.keys.has(o.id);
-  global.BuildingLowPoly={LOOK,atlasFaces,ROLES,recipeFor,specialGeometry,styleGeometry,geometry,triangulate,active,begin,add,update,clear,covers};
+  function worldPieces(scene){
+    const state=scene._lowpoly;if(!state||!state.enabled||!active(scene)||(scene.depth??0)!==0)return [];
+    update(scene);
+    const anchor=viewAnchorWorldM(scene);
+    return state.buildings.map(mesh=>({sprite:mesh.obj,rank:1,
+      groundY:anchor.y+(mesh.obj._huAnchor.y-scene.viewCenterY)*scene.cellM/CELL_PX}));
+  }
+  function clear(scene){
+    const state=scene._lowpoly;if(!state)return;
+    state.enabled=false;state.faces=[];state.buildings=[];state.keys.clear();
+    for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
+  }
+  const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);
+  global.BuildingLowPoly={LOOK,atlasFaces,ROLES,recipeFor,specialGeometry,styleGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,clear,covers};
 })(window);
