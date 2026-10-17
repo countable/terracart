@@ -62,8 +62,9 @@ const CELL_PX = 32;
 const STREET_COUNTER_LIFT_PX = Math.round(CELL_PX * 0.6);
 // Road ceremonies carry the survivors' thanks; progress stays on the road counter.
 const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';
-// The line under a road prize's card: who gave it, in one sentence. Shared by
-// the single-reward ceremony and the card the pick opens for the kept gift.
+// The line under a single-reward road ceremony's card: who gave it, in one
+// sentence. The card a pick opens for the kept gift carries no line (owner,
+// Oct 2026): its header already thanked the player.
 const TRAIL_PRIZE_THANKS = 'Your neighbours thank you for repairing the road and hand you a gift.';
 // The first repaired stretch introduces the work; neighbours arrive with the first prize.
 const TRAIL_INTRO_TITLE = 'You Start Fixing The Roads';

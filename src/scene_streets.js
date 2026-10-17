@@ -1056,8 +1056,9 @@ class SceneStreets {
     }
     // No flavour line: the header already carries the thanks, and the pick
     // names itself ("Choose one gift"). One picture row, one line, one button.
-    // The thanks are the line under the card the kept gift then opens as.
-    this._offerTreasurePick({ kind: 'trail', header, art: 'trail_prize', choices, takenSub: TRAIL_PRIZE_THANKS, onDismiss });
+    // The kept gift's card carries no thanks line either (owner, Oct 2026):
+    // the header said it once; the card is the gift alone.
+    this._offerTreasurePick({ kind: 'trail', header, art: 'trail_prize', choices, onDismiss });
   }
 
   // The button face for one option: the reward's own icon over its name, so
@@ -1139,7 +1140,7 @@ class SceneStreets {
   // AND THE KEPT GIFT IS SHOWN (Oct 2026, owner's call: every quest reward
   // that is an item shows the item). Take closes the pick and opens the kept
   // reward as its own card — sprite, name, tier and amount under the same
-  // banner, `takenSub` (the giver's thanks) as its line — through
+  // banner, no line of its own (the header carried the thanks) — through
   // showRewardCard, the lane the single-reward ceremony and every other
   // earned reward use (a toast under a closing dialog is missed).
   //
@@ -1149,7 +1150,7 @@ class SceneStreets {
   // replace the card before it was read (makeModalShell drops a same-id
   // dialog). A book taken from the row reads after the card, as on the
   // single-reward path (deferBookRead → _revealPendingBookReads).
-  _offerTreasurePick({ kind, header, art, choices, takenSub, kindIcon, onDismiss }) {
+  _offerTreasurePick({ kind, header, art, choices, kindIcon, onDismiss }) {
     let taken = null;
     this.showChestRewardModal({
       kind,
@@ -1177,7 +1178,7 @@ class SceneStreets {
       })),
       onDismiss: () => {
         const done = () => this._revealPendingBookReads(onDismiss);
-        if (!taken || !this.showRewardCard(taken, { kind, header, art, kindIcon, sub: takenSub, onDismiss: done })) done();
+        if (!taken || !this.showRewardCard(taken, { kind, header, art, kindIcon, onDismiss: done })) done();
       },
     });
   }
