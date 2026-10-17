@@ -882,6 +882,7 @@ Render.neutralPetPixels = function neutralPetPixels(data) {
 Render.petTexture = function petTexture(scene, kind, sheet, tint = 0xffffff) {
   const key = 'pet-neutral-' + sheet;
   if (scene.textures.exists(key)) return Render.canvasTint(scene, key, tint);
+  if (!scene.textures.exists(sheet)) return sheet;
   const source = scene.textures.get(sheet)?.getSourceImage();
   const art = SpriteLayout.creatureArt(kind);
   if (!source || !art || typeof document === 'undefined') return sheet;
@@ -935,6 +936,7 @@ function vividPixels(data) {
 Render.vividTexture = function vividTexture(scene, kind, sheet) {
   const key = 'elite-vivid-' + sheet;
   if (scene.textures.exists(key)) return key;
+  if (!scene.textures.exists(sheet)) return sheet;
   const source = scene.textures.get(sheet)?.getSourceImage();
   const art = SpriteLayout.creatureArt(kind);
   if (!source || !art || typeof document === 'undefined') return sheet;
@@ -4172,6 +4174,11 @@ Render.drawObjects = function drawObjects(scene) {
   const consideredCreatures = frameCreatures || fallbackCreatures;
   _boot_scanned += consideredCreatures.length;
   _boot_creatures += consideredCreatures.length;
+  // Warm the active creature bubble before viewport culling. Moving or changing
+  // depths brings new kinds through this same path without loading the roster.
+  if (scene._ensureAsset && typeof SpriteLayout !== 'undefined') {
+    for (const c of consideredCreatures) scene._ensureAsset(SpriteLayout.creatureSheet(c.kind));
+  }
   // The shared viewport cull runs before caught/surface/visibility checks.
   // In the live game wanderCreatures has already removed the frozen ring
   // seats; the fallback preserves standalone render callers.
@@ -5332,12 +5339,19 @@ Render.drawObjects = function drawObjects(scene) {
     const down = pet && typeof Pets !== 'undefined' && Pets.isDown(c, Date.now());
     const vivid = !pet && !npcArt && Combat.isElite(c);
     const baseSheet = npcArt ? npcArt.sheet : creatureSheet(c.kind);
-    const texKey = pet ? Render.petTexture(scene, c.kind, baseSheet, c.tint)
+    const pendingSheet = !scene.textures.exists(baseSheet);
+    const texKey = pendingSheet ? 'creature_loading' : pet ? Render.petTexture(scene, c.kind, baseSheet, c.tint)
       : vivid ? Render.vividTexture(scene, c.kind, baseSheet) : baseSheet;
     const anim = creatureAnim(c.kind);
     // A baked sheet (a pet's neutral one, an elite's vivid one) is not the
     // sheet Phaser's anims name, so its frame is stepped here.
-    if (pet || (vivid && texKey !== baseSheet)) {
+    // Keep an actor visible on a cold transition while its sheet is in flight.
+    // Never bake a missing texture into a permanent pet/elite palette.
+    if (pendingSheet) {
+      s.anims?.stop();
+      setTextureIfDifferent(s, texKey, 0);
+      s.setFrame(0);
+    } else if (pet || (vivid && texKey !== baseSheet)) {
       s.anims?.stop();
       const frame = down ? 0 : Render.petFrame(scene, anim, appearance.frame, performance.now());
       if (s.texture.key !== texKey) s.setTexture(texKey, frame); else s.setFrame(frame);
@@ -5373,6 +5387,7 @@ Render.drawObjects = function drawObjects(scene) {
     // A softened lair guard is drawn smaller (creatureInstScale).
     s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, creatureInstScale(c)))
      .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - lift);
+    if (pendingSheet) s.setOrigin(0.5, 1).setDisplaySize(24, 24);
     s._huAnchor = { x: Math.round(sx), y: Math.round(sy) + CREATURE_GROUND_DY };
     Render.applyEmergence(s, c, performance.now());
     // A resting NPC lies down; every other body stands at the pool's reset.

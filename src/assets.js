@@ -534,7 +534,10 @@ if (typeof EnemyRoster !== 'undefined') {
     // resolve to their own sheet so their recolour hook still runs.
     if (SpriteLayout.creatureArt(row.id).sheet !== row.id) continue;
     const { path, frameWidth, frameHeight } = row.art;
-    ASSETS[row.id] = { kind: 'spritesheet', path, frameWidth, frameHeight };
+    // Capturable animals and slime inventory portraits are baked at boot. Other
+    // enemies join the loader only when their kind enters the active area.
+    const bootPortrait = ['crab', 'slime', 'cave_slime', 'purple_slime', 'fire_slime', 'green_dragon'].includes(row.id);
+    ASSETS[row.id] = { deferred: !bootPortrait, kind: 'spritesheet', path, frameWidth, frameHeight };
     if (row.palette) ASSETS[row.id].onLoad = (scene) => {
       const src = scene.textures.get(row.id).getSourceImage();
       const canvas = document.createElement('canvas');

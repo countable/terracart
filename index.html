@@ -9,6 +9,22 @@
   <meta http-equiv="Expires" content="0" />
   <meta name="theme-color" content="#111" />
   <script>
+    // Sandbox local reset must run before any saved setting or slot is read.
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const sandbox = params.has('sandbox') && !['false', '0', 'no'].includes((params.get('sandbox') || '').toLowerCase());
+      window.__sandboxSkipStory = sandbox && params.get('skipStory') === 'true';
+      if (!sandbox || params.get('reset') !== 'true') return;
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key?.startsWith('terracart.')) localStorage.removeItem(key);
+        }
+      } catch (error) { console.warn('Sandbox local reset failed:', error); }
+    })();
+    // End sandbox local reset.
+  </script>
+  <script>
     // Boot recovery stays inline: it must work even when no dependency arrives.
     (function () {
       const KEY = 'terracart.bootRetries', LIMIT = 2;
@@ -81,7 +97,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=bbf48f48" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=95acac22" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -2548,7 +2564,7 @@
     // appear a second time — the user already acknowledged it this session.
     try {
       // A same-session reload skips the splash.
-      if (sessionStorage.getItem('terracart.safetySeen')) {
+      if (!window.__sandboxSkipStory && sessionStorage.getItem('terracart.safetySeen')) {
         __safetyDismissed = true;
         document.getElementById('safety')?.remove();
         window.__compassPerm = window.__compassPerm || 'granted';
@@ -2738,6 +2754,7 @@
       const overlay = document.getElementById('howto');
       if (!overlay) return;
       if (!force) {
+        if (window.__sandboxSkipStory) return;
         let seen = false;
         try { seen = !!localStorage.getItem('terracart.howtoSeen'); } catch {}
         // A save with no mode yet is asked even if the card was seen before
@@ -2831,7 +2848,10 @@
       __skipSafetyPerm = sessionStorage.getItem('terracart.skipSafety');
       if (__skipSafetyPerm) sessionStorage.removeItem('terracart.skipSafety');
     } catch { /* sessionStorage blocked — show the splash as usual */ }
-    if (__skipSafetyPerm) {
+    if (window.__sandboxSkipStory) {
+      __safetyDismissed = true;
+      document.getElementById('safety')?.remove();
+    } else if (__skipSafetyPerm) {
       // Home-capture reload — the splash was answered just before it. iOS
       // compass permission persists for the browsing session, so reuse the
       // pre-reload answer. The scene's create() sees window.__compassPerm and
@@ -3066,23 +3086,23 @@
 
   <script src="src/wizard.js?v=76454ef2"></script>
   <script src="src/dragon_story.js?v=0ebfab03"></script>
-  <script src="src/memory_story.js?v=111176ed"></script>
+  <script src="src/memory_story.js?v=a058995a"></script>
   <script src="src/pet_story_art.js?v=4bf942ec"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
-  <script src="src/story_encounters.js?v=b3b3aa16"></script>
+  <script src="src/story_encounters.js?v=6613d99e"></script>
   <script src="src/interact.js?v=a9e0d360"></script>
   <script src="src/play_tips.js?v=9098ba2d"></script>
   <script src="src/lighting_gpu.js?v=c2cf90df"></script>
   <script src="src/lighting.js?v=fcb254ea"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=67c4c2da"></script>
+  <script src="src/render.js?v=2ec2a2b5"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/multiplayer.js?v=0061380e"></script>
   <script src="src/road_overlay.js?v=d39b1528"></script>
   <script src="src/temple_art.js?v=ef92c84b"></script>
   <script src="src/wall_perspective.js?v=028ee9f0"></script>
   <script src="src/building_overlay.js?v=042cb26e"></script>
-  <script src="src/assets.js?v=5edf1d1f"></script>
+  <script src="src/assets.js?v=cc0d31ef"></script>
   <script src="src/sandbox_destinations.js?v=e6dc29cb"></script>
   <script src="src/sandbox.js?v=cf387ff8"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
@@ -3098,7 +3118,7 @@
   <script src="src/compass_modules.js?v=de335c76"></script>
   <script src="src/compass_shine.js?v=1533df4e"></script>
   <script src="src/compass_hud.js?v=e9a30166"></script>
-  <script src="src/scene_create.js?v=74bfa337"></script>
+  <script src="src/scene_create.js?v=3c526c12"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>
@@ -3176,7 +3196,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=bbf48f48';
+      const APP_SRC = 'src/app.js?v=95acac22';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

@@ -3,7 +3,7 @@
 // caller's label in the blank, adds one to save.memories (a save counter, not
 // a bag stack) and fills the energy bar. The ledger (_bankDiscovery) queues
 // the story; _drainBadgeStories opens the queue one dialog at a time on a
-// clear screen, off the modal-gate tick.
+// clear screen at Home, off the modal-gate tick.
 //
 // app.js can't load headlessly, so the methods are lifted out of SCENE_SRC
 // and run on a stub scene (the story_splashes idiom); the three call sites
@@ -34,6 +34,8 @@ function mkScene({ energy = 100, max = 100 } = {}) {
     `return class { ${BANK_SRC}\n${DRAIN_SRC}\n${QUEUE_SRC}\n${TOTAL_SRC}\n${UNSPENT_SRC}\n${SPEND_SRC}\n${HELP_SRC}\n${MET_SRC} }`);
   const s = new (methods((save) => { s.persisted = (s.persisted || 0) + 1; }, { getElementById: id => ({ id }) }))();
   s.save = { inv: [], energy };
+  s.startWorldM = { x: 0, y: 0 }; s.playerM = { x: 0, y: 0 };
+  s.inHomeRing = () => true;
   s.getMaxEnergy = () => max;
   s.pops = [];
   s._popEnergy = (d, o) => s.pops.push([d, o]);

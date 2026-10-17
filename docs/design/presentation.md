@@ -6,6 +6,18 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- DOM inventory, shop, toast and gear icons share `assets/Icons/dom-atlas.png`.
+  `renderItemIcon` and `gearIconHTML` retain the original sheet/frame selection,
+  adding the atlas offset; baked `ITEM_DATA_URLS` still take priority. The atlas
+  uses a content-hashed URL, and delayed prewarming fetches it once rather than
+  every gear tier separately. A new unpacked sheet falls back to its original
+  URL until regeneration. Phaser world textures keep their existing sources.
+  After changing item/gear art or catalogs, run
+  `node tools/build-dom-icon-atlas.cjs` (Python 3 + Pillow), then the normal
+  cache-bust generator. `node tools/build-dom-icon-atlas.cjs --check` checks
+  pixel-for-pixel source parity; `node test/dom-icon-atlas.cjs` verifies every
+  catalogued item and gear tier's CSS frame at multiple display sizes.
+
 - Shop recipes use compact rows, selector spacing and a shared ingredient/count
   heading so shortfalls and receipts fit with the actions as artwork contracts.
 
@@ -201,7 +213,12 @@ changing dialogue, story panels, books, toasts or status presentation.
   as diagnostics and do not trigger automatic reloads. Versioned scripts only
   fall back to an exact cached version, never an older incompatible module. Linked local stylesheets use the same
   content-hashed URLs and worker generation as scripts, and are installed in
-  the offline resource cache; CSS-only changes invalidate the shell too.
+  the offline resource cache; CSS-only changes invalidate the shell too. Local game servers must also
+  serve the checkout’s root `sw.js` as JavaScript; mounting only `index.html`
+  and asset directories leaves persistent caching disabled.
+  `node test/load-performance-browser.cjs [base URL]` checks cold/warm chapel
+  startup, worker control, and offline cached art. Network-panel entries include
+  cached resources; compare transferred bytes and time to playable as well as count.
 
 - Dungeon arrival splashes select their story ID through
   `WorldGen.floorProfile(depth).arrivalStory`; presentation owns the copy and
@@ -464,3 +481,15 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,
 `item_descriptions`, `books`, `story_neighbours`, `stranger`, `buffs`.
+
+### Home-bound memory events
+
+Memory discoveries still bank immediately, but their queued narrative panels wait
+until the player returns inside Home's surface ring. Pending memories survive
+reload and are consumed only when acknowledged. Deliberately opened NPC and
+wizard conversations remain tied to their own locations.
+
+Maud's rescue unlocks at six lifetime memories, then waits for a home visit.
+Her encounter is seated around Home, never around the travelling player; her
+archer still obeys the normal Home ward and spawn gate. Existing remote rescue
+placements move home without resetting rescue progress or granting a second gift.
