@@ -590,7 +590,7 @@
         seen.add(stem);
         const d = webpDims(`assets/art/${stem}.webp`);
         assert.truthy(d, `${stem} ships`);
-        assert.truthy(Math.abs(d.w / d.h - 352 / 448) < 0.01, `${stem} fits the dialog`);
+        assert.truthy(d.w === 512 && d.h === 512, `${stem} ships as a full square scene`);
       }
     }
     assert.eq(seen.size, 20);

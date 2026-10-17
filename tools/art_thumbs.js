@@ -58,6 +58,7 @@ for f in sorted(glob.glob(os.path.join(sys.argv[1], '*.webp'))):
     # detail zone so the empty dark copy zone does not dominate the tone.
     top = im.crop((0, 0, im.width, round(im.height * (1 if square else 0.42)))).resize((1, 1), Image.BOX).getpixel((0, 0))
     out[os.path.splitext(os.path.basename(f))[0]] = {
+        'a': aspect,
         't': 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode(),
         'k': cuts,
         'c': '#%02x%02x%02x' % top,
@@ -66,6 +67,7 @@ print(json.dumps(out))
 `;
 const thumbs = JSON.parse(execFileSync('python3', ['-c', py, ART]).toString());
 const thumbBody = Object.entries(thumbs).map(([k, v]) => `  ${k}: '${v.t}',`).join('\n');
+const aspectBody = Object.entries(thumbs).map(([k, v]) => `  ${k}: ${v.a},`).join('\n');
 const toneBody = Object.entries(thumbs).map(([k, v]) => `  ${k}: '${v.c}',`).join('\n');
 const cutBody = Object.entries(thumbs).map(([k, v]) =>
   `  ${k}: [\n${v.k.map((u) => `    '${u}',`).join('\n')}\n  ],`).join('\n');
@@ -75,6 +77,7 @@ fs.writeFileSync(OUT,
   `// one ${THUMB_W}px-wide inline WebP per assets/art scene piece, and the\n` +
   '// solid TONE each one resolves out of (its detail zone\'s average).\n' +
   `const ART_THUMBS = {\n${thumbBody}\n};\n` +
+  `const ART_ASPECTS = {\n${aspectBody}\n};\n` +
   `const ART_TONES = {\n${toneBody}\n};\n` +
   '// The coarser resolve cuts, coarse to fine; ART_THUMBS is the last step.\n' +
   `const ART_CUT_WIDTHS = ${JSON.stringify(CUT_WIDTHS)};\n` +

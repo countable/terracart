@@ -63,9 +63,9 @@ test('scene art: shared crop above fitted copy without scrolling', () => {
   assert.falsy(/overflow-y:auto;/.test(region), 'neither body nor copy scrolls');
   assert.truthy(region.includes("art ? 'margin:0;flex:0 0 auto;'"), 'copy follows the image region, including ceremonies');
   assert.truthy(region.includes('spacer.append(mosaicLayer, artLayer)'), 'painting and mosaic share the crop above copy');
-  assert.truthy(shell.includes("backgroundSize = 'cover'"), 'crop scales uniformly without distortion');
+  assert.truthy(shell.includes("backgroundSize = '100% auto'"), 'crop scales uniformly without distortion');
   assert.truthy(shell.includes("backgroundPosition = 'center top'"), 'tall assets lose their bottom, keeping the subject');
-  assert.falsy(/ART_BAND_|ART_DETAIL_FRAC|ART_FRAME_ASPECT|squareArt|readShape|ART_ASPECTS/.test(shell), 'no legacy format-specific layout or load-time switching');
+  assert.falsy(/ART_BAND_|ART_DETAIL_FRAC|ART_FRAME_ASPECT|readShape/.test(shell), 'no legacy band layout or load-time shape switching');
 });
 
 test('scene art: generic Story is omitted and useful categories follow the image', () => {
@@ -74,7 +74,7 @@ test('scene art: generic Story is omitted and useful categories follow the image
   const sceneShell = shell.slice(shell.indexOf('  makeModalShell('), shell.indexOf('  _placeSpeechBubble('));
   assert.truthy(sceneShell.includes('const resize = new ResizeObserver(scheduleFit)'), 'viewport changes refit the content');
   assert.truthy(sceneShell.includes('const changes = new MutationObserver(scheduleFit)'), 'live content changes refit the content');
-  assert.truthy(sceneShell.includes('body.clientWidth * .9') && sceneShell.includes('Math.max(minimum, full - deficit)'), 'art starts with a bottom ten-percent crop and gives more height to copy above its rail floor');
+  assert.truthy(sceneShell.includes('body.clientWidth * .9') && sceneShell.includes('Math.max(minimum, full - deficit)'), 'art starts with a bottom ten-percent crop and gives more height to copy above its minimum');
   assert.truthy(sceneShell.includes("pages.className = 'modal-pages'") && sceneShell.includes('into.style.columnWidth'), 'long content uses pages at its original text size');
 });
 
@@ -144,6 +144,7 @@ test('pixel resolve: every dialog painting has an inline thumbnail', () => {
   const keys = new Set([...ART_THUMBS_SRC.matchAll(/^  (\w+): 'data:image\/webp;base64,[A-Za-z0-9+/=]+',$/gm)].map((m) => m[1]));
   const cutKeys = new Set([...ART_THUMBS_SRC.matchAll(/^  (\w+): \[$/gm)].map((m) => m[1]));
   const tones = new Set([...ART_THUMBS_SRC.matchAll(/^  (\w+): '#[0-9a-f]{6}',$/gm)].map((m) => m[1]));
+  const aspects = Object.fromEntries([...ART_THUMBS_SRC.matchAll(/^  (\w+): ([0-9.]+),$/gm)].map(m => [m[1], Number(m[2])]));
   const used = new Set();
   for (const row of [...Object.values(Shrines.SHRINE_KINDS), ...Object.values(Shrines.REWARD_KINDS), ...Object.values(Macros.DAILY_VISIT_KINDS), ...Object.values(Macros.KIND_DIALOG), ...Object.values(Macros.KIND_TRANSACTION)]) used.add(row.art);
   for (const src of [SCENE_SRC, INTERACT_SRC, MODAL_SHELL_SRC_TEXT]) {
@@ -152,6 +153,8 @@ test('pixel resolve: every dialog painting has an inline thumbnail', () => {
   for (const r of ['house', 'blacksmith', 'market', 'trader', 'wizard']) used.add('restore_' + r);
   assert.truthy(used.size > 30, `stems collected (${used.size})`);
   for (const stem of used) {
+    const dims = webpDims(`assets/art/${stem}.webp`);
+    assert.truthy(Math.abs(aspects[stem] - dims.w / dims.h) < 0.001, `${stem} has current aspect metadata`);
     assert.truthy(keys.has(stem), `${stem} has a thumbnail (node tools/art_thumbs.js)`);
     assert.truthy(tones.has(stem), `${stem} has a tone`);
     assert.truthy(cutKeys.has(stem), `${stem} has its baked resolve cuts`);
@@ -161,7 +164,7 @@ test('pixel resolve: every dialog painting has an inline thumbnail', () => {
   // they ride here; keep the file this small — it loads with the code. The
   // cap tracks the piece count rather than a fixed number (about 850 bytes a
   // piece), so it grows only when paintings are actually added.
-  assert.truthy(ART_THUMBS_SRC.length < keys.size * 900, 'the thumbnails stay small — they load with the code');
+  assert.truthy(ART_THUMBS_SRC.length < keys.size * 950, 'the thumbnails stay small — they load with the code');
 });
 
 test('pixel resolve: an uncached painting resolves out of its tone, then fades in', () => {

@@ -192,10 +192,11 @@ class SceneModals {
     const artLayer = art ? document.createElement('div') : null;
     const mosaicLayer = art ? document.createElement('div') : null;
     let mosaicImg = null;
+    const squareArt = art && typeof ART_ASPECTS !== 'undefined' && Math.abs(ART_ASPECTS[art] - 1) < 0.01;
     const tone = (art && typeof ART_TONES !== 'undefined' && ART_TONES[art]) || '#1a1612';
     const paintLayer = (el, img) => {
       el.style.backgroundImage = img ? `url(${img})` : `linear-gradient(${tone}, ${tone})`;
-      el.style.backgroundSize = 'cover';
+      el.style.backgroundSize = '100% auto';
       el.style.backgroundPosition = 'center top';
       el.style.backgroundRepeat = 'no-repeat';
       el.style.imageRendering = 'pixelated';
@@ -428,9 +429,11 @@ class SceneModals {
         pages.style.display = 'none';
         if (spacer) {
           // Trim the bottom 10% of the square composition first.
-          // Short screens give further art height to readable copy and controls.
+          // Full square scenes keep their subject visible and paginate sooner;
+          // legacy paintings can give their empty lower area to copy.
           const full = body.clientWidth * .9;
-          const minimum = Math.min(full, parseFloat(box.style.getPropertyValue('--panel-rail-height')) + 8);
+          const minimum = squareArt ? body.clientWidth * .7
+            : Math.min(full, parseFloat(box.style.getPropertyValue('--panel-rail-height')) + 8);
           spacer.style.height = `${full}px`;
           const deficit = into.scrollHeight - viewport.clientHeight;
           if (deficit > 0) spacer.style.height = `${Math.max(minimum, full - deficit)}px`;
