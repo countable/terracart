@@ -26,7 +26,7 @@ courses and stronger slope lighting add no geometry. The imported style fixtures
 walls and silhouette trim. Neither path rebuilds meshes or uploads textures
 when only compass heading changes.
 
-`?buildingArt=rounded` and `?buildingArt=legacy` retain the sprite comparisons.
+`?buildingArt=legacy` selects the original sprites for comparison.
 The Canvas fallback retains the imported style renderer. Existing castle
 perimeters, signs, interaction objects and fort/castle ownership remain intact.
 
