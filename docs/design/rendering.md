@@ -72,8 +72,10 @@ passes. Standalone building viewers without a world container sort buildings
 in their existing wall container.
 [Low-poly building styles](../art/lowpoly-building-styles.md) owns the detail.
 `WallPerspective` prisms (castle ramparts, Canvas fallback) read the same
-table: height through `LOOK.heightScale`, and each wall run gets the ink
-outline before its flat-colour fills. They remain untextured.
+table: height through `LOOK.heightScale`, and the ink outline is drawn once
+per connected run (blocks sharing a ground vertex at the same base level)
+before that run's first fill, so a ring of sections shows no seams while
+crown teeth outline separately. They remain untextured.
 
 ## Coordinates, rendering and performance
 

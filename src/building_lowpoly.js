@@ -5,7 +5,7 @@
   // The billboard look (docs/art/lowpoly-building-styles.md): every number
   // the ink pass, projection and dressing share, so sprites and meshes keep
   // agreeing. tools/building-billboard-preview.html edits this table live.
-  const LOOK={heightScale:.6,inkPx:1,ink:0x2a2229,textured:true,eaveBand:9,eaveShade:.5,flatRim:3.5,flatShade:9,sheet:768,
+  const LOOK={heightScale:1,inkPx:2,ink:0x2a2229,textured:true,facade:'tileset',eaveBand:9,eaveShade:.5,flatRim:3.5,flatShade:9,sheet:768,
     chimney:{radius:4.4,cap:5.8,mouth:3.4,rise:7,capHeight:2.2,sides:0xd9c9b8,capColor:0x9c8f84,mouthColor:0x2a2229},
     wreck:{tint:0xb3a89e,debris:0x5e564f,beam:0x3b2a1f,top:0x6b6059}};
   const mix=(a,b,t)=>{const c=i=>Math.round(((a>>i)&255)*(1-t)+((b>>i)&255)*t);return (c(16)<<16)|(c(8)<<8)|c(0);};
@@ -373,7 +373,8 @@
       const along=base.ridge,across={x:-along.y,y:along.x},inside=p=>{let hit=false;
         points.forEach((a,i)=>{const b=points[(i+1)%points.length];if((a.y>p.y)!==(b.y>p.y)&&p.x<a.x+(b.x-a.x)*(p.y-a.y)/(b.y-a.y))hit=!hit;});return hit;};
       const span=v=>points.map(p=>p.x*v.x+p.y*v.y),[alo,ahi]=[Math.min(...span(along)),Math.max(...span(along))],[clo,chi]=[Math.min(...span(across)),Math.max(...span(across))];
-      for(let k=1;k<7;k++){const o=alo+(ahi-alo)*k/7;let run=[];
+      // Two of the six rafters have fallen (hash picks which).
+      for(let k=1;k<7;k++){if(hash(k,19)<.65)continue;const o=alo+(ahi-alo)*k/7;let run=[];
         const flush=()=>{for(let i=1;i<run.length;i++){const a=run[i-1],b=run[i],w=1.1;
           let q=[{x:a.x-along.x*w,y:a.y-along.y*w,z:a.z},{x:b.x-along.x*w,y:b.y-along.y*w,z:b.z},{x:b.x+along.x*w,y:b.y+along.y*w,z:b.z},{x:a.x+along.x*w,y:a.y+along.y*w,z:a.z}].map(p=>({...p,u:0,v:0}));
           if(cross(q[0],q[1],q[2])<0)q=q.reverse();
@@ -423,29 +424,27 @@
       roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length};
     if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(key,mesh);return mesh;
   }
-  // Material sheets cut from the pixel tileset (pixel-tileset-v3.png), the
-  // painterly sheet (painterly-tileset-v1.png) and the generated seamless
-  // atlas (reference-materials-v3.png), in the exact layout atlasFaces
-  // expects: 512-basis ground line 105, 24-texel floors, 39-texel bays, the
-  // door bay centred at 255.5, roof region from 128 with a 360 period. The
-  // sheet is LOOK.sheet pixels square; UVs are normalised, so that number is
-  // texel density alone (768 puts one texel near one art pixel).
-  const SHEET_SRC={bands:{top:[167,247],mid:[247,322],bot:[322,399]},
-    walls:{plaster:{src:'px',window:['top',212,317],plain:['mid',170,300],door:['bot',215,320]},
-      timber:{src:'px',window:['mid',0,130],plain:['mid',0,130],door:['bot',55,160]},
-      brick:{src:'px',window:['bot',400,500],plain:['mid',410,540],door:['bot',465,575],zoom:1.7},
-      stone:{src:'px',window:['top',625,715],plain:['mid',605,715],door:['bot',625,705]},
-      darkstone:{src:'paint',window:[100,70,335,230],plain:[100,0,335,110],doorInset:[340,20,398,205]},
-      cobble:{src:'paint',window:[0,235,130,390],plain:[0,235,130,390],doorInset:[405,20,462,205],zoom:2.4},
-      clapboard:{src:'atlas',cell:[1,2]}},
-    // rect [x0,y0,x1,y1] and the 512-basis tile size; both sizes divide 360.
-    // Roofs: the approved set. Atlas cells (fish-scale clay, thatch) take the
-    // role colour by luminance like the generated sheets; slate is the pixel
-    // tileset's, red tile the painterly sheet's. Tile sizes divide 360.
-    roofs:{clay:{src:'atlas',cell:[0,0],tile:[90,90],tint:.7},thatch:{src:'atlas',cell:[2,0],tile:[90,90],tint:.7},glazed:{src:'atlas',cell:[0,1],tile:[90,90],tint:.7},
-      slate:{src:'px',rect:[100,527,396,596],tile:[180,40]},shingle:{src:'px',rect:[215,462,388,513],tile:[120,36]},pxthatch:{src:'px',rect:[215,418,388,446],tile:[120,19.5]},
-      redtile:{src:'paint',rect:[195,240,380,385],tile:[60,45]}}};
-  const SHEET_IMAGES={px:'pixel_tileset_v3',paint:'painterly_tileset_v1',atlas:'reference_materials_v3'};
+  // Material sheets cut from the approved sheet, assets/Objects/BuildingMaterials/
+  // approved-materials-v1.png (tools/build_approved_materials.py packs it from
+  // the pixel tileset, the painterly sheet and the generated atlas), in the
+  // exact layout atlasFaces expects: 512-basis ground line 105, 24-texel
+  // floors, 39-texel bays, the door bay centred at 255.5, roof region from 128
+  // with a 360 period. The sheet is LOOK.sheet pixels square; UVs are
+  // normalised, so that number is texel density alone (768 puts one texel near
+  // one art pixel). Rectangles are [x0,y0,x1,y1] in the approved sheet, as the
+  // packer prints them; approved_materials.test.js keeps them inside it.
+  const SHEET_SRC={
+    walls:{plaster:{window:[2,2,107,82],plain:[109,2,239,77],door:[241,2,346,79]},
+      timber:{window:[2,84,132,159],plain:[2,84,132,159],door:[134,84,239,161]},
+      brick:{window:[2,163,102,240],plain:[104,163,234,238],door:[236,163,346,240],zoom:1.7},
+      stone:{window:[2,242,92,322],plain:[94,242,204,317],door:[206,242,286,319]}},
+    // Roofs: the approved set. Clay and thatch (atlas cells) take the role
+    // colour by luminance like the generated sheets; slate is the pixel
+    // tileset's, red tile the painterly sheet's; all nearest-sampled. Tile
+    // sizes are 512-basis texels and divide 360.
+    roofs:{clay:{rect:[2,324,98,420],tile:[120,120],tint:.7},thatch:{rect:[100,324,196,420],tile:[90,90],tint:.7},
+      slate:{rect:[198,324,494,393],tile:[180,40]},redtile:{rect:[496,324,681,469],tile:[90,72]}}};
+  const SHEET_IMAGE='approved_materials_v1';
   // The pixel tileset leaves openings white (meant for transparency). Flood-fill
   // each white region: the ground-floor entrance bay becomes a plank door, the
   // rest lit glass with a lighter top-left pane; a wreck boards them over.
@@ -470,40 +469,28 @@
   function tilesetSheet(scene,recipe){
     const wallId=SHEET_SRC.walls[recipe.material]?recipe.material:'plaster',roofId=SHEET_SRC.roofs[recipe.roofMaterial]?recipe.roofMaterial:'slate';
     // `blank` recipes (ramparts) take plain bays: no windows, no door.
-    const roofSpec=SHEET_SRC.roofs[roofId],wreck=recipe.shape==='wreck',S=LOOK.sheet,key='lowpoly:tileset-v1:'+wallId+':'+roofId+(roofSpec.tint?':'+recipe.roof.toString(16):'')+':'+S+(wreck?':wreck':'')+(recipe.blank?':blank':'');
+    const roof=SHEET_SRC.roofs[roofId],wreck=recipe.shape==='wreck',S=LOOK.sheet,key='lowpoly:tileset-v2:'+wallId+':'+roofId+(roof.tint?':'+recipe.roof.toString(16):'')+':'+S+(wreck?':wreck':'')+(recipe.blank?':blank':'');
     if(scene.textures.exists(key))return scene.textures.get(key);
-    const img={};for(const [k,name] of Object.entries(SHEET_IMAGES))img[k]=scene.textures.get(name).getSourceImage();
+    const img=scene.textures.get(SHEET_IMAGE).getSourceImage();
     const K=S/512,tex=scene.textures.createCanvas(key,S,S),ctx=tex.getContext();
+    tex.roofPeriod=360;
     const T=(x,y,w,h)=>[Math.round(x*K),Math.round(y*K),Math.round(w*K),Math.round(h*K)];
+    // One bay: the crop's centre, zoomed in by `zoom` so its courses repeat larger.
     const bay=(spec,kind,bx,by)=>{
-      const [dx,dy,dw,dh]=T(bx,by,39,24);
-      ctx.imageSmoothingEnabled=spec.src==='paint';
-      if(spec.src==='px'){
-        const [band,x0,x1]=spec[kind],[y0,y1]=SHEET_SRC.bands[band],z=spec.zoom||1,cw=(x1-x0)/z,ch=(y1-y0)/z;
-        ctx.drawImage(img.px,(x0+x1)/2-cw/2,(y0+y1)/2-ch/2,cw,ch,dx,dy,dw,dh);
-      }else if(spec.src==='paint'){
-        const r=spec[kind==='door'?'plain':kind]||spec.plain,z=spec.zoom||1,cw=(r[2]-r[0])/z,ch=(r[3]-r[1])/z;
-        ctx.drawImage(img.paint,(r[0]+r[2])/2-cw/2,(r[1]+r[3])/2-ch/2,cw,ch,dx,dy,dw,dh);
-        if(kind==='window'){ctx.fillStyle='#ffffff';ctx.fillRect(...T(bx+14,by+6,10,11));} // glass via paintOpenings
-        if(kind==='door'&&spec.doorInset){const w=spec.doorInset,[ix,iy,iw,ih]=T(bx+12.5,by+4,14,20);ctx.drawImage(img.paint,w[0],w[1],w[2]-w[0],w[3]-w[1],ix,iy,iw,ih);}
-      }else{ // seamless atlas cell, then white openings for paintOpenings to dress
-        const [c,r]=spec.cell;ctx.drawImage(img.atlas,c*MATERIAL_TILE,r*MATERIAL_TILE,MATERIAL_TILE,59,dx,dy,dw,dh);ctx.fillStyle='#ffffff';
-        if(kind==='window')ctx.fillRect(...T(bx+14,by+6,10,12));if(kind==='door')ctx.fillRect(...T(bx+12,by+5,15,19));
-      }
+      const [dx,dy,dw,dh]=T(bx,by,39,24),r=spec[kind],z=spec.zoom||1,cw=(r[2]-r[0])/z,ch=(r[3]-r[1])/z;
+      ctx.drawImage(img,(r[0]+r[2])/2-cw/2,(r[1]+r[3])/2-ch/2,cw,ch,dx,dy,dw,dh);
     };
     const wall=SHEET_SRC.walls[wallId];
-    ctx.save();ctx.beginPath();ctx.rect(0,0,S,128*K);ctx.clip();
+    ctx.save();ctx.beginPath();ctx.rect(0,0,S,128*K);ctx.clip();ctx.imageSmoothingEnabled=false;
     for(let k=-1;k<=12;k++)bay(SHEET_SRC.walls.stone,'plain',2+39*k,105); // plinth; chimney sides sample it
-    for(let floor=0;floor<3;floor++)for(let k=-1;k<=12;k++)bay(wall,recipe.blank?'plain':floor===0&&k===6?'door':'window',2+39*k,105-24*(floor+1));
+    // Windows take every other bay, so the door (bay 6) sits between two plain
+    // bays and facades keep some bare wall between openings.
+    for(let floor=0;floor<3;floor++)for(let k=-1;k<=12;k++)bay(wall,recipe.blank||k%2?'plain':floor===0&&k===6?'door':'window',2+39*k,105-24*(floor+1));
     ctx.restore();
     paintOpenings(ctx,S,Math.round(128*K),wreck);
-    const roof=SHEET_SRC.roofs[roofId],[tw,th]=roof.tile;
-    ctx.save();ctx.beginPath();ctx.rect(0,128*K,S,S-128*K);ctx.clip();ctx.imageSmoothingEnabled=roof.src==='paint';
-    for(let y=128;y<512;y+=th)for(let x=0;x<512;x+=tw){
-      const dx=Math.round(x*K),dy=Math.round(y*K),dw=Math.ceil(tw*K),dh=Math.ceil(th*K);
-      if(roof.src==='atlas')ctx.drawImage(img.atlas,roof.cell[0]*MATERIAL_TILE,roof.cell[1]*MATERIAL_TILE,MATERIAL_TILE,MATERIAL_TILE,dx,dy,dw,dh);
-      else ctx.drawImage(img[roof.src],roof.rect[0],roof.rect[1],roof.rect[2]-roof.rect[0],roof.rect[3]-roof.rect[1],dx,dy,dw,dh);
-    }
+    const [tw,th]=roof.tile,[rx,ry,rw,rh]=[roof.rect[0],roof.rect[1],roof.rect[2]-roof.rect[0],roof.rect[3]-roof.rect[1]];
+    ctx.save();ctx.beginPath();ctx.rect(0,128*K,S,S-128*K);ctx.clip();ctx.imageSmoothingEnabled=false;
+    for(let y=128;y<512;y+=th)for(let x=0;x<512;x+=tw)ctx.drawImage(img,rx,ry,rw,rh,Math.round(x*K),Math.round(y*K),Math.ceil(tw*K),Math.ceil(th*K));
     ctx.restore();
     if(roof.tint){ // the role colour by luminance ratio, keeping the cell's own ramps
       const y0=Math.round(128*K),img=ctx.getImageData(0,y0,S,S-y0),d=img.data,base=recipe.roof,t=roof.tint;
@@ -524,12 +511,104 @@
       for(let i=0;i<d.length;i+=16){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}tex.roofTone=(Math.round(r/n)<<16)|(Math.round(g/n)<<8)|Math.round(b/n);}
     tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
   }
-  const tilesetReady=scene=>Object.values(SHEET_IMAGES).every(name=>scene.textures.exists(name));
+  // The cel sheet: a minimal pixel-art facade drawn from scratch, no source
+  // art. LOOK.facade='cel' selects it. Every material is a three-tone ramp
+  // (shade, base, light) around the role colour plus one shared ink colour,
+  // the same restraint as the supply crate (assets/Objects/Approved/box.png):
+  // warm wood ramps, cool blue-violet shadows, one-texel outlines, a single
+  // highlight pixel per feature; openings keep the tileset's scale and bay
+  // placement, with only a lintel, sill, step and lantern as decoration.
+  // Layout is the shared 512-basis facade
+  // (ground line 105, 24-texel floors, 39-texel bays, door bay centred at
+  // 255.5, roof rows from 128 with a 288 period), so UVs are unchanged.
+  const CEL={ink:0x3e394a,shadow:0x4a4658,plum:0x6b5051,mauve:0x8e6762,
+    wood:{dark:0xa46045,mid:0xb2764e,base:0xc88953,light:0xd3945d,bright:0xd9a169},
+    glass:{dark:0x4a5a7a,base:0x6f93c4,light:0xb5cde8},leaf:0x5f7a46,bloom:0xd36a5a,flame:0xf2c76a};
+  function celSheet(scene,recipe){
+    const wreck=recipe.shape==='wreck',key='lowpoly:cel-v1:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.roofMaterial,recipe.finish,wreck,!!recipe.blank]);
+    if(scene.textures.exists(key))return scene.textures.get(key);
+    const tex=scene.textures.createCanvas(key,512,512),ctx=tex.getContext();
+    const css=c=>'#'+c.toString(16).padStart(6,'0');
+    const px=(x,y,w,h,c)=>{ctx.fillStyle=css(c);ctx.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)));};
+    // Three-tone cel ramp: shade leans to the crate's blue-violet, light to warm cream.
+    const ramp=c=>({shade:mix(c,CEL.shadow,.26),base:c,light:mix(c,0xf3e2c0,.16)});
+    const wall=ramp(recipe.body),roof=ramp(recipe.roof),trim=ramp(recipe.trim),ink=CEL.ink;
+    const BOT=105,FLOORS=4,bays=[];for(let k=-1;k<=12;k++)bays.push(2+39*k);
+    // --- wall surface -------------------------------------------------------
+    px(0,0,512,128,wall.base);
+    if(recipe.material==='timber'){ // crate planks: 8 wide, dark seam, bright edge
+      for(let x=-3;x<512;x+=8){px(x,0,1,128,wall.shade);px(x+1,0,1,128,wall.light);}
+      for(let y=0;y<128;y+=24)for(let x=1;x<512;x+=8){if(hash(x,y)>.7)px(x+4,y+6+hash(y,x)*12,1,1,wall.shade);}
+    }else if(recipe.material==='brick'){ // broad running bond, one highlight pixel per brick
+      const bw=16,bh=6;for(let y=0,row=0;y<128;y+=bh,row++)for(let x=-(row%2)*bw/2;x<512;x+=bw){
+        px(x,y+bh-1,bw,1,wall.shade);px(x+bw-1,y,1,bh,wall.shade);px(x+1,y,bw-3,1,wall.light);}
+    }else if(recipe.material==='stone'){ // big ashlar blocks
+      const bw=24,bh=12;for(let y=0,row=0;y<128;y+=bh,row++)for(let x=-(row%2)*bw/2;x<512;x+=bw){
+        px(x,y+bh-1,bw,1,wall.shade);px(x+bw-1,y,1,bh,wall.shade);px(x+1,y,bw-3,1,wall.light);
+        if(hash(x,y)>.8)px(x+3+hash(y,x)*12,y+3+hash(x,y)*5,2,1,wall.shade);}
+    }else{ // plaster: almost flat, a few deliberate two-pixel flecks
+      for(let y=3;y<128;y+=11)for(let x=5;x<512;x+=17){const n=hash(x,y);if(n>.86)px(x,y,2,1,wall.light);else if(n<.06)px(x,y,2,1,wall.shade);}
+    }
+    // Floor beams: a dark timber band with a bright top edge, every storey.
+    for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);px(0,y-1,512,3,trim.shade);px(0,y-1,512,1,trim.light);}
+    if(recipe.finish==='cottage'){ // half-timbering: posts at bay edges, one brace per bay
+      for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);for(const bx of bays){px(bx-1,y,3,24,trim.shade);px(bx-1,y,1,24,trim.light);
+        for(let i=0;i<7;i++){px(bx+3+i,y+4+i,2,1,trim.shade);px(bx+34-i,y+4+i,2,1,trim.shade);}}}
+    }
+    // Plinth: two courses of stone in the shadow ramp, grounding every wall.
+    const plinth=ramp(mix(recipe.body,CEL.mauve,.6));
+    px(0,BOT-10,512,38,plinth.base);px(0,BOT-10,512,1,ink);
+    for(let y=BOT-9,row=0;y<128;y+=6,row++)for(let x=-(row%2)*9;x<512;x+=18){px(x,y+5,18,1,plinth.shade);px(x+17,y,1,6,plinth.shade);px(x+1,y,16,1,plinth.light);}
+    // --- openings -------------------------------------------------------------
+    const casement=(x,y,f)=>{ // 11x13 casement: ink outline, trim frame, two-tone glass, one bright pane, sill
+      px(x-1,y-1,13,15,ink);px(x,y,11,13,trim.base);
+      if(wreck){px(x+1,y+1,9,11,CEL.plum);px(x,y+3,11,3,CEL.wood.mid);px(x,y+8,11,3,CEL.wood.dark);px(x+1,y+3,1,1,ink);px(x+9,y+9,1,1,ink);return;}
+      px(x+1,y+1,9,11,CEL.glass.base);px(x+1,y+1,4,5,CEL.glass.light);px(x+6,y+7,4,5,CEL.glass.dark);
+      px(x+5,y+1,1,11,trim.shade);px(x+1,y+6,9,1,trim.shade);
+      px(x-2,y+13,15,2,trim.light);px(x-2,y+15,15,1,ink);
+      px(x-2,y-3,15,2,trim.shade);px(x-2,y-3,15,1,trim.light); // lintel plank
+    };
+    const door=(x,y)=>{ // 15x21 plank door, arched ink outline, crate-style brace, step and lantern
+      px(x-1,y-1,17,23,ink);px(x,y+2,15,20,CEL.wood.base);px(x+1,y,13,2,CEL.wood.base);px(x+2,y-1,11,1,ink);
+      for(let i=3;i<15;i+=4)px(x+i,y+1,1,21,CEL.wood.dark);
+      px(x+1,y+1,13,1,CEL.wood.bright);px(x,y+8,15,2,CEL.wood.mid);px(x,y+10,15,1,CEL.wood.dark);
+      px(x+11,y+12,2,2,CEL.flame);px(x+12,y+13,1,1,ink);
+      if(wreck){px(x-2,y+6,19,3,CEL.plum);px(x-2,y+6,19,1,CEL.mauve);px(x-1,y+14,18,3,CEL.plum);px(x-1,y+14,18,1,CEL.mauve);}
+      px(x-3,y+22,21,3,plinth.light);px(x-3,y+24,21,1,ink); // step
+      px(x-7,y+3,1,8,trim.shade);px(x-9,y+1,5,6,ink);px(x-8,y+2,3,4,CEL.flame);px(x-7,y+3,1,1,0xfff1c2); // lantern
+    };
+    if(!recipe.blank)for(let f=0;f<FLOORS;f++)for(let k=-1;k<=12;k++){
+      const bx=2+39*k,y=BOT-24*(f+1)+5;
+      if(f===0&&k===6)door(bx+12,BOT-22);
+      else if(k%2===0)casement(bx+14,y,f);
+    }
+    // --- roof ---------------------------------------------------------------
+    px(0,128,512,384,roof.base);
+    const kind=recipe.roofMaterial;
+    if(kind==='flat'){ // walkable flagstones, 24-texel, bright top-left corner
+      for(let y=128,row=0;y<512;y+=24,row++)for(let x=-(row%2)*12;x<512;x+=24){px(x,y+23,24,1,roof.shade);px(x+23,y,1,24,roof.shade);px(x+1,y,21,1,roof.light);px(x+1,y+1,1,2,roof.light);}
+    }else if(kind==='thatch'){ // tidy bands with sparse bright straws
+      for(let y=128,row=0;y<512;y+=12,row++){px(0,y+11,512,1,roof.shade);px(0,y+10,512,1,roof.shade);px(0,y,512,1,roof.light);
+        for(let x=(row%2)*8;x<512;x+=16){if(hash(x,y)>.45)px(x+3,y+2,1,6,roof.light);if(hash(y,x)>.75)px(x+9,y+4,1,5,roof.shade);}}
+    }else if(kind==='slate'){ // broad rectangular slates 18x9
+      for(let y=128,row=0;y<512;y+=9,row++)for(let x=-(row%2)*9;x<512;x+=18){px(x,y+8,18,1,roof.shade);px(x+17,y,1,9,roof.shade);px(x+1,y,15,1,roof.light);}
+    }else{ // clay / red tile / shingle: scalloped 12x8 courses, one highlight per tile
+      const tw=12,th=8;for(let y=128,row=0;y<512;y+=th,row++)for(let x=-(row%2)*tw/2;x<512;x+=tw){
+        px(x,y+th-1,tw,1,roof.shade);px(x+tw-1,y,1,th-1,roof.shade);px(x+2,y+1,tw-5,1,roof.light);
+        px(x,y+th-2,2,1,roof.shade);px(x+tw-3,y+th-2,2,1,roof.shade);} // stepped scallop corners
+    }
+    if(wreck){for(let y=136;y<512;y+=31)for(let x=5;x<512;x+=47){const n=hash(x,y);if(n<.55)continue;px(x+n*20,y+n*9,8+n*5,5+n*3,CEL.plum);px(x+n*20,y+n*9,8+n*5,1,ink);}}
+    px(508,124,4,4,0xffffff); // shared solid texel for the ink pass
+    tex.roofTone=mix(recipe.roof,CEL.shadow,.1);
+    tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
+  }
+  const tilesetReady=scene=>scene.textures.exists(SHEET_IMAGE);
   // Stories and footprint are UV choices, not new texture allocations. All
   // buildings with a material/palette share this three-storey facade sheet.
   // With the tilesets loaded the sheet is cut from them; the generated
   // marks below remain the fallback (forts, headless review, missing art).
   function material(scene,recipe){
+    if(recipe.role!=='fort'&&LOOK.facade==='cel')return celSheet(scene,recipe);
     if(recipe.role!=='fort'&&tilesetReady(scene))return tilesetSheet(scene,recipe);
     const source=recipe.role!=='fort'&&scene.textures.exists('building_material_reference')?scene.textures.get('building_material_reference').getSourceImage():null;
     const key=(source?'generated:':'fallback:')+'lowpoly:materials-v13:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.finish,recipe.roofMaterial,recipe.role==='fort',recipe.shape,recipe.terraced]);
@@ -779,7 +858,7 @@
       return out;
     });
   }
-  function atlasFaces(mesh){
+  function atlasFaces(mesh,roofPeriod=288){
     const result=[],vOffset=mesh.uvBaseline?0:77-mesh.height;
     const cut=(poly,axis,bound,side)=>{
       const out=[];
@@ -804,10 +883,10 @@
         tv:trim?126:raw?p.v:roof?p.v/DETAIL_SCALE:105-(105-p.v-vOffset)/DETAIL_SCALE}));
       let polys=[points];
       if(!trim&&!raw){
-        // Roof period is three complete 96px material tiles; facade period is
-        // twelve complete 39px bays. Never stretch to fit an atlas rectangle.
-        polys=wrap(polys,'tu',roof?511:507,roof?288:468);
-        polys=wrap(polys,'tv',roof?383:123,roof?288:72);
+        // The selected sheet owns its roof repeat (approved crops: 360;
+        // generated tiles: 288). Facades repeat twelve complete 39px bays.
+        polys=wrap(polys,'tu',roof?511:507,roof?roofPeriod:468);
+        polys=wrap(polys,'tv',roof?383:123,roof?roofPeriod:72);
       }
       const direction=face.kind==='wall'?(face.wallDirection||{x:face.points[1].x-face.points[0].x,y:face.points[1].y-face.points[0].y}):face.wallDirection;
       for(const poly of polys)for(let i=1;i<poly.length-1;i++){
@@ -823,9 +902,9 @@
     const local=pts.map(p=>({x:p.x-left,y:p.y-top}));
     const cached=recipe.shape?specialGeometry(local,recipe):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+5,ROOF_OVERHANG,recipe.chimneys?{count:recipe.chimneys,scale:recipe.chimneyScale||1}:null);
-    const mesh={...cached,faces:atlasFaces(cached)};
-    mesh.roofTriangles=mesh.faces.filter(f=>f.kind==='roof').length;mesh.wallTriangles=mesh.faces.filter(f=>f.kind==='wall').length;mesh.trimTriangles=mesh.faces.filter(f=>f.kind==='trim').length;
     const texture=material(scene,recipe);(state.textures||=new Set()).add(texture.key);
+    const mesh={...cached,faces:atlasFaces(cached,texture.roofPeriod)};
+    mesh.roofTriangles=mesh.faces.filter(f=>f.kind==='roof').length;mesh.wallTriangles=mesh.faces.filter(f=>f.kind==='wall').length;mesh.trimTriangles=mesh.faces.filter(f=>f.kind==='trim').length;
     mesh.role=recipe.role;mesh.x=left;mesh.y=top;state.buildings.push(mesh);if(key&&mesh.faces.length)state.keys.add(key);
     const support={x:left+local.reduce((s,p)=>s+p.x,0)/local.length,y:top+local.reduce((s,p)=>s+p.y,0)/local.length,order:state.buildings.length};
     const index=state.buildings.length-1;
@@ -838,7 +917,7 @@
       else if(recipe.shape==='wreck'&&(face.kind==='wall'||face.kind==='roof')&&!face.debris&&!face.chimney)face.color=LOOK.wreck.tint;
       // The untextured look (LOOK.textured=false) draws each face in its base colour.
       face.flat=face.tileCap?mix(recipe.roof,0x2a2229,.12):face.kind==='roof'&&!face.solid?recipe.roof:face.kind==='wall'?(face.chimney?LOOK.chimney.sides:recipe.body):face.color??recipe.trim;
-      face.preserveWalls=recipe.role==='fort'||!!face.chimney;face.eaveHeight=mesh.eaveHeight??mesh.height;face.support=support;face.cottage=recipe.finish==='cottage';face.texture=texture;face.vOffset=mesh.uvBaseline?0:77-mesh.height;face.x=left;face.y=top;face.projected=face.points.map(()=>({}));state.faces.push(face);}
+      face.preserveWalls=recipe.role==='fort'||!!face.chimney;face.eaveHeight=mesh.eaveHeight??mesh.height;face.support=support;face.texture=texture;face.x=left;face.y=top;face.projected=face.points.map(()=>({}));state.faces.push(face);}
     return mesh;
   }
   function offset(scene,x,y){

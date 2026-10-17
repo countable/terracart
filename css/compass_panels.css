@@ -43,7 +43,7 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 }
 /* Follow the lower silver silhouette so the painting fills the space
    beneath the dragons instead of showing the rail image's dark backing. */
-.compass-panel > .modal-box.modal-scene::before {
+.compass-panel > .modal-box.modal-scene::before, #story.compass-story .box::before {
   mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20750%20220%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20fill%3D%22white%22%20d%3D%22M0%200H750V220L726%20191L701%20165L678%20150L654%20148H415L375%20165L335%20148H96L72%20150L49%20165L24%20191L0%20220Z%22%2F%3E%3C%2Fsvg%3E");
   mask-size: 100% 100%;
 }
@@ -131,13 +131,13 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 #story.compass-story .box {
   position: relative; display: flex; flex-direction: column;
   width: min(100%, 480px); max-width: 480px; height: 87.5%; max-height: none;
-  padding: var(--panel-rail-height) 0 calc(60px + env(safe-area-inset-bottom));
+  padding: 0 0 calc(60px + env(safe-area-inset-bottom));
   box-sizing: border-box; overflow: hidden;
   border: 0; border-radius: 28px 28px 0 0;
   background: #1b252c; box-shadow: 0 -8px 35px #0009;
   animation: compass-panel-rise 240ms ease-out both;
 }
-#story.compass-story .art { flex: 0 1 auto; min-height: 0; width: calc(100% - 36px); aspect-ratio: 512 / 341; margin: 14px 18px 0; }
+#story.compass-story .art { flex: 0 0 auto; min-height: 0; width: 100%; aspect-ratio: 512 / 341; margin: 0; }
 #story.compass-story .opening-copy { flex: 0 0 auto; padding: 20px; }
 #story.compass-story .story-skip { z-index: 4; }
 @media (prefers-reduced-motion: reduce) {
