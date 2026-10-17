@@ -307,7 +307,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   not scroll. Copy and actions occupy a separate `.modal-copy` viewport;
   long content uses Previous/Next pages at its original text size, with whole
   controls. The one exception is the ☰ menu (`makeModalShell` `scroll`): a
-  list thumbed through, it scrolls as one and is never paged. Content, expanded details, image loads, fonts and viewport changes
+  list thumbed through, it scrolls as one and is never paged. The saved
+  games ("Load game") and the developer tools ("Developer") are pages of the
+  menu (`_openMenuPage`): a second scrolling dialog with a Back row, its
+  markup moved out of the hidden `#menu-pages` holder and home again. Content, expanded details, image loads, fonts and viewport changes
   trigger fitting again. Art and loading mosaics share the same crop.
   Framed opening stories without titles keep their separate 14-pixel rail gap.
   `css/compass_panels.css` seats this same shell as a mechanical sheet that

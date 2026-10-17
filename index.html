@@ -97,7 +97,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=42c22154" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=611cc50f" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -710,6 +710,17 @@
     #devtools[open] summary::before { content: '▾ '; }
     #devtools summary:hover { background: #ffffff14; color: #ccc; }
     #devtools .devitems { display: flex; flex-direction: column; gap: 0; }
+    /* On its own page (app.js _openMenuPage) the Developer <details> is the
+       page: forced open, its summary and divider gone; the page's Back row
+       carries the title. The saves page likewise sheds its divider. */
+    .game-modal .menu-page#devtools { border-top: 0; margin-top: 0; padding-top: 0; }
+    .game-modal .menu-page#devtools > summary { display: none; }
+    .game-modal .menu-page { display: flex; flex-direction: column; gap: 0; }
+    .game-modal .menu-page-head {
+      display: flex; align-items: center; gap: 10px; margin: 0 0 6px;
+      padding-bottom: 6px; border-bottom: 1px solid #333;
+    }
+    .game-modal .menu-page-head .menu-page-title { font: 700 13px var(--font-ui); color: var(--gold); }
     /* Hit height, not font size: rows sat at 40px once, then 32px, and the
        menu still read as a sparse list that scrolled sooner than it needed
        to — packed to ~26px (4px pad on the 12px line, zero gap) so the whole
@@ -1290,15 +1301,22 @@
       <button id="mp-toggle">Multiplayer: off</button>
       <button id="player-name-btn" style="display:none;">Player name: —</button>
       <button id="move-home">Move Home here</button>
-      <div id="saves-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
-        <div style="font:700 10px var(--font-ui);color:#888;padding:2px 8px 4px;">Saved games</div>
+      <!-- THE MENU'S PAGES (owner, Oct 2026): the saved games and the developer
+           tools are each a second menu of their own — "Load game" and
+           "Developer" open them (app.js _openMenuPage) with a Back button —
+           so the main list stays short. Their markup lives in #menu-pages,
+           hidden, and is moved into the page dialog while it shows; every
+           id-bound handler (buildSavesMenu, the debug buttons, the teleport
+           presets, the sandbox lab) finds its element by id as before. -->
+      <button id="load-game">Load game ›</button>
+      <button id="dev-tools">Developer ›</button>
+      <div id="menu-pages" hidden>
+      <div id="saves-section">
         <div id="saves-list"><!-- one row per slot, injected from the save registry --></div>
         <button id="new-save">+ New game</button>
       </div>
-      <!-- Developer tools. Collapsed by default: these were sitting in the
-           open menu above the player-facing entries, so the first thing a new
-           player saw on tapping ☰ was five debug buttons and a teleport list.
-           Still one tap away for development — just not the default view. -->
+      <!-- Developer tools: the Developer page's contents (its <details> is
+           forced open on the page and its summary hidden there). -->
       <details id="devtools">
         <summary>Developer</summary>
         <div class="devitems">
@@ -1318,6 +1336,7 @@
           </div>
         </div>
       </details>
+      </div>
   <!-- The floor under the ☰ button: "Depth N" underground, blank at ground
        level (app.js updateHUD). -->
   <div id="depth-tag" aria-live="polite"></div>
@@ -1846,13 +1865,14 @@
     document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
 
     // Close menu on outside click / world tap. While open, the menu's list
-    // lives in its dialog (#menu-modal, app.js › _openMenuDialog), not under
+    // lives in its dialog (#menu-modal, app.js › _openMenuDialog) or one of
+    // its pages (#menu-page-modal, _openMenuPage), not under
     // <details id="menu"> — a tap there is INSIDE the menu. The dialog's own
     // backdrop tap closes it through the shell's onClose.
     document.addEventListener('pointerdown', (e) => {
       const m = document.getElementById('menu');
       if (!m || !m.open || m.contains(e.target)) return;
-      if (document.getElementById('menu-modal')) return;
+      if (document.getElementById('menu-modal') || document.getElementById('menu-page-modal')) return;
       m.open = false;
     }, true);
     document.getElementById('delivery-list').addEventListener('click', (e) => {
@@ -3107,7 +3127,7 @@
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=c1099b24"></script>
   <script src="src/art_thumbs.js?v=bcb1a6f0"></script>
-  <script src="src/modal_shell.js?v=3961cce1"></script>
+  <script src="src/modal_shell.js?v=b3bd6028"></script>
   <script src="src/scene_geo.js?v=f0f9f10b"></script>
   <script src="src/npc.js?v=0e7ae2f5"></script>
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
@@ -3195,7 +3215,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=42c22154';
+      const APP_SRC = 'src/app.js?v=611cc50f';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
