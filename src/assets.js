@@ -8,33 +8,6 @@ const ASSETS = {
   pixel_tileset_v3: { kind: 'image', path: 'assets/Objects/BuildingMaterials/pixel-tileset-v3.png' },
   painterly_tileset_v1: { kind: 'image', path: 'assets/Objects/BuildingMaterials/painterly-tileset-v1.png' },
   reference_materials_v3: { kind: 'image', path: 'assets/Objects/BuildingMaterials/reference-materials-v3.png' },
-  // Rounded alternatives preserve all legacy building textures. Tight native
-  // 64px house / 80px fort frames end at the sheet's common ground row 88.
-  rounded_buildings: { kind: 'image', path: 'assets/Objects/RoundedBuildings/buildings.png', unclaimedArt: true,
-    frameRects: {
-      house: { x: 16, y: 24, width: 64, height: 64 },
-      blacksmith: { x: 112, y: 24, width: 64, height: 64 },
-      trader: { x: 208, y: 24, width: 64, height: 64 },
-      market: { x: 304, y: 24, width: 64, height: 64 },
-      seed_shop: { x: 16, y: 120, width: 64, height: 64 },
-      supply_shop: { x: 112, y: 120, width: 64, height: 64 },
-      magic_shop: { x: 208, y: 120, width: 64, height: 64 },
-      relic_shop: { x: 304, y: 120, width: 64, height: 64 },
-      pet_shop: { x: 16, y: 216, width: 64, height: 64 },
-      book_shop: { x: 112, y: 216, width: 64, height: 64 },
-      wizard_tower: { x: 208, y: 216, width: 64, height: 64 },
-      turret: { x: 304, y: 216, width: 64, height: 64 },
-      home_wagon: { x: 16, y: 312, width: 64, height: 64 },
-      wreck: { x: 112, y: 312, width: 64, height: 64 },
-      fort: { x: 200, y: 296, width: 80, height: 80 },
-      fort_unclaimed: { x: 296, y: 296, width: 80, height: 80 },
-    },
-    onLoad: scene => {
-      const texture = scene.textures.get('rounded_buildings');
-      for (const [name, rect] of Object.entries(ASSETS.rounded_buildings.frameRects)) {
-        texture.add(name, 0, rect.x, rect.y, rect.width, rect.height);
-      }
-    } },
   progression_tiles: { kind: 'spritesheet', path: 'assets/Objects/Progression/tiles.png', frameWidth: 24, frameHeight: 24 },
   icon_progression: { kind: 'spritesheet', path: 'assets/Objects/Progression/icons.png', frameWidth: 16, frameHeight: 16 },
   pet_story_clearing: { deferred: true, kind: 'image', path: 'assets/art/pet_clearing.webp' },

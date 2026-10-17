@@ -136,14 +136,3 @@ Publish the current export grid with `python3 tools/build_approved_story_gallery
 
 The opening wrecks scene holds its approved painting across both fade frames,
 so the transition cannot restore the earlier, shorter player proportions.
-
-## Rounded building alternatives
-
-The sixteen-frame rounded building sheet ships unchanged at
-`assets/Objects/RoundedBuildings/buildings.png`. Its source, checksum, original
-96px-cell rectangles and ground anchors are recorded in
-[rounded-buildings.json](rounded-buildings.json). `ASSETS.rounded_buildings`
-registers tight 64px house and 80px fort frames without cutting visible pixels.
-All legacy building PNGs remain in place; `?buildingArt=legacy` selects them.
-The renderer's existing scale and placement rules are unchanged; see
-[building artwork selection](../design/rendering.md#rounded-building-artwork).

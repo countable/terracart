@@ -584,11 +584,9 @@ actually been emitted; interaction cells, shop signs and delivery badges remain.
 Badge elevation reads the emitted building height. Geometry remains in the existing
 building background layer below actors, including on tall roofs.
 
-`?buildingArt=rounded` selects the previous rounded sprite set;
 `?buildingArt=legacy` selects the original sprites. Omit the query or use
 `buildingArt=procedural` for footprint architecture. This per-page selection is
-not saved; all original assets remain available. The rounded sprite set also
-continues to supply restoration cards and Home icons.
+not saved. Original sprites also supply restoration cards and Home icons.
 
 ## Bush and container artwork
 
@@ -606,26 +604,20 @@ use copper-rimmed or repaired barrels and charcoal pottery, and wetland contexts
 use mossy rain barrels. Pot shards retain the intact pot's frame. Selection does
 not change rewards, material identity, saved IDs or restocking behavior.
 
-## Rounded building artwork
+## Building sprite artwork
 
-The retained building set is `assets/Objects/RoundedBuildings/buildings.png`.
-`ASSETS.rounded_buildings.frameRects` registers its sixteen named frames,
-cut from the 96px cells into 64×64 house and 80×80 fort frames ending at the
-shared ground row (88px within each cell). `Render.houseTextureKey` and
-`Render.houseTextureFrame` route map buildings, restoration choices and Home's
-icon through the same role and shop-line mapping. The existing footprint-based
-world scale, bottom-centre anchor and ground position remain the sizing rules;
-the native frame dimensions do not introduce a second world-scale multiplier.
+Restoration choices, Home's icon and map sprite fallbacks use the original
+role textures through `Render.houseTextureKey` and `Render.houseTextureFrame`.
+Plain houses use the `house` front frame; shops and other roles use their
+original `house_<role>` images. Wizard towers and turrets retain their shrine
+and tower frames. Unclaimed forts use their baked weathered artwork.
 
-Use `?buildingArt=legacy` (or `&buildingArt=legacy` with other query options)
-to compare the original artwork. Use `buildingArt=rounded` for
-the rounded set. `Render.buildingArtStyle` is the single runtime selection; it is
-not saved. All original assets and registrations remain available for rollback.
-Castle perimeter towers retain their existing material-family art. The rounded
-wreck and unclaimed fort contain their weathering and receive no second wash.
-The source sheet and extraction metadata are archived under
-`~/.artifacts/house-rounded/`.
+Procedural buildings remain the default on the map. `?buildingArt=legacy`
+selects the original sprites instead. Both modes use the original artwork
+for dialog icons and sprite fallbacks.
 
-Default oak barrels use a muted brown tint to match supply crates and scale to
+Default oak barrel art uses the supply crate’s manufactured-wood palette directly,
+without a runtime tint. Only frame 0 of the barrel sheet is replaced; the other
+seven variants retain their original pixels. Default barrels scale to
 `(2/3) × 1.1 × 1.1`. Long grass uses `1.16 × 0.9`; trunk chests use
 `1.6 × 0.8`, and supply crates use `0.8 × 1.1`. Chests have trimmed bounds for every tier to keep their art centered.
