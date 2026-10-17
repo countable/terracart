@@ -1,0 +1,73 @@
+<!doctype html><meta charset="utf-8"><title>Building look review</title>
+<style>body{margin:0;background:#243947;color:#efe8da;font:16px system-ui}header{padding:16px;line-height:1.7}canvas{display:block}input,button,select{font:inherit}label{margin-right:14px}</style>
+<header><b>Building look review</b> · the shipping low-poly path (<code>src/building_lowpoly.js</code>) beside the game's 2D sprites. Sliders write <code>BuildingLowPoly.LOOK</code> live; the values that ship are the table's defaults.<br>
+<label>Compass <input id="angle" type="range" min="0" max="360" value="0"></label><button id="sweep">Sweep</button>
+<label>Ink px <input id="ink" type="range" min="0" max="3" step="1"><span id="inkv"></span></label>
+<label>Height ×<input id="zscale" type="range" min="0.3" max="1" step="0.05"><span id="zv"></span></label>
+<label><input id="tileset" type="checkbox" checked> Tileset sheets</label>
+<span id="stats"></span></header><div id="game"></div>
+<script src="../vendor/phaser.js"></script><script src="../src/util.js"></script><script src="../src/castle_styles.js"></script><script src="../src/textures.js"></script><script src="../src/wall_perspective.js"></script><script src="../src/building_styles.js"></script><script src="../src/building_lowpoly.js"></script>
+<script>
+var CELL_PX=32; // wall_perspective.js sections castle segments by cell
+const LOOK=BuildingLowPoly.LOOK;
+document.querySelector('#ink').value=LOOK.inkPx;document.querySelector('#zscale').value=LOOK.heightScale;
+let reviewScene,sweeping=false;const roles=Object.keys(BuildingLowPoly.ROLES).filter(r=>!['shop','wizard','turret'].includes(r));
+// These are the role/shop palette overrides used by Render.buildingProfileFor.
+const palettes={trader:{wall:0xd8c6a1,roof:0x567e83},plain:{wall:0xd4cdb4,roof:0x709b9a},blacksmith:{wall:0xa96e59,roof:0x687a83},seed:{roof:0x82916b},supply:{roof:0xb09a69},potion:{roof:0x957ca9},relic:{roof:0x6e9a91},pet:{roof:0x8b9678},book:{roof:0x967577}};
+const SHEET_KEYS=['pixel_tileset_v3','painterly_tileset_v1','reference_materials_v3'];
+function rebuild(){const s=reviewScene;
+  // Unticking the tilesets hides their textures from the module, which then
+  // falls back to its generated sheets; both looks stay cached under their own keys.
+  if(!document.querySelector('#tileset').checked){for(const k of SHEET_KEYS)if(s.textures.exists(k)){(s._hidden??={})[k]=s.textures.get(k);delete s.textures.list[k];}}
+  else if(s._hidden){for(const [k,t] of Object.entries(s._hidden))s.textures.list[k]=t;s._hidden=null;}
+  BuildingLowPoly.begin(s);s.labels?.forEach(t=>t.destroy());s.labels=[];s.legacySprites?.forEach(t=>t.destroy());s.legacySprites=[];
+  const billboard=(x,y,key,frame,label)=>{const sprite=s.add.image(x+75,y+115,key,frame).setOrigin(.5,1).setScale(2);s.legacySprites.push(sprite);s.labels.push(s.add.text(x,y+140,label,{fontSize:'15px',color:'#efe8da'}));};
+  roles.forEach((role,i)=>{const x=55+(i%4)*265,y=125+Math.floor(i/4)*250;
+    const pts=[{x,y},{x:x+120,y},{x:x+120,y:y+65},{x:x+150,y:y+65},{x:x+150,y:y+115},{x,y:y+115}];
+    if(BuildingLowPoly.ROLES[role].sprite)return billboard(x,y,'home_wagon',undefined,role+' · sprite art');
+    const recipe=BuildingLowPoly.recipeFor(role,{...palettes[role],trim:0x614534});
+    const mesh=BuildingLowPoly.add(s,pts,recipe,recipe.variant||'ridge',role);
+    s.labels.push(s.add.text(x,y+140,(role==='trader'?'market / trader':role)+' · '+mesh.faces.length+' triangles',{fontSize:'15px',color:'#efe8da'}));});
+  {const i=roles.length,x=55+(i%4)*265,y=125+Math.floor(i/4)*250;billboard(x,y,'house','front','2D house sprite (house.png, ×2)');}
+  // Row four: the other wall renderers beside the houses, as they ship today.
+  const label=(x,y,text)=>s.labels.push(s.add.text(x,y+140,text,{fontSize:'15px',color:'#efe8da'}));
+  // Ramparts are drawn at twice their in-game size so they read beside the houses.
+  {const x=55,y=125+3*250,m=CastleStyles.get('citadel'),w=150,h=100;
+    // Castle ramparts: WallPerspective prisms (flat colour, Phaser Graphics), the
+    // same edge/normal convention render.js uses for tier-12 cells.
+    const style={height:m.rampart.wallHeight*2,thickness:m.rampart.topDepth*2,face:m.stone.FACE,top:m.stone.BODY,crownTop:m.stone.LITE,dark:m.stone.SHADOW,merlons:m.rampart.merlons*2,toothWidth:(m.rampart.toothWidth||6)*2,toothHeight:m.rampart.toothHeight*2};
+    WallPerspective.begin(s,'review');
+    for(const [ax,ay,bx,by,nx,ny] of [[x,y+20,x+w,y+20,0,1],[x+w,y+20,x+w,y+20+h,-1,0],[x+w,y+20+h,x,y+20+h,0,-1],[x,y+20+h,x,y+20,1,0]])WallPerspective.addSegment(s,'review',{...style,ax,ay,bx,by,nx,ny});
+    WallPerspective.finish(s,'review');label(x,y,'rampart · WallPerspective (×2)');}
+  {const x=55+265,y=125+3*250,m=CastleStyles.get('citadel'),w=150,h=100,t=7.2;
+    // The same ring through the low-poly path: windowless stone from the
+    // tileset, flat deck, ink outline. No merlons yet (add() has no base z).
+    const recipe={role:'rampart',material:'stone',finish:'masonry',roofMaterial:'flat',stories:(m.rampart.wallHeight*2-5)/31.2,body:m.stone.BODY,roof:m.stone.BODY,trim:m.stone.SHADOW,blank:true};
+    let n=0;for(const r of [[x,y+20,w,t],[x+w-t,y+20,t,h],[x,y+20+h-t,w,t],[x,y+20,t,h]]){const [rx,ry,rw,rh]=r;
+      n+=BuildingLowPoly.add(s,[{x:rx,y:ry},{x:rx+rw,y:ry},{x:rx+rw,y:ry+rh},{x:rx,y:ry+rh}],recipe,'flat','rampart'+n).faces.length;}
+    label(x,y,'rampart · low-poly path (×2, '+n+' tris)');}
+  {const x=55+2*265,y=125+3*250;
+    // Cave walls: masked 2D frames from the cave_wall_edges atlas (textures.js),
+    // placed per cell. They live in a ground container, so they rotate with the
+    // map instead of standing up; the camera sweep here shows that.
+    makeCaveWallEdges(s,CELL_PX);
+    const run=[[0,0,1|4|8],[1,0,1|4],[2,0,1|2|4],[1,1,2|4|8|0]];
+    for(const [c,r,mask] of run){const img=s.add.image(x+c*CELL_PX*2,y+30+r*CELL_PX*2-3*2,'cave_wall_edges',((c*31)^r)%4*64+mask).setOrigin(0,0).setDisplaySize(CELL_PX*2,(CELL_PX+3)*2);s.legacySprites.push(img);img.setRotation=()=>img;}
+    label(x,y,'cave wall · masked sprites (×2)');}
+  {const x=55+3*265,y=125+3*250;billboard(x,y,'tower',CastleStyles.get('citadel').towerFrame,'castle tower · sprite (×2)');}
+  s._lowpoly.angle=NaN;BuildingLowPoly.update(s);document.querySelector('#stats').textContent=s._lowpoly.faces.length+' triangles / '+roles.length+' types';}
+new Phaser.Game({type:Phaser.WEBGL,width:1100,height:1330,parent:'game',backgroundColor:'#6f8a4e',scene:{preload(){
+  this.load.image('house','../assets/Objects/Approved/house.png');this.load.image('home_wagon','../assets/Objects/Home/home_wagon.png');this.load.image('castle_tower_shapes','../assets/Objects/Castle/tower_shapes.png');
+  this.load.image('building_material_reference','../assets/Objects/BuildingMaterials/reference-materials-v3.png');
+  this.load.image('pixel_tileset_v3','../assets/Objects/BuildingMaterials/pixel-tileset-v3.png');
+  this.load.image('painterly_tileset_v1','../assets/Objects/BuildingMaterials/painterly-tileset-v1.png');
+  this.load.image('reference_materials_v3','../assets/Objects/BuildingMaterials/reference-materials-v3.png');
+},create(){makeTowerTexture(this,CASTLE_STONE);this.textures.get('house').add('front',0,148,3,72,95);reviewScene=window.reviewScene=this;this._headingUp=true;this.buildingWallContainer=this.add.container();rebuild();window.ready=true;},update(t,dt){
+  if(sweeping)document.querySelector('#angle').value=(+document.querySelector('#angle').value+dt*.02)%360;
+  this.mapRot=+document.querySelector('#angle').value*Math.PI/180;this.cameras.main.setRotation(this.mapRot);for(const sprite of this.legacySprites||[])sprite.setRotation(-this.mapRot);
+  const z=+document.querySelector('#zscale').value;if(z!==LOOK.heightScale){LOOK.heightScale=z;this._lowpoly.angle=NaN;}
+  LOOK.inkPx=+document.querySelector('#ink').value;document.querySelector('#zv').textContent=LOOK.heightScale.toFixed(2);document.querySelector('#inkv').textContent=LOOK.inkPx;
+  BuildingLowPoly.update(this);WallPerspective.update(this);}}});
+document.querySelector('#sweep').onclick=()=>sweeping=!sweeping;
+document.querySelector('#tileset').onchange=()=>rebuild();
+</script>

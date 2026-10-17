@@ -2,6 +2,39 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  building_material_reference: { kind: 'image', path: 'assets/Objects/BuildingMaterials/reference-materials-v3.png' },
+  // Low-poly building sheets are cut from these at runtime (BuildingLowPoly.tilesetSheet):
+  // the pixel tileset, the painterly shop sheet and the seamless generated atlas.
+  pixel_tileset_v3: { kind: 'image', path: 'assets/Objects/BuildingMaterials/pixel-tileset-v3.png' },
+  painterly_tileset_v1: { kind: 'image', path: 'assets/Objects/BuildingMaterials/painterly-tileset-v1.png' },
+  reference_materials_v3: { kind: 'image', path: 'assets/Objects/BuildingMaterials/reference-materials-v3.png' },
+  // Rounded alternatives preserve all legacy building textures. Tight native
+  // 64px house / 80px fort frames end at the sheet's common ground row 88.
+  rounded_buildings: { kind: 'image', path: 'assets/Objects/RoundedBuildings/buildings.png', unclaimedArt: true,
+    frameRects: {
+      house: { x: 16, y: 24, width: 64, height: 64 },
+      blacksmith: { x: 112, y: 24, width: 64, height: 64 },
+      trader: { x: 208, y: 24, width: 64, height: 64 },
+      market: { x: 304, y: 24, width: 64, height: 64 },
+      seed_shop: { x: 16, y: 120, width: 64, height: 64 },
+      supply_shop: { x: 112, y: 120, width: 64, height: 64 },
+      magic_shop: { x: 208, y: 120, width: 64, height: 64 },
+      relic_shop: { x: 304, y: 120, width: 64, height: 64 },
+      pet_shop: { x: 16, y: 216, width: 64, height: 64 },
+      book_shop: { x: 112, y: 216, width: 64, height: 64 },
+      wizard_tower: { x: 208, y: 216, width: 64, height: 64 },
+      turret: { x: 304, y: 216, width: 64, height: 64 },
+      home_wagon: { x: 16, y: 312, width: 64, height: 64 },
+      wreck: { x: 112, y: 312, width: 64, height: 64 },
+      fort: { x: 200, y: 296, width: 80, height: 80 },
+      fort_unclaimed: { x: 296, y: 296, width: 80, height: 80 },
+    },
+    onLoad: scene => {
+      const texture = scene.textures.get('rounded_buildings');
+      for (const [name, rect] of Object.entries(ASSETS.rounded_buildings.frameRects)) {
+        texture.add(name, 0, rect.x, rect.y, rect.width, rect.height);
+      }
+    } },
   progression_tiles: { kind: 'spritesheet', path: 'assets/Objects/Progression/tiles.png', frameWidth: 24, frameHeight: 24 },
   icon_progression: { kind: 'spritesheet', path: 'assets/Objects/Progression/icons.png', frameWidth: 16, frameHeight: 16 },
   pet_story_clearing: { deferred: true, kind: 'image', path: 'assets/art/pet_clearing.webp' },
@@ -193,7 +226,7 @@ const ASSETS = {
   // Pine uses the upper 32×48 growth strip; the lower band is separate
   // ground decoration and must not enter the standing tree frame.
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
-  // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
+  // Approved cel-shaded rocks — 192×216 atlas of 24px frames; 65 runtime identities.
   rock_variants: { kind: 'spritesheet', path: 'assets/Objects/Rocks/rocks-24.png', frameWidth: 24, frameHeight: 24 },
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
   // Five complete 32px columns; the trailing 16px mask column is unused.

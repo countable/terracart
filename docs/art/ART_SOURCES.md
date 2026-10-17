@@ -33,6 +33,29 @@ After changing runtime paintings, run cache busting and the node suite as
 described in `CLAUDE.md`. Check both `art` references and `story` stems before
 removing a runtime painting.
 
+## Story-panel style references
+
+The user-approved set is archived at
+`~/.artifacts/terracart-art/story-style-references/`. Exact paths, source
+provenance, dimensions, roles and SHA-256 hashes are tracked in
+[story-style-references.json](story-style-references.json):
+
+- `cave.png`: edited original cave, 4:3 and slightly taller Hood.
+- `sundries.png`: approved painterly shop with the original close framing.
+- `outdoor_work.png`: approved working-without-tools outdoor treatment.
+- `grove_shrine.webp`: original shrine unchanged; disregard its lower copy zone.
+
+Supply these as image references, not just prose descriptions. Include the
+original target painting for scene identity and camera framing, and record the
+actual reference paths/hashes with each prompt. The art-direction brief owns
+the style, palette, framing and concealment rules. Earlier unselected review
+remakes are not approved references or live replacements.
+
+The masters are outside the checkout, like other archived source art. Preserve
+these exact files; regeneration is not a reproducible substitute. Crop a good
+original before repainting when only aspect ratio needs changing. The cave's
+atmospheric dark edges are scene-specific, not a text field or global vignette.
+
 ## Paired booth paintings
 
 The introduction is the visual reference for its transaction painting. Edit
@@ -113,3 +136,14 @@ Publish the current export grid with `python3 tools/build_approved_story_gallery
 
 The opening wrecks scene holds its approved painting across both fade frames,
 so the transition cannot restore the earlier, shorter player proportions.
+
+## Rounded building alternatives
+
+The sixteen-frame rounded building sheet ships unchanged at
+`assets/Objects/RoundedBuildings/buildings.png`. Its source, checksum, original
+96px-cell rectangles and ground anchors are recorded in
+[rounded-buildings.json](rounded-buildings.json). `ASSETS.rounded_buildings`
+registers tight 64px house and 80px fort frames without cutting visible pixels.
+All legacy building PNGs remain in place; `?buildingArt=legacy` selects them.
+The renderer's existing scale and placement rules are unchanged; see
+[building artwork selection](../design/rendering.md#rounded-building-artwork).

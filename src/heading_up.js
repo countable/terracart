@@ -257,6 +257,7 @@ const HeadingUp = {
   _preRender(scene) {
     if (!HeadingUp.active(scene)) return;
     WallPerspective.update(scene);
+    if (typeof BuildingLowPoly !== 'undefined') BuildingLowPoly.update(scene);
     const main = scene.cameras.main, ui = scene.uiCam;
     const a = scene.mapRot || 0;
     const saved = scene._huSaved = [];
