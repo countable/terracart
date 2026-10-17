@@ -61,6 +61,7 @@ ctx.Symbol = Symbol; ctx.Error = Error; ctx.Infinity = Infinity; ctx.NaN = NaN;
 ctx.isNaN = isNaN; ctx.parseInt = parseInt; ctx.parseFloat = parseFloat;
 // mvt.js's Reader.readString decodes tag-value strings with TextDecoder.
 ctx.TextDecoder = TextDecoder;
+ctx.URLSearchParams = URLSearchParams;
 // save.js debounces with setTimeout; tests don't need the flush to fire, so the
 // timer is a no-op (persistSave just parks _pendingSave in memory).
 ctx.setTimeout = () => 0; ctx.clearTimeout = () => {};
