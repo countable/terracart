@@ -29,10 +29,13 @@ test('rounded buildings: roles, shop lines and fort conditions resolve distinct 
   const house = { kind: 'house', id: 'h', tier: 9 };
   const scene = { save: {}, isClaimedKey: () => true };
   for (const [role, frame] of Object.entries({ plain: 'house', blacksmith: 'blacksmith', trader: 'trader',
-    wizard: 'wizard_tower', turret: 'turret', trailer: 'home_wagon', wreck: 'wreck' })) {
+    trailer: 'home_wagon', wreck: 'wreck' })) {
     assert.eq(Render.houseTextureKey(role, house, scene), 'rounded_buildings');
     assert.eq(Render.houseTextureFrame(role, house, scene), frame);
   }
+  // The wizard tower and turret keep their original in-game art in every style.
+  assert.eq(Render.houseTextureKey('wizard', house, scene), 'shrine');
+  assert.eq(Render.houseTextureKey('turret', house, scene), 'tower');
   for (const [theme, frame] of Object.entries({ seed: 'seed_shop', supply: 'supply_shop', potion: 'magic_shop',
     relic: 'relic_shop', pet: 'pet_shop', book: 'book_shop' })) {
     assert.eq(Render.houseTextureFrame('shop', house, { ...scene, shopLine: () => ({ theme }) }), frame);
@@ -54,7 +57,7 @@ test('rounded buildings: native frames keep existing footprint scales and ground
   const textures = { exists: () => true, get: () => ({ get: name => rects[name] }) };
   const house = { kind: 'house', id: 'h', area: 120, footDx: .3, footDy: -.2 };
   const scene = { textures, save: {}, cellM: 7, isClaimedKey: () => true };
-  for (const role of ['plain', 'fort', 'trailer', 'turret']) {
+  for (const role of ['plain', 'fort', 'trailer']) { // the turret keeps its own tower art
     const { resolveAppearance } = Render.objectAppearance(scene, new Map([[house, role]]));
     const art = resolveAppearance(house), rect = rects[art.frameVal];
     assert.eq(art.texKey, 'rounded_buildings');

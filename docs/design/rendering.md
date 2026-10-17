@@ -57,6 +57,13 @@ without triangulating their textured floors. Floors remain cached ground texture
 Procedural house roofs use triangulated caps and retained sloped roof faces.
 They share the same elevation projection in north-up and heading-up modes;
 legacy sprite modes retain the north-up wall atlas artwork.
+The WebGL low-poly path (`building_lowpoly.js`) draws houses to match the 2D
+billboard sprites: `BuildingLowPoly.LOOK` owns the height foreshortening, the
+ink outline pass, eave shadow, flat-deck bands and chimney numbers, and the
+material sheets are cut once per material from the tilesets.
+[Low-poly building styles](../art/lowpoly-building-styles.md) owns the detail.
+`WallPerspective` prisms (castle ramparts, Canvas fallback) still project
+height at full scale with flat colours and no outline; aligning them is open.
 
 ## Coordinates, rendering and performance
 

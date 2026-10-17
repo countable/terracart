@@ -1391,10 +1391,14 @@ test('building overlay: procedural houses follow source footprints and same-coun
     BuildingOverlay.draw(scene);
     WallPerspective.update(scene);
     assert.eq(scene.buildingGeomGfx.commits, commits, 'compass reuses geometry');
-    scene.save.restoredHouses['styled-house'] = 'wizard';
+    scene.save.restoredHouses['styled-house'] = 'trader'; // japanese: a different style height
     BuildingOverlay.draw(scene);
     assert.gt(scene.buildingGeomGfx.commits, commits, 'same number of houses still changes roof');
     assert.truthy(scene._proceduralBuildings.get('styled-house').height !== height);
+    // Wizard towers keep their sprite art: no generated shell, no sign height.
+    scene.save.restoredHouses['styled-house'] = 'wizard';
+    BuildingOverlay.draw(scene);
+    assert.falsy(scene._proceduralBuildings.has('styled-house'), 'sprite-art roles leave no procedural entry');
     Render.buildingArtStyle = 'rounded';
     BuildingOverlay.draw(scene);
     assert.eq(scene._proceduralBuildings.size, 0, 'rollback restores sprite authority');
