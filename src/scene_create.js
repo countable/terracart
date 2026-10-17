@@ -407,8 +407,6 @@ class SceneCreate {
     // names the key and frame; worldIconHTML turns them into a span), so a crate
     // opens under a crate and a trunk under a trunk. Baked from the same
     // sheets the renderer draws, including each trunk's tier colour.
-    // Warm the Canvas palette once at startup, before any cell-crossing draw.
-    Render.canvasTint(this, 'barrel', Render.DEFAULT_BARREL_TINT);
     window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
     for (let frame = 0; frame < chestTierMaxFor(9); frame++) {
       window.WORLD_ICON_URLS['chest:' + frame] = bakeSheetFrame('chest', frame, 16, 16);
