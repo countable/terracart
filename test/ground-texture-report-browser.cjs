@@ -28,8 +28,8 @@ const { chromium } = require('playwright-core');
     assert.equal(result.cards, 32);
     assert.equal(result.changedMaterials, 32);
     assert.equal(result.seams.max, 0, 'All replacement native variant edges must match');
-    assert.equal(result.seams.materials, 31);
-    assert.deepEqual(result.seams.excluded, [2]);
+    assert.equal(result.seams.materials, 30);
+    assert.deepEqual(result.seams.excluded, [2, 12]);
     assert.equal(result.sandPreserved, true, 'Latest sand retains all original procedural slots');
     const pixels = id => page.locator('#' + id).evaluate(c => c.toDataURL());
     assert.notEqual(await pixels('old'), await pixels('new'));
@@ -46,6 +46,21 @@ const { chromium } = require('playwright-core');
     for (let i = 0; i < 32; i++) await page.selectOption('#material', String(i));
     await page.selectOption('#material', '2');
     assert.equal(await pixels('new'), await pixels('procedural'), 'Sand patches match the original');
+    for (const t of [12]) {
+      await page.selectOption('#material', String(t));
+      assert.equal(await pixels('new'), await pixels('procedural'), 'Masonry patches preserve the real procedural renderer');
+    }
+    await page.selectOption('#material', '9');
+    assert.notEqual(await pixels('new'), await pixels('procedural'), 'Brick uses the new periodic masonry');
+    const masonry = await page.evaluate(() => {
+      const { masonry, tileAt } = groundTextureReport;
+      return { counts: Object.fromEntries(Object.entries(masonry).map(([t, tiles]) => [t, tiles.length])),
+        used: new Set(Array.from({length: 60}, (_, i) => tileAt('new', 12, i % 10, Math.floor(i / 10)).toDataURL())).size,
+        rows: document.querySelector('.card[data-material="12"] canvas').height };
+    });
+    assert.deepEqual(masonry.counts, {9: 1, 12: 16});
+    assert.equal(masonry.used, 16, 'Castle patch includes all original slab layouts across both axes');
+    assert.equal(masonry.rows, 64, 'Masonry catalogue shows both horizontal and vertical repeats');
     await page.selectOption('#material', '0');
     assert.equal(await pixels('new'), decorated, 'Material controls restore the deterministic comparison');
     for (const zoom of [2, 4]) {

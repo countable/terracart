@@ -12,7 +12,7 @@ async def main():
    await page.goto((sys.argv[1] if len(sys.argv)>1 else 'http://localhost:8000').rstrip('/')+'/index.html?sandbox=true'+('&groundAtlas=true' if trial else ''),wait_until='domcontentloaded')
    await page.wait_for_function("window.__game?.scene.getScene('map')?._sandboxMode && __game.scene.getScene('map').textures.exists('biome0_0')",timeout=90000)
    await page.wait_for_timeout(2500)
-   data=await page.evaluate('''() => {const s=__game.scene.getScene('map');const keys=['biome0_0','biome2_0','biome2_1','biome3_0','biome3_0p1','biome3_0p7','biome23_0','biome12_0','biome26_0'];if(GroundAtlas.enabled())keys.push('biome0_1','biome0_2','biome3_2p7');const samples={};for(const key of keys){const c=s.textures.get(key).getSourceImage();const a=document.createElement('canvas');a.width=c.width;a.height=c.height;const x=a.getContext('2d');x.drawImage(c,0,0);const p=x.getImageData(0,0,a.width,a.height).data;let hash=2166136261,alpha=0;for(const v of p) hash=Math.imul(hash^v,16777619)>>>0;for(let i=3;i<p.length;i+=4)alpha+=p[i];samples[key]={hash,alpha};}return {enabled:GroundAtlas.enabled(),loaded:s.textures.exists(GroundAtlas.KEY),samples,depth:s.depth,borderAbove:s.children.list.indexOf(s.borderContainer)>s.children.list.indexOf(s.noiseContainer)};}''')
+   data=await page.evaluate('''() => {const s=__game.scene.getScene('map');const keys=['biome0_0','biome2_0','biome2_1','biome3_0','biome3_0p1','biome3_0p7','biome23_0','biome9_0','biome26_0',...Array.from({length:16},(_,v)=>'biome12_'+v)];if(GroundAtlas.enabled())keys.push('biome0_1','biome0_2','biome9_1','biome9_2','biome3_2p7');const samples={};for(const key of keys){const c=s.textures.get(key).getSourceImage();const a=document.createElement('canvas');a.width=c.width;a.height=c.height;const x=a.getContext('2d');x.drawImage(c,0,0);const p=x.getImageData(0,0,a.width,a.height).data;let hash=2166136261,alpha=0;for(const v of p) hash=Math.imul(hash^v,16777619)>>>0;for(let i=3;i<p.length;i+=4)alpha+=p[i];samples[key]={hash,alpha};}return {enabled:GroundAtlas.enabled(),loaded:s.textures.exists(GroundAtlas.KEY),samples,depth:s.depth,borderAbove:s.children.list.indexOf(s.borderContainer)>s.children.list.indexOf(s.noiseContainer)};}''')
    data['errors']=errors;print(json.dumps(data),flush=True)
    for _ in range(4):
     ok=page.get_by_role('button',name='OK',exact=True)
@@ -27,8 +27,11 @@ async def main():
    assert data['samples']['biome3_0']['hash']!=data['samples']['biome3_0p1']['hash']
    await context.close()
   a=json.loads(Path('/tmp/ground-atlas-game-baseline.json').read_text());t=json.loads(Path('/tmp/ground-atlas-game-trial.json').read_text())
-  for key in ['biome0_0','biome3_0','biome26_0']:assert a['samples'][key]['hash']!=t['samples'][key]['hash'],key+' unchanged'
-  assert a['samples']['biome12_0']==t['samples']['biome12_0'],'castle mechanics changed'
+  for key in ['biome0_0','biome3_0','biome9_0','biome26_0']:assert a['samples'][key]['hash']!=t['samples'][key]['hash'],key+' unchanged'
+  for v in range(16):
+   key='biome12_'+str(v)
+   assert a['samples'][key]==t['samples'][key],'original castle slab changed: '+key
+  assert len({t['samples']['biome9_'+str(v)]['hash'] for v in range(3)})==3,'all three brick variants must be baked'
   for key in ['biome2_0','biome2_1']:assert a['samples'][key]==t['samples'][key],'original sand changed'
   assert len({t['samples']['biome0_'+str(v)]['hash'] for v in range(3)})==3,'all three grass variants must be baked'
   await b.close()

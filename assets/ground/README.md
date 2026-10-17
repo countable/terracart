@@ -4,13 +4,12 @@ The current export is a 384×256 sheet containing 96 native 32×32 tiles:
 32 materials, each with a plain base and two subtly decorated variants. `terrain-atlas-32.png`
 is the opaque, palette-matched review sheet; `terrain-detail-32.png` is the
 transparent runtime detail. `terrain-atlas-32.json` records source crops,
-output hashes, dimensions and the export process. The final export trims five
-source pixels from each crop edge to exclude generated divider lines. `PROMPT-32.txt` records the
+output hashes, dimensions and the export process. The current full-bleed master is sampled without an inset so masonry courses reach the tile edges. `PROMPT-32.txt` records the
 built-in imagegen prompt and art references.
 
 The art takes its restrained surface detail from `docs/art/direction-reference.png`
 and its crisp pixel shapes from `assets/Character/FarmerCyan.png`. Ground tiles
-use four flat cel-shaded tones per material, with sparse decorations selected at an 80/10/10 base/A/B ratio. Palette snapping happens after edge preparation, preserving hard shade boundaries. Tiles
+use four closely related cel-shaded tones per material (RGB offsets −10, 0, +6, +10), with sparse decorations selected at an 80/10/10 base/A/B ratio. Shallow highlighted bumps, worn depressions and low scrub give the decoration variants shape without prop-like contrast. Palette snapping happens after edge preparation, preserving hard shade boundaries. Tiles
 have an explicit 32px art target: no intermediate 24px sampling or runtime resize.
 The original `terrain-atlas.png`, metadata and prompt remain for comparison with
 the previous 24→32 trial.
@@ -31,8 +30,7 @@ prove visual quality.
 
 The opt-in game trial (`?groundAtlas=true`) crops the baked transparent sheet
 without reading pixels or recalculating its palette. Existing colour fills,
-zone overrides and the border layer keep their prior behaviour. Sand retains its original procedural painter. Structural
-masonry, elevated cave walls, polygon roads and uncharted fog retain their
+zone overrides and the border layer keep their prior behaviour. Sand retains its original procedural painter. Castle floors retain all 16 original variable-size slab layouts. Brick uses the image atlas with staggered courses and matching x/y edges. Wood, elevated cave walls, polygon roads and uncharted fog retain their
 specialised renderers; the sheet contains review candidates for these too.
 
 Water, pier water and lava retain their existing eight-phase, 220ms animated
@@ -42,5 +40,5 @@ remain separate. The generation change does not replace their animation loop.
 Rebuild this revision from the archived master:
 
 ```sh
-node tools/export-ground-atlas.cjs --source ~/.artifacts/ground-atlas-32/terrain-atlas-cel-master.png --inset 5 --cel-shaded
+node tools/export-ground-atlas.cjs --source ~/.artifacts/ground-atlas-32/terrain-atlas-relief-master.png --inset 0 --cel-shaded
 ```

@@ -4,7 +4,7 @@ const GroundAtlas = (() => {
   const KEY = 'ground_atlas_trial', ART_SIZE = 32, VARIANTS = 3, COLUMNS = 12;
   const canvases = new Map();
   // Keep the approved procedural sand and specialized structural painters.
-  const preserved = new Set([2, 9, 11, 12, 25, 30]);
+  const preserved = new Set([2, 11, 12, 25, 30]);
   const animated = new Set([3, 23, 26]);
   const enabled = () => typeof location !== 'undefined'
     && new URLSearchParams(location.search).get('groundAtlas') === 'true';

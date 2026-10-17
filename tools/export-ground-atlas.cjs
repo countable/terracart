@@ -60,8 +60,9 @@ const colors = vm.runInNewContext('(' + app.match(/const COLORS = (\{[\s\S]*?\n\
             // Snap the prepared detail to four shared tones AFTER edge matching.
             // Fixed RGBA entries retain transparent biome blending without gradients.
             const rgb = [(colors[type] >> 16) & 255, (colors[type] >> 8) & 255, colors[type] & 255];
-            const levels = [-22, 0, 14, 28];
-            const tones = levels.map(level => {
+            const levels = [-12, 0, 8, 16];
+            const outputLevels = [-10, 0, 6, 10];
+            const tones = outputLevels.map(level => {
               const residual = new Float32Array(size * size * 3).fill(level);
               return GroundAtlas.overlay(residual, residual, size, colors[type]).slice(0, 4);
             });
@@ -97,6 +98,7 @@ const colors = vm.runInNewContext('(' + app.match(/const COLORS = (\{[\s\S]*?\n\
       palette: Object.fromEntries(Array.from({ length: 32 }, (_, t) => [t, '#' + colors[t].toString(16).padStart(6, '0')])),
       style: celShaded ? 'Four-tone cel-shaded pixel art; palette snapping after edge matching' : 'Continuous residual shading',
       maxColorsPerMaterial: celShaded ? 4 : null,
+      shadeOffsets: celShaded ? [-10, 0, 6, 10] : null,
       hashes, crops: result.crops,
     };
     fs.writeFileSync(path.join(output, 'terrain-atlas-32.json'), JSON.stringify(metadata, null, 2) + '\n');

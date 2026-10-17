@@ -29,7 +29,7 @@ const directory = path.resolve(process.argv[2] || path.join(root, 'assets/ground
       context.drawImage(images[1], 0, 0);
       const composed = context.getImageData(0, 0, 384, 256).data;
       const composedColorCounts = [];
-      let edgeMax = 0, meanError = 0, opaqueAlphaMin = 255, detailAlphaMin = 255, detailAlphaMax = 0, distinctVariants = 0;
+      let edgeMax = 0, maxChannelContrast = 0, meanError = 0, opaqueAlphaMin = 255, detailAlphaMin = 255, detailAlphaMax = 0, distinctVariants = 0;
       const offset = (t, v, x, y) => { const f = t * 3 + v; return ((Math.floor(f / 12) * 32 + y) * 384 + (f % 12) * 32 + x) * 4; };
       for (let t = 0; t < 32; t++) {
         const signatures = new Set();
@@ -40,7 +40,7 @@ const directory = path.resolve(process.argv[2] || path.join(root, 'assets/ground
           for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
             const p = offset(t, v, x, y);
             colors.add(`${composed[p]},${composed[p + 1]},${composed[p + 2]}`);
-            for (let c = 0; c < 3; c++) { mean[c] += pixels[0][p + c] / 1024; signature.push(pixels[0][p + c]); }
+            for (let c = 0; c < 3; c++) { maxChannelContrast = Math.max(maxChannelContrast, Math.abs(composed[p + c] - color[c])); mean[c] += pixels[0][p + c] / 1024; signature.push(pixels[0][p + c]); }
             opaqueAlphaMin = Math.min(opaqueAlphaMin, pixels[0][p + 3]);
             detailAlphaMin = Math.min(detailAlphaMin, pixels[1][p + 3]); detailAlphaMax = Math.max(detailAlphaMax, pixels[1][p + 3]);
           }
@@ -58,7 +58,7 @@ const directory = path.resolve(process.argv[2] || path.join(root, 'assets/ground
       CanvasRenderingContext2D.prototype.getImageData = () => { throw new Error('Runtime readback'); };
       const scene = { textures: { exists: () => true, get: () => ({ getSourceImage: () => images[1] }) } };
       GroundAtlas.prepare(scene, {});
-      const variantCounts = [0, 2, 9].map(t => GroundAtlas.variantCount(t, 2));
+      const variantCounts = [[0, 2], [2, 2], [9, 1], [12, 16]].map(([t, fallback]) => GroundAtlas.variantCount(t, fallback));
       const distribution = [0, 0, 0];
       for (let h = 0; h < 100; h++) distribution[GroundAtlas.pickVariant(0, h, 2)]++;
       const drawn = Array.from({ length: 32 }, (_, t) => GroundAtlas.draw(context, 32, t, 0));
@@ -71,7 +71,7 @@ const directory = path.resolve(process.argv[2] || path.join(root, 'assets/ground
       const pierSharesWater = pier.every((value, i) => value === water[i]);
       GroundAtlas.prepare({ textures: { exists: () => false } }, {});
       const missingFallsBack = !GroundAtlas.draw(context, 32, 0, 0);
-      return { dimensions: images.map(i => [i.width, i.height]), edgeMax, composedColorCounts, meanError, opaqueAlphaMin, detailAlphaMin, detailAlphaMax, distinctVariants, variantCounts, distribution, drawn, pierSharesWater, runtimeMatchesNative, missingFallsBack };
+      return { dimensions: images.map(i => [i.width, i.height]), edgeMax, maxChannelContrast, composedColorCounts, meanError, opaqueAlphaMin, detailAlphaMin, detailAlphaMax, distinctVariants, variantCounts, distribution, drawn, pierSharesWater, runtimeMatchesNative, missingFallsBack };
     }, {
       opaque: 'data:image/png;base64,' + fs.readFileSync(path.join(directory, 'terrain-atlas-32.png')).toString('base64'),
       detail: 'data:image/png;base64,' + fs.readFileSync(path.join(directory, 'terrain-detail-32.png')).toString('base64'),
@@ -82,12 +82,13 @@ const directory = path.resolve(process.argv[2] || path.join(root, 'assets/ground
     result.composedColorCounts.forEach((count, type) => assert(count <= 4, `Material ${type} uses ${count} composed colours; maximum is four`));
     assert.deepEqual(result.dimensions, [[384, 256], [384, 256]]);
     assert.equal(result.edgeMax, 0, 'Every opposite base/decor edge must match, including runtime alpha');
+    assert(result.maxChannelContrast <= 11, 'Composed atlas tones must stay within eleven RGB levels of their ground colour');
     assert(result.meanError < 10, 'Tile means must stay within ten RGB levels of the game palette');
     assert.equal(result.opaqueAlphaMin, 255); assert(result.detailAlphaMin < 255); assert(result.detailAlphaMax > 0);
     assert.equal(result.distinctVariants, 32, 'Every material needs three distinct variants');
-    assert.deepEqual(result.variantCounts, [3, 2, 2]);
+    assert.deepEqual(result.variantCounts, [3, 2, 3, 16]);
     assert.deepEqual(result.distribution, [80, 10, 10]);
-    assert.deepEqual(result.drawn, Array.from({ length: 32 }, (_, t) => ![2, 9, 11, 12, 25, 30].includes(t)));
+    assert.deepEqual(result.drawn, Array.from({ length: 32 }, (_, t) => ![2, 11, 12, 25, 30].includes(t)));
     assert.equal(result.runtimeMatchesNative, true, 'Runtime must use the exported pixels at 1:1 native scale');
     assert.equal(result.pierSharesWater, true); assert.equal(result.missingFallsBack, true);
     await page.goto('http://atlas.test/');
