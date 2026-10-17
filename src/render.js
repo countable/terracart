@@ -5721,12 +5721,12 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // 24px frame at half their former size, including the smashed frame.
   const SMALL_POI_SCALE = 1.3;
   // Barrels read too small and pots too big beside each other at 2/3 and
-  // (4/3)*0.8 (owner, Oct 2026, two passes of 5% each); the two factors
-  // below are that correction.
+  // (4/3)*0.8 (owner, Oct 2026: two passes of 5% each, then pots a further
+  // 8%); the two factors below are that correction.
   const BARREL_SCALE = (2 / 3) * 1.1;
   // Clay pots (and their smashed frame, the same look) drew at 4/3 and read a
   // fifth too large beside the barrels; 20% off that, per the Oct 2026 pass.
-  const CLAY_POT_SCALE = (4 / 3) * 0.8 * 0.9;
+  const CLAY_POT_SCALE = (4 / 3) * 0.8 * 0.9 * 0.92;
   // The broken WAGON an old-trade-road bus stop wears (loot.js chestLook): the
   // compact 32×32 frame fits within a 2×2-cell footprint at the usual prop
   // scale. Its one blank bottom row seats the wheels above the anchor edge.

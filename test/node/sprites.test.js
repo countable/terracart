@@ -608,7 +608,7 @@ test('wooden barrels render at half their former size plus 10% and have no broke
   for (const smashed of [false, true]) {
     const pot = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot',_smashed:smashed});
     assert.eq(pot.texKey, smashed ? 'clay_pot_smashed' : 'clay_pot');
-    assert.eq(pot.scl, (4 / 3) * 0.8 * 0.9, 'clay pots, whole or smashed, a fifth smaller than their old 4/3, then 10% off');
+    assert.eq(pot.scl, (4 / 3) * 0.8 * 0.9 * 0.92, 'clay pots, whole or smashed, a fifth smaller than their old 4/3, then 10% off, then 8% off');
   }
 });
 
@@ -654,7 +654,7 @@ test('neutral mineral art overrides stale zone frames without changing interacti
   const pot = {kind:'chest',barrel:true,barrelStyle:'clay_pot',id:'selected-pot'};
   assert.eq(art.resolveAppearance(pot).texKey,'clay_pot');
   assert.eq(art.resolveAppearance({...pot,_smashed:true}).texKey,'clay_pot_smashed');
-  assert.lt(Math.abs(art.resolveAppearance(pot).scl*24-32*0.8*0.9),1e-9,'the pot draws a fifth under its old 32px, then 10% off');
+  assert.lt(Math.abs(art.resolveAppearance(pot).scl*24-32*0.8*0.9*0.92),1e-9,'the pot draws a fifth under its old 32px, then 10% off, then 8% off');
   assert.truthy(/_zoneObjectFrame: wp\._zoneObjectFrame/.test(RENDER_SRC),'wild mushroom appearance reaches the plant renderer');
 });
 
