@@ -598,17 +598,17 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
   assert.truthy(/g\.strokeCircle\(centre\.x, centre\.y, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
 });
 
-test('wooden barrels render at half their former size plus 5% and have no broken art', () => {
+test('wooden barrels render at half their former size plus 10% and have no broken art', () => {
   const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
   for (const smashed of [false, true]) {
     const look = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'barrel',_smashed:smashed});
     if (smashed) assert.falsy(look.visible, 'no broken barrel sprite');
-    else { assert.eq(look.texKey, 'barrel'); assert.eq(look.scl, (2 / 3) * 1.05, 'half the old size, up 5% (Oct 2026)'); }
+    else { assert.eq(look.texKey, 'barrel'); assert.eq(look.scl, (2 / 3) * 1.1, 'half the old size, up 10% (Oct 2026)'); }
   }
   for (const smashed of [false, true]) {
     const pot = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot',_smashed:smashed});
     assert.eq(pot.texKey, smashed ? 'clay_pot_smashed' : 'clay_pot');
-    assert.eq(pot.scl, (4 / 3) * 0.8 * 0.95, 'clay pots, whole or smashed, a fifth smaller than their old 4/3, then 5% off');
+    assert.eq(pot.scl, (4 / 3) * 0.8 * 0.9, 'clay pots, whole or smashed, a fifth smaller than their old 4/3, then 10% off');
   }
 });
 
@@ -654,7 +654,7 @@ test('neutral mineral art overrides stale zone frames without changing interacti
   const pot = {kind:'chest',barrel:true,barrelStyle:'clay_pot',id:'selected-pot'};
   assert.eq(art.resolveAppearance(pot).texKey,'clay_pot');
   assert.eq(art.resolveAppearance({...pot,_smashed:true}).texKey,'clay_pot_smashed');
-  assert.lt(Math.abs(art.resolveAppearance(pot).scl*24-32*0.8*0.95),1e-9,'the pot draws a fifth under its old 32px, then 5% off');
+  assert.lt(Math.abs(art.resolveAppearance(pot).scl*24-32*0.8*0.9),1e-9,'the pot draws a fifth under its old 32px, then 10% off');
   assert.truthy(/_zoneObjectFrame: wp\._zoneObjectFrame/.test(RENDER_SRC),'wild mushroom appearance reaches the plant renderer');
 });
 
