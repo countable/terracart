@@ -1836,7 +1836,6 @@ class MapScene extends Phaser.Scene {
 
   preload() {
     this._endPreload = window.__boot?.begin('phaser preload (asset fetches)');
-    if (typeof GroundAtlas !== 'undefined' && GroundAtlas.enabled()) this._queueAsset(GroundAtlas.KEY);
     // Boot loading overlay (index.html #bootload). Asset fetches are the long
     // pole of a cold boot, so the Phaser loader's own progress drives the bar:
     // 0→0.85 here, 0.9 as create() builds the world, 1 on the first update()

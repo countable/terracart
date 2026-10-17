@@ -1497,32 +1497,14 @@ function makeCastlePavingTexture(scene, size) {
 }
 
 function makeBiomeTextures(scene, size) {
-  if (typeof GroundAtlas !== 'undefined') GroundAtlas.prepare(scene, COLORS);
   makeCaveChasmTexture(scene, size);
   makeCaveWallEdges(scene, size);
   for (const [type, spec] of Object.entries(BIOME_TEX)) {
     const phases = spec.animPhases || 1;
-    const variants = typeof GroundAtlas === 'undefined' ? spec.variants : GroundAtlas.variantCount(type, spec.variants);
-    for (let v = 0; v < variants; v++) {
+    for (let v = 0; v < spec.variants; v++) {
       for (let p = 0; p < phases; p++) {
         bakeCanvas(scene, `biome${type}_${v}` + (p ? `p${p}` : ''), size, size,
-          (ctx) => {
-            // Ripple painters clear their canvas. Paint them first, then put
-            // the image detail behind the transparent animated marks.
-            if (typeof GroundAtlas !== 'undefined' && GroundAtlas.animated.has(Number(type))) {
-              drawBiomeTexture(ctx, size, type, v, p / phases);
-              ctx.save();
-              ctx.globalCompositeOperation = 'destination-over';
-              GroundAtlas.draw(ctx, size, type, v);
-              ctx.restore();
-            } else if (typeof GroundAtlas !== 'undefined' && GroundAtlas.striped.has(Number(type)) && variants === 3) {
-              // Retain the approved mowing pattern under each sparse relief slot.
-              drawBiomeTexture(ctx, size, type, 0, p / phases);
-              GroundAtlas.draw(ctx, size, type, v);
-            } else if (typeof GroundAtlas === 'undefined' || !GroundAtlas.draw(ctx, size, type, v)) {
-              drawBiomeTexture(ctx, size, type, v, p / phases);
-            }
-          });
+          (ctx) => drawBiomeTexture(ctx, size, type, v, p / phases));
       }
     }
   }

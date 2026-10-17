@@ -1,20 +1,5 @@
 # Sprite art direction
 
-## Ground atlas trial
-
-`assets/ground/terrain-atlas-32.png` contains 64 native 32×32 ground tiles,
-with base/decorated pairs for all 32 materials. The runtime loads the baked
-transparent `terrain-detail-32.png`; it no longer samples a large source at
-24px. The export retains the shared tile-edge treatment and existing palette.
-The dungeon art-direction image and cyan farmer sprite guide the new pixelwork.
-
-`tools/ground-texture-report.html` compares old and new side by side at native
-size with the same character and a procedural baseline. Use
-`index.html?sandbox=true&groundAtlas=true` for the game trial. Existing ripples,
-biome blends, shoreline foam, structural masonry, elevated cave walls, polygon
-roads and uncharted fog retain their specialised renderers. Source/export
-metadata and the generation prompt live beside the sheets.
-
 The natural and unrestored world uses muted post-apocalyptic rustic colours.
 Players, restored assets, and special or sacred places may deliberately introduce
 cleaner, brighter or cooler colours. Colour signals care and significance; the

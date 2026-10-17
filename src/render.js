@@ -2780,9 +2780,7 @@ Render.drawCells = function drawCells(scene) {
           const spec = skyLevel || riftGround ? null : BIOME_TEX[baseType];
           if (spec) {
             const variantHash = baseType === 12 ? avalanche32(h) : Math.abs(h);
-            const variant = typeof GroundAtlas === 'undefined' ? variantHash % spec.variants
-              : GroundAtlas.pickVariant(baseType, variantHash, spec.variants);
-            texKey = `biome${baseType}_${variant}`;
+            texKey = `biome${baseType}_${variantHash % spec.variants}`;
             // Animated biome (water/pier): pick the pre-baked phase frame from
             // the wall clock. The key is compared every frame anyway, so a
             // time-varying one costs a swap only when the phase turns — the
