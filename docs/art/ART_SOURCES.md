@@ -88,3 +88,15 @@ The scene definitions in `tools/gen_story_art.js` preserve the same composition 
 text; the library list and non-book scenes keep their existing paintings.
 The approved master is `~/.artifacts/dialog-style-exploration/book-page.png`;
 `book-reading.png` beside it records the panel composition.
+
+## Square scene remakes
+
+The 30 reference-edited scenes in `gen_story_art.js`'s `REFERENCE_SCENES`
+export from archived square PNG masters at 512×512. Fill the frame with a
+complete scene; no lower black field is reserved for text. The generator
+refuses text-only regeneration for these masters and all paired booths.
+Use an explicit reference image edit, or `--reprocess` an existing master.
+
+After direct runtime asset edits, run `node tools/art_thumbs.js`. It preserves
+image aspect in the thumbnails and mosaic cuts and emits `ART_ASPECTS` for
+layout before the full painting loads. Legacy 11:14 paintings remain supported.

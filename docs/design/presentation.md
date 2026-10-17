@@ -275,11 +275,15 @@ changing dialogue, story panels, books, toasts or status presentation.
   painting unless the caller supplies a character `portrait` or `art: false`.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   square, with a complete scene and no baked dark text area. All existing and
-  new paintings share a full-width, top-centred `cover` crop without stretching.
+  new paintings fit the full width, anchored at the top without stretching.
   The image begins at the window top behind the fixed silver dragon rail.
   Its visible height starts at 90% of the panel width, cropping the bottom
   10% of the square composition. If copy needs more room, the crop shortens
-  further, down to the rail height plus eight pixels.
+  further. Square paintings retain at least 70% of their height so the subject
+  stays visible; longer copy paginates. Legacy portraits can shorten to the
+  rail height plus eight pixels. `tools/art_thumbs.js` bakes `ART_ASPECTS`
+  alongside aspect-preserving thumbnails, so this layout is ready before the
+  full painting loads.
   Copy follows directly below, with comfortable side padding and the specific
   title offset down four pixels. Painted stories omit the generic “Story” label;
   useful shop/event categories sit with the copy below the image. Dialogs do

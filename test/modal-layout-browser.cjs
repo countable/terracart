@@ -16,7 +16,7 @@ const { chromium } = require('playwright-core');
       await page.evaluate(() => {
         window.staticDialogs = ['howto', 'story', 'bootload'].map(id => document.getElementById(id)?.cloneNode(true));
       });
-      for (const kind of ['coins', 'relic', 'pick', 'offer', 'portrait', 'long-story', 'plain']) {
+      for (const kind of ['coins', 'relic', 'pick', 'offer', 'portrait', 'long-story', 'plain', 'square-story', 'square-night', 'square-long', 'portrait-art-long']) {
         await page.evaluate(kind => {
           const s = window.__scene;
           document.querySelectorAll('.game-modal').forEach(el => el.remove());
@@ -32,6 +32,12 @@ const { chromium } = require('playwright-core');
           if (kind === 'portrait') s.showMessageModal({ kind: 'talk', kindLabel: 'Tilly', title: 'Neighbour',
             portrait: 'assets/Icons/coin.png', body: long.repeat(2) });
           if (kind === 'long-story') s.showMessageModal({ title: 'A long book', body: long.repeat(30) });
+          if (kind === 'square-story' || kind === 'square-long') {
+            s.showMessageModal({ title: 'Low Health', art: 'health_low',
+              body: kind === 'square-long' ? long.repeat(30) : 'Rest here to recover.' });
+          }
+          if (kind === 'square-night') s.showMessageModal(RoadSafety.NIGHT_STORY);
+          if (kind === 'portrait-art-long') s.showMessageModal({ title: 'Legacy art', art: 'house', body: long.repeat(30) });
           if (kind === 'plain') s.showMessageModal({ title: 'A long note', art: false, body: long.repeat(20) });
         }, kind);
         await page.waitForTimeout(350);
@@ -44,6 +50,15 @@ const { chromium } = require('playwright-core');
           const box = wrap.querySelector('.modal-box').getBoundingClientRect();
           const pages = wrap.querySelector('.modal-pages');
           return {
+            art: (() => {
+              const layer = wrap.querySelector('.modal-art');
+              if (!layer) return null;
+              const style = getComputedStyle(layer);
+              const bounds = wrap.querySelector('.modal-art-spacer').getBoundingClientRect();
+              return { bottom: bounds.bottom, bodyTop: body.getBoundingClientRect().top,
+                width: bounds.width, height: bounds.height, position: style.backgroundPosition,
+                size: style.backgroundSize, scrim: style.backgroundImage };
+            })(),
             pages: getComputedStyle(pages).display !== 'none',
             count: pages.textContent,
             contentHeight: content.scrollHeight, bodyHeight: body.clientHeight,
@@ -55,7 +70,17 @@ const { chromium } = require('playwright-core');
         const m = await measure();
         assert.deepEqual(m.scroll, [], `${width} ${kind}: no scrolling ${JSON.stringify(m)}`);
         assert(m.boxVisible, `${width} ${kind}: dialog fits screen`);
-        if (!['long-story', 'plain'].includes(kind)) {
+        if (m.art) {
+          assert.equal(m.art.position, '50% 0%', `${kind}: art preserves its top edge`);
+          assert.equal(m.art.size, '100% auto', `${kind}: width-fit art`);
+          if (kind.startsWith('square-')) {
+            assert(m.art.bottom <= m.art.bodyTop + 1, `${kind}: copy sits below art`);
+            assert(m.art.height / m.art.width >= 0.699, `${kind}: copy and paging preserve the subject`);
+            assert(m.art.height <= m.art.width + 1, `${kind}: visible art never stretches`);
+            assert(!m.art.scrim.includes('gradient'), `${kind}: artwork has no dark copy scrim`);
+          }
+        }
+        if (!['long-story', 'plain', 'square-long', 'portrait-art-long'].includes(kind)) {
           assert.equal(m.pages, false, `${width} ${kind}: ordinary dialog fits one page ${JSON.stringify(m)}`);
           assert(m.contentHeight <= m.bodyHeight + 2, `${width} ${kind}: content not clipped`);
         } else {
