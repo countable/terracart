@@ -1948,4 +1948,87 @@ test('Goblin Gang Street: six barrel stacks and thirty grunts, deterministic and
   assert.eq(blocked.lairs.length, 0);
   assert.eq(blocked.objects.filter(o => o.barrel).length, 0);
 });
+
+// ── House barrels on plain Small streets ────────────────────────────────
+// A plain Small street along row 6 (halfW half a cell: the verge's k = 1 is
+// row 5 / row 7). North of it a HOUSE (T.BUILDING, rows 2-3, cols 3-5: the
+// ray hits its wall at k = 3, its frontage is rows 5 and 4), a FORT
+// (BUILDING_MED, rows 2-3, cols 8-9) and a house out of reach (row 0, cols
+// 1-2: k = 6). South a second house (rows 9-10, cols 7-8).
+function houseFixture(tx = 0, ty = 0, over = {}) {
+  const N = 12;
+  const grid = new Uint8Array(N * N).fill(T.GRASS);
+  const roadMask = new Uint8Array(N * N), spawnWhy = new Uint16Array(N * N);
+  for (let x = 1; x < 11; x++) { grid[6 * N + x] = T.ROAD; roadMask[6 * N + x] = 1; spawnWhy[6 * N + x] = WorldGen.SPAWN_WHY.ROAD; }
+  for (const y of [2, 3]) for (const x of [3, 4, 5]) grid[y * N + x] = T.BUILDING;
+  for (const y of [2, 3]) for (const x of [8, 9]) grid[y * N + x] = T.BUILDING_MED;
+  for (const x of [1, 2]) grid[x] = T.BUILDING;
+  for (const y of [9, 10]) for (const x of [7, 8]) grid[y * N + x] = T.BUILDING;
+  for (let i = 0; i < N * N; i++) if (grid[i] !== T.GRASS && grid[i] !== T.ROAD) spawnWhy[i] = WorldGen.SPAWN_WHY.TERRAIN;
+  const rec = { key: 'plain', name: 'Plain Street', size: 'minor', variant: null, variantRanges: null,
+    halfW: 3.5, lineKey: 'plain-row-6', line: [{ x: 1.5, y: 6.5 }, { x: 10.5, y: 6.5 }], ...over };
+  const index = { extent: N, lines: [rec], dressingLines: [] };
+  const spawnOpts = { roadMask, spawnWhy, occupied: new Set() };
+  return { N, grid, roadMask, spawnWhy, index, rec, spawnOpts, tx, ty };
+}
+const houseBarrels = (f) => SV.dress({ index: f.index, tx: f.tx, ty: f.ty, N: f.N, tileEdgeM: f.N * 7,
+  grid: f.grid, spawnOpts: f.spawnOpts }).objects.filter(o => /^hbarrel_/.test(o.id));
+const cellsOf = (f, list) => list.map(o => ({ ix: Math.floor((o.x - f.tx * f.N * 7) / 7), iy: Math.floor((o.y - f.ty * f.N * 7) / 7) }));
+const northOf = (f) => cellsOf(f, houseBarrels(f)).filter(c => c.iy < 6);
+
+test('house barrels: 0-2 per house, on the verge between the house and the street', () => {
+  assert.eq(SV.HOUSE_BARRELS_MAX, 2);
+  let north = 0, south = 0, seen = new Set();
+  for (let tx = 0; tx < 120; tx++) {
+    const f = houseFixture(tx, 3), got = cellsOf(f, houseBarrels(f));
+    for (const o of houseBarrels(f)) assert.truthy(o.kind === 'chest' && o.barrel === true && o._houseFront, 'a loot barrel');
+    const n = got.filter(c => c.iy < 6), s = got.filter(c => c.iy > 6);
+    assert.lte(n.length, 2, 'at most two before the north house'); assert.lte(s.length, 2, 'and the south');
+    for (const c of n) assert.truthy(c.ix >= 3 && c.ix <= 5 && (c.iy === 4 || c.iy === 5), `north frontage only: ${c.ix},${c.iy}`);
+    for (const c of s) assert.truthy(c.ix >= 7 && c.ix <= 8 && (c.iy === 7 || c.iy === 8), `south frontage only: ${c.ix},${c.iy}`);
+    assert.eq(got.filter(c => c.iy === 5 && c.ix >= 1 && c.ix <= 2).length, 0, 'the house out of reach stands none');
+    assert.eq(got.filter(c => c.iy === 5 && c.ix >= 8).length, 0, 'the fort stands none');
+    north += n.length; south += s.length; seen.add(n.length);
+  }
+  assert.eq([...seen].sort().join(','), '0,1,2', 'every count of 0, 1 and 2 occurs');
+  assert.inRange(north / 120, 0.7, 1.3, 'about one a house on average');
+  assert.inRange(south / 120, 0.7, 1.3);
+});
+
+test('house barrels: beside the street (the kerb cell first), the reward gate, and stable', () => {
+  let f = null;
+  for (let tx = 0; tx < 200 && !f; tx++) if (northOf(houseFixture(tx, 3)).length === 2) f = houseFixture(tx, 3);
+  assert.truthy(f, 'a house that rolls two');
+  const cells = northOf(f);
+  assert.truthy(cells.every(c => c.iy === 5), 'both on the kerb cell, beside the street');
+  assert.truthy(cells[0].ix !== cells[1].ix, 'spread along the frontage');
+  assert.eq(JSON.stringify(houseBarrels(houseFixture(f.tx, f.ty))), JSON.stringify(houseBarrels(houseFixture(f.tx, f.ty))), 'a reload lays the same');
+  // Occupied kerb cells push a barrel back a cell, never into the wall.
+  const g = houseFixture(f.tx, f.ty);
+  for (let x = 0; x < g.N; x++) g.spawnOpts.occupied.add(5 * g.N + x);
+  const back = northOf(g);
+  assert.eq(back.length, 2); assert.truthy(back.every(c => c.iy === 4), 'the next verge cell out');
+  // A Major-and-Medium kerb (the reward gate's KERB) refuses the seat.
+  const k = houseFixture(f.tx, f.ty);
+  for (let x = 0; x < k.N; x++) for (const y of [4, 5]) k.spawnWhy[y * k.N + x] |= WorldGen.SPAWN_WHY.KERB;
+  assert.eq(northOf(k).length, 0, 'none on a kerb');
+  // A themed street or a Major road dresses no house barrels.
+  assert.eq(houseBarrels(houseFixture(f.tx, f.ty, { variant: 'hedgerow' })).length, 0, 'a themed street');
+  assert.eq(houseBarrels(houseFixture(f.tx, f.ty, { size: 'major', variant: null })).length, 0, 'a Major road');
+});
+
+test('house barrels: a terrace rolls a house per frontage span', () => {
+  // One joined footprint along the whole north verge: rows 2-3, cols 1..10
+  // (ten samples) — two spans of HOUSE_FRONT_SPAN_CELLS, up to four barrels.
+  assert.eq(SV.HOUSE_FRONT_SPAN_CELLS, 6);
+  let most = 0;
+  for (let tx = 0; tx < 150; tx++) {
+    const f = houseFixture(tx, 9);
+    for (let x = 1; x < 11; x++) for (const y of [2, 3]) { f.grid[y * f.N + x] = T.BUILDING; f.spawnWhy[y * f.N + x] = WorldGen.SPAWN_WHY.TERRAIN; }
+    for (const x of [1, 2]) { f.grid[x] = T.GRASS; f.spawnWhy[x] = 0; }
+    const n = northOf(f).length;
+    assert.lte(n, 4); most = Math.max(most, n);
+  }
+  assert.gt(most, 2, 'a terrace stands more than one house\'s worth');
+});
 })();
