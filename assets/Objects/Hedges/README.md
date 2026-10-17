@@ -1,21 +1,23 @@
 # Connected hedge art
 
-Revised with the built-in OpenAI image tool on 2 October 2026, using the old
-approved clipped hedge as the camera and foliage reference. The camera looks
-down from the south at roughly 45 degrees: a broad rounded canopy sits over a short shaded foliage
-face. The connected footprint stays on the square grid. The full generation
-prompt is in `perspective-prompt.txt`. See CLAUDE.md's shared design rules for
-the intentional mix of top-down placement and angled artwork. Future revisions
-should keep the overhead view dominant, with more canopy visible and the
-front foliage face compressed.
+The connected hedges use the approved bush/barrel/pot v3 cel-shaded foliage.
+The camera sees a broad front side and a dominant canopy on a cardinal square
+grid. `approved-props-v3.png` preserves the approved source atlas.
 
-Rebuild with `python3 tools/pack_selected_zone_art.py`. The script isolates each
-source sprite, packs centerline connections into 24×24 frames, and exports
-`hedges-24.png` plus `single.png`. Display at 4/3 for 32px game cells.
-Only Formal Garden and Hedge Garden use this set. Existing wood harvest remains.
+Rebuild with `python3 tools/pack_cel_hedges.py`. This crops interior foliage
+swatches from approved frames 32 and 43, composites their canopy and shaded
+front pixels into each connection mask, and exports `hedges-24.png`, the
+individual named frames, and `single.png` (approved frame 47). It also writes
+`/tmp/cel-hedge-joins.png` for visual inspection. No new foliage or shading is
+painted by the packer.
 
-The packer crops connected end caps and uses `tools/connected_art.py` to fit
-arms separately from the junction. This preserves consistent join widths
-without squeezing away the front face: E/W arms occupy y=4..19 and N/S arms
-x=6..17. The isolated hedge keeps its rounded silhouette. Frame order and
-connection masks are unchanged.
+The runtime atlas is 360×24: fifteen 24×24 frames in the unchanged order and
+connection masks recorded in `manifest.json`. E/W arms span y=4..19; N/S arms
+span x=6..17. Every connecting edge has exactly the same RGBA strip as its
+opposite edge, checked by the exporter across all possible tile pairs. Display
+at 4/3 for 32px game cells. Only Formal Garden and Hedge Garden use this set;
+wood harvesting is unchanged.
+
+The older `source.png` and `perspective-prompt.txt` document the superseded
+painted set. Do not regenerate these runtime assets with the older
+`pack_selected_zone_art.py` packer, which uses that source.

@@ -51,7 +51,7 @@ const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide
 // don't confuse col 0's in-world stage-0 sprite with the col-7 seed icon.)
 const SPRING_CROPS_COLS = 14;
 // Fruiting and ordinary bushes share every foliage pixel and the same geometry.
-const BUSH_SPRITE = { sheet: 'bushes', custom: true, frame: 0, scale: 0.667 };
+const BUSH_SPRITE = { sheet: 'bushes', custom: true, frames: [0, 1, 2, 3, 4, 5, 6, 7], scale: 1 };
 const CROP_SPRITE = {
   potato: { sheet: 'springcrops', row: 5 },
   // Preserve seed, produce and growing-stage art; every mature berry bush
@@ -78,7 +78,7 @@ const CROP_SPRITE = {
   nettle: { sheet: 'props', custom: true, frame: 33, scale: 1.13 },
   // Shrub looks share harvesting; brambles mark thorny groves and roads.
   shrub: { ...BUSH_SPRITE,
-    looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frame: 0, scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frame: 0, scale: (4 / 3) * 0.8 } } },
+    looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frames: [0, 1, 2, 3], scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frames: [0, 1, 2, 3, 4, 5, 6, 7], scale: 0.8 } } },
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
   // Small mushrooms use 90% of their former 1.224 scale (80% read too
@@ -189,7 +189,7 @@ const WILDPLANT_CONTEXT_ART = {
   ...Object.fromEntries(Object.entries(ZONE_ROCK_THEMES).map(([zone, theme]) =>
     ['zone_rock_' + zone, { crop: 'rubble', sheet: 'rock_variants', custom: true, frame: theme.frame, scale: ROCK_VARIANT_ART.themedScale }])),
   zone_hedge: { crop: 'shrub', sheet: 'zone_hedge', custom: true, scale: 4 / 3, seat: false },
-  zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frame: 0, scale: (4 / 3) * 0.8, seat: false },
+  zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frames: [0, 1, 2, 3, 4, 5, 6, 7], scale: 0.8, seat: false },
   palm: { crop: 'shrub', sheet: 'beach_palms', custom: true, frames: [2, 3, 4, 5], scale: 4 / 3, seat: true, shadow: true },
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
