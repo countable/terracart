@@ -278,7 +278,8 @@
     const b = poi('waste_basket', { poiDensity: 1 });
     const save = { inv: [], opened: [], relics: {}, money: 0 };
     const flashes = [], loots = [];
-    const scene = makeScene({ flash: (m) => flashes.push(m), flashLoot: (m) => loots.push(m), coinIconEl: () => null });
+    const scene = makeScene({ flash: (m) => flashes.push(m), flashLoot: (m) => loots.push(m), coinIconEl: () => null,
+      showChestRewardModal: (card) => loots.push('+' + card.qty.replace('× ', '') + ' ' + card.name) });
     runInteractable(makeCtx(scene, save), b);
     assert.falsy(Macros.usedToday(save, b.id), 'no temporary day ledger');
     assert.includes(save.opened, b.id, 'permanent destruction ledger');

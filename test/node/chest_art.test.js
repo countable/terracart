@@ -32,7 +32,7 @@
     assert.eq(chestOpeningArt(chest({ banditStop: true })), null, 'a wagon stays a wagon');
   });
 
-  test('barrel art: paid finds use the barrel painting once, while pots retain their own feedback', () => {
+  test('barrel art: new items open one card in barrels and pots', () => {
     const original = globalThis.rollBarrel;
     try {
       globalThis.rollBarrel = () => ({ kind: 'item', id: 'wood', qty: 2 });
@@ -42,16 +42,37 @@
         const o = chest({ id: 'art_' + barrelStyle, barrel: true, barrelStyle });
         const scene = makeScene({ flashLoot() { toasts++; }, showChestRewardModal(card) {
           cards++;
-          assert.eq(card.art, 'treasure_barrel');
+          assert.eq(card.art, barrelStyle === 'barrel' ? 'treasure_barrel' : undefined);
           assert.includes(save.opened, o.id);
           assert.eq(scene.invCount('wood'), 2);
         } });
         const ctx = makeCtx(scene, save);
         INTERACTABLES.chest.custom(ctx, o);
         INTERACTABLES.chest.custom(ctx, o);
-        assert.eq(cards, barrelStyle === 'barrel' ? 1 : 0);
-        assert.eq(toasts, barrelStyle === 'barrel' ? 0 : 1);
+        assert.eq(cards, 1);
+        assert.eq(toasts, 0);
         assert.eq(scene.invCount('wood'), 2);
+      }
+    } finally { globalThis.rollBarrel = original; }
+  });
+
+  test('small containers: held items toast while unheld items and higher chests show cards', () => {
+    const original = globalThis.rollBarrel;
+    try {
+      globalThis.rollBarrel = () => ({ kind: 'item', id: 'wood', qty: 2 });
+      for (const shape of [{ barrel: true, barrelStyle: 'barrel' },
+        { barrel: true, barrelStyle: 'clay_pot' }, { tierSeed: 1 }, { crate: true }, { tierSeed: 2 }]) {
+        for (const held of [false, true]) {
+          let cards = 0, toasts = 0;
+          const save = { opened: [], inv: held ? [{ id: 'wood', count: 1 }] : [] };
+          const scene = makeScene({ showChestRewardModal() { cards++; }, flashLoot() { toasts++; } });
+          const ctx = makeCtx(scene, save);
+          INTERACTABLES.chest.custom(ctx, chest({ ...shape, ...(shape.barrel ? {} : { fixedLoot: { id: 'wood', qty: 2 } }) }));
+          const toast = held && shape.tierSeed !== 2;
+          assert.eq(cards, toast ? 0 : 1, JSON.stringify({ shape, held }));
+          assert.eq(toasts, toast ? 1 : 0);
+          assert.eq(scene.invCount('wood'), 2);
+        }
       }
     } finally { globalThis.rollBarrel = original; }
   });
