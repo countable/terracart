@@ -554,13 +554,13 @@
     assert.eq((SCENE_SRC.match(/this\._placeHome\(/g) || []).length, 2, 'the starter placement and Move Home here');
   });
 
-  // The opening shot: zoomed on Home while it is placed or a dialog is up,
-  // a held beat once the map is clear, then a slow pull back to exactly 1×.
-  test('home intro: waits close on Home, holds, then eases out to the normal view', () => {
+  // The opening shot waits for dialogs, then pulls back even if GPS, tiles,
+  // or site selection have not finished placing Home.
+  test('home intro: pulls back after two seconds without waiting for Home placement', () => {
     const I = HomeArea.INTRO;
     let dialog = true;
     const s = Object.assign(scene(), {
-      peekM: { x: 0, y: 0 }, mapZoom: 1,
+      peekM: { x: 0, y: 0 }, mapZoom: 1, _mapZoomRest: 11 / 7,
       _dialogOpen: () => dialog, isPeeking() { return this.peekM.x !== 0 || this.peekM.y !== 0; },
       _armHomeIntro: liftSceneMethod('_armHomeIntro'),
       _tickHomeIntro: liftSceneMethod('_tickHomeIntro'),
@@ -571,19 +571,18 @@
     near(s.peekM.y, I.focus.dy * CELL_M, 'framed above the player: the wagon above, the player below');
     near(s.peekM.x, I.focus.dx * CELL_M, 'and toward the wagon\'s middle');
     s._tickHomeIntro(5);
-    near(s.mapZoom, zIn, 'no Home yet: still waiting');
-    s.save.starterShopId = 'starter_trailer';
-    s._tickHomeIntro(5);
     near(s.mapZoom, zIn, 'a dialog covers the map: still waiting');
+    assert.eq(I.holdMs, 2000, 'the clear-map hold is two seconds');
+    assert.falsy(s.save.starterShopId, 'Home placement is still pending');
     dialog = false;
     s._tickHomeIntro(0);
     s._tickHomeIntro(I.holdMs / 1000 * 0.9);
     near(s.mapZoom, zIn, 'holds a beat');
     s._tickHomeIntro(I.holdMs / 1000 * 0.2);
     s._tickHomeIntro(I.outMs / 2000);
-    assert.truthy(s.mapZoom > 1 && s.mapZoom < zIn, 'pulling back');
+    assert.truthy(s.mapZoom > s._mapZoomRest && s.mapZoom < zIn, 'pulling back toward the closest normal setting');
     s._tickHomeIntro(I.outMs / 1000);
-    assert.eq(s.mapZoom, 1, 'ends at exactly 1×');
+    assert.eq(s.mapZoom, s._mapZoomRest, 'ends at the selected closest normal setting');
     assert.eq(s.peekM.y, 0, 'and on the player');
     assert.eq(s.peekM.x, 0, 'exactly');
     assert.eq(s._homeIntro, null, 'and stops');

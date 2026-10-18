@@ -151,9 +151,8 @@
   // HOUSE_FRONT_SPAN_CELLS samples long: a terrace of joined footprints
   // counts a house per span, not one for the whole row.
   const HOUSE_BARRELS_MAX = 2;
-  // The share of houses standing 0, 1 and 2 barrels (owner, Oct 2026: a
-  // little fewer than the even thirds — 0.8 a house on average).
-  const HOUSE_BARREL_ODDS = [0.4, 0.4, 0.2];
+  // The share of houses standing 0, 1 and 2 barrels: 0.6 a house on average.
+  const HOUSE_BARREL_ODDS = [0.5, 0.4, 0.1];
   const HOUSE_FRONT_REACH_CELLS = 5;
   const HOUSE_FRONT_SPAN_CELLS = 6;
   // This share of the seated house barrels stand as a tier-1 crate instead
