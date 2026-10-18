@@ -267,7 +267,15 @@ the real source so a missing texture cannot become a permanent cached palette.
   (`pad_shrine`, drawn with its masonry face south) turns back about its cell
   centre the same way, while flat POI pads turn with the ground. Ground decals retain their own
   opacity, and fruit overlays follow their tree.
-- Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
+- Ordinary props resolve taps by data cell (`sameAbsCell`). Buildings additionally
+  accept their visible roof and wall extent through `Render.buildingHit`: retained
+  visible triangles for low-poly meshes and wall prisms, trimmed art bounds for
+  legacy sprites. Hit tests use the same heading projection and pan offsets as
+  drawing; pointer input has already undone camera zoom and heading. Overlapping
+  buildings select the frontmost drawn owner, with no hits in empty corners of
+  pitched roofs. The owner routes through the ordinary interaction registry and
+  existing reach/visibility gates; ground-footprint taps remain supported.
+  Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
   Seated art, shadows and labels counterrotate about the cell centre so these
