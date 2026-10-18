@@ -3566,13 +3566,7 @@ function fadeLabelOverPlayer(tx, box) {
 // Shared building visibility geometry. These tests use retained vertices and
 // boot-time sprite bounds; walking never reads texture pixels or rebuilds art.
 Render.pointInBuilding = function(point, ring) {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[j], b = ring[i];
-    if ((a.y > point.y) !== (b.y > point.y)
-        && point.x < a.x + (point.y - a.y) * (b.x - a.x) / (b.y - a.y)) inside = !inside;
-  }
-  return inside;
+  return PolygonGeometry.pointInRings([ring], point.x, point.y);
 };
 // Taps arrive in map coordinates: _unzoomPt has already undone camera zoom
 // and heading. Use the faces actually drawn, not a roof's bounding rectangle.

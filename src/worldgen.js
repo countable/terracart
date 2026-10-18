@@ -3345,17 +3345,7 @@
   // the ray test for the whole game: the flora scatter, the Nexus coverage and
   // the scenic index all read it (an edge is taken a = ring[j], b = ring[i]).
   function pointInRings(rings, x, y) {
-    let inside = false;
-    for (const ring of rings) {
-      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-        const a = ring[j], b = ring[i];
-        if ((a.y > y) !== (b.y > y)) {
-          const xint = a.x + (y - a.y) * (b.x - a.x) / (b.y - a.y);
-          if (x < xint) inside = !inside;
-        }
-      }
-    }
-    return inside;
+    return PolygonGeometry.pointInRings(rings, x, y);
   }
   // Enclosed shopping buildings retain their mapped interior POIs. A mall
   // name/tag alone is insufficient: outdoor strip centres use it too.

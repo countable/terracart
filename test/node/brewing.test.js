@@ -11,6 +11,7 @@ const BREW = (0, eval)('({\n' + [
   lift('presentBrewOffer(sx, sy, house, recordDeal, targetId = null) {'),
   lift('_settleDeal(recordDeal, loot) {'),
   lift('_presentThemedItem(sx, sy, house, recordDeal, id) {'),
+  lift('_presentRecipePicker(sx, sy, { recipes, targetId, present, onCraft, empty, ...modal }) {'),
   lift('_presentRecipeOffer(sx, sy, { recipe, produce, refuse, canAfford = true, ...modal }) {'),
 ].join(',\n') + '\n})');
 const last = s => s.modals.at(-1);

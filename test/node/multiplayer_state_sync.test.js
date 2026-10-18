@@ -204,6 +204,18 @@ test('enemy sync: bat path and phase move with a correction, then clear on an id
   assert.eq(c._batFlight, null); assert.eq(c._batSwooping, false);
 }));
 
+test('enemy sync: relayed curved bat flight retains its bow through frame correction', () => withSync(({ sc, foe, state }) => {
+  const c = foe({ kind: 'bat' }), x = c.x, y = c.y;
+  const snapshot = { q: 1, h: 1, x: (x + 5) / sc.mPerPx, y: y / sc.mPerPx, v: [],
+    m: { _batFlight: { x: x / sc.mPerPx, y: y / sc.mPerPx,
+      tx: (x + 10) / sc.mPerPx, ty: y / sc.mPerPx, jx: 3, jy: -4, start: -100, duration: 1000 } } };
+  const relayed = EnemyProtocol.cleanEnemyState(snapshot);
+  assert.truthy(Multiplayer.applyState(sc, state(c, relayed)));
+  near(c._batFlight.jx, 6); near(c._batFlight.jy, -8);
+  Multiplayer.correctEnemies(sc, 0.4);
+  near(c._batFlight.jx, 6); near(c._batFlight.jy, -8);
+}));
+
 test('enemy sync: queued hits never cross depths and replay sequence restarts after welcome', () => withSync(({ sc, foe, tick, sent, state, welcome }) => {
   const c = foe();
   Multiplayer.applyState(sc, state(c, { q: 50 }));

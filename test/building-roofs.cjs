@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..');
 const context = {window:{}, buildingBackgroundColor:c=>c, BiomeProfiles:{mixHex(){}},
   CastleStyles:{ids:['test'],get:()=>({rampart:{topDepth:1}})}};
 vm.createContext(context);
+vm.runInContext(fs.readFileSync('src/polygon_geometry.js','utf8'),context);
 vm.runInContext(fs.readFileSync(path.join(root,'src/building_overlay.js'),'utf8'),context);
 const {roofMesh} = context.window.BuildingOverlay;
 const fixtures = require('../tools/building-roof-fixtures.js');

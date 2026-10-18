@@ -1,7 +1,7 @@
 <!doctype html><meta charset="utf-8"><title>Building role review</title>
 <style>body{margin:0;background:#243947;color:#efe8da;font:16px system-ui}header{padding:16px}canvas{display:block}input,button{font:inherit}</style>
 <header><b>In-game building variations</b><p>Dark, quiet walls · eave shading · smaller roof tiles · actual role materials and roof shapes. Wizard/turret show their original in-game artwork.</p><label>Compass <input id="angle" type="range" min="0" max="360" value="0"></label> <button id="sweep">Sweep</button> <span id="stats"></span></header><div id="game"></div>
-<script src="../vendor/phaser.js"></script><script src="../src/util.js"></script><script src="../src/castle_styles.js"></script><script src="../src/textures.js"></script><script src="../src/building_styles.js"></script><script src="../src/building_lowpoly.js"></script>
+<script src="../vendor/phaser.js"></script><script src="../src/util.js"></script><script src="../src/castle_styles.js"></script><script src="../src/textures.js"></script><script src="../src/building_styles.js"></script><script src="../src/polygon_geometry.js"></script><script src="../src/building_lowpoly.js"></script>
 <script>
 let reviewScene,sweeping=false;const roles=Object.keys(BuildingLowPoly.ROLES).filter(r=>r!=='shop');
 // These are the role/shop palette overrides used by Render.buildingProfileFor.

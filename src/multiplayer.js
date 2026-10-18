@@ -608,12 +608,7 @@ const Multiplayer = (function () {
   // snapshots rather than sending a truncated vector that invents damage.
   const enemyLedgers = new WeakMap();
   const enemyBodies = new WeakMap();
-  const ORIGIN_RE = /^[A-Za-z0-9_-]{1,64}$/;
-  const MOVE_NUMBERS = ['_idleAngle', '_avoidSide', '_hopMs', '_batLeg', '_lungeAngle'];
-  const MOVE_FLAGS = ['_batSwooping', '_batHit', '_lungeHit', '_burrowed', '_hasEmerged'];
-  const MOVE_TIMERS = ['_idleTurnT', '_nextChooseT', '_stepT0', '_batPauseUntil', '_lungeUntil',
-    '_lungeWindupUntil', '_lungeRecoverUntil', '_lungeNextT', '_burrowNextT', '_emergeUntil'];
-  const MOVE_POINTS = [['_startX', '_startY'], ['_targetX', '_targetY']];
+  const { SYNC_ORIGIN_RE: ORIGIN_RE, MOVE_NUMBERS, MOVE_FLAGS, MOVE_TIMERS, MOVE_POINTS } = EnemyProtocol;
   function generation(scene, c) { return c.castle ? scene.save.citadelBattles?.[c.castle]?.startedAt || 0 : 0; }
   function recordKey(scene, c) { return `${scene.depth || 0}:${c.id}:${generation(scene, c)}`; }
   function records(scene) {
@@ -696,40 +691,7 @@ const Multiplayer = (function () {
     return JSON.stringify(s).length <= 3500 ? s : undefined;
   }
   function validState(s) {
-    if (!s || !Number.isSafeInteger(s.q) || s.q < 1 || !Number.isFinite(s.h) || s.h < 0 || s.h > 1
-        || ![s.x, s.y].every(n => Number.isFinite(n) && n >= 0 && n <= 4194304)
-        || !Array.isArray(s.v) || s.v.length > 32 || !s.m || typeof s.m !== 'object' || Array.isArray(s.m)
-        || (s.pid !== undefined && (!Number.isSafeInteger(s.pid) || s.pid < 1))) return false;
-    const seen = new Set();
-    for (const pair of s.v) {
-      if (!Array.isArray(pair) || pair.length !== 2 || typeof pair[0] !== 'string' || !ORIGIN_RE.test(pair[0])
-          || seen.has(pair[0]) || !Number.isFinite(pair[1]) || pair[1] < 0 || pair[1] > 1e6) return false;
-      seen.add(pair[0]);
-    }
-    const points = MOVE_POINTS.flat();
-    for (const [k, value] of Object.entries(s.m)) {
-      if (MOVE_FLAGS.includes(k)) { if (typeof value !== 'boolean') return false; }
-      else if (k === '_batFlight') {
-        if (value !== null && (!value || typeof value !== 'object' || Array.isArray(value)
-            || ![6, 8].includes(Object.keys(value).length) || !['x', 'y', 'tx', 'ty'].every(p => Number.isFinite(value[p]) && value[p] >= 0 && value[p] <= 4194304)
-            // The bow (jx/jy) is optional on the wire: a peer on a build before
-            // the erratic bats sends the six-key flight, and flies it straight.
-            || (value.jx === undefined) !== (value.jy === undefined)
-            || !['jx', 'jy'].every(p => value[p] === undefined || (Number.isFinite(value[p]) && Math.abs(value[p]) <= 4194304))
-            || !Number.isFinite(value.start) || Math.abs(value.start) > 300000
-            || !Number.isFinite(value.duration) || value.duration <= 0 || value.duration > 300000)) return false;
-      }
-      else if (MOVE_NUMBERS.includes(k)) { if (!Number.isFinite(value) || Math.abs(value) > 300000) return false; }
-      else if (MOVE_TIMERS.includes(k)) { if (!Number.isFinite(value) || Math.abs(value) > 300000) return false; }
-      else if (points.includes(k)) { if (!Number.isFinite(value) || value < 0 || value > 4194304) return false; }
-      else if (k === '_movementDecisions') {
-        if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length > 32) return false;
-        for (const [key, n] of Object.entries(value)) if (!/^[a-z][a-z0-9-]{0,39}$/.test(key)
-            || !Number.isSafeInteger(n) || n < 0 || n > 1e9) return false;
-      } else return false;
-    }
-    for (const [x, y] of MOVE_POINTS) if ((s.m[x] === undefined) !== (s.m[y] === undefined)) return false;
-    return true;
+    return EnemyProtocol.cleanEnemyState(s, { rejectUnknown: true }) !== null;
   }
   function queueState(scene, c) {
     if (S.stateQueue.size < 128 || S.stateQueue.has(c.id)) S.stateQueue.set(c.id, { c, d: scene.depth || 0, gen: generation(scene, c) });

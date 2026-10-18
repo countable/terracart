@@ -316,11 +316,6 @@
     const rh = (save && save.restoredHouses) || {};
     return Object.keys(rh).filter((id) => rh[id] === role && shopTier(save, { kind: 'house', id }, role) === tier).length;
   }
-  // How much a shop of tier `tier` wants to carry an item of tier `itemT`:
-  // full weight at its own tier, halved per tier away. A lean, not a wall —
-  // a T1 trader still hands over the odd T3 seed.
-  function tierAffinity(itemT, tier) { return 1 / Math.pow(2, Math.abs((itemT | 0) - (tier | 0))); }
-
   // What a shop of this line and tier can stock: every item of the line at the
   // nearest tier it carries (ties go to the lower tier). [] for the relic line.
   function themedStock(theme, tier) {
@@ -376,6 +371,6 @@
     ROLE_LABEL, roleLabel, BUILDING_LABEL, TOWER_LABEL,
     THEMED_BATCH_CHANCE, batchStock, themedOfferStock, themedQuantity, traderPrices, traderStock,
     LINE_RULES, THEMES, SOLO_LINES, soloLine, isSoloShop, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, shopLineLedger, lineFor, lineCount, lineBuildable, themedStock, itemTier,
-    MEMORIES_PER_TIER, SHOP_TIER_MAX, memoryTotal, tierCap, tierUnlockMemories, storedTier, smithTier, traderTierAt, traderTier, shopTier, roleTierCount, tierAffinity, pickThemed,
+    MEMORIES_PER_TIER, SHOP_TIER_MAX, memoryTotal, tierCap, tierUnlockMemories, storedTier, smithTier, traderTierAt, traderTier, shopTier, roleTierCount, pickThemed,
   };
 })(window);
