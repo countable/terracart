@@ -6201,6 +6201,12 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // That baked shadow IS its contact shadow: no `shadow` row, or the ellipse
     // would double it, centred under the bake rather than the feet.
     _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true },
+    furniture: { key: 'furniture', frame: o => furnitureSpec(o)?.frame ?? 0,
+      origin: [0.5, 0.5], scale: FURNITURE_SCALE, seat: true,
+      layer: o => furnitureSpec(o)?.height === 'flat' ? WorldLayers.GROUND_DECAL : WorldLayers.STEP_OVER_PROP,
+      flipX: o => !!(furnitureSpec(o)?.flip && o.flip),
+      after: (sprite, o) => sprite.setFlipX(!!(furnitureSpec(o)?.flip && o.flip)),
+    },
     // The down pit uses only the lower half of its sheet, centred in the
     // cell. The standalone up ladder keeps its full image.
     staircase: { key: (o) => o.elevator ? 'progression_tiles' : (o.dir === 'up' ? 'stair_up' : 'stair_down'),
@@ -6496,7 +6502,11 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     if (wantSeat && SL) {
       // Animated sheets use stable bounds so neither art nor shadow bobs.
       const bframe = spec.seatFrame !== undefined ? spec.seatFrame : (frameVal ?? 0);
-      const bb = SL.ART_BOUNDS[`${texKey}:${bframe}`];
+      const bounds = SL.ART_BOUNDS[`${texKey}:${bframe}`];
+      // Mirror the seating bounds with the art so asymmetric frames stay in
+      // their own cell after a placed object's orientation changes.
+      const flipped = typeof spec.flipX === 'function' ? spec.flipX(o) : spec.flipX;
+      const bb = bounds && flipped ? { ...bounds, minX: bounds.fw - bounds.maxX, maxX: bounds.fw - bounds.minX } : bounds;
       if (bb) {
         const seat = SL.seatInCell(bb, origin[0], origin[1], scl, scl * scaleYMul);
         dxPx = seat.dxPx; dyPx = seat.dyPx;

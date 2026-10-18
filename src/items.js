@@ -494,7 +494,34 @@ function mineralBarId(tier) { return MINERAL_TIERS[tier]?.barId || null; }
 function barForTier(tier) { return tier === 1 ? 'wood' : mineralBarId(tier); }
 const BAR_IDS = Object.freeze([1, 2, 3, 4, 5, 6, 7].map(barForTier));
 
+// One row owns each furnishing's placement art and future ability hooks.
+// Null luxury means catalog tier squared; phase 1 does not award luxury.
+const FURNITURE_SCALE = 0.85;
+const FURNITURE = {
+  workbench: { frame: 0, flip: true, height: "mid", ability: "craft", light: null, luxury: null },
+  bed_quilted: { frame: 1, flip: true, height: "mid", ability: "sleep", light: null, luxury: null },
+  washbasin: { frame: 2, flip: true, height: "mid", ability: "wash", light: null, luxury: null },
+  mirror_brass: { frame: 3, flip: false, height: "mid", ability: "reflect", light: null, luxury: null },
+  table_oak: { frame: 4, flip: true, height: "mid", ability: null, light: null, luxury: null },
+  dresser_oak: { frame: 5, flip: true, height: "mid", ability: null, light: null, luxury: null },
+  planter_clay: { frame: 6, flip: true, height: "mid", ability: "plant", light: null, luxury: null },
+  rug_burgundy: { frame: 7, flip: false, height: "flat", ability: null, light: null, luxury: null },
+  bookshelf_frontier: { frame: 8, flip: true, height: "mid", ability: null, light: null, luxury: null },
+  lantern_brass: { frame: 9, flip: true, height: "mid", ability: null, light: "furniture_hearthlamp", luxury: null },
+  clock_mantel: { frame: 10, flip: false, height: "mid", ability: null, light: null, luxury: null },
+  statue_owl: { frame: 11, flip: true, height: "mid", ability: null, light: null, luxury: null },
+  planter_copper: { frame: 12, flip: true, height: "mid", ability: "plant", light: null, luxury: null },
+  candlestick_brass: { frame: 13, flip: true, height: "mid", ability: null, light: "furniture_candlestick", luxury: null },
+  globe_brass: { frame: 14, flip: false, height: "mid", ability: null, light: null, luxury: null },
+  telescope_brass: { frame: 15, flip: true, height: "mid", ability: null, light: null, luxury: null },
+};
+function furnitureSpec(itemOrId) {
+  const id = typeof itemOrId === 'string' ? itemOrId : itemOrId?.itemId || itemOrId?.id;
+  return FURNITURE[id] || null;
+}
+
 const MINERAL_ICON_SHEET = {
+  ...Object.fromEntries(Object.entries(FURNITURE).map(([id, row]) => [id, { sheet: 'furniture_icons', frame: row.frame }])),
   field_scope: { sheet: 'icon_field_scope', frame: 0 },
   compass: { sheet: 'icon_compass', frame: 0 },
   orb: { sheet: 'icon_orb', frame: 0 },
@@ -934,6 +961,22 @@ const CARRIED_ITEM_SPEC = {
   traders_guild_badge: { guildRole: 'trader', guildDiscount: 0.1 },
 };
 const ITEMS = [
+  { id: "workbench", name: "Tinker's Workbench", kind: 'furniture', baseTier: 1 },
+  { id: "bed_quilted", name: "Quilted Cot", kind: 'furniture', baseTier: 1 },
+  { id: "washbasin", name: "Washbasin", kind: 'furniture', baseTier: 1 },
+  { id: "mirror_brass", name: "Gear-Rim Looking Glass", kind: 'furniture', baseTier: 2 },
+  { id: "table_oak", name: "Oak Side Table", kind: 'furniture', baseTier: 1 },
+  { id: "dresser_oak", name: "Four-Drawer Dresser", kind: 'furniture', baseTier: 1 },
+  { id: "planter_clay", name: "Clay Planter", kind: 'furniture', baseTier: 1 },
+  { id: "rug_burgundy", name: "Burgundy Rug", kind: 'furniture', baseTier: 2 },
+  { id: "bookshelf_frontier", name: "Frontier Bookshelf", kind: 'furniture', baseTier: 2 },
+  { id: "lantern_brass", name: "Brass Hearthlamp", kind: 'furniture', baseTier: 2 },
+  { id: "clock_mantel", name: "Brass Mantel Clock", kind: 'furniture', baseTier: 2 },
+  { id: "statue_owl", name: "Carved Owl", kind: 'furniture', baseTier: 2 },
+  { id: "planter_copper", name: "Riveted Copper Planter", kind: 'furniture', baseTier: 2 },
+  { id: "candlestick_brass", name: "Brass Candlestick", kind: 'furniture', baseTier: 3 },
+  { id: "globe_brass", name: "Surveyor's Globe", kind: 'furniture', baseTier: 3 },
+  { id: "telescope_brass", name: "Brass Stargazer", kind: 'furniture', baseTier: 3 },
   { id: 'field_scope', name: 'Field Scope', kind: 'unique_relic' },
   { id: 'compass', name: 'Compass', kind: 'unique_relic' },
   { id: 'orb', name: 'Orb', kind: 'unique_relic', reusable: true },
@@ -1946,6 +1989,7 @@ for (const [raw, c] of Object.entries(COOKED_FOODS)) {
 // (e.g. live animals) fall back to a tier-scaled ladder so the bonus still
 // scales with how prized the thing is rather than flattening to $1.
 const TIER_VALUE = [0, 6, 24, 75, 210, 480, 1080, 2400];   // tripled Oct 2026; the cash lane pays this too
+for (const id of Object.keys(FURNITURE)) PRICES[id] = Math.round(TIER_VALUE[ITEM_BY_ID[id].baseTier] * 1.5);
 function itemValue(id) {
   if (PRICES[id] != null) return PRICES[id];
   const t = ITEM_BY_ID[id]?.baseTier || 1;
@@ -2045,6 +2089,22 @@ const EGG_HATCH_SPEC = Object.freeze({
 });
 
 const ITEM_EFFECTS = {
+  workbench: "A sturdy work surface with a brass vice and room for new ideas.",
+  bed_quilted: "A soft quilt and a wooden cot promise a quiet night.",
+  washbasin: "A clean basin, a folded towel, and a moment to freshen up.",
+  mirror_brass: "A brass-framed looking glass waits on its own little stand.",
+  table_oak: "A compact oak table makes a useful corner feel like home.",
+  dresser_oak: "Four wooden drawers keep small comforts close at hand.",
+  planter_clay: "An open bed of soil rests in a broad clay planter.",
+  rug_burgundy: "A rich burgundy rug brings warmth beneath your feet.",
+  bookshelf_frontier: "A sturdy frontier shelf holds the promise of many stories.",
+  lantern_brass: "A brass hearthlamp lends a welcoming shape to a quiet room.",
+  clock_mantel: "A little brass clock gives the mantel a dignified air.",
+  statue_owl: "A patient carved owl watches over the room.",
+  planter_copper: "Riveted copper surrounds a broad bed of waiting soil.",
+  candlestick_brass: "An elegant brass candlestick dresses a favourite corner.",
+  globe_brass: "A brass-mounted globe invites thoughts of distant roads.",
+  telescope_brass: "A fine brass telescope points toward wonders beyond the roof.",
   pet_collar: 'A broad, soft collar for a companion with a long road ahead.',
   pet_guard_collar: 'Small plates catch the blows meant for your companion.',
   pet_fang_charm: 'A carved fang lends courage to a small bite.',
@@ -3075,8 +3135,9 @@ function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad 
 // A table over item KINDS, so it belongs with the catalog that defines them:
 // a kind added to ITEMS without a home here falls into Produce, and only this
 // file can see both halves of that.
+// Page slots keep category navigation separate from the five-item pager.
 const INV_CATS = [
-  { key: 'seeds', label: 'Seeds', kinds: ['seed'], px: [
+  { key: 'seeds', page: 0, keySlot: 0, label: 'Seeds', kinds: ['seed'], px: [
     '.........',
     '.##...##.',
     '####.####',
@@ -3086,7 +3147,7 @@ const INV_CATS = [
     '....#....',
     '..#####..',
     '#########'] },
-  { key: 'produce', label: 'Produce', kinds: ['produce'], px: [
+  { key: 'produce', page: 0, keySlot: 1, label: 'Produce', kinds: ['produce'], px: [
     '.....##..',
     '....#....',
     '.###.###.',
@@ -3096,7 +3157,7 @@ const INV_CATS = [
     '#########',
     '.#######.',
     '..##.##..'] },
-  { key: 'pets', label: 'Pets', kinds: ['pet_accessory'], px: [
+  { key: 'pets', page: 0, keySlot: 2, label: 'Pets', kinds: ['pet_accessory'], px: [
     '.##...##.',
     '.##...##.',
     '.........',
@@ -3106,7 +3167,7 @@ const INV_CATS = [
     '.#######.',
     '.#######.',
     '..##.##..'] },
-  { key: 'relics', label: 'Relics', gear: 'relic', kinds: ['unique_relic'], px: [
+  { key: 'relics', page: 0, keySlot: 3, label: 'Relics', gear: 'relic', kinds: ['unique_relic'], px: [
     '...###...',
     '..##.##..',
     '...###...',
@@ -3116,27 +3177,7 @@ const INV_CATS = [
     '##.....##',
     '.##...##.',
     '..#####..'] },
-  { key: 'armour', label: 'Armour', gear: 'armor', px: [
-    '#########',
-    '##..#..##',
-    '##..#..##',
-    '##..#..##',
-    '.#..#..#.',
-    '.##.#.##.',
-    '..##.##..',
-    '...###...',
-    '....#....'] },
-  { key: 'ores', label: 'Ores', kinds: ['ores'], px: [
-    '.........',
-    '..#####..',
-    '.##.#.##.',
-    '#########',
-    '.#######.',
-    '..#####..',
-    '...###...',
-    '....#....',
-    '.........'] },
-  { key: 'magic', label: 'Magic', kinds: ['magic'], px: [
+  { key: 'magic', page: 0, keySlot: 4, label: 'Magic', kinds: ['magic'], px: [
     '...###...',
     '...#.#...',
     '...#.#...',
@@ -3146,7 +3187,7 @@ const INV_CATS = [
     '#########',
     '#########',
     '.#######.'] },
-  { key: 'supplies', label: 'Supplies', kinds: ['supply'], px: [
+  { key: 'supplies', page: 0, keySlot: 5, label: 'Supplies', kinds: ['supply'], px: [
     '...###...',
     '..#...#..',
     '.#######.',
@@ -3156,6 +3197,36 @@ const INV_CATS = [
     '.#######.',
     '.#######.',
     '.##...##.'] },
+  { key: 'furniture', page: 1, keySlot: 1, label: 'Furniture', kinds: ['furniture'], px: [
+    '..#####..',
+    '..#####..',
+    '.#######.',
+    '#########',
+    '....#....',
+    '....#....',
+    '....#....',
+    '...###...',
+    '..#####..'] },
+  { key: 'armour', page: 1, keySlot: 2, label: 'Armour', gear: 'armor', px: [
+    '#########',
+    '##..#..##',
+    '##..#..##',
+    '##..#..##',
+    '.#..#..#.',
+    '.##.#.##.',
+    '..##.##..',
+    '...###...',
+    '....#....'] },
+  { key: 'ores', page: 1, keySlot: 3, label: 'Ores', kinds: ['ores'], px: [
+    '.........',
+    '..#####..',
+    '.##.#.##.',
+    '#########',
+    '.#######.',
+    '..#####..',
+    '...###...',
+    '....#....',
+    '.........'] },
 ];
 const INV_CAT_BY_KEY = Object.fromEntries(INV_CATS.map(c => [c.key, c]));
 // Category keys match the inventory labels. Only old saved tab selections

@@ -649,6 +649,7 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'pickup-rock',
     'pickup-scarecrow',
     'firepit',
+    'place-furniture',
     'place-scarecrow',
     'extinguish-fire',
     'light-fire',

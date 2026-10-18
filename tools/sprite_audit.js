@@ -214,7 +214,7 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'util.js'), 'utf8'),
   itemsCtx, { filename: 'util.js' });
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'items.js'), 'utf8'),
   itemsCtx, { filename: 'items.js' });
-vm.runInContext('globalThis.ROCK_VARIANT_ART = ROCK_VARIANT_ART; globalThis.GEM_DEPOSITS = GEM_DEPOSITS; globalThis.CROP_SPRITE = CROP_SPRITE; globalThis.WILDPLANT_CONTEXT_ART = WILDPLANT_CONTEXT_ART;', itemsCtx);
+vm.runInContext('globalThis.FURNITURE = FURNITURE; globalThis.FURNITURE_SCALE = FURNITURE_SCALE; globalThis.ROCK_VARIANT_ART = ROCK_VARIANT_ART; globalThis.GEM_DEPOSITS = GEM_DEPOSITS; globalThis.CROP_SPRITE = CROP_SPRITE; globalThis.WILDPLANT_CONTEXT_ART = WILDPLANT_CONTEXT_ART;', itemsCtx);
 const SHRUB_SCALE = itemsCtx.CROP_SPRITE.shrub.scale;
 const CROP_SPRITE = itemsCtx.CROP_SPRITE;
 
@@ -231,6 +231,7 @@ const ASSETS = assetsCtx.window.ASSETS;
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const GEM_ROCKS = Object.values(itemsCtx.GEM_DEPOSITS).filter(row => row.art.sheet === 'cave_props');
 const SHEETS = {
+  furniture: { file: ASSETS.furniture.path, fw: 32, fh: 32, frames: Object.values(itemsCtx.FURNITURE).map(row => row.frame) },
   cave_props: { file: ASSETS.cave_props.path, fw: 24, fh: 24, frames: [1, 6, ...GEM_ROCKS.map(row => row.art.frame)] },
   poison_vent_inactive: { file: ASSETS.poison_vent_inactive.path, fw: 24, fh: 24, frames: [0] },
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
@@ -291,6 +292,9 @@ const SHEETS = {
 const t = (species, size) => treeScale({ species, size });
 const SEAT_ANCHOR = [0.5, 0.5];
 const SCENARIOS = [
+  ...Object.entries(itemsCtx.FURNITURE).flatMap(([id, row]) => [false, ...(row.flip ? [true] : [])].map(flipX => ({
+    name: `${id}${flipX ? ' flipped' : ''}`, key: 'furniture', frameIdx: row.frame, scale: itemsCtx.FURNITURE_SCALE, flipX,
+  }))),
   ...['gas_mushroom_small', 'gas_mushroom_large'].map(key => ({
     name: key.replaceAll('_', ' '), key, frameIdx: 0, scale: itemsCtx.WILDPLANT_CONTEXT_ART[key].scale,
   })),
@@ -376,13 +380,15 @@ function evaluate(s) {
   }
 
   // Seat with the SAME maths the renderer uses, then measure the real art box.
-  const box = table || fresh;
+  const mirror = box => s.flipX ? { ...box, minX: box.fw - box.maxX, maxX: box.fw - box.minX } : box;
+  const box = mirror(table || fresh);
+  const shown = mirror(fresh);
   const scaleX = s.scale, scaleY = s.scale * (s.scaleYMul || 1);
   const [ox, oy] = SEAT_ANCHOR;
   const { dxPx, dyPx, fits } = seatInCell(box, ox, oy, scaleX, scaleY);
   const tlx = dxPx - ox * fresh.fw * scaleX;
   const tly = dyPx - oy * fresh.fh * scaleY;
-  const left = tlx + fresh.minX * scaleX, right = tlx + fresh.maxX * scaleX;
+  const left = tlx + shown.minX * scaleX, right = tlx + shown.maxX * scaleX;
   const top = tly + fresh.minY * scaleY, bottom = tly + fresh.maxY * scaleY;
   const artH = bottom - top, centerX = (left + right) / 2;
   const overlap = bottom - CELL_BOTTOM;

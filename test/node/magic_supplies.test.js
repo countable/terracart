@@ -8,7 +8,7 @@ test('item classes: potions and powders are Magic; practical items are Supplies'
     assert.eq(invCatForItem(id), 'supplies', id);
   }
   assert.falsy(ITEMS.some(item => item.kind === 'consumable'));
-  assert.eq(INV_CATS.length, 8);
+  assert.eq(INV_CATS.length, 9);
 });
 
 

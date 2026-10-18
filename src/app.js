@@ -1579,6 +1579,7 @@ const ROAD_CHIP_SVG =
   + '</g></svg>';
 
 const ICON_SHEETS = {
+  furniture_icons: { url: 'assets/Objects/Furniture/furniture-icons-16.png', cols: 4, srcW: 64, srcH: 64 },
   giant_mushroom: { url: 'assets/Icons/Items/GiantMushroom.png', cols: 1, srcW: 16, srcH: 16 },
   icon_field_scope: { url: 'assets/Icons/Items/field_scope.png', cols: 1, srcW: 16, srcH: 16 },
   icon_compass: { url: 'assets/Icons/Items/compass.png', cols: 1, srcW: 16, srcH: 16 },
@@ -10585,6 +10586,7 @@ class MapScene extends Phaser.Scene {
       // Topping up an existing stack leaves the tab alone.
       if (r.isNewStack && r.accepted > 0) {
         this.save.invCat = invCatForItem(id);
+        this._invCatPage = INV_CAT_BY_KEY[this.save.invCat].page;
         const newIdx = this.save.inv.findIndex(s => s && s.id === id);
         const pos = this.invDisplayEntriesForCat(this.save.invCat).findIndex(e => e.idx === newIdx);
         this.save.invPage = pos >= 0 ? Math.floor(pos / 5) : 0;
@@ -10674,7 +10676,8 @@ class MapScene extends Phaser.Scene {
   // its own tab forward.
   _settleInvCatOnBoot() {
     const has = (c) => this.invDisplayEntriesForCat(c.key).length > 0;
-    const cur = INV_CAT_BY_KEY[this.save.invCat];
+    const cur = INV_CAT_BY_KEY[normalizeInventoryCategory(this.save.invCat)];
+    this._invCatPage = cur.page;
     if (cur && has(cur)) return;               // already showing something
     const stocked = INV_CATS.find(has);
     if (stocked) this.selectInvCat(stocked.key);   // persists + reconciles selection
@@ -10683,6 +10686,7 @@ class MapScene extends Phaser.Scene {
   selectInvCat(catKey) {
     if (!INV_CAT_BY_KEY[catKey]) return;
     this.save.invCat = catKey;
+    this._invCatPage = INV_CAT_BY_KEY[catKey].page;
     this.save.invPage = 0;
     const cat = INV_CAT_BY_KEY[catKey];
     if (cat.gear) {
@@ -10703,6 +10707,9 @@ class MapScene extends Phaser.Scene {
     this.save.invCat = normalizeInventoryCategory(this.save.invCat);
     if (this.save.invPage == null) this.save.invPage = 0;
     const cat = INV_CAT_BY_KEY[this.save.invCat];
+    if (this._invCatPage == null || this._invCatShown !== cat.key) this._invCatPage = cat.page;
+    this._invCatShown = cat.key;
+    const arrowHTML = '<svg viewBox="0 0 20 40"><path class="arrow-dark" d="M18 3 1 20l17 17Z"/><path class="arrow-light" d="M17 5 3 20h14Z"/><path class="arrow-face" d="M3 20h14v15Z"/></svg>';
     const gearList = this.gearEntriesForCat(cat.key);
     const itemList = this.invEntriesForCat(cat.key);
     const displayList = this.invDisplayEntriesForCat(cat.key);
@@ -10738,8 +10745,28 @@ class MapScene extends Phaser.Scene {
     tabs.id = 'inv-tabs';
     // position:fixed + appended to <body> for the same containing-block reason
     // as the item bar below. Sits just above the item bar.
-    tabs.style.cssText = 'position:fixed;bottom:calc(118px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:flex-start;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;';
-    for (const c of INV_CATS) {
+    tabs.style.cssText = 'position:fixed;bottom:calc(118px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:flex-start;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;overflow:hidden;';
+    const pageCats = INV_CATS.filter(c => c.page === this._invCatPage);
+    for (let keySlot = 0; keySlot < 8; keySlot++) {
+      const c = pageCats.find(c => c.keySlot === keySlot);
+      if (!c) {
+        const navigation = keySlot === (this._invCatPage === 0 ? 7 : 0);
+        const key = document.createElement(navigation ? 'button' : 'span');
+        key.className = navigation ? 'hud-tab inventory-category-nav' : 'inventory-category-spacer';
+        if (navigation) {
+          const next = this._invCatPage === 0;
+          key.dataset.control = next ? 'next-categories' : 'previous-categories';
+          key.ariaLabel = key.title = next ? 'Next categories' : 'Previous categories';
+          key.innerHTML = arrowHTML;
+          key.addEventListener('click', e => {
+            e.stopPropagation();
+            this._invCatPage = next ? 1 : 0;
+            this.buildInventoryDOM();
+          });
+        } else key.ariaHidden = 'true';
+        tabs.appendChild(key);
+        continue;
+      }
       const active = c.key === this.save.invCat;
       const count = this.invDisplayEntriesForCat(c.key).length;
       const tab = document.createElement('button');
@@ -10750,7 +10777,7 @@ class MapScene extends Phaser.Scene {
       // Layout inline, paint from .hud-tab / .hud-tab.sel (index.html).
       tab.className = active ? 'hud-tab sel' : 'hud-tab';
       tab.style.cssText =
-        'position:relative;flex:1 0 44px;min-width:44px;height:44px;border-radius:7px 7px 0 0;cursor:pointer;' +
+        'position:relative;flex:1 1 0;min-width:0;height:44px;border-radius:7px 7px 0 0;cursor:pointer;' +
         'font-size:16px;line-height:1;display:flex;flex-direction:column;align-items:center;' +
         'justify-content:center;gap:1px;padding:0;overflow:hidden;';
       // Pixel icon in its own span, tinted through currentColor: the active
@@ -10810,7 +10837,7 @@ class MapScene extends Phaser.Scene {
       mark.ariaHidden = 'true';
       mark.innerHTML = txt === '⇅'
         ? '<svg viewBox="0 0 24 56"><defs><linearGradient id="inventory-lever-gold"><stop stop-color="#815411"/><stop offset=".45" stop-color="#fff3b2"/><stop offset=".7" stop-color="#e8b447"/><stop offset="1" stop-color="#956314"/></linearGradient><radialGradient id="inventory-lever-knob" cx="35%" cy="25%"><stop stop-color="#fff6c6"/><stop offset=".45" stop-color="#f9d15f"/><stop offset="1" stop-color="#a46d15"/></radialGradient></defs><rect x="8" y="15" width="8" height="27" rx="3" fill="url(#inventory-lever-gold)" stroke="#674515"/><path d="M3 37H21L12 54Z" fill="url(#inventory-lever-gold)" stroke="#f2d27b" stroke-width="1.3"/><circle cx="12" cy="10" r="8" fill="url(#inventory-lever-knob)" stroke="#ffdfa0" stroke-width="1.5"/><path d="M3 21H21" stroke="#f4d176" stroke-width="3" stroke-linecap="round"/></svg>'
-        : '<svg viewBox="0 0 20 40"><path class="arrow-dark" d="M18 3 1 20l17 17Z"/><path class="arrow-light" d="M17 5 3 20h14Z"/><path class="arrow-face" d="M3 20h14v15Z"/></svg>';
+        : arrowHTML;
       b.appendChild(mark);
       b.style.cssText = `width:${w}px;height:44px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;`;
       b.addEventListener('click', (e) => { e.stopPropagation(); onclick(); });
@@ -11075,6 +11102,28 @@ class MapScene extends Phaser.Scene {
     this.syncEatButton();
     this.syncConsumableButton();
     this.syncEquipButton();
+    this.syncFurnitureFlipButton();
+  }
+
+  // Facing belongs to the held preview, never to a fungible inventory stack.
+  syncFurnitureFlipButton() {
+    const sel = getSelectedSlot(this.save);
+    const existing = document.getElementById('furniture-flip-btn');
+    if (this._furnitureFlipItem !== sel?.id) {
+      this._furnitureFlipItem = sel?.id;
+      this._furnitureFlip = false;
+    }
+    if (!furnitureSpec(sel?.id)?.flip) { existing?.remove(); return; }
+    const btn = existing || this._hudActionButton('furniture-flip-btn', { onClick: () => {
+      if (!furnitureSpec(getSelectedSlot(this.save)?.id)?.flip) return;
+      this._furnitureFlip = !this._furnitureFlip;
+      this.refreshInventoryHighlight();
+    } });
+    btn.textContent = 'Flip';
+    btn.ariaPressed = String(!!this._furnitureFlip);
+    const name = document.getElementById('inv-name');
+    const icon = name?.querySelector('.inventory-name-icon');
+    if (icon) icon.style.transform = this._furnitureFlip ? 'scaleX(-1)' : '';
   }
 
   // Equip / Unequip button — the Eat button's slot, shown while a WEAPON is
@@ -11424,6 +11473,7 @@ installSceneMixin(MapScene, SceneArena);
 installSceneMixin(MapScene, SceneSchoolyard);
 installSceneMixin(MapScene, SceneSky);
 installSceneMixin(MapScene, SceneVenues);
+installSceneMixin(MapScene, SceneFurniture);
 installSceneMixin(MapScene, SceneStreets);
 installSceneMixin(MapScene, SceneBoss);
 

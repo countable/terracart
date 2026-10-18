@@ -74,7 +74,24 @@
     if (owned.length) SpawnOwnership.reconcileEntry(scene, entry, owned);
   }
 
-  const api = { placedDepth, stampDepth, onDepth, forDepth, isSurface, indexAt, restoreBarricades };
+  // Durable property joins the normal object stream, so walls, taps and
+  // runtime spawn occupancy all see the same furniture after a tile rebuild.
+  function restoreFurniture(scene, entry, tx, ty, depth = scene.depth) {
+    const owned = [];
+    for (const record of scene.save.furniture || []) {
+      if (!onDepth(record, depth) || !furnitureSpec(record.itemId)
+          || Math.floor(record.x / scene.tileEdgeM) !== tx
+          || Math.floor(record.y / scene.tileEdgeM) !== ty) continue;
+      const object = { ...record, kind: 'furniture', placed: true, playerOwned: true,
+        spawnCells: SpawnOwnership.tileCells(scene, entry, record, tx, ty) };
+      entry.objects = (entry.objects || []).filter(o => o.id !== record.id);
+      entry.objects.push(object);
+      owned.push(object);
+    }
+    if (owned.length) SpawnOwnership.reconcileEntry(scene, entry, owned);
+  }
+
+  const api = { placedDepth, stampDepth, onDepth, forDepth, isSurface, indexAt, restoreBarricades, restoreFurniture };
   root.PlacedFloor = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -745,6 +745,17 @@
       background: linear-gradient(180deg, #6b5426, var(--tab-brown));
       color: #fff;
     }
+    #inv-tabs .inventory-category-spacer,
+    #inv-tabs .inventory-category-nav {flex:1 1 0;min-width:0;height:44px;box-sizing:border-box;}
+    #inv-tabs .inventory-category-nav {
+      display:flex;align-items:center;justify-content:center;border-radius:7px 7px 0 0;cursor:pointer;
+      background:linear-gradient(#c9cac4,#92958e 55%,#626760);color:#ddd;
+    }
+    #inv-tabs .inventory-category-nav svg {width:14px;height:28px;}
+    #inv-tabs [data-control="next-categories"] svg {transform:rotate(180deg);}
+    #inv-tabs .inventory-category-nav .arrow-dark {fill:#656762;stroke:#343632;stroke-width:1;stroke-linejoin:round;}
+    #inv-tabs .inventory-category-nav .arrow-light {fill:#ecebe3;}
+    #inv-tabs .inventory-category-nav .arrow-face {fill:#b3b5ac;}
     /* Count pip riding the tab's top-right corner. */
     .hud-pip {
       background: linear-gradient(180deg, #2a2418, #0c0a07);
@@ -3126,6 +3137,7 @@
   <script src="src/scene_consumables.js?v=13f93c2c"></script>
   <script src="src/scene_pets.js?v=b0c58511"></script>
   <script src="src/scene_venues.js?v=cc1f3814"></script>
+  <script src="src/scene_furniture.js"></script>
   <script src="src/scene_streets.js?v=498f621a"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>

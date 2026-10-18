@@ -141,12 +141,13 @@ const FILES = [
   'scene_geo.js',
   'scene_creatures.js',
   'scene_fire.js', 'scene_shops.js', 'heading_up.js',
-  'scene_create.js', 'scene_consumables.js', 'scene_venues.js', 'scene_streets.js', 'scene_boss.js',
+  'scene_create.js', 'scene_consumables.js', 'scene_venues.js', 'scene_furniture.js', 'scene_streets.js', 'scene_boss.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
+  SceneFurniture,
   Arena,
   GasRender,
   GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, CharacterPortraits, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, WorldLayers, Visibility,

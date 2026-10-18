@@ -19,3 +19,25 @@ test('carried treasures: catalog icons point at their shipped single-frame art',
     assert.eq(Number(row[4]), dims.h, `${id}: declared height`);
   }
 });
+
+test('furniture icons: every roster item uses its world frame on the shared DOM sheet', () => {
+  const items = ITEMS.filter(item => item.kind === 'furniture');
+  assert.eq(items.length, 16);
+  const row = SCENE_SRC.match(/furniture_icons:\s*\{ url: '([^']+)', cols: (\d+), srcW: (\d+), srcH: (\d+) \}/);
+  assert.truthy(row, 'registered DOM sheet');
+  const dims = pngDims(row[1]);
+  assert.eq(dims.w, Number(row[3]));
+  assert.eq(dims.h, Number(row[4]));
+  assert.eq(Number(row[2]), dims.w / 16);
+  for (const [frame, item] of items.entries()) {
+    const metadata = furnitureSpec(item.id);
+    assert.eq(metadata.frame, frame, item.id + ': roster frame');
+    assert.eq(inventoryIconSource(item.id).sheet, 'furniture_icons');
+    assert.eq(inventoryIconSource(item.id).frame, frame);
+    assert.eq(PRICES[item.id], Math.round(TIER_VALUE[item.baseTier] * 1.5));
+    assert.truthy(ITEM_EFFECTS[item.id]);
+    assert.eq(metadata.luxury, null, 'default future luxury uses tier squared');
+  }
+  assert.eq(furnitureSpec('wood'), null);
+  assert.eq(furnitureSpec({ kind: 'furniture', itemId: 'workbench', id: 'placed_1' }), furnitureSpec('workbench'));
+});

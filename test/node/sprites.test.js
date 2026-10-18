@@ -880,3 +880,36 @@ test('bush variants stay stable through harvest and reload and cover every appro
     assert.eq(variants.size, count, look + ' uses every approved variant');
   }
 });
+
+test('furniture art: every frame seats in its cell, including mirrored asymmetric pieces', () => {
+  const world = pngDims('assets/Objects/Furniture/furniture-32.png');
+  assert.eq(world.w, 128);
+  assert.eq(world.h, 128);
+  const scene = {textures:{exists:()=>true},save:{}};
+  const art = Render.objectAppearance(scene, new Map());
+  for (const item of ITEMS.filter(item => item.kind === 'furniture')) {
+    const metadata = furnitureSpec(item.id);
+    for (const flip of [false, true]) {
+      const o = {kind:'furniture',itemId:item.id,flip};
+      const p = art.resolveAppearance(o);
+      assert.eq(p.texKey, 'furniture');
+      assert.eq(p.frameVal, metadata.frame);
+      assert.eq(p.layer, metadata.height === 'flat' ? WorldLayers.GROUND_DECAL : WorldLayers.STEP_OVER_PROP);
+      const b = SpriteLayout.ART_BOUNDS[`furniture:${p.frameVal}`];
+      const mirrored = metadata.flip && flip;
+      const minX = mirrored ? b.fw - b.maxX : b.minX;
+      const maxX = mirrored ? b.fw - b.minX : b.maxX;
+      assert.inRange(Math.abs(p.dxPx + ((minX + maxX) / 2 - b.fw / 2) * p.scl), 0, 1e-8);
+      assert.inRange(p.dyPx + (b.maxY - b.fh / 2) * p.scl, 0, 16);
+      let actualFlip;
+      p.spec.after({setFlipX(value) { actualFlip=value; }}, o);
+      assert.eq(actualFlip, !!mirrored);
+    }
+  }
+  const o={kind:'furniture',itemId:'washbasin',flip:false};
+  const before=Render.resolveObjectAppearance(scene,o);
+  o.flip=true;
+  const after=Render.resolveObjectAppearance(scene,o);
+  assert.falsy(before===after, 'mutable orientation re-resolves');
+  assert.eq(before.dxPx, -after.dxPx, 'asymmetric washbasin keeps its centre after flipping');
+});

@@ -83,6 +83,7 @@ function cellOccupants(scene, save, cwmx, cwmy) {
   const at = (list, eps) => PlacedFloor.indexAt(list, cwmx, cwmy, depth, eps);
   return {
     half,
+    furnitureIdx: at(save.furniture, half),
     fireIdx: at(save.fires, half),
     scarecrowIdx: at(save.scarecrows, half),
     magicTrapIdx: at(save.magicTraps, half),
@@ -545,7 +546,7 @@ function placeOnEmptyCell(ctx, { itemId, energyKey, ground = isTillableCell, ext
   const sel = getSelectedSlot(save);
   const selItem = sel ? ITEM_BY_ID[sel.id] : null;
   if (!(selItem && selItem.id === itemId && (sel.count ?? 0) > 0 &&
-        ground(cell) && !(PlacedFloor.isSurface(scene.depth) && scene.tilledSet.has(cellKey)) &&
+        ground(cell) && occupantsOf(ctx).furnitureIdx < 0 && !(PlacedFloor.isSurface(scene.depth) && scene.tilledSet.has(cellKey)) &&
         (!extraGuard || extraGuard(ctx)) && !occupantsOf(ctx).plantedHere)) {
     return false;
   }
@@ -556,6 +557,48 @@ function placeOnEmptyCell(ctx, { itemId, energyKey, ground = isTillableCell, ext
   scene.buildInventoryDOM();
   scene.flash(flashMsg, sx, sy);
   return true;
+}
+
+
+// Only the open Home interior yields building taps to its furnishings. A
+// roof/wall hit from outside keeps the existing architectural priority.
+function homeFurnitureTap(ctx, building) {
+  const { scene, save, wm } = ctx;
+  if (!wm || !scene.homeInside?.() || !scene.homeInside(wm.x, wm.y)
+      || (building && building.id !== save.starterShopId)) return false;
+  const held = getSelectedSlot(save);
+  return !!(held?.count > 0 && furnitureSpec(held.id))
+    || PlacedFloor.forDepth(save.furniture, scene.depth)
+      .some(o => sameAbsCell(scene, o.x, o.y, wm.x, wm.y));
+}
+
+function furnitureGround(ctx) {
+  const { scene, cell, cwmx, cwmy } = ctx;
+  if (cell.underRoad) return false;
+  if (scene.homeInside?.(cwmx, cwmy)) return true;
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+  return !!entry?.grid && WorldGen.isSpawnCell(entry.grid, entry.cellsPerEdge,
+    entry.cellsPerEdge, cell.ix, cell.iy, WorldGen.spawnOptsOf(entry), 'minor');
+}
+
+function furnitureCellFree(ctx) {
+  const { scene, save, cell, cellKey, cwmx: x, cwmy: y } = ctx;
+  const at = occupantsOf(ctx), piece = { x, y }, spent = spentSets(scene, save);
+  if (at.furnitureIdx >= 0 || at.fireIdx >= 0 || at.scarecrowIdx >= 0
+      || at.magicTrapIdx >= 0 || at.plantedIdx >= 0) return false;
+  if (PlacedFloor.isSurface(scene.depth) && scene.placedRockSet?.has(cellKey)) return false;
+  if (PlacedFloor.isSurface(scene.depth) && save.homeFirepit
+      && SpawnOwnership.overlaps(scene, piece, save.homeFirepit)) return false;
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+  if (typeof Traps !== 'undefined' && Traps.trapAt(entry, cell.ix, cell.iy)) return false;
+  const host = scene.homeInside?.(x, y) ? save.starterShopId : null;
+  const occupied = o => !(host && o.id === host && isBuilding(o.kind))
+    && !isSpent(o, spent) && SpawnOwnership.overlaps(scene, piece, o);
+  if (['objects', 'wildplants', 'extraTreasures', 'parkingTreasures'].some(list =>
+    WorldGen.forEachItem(list, occupied))) return false;
+  if (entry?.treasure && occupied(entry.treasure)) return false;
+  return ![save.fruittrees, save.barricades].some(list =>
+    PlacedFloor.forDepth(list, scene.depth).some(occupied));
 }
 
 
@@ -683,6 +726,7 @@ const TAP_HANDLERS = [
   { name: 'building-art', try: (ctx) => {
     const o = ctx.building;
     if (!o) return false;
+    if (homeFurnitureTap(ctx, o)) return false;
     if (tooFar(ctx, o.x, o.y)) return 'far';
     return runInteractable(ctx, o);
   }},
@@ -1191,6 +1235,7 @@ const TAP_HANDLERS = [
     // handler's "occupied: chest" flash.
     const isDupTapChest = chestCellDedup(scene.cellM);
     for (const o of allObjs) {
+      if (isBuilding(o.kind) && homeFurnitureTap(ctx, o)) continue;
       if (o.kind === 'chest' && isDupTapChest(o)) continue;
       // Ground-cell fallback. Buildings also accept their visible raised art
       // above, and the building-zone handler accepts the rest of the footprint.
@@ -1280,7 +1325,7 @@ const TAP_HANDLERS = [
   // bridging across to a different cluster on the next tile.
   { name: 'building-zone', try: (ctx) => {
     const { scene, sx, sy, cwmx, cwmy, cell } = ctx;
-    if (!BUILDING_TYPES.has(cell.type)) return false;
+    if (!BUILDING_TYPES.has(cell.type) || homeFurnitureTap(ctx)) return false;
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
     const owner = entry?.ownerKeys?.[entry.owners?.[cell.iy * entry.cellsPerEdge + cell.ix]];
     let temple = owner && entry?.objects?.find(o => o.kind === 'temple' && o.id === owner
@@ -1394,6 +1439,27 @@ const TAP_HANDLERS = [
     return true;
   }},
 
+  { name: 'place-furniture', try: (ctx) => {
+    const { scene, save, sx, sy } = ctx, held = getSelectedSlot(save);
+    const spec = held?.count > 0 && furnitureSpec(held.id);
+    if (!spec) return false;
+    const placed = placeOnEmptyCell(ctx, {
+      itemId: held.id, ground: () => furnitureGround(ctx), extraGuard: furnitureCellFree,
+      place: ({ cell, cwmx: x, cwmy: y }) => {
+        const id = WorldGen.cellId(`placed_furniture_d${scene.depth || 0}`, cell.tx, cell.ty, cell.ix, cell.iy);
+        save.furniture.push(PlacedFloor.stampDepth({ id, itemId: held.id, x, y,
+          flip: !!(spec.flip && scene._furnitureFlip),
+          houseKey: scene.homeInside?.(x, y) ? save.starterShopId : null }, scene.depth));
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+        PlacedFloor.restoreFurniture(scene, entry, cell.tx, cell.ty);
+        scene.mapDirty = true;
+      },
+      flashMsg: `${itemName(held.id)} placed.`,
+    });
+    if (!placed) scene.flash("Can't place furniture here.", sx, sy);
+    return true;
+  }},
+
   // 2-place-scarecrow) With scarecrow selected, drop one on an empty tillable cell.
   { name: 'place-scarecrow', try: (ctx) => placeOnEmptyCell(ctx, {
     itemId: 'scarecrow',
@@ -1489,7 +1555,7 @@ const TAP_HANDLERS = [
     const at = occupantsOf(ctx);
     const free = !!entry && Traps.canLay(entry, cell.ix, cell.iy)
       && !(PlacedFloor.isSurface(scene.depth) && scene.tilledSet?.has(cellKey))
-      && at.plantedIdx < 0 && at.fireIdx < 0 && at.scarecrowIdx < 0 && at.magicTrapIdx < 0;
+      && at.plantedIdx < 0 && at.fireIdx < 0 && at.scarecrowIdx < 0 && at.magicTrapIdx < 0 && at.furnitureIdx < 0;
     if (!free) { scene.flash("can't set a trap here", sx, sy); return true; }
     save.magicTraps.push(PlacedFloor.stampDepth({
       id: Traps.magicTrapId(scene.depth, cell.tx, cell.ty, cell.ix, cell.iy),
@@ -1518,7 +1584,7 @@ const TAP_HANDLERS = [
     const free = !!entry && typeof Traps !== 'undefined' && Traps.canLay(entry, cell.ix, cell.iy)
       && !spent.burnedGround?.(piece) && !blocked
       && !(PlacedFloor.isSurface(scene.depth) && (scene.tilledSet?.has(cellKey) || scene.placedRockSet?.has(cellKey)))
-      && at.plantedIdx < 0 && at.fireIdx < 0 && at.scarecrowIdx < 0 && at.magicTrapIdx < 0;
+      && at.plantedIdx < 0 && at.fireIdx < 0 && at.scarecrowIdx < 0 && at.magicTrapIdx < 0 && at.furnitureIdx < 0;
     if (!free) { scene.flash("Can't place a barricade here.", sx, sy); return true; }
     // A cleared cell can be built on again; its stable id starts a new life.
     save.picked = save.picked.filter(old => old !== id);
@@ -1775,6 +1841,7 @@ const TAP_HANDLERS = [
   // it only says what is missing.
   { name: 'plant', try: (ctx) => {
     const { scene, save, sx, sy, cellKey, cwmx, cwmy } = ctx;
+    if (occupantsOf(ctx).furnitureIdx >= 0) return false;
     if (!scene.tilledSet.has(cellKey)) return false;
     const sel = getSelectedSlot(save);
     const item = sel ? ITEM_BY_ID[sel.id] : null;
@@ -1858,7 +1925,7 @@ const TAP_HANDLERS = [
   // 2d) Untilled tillable cell → till it (refuses if occupied by any interactable).
   { name: 'till', try: (ctx) => {
     const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx, at = occupantsOf(ctx);
-    let blocker = null;
+    let blocker = at.furnitureIdx >= 0 ? 'Furniture stands here.' : null;
     if (scene.placedRockSet.has(cellKey)) blocker = 'Your own stone fence.';
     if (!blocker && at.plantedIdx >= 0) blocker = `${cropName(save.planted[at.plantedIdx].crop)} grows here.`;
     if (!blocker) blocker = groundObjectBlocker(scene, save, cwmx, cwmy, at.half);

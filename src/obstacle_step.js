@@ -19,6 +19,7 @@ const ObstacleStep = (() => {
   const BALANCE_SPEED_MUL = 0.7;
   function speedMul(support) { return (support?.liftPx || 0) > 0.5 ? BALANCE_SPEED_MUL : 1; }
   const PROFILES = Object.freeze({
+    furniture: Object.freeze({ liftPx: 5, radius: 0.32, top: 0.23, shape: 'round' }),
     rock: Object.freeze({ liftPx: 4, radius: 0.25, top: 0.185, shape: 'round' }),
     wall: Object.freeze({ liftPx: 5, radius: 0.29, top: 0.21, shape: 'band' }),
     bush: Object.freeze({ liftPx: 3, radius: 0.25, top: 0.19, shape: 'round' }),
@@ -29,6 +30,7 @@ const ObstacleStep = (() => {
 
   function profile(o) {
     if (!o) return null;
+    if (furnitureSpec(o)?.height === 'mid') return PROFILES.furniture;
     if (o.kind === 'tree' && o.size === 'bush') return PROFILES.bush;
     if (o.kind === 'wildplant') {
       if (o.crop === 'shrub' && o._plantArt === 'zone_hedge') return PROFILES.hedge;

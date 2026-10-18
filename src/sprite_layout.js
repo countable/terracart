@@ -38,6 +38,22 @@
   // Trimmed opaque bounds per "<textureKey>:<frameIndex>" (max EXCLUSIVE).
   // GENERATED — see `node tools/sprite_audit.js --emit-bounds`.
   const ART_BOUNDS = {
+    'furniture:0': { fw: 32, fh: 32, minX: 1, minY: 4, maxX: 31, maxY: 32 },
+    'furniture:1': { fw: 32, fh: 32, minX: 1, minY: 1, maxX: 32, maxY: 32 },
+    'furniture:2': { fw: 32, fh: 32, minX: 4, minY: 1, maxX: 29, maxY: 32 },
+    'furniture:3': { fw: 32, fh: 32, minX: 3, minY: 2, maxX: 28, maxY: 32 },
+    'furniture:4': { fw: 32, fh: 32, minX: 3, minY: 3, maxX: 29, maxY: 32 },
+    'furniture:5': { fw: 32, fh: 32, minX: 3, minY: 2, maxX: 30, maxY: 32 },
+    'furniture:6': { fw: 32, fh: 32, minX: 1, minY: 11, maxX: 31, maxY: 32 },
+    'furniture:7': { fw: 32, fh: 32, minX: 1, minY: 1, maxX: 31, maxY: 31 },
+    'furniture:8': { fw: 32, fh: 32, minX: 2, minY: 1, maxX: 30, maxY: 32 },
+    'furniture:9': { fw: 32, fh: 32, minX: 7, minY: 3, maxX: 25, maxY: 32 },
+    'furniture:10': { fw: 32, fh: 32, minX: 4, minY: 1, maxX: 28, maxY: 32 },
+    'furniture:11': { fw: 32, fh: 32, minX: 5, minY: 1, maxX: 28, maxY: 30 },
+    'furniture:12': { fw: 32, fh: 32, minX: 1, minY: 8, maxX: 31, maxY: 32 },
+    'furniture:13': { fw: 32, fh: 32, minX: 11, minY: 1, maxX: 21, maxY: 32 },
+    'furniture:14': { fw: 32, fh: 32, minX: 5, minY: 2, maxX: 28, maxY: 32 },
+    'furniture:15': { fw: 32, fh: 32, minX: 2, minY: 2, maxX: 30, maxY: 32 },
     'clay_pot_smashed:3': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 22, maxY: 23 },
     'clay_pot_smashed:2': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 23, maxY: 23 },
     'clay_pot_smashed:1': { fw: 24, fh: 24, minX: 1, minY: 2, maxX: 23, maxY: 23 },

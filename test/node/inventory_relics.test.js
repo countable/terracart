@@ -29,7 +29,7 @@
     const decl = ['INV_RELIC_ORDER', 'INV_ARMOR_ORDER', 'WEAPON_SLOTS'].map(name =>
       SCENE_SRC.match(new RegExp('const ' + name + ' = [^;]+;'))[0]).join('\n');
     for (const name of ['invEntriesForCat', 'invDisplayEntriesForCat', 'gearEntriesForCat', '_settleInvCatOnBoot',
-      'selectInvCat', 'buildInventoryDOM', 'refreshInventoryHighlight', 'addToInv', '_finishInventoryChange', '_clampSelSlot']) {
+      'syncFurnitureFlipButton', '_hudActionButton', 'selectInvCat', 'buildInventoryDOM', 'refreshInventoryHighlight', 'addToInv', '_finishInventoryChange', '_clampSelSlot']) {
       const match = SCENE_SRC.match(new RegExp('^  ' + name + '\\([^\\n]*\\) \\{[\\s\\S]*?^  \\}', 'm'));
       assert.truthy(match, `${name} exists`);
       scene[name] = new Function('document', 'persistSave', decl + '\nreturn ({' + match[0] + '})')(document, () => {})[name];
@@ -39,12 +39,63 @@
     return scene;
   }
 
-  test('inventory relics: permanent items use the existing Relics tab, not a ninth tab', () => {
-    assert.eq(INV_CATS.length, 8);
+  test('inventory relics: permanent items use the existing Relics tab, not a separate tab', () => {
+    assert.eq(INV_CATS.length, 9);
     assert.falsy(INV_CAT_BY_KEY.unique_relic);
     const ids = ITEMS.filter(i => i.kind === 'unique_relic').map(i => i.id);
     assert.eq(ids.length, 31, 'twenty finds, two progression relics and nine reusable tomes');
     for (const id of ids) assert.eq(invCatForItem(id), 'relics', id);
+  });
+
+  test('inventory categories: page arrows preserve the selected stack and five-item page', () => {
+    const inv = ITEMS.filter(i => invCatForItem(i.id) === 'produce').slice(0, 6).map(i => ({ id: i.id, count: 1 }));
+    const s = harness({ inv, relics: {}, armor: {},
+      invCat: 'produce', invPage: 1, selSlot: 5 });
+    s.buildInventoryDOM();
+    let keys = s.document.getElementById('inv-tabs').children;
+    assert.eq(keys.length, 8);
+    assert.eq(keys.filter(k => k.dataset.cat).map(k => k.dataset.cat).join(','),
+      'seeds,produce,pets,relics,magic,supplies');
+    assert.eq(keys[6].tag, 'span'); assert.eq(keys[7].dataset.control, 'next-categories');
+    assert.falsy(keys[7].className.includes('sel'));
+    s.click(keys[7]);
+    keys = s.document.getElementById('inv-tabs').children;
+    assert.eq(keys.length, 8); assert.eq(keys[0].dataset.control, 'previous-categories');
+    assert.eq(keys.filter(k => k.dataset.cat).map(k => k.dataset.cat).join(','), 'furniture,armour,ores');
+    assert.eq(keys.slice(4).every(k => k.tag === 'span'), true);
+    assert.eq(s.save.invCat, 'produce'); assert.eq(s.save.selSlot, 5); assert.eq(s.save.invPage, 1);
+    s.click(keys[0]); assert.eq(s._invCatPage, 0);
+    s.selectInvCat('armour'); assert.eq(s._invCatPage, 1);
+    s.selectInvCat('magic'); assert.eq(s._invCatPage, 0);
+  });
+
+  test('inventory categories: boot and new furniture or ore stacks reveal page two', () => {
+    for (const id of ['workbench', 'wood']) {
+      const s = harness({ inv: [], relics: {}, armor: {}, invCat: 'seeds', invPage: 0, selSlot: -1 });
+      s.buildInventoryDOM();
+      assert.eq(s.addToInv(id, 1), 1);
+      assert.eq(s._invCatPage, 1); assert.eq(s.save.invCat, invCatForItem(id));
+      assert.truthy(s.document.getElementById('inv-tabs').children.some(k => k.dataset.cat === s.save.invCat));
+      s.selectInvCat('seeds');
+      s.addToInv(id, 1); assert.eq(s._invCatPage, 0, 'topping up keeps the browsed page');
+      s._settleInvCatOnBoot(); assert.eq(s._invCatPage, 1);
+      s._invCatPage = 0; s._settleInvCatOnBoot(); assert.eq(s._invCatPage, 1, 'already stocked boot category');
+    }
+    const s = harness({ inv: [], relics: {}, armor: { helmet: { tier: 1 } }, invCat: 'armour', invPage: 0, selSlot: -1 });
+    s._settleInvCatOnBoot(); assert.eq(s._invCatPage, 1);
+  });
+
+  test('inventory furniture: Flip is transient, metadata-gated and resets between items', () => {
+    const s = harness({ inv: [{ id: 'workbench', count: 1 }, { id: 'rug_burgundy', count: 1 }],
+      relics: {}, armor: {}, invCat: 'furniture', invPage: 0, selSlot: 0 });
+    s.buildInventoryDOM();
+    const btn = s.document.getElementById('furniture-flip-btn');
+    assert.truthy(btn); assert.eq(btn.textContent, 'Flip');
+    s.click(btn); assert.eq(s._furnitureFlip, true); assert.eq(btn.ariaPressed, 'true');
+    assert.falsy(Object.hasOwn(s.save, 'furnitureFlip'));
+    s.click(s.slots()[1]); assert.falsy(s.document.getElementById('furniture-flip-btn'));
+    assert.eq(s._furnitureFlip, false);
+    s.click(s.slots()[0]); assert.eq(s._furnitureFlip, false);
   });
 
   test('inventory relics: gear and carried items render together, with correct selection, actions and tiers', () => {

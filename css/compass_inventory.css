@@ -26,6 +26,12 @@ body.compass-hud #inv-tabs .hud-tab.sel {border-color:#fff1b3;background:radial-
 body.compass-hud #inv-tabs .hud-tab.sel > .inventory-category-glyph {color:#c4a15b!important;filter:drop-shadow(0 -1px 0 #49320e) drop-shadow(0 1px 0 #ffe6a3)!important;}
 body.compass-hud #inv-tabs .hud-tab.sel::before {border-color:#e9c776;background:linear-gradient(90deg,#725015,#d6a332 25%,#ffed9d 48%,#d3a035 73%,#65450f);}
 body.compass-hud #inv-tabs .hud-tab.sel::after {left:50%;width:calc(100% + 2px);background:linear-gradient(#fff2ae,#d39c28);box-shadow:0 1px 1px #64410f;}
+/* Spacers preserve the eight-key pitch; navigation uses the ordinary silver face. */
+body.compass-hud #inv-tabs .inventory-category-spacer {flex:1 1 0;min-width:0;height:var(--inventory-key-size);}
+body.compass-hud #inv-tabs .inventory-category-nav svg {width:14px;height:28px;}
+body.compass-hud #inv-tabs .inventory-category-nav .arrow-dark {fill:#656762;stroke:#343632;stroke-width:1;stroke-linejoin:round;}
+body.compass-hud #inv-tabs .inventory-category-nav .arrow-light {fill:#ecebe3;}
+body.compass-hud #inv-tabs .inventory-category-nav .arrow-face {fill:#b3b5ac;}
 body.compass-hud #inv-tabs .hud-pip {display:none!important;}
 body.compass-hud #inv {bottom:calc(var(--inventory-floor) + var(--inventory-name-height) + 6px)!important;height:var(--inventory-slot-height)!important;left:calc(var(--phone-left,0px) + 8px)!important;right:calc(var(--phone-right,0px) + 8px)!important;padding:0!important;gap:4px!important;justify-content:center;box-sizing:border-box;background:none!important;}
 body.compass-hud #inv .inventory-window {display:flex!important;position:relative;flex:0 0 var(--inventory-window-width);min-width:0;height:100%;align-items:center;justify-content:center;gap:2px;padding:2px;box-sizing:border-box;border:2px solid var(--compass-metal-edge);border-radius:13px;background:linear-gradient(135deg,#1b2a27,#061311 60%,#182722);box-shadow:inset 0 0 0 1px #111714,inset 0 3px 5px #010a07,0 0 0 2px #111510,0 1px 0 3px #70756a,0 3px 4px 3px #070a07;}

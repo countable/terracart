@@ -24,6 +24,22 @@ support continuously from world coordinates, so stopping on a prop keeps the
 player raised; this is not a timed jump. Connected support masks stay in world
 coordinates when the artwork counterrotates.
 
+Furniture uses the ordinary object list so the Home's near walls can occlude
+it. `FURNITURE` owns each item's frame, flat/mid height and supported flip;
+flat rugs are ground decals and mid pieces use `ObstacleStep.PROFILES.furniture`
+for continuous support. `RENDER_SPEC.furniture` seats the 32px world frame at
+`FURNITURE_SCALE` (0.85, about 27px beside the 24px player); mirrored bounds
+keep asymmetric pieces centred when flipped. Mutable furniture appearances
+are not cached. The same frame is downsampled to 16px for all item surfaces.
+
+`python3 tools/build_furniture_sheets.py` rebuilds both sheets from
+`assets/Objects/Furniture/manifest.json`: exact licensed 48px source crops
+use Lanczos scaling; checked-in transparent concepts are alpha-cropped, fit
+to 30px, and bottom-seated in their cell. The manifest records provenance
+without distributing the raw licensed sheets. The sprite audit covers every
+frame and every permitted flip. Furniture light and ability metadata are
+extension points only until phase 2.
+
 Resolved appearances carry `layer`; pooled sprites carry `_worldLayer`. The same
 category controls depth order, fading, and compass compensation. Ground decals
 always precede props. Both prop categories interleave with actors by ground

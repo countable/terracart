@@ -128,7 +128,15 @@ changing dialogue, story panels, books, toasts or status presentation.
   smaller icons/numerals and an unused-memory badge on the star. Each half
   retains its own tap action, accessible name, and independent dormant shutter.
   `css/compass_inventory.css` seats eight square keys with small stamped-in category symbols on
-  plungers above a shared rail. The selected key and detent glow gold. Small
+  plungers above a shared rail. Category page one has Seeds, Produce, Pets,
+  Relics, Magic and Supplies, then a spacer and Next at the right edge. Page
+  two has Previous at the left edge, Furniture, Armour and Ores, then four
+  inert spacers. Navigation uses ordinary silver keys; only the selected
+  category and detent glow gold. Category paging is scene-local and leaves
+  the selected category, held stack and five-item page unchanged. Selecting
+  a category, boot settlement and a new-stack pickup reveal its category page.
+  Mirrorable furniture exposes a contextual Flip control; held orientation is
+  transient and resets when the selected item changes. Small
   square item controls share one dark-glass window fitted to five slots and their
   gaps; the window stays snug when sort or paging controls are absent. It retains a physical sort lever,
   a mechanical pager rocker with broad upper/lower touch faces around an ivory count
@@ -515,6 +523,16 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,
 `item_descriptions`, `books`, `story_neighbours`, `stranger`, `buffs`.
+
+## Furniture
+
+Placed furniture opens a dismissible `makeModalShell` panel with the same item
+frame as inventory, enlarged above its name, rarity badge and description.
+The ability occupies the main action row and remains disabled with “Coming next”
+until that ability ships. Mirrorable pieces also offer Flip there; Pick up is a
+ghost control in a separate top-right row. Flip saves the placed orientation and
+updates the map and portrait. Pickup checks bag capacity and accepted quantity
+before removing the placement, then refreshes inventory and persists explicitly.
 
 ## Schoolyard tile game
 

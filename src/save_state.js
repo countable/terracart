@@ -10,7 +10,7 @@
   // stamps). A field already holding the right shape is left alone.
   const SAVE_DEFAULTS = Object.freeze({
     caught: [], released: [], wildAnimals: [], picked: [], opened: [], chopped: [], fires: [], scarecrows: [], fruittrees: [],
-    magicTraps: [], barricades: [], donated: [],
+    magicTraps: [], barricades: [], furniture: [], donated: [],
     waystoneUntil: {}, waystoneSets: {},
     lastProduce: {}, fruitPicked: {}, chestHold: {}, coinBurstClaimed: {},
     grassRegrowth: {}, trainingDrills: {}, training: {}, quarryMined: {}, npcRestUntil: {}, boonUntil: {},
@@ -101,7 +101,7 @@
     if (!save.temples || typeof save.temples !== 'object' || Array.isArray(save.temples)) save.temples = {};
     // Soft cap on unbounded history fields so a heavy player can't balloon the
     // save past the localStorage quota and silently break writes. `placedRocks`
-    // is deliberately EXEMPT: unlike the others (which just re-arm a respawn —
+    // and `furniture` are deliberately EXEMPT: unlike the others (which just re-arm a respawn —
     // an old broken rock or opened chest reappearing is accepted behaviour),
     // a placed rockfruit stone is live rendered map content. Trimming it would
     // silently delete a player-placed rock out of the world, not just forget

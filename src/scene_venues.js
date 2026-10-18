@@ -1443,9 +1443,13 @@ class SceneVenues {
   }
   // Is the player INSIDE Home's house — standing on one of its cells (the
   // doorway row included)? Surface only; the house has no cellar.
-  homeInside() {
-    if ((this.depth || 0) !== 0 || !this.save.starterShopId || !this.playerM || !this.startWorldM) return false;
-    const { x, y } = playerWorldM(this);
+  homeInside(x, y) {
+    if ((this.depth || 0) !== 0 || !this.save.starterShopId) return false;
+    // Placement asks about the target; the default remains the player’s feet.
+    if (x == null || y == null) {
+      if (!this.playerM || !this.startWorldM) return false;
+      ({ x, y } = playerWorldM(this));
+    }
     const c = worldMetersToAbsCell(this, x, y);
     const t = absCellToTile(this, c.cellIX, c.cellIY);
     const e = WorldGen.tileCache.get(WorldGen.tileKey(t.tx, t.ty));
