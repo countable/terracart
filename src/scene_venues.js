@@ -1546,14 +1546,14 @@ class SceneVenues {
     // the surface spot above the player. Refuse with an explanation instead.
     if ((this.depth || 0) !== 0) {
       this.showMessageModal({ title: 'Move Home',
-        body: 'Your house stands on the surface. Climb back up before moving Home.' });
+        body: 'Home stands on the surface. Climb back up before moving it.' });
       return;
     }
     const { x: px, y: py } = playerWorldM(this);
     const footing = this._homeFootingAt(px, py);
     if (footing?.blocked) {
       this.showMessageModal({ title: 'Move Home',
-        body: 'Your house can\'t stand on this building. Step off its footprint before moving Home.' });
+        body: 'Home can\'t stand on this building. Step off its footprint before moving it.' });
       return;
     }
     const cost = Math.min(500, Math.floor((this.save.money ?? 0) / 2));
@@ -1562,8 +1562,8 @@ class SceneVenues {
       kind: 'build',
       title: 'Move Home here?',
       body: footing?.house
-        ? 'Your house clears the building where it stands.'
-        : 'Build your house here.',
+        ? 'Home clears the building where it stands.'
+        : 'Home moves here.',
       acceptLabel: `Move (${this.moneyHTML(cost, 12)})`,
       onAccept: () => {
         addMoney(this.save, -cost);

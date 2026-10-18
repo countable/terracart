@@ -4869,7 +4869,7 @@ Render.drawObjects = function drawObjects(scene) {
   // tier-coloured plate (Render.drawShopPlate, below); every other sign is
   // the map text family (LABEL_STYLES.sign) floating over the building art,
   // its lettering in the role's ink (_houseSignInk).
-  // Home labels as "Your house." Shops.shopLabel() returns null for
+  // Home labels as "Home". Shops.shopLabel() returns null for
   // non-shopType houses, so it is wrapped here to handle the starter case.
   // Display labels for the role-keyed shop signs come from Shops.roleLabel, the
   // one table app.js's restoration card and offer titles read too, so the sign

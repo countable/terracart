@@ -69,7 +69,7 @@
   // The sign on a building with NO shop role (render.js _houseSignText):
   // Home, the castle, the fort and the plain house, by the building's
   // tier, and the story tower by its MemoryStory.towerAccess state.
-  const BUILDING_LABEL = { trailer: 'Your house.', 12: 'Castle', 11: 'Fort', 9: 'House' };
+  const BUILDING_LABEL = { trailer: 'Home', 12: 'Castle', 11: 'Fort', 9: 'House' };
   const TOWER_LABEL = { locked: 'Sealed Tower', abandoned: 'Abandoned Tower', empty: 'Empty Tower', open: 'Wizard Tower' };
 
   function shopType(house) {

@@ -360,7 +360,7 @@ changing dialogue, story panels, books, toasts or status presentation.
 - A new game opens close on Home (`HomeArea.INTRO`): the house fills the top
   half with the player in its doorway, held while Home is placed or a dialog
   is up, then a beat, then a slow pull back to the normal view. A finger on
-  the map ends it early. Home's sign, "Your house.", is
+  the map ends it early. Home's sign, "Home", is
   hidden until that beat and types itself out once per session; the cold
   firepit beside the door wisps smoke (`FIREPIT_SMOKE`).
 - Map messages fit `MAP_MSG_MAX` (30 characters) per rendered line, including
