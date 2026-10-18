@@ -3573,6 +3573,56 @@ Render.pointInBuilding = function(point, ring) {
   }
   return inside;
 };
+// Taps arrive in map coordinates: _unzoomPt has already undone camera zoom
+// and heading. Use the faces actually drawn, not a roof's bounding rectangle.
+Render.buildingHit = function(scene, sx, sy) {
+  if ((scene.depth ?? 0) !== 0) return null;
+  const angle = scene.mapRot || 0, sin = Math.sin(angle), cos = Math.cos(angle);
+  let key = null, depth = -Infinity;
+  const contains = (triangles, x, y) => (triangles || []).some(points =>
+    Render.buildingTriangleOverlaps(points, { x0: x, x1: x, y0: y, y1: y }));
+  const choose = (id, anchor, offset, triangles) => {
+    if (!id || !contains(triangles, sx - offset.x, sy - offset.y)) return;
+    const z = sin * (anchor.x + offset.x) + cos * (anchor.y + offset.y);
+    if (z >= depth) { key = id; depth = z; }
+  };
+  // Ramparts and the Canvas fallback are painted in the background layer.
+  for (const group of Object.values(scene._wallPerspective || {})) {
+    if (!group.gfx.visible) continue;
+    for (const [building, triangles] of group.buildings || [])
+      choose(building.key, building.anchor, { x: group.x, y: group.y }, triangles);
+  }
+  const backgroundKey = key;
+  key = null; depth = -Infinity;
+  const state = scene._lowpoly;
+  if (state?.enabled) for (const mesh of state.buildings) {
+    if (!mesh.obj?.visible || mesh.obj.alpha === 0) continue;
+    choose(mesh.key, mesh.support, { x: state.offsetX || 0, y: state.offsetY || 0 }, mesh.visibleTriangles);
+  }
+  // Legacy sprite buildings retain their trimmed art extent. Their bodies
+  // counterrotate around the ground anchor, unlike the architectural meshes.
+  for (const sprite of [...(scene.objectPool || []), ...(scene.towerPool || [])]) {
+    const object = sprite._staticObject, appearance = sprite._staticAppearance;
+    if (!sprite.visible || sprite.alpha === 0 || !object || !isBuilding(object.kind) || !appearance) continue;
+    const anchor = sprite._huAnchor || sprite;
+    const dx = sx - anchor.x, dy = sy - anchor.y;
+    const x = anchor.x + cos * dx - sin * dy, y = anchor.y + sin * dx + cos * dy;
+    const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
+    const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
+    const fw = art?.fw ?? sprite.frame?.realWidth ?? sprite.width;
+    const fh = art?.fh ?? sprite.frame?.realHeight ?? sprite.height;
+    const x0 = sprite.x + ((art?.minX ?? 0) - sprite.originX * fw) * sprite.scaleX;
+    const x1 = sprite.x + ((art?.maxX ?? fw) - sprite.originX * fw) * sprite.scaleX;
+    const y0 = sprite.y + ((art?.minY ?? 0) - sprite.originY * fh) * sprite.scaleY;
+    const y1 = sprite.y + ((art?.maxY ?? fh) - sprite.originY * fh) * sprite.scaleY;
+    const z = sin * anchor.x + cos * anchor.y;
+    if (x >= Math.min(x0, x1) && x <= Math.max(x0, x1)
+        && y >= Math.min(y0, y1) && y <= Math.max(y0, y1) && z >= depth) {
+      key = object.id; depth = z;
+    }
+  }
+  return key || backgroundKey;
+};
 // Separating-axis test: unlike triangle bounds, this does not fade empty
 // corners beside a pitched roof or the empty middle of a concave footprint.
 Render.buildingTriangleOverlaps = function(points, box) {
