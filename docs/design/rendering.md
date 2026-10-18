@@ -214,7 +214,10 @@ the real source so a missing texture cannot become a permanent cached palette.
   both boxes stand at their turned feet and lower turned feet count as in
   front (`Render.headingFadeView`), matching the heading-up draw order.
   Prop contact shadows turn about their prop's ground anchor, so a tucked-up
-  shadow stays under the art at every compass heading; the shrine pedestal
+  shadow stays under the art at every compass heading; a wild plant's authored
+  shadow (`Render.wildplantShadow`) is the same ellipse rule off its seated
+  art at the plant alpha, centred on the foot `Render.plantPlacement` draws
+  the plant on, and turns about the plant's cell point; the shrine pedestal
   (`pad_shrine`, drawn with its masonry face south) turns back about its cell
   centre the same way, while flat POI pads turn with the ground. Ground decals retain their own
   opacity, and fruit overlays follow their tree.
