@@ -1496,6 +1496,25 @@ ctx.__tests.push({ name: 'assets: every ASSETS path exists on disk', fn: () => {
   if (missing.length) throw new Error(`missing art files: ${missing.join(', ')}`);
 } });
 
+// Rebuilding art must not silently change which item a runtime frame displays.
+ctx.__tests.push({ name: 'furniture manifest: catalog frames and world geometry agree', fn: () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/Objects/Furniture/manifest.json'), 'utf8'));
+  const { ASSETS } = require('../../tools/sprite_audit.js');
+  const furniture = vm.runInContext('FURNITURE', ctx);
+  ctx.assert.eq(manifest.items.length, Object.keys(furniture).length);
+  ctx.assert.eq(new Set(manifest.items.map(row => row.itemId)).size, manifest.items.length);
+  ctx.assert.eq(new Set(manifest.items.map(row => row.frame)).size, manifest.items.length);
+  ctx.assert.eq(ASSETS.furniture.frameWidth, manifest.worldCell);
+  ctx.assert.eq(ASSETS.furniture.frameHeight, manifest.worldFrameHeight);
+  for (const row of manifest.items) {
+    ctx.assert.eq(ctx.furnitureFrame(row.itemId), row.frame, row.itemId);
+    if (row.mode === 'concept') ctx.assert.truthy(fs.existsSync(path.join(ROOT, row.source)));
+  }
+  for (const id of ['washtub', 'statue_pedestal', 'candelabra_floor']) {
+    ctx.assert.eq(manifest.items.find(row => row.itemId === id).approval, 'pending');
+  }
+} });
+
 // The editable table and the shipped browser module must always agree.
 ctx.__tests.push({ name: 'zone variants: generated browser data matches the canonical table', fn: () => {
   const expected = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/data/zone-variants.json'), 'utf8'));

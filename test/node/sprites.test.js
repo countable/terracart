@@ -884,7 +884,7 @@ test('bush variants stay stable through harvest and reload and cover every appro
 test('furniture art: every frame seats in its cell, including mirrored asymmetric pieces', () => {
   const world = pngDims('assets/Objects/Furniture/furniture-32.png');
   assert.eq(world.w, 128);
-  assert.eq(world.h, 128);
+  assert.eq(world.h, 256);
   const scene = {textures:{exists:()=>true},save:{}};
   const art = Render.objectAppearance(scene, new Map());
   for (const item of ITEMS.filter(item => item.kind === 'furniture')) {
@@ -901,6 +901,11 @@ test('furniture art: every frame seats in its cell, including mirrored asymmetri
       const maxX = mirrored ? b.fw - b.minX : b.maxX;
       assert.inRange(Math.abs(p.dxPx + ((minX + maxX) / 2 - b.fw / 2) * p.scl), 0, 1e-8);
       assert.inRange(p.dyPx + (b.maxY - b.fh / 2) * p.scl, 0, 16);
+      if (['lamp_floor', 'clock_grandfather', 'candelabra_floor'].includes(item.id)) {
+        assert.eq(b.fh, 64, 'upright art keeps the tall world frame');
+        assert.gt((b.maxY - b.minY) * p.scl, 32, 'upright rises above its single floor cell');
+        assert.eq(p.dyPx + (b.maxY - b.fh / 2) * p.scl, 15, 'tall feet sit above the cell edge');
+      }
       let actualFlip;
       p.spec.after({setFlipX(value) { actualFlip=value; }}, o);
       assert.eq(actualFlip, !!mirrored);

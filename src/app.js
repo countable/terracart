@@ -1678,7 +1678,7 @@ const ICON_SHEETS = {
 // BEGIN GENERATED DOM ICON ATLAS
 // Regenerate with node tools/build-dom-icon-atlas.cjs; original sheets remain the art source.
 const DOM_ICON_ATLAS = {
-  "url": "assets/Icons/dom-atlas.png?v=6955f8d7",
+  "url": "assets/Icons/dom-atlas.png?v=0ac52ca3",
   "width": 1024,
   "height": 720,
   "rects": {
@@ -9882,14 +9882,15 @@ class MapScene extends Phaser.Scene {
   // not in the catalog — the chest or crate a treasure ceremony came out of.
   // A data URL paints instantly, so there is no IconNet hole to cover. Returns
   // '' for a key with no bake, which every caller reads as "use the emoji".
-  worldIconHTML(texKey, sizePx = 26, frame = 0) {
+  // A separate height preserves integer scaling for tall furniture frames.
+  worldIconHTML(texKey, sizePx = 26, frame = 0, heightPx = sizePx) {
     // The boot bake first; a frame it never baked (a building's) is cut on
     // demand by _worldIconUrl.
     const urls = window.WORLD_ICON_URLS;
     const url = (urls && (urls[texKey + ':' + frame] || (frame === 0 ? urls[texKey] : null)))
       || this._worldIconUrl?.(texKey, frame);
     if (!url) return '';
-    return `<span style="display:inline-block;width:${sizePx}px;height:${sizePx}px;`
+    return `<span style="display:inline-block;width:${sizePx}px;height:${heightPx}px;`
       + `background:url('${url}') center/contain no-repeat;image-rendering:pixelated;`
       + `vertical-align:middle"></span>`;
   }

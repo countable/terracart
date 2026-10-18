@@ -1,4 +1,4 @@
-// Placed furniture uses the inventory's art and one lossless pickup transaction.
+// Placed furniture shows its world frame and uses one lossless pickup transaction.
 const FURNITURE_ABILITY_LABELS = {
   sleep: 'Sleep', wash: 'Wash', reflect: 'Reflect', craft: 'Craft', plant: 'Plant',
 };
@@ -66,8 +66,8 @@ class SceneFurniture {
 
     const art = document.createElement('div');
     art.className = 'furniture-art';
-    art.style.cssText = 'font-size:0;margin:0 auto 8px;width:112px;';
-    art.innerHTML = this.iconSpanHTML(item.id, 112);
+    art.style.cssText = 'font-size:0;margin:0 auto 8px;width:128px;';
+    art.innerHTML = this.worldIconHTML('furniture', 128, furnitureFrame(item.id), 256);
     art.style.transform = record.flip ? 'scaleX(-1)' : '';
     box.appendChild(art);
     const name = document.createElement('div');

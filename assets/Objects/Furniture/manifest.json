@@ -27,16 +27,15 @@
     {
       "itemId": "washtub",
       "frame": 2,
-      "source": "extra_assets/themed-tilesets/west/B-11.png",
-      "box": [
-        720,
-        192,
-        48,
-        48
+      "source": "assets/Objects/Furniture/source/tub_T1.png",
+      "box": null,
+      "mode": "concept",
+      "pick": null,
+      "fit": [
+        30,
+        30
       ],
-      "mode": "native48",
-      "pick": "W001",
-      "TODO": "Replace the temporary W001 basin frame with a round wooden Washing Tub sprite."
+      "approval": "pending"
     },
     {
       "itemId": "mirror_brass",
@@ -75,10 +74,14 @@
     {
       "itemId": "planter_clay",
       "frame": 6,
-      "source": "assets/Objects/Furniture/source/concept_planter_clay.png",
+      "source": "assets/Objects/Furniture/source/concept_planter_clay_v2.png",
       "box": null,
       "mode": "concept",
-      "pick": null
+      "pick": null,
+      "fit": [
+        30,
+        30
+      ]
     },
     {
       "itemId": "rug_burgundy",
@@ -107,64 +110,68 @@
       "pick": "F034"
     },
     {
-      "itemId": "lantern_brass",
+      "itemId": "lamp_floor",
       "frame": 9,
-      "source": "extra_assets/themed-tilesets/Adventurer Guild/tile-B-05.png",
+      "source": "extra_assets/themed-tilesets/Steampunk City Tileset/tile-B-02.png",
       "box": [
-        192,
-        720,
-        48,
-        48
-      ],
-      "mode": "native48",
-      "pick": "F047"
-    },
-    {
-      "itemId": "clock_mantel",
-      "frame": 10,
-      "source": "extra_assets/themed-tilesets/west/B-11.png",
-      "box": [
-        240,
-        240,
-        48,
-        48
-      ],
-      "mode": "native48",
-      "pick": "F084"
-    },
-    {
-      "itemId": "statue_owl",
-      "frame": 11,
-      "source": "extra_assets/themed-tilesets/Wizard's Tower/tile-B-05.png",
-      "box": [
+        144,
         0,
-        240,
         48,
-        48
+        96
       ],
       "mode": "native48",
-      "pick": "F092"
+      "pick": "F044"
+    },
+    {
+      "itemId": "clock_grandfather",
+      "frame": 10,
+      "source": "extra_assets/themed-tilesets/west/B-10.png",
+      "box": [
+        576,
+        96,
+        48,
+        96
+      ],
+      "mode": "native48",
+      "pick": "F085"
+    },
+    {
+      "itemId": "statue_pedestal",
+      "frame": 11,
+      "source": "assets/Objects/Furniture/source/statue_T2.png",
+      "box": null,
+      "mode": "concept",
+      "pick": null,
+      "fit": [
+        30,
+        30
+      ],
+      "approval": "pending"
     },
     {
       "itemId": "planter_copper",
       "frame": 12,
-      "source": "assets/Objects/Furniture/source/concept_planter_copper.png",
+      "source": "assets/Objects/Furniture/source/concept_planter_copper_v2.png",
       "box": null,
       "mode": "concept",
-      "pick": null
+      "pick": null,
+      "fit": [
+        30,
+        30
+      ]
     },
     {
-      "itemId": "candlestick_brass",
+      "itemId": "candelabra_floor",
       "frame": 13,
-      "source": "extra_assets/themed-tilesets/Medieval Furniture/tile-B-02.png",
-      "box": [
-        144,
-        480,
-        48,
-        48
+      "source": "assets/Objects/Furniture/source/floorlamp_T1.png",
+      "box": null,
+      "mode": "concept",
+      "pick": null,
+      "fit": [
+        30,
+        62
       ],
-      "mode": "native48",
-      "pick": "F046"
+      "approval": "pending"
     },
     {
       "itemId": "globe_brass",
@@ -193,5 +200,6 @@
       "pick": "F124"
     }
   ],
-  "tierArt": "TODO: add redrawn per-tier frames and select them through FURNITURE.tierSheetFrame; luxury remains tier squared."
+  "tierArt": "TODO: add redrawn per-tier frames and select them through FURNITURE.tierSheetFrame; luxury remains tier squared.",
+  "worldFrameHeight": 64
 }

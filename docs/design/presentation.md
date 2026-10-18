@@ -527,8 +527,9 @@ Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`
 
 ## Furniture
 
-Placed furniture opens a dismissible `makeModalShell` panel with the same item
-frame as inventory, enlarged above its name, rarity badge and description.
+Placed furniture opens a dismissible `makeModalShell` panel with its 32×64 world
+frame shown at exactly 4× above its name, rarity badge and description. The
+portrait preserves the placed orientation; the category badge keeps the item icon.
 The ability occupies the main action row and remains disabled with “Coming next”
 until that ability ships. Mirrorable pieces also offer Flip there; Pick up is a
 ghost control in a separate top-right row. Flip saves the placed orientation and

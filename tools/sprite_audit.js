@@ -231,7 +231,7 @@ const ASSETS = assetsCtx.window.ASSETS;
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const GEM_ROCKS = Object.values(itemsCtx.GEM_DEPOSITS).filter(row => row.art.sheet === 'cave_props');
 const SHEETS = {
-  furniture: { file: ASSETS.furniture.path, fw: 32, fh: 32, frames: Object.values(itemsCtx.FURNITURE).map(row => row.frame) },
+  furniture: { file: ASSETS.furniture.path, fw: ASSETS.furniture.frameWidth, fh: ASSETS.furniture.frameHeight, frames: Object.values(itemsCtx.FURNITURE).map(row => row.frame) },
   cave_props: { file: ASSETS.cave_props.path, fw: 24, fh: 24, frames: [1, 6, ...GEM_ROCKS.map(row => row.art.frame)] },
   poison_vent_inactive: { file: ASSETS.poison_vent_inactive.path, fw: 24, fh: 24, frames: [0] },
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },

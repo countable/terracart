@@ -318,7 +318,7 @@ const ASSETS = {
   // anchors at origin (0.5, 1) so it stands on its placement cell; the render
   // spec scales the 48px art down to ~one cell. ?v= busts the SW/browser cache.
   scarecrow:   { kind: 'image', path: 'assets/Objects/Approved/scarecrow.png' },
-  furniture: { kind: 'spritesheet', path: 'assets/Objects/Furniture/furniture-32.png', frameWidth: 32, frameHeight: 32 },
+  furniture: { kind: 'spritesheet', path: 'assets/Objects/Furniture/furniture-32.png', frameWidth: 32, frameHeight: 64 },
   // Rustic default grass/mushroom in the original 22×12 prop grid. Other
   // flowers, seasonal props and existing cave mushrooms keep their source art.
   // Spring/autumn/winter/aqua grass tufts, ferns, wildflowers, mushrooms,

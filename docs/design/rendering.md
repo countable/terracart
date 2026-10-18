@@ -27,10 +27,11 @@ coordinates when the artwork counterrotates.
 Furniture uses the ordinary object list so the Home's near walls can occlude
 it. `FURNITURE` owns each item's frame, flat/mid height and supported flip;
 flat rugs are ground decals and mid pieces use `ObstacleStep.PROFILES.furniture`
-for continuous support. `RENDER_SPEC.furniture` seats the 32px world frame at
-`FURNITURE_SCALE` (0.85, about 27px beside the 24px player); mirrored bounds
+for continuous support. `RENDER_SPEC.furniture` seats each 32×64 world frame at
+`FURNITURE_SCALE` (0.85: about 27px wide, tall fixtures up to 54px high
+beside the 24px player); mirrored bounds
 keep asymmetric pieces centred when flipped. Mutable furniture appearances
-are not cached. The same frame is downsampled to 16px for all item surfaces.
+are not cached. The complete piece is fitted proportionally into a 16×16 icon for item surfaces.
 `tierSheetFrame` may map catalog tiers to future redrawn frames; the shared
 `furnitureFrame` resolver keeps world and inventory art together, falling back
 to the roster frame. Phase 1 adds no tier recolouring.
@@ -38,10 +39,21 @@ to the roster frame. Phase 1 adds no tier recolouring.
 `python3 tools/build_furniture_sheets.py` rebuilds both sheets from
 `assets/Objects/Furniture/manifest.json`: exact licensed 48px source crops
 use Lanczos scaling; checked-in transparent concepts are alpha-cropped, fit
-to 30px, and bottom-seated in their cell. The manifest records provenance
+to 30×30px (30×62px for the floor candelabra), and bottom-seated in the
+shared 32×64 frame. Short pieces retain their 32px art scale; per-frame alpha
+bounds let `seatInCell` centre them without counting the empty upper half.
+The manifest records provenance
 without distributing the raw licensed sheets. The sprite audit covers every
 frame and every permitted flip. Furniture light and ability metadata are
-extension points only until phase 2.
+extension points only; phase 3 wires the light kinds.
+
+The 16-piece roster is Tinker’s Workbench, Quilted Cot, Washing Tub, Gear-Rim
+Looking Glass, Oak Side Table, Four-Drawer Dresser, Clay Planter, Burgundy Rug,
+Frontier Bookshelf, Brass Floor Lamp (T3), Grandfather Clock (T3), Pedestal Owl
+(T2), Riveted Copper Planter, Floor Candelabra (T1), Surveyor’s Globe and Brass
+Stargazer. The floor lamp and clock use F044/F085 at 32×64; the candelabra,
+pedestal owl and tub use generated art pending approval. Both planters use
+the v2 concepts. Each piece still occupies one floor cell.
 
 Resolved appearances carry `layer`; pooled sprites carry `_worldLayer`. The same
 category controls depth order, fading, and compass compensation. Ground decals

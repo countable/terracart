@@ -42,6 +42,23 @@ test('furniture icons: every roster item uses its world frame on the shared DOM 
   assert.eq(ITEM_BY_ID.washtub.name, 'Washing Tub');
   assert.eq(ITEM_BY_ID.washtub.baseTier, 1);
   assert.eq(furnitureSpec('washtub').ability, 'wash');
+  for (const [id, name, tier] of [
+    ['lamp_floor', 'Brass Floor Lamp', 3],
+    ['clock_grandfather', 'Grandfather Clock', 3],
+    ['candelabra_floor', 'Floor Candelabra', 1],
+    ['statue_pedestal', 'Pedestal Owl', 2],
+  ]) {
+    assert.eq(ITEM_BY_ID[id].name, name);
+    assert.eq(ITEM_BY_ID[id].baseTier, tier);
+  }
+  for (const id of ['lantern_brass', 'candlestick_brass', 'clock_mantel', 'statue_owl']) {
+    assert.falsy(ITEM_BY_ID[id], id + ': retired tabletop art is absent');
+    assert.falsy(furnitureSpec(id));
+    assert.falsy(PRICES[id]);
+    assert.falsy(ITEM_EFFECTS[id]);
+  }
+  assert.truthy(furnitureSpec('lamp_floor').light);
+  assert.truthy(furnitureSpec('candelabra_floor').light);
   assert.eq(furnitureSpec('wood'), null);
   assert.eq(furnitureSpec({ kind: 'furniture', itemId: 'workbench', id: 'placed_1' }), furnitureSpec('workbench'));
 });

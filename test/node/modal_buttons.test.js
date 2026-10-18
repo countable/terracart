@@ -170,6 +170,11 @@ test('modal buttons: choice action labels update on selection and retain the mod
     try {
       const scene = furnitureScene(), buttons = [], icons = [], shell = { wrap: el(), box: el() };
       scene.iconSpanHTML = (id, size) => { icons.push({ id, size }); return `<span>${id}</span>`; };
+      scene.worldIconHTML = liftSceneMethod('worldIconHTML', { window: {} });
+      // Stand in only for the pixel bake; the shipped world-icon renderer
+      // must put the requested world sheet and frame into the dialog HTML.
+      scene._worldIconUrl = (key, frame) => key === 'furniture'
+        ? `assets/Objects/Furniture/furniture-32.png#frame=${frame}` : '';
       scene.makeModalShell = (id, opts) => {
         shell.opts = opts;
         shell.box = el();
@@ -179,11 +184,18 @@ test('modal buttons: choice action labels update on selection and retain the mod
         } };
       };
       const record = scene.save.furniture[0];
+      record.flip = true;
       assert.truthy(runInteractable(makeCtx(scene, scene.save), { ...record, kind: 'furniture' }));
       assert.eq(shell.opts.kindLabel, 'Furniture');
       assert.eq(shell.opts.art, false, 'the catalog art is the subject');
       assert.eq(typeof shell.opts.onClose, 'function', 'ordinary backdrop/close dismissal');
-      assert.truthy(icons.some(icon => icon.id === record.itemId && icon.size >= 96), 'large inventory frame');
+      assert.eq(icons.length, 1, 'only the category badge uses the inventory icon');
+      assert.eq(icons[0].size, 32, 'category icon retains its size');
+      const art = shell.box.children.find(child => child.className === 'furniture-art');
+      assert.includes(art.innerHTML, 'assets/Objects/Furniture/furniture-32.png');
+      assert.includes(art.innerHTML, `#frame=${furnitureSpec(record.itemId).frame}`);
+      assert.includes(art.innerHTML, 'width:128px;height:256px', 'world frame has exact 4× dimensions');
+      assert.eq(art.style.transform, 'scaleX(-1)', 'portrait preserves the placed flip');
       const pickupRow = shell.box.children[0], actions = shell.box.children[shell.box.children.length - 1];
       assert.eq(pickupRow.children[0].label, 'Pick up');
       assert.eq(pickupRow.children[0].options.variant, 'ghost');
@@ -196,6 +208,14 @@ test('modal buttons: choice action labels update on selection and retain the mod
       record.itemId = 'rug_burgundy';
       scene.presentFurniture(record);
       assert.eq(buttons.length, 1, 'a fixed decorative rug only has pickup');
+      record.itemId = 'clock_grandfather';
+      record.flip = false;
+      scene.presentFurniture(record);
+      const clockArt = shell.box.children.find(child => child.className === 'furniture-art');
+      assert.includes(clockArt.innerHTML, 'assets/Objects/Furniture/furniture-32.png#frame=10',
+        'tall clock uses its world frame instead of its fitted 16px icon');
+      assert.includes(clockArt.innerHTML, 'width:128px;height:256px');
+      assert.eq(clockArt.style.transform, '', 'unflipped clock stays upright');
     } finally { document.createElement = oldCreate; }
   });
 })();
