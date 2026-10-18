@@ -14,7 +14,6 @@
       const params = new URLSearchParams(location.search);
       const sandbox = params.has('sandbox') && !['false', '0', 'no'].includes((params.get('sandbox') || '').toLowerCase());
       window.__sandboxSkipStory = sandbox && params.get('skipStory') === 'true';
-      window.__sandboxSkipTutorial = sandbox && params.get('skipTutorial') === 'true';
       if (!sandbox || params.get('reset') !== 'true') return;
       try {
         for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -1225,6 +1224,7 @@
     #howto-mode-current span { font-weight: 400; color: #bbb; }
     #howto button#howto-close[hidden] { display: none; }
   </style>
+  <link rel="stylesheet" href="css/compass_shine.css?v=2196f9a5">
   <link rel="stylesheet" href="css/compass_hud.css?v=7c9f51d6">
   <link rel="stylesheet" href="css/compass_inventory.css?v=2c3aceb5">
   <link rel="stylesheet" href="css/compass_panels.css?v=9b9ffb51">
@@ -2754,7 +2754,7 @@
       const overlay = document.getElementById('howto');
       if (!overlay) return;
       if (!force) {
-        if (window.__sandboxSkipStory || window.__sandboxSkipTutorial) return;
+        if (window.__sandboxSkipStory) return;
         let seen = false;
         try { seen = !!localStorage.getItem('terracart.howtoSeen'); } catch {}
         // A save with no mode yet is asked even if the card was seen before
@@ -3028,7 +3028,6 @@
   <script src="src/hazard_falls.js?v=71f88a2f"></script>
   <script src="src/environment_hazards.js?v=e260270e"></script>
   <script src="src/spider_webs.js?v=4677643f"></script>
-  <script src="src/waystones.js?v=cb933f6e"></script>
   <script src="src/pressure_traps.js?v=b2bc2a75"></script>
   <script src="src/gas.js?v=db729af7"></script>
   <script src="src/mushroom_gas.js?v=4e72e2a0"></script>
@@ -3036,9 +3035,6 @@
   <script src="src/dungeon_progression.js?v=3a8af653"></script>
   <script src="src/elevators.js?v=e02a2b01"></script>
   <script src="src/arena.js?v=e1e49ed1"></script>
-  <script src="src/schoolyard_game.js?v=241e1b43"></script>
-  <script src="src/schoolyard_fields.js?v=8c76ad65"></script>
-  <script src="src/scene_schoolyard.js?v=c9b6f61e"></script>
   <script src="src/cave_hazards.js?v=e371ab55"></script>
   <script src="src/cave_areas.js?v=1dc0b482"></script>
   <script src="src/underground.js?v=66423e51"></script>
@@ -3110,7 +3106,6 @@
   <script src="src/assets.js?v=865c8a60"></script>
   <script src="src/sandbox_destinations.js?v=e6dc29cb"></script>
   <script src="src/sandbox.js?v=2356eb1e"></script>
-  <script src="src/floor_sandbox.js?v=84ffa91a"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=c1099b24"></script>
   <script src="src/art_thumbs.js?v=ba49b822"></script>
@@ -3122,6 +3117,7 @@
   <script src="src/scene_shops.js?v=9727d3f5"></script>
   <script src="src/heading_up.js?v=9bb5ef1e"></script>
   <script src="src/compass_modules.js?v=de335c76"></script>
+  <script src="src/compass_shine.js?v=1533df4e"></script>
   <script src="src/compass_hud.js?v=e9a30166"></script>
   <script src="src/scene_create.js?v=3c526c12"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
