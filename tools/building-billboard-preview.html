@@ -15,7 +15,7 @@ const LOOK=BuildingLowPoly.LOOK;
 document.querySelector('#ink').value=LOOK.inkPx;document.querySelector('#zscale').value=LOOK.heightScale;
 let reviewScene,sweeping=false;const roles=Object.keys(BuildingLowPoly.ROLES).filter(r=>!['shop','wizard','turret'].includes(r));
 // These are the role/shop palette overrides used by Render.buildingProfileFor.
-const palettes={trader:{wall:0xd8c6a1,roof:0x567e83},plain:{wall:0xd4cdb4,roof:0x709b9a},blacksmith:{wall:0xa96e59,roof:0x687a83},seed:{roof:0x82916b},supply:{roof:0xb09a69},potion:{roof:0x957ca9},relic:{roof:0x6e9a91},pet:{roof:0x8b9678},book:{roof:0x967577}};
+const palettes={trader:{wall:0xbababa,roof:0x6f9093,trim:0x954a39},plain:{wall:0xddb49b,roof:0xb45c3a,trim:0x954a39},blacksmith:{wall:0x917465,roof:0x954a39,trim:0x786269},seed:{roof:0x82916b},supply:{roof:0xb09a69},potion:{roof:0x957ca9},relic:{roof:0x6e9a91},pet:{roof:0x8b9678},book:{roof:0x967577}};
 function rebuild(){const s=reviewScene;
   BuildingLowPoly.begin(s);s.labels?.forEach(t=>t.destroy());s.labels=[];s.legacySprites?.forEach(t=>t.destroy());s.legacySprites=[];
   const billboard=(x,y,key,frame,label)=>{const sprite=s.add.image(x+75,y+115,key,frame).setOrigin(.5,1).setScale(2);s.legacySprites.push(sprite);s.labels.push(s.add.text(x,y+140,label,{fontSize:'15px',color:'#efe8da'}));};

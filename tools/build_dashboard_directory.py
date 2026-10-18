@@ -47,6 +47,20 @@ def views(title, intro, entries, extra=''):
     body+='''<script>const buttons=[...document.querySelectorAll('[data-url]')];for(const button of buttons)button.addEventListener('click',()=>{for(const b of buttons)b.setAttribute('aria-pressed',String(b===button));const frame=document.getElementById('view');frame.src=button.dataset.url;frame.title=button.textContent;const link=document.getElementById('open-view');link.href=button.dataset.url;link.textContent='Open '+button.textContent+' separately';});</script>'''
     return page(title,body,True).replace('<meta charset="utf-8">', '<meta charset="utf-8"><meta name="artifact-review" content="disabled">', 1)
 
+def story_art_page():
+    """Show the checked-in paintings at their native aspect ratio, without crops."""
+    root = Path(__file__).resolve().parents[1]
+    paintings = sorted((root / 'assets/art').glob('*.webp'))
+    cards = []
+    for painting in paintings:
+        key = escape(painting.stem)
+        url = '../assets/art/' + escape(painting.name)
+        cards.append(f'<article class="painting" id="{key}" data-key="{key}"><a href="{url}" target="_blank" rel="noopener"><img src="{url}" alt="{key.replace("_", " ")}" loading="lazy"></a><h2><a href="#{key}">{key}</a></h2><a href="{url}" target="_blank" rel="noopener">Open full painting ↗</a></article>')
+    body = '<p><a href="../story-art-crop-review/">Review original 4:3 crops and choose regeneration targets →</a> · <a href="../story-art-selected-regens/">Selected revisions and new story scenes →</a></p><p>Current checked-in story paintings, loaded directly from the game assets. Images keep their full aspect ratio with no crop or added lower band. Use a panel key or its full-image link when choosing a style reference. The saved storyboard presentations have their own older artwork.</p><label for="art-search">Find a panel key</label><input id="art-search" type="search" placeholder="Chapel, story, wizard…"><p id="art-count" role="status"></p><div class="paintings">' + ''.join(cards) + '</div>'
+    body += '''<script>const input=document.getElementById('art-search');const paintings=[...document.querySelectorAll('.painting')];function filter(){let count=0;for(const painting of paintings){painting.hidden=!painting.dataset.key.includes(input.value.trim().toLowerCase().replaceAll(' ','_'));if(!painting.hidden)count++;}document.getElementById('art-count').textContent=count+' of '+paintings.length+' paintings';}input.addEventListener('input',filter);filter();</script>'''
+    styles = '<style>.paintings{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:24px}.painting{min-width:0;padding:12px;background:#192525;border:1px solid #344545;border-radius:10px;scroll-margin-top:20px}.painting img{display:block;width:100%;height:auto}.painting h2{font-size:16px;overflow-wrap:anywhere;margin:12px 0 4px}input{font:inherit;color:inherit;background:#192525;border:1px solid #52675f;padding:10px;width:100%;margin-top:8px}input:focus-visible{outline:3px solid #efca79}[hidden]{display:none!important}</style>'
+    return page('Current story paintings', body, True).replace('</head>', styles + '</head>')
+
 ARCHIVES = {
  'Monster and character history': [
  ('../enemy-roster-proposal-2026-09-28/archive.html','Original monster proposal and palette study','Historical roster and balance assumptions; includes retired enemies. Use Monsters for current data and palette review.'),
@@ -103,6 +117,16 @@ def build(output):
       ('../tools/items.html','Items','Current item catalogue, equipment and source information.','Live game data'),
       ('../tools/map-review.html','Map review','Inspect terrain, world generation and placements.','Live game data')]
     (output/'index.html').write_text(page('Design dashboards','<p>Design tables for reviewing the game. Older proposals, implementation reports and candidate studies are in the archive.</p><p><a href="../tools/treasure-balancing.html">Open treasure roll simulator →</a></p><div class="grid">'+''.join(card(*row) for row in primary)+'</div>').replace('<meta charset="utf-8">','<meta charset="utf-8"><meta name="artifact-review" content="disabled">',1).replace('padding:80px 24px 32px','padding:32px 24px 32px'))
+    (output/'storyboards.html').write_text(views(
+        'Storyboards and story panels',
+        'Choose reference art from the current game paintings, or review the saved opening and memory arc in sequence. Saved presentations preserve their original artwork and copy, which may predate the current game.',
+        [('Current game paintings', 'story-art.html'),
+         ('Saved opening and memory arc', '../memory-arc-storyboard/index.html'),
+         ('Saved painting review', '../story-art-audit/index.html'),
+         ('Saved story panels', '../story-panel-rewrite/index.html'),
+         ('Earlier opening storyboard', '../opening-storyboard/index.html')],
+        '<p><a href="../memory-arc-storyboard/index.html">Open the sequenced storyboard presentation →</a></p><p class="note">Contains story spoilers. Current paintings show the full image by panel key; saved presentations are historical snapshots. Use “Open … separately” for the full view and its individual artwork links.</p>'))
+    (output/'story-art.html').write_text(story_art_page())
     (output/'chests.html').write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>Chest index</title><meta http-equiv="refresh" content="0;url=../tools/chest-report.html"><a href="../tools/chest-report.html">Open the live chest index</a></html>')
     (output/'world-art.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>World art</title><meta http-equiv="refresh" content="0;url=../tools/world-art.html"></head><body><a href="../tools/world-art.html">Open current world art</a></body></html>')
     (output/'zones.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Nexuses and Landcover</title><meta http-equiv="refresh" content="0;url=../zone-variants/index.html"></head><body><a href="../zone-variants/index.html">Open Nexus variants, Road Variants and Landcover</a></body></html>')

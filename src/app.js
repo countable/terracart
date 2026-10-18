@@ -3887,6 +3887,7 @@ class MapScene extends Phaser.Scene {
     Companions.tickAll(this);
     tickGroundCoins(this);
     this._tickArena(dt);
+    this._tickSchoolyard(dt);
     this._tickSky(dt);
     // Did we just walk onto a trap, or are we still standing on one? Runs
     // beside the fog reveal because it asks the same question — which cell are
@@ -3894,6 +3895,7 @@ class MapScene extends Phaser.Scene {
     // never the camera anchor: a peek drag must not spring a trap two cells
     // away, nor stop one under you from biting).
     PressureTraps.tick(this, dt);
+    Waystones.tick(this);
     EnvironmentHazards.tick(this, dt);
     MushroomGas.tick(this, dt);
     Whirlwinds.tick(this, dt);
@@ -3928,6 +3930,7 @@ class MapScene extends Phaser.Scene {
     this.drawObjects();
     GasRender.draw(this);
     this._drawArena();
+    this._drawSchoolyard();
     this._drawSky();
     this._drawWorkProgress();
     this.updateHUD();
@@ -8361,7 +8364,7 @@ class MapScene extends Phaser.Scene {
     const memoriesHere = typeof MemoryStory === 'undefined' || MemoryStory.atHome(this);
     return (this._ceremonies || []).filter((c) => c.waits).length
       + (memoriesHere ? (s.memoryStory?.pending?.length || 0) : 0)
-      + (s.compassModules?.pending?.length || 0)
+      + (window.__sandboxSkipTutorial ? 0 : (s.compassModules?.pending?.length || 0))
       + (s.petStoriesPending?.length || 0)
       + (s.dragonStory?.pending ? 1 : 0);
   }
@@ -11323,6 +11326,7 @@ installSceneMixin(MapScene, SceneConsumables);
 installSceneMixin(MapScene, ScenePets);
 installSceneMixin(MapScene, SceneElevators);
 installSceneMixin(MapScene, SceneArena);
+installSceneMixin(MapScene, SceneSchoolyard);
 installSceneMixin(MapScene, SceneSky);
 installSceneMixin(MapScene, SceneVenues);
 installSceneMixin(MapScene, SceneStreets);

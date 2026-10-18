@@ -37,6 +37,7 @@
 <body>
 <div id="bar">
   <h1>FLOOR VIEWER · 60×35</h1>
+  <button id="playSandbox" disabled>Play in sandbox</button>
   <div><label for="seed">Seed</label><div class="seg">
     <input id="seed" type="number" min="0" max="4294967295" step="1" value="0" style="width:110px">
     <button id="newSeed">New seed</button><button id="resetSeed">Reset</button>
@@ -77,17 +78,26 @@
   safetyInput.value = safetyRadius;
   const entries = {};   // depth -> built tile entry (real pipeline)
   const sprites = {};   // depth -> [{o, appearance, fruit}]
-  let assets = null, building = true;
+  let assets = null, building = true, readyToPlay = false;
   const variantIndices = new Map();
   const displayDepth = () => floor;
 
   const status = t => document.getElementById('status').innerHTML = t;
   const tag = t => document.getElementById('tag').innerHTML = t;
+  document.getElementById('playSandbox').onclick = () => {
+    try {
+      FloorSandbox.write(entries, displayDepth(), seed, variantIndex);
+      location.href = '../index.html?sandbox=true&sandboxMap=floor-viewer';
+    } catch (error) {
+      document.getElementById('status').textContent = 'Could not launch sandbox: ' + error.message;
+    }
+  };
 
   // Rebuild from source layers so old dressing and cached cave tiles cannot
   // survive a variant change. The real generators still own every placement.
   async function rebuild() {
     building = true;
+    readyToPlay = false;
     updateControls();
     const W = WorldGen, R = FloorViewerRegion, depth = displayDepth();
     try {
@@ -145,6 +155,7 @@
         Object.assign(entries, built);
         for (const [d, e] of Object.entries(entries)) sprites[d] = prepareSprites(e, +d);
       })));
+      readyToPlay = true;
       status(`Ready - seed ${seed}. Pick a floor or nexus variant.`);
     } catch (e) {
       console.error(e);
@@ -548,6 +559,7 @@
     for (const id of ['seed', 'newSeed', 'resetSeed']) document.getElementById(id).disabled = building;
     document.querySelectorAll('#floorSeg button').forEach(b => { b.disabled = building; });
     document.getElementById('creatureToggle').disabled = building;
+    document.getElementById('playSandbox').disabled = building || !readyToPlay;
     document.getElementById('labelToggle').disabled = building;
     document.getElementById('regionLabels').hidden = building || !showLabels;
     const depth = displayDepth(), count = FloorViewerVariants.count(depth);

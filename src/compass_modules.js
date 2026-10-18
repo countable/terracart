@@ -57,7 +57,8 @@
     return state;
   }
   function persist(scene) { if (typeof persistSave === 'function') persistSave(scene.save); }
-  function isActive(save, id) { return Object.hasOwn(MODULES, id) && initialize(save).active[id] === true; }
+  // Sandbox testing can use every control without changing its saved unlocks.
+  function isActive(save, id) { return Object.hasOwn(MODULES, id) && (root.__sandboxSkipTutorial || initialize(save).active[id] === true); }
   function activate(scene, id) {
     if (!Object.hasOwn(MODULES, id)) return false;
     const state = initialize(scene.save);
@@ -114,6 +115,7 @@
     return false;
   }
   function drain(scene) {
+    if (root.__sandboxSkipTutorial) return false;
     const state = initialize(scene.save);
     if (!state.pending.length || busy(scene, true)) return false;
     const id = state.pending[0];

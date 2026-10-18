@@ -39,21 +39,17 @@
     }
   }));
 
-  test('daily visits: waystone ignores old opened flags, grants one page after each daily story', () => at(T0, () => {
-    const o = { kind: 'waystone', id: 'old_waystone' };
+  test('waystones: an unlit tap hints closer without a book or daily reward', () => at(T0, () => {
+    const o = { kind: 'waystone', id: 'old_waystone', waystoneSet: 'pilgrim' };
     const h = harness({ opened: [o.id] });
     h.tap(o);
-    assert.eq(h.pages(), 0, 'book waits until the story closes');
+    assert.eq(h.flashes[0], 'closer...');
+    assert.eq(h.pages(), 0);
+    assert.eq(h.stories.length, 0);
+    assert.eq(Macros.visitKindForObject(o), null);
+    h.save.waystoneUntil = { [o.id]: T0 + 1000 };
     h.tap(o);
-    assert.eq(h.stories.length, 1);
-    h.stories[0].onDismiss(); h.stories[0].onDismiss();
-    assert.eq(h.pages(), 1);
-    assert.eq(h.stories[1].body, 'Page 1');
-    h.tap(o);
-    assert.eq(h.pages(), 1);
-    at(T0 + DAY, () => { h.tap(o); h.stories[2].onDismiss(); });
-    assert.eq(h.pages(), 2);
-    assert.eq(h.save.opened.length, 1, 'no added permanent opened flags');
+    assert.eq(h.flashes.length, 1, 'lit stone is quiet');
   }));
 
   test('daily visits: the notice board reads one page a UTC day, the waystone\'s lane', () => at(T0, () => {
