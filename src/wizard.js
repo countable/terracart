@@ -43,7 +43,8 @@
   // i.e. it IS the third purchase.
   const CLASS_AT_BUYS = 2;
   const OFFER_COUNT = 2;
-  // Reach runs 2 cells + 0.5 a rung, 6 rungs (coords.js reads the same field).
+  // Six Inner Light upgrades cross successive circle/cell overlap thresholds
+  // in coords.js; the saved field records the number of upgrades.
   const REACH_UPGRADE_MAX = 6;
   // Keen Eye keeps seven permanent luck rungs.
   const LUCK_UPGRADE_MAX = 7;

@@ -13,7 +13,7 @@
         pairy: () => 'Consumes the effects of one Pairy immediately, including its treasure compass.',
         light: () => 'Personal torch light.',
         reach: () => 'Full-screen reach and illumination.',
-        shield: () => `Incoming damage ×${CONSUMABLE_SPEC.shield_potion.damageMul}, before armour.`,
+        shield: () => `Incoming damage ×${CONSUMABLE_SPEC.shielding_potion.damageMul}, before armour.`,
         hidden: () => 'Monsters ignore you until attacked. Fauna and pets do not flee while being caught.',
         melee: () => `+${Combat.TRAINING_KINDS.melee.drill} melee damage and +${Combat.TRAINING_KINDS.ranged.drill} bow damage.`,
         fortune: () => `+${Math.round(Shrines.FORTUNE_LUCK_BONUS * 100)} percentage points of luck on treasure rolls.`,
@@ -36,8 +36,9 @@
         sprites:[SpriteLayout.groveShrineArt({ shrineKind:id })],
         locations:[...(row.locations || []), ...(row.zoneVariants || []).map(id => `Zone: ${zoneVariantName(id)}`), ...(row.streets || []).map(id => `Street/path: ${streetName(id)}`)] })),
       ...Object.entries(Shrines.REWARD_KINDS).map(([id, row]) => ({ ...row, id, group:'reward',
-        sprites:row.sprite ? [{ key:row.sprite, frame:0, scale:1.6 }] : id === 'grove' ? SpriteLayout.GROVE_SHRINE_ART : [{ key:'waystone', frame:0, scale:1.6 }],
-        locations:row.locations || (id === 'grove' ? ['Mapped parks and sacred groves without a named shrine variant'] : ['Pilgrim street endpoints']) })),
+        sprites:row.sprite ? [{ key:row.sprite, frame:0, scale:1.6 }] : id === 'grove' ? SpriteLayout.GROVE_SHRINE_ART
+          : ZoneVariants.byId(id)?.shrineFrame != null ? [{ key:'zone_objects', frame:ZoneVariants.byId(id).shrineFrame, scale:4 / 3 }] : [],
+        locations:row.locations || (id === 'grove' ? ['Mapped parks and sacred groves without a named shrine variant'] : ZoneVariants.byId(id) ? [`Zone: ${zoneVariantName(id)}`] : []) })),
       ...Object.entries(Macros.DAILY_VISIT_KINDS).filter(([, row]) => !Object.values(Shrines.REWARD_KINDS).includes(row)).map(([id, row]) => ({ ...row, id:`visit_${id}`, group:'daily',
         sprites:[typeof row.sprite === 'string' ? { key:row.sprite, frame:0, scale:1.6 } : row.sprite],
         locations:row.locations || [] })),
@@ -57,7 +58,7 @@
       return { src:canvas.toDataURL(), w, h, ...spec };
     }
     await Promise.all(rows.map(async row => frames.set(row.id, await Promise.all(row.sprites.map(crop)))));
-    $('rules').innerHTML = `<p>Daily visits use the UTC-day ledger. Sites keep their ambient light after a visit; the extra availability pulse disappears when today’s reward is claimed. Shrine boons refresh to the later expiry without stacking in strength. Paid companion offers follow their own price and duration. A painted story panel appears on each successful shrine visit.</p><p>Each special street independently has a <b>${Math.round(Shrines.STREET_SHRINE_CHANCE * 100)}% shrine chance</b>, with no shared tile cap; scenic paths cap them at <b>${Shrines.SCENIC_SHRINES_PER_TILE} per tile</b>. Zone shrines and mapped park shrines use their separate configured placements.</p>`;
+    $('rules').innerHTML = `<p>Daily visits use the UTC-day ledger. Sites keep their ambient light after a visit; the extra availability pulse disappears when today’s reward is claimed. Shrine boons add their duration to any remaining time without stacking in strength. Paid companion offers follow their own price and duration. A painted story panel appears on each successful shrine visit.</p><p>Each special street independently has a <b>${Math.round(Shrines.STREET_SHRINE_CHANCE * 100)}% shrine chance</b>, with no shared tile cap; scenic paths cap them at <b>${Shrines.SCENIC_SHRINES_PER_TILE} per tile</b>. Zone shrines and mapped park shrines use their separate configured placements.</p>`;
     function sprites(row) {
       return frames.get(row.id).map(frame => {
         const scale = Number($('scale').value);

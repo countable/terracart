@@ -955,8 +955,8 @@ const CROW_RAID_PERCHES = 2;
 // 4 s; tap one about to hop and it is gone. (Launching at once made the
 // hunt a die roll on the first hop's direction.)
 //   The departure hop itself is here, one row: `cells` out and `ms` of
-// glide per leg. Three cells clears the base reach (2.5 cells + 1 m, whole
-// cells — coords.js cellInReach) from wherever it sat, so the hop always
+// glide per leg. The retreat clears the restored starting footprint
+// under circle/square reach (coords.js cellInReach) from wherever it sat, so the hop always
 // ends the hunt and never the roll above; it is exempt from the 2.5-cell
 // approach cap in _wildCrowTick, which exists to make a crow APPROACH a crop
 // over several hops, not to keep a fleeing one near. The 1.5 s glide is the
@@ -964,7 +964,7 @@ const CROW_RAID_PERCHES = 2;
 // real tick against every net tier and pins the wood net's coin flip (and
 // that bare hands never take a crow, a tier-3 net nearly always does).
 //   THE ONE EXCEPTION TO THE SPEED CEILING (WILD_SPEED_CEILING_MPS). This
-// hop is 21 m in 1.5 s — a 14 m/s mean, a 28 m/s peak on the eased leg —
+// hop takes 1.5 s; its eased peak exceeds the ordinary speed ceiling —
 // and the hunt's odds above are tuned on exactly that: a T1 net's 4 s wheel
 // against the crow's remaining perch plus the ~1.1 s it takes this hop to
 // clear the reach (plus the wheel's 1 s grace). Under the ceiling (a 4.2 s+
@@ -975,7 +975,7 @@ const CROW_RAID_PERCHES = 2;
 // the one burst stays, declared here, measured as the exception in
 // test/node/speed_ceiling.test.js, and flagged for the owner: slow the hop
 // and retune the hunt (reach, grace or wheel), or keep the burst.
-const CROW_DEPART_HOP = { cells: 3, ms: 1500 };
+const CROW_DEPART_HOP = { cells: 3.25, ms: 1500 };
 // The crow's PEAK flight speed, m/s: every OTHER glide in _wildCrowTick — the
 // roam, the panic dash away from a pet — is a quadratic leg
 // (creatureFlightEase, whose peak is twice its mean), so it lasts

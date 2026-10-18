@@ -60,7 +60,9 @@ legacy sprite modes retain the north-up wall atlas artwork.
 The WebGL low-poly path (`building_lowpoly.js`) draws houses to match the 2D
 billboard sprites: `BuildingLowPoly.LOOK` owns the height foreshortening, the
 ink outline pass, eave shadow, flat-deck bands and chimney numbers, and the
-material sheets are cut once per material from the tilesets. Each low-poly
+material sheets are cut once per material from the tilesets. Roof UV wrapping
+uses the selected sheet's repeat: 360 texels for approved crops, 288 for generated
+and cel sheets, so atlas boundaries preserve the material pattern. Each low-poly
 building has a pooled render object in `worldContainer`, interleaved with props
 and actors by its footprint's vertex-average ground anchor. Faces and ink groups
 remain ordered within that building. This is whole-building painter ordering,
@@ -117,6 +119,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   existing resize path, which explicitly restores the logical CSS size before
   refreshing input bounds when returning to scale 1. Explicit `?rscale=N` remains a diagnostic override,
   bounded to 1–2×; game cadence is unchanged.
+- iPhone compass samples with negative headings or negative/non-finite accuracy
+  are ignored, retaining the last usable bearing while the sensor recalibrates.
+  The first absolute bearing replaces any relative startup smoothing history.
 - Heading-up is the default (`?headingUp=false` keeps north up). The main
   camera turns about the view centre by `-compassDeg` (Q / E fake it on
   desktop), and the map clips to the inscribed circle. Phaser's two-corner
@@ -335,7 +340,7 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   importer records `resizeSheet` for compatibility frames in migrated sheets;
   selected frames are then replaced from original sources. Palms and shells
   use 24px cells at 4/3 display scale. Tall shrine frames use 24×36 cells;
-  their scale and the waystone scale compensate for the larger source grid,
+  their scale compensates for the larger source grid,
   preserving their established screen footprint. Legacy unrelated sheets and
   building or multi-cell canvas dimensions remain separate from this rule.
 
@@ -396,7 +401,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 Surface daylight follows the player's local sun with a 30-minute extension at
 both dawn and dusk. Nighttime ambient luminance is 10% brighter, blending back
-to the existing noon level. Underground lighting is unchanged.
+to the existing noon level. The circular reach indicator keeps half its added
+light; the smooth player glow carries the other half, preserving nearby
+brightness on the surface and underground. This compensation fades beyond
+the reach rim within the existing player-light radius.
 
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
@@ -442,28 +450,29 @@ to the existing noon level. Underground lighting is unchanged.
 
 - `lighting.js` owns the sole lighting pass: additive source cookies composed
   into a lightmap and multiplied over the world. Canvas is the default compositor;
-  the opt-in GPU compositor below consumes the same shapes and fade weights.
+  the opt-in GPU compositor below consumes the same shapes and light gains.
   Do not add darkness passes or dim sprites
   again. Its screen-attached base (ambient plus player ramp) stays baked while
-  walking; transparent, padded reach-cell masks crop with the camera and rebuild
-  only when their geometry or validity edge changes. If the normal validity edge
-  lands on `drawCells`' crossing frame, the mask borrows the remaining physical
-  pad once and rebuilds on the next ordinary frame; it never crops past the
-  painted edge. A viewport scratch blends
-  old/new masks at their live fade weights and colours them with the radial
-  gradient still centred on the body. Interrupted fades retain exact weights,
-  but rendering skips masks outside the painted view and an aggregate of less
-  than one 8-bit alpha level; it never renormalises the remaining brightness.
-  Active mask canvases stay pinned until compositing finishes, including when
-  a fade needs more than four masks. Surplus canvases are released as it settles. Stable world cookies join padded caches
+  walking; the player circle retains fractional-pixel positioning without cell-change fades.
+  Reach and street restoration follow movement within a cell, independently of
+  camera peeks. Canvas and GPU share one circular mask, rebuilt only when its screen position,
+  radius or viewport changes. Stable world cookies use padded caches
   by their exact whole-pixel phase. Player-attached, breathing, flickering and
   transient lights keep the individual stamp path. The full-frame key gates
-  before every canvas call. Reach lighting follows `cellInReach`; light conveys
-  reach and live POIs without outline rings. The radial player glow uses
-  `PLAYER_OUTPUT_K = 0.44`; the added reach-cell light is halved by
+  before every canvas call. Reach lighting uses a circle centred continuously on the exact player position with the interaction
+  radius. `cellInReach` accepts a cell exactly when its square overlaps the
+  circle; tangency alone does not count. The base circle is reduced to match
+  the old centre-tested cell footprint when standing at a cell centre. Smooth
+  movement still changes which boundary cells overlap. Each Inner Light upgrade crosses only
+  the next projected cell-square overlap threshold, unlocking tied cells together.
+  Upgrade thresholds use actual row grid widths, including the differently aligned cells at tile-row seams;
+  the established nominal base radius remains unchanged,
+  and are cached by the containing cell and projection. Depth and blindness
+  adjust the base radius before upgrades, so every upgrade adds reachable cells; light conveys reach and live POIs without outline rings. The radial player glow uses
+  `PLAYER_OUTPUT_K = 0.44`; the added circular reach light is halved by
   `REACH_OUTPUT_K = 0.5`. The smooth player glow carries the removed half,
   preserving nearby brightness on the surface and underground. It fades beyond
-  the reach rim within the existing light radius; interaction distance is unchanged.
+  the reach rim within the existing light radius.
   Day/night leaves the reach plateau bright;
   caves ignore it.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors
@@ -472,6 +481,13 @@ to the existing noon level. Underground lighting is unchanged.
   barrel or pot (`o.barrel`, no `poiClass`) get neither. Use the existing
   derived luminance/contrast controls; remeasure the plateau ceiling before
   raising it.
+- Waystones use the existing plain rounded low-rock frame (`rock_variants:0`)
+  at the shared small-rock scale. At startup, a source-atop ivory material
+  variant preserves the rock’s alpha and shading. The per-draw material hook
+  selects it while lit so activation reads in daylight in Canvas and WebGL;
+  cached geometry remains valid. `Waystones.isLit` also gates the steady ivory `Lighting.KINDS.waystone` source, including permanent
+  completed sets. Unlit stones emit no light and no daily-availability pulse.
+  The same inset contact shadow as mineral rocks grounds the low silhouette.
 - Streets restore metre intervals along each transportation line, keyed by
   `Streets.lineKey(feature, lineIdx)`, clipped to tile spans. Keep reach tied
   to the player and visuals keyed by `Streets.epoch`; do not add per-cell road
@@ -525,7 +541,7 @@ to the existing noon level. Underground lighting is unchanged.
   Synthetic loot classes need both a `CLASS_MAX_TIER` ceiling and a branch
   before item resolution. Cash rewards have no `slot`.
 
-Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
+Tests: `lighting`, `lighting_player_circle`, `streets`, `street_lamps`, `road_overlay`,
 `trail`, `loot`; also `tools/layer_audit.js`.
 
 - Cave pressure plates use a low-opacity floor mark revealed within one body
@@ -539,9 +555,9 @@ Measure CPU work and uploads before replacing another renderer. Moving lights
 and flicker can trigger Canvas blending and a full lighting texture refresh.
 The lighting prototype (`?gpuLighting=true`) moves composition into Phaser's
 WebGL context. `lighting.js` supplies cached source canvases with repaint
-revisions, crop positions and fade weights; `lighting_gpu.js` uploads changed
-sources and composites them into a retained GPU lightmap. Reach masks blend
-before receiving their radial colour; cover composites last. Explicit
+revisions and crop positions; `lighting_gpu.js` uploads changed sources and
+composites them into a retained GPU lightmap. The circular reach mask receives
+its radial colour before composition; cover composites last. Explicit
 premultiplied-alpha blend factors preserve Canvas additive semantics.
 
 The prototype defaults off. Unsupported renderers and compositor failures use
@@ -584,11 +600,9 @@ actually been emitted; interaction cells, shop signs and delivery badges remain.
 Badge elevation reads the emitted building height. Geometry remains in the existing
 building background layer below actors, including on tall roofs.
 
-`?buildingArt=rounded` selects the previous rounded sprite set;
 `?buildingArt=legacy` selects the original sprites. Omit the query or use
 `buildingArt=procedural` for footprint architecture. This per-page selection is
-not saved; all original assets remain available. The rounded sprite set also
-continues to supply restoration cards and Home icons.
+not saved. Original sprites also supply restoration cards and Home icons.
 
 ## Bush and container artwork
 
@@ -606,25 +620,17 @@ use copper-rimmed or repaired barrels and charcoal pottery, and wetland contexts
 use mossy rain barrels. Pot shards retain the intact pot's frame. Selection does
 not change rewards, material identity, saved IDs or restocking behavior.
 
-## Rounded building artwork
+## Building sprite artwork
 
-The retained building set is `assets/Objects/RoundedBuildings/buildings.png`.
-`ASSETS.rounded_buildings.frameRects` registers its sixteen named frames,
-cut from the 96px cells into 64×64 house and 80×80 fort frames ending at the
-shared ground row (88px within each cell). `Render.houseTextureKey` and
-`Render.houseTextureFrame` route map buildings, restoration choices and Home's
-icon through the same role and shop-line mapping. The existing footprint-based
-world scale, bottom-centre anchor and ground position remain the sizing rules;
-the native frame dimensions do not introduce a second world-scale multiplier.
+Restoration choices, Home's icon and map sprite fallbacks use the original
+role textures through `Render.houseTextureKey` and `Render.houseTextureFrame`.
+Plain houses use the `house` front frame; shops and other roles use their
+original `house_<role>` images. Wizard towers and turrets retain their shrine
+and tower frames. Unclaimed forts use their baked weathered artwork.
 
-Use `?buildingArt=legacy` (or `&buildingArt=legacy` with other query options)
-to compare the original artwork. Use `buildingArt=rounded` for
-the rounded set. `Render.buildingArtStyle` is the single runtime selection; it is
-not saved. All original assets and registrations remain available for rollback.
-Castle perimeter towers retain their existing material-family art. The rounded
-wreck and unclaimed fort contain their weathering and receive no second wash.
-The source sheet and extraction metadata are archived under
-`~/.artifacts/house-rounded/`.
+Procedural buildings remain the default on the map. `?buildingArt=legacy`
+selects the original sprites instead. Both modes use the original artwork
+for dialog icons and sprite fallbacks.
 
 Default oak barrel art uses the supply crate’s manufactured-wood palette directly,
 without a runtime tint. Only frame 0 of the barrel sheet is replaced; the other

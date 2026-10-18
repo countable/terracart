@@ -123,14 +123,3 @@ Use an explicit reference image edit, or `--reprocess` an existing master.
 After direct runtime asset edits, run `node tools/art_thumbs.js`. It preserves
 image aspect in the thumbnails and mosaic cuts and emits `ART_ASPECTS` for
 layout before the full painting loads. Legacy 11:14 paintings remain supported.
-
-## Rounded building alternatives
-
-The sixteen-frame rounded building sheet ships unchanged at
-`assets/Objects/RoundedBuildings/buildings.png`. Its source, checksum, original
-96px-cell rectangles and ground anchors are recorded in
-[rounded-buildings.json](rounded-buildings.json). `ASSETS.rounded_buildings`
-registers tight 64px house and 80px fort frames without cutting visible pixels.
-All legacy building PNGs remain in place; `?buildingArt=legacy` selects them.
-The renderer's existing scale and placement rules are unchanged; see
-[building artwork selection](../design/rendering.md#rounded-building-artwork).

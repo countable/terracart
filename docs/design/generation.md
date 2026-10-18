@@ -356,6 +356,18 @@ access or tile lifecycle mechanics.
   The chest at a trail's end rolls `CHEST_TRAIL_TIER_BONUS` tier higher, within
   its depth cap; an X at a trail's end (`Starter.isTrailTreasure`) shows and
   digs without waiting for the feet to stand beside it.
+- Each Pilgrim's Way street key owns one tile-local set of 3–6 waystones.
+  Stable cell hashes choose a compact cluster on safe verge cells, within ten
+  cells of its anchor and without crossing an arterial. Geometry fragments
+  share the set; fewer than three legal, spaced seats produces no puzzle.
+  Each stone carries `waystoneSet` and the actual `waystoneCount`; all seats
+  are claimed together before later ambient dressing. Grounded feet light a stone
+  for `Waystones.LIGHT_MS`; tapping an unlit stone says “closer...” and grants
+  no lore. All members must be lit simultaneously. Completion lives in
+  `save.waystoneSets`, leaves every member permanently lit, and saves one T3
+  chest beside the player. Unopened rewards are restored after tile reloads;
+  if nearby legal cells are full, the completed set retains a pending chest
+  until a safe seat is available. Temporary lights use `save.waystoneUntil`.
 - A Small road's end inside the tile that meets no other vehicle way (a
   cul-de-sac) holds one tier-1 supply crate (`o.crate`, no `poiClass`, so it
   gives once): `StreetVariants.dress`, seated like an end piece, capped per
@@ -688,8 +700,8 @@ access or tile lifecycle mechanics.
   A fallen pet rejoins through `Companions.tickPets` catch-up.
 - POIs that are no chest ride existing lanes too: a GATE is two posts round a
   spawn point (`WorldGen.gatePostsAt`, lairs.js `'gate'` tier — one foe a UTC
-  day, `DAILY_TIERS`); an INFORMATION board reads a Book page like the
-  waystone (`pageStone`); a bike rack's speed is a reason in the stick-walk
+  day, `DAILY_TIERS`); an INFORMATION board reads a Book page
+  (`pageStone`); a bike rack's speed is a reason in the stick-walk
   lane (`_walkRelics` → `steerSpeedMul`); road furniture that is no place
   (`SX_NOT_A_PLACE`) mints nothing.
 - Tile rebuilds replace the entry. Decide which state survives and which is
@@ -724,7 +736,8 @@ Higher-priority placements and their access space take precedence in this order:
    rather than moving or deleting a player-owned object. Home's footing (the
    wagon's 3x3 and its firepit, `HomeArea.inFooting`) erases any unclaimed
    house on it entirely — cells, outline and roof — on the built tile only
-   (`clearHomeFooting`), leaving a light 20% footprint shadow (`clearedShapes`);
+   (`clearHomeFooting`), leaving a patch of farmland dirt over the footprint
+   (`clearedShapes`, the farmland colour and texture, drawn by `building_overlay.js`);
    `baseGrid` keeps the building.
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
@@ -843,3 +856,14 @@ preferred cell and every fallback leave at least half a cell between the
 trailer art extent and the firepit cell edge at the initial heading. The saved layout stays fixed through later
 heading changes and reloads. Existing Homes keep their saved positions; sandbox
 and north-up previews retain the north-facing layout.
+
+## Schoolyard game flags
+
+`schoolyard_fields.js` joins connected SCHOOL ground across loaded tile seams
+and places one flag near each field's center, on a cell allowed by the shared
+reward spawn gate. Buildings, roads, private land and occupied cells are
+excluded. Fields touching unloaded edges wait for their surrounding map data.
+The seven-cell-wide play area uses reachable safe field cells around the flag;
+small fields without nine playable cells are skipped. Placement is deterministic
+from terrain and occupancy; flags and active rounds are scene overlays rather
+than saved world objects.

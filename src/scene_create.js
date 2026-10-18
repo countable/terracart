@@ -175,6 +175,7 @@ class SceneCreate {
     // before the first draw. (src/fog.js owns the storage; the masks
     // deliberately do NOT live on the WorldGen tile-cache entries, which get
     // evicted and re-rasterised.)
+    if (typeof FloorSandbox !== 'undefined' && FloorSandbox.active()) FloorSandbox.configure(this);
     Fog.init(this.save, this.cellsPerTile, this._fogGeom());
     // THE FEET ARE ON THE FIX. playerM is the GPS position, and the player
     // sprite is seated so its visible feet land exactly on it (see
@@ -191,17 +192,10 @@ class SceneCreate {
     // Screen pixels per cell, published for modules that size sprite boxes in
     // metres (interact.js' creature hit-test) without an app.js global.
     this.cellPx = CELL_PX;
-    // Reach RADIUS is now computed dynamically in coords.js (reachRadiusM): it
-    // starts at 2.5 cells and grows to 5.5 via Inner Light upgrades.
-    // NOTE: object/creature/wildplant taps share the SAME reach radius as cell
-    // taps — interact.js' tooFar gate now reads coords.js reachRadiusM (the
-    // dynamic 2.5..5.5-cell radius), NOT a fixed distance, so the lit
-    // reach indicator and the tap-accept gate stay in lock-step at every reach
-    // tier — and it is the ONLY reach gate; the Euclidean one it replaced is
-    // gone rather than kept behind a guard. Tap PRECISION — how exactly your
-    // tap must land on
-    // the target — is a separate question, answered by cell membership
-    // (interact.js), and is independent of how far the player can reach.
+    // coords.js owns the continuous player-centred reach radius. Inner Light
+    // upgrades cross successive circle/cell overlap thresholds. Cell, object
+    // and creature taps share that radius; tap precision is a separate cell
+    // membership check in interact.js.
     this.startWorldM = {
       x: this.originPx.x * this.mPerPx,
       y: this.originPx.y * this.mPerPx,
@@ -282,6 +276,7 @@ class SceneCreate {
     // Traps: the barely-there scuff of a hidden one and the sprung iron jaw of
     // a discovered one. Temporary procedural stand-ins — see textures.js.
     makeTrapTextures(this);
+    makeWaystoneTexture(this);
     // Cache data URLs for items whose map sprite isn't on Crops.png / Spring Crops.png,
     // so the inventory bar and shop modal (which are DOM, not Phaser) can render the
     // exact same image. Run after sheet loads so all source images are ready.
@@ -519,8 +514,7 @@ class SceneCreate {
     // (below, above the sprites) when the world gained more than one light,
     // see src/lighting.js. Then the white reach OUTLINE, the tap affordance:
     // the lightmap's plateau is bright enough (PLATEAU_OUTPUT_K) to mark the
-    // reach area on its own, and it traces the same cell-exact staircase the
-    // line did. What remains here is the reveal alone.
+    // reach area with a continuous circle. What remains here is the reveal alone.
     this.reachGfx = this.add.graphics();
     // The Potion of Blight's aura (_tickBlightAura) — a disc LYING on the
     // ground around the feet, so it is a ground layer: over the terrain and

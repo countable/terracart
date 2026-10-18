@@ -155,9 +155,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   Dormant inscriptions use invented geometric glyphs at a shared size; their
   accessible names and Spirit explanations still identify the module in English.
 
-- Compass shine is disabled in the live HUD: it installs no reflection layers,
-  animation loop, or tilt listeners. The baked emission assets and
-  `CompassShine` implementation remain available for the development prototype.
+- Compass shine is disabled in the live HUD: its script and stylesheet are not
+  loaded, so it installs no reflection layers, animation loop, or tilt listeners.
+  The baked emission assets and `CompassShine` implementation remain available
+  for the development prototype.
 
 - Starter guidance is a floating Dragon Spirit portrait with a compact, pale
   speech bubble on the upper map. Each step gives one spoken instruction;
@@ -484,6 +485,19 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,
 `item_descriptions`, `books`, `story_neighbours`, `stranger`, `buffs`.
+
+## Schoolyard tile game
+
+Schoolyard field flags start a round when walked onto. The HUD shows score,
+seconds remaining, and an eastward shift countdown. Colored inset outlines
+preview the next pattern, which wraps east by one tile every three seconds.
+Blue gives one point per accumulated second on blue; red subtracts three per
+accumulated second on red. Purple gives five immediately, then becomes blue
+until the next shift. Pulsing brightness does not change a tile's scoring.
+Rounds stop at 30 seconds of active play; dialogs, background tabs and being
+downed pause the clock. Leaving the surface cancels the round. Final scores
+remain visible until another round starts; leave and re-enter the flag cell to
+replay. These scores are local minigame scores, not inventory currency.
 
 ### Home-bound memory events
 

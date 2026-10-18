@@ -60,6 +60,17 @@ picked, blossoming and ready apple/peach trees through the normal harvest ledger
 
 ## Floor viewer
 
+Click **Play in sandbox** in `tools/floor-viewer.html` to play the displayed
+map with the standard sandbox inventory and equipment. The selected floor,
+variant and seed travel with the generated map in this browser tab. Gameplay
+uses normal creature AI, combat and Home safety rules; the viewer's visibility
+toggles and preview-only safety slider do not alter gameplay. This session
+starts fresh and does not write to your saved game. **☰ → Sandbox test lab**
+offers **Restart this map** and **Return to floor viewer**. Launch from the
+viewer first; the game link requires its map snapshot in session storage.
+Check the transfer with `node test/floor-sandbox.test.cjs` and the live game
+with `python3 test/floor_sandbox_smoke.py --url http://localhost:8765`.
+
 `tools/floor-viewer.html` builds its compact region through the live generation
 pipeline. Each floor button renders that actual depth: goblin city at 2, deep
 stone at 3, fungal Underdark at 4, haunted city at 5, lava at 6, and dragon
@@ -84,8 +95,16 @@ sandbox persistence behaviour is unchanged.
 Add `&skipStory=true` to bypass the opening slides, location/safety splash and
 initial how-to card in sandbox mode. No location or compass permission is
 requested by this shortcut. It does not mark the story as seen in normal play.
-Combine both flags for a fresh, click-free fixture launch:
-`index.html?sandbox=true&sandboxZone=castle&reset=true&skipStory=true`.
+Add `&skipTutorial=true` to hide the tutorial guidance and automatic compass
+activation panes, and make every compass control available for testing. This
+is a session override: saved tutorial progress and unlocks are not rewritten.
+
+The test directory has switches for reset, opening story/location setup, and
+tutorial/activation panes. Defaults reset local saves and skip both onboarding
+flows; switching a control updates every test permalink, including combat kits.
+The directory URL retains the chosen options for sharing or reloading.
+For a fresh, click-free fixture launch:
+`index.html?sandbox=true&sandboxZone=castle&reset=true&skipStory=true&skipTutorial=true`.
 
 Use `index.html?sandbox=true&sandboxZone=forest` to start at a named destination.
 Examples include `beach`, `wetland`, `golf`, `castle`, `fort`, `grove`, `stones`,
@@ -171,7 +190,7 @@ and plain-rock examples remain in the surrounding grid.
 | toadstool | Garden Row | mushroom verge and teal lamps |
 | overgrown | Fern Way | staged roadside trees |
 | orchard | Cherry Lane | alternating apple and maple rows |
-| pilgrim | Abbey Walk | waystone end piece |
+| pilgrim | Abbey Walk | set of 3–6 stepping waystones |
 | golden | Coin Row | a golden idol; its daily spree fills the verges with coins |
 | thorny | Thorny Way | brambles and a narrow road corridor |
 | snare | Iron Lane | a snare chest ringed by iron teeth, a few stray snares down the lane |
