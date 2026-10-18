@@ -312,10 +312,10 @@
     if((styleId==='pyramid'||styleId==='japanese')&&!BuildingStyles.inset(points,3))
       return geometry(points,styleId==='pyramid'?'inset':'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE);
     const base=BuildingStyles.STYLES[styleId]||BuildingStyles.STYLES.adobe;
-    const scale=styleId==='ruin'?.75:(recipe.stories*FLOOR_HEIGHT+EAVE_RISE)/(base.height*(styleId==='multistorey'?2:1));
+    const scale=styleId==='ruin'?.75:(recipe.stories*FLOOR_HEIGHT+EAVE_RISE)/(base.height*recipe.stories);
     const cacheKey='style:'+styleId+':'+scale+':'+JSON.stringify(recipe)+':'+points.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
     if(meshCache.has(cacheKey))return meshCache.get(cacheKey);
-    const model=BuildingStyles.build(points,styleId,{geometryOnly:true,scale,upperSetback:recipe.terraced?24:undefined,palette:{wall:recipe.body,roof:recipe.roof,trim:recipe.trim}});
+    const model=BuildingStyles.build(points,styleId,{geometryOnly:true,scale,stories:recipe.stories,upperSetback:recipe.terraced?24:undefined,palette:{wall:recipe.body,roof:recipe.roof,trim:recipe.trim}});
     const faces=[],quads=new Map();
     const add=(p,kind,color,layer,extra)=>{
       const [a,b,c]=p,ux=b.x-a.x,uy=b.y-a.y,uz=b.z-a.z,vx=c.x-a.x,vy=c.y-a.y,vz=c.z-a.z;

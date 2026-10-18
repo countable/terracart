@@ -162,7 +162,10 @@
         }
       }
     };
-    const h = style.height * scale;
+    const stories = options.stories || 1;
+    const terraced = styleId === 'multistorey' && options.stories !== 1;
+    const facadeStories = terraced ? 1 : stories;
+    const floorHeight = style.height * scale, h = floorHeight * (terraced ? (options.stories || 2) / 2 : stories);
     const courses = (p, lo, hi, count, color) => {
       if (options.geometryOnly) return;
       for (let i = 1; i <= count; i++) {
@@ -189,7 +192,10 @@
     add(ring, 0, h, palette.wall);
     if (styleId !== 'ruin') {
       courses(ring, 0, h, styleId === 'brick' || styleId === 'fort' ? 3 : 1, shade(palette.wall, 0.9));
-      windows(ring, h * 0.48);
+      for (let floor = 0; floor < facadeStories; floor++) {
+        windows(ring, floorHeight * (floor + 0.48));
+        if (floor) slab(ring, floorHeight * floor - scale * 0.4, floorHeight * floor + scale * 0.4, palette.trim);
+      }
     }
     if (styleId === 'ruin') {
       // Low, open walls keep the original damaged floor visible.

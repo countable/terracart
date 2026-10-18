@@ -284,3 +284,10 @@ clearance on both sides. No nearby street or no suitable wall means no decoratio
 The retained door triangles rotate, sort and fade with the building; they do not
 alter its footprint, movement or tap target. Home retains its authored entrance,
 and wrecks and special tower silhouettes do not receive floating doors.
+
+Ranked buildings use one storey at T1 and two storeys at T2 and above,
+across smithies, traders and every shop line. T3+ may gain extra floors or
+ornaments; the current baseline stays at two. Gameplay ranks come from
+`Shops.shopTier`, not footprint biome tiers. Renovation invalidates cached
+geometry immediately. Unranked homes, ruins and special structures retain
+their own designs; `scene.buildingStoreys` remains a preview override.
