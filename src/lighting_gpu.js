@@ -243,7 +243,7 @@
         canvasQuad(st, plan.cover, plan.cover.x, plan.cover.y,
           plan.cover.canvas.width, plan.cover.canvas.height);
       }
-      // All active fade masks are pinned until composition finishes. Drop
+      // All active source canvases are pinned until composition finishes. Drop
       // inactive sources now so GPU uploads cannot keep evicted canvases alive.
       for (const [canvas, source] of st.sources) if (source.used !== st.frames) {
         r.deleteTexture(source.texture); st.sources.delete(canvas);

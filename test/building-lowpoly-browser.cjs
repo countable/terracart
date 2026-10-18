@@ -10,10 +10,20 @@ const sharing=await page.evaluate(()=>{
  for(const stories of [1,2,3])BuildingLowPoly.add(scene,pts,{...recipe,stories},'ridge');
  const sheets=new Set(scene._lowpoly.faces.map(f=>f.texture)).size,added=scene.textures.getTextureKeys().length-before;
  const heights=scene._lowpoly.buildings.map(m=>m.height);
- const texture=scene._lowpoly.faces[0].texture,pixels=texture.getContext().getImageData(0,0,512,512).data,colors=new Set();
- for(let i=0;i<pixels.length;i+=4)colors.add(`${pixels[i]},${pixels[i+1]},${pixels[i+2]}`);
- rebuild();return {sheets,added,heights,colors:colors.size};
-});assert.equal(sharing.sheets,1);assert.equal(sharing.added,0);assert(sharing.colors<=160,"posterised atlas tiles keep a bounded palette");sharing.heights.forEach((height,i)=>assert(Math.abs(height-((i+1)*31.2+5))<1e-6));
+ const texture=scene._lowpoly.faces[0].texture;
+ const material={key:texture.key,width:texture.getSourceImage().width,height:texture.getSourceImage().height,roofPeriod:texture.roofPeriod};
+ const large=BuildingLowPoly.add(scene,[{x:0,y:0},{x:800,y:0},{x:800,y:800},{x:0,y:800}],recipe,'ridge');
+ let wrapped=false;
+ const roofPhase=large.faces.filter(f=>f.kind==='roof'&&!f.solid&&!f.rawUV).every(f=>f.points.every(p=>{
+  const shifts=[p.u/1.3-p.tu*512,p.v/1.3-(p.tv*512-128)];
+  return shifts.every(shift=>{if(Math.abs(shift)>1)wrapped=true;return Math.abs(shift/120-Math.round(shift/120))<1e-8;});
+ }));
+ rebuild();return {sheets,added,heights,material,sheetSize:BuildingLowPoly.LOOK.sheet,roofPhase,wrapped};
+});assert.equal(sharing.sheets,1);assert.equal(sharing.added,0);
+assert(sharing.material.key.startsWith('lowpoly:tileset-v2:'),'review uses approved materials');
+assert(sharing.wrapped&&sharing.roofPhase,'large approved clay roofs retain tile phase across atlas wraps');
+assert.equal(sharing.material.width,sharing.sheetSize);assert.equal(sharing.material.height,sharing.sheetSize);assert.equal(sharing.material.roofPeriod,360);
+sharing.heights.forEach((height,i)=>assert(Math.abs(height-((i+1)*31.2+5))<1e-6));
 const result=await page.evaluate(()=>{
  const s=reviewScene,state=s._lowpoly,original=state.faces.slice(),textures=s.textures.getTextureKeys().length,builds=state.builds;
  let refreshes=0;for(const texture of new Set(original.map(f=>f.texture))){const refresh=texture.refresh.bind(texture);texture.refresh=()=>{refreshes++;return refresh();};}

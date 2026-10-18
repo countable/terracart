@@ -67,7 +67,9 @@ legacy sprite modes retain the north-up wall atlas artwork.
 The WebGL low-poly path (`building_lowpoly.js`) draws houses to match the 2D
 billboard sprites: `BuildingLowPoly.LOOK` owns the height foreshortening, the
 ink outline pass, eave shadow, flat-deck bands and chimney numbers, and the
-material sheets are cut once per material from the tilesets. Each low-poly
+material sheets are cut once per material from the tilesets. Roof UV wrapping
+uses the selected sheet's repeat: 360 texels for approved crops, 288 for generated
+and cel sheets, so atlas boundaries preserve the material pattern. Each low-poly
 building has a pooled render object in `worldContainer`, interleaved with props
 and actors by its footprint's vertex-average ground anchor. Faces and ink groups
 remain ordered within that building. This is whole-building painter ordering,
@@ -455,7 +457,7 @@ the reach rim within the existing player-light radius.
 
 - `lighting.js` owns the sole lighting pass: additive source cookies composed
   into a lightmap and multiplied over the world. Canvas is the default compositor;
-  the opt-in GPU compositor below consumes the same shapes and fade weights.
+  the opt-in GPU compositor below consumes the same shapes and light gains.
   Do not add darkness passes or dim sprites
   again. Its screen-attached base (ambient plus player ramp) stays baked while
   walking; the player circle retains fractional-pixel positioning without cell-change fades.
@@ -469,7 +471,10 @@ the reach rim within the existing player-light radius.
   circle; tangency alone does not count. The base circle is reduced to match
   the old centre-tested cell footprint when standing at a cell centre. Smooth
   movement still changes which boundary cells overlap. Each Inner Light upgrade crosses only
-  the next overlap threshold, unlocking tied cells together. Depth and blindness
+  the next projected cell-square overlap threshold, unlocking tied cells together.
+  Upgrade thresholds use actual row grid widths, including the differently aligned cells at tile-row seams;
+  the established nominal base radius remains unchanged,
+  and are cached by the containing cell and projection. Depth and blindness
   adjust the base radius before upgrades, so every upgrade adds reachable cells; light conveys reach and live POIs without outline rings. The radial player glow uses
   `PLAYER_OUTPUT_K = 0.44`; the added circular reach light is halved by
   `REACH_OUTPUT_K = 0.5`. The smooth player glow carries the removed half,
@@ -550,9 +555,9 @@ Measure CPU work and uploads before replacing another renderer. Moving lights
 and flicker can trigger Canvas blending and a full lighting texture refresh.
 The lighting prototype (`?gpuLighting=true`) moves composition into Phaser's
 WebGL context. `lighting.js` supplies cached source canvases with repaint
-revisions, crop positions and fade weights; `lighting_gpu.js` uploads changed
-sources and composites them into a retained GPU lightmap. Reach masks blend
-before receiving their radial colour; cover composites last. Explicit
+revisions and crop positions; `lighting_gpu.js` uploads changed sources and
+composites them into a retained GPU lightmap. The circular reach mask receives
+its radial colour before composition; cover composites last. Explicit
 premultiplied-alpha blend factors preserve Canvas additive semantics.
 
 The prototype defaults off. Unsupported renderers and compositor failures use
