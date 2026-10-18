@@ -104,3 +104,18 @@ test('shop lines: restoration cards respect every allowed magic and relic rank',
     assert.eq(cards.map(card => card.tier).join(), tiers.join());
   }
 });
+
+test('shop lines: stamped shops resolve without scanning the restoration ledger', () => {
+  const save = {
+    restoredHouses: new Proxy({ market: 'shop' }, {
+      ownKeys() { throw new Error('stamped shop must not scan the ledger'); },
+    }),
+    shopLines: { market: 'seed' },
+    shopTiers: { market: 2 },
+  };
+  const line = Shops.lineFor(save, { id: 'market' });
+  assert.eq(line.theme, 'seed');
+  assert.eq(line.tier, 2);
+  save.shopTiers.market = 3;
+  assert.eq(Shops.lineFor(save, { id: 'market' }).tier, 3, 'renovations are visible immediately');
+});
