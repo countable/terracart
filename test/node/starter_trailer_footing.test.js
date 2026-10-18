@@ -22,6 +22,7 @@
     _placePendingHomeFirepit: lift('_placePendingHomeFirepit'),
     _firepitGroundOK: lift('_firepitGroundOK'),
     _makeStarterTrailer: lift('_makeStarterTrailer'),
+    _homeDoorSideToStreet: lift('_homeDoorSideToStreet'),
     ensureStarterTrailerObject: lift('ensureStarterTrailerObject'),
     clearHomeFooting: lift('clearHomeFooting'),
     _homeFootingAnchor: lift('_homeFootingAnchor'),
@@ -125,6 +126,31 @@
       const reload = scene(JSON.parse(JSON.stringify(s.save)));
       reload.ensureStarterTrailerObject();
       assert.eq(JSON.stringify(reload.save.homeFirepit), pit, 'reload retains the saved layout');
+    });
+  });
+
+  test('home footing: Home\'s door faces the nearest street, else the wall facing the player at placement', () => {
+    assert.eq(HomeArea.DOOR_STREET_CELLS, 6);
+    // A road column five cells east of the anchor cell: the door is in the east wall.
+    const road = tile([]);
+    for (let iy = 24; iy <= 34; iy++) road.grid[iy * N + 35] = WorldGen.T.ROAD;
+    const s = scene({ homePlacementHeading: 0 });
+    withTile(road, () => {
+      s._makeStarterTrailer(at(30, 29).x, at(30, 29).y);
+      assert.eq(s.save.starterTrailer.door, 'E', 'the door faces the street');
+      assert.eq(s._homeDoorSideToStreet(at(30, 29).x, at(30, 29).y), 'E');
+    });
+    // The nearest road wins: a closer one to the north.
+    for (let ix = 26; ix <= 34; ix++) road.grid[26 * N + ix] = WorldGen.T.ROAD;
+    withTile(road, () => assert.eq(s._homeDoorSideToStreet(at(30, 29).x, at(30, 29).y), 'N'));
+    // No road within reach: the placement heading's wall, as before.
+    const quiet = tile([]);
+    for (let iy = 0; iy < N; iy++) quiet.grid[iy * N + 50] = WorldGen.T.ROAD;   // twenty cells away
+    const t = scene({ homePlacementHeading: 0 });
+    withTile(quiet, () => {
+      assert.eq(t._homeDoorSideToStreet(at(30, 29).x, at(30, 29).y), null, 'too far to count');
+      t._makeStarterTrailer(at(30, 29).x, at(30, 29).y);
+      assert.eq(t.save.starterTrailer.door, HomeArea.doorSide(0), 'the heading decides');
     });
   });
 

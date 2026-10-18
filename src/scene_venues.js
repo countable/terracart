@@ -1256,6 +1256,30 @@ class SceneVenues {
     return !BUILDING_TYPES.has(t) && t !== WorldGen.T.WATER && t !== WorldGen.T.PIER && !WorldGen.isCobbleTerrain(t);
   }
 
+  // Which wall of Home faces the nearest street (owner, Oct 2026: doors face
+  // the street, Home's like every house's): the nearest road or path cell
+  // within HomeArea.DOOR_STREET_CELLS of the anchor cell, by the dominant
+  // axis of the way to it — 'N' / 'S' / 'E' / 'W' — or null with none that
+  // near. The overlay's low-poly facade and the prism doorway both read the
+  // answer back off the saved trailer (save.starterTrailer.door).
+  _homeDoorSideToStreet(wmx, wmy) {
+    const c = worldMetersToTileCell(this, wmx, wmy);
+    const e = WorldGen.tileCache.get(WorldGen.tileKey(c.tx, c.ty));
+    if (!e?.grid) return null;
+    const R = HomeArea.DOOR_STREET_CELLS, n = c.n;
+    let best = null;
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+      const ix = c.ix + dx, iy = c.iy + dy;
+      if ((!dx && !dy) || ix < 0 || iy < 0 || ix >= n || iy >= n) continue;
+      const t = e.grid[iy * n + ix];
+      if (!WorldGen.isRoadTerrain(t) && t !== WorldGen.T.PATH) continue;
+      const d = dx * dx + dy * dy;
+      if (!best || d < best.d) best = { d, dx, dy };
+    }
+    if (!best) return null;
+    return Math.abs(best.dy) >= Math.abs(best.dx) ? (best.dy > 0 ? 'S' : 'N') : (best.dx > 0 ? 'E' : 'W');
+  }
+
   // Build a synthetic "trailer" house at (wmx, wmy), snapped to the cell-grid
   // centre like every real placed object. Worldgen never emits this object, so
   // its position is persisted to save.starterTrailer and re-injected into the
@@ -1269,8 +1293,9 @@ class SceneVenues {
     const address = ((Math.round(x) ^ Math.round(y)) >>> 0) % 1000;
     // tier = T.BUILDING (a plain small house); the starter role overrides the
     // wreck/shop skin in the renderer, so it draws as the player's house
-    // regardless. `door` is the wall facing the player at placement.
-    const door = HomeArea.doorSide(this.save.homePlacementHeading || 0);
+    // regardless. `door` is the wall facing the nearest street, else the
+    // wall facing the player at placement.
+    const door = this._homeDoorSideToStreet(x, y) || HomeArea.doorSide(this.save.homePlacementHeading || 0);
     this.save.starterTrailer = { id, x, y, tier: WorldGen.T.BUILDING, address, door };
     // The trailer IS Home from here on — set before the inject.
     this.save.starterShopId = id;

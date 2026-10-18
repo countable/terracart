@@ -220,6 +220,11 @@
     assert.eq(group.blocks.length, 2); assert.eq(group.parts.length, 2);
     assert.truthy(group.parts.every(p => p.visible && p._worldGeometry && p.triangles.length), 'each block drew into a visible part of its own');
     assert.eq(group.gfx.triangles.length, 0, 'the group graphics stays empty');
+    // The outline is one part under them all, never a part's own edge over
+    // its neighbour (no black seams between the walls, owner, Oct 2026).
+    const inkColour = BuildingLowPoly.LOOK.ink;
+    assert.truthy(group.inkPart?.visible && group.inkPart.triangles.length && group.inkPart.triangles.every(t => t.color === inkColour), 'one ink part, outline only');
+    assert.truthy(group.parts.every(p => p.triangles.every(t => t.color !== inkColour)), 'the wall parts draw no ink');
     assert.truthy(group.parts.every(p => s.list.includes(p)), 'parts join the scene\'s containers');
     // North-up the baseline is horizontal: the sort point is the baseline's
     // point in the player's column, clamped to the section.
@@ -228,12 +233,13 @@
     feet = { x: 60, y: 10 }; s.player.x = 60; WallPerspective.update(s);
     close(group.parts[0]._huAnchor.x, 42, 'the first section clamps to its end'); close(group.parts[1]._huAnchor.x, 60);
     const pieces = WallPerspective.worldPieces(s);
-    assert.eq(pieces.length, 2);
-    assert.truthy(pieces.every((p, i) => p.sprite === group.parts[i] && p.rank === 1 && Number.isFinite(p.groundY)), 'pieces for the shared world sort');
-    close(pieces[1].groundY, 812 + (20 - 100) * 6 / CELL_PX);
+    assert.eq(pieces.length, 3);
+    assert.truthy(pieces[0].sprite === group.inkPart && pieces[0].layer === WorldLayers.GROUND_DECAL, 'the ink part first, with the ground decals');
+    assert.truthy(pieces.slice(1).every((p, i) => p.sprite === group.parts[i] && p.rank === 1 && Number.isFinite(p.groundY)), 'pieces for the shared world sort');
+    close(pieces[2].groundY, 812 + (20 - 100) * 6 / CELL_PX);
     // Back to one graphics object: the parts hide and the group draws again.
     group.perWall = false; WallPerspective.update(s);
-    assert.truthy(group.parts.every(p => !p.visible), 'parts hidden'); assert.truthy(group.gfx.triangles.length, 'the group graphics draws');
+    assert.truthy(group.parts.every(p => !p.visible) && !group.inkPart.visible, 'parts and ink hidden'); assert.truthy(group.gfx.triangles.length, 'the group graphics draws');
     assert.eq(WallPerspective.worldPieces(s).length, 0);
     group.perWall = true; WallPerspective.update(s); WallPerspective.clear(s, 'home');
     assert.truthy(group.parts.every(p => !p.visible) && !group.perWall, 'clear hides the parts');

@@ -51,10 +51,17 @@
     const room = BuildingLowPoly.add(s, [{ x: 60, y: 60 }, { x: 84, y: 60 }, { x: 84, y: 84 }, { x: 60, y: 84 }],
       { role: 'home', stories: 1, material: 'stone', body: 0x999999, roof: 0x777777, trim: 0x444444, interior: true }, 'flat', 'home');
     BuildingLowPoly.update(s);
-    const walls = s._lowpoly.buildings.filter((m) => m.key === 'home');
+    const walls = s._lowpoly.buildings.filter((m) => m.key === 'home' && !m.inkOnly);
     assert.eq(walls.length, 4, 'one render object per wall');
     assert.truthy(walls.every((m) => m.edge && m.obj && m.faces.length), 'each with its edge and its faces');
     assert.eq(new Set(walls.map((m) => m.obj)).size, 4, 'four distinct objects');
+    // The ink is one object more, the whole room's outline under every wall:
+    // no wall inks its own edge over its neighbour's fill (no seams).
+    const ink = s._lowpoly.buildings.filter((m) => m.key === 'home' && m.inkOnly);
+    assert.eq(ink.length, 1, 'one ink object for the room');
+    assert.truthy(ink[0].obj._inkOnly && walls.every((m) => m.obj._noInk), 'the walls leave the ink to it');
+    assert.eq(ink[0].faces.length, walls.reduce((n, m) => n + m.faces.length, 0), 'it outlines every wall');
+    assert.eq(BuildingLowPoly.worldPieces(s).find((p) => p.sprite === ink[0].obj).layer, WorldLayers.GROUND_DECAL, 'sorted with the ground decals, under the walls and the player');
     assert.truthy(room && room.height > 0, 'add still answers a mesh with the house height');
     const byY = (y) => walls.filter((m) => m.edge.a.y === y && m.edge.b.y === y)[0];
     const north = byY(60), south = byY(84), flanks = walls.filter((m) => m !== north && m !== south);
@@ -165,7 +172,7 @@
     // (80, 70) shares it with (70, 60) on the north wall and (84, 74) on the
     // east flank; the south wall and the west flank clamp to their ends.
     s.mapRot = Math.PI / 4; BuildingLowPoly.update(s);
-    const walls = s._lowpoly.buildings.filter((m) => m.key === 'home');
+    const walls = s._lowpoly.buildings.filter((m) => m.key === 'home' && m.edge);
     const wall = (ax, ay, bx, by) => walls.find((m) => m.edge.a.x === ax && m.edge.a.y === ay && m.edge.b.x === bx && m.edge.b.y === by);
     const north = wall(60, 60, 84, 60), east = wall(84, 60, 84, 84), south = wall(84, 84, 60, 84), west = wall(60, 84, 60, 60);
     near(north.support.x, 70); near(north.support.y, 60);

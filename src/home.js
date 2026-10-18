@@ -109,7 +109,7 @@ const HomeArea = {
   HOUSE: {
     minCell: -1, maxCell: 0, // fallback house: exactly two cells per side
     wallPx: 14,        // wall height, screen px (a fort's wall is 5)
-    thicknessPx: 3,    // wall thickness, px — the fort's
+    thicknessPx: 2,    // wall thickness, px — a third under the fort's 3 (owner, Oct 2026)
     ridgePx: 5,        // the roof's ridge above the eaves
     doorCells: 1,      // the doorway's width, cells, centred on the door side
     signLiftPx: 26,    // the sign's seat above the footprint's centre, px
@@ -136,9 +136,14 @@ const HomeArea = {
     return [{ x: cx - half, y: cy - half }, { x: cx + half, y: cy - half },
       { x: cx + half, y: cy + half }, { x: cx - half, y: cy + half }];
   },
-  // Which wall the door is in: the side facing the player's anchor, which
-  // sits at the turned WAGON_OFFSET's opposite. A diagonal heading ties and
-  // takes the north/south answer.
+  // How far (cells) from Home's anchor cell a road cell may be and still
+  // decide the door's wall (scene_venues.js _homeDoorSideToStreet): the
+  // door faces the nearest street; only with none that near does the
+  // placement heading decide (doorSide).
+  DOOR_STREET_CELLS: 6,
+  // Which wall the door is in when no street is near: the side facing the
+  // player's anchor, which sits at the turned WAGON_OFFSET's opposite. A
+  // diagonal heading ties and takes the north/south answer.
   doorSide(heading = 0) {
     // In CELLS, as placed: the anchor is the turned WAGON_OFFSET's opposite.
     const w = this.placementOffsets(heading).wagon;

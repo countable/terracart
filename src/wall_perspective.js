@@ -144,6 +144,7 @@
       group.blocks.length = 0; group.runs = null; group.buildings = null; group.alwaysActive = false; group.gfx.clear(); group.angle = NaN;
       group.perWall = false;
       for (const part of group.parts || []) if (part.visible) { part.visible = false; part.clear(); }
+      if (group.inkPart?.visible) { group.inkPart.visible = false; group.inkPart.clear(); }
     },
     update(scene) {
       const angle = scene.mapRot || 0, c = Math.cos(angle), s = Math.sin(angle);
@@ -226,7 +227,11 @@
           // the player (wallSortPoint, in the group's space), every frame the
           // player or the heading moves; the shared world sort then seats the
           // player between the walls behind and the walls in front. The
-          // group's own graphics stays empty meanwhile.
+          // group's own graphics stays empty meanwhile. The INK is one part
+          // more (`inkPart`), the whole room's outline drawn once under every
+          // wall and the player (worldPieces seats it with the ground
+          // decals) — no part inks its own edge over its neighbour's fill, so
+          // no black seams between the walls (owner, Oct 2026).
           const local = feet ? { x: feet.x - group.x, y: feet.y - group.y } : null;
           group.blocks.forEach((block, i) => {
             const part = group.parts[i] || (group.parts[i] = this._part(scene));
@@ -236,13 +241,19 @@
             part.visible = true; part.setPosition(group.x, group.y);
           });
           for (let i = group.blocks.length; i < group.parts.length; i++) { const part = group.parts[i]; if (part.visible) { part.visible = false; part.clear(); } }
+          const inkPart = group.inkPart || (group.inkPart = this._part(scene));
+          inkPart.visible = true; inkPart.setPosition(group.x, group.y);
+          inkPart._huAnchor.x = group.x; inkPart._huAnchor.y = group.y;
           if (!geometryChanged && !modeChanged && group.alphaKey === alphaKey) continue;
           group.alphaKey = alphaKey;
           g.clear();
-          group.blocks.forEach((block, i) => { const part = group.parts[i]; part.clear(); ink(part, block); fill(part, block); });
+          inkPart.clear();
+          for (const block of group.blocks) ink(inkPart, block);
+          group.blocks.forEach((block, i) => { const part = group.parts[i]; part.clear(); fill(part, block); });
           continue;
         }
         for (const part of group.parts) if (part.visible) { part.visible = false; part.clear(); }
+        if (group.inkPart?.visible) { group.inkPart.visible = false; group.inkPart.clear(); }
         if (!geometryChanged && !modeChanged && group.alphaKey === alphaKey) continue;
         group.alphaKey = alphaKey;
         g.clear();
@@ -274,11 +285,13 @@
       const anchor = typeof viewAnchorWorldM === 'function' ? viewAnchorWorldM(scene) : null;
       for (const group of Object.values(groups)) {
         if (!group.perWall || !group.gfx.visible) continue;
+        const groundY = (part) => anchor ? anchor.y + (part._huAnchor.y - scene.viewCenterY) * scene.cellM / CELL_PX : part._huAnchor.y;
+        if (group.inkPart?.visible) out.push({ sprite: group.inkPart, rank: 0,
+          layer: typeof WorldLayers === 'undefined' ? undefined : WorldLayers.GROUND_DECAL, groundY: groundY(group.inkPart) });
         group.blocks.forEach((block, i) => {
           const part = group.parts[i];
           if (!part) return;
-          out.push({ sprite: part, rank: 1, layer: typeof WorldLayers === 'undefined' ? undefined : WorldLayers.STANDING_PROP,
-            groundY: anchor ? anchor.y + (part._huAnchor.y - scene.viewCenterY) * scene.cellM / CELL_PX : part._huAnchor.y });
+          out.push({ sprite: part, rank: 1, layer: typeof WorldLayers === 'undefined' ? undefined : WorldLayers.STANDING_PROP, groundY: groundY(part) });
         });
       }
       return out;
