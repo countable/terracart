@@ -275,3 +275,10 @@ body.compass-hud #menu[open] > summary {
 @media (max-height: 650px) {
   .compass-panel[data-kind='wizard'] > .modal-box { padding-bottom: 10px !important; }
 }
+
+/* Robe swatches show their saved identity colour inside the shared button frame. */
+.compass-panel .furniture-colour-swatches .compass-action {
+  background: var(--robe-color) !important;
+  color: #17212b !important;
+  text-shadow: none !important;
+}

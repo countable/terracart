@@ -158,7 +158,7 @@ test('modal buttons: choice action labels update on selection and retain the mod
     } finally { WorldGen.tileCache = cache; deleteSave(slot); }
   });
 
-  test('modal buttons: furniture separates ghost pickup, disabled ability and optional flip', () => {
+  test('modal buttons: furniture separates ghost pickup, enabled ability and optional flip', () => {
     const oldCreate = document.createElement;
     const el = () => ({ style: {}, children: [], events: {},
       appendChild(child) { this.children.push(child); },
@@ -168,7 +168,7 @@ test('modal buttons: choice action labels update on selection and retain the mod
     });
     document.createElement = el;
     try {
-      const scene = furnitureScene(), buttons = [], icons = [], shell = { wrap: el(), box: el() };
+      const scene = furnitureScene('bed_quilted'), buttons = [], icons = [], shell = { wrap: el(), box: el() };
       scene.iconSpanHTML = (id, size) => { icons.push({ id, size }); return `<span>${id}</span>`; };
       scene.worldIconHTML = liftSceneMethod('worldIconHTML', { window: {} });
       // Stand in only for the pixel bake; the shipped world-icon renderer
@@ -200,9 +200,9 @@ test('modal buttons: choice action labels update on selection and retain the mod
       assert.eq(pickupRow.children[0].label, 'Pick up');
       assert.eq(pickupRow.children[0].options.variant, 'ghost');
       assert.truthy(pickupRow.style.cssText.includes('justify-content:flex-end'));
-      const ability = actions.children.find(button => button.label.includes('Coming next'));
-      assert.truthy(ability.options.disabled);
-      assert.truthy(ability.label.includes('Craft'));
+      const ability = actions.children.find(button => button.label === 'Sleep');
+      assert.falsy(ability.options?.disabled);
+      assert.eq(ability.label, 'Sleep');
       assert.truthy(actions.children.some(button => button.label === 'Flip'));
       buttons.length = 0;
       record.itemId = 'rug_burgundy';

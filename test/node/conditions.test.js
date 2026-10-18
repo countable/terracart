@@ -316,3 +316,21 @@
     assert.falsy(Conditions.conditionTintOn('nope', 0));
   });
 })();
+
+test('furniture Wash: clears every debuff, preserves buffs, energy and food cooldown', () => {
+  const record = { id: 'tub', itemId: 'washtub' };
+  const save = { furniture: [record], energy: 42, eatReadyAt: 12345, shieldPotionUntil: Date.now() + 60000 };
+  for (const id of Object.keys(Conditions.DEFINITIONS)) Conditions.apply(save, id);
+  const messages = [];
+  const scene = Object.assign(Object.create(SceneFurniture.prototype), {
+    save, depth: 0, _furnitureAbilityAllowed: () => true,
+    flashAtPlayer: msg => messages.push(msg), _syncStatusRow() { this.synced = (this.synced || 0) + 1; },
+  });
+  const buff = save.shieldPotionUntil;
+  assert.truthy(scene.useFurniture(record));
+  assert.falsy(Conditions.hasDebuffs(save));
+  assert.eq(save.energy, 42); assert.eq(save.eatReadyAt, 12345); assert.eq(save.shieldPotionUntil, buff);
+  assert.eq(scene.synced, 1); assert.eq(messages[0], 'Debuffs cleared.');
+  scene.useFurniture(record);
+  assert.eq(messages[1], 'Cool, clear water.');
+});

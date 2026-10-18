@@ -1952,8 +1952,8 @@ const PRICES = {
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
   renovation_permit: 180,   // T4 — one rank on one building, forever; a hammer's neighbour
-  barricade: 12,   // T2 — three wood at Home; deploys the existing wooden obstacle
-  scarecrow: 20,   // crow/deer ward — crafted at Home (HOME_RECIPES) or sold by a Supply Shop
+  barricade: 12,   // T2 — three wood at a workbench; deploys the existing wooden obstacle
+  scarecrow: 20,   // crow/deer ward — crafted at a workbench (HOME_RECIPES) or sold by a Supply Shop
   acorn: 5,
 
   // ── Rock-break minerals ──────────────────────────────────
@@ -2061,13 +2061,14 @@ const FEATHER_REVIVE_ENERGY = 1;
 const TRAP_KIT_KEEP_CHANCE = 0.8;
 
 const ITEM_GUIDE_TIPS = {
-  growth_powder: 'At home I ground nettles with long grass into a green powder. The seedlings stirred before I had finished sprinkling it.',
-  barricade: 'I lashed the spare timber into a barricade at home, then carried it down to the cave. The narrow passage needed less wood than I feared.',
+  workbench: 'I made a workbench at Home from spare wood and rubble. Now I carry it where the work takes me. A level patch of ground is enough.',
+  growth_powder: 'At the workbench I ground nettles with long grass into a green powder. The seedlings stirred before I had finished sprinkling it.',
+  barricade: 'I lashed the spare timber into a barricade at the workbench, then carried it down to the cave. The narrow passage needed less wood than I feared.',
   crow_feather: 'My legs failed on the long road. I pressed the black feather to my lips. Just enough strength to rise. Sometimes that is all a mercy needs to be.',
   scarecrow: 'The deer have kept to the tree line since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
   trap_disarm_kit: 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.',
   torch: 'Light a torch before descending. By its flame, my hand could reach farther into the dark.',
-  throwing_spear: 'I lash a sharp stone to a straight branch and call it a spear. It flies once. I carry a second.',
+  throwing_spear: 'At the workbench I lash a sharp stone to a straight branch and call it a spear. It flies once. I carry a second.',
   sugar_potion: 'I simmered the berries into a potion and left a little by the gate. The hens followed its scent home.',
   rope: 'Grass rope, coiled and ready. Its fibres bore my weight on the return toward daylight. I checked them again before the next descent.',
   flowers: 'Brought the shopkeeper flowers. A softer voice, a kinder price. I had meant only to give her something lovely.',
@@ -2077,10 +2078,10 @@ const ITEM_GUIDE_TIPS = {
   raven_scroll: 'I traced a raven onto the parchment. Its ink-dark wings stirred before the page was dry.',
   thunder_scroll: 'I copied the thunder words onto a blank scroll. Outside, the sky answered.',
   moonbeam_scroll: 'I copied the moon onto a blank scroll by candlelight. When I blew the candle out, the page kept shining.',
-  fireball_scroll: 'At the house I copied the fire spell from memory onto blank parchment. The ink warmed. I moved the bedding away.',
-  fear_scroll: 'I copied the words that had scattered my pursuers onto a blank scroll. Even here at the house, the parchment trembled.',
-  wind_scroll: 'I copied the gust onto a blank scroll from memory. The house door banged open on its own.',
-  treasure_map: 'Back at the house I traced the remembered map onto a blank scroll. Its hidden paths returned. I had hoped one might lead home.',
+  fireball_scroll: 'At the workbench I copied the fire spell from memory onto blank parchment. The ink warmed. I moved the bedding away.',
+  fear_scroll: 'I copied the words that had scattered my pursuers onto a blank scroll. Even here at the workbench, the parchment trembled.',
+  wind_scroll: 'At the workbench I copied the gust onto a blank scroll from memory. The house door banged open on its own.',
+  treasure_map: 'At the workbench I traced the remembered map onto a blank scroll. Its hidden paths returned. I had hoped one might lead home.',
 };
 
 // The ordered Book pages live in play_tips.js; their positions are saved bookmarks.
@@ -2096,7 +2097,7 @@ const EGG_HATCH_SPEC = Object.freeze({
 });
 
 const ITEM_EFFECTS = {
-  workbench: "A sturdy work surface with a brass vice and room for new ideas.",
+  workbench: "Craft tools, supplies and remembered scrolls here, indoors or outdoors. Make your first workbench at Home.",
   bed_quilted: "A soft quilt and a wooden cot promise a quiet night.",
   washtub: "A round wooden washing tub offers a quiet place to freshen up.",
   mirror_brass: "A brass-framed looking glass waits on its own little stand.",
@@ -2197,7 +2198,7 @@ const ITEM_EFFECTS = {
   tome_blight: 'Do not read it near the crops.',
   tome_frost_aura: CONSUMABLE_SPEC.tome_frost_aura.get,
   tome_fire_wall: CONSUMABLE_SPEC.tome_fire_wall.get,
-  blank_scroll: 'At the house, remembered scrolls can be written upon this empty page.',
+  blank_scroll: 'At a workbench, remembered scrolls can be written upon this empty page.',
   fireball_scroll: CONSUMABLE_SPEC.fireball_scroll.get,
   explosive_flask: CONSUMABLE_SPEC.explosive_flask.get,
   fear_scroll: CONSUMABLE_SPEC.fear_scroll.get,
@@ -3035,26 +3036,21 @@ function trailerSellMultiplier() {
 function trailerSellPrice(baseValue) {
   return Math.max(1, Math.ceil((baseValue ?? 1) * trailerSellMultiplier()));
 }
-// What Home CRAFTS — the Craft page beside the Sell page at the trailer
-// (app.js presentHomeCraft). One row per recipe, in the order the page's
-// "Next" button walks them; each craft makes one of `id` from `cost`.
+// Home bootstraps the workbench; placed workbenches offer every other recipe.
+// Keep costs in this catalog: barricade salvage reads its wood cost here too.
 const HOME_RECIPES = [
-  // A sharp stone lashed to a branch (owner, Oct 2026): the spear is the
-  // first cave trip's throw, made at Home from what the first walk picks up.
-  // The torch left this page the same day — it is found on cave floors and
-  // sold at the first Supply Shop, never crafted.
-  { id: 'throwing_spear',     cost: [{ id: 'rubble', qty: 1 }, { id: 'wood', qty: 1 }] },
-  { id: 'scarecrow', cost: [{ id: 'wood', qty: 3 }] },
-  { id: 'barricade', cost: [{ id: 'wood', qty: 3 }] },
-  // Five strands of long grass twist into one rope — the way back up a cave
-  // without buying one or finding one in a shallow cave chest.
-  { id: 'rope',      cost: [{ id: 'longgrass', qty: 5 }] },
-  // Four stones knock a snare's jaw shut for good.
-  { id: 'trap_disarm_kit',  cost: [{ id: 'rubble', qty: 4 }] },
-  { id: 'sugar_potion',      cost: [{ id: 'berry', qty: 2 }] },
-  { id: 'growth_powder', cost: [{ id: 'nettle', qty: 3 }, { id: 'longgrass', qty: 5 }] },
+  { id: 'workbench', station: 'home', cost: [{ id: 'wood', qty: 3 }, { id: 'rubble', qty: 1 }] },
+  // The starter-known spear is the first cave trip's throw. Torches are found
+  // on cave floors and sold at the first Supply Shop, never crafted.
+  { id: 'throwing_spear', station: 'workbench', cost: [{ id: 'rubble', qty: 1 }, { id: 'wood', qty: 1 }] },
+  { id: 'scarecrow', station: 'workbench', cost: [{ id: 'wood', qty: 3 }] },
+  { id: 'barricade', station: 'workbench', cost: [{ id: 'wood', qty: 3 }] },
+  { id: 'rope', station: 'workbench', cost: [{ id: 'longgrass', qty: 5 }] },
+  { id: 'trap_disarm_kit', station: 'workbench', cost: [{ id: 'rubble', qty: 4 }] },
+  { id: 'sugar_potion', station: 'workbench', cost: [{ id: 'berry', qty: 2 }] },
+  { id: 'growth_powder', station: 'workbench', cost: [{ id: 'nettle', qty: 3 }, { id: 'longgrass', qty: 5 }] },
   ...ITEMS.filter(item => item.scroll).map(item => ({
-    id: item.id, cost: [{ id: 'blank_scroll', qty: 1 }],
+    id: item.id, station: 'workbench', cost: [{ id: 'blank_scroll', qty: 1 }],
   })),
 ];
 // Magic Shop brewing: one potion per batch, with fixed ingredient and coin costs.
@@ -3070,13 +3066,13 @@ const BREW_RECIPES = [
   { id: 'shielding_potion', cost: [{ id: 'starflower', qty: 2 }, { id: 'milk', qty: 1 }], coins: 20 },
   { id: 'shrinking_potion', cost: [{ id: 'mango', qty: 2 }], coins: 4 },
 ];
-// Spears are known from the start in every difficulty. Other Home recipes
+// Workbenches and spears are known from the start in every difficulty. Other recipes
 // are learned by first finding their output in the wild, never by buying,
 // bartering, forging or crafting it. addToInv owns the foundWild ledger.
 // Scrolls require previous use instead: their words must be remembered.
 function homeRecipeLocked(save, id) {
   if (ITEM_BY_ID[id]?.scroll) return !Array.isArray(save?.usedScrolls) || !save.usedScrolls.includes(id);
-  return id !== 'throwing_spear' && !save?.foundWild?.[id];
+  return id !== 'workbench' && id !== 'throwing_spear' && !save?.foundWild?.[id];
 }
 // How many times a recipe can be made from what is held: the fewest times
 // any one ingredient covers its share. `count(id)` reads the bag. An empty

@@ -4664,8 +4664,10 @@ Render.drawObjects = function drawObjects(scene) {
   for (const it of environmentList) zList.push({ it, rank: 1,
     layer: Render.itemLayer(it), groundY: groundY(it) });
   for (const it of whirlwindList) zList.push({ it, rank: 3, groundY: groundY(it) });
-  for (const it of plantedList) zList.push({ it, rank: 0,
-    groundY: groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
+  const planterGroundY = new Map(filteredObj.filter(it => furnitureSpec(it.o)?.ability === 'plant')
+    .map(it => [it.o.id, groundY(it, Render.objectGroundOffsetPx(it._appearance, scene.textures))]));
+  for (const it of plantedList) zList.push({ it, rank: it.p.planter ? 2 : 0,
+    groundY: planterGroundY.get(it.p.planter) ?? groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
   for (const it of filteredObj) zList.push({ it, rank: it.o.kind === 'tower' ? 2 : 1,
     layer: Render.itemLayer(it),
     groundY: groundY(it, Render.objectGroundOffsetPx(it._appearance, scene.textures)) });
@@ -6040,6 +6042,10 @@ Render.wildplantShadow = function (plant, art = wildplantSprite(plant)) {
 // than the shared crop art. Tall authored plants (`seat: true`) follow the
 // same cell-foot rule as trees and props off their trimmed ART_BOUNDS.
 Render.plantPlacement = function (plant, art, frame, stage) {
+  if (plant?.planter) {
+    const seat = RENDER_SPEC.furniture.planterCrop;
+    return { scl: seat.scale, oy: seat.originY, dxPx: 0, dyPx: seat.dyPx() };
+  }
   const isCropsSheet = !art || (!art.custom && art.sheet !== 'springcrops');
   const oy = (stage === 0 && isCropsSheet) ? 0.85 : 0.5;
   const isPlantedCrop = !!plant && plant.wildId == null && !plant._placedRock;
@@ -6202,6 +6208,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // would double it, centred under the bake rather than the feet.
     _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true },
     furniture: { key: 'furniture', frame: furnitureFrame,
+      // The 16px crop starts near the north edge and roots in the pot's soil.
+      planterCrop: { scale: 1, originY: 0, dyPx: () => -CELL_PX * 0.5 + 3 },
       origin: [0.5, 0.5], scale: FURNITURE_SCALE, seat: true,
       layer: o => furnitureSpec(o)?.height === 'flat' ? WorldLayers.GROUND_DECAL : WorldLayers.STEP_OVER_PROP,
       flipX: o => !!(furnitureSpec(o)?.flip && o.flip),

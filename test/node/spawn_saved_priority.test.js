@@ -121,14 +121,16 @@
 
   test('saved spawn: restored furniture clears generated clutter and preserves its host and snapshot', () => {
     const record = { id: 'bed', itemId: 'bed_quilted', ...at(30, 30), depth: 0, houseKey: 'home' };
-    const s = scene({ furniture: [record] });
+    const s = scene({ furniture: [record], starterShopId: 'home' });
     const home = { id: 'home', kind: 'house', ...at(30, 30) };
     const clutter = { id: 'clutter', kind: 'rock', ...at(30, 30) };
     const plant = { id: 'plant', crop: 'nettle', ...at(30, 30) };
     const outside = { id: 'outside', kind: 'rock', ...at(31, 30) };
     const snapshot = [home, clutter, outside];
     const entry = { cellsPerEdge: N, objects: snapshot.slice(), genObjects: snapshot,
+      grid: new Uint8Array(N * N), owners: new Uint16Array(N * N), ownerKeys: ['home'],
       wildplants: [plant], genWildplants: [plant] };
+    entry.grid[30 * N + 30] = WorldGen.T.BUILDING;
     PlacedFloor.restoreFurniture(s, entry, 0, 0);
     assert.truthy(entry.objects.includes(home), 'containing house remains available for taps and rendering');
     assert.truthy(entry.objects.includes(outside));
@@ -149,10 +151,18 @@
       const s = Object.assign(new SceneCreatures(), scene({ furniture: [record], caught: [] }), {
         depth, cellM: CELL_M, _pestFreeZone: () => null, _starterTrailAnchor: () => null,
         _provisionStarterHome() {}, _carveStarterPond() {},
+        ensureStarterTrailerObject() {
+          // The real load lifecycle stamps synthetic Home ownership before
+          // reconciliation, after the deterministic generated pass finishes.
+          this.save.starterShopId = 'home';
+          entry.owners = new Uint16Array(N * N); entry.ownerKeys = ['home'];
+          entry.grid[30 * N + 30] = WorldGen.T.BUILDING;
+        },
       });
       if (depth) s.spawnCaveCreatures(entry, 0, 0, depth);
       else s.spawnInTile(entry, 0, 0);
       assert.eq(entry.objects.filter(o => o.id === record.id).length, 1);
+      assert.eq(record.houseKey, depth ? null : 'home', 'surface Home ownership is stamped before furniture reconciliation');
       assert.falsy(entry.objects.includes(clutter), 'saved property replaces generated clutter');
       assert.eq(entry.genObjects[0], clutter, 'deterministic source stays intact');
       assert.truthy(entry._spawned, 'the real spawn pass completes');

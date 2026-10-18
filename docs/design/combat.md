@@ -294,7 +294,7 @@ mechanics.
   Shielding uses Starflowers and Milk. Shrinking
   uses two Mango and four coins, an intentional exception to same-tier inputs
   and the otherwise conservative recipe economics. Sugar Potion retains its
-  existing Home recipe. Growth Powder is crafted at Home from three Nettles
+  workbench recipe. Growth Powder is crafted at a workbench from three Nettles
   and five Long Grass after finding the powder in the wild. Brewing does not change potion effects.
 - Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
@@ -314,6 +314,12 @@ mechanics.
   ground: no step or hop enters it, a body already in it may walk out, and a
   chasing foe sidesteps around it when a jog fits. This is separate from the
   warmth-ring ward (`FIRE_REST_R`), which turns back only entry-level kinds.
+- The Quilted Cot restores all missing energy through `_restoreEnergy` and
+  `Energy.set`, with no coin or daily-use cost. It works only on an owned Home
+  building cell and refuses full energy or `_zeroEnergyLocked()`, both before
+  sleeping and when the shared sleep fade commits. The Inn uses that same fade
+  with its existing paid, once-per-day transaction. Washing Tub clears only
+  `Conditions` debuffs; buffs, energy, food cooldown and terrain remain unchanged.
 - Home is `save.starterShopId`: the player's house, placed by `_placeHome`
   centred one cell north of the player (`HomeArea.WAGON_OFFSET` — the anchor
   keeps the save's old name) so they start in its doorway row, with an empty

@@ -444,7 +444,8 @@ for (const sheet of SpriteLayout.NPC_SHEETS) {
 
 // Player class and bicycle appearances share their verified layout metadata.
 for (const art of Object.values(SpriteLayout.PLAYER_ART)) {
-  ASSETS[art.sheet] = { kind: 'spritesheet', path: art.path, frameWidth: art.fw, frameHeight: art.fh };
+  ASSETS[art.sheet] = { kind: 'spritesheet', path: art.path, frameWidth: art.fw, frameHeight: art.fh,
+    onLoad: scene => PlayerRobeArt.bake(scene, art) };
 }
 
 // Enemy sheets and colour variants share the approved roster with the catalogue.
@@ -452,7 +453,7 @@ for (const art of Object.values(SpriteLayout.PLAYER_ART)) {
 // become bright cyan. Alpha and the original source files remain untouched.
 function recolorEnemyPixels(pixels, palette) {
   const rgb = (hex) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
-  const stops = ['#000000', palette.shadow, palette.mid, palette.highlight].map(rgb);
+  const stops = palette.preserveUnmapped ? null : ['#000000', palette.shadow, palette.mid, palette.highlight].map(rgb);
   // Preserve authored details, such as the crow's red eye on a white gull.
   const colors = new Map(Object.entries(palette.colors ?? {}).map(([from, to]) => [parseInt(from.slice(1), 16), rgb(to)]));
   for (let i = 0; i < pixels.length; i += 4) {
@@ -462,6 +463,7 @@ function recolorEnemyPixels(pixels, palette) {
       for (let ch = 0; ch < 3; ch++) pixels[i + ch] = color[ch];
       continue;
     }
+    if (palette.preserveUnmapped) continue;
     const luma = (0.2126 * pixels[i] + 0.7152 * pixels[i + 1] + 0.0722 * pixels[i + 2]) / 255;
     const t = Math.pow(luma, palette.gamma ?? 1) * 3;
     const segment = Math.min(2, Math.floor(t));
@@ -471,6 +473,66 @@ function recolorEnemyPixels(pixels, palette) {
   }
   return pixels;
 }
+// Authored cyan cloth is separate from skin, hair, tools, armour and the
+// mount. Read each source once at load; every swatch and directional cycle
+// is baked before play, never during a cell crossing or colour selection.
+const PlayerRobeArt = (() => {
+  const CLOTH = { '#349aa4': 0.72, '#4ebcb9': 1, '#6cd8d5': 1.2 };
+  const hex = channels => '#' + channels.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+  function palette(pixels, color) {
+    const found = new Set();
+    for (let i = 0; i < pixels.length; i += 4) {
+      if (pixels[i + 3]) found.add(hex([pixels[i], pixels[i + 1], pixels[i + 2]]));
+    }
+    const channels = [color >> 16 & 255, color >> 8 & 255, color & 255];
+    return Object.fromEntries(Object.entries(CLOTH).filter(([from]) => found.has(from))
+      .map(([from, shade]) => [from, hex(channels.map(v => shade > 1
+        ? v + (255 - v) * (shade - 1) : v * shade))]));
+  }
+  function bake(scene, art) {
+    const cache = scene._playerRobeArt ??= new Map();
+    if (cache.has(art.sheet)) return;
+    const source = scene.textures.get(art.sheet).getSourceImage();
+    const canvas = document.createElement('canvas');
+    canvas.width = source.width; canvas.height = source.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(source, 0, 0);
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const original = new Uint8ClampedArray(pixels.data);
+    // Discover the exact source palette once, then reuse its keys for all colours.
+    const cloth = palette(original, 0xffffff);
+    const variants = new Map();
+    cache.set(art.sheet, variants);
+    if (!Object.keys(cloth).length) return; // Future inseparable sheets use sprite tint.
+    for (const color of Multiplayer.COLORS) {
+      const sheet = `${art.sheet}_robe_${color.toString(16)}`;
+      const channels = [color >> 16 & 255, color >> 8 & 255, color & 255];
+      const colors = Object.fromEntries(Object.keys(cloth).map(from => {
+        const shade = CLOTH[from];
+        return [from, hex(channels.map(v => shade > 1 ? v + (255 - v) * (shade - 1) : v * shade))];
+      }));
+      pixels.data.set(original);
+      recolorEnemyPixels(pixels.data, { colors, preserveUnmapped: true });
+      const out = document.createElement('canvas');
+      out.width = source.width; out.height = source.height;
+      out.getContext('2d').putImageData(pixels, 0, 0);
+      if (!scene.textures.exists(sheet)) {
+        scene.textures.addSpriteSheet(sheet, out, { frameWidth: art.fw, frameHeight: art.fh });
+      }
+      for (const [dir, states] of Object.entries(art.directions)) {
+        for (const [state, frames] of Object.entries(states)) {
+          scene._createAnim(`${sheet}-${state}-${dir}`, sheet, frames, null, state === 'walk' ? 10 : 6);
+        }
+      }
+      variants.set(color, { ...art, sheet, robeColor: color });
+    }
+  }
+  function resolve(scene, art, color) {
+    return scene._playerRobeArt?.get(art.sheet)?.get(color) || art;
+  }
+  return { bake, resolve, palette };
+})();
+window.PlayerRobeArt = PlayerRobeArt;
 // Muted art keeps its original shading and alpha, with 20% of its saturation.
 function muteSpritePixels(pixels) {
   for (let i = 0; i < pixels.length; i += 4) {

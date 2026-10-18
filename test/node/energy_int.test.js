@@ -51,3 +51,16 @@ test('Energy.set is the only writer of save.energy in src/', () => {
   }
   assert.eq(bad.length, 0, 'raw energy writes (use Energy.set):\n  ' + bad.join('\n  '));
 });
+
+test('bed Sleep restores through the shared integer energy writer and preserves other state', () => {
+  const record = { id: 'bed', itemId: 'bed_quilted' };
+  const save = { furniture: [record], energy: 13, money: 25, eatReadyAt: 12345 };
+  const scene = Object.assign(Object.create(SceneFurniture.prototype), {
+    save, depth: 0, _furnitureAbilityAllowed: () => true, _zeroEnergyLocked: () => false,
+    getMaxEnergy: () => 117, _popEnergy(gain) { this.gain = gain; },
+    _restoreEnergy: liftSceneMethod('_restoreEnergy'),
+  });
+  assert.truthy(scene.useFurniture(record));
+  assert.eq(save.energy, 117); assert.eq(scene.gain, 104);
+  assert.eq(save.money, 25); assert.eq(save.eatReadyAt, 12345);
+});

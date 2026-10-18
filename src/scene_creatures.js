@@ -791,6 +791,9 @@ class SceneCreatures {
     // Saved plantings win against generated static scenery after shared RNG draws.
     if (savedPlantings.length) SpawnOwnership.reconcileEntry(this, entry, savedPlantings);
     PlacedFloor.restoreBarricades(this, entry, tx, ty, 0);
+    // Reconcile furniture only after the synthetic Home has stamped its owned
+    // building cells. Otherwise its first load would read bare generated ground.
+    this.ensureStarterTrailerObject?.();
     PlacedFloor.restoreFurniture(this, entry, tx, ty, 0);
     // THE SHORE'S OWN FAUNA (biome_profiles.js SHORE_FAUNA): crabs on the
     // shore sand, gulls and turtles along the shore (the shore and pier cells

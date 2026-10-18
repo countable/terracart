@@ -210,3 +210,58 @@ test('describeAt names the rock / tree / wild plant / creature in the tapped cel
     assert.eq(Multiplayer.describeAt(sc, rock.x + 500, rock.y + 500), '');
   } finally { WorldGen.tileCache.delete(key); }
 });
+
+test('multiplayer: robe changes persist offline and reject colours outside the shared palette', () => {
+  const scene = mpScene();
+  scene.save = { multiplayer: false, playerName: 'Ada', playerColor: Multiplayer.COLORS[0] };
+  Multiplayer.stop(scene);
+  let played = 0;
+  scene._playDirected = () => played++;
+  assert.truthy(Multiplayer.setColor(scene, Multiplayer.COLORS[1]));
+  assert.eq(scene.save.playerColor, Multiplayer.COLORS[1]);
+  assert.eq(played, 1);
+  assert.falsy(Multiplayer.setColor(scene, -1));
+  assert.eq(scene.save.playerColor, Multiplayer.COLORS[1]);
+  assert.eq(played, 1);
+  assert.eq(scene.save.multiplayer, false);
+});
+
+test('multiplayer: colour and name changes rehello only an existing connection', () => {
+  const oldDocument = globalThis.document, oldWebSocket = globalThis.WebSocket;
+  const sockets = [];
+  class FakeWebSocket {
+    constructor() { this.readyState = 1; this.sent = []; sockets.push(this); }
+    send(message) { this.sent.push(JSON.parse(message)); }
+    close() { this.closed = true; }
+  }
+  globalThis.WebSocket = FakeWebSocket;
+  globalThis.document = { visibilityState: 'visible', addEventListener() {},
+    createElement: () => ({ style: {}, addEventListener() {} }), body: { appendChild() {} } };
+  const scene = mpScene();
+  scene.save = { multiplayer: true, playerName: 'Ada', playerColor: Multiplayer.COLORS[0] };
+  scene.add = { container: () => ({ setDepth() { return this; }, add() {} }),
+    graphics: () => ({ clear() {} }) };
+  try {
+    Multiplayer.stop(scene);
+    Multiplayer.setColor(scene, Multiplayer.COLORS[1]);
+    assert.eq(sockets.length, 0, 'offline edit never joins the relay');
+    Multiplayer.start(scene);
+    sockets[0].onopen();
+    Multiplayer.setColor(scene, Multiplayer.COLORS[2]);
+    assert.eq(sockets.length, 2);
+    assert.truthy(sockets[0].closed);
+    sockets[1].onopen();
+    assert.eq(sockets[1].sent[0].color, Multiplayer.COLORS[2]);
+    Multiplayer.setName(scene, 'Bea');
+    assert.eq(sockets.length, 3);
+    sockets[2].onopen();
+    assert.eq(sockets[2].sent[0].name, 'Bea');
+    assert.eq(sockets[2].sent[0].color, Multiplayer.COLORS[2]);
+    Multiplayer.stop(scene);
+    Multiplayer.setName(scene, 'Cora');
+    assert.eq(sockets.length, 4, 'a first name can finish the existing multiplayer opt-in');
+  } finally {
+    Multiplayer.stop(scene);
+    globalThis.document = oldDocument; globalThis.WebSocket = oldWebSocket;
+  }
+});

@@ -6661,11 +6661,9 @@ class MapScene extends Phaser.Scene {
     this._teleporting = true;
     const p = this.playerScreen();
     this._burstAt('shiny', p.x, p.y);
-    cam.fadeOut(TELEPORT_FADE_OUT_MS, 0, 0, 0);
-    cam.once('camerafadeoutcomplete', () => {
-      place();
-      cam.fadeIn(TELEPORT_FADE_IN_MS, 0, 0, 0);
-      this._teleporting = false;
+    cameraBlackout(this, place, {
+      outMs: TELEPORT_FADE_OUT_MS, inMs: TELEPORT_FADE_IN_MS,
+      onDone: () => { this._teleporting = false; },
     });
   }
   // Dig out the cave-wall cell under the player's feet, if that is what they
@@ -7130,7 +7128,7 @@ class MapScene extends Phaser.Scene {
         const v = Math.round(255 * (1 - (1 - DIM_FLOOR) * k));
         tint = (v << 16) | (v << 8) | v;
       }
-      this.player.setTint(mulTint(tint, (this._dragonActive || this._playerArt) ? null : this.save.playerColor));
+      this.player.setTint(mulTint(tint, (this._dragonActive || this._playerArt?.robeColor != null) ? null : this.save.playerColor));
       const key = (hit || spent) ? 'halo_red' : 'halo_dark';
       if (this.playerHalo.texture.key !== key) this.playerHalo.setTexture(key);
       // Strength follows the same k as the tint for the far case, so a halo
@@ -7154,7 +7152,7 @@ class MapScene extends Phaser.Scene {
     } else {
       // At rest the farmer wears the save's own colour — the same tint other
       // players see on them (multiplayer.js), so you can spot yourself.
-      this.player.setTint((!this._dragonActive && !this._playerArt && this.save.playerColor) || 0xffffff);
+      this.player.setTint((!this._dragonActive && this._playerArt?.robeColor == null && this.save.playerColor) || 0xffffff);
       if (this.playerHalo.visible) this.playerHalo.setVisible(false);
     }
     // THE GHOST. While nothing can perceive the player — a Shadow Powder's
@@ -10018,7 +10016,9 @@ class MapScene extends Phaser.Scene {
       this.playerFeetNudgeY = -PLAYER_FEET_DROP_PX * this.playerScale * giantScale;
       return;
     }
-    const desired = SpriteLayout.playerArt(this.save);
+    const baseArt = SpriteLayout.playerArt(this.save);
+    const desired = typeof PlayerRobeArt !== 'undefined'
+      ? PlayerRobeArt.resolve(this, baseArt, this.save.playerColor) : baseArt;
     // Is the desired skin's sheet loaded and every directional anim built?
     // Runs every step, so a YES is remembered per skin (`_skinReady`): the
     // answer only ever turns from no to yes as the lazy sheets arrive, and

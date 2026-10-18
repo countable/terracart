@@ -67,6 +67,36 @@
       assert.eq(f.entry.objects.filter(o => o.id === 'home').length, 1);
     });
   });
+  test('furniture: indoor eligibility follows owned building cells on load and ability commit', () => {
+    const f = fixture(); home(f);
+    world(f, () => {
+      handler('place-furniture').try(f.ctx);
+      const record = f.scene.save.furniture[0];
+      assert.eq(record.houseKey, 'home', 'placement records the actual owner');
+      const reconcile = () => PlacedFloor.restoreFurniture(f.scene, f.entry, 0, 0);
+      f.entry.ownerKeys[0] = 'neighbour'; reconcile();
+      assert.eq(record.houseKey, null, 'load clears a stale saved Home association');
+      f.entry.ownerKeys[0] = 'home'; reconcile();
+      assert.eq(record.houseKey, 'home', 'load derives a current association from the grid');
+      const allowed = liftSceneMethod('_furnitureAbilityAllowed');
+      f.scene._placedFurniture = () => record;
+      f.scene.flashAtPlayer = () => {};
+      assert.truthy(allowed.call(f.scene, record));
+      f.scene.save.starterShopId = 'new-home';
+      assert.falsy(allowed.call(f.scene, record), 'moving Home revokes an open ability');
+      assert.eq(record.houseKey, null);
+      f.scene.save.starterShopId = 'home';
+      f.entry.grid[0] = WorldGen.T.GRASS;
+      assert.falsy(PlacedFloor.furnitureIndoors(f.scene, record), 'owner metadata on open ground is not indoors');
+      f.entry.grid[0] = WorldGen.T.BUILDING;
+      WorldGen.tileCache.clear();
+      assert.falsy(PlacedFloor.furnitureIndoors(f.scene, record), 'unloaded tile cannot authorize an ability');
+      assert.truthy(PlacedFloor.furnitureIndoors(f.scene, record, f.entry), 'load uses its fresh entry before caching');
+      record.depth = 1;
+      assert.falsy(PlacedFloor.furnitureIndoors(f.scene, record, f.entry), 'cave cells cannot be inside surface Home');
+    });
+  });
+
   test('furniture: blocked terrain, safety masks and every occupied lane preserve the stack', () => {
     const blockers = [
       f => { f.entry.grid[0] = WorldGen.T.WATER; },

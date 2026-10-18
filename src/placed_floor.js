@@ -74,6 +74,27 @@
     if (owned.length) SpawnOwnership.reconcileEntry(scene, entry, owned);
   }
 
+  // The ownership grid, not a saved association or distance from Home, owns
+  // indoor eligibility. The entry override is the tile currently reconciling.
+  function homeCell(scene, x, y, depth = scene.depth, entry = null) {
+    if (!isSurface(depth) || !scene.save.starterShopId) return false;
+    const c = worldMetersToAbsCell(scene, x, y);
+    const t = absCellToTile(scene, c.cellIX, c.cellIY);
+    const e = entry || WorldGen.tileCache.get(WorldGen.tileKey(t.tx, t.ty));
+    if (!e?.grid || !e.owners || !e.ownerKeys) return false;
+    const i = t.iy * t.n + t.ix;
+    const type = e.grid[i];
+    return (type === WorldGen.T.BUILDING || type === WorldGen.T.BUILDING_MED
+      || type === WorldGen.T.BUILDING_LARGE)
+      && e.ownerKeys[e.owners[i]] === scene.save.starterShopId;
+  }
+
+  function furnitureIndoors(scene, record, entry = null) {
+    const indoors = homeCell(scene, record.x, record.y, placedDepth(record), entry);
+    record.houseKey = indoors ? scene.save.starterShopId : null;
+    return indoors;
+  }
+
   // Durable property joins the normal object stream, so walls, taps and
   // runtime spawn occupancy all see the same furniture after a tile rebuild.
   function restoreFurniture(scene, entry, tx, ty, depth = scene.depth) {
@@ -82,6 +103,7 @@
       if (!onDepth(record, depth) || !furnitureSpec(record.itemId)
           || Math.floor(record.x / scene.tileEdgeM) !== tx
           || Math.floor(record.y / scene.tileEdgeM) !== ty) continue;
+      furnitureIndoors(scene, record, entry);
       const object = { ...record, kind: 'furniture', placed: true, playerOwned: true,
         spawnCells: SpawnOwnership.tileCells(scene, entry, record, tx, ty) };
       entry.objects = (entry.objects || []).filter(o => o.id !== record.id);
@@ -91,7 +113,7 @@
     if (owned.length) SpawnOwnership.reconcileEntry(scene, entry, owned);
   }
 
-  const api = { placedDepth, stampDepth, onDepth, forDepth, isSurface, indexAt, restoreBarricades, restoreFurniture };
+  const api = { placedDepth, stampDepth, onDepth, forDepth, isSurface, indexAt, homeCell, furnitureIndoors, restoreBarricades, restoreFurniture };
   root.PlacedFloor = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

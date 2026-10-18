@@ -96,6 +96,13 @@ function cellOccupants(scene, save, cwmx, cwmy) {
   };
 }
 
+// A planter supplies soil without tilling the Home's building floor. Other
+// furniture remains an occupied cell for every placement path.
+function planterAt(ctx) {
+  const record = ctx.save.furniture?.[occupantsOf(ctx).furnitureIdx];
+  return furnitureSpec(record?.itemId)?.ability === 'plant' ? record : null;
+}
+
 // Gate a feeding action behind a "Feed <food> to the <fauna>?" confirmation.
 // `doFeed` performs the actual feed AND must persist its own state: it runs
 // asynchronously from the modal callback, after interactTap has already
@@ -1242,6 +1249,13 @@ const TAP_HANDLERS = [
       if (!itemContainsTapCell(scene, o, tapCell)) continue;
       if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, true)) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
+      if (o.kind === 'furniture' && furnitureSpec(o.itemId)?.ability === 'plant') {
+        const held = getSelectedSlot(save);
+        const crop = PlacedFloor.indexAt(save.planted, o.x, o.y, scene.depth, scene.cellM / 2);
+        // The crop owns watering/harvest taps; a held seed goes straight to
+        // the same planting transaction used by field beds below.
+        if (crop >= 0 || (held?.count > 0 && ITEM_BY_ID[held.id]?.kind === 'seed')) continue;
+      }
       // Every tap-driven world object (groundstack / chest / well / tree /
       // mineralrock / fruittree / house / tower) is declared in the
       // INTERACTABLES registry (interactables.js) and dispatched through one
@@ -1447,9 +1461,11 @@ const TAP_HANDLERS = [
       itemId: held.id, ground: () => furnitureGround(ctx), extraGuard: furnitureCellFree,
       place: ({ cell, cwmx: x, cwmy: y }) => {
         const id = WorldGen.cellId(`placed_furniture_d${scene.depth || 0}`, cell.tx, cell.ty, cell.ix, cell.iy);
-        save.furniture.push(PlacedFloor.stampDepth({ id, itemId: held.id, x, y,
+        const record = PlacedFloor.stampDepth({ id, itemId: held.id, x, y,
           flip: !!(spec.flip && scene._furnitureFlip),
-          houseKey: scene.homeInside?.(x, y) ? save.starterShopId : null }, scene.depth));
+          houseKey: null }, scene.depth);
+        PlacedFloor.furnitureIndoors(scene, record);
+        save.furniture.push(record);
         const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
         PlacedFloor.restoreFurniture(scene, entry, cell.tx, cell.ty);
         scene.mapDirty = true;
@@ -1827,7 +1843,7 @@ const TAP_HANDLERS = [
   // reads as road, matching what the player is looking at.
   { name: 'flavor', try: (ctx) => {
     const { scene, sx, sy, cell } = ctx;
-    if (isTillableCell(cell)) return false;
+    if (isTillableCell(cell) || planterAt(ctx)) return false;
     const flavor = cell.underRoad ? TERRAIN_FLAVOR[TERRAIN.ROAD]
       : cell.underLamp && isTillable(cell.type) ? LAMP_FOOT_FLAVOR
       : TERRAIN_FLAVOR[cell.type] || '·';
@@ -1841,8 +1857,14 @@ const TAP_HANDLERS = [
   // it only says what is missing.
   { name: 'plant', try: (ctx) => {
     const { scene, save, sx, sy, cellKey, cwmx, cwmy } = ctx;
-    if (occupantsOf(ctx).furnitureIdx >= 0) return false;
-    if (!scene.tilledSet.has(cellKey)) return false;
+    const planter = planterAt(ctx);
+    if (occupantsOf(ctx).furnitureIdx >= 0 && !planter) return false;
+    if (!planter && !scene.tilledSet.has(cellKey)) return false;
+    if (occupantsOf(ctx).plantedIdx >= 0) return false;
+    if (planter && !PlacedFloor.furnitureIndoors(scene, planter)) {
+      scene.flash('Move the planter indoors.', sx, sy);
+      return true;
+    }
     const sel = getSelectedSlot(save);
     const item = sel ? ITEM_BY_ID[sel.id] : null;
     if (!item || item.kind !== 'seed') {
@@ -1851,6 +1873,10 @@ const TAP_HANDLERS = [
     }
     if ((sel.count ?? 0) <= 0) {
       scene.flash('That pouch is empty.', sx, sy);
+      return true;
+    }
+    if (planter && item.plants) {
+      scene.flash('Choose a crop or flower seed.', sx, sy);
       return true;
     }
     if (!scene.spendEnergy(ENERGY_COST?.plant ?? 0, sx, sy)) return true;
@@ -1909,7 +1935,8 @@ const TAP_HANDLERS = [
     // The crop takes the bed's quality with it — the hoe tier that tilled this
     // cell (Crops.takeBedQuality clears the cell's entry as it hands it over).
     save.planted.push({ x: cwmx, y: cwmy, crop: item.grows, stage: 0, watered_t: 0,
-      depth: scene.depth ?? 0, qualBoost: Crops.takeBedQuality(save, cellKey) });
+      depth: scene.depth ?? 0, qualBoost: Crops.takeBedQuality(save, cellKey),
+      ...(planter ? { planter: planter.id } : {}) });
     Crops.invalidateSpatialIndex(save);
     consumeSelected(save);
     ctx.dirty = true;

@@ -125,7 +125,7 @@
   // no-bag stack cap (9) so nothing overflows. These are real kind:'chest'
   // objects carrying a `fixedLoot` payload, so they open through the
   // standard chest path (the ceremony modal + one-time save.opened) instead
-  // of the rarity picker. (No free scarecrow — Home crafts one for wood,
+  // of the rarity picker. (No free scarecrow — a workbench crafts one for wood,
   // HOME_RECIPES.)
   //
   // The crates are a TRAIL, and where they lie depends on the ground:

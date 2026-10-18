@@ -5,6 +5,22 @@ restoration. The root `CLAUDE.md` owns the overview; read this before changing
 rendering, lighting or street mechanics. Camera and art geometry live in
 [docs/art/map-perspective.md](../art/map-perspective.md).
 
+## Player robe colour
+
+Reflect stores one of `Multiplayer.COLORS` in `save.playerColor`. Farmer, all
+four callings and the mounted sheet have a separable cyan cloth palette:
+`#349aa4` shadows, `#4ebcb9` midtones and (runner only) `#6cd8d5` highlights.
+`PlayerRobeArt.bake` reads each loaded PNG once and builds all ten texture and
+directional-animation variants with `recolorEnemyPixels`' exact `colors` map
+and `preserveUnmapped`. Skin, hair, tools, metal, mount, alpha and frame geometry
+stay unchanged. `_syncPlayerSkin` selects cached art without pixel reads or
+texture creation during movement. Dragon form keeps its own art. A future
+sheet with no separable cloth palette falls back to whole-sprite tint; none
+of the current sheets needs that fallback. Conditions still tint over the robe.
+Name and colour changes share multiplayer's persistence and fresh-hello path;
+offline colour edits never connect the player. Peers use the same cached farmer
+robe variants; calling choices remain local.
+
 ## World layers
 
 Use these terms for object presentation and walking behavior, not pixel height:
@@ -34,7 +50,11 @@ keep asymmetric pieces centred when flipped. Mutable furniture appearances
 are not cached. The complete piece is fitted proportionally into a 16×16 icon for item surfaces.
 `tierSheetFrame` may map catalog tiers to future redrawn frames; the shared
 `furnitureFrame` resolver keeps world and inventory art together, falling back
-to the roster frame. Phase 1 adds no tier recolouring.
+to the roster frame. Phase 1 adds no tier recolouring. Crops carrying a `planter` furniture id use
+`RENDER_SPEC.furniture.planterCrop`: a 16px frame starting 3px below
+the cell's top edge, with its roots on the soil. Their normal growth art is unchanged. The crop
+shares its planter's ground depth and sorts immediately above it, preserving
+Home wall occlusion.
 
 `python3 tools/build_furniture_sheets.py` rebuilds both sheets from
 `assets/Objects/Furniture/manifest.json`: exact licensed 48px source crops
@@ -44,8 +64,7 @@ shared 32×64 frame. Short pieces retain their 32px art scale; per-frame alpha
 bounds let `seatInCell` centre them without counting the empty upper half.
 The manifest records provenance
 without distributing the raw licensed sheets. The sprite audit covers every
-frame and every permitted flip. Furniture light and ability metadata are
-extension points only; phase 3 wires the light kinds.
+frame and every permitted flip. Furniture lights remain metadata only; phase 3 wires the light kinds.
 
 The 16-piece roster is Tinker’s Workbench, Quilted Cot, Washing Tub, Gear-Rim
 Looking Glass, Oak Side Table, Four-Drawer Dresser, Clay Planter, Burgundy Rug,

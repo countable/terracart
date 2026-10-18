@@ -3,7 +3,142 @@ const FURNITURE_ABILITY_LABELS = {
   sleep: 'Sleep', wash: 'Wash', reflect: 'Reflect', craft: 'Craft', plant: 'Plant',
 };
 
+// Camera-only cut shared by sleep and teleport; no particles or movement state.
+// Register before fading so even a synchronous camera stub cannot lose the event.
+function cameraBlackout(scene, commit, { outMs = 700, inMs = 1300, onDone } = {}) {
+  let committed = false;
+  const once = () => {
+    if (committed) return;
+    committed = true;
+    try { commit(); } finally {
+      if (cam?.fadeIn) cam.fadeIn(inMs, 0, 0, 0);
+      onDone?.();
+    }
+  };
+  const cam = scene.cameras?.main;
+  if (!cam?.fadeOut || !cam?.once || !cam?.fadeIn) { once(); return; }
+  cam.once('camerafadeoutcomplete', once);
+  cam.fadeOut(outMs, 0, 0, 0);
+}
+
 class SceneFurniture {
+  _furnitureAbilityAllowed(o) {
+    const record = this._placedFurniture(o);
+    if (!record) return false;
+    if (furnitureSpec(record.itemId).ability === 'craft') return true;
+    if (PlacedFloor.furnitureIndoors(this, record)) return true;
+    this.flashAtPlayer('Use this inside your Home.');
+    return false;
+  }
+
+  _bedSleepAllowed(record) {
+    if (!this._furnitureAbilityAllowed(record)) return false;
+    if (this._zeroEnergyLocked()) {
+      this.flashAtPlayer('Too far gone for a bed.');
+      return false;
+    }
+    if ((this.save.energy ?? 0) >= this.getMaxEnergy()) {
+      this.flashAtPlayer("You're already rested.");
+      return false;
+    }
+    return true;
+  }
+
+  // The item or booth is visible before the blackout. The modal holds input
+  // while fading; only the callback at black may spend money or restore energy.
+  _presentSleep({ art, itemId, commit }) {
+    if (this._sleeping) return false;
+    this._sleeping = true;
+    let shell = null;
+    const cam = this.cameras?.main;
+    if (cam?.fadeOut && cam?.once && cam?.fadeIn && this.makeModalShell
+        && typeof document !== 'undefined') {
+      shell = this.makeModalShell('sleep-modal', { kind: 'use', kindLabel: 'Sleep', art: art || false });
+      if (itemId) shell.box.innerHTML = this.worldIconHTML('furniture', 128, furnitureFrame(itemId), 256);
+      shell.mount();
+    }
+    const cut = () => {
+      if (shell) {
+        shell.box.style.transition = 'opacity 700ms linear';
+        shell.box.style.opacity = '0';
+        shell.wrap.style.background = 'transparent';
+      }
+      cameraBlackout(this, () => { shell?.wrap.remove(); commit(); }, {
+        onDone: () => { this._sleeping = false; },
+      });
+    };
+    if (shell && this.time?.delayedCall) this.time.delayedCall(350, cut);
+    else cut();
+    return true;
+  }
+
+  useFurniture(o) {
+    const record = this._placedFurniture(o);
+    if (!record || !this._furnitureAbilityAllowed(record)) return false;
+    const ability = furnitureSpec(record.itemId).ability;
+    if (ability === 'wash') {
+      const cleared = Conditions.clearDebuffs(this.save);
+      this.flashAtPlayer(cleared ? 'Debuffs cleared.' : 'Cool, clear water.');
+      this._syncStatusRow?.();
+      persistSave(this.save);
+      return true;
+    }
+    if (ability === 'sleep') {
+      if (!this._bedSleepAllowed(record)) return false;
+      return this._presentSleep({ itemId: record.itemId, commit: () => {
+        if (!this._bedSleepAllowed(record)) return;
+        this._restoreEnergy(this.getMaxEnergy() - (this.save.energy ?? 0));
+        persistSave(this.save);
+      } });
+    }
+    if (ability === 'reflect') { this._presentFurnitureReflect(record); return true; }
+    if (ability === 'plant') { this.flashAtPlayer('Select a seed; tap the planter.'); return true; }
+    if (ability === 'craft') { this.presentWorkbench(record); return true; }
+    return false;
+  }
+
+  _presentFurnitureReflect(o) {
+    const record = this._placedFurniture(o);
+    if (!record || !this._furnitureAbilityAllowed(record)) return false;
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('furniture-reflect-modal', {
+      kind: 'use', kindLabel: 'Reflect', kindIcon: this.iconSpanHTML(record.itemId, 32),
+      art: false, onClose: () => {},
+    });
+    const top = document.createElement('div');
+    top.style.cssText = 'display:flex;justify-content:flex-end;';
+    const pickup = mkBtn('Pick up', { variant: 'ghost' });
+    pickup.addEventListener('click', () => { if (this.pickupFurniture(record)) wrap.remove(); });
+    top.appendChild(pickup); box.appendChild(top);
+    const title = document.createElement('h2');
+    title.textContent = 'Choose your robe colour';
+    title.style.cssText = 'font-size:18px;margin:8px 0;'; box.appendChild(title);
+    const grid = document.createElement('div');
+    grid.className = 'furniture-colour-swatches';
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(5,44px);gap:10px;justify-content:center;margin:16px 0;';
+    const swatches = [];
+    const names = ['Gold', 'Sky blue', 'Mint', 'Rose', 'Lavender', 'Lemon', 'Peach', 'Turquoise', 'Silver', 'Lime'];
+    const sync = () => swatches.forEach((button, i) => {
+      const selected = Multiplayer.COLORS[i] === this.save.playerColor;
+      button.setAttribute('aria-pressed', String(selected));
+      button.textContent = selected ? '✓' : '';
+      button.style.outline = selected ? '2px solid white' : '';
+    });
+    Multiplayer.COLORS.forEach((color, i) => {
+      const button = mkBtn('', { variant: 'ghost' });
+      button.setAttribute('aria-label', names[i]); button.title = names[i];
+      button.style.cssText = `width:44px;height:44px;min-width:0;padding:0;border:2px solid #263444;border-radius:10px;--robe-color:#${color.toString(16).padStart(6, '0')};color:#17212b;font-size:24px;outline-offset:2px;`;
+      button.addEventListener('click', () => {
+        if (!this._furnitureAbilityAllowed(record)) return;
+        if (Multiplayer.setColor(this, color)) sync();
+      });
+      swatches.push(button); grid.appendChild(button);
+    });
+    sync(); box.appendChild(grid);
+    const done = mkBtn('Done');
+    done.addEventListener('click', () => wrap.remove()); box.appendChild(done);
+    mount(); return true;
+  }
+
   _placedFurniture(o) {
     return (this.save.furniture || []).find(record => record.id === o?.id
       && PlacedFloor.onDepth(record, this.depth) && furnitureSpec(record.itemId)) || null;
@@ -28,6 +163,11 @@ class SceneFurniture {
   pickupFurniture(o) {
     const record = this._placedFurniture(o);
     if (!record) return false;
+    if ((this.save.planted || []).some(p => p.planter === record.id
+        && PlacedFloor.onDepth(p, record.depth))) {
+      this.flashAtPlayer('Harvest first.');
+      return false;
+    }
     if (Inventory.roomFor(this.save, record.itemId) < 1) {
       this.flashAtPlayer(bagFullFor(record.itemId));
       return false;
@@ -46,10 +186,35 @@ class SceneFurniture {
     return true;
   }
 
+  presentWorkbench(o, targetId = null) {
+    const record = this._placedFurniture(o);
+    if (!record || furnitureSpec(record.itemId).ability !== 'craft') return false;
+    const sx = this.scale?.width / 2 || 0, sy = this.scale?.height / 2 || 0;
+    this._presentRecipePicker(sx, sy, {
+      recipes: HOME_RECIPES.filter(r => r.station === 'workbench'), targetId,
+      present: id => this.presentWorkbench(record, id),
+      kind: 'craft', kindLabel: itemName(record.itemId),
+      kindIcon: this.iconSpanHTML(record.itemId, 32),
+      acceptLabel: 'Craft', costLabel: 'Ingredients',
+      topAction: { label: 'Pick up', onClick: () => this.pickupFurniture(record) },
+      validate: () => {
+        if (this._placedFurniture(record)) return true;
+        this.flashAtPlayer('Place a workbench first.');
+        return false;
+      },
+      onCraft: rec => {
+        this._finishInventoryChange();
+        this.flashLoot(`✨ ${itemName(rec.id)} ×1`, UI_GOLD, 1.25, rec.id);
+      },
+    });
+    return true;
+  }
+
   presentFurniture(o) {
     const record = this._placedFurniture(o);
     if (!record) return false;
     const item = ITEM_BY_ID[record.itemId], spec = furnitureSpec(record.itemId);
+    if (spec.ability === 'craft') return this.presentWorkbench(record);
     const { wrap, box, mount, mkBtn } = this.makeModalShell('furniture-modal', {
       kind: 'use', kindLabel: 'Furniture', kindIcon: this.iconSpanHTML(item.id, 32),
       art: false, onClose: () => {},
@@ -87,7 +252,10 @@ class SceneFurniture {
     actions.className = 'furniture-actions';
     actions.style.cssText = 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap;';
     if (spec.ability) {
-      const ability = mkBtn(`${FURNITURE_ABILITY_LABELS[spec.ability]} · Coming next`, { disabled: true });
+      const ability = mkBtn(FURNITURE_ABILITY_LABELS[spec.ability]);
+      ability.addEventListener('click', () => {
+        if (this.useFurniture(record)) wrap.remove();
+      });
       actions.appendChild(ability);
     }
     if (spec.flip) {

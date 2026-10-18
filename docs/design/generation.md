@@ -269,7 +269,7 @@ access or tile lifecycle mechanics.
   Placement occupancy uses `PlacedFloor.indexAt` for crops and placed objects;
   surface-only tilled cells must not block placements on other floors.
   Barricades are tier-2 supplies found in supply/field loot or supply shops.
-  Finding one unlocks its Home recipe: three wood makes one barricade. Select
+  Finding one unlocks its workbench recipe: three wood makes one barricade. Select
   it and tap an empty safe cell to place it on the current floor. Saved
   barricades reuse the wild obstacle's art, slowing, damage and axe/fire/kit
   clearing rules; floor-tagged records survive reloads without reappearing
@@ -876,7 +876,10 @@ Furniture is durable player property in `save.furniture`, exempt from history
 trimming. Each one-cell record stores item identity, a cell-derived id, world
 position, `PlacedFloor.stampDepth` depth, flip and optional Home `houseKey`.
 `PlacedFloor.restoreFurniture` overlays it into normal `entry.objects` after
-saved barricades on both surface and cave loads. Saved claims remove generated
+saved barricades on both surface and cave loads. Surface loading first calls
+`ensureStarterTrailerObject` to stamp synthetic Home ownership, then derives
+`houseKey` from `PlacedFloor.homeCell` during reconciliation. Missing ownership
+grids never authorize indoor abilities. Saved claims remove generated
 clutter, preserve the containing house, and survive Home's footing sweep.
 Generated snapshots remain unchanged. Live `spawnCells` join `spawnOptsOf`
 occupancy without changing its generated set, so pickup releases only the
@@ -888,14 +891,21 @@ anchor and doorway, or ordinary open ground accepted by `isSpawnCell` with
 ownership lookup with the default player-feet query. Other buildings, roads,
 water, planted/tilled cells, traps, the Home firepit and occupied footprints
 refuse placement. `SpawnOwnership.footprintCells` owns overlaps; fires, traps,
-barricades, crops and reward seats cannot reuse a furniture cell.
+barricades and reward seats cannot reuse a furniture cell. A planter is the
+sole crop exception: it supplies tilled soil on an owned Home building cell,
+without adding the building floor to the tilled set. `save.planted` holds the
+normal crop record plus `planter: furnitureId`; watering, growth, pests and
+harvest use the ordinary Crops paths. Held crop or flower seeds plant directly;
+empty hands open the planter dialog. Tree saplings still require field soil.
+Planting rechecks Home ownership and refuses outdoors. Harvest leaves the pot;
+pickup refuses until its crop has been harvested.
 
 While the player is inside Home, its building tap handlers defer to held or
 placed furniture on Home floor cells. Exterior roofs/walls and other buildings
 keep architectural priority. Furniture stays in the normal render list so
 near walls can occlude it. Pickup grants and verifies one inventory item before
 removing property; dialog pickup and flip callbacks explicitly persist.
-Abilities, planter crops, lights and multi-cell furniture are later phases.
+Lights and multi-cell furniture are later phases.
 
 ### Initial Home orientation
 

@@ -58,17 +58,21 @@ class SceneVenues {
       acceptLabel: 'Rest',
       cancelLabel: 'Later',
       onAccept: () => {
-        const cur = this.save.energy ?? 0;
-        const r = Macros.innRest(this.save, o, this.getMaxEnergy());
-        if (!r.ok) {
-          if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy);
-          return;
-        }
-        this._finishInventoryChange();
-        if (this.updateEnergyDOM) this.updateEnergyDOM();
-        // A gain to the BODY: it lands on the player's own cell.
-        this._popEnergy(Math.max(0, (this.save.energy ?? 0) - cur));
-        this._macroTransaction('inn', `You paid ${this.moneyHTML(r.price)} and restored ${r.gain} HP. You are fully rested.`);
+        this._presentSleep({ art: Macros.stallArt('inn', o), commit: () => {
+          if (this._zeroEnergyLocked()) { this.flash('Too far gone for a bed.', sx, sy); return; }
+          const cur = this.save.energy ?? 0;
+          const r = Macros.innRest(this.save, o, this.getMaxEnergy());
+          if (!r.ok) {
+            if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy);
+            return;
+          }
+          this._finishInventoryChange();
+          if (this.updateEnergyDOM) this.updateEnergyDOM();
+          // A gain to the BODY: it lands on the player's own cell.
+          this._popEnergy(Math.max(0, (this.save.energy ?? 0) - cur));
+          persistSave(this.save);
+          this._macroTransaction('inn', `You paid ${this.moneyHTML(r.price)} and restored ${r.gain} HP. You are fully rested.`);
+        } });
       },
     });
   }
@@ -757,12 +761,12 @@ class SceneVenues {
     });
   }
 
-  // CRAFT page: one recipe of HOME_RECIPES (items.js) at a time, with a
+  // CRAFT page: Home recipes bootstrap a placed workbench, with a
   // direct recipe picker. `targetId` defaults to the first recipe the
   // bag can make, so the page opens on something usable.
   presentHomeCraft(sx, sy, targetId = null) {
     this._presentRecipePicker(sx, sy, {
-      recipes: HOME_RECIPES, targetId,
+      recipes: HOME_RECIPES.filter(r => r.station === 'home'), targetId,
       present: id => this.presentHomeCraft(sx, sy, id),
       kind: 'craft', kindIcon: this._homeKindIcon(),
       tabs: this._homeTabs('craft', sx, sy),
@@ -1450,12 +1454,7 @@ class SceneVenues {
       if (!this.playerM || !this.startWorldM) return false;
       ({ x, y } = playerWorldM(this));
     }
-    const c = worldMetersToAbsCell(this, x, y);
-    const t = absCellToTile(this, c.cellIX, c.cellIY);
-    const e = WorldGen.tileCache.get(WorldGen.tileKey(t.tx, t.ty));
-    if (!e?.grid || !e.owners || !e.ownerKeys) return false;
-    const i = t.iy * t.n + t.ix;
-    return BUILDING_TYPES.has(e.grid[i]) && e.ownerKeys[e.owners[i]] === this.save.starterShopId;
+    return PlacedFloor.homeCell(this, x, y);
   }
   // The house round the player while they are inside it — its ring in world
   // metres and a key naming it — or null. lighting.js masks everything
