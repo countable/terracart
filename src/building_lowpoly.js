@@ -5,7 +5,7 @@
   // The billboard look (docs/art/lowpoly-building-styles.md): every number
   // the ink pass, projection and dressing share, so sprites and meshes keep
   // agreeing. tools/building-billboard-preview.html edits this table live.
-  const LOOK={heightScale:1,inkPx:2,ink:0x2a2229,textured:true,facade:'tileset',eaveBand:9,eaveShade:.5,flatRim:3.5,flatShade:9,sheet:768,
+  const LOOK={heightScale:1,inkPx:2,ink:0x2a2229,textured:true,facade:'cel',eaveBand:9,eaveShade:.5,flatRim:3.5,flatShade:9,sheet:768,
     chimney:{radius:4.4,cap:5.8,mouth:3.4,rise:7,capHeight:2.2,sides:0xd9c9b8,capColor:0x9c8f84,mouthColor:0x2a2229},
     wreck:{tint:0xb3a89e,debris:0x5e564f,beam:0x3b2a1f,top:0x6b6059}};
   const mix=(a,b,t)=>{const c=i=>Math.round(((a>>i)&255)*(1-t)+((b>>i)&255)*t);return (c(16)<<16)|(c(8)<<8)|c(0);};

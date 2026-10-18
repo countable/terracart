@@ -28,12 +28,12 @@ when only compass heading changes.
 
 `?buildingArt=legacy` selects the original sprites for comparison.
 
-`BuildingLowPoly.LOOK.facade` picks the shared facade sheet: `tileset` (ships)
-cuts bays from the approved materials sheet; `cel` draws a minimal cel-shaded
-pixel sheet from scratch in the supply crate's palette (three-tone ramps round
-the role colour, one ink colour, a single highlight pixel per feature) with
-openings at the tileset's scale and bay placement and only a lintel, sill,
-step and lantern as decoration. `tools/building-billboard-preview.html` has a
+`BuildingLowPoly.LOOK.facade` picks the shared facade sheet: `cel` (ships)
+draws a minimal cel-shaded pixel sheet from scratch in the supply crate's
+palette (three-tone ramps round the role colour, one ink colour, a single
+highlight pixel per feature) with openings at the tileset's scale and bay
+placement and only a lintel, sill, step and lantern as decoration; `tileset`
+cuts bays from the approved materials sheet instead. Height ships at 1.0. `tools/building-billboard-preview.html` has a
 Facade select and a "Show sheet" toggle to compare the two.
 The Canvas fallback retains the imported style renderer. Existing castle
 perimeters, signs, interaction objects and fort/castle ownership remain intact.
