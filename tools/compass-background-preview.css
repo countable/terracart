@@ -1,0 +1,19 @@
+/* Opt-in art study. The real controls and their geometry stay in the game. */
+body[data-silver-variant] #compass-body::before {
+  background-image: var(--silver-variant-art);
+  background-size: 100% auto;
+  background-position: center top;
+  background-repeat: repeat-y;
+}
+body[data-silver-variant] .compass-header,
+body[data-silver-variant] .compass-footer {
+  background: none;
+}
+body[data-silver-variant] .compass-upper-join::before,
+body[data-silver-variant] .compass-lower-join::before,
+body[data-silver-variant] .compass-shine-surface {
+  display: none;
+}
+body[data-silver-variant] #inv-tabs::before {
+  background-image: linear-gradient(#10121133, #080b0a88 75%);
+}
