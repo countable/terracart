@@ -695,14 +695,16 @@ ECONOMY (buying & selling)
    the Blacksmith card is SUGGESTED while the lane has no smithy, since the
    wooden tools come from nowhere else. `Houses.restoreAs` freezes the pick
    and is the ledger's one writer (CLAUDE.md).
-   THE OFFER (`Houses.offerCards`): restored + 1 slots — the House always
-   (the wizard's tower while offered, and the T1 Blacksmith from the second
-   wreck on: `pinned`, so a second wooden smithy never waits on the
-   duplicate window), then up to `NEW_SLOTS` (3) cards
-   the player has nothing like yet (`Houses.isNewPick`, a NEW pill), then
-   buildable duplicates; each pool a window over the catalogue
-   (`Houses.buildOptions`) that slides one card along per restore. ANY
-   NUMBER of a card may stand. A RANKED card (smithy, shop, trader) is one
+   THE PICK IS TWO STEPS (`app.js` `presentWreckRestoreModal`): first the
+   BUILDING TYPE (`Houses.buildTypes` — the whole catalogue,
+   `Houses.buildOptions`, grouped by `Houses.typeKey` in table order: the
+   House, the wizard's tower while offered, the smithy, each shop line, the
+   trader, the turret, the one-off shops), then — for a ranked type with
+   more than one rank open — the RANK; the House, an unranked card or a
+   sole-rank type restores straight off the type screen, and Back returns
+   to it. Every unlocked type is listed every time (no slots, no rotation);
+   a card the player has nothing like yet wears a NEW pill
+   (`Houses.isNewPick`). ANY NUMBER of a card may stand. A RANKED card (smithy, shop, trader) is one
    per rank the ladder has unlocked, stamped in `save.shopTiers`. THE LADDER
    CLIMBS BY MEMORIES, never by wrecks (`Shops.tierCap`: T2 at five
    lifetime memories, a rank every `MEMORIES_PER_TIER`, T7 at thirty). A

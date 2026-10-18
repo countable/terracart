@@ -7,8 +7,8 @@ test('build choice: the restore modal offers the table and freezes the pick, nev
   const start = SCENE_SRC.indexOf('  presentWreckRestoreModal(sx, sy, house) {');
   assert.truthy(start > 0, 'the modal exists');
   const src = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start));
-  assert.truthy(/const options = Houses\.offerCards\(this\.save, house\);/.test(src), 'the cards are the offer cut from the table');
-  assert.truthy(/choices,/.test(src) && /onAccept: \(key\) =>/.test(src), 'the pick rides the offer modal\'s choice row');
+  assert.truthy(/const types = Houses\.buildTypes\(this\.save, house\);/.test(src), 'the type cards are the catalogue grouped by type');
+  assert.truthy(/choices: /.test(src) && /onAccept: \(key\) =>/.test(src), 'the pick rides the offer modal\'s choice row');
   assert.truthy(/const row = Houses\.restoreAs\(this\.save, house, key, \{ hammer \}\);/.test(src), 'the ledger is written by restoreAs');
   assert.truthy(src.indexOf('Houses.restoreAs(') < src.indexOf('Inventory.remove('), 'a refused pick is never charged');
   assert.falsy(/shopType|preseed|PRESEED/.test(src), 'no address digit, no fixed run');
@@ -27,10 +27,10 @@ test('build choice: the restore modal offers the table and freezes the pick, nev
   assert.truthy(/_worldIconUrl\(texKey, frame = 0\) \{[\s\S]{0,900}?drawImage\(src, fr\.cutX, fr\.cutY, fr\.width, fr\.height/.test(SCENE_SRC), 'a world icon is cut from the frame\'s rect');
 });
 
-test('build choice: every offered card restores in one step, each with its own price', () => {
+test('build choice: the type first, then the rank where more than one is open, each card with its own price', () => {
   const start = SCENE_SRC.indexOf('  presentWreckRestoreModal(sx, sy, house) {');
   const body = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start) + 4).trim();
-  assert.falsy(/Building type|Choose a tier|showTypes|showTiers/.test(body), 'no type screen and no tier screen - one flat list');
+  assert.truthy(/title: 'Building type'/.test(body) && /title: 'Rank'/.test(body), 'a type screen, then a rank screen');
   const stock = { rubble: 100, wood: 100, magic_hammer: 1 };
   const inventory = {
     count: (save, id) => stock[id] || 0,
@@ -51,68 +51,96 @@ test('build choice: every offered card restores in one step, each with its own p
   };
   const house = { kind: 'house', tier: 9, id: 'new' };
   present.call(scene, 0, 0, house);
+  assert.eq(modal.title, 'Building type');
   assert.eq(modal.acceptLabel, 'Restore');
   assert.eq(modal.cancelLabel, 'Later');
-  // The cards ARE the offered rows: the House first, the offered smith rank its own card.
-  const keys = modal.choices.map(c => c.key);
-  assert.eq(keys[0], 'plain');
-  assert.truthy(keys.includes('blacksmith:1'), 'the offered smith rank is its own card');
-  const smithCard = modal.choices.find(c => c.key === 'blacksmith:1');
+  // STEP ONE lists TYPES, one card each, in table order: the House, then the smithy.
+  assert.eq(modal.choices.map(c => c.key).join(), 'plain,blacksmith', 'one card per type');
+  const smithCard = modal.choices.find(c => c.key === 'blacksmith');
   const smith = Houses.buildOptions(scene.save, house).find(r => r.key === 'blacksmith:1');
   const cost = Houses.buildCost(scene.save, house, smith);
-  assert.truthy(smithCard.label.includes(`${cost.qty}\u00d7`), 'its own price rides the card');
-  assert.truthy(smithCard.label.includes('quality-1'), 'a ranked card wears its tier badge');
-  assert.eq(smithCard.info, undefined, 'no blurb on the card: six cards and the Restore row fit without a scroll');
-  assert.eq(modal.title, undefined, 'no title');
-  assert.eq(modal.get, undefined, 'and no pitch line');
-  assert.truthy(smithCard.suggested, 'the T1 smithy card is suggested while the lane has none');
-  assert.truthy(modal.secondary.takes('blacksmith:1'), 'a smithy card takes the hammer');
+  assert.truthy(smithCard.label.includes(`${cost.qty}\u00d7`), 'its sole rank\'s price rides the card');
+  assert.falsy(smithCard.label.includes('from '), 'a sole rank is a plain price, not "from"');
+  assert.eq(smithCard.acceptLabel, 'Restore', 'a sole open rank restores straight off the type screen');
+  assert.falsy(smithCard.label.includes('quality-'), 'no rank badge on a type card');
+  assert.eq(smithCard.info, undefined, 'no blurb on the card: the cards and the Restore row fit without a scroll');
+  assert.truthy(smithCard.suggested, 'the smithy card is suggested while the lane has none');
+  assert.truthy(modal.secondary.takes('blacksmith'), 'a smithy card takes the hammer');
   assert.falsy(modal.secondary.takes('plain'), 'the House card refuses it');
   stock.rubble = 0; stock[cost.id] = 0;
   present.call(scene, 0, 0, house);
   assert.truthy(modal.choices.every(c => c.canAfford === false), 'empty inventory disaffords every card');
   stock.rubble = 100; stock[cost.id] = 100;
-  const singleModal = modal;
-  modal.onAccept('blacksmith:1');
-  assert.eq(modal, singleModal, 'one card, one step - no confirmation screen appears');
+  const typeModal = modal;
+  modal.onAccept('blacksmith');
+  assert.eq(modal, typeModal, 'a sole rank: no rank screen, no confirmation screen');
   assert.eq(scene.save.restoredHouses.new, 'blacksmith');
   assert.eq(cost.id, 'wood', 'a T1 smithy is paid in the T1 ore (barForTier)');
-  assert.eq(stock.wood, 100 - cost.qty, 'the picked card is the one charged');
+  assert.eq(stock.wood, 100 - cost.qty, 'the picked rank is the one charged');
   assert.eq(stock.magic_hammer, 1, 'plain Restore keeps the hammer');
   scene.save = { restoredHouses: { first: 'plain' } };
-  modal.secondary.onClick('blacksmith:1');
+  modal.secondary.onClick('blacksmith');
   assert.eq(scene.save.restoredHouses.new, 'blacksmith');
   assert.truthy(Houses.isShinyHouse(scene.save, house), 'hammer restore stamps shine');
   assert.eq(stock.magic_hammer, 0, 'hammer restore spends one hammer');
-  // Multi-rank offering: every rank stays its own card with its own price.
+  // A second T1 smithy is just another pick: the type stays listed, now without NEW.
+  scene.save = { restoredHouses: { first: 'plain', s: 'blacksmith' }, shopTiers: { s: 1 } };
+  present.call(scene, 0, 0, house);
+  const again = modal.choices.find(c => c.key === 'blacksmith');
+  assert.truthy(again, 'the smithy type is still on the screen');
+  assert.falsy(again.label.includes('NEW'), 'as a duplicate, without the pill');
+  assert.falsy(again.suggested, 'and no longer suggested');
+  modal.onAccept('blacksmith');
+  assert.eq(scene.save.restoredHouses.new, 'blacksmith', 'a second wooden smithy stands');
+  // STEP TWO — several ranks open: the type card says "Choose rank" and
+  // quotes "from" its cheapest; accept opens the rank screen, a card per rank.
   scene.save = {
     restoredHouses: { s1: 'blacksmith', s2: 'blacksmith', s3: 'blacksmith',
       a: 'plain', b: 'plain', c: 'plain', d: 'plain', e: 'plain', f: 'plain', g: 'plain' },
     shopTiers: { s1: 1, s2: 2, s3: 3 },
     discovered: Object.fromEntries(Array.from({ length: 10 }, (_, i) => ['m' + i, true])),
   };
-  const offeredSmiths = Houses.offerCards(scene.save, house).filter(r => r.role === 'blacksmith');
-  assert.gt(offeredSmiths.length, 1, 'fixture offers multiple smith ranks');
-  const smithCosts = offeredSmiths.map(r => Houses.buildCost(scene.save, house, r));
+  const smithRanks = Houses.buildOptions(scene.save, house).filter(r => r.role === 'blacksmith');
+  assert.gt(smithRanks.length, 1, 'fixture opens multiple smith ranks');
+  const smithCosts = smithRanks.map(r => Houses.buildCost(scene.save, house, r));
   const prices = smithCosts.map(c => c.qty);
   for (const c of smithCosts) stock[c.id] = Math.min(...prices);
+  stock.magic_hammer = 1;
   present.call(scene, 0, 0, house);
-  const smithCards = modal.choices.filter(c => c.key.startsWith('blacksmith:'));
-  assert.eq(smithCards.length, offeredSmiths.length, 'every offered rank remains its own card');
+  assert.eq(modal.choices.filter(c => c.key.startsWith('blacksmith')).length, 1, 'still ONE smithy card on the type screen');
+  const typeCard = modal.choices.find(c => c.key === 'blacksmith');
+  assert.eq(typeCard.acceptLabel, 'Choose rank');
+  assert.truthy(typeCard.label.includes('from ' + Math.min(...prices) + '\u00d7'), 'the type quotes "from" its cheapest rank');
+  assert.truthy(typeCard.canAfford, 'affordable while any rank is');
+  modal.onAccept('blacksmith');
+  assert.eq(modal.title, 'Rank');
+  assert.eq(modal.cancelLabel, 'Back');
+  assert.eq(modal.choices.map(c => c.key).join(), smithRanks.map(r => r.key).join(), 'one card per open rank');
   assert.truthy(modal.choices.some(c => c.canAfford === false), 'a pricier rank is visibly unaffordable');
-  for (const row of offeredSmiths) {
+  for (const row of smithRanks) {
     const choice = modal.choices.find(c => c.key === row.key);
     assert.truthy(choice.label.includes('quality-' + row.tier), 'each rank wears its own badge');
     assert.truthy(choice.cost.startsWith(Houses.buildCost(scene.save, house, row).qty + '\u00d7'), 'each rank quotes its own price');
+    assert.truthy(modal.secondary.takes(row.key), 'a rank card takes the hammer');
   }
-  const selected = offeredSmiths[offeredSmiths.length - 1];
+  // Back returns to the type screen with the type still selected.
+  modal.onCancel();
+  assert.eq(modal.title, 'Building type');
+  assert.eq(modal.choice, 'blacksmith', 'the smithy stays selected');
+  // The Hammer on a multi-rank type carries on to the rank screen too.
+  modal.secondary.onClick('blacksmith');
+  assert.eq(modal.title, 'Rank', 'the hammer picks a rank first');
+  assert.eq(scene.save.restoredHouses.new, undefined, 'nothing restored yet');
+  const selected = smithRanks[smithRanks.length - 1];
   const selectedCost = Houses.buildCost(scene.save, house, selected);
   stock[selectedCost.id] = 100;
   present.call(scene, 0, 0, house);
+  modal.onAccept('blacksmith');
   modal.onAccept(selected.key);
   assert.eq(scene.save.restoredHouses.new, 'blacksmith');
   assert.eq(scene.save.shopTiers.new, selected.tier);
   assert.eq(stock[selectedCost.id], 100 - selectedCost.qty, 'the picked rank is the one charged');
+  assert.eq(stock.magic_hammer, 1, 'the hammer was not spent on the way through');
 
 });
 
