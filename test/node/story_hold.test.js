@@ -20,6 +20,8 @@
     const K = new Function('STORY_IDLE_MS', `return class { ${SRC} }`)(IDLE);
     const s = new K();
     s.save = {};
+    // At Home by default: memory panels open only there (MemoryStory.atHome).
+    s.depth = 0; s.playerM = { x: 0, y: 0 }; s.startWorldM = { x: 0, y: 0 }; s.inHomeRing = () => true;
     s.busy = false;
     s._dialogOpen = () => s.busy;
     s.badge = [];
@@ -48,6 +50,10 @@
     s.save.memoryStory = { pending: [{ memory: 1 }] };
     s._tickStoryHold();
     assert.eq(s.badge.at(-1), 3, 'the badge counts the prize, the story and the memory');
+    s.inHomeRing = () => false;
+    s._tickStoryHold();
+    assert.eq(s.badge.at(-1), 2, 'away from Home the memory is not waiting on the hold, so it is not counted');
+    s.inHomeRing = () => true;
     // Walking is not a tap: the stick is excluded.
     withNow(1000 + IDLE - 1, () => s._noteInteraction(target(['#move-pad'])));
     withNow(1000 + IDLE + 1, () => {
@@ -79,6 +85,18 @@
     s._storyRun = true;   // what _releaseStories sets before draining
     s._drainCeremonies();
     assert.eq(s.opened.join(), 'a,b,c');
+  }));
+
+  test('story hold: a memory banked away from Home neither shows on the badge nor starts a run', () => withNow(9000, () => {
+    const s = mkScene();
+    s.inHomeRing = () => false;
+    s.save.memoryStory = { pending: [{ memory: 1 }] };
+    s._tickStoryHold();
+    assert.eq(s.badge.at(-1), 0, 'nothing the badge could open here');
+    assert.falsy(s._storyRun, 'and no run starts, so the other lanes keep their idle wait');
+    s.inHomeRing = () => true;
+    s._tickStoryHold();
+    assert.eq(s.badge.at(-1), 1, 'back inside the ring it counts again');
   }));
 
   test('story hold: every unprompted lane asks MemoryStory.storyHeld; the tick and badge are wired', () => {

@@ -121,7 +121,9 @@ const FILES = [
   // Pure draw math over WorldGen + a stub Graphics, so projection/culling pin without Phaser.
   'road_overlay.js',
   // The POLYGONAL building overlay: pure draw math over WorldGen + a stub fill target.
-  'castle_styles.js', 'temple_art.js', 'wall_perspective.js', 'building_styles.js', 'building_overlay.js',
+  // building_lowpoly.js only touches Phaser/DOM inside begin()/add(): loaded so the
+  // overlay's WebGL branch (`lowpoly`) is reachable headlessly (building_lowpoly_scene.test.js).
+  'castle_styles.js', 'temple_art.js', 'wall_perspective.js', 'building_styles.js', 'building_lowpoly.js', 'building_overlay.js',
   // The sandbox's pure tile builder: the same authored scenes, roads and dressing install() uses.
   'sandbox_destinations.js',
   'sandbox.js',
@@ -445,7 +447,7 @@ const starterWrapper = (name) => {
   const methods = ['_worldToastAt(wmx, wmy, liftPx) {', '_cellToastAt(ix, iy, liftPx) {',
                    '_energyPopAt(ix, iy) {', '_isPlayerCell(ix, iy) {',
                    '_cellAtScreen(sx, sy) {', 'playerScreen() {',
-                   '_sweepStreets() {', '_resetStreetSight() {',
+                   '_sweepStreets() {', '_streetSweepPoint() {', '_resetStreetSight() {',
                    '_rescanStreets(p, reachM, now, sight) {',
                    '_setStreetPreview(meta, iv) {', '_streetSpreadPts(meta, s0, s1, k) {',
                    '_ripenStreets(now, sight) {', '_oneRoadPay(perLine, now) {',
@@ -482,6 +484,7 @@ const starterWrapper = (name) => {
   vm.runInContext(
     `globalThis.CELL_PX = ${constOf('CELL_PX')};\n` +
     `globalThis.STREET_COUNTER_LIFT_PX = ${constOf('STREET_COUNTER_LIFT_PX')};\n` +
+    `globalThis.STREET_SWEEP_STEP_CELLS = ${constOf('STREET_SWEEP_STEP_CELLS')};\n` +
     `globalThis.PATH_STONE_DWELL_MS = ${constOf('PATH_STONE_DWELL_MS')};\n` +
     `globalThis.ONE_ROAD_WINDOW_MS = ${constOf('ONE_ROAD_WINDOW_MS')};\n` +
     // The sweep's blast, the shine's clock, the preview's ceiling and the counter's throttle.

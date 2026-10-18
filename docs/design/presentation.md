@@ -495,7 +495,9 @@ Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`
 
 Memory discoveries still bank immediately, but their queued narrative panels wait
 until the player returns inside Home's surface ring. Pending memories survive
-reload and are consumed only when acknowledged. Deliberately opened NPC and
+reload and are consumed only when acknowledged. The story badge counts them
+only inside that ring (`_pendingStoryCount` asks `MemoryStory.atHome`), so it
+never offers a panel the drain would refuse. Deliberately opened NPC and
 wizard conversations remain tied to their own locations.
 
 Maud's rescue unlocks at six lifetime memories, then waits for a home visit.

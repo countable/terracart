@@ -1087,15 +1087,27 @@ test('streets: the live pass previews the dwell and shines on the rebuild', () =
   }
 });
 
-test('streets: the sweep is memoised on the exact player position, and the ripen runs every frame', () => {
+test('streets: the sweep is memoised on the quarter-cell player point, and the ripen runs every frame', () => {
   // The SCAN is the expensive half — a grid traversal per line of every way in
   // the 3×3 tiles — and standing still can't bring fresh street into the
   // bubble. The RIPEN half is waiting on the clock, not the player, so it runs
-  // regardless.
+  // regardless. The key follows movement INSIDE a cell (reach is continuous)
+  // but not the body's per-frame easing toward a fix: that ran the scan sixty
+  // times a second while walking.
   const src = SCENE_SRC.slice(SCENE_SRC.indexOf('  _sweepStreets() {'));
   const body = src.slice(0, src.indexOf('\n  }\n'));
-  assert.truthy(/const sweepKey = `\$\{player\.x\},\$\{player\.y\},\$\{reachM\}`;/.test(body),
-    'the memo key includes sub-cell movement and the exact radius');
+  assert.truthy(/const sweepKey = `\$\{this\._streetSweepPoint\(\)\},\$\{reachM\}`;/.test(body),
+    'the memo key is the quantised player point and the exact radius');
+  assert.truthy(/const STREET_SWEEP_STEP_CELLS = 0\.25;/.test(SCENE_SRC), 'a quarter cell between looks');
+  const pointSrc = SCENE_SRC.slice(SCENE_SRC.indexOf('  _streetSweepPoint() {'));
+  const point = new Function('STREET_SWEEP_STEP_CELLS', 'playerWorldM',
+    'return function ' + pointSrc.slice(2, pointSrc.indexOf('\n  }\n') + 4))(0.25, (s) => s.player);
+  const at = (x, y) => point.call({ cellM: 4, player: { x, y } });
+  assert.eq(at(10, 10), at(10.3, 10.4), 'a third of a metre of easing is the same look');
+  assert.truthy(at(10, 10) !== at(11, 10), 'a metre on (a quarter of a 4 m cell) is a new one');
+  const lamp = SCENE_SRC.slice(SCENE_SRC.indexOf('  _visitStreetLamps(now) {'));
+  assert.truthy(/const key = `\$\{this\._streetSweepPoint\(\)\}\|\$\{reachM\}\|\$\{Streets\.epoch\(this\.save\)\}`;/.test(lamp),
+    'the lamp visit looks on the same step');
   assert.truthy(/if \(this\._streetSweepKey !== sweepKey\) \{[\s\S]*?this\._rescanStreets\(/.test(body),
     'and only a change rescans');
   assert.truthy(/this\._ripenStreets\(now, sight\);/.test(body),
