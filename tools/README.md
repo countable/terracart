@@ -28,6 +28,16 @@ They measure controlled scenarios, not live browser or production-network
 performance. Their output states units and assumptions; use it to compare
 synchronization changes, alongside `npm test` and `npm run test:relay`.
 
+## Wall material review
+
+`tools/wall-material-preview.html` draws connected hedge and stronghold enclosures,
+junctions, and fort palisades with the production material atlas and wall renderer.
+The enclosure is one empty cell surrounded by eight occupied cell centres.
+Use its heading slider or `?canvas` to compare renderer paths. Run
+`node test/wall-material-browser.cjs` against the local server at port 8765;
+`WALL_REVIEW_URL` overrides the page URL. It checks both renderers, shared atlas
+reuse, retained geometry, pointed-tip visibility, and clearing obsolete walls.
+
 ## Prerequisites
 
 - Node.js runs the headless suite and most audits without browser packages.
