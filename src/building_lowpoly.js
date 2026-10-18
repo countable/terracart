@@ -928,7 +928,9 @@
           }
         }};
         let group=[],support=null,groupId=0;
-        const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0)ink(group);paint(group);group=[];};
+        // The outline repeats filled triangles eight times. During a fade those
+        // layers would accumulate to opaque black and hide the player again.
+        const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0&&src.alpha===1)ink(group);paint(group);group=[];};
         for(const f of src._lowpolyFaces){
           if(!f.visible)continue;
           const g=f.inkGroup||0;
@@ -1009,12 +1011,54 @@
     }
     return result;
   }
-  function add(scene,pts,recipe,variant,key){
+  const DOOR={width:10,height:13,margin:4,reach:192};
+  // Points and streets share the unrotated map projection. Winding determines
+  // the outward wall normal; a street behind the wall cannot select it.
+  function streetDoor(points,streets){
+    const ring=triangulate(points).ring;
+    let best=null;
+    for(let i=0;i<ring.length;i++){
+      const a=ring[i],b=ring[(i+1)%ring.length],length=Math.hypot(b.x-a.x,b.y-a.y);
+      if(length<DOOR.width+2*DOOR.margin)continue;
+      const along={x:(b.x-a.x)/length,y:(b.y-a.y)/length},normal={x:along.y,y:-along.x};
+      const center={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+      for(const [c,d] of streets){
+        const dx=d.x-c.x,dy=d.y-c.y,len2=dx*dx+dy*dy;
+        if(!len2)continue;
+        const t=Math.max(0,Math.min(1,((center.x-c.x)*dx+(center.y-c.y)*dy)/len2));
+        const vx=c.x+dx*t-center.x,vy=c.y+dy*t-center.y,distance=Math.hypot(vx,vy);
+        if(distance>DOOR.reach||vx*normal.x+vy*normal.y<distance*.5)continue;
+        if(!best||distance<best.distance)best={center,along,normal,distance};
+      }
+    }
+    return best;
+  }
+  function doorFaces(door){
+    if(!door)return [];
+    const faces=[],{center,along,normal}=door;
+    const panel=(x0,x1,z0,z1,color,layer)=>{
+      const point=(x,z)=>({x:center.x+along.x*x+normal.x*.1,y:center.y+along.y*x+normal.y*.1,z,u:0,v:0});
+      const a=point(x0,z0),b=point(x1,z0),c=point(x1,z1),d=point(x0,z1);
+      for(const points of [[a,b,c],[a,c,d]])faces.push({points,kind:'trim',color,layer,light:1,door:true,wallDirection:along});
+    };
+    panel(-5,5,0,13,0x30262a,.10);
+    panel(-3.8,3.8,.7,11.8,0x79503b,.11);
+    for(const x of [-1.3,1.3])panel(x-.2,x+.2,.7,11.8,0x4d342c,.12);
+    panel(-3.8,3.8,2,2.7,0xa37b53,.13);
+    panel(2.3,3.1,5.3,6.2,0xd4b775,.14);
+    return faces;
+  }
+  function add(scene,pts,recipe,variant,key,streets=[]){
     const state=scene._lowpoly,left=Math.min(...pts.map(p=>p.x)),top=Math.min(...pts.map(p=>p.y));
     const local=pts.map(p=>({x:p.x-left,y:p.y-top}));
     let cached=recipe.shape?specialGeometry(local,recipe):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
+    if(!recipe.shape&&!recipe.interior&&streets.length){
+      const localStreets=streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})));
+      const door=streetDoor(local,localStreets);
+      if(door)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};
+    }
     const texture=material(scene,recipe);(state.textures||=new Set()).add(texture.key);
     const mesh={...cached,faces:atlasFaces(cached,texture.roofPeriod)};
     mesh.roofTriangles=mesh.faces.filter(f=>f.kind==='roof').length;mesh.wallTriangles=mesh.faces.filter(f=>f.kind==='wall').length;mesh.trimTriangles=mesh.faces.filter(f=>f.kind==='trim').length;
@@ -1093,5 +1137,5 @@
     for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
   }
   const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);
-  global.BuildingLowPoly={LOOK,atlasFaces,ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
+  global.BuildingLowPoly={LOOK,DOOR,streetDoor,doorFaces,atlasFaces,ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
 })(window);

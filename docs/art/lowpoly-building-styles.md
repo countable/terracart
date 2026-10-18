@@ -180,7 +180,8 @@ review is published as a Claude artifact.
 - Ink outline: `renderWebGL` re-emits each ink group's visible triangles in the
   solid trim texel, tinted `LOOK.ink`, at eight screen offsets of
   `LOOK.inkPx` (2) art pixels (× camera zoom), then draws the group. A building is
-  one contiguous sorted run; its ink groups (body, flat deck, chimney) draw in
+  one contiguous sorted run; faded buildings omit these repeated filled ink passes
+  so they remain see-through. Its ink groups (body, flat deck, chimney) draw in
   layer order so each gets a line where it meets the surface below it. Same
   retained vertices; nothing allocates on a heading change.
 - Flat roofs: no parapet lip. The deck is one colour (`solid` faces draw the
@@ -275,3 +276,11 @@ brick, otherwise rubble; the painterly dark stone and cobble fall back to
 rubble); roof cells follow `roofMaterial` (clay, slate, thatch, shingle,
 glazed; red tile falls back to clay; flat roofs use flagstone). The plinth is
 rubble, or moss on a wreck.
+
+Street-facing door decorations use the road overlay’s source transportation lines.
+A standing low-poly house receives one framed plank door on the nearest outward-facing
+wall within six cells, provided the wall has room for the door and four-pixel corner
+clearance on both sides. No nearby street or no suitable wall means no decoration.
+The retained door triangles rotate, sort and fade with the building; they do not
+alter its footprint, movement or tap target. Home retains its authored entrance,
+and wrecks and special tower silhouettes do not receive floating doors.
