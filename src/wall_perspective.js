@@ -226,7 +226,10 @@
           // the player (wallSortPoint, in the group's space), every frame the
           // player or the heading moves; the shared world sort then seats the
           // player between the walls behind and the walls in front. The
-          // group's own graphics stays empty meanwhile.
+          // group's own graphics stays empty meanwhile. NO INK inside (owner,
+          // Oct 2026): a part inking its own edge over its neighbour's fill
+          // left black seams between the walls, and the dark mask outside the
+          // room is edge enough.
           const local = feet ? { x: feet.x - group.x, y: feet.y - group.y } : null;
           group.blocks.forEach((block, i) => {
             const part = group.parts[i] || (group.parts[i] = this._part(scene));
@@ -239,7 +242,7 @@
           if (!geometryChanged && !modeChanged && group.alphaKey === alphaKey) continue;
           group.alphaKey = alphaKey;
           g.clear();
-          group.blocks.forEach((block, i) => { const part = group.parts[i]; part.clear(); ink(part, block); fill(part, block); });
+          group.blocks.forEach((block, i) => { const part = group.parts[i]; part.clear(); fill(part, block); });
           continue;
         }
         for (const part of group.parts) if (part.visible) { part.visible = false; part.clear(); }
@@ -274,11 +277,11 @@
       const anchor = typeof viewAnchorWorldM === 'function' ? viewAnchorWorldM(scene) : null;
       for (const group of Object.values(groups)) {
         if (!group.perWall || !group.gfx.visible) continue;
+        const groundY = (part) => anchor ? anchor.y + (part._huAnchor.y - scene.viewCenterY) * scene.cellM / CELL_PX : part._huAnchor.y;
         group.blocks.forEach((block, i) => {
           const part = group.parts[i];
           if (!part) return;
-          out.push({ sprite: part, rank: 1, layer: typeof WorldLayers === 'undefined' ? undefined : WorldLayers.STANDING_PROP,
-            groundY: anchor ? anchor.y + (part._huAnchor.y - scene.viewCenterY) * scene.cellM / CELL_PX : part._huAnchor.y });
+          out.push({ sprite: part, rank: 1, layer: typeof WorldLayers === 'undefined' ? undefined : WorldLayers.STANDING_PROP, groundY: groundY(part) });
         });
       }
       return out;

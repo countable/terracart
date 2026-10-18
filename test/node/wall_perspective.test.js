@@ -220,6 +220,11 @@
     assert.eq(group.blocks.length, 2); assert.eq(group.parts.length, 2);
     assert.truthy(group.parts.every(p => p.visible && p._worldGeometry && p.triangles.length), 'each block drew into a visible part of its own');
     assert.eq(group.gfx.triangles.length, 0, 'the group graphics stays empty');
+    // No outline inside (owner, Oct 2026): a part's own ink over its
+    // neighbour left black seams, and the dark mask outside is edge enough.
+    const inkColour = BuildingLowPoly.LOOK.ink;
+    assert.truthy(group.parts.every(p => p.triangles.every(t => t.color !== inkColour)), 'the wall parts draw no ink');
+    assert.falsy(group.inkPart, 'and no ink part');
     assert.truthy(group.parts.every(p => s.list.includes(p)), 'parts join the scene\'s containers');
     // North-up the baseline is horizontal: the sort point is the baseline's
     // point in the player's column, clamped to the section.

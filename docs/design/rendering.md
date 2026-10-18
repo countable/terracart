@@ -132,7 +132,23 @@ the wall tops in the wall's own colour, and the group is `perWall`: every
 wall section draws into a part of its own in the world container, anchored
 at the same sort point and handed to the frame's world sort through
 `WallPerspective.worldPieces` — never the one wall-container graphics,
-which sits under the player's container and drew the player over every wall. The sign seats over the drawn top, or
+which sits under the player's container and drew the player over every wall.
+Inside, on either path, no wall is inked at all (`noInk`): a wall inking
+its own outline over its neighbour's fill left black seams between the
+walls, and the dark mask outside the room is edge enough. The interior's wall thickness is `BuildingLowPoly.LOOK.wallThickness`
+(2.8 px) on the low-poly path and `HomeArea.HOUSE.thicknessPx` (2 px) on the
+prism path.
+A door faces the nearest street: `BuildingLowPoly.streetDoor` picks the
+wall (its `edge`), which becomes the facade's entrance bay (`geometry`'s
+`entrance`) and carries the plank door panel. Home's door has one source,
+the trailer's saved doorway wall (`save.starterTrailer.door`): the nearest
+road or path cell within `HomeArea.DOOR_STREET_CELLS` of its anchor at
+placement (`_homeDoorSideToStreet`), the placement heading deciding only
+with none that near. The overlay hands that wall to the low-poly house
+(`ringEdgeNearest` → `add`'s `entrance` → `edgeDoor`) and the prism path
+cuts its doorway there, so the painted bay, the panel, the doorway gap and
+`homeInside` agree; an adopted house without a saved doorway asks the
+streets like every other house. The sign seats over the drawn top, or
 `HOUSE.signLiftPx` above the footprint's centre when there is no model.
 
 A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim
@@ -173,10 +189,17 @@ the real source so a missing texture cannot become a permanent cached palette.
   “of”), only the first word appears. Full names remain available in dialogs.
 - The circular map and compass rim sit 55 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
-- Zoom is camera-only. The initial resting view is the closest setting,
-  spanning seven cells (`MAP_DEFAULT_ZOOM`). Plain +/− buttons on the
+- Zoom is camera-only. The resting view a game opens on spans seven cells
+  (`DEFAULT_VIEW_CELLS`, `MAP_DEFAULT_ZOOM`); one level closer, five across
+  (`PINCH_VIEW_CELLS`), is the room-sized view. Plain +/− buttons on the
   right change the resting span by two cells, bounded by `PINCH_VIEW_CELLS`
-  and `VIEW_CELLS`; disabled buttons mark the limits. The choice lasts for the
+  and `VIEW_CELLS`; disabled buttons mark the limits. `_setRestZoom` is the
+  resting zoom's one writer, and the view eases to a new rest through the
+  peek's spring (`_tickMapZoom`: `ZOOM_STEP_MS` for a step, never a cut).
+  Stepping inside Home (`homeInside`) eases to the closest level on its own
+  and stepping out eases back to the player's choice (`_tickHomeZoom`,
+  `HOME_ZOOM_MS`; once per crossing, so a step taken inside holds until they
+  leave; never underground). The choice lasts for the
   session, including modals and depth changes. Pinch zoom remains temporary
   and springs back to that selected view on `PEEK_RETURN_MS`.
   `_applyMapZoom` clips the camera viewport and counter-scales map chrome;
@@ -376,7 +399,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   and the player's GPS ring (`gps_ring`, baked in gold, `GPS_RING` geometry)
   are its rows. The GPS ring (`gpsGhost`) is always drawn while there is a fix:
   around the feet while the body stands on it, left on the ground once the
-  stick walks the body off. The walk-home lead stops on the ring's ellipse.
+  stick walks the body off, and, once its centre is off the visible map, its
+  bearing is a micro gold rim dot (`_drawGpsRimDot`, drawn with the MARKERS
+  on the rim layer). The walk-home lead stops on the ring's ellipse.
   The shine sweep and a warping rank's space warp (`Render.setEliteWarp`, a
   camera post pass attached only while one is on screen) need the device's
   graphics-FX opt-in (`Render.canShine`). Phaser's PreFX pipeline draws its

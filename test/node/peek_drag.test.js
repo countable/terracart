@@ -499,23 +499,64 @@ test('pinch: a warp drops the zoom with the peek', () => {
 });
 
 
-test('zoom buttons: default is the closest level, steps clamp and mark limits', () => {
-  near(VIEW_CELLS / MAP_DEFAULT_ZOOM, PINCH_VIEW_CELLS, 1e-9);
+test('zoom buttons: the default spans seven cells, one level closer exists, steps ease and mark the limits', () => {
+  near(VIEW_CELLS / MAP_DEFAULT_ZOOM, DEFAULT_VIEW_CELLS, 1e-9);
+  assert.eq(DEFAULT_VIEW_CELLS, 7); assert.eq(PINCH_VIEW_CELLS, 5, 'one level closer than the default (owner, Oct 2026)');
+  const settle = (s) => { for (let i = 0; i < 180; i++) s._tickMapZoom(1 / 60); };
   const s = peekScene({ _mapZoomRest: MAP_DEFAULT_ZOOM, mapZoom: MAP_DEFAULT_ZOOM,
     _zoomInButton: {}, _zoomOutButton: {}, _homeIntro: {}, peekM: { x: 7, y: 7 } });
   s._stepMapZoom(1);
-  near(s.mapZoom, PINCH_MAX_ZOOM, 1e-9);
+  near(s._mapZoomRest, PINCH_MAX_ZOOM, 1e-9, 'the resting level steps at once');
+  assert.truthy(s.mapZoom < PINCH_MAX_ZOOM - 1e-6 && s._mapZoomReturning, 'the view eases there, no cut');
+  assert.eq(s._mapZoomTauMs, ZOOM_STEP_MS);
+  s._tickMapZoom(ZOOM_STEP_MS / 1000);
+  near(s.mapZoom, PINCH_MAX_ZOOM + (MAP_DEFAULT_ZOOM - PINCH_MAX_ZOOM) / Math.E, 1e-9, 'one time constant in: 1/e of the way left');
+  settle(s);
+  near(s.mapZoom, PINCH_MAX_ZOOM, 1e-9); assert.falsy(s._mapZoomReturning, 'settled exactly');
   assert.eq(s._zoomInButton.disabled, true, 'already the closest');
   assert.eq(s._zoomOutButton.disabled, false);
   assert.eq(s._homeIntro, null);
   assert.eq(s.peekM.x, 0);
   assert.eq(s.peekM.y, 0);
-  s._stepMapZoom(-1);
+  s._stepMapZoom(-1); settle(s);
   near(VIEW_CELLS / s.mapZoom, PINCH_VIEW_CELLS + 2, 1e-9);
   assert.eq(s._zoomInButton.disabled, false);
-  s._stepMapZoom(-1);
+  s._stepMapZoom(-1); settle(s);
+  near(VIEW_CELLS / s.mapZoom, PINCH_VIEW_CELLS + 4, 1e-9);
+  s._stepMapZoom(-1); settle(s);
   assert.eq(s.mapZoom, 1);
   assert.eq(s._zoomOutButton.disabled, true);
+  s._stepMapZoom(-1); settle(s);
+  assert.eq(s.mapZoom, 1, 'clamped at the full view');
+});
+
+test('home zoom: stepping inside Home eases to the closest view, stepping out restores the choice', () => {
+  const settle = (s) => { for (let i = 0; i < 240; i++) s._tickMapZoom(1 / 60); };
+  const nine = VIEW_CELLS / 9;
+  const s = peekScene({ _mapZoomRest: nine, mapZoom: nine, _zoomInButton: {}, _zoomOutButton: {} });
+  let inside = false;
+  s.homeInside = () => inside;
+  s._tickHomeZoom();
+  near(s._mapZoomRest, nine, 1e-9, 'outside: nothing changes');
+  inside = true; s._tickHomeZoom();
+  near(s._mapZoomRest, PINCH_MAX_ZOOM, 1e-9, 'inside: the closest level');
+  assert.truthy(s._mapZoomReturning && s._mapZoomTauMs === HOME_ZOOM_MS, 'eased over HOME_ZOOM_MS');
+  assert.truthy(s.mapZoom < PINCH_MAX_ZOOM - 1e-6, 'not a cut');
+  settle(s); near(s.mapZoom, PINCH_MAX_ZOOM, 1e-9);
+  s._tickHomeZoom(); near(s._mapZoomRest, PINCH_MAX_ZOOM, 1e-9, 'once per crossing');
+  assert.eq(s._zoomInButton.disabled, true);
+  inside = false; s._tickHomeZoom();
+  near(s._mapZoomRest, nine, 1e-9, 'outside again: the level the player had');
+  settle(s); near(s.mapZoom, nine, 1e-9);
+  // A +/− step inside holds until they leave; leaving restores what they had before entering.
+  inside = true; s._tickHomeZoom(); settle(s);
+  s._stepMapZoom(-1); s._tickHomeZoom(); settle(s);
+  near(VIEW_CELLS / s.mapZoom, PINCH_VIEW_CELLS + 2, 1e-9, 'the step holds inside');
+  inside = false; s._tickHomeZoom(); settle(s);
+  near(s.mapZoom, nine, 1e-9, 'back to the pre-entry level');
+  // Underground there is no house to zoom on.
+  s.depth = 1; inside = true; s._tickHomeZoom();
+  near(s._mapZoomRest, nine, 1e-9, 'a cellar does not zoom');
 });
 
 test('zoom selection survives pinch release from either side and clearing a peek', () => {

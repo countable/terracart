@@ -23,17 +23,6 @@ const CompassHUD = {
     const bearing = body.querySelector('.compass-bearing');
     bearing.setAttribute('aria-hidden', 'true');
     document.body.append(bearing);
-    // The memory's pixel pickup has a pale outline. Its instrument uses a
-    // clean faceted gold star, without altering the world pickup artwork.
-    const memoryIcon = document.querySelector('#memories .mem-ico');
-    if (memoryIcon) {
-      const star = document.createElement('img');
-      star.className = 'mem-ico compass-memory-star';
-      star.src = 'assets/ui/compass/memory-star.svg';
-      star.alt = '';
-      memoryIcon.replaceWith(star);
-      cleanup.push(() => star.replaceWith(memoryIcon));
-    }
     // One glass display, with two independent controls and power circuits.
     const knowledge = document.createElement('div');
     knowledge.id = 'compass-knowledge-display';
@@ -53,21 +42,6 @@ const CompassHUD = {
     inventory.setAttribute('aria-label', 'Inventory not activated');
     inventory.addEventListener('click', () => CompassModules.tap(scene, 'inventory'));
     document.body.append(inventory);
-    const summary = document.querySelector('#menu summary');
-    if (summary) {
-      for (const node of [...summary.childNodes]) if (node.nodeType === 3) {
-        const text = node.textContent;
-        cleanup.push(() => { node.textContent = text; });
-        node.textContent = '';
-      }
-      const menuGlyph = document.createElement('span');
-      menuGlyph.className = 'compass-menu-glyph';
-      menuGlyph.setAttribute('aria-hidden', 'true');
-      menuGlyph.innerHTML = '<svg viewBox="0 0 32 32"><path d="M4 4h10v10H4zM18 4h10v10H18zM4 18h10v10H4zM18 18h10v10H18z"/></svg>';
-      summary.prepend(menuGlyph);
-      scene._compassDecorations.push(menuGlyph);
-      summary.setAttribute('aria-label', 'Main menu');
-    }
     const energy = document.getElementById('energy');
     if (energy) {
       const needle = document.createElement('i');

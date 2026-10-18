@@ -55,6 +55,10 @@
     assert.eq(walls.length, 4, 'one render object per wall');
     assert.truthy(walls.every((m) => m.edge && m.obj && m.faces.length), 'each with its edge and its faces');
     assert.eq(new Set(walls.map((m) => m.obj)).size, 4, 'four distinct objects');
+    // No ink inside (owner, Oct 2026): a wall inking its own edge over its
+    // neighbour's fill left seams, and the dark mask outside is edge enough.
+    assert.truthy(walls.every((m) => m.obj._noInk), 'no wall inks inside');
+    assert.eq(s._lowpoly.buildings.filter((m) => m.key === 'home').length, 4, 'and no outline object either');
     assert.truthy(room && room.height > 0, 'add still answers a mesh with the house height');
     const byY = (y) => walls.filter((m) => m.edge.a.y === y && m.edge.b.y === y)[0];
     const north = byY(60), south = byY(84), flanks = walls.filter((m) => m !== north && m !== south);
@@ -165,7 +169,7 @@
     // (80, 70) shares it with (70, 60) on the north wall and (84, 74) on the
     // east flank; the south wall and the west flank clamp to their ends.
     s.mapRot = Math.PI / 4; BuildingLowPoly.update(s);
-    const walls = s._lowpoly.buildings.filter((m) => m.key === 'home');
+    const walls = s._lowpoly.buildings.filter((m) => m.key === 'home' && m.edge);
     const wall = (ax, ay, bx, by) => walls.find((m) => m.edge.a.x === ax && m.edge.a.y === ay && m.edge.b.x === bx && m.edge.b.y === by);
     const north = wall(60, 60, 84, 60), east = wall(84, 60, 84, 84), south = wall(84, 84, 60, 84), west = wall(60, 84, 60, 60);
     near(north.support.x, 70); near(north.support.y, 60);

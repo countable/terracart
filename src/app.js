@@ -324,9 +324,18 @@ const PEEK_RETURN_MS = 90;
 // which is also where the new game's opening shot settles. Buttons select the
 // resting view; a pinch temporarily magnifies it and springs back on release.
 // The widest view remains VIEW_CELLS, so loading and gameplay ranges stay fixed.
-const PINCH_VIEW_CELLS = 7;
+const PINCH_VIEW_CELLS = 5;
 const PINCH_MAX_ZOOM = VIEW_CELLS / PINCH_VIEW_CELLS;
-const MAP_DEFAULT_ZOOM = VIEW_CELLS / PINCH_VIEW_CELLS;
+// The resting view a game opens on: DEFAULT_VIEW_CELLS across — one level
+// out from the closest (owner, Oct 2026: the closest, five across, is the
+// room-sized view Home zooms to on its own, _tickHomeZoom).
+const DEFAULT_VIEW_CELLS = 7;
+const MAP_DEFAULT_ZOOM = VIEW_CELLS / DEFAULT_VIEW_CELLS;
+// How a change of resting zoom gets there: eased (the peek's spring,
+// _tickMapZoom) over ZOOM_STEP_MS for a +/− step and HOME_ZOOM_MS for Home's
+// own zoom in and out — never a cut.
+const ZOOM_STEP_MS = 320;
+const HOME_ZOOM_MS = 480;
 // Surface GPS gap (metres) past which a fix PLACES the body instead of being
 // walked off. The body chases the GPS target at up to DEBUG_SPEED_MUL × walk
 // pace (14 m/s), which comfortably keeps up with a real walk or a slow drive;
@@ -1056,6 +1065,12 @@ const MARKERS = [
 // rather than stored, so it is drawn beside the rows instead of as one.
 // The label names the place the dot leads to: a crate fallback says so.
 const STARTER_MARK = { key: 'starterGuide', color: 0xa7ffb0, source: 'Tutorial' };
+// The GPS fix's own rim bearing (_drawGpsRimDot): the ring's gold (UI_GOLD,
+// the same 0xffe066 the 'gps_ring' bake and the walk-home lead wear), and a
+// MICRO dot — smaller than a find's (EDGE_DOT_R) because it is not a place
+// to walk to, it is where you are.
+const EDGE_DOT_R = 3;
+const GPS_RIM_DOT = { color: 0xffe066, r: 2 };
 const STARTER_GOAL_LABELS = { till: 'Plot', plant: 'Soil', restore: 'Wreck', harvest: 'Crop', sell: 'Home' };
 function starterGoalLabel(step, goal) {
   if (goal && String(goal.id || '').startsWith('chest_start_')) return goal.crate ? 'Supply crate' : 'Relic chest';
@@ -2965,15 +2980,21 @@ class MapScene extends Phaser.Scene {
   // Small, persistent bearings sit on the visible map rim, including while
   // their target is on screen. Intersect the ray with the rectangle so diagonal
   // bearings reach the edge too, and keep the whole dot inside the mask.
-  _drawEdgeDot(targetWX, targetWY, fillColor) {
+  // `r` is the dot's radius in game px (EDGE_DOT_R for a find; the GPS fix's
+  // micro dot passes its own); the dark keyline is a pixel wider.
+  _drawEdgeDot(targetWX, targetWY, fillColor, r = EDGE_DOT_R) {
     const dx = targetWX - this.startWorldM.x - this.playerM.x;
     const dy = targetWY - this.startWorldM.y - this.playerM.y;
     if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.hypot(dx, dy) < 0.001) return;
-    const inset = 5;
-    const left = Math.max(0, this.viewLeft) + inset;
-    const right = Math.min(W, this.viewLeft + this.viewSize) - inset;
-    const top = Math.max(0, this.viewTop) + inset;
-    const bottom = Math.min(H, this.viewTop + this.viewSize) - inset;
+    // The visible square in unzoomed coordinates: the map zooms about the
+    // view centre (_applyMapZoom), so at zoom z only viewSize / z of it shows
+    // — a rim measured on the full square sat outside the picture.
+    const inset = 5, zoom = this.mapZoom || 1;
+    const halfV = (this.viewSize / 2) / zoom - inset;
+    const left = Math.max(0, this.viewCenterX - halfV);
+    const right = Math.min(W, this.viewCenterX + halfV);
+    const top = Math.max(0, this.viewCenterY - halfV);
+    const bottom = Math.min(H, this.viewCenterY + halfV);
     if (left >= right || top >= bottom) return;
     const ps = this.playerScreen();
     const x = Math.max(left, Math.min(right, ps.x));
@@ -2982,7 +3003,6 @@ class MapScene extends Phaser.Scene {
     const ty = dy > 0 ? (bottom - y) / dy : dy < 0 ? (top - y) / dy : Infinity;
     const t = Math.min(tx, ty);
     let px = x + dx * t, py = y + dy * t;
-    const zoom = this.mapZoom || 1;
     if (HeadingUp.active(this)) {
       // Intersect the player bearing with the visible circle in unzoomed
       // world coordinates, so diagonals survive the circular corner cover.
@@ -2997,10 +3017,28 @@ class MapScene extends Phaser.Scene {
       px = cx + ox + ux * ray; py = cy + oy + uy * ray;
     }
     this.facingGfx.fillStyle(0x000000, 0.85);
-    this.facingGfx.fillCircle(px, py, 4 / zoom);
+    this.facingGfx.fillCircle(px, py, (r + 1) / zoom);
     this.facingGfx.fillStyle(fillColor, 1);
-    this.facingGfx.fillCircle(px, py, 3 / zoom);
+    this.facingGfx.fillCircle(px, py, r / zoom);
     return { x: px, y: py, left, right, top, bottom };
+  }
+
+  // THE GPS FIX IS NEVER OUT OF SIGHT. The ring (gpsGhost) is drawn whenever
+  // there is a fix; once the stick has walked the body so far that the ring's
+  // centre is off the visible map (the square, or heading-up's inscribed
+  // circle, at the current zoom about the view centre), its bearing takes
+  // over: a micro gold dot on the rim (GPS_RIM_DOT), the same rim the MARKERS
+  // use, unlabelled — it is not a find to walk to, it is where you are. The
+  // ring stays placed (the mask hides it), so the two never show together.
+  _drawGpsRimDot() {
+    const g = this.gpsGhost;
+    if (!this.gpsM || !g?.visible) return;
+    const zoom = this.mapZoom || 1;
+    const dx = (g.x - this.viewCenterX) * zoom, dy = (g.y - this.viewCenterY) * zoom;
+    const half = this.viewSize / 2;
+    const out = HeadingUp.active(this) ? Math.hypot(dx, dy) > half : Math.max(Math.abs(dx), Math.abs(dy)) > half;
+    if (!out) return;
+    this._drawEdgeDot(this.startWorldM.x + this.gpsM.x, this.startWorldM.y + this.gpsM.y, GPS_RIM_DOT.color, GPS_RIM_DOT.r);
   }
 
   // Every row of MARKERS, each frame.
@@ -3327,6 +3365,7 @@ class MapScene extends Phaser.Scene {
     // every projection below — and every draw pass this frame — reads one
     // settled camera position rather than two.
     this._tickPeek(dt);
+    this._tickHomeZoom();
     this._tickMapZoom(dt);
     this._tickHomeIntro(dt);
     HeadingUp.tick(this, dt);
@@ -3515,8 +3554,9 @@ class MapScene extends Phaser.Scene {
     // in the way — see the target-follow branch above.)
 
     // GPS ghost: where you REALLY are, always — a ring around the feet while
-    // the character stands on the fix, and a mark left on the ground once the
-    // stick has walked it off. It used to hide within a cell of the body so
+    // the character stands on the fix, a mark left on the ground once the
+    // stick has walked it off, and its bearing on the map rim once it is off
+    // the map (_drawGpsRimDot). It used to hide within a cell of the body so
     // GPS jitter would not pop it in and out; drawn always, the jitter is just
     // the ring breathing a few pixels under the feet, and the player learns
     // what the mark is before they ever leave it. At EVERY depth: a descent
@@ -3744,6 +3784,7 @@ class MapScene extends Phaser.Scene {
     // without the clear every frame's dot stays behind as a trail.
     this.facingGfx.clear();
     this._drawMarkers();
+    this._drawGpsRimDot();
 
     // Starter guidance — a LIGHT-GREEN rim dot toward whatever the ACTIVE
     // ladder step actually wants, shown only while the first-session ladder is
@@ -6004,12 +6045,36 @@ class MapScene extends Phaser.Scene {
     if (this._homeIntro) this.clearPeek();
     const span = VIEW_CELLS / (this._mapZoomRest || MAP_DEFAULT_ZOOM);
     const next = clamp(span - direction * 2, PINCH_VIEW_CELLS, VIEW_CELLS);
-    this._mapZoomRest = this.mapZoom = VIEW_CELLS / next;
-    this._mapZoomReturning = false;
     this._pinch = null;
     this._homeIntro = null;
-    if (this._zoomInButton) this._zoomInButton.disabled = next <= PINCH_VIEW_CELLS;
-    if (this._zoomOutButton) this._zoomOutButton.disabled = next >= VIEW_CELLS;
+    this._setRestZoom(VIEW_CELLS / next, ZOOM_STEP_MS);
+  }
+  // THE ONE WRITER of the resting zoom: the +/− step, Home's own zoom. The
+  // view EASES to it (the peek's spring, _tickMapZoom, over `tauMs`) instead
+  // of cutting; the buttons mark the end stops at once.
+  _setRestZoom(zoom, tauMs) {
+    this._mapZoomRest = zoom;
+    this._mapZoomTauMs = tauMs;
+    this._mapZoomReturning = Math.abs((this.mapZoom || 1) - zoom) > 1e-9;
+    const span = Math.round(VIEW_CELLS / zoom);
+    if (this._zoomInButton) this._zoomInButton.disabled = span <= PINCH_VIEW_CELLS;
+    if (this._zoomOutButton) this._zoomOutButton.disabled = span >= VIEW_CELLS;
+  }
+  // HOME ZOOMS IN ON ITS OWN (owner, Oct 2026): stepping inside the house
+  // (scene_venues.js homeInside) eases the view to the closest level — the
+  // room fills the frame — and stepping out eases it back to whatever the
+  // player had chosen. Once per crossing: a +/− step inside holds until
+  // they leave. Surface only; a cellar has no house.
+  _tickHomeZoom() {
+    const inside = (this.depth || 0) === 0 && typeof this.homeInside === 'function' && !!this.homeInside();
+    if (inside && !this._homeZoom) {
+      this._homeZoom = { restore: this._mapZoomRest || MAP_DEFAULT_ZOOM };
+      this._setRestZoom(PINCH_MAX_ZOOM, HOME_ZOOM_MS);
+    } else if (!inside && this._homeZoom) {
+      const { restore } = this._homeZoom;
+      this._homeZoom = null;
+      this._setRestZoom(restore, HOME_ZOOM_MS);
+    }
   }
 
   _buildZoomControl() {
@@ -6095,6 +6160,7 @@ class MapScene extends Phaser.Scene {
   // glass carries on dragging from where it is now, not from where it landed.
   _pinchEnd() {
     this._pinch = null;
+    this._mapZoomTauMs = PEEK_RETURN_MS;
     if (this.mapZoom !== (this._mapZoomRest || 1)) this._mapZoomReturning = true;
     const p = this._peekPointer;
     if (p?.isDown && p.id === this._peekPointerId) {
@@ -6110,7 +6176,7 @@ class MapScene extends Phaser.Scene {
   _tickMapZoom(dt) {
     if (!this._mapZoomReturning) return;
     const home = this._mapZoomRest || 1;
-    this.mapZoom = home + (this.mapZoom - home) * Math.exp(-dt / (PEEK_RETURN_MS / 1000));
+    this.mapZoom = home + (this.mapZoom - home) * Math.exp(-dt / ((this._mapZoomTauMs || PEEK_RETURN_MS) / 1000));
     if (Math.abs(this.mapZoom - home) * this.viewSize / 2 < 0.5) {
       this.mapZoom = this._mapZoomRest || 1;
       this._mapZoomReturning = false;
@@ -8902,39 +8968,22 @@ class MapScene extends Phaser.Scene {
       els = this._energyEls = {
         el:    document.getElementById('energy'),
         label: document.getElementById('energy-label'),
-        fill:  document.getElementById('energy-bar-fill'),
       };
     }
     const el = els.el;
     if (!el) return;
     const cur = Math.max(0, this.save.energy ?? 0);
     const max = this.getMaxEnergy();
-    // Every value written below — the two colours, the label text, the bar
-    // width — is a pure function of (cur, max). This is called once per frame
-    // from updateHUD, so when neither has moved there is nothing to write:
-    // bail before touching the DOM rather than restating the same six values
-    // and dirtying style for the next layout pass.
+    // Skip DOM writes when current and maximum energy are unchanged.
     if (!this._paintIfChanged('_energyDOM', `${cur}|${max}`, () => {})) return;
     const pct = max > 0 ? cur / max : 0;
-    // Green normally, yellow at/below 30%, red when critically low.
-    // Green → GOLD → red. Gold is the interaction colour everywhere else in the
-    // HUD, and this gauge is not a control — it was briefly moved to amber for
-    // that reason. Reverted on the call that the traffic-light reading is worth
-    // more here than the strict colour law: a draining bar is an idiom players
-    // already know, and the gauge carries no affordance for gold to confuse.
+    // Green above 30%, gold above 10%, red when critically low.
     const color = pct > 0.30 ? UI_GREEN : (pct > 0.10 ? UI_GOLD : UI_DANGER_INK);
     el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8c7a2a' : '#a04040');
     const label = els.label;
-    // The compass readout shows current / maximum below the needle.
-    // The legacy bar keeps its current-value label.
-    if (label) { label.style.color = color; label.textContent = this._compassHUD ? `${cur} / ${max}` : `⚡${cur}`; }
-    else { el.style.color = color; el.textContent = `⚡${cur}`; }
+    if (label) { label.style.color = color; label.textContent = `${cur} / ${max}`; }
     el.title = `Energy ${cur} of ${max}`;
-    const fill = els.fill;
-    if (fill) {
-      fill.style.width = `${Math.round(pct * 100)}%`;
-      fill.style.background = color;
-    }
+
   }
 
   // THE HUD PAINTERS run every frame: `paint` only when `key` differs from
@@ -8959,8 +9008,10 @@ class MapScene extends Phaser.Scene {
     const el = this._buildHudChip({
       id: 'memories', label: 'Memories', css: MEMORIES_CHIP_CSS,
       fill: (el) => {
-        const ico = this.renderItemIcon('memory', 18, 'block');
-        ico.classList.add('mem-ico');
+        const ico = document.createElement('img');
+        ico.className = 'mem-ico compass-memory-star';
+        ico.src = 'assets/ui/compass/memory-star.svg';
+        ico.alt = '';
         const num = document.createElement('span');
         num.className = 'mem-num';
         num.textContent = '0';

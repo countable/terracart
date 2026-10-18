@@ -19,7 +19,6 @@ body.compass-hud #money .coin-ico {width:25px;height:25px;}
 body.compass-hud #energy {grid-area:1/3;width:66px;height:60px;border:3px ridge #bdc8c9!important;border-radius:50%;background:radial-gradient(ellipse at 50% 80%,#bec9c3,#607b85);position:relative;padding:0;display:flex;align-items:end;justify-content:center;overflow:hidden;}
 body.compass-hud #energy::before {content:'•   •   •';position:absolute;top:0;color:#edf0da;letter-spacing:5px;font:bold 12px var(--font-ui);}
 body.compass-hud #energy-label {position:relative;font:bold 12px var(--font-ui);color:#172b33!important;margin-bottom:3px;z-index:1;}
-body.compass-hud #energy-bar {display:none;}
 .compass-energy-needle {position:absolute;left:calc(50% - 1.5px);bottom:17px;width:3px;height:25px;background:#f6e4a3;transform-origin:bottom;transform:rotate(var(--energy-angle,0deg));border-radius:2px;box-shadow:0 0 2px #192e36;}
 body.compass-hud #menu {left:calc(var(--phone-left,0px) + 10px);top:16px;z-index:8;}
 body.compass-hud #menu summary {width:44px;height:44px;background:linear-gradient(#f5e6ae,#baa05a);border:3px ridge #d7c48a;border-radius:50%;font:26px var(--font-ui);color:#54451f;box-shadow:0 2px 5px #31444a;}

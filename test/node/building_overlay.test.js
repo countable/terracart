@@ -1602,6 +1602,7 @@ test('building overlay: inside Home the roof comes off and the walls show their 
   assert.truthy(group.parts.every(p => p._worldGeometry && p._huAnchor), 'world geometry with a sort anchor');
   const pieces = WallPerspective.worldPieces(scene);
   assert.eq(pieces.length, group.blocks.length, 'handed to the frame\'s world sort');
+  assert.falsy(group.inkPart, 'no outline inside: the dark mask outside is the room\'s edge');
   scene.homeInside = () => false;
   BuildingOverlay.draw(scene);
   assert.falsy(scene._wallPerspective.home.perWall, 'outside, one roofed object again');
