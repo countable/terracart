@@ -1777,10 +1777,15 @@
     const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
     const r0 = Math.max(0, reachM * k);
     const player = ensurePlayerCookie(scene, prof, r0, rMax);
-    // Keep the exact player point: both the circle and its gradient follow
-    // sub-cell movement continuously, including camera peeks.
+    // The player point, including camera peeks, in WHOLE PIXELS. The circle
+    // and its gradient follow movement inside a cell, but the body sprite
+    // lands on Math.round of this same projection (pixelArt; the camera
+    // anchor is snapped in viewAnchorWorldM, the player is not), so a body
+    // easing a third of a pixel toward each GPS fix moves nothing visible —
+    // keyed on the raw point, the lightmap repainted and re-uploaded on every
+    // such step while the picture under it held still.
     const ps0 = scene.playerScreen ? scene.playerScreen() : { x: scene.viewCenterX, y: scene.viewCenterY };
-    const ps = ps0;
+    const ps = { x: Math.round(ps0.x), y: Math.round(ps0.y) };
     const ox = scene.viewLeft, oy = scene.viewTop;   // lightmap-local origin
     const plateau = reachM > 0 && prof.lit > prof.edge;
     const B = (typeof window !== 'undefined') ? window.__boot : null;

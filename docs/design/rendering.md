@@ -463,14 +463,16 @@ the reach rim within the existing player-light radius.
   the opt-in GPU compositor below consumes the same shapes and light gains.
   Do not add darkness passes or dim sprites
   again. Its screen-attached base (ambient plus player ramp) stays baked while
-  walking; the player circle retains fractional-pixel positioning without cell-change fades.
+  walking; the player circle follows movement inside a cell without cell-change
+  fades, keyed and drawn on the whole pixel the body sprite lands on (a sub-pixel
+  easing step repaints nothing).
   Reach and street restoration follow movement within a cell, independently of
   camera peeks. Canvas and GPU share one circular mask, rebuilt only when its screen position,
   radius or viewport changes. Stable world cookies use padded caches
   by their exact whole-pixel phase. Player-attached, breathing, flickering and
   transient lights keep the individual stamp path. The full-frame key gates
-  before every canvas call. Reach lighting uses a circle centred continuously on the exact player position with the interaction
-  radius. `cellInReach` accepts a cell exactly when its square overlaps the
+  before every canvas call. Reach lighting uses a circle centred on the player's
+  whole-pixel screen point with the interaction radius. `cellInReach` accepts a cell exactly when its square overlaps the
   circle; tangency alone does not count. The base circle is reduced to match
   the old centre-tested cell footprint when standing at a cell centre. Smooth
   movement still changes which boundary cells overlap. Each Inner Light upgrade crosses only

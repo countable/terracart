@@ -9,6 +9,10 @@
 // This file loads BEFORE app.js: the methods read app.js names and this.* at
 // CALL time only.
 
+// How far the body walks before the street sweep and the lamp visit look
+// again, in cells (_streetSweepPoint).
+const STREET_SWEEP_STEP_CELLS = 0.25;
+
 class SceneStreets {
   // ─── STREET RESTORATION ──────────────────────────────────────────────────
   // The road band is DILAPIDATED by default — cracked, damp, missing setts
@@ -57,8 +61,7 @@ class SceneStreets {
     const now = Date.now();
     const p = playerReachCell(this);
     const sight = this._streetSight || (this._streetSight = Streets.createSight());
-    const player = playerWorldM(this);
-    const sweepKey = `${player.x},${player.y},${reachM}`;
+    const sweepKey = `${this._streetSweepPoint()},${reachM}`;
     if (this._streetSweepKey !== sweepKey) {
       this._streetSweepKey = sweepKey;
       this._rescanStreets(p, reachM, now, sight);
@@ -66,6 +69,18 @@ class SceneStreets {
     this._ripenStreets(now, sight);
   }
 
+  // The player point the sweep and the lamp visit are memoised on, to a
+  // quarter cell. Reach is continuous (cellInReach), so a cell key would miss
+  // movement inside the cell; but the body eases toward each GPS fix by a
+  // fraction of a metre per frame, and keying on the raw point ran the 3×3
+  // tile scan (and grew every line's sight history) at frame rate while
+  // walking. A quarter cell is about a second's walk — well inside the dwell
+  // the ripen waits on — and a reach edge is only ever that far stale.
+  _streetSweepPoint() {
+    const q = this.cellM * STREET_SWEEP_STEP_CELLS;
+    const player = playerWorldM(this);
+    return `${Math.round(player.x / q)},${Math.round(player.y / q)}`;
+  }
   // Forget every stretch the sight pass was watching. A line whose clock is
   // dropped here starts its dwell over the next time it comes into reach —
   // which is the point: sight has to be CONTINUOUS.
@@ -655,7 +670,7 @@ class SceneStreets {
     }
     const p = playerReachCell(this);
     const { x: px, y: py } = playerWorldM(this);
-    const key = `${px},${py}|${reachM}|${Streets.epoch(this.save)}`;
+    const key = `${this._streetSweepPoint()}|${reachM}|${Streets.epoch(this.save)}`;
     if (this._lampVisitKey === key) return 0;
     const lightR = ((typeof Lighting !== 'undefined' && Lighting.radiusCells)
       ? Lighting.radiusCells('cobble') : 2.5) * this.cellM;

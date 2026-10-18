@@ -1334,7 +1334,10 @@ test('building overlay: heading-up house foundations follow the camera without r
         const a = block.points[i], b = block.points[(i + 1) % block.points.length];
         if ((c * (b.x - a.x) - sn * (b.y - a.y)) * block.winding < -1e-6) visibleEdges++;
       }
-      assert.eq(group.gfx.triangles.length, visibleEdges * 2, 'two triangles per visible face, no filled cap');
+      // Two fill triangles per visible face; the ink pass (BuildingLowPoly.LOOK.inkPx)
+      // first lays the same faces down eight times, offset — never a cap.
+      const inkCopies = (typeof BuildingLowPoly !== 'undefined' && BuildingLowPoly.LOOK.inkPx) ? 8 : 0;
+      assert.eq(group.gfx.triangles.length, visibleEdges * 2 * (1 + inkCopies), 'two triangles per visible face plus their ink offsets, no filled cap');
     }
     const clears = group.gfx.clears;
     scene.playerM.x = 1;
