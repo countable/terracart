@@ -42,7 +42,7 @@ SETUP = r'''() => {
   s._gpsSimulated=true;s._manualOffsetM={x:0,y:0};s.gpsM=null;s._applyGpsFix({x:origin.x+move,y:origin.y});
   s.peekM=name==='heading-pan-cover'?{x:Math.sin(i/count*Math.PI*2)*3,y:Math.cos(i/count*Math.PI*2)*3}:{x:0,y:0};
   const heading=name==='heading-pan-cover'?i/count*360:0;
-  const e=new Event('deviceorientationabsolute');Object.defineProperties(e,{alpha:{value:(720-heading-(screen.orientation?.angle||0))%360},absolute:{value:true}});window.dispatchEvent(e);
+  const e=new Event('deviceorientationabsolute');Object.defineProperties(e,{alpha:{value:(720-heading-(screen.orientation?.angle||0))%360},webkitCompassHeading:{value:(heading+(screen.orientation?.angle||0))%360},absolute:{value:true}});window.dispatchEvent(e);
   HeadingUp.tick(s,.1);s._applyMapZoom();
   s.drawCells();s.drawRoadGeometry();s.drawBuildingGeometry();
   const wx=s.startWorldM.x+origin.x,wy=s.startWorldM.y+origin.y;
@@ -81,7 +81,9 @@ async def run_mode(browser,args,mode):
   await page.evaluate('lightProbe.samples=[];lightProbe.uploads={};lightProbe.gpuStart=lightProbe.info().status;lightProbe.active=true')
   for i in range(args.frames):
    await page.evaluate('([name,i,n])=>lightProbe.frame(name,i,n)',[name,i,args.frames])
-   await page.evaluate('()=>new Promise(requestAnimationFrame)')
+   # The scene is paused; explicitly submit its frame before screenshots or
+   # framebuffer reads. A browser animation callback alone may precede Phaser.
+   await page.evaluate('()=>__game.step(performance.now(),0)')
    if name=='reach-movement' and i in [4,5]:
     point=await page.evaluate('lightProbe.capture()')
     checkpoint=f'reach-movement-step{i}'
@@ -100,7 +102,7 @@ async def run_mode(browser,args,mode):
 async def main(args):
  args.output.mkdir(parents=True,exist_ok=True)
  async with async_playwright() as p:
-  browser=await p.chromium.launch(headless=True,executable_path=args.chromium,args=args.browser_arg)
+  browser=await (p.webkit.launch(headless=True,executable_path=args.webkit) if args.webkit else p.chromium.launch(headless=True,executable_path=args.chromium,args=args.browser_arg))
   results=[await run_mode(browser,args,mode) for mode in [False,True]]
   await browser.close()
  comparisons=[]
@@ -122,6 +124,6 @@ async def main(args):
  if any(r['errors'] for r in results):raise SystemExit('Browser errors; see report')
 
 if __name__=='__main__':
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--url',default='http://127.0.0.1:8138/index.html');p.add_argument('--chromium',default='/usr/bin/chromium');p.add_argument('--browser-arg',action='append',default=[]);p.add_argument('--frames',type=int,default=30);p.add_argument('--output',type=Path,default=Path.home()/'.artifacts/gpu-lighting');args=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--url',default='http://127.0.0.1:8138/index.html');p.add_argument('--chromium',default='/usr/bin/chromium');p.add_argument('--webkit',help='Use an installed WebKit pw_run.sh executable instead of Chromium');p.add_argument('--browser-arg',action='append',default=[]);p.add_argument('--frames',type=int,default=30);p.add_argument('--output',type=Path,default=Path.home()/'.artifacts/gpu-lighting');args=p.parse_args()
  if args.frames<=0:p.error('--frames must be positive')
  asyncio.run(main(args))

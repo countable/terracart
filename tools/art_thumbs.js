@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Bake the PIXEL RESOLVE placeholders: src/art_thumbs.js, one tiny inline
-// thumbnail per dialog painting (square scenes and legacy 11:14 paintings;
+// thumbnail per dialog painting (4:3 scenes, square scenes and legacy 11:14 paintings;
 // opening slides and safety backdrops use other shapes and are skipped).
 //
 // modal_shell.js opens an uncached painting on its solid TONE and resolves
@@ -22,7 +22,7 @@ const ROOT = path.join(__dirname, '..');
 const ART = path.join(ROOT, 'assets', 'art');
 const OUT = path.join(ROOT, 'src', 'art_thumbs.js');
 // Thumbnails preserve each painting's intrinsic shape: 22×22 for square
-// scenes and 22×28 for legacy portraits.
+// scenes, 22×16 for 4:3 scenes and 22×28 for legacy portraits.
 const THUMB_W = 22;
 // The PIXEL RESOLVE steps, coarse to fine (widths; heights keep the aspect), the
 // last the thumbnail itself. Baked HERE, not cut at runtime: cutting them in
@@ -40,7 +40,8 @@ for f in sorted(glob.glob(os.path.join(sys.argv[1], '*.webp'))):
     im = Image.open(f).convert('RGB')
     aspect = im.width / im.height
     square = abs(aspect - 1) < 0.01
-    if not square and abs(aspect - 352 / 448) > 0.01:
+    landscape = abs(aspect - 4 / 3) < 0.01
+    if not square and not landscape and abs(aspect - 352 / 448) > 0.01:
         continue
     t = im.resize((${THUMB_W}, round(${THUMB_W} / aspect)), Image.BOX)
     b = io.BytesIO()
@@ -54,9 +55,9 @@ for f in sorted(glob.glob(os.path.join(sys.argv[1], '*.webp'))):
         cb = io.BytesIO()
         c.save(cb, 'WEBP', quality=70, method=6)
         cuts.append('data:image/webp;base64,' + base64.b64encode(cb.getvalue()).decode())
-    # Square scenes use the whole image; legacy portraits use their upper
+    # Full-frame scenes use the whole image; legacy portraits use their upper
     # detail zone so the empty dark copy zone does not dominate the tone.
-    top = im.crop((0, 0, im.width, round(im.height * (1 if square else 0.42)))).resize((1, 1), Image.BOX).getpixel((0, 0))
+    top = im.crop((0, 0, im.width, round(im.height * (1 if square or landscape else 0.42)))).resize((1, 1), Image.BOX).getpixel((0, 0))
     out[os.path.splitext(os.path.basename(f))[0]] = {
         'a': aspect,
         't': 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode(),

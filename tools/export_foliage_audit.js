@@ -20,7 +20,7 @@ const resolver = vm.runInContext('Render.objectAppearance(scene, new Map())', ct
 // deliberately fails if the owning renderer changes its structure.
 const render = read('render');
 const start = render.indexOf('    if (p._placedRock) {');
-const endText = 's.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx) + placement.dxPx, Math.round(sy) + placement.dyPx - plantedYOffset);';
+const endText = 's.setOrigin(0.5, placement.oy).setScale(placement.scl).setPosition(Math.round(sx) + placement.dxPx, Math.round(sy) + placement.dyPx);';
 const end = render.indexOf(endText, start);
 if (start < 0 || end < 0) throw new Error('Cannot locate shipping plant appearance branch');
 vm.runInContext('globalThis.auditPlant = function(p,s) { const sx=0,sy=0; ' + render.slice(start, end + endText.length) + '\n};', ctx);

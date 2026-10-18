@@ -105,7 +105,7 @@ def build(output):
     sandbox = (Path(__file__).resolve().parent / 'sandbox-directory.html').read_text()
     (output/'sandbox.html').write_text(sandbox.replace('href="floor-viewer.html"', 'href="../tools/floor-viewer.html"'))
     primary=[
-      ('storyboards.html','Storyboards and story panels','Browse the opening and memory arc in sequence, compare existing paintings, and choose reference art from the saved story panels.','Story and art reference'),
+      ('../story-art-final/index.html','Approved story art','Current story and event paintings, with approved style references.','Art reference'),
       ('sandbox.html','Sandbox test directory','One-click test setups for castle and forts, service booths, nexuses, terrains, combat, roads and underground labs.','Playable fixtures'),
       ('glossary.html','Terminology glossary','Shared game concepts, preferred names, usage distinctions and scoped synonym replacements.','Design reference'),
       ('chests.html','Chest index','Live POI sources, chest artwork, vista and cave rewards, and four-city expectations.','Live game data'),

@@ -30,12 +30,12 @@ const PetStoryArt = (() => {
     if (right < left) return null;
     pixels.putImageData(rgba, 0, 0);
     const canvas = document.createElement('canvas');
-    canvas.width = 352; canvas.height = 448;
+    canvas.width = 352; canvas.height = 264;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(scene.textures.get('pet_story_clearing').getSourceImage(), 0, 0, 352, 448);
+    ctx.drawImage(scene.textures.get('pet_story_clearing').getSourceImage(), 0, 0, canvas.width, canvas.height);
     const w = right - left + 1, h = bottom - top + 1;
     const scale = Math.max(1, Math.floor(Math.min(128 / w, 100 / h)));
-    const ground = 160, lift = SpriteLayout.creatureAirborne(kind) ? 18 : 0;
+    const ground = 208, lift = SpriteLayout.creatureAirborne(kind) ? 18 : 0;
     ctx.fillStyle = '#0005';
     ctx.beginPath(); ctx.ellipse(176, ground, w * scale * .42, 6, 0, 0, Math.PI * 2); ctx.fill();
     ctx.imageSmoothingEnabled = false;

@@ -3728,6 +3728,98 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
   return result;
 };
 
+// Connected walls are architecture. In heading-up mode a stronghold wall run
+// or a clipped hedge wall leaves the billboard sprite pools for the retained
+// prism batch (wall_perspective.js, source 'props'), attached to its cells
+// like a building wall: a billboarded connected frame opens a gap at every
+// join as the map turns. Each piece is a core block plus an arm to every
+// connected edge, so neighbours meet exactly at the shared cell edge at any
+// heading. Height is the step-over lift (ObstacleStep.PROFILES): the top the
+// player stands on is the top the camera sees. Thickness and colours follow
+// the north-up sheets (assets/Objects/Stronghold, assets/Objects/Hedges), which
+// north-up mode keeps. An isolated wall cell stays its rubble sprite and a lone
+// garden bush its rounded sprite: neither is a wall.
+const CONNECTED_WALL_ART = Object.freeze({
+  stronghold_wall: Object.freeze({ profile: 'wall', thickness: 8,
+    face: 0x6b645f, top: 0xc4b6a8, dark: 0x3d3c3c }),
+  hedge: Object.freeze({ profile: 'hedge', thickness: 16,
+    face: 0x3a6e2e, top: 0xb4cb44, dark: 0x0a3d31 }),
+});
+Render.CONNECTED_WALL_ART = CONNECTED_WALL_ART;
+// The connected piece a frame item draws as, or null. `art` is the item's
+// connectedArtForTile record (objects); plants carry theirs merged in.
+Render.connectedWallPiece = function (o, art) {
+  if (o.kind === 'stronghold_wall') {
+    if (art?.kind === 'mineralrock') return null;
+    const frame = art?.variant ?? o.variant;
+    if (frame == null) return null;
+    return { art: CONNECTED_WALL_ART.stronghold_wall, mask: QuarryLayout.wallMaskForFrame(frame) };
+  }
+  if ((art?._plantArt ?? o._plantArt) !== 'zone_hedge') return null;
+  const frame = art?._hedgeFrame ?? o._hedgeFrame;
+  if (frame == null) return null;
+  return { art: CONNECTED_WALL_ART.hedge, mask: QuarryLayout.wallMaskForFrame(frame) };
+};
+// Footprint rectangles [x0, y0, x1, y1] in cell pixels (0..CELL_PX) for a
+// connection mask (N=1, E=2, S=4, W=8, QuarryLayout's order): the core block,
+// then an arm from the core to each connected edge.
+Render.connectedWallFootprints = function (mask, thickness) {
+  const C = CELL_PX, lo = (C - thickness) / 2, hi = (C + thickness) / 2;
+  const rects = [[lo, lo, hi, hi]];
+  if (mask & 1) rects.push([lo, 0, hi, lo]);
+  if (mask & 2) rects.push([hi, lo, C, hi]);
+  if (mask & 4) rects.push([lo, hi, hi, C]);
+  if (mask & 8) rects.push([0, lo, lo, hi]);
+  return rects;
+};
+// Draw this frame's connected walls and hedges as retained prisms; returns the
+// frame items drawn there so the sprite pools skip them. Geometry sits on the
+// cells' terrain slots (absCellScreenCentre) in zero-pan space and scrolls
+// through the group offset; it rebuilds only when the anchor cell, the row
+// bands, the viewport or the set of visible pieces changes.
+Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, connectedArt) {
+  const drawn = new Set();
+  const perspective = typeof WallPerspective !== 'undefined';
+  if (!perspective || !WallPerspective.active(scene)) {
+    if (perspective) WallPerspective.clear(scene, 'props');
+    scene._connectedWallKey = null;
+    return drawn;
+  }
+  const pc = viewAnchorCell(scene), base = viewAnchorAbsCell(scene, pc);
+  const fracX = pc.cx - Math.floor(pc.cx), fracY = pc.cy - Math.floor(pc.cy);
+  let key = `${base.cellIX}|${base.cellIY}|${viewBandKey(scene, pc, base.cellIY, (VIEW_CELLS - 1) / 2)}`
+    + `|${scene.viewCenterX}|${scene.viewCenterY}|${scene.viewLeft}|${scene.viewTop}|${scene.viewSize}`;
+  const pieces = [];
+  const collect = (item, o, art) => {
+    const piece = Render.connectedWallPiece(o, art);
+    if (!piece) return;
+    drawn.add(item);
+    const cell = worldMetersToAbsCell(scene, o.x, o.y);
+    pieces.push({ piece, cell });
+    key += `|${cell.cellIX}:${cell.cellIY}:${piece.art.profile}:${piece.mask}`;
+  };
+  for (const item of objectItems) collect(item, item.o, connectedArt?.get(item.o));
+  for (const item of plantItems) collect(item, item.p, null);
+  WallPerspective.offset(scene, 'props', -fracX * CELL_PX, -fracY * CELL_PX);
+  if (key === scene._connectedWallKey && scene._wallPerspective?.props) return drawn;
+  scene._connectedWallKey = key;
+  WallPerspective.begin(scene, 'props');
+  WallPerspective.offset(scene, 'props', -fracX * CELL_PX, -fracY * CELL_PX);
+  for (const { piece, cell } of pieces) {
+    const centre = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
+    const x0 = centre.x + fracX * CELL_PX - CELL_PX / 2, y0 = centre.y + fracY * CELL_PX - CELL_PX / 2;
+    const height = ObstacleStep.PROFILES[piece.art.profile].liftPx;
+    const colors = { face: piece.art.face, top: piece.art.top, dark: piece.art.dark };
+    for (const [ax, ay, bx, by] of Render.connectedWallFootprints(piece.mask, piece.art.thickness)) {
+      WallPerspective.prism(scene, 'props', [
+        { x: x0 + ax, y: y0 + ay }, { x: x0 + bx, y: y0 + ay },
+        { x: x0 + bx, y: y0 + by }, { x: x0 + ax, y: y0 + by }], 0, height, colors);
+    }
+  }
+  WallPerspective.finish(scene, 'props');
+  return drawn;
+};
+
 // Can this object throw a light BEFORE drawObjects' sprite cull — one whose
 // glow reaches past its art (a restored building or Home, a torch, a grove
 // shrine, a viewpoint's scope)? The one predicate the sprite walk offers by
@@ -3857,7 +3949,8 @@ function labelFactory(style) {
 // width) and alpha. Props and buildings share the ground look; a creature's
 // is flatter — it rides the hop, so a squatter ellipse reads as the ground
 // under it — and fainter still when airborne, the standard "how high is it"
-// cue. A wild plant's ellipse is sized off its own art (wildplantShadow).
+// cue. A wild plant's ellipse is the prop rule off its seated art at the
+// plant alpha (wildplantShadow).
 // `dy` lifts the ellipse off the ground point: a creature's feet stand on
 // the ellipse's middle rather than its top edge (the elite's rune circle
 // shares the creature look's centre).
@@ -4479,6 +4572,10 @@ Render.drawObjects = function drawObjects(scene) {
       if (item._plantShadow) {
         const shadow = item._plantShadow;
         seatShadow(s, 'plant', shadow.width, Math.round(sx), Math.round(sy) + shadow.dyPx, shadow.height);
+        // Turn with the plant about its cell point (the planted sprite's
+        // pool-default anchor), so the ellipse stays under the foot at every
+        // heading instead of swinging round the cell with the map.
+        s._huAnchor = { x: Math.round(sx), y: Math.round(sy), footDy: shadow.dyPx };
         return;
       }
       // Non-building path: an ellipse centred on the art's base, so its top
@@ -4548,8 +4645,12 @@ Render.drawObjects = function drawObjects(scene) {
     fadeObject(s, item._appearance);
     return true;
   };
+  // Heading-up draws connected walls and hedges as ground-attached prisms in
+  // the building background; their sprite slots stay empty this frame.
+  const prismDrawn = Render.drawConnectedWallPrisms(scene, filteredObj, plantedList, connectedArt);
   const towerList = filteredObj.filter(({ o }) => o.kind === 'tower');
-  const nonTowerObj = towerList.length ? filteredObj.filter(({ o }) => o.kind !== 'tower') : filteredObj;
+  const nonTowerObj = (towerList.length || prismDrawn.size)
+    ? filteredObj.filter(it => it.o.kind !== 'tower' && !prismDrawn.has(it)) : filteredObj;
   const objectReuse = scene._boot_still ? reuseStaticObject : undefined;
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj,
     configureObject, undefined, objectReuse);
@@ -5192,7 +5293,8 @@ Render.drawObjects = function drawObjects(scene) {
   // ones that move at all), so a bush or hedge over one wiggles on its
   // LURK_BUSH_BEAT. Empty, and no per-plant cell lookup, when none are near.
   const foeCells = Render.foeCells(scene);
-  Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
+  const spritePlants = prismDrawn.size ? plantedList.filter(it => !prismDrawn.has(it)) : plantedList;
+  Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, spritePlants, (s, item) => {
     const { p, dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
     setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
@@ -5255,30 +5357,14 @@ Render.drawObjects = function drawObjects(scene) {
       setTextureIfDifferent(s, 'crops');
       s.setFrame(frame);
     }
-    // 16×16 frame, scale 2 = 32×32 display. Centre the sprite in its cell
-    // (origin 0.5, 0.5): a (0.5, 0.85) foot-anchor on flat ground tiles
-    // (longgrass, flowers, wildplants) sat 11 px above the cell centre.
-    //
-    // Exception: Crops.png seed frames (stage 0, default crops sheet) only have
-    // pixels in the bottom half of their cell, so centring puts the seed at the
-    // bottom of the tile. Stage 0 only: use the foot-anchor (0.5, 0.85).
-    // Stages 1+ grow upward and look right centered.
-    const isCropsSheet = !ov || (!ov.custom && ov.sheet !== 'springcrops');
-    const oy = (stage === 0 && isCropsSheet) ? 0.85 : 0.5;
-    // Actual player-planted crops (not wildplants rendered through this same
-    // pool, and not placed rockfruit stones) sit 3px higher and 20% smaller
-    // than the shared crop art.
-    const isPlantedCrop = p.wildId == null && !p._placedRock;
-    const cropScl = ((ov && ov.scale != null) ? ov.scale : 2) * (isPlantedCrop ? 0.8 : (p._terrainScale ?? 1));
-    const plantedYOffset = isPlantedCrop ? 3 : 0;
-    // Tall authored plants follow the same cell-foot rule as trees and props.
-    const box = ov?.seat && SpriteLayout.ART_BOUNDS[`${ov.sheet}:${wildplantFrame(p)}`];
-    const placement = box ? SpriteLayout.seatInCell(box, 0.5, oy, cropScl, cropScl) : {dxPx:0, dyPx:0};
-    s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx) + placement.dxPx, Math.round(sy) + placement.dyPx - plantedYOffset);
+    // Scale, origin row and seat offsets are the one placement rule the
+    // contact shadow reads too (Render.plantPlacement), so neither can drift.
+    const placement = Render.plantPlacement(p, ov, wildplantFrame(p), stage);
+    s.setOrigin(0.5, placement.oy).setScale(placement.scl).setPosition(Math.round(sx) + placement.dxPx, Math.round(sy) + placement.dyPx);
     // A bush being logged sways about its foot, as a tree under the axe does
     // (the pool reset its rotation before this configure).
     Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, p, performance.now()),
-      s.x, s.y + (1 - oy) * s.displayHeight);
+      s.x, s.y + (1 - placement.oy) * s.displayHeight);
   });
 
   // Growth-timer corner badges: for a watered, still-growing crop, render the
@@ -5756,15 +5842,47 @@ Render.drawObjects = function drawObjects(scene) {
 
 // Shared appearance rules for the live renderer and static review canvases.
 // Callbacks that change gameplay appearance remain opt-in through spec.after.
-// Authored plant contact shadows use the same dimensions in-game and in review.
+// A plant's contact shadow: the prop rule (0.9 × the trimmed art width,
+// SHADOW_LOOK.prop's aspect) centred on the seated art's foot, at the plant
+// alpha, so the ellipse tucks behind the plant like every other standing prop
+// and turns about the same cell point. `dyPx` is that foot, which also orders
+// the plant among props by depth. Same numbers in-game and in review, where
+// `plant` may be null for a bare look carrying its `frame`.
 Render.wildplantShadow = function (plant, art = wildplantSprite(plant)) {
   if (!art?.shadow) return null;
-  const frame = ASSETS[art.sheet];
-  if (!frame) return null;
-  const scale = art.scale || 1;
-  const height = frame.frameHeight * scale;
-  return { width: frame.frameWidth * scale * 1.15, height: height * 2 / 3,
-    dyPx: height / 2, alpha: SHADOW_LOOK.plant.alpha };
+  const asset = ASSETS[art.sheet];
+  if (!asset) return null;
+  const frame = plant ? wildplantFrame(plant) : (art.frame ?? art.frames?.[0] ?? 0);
+  const place = Render.plantPlacement(plant, art, frame, MAX_GROWTH_STAGE);
+  const bb = SpriteLayout.ART_BOUNDS[`${art.sheet}:${frame}`];
+  const width = Math.max(8, (bb ? bb.maxX - bb.minX : asset.frameWidth) * place.scl * 0.9);
+  return { width, height: width * SHADOW_LOOK.prop.aspect,
+    dyPx: place.dyPx + ((bb ? bb.maxY : asset.frameHeight) - place.oy * asset.frameHeight) * place.scl,
+    alpha: SHADOW_LOOK.plant.alpha };
+};
+// Where the planted pass draws a plant frame, read by the shadow above too so
+// the two can never drift: the drawn scale (the look's, times the planted
+// crop's 0.8 shrink or a procedural background's `_terrainScale`), the
+// origin row, and the seat offsets.
+// 16×16 frame, scale 2 = 32×32 display. Centre the sprite in its cell
+// (origin 0.5, 0.5): a (0.5, 0.85) foot-anchor on flat ground tiles
+// (longgrass, flowers, wildplants) sat 11 px above the cell centre.
+// Exception: Crops.png seed frames (stage 0, default crops sheet) only have
+// pixels in the bottom half of their cell, so centring puts the seed at the
+// bottom of the tile. Stage 0 only: use the foot-anchor (0.5, 0.85).
+// Stages 1+ grow upward and look right centered.
+// Actual player-planted crops (not wildplants rendered through this same
+// pool, and not placed rockfruit stones) sit 3px higher and 20% smaller
+// than the shared crop art. Tall authored plants (`seat: true`) follow the
+// same cell-foot rule as trees and props off their trimmed ART_BOUNDS.
+Render.plantPlacement = function (plant, art, frame, stage) {
+  const isCropsSheet = !art || (!art.custom && art.sheet !== 'springcrops');
+  const oy = (stage === 0 && isCropsSheet) ? 0.85 : 0.5;
+  const isPlantedCrop = !!plant && plant.wildId == null && !plant._placedRock;
+  const scl = ((art && art.scale != null) ? art.scale : 2) * (isPlantedCrop ? 0.8 : (plant?._terrainScale ?? 1));
+  const box = art?.seat && SpriteLayout.ART_BOUNDS[`${art.sheet}:${frame}`];
+  const seat = box ? SpriteLayout.seatInCell(box, 0.5, oy, scl, scl) : { dxPx: 0, dyPx: 0 };
+  return { scl, oy, dxPx: seat.dxPx, dyPx: seat.dyPx - (isPlantedCrop ? 3 : 0) };
 };
 
 // What varies per DRAW PASS for the spec below: the scene, the frame's
@@ -5914,7 +6032,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
     // foot nudge). The trimmed art is 43×39 (the PNG bakes a 39%-alpha shadow
     // under the feet), so scale 0.6 puts it at ~26×23px, inside its single cell.
-    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true, shadow: true },
+    // That baked shadow IS its contact shadow: no `shadow` row, or the ellipse
+    // would double it, centred under the bake rather than the feet.
+    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true },
     // The down pit uses only the lower half of its sheet, centred in the
     // cell. The standalone up ladder keeps its full image.
     staircase: { key: (o) => o.elevator ? 'progression_tiles' : (o.dir === 'up' ? 'stair_up' : 'stair_down'),

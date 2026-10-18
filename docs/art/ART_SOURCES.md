@@ -7,10 +7,12 @@ The default archive is `~/.artifacts/terracart-art/`. Set `TERRACART_ART_ROOT`
 to an absolute path to use another location. Python preview tools also accept
 `--reserve-root` for the unused-pack directory.
 
-- `art-source/paintings/raw/`: full-resolution generated PNG masters.
+- `approved-story-art/`: approved full-resolution story masters.
+- `story-style-references/`: unchanged approved visual references.
+- `art-source/paintings/raw/`: remaining masters for special panels and other art.
 - `art-source/sprites/`: former mushroom sheet and its provenance notes.
 - `unused_art/`: unused packs, including their original license files.
-- `assets/art/raw/`: legacy painting originals preserved during cleanup.
+- `assets/art/raw/`: remaining legacy originals for other art.
 - `archive-manifest.json`: relative paths, sizes and SHA-256 hashes at migration.
 
 The archive is local and is not included in a clone. Keep a separate backup;
@@ -96,14 +98,13 @@ stay upright as the compass turns. See the geometry in
 
 ## Treasure dialog paintings
 
-The X discovery, barrel, crate and seven chest-tier paintings show the concealed
-brown-hooded survivor opening a smaller container. Match the warm amber pixel
-treatment of `book_read` and `fire_first`; the first story panel is intentionally
-a different style and is not a style reference. Containers retain their tier
+Treasure paintings keep Hood concealed and use a restricted palette with
+soft painterly pixel clusters. The seven chest-tier paintings use the approved
+`story_wrecks` reference: chests must have the same stylized treatment as their
+surroundings, without sharp product-render detail. Containers retain their tier
 materials and show only light inside; reward icons and text supply the contents.
-[treasure-paintings.json](treasure-paintings.json) records generated masters,
-source hashes, final built-in imagegen prompts, style references and export settings.
-The scene definitions in `tools/gen_story_art.js` preserve the same composition intent.
+The final masters, prompts and runtime hashes are recorded in
+[approved-story-art.json](approved-story-art.json).
 
 ## Book-reading page
 
@@ -112,14 +113,26 @@ text; the library list and non-book scenes keep their existing paintings.
 The approved master is `~/.artifacts/dialog-style-exploration/book-page.png`;
 `book-reading.png` beside it records the panel composition.
 
-## Existing square scene masters
+## Approved story paintings
 
-The 30 reference-edited scenes in `gen_story_art.js`'s `REFERENCE_SCENES`
-export from archived square PNG masters at 512×512. Fill the frame with a
-complete scene; no lower black field is reserved for text. The generator
-refuses text-only regeneration for these masters and all paired booths.
-Use an explicit reference image edit, or `--reprocess` an existing master.
+[approved-story-art.json](approved-story-art.json) owns the 171 final 4:3
+paintings: 135 original crops and 36 exports from 35 approved generations. Full-resolution
+masters live in `approved-story-art/` under the archive root. These supersede
+older raw masters and review rounds. The first two opening panels use 2:3 portrait frames; nightmare masters
+are recorded separately in `opening_frames`. The book page and title splash
+retain their special-purpose shapes. Copy belongs below the art; no text zone is baked in.
 
-After direct runtime asset edits, run `node tools/art_thumbs.js`. It preserves
-image aspect in the thumbnails and mosaic cuts and emits `ART_ASPECTS` for
-layout before the full painting loads. Legacy 11:14 paintings remain supported.
+`node tools/gen_story_art.js --reprocess <key>` exports an approved master
+losslessly at its recorded runtime width, without another palette conversion.
+A missing approved master is an error, never a fallback to an older image.
+For new edits, follow [the art direction brief](art-direction-brief.md) and use
+the unchanged masters listed in [story-style-references.json](story-style-references.json).
+Story illustrations intentionally differ from the main game's sprite style.
+
+Run `node tools/art_thumbs.js` after direct runtime edits, followed by the
+cache-bust tool and node suite. Thumbnails preserve the painting's aspect;
+`ART_ASPECTS` supplies layout dimensions before the full painting loads.
+Publish the current export grid with `python3 tools/build_approved_story_gallery.py`.
+
+The opening wrecks scene holds its approved painting across both fade frames,
+so the transition cannot restore the earlier, shorter player proportions.

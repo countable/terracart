@@ -1,7 +1,7 @@
 // SCENE ART — the dialog-painting standard (modal_shell.js makeModalShell `art`,
 // css/compass_panels.css; tools/gen_story_art.js
-// scene()). Existing tall and new square assets share one top-centred square
-// composition above fitted, paged copy, without scrolling or legacy band modes.
+// scene()). Approved 4:3 paintings retain their complete composition above
+// fitted, paged copy, without scrolling or legacy band modes.
 
 (function () {
 const app = SCENE_SRC;
@@ -18,12 +18,12 @@ for (const m of INTERACT_SRC.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
 for (const r of ['house', 'blacksmith', 'market', 'trader', 'wizard']) stems.add('restore_' + r);
 for (const row of [...Object.values(Shrines.SHRINE_KINDS), ...Object.values(Shrines.REWARD_KINDS), ...Object.values(Macros.DAILY_VISIT_KINDS), ...Object.values(Macros.KIND_DIALOG), ...Object.values(Macros.KIND_TRANSACTION)]) stems.add(row.art);
 
-test('scene art: dialog paintings use square or legacy tall composition', () => {
+test('scene art: dialog paintings use approved 4:3 composition', () => {
   assert.truthy(stems.size > 30, `the stems were collected (${stems.size})`);
   for (const stem of stems) {
     const d = webpDims(`assets/art/${stem}.webp`);
-    assert.truthy(d, `${stem}.png exists`);
-    assert.truthy(Math.abs(d.w / d.h - 352 / 448) < 0.01 || Math.abs(d.w / d.h - 1) < .05, `${stem} is square or legacy 11:14 (got ${d.w}x${d.h})`);
+    assert.truthy(d, `${stem}.webp exists`);
+    assert.truthy(Math.abs(d.w / d.h - 4 / 3) < .01, `${stem} is 4:3 (got ${d.w}x${d.h})`);
   }
 });
 
@@ -60,7 +60,7 @@ test('scene art: shared crop above fitted copy without scrolling', () => {
   const region = shell.slice(from, shell.indexOf('box.appendChild(body)', from));
   assert.truthy(region.includes('flex:1 1 auto;') && region.includes('overflow:hidden;'), 'the body fills the box without scrolling');
   assert.truthy(region.includes("viewport.className = 'modal-copy'") && region.includes('viewport.appendChild(into)'), 'copy has its own fitted viewport below the art');
-  assert.falsy(/overflow-y:auto;/.test(region), 'neither body nor copy scrolls');
+  assert.falsy(/overflow-y:auto;/.test(region.replace(/scroll\n\s*\? '[^']*'/, '')), 'neither body nor copy scrolls — except the menu\'s `scroll` viewport');
   assert.truthy(region.includes("art ? 'margin:0;flex:0 0 auto;'"), 'copy follows the image region, including ceremonies');
   assert.truthy(region.includes('spacer.append(mosaicLayer, artLayer)'), 'painting and mosaic share the crop above copy');
   assert.truthy(shell.includes("backgroundSize = '100% auto'"), 'crop scales uniformly without distortion');
@@ -74,13 +74,38 @@ test('scene art: generic Story is omitted and useful categories follow the image
   const sceneShell = shell.slice(shell.indexOf('  makeModalShell('), shell.indexOf('  _placeSpeechBubble('));
   assert.truthy(sceneShell.includes('const resize = new ResizeObserver(scheduleFit)'), 'viewport changes refit the content');
   assert.truthy(sceneShell.includes('const changes = new MutationObserver(scheduleFit)'), 'live content changes refit the content');
-  assert.truthy(sceneShell.includes('body.clientWidth * .9') && sceneShell.includes('Math.max(minimum, full - deficit)'), 'art starts with a bottom ten-percent crop and gives more height to copy above its minimum');
+  assert.truthy(sceneShell.includes('body.clientWidth * .9') && sceneShell.includes('Math.max(minimum, full - deficit)'), 'legacy art can give height to copy above its minimum');
   assert.truthy(sceneShell.includes("pages.className = 'modal-pages'") && sceneShell.includes('into.style.columnWidth'), 'long content uses pages at its original text size');
+  // The ☰ menu is the one dialog that scrolls instead (owner, Oct 2026: "the
+  // main menu shouldn't be paginated"): the shell's `scroll` option turns the
+  // copy viewport into a scroller and the fit never pages it.
+  assert.truthy(sceneShell.includes('if (!scroll && into.scrollHeight > viewport.clientHeight + 1) {'), 'a scrolling dialog never pages');
+  assert.truthy(/viewport\.style\.cssText = scroll\n\s*\? 'flex:1 1 auto;min-height:0;overflow-y:auto;/.test(sceneShell), 'its viewport scrolls');
+  assert.truthy(/makeModalShell\('menu-modal', \{\n(?:.*\n){0,4}.*scroll: true,/.test(SCENE_SRC), 'the menu dialog asks for it');
 });
 
-test('scene art: new generated scenes use full square compositions', () => {
-  assert.truthy(/const SCENE_ASPECT = 1;/.test(STORY_ART_GEN_SRC), 'new scene generation is square');
-  assert.truthy(/size: '1024x1024', width: 512, aspect: SCENE_ASPECT/.test(STORY_ART_GEN_SRC), 'square source and export agree');
+test('scene art: new generated scenes use full 4:3 compositions', () => {
+  assert.truthy(/const SCENE_ASPECT = 4 \/ 3;/.test(STORY_ART_GEN_SRC), 'new scene generation is 4:3');
+  assert.truthy(/size: '1536x1024', width: 512, aspect: SCENE_ASPECT/.test(STORY_ART_GEN_SRC), 'landscape source exports 4:3');
+  assert.truthy(shell.includes('const minimum = fullFrameArt ? full'), 'approved frames are preserved while copy paginates');
+  assert.truthy(shell.includes('fullFrameArt ? body.clientWidth / artAspect'), 'approved art height matches its intrinsic aspect');
+});
+
+test('scene art: reprocessing uses approved masters and never falls back when missing', () => {
+  const from = STORY_ART_GEN_SRC.indexOf('function approvedMaster(name) {');
+  const end = STORY_ART_GEN_SRC.indexOf('\n}\n', from) + 2;
+  const files = new Set(['/archive/approved-story-art/cave_first.png']);
+  const rows = new Map([['cave_first', { master_path: 'approved-story-art/cave_first.png' }]]);
+  const resolveMaster = new Function('APPROVED', 'ART_ROOT', 'path', 'fs',
+    STORY_ART_GEN_SRC.slice(from, end) + '; return approvedMaster;')(
+      rows, '/archive', { resolve: (root, name) => `${root}/${name}` },
+      { existsSync: name => files.has(name) });
+  assert.eq(resolveMaster('cave_first'), '/archive/approved-story-art/cave_first.png');
+  assert.eq(resolveMaster('coin_icon'), null, 'unapproved icons retain the legacy path');
+  files.clear();
+  let error;
+  try { resolveMaster('cave_first'); } catch (e) { error = e; }
+  assert.truthy(error && error.message.includes('approved master missing'), 'missing accepted art must fail rather than restore a rejected original');
 });
 
 test('scene art: the hero becomes a bare label chip — no emoji, no sprite', () => {

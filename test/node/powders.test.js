@@ -33,6 +33,11 @@
 // rope.test.js. The crop helper is exercised for real.
 
 (function () {
+  test('dragon powder: the completed transformation has its approved painting', () => {
+    assert.eq(CONSUMABLE_SPEC.dragon_powder.used.art, 'event_dragon_powder');
+    assert.falsy(CONSUMABLE_SPEC.dragon_powder.art, 'the transformation is not shown before use');
+  });
+
 // wanderCreatures is the SceneCreatures mixin's (scene_creatures.js); the
 // powders themselves are app.js's. Pinned across both.
 const app = SCENE_SRC;

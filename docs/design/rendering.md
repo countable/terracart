@@ -42,12 +42,19 @@ nudge. The ring, matching fire, smoke, interaction and step-over footprint use
 that position. Its cold and lit states are both step-over props.
 
 Continuous architectural walls are background geometry, separate from object
-props (including interactable `stronghold_wall`). Their connected wall meshes
-remain attached to their ground footprints; they cannot use per-object billboard
-rotation without opening gaps between segments. In heading-up mode,
-`wall_perspective.js` retains ground vertices and separate elevations for polygon
-and tiled walls. Each compass change inverse-rotates only the height vector,
-selects camera-facing sides, and orders short wall prisms by screen depth.
+props. Their connected wall meshes remain attached to their ground footprints;
+they cannot use per-object billboard rotation without opening gaps between
+segments. In heading-up mode, `wall_perspective.js` retains ground vertices and
+separate elevations for polygon, tiled and connected-prop walls. Each compass
+change inverse-rotates only the height vector, selects camera-facing sides, and
+orders short wall prisms by screen depth. Connected stronghold wall runs and
+clipped hedge walls (the `connectedArtForTile` masks) join that batch through
+`Render.drawConnectedWallPrisms` (source `props`): a core block plus an arm to
+each connected cell edge, seated on the cells' terrain slots, rising by the
+step-over lift in `ObstacleStep.PROFILES`, with thickness and colour from
+`Render.CONNECTED_WALL_ART`. Those pieces leave the sprite pools for the frame;
+they still interact, block and support steps from their data cells. An isolated
+wall cell keeps its rubble sprite and a lone garden bush its rounded sprite.
 Explicit triangles use Phaser's existing WebGL batching or Canvas fallback;
 there is no wall canvas bake or texture upload on heading changes. At a fixed
 heading the command buffers are reused. House footprint foundations use the same
@@ -227,7 +234,10 @@ the real source so a missing texture cannot become a permanent cached palette.
   both boxes stand at their turned feet and lower turned feet count as in
   front (`Render.headingFadeView`), matching the heading-up draw order.
   Prop contact shadows turn about their prop's ground anchor, so a tucked-up
-  shadow stays under the art at every compass heading; the shrine pedestal
+  shadow stays under the art at every compass heading; a wild plant's authored
+  shadow (`Render.wildplantShadow`) is the same ellipse rule off its seated
+  art at the plant alpha, centred on the foot `Render.plantPlacement` draws
+  the plant on, and turns about the plant's cell point; the shrine pedestal
   (`pad_shrine`, drawn with its masonry face south) turns back about its cell
   centre the same way, while flat POI pads turn with the ground. Ground decals retain their own
   opacity, and fruit overlays follow their tree.

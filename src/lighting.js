@@ -58,7 +58,7 @@
 // the Canvas fallback and on every GPU — see the note at draw().
 //
 // The player's PLATEAU is a circle with the interaction radius, centred on
-// the exact player point. Cells are reachable wherever the circle overlaps.
+// the player. A cell is reachable when its footprint overlaps the circle.
 // Its brightness eases from the player's feet as the circle follows them.
 //
 // ── The numbers are DERIVED, not tuned ────────────────────────────────────
