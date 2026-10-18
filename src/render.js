@@ -880,6 +880,12 @@ Render.neutralPetPixels = function neutralPetPixels(data) {
   }
   return data;
 };
+// The hook runs every draw even when the rock's geometry is cached. Selecting
+// a baked material keeps the on/off state legible in daylight in both renderers.
+Render.setWaystoneMaterial = function setWaystoneMaterial(sprite, object, scene) {
+  if (window.Waystones?.isLit(object, scene.save) && scene.textures.exists('waystone_lit'))
+    setTextureIfDifferent(sprite, 'waystone_lit');
+};
 Render.petTexture = function petTexture(scene, kind, sheet, tint = 0xffffff) {
   const key = 'pet-neutral-' + sheet;
   if (scene.textures.exists(key)) return Render.canvasTint(scene, key, tint);
@@ -1815,14 +1821,18 @@ Render.reachDimAlpha = (scene) => {
 // One reversible building-art selection; query choice is per page, never saved.
 Render.buildingArtStyle = (() => {
   const choice = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('buildingArt') : null;
-  return ['legacy', 'rounded'].includes(choice) ? choice : 'procedural';
+  return choice === 'legacy' ? 'legacy' : 'procedural';
 })();
 Render.proceduralBuildings = () => Render.buildingArtStyle === 'procedural' && typeof BuildingStyles !== 'undefined';
 Render.BUILDING_STYLE_ROLES = Object.freeze({
-  plain: { style: 'multistorey', palette: { wall: 0xd4cdb4, roof: 0x709b9a, trim: 0xe8dfc6 } },
+  // Role palettes follow the approved house sprites (assets/Objects/Approved/
+  // house*.png): cream siding under red tile, the smithy's grey stone under
+  // red-brown, the trader's grey walls under slate. Shop lines keep their
+  // own roof colours below so a line reads from the street.
+  plain: { style: 'multistorey', palette: { wall: 0xddb49b, roof: 0xb45c3a, trim: 0x954a39 } },
   trailer: { style: 'adobe' },
-  blacksmith: { style: 'multistorey', palette: { wall: 0xa96e59, roof: 0x687a83, trim: 0xc79673 } },
-  trader: { style: 'japanese' }, shop: { style: 'japanese' },
+  blacksmith: { style: 'multistorey', palette: { wall: 0x917465, roof: 0x954a39, trim: 0x786269 } },
+  trader: { style: 'japanese', palette: { wall: 0xbababa, roof: 0x6f9093, trim: 0x954a39 } }, shop: { style: 'japanese' },
   wizard: { style: 'pyramid', palette: { wall: 0x8c8796, roof: 0x8b78a8, trim: 0xc6afcf } },
   turret: { style: 'fort' },
   fort: { style: 'multistorey', palette: { wall: 0x9b9e91, roof: 0xb6b6a2, trim: 0xd5ceb2 } },
@@ -1845,23 +1855,8 @@ Render.buildingStyleFor = (o, scene) => Render.buildingProfileFor(o, scene).styl
 Render.proceduralHouse = (o, scene) => Render.proceduralBuildings()
   && typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled()
   && (scene.depth ?? 0) === 0 && scene._proceduralBuildings?.has(o.id);
-Render.roundedBuildings = () => Render.buildingArtStyle !== 'legacy'
-  && typeof ASSETS !== 'undefined' && !!ASSETS.rounded_buildings;
-Render.HOUSE_ART_FRAMES = Object.freeze({ plain: 'house', house: 'house',
-  blacksmith: 'blacksmith', trader: 'trader', market: 'market',
-  wizard: 'wizard_tower', turret: 'turret', trailer: 'home_wagon', wreck: 'wreck' });
-Render.SHOP_ART_FRAMES = Object.freeze({ seed: 'seed_shop', supply: 'supply_shop',
-  potion: 'magic_shop', relic: 'relic_shop', pet: 'pet_shop', book: 'book_shop' });
-// Map art and dialog icons resolve the same frame. A restore card can supply
-// its future shop theme before the building has been restored.
+// Map sprites and restoration cards use the original role artwork.
 Render.houseTextureFrame = (role, o, scene, theme) => {
-  if(role==='wizard')return 3;
-  if(role==='turret')return CastleStyles.get(o.id).towerFrame;
-  if (Render.roundedBuildings()) {
-    if (role === 'fort') return scene?.isClaimedKey && !scene.isClaimedKey(o.id) ? 'fort_unclaimed' : 'fort';
-    if (role === 'shop') return Render.SHOP_ART_FRAMES[theme ?? scene?.shopLine?.(o)?.theme] || 'market';
-    return Render.HOUSE_ART_FRAMES[role];
-  }
   if (role === 'plain') return 'front';
   if (role === 'wizard') return 3;
   if (role === 'turret') return CastleStyles.get(o.id).towerFrame;
@@ -1869,9 +1864,6 @@ Render.houseTextureFrame = (role, o, scene, theme) => {
 };
 // Baked unclaimed art already contains its wear: never apply a second wash.
 Render.houseTextureKey = (role, o, scene) => {
-  if(role==='wizard')return 'shrine';
-  if(role==='turret')return 'tower';
-  if (Render.roundedBuildings()) return 'rounded_buildings';
   if (role === 'plain') return 'house';
   if (role === 'wizard') return 'shrine';
   if (role === 'turret') return 'tower';
@@ -3742,7 +3734,7 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
 // and the per-tile list below is derived by.
 function offersPreCullLight(o) {
   const k = o.kind;
-  return isBuilding(k) || k === 'temple' || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope'
+  return isBuilding(k) || k === 'temple' || k === 'torch' || k === 'waystone' || k === 'grove_shrine' || k === 'vista_scope'
     || !!(typeof Macros !== 'undefined' && Macros.visitKindForObject(o));
 }
 // A tile's pre-cull lights (util.js derivedObjects — re-derived only when the
@@ -4070,7 +4062,7 @@ Render.drawObjects = function drawObjects(scene) {
     // before the sprite cull, with its own radius as the margin, so a
     // lantern a cell off-screen still lights the edge it stands past.
     const visit = typeof Macros !== 'undefined' && Macros.visitKindForObject(o);
-    if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'grove_shrine' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
+    if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'waystone' || o.kind === 'grove_shrine' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
     // A grove shrine whose gift is still there today ALSO wears the POI
     // light — the one "something to take here" mark (poiLit).
     if ((o.kind === 'grove_shrine' || visit) && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
@@ -4418,7 +4410,7 @@ Render.drawObjects = function drawObjects(scene) {
     ...pressureState.traps.map(h => ({ h, plate: false }))].map(it => ({
       ...it, dx: it.h.x - pWorldX, dy: it.h.y - pWorldY,
     })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
-  const zList = [];
+  const zList = typeof BuildingLowPoly !== 'undefined' ? BuildingLowPoly.worldPieces(scene) : [];
   Render.cullCovered(scene, whirlwindList, 'h');
   Render.cullCovered(scene, environmentList, 'h', true);
   Render.cullCovered(scene, pressureList, 'h', true);
@@ -6120,11 +6112,12 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               scale: mineralRockArtScale,
               seat: true, shadow: true },
     // STREET VARIANT PROPS (src/street_variants.js). Ordinary 16px props draw
-    // at 1.6; approved 24px ground spikes draw at 4/3. All seat in one cell. The waystone stands
-    // (a tap reads a page of the Book — INTERACTABLES.waystone); the tar pit
+    // at 1.6; approved 24px ground spikes draw at 4/3. All seat in one cell.
+    // Waystones use the plain, low rounded rock. Their per-draw material hook
+    // changes the surface while the cached geometry remains immutable. The tar pit
     // and the iron stakes are the Burned Row's hazards (they SLOW the body —
     // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
-    waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6 * 2 / 3, seat: true, shadow: true },
+    waystone: { key: 'rock_variants', frame: 0, origin: [0.5, 0.5], scale: ROCK_VARIANT_ART.smallScale, seat: true, shadow: true, after: Render.setWaystoneMaterial },
     stakes:   { key: 'approved_charred_stakes', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     ground_hole: { key: 'cave_chasm', frame: o => o._chasmMask ?? 15, origin: [0.5, 0.5], scale: 1, seat: false, layer: WorldLayers.GROUND_DECAL },
     // UNDERGROUND STREET SCATTER (src/underground.js decorate): the triple
@@ -6134,7 +6127,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     inactive_poison_vent: { key: 'poison_vent_inactive', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, layer: WorldLayers.GROUND_DECAL },
     tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, layer: WorldLayers.GROUND_DECAL },
     // POI PROPS (worldgen.js). A NOTICE BOARD (an information POI) stands like
-    // the waystone and reads a Book page the same way (INTERACTABLES.infoboard);
+    // other low props and reads a Book page (INTERACTABLES.infoboard);
     // a GATE POST is one of the pair either side of a gate — scenery marking
     // the spawn point a foe rises from each day (lairs.js 'gate' tier). Not
     // tappable: no interactable row matches 'gatepost'.
@@ -6227,7 +6220,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
         // Low rocks rest over their contact ellipse. Centering the ellipse
         // on the bottom edge makes it protrude below the stone like a gap.
         // Keep the true art foot for depth sorting; inset only the shadow.
-        if (o.kind === 'mineralrock') foot.shadowInsetPx = Math.max(8, foot.w * 0.9) * SHADOW_LOOK.prop.aspect / 2;
+        if (o.kind === 'mineralrock' || o.kind === 'waystone') foot.shadowInsetPx = Math.max(8, foot.w * 0.9) * SHADOW_LOOK.prop.aspect / 2;
         // A row may lift its contact shadow a few px (spec.shadowInsetPx).
         else if (spec.shadowInsetPx) foot.shadowInsetPx = spec.shadowInsetPx;
       }
