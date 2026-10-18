@@ -47,7 +47,11 @@ test('magic hammer: a plain House takes no hammer — the predicate, the ledger 
   assert.eq(Houses.priceMul(save, h('p')), 1);
   const start = SCENE_SRC.indexOf('  presentWreckRestoreModal(sx, sy, house) {');
   const src = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start));
-  assert.truthy(/takes: \(key\) => Houses\.hammerTakes\(options\.find\(\(r\) => r\.key === key\)\),/.test(src), 'the button greys on a card that refuses it');
+  // ONE helper (hammerSecondary) shapes the button on both screens; its
+  // `takes` asks Houses.hammerTakes about the row the card resolves to.
+  assert.truthy(/takes: \(key\) => Houses\.hammerTakes\(rowFor\(key\)\), onClick \}/.test(src), 'the button greys on a card that refuses it');
+  assert.truthy(/hammerSecondary\(\(key\) => options\.find\(\(r\) => r\.key === key\), /.test(src), 'a rank card resolves to its own row');
+  assert.truthy(/hammerSecondary\(\(key\) => typeByKey\(key\)\?\.ranks\[0\],/.test(src), 'a type card to its first rank');
   assert.truthy(/if \(hammer && \(Inventory\.count\(this\.save, Houses\.HAMMER_ID\) < 1 \|\| !Houses\.hammerTakes\(picked\)\)\) hammer = false;/.test(src), 'and is never spent on one');
   assert.truthy(/sec\._setEnabled\(armed && !secondary\.disabled && \(!secondary\.takes \|\| !!secondary\.takes\(selected\.key\)\)\);/.test(MODAL_SHELL_SRC), 'the shell asks the card');
 });
@@ -92,7 +96,8 @@ test('magic hammer: the restore dialog offers it beside Restore, spends it only 
   // In the SAME window (owner, Oct 2026): a "With Hammer" button beside
   // Restore when one is held, armed with the pick like Restore; no second prompt.
   assert.truthy(/const hasHammer = Inventory\.count\(this\.save, Houses\.HAMMER_ID\) > 0;/.test(src), 'offered only when held');
-  assert.truthy(/secondary: hasHammer\n\s+\? \{ label: `\$\{this\.iconSpanHTML\(Houses\.HAMMER_ID\)\} Hammer`, withChoice: true,\n\s+takes: [^\n]*\n\s+onClick: \(key\) => restore\(key, true\) \}/.test(src), 'the hammer is a second accept, with the picked key');
+  assert.truthy(/const hammerSecondary = \(rowFor, onClick\) => hasHammer\n\s+\? \{ label: `\$\{this\.iconSpanHTML\(Houses\.HAMMER_ID\)\} Hammer`, withChoice: true,\n\s+takes: \(key\) => Houses\.hammerTakes\(rowFor\(key\)\), onClick \}\n\s+: undefined;/.test(src), 'the hammer is a second accept, with the picked key');
+  assert.truthy(/secondary: hammerSecondary\(\(key\) => options\.find\(\(r\) => r\.key === key\), \(key\) => restore\(key, true\)\),/.test(src), 'on the rank screen it restores shiny');
   assert.truthy(/onAccept: \(key\) => restore\(key, false\),/.test(src), 'Restore alone is the plain restore');
   assert.falsy(/Use your \$\{hammer/.test(src) && /Without it/.test(src), 'the second prompt is gone');
   assert.truthy(/if \(sec && secondary\.withChoice\) \{\s*sec\._setEnabled\(armed && !secondary\.disabled/.test(MODAL_SHELL_SRC), 'the shell arms it with accept');

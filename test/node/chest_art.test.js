@@ -77,6 +77,113 @@
     } finally { globalThis.rollBarrel = original; }
   });
 
+  test('small containers: isSmallContainer is the one kind group the barrel and chest lanes read', () => {
+    for (const shape of [{ barrel: true, barrelStyle: 'barrel' }, { barrel: true, barrelStyle: 'clay_pot' },
+      { poiClass: 'waste_basket' }, { tierSeed: 1 }, { crate: true, tierSeed: 5 }, { quarryCrate: true, tierSeed: 5 },
+      { poiClass: 'bus' }]) {
+      assert.truthy(isSmallContainer(chest(shape)), JSON.stringify(shape));
+    }
+    for (const shape of [{ tierSeed: 2 }, { tierSeed: 5 }, { banditStop: true }, { poiClass: 'bicycle_parking' },
+      { poiClass: 'place_of_worship' }, { poiClass: 'bakery', tierSeed: 1 }, { poiClass: 'waste_basket', depth: 2 },
+      { kind: 'mineralrock', tierSeed: 1 }]) {
+      assert.falsy(isSmallContainer(chest(shape)), JSON.stringify(shape));
+    }
+    assert.falsy(isSmallContainer(null));
+    // The chest lane reads the predicate, never the sprite's texKey.
+    assert.truthy(/const toastOnly = isSmallContainer\(o\) && !dress\.sub && carriesItem\(save, lootId\);/.test(INTERACTABLES_SRC));
+    assert.falsy(/texKey === 'box'/.test(INTERACTABLES_SRC), 'no inline box-look test in the registry');
+    assert.falsy(/texKey === 'clay_pot'/.test(INTERACTABLES_SRC), 'the barrel header reads the row name');
+  });
+
+  test('small containers: a toast still fires onDismiss, and a chest with its own line keeps the card', () => {
+    // A T1 box holding an already-carried item toasts — and the deferred
+    // Book-read release wired to onDismiss still runs, once, right away.
+    const box = () => chest({ id: 'box_held', tierSeed: 1, fixedLoot: { id: 'wood', qty: 2 } });
+    {
+      let cards = 0, toasts = 0, reveals = 0;
+      const save = { opened: [], inv: [{ id: 'wood', count: 1 }] };
+      const scene = makeScene({ showChestRewardModal() { cards++; }, flashLoot() { toasts++; },
+        _revealPendingBookReads() { reveals++; } });
+      INTERACTABLES.chest.custom(makeCtx(scene, save), box());
+      assert.eq(cards, 0); assert.eq(toasts, 1);
+      assert.eq(reveals, 1, 'the toast releases what the card would have on dismiss');
+    }
+    // The same box at a trail's end carries the trail line: the card shows it
+    // even though the item is carried, and onDismiss fires only when dismissed.
+    const original = HomeArea.isTrailChest;
+    try {
+      HomeArea.isTrailChest = (scene, o) => o.id === 'box_held';
+      let toasts = 0, reveals = 0, card = null;
+      const save = { opened: [], inv: [{ id: 'wood', count: 1 }] };
+      const scene = makeScene({ showChestRewardModal(c) { card = c; }, flashLoot() { toasts++; },
+        _revealPendingBookReads() { reveals++; } });
+      INTERACTABLES.chest.custom(makeCtx(scene, save), box());
+      assert.eq(toasts, 0, 'a dressed chest never toasts');
+      assert.truthy(card, 'the card opens');
+      assert.includes(card.sub, 'The trail’s end holds a richer find.');
+      assert.eq(card.kind, 'treasure');
+      assert.eq(reveals, 0);
+      card.onDismiss();
+      assert.eq(reveals, 1, 'the card still releases the deferred read on dismiss');
+    } finally { HomeArea.isTrailChest = original; }
+    // Rewards.present itself: toast mode fires onDismiss once; card mode hands it to the modal.
+    {
+      let fired = 0, modal = null;
+      const scene = makeScene({ showChestRewardModal(c) { modal = c; } });
+      assert.truthy(Rewards.present(scene, { kind: 'item', id: 'wood', qty: 1 }, { mode: 'toast', extra: { onDismiss: () => fired++ } }));
+      assert.eq(fired, 1);
+      assert.truthy(Rewards.present(scene, { kind: 'gold', amount: 3 }, { mode: 'toast', extra: { onDismiss: () => fired++ } }));
+      assert.eq(fired, 2, 'coins too');
+      assert.truthy(Rewards.present(scene, { kind: 'item', id: 'wood', qty: 1 }, { extra: { onDismiss: () => fired++ } }));
+      assert.eq(fired, 2, 'a card waits for its dismissal');
+      modal.onDismiss(); assert.eq(fired, 3);
+    }
+  });
+
+  test('small containers: a barrel releases a deferred Book read on whichever path presents', () => {
+    const original = globalThis.rollBarrel;
+    try {
+      globalThis.rollBarrel = () => ({ kind: 'item', id: 'book', qty: 1 });
+      // A scene without the loot card (Rewards.present → false): the grant
+      // deferred the read, so the toast must release it, once, at once.
+      {
+        const grants = [];
+        let reveals = 0, toasts = 0;
+        const save = { opened: [], inv: [] };
+        const scene = makeScene({ showChestRewardModal: undefined, flashLoot() { toasts++; },
+          addToInv(id, n, silent, opts) { grants.push({ id, opts }); return n; },
+          _revealPendingBookReads() { reveals++; } });
+        INTERACTABLES.chest.custom(makeCtx(scene, save), chest({ id: 'barrel_book_toast', barrel: true, barrelStyle: 'barrel' }));
+        assert.eq(grants.length, 1); assert.eq(grants[0].id, 'book');
+        assert.truthy(grants[0].opts.deferBookRead, 'a new item defers its read behind the ceremony');
+        assert.eq(toasts, 1); assert.eq(reveals, 1, 'the toast released the deferred read');
+      }
+      // A scene with the card: the read waits for the card's dismissal.
+      for (const barrelStyle of ['barrel', 'clay_pot']) {
+        let reveals = 0, toasts = 0, card = null;
+        const save = { opened: [], inv: [] };
+        const scene = makeScene({ showChestRewardModal(c) { card = c; }, flashLoot() { toasts++; },
+          addToInv(id, n) { return n; }, _revealPendingBookReads() { reveals++; } });
+        INTERACTABLES.chest.custom(makeCtx(scene, save), chest({ id: 'barrel_book_card_' + barrelStyle, barrel: true, barrelStyle }));
+        assert.eq(toasts, 0); assert.truthy(card);
+        assert.eq(card.header, barrelStyle === 'clay_pot' ? 'Inside the clay pot' : 'Inside the barrel');
+        assert.eq(reveals, 0, 'not before the card closes');
+        card.onDismiss(); assert.eq(reveals, 1);
+      }
+      // An already-carried item never defers, and its toast's release is a harmless no-op call.
+      {
+        const grants = [];
+        let reveals = 0, cards = 0, toasts = 0;
+        const save = { opened: [], inv: [{ id: 'wood', count: 1 }] };
+        globalThis.rollBarrel = () => ({ kind: 'item', id: 'wood', qty: 2 });
+        const scene = makeScene({ showChestRewardModal() { cards++; }, flashLoot() { toasts++; },
+          addToInv(id, n, silent, opts) { grants.push(opts); return n; }, _revealPendingBookReads() { reveals++; } });
+        INTERACTABLES.chest.custom(makeCtx(scene, save), chest({ id: 'barrel_wood_held', barrel: true, barrelStyle: 'barrel' }));
+        assert.falsy(grants[0].deferBookRead); assert.eq(cards, 0); assert.eq(toasts, 1); assert.eq(reveals, 1);
+      }
+    } finally { globalThis.rollBarrel = original; }
+  });
+
   test('chest art: item, relic, armor, cash and discarded gear share source art despite reward tier', () => {
     const original = globalThis.pickReward;
     try {

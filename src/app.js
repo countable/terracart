@@ -9524,6 +9524,15 @@ class MapScene extends Phaser.Scene {
       return this.worldIconHTML(texKey, 30, frame);
     };
     const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
+    // THE HAMMER BUTTON, one shape on both screens: a secondary that acts on
+    // the selected card (`withChoice`), greyed where the hammer takes no
+    // effect (Houses.hammerTakes). `rowFor` resolves a card's key to the rank
+    // the hammer would shine — a type card's first rank, a rank card's own —
+    // and `onClick` is what the press does with the key.
+    const hammerSecondary = (rowFor, onClick) => hasHammer
+      ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} Hammer`, withChoice: true,
+          takes: (key) => Houses.hammerTakes(rowFor(key)), onClick }
+      : undefined;
     // STEP ONE — THE TYPE. Offer availability, not affordability, decides
     // what is listed; a card the player cannot pay for shows its price in
     // red. Accept restores a sole-rank type on the spot and opens the rank
@@ -9558,11 +9567,8 @@ class MapScene extends Phaser.Scene {
       canAfford: true,
       acceptLabel: 'Restore',
       cancelLabel: 'Later',
-      secondary: hasHammer
-        ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} Hammer`, withChoice: true,
-            takes: (key) => Houses.hammerTakes(typeByKey(key)?.ranks[0]),
-            onClick: (key) => { const r = soleRank(typeByKey(key)); if (r) restore(r.key, true); else showTiers(key); } }
-        : undefined,
+      secondary: hammerSecondary((key) => typeByKey(key)?.ranks[0],
+        (key) => { const r = soleRank(typeByKey(key)); if (r) restore(r.key, true); else showTiers(key); }),
       onAccept: (key) => { const r = soleRank(typeByKey(key)); if (r) restore(r.key, false); else showTiers(key); },
     });
     // STEP TWO — THE RANK, one card per rank the ladder has opened for this
@@ -9587,6 +9593,9 @@ class MapScene extends Phaser.Scene {
             iconHTML: iconFor(row),
             cost: costLine(c),
             canAfford: affords(c),
+            // The guidance outline rides the rank card too (the T1 smithy
+            // while the lane has none): the type card only summed it.
+            suggested: row.suggested?.(this.save),
           };
         }),
         pickHint: 'Pick a rank',
@@ -9597,11 +9606,7 @@ class MapScene extends Phaser.Scene {
         blurb: hasHammer
           ? `${this.iconSpanHTML(Houses.HAMMER_ID)} With the ${hammer?.name || 'Magic Hammer'} it gleams: folk deal kindly, archers strike hard.`
           : undefined,
-        secondary: hasHammer
-          ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} Hammer`, withChoice: true,
-              takes: (key) => Houses.hammerTakes(options.find((r) => r.key === key)),
-              onClick: (key) => restore(key, true) }
-          : undefined,
+        secondary: hammerSecondary((key) => options.find((r) => r.key === key), (key) => restore(key, true)),
         onAccept: (key) => restore(key, false),
       });
     };

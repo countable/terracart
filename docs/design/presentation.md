@@ -67,10 +67,15 @@ changing dialogue, story panels, books, toasts or status presentation.
   names the actual find as “Item name × quantity”, with its tier badge on the
   next line. When the find has a description (`Rewards.desc`: the item's
   `ITEM_EFFECTS` line or the gear blurb) the card splits: the find on the left,
-  the description on the right. Barrels, clay pots and T1 crates show item
-  acknowledgments only when the item is not currently carried; already-carried
-  items use the small viewport loot toast. Check ownership before granting the
-  reward, not the discovery history. Bag-full take/leave choices still appear.
+  the description on the right. A small container (`isSmallContainer` in
+  `interactables.js`: barrels, clay pots and the crate-look box) shows the
+  card only when the item is not currently carried; an already-carried item
+  uses the small viewport loot toast. Check ownership before granting the
+  reward, not the discovery history. A chest with a line of its own (the
+  trail's end, the portal stone) keeps the card, since a toast carries no
+  line. A toast has nothing to dismiss, so `Rewards.present` fires the
+  caller's `onDismiss` at once in toast mode: a deferred Book read is released
+  by whichever presentation runs. Bag-full take/leave choices still appear.
   Empty pots and barrels retain their brief smash feedback; their coins use a toast.
 
 - The compass header aligns menu, a memories/books window and compact distance meter

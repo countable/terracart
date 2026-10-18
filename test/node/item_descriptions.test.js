@@ -76,11 +76,14 @@ test('consumables: gameplay numbers read the owning spec rows', () => {
     'speed-potion walking derives from the row');
 });
 
-test('effect line: a tap opens the whole description in a dialog', () => {
-  const m = SCENE_SRC.match(/\n  _effectLineEl\(text, titleHTML\) \{[\s\S]*?\n  \}\n/);
+test('effect line: the ✦ line arms the plate with the whole description', () => {
+  // The tap itself belongs to the whole plate, through the one opener
+  // (_openSelectedDescription) — inventory_description_plate.test.js drives it.
+  const m = SCENE_SRC.match(/\n  _effectLineEl\(nameLbl, text, titleHTML\) \{[\s\S]*?\n  \}\n/);
   assert.truthy(m, '_effectLineEl exists');
-  assert.truthy(/pointer-events:auto/.test(m[0]), 'the line opts back into taps');
-  assert.truthy(/showMessageModal\(/.test(m[0]), 'the tap opens a message dialog');
+  assert.truthy(/this\._selectedDescription = \{ title: titleHTML, body: `✦ \$\{text\}` \};/.test(m[0]), 'it records the dialog the plate opens');
+  assert.truthy(/nameLbl\.style\.pointerEvents = 'auto';/.test(m[0]), 'and opts the plate back into taps');
+  assert.falsy(/showMessageModal\(/.test(m[0]), 'it opens nothing itself');
   const uses = SCENE_SRC.match(/this\._effectLineEl\(/g) || [];
   assert.eq(uses.length, 2, 'both ✦ lines (item and relic) go through it');
   assert.eq((SCENE_SRC.match(/textContent = `✦/g) || []).length, 1, 'the helper builds the only ✦ line');

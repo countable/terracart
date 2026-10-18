@@ -8,8 +8,12 @@
 // vista's relic, a neighbour's gift, a barrel. `present(scene, reward, opts)`
 // shows it — as a card (mode 'card', with opts.extra laid over: the header,
 // the painting, the chest glyph, the caller's own line, onDismiss) or as a
-// toast (mode 'toast', led by opts.mark, or opts.text in full) — and fires
-// the jackpot fanfare once for any reward the roll stamped (`jackpot`). A
+// toast (mode 'toast', led by opts.mark, or opts.text in full; a toast has
+// nothing to dismiss, so extra.onDismiss fires at once and the rest of extra
+// has nowhere to show — a reward with a line of its own takes the card) —
+// and fires the jackpot fanfare once for any reward the roll stamped
+// (`jackpot`). A caller that deferred a Book read (Rewards.apply
+// deferBookRead) releases it from onDismiss, whichever mode presents. A
 // converted reward is presented as ordinary coins. Depends on
 // (call time): items.js (ITEM_BY_ID, itemName, itemTierOf, gearName),
 // loot.js (lootFlashColor), util.js (UI_GOLD, UI_TREASURE) and the scene's
@@ -86,6 +90,7 @@
       } else {
         scene.flashLoot(text ?? `${lead}→ ${reward.amount}`, UI_GOLD, 1, null, scene.coinIconEl?.());
       }
+      if (typeof extra.onDismiss === 'function') extra.onDismiss();
     }
     jackpot(scene, reward);
     return true;

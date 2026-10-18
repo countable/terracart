@@ -141,7 +141,27 @@ test('build choice: the type first, then the rank where more than one is open, e
   assert.eq(scene.save.shopTiers.new, selected.tier);
   assert.eq(stock[selectedCost.id], 100 - selectedCost.qty, 'the picked rank is the one charged');
   assert.eq(stock.magic_hammer, 1, 'the hammer was not spent on the way through');
-
+  // THE GUIDANCE OUTLINE FOLLOWS THE PICK ONTO THE RANK SCREEN: five memories
+  // open two smith ranks for a lane with no smithy, and only the T1 card is
+  // suggested there — the type card merely summed its ranks.
+  scene.save = {
+    restoredHouses: { first: 'plain' },
+    discovered: Object.fromEntries(Array.from({ length: 5 }, (_, i) => ['m' + i, true])),
+  };
+  present.call(scene, 0, 0, house);
+  const guided = modal.choices.find(c => c.key === 'blacksmith');
+  assert.eq(guided.acceptLabel, 'Choose rank', 'two ranks open at five memories');
+  assert.truthy(guided.suggested, 'the type card is outlined');
+  modal.onAccept('blacksmith');
+  assert.eq(modal.title, 'Rank');
+  assert.eq(modal.choices.filter(c => c.suggested).map(c => c.key).join(), 'blacksmith:1', 'only the T1 rank card is outlined');
+  assert.falsy(modal.choices.find(c => c.key === 'blacksmith:2').suggested, 'the T2 card is not');
+  // Once a smithy stands, no rank card is outlined.
+  scene.save.restoredHouses.s = 'blacksmith'; scene.save.shopTiers = { s: 1 };
+  present.call(scene, 0, 0, house);
+  modal.onAccept('blacksmith');
+  assert.eq(modal.title, 'Rank');
+  assert.falsy(modal.choices.some(c => c.suggested), 'no outline once a smithy stands');
 });
 
 test('build choice: the offer modal has a choice row that pays only the selected card', () => {
