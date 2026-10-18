@@ -17,7 +17,7 @@
   // Cell order of assets/Objects/BuildingMaterials/reference-materials-v3.png.
   const MATERIAL_TILE=96,MATERIAL_CELLS=['clay','slate','thatch','shingle','glazed','plaster','boards','rubble','brick','clapboard','flagstone','moss'];
   const ROLES={
-    plain:{material:'plaster',finish:'cottage',roofMaterial:'clay',stories:2,style:'multistorey'},
+    plain:{material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey'},
     // Home — the player's house (building_overlay.js drawHome): one storey of
     // plaster under a clay ridge, and the one role with an `interior` recipe.
     home:{material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey',variant:'ridge'},
@@ -577,7 +577,7 @@
     wood:{dark:0x4a2123,mid:0x7e210d,base:0x954a39,light:0xb45c3a,bright:0xc87139},
     glass:{dark:0x185969,base:0x1fc6af,light:0x9ff0e0},flame:0xf2c76a};
   function celSheet(scene,recipe){
-    const wreck=recipe.shape==='wreck',key='lowpoly:cel-v2:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.roofMaterial,recipe.finish,wreck,!!recipe.blank]);
+    const wreck=recipe.shape==='wreck',key='lowpoly:cel-v3:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.roofMaterial,recipe.finish,wreck,!!recipe.blank]);
     if(scene.textures.exists(key))return scene.textures.get(key);
     const tex=scene.textures.createCanvas(key,512,512),ctx=tex.getContext();
     const css=c=>'#'+c.toString(16).padStart(6,'0');
@@ -586,9 +586,9 @@
     const ramp=c=>({shade:mix(c,CEL.shadow,.26),base:c,light:mix(c,CEL.cream,.16)});
     const wall=ramp(recipe.body),roof=ramp(recipe.roof),ink=CEL.ink;
     const trim={shade:CEL.wood.dark,base:CEL.wood.base,light:CEL.wood.light}; // the sprites' frame wood
-    // Exposed beams (floor bands, posts, braces) read as wood, not ink: a mid
-    // tone between the frame's dark and base, so they sit back from the outline.
-    const beam=mix(CEL.wood.dark,CEL.wood.base,.6);
+    // Raised timbers cover the plank seams: a broad wood face with a light
+    // upper/left edge and a dark lower/right edge, all in the wall's palette.
+    const beam={base:mix(wall.base,CEL.shadow,.12),light:mix(wall.base,CEL.cream,.32),shade:mix(wall.base,CEL.shadow,.45)};
     const BOT=105,FLOORS=4,bays=[];for(let k=-1;k<=12;k++)bays.push(2+39*k);
     // --- wall surface -------------------------------------------------------
     px(0,0,512,128,wall.base);
@@ -606,11 +606,21 @@
       for(let y=5;y<128;y+=6)px(0,y,512,1,mix(wall.base,wall.shade,.5));
       for(let y=3;y<128;y+=11)for(let x=5;x<512;x+=17){if(hash(x,y)>.9)px(x,y,2,1,wall.light);}
     }
-    // Floor beams: a dark timber band with a bright top edge, every storey.
-    for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);px(0,y-1,512,3,beam);px(0,y-1,512,1,trim.light);}
-    if(recipe.finish==='cottage'){ // half-timbering: posts at bay edges, one brace per bay
-      for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);for(const bx of bays){px(bx-1,y,3,24,beam);px(bx-1,y,1,24,trim.light);
-        for(let i=0;i<7;i++){px(bx+3+i,y+4+i,2,1,beam);px(bx+34-i,y+4+i,2,1,beam);}}}
+    // Keep the existing storey bands, bay posts and diagonal brace paths.
+    // Five-texel beams leave a three-texel face between their bevel lines.
+    if(recipe.finish==='cottage'){
+      for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);for(const bx of bays){
+        // Seven vertical texels give a 45-degree brace the same apparent
+        // thickness as a five-texel horizontal or vertical timber.
+        for(let i=0;i<7;i++)for(const x of [bx+3+i,bx+34-i]){
+          px(x,y+1+i,1,7,beam.base);px(x,y+1+i,1,1,beam.light);px(x,y+7+i,1,1,beam.shade);
+        }
+        px(bx-2,y,5,24,beam.base);px(bx-2,y,1,24,beam.light);px(bx+2,y,1,24,beam.shade);
+      }}
+    }
+    // Horizontal timbers cap the joints after the posts and braces.
+    for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);
+      px(0,y-2,512,5,beam.base);px(0,y-2,512,1,beam.light);px(0,y+2,512,1,beam.shade);
     }
     // Plinth: stone courses below the ground line, as the tileset keeps them;
     // walls never sample it (chimney sides and the door step do).

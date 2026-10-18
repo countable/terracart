@@ -235,6 +235,10 @@
       slab(current, z, z + 0.7 * scale, palette.trim);
     } else if (styleId === 'multistorey') {
       slab(ring, h - scale, h + scale, palette.trim);
+      if (options.stories === 1) {
+        materialCap(ring, h + scale, palette.roof);
+        return result;
+      }
       let upper = null;
       // A deep setback can pinch a narrow wing into a sliver; halve it instead.
       const pinched = (p, setback) => p.some((a, i) => {

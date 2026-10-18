@@ -11,6 +11,8 @@ dark timber framing and braces, clay/slate/thatch roof treatments, recessed
 joinery and broad eave shading. These details live in shared material sheets;
 story count and footprint do not create a new texture. Material palettes stay
 role-driven. Reference pixels are not embedded in the generated textures.
+Ordinary delivery houses have one storey; specialised buildings retain their
+role-specific heights. The Canvas fallback reads the same storey count.
 
 `scene.buildingRoofVariant` selects ridge, inset, shallow or flat. Leaving it
 unset selects a low-poly roof appropriate to the role; `styles` explicitly
@@ -36,6 +38,10 @@ role colour, a single highlight pixel per feature) with openings at the tileset'
 placement and only a lintel, sill, step and lantern as decoration; `tileset`
 cuts bays from the approved materials sheet instead. Height ships at 1.0. `tools/building-billboard-preview.html` has a
 Facade select and a "Show sheet" toggle to compare the two.
+The cel facade paints thick beams over the wall planks at the existing storey,
+post and diagonal-brace positions. Each has a broad wood face in the wall's
+palette, a one-texel upper/left highlight and a lower/right shadow. Posts and
+bands are five texels wide; diagonal braces match their apparent thickness.
 The Canvas fallback retains the imported style renderer. Existing castle
 perimeters, signs, interaction objects and fort/castle ownership remain intact.
 

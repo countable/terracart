@@ -47,6 +47,15 @@
     assert.lte(wreck.height, 4);
     assert.lt(wreck.prisms.filter(p => p.capped).reduce((a, p) => a + triangleArea(p.points), 0), 600, 'wreck floor is open');
   });
+  test('building styles: delivery houses have one floor in both renderers', () => {
+    const house = BuildingLowPoly.recipeFor('plain');
+    assert.eq(house.stories, 1);
+    assert.eq(BuildingLowPoly.recipeFor('shop').stories, 2, 'specialised shop keeps its upper floor');
+    const one = BuildingStyles.build(l, house.style, { stories: house.stories });
+    const two = BuildingStyles.build(l, house.style, { stories: 2 });
+    assert.lt(one.height, two.height * 0.6, 'fallback removes the upper storey');
+    assert.truthy(one.prisms.every(p => p.top <= one.height));
+  });
   test('building styles: winding and duplicate close do not change generated area', () => {
     const first = BuildingStyles.build(l, 'pyramid');
     const reverse = BuildingStyles.build([...l].reverse().concat(l.at(-1)), 'pyramid');
