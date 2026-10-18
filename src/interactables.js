@@ -558,10 +558,12 @@ const INTERACTABLES = {
         ctx.dirty = true;
         const got = rollBarrel(o);
         if (got.kind === 'empty') { scene.flash(barrelFlash(got), sx, sy); return true; }
-        Rewards.apply(save, got, scene);
+        const newItem = got.kind === 'item' && !carriesItem(save, got.id);
+        Rewards.apply(save, got, scene, { deferBookRead: newItem });
         const art = chestOpeningArt(o);
-        if (!(art && Rewards.present(scene, got, { extra: { kind: 'treasure',
-          header: 'Inside the barrel', art } }))) {
+        if (!(newItem && Rewards.present(scene, got, { extra: { kind: 'treasure',
+          header: chestLook(o).texKey === 'clay_pot' ? 'Inside the pot' : 'Inside the barrel',
+          art: art || undefined, onDismiss: () => scene._revealPendingBookReads?.() } }))) {
           Rewards.present(scene, got, { mode: 'toast', text: barrelFlash(got) });
         }
         return true;
@@ -724,8 +726,9 @@ const INTERACTABLES = {
       // ceremony now agrees with both. Everything else, the spawn relic chest
       // included, keeps the treasure header.
       const rewardKind = o.crate ? 'supplies' : 'treasure';
-      // Chest loot gets the full ceremony modal — quick-feedback flashLoot is
-      // reserved for X-marks / harvest / mining (cheap repeating rewards).
+      // Small containers acknowledge already-carried items with a viewport toast.
+      // Check before the grant; a spent stack counts as new again.
+      const toastOnly = !chapel && iconLook?.texKey === 'box' && carriesItem(save, lootId);
       // If the loot won't fully fit, don't silently drop the overflow — let the
       // player TAKE what fits (chest emptied, rest lost) or LEAVE it for later
       // (chest kept, its exact contents remembered in save.chestHold). Modal
@@ -779,7 +782,7 @@ const INTERACTABLES = {
       markOpened();
       delete save.chestHold[o.id];
       ctx.dirty = true;
-      Rewards.present(scene, result, { extra: { ...dress, kind: rewardKind, kindIcon,
+      Rewards.present(scene, result, { mode: toastOnly ? 'toast' : 'card', extra: { ...dress, kind: rewardKind, kindIcon,
         onDismiss: () => scene._revealPendingBookReads() } });
       return true;
     },
