@@ -63,10 +63,7 @@
       (scene.worldContainer || scene.buildingWallContainer).add(part);
       return part;
     },
-    // A footprint extruded between two elevations (convex when capped). Retain projected
-    // coordinates too, avoiding temporary vertex objects during rotation.
-    prism(scene, source, points, bottom, top, colors, support = null, capped = true, geometry = {}) {
-      const group = scene._wallPerspective[source];
+    inView(scene, points, bottom, top) {
       // Match the padded overlay window. A city-sized footprint may intersect
       // the view while almost all of its perimeter is far away.
       if (Number.isFinite(scene.viewLeft) && Number.isFinite(scene.viewSize)) {
@@ -77,8 +74,15 @@
           north = Math.min(north, p.y); south = Math.max(south, p.y);
         }
         if (right < scene.viewLeft - pad || left > scene.viewLeft + scene.viewSize + pad
-          || south < scene.viewTop - pad || north > scene.viewTop + scene.viewSize + pad) return;
+          || south < scene.viewTop - pad || north > scene.viewTop + scene.viewSize + pad) return false;
       }
+      return true;
+    },
+    // A footprint extruded between two elevations (convex when capped). Retain projected
+    // coordinates too, avoiding temporary vertex objects during rotation.
+    prism(scene, source, points, bottom, top, colors, support = null, capped = true, geometry = {}) {
+      const group = scene._wallPerspective[source];
+      if (!this.inView(scene, points, bottom, top)) return;
       let area = 0, x = 0, y = 0;
       for (let i = 0; i < points.length; i++) {
         const p = points[i], q = points[(i + 1) % points.length];
@@ -88,10 +92,36 @@
       support ||= { x: x / points.length, y: y / points.length, order: group.blocks.length };
       group.runs = null;
       group.blocks.push({ building: group.building || null, points, topPoints: geometry.topPoints || points, allFaces: !!geometry.allFaces, bottom, top, colors, support, capped, winding: Math.sign(area),
+        materialFaces: geometry.materialFaces || null,
         segment: geometry.segment || null,   // the wall baseline this block stands on (addSegment), for its sort point
         x: x / points.length, y: y / points.length, order: group.blocks.length,
         faceOrder: Array.from({ length: points.length }, (_, i) => i), faceDepth: new Float64Array(points.length),
         projected: new Float64Array(points.length * 4) });
+    },
+    material(scene, source, kind, points, height, options = {}) {
+      const top = kind === 'wood' ? height + WallMaterials.WOOD.tipHeight : height;
+      if (!this.inView(scene, points, 0, top)) return;
+      const area = points.reduce((sum, a, i) => { const b = points[(i + 1) % points.length]; return sum + a.x * b.y - b.x * a.y; }, 0);
+      if (area < 0) {
+        const n = points.length;
+        points = points.slice().reverse();
+        options = { ...options, openEdges: options.openEdges?.map((_, i) => options.openEdges[(n - 2 - i + n) % n]) };
+      }
+      const faces = WallMaterials.geometry(kind, points, height, options);
+      this.prism(scene, source, points, 0, top,
+        { face: 0xa99e8b, top: 0xc6baa4, dark: 0x615b50 }, null, true,
+        { materialFaces: faces, segment: options.segment });
+    },
+    palisade(scene, source, spec) {
+      const { ax, ay, bx, by } = spec, wood = WallMaterials.WOOD;
+      const dx = bx - ax, dy = by - ay, length = Math.hypot(dx, dy);
+      if (length < 1e-6) return;
+      const nx = spec.nx ?? -dy / length, ny = spec.ny ?? dx / length;
+      this.material(scene, source, 'wood', [
+        { x: ax, y: ay }, { x: bx, y: by },
+        { x: bx + nx * wood.thickness, y: by + ny * wood.thickness },
+        { x: ax + nx * wood.thickness, y: ay + ny * wood.thickness },
+      ], wood.height, { segment: { ax, ay, bx, by }, tint: spec.tint ?? 0xffffff });
     },
     addSegment(scene, source, spec) {
       const { ax, ay, bx, by, height, thickness, face, top, dark } = spec;
@@ -141,7 +171,7 @@
     clear(scene, source) {
       const group = scene._wallPerspective?.[source];
       if (!group) return;
-      group.blocks.length = 0; group.runs = null; group.buildings = null; group.alwaysActive = false; group.gfx.clear(); group.angle = NaN;
+      group.blocks.length = 0; group.runs = null; group.buildings = null; group.alwaysActive = false; group.gfx.clear(); if (group.gfx._wallTriangles) group.gfx._wallTriangles.length = 0; group.angle = NaN;
       group.perWall = false;
       for (const part of group.parts || []) if (part.visible) { part.visible = false; part.clear(); }
     },
@@ -157,6 +187,7 @@
         const geometryChanged = group.angle !== angle;
         group.angle = angle; group.visibilityKey = visibilityKey;
         const g = group.gfx;
+        if (group.blocks.some(b => b.materialFaces)) WallSurfaceRenderer.install(scene, g);
         for (const block of group.blocks) {
           block.depth = s * block.x + c * block.y;
           block.support.depth = s * block.support.x + c * block.support.y;
@@ -168,6 +199,15 @@
         const look = global.BuildingLowPoly?.LOOK, k = look?.heightScale ?? 1, inkPx = look?.inkPx || 0;
         for (const block of group.blocks) {
           const { points, topPoints, projected: v, bottom, top } = block;
+          for (const face of block.materialFaces || []) {
+            face.visible = !face.normal || s * face.normal.x + c * face.normal.y > 1e-6;
+            face.projected ||= face.points.map(() => ({ x: 0, y: 0 }));
+            face.points.forEach((p, i) => { face.projected[i].x = p.x - s * p.z * k; face.projected[i].y = p.y - c * p.z * k; });
+            if (!face.normal) {
+              const [a, b, d] = face.projected;
+              face.visible = (b.x - a.x) * (d.y - a.y) - (b.y - a.y) * (d.x - a.x) > 1e-8;
+            }
+          }
           for (let i = 0; i < points.length; i++) {
             const p = points[i], j = i * 4;
             v[j] = p.x - s * bottom * k; v[j + 1] = p.y - c * bottom * k;
@@ -184,6 +224,13 @@
         }
         // The visible triangles of one block, in draw order: sides, then the cap.
         const faces = (block, emit) => {
+          if (block.materialFaces) {
+            for (const face of block.materialFaces) if (face.visible) {
+              const [a, b, c] = face.projected;
+              emit(a.x, a.y, b.x, b.y, c.x, c.y, face.flatColor ?? 0xffffff, face);
+            }
+            return;
+          }
           const { points, projected: v, colors, winding } = block;
           for (const i of block.faceOrder) {
             const next = (i + 1) % points.length, a = points[i], b = points[next];
@@ -212,13 +259,14 @@
         for (const [building, triangles] of buildings) building.alpha = typeof Render === 'undefined' || !Render.buildingFadeAlpha ? 1 : Render.buildingFadeAlpha(scene,
           building.key, building.footprint, triangles, building.anchor, {x:group.x,y:group.y});
         const alphaKey = [...buildings.keys()].map(b=>b.alpha).join(',');
-        const ink = (target, block) => { if (!inkPx) return;
+        // Materials carry their own cel edges and contact bands. Re-inking every
+        // texture triangle both thickens the small pickets and multiplies submission cost.
+        const ink = (target, block) => { if (!inkPx || block.materialFaces) return;
           faces(block, (x1, y1, x2, y2, x3, y3) => {
-            target.fillStyle(look.ink, block.building?.alpha ?? 1);
             for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]])
-              target.fillTriangle(x1 + ox * inkPx, y1 + oy * inkPx, x2 + ox * inkPx, y2 + oy * inkPx, x3 + ox * inkPx, y3 + oy * inkPx);
+              WallSurfaceRenderer.paint(target, x1 + ox * inkPx, y1 + oy * inkPx, x2 + ox * inkPx, y2 + oy * inkPx, x3 + ox * inkPx, y3 + oy * inkPx, look.ink, block.building?.alpha ?? 1);
           }); };
-        const fill = (target, block) => faces(block, (x1, y1, x2, y2, x3, y3, color) => { target.fillStyle(color, block.building?.alpha ?? 1); target.fillTriangle(x1, y1, x2, y2, x3, y3); });
+        const fill = (target, block) => faces(block, (x1, y1, x2, y2, x3, y3, color, face) => WallSurfaceRenderer.paint(target, x1, y1, x2, y2, x3, y3, color, block.building?.alpha ?? 1, face));
         const mode = group.perWall ? 'parts' : 'gfx', modeChanged = group.mode !== mode;
         group.mode = mode;
         if (group.perWall) {
@@ -237,18 +285,19 @@
             const p = seg ? this.wallSortPoint({ x: seg.ax, y: seg.ay }, { x: seg.bx, y: seg.by }, angle, local) : { x: block.x, y: block.y };
             part._huAnchor.x = p.x + group.x; part._huAnchor.y = p.y + group.y;
             part.visible = true; part.setPosition(group.x, group.y);
+            if (block.materialFaces) WallSurfaceRenderer.install(scene, part);
           });
           for (let i = group.blocks.length; i < group.parts.length; i++) { const part = group.parts[i]; if (part.visible) { part.visible = false; part.clear(); } }
           if (!geometryChanged && !modeChanged && group.alphaKey === alphaKey) continue;
           group.alphaKey = alphaKey;
-          g.clear();
-          group.blocks.forEach((block, i) => { const part = group.parts[i]; part.clear(); fill(part, block); });
+          g.clear(); if (g._wallTriangles) g._wallTriangles.length = 0;
+          group.blocks.forEach((block, i) => { const part = group.parts[i]; part.clear(); if (part._wallTriangles) part._wallTriangles.length = 0; fill(part, block); });
           continue;
         }
         for (const part of group.parts) if (part.visible) { part.visible = false; part.clear(); }
         if (!geometryChanged && !modeChanged && group.alphaKey === alphaKey) continue;
         group.alphaKey = alphaKey;
-        g.clear();
+        g.clear(); if (g._wallTriangles) g._wallTriangles.length = 0;
         // The ink outline is drawn once per connected run — every block that
         // shares a ground vertex or a wall's support, so a ring of wall
         // sections and the teeth standing on it carry one outer outline with

@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="artifact-review" content="disabled"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Wall material review</title>
+<style>body{margin:0;background:#17211e;color:#f1eddb;font:15px system-ui}header{padding:20px}h1{margin:0 0 10px;font-size:25px}label{margin-right:24px}canvas{display:block;max-width:100%;height:auto}p{color:#becbb9}#status{padding:10px 20px}</style>
+<header><h1>Production wall materials</h1><p>Hedge and stone rings cross eight cell centres around one empty cell. The fort keeps its gambling hall.</p><label>Heading <input id="angle" type="range" min="0" max="360" step="0.1" value="30"></label><button id="rotate">Rotate</button><label>Zoom <select id="zoom"><option value="1">1×</option><option value="2" selected>2×</option></select></label></header><div id="game"></div><div id="status">Loading…</div>
+<script src="../vendor/phaser.js"></script><script>const ReviewPhaser=Phaser;</script><script src="game-loader.js"></script><script>
+(async()=>{await loadGame();window.Phaser=ReviewPhaser;
+let rotating=false;document.getElementById('rotate').onclick=()=>{rotating=!rotating;document.getElementById('rotate').textContent=rotating?'Pause':'Rotate'};
+const layouts=[[[0,0],[1,0],[2,0],[2,1],[2,2],[1,2],[0,2],[0,1]],[[0,1],[1,1],[2,1],[1,0],[1,2]]];
+window.wallReviewGame=new Phaser.Game({type:new URLSearchParams(location.search).has('canvas')?Phaser.CANVAS:Phaser.WEBGL,width:1080,height:730,parent:'game',backgroundColor:'#17211e',pixelArt:true,scene:{
+preload(){this.load.image('review-fort','../assets/Objects/Approved/house_fort.png')},
+create(){window.wallReviewScene=this;this.panels=[];
+for(let row=0;row<2;row++)for(let col=0;col<3;col++){
+const cx=180+col*360,cy=190+row*350,kind=['hedge','stone','wood'][col],root=this.add.container(cx,cy),floor=this.add.graphics();root.add(floor);const clip=this.make.graphics({x:0,y:0,add:false});clip.fillStyle(0xffffff);clip.fillRect(cx-175,cy-150,350,310);root.setMask(clip.createGeometryMask());floor.fillStyle(0x62784d);floor.fillRect(-84,-72,168,144);floor.lineStyle(.5,0xa4ba88,.4);for(let i=-80;i<=80;i+=32){floor.lineBetween(i,-72,i,72);floor.lineBetween(-84,i,84,i)}
+const scene={_headingUp:true,depth:0,mapRot:0,events:this.events,add:this.add,textures:this.textures,buildingWallContainer:root};
+WallPerspective.begin(scene,'review');let hall=null;
+if(kind==='wood'){
+const ring=(row?[[-64,-44],[52,-44],[64,-16],[20,-16],[20,42],[-64,42]]:[[-58,-42],[58,-42],[58,42],[-58,42]]).map(([x,y])=>({x,y}));floor.fillStyle(0xaa9577);floor.fillPoints(ring,true);for(let i=0;i<ring.length;i++){const a=ring[i],b=ring[(i+1)%ring.length],dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy),count=Math.ceil(l/WallMaterials.WOOD.pitch);for(let j=0;j<count;j++){const lo=j/count,hi=Math.min(1,lo+WallMaterials.WOOD.width/l);WallPerspective.palisade(scene,'review',{ax:a.x+dx*lo,ay:a.y+dy*lo,bx:a.x+dx*hi,by:a.y+dy*hi})}}hall=this.add.image(row?-22:0,-12,'review-fort').setDisplaySize(56,56);root.add(hall);
+}else{const cells=layouts[row],set=new Set(cells.map(p=>p.join(','))),thickness=kind==='hedge'?16:8,height=ObstacleStep.PROFILES[kind==='hedge'?'hedge':'wall'].liftPx;
+for(const [x,y] of cells){let mask=0;for(const [dx,dy,bit] of [[0,-1,1],[1,0,2],[0,1,4],[-1,0,8]])if(set.has([x+dx,y+dy].join(',')))mask|=bit;const ox=x*32-48,oy=y*32-48,shape=Render.connectedWallOutline(mask,thickness);WallPerspective.material(scene,'review',kind,shape.points.map(p=>({x:p.x+ox,y:p.y+oy})),height,{openEdges:shape.openEdges,capRegions:Render.connectedWallFootprints(mask,thickness).map(([a,b,c,d],i)=>({x0:ox+a,y0:oy+b,x1:ox+c,y1:oy+d,horizontal:c-a>d-b,joints:i!==0}))})}
+if(!row){floor.lineStyle(.6,0xe4e5b7);floor.strokeRect(-16,-16,32,32)}}
+WallPerspective.finish(scene,'review');this.panels.push({scene,root,hall,kind});this.add.text(cx,cy-165,(row?'Junction / angled · ':'Enclosure · ')+kind,{fontSize:'15px',color:'#eee7cf'}).setOrigin(.5,0);
+}
+window.ready=true;document.getElementById('status').textContent='Live production geometry · '+(this.game.renderer.type===2?'WebGL':'Canvas');},
+update(t,dt){const control=document.getElementById('angle');if(rotating)control.value=(+control.value+dt*.025)%360;const angle=+control.value*Math.PI/180;for(const p of this.panels||[]){p.scene.mapRot=angle;p.root.setRotation(angle).setScale(+document.getElementById('zoom').value);p.hall?.setRotation(-angle);WallPerspective.update(p.scene)}}
+}});
+})().catch(e=>{document.getElementById('status').textContent=e.message;console.error(e)});
+</script></html>

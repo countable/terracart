@@ -123,7 +123,7 @@ const FILES = [
   // The POLYGONAL building overlay: pure draw math over WorldGen + a stub fill target.
   // building_lowpoly.js only touches Phaser/DOM inside begin()/add(): loaded so the
   // overlay's WebGL branch (`lowpoly`) is reachable headlessly (building_lowpoly_scene.test.js).
-  'castle_styles.js', 'temple_art.js', 'wall_perspective.js', 'building_styles.js', 'building_lowpoly.js', 'building_overlay.js',
+  'castle_styles.js', 'temple_art.js', 'wall_materials.js', 'wall_surface_renderer.js', 'wall_perspective.js', 'building_styles.js', 'building_lowpoly.js', 'building_overlay.js',
   // The sandbox's pure tile builder: the same authored scenes, roads and dressing install() uses.
   'sandbox_destinations.js',
   'sandbox.js',

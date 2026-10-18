@@ -64,10 +64,10 @@
     assert.falsy(drawn.has(items[2]), 'a tree stays a sprite');
     assert.falsy(drawn.has(plants[1]), 'a lone bush stays a sprite');
     const group = s._wallPerspective.props;
-    assert.eq(group.blocks.length, 9, 'three straight pieces of three prisms each');
+    assert.eq(group.blocks.length, 3, 'one joined material mesh per cell');
     const wallHeight = ObstacleStep.PROFILES.wall.liftPx, hedgeHeight = ObstacleStep.PROFILES.hedge.liftPx;
-    assert.eq(group.blocks.filter(b => b.top === wallHeight).length, 6, 'walls rise by their step-over lift');
-    assert.eq(group.blocks.filter(b => b.top === hedgeHeight).length, 3, 'hedges rise by their step-over lift');
+    assert.eq(group.blocks.filter(b => b.top === wallHeight).length, 2, 'walls rise by their step-over lift');
+    assert.eq(group.blocks.filter(b => b.top === hedgeHeight).length, 1, 'hedges rise by their step-over lift');
     assert.truthy(group.gfx.triangles.length > 0, 'the batch painted');
   });
 
@@ -77,13 +77,13 @@
     const art = new Map([[items[0].o, { variant: 0 }], [items[1].o, { variant: 0 }]]);
     Render.drawConnectedWallPrisms(s, items, [], art);
     const group = s._wallPerspective.props;
-    // The batch sorts by screen depth; read the two arms either side of the seam by x.
-    const byX = group.blocks.slice().sort((a, b) => a.points[0].x - b.points[0].x);
-    const eastArm = byX[2], westArmOfNext = byX[3];
-    assert.eq(eastArm.points[1].x, westArmOfNext.points[0].x, 'seam shares x');
-    assert.eq(eastArm.points[1].y, westArmOfNext.points[0].y, 'seam shares y');
-    assert.eq(eastArm.points[2].y, westArmOfNext.points[3].y);
-    assert.eq(westArmOfNext.points[0].x - eastArm.points[0].x, 12, 'arm meets the cell edge, not a trimmed sprite bound');
+    const byX = group.blocks.slice().sort((a, b) => a.x - b.x);
+    const left = byX[0], right = byX[1], seam = Math.max(...left.points.map(p => p.x));
+    assert.eq(seam, Math.min(...right.points.map(p => p.x)), 'neighbours meet at their cell edge');
+    const capAt = block => [...new Set(block.materialFaces.flatMap(f => f.points)
+      .filter(p => p.z === block.top && Math.abs(p.x - seam) < 1e-8).map(p => p.y.toFixed(8)))].sort();
+    same(capAt(left), capAt(right), 'bevel cap endpoints agree across the joined cells');
+    assert.eq(right.x - left.x, CELL_PX, 'walls remain centred on their data cells');
     const clears = group.gfx.clears, blocks = group.blocks.slice();
     s.playerM = { x: 1, y: 0 };   // snaps to the 6.4 px/m pixel grid: 6 px into the cell
     Render.drawConnectedWallPrisms(s, items, [], art);
@@ -94,14 +94,14 @@
     Render.drawConnectedWallPrisms(s, items, [], art);
     assert.eq(group.gfx.clears, clears + 1, 'crossing a cell rebuilds once');
     Render.drawConnectedWallPrisms(s, items.slice(0, 1), [], art);
-    assert.eq(group.blocks.length, 3, 'a removed piece leaves the batch');
+    assert.eq(group.blocks.length, 1, 'a removed piece leaves the batch');
   });
 
   test('connected wall prisms: north-up and underground keep the sprites', () => {
     const s = makeScene();
     const items = [item(wallAt(0, 0, 0))], art = new Map([[items[0].o, { variant: 0 }]]);
     Render.drawConnectedWallPrisms(s, items, [], art);
-    assert.eq(s._wallPerspective.props.blocks.length, 3);
+    assert.eq(s._wallPerspective.props.blocks.length, 1);
     s._headingUp = false;
     assert.eq(Render.drawConnectedWallPrisms(s, items, [], art).size, 0);
     assert.eq(s._wallPerspective.props.blocks.length, 0, 'leaving heading-up empties the batch');

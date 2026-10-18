@@ -53,13 +53,19 @@ separate elevations for polygon, tiled and connected-prop walls. Each compass
 change inverse-rotates only the height vector, selects camera-facing sides, and
 orders short wall prisms by screen depth. Connected stronghold wall runs and
 clipped hedge walls (the `connectedArtForTile` masks) join that batch through
-`Render.drawConnectedWallPrisms` (source `props`): a core block plus an arm to
-each connected cell edge, seated on the cells' terrain slots, rising by the
-step-over lift in `ObstacleStep.PROFILES`, with thickness and colour from
-`Render.CONNECTED_WALL_ART`. Those pieces leave the sprite pools for the frame;
+`Render.drawConnectedWallPrisms` (source `props`): one union mesh for a core
+and its connected arms, seated on the cells' terrain slots, rising by the
+step-over lift in `ObstacleStep.PROFILES`, with thickness from
+`Render.CONNECTED_WALL_ART` and surfaces from `WallMaterials`. Those pieces leave the sprite pools for the frame;
 they still interact, block and support steps from their data cells. An isolated
 wall cell keeps its rubble sprite and a lone garden bush its rounded sprite.
-Explicit triangles use Phaser's existing WebGL batching or Canvas fallback;
+`wall_materials.js` owns the shared cel-pixel atlas: subdued hedge clusters,
+bevelled crowns, single-width stone caps with transverse joints, mortared sides
+and darker footing, and light crate wood. Only exposed edges bevel; shared cell
+boundaries keep exactly matching cap vertices. Texture coordinates follow world
+cells, so sub-cell movement and a view rebuild do not slide the material.
+`wall_surface_renderer.js` submits the textured triangles through Phaser's
+existing WebGL pipeline and uses affine texture triangles for Canvas fallback;
 there is no wall canvas bake or texture upload on heading changes. At a fixed
 heading the command buffers are reused. House footprint foundations use the same
 retained perimeter faces, descending below the floor instead of rising as a wall.
@@ -105,7 +111,7 @@ a flattened vertical scale; restoring a wreck returns it to standing architectur
 table: height through `LOOK.heightScale`, and the ink outline is drawn once
 per connected run (blocks sharing a ground vertex at any level, or one wall's
 support) before that run's first fill, so a ring of sections and the merlons
-standing on it carry one outer outline with no seams. They remain untextured.
+standing on it carry one outer outline with no seams. Legacy castle and Home prisms retain their flat colors; connected walls and fort pickets use the shared wall atlas.
 
 Home uses the original nearby building footprint, or a 2×2 footprint stamped
 by `scene_venues.js` when no building is within two cells. It draws no sprite: `Render.houseTextureKey` hands its role
@@ -154,8 +160,8 @@ streets like every other house. The sign seats over the drawn top, or
 A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim
 plus a central gambling hall, never a generated body. The overlay paints the
 fort's plank floor and emits the tier-11 pickets of `perspectiveEdges`:
-separate 3px posts at a 4px pitch, 5px tall and 3px thick, along every
-footprint edge, as `WallPerspective` segments in the polygon group, so the rim
+separate broader pointed posts, sized and spaced by `WallMaterials.WOOD`,
+along every footprint edge, as `WallPerspective` segments in the polygon group, so the rim
 follows concave rings and turns with the compass like every other wall. The
 hall is the approved `house_fort` sprite (`house_fort_unclaimed` before the
 fort is unlocked), seated by the RENDER_SPEC `house` row on the footprint's
