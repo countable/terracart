@@ -109,7 +109,13 @@ changing dialogue, story panels, books, toasts or status presentation.
   immediately available wake-up button. Reduced-motion mode shows the first frame without
   zoom or crossfade.
 
-- The living-silver chassis uses sliced surfaces in `css/compass_hud.css`.
+- The living-silver chassis uses the approved neutral-silver mechanical bearing
+  artwork (`assets/ui/compass/compass-bearing.webp`) in `css/compass_hud.css`.
+  The background is width-fitted at a -15px vertical offset; the live map,
+  aperture masks, and gold compass rim shift up 5 CSS pixels together.
+  Radial brackets support the main circle, with engraved scales behind both
+  the upper instruments and joystick. Legacy endcaps and their baked shine
+  are hidden on the live chassis; dialog and opening art retain their own rails.
   Layout publishes CSS-pixel `--compass-map-top` and `--compass-map-size`;
   modal sheets use game-pixel `--map-top`. Existing controls retain their
   listeners beneath analog energy, shared books/memories display, true-north needle
