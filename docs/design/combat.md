@@ -313,9 +313,10 @@ mechanics.
   ground: no step or hop enters it, a body already in it may walk out, and a
   chasing foe sidesteps around it when a jog fits. This is separate from the
   warmth-ring ward (`FIRE_REST_R`), which turns back only entry-level kinds.
-- Home is `save.starterShopId`: the wagon, placed by `_placeHome` one cell
-  north of the player (`HomeArea.WAGON_OFFSET`) with an empty firepit two
-  cells due south of the trailer (one behind the player)
+- Home is `save.starterShopId`: the player's house, placed by `_placeHome`
+  centred one cell north of the player (`HomeArea.WAGON_OFFSET` — the anchor
+  keeps the save's old name) so they start in its doorway row, with an empty
+  firepit two cells due south of its centre (one behind the player)
   (`FIREPIT_OFFSET`, `save.homeFirepit`; flint lights a fire in it). The first
   valid device-compass reading unlocks placement once per save
   (`homeCompassDetected`); `homeFirepitPending` waits for Home and the surface
@@ -330,13 +331,22 @@ mechanics.
   saved rings move to this southern cell too; a matching surface fire follows
   the ring and retains its state. Cave fires at the same coordinates are
   unaffected.
-  Older saves may still have an adopted house, which draws as the wagon. Any
-  unclaimed house on Home's footing (the wagon's 3x3 and the firepit cell) is
-  erased entirely — footprint, outline and roof — by `clearHomeFooting`, a
-  per-player overlay, leaving only a black 50% shadow of its footprint
-  (`entry.clearedShapes`, drawn by `building_overlay.js`); a claimed building, temple or castle is never erased,
-  and "Move Home here" refuses on one (`_homeFootingAt`, test
-  `starter_trailer_footing`).
+  The house is `HomeArea.HOUSE`: the nine cells round the anchor cell
+  (`inHouse`), stamped into the built tile by `_stampHomeFootprint` as
+  building cells under Home's id with a polygon ring and a doorway on the
+  wall facing the player at placement (`doorSide`, saved as
+  `starterTrailer.door`), so the spawn gate, the tap zone and the overlay see
+  a building; "Move Home here" lifts it again (`_unstampHomeFootprint`).
+  Standing on one of its cells is being inside (`homeInside`; `homeInterior`
+  hands the ring to the renderer — see [rendering](rendering.md)). Older saves
+  may still have an adopted house as Home; it keeps its own footprint and is
+  drawn the same way. Any unclaimed house on Home's footing (the house's 3x3
+  and the firepit cell) is erased entirely — footprint, outline and roof — by
+  `clearHomeFooting`, a per-player overlay, leaving only a black 50% shadow of
+  its footprint (`entry.clearedShapes`, drawn by `building_overlay.js`); a
+  claimed building, temple or castle is never erased (Home's own footprint
+  stops short of its cells), Home never clears itself, and "Move Home here"
+  refuses on one (`_homeFootingAt`, test `starter_trailer_footing`).
 
 Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_ward`,
 `pet_pickup`.

@@ -55,7 +55,8 @@ const HomeArea = {
   // ── Home's footing ────────────────────────────────────────────────────
   // Where a placed Home sits, in cell offsets from the point it is placed
   // for (the player's first fix, or where they stand for "Move Home here"):
-  // the wagon one cell ahead and the firepit one cell behind the player.
+  // the house centred one cell ahead (its doorway row under the player)
+  // and the firepit one cell behind the player.
   // A new game rotates these defaults into its first compass heading.
   // Explicit Home moves retain the north-up defaults.
   WAGON_OFFSET: { dx: 0, dy: -1 },
@@ -92,16 +93,60 @@ const HomeArea = {
   // never reports a heading (desktop, a phone without motion permission)
   // still gets its pit; the reading never changes which cell it takes.
   FIREPIT_COMPASS_GRACE_MS: 2000,
-  // Where the placed wagon's art stands on its cell, in cells (render.js
-  // _houseFootPx reads it as the house's footDx/footDy): shifted left so
-  // its door (0.18 of the art's width right of centre) is over the
-  // player's column, and down so the door's steps meet the doorstep cell —
-  // the player stands right in front of the door, not a cell below it.
-  WAGON_ART_FOOT: { dx: -0.37, dy: 1.0 },
-  wagonArtFoot(heading = 0) {
-    const a = heading * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
-    const { dx, dy } = this.WAGON_ART_FOOT;
-    return { dx: dx * c - dy * s, dy: dx * s + dy * c };
+  // ── Your house ────────────────────────────────────────────────────────
+  // Home is a HOUSE: a square of (2·halfCells + 1) cells on a side centred
+  // on the wagon cell (WAGON_OFFSET keeps its name for the save's sake —
+  // `starterTrailer` is the record, `starter_trailer` the id). It is stamped
+  // into its tile as real building cells and a polygon ring
+  // (scene_venues.js _stampHomeFootprint), so everything that reads building
+  // cells — the spawn gate, the clutter moat, the tap zone, the overlay —
+  // sees a building, and the building overlay draws it as walls with height
+  // and thickness under a roof (building_overlay.js drawHome). While the
+  // player stands on one of its cells (scene_venues.js homeInside) the roof
+  // comes off and the lightmap masks everything outside the walls
+  // (lighting.js paintIndoorMask).
+  HOUSE: {
+    halfCells: 1,
+    wallPx: 14,        // wall height, screen px (a fort's wall is 5)
+    thicknessPx: 3,    // wall thickness, px — the fort's
+    ridgePx: 5,        // the roof's ridge above the eaves
+    doorCells: 1,      // the doorway's width, cells, centred on the door side
+    signLiftPx: 26,    // the sign's seat above the footprint's centre, px
+    wall: { face: 0xa88a62, top: 0xe8dcc2, dark: 0x5e4730 },
+    roof: { top: 0xa8463a, shade: 0x7f3329, lite: 0xcf6a53, dark: 0x5f2820 },
+    // The world outside the house while the player is inside it: the
+    // lightmap's multiply colour and how much of the picture it takes.
+    maskColour: 0x0a0d12, maskAlpha: 0.86,
+  },
+  // Is the cell (dx, dy) from the wagon cell one of the house's?
+  inHouse(dx, dy) {
+    const h = this.HOUSE.halfCells;
+    return Math.abs(dx) <= h && Math.abs(dy) <= h;
+  },
+  // The house's ring in world metres about its centre (the wagon cell's
+  // centre), clockwise on screen: NW, NE, SE, SW.
+  houseRingM(cx, cy, cellM) {
+    const half = (this.HOUSE.halfCells + 0.5) * cellM;
+    return [{ x: cx - half, y: cy - half }, { x: cx + half, y: cy - half },
+      { x: cx + half, y: cy + half }, { x: cx - half, y: cy + half }];
+  },
+  // Which wall the door is in: the side facing the player's anchor, which
+  // sits at the turned WAGON_OFFSET's opposite. A diagonal heading ties and
+  // takes the north/south answer.
+  doorSide(heading = 0) {
+    const a = heading * Math.PI / 180;
+    // The turned WAGON_OFFSET is (sin a, -cos a); the anchor is its opposite.
+    const px = -Math.sin(a), py = Math.cos(a);
+    if (Math.abs(py) + 1e-9 >= Math.abs(px)) return py > 0 ? 'S' : 'N';   // a diagonal ties: north/south
+    return px > 0 ? 'E' : 'W';
+  },
+  // The doorway's centre on that wall, world metres.
+  doorPointM(cx, cy, cellM, side) {
+    const half = (this.HOUSE.halfCells + 0.5) * cellM;
+    if (side === 'N') return { x: cx, y: cy - half };
+    if (side === 'E') return { x: cx + half, y: cy };
+    if (side === 'W') return { x: cx - half, y: cy };
+    return { x: cx, y: cy + half };
   },
   // Home's sign over the roof, nudged off its centred spot (render.js).
   SIGN_NUDGE_PX: { x: -3, y: 4 },
@@ -111,7 +156,7 @@ const HomeArea = {
   FIREPIT_SMOKE: { puffs: 3, periodMs: 6500, risePx: 38, swayPx: 4,
     radiusPx: [3.5, 9], alpha: 0.85, color: 0x57514c },
   // Is the cell (dx, dy) from the spawn anchor part of Home's footing — the
-  // wagon's cell and the eight its art spills into, plus the firepit? The
+  // house's cells (the wagon cell and the eight round it), plus the firepit? The
   // starter passes keep their crates, plot and ring out of it, and
   // clearHomeFooting (scene_venues.js) sweeps it. The anchor's own 3x3 is
   // included too: a save placed before the wagon moved north has its
@@ -125,8 +170,8 @@ const HomeArea = {
 
   // The opening shot of a new game: the camera starts zoomed in until
   // `viewCells` cells span the map frame, centred `focus` cells from the
-  // player (up, and a little toward the wagon's middle), so the wagon fills
-  // the top half and the player stands at its door. Once Home stands and no
+  // player (up, and a little toward the house's middle), so the house fills
+  // the top half and the player stands in its doorway. Once Home stands and no
   // dialog covers the map it holds `holdMs`, then eases back out to the
   // normal view over `outMs`. Home's sign is hidden until the hold begins,
   // then types out one character every `labelCharMs` (every session types
@@ -279,8 +324,8 @@ const HomeArea = {
   // Of that quota, how many must sit inside the pocket as the visible example:
   // GUARANTEED, since the pocket is deliberately cleared of trees and rocks.
   TOKEN: { tree: 1, rock: 1 },
-  // ...but not right against the door: the trailer's art spills into all eight
-  // neighbouring cells and the crate trail seats from 2 cells out.
+  // ...but not right against the door: the house fills the eight cells round
+  // the wagon cell and the crate trail seats from 2 cells out.
   TOKEN_MIN_CELLS: 4,
 
   // A tree a player with NO axe can fell: small + softwood is tier 0 via

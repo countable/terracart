@@ -2026,10 +2026,10 @@ const ITEM_GUIDE_TIPS = {
   raven_scroll: 'I traced a raven onto the parchment. Its ink-dark wings stirred before the page was dry.',
   thunder_scroll: 'I copied the thunder words onto a blank scroll. Outside, the sky answered.',
   moonbeam_scroll: 'I copied the moon onto a blank scroll by candlelight. When I blew the candle out, the page kept shining.',
-  fireball_scroll: 'At the trailer I copied the fire spell from memory onto blank parchment. The ink warmed. I moved the bedding away.',
-  fear_scroll: 'I copied the words that had scattered my pursuers onto a blank scroll. Even here at the trailer, the parchment trembled.',
-  wind_scroll: 'I copied the gust onto a blank scroll from memory. The trailer door banged open on its own.',
-  treasure_map: 'Back at the trailer I traced the remembered map onto a blank scroll. Its hidden paths returned. I had hoped one might lead home.',
+  fireball_scroll: 'At the house I copied the fire spell from memory onto blank parchment. The ink warmed. I moved the bedding away.',
+  fear_scroll: 'I copied the words that had scattered my pursuers onto a blank scroll. Even here at the house, the parchment trembled.',
+  wind_scroll: 'I copied the gust onto a blank scroll from memory. The house door banged open on its own.',
+  treasure_map: 'Back at the house I traced the remembered map onto a blank scroll. Its hidden paths returned. I had hoped one might lead home.',
 };
 
 // The ordered Book pages live in play_tips.js; their positions are saved bookmarks.
@@ -2130,7 +2130,7 @@ const ITEM_EFFECTS = {
   tome_blight: 'Do not read it near the crops.',
   tome_frost_aura: CONSUMABLE_SPEC.tome_frost_aura.get,
   tome_fire_wall: CONSUMABLE_SPEC.tome_fire_wall.get,
-  blank_scroll: 'At the trailer, remembered scrolls can be written upon this empty page.',
+  blank_scroll: 'At the house, remembered scrolls can be written upon this empty page.',
   fireball_scroll: CONSUMABLE_SPEC.fireball_scroll.get,
   explosive_flask: CONSUMABLE_SPEC.explosive_flask.get,
   fear_scroll: CONSUMABLE_SPEC.fear_scroll.get,

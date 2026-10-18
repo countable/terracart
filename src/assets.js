@@ -385,7 +385,6 @@ const ASSETS = {
   // The shop's file keeps its pre-rename name: the approved-art manifest keys it.
   house_shop:       { kind: 'image', path: 'assets/Objects/Approved/house_market.png' },
   house_fort:       { kind: 'image', path: 'assets/Objects/Approved/house_fort.png' },
-  house_trailer:    { kind: 'image', path: 'assets/Objects/Home/home_wagon.png' },
   // Wreck: every tier-9 small house starts out as one of these until the
   // player brings the restoration materials. Single sprite shared across
   // all roles — what the wreck WILL become is hidden until restoration.

@@ -1,14 +1,16 @@
 // HOME'S FOOTING IS CLEAR GROUND.
 //
-// Home is placed round the player (_placeHome): the wagon one cell north, so
-// they start on its doorstep, and a firepit due south after compass detection. Any
-// house standing on that footing — the wagon's cell, the eight its art spills
-// into, and the firepit's — is erased ENTIRELY by clearHomeFooting: every
+// Home is placed round the player (_placeHome): the house centred one cell
+// north, so they start in its doorway row, and a firepit due south after
+// compass detection. Any house standing on that footing — the house's nine
+// cells and the firepit's — is erased ENTIRELY by clearHomeFooting: every
 // cell of its footprint goes back to the ground around it, its outline and its
-// roof go too. Until Oct 2026 Home ADOPTED the nearest visible house and drew
-// the wagon on its anchor, so the wagon sat on a leftover building footprint;
-// a real house that reappeared on the trailer's cell after a tile rebuild was
-// adopted the same way. The trailer now always wins its own footing.
+// roof go too. Then the house's own footprint is stamped onto the cleared
+// ground (_stampHomeFootprint): nine building cells under its id and a ring
+// with a doorway for the overlay to draw. Until Oct 2026 Home ADOPTED the
+// nearest visible house and drew the wagon on its anchor; a real house that
+// reappeared on the cell after a tile rebuild was adopted the same way. Home
+// now always wins its own footing.
 //
 // (app.js needs Phaser and cannot be loaded headlessly, so these drive the
 // shipping method bodies lifted by run.js.)
@@ -35,6 +37,12 @@
     _homeMayClear: lift('_homeMayClear'),
     _eraseHomeBuildings: lift('_eraseHomeBuildings'),
     _homeFootingAt: lift('_homeFootingAt'),
+    _stampHomeFootprint: lift('_stampHomeFootprint'),
+    _unstampHomeFootprint: lift('_unstampHomeFootprint'),
+    homeInside: lift('homeInside'),
+    homeInterior: lift('homeInterior'),
+    homeWorldPos: lift('homeWorldPos'),
+    ensureStarterShopId() {},
   });
   // A residential tile with building footprints: each { key, x0, x1, y0, y1 }
   // paints cells [x0..x1] × [y0..y1] as small-building terrain under its key.
@@ -76,10 +84,29 @@
         'the wagon is one cell north, so the player stands at its door');
       assert.truthy(sameAbsCell(s, s.save.homeFirepit.x, s.save.homeFirepit.y, at(30,31).x, at(30,31).y),
         'the firepit is two cells due south of the wagon');
-      const wagon = WorldGen.tileCache.get(KEY).objects.find(o => o.id === 'starter_trailer');
-      assert.truthy(wagon, 'the wagon is injected');
-      assert.eq(wagon.footDx, HomeArea.WAGON_ART_FOOT.dx, 'its art stands with the door over the player\'s column');
-      assert.eq(wagon.footDy, HomeArea.WAGON_ART_FOOT.dy, 'and its steps on the doorstep');
+      const e = WorldGen.tileCache.get(KEY);
+      const wagon = e.objects.find(o => o.id === 'starter_trailer');
+      assert.truthy(wagon, 'the house object is injected');
+      assert.eq(wagon.footDx, 0, 'it stands on its footprint\'s centre');
+      assert.eq(wagon.footDy, 0, 'with no art nudge');
+      assert.eq(s.save.starterTrailer.door, 'S', 'the door faces the player');
+      // The footprint: the nine cells round the wagon cell, under its id.
+      assert.eq(cellsOf(e, 'starter_trailer'), 9, 'nine building cells');
+      for (const [ix, iy] of [[29, 28], [31, 30], [30, 30]]) {
+        assert.eq(e.ownerKeys[e.owners[iy * N + ix]], 'starter_trailer', `(${ix},${iy}) is Home's`);
+      }
+      assert.eq(e.grid[27 * N + 30], WorldGen.T.RESIDENTIAL, 'the row beyond is ground');
+      const shape = e.buildingShapes.find(sh => sh.key === 'starter_trailer');
+      assert.truthy(shape && shape.home, 'and a ring for the overlay');
+      assert.eq(shape.ring.length, 8, 'a quad');
+      near(shape.ring[0], 29 * CELL_M, 'NW corner x'); near(shape.ring[1], 28 * CELL_M, 'NW corner y');
+      near(shape.ring[4], 32 * CELL_M, 'SE corner x'); near(shape.ring[5], 31 * CELL_M, 'SE corner y');
+      near(shape.door.x, 30.5 * CELL_M, 'the doorway is the south wall\'s middle');
+      near(shape.door.y, 31 * CELL_M, 'on the south edge, under the player');
+      // Stamped once per entry and position.
+      const shapes = e.buildingShapes;
+      s.ensureStarterTrailerObject();
+      assert.eq(e.buildingShapes, shapes, 'a second frame does not restamp');
       const c = at(30,31), pit = s.save.homeFirepit;
       near(pit.x, c.x, 'the ring is centred horizontally');
       near(pit.y, c.y, 'the ring is centred vertically, farther from the trailer');
@@ -116,11 +143,16 @@
       const { wagon, firepit } = HomeArea.placementOffsets(heading);
       const a = heading * Math.PI / 180;
       const screenY = p => -Math.sin(a) * p.dx + Math.cos(a) * p.dy;
-      assert.truthy(screenY(wagon) < 0, `${heading}: trailer above player`);
-      const foot = HomeArea.wagonArtFoot(heading);
-      near(screenY(foot), HomeArea.WAGON_ART_FOOT.dy, `${heading}: doorway offset follows initial heading`);
-      assert.truthy(Math.abs(screenY(wagon) + screenY(foot)) < 0.5, `${heading}: doorway within half a cell of player`);
+      assert.truthy(screenY(wagon) < 0, `${heading}: house above player`);
       assert.truthy(screenY(firepit) > 0, `${heading}: firepit below player`);
+      // The door is in the wall facing the player (who stands at -wagon from
+      // the house's centre); a diagonal heading takes the north/south wall.
+      const side = HomeArea.doorSide(heading);
+      if (side === 'S') assert.truthy(-wagon.dy > 0, `${heading}: player south of the house`);
+      else if (side === 'N') assert.truthy(-wagon.dy < 0, `${heading}: player north of the house`);
+      else if (side === 'E') assert.truthy(-wagon.dx > 0 && wagon.dy === 0, `${heading}: player east of the house`);
+      else assert.truthy(-wagon.dx < 0 && wagon.dy === 0, `${heading}: player west of the house`);
+      assert.truthy(HomeArea.inHouse(-wagon.dx, -wagon.dy), `${heading}: the player starts inside, in the doorway`);
     }
   });
 
@@ -293,14 +325,62 @@
     });
   });
 
-  test('home footing: an adopted Home from an older save loses its footprint, not its object', () => {
+  test('home footing: an adopted Home from an older save keeps its footprint — its house is drawn from it', () => {
     const home = { kind: 'house', id: 'h_0_0_20_20', ...at(20, 20), tier: 9 };
     const s = scene({ starterTrailer: null, starterShopId: home.id });
     const e = tile([{ key: home.id, x0: 19, x1: 21, y0: 19, y1: 21 }], [home]);
     withTile(e, () => {
       s.ensureStarterTrailerObject();
-      assert.eq(cellsOf(e, home.id), 0, 'the wagon no longer stands on a roof');
+      assert.eq(cellsOf(e, home.id), 9, 'its cells stay');
+      assert.truthy(e.buildingShapes.some(sh => sh.key === home.id), 'and its ring');
       assert.truthy(e.objects.includes(home), 'Home itself stays');
+      assert.falsy(s._homeMayClear(home.id), 'Home never clears its own footprint');
+      s.playerM = at(20, 20); s.startWorldM = { x: 0, y: 0 };
+      assert.truthy(s.homeInside(), 'standing on it is being inside');
+    });
+  });
+
+  test('home footing: inside is standing on one of the house\'s cells; the interior hands over its ring', () => {
+    const s = scene({ starterTrailer: { id: 'starter_trailer', ...at(30, 29), tier: 9, address: 1, door: 'S' },
+      starterShopId: 'starter_trailer' });
+    s.startWorldM = { x: 0, y: 0 };
+    const e = tile([]);
+    withTile(e, () => {
+      s.ensureStarterTrailerObject();
+      const inside = [[30, 30], [29, 28], [31, 29]], outside = [[30, 31], [28, 29], [32, 28], [30, 27]];
+      for (const [ix, iy] of inside) { s.playerM = at(ix, iy); assert.truthy(s.homeInside(), `(${ix},${iy}) is inside`); }
+      for (const [ix, iy] of outside) { s.playerM = at(ix, iy); assert.falsy(s.homeInside(), `(${ix},${iy}) is outside`); }
+      s.playerM = at(30, 30);
+      const room = s.homeInterior();
+      assert.eq(room.ring.length, 4, 'the ring, in world metres');
+      near(room.ring[0].x, 29 * CELL_M, 'NW x'); near(room.ring[2].y, 31 * CELL_M, 'SE y');
+      assert.truthy(room.key.startsWith('starter_trailer@'), 'keyed by Home and its position');
+      s.playerM = at(30, 31);
+      assert.eq(s.homeInterior(), null, 'no interior outside');
+      s.depth = 1; s.playerM = at(30, 30);
+      assert.falsy(s.homeInside(), 'the house has no cellar');
+      s.depth = 0;
+    });
+  });
+
+  test('home footing: moving Home lifts the old footprint and leaves no shadow', () => {
+    const s = scene({ starterTrailer: { id: 'starter_trailer', ...at(30, 29), tier: 9, address: 1, door: 'S' },
+      starterShopId: 'starter_trailer' });
+    const e = tile([]);
+    withTile(e, () => {
+      s.ensureStarterTrailerObject();
+      assert.eq(cellsOf(e, 'starter_trailer'), 9);
+      s._unstampHomeFootprint();
+      assert.eq(cellsOf(e, 'starter_trailer'), 0, 'the cells are ground again');
+      assert.eq(e.grid[29 * N + 30], WorldGen.T.RESIDENTIAL, 'the ground round it');
+      assert.falsy(e.buildingShapes.some(sh => sh.key === 'starter_trailer'), 'no ring');
+      assert.falsy((e.clearedShapes || []).some(sh => sh.key === 'starter_trailer'), 'and no cleared shadow');
+      assert.eq(e._homeHouse, null, 'the entry forgets the stamp');
+      // Placed again elsewhere, the new footprint goes down.
+      const p = at(40, 40);
+      s._placeHome(p.x, p.y);
+      assert.eq(cellsOf(e, 'starter_trailer'), 9, 'stamped at the new spot');
+      assert.truthy(e.ownerKeys[e.owners[39 * N + 40]] === 'starter_trailer', 'centred on the new wagon cell');
     });
   });
 

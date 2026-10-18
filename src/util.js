@@ -672,16 +672,11 @@ function derivedObjects(entry, slot, pred) {
 // Pinned at one size those drew the same roof as a 19 m fort and the footprint
 // read as a field of bare brick with a toy building parked in the middle.
 //
-// `def` is what a building with NO footprint draws at — the synthetic starter
-// trailer, sandbox houses. It sits at the top of the house range and the bottom
-// of the fort range because that is where each role's real buildings cluster.
-//
-// THE TRAILER HAS ITS OWN ROW (Oct 2026, owner's call: 10% bigger, three
-// times over, then 15% more — 1.533× the house, a touch past the smallest
-// fort). Home is the one building the player returns to every session and
-// the only one with no footprint of its own, so it draws at a fixed width
-// over the village's — big enough to find at a glance. A role with no row of
-// its own is a house.
+// `def` is what a building with NO footprint draws at — a sandbox house. It
+// sits at the top of the house range and the bottom of the fort range because
+// that is where each role's real buildings cluster. (Home draws no sprite at
+// all: it is the player's house, drawn from its footprint by the building
+// overlay — building_overlay.js drawHome — so it has no row here.)
 //
 // The fort cap has come down twice: ~7 cells read as oversized against an
 // 11-cell viewport rather than as a landmark you could see around, then ~4.3
@@ -692,7 +687,6 @@ const BUILDING_ART = {
   //          brick margin inside theirs; exact fill read ~25% too big.
   // min/def/max — drawn width in CELLS (a cell is CELL_M = 7 m).
   house:   { fitMul: 1,   min: 1.2,   def: 1.35,  max: 1.35 },
-  trailer: { fitMul: 1,   min: 2.07,  def: 2.07,  max: 2.07 },   // house × 1.533
   fort:    { fitMul: 0.8, min: 1.87,  def: 1.87,  max: 3.48 },
   // A restored TURRET (houses.js BUILD_OPTIONS) wears the castle tower sheet,
   // a one-cell-wide column drawn at the castle rim's own size whatever its
@@ -706,7 +700,7 @@ const BUILDING_ART = {
 // bias in worldgen's assignBuildingFootprints (FOOT_HOUSE_MIN) so the floored
 // roof has a pad to stand on. The fort's 1.87 and 3.48 are its previous 0.28
 // and 0.52 on the 214px frame, in cells — the curve is unchanged.
-// The row for a building ROLE (Houses.displayRole: 'fort', 'trailer', or any
+// The row for a building ROLE (Houses.displayRole: 'fort', 'turret', or any
 // of the residential roles, which share the house row).
 function buildingArt(role) { return BUILDING_ART[role] || BUILDING_ART.house; }
 // Sprite scale that draws `cells` cells wide from a frame `frameW` px wide.

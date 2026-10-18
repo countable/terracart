@@ -8,7 +8,7 @@ const PLAY_TIPS = [
   "I saw a figure watching me from an empty window. By morning, fresh footprints ended at the wall beneath it.",
   "Finish the work before you settle into a proper rest. I cannot sleep with half a wall leaning over me.",
   "I know the shape of the missing letters. Why can I no longer remember the name?",
-  "Bring what you want to sell home to your trailer. Hold it out to the wandering survivors; they will pay for it, one piece at a time.",
+  "Bring what you want to sell home to your house. Hold it out to the wandering survivors; they will pay for it, one piece at a time.",
   "We had lost every tool. Our bare hands still did the work.",
   "Below ground, your light dwindles with every descent. Overwhelmed by the deeper dark.",
   "Your wandering shadow can scout ahead. It cannot put your weight behind a blow. Plant your own boots where the fighting is. Strike true.",
@@ -133,7 +133,7 @@ const PLAY_TIPS = [
   "Seek magical flowers out in the world. No shop sells their seeds. Some things still refuse to sit on a shelf.",
   "Might sapphire soothe a slime? Brann says to kill it. But there must be something beneath that trembling besides malice.",
   "In the harsher world, even a small bite leaves me trembling. I used to laugh at the old warnings.",
-  "When the harsher world takes your last strength, seek your own trailer. Shelter first. Pride can spend the night outside.",
+  "When the harsher world takes your last strength, seek your own house. Shelter first. Pride can spend the night outside.",
   ITEM_GUIDE_TIPS.crow_feather,
   // Appended (Sep 2026, the gull's food theft): a new page goes LAST so every
   // saved bookmark (save.tipsRead) still opens on the page it was left at.

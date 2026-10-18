@@ -904,7 +904,10 @@
     if (scene.buildingWallContainer) scene.buildingWallContainer.setVisible((scene.depth ?? 0) === 0);
     if (!on) {
       clearUprights(scene);
-      if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'polygon');
+      if (typeof WallPerspective !== 'undefined') {
+        WallPerspective.clear(scene, 'polygon');
+        WallPerspective.clear(scene, 'home');
+      }
       // Wipe the canvas the first time it goes off: setEnabled() invalidates
       // on its way out, and a hidden container full of last frame's buildings
       // would come back. `_buildingGeomPainted` tracks what is ON the canvas.
@@ -946,8 +949,10 @@
       }
     }
     if (container) container.setPosition(-offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
-    if (typeof WallPerspective !== 'undefined')
+    if (typeof WallPerspective !== 'undefined') {
       WallPerspective.offset(scene, 'polygon', -offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
+      WallPerspective.offset(scene, 'home', -offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
+    }
     for (const p of scene._buildingUprightPieces || []) {
       const x = p.x - offset.fracX * CELL_PX, y = p.y - offset.fracY * CELL_PX;
       p.sprite.setPosition(x, y);
@@ -992,6 +997,14 @@
     if (perspective) WallPerspective.begin(scene, 'polygon');
     else if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'polygon');
     const separateUprights = !!(scene.buildingWallContainer && scene.add && scene.textures);
+    // Home's walls are retained prisms at every heading (north-up too): the
+    // one building the player walks into has to read as a room, not a slab.
+    // The group opens on the first Home drawn (drawHome) and is emptied here
+    // when none is in view.
+    const homeWalls = separateUprights && typeof WallPerspective !== 'undefined'
+      && typeof scene.add.graphics === 'function';
+    if (homeWalls) WallPerspective.clear(scene, 'home');
+    let homeBegun = false;
     // Cell-snapped projection (the container re-applies the sub-cell offset) —
     // the same one the road overlay strokes with — and its padded cull bounds.
     const { projX, projY, minX, maxX, minY, maxY } = overlayProjection(scene, fracX, fracY);
@@ -1038,6 +1051,8 @@
           pts, south: by1, left: bx0, north: by0, right: bx1, cleared: !!shape.cleared,
           tier: shape.tier, key: shape.key, templeZone: shape.templeZone, templeKind: shape.templeKind,
           damageOriginX: projX(originMx), damageOriginY: projY(originMy),
+          // Home's doorway (scene_venues.js _stampHomeFootprint), projected.
+          door: shape.door ? { x: projX(originMx + shape.door.x), y: projY(originMy + shape.door.y) } : null,
           columns: shape.tier === CASTLE && !shape.templeZone ? CastleStyles.columnSites(shape.key, r,
             entry.tileEdgeM / (entry.cellsPerEdge || scene.cellsPerTile))
             .map(p => ({ x: projX(originMx + p.x), y: projY(originMy + p.y), height: p.height })) : [],
@@ -1067,6 +1082,13 @@
         g.fillPoly(d.pts.map(p => ({ x: p.x, y: p.y + facePx(d.tier) })), palette.face);
         if (g.templePoly) g.templePoly(d.pts, active, d.templeKind === 'tar');
         else { g.fillPoly(d.pts, palette.floor); g.strokePoly(d.pts, OUTLINE_PX, palette.outline); }
+        continue;
+      }
+      // HOME — the player's house: its own walls and roof (drawHome), never
+      // the sprite-topped slab a village house is.
+      if (d.key && scene.save && d.key === scene.save.starterShopId) {
+        if (homeWalls && !homeBegun) { WallPerspective.begin(scene, 'home', { alwaysOn: true }); homeBegun = true; }
+        drawHome(scene, g, d, homeWalls, GRID);
         continue;
       }
       const isMine = claimed(d.key);
@@ -1133,7 +1155,125 @@
       commitWallAtlas(scene);
     }
     if (perspective) WallPerspective.finish(scene, 'polygon');
+    if (homeBegun) WallPerspective.finish(scene, 'home');
     if (g.commit) g.commit();
+  }
+
+  // ── YOUR HOUSE ───────────────────────────────────────────────────────────
+  // Home (HomeArea.HOUSE; scene_venues.js stamps its footprint) is drawn
+  // from its ring like a fort rather than crowned with a sprite: the house
+  // floor, then walls as retained prisms with height and thickness
+  // (WallPerspective, the 'home' group — on at every heading) round the whole
+  // perimeter save a doorway on the door side, and a roof over them: the cap
+  // at wall height with a dark eave lip, and a ridge raised along the long
+  // axis. INSIDE (scene.homeInside: the player stands on one of its cells)
+  // there is no roof — the floor and the walls' inner faces are the room —
+  // and the lightmap masks everything outside (lighting.js paintIndoorMask).
+  // An adopted Home (an older save's real house) draws the same way from its
+  // OSM ring, with no doorway and a flat roof when the ring isn't a quad.
+  function drawHome(scene, g, d, walls, GRID) {
+    const HA = (typeof HomeArea !== 'undefined') ? HomeArea.HOUSE : null;
+    const tune = tuneOf(true);
+    const floor = tune(floorColor(9, true));
+    const depth = facePx(9);
+    // No prisms (a bare fill target): the tiled south face under the floor,
+    // and the roof as a flat fill over it when the player is outside.
+    if (!walls) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), tune(faceColor(9, true)));
+    g.fillPoly(d.pts, floor);
+    if (g.texturePoly) g.texturePoly(d.pts, 9);
+    if (g.gridPoly) g.gridPoly(d.pts, gridInkFor(GRID, floor));
+    g.strokePoly(d.pts, OUTLINE_PX, tune(dim(floorColor(9, true), OUTLINE_MUL)));
+    const inside = !!(scene.homeInside && scene.homeInside());
+    if (!walls || !HA) {
+      if (!inside && HA) g.fillPoly(d.pts, HA.roof.top);
+      return;
+    }
+    homeWalls(scene, d, HA, inside);
+  }
+  // The door edge: the ring edge nearest the doorway point, and where along
+  // it the doorway sits (0..1). Null without a doorway.
+  function homeDoorEdge(points, door) {
+    if (!door) return null;
+    let best = null;
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      const dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+      if (!len2) continue;
+      const t = Math.max(0, Math.min(1, ((door.x - a.x) * dx + (door.y - a.y) * dy) / len2));
+      const px = a.x + dx * t - door.x, py = a.y + dy * t - door.y;
+      const dist = px * px + py * py;
+      if (!best || dist < best.dist) best = { i, t, dist };
+    }
+    return best;
+  }
+  function homeWalls(scene, d, HA, inside) {
+    const points = d.pts;
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      area += a.x * b.y - b.x * a.y;
+    }
+    const winding = Math.sign(area);
+    const door = homeDoorEdge(points, d.door);
+    const height = HA.wallPx, thickness = HA.thicknessPx;
+    // Roofed, the wall tops are the eave line; inside, they are the wall's
+    // own top course.
+    const colors = { face: HA.wall.face, top: inside ? HA.wall.top : HA.roof.dark, dark: HA.wall.dark };
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
+      if (!length) continue;
+      const nx = -dy / length * winding, ny = dx / length * winding;
+      const spec = { ax: a.x, ay: a.y, bx: b.x, by: b.y, nx, ny, height, thickness, ...colors };
+      if (door && door.i === i) {
+        // The doorway: a gap HA.doorCells wide about the door point.
+        const half = HA.doorCells * CELL_PX / 2 / length;
+        const t0 = Math.max(0, door.t - half), t1 = Math.min(1, door.t + half);
+        if (t0 > 0) WallPerspective.addSegment(scene, 'home', { ...spec, bx: a.x + dx * t0, by: a.y + dy * t0 });
+        if (t1 < 1) WallPerspective.addSegment(scene, 'home', { ...spec, ax: a.x + dx * t1, ay: a.y + dy * t1 });
+      } else {
+        WallPerspective.addSegment(scene, 'home', spec);
+      }
+      // A concave turn's bevel, as the fort's (perspectiveEdges).
+      const previous = points[(i + points.length - 1) % points.length];
+      const px = a.x - previous.x, py = a.y - previous.y, plen = Math.hypot(px, py);
+      if (plen && (px * dy - py * dx) * winding < 0) {
+        WallPerspective.prism(scene, 'home', [a,
+          { x: a.x - py / plen * winding * thickness, y: a.y + px / plen * winding * thickness },
+          { x: a.x + nx * thickness, y: a.y + ny * thickness }], 0, height, colors);
+      }
+    }
+    if (inside) return;
+    // The roof. A quad is GABLED: the cap at wall height splits along the
+    // long axis into the far slope (in shade) and the near slope (map-south,
+    // toward the camera, lit), with the ridge raised along the join; its
+    // dark eave lip shows on the camera-facing sides. Any other ring takes a
+    // flat cap.
+    const roof = { face: HA.roof.dark, top: HA.roof.top, dark: HA.roof.dark };
+    if (points.length !== 4) {
+      WallPerspective.prism(scene, 'home', points, height - 2, height, roof, null, true);
+      return;
+    }
+    const [p0, p1, p2, p3] = points;
+    const e1 = { x: p1.x - p0.x, y: p1.y - p0.y }, e2 = { x: p2.x - p1.x, y: p2.y - p1.y };
+    const along = Math.hypot(e1.x, e1.y) >= Math.hypot(e2.x, e2.y);
+    const at = (p, e, t) => ({ x: p.x + e.x * t, y: p.y + e.y * t });
+    // The two slopes, split across the short axis; the one whose centre is
+    // further down the map (south) is the lit one.
+    const halves = along
+      ? [[p0, p1, at(p1, e2, 0.5), at(p0, e2, 0.5)], [at(p0, e2, 0.5), at(p1, e2, 0.5), p2, p3]]
+      : [[p0, at(p0, e1, 0.5), at(p3, e1, 0.5), p3], [at(p0, e1, 0.5), p1, p2, at(p3, e1, 0.5)]];
+    const centreY = (q) => q.reduce((n, p) => n + p.y, 0) / q.length;
+    const [far, near] = centreY(halves[0]) <= centreY(halves[1]) ? halves : [halves[1], halves[0]];
+    WallPerspective.prism(scene, 'home', far, height - 2, height, { ...roof, top: HA.roof.shade }, null, true);
+    WallPerspective.prism(scene, 'home', near, height - 2, height, roof, null, true);
+    // The ridge: a thin strip on the join, raised, lit along its crest.
+    const half = 1.5 / Math.hypot(along ? e2.x : e1.x, along ? e2.y : e1.y);
+    const strip = along
+      ? [at(p0, e2, 0.5 - half), at(p1, e2, 0.5 - half), at(p1, e2, 0.5 + half), at(p0, e2, 0.5 + half)]
+      : [at(p0, e1, 0.5 - half), at(p0, e1, 0.5 + half), at(p3, e1, 0.5 + half), at(p3, e1, 0.5 - half)];
+    WallPerspective.prism(scene, 'home', strip, height, height + HA.ridgePx,
+      { face: HA.roof.dark, top: HA.roof.lite, dark: HA.roof.dark }, null, true);
   }
 
   global.BuildingOverlay = { draw, enabled, setEnabled };

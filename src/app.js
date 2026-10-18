@@ -8680,7 +8680,7 @@ class MapScene extends Phaser.Scene {
       { art: 'revive_found', title: 'Found',    body: 'Villagers find you by lantern light. They lift you gently and carry you home.' },
       // The carer is the villager revive_wake draws; they say nothing, which
       // is the point. What the revival GAVE is the energy pop's to say.
-      { art: 'revive_wake',  title: 'Home',     body: 'You wake under a rough blanket beside your trailer. A farmhand nods goodbye.' },
+      { art: 'revive_wake',  title: 'Home',     body: 'You wake under a rough blanket in your house. A farmhand nods goodbye.' },
     ];
     MemoryStory.showPages(this, PANELS, { kind: 'story' });   // "Next" between them, "OK" on the last
   }

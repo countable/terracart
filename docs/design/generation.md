@@ -831,12 +831,12 @@ Higher-priority placements and their access space take precedence in this order:
 
 ### Initial Home orientation
 
-A new live game waits for the first compass reading before placing its trailer
+A new live game waits for the first compass reading before placing its house
 and campfire, for at most `HomeArea.FIREPIT_COMPASS_GRACE_MS`; with no reading
 by then it places them north-up. The player remains at their GPS position. The starting offsets
-rotate into that heading once, including the trailer art’s doorway offset so
-the doorway stays close to the player at every initial heading, seating the trailer ahead of the player and the
-firepit one cell behind them on the door side (directly below the player in the
-initial view). If that cell is water or road, it uses the nearest dry fallback. The saved layout stays fixed through later
+rotate into that heading once: the house is centred one cell ahead of the
+player, so they stand in its doorway row, its doorway is cut in the wall facing
+them (`HomeArea.doorSide`), and the firepit sits one cell behind them on the
+door side (directly below the player in the initial view). If that cell is water or road, it uses the nearest dry fallback. The saved layout stays fixed through later
 heading changes and reloads. Existing Homes keep their saved positions; sandbox
 and north-up previews retain the north-facing layout.

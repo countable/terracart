@@ -8,7 +8,9 @@
     active(scene) {
       return !!scene._headingUp && (scene.depth ?? 0) === 0;
     },
-    begin(scene, source) {
+    // `opts.alwaysOn`: a group drawn north-up too (Home's walls), not only
+    // while the heading-up camera makes the retained prisms worthwhile.
+    begin(scene, source, opts = {}) {
       if (!scene._wallPerspective) {
         scene._wallPerspective = {};
         scene.events?.once('shutdown', () => { scene._wallPerspective = null; });
@@ -21,6 +23,7 @@
       }
       group.blocks.length = 0;
       group.angle = NaN;
+      group.alwaysOn = !!opts.alwaysOn;
       return group;
     },
     // A footprint extruded between two elevations (convex when capped). Retain projected
@@ -99,7 +102,7 @@
     update(scene) {
       const angle = scene.mapRot || 0, c = Math.cos(angle), s = Math.sin(angle);
       for (const group of Object.values(scene._wallPerspective || {})) {
-        group.gfx.visible = this.active(scene);
+        group.gfx.visible = group.alwaysOn ? (scene.depth ?? 0) === 0 : this.active(scene);
         if (!group.gfx.visible || group.angle === angle) continue;
         group.angle = angle;
         const g = group.gfx;

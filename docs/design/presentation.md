@@ -94,12 +94,12 @@ changing dialogue, story panels, books, toasts or status presentation.
   with warmer saturation to match their gold. Its letter seats match the HUD CSS.
 
 - The four opening panes show the compass discovery, dragon-war dream,
-  trailer awakening, then the ruined street. Each has two aligned paintings:
+  house awakening, then the ruined street. Each has two aligned paintings:
   hold the first for 1.5 seconds, crossfade once over 1.2 seconds, and keep
   the second frame. The dragon dream instead keeps alternating between its
   two paintings while open, so the heads and flames continue moving after
   the camera push ends. Discovery and the dream are borderless fullscreen panels.
-  Awakening says “The compass shows you are in a strange trailer.” with a
+  Awakening says “The compass shows you are in a strange house.” with a
   “Go Outside” button and uses the living-silver compass story sheet, as does the ruined street and subsequent narrative. Paintings
   remain uncropped with readable copy below. The dream retains its eight-second camera push and
   immediately available wake-up button. Reduced-motion mode shows the first frame without
@@ -353,10 +353,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   shows them with Next). Survivors speak the bible's words: the Breaking,
   fifty years, Mending Lane, the wizard the old folk call Tim; the hood is
   looked at, never asked about twice.
-- A new game opens close on Home (`HomeArea.INTRO`): the wagon fills the top
-  half with the player at its door (`WAGON_ART_FOOT`), held while Home is
-  placed or a dialog is up, then a beat, then a slow pull back to the normal
-  view. A finger on the map ends it early. Home's sign, "Your trailer.", is
+- A new game opens close on Home (`HomeArea.INTRO`): the house fills the top
+  half with the player in its doorway, held while Home is placed or a dialog
+  is up, then a beat, then a slow pull back to the normal view. A finger on
+  the map ends it early. Home's sign, "Your house.", is
   hidden until that beat and types itself out once per session; the cold
   firepit beside the door wisps smoke (`FIREPIT_SMOKE`).
 - Map messages fit `MAP_MSG_MAX` (30 characters) per rendered line, including

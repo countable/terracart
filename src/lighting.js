@@ -2107,8 +2107,13 @@
     const fadeKey = reachFramesKey(frames);
     const B = (typeof window !== 'undefined') ? window.__boot : null;
     const cover = coverFrame(scene, ax, ay, tex.width, tex.height);
-    const gpu = typeof LightingGPU !== 'undefined' && LightingGPU.active(scene);
-    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx) + '|' + fadeKey + '|cover:' + (cover?.key || '') + '|gpu:' + gpu;
+    // INDOORS (scene_venues.js homeInterior): the house round the player.
+    // The mask is painted on the canvas path, so the GPU path stands down
+    // while it is up.
+    const indoors = scene.homeInterior ? scene.homeInterior() : null;
+    const gpu = typeof LightingGPU !== 'undefined' && LightingGPU.active(scene) && !indoors;
+    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx) + '|' + fadeKey + '|cover:' + (cover?.key || '') + '|gpu:' + gpu
+      + '|in:' + (indoors ? indoors.key : '');
     // A crossing may have borrowed the cache's last half-cell of physical
     // pad. Even if every visual key holds, the next ordinary frame must pay
     // back that deferred rebuild before the still gate can return.
@@ -2210,6 +2215,7 @@
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
       const uploadT0 = B ? performance.now() : 0;
+      if (indoors) paintIndoorMask(ctx, scene, indoors, ax, ay, ox, oy, W, H);
       if (cover) ctx.drawImage(cover.canvas, cover.x, cover.y);
       tex.refresh();
       if (B) B.tick('lighting upload', performance.now() - uploadT0);
@@ -2230,8 +2236,62 @@
     return true;
   }
 
+  // ── Indoors ───────────────────────────────────────────────────────────────
+  // While the player stands inside their house (scene_venues.js homeInterior
+  // hands over its ring), everything OUTSIDE the walls goes dark: the lightmap
+  // multiplies the world, so a near-black fill over the outside, with the
+  // house cut out, is the room's four walls shutting the street out. The cut
+  // is the ring's convex hull together with the ring lifted by the walls'
+  // height and thickness (screen-up, turned into the map's frame like a
+  // lamp's lift — liftPx), so the north wall's inner face and top, which
+  // rise above the floor's outline, stay lit with the floor and nothing past
+  // them does (the roof is off indoors). The player's own light still reaches
+  // the whole room; the mask takes only what is outside.
+  // Monotone-chain hull: a handful of points, once per repaint.
+  function indoorHull(points, lift) {
+    const pts = points.concat(points.map(p => ({ x: p.x + lift.x, y: p.y + lift.y })))
+      .sort((a, b) => a.x - b.x || a.y - b.y);
+    if (pts.length < 3) return pts;
+    const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    const lower = [];
+    for (const p of pts) {
+      while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+      lower.push(p);
+    }
+    const upper = [];
+    for (let i = pts.length - 1; i >= 0; i--) {
+      const p = pts[i];
+      while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+      upper.push(p);
+    }
+    lower.pop(); upper.pop();
+    return lower.concat(upper);
+  }
+  function paintIndoorMask(ctx, scene, indoors, ax, ay, ox, oy, W, H) {
+    const HA = (typeof HomeArea !== 'undefined') ? HomeArea.HOUSE : null;
+    if (!HA || !indoors?.ring?.length) return;
+    const lift = liftPx(scene, { dyPx: -(HA.wallPx + HA.thicknessPx) });
+    const pts = indoors.ring.map(p => {
+      const sp = deltaMToScreen(scene, p.x - ax, p.y - ay);
+      return { x: sp.x - ox, y: sp.y - oy };
+    });
+    const hull = indoorHull(pts, lift);
+    if (hull.length < 3) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = HA.maskAlpha;
+    ctx.fillStyle = cssOf(HA.maskColour);
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    ctx.moveTo(hull[0].x, hull[0].y);
+    for (let i = 1; i < hull.length; i++) ctx.lineTo(hull[i].x, hull[i].y);
+    ctx.closePath();
+    ctx.fill('evenodd');
+    ctx.restore();
+  }
+
   window.Lighting = {
-    KINDS, radiusCells, TORCH_RADIUS_MUL, TORCH_DAY_FLOOR, torchStrength, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, REACH_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
+    KINDS, radiusCells, indoorHull, paintIndoorMask, TORCH_RADIUS_MUL, TORCH_DAY_FLOOR, torchStrength, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, REACH_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylightAtTime, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, CRITICAL_LIGHT_MIX, CRITICAL_LIGHT_DIM, CRITICAL_LIGHT_DIP, CRITICAL_PLAYER_TINT_A, criticalLights, critPaintProfile, mixColour, mixToWhite, scaleColour, lum, atLuminance,

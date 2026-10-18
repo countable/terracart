@@ -1814,6 +1814,10 @@ Render.reachDimAlpha = (scene) => {
 // Baked unclaimed art carries the approved wash and lightness adjustment.
 // Resolve the same key for appearance and tint so it is never shaded twice.
 Render.houseTextureKey = (role, o, scene) => {
+  // Home (the player's house) has no sprite: the building overlay draws it
+  // from its footprint — walls, doorway and roof (building_overlay.js
+  // drawHome). A null key is an invisible sprite (resolveAppearance).
+  if (role === 'trailer') return null;
   if (role === 'plain') return 'house';
   if (role === 'wizard') return 'shrine';
   if (role === 'turret') return 'tower';   // the castle tower sheet, claimed palette: it is yours
@@ -4411,7 +4415,9 @@ Render.drawObjects = function drawObjects(scene) {
     for (const item of filteredObj) {
       const k = item.o.kind;
       if (k === 'temple') continue;
-      if (isBuilding(k)) { shadowList.push(item); continue; }
+      // A building drawn from its footprint rather than a sprite (Home,
+      // building_overlay.js drawHome) has no art to shadow.
+      if (isBuilding(k)) { if (item._appearance?.visible) shadowList.push(item); continue; }
       if (!RENDER_SPEC[k]?.shadow) continue;
       const foot = item._appearance?.foot;
       if (foot) shadowList.push({ ...item, _foot: foot });
@@ -4711,7 +4717,7 @@ Render.drawObjects = function drawObjects(scene) {
   // tier-coloured plate (Render.drawShopPlate, below); every other sign is
   // the map text family (LABEL_STYLES.sign) floating over the building art,
   // its lettering in the role's ink (_houseSignInk).
-  // Starter shop labels as "Your trailer." Shops.shopLabel() returns null for
+  // Home labels as "Your house." Shops.shopLabel() returns null for
   // non-shopType houses, so it is wrapped here to handle the starter case.
   // Display labels for the role-keyed shop signs come from Shops.roleLabel, the
   // one table app.js's restoration card and offer titles read too, so the sign
@@ -4817,10 +4823,12 @@ Render.drawObjects = function drawObjects(scene) {
     const typed = home ? _homeSignTyped(full) : full;
     setColorOnce(tx, _lighten30(_houseSignInk(o)));
     tx.setText(full);
-    // Home's sign rides over the roof: the player starts at its door, where
-    // a sign across the lower front would sit under them and fade out.
+    // Home's sign rides over the roof (HomeArea.HOUSE.signLiftPx above the
+    // footprint's centre — the house has no art height): the player starts
+    // in its doorway, where a sign across the lower front would sit under
+    // them and fade out.
     const nudge = home ? HomeArea.SIGN_NUDGE_PX : { x: 0, y: 0 };
-    const top = home ? Math.round(sy - _houseArtH(o) / 2 - tx.height + nudge.y) : Math.round(sy) + 12;
+    const top = home ? Math.round(sy - HomeArea.HOUSE.signLiftPx - tx.height + nudge.y) : Math.round(sy) + 12;
     if (typed === full) {
       tx.setPosition(Math.round(clampTextX(sx + nudge.x, tx.width, CANVAS_W)), top);
     } else {
@@ -5849,7 +5857,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     reef_coral: { key: 'reef_coral', frame: o => o.variant, scale: 4 / 3, origin: [0.5, 0.5], seat: true },
     // Houses pick their texture by role — the generic 'house' frame stays as the
     // fallback for plain residential. Themed sprites (Objects/Houses/):
-    //   - starter shop  → trailer    (the player's home/RV)
+    //   - Home          → no sprite  (the player's house: building_overlay.js)
     //   - blacksmith    → blacksmith
     //   - trader        → trader
     //   - fort tier 11  → fort       (the school)
