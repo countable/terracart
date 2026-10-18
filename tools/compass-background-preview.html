@@ -52,7 +52,7 @@
       doc.body.style.removeProperty('--silver-variant-art');
     } else {
       doc.body.dataset.silverVariant = selected;
-      const art = new URL(`../assets/ui/compass/variants/${selected}.png`, location.href);
+      const art = new URL(`./compass-background-variants/${selected}.png`, location.href);
       doc.body.style.setProperty('--silver-variant-art', `url("${art.href}")`);
     }
   }
