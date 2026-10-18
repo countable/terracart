@@ -146,11 +146,23 @@
       const door=BuildingLowPoly.streetDoor(points,streets);
       assert.eq(door.center.x,60);assert.eq(door.center.y,20);
       assert.eq(door.normal.x,1);assert.eq(door.normal.y,0);
+      assert.eq(door.edge,1,'the east wall, by the triangulated ring\'s edge index');
+      // The facade's painted door bay moves to that wall too (owner, Oct 2026:
+      // doors face the nearest street); without a street the longest wall
+      // lowest on screen keeps it.
+      assert.eq(BuildingLowPoly.geometry(points,'ridge',29,0,null,door.edge).entranceEdge,1,'the entrance wall is the street wall');
+      assert.eq(BuildingLowPoly.geometry(points,'ridge',29,0,null).entranceEdge,2,'else the south wall');
+      // A named wall (Home's saved doorway): the same door, on that edge.
+      const named=BuildingLowPoly.edgeDoor(points,1);
+      assert.eq(named.center.x,60);assert.eq(named.center.y,20);assert.eq(named.normal.x,1);assert.eq(named.edge,1);
+      assert.eq(BuildingLowPoly.ringEdgeNearest(points,{x:60,y:18}),1,'the edge nearest a doorway point');
+      assert.eq(BuildingLowPoly.ringEdgeNearest(points,{x:30,y:40}),2);
     }
     assert.eq(BuildingLowPoly.streetDoor(ring,[]),null,'no street means no invented frontage');
     assert.eq(BuildingLowPoly.streetDoor(ring,[[{x:1000,y:0},{x:1000,y:100}]]),null,'distant roads do not choose a door');
     const tiny=[{x:0,y:0},{x:10,y:0},{x:10,y:10},{x:0,y:10}];
     assert.eq(BuildingLowPoly.streetDoor(tiny,streets),null,'narrow walls leave no space for a door and its frame');
+    assert.eq(BuildingLowPoly.edgeDoor(tiny,0),null,'a wall too short for a door names none');
   });
   test('street doors: retained decoration follows the building and leaves cached geometry unchanged', () => withPhaser(() => {
     const scene=stubScene();BuildingLowPoly.begin(scene);

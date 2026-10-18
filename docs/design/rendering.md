@@ -128,7 +128,25 @@ the wall tops in the wall's own colour, and the group is `perWall`: every
 wall section draws into a part of its own in the world container, anchored
 at the same sort point and handed to the frame's world sort through
 `WallPerspective.worldPieces` — never the one wall-container graphics,
-which sits under the player's container and drew the player over every wall. The sign seats over the drawn top, or
+which sits under the player's container and drew the player over every wall.
+Inside, on either path, no wall inks its own outline: one object more
+(`inkOnly` / `inkPart`), sorted with the ground decals under every wall and
+the player, draws the whole room's outline once, so no black seam lies
+between the walls (the castle's ramparts are outlined once per run the same
+way). The interior's wall thickness is `BuildingLowPoly.LOOK.wallThickness`
+(2.8 px) on the low-poly path and `HomeArea.HOUSE.thicknessPx` (2 px) on the
+prism path.
+A door faces the nearest street: `BuildingLowPoly.streetDoor` picks the
+wall (its `edge`), which becomes the facade's entrance bay (`geometry`'s
+`entrance`) and carries the plank door panel. Home's door has one source,
+the trailer's saved doorway wall (`save.starterTrailer.door`): the nearest
+road or path cell within `HomeArea.DOOR_STREET_CELLS` of its anchor at
+placement (`_homeDoorSideToStreet`), the placement heading deciding only
+with none that near. The overlay hands that wall to the low-poly house
+(`ringEdgeNearest` → `add`'s `entrance` → `edgeDoor`) and the prism path
+cuts its doorway there, so the painted bay, the panel, the doorway gap and
+`homeInside` agree; an adopted house without a saved doorway asks the
+streets like every other house. The sign seats over the drawn top, or
 `HOUSE.signLiftPx` above the footprint's centre when there is no model.
 
 A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim

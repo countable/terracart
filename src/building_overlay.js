@@ -1517,7 +1517,13 @@
             { wall: palette.wall, roof: palette.roof, trim: palette.trim ?? 0x614534 }, scene.buildingStoreys);
           recipe.interior = inside;
           const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant || recipe.variant || 'ridge';
-          model = BuildingLowPoly.add(scene, d.pts, recipe, variant, object.id);
+          // Home's door is the save's doorway wall (the shape's door point,
+          // chosen toward the nearest street at placement — scene_venues.js
+          // _homeDoorSideToStreet), so the painted bay, the plank panel and
+          // the prism doorway all agree; an adopted house without one asks
+          // the streets like every other house.
+          const entrance = d.door ? BuildingLowPoly.ringEdgeNearest(d.pts, d.door) : null;
+          model = BuildingLowPoly.add(scene, d.pts, recipe, variant, object.id, doorStreets, entrance);
           if (model?.faces?.length) scene._proceduralBuildings.set(object.id, { height: model.height * BuildingLowPoly.LOOK.heightScale });
         }
         if (!model?.faces?.length) {

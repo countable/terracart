@@ -26,7 +26,7 @@
   // The billboard look (docs/art/lowpoly-building-styles.md): every number
   // the ink pass, projection and dressing share, so sprites and meshes keep
   // agreeing. tools/building-billboard-preview.html edits this table live.
-  const LOOK={heightScale:1,inkPx:1,wallThickness:4,ink:0x2a2229,textured:true,facade:'cel',eaveBand:4.5,eaveShade:.5,flatRim:1.75,flatShade:4.5,sheet:768,
+  const LOOK={heightScale:1,inkPx:1,wallThickness:2.8,ink:0x2a2229,textured:true,facade:'cel',eaveBand:4.5,eaveShade:.5,flatRim:1.75,flatShade:4.5,sheet:768,
     chimney:{radius:4.4,cap:5.8,mouth:3.4,above:6.5,rise:3.5,capHeight:1.1,sides:0xd9c9b8,capColor:0x9c8f84,mouthColor:0x2a2229},
     wreck:{tint:0xb3a89e,debris:0x5e564f,beam:0x3b2a1f,top:0x6b6059}};
   const mix=(a,b,t)=>{const c=i=>Math.round(((a>>i)&255)*(1-t)+((b>>i)&255)*t);return (c(16)<<16)|(c(8)<<8)|c(0);};
@@ -98,7 +98,11 @@
     if(rim&&rim.length===ring.length)band(ring,rim,'rim',z-.004);
     if(shade&&shade.length===ring.length)band(rim,shade,'rimShade',z-.005);
   }
-  function buildGeometry(input,variant='ridge',height=29,overhang=0,chimneys=null){
+  // `entrance`: the ring edge (triangulate's ring, the one streetDoor
+  // indexes) whose facade centres the door bay — the street door's wall
+  // (owner, Oct 2026: doors face the nearest street). Without one, the
+  // longest wall lowest on screen takes the door, as before.
+  function buildGeometry(input,variant='ridge',height=29,overhang=0,chimneys=null,entrance=null){
     const {ring,triangles}=triangulate(input);
     if(!triangles.length)return {ring,faces:[],roofTriangles:0,wallTriangles:0};
     // The longest facade defines a stable roof direction; camera heading never does.
@@ -154,8 +158,8 @@
     if(variant==='inset'){const cap=faces.filter(f=>f.solid);
       for(const loop of boundaryLoops(cap.map(f=>f.points)))flatBands(loop,height+planes.at(-1).c,add,faces);}
     const roofTriangles=faces.length;
-    let entranceEdge=edge;
-    ring.forEach((p,i)=>{const q=ring[(i+1)%ring.length],a=ring[entranceEdge],b=ring[(entranceEdge+1)%ring.length];
+    let entranceEdge=entrance!=null&&entrance>=0&&entrance<ring.length?entrance:edge;
+    if(entrance==null)ring.forEach((p,i)=>{const q=ring[(i+1)%ring.length],a=ring[entranceEdge],b=ring[(entranceEdge+1)%ring.length];
       if(Math.hypot(q.x-p.x,q.y-p.y)>=length-.001&&p.y+q.y>a.y+b.y)entranceEdge=i;
     });
     // Keep only cuts where the active roof slope actually changes. Pairwise
@@ -246,13 +250,13 @@
       };
       (count>1?[.26,.74]:[.28]).forEach((t,i)=>stack(chimneyLine.at(chimneyLine.t0+(chimneyLine.t1-chimneyLine.t0)*t,0),i));
     }
-    return {ring,roofRing,actualOverhang,faces,roofTriangles,wallTriangles,trimTriangles:faces.length-roofTriangles-wallTriangles,height,roofZ,ridge:{x:ux,y:uy},chimneyMouths};
+    return {ring,roofRing,actualOverhang,faces,roofTriangles,wallTriangles,trimTriangles:faces.length-roofTriangles-wallTriangles,height,roofZ,ridge:{x:ux,y:uy},chimneyMouths,entranceEdge};
   }
   const meshCache=new Map();
-  function geometry(input,variant='ridge',height=29,overhang=0,chimneys=null){
-    const key=variant+':'+height+':'+overhang+':'+(chimneys?chimneys.count+'x'+chimneys.scale+'x'+(chimneys.flare||0):'')+':'+input.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
+  function geometry(input,variant='ridge',height=29,overhang=0,chimneys=null,entrance=null){
+    const key=variant+':'+height+':'+overhang+':'+(chimneys?chimneys.count+'x'+chimneys.scale+'x'+(chimneys.flare||0):'')+':'+(entrance??'')+':'+input.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
     if(meshCache.has(key))return meshCache.get(key);
-    const mesh=buildGeometry(input,variant,height,overhang,chimneys);
+    const mesh=buildGeometry(input,variant,height,overhang,chimneys,entrance);
     if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
     meshCache.set(key,mesh);return mesh;
   }
@@ -942,7 +946,7 @@
         let group=[],support=null,groupId=0;
         // The outline repeats filled triangles eight times. During a fade those
         // layers would accumulate to opaque black and hide the player again.
-        const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0&&src.alpha===1)ink(group);paint(group);group=[];};
+        const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0&&src.alpha===1&&!src._noInk)ink(group);if(!src._inkOnly)paint(group);group=[];};
         for(const f of src._lowpolyFaces){
           if(!f.visible)continue;
           const g=f.inkGroup||0;
@@ -1040,9 +1044,30 @@
         const t=Math.max(0,Math.min(1,((center.x-c.x)*dx+(center.y-c.y)*dy)/len2));
         const vx=c.x+dx*t-center.x,vy=c.y+dy*t-center.y,distance=Math.hypot(vx,vy);
         if(distance>DOOR.reach||vx*normal.x+vy*normal.y<distance*.5)continue;
-        if(!best||distance<best.distance)best={center,along,normal,distance};
+        if(!best||distance<best.distance)best={center,along,normal,distance,edge:i};
       }
     }
+    return best;
+  }
+  // A door on a NAMED wall (`edge` of triangulate's ring, the index streetDoor
+  // answers): Home's, whose doorway wall is the save's (save.starterTrailer
+  // .door → the shape's door point → ringEdgeNearest) so the painted bay, the
+  // plank panel, the prism doorway and homeInside all agree on one wall.
+  function edgeDoor(points,edge){
+    const ring=triangulate(points).ring;
+    if(edge==null||edge<0||edge>=ring.length)return null;
+    const a=ring[edge],b=ring[(edge+1)%ring.length],length=Math.hypot(b.x-a.x,b.y-a.y);
+    if(length<DOOR.width+2*DOOR.margin)return null;
+    const along={x:(b.x-a.x)/length,y:(b.y-a.y)/length},normal={x:along.y,y:-along.x};
+    return {center:{x:(a.x+b.x)/2,y:(a.y+b.y)/2},along,normal,distance:0,edge};
+  }
+  // The ring edge (triangulate's ring) nearest a point — a doorway's.
+  function ringEdgeNearest(points,at){
+    const ring=triangulate(points).ring;
+    let best=-1,bestD=Infinity;
+    ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy||1;
+      const t=Math.max(0,Math.min(1,((at.x-a.x)*dx+(at.y-a.y)*dy)/l2)),d=Math.hypot(at.x-(a.x+dx*t),at.y-(a.y+dy*t));
+      if(d<bestD){bestD=d;best=i;}});
     return best;
   }
   function doorFaces(door){
@@ -1060,25 +1085,35 @@
     panel(2.3,3.1,5.3,6.2,0xd4b775,.14);
     return faces;
   }
-  function add(scene,pts,recipe,variant,key,streets=[]){
+  function add(scene,pts,recipe,variant,key,streets=[],entrance=null){
     const state=scene._lowpoly,left=Math.min(...pts.map(p=>p.x)),top=Math.min(...pts.map(p=>p.y));
     const local=pts.map(p=>({x:p.x-left,y:p.y-top}));
+    // THE DOOR FACES THE NEAREST STREET (streetDoor), or stands on the wall
+    // the caller names (`entrance`: Home's saved doorway wall, edgeDoor): its
+    // wall is the facade's entrance (the painted door bay, geometry's
+    // `entrance`) AND carries the plank door panel (doorFaces). Inside, the
+    // bay stays on that wall and the panel is left off with the rest of the
+    // outside.
+    const door=recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
     let cached=recipe.shape?specialGeometry(local,recipe):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
-      ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null);
+      ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null,door?door.edge:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
-    if(!recipe.shape&&!recipe.interior&&streets.length){
-      const localStreets=streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})));
-      const door=streetDoor(local,localStreets);
-      if(door)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};
-    }
+    if(door&&!recipe.interior)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};
     const texture=material(scene,recipe);(state.textures||=new Set()).add(texture.key);
     // A standing building is ONE render object sorted at its footprint
     // centroid (the player never stands among its walls). An INTERIOR (Home
     // while the player is inside) is one object PER WALL (interiorGeometry's
     // `edge`), each sorted at its own wall — see place().
-    const parts=cached.edges?cached.edges.map((edge)=>({...cached,faces:cached.faces.filter(f=>f.edge===edge.index),edge})).filter(p=>p.faces.length):[cached];
+    const parts=cached.edges?cached.edges.map((edge)=>({...cached,faces:cached.faces.filter(f=>f.edge===edge.index),edge,noInk:true})).filter(p=>p.faces.length):[cached];
     let first=null;
     for(const part of parts){const mesh=place(part);first=first||mesh;}
+    // THE INK UNDER THE ROOM (owner, Oct 2026: no black seams between the
+    // walls): the walls, drawn as parts of their own, each inked their own
+    // outline over the neighbour's fill. Inside, no part inks (`noInk`); one
+    // object more draws the whole house's outline and nothing else
+    // (`inkOnly`), sorted with the ground decals under every wall and the
+    // player — like the castle's ramparts, outlined once per run.
+    if(parts.length>1)place({...cached,inkOnly:true});
     return first;
     function place(cached){
     const mesh={...cached,faces:atlasFaces(cached,texture.roofPeriod)};
@@ -1097,6 +1132,7 @@
     const index=state.buildings.length-1;
     const obj=state.pool[index]||(state.pool[index]=renderObject(scene));
     mesh.obj=obj;mesh.support=support;obj._lowpolyFaces=mesh.faces;
+    mesh.inkOnly=!!cached.inkOnly;obj._inkOnly=mesh.inkOnly;obj._noInk=!!cached.noInk;
     for(const face of mesh.faces){
       const roofTone=face.tileCap&&texture.roofTone!=null?mix(texture.roofTone,0x2a2229,.12):recipe.roof;
       if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
@@ -1175,7 +1211,7 @@
     const state=scene._lowpoly;if(!state||!state.enabled||!active(scene)||(scene.depth??0)!==0)return [];
     update(scene);
     const anchor=viewAnchorWorldM(scene);
-    return state.buildings.map(mesh=>({sprite:mesh.obj,rank:1,layer:typeof WorldLayers==='undefined'?undefined:mesh.role==='wreck'?WorldLayers.GROUND_DECAL:WorldLayers.STANDING_PROP,
+    return state.buildings.map(mesh=>({sprite:mesh.obj,rank:1,layer:typeof WorldLayers==='undefined'?undefined:mesh.role==='wreck'||mesh.inkOnly?WorldLayers.GROUND_DECAL:WorldLayers.STANDING_PROP,
       groundY:anchor.y+(mesh.obj._huAnchor.y-scene.viewCenterY)*scene.cellM/CELL_PX}));
   }
   function clear(scene){
@@ -1184,5 +1220,5 @@
     for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
   }
   const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);
-  global.BuildingLowPoly={LOOK,DOOR,streetDoor,doorFaces,atlasFaces,ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
+  global.BuildingLowPoly={LOOK,DOOR,streetDoor,edgeDoor,ringEdgeNearest,doorFaces,atlasFaces,ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
 })(window);
