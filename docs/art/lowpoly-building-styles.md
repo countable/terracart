@@ -27,6 +27,14 @@ walls and silhouette trim. Neither path rebuilds meshes or uploads textures
 when only compass heading changes.
 
 `?buildingArt=legacy` selects the original sprites for comparison.
+
+`BuildingLowPoly.LOOK.facade` picks the shared facade sheet: `tileset` (ships)
+cuts bays from the approved materials sheet; `cel` draws a minimal cel-shaded
+pixel sheet from scratch in the supply crate's palette (three-tone ramps round
+the role colour, one ink colour, a single highlight pixel per feature) with
+openings at the tileset's scale and bay placement and only a lintel, sill,
+step and lantern as decoration. `tools/building-billboard-preview.html` has a
+Facade select and a "Show sheet" toggle to compare the two.
 The Canvas fallback retains the imported style renderer. Existing castle
 perimeters, signs, interaction objects and fort/castle ownership remain intact.
 
@@ -153,12 +161,12 @@ The low-poly path is drawn to match the game's 2D billboard sprites
 edits that table live beside the sprites, and a phone-viewable copy of the same
 review is published as a Claude artifact.
 
-- Height: `update()` projects z through `LOOK.heightScale` (0.6), so walls and
-  roof rise foreshorten like the sprites. Sign and flag placement still reads
+- Height: `update()` projects z through `LOOK.heightScale` (1.0, full model
+  height); the review page's slider foreshortens it for comparison. Sign and flag placement still reads
   the model height; the browser regression checks drift against the scaled z.
 - Ink outline: `renderWebGL` re-emits each ink group's visible triangles in the
   solid trim texel, tinted `LOOK.ink`, at eight screen offsets of
-  `LOOK.inkPx` art pixels (× camera zoom), then draws the group. A building is
+  `LOOK.inkPx` (2) art pixels (× camera zoom), then draws the group. A building is
   one contiguous sorted run; its ink groups (body, flat deck, chimney) draw in
   layer order so each gets a line where it meets the surface below it. Same
   retained vertices; nothing allocates on a heading change.
@@ -177,7 +185,7 @@ review is published as a Claude artifact.
   notch forbids) run around the whole footprint, each with its own broken
   height and a flat `wallTop`; the step up to a taller neighbour shows as an
   end face. Three axis-aligned `roofPatches` keep their tiles over bare
-  rafters; inside, a dark rubble floor, fallen roof slabs and beams. Textured
+  rafters, two of the six fallen (`hash` picks which); inside, a dark rubble floor, fallen roof slabs and beams. Textured
   faces are tinted `LOOK.wreck.tint`; the sheet boards the windows and adds
   soot, moss and missing tiles.
 - Awnings (the `inset` variant: potion, relic): the flat top is a solid cap
@@ -192,27 +200,30 @@ review is published as a Claude artifact.
   overlay skips the shell for it as it does for the wizard tower and turret.
 
 Material sheets (`tilesetSheet`, supersedes the generated-atlas materials
-below when the tilesets are loaded): per wall/roof pair, one `LOOK.sheet`-pixel
+below when the approved sheet is loaded): per wall/roof pair, one `LOOK.sheet`-pixel
 (768) canvas in the layout `atlasFaces` expects, cut from
-`assets/Objects/BuildingMaterials/pixel-tileset-v3.png` (the user's pixel
-tileset: timber frame, plaster, brick, stone walls; thatch, shingle, slate
-roofs), `painterly-tileset-v1.png` (the user's painterly sheet: dark stone and
-cobble walls, red tiles, for the potion and relic shops) and the generated
-`reference-materials-v3.png` (fish-scale clay and thatch cells, tinted to the
-role colour by luminance like the generated sheets). The approved set, which
-every role draws from: walls are the pixel tileset's plaster (plain, market,
-seed, potion), timber (pet, supply, relic, wreck) and brick (blacksmith,
-book); roofs are tinted atlas clay (plain, potion, book), tinted atlas thatch
-(seed, pet), pixel slate (blacksmith, wreck), painterly red tile (relic) or
-a flat deck (market, supply). `SHEET_SRC` holds the crop rectangles; `zoom`
-crops the centre of a bay so brick (1.7×) repeats larger, and slate tiles
-1.5× larger than its crop. A `blank` recipe takes plain bays (no windows or
-door) for ramparts. The painterly dark stone and cobble walls remain in the
-table but no role uses them. The
-pixel tileset leaves openings white, so `paintOpenings` flood-fills them: the
-ground-floor entrance bay becomes a plank door, the rest blue glass with a
-lighter pane; a wreck boards them over. Sheets are cut once per material key
-and shared across story counts and footprints, like the generated ones.
+`assets/Objects/BuildingMaterials/approved-materials-v1.png`. That sheet is the
+approved set and nothing else, packed by `tools/build_approved_materials.py`
+from the unshipped sources under `BuildingMaterials/source/` (the user's pixel
+tileset: plaster, timber, brick and stone walls, slate roof; the user's
+painterly sheet: red tile roof) and the generated `reference-materials-v3.png`
+(fish-scale clay and thatch, tinted to the role colour by luminance like the
+generated sheets). Every role draws from it: walls are plaster (plain, market,
+seed, potion), timber (pet, supply, relic, wreck) and brick (blacksmith, book);
+roofs are tinted clay (plain, potion, book), tinted thatch (seed, pet), slate
+(blacksmith, wreck), red tile (relic) or a flat deck (market, supply); all
+nearest-sampled.
+`SHEET_SRC` holds the crop rectangles exactly as the packer prints them
+(`approved_materials.test.js` keeps every rectangle inside the PNG and every
+roof tile a divisor of the 360-texel period); rerun the packer and paste its
+table when a crop moves. `zoom` crops the centre of a bay so brick (1.7×)
+repeats larger. Windows take every other bay, so the door bay sits between
+plain bays and facades keep bare wall between openings; a `blank` recipe
+(ramparts) takes plain bays only. The pixel tileset leaves openings white, so
+`paintOpenings` flood-fills them: the ground-floor entrance bay becomes a plank
+door, the rest blue glass with a lighter pane; a wreck boards them over. Sheets
+are cut once per material key and shared across story counts and footprints,
+like the generated ones.
 
 Generated-atlas materials (the fallback for forts, headless review and
 missing art): the renderer samples `reference-materials-v3.png`, twelve

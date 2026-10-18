@@ -3,11 +3,9 @@
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
   building_material_reference: { kind: 'image', path: 'assets/Objects/BuildingMaterials/reference-materials-v3.png' },
-  // Low-poly building sheets are cut from these at runtime (BuildingLowPoly.tilesetSheet):
-  // the pixel tileset, the painterly shop sheet and the seamless generated atlas.
-  pixel_tileset_v3: { kind: 'image', path: 'assets/Objects/BuildingMaterials/pixel-tileset-v3.png' },
-  painterly_tileset_v1: { kind: 'image', path: 'assets/Objects/BuildingMaterials/painterly-tileset-v1.png' },
-  reference_materials_v3: { kind: 'image', path: 'assets/Objects/BuildingMaterials/reference-materials-v3.png' },
+  // Low-poly building sheets are cut from this at runtime (BuildingLowPoly.tilesetSheet):
+  // the approved wall and roof crops, packed by tools/build_approved_materials.py.
+  approved_materials_v1: { kind: 'image', path: 'assets/Objects/BuildingMaterials/approved-materials-v1.png' },
   progression_tiles: { kind: 'spritesheet', path: 'assets/Objects/Progression/tiles.png', frameWidth: 24, frameHeight: 24 },
   icon_progression: { kind: 'spritesheet', path: 'assets/Objects/Progression/icons.png', frameWidth: 16, frameHeight: 16 },
   pet_story_clearing: { deferred: true, kind: 'image', path: 'assets/art/pet_clearing.webp' },

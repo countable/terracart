@@ -1,4 +1,16 @@
-# Reference building materials
+# Building materials
+
+`approved-materials-v1.png` is the sheet the game loads: the approved wall and
+roof crops (pixel plaster, timber, brick and stone walls; clay and thatch from
+the v3 atlas; pixel slate; painterly red tile), packed with 2px gutters by
+`python3 tools/build_approved_materials.py` from `source/pixel-tileset-v3.png`,
+`source/painterly-tileset-v1.png` and `reference-materials-v3.png`. The script
+prints the crop rectangles that `BuildingLowPoly.SHEET_SRC` carries; paste them
+across whenever a crop moves. `reference-materials-v3.png` still ships as the
+generated fallback atlas.
+
+## Reference atlases
+
 
 `reference-materials-v3.png` is the active atlas (see below). `reference-materials-v2.png` was the previous shared imagegen atlas, generated with the built-in image_gen tool using `/tmp/bldg2.gif` as the visual reference. The earlier `reference-materials-v1.png` used `/tmp/bldg.png` and is retained for comparison. Neither reference is embedded in the game.
 
