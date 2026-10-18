@@ -400,7 +400,6 @@
     return 'elite';
   }
   function eliteRank(c) { return isElite(c) ? ELITE_RANKS[c.eliteRank] || ELITE_RANKS.elite : null; }
-  function eliteMul(c) { return eliteRank(c)?.power ?? 1; }
   const SHINY_SPEED_MUL = ELITE_RANKS.elite.pace;
   function shinyMul(c) { return c?.shiny ? eliteRank(c)?.power ?? ELITE_MUL : 1; }
   function shinySpeedMul(c, escaping = false) {
@@ -1739,7 +1738,7 @@
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, REST_HEAL_MS, healIfRested, damage, damageDealt, hpFraction, isUndead, lifestealHeal, feed,
     ENVIRONMENT_SOURCES, isEnvironmentSource,
     canBurn, burning, ignite, burnTick, poisoned, poison, poisonTick,
-    ELITE_RANKS, ELITE_MUL, isElite, rollEliteRank, eliteRank, eliteMul, SHINY_SPEED_MUL, shinyMul, shinySpeedMul, ghostSizeMul, RAISED_MUL, raisedMul, powerMul, maxHp,
+    ELITE_RANKS, ELITE_MUL, isElite, rollEliteRank, eliteRank, SHINY_SPEED_MUL, shinyMul, shinySpeedMul, ghostSizeMul, RAISED_MUL, raisedMul, powerMul, maxHp,
     TRAINING_KINDS, TRAINING_ORDER, TRAINING_PERM_MAX, TRAINING_BUFF_MS, TRAINING_SLOT_KIND,
     trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul, playerAttackIntervalMul,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,

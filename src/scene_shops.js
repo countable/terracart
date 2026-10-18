@@ -1055,50 +1055,14 @@ class SceneShops {
   }
 
   presentBrewOffer(sx, sy, house, recordDeal, targetId = null) {
-    const tabs = this._brewingTabs('brew', sx, sy, house, recordDeal);
-    const recipes = BREW_RECIPES.filter(r => !homeRecipeLocked(this.save, r.id));
-    if (!recipes.length) {
-      this.showOfferModal({
-        kind: 'craft', kindLabel: 'Brewing', tabs,
-        get: 'Once you find a potion, you can brew it here.',
-        cost: '', canAfford: false, acceptLabel: 'Brew', cancelLabel: 'Leave',
-      });
-      return;
-    }
-    const held = id => Inventory.count(this.save, id);
-    const canBrew = r => recipeCap(r.cost, held) > 0
-      && (this.save.money ?? 0) >= r.coins && this.invRoomFor(r.id) >= 1;
-    const rec = recipes.find(r => r.id === targetId) || recipes.find(canBrew) || recipes[0];
-    const idx = recipes.indexOf(rec), n = recipes.length;
-    const pageTo = r => () => this.presentBrewOffer(sx, sy, house, recordDeal, r.id);
-    this._presentRecipeOffer(sx, sy, {
-      recipe: rec.cost, coinCost: rec.coins,
-      kind: 'craft', kindLabel: 'Brewing', tabs,
-      get: `1× ${this.iconSpanHTML(rec.id)} ${itemName(rec.id)}`,
-      blurb: ITEM_EFFECTS[rec.id] || undefined,
-      costLabel: 'Ingredients and fee', acceptLabel: 'Brew', cancelLabel: 'Leave',
-      canAfford: this.invRoomFor(rec.id) >= 1,
-      disabledReason: this.invRoomFor(rec.id) < 1 ? bagFullFor(rec.id) : undefined,
-      repeat: pageTo(rec),
-      pager: {
-        index: idx, count: n, showIndex: false,
-        options: recipes.map(r => ({ label: itemName(r.id), onSelect: pageTo(r) })),
-        iconHTML: this.iconSpanHTML(rec.id, 32),
-        caption: `Makes 1 · In bag: ${held(rec.id)}`,
-        onPrev: pageTo(recipes[(idx - 1 + n) % n]),
-        onNext: pageTo(recipes[(idx + 1) % n]),
-      },
-      refuse: () => {
-        if (homeRecipeLocked(this.save, rec.id)) {
-          this.flash(`Find a ${itemName(rec.id)} first.`, sx, sy); return true;
-        }
-        if (this.invRoomFor(rec.id) < 1) { this.flash(bagFullFor(rec.id), sx, sy); return true; }
-        return false;
-      },
-      produce: () => {
-        this.addToInv(rec.id, 1, false, { notWild: true, deferRefresh: true });
-        this._settleDeal(recordDeal, [`Brewed ${itemName(rec.id)} ×1`, UI_GOLD, 1.25, rec.id]);
-      },
+    this._presentRecipePicker(sx, sy, {
+      recipes: BREW_RECIPES, targetId,
+      present: id => this.presentBrewOffer(sx, sy, house, recordDeal, id),
+      kind: 'craft', kindLabel: 'Brewing',
+      tabs: this._brewingTabs('brew', sx, sy, house, recordDeal),
+      acceptLabel: 'Brew', costLabel: 'Ingredients and fee',
+      empty: 'Once you find a potion, you can brew it here.',
+      onCraft: rec => this._settleDeal(recordDeal, [`Brewed ${itemName(rec.id)} ×1`, UI_GOLD, 1.25, rec.id]),
     });
   }
 
@@ -1222,10 +1186,55 @@ class SceneShops {
     });
   }
 
+  // Home and brewing share discovery, recipe selection, paging, and capacity.
+  // Venues supply navigation, copy, fees on recipe rows, and completion effects.
+  _presentRecipePicker(sx, sy, { recipes, targetId, present, onCraft, empty, ...modal }) {
+    recipes = recipes.filter(r => !homeRecipeLocked(this.save, r.id));
+    if (!recipes.length) {
+      this.showOfferModal({ ...modal, get: empty, cost: '', canAfford: false, cancelLabel: 'Leave' });
+      return;
+    }
+    const held = id => Inventory.count(this.save, id);
+    const available = r => recipeCap(r.cost, held) > 0
+      && (this.save.money ?? 0) >= (r.coins || 0) && this.invRoomFor(r.id) >= 1;
+    const rec = recipes.find(r => r.id === targetId) || recipes.find(available) || recipes[0];
+    const idx = recipes.indexOf(rec), n = recipes.length;
+    const pageTo = r => () => present(r.id);
+    const room = this.invRoomFor(rec.id);
+    this._presentRecipeOffer(sx, sy, {
+      ...modal, recipe: rec.cost, coinCost: rec.coins || 0,
+      get: `1× ${this.iconSpanHTML(rec.id)} ${itemName(rec.id)}`,
+      blurb: ITEM_EFFECTS[rec.id] || undefined,
+      cancelLabel: 'Leave', canAfford: room >= 1,
+      disabledReason: room < 1 ? bagFullFor(rec.id) : undefined,
+      repeat: pageTo(rec),
+      pager: {
+        index: idx, count: n, showIndex: false,
+        options: recipes.map(r => ({ label: itemName(r.id), onSelect: pageTo(r) })),
+        iconHTML: this.iconSpanHTML(rec.id, 32),
+        caption: `Makes 1 · In bag: ${held(rec.id)}`,
+        onPrev: pageTo(recipes[(idx - 1 + n) % n]),
+        onNext: pageTo(recipes[(idx + 1) % n]),
+      },
+      refuse: () => {
+        if (homeRecipeLocked(this.save, rec.id)) {
+          const verb = ITEM_BY_ID[rec.id]?.scroll ? 'Use' : 'Find';
+          this.flash(`${verb} a ${itemName(rec.id)} first.`, sx, sy); return true;
+        }
+        if (this.invRoomFor(rec.id) < 1) { this.flash(bagFullFor(rec.id), sx, sy); return true; }
+        return false;
+      },
+      produce: () => {
+        this.addToInv(rec.id, 1, false, { notWild: true, deferRefresh: true });
+        onCraft(rec);
+      },
+    });
+  }
+
   // THE RECIPE COUNTER — the one presenter for "give these ingredients, take
   // that": the crucible (presentSmeltOffer) and the forge
-  // (presentBlacksmithOffer); Home's Craft page (app.js presentHomeCraft) is
-  // its third caller-to-be. It owns the held count, the coloured cost line
+  // (presentBlacksmithOffer), plus Home and brewing through the picker.
+  // It owns the held count, the coloured cost line
   // (green where the bag covers an ingredient, red where it is short), the
   // shortfall line that names the ingredient and how many more are wanted —
   // 'not enough' made the player close the modal and count their own bag,

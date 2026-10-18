@@ -18,6 +18,7 @@ const HOME = (0, eval)('({\n' + [
   lift('_homeKindIcon() {'),
   lift('presentHomeCraft(sx, sy, targetId = null) {'),
   // The ingredient offer is scene_shops.js's one (SCENE_SRC holds the mixin).
+  lift('_presentRecipePicker(sx, sy, { recipes, targetId, present, onCraft, empty, ...modal }) {'),
   lift('_presentRecipeOffer(sx, sy, { recipe, produce, refuse, canAfford = true, ...modal }) {'),
 ].join(',\n') + '\n})');
 
@@ -302,7 +303,7 @@ test('home craft: the wild-finds ledger — every grant counts except bought, ba
   assert.truthy(/if \(!opts\.notWild\) \(this\.save\.foundWild = this\.save\.foundWild \|\| \{\}\)\[id\] = 1;/.test(add.slice(0, 3000)),
     'addToInv records the find');
   const notWild = (SCENE_SRC.match(/\{ notWild: true(?:, deferRefresh: true)?(?:, deferBookRead: (?:!!boothKind|true))? \}/g) || []).length;
-  assert.eq(notWild, 12, 'the twelve non-wild grants: craft, brew, smelt, trader, the trader\'s gear swap, a counter\'s gear, stand, two shop buys, a slot win, a potion transmuted in a campfire and its full-bag refund');
+  assert.eq(notWild, 11, 'the eleven non-wild grant sites: shared craft/brew, smelt, trader, the trader\'s gear swap, a counter\'s gear, stand, two shop buys, a slot win, a potion transmuted in a campfire and its full-bag refund');
   assert.truthy(/addToInv\('scarecrow', 1, false, \{ notWild: true \}\)/.test(INTERACT_SRC), 'a reclaimed scarecrow is not a find');
 });
 

@@ -268,6 +268,11 @@ test('enemy snapshots validate complete bounded vectors and movement state', () 
   assert.deepStrictEqual(cleanEnemyState(s), s);
   const flight = { ...s, m: { _batFlight: { x: 100, y: 100, tx: 101, ty: 102, start: -200, duration: 1000 }, _batSwooping: true, _batLeg: 3 } };
   assert.deepStrictEqual(cleanEnemyState(flight), flight);
+  const curved = { ...flight, m: { ...flight.m, _batFlight: { ...flight.m._batFlight, jx: 20, jy: -10 } } };
+  assert.deepStrictEqual(cleanEnemyState(curved), curved);
+  for (const bow of [{ jx: 1 }, { jx: 1, jy: Infinity }, { jx: 4194305, jy: 0 }]) {
+    assert.strictEqual(cleanEnemyState({ ...flight, m: { _batFlight: { ...flight.m._batFlight, ...bow } } }), null);
+  }
   assert.deepStrictEqual(cleanEnemyState({ ...s, m: { _batFlight: null } }).m, { _batFlight: null });
   assert.deepStrictEqual(cleanState({ id: 'enemy_sync', d: 2, gen: 0, s }), { eid: 'enemy_sync', d: 2, gen: 0, s });
   assert.strictEqual(cleanState({ id: 'enemy_sync', d: 2, gen: -1, s }), null);
@@ -306,6 +311,11 @@ test('state and cumulative retry frames relay with capability and authenticated 
     const state = { t: 'state', id: 'enemy_sync', d: 0, gen: 0, s: enemyState() };
     a.send(state);
     assert.deepStrictEqual(await b.next(), { ...state, id: a.welcome.id, eid: state.id });
+    const curved = { ...state, s: { ...state.s, q: 2, m: { _batFlight: { x: 100, y: 100, tx: 110, ty: 120, jx: 3, jy: -4, start: -20, duration: 1000 } } } };
+    a.send(curved);
+    const relayed = await b.next();
+    assert.deepStrictEqual(relayed, { ...curved, id: a.welcome.id, eid: state.id });
+    assert.deepStrictEqual(require('../src/enemy_protocol.js').cleanEnemyState(relayed.s, { rejectUnknown: true }), curved.s);
     const damage = { t: 'damage', id: 'enemy_sync', f: 0.25, left: 0.75, d: 0, gen: 0, o: 'session_a', u: 0.25 };
     a.send(damage);
     assert.deepStrictEqual(await b.next(), { ...damage, id: a.welcome.id, eid: damage.id });

@@ -12,8 +12,9 @@
 // and then do the side effects cores must not own: persistSave, buildInventory
 // DOM, the tab switch that surfaces a new pickup, and the 'bag full' flash.
 //
-// A pickup NEVER moves the selection (save.selSlot): auto-selecting a new
-// stack swapped the seeds out of the player's hand. Nothing selected (-1) is
+// A pickup never changes the held item: auto-selecting a new
+// stack swapped the seeds out of the player's hand. Array compaction preserves
+// the selected stack, updating its index as needed. Nothing selected (-1) is
 // the resting state and no path may pick an item on the player's behalf.
 //
 // Depends on globals from items.js: ITEM_BY_ID, stackCapForBags.
@@ -53,9 +54,9 @@
   }
 
   // Add up to `n` of `id`. Pure: mutates save.inv (folding duplicates, creating
-  // the canonical stack, raising its count up to the cap). save.selSlot and
-  // save.invPage are never touched — see the header. Returns metadata so the
-  // scene wrapper can decide side effects:
+  // the canonical stack, raising its count up to the cap). Selection follows
+  // the same item through deduplication; save.invPage stays unchanged.
+  // Returns metadata so the scene wrapper can decide side effects:
   //   valid      — false iff the id isn't a real item or n <= 0 (caller returns
   //                early WITHOUT persisting / rebuilding, matching the original)
   //   accepted   — count actually added (≤ n, capped)
@@ -71,15 +72,18 @@
     save.inv = save.inv || [];
     // Fold any duplicate stacks for this id into one canonical stack — the
     // no-duplicate invariant self-heals here (legacy saves could create dupes).
+    let selected = save.inv[save.selSlot];
     let stack = null;
     for (let i = save.inv.length - 1; i >= 0; i--) {
       const s = save.inv[i];
       if (!s || s.id !== id) continue;
       if (!stack) { stack = s; continue; }
       stack.count = (stack.count || 0) + (s.count || 0);
+      if (selected === s) selected = stack;
       save.inv.splice(i, 1);
     }
 
+    if (selected) save.selSlot = save.inv.indexOf(selected);
     const isNewStack = !stack;
     if (!stack) { stack = { id, count: 0 }; save.inv.push(stack); }
 
@@ -98,12 +102,14 @@
   // Remove up to `n` of `id`. Pure: walks every stack of the id (legacy dupes
   // included), deducting and splicing emptied stacks. Returns the count
   // actually removed (≤ n; 0 if none held). The caller owns side effects —
-  // persist, DOM rebuild, and re-clamping save.selSlot after the splice.
+  // persist and DOM rebuild. Selection follows the same stack through any
+  // splice; consuming that stack empties the hand.
   function remove(save, id, n = 1, { allowLoanReturn = false } = {}) {
     if (n <= 0) return 0;
     n = Math.min(n, allowLoanReturn ? count(save, id) : ownedCount(save, id));
     let left = n;
     const inv = save?.inv || [];
+    const selected = inv[save?.selSlot];
     for (let i = inv.length - 1; i >= 0 && left > 0; i--) {
       const s = inv[i];
       if (!s || s.id !== id) continue;
@@ -112,6 +118,7 @@
       left -= take;
       if (s.count <= 0) inv.splice(i, 1);
     }
+    if (selected) save.selSlot = inv.indexOf(selected);
     const egg = EGG_HATCH_SPEC[id];
     if (egg && count(save, id) === 0) save[egg.progress] = 0;
     return n - left;

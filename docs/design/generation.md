@@ -264,6 +264,10 @@ access or tile lifecycle mechanics.
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
   Each spawner owns a seeded RNG stream so adding one does not reroll others.
+  Weighted draws share `weightedPickAt`; adapters retain their RNG consumption,
+  exact boundary comparisons and zero-weight fallback to preserve seeded worlds.
+  Placement occupancy uses `PlacedFloor.indexAt` for crops and placed objects;
+  surface-only tilled cells must not block placements on other floors.
   Barricades are tier-2 supplies found in supply/field loot or supply shops.
   Finding one unlocks its Home recipe: three wood makes one barricade. Select
   it and tap an empty safe cell to place it on the current floor. Saved

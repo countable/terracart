@@ -62,20 +62,10 @@
   function triangulate(input) {
     const ring=input.map(p=>({...p}));
     if(ring.reduce((s,p,i)=>s+p.x*ring[(i+1)%ring.length].y-p.y*ring[(i+1)%ring.length].x,0)<0)ring.reverse();
-    let changed=true;
-    while(changed&&ring.length>3){changed=false;for(let i=0;i<ring.length;i++){
-      if(Math.abs(cross(ring[(i+ring.length-1)%ring.length],ring[i],ring[(i+1)%ring.length]))<1e-8){ring.splice(i,1);changed=true;break;}
-    }}
-    const pending=ring.slice(),triangles=[];
-    while(pending.length>3){let found=false;for(let i=0;i<pending.length;i++){
-      const a=pending[(i+pending.length-1)%pending.length],b=pending[i],c=pending[(i+1)%pending.length];
-      if(cross(a,b,c)<=1e-8)continue;
-      if(pending.some(p=>p!==a&&p!==b&&p!==c&&cross(a,b,p)>=-1e-8&&cross(b,c,p)>=-1e-8&&cross(c,a,p)>=-1e-8))continue;
-      triangles.push([a,b,c]);pending.splice(i,1);found=true;break;
-    }if(!found)return {ring,triangles:[]};}
-    if(pending.length===3)triangles.push(pending);
-    return {ring,triangles};
+    PolygonGeometry.removeCollinear(ring);
+    return {ring,triangles:PolygonGeometry.triangulate(ring)};
   }
+
   const value=(plane,p)=>plane.x*p.x+plane.y*p.y+plane.c;
   function clip(poly,plane){const out=[];for(let i=0;i<poly.length;i++){
     const a=poly[i],b=poly[(i+1)%poly.length],da=value(plane,a),db=value(plane,b);
