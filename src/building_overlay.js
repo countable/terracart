@@ -974,7 +974,7 @@
         Object.assign(spec, { crownTop: stone.lite, toothWidth: rampart.toothWidth, toothHeight: rampart.toothHeight, missing });
       }
       if (d.tier === 11 && !temple) {
-        const count = Math.max(1, Math.ceil(length / WallMaterials.WOOD.pitch));
+        const count = Math.max(1, Math.round(length / WallMaterials.WOOD.pitch));
         for (let j = 0; j < count; j++) {
           const lo = j / count, hi = Math.min(1, lo + WallMaterials.WOOD.width / length);
           WallPerspective.palisade(scene, 'polygon', { ...spec, tint: tune(shade(0xffffff)),

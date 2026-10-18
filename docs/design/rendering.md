@@ -60,7 +60,7 @@ step-over lift in `ObstacleStep.PROFILES`, with thickness from
 they still interact, block and support steps from their data cells. An isolated
 wall cell keeps its rubble sprite and a lone garden bush its rounded sprite.
 `wall_materials.js` owns the shared cel-pixel atlas: subdued hedge clusters,
-bevelled crowns, single-width stone caps with transverse joints, mortared sides
+bevelled crowns, single-width stone caps with shaded edges and transverse joints, mortared sides
 and darker footing, and light crate wood. Only exposed edges bevel; shared cell
 boundaries keep exactly matching cap vertices. Texture coordinates follow world
 cells, so sub-cell movement and a view rebuild do not slide the material.
@@ -160,7 +160,8 @@ streets like every other house. The sign seats over the drawn top, or
 A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim
 plus a central gambling hall, never a generated body. The overlay paints the
 fort's plank floor and emits the tier-11 pickets of `perspectiveEdges`:
-separate broader pointed posts, sized and spaced by `WallMaterials.WOOD`,
+separate broader pointed posts with rounded octagonal bodies and continuous cel shading,
+sized and spaced by `WallMaterials.WOOD`,
 along every footprint edge, as `WallPerspective` segments in the polygon group, so the rim
 follows concave rings and turns with the compass like every other wall. The
 hall is the approved `house_fort` sprite (`house_fort_unclaimed` before the

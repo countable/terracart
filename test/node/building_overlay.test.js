@@ -1676,9 +1676,9 @@ test('building overlay: a fort is a palisade rim round its footprint, with its h
     // Fort planks under the hall, as before.
     assert.truthy(scene.buildingGeomGfx.only('texture').some(t => t.tier === T.BUILDING_MED), 'plank floor');
     // The rim: short posts, not continuous wall strips. A 64px side carries
-    // sixteen wider pointed pickets at a 4px pitch (perspectiveEdges).
+    // broader rounded pickets at the shared material pitch (perspectiveEdges).
     const pickets = scene._wallPerspective.polygon.blocks.filter(b => b.building?.key === 'fort');
-    assert.gte(pickets.length, 4 * 16, 'pickets on every side of the footprint');
+    assert.gte(pickets.length, 4 * Math.round(64 / WallMaterials.WOOD.pitch), 'pickets on every side of the footprint');
     for (const b of pickets) {
       const xs = b.points.map(p => p.x), ys = b.points.map(p => p.y);
       assert.lte(Math.max(...xs) - Math.min(...xs), WallMaterials.WOOD.width + .01, 'a picket, not a wall run');
@@ -1720,7 +1720,7 @@ test('building overlay: the low-poly path builds houses but never a fort body', 
     assert.eq(added.map(a => a.id).join(','), 'house', 'only the house becomes a mesh');
     assert.falsy(scene._proceduralBuildings.has('fort'), 'the fort keeps its sprite');
     const pickets = scene._wallPerspective.polygon.blocks.filter(b => b.building?.key === 'fort');
-    assert.gte(pickets.length, 4 * 16, 'the palisade still rims the fort');
+    assert.gte(pickets.length, 4 * Math.round(64 / WallMaterials.WOOD.pitch), 'the palisade still rims the fort');
   } finally {
     Object.assign(BuildingLowPoly, saved);
     Render.buildingArtStyle = previousStyle; clearTiles();

@@ -1,9 +1,9 @@
 // Shared cel-pixel wall sheet and retained world-space triangles.
 (function (global) {
   'use strict';
-  const KEY = 'wall-materials-cel-v1', SIZE = 512, TILE = 128, PAD = 2;
+  const KEY = 'wall-materials-cel-v2', SIZE = 512, TILE = 128, PAD = 2;
   const WHITE = { u: 500 / SIZE, v: 500 / SIZE };
-  const WOOD = { height: 8, tipHeight: 3.4, thickness: 3.36, width: 3.36, pitch: 4 };
+  const WOOD = { height: 8, tipHeight: 3.4, thickness: 4.4, width: 4.4, pitch: 5.2, rounding: .26 };
   const slots = { hedgeTop: 0, hedgeSide: 1, stoneTop: 2, stoneSide: 3, woodTop: 4, woodSide: 5, stoneEnd: 6, stonePlain: 7 };
   const colors = { hedgeTop: 0x80995b, hedgeSide: 0x456e47, stoneTop: 0xc6baa4,
     stonePlain: 0xc6baa4, stoneSide: 0x968a76, stoneEnd: 0x968a76, woodTop: 0xe3c8a1, woodSide: 0xcba47d };
@@ -48,7 +48,10 @@
         fill('#827764', 0, n * .76, n, n * .24);
         fill('#746a58', 0, n - 15, n, 8); fill('#615b50', 0, n - 7, n, 7);
       } else if (name === 'woodSide') {
-        fill('#a37d63', 0, 0, 17, n); fill('#dfc29b', 24, 0, 16, n - 15);
+        // Broad cel bands wrap once around the whole pole, across its facets.
+        fill('#9f7b61', 0, 0, 14, n); fill('#9f7b61', n - 14, 0, 14, n);
+        fill('#bd9673', 14, 0, 16, n); fill('#bd9673', n - 30, 0, 16, n);
+        fill('#dfc29b', 38, 0, 25, n - 15);
         fill('#a17b60', 77, 44, 15, 30); fill('#a17b60', 91, 74, 12, 15);
         fill('#876752', 0, n - 18, n, 18);
       }
@@ -97,7 +100,7 @@
     const wood = kind === 'wood' || kind === 'fort', hedge = kind === 'hedge';
     if (wood && points.length === 4) {
       points = points.flatMap((p, i) => [points[(i + 3) % 4], points[(i + 1) % 4]].map(q => {
-        const length = Math.hypot(q.x - p.x, q.y - p.y), cut = Math.min(.35, length / 3);
+        const length = Math.hypot(q.x - p.x, q.y - p.y), cut = length * WOOD.rounding;
         return { x: p.x + (q.x - p.x) * cut / length, y: p.y + (q.y - p.y) * cut / length };
       }));
     }
@@ -134,22 +137,24 @@
       for (const tri of tris) topSurface(tri.map(p => ({ ...p, z: height, s: 0, t: 0 })), null);
     }
     const center = { x: points.reduce((s, p) => s + p.x, 0) / n, y: points.reduce((s, p) => s + p.y, 0) / n };
+    const across = p => p.x * .8 - p.y * .6;
+    const minAcross = Math.min(...points.map(across)), spanAcross = Math.max(...points.map(across)) - minAcross;
     for (let i = 0; i < n; i++) {
       if (open[i]) continue;
       const j = (i + 1) % n, a = points[i], b = points[j], normal = normals[i], low = wood ? height : height - bevel;
       const alongX = Math.abs(b.x - a.x) >= Math.abs(b.y - a.y), repeat = hedge ? 124 : 28;
       const distance = Math.hypot(b.x - a.x, b.y - a.y);
       const sidePoint = (p, z, end) => ({ ...p, z,
-        s: wood ? end : (alongX ? p.x + originX : p.y + originY) / repeat,
+        s: wood ? (across(p) - minAcross) / spanAcross : (alongX ? p.x + originX : p.y + originY) / repeat,
         t: 1 - z / (hedge ? 124 : low) });
-      if (distance > 1e-8) surface(faces, [sidePoint(a, 0, 0), sidePoint(b, 0, 1), sidePoint(b, low, 1), sidePoint(a, low, 0)], (!wood && !hedge && distance <= 8 ? 'stoneEnd' : prefix + 'Side'), normal);
+      if (distance > 1e-8) surface(faces, [sidePoint(a, 0, 0), sidePoint(b, 0, 1), sidePoint(b, low, 1), sidePoint(a, low, 0)], (!wood && !hedge && distance <= 8 ? 'stoneEnd' : prefix + 'Side'), normal, wood ? (normal.x * .6 + normal.y * .8 > .35 ? 0xdfcdb8 : normal.x * .6 + normal.y * .8 < -.35 ? 0xffffff : 0xf1e4d2) : 0xffffff);
       if (wood) {
         surface(faces, [{ ...a, z: height, s: 0, t: 1 }, { ...b, z: height, s: 1, t: 1 },
           { ...center, z: height + WOOD.tipHeight, s: .5, t: 0 }], 'woodTop', null, normal.x * .4 + normal.y * .6 > 0 ? 0xf6eadc : 0xffffff);
       } else {
         const edge = [topPoint(a), topPoint(b), topPoint(cap[j]), topPoint(cap[i])];
         edge[0].z = edge[1].z = low;
-        topSurface(edge, normal, hedge ? 0xc9d2ba : 0xffffff);
+        topSurface(edge, normal, hedge ? 0xc9d2ba : 0xd5c9b6);
       }
     }
     if (options.tint != null) for (const face of faces) {
