@@ -24,8 +24,8 @@
     <button data-variant="quicksilver" aria-pressed="false">A · Quiet quicksilver</button>
     <button data-variant="armour" aria-pressed="false">B · Dragon armour</button>
     <button data-variant="tendons" aria-pressed="false">C · Flowing dragon ribs</button>
-    <button data-variant="mechanical" aria-pressed="true">D · Mechanical scalework</button>
-    <p id="description">Machined silver rails and articulated plates blend into engraved dragon scales.</p>
+    <button data-variant="mechanical-header" aria-pressed="true">D · Mechanical scalework · Scaled header</button>
+    <p id="description">Engraved silver scales now continue behind the memory and distance instruments.</p>
     <p>The game remains interactive. Skip the intro if it appears. This selection only changes this preview.</p>
     <a href="../index.html">Open the regular game</a>
   </aside>
@@ -33,9 +33,9 @@
 </main>
 <script>
   const game = document.getElementById('game');
-  let selected = 'mechanical';
+  let selected = 'mechanical-header';
   const descriptions = {
-    mechanical: 'Machined silver rails and articulated plates blend into engraved dragon scales.',
+    'mechanical-header': 'Engraved silver scales now continue behind the memory and distance instruments.',
     original: 'The current densely carved silver background.',
     quicksilver: 'Broad liquid ribbons and a calm lower field behind the inventory keys.',
     armour: 'Larger dragon scales, worn pewter, and a more pronounced dragon profile.',

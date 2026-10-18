@@ -1,0 +1,8 @@
+{
+  "tool": "Built-in image_gen",
+  "prompt": "Precise local edit of reference 1, the approved mechanical silver dragon chassis background. Reference 2 is its actual game UI overlay for context only. Change ONLY the plain grey recessed oval field at the very top of reference 1 (approximately x15%-85%, y1%-10%), behind the memory and distance instruments in reference 2. Fill this entire top field with continuous ornate overlapping silver dragon scalework blending into precision-machined articulated plates. Scale edges should be crisp bevelled pewter, fine chased scroll engraving within the scales, dark shallow seams and a few tiny inset rivets, flowing inward from both sides. Match the existing sculpted mechanical scalework material, warm-neutral silver and light from upper left. No plain grey empty patch should remain in that top field; pattern must be visibly dimensional at phone size but shallow enough for real UI instruments to sit on top. Preserve the oval perimeter rails and all artwork outside this top field EXACTLY, including main large circle, gear arcs, screws, dragon head, lower-right joystick seating area and bottom panel. Same portrait aspect, same dimensions, same composition, same colors and lighting. Output ONLY the background artwork. No UI controls, digits, text, maps or gold. Do not redesign or shift anything else.",
+  "references": [
+    "tools/compass-background-variants/mechanical.png",
+    "http://localhost:8765/silver-dragon-variants/mechanical.png"
+  ]
+}
