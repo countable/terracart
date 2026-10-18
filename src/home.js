@@ -71,7 +71,7 @@ const HomeArea = {
   // Where Home's firepit may go, best first, as cell offsets from the
   // player's anchor: the turned FIREPIT_OFFSET, then the ring one cell out
   // and the ring two out, each by distance from it — never the player's own
-  // doorstep cell or the house's 3x3. Fixed order, so the same ground always
+  // doorstep cell or the house's 2×2 footprint. Fixed order, so the same ground always
   // picks the same cell.
   firepitCandidates(preferred, wagon) {
     const d2 = (c) => (c.dx - preferred.dx) ** 2 + (c.dy - preferred.dy) ** 2;
@@ -95,7 +95,7 @@ const HomeArea = {
   // still gets its pit; the reading never changes which cell it takes.
   FIREPIT_COMPASS_GRACE_MS: 2000,
   // ── Your house ────────────────────────────────────────────────────────
-  // Home is a HOUSE: a square of (2·halfCells + 1) cells on a side centred
+  // A fallback Home is a 2×2-cell HOUSE anchored
   // on the wagon cell (WAGON_OFFSET keeps its name for the save's sake —
   // `starterTrailer` is the record, `starter_trailer` the id). It is stamped
   // into its tile as real building cells and a polygon ring
@@ -107,7 +107,7 @@ const HomeArea = {
   // comes off and the lightmap masks everything outside the walls
   // (lighting.js paintIndoorMask).
   HOUSE: {
-    halfCells: 1,
+    minCell: -1, maxCell: 0, // fallback house: exactly two cells per side
     wallPx: 14,        // wall height, screen px (a fort's wall is 5)
     thicknessPx: 3,    // wall thickness, px — the fort's
     ridgePx: 5,        // the roof's ridge above the eaves
@@ -121,13 +121,16 @@ const HomeArea = {
   },
   // Is the cell (dx, dy) from the wagon cell one of the house's?
   inHouse(dx, dy) {
-    const h = this.HOUSE.halfCells;
-    return Math.abs(dx) <= h && Math.abs(dy) <= h;
+    const { minCell, maxCell } = this.HOUSE;
+    return dx >= minCell && dx <= maxCell && dy >= minCell && dy <= maxCell;
   },
-  // The house's ring in world metres about its centre (the wagon cell's
-  // centre), clockwise on screen: NW, NE, SE, SW.
+  // The 2×2 ring in world metres, offset half a cell from the saved anchor,
+  // clockwise on screen: NW, NE, SE, SW.
   houseRingM(cx, cy, cellM) {
-    const half = (this.HOUSE.halfCells + 0.5) * cellM;
+    const { minCell, maxCell } = this.HOUSE;
+    const shift = (minCell + maxCell) * cellM / 2;
+    cx += shift; cy += shift;
+    const half = (maxCell - minCell + 1) * cellM / 2;
     return [{ x: cx - half, y: cy - half }, { x: cx + half, y: cy - half },
       { x: cx + half, y: cy + half }, { x: cx - half, y: cy + half }];
   },
@@ -143,7 +146,10 @@ const HomeArea = {
   },
   // The doorway's centre on that wall, world metres.
   doorPointM(cx, cy, cellM, side) {
-    const half = (this.HOUSE.halfCells + 0.5) * cellM;
+    const { minCell, maxCell } = this.HOUSE;
+    const shift = (minCell + maxCell) * cellM / 2;
+    cx += shift; cy += shift;
+    const half = (maxCell - minCell + 1) * cellM / 2;
     if (side === 'N') return { x: cx, y: cy - half };
     if (side === 'E') return { x: cx + half, y: cy };
     if (side === 'W') return { x: cx - half, y: cy };
@@ -157,14 +163,14 @@ const HomeArea = {
   FIREPIT_SMOKE: { puffs: 3, periodMs: 6500, risePx: 38, swayPx: 4,
     radiusPx: [3.5, 9], alpha: 0.85, color: 0x57514c },
   // Is the cell (dx, dy) from the spawn anchor part of Home's footing — the
-  // house's cells (the wagon cell and the eight round it), plus the firepit? The
+  // house's four cells, plus the firepit? The
   // starter passes keep their crates, plot and ring out of it, and
   // clearHomeFooting (scene_venues.js) sweeps it. The anchor's own 3x3 is
   // included too: a save placed before the wagon moved north has its
   // trailer ON the anchor.
   inFooting(dx, dy) {
     const w = this.WAGON_OFFSET, p = this.FIREPIT_OFFSET;
-    if (Math.abs(dx - w.dx) <= 1 && Math.abs(dy - w.dy) <= 1) return true;
+    if (this.inHouse(dx - w.dx, dy - w.dy)) return true;
     if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) return true;
     return dx === p.dx && dy === p.dy;
   },

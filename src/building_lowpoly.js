@@ -577,7 +577,7 @@
     wood:{dark:0x4a2123,mid:0x7e210d,base:0x954a39,light:0xb45c3a,bright:0xc87139},
     glass:{dark:0x185969,base:0x1fc6af,light:0x9ff0e0},flame:0xf2c76a};
   function celSheet(scene,recipe){
-    const wreck=recipe.shape==='wreck',key='lowpoly:cel-v1:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.roofMaterial,recipe.finish,wreck,!!recipe.blank]);
+    const wreck=recipe.shape==='wreck',key='lowpoly:cel-v2:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.roofMaterial,recipe.finish,wreck,!!recipe.blank]);
     if(scene.textures.exists(key))return scene.textures.get(key);
     const tex=scene.textures.createCanvas(key,512,512),ctx=tex.getContext();
     const css=c=>'#'+c.toString(16).padStart(6,'0');
@@ -586,6 +586,9 @@
     const ramp=c=>({shade:mix(c,CEL.shadow,.26),base:c,light:mix(c,CEL.cream,.16)});
     const wall=ramp(recipe.body),roof=ramp(recipe.roof),ink=CEL.ink;
     const trim={shade:CEL.wood.dark,base:CEL.wood.base,light:CEL.wood.light}; // the sprites' frame wood
+    // Exposed beams (floor bands, posts, braces) read as wood, not ink: a mid
+    // tone between the frame's dark and base, so they sit back from the outline.
+    const beam=mix(CEL.wood.dark,CEL.wood.base,.6);
     const BOT=105,FLOORS=4,bays=[];for(let k=-1;k<=12;k++)bays.push(2+39*k);
     // --- wall surface -------------------------------------------------------
     px(0,0,512,128,wall.base);
@@ -604,10 +607,10 @@
       for(let y=3;y<128;y+=11)for(let x=5;x<512;x+=17){if(hash(x,y)>.9)px(x,y,2,1,wall.light);}
     }
     // Floor beams: a dark timber band with a bright top edge, every storey.
-    for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);px(0,y-1,512,3,trim.shade);px(0,y-1,512,1,trim.light);}
+    for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);px(0,y-1,512,3,beam);px(0,y-1,512,1,trim.light);}
     if(recipe.finish==='cottage'){ // half-timbering: posts at bay edges, one brace per bay
-      for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);for(const bx of bays){px(bx-1,y,3,24,trim.shade);px(bx-1,y,1,24,trim.light);
-        for(let i=0;i<7;i++){px(bx+3+i,y+4+i,2,1,trim.shade);px(bx+34-i,y+4+i,2,1,trim.shade);}}}
+      for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);for(const bx of bays){px(bx-1,y,3,24,beam);px(bx-1,y,1,24,trim.light);
+        for(let i=0;i<7;i++){px(bx+3+i,y+4+i,2,1,beam);px(bx+34-i,y+4+i,2,1,beam);}}}
     }
     // Plinth: stone courses below the ground line, as the tileset keeps them;
     // walls never sample it (chimney sides and the door step do).
@@ -958,10 +961,14 @@
     let cached=recipe.shape?specialGeometry(local,recipe):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,recipe.chimneys?{count:recipe.chimneys,scale:recipe.chimneyScale||1}:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
+    // Fallen masonry lies on the ground; retain its materials and scattered
+    // fragments without any wall or roof elevation obscuring the player.
+    if(recipe.role==='wreck') cached={...cached,height:0,faces:cached.faces.map(f=>({...f,
+      points:f.points.map(p=>({...p,z:0}))}))};
     const texture=material(scene,recipe);(state.textures||=new Set()).add(texture.key);
     const mesh={...cached,faces:atlasFaces(cached,texture.roofPeriod)};
     mesh.roofTriangles=mesh.faces.filter(f=>f.kind==='roof').length;mesh.wallTriangles=mesh.faces.filter(f=>f.kind==='wall').length;mesh.trimTriangles=mesh.faces.filter(f=>f.kind==='trim').length;
-    mesh.role=recipe.role;mesh.x=left;mesh.y=top;state.buildings.push(mesh);if(key&&mesh.faces.length)state.keys.add(key);
+    mesh.key=key;mesh.footprint=pts;mesh.role=recipe.role;mesh.x=left;mesh.y=top;state.buildings.push(mesh);if(key&&mesh.faces.length)state.keys.add(key);
     const support={x:left+local.reduce((s,p)=>s+p.x,0)/local.length,y:top+local.reduce((s,p)=>s+p.y,0)/local.length,order:state.buildings.length};
     const index=state.buildings.length-1;
     const obj=state.pool[index]||(state.pool[index]=renderObject(scene));
@@ -990,7 +997,8 @@
       obj._huAnchor.x=mesh.support.x+state.offsetX;
       obj._huAnchor.y=mesh.support.y+state.offsetY;
     }
-    const angle=scene.mapRot||0;if(state.angle===angle)return;state.angle=angle;
+    const angle=scene.mapRot||0;const changed=state.angle!==angle;state.angle=angle;
+    if(changed){
     const c=Math.cos(angle),s=Math.sin(angle);
     for(const face of state.faces){let depth=0;
       // Height projects screen-up, foreshortened like the billboard sprites.
@@ -1003,16 +1011,20 @@
     }
     for(const mesh of state.buildings){
       mesh.faces.sort((a,b)=>(a.layer??0)-(b.layer??0)||a.depth-b.depth);
+      mesh.visibleTriangles=mesh.faces.filter(f=>f.visible).map(f=>f.projected);
       // Standalone art viewers have no shared world sorter.
       if(!scene.worldContainer)mesh.obj.setDepth(mesh.support.depth);
     }
     if(!scene.worldContainer)scene.buildingWallContainer.sort('depth');
+    }
+    for(const mesh of state.buildings) mesh.obj.alpha=mesh.role==='wreck'||typeof Render==='undefined'||!Render.buildingFadeAlpha?1:Render.buildingFadeAlpha(scene,mesh.key,mesh.footprint,
+      mesh.visibleTriangles||[],mesh.support,{x:state.offsetX,y:state.offsetY});
   }
   function worldPieces(scene){
     const state=scene._lowpoly;if(!state||!state.enabled||!active(scene)||(scene.depth??0)!==0)return [];
     update(scene);
     const anchor=viewAnchorWorldM(scene);
-    return state.buildings.map(mesh=>({sprite:mesh.obj,rank:1,
+    return state.buildings.map(mesh=>({sprite:mesh.obj,rank:1,layer:typeof WorldLayers==='undefined'?undefined:mesh.role==='wreck'?WorldLayers.GROUND_DECAL:WorldLayers.STANDING_PROP,
       groundY:anchor.y+(mesh.obj._huAnchor.y-scene.viewCenterY)*scene.cellM/CELL_PX}));
   }
   function clear(scene){

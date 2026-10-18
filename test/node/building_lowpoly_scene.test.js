@@ -76,4 +76,25 @@
     assert.eq(BuildingLowPoly.worldPieces(scene).length, 0, 'a cleared pass contributes nothing');
     assert.falsy(a.obj.visible, 'and hides the pooled objects');
   }));
+  test('low-poly buildings: opacity updates without rotating or rebuilding the mesh', () => withPhaser(() => {
+    const scene=stubScene();scene.mapRot=0;scene.save={};
+    scene.playerScreen=()=>({x:120,y:140});
+    scene.player={visible:true,x:120,y:140,displayWidth:16,displayHeight:24,originX:.5,originY:1};
+    BuildingLowPoly.begin(scene);const mesh=build(scene,'other');
+    BuildingLowPoly.update(scene);assert.eq(mesh.obj.alpha,.5,'inside the footprint');
+    const faces=mesh.faces;
+    scene.playerScreen=()=>({x:400,y:400});scene.player.x=400;scene.player.y=400;
+    BuildingLowPoly.update(scene);assert.eq(mesh.obj.alpha,1,'outside again at the same heading');
+    assert.eq(mesh.faces,faces,'retained geometry is reused');
+  }));
+  test('low-poly wrecks: rubble is flat, opaque and sorted below the player', () => withPhaser(() => {
+    const scene=stubScene();BuildingLowPoly.begin(scene);
+    const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
+    const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','wreck');
+    assert.truthy(mesh.faces.length,'rubble material remains');
+    assert.truthy(mesh.faces.every(f=>f.points.every(p=>p.z===0)),'no standing walls or roof');
+    const [piece]=BuildingLowPoly.worldPieces(scene);
+    assert.eq(piece.layer,WorldLayers.GROUND_DECAL,'player always draws above the wreck');
+    assert.eq(mesh.obj.alpha,1,'wreck never fades');
+  }));
 })();

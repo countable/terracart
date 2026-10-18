@@ -3562,13 +3562,68 @@ function fadeLabelOverPlayer(tx, box) {
   tx.setAlpha(hit ? LABEL_OVER_PLAYER_ALPHA : 1);
 }
 
+// Shared building visibility geometry. These tests use retained vertices and
+// boot-time sprite bounds; walking never reads texture pixels or rebuilds art.
+Render.pointInBuilding = function(point, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[j], b = ring[i];
+    if ((a.y > point.y) !== (b.y > point.y)
+        && point.x < a.x + (point.y - a.y) * (b.x - a.x) / (b.y - a.y)) inside = !inside;
+  }
+  return inside;
+};
+// Separating-axis test: unlike triangle bounds, this does not fade empty
+// corners beside a pitched roof or the empty middle of a concave footprint.
+Render.buildingTriangleOverlaps = function(points, box) {
+  if (!box) return false;
+  const corners = [{ x: box.x0, y: box.y0 }, { x: box.x1, y: box.y0 },
+    { x: box.x1, y: box.y1 }, { x: box.x0, y: box.y1 }];
+  const axes = [{ x: 1, y: 0 }, { x: 0, y: 1 }];
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i], b = points[(i + 1) % points.length];
+    axes.push({ x: b.y - a.y, y: a.x - b.x });
+  }
+  return axes.every(axis => {
+    const a = points.map(p => p.x * axis.x + p.y * axis.y);
+    const b = corners.map(p => p.x * axis.x + p.y * axis.y);
+    return Math.max(...a) >= Math.min(...b) && Math.max(...b) >= Math.min(...a);
+  });
+};
+Render.buildingFadeAlpha = function(scene, key, footprint, triangles, anchor, offset = { x: 0, y: 0 }) {
+  if (key && key === scene.save?.starterShopId) return 1;
+  const feet = scene.playerScreen?.();
+  if (!feet || !scene.player?.visible) return 1;
+  if (footprint?.length && Render.pointInBuilding({ x: feet.x - offset.x, y: feet.y - offset.y }, footprint)) return 0.5;
+  const { box, view } = Render.headingFadeView(scene, playerScreenBox(scene));
+  if (!box) return 1;
+  const front = view ? view.sin * (anchor.x + offset.x) + view.cos * (anchor.y + offset.y) > view.playerKey
+    : anchor.y + offset.y > feet.y;
+  if (!front) return 1;
+  for (const triangle of triangles) {
+    const points = triangle.map(p => {
+      const x = p.x + offset.x, y = p.y + offset.y;
+      return view ? { x: view.cos * x - view.sin * y, y: view.sin * x + view.cos * y } : { x, y };
+    });
+    if (Render.buildingTriangleOverlaps(points, box)) return 0.5;
+  }
+  return 1;
+};
+Render.playerBuildingKey = function(scene) {
+  if ((scene.depth || 0) !== 0 || !scene.playerM || !scene.startWorldM) return null;
+  const p = playerWorldM(scene), t = worldMetersToTileCell(scene, p.x, p.y);
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(t.tx, t.ty));
+  const i = t.iy * (entry?.cellsPerEdge || scene.cellsPerTile) + t.ix;
+  return entry?.ownerKeys?.[entry.owners?.[i]] || null;
+};
+
 // Upright props fade only while their visible art covers the player's body
 // and their shared world depth places them in front. Read the boot-time art
 // bounds, never texture pixels; untrimmed procedural art uses its frame box.
 // On a turned heading-up map (`view`, from Render.headingFadeView) each body
 // stands upright at its turned feet, and lower turned feet draw in front, so
 // both the boxes and the front test follow the turned feet instead.
-Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha, view = null) {
+Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha, view = null, onFootprint = false) {
   let obscures = false;
   const foot = view && (s._huAnchor || s);
   const front = view ? view.sin * foot.x + view.cos * foot.y > view.playerKey : s.depth > playerDepth;
@@ -3586,7 +3641,7 @@ Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, 
     const oy = view ? view.sin * foot.x + view.cos * foot.y - foot.y : 0;
     obscures = x0 + ox < box.x1 && x1 + ox > box.x0 && y0 + oy < box.y1 && y1 + oy > box.y0;
   }
-  const alpha = baseAlpha * (obscures ? 0.5 : 1);
+  const alpha = baseAlpha * (appearance.layer !== WorldLayers.GROUND_DECAL && (onFootprint || obscures) ? 0.5 : 1);
   if (s.alpha !== alpha) s.setAlpha(alpha);
 };
 
@@ -4608,8 +4663,11 @@ Render.drawObjects = function drawObjects(scene) {
   // Turrets keep a separate reusable pool inside the shared world layer.
   const { box: bodyBox, view: fadeView } = Render.headingFadeView(scene, playerScreenBox(scene));
   const playerDepth = scene.playerWorldContainer?.depth ?? Infinity;
+  const playerBuilding = Render.playerBuildingKey(scene);
   const fadeObject = (s, appearance) => Render.fadeObjectOverPlayer(s, appearance,
-    bodyBox, playerDepth, s._objectBaseAlpha ?? 1, fadeView);
+    bodyBox, playerDepth, s._objectBaseAlpha ?? 1, fadeView,
+    !!playerBuilding && playerBuilding !== scene.save?.starterShopId
+      && (s._staticObject?.id === playerBuilding || s._staticObject?.castle === playerBuilding));
   const configureObject = (s, item) => {
     const { o, dx, dy } = item;
     const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
@@ -4655,8 +4713,8 @@ Render.drawObjects = function drawObjects(scene) {
   // Heading-up draws connected walls and hedges as ground-attached prisms in
   // the building background; their sprite slots stay empty this frame.
   const prismDrawn = Render.drawConnectedWallPrisms(scene, filteredObj, plantedList, connectedArt);
-  const towerList = filteredObj.filter(({ o }) => o.kind === 'tower');
-  const nonTowerObj = (towerList.length || prismDrawn.size)
+  const towerList = filteredObj.filter(({ o }) => o.kind === 'tower' && o.castle !== scene.save?.starterShopId);
+  const nonTowerObj = (filteredObj.some(({ o }) => o.kind === 'tower') || prismDrawn.size)
     ? filteredObj.filter(it => it.o.kind !== 'tower' && !prismDrawn.has(it)) : filteredObj;
   const objectReuse = scene._boot_still ? reuseStaticObject : undefined;
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj,
@@ -6025,6 +6083,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     house:  {
       key: o => Render.proceduralHouse(o, _pass.scene) ? null : _houseKey(o),
       frame: _houseFrame,
+      layer: o => _houseRole(o) === 'wreck' ? WorldLayers.GROUND_DECAL : WorldLayers.STANDING_PROP,
+      scaleYMul: o => _houseRole(o) === 'wreck' ? 0.4 : 1,
       // Every building stands its bottom-middle on its footprint's centre of
       // mass (_houseFootPx): the object sits on the footprint cell nearest
       // that point, so the art is nudged by the remainder.

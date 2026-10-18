@@ -991,7 +991,7 @@ Object.assign(ctx, {
   ctx.STARTER_TRAIL_SRC      = slice(ctx.STARTER_JS_SRC, '  function placeStarterTrail(scene, entry, tx, ty) {\n',
     '\n  function revealStarterTrail', 'the starter trail');
   ctx.ENSURE_STARTER_TRAILER_SRC = slice(appSrc, '  ensureStarterTrailerObject() {\n',
-    '\n  }\n\n  // Nothing stands on Home\'s footing', 'ensureStarterTrailerObject');
+    '\n  }\n\n  // YOUR HOUSE\'S FOOTPRINT.', 'ensureStarterTrailerObject');
   // The sidecar chest injection loop in loadTile (poi_dedup.test.js: it must
   // consult the one-place-one-chest rule before pushing a chest).
   ctx.SX_CHEST_INJECT_SRC    = slice(wgSrc,  'for (const ch of sx.chests) {\n', 'entry.objects.push(ch);', 'the sidecar chest injection');

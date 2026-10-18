@@ -733,12 +733,12 @@ Higher-priority placements and their access space take precedence in this order:
 
 1. Saved player-owned objects, Home and story placements. Preserve saved ids and
    progress; a conflicting generated story placement finds a valid alternative
-   rather than moving or deleting a player-owned object. Home's footing (the
-   wagon's 3x3 and its firepit, `HomeArea.inFooting`) erases any unclaimed
-   house on it entirely — cells, outline and roof — on the built tile only
-   (`clearHomeFooting`), leaving a patch of farmland dirt over the footprint
-   (`clearedShapes`, the farmland colour and texture, drawn by `building_overlay.js`);
-   `baseGrid` keeps the building.
+   rather than moving or deleting a player-owned object. Home adopts the nearest
+   existing house footprint within two cells of the player's initial position,
+   prioritizing a footprint containing the player. Distance is to the polygon
+   edge, not the house's entrance. With no nearby house, it adds a 2×2-cell
+   house on open ground. `clearHomeFooting` removes incidental clutter only:
+   existing building cells, objects and outlines are never erased for Home.
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles
@@ -847,10 +847,10 @@ Higher-priority placements and their access space take precedence in this order:
 A new live game waits for the first compass reading before placing its house
 and campfire, for at most `HomeArea.FIREPIT_COMPASS_GRACE_MS`; with no reading
 by then it places them north-up. The player remains at their GPS position. The starting offsets
-rotate into that heading once: the house is centred one cell ahead of the
-player, so they stand in its doorway row, its doorway is cut in the wall facing
-them (`HomeArea.doorSide`), and the firepit sits two cells behind them on the
-door side (directly below the player in the initial view). If that cell is water or road, it uses the nearest dry fallback. The saved layout stays fixed through later
+rotate into that heading once for a newly constructed 2×2 house, whose anchor
+is one cell ahead of the player. An adopted building keeps its source footprint
+and position. The firepit uses open ground near Home; water, roads and existing
+buildings are rejected. New house doorways face the player (`HomeArea.doorSide`). The saved layout stays fixed through later
 heading changes and reloads. Existing Homes keep their saved positions; sandbox
 and north-up previews retain the north-facing layout.
 

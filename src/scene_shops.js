@@ -537,12 +537,11 @@ class SceneShops {
   // starts far from START_LAT would get a trailer off-screen near the origin.
   //
   // Once a GPS fix is in and every tile the viewport overlaps is ready, Home
-  // waits for the first compass reading, then parks ahead of the player,
-  // with an empty firepit behind them on the door side (_placeHome); any
-  // house standing there is cleared (clearHomeFooting). An older save whose
+  // waits for the first compass reading, then adopts a building within two
+  // cells of the player or places a new 2×2 house on open ground (_placeHome).
+  // Buildings and their footprints are preserved. A save whose
   // Home is an adopted house keeps it while that house is loaded, so Home is
-  // stable across roaming and reloads, while a stale origin-anchored memo
-  // (whose tile never loads near the new spawn) self-heals. Cheap after it
+  // stable across roaming and reloads even while its tile is unloaded. Cheap after it
   // locks in via the _starterShopOk early-out; called lazily (isStarterShop)
   // and every frame from Render.drawObjects.
   ensureStarterShopId() {
@@ -586,6 +585,8 @@ class SceneShops {
         this._setStarterCratesAt(ax, ay);
         return;
       }
+      // A saved adopted Home stays put while its tile is unloaded.
+      return;
     }
     // Don't place Home until every tile the viewport overlaps is ready —
     // otherwise the footing sweep (clearHomeFooting) and the firepit's ground
@@ -612,16 +613,9 @@ class SceneShops {
       this._homeHeadingWaitT0 ??= now;
       if (now - this._homeHeadingWaitT0 < HomeArea.FIREPIT_COMPASS_GRACE_MS) return;
     }
-    // Place Home round the player: they start at the wagon's door, the empty
-    // firepit behind them, and whatever house stood there is cleared
-    // (_placeHome). Measured from the frozen starter anchor when the player
-    // is still on it, so the wagon sits exactly where the starter passes
-    // kept clear (HomeArea.inFooting).
-    const sc = this.save.starterCratesAt;
-    const fromAnchor = sc && Number.isFinite(sc.x)
-      && Math.max(Math.abs(sc.x - ax), Math.abs(sc.y - ay)) < this.cellM * 2;
-    this._placeHome(fromAnchor ? sc.x : ax, fromAnchor ? sc.y : ay,
-      typeof HeadingUp !== 'undefined' && HeadingUp.enabled ? (heading || 0) : 0);
+    // Search from the actual GPS position, independent of the loot anchor.
+    if (!this._placeHome(ax, ay,
+      typeof HeadingUp !== 'undefined' && HeadingUp.enabled ? (heading || 0) : 0)) return;
     this._starterShopOk = true;
     this._setStarterCratesAt(ax, ay);
   }

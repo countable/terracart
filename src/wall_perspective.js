@@ -48,7 +48,7 @@
       if (Math.abs(area) < 1e-6) return;
       support ||= { x: x / points.length, y: y / points.length, order: group.blocks.length };
       group.runs = null;
-      group.blocks.push({ points, topPoints: geometry.topPoints || points, allFaces: !!geometry.allFaces, bottom, top, colors, support, capped, winding: Math.sign(area),
+      group.blocks.push({ building: group.building || null, points, topPoints: geometry.topPoints || points, allFaces: !!geometry.allFaces, bottom, top, colors, support, capped, winding: Math.sign(area),
         x: x / points.length, y: y / points.length, order: group.blocks.length,
         faceOrder: Array.from({ length: points.length }, (_, i) => i), faceDepth: new Float64Array(points.length),
         projected: new Float64Array(points.length * 4) });
@@ -103,10 +103,14 @@
       const angle = scene.mapRot || 0, c = Math.cos(angle), s = Math.sin(angle);
       for (const group of Object.values(scene._wallPerspective || {})) {
         group.gfx.visible = this.active(scene) || (group.alwaysActive && (scene.depth ?? 0) === 0);
-        if (!group.gfx.visible || group.angle === angle) continue;
-        group.angle = angle;
+        if (!group.gfx.visible) continue;
+        const player = scene.player, feet = scene.playerScreen?.();
+        const visibilityKey = [angle, group.x, group.y, feet?.x, feet?.y,
+          player?.visible, player?.x, player?.y, player?.displayWidth, player?.displayHeight, scene.save?.starterShopId].join(',');
+        if (group.angle === angle && group.visibilityKey === visibilityKey) continue;
+        const geometryChanged = group.angle !== angle;
+        group.angle = angle; group.visibilityKey = visibilityKey;
         const g = group.gfx;
-        g.clear();
         for (const block of group.blocks) {
           block.depth = s * block.x + c * block.y;
           block.support.depth = s * block.support.x + c * block.support.y;
@@ -150,6 +154,20 @@
             emit(v[2], v[3], v[j], v[j + 1], v[n], v[n + 1], colors.top);
           }
         };
+        // Evaluate all visible wall triangles together so a whole building
+        // fades consistently, including its battlements, when it hides a player.
+        const buildings = new Map();
+        for (const block of group.blocks) if (block.building) {
+          let triangles = buildings.get(block.building);
+          if (!triangles) buildings.set(block.building, triangles = []);
+          faces(block, (x1,y1,x2,y2,x3,y3) => triangles.push([{x:x1,y:y1},{x:x2,y:y2},{x:x3,y:y3}]));
+        }
+        for (const [building, triangles] of buildings) building.alpha = typeof Render === 'undefined' || !Render.buildingFadeAlpha ? 1 : Render.buildingFadeAlpha(scene,
+          building.key, building.footprint, triangles, building.anchor, {x:group.x,y:group.y});
+        const alphaKey = [...buildings.keys()].map(b=>b.alpha).join(',');
+        if (!geometryChanged && group.alphaKey === alphaKey) continue;
+        group.alphaKey = alphaKey;
+        g.clear();
         // The ink outline is drawn once per connected run — every block that
         // shares a ground vertex at the same base level, so a ring of wall
         // sections has no seams between them — before the first fill of that
@@ -161,14 +179,14 @@
             const run = group.runs.get(block);
             if (!inked.has(run)) {
               inked.add(run);
-              g.fillStyle(look.ink, 1);
               for (const other of run) faces(other, (x1, y1, x2, y2, x3, y3) => {
+                g.fillStyle(look.ink, other.building?.alpha ?? 1);
                 for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]])
                   g.fillTriangle(x1 + ox * inkPx, y1 + oy * inkPx, x2 + ox * inkPx, y2 + oy * inkPx, x3 + ox * inkPx, y3 + oy * inkPx);
               });
             }
           }
-          faces(block, (x1, y1, x2, y2, x3, y3, color) => { g.fillStyle(color, 1); g.fillTriangle(x1, y1, x2, y2, x3, y3); });
+          faces(block, (x1, y1, x2, y2, x3, y3, color) => { g.fillStyle(color, block.building?.alpha ?? 1); g.fillTriangle(x1, y1, x2, y2, x3, y3); });
         }
       }
     },

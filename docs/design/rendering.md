@@ -79,6 +79,17 @@ geometry's pan offset also moves its sorting anchor, including at a fixed headin
 Ground floors and the legacy architectural walls remain in their background
 passes. Standalone building viewers without a world container sort buildings
 in their existing wall container.
+Standing buildings become 50% opaque while the player occupies their footprint
+or their visible projected faces cover the player's body from in front. The
+footprint test includes concave outlines; the overlap test uses visible triangles
+for low-poly meshes and ramparts, and trimmed art bounds for legacy sprites.
+These checks follow compass rotation and retained pan offsets, and restore full
+opacity immediately on leaving. They update opacity without rebuilding geometry
+or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
+Wrecks are flat ground objects: rubble vertices have zero elevation and render
+below the player without fading. Legacy wreck sprites use the ground layer and
+a flattened vertical scale; restoring a wreck returns it to standing architecture.
+
 [Low-poly building styles](../art/lowpoly-building-styles.md) owns the detail.
 `WallPerspective` prisms (castle ramparts, Canvas fallback) read the same
 table: height through `LOOK.heightScale`, and the ink outline is drawn once
@@ -86,8 +97,8 @@ per connected run (blocks sharing a ground vertex at the same base level)
 before that run's first fill, so a ring of sections shows no seams while
 crown teeth outline separately. They remain untextured.
 
-Home — the player's house (`HomeArea.HOUSE`, footprint stamped by
-`scene_venues.js`) — draws no sprite: `Render.houseTextureKey` hands its role
+Home uses the original nearby building footprint, or a 2×2 footprint stamped
+by `scene_venues.js` when no building is within two cells. It draws no sprite: `Render.houseTextureKey` hands its role
 a null key, and the overlay's Home branch (`building_overlay.js`) paints its
 house floor on the canvas and then the house. On the low-poly path it is the
 `home` role (`BuildingLowPoly.ROLES`); while the player stands inside

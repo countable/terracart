@@ -1495,6 +1495,10 @@
     if (g.texturePhase) g.texturePhase(projX(0), projY(0));
 
     for (const d of draws) {
+      if (perspective) scene._wallPerspective.polygon.building = {
+        key: d.key, footprint: d.pts,
+        anchor: { x: (d.left + d.right) / 2, y: (d.north + d.south) / 2 },
+      };
       // A house Home's trailer cleared (scene_venues.js _eraseHomeBuildings):
       // just the footprint, as a flat shadow — no walls, floor or outline.
       if (d.cleared) { g.fillPoly(d.pts, CLEARED_SHADOW, CLEARED_SHADOW_ALPHA); continue; }
@@ -1561,6 +1565,10 @@
           if (g.texturePoly) g.texturePoly(d.pts, d.tier);
           if (g.blobsPoly) g.blobsPoly(d.pts, slimeBlobs(d), d.left, d.north,
             slimeColor(floor, shadeOf(false)), SLIME_ALPHA);
+          if (!lowpoly) {
+            scene._proceduralBuildings.set(object.id, { height: 0 });
+            continue;
+          }
         }
         let model;
         if (lowpoly) {
@@ -1646,6 +1654,7 @@
         g.strokePoly(d.pts, OUTLINE_PX, tune(dim(shaded, OUTLINE_MUL)));
       }
     }
+    if (perspective) scene._wallPerspective.polygon.building = null;
     // Pieces that scrolled out of view (or changed claim state) go.
     for (const [k, p] of scene._buildingUprightCache) {
       if (!seen.has(k)) { releasePiece(scene, p); scene._buildingUprightCache.delete(k); }
