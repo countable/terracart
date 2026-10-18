@@ -8968,39 +8968,22 @@ class MapScene extends Phaser.Scene {
       els = this._energyEls = {
         el:    document.getElementById('energy'),
         label: document.getElementById('energy-label'),
-        fill:  document.getElementById('energy-bar-fill'),
       };
     }
     const el = els.el;
     if (!el) return;
     const cur = Math.max(0, this.save.energy ?? 0);
     const max = this.getMaxEnergy();
-    // Every value written below — the two colours, the label text, the bar
-    // width — is a pure function of (cur, max). This is called once per frame
-    // from updateHUD, so when neither has moved there is nothing to write:
-    // bail before touching the DOM rather than restating the same six values
-    // and dirtying style for the next layout pass.
+    // Skip DOM writes when current and maximum energy are unchanged.
     if (!this._paintIfChanged('_energyDOM', `${cur}|${max}`, () => {})) return;
     const pct = max > 0 ? cur / max : 0;
-    // Green normally, yellow at/below 30%, red when critically low.
-    // Green → GOLD → red. Gold is the interaction colour everywhere else in the
-    // HUD, and this gauge is not a control — it was briefly moved to amber for
-    // that reason. Reverted on the call that the traffic-light reading is worth
-    // more here than the strict colour law: a draining bar is an idiom players
-    // already know, and the gauge carries no affordance for gold to confuse.
+    // Green above 30%, gold above 10%, red when critically low.
     const color = pct > 0.30 ? UI_GREEN : (pct > 0.10 ? UI_GOLD : UI_DANGER_INK);
     el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8c7a2a' : '#a04040');
     const label = els.label;
-    // The compass readout shows current / maximum below the needle.
-    // The legacy bar keeps its current-value label.
-    if (label) { label.style.color = color; label.textContent = this._compassHUD ? `${cur} / ${max}` : `⚡${cur}`; }
-    else { el.style.color = color; el.textContent = `⚡${cur}`; }
+    if (label) { label.style.color = color; label.textContent = `${cur} / ${max}`; }
     el.title = `Energy ${cur} of ${max}`;
-    const fill = els.fill;
-    if (fill) {
-      fill.style.width = `${Math.round(pct * 100)}%`;
-      fill.style.background = color;
-    }
+
   }
 
   // THE HUD PAINTERS run every frame: `paint` only when `key` differs from
@@ -9025,8 +9008,10 @@ class MapScene extends Phaser.Scene {
     const el = this._buildHudChip({
       id: 'memories', label: 'Memories', css: MEMORIES_CHIP_CSS,
       fill: (el) => {
-        const ico = this.renderItemIcon('memory', 18, 'block');
-        ico.classList.add('mem-ico');
+        const ico = document.createElement('img');
+        ico.className = 'mem-ico compass-memory-star';
+        ico.src = 'assets/ui/compass/memory-star.svg';
+        ico.alt = '';
         const num = document.createElement('span');
         num.className = 'mem-num';
         num.textContent = '0';

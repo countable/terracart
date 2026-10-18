@@ -37,12 +37,12 @@ test('road chip: the tap hint adds every metre restored (Trail.totalMetres)', ()
   assert.lte(line.length, MAP_MSG_MAX, line);
 });
 
-test('energy chip: compass shows current / maximum while the legacy readout shows current', () => {
-  const expression = SCENE_SRC.match(/label\.textContent = (this\._compassHUD[^;]+);/)[1];
+test('energy chip: shows current / maximum from its first paint', () => {
+  const expression = SCENE_SRC.match(/label\.textContent = (`\$\{cur\} \/ \$\{max\}`);/)[1];
   const readout = new Function('cur', 'max', 'return ' + expression);
   assert.eq(readout.call({ _compassHUD: true }, 20, 120), '20 / 120', 'dial shows current and maximum');
   assert.eq(readout.call({ _compassHUD: true }, 0, 150), '0 / 150', 'zero energy and capacity changes update both numerals');
-  assert.eq(readout.call({ _compassHUD: false }, 20, 120), '⚡20', 'legacy readout keeps current energy');
+  assert.eq(readout.call({ _compassHUD: false }, 20, 120), '20 / 120', 'first paint uses the same readout before compass installation');
 });
 
 test('road chip: an SVG road strip is the bar, the number small beneath, no icon', () => {

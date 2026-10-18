@@ -98,7 +98,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=4cd4bc9e" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=57c618ca" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -444,16 +444,12 @@
     body.modal-open #money,
     body.modal-open #energy { opacity: 0.25; pointer-events: none; }
     body.modal-open #objective { display: none !important; }
-    /* Before the scene exists there is nothing true to put in the top chips —
-       the markup's "$0" / "⚡100/100" are placeholders, and on a fresh save
-       they sit over the whole opening story before the world boots ($0 then
-       becoming $50 in front of the player). Hidden, not dimmed: dimming is
-       body.modal-open's job and it cannot reach this stretch, since the class
-       is toggled from the scene's update loop. Scoped to the chips alone: what
-       else is on screen during boot is #bootload's business, and nothing here
-       should be adding a second opinion about it.
-       MapScene.updateHUD removes the class on its first real paint. */
-    body.booting #hud-row { visibility: hidden; }
+    /* Reveal controls only once their live values and compass skin are ready.
+       Also covers the gap between scene shutdown and recreation. */
+    body.booting #hud-row,
+    body.booting #menu,
+    body:not(.compass-hud) #hud-row,
+    body:not(.compass-hud) #menu { visibility: hidden; }
     /* Tile-fetch failure. Tappable — a captive portal / blocked host / 5xx all
        leave navigator.onLine true, so this is the only thing on screen telling
        the player why the world is an empty green field. */
@@ -574,27 +570,6 @@
       gap: 3px; align-items: stretch;
       text-shadow: 0 1px 0 #000;
       -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
-    }
-    /* Thin progress bar under the ⚡ readout. Fill width + colour are set in
-       updateEnergyDOM(): green normally, yellow at/below 30%, red when critical. */
-    #energy-bar {
-      height: 4px; border-radius: 2px; overflow: hidden;
-      background: var(--chrome-sunk);
-      box-shadow: inset 0 1px 2px rgba(0,0,0,0.7);
-    }
-    #energy-bar-fill {
-      height: 100%; width: 100%; border-radius: 2px;
-      background: var(--green);
-      transition: width 0.15s linear, background-color 0.15s linear;
-      position: relative;
-    }
-    /* Gloss on the top half of the fill. A pseudo-element, because the fill's
-       own background is the live energy COLOUR, written per frame by
-       updateEnergyDOM — this way the shine rides on top of whatever colour
-       the bar is at. */
-    #energy-bar-fill::after {
-      content: ''; position: absolute; inset: 0 0 50% 0; border-radius: 2px 2px 0 0;
-      background: linear-gradient(180deg, #ffffff88, #ffffff11);
     }
     /* The Spirit teaches on the map; only dismiss intercepts world taps. */
     #objective {
@@ -1237,14 +1212,13 @@
     #howto-mode-current span { font-weight: 400; color: #bbb; }
     #howto button#howto-close[hidden] { display: none; }
   </style>
-  <link rel="stylesheet" href="css/compass_hud.css?v=02d36421">
+  <link rel="stylesheet" href="css/compass_hud.css?v=8dee62e3">
   <link rel="stylesheet" href="css/compass_inventory.css?v=2c3aceb5">
   <link rel="stylesheet" href="css/compass_panels.css?v=40c4643b">
   <link rel="stylesheet" href="css/speech_bubbles.css?v=420eac2d">
   <link rel="stylesheet" href="css/book_reader.css?v=79db504e">
 </head>
-<!-- `booting` hides the money/energy row until the scene has a real balance to
-     put in it; MapScene.updateHUD drops the class on the first paint. -->
+<!-- Keep the HUD hidden until live values and the compass skin are ready. -->
 <body class="booting">
   <div id="frame">
     <div id="game">
@@ -1272,7 +1246,6 @@
   <div id="hud-row">
     <div id="energy">
       <span id="energy-label">⚡100</span>
-      <div id="energy-bar"><div id="energy-bar-fill"></div></div>
     </div>
     <!-- The chip is coin icon + bare number: the coin (assets/Icons/coin.png)
          is the game's ONE money symbol, so the readout never grows a "$" back.
@@ -1288,7 +1261,7 @@
     </div>
   </div>
   <details id="menu">
-    <summary>☰<span id="mode-badge" class="mode-badge" hidden></span></summary>
+    <summary aria-label="Main menu"><span class="compass-menu-glyph" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M4 4h10v10H4zM18 4h10v10H18zM4 18h10v10H4zM18 18h10v10H18z"/></svg></span><span id="mode-badge" class="mode-badge" hidden></span></summary>
     <div class="items menu-items" id="menu-items">
       <button id="help-howto">How to play</button>
       <button id="delivery-list">Deliveries</button>
@@ -3145,7 +3118,7 @@
   <script src="src/scene_shops.js?v=3b147df4"></script>
   <script src="src/heading_up.js?v=7fe6e897"></script>
   <script src="src/compass_modules.js?v=7db0fb1f"></script>
-  <script src="src/compass_hud.js?v=e9a30166"></script>
+  <script src="src/compass_hud.js?v=09e52940"></script>
   <script src="src/scene_create.js?v=d4132b9b"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
@@ -3224,7 +3197,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=4cd4bc9e';
+      const APP_SRC = 'src/app.js?v=57c618ca';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
