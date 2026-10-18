@@ -199,9 +199,11 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Character portraits use `CharacterPortraits` and transparent 80×80 cells
   from the generated 4×4 sheets (320×320 atlases) in `assets/portraits/`.
   NPC identity follows `SpriteLayout.npcSheet` for each role and culture; Tilly has a housed variant.
-  Dialogue passes `portrait` to the modal shell, which keeps the face and
-  shoulders at 128px above text that uses pages when necessary, using pixelated scaling
-  for chunky pixels. Portraits have no background plate or rounded clipping.
+  Dialogue passes `portrait` to the modal shell. Panel dialogs keep the face
+  and shoulders at 128px above text that uses pages when necessary; speech
+  bubbles (`talk`, `spirit`) draw the cell 1:1 at `CharacterPortraits.CELL_PX`
+  (80px) beside the speaker name. Both use pixelated scaling for chunky
+  pixels. Portraits have no background plate or rounded clipping.
   A neighbour speaking opens on the `talk` kind (`NPC.speech`): the header is
   the speaker's name beside a 💬 chat bubble, the title line is their role —
   never the generic `note` scroll.

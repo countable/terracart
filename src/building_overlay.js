@@ -1549,13 +1549,21 @@
       if(role === 'wizard'){
         g.fillPoly(d.pts,tuneOf(isMine)(shadeOf(isMine)(floorColor(d.tier,isMine))));continue;
       }
+      // FORT (tier 11, Houses.displayRole 'fort'): never a generated body. It
+      // takes the generic path below — the plank floor, then the tier-11
+      // pickets perspectiveEdges emits (a palisade rim following the footprint,
+      // compass-aware like every other wall) — and keeps its sprite: the
+      // gambling hall (house_fort / house_fort_unclaimed) seats through the
+      // RENDER_SPEC house row on the footprint's centre of mass, because this
+      // draw never enters scene._proceduralBuildings. (A low-poly fort shell
+      // was tried and reverted: the rim-plus-hall reads as the fort.)
       // Turrets retain the intact tower sprite inside standard castle walls.
       // Only this draw uses the castle tier; world ownership and gameplay stay house-based.
       if (role === 'turret') {
         d.tier = CASTLE;
         d.castleStyle = CastleStyles.TURRET_STYLE;
       }
-      if (procedural && !d.shared && (d.tier === 9 || d.tier === 11)) {
+      if (procedural && !d.shared && d.tier === 9) {
         const object = d.object || { kind: 'house', id: d.key, tier: d.tier };
         const profile = Render.buildingProfileFor(object, scene);
         const styleId = profile.style;
@@ -1575,13 +1583,10 @@
           const role = specialtyFor(scene.save, object);
           const base = BuildingStyles.STYLES[styleId], palette = {...base,...profile.palette};
           const paint = c => tuneOf(isMine)(shadeOf(isMine)(c));
-          const recipe = role==='fort'
-            ? {...wallRecipe(role,scene.buildingStoreys,isMine),role:'fort',style:styleId,body:paint(palette.wall),roof:paint(palette.roof),trim:paint(0x614534),finish:'cottage',roofMaterial:'slate'}
-            : BuildingLowPoly.recipeFor(role,{wall:paint(palette.wall),roof:paint(palette.roof),
+          const recipe = BuildingLowPoly.recipeFor(role,{wall:paint(palette.wall),roof:paint(palette.roof),
                 trim:paint(role==='turret'?palette.wall:0x614534)},scene.buildingStoreys);
-          if(role==='fort'&&!scene.buildingStoreys)recipe.stories=2;
           const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant
-            || (role==='fort'?'ridge':recipe.variant||'ridge');
+            || recipe.variant||'ridge';
           model = BuildingLowPoly.add(scene,d.pts,recipe,variant,object.id);
         } else model = BuildingStyles.emit(scene, 'polygon', d.pts, styleId, { claimed: isMine, palette: profile.palette });
         if (model && (model.faces?.length || model.prisms?.length)) {

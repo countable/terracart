@@ -86,16 +86,17 @@ for low-poly meshes and ramparts, and trimmed art bounds for legacy sprites.
 These checks follow compass rotation and retained pan offsets, and restore full
 opacity immediately on leaving. They update opacity without rebuilding geometry
 or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
-Wrecks are flat ground objects: rubble vertices have zero elevation and render
-below the player without fading. Legacy wreck sprites use the ground layer and
+Wrecks render below the player without fading. Broken wall sections vary in
+height; their interior step cuts run perpendicular to each wall, while corners
+retain their mitred joins. Legacy wreck sprites use the ground layer and
 a flattened vertical scale; restoring a wreck returns it to standing architecture.
 
 [Low-poly building styles](../art/lowpoly-building-styles.md) owns the detail.
 `WallPerspective` prisms (castle ramparts, Canvas fallback) read the same
 table: height through `LOOK.heightScale`, and the ink outline is drawn once
-per connected run (blocks sharing a ground vertex at the same base level)
-before that run's first fill, so a ring of sections shows no seams while
-crown teeth outline separately. They remain untextured.
+per connected run (blocks sharing a ground vertex at any level, or one wall's
+support) before that run's first fill, so a ring of sections and the merlons
+standing on it carry one outer outline with no seams. They remain untextured.
 
 Home uses the original nearby building footprint, or a 2×2 footprint stamped
 by `scene_venues.js` when no building is within two cells. It draws no sprite: `Render.houseTextureKey` hands its role
@@ -107,10 +108,25 @@ house floor on the canvas and then the house. On the low-poly path it is the
 thick top band (`interiorGeometry`) — and the lightmap masks the outside (see
 Lighting). Without the low-poly path (Canvas, north-up) the same house is
 retained prisms in the `home` group (`WallPerspective`, `alwaysActive`) with
-the fort's thickness and a taller wall, a doorway gap on the door side
+the palisade's thickness and a taller wall, a doorway gap on the door side
 (`shape.door`), and a gabled two-tone roof with a ridge; inside, no roof and
 the wall tops in the wall's own colour. The sign seats over the drawn top, or
 `HOUSE.signLiftPx` above the footprint's centre when there is no model.
+
+A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim
+plus a central gambling hall, never a generated body. The overlay paints the
+fort's plank floor and emits the tier-11 pickets of `perspectiveEdges`:
+separate 3px posts at a 4px pitch, 5px tall and 3px thick, along every
+footprint edge, as `WallPerspective` segments in the polygon group, so the rim
+follows concave rings and turns with the compass like every other wall. The
+hall is the approved `house_fort` sprite (`house_fort_unclaimed` before the
+fort is unlocked), seated by the RENDER_SPEC `house` row on the footprint's
+centre of mass at the fort row of `BUILDING_ART`; the overlay never records
+the fort in `scene._proceduralBuildings`, which is what keeps that sprite
+visible. `Render.BUILDING_STYLE_ROLES` has no `fort` row and `BuildingLowPoly`
+never receives a fort footprint. With the overlay off, the tiled pass draws the
+same rim from cell edges (`render.js`, tier 11). Turrets, wizard towers and
+castles keep their own treatments.
 
 ## Coordinates, rendering and performance
 
@@ -630,8 +646,9 @@ The default house and fort architecture comes from `building_styles.js`, using
 source building polygons rather than a freestanding sprite. `Render` owns the
 role and shop-line style tables: plaster terraces for residences, brick for the
 blacksmith, Japanese roofs for traders and book/pet shops, stepped pyramid roofs
-for the wizard and potion/relic shops, stone tiers for forts and low broken walls
-for wrecks. Restoring a building changes its material and geometry together.
+for the wizard and potion/relic shops, and low broken walls for wrecks.
+Forts take no footprint style: see the fort paragraph under World layers.
+Restoring a building changes its material and geometry together.
 
 `BuildingOverlay` emits retained prisms only when footprint inputs or restoration
 state change. Roof insets stop when narrow or concave wings cannot support another

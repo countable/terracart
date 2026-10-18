@@ -412,7 +412,8 @@ access or tile lifecycle mechanics.
   `FARM_EDGE_CELLS` of other ground — the EDGE band itself carries no reason
   at all: every class may spawn there). TYPED reasons refuse only the classes
   whose row of ONE table, `WorldGen.SPAWN_CLASS_BLOCKS`, names them: KERB
-  (fast movers only), JUNCTION_SOFT (fast movers and hazards), SENSITIVE.
+  (fast movers only), JUNCTION_SOFT (fast movers and hazards), SENSITIVE,
+  BUILDING_MOAT (the `npc` class only).
   (Sep 2026, owner's call: the typed HOUSE
   reason — a 40 m house buffer on lot land — and the typed SCHOOL reason —
   school / college grounds, plus its school-hours timing — are both dropped
@@ -441,7 +442,26 @@ access or tile lifecycle mechanics.
   (creature_ai.js `creatureSpawnClass`: fast = top speed over
   `BRISK_WALK_MPS`), never typed at a call site. A new refusal is a new
   reason bit plus its column in the table, never a separate check at a
-  spawner. Authored Thorny Path, Snare Lane and Barricade Road cross-sections are the
+  spawner. A building footprint — any tier of `WorldGen.BUILDING_TYPES`,
+  a synthetic civic building, an unrestored wreck, Home's stamped house —
+  is BUILDING terrain, so the gate's TERRAIN reason and its live
+  `isWalkable` read seat no spawn on it and `creatureStepRefused`
+  (creature_ai.js, through `Combat.faunaBlocksCell`) lets no NPC, animal or
+  foe walk onto one (a keep's garrison on its own floor excepted). Villagers
+  also keep THE BUILDING MOAT: the cells touching a footprint
+  (`WorldGen.nearBuildingCell`, the 3×3 scatter already keeps clear because a
+  wall's base overhangs them) carry the typed BUILDING_MOAT reason, refused by
+  the `npc` row alone and read live as well as off the mask, and an NPC
+  outside the moat may not step into it (`inBuildingMoatAt` in
+  `creatureStepRefused`; one already against a wall walks out rather than
+  freezing). Every NPC seat search (`NPC.spawn`, `shrineResidents`,
+  `lingerSeat`, `houseNeighbours`, the starter's story neighbours) asks the
+  gate over a ring or a bounded draw, so a refused moat cell moves the seat
+  outward rather than dropping the neighbour. Home's footprint lands on the
+  live grid after the shared draw, so `_cullOffLiveGround` takes back whoever
+  was seated under it (`test/node/npc.test.js`, the footprint and moat cases;
+  `safe_area_warden.test.js` for the starter trailer). Neither half reads a
+  building-specific predicate of its own. Authored Thorny Path, Snare Lane and Barricade Road cross-sections are the
   narrow exception: `streetObstacle` may occupy explicitly declared cells
   of its own road band. Thorny Path and snare clusters (and a Snare Lane's few lone stray snares, declared one band cell at a time) cross variant-eligible Small roads only; removable
   barricade/spike lines belong on paths. Every authored cross-section refuses
@@ -822,6 +842,8 @@ Higher-priority placements and their access space take precedence in this order:
   reservation. Protecting only occupied object cells is insufficient: a variant's
   empty lanes belong to it too. A higher-priority object can occupy a variant
   area; its presence does not release that area to ambient fill.
+- Building-footprint taps resolve the cell’s owner across loaded tiles; the
+  nearest-building fallback applies only to footprints without ownership.
 - Area ownership and object occupancy are separate. Inside the winning area,
   objects still obey collision and access rules. Reserve a large object's entire
   declared footprint (a 3 × 3 shipwreck is one interaction), not just its anchor.

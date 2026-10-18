@@ -55,8 +55,8 @@ The pixel-art pass uses 15.6-unit floors at 0.65 world units per facade texel
 (`FLOOR_HEIGHT`/`DETAIL_SCALE` stays 24 texels a storey; both halved together
 when buildings read twice too tall, so doors and windows halved with them), a
 twelve-color generated palette, nearest-neighbor sampling and a one-pixel ink
-outline. Chimneys, eave bands, fort and wizard shells and wrecks halved with the
-storeys. A wreck drops one wall section on its longest edge entirely (`mesh.gap`). Flat
+outline. Chimneys, eave bands, wizard shells and wrecks halved with the
+storeys (wrecks later regrew their crumbling sections, below). Flat
 three-step face lighting replaces interpolated wall gradients. The shared sheet
 is now 512x512, with a 384-pixel-high roof region: the compact cross footprint
 previously clamped against the smaller region and smeared the texture along its
@@ -84,8 +84,9 @@ plaster for traders/seed/potion shops, and masonry for relic shops. Production
 palettes still come from `Render.buildingProfileFor`; existing signs are retained.
 Wall colors are darkened and compressed toward the base pigment, with additional
 height-based eave shading. Roof marks are sparse, larger tile highlight clusters.
-The fort recipe retains its prior wall contrast and roof courses; castle geometry
-is unchanged.
+Forts take no recipe: the overlay draws their palisade rim and keeps the
+gambling-hall sprite ([rendering](../design/rendering.md)); castle geometry is
+unchanged.
 
 Wizard towers ignore footprint shape and size: an eight-sided stone shaft with
 one overhanging conical roof uses 24 triangles. Turrets are fixed-size miniature
@@ -183,21 +184,40 @@ review is published as a Claude artifact.
 - Eave shadow: `eaveSplit` (run by `atlasFaces`) splits every wall triangle
   whose top meets a roof level 9 units below it; the strip above draws at half
   shade. Walls rising above a terrace deck get it too.
+- Bays: the facade sheet is 39-texel bays, windows in the even bays, the door
+  in bay 6. `wallStart` centres an entrance wall on its door and every other
+  wall on a plain bay; `cornerBays` (in `atlasFaces`, from each wall's
+  `wallSpan`) then swaps any window bay a corner would cut for its plain
+  neighbour, so an opening is shown whole or not at all and never hugs a
+  corner. This adds up to two cuts per wall triangle (a 150px square maps to
+  about 180 triangles).
+- Beams: in the cel sheet the floor bands, posts and braces are the wall's own
+  wood a shade darker, lit along the top/left and shadowed below/right, so they
+  read as raised timber rather than ink lines.
 - Chimneys: a cobbled stack (sides are `wall` faces with `rawUV` into the
   sheet's stone plinth rows), a wider cap and a dark mouth, as ink group 2.
-  `ROLES[role].chimneys`/`chimneyScale` place a pair at 26%/74% of the ridge
-  (the smithy, 1×); the default is one at 28%.
-- Wreck: mostly wall. Thick sections (the ring inset by 4 units, 2 where a
-  notch forbids) run around the whole footprint, each with its own broken
-  height and a flat `wallTop`; the step up to a taller neighbour shows as an
-  end face. Three axis-aligned `roofPatches` keep their tiles over bare
-  rafters, two of the six fallen (`hash` picks which); inside, a dark rubble floor, fallen roof slabs and beams. Textured
-  faces are tinted `LOOK.wreck.tint`; the sheet boards the windows and adds
-  soot, moss and missing tiles.
-- Awnings (the `inset` variant: potion, relic): the flat top is a solid cap
-  in the roof's mean tone from its sheet (`tex.roofTone`), with rim bands and
-  its own ink group; each skirt is tiled from its own eave so courses stay
-  level and point downhill on all four sides.
+  `ROLES[role].chimneys`/`chimneyScale` would place a pair at 26%/74% of the
+  ridge; every role, the smithy included, takes the default one at 28%. A role
+  with `smoke` puffs from its mouths (`smokeMouths`, projected like the faces)
+  in render.js's firepit smoke pass, sharing `HomeArea.FIREPIT_SMOKE`.
+- Wreck: crumbling wall. Thick sections (the ring inset by 4 units, 2 where a
+  notch forbids) run around the whole footprint every half cell (16 units);
+  each stands at its own height between a knee and `H`, half the shortest
+  building (one storey plus eave rise), a fifth of them down to the ground, and
+  one section of the longest edge always fallen (`mesh.gap`). Standing
+  sections carry a flat `wallTop`, and the step up to a taller neighbour shows
+  as an end face. Three axis-aligned `roofPatches` keep their tiles over bare
+  rafters, two of the six fallen (`hash` picks which); inside, a dark rubble
+  floor, fallen roof slabs and beams. Textured faces are tinted
+  `LOOK.wreck.tint`; the sheet boards the windows and adds soot, moss and
+  missing tiles.
+- Roof direction: every sloped face is tiled from its own eave, u along the
+  eave and v growing downhill, so the sheet's course bottoms face the ground on
+  every face at every heading; ridge and hip beams cover the seams, and a
+  ridge's flat cap continues its first slope without one. Awnings (the `inset`
+  variant: potion, relic) keep a solid cap in the roof's mean tone from its
+  sheet (`tex.roofTone`), with rim bands and its own ink group, over four such
+  skirts.
 - Untextured mode: `LOOK.textured=false` draws every face in its base colour
   (`face.flat`) through the solid texel, keeping cel steps and the ink. The
   review page toggles it; castle ramparts (`WallPerspective`) share the
@@ -236,7 +256,7 @@ door, the rest blue glass with a lighter pane; a wreck boards them over. Sheets
 are cut once per material key and shared across story counts and footprints,
 like the generated ones.
 
-Generated-atlas materials (the fallback for forts, headless review and
+Generated-atlas materials (the fallback for headless review and
 missing art): the renderer samples `reference-materials-v3.png`, twelve
 seamless 96px tiles built by `tools/build_building_materials.py` and drawn
 1:1, so texel density is set in the build script, not by a browser

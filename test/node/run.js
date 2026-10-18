@@ -1267,6 +1267,9 @@ ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 // The compass skin's stylesheet (css/compass_hud.css): where the skin seats
 // the HUD's rows (buffs.test.js pins the status row's seat).
 ctx.COMPASS_CSS_SRC = fs.readFileSync(path.join(ROOT, 'css/compass_hud.css'), 'utf8');
+// The speech bubbles' stylesheet (css/speech_bubbles.css): where a bubble
+// sizes its portrait (character_portraits.test.js pins it to CELL_PX).
+ctx.SPEECH_CSS_SRC = fs.readFileSync(path.join(ROOT, 'css/speech_bubbles.css'), 'utf8');
 ctx.PHASER_SRC = fs.readFileSync(path.join(ROOT, 'vendor/phaser.js'), 'utf8');
 // The browser harness page: harness_scripts.test.js pins its script list against
 // index.html's (a missing module once took the whole browser suite dark).
