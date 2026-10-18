@@ -195,7 +195,9 @@ MOVEMENT & REACH
    blocks it.
  - a flat gold GPS ring (`gpsGhost`) always marks your REAL position: around
    the feet while the body stands on it, and left on the ground once the stick
-   has walked the body off, so you can see where you are and walk back.
+   has walked the body off, so you can see where you are and walk back. Once
+   the ring is off the visible map its bearing sits on the map rim as a micro
+   gold dot (`_drawGpsRimDot`), unlabelled; it hides only without a GPS fix.
  - the MOVEMENT STICK is always on screen and needs no relic (see STICK
    WALKING under GEAR).
  - device compass drives a facing arrow; with no compass it falls back to the

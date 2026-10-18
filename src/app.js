@@ -1056,6 +1056,12 @@ const MARKERS = [
 // rather than stored, so it is drawn beside the rows instead of as one.
 // The label names the place the dot leads to: a crate fallback says so.
 const STARTER_MARK = { key: 'starterGuide', color: 0xa7ffb0, source: 'Tutorial' };
+// The GPS fix's own rim bearing (_drawGpsRimDot): the ring's gold (UI_GOLD,
+// the same 0xffe066 the 'gps_ring' bake and the walk-home lead wear), and a
+// MICRO dot — smaller than a find's (EDGE_DOT_R) because it is not a place
+// to walk to, it is where you are.
+const EDGE_DOT_R = 3;
+const GPS_RIM_DOT = { color: 0xffe066, r: 2 };
 const STARTER_GOAL_LABELS = { till: 'Plot', plant: 'Soil', restore: 'Wreck', harvest: 'Crop', sell: 'Home' };
 function starterGoalLabel(step, goal) {
   if (goal && String(goal.id || '').startsWith('chest_start_')) return goal.crate ? 'Supply crate' : 'Relic chest';
@@ -2965,15 +2971,21 @@ class MapScene extends Phaser.Scene {
   // Small, persistent bearings sit on the visible map rim, including while
   // their target is on screen. Intersect the ray with the rectangle so diagonal
   // bearings reach the edge too, and keep the whole dot inside the mask.
-  _drawEdgeDot(targetWX, targetWY, fillColor) {
+  // `r` is the dot's radius in game px (EDGE_DOT_R for a find; the GPS fix's
+  // micro dot passes its own); the dark keyline is a pixel wider.
+  _drawEdgeDot(targetWX, targetWY, fillColor, r = EDGE_DOT_R) {
     const dx = targetWX - this.startWorldM.x - this.playerM.x;
     const dy = targetWY - this.startWorldM.y - this.playerM.y;
     if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.hypot(dx, dy) < 0.001) return;
-    const inset = 5;
-    const left = Math.max(0, this.viewLeft) + inset;
-    const right = Math.min(W, this.viewLeft + this.viewSize) - inset;
-    const top = Math.max(0, this.viewTop) + inset;
-    const bottom = Math.min(H, this.viewTop + this.viewSize) - inset;
+    // The visible square in unzoomed coordinates: the map zooms about the
+    // view centre (_applyMapZoom), so at zoom z only viewSize / z of it shows
+    // — a rim measured on the full square sat outside the picture.
+    const inset = 5, zoom = this.mapZoom || 1;
+    const halfV = (this.viewSize / 2) / zoom - inset;
+    const left = Math.max(0, this.viewCenterX - halfV);
+    const right = Math.min(W, this.viewCenterX + halfV);
+    const top = Math.max(0, this.viewCenterY - halfV);
+    const bottom = Math.min(H, this.viewCenterY + halfV);
     if (left >= right || top >= bottom) return;
     const ps = this.playerScreen();
     const x = Math.max(left, Math.min(right, ps.x));
@@ -2982,7 +2994,6 @@ class MapScene extends Phaser.Scene {
     const ty = dy > 0 ? (bottom - y) / dy : dy < 0 ? (top - y) / dy : Infinity;
     const t = Math.min(tx, ty);
     let px = x + dx * t, py = y + dy * t;
-    const zoom = this.mapZoom || 1;
     if (HeadingUp.active(this)) {
       // Intersect the player bearing with the visible circle in unzoomed
       // world coordinates, so diagonals survive the circular corner cover.
@@ -2997,10 +3008,28 @@ class MapScene extends Phaser.Scene {
       px = cx + ox + ux * ray; py = cy + oy + uy * ray;
     }
     this.facingGfx.fillStyle(0x000000, 0.85);
-    this.facingGfx.fillCircle(px, py, 4 / zoom);
+    this.facingGfx.fillCircle(px, py, (r + 1) / zoom);
     this.facingGfx.fillStyle(fillColor, 1);
-    this.facingGfx.fillCircle(px, py, 3 / zoom);
+    this.facingGfx.fillCircle(px, py, r / zoom);
     return { x: px, y: py, left, right, top, bottom };
+  }
+
+  // THE GPS FIX IS NEVER OUT OF SIGHT. The ring (gpsGhost) is drawn whenever
+  // there is a fix; once the stick has walked the body so far that the ring's
+  // centre is off the visible map (the square, or heading-up's inscribed
+  // circle, at the current zoom about the view centre), its bearing takes
+  // over: a micro gold dot on the rim (GPS_RIM_DOT), the same rim the MARKERS
+  // use, unlabelled — it is not a find to walk to, it is where you are. The
+  // ring stays placed (the mask hides it), so the two never show together.
+  _drawGpsRimDot() {
+    const g = this.gpsGhost;
+    if (!this.gpsM || !g?.visible) return;
+    const zoom = this.mapZoom || 1;
+    const dx = (g.x - this.viewCenterX) * zoom, dy = (g.y - this.viewCenterY) * zoom;
+    const half = this.viewSize / 2;
+    const out = HeadingUp.active(this) ? Math.hypot(dx, dy) > half : Math.max(Math.abs(dx), Math.abs(dy)) > half;
+    if (!out) return;
+    this._drawEdgeDot(this.startWorldM.x + this.gpsM.x, this.startWorldM.y + this.gpsM.y, GPS_RIM_DOT.color, GPS_RIM_DOT.r);
   }
 
   // Every row of MARKERS, each frame.
@@ -3515,8 +3544,9 @@ class MapScene extends Phaser.Scene {
     // in the way — see the target-follow branch above.)
 
     // GPS ghost: where you REALLY are, always — a ring around the feet while
-    // the character stands on the fix, and a mark left on the ground once the
-    // stick has walked it off. It used to hide within a cell of the body so
+    // the character stands on the fix, a mark left on the ground once the
+    // stick has walked it off, and its bearing on the map rim once it is off
+    // the map (_drawGpsRimDot). It used to hide within a cell of the body so
     // GPS jitter would not pop it in and out; drawn always, the jitter is just
     // the ring breathing a few pixels under the feet, and the player learns
     // what the mark is before they ever leave it. At EVERY depth: a descent
@@ -3744,6 +3774,7 @@ class MapScene extends Phaser.Scene {
     // without the clear every frame's dot stays behind as a trail.
     this.facingGfx.clear();
     this._drawMarkers();
+    this._drawGpsRimDot();
 
     // Starter guidance — a LIGHT-GREEN rim dot toward whatever the ACTIVE
     // ladder step actually wants, shown only while the first-session ladder is

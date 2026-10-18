@@ -2,19 +2,20 @@
 (function () {
   // The rim bearings are rows of MARKERS, each drawn by _drawMarker (the
   // table is lifted beside the two methods; its predicates read globals).
-  const names = ['_drawMarkers() {', '_tapEdgeDot(sx, sy) {', '_drawEdgeDotLabel(row, target, marker, point, key = row.key) {', '_drawEdgeDot(targetWX, targetWY, fillColor) {', '_drawMarker(row) {', '_clearMarkers() {'];
+  const names = ['_drawMarkers() {', '_tapEdgeDot(sx, sy) {', '_drawEdgeDotLabel(row, target, marker, point, key = row.key) {', '_drawEdgeDot(targetWX, targetWY, fillColor, r = EDGE_DOT_R) {', '_drawMarker(row) {', '_clearMarkers() {', '_drawGpsRimDot() {'];
   const MARKERS = new Function(SCENE_SRC.match(/\nconst _markClaimed = [\s\S]*?\nconst MARKERS = \[[\s\S]*?\n\];/)[0] + 'return MARKERS;')();
   const row = (key) => MARKERS.find((r) => r.key === key);
-  const methods = new Function('W', 'H', 'persistSave', 'MARKERS', 'return ({' + names.map(signature => {
+  const DOTS = new Function(SCENE_SRC.match(/\nconst EDGE_DOT_R = [\s\S]*?\nconst GPS_RIM_DOT = .*;/)[0] + 'return { EDGE_DOT_R, GPS_RIM_DOT };')();
+  const methods = new Function('W', 'H', 'persistSave', 'MARKERS', 'EDGE_DOT_R', 'GPS_RIM_DOT', 'return ({' + names.map(signature => {
     const start = SCENE_SRC.indexOf('\n  ' + signature);
     const end = SCENE_SRC.indexOf('\n  }\n', start);
     return SCENE_SRC.slice(start + 1, end + 4);
-  }).join(',') + '});')(352, 844, save => { save.persisted = true; }, MARKERS);
+  }).join(',') + '});')(352, 844, save => { save.persisted = true; }, MARKERS, DOTS.EDGE_DOT_R, DOTS.GPS_RIM_DOT);
   function fixture() {
     const circles = [];
     return Object.assign({
       startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 },
-      viewLeft: 0, viewTop: 96, viewSize: 352,
+      viewLeft: 0, viewTop: 96, viewSize: 352, viewCenterX: 176, viewCenterY: 272,
       playerScreen: () => ({ x: 176, y: 272 }),
       facingGfx: { fillStyle() {}, fillCircle(x, y, r) { circles.push({ x, y, r }); } },
       circles, save: {}, depth: 0,
@@ -34,6 +35,60 @@
     assert.eq(lifted.starterGoalLabel({ event: 'chest' }, { id: 'chest_start_9' }), 'Relic chest');
     const block = SCENE_SRC.slice(SCENE_SRC.indexOf('// Starter guidance'), SCENE_SRC.indexOf('// Starter guidance') + 3000);
     assert.truthy(block.includes('_drawEdgeDot(goal.x') && !block.includes('_drawEdgeCompass('), 'the starter bearing is a dot');
+  });
+  // The GPS fix is never out of sight: the ring is drawn whenever there is a
+  // fix, and once the ring's centre leaves the visible map its bearing goes on
+  // the rim as a micro gold dot, unlabelled, drawn after the markers so it
+  // survives the per-frame wipe of the rim layer.
+  test('edge dots: the GPS fix gets a micro gold rim dot only once its ring is off the map', () => {
+    const s = fixture();
+    s.viewCenterX = 176; s.viewCenterY = 272; s.mapZoom = 1;
+    s.gpsM = { x: 0, y: 0 };
+    s.gpsGhost = { visible: true, x: 176, y: 272 };
+    s._drawGpsRimDot();
+    assert.eq(s.circles.length, 0, 'on the feet: no rim dot');
+    s.gpsGhost = { visible: true, x: 176 + 170, y: 272 };   // still inside the square
+    s._drawGpsRimDot();
+    assert.eq(s.circles.length, 0, 'inside the map: the ring itself shows, no dot');
+    s.gpsM = { x: 60, y: 0 };
+    s.gpsGhost = { visible: true, x: 176 + 190, y: 272 };   // past the right edge
+    s._drawGpsRimDot();
+    assert.eq(s.circles.length, 2, 'off the map: keyline and dot');
+    assert.eq(s.circles[1].r, DOTS.GPS_RIM_DOT.r, 'a micro dot, smaller than a find\'s');
+    assert.lt(DOTS.GPS_RIM_DOT.r, DOTS.EDGE_DOT_R);
+    assert.eq(s.circles[0].r, DOTS.GPS_RIM_DOT.r + 1, 'its keyline a pixel wider');
+    assert.truthy(s.circles[1].x > 300 && Math.abs(s.circles[1].y - 272) < 1, 'on the right rim, toward the fix');
+    // Zoomed in, the same screen point is off the map sooner.
+    s.circles.length = 0;
+    s.gpsGhost = { visible: true, x: 176 + 100, y: 272 };
+    s._drawGpsRimDot();
+    assert.eq(s.circles.length, 0, 'inside at 1×');
+    s.mapZoom = 2;
+    s._drawGpsRimDot();
+    assert.eq(s.circles.length, 2, 'outside at 2×');
+    // No fix, or a hidden ring: nothing.
+    s.circles.length = 0;
+    s.gpsM = null;
+    s._drawGpsRimDot();
+    assert.eq(s.circles.length, 0, 'no GPS: no dot');
+    // Drawn right after the markers, inside the wiped layer.
+    const at = SCENE_SRC.indexOf('\n    this._drawMarkers();');
+    assert.truthy(SCENE_SRC.slice(at, at + 80).includes('this._drawGpsRimDot();'), 'drawn with the markers');
+    assert.falsy(/_drawEdgeDotLabel\([^)]*GPS_RIM_DOT/.test(SCENE_SRC), 'unlabelled');
+  });
+  // North-up runs the map at MAP_DEFAULT_ZOOM about the view centre; a rim
+  // measured on the full square put every dot outside the picture there.
+  test('edge dots: the square rim is the VISIBLE rim at the current zoom', () => {
+    const s = fixture();
+    let p = s._drawEdgeDot(100, 0, 0xffffff);
+    assert.eq(p.right, 352 - 5, 'at 1×: the square\'s own edge, inset');
+    assert.truthy(Math.abs(s.circles[1].x - (352 - 5)) < 1e-9 && Math.abs(s.circles[1].y - 272) < 1e-9);
+    s.circles.length = 0; s.mapZoom = 2;
+    p = s._drawEdgeDot(100, 0, 0xffffff);
+    assert.eq(p.right, 176 + 176 / 2 - 5, 'at 2×: half the square shows, so the rim is half as far');
+    assert.eq(p.left, 176 - 176 / 2 + 5); assert.eq(p.top, 272 - 88 + 5); assert.eq(p.bottom, 272 + 88 - 5);
+    assert.truthy(Math.abs(s.circles[1].x - p.right) < 1e-9, 'the dot sits on that rim');
+    assert.eq(s.circles[1].r, 3 / 2, 'and shrinks with the zoom so it stays the same size on screen');
   });
   test('edge dots: the rim layer is wiped every frame before the bearings draw', () => {
     const at = SCENE_SRC.indexOf('\n    this._drawMarkers();');

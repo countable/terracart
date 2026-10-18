@@ -376,7 +376,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   and the player's GPS ring (`gps_ring`, baked in gold, `GPS_RING` geometry)
   are its rows. The GPS ring (`gpsGhost`) is always drawn while there is a fix:
   around the feet while the body stands on it, left on the ground once the
-  stick walks the body off. The walk-home lead stops on the ring's ellipse.
+  stick walks the body off, and, once its centre is off the visible map, its
+  bearing is a micro gold rim dot (`_drawGpsRimDot`, drawn with the MARKERS
+  on the rim layer). The walk-home lead stops on the ring's ellipse.
   The shine sweep and a warping rank's space warp (`Render.setEliteWarp`, a
   camera post pass attached only while one is on screen) need the device's
   graphics-FX opt-in (`Render.canShine`). Phaser's PreFX pipeline draws its
