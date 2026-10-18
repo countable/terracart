@@ -770,24 +770,24 @@ class SceneCreate {
       sg.generateTexture('bldg_shadow', 64, 32);
       sg.destroy();
     }
-    // THE ELITE'S RUNE CIRCLE (render.js lays it flat under the feet and
-    // tints it the rank's colour): two bands baked top-down in white, each
-    // stroke over a dark under-stroke so it reads on sand and snow as well as
-    // grass — an outer pair of rings with a band of runes between, and an
-    // inner ring of ticks that turns the other way. Each is a rotation strip,
-    // one frame per ELITE_RING_STEP_DEG over the turn after which it repeats
-    // (the runes' four shapes come round every 120°, the eight ticks every
-    // 45°), so the circle turns on the ground rather than tilting.
-    const bakeRingBand = (key, periodDeg, path) => {
-      const S = 96, n = Math.round(periodDeg / ELITE_RING_STEP_DEG), cols = Math.min(n, 8);
-      bakeCanvas(this, key, cols * S, Math.ceil(n / cols) * S, (ctx, tex) => {
+    // FLAT GROUND MARKS (GROUND_MARK, render.js): a path baked top-down in
+    // its ink at GROUND_MARK.bakePx, each stroke over a dark under-stroke and
+    // a soft halo so it reads on sand and snow as well as grass. `frames`
+    // rotation steps of ELITE_RING_STEP_DEG each make a rotation strip, so a
+    // mark can turn on the ground rather than tilting (a sprite rotated after
+    // it is squashed tilts the ellipse). The renderer lays a mark flat with
+    // GROUND_MARK.tilt. Baked in colour rather than white-and-tinted where the
+    // ink is fixed, because setTint() is a no-op under the Canvas fallback.
+    const bakeGroundMark = (key, frames, path, ink = '#fff') => {
+      const S = GROUND_MARK.bakePx, cols = Math.min(frames, 8);
+      bakeCanvas(this, key, cols * S, Math.ceil(frames / cols) * S, (ctx, tex) => {
         ctx.lineCap = 'round';
-        for (let f = 0; f < n; f++) {
+        for (let f = 0; f < frames; f++) {
           const x = (f % cols) * S, y = Math.floor(f / cols) * S;
           ctx.save();
           ctx.translate(x + S / 2, y + S / 2);
           ctx.rotate(f * ELITE_RING_STEP_DEG * Math.PI / 180);
-          for (const [width, colour, alpha] of [[6, '#000', 0.5], [5, '#fff', 0.18], [2, '#fff', 1]]) {
+          for (const [width, colour, alpha] of GROUND_MARK.strokes(ink)) {
             ctx.globalAlpha = alpha; ctx.strokeStyle = colour; ctx.lineWidth = width;
             ctx.beginPath(); path(ctx); ctx.stroke();
           }
@@ -796,7 +796,23 @@ class SceneCreate {
         }
       });
     };
+    // THE ELITE'S RUNE CIRCLE (render.js lays it flat under the feet and
+    // tints it the rank's colour): two bands baked white — an outer pair of
+    // rings with a band of runes between, and an inner ring of ticks that
+    // turns the other way. Each is a rotation strip over the turn after which
+    // it repeats (the runes' four shapes come round every 120°, the eight
+    // ticks every 45°).
+    const bakeRingBand = (key, periodDeg, path) =>
+      bakeGroundMark(key, Math.round(periodDeg / ELITE_RING_STEP_DEG), path);
     const ring = (ctx, r) => { ctx.moveTo(r, 0); ctx.arc(0, 0, r, 0, Math.PI * 2); };
+    // The ticks across a ring of radius r: n of them, `len` each side of it.
+    const ticks = (ctx, r, n, len) => {
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        ctx.moveTo(Math.cos(a) * (r - len), Math.sin(a) * (r - len));
+        ctx.lineTo(Math.cos(a) * (r + len), Math.sin(a) * (r + len));
+      }
+    };
     // A rune: a few strokes in the band's local frame (u along the ring,
     // v outward), four shapes in turn around the circle.
     const RUNES = [
@@ -816,15 +832,14 @@ class SceneCreate {
         }
       }
     });
-    bakeRingBand('elite_ring_inner', 45, ctx => {
-      const R = 22, N = 8;
-      ring(ctx, R);
-      for (let i = 0; i < N; i++) {
-        const a = (i / N) * Math.PI * 2;
-        ctx.moveTo(Math.cos(a) * (R - 4), Math.sin(a) * (R - 4));
-        ctx.lineTo(Math.cos(a) * (R + 4), Math.sin(a) * (R + 4));
-      }
-    });
+    bakeRingBand('elite_ring_inner', 45, ctx => { ring(ctx, 22); ticks(ctx, 22, 8, 4); });
+    // THE GPS RING — the marker at your REAL (GPS) position (see gpsGhost
+    // below): the same flat paint as the elite's circle, in the player's own
+    // gold (UI_CONTROL — your position sits on the control side of the colour
+    // law, spec §UI COLOUR LANGUAGE, same as the stick that walks you off it).
+    // A ring around the feet with four ticks crossing it, and no centre pip:
+    // the feet stand on the fix, so the body covers it.
+    bakeGroundMark('gps_ring', 1, ctx => { ring(ctx, GPS_RING.r); ticks(ctx, GPS_RING.r, 4, GPS_RING.tick); }, '#ffe066');
     // Soft round halos — a glow that fades from the centre out, baked once and
     // reused for every pulsing aura: the player's warning auras (out of energy,
     // strayed far from the GPS) and the slow breath that marks a POI. Baked in
@@ -857,41 +872,6 @@ class SceneCreate {
     for (const [key, color] of [['aura_blight', 0xd2285a], ['aura_frost', FROZEN_TINT]]) {
       this._ensureCanvasTex(key, 128, (ctx, S) => paintAuraDisc(ctx, S, color));
     }
-    // GPS crosshair — the marker at your REAL (GPS) position (see gpsGhost
-    // below). An open ring with four ticks crossing it, deliberately NOT a
-    // filled disc: a small gold disc IS a coin in this game, and the map is
-    // full of coin bursts, so the previous dot read as loot lying on the
-    // ground rather than as a position. The shape is what carries the meaning
-    // now; the gold only says whose it is — the player's own position sits on
-    // the control side of the colour law (spec §UI COLOUR LANGUAGE), same as
-    // the stick that walked them off it.
-    //
-    // Baked 1:1 at its drawn size (20 game px) rather than big-and-scaled like
-    // the soft halos above: those are clouds where a half-pixel of blur costs
-    // nothing, this is 1.5px linework that has to stay crisp under the canvas
-    // upscale. Dark keyline under the gold, the same trick the stick's rim and
-    // the walk-home lead use, so it holds up over pale ground (roads, sand) as
-    // well as over grass.
-    if (!this.textures.exists('gps_crosshair')) {
-      const cg = this.make.graphics({ x: 0, y: 0, add: false });
-      const C = 10, R = 5, TICK_IN = 3, TICK_OUT = 8;
-      const pass = (colour, alpha, width) => {
-        cg.lineStyle(width, colour, alpha);
-        cg.strokeCircle(C, C, R);
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          cg.beginPath();
-          cg.moveTo(C + dx * TICK_IN, C + dy * TICK_IN);
-          cg.lineTo(C + dx * TICK_OUT, C + dy * TICK_OUT);
-          cg.strokePath();
-        }
-      };
-      pass(0x0a1420, 0.55, 3);        // keyline
-      pass(0xffe066, 1, 1.5);         // UI_CONTROL gold
-      cg.fillStyle(0xffe066, 1);
-      cg.fillCircle(C, C, 1);         // centre pip — the fix itself
-      cg.generateTexture('gps_crosshair', 20, 20);
-      cg.destroy();
-    }
     makeCastleSkullFlagTexture(this);
     // The banner a CLAIMED castle flies — a cream pennant on a short pole with
     // a green heart on it. Green because that is already this game's word for
@@ -899,9 +879,8 @@ class SceneCreate {
     // exactly what the castle now does for you: a tenth of the bar back, once
     // an hour. Red would have read as the danger/out-of-energy halo instead.
     //
-    // Baked 1:1 at its drawn size for the same reason the GPS crosshair is —
-    // this is pixel work, not a soft cloud, and a scaled bake would smear the
-    // 5px heart into a blob.
+    // Baked 1:1 at its drawn size: this is pixel work, not a soft cloud (the
+    // halos above), and a scaled bake would smear the 5px heart into a blob.
     if (!this.textures.exists('castle_flag')) {
       const fg = this.make.graphics({ x: 0, y: 0, add: false });
       const INK = 0x14110c, POLE = 0x6b5334, CLOTH = 0xf2ead6, HEART = 0x3f9e57;
@@ -1140,8 +1119,8 @@ class SceneCreate {
     // and the opaque body (this.player) walks toward it — underground it also
     // passes through rock, which the body mines out. A target dot read as a
     // blob floating ahead of the character, so there is none. The ONE ground
-    // marker beside the body is the GPS crosshair (gpsGhost, below): where you
-    // REALLY are, shown at every depth once the body has left it.
+    // marker beside the body is the GPS ring (gpsGhost, below): where you
+    // REALLY are, shown at every depth.
     // Warning halo behind the player: red when the tank is empty, near-black
     // when the stick has walked them a long way off the GPS. Pulses so it reads
     // as a live warning rather than a smudge under the sprite. Depth 9.7 puts
@@ -1153,21 +1132,33 @@ class SceneCreate {
       .setMask(mask);
     this.playerHalo.clearMask();
     this.playerWorldContainer.add(this.playerHalo);
-    // GPS marker — a crosshair at your REAL (GPS) position, shown once the
-    // stick has walked the character far enough off it to matter. Walking off
-    // the GPS is the whole point of the stick, so you need to see where you
-    // actually are to find your way back; without this the only clue was the
-    // character quietly not being where you're standing.
+    // GPS marker — a flat gold ring on the ground at your REAL (GPS) position,
+    // always shown: around the feet while the body stands on the fix, and left
+    // behind on the ground once the stick has walked the character off it.
+    // Walking off the GPS is the whole point of the stick, so you need to see
+    // where you actually are to find your way back; a mark that is always
+    // there needs no "far enough to matter" threshold to pop in at, and it
+    // says "this is you" before you ever leave it.
     //
     // Not a player-shaped sprite — the only player sprites on the map belong
     // to real bodies — and not a filled dot either: gold and round at this
     // size is a coin, which is the one thing on this map you are meant to walk
-    // over and collect. See the 'gps_crosshair' bake above.
-    this.gpsGhost = this.add.image(this.viewCenterX, this.viewCenterY, 'gps_crosshair')
+    // over and collect. The same flat ground paint as the elite's rune circle
+    // (the 'gps_ring' bake above), laid flat by GROUND_MARK.tilt and drawn at
+    // GROUND_MARK.px, where its linework lands at the weight it was baked at.
+    // Ground paint, so it lives with the shadows and the walk-home lead
+    // (shadowContainer, under every standing sprite): the body stands ON the
+    // ring, the way an elite stands on its rune circle — a root-level image
+    // at its own depth drew the far arc across the character's chest.
+    this.gpsGhost = this.add.image(this.viewCenterX, this.viewCenterY, 'gps_ring')
       .setOrigin(0.5, 0.5)
+      .setDisplaySize(GROUND_MARK.px, GROUND_MARK.px * GROUND_MARK.tilt)
       .setDepth(9.8)
       .setVisible(false)
       .setMask(mask);
+    this.gpsGhost.clearMask();
+    this.gpsGhost._worldLayer = WorldLayers.GROUND_DECAL;   // flat paint: never uprighted
+    this.shadowContainer.add(this.gpsGhost);
     // Walk-home lead — the dashed line from the feet to the GPS dot while
     // the character is walking itself back (see _drawWalkHomeHint). Depth
     // Keep the line on the ground, below characters and upright scenery.

@@ -98,7 +98,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=73a10c92" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=4c8fb435" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1118,7 +1118,7 @@
     /* Auto-walk-home demo strip at the top of the card: the player sprite
        walking (FarmerCyan.png row 2, the authored RIGHT-facing row —
        SpriteLayout.PLAYER_ART.farmer, the sheet every save starts on) toward
-       the GPS crosshair the scene draws at your real position. The farmer's
+       the GPS ring the scene draws at your real position. The farmer's
        16px frames are drawn at exactly 4x so the pixel grid stays square. */
     #howto .demo { margin: 0 0 8px; }
     /* Stage + labels share one column track list, so each caption sits exactly
@@ -1157,12 +1157,13 @@
       from { background-position:  -64px -128px; }
       to   { background-position: -320px -128px; }
     }
-    /* The GPS crosshair, matching what the scene draws (the 'gps_crosshair'
-       bake in app.js: a gold ring and four ticks over a dark keyline, a pip
-       at the fix). The scene's 20px texture sits beside a 24px farmer; here
-       the farmer is 64px, so the crosshair is scaled by the same 8/3. */
-    #howto .demo .gps { width: 64px; height: 64px; display: grid; place-items: center; }
-    #howto .demo .gps svg { width: 53px; height: 53px; }
+    /* The GPS ring, matching what the scene draws (the 'gps_ring' bake in
+       scene_create.js: a gold ring and four ticks over a dark under-stroke and
+       a soft halo, laid flat on the ground). The scene's 42×21 mark sits
+       around the farmer's feet; here it fills its 64px column and sits low
+       in the box, where the feet are. */
+    #howto .demo .gps { width: 64px; height: 64px; display: grid; place-items: end center; }
+    #howto .demo .gps svg { width: 64px; height: 32px; }
     /* A slow drift along the bearing — the walk home is automatic and
        unhurried, and a static arrow between two figures reads as a label
        rather than a movement. */
@@ -1414,18 +1415,18 @@
                   stroke-width="2.5" stroke-linejoin="round"/>
           </svg>
           <div class="gps">
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <g fill="none" stroke-linecap="butt">
-                <g stroke="#0a1420" stroke-opacity="0.55" stroke-width="3">
-                  <circle cx="10" cy="10" r="5"/>
-                  <path d="M13 10h5M2 10h5M10 13v5M10 2v5"/>
+            <svg viewBox="0 0 96 48" aria-hidden="true">
+              <g fill="none" stroke-linecap="round" transform="translate(48 24) scale(1 0.5)">
+                <g stroke="#000" stroke-opacity="0.5" stroke-width="6">
+                  <circle r="30"/><path d="M25 0h10M-25 0h-10M0 25v10M0-25v-10"/>
                 </g>
-                <g stroke="#ffe066" stroke-width="1.5">
-                  <circle cx="10" cy="10" r="5"/>
-                  <path d="M13 10h5M2 10h5M10 13v5M10 2v5"/>
+                <g stroke="#ffe066" stroke-opacity="0.18" stroke-width="5">
+                  <circle r="30"/><path d="M25 0h10M-25 0h-10M0 25v10M0-25v-10"/>
+                </g>
+                <g stroke="#ffe066" stroke-width="2">
+                  <circle r="30"/><path d="M25 0h10M-25 0h-10M0 25v10M0-25v-10"/>
                 </g>
               </g>
-              <circle cx="10" cy="10" r="1" fill="#ffe066"/>
             </svg>
           </div>
         </div>
@@ -3119,7 +3120,7 @@
   <script src="src/lighting_gpu.js?v=5dd349a5"></script>
   <script src="src/lighting.js?v=242c54d0"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=fcf7a039"></script>
+  <script src="src/render.js?v=18adc0ef"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/multiplayer.js?v=9e2412e3"></script>
@@ -3145,7 +3146,7 @@
   <script src="src/heading_up.js?v=48e4b34a"></script>
   <script src="src/compass_modules.js?v=7db0fb1f"></script>
   <script src="src/compass_hud.js?v=e9a30166"></script>
-  <script src="src/scene_create.js?v=610b25fb"></script>
+  <script src="src/scene_create.js?v=8eabde82"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>
@@ -3223,7 +3224,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=73a10c92';
+      const APP_SRC = 'src/app.js?v=4c8fb435';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

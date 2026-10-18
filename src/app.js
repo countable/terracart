@@ -3514,25 +3514,21 @@ class MapScene extends Phaser.Scene {
     // _followStep, which steps the body toward the target and mines any wall
     // in the way — see the target-follow branch above.)
 
-    // GPS ghost: where you REALLY are, whenever the character isn't standing
-    // there. One cell of slack keeps it off screen for ordinary GPS jitter (a
-    // fix wanders a few metres while you stand still) so it appears only when
-    // the stick has genuinely walked you off your position. At EVERY depth:
-    // a descent GPS-mirrors the world coordinates (changeDepth), so underground
-    // the fix is still the point over your head that the dig has wandered off
-    // from, and it is the one ground marker the map keeps — the walk target
-    // itself (this._targetM) draws nothing, see the gpsGhost block in create().
+    // GPS ghost: where you REALLY are, always — a ring around the feet while
+    // the character stands on the fix, and a mark left on the ground once the
+    // stick has walked it off. It used to hide within a cell of the body so
+    // GPS jitter would not pop it in and out; drawn always, the jitter is just
+    // the ring breathing a few pixels under the feet, and the player learns
+    // what the mark is before they ever leave it. At EVERY depth: a descent
+    // GPS-mirrors the world coordinates (changeDepth), so underground the fix
+    // is still the point over your head that the dig has wandered off from,
+    // and it is the one ground marker the map keeps — the walk target itself
+    // (this._targetM) draws nothing, see the gpsGhost block in create().
     if (this.gpsM) {
-      const rdx = this.gpsM.x - this.playerM.x;
-      const rdy = this.gpsM.y - this.playerM.y;
-      if ((rdx * rdx + rdy * rdy) > this.cellM ** 2) {
-        const g = worldMetersToScreen(this,
-          this.startWorldM.x + this.gpsM.x,
-          this.startWorldM.y + this.gpsM.y);
-        this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y)).setVisible(true);
-      } else {
-        this.gpsGhost.setVisible(false);
-      }
+      const g = worldMetersToScreen(this,
+        this.startWorldM.x + this.gpsM.x,
+        this.startWorldM.y + this.gpsM.y);
+      this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y)).setVisible(true);
     } else if (this.gpsGhost.visible) {
       this.gpsGhost.setVisible(false);
     }
@@ -6953,12 +6949,13 @@ class MapScene extends Phaser.Scene {
   // Deliberately quiet. It waits out WALK_HOME_HINT_IDLE_MS after the stick was
   // last touched (the walk itself starts earlier, at WALK_HOME_IDLE_MS — the
   // first moments need no explaining to the player who just let go),
-  // and it needs the dot on screen, which is the game's own test for "far
-  // enough off your real position to matter". Gold and translucent — the same
-  // gold the GPS crosshair itself is drawn in (UI_GOLD, 0xffe066), so the line
-  // and the marker it runs to read as one piece of furniture rather than two
-  // unrelated marks, and it stays quieter than the coloured compasses (the
-  // green tutorial dot, the cyan pairy dot) by being translucent.
+  // and it draws nothing until the feet are clear of the ring, so a jittering
+  // fix under a standing body never grows a stub of a line. Gold and
+  // translucent — the same gold the GPS ring itself is drawn in (UI_GOLD,
+  // 0xffe066), so the line and the marker it runs to read as one piece of
+  // furniture rather than two unrelated marks, and it stays quieter than the
+  // coloured compasses (the green tutorial dot, the cyan pairy dot) by being
+  // translucent.
   _drawWalkHomeHint(dt) {
     const g = this.walkHomeGfx;
     if (!g) return;
@@ -6974,12 +6971,17 @@ class MapScene extends Phaser.Scene {
     const dx = x1 - x0, dy = y1 - y0;
     const len = Math.hypot(dx, dy);
     // Stop short of the character at the near end so the line never runs into
-    // the sprite. At the far end it stops on the crosshair's RING (baked at
-    // radius 5 in the 'gps_crosshair' texture above) rather than short of it:
-    // the line is meant to reach the marker, so it touches it.
-    const NEAR_GAP = 11, FAR_GAP = 5;
-    if (len < NEAR_GAP + FAR_GAP + 10) return;
+    // the sprite. At the far end it stops on the GPS RING itself rather than
+    // short of it: the line is meant to reach the marker, so it touches it.
+    // The ring is the 'gps_ring' bake laid flat (GROUND_MARK.tilt), so its
+    // radius along the line is the ellipse's at that bearing.
+    const NEAR_GAP = 11;
+    if (len < 1e-6) return;
     const ux = dx / len, uy = dy / len;
+    const rx = this.gpsGhost.displayWidth * GPS_RING.r / GROUND_MARK.bakePx;
+    const ry = rx * GROUND_MARK.tilt;
+    const FAR_GAP = 1 / Math.hypot(ux / rx, uy / ry);
+    if (len < NEAR_GAP + FAR_GAP + 10) return;
     const from = NEAR_GAP, to = len - FAR_GAP;
     const DASH = 5, PERIOD = 11, MARCH = 26;   // px, px, px/s
     if (!this._reducedMotion) {

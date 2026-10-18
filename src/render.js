@@ -4102,10 +4102,29 @@ Render.buildingShadow = function (appearance, textures, point) {
 // Contact-shadow width under a creature, per kind (px at scale 1). Per-kind
 // rather than measured, because creature sheets animate (a measured shadow
 // would pulse frame to frame).
+// FLAT GROUND MARKS. The elite's rune circle and the player's GPS ring are
+// one kind of paint: baked top-down at GROUND_MARK.bakePx (scene_create.js
+// bakeGroundMark), every stroke over a dark under-stroke and a soft halo of
+// its own ink so it reads on sand and snow as well as grass, then laid flat on
+// the ground by drawing it `tilt` as tall as it is wide (the south camera's
+// 45° tilt, map-perspective.md). Drawn `px` wide the strokes land at the
+// weight they were designed at (a 2px line in the bake is under 1px on
+// screen) — the light touch both marks share.
+const GROUND_MARK = {
+  bakePx: 96,
+  px: 42,
+  tilt: 0.5,
+  // [line width in the bake, colour, alpha]: under-stroke, halo, line.
+  strokes: (ink) => [[6, '#000', 0.5], [5, ink, 0.18], [2, ink, 1]],
+};
+// The GPS ring's geometry in bake px: a ring around the feet with four short
+// ticks crossing it (an open ring, never a filled disc — a small gold disc is a
+// coin in this game). The walk-home lead stops on the ring (app.js).
+const GPS_RING = { r: 30, tick: 5 };
 // The elite rune circle's width at a kind's ordinary size (px), and how fast
 // its two bands turn (degrees per second; the inner one against the outer).
 // The bakes (scene_create.js) step ELITE_RING_STEP_DEG per frame.
-const ELITE_RING_PX = 42;
+const ELITE_RING_PX = GROUND_MARK.px;
 const ELITE_RING_STEP_DEG = 3;
 const ELITE_RING_SPIN = { outer: 360 / 14, inner: -1.6 * 360 / 14 };
 const CRITTER_SHADOW_W = {
@@ -5831,9 +5850,9 @@ Render.drawObjects = function drawObjects(scene) {
       const turn = ((pulseNow / 1000) * ELITE_RING_SPIN[item.band]) / ELITE_RING_STEP_DEG;
       const ring = Combat.eliteRank(item.c).ring;
       s.setTexture(Render.canvasTint(scene, key, ring), ((Math.floor(turn) % frames) + frames) % frames);
-      // The baked circle is drawn top-down; halving its height lays it flat on
+      // The baked circle is drawn top-down; GROUND_MARK.tilt lays it flat on
       // the ground in the map's tilted view.
-      s.setOrigin(0.5, 0.5).setDisplaySize(size, size / 2)
+      s.setOrigin(0.5, 0.5).setDisplaySize(size, size * GROUND_MARK.tilt)
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY + SHADOW_LOOK.creature.dy)
        .setTint(ring)
        .setAlpha(0.8 + 0.2 * Math.sin(pulseNow / 450 + (strHash31(item.c.id || '') % 7)));

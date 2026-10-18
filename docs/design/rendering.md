@@ -224,7 +224,7 @@ the real source so a missing texture cannot become a permanent cached palette.
   health bars and ping graphics use a counter-rotated annotation container
   with the same projected anchors and circular rim limits.
 - The player's feet sit on the GPS fix. Ground marks (shadow, footprints,
-  the facing chevron) use that point; body
+  the facing chevron, the GPS ring) use that point; body
   effects use `playerBodyDy()` so they also follow the downed pose. Do not
   compensate for sprite seating by changing the projection.
 - Water, tar-yard terrain and unburned street tar puddles lower the player's
@@ -354,6 +354,15 @@ the real source so a missing texture cannot become a permanent cached palette.
   other and tinted the rank's `ring` colour — `Render.canvasTint` bakes the
   tinted copy under Canvas, which ignores sprite tint. A sprite rotated after
   being squashed tilts the ellipse, so a turning ground decal is a strip.
+- Flat ground marks share one table, `GROUND_MARK` (render.js): the bake size,
+  the on-screen width at which the baked strokes land at their designed
+  weight, the tilt that lays a top-down bake flat for the south camera, and
+  the stroke passes (dark under-stroke, soft halo, line) in a mark's ink.
+  `bakeGroundMark` (scene_create.js) is the one bake; the elite's rune bands
+  and the player's GPS ring (`gps_ring`, baked in gold, `GPS_RING` geometry)
+  are its rows. The GPS ring (`gpsGhost`) is always drawn while there is a fix:
+  around the feet while the body stands on it, left on the ground once the
+  stick walks the body off. The walk-home lead stops on the ring's ellipse.
   The shine sweep and a warping rank's space warp (`Render.setEliteWarp`, a
   camera post pass attached only while one is on screen) need the device's
   graphics-FX opt-in (`Render.canShine`). Phaser's PreFX pipeline draws its
