@@ -692,27 +692,58 @@ function reachCells(scene) {
   // Keep the existing one-metre margin outside the nominal weapon range.
   const margin = scene.cellM > 0 ? 1 / scene.cellM : 0;
   const start = (sight < 1 ? Math.max(1, base * sight) : base) + margin;
-  const key = `${start}|${upgrades}`;
-  if (_reachRadiusSteps.has(key)) return _reachRadiusSteps.get(key) - margin;
-  // Fit the largest circle that does not overlap any cell excluded by the
-  // original centre-distance rule, with the player at a cell centre. This
-  // preserves the starting footprint despite accepting partially lit cells.
-  let radius = Infinity;
-  const baseLimit = Math.ceil(start + 1);
-  for (let x = 0; x <= baseLimit; x++) for (let y = 0; y <= baseLimit; y++) {
-    if (Math.hypot(x, y) <= start) continue;
-    radius = Math.min(radius, Math.hypot(Math.max(0, x - 0.5), Math.max(0, y - 0.5)));
-  }
-  radius -= 1e-6; // Stay below tangency despite floating-point projection.
-
-  for (let step = 0; step < upgrades; step++) {
-    let next = Infinity;
-    const limit = Math.ceil(radius + 1.5);
-    for (let x = 0; x <= limit; x++) for (let y = 0; y <= limit; y++) {
-      const distance = Math.hypot(Math.max(0, x - 0.5), Math.max(0, y - 0.5));
-      if (distance >= radius && distance < next) next = distance;
+  // Keep the established base radius unchanged. Projection affects upgrade
+  // thresholds only, so crossing a row seam cannot shrink unupgraded reach.
+  const baseKey = `base:${start}`;
+  let radius = _reachRadiusSteps.get(baseKey);
+  if (radius == null) {
+    radius = Infinity;
+    const baseLimit = Math.ceil(start + 1);
+    for (let x = 0; x <= baseLimit; x++) for (let y = 0; y <= baseLimit; y++) {
+      if (Math.hypot(x, y) <= start) continue;
+      radius = Math.min(radius, Math.hypot(Math.max(0, x - 0.5), Math.max(0, y - 0.5)));
     }
-    // Cross the threshold, rather than merely touching a cell at zero area.
+    radius -= 1e-6;
+    if (_reachRadiusSteps.size > 128) _reachRadiusSteps.clear();
+    _reachRadiusSteps.set(baseKey, radius);
+  }
+  if (!upgrades) return radius - margin;
+  // Combat also asks for the nominal baseline before a scene exists.
+  const nominalM = scene.cellM || 1;
+  const grid = scene.originPx && scene.playerM ? scene : {
+    cellM: nominalM, mPerPx: 1, cellsPerTile: WorldGen.TILE_PX / nominalM,
+    originPx: { x: 0, y: 0 }, playerM: { x: nominalM / 2, y: nominalM / 2 }, feetOffsetM: 0,
+  };
+  const anchor = playerReachCell(grid);
+  const centre = absCellCenterPx(grid, anchor.cellIX, anchor.cellIY);
+  // Six upgrades need at most six additional rows beyond the base circle.
+  // Inspect each target row's own grid: columns can shift across a tile seam.
+  const limit = Math.ceil(start + 8);
+  const firstRow = absRowOf(grid, anchor.cellIY - limit);
+  const lastRow = absRowOf(grid, anchor.cellIY + limit);
+  const grids = [];
+  for (let row = firstRow; row <= lastRow; row++) grids.push(rowCells(grid, row));
+  const key = `${start}|${upgrades}|${grid.cellM}|${grid.mPerPx}|${centre.x},${centre.y}|${grids}`;
+  if (_reachRadiusSteps.has(key)) return _reachRadiusSteps.get(key) - margin;
+  const scale = grid.mPerPx / grid.cellM;
+  const thresholds = [];
+  for (let dy = -limit; dy <= limit; dy++) {
+    const iy = anchor.cellIY + dy;
+    const row = absRowOf(grid, iy);
+    const width = WorldGen.TILE_PX / rowCells(grid, row);
+    const middle = absCellOffset(grid, anchor.cellIX, anchor.cellIY, 0, dy);
+    for (let dx = -limit; dx <= limit; dx++) {
+      const ix = middle.cellIX + dx;
+      const target = absCellCenterPx(grid, ix, iy);
+      const distance = Math.hypot(Math.max(0, Math.abs(target.x - centre.x) - width / 2),
+        Math.max(0, Math.abs(target.y - centre.y) - width / 2)) * scale;
+      thresholds.push(distance);
+    }
+  }
+  thresholds.sort((a, b) => a - b);
+  for (let step = 0; step < upgrades; step++) {
+    const next = thresholds.find(distance => distance >= radius);
+    // Cross the entire equal-distance group despite projection roundoff.
     radius = next + 1e-6;
   }
   if (_reachRadiusSteps.size > 128) _reachRadiusSteps.clear();

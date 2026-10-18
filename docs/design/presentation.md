@@ -155,9 +155,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   Dormant inscriptions use invented geometric glyphs at a shared size; their
   accessible names and Spirit explanations still identify the module in English.
 
-- Compass shine is disabled in the live HUD: it installs no reflection layers,
-  animation loop, or tilt listeners. The baked emission assets and
-  `CompassShine` implementation remain available for the development prototype.
+- Compass shine is disabled in the live HUD: its script and stylesheet are not
+  loaded, so it installs no reflection layers, animation loop, or tilt listeners.
+  The baked emission assets and `CompassShine` implementation remain available
+  for the development prototype.
 
 - Starter guidance is a floating Dragon Spirit portrait with a compact, pale
   speech bubble on the upper map. Each step gives one spoken instruction;

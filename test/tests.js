@@ -114,33 +114,20 @@ test('wildplant pickup outside REACH_FAR_M flashes "too far"', (scene) => {
   const wp = findWildplant(w =>
     Math.hypot(w.x - scene.startWorldM.x, w.y - scene.startWorldM.y) < 100);
   assert.truthy(wp, 'found a starter wildplant');
-  // Stand 25m away (well outside the base reach radius — 2 cells ≈ 11m at
-  // reachUpgrades=0, measured from player cell centre) but tap on the plant.
+  // Stand 25m away, outside the base reach circle, but tap on the plant.
   teleport(scene, wp.x + 25, wp.y);
   tapWorld(scene, wp.x, wp.y);
   assert.falsy(scene.save.picked.includes(wp.id), 'not picked');
   assert.eq(invCount(scene, wp.crop), 0, 'inv empty');
 });
 
-// REACH SHAPE
-//
-// Two related properties locked down by this test:
-//   1. The reach silhouette follows cellInReach's circular rule: cardinal
-//      offsets at radius 3 and diagonals at (2, 2) fit, while (1, 3) does not.
-//   2. Standing at the EDGE of your cell doesn't shrink the reach. Both the
-//      visual outline and the "too far" gate measure from the player's
-//      FEET CELL CENTRE, so any cell in the outline is tappable regardless of
-//      where in the player's cell their feet are.
-//
-// We capture scene.flash() calls and check whether 'too far' fires for each
-// offset. Detecting via flash means we exercise the real cell-resolve gate
-// (not just the math), which is the regression surface for both bugs.
-test('reach shape follows cellInReach circle; origin is the FEET cell', (scene) => {
-  // Pin the 3-cell surface geometry. One reach upgrade makes reachCells return
-  // 3, and reachRadiusM adds the shared 1 m cardinal-edge margin.
+// Exercise the real tap gate at the circle's boundary, including movement
+// within one cell: partially illuminated cells accept taps.
+test('reach accepts overlapping cells and follows the exact player position', (scene) => {
+  // Use the base circle; upgrades have separate threshold tests.
   const _savedUpgrades = scene.save.reachUpgrades;
   const _savedEnergy = scene.save.energy;
-  scene.save.reachUpgrades = 1;
+  scene.save.reachUpgrades = 0;
   scene.save.energy = scene.save.maxEnergy ?? 100;
   // Anchor at an interior grass cell so all ±3 offsets stay on loaded terrain.
   const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
@@ -156,42 +143,39 @@ test('reach shape follows cellInReach circle; origin is the FEET cell', (scene) 
     bodyCell = absCellCenterMeters(scene, cellIX, cellIY);
   }
   if (!bodyCell) { scene.save.reachUpgrades = _savedUpgrades; scene.save.energy = _savedEnergy; return; }
-  // The reach is centred on the FEET cell; feetOffsetM keeps the feet in the
-  // SAME cell as the body at the cell centre, so offsets map straight through.
-  const FEET_ROW_OFFSET = 0;
-
   const origFlash = scene.flash;
   const flashes = [];
   scene.flash = (msg) => { flashes.push(msg); };
   try {
-    const tapOffsetFromFeet = (dxCells, dyCells) => {
+    const tapOffsetFromFeet = (dxCells, dyCells, playerOffset = 0) => {
       flashes.length = 0;
       // An IN-reach probe tap tills the cell, which now starts an async work
       // wheel. Left running, the work-progress handler would swallow the NEXT
       // probe's tap (eating its "too far" flash). Clear it so each probe is an
       // independent tap from a settled state.
       if (scene._workProgress) scene.cancelWorkProgress();
-      teleport(scene, bodyCell.x, bodyCell.y);
-      // Tap (dxCells, dyCells) cells from the feet cell. Feet cell is at
-      // body cell + FEET_ROW_OFFSET rows, so in world coords we add it back.
+      teleport(scene, bodyCell.x + playerOffset * scene.cellM,
+        bodyCell.y + playerOffset * scene.cellM);
+      // Target cells stay fixed while the player's exact position moves.
       tapWorld(scene,
         bodyCell.x + dxCells * scene.cellM,
-        bodyCell.y + (dyCells + FEET_ROW_OFFSET) * scene.cellM);
+        bodyCell.y + dyCells * scene.cellM);
       // Match the current flash copy (both forms work in case of churn).
       return flashes.some(m => typeof m === 'string' && /too far|out of reach/i.test(m));
     };
 
-    // The circular rule includes the cardinal radius and (2, 2), but not
-    // (1, 3): at the fixture's 7 m cells it lies just beyond the 22 m radius.
-    assert.falsy(tapOffsetFromFeet( 0,  3), '(0, 3) cell tappable from feet');
-    assert.falsy(tapOffsetFromFeet( 3,  0), '(3, 0) cell tappable');
-    assert.falsy(tapOffsetFromFeet( 2,  2), '(2, 2) cell tappable');
-    assert.truthy(tapOffsetFromFeet( 1,  3), '(1, 3) too far');
-    assert.truthy(tapOffsetFromFeet(-1,  3), '(-1, 3) too far');
-    assert.truthy(tapOffsetFromFeet( 3,  1), '(3, 1) too far');
-    assert.truthy(tapOffsetFromFeet( 3, -1), '(3, -1) too far');
-    assert.truthy(tapOffsetFromFeet( 2,  3), '(2, 3) too far');
-    assert.truthy(tapOffsetFromFeet( 3,  3), '(3, 3) too far');
+    assert.falsy(tapOffsetFromFeet(0, 2), '(0, 2) overlaps the circle');
+    assert.falsy(tapOffsetFromFeet(2, 0), '(2, 0) overlaps the circle');
+    for (const [x, y] of [[2, 1], [-2, 1], [1, -2], [-1, -2]]) {
+      assert.falsy(tapOffsetFromFeet(x, y), `(${x}, ${y}) partially lit cell accepts taps`);
+    }
+    assert.truthy(tapOffsetFromFeet(2, 2), '(2, 2) is outside at the cell centre');
+    assert.falsy(tapOffsetFromFeet(2, 2, 0.3), 'moving within the cell brings (2, 2) into reach');
+    assert.truthy(tapOffsetFromFeet(-2, -2, 0.3), 'the opposite boundary remains out of reach');
+    scene.save.reachUpgrades = 1;
+    for (const [x, y] of [[2, 2], [-2, 2], [2, -2], [-2, -2]]) {
+      assert.falsy(tapOffsetFromFeet(x, y), `first upgrade unlocks projected diagonal (${x}, ${y})`);
+    }
   } finally {
     scene.flash = origFlash;
     scene.save.reachUpgrades = _savedUpgrades;

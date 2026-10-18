@@ -1526,5 +1526,4 @@ class SceneVenues {
 
   houseShopRole(house) { return Houses.houseShopRole(this.save, house); }
 
-  _hasBlacksmith() { return Houses.hasBlacksmith(this.save); }
 }
