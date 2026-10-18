@@ -196,13 +196,13 @@ class SceneModals {
     const mosaicLayer = art ? document.createElement('div') : null;
     let mosaicImg = null;
     // Dynamic pet paintings use the same 4:3 frame as installed scenes.
-    const artAspect = (art && typeof ART_ASPECTS !== 'undefined' && ART_ASPECTS[art]) || 4 / 3;
+    const artAspect = kind === 'story' ? 4 / 3 : (art && typeof ART_ASPECTS !== 'undefined' && ART_ASPECTS[art]) || 4 / 3;
     const fullFrameArt = Math.abs(artAspect - 4 / 3) < 0.01;
     const squareArt = Math.abs(artAspect - 1) < 0.01;
     const tone = (art && typeof ART_TONES !== 'undefined' && ART_TONES[art]) || '#1a1612';
     const paintLayer = (el, img) => {
       el.style.backgroundImage = img ? `url(${img})` : `linear-gradient(${tone}, ${tone})`;
-      el.style.backgroundSize = '100% auto';
+      el.style.backgroundSize = kind === 'story' ? 'cover' : '100% auto';
       el.style.backgroundPosition = 'center top';
       el.style.backgroundRepeat = 'no-repeat';
       el.style.imageRendering = 'pixelated';
@@ -504,12 +504,12 @@ class SceneModals {
     //             Disabled, it is the flat UI_CONTROL_DIM the token is named
     //             for ("inactive controls"), faded.
     //   ghost   — transparent with a thin grey border: Cancel, a secondary
-    //             action, a choice card, a pager arrow, a stepper key, an
+    //             action, a choice card, a pager arrow, an
     //             inactive tab. One ghost (it used to be #eee/#666 on Cancel
     //             and #ddd/#555 on the rest).
     // Every button carries _setEnabled(on): the ONE disabled look (faded, no
-    // pointer) for the first paint and every live toggle (the quantity
-    // stepper's canAfford, the reward card's Take arming), so looks can't
+    // pointer) for the first paint and every live toggle (choice
+    // controls’ canAfford, the reward card's Take arming), so looks can't
     // drift. `mkBtn(label, { variant, disabled, accent, css })`; the older
     // `mkBtn(label, primary, disabled)` spelling still reads as before.
     const RAISED = 'inset 0 1px 0 #fff5c9, inset 0 -1px 0 #977330, 0 2px 2px #171b1790, 0 0 7px #ffe06624';
@@ -860,14 +860,25 @@ class SceneModals {
   //                 the start (a single card is selected on its own, so the
   //                 dialog reads as the plain price tag it is). A `suggested`
   //                 card wears a soft outline until something is picked.
-  showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, portrait, fullscreen = false, source, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
+  showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, portrait, fullscreen = false, source, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     // What the last accept of a REPEAT offer said (its flashLoot / flash
     // toasts, captured by the accept below): those draw on the map behind
     // this dialog, so the dialog that reopens prints them as its receipt.
     const offerToasts = this._offerToasts; this._offerToasts = null;
+    let closed = false;
+    const close = (reason = 'cancel') => {
+      if (closed) return false;
+      closed = true;
+      wrap.remove();
+      if (reason === 'cancel' || reason === 'hit') onCancel?.();
+      return true;
+    };
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art, portrait, fullscreen, source,
+      { onClose: repeat ? undefined : () => close(), kind, kindLabel, kindIcon, art, portrait, fullscreen, source,
         scrollContent: kind === 'build' && choices?.length > 0 });
+    // Transitions and acceptance retain pending work; leaving or interruption
+    // releases it exactly once, after the wrapper is out of the document.
+    wrap.closeModal = close;
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
     // and calls onSelect, which re-presents the sibling modal — cheap "tabs"
@@ -882,13 +893,13 @@ class SceneModals {
               ? 'background:#3a3322;color:#ffe066;border-color:#c8a64a;'
               : 'color:#999;') });
         if (!t.active) {
-          tb.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); t.onSelect(); });
+          tb.addEventListener('click', (e) => { e.stopPropagation(); close('transition'); t.onSelect(); });
         }
         tabRow.appendChild(tb);
       }
       box.appendChild(tabRow);
     }
-    // Built from individual nodes so the quantity stepper can live-update the
+    // Built from individual nodes so choice controls can update the
     // get/cost lines without re-rendering the whole modal.
     if (title) {
       const titleDiv = document.createElement('div');
@@ -939,7 +950,7 @@ class SceneModals {
         e.stopPropagation();
         const selected = pager.options[Number(select.value)];
         if (!selected || Number(select.value) === pager.index) return;
-        wrap.remove(); selected.onSelect();
+        close('transition'); selected.onSelect();
       });
       picker.appendChild(icon); picker.appendChild(select); box.appendChild(picker);
       const caption = document.createElement('div');
@@ -954,7 +965,7 @@ class SceneModals {
         const b = mkBtn(glyph, { variant: 'ghost', css:
           'flex:none;width:32px;height:32px;border-radius:50%;line-height:1;font:700 18px var(--font-ui);' });
         b.setAttribute('aria-label', aria);
-        b.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); fn(); });
+        b.addEventListener('click', (e) => { e.stopPropagation(); close('transition'); fn(); });
         return b;
       };
       getDiv.style.flex = '1';
@@ -1070,53 +1081,6 @@ class SceneModals {
       reason.textContent = disabledReason;
       box.appendChild(reason);
     }
-    // Quantity stepper (only when caller passes `quantity`). Lays out as
-    // [ − ]  N / MAX  [ + ] just above the action-button row.
-    let qty = 1;
-    let stepperRefresh = null;
-    if (quantity) {
-      const minQ = quantity.min ?? 1;
-      const maxQ = Math.max(minQ, quantity.max ?? 1);
-      qty = clamp(quantity.initial ?? minQ, minQ, maxQ);
-      const stepRow = document.createElement('div');
-      stepRow.style.cssText =
-        'display:flex;gap:10px;justify-content:center;align-items:center;margin:2px 0 10px;';
-      const mkStep = (label) => mkBtn(label, { variant: 'ghost', css:
-        'width:44px;height:44px;border-radius:6px;font:700 20px var(--font-ui);line-height:1;' });
-      const minusBtn = mkStep('−');
-      const plusBtn  = mkStep('+');
-      const countSpan = document.createElement('span');
-      countSpan.style.cssText =
-        'min-width:72px;text-align:center;font:700 14px var(--font-ui);color:#fff';
-      stepRow.appendChild(minusBtn);
-      stepRow.appendChild(countSpan);
-      stepRow.appendChild(plusBtn);
-      box.appendChild(stepRow);
-      stepperRefresh = () => {
-        countSpan.textContent = `${qty} / ${maxQ}`;
-        if (typeof quantity.format === 'function') {
-          const r = quantity.format(qty) || {};
-          if (r.get  != null) getDiv.innerHTML  = r.get;
-          if (r.cost != null && costDiv) costDiv.innerHTML = r.cost;
-          if (r.canAfford != null) {
-            liveCanAfford = !!r.canAfford;
-            if (costDiv) costDiv.style.color = liveCanAfford ? '#a7ffb0' : '#ff8a7a';
-          }
-        }
-        minusBtn._setEnabled(qty > minQ);
-        plusBtn._setEnabled(qty < maxQ);
-        // Keep the primary action button in sync with the live canAfford.
-        if (accept) accept._setEnabled(liveCanAfford && !disabledReason && (!hasChoices || !!selected));
-      };
-      minusBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (qty > minQ) { qty--; stepperRefresh(); }
-      });
-      plusBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (qty < maxQ) { qty++; stepperRefresh(); }
-      });
-    }
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:4px;flex-wrap:wrap;';
     // A repeating counter covers canvas loot toasts. Keep its last completed
@@ -1142,16 +1106,16 @@ class SceneModals {
     const cancel = mkBtn(cancelLabel, false, false);
     const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled || !!(secondary.withChoice && hasChoices && !selected)) : null;
     const accept = mkBtn(acceptLabel, true, !canAfford || !!disabledReason || (hasChoices && !selected));
-    cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); if (onCancel) onCancel(); });
+    cancel.addEventListener('click', (e) => { e.stopPropagation(); close(); });
     let accepted = false;
     accept.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (accepted || accept.disabled) return;
+      if (closed || accepted || accept.disabled) return;
       if (hasChoices && !selected) return;
       accepted = true;
-      wrap.remove();
+      close('accept');
       if (repeat) this._offerToastLog = [];
-      try { onAccept(quantity ? qty : hasChoices ? selected.key : undefined); }
+      try { onAccept(hasChoices ? selected.key : undefined); }
       finally { if (repeat) { this._offerToasts = this._offerToastLog; this._offerToastLog = null; } }
       if (repeat) { repeat(); this._offerToasts = null; }
     });
@@ -1171,20 +1135,17 @@ class SceneModals {
       if (secondary.withChoice) {
         if (accepted || sec.disabled || (hasChoices && !selected)) return;
         accepted = true;
-        wrap.remove();
+        close('transition');
         secondary.onClick(hasChoices ? selected.key : undefined);
         return;
       }
-      wrap.remove(); secondary.onClick();
+      close('transition'); secondary.onClick();
     });
     row.className = 'offer-actions';
     row.appendChild(cancel);
     if (sec) row.appendChild(sec);
     row.appendChild(accept);
     box.appendChild(row);
-    // First paint of stepper-driven state (also syncs accept-button disabled
-    // colours with the format() canAfford if the caller computes it).
-    if (stepperRefresh) stepperRefresh();
     mount();
   }
 

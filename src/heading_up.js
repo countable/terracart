@@ -287,7 +287,11 @@ const HeadingUp = {
       if (c) for (const o of c.list) up(o);
     }
     // Contact shadows remain flat ellipses below upright art. Their centres
-    // move with the map, but the ellipse must not turn sideways with it.
+    // move with the map, but the ellipse must not turn sideways with it. The
+    // flat ground marks beside them (an elite's rune circle, the GPS ring)
+    // are the same case: squashed top-down bakes that would stand on end if
+    // the map turned them, so they are counter-rotated here too and take the
+    // map's turn as a frame of their rotation strip (Render.groundMarkFrame).
     for (const o of scene.shadowContainer?.list || []) {
       if (o.type === 'Image' || o.type === 'Sprite') {
         // Without a renderer-set anchor a shadow turns about where it is this

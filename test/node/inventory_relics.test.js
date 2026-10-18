@@ -70,7 +70,11 @@
     assert.eq(s.save.selSlot, -1); assert.eq(s.save.selGear.slot, 'sword');
     assert.eq(s.useMethod, undefined); assert.eq(s.equipSlot, 'sword');
     assert.eq(s.save.inv.length, 2, 'carried items were not migrated into gear');
-    s.click(s.slots().find(slot => slot.dataset.slot === -1));
+    assert.eq(s.slots().filter(slot => slot.className.split(' ').includes('sel')).length, 1,
+      'only the sword is highlighted; empty cells are not selectable');
+    assert.falsy(s.slots().some(slot => slot.dataset.slot === -1));
+    s.click(s.slots()[1]);
+    s.click(s.slots()[1]);
     s.buildInventoryDOM();
     assert.eq(s.save.selSlot, -1); assert.falsy(s.save.selGear, 'empty hands survive a rebuild beside owned gear');
     s.save.selGear = { kind: 'relic', slot: 'bow' };
@@ -109,13 +113,13 @@
     }
   });
 
-  test('inventory relics: boot keeps a carried-only Relics tab and empty-hand selection works', () => {
+  test('inventory relics: boot keeps a carried-only Relics tab and tapping again clears selection', () => {
     const s = harness({ inv: [{ id: 'orb', count: 1 }], relics: {}, armor: {},
       invCat: 'relics', invPage: 0, selSlot: -1 });
     s._settleInvCatOnBoot(); assert.eq(s.save.invCat, 'relics');
     s.buildInventoryDOM(); s.click(s.slots()[0]);
     assert.eq(s.save.selSlot, 0);
-    s.click(s.slots().find(slot => slot.dataset.slot === -1));
+    s.click(s.slots()[0]);
     assert.eq(s.save.selSlot, -1); assert.falsy(s.save.selGear);
     assert.eq(s.useMethod, undefined);
     assert.eq(s.document.getElementById('inv-name').textContent, '', 'no description without a selected item');

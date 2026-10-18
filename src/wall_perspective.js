@@ -8,6 +8,30 @@
     active(scene) {
       return !!scene._headingUp && (scene.depth ?? 0) === 0;
     },
+    // THE SORT POINT OF A WALL against the player (the shared world sort:
+    // render.js sortWorldDepth, heading_up.js' turned key s·x + c·y). A wall
+    // is a slab standing on its baseline, so against a billboard at `at` it
+    // orders by the baseline's depth AT THE PLAYER'S SCREEN COLUMN: the point
+    // of the baseline sharing the player's across-screen coordinate
+    // (c·x − s·y, perpendicular to the depth key), clamped to the wall's ends,
+    // re-asked every frame. One fixed point for a whole wall (an end, a
+    // centroid) cannot order a long or diagonal wall — the player in front of
+    // its middle drew behind it at most headings (owner, Oct 2026). A wall
+    // seen end-on (no across extent), or with no player to ask, takes the end
+    // lowest on screen. BuildingLowPoly.wallSupport and the per-wall parts
+    // below both ask this.
+    wallSortPoint(a, b, angle, at) {
+      const s = Math.sin(angle), c = Math.cos(angle);
+      if (at) {
+        const ua = c * a.x - s * a.y, ub = c * b.x - s * b.y, du = ub - ua;
+        if (Math.abs(du) > 1e-6) {
+          const t = Math.max(0, Math.min(1, ((c * at.x - s * at.y) - ua) / du));
+          return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+        }
+      }
+      const p = s * a.x + c * a.y >= s * b.x + c * b.y ? a : b;
+      return { x: p.x, y: p.y };
+    },
     begin(scene, source) {
       if (!scene._wallPerspective) {
         scene._wallPerspective = {};
@@ -17,12 +41,27 @@
       if (!group) {
         const gfx = scene.add.graphics();
         scene.buildingWallContainer.add(gfx);
-        group = scene._wallPerspective[source] = { gfx, blocks: [], x: 0, y: 0 };
+        group = scene._wallPerspective[source] = { gfx, blocks: [], x: 0, y: 0, parts: [], perWall: false, mode: null };
       }
-      group.blocks.length = 0; group.runs = null;
+      group.blocks.length = 0; group.runs = null; group.buildings = null;
       group.alwaysActive = false;
+      // PER WALL (Home's interior without the low-poly path): every block
+      // draws into a part of its own in the world container, sorted against
+      // the player at its wallSortPoint — see update and worldPieces. The
+      // caller sets it after begin (building_overlay.js homeWalls).
+      group.perWall = false;
       group.angle = NaN;
       return group;
+    },
+    // One per-wall part: a graphics object of the world sort's own
+    // (`_worldGeometry`, like BuildingLowPoly's: never counter-rotated, its
+    // `_huAnchor` the foot the turned sort reads).
+    _part(scene) {
+      const part = scene.add.graphics();
+      part._worldGeometry = true;
+      part._huAnchor = { x: 0, y: 0 };
+      (scene.worldContainer || scene.buildingWallContainer).add(part);
+      return part;
     },
     // A footprint extruded between two elevations (convex when capped). Retain projected
     // coordinates too, avoiding temporary vertex objects during rotation.
@@ -49,6 +88,7 @@
       support ||= { x: x / points.length, y: y / points.length, order: group.blocks.length };
       group.runs = null;
       group.blocks.push({ building: group.building || null, points, topPoints: geometry.topPoints || points, allFaces: !!geometry.allFaces, bottom, top, colors, support, capped, winding: Math.sign(area),
+        segment: geometry.segment || null,   // the wall baseline this block stands on (addSegment), for its sort point
         x: x / points.length, y: y / points.length, order: group.blocks.length,
         faceOrder: Array.from({ length: points.length }, (_, i) => i), faceDepth: new Float64Array(points.length),
         projected: new Float64Array(points.length * 4) });
@@ -72,8 +112,11 @@
         order: scene._wallPerspective[source].blocks.length };
       // Short sections keep painter ordering local on angled/concave rings.
       const sections = Math.max(1, Math.ceil(length / CELL_PX));
-      for (let i = 0; i < sections; i++)
-        this.prism(scene, source, points(i / sections, (i + 1) / sections), 0, height, colors, support);
+      for (let i = 0; i < sections; i++) {
+        const lo = i / sections, hi = (i + 1) / sections;
+        this.prism(scene, source, points(lo, hi), 0, height, colors, support, true,
+          { segment: { ax: ax + dx * lo, ay: ay + dy * lo, bx: ax + dx * hi, by: ay + dy * hi } });
+      }
       const width = spec.toothWidth;
       if (!width || !spec.toothHeight || length < width) return;
       const count = spec.merlons ?? Math.max(1, Math.round((length - width) / 8) + 1);
@@ -97,7 +140,10 @@
     },
     clear(scene, source) {
       const group = scene._wallPerspective?.[source];
-      if (group) { group.blocks.length = 0; group.runs = null; group.alwaysActive = false; group.gfx.clear(); group.angle = NaN; }
+      if (!group) return;
+      group.blocks.length = 0; group.runs = null; group.buildings = null; group.alwaysActive = false; group.gfx.clear(); group.angle = NaN;
+      group.perWall = false;
+      for (const part of group.parts || []) if (part.visible) { part.visible = false; part.clear(); }
     },
     update(scene) {
       const angle = scene.mapRot || 0, c = Math.cos(angle), s = Math.sin(angle);
@@ -105,7 +151,7 @@
         group.gfx.visible = this.active(scene) || (group.alwaysActive && (scene.depth ?? 0) === 0);
         if (!group.gfx.visible) continue;
         const player = scene.player, feet = scene.playerScreen?.();
-        const visibilityKey = [angle, group.x, group.y, feet?.x, feet?.y,
+        const visibilityKey = [angle, group.x, group.y, feet?.x, feet?.y, group.perWall,
           player?.visible, player?.x, player?.y, player?.displayWidth, player?.displayHeight, scene.save?.starterShopId].join(',');
         if (group.angle === angle && group.visibilityKey === visibilityKey) continue;
         const geometryChanged = group.angle !== angle;
@@ -162,10 +208,42 @@
           if (!triangles) buildings.set(block.building, triangles = []);
           faces(block, (x1,y1,x2,y2,x3,y3) => triangles.push([{x:x1,y:y1},{x:x2,y:y2},{x:x3,y:y3}]));
         }
+        group.buildings = buildings;
         for (const [building, triangles] of buildings) building.alpha = typeof Render === 'undefined' || !Render.buildingFadeAlpha ? 1 : Render.buildingFadeAlpha(scene,
           building.key, building.footprint, triangles, building.anchor, {x:group.x,y:group.y});
         const alphaKey = [...buildings.keys()].map(b=>b.alpha).join(',');
-        if (!geometryChanged && group.alphaKey === alphaKey) continue;
+        const ink = (target, block) => { if (!inkPx) return;
+          faces(block, (x1, y1, x2, y2, x3, y3) => {
+            target.fillStyle(look.ink, block.building?.alpha ?? 1);
+            for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]])
+              target.fillTriangle(x1 + ox * inkPx, y1 + oy * inkPx, x2 + ox * inkPx, y2 + oy * inkPx, x3 + ox * inkPx, y3 + oy * inkPx);
+          }); };
+        const fill = (target, block) => faces(block, (x1, y1, x2, y2, x3, y3, color) => { target.fillStyle(color, block.building?.alpha ?? 1); target.fillTriangle(x1, y1, x2, y2, x3, y3); });
+        const mode = group.perWall ? 'parts' : 'gfx', modeChanged = group.mode !== mode;
+        group.mode = mode;
+        if (group.perWall) {
+          // ONE PART PER BLOCK, each anchored at its wall's sort point against
+          // the player (wallSortPoint, in the group's space), every frame the
+          // player or the heading moves; the shared world sort then seats the
+          // player between the walls behind and the walls in front. The
+          // group's own graphics stays empty meanwhile.
+          const local = feet ? { x: feet.x - group.x, y: feet.y - group.y } : null;
+          group.blocks.forEach((block, i) => {
+            const part = group.parts[i] || (group.parts[i] = this._part(scene));
+            const seg = block.segment;
+            const p = seg ? this.wallSortPoint({ x: seg.ax, y: seg.ay }, { x: seg.bx, y: seg.by }, angle, local) : { x: block.x, y: block.y };
+            part._huAnchor.x = p.x + group.x; part._huAnchor.y = p.y + group.y;
+            part.visible = true; part.setPosition(group.x, group.y);
+          });
+          for (let i = group.blocks.length; i < group.parts.length; i++) { const part = group.parts[i]; if (part.visible) { part.visible = false; part.clear(); } }
+          if (!geometryChanged && !modeChanged && group.alphaKey === alphaKey) continue;
+          group.alphaKey = alphaKey;
+          g.clear();
+          group.blocks.forEach((block, i) => { const part = group.parts[i]; part.clear(); ink(part, block); fill(part, block); });
+          continue;
+        }
+        for (const part of group.parts) if (part.visible) { part.visible = false; part.clear(); }
+        if (!geometryChanged && !modeChanged && group.alphaKey === alphaKey) continue;
         group.alphaKey = alphaKey;
         g.clear();
         // The ink outline is drawn once per connected run — every block that
@@ -179,16 +257,31 @@
             const run = group.runs.get(block);
             if (!inked.has(run)) {
               inked.add(run);
-              for (const other of run) faces(other, (x1, y1, x2, y2, x3, y3) => {
-                g.fillStyle(look.ink, other.building?.alpha ?? 1);
-                for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]])
-                  g.fillTriangle(x1 + ox * inkPx, y1 + oy * inkPx, x2 + ox * inkPx, y2 + oy * inkPx, x3 + ox * inkPx, y3 + oy * inkPx);
-              });
+              for (const other of run) ink(g, other);
             }
           }
-          faces(block, (x1, y1, x2, y2, x3, y3, color) => { g.fillStyle(color, block.building?.alpha ?? 1); g.fillTriangle(x1, y1, x2, y2, x3, y3); });
+          fill(g, block);
         }
       }
+    },
+    // The per-wall parts as pieces of the shared world sort (render.js
+    // drawObjects' zList, beside BuildingLowPoly.worldPieces): each part's
+    // ground depth in world metres, off its anchor.
+    worldPieces(scene) {
+      const out = [], groups = scene._wallPerspective;
+      if (!groups || (scene.depth ?? 0) !== 0) return out;
+      this.update(scene);
+      const anchor = typeof viewAnchorWorldM === 'function' ? viewAnchorWorldM(scene) : null;
+      for (const group of Object.values(groups)) {
+        if (!group.perWall || !group.gfx.visible) continue;
+        group.blocks.forEach((block, i) => {
+          const part = group.parts[i];
+          if (!part) return;
+          out.push({ sprite: part, rank: 1, layer: typeof WorldLayers === 'undefined' ? undefined : WorldLayers.STANDING_PROP,
+            groundY: anchor ? anchor.y + (part._huAnchor.y - scene.viewCenterY) * scene.cellM / CELL_PX : part._huAnchor.y });
+        });
+      }
+      return out;
     },
     // Blocks joined by a shared ground vertex (at any level, so merlons join
     // the wall under them) or by one wall's support, as a Map from block to

@@ -162,7 +162,10 @@
         }
       }
     };
-    const h = style.height * scale;
+    const stories = options.stories || 1;
+    const terraced = styleId === 'multistorey' && options.stories !== 1;
+    const facadeStories = terraced ? 1 : stories;
+    const floorHeight = style.height * scale, h = floorHeight * (terraced ? (options.stories || 2) / 2 : stories);
     const courses = (p, lo, hi, count, color) => {
       if (options.geometryOnly) return;
       for (let i = 1; i <= count; i++) {
@@ -182,14 +185,17 @@
           const t = j / (count + 1), half = 1.2 * scale / length;
           const a0 = { x: a.x + dx * (t - half), y: a.y + dy * (t - half) };
           const b0 = { x: a.x + dx * (t + half), y: a.y + dy * (t + half) };
-          add([a0, { x: a0.x + nx, y: a0.y + ny }, { x: b0.x + nx, y: b0.y + ny }, b0], z, z + 2.2 * scale, shade(palette.roof, 0.6));
+          add([a0, { x: a0.x + nx, y: a0.y + ny }, { x: b0.x + nx, y: b0.y + ny }, b0], z + 0.55 * scale, z + 2.2 * scale, shade(palette.roof, 0.6));
         }
       }
     };
     add(ring, 0, h, palette.wall);
     if (styleId !== 'ruin') {
       courses(ring, 0, h, styleId === 'brick' || styleId === 'fort' ? 3 : 1, shade(palette.wall, 0.9));
-      windows(ring, h * 0.48);
+      for (let floor = 0; floor < facadeStories; floor++) {
+        windows(ring, floorHeight * (floor + 0.48));
+        if (floor) slab(ring, floorHeight * floor - scale * 0.4, floorHeight * floor + scale * 0.4, palette.trim);
+      }
     }
     if (styleId === 'ruin') {
       // Low, open walls keep the original damaged floor visible.
@@ -235,6 +241,10 @@
       slab(current, z, z + 0.7 * scale, palette.trim);
     } else if (styleId === 'multistorey') {
       slab(ring, h - scale, h + scale, palette.trim);
+      if (options.stories === 1) {
+        materialCap(ring, h + scale, palette.roof);
+        return result;
+      }
       let upper = null;
       // A deep setback can pinch a narrow wing into a sliver; halve it instead.
       const pinched = (p, setback) => p.some((a, i) => {

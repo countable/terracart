@@ -1,3 +1,10 @@
+/* Standalone dialogs live on body, outside the scaled game. Use the same
+   phone gutters as the HUD so their panels and backdrops stay in the device. */
+body > :is(#bootload, #story, #howto, #tooshort, #locating) {
+  left: var(--phone-left, 0px);
+  right: var(--phone-right, 0px);
+  width: auto;
+}
 /* Living silver: the stationary rail is ornate; touch controls stay simple.
    Shared by the existing scene shell and the pre-scene opening storyboard. */
 .compass-panel, #story.compass-story {
@@ -66,6 +73,8 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   width: 100%; height: auto; aspect-ratio: 1;
   border-radius: 0 !important;
 }
+.compass-panel[data-kind='story'] .modal-art,
+.compass-panel[data-kind='story'] .modal-art-mosaic { height: 100%; aspect-ratio: 4 / 3; }
 .compass-panel .compass-action { border-radius: 13px !important; min-height: 38px; }
 .compass-panel .compass-action-primary:not(.compass-action-accent):not(:disabled) {
   background: linear-gradient(#fff0a0, #f4c844 22%, #d79a20 78%, #f4cd63) !important;
@@ -125,19 +134,21 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 #story.story-fullscreen .art { flex: 1; min-height: 0; aspect-ratio: auto; overflow: hidden; }
 #story.story-fullscreen .opening-copy { flex: 0 0 auto; }
 #story.compass-story {
+  --panel-rail-height: calc((100vw - var(--phone-left, 0px) - var(--phone-right, 0px)) * 220 / 750);
   align-items: end; padding: 0;
   background: #10191e;
 }
 #story.compass-story .box {
   position: relative; display: flex; flex-direction: column;
-  width: min(100%, 480px); max-width: 480px; height: 87.5%; max-height: none;
+  width: 100%; max-width: none; height: 87.5%; max-height: none;
   padding: 0 0 calc(60px + env(safe-area-inset-bottom));
-  box-sizing: border-box; overflow: hidden;
+  box-sizing: border-box; overflow-x: hidden; overflow-y: auto;
   border: 0; border-radius: 28px 28px 0 0;
   background: #1b252c; box-shadow: 0 -8px 35px #0009;
   animation: compass-panel-rise 240ms ease-out both;
 }
-#story.compass-story .art { flex: 0 0 auto; min-height: 0; width: 100%; aspect-ratio: 512 / 341; margin: 0; }
+#story.compass-story .art { flex: 0 0 auto; min-height: 0; width: 100%; aspect-ratio: 4 / 3; margin: 0; overflow: hidden; }
+#story.compass-story .art img { object-fit: cover; }
 #story.compass-story .opening-copy { flex: 0 0 auto; padding: 20px; }
 #story.compass-story .story-skip { z-index: 4; }
 @media (prefers-reduced-motion: reduce) {

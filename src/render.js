@@ -1853,6 +1853,13 @@ Render.buildingProfileFor = (o, scene) => {
   const theme = role === 'shop' ? scene.shopLine?.(o)?.theme ?? scene.save?.shopLines?.[o.id] ?? Shops.lineFor(scene.save, o)?.theme : null;
   return Render.BUILDING_STYLE_SHOPS[theme] || Render.BUILDING_STYLE_ROLES[role] || Render.BUILDING_STYLE_ROLES.plain;
 };
+// Gameplay ranks, not the footprint's biome tier (9/11/12), set floor count.
+// Higher ranks can add ornament later; their baseline remains two storeys.
+Render.buildingStoreysFor = (o, scene) => {
+  if (scene.buildingStoreys != null) return scene.buildingStoreys;
+  const tier = Shops.shopTier(scene.save, o, Houses.displayRole(scene.save, o));
+  return tier == null ? null : tier >= 2 ? 2 : 1;
+};
 Render.buildingStyleFor = (o, scene) => Render.buildingProfileFor(o, scene).style;
 Render.proceduralHouse = (o, scene) => Render.proceduralBuildings()
   && typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled()
@@ -3566,13 +3573,57 @@ function fadeLabelOverPlayer(tx, box) {
 // Shared building visibility geometry. These tests use retained vertices and
 // boot-time sprite bounds; walking never reads texture pixels or rebuilds art.
 Render.pointInBuilding = function(point, ring) {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[j], b = ring[i];
-    if ((a.y > point.y) !== (b.y > point.y)
-        && point.x < a.x + (point.y - a.y) * (b.x - a.x) / (b.y - a.y)) inside = !inside;
+  return PolygonGeometry.pointInRings([ring], point.x, point.y);
+};
+// Taps arrive in map coordinates: _unzoomPt has already undone camera zoom
+// and heading. Use the faces actually drawn, not a roof's bounding rectangle.
+Render.buildingHit = function(scene, sx, sy) {
+  if ((scene.depth ?? 0) !== 0) return null;
+  const angle = scene.mapRot || 0, sin = Math.sin(angle), cos = Math.cos(angle);
+  let key = null, depth = -Infinity;
+  const contains = (triangles, x, y) => (triangles || []).some(points =>
+    Render.buildingTriangleOverlaps(points, { x0: x, x1: x, y0: y, y1: y }));
+  const choose = (id, anchor, offset, triangles) => {
+    if (!id || !contains(triangles, sx - offset.x, sy - offset.y)) return;
+    const z = sin * (anchor.x + offset.x) + cos * (anchor.y + offset.y);
+    if (z >= depth) { key = id; depth = z; }
+  };
+  // Ramparts and the Canvas fallback are painted in the background layer.
+  for (const group of Object.values(scene._wallPerspective || {})) {
+    if (!group.gfx.visible) continue;
+    for (const [building, triangles] of group.buildings || [])
+      choose(building.key, building.anchor, { x: group.x, y: group.y }, triangles);
   }
-  return inside;
+  const backgroundKey = key;
+  key = null; depth = -Infinity;
+  const state = scene._lowpoly;
+  if (state?.enabled) for (const mesh of state.buildings) {
+    if (!mesh.obj?.visible || mesh.obj.alpha === 0) continue;
+    choose(mesh.key, mesh.support, { x: state.offsetX || 0, y: state.offsetY || 0 }, mesh.visibleTriangles);
+  }
+  // Legacy sprite buildings retain their trimmed art extent. Their bodies
+  // counterrotate around the ground anchor, unlike the architectural meshes.
+  for (const sprite of [...(scene.objectPool || []), ...(scene.towerPool || [])]) {
+    const object = sprite._staticObject, appearance = sprite._staticAppearance;
+    if (!sprite.visible || sprite.alpha === 0 || !object || !isBuilding(object.kind) || !appearance) continue;
+    const anchor = sprite._huAnchor || sprite;
+    const dx = sx - anchor.x, dy = sy - anchor.y;
+    const x = anchor.x + cos * dx - sin * dy, y = anchor.y + sin * dx + cos * dy;
+    const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
+    const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
+    const fw = art?.fw ?? sprite.frame?.realWidth ?? sprite.width;
+    const fh = art?.fh ?? sprite.frame?.realHeight ?? sprite.height;
+    const x0 = sprite.x + ((art?.minX ?? 0) - sprite.originX * fw) * sprite.scaleX;
+    const x1 = sprite.x + ((art?.maxX ?? fw) - sprite.originX * fw) * sprite.scaleX;
+    const y0 = sprite.y + ((art?.minY ?? 0) - sprite.originY * fh) * sprite.scaleY;
+    const y1 = sprite.y + ((art?.maxY ?? fh) - sprite.originY * fh) * sprite.scaleY;
+    const z = sin * anchor.x + cos * anchor.y;
+    if (x >= Math.min(x0, x1) && x <= Math.max(x0, x1)
+        && y >= Math.min(y0, y1) && y <= Math.max(y0, y1) && z >= depth) {
+      key = object.id; depth = z;
+    }
+  }
+  return key || backgroundKey;
 };
 // Separating-axis test: unlike triangle bounds, this does not fade empty
 // corners beside a pitched roof or the empty middle of a concave footprint.
@@ -4051,11 +4102,49 @@ Render.buildingShadow = function (appearance, textures, point) {
 // Contact-shadow width under a creature, per kind (px at scale 1). Per-kind
 // rather than measured, because creature sheets animate (a measured shadow
 // would pulse frame to frame).
+// FLAT GROUND MARKS. The elite's rune circle and the player's GPS ring are
+// one kind of paint: baked top-down at GROUND_MARK.bakePx (scene_create.js
+// bakeGroundMark), every stroke over a dark under-stroke and a soft halo of
+// its own ink so it reads on sand and snow as well as grass, then laid flat on
+// the ground by drawing it `tilt` as tall as it is wide (the south camera's
+// 45° tilt, map-perspective.md). Drawn `px` wide the strokes land at the
+// weight they were designed at (a 2px line in the bake is under 1px on
+// screen) — the light touch both marks share.
+//
+// A mark is baked as a ROTATION STRIP, one frame per `stepDeg` of turn over
+// the period after which its shape repeats, and never rotated as a sprite: a
+// sprite rotated after it is squashed tilts the ellipse onto its end instead
+// of turning the circle on the ground. That holds for the compass too — when
+// heading-up turns the map, the mark is counter-rotated like a contact
+// shadow (heading_up.js) and the map's turn goes into the strip frame
+// (Render.groundMarkFrame), so the ellipse stays flat and its runes or
+// ticks still turn with the ground.
+const GROUND_MARK = {
+  bakePx: 96,
+  px: 42,
+  tilt: 0.5,
+  stepDeg: 3,
+  // [line width in the bake, colour, alpha]: under-stroke, halo, line.
+  strokes: (ink) => [[6, '#000', 0.5], [5, ink, 0.18], [2, ink, 1]],
+};
+// The GPS ring's geometry in bake px: a ring around the feet with four short
+// ticks crossing it (an open ring, never a filled disc — a small gold disc is a
+// coin in this game), a strip over the 90° after which the ticks repeat. The
+// walk-home lead stops on the ring (app.js).
+const GPS_RING = { r: 30, tick: 5, periodDeg: 90 };
+// The frame of rotation strip `key` showing the mark turned `turnDeg`
+// clockwise on screen, with the map's own turn under heading-up folded in.
+Render.groundMarkFrame = function groundMarkFrame(scene, key, turnDeg = 0) {
+  const frames = Math.max(1, (scene.textures?.get?.(key)?.frameTotal ?? 2) - 1);
+  const mapDeg = typeof HeadingUp !== 'undefined' ? HeadingUp.angle(scene) * 180 / Math.PI : 0;
+  const f = Math.round((turnDeg + mapDeg) / GROUND_MARK.stepDeg);   // nearest step
+  return ((f % frames) + frames) % frames;
+};
 // The elite rune circle's width at a kind's ordinary size (px), and how fast
 // its two bands turn (degrees per second; the inner one against the outer).
 // The bakes (scene_create.js) step ELITE_RING_STEP_DEG per frame.
-const ELITE_RING_PX = 42;
-const ELITE_RING_STEP_DEG = 3;
+const ELITE_RING_PX = GROUND_MARK.px;
+const ELITE_RING_STEP_DEG = GROUND_MARK.stepDeg;
 const ELITE_RING_SPIN = { outer: 360 / 14, inner: -1.6 * 360 / 14 };
 const CRITTER_SHADOW_W = {
   cow: 30, horse: 26, deer: 26, dog: 22, boar: 20, cat: 20, crow: 18, gull: 18, raven: 18, rabbit: 14, chicken: 14, crab: 14, sea_turtle: 16,
@@ -4564,7 +4653,10 @@ Render.drawObjects = function drawObjects(scene) {
     ...pressureState.traps.map(h => ({ h, plate: false }))].map(it => ({
       ...it, dx: it.h.x - pWorldX, dy: it.h.y - pWorldY,
     })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
+  // The buildings that sort with the world: the low-poly meshes, and the
+  // prism path's per-wall parts (Home's interior without low-poly).
   const zList = typeof BuildingLowPoly !== 'undefined' ? BuildingLowPoly.worldPieces(scene) : [];
+  if (typeof WallPerspective !== 'undefined' && WallPerspective.worldPieces) zList.push(...WallPerspective.worldPieces(scene));
   Render.cullCovered(scene, whirlwindList, 'h');
   Render.cullCovered(scene, environmentList, 'h', true);
   Render.cullCovered(scene, pressureList, 'h', true);
@@ -4928,7 +5020,7 @@ Render.drawObjects = function drawObjects(scene) {
   // tier-coloured plate (Render.drawShopPlate, below); every other sign is
   // the map text family (LABEL_STYLES.sign) floating over the building art,
   // its lettering in the role's ink (_houseSignInk).
-  // Home labels as "Your house." Shops.shopLabel() returns null for
+  // Home labels as "Home". Shops.shopLabel() returns null for
   // non-shopType houses, so it is wrapped here to handle the starter case.
   // Display labels for the role-keyed shop signs come from Shops.roleLabel, the
   // one table app.js's restoration card and offer titles read too, so the sign
@@ -5762,9 +5854,10 @@ Render.drawObjects = function drawObjects(scene) {
   // THE ELITE'S RUNE CIRCLE: two baked bands of runes flat on the ground
   // under its feet (the cell, never the hop), turning against each other and
   // pulsing gently, under every renderer. Baked white and tinted the rank's
-  // colour (Combat.ELITE_RANKS ring). The bakes are rotation strips: a sprite
-  // rotated after it is squashed would tilt the ellipse instead of turning
-  // the circle on the ground.
+  // colour (Combat.ELITE_RANKS ring). The bakes are rotation strips
+  // (GROUND_MARK): the spin and the compass turn are both strip frames, and
+  // the sprite itself is never rotated — heading-up counter-rotates it like
+  // the contact shadows beside it, so the ellipse stays flat on the ground.
   Render.announceElites(scene, creatureList, project);
   if (scene.shadowContainer) {
     scene.eliteRingPool ||= [];
@@ -5772,17 +5865,15 @@ Render.drawObjects = function drawObjects(scene) {
     const pulseNow = performance.now();
     const bands = elites.flatMap(item => ['outer', 'inner'].map(band => ({ ...item, band })));
     Render.renderPool(scene, scene.eliteRingPool, scene.shadowContainer, bands, (s, item) => {
-      s._worldLayer = WorldLayers.GROUND_DECAL;
       const { x: sx, y: sy } = project(item.dx, item.dy);
       const size = ELITE_RING_PX * giantMul(item.c.kind) * creatureInstScale(item.c);
       const key = item.band === 'outer' ? 'elite_ring' : 'elite_ring_inner';
-      const frames = Math.max(1, (scene.textures?.get?.(key)?.frameTotal ?? 2) - 1);
-      const turn = ((pulseNow / 1000) * ELITE_RING_SPIN[item.band]) / ELITE_RING_STEP_DEG;
       const ring = Combat.eliteRank(item.c).ring;
-      s.setTexture(Render.canvasTint(scene, key, ring), ((Math.floor(turn) % frames) + frames) % frames);
-      // The baked circle is drawn top-down; halving its height lays it flat on
+      s.setTexture(Render.canvasTint(scene, key, ring),
+        Render.groundMarkFrame(scene, key, (pulseNow / 1000) * ELITE_RING_SPIN[item.band]));
+      // The baked circle is drawn top-down; GROUND_MARK.tilt lays it flat on
       // the ground in the map's tilted view.
-      s.setOrigin(0.5, 0.5).setDisplaySize(size, size / 2)
+      s.setOrigin(0.5, 0.5).setDisplaySize(size, size * GROUND_MARK.tilt)
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY + SHADOW_LOOK.creature.dy)
        .setTint(ring)
        .setAlpha(0.8 + 0.2 * Math.sin(pulseNow / 450 + (strHash31(item.c.id || '') % 7)));

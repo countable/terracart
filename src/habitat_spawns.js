@@ -99,11 +99,7 @@
   // runs of the same species or neighbouring seats.
   const unit = key => u01(avalanche32(root.EnemySpawns.hash('habitat|' + key)));
   function pick(rows, value, weight) {
-    const total = rows.reduce((n, row) => n + weight(row), 0);
-    if (!(total > 0)) return null;
-    let at = value * total;
-    for (const row of rows) { at -= weight(row); if (at < 0) return row; }
-    return rows[rows.length - 1] || null;
+    return weightedPickAt(rows, weight, value);
   }
   function landProfile(type) {
     const name = nameOf(type);

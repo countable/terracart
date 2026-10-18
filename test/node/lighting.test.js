@@ -1096,35 +1096,113 @@ test('lighting: indoors, the world outside the house is masked on the canvas pat
   assert.truthy(/const indoors = scene\.homeInterior \? scene\.homeInterior\(\) : null;/.test(d),
     'the scene hands over the house round the player');
   assert.truthy(/LightingGPU\.active\(scene\) && !indoors/.test(d), 'the GPU path stands down while the mask is up');
-  assert.truthy(/\+ '\|in:' \+ \(indoors \? indoors\.key : ''\)/.test(d), 'the frame key carries it');
+  assert.truthy(/\+ '\|in:' \+ \(indoors \? indoorKey\(scene, indoors\) : ''\)/.test(d),
+    'the frame key carries the house and the lift its cut is swept by');
   assert.truthy(/if \(indoors\) paintIndoorMask\(ctx, scene, indoors, ax, ay, ox, oy, W, H\);/.test(d),
     'painted after every light, before the cover');
-  // The hull: the ring and the ring lifted by the walls' height, so the north
-  // wall's inner face (above the floor's outline) stays lit with the floor.
-  const ring = [{ x: 10, y: 10 }, { x: 40, y: 10 }, { x: 40, y: 40 }, { x: 10, y: 40 }];
-  const hull = Lighting.indoorHull(ring, { x: 0, y: -20 });
-  assert.eq(hull.length, 4, 'a straight lift of a square is a taller rectangle');
-  assert.eq(Math.min(...hull.map(p => p.y)), -10, 'reaching up by the lift');
-  assert.eq(Math.max(...hull.map(p => p.y)), 40, 'from the floor\'s south edge');
-  const turned = Lighting.indoorHull(ring, { x: 14, y: -14 });
-  assert.eq(turned.length, 6, 'a turned lift adds two corners');
-  // The mask itself: an even-odd fill of the whole map with the hull cut out,
-  // in the house's own dark at its own alpha.
-  const ops = [];
-  const ctx = { save() { ops.push('save'); }, restore() { ops.push('restore'); },
-    beginPath() { ops.push('begin'); }, rect(...a) { ops.push(['rect', ...a]); },
-    moveTo(x, y) { ops.push(['move', x, y]); }, lineTo(x, y) { ops.push(['line', x, y]); },
-    closePath() { ops.push('close'); }, fill(rule) { ops.push(['fill', rule, this.fillStyle, this.globalAlpha, this.globalCompositeOperation]); } };
-  const s = { viewCenterX: 176, viewCenterY: 176, cellM: 7 };
-  Lighting.paintIndoorMask(ctx, s, { ring: [{ x: -7, y: -7 }, { x: 7, y: -7 }, { x: 7, y: 7 }, { x: -7, y: 7 }], key: 'k' }, 0, 0, 0, 0, 352, 352);
-  const fill = ops.find(o => o[0] === 'fill');
-  assert.eq(fill[1], 'evenodd', 'the house is a hole in the fill');
-  assert.eq(fill[2], cssOf(HomeArea.HOUSE.maskColour), 'the mask colour');
-  assert.eq(fill[3], HomeArea.HOUSE.maskAlpha, 'at its alpha');
-  assert.eq(fill[4], 'source-over', 'painted over the lights, not added to them');
-  assert.eq(JSON.stringify(ops[2]), JSON.stringify(['rect', 0, 0, 352, 352]), 'the whole map');
-  const lines = ops.filter(o => o[0] === 'move' || o[0] === 'line');
-  assert.eq(lines.length, 4, 'the ring, lifted straight up north-up, is one taller rectangle');
-  assert.eq(Math.max(...lines.map(o => o[2])), 176 + 32, 'down to the south edge');
-  assert.eq(Math.min(...lines.map(o => o[2])), 176 - 32 - (HomeArea.HOUSE.wallPx + HomeArea.HOUSE.thicknessPx), 'up to the wall tops');
+  // The lift is the height the walls are drawn at and nothing more: lifted by
+  // the wall's thickness as well, the cut cleared the far wall's top and a
+  // band of lit ground showed above it.
+  assert.truthy(/function indoorLift[\s\S]*?dyPx: -\(drawn \|\| HA\.wallPx\)/.test(L), 'the lift is the drawn wall height alone');
+  const indoorsSrc = L.slice(L.indexOf('// ── Indoors'), L.indexOf('window.Lighting = {'));
+  assert.truthy(!/thicknessPx/.test(indoorsSrc), 'the wall thickness plays no part in the cut');
+
+  // THE SILHOUETTE: the ring swept by the lift, filled nonzero. Winding
+  // number against a cycle (nonzero = inside), as the canvas fills it.
+  const winding = (poly, x, y) => {
+    let w = 0;
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i], b = poly[(i + 1) % poly.length];
+      const side = (b.x - a.x) * (y - a.y) - (x - a.x) * (b.y - a.y);
+      if (a.y <= y) { if (b.y > y && side > 0) w++; } else if (b.y <= y && side < 0) w--;
+    }
+    return w;
+  };
+  const inside = (poly, x, y) => winding(poly, x, y) !== 0;
+  // Brute force: the floor, the lifted floor, or any wall quad between them.
+  const inSweep = (ring, lift, x, y) => {
+    const up = ring.map(p => ({ x: p.x + lift.x, y: p.y + lift.y }));
+    if (inside(ring, x, y) || inside(up, x, y)) return true;
+    for (let i = 0; i < ring.length; i++) {
+      const j = (i + 1) % ring.length;
+      if (inside([ring[i], ring[j], up[j], up[i]], x, y)) return true;
+    }
+    return false;
+  };
+  const square = [{ x: 10, y: 10 }, { x: 40, y: 10 }, { x: 40, y: 40 }, { x: 10, y: 40 }];
+  const up = Lighting.indoorSilhouette(square, { x: 0, y: -20 });
+  assert.eq(Math.min(...up.map(p => p.y)), -10, 'the north edge rides up by the lift');
+  assert.eq(Math.max(...up.map(p => p.y)), 40, 'the south edge stays on the floor');
+  assert.eq([Math.min(...up.map(p => p.x)), Math.max(...up.map(p => p.x))].join(','), '10,40', 'no wider than the house');
+  // An L-shaped ring (an adopted house) under a turned lift: every sampled
+  // point agrees with the union of floor, lifted floor and walls, whichever
+  // way the ring is wound — and the notch, which a convex hull covered,
+  // stays masked.
+  const ell = [{ x: 0, y: 0 }, { x: 60, y: 0 }, { x: 60, y: 30 }, { x: 30, y: 30 }, { x: 30, y: 60 }, { x: 0, y: 60 }];
+  const lift = { x: 12, y: -16 };
+  for (const ring of [ell, ell.slice().reverse()]) {
+    const sil = Lighting.indoorSilhouette(ring, lift);
+    let mismatches = 0;
+    for (let y = -30; y <= 70; y++) for (let x = -20; x <= 80; x++) {
+      if (inside(sil, x + 0.5, y + 0.5) !== inSweep(ring, lift, x + 0.5, y + 0.5)) mismatches++;
+    }
+    assert.eq(mismatches, 0, 'the swept ring, filled nonzero, is exactly the floor, the lifted floor and the walls');
+    assert.truthy(!inside(sil, 50.5, 50.5), 'the notch of an L is outside the house');
+  }
+
+  // THE CUTS: outermost first, each erasing its share of what the mask still
+  // holds — a third, then half, then all — so the mask ramps down in thirds
+  // across the feather inside the silhouette and is gone from there in.
+  const cuts = Lighting.indoorCuts(square, { x: 0, y: -20 }, 3);
+  assert.eq(cuts.length, 3, 'three cuts');
+  assert.eq(cuts.map(c => c.alpha).join(','), [1 / 3, 1 / 2, 1].join(','), 'in thirds');
+  let left = 1;
+  for (const c of cuts) left *= 1 - c.alpha;
+  near(left, 0, 1e-12, 'nothing of the mask is left in the room');
+  assert.eq(cuts.map(c => Math.max(...c.points.map(p => p.y))).join(','), '40,39,38', 'each cut a third of the feather further in');
+  assert.eq(Math.min(...cuts[2].points.map(p => p.y)), -8, 'the inner ring rides the same lift');
+  assert.eq(Lighting.indoorCuts(square, { x: 0, y: -20 }, 0).length, 1, 'no feather: one full cut');
+  const tiny = Lighting.indoorCuts([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }], { x: 0, y: -5 }, 3);
+  assert.eq(tiny.length + ',' + tiny[0].alpha, '1,1', 'a ring too small to inset: one full cut, the room still clear');
+
+  // THE PAINT: the mask is built on its own layer — the whole map at the
+  // house's dark and alpha, the cuts erased out of it (destination-out,
+  // nonzero) — then laid over the lightmap, so the cuts never erase the
+  // lights under the mask.
+  const rec = (ops) => ({
+    save() { ops.push('save'); }, restore() { ops.push('restore'); },
+    clearRect(...a) { ops.push(['clear', ...a]); },
+    fillRect(...a) { ops.push(['fillRect', ...a, this.fillStyle, this.globalAlpha, this.globalCompositeOperation]); },
+    beginPath() { ops.push('begin'); }, moveTo(x, y) { ops.push(['move', x, y]); }, lineTo(x, y) { ops.push(['line', x, y]); },
+    closePath() { ops.push('close'); },
+    fill(rule) { ops.push(['fill', rule, this.globalAlpha, this.globalCompositeOperation]); },
+    drawImage(img, x, y) { ops.push(['draw', img, x, y, this.globalAlpha, this.globalCompositeOperation]); },
+  });
+  const layerOps = [], mainOps = [], layerCtx = rec(layerOps);
+  const layer = { width: 0, height: 0, getContext: () => layerCtx };
+  let created = 0;
+  const realCreate = document.createElement;
+  document.createElement = (kind) => { created++; return kind === 'canvas' ? layer : null; };
+  try {
+    const s = { viewCenterX: 176, viewCenterY: 176, cellM: 7, save: { starterShopId: 'home' } };
+    const house = { ring: [{ x: -7, y: -7 }, { x: 7, y: -7 }, { x: 7, y: 7 }, { x: -7, y: 7 }], key: 'k' };
+    Lighting.paintIndoorMask(rec(mainOps), s, house, 0, 0, 0, 0, 352, 352);
+    Lighting.paintIndoorMask(rec(mainOps), s, house, 0, 0, 0, 0, 352, 352);
+  } finally { document.createElement = realCreate; }
+  assert.eq(created, 1, 'one layer, kept between frames');
+  assert.eq(layer.width + 'x' + layer.height, '352x352', 'the lightmap\'s size');
+  assert.eq(JSON.stringify(layerOps[1]), JSON.stringify(['clear', 0, 0, 352, 352]), 'cleared');
+  assert.eq(JSON.stringify(layerOps[2]), JSON.stringify(['fillRect', 0, 0, 352, 352, cssOf(HomeArea.HOUSE.maskColour), HomeArea.HOUSE.maskAlpha, 'source-over']),
+    'the whole map in the house\'s dark at its alpha');
+  const fills = layerOps.filter(o => o[0] === 'fill');
+  assert.eq(fills.length, 6, 'three cuts a frame');
+  assert.truthy(fills.every(f => f[1] === 'nonzero' && f[3] === 'destination-out'), 'each cut erased out of the mask, nonzero');
+  assert.eq(fills.slice(0, 3).map(f => f[2]).join(','), [1 / 3, 1 / 2, 1].join(','), 'ramping in');
+  const firstCut = layerOps.slice(0, layerOps.findIndex(o => o[0] === 'fill')).filter(o => o[0] === 'move' || o[0] === 'line');
+  assert.eq(Math.max(...firstCut.map(o => o[2])), 176 + 32, 'down to the south edge');
+  assert.eq(Math.min(...firstCut.map(o => o[2])), 176 - 32 - HomeArea.HOUSE.wallPx, 'up to the wall tops, and no higher');
+  const laid = mainOps.filter(o => o[0] === 'draw');
+  assert.eq(laid.length, 2, 'laid over the lightmap once a frame');
+  assert.truthy(laid.every(o => o[1] === layer && o[2] === 0 && o[3] === 0 && o[4] === 1 && o[5] === 'source-over'),
+    'the layer itself, source-over at full alpha: the mask composes over the lights, it never adds to them');
 });

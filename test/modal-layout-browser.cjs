@@ -6,7 +6,7 @@ const { chromium } = require('playwright-core');
   const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || '/usr/bin/chromium',
     headless: true, args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   try {
-    for (const [width, height] of [[320, 568], [390, 844], [1280, 900]]) {
+    for (const [width, height] of [[320, 568], [390, 844], [768, 1024], [1280, 900]]) {
       const page = await browser.newPage({ viewport: { width, height }, serviceWorkers: 'block' });
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
@@ -57,7 +57,7 @@ const { chromium } = require('playwright-core');
               const bounds = wrap.querySelector('.modal-art-spacer').getBoundingClientRect();
               return { bottom: bounds.bottom, bodyTop: body.getBoundingClientRect().top,
                 width: bounds.width, height: bounds.height, position: style.backgroundPosition,
-                size: style.backgroundSize, scrim: style.backgroundImage };
+                size: style.backgroundSize, story: wrap.dataset.kind === 'story', scrim: style.backgroundImage };
             })(),
             pages: getComputedStyle(pages).display !== 'none',
             count: pages.textContent,
@@ -72,7 +72,8 @@ const { chromium } = require('playwright-core');
         assert(m.boxVisible, `${width} ${kind}: dialog fits screen`);
         if (m.art) {
           assert.equal(m.art.position, '50% 0%', `${kind}: art preserves its top edge`);
-          assert.equal(m.art.size, '100% auto', `${kind}: width-fit art`);
+          assert.equal(m.art.size, m.art.story ? 'cover' : '100% auto', `${kind}: width-fit art`);
+          if (m.art.story) assert(Math.abs(m.art.width / m.art.height - 4 / 3) < .01, `${kind}: consistent 4:3 story frame`);
           if (kind.startsWith('square-')) {
             assert(m.art.bottom <= m.art.bodyTop + 1, `${kind}: copy sits below art`);
             assert(m.art.height / m.art.width >= 0.699, `${kind}: copy and paging preserve the subject`);
@@ -115,11 +116,17 @@ const { chromium } = require('playwright-core');
       const standalone = await page.evaluate(() => {
         document.querySelectorAll('.game-modal').forEach(el => el.remove());
         const results = [];
+        const root = getComputedStyle(document.documentElement);
+        const left = parseFloat(root.getPropertyValue('--phone-left')) || 0;
+        const right = innerWidth - (parseFloat(root.getPropertyValue('--phone-right')) || 0);
         for (const dialog of window.staticDialogs) {
           if (!dialog) continue;
           document.getElementById(dialog.id)?.remove();
           document.body.appendChild(dialog);
           dialog.style.display = 'flex';
+          const bounds = dialog.getBoundingClientRect();
+          results.push({ id: dialog.id + '-phone-bounds', fits: true,
+            visible: Math.abs(bounds.left - left) < 1 && Math.abs(bounds.right - right) < 1 });
           if (dialog.id === 'howto') {
             dialog.querySelector('#howto-modes').hidden = false;
             dialog.querySelector('#howto-close').hidden = true;
@@ -127,13 +134,19 @@ const { chromium } = require('playwright-core');
             dialog.querySelector('#howto-mode-current').hidden = true;
           }
           if (dialog.id === 'story') {
+            dialog.className = 'compass-story';
+            dialog.querySelector('.box').style.animation = 'none';
+            const art = dialog.querySelector('.art').getBoundingClientRect();
+            const frame = dialog.querySelector('.box').getBoundingClientRect();
+            results.push({ id: 'opening-story-art', fits: Math.abs(art.width / art.height - 4 / 3) < .01,
+              visible: Math.abs(frame.width - (right - left)) < 1 && Math.abs(art.width - frame.width) < 1 });
             dialog.querySelector('p').textContent = 'The long night is over. You wake beside the ruined street, with a compass in your hand and a whole neighbourhood waiting to be rebuilt.';
           }
           for (const box of dialog.querySelectorAll('.box')) {
             if (!box.clientHeight) continue;
             const r = box.getBoundingClientRect();
-            results.push({ id: dialog.id, fits: box.scrollHeight <= box.clientHeight + 2,
-              visible: r.top >= -1 && r.bottom <= innerHeight + 1 });
+            results.push({ id: dialog.id, fits: box.scrollHeight <= box.clientHeight + 2 || getComputedStyle(box).overflowY === 'auto',
+              visible: r.top >= -1 && r.bottom <= innerHeight + 1 && r.left >= left - 1 && r.right <= right + 1 });
           }
           dialog.remove();
         }

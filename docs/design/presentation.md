@@ -109,7 +109,13 @@ changing dialogue, story panels, books, toasts or status presentation.
   immediately available wake-up button. Reduced-motion mode shows the first frame without
   zoom or crossfade.
 
-- The living-silver chassis uses sliced surfaces in `css/compass_hud.css`.
+- The living-silver chassis uses the approved neutral-silver mechanical bearing
+  artwork (`assets/ui/compass/compass-bearing.webp`) in `css/compass_hud.css`.
+  The background is width-fitted at a -15px vertical offset; the live map,
+  aperture masks, and gold compass rim shift up 5 CSS pixels together.
+  Radial brackets support the main circle, with engraved scales behind both
+  the upper instruments and joystick. Legacy endcaps and their baked shine
+  are hidden on the live chassis; dialog and opening art retain their own rails.
   Layout publishes CSS-pixel `--compass-map-top` and `--compass-map-size`;
   modal sheets use game-pixel `--map-top`. Existing controls retain their
   listeners beneath analog energy, shared books/memories display, true-north needle
@@ -135,7 +141,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   distance uses the shared 200-metre threshold, and spirit walking remains opt-in.
   Reference atlas crops live alongside their provenance in `assets/ui/compass/`.
   Engravings retain their aspect ratio rather than stretching to viewport height.
-  The dragon header reserves its full 750:220 aspect ratio at the panel width;
+  Body-level loading, opening-story, help, and location dialogs use the shared
+  phone gutters, including their backdrops; they never span desktop margins.
+  The dragon header reserves its full 750:220 aspect ratio at the phone-panel width;
   its chrome stays above scene paintings and loading mosaics without cropping the head.
   Sheets have no duplicate metal side rails or border: the outer compass housing
   supplies that frame. Painted sheets mask the dragon rail along its lower silver silhouette so
@@ -147,13 +155,19 @@ changing dialogue, story panels, books, toasts or status presentation.
   It clips the header readouts at that edge too; story sheets rise above the
   coin indicator, using its measured position across phone and desktop scaling.
   Dismissible sheets expose a fixed close control using the same cancellation
-  callback and input arming as their backdrop. Required acknowledgments omit
+  callback and input arming as their backdrop. Offer dialogs close through
+  `closeModal(reason)`: leaving or an enemy hit releases deferred book reads
+  after removal, while acceptance and tab transitions retain pending work.
+  Required acknowledgments omit
   it. The menu actuator remains visible and depressed while its sheet is open.
   Gold zoom plungers sit just below the map window in a silver rack; the gold
   direction lock occupies the upper-left corner of the compass. These controls
   live outside Phaser’s scaled wrapper and yield to modal sheets. The lock
   depresses while engaged. Unselected inventory items have no individual border;
-  the selected item retains its gold outline.
+  the selected item retains its gold outline. Empty inventory cells are disabled
+  and never highlighted or counted as another page. Tap a selected stack again
+  to put it away. `Inventory.add` and `Inventory.remove` preserve the selected
+  stack through array compaction; consuming that stack clears the hand.
   The energy dial has one lightning-bolt needle for current energy, equal
   red/yellow/green thirds, and a maximum-energy numeral on the right.
   Dormant inscriptions use invented geometric glyphs at a shared size; their
@@ -278,7 +292,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   row. Ambient site light persists after a visit; the availability pulse does not.
   Successful visits show their story painting each time. `tools/idols.html`
   reads the same rows for the design sheet.
-- Home crafting uses a direct picker of learned recipes. Show each ingredient's
+- Home crafting and brewing share `_presentRecipePicker` for discovery,
+  selection, capacity and paging, above `_presentRecipeOffer` transactions.
+  Home crafting uses a direct picker of learned recipes. Show each ingredient's
   held and required quantities, its shortfall in text, and a visible reason
   when Craft is disabled. Keep the chosen recipe after crafting and refresh
   counts and the existing receipt. Recipe selection never spends ingredients;
@@ -303,7 +319,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   4:3, with a complete scene and no baked dark text area. Paintings fit the
   full width, anchored at the top without stretching. The image begins at the
   window top behind the fixed silver dragon rail. Approved 4:3 paintings keep
-  their full height; longer copy paginates below them. Legacy squares begin at
+  their full height; longer copy paginates below them. All story paintings use
+  a full-width 4:3 frame, cropping legacy art without stretching. Opening
+  panels three and four share this layout; the first two stay immersive.
+  Other dialogs with legacy squares begin at
   90% of panel width and can shorten to 70%; legacy portraits can shorten to
   the rail height plus eight pixels. `tools/art_thumbs.js` bakes `ART_ASPECTS`
   alongside aspect-preserving thumbnails, so this layout is ready before the
@@ -366,7 +385,7 @@ changing dialogue, story panels, books, toasts or status presentation.
 - A new game opens close on Home (`HomeArea.INTRO`): the house fills the top
   half with the player in its doorway, held while Home is placed or a dialog
   is up, then a beat, then a slow pull back to the normal view. A finger on
-  the map ends it early. Home's sign, "Your house.", is
+  the map ends it early. Home's sign, "Home", is
   hidden until that beat and types itself out once per session; the cold
   firepit beside the door wisps smoke (`FIREPIT_SMOKE`).
 - Map messages fit `MAP_MSG_MAX` (30 characters) per rendered line, including

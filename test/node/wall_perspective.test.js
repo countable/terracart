@@ -203,4 +203,41 @@
     s._tiledWallFrame = null;
     assert.eq(dirty('new-cell|bands|mode|viewport'), true, 'mode/depth invalidation rebuilds on return');
   });
+
+  test('wall perspective: a per-wall group draws one world-sorted part per block, anchored at its sort point', () => {
+    // Home's interior without the low-poly path: the prism walls used to be
+    // one graphics object in the wall container, UNDER the player's container,
+    // so the player drew over every wall in front of them (owner, Oct 2026).
+    const s = scene(); s.save = {}; s.depth = 0;
+    s.viewCenterX = 100; s.viewCenterY = 100; s.cellM = 6; s.gpsM = { x: 0, y: 0 };
+    s.startWorldM = { x: 400, y: 800 }; s.playerM = { x: 6, y: 12 }; s.mapZoom = 1; s.viewSize = 200;
+    let feet = { x: 30, y: 10 }; s.playerScreen = () => feet;
+    s.player = { visible: true, x: 30, y: 10, displayWidth: 16, displayHeight: 24, originX: .5, originY: 1 };
+    const group = WallPerspective.begin(s, 'home');
+    group.perWall = true;
+    WallPerspective.addSegment(s, 'home', { ...segment, bx: 74 });   // 64 px long: two sections
+    WallPerspective.finish(s, 'home');
+    assert.eq(group.blocks.length, 2); assert.eq(group.parts.length, 2);
+    assert.truthy(group.parts.every(p => p.visible && p._worldGeometry && p.triangles.length), 'each block drew into a visible part of its own');
+    assert.eq(group.gfx.triangles.length, 0, 'the group graphics stays empty');
+    assert.truthy(group.parts.every(p => s.list.includes(p)), 'parts join the scene\'s containers');
+    // North-up the baseline is horizontal: the sort point is the baseline's
+    // point in the player's column, clamped to the section.
+    close(group.parts[0]._huAnchor.x, 30); close(group.parts[0]._huAnchor.y, 20);
+    close(group.parts[1]._huAnchor.x, 42); close(group.parts[1]._huAnchor.y, 20);
+    feet = { x: 60, y: 10 }; s.player.x = 60; WallPerspective.update(s);
+    close(group.parts[0]._huAnchor.x, 42, 'the first section clamps to its end'); close(group.parts[1]._huAnchor.x, 60);
+    const pieces = WallPerspective.worldPieces(s);
+    assert.eq(pieces.length, 2);
+    assert.truthy(pieces.every((p, i) => p.sprite === group.parts[i] && p.rank === 1 && Number.isFinite(p.groundY)), 'pieces for the shared world sort');
+    close(pieces[1].groundY, 812 + (20 - 100) * 6 / CELL_PX);
+    // Back to one graphics object: the parts hide and the group draws again.
+    group.perWall = false; WallPerspective.update(s);
+    assert.truthy(group.parts.every(p => !p.visible), 'parts hidden'); assert.truthy(group.gfx.triangles.length, 'the group graphics draws');
+    assert.eq(WallPerspective.worldPieces(s).length, 0);
+    group.perWall = true; WallPerspective.update(s); WallPerspective.clear(s, 'home');
+    assert.truthy(group.parts.every(p => !p.visible) && !group.perWall, 'clear hides the parts');
+    assert.truthy(/zList\.push\(\.\.\.WallPerspective\.worldPieces\(scene\)\)/.test(RENDER_SRC), 'the frame\'s world sort takes them');
+    assert.truthy(/scene\._wallPerspective\.home\.perWall = inside;/.test(BUILDING_OVERLAY_SRC || ''), 'Home asks for it while the player is inside');
+  });
 })();

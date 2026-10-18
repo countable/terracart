@@ -98,7 +98,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=e955f613" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=508f12c2" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1118,7 +1118,7 @@
     /* Auto-walk-home demo strip at the top of the card: the player sprite
        walking (FarmerCyan.png row 2, the authored RIGHT-facing row —
        SpriteLayout.PLAYER_ART.farmer, the sheet every save starts on) toward
-       the GPS crosshair the scene draws at your real position. The farmer's
+       the GPS ring the scene draws at your real position. The farmer's
        16px frames are drawn at exactly 4x so the pixel grid stays square. */
     #howto .demo { margin: 0 0 8px; }
     /* Stage + labels share one column track list, so each caption sits exactly
@@ -1157,12 +1157,13 @@
       from { background-position:  -64px -128px; }
       to   { background-position: -320px -128px; }
     }
-    /* The GPS crosshair, matching what the scene draws (the 'gps_crosshair'
-       bake in app.js: a gold ring and four ticks over a dark keyline, a pip
-       at the fix). The scene's 20px texture sits beside a 24px farmer; here
-       the farmer is 64px, so the crosshair is scaled by the same 8/3. */
-    #howto .demo .gps { width: 64px; height: 64px; display: grid; place-items: center; }
-    #howto .demo .gps svg { width: 53px; height: 53px; }
+    /* The GPS ring, matching what the scene draws (the 'gps_ring' bake in
+       scene_create.js: a gold ring and four ticks over a dark under-stroke and
+       a soft halo, laid flat on the ground). The scene's 42×21 mark sits
+       around the farmer's feet; here it fills its 64px column and sits low
+       in the box, where the feet are. */
+    #howto .demo .gps { width: 64px; height: 64px; display: grid; place-items: end center; }
+    #howto .demo .gps svg { width: 64px; height: 32px; }
     /* A slow drift along the bearing — the walk home is automatic and
        unhurried, and a static arrow between two figures reads as a label
        rather than a movement. */
@@ -1236,9 +1237,9 @@
     #howto-mode-current span { font-weight: 400; color: #bbb; }
     #howto button#howto-close[hidden] { display: none; }
   </style>
-  <link rel="stylesheet" href="css/compass_hud.css?v=20c4a25f">
+  <link rel="stylesheet" href="css/compass_hud.css?v=62e166c9">
   <link rel="stylesheet" href="css/compass_inventory.css?v=2c3aceb5">
-  <link rel="stylesheet" href="css/compass_panels.css?v=9955ff0c">
+  <link rel="stylesheet" href="css/compass_panels.css?v=40c4643b">
   <link rel="stylesheet" href="css/speech_bubbles.css?v=420eac2d">
   <link rel="stylesheet" href="css/book_reader.css?v=79db504e">
 </head>
@@ -1414,18 +1415,18 @@
                   stroke-width="2.5" stroke-linejoin="round"/>
           </svg>
           <div class="gps">
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <g fill="none" stroke-linecap="butt">
-                <g stroke="#0a1420" stroke-opacity="0.55" stroke-width="3">
-                  <circle cx="10" cy="10" r="5"/>
-                  <path d="M13 10h5M2 10h5M10 13v5M10 2v5"/>
+            <svg viewBox="0 0 96 48" aria-hidden="true">
+              <g fill="none" stroke-linecap="round" transform="translate(48 24) scale(1 0.5)">
+                <g stroke="#000" stroke-opacity="0.5" stroke-width="6">
+                  <circle r="30"/><path d="M25 0h10M-25 0h-10M0 25v10M0-25v-10"/>
                 </g>
-                <g stroke="#ffe066" stroke-width="1.5">
-                  <circle cx="10" cy="10" r="5"/>
-                  <path d="M13 10h5M2 10h5M10 13v5M10 2v5"/>
+                <g stroke="#ffe066" stroke-opacity="0.18" stroke-width="5">
+                  <circle r="30"/><path d="M25 0h10M-25 0h-10M0 25v10M0-25v-10"/>
+                </g>
+                <g stroke="#ffe066" stroke-width="2">
+                  <circle r="30"/><path d="M25 0h10M-25 0h-10M0 25v10M0-25v-10"/>
                 </g>
               </g>
-              <circle cx="10" cy="10" r="1" fill="#ffe066"/>
             </svg>
           </div>
         </div>
@@ -3039,7 +3040,7 @@
   <script src="src/sprite_layout.js?v=759a526a"></script>
   <script src="src/placed_floor.js?v=2d48b4fd"></script>
   <script src="src/campfires.js?v=de1dbe54"></script>
-  <script src="src/home.js?v=f74e8f3d"></script>
+  <script src="src/home.js?v=3c9aa975"></script>
   <script src="src/coords.js?v=85d2df4c"></script>
   <script src="src/fog.js?v=f59fad6c"></script>
   <script src="src/biome_profiles.js?v=1de273b7"></script>
@@ -3080,7 +3081,7 @@
   <script src="src/gear.js?v=9a5ec3b7"></script>
   <script src="src/rewards.js?v=e5985978"></script>
   <script src="src/shops_math.js?v=61fb7d5a"></script>
-  <script src="src/shops.js?v=954a3974"></script>
+  <script src="src/shops.js?v=f29e7032"></script>
   <script src="src/egg_hatch.js?v=c8e90711"></script>
   <script src="src/chest_themes.js?v=a2057988"></script>
   <script src="src/loot_contexts.js?v=92eecb4e"></script>
@@ -3114,21 +3115,21 @@
   <script src="src/pet_story_art.js?v=2a963a9e"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
   <script src="src/story_encounters.js?v=6613d99e"></script>
-  <script src="src/interact.js?v=02fe4f06"></script>
-  <script src="src/play_tips.js?v=52c39f50"></script>
+  <script src="src/interact.js?v=3ebbbfe1"></script>
+  <script src="src/play_tips.js?v=e21d3bd7"></script>
   <script src="src/lighting_gpu.js?v=5dd349a5"></script>
-  <script src="src/lighting.js?v=97f0b292"></script>
+  <script src="src/lighting.js?v=242c54d0"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=50f17c5e"></script>
+  <script src="src/render.js?v=d743e21a"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/multiplayer.js?v=9e2412e3"></script>
-  <script src="src/road_overlay.js?v=4f0d99f1"></script>
+  <script src="src/road_overlay.js?v=c9474646"></script>
   <script src="src/temple_art.js?v=ef92c84b"></script>
-  <script src="src/wall_perspective.js?v=05108eee"></script>
-  <script src="src/building_styles.js?v=d52a1298"></script>
-  <script src="src/building_lowpoly.js?v=14b88e40"></script>
-  <script src="src/building_overlay.js?v=bcf3f171"></script>
+  <script src="src/wall_perspective.js?v=0bae74c6"></script>
+  <script src="src/building_styles.js?v=b503f242"></script>
+  <script src="src/building_lowpoly.js?v=02a2a833"></script>
+  <script src="src/building_overlay.js?v=0d8d2e78"></script>
   <script src="src/assets.js?v=255139be"></script>
   <script src="src/sandbox_destinations.js?v=e6dc29cb"></script>
   <script src="src/sandbox.js?v=0c27f739"></script>
@@ -3141,17 +3142,17 @@
   <script src="src/npc.js?v=21caacef"></script>
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
-  <script src="src/scene_shops.js?v=15ac2532"></script>
-  <script src="src/heading_up.js?v=48e4b34a"></script>
+  <script src="src/scene_shops.js?v=3b147df4"></script>
+  <script src="src/heading_up.js?v=7fe6e897"></script>
   <script src="src/compass_modules.js?v=7db0fb1f"></script>
   <script src="src/compass_hud.js?v=e9a30166"></script>
-  <script src="src/scene_create.js?v=610b25fb"></script>
+  <script src="src/scene_create.js?v=d4132b9b"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>
   <script src="src/scene_consumables.js?v=13f93c2c"></script>
   <script src="src/scene_pets.js?v=b0c58511"></script>
-  <script src="src/scene_venues.js?v=dea15890"></script>
+  <script src="src/scene_venues.js?v=b3ddeaf8"></script>
   <script src="src/scene_streets.js?v=498f621a"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
@@ -3223,7 +3224,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=e955f613';
+      const APP_SRC = 'src/app.js?v=508f12c2';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

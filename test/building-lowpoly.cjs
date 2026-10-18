@@ -1,5 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const ctx={window:{}};vm.createContext(ctx);vm.runInContext(fs.readFileSync('src/building_lowpoly.js','utf8'),ctx);
+const ctx={window:{}};vm.createContext(ctx);vm.runInContext(fs.readFileSync('src/polygon_geometry.js','utf8'),ctx);
+vm.runInContext(fs.readFileSync('src/building_lowpoly.js','utf8'),ctx);
 const api=ctx.window.BuildingLowPoly,fixtures=require('../tools/building-roof-fixtures.js');
 const area=p=>Math.abs(p.reduce((s,a,i)=>{const b=p[(i+1)%p.length];return s+a.x*b.y-a.y*b.x;},0))/2;
 const rows=[];
@@ -176,3 +177,17 @@ for(const wall of terrace.faces.filter(f=>f.kind==='wall')){
  }
 }
 assert(deckWallPairs>0,'market draw-order regression exercises terrace/wall junctions');
+// Smithy stacks widen toward the roof without changing ordinary chimney caps.
+{
+ const pts=[{x:0,y:0},{x:120,y:0},{x:120,y:60},{x:0,y:60}];
+ const smith=api.ROLES.blacksmith,options={count:smith.chimneys||1,scale:smith.chimneyScale||1,flare:smith.chimneyFlare};
+ const mesh=api.geometry(pts,'ridge',18.1,5,options);
+ const ordinary=api.geometry(pts,'ridge',18.1,5,{count:1,scale:1});
+ assert.notEqual(mesh,ordinary,'chimney shape participates in mesh cache');
+ const sides=mesh.faces.filter(f=>f.chimney&&f.kind==='wall');
+ assert.equal(sides.length,8,'one complete smithy chimney shaft');
+ for(let i=0;i<sides.length;i+=2){
+  const [a,b,c]=sides[i].points,d=sides[i+1].points[2];
+  assert(Math.hypot(a.x-b.x,a.y-b.y)>Math.hypot(c.x-d.x,c.y-d.y),'shaft widens downward');
+ }
+}

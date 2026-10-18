@@ -11,6 +11,8 @@ dark timber framing and braces, clay/slate/thatch roof treatments, recessed
 joinery and broad eave shading. These details live in shared material sheets;
 story count and footprint do not create a new texture. Material palettes stay
 role-driven. Reference pixels are not embedded in the generated textures.
+Ordinary delivery houses have one storey; specialised buildings retain their
+role-specific heights. The Canvas fallback reads the same storey count.
 
 `scene.buildingRoofVariant` selects ridge, inset, shallow or flat. Leaving it
 unset selects a low-poly roof appropriate to the role; `styles` explicitly
@@ -36,6 +38,10 @@ role colour, a single highlight pixel per feature) with openings at the tileset'
 placement and only a lintel, sill, step and lantern as decoration; `tileset`
 cuts bays from the approved materials sheet instead. Height ships at 1.0. `tools/building-billboard-preview.html` has a
 Facade select and a "Show sheet" toggle to compare the two.
+The cel facade paints thick beams over the wall planks at the existing storey,
+post and diagonal-brace positions. Each has a broad wood face in the wall's
+palette, a one-texel upper/left highlight and a lower/right shadow. Posts and
+bands are five texels wide; diagonal braces span each full panel and match their apparent thickness. Casements keep their upper edge and raise their sill by three texels. `ROLES.window` follows the approved pixel-art sprites: four-pane house windows, wood-shuttered smithy windows, twin-pane trader windows with slate shutters, and wider four-pane market windows for every shop specialty. Wizard windows retain an arched frame. All keep the raised sill; shops gain width. The cached sheet includes this style in its key.
 The Canvas fallback retains the imported style renderer. Existing castle
 perimeters, signs, interaction objects and fort/castle ownership remain intact.
 
@@ -174,7 +180,8 @@ review is published as a Claude artifact.
 - Ink outline: `renderWebGL` re-emits each ink group's visible triangles in the
   solid trim texel, tinted `LOOK.ink`, at eight screen offsets of
   `LOOK.inkPx` (2) art pixels (× camera zoom), then draws the group. A building is
-  one contiguous sorted run; its ink groups (body, flat deck, chimney) draw in
+  one contiguous sorted run; faded buildings omit these repeated filled ink passes
+  so they remain see-through. Its ink groups (body, flat deck, chimney) draw in
   layer order so each gets a line where it meets the surface below it. Same
   retained vertices; nothing allocates on a heading change.
 - Flat roofs: no parapet lip. The deck is one colour (`solid` faces draw the
@@ -197,7 +204,7 @@ review is published as a Claude artifact.
 - Chimneys: a cobbled stack (sides are `wall` faces with `rawUV` into the
   sheet's stone plinth rows), a wider cap and a dark mouth, as ink group 2.
   `ROLES[role].chimneys`/`chimneyScale` would place a pair at 26%/74% of the
-  ridge; every role, the smithy included, takes the default one at 28%. A role
+  ridge; every role, the smithy included, takes the default one at 28%. The smithy shaft widens slightly toward the roof (`chimneyFlare`), meeting its cap without an overhanging lip. A role
   with `smoke` puffs from its mouths (`smokeMouths`, projected like the faces)
   in render.js's firepit smoke pass, sharing `HomeArea.FIREPIT_SMOKE`.
 - Wreck: crumbling wall. Thick sections (the ring inset by 4 units, 2 where a
@@ -269,3 +276,18 @@ brick, otherwise rubble; the painterly dark stone and cobble fall back to
 rubble); roof cells follow `roofMaterial` (clay, slate, thatch, shingle,
 glazed; red tile falls back to clay; flat roofs use flagstone). The plinth is
 rubble, or moss on a wreck.
+
+Street-facing door decorations use the road overlay’s source transportation lines.
+A standing low-poly house receives one framed plank door on the nearest outward-facing
+wall within six cells, provided the wall has room for the door and four-pixel corner
+clearance on both sides. No nearby street or no suitable wall means no decoration.
+The retained door triangles rotate, sort and fade with the building; they do not
+alter its footprint, movement or tap target. Home retains its authored entrance,
+and wrecks and special tower silhouettes do not receive floating doors.
+
+Ranked buildings use one storey at T1 and two storeys at T2 and above,
+across smithies, traders and every shop line. T3+ may gain extra floors or
+ornaments; the current baseline stays at two. Gameplay ranks come from
+`Shops.shopTier`, not footprint biome tiers. Renovation invalidates cached
+geometry immediately. Unranked homes, ruins and special structures retain
+their own designs; `scene.buildingStoreys` remains a preview override.

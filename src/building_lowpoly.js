@@ -34,23 +34,22 @@
   // Cell order of assets/Objects/BuildingMaterials/reference-materials-v3.png.
   const MATERIAL_TILE=96,MATERIAL_CELLS=['clay','slate','thatch','shingle','glazed','plaster','boards','rubble','brick','clapboard','flagstone','moss'];
   const ROLES={
-    plain:{material:'plaster',finish:'cottage',roofMaterial:'clay',stories:2,style:'multistorey'},
+    plain:{window:'casement',material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey'},
     // Home — the player's house (building_overlay.js drawHome): one storey of
     // plaster under a clay ridge, and the one role with an `interior` recipe.
-    home:{material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey',variant:'ridge'},
-    // `smoke` chimneys puff like a cold firepit (render.js, HomeArea.FIREPIT_SMOKE).
-    blacksmith:{material:'stone',finish:'workshop',roofMaterial:'slate',stories:1,style:'brick',smoke:true},
-    trader:{material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
-    shop:{material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
-    seed:{material:'plaster',finish:'plaster',roofMaterial:'thatch',stories:1,style:'adobe'},
-    supply:{material:'timber',finish:'siding',roofMaterial:'flat',stories:2,style:'whitewash',variant:'flat'},
-    potion:{material:'plaster',finish:'plaster',roofMaterial:'clay',stories:2,style:'pyramid',variant:'inset'},
-    relic:{material:'timber',finish:'masonry',roofMaterial:'redtile',stories:1,style:'pyramid',variant:'inset'},
-    pet:{material:'timber',finish:'siding',roofMaterial:'thatch',stories:1,style:'japanese'},
-    book:{material:'brick',finish:'masonry',roofMaterial:'clay',stories:2,style:'japanese'},
-    wizard:{material:'stone',finish:'tower',roofMaterial:'slate',stories:3,style:'pyramid',shape:'wizard'},
-    turret:{material:'stone',finish:'tower',roofMaterial:'slate',stories:1,style:'fort',shape:'turret'},
-    wreck:{material:'timber',finish:'cottage',roofMaterial:'slate',stories:1,style:'ruin',shape:'wreck'},
+    home:{window:'casement',material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey',variant:'ridge'},
+    blacksmith:{window:'woodShutters',material:'stone',finish:'workshop',roofMaterial:'slate',stories:1,style:'brick',smoke:true,chimneyFlare:1.12},
+    trader:{window:'slateShutters',material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
+    shop:{window:'shop',material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
+    seed:{window:'shop',material:'plaster',finish:'plaster',roofMaterial:'thatch',stories:1,style:'adobe'},
+    supply:{window:'shop',material:'timber',finish:'siding',roofMaterial:'flat',stories:2,style:'whitewash',variant:'flat'},
+    potion:{window:'shop',material:'plaster',finish:'plaster',roofMaterial:'clay',stories:2,style:'pyramid',variant:'inset'},
+    relic:{window:'shop',material:'timber',finish:'masonry',roofMaterial:'redtile',stories:1,style:'pyramid',variant:'inset'},
+    pet:{window:'shop',material:'timber',finish:'siding',roofMaterial:'thatch',stories:1,style:'japanese'},
+    book:{window:'shop',material:'brick',finish:'masonry',roofMaterial:'clay',stories:2,style:'japanese'},
+    wizard:{window:'arched',material:'stone',finish:'tower',roofMaterial:'slate',stories:3,style:'pyramid',shape:'wizard'},
+    turret:{window:'casement',material:'stone',finish:'tower',roofMaterial:'slate',stories:1,style:'fort',shape:'turret'},
+    wreck:{window:'casement',material:'timber',finish:'cottage',roofMaterial:'slate',stories:1,style:'ruin',shape:'wreck'},
   };
   function recipeFor(role,palette={},stories){
     const spec=ROLES[role]||ROLES.plain,base=BuildingStyles.STYLES[spec.style];
@@ -63,20 +62,10 @@
   function triangulate(input) {
     const ring=input.map(p=>({...p}));
     if(ring.reduce((s,p,i)=>s+p.x*ring[(i+1)%ring.length].y-p.y*ring[(i+1)%ring.length].x,0)<0)ring.reverse();
-    let changed=true;
-    while(changed&&ring.length>3){changed=false;for(let i=0;i<ring.length;i++){
-      if(Math.abs(cross(ring[(i+ring.length-1)%ring.length],ring[i],ring[(i+1)%ring.length]))<1e-8){ring.splice(i,1);changed=true;break;}
-    }}
-    const pending=ring.slice(),triangles=[];
-    while(pending.length>3){let found=false;for(let i=0;i<pending.length;i++){
-      const a=pending[(i+pending.length-1)%pending.length],b=pending[i],c=pending[(i+1)%pending.length];
-      if(cross(a,b,c)<=1e-8)continue;
-      if(pending.some(p=>p!==a&&p!==b&&p!==c&&cross(a,b,p)>=-1e-8&&cross(b,c,p)>=-1e-8&&cross(c,a,p)>=-1e-8))continue;
-      triangles.push([a,b,c]);pending.splice(i,1);found=true;break;
-    }if(!found)return {ring,triangles:[]};}
-    if(pending.length===3)triangles.push(pending);
-    return {ring,triangles};
+    PolygonGeometry.removeCollinear(ring);
+    return {ring,triangles:PolygonGeometry.triangulate(ring)};
   }
+
   const value=(plane,p)=>plane.x*p.x+plane.y*p.y+plane.c;
   function clip(poly,plane){const out=[];for(let i=0;i<poly.length;i++){
     const a=poly[i],b=poly[(i+1)%poly.length],da=value(plane,a),db=value(plane,b);
@@ -243,12 +232,12 @@
       const count=chimneys?.count||1,scale=chimneys?.scale||1,C=LOOK.chimney;
       const stack=(c,column)=>{
         const corners=rr=>[[-1,-1],[1,-1],[1,1],[-1,1]].map(([sx,sy])=>({x:c.x+(ux*sx-uy*sy)*rr,y:c.y+(uy*sx+ux*sy)*rr}));
-        const top=c.z+C.above+C.rise*scale,capZ=top-C.capHeight*scale,body=corners(C.radius*scale),lo=Math.min(...body.map(roofZ))-1;
-        const box=(ring,z0,z1,kind,color,layer,textured)=>ring.forEach((a,k)=>{const b=ring[(k+1)%4];
+        const top=c.z+C.above+C.rise*scale,capZ=top-C.capHeight*scale,body=corners((chimneys?.flare?C.cap*chimneys.flare:C.radius)*scale),lo=Math.min(...body.map(roofZ))-1;
+        const box=(ring,z0,z1,kind,color,layer,textured,upper=ring)=>ring.forEach((a,k)=>{const b=ring[(k+1)%4];
           const uv=p=>textured?{u:4+column*40+k*10+Math.hypot(p.x-a.x,p.y-a.y)/DETAIL_SCALE,v:105+(z1-p.z)/DETAIL_SCALE}:{u:0,v:0};
-          for(const tri of [[{...a,z:z0},{...b,z:z0},{...b,z:z1}],[{...a,z:z0},{...b,z:z1},{...a,z:z1}]]){
+          for(const tri of [[{...a,z:z0},{...b,z:z0},{...upper[(k+1)%4],z:z1}],[{...a,z:z0},{...upper[(k+1)%4],z:z1},{...upper[k],z:z1}]]){
             add(tri.map(p=>({...p,...uv(p)})),kind,1);Object.assign(faces.at(-1),{color,wallDirection:{x:b.x-a.x,y:b.y-a.y},layer,chimney:true,inkGroup:2,rawUV:textured||undefined});}});
-        box(body,lo,capZ,'wall',C.sides,2.6,true);
+        box(body,lo,capZ,'wall',C.sides,2.6,true,chimneys?.flare?corners(C.cap*scale):body);
         const cap=corners(C.cap*scale);box(cap,capZ,top,'trim',C.capColor,2.62,false);
         for(const tri of [[0,1,2],[0,2,3]]){add(tri.map(k=>({...cap[k],z:top,u:0,v:0})),'trim',1);Object.assign(faces.at(-1),{color:C.capColor,layer:2.7,chimney:true,inkGroup:2});}
         const mouth=corners(C.mouth*scale);
@@ -261,7 +250,7 @@
   }
   const meshCache=new Map();
   function geometry(input,variant='ridge',height=29,overhang=0,chimneys=null){
-    const key=variant+':'+height+':'+overhang+':'+(chimneys?chimneys.count+'x'+chimneys.scale:'')+':'+input.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
+    const key=variant+':'+height+':'+overhang+':'+(chimneys?chimneys.count+'x'+chimneys.scale+'x'+(chimneys.flare||0):'')+':'+input.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
     if(meshCache.has(key))return meshCache.get(key);
     const mesh=buildGeometry(input,variant,height,overhang,chimneys);
     if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
@@ -323,10 +312,10 @@
     if((styleId==='pyramid'||styleId==='japanese')&&!BuildingStyles.inset(points,3))
       return geometry(points,styleId==='pyramid'?'inset':'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE);
     const base=BuildingStyles.STYLES[styleId]||BuildingStyles.STYLES.adobe;
-    const scale=styleId==='ruin'?.75:(recipe.stories*FLOOR_HEIGHT+EAVE_RISE)/(base.height*(styleId==='multistorey'?2:1));
+    const scale=styleId==='ruin'?.75:(recipe.stories*FLOOR_HEIGHT+EAVE_RISE)/(base.height*recipe.stories);
     const cacheKey='style:'+styleId+':'+scale+':'+JSON.stringify(recipe)+':'+points.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
     if(meshCache.has(cacheKey))return meshCache.get(cacheKey);
-    const model=BuildingStyles.build(points,styleId,{geometryOnly:true,scale,upperSetback:recipe.terraced?24:undefined,palette:{wall:recipe.body,roof:recipe.roof,trim:recipe.trim}});
+    const model=BuildingStyles.build(points,styleId,{geometryOnly:true,scale,stories:recipe.stories,upperSetback:recipe.terraced?24:undefined,palette:{wall:recipe.body,roof:recipe.roof,trim:recipe.trim}});
     const faces=[],quads=new Map();
     const add=(p,kind,color,layer,extra)=>{
       const [a,b,c]=p,ux=b.x-a.x,uy=b.y-a.y,uz=b.z-a.z,vx=c.x-a.x,vy=c.y-a.y,vz=c.z-a.z;
@@ -624,7 +613,7 @@
     wood:{dark:0x4a2123,mid:0x7e210d,base:0x954a39,light:0xb45c3a,bright:0xc87139},
     glass:{dark:0x185969,base:0x1fc6af,light:0x9ff0e0},flame:0xf2c76a};
   function celSheet(scene,recipe){
-    const wreck=recipe.shape==='wreck',key='lowpoly:cel-v2:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.roofMaterial,recipe.finish,wreck,!!recipe.blank]);
+    const wreck=recipe.shape==='wreck',key='lowpoly:cel-v4:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.roofMaterial,recipe.finish,recipe.window,recipe.role==='blacksmith',wreck,!!recipe.blank]);
     if(scene.textures.exists(key))return scene.textures.get(key);
     const tex=scene.textures.createCanvas(key,512,512),ctx=tex.getContext();
     const css=c=>'#'+c.toString(16).padStart(6,'0');
@@ -633,9 +622,9 @@
     const ramp=c=>({shade:mix(c,CEL.shadow,.26),base:c,light:mix(c,CEL.cream,.16)});
     const wall=ramp(recipe.body),roof=ramp(recipe.roof),ink=CEL.ink;
     const trim={shade:CEL.wood.dark,base:CEL.wood.base,light:CEL.wood.light}; // the sprites' frame wood
-    // Exposed beams (floor bands, posts, braces) are the wall's own wood, raised:
-    // a body a shade off the wall, lit along the top/left, shadowed below/right.
-    const beam=mix(wall.base,CEL.shadow,.12);
+    // Raised timbers cover the plank seams: a broad wood face with a light
+    // upper/left edge and a dark lower/right edge, all in the wall's palette.
+    const beam={base:mix(wall.base,CEL.shadow,.12),light:mix(wall.base,CEL.cream,.32),shade:mix(wall.base,CEL.shadow,.45)};
     const BOT=105,FLOORS=4,bays=[];for(let k=-1;k<=12;k++)bays.push(2+39*k);
     // --- wall surface -------------------------------------------------------
     px(0,0,512,128,wall.base);
@@ -653,11 +642,21 @@
       for(let y=5;y<128;y+=6)px(0,y,512,1,mix(wall.base,wall.shade,.5));
       for(let y=3;y<128;y+=11)for(let x=5;x<512;x+=17){if(hash(x,y)>.9)px(x,y,2,1,wall.light);}
     }
-    // Floor beams: a dark timber band with a bright top edge, every storey.
-    for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);px(0,y-1,512,3,beam);px(0,y-1,512,1,wall.light);px(0,y+1,512,1,wall.shade);}
-    if(recipe.finish==='cottage'){ // half-timbering: posts at bay edges, one brace per bay
-      for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);for(const bx of bays){px(bx-1,y,3,24,beam);px(bx-1,y,1,24,wall.light);px(bx+1,y,1,24,wall.shade);
-        for(let i=0;i<7;i++){px(bx+3+i,y+4+i,2,1,wall.shade);px(bx+3+i,y+3+i,1,1,wall.light);px(bx+34-i,y+4+i,2,1,wall.shade);px(bx+35-i,y+3+i,1,1,wall.light);}}}
+    // Keep the existing storey bands, bay posts and diagonal brace paths.
+    // Five-texel beams leave a three-texel face between their bevel lines.
+    if(recipe.finish==='cottage'){
+      for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);for(const bx of bays){
+        // Full panel diagonals join opposite corners beneath the openings.
+        for(let i=0;i<39;i++)for(const x of [bx+i,bx+38-i]){
+          const by=y-2+Math.round(i*24/39);
+          px(x,by,1,6,beam.base);px(x,by,1,1,beam.light);px(x,by+5,1,1,beam.shade);
+        }
+        px(bx-2,y,5,24,beam.base);px(bx-2,y,1,24,beam.light);px(bx+2,y,1,24,beam.shade);
+      }}
+    }
+    // Horizontal timbers cap the joints after the posts and braces.
+    for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);
+      px(0,y-2,512,5,beam.base);px(0,y-2,512,1,beam.light);px(0,y+2,512,1,beam.shade);
     }
     // Plinth: stone courses below the ground line, as the tileset keeps them;
     // walls never sample it (chimney sides and the door step do).
@@ -666,13 +665,31 @@
     px(0,BOT,512,23,plinth.base);
     for(let y=BOT+1,row=0;y<128;y+=bh,row++)for(let x=-(row%2)*bw/2;x<512;x+=bw){px(x,y+bh-1,bw,1,plinth.shade);px(x+bw-1,y,1,bh,plinth.shade);px(x+1,y,bw-3,1,plinth.light);}
     // --- openings -------------------------------------------------------------
-    const casement=(x,y,f)=>{ // 11x13 casement: ink outline, trim frame, two-tone glass, one bright pane, sill
-      px(x-1,y-1,13,15,ink);px(x,y,11,13,trim.base);
-      if(wreck){px(x+1,y+1,9,11,CEL.plum);px(x,y+3,11,3,CEL.wood.mid);px(x,y+8,11,3,CEL.wood.dark);px(x+1,y+3,1,1,ink);px(x+9,y+9,1,1,ink);return;}
-      px(x+1,y+1,9,11,CEL.glass.base);px(x+1,y+1,4,5,CEL.glass.light);px(x+6,y+7,4,5,CEL.glass.dark);
-      px(x+5,y+1,1,11,trim.shade);px(x+1,y+6,9,1,trim.shade);
-      px(x-2,y+13,15,2,trim.light);px(x-2,y+15,15,1,ink);
-      px(x-2,y-3,15,2,trim.shade);px(x-2,y-3,15,1,trim.light); // lintel plank
+    // Window shapes follow the approved house, smithy, trader and market
+    // sprites. Specialty shops share the market sprite's broad four panes.
+    const casement=(x,y)=>{
+      const style=recipe.window||'casement',shop=style==='shop',twin=style==='slateShutters',w=shop?17:11,h=10;
+      x-=Math.floor((w-11)/2);
+      px(x-1,y-1,w+2,h+2,ink);px(x,y,w,h,trim.base);
+      if(wreck){px(x+1,y+1,w-2,h-2,CEL.plum);px(x,y+2,w,2,CEL.wood.mid);px(x,y+6,w,2,CEL.wood.dark);px(x+1,y+2,1,1,ink);px(x+w-2,y+7,1,1,ink);return;}
+      px(x+1,y+1,w-2,h-2,CEL.glass.base);
+      px(x+1,y+1,Math.floor(w/2)-1,twin?h-2:3,CEL.glass.light);
+      px(x+Math.ceil(w/2),y+(twin?1:5),Math.floor(w/2)-1,twin?h-2:4,CEL.glass.dark);
+      px(x+Math.floor(w/2),y+1,1,h-2,trim.shade);
+      if(!twin)px(x+1,y+4,w-2,1,trim.shade);
+      if(style==='arched'){
+        px(x,y,w,1,trim.shade);px(x,y+1,2,2,trim.base);px(x+w-2,y+1,2,2,trim.base);
+        px(x+2,y+1,w-4,1,trim.light);
+      }
+      if(style==='woodShutters'||twin){
+        const shutter=twin?{base:0x626c80,light:0x8792a3,shade:0x3d4256}:trim;
+        for(const sx of [x-5,x+w+1]){
+          px(sx-1,y-1,6,h+2,ink);px(sx,y,4,h,shutter.base);px(sx,y,1,h,shutter.light);
+          for(let j=2;j<h;j+=3)px(sx+1,y+j,3,1,shutter.shade);
+        }
+      }
+      px(x-2,y+h,w+4,2,trim.light);px(x-2,y+h+2,w+4,1,ink);
+      px(x-2,y-3,w+4,2,trim.shade);px(x-2,y-3,w+4,1,trim.light);
     };
     const door=(x,y)=>{ // 15x21 plank door, arched ink outline, crate-style brace, step and lantern
       px(x-1,y-1,17,23,ink);px(x,y+2,15,20,CEL.wood.base);px(x+1,y,13,2,CEL.wood.base);px(x+2,y-1,11,1,ink);
@@ -717,7 +734,7 @@
     if(recipe.role!=='fort'&&LOOK.facade==='cel')return celSheet(scene,recipe);
     if(recipe.role!=='fort'&&tilesetReady(scene))return tilesetSheet(scene,recipe);
     const source=recipe.role!=='fort'&&scene.textures.exists('building_material_reference')?scene.textures.get('building_material_reference').getSourceImage():null;
-    const key=(source?'generated:':'fallback:')+'lowpoly:materials-v13:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.finish,recipe.roofMaterial,recipe.role==='fort',recipe.shape,recipe.terraced]);
+    const key=(source?'generated:':'fallback:')+'lowpoly:materials-v14:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.finish,recipe.roofMaterial,recipe.role==='fort',recipe.shape,recipe.terraced]);
     if(scene.textures.exists(key))return scene.textures.get(key);
     const tex=scene.textures.createCanvas(key,512,512),ctx=tex.getContext();
     const css=c=>'#'+c.toString(16).padStart(6,'0');
@@ -783,11 +800,11 @@
       rect(0,y,512,1,sill);
       for(let x=14;x<512;x+=39){
         if(floor===0&&x===248)continue; // Entrance owns this entire bay.
-        ctx.globalAlpha=.14;rect(x+1,y+7,9,13,'#292b2b');ctx.globalAlpha=1;
+        ctx.globalAlpha=.14;rect(x+1,y+7,9,10,'#292b2b');ctx.globalAlpha=1;
         // Four-pane casement: lit glass, one bright pane, timber cross.
-        rect(x-2,y+5,10,13,frame);rect(x-1,y+6,8,10,'#55719f');rect(x-1,y+6,3,4,'#93b0d6');
-        rect(x+2,y+6,1.2,10,css(recipe.trim));rect(x-1,y+10,8,1.2,css(recipe.trim));
-        rect(x-2,y+17,10,1.2,sill);ctx.globalAlpha=.2;rect(x-1,y+18,9,1,'#282c2c');ctx.globalAlpha=1;
+        rect(x-2,y+5,10,10,frame);rect(x-1,y+6,8,7,'#55719f');rect(x-1,y+6,3,4,'#93b0d6');
+        rect(x+2,y+6,1.2,7,css(recipe.trim));rect(x-1,y+10,8,1.2,css(recipe.trim));
+        rect(x-2,y+14,10,1.2,sill);ctx.globalAlpha=.2;rect(x-1,y+15,9,1,'#282c2c');ctx.globalAlpha=1;
       }
     }
     if(recipe.finish==='cottage'){
@@ -923,7 +940,9 @@
           }
         }};
         let group=[],support=null,groupId=0;
-        const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0)ink(group);paint(group);group=[];};
+        // The outline repeats filled triangles eight times. During a fade those
+        // layers would accumulate to opaque black and hide the player again.
+        const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0&&src.alpha===1)ink(group);paint(group);group=[];};
         for(const f of src._lowpolyFaces){
           if(!f.visible)continue;
           const g=f.inkGroup||0;
@@ -1004,12 +1023,54 @@
     }
     return result;
   }
-  function add(scene,pts,recipe,variant,key){
+  const DOOR={width:10,height:13,margin:4,reach:192};
+  // Points and streets share the unrotated map projection. Winding determines
+  // the outward wall normal; a street behind the wall cannot select it.
+  function streetDoor(points,streets){
+    const ring=triangulate(points).ring;
+    let best=null;
+    for(let i=0;i<ring.length;i++){
+      const a=ring[i],b=ring[(i+1)%ring.length],length=Math.hypot(b.x-a.x,b.y-a.y);
+      if(length<DOOR.width+2*DOOR.margin)continue;
+      const along={x:(b.x-a.x)/length,y:(b.y-a.y)/length},normal={x:along.y,y:-along.x};
+      const center={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+      for(const [c,d] of streets){
+        const dx=d.x-c.x,dy=d.y-c.y,len2=dx*dx+dy*dy;
+        if(!len2)continue;
+        const t=Math.max(0,Math.min(1,((center.x-c.x)*dx+(center.y-c.y)*dy)/len2));
+        const vx=c.x+dx*t-center.x,vy=c.y+dy*t-center.y,distance=Math.hypot(vx,vy);
+        if(distance>DOOR.reach||vx*normal.x+vy*normal.y<distance*.5)continue;
+        if(!best||distance<best.distance)best={center,along,normal,distance};
+      }
+    }
+    return best;
+  }
+  function doorFaces(door){
+    if(!door)return [];
+    const faces=[],{center,along,normal}=door;
+    const panel=(x0,x1,z0,z1,color,layer)=>{
+      const point=(x,z)=>({x:center.x+along.x*x+normal.x*.1,y:center.y+along.y*x+normal.y*.1,z,u:0,v:0});
+      const a=point(x0,z0),b=point(x1,z0),c=point(x1,z1),d=point(x0,z1);
+      for(const points of [[a,b,c],[a,c,d]])faces.push({points,kind:'trim',color,layer,light:1,door:true,wallDirection:along});
+    };
+    panel(-5,5,0,13,0x30262a,.10);
+    panel(-3.8,3.8,.7,11.8,0x79503b,.11);
+    for(const x of [-1.3,1.3])panel(x-.2,x+.2,.7,11.8,0x4d342c,.12);
+    panel(-3.8,3.8,2,2.7,0xa37b53,.13);
+    panel(2.3,3.1,5.3,6.2,0xd4b775,.14);
+    return faces;
+  }
+  function add(scene,pts,recipe,variant,key,streets=[]){
     const state=scene._lowpoly,left=Math.min(...pts.map(p=>p.x)),top=Math.min(...pts.map(p=>p.y));
     const local=pts.map(p=>({x:p.x-left,y:p.y-top}));
     let cached=recipe.shape?specialGeometry(local,recipe):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
-      ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,recipe.chimneys?{count:recipe.chimneys,scale:recipe.chimneyScale||1}:null);
+      ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
+    if(!recipe.shape&&!recipe.interior&&streets.length){
+      const localStreets=streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})));
+      const door=streetDoor(local,localStreets);
+      if(door)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};
+    }
     const texture=material(scene,recipe);(state.textures||=new Set()).add(texture.key);
     // A standing building is ONE render object sorted at its footprint
     // centroid (the player never stands among its walls). An INTERIOR (Home
@@ -1023,12 +1084,13 @@
     const mesh={...cached,faces:atlasFaces(cached,texture.roofPeriod)};
     mesh.roofTriangles=mesh.faces.filter(f=>f.kind==='roof').length;mesh.wallTriangles=mesh.faces.filter(f=>f.kind==='wall').length;mesh.trimTriangles=mesh.faces.filter(f=>f.kind==='trim').length;
     mesh.key=key;mesh.footprint=pts;mesh.role=recipe.role;mesh.x=left;mesh.y=top;mesh.smoke=recipe.smoke?cached.chimneyMouths||[]:[];state.buildings.push(mesh);if(key&&mesh.faces.length)state.keys.add(key);
-    // A wall's sort point is the end of its baseline that lies lowest on the
-    // screen (`wallSupport`: the southern end north-up, re-picked per heading
-    // in update). Every point of a wall taller than the player that overlaps
-    // the player on screen stands south of the player's feet, so the low end
-    // orders the whole wall correctly: the north wall behind, the south wall
-    // and the flanks' tops in front.
+    // A wall's sort point is its baseline's point in the player's screen
+    // column (`wallSupport` → WallPerspective.wallSortPoint; re-asked every
+    // frame in update as the player and the heading move), so a wall orders
+    // against the player exactly where the two overlap on screen: the wall
+    // behind the player stays behind along its whole length, the wall in
+    // front in front, at every heading. Placed here at its low end; update
+    // moves it at once.
     if(mesh.edge)mesh.edge={a:{x:left+mesh.edge.a.x,y:top+mesh.edge.a.y},b:{x:left+mesh.edge.b.x,y:top+mesh.edge.b.y}};
     const support=mesh.edge?{...wallSupport(mesh.edge,0),order:state.buildings.length}
       :{x:left+local.reduce((s,p)=>s+p.x,0)/local.length,y:top+local.reduce((s,p)=>s+p.y,0)/local.length,order:state.buildings.length};
@@ -1049,9 +1111,13 @@
     return mesh;
     }
   }
-  // The end of a wall's baseline that sits lowest on the screen turned by
-  // `angle` (heading_up.js keys the turned sort by s·x + c·y).
-  function wallSupport(edge,angle){
+  // A wall's sort point against the player: WallPerspective.wallSortPoint
+  // (the ONE rule both building paths share) — the baseline's point in the
+  // player's screen column at the heading `angle`, else its end lowest on
+  // screen. `at` is the player's feet in the overlay's px space.
+  function wallSupport(edge,angle,at){
+    const WP=typeof WallPerspective!=='undefined'?WallPerspective:global.WallPerspective;
+    if(WP&&WP.wallSortPoint)return WP.wallSortPoint(edge.a,edge.b,angle,at);
     const s=Math.sin(angle),c=Math.cos(angle),a=edge.a,b=edge.b;
     const p=s*a.x+c*a.y>=s*b.x+c*b.y?a:b;return {x:p.x,y:p.y};
   }
@@ -1062,10 +1128,14 @@
   function update(scene){const state=scene._lowpoly;if(!state)return;
     const visible=state.enabled&&active(scene)&&(scene.depth??0)===0;
     const angle=scene.mapRot||0;
+    // The player's feet in the overlay's px space: what every interior wall
+    // sorts against (wallSupport).
+    const feet=scene.playerScreen?scene.playerScreen():null;
+    const at=feet?{x:feet.x-state.offsetX,y:feet.y-state.offsetY}:null;
     // The retained geometry's pan changes even when its projected faces do not.
     for(const mesh of state.buildings){
       const obj=mesh.obj;obj.visible=visible;
-      if(mesh.edge){const w=wallSupport(mesh.edge,angle);mesh.support.x=w.x;mesh.support.y=w.y;}
+      if(mesh.edge){const w=wallSupport(mesh.edge,angle,at);mesh.support.x=w.x;mesh.support.y=w.y;}
       obj.setPosition(state.offsetX,state.offsetY);
       obj._huAnchor.x=mesh.support.x+state.offsetX;
       obj._huAnchor.y=mesh.support.y+state.offsetY;
@@ -1114,5 +1184,5 @@
     for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
   }
   const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);
-  global.BuildingLowPoly={LOOK,atlasFaces,ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
+  global.BuildingLowPoly={LOOK,DOOR,streetDoor,doorFaces,atlasFaces,ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
 })(window);

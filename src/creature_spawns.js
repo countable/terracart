@@ -78,15 +78,10 @@
   function pickWeighted(items, position, weightFor) {
     if (!items || !items.length) return null;
     const weight = typeof weightFor === 'function' ? weightFor : () => 1;
-    const weights = items.map((item, i) => Math.max(0, Number(weight(item, i)) || 0));
-    const total = weights.reduce((sum, n) => sum + n, 0);
-    if (!(total > 0)) return items[0];
-    let ticket = Math.max(0, Math.min(.999999999999, Number(position) || 0)) * total;
-    for (let i = 0; i < items.length; i++) {
-      ticket -= weights[i];
-      if (ticket < 0) return items[i];
-    }
-    return items[items.length - 1];
+    const rows = items.map((item, i) => ({ item, weight: Math.max(0, Number(weight(item, i)) || 0) }));
+    const picked = weightedPickAt(rows, row => row.weight,
+      Math.max(0, Math.min(.999999999999, Number(position) || 0)), { empty: rows[0] });
+    return picked.item;
   }
 
   // Each expanded row retains its source index. The owner adds formation data

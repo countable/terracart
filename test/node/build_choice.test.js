@@ -147,7 +147,7 @@ test('build choice: the type first, then the rank where more than one is open, e
 test('build choice: the offer modal has a choice row that pays only the selected card', () => {
   const sig = /showOfferModal\(\{[^)]*choices, choice = null, pickHint = 'Tap one to see what it does' \}\)/;
   assert.truthy(sig.test(MODAL_SHELL_SRC), 'choices / choice / pickHint are parameters');
-  assert.truthy(/onAccept\(quantity \? qty : hasChoices \? selected\.key : undefined\);/.test(MODAL_SHELL_SRC), 'accept hands over the key');
+  assert.truthy(/onAccept\(hasChoices \? selected\.key : undefined\);/.test(MODAL_SHELL_SRC), 'accept hands over the key');
   assert.truthy(/if \(hasChoices && !selected\) return;/.test(MODAL_SHELL_SRC), 'nothing is paid before a pick');
   assert.truthy(/selected = choices\.length === 1 \? choices\[0\]/.test(MODAL_SHELL_SRC), 'a single card is selected on its own');
   // A card's own price lands on the cost line when it is selected, and arms accept.

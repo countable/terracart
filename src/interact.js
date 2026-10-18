@@ -44,12 +44,7 @@ function finishTrapKit(ctx, action) {
 function consumeSelected(save, n = 1) {
   const sel = save.inv[save.selSlot];
   if (!sel) return;
-  sel.count -= n;
-  if (sel.count > 0) return;
-  save.inv.splice(save.selSlot, 1);
-  const egg = EGG_HATCH_SPEC[sel.id];
-  if (egg && Inventory.count(save, sel.id) === 0) save[egg.progress] = 0;
-  save.selSlot = -1;
+  Inventory.remove(save, sel.id, n);
 }
 
 // Food is consumed only after the individual animal accepts it.
@@ -73,12 +68,6 @@ function placeFoundAnimal(scene, itemId, sourceId, x, y) {
   return row;
 }
 
-// True when planted entry `p` sits in the cell at (cwmx, cwmy). eps is
-// PLACED_EPS_M for an exact snapped-center match, or half a cell to accept
-// anything overlapping.
-const inPlantedCell = (p, cwmx, cwmy, eps) =>
-  Math.abs(p.x - cwmx) < eps && Math.abs(p.y - cwmy) < eps;
-
 // ── What sits on the tapped cell ────────────────────────────────────────────
 // Resolved ONCE per tap at cell-resolve (ctx.at) for every handler after it:
 // the placed fire, scarecrow, magic trap and crop on this level in the WHOLE
@@ -99,10 +88,10 @@ function cellOccupants(scene, save, cwmx, cwmy) {
     magicTrapIdx: at(save.magicTraps, half),
     // A surface crop and the cave cell below it share world coords (the GPS
     // mirror), so only this level's crop is here.
-    plantedIdx: save.planted.findIndex(p => (p.depth ?? 0) === depth && inPlantedCell(p, cwmx, cwmy, half)),
+    plantedIdx: at(save.planted, half),
     fireHere: at(save.fires, PLACED_EPS_M) >= 0,
     scarecrowHere: at(save.scarecrows, PLACED_EPS_M) >= 0,
-    plantedHere: save.planted.some(p => inPlantedCell(p, cwmx, cwmy, PLACED_EPS_M)),
+    plantedHere: at(save.planted, PLACED_EPS_M) >= 0,
   };
 }
 
@@ -120,7 +109,7 @@ function confirmFeed(scene, foodId, faunaKind, doFeed) {
 }
 
 // ─── Cell-bounded tap targeting ──────────────────────────────────────────────
-// Everything in the world except FAUNA owns exactly one cell (CLAUDE.md's
+// Ordinary world props own exactly one cell (CLAUDE.md's
 // "one cell" sprite rule), so its tap target IS that cell: a tap inside the
 // cell hits it, a tap outside never does.
 //
@@ -135,8 +124,8 @@ function confirmFeed(scene, foodId, faunaKind, doFeed) {
 // Creatures keep their own hit test (a box matching the DRAWN sprite, see the
 // 'creature' handler): they move continuously and are drawn feet-anchored, so
 // they don't belong to a cell the way a planted object does. Multi-cell
-// buildings are reached through the 'building-zone' handler, which is itself
-// cell-based — it accepts any BUILDING-terrain cell of the footprint.
+// buildings also accept their visible roof/wall faces ('building-art') and
+// any BUILDING-terrain cell of the footprint ('building-zone').
 
 // Closest item of `layer` whose own cell is the cell the tap landed in, or
 // null. "Closest" only breaks ties between items sharing one cell.
@@ -165,6 +154,23 @@ function findItemInTapCell(scene, layer, wm, accept) {
     if (d2 < bestD2) { bestD2 = d2; best = item; }
   });
   return best;
+}
+
+// Resolve visible architecture to its owning object, even when the roof is
+// drawn over another ground cell. Never redirect to a nearby unrelated house.
+function buildingTapTarget(scene, sx, sy) {
+  const key = typeof Render !== 'undefined' ? Render.buildingHit?.(scene, sx, sy) : null;
+  if (!key) return null;
+  let target = null;
+  WorldGen.forEachItem('objects', o => {
+    if (o.id !== key || (!isBuilding(o.kind) && o.kind !== 'temple')) return;
+    if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(scene.save, o)) return;
+    if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o)) return;
+    if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, true)) return;
+    target = o;
+    return true;
+  });
+  return target;
 }
 
 // Nearest item in a WorldGen layer to (px, py) within reach that passes
@@ -539,7 +545,7 @@ function placeOnEmptyCell(ctx, { itemId, energyKey, ground = isTillableCell, ext
   const sel = getSelectedSlot(save);
   const selItem = sel ? ITEM_BY_ID[sel.id] : null;
   if (!(selItem && selItem.id === itemId && (sel.count ?? 0) > 0 &&
-        ground(cell) && !scene.tilledSet.has(cellKey) &&
+        ground(cell) && !(PlacedFloor.isSurface(scene.depth) && scene.tilledSet.has(cellKey)) &&
         (!extraGuard || extraGuard(ctx)) && !occupantsOf(ctx).plantedHere)) {
     return false;
   }
@@ -593,6 +599,7 @@ const TAP_HANDLERS = [
   // (it used to be a 7.5 m disk — a cell and a half of slop in every
   // direction, which dug up treasure from cells away from the mark).
   { name: 'treasure', try: (ctx) => {
+    if (ctx.building) return false;
     const { scene, save, wm, sx, sy } = ctx;
     const found = new Set(save.foundTreasures || []);
     const tryClaim = (tr) => {
@@ -637,6 +644,7 @@ const TAP_HANDLERS = [
   // up, not mined, pulled or caught. So the coin sits above the creature and
   // wild-plant handlers, next to the X mark (also instant).
   { name: 'coindrop', try: (ctx) => {
+    if (ctx.building) return false;
     const { scene, save, wm, sx, sy } = ctx;
     let bestEntry = null, bestIdx = -1, bestD2 = Infinity;
     // Scan the 3×3 tile neighbourhood around the player (same set the
@@ -668,6 +676,15 @@ const TAP_HANDLERS = [
     collectGroundCoin(scene, bestEntry, coin, null, sx, sy, save);
     ctx.dirty = true;   // money changed — persist
     return true;
+  }},
+
+  // Visible walls and roofs own the tap before anything on the ground behind
+  // them. Resolve the exact owner through the normal interaction registry.
+  { name: 'building-art', try: (ctx) => {
+    const o = ctx.building;
+    if (!o) return false;
+    if (tooFar(ctx, o.x, o.y)) return 'far';
+    return runInteractable(ctx, o);
   }},
 
   // Creature taps use drawn sprite bounds. Favourite food prepares a wild
@@ -1175,11 +1192,8 @@ const TAP_HANDLERS = [
     const isDupTapChest = chestCellDedup(scene.cellM);
     for (const o of allObjs) {
       if (o.kind === 'chest' && isDupTapChest(o)) continue;
-      // The object's own cell is its whole tap target — for a house / turret /
-      // market stall too, however far their art rises above it. Nothing is
-      // lost for multi-cell buildings: the 'building-zone' handler below
-      // catches taps on any BUILDING-terrain cell of a footprint and routes
-      // them to that building, which is cell-based in the same way.
+      // Ground-cell fallback. Buildings also accept their visible raised art
+      // above, and the building-zone handler accepts the rest of the footprint.
       if (!itemContainsTapCell(scene, o, tapCell)) continue;
       if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, true)) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
@@ -1280,6 +1294,18 @@ const TAP_HANDLERS = [
     // A temple footprint never snaps to a nearby ordinary shop, including
     // while its object's tile dressing is still loading.
     if (owner && entry?.buildingShapes?.some(s => s.key === owner && s.kind === 'temple')) return true;
+    // Prefer the footprint's actual owner over a closer neighbouring door.
+    if (owner) {
+      let building = null;
+      WorldGen.forEachItem('objects', o => {
+        if (o.id !== owner || !isBuilding(o.kind)) return;
+        if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, true)) return;
+        if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o)) return;
+        building = o;
+        return true;
+      });
+      if (building) return runInteractable(ctx, building);
+    }
     const best = findClosestItem('objects', cwmx, cwmy, 30,
       (o) => isBuilding(o.kind)
         && !(typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, true))
@@ -1904,10 +1930,12 @@ function interactTap(scene, sx, sy) {
   // The player's position is NOT carried on ctx: every reach test goes through
   // tooFar → cellInReach (coords.js), which reads the player's feet cell off
   // the scene itself, so the handlers only need the tap.
-  const ctx = { scene, save: scene.save, wm, sx, sy, dirty: false };
+  const building = buildingTapTarget(scene, sx, sy);
+  const ctx = { scene, save: scene.save, wm, sx, sy, building, dirty: false };
   // Ground behind partial cover is still drawn (only what stands on it is
   // hidden, per-handler), so only FULL cover's darkness gates a ground tap.
-  const covered = typeof Visibility !== 'undefined' && Visibility.playerCover(scene, wm.x, wm.y) === Visibility.FULL;
+  const coverPoint = building || wm;
+  const covered = typeof Visibility !== 'undefined' && Visibility.playerCover(scene, coverPoint.x, coverPoint.y) === Visibility.FULL;
   let consumedBy = null;
   for (const h of TAP_HANDLERS) {
     // An existing action can still be cancelled by tapping covered ground.

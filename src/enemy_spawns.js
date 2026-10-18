@@ -26,11 +26,7 @@
     return {};
   }
   function pick(weighted, r) {
-    const total = weighted.reduce((sum, x) => sum + x.weight, 0);
-    if (!(total > 0)) return null;
-    let n = r * total;
-    for (const item of weighted) { n -= item.weight; if (n < 0) return item.row; }
-    return weighted[weighted.length - 1].row;
+    return weightedPickAt(weighted, item => item.weight, r)?.row || null;
   }
   // Public pool query delegates to the same habitat selector as generation.
   function surfaceRows(type, context) {

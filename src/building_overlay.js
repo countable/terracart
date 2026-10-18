@@ -358,35 +358,15 @@
     let ring = source.map(p => ({ x: p.x - left, y: p.y - top }));
     const cross = (a, b, c) => (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
     // Remove only duplicate/collinear vertices, never small genuine details.
-    let changed = true;
-    while (changed && ring.length > 3) {
-      changed = false;
-      for (let i = 0; i < ring.length; i++) {
-        if (Math.abs(cross(ring[(i+ring.length-1)%ring.length], ring[i], ring[(i+1)%ring.length])) < 1e-8) {
-          ring.splice(i,1); changed = true; break;
-        }
-      }
-    }
+    PolygonGeometry.removeCollinear(ring);
     if (ring.reduce((a,p,i) => a + p.x*ring[(i+1)%ring.length].y-p.y*ring[(i+1)%ring.length].x,0) < 0) ring.reverse();
     const first = ring.reduce((best,p,i) => p.x < ring[best].x || (p.x === ring[best].x && p.y < ring[best].y) ? i : best,0);
     ring = ring.slice(first).concat(ring.slice(0,first));
     const key = detail + ':' + variant + ':' + ring.map(p => `${p.x.toFixed(5)},${p.y.toFixed(5)}`).join(';');
     if (roofCache.has(key)) return roofCache.get(key);
-    const triangles = [], pending = ring.slice();
-    while (pending.length > 3) {
-      let found = false;
-      for (let i = 0; i < pending.length; i++) {
-        const a = pending[(i+pending.length-1)%pending.length], b = pending[i], c = pending[(i+1)%pending.length];
-        if (cross(a,b,c) <= 1e-8) continue;
-        if (pending.some(p => p !== a && p !== b && p !== c
-          && cross(a,b,p) >= -1e-8 && cross(b,c,p) >= -1e-8 && cross(c,a,p) >= -1e-8)) continue;
-        triangles.push([a,b,c]); pending.splice(i,1); found = true; break;
-      }
-      // Invalid/self-intersecting rings retain the old flat roof, never a fan
-      // stretched across missing space.
-      if (!found) return { triangles: [], ring, variant };
-    }
-    triangles.push(pending);
+    const triangles = PolygonGeometry.triangulate(ring);
+    // Invalid rings retain the old flat roof, never a fan across missing space.
+    if (!triangles.length) return { triangles: [], ring, variant };
     const pitch = variant === 'shallow' ? 0.32 : 0.68;
     const cap = variant === 'inset' ? 9 : variant === 'shallow' ? 5 : 32;
     const controlRing=detail==='clean' ? simplifyRoofRing(ring) : ring;
@@ -1354,7 +1334,7 @@
     const s = scene.save || {};
     const n = (o) => (o ? (Array.isArray(o) ? o.length : Object.keys(o).length) : 0);
     return [!!scene._headingUp,scene.game?.renderer?.type,Render.buildingArtStyle,scene.buildingRoofVariant,scene.buildingRoofDetail,scene.buildingStoreys].join(':') + ',' + n(s.restoredHouses) + ',' + n(s.unlockedForts) + ',' + n(s.claimedCastles)
-      + ',' + JSON.stringify([s.restoredHouses, s.shopLines, s.bookshopId, s.petshopId, s.starterBlacksmithId])
+      + ',' + JSON.stringify([s.restoredHouses, s.shopLines, s.shopTiers, s.bookshopId, s.petshopId, s.starterBlacksmithId])
       + ',' + (s.starterShopId || '') + ',' + Object.values(s.temples || {}).filter(r => r.active).length
       // Home's roof comes off while the player is inside (drawHome).
       + ',' + (scene.homeInside ? Number(!!scene.homeInside()) : '');
@@ -1395,6 +1375,16 @@
     // Cell-snapped projection (the container re-applies the sub-cell offset) —
     // the same one the road overlay strokes with — and its padded cull bounds.
     const { projX, projY, minX, maxX, minY, maxY } = overlayProjection(scene, fracX, fracY);
+
+    // Use the same source street lines and projection as the road painter.
+    const doorStreets = [];
+    if (lowpoly && typeof RoadOverlay !== 'undefined' && typeof RoadOverlay.transportLines === 'function') {
+      for (const { line, mvtToM, originMx, originMy } of RoadOverlay.transportLines(tiles.filter(t => t.entry.layers))) {
+        for (let i = 1; i < line.length; i++) doorStreets.push([line[i-1], line[i]].map(p => ({
+          x: projX(originMx + p.x * mvtToM), y: projY(originMy + p.y * mvtToM),
+        })));
+      }
+    }
 
     // Per-pass memo of ownerKey → claimed, the same one the tiled pass keeps:
     // a footprint asks the save once instead of once per shape.
@@ -1537,6 +1527,15 @@
               scene._wallPerspective.home.alwaysActive = true;
               homeBegun = true;
             }
+            scene._wallPerspective.home.building = {
+              key: d.key, footprint: d.pts,
+              anchor: { x: (d.left + d.right) / 2, y: (d.north + d.south) / 2 },
+            };
+            // Inside, every wall sorts against the player on its own
+            // (WallPerspective perWall / worldPieces) — one graphics object
+            // under the player's container would draw the player over the
+            // walls in front of them.
+            scene._wallPerspective.home.perWall = inside;
             homeWalls(scene, d, HomeArea.HOUSE, inside);
           } else if (!inside && typeof HomeArea !== 'undefined') {
             g.fillPoly(d.pts, HomeArea.HOUSE.roof.top);   // a bare fill target: a flat roof
@@ -1584,11 +1583,14 @@
           const base = BuildingStyles.STYLES[styleId], palette = {...base,...profile.palette};
           const paint = c => tuneOf(isMine)(shadeOf(isMine)(c));
           const recipe = BuildingLowPoly.recipeFor(role,{wall:paint(palette.wall),roof:paint(palette.roof),
-                trim:paint(role==='turret'?palette.wall:0x614534)},scene.buildingStoreys);
+                trim:paint(role==='turret'?palette.wall:0x614534)},Render.buildingStoreysFor(object, scene));
           const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant
             || recipe.variant||'ridge';
-          model = BuildingLowPoly.add(scene,d.pts,recipe,variant,object.id);
-        } else model = BuildingStyles.emit(scene, 'polygon', d.pts, styleId, { claimed: isMine, palette: profile.palette });
+          model = BuildingLowPoly.add(scene,d.pts,recipe,variant,object.id,doorStreets);
+        } else model = BuildingStyles.emit(scene, 'polygon', d.pts, styleId, {
+          claimed: isMine, palette: profile.palette,
+          stories: Render.buildingStoreysFor(object, scene) ?? BuildingLowPoly.ROLES[specialtyFor(scene.save, object)]?.stories,
+        });
         if (model && (model.faces?.length || model.prisms?.length)) {
           // Signs and flags seat on the drawn top: the low-poly path foreshortens height.
           if (object.id) scene._proceduralBuildings.set(object.id, { height: model.height * (lowpoly ? BuildingLowPoly.LOOK.heightScale : 1) });
@@ -1610,7 +1612,7 @@
       if (d.tier === 9 && g.housePoly && (!Render.proceduralBuildings || Render.proceduralBuildings())) {
         g.housePoly(d.pts, floor, tune(shade(faceColor(d.tier, isMine))),
           tune(dim(shaded, OUTLINE_MUL)), specialtyFor(scene.save, houses.get(d.key)
-            || { kind: 'house', id: d.key, tier: 9 }), scene.buildingRoofVariant, scene.buildingStoreys, d.seed, isMine);
+            || { kind: 'house', id: d.key, tier: 9 }), scene.buildingRoofVariant, Render.buildingStoreysFor(d.object || {kind:'house',id:d.key,tier:9}, scene), d.seed, isMine);
         continue;
       }
       // The wall, as the ring filled again one face-depth south and painted

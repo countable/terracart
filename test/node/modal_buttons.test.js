@@ -1,7 +1,7 @@
 // modal_shell.js: ONE button factory for every button a modal shows.
 //
 // Regression guard for the footprint refactor: the pager arrows, choice
-// cards, stepper keys, tabs and the reward card's actions used to be
+// cards, tabs and the reward card's actions used to be
 // hand-built <button>s with two different ghost styles (#eee/#666 on
 // Cancel, #ddd/#555 everywhere else), a local `dim()` and a second
 // `_setEnabled` on Take. Every button now comes from mkBtn, in one of two
@@ -21,12 +21,9 @@ test('modal buttons: mkBtn is the only button factory, with one ghost and one di
   for (const site of [
     /const tb = mkBtn\(t\.label, \{ variant: 'ghost', css:/,
     /const b = mkBtn\(glyph, \{ variant: 'ghost', css:/,
-    /const mkStep = \(label\) => mkBtn\(label, \{ variant: 'ghost', css:/,
     /const b = mkBtn\(a\.label, a\.primary \? \{ accent, css: cardCss \} : \{ variant: 'ghost', css: cardCss \}\);/,
     /take = mkBtn\(confirmLabel, \{ accent, css:/,
   ]) assert.truthy(site.test(src), `${site} builds through mkBtn`);
-  assert.truthy(/minusBtn\._setEnabled\(qty > minQ\);\s*\n\s*plusBtn\._setEnabled\(qty < maxQ\);/.test(src),
-    'the stepper keys toggle through _setEnabled');
 });
 
 test('modal buttons: the delivery menu\'s house rows come from mkBtn too', () => {

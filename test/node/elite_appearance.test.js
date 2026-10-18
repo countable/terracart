@@ -29,6 +29,10 @@
     // NaN: the elite was unmarked. No pass may read it that way.
     assert.falsy(/const \{ sx, sy \} = project\(/.test(RENDER_SRC), 'no pass reads {sx, sy} off project');
     assert.truthy(/item\.band === 'outer' \? 'elite_ring' : 'elite_ring_inner'/.test(RENDER_SRC), 'the ring pass draws the baked rune circle');
-    assert.truthy(/bakeRingBand = \(key, periodDeg, path\) => \{[\s\S]{0,400}?bakeCanvas\(this, key,/.test(SCENE_SRC), 'baked once, top-down, at boot');
+    assert.truthy(/bakeGroundMark = \(key, frames, path, ink = '#fff'\) => \{[\s\S]{0,400}?bakeCanvas\(this, key,/.test(SCENE_SRC), 'baked once, top-down, at boot');
+    assert.truthy(/bakeRingBand = \(key, periodDeg, path, ink\) =>\s*bakeGroundMark\(key, Math\.round\(periodDeg \/ ELITE_RING_STEP_DEG\), path, ink\)/.test(SCENE_SRC),
+      'the ring bands are the shared flat ground-mark bake, one frame per step');
+    assert.truthy(/GROUND_MARK\.strokes\(ink\)/.test(SCENE_SRC) && /size \* GROUND_MARK\.tilt\)/.test(RENDER_SRC),
+      'ink and tilt come from GROUND_MARK, shared with the GPS ring');
   });
 })();

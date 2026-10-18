@@ -116,8 +116,10 @@ const HomeArea = {
     wall: { face: 0xa88a62, top: 0xe8dcc2, dark: 0x5e4730 },
     roof: { top: 0xa8463a, shade: 0x7f3329, lite: 0xcf6a53, dark: 0x5f2820 },
     // The world outside the house while the player is inside it: the
-    // lightmap's multiply colour and how much of the picture it takes.
-    maskColour: 0x0a0d12, maskAlpha: 0.86,
+    // lightmap's multiply colour, how much of the picture it takes, and how
+    // far its edge feathers into the room across the walls' outline
+    // (lighting.js paintIndoorMask), map px.
+    maskColour: 0x0a0d12, maskAlpha: 0.86, maskFeatherPx: 2,
   },
   // Is the cell (dx, dy) from the wagon cell one of the house's?
   inHouse(dx, dy) {
@@ -178,12 +180,13 @@ const HomeArea = {
   // The opening shot of a new game: the camera starts zoomed in until
   // `viewCells` cells span the map frame, centred `focus` cells from the
   // player (up, and a little toward the house's middle), so the house fills
-  // the top half and the player stands in its doorway. Once Home stands and no
-  // dialog covers the map it holds `holdMs`, then eases back out to the
-  // normal view over `outMs`. Home's sign is hidden until the hold begins,
+  // the top half and the player stands in its doorway. Once no dialog covers
+  // the map it holds `holdMs`, regardless of pending Home placement, then
+  // eases back out to the normal view over `outMs`. Home's sign is hidden
+  // until the hold begins,
   // then types out one character every `labelCharMs` (every session types
   // it once; a returning player's starts on the first frame).
-  INTRO: { viewCells: 4.5, focus: { dx: -0.2, dy: -0.5 }, holdMs: 1000, outMs: 4000, labelCharMs: 85 },
+  INTRO: { viewCells: 4.5, focus: { dx: -0.2, dy: -0.5 }, holdMs: 2000, outMs: 4000, labelCharMs: 85 },
 
   // Doubled in Oct 2026 (was 10 trails within 24 cells): the cap and the
   // search area both, so twice the chests get a trail whichever binds.

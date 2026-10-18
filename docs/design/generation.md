@@ -124,7 +124,7 @@ access or tile lifecycle mechanics.
   in, still fewer than the herbs.
 
 - Every house fronting a plain (unthemed) Small street stands 0-2 loot barrels
-  (`HOUSE_BARREL_ODDS`: 40% none, 40% one, 20% two)
+  (`HOUSE_BARREL_ODDS`: 50% none, 40% one, 10% two)
   on the verge before it, clustered side by side a cell back from the kerb
   (`StreetVariants.dressSteps`, the house barrels pass; `HOUSE_BARRELS_MAX`,
   `HOUSE_FRONT_REACH_CELLS`, `HOUSE_FRONT_SPAN_CELLS`). They are always
@@ -264,6 +264,10 @@ access or tile lifecycle mechanics.
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
   Each spawner owns a seeded RNG stream so adding one does not reroll others.
+  Weighted draws share `weightedPickAt`; adapters retain their RNG consumption,
+  exact boundary comparisons and zero-weight fallback to preserve seeded worlds.
+  Placement occupancy uses `PlacedFloor.indexAt` for crops and placed objects;
+  surface-only tilled cells must not block placements on other floors.
   Barricades are tier-2 supplies found in supply/field loot or supply shops.
   Finding one unlocks its Home recipe: three wood makes one barricade. Select
   it and tap an empty safe cell to place it on the current floor. Saved

@@ -811,7 +811,7 @@ test('building overlay: nothing is drawn underground', () => {
 // paints its new pieces and uploads a page once, with no pixel read-back.
 // The stub records what a Phaser CanvasTexture would be asked to do.
 function makeWallScene(over) {
-  const log = { pages: [], removedTextures: [], frames: [], removedFrames: [], refreshes: 0, sprites: [], polygons: [], strokes: [] };
+  const log = { pages: [], removedTextures: [], frames: [], removedFrames: [], refreshes: 0, sprites: [], polygons: [], strokes: [], worldParts: [] };
   const ctx = new Proxy({}, { get: (obj, key) => obj[key] || (() => {}), set: (obj, key, v) => { obj[key] = v; return true; } });
   let path = [], framePolygons = [];
   ctx.clearRect = () => { framePolygons = []; };
@@ -828,7 +828,9 @@ function makeWallScene(over) {
       add(sprite) { sprite.parentContainer = this; log.sprites.push(sprite); },
       sort(key) { log.sprites.sort((a, b) => a[key] - b[key]); },
     },
-    worldContainer: { add() { throw new Error('building walls must stay out of the world layer'); } },
+    // Only world GEOMETRY (Home's per-wall parts, flagged before they are
+    // added) joins the world layer; the wall atlas sprites never do.
+    worldContainer: { add(o) { if (!o._worldGeometry) throw new Error('building walls must stay out of the world layer'); log.worldParts.push(o); } },
     textures: {
       exists: () => false,
       remove: (key) => log.removedTextures.push(key),
@@ -1592,6 +1594,18 @@ test('building overlay: inside Home the roof comes off and the walls show their 
   const walls = group.blocks.filter(b => b.bottom === 0);
   assert.gt(walls.length, 8, 'the walls stand');
   assert.truthy(walls.every(b => b.colors.top === H.wall.top), 'their tops are the wall\'s own course');
+  // Inside, every wall sorts against the player on its own: one world-layer
+  // part per block, each at its wall's sort point (owner, Oct 2026: the one
+  // wall-container graphics drew the player over the walls in front).
+  assert.truthy(group.perWall, 'the home group is per wall while inside');
+  assert.eq(group.parts.filter(p => p.visible).length, group.blocks.length, 'a visible part per block');
+  assert.truthy(group.parts.every(p => p._worldGeometry && p._huAnchor), 'world geometry with a sort anchor');
+  const pieces = WallPerspective.worldPieces(scene);
+  assert.eq(pieces.length, group.blocks.length, 'handed to the frame\'s world sort');
+  scene.homeInside = () => false;
+  BuildingOverlay.draw(scene);
+  assert.falsy(scene._wallPerspective.home.perWall, 'outside, one roofed object again');
+  assert.truthy(scene._wallPerspective.home.parts.every(p => !p.visible), 'its parts put away');
   clearTiles();
 });
 test('building overlay: Home\'s walls stay up north-up, and an adopted Home has no doorway', () => {

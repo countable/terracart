@@ -12,7 +12,7 @@ Use these terms for object presentation and walking behavior, not pixel height:
 | Category | Code value | Examples | Compass and walking behavior |
 | --- | --- | --- | --- |
 | Groundcover | `WorldLayers.GROUNDCOVER` | Terrain, nexus/variant textures, floors | Follows the map; no support lift |
-| Ground decals | `WorldLayers.GROUND_DECAL` | X marks, tar puddles, holes, flat rune rings | Above groundcover, below props; follows the map; no lift |
+| Ground decals | `WorldLayers.GROUND_DECAL` | X marks, tar puddles, holes | Above groundcover, below props; follows the map; no lift |
 | Step-over props | `WorldLayers.STEP_OVER_PROP` | Cold/lit firepit, rocks, rubble, bushes, low walls | Upright; supports the player's feet while crossing |
 | Standing props | `WorldLayers.STANDING_PROP` | Saplings, trees, lamps, dropped-item icons, houses | Upright; ordinary feet-based depth ordering; no support lift |
 
@@ -33,8 +33,12 @@ The render camera anchor snaps once to the logical pixel grid before ground,
 sprites and inverse taps project their positions. Physical player/GPS positions
 remain continuous; player art projects against that same snapped anchor.
 
-Contact shadows are presentation attached to props, not ground decals; flat rune
-rings are decals and retain the map's rotation.
+Contact shadows are presentation attached to props, not ground decals. The
+flat ground marks beside them (the elite's rune circle, the GPS ring) are
+squashed top-down bakes: heading-up counter-rotates them like the shadows, and
+the map's turn reaches their runes or ticks as a frame of their rotation strip
+(`Render.groundMarkFrame`), never as a sprite rotation that would stand the
+ellipse on its end.
 
 The home firepit is centred two cells due south of the house's centre after the
 first device-compass reading (see [Home](combat.md)), without an inward artwork
@@ -62,6 +66,9 @@ retained perimeter faces, descending below the floor instead of rising as a wall
 Only camera-facing sides draw; uncapped perimeters also support concave footprints
 without triangulating their textured floors. Floors remain cached ground textures;
 Procedural house roofs use triangulated caps and retained sloped roof faces.
+`PolygonGeometry` owns collinear pruning, ear clipping and the shared even–odd
+point-in-rings predicate. Renderers retain their own coordinate normalization,
+canonical vertex order and mesh caches.
 They share the same elevation projection in north-up and heading-up modes;
 legacy sprite modes retain the north-up wall atlas artwork.
 The WebGL low-poly path (`building_lowpoly.js`) draws houses to match the 2D
@@ -84,7 +91,9 @@ or their visible projected faces cover the player's body from in front. The
 footprint test includes concave outlines; the overlap test uses visible triangles
 for low-poly meshes and ramparts, and trimmed art bounds for legacy sprites.
 These checks follow compass rotation and retained pan offsets, and restore full
-opacity immediately on leaving. They update opacity without rebuilding geometry
+opacity immediately on leaving. Faded low-poly buildings skip the filled ink
+outline passes so overlapping ink cannot obscure the player through the fade.
+They update opacity without rebuilding geometry
 or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
 Wrecks render below the player without fading. Broken wall sections vary in
 height; their interior step cuts run perpendicular to each wall, while corners
@@ -108,14 +117,22 @@ house floor on the canvas and then the house. On the low-poly path it is the
 thick top band (`interiorGeometry`) — and the lightmap masks the outside (see
 Lighting). An interior is one render object PER WALL (`interiorGeometry`
 tags each face with its ring `edge`; `BuildingLowPoly.add` places a mesh per
-edge), sorted in the shared world sort at the wall's low end on screen
-(`wallSupport`: its southern end north-up, re-picked per heading), so the
-player draws over the wall behind them and under the wall in front; a
-standing building stays one object at its footprint centroid. Without the low-poly path (Canvas, north-up) the same house is
+edge), each sorted in the shared world sort at its wall's sort point
+(`WallPerspective.wallSortPoint`, the one rule both building paths share:
+the baseline's point in the player's screen column at the current heading,
+clamped to the wall's ends and re-asked every frame; a wall seen end-on
+takes its end lowest on screen), so the player draws over the wall behind
+them and under the wall in front along the wall's whole length at every
+heading; a standing building stays one object at its footprint centroid.
+Without the low-poly path (Canvas) the same house is
 retained prisms in the `home` group (`WallPerspective`, `alwaysActive`) with
 the palisade's thickness and a taller wall, a doorway gap on the door side
 (`shape.door`), and a gabled two-tone roof with a ridge; inside, no roof and
-the wall tops in the wall's own colour. The sign seats over the drawn top, or
+the wall tops in the wall's own colour, and the group is `perWall`: every
+wall section draws into a part of its own in the world container, anchored
+at the same sort point and handed to the frame's world sort through
+`WallPerspective.worldPieces` — never the one wall-container graphics,
+which sits under the player's container and drew the player over every wall. The sign seats over the drawn top, or
 `HOUSE.signLiftPx` above the footprint's centre when there is no model.
 
 A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim
@@ -156,8 +173,8 @@ the real source so a missing texture cannot become a permanent cached palette.
   “of”), only the first word appears. Full names remain available in dialogs.
 - The circular map and compass rim sit 55 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
-- Zoom is camera-only. The initial view spans nine cells instead of eleven,
-  one cell closer on each edge (`MAP_DEFAULT_ZOOM`). Plain +/− buttons on the
+- Zoom is camera-only. The initial resting view is the closest setting,
+  spanning seven cells (`MAP_DEFAULT_ZOOM`). Plain +/− buttons on the
   right change the resting span by two cells, bounded by `PINCH_VIEW_CELLS`
   and `VIEW_CELLS`; disabled buttons mark the limits. The choice lasts for the
   session, including modals and depth changes. Pinch zoom remains temporary
@@ -165,7 +182,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   `_applyMapZoom` clips the camera viewport and counter-scales map chrome;
   the DOM controls never zoom or rotate. Gameplay ranges and loading stay
   based on `VIEW_CELLS`; taps convert back through `_unzoomPt`.
-  The opening shot uses the same camera and ends at the selected resting zoom.
+  The opening shot uses the same camera: after two seconds with the map
+  unobscured it begins easing back to the selected resting zoom. Pending Home
+  placement never holds the camera in the close-up.
 - Once Phaser selects its renderer, software Canvas uses a 1× backing store:
   the logical pixel-art grid. WebGL retains its 2× memory budget. This avoids
   CPU-bound high-DPR rasterization during map rotation without changing CSS
@@ -217,7 +236,7 @@ the real source so a missing texture cannot become a permanent cached palette.
   health bars and ping graphics use a counter-rotated annotation container
   with the same projected anchors and circular rim limits.
 - The player's feet sit on the GPS fix. Ground marks (shadow, footprints,
-  the facing chevron) use that point; body
+  the facing chevron, the GPS ring) use that point; body
   effects use `playerBodyDy()` so they also follow the downed pose. Do not
   compensate for sprite seating by changing the projection.
 - Water, tar-yard terrain and unburned street tar puddles lower the player's
@@ -288,7 +307,15 @@ the real source so a missing texture cannot become a permanent cached palette.
   (`pad_shrine`, drawn with its masonry face south) turns back about its cell
   centre the same way, while flat POI pads turn with the ground. Ground decals retain their own
   opacity, and fruit overlays follow their tree.
-- Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
+- Ordinary props resolve taps by data cell (`sameAbsCell`). Buildings additionally
+  accept their visible roof and wall extent through `Render.buildingHit`: retained
+  visible triangles for low-poly meshes and wall prisms, trimmed art bounds for
+  legacy sprites. Hit tests use the same heading projection and pan offsets as
+  drawing; pointer input has already undone camera zoom and heading. Overlapping
+  buildings select the frontmost drawn owner, with no hits in empty corners of
+  pitched roofs. The owner routes through the ordinary interaction registry and
+  existing reach/visibility gates; ground-footprint taps remain supported.
+  Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
   Seated art, shadows and labels counterrotate about the cell centre so these
@@ -338,7 +365,18 @@ the real source so a missing texture cannot become a permanent cached palette.
   (`elite_ring`, `elite_ring_inner`, baked at boot) turning against each
   other and tinted the rank's `ring` colour — `Render.canvasTint` bakes the
   tinted copy under Canvas, which ignores sprite tint. A sprite rotated after
-  being squashed tilts the ellipse, so a turning ground decal is a strip.
+  being squashed tilts the ellipse, so a turning ground mark is a strip, and
+  the compass turn is a strip frame too (`Render.groundMarkFrame`).
+- Flat ground marks share one table, `GROUND_MARK` (render.js): the bake size,
+  the on-screen width at which the baked strokes land at their designed
+  weight, the tilt that lays a top-down bake flat for the south camera, the
+  strip step, and the stroke passes (dark under-stroke, soft halo, line) in a
+  mark's ink.
+  `bakeGroundMark` (scene_create.js) is the one bake; the elite's rune bands
+  and the player's GPS ring (`gps_ring`, baked in gold, `GPS_RING` geometry)
+  are its rows. The GPS ring (`gpsGhost`) is always drawn while there is a fix:
+  around the feet while the body stands on it, left on the ground once the
+  stick walks the body off. The walk-home lead stops on the ring's ellipse.
   The shine sweep and a warping rank's space warp (`Render.setEliteWarp`, a
   camera post pass attached only while one is on screen) need the device's
   graphics-FX opt-in (`Render.canShine`). Phaser's PreFX pipeline draws its
@@ -535,10 +573,15 @@ the reach rim within the existing player-light radius.
   caves ignore it.
 - Indoors (`scene.homeInterior`, non-null while the player stands on one of
   Home's cells) `paintIndoorMask` fills the lightmap outside the house with
-  `HomeArea.HOUSE.maskColour` at `maskAlpha`, the house cut out as the convex
-  hull of its ring and the ring lifted by the walls' height (`liftPx`, so the
-  lift is screen-up at every heading); the frame key carries the interior and
-  the GPU compositor stands down while it is up. Masks compose over the lights;
+  `HomeArea.HOUSE.maskColour` at `maskAlpha`, the house cut out as its exact
+  roofless silhouette: the ring swept by the walls' drawn height
+  (`indoorSilhouette`, filled nonzero, so an L-shaped adopted house keeps its
+  notch dark; `liftPx`, so the lift is screen-up at every heading, and the
+  drawn height alone, never plus the wall thickness). The cut's edge feathers
+  `maskFeatherPx` into the room across the walls' outline, built on the
+  mask's own layer (`indoorCuts`), so no seam of lit ground shows outside the
+  walls. The frame key carries the interior and its lift, and the GPU
+  compositor stands down while the mask is up. Masks compose over the lights;
   only sources add.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors
   cull by viewport plus light radius, not sprite bounds. The POI pad and the

@@ -416,3 +416,40 @@ body.compass-hud #gps-pad {left:var(--phone-left,0px)!important;right:var(--phon
 
 /* Stable counter widths without switching away from the shared UI font. */
 body.compass-hud #energy-label,body.compass-hud #money-num,body.compass-hud .compass-wheel {font-variant-numeric:tabular-nums;}
+
+/* Approved mechanical bearing chassis. Keep the live controls above its relief. */
+body.compass-round #compass-body::before {
+  background-image: url('../assets/ui/compass/compass-bearing.webp');
+  background-size: 100% auto;
+  background-position: center top;
+  background-repeat: repeat-y;
+}
+body.compass-round .compass-header,
+body.compass-round .compass-footer {
+  background: none;
+}
+body.compass-round .compass-upper-join::before,
+body.compass-round .compass-lower-join::before,
+body.compass-round .compass-shine-surface {
+  display: none;
+}
+body.compass-hud.compass-round #inv-tabs::before {
+  background-image: linear-gradient(#10121133, #080b0a88 75%);
+}
+
+/* The bearing artwork rises 15 screen pixels; its live compass rises 5.
+   Move the aperture and shading masks together with the map and gold rim. */
+body.compass-round #compass-body::before {
+  background-position: center -15px;
+}
+body.compass-round #compass-body::before,
+body.compass-round #compass-body::after {
+  mask-image: radial-gradient(circle calc(var(--compass-map-size) / 2) at 50% calc(var(--compass-map-top) + var(--compass-map-size) / 2 - 5px), transparent calc(100% - 1px), #000 100%);
+}
+body.compass-round .compass-aperture,
+body.compass-round .compass-bearing {
+  top: calc(var(--compass-map-top) - 5px);
+}
+body.compass-round #game {
+  translate: 0 -5px;
+}

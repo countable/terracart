@@ -3514,25 +3514,22 @@ class MapScene extends Phaser.Scene {
     // _followStep, which steps the body toward the target and mines any wall
     // in the way — see the target-follow branch above.)
 
-    // GPS ghost: where you REALLY are, whenever the character isn't standing
-    // there. One cell of slack keeps it off screen for ordinary GPS jitter (a
-    // fix wanders a few metres while you stand still) so it appears only when
-    // the stick has genuinely walked you off your position. At EVERY depth:
-    // a descent GPS-mirrors the world coordinates (changeDepth), so underground
-    // the fix is still the point over your head that the dig has wandered off
-    // from, and it is the one ground marker the map keeps — the walk target
-    // itself (this._targetM) draws nothing, see the gpsGhost block in create().
+    // GPS ghost: where you REALLY are, always — a ring around the feet while
+    // the character stands on the fix, and a mark left on the ground once the
+    // stick has walked it off. It used to hide within a cell of the body so
+    // GPS jitter would not pop it in and out; drawn always, the jitter is just
+    // the ring breathing a few pixels under the feet, and the player learns
+    // what the mark is before they ever leave it. At EVERY depth: a descent
+    // GPS-mirrors the world coordinates (changeDepth), so underground the fix
+    // is still the point over your head that the dig has wandered off from,
+    // and it is the one ground marker the map keeps — the walk target itself
+    // (this._targetM) draws nothing, see the gpsGhost block in create().
     if (this.gpsM) {
-      const rdx = this.gpsM.x - this.playerM.x;
-      const rdy = this.gpsM.y - this.playerM.y;
-      if ((rdx * rdx + rdy * rdy) > this.cellM ** 2) {
-        const g = worldMetersToScreen(this,
-          this.startWorldM.x + this.gpsM.x,
-          this.startWorldM.y + this.gpsM.y);
-        this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y)).setVisible(true);
-      } else {
-        this.gpsGhost.setVisible(false);
-      }
+      const g = worldMetersToScreen(this,
+        this.startWorldM.x + this.gpsM.x,
+        this.startWorldM.y + this.gpsM.y);
+      this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y)).setVisible(true)
+        .setFrame(Render.groundMarkFrame(this, 'gps_ring'));   // ticks turn with the map
     } else if (this.gpsGhost.visible) {
       this.gpsGhost.setVisible(false);
     }
@@ -4575,10 +4572,13 @@ class MapScene extends Phaser.Scene {
   // the monster's melee, the goblin arrow) — NOT from _flashPlayerHit, which a
   // trap's bite and bleed also go through: iron jaws are not a foe walking up.
   // Every shop dialog is kind 'shop' (makeModalShell stamps data-kind), and
-  // closing one is just removing it — the same thing its Cancel does.
+  // interruption closes through the offer lifecycle, releasing deferred reads.
   _closeShopOnHit() {
     if (typeof document === 'undefined') return;
-    for (const w of document.querySelectorAll('.game-modal[data-kind="shop"]')) w.remove();
+    for (const w of document.querySelectorAll('.game-modal[data-kind="shop"]')) {
+      if (w.closeModal) w.closeModal('hit');
+      else w.remove();
+    }
   }
 
   _flashPlayerHit(dmg) {
@@ -4659,7 +4659,7 @@ class MapScene extends Phaser.Scene {
   }
   // Food out of the bag: Inventory.remove is the one bag writer (never more
   // than the stack holds), the bar rebuilt so the missing piece shows, the
-  // selection re-clamped like any consume, and the "-N Name" in the danger
+  // selection preserved by Inventory.remove, and the "-N Name" in the danger
   // ink — the same tier the eat button's "+N" answers in gold.
   _losePlayerFood(id, n, thief) {
     const taken = Inventory.remove(this.save, id, Math.max(0, Math.floor(n || 0)));
@@ -6120,9 +6120,9 @@ class MapScene extends Phaser.Scene {
   // --- The opening shot (HomeArea.INTRO) ---
   // A new game opens close on Home: zoomed until INTRO.viewCells span the
   // frame, the camera INTRO.focus off the player, so the wagon fills the
-  // top half and the player stands at its door. It waits there while Home is
-  // still being placed or a dialog (the opening story, the location prompt)
-  // covers the map, holds INTRO.holdMs once the map is clear, then widens
+  // top half and the player stands at its door. It waits while a dialog
+  // (the opening story, the location prompt) covers the map, holds
+  // INTRO.holdMs once the map is clear, then widens
   // back to the normal view over INTRO.outMs. Camera-only, through the same
   // mapZoom and peekM the pinch and the peek use, and it never rests: it ends
   // at the selected resting zoom and no offset. A finger on the map hands
@@ -6142,7 +6142,9 @@ class MapScene extends Phaser.Scene {
     }
     const I = HomeArea.INTRO;
     if (it.phase === 'wait') {
-      if (this.save.starterShopId && (this.depth || 0) === 0 && !this._dialogOpen()) it.phase = 'hold';
+      // Placement can wait on GPS, tiles, or a free site. It must not trap
+      // the camera in the opening close-up once the player can use the map.
+      if ((this.depth || 0) === 0 && !this._dialogOpen()) it.phase = 'hold';
     } else {
       it.t += dt * 1000;
       if (it.phase === 'hold' && it.t >= I.holdMs) { it.phase = 'out'; it.t = 0; }
@@ -6948,12 +6950,13 @@ class MapScene extends Phaser.Scene {
   // Deliberately quiet. It waits out WALK_HOME_HINT_IDLE_MS after the stick was
   // last touched (the walk itself starts earlier, at WALK_HOME_IDLE_MS — the
   // first moments need no explaining to the player who just let go),
-  // and it needs the dot on screen, which is the game's own test for "far
-  // enough off your real position to matter". Gold and translucent — the same
-  // gold the GPS crosshair itself is drawn in (UI_GOLD, 0xffe066), so the line
-  // and the marker it runs to read as one piece of furniture rather than two
-  // unrelated marks, and it stays quieter than the coloured compasses (the
-  // green tutorial dot, the cyan pairy dot) by being translucent.
+  // and it draws nothing until the feet are clear of the ring, so a jittering
+  // fix under a standing body never grows a stub of a line. Gold and
+  // translucent — the same gold the GPS ring itself is drawn in (UI_GOLD,
+  // 0xffe066), so the line and the marker it runs to read as one piece of
+  // furniture rather than two unrelated marks, and it stays quieter than the
+  // coloured compasses (the green tutorial dot, the cyan pairy dot) by being
+  // translucent.
   _drawWalkHomeHint(dt) {
     const g = this.walkHomeGfx;
     if (!g) return;
@@ -6969,12 +6972,17 @@ class MapScene extends Phaser.Scene {
     const dx = x1 - x0, dy = y1 - y0;
     const len = Math.hypot(dx, dy);
     // Stop short of the character at the near end so the line never runs into
-    // the sprite. At the far end it stops on the crosshair's RING (baked at
-    // radius 5 in the 'gps_crosshair' texture above) rather than short of it:
-    // the line is meant to reach the marker, so it touches it.
-    const NEAR_GAP = 11, FAR_GAP = 5;
-    if (len < NEAR_GAP + FAR_GAP + 10) return;
+    // the sprite. At the far end it stops on the GPS RING itself rather than
+    // short of it: the line is meant to reach the marker, so it touches it.
+    // The ring is the 'gps_ring' bake laid flat (GROUND_MARK.tilt), so its
+    // radius along the line is the ellipse's at that bearing.
+    const NEAR_GAP = 11;
+    if (len < 1e-6) return;
     const ux = dx / len, uy = dy / len;
+    const rx = this.gpsGhost.displayWidth * GPS_RING.r / GROUND_MARK.bakePx;
+    const ry = rx * GROUND_MARK.tilt;
+    const FAR_GAP = 1 / Math.hypot(ux / rx, uy / ry);
+    if (len < NEAR_GAP + FAR_GAP + 10) return;
     const from = NEAR_GAP, to = len - FAR_GAP;
     const DASH = 5, PERIOD = 11, MARCH = 26;   // px, px, px/s
     if (!this._reducedMotion) {
@@ -8688,7 +8696,7 @@ class MapScene extends Phaser.Scene {
       { art: 'revive_found', title: 'Found',    body: 'Villagers find you by lantern light. They lift you gently and carry you home.' },
       // The carer is the villager revive_wake draws; they say nothing, which
       // is the point. What the revival GAVE is the energy pop's to say.
-      { art: 'revive_wake',  title: 'Home',     body: 'You wake under a rough blanket in your house. A farmhand nods goodbye.' },
+      { art: 'revive_wake',  title: 'Home',     body: 'You wake under a rough blanket at Home. A farmhand nods goodbye.' },
     ];
     MemoryStory.showPages(this, PANELS, { kind: 'story' });   // "Next" between them, "OK" on the last
   }
@@ -10557,10 +10565,9 @@ class MapScene extends Phaser.Scene {
   }
 
   // --- Two-bar inventory helpers ------------------------------------------
-  // After a spend spliced a stack out (Inventory.remove leaves the re-clamp
-  // to its caller): a selection that fell off the end of save.inv becomes
-  // "nothing in hand" (-1) — never a neighbouring stack the player didn't
-  // pick. A gear selection's -1 is below every length, so it is left alone.
+  // Bounds guard for inventory replacement paths. Inventory.remove itself
+  // preserves the selected stack across compaction and clears a consumed one.
+  // A gear selection's -1 is below every length, so it is left alone.
   _clampSelSlot() {
     if (this.save.selSlot >= this.save.inv.length) this.save.selSlot = -1;
   }
@@ -10667,9 +10674,8 @@ class MapScene extends Phaser.Scene {
       if (!owned) this.save.selGear = null;
     }
 
-    // Tabs holding inventory stacks keep one trailing empty-hand slot, even
-    // when they also contain equipped gear. Armor remains gear-only.
-    const cellCount = displayList.length + (cat.kinds ? 1 : 0);
+    // Only actual entries count toward paging; blank cells are inert.
+    const cellCount = displayList.length;
     const pageCount = Math.max(1, Math.ceil(Math.max(1, cellCount) / PAGE));
     if (this.save.invPage >= pageCount) this.save.invPage = pageCount - 1;
     if (this.save.invPage < 0) this.save.invPage = 0;
@@ -10903,21 +10909,9 @@ class MapScene extends Phaser.Scene {
           persistSave(this.save);
           this.refreshInventoryHighlight();
         });
-      } else if (cat.kinds && p === displayList.length) {
-        // The single trailing EMPTY slot — selecting it means "nothing held",
-        // which a shop reads as buy intent. dataset.slot = -1.
-        slot.dataset.slot = -1;
-        slot.title = 'empty';
-        slot.textContent = '';
-        slot.addEventListener('click', (e) => {
-          e.stopPropagation();
-          this.save.selSlot = -1;
-          this.save.selGear = null;
-          persistSave(this.save);
-          this.refreshInventoryHighlight();
-        });
       } else {
-        // Filler beyond the list — inert, and blank for the same reason.
+        // Empty cells cannot be selected or focused.
+        slot.disabled = true;
         slot.textContent = '';
         slot.style.cursor = 'default';
       }

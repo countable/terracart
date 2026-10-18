@@ -193,8 +193,9 @@ MOVEMENT & REACH
  - ONE movement model at every depth: a GPS fix (plus any stick offset) sets a
    TARGET and the body walks toward it — underground mining through whatever
    blocks it.
- - a GPS crosshair (`gpsGhost`) marks your REAL position whenever the body has
-   left it, so you can see where you are and walk back.
+ - a flat gold GPS ring (`gpsGhost`) always marks your REAL position: around
+   the feet while the body stands on it, and left on the ground once the stick
+   has walked the body off, so you can see where you are and walk back.
  - the MOVEMENT STICK is always on screen and needs no relic (see STICK
    WALKING under GEAR).
  - device compass drives a facing arrow; with no compass it falls back to the

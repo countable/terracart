@@ -1796,7 +1796,7 @@
     const indoors = scene.homeInterior ? scene.homeInterior() : null;
     const gpu = typeof LightingGPU !== 'undefined' && LightingGPU.active(scene) && !indoors;
     const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, now, pnow) + '|cover:' + (cover?.key || '') + '|gpu:' + gpu
-      + '|in:' + (indoors ? indoors.key : '');
+      + '|in:' + (indoors ? indoorKey(scene, indoors) : '');
     if (key === tex.__lightKey) {
       scene._boot_lightMs = 0;
       if (B) B.count('lightmap painted', 0);
@@ -1918,60 +1918,127 @@
   // hands over its ring), everything OUTSIDE the walls goes dark: the lightmap
   // multiplies the world, so a near-black fill over the outside, with the
   // house cut out, is the room's four walls shutting the street out. The cut
-  // is the ring's convex hull together with the ring lifted by the walls'
-  // height and thickness (screen-up, turned into the map's frame like a
-  // lamp's lift — liftPx), so the north wall's inner face and top, which
-  // rise above the floor's outline, stay lit with the floor and nothing past
-  // them does (the roof is off indoors). The player's own light still reaches
-  // the whole room; the mask takes only what is outside.
-  // Monotone-chain hull: a handful of points, once per repaint.
-  function indoorHull(points, lift) {
-    const pts = points.concat(points.map(p => ({ x: p.x + lift.x, y: p.y + lift.y })))
-      .sort((a, b) => a.x - b.x || a.y - b.y);
-    if (pts.length < 3) return pts;
-    const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-    const lower = [];
-    for (const p of pts) {
-      while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
-      lower.push(p);
+  // is the house's exact silhouette with its roof off: the ring swept up by
+  // the walls' drawn height (screen-up, turned into the map's frame like a
+  // lamp's lift — liftPx), which is the floor, the wall tops and every wall
+  // face between them, and nothing past them. The lift is the height the
+  // walls are drawn at and no more: lifted by the wall's thickness as well,
+  // the cut cleared the far wall's top and a band of lit ground showed above
+  // it. Its edge is feathered INTO the room across the walls' outline
+  // (HomeArea.HOUSE.maskFeatherPx), so a sub-pixel seam between the cut and
+  // the drawn wall never reads as light outside. The player's own light still
+  // reaches the whole room; the mask takes only what is outside.
+  //
+  // The silhouette of a ring swept along a lift: each edge whose outward side
+  // faces along the lift rides up by it, the others stay on the floor, and a
+  // riser joins the two where they meet (the convolution of the ring with the
+  // lift segment). Filled NONZERO it is exactly the union of the floor, the
+  // lifted ring and the wall quads — for an L-shaped adopted house too, where
+  // a convex hull left the notch lit.
+  function indoorSilhouette(points, lift) {
+    const n = points.length;
+    if (n < 3) return points.slice();
+    const s = ringArea(points) >= 0 ? 1 : -1;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const a = points[i], b = points[(i + 1) % n];
+      // Outward normal s·(dy, -dx) against the lift.
+      const t = s * ((b.y - a.y) * lift.x - (b.x - a.x) * lift.y) > 0 ? 1 : 0;
+      out.push({ x: a.x + lift.x * t, y: a.y + lift.y * t }, { x: b.x + lift.x * t, y: b.y + lift.y * t });
     }
-    const upper = [];
-    for (let i = pts.length - 1; i >= 0; i--) {
-      const p = pts[i];
-      while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
-      upper.push(p);
+    return out;
+  }
+  function ringArea(points) {
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      area += a.x * b.y - b.x * a.y;
     }
-    lower.pop(); upper.pop();
-    return lower.concat(upper);
+    return area;
+  }
+  // The ring drawn in by `d` px (BuildingStyles.inset, which insets a
+  // positive-area ring), or null when it cannot be.
+  function insetRing(points, d) {
+    if (typeof BuildingStyles === 'undefined' || !BuildingStyles.inset) return null;
+    const ring = ringArea(points) >= 0 ? points : points.slice().reverse();
+    return BuildingStyles.inset(ring, d);
+  }
+  // The cuts that take the house out of the mask, outermost first: each is a
+  // silhouette and the share of what the mask still holds that it erases, so
+  // the mask ramps down in thirds across `feather` px inside the silhouette
+  // and is gone from there in. No feather, or a ring too small to inset: one
+  // full cut.
+  function indoorCuts(points, lift, feather) {
+    const rings = [points];
+    if (feather > 0) {
+      for (let k = 1; k < 3; k++) {
+        const ring = insetRing(points, feather * k / 3);
+        if (!ring) { rings.length = 1; break; }
+        rings.push(ring);
+      }
+    }
+    return rings.map((ring, k) => ({ points: indoorSilhouette(ring, lift), alpha: 1 / (rings.length - k) }));
+  }
+  // The walls' height: the low-poly model's when Home is drawn that way
+  // (building_overlay.js records it), else the prism house's.
+  function indoorLift(scene, HA) {
+    const drawn = scene._proceduralBuildings?.get(scene.save?.starterShopId)?.height;
+    return liftPx(scene, { dyPx: -(drawn || HA.wallPx) });
+  }
+  // What the frame key carries for the room: the house and the lift the cut
+  // is swept by, which turns with the heading.
+  function indoorKey(scene, indoors) {
+    const HA = (typeof HomeArea !== 'undefined') ? HomeArea.HOUSE : null;
+    if (!HA) return indoors.key;
+    const lift = indoorLift(scene, HA);
+    return `${indoors.key}:${lift.x.toFixed(1)},${lift.y.toFixed(1)}`;
+  }
+  function indoorMaskLayer(scene, W, H) {
+    let layer = scene._indoorMaskLayer;
+    if (!layer || layer.width !== W || layer.height !== H) {
+      layer = scene._indoorMaskLayer = document.createElement('canvas');
+      layer.width = W; layer.height = H;
+    }
+    return layer;
   }
   function paintIndoorMask(ctx, scene, indoors, ax, ay, ox, oy, W, H) {
     const HA = (typeof HomeArea !== 'undefined') ? HomeArea.HOUSE : null;
     if (!HA || !indoors?.ring?.length) return;
-    // The walls' height: the low-poly model's when Home is drawn that way
-    // (building_overlay.js records it), else the prism house's.
-    const drawn = scene._proceduralBuildings?.get(scene.save?.starterShopId)?.height;
-    const lift = liftPx(scene, { dyPx: -((drawn || HA.wallPx) + HA.thicknessPx) });
+    const lift = indoorLift(scene, HA);
     const pts = indoors.ring.map(p => {
       const sp = deltaMToScreen(scene, p.x - ax, p.y - ay);
       return { x: sp.x - ox, y: sp.y - oy };
     });
-    const hull = indoorHull(pts, lift);
-    if (hull.length < 3) return;
+    const cuts = indoorCuts(pts, lift, HA.maskFeatherPx || 0);
+    // The mask is built on its own layer — the cuts erase it, not the lights
+    // under it — then laid over the lightmap.
+    const layer = indoorMaskLayer(scene, W, H);
+    const g = layer.getContext('2d');
+    g.save();
+    g.globalCompositeOperation = 'source-over';
+    g.clearRect(0, 0, W, H);
+    g.globalAlpha = HA.maskAlpha;
+    g.fillStyle = cssOf(HA.maskColour);
+    g.fillRect(0, 0, W, H);
+    g.globalCompositeOperation = 'destination-out';
+    for (const cut of cuts) {
+      g.globalAlpha = cut.alpha;
+      g.beginPath();
+      g.moveTo(cut.points[0].x, cut.points[0].y);
+      for (let i = 1; i < cut.points.length; i++) g.lineTo(cut.points[i].x, cut.points[i].y);
+      g.closePath();
+      g.fill('nonzero');
+    }
+    g.restore();
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = HA.maskAlpha;
-    ctx.fillStyle = cssOf(HA.maskColour);
-    ctx.beginPath();
-    ctx.rect(0, 0, W, H);
-    ctx.moveTo(hull[0].x, hull[0].y);
-    for (let i = 1; i < hull.length; i++) ctx.lineTo(hull[i].x, hull[i].y);
-    ctx.closePath();
-    ctx.fill('evenodd');
+    ctx.globalAlpha = 1;
+    ctx.drawImage(layer, 0, 0);
     ctx.restore();
   }
 
   window.Lighting = {
-    KINDS, radiusCells, indoorHull, paintIndoorMask, TORCH_RADIUS_MUL, TORCH_DAY_FLOOR, torchStrength, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, REACH_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
+    KINDS, radiusCells, indoorSilhouette, indoorCuts, paintIndoorMask, TORCH_RADIUS_MUL, TORCH_DAY_FLOOR, torchStrength, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, REACH_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylightAtTime, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, CRITICAL_LIGHT_MIX, CRITICAL_LIGHT_DIM, CRITICAL_LIGHT_DIP, CRITICAL_PLAYER_TINT_A, criticalLights, critPaintProfile, mixColour, mixToWhite, scaleColour, lum, atLuminance,
