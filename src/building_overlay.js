@@ -1531,6 +1531,11 @@
               key: d.key, footprint: d.pts,
               anchor: { x: (d.left + d.right) / 2, y: (d.north + d.south) / 2 },
             };
+            // Inside, every wall sorts against the player on its own
+            // (WallPerspective perWall / worldPieces) — one graphics object
+            // under the player's container would draw the player over the
+            // walls in front of them.
+            scene._wallPerspective.home.perWall = inside;
             homeWalls(scene, d, HomeArea.HOUSE, inside);
           } else if (!inside && typeof HomeArea !== 'undefined') {
             g.fillPoly(d.pts, HomeArea.HOUSE.roof.top);   // a bare fill target: a flat roof
