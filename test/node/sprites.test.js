@@ -453,7 +453,10 @@ test('Mushroom Grove giant caps fit centered inside the cell and have distinct r
   assert.eq(JSON.stringify(wildplantRewards(p.crop)),JSON.stringify([{id:'wood',qty:1},{id:'mushroom',qty:1}]));
   assert.eq(itemName(p.crop),'Giant mushroom');
   assert.eq(inventoryIconSource(p.crop).sheet,'giant_mushroom');
-  assert.truthy(RENDER_SRC.includes('const box = ov?.seat && SpriteLayout.ART_BOUNDS'));
+  assert.truthy(RENDER_SRC.includes('const placement = Render.plantPlacement(p, ov, wildplantFrame(p), stage);'),
+    'the planted pass seats through the shared placement rule');
+  assert.truthy(RENDER_SRC.includes('const box = art?.seat && SpriteLayout.ART_BOUNDS[`${art.sheet}:${frame}`];'),
+    'which seats a `seat: true` look off its trimmed bounds');
 });
 
 test('gas mushrooms retain distinct small and giant art through the normal wildplant render view', () => {
@@ -721,6 +724,80 @@ test('heading-up: prop shadows turn about their prop\'s ground anchor', () => {
     'every reused slot drops the previous anchor first');
   assert.truthy(body.includes('s._huAnchor = Render.objectGroundAnchor(item._appearance, scene.textures, { x: sx, y: sy });'),
     'prop shadows share the anchor their sprite turns about');
+  // A wild plant's shadow turns about the plant's cell point too (the planted
+  // sprite's pool-default anchor), its foot kept screen-down like a prop's.
+  const plant = body.slice(body.indexOf('item._plantShadow'), body.indexOf('return;', body.indexOf('item._plantShadow')));
+  assert.truthy(plant.includes('s._huAnchor = { x: Math.round(sx), y: Math.round(sy), footDy: shadow.dyPx };'),
+    'plant shadows anchor on the cell point with the foot offset');
+  const cell = { x: 130, y: 120 }, dyPx = 14.7;
+  for (const angle of [Math.PI / 4, Math.PI / 2, Math.PI]) {
+    const shadow = { type: 'Image', visible: true, x: cell.x, y: cell.y + dyPx, rotation: 0, originX: 0.5, originY: 0.5,
+      _huAnchor: { x: cell.x, y: cell.y, footDy: dyPx } };
+    HeadingUp._upright(shadow, -angle, []);
+    const c = Math.cos(-angle), sn = Math.sin(-angle);
+    assert.inRange(shadow.x - (cell.x - sn * dyPx), -1e-9, 1e-9);
+    assert.inRange(shadow.y - (cell.y + c * dyPx), -1e-9, 1e-9);
+    assert.inRange(shadow.rotation + angle, -1e-9, 1e-9, 'the ellipse stays flat');
+  }
+});
+
+test('wild plant contact shadows centre on the seated art foot with the prop ellipse rule', () => {
+  // The ellipse used to be sized off the untrimmed sheet frame and centred
+  // on its bottom edge, which put the palm's shadow below its trunk and spilled
+  // 10 px into the next cell; now it is the prop rule off the seated art.
+  const assets = new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC + '\nreturn ASSETS;')({}, EnemyRoster, SpriteLayout);
+  const had = typeof ASSETS !== 'undefined';
+  if (!had) globalThis.ASSETS = assets;
+  try {
+    const looks = [
+      ['palm', WILDPLANT_CONTEXT_ART.palm],
+      ['bramble', CROP_SPRITE.shrub.looks.bramble],
+      ['clipped', CROP_SPRITE.shrub.looks.clipped],
+    ];
+    let seated = 0;
+    for (const [name, look] of looks) {
+      assert.truthy(look.shadow, name + ' casts an authored shadow');
+      for (const frame of look.frames) {
+        const bb = SpriteLayout.ART_BOUNDS[`${look.sheet}:${frame}`];
+        assert.truthy(bb, `${name} frame ${frame} has measured bounds`);
+        const scl = look.scale;
+        const seat = look.seat ? SpriteLayout.seatInCell(bb, 0.5, 0.5, scl, scl) : { dxPx: 0, dyPx: 0 };
+        if (look.seat) seated++;
+        const foot = seat.dyPx + (bb.maxY - 0.5 * bb.fh) * scl;
+        const sh = Render.wildplantShadow(null, { ...look, frame });
+        assert.inRange(sh.dyPx - foot, -1e-9, 1e-9, `${name} ${frame}: ellipse centred on the foot`);
+        const width = Math.max(8, (bb.maxX - bb.minX) * scl * 0.9);
+        assert.inRange(sh.width - width, -1e-9, 1e-9, `${name} ${frame}: 0.9 × the trimmed art width`);
+        assert.inRange(sh.height - width * 0.42, -1e-9, 1e-9, `${name} ${frame}: the prop aspect`);
+        assert.truthy(sh.dyPx + sh.height / 2 <= CELL_PX / 2 + 6, `${name} ${frame}: spill stays within the prop range`);
+        // The live plant resolves the same frame and foot as the bare look.
+        const p = { kind: 'wildplant', crop: 'shrub', wildId: 'wp_1_2_3', _plantArt: name === 'palm' ? 'palm' : name, _biome: name === 'palm' ? 2 : 0 };
+        if (wildplantFrame(p) === frame) {
+          const live = Render.wildplantShadow(p);
+          assert.inRange(live.dyPx - foot, -1e-9, 1e-9, `${name}: live plant shares the look's foot`);
+          const place = Render.plantPlacement(p, wildplantSprite(p), frame, MAX_GROWTH_STAGE);
+          assert.eq(place.scl, scl); assert.eq(place.oy, 0.5);
+          assert.inRange(place.dyPx - seat.dyPx, -1e-9, 1e-9, 'the planted pass seats where the shadow expects');
+        }
+      }
+    }
+    assert.truthy(seated > 0, 'at least one seated look (the palm) exercised');
+    // A procedural background's size multiplier scales the shadow with the art.
+    const big = Render.wildplantShadow({ kind: 'wildplant', crop: 'shrub', wildId: 'wp_9', _plantArt: 'bramble', _terrainScale: 1.5 });
+    const one = Render.wildplantShadow({ kind: 'wildplant', crop: 'shrub', wildId: 'wp_9', _plantArt: 'bramble' });
+    assert.inRange(big.width / one.width - 1.5, -1e-9, 1e-9);
+  } finally {
+    if (!had) delete globalThis.ASSETS;
+  }
+});
+
+test('the scarecrow\'s baked shadow is its contact shadow', () => {
+  const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  const spec = art.RENDER_SPEC._scarecrow;
+  assert.truthy(spec.seat, 'the scarecrow still seats off its trimmed bounds');
+  assert.falsy(spec.shadow, 'no second ellipse under the bake');
+  const look = art.resolveAppearance({kind:'_scarecrow',id:'sc'});
+  assert.truthy(look.visible && look.foot, 'seated with a depth foot');
 });
 
 test('picked wild berries leave a plain bush across redraw and save reload without restoring the pickup', () => {

@@ -3939,7 +3939,8 @@ function labelFactory(style) {
 // width) and alpha. Props and buildings share the ground look; a creature's
 // is flatter — it rides the hop, so a squatter ellipse reads as the ground
 // under it — and fainter still when airborne, the standard "how high is it"
-// cue. A wild plant's ellipse is sized off its own art (wildplantShadow).
+// cue. A wild plant's ellipse is the prop rule off its seated art at the
+// plant alpha (wildplantShadow).
 // `dy` lifts the ellipse off the ground point: a creature's feet stand on
 // the ellipse's middle rather than its top edge (the elite's rune circle
 // shares the creature look's centre).
@@ -4561,6 +4562,10 @@ Render.drawObjects = function drawObjects(scene) {
       if (item._plantShadow) {
         const shadow = item._plantShadow;
         seatShadow(s, 'plant', shadow.width, Math.round(sx), Math.round(sy) + shadow.dyPx, shadow.height);
+        // Turn with the plant about its cell point (the planted sprite's
+        // pool-default anchor), so the ellipse stays under the foot at every
+        // heading instead of swinging round the cell with the map.
+        s._huAnchor = { x: Math.round(sx), y: Math.round(sy), footDy: shadow.dyPx };
         return;
       }
       // Non-building path: an ellipse centred on the art's base, so its top
@@ -5342,30 +5347,14 @@ Render.drawObjects = function drawObjects(scene) {
       setTextureIfDifferent(s, 'crops');
       s.setFrame(frame);
     }
-    // 16×16 frame, scale 2 = 32×32 display. Centre the sprite in its cell
-    // (origin 0.5, 0.5): a (0.5, 0.85) foot-anchor on flat ground tiles
-    // (longgrass, flowers, wildplants) sat 11 px above the cell centre.
-    //
-    // Exception: Crops.png seed frames (stage 0, default crops sheet) only have
-    // pixels in the bottom half of their cell, so centring puts the seed at the
-    // bottom of the tile. Stage 0 only: use the foot-anchor (0.5, 0.85).
-    // Stages 1+ grow upward and look right centered.
-    const isCropsSheet = !ov || (!ov.custom && ov.sheet !== 'springcrops');
-    const oy = (stage === 0 && isCropsSheet) ? 0.85 : 0.5;
-    // Actual player-planted crops (not wildplants rendered through this same
-    // pool, and not placed rockfruit stones) sit 3px higher and 20% smaller
-    // than the shared crop art.
-    const isPlantedCrop = p.wildId == null && !p._placedRock;
-    const cropScl = ((ov && ov.scale != null) ? ov.scale : 2) * (isPlantedCrop ? 0.8 : (p._terrainScale ?? 1));
-    const plantedYOffset = isPlantedCrop ? 3 : 0;
-    // Tall authored plants follow the same cell-foot rule as trees and props.
-    const box = ov?.seat && SpriteLayout.ART_BOUNDS[`${ov.sheet}:${wildplantFrame(p)}`];
-    const placement = box ? SpriteLayout.seatInCell(box, 0.5, oy, cropScl, cropScl) : {dxPx:0, dyPx:0};
-    s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx) + placement.dxPx, Math.round(sy) + placement.dyPx - plantedYOffset);
+    // Scale, origin row and seat offsets are the one placement rule the
+    // contact shadow reads too (Render.plantPlacement), so neither can drift.
+    const placement = Render.plantPlacement(p, ov, wildplantFrame(p), stage);
+    s.setOrigin(0.5, placement.oy).setScale(placement.scl).setPosition(Math.round(sx) + placement.dxPx, Math.round(sy) + placement.dyPx);
     // A bush being logged sways about its foot, as a tree under the axe does
     // (the pool reset its rotation before this configure).
     Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, p, performance.now()),
-      s.x, s.y + (1 - oy) * s.displayHeight);
+      s.x, s.y + (1 - placement.oy) * s.displayHeight);
   });
 
   // Growth-timer corner badges: for a watered, still-growing crop, render the
@@ -5843,15 +5832,47 @@ Render.drawObjects = function drawObjects(scene) {
 
 // Shared appearance rules for the live renderer and static review canvases.
 // Callbacks that change gameplay appearance remain opt-in through spec.after.
-// Authored plant contact shadows use the same dimensions in-game and in review.
+// A plant's contact shadow: the prop rule (0.9 × the trimmed art width,
+// SHADOW_LOOK.prop's aspect) centred on the seated art's foot, at the plant
+// alpha, so the ellipse tucks behind the plant like every other standing prop
+// and turns about the same cell point. `dyPx` is that foot, which also orders
+// the plant among props by depth. Same numbers in-game and in review, where
+// `plant` may be null for a bare look carrying its `frame`.
 Render.wildplantShadow = function (plant, art = wildplantSprite(plant)) {
   if (!art?.shadow) return null;
-  const frame = ASSETS[art.sheet];
-  if (!frame) return null;
-  const scale = art.scale || 1;
-  const height = frame.frameHeight * scale;
-  return { width: frame.frameWidth * scale * 1.15, height: height * 2 / 3,
-    dyPx: height / 2, alpha: SHADOW_LOOK.plant.alpha };
+  const asset = ASSETS[art.sheet];
+  if (!asset) return null;
+  const frame = plant ? wildplantFrame(plant) : (art.frame ?? art.frames?.[0] ?? 0);
+  const place = Render.plantPlacement(plant, art, frame, MAX_GROWTH_STAGE);
+  const bb = SpriteLayout.ART_BOUNDS[`${art.sheet}:${frame}`];
+  const width = Math.max(8, (bb ? bb.maxX - bb.minX : asset.frameWidth) * place.scl * 0.9);
+  return { width, height: width * SHADOW_LOOK.prop.aspect,
+    dyPx: place.dyPx + ((bb ? bb.maxY : asset.frameHeight) - place.oy * asset.frameHeight) * place.scl,
+    alpha: SHADOW_LOOK.plant.alpha };
+};
+// Where the planted pass draws a plant frame, read by the shadow above too so
+// the two can never drift: the drawn scale (the look's, times the planted
+// crop's 0.8 shrink or a procedural background's `_terrainScale`), the
+// origin row, and the seat offsets.
+// 16×16 frame, scale 2 = 32×32 display. Centre the sprite in its cell
+// (origin 0.5, 0.5): a (0.5, 0.85) foot-anchor on flat ground tiles
+// (longgrass, flowers, wildplants) sat 11 px above the cell centre.
+// Exception: Crops.png seed frames (stage 0, default crops sheet) only have
+// pixels in the bottom half of their cell, so centring puts the seed at the
+// bottom of the tile. Stage 0 only: use the foot-anchor (0.5, 0.85).
+// Stages 1+ grow upward and look right centered.
+// Actual player-planted crops (not wildplants rendered through this same
+// pool, and not placed rockfruit stones) sit 3px higher and 20% smaller
+// than the shared crop art. Tall authored plants (`seat: true`) follow the
+// same cell-foot rule as trees and props off their trimmed ART_BOUNDS.
+Render.plantPlacement = function (plant, art, frame, stage) {
+  const isCropsSheet = !art || (!art.custom && art.sheet !== 'springcrops');
+  const oy = (stage === 0 && isCropsSheet) ? 0.85 : 0.5;
+  const isPlantedCrop = !!plant && plant.wildId == null && !plant._placedRock;
+  const scl = ((art && art.scale != null) ? art.scale : 2) * (isPlantedCrop ? 0.8 : (plant?._terrainScale ?? 1));
+  const box = art?.seat && SpriteLayout.ART_BOUNDS[`${art.sheet}:${frame}`];
+  const seat = box ? SpriteLayout.seatInCell(box, 0.5, oy, scl, scl) : { dxPx: 0, dyPx: 0 };
+  return { scl, oy, dxPx: seat.dxPx, dyPx: seat.dyPx - (isPlantedCrop ? 3 : 0) };
 };
 
 // What varies per DRAW PASS for the spec below: the scene, the frame's
@@ -6001,7 +6022,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
     // foot nudge). The trimmed art is 43×39 (the PNG bakes a 39%-alpha shadow
     // under the feet), so scale 0.6 puts it at ~26×23px, inside its single cell.
-    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true, shadow: true },
+    // That baked shadow IS its contact shadow: no `shadow` row, or the ellipse
+    // would double it, centred under the bake rather than the feet.
+    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true },
     // The down pit uses only the lower half of its sheet, centred in the
     // cell. The standalone up ladder keeps its full image.
     staircase: { key: (o) => o.elevator ? 'progression_tiles' : (o.dir === 'up' ? 'stair_up' : 'stair_down'),
