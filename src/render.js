@@ -1819,10 +1819,14 @@ Render.buildingArtStyle = (() => {
 })();
 Render.proceduralBuildings = () => Render.buildingArtStyle === 'procedural' && typeof BuildingStyles !== 'undefined';
 Render.BUILDING_STYLE_ROLES = Object.freeze({
-  plain: { style: 'multistorey', palette: { wall: 0xd4cdb4, roof: 0x709b9a, trim: 0xe8dfc6 } },
+  // Role palettes follow the approved house sprites (assets/Objects/Approved/
+  // house*.png): cream siding under red tile, the smithy's grey stone under
+  // red-brown, the trader's grey walls under slate. Shop lines keep their
+  // own roof colours below so a line reads from the street.
+  plain: { style: 'multistorey', palette: { wall: 0xddb49b, roof: 0xb45c3a, trim: 0x954a39 } },
   trailer: { style: 'adobe' },
-  blacksmith: { style: 'multistorey', palette: { wall: 0xa96e59, roof: 0x687a83, trim: 0xc79673 } },
-  trader: { style: 'japanese' }, shop: { style: 'japanese' },
+  blacksmith: { style: 'multistorey', palette: { wall: 0x917465, roof: 0x954a39, trim: 0x786269 } },
+  trader: { style: 'japanese', palette: { wall: 0xbababa, roof: 0x6f9093, trim: 0x954a39 } }, shop: { style: 'japanese' },
   wizard: { style: 'pyramid', palette: { wall: 0x8c8796, roof: 0x8b78a8, trim: 0xc6afcf } },
   turret: { style: 'fort' },
   fort: { style: 'multistorey', palette: { wall: 0x9b9e91, roof: 0xb6b6a2, trim: 0xd5ceb2 } },
