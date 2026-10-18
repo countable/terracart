@@ -1633,4 +1633,82 @@ test('building overlay: Home without a prism group falls back to a flat roof', (
   clearTiles();
 });
 
+// ─── Forts: a palisade rim plus the gambling hall ──────────────────────────
+// A fort (tier 11, Houses.displayRole 'fort') is never a generated body. The
+// overlay paints its plank floor and the tier-11 pickets of perspectiveEdges
+// (separate 3px posts round the footprint, compass-aware like every wall),
+// and leaves scene._proceduralBuildings alone so the RENDER_SPEC house row
+// still seats the gambling-hall sprite (house_fort) on the footprint's centre.
+// Pinned after a low-poly fort shell replaced the rim and hid the hall.
+test('building overlay: a fort is a palisade rim round its footprint, with its hall sprite kept', () => {
+  clearTiles();
+  const previousStyle = Render.buildingArtStyle;
+  Render.buildingArtStyle = 'procedural';
+  try {
+    const entry = putShapes(0, 0, [
+      rectShape(0, 0, 10, 10, T.BUILDING_MED, 'fort'),
+      rectShape(20, 0, 30, 10, T.BUILDING, 'house'),
+    ]);
+    const fort = { kind: 'house', id: 'fort', tier: 11, x: 5, y: 5 };
+    const house = { kind: 'house', id: 'house', tier: 9, x: 25, y: 5 };
+    entry.objects = [fort, house];
+    const { scene } = makePerspectiveScene();
+    scene.save = { restoredHouses: { house: 'plain' } };
+    BuildingOverlay.draw(scene);
+    assert.falsy(scene._proceduralBuildings.has('fort'), 'the fort has no generated body');
+    assert.falsy(Render.proceduralHouse(fort, scene), 'so its gambling-hall sprite stays visible');
+    assert.truthy(Render.proceduralHouse(house, scene), 'while the house beside it is a model');
+    // Fort planks under the hall, as before.
+    assert.truthy(scene.buildingGeomGfx.only('texture').some(t => t.tier === T.BUILDING_MED), 'plank floor');
+    // The rim: short posts, not continuous wall strips. A 64px side carries
+    // sixteen 3px pickets at a 4px pitch (perspectiveEdges), 5px tall.
+    const pickets = scene._wallPerspective.polygon.blocks.filter(b => b.building?.key === 'fort');
+    assert.gte(pickets.length, 4 * 16, 'pickets on every side of the footprint');
+    for (const b of pickets) {
+      const xs = b.points.map(p => p.x), ys = b.points.map(p => p.y);
+      assert.lte(Math.max(...xs) - Math.min(...xs), 3.01, 'a picket, not a wall run');
+      assert.lte(Math.max(...ys) - Math.min(...ys), 3.01, 'a picket, not a wall run');
+      assert.eq(b.top, 5, 'palisade height');
+    }
+    // Compass turns reuse the retained pickets rather than rebaking.
+    const commits = scene.buildingGeomGfx.commits;
+    scene.mapRot = Math.PI / 3;
+    BuildingOverlay.draw(scene);
+    WallPerspective.update(scene);
+    assert.eq(scene.buildingGeomGfx.commits, commits, 'rotation redraws no canvas');
+    assert.gt(scene._wallPerspective.polygon.gfx.triangles.length, 0, 'the rim projects at the new heading');
+  } finally { Render.buildingArtStyle = previousStyle; clearTiles(); }
+});
+
+// The WebGL low-poly path hands houses to BuildingLowPoly.add; a fort must
+// never reach it (the shell was the regression), while its pickets still draw.
+test('building overlay: the low-poly path builds houses but never a fort body', () => {
+  clearTiles();
+  const previousStyle = Render.buildingArtStyle;
+  const saved = { active: BuildingLowPoly.active, begin: BuildingLowPoly.begin, add: BuildingLowPoly.add,
+    update: BuildingLowPoly.update, clear: BuildingLowPoly.clear };
+  const added = [];
+  Render.buildingArtStyle = 'procedural';
+  BuildingLowPoly.active = () => true;
+  BuildingLowPoly.begin = BuildingLowPoly.update = BuildingLowPoly.clear = () => {};
+  BuildingLowPoly.add = (scene, pts, recipe, variant, id) => { added.push({ id, role: recipe.role }); return { faces: [1], height: 10 }; };
+  try {
+    const entry = putShapes(0, 0, [
+      rectShape(0, 0, 10, 10, T.BUILDING_MED, 'fort'),
+      rectShape(20, 0, 30, 10, T.BUILDING, 'house'),
+    ]);
+    entry.objects = [{ kind: 'house', id: 'fort', tier: 11, x: 5, y: 5 }, { kind: 'house', id: 'house', tier: 9, x: 25, y: 5 }];
+    const { scene } = makePerspectiveScene();
+    scene.save = { restoredHouses: { house: 'plain' } };
+    BuildingOverlay.draw(scene);
+    assert.eq(added.map(a => a.id).join(','), 'house', 'only the house becomes a mesh');
+    assert.falsy(scene._proceduralBuildings.has('fort'), 'the fort keeps its sprite');
+    const pickets = scene._wallPerspective.polygon.blocks.filter(b => b.building?.key === 'fort');
+    assert.gte(pickets.length, 4 * 16, 'the palisade still rims the fort');
+  } finally {
+    Object.assign(BuildingLowPoly, saved);
+    Render.buildingArtStyle = previousStyle; clearTiles();
+  }
+});
+
 })();

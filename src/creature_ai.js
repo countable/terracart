@@ -151,6 +151,17 @@ function roadClassBitsAt(scene, x, y) {
 }
 function inKerbAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BUFFER); }
 function inSoftJunctionAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_JUNCTION_SOFT); }
+// THE BUILDING MOAT under a world-metre point: any cell of the 3×3 about it
+// is a building footprint (the spawn gate's BUILDING_MOAT reason, worldgen.js
+// nearBuildingCell, read off the live cells so Home's stamp counts). What a
+// villager may not step INTO (creatureStepRefused).
+function inBuildingMoatAt(scene, x, y) {
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const cell = scene.cellAt(x + dx * scene.cellM, y + dy * scene.cellM);
+    if (cell.loaded && WorldGen.isBuildingTerrain(cell.type)) return true;
+  }
+  return false;
+}
 
 // ── THE ROADSIDE RUN: a retreat in a residential area runs along the street ──
 // Every retreat in wanderCreatures is an AWAY angle — a bolting animal away
@@ -1304,7 +1315,10 @@ function foeBlowLands(scene, c, raw, { condition = null, mitigated = false } = {
 // outside it — an ally goes where it likes); and on a RETREAT (`retreating`:
 // a rout, a bolt, the kerb turn, a flee pattern) never INTO a yard it is not
 // already in (THE ROADSIDE RUN; a lair guard walks home through its own
-// ruin's). A FOE (`row`) is also held by ground fire (fireStepAllowed;
+// ruin's). A VILLAGER ('npc') never steps INTO the BUILDING MOAT (the cells
+// touching a footprint — inBuildingMoatAt, the gate's BUILDING_MOAT reason)
+// from outside it; one already against a wall walks free, so it leaves
+// rather than freezes. A FOE (`row`) is also held by ground fire (fireStepAllowed;
 // `escaping` lets it leave a burning cell), an unloaded cell, a cave wall
 // (scene._cellBlocked), a building's wall and a campfire's ward
 // (fireAverse); a flier (orbit_swoop) crosses low terrain.
@@ -1326,6 +1340,7 @@ function creatureStepRefused(scene, c, x, y, { row = null, retreating = false, e
     const { cellIX, cellIY } = worldMetersToAbsCell(scene, x, y);
     if (scene.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) return true;
   }
+  if (c.kind === 'npc' && inBuildingMoatAt(scene, x, y) && !inBuildingMoatAt(scene, c.x, c.y)) return true;
   if (row?.movement.waterOnly) {
     if (cell.type !== WorldGen.T.WATER) return true;
     if (row.movement.shoreOnly) {

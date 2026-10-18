@@ -460,6 +460,43 @@ test('spawn gate: cemetery land is INVALID, and a church ON it suppresses its wh
   assert.gte(W.churchyardBufferM(), Zones.ZONE_KINDS.stones.R, 'one number: the stones halo\'s reach');
 });
 
+test('spawn gate: THE BUILDING MOAT — the ring about a footprint is typed BUILDING_MOAT, the villager\'s refusal alone', () => {
+  // A grass tile with one building: its interior is TERRAIN (hard), the
+  // 3×3 ring about it (WorldGen.nearBuildingCell — what ground scatter already
+  // keeps clear, a wall's base overhanging) carries BUILDING_MOAT, and no cell
+  // further out does. Only the 'npc' row refuses it: an animal or a foe may
+  // stand against the wall; a neighbour is seated one cell further out.
+  const r = build([grass(),
+    { name: 'building', features: [{ type: 3, tags: { render_height: 8 }, geom: [box(20, 20, 23, 23)] }] }]);
+  assert.truthy(W.isBuildingTerrain(r.grid[21 * CPE + 21]), 'the building is painted');
+  let interior = 0, ring = 0;
+  for (let cy = 14; cy <= 29; cy++) for (let cx = 14; cx <= 29; cx++) {
+    const near = W.nearBuildingCell(r.grid, CPE, CPE, cx, cy);
+    const inside = W.isBuildingTerrain(r.grid[cy * CPE + cx]);
+    assert.eq(has(r, cx, cy, WHY.BUILDING_MOAT), near, `BUILDING_MOAT at ${cx},${cy} is the moat predicate`);
+    assert.eq(has(r, cx, cy, WHY.TERRAIN), inside, `TERRAIN at ${cx},${cy} is the footprint`);
+    if (inside) interior++; else if (near) ring++;
+    if (!near) continue;
+    const opts = { spawnWhy: r.spawnWhy, roadMask: r.roadMask };
+    assert.falsy(W.isSpawnCell(r.grid, CPE, CPE, cx, cy, opts, 'npc'), `a villager at ${cx},${cy}`);
+    if (!inside) {
+      assert.eq(at(r, cx, cy), SUP, 'the ring is SUPPRESSED, never INVALID');
+      for (const cls of ['minor', 'fauna', 'fastFauna', 'enemy', 'fastEnemy', 'attractor', 'hazard'])
+        assert.truthy(W.isSpawnCell(r.grid, CPE, CPE, cx, cy, opts, cls), `${cls} at ${cx},${cy} stands against the wall`);
+    }
+  }
+  assert.gt(interior, 0, 'a footprint was painted'); assert.gt(ring, 0, 'with a ring about it');
+  assert.eq(at(r, 19, 25), OPEN, 'two cells off the wall is open to everyone');
+  assert.truthy(W.isSpawnCell(r.grid, CPE, CPE, 19, 25, { spawnWhy: r.spawnWhy, roadMask: r.roadMask }, 'npc'));
+  // Read LIVE as well as off the mask: a footprint stamped after the mask
+  // (Home's house, scene_venues.js) keeps its moat for the villager's row.
+  const live = r.grid.slice(), why = new Uint32Array(CPE * CPE);
+  live[40 * CPE + 40] = T.BUILDING;
+  assert.falsy(W.isSpawnCell(live, CPE, CPE, 41, 40, { spawnWhy: why }, 'npc'), 'live moat refuses a villager');
+  assert.truthy(W.isSpawnCell(live, CPE, CPE, 41, 40, { spawnWhy: why }, 'fauna'), 'and nobody else');
+  assert.truthy(W.isSpawnCell(live, CPE, CPE, 42, 40, { spawnWhy: why }, 'npc'), 'one cell further out is fine');
+});
+
 // ── The classes ────────────────────────────────────────────────────────────
 
 test('isSpawnCell: each class refuses every hard reason and its own row\'s typed ones (SPAWN_CLASS_BLOCKS)', () => {
@@ -471,7 +508,7 @@ test('isSpawnCell: each class refuses every hard reason and its own row\'s typed
   assert.eq(B.cave, WHY.SENSITIVE, 'cave: sensitive ground');
   assert.eq(B.fauna, WHY.SENSITIVE, 'fauna: sensitive');
   assert.eq(B.fastFauna, B.fauna | WHY.KERB | WHY.JUNCTION_SOFT, 'fast fauna: + kerb and Small-road junctions');
-  assert.eq(B.npc, WHY.SENSITIVE, 'npc: sensitive');
+  assert.eq(B.npc, WHY.SENSITIVE | WHY.BUILDING_MOAT, 'npc: sensitive, and never against a wall (the building moat)');
   assert.eq(B.attractor, WHY.SENSITIVE, 'attractor: sensitive (HOUSE / SCHOOL / FARM dropped Sep 2026)');
   assert.eq(B.enemy, B.attractor, 'enemy: the attractor row');
   assert.eq(B.hazard, B.enemy | WHY.KERB | WHY.JUNCTION_SOFT, 'hazard: + kerb and Small-road junctions');

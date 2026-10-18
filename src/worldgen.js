@@ -556,6 +556,11 @@
   //                   fast movers and player-facing hazards refuse it
   //     SENSITIVE     round a sensitive POI, real cemetery land, a church on
   //                   cemetery land (churchyardBufferM)
+  //     BUILDING_MOAT the cell touching a building footprint (THE BUILDING
+  //                   MOAT, nearBuildingCell: a wall's base overhangs the
+  //                   cells about it, so whoever stands there reads as
+  //                   standing on the house) — refused ONLY by villagers
+  //                   ('npc'), who are watched; scatter asks the moat itself
   // (Superseded Sep 2026: the typed HOUSE reason — a 40 m buffer round every
   // house on lot land — and the typed SCHOOL reason — school / college /
   // university grounds, plus the school-hours timing — are both dropped: the
@@ -571,7 +576,9 @@
   //   'cave'      a cave entrance ("the ladder") — SENSITIVE only
   //   'fauna'     friendly / wild animals at a walk (cats, dogs, crows, …)
   //   'fastFauna' an animal that out-runs a brisk walk (deer, rabbits, …)
-  //   'npc'       villagers — fauna's row (a field's interior is hard for all)
+  //   'npc'       villagers — fauna's row plus BUILDING_MOAT: a neighbour is
+  //               never seated against a wall (a field's interior is hard
+  //               for all)
   //   'attractor' hoards, lair points, events (coin bursts), grove shrines
   //   'enemy'     anything hostile seated at a walk: slow foes, guards and
   //               park plants
@@ -598,7 +605,7 @@
     TERRAIN: 1, ROAD: 2, RESTRICTED: 4, QUIET: 8, KINDERGARTEN: 16,
     SENSITIVE_SITE: 32, BEHIND_HOUSE: 64, PRIVATE: 128, FARM_INTERIOR: 256,
     KERB: 1024, SENSITIVE: 4096, FARMLAND: 8192, GOLF: 16384, PIER_ACCESS: 32768,
-    JUNCTION: 65536, JUNCTION_SOFT: 131072,
+    JUNCTION: 65536, JUNCTION_SOFT: 131072, BUILDING_MOAT: 262144,
   };
   const W_ = SPAWN_WHY;
   const SPAWN_WHY_HARD = W_.TERRAIN | W_.ROAD | W_.RESTRICTED | W_.QUIET | W_.KINDERGARTEN
@@ -614,7 +621,7 @@
     return Uint32Array.from(grid, (terrain, i) => ((why?.[i] || 0) & SPAWN_WHY_ALL_FLOORS)
       | (terrain === T.GOLF ? W_.GOLF : 0));
   }
-  const SPAWN_WHY_TYPED = W_.KERB | W_.SENSITIVE | W_.JUNCTION_SOFT;
+  const SPAWN_WHY_TYPED = W_.KERB | W_.SENSITIVE | W_.JUNCTION_SOFT | W_.BUILDING_MOAT;
   // Hard access reasons that place-bound producers obey even when they own
   // their terrain or road band. This includes the junction exclusion zone.
   const SPAWN_WHY_LAND = SPAWN_WHY_HARD & ~(W_.TERRAIN | W_.ROAD);
@@ -625,7 +632,7 @@
     cave: W_.SENSITIVE,
     fauna: W_.SENSITIVE,
     fastFauna: W_.SENSITIVE | W_.KERB | W_.JUNCTION_SOFT,
-    npc: W_.SENSITIVE,
+    npc: W_.SENSITIVE | W_.BUILDING_MOAT,
     attractor: W_.SENSITIVE,
     enemy: W_.SENSITIVE,
     hazard: W_.SENSITIVE | W_.KERB | W_.JUNCTION_SOFT,
@@ -688,6 +695,10 @@
     if (roadMask && roadMask[cy * w + cx] && !obstacle) return false;   // under a drawn road band
     const occupied = opts && opts.occupied;
     if (occupied && occupied.has(cy * w + cx)) return false;   // already holds an object/wild plant
+    // THE BUILDING MOAT, read LIVE like terrain (a class that refuses it): a
+    // footprint stamped after the mask (Home's house) and a synthetic grid
+    // both keep a villager off the cells touching a wall.
+    if ((spawnBlocks(cls) & W_.BUILDING_MOAT) && nearBuildingCell(grid, w, h, cx, cy)) return false;
     const mask = opts && opts.spawnWhy;
     if (mask) {
       const v = mask[cy * w + cx] & ~((waterOnly || obstacleRoad ? W_.TERRAIN : 0) | (obstacle ? W_.ROAD : 0));
@@ -4321,6 +4332,7 @@
         if (roadClass && (roadClass[i] & ROAD_CLASS_JUNCTION_EXCLUDE)) v |= W_.JUNCTION;
         if (roadClass && (roadClass[i] & ROAD_CLASS_JUNCTION_SOFT)) v |= W_.JUNCTION_SOFT;
         if (sensD[e] <= sensR || churchD[e] <= churchR) v |= W_.SENSITIVE;
+        if (nearBuildingCell(grid, w, h, x, y)) v |= W_.BUILDING_MOAT;
         mask[i] = v;
       }
     }
@@ -9285,7 +9297,11 @@
       if (clearing) {
         const t = source[i];
         const width = surface.cellsPerEdge || source.length;
-        const clear = isSpawnCell(source, width, Math.ceil(source.length / width), i % width, Math.floor(i / width), { roadMask: surface.roadMask, spawnWhy: surface.spawnWhy }, 'npc') &&
+        // A clearing is carved where open public ground stands above — the
+        // 'fauna' row (hard reasons plus SENSITIVE): a terrain question, not
+        // a villager's seat, so it never reads the villagers' BUILDING_MOAT
+        // (a clearing runs up to the wall of the building above it).
+        const clear = isSpawnCell(source, width, Math.ceil(source.length / width), i % width, Math.floor(i / width), { roadMask: surface.roadMask, spawnWhy: surface.spawnWhy }, 'fauna') &&
           (t === T.PARK || t === T.GROVE || t === T.PLAYGROUND || t === T.PITCH || t === T.COMMERCIAL);
         grid[i] = clear ? T.CAVE_FLOOR : T.CAVE_WALL;
         if (clear) areas[i] = t === T.COMMERCIAL ? 2 : 1;

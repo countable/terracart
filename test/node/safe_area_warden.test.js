@@ -16,6 +16,10 @@ test('warden: placed once by the starting trailer, a few cells out, off the spaw
   const N = 40, cellM = 7, tileEdgeM = N * cellM;
   const grid = new Uint8Array(N * N).fill(WorldGen.T.GRASS);
   const anchor = { x: 20.5 * cellM, y: 20.5 * cellM };
+  // The trailer itself stands on the grid (Home's 2×2 footprint, stamped as
+  // T.BUILDING): every story neighbour must still find a seat, and none in
+  // the building moat about it.
+  for (const [cx, cy] of [[19, 19], [20, 19], [19, 20], [20, 20]]) grid[cy * N + cx] = WorldGen.T.BUILDING;
   const entry = { grid, cellsPerEdge: N, _spawned: true, objects: [], wildplants: [], creatures: [],
     roadMask: new Uint8Array(N * N), spawnWhy: new Uint8Array(N * N) };
   // Bryn arrives at three memories (NPC.STORY_ROLES.warden.minMemories).
@@ -27,6 +31,10 @@ test('warden: placed once by the starting trailer, a few cells out, off the spaw
   const d = Math.max(Math.abs(Math.floor(w[0].x / cellM) - 20), Math.abs(Math.floor(w[0].y / cellM) - 20));
   assert.inRange(d, 3, 6, 'a few cells from the trailer');
   assert.eq(w[0].role, 'warden');
+  for (const c of entry.creatures) {
+    const cx = Math.floor(c.x / cellM), cy = Math.floor(c.y / cellM);
+    assert.falsy(WorldGen.nearBuildingCell(grid, N, N, cx, cy), `${c.id} seated against the trailer's wall`);
+  }
   Starter.placeSafeAreaWarden(scene, entry, 0, 0);
   assert.eq(entry.creatures.filter(c => c.id === 'npc_warden_0_0').length, 1, 'idempotent');
   assert.truthy(/this\._placeSafeAreaWarden\(entry, tx, ty\)/.test(SCENE_SRC), 'the starter tile seats it');
