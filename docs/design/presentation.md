@@ -67,7 +67,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   names the actual find as “Item name × quantity”, with its tier badge on the
   next line. When the find has a description (`Rewards.desc`: the item's
   `ITEM_EFFECTS` line or the gear blurb) the card splits: the find on the left,
-  the description on the right. Clay pots retain their brief smash feedback.
+  the description on the right. Barrels, clay pots and T1 crates show item
+  acknowledgments only when the item is not currently carried; already-carried
+  items use the small viewport loot toast. Check ownership before granting the
+  reward, not the discovery history. Bag-full take/leave choices still appear.
+  Empty pots and barrels retain their brief smash feedback; their coins use a toast.
 
 - The compass header aligns menu, a memories/books window and compact distance meter
   capped at 84 pixels wide beside a 72-pixel energy dial at the top right. The menu is
