@@ -560,20 +560,28 @@ class SceneGeo {
     const onOrient = (e) => {
       let deg = null;
       let absoluteThisEvent = false;
-      if (typeof e.webkitCompassHeading === 'number') {
-        // iOS: tilt-compensated and CW from true north. Use directly.
+      if (e.webkitCompassHeading != null) {
+        // iOS supplies magnetic north. Negative headings and negative accuracy
+        // mean the sensor has no usable bearing; never smooth these sentinels
+        // into north or substitute relative alpha while it recalibrates.
+        if (!Number.isFinite(e.webkitCompassHeading) || e.webkitCompassHeading < 0
+            || (e.webkitCompassAccuracy != null
+              && (!Number.isFinite(e.webkitCompassAccuracy) || e.webkitCompassAccuracy < 0))) return;
         deg = e.webkitCompassHeading % 360;
         absoluteThisEvent = true;
-      } else if (e.absolute && typeof e.alpha === 'number') {
+      } else if (e.absolute && Number.isFinite(e.alpha)) {
         // alpha is CCW from north; flip to CW.
         deg = (360 - e.alpha) % 360;
         absoluteThisEvent = true;
-      } else if (typeof e.alpha === 'number' && !sawAbsolute) {
+      } else if (Number.isFinite(e.alpha) && !sawAbsolute) {
         // Best-effort non-absolute fallback — keep updating every event until
         // (and unless) a true-absolute source appears.
         deg = (360 - e.alpha) % 360;
       }
       if (deg == null || Number.isNaN(deg)) return;
+      // A relative startup reference is unrelated to magnetic north. Do not
+      // blend it into the first calibrated bearing.
+      if (absoluteThisEvent && !sawAbsolute) this._facingSmooth = null;
       if (absoluteThisEvent) sawAbsolute = true;
       // Subtract the screen rotation so a landscape-held phone still points
       // north correctly. screen.orientation.angle ∈ {0,90,180,270}.

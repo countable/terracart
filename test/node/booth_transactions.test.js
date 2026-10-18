@@ -243,6 +243,10 @@
       assert.eq(s.messages[0].art, 'booth_curio_used');
       busy = false;
       s._drainBadgeStories();
+      assert.eq(s.messages.length, 1, 'memory waits until Home, even after the receipt closes');
+      s.startWorldM = { x: 0, y: 0 }; s.playerM = { x: 0, y: 0 };
+      s.inHomeRing = () => true;
+      s._drainBadgeStories();
       assert.eq(s.messages.length, 2);
       assert.truthy(s.messages[1].mustAcknowledge);
       s.messages[1].onDismiss();

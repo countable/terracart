@@ -1,5 +1,5 @@
 // The modal SHELL — the one dialog box every DOM dialog in the game is built
-// in: makeModalShell (the square scene crop, separate copy region, kind header
+// in: makeModalShell (the 4:3 scene frame, separate copy region, kind header
 // and measured pagination), the stock dialogs
 // built on it (showMessageModal, showConfirmModal, showOfferModal,
 // showChestRewardModal), and
@@ -33,7 +33,7 @@
 // fallback geometry before the stylesheet loads.
 const STORY_MODAL_GROW_PX = 96;
 // Scene paintings share a full-width crop under the fixed dragon rail.
-// Fit trims the square composition from the bottom; copy and actions occupy
+// Approved 4:3 scenes keep their full frame; copy and actions occupy
 // a separate viewport, with pages when the content needs more room.
 
 // ── What KIND of dialog is this? ────────────────────────────────────────────
@@ -116,12 +116,15 @@ class SceneModals {
   //   borderColor — defaults to the CONTROL gold: an ordinary dialog is
   //             something the player drives. Treasure ceremonies override it
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
+  //   scroll — the copy viewport SCROLLS instead of turning pages (the ☰
+  //             menu: one list, thumbed through, never split across pages —
+  //             owner, Oct 2026). Copy that is read, not browsed, keeps pages.
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0002', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false } = {}) {
+    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false, scroll = false, scrollContent = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
-    // Scene art is a story-sized dialog with a square image above its copy.
+    // Scene art is a story-sized dialog with a 4:3 image above its copy.
     const kRow = typeof kind === 'string' ? MODAL_KINDS[kind] : kind;
     const speech = kind === 'spirit' || kind === 'talk';
     portrait = portrait || kRow?.portrait;
@@ -192,7 +195,10 @@ class SceneModals {
     const artLayer = art ? document.createElement('div') : null;
     const mosaicLayer = art ? document.createElement('div') : null;
     let mosaicImg = null;
-    const squareArt = art && typeof ART_ASPECTS !== 'undefined' && Math.abs(ART_ASPECTS[art] - 1) < 0.01;
+    // Dynamic pet paintings use the same 4:3 frame as installed scenes.
+    const artAspect = (art && typeof ART_ASPECTS !== 'undefined' && ART_ASPECTS[art]) || 4 / 3;
+    const fullFrameArt = Math.abs(artAspect - 4 / 3) < 0.01;
+    const squareArt = Math.abs(artAspect - 1) < 0.01;
     const tone = (art && typeof ART_TONES !== 'undefined' && ART_TONES[art]) || '#1a1612';
     const paintLayer = (el, img) => {
       el.style.backgroundImage = img ? `url(${img})` : `linear-gradient(${tone}, ${tone})`;
@@ -360,7 +366,11 @@ class SceneModals {
       if (spacer) body.appendChild(spacer);
       const viewport = document.createElement('div');
       viewport.className = 'modal-copy';
-      viewport.style.cssText = 'flex:1 1 auto;min-height:0;overflow:hidden;';
+      // A scrolling dialog (the menu) thumbs its one list; every other dialog
+      // keeps its copy still and turns pages (fit, below).
+      viewport.style.cssText = scroll
+        ? 'flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;'
+        : 'flex:1 1 auto;min-height:0;overflow:hidden;';
       viewport.appendChild(into);
       body.appendChild(viewport);
       box.style.overflow = 'hidden';
@@ -391,6 +401,22 @@ class SceneModals {
       wrap.appendChild(box);
       (speech ? document.body : document.getElementById('game') || document.body).appendChild(wrap);
       if (speech) { this._syncModalGate?.(); this._placeSpeechBubble(wrap, box, source); }
+      // Build cards stay in one scrollable grid; price and actions remain visible.
+      if (scrollContent) {
+        wrap.classList.add('modal-scroll-content');
+        viewport.style.overflowY = 'auto';
+        viewport.style.overflowX = 'hidden';
+        viewport.style.overscrollBehavior = 'contain';
+        into.style.margin = '0';
+        into.style.padding = '4px';
+        if (spacer) spacer.style.height = 'clamp(100px, 28vh, 220px)';
+        const footer = document.createElement('div');
+        footer.className = 'modal-offer-footer';
+        footer.style.cssText = 'flex:0 0 auto;padding:8px 16px max(12px, env(safe-area-inset-bottom));';
+        for (const node of into.querySelectorAll('.offer-cost, .offer-actions')) footer.appendChild(node);
+        body.appendChild(footer);
+        return;
+      }
       // Refit live content and paginate overflow without shrinking type.
       let page = 0, pageCount = 1, frame = 0;
       const pages = document.createElement('div');
@@ -428,18 +454,18 @@ class SceneModals {
         into.style.transform = '';
         pages.style.display = 'none';
         if (spacer) {
-          // Trim the bottom 10% of the square composition first.
-          // Full square scenes keep their subject visible and paginate sooner;
-          // legacy paintings can give their empty lower area to copy.
-          const full = body.clientWidth * .9;
-          const minimum = squareArt ? body.clientWidth * .7
+          // Preserve approved 4:3 compositions and paginate their copy.
+          // Legacy squares/portraits retain their existing bottom crop.
+          const full = fullFrameArt ? body.clientWidth / artAspect : body.clientWidth * .9;
+          const minimum = fullFrameArt ? full : squareArt ? body.clientWidth * .7
             : Math.min(full, parseFloat(box.style.getPropertyValue('--panel-rail-height')) + 8);
           spacer.style.height = `${full}px`;
           const deficit = into.scrollHeight - viewport.clientHeight;
           if (deficit > 0) spacer.style.height = `${Math.max(minimum, full - deficit)}px`;
         }
         pageCount = 1;
-        if (into.scrollHeight > viewport.clientHeight + 1) {
+        // A scrolling dialog never pages: its overflow is the viewport's to scroll.
+        if (!scroll && into.scrollHeight > viewport.clientHeight + 1) {
           pages.style.display = 'flex';
           // Reserve the pager inside the content region, below the columns.
           const available = viewport.clientHeight - 3;
@@ -750,9 +776,10 @@ class SceneModals {
       // The ☰ menu is hidden under the class (index.html); fold it shut as
       // well, so a menu left open behind a dialog doesn't spring back open
       // the moment the dialog is dismissed.
-      // Its OWN dialog (#menu-modal, _openMenuDialog) is the menu itself, not
-      // a dialog over it — counting it would shut the menu the frame it opens.
-      if (openModals.some(el => el.id !== 'menu-modal')) {
+      // Its OWN dialogs (#menu-modal, _openMenuDialog; #menu-page-modal, a
+      // page of it, _openMenuPage) are the menu itself, not a dialog over
+      // it — counting one would shut the menu the frame it opens.
+      if (openModals.some(el => el.id !== 'menu-modal' && el.id !== 'menu-page-modal')) {
         const m = document.getElementById('menu'); if (m && m.open) m.open = false;
       }
       // Nothing covering the screen: anything the starter ladder is holding can
@@ -839,7 +866,8 @@ class SceneModals {
     // this dialog, so the dialog that reopens prints them as its receipt.
     const offerToasts = this._offerToasts; this._offerToasts = null;
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art, portrait, fullscreen, source });
+      { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art, portrait, fullscreen, source,
+        scrollContent: kind === 'build' && choices?.length > 0 });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
     // and calls onSelect, which re-presents the sibling modal — cheap "tabs"
@@ -985,6 +1013,7 @@ class SceneModals {
       const cards = [];
       const paint = () => {
         for (const { c, b } of cards) {
+          b.ariaPressed = String(selected === c);
           b.style.outline = selected === c ? '2px solid #ffe066'
             : (!selected && c.suggested) ? '2px dashed #a7ffb0' : '';
         }
@@ -1024,6 +1053,8 @@ class SceneModals {
         box.appendChild(forDiv);
       }
       costDiv = document.createElement('div');
+      costDiv.className = 'offer-cost';
+      costDiv.setAttribute('aria-live', 'polite');
       costDiv.style.cssText = priced ? 'font-size:15px;font-weight:700;margin:4px 0 6px;' : 'font-size:16px;font-weight:700;margin:3px 0 8px;';
       costDiv.style.color = canAfford ? '#a7ffb0' : '#ff8a7a';
       // No price until a card is picked: the hint sits on the line instead.
@@ -1146,6 +1177,7 @@ class SceneModals {
       }
       wrap.remove(); secondary.onClick();
     });
+    row.className = 'offer-actions';
     row.appendChild(cancel);
     if (sec) row.appendChild(sec);
     row.appendChild(accept);

@@ -4,7 +4,9 @@ const copy = value => JSON.parse(JSON.stringify(value));
 const saveWith = (n = 0) => ({ memories: n, discovered: Object.fromEntries(
   Array.from({ length: n }, (_, i) => ['discovery:' + i, 1])) });
 function sceneFor(save) {
-  return { save, modals: [], offers: 0,
+  return { save, modals: [], offers: 0, depth: 0,
+    startWorldM: { x: 100, y: 100 }, playerM: { x: 0, y: 0 },
+    inHomeRing: (x, y) => Math.hypot(x - 100, y - 100) <= 28,
     showMessageModal(panel) { this.modals.push(panel); } };
 }
 function isolated(fn) {
@@ -63,6 +65,24 @@ test('memory arc: queue waits behind other modals and persists through reload un
   dismiss(resumed);
   assert.falsy(MemoryStory.drain(resumed));
   assert.eq(resumed.save.memories, 3);
+}));
+
+test('memory arc: memories earned away wait through reload until home on the surface', () => isolated(() => {
+  const scene = sceneFor(saveWith(6));
+  MemoryStory.enqueue(scene.save, 6, 'a flower');
+  scene.playerM.x = 500;
+  assert.falsy(MemoryStory.drain(scene));
+  assert.eq(scene.modals.length, 0);
+  assert.eq(scene.save.memoryStory.pending.length, 1);
+  const resumed = sceneFor(copy(scene.save));
+  resumed.depth = 1;
+  assert.falsy(MemoryStory.drain(resumed), 'underground coordinates are not Home');
+  resumed.depth = 0;
+  assert.truthy(MemoryStory.drain(resumed));
+  assert.eq(resumed.modals[0].title, MemoryStory.SCENES[6].title);
+  dismiss(resumed);
+  assert.eq(resumed.save.memoryStory.pending.length, 0);
+  assert.falsy(MemoryStory.drain(resumed), 'acknowledged once');
 }));
 
 test('memory arc: failed memory modal remains retryable', () => isolated(() => {

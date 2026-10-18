@@ -237,13 +237,18 @@ const SHEETS = {
   // 32×48, not 32×64: at 64 the birch frame picked up the tip of the red tree below (see assets.js).
   pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [1, 2, 3] },
   beach_palms: { file: ASSETS.beach_palms.path, fw: ASSETS.beach_palms.frameWidth, fh: ASSETS.beach_palms.frameHeight, frames: [0, 1, 2, 3, 4, 5] },
-  bushes:        { file: 'assets/Objects/Approved/bushes.png',             fw: 48, fh: 32, frames: [0] },
+  bushes: { file: ASSETS.bushes.path, fw: 24, fh: 24, frames: itemsCtx.CROP_SPRITE.shrub.frames },
+  bramble: { file: ASSETS.bramble.path, fw: 24, fh: 24, frames: itemsCtx.CROP_SPRITE.shrub.looks.bramble.frames },
+  approved_clipped_hedge: { file: ASSETS.approved_clipped_hedge.path, fw: 24, fh: 24, frames: itemsCtx.CROP_SPRITE.shrub.looks.clipped.frames },
+  zone_hedge_single: { file: ASSETS.zone_hedge_single.path, fw: 24, fh: 24, frames: itemsCtx.WILDPLANT_CONTEXT_ART.zone_hedge_single.frames },
+  zone_hedge: { file: ASSETS.zone_hedge.path, fw: 24, fh: 24, frames: Array.from({ length: 15 }, (_, i) => i) },
   // The sheets' fruiting cells (apple 7, peach 5) are deliberately absent: a
   // bearing tree keeps its mature frame and wears a fruit sprite (FRUIT_FRAMES in render.js).
   apple_tree:    { file: 'assets/Objects/Approved/apple_tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 8], crownFrame: 4 },
   worldpeach_tree:    { file: 'assets/Objects/Approved/peach_tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4], crownFrame: 3 },
   beehive:       { file: ASSETS.beehive.path, fw: 16, fh: 16, frames: [0] },
-  chest:         { file: 'assets/Objects/Approved/chest.png',                    fw: 16, fh: 16, frames: [0] },
+  // Runtime tier frames recolor this source without changing its alpha silhouette.
+  chest:         { file: 'assets/Objects/Approved/chest.png',                    fw: 16, fh: 16, frames: [0, 1, 2, 3, 4, 5, 6], sourceFrame: 0 },
   box:           { file: 'assets/Objects/Approved/box.png',   fw: 16, fh: 16, frames: [0] },
   shrine_spirit: { file: ASSETS.shrine_spirit.path, fw: 16, fh: 16, frames: [0, 1, 2, 3] },
   crystal_cluster: { file: 'assets/Objects/Wilderness/crystal_cluster.png', fw: 16, fh: 16, frames: [0] },
@@ -270,9 +275,9 @@ const SHEETS = {
   vista_scope:   { file: 'assets/Objects/Approved/vista_scope.png',               fw: 16, fh: 24, frames: [0] },
   [SHRINE_KIND_ART.key]: { file: ASSETS[SHRINE_KIND_ART.key].path, fw: ASSETS[SHRINE_KIND_ART.key].frameWidth,
     fh: ASSETS[SHRINE_KIND_ART.key].frameHeight, frames: SHRINE_KIND_ART.frames },
-  barrel: { file: ASSETS.barrel.path, fw: 24, fh: 24, frames: [0] },
-  clay_pot: { file: ASSETS.clay_pot.path, fw: 24, fh: 24, frames: [0] },
-  clay_pot_smashed: { file: ASSETS.clay_pot_smashed.path, fw: 24, fh: 24, frames: [0] },
+  barrel: { file: ASSETS.barrel.path, fw: 24, fh: 24, frames: [0, 1, 2, 3, 4, 5, 6, 7] },
+  clay_pot: { file: ASSETS.clay_pot.path, fw: 24, fh: 24, frames: [0, 1, 2, 3] },
+  clay_pot_smashed: { file: ASSETS.clay_pot_smashed.path, fw: 24, fh: 24, frames: [0, 1, 2, 3] },
   bike_rack:      { file: 'assets/Objects/Approved/bike_rack.png',          fw: 16, fh: 16, frames: [0] },
   signpost:       { file: 'assets/Objects/Approved/signpost.png',           fw: 16, fh: 16, frames: [0] },
   gatepost:       { file: 'assets/Objects/Approved/gatepost.png',           fw: 16, fh: 16, frames: [0] },
@@ -303,15 +308,17 @@ const SCENARIOS = [
   { name: 'pine medium',     key: 'pine_tree',     frameIdx: 2, scale: t('pine', 'medium') },
   { name: 'pine large',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'large') },
   ...[0, 1, 2, 3, 4, 5].map(frameIdx => ({ name: `beach palm ${frameIdx}`, key: 'beach_palms', frameIdx, scale: itemsCtx.WILDPLANT_CONTEXT_ART.palm.scale })),
-  { name: 'bush',            key: 'bushes',        frameIdx: 0, scale: SHRUB_SCALE },
+  ...SHEETS.bushes.frames.map(frameIdx => ({ name: `bush ${frameIdx}`, key: 'bushes', frameIdx, scale: SHRUB_SCALE })),
+  ...SHEETS.bramble.frames.map(frameIdx => ({ name: `bramble ${frameIdx}`, key: 'bramble', frameIdx, scale: itemsCtx.CROP_SPRITE.shrub.looks.bramble.scale })),
+  ...SHEETS.approved_clipped_hedge.frames.map(frameIdx => ({ name: `clipped hedge ${frameIdx}`, key: 'approved_clipped_hedge', frameIdx, scale: itemsCtx.CROP_SPRITE.shrub.looks.clipped.scale })),
   { name: 'giant mushroom', key: 'zone_objects', frameIdx: 40, scale: itemsCtx.CROP_SPRITE.giant_mushroom.scale },
   { name: 'apple sapling',   key: 'apple_tree',    frameIdx: 2, scale: 0.85 * 0.625, scaleYMul: 1.10 },
   { name: 'apple (wild)',    key: 'apple_tree',    frameIdx: 4, scale: 0.85, scaleYMul: 1.10 },
   { name: 'apple blossom',   key: 'apple_tree', frameIdx: 8, scale: 0.85, scaleYMul: 1.10 },
   { name: 'peach blossom',   key: 'worldpeach_tree', frameIdx: 4, scale: 0.85, scaleYMul: 1.10 },
   { name: 'peach (wild)',    key: 'worldpeach_tree',    frameIdx: 3, scale: 0.85, scaleYMul: 1.10 },
-  { name: 'chest',           key: 'chest',         frameIdx: 0, scale: CHEST_SCALE },
-  { name: 'crate (box)',     key: 'box',           frameIdx: 0, scale: 0.8 },
+  ...SHEETS.chest.frames.map(frameIdx => ({ name: `chest tier ${frameIdx + 1}`, key: 'chest', frameIdx, scale: CHEST_SCALE })),
+  { name: 'crate (box)',     key: 'box',           frameIdx: 0, scale: 0.8 * 1.1 },
   ...[0, 1, 2, 3].map(frameIdx => ({ name: `shrine spirit idle ${frameIdx}`, key: 'shrine_spirit', frameIdx,
     scale: SHRINE_SPIRIT_ART.scale })),
   { name: 'mineralrock',     key: 'mineralboulder', frameIdx: 45, scale: 1.8 },
@@ -337,9 +344,9 @@ const SCENARIOS = [
   ...SHRINE_KIND_ART.frames.map((f) => ({ name: `shrine kind ${f}`, key: SHRINE_KIND_ART.key, frameIdx: f, scale: SHRINE_KIND_ART.scale })),
   // The POI props (loot.js chestLook — barrel / bike_rack at render.js
   // SMALL_POI_SCALE; the notice board and the gate post at 1.6).
-  { name: 'barrel',          key: 'barrel',        frameIdx: 0, scale: 4 / 3 },
-  { name: 'clay pot', key: 'clay_pot', frameIdx: 0, scale: 4 / 3 },
-  { name: 'clay pot smashed', key: 'clay_pot_smashed', frameIdx: 0, scale: 4 / 3 },
+  ...SHEETS.barrel.frames.map(frameIdx => ({ name: `barrel ${frameIdx}`, key: 'barrel', frameIdx, scale: 4 / 3 })),
+  ...SHEETS.clay_pot.frames.map(frameIdx => ({ name: `clay pot ${frameIdx}`, key: 'clay_pot', frameIdx, scale: 4 / 3 })),
+  ...SHEETS.clay_pot_smashed.frames.map(frameIdx => ({ name: `pot shards ${frameIdx}`, key: 'clay_pot_smashed', frameIdx, scale: 4 / 3 })),
   { name: 'bike rack',       key: 'bike_rack',     frameIdx: 0, scale: 1.3 },
   { name: 'notice board',    key: 'signpost',      frameIdx: 0, scale: 1.6 },
   { name: 'gate post',       key: 'gatepost',      frameIdx: 0, scale: 1.6 },
@@ -348,7 +355,7 @@ const SCENARIOS = [
 // ── Evaluate one scenario against the rule ─────────────────────────────────
 function evaluate(s) {
   const sheet = SHEETS[s.key];
-  const fresh = trimSheetFrame(sheet.file, sheet.fw, sheet.fh, s.frameIdx);
+  const fresh = trimSheetFrame(sheet.file, sheet.fw, sheet.fh, sheet.sourceFrame ?? s.frameIdx);
   if (!fresh) return { ...s, error: 'frame is fully transparent' };
   const lookup = `${s.key}:${s.frameIdx}`;
   const table = ART_BOUNDS[lookup];
@@ -363,7 +370,7 @@ function evaluate(s) {
     violations.push(`ART_BOUNDS "${lookup}" stale (run --emit-bounds)`);
   }
   // One frame, one piece of art (see frameRowGap).
-  const gap = sheetFrameRowGap(sheet.file, sheet.fw, sheet.fh, s.frameIdx);
+  const gap = sheetFrameRowGap(sheet.file, sheet.fw, sheet.fh, sheet.sourceFrame ?? s.frameIdx);
   if (gap > MAX_ROW_GAP) {
     violations.push(`frame holds two pieces of art (${gap} empty rows between opaque rows) — ` +
       `the ${sheet.fw}×${sheet.fh} slice reaches into a neighbour on the sheet`);
@@ -459,7 +466,7 @@ function emitBounds() {
   const lines = [];
   for (const [key, sh] of Object.entries(SHEETS)) {
     for (const fi of sh.frames) {
-      const b = trimSheetFrame(sh.file, sh.fw, sh.fh, fi);
+      const b = trimSheetFrame(sh.file, sh.fw, sh.fh, sh.sourceFrame ?? fi);
       lines.push(`    '${key}:${fi}': { fw: ${b.fw}, fh: ${b.fh}, ` +
         `minX: ${b.minX}, minY: ${b.minY}, maxX: ${b.maxX}, maxY: ${b.maxY} },`);
     }

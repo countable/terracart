@@ -115,7 +115,7 @@ test('MINERAL_ICON_SHEET: shell inventory icon is frame 0 on shell_sheet', () =>
 });
 
 // ── CROP_SPRITE: shrub (bug 1d5ac29) ──────────────────────────────────────
-// Two shrub appearances share harvesting; the cut hedge is 20% smaller.
+// Approved canopy variants share harvesting; clipped hedges remain smaller.
 
 test('CROP_SPRITE: basic shrub uses the bushes sheet', () => {
   assert.eq(CROP_SPRITE['shrub'].sheet, 'bushes');
@@ -125,12 +125,13 @@ test('CROP_SPRITE: shrub is a custom sprite (custom: true)', () => {
   assert.eq(CROP_SPRITE['shrub'].custom, true);
 });
 
-test('CROP_SPRITE: shrub frame is 0 (single basic bush)', () => {
-  assert.eq(CROP_SPRITE['shrub'].frame, 0);
+test('CROP_SPRITE: ordinary shrub declares all eight approved canopies', () => {
+  assert.eq(JSON.stringify(CROP_SPRITE.shrub.frames), JSON.stringify([0, 1, 2, 3, 4, 5, 6, 7]));
 });
 
-test('CROP_SPRITE: shrub is 20% smaller in each dimension than the former residential hedge', () => {
-  assert.eq(CROP_SPRITE.shrub.looks.clipped.scale / (4 / 3), 0.8);
+test('CROP_SPRITE: 24px canopies retain native shrub scale and smaller clipped hedges', () => {
+  assert.eq(CROP_SPRITE.shrub.scale * 24, 24);
+  assert.eq(CROP_SPRITE.shrub.looks.clipped.scale / CROP_SPRITE.shrub.scale, 0.8);
 });
 
 // ── CROP_SPRITE: longgrass (bug 1d5ac29) ──────────────────────────────────
@@ -151,8 +152,8 @@ test('CROP_SPRITE: longgrass frame is 10 (col 10 row 0 of 22-col Props.png grid)
   assert.eq(0 * 22 + 10, 10, 'frame derivation');
 });
 
-test('CROP_SPRITE: longgrass scale is 1.16', () => {
-  assert.eq(CROP_SPRITE['longgrass'].scale, 1.16);
+test('CROP_SPRITE: longgrass scale is reduced by 10%', () => {
+  assert.eq(CROP_SPRITE['longgrass'].scale, 1.16 * 0.9);
 });
 
 // ── CROP_SPRITE: mushroom (bug 1d5ac29) ───────────────────────────────────
@@ -429,7 +430,8 @@ test('shrubs keep common harvesting across basic, cut and bramble art', () => {
           const p = {crop:'shrub', _biome, [tag]:look, _cave};
           const isCut = ['clipped','trimmed'].includes(look) || (!_cave && [5,16].includes(_biome));
           assert.eq(wildplantSprite(p), look === 'bramble' ? base.looks.bramble : isCut ? cut : base);
-          assert.eq(wildplantFrame(p), 0);
+          assert.truthy(wildplantSprite(p).frames.includes(wildplantFrame(p)), 'the selected frame belongs to this shrub look');
+          assert.eq(wildplantFrame({...p}), wildplantFrame(p), 'rebuilding the same shrub keeps its variant');
           assert.eq(BiomeProfiles.tint(_biome, 'shrub'), null);
           assert.eq(wildplantRule(p.crop).output, 'wood');
         }
@@ -598,12 +600,31 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
   assert.truthy(/g\.strokeCircle\(centre\.x, centre\.y, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
 });
 
-test('wooden barrels render at half their former size plus 10% and have no broken art', () => {
+test('every chest tier centers its visible art on its cell', () => {
+  const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  const frames = new Set();
+  for (const depth of [0, 3, 6, 9]) {
+    for (let tierSeed = 2; tierSeed <= 5; tierSeed++) {
+      const look = art.resolveAppearance({kind:'chest', poiClass:'memorial', tierSeed, depth});
+      assert.eq(look.texKey, 'chest');
+      frames.add(look.frameVal);
+      assert.eq(look.scl, 1.6 * 0.8);
+      const b = SpriteLayout.ART_BOUNDS[`chest:${look.frameVal}`];
+      assert.truthy(b, 'each recolored tier has measured bounds');
+      assert.truthy(look.foot, 'seating also supplies the shadow footprint');
+      assert.inRange(look.dxPx + ((b.minX+b.maxX)/2 - look.origin[0]*b.fw)*look.scl, -1e-9, 1e-9);
+      assert.inRange(look.dyPx + ((b.minY+b.maxY)/2 - look.origin[1]*b.fh)*look.scl, -1e-9, 1e-9);
+    }
+  }
+  assert.eq(frames.size, 6, 'all trunk chest tiers exercised');
+});
+
+test('wooden barrels retain their size increases and have no broken art', () => {
   const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
   for (const smashed of [false, true]) {
     const look = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'barrel',_smashed:smashed});
     if (smashed) assert.falsy(look.visible, 'no broken barrel sprite');
-    else { assert.eq(look.texKey, 'barrel'); assert.eq(look.scl, (2 / 3) * 1.1, 'half the old size, up 10% (Oct 2026)'); }
+    else { assert.eq(look.texKey, 'barrel'); assert.eq(look.scl, (2 / 3) * 1.1 * 1.1, 'barrels enlarged another 10%'); }
   }
   for (const smashed of [false, true]) {
     const pot = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot',_smashed:smashed});
@@ -632,7 +653,7 @@ test('berry bush: mature map art replaces wild and farmed berries while growth a
     assert.eq(art.sheet, CROP_SPRITE.shrub.sheet);
     assert.eq(art.scale, CROP_SPRITE.shrub.scale);
     assert.eq(art.texture, 'bushes_fruiting');
-    assert.eq(wildplantFrame(plant), 0);
+    assert.truthy(CROP_SPRITE.shrub.frames.includes(wildplantFrame(plant)));
   }
   for (let stage=0; stage<MAX_GROWTH_STAGE; stage++) {
     assert.eq(wildplantSprite({crop:'berry',stage}).sheet, 'springcrops');
@@ -671,7 +692,7 @@ test('neutral mineral shadows stay under every resolved material and size', () =
     const p = art.resolveAppearance(o);
     const shadowHeight = Math.max(8,p.foot.w*0.9)*0.42;
     const shadowBottom = p.foot.footFromCentre-p.foot.shadowInsetPx+shadowHeight/2;
-    assert.eq(shadowBottom,p.foot.footFromCentre,'shadow ends at the seated art bottom');
+    assert.truthy(Math.abs(shadowBottom-p.foot.footFromCentre)<1e-10,'shadow ends at the seated art bottom');
     const b = SpriteLayout.ART_BOUNDS[`${p.texKey}:${p.frameVal}`];
     assert.truthy(Math.abs(p.dyPx+(b.maxY-b.fh/2)*p.scl-p.foot.footFromCentre)<1e-10,'depth keeps the true art foot');
   }
@@ -715,7 +736,8 @@ test('picked wild berries leave a plain bush across redraw and save reload witho
     assert.eq(wildplantSprite({ ...view, _biome: 2 }).sheet, CROP_SPRITE.shrub.sheet, 'a berry bush does not become a palm');
     assert.eq(wildplantSprite(view).sheet, CROP_SPRITE.shrub.sheet);
     const before = wildplantSprite(plant), after = wildplantSprite(view);
-    for (const key of ['sheet', 'frame', 'scale', 'seat']) assert.eq(after[key], before[key], key + ' remains identical');
+    for (const key of ['sheet', 'scale', 'seat']) assert.eq(after[key], before[key], key + ' remains identical');
+    assert.eq(wildplantFrame(view), wildplantFrame(plant), 'picking preserves the selected canopy');
     assert.eq(after.texture, undefined, 'only the berry overlay disappears');
     assert.eq(view.x, plant.x); assert.eq(view.y, plant.y);
     assert.eq(view.id, plant.id);
@@ -733,27 +755,51 @@ test('picked wild berries leave a plain bush across redraw and save reload witho
 });
 
 
-test('berry bush: fruit texture copies the plain bush at native size and only paints berries once', () => {
-  const source = { width: 48, height: 32 };
-  const draws = [], berries = [], frames = [];
-  let baked = false, refreshes = 0;
-  const ctx = { drawImage(...args) { draws.push(args); }, fillRect(...args) { berries.push(args); } };
+test('berry bush: every canopy frame gets fruit once without changing its alpha or frame geometry', () => {
+  const source = { width: 192, height: 24 };
+  const baked = new Set(), draws = [], berries = [], frames = [];
+  let refreshes = 0;
+  const ctx = { drawImage(...args) { draws.push(args); }, fillRect(...args) {
+    assert.eq(this.globalCompositeOperation, 'source-atop', 'fruit cannot extend the canopy silhouette');
+    berries.push(args);
+  } };
   const scene = { textures: {
-    exists() { return baked; },
+    exists(key) { return baked.has(key); },
     get(key) { assert.eq(key, 'bushes'); return { getSourceImage: () => source }; },
     createCanvas(key, w, h) {
-      assert.eq(key, CROP_SPRITE.berry.mature.texture);
-      assert.eq(w, 48); assert.eq(h, 32);
-      baked = true;
+      assert.eq(w, 192); assert.eq(h, 24);
+      baked.add(key);
       return { getContext: () => ctx, add: (...args) => frames.push(args), refresh() { refreshes++; } };
     },
   } };
   TILLED_TEX.makeBerryBushTexture(scene);
   TILLED_TEX.makeBerryBushTexture(scene);
-  assert.eq(draws.length, 1, 'the foliage is copied once at startup');
+  assert.eq(draws.length, 3, 'one foliage copy per fruit kind at startup');
   assert.eq(draws[0][0], source);
   assert.eq(JSON.stringify(draws[0].slice(1)), JSON.stringify([0, 0]), 'no crop or resize');
-  assert.eq(berries.length, 21, 'seven berries, each with shade, body and highlight');
-  assert.eq(JSON.stringify(frames), JSON.stringify([[0, 0, 0, 0, 48, 32]]));
-  assert.eq(refreshes, 1, 'no per-cell texture rebuilds');
+  assert.eq(berries.length, 3 * 8 * 7 * 3, 'three kinds, eight canopies, seven three-tone berries');
+  for (let f = 0; f < 8; f++) assert.eq(JSON.stringify(frames[f]), JSON.stringify([f, 0, f * 24, 0, 24, 24]));
+  assert.eq(frames.length, 24);
+  assert.eq(refreshes, 3, 'no per-cell texture rebuilds');
+});
+
+test('bush variants stay stable through harvest and reload and cover every approved canopy', () => {
+  const selected = new Set();
+  for (let i = 0; i < 80; i++) {
+    const p = { kind: 'wildplant', crop: 'berry', id: 'bush-variant-' + i };
+    const frame = wildplantFrame(p);
+    selected.add(frame);
+    for (const crop of ['berry', 'poisonberry', 'goldenberry']) {
+      const ripe = { ...p, crop };
+      const bare = Render.wildplantView(ripe, { picked: new Set([p.id]), burned: new Set() });
+      assert.eq(wildplantFrame(bare), frame, 'fruit kind and harvest keep the canopy');
+      assert.eq(wildplantFrame(JSON.parse(JSON.stringify(ripe))), frame, 'reload keeps the canopy');
+    }
+  }
+  assert.eq(selected.size, 8);
+  for (const [look, count] of [['bramble', 4], ['clipped', 8], ['zone_hedge_single', 8]]) {
+    const variants = new Set();
+    for (let i = 0; i < 80; i++) variants.add(wildplantFrame({crop:'shrub',id:'shrub-' + i,_plantArt:look}));
+    assert.eq(variants.size, count, look + ' uses every approved variant');
+  }
 });

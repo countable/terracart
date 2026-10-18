@@ -19,13 +19,14 @@
         scene.buildingWallContainer.add(gfx);
         group = scene._wallPerspective[source] = { gfx, blocks: [], x: 0, y: 0 };
       }
-      group.blocks.length = 0;
+      group.blocks.length = 0; group.runs = null;
+      group.alwaysActive = false;
       group.angle = NaN;
       return group;
     },
     // A footprint extruded between two elevations (convex when capped). Retain projected
     // coordinates too, avoiding temporary vertex objects during rotation.
-    prism(scene, source, points, bottom, top, colors, support = null, capped = true) {
+    prism(scene, source, points, bottom, top, colors, support = null, capped = true, geometry = {}) {
       const group = scene._wallPerspective[source];
       // Match the padded overlay window. A city-sized footprint may intersect
       // the view while almost all of its perimeter is far away.
@@ -46,8 +47,10 @@
       }
       if (Math.abs(area) < 1e-6) return;
       support ||= { x: x / points.length, y: y / points.length, order: group.blocks.length };
-      group.blocks.push({ points, bottom, top, colors, support, capped, winding: Math.sign(area),
+      group.runs = null;
+      group.blocks.push({ points, topPoints: geometry.topPoints || points, allFaces: !!geometry.allFaces, bottom, top, colors, support, capped, winding: Math.sign(area),
         x: x / points.length, y: y / points.length, order: group.blocks.length,
+        faceOrder: Array.from({ length: points.length }, (_, i) => i), faceDepth: new Float64Array(points.length),
         projected: new Float64Array(points.length * 4) });
     },
     addSegment(scene, source, spec) {
@@ -94,12 +97,12 @@
     },
     clear(scene, source) {
       const group = scene._wallPerspective?.[source];
-      if (group) { group.blocks.length = 0; group.gfx.clear(); group.angle = NaN; }
+      if (group) { group.blocks.length = 0; group.runs = null; group.alwaysActive = false; group.gfx.clear(); group.angle = NaN; }
     },
     update(scene) {
       const angle = scene.mapRot || 0, c = Math.cos(angle), s = Math.sin(angle);
       for (const group of Object.values(scene._wallPerspective || {})) {
-        group.gfx.visible = this.active(scene);
+        group.gfx.visible = this.active(scene) || (group.alwaysActive && (scene.depth ?? 0) === 0);
         if (!group.gfx.visible || group.angle === angle) continue;
         group.angle = angle;
         const g = group.gfx;
@@ -111,31 +114,82 @@
         group.blocks.sort((a, b) => a.support.depth - b.support.depth
           || a.support.order - b.support.order || a.bottom - b.bottom
           || a.depth - b.depth || a.order - b.order);
+        // Heights foreshorten like the low-poly houses (BuildingLowPoly.LOOK).
+        const look = global.BuildingLowPoly?.LOOK, k = look?.heightScale ?? 1, inkPx = look?.inkPx || 0;
         for (const block of group.blocks) {
-          const { points, projected: v, bottom, top, colors, winding } = block;
+          const { points, topPoints, projected: v, bottom, top } = block;
           for (let i = 0; i < points.length; i++) {
             const p = points[i], j = i * 4;
-            v[j] = p.x - s * bottom; v[j + 1] = p.y - c * bottom;
-            v[j + 2] = p.x - s * top; v[j + 3] = p.y - c * top;
+            v[j] = p.x - s * bottom * k; v[j + 1] = p.y - c * bottom * k;
+            v[j + 2] = topPoints[i].x - s * top * k; v[j + 3] = topPoints[i].y - c * top * k;
           }
-          for (let i = 0; i < points.length; i++) {
+          if (block.allFaces) {
+            for (let i = 0; i < points.length; i++) {
+              const j = (i + 1) % points.length;
+              block.faceDepth[i] = s * (points[i].x + points[j].x + topPoints[i].x + topPoints[j].x)
+                + c * (points[i].y + points[j].y + topPoints[i].y + topPoints[j].y);
+            }
+            block.faceOrder.sort((a, b) => block.faceDepth[a] - block.faceDepth[b]);
+          }
+        }
+        // The visible triangles of one block, in draw order: sides, then the cap.
+        const faces = (block, emit) => {
+          const { points, projected: v, colors, winding } = block;
+          for (const i of block.faceOrder) {
             const next = (i + 1) % points.length, a = points[i], b = points[next];
             // Only faces whose outward normal points toward screen-bottom.
             const screenDx = c * (b.x - a.x) - s * (b.y - a.y);
-            if (screenDx * winding >= -1e-6) continue;
-            const j = i * 4, k = next * 4;
-            g.fillStyle(colors.face, 1);
-            g.fillTriangle(v[j], v[j + 1], v[k], v[k + 1], v[k + 2], v[k + 3]);
-            g.fillTriangle(v[j], v[j + 1], v[k + 2], v[k + 3], v[j + 2], v[j + 3]);
+            if (!block.allFaces && screenDx * winding >= -1e-6) continue;
+            const j = i * 4, n = next * 4, color = block.allFaces && screenDx * winding >= 0 ? colors.top : colors.face;
+            emit(v[j], v[j + 1], v[n], v[n + 1], v[n + 2], v[n + 3], color);
+            emit(v[j], v[j + 1], v[n + 2], v[n + 3], v[j + 2], v[j + 3], color);
           }
-          if (!block.capped) continue;
-          g.fillStyle(colors.top, 1);
+          if (!block.capped) return;
           for (let i = 1; i < points.length - 1; i++) {
-            const j = i * 4 + 2, k = (i + 1) * 4 + 2;
-            g.fillTriangle(v[2], v[3], v[j], v[j + 1], v[k], v[k + 1]);
+            const j = i * 4 + 2, n = (i + 1) * 4 + 2;
+            emit(v[2], v[3], v[j], v[j + 1], v[n], v[n + 1], colors.top);
           }
+        };
+        // The ink outline is drawn once per connected run — every block that
+        // shares a ground vertex at the same base level, so a ring of wall
+        // sections has no seams between them — before the first fill of that
+        // run; crown teeth stand on a raised base and outline separately.
+        if (inkPx && !group.runs) group.runs = this.connectedRuns(group.blocks);
+        const inked = new Set();
+        for (const block of group.blocks) {
+          if (inkPx) {
+            const run = group.runs.get(block);
+            if (!inked.has(run)) {
+              inked.add(run);
+              g.fillStyle(look.ink, 1);
+              for (const other of run) faces(other, (x1, y1, x2, y2, x3, y3) => {
+                for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]])
+                  g.fillTriangle(x1 + ox * inkPx, y1 + oy * inkPx, x2 + ox * inkPx, y2 + oy * inkPx, x3 + ox * inkPx, y3 + oy * inkPx);
+              });
+            }
+          }
+          faces(block, (x1, y1, x2, y2, x3, y3, color) => { g.fillStyle(color, 1); g.fillTriangle(x1, y1, x2, y2, x3, y3); });
         }
       }
+    },
+    // Blocks joined by a shared ground vertex at the same base level, as a
+    // Map from block to its run (an array of blocks). Computed once per rebuild.
+    connectedRuns(blocks) {
+      const parent = blocks.map((_, i) => i), find = i => parent[i] === i ? i : (parent[i] = find(parent[i]));
+      const seen = new Map();
+      blocks.forEach((block, i) => {
+        for (const p of block.points) {
+          const key = p.x.toFixed(2) + ',' + p.y.toFixed(2) + '|' + block.bottom.toFixed(2);
+          if (seen.has(key)) parent[find(i)] = find(seen.get(key)); else seen.set(key, i);
+        }
+      });
+      const runs = new Map(), byRoot = new Map();
+      blocks.forEach((block, i) => {
+        const root = find(i);
+        if (!byRoot.has(root)) byRoot.set(root, []);
+        byRoot.get(root).push(block); runs.set(block, byRoot.get(root));
+      });
+      return runs;
     },
   };
   global.WallPerspective = WallPerspective;

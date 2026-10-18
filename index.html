@@ -9,6 +9,22 @@
   <meta http-equiv="Expires" content="0" />
   <meta name="theme-color" content="#111" />
   <script>
+    // Sandbox local reset must run before any saved setting or slot is read.
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const sandbox = params.has('sandbox') && !['false', '0', 'no'].includes((params.get('sandbox') || '').toLowerCase());
+      window.__sandboxSkipStory = sandbox && params.get('skipStory') === 'true';
+      if (!sandbox || params.get('reset') !== 'true') return;
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key?.startsWith('terracart.')) localStorage.removeItem(key);
+        }
+      } catch (error) { console.warn('Sandbox local reset failed:', error); }
+    })();
+    // End sandbox local reset.
+  </script>
+  <script>
     // Boot recovery stays inline: it must work even when no dependency arrives.
     (function () {
       const KEY = 'terracart.bootRetries', LIMIT = 2;
@@ -81,7 +97,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=4fdc22a7" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=939ad6a6" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -694,6 +710,17 @@
     #devtools[open] summary::before { content: '▾ '; }
     #devtools summary:hover { background: #ffffff14; color: #ccc; }
     #devtools .devitems { display: flex; flex-direction: column; gap: 0; }
+    /* On its own page (app.js _openMenuPage) the Developer <details> is the
+       page: forced open, its summary and divider gone; the page's Back row
+       carries the title. The saves page likewise sheds its divider. */
+    .game-modal .menu-page#devtools { border-top: 0; margin-top: 0; padding-top: 0; }
+    .game-modal .menu-page#devtools > summary { display: none; }
+    .game-modal .menu-page { display: flex; flex-direction: column; gap: 0; }
+    .game-modal .menu-page-head {
+      display: flex; align-items: center; gap: 10px; margin: 0 0 6px;
+      padding-bottom: 6px; border-bottom: 1px solid #333;
+    }
+    .game-modal .menu-page-head .menu-page-title { font: 700 13px var(--font-ui); color: var(--gold); }
     /* Hit height, not font size: rows sat at 40px once, then 32px, and the
        menu still read as a sparse list that scrolled sooner than it needed
        to — packed to ~26px (4px pad on the 12px line, zero gap) so the whole
@@ -1211,7 +1238,7 @@
   <link rel="stylesheet" href="css/compass_shine.css?v=2196f9a5">
   <link rel="stylesheet" href="css/compass_hud.css?v=7c9f51d6">
   <link rel="stylesheet" href="css/compass_inventory.css?v=2c3aceb5">
-  <link rel="stylesheet" href="css/compass_panels.css?v=9596cd2c">
+  <link rel="stylesheet" href="css/compass_panels.css?v=9b9ffb51">
   <link rel="stylesheet" href="css/speech_bubbles.css?v=03979abe">
   <link rel="stylesheet" href="css/book_reader.css?v=79db504e">
 </head>
@@ -1274,15 +1301,22 @@
       <button id="mp-toggle">Multiplayer: off</button>
       <button id="player-name-btn" style="display:none;">Player name: —</button>
       <button id="move-home">Move Home here</button>
-      <div id="saves-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
-        <div style="font:700 10px var(--font-ui);color:#888;padding:2px 8px 4px;">Saved games</div>
+      <!-- THE MENU'S PAGES (owner, Oct 2026): the saved games and the developer
+           tools are each a second menu of their own — "Load game" and
+           "Developer" open them (app.js _openMenuPage) with a Back button —
+           so the main list stays short. Their markup lives in #menu-pages,
+           hidden, and is moved into the page dialog while it shows; every
+           id-bound handler (buildSavesMenu, the debug buttons, the teleport
+           presets, the sandbox lab) finds its element by id as before. -->
+      <button id="load-game">Load game ›</button>
+      <button id="dev-tools">Developer ›</button>
+      <div id="menu-pages" hidden>
+      <div id="saves-section">
         <div id="saves-list"><!-- one row per slot, injected from the save registry --></div>
         <button id="new-save">+ New game</button>
       </div>
-      <!-- Developer tools. Collapsed by default: these were sitting in the
-           open menu above the player-facing entries, so the first thing a new
-           player saw on tapping ☰ was five debug buttons and a teleport list.
-           Still one tap away for development — just not the default view. -->
+      <!-- Developer tools: the Developer page's contents (its <details> is
+           forced open on the page and its summary hidden there). -->
       <details id="devtools">
         <summary>Developer</summary>
         <div class="devitems">
@@ -1302,6 +1336,7 @@
           </div>
         </div>
       </details>
+      </div>
   <!-- The floor under the ☰ button: "Depth N" underground, blank at ground
        level (app.js updateHUD). -->
   <div id="depth-tag" aria-live="polite"></div>
@@ -1830,13 +1865,14 @@
     document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
 
     // Close menu on outside click / world tap. While open, the menu's list
-    // lives in its dialog (#menu-modal, app.js › _openMenuDialog), not under
+    // lives in its dialog (#menu-modal, app.js › _openMenuDialog) or one of
+    // its pages (#menu-page-modal, _openMenuPage), not under
     // <details id="menu"> — a tap there is INSIDE the menu. The dialog's own
     // backdrop tap closes it through the shell's onClose.
     document.addEventListener('pointerdown', (e) => {
       const m = document.getElementById('menu');
       if (!m || !m.open || m.contains(e.target)) return;
-      if (document.getElementById('menu-modal')) return;
+      if (document.getElementById('menu-modal') || document.getElementById('menu-page-modal')) return;
       m.open = false;
     }, true);
     document.getElementById('delivery-list').addEventListener('click', (e) => {
@@ -2548,7 +2584,7 @@
     // appear a second time — the user already acknowledged it this session.
     try {
       // A same-session reload skips the splash.
-      if (sessionStorage.getItem('terracart.safetySeen')) {
+      if (!window.__sandboxSkipStory && sessionStorage.getItem('terracart.safetySeen')) {
         __safetyDismissed = true;
         document.getElementById('safety')?.remove();
         window.__compassPerm = window.__compassPerm || 'granted';
@@ -2738,6 +2774,7 @@
       const overlay = document.getElementById('howto');
       if (!overlay) return;
       if (!force) {
+        if (window.__sandboxSkipStory) return;
         let seen = false;
         try { seen = !!localStorage.getItem('terracart.howtoSeen'); } catch {}
         // A save with no mode yet is asked even if the card was seen before
@@ -2831,7 +2868,10 @@
       __skipSafetyPerm = sessionStorage.getItem('terracart.skipSafety');
       if (__skipSafetyPerm) sessionStorage.removeItem('terracart.skipSafety');
     } catch { /* sessionStorage blocked — show the splash as usual */ }
-    if (__skipSafetyPerm) {
+    if (window.__sandboxSkipStory) {
+      __safetyDismissed = true;
+      document.getElementById('safety')?.remove();
+    } else if (__skipSafetyPerm) {
       // Home-capture reload — the splash was answered just before it. iOS
       // compass permission persists for the browsing session, so reuse the
       // pre-reload answer. The scene's create() sees window.__compassPerm and
@@ -2995,11 +3035,11 @@
   <script src="src/quarry_layout.js?v=6b945d34"></script>
   <script src="src/zone_dressing.js?v=eed6eea0"></script>
   <script src="src/reef_layout.js?v=5ac55392"></script>
-  <script src="src/sprite_layout.js?v=2fdc7d3f"></script>
+  <script src="src/sprite_layout.js?v=f6d36943"></script>
   <script src="src/placed_floor.js?v=2d48b4fd"></script>
   <script src="src/campfires.js?v=de1dbe54"></script>
-  <script src="src/home.js?v=ca3a4349"></script>
-  <script src="src/coords.js?v=5bb3fc3d"></script>
+  <script src="src/home.js?v=4ec44f53"></script>
+  <script src="src/coords.js?v=e0d0cb81"></script>
   <script src="src/fog.js?v=f59fad6c"></script>
   <script src="src/biome_profiles.js?v=1de273b7"></script>
   <script src="src/habitat_spawns.js?v=210179cd"></script>
@@ -3021,9 +3061,9 @@
   <script src="src/underground_stories.js?v=deb09860"></script>
   <script src="src/worldgen.js?v=210026af"></script>
   <script src="src/castle_styles.js?v=44481685"></script>
-  <script src="src/textures.js?v=0ea10727"></script>
+  <script src="src/textures.js?v=feebc7b3"></script>
   <script src="src/save.js?v=5d02b05e"></script>
-  <script src="src/items.js?v=924009cd"></script>
+  <script src="src/items.js?v=5f1495ef"></script>
   <script src="src/inventory.js?v=08929c24"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
   <script src="src/conditions.js?v=ebae5f35"></script>
@@ -3040,7 +3080,7 @@
   <script src="src/chest_themes.js?v=a2057988"></script>
   <script src="src/loot_contexts.js?v=92eecb4e"></script>
   <script src="src/rarity.js?v=3b10f893"></script>
-  <script src="src/loot.js?v=edaf17e1"></script>
+  <script src="src/loot.js?v=c4f6c850"></script>
   <script src="src/macros.js?v=8ebeca54"></script>
   <script src="src/quests.js?v=4f3ff90f"></script>
   <script src="src/hidden_objects.js?v=4f521b76"></script>
@@ -3056,55 +3096,57 @@
   <script src="src/spawn_ownership.js?v=d5742249"></script>
   <script src="src/starter.js?v=ce3ab0ec"></script>
   <script src="src/ground_fire.js?v=ed5509fb"></script>
-  <script src="src/combat.js?v=5a693743"></script>
+  <script src="src/combat.js?v=27895e63"></script>
   <script src="src/pirates.js?v=c810956f"></script>
   <script src="src/pets.js?v=bb70653d"></script>
   <script src="src/character_portraits.js?v=6b8fd6c4"></script>
   <script src="src/companions.js?v=a9ca22bf"></script>
-  <script src="src/creature_ai.js?v=3766c23d"></script>
+  <script src="src/creature_ai.js?v=89f1bdfc"></script>
 
   <script src="src/wizard.js?v=76454ef2"></script>
   <script src="src/dragon_story.js?v=0ebfab03"></script>
-  <script src="src/memory_story.js?v=111176ed"></script>
-  <script src="src/pet_story_art.js?v=4bf942ec"></script>
+  <script src="src/memory_story.js?v=a058995a"></script>
+  <script src="src/pet_story_art.js?v=2a963a9e"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
-  <script src="src/story_encounters.js?v=b3b3aa16"></script>
+  <script src="src/story_encounters.js?v=6613d99e"></script>
   <script src="src/interact.js?v=a9e0d360"></script>
   <script src="src/play_tips.js?v=9098ba2d"></script>
   <script src="src/lighting_gpu.js?v=c2cf90df"></script>
-  <script src="src/lighting.js?v=fcb254ea"></script>
+  <script src="src/lighting.js?v=67cfe77f"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=29d8d6e8"></script>
+  <script src="src/render.js?v=65f1de03"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/multiplayer.js?v=0061380e"></script>
   <script src="src/road_overlay.js?v=d39b1528"></script>
   <script src="src/temple_art.js?v=ef92c84b"></script>
-  <script src="src/wall_perspective.js?v=028ee9f0"></script>
-  <script src="src/building_overlay.js?v=042cb26e"></script>
-  <script src="src/assets.js?v=6a37a018"></script>
+  <script src="src/wall_perspective.js?v=793768a0"></script>
+  <script src="src/building_styles.js?v=d52a1298"></script>
+  <script src="src/building_lowpoly.js?v=bd628267"></script>
+  <script src="src/building_overlay.js?v=b98f18f7"></script>
+  <script src="src/assets.js?v=5c4de1b5"></script>
   <script src="src/sandbox_destinations.js?v=e6dc29cb"></script>
-  <script src="src/sandbox.js?v=cf387ff8"></script>
+  <script src="src/sandbox.js?v=2356eb1e"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=c1099b24"></script>
-  <script src="src/art_thumbs.js?v=ba49b822"></script>
-  <script src="src/modal_shell.js?v=5ba3700b"></script>
-  <script src="src/scene_geo.js?v=5440fa32"></script>
-  <script src="src/npc.js?v=98dd939b"></script>
+  <script src="src/art_thumbs.js?v=bcb1a6f0"></script>
+  <script src="src/modal_shell.js?v=85b5cba0"></script>
+  <script src="src/scene_geo.js?v=f0f9f10b"></script>
+  <script src="src/npc.js?v=82de9e0d"></script>
   <script src="src/scene_creatures.js?v=e2bd723e"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
   <script src="src/scene_shops.js?v=9727d3f5"></script>
-  <script src="src/heading_up.js?v=576d9191"></script>
+  <script src="src/heading_up.js?v=48e4b34a"></script>
   <script src="src/compass_modules.js?v=de335c76"></script>
   <script src="src/compass_shine.js?v=1533df4e"></script>
   <script src="src/compass_hud.js?v=e9a30166"></script>
-  <script src="src/scene_create.js?v=74bfa337"></script>
+  <script src="src/scene_create.js?v=3c526c12"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>
   <script src="src/scene_consumables.js?v=13f93c2c"></script>
   <script src="src/scene_pets.js?v=b0c58511"></script>
-  <script src="src/scene_venues.js?v=95af6fa9"></script>
-  <script src="src/scene_streets.js?v=96d6889a"></script>
+  <script src="src/scene_venues.js?v=4d03ed74"></script>
+  <script src="src/scene_streets.js?v=c392e252"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
@@ -3175,7 +3217,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=4fdc22a7';
+      const APP_SRC = 'src/app.js?v=939ad6a6';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="artifact-review" content="disabled">
+<title>Dragon Hood · Sandbox test directory</title>
+<style>
+:root{color-scheme:dark;background:#101919;color:#ecf3e9;font:16px/1.6 system-ui,sans-serif}*{box-sizing:border-box}body{margin:0}main{max-width:1100px;margin:auto;padding:32px 24px}h1{font-size:clamp(30px,5vw,46px);line-height:1.15}h2{margin:0}p{color:#afc1b7;max-width:850px}a{color:#c7e991}nav{display:flex;flex-wrap:wrap;gap:12px 22px;margin:20px 0}section{margin:28px 0;padding:24px;background:#192525;border:1px solid #344545;border-radius:12px;scroll-margin-top:20px}ul{list-style:none;padding:0;margin:16px 0 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}li{padding:12px 0;border-top:1px solid #344545}.row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}.options{display:flex;gap:16px;font-size:14px}.note{border-left:3px solid #efca79;padding:8px 16px;background:#252a20}input{width:100%;padding:12px;border:1px solid #52675f;border-radius:8px;background:#192525;color:inherit;font:inherit}a:focus-visible,input:focus-visible{outline:3px solid #efca79;outline-offset:4px}[hidden]{display:none!important}@media(max-width:650px){ul{grid-template-columns:1fr}section{padding:18px}}
+</style>
+<script src="../src/sandbox_destinations.js"></script>
+</head>
+<body><main>
+<a href="../design/">← Design dashboards</a>
+<h1>Sandbox test directory</h1>
+<p>Jump straight to an existing test setup. Each test link clears all local game saves and settings, skips the intro and location setup, and opens the sandbox in a new tab with its stocked test kit. Reloading resets it again.</p>
+<label for="search">Find a mechanic or setup</label>
+<input id="search" type="search" placeholder="Castle, bank, forest, traps…">
+<nav id="categories" aria-label="Test categories"></nav>
+<p id="count" role="status"></p>
+<div id="directory"></div>
+<p id="empty" hidden>No matching setups.</p>
+<section id="generated-floors"><h2>More floors and generated variants</h2><p>L0–L8 maps can be generated in the floor viewer. Choose a floor, variant and seed, then select <strong>Play in sandbox</strong>. These require a map snapshot from the viewer, so they do not yet have standalone sandbox permalinks.</p><a href="floor-viewer.html">Open floor viewer →</a></section>
+</main>
+<script>
+'use strict';
+const groups = [
+  {id:'castles', title:'Castle and forts', scenes:['CASTLE'], note:'Castle has one authored tower / relic-shop setup. Forts have separate quest-locked and unlocked slot-machine setups. Four castle variants × quest criteria on/off are not yet available as sandbox fixtures.'},
+  {id:'booths', title:'Service booths', scenes:['SERVICES']},
+  {id:'nexuses', title:'Nexuses and restoration', scenes:['ZONES','QUARRY','FLINT_FIELD','RESTORATION'], note:'Existing authored nexus layouts, restoration shops and recent enemy encounters. Old stones includes an awakened temple challenge.'},
+  {id:'terrain', title:'Terrains and town', scenes:['PLAZA','FOREST','ORCHARD','ROCK','BARNYARD','PADDOCK','BEACH','MARSH','FARMLAND','RESIDENTIAL','CIVIC','SMALLHOUSE','RECREATION']},
+  {id:'roads', title:'Road variants and paths', scenes:[]},
+  {id:'combat', title:'Combat test stations', scenes:['COMBAT','PRACTICE'], note:'Use Full kit for equipment-assisted checks, or Damage test to remove armour, carried shields and jewellery. Enemies use normal AI and can leave their stations.'},
+  {id:'hazards', title:'Surface hazards and stairs', scenes:['HAZARDS']},
+  {id:'floors', title:'Other floors · authored labs', scenes:[], note:'L1 mining and hazard fixtures, plus the L2 deep hazard lab. Cave entrance above provides the normal stairs route.'},
+  {id:'other', title:'Other setups', scenes:[]},
+];
+function groupFor(entry) {
+  if (entry.depth) return 'floors';
+  if (entry.road || entry.roadName) return 'roads';
+  return groups.find(group => group.scenes.includes(entry.scene))?.id || 'other';
+}
+function anchor(label, href) {
+  const a = document.createElement('a'); a.textContent = label; a.href = href;
+  a.target = '_blank'; a.rel = 'noopener'; return a;
+}
+const directory = document.querySelector('#directory');
+for (const group of groups) {
+  const entries = SandboxDestinations.entries.filter(entry => groupFor(entry) === group.id);
+  if (!entries.length) continue;
+  const section = document.createElement('section'); section.id = group.id;
+  const heading = document.createElement('h2'); heading.textContent = group.title; section.append(heading);
+  if (group.note) { const p = document.createElement('p'); p.textContent = group.note; section.append(p); }
+  const list = document.createElement('ul');
+  for (const entry of entries) {
+    const li = document.createElement('li'); li.dataset.destination = entry.id;
+    const label = entry.label + (entry.depth ? ` · L${entry.depth}` : '');
+    li.dataset.search = [group.title, label, entry.id, ...(entry.aliases || [])].join(' ').toLowerCase();
+    const href = SandboxDestinations.href(entry.id) + '&reset=true&skipStory=true';
+    li.className = 'row'; li.append(anchor(label + ' ↗', href));
+    if (group.id === 'combat') {
+      const options = document.createElement('span'); options.className = 'options';
+      options.append(anchor('Full kit', href), anchor('Damage test', href + '&sandboxKit=raw'));
+      li.append(options);
+    }
+    list.append(li);
+  }
+  section.append(list); directory.append(section);
+  const navLink = document.createElement('a'); navLink.href = '#' + group.id; navLink.textContent = group.title;
+  document.querySelector('#categories').append(navLink);
+}
+function filter() {
+  const query = document.querySelector('#search').value.trim().toLowerCase(); let visible = 0;
+  for (const section of directory.children) {
+    let matches = 0;
+    for (const row of section.querySelectorAll('li')) { row.hidden = !row.dataset.search.includes(query); if (!row.hidden) matches++; }
+    section.hidden = !matches; visible += matches;
+  }
+  document.querySelector('#count').textContent = `${visible} of ${SandboxDestinations.entries.length} setups`;
+  document.querySelector('#empty').hidden = visible > 0;
+}
+document.querySelector('#search').addEventListener('input', filter); filter();
+</script></body></html>

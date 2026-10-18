@@ -216,6 +216,7 @@ Render.towerCrownHeight = function (textures, castle) {
 };
 
 Render.objectGroundOffsetPx = function (appearance, textures) {
+  if (appearance?.groundGeometry) return appearance.dyPx;
   if (!appearance?.visible) return 0;
   if (appearance.foot) return appearance.foot.footFromCentre;
   if (appearance.spec?.groundAtOrigin) return appearance.dyPx;
@@ -882,6 +883,7 @@ Render.neutralPetPixels = function neutralPetPixels(data) {
 Render.petTexture = function petTexture(scene, kind, sheet, tint = 0xffffff) {
   const key = 'pet-neutral-' + sheet;
   if (scene.textures.exists(key)) return Render.canvasTint(scene, key, tint);
+  if (!scene.textures.exists(sheet)) return sheet;
   const source = scene.textures.get(sheet)?.getSourceImage();
   const art = SpriteLayout.creatureArt(kind);
   if (!source || !art || typeof document === 'undefined') return sheet;
@@ -935,6 +937,7 @@ function vividPixels(data) {
 Render.vividTexture = function vividTexture(scene, kind, sheet) {
   const key = 'elite-vivid-' + sheet;
   if (scene.textures.exists(key)) return key;
+  if (!scene.textures.exists(sheet)) return sheet;
   const source = scene.textures.get(sheet)?.getSourceImage();
   const art = SpriteLayout.creatureArt(kind);
   if (!source || !art || typeof document === 'undefined') return sheet;
@@ -1809,12 +1812,51 @@ Render.reachDimAlpha = (scene) => {
   return d > 0 ? Math.min(0.88, 0.74 + 0.06 * (d - 1)) : 0.38;
 };
 
-// Baked unclaimed art carries the approved wash and lightness adjustment.
-// Resolve the same key for appearance and tint so it is never shaded twice.
+// One reversible building-art selection; query choice is per page, never saved.
+Render.buildingArtStyle = (() => {
+  const choice = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('buildingArt') : null;
+  return choice === 'legacy' ? 'legacy' : 'procedural';
+})();
+Render.proceduralBuildings = () => Render.buildingArtStyle === 'procedural' && typeof BuildingStyles !== 'undefined';
+Render.BUILDING_STYLE_ROLES = Object.freeze({
+  plain: { style: 'multistorey', palette: { wall: 0xd4cdb4, roof: 0x709b9a, trim: 0xe8dfc6 } },
+  trailer: { style: 'adobe' },
+  blacksmith: { style: 'multistorey', palette: { wall: 0xa96e59, roof: 0x687a83, trim: 0xc79673 } },
+  trader: { style: 'japanese' }, shop: { style: 'japanese' },
+  wizard: { style: 'pyramid', palette: { wall: 0x8c8796, roof: 0x8b78a8, trim: 0xc6afcf } },
+  turret: { style: 'fort' },
+  fort: { style: 'multistorey', palette: { wall: 0x9b9e91, roof: 0xb6b6a2, trim: 0xd5ceb2 } },
+  wreck: { style: 'ruin' },
+});
+Render.BUILDING_STYLE_SHOPS = Object.freeze({
+  seed: { style: 'adobe', palette: { roof: 0x82916b } },
+  supply: { style: 'whitewash', palette: { roof: 0xb09a69 } },
+  potion: { style: 'pyramid', palette: { roof: 0x957ca9, trim: 0xc7accf } },
+  relic: { style: 'pyramid', palette: { roof: 0x6e9a91, trim: 0xa8c2a1 } },
+  pet: { style: 'japanese', palette: { roof: 0x8b9678 } },
+  book: { style: 'japanese', palette: { roof: 0x967577 } },
+});
+Render.buildingProfileFor = (o, scene) => {
+  const role = Houses.displayRole(scene.save, o);
+  const theme = role === 'shop' ? scene.shopLine?.(o)?.theme ?? scene.save?.shopLines?.[o.id] ?? Shops.lineFor(scene.save, o)?.theme : null;
+  return Render.BUILDING_STYLE_SHOPS[theme] || Render.BUILDING_STYLE_ROLES[role] || Render.BUILDING_STYLE_ROLES.plain;
+};
+Render.buildingStyleFor = (o, scene) => Render.buildingProfileFor(o, scene).style;
+Render.proceduralHouse = (o, scene) => Render.proceduralBuildings()
+  && typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled()
+  && (scene.depth ?? 0) === 0 && scene._proceduralBuildings?.has(o.id);
+// Map sprites and restoration cards use the original role artwork.
+Render.houseTextureFrame = (role, o, scene, theme) => {
+  if (role === 'plain') return 'front';
+  if (role === 'wizard') return 3;
+  if (role === 'turret') return CastleStyles.get(o.id).towerFrame;
+  return undefined;
+};
+// Baked unclaimed art already contains its wear: never apply a second wash.
 Render.houseTextureKey = (role, o, scene) => {
   if (role === 'plain') return 'house';
   if (role === 'wizard') return 'shrine';
-  if (role === 'turret') return 'tower';   // the castle tower sheet, claimed palette: it is yours
+  if (role === 'turret') return 'tower';
   if (role === 'fort' && scene.isClaimedKey && !scene.isClaimedKey(o.id)
       && typeof ASSETS !== 'undefined' && ASSETS.house_fort_unclaimed) return 'house_fort_unclaimed';
   return `house_${role}`;
@@ -3691,7 +3733,7 @@ const CONNECTED_WALL_ART = Object.freeze({
   stronghold_wall: Object.freeze({ profile: 'wall', thickness: 8,
     face: 0x6b645f, top: 0xc4b6a8, dark: 0x3d3c3c }),
   hedge: Object.freeze({ profile: 'hedge', thickness: 16,
-    face: 0x2c3a22, top: 0x8c965c, dark: 0x1c261a }),
+    face: 0x3a6e2e, top: 0xb4cb44, dark: 0x0a3d31 }),
 });
 Render.CONNECTED_WALL_ART = CONNECTED_WALL_ART;
 // The connected piece a frame item draws as, or null. `art` is the item's
@@ -4264,6 +4306,11 @@ Render.drawObjects = function drawObjects(scene) {
   const consideredCreatures = frameCreatures || fallbackCreatures;
   _boot_scanned += consideredCreatures.length;
   _boot_creatures += consideredCreatures.length;
+  // Warm the active creature bubble before viewport culling. Moving or changing
+  // depths brings new kinds through this same path without loading the roster.
+  if (scene._ensureAsset && typeof SpriteLayout !== 'undefined') {
+    for (const c of consideredCreatures) scene._ensureAsset(SpriteLayout.creatureSheet(c.kind));
+  }
   // The shared viewport cull runs before caught/surface/visibility checks.
   // In the live game wanderCreatures has already removed the frozen ring
   // seats; the fallback preserves standalone render callers.
@@ -4445,7 +4492,7 @@ Render.drawObjects = function drawObjects(scene) {
     ...pressureState.traps.map(h => ({ h, plate: false }))].map(it => ({
       ...it, dx: it.h.x - pWorldX, dy: it.h.y - pWorldY,
     })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
-  const zList = [];
+  const zList = typeof BuildingLowPoly !== 'undefined' ? BuildingLowPoly.worldPieces(scene) : [];
   Render.cullCovered(scene, whirlwindList, 'h');
   Render.cullCovered(scene, environmentList, 'h', true);
   Render.cullCovered(scene, pressureList, 'h', true);
@@ -4495,7 +4542,7 @@ Render.drawObjects = function drawObjects(scene) {
     const shadowList = [];
     for (const item of filteredObj) {
       const k = item.o.kind;
-      if (k === 'temple') continue;
+      if (k === 'temple' || item._appearance?.groundGeometry) continue;
       if (isBuilding(k)) { shadowList.push(item); continue; }
       if (!RENDER_SPEC[k]?.shadow) continue;
       const foot = item._appearance?.foot;
@@ -5429,12 +5476,19 @@ Render.drawObjects = function drawObjects(scene) {
     const down = pet && typeof Pets !== 'undefined' && Pets.isDown(c, Date.now());
     const vivid = !pet && !npcArt && Combat.isElite(c);
     const baseSheet = npcArt ? npcArt.sheet : creatureSheet(c.kind);
-    const texKey = pet ? Render.petTexture(scene, c.kind, baseSheet, c.tint)
+    const pendingSheet = !scene.textures.exists(baseSheet);
+    const texKey = pendingSheet ? 'creature_loading' : pet ? Render.petTexture(scene, c.kind, baseSheet, c.tint)
       : vivid ? Render.vividTexture(scene, c.kind, baseSheet) : baseSheet;
     const anim = creatureAnim(c.kind);
     // A baked sheet (a pet's neutral one, an elite's vivid one) is not the
     // sheet Phaser's anims name, so its frame is stepped here.
-    if (pet || (vivid && texKey !== baseSheet)) {
+    // Keep an actor visible on a cold transition while its sheet is in flight.
+    // Never bake a missing texture into a permanent pet/elite palette.
+    if (pendingSheet) {
+      s.anims?.stop();
+      setTextureIfDifferent(s, texKey, 0);
+      s.setFrame(0);
+    } else if (pet || (vivid && texKey !== baseSheet)) {
       s.anims?.stop();
       const frame = down ? 0 : Render.petFrame(scene, anim, appearance.frame, performance.now());
       if (s.texture.key !== texKey) s.setTexture(texKey, frame); else s.setFrame(frame);
@@ -5470,6 +5524,7 @@ Render.drawObjects = function drawObjects(scene) {
     // A softened lair guard is drawn smaller (creatureInstScale).
     s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, creatureInstScale(c)))
      .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - lift);
+    if (pendingSheet) s.setOrigin(0.5, 1).setDisplaySize(24, 24);
     s._huAnchor = { x: Math.round(sx), y: Math.round(sy) + CREATURE_GROUND_DY };
     Render.applyEmergence(s, c, performance.now());
     // A resting NPC lies down; every other body stands at the pool's reset.
@@ -5812,16 +5867,13 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
   // hides — used for variants that haven't baked yet.
   // Supply-crate / lowtier-chest sprite scale (the 16×16 `box` art).
-  // 0.8 (down 20% from 1.0, Sep 2026 playtest) — 16 × 0.8 = ~13px inside the
-  // 32px cell.
-  const CRATE_SCALE = 0.8;
+  // Supply crates fill about 14px of the 32px cell.
+  const CRATE_SCALE = 0.8 * 1.1;
   // Bike racks use their original small-prop scale. Wooden barrels use a
-  // 24px frame at half their former size, including the smashed frame.
+  // 24px frame, with two successive 10% size increases.
   const SMALL_POI_SCALE = 1.3;
-  // Barrels read too small and pots too big beside each other at 2/3 and
-  // (4/3)*0.8 (owner, Oct 2026: two passes of 5% each, then pots a further
-  // 8%); the two factors below are that correction.
-  const BARREL_SCALE = (2 / 3) * 1.1;
+  // Keep barrel and pot tuning independent so the two silhouettes balance.
+  const BARREL_SCALE = (2 / 3) * 1.1 * 1.1;
   // Clay pots (and their smashed frame, the same look) drew at 4/3 and read a
   // fifth too large beside the barrels; 20% off that, per the Oct 2026 pass.
   const CLAY_POT_SCALE = (4 / 3) * 0.8 * 0.9 * 0.92;
@@ -5868,18 +5920,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // RENDER_SPEC) because the scale fit and the shadow pass both need to look
   // up the same art the sprite will actually draw.
   const _houseKey = (o) => Render.houseTextureKey(_houseRole(o), o, _pass.scene);
-  // Plain houses pick the 'front' sub-rect of the house tileset; wizard towers
-  // pick the fully-restored top-row tower frame (frame 3) of the wizard sheet;
-  // other themed PNGs are single-image (frame undefined).
-  const _houseFrame = (o) => {
-    const role = _houseRole(o);
-    if (role === 'plain')  return 'front';
-    if (role === 'wizard') return 3;
-    // A turret picks its material family off its own id, the way a castle
-    // does off its footprint key, so two turrets on a street can differ.
-    if (role === 'turret') return CastleStyles.get(o.id).towerFrame;
-    return undefined;
-  };
+  const _houseFrame = (o) => Render.houseTextureFrame(_houseRole(o), o, _pass.scene);
     // Every building is sized by ONE rule (BUILDING_ART / houseArtScale in
     // util.js): draw at your own footprint, clamped to a range stated in DRAWN
     // CELLS. render.js reads the art's real frame width (which turns a cell count
@@ -5896,6 +5937,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     buildingBaseScale(_houseFrameW(o), _houseRole(o), CELL_PX);
   // The house art's drawn height, game px (0 before its texture loads).
   const _houseArtH = (o) => {
+    if (Render.proceduralHouse(o, _pass.scene)) return _pass.scene._proceduralBuildings.get(o.id).height;
     const T = _pass.scene.textures;
     if (!T || !T.exists(_houseKey(o))) return 0;
     const fr = T.get(_houseKey(o)).get(_houseFrame(o));
@@ -5939,7 +5981,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // themed PNGs are single-image, so frame must be undefined for them. Tint is
     // suppressed for themed houses (see the `themedHouse` flag below).
     house:  {
-      key: _houseKey,
+      key: o => Render.proceduralHouse(o, _pass.scene) ? null : _houseKey(o),
       frame: _houseFrame,
       // Every building stands its bottom-middle on its footprint's centre of
       // mass (_houseFootPx): the object sits on the footprint cell nearest
@@ -6056,8 +6098,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // out above); clay pots retain their broken art (o._smashed, stamped
     // by the filter). Wooden barrels disappear when collected.
     chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? L.smashedKey : L.texKey; },
-              // The shared look selects each tier's recoloured chest frame and
-              // the produce stand's awning.
+              // The shared look selects chest tiers, stand awnings and contextual
+              // containers; intact pots and their shards share a frame index.
               frame: (o) => chestLook(o).frame,
               // THE WAGON (a bus stop on an old trade road): 32×32 art, drawn at
               // WAGON_SCALE (~1.5 cells wide) and foot-anchored like the stall —
@@ -6074,8 +6116,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // Chest kinds and the market stall are drawn smaller than their sheet (they
               // crowded the cell) about the SAME centre: seated kinds (trunk chest, crates)
               // are re-centred by the seat pass, and the stall's dxPx/dyPx are derived for
-              // its scale. Crates (box, 16×16) sit at CRATE_SCALE (16 × 0.8 = ~13px) so a
-              // crate reads as a small prop; the gold chest uses CHEST_SCALE (~22px wide).
+              // its scale. Crates (box, 16×16) sit at CRATE_SCALE (16 × 0.88 = ~14px) so a
+              // crate reads as a small prop; the gold chest uses CHEST_SCALE (~18px wide).
               // The stall is a structure, not a chest. Wooden barrels fill 16px; clay pots draw at CLAY_POT_SCALE.
               // The shared spec also sizes the map-review artwork.
               scale: (o) => { const L = chestLook(o);
@@ -6237,6 +6279,10 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       frame: o._zoneObjectFrame,
       scale: 4 / 3, origin: [0.5, 0.5], seat: true };
     const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
+    if (texKey == null && o.kind === 'house' && Render.proceduralHouse(o, scene)) {
+      const foot = _houseFootPx(o);
+      return { spec, visible: false, groundGeometry: true, dxPx: foot.x, dyPx: foot.y };
+    }
     if (texKey == null || !scene.textures.exists(texKey)) return { spec, visible: false };
     const frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
     const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;

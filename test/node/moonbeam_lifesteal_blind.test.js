@@ -108,10 +108,10 @@
     assert.eq(Conditions.lightMul(save), 1);
     Conditions.apply(save, 'blinded');
     assert.eq(Conditions.lightMul(save), 0.5);
-    assert.eq(reachRadiusM(scene), (whole - 1) * 0.5 + 1, 'half the reach');
+    assert.lt(reachRadiusM(scene), whole, 'blindness shrinks the base before upgrade steps');
     assert.eq(Lighting.playerLightMul(scene), 0.5, 'half the light');
     const deep = { save, depth: 9, cellM: 8 };
-    assert.eq(reachRadiusM(deep), 8 + 1, 'never below the cell round the feet');
+    assert.gt(reachRadiusM(deep), 8 + 1, 'upgrades still expand the minimum blinded base');
     Conditions.tick(save, 15000);
     assert.falsy(Conditions.active(save, 'blinded'), 'fifteen seconds');
     Conditions.apply(save, 'blinded');

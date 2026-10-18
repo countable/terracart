@@ -73,6 +73,20 @@ fits; the viewer reports declined placements.
 
 ## Jump links
 
+Add `&reset=true` to a sandbox URL to clear all `terracart.*` localStorage
+before startup, including every saved slot, cooldown ledger and game setting.
+For example: `index.html?sandbox=true&sandboxZone=castle&reset=true`.
+The flag only acts in sandbox mode and resets again on every reload while it
+remains in the URL. Other applications' storage, session-only floor-viewer
+snapshots and downloaded asset caches remain intact. Without the flag, existing
+sandbox persistence behaviour is unchanged.
+
+Add `&skipStory=true` to bypass the opening slides, location/safety splash and
+initial how-to card in sandbox mode. No location or compass permission is
+requested by this shortcut. It does not mark the story as seen in normal play.
+Combine both flags for a fresh, click-free fixture launch:
+`index.html?sandbox=true&sandboxZone=castle&reset=true&skipStory=true`.
+
 Use `index.html?sandbox=true&sandboxZone=forest` to start at a named destination.
 Examples include `beach`, `wetland`, `golf`, `castle`, `fort`, `grove`, `stones`,
 `tar`, `practice`, `hazards`, `hazards-cave`, `hazards-deep`, `restoration`, `meadow` and `crater`. Road destinations include `hedgerow-road`, `orchard-road`,

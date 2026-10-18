@@ -9,7 +9,7 @@ test('underground stories: every draft variant has a distinct painted panel', ()
     assert.truthy(!arts.has(row.art), `${id} has its own painting`);
     arts.add(row.art);
     const dims = webpDims(`assets/art/${row.art}.webp`);
-    assert.truthy(dims && Math.abs(dims.w / dims.h - 352 / 448) < .01, `${id} scene framing`);
+    assert.truthy(dims && Math.abs(dims.w / dims.h - 4 / 3) < .01, `${id} scene framing`);
   }
   assert.eq(UndergroundStories.KINDS.bone_gallery.body,
     'The floor is littered with bones. Perhaps you should go another way...');

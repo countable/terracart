@@ -306,10 +306,10 @@ test('steady state: a still, breathing view bakes the lightmap\'s static layer o
   }
   // frameKey is built on the static key, so the two cannot drift apart.
   const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function frameKey('));
-  assert.truthy(/let k = staticFrameKey\(ps, ox, oy, prof, r0, rMax, reachM, rp, pc, pcPx\);/.test(d), 'frameKey starts from staticFrameKey');
+  assert.truthy(/let k = staticFrameKey\(ps, ox, oy, prof, r0, rMax, reachM\);/.test(d), 'frameKey starts from staticFrameKey');
 });
 
-test('steady state: a crossing borrows reach-pad slack, then the next ordinary frame rebuilds', () => {
+test('steady state: a player circle survives grid crossings without legacy mask rebuilds', () => {
   const W = 352;
   const fk = fakeCanvasWorld();
   const realCreate = document.createElement, realNow = Date.now;
@@ -337,35 +337,15 @@ test('steady state: a crossing borrows reach-pad slack, then the next ordinary f
   };
   try {
     assert.truthy(paint(), 'first frame paints');
-    assert.eq(scene._lightContribution.rebuilds, 1, 'and builds one padded reach mask');
-    assert.eq(scene._lightContribution.entries[0].canvas.width, W + 2 * Lighting.LIGHT_CACHE_PAD_CELLS * CELL_PX,
-      'the cache owns its two-sided pad');
-    scene.peekM.x += 1;                           // four whole screen pixels; the body/reach cell stays put
-    assert.truthy(paint(), 'walking still updates the viewport texture');
-    assert.eq(scene._lightContribution.rebuilds, 1,
-      'a sub-pad camera move crops the same reach mask - no path recomposition');
-    assert.eq(scene._boot_lightCachedCookies, 1, 'the steady building rides the padded cookie cache');
-    assert.eq(scene._boot_lightExcludedStamps, 1, 'the flickering fire alone takes the dynamic stamp path');
-    assert.eq(scene._boot_lightWorldStamps, 1, 'per-step walking stamps only the excluded world light');
-    const gradients = fk.log.filter(e => e.canvas === scene._lightReachComposite.name && e.op === 'createRadialGradient');
-    const live = gradients[gradients.length - 1];
-    assert.eq(live.args[0], W / 2); assert.eq(live.args[1], W / 2,
-      'the cached reach mask is recoloured around the live body, not its old world point');
-    scene.peekM.x += 13;                          // 56 px total: past 1.5 cells, inside the 2-cell paint
+    assert.eq(scene._lightPlayerCircle.revision, 1, 'one circular mask');
+    assert.eq(scene._lightPlayerCircle.canvas.width, W, 'no legacy cell padding');
+    scene.playerM.x += scene.cellM;
     scene._boot_crossing = true;
-    assert.truthy(paint(), 'the crossing frame still composes from the padded cache');
-    assert.eq(scene._lightContribution.rebuilds, 1, 'a crossing with physical slack performs no full rebuild');
-    assert.truthy(scene._lightContribution.entries.some(e => e.pending), 'the borrowed pad is marked for repayment');
+    assert.truthy(paint(), 'world lights move across a cell crossing');
+    assert.eq(scene._lightPlayerCircle.revision, 1, 'screen-centred circle survives crossings');
     scene._boot_crossing = false;
-    assert.truthy(paint(), 'the next ordinary frame bypasses the still gate to repay the rebuild');
-    assert.eq(scene._lightContribution.rebuilds, 2, 'the next ordinary frame performs exactly one rebuild');
-    assert.falsy(scene._lightContribution.entries.some(e => e.pending), 'the pending mark clears');
-    assert.falsy(paint(), 'an identical still step returns at the full-frame gate');
-    assert.eq(scene._lightContribution.rebuilds, 2, 'the still gate performs no hidden contribution work');
-    scene.peekM.x += 16;                          // 64 px from the fresh anchor: no physical slack
-    scene._boot_crossing = true;
-    assert.truthy(paint());
-    assert.eq(scene._lightContribution.rebuilds, 3, 'physical pad exhaustion rebuilds even on a crossing');
+    assert.falsy(paint(), 'no deferred cell-mask rebuild');
+    assert.eq(scene._boot_lightCachedCookies, 1, 'world cookie caching remains active');
   } finally {
     document.createElement = realCreate;
     Date.now = realNow;

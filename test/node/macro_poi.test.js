@@ -590,7 +590,7 @@
         seen.add(stem);
         const d = webpDims(`assets/art/${stem}.webp`);
         assert.truthy(d, `${stem} ships`);
-        assert.truthy(d.w === 512 && d.h === 512, `${stem} ships as a full square scene`);
+        assert.truthy(d.w * 3 === d.h * 4, `${stem} ships as a full 4:3 scene`);
       }
     }
     assert.eq(seen.size, 20);

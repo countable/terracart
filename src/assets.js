@@ -2,6 +2,10 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  building_material_reference: { kind: 'image', path: 'assets/Objects/BuildingMaterials/reference-materials-v3.png' },
+  // Low-poly building sheets are cut from this at runtime (BuildingLowPoly.tilesetSheet):
+  // the approved wall and roof crops, packed by tools/build_approved_materials.py.
+  approved_materials_v1: { kind: 'image', path: 'assets/Objects/BuildingMaterials/approved-materials-v1.png' },
   progression_tiles: { kind: 'spritesheet', path: 'assets/Objects/Progression/tiles.png', frameWidth: 24, frameHeight: 24 },
   icon_progression: { kind: 'spritesheet', path: 'assets/Objects/Progression/icons.png', frameWidth: 16, frameHeight: 16 },
   pet_story_clearing: { deferred: true, kind: 'image', path: 'assets/art/pet_clearing.webp' },
@@ -20,7 +24,7 @@ const ASSETS = {
   poison_vent_inactive: { kind: 'spritesheet', path: 'assets/Objects/Cave/poison_vent_inactive.png', frameWidth: 24, frameHeight: 24 },
   cave_mechanisms: { kind: 'spritesheet', path: 'assets/Objects/Cave/mechanisms.png', frameWidth: 24, frameHeight: 24 },
   beehive: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Beehive.png', frameWidth: 16, frameHeight: 16 },
-  bramble: { kind: 'spritesheet', path: 'assets/Objects/Approved/bramble.png', frameWidth: 24, frameHeight: 24 },
+  bramble: { kind: 'spritesheet', path: 'assets/Objects/CelProps/bramble.png', frameWidth: 24, frameHeight: 24 },
   castle_tower_shapes: { kind: 'image', path: 'assets/Objects/Castle/tower_shapes.png' },
   // Potion projectiles use the same frames as inventory and shop icons.
   icon_potions: { kind: 'spritesheet', path: 'assets/Icons/Items/Potions.png', frameWidth: 16, frameHeight: 16 },
@@ -193,7 +197,7 @@ const ASSETS = {
   // Pine uses the upper 32×48 growth strip; the lower band is separate
   // ground decoration and must not enter the standing tree frame.
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
-  // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
+  // Approved cel-shaded rocks — 192×216 atlas of 24px frames; 65 runtime identities.
   rock_variants: { kind: 'spritesheet', path: 'assets/Objects/Rocks/rocks-24.png', frameWidth: 24, frameHeight: 24 },
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
   // Five complete 32px columns; the trailing 16px mask column is unused.
@@ -226,9 +230,9 @@ const ASSETS = {
   gas_mushroom_small: { kind: 'spritesheet', path: 'assets/Objects/Approved/gas-mushroom-small.png', frameWidth: 16, frameHeight: 16 },
   gas_mushroom_large: { kind: 'spritesheet', path: 'assets/Objects/Approved/gas-mushroom-large.png', frameWidth: 24, frameHeight: 24 },
   zone_berry_bush: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/berry_bush.png', frameWidth: 24, frameHeight: 24 },
-  beach_palms: { kind: 'spritesheet', path: 'assets/Objects/Beach/palms-24.png', frameWidth: 24, frameHeight: 24 },
-  zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/Approved/approved_clipped_hedge.png', frameWidth: 16, frameHeight: 16 },
-  zone_hedge: { kind: 'spritesheet', path: 'assets/Objects/Hedges/hedges-24.png?v=b465bfa1', frameWidth: 24, frameHeight: 24 },
+  beach_palms: { kind: 'spritesheet', path: 'assets/Objects/CelProps/palms.png', frameWidth: 24, frameHeight: 24 },
+  zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/CelProps/clipped.png', frameWidth: 24, frameHeight: 24 },
+  zone_hedge: { kind: 'spritesheet', path: 'assets/Objects/Hedges/hedges-24.png', frameWidth: 24, frameHeight: 24 },
   stronghold_wall: { kind: 'spritesheet', path: 'assets/Objects/Stronghold/walls-24.png?v=42926d98', frameWidth: 24, frameHeight: 24 },
   reef_coral: { kind: 'spritesheet', path: 'assets/Objects/Reef/coral.png', frameWidth: 24, frameHeight: 24 },
   vista_scope:    { kind: 'spritesheet', path: 'assets/Objects/Approved/vista_scope.png', frameWidth: 16, frameHeight: 24 },
@@ -239,9 +243,9 @@ const ASSETS = {
   // BARREL or clay pot (standing, then smashed while restocking — isBarrel), a
   // bike rack the bicycle_parking POI (isBikeRack), a notice board the
   // information POI (render.js infoboard) and a gate's two posts (gatepost).
-  barrel: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/barrel.png', frameWidth: 24, frameHeight: 24 },
-  clay_pot: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/pots_cracked.png', frameWidth: 24, frameHeight: 24 },
-  clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/pots_smashed.png', frameWidth: 24, frameHeight: 24 },
+  barrel: { kind: 'spritesheet', path: 'assets/Objects/CelProps/barrels.png', frameWidth: 24, frameHeight: 24 },
+  clay_pot: { kind: 'spritesheet', path: 'assets/Objects/CelProps/pots.png', frameWidth: 24, frameHeight: 24 },
+  clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/CelProps/pots-smashed.png', frameWidth: 24, frameHeight: 24 },
   bike_rack:      { kind: 'spritesheet', path: 'assets/Objects/Approved/bike_rack.png', frameWidth: 16, frameHeight: 16 },
   signpost:       { kind: 'spritesheet', path: 'assets/Objects/Approved/signpost.png', frameWidth: 16, frameHeight: 16 },
   gatepost:       { kind: 'spritesheet', path: 'assets/Objects/Approved/gatepost.png', frameWidth: 16, frameHeight: 16 },
@@ -324,7 +328,7 @@ const ASSETS = {
   // custom: true, frame: N }. Longgrass uses frame 10 (a grass tuft).
   props:       { kind: 'spritesheet', path: 'assets/Objects/Approved/props.png', frameWidth: 16, frameHeight: 16 },
   // Rounded woodland bush: shared by shrub wildplants and bush-sized trees.
-  bushes:      { kind: 'spritesheet', path: 'assets/Objects/Approved/bushes.png', frameWidth: 48, frameHeight: 32 },
+  bushes:      { kind: 'spritesheet', path: 'assets/Objects/CelProps/bushes.png', frameWidth: 24, frameHeight: 24 },
   // Animated campfire — 96×32 = 6 cols × 1 row of 16×32 frames. Lit by burning
   // a coal on bare ground (see interact.js 'light-fire'); the _fire render spec
   // cycles the 6 frames for a flicker. Repels slimes + slowly restores energy.
@@ -398,7 +402,7 @@ const ASSETS = {
   // BEGIN approved map-art states and contexts
   house_fort_unclaimed: {"kind": "image", "path": "assets/Objects/Approved/house_fort_unclaimed.png", "unclaimedArt": true},
   approved_wetland_reeds: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_wetland_reeds.png", "frameWidth": 16, "frameHeight": 16},
-  approved_clipped_hedge: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_clipped_hedge.png", "frameWidth": 16, "frameHeight": 16},
+  approved_clipped_hedge: { kind: 'spritesheet', path: 'assets/Objects/CelProps/clipped.png', frameWidth: 24, frameHeight: 24 },
   approved_charred_stakes: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_charred_stakes.png", "frameWidth": 24, "frameHeight": 24},
   potofgold: {"kind": "image", "path": "assets/Objects/DailyVisits/potofgold.png"},
   // END approved map-art states and contexts
@@ -533,7 +537,10 @@ if (typeof EnemyRoster !== 'undefined') {
     // resolve to their own sheet so their recolour hook still runs.
     if (SpriteLayout.creatureArt(row.id).sheet !== row.id) continue;
     const { path, frameWidth, frameHeight } = row.art;
-    ASSETS[row.id] = { kind: 'spritesheet', path, frameWidth, frameHeight };
+    // Capturable animals and slime inventory portraits are baked at boot. Other
+    // enemies join the loader only when their kind enters the active area.
+    const bootPortrait = ['crab', 'slime', 'cave_slime', 'purple_slime', 'fire_slime', 'green_dragon'].includes(row.id);
+    ASSETS[row.id] = { deferred: !bootPortrait, kind: 'spritesheet', path, frameWidth, frameHeight };
     if (row.palette) ASSETS[row.id].onLoad = (scene) => {
       const src = scene.textures.get(row.id).getSourceImage();
       const canvas = document.createElement('canvas');

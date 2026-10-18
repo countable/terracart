@@ -6,6 +6,18 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- DOM inventory, shop, toast and gear icons share `assets/Icons/dom-atlas.png`.
+  `renderItemIcon` and `gearIconHTML` retain the original sheet/frame selection,
+  adding the atlas offset; baked `ITEM_DATA_URLS` still take priority. The atlas
+  uses a content-hashed URL, and delayed prewarming fetches it once rather than
+  every gear tier separately. A new unpacked sheet falls back to its original
+  URL until regeneration. Phaser world textures keep their existing sources.
+  After changing item/gear art or catalogs, run
+  `node tools/build-dom-icon-atlas.cjs` (Python 3 + Pillow), then the normal
+  cache-bust generator. `node tools/build-dom-icon-atlas.cjs --check` checks
+  pixel-for-pixel source parity; `node test/dom-icon-atlas.cjs` verifies every
+  catalogued item and gear tier's CSS frame at multiple display sizes.
+
 - Shop recipes use compact rows, selector spacing and a shared ingredient/count
   heading so shortfalls and receipts fit with the actions as artwork contracts.
 
@@ -123,7 +135,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   its chrome stays above scene paintings and loading mosaics without cropping the head.
   Sheets have no duplicate metal side rails or border: the outer compass housing
   supplies that frame. Painted sheets mask the dragon rail along its lower silver silhouette so
-  the image fills the space beneath the ornament without its dark backing; scene artwork uses a uniform crop from its square composition. Painted sheets reserve a separate
+  the image fills the space beneath the ornament without its dark backing; scene artwork preserves its approved 4:3 composition. Painted sheets reserve a separate
   content area below the image for useful category headings; painted stories omit
   the generic “Story” label.
   The modal gate publishes the final sheet edge in viewport pixels so silver
@@ -192,7 +204,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   A neighbour speaking opens on the `talk` kind (`NPC.speech`): the header is
   the speaker's name beside a 💬 chat bubble, the title line is their role —
   never the generic `note` scroll.
-  Scene paintings continue to use `art` and the full scene layout.
+  Scene paintings continue to use `art` and the full scene layout. The
+  white-haired newcomer’s first conversation uses `story_ayo_arrival`; later
+  conversations use her portrait, without revealing her name or identity.
 
 - Interrupted startup script downloads show a recovery screen and retry the
   whole page at most twice per tab, preserving script order and saved progress.
@@ -201,7 +215,12 @@ changing dialogue, story panels, books, toasts or status presentation.
   as diagnostics and do not trigger automatic reloads. Versioned scripts only
   fall back to an exact cached version, never an older incompatible module. Linked local stylesheets use the same
   content-hashed URLs and worker generation as scripts, and are installed in
-  the offline resource cache; CSS-only changes invalidate the shell too.
+  the offline resource cache; CSS-only changes invalidate the shell too. Local game servers must also
+  serve the checkout’s root `sw.js` as JavaScript; mounting only `index.html`
+  and asset directories leaves persistent caching disabled.
+  `node test/load-performance-browser.cjs [base URL]` checks cold/warm chapel
+  startup, worker control, and offline cached art. Network-panel entries include
+  cached resources; compare transferred bytes and time to playable as well as count.
 
 - Dungeon arrival splashes select their story ID through
   `WorldGen.floorProfile(depth).arrivalStory`; presentation owns the copy and
@@ -274,22 +293,27 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Dialogs use `makeModalShell` with a kind, which supplies a default scene
   painting unless the caller supplies a character `portrait` or `art: false`.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
-  square, with a complete scene and no baked dark text area. All existing and
-  new paintings fit the full width, anchored at the top without stretching.
-  The image begins at the window top behind the fixed silver dragon rail.
-  Its visible height starts at 90% of the panel width, cropping the bottom
-  10% of the square composition. If copy needs more room, the crop shortens
-  further. Square paintings retain at least 70% of their height so the subject
-  stays visible; longer copy paginates. Legacy portraits can shorten to the
-  rail height plus eight pixels. `tools/art_thumbs.js` bakes `ART_ASPECTS`
+  4:3, with a complete scene and no baked dark text area. Paintings fit the
+  full width, anchored at the top without stretching. The image begins at the
+  window top behind the fixed silver dragon rail. Approved 4:3 paintings keep
+  their full height; longer copy paginates below them. Legacy squares begin at
+  90% of panel width and can shorten to 70%; legacy portraits can shorten to
+  the rail height plus eight pixels. `tools/art_thumbs.js` bakes `ART_ASPECTS`
   alongside aspect-preserving thumbnails, so this layout is ready before the
   full painting loads.
   Copy follows directly below, with comfortable side padding and the specific
   title offset down four pixels. Painted stories omit the generic “Story” label;
-  useful shop/event categories sit with the copy below the image. Dialogs do
-  not scroll. Copy and actions occupy a separate `.modal-copy` viewport;
+  useful shop/event categories sit with the copy below the image. The Build
+  chooser uses a vertically scrolling card grid with a compact painting and
+  a fixed price/action footer; it never paginates. Selected cards expose their
+  pressed state to assistive technology. Other dialogs do not scroll.
+  Copy and actions occupy a separate `.modal-copy` viewport;
   long content uses Previous/Next pages at its original text size, with whole
-  controls. Content, expanded details, image loads, fonts and viewport changes
+  controls. The one exception is the ☰ menu (`makeModalShell` `scroll`): a
+  list thumbed through, it scrolls as one and is never paged. The saved
+  games ("Load game") and the developer tools ("Developer") are pages of the
+  menu (`_openMenuPage`): a second scrolling dialog with a Back row, its
+  markup moved out of the hidden `#menu-pages` holder and home again. Content, expanded details, image loads, fonts and viewport changes
   trigger fitting again. Art and loading mosaics share the same crop.
   Framed opening stories without titles keep their separate 14-pixel rail gap.
   `css/compass_panels.css` seats this same shell as a mechanical sheet that
@@ -306,7 +330,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   Shutdown reapplies the current camera scale to the paused surface before
   resuming it, so a viewport resize during a trial also fits the return map.
 - Consumables may select a painting through `art`; timed buffs reuse it after
-  use unless `used.art` overrides it. Lighting or relighting a Torch uses
+  use unless `used.art` overrides it. Dragon Powder uses `event_dragon_powder`
+  only for the completed transformation. Lighting or relighting a Torch uses
   `torch_light`, a close-up of the flame catching.
 - Paired story paintings must use actual image references. Establish the
   introduction first, then edit that image for the completed action; preserve
@@ -464,3 +489,15 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,
 `item_descriptions`, `books`, `story_neighbours`, `stranger`, `buffs`.
+
+### Home-bound memory events
+
+Memory discoveries still bank immediately, but their queued narrative panels wait
+until the player returns inside Home's surface ring. Pending memories survive
+reload and are consumed only when acknowledged. Deliberately opened NPC and
+wizard conversations remain tied to their own locations.
+
+Maud's rescue unlocks at six lifetime memories, then waits for a home visit.
+Her encounter is seated around Home, never around the travelling player; her
+archer still obeys the normal Home ward and spawn gate. Existing remote rescue
+placements move home without resetting rescue progress or granting a second gift.

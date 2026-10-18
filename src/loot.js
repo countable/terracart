@@ -438,6 +438,37 @@ const BARREL_ART = [
   { texKey: 'barrel', smashedKey: null, name: 'barrel', loot: BARREL_LOOT },
   { texKey: 'clay_pot', smashedKey: 'clay_pot_smashed', name: 'clay pot', loot: CLAY_POT_LOOT },
 ];
+// Cosmetic context only: [barrel frame, pot frame]. Pot shards use the same
+// frame as the intact vessel. Explicit zones beat streets, then biome fallback;
+// IDs still choose the container material and its existing loot profile.
+const CONTAINER_CONTEXT_ART = {
+  zoneVariant: {
+    pirate_cove: [2, 1], mystic_reef: [3, 1], seep: [6, 1],
+    ancient_grove: [6, 0], stone_garden: [6, 3], silent_circle: [1, 3],
+    broken_depot: [5, 2], work_yard: [5, 2], broken_masonry: [4, 2],
+    black_ring: [4, 2], 'quarry-abandoned': [6, 2],
+  },
+  _street: {
+    trade: [1, 0], promenade: [2, 1], lantern: [3, 3], pottery: [0, 1],
+    burned: [4, 2], fire_path: [4, 2], goblin_gang: [7, 2], barricade: [7, 2],
+    overgrown: [6, 0], toadstool: [6, 1], slime_trail: [6, 1],
+    poison_path: [6, 1], pilgrim: [1, 3], golden: [5, 3], golden_path: [5, 3],
+  },
+  _biome: {
+    FOREST: [6, 0], WETLAND: [6, 1],
+    SAND: [2, 1], COMMERCIAL: [3, 3],
+    INDUSTRIAL: [5, 2],
+  },
+};
+function containerArtFrame(o, profile) {
+  for (const [field, contexts] of Object.entries(CONTAINER_CONTEXT_ART)) {
+    const context = field === '_biome' && o?._biome != null
+      ? Object.keys(contexts).find(name => WorldGen.T[name] === o._biome) : o?.[field];
+    if (Object.prototype.hasOwnProperty.call(contexts, context))
+      return contexts[context][profile.texKey === 'clay_pot' ? 1 : 0];
+  }
+  return 0;
+}
 const BARREL_CLASSES = new Set(['waste_basket', 'recycling']);
 const BARREL_DENSITY_REWARDS = Object.freeze({ sparseCount: 10, denseCount: 200,
   sparseFullChance: 1, denseFullChance: 0.2, baseBudget: 15, sparseBudgetMultiplier: 5 });
@@ -931,7 +962,7 @@ function chestLook(o) {
     : (stand ? 'market_stand' : (wagon ? 'wagon' : (box ? 'box' : 'chest'))));
   return (o._chestLook = { stand, bike, barrel, macro, smashedKey: barrelArt?.smashedKey, barrelName: barrelArt?.name,
     box: box && !wagon && !macro && !special, wagon, texKey,
-    frame: texKey === 'chest' ? chestTier(o) - 1 : (stand ? stand.frame : 0) });
+    frame: barrel ? containerArtFrame(o, barrelArt) : (texKey === 'chest' ? chestTier(o) - 1 : (stand ? stand.frame : 0)) });
 }
 
 

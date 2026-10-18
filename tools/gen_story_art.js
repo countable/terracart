@@ -7,7 +7,7 @@
 // live outside the checkout; see docs/art/ART_SOURCES.md.
 //
 // Reads OPENAI_API_KEY from ~/.env (or the environment), renders each piece at
-// its declared shape (square for new dialog scenes), then downscales to
+// its declared shape (4:3 for new dialog scenes), then downscales to
 // 512px wide (the size the dialogs lazy-load)
 // with PIL. Usage:
 //
@@ -43,12 +43,10 @@ const STYLE =
   'All currency coins are jade green with a star mark, never yellow gold. ' +
   'No text, no letters, no UI, no watermark.';
 
-// New dialog paintings are square illustrations. Copy belongs to the shell's
-// lower content area; no part of the generated image is reserved for text.
-// Existing portrait paintings use the same top-aligned square display crop.
-const SCENE_ASPECT = 1;
+// New dialog paintings fill a 4:3 frame. Copy belongs below the image.
+const SCENE_ASPECT = 4 / 3;
 const SCENE_RULE =
-  'COMPOSITION (strict): square illustration. Fill the square with the scene, ' +
+  'COMPOSITION (strict): 4:3 landscape illustration. Fill the frame with the scene, ' +
   'using its full height for the subject and environment. Keep the whole subject ' +
   'inside the frame. Do not reserve a dark or empty text zone: dialog text is ' +
   'rendered separately below the image. No text, captions, borders or UI.';
@@ -95,7 +93,7 @@ const scene = (subject, lore) => {
     throw new Error(`no LORE hint ('${lore}') on a sacred / grave subject: ${subject.slice(0, 60)}…`);
   }
   return {
-    size: '1024x1024', width: 512, aspect: SCENE_ASPECT, colors: 128,
+    size: '1536x1024', width: 512, aspect: SCENE_ASPECT, colors: 128,
     subject: `${subject}${lore ? ' ' + LORE[lore] : ''}\n\n${SCENE_RULE}`,
   };
 };
@@ -106,9 +104,8 @@ const scene = (subject, lore) => {
 const PIECES = {
   // Runtime adds the actual creature frame and tint (PetStoryArt), preserving
   // every species palette rather than painting approximate pet colours.
-  // The runtime pet compositor still seats sprites on a 352×448 legacy canvas.
-  pet_clearing: { size: '1024x1536', width: 512, aspect: 352 / 448, colors: 128,
-    subject: 'An EMPTY grassy clearing in a ruined medieval village, low weathered stone walls and olive foliage at the sides. Portrait composition: leave a neutral brown earth patch at the centre of the upper 40% for a pet sprite. No animals or people. The lower 60% is dark, quiet brown earth.' },
+  // Leave ground beneath the pet while preserving the full 4:3 scene.
+  pet_clearing: scene('An EMPTY grassy clearing in a ruined medieval village, low weathered stone walls and olive foliage at the sides. Leave a neutral brown earth patch at the lower centre for a pet sprite. No animals or people. Complete landscape without a dark text zone.'),
   temple_activated: scene('An ancient low grey limestone temple in a woodland park, with a broad stone courtyard and continuous smooth-coped walls. No towers, turrets, spires or crenellations. Geometric engraved runes awaken with icy cyan light over the stone; a modest tied scroll lies beside the central diamond rune. Respectful and peaceful, subdued painterly stone and moss.'),
   // Paired macro booths: built-in reference edits, never independent text-only
   // calls. After-use paintings focus closely on the transaction object.
@@ -119,7 +116,7 @@ const PIECES = {
   booth_chapel_used: scene('The same blue pointed chapel booth with a small gold bell. A peaceful keeper gives a modest wrapped blessing gift to the hooded visitor. No coins are requested; respectful and serene. Keep the hood raised and the entire face and hair concealed. No text.'),
   booth_apothecary_intro: scene('Rebuilt timber apothecary booth with a plum awning and green potion sign. An herbalist presents a small shelf of healing flasks to a brown-hooded survivor. Herbs grow among old foundations. Keep the hood raised and the entire face and hair concealed. No text.'),
   booth_apothecary_used: scene('The plum-awning apothecary hands a green potion flask to the brown-hooded survivor, with jade green star coins paid on the counter. Mended wood and drying herbs. Keep the hood raised and the entire face and hair concealed. No text.'),
-  torch_light: scene('Close-up of cropped hands in weathered brown sleeves striking flint and steel to light a cloth-wrapped wooden torch in a dark stone passage. Amber flame and sparks illuminate rough stone. Restrained painterly realism, no face or full figure. Keep hands and the entire torch inside the square frame.'),
+  torch_light: scene('Close-up of cropped hands in weathered brown sleeves striking flint and steel to light a cloth-wrapped wooden torch in a dark stone passage. Amber flame and sparks illuminate rough stone. Restrained painterly realism, no face or full figure. Keep hands and the entire torch inside the 4:3 frame.'),
   booth_scriptorium_intro: scene('Small red-awning timber scriptorium with a parchment and quill sign. A scribe repairs salvaged singed books and offers books or a torch to a brown-hooded survivor. Keep the hood raised and the entire face and hair concealed. No text.'),
   booth_bank_intro: scene('Small crimson-awning timber bank counter with a gold coin sign. A banker behind a strongbox offers a ledger to a brown-hooded survivor: a loan or a deposit. Keep the hood raised and the entire face and hair concealed. No text.'),
   booth_bank_used: scene('At the same crimson-awning coin-sign counter the banker counts jade green star coins into the brown-hooded survivor\'s hand beside an open ledger. Keep the hood raised and the entire face and hair concealed. No text.'),
@@ -580,7 +577,21 @@ const REFERENCE_SCENES = new Set([
 ]);
 for (const name of REFERENCE_SCENES) {
   // An edited scene may have no historical text prompt at all.
-  PIECES[name] = { ...PIECES[name], size: '1024x1024', width: 512, aspect: 1, colors: 128 };
+  PIECES[name] = { ...PIECES[name], size: '1536x1024', width: 512, aspect: SCENE_ASPECT, colors: 128 };
+}
+
+// Approved masters supersede historical raw generations, including the crops.
+// Fail if a listed master is missing; falling back would resurrect rejected art.
+const APPROVED_MANIFEST = path.join(__dirname, '..', 'docs', 'art', 'approved-story-art.json');
+const approvedManifest = JSON.parse(fs.readFileSync(APPROVED_MANIFEST, 'utf8'));
+const approvedRows = [...approvedManifest.pieces, ...(approvedManifest.opening_frames || [])];
+const APPROVED = new Map(approvedRows.map(row => [row.key, row]));
+function approvedMaster(name) {
+  const row = APPROVED.get(name);
+  if (!row) return null;
+  const master = path.resolve(ART_ROOT, row.master_path);
+  if (!fs.existsSync(master)) throw new Error(`${name}: approved master missing: ${master}`);
+  return master;
 }
 
 function loadKey() {
@@ -622,7 +633,7 @@ async function generate(key, name, piece) {
   return rawPath;
 }
 
-function downscale(rawPath, name, width, colors, trim, aspect) {
+function downscale(rawPath, name, width, colors, trim, aspect, approved = false) {
   const outPath = outputPath(name, trim);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   // The piece's own width (512 for banners, 640 for the fullscreen backdrop),
@@ -651,19 +662,21 @@ w, h = im.size
 aspect = ${aspect || 0}
 if aspect:
     # Keep the authored aspect. Legacy portrait compositions remain top-anchored.
+    cw = min(w, round(h * aspect))
     ch = min(h, round(w / aspect))
-    im = im.crop((0, 0, w, ch))
+    left = (w - cw) // 2
+    im = im.crop((left, 0, left + cw, ch))
     w, h = im.size
 tw = ${width}
 im = im.resize((tw, round(h * tw / w)), Image.LANCZOS)
-if im.mode == 'RGBA':
+if ${approved ? 'False' : 'True'} and im.mode == 'RGBA':
     im = im.quantize(colors=${colors || 128}, method=Image.FASTOCTREE, dither=Image.FLOYDSTEINBERG)
-else:
+elif ${approved ? 'False' : 'True'}:
     im = im.quantize(colors=${colors || 128}, method=Image.MEDIANCUT, dither=Image.FLOYDSTEINBERG)
 if trim:
     im.save(${JSON.stringify(outPath)}, optimize=True)
 else:
-    im.convert('RGB').save(${JSON.stringify(outPath)}, 'WEBP', quality=${ART_WEBP_QUALITY}, method=6)
+    im.convert('RGB').save(${JSON.stringify(outPath)}, 'WEBP', lossless=${approved ? 'True' : 'False'}, quality=${ART_WEBP_QUALITY}, method=6)
 `;
   execFileSync('python3', ['-c', py]);
   return outPath;
@@ -677,25 +690,28 @@ else:
   const only = args.filter(a => !a.startsWith('--'));
   fs.mkdirSync(RAW_DIR, { recursive: true });
   let key;
-  const names = only.length ? only : Object.keys(PIECES);
+  const names = only.length ? only : [...new Set([...Object.keys(PIECES), ...APPROVED.keys()])];
   for (const name of names) {
-    if (!PIECES[name]) { console.error(`unknown piece: ${name}`); process.exitCode = 1; continue; }
+    if (!PIECES[name] && !APPROVED.has(name)) { console.error(`unknown piece: ${name}`); process.exitCode = 1; continue; }
     const piece = typeof PIECES[name] === 'string'
-      ? { subject: PIECES[name], size: '1536x1024', width: 512 }
-      : PIECES[name];
+      ? scene(PIECES[name])
+      : (PIECES[name] || { width: 512, aspect: SCENE_ASPECT });
     const outPath = outputPath(name, piece.trim);
     if (!force && !reprocess && fs.existsSync(outPath)) { console.log(`skip ${name} (exists)`); continue; }
-    if (!reprocess && (REFERENCE_SCENES.has(name) || name.startsWith('booth_'))) {
+    if (!reprocess && (APPROVED.has(name) || REFERENCE_SCENES.has(name) || name.startsWith('booth_'))) {
       throw new Error(`${name}: use a reference image edit, or --reprocess its existing master (docs/art/ART_SOURCES.md)`);
     }
     if (!reprocess && !key) key = loadKey();
     const rawPath = path.join(RAW_DIR, `${name}.png`);
-    const raw = reprocess ? rawPath : await generate(key, name, piece);
-    const out = downscale(raw, name, piece.width, piece.colors, piece.trim, piece.aspect);
+    const approved = reprocess ? approvedMaster(name) : null;
+    const raw = reprocess ? (approved || rawPath) : await generate(key, name, piece);
+    const approvedRow = APPROVED.get(name);
+    const width = approved ? (approvedRow.export_width || approvedRow.width) : piece.width;
+    const out = downscale(raw, name, width, piece.colors, piece.trim, approved ? (approvedRow.aspect || SCENE_ASPECT) : piece.aspect, !!approved);
     const kb = Math.round(fs.statSync(out).size / 1024);
     console.log(`ok (${kb}KB)`);
     // Gentle pacing: the images endpoint rate-limits bursty accounts.
-    await new Promise(r => setTimeout(r, 2000));
+    if (!reprocess) await new Promise(r => setTimeout(r, 2000));
   }
   // Every painting needs its PIXEL RESOLVE thumbnail (src/art_thumbs.js).
   execFileSync('node', [path.join(__dirname, 'art_thumbs.js')], { stdio: 'inherit' });

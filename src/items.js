@@ -51,7 +51,7 @@ const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide
 // don't confuse col 0's in-world stage-0 sprite with the col-7 seed icon.)
 const SPRING_CROPS_COLS = 14;
 // Fruiting and ordinary bushes share every foliage pixel and the same geometry.
-const BUSH_SPRITE = { sheet: 'bushes', custom: true, frame: 0, scale: 0.667 };
+const BUSH_SPRITE = { sheet: 'bushes', custom: true, frames: [0, 1, 2, 3, 4, 5, 6, 7], scale: 1 };
 const CROP_SPRITE = {
   potato: { sheet: 'springcrops', row: 5 },
   // Preserve seed, produce and growing-stage art; every mature berry bush
@@ -70,15 +70,15 @@ const CROP_SPRITE = {
   // Long grass — item id 'longgrass', display name 'Long grass'. Props.png
   // is a 22-col grid; frame (col 11, row 1) 1-indexed = col 10 row 0
   // 0-indexed = 0*22 + 10 = 10. Renders as leafy green fronds at the
-  // wildplant scale (1.16 keeps the tuft from crowding one-cell props).
-  longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 },
+  // wildplant scale, reduced 10% to keep the tuft inside one-cell props.
+  longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 * 0.9 },
   // Previously unused Props frames: green sprig and upright leafy nettle.
   // Inventory resolves these same frames through each item's crop key.
   petnip: { sheet: 'props', custom: true, frame: 32, scale: 1.16 },
   nettle: { sheet: 'props', custom: true, frame: 33, scale: 1.13 },
   // Shrub looks share harvesting; brambles mark thorny groves and roads.
   shrub: { ...BUSH_SPRITE,
-    looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frame: 0, scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frame: 0, scale: (4 / 3) * 0.8 } } },
+    looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frames: [0, 1, 2, 3], scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frames: [0, 1, 2, 3, 4, 5, 6, 7], scale: 0.8 } } },
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
   // Small mushrooms use 90% of their former 1.224 scale (80% read too
@@ -173,11 +173,11 @@ const ZONE_ROCK_THEMES = Object.freeze({
 });
 // One neutral stone palette everywhere; material pairs are adjacent small/large frames.
 // Legacy yield variants still own mining quantities, independently of appearance.
-// World rocks draw at 92% of the 16/15 source-cell scale (owner, Oct 2026).
-const ROCK_WORLD_SCALE = (16 / 15) * 0.92;
+// World rocks use the source-cell scale with the shared size corrections.
+const ROCK_WORLD_SCALE = (16 / 15) * 0.92 * 0.88;
 const ROCK_VARIANT_ART = Object.freeze({
   columns: 8, rows: 9, smallScale: ROCK_WORLD_SCALE, largeScale: ROCK_WORLD_SCALE,
-  themedScale: ROCK_WORLD_SCALE, placedScale: 1.6,
+  themedScale: ROCK_WORLD_SCALE, placedScale: 1.6 * 0.88,
   plainFrames: Object.freeze([0, 30, 32, 34]),
   materials: Object.freeze(['plain', 'flint', 'quartz', 'topaz', 'amethyst',
     'sapphire', 'ruby', 'emerald', 'diamond', 'copper', 'iron', 'gold',
@@ -189,7 +189,7 @@ const WILDPLANT_CONTEXT_ART = {
   ...Object.fromEntries(Object.entries(ZONE_ROCK_THEMES).map(([zone, theme]) =>
     ['zone_rock_' + zone, { crop: 'rubble', sheet: 'rock_variants', custom: true, frame: theme.frame, scale: ROCK_VARIANT_ART.themedScale }])),
   zone_hedge: { crop: 'shrub', sheet: 'zone_hedge', custom: true, scale: 4 / 3, seat: false },
-  zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frame: 0, scale: (4 / 3) * 0.8, seat: false },
+  zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frames: [0, 1, 2, 3, 4, 5, 6, 7], scale: 0.8, seat: false },
   palm: { crop: 'shrub', sheet: 'beach_palms', custom: true, frames: [2, 3, 4, 5], scale: 4 / 3, seat: true, shadow: true },
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
@@ -1671,7 +1671,7 @@ const CONSUMABLE_SPEC = {
     durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 8, damageMul: 2, buff: 'dragon',
     verb: 'Use', title: 'Use the Dragon Powder?',
     get: 'The powder lets you soar in dragon form, for a short time.',
-    used: { title: '🐉 You toss the Dragon Powder',
+    used: { art: 'event_dragon_powder', title: '🐉 You toss the Dragon Powder',
       body: 'Scales ripple across your skin. Heat swells in your chest, and the ground shakes beneath your claws.' },
   },
   growth_powder: {

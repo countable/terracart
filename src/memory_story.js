@@ -278,6 +278,12 @@ const MemoryStory = (() => {
     return { art: 'discovery_badge', kind: 'memory', title: 'A memory returns',
       body: `A memory returns with ${record.label}. ${HALF_FORMED}` };
   }
+  // Memory scenes belong to the surface Home, not the place a discovery was banked.
+  function atHome(scene) {
+    if ((scene.depth || 0) !== 0 || !scene.inHomeRing || !scene.playerM || !scene.startWorldM) return false;
+    const p = playerWorldM(scene);
+    return !!scene.inHomeRing(p.x, p.y);
+  }
   function drain(scene) {
     const s = scene.save.memoryStory;
     if (!s?.pending?.length || scene._memoryStoryOpen) return false;
@@ -288,6 +294,7 @@ const MemoryStory = (() => {
       persistSave(scene.save);
       if (!s.pending.length) return false;
     }
+    if (!atHome(scene)) return false;
     const record = s.pending[0];
     return drainPanel(scene, '_memoryStoryOpen', panel(record, scene.save), () => {
       if (s.pending[0] === record) s.pending.shift();
@@ -645,6 +652,6 @@ const MemoryStory = (() => {
   }
   return { START_MEMORIES, LEAVE_MEMORIES, REVEAL_MEMORIES, ABANDONED_NOTE, HALF_FORMED, LOCKED, ABANDONED, EMPTY,
     HOME, FIRST_ROOF, RUMOUR, NEIGHBOURS, STRANGER, STRANGER_RUMOURS, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
-    state, total, enqueue, panel, drain, dialogOpen, storyHeld, drainPanel, showPages, npcDialogue, wandererLine, wandererHoused, believerLine, survivorLine, act, towerAccess, objective,
+    state, total, enqueue, panel, drain, atHome, dialogOpen, storyHeld, drainPanel, showPages, npcDialogue, wandererLine, wandererHoused, believerLine, survivorLine, act, towerAccess, objective,
     eligibleBeats, wizardSequence, pagesFor, visitWizard, archaeologistConversation, acknowledgeArchaeologist };
 })();

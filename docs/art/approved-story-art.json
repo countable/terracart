@@ -1,0 +1,2940 @@
+{
+  "status": "Approved for release",
+  "archive_root": "~/.artifacts/terracart-art",
+  "format": "4:3 scenes; preserved opening frames, book UI and safety splash",
+  "pieces": [
+    {
+      "key": "barehand_tree",
+      "master_path": "approved-story-art/barehand_tree.png",
+      "master_sha256": "a389fb3dc9b18e2fadff37d1c52d55f734644ae87708a0f029c09844ba083da8",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "297fd49bafa5a63a4d913a8b07f0d776f4d87630248cdd7d00e69c43a1a2c4c9",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "barehand_work",
+      "master_path": "approved-story-art/barehand_work.png",
+      "master_sha256": "eb6095404fe6abbd0ed48ffb287e5a7f5c8070bdacf868208c49d4472e6957a9",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "8d6efa0ab280d0f15bb6695cdb6715658b5d527a58c278abaa41724427a96adf",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "book_read",
+      "master_path": "approved-story-art/book_read.png",
+      "master_sha256": "fbd0c9bfb60163c3299f5d32dc1c27a4c3212f8bd84435c4c5240b71a8734c03",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "3e63f5d59a98301ffdac2cc0fc5bb00ced3954ca46b34af6d03d1d1838a7ae57",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "booth_apothecary_intro",
+      "master_path": "approved-story-art/booth_apothecary_intro.png",
+      "master_sha256": "75f09938e6091517274a046eb1b18b7156031bb96f972e9e29539afab51c43a8",
+      "width": 352,
+      "height": 264,
+      "export_width": 352,
+      "export_height": 264,
+      "sha256": "88c205ce13dc52c6785de2563a45cda8020f3a6f303e4371d70ec3f02ad9ab23",
+      "method": "original_crop",
+      "crop": {
+        "x": 80,
+        "y": 0,
+        "w": 352,
+        "h": 264
+      },
+      "prompt": null
+    },
+    {
+      "key": "booth_apothecary_used",
+      "master_path": "approved-story-art/booth_apothecary_used.png",
+      "master_sha256": "fe49b1f171a241c7ebdb00508ecb2e20ae616f79ec4d6b4c757d1cb19ece98c1",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "6ee6021aaa7f6b90b71d4bd5bd97f1bd7368a49a4afc7bfaad88ded0e2895781",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: style-transfer. Produce one finished 4:3 landscape story-dialog painting with art to all four edges and NO text zone, border, words, lettering or collage. Image 1 is the original scene: preserve its subject identities, meaningful props, action and close framing; discard the old blank lower copy zone. Image 2 is the approved STYLE master: match its restrained contextual palette, irregular softly painted pixel clusters, simplified shapes and quiet painterly atmosphere. Make it clearly hand-painted pixel art throughout, including the main object, hands, faces, metal and wood: no photoreal textures, razor-sharp outlines, glossy product render, photographic depth of field, tiny detailed rivets or uniform mosaic filter. Not a blur filter: design with soft irregular pixel brush marks and few colors. Keep lighting contextual and time of day ambiguous, no visible sun or conspicuous sunset. Hood, if present, is an adult in the approved brown hood/short outer garment, trousers, boots and backpack; face and hair completely concealed by opaque hood shadow or viewed from behind. Preserve scene camera distance and composition, adapt the upper painted scene to 4:3 without squeezing subjects.  CRITICAL CONTENT LOCK: Copy ONLY scene content from Image 1. Image 2 supplies brushwork and palette discipline ONLY: never import its shopkeeper, Hood, sack, lantern, shelves or any other depicted object into the scene. For object-only paintings, do NOT add any people. Close still life of a round green potion bottle with cork and simple leaf emblem, three green star tokens, worn wood counter and dim apothecary shelves. Simplify bottle reflections and wood into painterly pixel shapes. ONLY the subjects explicitly listed in this scene, do not add any figures from the style reference."
+    },
+    {
+      "key": "booth_bank_intro",
+      "master_path": "approved-story-art/booth_bank_intro.png",
+      "master_sha256": "efd93f436a888329b7ae1b80b302ea293f162dc6631096b87b094668bf2f1d90",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "e7e107866377d309b6030c39306ef2436b4c1df7c764dcbd2bdf9be6d5df06a5",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "booth_bank_used",
+      "master_path": "approved-story-art/booth_bank_used.png",
+      "master_sha256": "932bfcd2251837967ebabf56e9d0e989216ed1250ce570fe1ac148b775445ea6",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "4eeb00f96077f26f77b1ecb69850362796a5dd5bc674f0b7fdf2e25af70e21cf",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: style-transfer. Produce one finished 4:3 landscape story-dialog painting with art to all four edges and NO text zone, border, words, lettering or collage. Image 1 is the original scene: preserve its subject identities, meaningful props, action and close framing; discard the old blank lower copy zone. Image 2 is the approved STYLE master: match its restrained contextual palette, irregular softly painted pixel clusters, simplified shapes and quiet painterly atmosphere. Make it clearly hand-painted pixel art throughout, including the main object, hands, faces, metal and wood: no photoreal textures, razor-sharp outlines, glossy product render, photographic depth of field, tiny detailed rivets or uniform mosaic filter. Not a blur filter: design with soft irregular pixel brush marks and few colors. Keep lighting contextual and time of day ambiguous, no visible sun or conspicuous sunset. Hood, if present, is an adult in the approved brown hood/short outer garment, trousers, boots and backpack; face and hair completely concealed by opaque hood shadow or viewed from behind. Preserve scene camera distance and composition, adapt the upper painted scene to 4:3 without squeezing subjects.  CRITICAL CONTENT LOCK: Copy ONLY scene content from Image 1. Image 2 supplies brushwork and palette discipline ONLY: never import its shopkeeper, Hood, sack, lantern, shelves or any other depicted object into the scene. For object-only paintings, do NOT add any people. An old bronze pot overflowing with green star tokens among mossy stone ruins and tree roots, subtle magical glints. Retain original object shapes and green/earth palette. ONLY the subjects explicitly listed in this scene, do not add any figures from the style reference."
+    },
+    {
+      "key": "booth_chapel_intro",
+      "master_path": "approved-story-art/booth_chapel_intro.png",
+      "master_sha256": "cd1fe2d0b00956b844e044a5604083b630b60fd4518c3109abc4911239f15733",
+      "width": 352,
+      "height": 264,
+      "export_width": 352,
+      "export_height": 264,
+      "sha256": "f18adfea54d1d0aa67eede44673ff3145e08f02443b5746030bb7586be215195",
+      "method": "original_crop",
+      "crop": {
+        "x": 80,
+        "y": 0,
+        "w": 352,
+        "h": 264
+      },
+      "prompt": null
+    },
+    {
+      "key": "booth_chapel_used",
+      "master_path": "approved-story-art/booth_chapel_used.png",
+      "master_sha256": "2fa9c87ac6e46df1575e7deef42eddc5db0f4d85ad5094678b9315fb7951eaba",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "b899906292f5bc9464d7b227b2d3a1a75a093c73cdffb630a15f4cb2ac98f29d",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: style-transfer. Produce one finished 4:3 landscape story-dialog painting with art to all four edges and NO text zone, border, words, lettering or collage. Image 1 is the original scene: preserve its subject identities, meaningful props, action and close framing; discard the old blank lower copy zone. Image 2 is the approved STYLE master: match its restrained contextual palette, irregular softly painted pixel clusters, simplified shapes and quiet painterly atmosphere. Make it clearly hand-painted pixel art throughout, including the main object, hands, faces, metal and wood: no photoreal textures, razor-sharp outlines, glossy product render, photographic depth of field, tiny detailed rivets or uniform mosaic filter. Not a blur filter: design with soft irregular pixel brush marks and few colors. Keep lighting contextual and time of day ambiguous, no visible sun or conspicuous sunset. Hood, if present, is an adult in the approved brown hood/short outer garment, trousers, boots and backpack; face and hair completely concealed by opaque hood shadow or viewed from behind. Preserve scene camera distance and composition, adapt the upper painted scene to 4:3 without squeezing subjects.  CRITICAL CONTENT LOCK: Copy ONLY scene content from Image 1. Image 2 supplies brushwork and palette discipline ONLY: never import its shopkeeper, Hood, sack, lantern, shelves or any other depicted object into the scene. For object-only paintings, do NOT add any people. Two brown fingerless-gloved hands presenting a simple paper parcel tied with string, white flower and olive leaves atop it, on a wooden table. Keep warm subdued ochre/brown, paint the hands and flower as simplified pixel brush shapes."
+    },
+    {
+      "key": "booth_curio_intro",
+      "master_path": "approved-story-art/booth_curio_intro.png",
+      "master_sha256": "822c5f45441a71ae401cb3c647adc6d668c6039fff274447fc874a41b3b35c1e",
+      "width": 352,
+      "height": 264,
+      "export_width": 352,
+      "export_height": 264,
+      "sha256": "7899ad71874981e68a75461e847ba6e2372518eabec6dc79cda0d33438fdb58c",
+      "method": "original_crop",
+      "crop": {
+        "x": 80,
+        "y": 0,
+        "w": 352,
+        "h": 264
+      },
+      "prompt": null
+    },
+    {
+      "key": "booth_curio_used",
+      "master_path": "approved-story-art/booth_curio_used.png",
+      "master_sha256": "2ab3e3a251c2b4bc6562e187034617324ca2874a98f48578809236bb8954602b",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "2d2536e7f092d90d80487997ce4dc1045ccd079f38866ba4db822e18445c3323",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: style-transfer. Produce one finished 4:3 landscape story-dialog painting with art to all four edges and NO text zone, border, words, lettering or collage. Image 1 is the original scene: preserve its subject identities, meaningful props, action and close framing; discard the old blank lower copy zone. Image 2 is the approved STYLE master: match its restrained contextual palette, irregular softly painted pixel clusters, simplified shapes and quiet painterly atmosphere. Make it clearly hand-painted pixel art throughout, including the main object, hands, faces, metal and wood: no photoreal textures, razor-sharp outlines, glossy product render, photographic depth of field, tiny detailed rivets or uniform mosaic filter. Not a blur filter: design with soft irregular pixel brush marks and few colors. Keep lighting contextual and time of day ambiguous, no visible sun or conspicuous sunset. Hood, if present, is an adult in the approved brown hood/short outer garment, trousers, boots and backpack; face and hair completely concealed by opaque hood shadow or viewed from behind. Preserve scene camera distance and composition, adapt the upper painted scene to 4:3 without squeezing subjects.  CRITICAL CONTENT LOCK: Copy ONLY scene content from Image 1. Image 2 supplies brushwork and palette discipline ONLY: never import its shopkeeper, Hood, sack, lantern, shelves or any other depicted object into the scene. For object-only paintings, do NOT add any people. Hand reaching from left for a broken stone crescent containing an old bronze sun wheel on a shelf, bottles and carved standing figurine behind. Preserve this exact artifact. ONLY the subjects explicitly listed in this scene, do not add any figures from the style reference."
+    },
+    {
+      "key": "booth_guildhall_intro",
+      "master_path": "approved-story-art/booth_guildhall_intro.png",
+      "master_sha256": "1f48f7f6bed441925a9b74c56b2c286066e2816136308805df94a749d12ac00a",
+      "width": 352,
+      "height": 264,
+      "export_width": 352,
+      "export_height": 264,
+      "sha256": "df61d0e4d5c31fb0f66434b1cb26740af3cf596c03fce37aac4b1da0be924a37",
+      "method": "original_crop",
+      "crop": {
+        "x": 80,
+        "y": 0,
+        "w": 352,
+        "h": 264
+      },
+      "prompt": null
+    },
+    {
+      "key": "booth_guildhall_used",
+      "master_path": "approved-story-art/booth_guildhall_used.png",
+      "master_sha256": "7faa6beed0b795d686dda0c9b442668cdcb775a44f7105f9388203ca816bb8c6",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "2e9935a989a448a03d18f10c4ffc25a7e5c769e45e42ec2821b088f88868233d",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: style-transfer. Produce one finished 4:3 landscape story-dialog painting with art to all four edges and NO text zone, border, words, lettering or collage. Image 1 is the original scene: preserve its subject identities, meaningful props, action and close framing; discard the old blank lower copy zone. Image 2 is the approved STYLE master: match its restrained contextual palette, irregular softly painted pixel clusters, simplified shapes and quiet painterly atmosphere. Make it clearly hand-painted pixel art throughout, including the main object, hands, faces, metal and wood: no photoreal textures, razor-sharp outlines, glossy product render, photographic depth of field, tiny detailed rivets or uniform mosaic filter. Not a blur filter: design with soft irregular pixel brush marks and few colors. Keep lighting contextual and time of day ambiguous, no visible sun or conspicuous sunset. Hood, if present, is an adult in the approved brown hood/short outer garment, trousers, boots and backpack; face and hair completely concealed by opaque hood shadow or viewed from behind. Preserve scene camera distance and composition, adapt the upper painted scene to 4:3 without squeezing subjects.  CRITICAL CONTENT LOCK: Copy ONLY scene content from Image 1. Image 2 supplies brushwork and palette discipline ONLY: never import its shopkeeper, Hood, sack, lantern, shelves or any other depicted object into the scene. For object-only paintings, do NOT add any people. Close view of a brown-sleeved hand beside a small pile of weathered green star tokens on a wooden counter with a blue cloth edge. Tokens and hand must be softly painted pixels, not sharply rendered products."
+    },
+    {
+      "key": "booth_inn_intro",
+      "master_path": "approved-story-art/booth_inn_intro.png",
+      "master_sha256": "321be900d27d21b94a29fc0d896791b9cc5d32ef9dee3d11a93598c61a66ba31",
+      "width": 352,
+      "height": 264,
+      "export_width": 352,
+      "export_height": 264,
+      "sha256": "c7f3bbe9203648fc7348fa1299dba75c9fe5744d0637e5f1a1d8446af79f6dc1",
+      "method": "original_crop",
+      "crop": {
+        "x": 80,
+        "y": 0,
+        "w": 352,
+        "h": 264
+      },
+      "prompt": null
+    },
+    {
+      "key": "booth_inn_used",
+      "master_path": "approved-story-art/booth_inn_used.png",
+      "master_sha256": "6e9c92bb45a633da898afb89432a583316356a88e52106fe8eb684a01736bee9",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "5d4620c5eec47cf028b805f6239606d051dc39946c3a3e715ce1e67683073bd6",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Create a fresh 4:3 story illustration. FIRST image is the mandatory STYLE reference, story_wrecks: match its visibly low-resolution pixel-art design, earthy restricted palette, small deliberate square pixel clusters, broken stippled/dithered transitions and painterly color masses. The final painting must look authored on a small pixel canvas like story_wrecks, not a high-resolution illustration with a decorative speckled filter. Keep readable pixel steps on all silhouettes and simplify detail. SECOND image supplies only scene CONTENT and tier identity, NOT its smoother rendering. Repaint everything including focal props in the FIRST image's pixel language. No sharp realistically rendered object against a pixel background, no photorealism, smooth gradients, glossy 3D, clean anime/vector contour or tiny etched material detail. One frame, artwork fills 4:3, no text/copy zone. Keep Hood adult-proportioned with brown hood, concealed face, trousers/boots/backpack. Contextual restrained colors; no added subjects or content from style image. Resting at an inn. Compose a believable adult sleeping on their SIDE under an olive quilt, head correctly resting on a cream pillow. Brown hood stays on; show the BACK and side of the fabric hood turned away from viewer, so the face is naturally completely hidden, rather than a huge hollow empty hood facing camera. Head, neck and shoulders anatomically aligned. Simple wooden bed, quiet cozy room. No face, eyes or hair. Fresh composition allowed to solve head pose."
+    },
+    {
+      "key": "booth_scholar_intro",
+      "master_path": "approved-story-art/booth_scholar_intro.png",
+      "master_sha256": "44e89992d3afcfa5451181a824e069032e4a5d265c0c92187119685efa3fe734",
+      "width": 352,
+      "height": 264,
+      "export_width": 352,
+      "export_height": 264,
+      "sha256": "54cf348303b7a77799679393bf4f47882187cd555a1379b93322712b381127ec",
+      "method": "original_crop",
+      "crop": {
+        "x": 80,
+        "y": 0,
+        "w": 352,
+        "h": 264
+      },
+      "prompt": null
+    },
+    {
+      "key": "booth_scholar_used",
+      "master_path": "approved-story-art/booth_scholar_used.png",
+      "master_sha256": "18c5c49e3f89424b769e9cccd578b07404045e0db67553606e2e9e970e79ac85",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "eca7a8905f8ed6b5ba4cd0fc85dea7426b9b92223f4237f460b2da2ec0d8bbc1",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: style-transfer. Produce one finished 4:3 landscape story-dialog painting with art to all four edges and NO text zone, border, words, lettering or collage. Image 1 is the original scene: preserve its subject identities, meaningful props, action and close framing; discard the old blank lower copy zone. Image 2 is the approved STYLE master: match its restrained contextual palette, irregular softly painted pixel clusters, simplified shapes and quiet painterly atmosphere. Make it clearly hand-painted pixel art throughout, including the main object, hands, faces, metal and wood: no photoreal textures, razor-sharp outlines, glossy product render, photographic depth of field, tiny detailed rivets or uniform mosaic filter. Not a blur filter: design with soft irregular pixel brush marks and few colors. Keep lighting contextual and time of day ambiguous, no visible sun or conspicuous sunset. Hood, if present, is an adult in the approved brown hood/short outer garment, trousers, boots and backpack; face and hair completely concealed by opaque hood shadow or viewed from behind. Preserve scene camera distance and composition, adapt the upper painted scene to 4:3 without squeezing subjects.  CRITICAL CONTENT LOCK: Copy ONLY scene content from Image 1. Image 2 supplies brushwork and palette discipline ONLY: never import its shopkeeper, Hood, sack, lantern, shelves or any other depicted object into the scene. For object-only paintings, do NOT add any people. Two pairs of hands exchanging a blue leather book with brass corners and large pale gold eight-point star. Brown sleeves left, scholar blue robe and cream cuffs right. No text. ONLY the subjects explicitly listed in this scene, do not add any figures from the style reference."
+    },
+    {
+      "key": "booth_scriptorium_intro",
+      "master_path": "approved-story-art/booth_scriptorium_intro.png",
+      "master_sha256": "624deb719b5c07bcef18591ab0f48ce957e94763d5330cbcf5800c000d2cd80a",
+      "width": 352,
+      "height": 264,
+      "export_width": 352,
+      "export_height": 264,
+      "sha256": "5d95f04814556f612b29f2432685f1330a62246d3ea4ead438e1030aa107eb24",
+      "method": "original_crop",
+      "crop": {
+        "x": 80,
+        "y": 0,
+        "w": 352,
+        "h": 264
+      },
+      "prompt": null
+    },
+    {
+      "key": "booth_scriptorium_used",
+      "master_path": "approved-story-art/booth_scriptorium_used.png",
+      "master_sha256": "d691565000ca64e52332eefd3eda7f184ffc2ff4a6b02657a46c2efae25d6728",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "0d31458af4d9699e4b3067c243324297f1dab7a09a5795cb0169bd5b1c657941",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: style-transfer. Produce one finished 4:3 landscape story-dialog painting with art to all four edges and NO text zone, border, words, lettering or collage. Image 1 is the original scene: preserve its subject identities, meaningful props, action and close framing; discard the old blank lower copy zone. Image 2 is the approved STYLE master: match its restrained contextual palette, irregular softly painted pixel clusters, simplified shapes and quiet painterly atmosphere. Make it clearly hand-painted pixel art throughout, including the main object, hands, faces, metal and wood: no photoreal textures, razor-sharp outlines, glossy product render, photographic depth of field, tiny detailed rivets or uniform mosaic filter. Not a blur filter: design with soft irregular pixel brush marks and few colors. Keep lighting contextual and time of day ambiguous, no visible sun or conspicuous sunset. Hood, if present, is an adult in the approved brown hood/short outer garment, trousers, boots and backpack; face and hair completely concealed by opaque hood shadow or viewed from behind. Preserve scene camera distance and composition, adapt the upper painted scene to 4:3 without squeezing subjects.  CRITICAL CONTENT LOCK: Copy ONLY scene content from Image 1. Image 2 supplies brushwork and palette discipline ONLY: never import its shopkeeper, Hood, sack, lantern, shelves or any other depicted object into the scene. For object-only paintings, do NOT add any people. A closed brown leather book with a simple large gold eight-point star and decorative corner lines on a desk, two green star tokens left, lantern and books in dim background. Painterly objects not realistic leather/wood. ONLY the subjects explicitly listed in this scene, do not add any figures from the style reference."
+    },
+    {
+      "key": "booth_sundries_intro",
+      "master_path": "approved-story-art/booth_sundries_intro.png",
+      "master_sha256": "43499bbae3f93440d3f9f1181bd8b47511cb6ff6382f4007a75641dc50fecca9",
+      "width": 352,
+      "height": 264,
+      "export_width": 352,
+      "export_height": 264,
+      "sha256": "c93c4b0cf042491b7d52b7b495e827e35b52f074fdf742443a9dbd9daccf9ffe",
+      "method": "original_crop",
+      "crop": {
+        "x": 80,
+        "y": 0,
+        "w": 352,
+        "h": 264
+      },
+      "prompt": null
+    },
+    {
+      "key": "booth_sundries_used",
+      "master_path": "approved-story-art/booth_sundries_used.png",
+      "master_sha256": "2652be92446043af3b0cf2a9494890510741d94b5f70e02e48eaf0d6a5e40905",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "36685c5bd54af9b15520bdf395c0e86bd70c94b0ec5061e536c25ccac8353e08",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: style-transfer. Produce one finished 4:3 landscape story-dialog painting with art to all four edges and NO text zone, border, words, lettering or collage. Image 1 is the original scene: preserve its subject identities, meaningful props, action and close framing; discard the old blank lower copy zone. Image 2 is the approved STYLE master: match its restrained contextual palette, irregular softly painted pixel clusters, simplified shapes and quiet painterly atmosphere. Make it clearly hand-painted pixel art throughout, including the main object, hands, faces, metal and wood: no photoreal textures, razor-sharp outlines, glossy product render, photographic depth of field, tiny detailed rivets or uniform mosaic filter. Not a blur filter: design with soft irregular pixel brush marks and few colors. Keep lighting contextual and time of day ambiguous, no visible sun or conspicuous sunset. Hood, if present, is an adult in the approved brown hood/short outer garment, trousers, boots and backpack; face and hair completely concealed by opaque hood shadow or viewed from behind. Preserve scene camera distance and composition, adapt the upper painted scene to 4:3 without squeezing subjects.  CRITICAL CONTENT LOCK: Copy ONLY scene content from Image 1. Image 2 supplies brushwork and palette discipline ONLY: never import its shopkeeper, Hood, sack, lantern, shelves or any other depicted object into the scene. For object-only paintings, do NOT add any people. A tied cream cloth supply sack with simple brown sack emblem, one green star token on wooden counter, coil of rope at right and lantern back left. Simplify fabric weave into irregular paint marks. ONLY the subjects explicitly listed in this scene, do not add any figures from the style reference."
+    },
+    {
+      "key": "booth_training_intro",
+      "master_path": "approved-story-art/booth_training_intro.png",
+      "master_sha256": "de026d35621f618493a3605ac4d8bdf53333bb9c079faecb9c040619b1dceab7",
+      "width": 352,
+      "height": 264,
+      "export_width": 352,
+      "export_height": 264,
+      "sha256": "9bc77fbfbe204ffed77061cc80add2ae63e85cfe15c508edcda18a598caf0e29",
+      "method": "original_crop",
+      "crop": {
+        "x": 80,
+        "y": 0,
+        "w": 352,
+        "h": 264
+      },
+      "prompt": null
+    },
+    {
+      "key": "booth_training_used",
+      "master_path": "approved-story-art/booth_training_used.png",
+      "master_sha256": "97da51605526f19dad0d7893c564ccd860b5f26e837a033a8ecace9ea917f828",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "fbb967df86b4a833690ede62e87a7dd967424a24cc4f89cd8fb3dd174372abed",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: style-transfer. Produce one finished 4:3 landscape story-dialog painting with art to all four edges and NO text zone, border, words, lettering or collage. Image 1 is the original scene: preserve its subject identities, meaningful props, action and close framing; discard the old blank lower copy zone. Image 2 is the approved STYLE master: match its restrained contextual palette, irregular softly painted pixel clusters, simplified shapes and quiet painterly atmosphere. Make it clearly hand-painted pixel art throughout, including the main object, hands, faces, metal and wood: no photoreal textures, razor-sharp outlines, glossy product render, photographic depth of field, tiny detailed rivets or uniform mosaic filter. Not a blur filter: design with soft irregular pixel brush marks and few colors. Keep lighting contextual and time of day ambiguous, no visible sun or conspicuous sunset. Hood, if present, is an adult in the approved brown hood/short outer garment, trousers, boots and backpack; face and hair completely concealed by opaque hood shadow or viewed from behind. Preserve scene camera distance and composition, adapt the upper painted scene to 4:3 without squeezing subjects.  CRITICAL CONTENT LOCK: Copy ONLY scene content from Image 1. Image 2 supplies brushwork and palette discipline ONLY: never import its shopkeeper, Hood, sack, lantern, shelves or any other depicted object into the scene. For object-only paintings, do NOT add any people. Close-up of gloved hands guiding another person\u2019s grip on a wooden practice sword, brown leather gloves, muted rust-brown left sleeve, cream cuff at right, timber training yard background. Keep hands anatomically coherent, no extra hands. ONLY the subjects explicitly listed in this scene, do not add any figures from the style reference."
+    },
+    {
+      "key": "bottle_read",
+      "master_path": "approved-story-art/bottle_read.png",
+      "master_sha256": "84becdbf198d4fd4ba37a6052214e1779378b7a7d2ec8e5a4727f09f521c6d87",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "9fd8bd5a20d86b8ba95ac33906d9f70dfc2e7e4e192dd2dccc07d8e5e18056d5",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "castle_claim",
+      "master_path": "approved-story-art/castle_claim.png",
+      "master_sha256": "bbfeb2db502d4fece6779007abb04d68469bca74fc3c8a09edf5f1535d4ded91",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "8a042888136c9db95c481738ac72003123824df1388a445f445c896533d02e5d",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "castle_favour",
+      "master_path": "approved-story-art/castle_favour.png",
+      "master_sha256": "4ec8b4d68392c31d94f8b23a7ceda87d04d8beec5122b6f9bf7f24b23c1b8bcf",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "14dfd036d4cb45d516b300acc640b81735d3e03362ac5784f85354215000c1e5",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "cave_first",
+      "master_path": "approved-story-art/cave_first.png",
+      "master_sha256": "341af23f67a5f369a62448f2c60df1d00e1828a069f30a3ec91000eec9361829",
+      "width": 512,
+      "height": 384,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "80c9d3ec5d41d969373bca2164783207f6a2a705101c305bc6b1bd9146875d19",
+      "method": "original_crop",
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "w": 512,
+        "h": 384
+      },
+      "prompt": null
+    },
+    {
+      "key": "chest_t1",
+      "master_path": "approved-story-art/chest_t1.png",
+      "master_sha256": "49461b8149a59ce828afa17e84367e689ae6854676a797286b9a82fc5620d515",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "9611b7926c1ba2d283c9c29aeaf017fcbe33a0319f3af0487be6b65bb13156ec",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Create a fresh 4:3 story illustration. FIRST image is the mandatory STYLE reference, story_wrecks: match its visibly low-resolution pixel-art design, earthy restricted palette, small deliberate square pixel clusters, broken stippled/dithered transitions and painterly color masses. The final painting must look authored on a small pixel canvas like story_wrecks, not a high-resolution illustration with a decorative speckled filter. Keep readable pixel steps on all silhouettes and simplify detail. SECOND image supplies only scene CONTENT and tier identity, NOT its smoother rendering. Repaint everything including focal props in the FIRST image's pixel language. No sharp realistically rendered object against a pixel background, no photorealism, smooth gradients, glossy 3D, clean anime/vector contour or tiny etched material detail. One frame, artwork fills 4:3, no text/copy zone. Keep Hood adult-proportioned with brown hood, concealed face, trousers/boots/backpack. Contextual restrained colors; no added subjects or content from style image. Fresh chest tier 1 scene: adult Hood kneels opening this tier's chest among ruined village stones. Preserve tier color, silhouette and broad bands from image 2, but DRASTICALLY simplify chest to a few irregular pixel color planes and stepped painted edges. Chest must be the SAME pixel scale and stylistic abstraction as buildings/props in story_wrecks. Small coarse rivet dots, no realistic wood grain, realistic bevels or sharp glints. Do not merely retexture the prior render. Restrained palette, modest localized treasure light, diffuse ambiguous sky."
+    },
+    {
+      "key": "chest_t2",
+      "master_path": "approved-story-art/chest_t2.png",
+      "master_sha256": "7a1e91d1be85bae3d700ad6b8884337e45f61934d5aeb105675aa7a272d71080",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "eb43f987bbad62ffda2fda9cf5b7da9c94064ae6e8bc60e60c85704e3dd8909c",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Create a fresh 4:3 story illustration. FIRST image is the mandatory STYLE reference, story_wrecks: match its visibly low-resolution pixel-art design, earthy restricted palette, small deliberate square pixel clusters, broken stippled/dithered transitions and painterly color masses. The final painting must look authored on a small pixel canvas like story_wrecks, not a high-resolution illustration with a decorative speckled filter. Keep readable pixel steps on all silhouettes and simplify detail. SECOND image supplies only scene CONTENT and tier identity, NOT its smoother rendering. Repaint everything including focal props in the FIRST image's pixel language. No sharp realistically rendered object against a pixel background, no photorealism, smooth gradients, glossy 3D, clean anime/vector contour or tiny etched material detail. One frame, artwork fills 4:3, no text/copy zone. Keep Hood adult-proportioned with brown hood, concealed face, trousers/boots/backpack. Contextual restrained colors; no added subjects or content from style image. Fresh chest tier 2 scene: adult Hood kneels opening this tier's chest among ruined village stones. Preserve tier color, silhouette and broad bands from image 2, but DRASTICALLY simplify chest to a few irregular pixel color planes and stepped painted edges. Chest must be the SAME pixel scale and stylistic abstraction as buildings/props in story_wrecks. Small coarse rivet dots, no realistic wood grain, realistic bevels or sharp glints. Do not merely retexture the prior render. Restrained palette, modest localized treasure light, diffuse ambiguous sky."
+    },
+    {
+      "key": "chest_t3",
+      "master_path": "approved-story-art/chest_t3.png",
+      "master_sha256": "2fb1460d16def0d9c5728427b6f1455e5b117c586a2629368b51f5cce9568d11",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "3aa814e77db41ba88fe2ce3e80e78081b182eb6924ef5eb3c31c8ccb2b7bf3c4",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Create a fresh 4:3 story illustration. FIRST image is the mandatory STYLE reference, story_wrecks: match its visibly low-resolution pixel-art design, earthy restricted palette, small deliberate square pixel clusters, broken stippled/dithered transitions and painterly color masses. The final painting must look authored on a small pixel canvas like story_wrecks, not a high-resolution illustration with a decorative speckled filter. Keep readable pixel steps on all silhouettes and simplify detail. SECOND image supplies only scene CONTENT and tier identity, NOT its smoother rendering. Repaint everything including focal props in the FIRST image's pixel language. No sharp realistically rendered object against a pixel background, no photorealism, smooth gradients, glossy 3D, clean anime/vector contour or tiny etched material detail. One frame, artwork fills 4:3, no text/copy zone. Keep Hood adult-proportioned with brown hood, concealed face, trousers/boots/backpack. Contextual restrained colors; no added subjects or content from style image. Fresh chest tier 3 scene: adult Hood kneels opening this tier's chest among ruined village stones. Preserve tier color, silhouette and broad bands from image 2, but DRASTICALLY simplify chest to a few irregular pixel color planes and stepped painted edges. Chest must be the SAME pixel scale and stylistic abstraction as buildings/props in story_wrecks. Small coarse rivet dots, no realistic wood grain, realistic bevels or sharp glints. Do not merely retexture the prior render. Restrained palette, modest localized treasure light, diffuse ambiguous sky."
+    },
+    {
+      "key": "chest_t4",
+      "master_path": "approved-story-art/chest_t4.png",
+      "master_sha256": "31bca35968254525e5df165a5912b44351d75325e999afbc3cd01f027e41bd3a",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "208be0d740739057594616fa983850571029a07d155cf3654df773b26310fe87",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Create a fresh 4:3 story illustration. FIRST image is the mandatory STYLE reference, story_wrecks: match its visibly low-resolution pixel-art design, earthy restricted palette, small deliberate square pixel clusters, broken stippled/dithered transitions and painterly color masses. The final painting must look authored on a small pixel canvas like story_wrecks, not a high-resolution illustration with a decorative speckled filter. Keep readable pixel steps on all silhouettes and simplify detail. SECOND image supplies only scene CONTENT and tier identity, NOT its smoother rendering. Repaint everything including focal props in the FIRST image's pixel language. No sharp realistically rendered object against a pixel background, no photorealism, smooth gradients, glossy 3D, clean anime/vector contour or tiny etched material detail. One frame, artwork fills 4:3, no text/copy zone. Keep Hood adult-proportioned with brown hood, concealed face, trousers/boots/backpack. Contextual restrained colors; no added subjects or content from style image. Fresh chest tier 4 scene: adult Hood kneels opening this tier's chest among ruined village stones. Preserve tier color, silhouette and broad bands from image 2, but DRASTICALLY simplify chest to a few irregular pixel color planes and stepped painted edges. Chest must be the SAME pixel scale and stylistic abstraction as buildings/props in story_wrecks. Small coarse rivet dots, no realistic wood grain, realistic bevels or sharp glints. Do not merely retexture the prior render. Restrained palette, modest localized treasure light, diffuse ambiguous sky."
+    },
+    {
+      "key": "chest_t5",
+      "master_path": "approved-story-art/chest_t5.png",
+      "master_sha256": "2aefe900e1b0c7026eedb815fd86759bed3fd27a94b52d9dd1bad1ee42c4e11f",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "c27417810941731e1b640e38d95d8c4f2a81b43ed0bd8c416f916033944ad2aa",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Create a fresh 4:3 story illustration. FIRST image is the mandatory STYLE reference, story_wrecks: match its visibly low-resolution pixel-art design, earthy restricted palette, small deliberate square pixel clusters, broken stippled/dithered transitions and painterly color masses. The final painting must look authored on a small pixel canvas like story_wrecks, not a high-resolution illustration with a decorative speckled filter. Keep readable pixel steps on all silhouettes and simplify detail. SECOND image supplies only scene CONTENT and tier identity, NOT its smoother rendering. Repaint everything including focal props in the FIRST image's pixel language. No sharp realistically rendered object against a pixel background, no photorealism, smooth gradients, glossy 3D, clean anime/vector contour or tiny etched material detail. One frame, artwork fills 4:3, no text/copy zone. Keep Hood adult-proportioned with brown hood, concealed face, trousers/boots/backpack. Contextual restrained colors; no added subjects or content from style image. Fresh chest tier 5 scene: adult Hood kneels opening this tier's chest among ruined village stones. Preserve tier color, silhouette and broad bands from image 2, but DRASTICALLY simplify chest to a few irregular pixel color planes and stepped painted edges. Chest must be the SAME pixel scale and stylistic abstraction as buildings/props in story_wrecks. Small coarse rivet dots, no realistic wood grain, realistic bevels or sharp glints. Do not merely retexture the prior render. Restrained palette, modest localized treasure light, diffuse ambiguous sky."
+    },
+    {
+      "key": "chest_t6",
+      "master_path": "approved-story-art/chest_t6.png",
+      "master_sha256": "ae0edcb92cb1b3be8d0fbdb109f27180a118937bbc135f2d06bf3e542f2a5ccc",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "16dcb401b76d5ced1ea6d636c9212ba5bbaef8d417831af1ff485ab42d4cc348",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Create a fresh 4:3 story illustration. FIRST image is the mandatory STYLE reference, story_wrecks: match its visibly low-resolution pixel-art design, earthy restricted palette, small deliberate square pixel clusters, broken stippled/dithered transitions and painterly color masses. The final painting must look authored on a small pixel canvas like story_wrecks, not a high-resolution illustration with a decorative speckled filter. Keep readable pixel steps on all silhouettes and simplify detail. SECOND image supplies only scene CONTENT and tier identity, NOT its smoother rendering. Repaint everything including focal props in the FIRST image's pixel language. No sharp realistically rendered object against a pixel background, no photorealism, smooth gradients, glossy 3D, clean anime/vector contour or tiny etched material detail. One frame, artwork fills 4:3, no text/copy zone. Keep Hood adult-proportioned with brown hood, concealed face, trousers/boots/backpack. Contextual restrained colors; no added subjects or content from style image. Fresh chest tier 6 scene: adult Hood kneels opening this tier's chest among ruined village stones. Preserve tier color, silhouette and broad bands from image 2, but DRASTICALLY simplify chest to a few irregular pixel color planes and stepped painted edges. Chest must be the SAME pixel scale and stylistic abstraction as buildings/props in story_wrecks. Small coarse rivet dots, no realistic wood grain, realistic bevels or sharp glints. Do not merely retexture the prior render. Restrained palette, modest localized treasure light, diffuse ambiguous sky."
+    },
+    {
+      "key": "chest_t7",
+      "master_path": "approved-story-art/chest_t7.png",
+      "master_sha256": "517e8725ce834b190090a806fec17aa6b57f451ae4ef1e887fac284f99351ada",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "bfece92975f5e198987eba414e0a196e7a95956298b7d78376fa0ee2eead4d11",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Create a fresh 4:3 story illustration. FIRST image is the mandatory STYLE reference, story_wrecks: match its visibly low-resolution pixel-art design, earthy restricted palette, small deliberate square pixel clusters, broken stippled/dithered transitions and painterly color masses. The final painting must look authored on a small pixel canvas like story_wrecks, not a high-resolution illustration with a decorative speckled filter. Keep readable pixel steps on all silhouettes and simplify detail. SECOND image supplies only scene CONTENT and tier identity, NOT its smoother rendering. Repaint everything including focal props in the FIRST image's pixel language. No sharp realistically rendered object against a pixel background, no photorealism, smooth gradients, glossy 3D, clean anime/vector contour or tiny etched material detail. One frame, artwork fills 4:3, no text/copy zone. Keep Hood adult-proportioned with brown hood, concealed face, trousers/boots/backpack. Contextual restrained colors; no added subjects or content from style image. Fresh chest tier 7 scene: adult Hood kneels opening this tier's chest among ruined village stones. Preserve tier color, silhouette and broad bands from image 2, but DRASTICALLY simplify chest to a few irregular pixel color planes and stepped painted edges. Chest must be the SAME pixel scale and stylistic abstraction as buildings/props in story_wrecks. Small coarse rivet dots, no realistic wood grain, realistic bevels or sharp glints. Do not merely retexture the prior render. Restrained palette, modest localized treasure light, diffuse ambiguous sky."
+    },
+    {
+      "key": "coin_first",
+      "master_path": "approved-story-art/coin_first.png",
+      "master_sha256": "ae464ff7c3e626d20463dd01ffcc8a9cc66aba13e38ef1c2cbfca98c22fc891e",
+      "width": 592,
+      "height": 444,
+      "export_width": 592,
+      "export_height": 444,
+      "sha256": "ac325bf63d3c8ad4f50223b3be5d2a0ae0ffe97b913c5ce048fe4573ca88e139",
+      "method": "original_crop",
+      "crop": {
+        "x": 56,
+        "y": 0,
+        "w": 592,
+        "h": 444
+      },
+      "prompt": null
+    },
+    {
+      "key": "death_memories",
+      "master_path": "approved-story-art/death_memories.png",
+      "master_sha256": "7c67240e23dd4ee0bfb3d485c9fe5b0aea8df7498db157fe7fef3f210a8c9a66",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "dc795a29dfda0a3fedc38d5a6a9a7c8fb23c88ab639b8b3b18d423103c76dbb1",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "delivery_first",
+      "master_path": "approved-story-art/delivery_first.png",
+      "master_sha256": "53ad2734ce8d6a9484dd848af15002053ee52b301c4f6ebea4f15f552accb321",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "fa0762d8cac9714dbe6848451136bd31dc0e04635518e9185fbf00c58edbf25d",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "discovery_badge",
+      "master_path": "approved-story-art/discovery_badge.png",
+      "master_sha256": "fd6b067cc89c4db43d5a796bf58cf393b132762dbe6637347dd7566804e04e7b",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "6f4c374c5cc9e38dc8cc004d0d72876c99d50f46bcf6a1bde2b90dded1df8df2",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "dragon_clear_cave",
+      "master_path": "approved-story-art/dragon_clear_cave.png",
+      "master_sha256": "c0b654b0e01f5049cc519e368f3e91871f13355813a46d18f6928d2863ee799f",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "bd7a8fc998c270e3dec106ac99228b35ad55fbb274ba71e626166005295ae6ea",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: precise-object-edit. One 4:3 landscape image, no text. Edit scene so the clear transparent dragon is enclosed inside a LARGE sturdy closed iron CAGE in the cavern. Visible bars in front of and behind dragon, roof bars overhead, locked gate and grounded base; cage comfortably encloses entire curled body/tail and folded wings. Keep dragon visibly transparent with cave showing THROUGH its body, not opaque white, not ice sculpture. Preserve existing dragon and cave's approved painterly pixel style. Cage must unmistakably contain dragon, no bars intersect flesh, no people. Fully painted opaque cave background."
+    },
+    {
+      "key": "event_dragon_powder",
+      "master_path": "approved-story-art/event_dragon_powder.png",
+      "master_sha256": "b9b0da12069adc2912e5fd9b3980788d3f28d62a24e7e6987b37516c028739d8",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "7575d8f6ec5cfb489e8acadcaa5d85e380290bc84ec75bccd19f1b76ea47cfc1",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Create one original finished story-dialog illustration, exactly 4:3 landscape, art to all edges, no text or reserved text space. Attached approved images are STYLE references only: softly painterly pixel art with irregular painted pixel clusters, a restricted contextual palette, simplified edges and shapes, restrained highlights, hand-painted atmosphere. No photoreal detail, glossy 3D, hard comic ink outlines or uniform mosaic filter. Do not copy subjects/composition from the style refs except Hood's concealed face/outfit when requested. Story art differs intentionally from the overhead main game sprites. Dragon Powder transformation event: one adult Hood in a brown hooded outfit and backpack caught midway through a magical temporary transformation into a RED dragon, in a quiet village clearing. One coherent transforming subject, not a separate human standing next to a separate dragon: a hooded upper silhouette dissolves into restrained amber powder motes as red-scaled forelimbs, a curling red tail and two emerging red wings become visible. The hood stays opaque and conceals all human facial features, no exposed human face/hair. A small opened powder pouch is visible near the hand/on ground to make the potion effect legible. Read as wondrous harmless magic, no gore or body horror, no family or lore symbols. Restricted rust-red, warm brown, olive and cream palette, soft painterly pixel marks throughout, gently diffuse lighting, no dramatic orange sunset."
+    },
+    {
+      "key": "fire_first",
+      "master_path": "approved-story-art/fire_first.png",
+      "master_sha256": "edbb9ffa536feb25170a3282ea3c4e5bcd9fb00fbfdb32b5bacdf10584359526",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "deb62b4896488a2496eb9c02169dd80db7d109d761c9f2999ff09b726881a618",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "first_sale",
+      "master_path": "approved-story-art/first_sale.png",
+      "master_sha256": "5acf7516d48bc71113facbf048cdf684c0f69538025eeea1b87d00ed27305946",
+      "width": 352,
+      "height": 264,
+      "export_width": 352,
+      "export_height": 264,
+      "sha256": "a27a8f1ee4da26fa4b12c48a09fac44844012d6bf1c3d1147147149f499f590e",
+      "method": "original_crop",
+      "crop": {
+        "x": 80,
+        "y": 0,
+        "w": 352,
+        "h": 264
+      },
+      "prompt": null
+    },
+    {
+      "key": "forge_done",
+      "master_path": "approved-story-art/forge_done.png",
+      "master_sha256": "8eb37ecb418b3a02c2440e77e2a5f596839f7ebf32e61afee0320267b0168fb9",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "ca89eb2aabf53085330162cd88a62b807d8164e84d5e4220e9612f4774e2e260",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "fort_unseal",
+      "master_path": "approved-story-art/fort_unseal.png",
+      "master_sha256": "ca1e79989790022e455f1d45c2120720ab3ad7c4a596c6cfe0460b029a7d04ee",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "93423ef56949e9743290db323c09317a9aca110097644b00745fc6fb61a8f9ca",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "health_low",
+      "master_path": "approved-story-art/health_low.png",
+      "master_sha256": "60066cb154d953af4f2c3b9b8c752bd2d5cc93672b7b91398616e518bad2105f",
+      "width": 352,
+      "height": 264,
+      "export_width": 352,
+      "export_height": 264,
+      "sha256": "ba65785f48c627333efbd4c6ca50a8bc52f0698417c210be1a1f7b0964bc1401",
+      "method": "original_crop",
+      "crop": {
+        "x": 80,
+        "y": 0,
+        "w": 352,
+        "h": 264
+      },
+      "prompt": null
+    },
+    {
+      "key": "home_sell",
+      "master_path": "approved-story-art/home_sell.png",
+      "master_sha256": "e23c86680582e4d9aa14f4e9f86bdbe0b1acf60407e5b883d93aa674ab5098ab",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "3ac731ba1a245443ee72918c9b3828b3c8188de80097586d3ed7dd03fcb86d58",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_build",
+      "master_path": "approved-story-art/kind_build.png",
+      "master_sha256": "09cd9af3e52244390e77c4729306c8b909d5da1d822d5adc307e907c99eeecbb",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "b61c46fe66e14f88cc512449d39c6e00beeba419e0693dab2020f1fe3c9c7bbf",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_craft",
+      "master_path": "approved-story-art/kind_craft.png",
+      "master_sha256": "4d960005de47bf89cb9c6dbd877dd7b2d6673c89f320dad9ecd6cc8443f79363",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "6ee460ff1af5ffead96fc807ce9b9fc717aef6177043467d615c751e28290031",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_delivery",
+      "master_path": "approved-story-art/kind_delivery.png",
+      "master_sha256": "75122e8d6bafc3ef1c3a50716d6ed8567fb354f79326a676102679536ce501e3",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "797380489960c088ae5409fad1806a3454cffd92aa3dfdd8ad596cab711acc32",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_energy",
+      "master_path": "approved-story-art/kind_energy.png",
+      "master_sha256": "559b9f34e49667ad565be324ccc911233f7e6f10e37f531a1c8390c95e0c360c",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "e5f10986c7e8986503b1c882c8a2709f4039e7396e23c3ac662ed47013f8d307",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_farm",
+      "master_path": "approved-story-art/kind_farm.png",
+      "master_sha256": "39a51327001203339dcfbefbaf3e1f1c352cdca613b5875ae7307954a78e6ec0",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "6b2ecdad89487749ef3b32067f59b1790d1fc4b3f28a349956a8b70b0d5e9b86",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_fire",
+      "master_path": "approved-story-art/kind_fire.png",
+      "master_sha256": "20c91ff9b2a45fb85af3e56b5a59aba61aeb70c643a6739c9536000374682480",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "dd04f22e27eba867ea08de6b4c692389aa85d6764bfd82e0b713da7083f1564f",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_forge",
+      "master_path": "approved-story-art/kind_forge.png",
+      "master_sha256": "d0c801dd21efb3e71251cc3f5e7221b4c5a2d49387b6f3542297b1ef94e480eb",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "5ecaf1042009e02795e86e5b10b19ac309a25ffdcea7dc277abc09a07f7e5b7b",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_inn",
+      "master_path": "approved-story-art/kind_inn.png",
+      "master_sha256": "f84914ea2ee7588773551ee5fb334b4ae6ce15ae56744a94fc8e15bc33c6bee6",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "0d004420af40782fbe980b39a4b0e30de77d23d1318e2fc1e9f92633d2524deb",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_memory",
+      "master_path": "approved-story-art/kind_memory.png",
+      "master_sha256": "028658b204c14fd85eddb04ebc163f9a8d61a89af8a64d0820124e254752a480",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "30b4f24c1453590dd530b6d2c46a877fd0e48fd84f98450b7d67c1ab83700e38",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_menu",
+      "master_path": "approved-story-art/kind_menu.png",
+      "master_sha256": "cb96547dbca63e023f4c78611505fbf09561f8f51124e0db9fc20c85ecb0c62e",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "0013cb6a91bc375ad1e4800063e46e884a4d472b5fcdb1e65c52b9f28ec3aa05",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_note",
+      "master_path": "approved-story-art/kind_note.png",
+      "master_sha256": "ba0b24e6439680f7f1e7d90af50b50fe9843794caf3e9fff715ee1727e747a1f",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "618ee5119632c449194593ac8628e0fb039341679e02e4ac338fecc469de7347",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_quest",
+      "master_path": "approved-story-art/kind_quest.png",
+      "master_sha256": "6784d891aba23bf306d3e9fba398fd94e7c08fa6ba5ba77ce0e8a48afb8d20a0",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "7f5efe2719667460da492e363a433002b986bf4ac54b934490c56d8cef421cc6",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_relics",
+      "master_path": "approved-story-art/kind_relics.png",
+      "master_sha256": "b9490ae8e01a8383b946fa2a3d68878971dda2de6693ee5506cbda30ccd47db7",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "44ce694f0a15a95ef10680c7935f051df0ba55d6e8ce42f1605b807eee06bc0b",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_rest",
+      "master_path": "approved-story-art/kind_rest.png",
+      "master_sha256": "cfc16fca350240544d82dd303bd794d01dbd76d398e2db39fe2c0996f4edc8f0",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "2394a73b94f0508067ea8f83101db5a1154abfa0c26ecc4b5824cc765c05cb2c",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_shop",
+      "master_path": "approved-story-art/kind_shop.png",
+      "master_sha256": "123084dbcbbc2bfa21df74a46bd8aaeed4b0432ea50868450e0e3079f01e6bc6",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "3178e88961a3984df0784b1bdfaf722c601db5611053142aaf133fae0f52bf7e",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_slots",
+      "master_path": "approved-story-art/kind_slots.png",
+      "master_sha256": "1e6355c0c074b79ad1ca2800689ea3e313d1b34b591720215d8a9fde940cbee1",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "cee51355da625e7f2a3d7740fed76e0664c542eba50c70e2c2eb816e749a69db",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_spirit",
+      "master_path": "approved-story-art/kind_spirit.png",
+      "master_sha256": "120168c2c26a1ef9a9a295a69d2a3d4e8ee21d4ad164e9389a2c1132b7245ac1",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "67c5d22aacd1f510735186faaf6233f80553d3706a7700c5afbf48033ebb56db",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_supplies",
+      "master_path": "approved-story-art/kind_supplies.png",
+      "master_sha256": "e4d24165ab2e134828dd3f3c2661e9c1033acb3ec889aef52f66d29c92f1e862",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "b493bcac4c8693a04885b42707cde3763fdbe91bd2c73fe64e7138193d391280",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_trade",
+      "master_path": "approved-story-art/kind_trade.png",
+      "master_sha256": "c7a1b102f6317154a3aa656be00424867213cfae4d2f6444c7affdb7cb9db82d",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "a899248850dbbfd60691867d10cc966f4a8a624967112811904ce07210f229e5",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_trail",
+      "master_path": "approved-story-art/kind_trail.png",
+      "master_sha256": "97292d88758767aa4011a02c3859d28c6d501e0e7624e6a2746d70f5d09f94c3",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "37ee4c196b1f50fd252f08f1e547403eaf9d1e5fa1543fe0ca49bf935c1465bf",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_treasure",
+      "master_path": "approved-story-art/kind_treasure.png",
+      "master_sha256": "949185114b8c6f173c4eeb91295acabd57be5f9dc0328a08feae6aaa6b0f4c78",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "d1cc0f47a7c366beaf664eacbced27ef94797a03751199dd9f2ecf0fa3df016b",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_use",
+      "master_path": "approved-story-art/kind_use.png",
+      "master_sha256": "8b3427c19a86f5c80332b08e34ce414ee9d36e0faabd660526d5d1b6e6ada3d5",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "511da58b4c7950c957b493862fa879e68ab5e10fd8ff17db4c1ef7ce9a73c9d1",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "kind_wizard",
+      "master_path": "approved-story-art/kind_wizard.png",
+      "master_sha256": "f798ce2985208fbe6c09ff5bb2a6403546e0ed39f874b8cc67a520bdd78c832c",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "f9d2b49337a5e7f5fe5c8ff704117de9ae58771e3d71db6f9f410532daa5c1d7",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "memory_doorway",
+      "master_path": "approved-story-art/memory_doorway.png",
+      "master_sha256": "93adb6f5e3d47241b64089f6832341bb3350ab3d9e3ff9960b11e07a0ca48621",
+      "width": 512,
+      "height": 384,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "a7f2ac06b8897eef03d8c4edca87d04db588e363eefb401960a8dcc7f28d07c4",
+      "method": "original_crop",
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "w": 512,
+        "h": 384
+      },
+      "prompt": null
+    },
+    {
+      "key": "memory_grip",
+      "master_path": "approved-story-art/memory_grip.png",
+      "master_sha256": "48082071b478a8cab94d08d94083ac9486d837a9ba85a52b1b94db036519bd27",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "048296d68d2f49895307bf8b8d7d085a2d6f8f1256280e33431daac66a439045",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "npc_bryn",
+      "master_path": "approved-story-art/npc_bryn.png",
+      "master_sha256": "8080e77028b4d779c6a2133c7c9fe8f1fb26b7b45a305ab3432f5807b2fba111",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "4ba9d29eb87d0d59891ffb52ac1fc14199aa126be1991edd9a4fbc8d456b65fb",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: style-transfer. Produce one finished 4:3 landscape story-dialog painting with art to all four edges and NO text zone, border, words, lettering or collage. Image 1 is the original scene: preserve its subject identities, meaningful props, action and close framing; discard the old blank lower copy zone. Image 2 is the approved STYLE master: match its restrained contextual palette, irregular softly painted pixel clusters, simplified shapes and quiet painterly atmosphere. Make it clearly hand-painted pixel art throughout, including the main object, hands, faces, metal and wood: no photoreal textures, razor-sharp outlines, glossy product render, photographic depth of field, tiny detailed rivets or uniform mosaic filter. Not a blur filter: design with soft irregular pixel brush marks and few colors. Keep lighting contextual and time of day ambiguous, no visible sun or conspicuous sunset. Hood, if present, is an adult in the approved brown hood/short outer garment, trousers, boots and backpack; face and hair completely concealed by opaque hood shadow or viewed from behind. Preserve scene camera distance and composition, adapt the upper painted scene to 4:3 without squeezing subjects.  CRITICAL CONTENT LOCK: Copy ONLY scene content from Image 1. Image 2 supplies brushwork and palette discipline ONLY: never import its shopkeeper, Hood, sack, lantern, shelves or any other depicted object into the scene. For object-only paintings, do NOT add any people. Preserve Bryn: friendly young adult woman with chestnut hair, olive headscarf with cream edge, cream sleeves, muted green dress and brown shoulder wrap, hands gently clasped; ruined village behind. Replace outlined anime look with soft painterly pixel portrait, restrained natural earth/olive colors. ONLY the subjects explicitly listed in this scene, do not add any figures from the style reference."
+    },
+    {
+      "key": "npc_edda",
+      "master_path": "approved-story-art/npc_edda.png",
+      "master_sha256": "7ec35ba37d72b48816747702b11124406ae893059c684e23eb1c4878bd55e089",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "b1a83ad6cfc97bf16a099fd6a69a5c124a08e07231d4b9473064a4e55b349934",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "npc_maud",
+      "master_path": "approved-story-art/npc_maud.png",
+      "master_sha256": "95e10e7a442da6fcf5b71f9d6967b1a6606dac296ab67089648875c8bbec5346",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "c6b8a754c05546d67aefa9a3edb9cf6444799aa9b0b2fd57adc76c712bf2f640",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "npc_orrin",
+      "master_path": "approved-story-art/npc_orrin.png",
+      "master_sha256": "854ff2d858518710772fba1aca076a2563d34729a4892d7478a474297e5d17da",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "9c1ce2eb5ac360bd546d6c7aa1fe3fbf4793b46ac1f7caaa3ccd7049cce86602",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "npc_tilly",
+      "master_path": "approved-story-art/npc_tilly.png",
+      "master_sha256": "495bdf2d62e52d0a29300dfc4cbbab772fd3048a7a09a729af603ee86a821be9",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "3b539f1fc99cc074ae52377faf59a76dde77be89ea851bc1f6e7ef379f4a6e64",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "npc_tilly_happy",
+      "master_path": "approved-story-art/npc_tilly_happy.png",
+      "master_sha256": "590f1cb762c990c72f294cf5d3f2e31d749da28d5fe103004a12ef72a9d54309",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "bdfeed5237f7317c10d94ed09c114b0980d9c8d205507bdab45d73eef99ffa6d",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "pet_clearing",
+      "master_path": "approved-story-art/pet_clearing.png",
+      "master_sha256": "fc9d87b3cb99e0dec993ef39bc55fb259edc1eee8570f99efc7dac29b161c608",
+      "width": 296,
+      "height": 222,
+      "export_width": 296,
+      "export_height": 222,
+      "sha256": "943c3ea83e06dc630b5e34b0e0bb00b4539359017a27aa6e5fc16b86904f55a9",
+      "method": "original_crop",
+      "crop": {
+        "x": 28,
+        "y": 0,
+        "w": 296,
+        "h": 222
+      },
+      "prompt": null
+    },
+    {
+      "key": "progression_arena",
+      "master_path": "approved-story-art/progression_arena.png",
+      "master_sha256": "3e32c69b4b434c87552cd0b26b6c9043c838c2e2c1f0df5d73a66e39b58adf49",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "8c50647818a0978494dc154ba44a72ae9c4bfef5c4c3b1a0289384a867cac8e2",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "progression_elevator",
+      "master_path": "approved-story-art/progression_elevator.png",
+      "master_sha256": "b01c1a2d56b2ee7e56c7469a55a83c356a666ca3b80789ee709c2aef6aa0c9d6",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "3075a56f2e8f9511859517773617871586a8d47a917cb79cfdf1c7098dcb0ad7",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Create a fresh 4:3 story illustration. FIRST image is the mandatory STYLE reference, story_wrecks: match its visibly low-resolution pixel-art design, earthy restricted palette, small deliberate square pixel clusters, broken stippled/dithered transitions and painterly color masses. The final painting must look authored on a small pixel canvas like story_wrecks, not a high-resolution illustration with a decorative speckled filter. Keep readable pixel steps on all silhouettes and simplify detail. SECOND image supplies only scene CONTENT and tier identity, NOT its smoother rendering. Repaint everything including focal props in the FIRST image's pixel language. No sharp realistically rendered object against a pixel background, no photorealism, smooth gradients, glossy 3D, clean anime/vector contour or tiny etched material detail. One frame, artwork fills 4:3, no text/copy zone. Keep Hood adult-proportioned with brown hood, concealed face, trousers/boots/backpack. Contextual restrained colors; no added subjects or content from style image. Underground wooden lift repair, adult brown-hooded traveler on left and stocky bearded craftsman on right operating cog and chains, lanterns, distant cool cavern mushrooms. Simplify all faces and mechanisms to low-resolution painted pixel clusters like story_wrecks. Restrict warm earth and cool slate palette. No smooth photoreal face or intricate sharp mechanism."
+    },
+    {
+      "key": "progression_portal",
+      "master_path": "approved-story-art/progression_portal.png",
+      "master_sha256": "c644d851af9f9b00914685b84c91d4c825d050cfacbd3456c34470e795168ec1",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "cc5223317d9b8c1d3f630b35e61549545f6243acd6ca531040e41716ae7b86dd",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "quarry_sapphire",
+      "master_path": "approved-story-art/quarry_sapphire.png",
+      "master_sha256": "e0f89d2b06849eadb39a060d5579332113b83ffa0efdbb1af091e0de7edce508",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "8d15066cd27587f81db037adabde05f33f22c3966e6a922e638b875aec0159d8",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "restore_blacksmith",
+      "master_path": "approved-story-art/restore_blacksmith.png",
+      "master_sha256": "d49c98d911a4c5899fdf20fbb8382e4e147891cef7d543124315497a946d2400",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "05c2d8e91cb1dc9f3efdf223df5b134b872baeac87f3e340da445cfd478de469",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "restore_house",
+      "master_path": "approved-story-art/restore_house.png",
+      "master_sha256": "7a9ed6bdd1b1ccc01f363db6d93afc4a21799804a84d8a31a248b34d76c1ac87",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "137e145fd437effc7881813547fabb407687b513ba57a330fe52f6fb76f52d4b",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "restore_market",
+      "master_path": "approved-story-art/restore_market.png",
+      "master_sha256": "5fc43925b3917155ea912f3ef906196f9d396b1daa36d3d6e4c5f5cc52878b34",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "5e5e2810aa09c7212e472687e0ef1c06a35c3b3d71075bc87ffed25037edd74f",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "restore_trader",
+      "master_path": "approved-story-art/restore_trader.png",
+      "master_sha256": "c2e70427a7d3603ca9705c4c176c612187581f83d47cb40f61b36a77e90f9c06",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "8c7c57b3307af9d5885dbb78f625d562448d41748cb37a480fb6f7aa4489fdb2",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "restore_wizard",
+      "master_path": "approved-story-art/restore_wizard.png",
+      "master_sha256": "fe76685c12bcde540a773a86d3be186ab2a22df0b3214664c221b3c457fe5a06",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "efa76a33eb23667da3b29bacd2d4604c2638e515ce44cb841061c79d721c1632",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "revive_fall",
+      "master_path": "approved-story-art/revive_fall.png",
+      "master_sha256": "beae04a08e925b4f5f1cef990bdf36f02ec8c127e1cf6eb77a8cd4b6c6e348f6",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "ef351834d8e948cd5c361dd29414566b5632fa7e090d5d6655b26b1e4505194e",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "revive_found",
+      "master_path": "approved-story-art/revive_found.png",
+      "master_sha256": "e3ceac709673e548ee390fbf07a850833843c1096a832d87bead9bc47f4837dc",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "4727da9f6ddeb920260b6cd92e4d89835b5bcef7faa2f128f66bbfe55a543ea7",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "revive_wake",
+      "master_path": "approved-story-art/revive_wake.png",
+      "master_sha256": "389998e311a1fb0895bb417715d05cd77beb1a4f4c03d6d42bace52dd2b4f561",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "522d72f68ccc903cc1c5e0ef8937ef344087624eb0019e15a20804a5f949f70e",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "road_repair",
+      "master_path": "approved-story-art/road_repair.png",
+      "master_sha256": "40e986021048147afe5bb9784a95ab4e205253be8dcacadbb3484377a7ad4634",
+      "width": 592,
+      "height": 444,
+      "export_width": 592,
+      "export_height": 444,
+      "sha256": "d450dd463e3414da26a91b25f14516c3c9226a1cecf39d8d6777474b764e8cdc",
+      "method": "original_crop",
+      "crop": {
+        "x": 56,
+        "y": 0,
+        "w": 592,
+        "h": 444
+      },
+      "prompt": null
+    },
+    {
+      "key": "safety_phone",
+      "master_path": "approved-story-art/safety_phone.png",
+      "master_sha256": "df086ec9d98300ceea74f28ccc9bf500759a1ba3cda106b6d5bc8bb7d180cb58",
+      "width": 352,
+      "height": 264,
+      "export_width": 352,
+      "export_height": 264,
+      "sha256": "fff5a7c2c6cb31c1d7b021c7a451c03cc148cd02f02efb99961d1b263de5ff88",
+      "method": "original_crop",
+      "crop": {
+        "x": 80,
+        "y": 0,
+        "w": 352,
+        "h": 264
+      },
+      "prompt": null
+    },
+    {
+      "key": "shiny_first",
+      "master_path": "approved-story-art/shiny_first.png",
+      "master_sha256": "42e0be5408e0605f0bd7d9265599b1a044b4bc7a2b557f2a3e2f49b2040743ed",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "5dca432b1a6c8f9125643e65d19b88bbd4931afb2a98cc9d5c1632beb3d335e2",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "shrine_bone_watcher",
+      "master_path": "approved-story-art/shrine_bone_watcher.png",
+      "master_sha256": "dcdca5b95b20e304fab83464ba280006f8273b8a1718111e1e05058f5bb9dbc4",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "7d3bf31a0ac68488ad70884afb10d5a909e3b93f1a415bf8edd733facda96d38",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "shrine_ember_altar",
+      "master_path": "approved-story-art/shrine_ember_altar.png",
+      "master_sha256": "2d96667e43c0f49b5659072a1e80b5cd53683467850e1f6cb7633ed0f74acc02",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "c56b0e3bc313437412cfc6b6803ca0c2f826269c68f2339f1dee72eb1d34e8ce",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "shrine_grove",
+      "master_path": "approved-story-art/shrine_grove.png",
+      "master_sha256": "4d1cc3119eb596de46b0ab791c86fa7d7155719dd72559441f8b556e96b78c6f",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "dbda9c1d83b21b0b10602e1bbe85f4a754c638d6239d30c6ef9c2275b7ff7e80",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "shrine_harvest_idol",
+      "master_path": "approved-story-art/shrine_harvest_idol.png",
+      "master_sha256": "0e6b365a911ecbfe77b99e2ae3d5f0dca8b89405fed6f291017d04731db06b05",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "0aac7a1e0ec75514740028f267d129369d7499501c0955a2b3b2660f8fc4343b",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "shrine_lantern_saint",
+      "master_path": "approved-story-art/shrine_lantern_saint.png",
+      "master_sha256": "2940cd840bfd2843971c627e6a5daf7f0f4949ebdaa6767893ca20a3921beb58",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "f6cb20d1b4bac275610a9cfbce8d094698316151f892b71a42a4a6a04c90a7b0",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "shrine_moss_cairn",
+      "master_path": "approved-story-art/shrine_moss_cairn.png",
+      "master_sha256": "205f0c8260826c59fdb83e54a19c152c1076979eebabe34fcbc767bf441ba0fe",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "9dd5e5a9e8482aba2e30145de52aa1cf4e97d98fc08cb6aec63c4e03c4ec8b17",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "shrine_rust_totem",
+      "master_path": "approved-story-art/shrine_rust_totem.png",
+      "master_sha256": "2faf9b54378d9b3934b38efbda011dcf1721befeafbdd8e2b7ad3e77555ca588",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "080b7bd0fcfc46e3bfd5404c853af34e65d53f52f6ba87d9a8dc6d10af5af5ae",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "shrine_tide_bell",
+      "master_path": "approved-story-art/shrine_tide_bell.png",
+      "master_sha256": "0c6c912f4f54d55a1d75508c4555608e41ebeccbc87ae6d652445edbb2f012b3",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "0402829a0cd01deedf4e3a3773eadeb68f8a6f731f43355809b4e6c34c064c78",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "shrine_toad_idol",
+      "master_path": "approved-story-art/shrine_toad_idol.png",
+      "master_sha256": "46d7867ef8b4e275c42843876a2b84d33859a1cfcebd28dea604fe3dcd597555",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "57a3e10aa0ef068c8265fe7b93ed2c7367479654f202c1f4ba2ff27ec23d1337",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "shrine_wayfarer_post",
+      "master_path": "approved-story-art/shrine_wayfarer_post.png",
+      "master_sha256": "ec93b21a97c0ffe1ec631807e5803b398292248818123fd2005cffe23cf5b826",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "092e6cdab243d4d3d4aacd75f739042eb9017030e1a3211300cfb779f168f5ff",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "shrine_waystone",
+      "master_path": "approved-story-art/shrine_waystone.png",
+      "master_sha256": "5379b2c8ce601f2b42c59b07cb6e1f094c092f899d68a228d73cbc2171dad03b",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "a3469fa3e2eb2e3370232bbd7d912b8504e69fe030a4f309b325d70cc5ac400b",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "shrine_wishing_well",
+      "master_path": "approved-story-art/shrine_wishing_well.png",
+      "master_sha256": "d024d569c7027d73e4e5473c57e18f38cc772957fdbff38ed07741b1bd0bfbed",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "a880c80fcb7f640486fe9c9b2e179f0a7beb3729cdfdc7f02d3dd805686b2f78",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "story_ayo_arrival",
+      "master_path": "approved-story-art/story_ayo_arrival.png",
+      "master_sha256": "e12dbd8600d0b9ef55b664a64c949179e5222fbbeb5d488d27375ddffc05ee23",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "879abc272125304202c91101762861908cfea2629e24cf4901f734e8670a2ab0",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Create one original finished story-dialog illustration, exactly 4:3 landscape, art to all edges, no text or reserved text space. Attached approved images are STYLE references only: softly painterly pixel art with irregular painted pixel clusters, a restricted contextual palette, simplified edges and shapes, restrained highlights, hand-painted atmosphere. No photoreal detail, glossy 3D, hard comic ink outlines or uniform mosaic filter. Do not copy subjects/composition from the style refs except Hood's concealed face/outfit when requested. Story art differs intentionally from the overhead main game sprites. Ayo arrives in Mending Lane in HUMAN form: an adult woman whose white hair seems too white for her youthful adult face, quiet wary expression, simple muted grey-olive traveling cloak and cream clothing, a modest satchel, standing beside the neighbours' weathered wheeled dwelling at the edge of a rebuilding stone-and-timber village. A few townspeople glance toward this unfamiliar newcomer. Medium-wide composition centered on her, white hair clearly readable. Her nature remains secret: NO dragon, no scales, horns, wings, magical aura or royal insignia; no family reveal. Do not portray her as elderly. Subtle time-ambiguous daylight, restrained olive/earth/cream palette."
+    },
+    {
+      "key": "story_dragon_hunters_arrive",
+      "master_path": "approved-story-art/story_dragon_hunters_arrive.png",
+      "master_sha256": "535f2658bb244d1b84007a6e78b550d8cc074e35667dd2a63a1469dbe9c86021",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "06db0f570ea8cc6a635efa4cf82184eefe19945ae311f6e6452c7bcbd03e787a",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: precise-object-edit. One 4:3 landscape image, no text. Preserve the four hunters' identities, faces, poses, weapons, ropes/net, village arrival and current approved painted style. Change their gear to recognizable matching unit UNIFORMS and ARMOR: all four wear the same muted charcoal-olive tabards with faded ochre edging and a small matching plain bronze clasp; matching practical iron breastplates and shoulder guards of the same design, mail beneath. Still ragtag and travel-worn with dents, patches, repaired straps, frayed hems, mismatched boots and individual packs. Cohesive unit seen at a glance, not pristine knights. Keep faces distinct, composition intact, no new characters, logos or text."
+    },
+    {
+      "key": "story_wake",
+      "master_path": "approved-story-art/story_wake.png",
+      "master_sha256": "23a29f573109bad1201717bd26942140e82ab8cc3e35d4aba69d8915914f9543",
+      "width": 452,
+      "height": 339,
+      "export_width": 452,
+      "export_height": 339,
+      "sha256": "ddbe1e04124abd891335af54170cd01e796fb5c140af982940cf4d41495bf90e",
+      "method": "original_crop",
+      "crop": {
+        "x": 30,
+        "y": 1,
+        "w": 452,
+        "h": 339
+      },
+      "prompt": null
+    },
+    {
+      "key": "story_wake_frame2",
+      "master_path": "approved-story-art/story_wake_frame2.png",
+      "master_sha256": "f42675fa5ab9bd024ffc219c576b17e72c891aeae414adb9eb9e1d33bac4efb6",
+      "width": 452,
+      "height": 339,
+      "export_width": 452,
+      "export_height": 339,
+      "sha256": "b472b7fe1c7027fcc417ce790f9ccd4be05dd8a1dff4bf09aa6b09ad7791b67e",
+      "method": "original_crop",
+      "crop": {
+        "x": 30,
+        "y": 1,
+        "w": 452,
+        "h": 339
+      },
+      "prompt": null
+    },
+    {
+      "key": "story_white_dragon_tower",
+      "master_path": "approved-story-art/story_white_dragon_tower.png",
+      "master_sha256": "dc0338b33635b286b5d77cc002b7889f35340360b2b4ccfc73ddc8d47afe1bc3",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "c9ebf82251b1406f03407fe7ad81063fa98128ccdea68f54bd5d24f9870df435",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Create one original finished story-dialog illustration, exactly 4:3 landscape, art to all edges, no text or reserved text space. Attached approved images are STYLE references only: softly painterly pixel art with irregular painted pixel clusters, a restricted contextual palette, simplified edges and shapes, restrained highlights, hand-painted atmosphere. No photoreal detail, glossy 3D, hard comic ink outlines or uniform mosaic filter. Do not copy subjects/composition from the style refs except Hood's concealed face/outfit when requested. Story art differs intentionally from the overhead main game sprites. One enormous WHITE dragon with a single head, two wings and coherent limbs swoops down toward the wizard's tower as it begins to vanish in a restrained magical rupture. Use the tower architecture in the supporting tower reference: eccentric round stone tower, shingled peaked roof and crescent ornament, timber balcony, lanterns and telescope. The road and roadside lamps remain solid below. Hood, a small adult rear-facing witness in brown hood and short outergarment with backpack, stands at the lower foreground; never reveal their face. Dragon pearl-white with cool grey-blue shadows, not a skeletal/ghost dragon. Dramatic but softly painterly pixels; restrained slate, cream and earth palette with local golden lamps. Do not show wizard's secret identity, no hydra or second dragon. No explicit time-of-day sky."
+    },
+    {
+      "key": "story_wrecks",
+      "master_path": "approved-story-art/story_wrecks.png",
+      "master_sha256": "80e47b5d46ffaca0cfc2f9659235deee4668933b70dd00daab8a47846159a0d6",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "ddc5d278d6a983dad8b1350bcbcf9a4048d61eda6984f91758545cd81d3e85b6",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: precise-object-edit. Edit Image 1, preserving its original painterly pixel artwork, palette and framing as closely as possible. Change only Hood's proportions: the centered rear-facing traveler looks too short/chibi. Make the player modestly taller with adult legs and torso, keeping the same foot location and small scale in this wide ruined-village composition. Keep original painterly pixel technique, muted palette, all architecture, perspective and mood. Do not zoom in, brighten, or redesign the scene. Output one 4:3 landscape painting. Use only the existing upper painted scene, remove the old lower blank/text zone; art fills the frame, no text. Image 2 is reference ONLY for Hood's concealed face and adult proportions if needed, NOT a source of any new subjects, colors or scenery. Do not restyle or recompose the rest of the original. No characters or props from Image 2 may be added."
+    },
+    {
+      "key": "story_wrecks_frame2",
+      "master_path": "approved-story-art/story_wrecks_frame2.png",
+      "master_sha256": "80e47b5d46ffaca0cfc2f9659235deee4668933b70dd00daab8a47846159a0d6",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "ddc5d278d6a983dad8b1350bcbcf9a4048d61eda6984f91758545cd81d3e85b6",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: precise-object-edit. Edit Image 1, preserving its original painterly pixel artwork, palette and framing as closely as possible. Change only Hood's proportions: the centered rear-facing traveler looks too short/chibi. Make the player modestly taller with adult legs and torso, keeping the same foot location and small scale in this wide ruined-village composition. Keep original painterly pixel technique, muted palette, all architecture, perspective and mood. Do not zoom in, brighten, or redesign the scene. Output one 4:3 landscape painting. Use only the existing upper painted scene, remove the old lower blank/text zone; art fills the frame, no text. Image 2 is reference ONLY for Hood's concealed face and adult proportions if needed, NOT a source of any new subjects, colors or scenery. Do not restyle or recompose the rest of the original. No characters or props from Image 2 may be added.",
+      "reuses": "story_wrecks"
+    },
+    {
+      "key": "street_bandit",
+      "master_path": "approved-story-art/street_bandit.png",
+      "master_sha256": "1b5c3efde2fce1b4aa23e425828fb37833e21d504e62dd2f2b6609f90a9e5180",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "1cfc079329501b55641215bb55525e52e2e7c14a2f3ed035b239e6b6dfcacc45",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "street_barricade",
+      "master_path": "approved-story-art/street_barricade.png",
+      "master_sha256": "98242bfe84f40f27d10036cfb7cbc8b8ca5f1b8848a4961e14b0cab57bc7a63a",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "d23eb43ed2e518c211d9403ea70406bb1ef8a41b271bff472cd14092da805a6c",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "street_burned",
+      "master_path": "approved-story-art/street_burned.png",
+      "master_sha256": "ca9b680eaff9e92cb42f1e6eb53512787fe54ac622252afccb841c6307ce28ac",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "f638e5bca340a60290e8d49e411ae3e4bd6ed7de12269561230caf298898f967",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "street_golden",
+      "master_path": "approved-story-art/street_golden.png",
+      "master_sha256": "bc6a0a63c9205454c777175adcd80393938ccf2711b5abc7b86c052743b78997",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "46f58cf805c77abb3bcbf750f55c4dadfbbe3218fce560e29a30f6ef647480db",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "street_greenway",
+      "master_path": "approved-story-art/street_greenway.png",
+      "master_sha256": "1b464ca9c61ab6cc4f228d6e32459aa4a3fb2bc3a8d63a34ac872fb5122be58b",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "cd40a3a15368b513e82059299c6b2385d6d28bf53d3428090e6039a0972d3eaa",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "street_hedgerow",
+      "master_path": "approved-story-art/street_hedgerow.png",
+      "master_sha256": "49b41a4cc25c45d79ff5d51f17bc2d5f8e5b472ab2fae4822efeb122624d5560",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "b4546581d934a2a8609a61a004e74b73ff22f00712035c570aa95a168a6ac63d",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "street_lantern",
+      "master_path": "approved-story-art/street_lantern.png",
+      "master_sha256": "e8ba76699cb730a803dc4786379b8ee856940ebf71add6e6fc6f1a261701cfde",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "b8f7364f6f5585e026a46dcb1d415949b39ef8dd19f6cf810c256ec7ee4a5a5f",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "street_orchard",
+      "master_path": "approved-story-art/street_orchard.png",
+      "master_sha256": "587396f452303e39e2166272d947f5af4552beffd4aba0cc4125c7548fbbe662",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "d0f0ca3592c589cfb63bf7f34eb0ed8d75fbd07c79025d113e407f70d61ae0f6",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "street_overgrown",
+      "master_path": "approved-story-art/street_overgrown.png",
+      "master_sha256": "7818cf03cd37d53278314e50be1d6972e70a0e4479a609bcba96521471b9a11e",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "62b910f4be72d3b51c2d1bdb498c5e1323e312e2aad6a92eddf4be467045e9bb",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "street_parkpath",
+      "master_path": "approved-story-art/street_parkpath.png",
+      "master_sha256": "255f656545fa9e9be8294175a58b7a9bf0159575d5a35e2018d65d77c9b2b4c5",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "7c604f6e3d06d9b7a03492e17a0d35e49520a38b3a6c92b9823918ccce153ab2",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "street_pilgrim",
+      "master_path": "approved-story-art/street_pilgrim.png",
+      "master_sha256": "2c26e3523f0b91df962e09da698a8edec31878b289d9ab6e910e88f675ca7eaf",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "4d6c11d05475d8fada9e97580d9edf0c5e25a515c511601be1c8e278fd0498d2",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "street_scenic",
+      "master_path": "approved-story-art/street_scenic.png",
+      "master_sha256": "69bf2e4484b0919e57cf750af7c027db3d80bc22ea0d5a53476c299dd750025c",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "d7dba731360fcb6631fe7627e9b6aa537598b9af000fb87694dda42353a9d08f",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "street_snare",
+      "master_path": "approved-story-art/street_snare.png",
+      "master_sha256": "eacaca63c49069449d0581046ed617c40c1d00938ca2e3cc845b5bba17a57d66",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "1fcf37808c3c2973bc58088f2bb2831da9aa94a66aa99c85b0c059ac8c8e7887",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "street_toadstool",
+      "master_path": "approved-story-art/street_toadstool.png",
+      "master_sha256": "97dc2e8390763030d9d8f7c753a427f9e4a7813f75c5e68e30678943767ad552",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "80bb012706e47435799f4e99d6cf36737e9f1534c99ac73d81377d0b85a33ccf",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "temple_activated",
+      "master_path": "approved-story-art/temple_activated.png",
+      "master_sha256": "a43f82ae146d69a7c200e58068d2cb3cd78854761d92ed6d9caaa1eb903f88f1",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "ac50f2dbe1d9aacc657fbe40b75164d1315b7217ee924832d61fd810fecd1274",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "tool_catch",
+      "master_path": "approved-story-art/tool_catch.png",
+      "master_sha256": "a87da9169670fb85bbed3d0d246e58b70dee2b301265c634e131f8c67d87c4fb",
+      "width": 352,
+      "height": 264,
+      "export_width": 352,
+      "export_height": 264,
+      "sha256": "b7ba87451756a098c81da1be8d80169e25b09d0a9152a679afb3cfbaf5e119cc",
+      "method": "original_crop",
+      "crop": {
+        "x": 80,
+        "y": 0,
+        "w": 352,
+        "h": 264
+      },
+      "prompt": null
+    },
+    {
+      "key": "tool_catch_chicken",
+      "master_path": "approved-story-art/tool_catch_chicken.png",
+      "master_sha256": "4d3011e7fa8c78e813081e38785da921ce9fa4f9285b3c1ed4c37d1397f34826",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "f9051b595abc3d75b51395d6795c6378c0bfd28dd386f6de4481f03137844d82",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: precise-object-edit. Edit Image 1, preserving its original painterly pixel artwork, palette and framing as closely as possible. Change only the player's head/face covering. Replace the face-exposing hat with the established brown hood, opening completely opaque dark shadow, no face/eyes/nose/hair visible. Preserve the crouching pose catching a white chicken with a net, outfit, setting, palette and original painterly pixel technique. No new people or animals. Output one 4:3 landscape painting. Use only the existing upper painted scene, remove the old lower blank/text zone; art fills the frame, no text. Image 2 is reference ONLY for Hood's concealed face and adult proportions if needed, NOT a source of any new subjects, colors or scenery. Do not restyle or recompose the rest of the original. No characters or props from Image 2 may be added."
+    },
+    {
+      "key": "tool_chop",
+      "master_path": "approved-story-art/tool_chop.png",
+      "master_sha256": "11247284c5e76ed84769f0efd35d4bae4eb69f91cda28a3cc34d2608c2f83ad0",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "5d4a9007860fc74d17ae3b806aa57cec5a09ab53a20c7eef2179885446b24a14",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "tool_dig",
+      "master_path": "approved-story-art/tool_dig.png",
+      "master_sha256": "7f5721a1c6a6ccdaa12bde10e263576897d4517b8e4fd34e867140b7e7bf2da9",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "06fcd740ba4bdcb228a9c49668dbdf69a835b3d7ac0d3f56092d6e7a25dae776",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "tool_shoot",
+      "master_path": "approved-story-art/tool_shoot.png",
+      "master_sha256": "8101ef6d54bddcb725bca4a99f9669b9704024f6e3b0dafea35dba776486ed31",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "fe725c456941b5bcfdf1b176d3d13a2582220dc7f23dc61747d0c0c62d2461ab",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "tool_staff",
+      "master_path": "approved-story-art/tool_staff.png",
+      "master_sha256": "6952ef5fb52305a548f3312e2fd5407899aeebaaf20ba0ed26fcebb075f1663a",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "a391cedda400ccb9a54fd1fc6ae3f72f2188187cca071a3795ac5dcf42cc4d7e",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "tool_sword",
+      "master_path": "approved-story-art/tool_sword.png",
+      "master_sha256": "a425655958b08f7c980f9d931ea416e498c81ac3180e21df13fc3615357cd19d",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "a68eab1818750dd7edf3e6c88407187788d4e961e69de344df2e4ef08f01514a",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "tool_till",
+      "master_path": "approved-story-art/tool_till.png",
+      "master_sha256": "de6f147b9511e8ae498314c89ed89a84b745fb06f2c2d6d1e720a51615947da0",
+      "width": 400,
+      "height": 300,
+      "export_width": 400,
+      "export_height": 300,
+      "sha256": "4729e91f17eae425ec925823c0b97123824bf30e3a9fb853b16cfda1c26bf177",
+      "method": "original_crop",
+      "crop": {
+        "x": 56,
+        "y": 0,
+        "w": 400,
+        "h": 300
+      },
+      "prompt": null
+    },
+    {
+      "key": "tool_water",
+      "master_path": "approved-story-art/tool_water.png",
+      "master_sha256": "ab71c2499b3350104c420ffbc3fd7c3f343a71fe97a5aaa74a35868a004927f4",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "328cffd5d3249bbd2fdee388233ddb125ecf3fc996370fb448b1d7e49f69c7dc",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "torch_light",
+      "master_path": "approved-story-art/torch_light.png",
+      "master_sha256": "49be325a6c1b359ba71b868295a692e9cf86d28fed72252bf39a164f514ab895",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "b3b4e53c74f2915c244d3573cc9f578af4073f73206c30af1dc368f8ae6a3728",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "trail_intro",
+      "master_path": "approved-story-art/trail_intro.png",
+      "master_sha256": "1b71bad3a5cc37413401384b3b471f382c2555f5508009636b726830b38706ed",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "c7fe56d5aba2dff7d2324b803fe0709b27d17a4a6d2870aa0cb0fc097bb07da5",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "trail_prize",
+      "master_path": "approved-story-art/trail_prize.png",
+      "master_sha256": "32f8fab82eb182ac1f00b0c3c64cc284c4865ccaa6e9813f82970810f4f3caac",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "42ccf1b89da4ca649397fbbf66eca715d6a3e751783fc50e53cac258dba110c1",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "trap_free",
+      "master_path": "approved-story-art/trap_free.png",
+      "master_sha256": "2e9e3435eb048c78e42c35e4ace414520c1b0ee75c3fa40f5a8d9db5b7e76e0a",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "70320502712d5a6b9e04086b9bb68ea4b9808b3d2ab87d7935d6b26e52356653",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "trap_jaw",
+      "master_path": "approved-story-art/trap_jaw.png",
+      "master_sha256": "8ff65379738ea182f48656fa014996cd37d014c442c8b156108126b3f44f5f63",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "ad2424cace394f0b955be431ed175c4c506ffc91b947586761b9724eb911941a",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "treasure_barrel",
+      "master_path": "approved-story-art/treasure_barrel.png",
+      "master_sha256": "6abeed648692e9d9c7c3b6e71af93636693928745a6e902bc0962b341328d80e",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "e16d9e4ec805d62e82c32f1f6a94fb7430d3a1d6ead999c59f103187c000ad54",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "treasure_crate",
+      "master_path": "approved-story-art/treasure_crate.png",
+      "master_sha256": "0f4fcd0a3514b0c98c8f15825769bed9ea96dd72f4d3dc5b2ce5c64bc8a4aa8d",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "580bc5041ee6ee15a250696f90b8ebc127232bccf55a63274808f885fa657ab5",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "treasure_dig",
+      "master_path": "approved-story-art/treasure_dig.png",
+      "master_sha256": "cfeb71d2d1de7d52d2b4748a6172104f8f37d6d8666460b80e64dc603a538f0c",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "9b9ea777e05678e78ffaa00207ac751c2834a0b671fddbfdfb5a6ae6c9cb3bd3",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "turret_watch",
+      "master_path": "approved-story-art/turret_watch.png",
+      "master_sha256": "71f844bcca6e0fbdca615a8cee8c562eea0ba9db9531549d309f9dcce03323cb",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "1892654885cb5cce45043c939d6ac4c798331676c53c16d296093193cdece00e",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Create a fresh 4:3 story illustration. FIRST image is the mandatory STYLE reference, story_wrecks: match its visibly low-resolution pixel-art design, earthy restricted palette, small deliberate square pixel clusters, broken stippled/dithered transitions and painterly color masses. The final painting must look authored on a small pixel canvas like story_wrecks, not a high-resolution illustration with a decorative speckled filter. Keep readable pixel steps on all silhouettes and simplify detail. SECOND image supplies only scene CONTENT and tier identity, NOT its smoother rendering. Repaint everything including focal props in the FIRST image's pixel language. No sharp realistically rendered object against a pixel background, no photorealism, smooth gradients, glossy 3D, clean anime/vector contour or tiny etched material detail. One frame, artwork fills 4:3, no text/copy zone. Keep Hood adult-proportioned with brown hood, concealed face, trousers/boots/backpack. Contextual restrained colors; no added subjects or content from style image. Young adult male NPC archer with brown hair and dark olive scarf holds a bow behind round stone turret battlements, distant village and hills. His face is visible: build it from restrained chunky pixel shapes, not a smooth anime portrait. Whole image uses actual pixel design matching story_wrecks."
+    },
+    {
+      "key": "underground_bone_gallery",
+      "master_path": "approved-story-art/underground_bone_gallery.png",
+      "master_sha256": "073200a5bb289beb20940c87d3f229c587f7b3068823f36df0fed121c64d87f5",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "4c08b7411d951f56f5cc6d511dcb603fcf5354d40d2867cd30210dadedbe8f3b",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "underground_depth2_rock_scatter",
+      "master_path": "approved-story-art/underground_depth2_rock_scatter.png",
+      "master_sha256": "5e24633f92a52568eac39b21ba205dcc81ac2ec693ebfce4de51b1ba3ed8ae06",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "487cc644d1883dc32402b3ed57ab776fb384e4bd867f0989d92899191c6165df",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "underground_gemstone_cavern",
+      "master_path": "approved-story-art/underground_gemstone_cavern.png",
+      "master_sha256": "e74d96c28e81ce033ed0e4c1689a4a4dffd6715889b4aba71560055e5d9428c5",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "88ab30f53171977512ff54eaca41397780a8c9b426a4aff54a169a43091671d9",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "underground_gemstone_path",
+      "master_path": "approved-story-art/underground_gemstone_path.png",
+      "master_sha256": "3a8d0688500c061f1e5e717d0511a5e5b4c42d43fc43b10a22a0620464eaf681",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "eb8c87f5efe87ad7368cdee511178169d96684aaaf73d4eba8d503ae75074a98",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: precise-object-edit. Edit Image 1, preserving its original painterly pixel artwork, palette and framing as closely as possible. Remove ONLY the dog at the traveler's left. Reconstruct matching cave floor in its place. Keep the hooded adult traveler with torch, crystals, cave tunnel, colors, lighting, composition and original pixel-painterly brushwork. No replacement animal. Output one 4:3 landscape painting. Use only the existing upper painted scene, remove the old lower blank/text zone; art fills the frame, no text. Image 2 is reference ONLY for Hood's concealed face and adult proportions if needed, NOT a source of any new subjects, colors or scenery. Do not restyle or recompose the rest of the original. No characters or props from Image 2 may be added."
+    },
+    {
+      "key": "underground_goblin_warrens",
+      "master_path": "approved-story-art/underground_goblin_warrens.png",
+      "master_sha256": "4badb9b9d71f985fb06f1591d7101b5e97f53c3a0740c6a18979caa742183aa6",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "d4184073e16922963a085dc22a44830e4568c03b6a2436f7ddfd5651519bc7b3",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "underground_mine_tunnels",
+      "master_path": "approved-story-art/underground_mine_tunnels.png",
+      "master_sha256": "de3da433a73388f2d8ce30d623030b40cd355e53f943e50237081fab341d80b1",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "dca74cb55179cf2d852c52123dd93bfe5a1e4d635ef177e334a9eb6c35a640e5",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "underground_miners_way",
+      "master_path": "approved-story-art/underground_miners_way.png",
+      "master_sha256": "597eba5aa9b68355540a5b51c3cb25ea5b65bd490ba3e9f26b884fc33a5c7dbd",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "e5c93eecc13f742e60f941b8c60b3476f2b6b1f95e18a7951d9404610aa43341",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "underground_mushroom_cavern",
+      "master_path": "approved-story-art/underground_mushroom_cavern.png",
+      "master_sha256": "1d0584c60fb4ab04479825f0ff2f027cf2547e36616fbe79fc7ea47bf46dcd42",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "3eab80cd1302f6c92ef89ed83eecfe13f3ea90335f002de7a53a23fac3e6f06d",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: precise-object-edit. Edit Image 1, preserving its original painterly pixel artwork, palette and framing as closely as possible. Remove ALL houses/buildings/hut structures and inhabitants. Fill those areas with natural cavern rock and clusters of large mushrooms. The setting is a natural mushroom cavern, not a village. Preserve the cavern depth, water, cool/warm palette, original painterly pixel style. No houses, windows, doors or domestic structures; mushrooms and rock replace the house at upper left. Simple existing path/bridge can remain. Output one 4:3 landscape painting. Use only the existing upper painted scene, remove the old lower blank/text zone; art fills the frame, no text. Image 2 is reference ONLY for Hood's concealed face and adult proportions if needed, NOT a source of any new subjects, colors or scenery. Do not restyle or recompose the rest of the original. No characters or props from Image 2 may be added."
+    },
+    {
+      "key": "underground_root_passage",
+      "master_path": "approved-story-art/underground_root_passage.png",
+      "master_sha256": "747f6d3912221b4e6c76ff90a13aef40a249d516069ded5db6cac96c6908410a",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "cc356e518cb96a967337771c987f1d13e91921aa99dfeab080e89c3243848c21",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: precise-object-edit. Edit Image 1, preserving its original painterly pixel artwork, palette and framing as closely as possible. Remove ALL three people AND the animal and their held items. Replace them with matching earth path, root-covered cave walls and mushrooms. Preserve roots, cave passage, original painterly pixel brushwork, palette and distant cool glow. Empty environment scene. Output one 4:3 landscape painting. Use only the existing upper painted scene, remove the old lower blank/text zone; art fills the frame, no text. Image 2 is reference ONLY for Hood's concealed face and adult proportions if needed, NOT a source of any new subjects, colors or scenery. Do not restyle or recompose the rest of the original. No characters or props from Image 2 may be added."
+    },
+    {
+      "key": "underground_seep_passage",
+      "master_path": "approved-story-art/underground_seep_passage.png",
+      "master_sha256": "6963af98dd6e772ef7bbe546d1f94dd08ccbfa86e35be386008a80357112f567",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "4b6d05d6ca4b41c3f19b690e2a203427e62832c94067ab4935e4f7086213c715",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: precise-object-edit. Edit Image 1, preserving its original painterly pixel artwork, palette and framing as closely as possible. Remove ALL people, NPCs, player characters and animals, including traveler, held lantern, and dog at left. Reconstruct the rocky bank, preserve stream, mushrooms, cavern depth, original painterly pixel brushwork and subdued warm/cool palette. Empty environment scene. Output one 4:3 landscape painting. Use only the existing upper painted scene, remove the old lower blank/text zone; art fills the frame, no text. Image 2 is reference ONLY for Hood's concealed face and adult proportions if needed, NOT a source of any new subjects, colors or scenery. Do not restyle or recompose the rest of the original. No characters or props from Image 2 may be added."
+    },
+    {
+      "key": "underground_sm_road_passage",
+      "master_path": "approved-story-art/underground_sm_road_passage.png",
+      "master_sha256": "2f294bd589adaa809e3efcb0e7afe60b1ed07ab3f9cff4713b1d6f66ce0c596f",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "88620ea84cf1770d9295e81c3bf9ac7de257d47ba2c4096cdfb4b4e93dc2bb31",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: precise-object-edit. Edit Image 1, preserving its original painterly pixel artwork, palette and framing as closely as possible. Remove ALL people, NPCs, player characters and animals from the scene, including the central miner and his handheld pickaxe. Reconstruct the cave wall/floor behind them in exactly the existing pixel-painterly style. Preserve tunnel, lights, built stone structure at right, architecture and palette. Empty environment scene. Output one 4:3 landscape painting. Use only the existing upper painted scene, remove the old lower blank/text zone; art fills the frame, no text. Image 2 is reference ONLY for Hood's concealed face and adult proportions if needed, NOT a source of any new subjects, colors or scenery. Do not restyle or recompose the rest of the original. No characters or props from Image 2 may be added."
+    },
+    {
+      "key": "underground_spring_cave",
+      "master_path": "approved-story-art/underground_spring_cave.png",
+      "master_sha256": "3f8de452728511835443b6875a8c1dfcc61833545a022f93cbe3008352c2cc9d",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "48b86721c663cbf9da04c6abaddbf8c070e4ea45c7e71ec7ad0f24d3f45f7bc9",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "underground_warren_run",
+      "master_path": "approved-story-art/underground_warren_run.png",
+      "master_sha256": "36c2fdee5e2bef2b024688a342e09ae66dcac38257515ba2460c1d81883f6d0e",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "796aca750a67ac8bbb95f8086eb777e9b3b184deed38b72772e7b35d38979ef4",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: precise-object-edit. Edit Image 1, preserving its original painterly pixel artwork, palette and framing as closely as possible. Remove ALL miners, NPCs, people, player characters and animals plus handheld tools. Preserve mine tunnel, wooden supports, barrels, crates, ladder, platform, mine cart and warm lamps. Reconstruct missing rocky walls/floor naturally in original painterly pixel style. Empty environment scene. Output one 4:3 landscape painting. Use only the existing upper painted scene, remove the old lower blank/text zone; art fills the frame, no text. Image 2 is reference ONLY for Hood's concealed face and adult proportions if needed, NOT a source of any new subjects, colors or scenery. Do not restyle or recompose the rest of the original. No characters or props from Image 2 may be added."
+    },
+    {
+      "key": "visit_bike",
+      "master_path": "approved-story-art/visit_bike.png",
+      "master_sha256": "69ffc90665221b9816afa0476a9ca0bb0f2ce63ac80b2faa46d90da26d3f1604",
+      "width": 592,
+      "height": 444,
+      "export_width": 592,
+      "export_height": 444,
+      "sha256": "00dfd5f6d6ac4a4d2e4c19ee591a84fb726637056e5be4e9db93a559a9e47dc0",
+      "method": "original_crop",
+      "crop": {
+        "x": 56,
+        "y": 0,
+        "w": 592,
+        "h": 444
+      },
+      "prompt": null
+    },
+    {
+      "key": "visit_gold",
+      "master_path": "approved-story-art/visit_gold.png",
+      "master_sha256": "c3c4cd9955ac78eb7397e1e58229303c27f407b1f963e24626f2d757ec263851",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "c2bf52add5adeeded97e06ab5dcb4019eb74599658652f621fc9044f8066eff2",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "visit_hive",
+      "master_path": "approved-story-art/visit_hive.png",
+      "master_sha256": "6874e491ec74801fcfd90d269e35539b425d8dfa80c0a3210da64ce8c38194a4",
+      "width": 296,
+      "height": 222,
+      "export_width": 296,
+      "export_height": 222,
+      "sha256": "a5835fb0633179e7acb1072a441edb3806ce5e193106669f70a4feac8180c5cc",
+      "method": "original_crop",
+      "crop": {
+        "x": 28,
+        "y": 0,
+        "w": 296,
+        "h": 222
+      },
+      "prompt": null
+    },
+    {
+      "key": "visit_wagon",
+      "master_path": "approved-story-art/visit_wagon.png",
+      "master_sha256": "c175d8364883adbfbc39df8d17dd4172f1e07dd19bb3c66e2f5dfdcf0f18e17c",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "199a784564b0751c80d1081c857d4ac56cc0eb192cc67292ddbdfc150f21480e",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "wizard_cold",
+      "master_path": "approved-story-art/wizard_cold.png",
+      "master_sha256": "619574a866360559c79998aa04d372cde4f1002296b822a339a142a91732bd96",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "5a93fb8eb71a06e38e7860fd4d75134b84b94dbf6877341329194379486d454b",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "wizard_dragon",
+      "master_path": "approved-story-art/wizard_dragon.png",
+      "master_sha256": "8795a4831ea2370a85829fda934f650089eec05fa212bbc53ff579ac53ebed2c",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "31b5fa0e267242eba3f1df334f81cd41b85541ea4fbee4c96c4574d3124defe3",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "wizard_map",
+      "master_path": "approved-story-art/wizard_map.png",
+      "master_sha256": "87469f3cebdbca224d5409fa99ec420c139e874f55446e4deef84ad0a9bd1946",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "938b89d099a087b1fc62a61ef74d1feed67a998d2408a049674746a974b3c0e1",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "zone_grove",
+      "master_path": "approved-story-art/zone_grove.png",
+      "master_sha256": "0ec5d148e0eb8219c39055bebb28e865bc7c01c510eba6697691a8a4bb620964",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "2c3a92969e94846f223b67f506568c4c40a0ebe2cd619224443c7d42574c7106",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "zone_quarry",
+      "master_path": "approved-story-art/zone_quarry.png",
+      "master_sha256": "0fcb6209a5edbf2ef5e1417dc135efb4d03ae9dc7acc54776647d704ce5c6360",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "5c207cb99ecc405c30d2a3d93e5dbbaccb33146e6a837ce95fa2cf0400400a12",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "zone_shore",
+      "master_path": "approved-story-art/zone_shore.png",
+      "master_sha256": "99d89016ea54c0defe5ad84851a02ec0ebd9c2b8d02ec0a6c2b4cabc62afbdd2",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "71d2803009798d0cc7f05fa9042e870fb1b7c6fbddd4cf3cec6513953a947075",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    },
+    {
+      "key": "zone_stones",
+      "master_path": "approved-story-art/zone_stones.png",
+      "master_sha256": "4ad9a412e500e1ef2f126454536a691c5490b171237ca7b0633b492306d1babe",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "78311d1a36004f134bddfa2ed2ac76a38fc476f932a9d8e765ee3c68f44ea461",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: precise-object-edit. Edit Image 1, preserving its original painterly pixel artwork, palette and framing as closely as possible. Change the identifiable church and graveyard into a generic ancient temple and standing stone columns. Remove crosses, grave-marker silhouettes and tombstones. Use plain weathered stone pillars/columns, broken lintels and a simple non-denominational temple ruin, with no burial plots or religious symbols. Preserve landscape, framing, original painterly pixel texture and restrained palette. Output one 4:3 landscape painting. Use only the existing upper painted scene, remove the old lower blank/text zone; art fills the frame, no text. Image 2 is reference ONLY for Hood's concealed face and adult proportions if needed, NOT a source of any new subjects, colors or scenery. Do not restyle or recompose the rest of the original. No characters or props from Image 2 may be added."
+    },
+    {
+      "key": "zone_tar",
+      "master_path": "approved-story-art/zone_tar.png",
+      "master_sha256": "df19fd03c726aeab7481e6b12b8a0e684671899bcf9c0780a2e4ef35e72c98e2",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "ea0123a025120dbdb135430cced0f8afd7fd997985b7f1b5238c09376f3d4d2d",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Use case: precise-object-edit. Edit Image 1, preserving its original painterly pixel artwork, palette and framing as closely as possible. Replace only the modern gas pump with an old steampunk mechanical liquid pump: aged copper and iron body, simple round analog pressure gauge with no text, exposed curved pipes, valve wheel, lever and flexible hose. Retain its location and approximate silhouette. Preserve the tar puddles, barrel, ruined canopy, landscape, original painterly pixel style and restricted earth palette. No modern signage, logos, digital readouts or text. Output one 4:3 landscape painting. Use only the existing upper painted scene, remove the old lower blank/text zone; art fills the frame, no text. Image 2 is reference ONLY for Hood's concealed face and adult proportions if needed, NOT a source of any new subjects, colors or scenery. Do not restyle or recompose the rest of the original. No characters or props from Image 2 may be added."
+    },
+    {
+      "key": "zone_viewpoint",
+      "master_path": "approved-story-art/zone_viewpoint.png",
+      "master_sha256": "00a2bf8bee1b240a97f7aef5dfa6e39b14f29ee528afa3a9ef02a3f422aa6eac",
+      "width": 432,
+      "height": 324,
+      "export_width": 432,
+      "export_height": 324,
+      "sha256": "44b3225b00b1ff89726dff401fafaec4c7c84eb06d18e88f2cf0205649445475",
+      "method": "original_crop",
+      "crop": {
+        "x": 40,
+        "y": 0,
+        "w": 432,
+        "h": 324
+      },
+      "prompt": null
+    }
+  ],
+  "preserved": [
+    "book_page",
+    "safety_welcome",
+    "story_compass",
+    "story_compass_frame2"
+  ],
+  "opening_frames": [
+    {
+      "key": "story_nightmare",
+      "master_path": "approved-story-art/story_nightmare.png",
+      "master_sha256": "6485d774d1fb97dd18a5d6f8cd33df6fad31f615c606e64e3d9e9d194f817469",
+      "width": 1024,
+      "height": 1536,
+      "export_width": 1024,
+      "export_height": 1536,
+      "aspect": 0.6666666666666666,
+      "sha256": "f9bbf8cbfe21781fbaa1fe5ef08b186982fdbf515eb42707423b8c2df4a52499",
+      "method": "regenerated",
+      "reference": "story_nightmare original; compass portrait format; frame2 edited from new frame1"
+    },
+    {
+      "key": "story_nightmare_frame2",
+      "master_path": "approved-story-art/story_nightmare_frame2.png",
+      "master_sha256": "f656af09259bb23f4f5e236cc54a29dfe55bf38f0c9a1bddc73866de3754569f",
+      "width": 1024,
+      "height": 1536,
+      "export_width": 1024,
+      "export_height": 1536,
+      "aspect": 0.6666666666666666,
+      "sha256": "2af0b1010df2628b49e01417ff0b67a13256200a24512707b47da9dd71ea919b",
+      "method": "regenerated",
+      "reference": "story_nightmare original; compass portrait format; frame2 edited from new frame1"
+    }
+  ]
+}

@@ -738,6 +738,21 @@ class SceneCreate {
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
     this.trapPool = [];       // sprites for hidden / sprung traps lying on the ground (src/traps.js)
 
+    // Neutral warning marker for an actor whose optional sheet is still loading.
+    // A failed request must not hide a threat or impersonate another species.
+    if (!this.textures.exists('creature_loading')) {
+      const marker = this.make.graphics({ x: 0, y: 0, add: false });
+      marker.fillStyle(0x302b36, 1);
+      marker.fillTriangle(12, 1, 23, 23, 1, 23);
+      marker.lineStyle(2, 0xffcc66, 1);
+      marker.strokeTriangle(12, 1, 23, 23, 1, 23);
+      marker.fillStyle(0xffcc66, 1);
+      marker.fillRect(11, 8, 2, 7);
+      marker.fillRect(11, 18, 2, 2);
+      marker.generateTexture('creature_loading', 24, 24);
+      marker.destroy();
+    }
+
     // Ground coin sprites load through ASSETS at their native map sizes.
 
     // One small metal grate texture shared by all pressure-controlled gas outlets.

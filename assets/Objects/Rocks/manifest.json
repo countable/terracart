@@ -21,9 +21,9 @@
     }
   ],
   "sources": {
-    "graphicStorybook": {
-      "file": "graphic-storybook-source.png",
-      "generation": "One full 8 by 9 sheet; no reference image. Graphic storybook illustration, flatter regular rocks and taller boulders.",
+    "celShaded": {
+      "file": "cel-shaded-study-24.png",
+      "generation": "Approved rock-game-materials-24 study: cool stone, circular ground footprints, geometric tops, discrete cel shading, softened outlines, sparkling game-matched gems and metallic seams.",
       "export": "export.cjs",
       "frameMapping": "export.json"
     }
@@ -37,5 +37,333 @@
     69,
     70,
     71
-  ]
+  ],
+  "mapping": [
+    {
+      "sourceFrame": 0,
+      "identity": "plain",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 1,
+      "identity": "plain",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 2,
+      "identity": "flint",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 3,
+      "identity": "flint",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 4,
+      "identity": "quartz",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 5,
+      "identity": "quartz",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 6,
+      "identity": "topaz",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 7,
+      "identity": "topaz",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 8,
+      "identity": "amethyst",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 9,
+      "identity": "amethyst",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 10,
+      "identity": "sapphire",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 11,
+      "identity": "sapphire",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 12,
+      "identity": "ruby",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 13,
+      "identity": "ruby",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 14,
+      "identity": "emerald",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 15,
+      "identity": "emerald",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 16,
+      "identity": "diamond",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 17,
+      "identity": "diamond",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 18,
+      "identity": "copper",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 19,
+      "identity": "copper",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 20,
+      "identity": "iron",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 21,
+      "identity": "iron",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 22,
+      "identity": "gold",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 23,
+      "identity": "gold",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 24,
+      "identity": "platinum",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 25,
+      "identity": "platinum",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 26,
+      "identity": "crimson",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 27,
+      "identity": "crimson",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 28,
+      "identity": "frost",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 29,
+      "identity": "frost",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 30,
+      "identity": "plain broad",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 31,
+      "identity": "plain broad",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 32,
+      "identity": "plain chipped",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 33,
+      "identity": "plain chipped",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 36,
+      "identity": "plain cracked",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 37,
+      "identity": "plain cracked",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 34,
+      "identity": "stone_garden",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 35,
+      "identity": "stone_garden",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 40,
+      "identity": "broken_masonry",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 41,
+      "identity": "broken_masonry",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 38,
+      "identity": "flint_field",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 39,
+      "identity": "flint_field",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 40,
+      "identity": "broken_depot",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 41,
+      "identity": "broken_depot",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 42,
+      "identity": "seep",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 43,
+      "identity": "seep",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 44,
+      "identity": "work_yard",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 45,
+      "identity": "work_yard",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 46,
+      "identity": "black_ring",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 47,
+      "identity": "black_ring",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 48,
+      "identity": "pirate_cove",
+      "kind": "regular"
+    },
+    {
+      "sourceFrame": 49,
+      "identity": "pirate_cove",
+      "kind": "boulder"
+    },
+    {
+      "sourceFrame": 34,
+      "identity": "stone_garden",
+      "kind": "signature"
+    },
+    {
+      "sourceFrame": 40,
+      "identity": "broken_masonry",
+      "kind": "signature"
+    },
+    {
+      "sourceFrame": 2,
+      "identity": "flint_field",
+      "kind": "signature"
+    },
+    {
+      "sourceFrame": 40,
+      "identity": "broken_depot",
+      "kind": "signature"
+    },
+    {
+      "sourceFrame": 56,
+      "identity": "seep",
+      "kind": "signature"
+    },
+    {
+      "sourceFrame": 57,
+      "identity": "work_yard",
+      "kind": "signature"
+    },
+    {
+      "sourceFrame": 63,
+      "identity": "black_ring",
+      "kind": "signature"
+    },
+    {
+      "sourceFrame": 48,
+      "identity": "pirate_cove",
+      "kind": "signature"
+    },
+    {
+      "sourceFrame": 58,
+      "identity": "quarry-strip-mine",
+      "kind": "signature"
+    },
+    {
+      "sourceFrame": 40,
+      "identity": "quarry-stronghold",
+      "kind": "signature"
+    },
+    {
+      "sourceFrame": 59,
+      "identity": "quarry-crater",
+      "kind": "signature"
+    },
+    {
+      "sourceFrame": 60,
+      "identity": "quarry-abandoned",
+      "kind": "signature"
+    },
+    {
+      "sourceFrame": 61,
+      "identity": "mystic_reef",
+      "kind": "signature"
+    }
+  ],
+  "mappingNote": "Runtime identities are preserved by selecting the closest approved environmental forms. Blocky rubble is shared by masonry, depot and stronghold; signature frames reuse study cells where appropriate. Study-only ice and reddish/limestone alternatives are not runtime materials."
 }

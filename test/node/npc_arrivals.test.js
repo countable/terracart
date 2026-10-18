@@ -154,7 +154,7 @@
     assert.truthy(talk.body.startsWith(MemoryStory.HOME.body), 'the family\'s plea opens the warden\'s talk');
     // A queued record that is not a memory: dropped, not shown.
     const shown = [];
-    const s = { save: { memoryStory: { pending: [{ id: 'home', npc: { id: 'x' } }], act2Seen: [], visits: 0 } }, showMessageModal: m => shown.push(m) };
+    const s = { startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 }, inHomeRing: () => true, save: { memoryStory: { pending: [{ id: 'home', npc: { id: 'x' } }], act2Seen: [], visits: 0 } }, showMessageModal: m => shown.push(m) };
     const doc = globalThis.document;
     globalThis.document = { body: { classList: { contains: () => false } } };
     try {

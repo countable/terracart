@@ -49,14 +49,15 @@ const StoryEncounters = (() => {
     return { x: px, y: py, tx: cell.tx, ty: cell.ty };
   }
   function choose(scene, kind, other, anchor) {
-    const { x, y } = anchor || playerWorldM(scene);
-    // Near the player's feet for the neighbour; inside the visible five-cell
-    // half-width for the foe. Never defeat the Home ward to force a scene.
+    const { x, y } = anchor;
+    // Beside Home for the neighbour, just outside its ward for the foe.
+    // Never defeat the Home ward to force a scene.
     const first = kind === 'npc' ? 1 : 3, last = kind === 'npc' ? 2 : 4;
     return WorldGen.ringCells(0, 0, first, last,
       (dx, dy) => seat(scene, x + dx * scene.cellM, y + dy * scene.cellM, kind, other));
   }
   function materialize(scene, q, prop, kind, id) {
+    if ((scene.save.caught || []).includes(id)) return null;
     const existing = find(id);
     if (existing) return existing;
     let p = q[prop];
@@ -99,12 +100,29 @@ const StoryEncounters = (() => {
     defeated(scene, { id: q.enemyId });
     if (now < (scene._storyEncounterNext || 0)) return;
     scene._storyEncounterNext = now + 1000;
-    if (!q.npc || (q.status === 'hunted' && !q.enemy)) {
-      if (busy(scene)) return;
-      const npc = q.npc || choose(scene, 'npc');
-      const enemy = q.enemy || (npc && choose(scene, 'goblin_archer', npc));
-      if (!npc || !enemy) return;
-      q.npc = npc; q.enemy = enemy;
+    if (!q.homeAnchor) {
+      // Old saves may have seated the pair wherever the sixth memory landed.
+      // Move that pair once, on returning home, without replaying its reward.
+      if (!MemoryStory.atHome(scene)) return;
+      const home = scene.homeWorldPos();
+      if (q.npc && !scene.inHomeRing(q.npc.x, q.npc.y)) {
+        for (const entry of surfaceEntries().values()) {
+          if (entry.creatures) entry.creatures = entry.creatures.filter(c => c.id !== q.npcId && c.id !== q.enemyId);
+        }
+        delete q.npc;
+        delete q.enemy;
+      }
+      q.homeAnchor = { x: home.x, y: home.y };
+      persist(scene);
+    }
+    const needsEnemy = q.status === 'hunted' && !(scene.save.caught || []).includes(q.enemyId);
+    if (!q.npc || (needsEnemy && !q.enemy)) {
+      if (!MemoryStory.atHome(scene) || busy(scene)) return;
+      const npc = q.npc || choose(scene, 'npc', null, q.homeAnchor);
+      const enemy = q.enemy || (needsEnemy && npc && choose(scene, 'goblin_archer', npc, q.homeAnchor));
+      if (!npc || (needsEnemy && !enemy)) return;
+      q.npc = npc;
+      if (enemy) q.enemy = enemy;
       persist(scene);
     }
     const c = materialize(scene, q, 'npc', 'npc', q.npcId);
