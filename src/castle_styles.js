@@ -173,5 +173,5 @@
     texture.refresh();
     return name;
   }
-  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 48, ids: Object.freeze(ids), variantFor, get, columnSites, columnTexture, damagePattern, damageCellIndex, damageCell, damageTexture });
+  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 48, TURRET_STYLE: 'bastion', ids: Object.freeze(ids), variantFor, get, columnSites, columnTexture, damagePattern, damageCellIndex, damageCell, damageTexture });
 })(window);

@@ -79,15 +79,29 @@ geometry's pan offset also moves its sorting anchor, including at a fixed headin
 Ground floors and the legacy architectural walls remain in their background
 passes. Standalone building viewers without a world container sort buildings
 in their existing wall container.
+Standing buildings become 50% opaque while the player occupies their footprint
+or their visible projected faces cover the player's body from in front. The
+footprint test includes concave outlines; the overlap test uses visible triangles
+for low-poly meshes and ramparts, and trimmed art bounds for legacy sprites.
+These checks follow compass rotation and retained pan offsets, and restore full
+opacity immediately on leaving. Faded low-poly buildings skip the filled ink
+outline passes so overlapping ink cannot obscure the player through the fade.
+They update opacity without rebuilding geometry
+or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
+Wrecks render below the player without fading. Broken wall sections vary in
+height; their interior step cuts run perpendicular to each wall, while corners
+retain their mitred joins. Legacy wreck sprites use the ground layer and
+a flattened vertical scale; restoring a wreck returns it to standing architecture.
+
 [Low-poly building styles](../art/lowpoly-building-styles.md) owns the detail.
 `WallPerspective` prisms (castle ramparts, Canvas fallback) read the same
 table: height through `LOOK.heightScale`, and the ink outline is drawn once
-per connected run (blocks sharing a ground vertex at the same base level)
-before that run's first fill, so a ring of sections shows no seams while
-crown teeth outline separately. They remain untextured.
+per connected run (blocks sharing a ground vertex at any level, or one wall's
+support) before that run's first fill, so a ring of sections and the merlons
+standing on it carry one outer outline with no seams. They remain untextured.
 
-Home — the player's house (`HomeArea.HOUSE`, footprint stamped by
-`scene_venues.js`) — draws no sprite: `Render.houseTextureKey` hands its role
+Home uses the original nearby building footprint, or a 2×2 footprint stamped
+by `scene_venues.js` when no building is within two cells. It draws no sprite: `Render.houseTextureKey` hands its role
 a null key, and the overlay's Home branch (`building_overlay.js`) paints its
 house floor on the canvas and then the house. On the low-poly path it is the
 `home` role (`BuildingLowPoly.ROLES`); while the player stands inside
@@ -96,10 +110,25 @@ house floor on the canvas and then the house. On the low-poly path it is the
 thick top band (`interiorGeometry`) — and the lightmap masks the outside (see
 Lighting). Without the low-poly path (Canvas, north-up) the same house is
 retained prisms in the `home` group (`WallPerspective`, `alwaysActive`) with
-the fort's thickness and a taller wall, a doorway gap on the door side
+the palisade's thickness and a taller wall, a doorway gap on the door side
 (`shape.door`), and a gabled two-tone roof with a ridge; inside, no roof and
 the wall tops in the wall's own colour. The sign seats over the drawn top, or
 `HOUSE.signLiftPx` above the footprint's centre when there is no model.
+
+A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim
+plus a central gambling hall, never a generated body. The overlay paints the
+fort's plank floor and emits the tier-11 pickets of `perspectiveEdges`:
+separate 3px posts at a 4px pitch, 5px tall and 3px thick, along every
+footprint edge, as `WallPerspective` segments in the polygon group, so the rim
+follows concave rings and turns with the compass like every other wall. The
+hall is the approved `house_fort` sprite (`house_fort_unclaimed` before the
+fort is unlocked), seated by the RENDER_SPEC `house` row on the footprint's
+centre of mass at the fort row of `BUILDING_ART`; the overlay never records
+the fort in `scene._proceduralBuildings`, which is what keeps that sprite
+visible. `Render.BUILDING_STYLE_ROLES` has no `fort` row and `BuildingLowPoly`
+never receives a fort footprint. With the overlay off, the tiled pass draws the
+same rim from cell edges (`render.js`, tier 11). Turrets, wizard towers and
+castles keep their own treatments.
 
 ## Coordinates, rendering and performance
 
@@ -124,8 +153,8 @@ the real source so a missing texture cannot become a permanent cached palette.
   “of”), only the first word appears. Full names remain available in dialogs.
 - The circular map and compass rim sit 55 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
-- Zoom is camera-only. The initial view spans nine cells instead of eleven,
-  one cell closer on each edge (`MAP_DEFAULT_ZOOM`). Plain +/− buttons on the
+- Zoom is camera-only. The initial resting view is the closest setting,
+  spanning seven cells (`MAP_DEFAULT_ZOOM`). Plain +/− buttons on the
   right change the resting span by two cells, bounded by `PINCH_VIEW_CELLS`
   and `VIEW_CELLS`; disabled buttons mark the limits. The choice lasts for the
   session, including modals and depth changes. Pinch zoom remains temporary
@@ -133,7 +162,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   `_applyMapZoom` clips the camera viewport and counter-scales map chrome;
   the DOM controls never zoom or rotate. Gameplay ranges and loading stay
   based on `VIEW_CELLS`; taps convert back through `_unzoomPt`.
-  The opening shot uses the same camera and ends at the selected resting zoom.
+  The opening shot uses the same camera: after two seconds with the map
+  unobscured it begins easing back to the selected resting zoom. Pending Home
+  placement never holds the camera in the close-up.
 - Once Phaser selects its renderer, software Canvas uses a 1× backing store:
   the logical pixel-art grid. WebGL retains its 2× memory budget. This avoids
   CPU-bound high-DPR rasterization during map rotation without changing CSS
@@ -256,7 +287,15 @@ the real source so a missing texture cannot become a permanent cached palette.
   (`pad_shrine`, drawn with its masonry face south) turns back about its cell
   centre the same way, while flat POI pads turn with the ground. Ground decals retain their own
   opacity, and fruit overlays follow their tree.
-- Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
+- Ordinary props resolve taps by data cell (`sameAbsCell`). Buildings additionally
+  accept their visible roof and wall extent through `Render.buildingHit`: retained
+  visible triangles for low-poly meshes and wall prisms, trimmed art bounds for
+  legacy sprites. Hit tests use the same heading projection and pan offsets as
+  drawing; pointer input has already undone camera zoom and heading. Overlapping
+  buildings select the frontmost drawn owner, with no hits in empty corners of
+  pitched roofs. The owner routes through the ordinary interaction registry and
+  existing reach/visibility gates; ground-footprint taps remain supported.
+  Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
   Seated art, shadows and labels counterrotate about the cell centre so these
@@ -619,8 +658,9 @@ The default house and fort architecture comes from `building_styles.js`, using
 source building polygons rather than a freestanding sprite. `Render` owns the
 role and shop-line style tables: plaster terraces for residences, brick for the
 blacksmith, Japanese roofs for traders and book/pet shops, stepped pyramid roofs
-for the wizard and potion/relic shops, stone tiers for forts and low broken walls
-for wrecks. Restoring a building changes its material and geometry together.
+for the wizard and potion/relic shops, and low broken walls for wrecks.
+Forts take no footprint style: see the fort paragraph under World layers.
+Restoring a building changes its material and geometry together.
 
 `BuildingOverlay` emits retained prisms only when footprint inputs or restoration
 state change. Roof insets stop when narrow or concave wings cannot support another
@@ -659,7 +699,11 @@ Restoration choices, Home's icon and map sprite fallbacks use the original
 role textures through `Render.houseTextureKey` and `Render.houseTextureFrame`.
 Plain houses use the `house` front frame; shops and other roles use their
 original `house_<role>` images. Wizard towers and turrets retain their shrine
-and tower frames. Unclaimed forts use their baked weathered artwork.
+and tower frames. Turrets always use the intact bastion tower, with matching
+castle ramparts following their building footprint; this visual treatment does
+not change their house ownership or gameplay tier. Unclaimed forts use their
+baked weathered artwork. Blacksmiths use grey stone block walls and charcoal
+slate roofs, distinct from the standard house’s warm plaster and clay tiles.
 
 Procedural buildings remain the default on the map. `?buildingArt=legacy`
 selects the original sprites instead. Both modes use the original artwork

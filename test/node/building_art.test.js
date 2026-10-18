@@ -14,6 +14,10 @@ test('building art: original textures in procedural and legacy modes', () => {
       assert.eq(Render.houseTextureKey('trailer', house, scene), null);
       assert.eq(Render.houseTextureKey('wizard', house, scene), 'shrine');
       assert.eq(Render.houseTextureKey('turret', house, scene), 'tower');
+      for (const id of CastleStyles.ids) {
+        assert.eq(Render.houseTextureFrame('turret', { ...house, id }, scene),
+          CastleStyles.get('bastion').towerFrame, 'turret always uses the intact tower');
+      }
     }
   } finally { Render.buildingArtStyle = previous; }
 });
@@ -36,7 +40,10 @@ test('footprint buildings: every house role and shop line has a distinct materia
   }
   delete save.restoredHouses[o.id];
   assert.eq(Render.buildingStyleFor(o, scene), 'ruin');
-  assert.eq(Render.buildingStyleFor({ ...o, tier: 11 }, scene), 'multistorey');
+  // A fort is a palisade rim plus its gambling-hall sprite (building_overlay.js),
+  // never a footprint style of its own.
+  assert.eq(Houses.displayRole(save, { ...o, tier: 11 }), 'fort');
+  assert.falsy(Render.BUILDING_STYLE_ROLES.fort, 'forts have no generated-body profile');
 });
 test('footprint buildings: hide sprite only when retained geometry exists and preserve rollback', () => {
   const prev = Render.buildingArtStyle;

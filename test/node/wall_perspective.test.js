@@ -5,8 +5,8 @@
       buildingWallContainer: { add(g) { list.push(g); } },
       add: { graphics() { return { visible: true, clears: 0, triangles: [], color: 0,
         clear() { this.clears++; this.triangles.length = 0; return this; },
-        fillStyle(c) { this.color = c; return this; },
-        fillTriangle(...points) { this.triangles.push({ color: this.color, points }); return this; },
+        fillStyle(c, alpha = 1) { this.color = c; this.alpha = alpha; return this; },
+        fillTriangle(...points) { this.triangles.push({ color: this.color, alpha: this.alpha, points }); return this; },
         setPosition(x, y) { this.x = x; this.y = y; return this; } }; } }, list };
   }
   const segment = { ax: 10, ay: 20, bx: 42, by: 20,
@@ -18,6 +18,23 @@
     return group;
   }
   function close(a, b, message) { assert.lt(Math.abs(a - b), 1e-8, message); }
+
+  test('wall perspective: a building footprint fades its complete rampart and restores it', () => {
+    const s=scene();s.save={};let feet={x:25,y:25};
+    s.playerScreen=()=>feet;s.player={visible:true,x:25,y:25,displayWidth:16,displayHeight:24,originX:.5,originY:1};
+    const group=WallPerspective.begin(s,'polygon');
+    group.building={key:'castle',footprint:[{x:0,y:0},{x:60,y:0},{x:60,y:60},{x:0,y:60}],anchor:{x:30,y:30}};
+    WallPerspective.addSegment(s,'polygon',{...segment,toothWidth:5,toothHeight:3});
+    WallPerspective.finish(s,'polygon');
+    assert.truthy(group.gfx.triangles.length,'walls are drawn');
+    assert.truthy(group.gfx.triangles.every(t=>t.alpha===.5),'walls and teeth share half opacity');
+    const clears=group.gfx.clears,blocks=group.blocks;
+    feet={x:26,y:26};s.player.x=26;s.player.y=26;WallPerspective.update(s);
+    assert.eq(group.gfx.clears,clears,'movement inside the same footprint does not repaint');
+    feet={x:100,y:100};s.player.x=100;s.player.y=100;WallPerspective.update(s);
+    assert.truthy(group.gfx.triangles.every(t=>t.alpha===1),'leaving restores opacity at a fixed heading');
+    assert.eq(group.blocks,blocks,'retained wall geometry survives');
+  });
 
   test('wall perspective: wall height projects vertically at every compass octant', () => {
     const s = scene(), group = build(s), block = group.blocks[0];

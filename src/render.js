@@ -1826,17 +1826,18 @@ Render.buildingArtStyle = (() => {
 Render.proceduralBuildings = () => Render.buildingArtStyle === 'procedural' && typeof BuildingStyles !== 'undefined';
 Render.BUILDING_STYLE_ROLES = Object.freeze({
   // Role palettes follow the approved house sprites (assets/Objects/Approved/
-  // house*.png): cream siding under red tile, the smithy's grey stone under
-  // red-brown, the trader's grey walls under slate. Shop lines keep their
+  // house*.png): cream siding under red tile; the smithy uses grey stone
+  // under charcoal slate, the trader's grey walls under slate. Shop lines keep their
   // own roof colours below so a line reads from the street.
   plain: { style: 'multistorey', palette: { wall: 0xddb49b, roof: 0xb45c3a, trim: 0x954a39 } },
   // Home: the player's house (building_overlay.js drawHome) — the plain house's cream under its red tile.
   trailer: { style: 'multistorey', palette: { wall: 0xddb49b, roof: 0xb45c3a, trim: 0x954a39 } },
-  blacksmith: { style: 'multistorey', palette: { wall: 0x917465, roof: 0x954a39, trim: 0x786269 } },
+  blacksmith: { style: 'multistorey', palette: { wall: 0x92958f, roof: 0x555b60, trim: 0x626961 } },
   trader: { style: 'japanese', palette: { wall: 0xbababa, roof: 0x6f9093, trim: 0x954a39 } }, shop: { style: 'japanese' },
   wizard: { style: 'pyramid', palette: { wall: 0x8c8796, roof: 0x8b78a8, trim: 0xc6afcf } },
   turret: { style: 'fort' },
-  fort: { style: 'multistorey', palette: { wall: 0x9b9e91, roof: 0xb6b6a2, trim: 0xd5ceb2 } },
+  // No `fort` row: a fort is never a generated body. building_overlay.js draws
+  // its palisade rim and leaves the gambling-hall sprite (house_fort) standing.
   wreck: { style: 'ruin' },
 });
 Render.BUILDING_STYLE_SHOPS = Object.freeze({
@@ -1860,7 +1861,7 @@ Render.proceduralHouse = (o, scene) => Render.proceduralBuildings()
 Render.houseTextureFrame = (role, o, scene, theme) => {
   if (role === 'plain') return 'front';
   if (role === 'wizard') return 3;
-  if (role === 'turret') return CastleStyles.get(o.id).towerFrame;
+  if (role === 'turret') return CastleStyles.get(CastleStyles.TURRET_STYLE).towerFrame;
   return undefined;
 };
 // Baked unclaimed art already contains its wear: never apply a second wash.
@@ -3562,13 +3563,118 @@ function fadeLabelOverPlayer(tx, box) {
   tx.setAlpha(hit ? LABEL_OVER_PLAYER_ALPHA : 1);
 }
 
+// Shared building visibility geometry. These tests use retained vertices and
+// boot-time sprite bounds; walking never reads texture pixels or rebuilds art.
+Render.pointInBuilding = function(point, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[j], b = ring[i];
+    if ((a.y > point.y) !== (b.y > point.y)
+        && point.x < a.x + (point.y - a.y) * (b.x - a.x) / (b.y - a.y)) inside = !inside;
+  }
+  return inside;
+};
+// Taps arrive in map coordinates: _unzoomPt has already undone camera zoom
+// and heading. Use the faces actually drawn, not a roof's bounding rectangle.
+Render.buildingHit = function(scene, sx, sy) {
+  if ((scene.depth ?? 0) !== 0) return null;
+  const angle = scene.mapRot || 0, sin = Math.sin(angle), cos = Math.cos(angle);
+  let key = null, depth = -Infinity;
+  const contains = (triangles, x, y) => (triangles || []).some(points =>
+    Render.buildingTriangleOverlaps(points, { x0: x, x1: x, y0: y, y1: y }));
+  const choose = (id, anchor, offset, triangles) => {
+    if (!id || !contains(triangles, sx - offset.x, sy - offset.y)) return;
+    const z = sin * (anchor.x + offset.x) + cos * (anchor.y + offset.y);
+    if (z >= depth) { key = id; depth = z; }
+  };
+  // Ramparts and the Canvas fallback are painted in the background layer.
+  for (const group of Object.values(scene._wallPerspective || {})) {
+    if (!group.gfx.visible) continue;
+    for (const [building, triangles] of group.buildings || [])
+      choose(building.key, building.anchor, { x: group.x, y: group.y }, triangles);
+  }
+  const backgroundKey = key;
+  key = null; depth = -Infinity;
+  const state = scene._lowpoly;
+  if (state?.enabled) for (const mesh of state.buildings) {
+    if (!mesh.obj?.visible || mesh.obj.alpha === 0) continue;
+    choose(mesh.key, mesh.support, { x: state.offsetX || 0, y: state.offsetY || 0 }, mesh.visibleTriangles);
+  }
+  // Legacy sprite buildings retain their trimmed art extent. Their bodies
+  // counterrotate around the ground anchor, unlike the architectural meshes.
+  for (const sprite of [...(scene.objectPool || []), ...(scene.towerPool || [])]) {
+    const object = sprite._staticObject, appearance = sprite._staticAppearance;
+    if (!sprite.visible || sprite.alpha === 0 || !object || !isBuilding(object.kind) || !appearance) continue;
+    const anchor = sprite._huAnchor || sprite;
+    const dx = sx - anchor.x, dy = sy - anchor.y;
+    const x = anchor.x + cos * dx - sin * dy, y = anchor.y + sin * dx + cos * dy;
+    const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
+    const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
+    const fw = art?.fw ?? sprite.frame?.realWidth ?? sprite.width;
+    const fh = art?.fh ?? sprite.frame?.realHeight ?? sprite.height;
+    const x0 = sprite.x + ((art?.minX ?? 0) - sprite.originX * fw) * sprite.scaleX;
+    const x1 = sprite.x + ((art?.maxX ?? fw) - sprite.originX * fw) * sprite.scaleX;
+    const y0 = sprite.y + ((art?.minY ?? 0) - sprite.originY * fh) * sprite.scaleY;
+    const y1 = sprite.y + ((art?.maxY ?? fh) - sprite.originY * fh) * sprite.scaleY;
+    const z = sin * anchor.x + cos * anchor.y;
+    if (x >= Math.min(x0, x1) && x <= Math.max(x0, x1)
+        && y >= Math.min(y0, y1) && y <= Math.max(y0, y1) && z >= depth) {
+      key = object.id; depth = z;
+    }
+  }
+  return key || backgroundKey;
+};
+// Separating-axis test: unlike triangle bounds, this does not fade empty
+// corners beside a pitched roof or the empty middle of a concave footprint.
+Render.buildingTriangleOverlaps = function(points, box) {
+  if (!box) return false;
+  const corners = [{ x: box.x0, y: box.y0 }, { x: box.x1, y: box.y0 },
+    { x: box.x1, y: box.y1 }, { x: box.x0, y: box.y1 }];
+  const axes = [{ x: 1, y: 0 }, { x: 0, y: 1 }];
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i], b = points[(i + 1) % points.length];
+    axes.push({ x: b.y - a.y, y: a.x - b.x });
+  }
+  return axes.every(axis => {
+    const a = points.map(p => p.x * axis.x + p.y * axis.y);
+    const b = corners.map(p => p.x * axis.x + p.y * axis.y);
+    return Math.max(...a) >= Math.min(...b) && Math.max(...b) >= Math.min(...a);
+  });
+};
+Render.buildingFadeAlpha = function(scene, key, footprint, triangles, anchor, offset = { x: 0, y: 0 }) {
+  if (key && key === scene.save?.starterShopId) return 1;
+  const feet = scene.playerScreen?.();
+  if (!feet || !scene.player?.visible) return 1;
+  if (footprint?.length && Render.pointInBuilding({ x: feet.x - offset.x, y: feet.y - offset.y }, footprint)) return 0.5;
+  const { box, view } = Render.headingFadeView(scene, playerScreenBox(scene));
+  if (!box) return 1;
+  const front = view ? view.sin * (anchor.x + offset.x) + view.cos * (anchor.y + offset.y) > view.playerKey
+    : anchor.y + offset.y > feet.y;
+  if (!front) return 1;
+  for (const triangle of triangles) {
+    const points = triangle.map(p => {
+      const x = p.x + offset.x, y = p.y + offset.y;
+      return view ? { x: view.cos * x - view.sin * y, y: view.sin * x + view.cos * y } : { x, y };
+    });
+    if (Render.buildingTriangleOverlaps(points, box)) return 0.5;
+  }
+  return 1;
+};
+Render.playerBuildingKey = function(scene) {
+  if ((scene.depth || 0) !== 0 || !scene.playerM || !scene.startWorldM) return null;
+  const p = playerWorldM(scene), t = worldMetersToTileCell(scene, p.x, p.y);
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(t.tx, t.ty));
+  const i = t.iy * (entry?.cellsPerEdge || scene.cellsPerTile) + t.ix;
+  return entry?.ownerKeys?.[entry.owners?.[i]] || null;
+};
+
 // Upright props fade only while their visible art covers the player's body
 // and their shared world depth places them in front. Read the boot-time art
 // bounds, never texture pixels; untrimmed procedural art uses its frame box.
 // On a turned heading-up map (`view`, from Render.headingFadeView) each body
 // stands upright at its turned feet, and lower turned feet draw in front, so
 // both the boxes and the front test follow the turned feet instead.
-Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha, view = null) {
+Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha, view = null, onFootprint = false) {
   let obscures = false;
   const foot = view && (s._huAnchor || s);
   const front = view ? view.sin * foot.x + view.cos * foot.y > view.playerKey : s.depth > playerDepth;
@@ -3586,7 +3692,7 @@ Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, 
     const oy = view ? view.sin * foot.x + view.cos * foot.y - foot.y : 0;
     obscures = x0 + ox < box.x1 && x1 + ox > box.x0 && y0 + oy < box.y1 && y1 + oy > box.y0;
   }
-  const alpha = baseAlpha * (obscures ? 0.5 : 1);
+  const alpha = baseAlpha * (appearance.layer !== WorldLayers.GROUND_DECAL && (onFootprint || obscures) ? 0.5 : 1);
   if (s.alpha !== alpha) s.setAlpha(alpha);
 };
 
@@ -4608,8 +4714,11 @@ Render.drawObjects = function drawObjects(scene) {
   // Turrets keep a separate reusable pool inside the shared world layer.
   const { box: bodyBox, view: fadeView } = Render.headingFadeView(scene, playerScreenBox(scene));
   const playerDepth = scene.playerWorldContainer?.depth ?? Infinity;
+  const playerBuilding = Render.playerBuildingKey(scene);
   const fadeObject = (s, appearance) => Render.fadeObjectOverPlayer(s, appearance,
-    bodyBox, playerDepth, s._objectBaseAlpha ?? 1, fadeView);
+    bodyBox, playerDepth, s._objectBaseAlpha ?? 1, fadeView,
+    !!playerBuilding && playerBuilding !== scene.save?.starterShopId
+      && (s._staticObject?.id === playerBuilding || s._staticObject?.castle === playerBuilding));
   const configureObject = (s, item) => {
     const { o, dx, dy } = item;
     const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
@@ -4655,8 +4764,8 @@ Render.drawObjects = function drawObjects(scene) {
   // Heading-up draws connected walls and hedges as ground-attached prisms in
   // the building background; their sprite slots stay empty this frame.
   const prismDrawn = Render.drawConnectedWallPrisms(scene, filteredObj, plantedList, connectedArt);
-  const towerList = filteredObj.filter(({ o }) => o.kind === 'tower');
-  const nonTowerObj = (towerList.length || prismDrawn.size)
+  const towerList = filteredObj.filter(({ o }) => o.kind === 'tower' && o.castle !== scene.save?.starterShopId);
+  const nonTowerObj = (filteredObj.some(({ o }) => o.kind === 'tower') || prismDrawn.size)
     ? filteredObj.filter(it => it.o.kind !== 'tower' && !prismDrawn.has(it)) : filteredObj;
   const objectReuse = scene._boot_still ? reuseStaticObject : undefined;
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj,
@@ -5000,21 +5109,24 @@ Render.drawObjects = function drawObjects(scene) {
   // last. In the fx layer (masked to the map, under the fog); none under
   // reduced motion.
   {
+    // Smoking chimneys (BuildingLowPoly.ROLES[role].smoke) puff the same way
+    // from their projected mouths.
+    const chimneys = typeof BuildingLowPoly !== 'undefined' && BuildingLowPoly.smokeMouths ? BuildingLowPoly.smokeMouths(scene) : [];
     let g = scene.firepitSmokeGfx;
-    if (!g && firepitList.length && scene.fxContainer) {
+    if (!g && (firepitList.length || chimneys.length) && scene.fxContainer) {
       g = scene.firepitSmokeGfx = scene.add.graphics();
       scene.fxContainer.add(g);
     }
     if (g) {
       g.clear();
       const S = HomeArea.FIREPIT_SMOKE, now = performance.now();
-      if (!scene._reducedMotion) for (const { dx, dy } of firepitList) {
-        const { x, y } = project(dx, dy);
+      const sources = firepitList.map(({ dx, dy }) => ({ ...project(dx, dy), alpha: 1 })).concat(chimneys);
+      if (!scene._reducedMotion) for (const { x, y, alpha } of sources) {
         const turn = typeof HeadingUp !== 'undefined' ? HeadingUp.angle(scene) : 0;
         if (turn) g.save().translateCanvas(x, y).rotateCanvas(-turn).translateCanvas(-x, -y);
         for (let i = 0; i < S.puffs; i++) {
           const k = (now / S.periodMs + i / S.puffs) % 1;
-          const a = S.alpha * Math.sin(Math.PI * k) / 2;
+          const a = S.alpha * alpha * Math.sin(Math.PI * k) / 2;
           const r = S.radiusPx[0] + (S.radiusPx[1] - S.radiusPx[0]) * k;
           const px = x + Math.sin(k * 2 * Math.PI + i * 1.7) * S.swayPx + k * 2, py = y - 2 - k * S.risePx;
           // A soft rim and a denser core, so a puff reads as smoke, not a bubble.
@@ -6018,13 +6130,15 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     //   - Home          → no sprite  (the player's house: building_overlay.js)
     //   - blacksmith    → blacksmith
     //   - trader        → trader
-    //   - fort tier 11  → fort       (the school)
+    //   - fort tier 11  → fort       (the gambling hall, inside the overlay's palisade rim)
     // The 'house' texture is a tileset with a registered 'front' sub-frame; the
     // themed PNGs are single-image, so frame must be undefined for them. Tint is
     // suppressed for themed houses (see the `themedHouse` flag below).
     house:  {
       key: o => Render.proceduralHouse(o, _pass.scene) ? null : _houseKey(o),
       frame: _houseFrame,
+      layer: o => _houseRole(o) === 'wreck' ? WorldLayers.GROUND_DECAL : WorldLayers.STANDING_PROP,
+      scaleYMul: o => _houseRole(o) === 'wreck' ? 0.4 : 1,
       // Every building stands its bottom-middle on its footprint's centre of
       // mass (_houseFootPx): the object sits on the footprint cell nearest
       // that point, so the art is nudged by the remainder.

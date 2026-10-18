@@ -3,14 +3,27 @@ test('character portraits: every portrait ships as an 80px square and sheets hav
   for (const id of [...CharacterPortraits.PET_IDS, ...CharacterPortraits.NPC_IDS]) {
     const size = pngDims(`assets/portraits/${id}.png`);
     assert.truthy(size, id);
-    assert.eq(size.w, 80, id);
-    assert.eq(size.h, 80, id);
+    assert.eq(size.w, CharacterPortraits.CELL_PX, id);
+    assert.eq(size.h, CharacterPortraits.CELL_PX, id);
   }
   for (const sheet of ['pets', 'npcs-1', 'npcs-2']) {
     const size = pngDims(`assets/portraits/${sheet}.png`);
     assert.eq(size.w, 320, sheet);
     assert.eq(size.h, 320, sheet);
   }
+});
+
+test('character portraits: speech bubbles draw the face at its cell size with pixelated edges', () => {
+  // The bubble once shrank the 80px cell to a blurred 54px. It now shows the
+  // cell 1:1, so the face reads at phone width and no resampling touches it.
+  const px = `${CharacterPortraits.CELL_PX}px`;
+  const rule = SPEECH_CSS_SRC.match(/^\.speech-dialog \.modal-portrait \{([^}]*)\}/m);
+  assert.truthy(rule, 'the bubble sizes its portrait');
+  assert.truthy(rule[1].includes(`width:${px}!important`), `width is the cell (${rule[1]})`);
+  assert.truthy(rule[1].includes(`height:${px}!important`), `height is the cell (${rule[1]})`);
+  assert.truthy(rule[1].includes(`flex:0 0 ${px}!important`), `the flex basis is the cell (${rule[1]})`);
+  assert.falsy(/image-rendering/.test(rule[1]), 'the bubble keeps the shell\'s pixelated rendering');
+  assert.truthy(/image\.className = 'modal-portrait';[\s\S]{0,600}image-rendering:pixelated;/.test(SCENE_SRC), 'the shell renders portraits pixelated');
 });
 
 test('character portraits: pet variants share canonical portraits, enemies retain sprite fallback', () => {

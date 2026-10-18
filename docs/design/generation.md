@@ -124,7 +124,7 @@ access or tile lifecycle mechanics.
   in, still fewer than the herbs.
 
 - Every house fronting a plain (unthemed) Small street stands 0-2 loot barrels
-  (`HOUSE_BARREL_ODDS`: 40% none, 40% one, 20% two)
+  (`HOUSE_BARREL_ODDS`: 50% none, 40% one, 10% two)
   on the verge before it, clustered side by side a cell back from the kerb
   (`StreetVariants.dressSteps`, the house barrels pass; `HOUSE_BARRELS_MAX`,
   `HOUSE_FRONT_REACH_CELLS`, `HOUSE_FRONT_SPAN_CELLS`). They are always
@@ -412,7 +412,8 @@ access or tile lifecycle mechanics.
   `FARM_EDGE_CELLS` of other ground — the EDGE band itself carries no reason
   at all: every class may spawn there). TYPED reasons refuse only the classes
   whose row of ONE table, `WorldGen.SPAWN_CLASS_BLOCKS`, names them: KERB
-  (fast movers only), JUNCTION_SOFT (fast movers and hazards), SENSITIVE.
+  (fast movers only), JUNCTION_SOFT (fast movers and hazards), SENSITIVE,
+  BUILDING_MOAT (the `npc` class only).
   (Sep 2026, owner's call: the typed HOUSE
   reason — a 40 m house buffer on lot land — and the typed SCHOOL reason —
   school / college grounds, plus its school-hours timing — are both dropped
@@ -441,7 +442,26 @@ access or tile lifecycle mechanics.
   (creature_ai.js `creatureSpawnClass`: fast = top speed over
   `BRISK_WALK_MPS`), never typed at a call site. A new refusal is a new
   reason bit plus its column in the table, never a separate check at a
-  spawner. Authored Thorny Path, Snare Lane and Barricade Road cross-sections are the
+  spawner. A building footprint — any tier of `WorldGen.BUILDING_TYPES`,
+  a synthetic civic building, an unrestored wreck, Home's stamped house —
+  is BUILDING terrain, so the gate's TERRAIN reason and its live
+  `isWalkable` read seat no spawn on it and `creatureStepRefused`
+  (creature_ai.js, through `Combat.faunaBlocksCell`) lets no NPC, animal or
+  foe walk onto one (a keep's garrison on its own floor excepted). Villagers
+  also keep THE BUILDING MOAT: the cells touching a footprint
+  (`WorldGen.nearBuildingCell`, the 3×3 scatter already keeps clear because a
+  wall's base overhangs them) carry the typed BUILDING_MOAT reason, refused by
+  the `npc` row alone and read live as well as off the mask, and an NPC
+  outside the moat may not step into it (`inBuildingMoatAt` in
+  `creatureStepRefused`; one already against a wall walks out rather than
+  freezing). Every NPC seat search (`NPC.spawn`, `shrineResidents`,
+  `lingerSeat`, `houseNeighbours`, the starter's story neighbours) asks the
+  gate over a ring or a bounded draw, so a refused moat cell moves the seat
+  outward rather than dropping the neighbour. Home's footprint lands on the
+  live grid after the shared draw, so `_cullOffLiveGround` takes back whoever
+  was seated under it (`test/node/npc.test.js`, the footprint and moat cases;
+  `safe_area_warden.test.js` for the starter trailer). Neither half reads a
+  building-specific predicate of its own. Authored Thorny Path, Snare Lane and Barricade Road cross-sections are the
   narrow exception: `streetObstacle` may occupy explicitly declared cells
   of its own road band. Thorny Path and snare clusters (and a Snare Lane's few lone stray snares, declared one band cell at a time) cross variant-eligible Small roads only; removable
   barricade/spike lines belong on paths. Every authored cross-section refuses
@@ -733,12 +753,12 @@ Higher-priority placements and their access space take precedence in this order:
 
 1. Saved player-owned objects, Home and story placements. Preserve saved ids and
    progress; a conflicting generated story placement finds a valid alternative
-   rather than moving or deleting a player-owned object. Home's footing (the
-   wagon's 3x3 and its firepit, `HomeArea.inFooting`) erases any unclaimed
-   house on it entirely — cells, outline and roof — on the built tile only
-   (`clearHomeFooting`), leaving a patch of farmland dirt over the footprint
-   (`clearedShapes`, the farmland colour and texture, drawn by `building_overlay.js`);
-   `baseGrid` keeps the building.
+   rather than moving or deleting a player-owned object. Home adopts the nearest
+   existing house footprint within two cells of the player's initial position,
+   prioritizing a footprint containing the player. Distance is to the polygon
+   edge, not the house's entrance. With no nearby house, it adds a 2×2-cell
+   house on open ground. `clearHomeFooting` removes incidental clutter only:
+   existing building cells, objects and outlines are never erased for Home.
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles
@@ -822,6 +842,8 @@ Higher-priority placements and their access space take precedence in this order:
   reservation. Protecting only occupied object cells is insufficient: a variant's
   empty lanes belong to it too. A higher-priority object can occupy a variant
   area; its presence does not release that area to ambient fill.
+- Building-footprint taps resolve the cell’s owner across loaded tiles; the
+  nearest-building fallback applies only to footprints without ownership.
 - Area ownership and object occupancy are separate. Inside the winning area,
   objects still obey collision and access rules. Reserve a large object's entire
   declared footprint (a 3 × 3 shipwreck is one interaction), not just its anchor.
@@ -847,10 +869,10 @@ Higher-priority placements and their access space take precedence in this order:
 A new live game waits for the first compass reading before placing its house
 and campfire, for at most `HomeArea.FIREPIT_COMPASS_GRACE_MS`; with no reading
 by then it places them north-up. The player remains at their GPS position. The starting offsets
-rotate into that heading once: the house is centred one cell ahead of the
-player, so they stand in its doorway row, its doorway is cut in the wall facing
-them (`HomeArea.doorSide`), and the firepit sits two cells behind them on the
-door side (directly below the player in the initial view). If that cell is water or road, it uses the nearest dry fallback. The saved layout stays fixed through later
+rotate into that heading once for a newly constructed 2×2 house, whose anchor
+is one cell ahead of the player. An adopted building keeps its source footprint
+and position. The firepit uses open ground near Home; water, roads and existing
+buildings are rejected. New house doorways face the player (`HomeArea.doorSide`). The saved layout stays fixed through later
 heading changes and reloads. Existing Homes keep their saved positions; sandbox
 and north-up previews retain the north-facing layout.
 

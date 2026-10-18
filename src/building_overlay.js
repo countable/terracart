@@ -307,7 +307,7 @@
   // floor rhythm and trim stay authored. No per-frame randomness.
   const WALL_RECIPES = Object.freeze({
     plain: { material:'plaster', body:0xb9a78a, trim:0x735741, roof:0x985c49, stories:1 },
-    blacksmith: { material:'brick', body:0x807d77, trim:0x504b46, roof:0x555b60, stories:1 },
+    blacksmith: { material:'stone', body:0x92958f, trim:0x626961, roof:0x555b60, stories:1 },
     trader: { material:'sandstone', body:0xc1a77c, trim:0x73573b, roof:0x927349, stories:1 },
     seed: { material:'plaster', body:0xa4ac87, trim:0x64714a, roof:0x507957, stories:1 },
     supply: { material:'timber', body:0xa18a69, trim:0x62503c, roof:0x536c83, stories:2 },
@@ -959,7 +959,7 @@
   // Elevation is independent of map rotation; joins share ground vertices.
   function perspectiveEdges(scene, d, isMine) {
     const shade = shadeOf(isMine), tune = tuneOf(isMine);
-    const stone = d.tier === CASTLE && !d.templeZone ? castleStone(isMine, d.key) : null;
+    const stone = d.tier === CASTLE && !d.templeZone ? castleStone(isMine, d.castleStyle || d.key) : null;
     const temple = d.templeZone ? TempleArt.palette(isMine, d.templeKind === 'tar', true) : null;
     const rampart = stone?.style.rampart;
     const height = rampart ? rampart.wallHeight : d.tier === 11 ? 5 : facePx(d.tier);
@@ -986,7 +986,7 @@
         const missing = [];
         for (let tooth = 0; tooth < count; tooth++) {
           const t = tooth * pitch / length;
-          const damage = CastleStyles.damageCell(d.key,
+          const damage = CastleStyles.damageCell(d.castleStyle || d.key,
             Math.floor((a.x + dx * t + nx * 0.01 - d.damageOriginX) / CELL_PX),
             Math.floor((a.y + dy * t + ny * 0.01 - d.damageOriginY) / CELL_PX));
           if ((rampart.broken && tooth % 4 === 2) || damage?.missing === tooth % 4) missing.push(tooth);
@@ -1017,7 +1017,7 @@
 
   function uprightEdges(scene, d, isMine, projX, projY, seen) {
     const shade = shadeOf(isMine), tune = tuneOf(isMine);
-    const stone = d.tier === CASTLE && !d.templeZone ? castleStone(isMine, d.key) : null;
+    const stone = d.tier === CASTLE && !d.templeZone ? castleStone(isMine, d.castleStyle || d.key) : null;
     const temple = d.templeZone ? TempleArt.palette(isMine, d.templeKind === 'tar', true) : null;
     const depth = stone ? stone.style.rampart.wallHeight : facePx(d.tier);
     const face = temple ? temple.face : stone ? stone.style.stone.FACE : tune(shade(faceColor(d.tier, isMine)));
@@ -1149,7 +1149,7 @@
           line(lip(ny < 0 ? ip : op), lip(ny < 0 ? iq : oq), stone.lite);
           // Seat full teeth at both endpoints; distribute the gaps near the
           // 8px rhythm, with the same phase across every atlas section.
-          const damage = CastleStyles.damageCell(d.key,
+          const damage = CastleStyles.damageCell(d.castleStyle || d.key,
             Math.floor(((p.x + q.x) / 2 + nx * 0.01 - d.damageOriginX) / CELL_PX),
             Math.floor(((p.y + q.y) / 2 + ny * 0.01 - d.damageOriginY) / CELL_PX));
           if (damage && !crownPass) {
@@ -1396,6 +1396,16 @@
     // the same one the road overlay strokes with — and its padded cull bounds.
     const { projX, projY, minX, maxX, minY, maxY } = overlayProjection(scene, fracX, fracY);
 
+    // Use the same source street lines and projection as the road painter.
+    const doorStreets = [];
+    if (lowpoly && typeof RoadOverlay !== 'undefined' && typeof RoadOverlay.transportLines === 'function') {
+      for (const { line, mvtToM, originMx, originMy } of RoadOverlay.transportLines(tiles.filter(t => t.entry.layers))) {
+        for (let i = 1; i < line.length; i++) doorStreets.push([line[i-1], line[i]].map(p => ({
+          x: projX(originMx + p.x * mvtToM), y: projY(originMy + p.y * mvtToM),
+        })));
+      }
+    }
+
     // Per-pass memo of ownerKey → claimed, the same one the tiled pass keeps:
     // a footprint asks the save once instead of once per shape.
     const claimMemo = new Map();
@@ -1495,6 +1505,10 @@
     if (g.texturePhase) g.texturePhase(projX(0), projY(0));
 
     for (const d of draws) {
+      if (perspective) scene._wallPerspective.polygon.building = {
+        key: d.key, footprint: d.pts,
+        anchor: { x: (d.left + d.right) / 2, y: (d.north + d.south) / 2 },
+      };
       // A house Home's trailer cleared (scene_venues.js _eraseHomeBuildings):
       // just the footprint, as a flat shadow — no walls, floor or outline.
       if (d.cleared) { g.fillPoly(d.pts, CLEARED_SHADOW, CLEARED_SHADOW_ALPHA); continue; }
@@ -1533,6 +1547,10 @@
               scene._wallPerspective.home.alwaysActive = true;
               homeBegun = true;
             }
+            scene._wallPerspective.home.building = {
+              key: d.key, footprint: d.pts,
+              anchor: { x: (d.left + d.right) / 2, y: (d.north + d.south) / 2 },
+            };
             homeWalls(scene, d, HomeArea.HOUSE, inside);
           } else if (!inside && typeof HomeArea !== 'undefined') {
             g.fillPoly(d.pts, HomeArea.HOUSE.roof.top);   // a bare fill target: a flat roof
@@ -1540,12 +1558,26 @@
         }
         continue;
       }
-      // Wizard and turret keep their original sprite artwork, not generated
-      // shells (BuildingLowPoly.ROLES rows flagged `sprite`).
-      if(d.object&&['wizard','turret'].includes(Houses.displayRole(scene.save,d.object))){
+      // Wizard retains its shrine sprite above a plain footprint.
+      const role = d.object && Houses.displayRole(scene.save, d.object);
+      if(role === 'wizard'){
         g.fillPoly(d.pts,tuneOf(isMine)(shadeOf(isMine)(floorColor(d.tier,isMine))));continue;
       }
-      if (procedural && !d.shared && (d.tier === 9 || d.tier === 11)) {
+      // FORT (tier 11, Houses.displayRole 'fort'): never a generated body. It
+      // takes the generic path below — the plank floor, then the tier-11
+      // pickets perspectiveEdges emits (a palisade rim following the footprint,
+      // compass-aware like every other wall) — and keeps its sprite: the
+      // gambling hall (house_fort / house_fort_unclaimed) seats through the
+      // RENDER_SPEC house row on the footprint's centre of mass, because this
+      // draw never enters scene._proceduralBuildings. (A low-poly fort shell
+      // was tried and reverted: the rim-plus-hall reads as the fort.)
+      // Turrets retain the intact tower sprite inside standard castle walls.
+      // Only this draw uses the castle tier; world ownership and gameplay stay house-based.
+      if (role === 'turret') {
+        d.tier = CASTLE;
+        d.castleStyle = CastleStyles.TURRET_STYLE;
+      }
+      if (procedural && !d.shared && d.tier === 9) {
         const object = d.object || { kind: 'house', id: d.key, tier: d.tier };
         const profile = Render.buildingProfileFor(object, scene);
         const styleId = profile.style;
@@ -1555,21 +1587,25 @@
           if (g.texturePoly) g.texturePoly(d.pts, d.tier);
           if (g.blobsPoly) g.blobsPoly(d.pts, slimeBlobs(d), d.left, d.north,
             slimeColor(floor, shadeOf(false)), SLIME_ALPHA);
+          if (!lowpoly) {
+            scene._proceduralBuildings.set(object.id, { height: 0 });
+            continue;
+          }
         }
         let model;
         if (lowpoly) {
           const role = specialtyFor(scene.save, object);
           const base = BuildingStyles.STYLES[styleId], palette = {...base,...profile.palette};
           const paint = c => tuneOf(isMine)(shadeOf(isMine)(c));
-          const recipe = role==='fort'
-            ? {...wallRecipe(role,scene.buildingStoreys,isMine),role:'fort',style:styleId,body:paint(palette.wall),roof:paint(palette.roof),trim:paint(0x614534),finish:'cottage',roofMaterial:'slate'}
-            : BuildingLowPoly.recipeFor(role,{wall:paint(palette.wall),roof:paint(palette.roof),
+          const recipe = BuildingLowPoly.recipeFor(role,{wall:paint(palette.wall),roof:paint(palette.roof),
                 trim:paint(role==='turret'?palette.wall:0x614534)},scene.buildingStoreys);
-          if(role==='fort'&&!scene.buildingStoreys)recipe.stories=2;
           const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant
-            || (role==='fort'?'ridge':recipe.variant||'ridge');
-          model = BuildingLowPoly.add(scene,d.pts,recipe,variant,object.id);
-        } else model = BuildingStyles.emit(scene, 'polygon', d.pts, styleId, { claimed: isMine, palette: profile.palette });
+            || recipe.variant||'ridge';
+          model = BuildingLowPoly.add(scene,d.pts,recipe,variant,object.id,doorStreets);
+        } else model = BuildingStyles.emit(scene, 'polygon', d.pts, styleId, {
+          claimed: isMine, palette: profile.palette,
+          stories: scene.buildingStoreys || BuildingLowPoly.ROLES[specialtyFor(scene.save, object)]?.stories,
+        });
         if (model && (model.faces?.length || model.prisms?.length)) {
           // Signs and flags seat on the drawn top: the low-poly path foreshortens height.
           if (object.id) scene._proceduralBuildings.set(object.id, { height: model.height * (lowpoly ? BuildingLowPoly.LOOK.heightScale : 1) });
@@ -1579,7 +1615,7 @@
       const shade = shadeOf(isMine), tune = tuneOf(isMine);
       // The shaded floor is what the slime derives from (three shades deep —
       // see slimeColor); the material lift goes over every colour after.
-      const style = d.tier === CASTLE ? buildingBackgroundMaterial(CastleStyles.get(d.key, isMine)) : null;
+      const style = d.tier === CASTLE ? buildingBackgroundMaterial(CastleStyles.get(d.castleStyle || d.key, isMine)) : null;
       const shaded = style ? style.floor : shade(floorColor(d.tier, isMine));
       const floor = style ? style.floor : tune(shaded);
       const depth = facePx(d.tier);
@@ -1629,7 +1665,7 @@
         // Rampart: the stone band inside the wall line, then the merlon teeth
         // dashed along it in the light stone — the polygon's answer to the
         // tiled battlements.
-        const stone = castleStone(isMine, d.key);
+        const stone = castleStone(isMine, d.castleStyle || d.key);
         g.insetStroke(d.pts, BAND_PX, stone.body);
         if (style.rampart.woodTop) g.insetStroke(d.pts, 3, stone.top);
         const tooth = style.rampart.toothWidth;
@@ -1640,6 +1676,7 @@
         g.strokePoly(d.pts, OUTLINE_PX, tune(dim(shaded, OUTLINE_MUL)));
       }
     }
+    if (perspective) scene._wallPerspective.polygon.building = null;
     // Pieces that scrolled out of view (or changed claim state) go.
     for (const [k, p] of scene._buildingUprightCache) {
       if (!seen.has(k)) { releasePiece(scene, p); scene._buildingUprightCache.delete(k); }

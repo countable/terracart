@@ -149,7 +149,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   direction lock occupies the upper-left corner of the compass. These controls
   live outside Phaser’s scaled wrapper and yield to modal sheets. The lock
   depresses while engaged. Unselected inventory items have no individual border;
-  the selected item retains its gold outline.
+  the selected item retains its gold outline. Empty inventory cells are disabled
+  and never highlighted or counted as another page. Tap a selected stack again
+  to put it away.
   The energy dial has one lightning-bolt needle for current energy, equal
   red/yellow/green thirds, and a maximum-energy numeral on the right.
   Dormant inscriptions use invented geometric glyphs at a shared size; their
@@ -199,9 +201,11 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Character portraits use `CharacterPortraits` and transparent 80×80 cells
   from the generated 4×4 sheets (320×320 atlases) in `assets/portraits/`.
   NPC identity follows `SpriteLayout.npcSheet` for each role and culture; Tilly has a housed variant.
-  Dialogue passes `portrait` to the modal shell, which keeps the face and
-  shoulders at 128px above text that uses pages when necessary, using pixelated scaling
-  for chunky pixels. Portraits have no background plate or rounded clipping.
+  Dialogue passes `portrait` to the modal shell. Panel dialogs keep the face
+  and shoulders at 128px above text that uses pages when necessary; speech
+  bubbles (`talk`, `spirit`) draw the cell 1:1 at `CharacterPortraits.CELL_PX`
+  (80px) beside the speaker name. Both use pixelated scaling for chunky
+  pixels. Portraits have no background plate or rounded clipping.
   A neighbour speaking opens on the `talk` kind (`NPC.speech`): the header is
   the speaker's name beside a 💬 chat bubble, the title line is their role —
   never the generic `note` scroll.
@@ -297,7 +301,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   4:3, with a complete scene and no baked dark text area. Paintings fit the
   full width, anchored at the top without stretching. The image begins at the
   window top behind the fixed silver dragon rail. Approved 4:3 paintings keep
-  their full height; longer copy paginates below them. Legacy squares begin at
+  their full height; longer copy paginates below them. All story paintings use
+  a full-width 4:3 frame, cropping legacy art without stretching. Opening
+  panels three and four share this layout; the first two stay immersive.
+  Other dialogs with legacy squares begin at
   90% of panel width and can shorten to 70%; legacy portraits can shorten to
   the rail height plus eight pixels. `tools/art_thumbs.js` bakes `ART_ASPECTS`
   alongside aspect-preserving thumbnails, so this layout is ready before the

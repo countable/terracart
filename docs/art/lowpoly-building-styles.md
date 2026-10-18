@@ -11,6 +11,8 @@ dark timber framing and braces, clay/slate/thatch roof treatments, recessed
 joinery and broad eave shading. These details live in shared material sheets;
 story count and footprint do not create a new texture. Material palettes stay
 role-driven. Reference pixels are not embedded in the generated textures.
+Ordinary delivery houses have one storey; specialised buildings retain their
+role-specific heights. The Canvas fallback reads the same storey count.
 
 `scene.buildingRoofVariant` selects ridge, inset, shallow or flat. Leaving it
 unset selects a low-poly roof appropriate to the role; `styles` explicitly
@@ -36,6 +38,10 @@ role colour, a single highlight pixel per feature) with openings at the tileset'
 placement and only a lintel, sill, step and lantern as decoration; `tileset`
 cuts bays from the approved materials sheet instead. Height ships at 1.0. `tools/building-billboard-preview.html` has a
 Facade select and a "Show sheet" toggle to compare the two.
+The cel facade paints thick beams over the wall planks at the existing storey,
+post and diagonal-brace positions. Each has a broad wood face in the wall's
+palette, a one-texel upper/left highlight and a lower/right shadow. Posts and
+bands are five texels wide; diagonal braces span each full panel and match their apparent thickness. Casements keep their upper edge and raise their sill by three texels. `ROLES.window` follows the approved pixel-art sprites: four-pane house windows, wood-shuttered smithy windows, twin-pane trader windows with slate shutters, and wider four-pane market windows for every shop specialty. Wizard windows retain an arched frame. All keep the raised sill; shops gain width. The cached sheet includes this style in its key.
 The Canvas fallback retains the imported style renderer. Existing castle
 perimeters, signs, interaction objects and fort/castle ownership remain intact.
 
@@ -51,8 +57,12 @@ Validation:
 Interactive review: `tools/building-lowpoly-preview.html`. The review deliberately
 includes deep notches and narrow annexes, beyond the compact cottage reference.
 
-The pixel-art pass uses 31.2-unit floors (30% taller), approximately 1.3x texture
-scale, a twelve-color generated palette and nearest-neighbor sampling. Flat
+The pixel-art pass uses 15.6-unit floors at 0.65 world units per facade texel
+(`FLOOR_HEIGHT`/`DETAIL_SCALE` stays 24 texels a storey; both halved together
+when buildings read twice too tall, so doors and windows halved with them), a
+twelve-color generated palette, nearest-neighbor sampling and a one-pixel ink
+outline. Chimneys, eave bands, wizard shells and wrecks halved with the
+storeys (wrecks later regrew their crumbling sections, below). Flat
 three-step face lighting replaces interpolated wall gradients. The shared sheet
 is now 512x512, with a 384-pixel-high roof region: the compact cross footprint
 previously clamped against the smaller region and smeared the texture along its
@@ -75,13 +85,14 @@ allocates no new meshes or material sheets. The reference still has more curated
 gables and intersecting roof directions than this generator.
 
 Role rollout: `BuildingLowPoly.recipeFor` supplies cottage framing for plain
-houses, timber siding for trailers/supply/pet shops, brick for smiths/bookshops,
+houses, timber siding for trailers/supply/pet shops, stone for smiths, brick for bookshops,
 plaster for traders/seed/potion shops, and masonry for relic shops. Production
 palettes still come from `Render.buildingProfileFor`; existing signs are retained.
 Wall colors are darkened and compressed toward the base pigment, with additional
 height-based eave shading. Roof marks are sparse, larger tile highlight clusters.
-The fort recipe retains its prior wall contrast and roof courses; castle geometry
-is unchanged.
+Forts take no recipe: the overlay draws their palisade rim and keeps the
+gambling-hall sprite ([rendering](../design/rendering.md)); castle geometry is
+unchanged.
 
 Wizard towers ignore footprint shape and size: an eight-sided stone shaft with
 one overhanging conical roof uses 24 triangles. Turrets are fixed-size miniature
@@ -104,8 +115,9 @@ updates. Generated plaster stays quiet and diagonal cottage braces are omitted.
 The full generation prompt/provenance lives beside the PNG in README.md.
 
 The requested legacy rollback supersedes the role rollout above: wizard uses the
-original shrine frame 3, turret uses the original CastleStyles tower texture, and
-both bypass generated footprint shells. Existing castle geometry is unchanged.
+original shrine frame 3; turret uses the intact bastion tower texture inside
+matching castle ramparts around its footprint. Both bypass generated footprint
+shells. Existing castle geometry is unchanged.
 The special low-poly tower builders remain available for prototype comparisons
 but are not used by the normal game path. Browser checks verify the legacy keys,
 absence of tower meshes, generated atlas availability and retained heading buffers.
@@ -168,7 +180,8 @@ review is published as a Claude artifact.
 - Ink outline: `renderWebGL` re-emits each ink group's visible triangles in the
   solid trim texel, tinted `LOOK.ink`, at eight screen offsets of
   `LOOK.inkPx` (2) art pixels (× camera zoom), then draws the group. A building is
-  one contiguous sorted run; its ink groups (body, flat deck, chimney) draw in
+  one contiguous sorted run; faded buildings omit these repeated filled ink passes
+  so they remain see-through. Its ink groups (body, flat deck, chimney) draw in
   layer order so each gets a line where it meets the surface below it. Same
   retained vertices; nothing allocates on a heading change.
 - Flat roofs: no parapet lip. The deck is one colour (`solid` faces draw the
@@ -178,21 +191,40 @@ review is published as a Claude artifact.
 - Eave shadow: `eaveSplit` (run by `atlasFaces`) splits every wall triangle
   whose top meets a roof level 9 units below it; the strip above draws at half
   shade. Walls rising above a terrace deck get it too.
+- Bays: the facade sheet is 39-texel bays, windows in the even bays, the door
+  in bay 6. `wallStart` centres an entrance wall on its door and every other
+  wall on a plain bay; `cornerBays` (in `atlasFaces`, from each wall's
+  `wallSpan`) then swaps any window bay a corner would cut for its plain
+  neighbour, so an opening is shown whole or not at all and never hugs a
+  corner. This adds up to two cuts per wall triangle (a 150px square maps to
+  about 180 triangles).
+- Beams: in the cel sheet the floor bands, posts and braces are the wall's own
+  wood a shade darker, lit along the top/left and shadowed below/right, so they
+  read as raised timber rather than ink lines.
 - Chimneys: a cobbled stack (sides are `wall` faces with `rawUV` into the
   sheet's stone plinth rows), a wider cap and a dark mouth, as ink group 2.
-  `ROLES[role].chimneys`/`chimneyScale` place a pair at 26%/74% of the ridge
-  (the smithy, 1.5×); the default is one at 28%.
-- Wreck: mostly wall. Thick sections (the ring inset by 4 units, 2 where a
-  notch forbids) run around the whole footprint, each with its own broken
-  height and a flat `wallTop`; the step up to a taller neighbour shows as an
-  end face. Three axis-aligned `roofPatches` keep their tiles over bare
-  rafters, two of the six fallen (`hash` picks which); inside, a dark rubble floor, fallen roof slabs and beams. Textured
-  faces are tinted `LOOK.wreck.tint`; the sheet boards the windows and adds
-  soot, moss and missing tiles.
-- Awnings (the `inset` variant: potion, relic): the flat top is a solid cap
-  in the roof's mean tone from its sheet (`tex.roofTone`), with rim bands and
-  its own ink group; each skirt is tiled from its own eave so courses stay
-  level and point downhill on all four sides.
+  `ROLES[role].chimneys`/`chimneyScale` would place a pair at 26%/74% of the
+  ridge; every role, the smithy included, takes the default one at 28%. The smithy shaft widens slightly toward the roof (`chimneyFlare`), meeting its cap without an overhanging lip. A role
+  with `smoke` puffs from its mouths (`smokeMouths`, projected like the faces)
+  in render.js's firepit smoke pass, sharing `HomeArea.FIREPIT_SMOKE`.
+- Wreck: crumbling wall. Thick sections (the ring inset by 4 units, 2 where a
+  notch forbids) run around the whole footprint every half cell (16 units);
+  each stands at its own height between a knee and `H`, half the shortest
+  building (one storey plus eave rise), a fifth of them down to the ground, and
+  one section of the longest edge always fallen (`mesh.gap`). Standing
+  sections carry a flat `wallTop`, and the step up to a taller neighbour shows
+  as an end face. Three axis-aligned `roofPatches` keep their tiles over bare
+  rafters, two of the six fallen (`hash` picks which); inside, a dark rubble
+  floor, fallen roof slabs and beams. Textured faces are tinted
+  `LOOK.wreck.tint`; the sheet boards the windows and adds soot, moss and
+  missing tiles.
+- Roof direction: every sloped face is tiled from its own eave, u along the
+  eave and v growing downhill, so the sheet's course bottoms face the ground on
+  every face at every heading; ridge and hip beams cover the seams, and a
+  ridge's flat cap continues its first slope without one. Awnings (the `inset`
+  variant: potion, relic) keep a solid cap in the roof's mean tone from its
+  sheet (`tex.roofTone`), with rim bands and its own ink group, over four such
+  skirts.
 - Untextured mode: `LOOK.textured=false` draws every face in its base colour
   (`face.flat`) through the solid texel, keeping cel steps and the ink. The
   review page toggles it; castle ramparts (`WallPerspective`) share the
@@ -215,7 +247,7 @@ tileset: plaster, timber, brick and stone walls, slate roof; the user's
 painterly sheet: red tile roof) and the generated `reference-materials-v3.png`
 (fish-scale clay and thatch, tinted to the role colour by luminance like the
 generated sheets). Every role draws from it: walls are plaster (plain, market,
-seed, potion), timber (pet, supply, relic, wreck) and brick (blacksmith, book);
+seed, potion), timber (pet, supply, relic, wreck), brick (book) and stone (blacksmith);
 roofs are tinted clay (plain, potion, book), tinted thatch (seed, pet), slate
 (blacksmith, wreck), red tile (relic) or a flat deck (market, supply); all
 nearest-sampled.
@@ -231,7 +263,7 @@ door, the rest blue glass with a lighter pane; a wreck boards them over. Sheets
 are cut once per material key and shared across story counts and footprints,
 like the generated ones.
 
-Generated-atlas materials (the fallback for forts, headless review and
+Generated-atlas materials (the fallback for headless review and
 missing art): the renderer samples `reference-materials-v3.png`, twelve
 seamless 96px tiles built by `tools/build_building_materials.py` and drawn
 1:1, so texel density is set in the build script, not by a browser
@@ -244,3 +276,11 @@ brick, otherwise rubble; the painterly dark stone and cobble fall back to
 rubble); roof cells follow `roofMaterial` (clay, slate, thatch, shingle,
 glazed; red tile falls back to clay; flat roofs use flagstone). The plinth is
 rubble, or moss on a wreck.
+
+Street-facing door decorations use the road overlay’s source transportation lines.
+A standing low-poly house receives one framed plank door on the nearest outward-facing
+wall within six cells, provided the wall has room for the door and four-pixel corner
+clearance on both sides. No nearby street or no suitable wall means no decoration.
+The retained door triangles rotate, sort and fade with the building; they do not
+alter its footprint, movement or tap target. Home retains its authored entrance,
+and wrecks and special tower silhouettes do not receive floating doors.

@@ -101,7 +101,7 @@
     const s = Object.assign(scene({ starterTrailer: st, starterShopId: st.id,
       fruittrees: [{ id: 'saved_tree', ...at(31, 30) }] }), {
       clearHomeFooting: lift('clearHomeFooting'), _homeFootingAnchor: lift('_homeFootingAnchor'),
-      _homeMayClear: lift('_homeMayClear'), _eraseHomeBuildings: lift('_eraseHomeBuildings'),
+      _eraseHomeBuildings: lift('_eraseHomeBuildings'),
     });
     const saved = { kind: 'tree', id: 'saved_tree', ...at(31, 30) };
     const planted = { kind: 'tree', id: 'planted_tree', planted: true, ...at(29, 30) };

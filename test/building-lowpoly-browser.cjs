@@ -17,7 +17,7 @@ const sharing=await page.evaluate(()=>{
  const large=BuildingLowPoly.add(scene,[{x:0,y:0},{x:800,y:0},{x:800,y:800},{x:0,y:800}],recipe,'ridge');
  let wrapped=false;
  const roofPhase=large.faces.filter(f=>f.kind==='roof'&&!f.solid&&!f.rawUV).every(f=>f.points.every(p=>{
-  const shifts=[p.u/1.3-p.tu*512,p.v/1.3-(p.tv*512-128)];
+  const shifts=[p.u/.65-p.tu*512,p.v/.65-(p.tv*512-128)];
   return shifts.every(shift=>{if(Math.abs(shift)>1)wrapped=true;return Math.abs(shift/120-Math.round(shift/120))<1e-8;});
  }));
  rebuild();return {sheets,added,heights,material,sheetSize:BuildingLowPoly.LOOK.sheet,roofPhase,wrapped};
@@ -25,7 +25,7 @@ const sharing=await page.evaluate(()=>{
 assert(sharing.material.key.startsWith('lowpoly:tileset-v2:'),'review uses approved materials');
 assert(sharing.wrapped&&sharing.roofPhase,'large approved clay roofs retain tile phase across atlas wraps');
 assert.equal(sharing.material.width,sharing.sheetSize);assert.equal(sharing.material.height,sharing.sheetSize);assert.equal(sharing.material.roofPeriod,360);
-sharing.heights.forEach((height,i)=>assert(Math.abs(height-((i+1)*31.2+5))<1e-6));
+sharing.heights.forEach((height,i)=>assert(Math.abs(height-((i+1)*15.6+2.5))<1e-6));
 const result=await page.evaluate(()=>{
  const s=reviewScene,state=s._lowpoly,original=state.faces.slice(),textures=s.textures.getTextureKeys().length,builds=state.builds;
  let refreshes=0;for(const texture of new Set(original.map(f=>f.texture))){const refresh=texture.refresh.bind(texture);texture.refresh=()=>{refreshes++;return refresh();};}
@@ -43,8 +43,8 @@ await page.locator('#angle').fill('37');await page.waitForTimeout(100);
 const crossUV=await page.evaluate(()=>{
  const mesh=reviewScene._lowpoly.buildings[3];
  return mesh.faces.filter(f=>f.kind==='roof').every(f=>f.points.every((p,i)=>
-  Math.abs(f.projected[i].v-(.25+p.v/(512*1.3)))<1e-8&&
-  Math.abs(f.projected[i].u-p.u/(512*1.3))<1e-8));
+  Math.abs(f.projected[i].v-(.25+p.v/(512*.65)))<1e-8&&
+  Math.abs(f.projected[i].u-p.u/(512*.65))<1e-8));
 });assert(crossUV,'cross-shaped roof retains unclamped texture coordinates');
 await page.screenshot({path:'/tmp/lowpoly-pixel-cottages.png'});
 console.log('pixel material',sharing,'cross UVs',crossUV);

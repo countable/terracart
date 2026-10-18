@@ -196,13 +196,13 @@ class SceneModals {
     const mosaicLayer = art ? document.createElement('div') : null;
     let mosaicImg = null;
     // Dynamic pet paintings use the same 4:3 frame as installed scenes.
-    const artAspect = (art && typeof ART_ASPECTS !== 'undefined' && ART_ASPECTS[art]) || 4 / 3;
+    const artAspect = kind === 'story' ? 4 / 3 : (art && typeof ART_ASPECTS !== 'undefined' && ART_ASPECTS[art]) || 4 / 3;
     const fullFrameArt = Math.abs(artAspect - 4 / 3) < 0.01;
     const squareArt = Math.abs(artAspect - 1) < 0.01;
     const tone = (art && typeof ART_TONES !== 'undefined' && ART_TONES[art]) || '#1a1612';
     const paintLayer = (el, img) => {
       el.style.backgroundImage = img ? `url(${img})` : `linear-gradient(${tone}, ${tone})`;
-      el.style.backgroundSize = '100% auto';
+      el.style.backgroundSize = kind === 'story' ? 'cover' : '100% auto';
       el.style.backgroundPosition = 'center top';
       el.style.backgroundRepeat = 'no-repeat';
       el.style.imageRendering = 'pixelated';

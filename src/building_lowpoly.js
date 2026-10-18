@@ -1,34 +1,55 @@
 // Retained, textured architecture. Only camera projection changes on rotation.
 // Roofs use authored planes clipped to the exact footprint, not a sampled grid.
 (function (global) {
-  const FLOOR_HEIGHT=31.2, DETAIL_SCALE=1.3, ROOF_OVERHANG=5;
+  // One storey is 24 facade texels; FLOOR_HEIGHT/DETAIL_SCALE must stay 24 so
+  // the sheet's beams, sills and door land on the geometry's floors. Both were
+  // halved together (31.2/1.3 -> 15.6/.65) when buildings read twice too tall:
+  // doors and windows shrink with the storey, so the facade keeps its scale.
+  const FLOOR_HEIGHT=15.6, DETAIL_SCALE=.65, EAVE_RISE=2.5, ROOF_OVERHANG=5;
+  // Facade bays are 39 texels wide: windows in the even bays, the door in bay
+  // 6. An entrance wall centres its door; every other wall centres on a plain
+  // bay. Either way a corner may still fall inside a window bay, and
+  // atlasFaces swaps that cut bay for its plain neighbour (cornerBays).
+  const BAY=39,DOOR_CENTRE=253.5,PLAIN_CENTRE=60.5;
+  const wallStart=(span,entrance)=>entrance?DOOR_CENTRE-span/2:PLAIN_CENTRE+2*BAY*Math.ceil((span/2-PLAIN_CENTRE)/(2*BAY))-span/2;
+  const bayAt=t=>Math.floor((t-2)/BAY),windowBay=k=>((k%2)+2)%2===0;
+  function cornerBays(polys,[lo,hi],cut){
+    const k0=bayAt(lo+1e-6),k1=bayAt(hi-1e-6),shift=(poly,d)=>poly.map(p=>({...p,tu:p.tu+d}));
+    const cutLeft=lo>2+BAY*k0+1,cutRight=hi<2+BAY*k1+BAY-1;
+    if(k0===k1)return windowBay(k0)&&(cutLeft||cutRight)?polys.map(p=>shift(p,BAY)):polys;
+    const split=(polys,bound,side)=>polys.flatMap(poly=>{const l=cut(poly,'tu',bound,-1),r=cut(poly,'tu',bound,1);
+      return [l.length>=3?(side<0?shift(l,BAY):l):null,r.length>=3?(side>0?shift(r,-BAY):r):null].filter(Boolean);});
+    if(windowBay(k0)&&cutLeft)polys=split(polys,2+BAY*(k0+1),-1);
+    if(windowBay(k1)&&cutRight)polys=split(polys,2+BAY*k1,1);
+    return polys;
+  }
   // The billboard look (docs/art/lowpoly-building-styles.md): every number
   // the ink pass, projection and dressing share, so sprites and meshes keep
   // agreeing. tools/building-billboard-preview.html edits this table live.
-  const LOOK={heightScale:1,inkPx:2,wallThickness:4,ink:0x2a2229,textured:true,facade:'cel',eaveBand:9,eaveShade:.5,flatRim:3.5,flatShade:9,sheet:768,
-    chimney:{radius:4.4,cap:5.8,mouth:3.4,rise:7,capHeight:2.2,sides:0xd9c9b8,capColor:0x9c8f84,mouthColor:0x2a2229},
+  const LOOK={heightScale:1,inkPx:1,wallThickness:4,ink:0x2a2229,textured:true,facade:'cel',eaveBand:4.5,eaveShade:.5,flatRim:1.75,flatShade:4.5,sheet:768,
+    chimney:{radius:4.4,cap:5.8,mouth:3.4,above:6.5,rise:3.5,capHeight:1.1,sides:0xd9c9b8,capColor:0x9c8f84,mouthColor:0x2a2229},
     wreck:{tint:0xb3a89e,debris:0x5e564f,beam:0x3b2a1f,top:0x6b6059}};
   const mix=(a,b,t)=>{const c=i=>Math.round(((a>>i)&255)*(1-t)+((b>>i)&255)*t);return (c(16)<<16)|(c(8)<<8)|c(0);};
   const hash=(x,y)=>{let h=(x*374761393+y*668265263)|0;h=(h^(h>>>13))*1274126177;return ((h^(h>>>16))>>>0)/4294967296;};
   // Cell order of assets/Objects/BuildingMaterials/reference-materials-v3.png.
   const MATERIAL_TILE=96,MATERIAL_CELLS=['clay','slate','thatch','shingle','glazed','plaster','boards','rubble','brick','clapboard','flagstone','moss'];
   const ROLES={
-    plain:{material:'plaster',finish:'cottage',roofMaterial:'clay',stories:2,style:'multistorey'},
+    plain:{window:'casement',material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey'},
     // Home — the player's house (building_overlay.js drawHome): one storey of
     // plaster under a clay ridge, and the one role with an `interior` recipe.
-    home:{material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey',variant:'ridge'},
-    blacksmith:{material:'brick',finish:'workshop',roofMaterial:'slate',stories:1,style:'brick',chimneys:2,chimneyScale:1.5},
-    trader:{material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
-    shop:{material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
-    seed:{material:'plaster',finish:'plaster',roofMaterial:'thatch',stories:1,style:'adobe'},
-    supply:{material:'timber',finish:'siding',roofMaterial:'flat',stories:2,style:'whitewash',variant:'flat'},
-    potion:{material:'plaster',finish:'plaster',roofMaterial:'clay',stories:2,style:'pyramid',variant:'inset'},
-    relic:{material:'timber',finish:'masonry',roofMaterial:'redtile',stories:1,style:'pyramid',variant:'inset'},
-    pet:{material:'timber',finish:'siding',roofMaterial:'thatch',stories:1,style:'japanese'},
-    book:{material:'brick',finish:'masonry',roofMaterial:'clay',stories:2,style:'japanese'},
-    wizard:{material:'stone',finish:'tower',roofMaterial:'slate',stories:3,style:'pyramid',shape:'wizard'},
-    turret:{material:'stone',finish:'tower',roofMaterial:'slate',stories:1,style:'fort',shape:'turret'},
-    wreck:{material:'timber',finish:'cottage',roofMaterial:'slate',stories:1,style:'ruin',shape:'wreck'},
+    home:{window:'casement',material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey',variant:'ridge'},
+    blacksmith:{window:'woodShutters',material:'stone',finish:'workshop',roofMaterial:'slate',stories:1,style:'brick',smoke:true,chimneyFlare:1.12},
+    trader:{window:'slateShutters',material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
+    shop:{window:'shop',material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
+    seed:{window:'shop',material:'plaster',finish:'plaster',roofMaterial:'thatch',stories:1,style:'adobe'},
+    supply:{window:'shop',material:'timber',finish:'siding',roofMaterial:'flat',stories:2,style:'whitewash',variant:'flat'},
+    potion:{window:'shop',material:'plaster',finish:'plaster',roofMaterial:'clay',stories:2,style:'pyramid',variant:'inset'},
+    relic:{window:'shop',material:'timber',finish:'masonry',roofMaterial:'redtile',stories:1,style:'pyramid',variant:'inset'},
+    pet:{window:'shop',material:'timber',finish:'siding',roofMaterial:'thatch',stories:1,style:'japanese'},
+    book:{window:'shop',material:'brick',finish:'masonry',roofMaterial:'clay',stories:2,style:'japanese'},
+    wizard:{window:'arched',material:'stone',finish:'tower',roofMaterial:'slate',stories:3,style:'pyramid',shape:'wizard'},
+    turret:{window:'casement',material:'stone',finish:'tower',roofMaterial:'slate',stories:1,style:'fort',shape:'turret'},
+    wreck:{window:'casement',material:'timber',finish:'cottage',roofMaterial:'slate',stories:1,style:'ruin',shape:'wreck'},
   };
   function recipeFor(role,palette={},stories){
     const spec=ROLES[role]||ROLES.plain,base=BuildingStyles.STYLES[spec.style];
@@ -107,7 +128,7 @@
     const planes=[],pitch=variant==='shallow'?.18:.42;
     const addAxis=i=>{const v=axes[i],[lo,hi]=bounds[i];planes.push({x:v.x*pitch,y:v.y*pitch,c:-lo*pitch},{x:-v.x*pitch,y:-v.y*pitch,c:hi*pitch});};
     if(variant!=='flat'){addAxis(1);if(variant==='inset')addAxis(0);}
-    planes.push({x:0,y:0,c:variant==='flat'?0:variant==='inset'?8:variant==='shallow'?5:28});
+    planes.push({x:0,y:0,c:variant==='flat'?0:variant==='inset'?4:variant==='shallow'?2.5:14});
     const roofZ=p=>height+Math.max(0,Math.min(...planes.map(v=>value(v,p))));
     // Continuous distance across ridge slopes and their flat cap: per-plane
     // scaling used to jump the tile rows at the slope/cap seam.
@@ -128,14 +149,15 @@
       // An inset roof's flat top is a plain cap over its tiled skirt (the shop
       // awning look): solid colour, its own ink group, rim bands below.
       const flatCap=variant==='inset'&&i===planes.length-1;
-      // Each awning skirt is tiled from its own eave: u runs along the eave,
-      // v climbs the slope, so courses stay level and point downhill on all
-      // four sides (hip beams cover the seams). Ridge roofs keep one
-      // continuous mapping across their cap.
+      // Every slope is tiled from its own eave: u runs along the eave and v
+      // grows downhill, so the sheet's course bottoms face the ground on all
+      // faces at every heading (ridge and hip beams cover the seams). A
+      // ridge's flat cap continues its first slope's mapping without a seam.
       let uv=p=>({u:p.x*ux+p.y*uy-bounds[0][0],v:roofV(p)});
-      if(variant==='inset'&&!flatCap){const n={x:planes[i].x/pitch,y:planes[i].y/pitch},t={x:-n.y,y:n.x},rise=Math.hypot(1,pitch);
-        const lo=Math.min(...roofRing.map(p=>p.x*n.x+p.y*n.y)),ulo=Math.min(...roofRing.map(p=>p.x*t.x+p.y*t.y));
-        uv=p=>({u:p.x*t.x+p.y*t.y-ulo,v:(p.x*n.x+p.y*n.y-lo)*rise});}
+      const slope=i<planes.length-1?i:flatCap?-1:0;
+      if(slope>=0){const n={x:planes[slope].x/pitch,y:planes[slope].y/pitch},t={x:-n.y,y:n.x},rise=Math.hypot(1,pitch);
+        const hi=Math.max(...roofRing.map(p=>p.x*n.x+p.y*n.y)),ulo=Math.min(...roofRing.map(p=>p.x*t.x+p.y*t.y));
+        uv=p=>({u:p.x*t.x+p.y*t.y-ulo,v:(hi-p.x*n.x-p.y*n.y)*rise});}
       for(let j=1;j<poly.length-1;j++){add([poly[0],poly[j],poly[j+1]].map(p=>({...p,z:roofZ(p),...uv(p)})),'roof',flatCap?1:light);
         if(flatCap)Object.assign(faces.at(-1),{solid:true,tileCap:true,inkGroup:1,layer:2.2});}
     }
@@ -163,12 +185,12 @@
     ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],cuts=roofCuts(a,b),length=Math.hypot(b.x-a.x,b.y-a.y);
       // Fixed density, centered entrance. Triangulate the entire wall silhouette
       // so a gable needs three triangles rather than two separate quads.
-      const span=length/DETAIL_SCALE,start=i===entranceEdge?253.5-span/2:length<22?110:0;
+      const span=length/DETAIL_SCALE,start=wallStart(span,i===entranceEdge);
       const outline=[{x:0,y:0},{x:length,y:0},...cuts.slice().reverse().map(t=>({x:t*length,y:roofZ({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t})}))];
       for(const tri of triangulate(outline).triangles){add(tri.map(p=>({
         x:a.x+(b.x-a.x)*p.x/length,y:a.y+(b.y-a.y)*p.x/length,z:p.y,
         u:start+p.x/DETAIL_SCALE,v:height+28-p.y
-      })),'wall');faces.at(-1).wallDirection={x:b.x-a.x,y:b.y-a.y};}
+      })),'wall');Object.assign(faces.at(-1),{wallDirection:{x:b.x-a.x,y:b.y-a.y},wallSpan:[start,start+span]});}
     });
     // A flat roof is one colour with a lighter rim and a darker band inside
     // it (the parapet's shadow); the ink outline marks the wall top. No lip.
@@ -201,7 +223,7 @@
     });
     const beam=(quad,light)=>{for(const tri of [[quad[0],quad[1],quad[2]],[quad[0],quad[2],quad[3]],[quad[2],quad[1],quad[0]],[quad[3],quad[2],quad[0]]]){
       add(tri.map(p=>({...p,u:0,v:0})),'trim',light);Object.assign(faces.at(-1),{layer:2.5,beam:true});}};
-    let chimneyAt=null,chimneyLength=0,chimneyLine=null;
+    let chimneyAt=null,chimneyLength=0,chimneyLine=null;const chimneyMouths=[];
     for(const line of lines.values()){
       const len=Math.hypot(line.d.x,line.d.y),dx=line.d.x/len,dy=line.d.y/len,merged=[];
       for(const span of line.spans.sort((a,b)=>a[0]-b[0]))if(merged.length&&span[0]<=merged.at(-1)[1]+1e-6)merged.at(-1)[1]=Math.max(merged.at(-1)[1],span[1]);else merged.push([...span]);
@@ -220,24 +242,25 @@
       const count=chimneys?.count||1,scale=chimneys?.scale||1,C=LOOK.chimney;
       const stack=(c,column)=>{
         const corners=rr=>[[-1,-1],[1,-1],[1,1],[-1,1]].map(([sx,sy])=>({x:c.x+(ux*sx-uy*sy)*rr,y:c.y+(uy*sx+ux*sy)*rr}));
-        const top=c.z+13+C.rise*scale,capZ=top-C.capHeight*scale,body=corners(C.radius*scale),lo=Math.min(...body.map(roofZ))-1;
-        const box=(ring,z0,z1,kind,color,layer,textured)=>ring.forEach((a,k)=>{const b=ring[(k+1)%4];
+        const top=c.z+C.above+C.rise*scale,capZ=top-C.capHeight*scale,body=corners((chimneys?.flare?C.cap*chimneys.flare:C.radius)*scale),lo=Math.min(...body.map(roofZ))-1;
+        const box=(ring,z0,z1,kind,color,layer,textured,upper=ring)=>ring.forEach((a,k)=>{const b=ring[(k+1)%4];
           const uv=p=>textured?{u:4+column*40+k*10+Math.hypot(p.x-a.x,p.y-a.y)/DETAIL_SCALE,v:105+(z1-p.z)/DETAIL_SCALE}:{u:0,v:0};
-          for(const tri of [[{...a,z:z0},{...b,z:z0},{...b,z:z1}],[{...a,z:z0},{...b,z:z1},{...a,z:z1}]]){
+          for(const tri of [[{...a,z:z0},{...b,z:z0},{...upper[(k+1)%4],z:z1}],[{...a,z:z0},{...upper[(k+1)%4],z:z1},{...upper[k],z:z1}]]){
             add(tri.map(p=>({...p,...uv(p)})),kind,1);Object.assign(faces.at(-1),{color,wallDirection:{x:b.x-a.x,y:b.y-a.y},layer,chimney:true,inkGroup:2,rawUV:textured||undefined});}});
-        box(body,lo,capZ,'wall',C.sides,2.6,true);
+        box(body,lo,capZ,'wall',C.sides,2.6,true,chimneys?.flare?corners(C.cap*scale):body);
         const cap=corners(C.cap*scale);box(cap,capZ,top,'trim',C.capColor,2.62,false);
         for(const tri of [[0,1,2],[0,2,3]]){add(tri.map(k=>({...cap[k],z:top,u:0,v:0})),'trim',1);Object.assign(faces.at(-1),{color:C.capColor,layer:2.7,chimney:true,inkGroup:2});}
         const mouth=corners(C.mouth*scale);
         for(const tri of [[0,1,2],[0,2,3]]){add(tri.map(k=>({...mouth[k],z:top+.01,u:0,v:0})),'trim',1);Object.assign(faces.at(-1),{color:C.mouthColor,layer:2.71,chimney:true,inkGroup:2});}
+        chimneyMouths.push({x:c.x,y:c.y,z:top});
       };
       (count>1?[.26,.74]:[.28]).forEach((t,i)=>stack(chimneyLine.at(chimneyLine.t0+(chimneyLine.t1-chimneyLine.t0)*t,0),i));
     }
-    return {ring,roofRing,actualOverhang,faces,roofTriangles,wallTriangles,trimTriangles:faces.length-roofTriangles-wallTriangles,height,roofZ,ridge:{x:ux,y:uy}};
+    return {ring,roofRing,actualOverhang,faces,roofTriangles,wallTriangles,trimTriangles:faces.length-roofTriangles-wallTriangles,height,roofZ,ridge:{x:ux,y:uy},chimneyMouths};
   }
   const meshCache=new Map();
   function geometry(input,variant='ridge',height=29,overhang=0,chimneys=null){
-    const key=variant+':'+height+':'+overhang+':'+(chimneys?chimneys.count+'x'+chimneys.scale:'')+':'+input.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
+    const key=variant+':'+height+':'+overhang+':'+(chimneys?chimneys.count+'x'+chimneys.scale+'x'+(chimneys.flare||0):'')+':'+input.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
     if(meshCache.has(key))return meshCache.get(key);
     const mesh=buildGeometry(input,variant,height,overhang,chimneys);
     if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
@@ -285,14 +308,14 @@
   function styleGeometry(points,styleId,recipe){
     // A tiny notch must not collapse every roof band into a broad trim cap.
     if((styleId==='pyramid'||styleId==='japanese')&&!BuildingStyles.inset(points,3))
-      return geometry(points,styleId==='pyramid'?'inset':'ridge',recipe.stories*FLOOR_HEIGHT+5);
+      return geometry(points,styleId==='pyramid'?'inset':'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE);
     const base=BuildingStyles.STYLES[styleId]||BuildingStyles.STYLES.adobe;
-    const scale=styleId==='ruin'?1.5:(recipe.stories*FLOOR_HEIGHT+5)/(base.height*(styleId==='multistorey'?2:1));
+    const scale=styleId==='ruin'?.75:(recipe.stories*FLOOR_HEIGHT+EAVE_RISE)/(base.height*(styleId==='multistorey'?2:1));
     const cacheKey='style:'+styleId+':'+scale+':'+JSON.stringify(recipe)+':'+points.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
     if(meshCache.has(cacheKey))return meshCache.get(cacheKey);
     const model=BuildingStyles.build(points,styleId,{geometryOnly:true,scale,upperSetback:recipe.terraced?24:undefined,palette:{wall:recipe.body,roof:recipe.roof,trim:recipe.trim}});
     const faces=[],quads=new Map();
-    const add=(p,kind,color,layer)=>{
+    const add=(p,kind,color,layer,extra)=>{
       const [a,b,c]=p,ux=b.x-a.x,uy=b.y-a.y,uz=b.z-a.z,vx=c.x-a.x,vy=c.y-a.y,vz=c.z-a.z;
       const nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,len=Math.hypot(nx,ny,nz);
       if(len<1e-8)return;
@@ -303,7 +326,7 @@
         p=p.map(v=>({...v,u:horizontal>1e-8?(-ny*v.x+nx*v.y)/horizontal:v.x,
           v:horizontal>1e-8?(nx*nz*v.x+ny*nz*v.y-horizontal*horizontal*v.z)/(horizontal*len):v.y}));
       }
-      faces.push({points:p,kind,light,color,layer:layer+(kind==='wall'?0.001:0)});
+      faces.push({points:p,kind,light,color,layer:layer+(kind==='wall'?0.001:0),...extra});
     };
     // A flat deck keeps no parapet: its wall prisms go, and so does the cap that
     // sat on the parapet when a real deck lies just below it. The lower storey's
@@ -319,10 +342,11 @@
       for(let i=0;i<ring.length;i++){
         const j=(i+1)%ring.length,a=ring[i],b=ring[j],c=upper[j],d=upper[i],length=Math.hypot(b.x-a.x,b.y-a.y);
         const slope=!!prism.topPoints,kind=trim?'trim':slope?'roof':'wall';
-        const p=[{...a,z:prism.bottom,u:0},{...b,z:prism.bottom,u:length/DETAIL_SCALE},{...c,z:prism.top,u:length/DETAIL_SCALE},{...d,z:prism.top,u:0}];
+        const span=length/DETAIL_SCALE,start=wallStart(span,false);
+        const p=[{...a,z:prism.bottom,u:start},{...b,z:prism.bottom,u:start+span},{...c,z:prism.top,u:start+span},{...d,z:prism.top,u:start}];
         p.forEach(v=>{v.v=105-v.z;if(slope){v.u=v.x;v.v=v.y;}});
         const key=p.map(v=>[v.x,v.y,v.z].map(n=>n.toFixed(5)).join(',')).sort().join(';');
-        if(quads.has(key))quads.set(key,null);else quads.set(key,{p,kind,color:trim?recipe.trim:null,layer:prism.bottom});
+        if(quads.has(key))quads.set(key,null);else quads.set(key,{p,kind,color:trim?recipe.trim:null,layer:prism.bottom,extra:kind==='wall'?{wallSpan:[start,start+span]}:undefined});
       }
       if(prism.capped){for(const tri of triangulate(upper).triangles){
         const kind=trim&&!recipe.terraced?'trim':'roof';
@@ -332,7 +356,7 @@
       }
       }
     }
-    for(const quad of quads.values())if(quad){const {p,kind,color,layer}=quad;add([p[0],p[1],p[2]],kind,color,layer);add([p[0],p[2],p[3]],kind,color,layer);}
+    for(const quad of quads.values())if(quad){const {p,kind,color,layer,extra}=quad;add([p[0],p[1],p[2]],kind,color,layer,extra);add([p[0],p[2],p[3]],kind,color,layer,extra);}
     // Slabs and material caps can emit the same top triangle twice. Keep one
     // surface; upper walls sit just after their supporting deck in painter order.
     const seenFaces=new Set();
@@ -362,29 +386,50 @@
     if(meshCache.has(key))return meshCache.get(key);
     if(recipe.shape==='wreck'){
       // A wreck is mostly wall: thick, broken-topped sections around the whole
-      // footprint, a few patches of roof still up on bare rafters, and dark
-      // rubble with fallen roof slabs inside.
-      const H=18,base=geometry(points,'ridge',H,0),faces=[],W=LOOK.wreck;
+      // footprint with one section fallen entirely (the gap sits on the longest
+      // edge, so a tiny return never opens a whole side), a few patches of roof
+      // still up on bare rafters, and dark rubble with fallen roof slabs inside.
+      // Crumbling walls: sections every half cell step up and down between the
+      // ground and H, half the shortest building (one storey plus eave rise).
+      // A shallow pitch keeps the surviving roof patches near the wall tops.
+      const H=(FLOOR_HEIGHT+EAVE_RISE)/2,SECTION=16,base=geometry(points,'shallow',H,0),faces=[],W=LOOK.wreck;
       const xs2=points.map(p=>p.x),ys=points.map(p=>p.y),[xlo,xhi,ylo,yhi]=[Math.min(...xs2),Math.max(...xs2),Math.min(...ys),Math.max(...ys)];
       const ring=base.ring,inner=(typeof BuildingStyles!=='undefined'&&(BuildingStyles.inset(ring,4)||BuildingStyles.inset(ring,2)))||null;
       const tri=(pts,kind,extra)=>{faces.push({points:pts,kind,light:1,layer:0,...extra});return faces.at(-1);};
       const quad=(a,b,c,d,kind,extra)=>{tri([a,b,c],kind,extra);tri([a,c,d],kind,extra);};
       const wallUV=(p,offset,z)=>({...p,z,u:offset/DETAIL_SCALE,v:H+28-z});
+      let gap=null;
       if(inner&&inner.length===ring.length){
         // Wall sections around the ring, each with its own broken height.
         const parts=[];
         ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],ai=inner[i],bi=inner[(i+1)%ring.length],len=Math.hypot(b.x-a.x,b.y-a.y);
-          const count=Math.max(1,Math.round(len/30)),dir={x:b.x-a.x,y:b.y-a.y};
-          for(let k=0;k<count;k++){const t0=k/count,t1=(k+1)/count;
-            parts.push({dir,len,t0,t1,h:H*(.45+.55*hash(i*7+k,11)),o0:{x:a.x+dir.x*t0,y:a.y+dir.y*t0},o1:{x:a.x+dir.x*t1,y:a.y+dir.y*t1},i0:{x:ai.x+(bi.x-ai.x)*t0,y:ai.y+(bi.y-ai.y)*t0},i1:{x:ai.x+(bi.x-ai.x)*t1,y:ai.y+(bi.y-ai.y)*t1}});}});
+          const count=Math.max(1,Math.round(len/SECTION)),dir={x:b.x-a.x,y:b.y-a.y};
+          // Interior breaks cross the wall at right angles. Only the corners
+          // retain the inset ring's mitres.
+          const innerAt=t=>{
+            if(t===0)return ai;if(t===1)return bi;
+            const o={x:a.x+dir.x*t,y:a.y+dir.y*t},dx=bi.x-ai.x,dy=bi.y-ai.y;
+            const u=((o.x-ai.x)*dx+(o.y-ai.y)*dy)/(dx*dx+dy*dy);
+            return {x:ai.x+dx*u,y:ai.y+dy*u};
+          };
+          for(let k=0;k<count;k++){const t0=k/count,t1=(k+1)/count,r=hash(i*7+k,11);
+            // A fifth of the sections are down to the ground; the rest stand at
+            // uneven heights (never below a knee, so a stub still reads as wall).
+            parts.push({edge:i,len,dir,t0,t1,h:r<.2?0:H*(.3+.7*(r-.2)/.8),o0:{x:a.x+dir.x*t0,y:a.y+dir.y*t0},o1:{x:a.x+dir.x*t1,y:a.y+dir.y*t1},i0:innerAt(t0),i1:innerAt(t1)});}});
+        const longest=parts.reduce((a,b)=>b.len>a.len?b:a,parts[0]).edge,span=parts.filter(p=>p.edge===longest);
+        const gone=span[Math.floor(hash(longest,23)*span.length)];gone.h=0;gap={o0:gone.o0,o1:gone.o1};
+        for(const p of parts)p.gone=p.h<.5;
         parts.forEach((p,k)=>{const {dir,len,t0,t1,h,o0,o1,i0,i1}=p;
+          const next=parts[(k+1)%parts.length];
+          // A fallen section leaves only its standing neighbour's end face.
+          if(p.gone){if(next.h>.5){const e=[{...o1,z:0},{...i1,z:0},{...i1,z:next.h},{...o1,z:next.h}].map(v=>({...v,u:0,v:0}));
+            quad(e[0],e[1],e[2],e[3],'trim',{color:W.top,layer:2.3,wallDirection:{x:i1.x-o1.x,y:i1.y-o1.y}});}return;}
           // Outer face (textured, lit by direction), inner face seen from inside, broken top.
           quad(wallUV(o0,len*t0,0),wallUV(o1,len*t1,0),wallUV(o1,len*t1,h),wallUV(o0,len*t0,h),'wall',{wallDirection:dir});
           quad(wallUV(i1,len*t1,0),wallUV(i0,len*t0,0),wallUV(i0,len*t0,h),wallUV(i1,len*t1,h),'wall',{wallDirection:{x:-dir.x,y:-dir.y},interior:true,light:.55});
           const top=[o0,o1,i1,i0].map(q=>({...q,z:h,u:0,v:0}));
           quad(top[0],top[1],top[2],top[3],'trim',{color:W.top,layer:2.4,wallTop:true});
           // The step up to a taller neighbour shows its end above this top.
-          const next=parts[(k+1)%parts.length];
           if(next.h-h>.5){const e=[{...o1,z:h},{...i1,z:h},{...i1,z:next.h},{...o1,z:next.h}].map(v=>({...v,u:0,v:0}));
             quad(e[0],e[1],e[2],e[3],'trim',{color:W.top,layer:2.3,wallDirection:{x:i1.x-o1.x,y:i1.y-o1.y}});}
           else if(h-next.h>.5){const e=[{...next.i0,z:next.h},{...next.o0,z:next.h},{...next.o0,z:h},{...next.i0,z:h}].map(v=>({...v,u:0,v:0}));
@@ -430,12 +475,12 @@
         let q=[{x:x-dy*w,y:y+dx*w,z:1},{x:x+dx*L-dy*w,y:y+dy*L+dx*w,z:1},{x:x+dx*L+dy*w,y:y+dy*L-dx*w,z:1+lift},{x:x+dy*w,y:y-dx*w,z:1+lift}];if(cross(q[0],q[1],q[2])<0)q=q.reverse();
         q=q.map((p,i)=>({...p,u:i<2?0:L,v:i===1||i===2?w*2:0}));
         for(const t of [[q[0],q[1],q[2]],[q[0],q[2],q[3]]])faces.push({points:t,kind,color,light:kind==='roof'?.7:1,layer:-.5});};
-      for(let k=0;k<3;k++)fallen(k,'roof',undefined,14+hash(k,3)*10,5,4);
+      for(let k=0;k<3;k++)fallen(k,'roof',undefined,14+hash(k,3)*10,5,2);
       for(let k=3;k<6;k++)fallen(k,'trim',W.beam,14+hash(k,3)*10,1.4,0);
-      const mesh={...base,faces,roofPatches,roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,damaged:true};
+      const mesh={...base,faces,roofPatches,gap,roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,damaged:true};
       if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(key,mesh);return mesh;
     }
-    const faces=[],wizard=recipe.shape==='wizard',radius=wizard?23:26,h=wizard?78:34;
+    const faces=[],wizard=recipe.shape==='wizard',radius=wizard?23:26,h=wizard?39:17;
     const push=(p,kind,layer=0,light=.8)=>faces.push({points:p,kind,layer,light});
     const ring=Array.from({length:wizard?8:4},(_,i)=>{const a=i*Math.PI*2/(wizard?8:4)+(wizard?Math.PI/8:Math.PI/4);return {x:cx+Math.cos(a)*radius,y:cy+Math.sin(a)*radius};});
     function prism(ring,lo,hi,kind='wall',capped=true){
@@ -449,17 +494,17 @@
     if(wizard){
       const outer=ring.map(p=>({x:cx+(p.x-cx)*1.23,y:cy+(p.y-cy)*1.23}));
       outer.forEach((a,i)=>{const b=outer[(i+1)%outer.length],width=Math.hypot(b.x-a.x,b.y-a.y);
-        push([{...a,z:h,u:0,v:42},{...b,z:h,u:width,v:42},{x:cx,y:cy,z:h+43,u:width/2,v:0}],'roof',h+1,.8-(a.x-cx)/radius*.2);
+        push([{...a,z:h,u:0,v:42},{...b,z:h,u:width,v:42},{x:cx,y:cy,z:h+21.5,u:width/2,v:0}],'roof',h+1,.8-(a.x-cx)/radius*.2);
       });
     }else{
       // Eight crenels, including the four corners, on a compact castle shell.
       const lo=cx-radius/Math.sqrt(2),top=cy-radius/Math.sqrt(2),side=radius*Math.sqrt(2),w=8;
       for(const [u,v] of [[0,0],[.5,0],[1,0],[1,.5],[1,1],[.5,1],[0,1],[0,.5]]){
         const x=lo+u*(side-w),y=top+v*(side-w);
-        prism([{x,y},{x:x+w,y},{x:x+w,y:y+w},{x,y:y+w}],h,h+8,'trim');
+        prism([{x,y},{x:x+w,y},{x:x+w,y:y+w},{x,y:y+w}],h,h+4,'trim');
       }
     }
-    const mesh={ring,faces,height:h+(wizard?43:8),eaveHeight:h,uvBaseline:true,
+    const mesh={ring,faces,height:h+(wizard?21.5:4),eaveHeight:h,uvBaseline:true,
       roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length};
     if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(key,mesh);return mesh;
   }
@@ -566,7 +611,7 @@
     wood:{dark:0x4a2123,mid:0x7e210d,base:0x954a39,light:0xb45c3a,bright:0xc87139},
     glass:{dark:0x185969,base:0x1fc6af,light:0x9ff0e0},flame:0xf2c76a};
   function celSheet(scene,recipe){
-    const wreck=recipe.shape==='wreck',key='lowpoly:cel-v1:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.roofMaterial,recipe.finish,wreck,!!recipe.blank]);
+    const wreck=recipe.shape==='wreck',key='lowpoly:cel-v4:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.roofMaterial,recipe.finish,recipe.window,recipe.role==='blacksmith',wreck,!!recipe.blank]);
     if(scene.textures.exists(key))return scene.textures.get(key);
     const tex=scene.textures.createCanvas(key,512,512),ctx=tex.getContext();
     const css=c=>'#'+c.toString(16).padStart(6,'0');
@@ -575,6 +620,9 @@
     const ramp=c=>({shade:mix(c,CEL.shadow,.26),base:c,light:mix(c,CEL.cream,.16)});
     const wall=ramp(recipe.body),roof=ramp(recipe.roof),ink=CEL.ink;
     const trim={shade:CEL.wood.dark,base:CEL.wood.base,light:CEL.wood.light}; // the sprites' frame wood
+    // Raised timbers cover the plank seams: a broad wood face with a light
+    // upper/left edge and a dark lower/right edge, all in the wall's palette.
+    const beam={base:mix(wall.base,CEL.shadow,.12),light:mix(wall.base,CEL.cream,.32),shade:mix(wall.base,CEL.shadow,.45)};
     const BOT=105,FLOORS=4,bays=[];for(let k=-1;k<=12;k++)bays.push(2+39*k);
     // --- wall surface -------------------------------------------------------
     px(0,0,512,128,wall.base);
@@ -592,25 +640,54 @@
       for(let y=5;y<128;y+=6)px(0,y,512,1,mix(wall.base,wall.shade,.5));
       for(let y=3;y<128;y+=11)for(let x=5;x<512;x+=17){if(hash(x,y)>.9)px(x,y,2,1,wall.light);}
     }
-    // Floor beams: a dark timber band with a bright top edge, every storey.
-    for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);px(0,y-1,512,3,trim.shade);px(0,y-1,512,1,trim.light);}
-    if(recipe.finish==='cottage'){ // half-timbering: posts at bay edges, one brace per bay
-      for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);for(const bx of bays){px(bx-1,y,3,24,trim.shade);px(bx-1,y,1,24,trim.light);
-        for(let i=0;i<7;i++){px(bx+3+i,y+4+i,2,1,trim.shade);px(bx+34-i,y+4+i,2,1,trim.shade);}}}
+    // Keep the existing storey bands, bay posts and diagonal brace paths.
+    // Five-texel beams leave a three-texel face between their bevel lines.
+    if(recipe.finish==='cottage'){
+      for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);for(const bx of bays){
+        // Full panel diagonals join opposite corners beneath the openings.
+        for(let i=0;i<39;i++)for(const x of [bx+i,bx+38-i]){
+          const by=y-2+Math.round(i*24/39);
+          px(x,by,1,6,beam.base);px(x,by,1,1,beam.light);px(x,by+5,1,1,beam.shade);
+        }
+        px(bx-2,y,5,24,beam.base);px(bx-2,y,1,24,beam.light);px(bx+2,y,1,24,beam.shade);
+      }}
+    }
+    // Horizontal timbers cap the joints after the posts and braces.
+    for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);
+      px(0,y-2,512,5,beam.base);px(0,y-2,512,1,beam.light);px(0,y+2,512,1,beam.shade);
     }
     // Plinth: stone courses below the ground line, as the tileset keeps them;
     // walls never sample it (chimney sides and the door step do).
-    const plinth=ramp(mix(recipe.body,CEL.mauve,.6));
+    const matchWall=recipe.role==='blacksmith',plinth=matchWall?wall:ramp(mix(recipe.body,CEL.mauve,.6));
+    const bw=matchWall?24:18,bh=matchWall?12:6;
     px(0,BOT,512,23,plinth.base);
-    for(let y=BOT+1,row=0;y<128;y+=6,row++)for(let x=-(row%2)*9;x<512;x+=18){px(x,y+5,18,1,plinth.shade);px(x+17,y,1,6,plinth.shade);px(x+1,y,16,1,plinth.light);}
+    for(let y=BOT+1,row=0;y<128;y+=bh,row++)for(let x=-(row%2)*bw/2;x<512;x+=bw){px(x,y+bh-1,bw,1,plinth.shade);px(x+bw-1,y,1,bh,plinth.shade);px(x+1,y,bw-3,1,plinth.light);}
     // --- openings -------------------------------------------------------------
-    const casement=(x,y,f)=>{ // 11x13 casement: ink outline, trim frame, two-tone glass, one bright pane, sill
-      px(x-1,y-1,13,15,ink);px(x,y,11,13,trim.base);
-      if(wreck){px(x+1,y+1,9,11,CEL.plum);px(x,y+3,11,3,CEL.wood.mid);px(x,y+8,11,3,CEL.wood.dark);px(x+1,y+3,1,1,ink);px(x+9,y+9,1,1,ink);return;}
-      px(x+1,y+1,9,11,CEL.glass.base);px(x+1,y+1,4,5,CEL.glass.light);px(x+6,y+7,4,5,CEL.glass.dark);
-      px(x+5,y+1,1,11,trim.shade);px(x+1,y+6,9,1,trim.shade);
-      px(x-2,y+13,15,2,trim.light);px(x-2,y+15,15,1,ink);
-      px(x-2,y-3,15,2,trim.shade);px(x-2,y-3,15,1,trim.light); // lintel plank
+    // Window shapes follow the approved house, smithy, trader and market
+    // sprites. Specialty shops share the market sprite's broad four panes.
+    const casement=(x,y)=>{
+      const style=recipe.window||'casement',shop=style==='shop',twin=style==='slateShutters',w=shop?17:11,h=10;
+      x-=Math.floor((w-11)/2);
+      px(x-1,y-1,w+2,h+2,ink);px(x,y,w,h,trim.base);
+      if(wreck){px(x+1,y+1,w-2,h-2,CEL.plum);px(x,y+2,w,2,CEL.wood.mid);px(x,y+6,w,2,CEL.wood.dark);px(x+1,y+2,1,1,ink);px(x+w-2,y+7,1,1,ink);return;}
+      px(x+1,y+1,w-2,h-2,CEL.glass.base);
+      px(x+1,y+1,Math.floor(w/2)-1,twin?h-2:3,CEL.glass.light);
+      px(x+Math.ceil(w/2),y+(twin?1:5),Math.floor(w/2)-1,twin?h-2:4,CEL.glass.dark);
+      px(x+Math.floor(w/2),y+1,1,h-2,trim.shade);
+      if(!twin)px(x+1,y+4,w-2,1,trim.shade);
+      if(style==='arched'){
+        px(x,y,w,1,trim.shade);px(x,y+1,2,2,trim.base);px(x+w-2,y+1,2,2,trim.base);
+        px(x+2,y+1,w-4,1,trim.light);
+      }
+      if(style==='woodShutters'||twin){
+        const shutter=twin?{base:0x626c80,light:0x8792a3,shade:0x3d4256}:trim;
+        for(const sx of [x-5,x+w+1]){
+          px(sx-1,y-1,6,h+2,ink);px(sx,y,4,h,shutter.base);px(sx,y,1,h,shutter.light);
+          for(let j=2;j<h;j+=3)px(sx+1,y+j,3,1,shutter.shade);
+        }
+      }
+      px(x-2,y+h,w+4,2,trim.light);px(x-2,y+h+2,w+4,1,ink);
+      px(x-2,y-3,w+4,2,trim.shade);px(x-2,y-3,w+4,1,trim.light);
     };
     const door=(x,y)=>{ // 15x21 plank door, arched ink outline, crate-style brace, step and lantern
       px(x-1,y-1,17,23,ink);px(x,y+2,15,20,CEL.wood.base);px(x+1,y,13,2,CEL.wood.base);px(x+2,y-1,11,1,ink);
@@ -655,7 +732,7 @@
     if(recipe.role!=='fort'&&LOOK.facade==='cel')return celSheet(scene,recipe);
     if(recipe.role!=='fort'&&tilesetReady(scene))return tilesetSheet(scene,recipe);
     const source=recipe.role!=='fort'&&scene.textures.exists('building_material_reference')?scene.textures.get('building_material_reference').getSourceImage():null;
-    const key=(source?'generated:':'fallback:')+'lowpoly:materials-v13:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.finish,recipe.roofMaterial,recipe.role==='fort',recipe.shape,recipe.terraced]);
+    const key=(source?'generated:':'fallback:')+'lowpoly:materials-v14:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.finish,recipe.roofMaterial,recipe.role==='fort',recipe.shape,recipe.terraced]);
     if(scene.textures.exists(key))return scene.textures.get(key);
     const tex=scene.textures.createCanvas(key,512,512),ctx=tex.getContext();
     const css=c=>'#'+c.toString(16).padStart(6,'0');
@@ -721,11 +798,11 @@
       rect(0,y,512,1,sill);
       for(let x=14;x<512;x+=39){
         if(floor===0&&x===248)continue; // Entrance owns this entire bay.
-        ctx.globalAlpha=.14;rect(x+1,y+7,9,13,'#292b2b');ctx.globalAlpha=1;
+        ctx.globalAlpha=.14;rect(x+1,y+7,9,10,'#292b2b');ctx.globalAlpha=1;
         // Four-pane casement: lit glass, one bright pane, timber cross.
-        rect(x-2,y+5,10,13,frame);rect(x-1,y+6,8,10,'#55719f');rect(x-1,y+6,3,4,'#93b0d6');
-        rect(x+2,y+6,1.2,10,css(recipe.trim));rect(x-1,y+10,8,1.2,css(recipe.trim));
-        rect(x-2,y+17,10,1.2,sill);ctx.globalAlpha=.2;rect(x-1,y+18,9,1,'#282c2c');ctx.globalAlpha=1;
+        rect(x-2,y+5,10,10,frame);rect(x-1,y+6,8,7,'#55719f');rect(x-1,y+6,3,4,'#93b0d6');
+        rect(x+2,y+6,1.2,7,css(recipe.trim));rect(x-1,y+10,8,1.2,css(recipe.trim));
+        rect(x-2,y+14,10,1.2,sill);ctx.globalAlpha=.2;rect(x-1,y+15,9,1,'#282c2c');ctx.globalAlpha=1;
       }
     }
     if(recipe.finish==='cottage'){
@@ -861,7 +938,9 @@
           }
         }};
         let group=[],support=null,groupId=0;
-        const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0)ink(group);paint(group);group=[];};
+        // The outline repeats filled triangles eight times. During a fade those
+        // layers would accumulate to opaque black and hide the player again.
+        const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0&&src.alpha===1)ink(group);paint(group);group=[];};
         for(const f of src._lowpolyFaces){
           if(!f.visible)continue;
           const g=f.inkGroup||0;
@@ -926,6 +1005,7 @@
         tu:trim?510:raw?p.u:roof?p.u/DETAIL_SCALE:p.u,
         tv:trim?126:raw?p.v:roof?p.v/DETAIL_SCALE:105-(105-p.v-vOffset)/DETAIL_SCALE}));
       let polys=[points];
+      if(face.kind==='wall'&&face.wallSpan&&!raw&&!trim)polys=cornerBays(polys,face.wallSpan,cut);
       if(!trim&&!raw){
         // The selected sheet owns its roof repeat (approved crops: 360;
         // generated tiles: 288). Facades repeat twelve complete 39px bays.
@@ -941,16 +1021,58 @@
     }
     return result;
   }
-  function add(scene,pts,recipe,variant,key){
+  const DOOR={width:10,height:13,margin:4,reach:192};
+  // Points and streets share the unrotated map projection. Winding determines
+  // the outward wall normal; a street behind the wall cannot select it.
+  function streetDoor(points,streets){
+    const ring=triangulate(points).ring;
+    let best=null;
+    for(let i=0;i<ring.length;i++){
+      const a=ring[i],b=ring[(i+1)%ring.length],length=Math.hypot(b.x-a.x,b.y-a.y);
+      if(length<DOOR.width+2*DOOR.margin)continue;
+      const along={x:(b.x-a.x)/length,y:(b.y-a.y)/length},normal={x:along.y,y:-along.x};
+      const center={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+      for(const [c,d] of streets){
+        const dx=d.x-c.x,dy=d.y-c.y,len2=dx*dx+dy*dy;
+        if(!len2)continue;
+        const t=Math.max(0,Math.min(1,((center.x-c.x)*dx+(center.y-c.y)*dy)/len2));
+        const vx=c.x+dx*t-center.x,vy=c.y+dy*t-center.y,distance=Math.hypot(vx,vy);
+        if(distance>DOOR.reach||vx*normal.x+vy*normal.y<distance*.5)continue;
+        if(!best||distance<best.distance)best={center,along,normal,distance};
+      }
+    }
+    return best;
+  }
+  function doorFaces(door){
+    if(!door)return [];
+    const faces=[],{center,along,normal}=door;
+    const panel=(x0,x1,z0,z1,color,layer)=>{
+      const point=(x,z)=>({x:center.x+along.x*x+normal.x*.1,y:center.y+along.y*x+normal.y*.1,z,u:0,v:0});
+      const a=point(x0,z0),b=point(x1,z0),c=point(x1,z1),d=point(x0,z1);
+      for(const points of [[a,b,c],[a,c,d]])faces.push({points,kind:'trim',color,layer,light:1,door:true,wallDirection:along});
+    };
+    panel(-5,5,0,13,0x30262a,.10);
+    panel(-3.8,3.8,.7,11.8,0x79503b,.11);
+    for(const x of [-1.3,1.3])panel(x-.2,x+.2,.7,11.8,0x4d342c,.12);
+    panel(-3.8,3.8,2,2.7,0xa37b53,.13);
+    panel(2.3,3.1,5.3,6.2,0xd4b775,.14);
+    return faces;
+  }
+  function add(scene,pts,recipe,variant,key,streets=[]){
     const state=scene._lowpoly,left=Math.min(...pts.map(p=>p.x)),top=Math.min(...pts.map(p=>p.y));
     const local=pts.map(p=>({x:p.x-left,y:p.y-top}));
     let cached=recipe.shape?specialGeometry(local,recipe):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
-      ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+5,ROOF_OVERHANG,recipe.chimneys?{count:recipe.chimneys,scale:recipe.chimneyScale||1}:null);
+      ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
+    if(!recipe.shape&&!recipe.interior&&streets.length){
+      const localStreets=streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})));
+      const door=streetDoor(local,localStreets);
+      if(door)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};
+    }
     const texture=material(scene,recipe);(state.textures||=new Set()).add(texture.key);
     const mesh={...cached,faces:atlasFaces(cached,texture.roofPeriod)};
     mesh.roofTriangles=mesh.faces.filter(f=>f.kind==='roof').length;mesh.wallTriangles=mesh.faces.filter(f=>f.kind==='wall').length;mesh.trimTriangles=mesh.faces.filter(f=>f.kind==='trim').length;
-    mesh.role=recipe.role;mesh.x=left;mesh.y=top;state.buildings.push(mesh);if(key&&mesh.faces.length)state.keys.add(key);
+    mesh.key=key;mesh.footprint=pts;mesh.role=recipe.role;mesh.x=left;mesh.y=top;mesh.smoke=recipe.smoke?cached.chimneyMouths||[]:[];state.buildings.push(mesh);if(key&&mesh.faces.length)state.keys.add(key);
     const support={x:left+local.reduce((s,p)=>s+p.x,0)/local.length,y:top+local.reduce((s,p)=>s+p.y,0)/local.length,order:state.buildings.length};
     const index=state.buildings.length-1;
     const obj=state.pool[index]||(state.pool[index]=renderObject(scene));
@@ -961,8 +1083,10 @@
       else if(face.wallTop)face.color=mix(recipe.body,0xf3e6c8,.35);
       else if(face.kind==='trim'&&face.color==null)face.color=recipe.trim;
       else if(recipe.shape==='wreck'&&(face.kind==='wall'||face.kind==='roof')&&!face.debris&&!face.chimney)face.color=LOOK.wreck.tint;
+      if(face.chimney && recipe.role==='blacksmith' && face.color!==LOOK.chimney.mouthColor)
+        face.color=face.kind==='wall'?0xffffff:recipe.body;
       // The untextured look (LOOK.textured=false) draws each face in its base colour.
-      face.flat=face.tileCap?mix(recipe.roof,0x2a2229,.12):face.kind==='roof'&&!face.solid?recipe.roof:face.kind==='wall'?(face.chimney?LOOK.chimney.sides:recipe.body):face.color??recipe.trim;
+      face.flat=face.tileCap?mix(recipe.roof,0x2a2229,.12):face.kind==='roof'&&!face.solid?recipe.roof:face.kind==='wall'?(face.chimney&&recipe.role!=='blacksmith'?LOOK.chimney.sides:recipe.body):face.color??recipe.trim;
       face.preserveWalls=recipe.role==='fort'||!!face.chimney;face.eaveHeight=mesh.eaveHeight??mesh.height;face.support=support;face.texture=texture;face.x=left;face.y=top;face.projected=face.points.map(()=>({}));state.faces.push(face);}
     return mesh;
   }
@@ -979,7 +1103,8 @@
       obj._huAnchor.x=mesh.support.x+state.offsetX;
       obj._huAnchor.y=mesh.support.y+state.offsetY;
     }
-    const angle=scene.mapRot||0;if(state.angle===angle)return;state.angle=angle;
+    const angle=scene.mapRot||0;const changed=state.angle!==angle;state.angle=angle;
+    if(changed){
     const c=Math.cos(angle),s=Math.sin(angle);
     for(const face of state.faces){let depth=0;
       // Height projects screen-up, foreshortened like the billboard sprites.
@@ -992,16 +1117,28 @@
     }
     for(const mesh of state.buildings){
       mesh.faces.sort((a,b)=>(a.layer??0)-(b.layer??0)||a.depth-b.depth);
+      mesh.visibleTriangles=mesh.faces.filter(f=>f.visible).map(f=>f.projected);
       // Standalone art viewers have no shared world sorter.
       if(!scene.worldContainer)mesh.obj.setDepth(mesh.support.depth);
     }
     if(!scene.worldContainer)scene.buildingWallContainer.sort('depth');
+    }
+    for(const mesh of state.buildings) mesh.obj.alpha=mesh.role==='wreck'||typeof Render==='undefined'||!Render.buildingFadeAlpha?1:Render.buildingFadeAlpha(scene,mesh.key,mesh.footprint,
+      mesh.visibleTriangles||[],mesh.support,{x:state.offsetX,y:state.offsetY});
+  }
+  // Screen points of every smoking chimney mouth (ROLES[role].smoke), in the
+  // wall container's space, projected like the faces. render.js puffs there.
+  function smokeMouths(scene){
+    const state=scene._lowpoly;if(!state||!state.enabled||!active(scene)||(scene.depth??0)!==0)return [];
+    const angle=scene.mapRot||0,c=Math.cos(angle),s=Math.sin(angle),k=LOOK.heightScale,out=[];
+    for(const mesh of state.buildings)for(const m of mesh.smoke)out.push({x:mesh.x+m.x-s*m.z*k+(state.offsetX||0),y:mesh.y+m.y-c*m.z*k+(state.offsetY||0),alpha:mesh.obj?.alpha??1});
+    return out;
   }
   function worldPieces(scene){
     const state=scene._lowpoly;if(!state||!state.enabled||!active(scene)||(scene.depth??0)!==0)return [];
     update(scene);
     const anchor=viewAnchorWorldM(scene);
-    return state.buildings.map(mesh=>({sprite:mesh.obj,rank:1,
+    return state.buildings.map(mesh=>({sprite:mesh.obj,rank:1,layer:typeof WorldLayers==='undefined'?undefined:mesh.role==='wreck'?WorldLayers.GROUND_DECAL:WorldLayers.STANDING_PROP,
       groundY:anchor.y+(mesh.obj._huAnchor.y-scene.viewCenterY)*scene.cellM/CELL_PX}));
   }
   function clear(scene){
@@ -1010,5 +1147,5 @@
     for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
   }
   const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);
-  global.BuildingLowPoly={LOOK,atlasFaces,ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,clear,covers};
+  global.BuildingLowPoly={LOOK,DOOR,streetDoor,doorFaces,atlasFaces,ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
 })(window);
