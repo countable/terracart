@@ -63,7 +63,7 @@ test('scene art: shared crop above fitted copy without scrolling', () => {
   assert.falsy(/overflow-y:auto;/.test(region.replace(/scroll\n\s*\? '[^']*'/, '')), 'neither body nor copy scrolls — except the menu\'s `scroll` viewport');
   assert.truthy(region.includes("art ? 'margin:0;flex:0 0 auto;'"), 'copy follows the image region, including ceremonies');
   assert.truthy(region.includes('spacer.append(mosaicLayer, artLayer)'), 'painting and mosaic share the crop above copy');
-  assert.truthy(shell.includes("backgroundSize = '100% auto'"), 'crop scales uniformly without distortion');
+  assert.truthy(shell.includes("backgroundSize = kind === 'story' ? 'cover' : '100% auto'"), 'crop scales uniformly without distortion');
   assert.truthy(shell.includes("backgroundPosition = 'center top'"), 'tall assets lose their bottom, keeping the subject');
   assert.falsy(/ART_BAND_|ART_DETAIL_FRAC|ART_FRAME_ASPECT|readShape/.test(shell), 'no legacy band layout or load-time shape switching');
 });
