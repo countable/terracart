@@ -13,7 +13,7 @@
         pairy: () => 'Consumes the effects of one Pairy immediately, including its treasure compass.',
         light: () => 'Personal torch light.',
         reach: () => 'Full-screen reach and illumination.',
-        shield: () => `Incoming damage ×${CONSUMABLE_SPEC.shield_potion.damageMul}, before armour.`,
+        shield: () => `Incoming damage ×${CONSUMABLE_SPEC.shielding_potion.damageMul}, before armour.`,
         hidden: () => 'Monsters ignore you until attacked. Fauna and pets do not flee while being caught.',
         melee: () => `+${Combat.TRAINING_KINDS.melee.drill} melee damage and +${Combat.TRAINING_KINDS.ranged.drill} bow damage.`,
         fortune: () => `+${Math.round(Shrines.FORTUNE_LUCK_BONUS * 100)} percentage points of luck on treasure rolls.`,
@@ -57,7 +57,7 @@
       return { src:canvas.toDataURL(), w, h, ...spec };
     }
     await Promise.all(rows.map(async row => frames.set(row.id, await Promise.all(row.sprites.map(crop)))));
-    $('rules').innerHTML = `<p>Daily visits use the UTC-day ledger. Sites keep their ambient light after a visit; the extra availability pulse disappears when today’s reward is claimed. Shrine boons refresh to the later expiry without stacking in strength. Paid companion offers follow their own price and duration. A painted story panel appears on each successful shrine visit.</p><p>Each special street independently has a <b>${Math.round(Shrines.STREET_SHRINE_CHANCE * 100)}% shrine chance</b>, with no shared tile cap; scenic paths cap them at <b>${Shrines.SCENIC_SHRINES_PER_TILE} per tile</b>. Zone shrines and mapped park shrines use their separate configured placements.</p>`;
+    $('rules').innerHTML = `<p>Daily visits use the UTC-day ledger. Sites keep their ambient light after a visit; the extra availability pulse disappears when today’s reward is claimed. Shrine boons add their duration to any remaining time without stacking in strength. Paid companion offers follow their own price and duration. A painted story panel appears on each successful shrine visit.</p><p>Each special street independently has a <b>${Math.round(Shrines.STREET_SHRINE_CHANCE * 100)}% shrine chance</b>, with no shared tile cap; scenic paths cap them at <b>${Shrines.SCENIC_SHRINES_PER_TILE} per tile</b>. Zone shrines and mapped park shrines use their separate configured placements.</p>`;
     function sprites(row) {
       return frames.get(row.id).map(frame => {
         const scale = Number($('scale').value);

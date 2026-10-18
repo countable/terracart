@@ -31,7 +31,6 @@
 //   Lighting.daylight(scene, now) — 0..1 from the real sun at the player
 //   Lighting.playerCookieAlpha(t, prof) — the player ramp, sampled
 //   Lighting.plateauLevel(prof, t)  — the plateau's light at t of the way to the rim
-//   Lighting.plateauCellPath(ctx, sx, sy, …) — one reach cell's rounded plateau path
 //   Lighting.draw(scene)          — paint the lightmap (Phaser)
 //
 // ── The model ─────────────────────────────────────────────────────────────
@@ -58,16 +57,9 @@
 // shown as a MULTIPLY-blended image, so it is the same picture on WebGL, on
 // the Canvas fallback and on every GPU — see the note at draw().
 //
-// The player's PLATEAU is painted per reach cell with cellInReach's own
-// maths, so the sharp edge of the lit area IS the staircase the tap gate
-// accepts once its brief cell-change crossfade settles. Only the falloff
-// outside it is a circle. That edge is the WHOLE
-// affordance (no outline is stroked over it; if the boundary stops reading,
-// widen the step at its edge). Inside the staircase the plateau is the
-// player's own lamp, full at the feet and easing down PLATEAU_FALL of the way
-// by the reach rim (plateauLevel), so the lit area reads as light thrown
-// from the body, with the step down at its edge still the biggest thing in
-// the picture.
+// The player's PLATEAU is a circle with the interaction radius, centred on
+// the player. A cell is reachable when its footprint overlaps the circle.
+// Its brightness eases from the player's feet as the circle follows them.
 //
 // ── The numbers are DERIVED, not tuned ────────────────────────────────────
 // profile() derives the white channel from Render.reachDimAlpha /
@@ -379,7 +371,7 @@
   const PLAYER_OUTPUT_K = 0.44;
 
   // PLATEAU_OUTPUT_K scales `lit` — the reach area itself, the plateau the
-  // per-cell mask ADDS over the ramp. It is a separate knob from
+  // circular mask ADDS over the ramp. It is a separate knob from
   // PLAYER_OUTPUT_K: dimming the mid-field to let the placed lights tell would
   // otherwise take the ground the player works on down with it. The two wants
   // are opposite, so they are two numbers —
@@ -402,7 +394,7 @@
   // what binds. If the far field is ever brightened again — AMBIENT_DAY_LUM
   // up, or the dim palette out — re-measure this before raising it.
   const PLATEAU_OUTPUT_K = 0.6;
-  // Keep half the added light on the reach cells; the smooth player glow
+  // Keep half the added light inside the circle; the smooth player glow
   // carries the remainder so dimming the indicator does not darken the scene.
   const REACH_OUTPUT_K = 0.5;
 
@@ -700,13 +692,13 @@
   // the body — and quadratic in the distance, so the middle stays flat and
   // the easing gathers at the edge. It is a fraction of `lit` (the derived
   // level), not a fixed alpha, so it scales with the depth's bubble; the
-  // step down to `edge` at the staircase stays larger than this fall at
+  // step down to `edge` at the circle boundary stays larger than this fall at
   // every depth and hour (lighting.test.js pins it), because that step is
   // the affordance and this is only shading.
   const PLATEAU_FALL = 0.18;
   const PLATEAU_STOPS = 6;
 
-  // The plateau's total light (ramp + cell fill) at t = distance / rim,
+  // The plateau's total light (ramp + circle fill) at t = distance / rim,
   // 0 at the feet, 1 at the reach rim; clamped flat past it.
   function plateauLevel(prof, t) {
     const u = clamp01(t);
@@ -1110,8 +1102,7 @@
   // ghost, which burns in it — minus the player's own glow — and is only ever
   // seated where this reads dark). It is the
   // paint's own model, never a second guess at it:
-  //   · the player's light — the plateau over the reach cells (cellInReach,
-  //     the tap gate's test, and plateauLevel's shading) and the ramp outside
+  //   · the player's light — the circle around the player (plateauLevel's shading) and the ramp outside
   //     them (playerCookieAlpha), in the profile's litColour;
   //   · every collected source — magic traps, campfires, lit street lamps
   //     (lifted to the lantern), the hand torch, live blasts — collected by
@@ -1167,20 +1158,15 @@
     const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
     let inReach = false;
     if (reachM > 0 && prof.lit > prof.edge) {
-      if (typeof cellInReach === 'function' && typeof worldMetersToAbsCell === 'function') {
-        const c = worldMetersToAbsCell(scene, wx, wy);
-        inReach = cellInReach(scene, c.cellIX, c.cellIY);
-      } else {
-        inReach = d <= reachM;
-      }
+      inReach = d <= reachM;
     }
     const rMaxM = radiusCells('player') * playerLightMul(scene) * cellM;
-    const glow = playerGlow(prof, d, reachM, rMaxM, cellM);
+    const glow = playerGlow(prof, d, reachM, rMaxM);
     let light = glow.alpha * lum(glow.colour);
     if (inReach) {
-      const rim = reachM + cellM * Math.SQRT1_2;
+      const rim = reachM;
       const level = plateauLevel(prof, d / rim);
-      light += (level - prof.edge) * lum(plateauCellColour(prof, level)) * REACH_OUTPUT_K;
+      light += (level - prof.edge) * lum(plateauColour(prof, level)) * REACH_OUTPUT_K;
     }
     return light;
   }
@@ -1235,18 +1221,14 @@
   // and on the Canvas fallback. The per-frame upload is one 352px RGBA
   // texture — the same shape the fog pays per cell crossing.
   const KIND_STOPS = 8;
-  // The expensive reach-cell path lives on a transparent canvas wider than
-  // the viewport. Walking
-  // crops that cache by the camera's whole-pixel displacement; the player's
-  // ramp stays in the viewport canvas, centred on the body. Two cells of
-  // paint with a 1.5-cell validity limit leaves half a cell for filtering and
-  // cookie edges, matching the road overlay's padded-cache margin.
+  // Stable world lights retain a padded cache as the camera moves. The
+  // player-centred circle has its own viewport-sized mask.
   const LIGHT_CACHE_PAD_CELLS = 2;
   const LIGHT_CACHE_LIMIT_CELLS = 1.5;
 
   // ── The lightmap's own clock, and the still-frame gate ─────────────────
   // draw() keys each step on every input the paint depends
-  // on (the feet point, the anchor cell and its fraction, the reach, the whole
+  // on (the exact feet point, the reach radius, the whole
   // profile, and each light's own fields — frameKey) and paints only when the
   // key moves. What ANIMATES — a fire's flicker, a POI's breath, a blast, the
   // low-energy heartbeat in the profile — reads the clock through lightClock,
@@ -1277,21 +1259,8 @@
     return m;
   }
   // ── WHOLE PIXELS ──────────────────────────────────────────────────────
-  // Everything else on the map lands on whole logical pixels (pixelArt, and
-  // every sprite and ground cell is placed at Math.round of its projection),
-  // so the world only visibly moves when a projection crosses a pixel. The
-  // lightmap keyed on the raw sub-pixel inputs instead, and a body easing a
-  // few metres after a GPS jitter — a third of a pixel a step — repainted and
-  // re-uploaded it on every step while the picture under it held still. So
-  // the key names what the paint actually PLACES: each light's centre and the
-  // plateau's cells in whole px (the plateau was already drawn on Math.round
-  // cells), and the paint stamps each light at that same whole-px centre,
-  // which also keeps a glow locked to the sprite it belongs to.
-  //
-  // A light's centre on the lightmap canvas (before the origin comes off),
-  // in whole px: the sprite's own rounding of the same projection, plus its
-  // lift turned into the map's frame (liftPx). Without a view centre to
-  // place it by (a bare scene), the raw offsets.
+  // World light sources follow their sprites' whole-pixel projection.
+  // The player's circle separately retains its fractional screen position.
   function lightCentrePx(scene, L) {
     const c = deltaMToScreen(scene, L.dx, L.dy);   // coords.js — the sprites' own projection
     const l = liftPx(scene, L);
@@ -1300,63 +1269,20 @@
   function placesInPx(scene) {
     return Number.isFinite(scene.viewCenterX) && Number.isFinite(scene.viewCenterY) && scene.cellM > 0;
   }
-  // The plateau's placement in whole px: the anchor's cell, the rounded
-  // origin of the drawn grid, and — for a row whose tile row has a different
-  // grid (coords.js viewBand) — that row's column shift and its own rounded
-  // origin. Exactly what the per-cell path in reachCellsPath rounds to, so
-  // the plateau is a function of this string (and the reach cell).
-  function plateauPlacement(scene, pc) {
-    const half = (VIEW_CELLS - 1) / 2;
-    const fracX = pc.cx - Math.floor(pc.cx);
-    const fracY = pc.cy - Math.floor(pc.cy);
-    const x0 = (ph) => cellScreenXY(scene, -1 - half, 0, fracX, 0, ph).x;   // coords.js — drawCells' own slot
-    const y = cellScreenXY(scene, 0, -1 - half, 0, fracY).y;
-    let bands = '';
-    const base = viewAnchorAbsCell(scene, pc);
-    for (let r = -2; r <= VIEW_CELLS + 1; r++) {
-      const b = viewBand(scene, pc, base.cellIY + (r - half));
-      if (b.dX || b.phaseX) bands += `|${r}:${b.dX}:${x0(b.phaseX) - x0(0)}`;
-    }
-    const off = -1 - half;
-    const screenX = x0(0);
-    return {
-      screenX, screenY: y,
-      // The screen coordinate of a fixed absolute grid origin. Unlike a slot
-      // coordinate this stays continuous when the anchor crosses a cell, so
-      // the prior reach mask can crop through the crossing and fade out.
-      x: screenX - (base.cellIX + off) * CELL_PX,
-      y: y - (base.cellIY + off) * CELL_PX,
-      // Absolute anchor-cell identity is deliberately absent. A row-grid
-      // shape change rebuilds; an ordinary cell crossing only crops.
-      structure: bands,
-      bands,
-    };
-  }
-  function plateauPxKey(scene, pc) {
-    const p = plateauPlacement(scene, pc);
-    return `${Math.floor(pc.cx)},${Math.floor(pc.cy)},${p.screenX},${p.screenY}${p.bands}`;
-  }
-  // The non-light prefix of the full-frame key: every number the ambient
-  // floor, player ramp and reach plateau read. frameKey builds on it, so the
-  // still gate cannot omit a paint input. The base bake below uses the narrower
-  // baseFrameKey because the plateau lives in its padded cache. `pcPx` is the plateau's
-  // whole-px placement (plateauPxKey); left out, the anchor's raw fraction.
   function baseFrameKey(ps, ox, oy, prof, r0, rMax) {
     return `${ps.x},${ps.y},${ox},${oy},${r0},${rMax}`
       + `|${prof.depth},${prof.dimA},${prof.dimColour},${prof.farA},${prof.ambient},${prof.edge},${prof.lit},${prof.litColour},${prof.night}`;
   }
-  function staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc, pcPx) {
+  function staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM) {
     let k = baseFrameKey(ps, ox, oy, prof, r0, rMax) + `|${reachM}`;
-    if (rp) k += `|${rp.cellIX},${rp.cellIY},${pc.tx},${pc.ty},${pcPx != null ? pcPx : `${pc.cx},${pc.cy}`}`;
     return k;
   }
-  // Every number the paint reads, in one string. `rp` / `pc` are null when no
-  // plateau is drawn (they only exist to place it); each clock is folded in
+  // Every number the paint reads, in one string. Each clock is folded in
   // only when something moves on it, so a still fire-less view has no time
   // term and a view that only breathes has only the breath's. `pulseNow` is
   // draw()'s breath clock; left out, it is derived from `now`.
-  function frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pulseNow, pcPx) {
-    let k = staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc, pcPx);
+  function frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, now, pulseNow) {
+    let k = staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM);
     const anim = animates(scene);
     if (anim & ANIM_FAST) k += `|t${now}`;
     if (anim & ANIM_PULSE) k += `|p${pulseNow == null ? pulseClock(now) : pulseNow}`;
@@ -1431,10 +1357,8 @@
   // half-diagonal: one cell past keeps the corners just lit,
   // and the ramp still ends on zero so a peek finds no edge past it (the
   // ambient beyond is the value it lands on). It also carries the light
-  // removed from the indicator. The remaining PLATEAU is painted per reach
-  // cell in draw(), so the sharp edge of the lit area is
-  // the same staircase the tap gate accepts (cellInReach), not a circle
-  // near it.
+  // removed from the indicator. The remaining PLATEAU is clipped to a reach-radius
+  // circle in draw(), covering at least part of every reachable cell.
   // Rebaked only when its inputs move: the reach radius (energy / depth /
   // Potion of Reach) and the depth's levels.
   //
@@ -1448,16 +1372,16 @@
   // the reach rim it replaces exactly the missing fill, including tired tint;
   // outside it eases to zero with the existing player-light radius.
   // Distances may be pixels (drawing) or metres (brightnessAt).
-  function playerGlow(prof, d, r0, rMax, cellSize) {
+  function playerGlow(prof, d, r0, rMax) {
     if (!(rMax > 0) || d >= rMax) return { alpha: 0, colour: 0xffffff };
     const t = rMax > r0 ? Math.max(0, (d - r0) / (rMax - r0)) : 0;
     const base = playerCookieAlpha(t, prof);
-    const rim = Math.min(rMax, r0 + cellSize * Math.SQRT1_2);
+    const rim = Math.min(rMax, r0);
     const level = plateauLevel(prof, rim > 0 ? d / rim : 1);
     const tail = d <= rim ? 1 : playerCookieAlpha((d - rim) / (rMax - rim), { edge: 1 });
     const added = r0 > 0 ? Math.max(0, level - prof.edge) * (1 - REACH_OUTPUT_K) * tail : 0;
     const alpha = base + added;
-    const tint = plateauCellColour(prof, level);
+    const tint = plateauColour(prof, level);
     const channel = sh => Math.round(255 * (alpha > 0
       ? (base + added * ((tint >> sh) & 255) / 255) / alpha : 1));
     return { alpha, colour: (channel(16) << 16) | (channel(8) << 8) | channel(0) };
@@ -1472,22 +1396,22 @@
     const rMaxT = rMax / K;
     const S = 2 * Math.ceil(rMaxT);
     if (!st.canvas || st.S !== S) { st.canvas = makeCanvas(S); st.S = S; }
-    const radii = new Set([0, Math.min(r0, rMax), Math.min(r0 + CELL_PX * Math.SQRT1_2, rMax), rMax]);
+    const radii = new Set([0, Math.min(r0, rMax), rMax]);
     for (let i = 1; i < RAMP_STOPS; i++) radii.add(rMax * i / RAMP_STOPS);
     const stops = [...radii].sort((a, b) => a - b).map(d => {
-      const glow = playerGlow(prof, d, r0, rMax, CELL_PX);
+      const glow = playerGlow(prof, d, r0, rMax);
       return [d / rMax, glow.colour, glow.alpha];
     });
     bakeRadialCookie(st.canvas, rMaxT, stops);
     return st;
   }
 
-  // The colour the reach cells are filled with, at alpha (level - edge), so
+  // The colour the reach circle is filled with, at alpha (level - edge), so
   // that on top of the ramp's flat `edge` of white they land on exactly
   // level × litColour per channel — the plateau level, pink when tired.
   // `level` defaults to the full lit level (the feet); the gradient in draw()
   // asks for each stop's plateauLevel.
-  function plateauCellColour(prof, level) {
+  function plateauColour(prof, level) {
     const L = level == null ? prof.lit : level;
     const f = L - prof.edge;
     if (f <= 0) return 0xffffff;
@@ -1498,18 +1422,14 @@
     return (ch(16) << 16) | (ch(8) << 8) | ch(0);
   }
 
-  // The plateau's fill: a radial gradient about the feet, each stop the
-  // cell colour at that stop's level. The rim is the furthest a reach cell's
-  // corner can sit from the reach radius (half a cell's diagonal), so the
-  // darkest of the plateau is its true extremity; past it the last stop
-  // continues flat. Clipped by the per-cell path, so the staircase is exact.
+  // Shade the circle from the exact player point to its true circular rim.
   function plateauFill(ctx, prof, cx, cy, r0) {
-    const rim = r0 + CELL_PX * Math.SQRT1_2;
+    const rim = r0;
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rim);
     for (let i = 0; i <= PLATEAU_STOPS; i++) {
       const t = i / PLATEAU_STOPS;
       const level = plateauLevel(prof, t);
-      g.addColorStop(t, rgba(plateauCellColour(prof, level), level - prof.edge));
+      g.addColorStop(t, rgba(plateauColour(prof, level), level - prof.edge));
     }
     return g;
   }
@@ -1537,80 +1457,6 @@
     return a;
   }
 
-  // One reach cell's contribution to the plateau path, at screen px (sx, sy)
-  // with the cell's edge exposure (top/bot/lft/rgt: that neighbour is out of
-  // reach) and its diagonals' reach (dTL..dBR). The cell's outline is walked
-  // clockwise from the top edge's midpoint; an OUTER corner (ReachCorner.convex)
-  // is rounded with arcTo — the arc tangent to both edges R in from the
-  // corner — and an INNER corner (ReachCorner.fillet) gets the sliver between
-  // the corner point and that same arc, drawn in the empty cell above/below,
-  // as its own subpath. Corner geometry comes from coords.js' ReachCorner, the
-  // shared rule; with no rule loaded the cell is a plain square.
-  function plateauCellPath(ctx, sx, sy, top, bot, lft, rgt, dTL, dTR, dBL, dBR) {
-    const RC = (typeof ReachCorner !== 'undefined') ? ReachCorner : null;
-    if (!RC) { ctx.rect(sx, sy, CELL_PX, CELL_PX); return; }
-    const R = RC.R;
-    const x1 = sx + CELL_PX, y1 = sy + CELL_PX;
-    ctx.moveTo(sx + CELL_PX / 2, sy);
-    if (RC.convex(rgt, top)) ctx.arcTo(x1, sy, x1, y1, R); else ctx.lineTo(x1, sy);
-    if (RC.convex(rgt, bot)) ctx.arcTo(x1, y1, sx, y1, R); else ctx.lineTo(x1, y1);
-    if (RC.convex(lft, bot)) ctx.arcTo(sx, y1, sx, sy, R); else ctx.lineTo(sx, y1);
-    if (RC.convex(lft, top)) ctx.arcTo(sx, sy, x1, sy, R); else ctx.lineTo(sx, sy);
-    ctx.closePath();
-    if (RC.fillet(lft, top, dTL)) filletPath(ctx, sx, sy, +1, -1, R);
-    if (RC.fillet(rgt, top, dTR)) filletPath(ctx, x1, sy, -1, -1, R);
-    if (RC.fillet(lft, bot, dBL)) filletPath(ctx, sx, y1, +1, +1, R);
-    if (RC.fillet(rgt, bot, dBR)) filletPath(ctx, x1, y1, -1, +1, R);
-  }
-  // The fillet at corner point (px, py): ix runs along the owning cell's
-  // horizontal edge, iy into the empty cell. The arc is tangent to that edge
-  // R along it and to the diagonal cell's vertical edge R up/down it, so the
-  // sliver between the corner and the arc is exactly the notch the bare
-  // staircase would otherwise cut out of the lit area.
-  function filletPath(ctx, px, py, ix, iy, R) {
-    ctx.moveTo(px, py);
-    ctx.lineTo(px + ix * R, py);
-    ctx.arcTo(px, py, px, py + iy * R, R);
-    ctx.closePath();
-  }
-
-  // Reach remains discrete for taps. Its picture eases between the old and new
-  // cell masks, so cells entering/leaving the light do not flash on a crossing.
-  // Keep the current mixture when interrupted (including turning back), rather
-  // than restarting from a fully lit old mask. Weights always sum to one, so
-  // overlapping cells retain their brightness under additive blending.
-  const REACH_FADE_MS = 240;
-  function reachFrames(scene, rp, reachM, now) {
-    if (!rp) { scene._lightReachFade = null; return []; }
-    const key = `${rp.cellIX}|${rp.cellIY}|${reachM}`;
-    const space = `${scene.depth ?? 0}|${scene.cellM}`;
-    const target = { key, rp: { cellIX: rp.cellIX, cellIY: rp.cellIY }, reachM, weight: 1 };
-    let st = scene._lightReachFade;
-    if (!st || st.space !== space) {
-      scene._lightReachFade = { space, target, from: [], at: now };
-      return [target];
-    }
-    const t = clamp01((now - st.at) / REACH_FADE_MS);
-    const ease = t * t * (3 - 2 * t);
-    const frames = st.from.length && t < 1
-      ? st.from.map(f => ({ ...f, weight: f.weight * (1 - ease) })) : [];
-    const existing = frames.find(f => f.key === st.target.key);
-    const weight = frames.length ? ease : 1;
-    if (existing) existing.weight += weight;
-    else frames.push({ ...st.target, weight });
-    if (st.target.key !== key) {
-      st = scene._lightReachFade = { space, target, from: frames.filter(f => f.weight > 0), at: now };
-    } else if (t >= 1) st.from = [];
-    return frames;
-  }
-  function reachFramesKey(frames) {
-    return frames.map(f => `${f.key}:${f.weight}`).join(';');
-  }
-
-  // The screen-attached base layer: ambient plus the player's ramp. The ramp
-  // follows the body, so it cannot move with a world-anchored cache. It is
-  // cheap (one fill + one baked-cookie draw) and its own bake survives a walk
-  // because the player's feet remain at the camera centre.
   function paintStaticLayer(ctx, W, H, scene, prof, player, ps, ox, oy) {
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
@@ -1620,56 +1466,6 @@
     ctx.imageSmoothingEnabled = true;
     const D = player.S * PLAYER_COOKIE_SCALE;
     ctx.drawImage(player.canvas, ps.x - ox - D / 2, ps.y - oy - D / 2, D, D);
-  }
-
-  function reachCellsPath(ctx, scene, ox, oy, rp, pc, reachM) {
-      const reachM2 = reachM * reachM;
-      const fracX = pc.cx - Math.floor(pc.cx);
-      const fracY = pc.cy - Math.floor(pc.cy);
-      const { cellIX: baseCellIX, cellIY: baseCellIY } = viewAnchorAbsCell(scene, pc);
-      const half = (VIEW_CELLS - 1) / 2;
-      // Each slot row's band (coords.js viewBand): the column shift and screen
-      // phase of a row whose tile row has a different grid to the anchor's —
-      // the same slots render.js drawCells paints, so the plateau lights
-      // exactly the cells drawn under it. Rows -2..VIEW_CELLS+1 (the probe
-      // reaches one past the drawn range).
-      const bandDX = new Int32Array(VIEW_CELLS + 4), bandPh = new Float32Array(VIEW_CELLS + 4);
-      for (let r = -2; r <= VIEW_CELLS + 1; r++) {
-        const b = viewBand(scene, pc, baseCellIY + (r - half));
-        bandDX[r + 2] = b.dX; bandPh[r + 2] = b.phaseX;
-      }
-      // The neighbour probe for the corner rounding — the same test again, so
-      // a corner is rounded by exactly the cells the loop below lights. It is
-      // cellInReach's expression; across a row whose grid differs the
-      // distance is measured by position (coords.js absCellDelta), which on a
-      // shared grid is the plain subtraction.
-      const inReach = (c, r) => {
-        const d = absCellDelta(scene, rp.cellIX, rp.cellIY,
-          baseCellIX + (c - half) + bandDX[r + 2], baseCellIY + (r - half));
-        const ddx = d.dx * scene.cellM;
-        const ddy = d.dy * scene.cellM;
-        return ddx * ddx + ddy * ddy <= reachM2;
-      };
-      // ONE path, ONE fill: the cells abut on integer px so the union fills
-      // seamlessly, and under 'lighter' a single fill adds the plateau once
-      // (a fillet a second cell repeated would not double up either).
-      ctx.beginPath();
-      for (let row = -1; row <= VIEW_CELLS; row++) {
-        for (let col = -1; col <= VIEW_CELLS; col++) {
-          if (!inReach(col, row)) continue;
-          // drawCells' own slot (coords.js cellScreenXY), in lightmap-local px.
-          const c = cellScreenXY(scene, col - half, row - half, fracX, fracY, bandPh[row + 2]);
-          const sx = c.x - ox, sy = c.y - oy;
-          plateauCellPath(ctx, sx, sy,
-            !inReach(col, row - 1), !inReach(col, row + 1), !inReach(col - 1, row), !inReach(col + 1, row),
-            inReach(col - 1, row - 1), inReach(col + 1, row - 1), inReach(col - 1, row + 1), inReach(col + 1, row + 1));
-        }
-      }
-  }
-  function paintReachMask(ctx, scene, ox, oy, rp, pc, reachM) {
-    ctx.fillStyle = '#fff';
-    reachCellsPath(ctx, scene, ox, oy, rp, pc, reachM);
-    ctx.fill();
   }
 
   function lightStamp(scene, L, crit, now, pnow, ox, oy) {
@@ -1792,141 +1588,30 @@
     return { items, excluded, rebuilt, cached };
   }
 
-  // Everything that changes one reach mask except its blend weight and common
-  // screen translation. Fade weights change every step for 240 ms; keeping a
-  // canvas per old/new mask lets the main lightmap blend two cached crops
-  // instead of walking 169 cells again on each fade step.
-  function contributionKey(scene, frame, placement) {
-    return `${scene.cellM}|${frame.key}|${placement.structure}`;
+  // One screen-space circle follows the exact player point. It is shared by
+  // Canvas and GPU compositors, with no grid snapping or old-position fade.
+  function playerCircleContribution(scene, W, H, ox, oy, ps, radius) {
+    if (!(radius > 0)) return { items: [], rebuilt: false };
+    let entry = scene._lightPlayerCircle;
+    if (!entry) entry = scene._lightPlayerCircle = { canvas: document.createElement('canvas'), revision: 0 };
+    const key = `${W},${H},${ps.x - ox},${ps.y - oy},${radius}`;
+    const rebuilt = entry.key !== key;
+    if (rebuilt) {
+      if (entry.canvas.width !== W) entry.canvas.width = W;
+      if (entry.canvas.height !== H) entry.canvas.height = H;
+      const ctx = entry.canvas.getContext('2d');
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(ps.x - ox, ps.y - oy, radius, 0, Math.PI * 2);
+      ctx.fill();
+      entry.key = key;
+      entry.revision++;
+    }
+    return { items: [{ canvas: entry.canvas, revision: entry.revision, sx: 0, sy: 0, weight: 1 }], rebuilt };
   }
 
-  // Keep the exact fade history for reversals; only its picture can discard
-  // an aggregate of less than one 8-bit alpha level. Never renormalise: masks
-  // outside the view still own their share of the fade's brightness.
-  function visibleReachFrames(scene, pc, frames) {
-    const base = viewAnchorAbsCell(scene, pc);
-    const half = (VIEW_CELLS - 1) / 2;
-    const visible = frames.filter(frame => {
-      if (frame.weight <= 0) return false;
-      const radius = frame.reachM / scene.cellM;
-      // Include the painted grid plus two cells for rounded corners and cache
-      // scrolling. Probe row endpoints in the reach cell's own grid so tile
-      // rows with different cell counts cannot incorrectly cull a mask.
-      for (let row = -3; row <= VIEW_CELLS + 2; row++) {
-        const iy = base.cellIY + row - half;
-        const dy = iy - frame.rp.cellIY;
-        if (Math.abs(dy) > radius) continue;
-        const band = viewBand(scene, pc, iy);
-        const left = absCellDelta(scene, frame.rp.cellIX, frame.rp.cellIY,
-          base.cellIX - 3 - half + band.dX, iy).dx;
-        const right = absCellDelta(scene, frame.rp.cellIX, frame.rp.cellIY,
-          base.cellIX + VIEW_CELLS + 2 - half + band.dX, iy).dx;
-        const dx = left > 0 ? left : right < 0 ? -right : 0;
-        if (dx * dx + dy * dy <= radius * radius) return true;
-      }
-      return false;
-    });
-    const smallest = [...visible].sort((a, b) => a.weight - b.weight);
-    const omitted = new Set();
-    let weight = 0;
-    for (const frame of smallest) {
-      if (weight + frame.weight >= 1 / 255) break;
-      weight += frame.weight;
-      omitted.add(frame);
-    }
-    return visible.filter(frame => !omitted.has(frame));
-  }
-
-  // Build or crop each padded reach mask. These canvases never become Phaser
-  // textures: viewport crops are added to the existing lightmap before its
-  // sole refresh, preserving one-pass MULTIPLY and the Canvas fallback.
-  function contributionFrames(scene, W, H, ox, oy, plateau, pc, frames) {
-    const items = [];
-    if (!plateau) {
-      const st = scene._lightContribution;
-      if (st) {
-        st.entries = st.entries.sort((a, b) => b.used - a.used).slice(0, 4);
-        for (const e of st.entries) e.pending = false;
-      }
-      return { items, rebuilt: false, deferred: false };
-    }
-    const pad = LIGHT_CACHE_PAD_CELLS * CELL_PX;
-    const limit = LIGHT_CACHE_LIMIT_CELLS * CELL_PX;
-    const placement = plateauPlacement(scene, pc);
-    const st = scene._lightContribution || (scene._lightContribution = { entries: [], rebuilds: 0, serial: 0 });
-    frames = visibleReachFrames(scene, pc, frames);
-    const active = new Set(frames.map(frame => contributionKey(scene, frame, placement)));
-    // A returned item holds this canvas until compositing finishes. Pin every
-    // active key, including masks not visited yet, so no later bake overwrites
-    // an earlier item's pixels when an interrupted fade needs more than four.
-    const reserve = Math.max(4, active.size);
-    st.entries = st.entries.filter(e => active.has(e.key)).concat(
-      st.entries.filter(e => !active.has(e.key)).sort((a, b) => b.used - a.used)
-        .slice(0, Math.max(0, reserve - st.entries.filter(e => active.has(e.key)).length)));
-    let rebuilt = false, deferred = false;
-    for (const frame of frames) {
-      if (frame.weight <= 0) continue;
-      const key = contributionKey(scene, frame, placement);
-      let entry = st.entries.find(e => e.key === key);
-      let qx = entry ? entry.placement.x - placement.x + ox - entry.ox : 0;
-      let qy = entry ? entry.placement.y - placement.y + oy - entry.oy : 0;
-      const sized = !!entry && entry.canvas.width === W + 2 * pad && entry.canvas.height === H + 2 * pad;
-      const insideLimit = sized && Math.abs(qx) < limit && Math.abs(qy) < limit;
-      const insidePaint = sized && Math.abs(qx) < pad && Math.abs(qy) < pad;
-      let reusable = insideLimit && !entry.pending;
-      // drawCells owns crossing detection. When the ordinary 1.5-cell rebuild
-      // threshold lands on that already-heavy frame, use the remaining half-
-      // cell of painted pad once and rebuild on the next ordinary frame. The
-      // physical 2-cell edge is absolute: never crop outside it.
-      if (sized && scene._boot_crossing && insidePaint && (!insideLimit || entry.pending)) {
-        entry.pending = true;
-        reusable = true;
-        deferred = true;
-      }
-      if (entry && entry.pending && !scene._boot_crossing) reusable = false;
-      if (!reusable) {
-        if (!entry) {
-          entry = st.entries.filter(e => !active.has(e.key))
-            .reduce((oldest, e) => !oldest || e.used < oldest.used ? e : oldest, null);
-          if (!entry) {
-            entry = { canvas: document.createElement('canvas') };
-            st.entries.push(entry);
-          }
-        }
-        if (entry.canvas.width !== W + 2 * pad) entry.canvas.width = W + 2 * pad;
-        if (entry.canvas.height !== H + 2 * pad) entry.canvas.height = H + 2 * pad;
-        const ctx = entry.canvas.getContext('2d');
-        ctx.clearRect(0, 0, entry.canvas.width, entry.canvas.height);
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.globalAlpha = 1;
-        ctx.imageSmoothingEnabled = true;
-        paintReachMask(ctx, scene, ox - pad, oy - pad, frame.rp, pc, frame.reachM);
-        ctx.globalCompositeOperation = 'source-over';
-        entry.revision = (entry.revision || 0) + 1;
-        entry.key = key;
-        entry.placement = placement;
-        entry.ox = ox; entry.oy = oy;
-        entry.pending = false;
-        qx = qy = 0;
-        st.rebuilds++;
-        rebuilt = true;
-      }
-      entry.used = ++st.serial;
-      items.push({ canvas: entry.canvas, revision: entry.revision, sx: pad + qx, sy: pad + qy, weight: frame.weight });
-    }
-    // A mask that left the fade before repayment needs no rebuild; do not let
-    // its stale pending bit bypass the still gate forever.
-    if (!scene._boot_crossing) for (const e of st.entries) e.pending = false;
-    return { items, rebuilt, deferred };
-  }
-  function contributionPending(scene) {
-    return !!scene._lightContribution?.entries?.some(e => e.pending);
-  }
-
-  // Combine the cached CELL SHAPES at their live fade weights, then colour
-  // that mask with a fresh radial gradient centred on the player's current
-  // feet. Geometry follows the world; brightness follows the body. This small
-  // viewport scratch replaces the 169-cell path walk on ordinary steps.
+  // Colour the single player-centred circle with the live radial gradient.
   function paintReachContribution(ctx, scene, contribution, prof, ps, ox, oy, r0, W, H) {
     if (!contribution.items.length) return;
     let c = scene._lightReachComposite;
@@ -1937,10 +1622,8 @@
     m.clearRect(0, 0, W, H);
     m.globalCompositeOperation = 'lighter';
     m.imageSmoothingEnabled = false;
-    for (const item of contribution.items) {
-      m.globalAlpha = item.weight;
-      m.drawImage(item.canvas, item.sx, item.sy, W, H, 0, 0, W, H);
-    }
+    const item = contribution.items[0];
+    m.drawImage(item.canvas, 0, 0);
     m.globalAlpha = 1;
     m.globalCompositeOperation = 'source-in';
     m.fillStyle = plateauFill(m, prof, ps.x - ox, ps.y - oy, r0);
@@ -1962,7 +1645,7 @@
   }
 
   // Paint this frame's lightmap: the ambient floor, the player's ramp at the
-  // feet-on-the-fix point, the plateau over every reach cell, then every
+  // feet-on-the-fix point, the circle around the player, then every
   // collected light at its anchored screen position. `ax, ay` are the camera
   // anchor in world metres, `halfM` the sprite cull the collector pads.
   //
@@ -2091,20 +1774,12 @@
     const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
     const r0 = Math.max(0, reachM * k);
     const player = ensurePlayerCookie(scene, prof, r0, rMax);
-    // The feet in whole px, like everything else on the map (WHOLE PIXELS,
-    // above): the ramp and the plateau's gradient are centred there.
+    // Keep the exact player point: both the circle and its gradient follow
+    // sub-cell movement continuously, including camera peeks.
     const ps0 = scene.playerScreen ? scene.playerScreen() : { x: scene.viewCenterX, y: scene.viewCenterY };
-    const ps = { x: Math.round(ps0.x), y: Math.round(ps0.y) };
+    const ps = ps0;
     const ox = scene.viewLeft, oy = scene.viewTop;   // lightmap-local origin
-    // The plateau's placement, hoisted out of its branch below so the gate
-    // can key on it: the reach cell and the anchor cell + fraction.
-    const plateau = reachM > 0 && prof.lit > prof.edge && typeof playerReachCell === 'function'
-      && typeof viewAnchorCell === 'function';
-    const rp = plateau ? playerReachCell(scene) : null;
-    const pc = plateau ? viewAnchorCell(scene) : null;
-    const pcPx = plateau ? plateauPxKey(scene, pc) : null;
-    const frames = reachFrames(scene, rp, reachM, wall);
-    const fadeKey = reachFramesKey(frames);
+    const plateau = reachM > 0 && prof.lit > prof.edge;
     const B = (typeof window !== 'undefined') ? window.__boot : null;
     const cover = coverFrame(scene, ax, ay, tex.width, tex.height);
     // INDOORS (scene_venues.js homeInterior): the house round the player.
@@ -2112,12 +1787,9 @@
     // while it is up.
     const indoors = scene.homeInterior ? scene.homeInterior() : null;
     const gpu = typeof LightingGPU !== 'undefined' && LightingGPU.active(scene) && !indoors;
-    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx) + '|' + fadeKey + '|cover:' + (cover?.key || '') + '|gpu:' + gpu
+    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, now, pnow) + '|cover:' + (cover?.key || '') + '|gpu:' + gpu
       + '|in:' + (indoors ? indoors.key : '');
-    // A crossing may have borrowed the cache's last half-cell of physical
-    // pad. Even if every visual key holds, the next ordinary frame must pay
-    // back that deferred rebuild before the still gate can return.
-    if (key === tex.__lightKey && !contributionPending(scene)) {
+    if (key === tex.__lightKey) {
       scene._boot_lightMs = 0;
       if (B) B.count('lightmap painted', 0);
       return false;
@@ -2127,7 +1799,7 @@
     const ctx = tex.context;
     const W = tex.width, H = tex.height;
 
-    const contribution = contributionFrames(scene, W, H, ox, oy, plateau, pc, frames);
+    const contribution = playerCircleContribution(scene, W, H, ox, oy, ps, plateau ? r0 : 0);
     const cookies = worldCookieFrames(scene, W, H, ax, ay, ox, oy, crit, now, pnow);
     let gpuPainted = false;
     if (gpu) {
@@ -2226,9 +1898,6 @@
       B.tick('lighting', dt);
       B.count('lightmap painted', 1);
       B.count('light contribution painted', contribution.rebuilt ? 1 : 0);
-      B.count('light contribution deferred', contribution.deferred ? 1 : 0);
-      B.count('light contribution rebuilt @crossing',
-        scene._boot_crossing && contribution.rebuilt ? 1 : 0);
       B.count('light cookie cache painted', cookies.rebuilt ? 1 : 0);
       B.count('light cookies stamped', cookies.excluded.length);
       B.count('light cookies cached', cookies.cached);
@@ -2270,7 +1939,10 @@
   function paintIndoorMask(ctx, scene, indoors, ax, ay, ox, oy, W, H) {
     const HA = (typeof HomeArea !== 'undefined') ? HomeArea.HOUSE : null;
     if (!HA || !indoors?.ring?.length) return;
-    const lift = liftPx(scene, { dyPx: -(HA.wallPx + HA.thicknessPx) });
+    // The walls' height: the low-poly model's when Home is drawn that way
+    // (building_overlay.js records it), else the prism house's.
+    const drawn = scene._proceduralBuildings?.get(scene.save?.starterShopId)?.height;
+    const lift = liftPx(scene, { dyPx: -((drawn || HA.wallPx) + HA.thicknessPx) });
     const pts = indoors.ring.map(p => {
       const sp = deltaMToScreen(scene, p.x - ax, p.y - ay);
       return { x: sp.x - ox, y: sp.y - oy };
@@ -2297,10 +1969,10 @@
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, CRITICAL_LIGHT_MIX, CRITICAL_LIGHT_DIM, CRITICAL_LIGHT_DIP, CRITICAL_PLAYER_TINT_A, criticalLights, critPaintProfile, mixColour, mixToWhite, scaleColour, lum, atLuminance,
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
-    profile, playerCookieAlpha, playerGlow, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, objectLightPadCells, wildplantLightPadCells,
+    profile, playerCookieAlpha, playerGlow, plateauColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, objectLightPadCells, wildplantLightPadCells,
     collectPlayer, playerLightMul, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
-    flickerAlpha, plateauCellPath, REACH_FADE_MS, reachFrames, reachFramesKey, coverFrame, draw,
-    LIGHT_TICK_MS, lightClock, baseFrameKey, staticFrameKey, lightCentrePx, liftPx, plateauPxKey, LIGHT_CACHE_PAD_CELLS, LIGHT_CACHE_LIMIT_CELLS, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,
+    flickerAlpha, coverFrame, draw,
+    LIGHT_TICK_MS, lightClock, baseFrameKey, staticFrameKey, lightCentrePx, liftPx, LIGHT_CACHE_PAD_CELLS, LIGHT_CACHE_LIMIT_CELLS, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,
   };
 })(window);

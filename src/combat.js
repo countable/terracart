@@ -1179,9 +1179,10 @@
   // bow and the staff fire only while a hostile stands within the player's
   // reach plus this many cells — the same "one past the ring" the staff's
   // range is built from. A foe further off on screen no longer draws fire.
+  const BASE_RANGED_REACH = reachCells({});
   const RANGED_TRIGGER_PAST_REACH = 1;
   function rangedTriggerM(reachCells, cellM) {
-    return ((reachCells ?? 2.5) + RANGED_TRIGGER_PAST_REACH) * cellM;
+    return ((reachCells ?? BASE_RANGED_REACH) + RANGED_TRIGGER_PAST_REACH) * cellM;
   }
   function anyEnemyWithin(x, y, enemies, maxM) {
     const m2 = maxM * maxM;
@@ -1203,7 +1204,7 @@
     musket: { ...BOW_SHOT,
               color: 0x555961, dotPx: 3, projectile: 'musket_ball', damageTier: 4,
               ammo: { id: 'coin', shots: 1, currency: true } },
-    staff: { speedCps: 1.0, rangeCells: 2.5, rangeFromReach: 0,
+    staff: { speedCps: 1.0, rangeCells: BASE_RANGED_REACH, rangeFromReach: 0,
              color: 0x9ad6ff, dotPx: 3,
              pierce: true, energyCost: 1, aim: 'nearest',
              growsWithTier: true,

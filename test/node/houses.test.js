@@ -60,7 +60,10 @@ test('displayRole: Home wins over a tier-derived role', () => {
 });
 
 test('render: each visible house carries one owner-resolved display role', () => {
-  const resolves = RENDER_SRC.match(/Houses\.displayRole\(scene\.save, o\)/g) || [];
+  // The cached footprint overlay also resolves a role when its model changes;
+  // the per-frame sprite walk still resolves each visible house only once.
+  const walk = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawObjects ='));
+  const resolves = walk.match(/Houses\.displayRole\(scene\.save, o\)/g) || [];
   assert.eq(resolves.length, 1, 'render resolves the owner once per collected house');
   assert.truthy(/objList\.push\(\{ o, dx, dy, wide, houseRole \}\)/.test(RENDER_SRC),
     'the frame item carries the resolved role');

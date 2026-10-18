@@ -210,85 +210,52 @@ test('playerReachCell: moving player east by one full cell width shifts cellIX b
 
 // ── reachCells ────────────────────────────────────────────────────────────────
 
-test('reachCells: base with no upgrades = 2.5', () => {
-  const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 0 });
-  assert.eq(reachCells(s), 2.5);
-});
-
-test('reachCells: each upgrade adds 0.5 up to max 5.5', () => {
-  for (let u = 0; u <= 6; u++) {
-    const s = makeCoordScene({ save: { energy: 100, reachUpgrades: u }, depth: 0 });
-    const expected = Math.min(5.5, 2.5 + 0.5 * u);
-    assert.eq(reachCells(s), expected, `upgrades=${u}`);
+test('reachCells: each upgrade unlocks only the next group of overlapping cells', () => {
+  for (const depth of [0, 1, 2, 6, 20]) for (const cellM of [3, 5, 7]) {
+    const s = reachScene({ depth, cellM, cellsPerTile: WorldGen.TILE_PX / cellM,
+      playerM: { x: cellM / 2, y: cellM / 2 } });
+    for (let upgrade = 1; upgrade <= 6; upgrade++) {
+      s.save.reachUpgrades = upgrade - 1;
+      const before = reachRadiusM(s) / cellM;
+      s.save.reachUpgrades = upgrade;
+      const after = reachRadiusM(s) / cellM;
+      const added = [];
+      for (let x = -9; x <= 9; x++) for (let y = -9; y <= 9; y++) {
+        const distance = Math.hypot(Math.max(0, Math.abs(x) - .5), Math.max(0, Math.abs(y) - .5));
+        if (distance >= before && distance < after) added.push(distance);
+      }
+      assert.gt(added.length, 0, 'every upgrade unlocks cells even at depth');
+      assert.lt(Math.max(...added) - Math.min(...added), 1e-10, 'only one distance group unlocks');
+      assert.lt(after - added[0], 1e-5, 'radius barely crosses the next threshold');
+    }
+    s.save.reachUpgrades = 6;
+    const capped = reachCells(s);
+    s.save.reachUpgrades = 7;
+    assert.eq(reachCells(s), capped, 'six-upgrade cap');
   }
-});
-
-test('reachCells: upgrades capped — 7 upgrades still gives 5.5', () => {
-  const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 7 }, depth: 0 });
-  // min(5.5, 2.5+3.5) = min(5.5,6) = 5.5
-  assert.eq(reachCells(s), 5.5);
-});
-
-test('reachCells: no save defaults to 0 upgrades → 2.5 cells', () => {
-  const s = makeCoordScene({ save: undefined, depth: 0 });
-  assert.eq(reachCells(s), 2.5);
-});
-
-test('reachCells: depth 1 shrinks reach by 0.5, floored at 1.5', () => {
-  // upgrades=0, base=2.5, depth=1 → 2.5-0.5=2.0
-  const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 1 });
-  assert.eq(reachCells(s), 2.0);
-});
-
-test('reachCells: depth 2 shrinks reach by 1.0', () => {
-  const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 2 });
-  assert.eq(reachCells(s), 1.5);
-});
-
-test('reachCells: depth 3 would shrink to 1.0 but is floored at 1.5', () => {
-  const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 3 });
-  // 2.5 - 1.5 = 1.0 → floored to 1.5
-  assert.eq(reachCells(s), 1.5);
-});
-
-test('reachCells: depth shrinking with upgrades — depth 6, upgrades 6', () => {
-  // base = min(5.5, 2.5+3) = 5.5; depth=6 → 5.5-3.0=2.5
-  const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 6 }, depth: 6 });
-  assert.eq(reachCells(s), 2.5);
-});
-
-test('reachCells: deep depth with max upgrades still floors at 1.5', () => {
-  // base=5.5, depth=20 → 5.5-10 = neg → floored to 1.5
-  const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 6 }, depth: 20 });
-  assert.eq(reachCells(s), 1.5);
-});
-
-test('reachCells: surface (depth=0) does NOT apply depth shrink', () => {
-  const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 2 }, depth: 0 });
-  assert.eq(reachCells(s), 3.5);   // 2.5+1.0
 });
 
 // ── reachRadiusM ─────────────────────────────────────────────────────────────
 
-test('reachRadiusM: normal surface = reachCells * cellM + 1', () => {
-  const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 0 });
-  // reachCells = 2.5; cellM = 5; radius = 2.5*5+1 = 13.5
-  assert.eq(reachRadiusM(s), 13.5);
+test('reachRadiusM: normal surface preserves the old reachable footprint', () => {
+  const s = reachScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 0 });
+  // Radius stops before touching the old out-of-reach diagonal (2,2).
+  assert.eq(reachRadiusM(s), (Math.hypot(1.5, 1.5) - 1e-6) * 5);
 });
 
 test('reachRadiusM: zero energy returns 0 (cannot reach at all)', () => {
-  const s = makeCoordScene({ save: { energy: 0, reachUpgrades: 0 }, depth: 0 });
+  const s = reachScene({ save: { energy: 0, reachUpgrades: 0 }, depth: 0 });
   assert.eq(reachRadiusM(s), 0);
 });
 
 test('reachRadiusM: negative energy returns 0', () => {
-  const s = makeCoordScene({ save: { energy: -5, reachUpgrades: 0 }, depth: 0 });
+  const s = reachScene({ save: { energy: -5, reachUpgrades: 0 }, depth: 0 });
   assert.eq(reachRadiusM(s), 0);
 });
 
 test('reachRadiusM: missing save.energy defaults to 0 → radius 0', () => {
   // energy ?? 0 → 0 → radius 0
-  const s = makeCoordScene({ save: { reachUpgrades: 0 }, depth: 0 });
+  const s = reachScene({ save: { reachUpgrades: 0 }, depth: 0 });
   assert.eq(reachRadiusM(s), 0, 'missing energy treated as 0');
 });
 
@@ -297,34 +264,34 @@ test('reachRadiusM: low energy (>0) does NOT shrink reach (only 0 shrinks)', () 
   // shrink when merely tired" — only exactly 0 energy blocks reach entirely.
   // f98eb04 introduced the 0-energy gate; tired state (> 0 but low) is handled
   // by the UI but does NOT affect the reach radius.
-  const s = makeCoordScene({ save: { energy: 1, reachUpgrades: 0 }, depth: 0 });
-  assert.eq(reachRadiusM(s), 13.5, '1 energy → full radius, no tired shrink');
+  const s = reachScene({ save: { energy: 1, reachUpgrades: 0 }, depth: 0 });
+  assert.eq(reachRadiusM(s), (Math.hypot(1.5, 1.5) - 1e-6) * 5, '1 energy → full radius, no tired shrink');
 });
 
 test('reachRadiusM: upgrades increase radius', () => {
   for (let u = 0; u <= 6; u++) {
-    const s = makeCoordScene({ save: { energy: 100, reachUpgrades: u }, depth: 0 });
-    const expected = Math.min(5.5, 2.5 + 0.5 * u) * 5 + 1;
+    const s = reachScene({ save: { energy: 100, reachUpgrades: u }, depth: 0 });
+    const expected = reachCells(s) * s.cellM + 1;
     assert.eq(reachRadiusM(s), expected, `upgrades=${u}`);
   }
 });
 
 test('reachRadiusM: depth shrinks radius', () => {
-  // upgrades=0, base=2.5, depth=1 → cells=2.0, radius=2.0*5+1=11
-  const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 1 });
-  assert.eq(reachRadiusM(s), 11);
+  // Depth 1 preserves the original 13-cell footprint.
+  const s = reachScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 1 });
+  assert.lt(Math.abs(reachRadiusM(s) - (Math.hypot(1.5, .5) - 1e-6) * 5), 1e-12);
 });
 
-test('reachRadiusM: depth=3 floors reach at 1.5 cells → radius = 8.5', () => {
-  const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 3 });
-  assert.eq(reachRadiusM(s), 1.5 * 5 + 1);  // 8.5
+test('reachRadiusM: depth=3 preserves the original nine-cell footprint', () => {
+  const s = reachScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 3 });
+  assert.eq(reachRadiusM(s), (1.5 - 1e-6) * 5);
 });
 
 test('reachRadiusM: Potion of Reach (active) overrides everything → VIEW_CELLS * cellM', () => {
   // VIEW_CELLS = 11 (app.js); cellM = 5 → radius = 55 m.
   // The potion overrides even zero energy.
   const future = Date.now() + 60 * 1000;
-  const s = makeCoordScene({
+  const s = reachScene({
     save: { energy: 0, reachUpgrades: 0, reachPotionUntil: future },
     depth: 5,
   });
@@ -336,11 +303,11 @@ test('reachRadiusM: Potion of Reach (active) overrides everything → VIEW_CELLS
 
 test('reachRadiusM: expired Potion of Reach (past) does NOT override — normal reach applies', () => {
   const past = Date.now() - 1000;
-  const s = makeCoordScene({
+  const s = reachScene({
     save: { energy: 100, reachUpgrades: 0, reachPotionUntil: past },
     depth: 0,
   });
-  assert.eq(reachRadiusM(s), 13.5, 'expired potion → normal radius');
+  assert.eq(reachRadiusM(s), (Math.hypot(1.5, 1.5) - 1e-6) * 5, 'expired potion → normal radius');
 });
 
 // ── cellInReach — core correctness ───────────────────────────────────────────
@@ -348,34 +315,12 @@ test('reachRadiusM: expired Potion of Reach (past) does NOT override — normal 
 // We use a simple scene where the player stands at the reach-cell origin and
 // we can compute exact distances in cell units.
 function reachScene(over) {
-  // cellM = 5: distances in metres are easy multiples.
-  // Player at playerM={0,0}, feetOffsetM=0 to put reach cell at the pixel origin.
-  // That way playerReachCell = worldMetersToAbsCell(scene, startWorldM).
-  // With originPx=(0,0), startWorldM=(0,0), mPerPx=1, cellsPerTile=1:
-  //   cellPxSize = 256, cps=256, mPerPx=1 → cell is 256 m wide.
-  //   That's huge — use cellsPerTile=51, mPerPx=1.
-  //   cellPxSize=256/51≈5.02 px, cell width = 5.02 m ≈ cellM.
-  // Simplest: use originPx={0,0}, startWorldM={0,0}, mPerPx=1, cellsPerTile=51.
-  //   Then cellPxSize=256/51 px, and world metres map through /mPerPx=1 → px.
-  //   A point at wmx=0 → wx=0 px → cellIX=0.
-  //   Player at playerM={0,0}, feetOffsetM=0 → reach cell = {0,0}.
-  // reachRadiusM = reachCells * cellM + 1 = 2.5*5+1 = 13.5 m (default).
-  // cellInReach: dx = (cellIX - 0) * cellM = cellIX * 5.
-  // So cell (1,0): dx=5, r²=25 ≤ 13.5²=182.25 → IN reach.
-  // Cell (2,0): dx=10, r²=100 ≤ 182.25 → IN reach.
-  // Cell (3,0): dx=15, r²=225 > 182.25 → OUT of reach.
-  const base = {
-    startWorldM: { x: 0, y: 0 },
-    mPerPx: 1,
-    originPx: { x: 0, y: 0 },
-    cellsPerTile: 51,
-    cellM: 5,
-    playerM: { x: 0, y: 0 },
-    feetOffsetM: 0,   // simplify: feet = body
-    depth: 0,
+  return Object.assign({
+    startWorldM: { x: 0, y: 0 }, originPx: { x: 0, y: 0 },
+    mPerPx: 1, cellsPerTile: WorldGen.TILE_PX / 5, cellM: 5,
+    playerM: { x: 2.5, y: 2.5 }, feetOffsetM: 0, depth: 0,
     save: { energy: 100, reachUpgrades: 0 },
-  };
-  return Object.assign({}, base, over);
+  }, over);
 }
 
 test('cellInReach: origin cell (0,0) is always reachable', () => {
@@ -390,7 +335,7 @@ test('cellInReach: zero energy → nothing reachable', () => {
 });
 
 test('cellInReach: cardinal cell 1 away is reachable (base reach 2.5 cells)', () => {
-  // reachRadiusM = 13.5; cell (1,0): dist²=25 ≤ 182.25
+  // The first cardinal neighbour remains inside the calibrated circle.
   const s = reachScene();
   assert.truthy(cellInReach(s, 1, 0), 'E neighbour reachable');
   assert.truthy(cellInReach(s, -1, 0), 'W neighbour reachable');
@@ -399,50 +344,23 @@ test('cellInReach: cardinal cell 1 away is reachable (base reach 2.5 cells)', ()
 });
 
 test('cellInReach: cardinal cell 2 away is reachable (base reach 2.5 cells)', () => {
-  // cell (2,0): dist²=100 ≤ 182.25
+  // The second cardinal neighbour remains partially covered.
   const s = reachScene();
   assert.truthy(cellInReach(s, 2, 0), '2 cells E reachable');
   assert.truthy(cellInReach(s, 0, 2), '2 cells S reachable');
 });
 
-test('cellInReach: cardinal cell 3 away is NOT reachable (base reach 2.5 cells)', () => {
-  // cell (3,0): dist = 15 m, dist²=225 > reachM²=182.25
+test('cellInReach: partially lit cells are reachable; unlit cells are not', () => {
   const s = reachScene();
-  assert.falsy(cellInReach(s, 3, 0), '3 cells E NOT reachable');
-  assert.falsy(cellInReach(s, 0, 3), '3 cells S NOT reachable');
-});
-
-test('cellInReach: BOUNDARY — exact cell at reach radius is IN reach (≤ check)', () => {
-  // With upgrades=4: reachCells=4.5, reachM=4.5*5+1=23.5 m.
-  // Cell at distance exactly cellIX=4 along X: dx=4*5=20 m, dist²=400 ≤ 23.5²=552.25 → IN.
-  // Cell at distance cellIX=5: dx=25 m, dist²=625 > 552.25 → OUT.
-  const s = reachScene({ save: { energy: 100, reachUpgrades: 4 } });
-  // reachM = 4.5*5+1 = 23.5
-  assert.truthy(cellInReach(s, 4, 0), 'cell at 20 m IN reach (radius 23.5 m)');
-  assert.falsy(cellInReach(s, 5, 0), 'cell at 25 m OUT of reach (radius 23.5 m)');
-});
-
-test('cellInReach: diagonal cell just inside circle — (2,2) with upgrades', () => {
-  // With upgrades=4: reachM=23.5. Cell (2,2): dist²=(10²+10²)=200 ≤ 552.25 → IN.
-  const s = reachScene({ save: { energy: 100, reachUpgrades: 4 } });
-  assert.truthy(cellInReach(s, 2, 2), 'diagonal (2,2) in reach at 4 upgrades');
-});
-
-test('cellInReach: diagonal cell outside circle — (4,4) with max upgrades', () => {
-  // Max upgrades=6: reachCells=5.5, reachM=5.5*5+1=28.5.
-  // Cell (4,4): dist²=(20²+20²)=800. 28.5²=812.25 → 800 ≤ 812.25 → IN.
-  // Cell (5,4): dist²=(25²+20²)=1025 > 812.25 → OUT.
-  const s = reachScene({ save: { energy: 100, reachUpgrades: 6 } });
-  assert.truthy(cellInReach(s, 4, 4), '(4,4) in reach at max upgrades');
-  assert.falsy(cellInReach(s, 5, 4), '(5,4) out of reach at max upgrades');
-});
-
-test('cellInReach: depth shrink reduces reachable cells', () => {
-  // depth=2: reachCells=max(1.5, 2.5-1.0)=1.5, reachM=8.5 m.
-  // Cell (1,0): dist=5 ≤ 8.5 → IN. Cell (2,0): dist=10 > 8.5 → OUT.
-  const s = reachScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 2 });
-  assert.truthy(cellInReach(s, 1, 0), 'cell 1 away IN reach at depth 2');
-  assert.falsy(cellInReach(s, 2, 0), 'cell 2 away OUT of reach at depth 2');
+  for (const [x, y] of [[2, 0], [-2, 0], [0, 2], [2, 1]]) {
+    assert.truthy(cellInReach(s, x, y), 'edge or corner overlaps the circle');
+  }
+  for (const [x, y] of [[3, 0], [2, 2], [3, 3]]) {
+    assert.falsy(cellInReach(s, x, y), 'entire cell outside circle');
+  }
+  s.depth = 2;
+  assert.truthy(cellInReach(s, 1, 1), 'partially lit cell reachable underground');
+  assert.falsy(cellInReach(s, 2, 2), 'unlit diagonal unreachable underground');
 });
 
 test('cellInReach: Potion of Reach makes distant cells reachable', () => {
@@ -452,34 +370,6 @@ test('cellInReach: Potion of Reach makes distant cells reachable', () => {
     save: { energy: 100, reachUpgrades: 0, reachPotionUntil: future },
   });
   assert.truthy(cellInReach(s, 8, 0), 'potion lets player reach 8 cells away');
-});
-
-test('cellInReach: exact boundary off-by-one — cell at radius² boundary is IN (≤)', () => {
-  // This guards the 11190b4 "house edge just out of reach" regression.
-  // We find the exact threshold: reachM²=182.25 (base reach).
-  // Pick cell (1,1): dist²=(5²+5²)=50. √50≈7.07 << 13.5 → clearly IN.
-  // Pick cell (2,2): dist²=(10²+10²)=200 > 182.25 → OUT (barely).
-  // Guard the boundary explicitly.
-  const s = reachScene();  // reachM=13.5
-  const reachM = reachRadiusM(s);  // 13.5
-  assert.eq(reachM, 13.5, 'base reachM check');
-  // Exactly at boundary: find a cell whose squared distance equals reachM² when possible.
-  // No integer cell satisfies dist²=182.25 exactly, but guard the nearest neighbors.
-  assert.truthy(cellInReach(s, 1, 1),   '(1,1) dist²=50 clearly in reach');
-  assert.falsy(cellInReach(s, 2, 2),    '(2,2) dist²=200 outside reach (13.5²=182.25)');
-  assert.truthy(cellInReach(s, 2, 0),   '(2,0) dist²=100 in reach');
-  assert.falsy(cellInReach(s, 3, 0),    '(3,0) dist²=225 outside reach');
-});
-
-test('cellInReach: epsilon (+1 m) keeps the cardinal cell of reachCells included', () => {
-  // Without the +1 m epsilon: radius = 2.5*5 = 12.5.
-  // Cell at dist=12.5: 12.5²=156.25 ≤ 156.25 → just IN (border).
-  // With +1: radius=13.5, dist²=182.25, so more margin.
-  // The epsilon is documented as keeping the diamond readable at every level.
-  // Verify that cell (2,0) — which is 10 m away — is comfortably in reach with epsilon.
-  const s = reachScene();
-  // reachCells * cellM = 12.5; +1 = 13.5; cell (2,0) at 10 m is clearly in.
-  assert.truthy(cellInReach(s, 2, 0), 'cardinal 2-cell reach included thanks to epsilon');
 });
 
 test('cellInReach: playerReachCell shifts correctly when player moves', () => {
@@ -494,7 +384,7 @@ test('cellInReach: playerReachCell shifts correctly when player moves', () => {
   // Cell 1 east of player's new reach origin should be reachable.
   assert.truthy(cellInReach(s, prc.cellIX + 1, prc.cellIY), '+1 E from moved player reachable');
   // Cell 3 east of player's origin should NOT be reachable.
-  assert.falsy(cellInReach(s, prc.cellIX + 3, prc.cellIY), '+3 E from moved player NOT reachable');
+  assert.falsy(cellInReach(s, prc.cellIX + 4, prc.cellIY), '+4 E from moved player NOT reachable');
 });
 
 // ── reachCells / reachRadiusM consistency ─────────────────────────────────────
@@ -597,4 +487,87 @@ test('two saves anchored at different latitudes agree on where a peer is', () =>
   const mineM = lonLatToLocalM(mine, spot.lon, spot.lat);
   assert.inRange(wm.x - (mine.startWorldM.x + mineM.x), -1e-6, 1e-6);
   assert.inRange(wm.y - (mine.startWorldM.y + mineM.y), -1e-6, 1e-6);
+});
+
+test('cellInReach: moving within a cell moves the circle without waiting for a crossing', () => {
+  const s = reachScene();
+  s.playerM.x = 1;
+  assert.falsy(cellInReach(s, 2, 2), 'southeast cell starts outside');
+  assert.truthy(cellInReach(s, -2, 2), 'southwest cell starts inside');
+  s.playerM.x = 4;
+  assert.truthy(cellInReach(s, 2, 2), 'southeast cell enters before the player crosses a cell');
+  assert.falsy(cellInReach(s, -2, 2), 'southwest cell leaves before the crossing');
+  s.peekM = { x: 500, y: -500 };
+  assert.truthy(cellInReach(s, 2, 2), 'camera peeks cannot move interaction reach');
+});
+
+test('starting circle: matches the old reachable cells at every base depth', () => {
+  for (const cellM of [3, 5, 7, 8]) for (const depth of [0, 1, 2, 6]) for (const blinded of [false, true]) {
+    const s = reachScene({ cellM, depth, cellsPerTile: WorldGen.TILE_PX / cellM,
+      playerM: { x: cellM / 2, y: cellM / 2 } });
+    const base = Math.max(1.5, 2.5 - depth * .5);
+    if (blinded) Conditions.apply(s.save, 'blinded');
+    const oldRadius = (blinded ? Math.max(1, base * .5) : base) * cellM + 1;
+    let count = 0;
+    for (let x = -6; x <= 6; x++) for (let y = -6; y <= 6; y++) {
+      const expected = Math.hypot(x, y) * cellM <= oldRadius;
+      assert.eq(cellInReach(s, x, y), expected, `old footprint at ${x},${y}, depth ${depth}, cellM ${cellM}`);
+      if (expected) count++;
+    }
+    if (depth === 0 && cellM === 7 && !blinded) assert.eq(count, 21, 'original surface footprint');
+  }
+});
+
+test('reach upgrades: projected cells and row seams unlock one actual distance group per rung', () => {
+  for (const iy of [100, 224, 225]) for (const depth of [0, 2, 6]) for (const blinded of [false, true]) {
+    const s = reachScene({ cellM: 7, cellsPerTile: 225, mPerPx: 7.008915070782029 * 225 / WorldGen.TILE_PX,
+      cellsForRow: row => row <= 0 ? 225 : 224, depth });
+    const p = absCellCenterMeters(s, 100, iy);
+    s.playerM = { ...p };
+    if (blinded) Conditions.apply(s.save, 'blinded');
+    const cells = [];
+    for (let y = -8; y <= 8; y++) {
+      const c = absCellOffset(s, 100, iy, 0, y);
+      for (let x = -8; x <= 8; x++) cells.push({ cellIX: c.cellIX + x, cellIY: c.cellIY });
+    }
+    const reachable = () => new Set(cells.filter(c => cellInReach(s, c.cellIX, c.cellIY)).map(c => `${c.cellIX},${c.cellIY}`));
+    let before = reachable();
+    for (let rung = 1; rung <= 6; rung++) {
+      s.save.reachUpgrades = rung;
+      const after = reachable();
+      for (const key of before) assert.truthy(after.has(key), 'upgrades never remove reachable cells');
+      const added = cells.filter(c => after.has(`${c.cellIX},${c.cellIY}`) && !before.has(`${c.cellIX},${c.cellIY}`));
+      assert.gt(added.length, 0, `projected row ${iy}, depth ${depth}, blind ${blinded}, rung ${rung} adds cells`);
+      const distances = added.map(c => {
+        const centre = absCellCenterMeters(s, c.cellIX, c.cellIY);
+        const half = WorldGen.TILE_PX / rowCells(s, absRowOf(s, c.cellIY)) * s.mPerPx / 2;
+        return Math.hypot(Math.max(0, Math.abs(centre.x - p.x) - half), Math.max(0, Math.abs(centre.y - p.y) - half));
+      });
+      assert.lt(Math.max(...distances) - Math.min(...distances), 1e-4, 'one projected distance group per upgrade');
+      before = after;
+    }
+  }
+});
+
+test('reach threshold cache follows projected grid width', () => {
+  const s = reachScene({ cellM: 7, cellsPerTile: 225, mPerPx: 7.008915070782029 * 225 / WorldGen.TILE_PX,
+    save: { energy: 100, reachUpgrades: 1 } });
+  const centrePlayer = () => { s.playerM = absCellCenterMeters(s, 100, 100); };
+  centrePlayer();
+  const first = reachRadiusM(s);
+  s.save.reachUpgrades = 0;
+  const base = reachRadiusM(s);
+  s.save.reachUpgrades = 1;
+  assert.truthy(cellInReach(s, 102, 102), 'first upgrade reaches projected diagonal');
+  s.mPerPx *= 1.01;
+  centrePlayer();
+  assert.gt(reachRadiusM(s), first, 'projection scale invalidates cached radius');
+  assert.truthy(cellInReach(s, 102, 102), 'diagonal remains unlocked with new projection');
+  const second = reachRadiusM(s);
+  s.cellsPerTile = 224;
+  centrePlayer();
+  assert.gt(reachRadiusM(s), second, 'row cell count invalidates cached radius');
+  assert.truthy(cellInReach(s, 102, 102), 'diagonal remains unlocked on new grid');
+  s.save.reachUpgrades = 0;
+  assert.eq(reachRadiusM(s), base, 'projection changes preserve the established base radius');
 });

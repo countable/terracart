@@ -257,6 +257,7 @@ const HeadingUp = {
   _preRender(scene) {
     if (!HeadingUp.active(scene)) return;
     WallPerspective.update(scene);
+    if (typeof BuildingLowPoly !== 'undefined') BuildingLowPoly.update(scene);
     const main = scene.cameras.main, ui = scene.uiCam;
     const a = scene.mapRot || 0;
     const saved = scene._huSaved = [];
@@ -357,7 +358,7 @@ const HeadingUp = {
   // Turn standing art back around its explicit ground anchor. Legacy art
   // falls back to frame feet; only identity grouping containers recurse.
   _upright(o, rot, saved) {
-    if (!o.visible || o._worldLayer === WorldLayers.GROUND_DECAL || o._worldLayer === WorldLayers.GROUNDCOVER) return;
+    if (!o.visible || o._worldGeometry || o._worldLayer === WorldLayers.GROUND_DECAL || o._worldLayer === WorldLayers.GROUNDCOVER) return;
     if (o.type === 'Container') {
       if (!o._huAnchor && o.x === 0 && o.y === 0 && !o.rotation
           && (o.scaleX ?? 1) === 1 && (o.scaleY ?? 1) === 1) {
@@ -383,6 +384,7 @@ const HeadingUp = {
   },
 
   _firstFoot(o) {
+    if (o._worldGeometry) return o._huAnchor;
     if (o._huFoot) return o._huFoot;
     if (o.type === 'Container') {
       for (const ch of o.list) { const f = HeadingUp._firstFoot(ch); if (f) return f; }

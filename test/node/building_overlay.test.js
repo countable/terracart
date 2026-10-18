@@ -483,7 +483,8 @@ test('building overlay: no pixel read-back anywhere in the overlay', () => {
   // The whole point of the two changes above (the colour-level lift and the
   // wall atlas): a cell crossing must never call getImageData — on a phone
   // each one is a synchronous round trip to the GPU process.
-  assert.eq(/getImageData|putImageData|tuneUnclaimedMaterialCanvas/.test(BUILDING_OVERLAY_SRC), false,
+  // putImageData writes the cached fallback roof bitmap; it does not read GPU pixels.
+  assert.eq(/getImageData|tuneUnclaimedMaterialCanvas/.test(BUILDING_OVERLAY_SRC), false,
     'building_overlay.js reads no pixels back');
 });
 
@@ -1293,6 +1294,9 @@ test('building overlay: heading-up castle uses retained prisms without an atlas 
 });
 
 test('building overlay: heading-up house foundations follow the camera without repainting textured floors', () => {
+  const previousStyle = Render.buildingArtStyle;
+  Render.buildingArtStyle = 'rounded';
+  try {
   const rings = [
     [0, 0, 10, 0, 10, 10, 0, 10],
     [0, 0, 15, 0, 15, 5, 5, 5, 5, 15, 0, 15],
@@ -1343,6 +1347,62 @@ test('building overlay: heading-up house foundations follow the camera without r
     assert.eq(log.refreshes, 0, 'no wall texture uploads');
   }
   clearTiles();
+  } finally { Render.buildingArtStyle = previousStyle; }
+});
+
+test('building overlay: a shared sandbox block never becomes one oversized house', () => {
+  clearTiles();
+  const previousStyle = Render.buildingArtStyle;
+  Render.buildingArtStyle = 'procedural';
+  try {
+    const entry = putShapes(0, 0, [rectShape(0, 0, 25, 40, T.BUILDING, 'sb_first')]);
+    entry.objects = [
+      { kind: 'house', id: 'sb_first', tier: 9, x: 5, y: 5, area: 25 },
+      { kind: 'house', id: 'sb_second', tier: 9, x: 15, y: 5, area: 25 },
+    ];
+    const { scene } = makePerspectiveScene();
+    scene.save = { restoredHouses: { sb_first: 'plain', sb_second: 'plain' } };
+    BuildingOverlay.draw(scene);
+    assert.eq(scene._proceduralBuildings.size, 2, 'each fixture gets its own model');
+    const aboveGround = scene._wallPerspective.polygon.blocks.filter(b => b.top > 0);
+    assert.gt(aboveGround.length, 0);
+    for (const b of aboveGround) {
+      const xs = b.points.map(p => p.x), ys = b.points.map(p => p.y);
+      assert.lte(Math.max(...xs) - Math.min(...xs), CELL_PX + 0.01);
+      assert.lte(Math.max(...ys) - Math.min(...ys), CELL_PX + 0.01);
+    }
+  } finally { Render.buildingArtStyle = previousStyle; clearTiles(); }
+});
+
+test('building overlay: procedural houses follow source footprints and same-count role changes', () => {
+  clearTiles();
+  const previousStyle = Render.buildingArtStyle;
+  Render.buildingArtStyle = 'procedural';
+  try {
+    const entry = putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING, 'styled-house')]);
+    entry.objects = [{ kind: 'house', id: 'styled-house', tier: 9, x: 5, y: 5 }];
+    const { scene } = makePerspectiveScene();
+    scene.save = { restoredHouses: { 'styled-house': 'plain' } };
+    BuildingOverlay.draw(scene);
+    assert.truthy(scene._proceduralBuildings.has('styled-house'));
+    const height = scene._proceduralBuildings.get('styled-house').height;
+    const commits = scene.buildingGeomGfx.commits;
+    scene.mapRot = Math.PI / 4;
+    BuildingOverlay.draw(scene);
+    WallPerspective.update(scene);
+    assert.eq(scene.buildingGeomGfx.commits, commits, 'compass reuses geometry');
+    scene.save.restoredHouses['styled-house'] = 'trader'; // japanese: a different style height
+    BuildingOverlay.draw(scene);
+    assert.gt(scene.buildingGeomGfx.commits, commits, 'same number of houses still changes roof');
+    assert.truthy(scene._proceduralBuildings.get('styled-house').height !== height);
+    // Wizard towers keep their sprite art: no generated shell, no sign height.
+    scene.save.restoredHouses['styled-house'] = 'wizard';
+    BuildingOverlay.draw(scene);
+    assert.falsy(scene._proceduralBuildings.has('styled-house'), 'sprite-art roles leave no procedural entry');
+    Render.buildingArtStyle = 'rounded';
+    BuildingOverlay.draw(scene);
+    assert.eq(scene._proceduralBuildings.size, 0, 'rollback restores sprite authority');
+  } finally { Render.buildingArtStyle = previousStyle; clearTiles(); }
 });
 
 test('building overlay: heading-up temple uses temple wall palette without castle teeth', () => {
@@ -1468,7 +1528,7 @@ test('building overlay: Home is walls with a doorway under a roof, from its foot
   BuildingOverlay.draw(scene);
   assert.eq(scene._wallPerspective.polygon.blocks.length, 0, 'no plain house foundation: Home is not a village house');
   const group = scene._wallPerspective.home;
-  assert.truthy(group && group.alwaysOn, 'Home\'s prisms draw at every heading');
+  assert.truthy(group && group.alwaysActive, 'Home\'s prisms draw at every heading');
   const H = HomeArea.HOUSE;
   const walls = group.blocks.filter(b => b.bottom === 0 && b.top === H.wallPx);
   assert.gt(walls.length, 8, 'wall sections round the perimeter');

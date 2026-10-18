@@ -654,7 +654,7 @@ test('streets: two seconds in the bubble and the stretch in reach comes back', (
     const got = restoredM(s);
     assert.gt(got, 0, 'the reach really does cover some street');
     // EXACTLY the cells the lit reach area covers, no more: the reach is
-    // 2.5 cells + 1 m, so on the player's own row that is cells 23..27 — five
+    // 2.5 cells + 1 m, overlapping cells 23..27 on the player's row — five
     // cells, 35 m — and the arclength along this way IS its x in metres.
     const iv = restoredIvs(s, WorldGen.tileKey(0, 0));
     assert.eq(iv.length, 1, 'one line, one row in the save');
@@ -662,7 +662,7 @@ test('streets: two seconds in the bubble and the stretch in reach comes back', (
     const [a, b] = iv[0][0];
     assert.inRange(a, 23 * CELL_M - 0.01, 23 * CELL_M + 0.01, 'starts at the western rim cell');
     assert.inRange(b, 28 * CELL_M - 0.01, 28 * CELL_M + 0.01, 'and ends at the eastern one');
-    assert.inRange(got, 35 - 0.01, 35 + 0.01, 'five cells of street');
+    assert.inRange(got, 35 - 0.01, 35 + 0.01, 'five partially or fully lit cells of street');
     // Every restored metre is inside the lit reach, measured the way the
     // outline is: no metre may come back that the player could not have
     // touched.
@@ -1087,15 +1087,15 @@ test('streets: the live pass previews the dwell and shines on the rebuild', () =
   }
 });
 
-test('streets: the sweep is memoised on the reach cell, and the ripen runs every frame', () => {
+test('streets: the sweep is memoised on the exact player position, and the ripen runs every frame', () => {
   // The SCAN is the expensive half — a grid traversal per line of every way in
   // the 3×3 tiles — and standing still can't bring fresh street into the
   // bubble. The RIPEN half is waiting on the clock, not the player, so it runs
   // regardless.
   const src = SCENE_SRC.slice(SCENE_SRC.indexOf('  _sweepStreets() {'));
   const body = src.slice(0, src.indexOf('\n  }\n'));
-  assert.truthy(/const sweepKey = `\$\{p\.cellIX\},\$\{p\.cellIY\},\$\{Math\.round\(reachM\)\}`;/.test(body),
-    'the memo key is the reach cell plus the radius');
+  assert.truthy(/const sweepKey = `\$\{player\.x\},\$\{player\.y\},\$\{reachM\}`;/.test(body),
+    'the memo key includes sub-cell movement and the exact radius');
   assert.truthy(/if \(this\._streetSweepKey !== sweepKey\) \{[\s\S]*?this\._rescanStreets\(/.test(body),
     'and only a change rescans');
   assert.truthy(/this\._ripenStreets\(now, sight\);/.test(body),

@@ -42,32 +42,64 @@ nudge. The ring, matching fire, smoke, interaction and step-over footprint use
 that position. Its cold and lit states are both step-over props.
 
 Continuous architectural walls are background geometry, separate from object
-props (including interactable `stronghold_wall`). Their connected wall meshes
-remain attached to their ground footprints; they cannot use per-object billboard
-rotation without opening gaps between segments. In heading-up mode,
-`wall_perspective.js` retains ground vertices and separate elevations for polygon
-and tiled walls. Each compass change inverse-rotates only the height vector,
-selects camera-facing sides, and orders short wall prisms by screen depth.
+props. Their connected wall meshes remain attached to their ground footprints;
+they cannot use per-object billboard rotation without opening gaps between
+segments. In heading-up mode, `wall_perspective.js` retains ground vertices and
+separate elevations for polygon, tiled and connected-prop walls. Each compass
+change inverse-rotates only the height vector, selects camera-facing sides, and
+orders short wall prisms by screen depth. Connected stronghold wall runs and
+clipped hedge walls (the `connectedArtForTile` masks) join that batch through
+`Render.drawConnectedWallPrisms` (source `props`): a core block plus an arm to
+each connected cell edge, seated on the cells' terrain slots, rising by the
+step-over lift in `ObstacleStep.PROFILES`, with thickness and colour from
+`Render.CONNECTED_WALL_ART`. Those pieces leave the sprite pools for the frame;
+they still interact, block and support steps from their data cells. An isolated
+wall cell keeps its rubble sprite and a lone garden bush its rounded sprite.
 Explicit triangles use Phaser's existing WebGL batching or Canvas fallback;
 there is no wall canvas bake or texture upload on heading changes. At a fixed
 heading the command buffers are reused. House footprint foundations use the same
 retained perimeter faces, descending below the floor instead of rising as a wall.
 Only camera-facing sides draw; uncapped perimeters also support concave footprints
 without triangulating their textured floors. Floors remain cached ground textures;
-small building sprites and towers keep their ordinary upright sprite path.
-North-up mode retains the existing wall atlas artwork.
+Procedural house roofs use triangulated caps and retained sloped roof faces.
+They share the same elevation projection in north-up and heading-up modes;
+legacy sprite modes retain the north-up wall atlas artwork.
+The WebGL low-poly path (`building_lowpoly.js`) draws houses to match the 2D
+billboard sprites: `BuildingLowPoly.LOOK` owns the height foreshortening, the
+ink outline pass, eave shadow, flat-deck bands and chimney numbers, and the
+material sheets are cut once per material from the tilesets. Roof UV wrapping
+uses the selected sheet's repeat: 360 texels for approved crops, 288 for generated
+and cel sheets, so atlas boundaries preserve the material pattern. Each low-poly
+building has a pooled render object in `worldContainer`, interleaved with props
+and actors by its footprint's vertex-average ground anchor. Faces and ink groups
+remain ordered within that building. This is whole-building painter ordering,
+not per-pixel occlusion for long or concave footprints. Buildings retain map
+rotation; only their elevation vector compensates for heading. The retained
+geometry's pan offset also moves its sorting anchor, including at a fixed heading.
+Ground floors and the legacy architectural walls remain in their background
+passes. Standalone building viewers without a world container sort buildings
+in their existing wall container.
+[Low-poly building styles](../art/lowpoly-building-styles.md) owns the detail.
+`WallPerspective` prisms (castle ramparts, Canvas fallback) read the same
+table: height through `LOOK.heightScale`, and the ink outline is drawn once
+per connected run (blocks sharing a ground vertex at the same base level)
+before that run's first fill, so a ring of sections shows no seams while
+crown teeth outline separately. They remain untextured.
 
 Home — the player's house (`HomeArea.HOUSE`, footprint stamped by
 `scene_venues.js`) — draws no sprite: `Render.houseTextureKey` hands its role
-a null key. `building_overlay.js` `drawHome` paints its house floor and then
-the whole perimeter as retained prisms in the `home` group (`WallPerspective`,
-`alwaysOn`, so north-up draws them too) with the fort's thickness and a taller
-wall, a doorway gap on the door side (`shape.door`), and a roof: the ring
-capped at wall height with a dark eave lip, plus a raised ridge along a quad's
-long axis. While the player stands inside (`scene.homeInside`) the roof and
-ridge are not drawn and the wall tops take the wall's own colour; the
-lightmap then masks the outside (see Lighting). The sign seats
-`HOUSE.signLiftPx` above the footprint's centre.
+a null key, and the overlay's Home branch (`building_overlay.js`) paints its
+house floor on the canvas and then the house. On the low-poly path it is the
+`home` role (`BuildingLowPoly.ROLES`); while the player stands inside
+(`scene.homeInside`, part of the overlay's claim epoch) its recipe is
+`interior` — the roof off, the walls level at the eaves, inner faces and a
+thick top band (`interiorGeometry`) — and the lightmap masks the outside (see
+Lighting). Without the low-poly path (Canvas, north-up) the same house is
+retained prisms in the `home` group (`WallPerspective`, `alwaysActive`) with
+the fort's thickness and a taller wall, a doorway gap on the door side
+(`shape.door`), and a gabled two-tone roof with a ridge; inside, no roof and
+the wall tops in the wall's own colour. The sign seats over the drawn top, or
+`HOUSE.signLiftPx` above the footprint's centre when there is no model.
 
 ## Coordinates, rendering and performance
 
@@ -109,6 +141,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   existing resize path, which explicitly restores the logical CSS size before
   refreshing input bounds when returning to scale 1. Explicit `?rscale=N` remains a diagnostic override,
   bounded to 1–2×; game cadence is unchanged.
+- iPhone compass samples with negative headings or negative/non-finite accuracy
+  are ignored, retaining the last usable bearing while the sensor recalibrates.
+  The first absolute bearing replaces any relative startup smoothing history.
 - Heading-up is the default (`?headingUp=false` keeps north up). The main
   camera turns about the view centre by `-compassDeg` (Q / E fake it on
   desktop), and the map clips to the inscribed circle. Phaser's two-corner
@@ -178,7 +213,10 @@ the real source so a missing texture cannot become a permanent cached palette.
   flags retain ordinary world ordering. Tower textures fade fully to transparent
   across their bottom ten pixels so cell-seated bases blend into angled walls;
   this is baked once for both restoration states. Walls and footprints use a muted
-  palette so interactables remain distinct.
+  palette so interactables remain distinct. Unclaimed house and fort floors
+  retain a little more brick red and weathered timber warmth beneath the green
+  wash; their existing slime, grain, cracks and dark foundation edges preserve
+  the dilapidated state. Restored floors and castle materials keep their palettes.
   Castle courtyards are cell-tiled. Half of the cached variants are one full
   cell slab; the rest split it, a quarter into four quarter-cell stones (2×2)
   and a quarter joining one adjacent pair into a horizontal or vertical
@@ -211,7 +249,10 @@ the real source so a missing texture cannot become a permanent cached palette.
   both boxes stand at their turned feet and lower turned feet count as in
   front (`Render.headingFadeView`), matching the heading-up draw order.
   Prop contact shadows turn about their prop's ground anchor, so a tucked-up
-  shadow stays under the art at every compass heading; the shrine pedestal
+  shadow stays under the art at every compass heading; a wild plant's authored
+  shadow (`Render.wildplantShadow`) is the same ellipse rule off its seated
+  art at the plant alpha, centred on the foot `Render.plantPlacement` draws
+  the plant on, and turns about the plant's cell point; the shrine pedestal
   (`pad_shrine`, drawn with its masonry face south) turns back about its cell
   centre the same way, while flat POI pads turn with the ground. Ground decals retain their own
   opacity, and fruit overlays follow their tree.
@@ -335,8 +376,8 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   and flint when marked `rockMaterial: 'flint'`, including flint-bearing L1
   cave rubble. The flint mark takes precedence over the generic cave variant. Partial
   cover (`sightBlocking: true`) selects the taller boulder silhouette.
-  Regular rocks and boulders both use 24px frames at 92% of scale 16/15 (`ROCK_WORLD_SCALE`; placed
-  stones 2.304, the produce icon); their height
+  Regular rocks and boulders both use 24px frames at 80.96% of scale 16/15 (`ROCK_WORLD_SCALE`; placed
+  stones 1.408, the produce icon); their height
   difference is authored into the graphic-storybook atlas (8 columns, 9 rows).
   Outside authored rock zones, wild rubble shares
   the four generic plain small shapes and skips biome tint; planted crop stages
@@ -350,9 +391,9 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   the place; Work Yard uses a cut stone slab and Crater Quarry has a glowing lava
   seam painted into the sprite. These contain no collectible mineral inclusions.
   The same 24px
-  frame scales to 4/3 for both small stones and sight-blocking boulders.
+  frame uses the same `ROCK_WORLD_SCALE` for small stones and sight-blocking boulders.
   `ROCK_VARIANT_ART` owns these scales; placed rocks draw their 16px produce
-  frame at 1.6×, comfortably inside a cell.
+  frame at 1.408×, comfortably inside a cell.
   These display sizes leave mining
   quantities, occupied cells and cover behavior unchanged.
   Named context/variant fields resolve the theme, with legacy zone-object
@@ -384,7 +425,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 Surface daylight follows the player's local sun with a 30-minute extension at
 both dawn and dusk. Nighttime ambient luminance is 10% brighter, blending back
-to the existing noon level. Underground lighting is unchanged.
+to the existing noon level. The circular reach indicator keeps half its added
+light; the smooth player glow carries the other half, preserving nearby
+brightness on the surface and underground. This compensation fades beyond
+the reach rim within the existing player-light radius.
 
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
@@ -430,28 +474,29 @@ to the existing noon level. Underground lighting is unchanged.
 
 - `lighting.js` owns the sole lighting pass: additive source cookies composed
   into a lightmap and multiplied over the world. Canvas is the default compositor;
-  the opt-in GPU compositor below consumes the same shapes and fade weights.
+  the opt-in GPU compositor below consumes the same shapes and light gains.
   Do not add darkness passes or dim sprites
   again. Its screen-attached base (ambient plus player ramp) stays baked while
-  walking; transparent, padded reach-cell masks crop with the camera and rebuild
-  only when their geometry or validity edge changes. If the normal validity edge
-  lands on `drawCells`' crossing frame, the mask borrows the remaining physical
-  pad once and rebuilds on the next ordinary frame; it never crops past the
-  painted edge. A viewport scratch blends
-  old/new masks at their live fade weights and colours them with the radial
-  gradient still centred on the body. Interrupted fades retain exact weights,
-  but rendering skips masks outside the painted view and an aggregate of less
-  than one 8-bit alpha level; it never renormalises the remaining brightness.
-  Active mask canvases stay pinned until compositing finishes, including when
-  a fade needs more than four masks. Surplus canvases are released as it settles. Stable world cookies join padded caches
+  walking; the player circle retains fractional-pixel positioning without cell-change fades.
+  Reach and street restoration follow movement within a cell, independently of
+  camera peeks. Canvas and GPU share one circular mask, rebuilt only when its screen position,
+  radius or viewport changes. Stable world cookies use padded caches
   by their exact whole-pixel phase. Player-attached, breathing, flickering and
   transient lights keep the individual stamp path. The full-frame key gates
-  before every canvas call. Reach lighting follows `cellInReach`; light conveys
-  reach and live POIs without outline rings. The radial player glow uses
-  `PLAYER_OUTPUT_K = 0.44`; the added reach-cell light is halved by
+  before every canvas call. Reach lighting uses a circle centred continuously on the exact player position with the interaction
+  radius. `cellInReach` accepts a cell exactly when its square overlaps the
+  circle; tangency alone does not count. The base circle is reduced to match
+  the old centre-tested cell footprint when standing at a cell centre. Smooth
+  movement still changes which boundary cells overlap. Each Inner Light upgrade crosses only
+  the next projected cell-square overlap threshold, unlocking tied cells together.
+  Upgrade thresholds use actual row grid widths, including the differently aligned cells at tile-row seams;
+  the established nominal base radius remains unchanged,
+  and are cached by the containing cell and projection. Depth and blindness
+  adjust the base radius before upgrades, so every upgrade adds reachable cells; light conveys reach and live POIs without outline rings. The radial player glow uses
+  `PLAYER_OUTPUT_K = 0.44`; the added circular reach light is halved by
   `REACH_OUTPUT_K = 0.5`. The smooth player glow carries the removed half,
   preserving nearby brightness on the surface and underground. It fades beyond
-  the reach rim within the existing light radius; interaction distance is unchanged.
+  the reach rim within the existing light radius.
   Day/night leaves the reach plateau bright;
   caves ignore it.
 - Indoors (`scene.homeInterior`, non-null while the player stands on one of
@@ -520,7 +565,7 @@ to the existing noon level. Underground lighting is unchanged.
   Synthetic loot classes need both a `CLASS_MAX_TIER` ceiling and a branch
   before item resolution. Cash rewards have no `slot`.
 
-Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
+Tests: `lighting`, `lighting_player_circle`, `streets`, `street_lamps`, `road_overlay`,
 `trail`, `loot`; also `tools/layer_audit.js`.
 
 - Cave pressure plates use a low-opacity floor mark revealed within one body
@@ -534,9 +579,9 @@ Measure CPU work and uploads before replacing another renderer. Moving lights
 and flicker can trigger Canvas blending and a full lighting texture refresh.
 The lighting prototype (`?gpuLighting=true`) moves composition into Phaser's
 WebGL context. `lighting.js` supplies cached source canvases with repaint
-revisions, crop positions and fade weights; `lighting_gpu.js` uploads changed
-sources and composites them into a retained GPU lightmap. Reach masks blend
-before receiving their radial colour; cover composites last. Explicit
+revisions and crop positions; `lighting_gpu.js` uploads changed sources and
+composites them into a retained GPU lightmap. The circular reach mask receives
+its radial colour before composition; cover composites last. Explicit
 premultiplied-alpha blend factors preserve Canvas additive semantics.
 
 The prototype defaults off. Unsupported renderers and compositor failures use
@@ -559,6 +604,30 @@ browser/backend settings against separate baseline and candidate servers.
 Headless CPU timings do not establish handset GPU time or a 120fps guarantee;
 validate on the target device before making that claim.
 
+## Footprint building styles
+
+The default house and fort architecture comes from `building_styles.js`, using
+source building polygons rather than a freestanding sprite. `Render` owns the
+role and shop-line style tables: plaster terraces for residences, brick for the
+blacksmith, Japanese roofs for traders and book/pet shops, stepped pyramid roofs
+for the wizard and potion/relic shops, stone tiers for forts and low broken walls
+for wrecks. Restoring a building changes its material and geometry together.
+
+`BuildingOverlay` emits retained prisms only when footprint inputs or restoration
+state change. Roof insets stop when narrow or concave wings cannot support another
+level; they never scale toward a centroid outside the building. The existing
+source data exports individual rings, so courtyard holes are not reconstructed.
+Source polygons without surviving house icons still receive architecture. Home
+and synthetic houses without polygons get a bounded square footprint using their
+existing area and ground anchor. A house sprite hides only after geometry has
+actually been emitted; interaction cells, shop signs and delivery badges remain.
+Badge elevation reads the emitted building height. Geometry remains in the existing
+building background layer below actors, including on tall roofs.
+
+`?buildingArt=legacy` selects the original sprites. Omit the query or use
+`buildingArt=procedural` for footprint architecture. This per-page selection is
+not saved. Original sprites also supply restoration cards and Home icons.
+
 ## Bush and container artwork
 
 `assets/Objects/CelProps/` supplies native 24px bushes, brambles, clipped hedges,
@@ -574,3 +643,21 @@ contexts use rope-bound or painted wood and turquoise pots, industrial contexts
 use copper-rimmed or repaired barrels and charcoal pottery, and wetland contexts
 use mossy rain barrels. Pot shards retain the intact pot's frame. Selection does
 not change rewards, material identity, saved IDs or restocking behavior.
+
+## Building sprite artwork
+
+Restoration choices, Home's icon and map sprite fallbacks use the original
+role textures through `Render.houseTextureKey` and `Render.houseTextureFrame`.
+Plain houses use the `house` front frame; shops and other roles use their
+original `house_<role>` images. Wizard towers and turrets retain their shrine
+and tower frames. Unclaimed forts use their baked weathered artwork.
+
+Procedural buildings remain the default on the map. `?buildingArt=legacy`
+selects the original sprites instead. Both modes use the original artwork
+for dialog icons and sprite fallbacks.
+
+Default oak barrel art uses the supply crate’s manufactured-wood palette directly,
+without a runtime tint. Only frame 0 of the barrel sheet is replaced; the other
+seven variants retain their original pixels. Default barrels scale to
+`(2/3) × 1.1 × 1.1`. Long grass uses `1.16 × 0.9`; trunk chests use
+`1.6 × 0.8`, and supply crates use `0.8 × 1.1`. Chests have trimmed bounds for every tier to keep their art centered.

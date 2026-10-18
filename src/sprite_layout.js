@@ -194,6 +194,12 @@
     'worldpeach_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
     'worldpeach_tree:4': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
     'chest:0': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 15 },
+    'chest:1': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 15 },
+    'chest:2': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 15 },
+    'chest:3': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 15 },
+    'chest:4': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 15 },
+    'chest:5': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 15 },
+    'chest:6': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 15 },
     'box:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },
     'shrine_spirit:0': { fw: 16, fh: 16, minX: 2, minY: 1, maxX: 14, maxY: 15 },
     'shrine_spirit:1': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 14, maxY: 14 },
@@ -279,8 +285,8 @@
     'gatepost:0': { fw: 16, fh: 16, minX: 0, minY: 1, maxX: 16, maxY: 16 },
   };
 
-  // Scales the 14px-wide gold chest to a ~22px visible footprint.
-  const CHEST_SCALE = 1.6;
+  // Scales the 14px-wide gold chest to a ~18px visible footprint.
+  const CHEST_SCALE = 1.6 * 0.8;
 
   // Cosmetic only: each POI keeps its appearance across reloads and save overlays.
   const GROVE_SHRINE_ART = [

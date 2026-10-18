@@ -56,11 +56,11 @@ const HomeArea = {
   // Where a placed Home sits, in cell offsets from the point it is placed
   // for (the player's first fix, or where they stand for "Move Home here"):
   // the house centred one cell ahead (its doorway row under the player)
-  // and the firepit one cell behind the player.
+  // and the firepit two cells behind the player.
   // A new game rotates these defaults into its first compass heading.
   // Explicit Home moves retain the north-up defaults.
   WAGON_OFFSET: { dx: 0, dy: -1 },
-  FIREPIT_OFFSET: { dx: 0, dy: 1 },
+  FIREPIT_OFFSET: { dx: 0, dy: 2 },
   // Rotate the starting layout into the first compass heading, then snap to
   // cells once. Saved positions never follow later camera turns.
   placementOffsets(heading = 0) {
@@ -71,7 +71,7 @@ const HomeArea = {
   // Where Home's firepit may go, best first, as cell offsets from the
   // player's anchor: the turned FIREPIT_OFFSET, then the ring one cell out
   // and the ring two out, each by distance from it — never the player's own
-  // doorstep cell or the wagon's 3x3. Fixed order, so the same ground always
+  // doorstep cell or the house's 3x3. Fixed order, so the same ground always
   // picks the same cell.
   firepitCandidates(preferred, wagon) {
     const d2 = (c) => (c.dx - preferred.dx) ** 2 + (c.dy - preferred.dy) ** 2;
@@ -86,7 +86,8 @@ const HomeArea = {
       }
       out.push(...ring.sort((a, b) => d2(a) - d2(b)));
     }
-    return out;
+    // Never one of the house's cells (inHouse): the pit stands in the yard.
+    return out.filter(c => !this.inHouse(c.dx - wagon.dx, c.dy - wagon.dy));
   },
   // The firepit waits for the first compass reading — but only this long
   // (ms, from Home standing on the surface this session). A device that
@@ -134,10 +135,10 @@ const HomeArea = {
   // sits at the turned WAGON_OFFSET's opposite. A diagonal heading ties and
   // takes the north/south answer.
   doorSide(heading = 0) {
-    const a = heading * Math.PI / 180;
-    // The turned WAGON_OFFSET is (sin a, -cos a); the anchor is its opposite.
-    const px = -Math.sin(a), py = Math.cos(a);
-    if (Math.abs(py) + 1e-9 >= Math.abs(px)) return py > 0 ? 'S' : 'N';   // a diagonal ties: north/south
+    // In CELLS, as placed: the anchor is the turned WAGON_OFFSET's opposite.
+    const w = this.placementOffsets(heading).wagon;
+    const px = -w.dx, py = -w.dy;
+    if (Math.abs(py) >= Math.abs(px)) return py > 0 ? 'S' : 'N';   // a diagonal ties: north/south
     return px > 0 ? 'E' : 'W';
   },
   // The doorway's centre on that wall, world metres.

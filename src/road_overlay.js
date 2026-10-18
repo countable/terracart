@@ -1808,10 +1808,9 @@
       }
     }
   }
-  function strokeBuckets(g, runsByStyle, alpha) { drainSteps(strokeBucketsSteps(g, runsByStyle, alpha)); }
 
   // Iterate every transportation LINE of every tile in the frame:
-  // fn(feature, line, lineIdx, mvtToM, originMx, originMy, tileKey).
+  // Yield the feature, line, projection scale, origin and owning tile.
   // Lot lanes normally never reach here (WorldGen.isLotLane); the check below
   // is belt and braces for a layer that skipped the rasterizer.
   function* transportLines(tiles) {
@@ -1835,10 +1834,6 @@
         }
       }
     }
-  }
-  function eachTransportLine(tiles, fn) {
-    for (const r of transportLines(tiles))
-      fn(r.f, r.line, r.i, r.mvtToM, r.originMx, r.originMy, r.tileKey, r.entry, r.fi);
   }
 
   function rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY) {

@@ -121,7 +121,7 @@ const FILES = [
   // Pure draw math over WorldGen + a stub Graphics, so projection/culling pin without Phaser.
   'road_overlay.js',
   // The POLYGONAL building overlay: pure draw math over WorldGen + a stub fill target.
-  'castle_styles.js', 'temple_art.js', 'wall_perspective.js', 'building_overlay.js',
+  'castle_styles.js', 'temple_art.js', 'wall_perspective.js', 'building_styles.js', 'building_overlay.js',
   // The sandbox's pure tile builder: the same authored scenes, roads and dressing install() uses.
   'sandbox_destinations.js',
   'sandbox.js',
@@ -150,7 +150,6 @@ const BRIDGE = `;Object.assign(globalThis, {
   GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, CharacterPortraits, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, WorldLayers, Visibility,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
-  REACH_CORNER_PX, ReachCorner,
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE, MAP_MSG_MAX,
   // Which ground takes a hoe, and the inventory's type tabs.
   NON_TILLABLE, INV_CATS, INV_CAT_BY_KEY, invCatIconHTML,
@@ -180,7 +179,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   MAX_GROWTH_STAGE, PRODUCE_COL,
   // What a WILD plant does when tapped (drop, work relic, cost, bonus, glow);
   // wildplant_table.test.js drives the accessors.
-  WILDPLANT_RULES, wildplantRule, wildplantOutput, wildplantWorkRelic,
+  WILDPLANT_CONTEXT_ART, WILDPLANT_RULES, wildplantRule, wildplantOutput, wildplantWorkRelic,
   wildplantWorkCost, wildplantTreasure, wildplantLight,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR, LAMP_FOOT_FLAVOR, isTillableCell,
@@ -1080,6 +1079,7 @@ ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
 ctx.SHOPS_MATH_SRC = readSrc('shops_math.js');
 // The building overlay's, for building_overlay.test.js's read-back sweep.
 ctx.BUILDING_OVERLAY_SRC = readSrc('building_overlay.js');
+ctx.BUILDING_LOWPOLY_SRC = readSrc('building_lowpoly.js');
 
 // ── The STREET LAMPS' two placement passes (app.js) ───────────────────────
 // Where the lamp stones stand is decided by these two methods alone. They reach

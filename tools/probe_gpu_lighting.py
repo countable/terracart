@@ -14,13 +14,13 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageStat
 from playwright.async_api import async_playwright
 
-SCENARIOS = ['day','night','torch-flicker','moving-torch','reach-fade','heading-pan-cover']
+SCENARIOS = ['day','night','torch-flicker','moving-torch','reach-movement','heading-pan-cover']
 SETUP = r'''() => {
  const s=__scene;s.scene.pause();s._attachCompass();
  document.querySelectorAll('[id$="-modal"],#story,#howto').forEach(el=>el.remove());s._syncModalGate();
  const origin={...s.playerM},base=2000000000000;
  const b=window.lightProbe={clock:base,origin,samples:[],uploads:{},active:false,frames:0};
- Date.now=()=>b.clock;s._blasts=[];s._lightReachFade=null;
+ Date.now=()=>b.clock;s._blasts=[];
  const origDraw=Lighting.draw;
  Lighting.draw=function(...args){const t=performance.now();const out=origDraw.apply(this,args);if(b.active)b.samples.push({cpuMs:performance.now()-t,painted:out===true});return out;};
  const refresh=s.lightTex.refresh;s.lightTex.refresh=function(...args){if(b.active)b.uploads.lightTextureRefresh=(b.uploads.lightTextureRefresh||0)+1;return refresh.apply(this,args);};
@@ -33,16 +33,16 @@ SETUP = r'''() => {
   try{status=typeof LightingGPU!=='undefined'?LightingGPU.status?.(s)??null:null;}catch(e){status={error:String(e)};}
   return {phaserRenderer:__game.renderer.type===Phaser.WEBGL?'WebGL':'Canvas',gpuModule:typeof LightingGPU!=='undefined',status,
     state:st?{active:st.active,enabled:st.enabled,error:String(st.error||''),reason:st.reason,stats:st.stats}:null,
-    coverMax:Math.max(0,...(s._coverLightMask?.field||[])),reachFadeFrom:s._lightReachFade?.from?.length||0};};
+    coverMax:Math.max(0,...(s._coverLightMask?.field||[]))};};
  b.frame=function(name,i,count){
   b.clock=base+i*100;
   window.__DAYLIGHT=name==='day'?1:0;
   s._torchUntil=['torch-flicker','moving-torch','heading-pan-cover'].includes(name)?base+100000:0;
-  const move=name==='moving-torch'?i/count*s.cellM*1.4:name==='reach-fade'?(i<4?0:s.cellM*1.1):0;
+  const move=name==='moving-torch'?i/count*s.cellM*1.4:name==='reach-movement'?(i<4?0:s.cellM*1.1):0;
   s._gpsSimulated=true;s._manualOffsetM={x:0,y:0};s.gpsM=null;s._applyGpsFix({x:origin.x+move,y:origin.y});
   s.peekM=name==='heading-pan-cover'?{x:Math.sin(i/count*Math.PI*2)*3,y:Math.cos(i/count*Math.PI*2)*3}:{x:0,y:0};
   const heading=name==='heading-pan-cover'?i/count*360:0;
-  const e=new Event('deviceorientationabsolute');Object.defineProperties(e,{alpha:{value:(720-heading-(screen.orientation?.angle||0))%360},absolute:{value:true}});window.dispatchEvent(e);
+  const e=new Event('deviceorientationabsolute');Object.defineProperties(e,{alpha:{value:(720-heading-(screen.orientation?.angle||0))%360},webkitCompassHeading:{value:(heading+(screen.orientation?.angle||0))%360},absolute:{value:true}});window.dispatchEvent(e);
   HeadingUp.tick(s,.1);s._applyMapZoom();
   s.drawCells();s.drawRoadGeometry();s.drawBuildingGeometry();
   const wx=s.startWorldM.x+origin.x,wy=s.startWorldM.y+origin.y;
@@ -81,10 +81,12 @@ async def run_mode(browser,args,mode):
   await page.evaluate('lightProbe.samples=[];lightProbe.uploads={};lightProbe.gpuStart=lightProbe.info().status;lightProbe.active=true')
   for i in range(args.frames):
    await page.evaluate('([name,i,n])=>lightProbe.frame(name,i,n)',[name,i,args.frames])
-   await page.evaluate('()=>new Promise(requestAnimationFrame)')
-   if name=='reach-fade' and i in [4,5]:
+   # The scene is paused; explicitly submit its frame before screenshots or
+   # framebuffer reads. A browser animation callback alone may precede Phaser.
+   await page.evaluate('()=>__game.step(performance.now(),0)')
+   if name=='reach-movement' and i in [4,5]:
     point=await page.evaluate('lightProbe.capture()')
-    checkpoint=f'reach-fade-step{i}'
+    checkpoint=f'reach-movement-step{i}'
     (args.output/f'{label}-{checkpoint}-lightmap.png').write_bytes(base64.b64decode(point.pop('png').split(',',1)[1]))
     result['checkpoints'].append({'name':checkpoint,**point})
   data=await page.evaluate('''() => {lightProbe.active=false;return {samples:lightProbe.samples,uploads:lightProbe.uploads,gpuStart:lightProbe.gpuStart,...lightProbe.capture()};}''')
@@ -100,7 +102,7 @@ async def run_mode(browser,args,mode):
 async def main(args):
  args.output.mkdir(parents=True,exist_ok=True)
  async with async_playwright() as p:
-  browser=await p.chromium.launch(headless=True,executable_path=args.chromium,args=args.browser_arg)
+  browser=await (p.webkit.launch(headless=True,executable_path=args.webkit) if args.webkit else p.chromium.launch(headless=True,executable_path=args.chromium,args=args.browser_arg))
   results=[await run_mode(browser,args,mode) for mode in [False,True]]
   await browser.close()
  comparisons=[]
@@ -116,12 +118,12 @@ async def main(args):
   html+=f'<h2>{name}</h2><section>'
   for mode in ['canvas','gpu']:html+=f'<figure><figcaption>{mode if mode=="canvas" or gpu_executed else "GPU requested — Canvas fallback"}</figcaption><a href="{mode}-{name}.png"><img src="{mode}-{name}.png"></a><p><a href="{mode}-{name}-lightmap.png">Lightmap</a></p></figure>'
   html+='</section>'
-  if name=='reach-fade':
-   html+='<p>Transient fade checkpoints: '+ ' · '.join(f'<a href="{mode}-reach-fade-step{i}-lightmap.png">{mode} step{i}</a>' for mode in ['canvas','gpu'] for i in [4,5] if args.frames>i)+'</p>'
+  if name=='reach-movement':
+   html+='<p>Movement checkpoints: '+ ' · '.join(f'<a href="{mode}-reach-movement-step{i}-lightmap.png">{mode} step{i}</a>' for mode in ['canvas','gpu'] for i in [4,5] if args.frames>i)+'</p>'
  (args.output/'index.html').write_text(html)
  if any(r['errors'] for r in results):raise SystemExit('Browser errors; see report')
 
 if __name__=='__main__':
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--url',default='http://127.0.0.1:8138/index.html');p.add_argument('--chromium',default='/usr/bin/chromium');p.add_argument('--browser-arg',action='append',default=[]);p.add_argument('--frames',type=int,default=30);p.add_argument('--output',type=Path,default=Path.home()/'.artifacts/gpu-lighting');args=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--url',default='http://127.0.0.1:8138/index.html');p.add_argument('--chromium',default='/usr/bin/chromium');p.add_argument('--webkit',help='Use an installed WebKit pw_run.sh executable instead of Chromium');p.add_argument('--browser-arg',action='append',default=[]);p.add_argument('--frames',type=int,default=30);p.add_argument('--output',type=Path,default=Path.home()/'.artifacts/gpu-lighting');args=p.parse_args()
  if args.frames<=0:p.error('--frames must be positive')
  asyncio.run(main(args))

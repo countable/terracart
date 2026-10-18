@@ -110,7 +110,7 @@
     assert.eq(a.rotation, b.rotation, 'the same sway as the tree'); assert.eq(a.x, 0); assert.eq(a.y, 0);
     assert.eq(Render.workImpactPose(wp, { kind: 'wildplant', crop: 'shrub', x: 21, y: 30 }, time), null, 'only the bush under the wheel');
     assert.eq(Render.workImpactPose({ ...wp, toolSlot: 'pickaxe' }, bush, time), null, 'the pick does not shake a bush');
-    assert.truthy(/Render\.applyWorkImpact\(s, Render\.workImpactPose\(scene\._workProgress, p, performance\.now\(\)\),\s*s\.x, s\.y \+ \(1 - oy\) \* s\.displayHeight\)/.test(RENDER_SRC),
+    assert.truthy(/Render\.applyWorkImpact\(s, Render\.workImpactPose\(scene\._workProgress, p, performance\.now\(\)\),\s*s\.x, s\.y \+ \(1 - placement\.oy\) \* s\.displayHeight\)/.test(RENDER_SRC),
       'the wildplant pass applies it about the foot');
   });
 })();

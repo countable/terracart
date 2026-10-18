@@ -224,12 +224,13 @@ test('the literal spellings are gone from the readers', () => {
     // the headstone and the grove shrine. + the POI props: the notice board
     // and the gate post. + the scenic viewpoint's scope. + the underground
     // streets' stalagmites; their inert vent lies flat and casts none.)
+    // The scarecrow's PNG bakes its own contact shadow, so its row carries none.
     const expected = ['tree', 'fruittree', 'chest', 'mineralrock', 'well',
-                      '_scarecrow', '_fire', 'torch', 'waystone', 'stakes',
+                      '_fire', 'torch', 'waystone', 'stakes',
                       'headstone', 'grove_shrine', 'hive', 'infoboard', 'gatepost', 'vista_scope',
                       'stalagmites'];
     for (const k of expected) assert.truthy(flagged.has(k), `${k} casts a contact shadow`);
-    for (const k of ['house', 'tower', 'groundstack', 'staircase']) {
+    for (const k of ['house', 'tower', 'groundstack', 'staircase', '_scarecrow']) {
       assert.falsy(flagged.has(k), `${k} does not`);
     }
     assert.eq(flagged.size, expected.length, 'and no others');

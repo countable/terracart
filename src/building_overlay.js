@@ -26,6 +26,8 @@
 // comes straight back — that A/B is the whole point of the layer.
 //
 // What the polygon draws, tier for tier:
+//   • small houses use raised walls, recessed windows and a tiled roof with
+//     clipped contour eaves that follow concave footprints (canvas renderer);
 //   • the floor, in the tier's colour, carrying the tier's own biome texture
 //     (house cobbles / fort planks / castle paving) so the material reads;
 //   • a south-facing wall: the ring filled again, shifted down by the tier's
@@ -301,6 +303,194 @@
   // overlay uses it: path fills with holes and joins, `clip()` for the
   // rampart band, and pattern fills for the materials.
   const TEX_KEY = 'buildinggeom_overlay';
+  // Curated recipes: geometry and seeded marks vary; material, contrast,
+  // floor rhythm and trim stay authored. No per-frame randomness.
+  const WALL_RECIPES = Object.freeze({
+    plain: { material:'plaster', body:0xb9a78a, trim:0x735741, roof:0x985c49, stories:1 },
+    blacksmith: { material:'brick', body:0x807d77, trim:0x504b46, roof:0x555b60, stories:1 },
+    trader: { material:'sandstone', body:0xc1a77c, trim:0x73573b, roof:0x927349, stories:1 },
+    seed: { material:'plaster', body:0xa4ac87, trim:0x64714a, roof:0x507957, stories:1 },
+    supply: { material:'timber', body:0xa18a69, trim:0x62503c, roof:0x536c83, stories:2 },
+    potion: { material:'plaster', body:0xa59bac, trim:0x62536e, roof:0x70558d, stories:2 },
+    relic: { material:'stone', body:0x9ba5aa, trim:0x606977, roof:0x536779, stories:2 },
+    book: { material:'sandstone', body:0xc0b299, trim:0x785746, roof:0x8a4f4b, stories:2 },
+    pet: { material:'plaster', body:0x9eafa5, trim:0x627b70, roof:0x547e78, stories:1 },
+    wizard: { material:'stone', body:0x9691a6, trim:0x59536d, roof:0x51446f, stories:3 },
+    turret: { material:'stone', body:0x92958f, trim:0x626961, roof:0x777e82, stories:2 },
+  });
+  function wallRecipe(role, stories, claimed = true) {
+    const recipe=WALL_RECIPES[role] || WALL_RECIPES.plain;
+    const paint=c=>tuneOf(claimed)(shadeOf(claimed)(c));
+    return {...recipe,body:paint(recipe.body),trim:paint(recipe.trim),roof:paint(recipe.roof),
+      stories:Math.max(1,Math.min(3,Math.round(stories || recipe.stories)))};
+  }
+  function simplifyRoofRing(ring) {
+    const out=ring.slice(),area=polyArea(ring),tolerance=4;
+    const distance=(p,a,b)=>{
+      const dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1)));
+      return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);
+    };
+    for(let pass=0;pass<ring.length;pass++) {
+      let removed=false;
+      for(let i=0;i<out.length&&out.length>4;i++) {
+        const a=out[(i+out.length-1)%out.length],b=out[i],c=out[(i+1)%out.length];
+        if(distance(b,a,c)>tolerance)continue;
+        const candidate=out.filter((_,j)=>j!==i);
+        if(Math.abs(polyArea(candidate)-area)>area*0.035)continue;
+        if(ring.some(p=>Math.min(...candidate.map((a,j)=>distance(p,a,candidate[(j+1)%candidate.length])))>tolerance))continue;
+        // The simplified control must remain a simple polygon.
+        const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+        if(candidate.some((p,j)=>{const q=candidate[(j+1)%candidate.length];return p!==a&&p!==c&&q!==a&&q!==c
+          &&cross(a,c,p)*cross(a,c,q)<-1e-8&&cross(p,q,a)*cross(p,q,c)<-1e-8;}))continue;
+        out.splice(i,1);removed=true;break;
+      }
+      if(!removed)break;
+    }
+    return out;
+  }
+  // A sampled inward wavefront. Distance to the actual outline makes narrow
+  // wings collapse to ridges, while a height cap leaves an inset flat roof.
+  // Unlike a centroid fan, no triangle crosses a courtyard or concave notch.
+  // This approximates a skeleton; concave junctions soften over one mesh cell.
+  const roofCache = new Map();
+  function roofMesh(source, variant = 'ridge', detail = 'clean') {
+    const left = Math.min(...source.map(p => p.x)), top = Math.min(...source.map(p => p.y));
+    let ring = source.map(p => ({ x: p.x - left, y: p.y - top }));
+    const cross = (a, b, c) => (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+    // Remove only duplicate/collinear vertices, never small genuine details.
+    let changed = true;
+    while (changed && ring.length > 3) {
+      changed = false;
+      for (let i = 0; i < ring.length; i++) {
+        if (Math.abs(cross(ring[(i+ring.length-1)%ring.length], ring[i], ring[(i+1)%ring.length])) < 1e-8) {
+          ring.splice(i,1); changed = true; break;
+        }
+      }
+    }
+    if (ring.reduce((a,p,i) => a + p.x*ring[(i+1)%ring.length].y-p.y*ring[(i+1)%ring.length].x,0) < 0) ring.reverse();
+    const first = ring.reduce((best,p,i) => p.x < ring[best].x || (p.x === ring[best].x && p.y < ring[best].y) ? i : best,0);
+    ring = ring.slice(first).concat(ring.slice(0,first));
+    const key = detail + ':' + variant + ':' + ring.map(p => `${p.x.toFixed(5)},${p.y.toFixed(5)}`).join(';');
+    if (roofCache.has(key)) return roofCache.get(key);
+    const triangles = [], pending = ring.slice();
+    while (pending.length > 3) {
+      let found = false;
+      for (let i = 0; i < pending.length; i++) {
+        const a = pending[(i+pending.length-1)%pending.length], b = pending[i], c = pending[(i+1)%pending.length];
+        if (cross(a,b,c) <= 1e-8) continue;
+        if (pending.some(p => p !== a && p !== b && p !== c
+          && cross(a,b,p) >= -1e-8 && cross(b,c,p) >= -1e-8 && cross(c,a,p) >= -1e-8)) continue;
+        triangles.push([a,b,c]); pending.splice(i,1); found = true; break;
+      }
+      // Invalid/self-intersecting rings retain the old flat roof, never a fan
+      // stretched across missing space.
+      if (!found) return { triangles: [], ring, variant };
+    }
+    triangles.push(pending);
+    const pitch = variant === 'shallow' ? 0.32 : 0.68;
+    const cap = variant === 'inset' ? 9 : variant === 'shallow' ? 5 : 32;
+    const controlRing=detail==='clean' ? simplifyRoofRing(ring) : ring;
+    const distanceTo=(p,outline)=>{
+      let distance=Infinity;
+      for(let i=0;i<outline.length;i++) {
+        const a=outline[i],b=outline[(i+1)%outline.length],dx=b.x-a.x,dy=b.y-a.y;
+        const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));
+        distance=Math.min(distance,(p.x-a.x-t*dx)**2+(p.y-a.y-t*dy)**2);
+      }
+      return Math.sqrt(distance);
+    };
+    const heightAt=p=>Math.min(cap,distanceTo(p,controlRing)*pitch,
+      distanceTo(p,ring)*(detail==='clean' ? Math.min(0.86,pitch*1.25) : pitch));
+    const vertices = new Map(), mesh = [];
+    const vertex = p => {
+      const key = `${p.x.toFixed(6)},${p.y.toFixed(6)}`;
+      if (vertices.has(key)) return vertices.get(key);
+      const v = { x:p.x, y:p.y, z:heightAt(p) };
+      vertices.set(key,v); return v;
+    };
+    const clip = (poly, axis, value, sign) => {
+      const out = [];
+      for (let i=0;i<poly.length;i++) {
+        const a=poly[i],b=poly[(i+1)%poly.length];
+        const da=(a[axis]-value)*sign,db=(b[axis]-value)*sign;
+        if (da >= -1e-9) out.push(a);
+        if ((da < -1e-9 && db > 1e-9) || (da > 1e-9 && db < -1e-9)) {
+          const t=da/(da-db); out.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
+        }
+      }
+      return out;
+    };
+    // Clip already-triangulated geometry to a fixed grid: all intersections
+    // remain convex, and shared boundary vertices have identical heights.
+    const step = Math.max(detail==='clean' ? 10 : 6, Math.ceil(Math.sqrt(polyArea(ring) / 1000)));
+    for (const tri of triangles) {
+      const x0=Math.floor(Math.min(...tri.map(p=>p.x))/step)*step, x1=Math.max(...tri.map(p=>p.x));
+      const y0=Math.floor(Math.min(...tri.map(p=>p.y))/step)*step, y1=Math.max(...tri.map(p=>p.y));
+      for(let y=y0;y<y1;y+=step) for(let x=x0;x<x1;x+=step) {
+        let poly=clip(tri,'x',x,1); poly=clip(poly,'x',x+step,-1);
+        poly=clip(poly,'y',y,1); poly=clip(poly,'y',y+step,-1);
+        if(poly.length<3) continue;
+        const center=vertex({x:poly.reduce((s,p)=>s+p.x,0)/poly.length,y:poly.reduce((s,p)=>s+p.y,0)/poly.length});
+        const corners=poly.map(vertex);
+        // Flat/planar cells need only a diagonal, not a centre fan.
+        let planar=false;
+        if(detail==='clean'&&corners.length>=3) {
+          const a=corners[0],b=corners[1],c=corners[2],area=cross(a,b,c);
+          if(area>1e-8) {
+            const dx=((b.z-a.z)*(c.y-a.y)-(c.z-a.z)*(b.y-a.y))/area;
+            const dy=((b.x-a.x)*(c.z-a.z)-(c.x-a.x)*(b.z-a.z))/area;
+            planar=[...corners,center].every(p=>Math.abs(p.z-a.z-dx*(p.x-a.x)-dy*(p.y-a.y))<0.02);
+          }
+        }
+        const parts=planar ? corners.slice(1,-1).map((p,i)=>[corners[0],p,corners[i+2]])
+          : corners.map((p,i)=>[p,corners[(i+1)%corners.length],center]);
+        for(const points of parts)if(cross(...points)>1e-8)mesh.push({points});
+      }
+    }
+    // Keep the projected surface one-to-one. Sampling across an extremely
+    // skinny triangle can steepen its interpolated slope beyond the analytic
+    // distance field. Lower only the offending shared vertices, leaving every
+    // eave and the footprint topology fixed. Zero height is always feasible.
+    for(let pass=0;pass<32;pass++) {
+      let changed=false;
+      for(const {points:[a,b,c]} of mesh) {
+        const coefficients=[c.x-b.x,a.x-c.x,b.x-a.x], points=[a,b,c];
+        const limit=cross(a,b,c)*0.88;
+        const slope=points.reduce((sum,p,i)=>sum+coefficients[i]*p.z,0);
+        if(slope<=limit+1e-9) continue;
+        const positive=points.reduce((sum,p,i)=>sum+Math.max(0,coefficients[i])*p.z,0);
+        const factor=Math.max(0,1-(slope-limit)/positive);
+        for(let i=0;i<3;i++) if(coefficients[i]>0)points[i].z*=factor;
+        changed=true;
+      }
+      if(!changed)break;
+    }
+    let maxSlope=0;
+    for(const {points:[a,b,c]} of mesh) {
+      maxSlope=Math.max(maxSlope,((b.x-a.x)*(c.z-a.z)-(c.x-a.x)*(b.z-a.z))/cross(a,b,c));
+    }
+    // Bounded fallback for unusually degenerate source polygons.
+    if(maxSlope>0.9)for(const v of vertices.values())v.z*=0.88/maxSlope;
+    for(const triangle of mesh) {
+      const [a,b,c]=triangle.points,area=cross(a,b,c);
+      const dx=((b.z-a.z)*(c.y-a.y)-(c.z-a.z)*(b.y-a.y))/area;
+      const dy=((b.x-a.x)*(c.z-a.z)-(c.x-a.x)*(b.z-a.z))/area;
+      if(detail==='clean') {
+        const p={x:(a.x+b.x+c.x)/3,y:(a.y+b.y+c.y)/3},e=1.5;
+        const gx=(heightAt({x:p.x+e,y:p.y})-heightAt({x:p.x-e,y:p.y}))/(2*e);
+        const gy=(heightAt({x:p.x,y:p.y+e})-heightAt({x:p.x,y:p.y-e}))/(2*e);
+        const angle=Math.round(Math.atan2(gy,gx)/(Math.PI/4))*Math.PI/4;
+        const slope=Math.hypot(gx,gy)<0.12 ? 0 : pitch;
+        triangle.light=Math.round((0.9-Math.cos(angle)*slope*0.23-Math.sin(angle)*slope*0.38)*12)/12;
+      } else triangle.light=Math.max(0.58,Math.min(1.18,0.9
+        -Math.max(-pitch,Math.min(pitch,dx))*0.23-Math.max(-pitch,Math.min(pitch,dy))*0.38));
+    }
+
+    const result = { triangles:mesh, ring, controlRing, variant, detail, heightAt };
+    if(roofCache.size>=96) roofCache.delete(roofCache.keys().next().value);
+    roofCache.set(key,result); return result;
+  }
+
   function canvasTarget(scene) {
     if (typeof document === 'undefined' || !scene.textures || !scene.buildingGeomContainer) return null;
     if (scene._buildingGeomTarget) return scene._buildingGeomTarget;
@@ -345,8 +535,191 @@
       for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x - originX, pts[i].y - originY);
       ctx.closePath();
     };
+    // Bake once per geometry/palette. Camera crossings then copy one small
+    // bitmap instead of replaying thousands of mesh triangles.
+    const roofBitmap = (mesh, tile) => {
+      if (mesh.bitmap?.tile === tile) return mesh.bitmap.canvas;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.ceil(Math.max(...mesh.ring.map(p => p.x))) + 2;
+      canvas.height = Math.ceil(Math.max(...mesh.ring.map(p => p.y))) + 2;
+      if(mesh.detail==='clean') {
+        // Shade the continuous roof at native pixel size, independent of the
+        // coarse mesh. This removes triangle-sized sawteeth along ridge lines.
+        const width=canvas.width,height=canvas.height,stride=width+2;
+        const field=new Float32Array((width+2)*(height+2));
+        for(let y=-1;y<=height;y++)for(let x=-1;x<=width;x++)field[(y+1)*stride+x+1]=mesh.heightAt({x:x-1,y:y-1});
+        const ink=canvas.getContext('2d'),pixels=ink.createImageData(width,height),data=pixels.data;
+        const colors=new Map();
+        const colorFor=(shade,seam)=>{
+          const key=shade+':'+seam;if(colors.has(key))return colors.get(key);
+          let c=shade>1?mix(tile,0xffe7c0,(shade-1)*0.6):dim(tile,shade);
+          if(seam)c=mix(c,dim(tile,0.6),0.24);colors.set(key,c);return c;
+        };
+        for(let x=0;x<width;x++)for(let y=0;y<height;y++) {
+          const index=(y+1)*stride+x+1,z=field[index];
+          const gx=(field[index+1]-field[index-1])/2,gy=(field[index+stride]-field[index-stride])/2;
+          const angle=Math.round(Math.atan2(gy,gx)/(Math.PI/4))*Math.PI/4;
+          const slope=Math.hypot(gx,gy)<0.12?0:0.68;
+          const shade=Math.round((0.95-Math.cos(angle)*slope*0.18-Math.sin(angle)*slope*0.28)*16)/16;
+          const color=colorFor(shade,(y-1)%7===0);
+          const top=Math.max(0,Math.round(y-z)),bottom=Math.min(height,Math.round(y+1-field[index+stride]));
+          for(let row=top;row<bottom;row++) {
+            const offset=(row*width+x)*4;data[offset]=color>>16;data[offset+1]=(color>>8)&255;data[offset+2]=color&255;data[offset+3]=255;
+          }
+        }
+        ink.putImageData(pixels,0,0);mesh.bitmap={tile,canvas};return canvas;
+      }
+      const ink = canvas.getContext('2d');
+      ink.translate(1,1); ink.lineJoin='round'; ink.lineWidth=0.45;
+      for (const triangle of mesh.triangles) {
+        ink.beginPath();
+        triangle.points.forEach((p,i) => i ? ink.lineTo(p.x,p.y-p.z) : ink.moveTo(p.x,p.y-p.z));
+        ink.closePath();
+        const color=triangle.light>1 ? mix(tile,0xffe7c0,(triangle.light-1)*0.6) : dim(tile,triangle.light);
+        ink.fillStyle=ink.strokeStyle=cssOf(color); ink.fill(); ink.stroke();
+      }
+      // Roof courses follow the surface height, including the inward valleys.
+      ink.strokeStyle=cssOf(dim(tile,0.65)); ink.lineWidth=0.65; ink.globalAlpha=0.4; ink.beginPath();
+      for (const {points} of mesh.triangles) {
+        const y0=Math.min(...points.map(p=>p.y)),y1=Math.max(...points.map(p=>p.y));
+        for(let y=Math.ceil((y0+1e-6)/7)*7;y<y1;y+=7) {
+          const ends=[];
+          for(let i=0;i<3;i++) {
+            const a=points[i],b=points[(i+1)%3];
+            if((a.y<=y&&b.y>y)||(b.y<=y&&a.y>y)) {
+              const t=(y-a.y)/(b.y-a.y);ends.push({x:a.x+(b.x-a.x)*t,y:y-a.z-(b.z-a.z)*t});
+            }
+          }
+          if(ends.length===2){ink.moveTo(ends[0].x,ends[0].y);ink.lineTo(ends[1].x,ends[1].y);}
+        }
+      }
+      ink.stroke();
+      mesh.bitmap={tile,canvas};return canvas;
+    };
+    const wallTextures=new Map();
+    const wallTexture=(material,body,trim)=>{
+      const key=`${material}:${body}:${trim}`;
+      if(wallTextures.has(key))return wallTextures.get(key);
+      const canvas=document.createElement('canvas');canvas.width=canvas.height=64;
+      const ink=canvas.getContext('2d');
+      const rand=(x,y)=>((Math.imul(x+17,374761393)^Math.imul(y+31,668265263))>>>0)/4294967296;
+      const dark=cssOf(mix(body,trim,0.24)),lite=cssOf(mix(body,0xe5d5b5,0.17));
+      if(material==='timber') {
+        for(let x=0;x<64;x+=8) {
+          ink.fillStyle=dark;ink.fillRect(x,0,1,64);
+          ink.fillStyle=lite;ink.fillRect(x+1,0,1,64);
+          for(let y=4;y<64;y+=13) {ink.fillStyle=rand(x,y)>.5?dark:lite;ink.fillRect(x+3,y,1,5);}
+        }
+      } else if(material==='plaster') {
+        for(let y=0;y<64;y+=8)for(let x=0;x<64;x+=8) {
+          const n=rand(x,y);if(n<0.72)continue;
+          ink.fillStyle=n>.88?lite:dark;ink.fillRect(x+(y%3),y,3+(x%3),1);
+          if(n>.94)ink.fillRect(x+2,y+1,2,2);
+        }
+      } else {
+        const block=material==='brick'?12:material==='sandstone'?20:16;
+        for(let row=0,y=0;y<64;y+=8,row++)for(let x=-block;x<64;x+=block) {
+          const px=x+(row%2)*block/2,n=rand(x,y);
+          ink.fillStyle=dark;
+          if(n>0.2)ink.fillRect(px,y,block-2,1);
+          if(n>0.35)ink.fillRect(px,y,1,6);
+          ink.fillStyle=lite;if(n>.5)ink.fillRect(px+2,y+1,block-5,1);
+          if(n>.85){ink.fillStyle=dark;ink.fillRect(px+4,y+5,3,1);}
+        }
+      }
+      if(wallTextures.size>=64)wallTextures.delete(wallTextures.keys().next().value);
+      wallTextures.set(key,canvas);return canvas;
+    };
+    const paintWall=(a,b,lift,base,recipe,seed,entrance)=>{
+      if(a.x>b.x)[a,b]=[b,a];
+      const length=Math.hypot(b.x-a.x,b.y-a.y),ux=(b.x-a.x)/length,uy=(b.y-a.y)/length;
+      const shade=ux>0.85?1:uy>0?0.76:0.88;
+      const body=dim(recipe.body,shade),trim=dim(recipe.trim,shade),dark=mix(trim,0x252931,0.42);
+      const height=lift+base;
+      ctx.save();ctx.transform(ux,uy,0,1,a.x-originX,a.y-originY-lift);
+      ctx.beginPath();ctx.rect(0,0,length,height);ctx.clip();
+      ctx.fillStyle=cssOf(body);ctx.fillRect(0,0,length,height);
+      const pattern=ctx.createPattern(wallTexture(recipe.material,body,trim),'repeat');
+      ctx.save();const phase=seed%64;ctx.translate(-phase,0);ctx.fillStyle=pattern;ctx.fillRect(phase,0,length,height);ctx.restore();
+      const rect=(x,y,w,h,color)=>{ctx.fillStyle=cssOf(color);ctx.fillRect(x,y,w,h);};
+      // Clear lip, broad under-eave shadow and a grounded stone plinth.
+      rect(0,0,length,3,dark);rect(0,3,length,1,mix(body,dark,0.4));
+      rect(0,height-4,length,4,mix(body,trim,0.4));rect(0,height-1,length,1,dark);
+      if(length>12){rect(0,4,2,height-8,mix(body,0xead7b3,0.18));rect(length-2,3,2,height-7,mix(body,trim,0.4));}
+      for(let level=1;level<recipe.stories;level++) {
+        const y=height-level*24;
+        rect(0,y-2,length,3,trim);rect(0,y-2,length,1,mix(body,0xe3d5ba,0.3));
+        rect(0,y+1,length,1,mix(body,dark,0.4));
+      }
+      const bays=Math.floor((length-8)/27);
+      for(let floor=0;floor<recipe.stories;floor++)for(let bay=0;bay<bays;bay++) {
+        const x=(bay+0.5)*length/bays,y=height-24*(floor+1)+7;
+        if(entrance&&floor===0&&Math.abs(x-length/2)<14)continue;
+        rect(x-5,y-2,10,2,trim);rect(x-4,y,8,9,dark);
+        rect(x-3,y+1,2,7,mix(body,dark,0.35));rect(x+1,y+1,2,7,mix(body,dark,0.35));
+        rect(x-6,y+9,12,2,trim);rect(x-6,y+9,12,1,mix(body,0xe6d6b9,0.35));
+        rect(x-5,y+11,10,2,mix(body,dark,0.35));
+      }
+      if(entrance&&length>24) {
+        const x=Math.floor(length/2)-6,y=height-20;
+        rect(x-2,y-2,16,3,trim);rect(x-1,y+1,14,18,dark);rect(x+1,y+2,10,16,trim);
+        rect(x+5,y+3,1,14,mix(trim,dark,0.6));rect(x+9,y+9,1,2,0xc8b786);
+        rect(x-3,height-3,18,2,mix(body,0xded0b2,0.3));
+      }
+      ctx.restore();
+    };
     const target = {
       clear() { ctx.clearRect(0, 0, size, size); },
+      // Sloped roofs preserve the source outline, including tiny bays and notches.
+      housePoly(pts, floor, face, outline, specialty = 'plain', variant = null, stories = null, seed = 0, claimed = true) {
+        const recipe=wallRecipe(specialty,stories,claimed);
+        const base = facePx(9), lift=recipe.stories*24+5-base;
+        const accent = mix(recipe.body,0xd8c79f,0.25);
+        const roof = pts.map(p => ({ x: p.x, y: p.y - lift }));
+        let area = 0;
+        for (let i = 0; i < pts.length; i++) {
+          const a = pts[i], b = pts[(i + 1) % pts.length];
+          area += a.x * b.y - b.x * a.y;
+        }
+        const winding = area < 0 ? -1 : 1;
+        const edges = pts.map((a, i) => ({ a, b: pts[(i + 1) % pts.length], i }))
+          .filter(({ a, b }) => (b.x - a.x) * winding < -0.001)
+          .sort((a, b) => (a.a.y + a.b.y) - (b.a.y + b.b.y));
+        const front=edges.reduce((best,edge)=>!best || Math.hypot(edge.b.x-edge.a.x,edge.b.y-edge.a.y)>
+          Math.hypot(best.b.x-best.a.x,best.b.y-best.a.y)?edge:best,null);
+        for (const edge of edges) {
+          paintWall(edge.a,edge.b,lift,base,recipe,seed,edge===front);
+        }
+        const tile = recipe.roof;
+        target.fillPoly(roof, tile);
+        const left = Math.min(...roof.map(p => p.x)), top = Math.min(...roof.map(p => p.y));
+        const style = variant || (specialty === 'blacksmith' || specialty === 'supply' ? 'inset'
+          : specialty === 'trader' || specialty === 'pet' ? 'shallow' : 'ridge');
+        if (specialty !== 'turret') {
+          const mesh = roofMesh(roof, style, scene.buildingRoofDetail);
+          ctx.save(); trace(roof); ctx.clip();
+          ctx.drawImage(roofBitmap(mesh,tile),left-originX-1,top-originY-1);
+          ctx.restore();
+        } else {
+          target.insetStroke(roof,4,accent,[6,5]);
+        }
+        target.insetStroke(roof,1,mix(tile,0xffd6a0,0.28));
+        target.strokePoly(roof,1,outline);
+        // The existing world signs carry the role; no duplicate roof plaques.
+        if (!WALL_RECIPES[specialty] || specialty==='plain') return;
+        // A striped canopy sits on the longest visible wall, following its angle.
+        if (!['wizard', 'turret', 'blacksmith'].includes(specialty) && edges.length) {
+          const {a,b} = edges.reduce((best,e) => Math.hypot(e.b.x-e.a.x,e.b.y-e.a.y) >
+            Math.hypot(best.b.x-best.a.x,best.b.y-best.a.y) ? e : best);
+          const length = Math.hypot(b.x-a.x,b.y-a.y), span = Math.min(36, length * 0.7) / length;
+          const at = (t,dy) => ({x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t+dy});
+          for (let i=0;i<6;i++) {
+            const t=0.5-span/2+span*i/6, u=t+span/6;
+            target.fillPoly([at(t,-lift+2),at(u,-lift+2),at(u,-lift+9),at(t,-lift+9)],
+              i%2 ? accent : dim(tile,0.7));
+          }
+        }
+      },
       fillPoly(pts, color, alpha) {
         if (!pts || pts.length < 3) return;
         trace(pts);
@@ -904,6 +1277,8 @@
     if (scene.buildingWallContainer) scene.buildingWallContainer.setVisible((scene.depth ?? 0) === 0);
     if (!on) {
       clearUprights(scene);
+      scene._proceduralBuildings = new Map();
+      if (typeof BuildingLowPoly !== 'undefined') BuildingLowPoly.clear(scene);
       if (typeof WallPerspective !== 'undefined') {
         WallPerspective.clear(scene, 'polygon');
         WallPerspective.clear(scene, 'home');
@@ -925,7 +1300,7 @@
     // Keep padded paint across crossings. New tile inputs and the claim epoch
     // still repaint immediately: restoring a wreck or taking a castle must
     // lift the shade off that footprint on the next frame.
-    const frame = overlayFrame(scene, (entry) => !!entry.buildingShapes);
+    const frame = overlayFrame(scene, (entry) => !!entry.buildingShapes || (Render.proceduralBuildings?.() && !!entry.objects));
     const { tiles } = frame;
     const previous = scene._buildingGeomKey ? scene._buildingGeomFrame : null;
     const paint = overlayPaintFrame(scene, frame, previous, claimEpoch(scene));
@@ -948,6 +1323,7 @@
         offset = retained;
       }
     }
+    if (scene._lowpoly) BuildingLowPoly.offset(scene, -offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
     if (container) container.setPosition(-offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
     if (typeof WallPerspective !== 'undefined') {
       WallPerspective.offset(scene, 'polygon', -offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
@@ -968,13 +1344,20 @@
 
   // A cheap stamp that changes whenever a claim could have changed. The tiled
   // pass re-reads ownership every frame (it redraws every frame anyway); this
-  // layer caches its canvas, so it needs a signal. Counts, not contents: a
-  // claim only ever ADDS an entry to one of these.
+  // layer caches its canvas, so it needs a signal. House roles and shop lines
+  // also matter: a renovation can change a roof without adding a claim.
+  function specialtyFor(save, house) {
+    const role = Houses.displayRole(save, house);
+    return role === 'shop' ? Shops.lineFor(save, house).theme : role;
+  }
   function claimEpoch(scene) {
     const s = scene.save || {};
     const n = (o) => (o ? (Array.isArray(o) ? o.length : Object.keys(o).length) : 0);
-    return n(s.restoredHouses) + ',' + n(s.unlockedForts) + ',' + n(s.claimedCastles)
-      + ',' + (s.starterShopId || '') + ',' + Object.values(s.temples || {}).filter(r => r.active).length;
+    return [!!scene._headingUp,scene.game?.renderer?.type,Render.buildingArtStyle,scene.buildingRoofVariant,scene.buildingRoofDetail,scene.buildingStoreys].join(':') + ',' + n(s.restoredHouses) + ',' + n(s.unlockedForts) + ',' + n(s.claimedCastles)
+      + ',' + JSON.stringify([s.restoredHouses, s.shopLines, s.bookshopId, s.petshopId, s.starterBlacksmithId])
+      + ',' + (s.starterShopId || '') + ',' + Object.values(s.temples || {}).filter(r => r.active).length
+      // Home's roof comes off while the player is inside (drawHome).
+      + ',' + (scene.homeInside ? Number(!!scene.homeInside()) : '');
   }
 
   function rebuild(scene, tiles, fracX, fracY) {
@@ -993,17 +1376,21 @@
       });
     }
     // Standalone art exporters load the legacy Canvas painter without Phaser.
-    const perspective = typeof WallPerspective !== 'undefined' && WallPerspective.active(scene) && !!scene.buildingWallContainer;
+    const procedural = Render.proceduralBuildings?.() && !!scene.buildingWallContainer && typeof scene.add?.graphics === 'function';
+    scene._proceduralBuildings = new Map();
+    const perspective = typeof WallPerspective !== 'undefined' && (WallPerspective.active(scene) || procedural) && !!scene.buildingWallContainer;
     if (perspective) WallPerspective.begin(scene, 'polygon');
     else if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'polygon');
+    const lowpoly = typeof BuildingLowPoly !== 'undefined' && BuildingLowPoly.active(scene);
+    if (lowpoly) BuildingLowPoly.begin(scene);
+    else if (typeof BuildingLowPoly !== 'undefined') BuildingLowPoly.clear(scene);
     const separateUprights = !!(scene.buildingWallContainer && scene.add && scene.textures);
-    // Home's walls are retained prisms at every heading (north-up too): the
-    // one building the player walks into has to read as a room, not a slab.
-    // The group opens on the first Home drawn (drawHome) and is emptied here
-    // when none is in view.
-    const homeWalls = separateUprights && typeof WallPerspective !== 'undefined'
+    // Home without the low-poly path (Canvas, north-up): its own retained
+    // prisms, in the 'home' group, on at every heading. Opened by drawHome
+    // and emptied here when Home is out of view.
+    const homePrisms = separateUprights && typeof WallPerspective !== 'undefined'
       && typeof scene.add.graphics === 'function';
-    if (homeWalls) WallPerspective.clear(scene, 'home');
+    if (homePrisms) WallPerspective.clear(scene, 'home');
     let homeBegun = false;
     // Cell-snapped projection (the container re-applies the sub-cell offset) —
     // the same one the road overlay strokes with — and its padded cull bounds.
@@ -1024,13 +1411,21 @@
 
     const GRID = gridStyle();
     const draws = [];
+    const houses = new Map();
+    for (const { entry } of tiles) for (const o of entry.objects || []) {
+      if (o.kind === 'house') houses.set(o.id, o);
+    }
     for (const { tx, ty, entry } of tiles) {
       const originMx = tx * entry.tileEdgeM;
       const originMy = ty * entry.tileEdgeM;
+      const objects = (entry.objects || []).filter(o => o.kind === 'house');
+      const objectsById = new Map(objects.map(o => [o.id, o]));
+      const matched = new Set();
       const shapes = entry.clearedShapes
-        ? entry.clearedShapes.map(s => ({ ...s, cleared: true })).concat(entry.buildingShapes)
-        : entry.buildingShapes;
+        ? entry.clearedShapes.map(s => ({ ...s, cleared: true })).concat(entry.buildingShapes || [])
+        : (entry.buildingShapes || []);
       for (const shape of shapes) {
+        if (!shape.cleared && objectsById.has(shape.key)) matched.add(shape.key);
         const r = shape.ring;
         if (!r || r.length < 6) continue;        // fewer than 3 points is not a footprint
         const pts = [];
@@ -1046,9 +1441,23 @@
         }
         // Cull on the bounding box, grown by the wall depth so a building just
         // off the north edge still drops its face into view.
-        if (bx1 < minX || bx0 > maxX || by1 + facePx(shape.tier) < minY || by0 > maxY) continue;
+        const pad = procedural ? CELL_PX * 3 : facePx(shape.tier);
+        if (bx1 + pad < minX || bx0 - pad > maxX || by1 + pad < minY || by0 - pad > maxY) continue;
+        // Sandbox blocks can predate their hand-placed object IDs. Match only
+        // an unambiguous contained house; shared blocks keep separate houses.
+        let object = objectsById.get(shape.key), shared = false;
+        if (procedural && !shape.cleared && String(shape.key).startsWith('sb_')) {
+          const inside = objects.filter(o => inPoly(pts, projX(o.x), projY(o.y)));
+          if (inside.length === 1) object = inside[0];
+          shared = inside.length > 1;
+          if (shared) {
+            if (object) matched.delete(object.id);
+            object = null;
+          }
+        }
+        if (object && !shape.cleared) matched.add(object.id);
         draws.push({
-          pts, south: by1, left: bx0, north: by0, right: bx1, cleared: !!shape.cleared,
+          object, shared, pts, south: by1, left: bx0, north: by0, right: bx1, cleared: !!shape.cleared,
           tier: shape.tier, key: shape.key, templeZone: shape.templeZone, templeKind: shape.templeKind,
           damageOriginX: projX(originMx), damageOriginY: projY(originMy),
           // Home's doorway (scene_venues.js _stampHomeFootprint), projected.
@@ -1058,6 +1467,20 @@
             .map(p => ({ x: projX(originMx + p.x), y: projY(originMy + p.y), height: p.height })) : [],
           seed: seedOf(tx, ty, r, shape.key),
         });
+      }
+      // Objects without a source polygon (Home and authored sandbox fixtures)
+      // still get a footprint-derived building, without changing world data.
+      if (procedural) for (const o of objects) {
+        if (matched.has(o.id) || o.tier === CASTLE) continue;
+        const x = projX(o.x) + (o.footDx || 0) * CELL_PX;
+        const y = projY(o.y) + (o.footDy || 0) * CELL_PX;
+        const size = Math.max(CELL_PX, Math.min(CELL_PX * 3,
+          Math.sqrt(o.area || scene.cellM * scene.cellM) / scene.cellM * CELL_PX));
+        if (x + size < minX || x - size > maxX || y + size * 2 < minY || y - size * 2 > maxY) continue;
+        const h = size / 2;
+        draws.push({ object: o, key: o.id, tier: o.tier || 9, seed: 0, columns: [],
+          pts: [{ x: x-h, y: y-h }, { x: x+h, y: y-h }, { x: x+h, y: y+h }, { x: x-h, y: y+h }],
+          left: x-h, right: x+h, north: y-h, south: y+h });
       }
     }
 
@@ -1084,14 +1507,75 @@
         else { g.fillPoly(d.pts, palette.floor); g.strokePoly(d.pts, OUTLINE_PX, palette.outline); }
         continue;
       }
-      // HOME — the player's house: its own walls and roof (drawHome), never
-      // the sprite-topped slab a village house is.
+      const isMine = claimed(d.object?.id || d.key);
+      // HOME — the player's house (HomeArea.HOUSE; its footprint is stamped by
+      // scene_venues.js): the low-poly `home` role, open-roofed while the
+      // player stands inside; without WebGL, its own prism walls (drawHome).
       if (d.key && scene.save && d.key === scene.save.starterShopId) {
-        if (homeWalls && !homeBegun) { WallPerspective.begin(scene, 'home', { alwaysOn: true }); homeBegun = true; }
-        drawHome(scene, g, d, homeWalls, GRID);
+        const inside = !!(scene.homeInside && scene.homeInside());
+        drawHomeFloor(g, d, GRID, homePrisms || lowpoly);
+        let model = null;
+        if (lowpoly) {
+          const object = d.object || { kind: 'house', id: d.key, tier: 9 };
+          const profile = Render.buildingProfileFor(object, scene);
+          const palette = { ...BuildingStyles.STYLES[profile.style], ...profile.palette };
+          const recipe = BuildingLowPoly.recipeFor('home',
+            { wall: palette.wall, roof: palette.roof, trim: palette.trim ?? 0x614534 }, scene.buildingStoreys);
+          recipe.interior = inside;
+          const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant || recipe.variant || 'ridge';
+          model = BuildingLowPoly.add(scene, d.pts, recipe, variant, object.id);
+          if (model?.faces?.length) scene._proceduralBuildings.set(object.id, { height: model.height * BuildingLowPoly.LOOK.heightScale });
+        }
+        if (!model?.faces?.length) {
+          if (homePrisms) {
+            if (!homeBegun) {
+              WallPerspective.begin(scene, 'home');
+              scene._wallPerspective.home.alwaysActive = true;
+              homeBegun = true;
+            }
+            homeWalls(scene, d, HomeArea.HOUSE, inside);
+          } else if (!inside && typeof HomeArea !== 'undefined') {
+            g.fillPoly(d.pts, HomeArea.HOUSE.roof.top);   // a bare fill target: a flat roof
+          }
+        }
         continue;
       }
-      const isMine = claimed(d.key);
+      // Wizard and turret keep their original sprite artwork, not generated
+      // shells (BuildingLowPoly.ROLES rows flagged `sprite`).
+      if(d.object&&['wizard','turret'].includes(Houses.displayRole(scene.save,d.object))){
+        g.fillPoly(d.pts,tuneOf(isMine)(shadeOf(isMine)(floorColor(d.tier,isMine))));continue;
+      }
+      if (procedural && !d.shared && (d.tier === 9 || d.tier === 11)) {
+        const object = d.object || { kind: 'house', id: d.key, tier: d.tier };
+        const profile = Render.buildingProfileFor(object, scene);
+        const styleId = profile.style;
+        if (styleId === 'ruin') {
+          const floor = tuneOf(isMine)(shadeOf(isMine)(floorColor(d.tier, isMine)));
+          g.fillPoly(d.pts, floor);
+          if (g.texturePoly) g.texturePoly(d.pts, d.tier);
+          if (g.blobsPoly) g.blobsPoly(d.pts, slimeBlobs(d), d.left, d.north,
+            slimeColor(floor, shadeOf(false)), SLIME_ALPHA);
+        }
+        let model;
+        if (lowpoly) {
+          const role = specialtyFor(scene.save, object);
+          const base = BuildingStyles.STYLES[styleId], palette = {...base,...profile.palette};
+          const paint = c => tuneOf(isMine)(shadeOf(isMine)(c));
+          const recipe = role==='fort'
+            ? {...wallRecipe(role,scene.buildingStoreys,isMine),role:'fort',style:styleId,body:paint(palette.wall),roof:paint(palette.roof),trim:paint(0x614534),finish:'cottage',roofMaterial:'slate'}
+            : BuildingLowPoly.recipeFor(role,{wall:paint(palette.wall),roof:paint(palette.roof),
+                trim:paint(role==='turret'?palette.wall:0x614534)},scene.buildingStoreys);
+          if(role==='fort'&&!scene.buildingStoreys)recipe.stories=2;
+          const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant
+            || (role==='fort'?'ridge':recipe.variant||'ridge');
+          model = BuildingLowPoly.add(scene,d.pts,recipe,variant,object.id);
+        } else model = BuildingStyles.emit(scene, 'polygon', d.pts, styleId, { claimed: isMine, palette: profile.palette });
+        if (model && (model.faces?.length || model.prisms?.length)) {
+          // Signs and flags seat on the drawn top: the low-poly path foreshortens height.
+          if (object.id) scene._proceduralBuildings.set(object.id, { height: model.height * (lowpoly ? BuildingLowPoly.LOOK.heightScale : 1) });
+          continue;
+        }
+      }
       const shade = shadeOf(isMine), tune = tuneOf(isMine);
       // The shaded floor is what the slime derives from (three shades deep —
       // see slimeColor); the material lift goes over every colour after.
@@ -1099,6 +1583,17 @@
       const shaded = style ? style.floor : shade(floorColor(d.tier, isMine));
       const floor = style ? style.floor : tune(shaded);
       const depth = facePx(d.tier);
+      if (d.tier === 9 && lowpoly && !d.shared && procedural) {
+        const role = specialtyFor(scene.save, houses.get(d.key) || {kind:'house',id:d.key,tier:9});
+        BuildingLowPoly.add(scene, d.pts, wallRecipe(role,scene.buildingStoreys,isMine), scene.buildingRoofVariant || 'ridge', d.key);
+        continue;
+      }
+      if (d.tier === 9 && g.housePoly && (!Render.proceduralBuildings || Render.proceduralBuildings())) {
+        g.housePoly(d.pts, floor, tune(shade(faceColor(d.tier, isMine))),
+          tune(dim(shaded, OUTLINE_MUL)), specialtyFor(scene.save, houses.get(d.key)
+            || { kind: 'house', id: d.key, tier: 9 }), scene.buildingRoofVariant, scene.buildingStoreys, d.seed, isMine);
+        continue;
+      }
       // The wall, as the ring filled again one face-depth south and painted
       // UNDER the floor: whatever survives is exactly the polygon's
       // south-facing edges, at any angle, with no per-edge normal test.
@@ -1154,41 +1649,37 @@
       scene.buildingWallContainer.sort('depth');
       commitWallAtlas(scene);
     }
+    if (lowpoly) BuildingLowPoly.update(scene);
     if (perspective) WallPerspective.finish(scene, 'polygon');
     if (homeBegun) WallPerspective.finish(scene, 'home');
     if (g.commit) g.commit();
   }
 
   // ── YOUR HOUSE ───────────────────────────────────────────────────────────
-  // Home (HomeArea.HOUSE; scene_venues.js stamps its footprint) is drawn
-  // from its ring like a fort rather than crowned with a sprite: the house
-  // floor, then walls as retained prisms with height and thickness
-  // (WallPerspective, the 'home' group — on at every heading) round the whole
-  // perimeter save a doorway on the door side, and a roof over them: the cap
-  // at wall height with a dark eave lip, and a ridge raised along the long
-  // axis. INSIDE (scene.homeInside: the player stands on one of its cells)
-  // there is no roof — the floor and the walls' inner faces are the room —
-  // and the lightmap masks everything outside (lighting.js paintIndoorMask).
-  // An adopted Home (an older save's real house) draws the same way from its
-  // OSM ring, with no doorway and a flat roof when the ring isn't a quad.
-  function drawHome(scene, g, d, walls, GRID) {
-    const HA = (typeof HomeArea !== 'undefined') ? HomeArea.HOUSE : null;
+  // Home (HomeArea.HOUSE; scene_venues.js stamps its footprint) is the one
+  // building the player walks into, so it is never a sprite. On the low-poly
+  // path it is the `home` role (BuildingLowPoly.ROLES), and INSIDE
+  // (scene.homeInside: the player stands on one of its cells) its recipe is
+  // `interior`: no roof, the walls cut level at the eaves with their inner
+  // faces and a top band showing their thickness, so the floor and the far
+  // walls are the room; the lightmap masks everything outside (lighting.js
+  // paintIndoorMask). The floor is painted on the canvas either way: the
+  // roof covers it outside, the room shows it inside.
+  //
+  // Without the low-poly path (Canvas, north-up) the same house is retained
+  // prisms in the 'home' group (homeWalls): walls with the fort's thickness
+  // and a taller wall round the whole perimeter save a doorway on the door
+  // side (shape.door), under a gabled two-tone roof with a ridge — and no
+  // roof inside, with the wall tops in the wall's own colour.
+  function drawHomeFloor(g, d, GRID, walled) {
     const tune = tuneOf(true);
     const floor = tune(floorColor(9, true));
-    const depth = facePx(9);
-    // No prisms (a bare fill target): the tiled south face under the floor,
-    // and the roof as a flat fill over it when the player is outside.
-    if (!walls) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), tune(faceColor(9, true)));
+    // No walls at all (a bare fill target): the tiled south face under the floor.
+    if (!walled) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + facePx(9) })), tune(faceColor(9, true)));
     g.fillPoly(d.pts, floor);
     if (g.texturePoly) g.texturePoly(d.pts, 9);
     if (g.gridPoly) g.gridPoly(d.pts, gridInkFor(GRID, floor));
     g.strokePoly(d.pts, OUTLINE_PX, tune(dim(floorColor(9, true), OUTLINE_MUL)));
-    const inside = !!(scene.homeInside && scene.homeInside());
-    if (!walls || !HA) {
-      if (!inside && HA) g.fillPoly(d.pts, HA.roof.top);
-      return;
-    }
-    homeWalls(scene, d, HA, inside);
   }
   // The door edge: the ring edge nearest the doorway point, and where along
   // it the doorway sits (0..1). Null without a doorway.
@@ -1276,5 +1767,5 @@
       { face: HA.roof.dark, top: HA.roof.lite, dark: HA.roof.dark }, null, true);
   }
 
-  global.BuildingOverlay = { draw, enabled, setEnabled };
+  global.BuildingOverlay = { draw, enabled, setEnabled, specialtyFor, roofMesh, wallRecipe };
 })(window);

@@ -155,9 +155,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   Dormant inscriptions use invented geometric glyphs at a shared size; their
   accessible names and Spirit explanations still identify the module in English.
 
-- Compass shine is disabled in the live HUD: it installs no reflection layers,
-  animation loop, or tilt listeners. The baked emission assets and
-  `CompassShine` implementation remain available for the development prototype.
+- Compass shine is disabled in the live HUD: its script and stylesheet are not
+  loaded, so it installs no reflection layers, animation loop, or tilt listeners.
+  The baked emission assets and `CompassShine` implementation remain available
+  for the development prototype.
 
 - Starter guidance is a floating Dragon Spirit portrait with a compact, pale
   speech bubble on the upper map. Each step gives one spoken instruction;
@@ -303,8 +304,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   full painting loads.
   Copy follows directly below, with comfortable side padding and the specific
   title offset down four pixels. Painted stories omit the generic “Story” label;
-  useful shop/event categories sit with the copy below the image. Dialogs do
-  not scroll. Copy and actions occupy a separate `.modal-copy` viewport;
+  useful shop/event categories sit with the copy below the image. The Build
+  chooser uses a vertically scrolling card grid with a compact painting and
+  a fixed price/action footer; it never paginates. Selected cards expose their
+  pressed state to assistive technology. Other dialogs do not scroll.
+  Copy and actions occupy a separate `.modal-copy` viewport;
   long content uses Previous/Next pages at its original text size, with whole
   controls. The one exception is the ☰ menu (`makeModalShell` `scroll`): a
   list thumbed through, it scrolls as one and is never paged. The saved

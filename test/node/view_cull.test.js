@@ -36,8 +36,8 @@ test('view: deltaMToScreen is the one projection — render.js and lighting.js r
   const c = cellScreenXY(s, 0, 0, 0, 0);
   assert.eq(c.x, 176); assert.eq(c.y, 176);   // slot 0's top-left, the anchor cell
   assert.eq(cellScreenXY(s, 1, 0, 0.25, 0, 3).x, Math.round(176 + 0.75 * CELL_PX + 3), 'a cell east, a quarter-cell pan, a band phase');
-  assert.truthy(/cellScreenXY\(scene, col - half, row - half, fracX, fracY, bandPh\[row \+ 2\]\)/.test(LIGHTING_SRC),
-    'the plateau cells sit on drawCells\' own slots');
+  assert.truthy(/playerCircleContribution\(scene, W, H, ox, oy, ps, plateau \? r0 : 0\)/.test(LIGHTING_SRC),
+    'the circular plateau uses the live player screen position');
 });
 
 test('view: inViewBox / cullToView keep the box inclusive and hand on the deltas', () => {

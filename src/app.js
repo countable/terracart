@@ -1117,9 +1117,9 @@ if (typeof window !== 'undefined') {
 // also spilled into the neighbouring ones. Creatures use a drawn-sprite box
 // (interact.js, off SpriteLayout.creatureTapSpanPx) — they move and aren't
 // cell-bound. The "too far" gate is ONE rule, interact.js tooFar →
-// coords.js cellInReach: is the cell lit? — measured from the player's reach
-// CELL with reachRadiusM (reachCells × cellM + 1 m), the same expressions the
-// lightmap plateau paints, so any cell shown lit is tappable.
+// coords.js cellInReach: does the cell overlap the circle centred on the
+// player's exact position? The lightmap uses the same reachRadiusM, so any
+// partially lit cell is tappable.
 
 // The one wording for "that would not fit". It is raised from two places —
 // the deferred flash after an addToInv rejection, and the buy modal refusing a
@@ -9496,8 +9496,7 @@ class MapScene extends Phaser.Scene {
       || Shops.roleLabel(row.role, row.role === 'shop' ? (row.theme || theme) : null) || 'House';
     const iconFor = (row) => {
       const texKey = Render.houseTextureKey(row.role, house, this);
-      const frame = row.role === 'plain' ? 'front' : row.role === 'wizard' ? 3
-        : row.role === 'turret' ? CastleStyles.get(house.id).towerFrame : 0;
+      const frame = Render.houseTextureFrame(row.role, house, this, row.solo || row.theme) ?? 0;
       return this.worldIconHTML(texKey, 30, frame);
     };
     const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
