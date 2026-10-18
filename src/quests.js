@@ -243,7 +243,7 @@ Object.assign(Quests, {
   // Spirit offers guidance, not an obligation — a player who knows the game can
   // dismiss it and never see it again.
   starterHidden(save) {
-    return !!this._ss(save).dismissed || this.starterAllDone(save);
+    return !!window.__sandboxSkipTutorial || !!this._ss(save).dismissed || this.starterAllDone(save);
   },
 
   starterDismiss(save) {

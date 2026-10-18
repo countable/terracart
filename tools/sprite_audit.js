@@ -260,7 +260,6 @@ const SHEETS = {
   scarecrow:     { file: 'assets/Objects/Approved/scarecrow.png',               fw: 48, fh: 48, frames: [0] },
   bonfire:       { file: 'assets/Objects/Wilderness/bonfire.png',            fw: 16, fh: 32, frames: [0] },
   torch:         { file: 'assets/Objects/Wilderness/torch.png',              fw: 16, fh: 32, frames: [0] },
-  waystone:      { file: ASSETS.waystone.path, fw: ASSETS.waystone.frameWidth, fh: ASSETS.waystone.frameHeight, frames: [0] },
   tar:           { file: 'assets/Objects/Approved/tar.png',                 fw: 16, fh: 16, frames: [0] },
   ...Object.fromEntries(GROVE_SHRINE_ART.map(({ key, frame }) => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [frame],
@@ -329,7 +328,7 @@ const SCENARIOS = [
   { name: 'scarecrow',       key: 'scarecrow',     frameIdx: 0, scale: 0.6 },
   { name: 'bonfire',         key: 'bonfire',       frameIdx: 0, scale: 1.1 },
   { name: 'torch',           key: 'torch',         frameIdx: 0, scale: 1.1 },
-  { name: 'waystone',        key: 'waystone',      frameIdx: 0, scale: 1.6 * 2 / 3 },
+  { name: 'waystone',        key: 'rock_variants', frameIdx: 0, scale: 16 / 15 },
   { name: 'charred stakes', key: 'approved_charred_stakes', frameIdx: 0, scale: 4 / 3 },
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
   { name: 'headstone',       key: 'zone_objects',  frameIdx: 1, scale: 4 / 3 },

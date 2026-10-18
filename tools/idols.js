@@ -36,8 +36,9 @@
         sprites:[SpriteLayout.groveShrineArt({ shrineKind:id })],
         locations:[...(row.locations || []), ...(row.zoneVariants || []).map(id => `Zone: ${zoneVariantName(id)}`), ...(row.streets || []).map(id => `Street/path: ${streetName(id)}`)] })),
       ...Object.entries(Shrines.REWARD_KINDS).map(([id, row]) => ({ ...row, id, group:'reward',
-        sprites:row.sprite ? [{ key:row.sprite, frame:0, scale:1.6 }] : id === 'grove' ? SpriteLayout.GROVE_SHRINE_ART : [{ key:'waystone', frame:0, scale:1.6 }],
-        locations:row.locations || (id === 'grove' ? ['Mapped parks and sacred groves without a named shrine variant'] : ['Pilgrim street endpoints']) })),
+        sprites:row.sprite ? [{ key:row.sprite, frame:0, scale:1.6 }] : id === 'grove' ? SpriteLayout.GROVE_SHRINE_ART
+          : ZoneVariants.byId(id)?.shrineFrame != null ? [{ key:'zone_objects', frame:ZoneVariants.byId(id).shrineFrame, scale:4 / 3 }] : [],
+        locations:row.locations || (id === 'grove' ? ['Mapped parks and sacred groves without a named shrine variant'] : ZoneVariants.byId(id) ? [`Zone: ${zoneVariantName(id)}`] : []) })),
       ...Object.entries(Macros.DAILY_VISIT_KINDS).filter(([, row]) => !Object.values(Shrines.REWARD_KINDS).includes(row)).map(([id, row]) => ({ ...row, id:`visit_${id}`, group:'daily',
         sprites:[typeof row.sprite === 'string' ? { key:row.sprite, frame:0, scale:1.6 } : row.sprite],
         locations:row.locations || [] })),

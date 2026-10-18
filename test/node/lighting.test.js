@@ -55,7 +55,6 @@ test('lighting: daily sites retain ambient light after the availability pulse is
   const offerFactory = new Function('scene', 'LIGHTS', 'Macros', 'isBuilding', 'poiLit', 'spentIds', 'halfM',
     RENDER_SRC.slice(start, end + 5) + '; return offerPreCullLights;');
   const objects = [
-    { kind: 'waystone', id: 'light-waystone' },
     { kind: 'grove_shrine', id: 'light-grove' },
     ...Shrines.KIND_IDS.map(shrineKind => ({ kind: 'grove_shrine', id: 'light-' + shrineKind, shrineKind })),
     { kind: 'chest', id: 'light-wagon', poiClass: 'bus', banditStop: true },
@@ -78,6 +77,49 @@ test('lighting: daily sites retain ambient light after the availability pulse is
     assert.eq(s._lights[0].kind, kind);
     s._lights = [];
     assert.truthy(Lighting.consider(s, object, HALF_M + 1, 0, HALF_M), 'ambient reaches beyond the sprite cull');
+  }
+});
+
+test('lighting: waystones emit only their stepped-on light, including outside the sprite cull', () => {
+  const object = { kind: 'waystone', id: 'stepped-stone' };
+  const s = scene({ _lights: [] });
+  const original = window.Waystones;
+  let lit = false;
+  window.Waystones = { isLit(o, save) {
+    assert.eq(o, object);
+    assert.eq(save, s.save);
+    return lit;
+  } };
+  try {
+    const sprite = { texture: { key: 'rock_variants' },
+      setTexture(key) { this.texture.key = key; } };
+    s.textures = { exists: key => key === 'waystone_lit' };
+    Render.setWaystoneMaterial(sprite, object, s);
+    assert.eq(sprite.texture.key, 'rock_variants', 'off stone keeps plain rock material');
+    const start = RENDER_SRC.indexOf('  const offerPreCullLights = (o, dx, dy) => {');
+    const end = RENDER_SRC.indexOf('\n  };', start);
+    const offer = new Function('scene', 'LIGHTS', 'Macros', 'isBuilding', 'poiLit', 'spentIds', 'halfM',
+      RENDER_SRC.slice(start, end + 5) + '; return offerPreCullLights;')(
+        s, Lighting, Macros, isBuilding, () => false, {}, HALF_M);
+    offer(object, 0, 0);
+    assert.eq(s._lights.length, 0, 'unstepped stone stays dark');
+    lit = true;
+    Render.setWaystoneMaterial(sprite, object, s);
+    assert.eq(sprite.texture.key, 'waystone_lit', 'lit rock gets a bright daylight material');
+    offer(object, HALF_M + 1, 0);
+    assert.eq(s._lights.length, 1, 'activated stone spills light beyond its sprite bounds');
+    assert.eq(s._lights[0].kind, 'waystone', 'no daily reward pulse');
+    assert.eq(Lighting.KINDS.waystone.flicker, 0, 'steady light');
+    lit = false;
+    // The pool restores the cached base texture before running the material hook.
+    sprite.texture.key = 'rock_variants';
+    Render.setWaystoneMaterial(sprite, object, s);
+    assert.eq(sprite.texture.key, 'rock_variants', 'expired stone returns to plain material');
+    s._lights.length = 0;
+    offer(object, 0, 0);
+    assert.eq(s._lights.length, 0, 'expired stone immediately stops lighting');
+  } finally {
+    window.Waystones = original;
   }
 });
 
@@ -881,13 +923,13 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   // remembered here.
   // (+ the grove shrine, src/zones.js — a standing light like the torch.)
   // One closure offers them, for the sprite walk and the light walk alike.
-  assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'grove_shrine' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);"),
+  assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'waystone' || o.kind === 'grove_shrine' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);"),
     'the pre-cull offer asks isBuilding (+ torch, grove shrine)');
   const offer = body.indexOf('if (LIGHTS && offersPreCullLight(o)) offerPreCullLights(o, dx, dy);');
   const cull = body.indexOf('if (!inViewBox(dx, dy, lim)) return;');
   assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
   const pred = r.slice(r.indexOf('function offersPreCullLight(o) {'), r.indexOf('Render.drawObjects = function drawObjects(scene)'));
-  assert.truthy(/return isBuilding\(k\) \|\| k === 'temple' \|\| k === 'torch' \|\| k === 'grove_shrine' \|\| k === 'vista_scope'/.test(pred),
+  assert.truthy(/return isBuilding\(k\) \|\| k === 'temple' \|\| k === 'torch' \|\| k === 'waystone' \|\| k === 'grove_shrine' \|\| k === 'vista_scope'/.test(pred),
     'and the per-tile light list is derived by the same kinds');
   assert.truthy(pred.includes('Macros.visitKindForObject(o)'), 'daily sites join the shared pre-cull predicate');
   assert.truthy(body.includes("o.kind === 'chest' && !offersPreCullLight(o) && poiLit(o, spentIds)"),

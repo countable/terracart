@@ -175,6 +175,7 @@ class SceneCreate {
     // before the first draw. (src/fog.js owns the storage; the masks
     // deliberately do NOT live on the WorldGen tile-cache entries, which get
     // evicted and re-rasterised.)
+    if (typeof FloorSandbox !== 'undefined' && FloorSandbox.active()) FloorSandbox.configure(this);
     Fog.init(this.save, this.cellsPerTile, this._fogGeom());
     // THE FEET ARE ON THE FIX. playerM is the GPS position, and the player
     // sprite is seated so its visible feet land exactly on it (see
@@ -275,6 +276,7 @@ class SceneCreate {
     // Traps: the barely-there scuff of a hidden one and the sprung iron jaw of
     // a discovered one. Temporary procedural stand-ins — see textures.js.
     makeTrapTextures(this);
+    makeWaystoneTexture(this);
     // Cache data URLs for items whose map sprite isn't on Crops.png / Spring Crops.png,
     // so the inventory bar and shop modal (which are DOM, not Phaser) can render the
     // exact same image. Run after sheet loads so all source images are ready.

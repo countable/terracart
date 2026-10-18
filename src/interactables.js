@@ -798,19 +798,11 @@ const INTERACTABLES = {
     },
   },
 
-  // Waystones share the daily visit ledger; notice boards remain one-time.
+  // Tapping hints at the stepping puzzle; only grounded feet light a stone.
   waystone: {
     custom: (ctx, o) => {
-      const { scene, save } = ctx;
-      if (typeof scene._bookRead !== 'function') return true;
-      return Macros.dailyVisit(ctx, o, { afterStory: () => {
-        const { body } = scene._bookRead();
-        if (typeof scene.showMessageModal === 'function') {
-          scene.showMessageModal({ title: 'The waystone remembers', body,
-            art: Shrines.REWARD_KINDS.waystone.art, kind: 'story' });
-        }
-        Save.persist(save);
-      } });
+      if (!Waystones.isLit(o, ctx.save)) ctx.scene.flash('closer...', ctx.sx, ctx.sy);
+      return true;
     },
   },
   infoboard: pageStone(Macros.DAILY_VISIT_KINDS.board),

@@ -230,7 +230,6 @@
     'scarecrow:0': { fw: 48, fh: 48, minX: 3, minY: 8, maxX: 45, maxY: 47 },
     'bonfire:0': { fw: 16, fh: 32, minX: 1, minY: 9, maxX: 14, maxY: 31 },
     'torch:0': { fw: 16, fh: 32, minX: 5, minY: 5, maxX: 12, maxY: 32 },
-    'waystone:0': { fw: 24, fh: 24, minX: 2, minY: 10, maxX: 23, maxY: 23 },
     'tar:0': { fw: 16, fh: 16, minX: 1, minY: 6, maxX: 15, maxY: 15 },
     'grove_votive:0': { fw: 24, fh: 24, minX: 2, minY: 1, maxX: 21, maxY: 23 },
     'zone_objects:1': { fw: 24, fh: 24, minX: 5, minY: 1, maxX: 18, maxY: 23 },

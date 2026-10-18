@@ -30,6 +30,35 @@
       assert.eq(window.__sandboxSkipStory, expected, search);
     }
   });
+  test('sandbox skip tutorial: only the explicit sandbox flag enables it', () => {
+    for (const [search, expected] of [['?sandbox=true&skipTutorial=true', true],
+      ['?sandbox=true&reset=true&skipStory=true&skipTutorial=true', true],
+      ['?skipTutorial=true', false], ['?sandbox=false&skipTutorial=true', false],
+      ['?sandbox=true&skipTutorial=false', false], ['?sandbox=true', false]]) {
+      const window = {};
+      new Function('window', 'location', 'localStorage', '// Sandbox local reset must run' + source)(window, { search }, { length: 0 });
+      assert.eq(window.__sandboxSkipTutorial, expected, search);
+    }
+  });
+  test('sandbox skip tutorial: hides guidance and unlock notices without consuming progress', () => {
+    const before = window.__sandboxSkipTutorial;
+    const save = { starter: { step: 0, dismissed: false }, compassModules: {
+      active: { inventory: true }, pending: ['inventory'], walkedM: 0 } };
+    const snapshot = JSON.stringify(save);
+    try {
+      window.__sandboxSkipTutorial = true;
+      assert.truthy(Quests.starterHidden(save));
+      for (const id of Object.keys(CompassModules.MODULES)) assert.truthy(CompassModules.isActive(save, id));
+      assert.falsy(CompassModules.isActive(save, 'unknown'));
+      assert.falsy(CompassModules.drain({ save, showMessageModal() { throw new Error('unexpected notice'); } }));
+      assert.eq(JSON.stringify(save), snapshot, 'the flag is a session override');
+      assert.eq(liftSceneMethod('_pendingStoryCount').call({ save }), 0, 'hidden activation panes do not light the story badge');
+      window.__sandboxSkipTutorial = false;
+      assert.falsy(Quests.starterHidden(save));
+      assert.falsy(CompassModules.isActive(save, 'joystick'));
+      assert.eq(save.compassModules.pending.length, 1, 'notices remain available when testing onboarding');
+    } finally { window.__sandboxSkipTutorial = before; }
+  });
   test('sandbox reset: executes before boot and settings readers', () => {
     assert.lt(INDEX_HTML_SRC.indexOf('// Sandbox local reset must run'), INDEX_HTML_SRC.indexOf('// Boot recovery stays inline:'));
   });

@@ -97,11 +97,11 @@ const FILES = [
   'zones.js', 'zone_variant_data.js', 'terrain.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
   'multiplayer.js', 'placed_floor.js', 'campfires.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js',
   // Traps — pure (reads WorldGen at CALL time); index.html puts it first, so do we.
-  'traps.js', 'whirlwinds.js', 'hazard_falls.js', 'environment_hazards.js', 'pressure_traps.js', 'spider_webs.js',
+  'traps.js', 'whirlwinds.js', 'hazard_falls.js', 'environment_hazards.js', 'waystones.js', 'pressure_traps.js', 'spider_webs.js',
   'gas.js', 'mushroom_gas.js',
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',
-  'dungeon_progression.js', 'elevators.js', 'arena.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'worldgen.js', 'save.js',
+  'dungeon_progression.js', 'elevators.js', 'arena.js', 'schoolyard_game.js', 'schoolyard_fields.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'worldgen.js', 'save.js',
   'compass_modules.js', 'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',

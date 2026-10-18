@@ -780,7 +780,7 @@ test('street sight: a told variant entering the lit radius pops its map line onc
 
 // ── One end piece per street per tile (Sep 2026) ───────────────────────────
 // A path arrives cut into many short lines. The ends are pooled by street key and ONE seats per (street, tile): the end
-// whose hash endPick is lowest and that seats. Same for Pilgrim's waystones.
+// whose hash endPick is lowest and that seats. Pilgrim fragments share a puzzle set.
 const PILG = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'pilgrim', 'Chapel Walk');
 function piecewiseLayers() {
   // The barricade road down col 40 in FOUR pieces, the pilgrim way along
@@ -806,7 +806,7 @@ function piecewiseLayers() {
     ] },
   ];
 }
-test('barricade + pilgrim: ONE end piece per street per tile, however many pieces it arrives in', () => {
+test('barricade + pilgrim: fragmented streets share one barricade and one compact waystone set', () => {
   const r = withBarricadePaths(() => WorldGen.rasterizeTile(piecewiseLayers(), CPE, TX, TY, TILE_EDGE_M));
   const lines = r.streetIndex.lines;
   assert.eq(lines.filter((l) => l.variant === 'barricade').length, 4, 'four barricade pieces');
@@ -816,12 +816,34 @@ test('barricade + pilgrim: ONE end piece per street per tile, however many piece
   const ways = d.objects.filter((o) => o.kind === 'waystone');
   assert.eq(bars.length, 1, 'one barricade for the street in this tile');
   assert.eq(d.lairs.filter((L) => L.tier === 'barricade').length, 1, 'and one goblin');
-  assert.eq(ways.length, 1, 'one waystone for the pilgrim way in this tile');
+  assert.truthy(ways.length >= 3 && ways.length <= 6, 'three to six stones for this pilgrim way');
+  assert.eq(new Set(ways.map(o => o.waystoneSet)).size, 1, 'fragments share one puzzle');
+  assert.truthy(ways.every(o => o.waystoneCount === ways.length), 'actual set count travels with every stone');
+  assert.eq(new Set(ways.map(o => o.id)).size, ways.length, 'distinct occupied cells');
+  assert.truthy(ways.every(o => Math.hypot(cellOf(o.x, TX) - cellOf(ways[0].x, TX),
+    cellOf(o.y, TY) - cellOf(ways[0].y, TY)) <= 10), 'all stones are near the anchor');
   // Deterministic, and off a hash of the street + the end's GLOBAL point.
   const again = dressed(withBarricadePaths(() => WorldGen.rasterizeTile(piecewiseLayers(), CPE, TX, TY, TILE_EDGE_M))).d;
+  assert.eq(JSON.stringify(again.objects.filter(o => o.kind === 'waystone')), JSON.stringify(ways), 'stable puzzle across rebuilds');
   assert.eq(again.wildplants.filter((w) => w.crop === 'barricade' && !w._streetScenery)[0].id, bars[0].id, 'the same end every build');
   assert.truthy(/hash01\(`end\|\$\{grp\.v\}\|\$\{grp\.key\}\|\$\{gk\}`\)/.test(ALL_SRC['street_variants.js']),
     'the pick hashes variant, street key and the global end point');
+});
+
+test('pilgrim sets: insufficient safe seats create no stones or partial occupancy', () => {
+  const r = withBarricadePaths(() => WorldGen.rasterizeTile(piecewiseLayers(), CPE, TX, TY, TILE_EDGE_M));
+  const baseline = dressed(r).d.objects.filter(o => o.kind === 'waystone');
+  const free = new Set(baseline.slice(0, 2).map(o => cellOf(o.y, TY) * CPE + cellOf(o.x, TX)));
+  const occupied = new Set(Array.from({ length: CPE * CPE }, (_, i) => i).filter(i => !free.has(i)));
+  const countBefore = occupied.size;
+  const d = SV.dress({ index: { ...r.streetIndex,
+    lines: r.streetIndex.lines.filter(l => l.variant === 'pilgrim'),
+    dressingLines: r.streetIndex.dressingLines?.filter(l => l.variant === 'pilgrim'),
+    hoardPois: [], vehicleLines: [] },
+    tx: TX, ty: TY, N: CPE, tileEdgeM: TILE_EDGE_M, grid: r.grid,
+    spawnOpts: { roadMask: r.roadMask, occupied, pois: [] } });
+  assert.eq(d.objects.filter(o => o.kind === 'waystone').length, 0, 'two legal seats cannot form a set');
+  assert.eq(occupied.size, countBefore, 'rejected puzzle claims no seats');
 });
 
 test('short street dressing: fixed timber species with mixed orchard rows and pine growth', () => {

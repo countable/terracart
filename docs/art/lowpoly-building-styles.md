@@ -29,9 +29,10 @@ when only compass heading changes.
 `?buildingArt=legacy` selects the original sprites for comparison.
 
 `BuildingLowPoly.LOOK.facade` picks the shared facade sheet: `cel` (ships)
-draws a minimal cel-shaded pixel sheet from scratch in the supply crate's
-palette (three-tone ramps round the role colour, one ink colour, a single
-highlight pixel per feature) with openings at the tileset's scale and bay
+draws a minimal cel-shaded pixel sheet from scratch with the supply crate's
+restraint in the approved house sprites' colours (plum-brown ink and shade,
+red-brown frame wood, cream highlights, teal glass; three-tone ramps round the
+role colour, a single highlight pixel per feature) with openings at the tileset's scale and bay
 placement and only a lintel, sill, step and lantern as decoration; `tileset`
 cuts bays from the approved materials sheet instead. Height ships at 1.0. `tools/building-billboard-preview.html` has a
 Facade select and a "Show sheet" toggle to compare the two.

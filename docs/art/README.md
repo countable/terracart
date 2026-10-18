@@ -87,6 +87,11 @@ frames. Baked unclaimed buildings bypass the old runtime wash to keep their slud
 and weathering visible. Chapel, macro POI booths, actors and other retained art
 remain unchanged.
 
+Pilgrim's Way waystones use the existing neutral rounded low-rock frame
+(`rock_variants:0`) instead of the old compass marker. Their lit state uses a bright ivory material of the same rock, baked once
+at startup, plus steady ivory light from the shared lightmap. The silhouette
+and shading stay intact, with no painted rune or pedestal.
+
 The sprite contexts are wetland-edge reeds and Burned Row stakes. Loose rocks in Stone Garden, Broken Masonry, Flint Field, Broken Depot, Seep, Work Yard, Black Ring and Pirate Cove use their approved contextual frames in the existing zone-object atlas. Ordinary loose rocks, planted rock crops and inventory icons keep their standard art. `assets/Objects/ZoneVariants/approved-additions.json` records these appended frames and their approved sources; `tools/pack_selected_zone_art.py` preserves them during regeneration. Shrubs use the basic bush or the smaller cut hedge, with the same mechanics. Ancient Grove and Silent Circle also use their
 approved ground accents. Context selection preserves placement IDs, quantities,
 loot and interaction types.
@@ -285,3 +290,93 @@ preserving the damage, and the other castle families keep their intact surfaces.
 Floor damage uses at most eight 96×96 textures (four patterns in two condition
 palettes), lazily baked and shared by all ruins. Tiled floors reuse their
 existing texture pool; polygon floors and wall chips use their existing caches.
+
+
+## Procedural polygon buildings
+
+`src/building_overlay.js` owns the small-building generator. `WALL_RECIPES`
+curates shop palettes, five materials (plaster, brick, timber, sandstone and
+cut stone), and default floor counts. Stable seeded texture phases provide
+variation; floor bands, recessed windows, timber lintels, eave shadows and
+plinths retain a consistent rhythm. Specialty identity comes from the existing
+house/shop ledgers and signs. The generator adds no roof badges.
+
+The CraftPix desert settlement reference informed the broad light/shadow areas,
+sparse masonry marks and framing; our dungeon reference and art brief govern
+pixel scale and restrained surface detail. No reference pixels are imported.
+
+The clean roof keeps the exact source eave while simplifying its interior
+control ring within four pixels and a 3.5% area budget. Coarser, planar cells
+reduce mesh size; native-pixel height-field shading avoids exposing triangle
+edges at the ridges. The former dense roof remains available for comparison.
+Generated roof bitmaps and wall material swatches are cached and bounded.
+
+Open `tools/building-poly-preview.html` to compare clean/dense roofs, roof
+variants and one to three storeys on the detailed footprint fixtures. Run
+`npm run test:roofs` for topology, cache, simplification-budget and wall-recipe
+checks; `node test/building-generator.cjs` checks the browser renderer against
+a local server on port 7731.
+
+### Retained low-poly footprint buildings
+
+`src/building_lowpoly.js` is the WebGL path for small polygon buildings with
+compass mode installed. `building_overlay.js` still owns footprint selection,
+claim colors and shop recipes; the old Canvas treatment remains the fallback.
+Existing house sprites are hidden only when their ID has a rendered polygon;
+shop signs and interaction objects remain in the ordinary object pass.
+
+The roof is an exact footprint triangulation clipped against a few planar
+slopes. The longest facade chooses its axis, independently of compass heading.
+`ridge` gives straight gables, `inset` caps four bounding slopes at 8px,
+`shallow` caps a gentle gable at 5px, and `flat` has no slope. Concave returns
+can meet raised roof planes: their walls extend upward to close the gable.
+This deliberately differs from a hip roof meeting every eave at one height.
+Small notches stay in the perimeter; there is no sampled ridge network.
+
+The six irregular fixtures use 26–68 roof triangles (276 total, versus 6,322
+in the previous clean sampled mesh), plus 48–68 wall triangles each. These
+are fixture measurements, not a universal limit: polygon complexity controls
+cost. Footprints are simple rings, as in the existing overlay; separate holes
+are not introduced by this change.
+
+Generated 512×256 material sheets share by material and palette (about 0.5 MiB RGBA each), across all three story counts. Facade UVs select the height from one three-story sheet.
+Plaster chips, masonry joints, windows, doors, floor bands and subtle roof pigment
+are texture pixels. Roof stripes are omitted to reduce visual noise and shimmer;
+soft mortar, sparse substrate chips, recessed joinery and thin cornices follow
+the reference detail scale. Vertex lighting darkens the wall tops beneath the
+eaves without adding faces or unique textures. The adobe, whitewash/blue-joinery and brick examples in
+`footprint-house-styles/concepts.png` guide the review palette and detail
+scale; the reference bitmap itself is not embedded in the game.
+Geometry and textures are retained while turning. A heading change updates
+projected vertices and painter order; WebGL submits the textured triangles.
+Texture sheets are released at scene shutdown. Ground-overlay rebuilds can
+regenerate geometry, but heading alone never invalidates that overlay.
+
+Review: `tools/building-lowpoly-preview.html` (real Phaser/WebGL, not the
+Canvas shim). Checks: `npm run test:lowpoly`, and, with the repository served
+on port 7731, `node test/building-lowpoly-browser.cjs`. The browser check sweeps
+361 headings, asserts retained faces, no texture refreshes, no new textures,
+and screen-vertical height. Its software-GPU timing is diagnostic rather than
+a mobile frame-rate guarantee. Architecture remains in the existing background
+layer; this does not add depth-buffer occlusion against actors or other sprites.
+
+#### Castle and fort assessment
+
+The existing `WallPerspective` path already retains prisms and keeps their
+height vertical through compass rotation. It rebuilds a Graphics command
+buffer on heading changes without baking new Canvas textures. The legacy
+non-perspective path uses cached atlas wall sprites.
+
+For a representative 32px segment, an intact castle has one body plus four
+merlon prisms: 20 submitted triangles head-on, 30 diagonally. A fort uses
+eight separate post prisms: 32 head-on, 48 diagonally. These counts exclude
+separate tower sprites, corner joins and floors. Ruined castles can have fewer
+teeth. Thus forts currently spend more geometry on repeating small details.
+
+The next useful fort optimization is a continuous wall strip with post spacing,
+grain and gaps in its texture, keeping corner posts as silhouette geometry.
+Castle masonry should likewise be textured, but its battlement outline merits
+retaining coarse geometry at close range. Alpha-cutout crowns could reduce
+farther walls, with view-angle and thin-edge checks before replacing the prisms.
+This change leaves both established perimeter renderers intact; it measures
+their costs rather than silently flattening their silhouettes.

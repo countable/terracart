@@ -130,8 +130,6 @@
       } }) },
     mystic_reef: { name: 'Reef treasury', art: 'visit_gold', reward: 'coins', fillScreen: true,
       body: 'You touch the sea-worn stone. Gold washes out across the shore.', light: 0x9fdcff },
-    waystone: { name: 'Waystone', art: 'shrine_waystone', reward: 'book',
-      body: 'You rest your hand on the stone. Words from an old book come back to you.', light: 0xf2d9a0 },
     grove: { name: 'Sacred grove shrine', art: 'shrine_grove', reward: 'treasure',
       body: 'You approach the shrine beneath the trees. A small gift waits at its feet.', light: 0xc8f5a0 },
   };
@@ -139,7 +137,6 @@
   // Returns the row itself; callers use its art/reward or boon lever.
   function kindForObject(o) {
     if (typeof isBikeRack === 'function' && isBikeRack(o)) return REWARD_KINDS.bike;
-    if (o?.kind === 'waystone') return REWARD_KINDS.waystone;
     if (o?.kind !== 'grove_shrine') return null;
     return REWARD_KINDS[o.zoneVariant] || SHRINE_KINDS[o.shrineKind] || REWARD_KINDS.grove;
   }

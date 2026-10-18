@@ -553,16 +553,18 @@
   // The cel sheet: a minimal pixel-art facade drawn from scratch, no source
   // art. LOOK.facade='cel' selects it. Every material is a three-tone ramp
   // (shade, base, light) around the role colour plus one shared ink colour,
-  // the same restraint as the supply crate (assets/Objects/Approved/box.png):
-  // warm wood ramps, cool blue-violet shadows, one-texel outlines, a single
-  // highlight pixel per feature; openings keep the tileset's scale and bay
-  // placement, with only a lintel, sill, step and lantern as decoration.
+  // the restraint of the supply crate (assets/Objects/Approved/box.png) in
+  // the colours of the approved house sprites (assets/Objects/Approved/
+  // house*.png): plum-brown ink and shadows, red-brown door and frame wood,
+  // cream highlights, teal glass. One-texel outlines, a single highlight
+  // pixel per feature; openings keep the tileset's scale and bay placement,
+  // with only a lintel, sill, step and lantern as decoration.
   // Layout is the shared 512-basis facade
   // (ground line 105, 24-texel floors, 39-texel bays, door bay centred at
   // 255.5, roof rows from 128 with a 288 period), so UVs are unchanged.
-  const CEL={ink:0x3e394a,shadow:0x4a4658,plum:0x6b5051,mauve:0x8e6762,
-    wood:{dark:0xa46045,mid:0xb2764e,base:0xc88953,light:0xd3945d,bright:0xd9a169},
-    glass:{dark:0x4a5a7a,base:0x6f93c4,light:0xb5cde8},leaf:0x5f7a46,bloom:0xd36a5a,flame:0xf2c76a};
+  const CEL={ink:0x32131e,shadow:0x4a2123,plum:0x4a2123,mauve:0x7a4d54,cream:0xf8dfcb,
+    wood:{dark:0x4a2123,mid:0x7e210d,base:0x954a39,light:0xb45c3a,bright:0xc87139},
+    glass:{dark:0x185969,base:0x1fc6af,light:0x9ff0e0},flame:0xf2c76a};
   function celSheet(scene,recipe){
     const wreck=recipe.shape==='wreck',key='lowpoly:cel-v1:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.roofMaterial,recipe.finish,wreck,!!recipe.blank]);
     if(scene.textures.exists(key))return scene.textures.get(key);
@@ -570,8 +572,9 @@
     const css=c=>'#'+c.toString(16).padStart(6,'0');
     const px=(x,y,w,h,c)=>{ctx.fillStyle=css(c);ctx.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)));};
     // Three-tone cel ramp: shade leans to the crate's blue-violet, light to warm cream.
-    const ramp=c=>({shade:mix(c,CEL.shadow,.26),base:c,light:mix(c,0xf3e2c0,.16)});
-    const wall=ramp(recipe.body),roof=ramp(recipe.roof),trim=ramp(recipe.trim),ink=CEL.ink;
+    const ramp=c=>({shade:mix(c,CEL.shadow,.26),base:c,light:mix(c,CEL.cream,.16)});
+    const wall=ramp(recipe.body),roof=ramp(recipe.roof),ink=CEL.ink;
+    const trim={shade:CEL.wood.dark,base:CEL.wood.base,light:CEL.wood.light}; // the sprites' frame wood
     const BOT=105,FLOORS=4,bays=[];for(let k=-1;k<=12;k++)bays.push(2+39*k);
     // --- wall surface -------------------------------------------------------
     px(0,0,512,128,wall.base);
@@ -585,8 +588,9 @@
       const bw=24,bh=12;for(let y=0,row=0;y<128;y+=bh,row++)for(let x=-(row%2)*bw/2;x<512;x+=bw){
         px(x,y+bh-1,bw,1,wall.shade);px(x+bw-1,y,1,bh,wall.shade);px(x+1,y,bw-3,1,wall.light);
         if(hash(x,y)>.8)px(x+3+hash(y,x)*12,y+3+hash(x,y)*5,2,1,wall.shade);}
-    }else{ // plaster: almost flat, a few deliberate two-pixel flecks
-      for(let y=3;y<128;y+=11)for(let x=5;x<512;x+=17){const n=hash(x,y);if(n>.86)px(x,y,2,1,wall.light);else if(n<.06)px(x,y,2,1,wall.shade);}
+    }else{ // plaster: the sprite house's cream siding, faint seams every six texels
+      for(let y=5;y<128;y+=6)px(0,y,512,1,mix(wall.base,wall.shade,.5));
+      for(let y=3;y<128;y+=11)for(let x=5;x<512;x+=17){if(hash(x,y)>.9)px(x,y,2,1,wall.light);}
     }
     // Floor beams: a dark timber band with a bright top edge, every storey.
     for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);px(0,y-1,512,3,trim.shade);px(0,y-1,512,1,trim.light);}
@@ -594,10 +598,11 @@
       for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);for(const bx of bays){px(bx-1,y,3,24,trim.shade);px(bx-1,y,1,24,trim.light);
         for(let i=0;i<7;i++){px(bx+3+i,y+4+i,2,1,trim.shade);px(bx+34-i,y+4+i,2,1,trim.shade);}}}
     }
-    // Plinth: two courses of stone in the shadow ramp, grounding every wall.
+    // Plinth: stone courses below the ground line, as the tileset keeps them;
+    // walls never sample it (chimney sides and the door step do).
     const plinth=ramp(mix(recipe.body,CEL.mauve,.6));
-    px(0,BOT-10,512,38,plinth.base);px(0,BOT-10,512,1,ink);
-    for(let y=BOT-9,row=0;y<128;y+=6,row++)for(let x=-(row%2)*9;x<512;x+=18){px(x,y+5,18,1,plinth.shade);px(x+17,y,1,6,plinth.shade);px(x+1,y,16,1,plinth.light);}
+    px(0,BOT,512,23,plinth.base);
+    for(let y=BOT+1,row=0;y<128;y+=6,row++)for(let x=-(row%2)*9;x<512;x+=18){px(x,y+5,18,1,plinth.shade);px(x+17,y,1,6,plinth.shade);px(x+1,y,16,1,plinth.light);}
     // --- openings -------------------------------------------------------------
     const casement=(x,y,f)=>{ // 11x13 casement: ink outline, trim frame, two-tone glass, one bright pane, sill
       px(x-1,y-1,13,15,ink);px(x,y,11,13,trim.base);
