@@ -171,6 +171,141 @@
     }
   });
 
+  // A BUILDING FOOTPRINT IS NO PLACE FOR A NEIGHBOUR, NOR THE CELL TOUCHING
+  // ONE. Every footprint — an OSM building of any tier, a synthetic civic
+  // building, a wreck still to be restored, Home's stamped house — is
+  // BUILDING terrain on the grid (WorldGen.BUILDING_TYPES), and that is the
+  // one thing both halves read: the spawn gate's TERRAIN reason plus its live
+  // isWalkable read seat nobody on it, and the ONE STEP TEST (creature_ai.js
+  // creatureStepRefused, via Combat.faunaBlocksCell) lets nobody walk onto
+  // it. Villagers alone also keep THE BUILDING MOAT (WorldGen.nearBuildingCell,
+  // the 3×3 about a footprint, where a wall's base overhangs): the gate's
+  // typed BUILDING_MOAT reason on the 'npc' row, read live as well, and the
+  // step test's refusal of a moat cell from outside it. No NPC-specific check
+  // anywhere else (CLAUDE.md: a check at a spawner is never the gate).
+  test('NPC spawn: every building tier is a footprint the gate refuses, live and through its TERRAIN bit', () => {
+    const tiers = [T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE];
+    for (const t of tiers) {
+      assert.truthy(WorldGen.isBuildingTerrain(t), `tier ${t} is building terrain`);
+      assert.truthy(Combat.faunaBlocksCell(t), `and the step test's blocked set has it`);
+    }
+    const e = entry();
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      if (x < 24) e.grid[y * N + x] = tiers[Math.floor(x / 8)];
+    }
+    const opts = { roadMask: e.roadMask, occupied: new Set(), pois: [] };
+    for (let y = 0; y < N; y++) for (const x of [0, 8, 16]) {
+      assert.falsy(WorldGen.isSpawnCell(e.grid, N, N, x, y, opts, 'npc'), `tier ${e.grid[y * N + x]} refused by the live grid`);
+    }
+    // The moat, read live: the cell touching the last wall refuses a villager
+    // and nobody else; one further out is open to all.
+    assert.falsy(WorldGen.isSpawnCell(e.grid, N, N, 24, 5, opts, 'npc'), 'the cell against the wall refuses a villager');
+    assert.truthy(WorldGen.isSpawnCell(e.grid, N, N, 24, 5, opts, 'fauna'), 'an animal may stand against the wall');
+    assert.truthy(WorldGen.isSpawnCell(e.grid, N, N, 24, 5, opts, 'enemy'), 'and so may a foe');
+    assert.truthy(WorldGen.isSpawnCell(e.grid, N, N, 25, 5, opts, 'npc'), 'one cell further out is open');
+    const residents = NPC.spawn(scene(), e, 0, 0, opts);
+    assert.gt(residents.length, 0, 'fixture has open park ground');
+    for (const c of residents) {
+      const cx = Math.floor(c.x / CELL_M), cy = Math.floor(c.y / CELL_M);
+      assert.falsy(WorldGen.isBuildingTerrain(e.grid[cy * N + cx]), `${c.id} stands on a footprint`);
+      assert.falsy(WorldGen.nearBuildingCell(e.grid, N, N, cx, cy), `${c.id} stands against a wall`);
+    }
+    // The stamped mask alone (a footprint the gate recorded while the live
+    // grid under it was repainted) refuses just the same — TERRAIN for every
+    // class, BUILDING_MOAT for the villager's row only.
+    for (const [bit, name] of [[WorldGen.SPAWN_WHY.TERRAIN, 'TERRAIN'], [WorldGen.SPAWN_WHY.BUILDING_MOAT, 'BUILDING_MOAT']]) {
+      const masked = entry(), why = new Uint32Array(N * N);
+      for (let y = 0; y < N; y++) for (let x = 0; x < N / 2; x++) why[y * N + x] = bit;
+      const maskOpts = { roadMask: masked.roadMask, occupied: new Set(), pois: [], spawnWhy: why };
+      const viaMask = NPC.spawn(scene(), masked, 0, 0, maskOpts);
+      assert.gt(viaMask.length, 0);
+      for (const c of viaMask) assert.gte(Math.floor(c.x / CELL_M), N / 2, `${c.id} seated on a ${name}-masked cell`);
+      assert.eq(WorldGen.isSpawnCell(masked.grid, N, N, 3, 3, maskOpts, 'fauna'), bit !== WorldGen.SPAWN_WHY.TERRAIN, `${name}: an animal's reading`);
+    }
+    assert.truthy(WorldGen.SPAWN_WHY_TYPED & WorldGen.SPAWN_WHY.BUILDING_MOAT, 'the moat is a typed reason, never hard');
+    assert.eq(WorldGen.SPAWN_WHY_HARD & WorldGen.SPAWN_WHY.BUILDING_MOAT, 0);
+  });
+
+  test('NPC spawn: Home stamped on the live grid culls the neighbour drawn under it', () => {
+    // NPC.spawn draws off the GENERATED grid (so every player shares the
+    // stream); Home's footprint lands on the LIVE grid afterwards
+    // (scene_venues.js _stampHomeFootprint paints T.BUILDING). The live-ground
+    // cull (scene_creatures.js _cullOffLiveGround) is what takes a neighbour
+    // back off any cell the live grid now says is a building; its moat is
+    // then kept by the live gate read (every later seat) and the step test.
+    const genGrid = new Uint8Array(N * N).fill(T.PARK);
+    const e = { grid: genGrid.slice(), objects: [] };
+    for (const [x, y] of [[10, 10], [11, 10], [10, 11], [11, 11]]) e.grid[y * N + x] = T.BUILDING;
+    const s = Object.assign(new SceneCreatures(), { tileEdgeM: EDGE_M, save: { caught: [], opened: [] } });
+    const at = (cx, cy) => [(cx + 0.5) * CELL_M, (cy + 0.5) * CELL_M];
+    const inside = WorldGen.makeCreature('npc', ...at(11, 10), 'npc_0_0_11_10', NPC.identity('npc_0_0_11_10'));
+    const beside = WorldGen.makeCreature('npc', ...at(8, 10), 'npc_0_0_8_10', NPC.identity('npc_0_0_8_10'));
+    const creatures = [inside, beside];
+    s._cullOffLiveGround(e, 0, 0, N, CELL_M, genGrid, [], creatures);
+    assert.eq(creatures.map(c => c.id).join(), beside.id, 'the one under Home is culled, the one beyond its moat stays');
+    assert.falsy(WorldGen.isSpawnCell(e.grid, N, N, 12, 10, { roadMask: new Uint8Array(N * N) }, 'npc'), 'the live gate refuses the stamped house\'s moat');
+  });
+
+  test('NPC movement: a neighbour beside a house never steps onto its footprint or into its moat', () => {
+    // A 2×3 house east of the neighbour: cells ix 4..5, iy 0..2 (x ≥ 28 m,
+    // y < 21 m), one tier per row. The neighbour is seated and homed two cells
+    // off its west wall — the first cell outside the moat — and strolls for
+    // ten minutes.
+    const tiers = [T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE];
+    const houseAt = (x, y) => {
+      const ix = Math.floor(x / CELL_M), iy = Math.floor(y / CELL_M);
+      return ix >= 4 && ix <= 5 && iy >= 0 && iy <= 2 ? tiers[iy] : null;
+    };
+    const moatAt = (x, y) => {
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (houseAt(x + dx * CELL_M, y + dy * CELL_M)) return true;
+      return false;
+    };
+    const s = Object.assign(scene(), {
+      cellAt: (x, y) => ({ loaded: true, type: houseAt(x, y) ?? T.PARK, tx: 0, ty: 0, ix: Math.floor(x / CELL_M), iy: Math.floor(y / CELL_M) }),
+      _cellBlocked: () => false,
+    });
+    const P = (ix, iy) => [(ix + 0.5) * CELL_M, (iy + 0.5) * CELL_M];
+    // The shared step test, asked the way every mover asks it. The footprint
+    // refuses a neighbour, a wild animal and a roster foe alike on each tier;
+    // the moat refuses only the neighbour, and only from outside it.
+    const npc = WorldGen.makeCreature('npc', ...P(2, 1), 'npc_step', NPC.identity('npc_step'));
+    const cat = { id: 'cat_step', kind: 'cat', x: npc.x, y: npc.y };
+    const slime = { id: 'slime_step', kind: 'slime', x: npc.x, y: npc.y };
+    for (const iy of [0, 1, 2]) {
+      assert.truthy(creatureStepRefused(s, npc, ...P(4, iy)), `tier ${tiers[iy]} refuses the neighbour`);
+      assert.truthy(creatureStepRefused(s, cat, ...P(4, iy)), 'and a wild animal');
+      assert.truthy(creatureStepRefused(s, slime, ...P(4, iy), { row: EnemyRoster.get('slime') }), 'and a foe');
+      assert.truthy(creatureStepRefused(s, npc, ...P(3, iy)), `the moat cell by tier ${tiers[iy]} refuses the neighbour`);
+      assert.falsy(creatureStepRefused(s, cat, ...P(3, iy)), 'the moat is the villager\'s rule, not the animal\'s');
+      assert.falsy(creatureStepRefused(s, slime, ...P(3, iy), { row: EnemyRoster.get('slime') }), 'nor the foe\'s');
+    }
+    assert.truthy(creatureStepRefused(s, npc, ...P(3, 3)), 'the moat\'s corner cell too');
+    assert.falsy(creatureStepRefused(s, npc, ...P(2, 3)), 'two cells off the wall is open ground');
+    // Already against the wall (a save from before the moat): free to move
+    // along it and out, never frozen.
+    const legacy = WorldGen.makeCreature('npc', ...P(3, 1), 'npc_legacy', NPC.identity('npc_legacy'));
+    assert.falsy(creatureStepRefused(s, legacy, ...P(3, 2)), 'along the wall');
+    assert.falsy(creatureStepRefused(s, legacy, ...P(2, 1)), 'and out of the moat');
+    assert.truthy(creatureStepRefused(s, legacy, ...P(4, 1)), 'but never into the house');
+    // The stroll itself: many seeded walkers, every tick's position checked.
+    let strolled = 0, eastward = 0;
+    for (let k = 0; k < 24; k++) {
+      const id = `npc_0_0_2_${k}`;
+      const [hx, hy] = P(2, 1);
+      const c = WorldGen.makeCreature('npc', hx, hy, id, { ...NPC.identity(id), homeX: hx, homeY: hy });
+      for (let i = 0; i < 6000; i++) {
+        const x = c.x, y = c.y;
+        NPC.tick(s, c, 100000 + i * 100, 0.1);
+        assert.falsy(houseAt(c.x, c.y), `${id} stepped onto the footprint at tick ${i} (${c.x.toFixed(2)}, ${c.y.toFixed(2)})`);
+        assert.falsy(moatAt(c.x, c.y), `${id} stepped into the moat at tick ${i} (${c.x.toFixed(2)}, ${c.y.toFixed(2)})`);
+        if (c.x !== x || c.y !== y) strolled++;
+        if (c.x > x) eastward++;
+      }
+    }
+    assert.gt(strolled, 0, 'the walkers do stroll');
+    assert.gt(eastward, 0, 'some legs head for the wall, so the refusal is exercised');
+  });
+
   test('NPC movement: closed terrain prevents wandering, while open ground permits slow movement', () => {
     const make = () => NPC.spawn(scene(), entry(), 0, 0, {})[0];
     const open = make(), blocked = make(), road = make(), resting = make();

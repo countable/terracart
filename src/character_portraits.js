@@ -1,7 +1,12 @@
-// Transparent 80px portraits, displayed at 128px with crisp pixel edges.
+// Transparent 80px portraits with crisp pixel edges: panel dialogs show them
+// at 128px; speech bubbles show the cell 1:1 (CELL_PX, css/speech_bubbles.css).
 // Sheets are retained as the authored source; dialogs fetch just the
 // character's cell, independently of world textures.
 const CharacterPortraits = (() => {
+  // The authored cell edge, in pixels. Every portrait PNG is this square and
+  // the speech-bubble rule draws it at exactly this size, so no resampling
+  // touches the pixels (character_portraits.test.js pins both).
+  const CELL_PX = 80;
   const PET_IDS = Object.freeze([
     'chicken', 'cow', 'cat', 'dog', 'deer', 'rabbit', 'butterfly', 'crab',
     'horse', 'sea_turtle', 'green_dragon', 'slime',
@@ -31,6 +36,6 @@ const CharacterPortraits = (() => {
     // Unassigned citizen variants retain the matching citizen appearance.
     return url(['believer', 'witness', 'warden'][c.npcVariant] || 'believer');
   }
-  return { PET_IDS, NPC_IDS, pet, npc };
+  return { CELL_PX, PET_IDS, NPC_IDS, pet, npc };
 })();
 if (typeof module !== 'undefined') module.exports = CharacterPortraits;

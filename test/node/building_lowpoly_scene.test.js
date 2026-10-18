@@ -87,14 +87,39 @@
     BuildingLowPoly.update(scene);assert.eq(mesh.obj.alpha,1,'outside again at the same heading');
     assert.eq(mesh.faces,faces,'retained geometry is reused');
   }));
-  test('low-poly wrecks: rubble is flat, opaque and sorted below the player', () => withPhaser(() => {
+  test('low-poly wrecks: rubble is low, opaque and sorted below the player', () => withPhaser(() => {
     const scene=stubScene();BuildingLowPoly.begin(scene);
     const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
     const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','wreck');
     assert.truthy(mesh.faces.length,'rubble material remains');
-    assert.truthy(mesh.faces.every(f=>f.points.every(p=>p.z===0)),'no standing walls or roof');
+    // Check the broken walls themselves; surviving roof patches can stand higher.
+    const top=Math.max(...mesh.faces.filter(f=>f.wallTop).flatMap(f=>f.points.map(p=>p.z)));
+    assert.truthy(top>1&&top<14,'wall stubs and roof patches stay under a storey: '+top);
+    assert.truthy(new Set(mesh.faces.filter(f=>f.wallTop).map(f=>f.points[0].z.toFixed(1))).size>1,'stub heights vary');
     const [piece]=BuildingLowPoly.worldPieces(scene);
     assert.eq(piece.layer,WorldLayers.GROUND_DECAL,'player always draws above the wreck');
     assert.eq(mesh.obj.alpha,1,'wreck never fades');
+  }));
+  test('low-poly wrecks: intermediate height breaks are perpendicular to their walls', () => withPhaser(() => {
+    const scene=stubScene();BuildingLowPoly.begin(scene);
+    const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
+    const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','square-breaks');
+    const ring=FOOT.map(p=>({x:p.x-mesh.x,y:p.y-mesh.y}));
+    let checked=0;
+    for(const face of mesh.faces.filter(f=>f.wallTop)){
+      const [a,b,c]=face.points;
+      // First triangle of a top quad has two outer points and one inner point.
+      if(Math.abs(a.x-b.x)<1e-8&&Math.abs(a.y-b.y)<1e-8)continue;
+      const onEdge=ring.find((p,i)=>{
+        const q=ring[(i+1)%ring.length],cross=r=>(q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x);
+        return Math.abs(cross(a))<1e-6&&Math.abs(cross(b))<1e-6;
+      });
+      if(!onEdge)continue;
+      if(ring.some(p=>Math.hypot(p.x-b.x,p.y-b.y)<1e-6))continue;
+      assert.truthy(Math.abs((b.x-a.x)*(c.x-b.x)+(b.y-a.y)*(c.y-b.y))<1e-6,
+        'the cut across wall thickness is perpendicular to its length');
+      checked++;
+    }
+    assert.gt(checked,0,'checked interior wall breaks');
   }));
 })();

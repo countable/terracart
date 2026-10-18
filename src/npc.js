@@ -100,8 +100,9 @@ const NPC = (() => {
       const influence = typeof Zones !== 'undefined' ? Zones.at(entry, cx, cy) : null;
       const culture = cultureFor(grid[idx], shrine, influence);
       // A villager is someone a player walks up to (a shop, the day's talk):
-      // an 'npc' spawn (the spawn gate) — by the houses is fine, not on school
-      // or sensitive ground, not in a field.
+      // an 'npc' spawn (the spawn gate) — by the houses is fine but never
+      // against a wall (the gate's BUILDING_MOAT), not on school or
+      // sensitive ground, not in a field.
       if (!culture || !WorldGen.isSpawnCell(grid, N, N, cx, cy, opts, 'npc')) continue;
       used.add(idx);
       const id = `npc_${tx}_${ty}_${cx}_${cy}`;
@@ -234,6 +235,9 @@ const NPC = (() => {
     // across their old path. Small steps cannot skip a road cell or building.
     dt = Math.min(0.1, Math.max(0, dt));
     c._moving = false;
+    // The home leash and the road band are this closure's; terrain, the
+    // building moat and every other refusal are THE ONE STEP TEST's
+    // (creature_ai.js creatureStepRefused), asked on every swept sample.
     const allow = (x, y) => {
       const dest = scene.cellAt(x, y);
       return dest.loaded && !dest.underRoad && !Combat.faunaBlocksCell(dest.type) && !WorldGen.isRoadTerrain(dest.type)

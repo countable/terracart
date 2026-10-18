@@ -6,6 +6,23 @@
   // halved together (31.2/1.3 -> 15.6/.65) when buildings read twice too tall:
   // doors and windows shrink with the storey, so the facade keeps its scale.
   const FLOOR_HEIGHT=15.6, DETAIL_SCALE=.65, EAVE_RISE=2.5, ROOF_OVERHANG=5;
+  // Facade bays are 39 texels wide: windows in the even bays, the door in bay
+  // 6. An entrance wall centres its door; every other wall centres on a plain
+  // bay. Either way a corner may still fall inside a window bay, and
+  // atlasFaces swaps that cut bay for its plain neighbour (cornerBays).
+  const BAY=39,DOOR_CENTRE=253.5,PLAIN_CENTRE=60.5;
+  const wallStart=(span,entrance)=>entrance?DOOR_CENTRE-span/2:PLAIN_CENTRE+2*BAY*Math.ceil((span/2-PLAIN_CENTRE)/(2*BAY))-span/2;
+  const bayAt=t=>Math.floor((t-2)/BAY),windowBay=k=>((k%2)+2)%2===0;
+  function cornerBays(polys,[lo,hi],cut){
+    const k0=bayAt(lo+1e-6),k1=bayAt(hi-1e-6),shift=(poly,d)=>poly.map(p=>({...p,tu:p.tu+d}));
+    const cutLeft=lo>2+BAY*k0+1,cutRight=hi<2+BAY*k1+BAY-1;
+    if(k0===k1)return windowBay(k0)&&(cutLeft||cutRight)?polys.map(p=>shift(p,BAY)):polys;
+    const split=(polys,bound,side)=>polys.flatMap(poly=>{const l=cut(poly,'tu',bound,-1),r=cut(poly,'tu',bound,1);
+      return [l.length>=3?(side<0?shift(l,BAY):l):null,r.length>=3?(side>0?shift(r,-BAY):r):null].filter(Boolean);});
+    if(windowBay(k0)&&cutLeft)polys=split(polys,2+BAY*(k0+1),-1);
+    if(windowBay(k1)&&cutRight)polys=split(polys,2+BAY*k1,1);
+    return polys;
+  }
   // The billboard look (docs/art/lowpoly-building-styles.md): every number
   // the ink pass, projection and dressing share, so sprites and meshes keep
   // agreeing. tools/building-billboard-preview.html edits this table live.
@@ -21,7 +38,7 @@
     // Home — the player's house (building_overlay.js drawHome): one storey of
     // plaster under a clay ridge, and the one role with an `interior` recipe.
     home:{window:'shutters',material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey',variant:'ridge'},
-    blacksmith:{window:'barred',material:'stone',finish:'workshop',roofMaterial:'slate',stories:1,style:'brick',chimneys:2,chimneyScale:1,chimneyFlare:1.12},
+    blacksmith:{window:'barred',material:'stone',finish:'workshop',roofMaterial:'slate',stories:1,style:'brick',smoke:true,chimneyFlare:1.12},
     trader:{window:'wide',material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
     shop:{window:'wide',material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
     seed:{window:'shutters',material:'plaster',finish:'plaster',roofMaterial:'thatch',stories:1,style:'adobe'},
@@ -132,14 +149,15 @@
       // An inset roof's flat top is a plain cap over its tiled skirt (the shop
       // awning look): solid colour, its own ink group, rim bands below.
       const flatCap=variant==='inset'&&i===planes.length-1;
-      // Each awning skirt is tiled from its own eave: u runs along the eave,
-      // v climbs the slope, so courses stay level and point downhill on all
-      // four sides (hip beams cover the seams). Ridge roofs keep one
-      // continuous mapping across their cap.
+      // Every slope is tiled from its own eave: u runs along the eave and v
+      // grows downhill, so the sheet's course bottoms face the ground on all
+      // faces at every heading (ridge and hip beams cover the seams). A
+      // ridge's flat cap continues its first slope's mapping without a seam.
       let uv=p=>({u:p.x*ux+p.y*uy-bounds[0][0],v:roofV(p)});
-      if(variant==='inset'&&!flatCap){const n={x:planes[i].x/pitch,y:planes[i].y/pitch},t={x:-n.y,y:n.x},rise=Math.hypot(1,pitch);
-        const lo=Math.min(...roofRing.map(p=>p.x*n.x+p.y*n.y)),ulo=Math.min(...roofRing.map(p=>p.x*t.x+p.y*t.y));
-        uv=p=>({u:p.x*t.x+p.y*t.y-ulo,v:(p.x*n.x+p.y*n.y-lo)*rise});}
+      const slope=i<planes.length-1?i:flatCap?-1:0;
+      if(slope>=0){const n={x:planes[slope].x/pitch,y:planes[slope].y/pitch},t={x:-n.y,y:n.x},rise=Math.hypot(1,pitch);
+        const hi=Math.max(...roofRing.map(p=>p.x*n.x+p.y*n.y)),ulo=Math.min(...roofRing.map(p=>p.x*t.x+p.y*t.y));
+        uv=p=>({u:p.x*t.x+p.y*t.y-ulo,v:(hi-p.x*n.x-p.y*n.y)*rise});}
       for(let j=1;j<poly.length-1;j++){add([poly[0],poly[j],poly[j+1]].map(p=>({...p,z:roofZ(p),...uv(p)})),'roof',flatCap?1:light);
         if(flatCap)Object.assign(faces.at(-1),{solid:true,tileCap:true,inkGroup:1,layer:2.2});}
     }
@@ -167,12 +185,12 @@
     ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],cuts=roofCuts(a,b),length=Math.hypot(b.x-a.x,b.y-a.y);
       // Fixed density, centered entrance. Triangulate the entire wall silhouette
       // so a gable needs three triangles rather than two separate quads.
-      const span=length/DETAIL_SCALE,start=i===entranceEdge?253.5-span/2:length<11?110:0;
+      const span=length/DETAIL_SCALE,start=wallStart(span,i===entranceEdge);
       const outline=[{x:0,y:0},{x:length,y:0},...cuts.slice().reverse().map(t=>({x:t*length,y:roofZ({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t})}))];
       for(const tri of triangulate(outline).triangles){add(tri.map(p=>({
         x:a.x+(b.x-a.x)*p.x/length,y:a.y+(b.y-a.y)*p.x/length,z:p.y,
         u:start+p.x/DETAIL_SCALE,v:height+28-p.y
-      })),'wall');faces.at(-1).wallDirection={x:b.x-a.x,y:b.y-a.y};}
+      })),'wall');Object.assign(faces.at(-1),{wallDirection:{x:b.x-a.x,y:b.y-a.y},wallSpan:[start,start+span]});}
     });
     // A flat roof is one colour with a lighter rim and a darker band inside
     // it (the parapet's shadow); the ink outline marks the wall top. No lip.
@@ -205,7 +223,7 @@
     });
     const beam=(quad,light)=>{for(const tri of [[quad[0],quad[1],quad[2]],[quad[0],quad[2],quad[3]],[quad[2],quad[1],quad[0]],[quad[3],quad[2],quad[0]]]){
       add(tri.map(p=>({...p,u:0,v:0})),'trim',light);Object.assign(faces.at(-1),{layer:2.5,beam:true});}};
-    let chimneyAt=null,chimneyLength=0,chimneyLine=null;
+    let chimneyAt=null,chimneyLength=0,chimneyLine=null;const chimneyMouths=[];
     for(const line of lines.values()){
       const len=Math.hypot(line.d.x,line.d.y),dx=line.d.x/len,dy=line.d.y/len,merged=[];
       for(const span of line.spans.sort((a,b)=>a[0]-b[0]))if(merged.length&&span[0]<=merged.at(-1)[1]+1e-6)merged.at(-1)[1]=Math.max(merged.at(-1)[1],span[1]);else merged.push([...span]);
@@ -234,10 +252,11 @@
         for(const tri of [[0,1,2],[0,2,3]]){add(tri.map(k=>({...cap[k],z:top,u:0,v:0})),'trim',1);Object.assign(faces.at(-1),{color:C.capColor,layer:2.7,chimney:true,inkGroup:2});}
         const mouth=corners(C.mouth*scale);
         for(const tri of [[0,1,2],[0,2,3]]){add(tri.map(k=>({...mouth[k],z:top+.01,u:0,v:0})),'trim',1);Object.assign(faces.at(-1),{color:C.mouthColor,layer:2.71,chimney:true,inkGroup:2});}
+        chimneyMouths.push({x:c.x,y:c.y,z:top});
       };
       (count>1?[.26,.74]:[.28]).forEach((t,i)=>stack(chimneyLine.at(chimneyLine.t0+(chimneyLine.t1-chimneyLine.t0)*t,0),i));
     }
-    return {ring,roofRing,actualOverhang,faces,roofTriangles,wallTriangles,trimTriangles:faces.length-roofTriangles-wallTriangles,height,roofZ,ridge:{x:ux,y:uy}};
+    return {ring,roofRing,actualOverhang,faces,roofTriangles,wallTriangles,trimTriangles:faces.length-roofTriangles-wallTriangles,height,roofZ,ridge:{x:ux,y:uy},chimneyMouths};
   }
   const meshCache=new Map();
   function geometry(input,variant='ridge',height=29,overhang=0,chimneys=null){
@@ -296,7 +315,7 @@
     if(meshCache.has(cacheKey))return meshCache.get(cacheKey);
     const model=BuildingStyles.build(points,styleId,{geometryOnly:true,scale,upperSetback:recipe.terraced?24:undefined,palette:{wall:recipe.body,roof:recipe.roof,trim:recipe.trim}});
     const faces=[],quads=new Map();
-    const add=(p,kind,color,layer)=>{
+    const add=(p,kind,color,layer,extra)=>{
       const [a,b,c]=p,ux=b.x-a.x,uy=b.y-a.y,uz=b.z-a.z,vx=c.x-a.x,vy=c.y-a.y,vz=c.z-a.z;
       const nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,len=Math.hypot(nx,ny,nz);
       if(len<1e-8)return;
@@ -307,7 +326,7 @@
         p=p.map(v=>({...v,u:horizontal>1e-8?(-ny*v.x+nx*v.y)/horizontal:v.x,
           v:horizontal>1e-8?(nx*nz*v.x+ny*nz*v.y-horizontal*horizontal*v.z)/(horizontal*len):v.y}));
       }
-      faces.push({points:p,kind,light,color,layer:layer+(kind==='wall'?0.001:0)});
+      faces.push({points:p,kind,light,color,layer:layer+(kind==='wall'?0.001:0),...extra});
     };
     // A flat deck keeps no parapet: its wall prisms go, and so does the cap that
     // sat on the parapet when a real deck lies just below it. The lower storey's
@@ -323,10 +342,11 @@
       for(let i=0;i<ring.length;i++){
         const j=(i+1)%ring.length,a=ring[i],b=ring[j],c=upper[j],d=upper[i],length=Math.hypot(b.x-a.x,b.y-a.y);
         const slope=!!prism.topPoints,kind=trim?'trim':slope?'roof':'wall';
-        const p=[{...a,z:prism.bottom,u:0},{...b,z:prism.bottom,u:length/DETAIL_SCALE},{...c,z:prism.top,u:length/DETAIL_SCALE},{...d,z:prism.top,u:0}];
+        const span=length/DETAIL_SCALE,start=wallStart(span,false);
+        const p=[{...a,z:prism.bottom,u:start},{...b,z:prism.bottom,u:start+span},{...c,z:prism.top,u:start+span},{...d,z:prism.top,u:start}];
         p.forEach(v=>{v.v=105-v.z;if(slope){v.u=v.x;v.v=v.y;}});
         const key=p.map(v=>[v.x,v.y,v.z].map(n=>n.toFixed(5)).join(',')).sort().join(';');
-        if(quads.has(key))quads.set(key,null);else quads.set(key,{p,kind,color:trim?recipe.trim:null,layer:prism.bottom});
+        if(quads.has(key))quads.set(key,null);else quads.set(key,{p,kind,color:trim?recipe.trim:null,layer:prism.bottom,extra:kind==='wall'?{wallSpan:[start,start+span]}:undefined});
       }
       if(prism.capped){for(const tri of triangulate(upper).triangles){
         const kind=trim&&!recipe.terraced?'trim':'roof';
@@ -336,7 +356,7 @@
       }
       }
     }
-    for(const quad of quads.values())if(quad){const {p,kind,color,layer}=quad;add([p[0],p[1],p[2]],kind,color,layer);add([p[0],p[2],p[3]],kind,color,layer);}
+    for(const quad of quads.values())if(quad){const {p,kind,color,layer,extra}=quad;add([p[0],p[1],p[2]],kind,color,layer,extra);add([p[0],p[2],p[3]],kind,color,layer,extra);}
     // Slabs and material caps can emit the same top triangle twice. Keep one
     // surface; upper walls sit just after their supporting deck in painter order.
     const seenFaces=new Set();
@@ -369,7 +389,10 @@
       // footprint with one section fallen entirely (the gap sits on the longest
       // edge, so a tiny return never opens a whole side), a few patches of roof
       // still up on bare rafters, and dark rubble with fallen roof slabs inside.
-      const H=9,base=geometry(points,'ridge',H,0),faces=[],W=LOOK.wreck;
+      // Crumbling walls: sections every half cell step up and down between the
+      // ground and H, half the shortest building (one storey plus eave rise).
+      // A shallow pitch keeps the surviving roof patches near the wall tops.
+      const H=(FLOOR_HEIGHT+EAVE_RISE)/2,SECTION=16,base=geometry(points,'shallow',H,0),faces=[],W=LOOK.wreck;
       const xs2=points.map(p=>p.x),ys=points.map(p=>p.y),[xlo,xhi,ylo,yhi]=[Math.min(...xs2),Math.max(...xs2),Math.min(...ys),Math.max(...ys)];
       const ring=base.ring,inner=(typeof BuildingStyles!=='undefined'&&(BuildingStyles.inset(ring,4)||BuildingStyles.inset(ring,2)))||null;
       const tri=(pts,kind,extra)=>{faces.push({points:pts,kind,light:1,layer:0,...extra});return faces.at(-1);};
@@ -380,14 +403,25 @@
         // Wall sections around the ring, each with its own broken height.
         const parts=[];
         ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],ai=inner[i],bi=inner[(i+1)%ring.length],len=Math.hypot(b.x-a.x,b.y-a.y);
-          const count=Math.max(1,Math.round(len/30)),dir={x:b.x-a.x,y:b.y-a.y};
-          for(let k=0;k<count;k++){const t0=k/count,t1=(k+1)/count;
-            parts.push({edge:i,len,dir,t0,t1,h:H*(.45+.55*hash(i*7+k,11)),o0:{x:a.x+dir.x*t0,y:a.y+dir.y*t0},o1:{x:a.x+dir.x*t1,y:a.y+dir.y*t1},i0:{x:ai.x+(bi.x-ai.x)*t0,y:ai.y+(bi.y-ai.y)*t0},i1:{x:ai.x+(bi.x-ai.x)*t1,y:ai.y+(bi.y-ai.y)*t1}});}});
+          const count=Math.max(1,Math.round(len/SECTION)),dir={x:b.x-a.x,y:b.y-a.y};
+          // Interior breaks cross the wall at right angles. Only the corners
+          // retain the inset ring's mitres.
+          const innerAt=t=>{
+            if(t===0)return ai;if(t===1)return bi;
+            const o={x:a.x+dir.x*t,y:a.y+dir.y*t},dx=bi.x-ai.x,dy=bi.y-ai.y;
+            const u=((o.x-ai.x)*dx+(o.y-ai.y)*dy)/(dx*dx+dy*dy);
+            return {x:ai.x+dx*u,y:ai.y+dy*u};
+          };
+          for(let k=0;k<count;k++){const t0=k/count,t1=(k+1)/count,r=hash(i*7+k,11);
+            // A fifth of the sections are down to the ground; the rest stand at
+            // uneven heights (never below a knee, so a stub still reads as wall).
+            parts.push({edge:i,len,dir,t0,t1,h:r<.2?0:H*(.3+.7*(r-.2)/.8),o0:{x:a.x+dir.x*t0,y:a.y+dir.y*t0},o1:{x:a.x+dir.x*t1,y:a.y+dir.y*t1},i0:innerAt(t0),i1:innerAt(t1)});}});
         const longest=parts.reduce((a,b)=>b.len>a.len?b:a,parts[0]).edge,span=parts.filter(p=>p.edge===longest);
-        const gone=span[Math.floor(hash(longest,23)*span.length)];gone.h=0;gone.gone=true;gap={o0:gone.o0,o1:gone.o1};
+        const gone=span[Math.floor(hash(longest,23)*span.length)];gone.h=0;gap={o0:gone.o0,o1:gone.o1};
+        for(const p of parts)p.gone=p.h<.5;
         parts.forEach((p,k)=>{const {dir,len,t0,t1,h,o0,o1,i0,i1}=p;
           const next=parts[(k+1)%parts.length];
-          // The fallen section leaves only its taller neighbour's end face.
+          // A fallen section leaves only its standing neighbour's end face.
           if(p.gone){if(next.h>.5){const e=[{...o1,z:0},{...i1,z:0},{...i1,z:next.h},{...o1,z:next.h}].map(v=>({...v,u:0,v:0}));
             quad(e[0],e[1],e[2],e[3],'trim',{color:W.top,layer:2.3,wallDirection:{x:i1.x-o1.x,y:i1.y-o1.y}});}return;}
           // Outer face (textured, lit by direction), inner face seen from inside, broken top.
@@ -969,6 +1003,7 @@
         tu:trim?510:raw?p.u:roof?p.u/DETAIL_SCALE:p.u,
         tv:trim?126:raw?p.v:roof?p.v/DETAIL_SCALE:105-(105-p.v-vOffset)/DETAIL_SCALE}));
       let polys=[points];
+      if(face.kind==='wall'&&face.wallSpan&&!raw&&!trim)polys=cornerBays(polys,face.wallSpan,cut);
       if(!trim&&!raw){
         // The selected sheet owns its roof repeat (approved crops: 360;
         // generated tiles: 288). Facades repeat twelve complete 39px bays.
@@ -988,16 +1023,12 @@
     const state=scene._lowpoly,left=Math.min(...pts.map(p=>p.x)),top=Math.min(...pts.map(p=>p.y));
     const local=pts.map(p=>({x:p.x-left,y:p.y-top}));
     let cached=recipe.shape?specialGeometry(local,recipe):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
-      ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,recipe.chimneys?{count:recipe.chimneys,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null);
+      ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
-    // Fallen masonry lies on the ground; retain its materials and scattered
-    // fragments without any wall or roof elevation obscuring the player.
-    if(recipe.role==='wreck') cached={...cached,height:0,faces:cached.faces.map(f=>({...f,
-      points:f.points.map(p=>({...p,z:0}))}))};
     const texture=material(scene,recipe);(state.textures||=new Set()).add(texture.key);
     const mesh={...cached,faces:atlasFaces(cached,texture.roofPeriod)};
     mesh.roofTriangles=mesh.faces.filter(f=>f.kind==='roof').length;mesh.wallTriangles=mesh.faces.filter(f=>f.kind==='wall').length;mesh.trimTriangles=mesh.faces.filter(f=>f.kind==='trim').length;
-    mesh.key=key;mesh.footprint=pts;mesh.role=recipe.role;mesh.x=left;mesh.y=top;state.buildings.push(mesh);if(key&&mesh.faces.length)state.keys.add(key);
+    mesh.key=key;mesh.footprint=pts;mesh.role=recipe.role;mesh.x=left;mesh.y=top;mesh.smoke=recipe.smoke?cached.chimneyMouths||[]:[];state.buildings.push(mesh);if(key&&mesh.faces.length)state.keys.add(key);
     const support={x:left+local.reduce((s,p)=>s+p.x,0)/local.length,y:top+local.reduce((s,p)=>s+p.y,0)/local.length,order:state.buildings.length};
     const index=state.buildings.length-1;
     const obj=state.pool[index]||(state.pool[index]=renderObject(scene));
@@ -1051,6 +1082,14 @@
     for(const mesh of state.buildings) mesh.obj.alpha=mesh.role==='wreck'||typeof Render==='undefined'||!Render.buildingFadeAlpha?1:Render.buildingFadeAlpha(scene,mesh.key,mesh.footprint,
       mesh.visibleTriangles||[],mesh.support,{x:state.offsetX,y:state.offsetY});
   }
+  // Screen points of every smoking chimney mouth (ROLES[role].smoke), in the
+  // wall container's space, projected like the faces. render.js puffs there.
+  function smokeMouths(scene){
+    const state=scene._lowpoly;if(!state||!state.enabled||!active(scene)||(scene.depth??0)!==0)return [];
+    const angle=scene.mapRot||0,c=Math.cos(angle),s=Math.sin(angle),k=LOOK.heightScale,out=[];
+    for(const mesh of state.buildings)for(const m of mesh.smoke)out.push({x:mesh.x+m.x-s*m.z*k+(state.offsetX||0),y:mesh.y+m.y-c*m.z*k+(state.offsetY||0),alpha:mesh.obj?.alpha??1});
+    return out;
+  }
   function worldPieces(scene){
     const state=scene._lowpoly;if(!state||!state.enabled||!active(scene)||(scene.depth??0)!==0)return [];
     update(scene);
@@ -1064,5 +1103,5 @@
     for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
   }
   const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);
-  global.BuildingLowPoly={LOOK,atlasFaces,ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,clear,covers};
+  global.BuildingLowPoly={LOOK,atlasFaces,ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
 })(window);

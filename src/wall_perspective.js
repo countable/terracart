@@ -170,9 +170,9 @@
         group.alphaKey = alphaKey;
         g.clear();
         // The ink outline is drawn once per connected run — every block that
-        // shares a ground vertex at the same base level, so a ring of wall
-        // sections has no seams between them — before the first fill of that
-        // run; crown teeth stand on a raised base and outline separately.
+        // shares a ground vertex or a wall's support, so a ring of wall
+        // sections and the teeth standing on it carry one outer outline with
+        // no seams between them — before the first fill of that run.
         if (inkPx && !group.runs) group.runs = this.connectedRuns(group.blocks);
         const inked = new Set();
         for (const block of group.blocks) {
@@ -191,15 +191,19 @@
         }
       }
     },
-    // Blocks joined by a shared ground vertex at the same base level, as a
-    // Map from block to its run (an array of blocks). Computed once per rebuild.
+    // Blocks joined by a shared ground vertex (at any level, so merlons join
+    // the wall under them) or by one wall's support, as a Map from block to
+    // its run (an array of blocks). Computed once per rebuild.
     connectedRuns(blocks) {
       const parent = blocks.map((_, i) => i), find = i => parent[i] === i ? i : (parent[i] = find(parent[i]));
-      const seen = new Map();
+      const seen = new Map(), supports = new Map();
       blocks.forEach((block, i) => {
         for (const p of block.points) {
-          const key = p.x.toFixed(2) + ',' + p.y.toFixed(2) + '|' + block.bottom.toFixed(2);
+          const key = p.x.toFixed(2) + ',' + p.y.toFixed(2);
           if (seen.has(key)) parent[find(i)] = find(seen.get(key)); else seen.set(key, i);
+        }
+        if (block.support) {
+          if (supports.has(block.support)) parent[find(i)] = find(supports.get(block.support)); else supports.set(block.support, i);
         }
       });
       const runs = new Map(), byRoot = new Map();

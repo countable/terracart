@@ -1836,7 +1836,8 @@ Render.BUILDING_STYLE_ROLES = Object.freeze({
   trader: { style: 'japanese', palette: { wall: 0xbababa, roof: 0x6f9093, trim: 0x954a39 } }, shop: { style: 'japanese' },
   wizard: { style: 'pyramid', palette: { wall: 0x8c8796, roof: 0x8b78a8, trim: 0xc6afcf } },
   turret: { style: 'fort' },
-  fort: { style: 'multistorey', palette: { wall: 0x9b9e91, roof: 0xb6b6a2, trim: 0xd5ceb2 } },
+  // No `fort` row: a fort is never a generated body. building_overlay.js draws
+  // its palisade rim and leaves the gambling-hall sprite (house_fort) standing.
   wreck: { style: 'ruin' },
 });
 Render.BUILDING_STYLE_SHOPS = Object.freeze({
@@ -5108,21 +5109,24 @@ Render.drawObjects = function drawObjects(scene) {
   // last. In the fx layer (masked to the map, under the fog); none under
   // reduced motion.
   {
+    // Smoking chimneys (BuildingLowPoly.ROLES[role].smoke) puff the same way
+    // from their projected mouths.
+    const chimneys = typeof BuildingLowPoly !== 'undefined' && BuildingLowPoly.smokeMouths ? BuildingLowPoly.smokeMouths(scene) : [];
     let g = scene.firepitSmokeGfx;
-    if (!g && firepitList.length && scene.fxContainer) {
+    if (!g && (firepitList.length || chimneys.length) && scene.fxContainer) {
       g = scene.firepitSmokeGfx = scene.add.graphics();
       scene.fxContainer.add(g);
     }
     if (g) {
       g.clear();
       const S = HomeArea.FIREPIT_SMOKE, now = performance.now();
-      if (!scene._reducedMotion) for (const { dx, dy } of firepitList) {
-        const { x, y } = project(dx, dy);
+      const sources = firepitList.map(({ dx, dy }) => ({ ...project(dx, dy), alpha: 1 })).concat(chimneys);
+      if (!scene._reducedMotion) for (const { x, y, alpha } of sources) {
         const turn = typeof HeadingUp !== 'undefined' ? HeadingUp.angle(scene) : 0;
         if (turn) g.save().translateCanvas(x, y).rotateCanvas(-turn).translateCanvas(-x, -y);
         for (let i = 0; i < S.puffs; i++) {
           const k = (now / S.periodMs + i / S.puffs) % 1;
-          const a = S.alpha * Math.sin(Math.PI * k) / 2;
+          const a = S.alpha * alpha * Math.sin(Math.PI * k) / 2;
           const r = S.radiusPx[0] + (S.radiusPx[1] - S.radiusPx[0]) * k;
           const px = x + Math.sin(k * 2 * Math.PI + i * 1.7) * S.swayPx + k * 2, py = y - 2 - k * S.risePx;
           // A soft rim and a denser core, so a puff reads as smoke, not a bubble.
@@ -6126,7 +6130,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     //   - Home          → no sprite  (the player's house: building_overlay.js)
     //   - blacksmith    → blacksmith
     //   - trader        → trader
-    //   - fort tier 11  → fort       (the school)
+    //   - fort tier 11  → fort       (the gambling hall, inside the overlay's palisade rim)
     // The 'house' texture is a tileset with a registered 'front' sub-frame; the
     // themed PNGs are single-image, so frame must be undefined for them. Tint is
     // suppressed for themed houses (see the `themedHouse` flag below).

@@ -26,7 +26,8 @@
 .speech-dialog .modal-content {margin:0!important;}
 .speech-dialog .speech-speaker {justify-content:flex-start!important;gap:10px!important;margin:0 0 7px!important;padding:0!important;border:0!important;}
 .speech-dialog .speech-speaker > span {font:700 18px/1.2 var(--font-ui)!important;color:#242219!important;letter-spacing:0!important;text-transform:none!important;}
-.speech-dialog .modal-portrait {width:54px!important;height:54px!important;flex:0 0 54px!important;margin:0!important;image-rendering:auto!important;}
+/* The face at its authored cell size (CharacterPortraits.CELL_PX), 1:1 beside the name; the shell's pixelated rendering stays. */
+.speech-dialog .modal-portrait {width:80px!important;height:80px!important;flex:0 0 80px!important;margin:0!important;}
 .speech-dialog .modal-content > div {color:#302c23!important;opacity:1!important;text-shadow:none!important;}
 .speech-dialog .modal-speech {font-size:15px!important;line-height:1.4!important;margin:5px 0 11px!important;}
 .speech-dialog .modal-content > .compass-action {display:block;margin-left:auto;min-width:86px;}
