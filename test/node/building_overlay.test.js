@@ -1514,4 +1514,103 @@ test('building overlay: irregular castle rings retain closed edges and bounded j
   clearTiles();
 });
 
+// ── YOUR HOUSE ──────────────────────────────────────────────────────────────
+// Home (save.starterShopId) is drawn from its footprint as a room: walls as
+// retained prisms with height and thickness, a doorway on the door side, and
+// a roof that comes off while the player stands inside.
+function homeShape(door) {
+  return { ring: Float32Array.from([0, 0, 15, 0, 15, 15, 0, 15]), tier: T.BUILDING,
+    key: 'starter_trailer', home: true, areaM2: 225, door };
+}
+test('building overlay: Home is walls with a doorway under a roof, from its footprint', () => {
+  clearTiles();
+  putShapes(0, 0, [homeShape({ x: 7.5, y: 15 })]);
+  const { scene } = makePerspectiveScene();
+  scene.save = { starterShopId: 'starter_trailer' };
+  scene.homeInside = () => false;
+  BuildingOverlay.draw(scene);
+  assert.eq(scene._wallPerspective.polygon.blocks.length, 0, 'no plain house foundation: Home is not a village house');
+  const group = scene._wallPerspective.home;
+  assert.truthy(group && group.alwaysActive, 'Home\'s prisms draw at every heading');
+  const H = HomeArea.HOUSE;
+  const walls = group.blocks.filter(b => b.bottom === 0 && b.top === H.wallPx);
+  assert.gt(walls.length, 8, 'wall sections round the perimeter');
+  const roof = group.blocks.filter(b => b.top === H.wallPx && b.bottom === H.wallPx - 2 && b.capped);
+  assert.eq(roof.length, 2, 'the roof cap at wall height, in two slopes');
+  assert.eq(roof[0].colors.top, H.roof.shade, 'the far slope in shade');
+  assert.eq(roof[1].colors.top, H.roof.top, 'the near slope lit');
+  const ridge = group.blocks.filter(b => b.bottom === H.wallPx && b.top === H.wallPx + H.ridgePx);
+  assert.eq(ridge.length, 1, 'and a ridge above it');
+  assert.eq(ridge[0].colors.top, H.roof.lite, 'lit along the ridge');
+  // The doorway: no south-wall section covers the door point.
+  const southY = Math.max(...roof[1].points.map(p => p.y));
+  const doorX = (roof[1].points[0].x + roof[1].points[1].x) / 2;
+  const south = walls.filter(b => b.points.some(p => Math.abs(p.y - southY) < 1e-6));
+  assert.gt(south.length, 0, 'the south wall stands');
+  for (const b of south) {
+    const xs = b.points.map(p => p.x);
+    assert.truthy(Math.min(...xs) >= doorX + CELL_PX / 2 - 1e-6 || Math.max(...xs) <= doorX - CELL_PX / 2 + 1e-6,
+      'no wall across the doorway');
+  }
+  assert.eq(walls.filter(b => b.colors.top === H.roof.dark).length, walls.length, 'roofed, the wall tops are the eave line');
+  // The floor is still the house floor on the canvas, outlined, no sprite.
+  const g = scene.buildingGeomGfx;
+  assert.eq(g.only('texture').length, 1, 'its floor carries the house material');
+  assert.eq(g.only('stroke').length, 1, 'and the outline');
+  assert.eq(g.only('slime').length, 0, 'never dilapidated');
+  clearTiles();
+});
+test('building overlay: inside Home the roof comes off and the walls show their tops', () => {
+  clearTiles();
+  putShapes(0, 0, [homeShape({ x: 7.5, y: 15 })]);
+  const { scene } = makePerspectiveScene();
+  scene.save = { starterShopId: 'starter_trailer' };
+  scene.homeInside = () => true;
+  BuildingOverlay.draw(scene);
+  const group = scene._wallPerspective.home, H = HomeArea.HOUSE;
+  assert.eq(group.blocks.filter(b => b.bottom >= H.wallPx - 2).length, 0, 'no roof, no ridge');
+  const walls = group.blocks.filter(b => b.bottom === 0);
+  assert.gt(walls.length, 8, 'the walls stand');
+  assert.truthy(walls.every(b => b.colors.top === H.wall.top), 'their tops are the wall\'s own course');
+  clearTiles();
+});
+test('building overlay: Home\'s walls stay up north-up, and an adopted Home has no doorway', () => {
+  clearTiles();
+  putShapes(0, 0, [{ ...homeShape(null), key: 'h_real', home: undefined }]);
+  const { scene } = makeWallScene({ _headingUp: false, mapRot: 0 });
+  scene.add.graphics = () => ({ triangles: [], clears: 0, visible: true,
+    clear() { this.triangles.length = 0; this.clears++; return this; },
+    fillStyle() { return this; },
+    fillTriangle(...v) { this.triangles.push(v); return this; },
+    setPosition(x, y) { this.x = x; this.y = y; return this; } });
+  scene.save = { starterShopId: 'h_real' };
+  scene.homeInside = () => false;
+  BuildingOverlay.draw(scene);
+  const group = scene._wallPerspective.home, H = HomeArea.HOUSE;
+  assert.truthy(group.gfx.visible, 'drawn without the heading-up camera');
+  assert.gt(group.gfx.triangles.length, 0, 'real triangles');
+  const southY = 15 * PX_PER_M + 176 - 0; // the ring's south edge, projected
+  const walls = group.blocks.filter(b => b.bottom === 0 && b.top === H.wallPx);
+  const south = walls.filter(b => b.points.some(p => Math.abs(p.y - Math.max(...group.blocks[0].points.map(q => q.y))) < 1e-6));
+  assert.gt(south.length, 0, 'a south wall');
+  const span = (b) => Math.max(...b.points.map(p => p.x)) - Math.min(...b.points.map(p => p.x));
+  const total = south.filter(b => span(b) > 1).reduce((n, b) => n + span(b), 0);
+  assert.truthy(Math.abs(total - 15 * PX_PER_M) < 1e-6, `the south wall is whole (${total} of ${15 * PX_PER_M}; ${southY})`);
+  clearTiles();
+});
+test('building overlay: Home without a prism group falls back to a flat roof', () => {
+  clearTiles();
+  putShapes(0, 0, [homeShape({ x: 7.5, y: 15 })]);
+  const scene = makeScene({ save: { starterShopId: 'starter_trailer' }, homeInside: () => false });
+  BuildingOverlay.draw(scene);
+  const fills = scene.buildingGeomGfx.only('fill');
+  assert.eq(fills[fills.length - 1].color, HomeArea.HOUSE.roof.top, 'the last fill is the roof');
+  scene.homeInside = () => true;
+  scene._buildingGeomKey = null;
+  BuildingOverlay.draw(scene);
+  const inside = scene.buildingGeomGfx.only('fill');
+  assert.falsy(inside.some(f => f.color === HomeArea.HOUSE.roof.top), 'inside, no roof');
+  clearTiles();
+});
+
 })();

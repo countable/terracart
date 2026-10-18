@@ -9,7 +9,7 @@
   // The billboard look (docs/art/lowpoly-building-styles.md): every number
   // the ink pass, projection and dressing share, so sprites and meshes keep
   // agreeing. tools/building-billboard-preview.html edits this table live.
-  const LOOK={heightScale:1,inkPx:1,ink:0x2a2229,textured:true,facade:'cel',eaveBand:4.5,eaveShade:.5,flatRim:1.75,flatShade:4.5,sheet:768,
+  const LOOK={heightScale:1,inkPx:1,wallThickness:4,ink:0x2a2229,textured:true,facade:'cel',eaveBand:4.5,eaveShade:.5,flatRim:1.75,flatShade:4.5,sheet:768,
     chimney:{radius:4.4,cap:5.8,mouth:3.4,above:6.5,rise:3.5,capHeight:1.1,sides:0xd9c9b8,capColor:0x9c8f84,mouthColor:0x2a2229},
     wreck:{tint:0xb3a89e,debris:0x5e564f,beam:0x3b2a1f,top:0x6b6059}};
   const mix=(a,b,t)=>{const c=i=>Math.round(((a>>i)&255)*(1-t)+((b>>i)&255)*t);return (c(16)<<16)|(c(8)<<8)|c(0);};
@@ -18,7 +18,9 @@
   const MATERIAL_TILE=96,MATERIAL_CELLS=['clay','slate','thatch','shingle','glazed','plaster','boards','rubble','brick','clapboard','flagstone','moss'];
   const ROLES={
     plain:{material:'plaster',finish:'cottage',roofMaterial:'clay',stories:2,style:'multistorey'},
-    trailer:{material:'timber',finish:'siding',roofMaterial:'shingle',stories:1,style:'adobe',variant:'shallow',sprite:true},
+    // Home — the player's house (building_overlay.js drawHome): one storey of
+    // plaster under a clay ridge, and the one role with an `interior` recipe.
+    home:{material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey',variant:'ridge'},
     blacksmith:{material:'brick',finish:'workshop',roofMaterial:'slate',stories:1,style:'brick',chimneys:2,chimneyScale:1.5},
     trader:{material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
     shop:{material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
@@ -242,6 +244,43 @@
     const key=variant+':'+height+':'+overhang+':'+(chimneys?chimneys.count+'x'+chimneys.scale:'')+':'+input.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
     if(meshCache.has(key))return meshCache.get(key);
     const mesh=buildGeometry(input,variant,height,overhang,chimneys);
+    if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
+    meshCache.set(key,mesh);return mesh;
+  }
+  // THE ROOM. A building's geometry with its roof off, for the player's house
+  // while they stand inside it (recipe.interior): every wall cut level at the
+  // eaves (z ≤ height) — a gable end stops where its neighbours do — the inner
+  // face of every wall, wound to face into the room so the far walls show
+  // where the outer faces are culled, and a band across the wall tops between
+  // the two, which is the walls' thickness seen from above. No trim, no
+  // chimney, no beams: nothing stands above the eaves. The inner faces wear
+  // the same facade sheet as the outer ones.
+  function interiorGeometry(base,thickness){
+    const key='interior:'+thickness+':'+base.height+':'+base.ring.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
+    if(meshCache.has(key))return meshCache.get(key);
+    const H=base.height,ring=base.ring,faces=[];
+    const cutZ=(poly,bound)=>{const out=[];poly.forEach((a,i)=>{const b=poly[(i+1)%poly.length],da=bound-a.z,db=bound-b.z;
+      if(da>=-1e-8)out.push(a);
+      if((da<0&&db>0)||(da>0&&db<0)){const t=da/(da-db),p={};for(const k of ['x','y','z','u','v'])p[k]=a[k]+(b[k]-a[k])*t;out.push(p);}});return out;};
+    for(const f of base.faces){
+      if(f.kind!=='wall'||f.chimney)continue;
+      const poly=cutZ(f.points,H);
+      for(let i=1;i<poly.length-1;i++)faces.push({...f,points:[poly[0],poly[i],poly[i+1]]});
+    }
+    const inner=typeof BuildingStyles!=='undefined'?BuildingStyles.inset(ring,thickness):null;
+    if(inner&&inner.length===ring.length){
+      ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],c=inner[(i+1)%ring.length],d=inner[i];
+        // The inner face runs c→d, against the ring, so its normal points in.
+        const length=Math.hypot(d.x-c.x,d.y-c.y);if(!length)return;
+        const at=(t,z)=>({x:c.x+(d.x-c.x)*t,y:c.y+(d.y-c.y)*t,z,u:t*length/DETAIL_SCALE,v:H+28-z});
+        for(const tri of [[at(0,0),at(1,0),at(1,H)],[at(0,0),at(1,H),at(0,H)]])
+          faces.push({points:tri,kind:'wall',light:.9,layer:0,interior:true,wallDirection:{x:d.x-c.x,y:d.y-c.y}});
+        // The top band, wound with the ring, so it faces up like a roof.
+        for(const tri of [[a,b,c],[a,c,d]])
+          faces.push({points:tri.map(p=>({x:p.x,y:p.y,z:H,u:0,v:0})),kind:'trim',light:1,layer:1,wallTop:true});
+      });
+    }
+    const mesh={...base,faces,roofTriangles:0,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,interior:true};
     if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
     meshCache.set(key,mesh);return mesh;
   }
@@ -916,8 +955,9 @@
   function add(scene,pts,recipe,variant,key){
     const state=scene._lowpoly,left=Math.min(...pts.map(p=>p.x)),top=Math.min(...pts.map(p=>p.y));
     const local=pts.map(p=>({x:p.x-left,y:p.y-top}));
-    const cached=recipe.shape?specialGeometry(local,recipe):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
+    let cached=recipe.shape?specialGeometry(local,recipe):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,recipe.chimneys?{count:recipe.chimneys,scale:recipe.chimneyScale||1}:null);
+    if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
     const texture=material(scene,recipe);(state.textures||=new Set()).add(texture.key);
     const mesh={...cached,faces:atlasFaces(cached,texture.roofPeriod)};
     mesh.roofTriangles=mesh.faces.filter(f=>f.kind==='roof').length;mesh.wallTriangles=mesh.faces.filter(f=>f.kind==='wall').length;mesh.trimTriangles=mesh.faces.filter(f=>f.kind==='trim').length;
@@ -929,6 +969,7 @@
     for(const face of mesh.faces){
       const roofTone=face.tileCap&&texture.roofTone!=null?mix(texture.roofTone,0x2a2229,.12):recipe.roof;
       if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
+      else if(face.wallTop)face.color=mix(recipe.body,0xf3e6c8,.35);
       else if(face.kind==='trim'&&face.color==null)face.color=recipe.trim;
       else if(recipe.shape==='wreck'&&(face.kind==='wall'||face.kind==='roof')&&!face.debris&&!face.chimney)face.color=LOOK.wreck.tint;
       // The untextured look (LOOK.textured=false) draws each face in its base colour.
@@ -980,5 +1021,5 @@
     for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
   }
   const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);
-  global.BuildingLowPoly={LOOK,atlasFaces,ROLES,recipeFor,specialGeometry,styleGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,clear,covers};
+  global.BuildingLowPoly={LOOK,atlasFaces,ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,clear,covers};
 })(window);

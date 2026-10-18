@@ -201,8 +201,13 @@ review is published as a Claude artifact.
   (`face.flat`) through the solid texel, keeping cel steps and the ink. The
   review page toggles it; castle ramparts (`WallPerspective`) share the
   height scale and ink pass and are flat-coloured either way.
-- Sprite roles: `ROLES[role].sprite` (the trailer) keeps its sprite art; the
-  overlay skips the shell for it as it does for the wizard tower and turret.
+- Sprite roles: the overlay skips the shell for the wizard tower and the
+  turret, which keep their sprite art. Home is the `home` role — one storey of
+  plaster under a clay ridge — and the one building with an `interior` recipe:
+  while the player stands inside, `interiorGeometry` rebuilds it with no roof,
+  every wall cut level at the eaves, the inner face of each wall wound to face
+  the room, and a top band `LOOK.wallThickness` deep across the wall tops.
+  The lightmap masks the street outside it (`lighting.js` paintIndoorMask).
 
 Material sheets (`tilesetSheet`, supersedes the generated-atlas materials
 below when the approved sheet is loaded): per wall/roof pair, one `LOOK.sheet`-pixel

@@ -8,8 +8,10 @@ test('building art: original textures in procedural and legacy modes', () => {
       Render.buildingArtStyle = style;
       assert.eq(Render.houseTextureKey('plain', house, scene), 'house');
       assert.eq(Render.houseTextureFrame('plain', house, scene), 'front');
-      for (const role of ['wreck', 'blacksmith', 'trader', 'shop', 'trailer', 'fort'])
+      for (const role of ['wreck', 'blacksmith', 'trader', 'shop', 'fort'])
         assert.eq(Render.houseTextureKey(role, house, scene), `house_${role}`);
+      // Home has no sprite: the overlay draws the player's house from its footprint.
+      assert.eq(Render.houseTextureKey('trailer', house, scene), null);
       assert.eq(Render.houseTextureKey('wizard', house, scene), 'shrine');
       assert.eq(Render.houseTextureKey('turret', house, scene), 'tower');
     }

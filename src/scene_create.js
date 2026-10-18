@@ -412,13 +412,6 @@ class SceneCreate {
     if (this.textures.exists('wagon')) window.WORLD_ICON_URLS.wagon = bakeSheetFrame('wagon', 0, 128, 96);
     // The burn confirm opens with the campfire the player just tapped.
     window.WORLD_ICON_URLS.bonfire = bakeSheetFrame('bonfire', 0, 16, 32);
-    // Home's panel opens with the trailer the player just tapped — the whole
-    // image, which is one frame.
-    const trailerSrc = this.textures.get('house_trailer')?.getSourceImage();
-    if (trailerSrc && trailerSrc.width) {
-      window.WORLD_ICON_URLS.house_trailer =
-        bakeSheetFrame('house_trailer', 0, trailerSrc.width, trailerSrc.height);
-    }
     // Concrete pads under POI chests — one rounded, slightly-oversized slab in
     // the single cell under the chest (texture `pad_round1`, see textures.js).
     makeAllPadShapes(this);

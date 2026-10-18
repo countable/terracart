@@ -150,7 +150,7 @@ test('opening: wake up is available immediately during the zoom', () => {
     assert.eq(delay, undefined, 'no button timer');
     click();
     assert.eq(btn.textContent, 'Go Outside');
-    assert.eq(text.textContent, 'The compass shows you are in a strange trailer.');
+    assert.eq(text.textContent, 'The compass shows you are in a strange house.');
     assert.falsy(nodes.story.classes.has('nightmare'));
     assert.truthy(nodes.story.classes.has('compass-story'), 'awakening is inside the compass');
     assert.falsy(nodes.story.classes.has('story-fullscreen'), 'awakening leaves fullscreen');

@@ -85,4 +85,37 @@
     assert.truthy(replacement.obj.visible); assert.falsy(second.obj.visible);
     assert.eq(BuildingLowPoly.worldPieces(s).length, 1);
   });
+
+  // Home's room (building_overlay.js drawHome, recipe.interior): the same
+  // house with its roof off, cut level at the eaves, with inner wall faces
+  // and a top band for the walls' thickness.
+  depthTest('low-poly: Home\'s interior is the house with no roof, level walls, inner faces and thick tops', () => {
+    const ring = [{ x: 0, y: 0 }, { x: 96, y: 0 }, { x: 96, y: 96 }, { x: 0, y: 96 }];
+    const base = api.geometry(ring, 'ridge', 36, 5, null);
+    assert.gt(base.faces.filter(f => f.kind === 'roof').length, 0, 'the house has a roof');
+    const room = api.interiorGeometry(base, api.LOOK.wallThickness);
+    assert.eq(room.faces.filter(f => f.kind === 'roof').length, 0, 'the room has none');
+    assert.eq(room.height, base.height, 'the same walls');
+    assert.truthy(room.faces.every(f => f.points.every(p => p.z <= base.height + 1e-6)), 'nothing stands above the eaves');
+    assert.truthy(room.faces.every(f => f.kind !== 'trim' || f.wallTop), 'no beams, chimney or fascia');
+    const inner = room.faces.filter(f => f.interior);
+    assert.eq(inner.length, 8, 'two triangles per inner face');
+    const T = api.LOOK.wallThickness;
+    for (const f of inner) for (const p of f.points) {
+      assert.truthy(p.x >= T - 1e-6 && p.x <= 96 - T + 1e-6 && p.y >= T - 1e-6 && p.y <= 96 - T + 1e-6, 'inner faces stand a wall\'s thickness in');
+      assert.truthy(p.z >= -1e-9 && p.z <= base.height + 1e-9, 'floor to eaves');
+    }
+    // Each inner face runs against its outer wall, so it faces into the room.
+    const outer = room.faces.filter(f => f.kind === 'wall' && !f.interior);
+    assert.gt(outer.length, 0, 'the outer faces stay');
+    for (const f of inner) {
+      const o = outer.find(w => Math.abs(w.wallDirection.x * f.wallDirection.y - w.wallDirection.y * f.wallDirection.x) < 1e-6
+        && w.wallDirection.x * f.wallDirection.x + w.wallDirection.y * f.wallDirection.y < 0);
+      assert.truthy(o, 'an outer wall runs the other way');
+    }
+    const band = room.faces.filter(f => f.wallTop);
+    assert.eq(band.length, 8, 'two triangles of top band per wall');
+    assert.truthy(band.every(f => f.points.every(p => Math.abs(p.z - base.height) < 1e-9)), 'the band lies on the wall tops');
+    assert.eq(api.interiorGeometry(base, T), room, 'built once per house');
+  });
 })();

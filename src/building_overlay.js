@@ -1279,7 +1279,10 @@
       clearUprights(scene);
       scene._proceduralBuildings = new Map();
       if (typeof BuildingLowPoly !== 'undefined') BuildingLowPoly.clear(scene);
-      if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'polygon');
+      if (typeof WallPerspective !== 'undefined') {
+        WallPerspective.clear(scene, 'polygon');
+        WallPerspective.clear(scene, 'home');
+      }
       // Wipe the canvas the first time it goes off: setEnabled() invalidates
       // on its way out, and a hidden container full of last frame's buildings
       // would come back. `_buildingGeomPainted` tracks what is ON the canvas.
@@ -1322,8 +1325,10 @@
     }
     if (scene._lowpoly) BuildingLowPoly.offset(scene, -offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
     if (container) container.setPosition(-offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
-    if (typeof WallPerspective !== 'undefined')
+    if (typeof WallPerspective !== 'undefined') {
       WallPerspective.offset(scene, 'polygon', -offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
+      WallPerspective.offset(scene, 'home', -offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
+    }
     for (const p of scene._buildingUprightPieces || []) {
       const x = p.x - offset.fracX * CELL_PX, y = p.y - offset.fracY * CELL_PX;
       p.sprite.setPosition(x, y);
@@ -1350,7 +1355,9 @@
     const n = (o) => (o ? (Array.isArray(o) ? o.length : Object.keys(o).length) : 0);
     return [!!scene._headingUp,scene.game?.renderer?.type,Render.buildingArtStyle,scene.buildingRoofVariant,scene.buildingRoofDetail,scene.buildingStoreys].join(':') + ',' + n(s.restoredHouses) + ',' + n(s.unlockedForts) + ',' + n(s.claimedCastles)
       + ',' + JSON.stringify([s.restoredHouses, s.shopLines, s.bookshopId, s.petshopId, s.starterBlacksmithId])
-      + ',' + (s.starterShopId || '') + ',' + Object.values(s.temples || {}).filter(r => r.active).length;
+      + ',' + (s.starterShopId || '') + ',' + Object.values(s.temples || {}).filter(r => r.active).length
+      // Home's roof comes off while the player is inside (drawHome).
+      + ',' + (scene.homeInside ? Number(!!scene.homeInside()) : '');
   }
 
   function rebuild(scene, tiles, fracX, fracY) {
@@ -1378,6 +1385,13 @@
     if (lowpoly) BuildingLowPoly.begin(scene);
     else if (typeof BuildingLowPoly !== 'undefined') BuildingLowPoly.clear(scene);
     const separateUprights = !!(scene.buildingWallContainer && scene.add && scene.textures);
+    // Home without the low-poly path (Canvas, north-up): its own retained
+    // prisms, in the 'home' group, on at every heading. Opened by drawHome
+    // and emptied here when Home is out of view.
+    const homePrisms = separateUprights && typeof WallPerspective !== 'undefined'
+      && typeof scene.add.graphics === 'function';
+    if (homePrisms) WallPerspective.clear(scene, 'home');
+    let homeBegun = false;
     // Cell-snapped projection (the container re-applies the sub-cell offset) —
     // the same one the road overlay strokes with — and its padded cull bounds.
     const { projX, projY, minX, maxX, minY, maxY } = overlayProjection(scene, fracX, fracY);
@@ -1446,6 +1460,8 @@
           object, shared, pts, south: by1, left: bx0, north: by0, right: bx1, cleared: !!shape.cleared,
           tier: shape.tier, key: shape.key, templeZone: shape.templeZone, templeKind: shape.templeKind,
           damageOriginX: projX(originMx), damageOriginY: projY(originMy),
+          // Home's doorway (scene_venues.js _stampHomeFootprint), projected.
+          door: shape.door ? { x: projX(originMx + shape.door.x), y: projY(originMy + shape.door.y) } : null,
           columns: shape.tier === CASTLE && !shape.templeZone ? CastleStyles.columnSites(shape.key, r,
             entry.tileEdgeM / (entry.cellsPerEdge || scene.cellsPerTile))
             .map(p => ({ x: projX(originMx + p.x), y: projY(originMy + p.y), height: p.height })) : [],
@@ -1492,9 +1508,41 @@
         continue;
       }
       const isMine = claimed(d.object?.id || d.key);
-      // Wizard, turret and the trailer keep their original sprite artwork, not
-      // generated shells (BuildingLowPoly.ROLES rows flagged `sprite`).
-      if(d.object&&['wizard','turret','trailer'].includes(Houses.displayRole(scene.save,d.object))){
+      // HOME — the player's house (HomeArea.HOUSE; its footprint is stamped by
+      // scene_venues.js): the low-poly `home` role, open-roofed while the
+      // player stands inside; without WebGL, its own prism walls (drawHome).
+      if (d.key && scene.save && d.key === scene.save.starterShopId) {
+        const inside = !!(scene.homeInside && scene.homeInside());
+        drawHomeFloor(g, d, GRID, homePrisms || lowpoly);
+        let model = null;
+        if (lowpoly) {
+          const object = d.object || { kind: 'house', id: d.key, tier: 9 };
+          const profile = Render.buildingProfileFor(object, scene);
+          const palette = { ...BuildingStyles.STYLES[profile.style], ...profile.palette };
+          const recipe = BuildingLowPoly.recipeFor('home',
+            { wall: palette.wall, roof: palette.roof, trim: palette.trim ?? 0x614534 }, scene.buildingStoreys);
+          recipe.interior = inside;
+          const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant || recipe.variant || 'ridge';
+          model = BuildingLowPoly.add(scene, d.pts, recipe, variant, object.id);
+          if (model?.faces?.length) scene._proceduralBuildings.set(object.id, { height: model.height * BuildingLowPoly.LOOK.heightScale });
+        }
+        if (!model?.faces?.length) {
+          if (homePrisms) {
+            if (!homeBegun) {
+              WallPerspective.begin(scene, 'home');
+              scene._wallPerspective.home.alwaysActive = true;
+              homeBegun = true;
+            }
+            homeWalls(scene, d, HomeArea.HOUSE, inside);
+          } else if (!inside && typeof HomeArea !== 'undefined') {
+            g.fillPoly(d.pts, HomeArea.HOUSE.roof.top);   // a bare fill target: a flat roof
+          }
+        }
+        continue;
+      }
+      // Wizard and turret keep their original sprite artwork, not generated
+      // shells (BuildingLowPoly.ROLES rows flagged `sprite`).
+      if(d.object&&['wizard','turret'].includes(Houses.displayRole(scene.save,d.object))){
         g.fillPoly(d.pts,tuneOf(isMine)(shadeOf(isMine)(floorColor(d.tier,isMine))));continue;
       }
       if (procedural && !d.shared && (d.tier === 9 || d.tier === 11)) {
@@ -1603,7 +1651,120 @@
     }
     if (lowpoly) BuildingLowPoly.update(scene);
     if (perspective) WallPerspective.finish(scene, 'polygon');
+    if (homeBegun) WallPerspective.finish(scene, 'home');
     if (g.commit) g.commit();
+  }
+
+  // ── YOUR HOUSE ───────────────────────────────────────────────────────────
+  // Home (HomeArea.HOUSE; scene_venues.js stamps its footprint) is the one
+  // building the player walks into, so it is never a sprite. On the low-poly
+  // path it is the `home` role (BuildingLowPoly.ROLES), and INSIDE
+  // (scene.homeInside: the player stands on one of its cells) its recipe is
+  // `interior`: no roof, the walls cut level at the eaves with their inner
+  // faces and a top band showing their thickness, so the floor and the far
+  // walls are the room; the lightmap masks everything outside (lighting.js
+  // paintIndoorMask). The floor is painted on the canvas either way: the
+  // roof covers it outside, the room shows it inside.
+  //
+  // Without the low-poly path (Canvas, north-up) the same house is retained
+  // prisms in the 'home' group (homeWalls): walls with the fort's thickness
+  // and a taller wall round the whole perimeter save a doorway on the door
+  // side (shape.door), under a gabled two-tone roof with a ridge — and no
+  // roof inside, with the wall tops in the wall's own colour.
+  function drawHomeFloor(g, d, GRID, walled) {
+    const tune = tuneOf(true);
+    const floor = tune(floorColor(9, true));
+    // No walls at all (a bare fill target): the tiled south face under the floor.
+    if (!walled) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + facePx(9) })), tune(faceColor(9, true)));
+    g.fillPoly(d.pts, floor);
+    if (g.texturePoly) g.texturePoly(d.pts, 9);
+    if (g.gridPoly) g.gridPoly(d.pts, gridInkFor(GRID, floor));
+    g.strokePoly(d.pts, OUTLINE_PX, tune(dim(floorColor(9, true), OUTLINE_MUL)));
+  }
+  // The door edge: the ring edge nearest the doorway point, and where along
+  // it the doorway sits (0..1). Null without a doorway.
+  function homeDoorEdge(points, door) {
+    if (!door) return null;
+    let best = null;
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      const dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+      if (!len2) continue;
+      const t = Math.max(0, Math.min(1, ((door.x - a.x) * dx + (door.y - a.y) * dy) / len2));
+      const px = a.x + dx * t - door.x, py = a.y + dy * t - door.y;
+      const dist = px * px + py * py;
+      if (!best || dist < best.dist) best = { i, t, dist };
+    }
+    return best;
+  }
+  function homeWalls(scene, d, HA, inside) {
+    const points = d.pts;
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      area += a.x * b.y - b.x * a.y;
+    }
+    const winding = Math.sign(area);
+    const door = homeDoorEdge(points, d.door);
+    const height = HA.wallPx, thickness = HA.thicknessPx;
+    // Roofed, the wall tops are the eave line; inside, they are the wall's
+    // own top course.
+    const colors = { face: HA.wall.face, top: inside ? HA.wall.top : HA.roof.dark, dark: HA.wall.dark };
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
+      if (!length) continue;
+      const nx = -dy / length * winding, ny = dx / length * winding;
+      const spec = { ax: a.x, ay: a.y, bx: b.x, by: b.y, nx, ny, height, thickness, ...colors };
+      if (door && door.i === i) {
+        // The doorway: a gap HA.doorCells wide about the door point.
+        const half = HA.doorCells * CELL_PX / 2 / length;
+        const t0 = Math.max(0, door.t - half), t1 = Math.min(1, door.t + half);
+        if (t0 > 0) WallPerspective.addSegment(scene, 'home', { ...spec, bx: a.x + dx * t0, by: a.y + dy * t0 });
+        if (t1 < 1) WallPerspective.addSegment(scene, 'home', { ...spec, ax: a.x + dx * t1, ay: a.y + dy * t1 });
+      } else {
+        WallPerspective.addSegment(scene, 'home', spec);
+      }
+      // A concave turn's bevel, as the fort's (perspectiveEdges).
+      const previous = points[(i + points.length - 1) % points.length];
+      const px = a.x - previous.x, py = a.y - previous.y, plen = Math.hypot(px, py);
+      if (plen && (px * dy - py * dx) * winding < 0) {
+        WallPerspective.prism(scene, 'home', [a,
+          { x: a.x - py / plen * winding * thickness, y: a.y + px / plen * winding * thickness },
+          { x: a.x + nx * thickness, y: a.y + ny * thickness }], 0, height, colors);
+      }
+    }
+    if (inside) return;
+    // The roof. A quad is GABLED: the cap at wall height splits along the
+    // long axis into the far slope (in shade) and the near slope (map-south,
+    // toward the camera, lit), with the ridge raised along the join; its
+    // dark eave lip shows on the camera-facing sides. Any other ring takes a
+    // flat cap.
+    const roof = { face: HA.roof.dark, top: HA.roof.top, dark: HA.roof.dark };
+    if (points.length !== 4) {
+      WallPerspective.prism(scene, 'home', points, height - 2, height, roof, null, true);
+      return;
+    }
+    const [p0, p1, p2, p3] = points;
+    const e1 = { x: p1.x - p0.x, y: p1.y - p0.y }, e2 = { x: p2.x - p1.x, y: p2.y - p1.y };
+    const along = Math.hypot(e1.x, e1.y) >= Math.hypot(e2.x, e2.y);
+    const at = (p, e, t) => ({ x: p.x + e.x * t, y: p.y + e.y * t });
+    // The two slopes, split across the short axis; the one whose centre is
+    // further down the map (south) is the lit one.
+    const halves = along
+      ? [[p0, p1, at(p1, e2, 0.5), at(p0, e2, 0.5)], [at(p0, e2, 0.5), at(p1, e2, 0.5), p2, p3]]
+      : [[p0, at(p0, e1, 0.5), at(p3, e1, 0.5), p3], [at(p0, e1, 0.5), p1, p2, at(p3, e1, 0.5)]];
+    const centreY = (q) => q.reduce((n, p) => n + p.y, 0) / q.length;
+    const [far, near] = centreY(halves[0]) <= centreY(halves[1]) ? halves : [halves[1], halves[0]];
+    WallPerspective.prism(scene, 'home', far, height - 2, height, { ...roof, top: HA.roof.shade }, null, true);
+    WallPerspective.prism(scene, 'home', near, height - 2, height, roof, null, true);
+    // The ridge: a thin strip on the join, raised, lit along its crest.
+    const half = 1.5 / Math.hypot(along ? e2.x : e1.x, along ? e2.y : e1.y);
+    const strip = along
+      ? [at(p0, e2, 0.5 - half), at(p1, e2, 0.5 - half), at(p1, e2, 0.5 + half), at(p0, e2, 0.5 + half)]
+      : [at(p0, e1, 0.5 - half), at(p0, e1, 0.5 + half), at(p3, e1, 0.5 + half), at(p3, e1, 0.5 - half)];
+    WallPerspective.prism(scene, 'home', strip, height, height + HA.ridgePx,
+      { face: HA.roof.dark, top: HA.roof.lite, dark: HA.roof.dark }, null, true);
   }
 
   global.BuildingOverlay = { draw, enabled, setEnabled, specialtyFor, roofMesh, wallRecipe };

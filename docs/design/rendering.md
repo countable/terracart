@@ -36,7 +36,7 @@ remain continuous; player art projects against that same snapped anchor.
 Contact shadows are presentation attached to props, not ground decals; flat rune
 rings are decals and retain the map's rotation.
 
-The home firepit is centred two cells due south of the trailer after the
+The home firepit is centred two cells due south of the house's centre after the
 first device-compass reading (see [Home](combat.md)), without an inward artwork
 nudge. The ring, matching fire, smoke, interaction and step-over footprint use
 that position. Its cold and lit states are both step-over props.
@@ -85,6 +85,21 @@ table: height through `LOOK.heightScale`, and the ink outline is drawn once
 per connected run (blocks sharing a ground vertex at the same base level)
 before that run's first fill, so a ring of sections shows no seams while
 crown teeth outline separately. They remain untextured.
+
+Home — the player's house (`HomeArea.HOUSE`, footprint stamped by
+`scene_venues.js`) — draws no sprite: `Render.houseTextureKey` hands its role
+a null key, and the overlay's Home branch (`building_overlay.js`) paints its
+house floor on the canvas and then the house. On the low-poly path it is the
+`home` role (`BuildingLowPoly.ROLES`); while the player stands inside
+(`scene.homeInside`, part of the overlay's claim epoch) its recipe is
+`interior` — the roof off, the walls level at the eaves, inner faces and a
+thick top band (`interiorGeometry`) — and the lightmap masks the outside (see
+Lighting). Without the low-poly path (Canvas, north-up) the same house is
+retained prisms in the `home` group (`WallPerspective`, `alwaysActive`) with
+the fort's thickness and a taller wall, a doorway gap on the door side
+(`shape.door`), and a gabled two-tone roof with a ridge; inside, no roof and
+the wall tops in the wall's own colour. The sign seats over the drawn top, or
+`HOUSE.signLiftPx` above the footprint's centre when there is no model.
 
 ## Coordinates, rendering and performance
 
@@ -251,8 +266,7 @@ the real source so a missing texture cannot become a permanent cached palette.
   footprint's centre of mass: the object sits on the nearest footprint cell
   and carries the remainder (`footDx`/`footDy`, worldgen
   `footprintFootOffset`); its shadow, sign, roof plate and bubble follow the art.
-  Building contact shadows, including the trailer and replacement house art, use
-  25% opacity.
+  Building contact shadows use 25% opacity.
   Use a stable `seatFrame` for animation. After art changes, run
   `node tools/sprite_audit.js --emit-bounds` and update `src/sprite_layout.js`.
 - Every underground floor uses the same connected cave-wall atlas: raised caps,
@@ -487,6 +501,13 @@ the reach rim within the existing player-light radius.
   the reach rim within the existing light radius.
   Day/night leaves the reach plateau bright;
   caves ignore it.
+- Indoors (`scene.homeInterior`, non-null while the player stands on one of
+  Home's cells) `paintIndoorMask` fills the lightmap outside the house with
+  `HomeArea.HOUSE.maskColour` at `maskAlpha`, the house cut out as the convex
+  hull of its ring and the ring lifted by the walls' height (`liftPx`, so the
+  lift is screen-up at every heading); the frame key carries the interior and
+  the GPU compositor stands down while it is up. Masks compose over the lights;
+  only sources add.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors
   cull by viewport plus light radius, not sprite bounds. The POI pad and the
   `poi` light together mark a real map POI: a loose crate and a generated

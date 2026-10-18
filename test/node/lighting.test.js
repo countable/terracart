@@ -1090,3 +1090,41 @@ test('lighting: the reach area is as bright as noon leaves room for', () => {
 });
 
 })();
+test('lighting: indoors, the world outside the house is masked on the canvas path', () => {
+  const L = LIGHTING_SRC;
+  const d = L.slice(L.indexOf('  function draw(scene, ax, ay, halfM) {'));
+  assert.truthy(/const indoors = scene\.homeInterior \? scene\.homeInterior\(\) : null;/.test(d),
+    'the scene hands over the house round the player');
+  assert.truthy(/LightingGPU\.active\(scene\) && !indoors/.test(d), 'the GPU path stands down while the mask is up');
+  assert.truthy(/\+ '\|in:' \+ \(indoors \? indoors\.key : ''\)/.test(d), 'the frame key carries it');
+  assert.truthy(/if \(indoors\) paintIndoorMask\(ctx, scene, indoors, ax, ay, ox, oy, W, H\);/.test(d),
+    'painted after every light, before the cover');
+  // The hull: the ring and the ring lifted by the walls' height, so the north
+  // wall's inner face (above the floor's outline) stays lit with the floor.
+  const ring = [{ x: 10, y: 10 }, { x: 40, y: 10 }, { x: 40, y: 40 }, { x: 10, y: 40 }];
+  const hull = Lighting.indoorHull(ring, { x: 0, y: -20 });
+  assert.eq(hull.length, 4, 'a straight lift of a square is a taller rectangle');
+  assert.eq(Math.min(...hull.map(p => p.y)), -10, 'reaching up by the lift');
+  assert.eq(Math.max(...hull.map(p => p.y)), 40, 'from the floor\'s south edge');
+  const turned = Lighting.indoorHull(ring, { x: 14, y: -14 });
+  assert.eq(turned.length, 6, 'a turned lift adds two corners');
+  // The mask itself: an even-odd fill of the whole map with the hull cut out,
+  // in the house's own dark at its own alpha.
+  const ops = [];
+  const ctx = { save() { ops.push('save'); }, restore() { ops.push('restore'); },
+    beginPath() { ops.push('begin'); }, rect(...a) { ops.push(['rect', ...a]); },
+    moveTo(x, y) { ops.push(['move', x, y]); }, lineTo(x, y) { ops.push(['line', x, y]); },
+    closePath() { ops.push('close'); }, fill(rule) { ops.push(['fill', rule, this.fillStyle, this.globalAlpha, this.globalCompositeOperation]); } };
+  const s = { viewCenterX: 176, viewCenterY: 176, cellM: 7 };
+  Lighting.paintIndoorMask(ctx, s, { ring: [{ x: -7, y: -7 }, { x: 7, y: -7 }, { x: 7, y: 7 }, { x: -7, y: 7 }], key: 'k' }, 0, 0, 0, 0, 352, 352);
+  const fill = ops.find(o => o[0] === 'fill');
+  assert.eq(fill[1], 'evenodd', 'the house is a hole in the fill');
+  assert.eq(fill[2], cssOf(HomeArea.HOUSE.maskColour), 'the mask colour');
+  assert.eq(fill[3], HomeArea.HOUSE.maskAlpha, 'at its alpha');
+  assert.eq(fill[4], 'source-over', 'painted over the lights, not added to them');
+  assert.eq(JSON.stringify(ops[2]), JSON.stringify(['rect', 0, 0, 352, 352]), 'the whole map');
+  const lines = ops.filter(o => o[0] === 'move' || o[0] === 'line');
+  assert.eq(lines.length, 4, 'the ring, lifted straight up north-up, is one taller rectangle');
+  assert.eq(Math.max(...lines.map(o => o[2])), 176 + 32, 'down to the south edge');
+  assert.eq(Math.min(...lines.map(o => o[2])), 176 - 32 - (HomeArea.HOUSE.wallPx + HomeArea.HOUSE.thicknessPx), 'up to the wall tops');
+});

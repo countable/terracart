@@ -689,13 +689,10 @@ class SceneVenues {
       { label: 'Craft', active: active === 'craft', onSelect: () => this.presentHomeCraft(sx, sy) },
     ];
   }
-  // The dialog opens with Home's own sprite when Home is the trailer; an
-  // adopted house falls back to the category glyph.
+  // The dialog opens with a house: Home is drawn from its footprint, not a
+  // sprite, so the plain house art stands in for it.
   _homeKindIcon() {
-    const st = this.save.starterTrailer;
-    return (st && st.id === this.save.starterShopId)
-      ? (this.worldIconHTML(Render.houseTextureKey('trailer', st, this), 30,
-        Render.houseTextureFrame('trailer', st, this) ?? 0) || undefined) : undefined;
+    return this.worldIconHTML('house', 30, 'front') || undefined;
   }
 
   // SELL page: one item per tap from the selected stack — confirm first so
@@ -1132,8 +1129,8 @@ class SceneVenues {
     return raiderEatsCrop(p);
   }
 
-  // Place Home for a player standing at (x, y): the wagon HomeArea.WAGON_OFFSET
-  // cells away, its art drawn at WAGON_ART_FOOT clear of their starting cell, and
+  // Place Home for a player standing at (x, y): the house centred
+  // HomeArea.WAGON_OFFSET cells away, so they stand in its doorway, and
   // the firepit after compass detection at HomeArea.FIREPIT_OFFSET
   // (save.homeFirepit) — unless that cell is water or
   // a way, where a ring of stones would read as litter. Whatever building the
@@ -1183,7 +1180,7 @@ class SceneVenues {
     // a heading that points it at a road or the water must not cost a new
     // game its pit.
     let pit = null;
-    for (const c of HomeArea.firepitCandidates(offset, wagon, save.homePlacementHeading || 0)) {
+    for (const c of HomeArea.firepitCandidates(offset, wagon)) {
       const cell = absCellOffset(this, at.cellIX, at.cellIY, c.dx - wagon.dx, c.dy - wagon.dy);
       const m = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
       if (this._firepitGroundOK(m.x, m.y)) { pit = m; break; }
@@ -1227,8 +1224,10 @@ class SceneVenues {
     const id = 'starter_trailer';
     const address = ((Math.round(x) ^ Math.round(y)) >>> 0) % 1000;
     // tier = T.BUILDING (a plain small house); the starter role overrides the
-    // wreck/shop skin in the renderer, so it draws as the trailer regardless.
-    this.save.starterTrailer = { id, x, y, tier: WorldGen.T.BUILDING, address };
+    // wreck/shop skin in the renderer, so it draws as the player's house
+    // regardless. `door` is the wall facing the player at placement.
+    const door = HomeArea.doorSide(this.save.homePlacementHeading || 0);
+    this.save.starterTrailer = { id, x, y, tier: WorldGen.T.BUILDING, address, door };
     // The trailer IS Home from here on — set before the inject.
     this.save.starterShopId = id;
     this._starterTrailerObj = null;            // force a rebuild on next inject
@@ -1270,10 +1269,10 @@ class SceneVenues {
     if (st && this.save.starterShopId === st.id) {
       // Rebuild the in-memory object after a reload (or position change).
       if (!this._starterTrailerObj || this._starterTrailerObj.id !== st.id) {
-        const foot = HomeArea.wagonArtFoot(this.save.homePlacementHeading || 0);
+        // The house stands on its footprint's centre: no art nudge.
         this._starterTrailerObj = { kind: 'house', x: st.x, y: st.y,
           tier: st.tier, id: st.id, address: st.address, _synthetic: true,
-          footDx: foot.dx, footDy: foot.dy };
+          footDx: 0, footDy: 0 };
       }
       const obj = this._starterTrailerObj;
       const { tx, ty } = worldMetersToTile(this, obj.x, obj.y);
@@ -1281,6 +1280,107 @@ class SceneVenues {
       if (entry && entry.objects && !entry.objects.some(o => o.id === obj.id)) entry.objects.push(obj);
     }
     this.clearHomeFooting();
+    // The house's cells and ring go down AFTER the sweep, onto cleared ground.
+    if (st && this.save.starterShopId === st.id) this._stampHomeFootprint(st);
+  }
+
+  // YOUR HOUSE'S FOOTPRINT. Home's house (HomeArea.HOUSE) is stamped into the
+  // built tile like a generated building: its cells painted T.BUILDING under
+  // its own ownerKey (the id), flagged synthetic, and its ring pushed into
+  // the tile's buildingShapes with the doorway's point, so the overlay draws
+  // it (building_overlay.js drawHome), the spawn gate keeps spawns out of it,
+  // the tap zone opens Home from any of its cells, and the clutter moat holds.
+  // A per-player overlay on the built tile, never a generation input: a
+  // rebuilt tile is a fresh entry and is stamped again. Once per (entry,
+  // position) — `_homeHouse` on the entry. A footprint can straddle a seam:
+  // every tile with a cell of it paints its cells; only the tile holding the
+  // centre carries the ring, so the walls are drawn once.
+  _stampHomeFootprint(st) {
+    const hc = worldMetersToAbsCell(this, st.x, st.y);
+    const stamp = `${st.id}@${hc.cellIX},${hc.cellIY}`;
+    const h = HomeArea.HOUSE.halfCells, t = {};
+    const byTile = new Map();
+    for (let dy = -h; dy <= h; dy++) for (let dx = -h; dx <= h; dx++) {
+      const c = absCellOffset(this, hc.cellIX, hc.cellIY, dx, dy);
+      absCellToTile(this, c.cellIX, c.cellIY, t);
+      const k = WorldGen.tileKey(t.tx, t.ty);
+      let rec = byTile.get(k);
+      if (!rec) byTile.set(k, rec = { tx: t.tx, ty: t.ty, idx: [], centre: false });
+      rec.idx.push(t.iy * t.n + t.ix);
+      if (!dx && !dy) rec.centre = true;
+    }
+    for (const [k, rec] of byTile) {
+      const e = WorldGen.tileCache.get(k);
+      if (!e?.grid || !e.owners || !e.ownerKeys || e._homeHouse === stamp) continue;
+      let id = e.ownerKeys.indexOf(st.id);
+      if (id < 0) id = e.ownerKeys.push(st.id) - 1;
+      for (const i of rec.idx) {
+        // A building the footing may not clear (a restored house, a castle,
+        // a temple) keeps its cell; the house stands short of it.
+        const under = BUILDING_TYPES.has(e.grid[i]) ? e.ownerKeys[e.owners[i]] : null;
+        if (under && under !== st.id && !this._homeMayClear(under)) continue;
+        e.grid[i] = WorldGen.T.BUILDING;
+        e.owners[i] = id;
+        if (e.syntheticBuildingCells) e.syntheticBuildingCells[i] = 1;
+      }
+      // New arrays, so the overlay's cache (keyed on identity) repaints.
+      e.buildingShapes = (e.buildingShapes || []).filter(sh => sh.key !== st.id);
+      if (e.clearedShapes) e.clearedShapes = e.clearedShapes.filter(sh => sh.key !== st.id);
+      if (rec.centre) {
+        const ox = rec.tx * this.tileEdgeM, oy = rec.ty * this.tileEdgeM;
+        const ring = HomeArea.houseRingM(st.x, st.y, this.cellM);
+        const door = HomeArea.doorPointM(st.x, st.y, this.cellM,
+          st.door || HomeArea.doorSide(this.save.homePlacementHeading || 0));
+        e.buildingShapes.push({
+          ring: Float32Array.from(ring.flatMap(p => [p.x - ox, p.y - oy])),
+          tier: WorldGen.T.BUILDING, key: st.id, home: true,
+          door: { x: door.x - ox, y: door.y - oy },
+          areaM2: (2 * h + 1) ** 2 * this.cellM * this.cellM,
+        });
+      }
+      e._homeHouse = stamp;
+      this._lastBorderIX = null;
+    }
+  }
+  // Lift the house's footprint off every loaded tile (Home is moving): its
+  // cells go back to the ground round them the way a cleared house's do, and
+  // its ring leaves both shape lists — a moved Home leaves no shadow.
+  _unstampHomeFootprint() {
+    const st = this.save.starterTrailer;
+    if (!st) return;
+    for (const e of WorldGen.tileCache.values()) {
+      if (!e || !e._homeHouse) continue;
+      this._eraseHomeBuildings(e, new Set([st.id]));
+      if (e.clearedShapes) e.clearedShapes = e.clearedShapes.filter(sh => sh.key !== st.id);
+      e._homeHouse = null;
+    }
+  }
+  // Is the player INSIDE Home's house — standing on one of its cells (the
+  // doorway row included)? Surface only; the house has no cellar.
+  homeInside() {
+    if ((this.depth || 0) !== 0 || !this.save.starterShopId || !this.playerM || !this.startWorldM) return false;
+    const { x, y } = playerWorldM(this);
+    const c = worldMetersToAbsCell(this, x, y);
+    const t = absCellToTile(this, c.cellIX, c.cellIY);
+    const e = WorldGen.tileCache.get(WorldGen.tileKey(t.tx, t.ty));
+    if (!e?.grid || !e.owners || !e.ownerKeys) return false;
+    const i = t.iy * t.n + t.ix;
+    return BUILDING_TYPES.has(e.grid[i]) && e.ownerKeys[e.owners[i]] === this.save.starterShopId;
+  }
+  // The house round the player while they are inside it — its ring in world
+  // metres and a key naming it — or null. lighting.js masks everything
+  // outside that ring; the overlay takes the roof off.
+  homeInterior() {
+    if (!this.homeInside()) return null;
+    const home = this.homeWorldPos();
+    if (!home) return null;
+    const { tx, ty } = worldMetersToTile(this, home.x, home.y);
+    const e = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+    const shape = e?.buildingShapes?.find(sh => sh.key === this.save.starterShopId);
+    if (!shape?.ring || shape.ring.length < 6) return null;
+    const ox = tx * this.tileEdgeM, oy = ty * this.tileEdgeM, ring = [];
+    for (let i = 0; i < shape.ring.length; i += 2) ring.push({ x: ox + shape.ring[i], y: oy + shape.ring[i + 1] });
+    return { ring, key: `${this.save.starterShopId}@${Math.round(home.x)},${Math.round(home.y)}` };
   }
 
   // Nothing stands on Home's footing: the wagon's cell, the eight its art
@@ -1378,12 +1478,12 @@ class SceneVenues {
     return null;
   }
 
-  // May Home's footing erase the building keyed `key`? Home's own adopted
-  // footprint, yes. Otherwise only a house (worldgen mints house and fort
-  // cells as `h_…`; a castle keys its footprint `b_…`, a temple `tp…`) that
-  // is nobody's yet — a restored or unsealed one stays.
+  // May Home's footing erase the building keyed `key`? Never Home's own
+  // footprint: the house is drawn from it. Otherwise only a house (worldgen
+  // mints house and fort cells as `h_…`; a castle keys its footprint `b_…`, a
+  // temple `tp…`) that is nobody's yet — a restored or unsealed one stays.
   _homeMayClear(key) {
-    if (key === this.save.starterShopId) return true;
+    if (key === this.save.starterShopId) return false;
     if (!String(key).startsWith('h_')) return false;
     return !Houses.isClaimedKey(this.save, key);
   }
@@ -1446,14 +1546,14 @@ class SceneVenues {
     // the surface spot above the player. Refuse with an explanation instead.
     if ((this.depth || 0) !== 0) {
       this.showMessageModal({ title: 'Move Home',
-        body: 'Your trailer stays on the surface — it has never been much of a caver. Climb back up before moving Home.' });
+        body: 'Your house stands on the surface. Climb back up before moving Home.' });
       return;
     }
     const { x: px, y: py } = playerWorldM(this);
     const footing = this._homeFootingAt(px, py);
     if (footing?.blocked) {
       this.showMessageModal({ title: 'Move Home',
-        body: 'Your trailer can\'t park on this building. Step off its footprint before moving Home.' });
+        body: 'Your house can\'t stand on this building. Step off its footprint before moving Home.' });
       return;
     }
     const cost = Math.min(500, Math.floor((this.save.money ?? 0) / 2));
@@ -1462,8 +1562,8 @@ class SceneVenues {
       kind: 'build',
       title: 'Move Home here?',
       body: footing?.house
-        ? 'Your trailer clears the building where it parks.'
-        : 'Settle your trailer here.',
+        ? 'Your house clears the building where it stands.'
+        : 'Build your house here.',
       acceptLabel: `Move (${this.moneyHTML(cost, 12)})`,
       onAccept: () => {
         addMoney(this.save, -cost);
@@ -1494,8 +1594,9 @@ class SceneVenues {
       const i = tc.iy * tc.n + tc.ix;
       if (!BUILDING_TYPES.has(entry.grid[i])) continue;
       const key = entry.ownerKeys?.[entry.owners?.[i]];
+      if (key === this.save.starterShopId) continue;   // its own footprint moves with it
       if (!key || !this._homeMayClear(key)) return { blocked: true };
-      if (key !== this.save.starterShopId) found = { house: key };
+      found = { house: key };
     }
     return found;
   }
@@ -1507,6 +1608,7 @@ class SceneVenues {
   // synthetic trailer (it moves). Surface-only — the confirm above guards
   // depth.
   moveHomeTrailerHere() {
+    this._unstampHomeFootprint();
     // Evict any previously injected trailer object from the loaded tiles.
     // ensureStarterTrailerObject only dedupes within the NEW owning tile, so
     // without this sweep a moved trailer leaves a phantom copy in its old
