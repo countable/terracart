@@ -182,7 +182,7 @@
           const t = j / (count + 1), half = 1.2 * scale / length;
           const a0 = { x: a.x + dx * (t - half), y: a.y + dy * (t - half) };
           const b0 = { x: a.x + dx * (t + half), y: a.y + dy * (t + half) };
-          add([a0, { x: a0.x + nx, y: a0.y + ny }, { x: b0.x + nx, y: b0.y + ny }, b0], z, z + 2.2 * scale, shade(palette.roof, 0.6));
+          add([a0, { x: a0.x + nx, y: a0.y + ny }, { x: b0.x + nx, y: b0.y + ny }, b0], z + 0.55 * scale, z + 2.2 * scale, shade(palette.roof, 0.6));
         }
       }
     };
@@ -235,6 +235,10 @@
       slab(current, z, z + 0.7 * scale, palette.trim);
     } else if (styleId === 'multistorey') {
       slab(ring, h - scale, h + scale, palette.trim);
+      if (options.stories === 1) {
+        materialCap(ring, h + scale, palette.roof);
+        return result;
+      }
       let upper = null;
       // A deep setback can pinch a narrow wing into a sliver; halve it instead.
       const pinched = (p, setback) => p.some((a, i) => {

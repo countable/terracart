@@ -1592,7 +1592,10 @@
           const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant
             || recipe.variant||'ridge';
           model = BuildingLowPoly.add(scene,d.pts,recipe,variant,object.id);
-        } else model = BuildingStyles.emit(scene, 'polygon', d.pts, styleId, { claimed: isMine, palette: profile.palette });
+        } else model = BuildingStyles.emit(scene, 'polygon', d.pts, styleId, {
+          claimed: isMine, palette: profile.palette,
+          stories: scene.buildingStoreys || BuildingLowPoly.ROLES[specialtyFor(scene.save, object)]?.stories,
+        });
         if (model && (model.faces?.length || model.prisms?.length)) {
           // Signs and flags seat on the drawn top: the low-poly path foreshortens height.
           if (object.id) scene._proceduralBuildings.set(object.id, { height: model.height * (lowpoly ? BuildingLowPoly.LOOK.heightScale : 1) });
