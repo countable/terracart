@@ -41,9 +41,11 @@ player raised; this is not a timed jump. Connected support masks stay in world
 coordinates when the artwork counterrotates.
 
 Furniture uses the ordinary object list so the Home's near walls can occlude
-it. `FURNITURE` owns each item's frame, flat/mid height and supported flip;
+it. `FURNITURE` owns each item's frame, flat/mid/basin height and supported flip;
 flat rugs are ground decals and mid pieces use `ObstacleStep.PROFILES.furniture`
-for continuous support. `RENDER_SPEC.furniture` seats each 32×64 world frame at
+for continuous support. Basins are walkable upright props with no step lift;
+their feet-based sorting lets the rim draw in front of the player standing inside.
+`RENDER_SPEC.furniture` seats each 32×64 world frame at
 `FURNITURE_SCALE` (0.85: about 27px wide, tall fixtures up to 54px high
 beside the 24px player); mirrored bounds
 keep asymmetric pieces centred when flipped. Mutable furniture appearances
@@ -66,7 +68,7 @@ The manifest records provenance
 without distributing the raw licensed sheets. The sprite audit covers every
 frame and every permitted flip. Furniture lights remain metadata only; phase 3 wires the light kinds.
 
-The 16-piece roster is Tinker’s Workbench, Quilted Cot, Washing Tub, Gear-Rim
+The 16-piece roster is Tinker’s Workbench, Quilted Cot, Washing Tub (basin), Gear-Rim
 Looking Glass, Oak Side Table, Four-Drawer Dresser, Clay Planter, Burgundy Rug,
 Frontier Bookshelf, Brass Floor Lamp (T3), Grandfather Clock (T3), Pedestal Owl
 (T2), Riveted Copper Planter, Floor Candelabra (T1), Surveyor’s Globe and Brass
@@ -325,6 +327,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   compensate for sprite seating by changing the projection.
 - Water, tar-yard terrain and unburned street tar puddles lower the player's
   body to the waterline and crop away the lower half of its current sprite frame.
+  Furniture with height `basin` does the same at the player's feet cell on the
+  current depth, indoors or outdoors; picking it up restores the pose next update.
+  The Wash ability still requires an owned indoor Home cell.
   This spatial pose stays while paused, clears on dry ground, and yields to
   flight, the dragon form, collapse and step-over support. It does not change
   movement, reach or feet-based sorting; heading-up rotates the same cropped body.

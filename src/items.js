@@ -502,7 +502,7 @@ const FURNITURE_SCALE = 0.85;
 const FURNITURE = {
   workbench: { frame: 0, tierSheetFrame: null, flip: true, height: "mid", ability: "craft", light: null, luxury: null },
   bed_quilted: { frame: 1, tierSheetFrame: null, flip: true, height: "mid", ability: "sleep", light: null, luxury: null },
-  washtub: { frame: 2, tierSheetFrame: null, flip: true, height: "mid", ability: "wash", light: null, luxury: null },
+  washtub: { frame: 2, tierSheetFrame: null, flip: true, height: "basin", ability: "wash", light: null, luxury: null },
   mirror_brass: { frame: 3, tierSheetFrame: null, flip: false, height: "mid", ability: "reflect", light: null, luxury: null },
   table_oak: { frame: 4, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: null, luxury: null },
   dresser_oak: { frame: 5, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: null, luxury: null },

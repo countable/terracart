@@ -894,7 +894,9 @@ test('furniture art: every frame seats in its cell, including mirrored asymmetri
       const p = art.resolveAppearance(o);
       assert.eq(p.texKey, 'furniture');
       assert.eq(p.frameVal, metadata.frame);
-      assert.eq(p.layer, metadata.height === 'flat' ? WorldLayers.GROUND_DECAL : WorldLayers.STEP_OVER_PROP);
+      const layers = { flat: WorldLayers.GROUND_DECAL, mid: WorldLayers.STEP_OVER_PROP,
+        basin: WorldLayers.STANDING_PROP };
+      assert.eq(p.layer, layers[metadata.height]);
       const b = SpriteLayout.ART_BOUNDS[`furniture:${p.frameVal}`];
       const mirrored = metadata.flip && flip;
       const minX = mirrored ? b.fw - b.maxX : b.minX;

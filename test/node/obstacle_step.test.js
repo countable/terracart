@@ -105,11 +105,11 @@ test('world layers: step-over category uses the same support profiles as walking
   }
 });
 
-test('furniture support: rugs remain flat while mid pieces keep continuous support on pause and reversal', () => {
+test('furniture support: only mid pieces keep continuous support on pause and reversal', () => {
   for (const item of ITEMS.filter(item => item.kind === 'furniture')) {
     const object={kind:'furniture',itemId:item.id,x:0,y:0};
     const profile=ObstacleStep.profile(object);
-    if (furnitureSpec(item.id).height==='flat') {
+    if (furnitureSpec(item.id).height !== 'mid') {
       assert.eq(profile,null);
       assert.eq(ObstacleStep.sample(0,0,[object],1).liftPx,0);
       continue;

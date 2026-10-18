@@ -5921,10 +5921,13 @@ class MapScene extends Phaser.Scene {
         && !(this._obstacleStep?.liftPx > 0) && this.startWorldM && this.playerM) {
       const feet = playerWorldM(this), cell = this.cellAt(feet.x, feet.y);
       if (cell.loaded) {
+        const centre = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
+        const at = cellOccupants(this, this.save, centre.x, centre.y);
+        const basin = furnitureSpec(this.save.furniture?.[at.furnitureIdx])?.height === 'basin';
         const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
         const tar = entry?.slowCells?.get(cell.iy * entry.cellsPerEdge + cell.ix) === 'tar';
         const fire = this.save.groundFire?.[GroundFire.key(this.depth || 0, cell.cellIX, cell.cellIY)];
-        submerged = cell.type === WorldGen.T.WATER || cell.type === WorldGen.T.TAR_YARD
+        submerged = basin || cell.type === WorldGen.T.WATER || cell.type === WorldGen.T.TAR_YARD
           || (tar && (!fire || GroundFire.active(fire, Date.now())));
       }
     }

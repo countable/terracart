@@ -2,6 +2,28 @@
 (() => {
   const handler = name => TAP_HANDLERS.find(h => h.name === name);
   const buildings = new Set([WorldGen.T.BUILDING, WorldGen.T.BUILDING_MED, WorldGen.T.BUILDING_LARGE]);
+  test('furniture: metadata heights are flat, mid or basin', () => {
+    for (const [id, spec] of Object.entries(FURNITURE)) {
+      assert.includes(['flat', 'mid', 'basin'], spec.height, id);
+    }
+  });
+  test('furniture: basins are upright props without obstacle lift', () => {
+    const tub = { kind: 'furniture', itemId: 'washtub', x: 2.5, y: 2.5 };
+    assert.eq(furnitureSpec(tub).height, 'basin');
+    assert.eq(ObstacleStep.profile(tub), null);
+    assert.eq(ObstacleStep.sample(tub.x, tub.y, [tub], 5).liftPx, 0);
+    const { resolveAppearance } = Render.objectAppearance({ textures: { exists: () => true }, save: {} }, new Map());
+    const appearance = resolveAppearance(tub);
+    assert.eq(appearance.layer, WorldLayers.STANDING_PROP);
+    const basin = { layer: appearance.layer, groundY: Render.objectGroundOffsetPx(appearance), rank: 1 };
+    const player = { groundY: 0, rank: 3 };
+    const pieces = [basin, player];
+    Render.sortWorldDepth(pieces);
+    assert.eq(pieces[1], basin, 'rim sorts in front of the player at the cell centre');
+    player.groundY = basin.groundY + 1;
+    Render.sortWorldDepth(pieces);
+    assert.eq(pieces[1], player, 'walking past the feet brings the player in front');
+  });
   function fixture(depth = 0) {
     const scene = Object.assign(makeScene(), {
       save: { energy: 100 }, depth, cellM: 5, cellsPerTile: 32, tileEdgeM: 160,
