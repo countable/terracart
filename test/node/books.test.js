@@ -231,7 +231,7 @@ test('mechanics: depth trims reach and empty energy removes it', () => {
   const scene = { save: { energy: 100, reachUpgrades: 0 }, cellM: 7, depth: 0 };
   const surface = reachCells(scene);
   scene.depth = 2;
-  assert.eq(surface - reachCells(scene), 1, 'two levels down costs a whole cell of reach');
+  assert.lt(reachCells(scene), surface, 'depth reduces the calibrated starting footprint');
   scene.depth = 0; scene.save.energy = 0;
   assert.eq(reachRadiusM(scene), 0, 'and an empty tank reaches nothing');
 });

@@ -4,8 +4,9 @@
 <label>Compass <input id="angle" type="range" min="0" max="360" value="0"></label><button id="sweep">Sweep</button>
 <label>Ink px <input id="ink" type="range" min="0" max="3" step="1"><span id="inkv"></span></label>
 <label>Height ×<input id="zscale" type="range" min="0.3" max="1" step="0.05"><span id="zv"></span></label>
-<label><input id="tileset" type="checkbox" checked> Tileset sheets</label>
 <label><input id="textured" type="checkbox" checked> Textures</label>
+<label>Facade <select id="facade"><option value="tileset">tileset (ships)</option><option value="cel">cel pixel (crate palette)</option></select></label>
+<label><input id="sheet" type="checkbox"> Show sheet</label>
 <span id="stats"></span></header><div id="game"></div>
 <script src="../vendor/phaser.js"></script><script src="../src/util.js"></script><script src="../src/castle_styles.js"></script><script src="../src/textures.js"></script><script src="../src/wall_perspective.js"></script><script src="../src/building_styles.js"></script><script src="../src/building_lowpoly.js"></script>
 <script>
@@ -15,12 +16,7 @@ document.querySelector('#ink').value=LOOK.inkPx;document.querySelector('#zscale'
 let reviewScene,sweeping=false;const roles=Object.keys(BuildingLowPoly.ROLES).filter(r=>!['shop','wizard','turret'].includes(r));
 // These are the role/shop palette overrides used by Render.buildingProfileFor.
 const palettes={trader:{wall:0xd8c6a1,roof:0x567e83},plain:{wall:0xd4cdb4,roof:0x709b9a},blacksmith:{wall:0xa96e59,roof:0x687a83},seed:{roof:0x82916b},supply:{roof:0xb09a69},potion:{roof:0x957ca9},relic:{roof:0x6e9a91},pet:{roof:0x8b9678},book:{roof:0x967577}};
-const SHEET_KEYS=['pixel_tileset_v3','painterly_tileset_v1','reference_materials_v3'];
 function rebuild(){const s=reviewScene;
-  // Unticking the tilesets hides their textures from the module, which then
-  // falls back to its generated sheets; both looks stay cached under their own keys.
-  if(!document.querySelector('#tileset').checked){for(const k of SHEET_KEYS)if(s.textures.exists(k)){(s._hidden??={})[k]=s.textures.get(k);delete s.textures.list[k];}}
-  else if(s._hidden){for(const [k,t] of Object.entries(s._hidden))s.textures.list[k]=t;s._hidden=null;}
   BuildingLowPoly.begin(s);s.labels?.forEach(t=>t.destroy());s.labels=[];s.legacySprites?.forEach(t=>t.destroy());s.legacySprites=[];
   const billboard=(x,y,key,frame,label)=>{const sprite=s.add.image(x+75,y+115,key,frame).setOrigin(.5,1).setScale(2);s.legacySprites.push(sprite);s.labels.push(s.add.text(x,y+140,label,{fontSize:'15px',color:'#efe8da'}));};
   roles.forEach((role,i)=>{const x=55+(i%4)*265,y=125+Math.floor(i/4)*250;
@@ -68,13 +64,13 @@ function rebuild(){const s=reviewScene;
     for(const [c,r,mask] of run){const img=s.add.image(x+c*CELL_PX*2,y+30+r*CELL_PX*2-3*2,'cave_wall_edges',((c*31)^r)%4*64+mask).setOrigin(0,0).setDisplaySize(CELL_PX*2,(CELL_PX+3)*2);s.legacySprites.push(img);img.setRotation=()=>img;}
     label(x,y,'cave wall · masked sprites (×2)');}
   {const x=55+3*265,y=125+3*250;billboard(x,y,'tower',CastleStyles.get('citadel').towerFrame,'castle tower · sprite (×2)');}
+  // The shared facade sheet itself, 1:1, under the fixtures when asked.
+  if(document.querySelector('#sheet').checked){const sheet=s._lowpoly.faces.find(f=>f.texture&&f.kind==='wall')?.texture;if(sheet){const img=s.add.image(55,1120,sheet.key).setOrigin(0,0).setDisplaySize(512,512);s.legacySprites.push(img);label(55,1120-140,'facade sheet · '+sheet.key);}}
   s._lowpoly.angle=NaN;BuildingLowPoly.update(s);document.querySelector('#stats').textContent=s._lowpoly.faces.length+' triangles / '+roles.length+' types';}
-new Phaser.Game({type:Phaser.WEBGL,width:1100,height:1330,parent:'game',backgroundColor:'#6f8a4e',scene:{preload(){
+new Phaser.Game({type:Phaser.WEBGL,width:1100,height:1660,parent:'game',backgroundColor:'#6f8a4e',scene:{preload(){
   this.load.image('house','../assets/Objects/Approved/house.png');this.load.image('home_wagon','../assets/Objects/Home/home_wagon.png');this.load.image('castle_tower_shapes','../assets/Objects/Castle/tower_shapes.png');
   this.load.image('building_material_reference','../assets/Objects/BuildingMaterials/reference-materials-v3.png');
-  this.load.image('pixel_tileset_v3','../assets/Objects/BuildingMaterials/pixel-tileset-v3.png');
-  this.load.image('painterly_tileset_v1','../assets/Objects/BuildingMaterials/painterly-tileset-v1.png');
-  this.load.image('reference_materials_v3','../assets/Objects/BuildingMaterials/reference-materials-v3.png');
+  this.load.image('approved_materials_v1','../assets/Objects/BuildingMaterials/approved-materials-v1.png');
 },create(){makeTowerTexture(this,CASTLE_STONE);this.textures.get('house').add('front',0,148,3,72,95);reviewScene=window.reviewScene=this;this._headingUp=true;this.buildingWallContainer=this.add.container();rebuild();window.ready=true;},update(t,dt){
   if(sweeping)document.querySelector('#angle').value=(+document.querySelector('#angle').value+dt*.02)%360;
   this.mapRot=+document.querySelector('#angle').value*Math.PI/180;this.cameras.main.setRotation(this.mapRot);for(const sprite of this.legacySprites||[])sprite.setRotation(-this.mapRot);
@@ -83,5 +79,8 @@ new Phaser.Game({type:Phaser.WEBGL,width:1100,height:1330,parent:'game',backgrou
   if(this._wallPerspective)for(const g of Object.values(this._wallPerspective))if(g.inkPx!==LOOK.inkPx){g.inkPx=LOOK.inkPx;g.angle=NaN;}document.querySelector('#zv').textContent=LOOK.heightScale.toFixed(2);document.querySelector('#inkv').textContent=LOOK.inkPx;
   BuildingLowPoly.update(this);WallPerspective.update(this);}}});
 document.querySelector('#sweep').onclick=()=>sweeping=!sweeping;
-document.querySelector('#tileset').onchange=()=>rebuild();
+document.querySelector('#facade').value=LOOK.facade;
+document.querySelector('#facade').onchange=e=>{LOOK.facade=e.target.value;rebuild();};
+document.querySelector('#sheet').onchange=()=>rebuild();
+
 </script>

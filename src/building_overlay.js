@@ -1320,7 +1320,7 @@
         offset = retained;
       }
     }
-    if (scene._lowpoly) { scene._lowpoly.obj.setPosition(-offset.fracX * CELL_PX, -offset.fracY * CELL_PX); BuildingLowPoly.update(scene); }
+    if (scene._lowpoly) BuildingLowPoly.offset(scene, -offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
     if (container) container.setPosition(-offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
     if (typeof WallPerspective !== 'undefined')
       WallPerspective.offset(scene, 'polygon', -offset.fracX * CELL_PX, -offset.fracY * CELL_PX);

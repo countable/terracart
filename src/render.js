@@ -3718,6 +3718,98 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
   return result;
 };
 
+// Connected walls are architecture. In heading-up mode a stronghold wall run
+// or a clipped hedge wall leaves the billboard sprite pools for the retained
+// prism batch (wall_perspective.js, source 'props'), attached to its cells
+// like a building wall: a billboarded connected frame opens a gap at every
+// join as the map turns. Each piece is a core block plus an arm to every
+// connected edge, so neighbours meet exactly at the shared cell edge at any
+// heading. Height is the step-over lift (ObstacleStep.PROFILES): the top the
+// player stands on is the top the camera sees. Thickness and colours follow
+// the north-up sheets (assets/Objects/Stronghold, assets/Objects/Hedges), which
+// north-up mode keeps. An isolated wall cell stays its rubble sprite and a lone
+// garden bush its rounded sprite: neither is a wall.
+const CONNECTED_WALL_ART = Object.freeze({
+  stronghold_wall: Object.freeze({ profile: 'wall', thickness: 8,
+    face: 0x6b645f, top: 0xc4b6a8, dark: 0x3d3c3c }),
+  hedge: Object.freeze({ profile: 'hedge', thickness: 16,
+    face: 0x3a6e2e, top: 0xb4cb44, dark: 0x0a3d31 }),
+});
+Render.CONNECTED_WALL_ART = CONNECTED_WALL_ART;
+// The connected piece a frame item draws as, or null. `art` is the item's
+// connectedArtForTile record (objects); plants carry theirs merged in.
+Render.connectedWallPiece = function (o, art) {
+  if (o.kind === 'stronghold_wall') {
+    if (art?.kind === 'mineralrock') return null;
+    const frame = art?.variant ?? o.variant;
+    if (frame == null) return null;
+    return { art: CONNECTED_WALL_ART.stronghold_wall, mask: QuarryLayout.wallMaskForFrame(frame) };
+  }
+  if ((art?._plantArt ?? o._plantArt) !== 'zone_hedge') return null;
+  const frame = art?._hedgeFrame ?? o._hedgeFrame;
+  if (frame == null) return null;
+  return { art: CONNECTED_WALL_ART.hedge, mask: QuarryLayout.wallMaskForFrame(frame) };
+};
+// Footprint rectangles [x0, y0, x1, y1] in cell pixels (0..CELL_PX) for a
+// connection mask (N=1, E=2, S=4, W=8, QuarryLayout's order): the core block,
+// then an arm from the core to each connected edge.
+Render.connectedWallFootprints = function (mask, thickness) {
+  const C = CELL_PX, lo = (C - thickness) / 2, hi = (C + thickness) / 2;
+  const rects = [[lo, lo, hi, hi]];
+  if (mask & 1) rects.push([lo, 0, hi, lo]);
+  if (mask & 2) rects.push([hi, lo, C, hi]);
+  if (mask & 4) rects.push([lo, hi, hi, C]);
+  if (mask & 8) rects.push([0, lo, lo, hi]);
+  return rects;
+};
+// Draw this frame's connected walls and hedges as retained prisms; returns the
+// frame items drawn there so the sprite pools skip them. Geometry sits on the
+// cells' terrain slots (absCellScreenCentre) in zero-pan space and scrolls
+// through the group offset; it rebuilds only when the anchor cell, the row
+// bands, the viewport or the set of visible pieces changes.
+Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, connectedArt) {
+  const drawn = new Set();
+  const perspective = typeof WallPerspective !== 'undefined';
+  if (!perspective || !WallPerspective.active(scene)) {
+    if (perspective) WallPerspective.clear(scene, 'props');
+    scene._connectedWallKey = null;
+    return drawn;
+  }
+  const pc = viewAnchorCell(scene), base = viewAnchorAbsCell(scene, pc);
+  const fracX = pc.cx - Math.floor(pc.cx), fracY = pc.cy - Math.floor(pc.cy);
+  let key = `${base.cellIX}|${base.cellIY}|${viewBandKey(scene, pc, base.cellIY, (VIEW_CELLS - 1) / 2)}`
+    + `|${scene.viewCenterX}|${scene.viewCenterY}|${scene.viewLeft}|${scene.viewTop}|${scene.viewSize}`;
+  const pieces = [];
+  const collect = (item, o, art) => {
+    const piece = Render.connectedWallPiece(o, art);
+    if (!piece) return;
+    drawn.add(item);
+    const cell = worldMetersToAbsCell(scene, o.x, o.y);
+    pieces.push({ piece, cell });
+    key += `|${cell.cellIX}:${cell.cellIY}:${piece.art.profile}:${piece.mask}`;
+  };
+  for (const item of objectItems) collect(item, item.o, connectedArt?.get(item.o));
+  for (const item of plantItems) collect(item, item.p, null);
+  WallPerspective.offset(scene, 'props', -fracX * CELL_PX, -fracY * CELL_PX);
+  if (key === scene._connectedWallKey && scene._wallPerspective?.props) return drawn;
+  scene._connectedWallKey = key;
+  WallPerspective.begin(scene, 'props');
+  WallPerspective.offset(scene, 'props', -fracX * CELL_PX, -fracY * CELL_PX);
+  for (const { piece, cell } of pieces) {
+    const centre = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
+    const x0 = centre.x + fracX * CELL_PX - CELL_PX / 2, y0 = centre.y + fracY * CELL_PX - CELL_PX / 2;
+    const height = ObstacleStep.PROFILES[piece.art.profile].liftPx;
+    const colors = { face: piece.art.face, top: piece.art.top, dark: piece.art.dark };
+    for (const [ax, ay, bx, by] of Render.connectedWallFootprints(piece.mask, piece.art.thickness)) {
+      WallPerspective.prism(scene, 'props', [
+        { x: x0 + ax, y: y0 + ay }, { x: x0 + bx, y: y0 + ay },
+        { x: x0 + bx, y: y0 + by }, { x: x0 + ax, y: y0 + by }], 0, height, colors);
+    }
+  }
+  WallPerspective.finish(scene, 'props');
+  return drawn;
+};
+
 // Can this object throw a light BEFORE drawObjects' sprite cull — one whose
 // glow reaches past its art (a restored building or Home, a torch, a grove
 // shrine, a viewpoint's scope)? The one predicate the sprite walk offers by
@@ -4401,7 +4493,7 @@ Render.drawObjects = function drawObjects(scene) {
     ...pressureState.traps.map(h => ({ h, plate: false }))].map(it => ({
       ...it, dx: it.h.x - pWorldX, dy: it.h.y - pWorldY,
     })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
-  const zList = [];
+  const zList = typeof BuildingLowPoly !== 'undefined' ? BuildingLowPoly.worldPieces(scene) : [];
   Render.cullCovered(scene, whirlwindList, 'h');
   Render.cullCovered(scene, environmentList, 'h', true);
   Render.cullCovered(scene, pressureList, 'h', true);
@@ -4543,8 +4635,12 @@ Render.drawObjects = function drawObjects(scene) {
     fadeObject(s, item._appearance);
     return true;
   };
+  // Heading-up draws connected walls and hedges as ground-attached prisms in
+  // the building background; their sprite slots stay empty this frame.
+  const prismDrawn = Render.drawConnectedWallPrisms(scene, filteredObj, plantedList, connectedArt);
   const towerList = filteredObj.filter(({ o }) => o.kind === 'tower');
-  const nonTowerObj = towerList.length ? filteredObj.filter(({ o }) => o.kind !== 'tower') : filteredObj;
+  const nonTowerObj = (towerList.length || prismDrawn.size)
+    ? filteredObj.filter(it => it.o.kind !== 'tower' && !prismDrawn.has(it)) : filteredObj;
   const objectReuse = scene._boot_still ? reuseStaticObject : undefined;
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj,
     configureObject, undefined, objectReuse);
@@ -5187,7 +5283,8 @@ Render.drawObjects = function drawObjects(scene) {
   // ones that move at all), so a bush or hedge over one wiggles on its
   // LURK_BUSH_BEAT. Empty, and no per-plant cell lookup, when none are near.
   const foeCells = Render.foeCells(scene);
-  Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
+  const spritePlants = prismDrawn.size ? plantedList.filter(it => !prismDrawn.has(it)) : plantedList;
+  Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, spritePlants, (s, item) => {
     const { p, dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
     setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)

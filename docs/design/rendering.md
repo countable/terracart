@@ -42,12 +42,19 @@ nudge. The ring, matching fire, smoke, interaction and step-over footprint use
 that position. Its cold and lit states are both step-over props.
 
 Continuous architectural walls are background geometry, separate from object
-props (including interactable `stronghold_wall`). Their connected wall meshes
-remain attached to their ground footprints; they cannot use per-object billboard
-rotation without opening gaps between segments. In heading-up mode,
-`wall_perspective.js` retains ground vertices and separate elevations for polygon
-and tiled walls. Each compass change inverse-rotates only the height vector,
-selects camera-facing sides, and orders short wall prisms by screen depth.
+props. Their connected wall meshes remain attached to their ground footprints;
+they cannot use per-object billboard rotation without opening gaps between
+segments. In heading-up mode, `wall_perspective.js` retains ground vertices and
+separate elevations for polygon, tiled and connected-prop walls. Each compass
+change inverse-rotates only the height vector, selects camera-facing sides, and
+orders short wall prisms by screen depth. Connected stronghold wall runs and
+clipped hedge walls (the `connectedArtForTile` masks) join that batch through
+`Render.drawConnectedWallPrisms` (source `props`): a core block plus an arm to
+each connected cell edge, seated on the cells' terrain slots, rising by the
+step-over lift in `ObstacleStep.PROFILES`, with thickness and colour from
+`Render.CONNECTED_WALL_ART`. Those pieces leave the sprite pools for the frame;
+they still interact, block and support steps from their data cells. An isolated
+wall cell keeps its rubble sprite and a lone garden bush its rounded sprite.
 Explicit triangles use Phaser's existing WebGL batching or Canvas fallback;
 there is no wall canvas bake or texture upload on heading changes. At a fixed
 heading the command buffers are reused. House footprint foundations use the same
@@ -60,11 +67,22 @@ legacy sprite modes retain the north-up wall atlas artwork.
 The WebGL low-poly path (`building_lowpoly.js`) draws houses to match the 2D
 billboard sprites: `BuildingLowPoly.LOOK` owns the height foreshortening, the
 ink outline pass, eave shadow, flat-deck bands and chimney numbers, and the
-material sheets are cut once per material from the tilesets.
+material sheets are cut once per material from the tilesets. Each low-poly
+building has a pooled render object in `worldContainer`, interleaved with props
+and actors by its footprint's vertex-average ground anchor. Faces and ink groups
+remain ordered within that building. This is whole-building painter ordering,
+not per-pixel occlusion for long or concave footprints. Buildings retain map
+rotation; only their elevation vector compensates for heading. The retained
+geometry's pan offset also moves its sorting anchor, including at a fixed heading.
+Ground floors and the legacy architectural walls remain in their background
+passes. Standalone building viewers without a world container sort buildings
+in their existing wall container.
 [Low-poly building styles](../art/lowpoly-building-styles.md) owns the detail.
 `WallPerspective` prisms (castle ramparts, Canvas fallback) read the same
-table: height through `LOOK.heightScale`, and each wall run gets the ink
-outline before its flat-colour fills. They remain untextured.
+table: height through `LOOK.heightScale`, and the ink outline is drawn once
+per connected run (blocks sharing a ground vertex at the same base level)
+before that run's first fill, so a ring of sections shows no seams while
+crown teeth outline separately. They remain untextured.
 
 ## Coordinates, rendering and performance
 
@@ -451,7 +469,9 @@ the reach rim within the existing player-light radius.
   transient lights keep the individual stamp path. The full-frame key gates
   before every canvas call. Reach lighting uses a circle centred continuously on the exact player position with the interaction
   radius. `cellInReach` accepts a cell exactly when its square overlaps the
-  circle; tangency alone does not count. Each Inner Light upgrade crosses only
+  circle; tangency alone does not count. The base circle is reduced to match
+  the old centre-tested cell footprint when standing at a cell centre. Smooth
+  movement still changes which boundary cells overlap. Each Inner Light upgrade crosses only
   the next overlap threshold, unlocking tied cells together. Depth and blindness
   adjust the base radius before upgrades, so every upgrade adds reachable cells; light conveys reach and live POIs without outline rings. The radial player glow uses
   `PLAYER_OUTPUT_K = 0.44`; the added circular reach light is halved by
