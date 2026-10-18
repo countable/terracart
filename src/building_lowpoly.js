@@ -268,13 +268,24 @@
     const key='interior:'+thickness+':'+base.height+':'+base.ring.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
     if(meshCache.has(key))return meshCache.get(key);
     const H=base.height,ring=base.ring,faces=[];
+    // THE WALL EACH FACE STANDS ON (`edge`: the ring edge's index). Inside
+    // Home the player walks among the walls, so `add` raises each wall as a
+    // render object of its own and the shared world sort (render.js
+    // sortWorldDepth, via worldPieces) seats the player between the wall
+    // behind and the wall in front. One mesh per house would put the whole
+    // room before or behind the player at once.
+    const edgeOf=(pts)=>{const base=pts.filter(p=>p.z<=1e-6),use=base.length?base:pts;
+      const m={x:use.reduce((t,p)=>t+p.x,0)/use.length,y:use.reduce((t,p)=>t+p.y,0)/use.length};
+      let best=0,bestD=Infinity;ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy||1;
+        const t=Math.max(0,Math.min(1,((m.x-a.x)*dx+(m.y-a.y)*dy)/l2)),d=Math.hypot(m.x-(a.x+dx*t),m.y-(a.y+dy*t));
+        if(d<bestD){bestD=d;best=i;}});return best;};
     const cutZ=(poly,bound)=>{const out=[];poly.forEach((a,i)=>{const b=poly[(i+1)%poly.length],da=bound-a.z,db=bound-b.z;
       if(da>=-1e-8)out.push(a);
       if((da<0&&db>0)||(da>0&&db<0)){const t=da/(da-db),p={};for(const k of ['x','y','z','u','v'])p[k]=a[k]+(b[k]-a[k])*t;out.push(p);}});return out;};
     for(const f of base.faces){
       if(f.kind!=='wall'||f.chimney)continue;
       const poly=cutZ(f.points,H);
-      for(let i=1;i<poly.length-1;i++)faces.push({...f,points:[poly[0],poly[i],poly[i+1]]});
+      for(let i=1;i<poly.length-1;i++)faces.push({...f,points:[poly[0],poly[i],poly[i+1]],edge:edgeOf(f.points)});
     }
     const inner=typeof BuildingStyles!=='undefined'?BuildingStyles.inset(ring,thickness):null;
     if(inner&&inner.length===ring.length){
@@ -283,13 +294,14 @@
         const length=Math.hypot(d.x-c.x,d.y-c.y);if(!length)return;
         const at=(t,z)=>({x:c.x+(d.x-c.x)*t,y:c.y+(d.y-c.y)*t,z,u:t*length/DETAIL_SCALE,v:H+28-z});
         for(const tri of [[at(0,0),at(1,0),at(1,H)],[at(0,0),at(1,H),at(0,H)]])
-          faces.push({points:tri,kind:'wall',light:.9,layer:0,interior:true,wallDirection:{x:d.x-c.x,y:d.y-c.y}});
+          faces.push({points:tri,kind:'wall',light:.9,layer:0,interior:true,edge:i,wallDirection:{x:d.x-c.x,y:d.y-c.y}});
         // The top band, wound with the ring, so it faces up like a roof.
         for(const tri of [[a,b,c],[a,c,d]])
-          faces.push({points:tri.map(p=>({x:p.x,y:p.y,z:H,u:0,v:0})),kind:'trim',light:1,layer:1,wallTop:true});
+          faces.push({points:tri.map(p=>({x:p.x,y:p.y,z:H,u:0,v:0})),kind:'trim',light:1,layer:1,wallTop:true,edge:i});
       });
     }
-    const mesh={...base,faces,roofTriangles:0,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,interior:true};
+    const mesh={...base,faces,roofTriangles:0,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,interior:true,
+      edges:ring.map((a,i)=>({a,b:ring[(i+1)%ring.length],index:i}))};
     if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
     meshCache.set(key,mesh);return mesh;
   }
@@ -1060,10 +1072,27 @@
       if(door)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};
     }
     const texture=material(scene,recipe);(state.textures||=new Set()).add(texture.key);
+    // A standing building is ONE render object sorted at its footprint
+    // centroid (the player never stands among its walls). An INTERIOR (Home
+    // while the player is inside) is one object PER WALL (interiorGeometry's
+    // `edge`), each sorted at its own wall — see place().
+    const parts=cached.edges?cached.edges.map((edge)=>({...cached,faces:cached.faces.filter(f=>f.edge===edge.index),edge})).filter(p=>p.faces.length):[cached];
+    let first=null;
+    for(const part of parts){const mesh=place(part);first=first||mesh;}
+    return first;
+    function place(cached){
     const mesh={...cached,faces:atlasFaces(cached,texture.roofPeriod)};
     mesh.roofTriangles=mesh.faces.filter(f=>f.kind==='roof').length;mesh.wallTriangles=mesh.faces.filter(f=>f.kind==='wall').length;mesh.trimTriangles=mesh.faces.filter(f=>f.kind==='trim').length;
     mesh.key=key;mesh.footprint=pts;mesh.role=recipe.role;mesh.x=left;mesh.y=top;mesh.smoke=recipe.smoke?cached.chimneyMouths||[]:[];state.buildings.push(mesh);if(key&&mesh.faces.length)state.keys.add(key);
-    const support={x:left+local.reduce((s,p)=>s+p.x,0)/local.length,y:top+local.reduce((s,p)=>s+p.y,0)/local.length,order:state.buildings.length};
+    // A wall's sort point is the end of its baseline that lies lowest on the
+    // screen (`wallSupport`: the southern end north-up, re-picked per heading
+    // in update). Every point of a wall taller than the player that overlaps
+    // the player on screen stands south of the player's feet, so the low end
+    // orders the whole wall correctly: the north wall behind, the south wall
+    // and the flanks' tops in front.
+    if(mesh.edge)mesh.edge={a:{x:left+mesh.edge.a.x,y:top+mesh.edge.a.y},b:{x:left+mesh.edge.b.x,y:top+mesh.edge.b.y}};
+    const support=mesh.edge?{...wallSupport(mesh.edge,0),order:state.buildings.length}
+      :{x:left+local.reduce((s,p)=>s+p.x,0)/local.length,y:top+local.reduce((s,p)=>s+p.y,0)/local.length,order:state.buildings.length};
     const index=state.buildings.length-1;
     const obj=state.pool[index]||(state.pool[index]=renderObject(scene));
     mesh.obj=obj;mesh.support=support;obj._lowpolyFaces=mesh.faces;
@@ -1079,6 +1108,13 @@
       face.flat=face.tileCap?mix(recipe.roof,0x2a2229,.12):face.kind==='roof'&&!face.solid?recipe.roof:face.kind==='wall'?(face.chimney&&recipe.role!=='blacksmith'?LOOK.chimney.sides:recipe.body):face.color??recipe.trim;
       face.preserveWalls=recipe.role==='fort'||!!face.chimney;face.eaveHeight=mesh.eaveHeight??mesh.height;face.support=support;face.texture=texture;face.x=left;face.y=top;face.projected=face.points.map(()=>({}));state.faces.push(face);}
     return mesh;
+    }
+  }
+  // The end of a wall's baseline that sits lowest on the screen turned by
+  // `angle` (heading_up.js keys the turned sort by s·x + c·y).
+  function wallSupport(edge,angle){
+    const s=Math.sin(angle),c=Math.cos(angle),a=edge.a,b=edge.b;
+    const p=s*a.x+c*a.y>=s*b.x+c*b.y?a:b;return {x:p.x,y:p.y};
   }
   function offset(scene,x,y){
     const state=scene._lowpoly;if(!state)return;
@@ -1086,14 +1122,16 @@
   }
   function update(scene){const state=scene._lowpoly;if(!state)return;
     const visible=state.enabled&&active(scene)&&(scene.depth??0)===0;
+    const angle=scene.mapRot||0;
     // The retained geometry's pan changes even when its projected faces do not.
     for(const mesh of state.buildings){
       const obj=mesh.obj;obj.visible=visible;
+      if(mesh.edge){const w=wallSupport(mesh.edge,angle);mesh.support.x=w.x;mesh.support.y=w.y;}
       obj.setPosition(state.offsetX,state.offsetY);
       obj._huAnchor.x=mesh.support.x+state.offsetX;
       obj._huAnchor.y=mesh.support.y+state.offsetY;
     }
-    const angle=scene.mapRot||0;const changed=state.angle!==angle;state.angle=angle;
+    const changed=state.angle!==angle;state.angle=angle;
     if(changed){
     const c=Math.cos(angle),s=Math.sin(angle);
     for(const face of state.faces){let depth=0;
