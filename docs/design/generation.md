@@ -124,7 +124,7 @@ access or tile lifecycle mechanics.
   in, still fewer than the herbs.
 
 - Every house fronting a plain (unthemed) Small street stands 0-2 loot barrels
-  (`HOUSE_BARREL_ODDS`: 40% none, 40% one, 20% two)
+  (`HOUSE_BARREL_ODDS`: 50% none, 40% one, 10% two)
   on the verge before it, clustered side by side a cell back from the kerb
   (`StreetVariants.dressSteps`, the house barrels pass; `HOUSE_BARRELS_MAX`,
   `HOUSE_FRONT_REACH_CELLS`, `HOUSE_FRONT_SPAN_CELLS`). They are always

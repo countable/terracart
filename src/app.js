@@ -9515,14 +9515,15 @@ class MapScene extends Phaser.Scene {
     // affordability, decides what is listed.
     const choices = options.map((row) => {
       const c = costFor(row);
+      const isNew = Houses.isNewPick(this.save, row);
       return {
         key: row.key,
         // Name, then the rank and NEW on one line, then the price: compact,
         // so six cards and the Restore row fit the dialog without a scroll.
         label: labelFor(row, null)
-          + ((row.tier || Houses.isNewPick(this.save, row))
+          + ((row.tier || isNew)
             ? `<div style="line-height:1.15;margin-top:2px">${row.tier ? tierBadgeHTML(row.tier, 9, 4) : ''}`
-              + `${Houses.isNewPick(this.save, row) ? newBadgeHTML(8) : ''}</div>` : '')
+              + `${isNew ? newBadgeHTML(8) : ''}</div>` : '')
           + `<div style="margin-top:3px;font-size:11px">${costLine(c)}</div>`,
         iconHTML: iconFor(row),
         cost: costLine(c),

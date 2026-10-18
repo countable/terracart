@@ -205,7 +205,7 @@ test('buildOptions: a card is NEW when the player has no such building, or none 
   for (let i = 11; i < 15; i++) Houses.restoreAs(save, h('h' + i), 'plain');
   assert.truthy(isNew(save, 'petshop') && isNew(save, 'bookshop'), 'the one-offs are new while none stands');
   assert.falsy(Houses.isNewPick(save, null));
-  assert.truthy(/\$\{Houses\.isNewPick\(this\.save, row\) \? newBadgeHTML\(8\) : ''\}/.test(SCENE_SRC), 'the card wears the pill');
+  assert.truthy(/\$\{isNew \? newBadgeHTML\(8\) : ''\}/.test(SCENE_SRC), 'the card wears the pill');
   assert.truthy(/NEW<\/span>/.test(newBadgeHTML()), 'the pill says NEW');
 });
 

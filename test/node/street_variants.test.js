@@ -2000,7 +2000,7 @@ const northOf = (f) => cellsOf(f, houseBarrels(f)).filter(c => c.iy < 6);
 
 test('house barrels: 0-2 per house, on the verge between the house and the street', () => {
   assert.eq(SV.HOUSE_BARRELS_MAX, 2);
-  assert.eq(JSON.stringify(SV.HOUSE_BARREL_ODDS), JSON.stringify([0.4, 0.4, 0.2]), 'a little fewer than even thirds (owner, Oct 2026)');
+  assert.eq(JSON.stringify(SV.HOUSE_BARREL_ODDS), JSON.stringify([0.5, 0.4, 0.1]), 'quieter plain streets');
   let north = 0, south = 0, seen = new Set();
   for (let tx = 0; tx < 120; tx++) {
     const f = houseFixture(tx, 3), got = cellsOf(f, houseBarrels(f));
@@ -2014,8 +2014,8 @@ test('house barrels: 0-2 per house, on the verge between the house and the stree
     north += n.length; south += s.length; seen.add(n.length);
   }
   assert.eq([...seen].sort().join(','), '0,1,2', 'every count of 0, 1 and 2 occurs');
-  assert.inRange(north / 120, 0.6, 1.0, 'about 0.8 a house on average');
-  assert.inRange(south / 120, 0.6, 1.0);
+  assert.inRange(north / 120, 0.4, 0.8, 'about 0.6 a house on average');
+  assert.inRange(south / 120, 0.4, 0.8);
 });
 
 test('house barrels: a cluster a cell back from the kerb, the reward gate, and stable', () => {
