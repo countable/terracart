@@ -544,6 +544,17 @@ ghost control in a separate top-right row. Flip saves the placed orientation and
 updates the map and portrait. Pickup checks bag capacity and accepted quantity
 before removing the placement, then refreshes inventory and persists explicitly.
 
+Indoors, Home shows its current luxury as a white number above its sign. The
+score updates immediately, separately from Home's introductory typing, and
+fades when it overlaps the player.
+
+Old Archive Court's existing style deterministically selects delivery or luxury
+jobs without changing castle style assignment. The luxury card is titled
+“A respectable address”, with “We don't admit rabble here!” beneath it: reach
+16 luxury in the active Home for 60 coins. Opening, progress events and claiming
+reread current luxury; placement does not accumulate quest progress. A decrease
+before claiming blocks completion. Castle ownership stays permanent after claim.
+
 Bed and Inn share `_presentSleep`: show the furniture frame or Inn booth art,
 fade the camera to black, run the source transaction exactly once, then fade
 back. `cameraBlackout` also supplies teleport's camera transition, without owning
@@ -573,6 +584,13 @@ reload and are consumed only when acknowledged. The story badge counts them
 only inside that ring (`_pendingStoryCount` asks `MemoryStory.atHome`), so it
 never offers a panel the drain would refuse. Deliberately opened NPC and
 wizard conversations remain tied to their own locations.
+
+Home luxury thresholds 4/16/36/64/100 each bank one real memory once per save,
+titled Living like a Neighbour / Craftsperson / Merchant / Noble / Monarch.
+These domestic panels use the same Home ring, story hold and acknowledgement
+queue as other memories. If the reward reaches a numbered story scene, its
+domestic panel is followed by that scene without a second memory reward;
+tower gates remain unchanged. Pickup and Home moves never remove earned milestones.
 
 Maud's rescue unlocks at six lifetime memories, then waits for a home visit.
 Her encounter is seated around Home, never around the travelling player; her

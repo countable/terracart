@@ -885,6 +885,19 @@ Generated snapshots remain unchanged. Live `spawnCells` join `spawnOptsOf`
 occupancy without changing its generated set, so pickup releases only the
 furniture claim. Starter story seating and reward seats also respect saved pieces.
 
+`Furniture.recompute` is the sole writer of `save.houseLuxury`, a map from
+Home key to `{ score, footprintKey }`. Consumers use `Furniture.luxuryOf`.
+Saved indoor furniture contributes catalog tier squared (1/4/9/16/25), or its
+metadata `luxury` override. Outdoor and cave furniture contributes zero;
+one record counts once even when its future footprint spans several cells.
+Placement, successful pickup, Home move/adoption and load recompute the cache
+through `PlacedFloor.furnitureIndoors`. Tile overlays validate ownership after
+Home stamping. Each record retains its validated `houseFootprintKey` so tile
+eviction does not erase luxury; unloaded geometry cannot authorize an ability.
+A new Home location invalidates that association even when its synthetic id
+is reused. Inactive Homes score zero. Reconciliation also refreshes luxury
+quests and banks newly reached milestone memories through the discovery ledger.
+
 Placement uses `placeOnEmptyCell`: any owned Home floor cell, including its
 anchor and doorway, or ordinary open ground accepted by `isSpawnCell` with
 `spawnOptsOf` and the `minor` class. `homeInside(x,y)` shares the exact building
@@ -905,7 +918,7 @@ placed furniture on Home floor cells. Exterior roofs/walls and other buildings
 keep architectural priority. Furniture stays in the normal render list so
 near walls can occlude it. Pickup grants and verifies one inventory item before
 removing property; dialog pickup and flip callbacks explicitly persist.
-Lights and multi-cell furniture are later phases.
+Multi-cell footprints and per-tier sheet frames remain later phases.
 
 ### Initial Home orientation
 

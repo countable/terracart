@@ -118,7 +118,7 @@ test('rest/work: a walk through Home banks quietly — the splash waits for the 
     'the ring stamps when the feet arrive, and forgets when they leave');
   assert.truthy(/const settledHome = atHome && restNow - this\._homeSinceT >= REST_SETTLE_S \* 1000;/.test(block),
     'settled is REST_SETTLE_S in the ring — the same settling the wheel gets');
-  assert.truthy(/this\._accrueRestEnergy\('_restAccrueE', maxE \* \(dt \/ HOME_FULL_REST_S\), maxE, !settledHome\);/.test(block),
+  assert.truthy(/this\._accrueRestEnergy\('_restAccrueE', maxE \* \(dt \/ HOME_FULL_REST_S\) \+ bonus, maxE, !settledHome\);/.test(block),
     'the Home rest is quiet until then');
   assert.truthy(/this\._accrueRestEnergy\('_fireAccrueE', maxE \* \(dt \/ FIRE_FULL_REST_S\), maxE\);/.test(block),
     'a campfire is sat at on purpose — it splashes as it did');
@@ -128,3 +128,26 @@ test('rest/work: a walk through Home banks quietly — the splash waits for the 
   assert.truthy(/if \(gainedE > 0 && !quiet\) \{/.test(fn), 'only the splash is held, and the quiet pips never join the flush');
 });
 })();
+
+test('rest/work: luxury draws only inside the eligible Home branch, preserving pause, cap and revival', () => {
+  const start = SCENE_SRC.indexOf('const atHome = this.isRestingAtHome(pWX, pWY);');
+  const end = SCENE_SRC.indexOf('this._sweepStreets();',start);
+  const body = SCENE_SRC.slice(start,end);
+  // Execute the shipped rest block with only presentation/proximity stubbed.
+  const scene = {save:{energy:50,starterShopId:'home',houseLuxury:{home:{score:16}}},
+    isRestingAtHome:()=>true,_zeroEnergyLocked:()=>false,_nearAny:()=>false,_nearVista:()=>false,
+    _bankDrain(){},_restRng:()=>{scene.draws++;return 0;},draws:0,
+    _accrueRestEnergy:liftSceneMethod('_accrueRestEnergy'),_splashEnergyGain(){},_reviveStoryboard(){}};
+  // Rest block declares working/restNow from the wheel and clock itself.
+  const blockStart = body.indexOf('const settledHome');
+  const blockEnd = body.indexOf('// Streets come back');
+  const step = new Function('dt','maxE','restNow','working','atHome','HOME_FULL_REST_S','FIRE_FULL_REST_S','REST_SETTLE_S','FIRE_REST_R','Furniture','Energy','persistSave','pWX','pWY',body.slice(blockStart,blockEnd));
+  scene._homeSinceT=0;
+  const tick = work => step.call(scene,0.25,100,20000,work,true,50,150,10,3,Furniture,Energy,()=>{},0,0);
+  tick(true); assert.eq(scene.save.energy,50); assert.eq(scene.draws,0);
+  tick(false); assert.eq(scene.save.energy,51); assert.eq(scene.draws,1);
+  Energy.set(scene.save,100);tick(false);assert.eq(scene.draws,1,'cap skips random draw');
+  Energy.set(scene.save,0);scene._zeroEnergyLocked=()=>true;tick(true);
+  assert.eq(scene.save.energy,Energy.reviveLevel(100),'hard-mode Home revival unchanged even during work');
+  assert.eq(scene.draws,1,'revival bypasses the passive bonus');
+});

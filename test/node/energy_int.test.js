@@ -64,3 +64,30 @@ test('bed Sleep restores through the shared integer energy writer and preserves 
   assert.eq(save.energy, 117); assert.eq(scene.gain, 104);
   assert.eq(save.money, 25); assert.eq(save.eatReadyAt, 12345);
 });
+
+test('luxury rest: stochastic rounding is integer, time-scaled and unbiased with a seeded RNG', () => {
+  const rng = makeRng32(1903);
+  let total = 0;
+  for (let i=0;i<10000;i++) {
+    const gain = Furniture.restBonus(16,0.25,rng);
+    assert.truthy(gain === 0 || gain === 1);
+    total += gain;
+  }
+  assert.inRange(total,3800,4200,'expected 0.4 energy per quarter second');
+  assert.eq(Furniture.restBonus(16,2,()=>0.1),4,'floor plus winning fractional draw');
+  assert.eq(Furniture.restBonus(16,2,()=>0.9),3,'floor plus losing fractional draw');
+  const noDraw = () => { throw new Error('integer or zero mean must not draw'); };
+  assert.eq(Furniture.restBonus(0,1,noDraw),0);
+  assert.eq(Furniture.restBonus(100,1,noDraw),10);
+  assert.eq(Furniture.restBonus(16,0,noDraw),0);
+});
+
+test('luxury rest: the existing accrual caps the whole bonus and preserves fractional base healing', () => {
+  const scene = {save:{energy:98},_bankDrain(){},_accrueRestEnergy:liftSceneMethod('_accrueRestEnergy')};
+  scene._accrueRestEnergy('_restAccrueE',0.2+Furniture.restBonus(100,1),100);
+  assert.eq(scene.save.energy,100);
+  Energy.set(scene.save,50);
+  scene._restAccrueE=0;
+  for (let i=0;i<5;i++) scene._accrueRestEnergy('_restAccrueE',0.2+Furniture.restBonus(0,0.1),100);
+  assert.eq(scene.save.energy,51,'zero luxury retains the base fractional bank');
+});

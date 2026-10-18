@@ -1068,20 +1068,18 @@ class SceneVenues {
     return null;
   }
 
-  // Is the player resting AT their Home? Drives the faster HOME_FULL_REST_S
-  // energy-rest rate. It is a DISTANCE test — anywhere inside Home's ring
-  // (HOME_R), exactly like the campfire's _nearAny('fires', …, FIRE_REST_R) —
-  // because Home is a campfire you own: the same ring rests you, lights you
-  // and turns enemies away.
-  //   Both adopted houses and the trailer rest you on the DOORSTEP, which is
-  // where the player stands while farming the plot two cells away.
+  // Rest is the owned Home footprint plus edge-sharing neighbours, never
+  // diagonal corners. Offset absolute cells so ownership works across seams.
   isRestingAtHome(pWX, pWY) {
-    return this.inHomeRing(pWX, pWY);
+    if ((this.depth || 0) !== 0 || !this.save.starterShopId) return false;
+    const cell = worldMetersToAbsCell(this, pWX, pWY);
+    return [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]].some(([dx, dy]) => {
+      const c = absCellOffset(this, cell.cellIX, cell.cellIY, dx, dy);
+      const p = absCellCenterMeters(this, c.cellIX, c.cellIY);
+      return PlacedFloor.homeCell(this, p.x, p.y);
+    });
   }
-  // Is the world point (x, y) inside Home's ring (HOME_R)? THE one distance
-  // test behind every effect of the ring that is asked about a point — the
-  // rest above.
-  // Surface only, through homeWorldPos; no Home, no ring.
+  // The broader surface ring remains shared by light, ward and story delivery.
   inHomeRing(x, y) {
     const home = this.homeWorldPos();
     if (!home) return false;
@@ -1212,6 +1210,7 @@ class SceneVenues {
       this._starterTrailerObj = null;
       this.ensureStarterTrailerObject();
     } else this._makeStarterTrailer(wagon.x, wagon.y);
+    Furniture.recompute(this);
     return true;
   }
 

@@ -91,7 +91,14 @@
 
   function furnitureIndoors(scene, record, entry = null) {
     const indoors = homeCell(scene, record.x, record.y, placedDepth(record), entry);
-    record.houseKey = indoors ? scene.save.starterShopId : null;
+    const c = worldMetersToAbsCell(scene, record.x, record.y);
+    const t = absCellToTile(scene, c.cellIX, c.cellIY);
+    const e = entry || WorldGen.tileCache.get(WorldGen.tileKey(t.tx, t.ty));
+    // Missing tiles cannot authorize an ability, but must not erase a validated
+    // association used to retain luxury while that tile is evicted.
+    if (!isSurface(placedDepth(record)) || (e?.grid && e.owners && e.ownerKeys)) {
+      record.houseKey = indoors ? scene.save.starterShopId : null;
+    }
     return indoors;
   }
 
@@ -111,6 +118,7 @@
       owned.push(object);
     }
     if (owned.length) SpawnOwnership.reconcileEntry(scene, entry, owned);
+    if (isSurface(depth)) Furniture.recompute(scene, entry, tx, ty);
   }
 
   const api = { placedDepth, stampDepth, onDepth, forDepth, isSurface, indexAt, homeCell, furnitureIndoors, restoreBarricades, restoreFurniture };

@@ -1248,16 +1248,13 @@ const COLORS = {
 
 // Which ground takes a hoe — NON_TILLABLE / isTillable / isTillableCell — is
 // a terrain-code table, and lives with the catalog in items.js.
-// Building interior cells — small house, fort, civic slab. Not a rest spot:
-// resting is Home's ring (HOME_R) or a campfire's, and nothing else. Read by
-// interact.js; Home stopped needing it when its rest became a radius.
+// Building terrain alone does not grant rest: ownership belongs to Home.
 const BUILDING_TYPES = new Set([9, 11, 12]);
 // Resting AT Home (the starter trailer / adopted home shop) fills the bar in
 // this many seconds. YOUR OWN PLACE IS THE ONLY BUILDING THAT RESTS YOU: every
 // building cell would otherwise make a town one continuous rest spot. A campfire (FIRE_FULL_REST_S)
-// covers the out-in-the-wild case; going home covers the rest. Like the fire,
-// it rests you anywhere inside its ring (HOME_R) — the doorstep is where the
-// player actually stands.
+// covers the out-in-the-wild case; Home rests you on its owned footprint
+// and the cells sharing an edge with it.
 // Both rates PAUSE while a work wheel runs (see the `working` gate in
 // update()): a job done from the doorstep costs its energy on the bar, and
 // the rest earns it back only once the wheel has cleared.
@@ -1313,18 +1310,9 @@ const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // _tickFireTouch here and SceneFire._tickUnitFire for other units). Under a cell,
 // so the warmth ring (FIRE_REST_R) stays safe ground.
 const FIRE_TOUCH_CELLS = 0.6;
-// HOME IS A CAMPFIRE YOU OWN, and this is its ONE radius — the light it
-// throws, the ring it rests you in, and the ring an enemy turns and walks out
-// of. Three effects, one number, for the reason the campfire's warmth and the
-// campfire's light are one number: Lighting.KINDS.trailer resolves its
-// radiusCells to HOME_R at call time exactly as the fire's row resolves to
-// FIRE_REST_R, so "stand in the light" is "stand in the warmth" is "stand
-// where nothing will bite you", and no two of them can drift apart.
-// It is WIDER than the fire's ring (and rests far faster, HOME_FULL_REST_S)
-// because a fire is the field expedient and Home is the place you built.
-// What Home has that a fire hasn't is the shop: the trade panel is a TAP on
-// the building, not an effect of the ring, and is untouched by any of this.
-const HOME_R = 4;   // cells — Home's light / rest / ward ring
+// Home's light, ward and story delivery retain the broad ring. Passive rest
+// uses owned building cells and edge neighbours (isRestingAtHome).
+const HOME_R = 4;   // cells — Home's light / ward / story ring
 
 // Time-since-tab-close that grants the FULL energy bar back (1h, pro-rated
 // linearly) now lives with the offline-rest formula in energy.js as
@@ -3590,12 +3578,10 @@ class MapScene extends Phaser.Scene {
     // pip has accrued. Test mode skips this so deterministic test runs don't
     // see energy creep.
     //
-    // HOME ONLY: Home is a ring (HOME_R), the same shape as the campfire's below.
+    // HOME ONLY: owned cells and their edge neighbours grant Home recovery.
     if (!window.__TEST_MODE) {
       const { x: pWX, y: pWY } = playerWorldM(this);
-      // Home rests you anywhere inside its ring, the way a campfire does —
-      // no building-cell test, so the synthetic trailer (which paints no cell
-      // at all) and an adopted house work by the one rule. See HOME_R.
+      // Synthetic and adopted Homes share the same owned-cell rest rule.
       const atHome = this.isRestingAtHome(pWX, pWY);
       const maxE = this.getMaxEnergy();
       // WORKING IS NOT RESTING. A work wheel (till / chop / mine / cast / a
@@ -3649,7 +3635,8 @@ class MapScene extends Phaser.Scene {
         // Feather or a revival potion is the player's own doing.
         if (gainedE > 0) this._reviveStoryboard();
       } else if (atHome && !working && (this.save.energy ?? 0) < maxE) {
-        this._accrueRestEnergy('_restAccrueE', maxE * (dt / HOME_FULL_REST_S), maxE, !settledHome);
+        const bonus = Furniture.restBonus(Furniture.luxuryOf(this.save), dt, this._restRng);
+        this._accrueRestEnergy('_restAccrueE', maxE * (dt / HOME_FULL_REST_S) + bonus, maxE, !settledHome);
       } else {
         // Stopped resting: the last few points of a short rest are already in
         // the drain roll-up and pop at its next window. (A quiet pass through
@@ -8614,7 +8601,7 @@ class MapScene extends Phaser.Scene {
     }
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     if (this.updateMemoriesDOM) this.updateMemoriesDOM();
-    MemoryStory.enqueue(this.save, this.memoriesTotal(), label);
+    MemoryStory.enqueue(this.save, this.memoriesTotal(), label, key);
     this._seatStoryNeighbours();   // a neighbour this memory brings to the trailer
     this.updateObjectiveDOM?.();
     persistSave(this.save);

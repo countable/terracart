@@ -147,7 +147,7 @@ const FILES = [
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
-  SceneFurniture,
+  SceneFurniture, Furniture,
   Arena,
   GasRender,
   GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, CharacterPortraits, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, WorldLayers, Visibility,
@@ -400,10 +400,8 @@ const starterWrapper = (name) => {
   }
 }
 
-// HOME IS A CAMPFIRE YOU OWN — one ring (HOME_R) that lights, rests and wards.
-// The rest half is a distance test on a real method, so lift it and RUN it.
-// homeWorldPos comes with it: all three effects ask it, and its depth gate is
-// half the answer.
+// Home rest follows owned cells; light and ward retain the broad ring.
+// Lift the shipped geometry predicates so tests run both policies.
 {
   const src = SCENE_SRC;
   const lift = (sig) => {

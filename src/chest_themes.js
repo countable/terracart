@@ -16,6 +16,7 @@
     farmSupplies: { ids: ['scarecrow', 'sugar_potion'], fallback: 'torch' },
     materials: { ids: ['wood', 'rubble', 'flint_shard', ...Object.values(MINERAL_TIERS).map(row => row.barId)] },
     cash: { kind: 'cash' },
+    furniture: { ids: () => ITEMS.filter(i => i.kind === 'furniture').map(i => i.id), fallback: 'supplies' },
     restorative: { ids: ['berry', 'cress', 'potato', 'egg', 'milk'] },
     food: { ids: foodIds, fallback: 'restorative' },
     foodSeeds: { ids: cropSeeds, fallback: 'food' },
@@ -58,8 +59,8 @@
     culturalGear: { kind: 'gear', fallback: 'books' },
   };
   // THE OCT 2026 REBALANCE — one clean identity per theme:
-  //   roadside  supplies, minerals, coins - never produce
-  //   commerce  coins or gems, nothing else
+  //   roadside  supplies, minerals, coins and furniture - never produce
+  //   commerce  coins, gems and furniture
   //   food      food, with a small animal chance - no seeds, no supplies
   //   flora     flowers or their seeds
   //   health    medical magic and the cherry-picked healing relics
@@ -69,15 +70,15 @@
   //   civic     unique relics, supplies, coins
   //   authority armour, supplies, combat magic - never produce
   const themes = {
-    roadside: { weights: { supplies: 45, materials: 40, cash: 15 } },
-    commerce: { weights: { cash: 70, gems: 30 } },
+    roadside: { weights: { supplies: 40.5, materials: 36, cash: 13.5, furniture: 10 } },
+    commerce: { weights: { cash: 63, gems: 27, furniture: 10 } },
     food: { weights: { food: 95, farmAnimals: 5 } },
     park: { weights: { parkSeeds: 70, forage: 20, growth: 10 } },
     farm: { weights: { farmSeeds: 40, farmProduce: 30, farmAnimals: 15, farmSupplies: 10, growth: 5 } },
     flora: { weights: { flowerSeeds: 50, flowers: 50 } },
     health: { weights: { medicalMagic: 100 } },
     school: { weights: { books: 60, study: 40 } },
-    culture: { weights: { culturalGear: 20, gems: 20, books: 20, magic: 20, cash: 20 } },
+    culture: { weights: { culturalGear: 18, gems: 18, books: 18, magic: 18, cash: 18, furniture: 10 } },
     worship: { weights: { revival: 50, shield: 25, books: 15, flowers: 10 } },
     civic: { weights: { uniqueRelics: 25, supplies: 45, cash: 30 } },
     authority: { weights: { protectiveGear: 40, supplies: 25, combatMagic: 35 } },
@@ -91,8 +92,8 @@
   // Final surface weights for displayed T3+ chests. Starter chests keep
   // their supplies; higher-tier chests favour progression and useful magic.
   const highTierWeights = {
-    roadside: { supplies: 45, materials: 40, cash: 15 },
-    commerce: { cash: 70, gems: 30 },
+    roadside: { supplies: 40.5, materials: 36, cash: 13.5, furniture: 10 },
+    commerce: { cash: 63, gems: 27, furniture: 10 },
     food: { food: 95, farmAnimals: 5 },
     // Crop seeds and tree seeds share the park's seed pool.
     park: { parkSeeds: 60, forage: 15, growth: 25 },
@@ -100,7 +101,7 @@
     flora: { flowerSeeds: 50, flowers: 50 },
     health: { medicalMagic: 100 },
     school: { books: 60, study: 40 },
-    culture: { culturalGear: 20, gems: 20, books: 20, magic: 20, cash: 20 },
+    culture: { culturalGear: 18, gems: 18, books: 18, magic: 18, cash: 18, furniture: 10 },
     worship: { revival: 55, shield: 20, books: 15, healing: 10 },
     civic: { uniqueRelics: 25, supplies: 45, cash: 30 },
     authority: { protectiveGear: 40, supplies: 25, combatMagic: 35 },
@@ -133,8 +134,10 @@
       out.magic += out.uniqueRelics;
       delete out.uniqueRelics;
     }
+    // Furniture keeps its authored share through the other lane overlays.
     if (opts.depth > 0 && theme !== 'vista') {
-      for (const key of Object.keys(out)) out[key] *= 0.6;
+      const caveShare = (100 - (out.furniture || 0)) / 100 * 0.4;
+      for (const key of Object.keys(out)) if (key !== 'furniture') out[key] *= 0.6;
       let cave = tier <= 1 ? { antidote: 60, torch: 40 }
         : tier === 2 ? { caveMagic: 60, torch: 15, rope: 10, trapKit: 10, field: 5 }
         : { caveMagic: 80, caveGems: 10, field: 10 };
@@ -145,17 +148,18 @@
         cave.magicTrap = 5;
       }
       // The rebalanced identities hold UNDERGROUND too (Oct 2026): commerce
-      // is coins and gems only, so the cave mix's field supplies, magic
+      // keeps coins, gems and furniture, so the cave mix's field supplies, magic
       // pools and traps never join it - the whole underground share rides
       // the gem lane instead.
       if (normalize(theme) === 'commerce') cave = { caveGems: 100 };
-      for (const [key, value] of Object.entries(cave)) out[key] = (out[key] || 0) + value * 0.4;
+      for (const [key, value] of Object.entries(cave)) out[key] = (out[key] || 0) + value * caveShare;
     }
     // Rare permanent finds: one weighted lane, never ordinary shop or loot stock.
     if (tier >= 2 && (opts.tier ?? tier) >= 2) {
       const share = ['culture', 'authority'].includes(theme) ? 5 : 0;
       if (share) {
-        for (const key of Object.keys(out)) out[key] *= (100 - share) / 100;
+        const rest = 100 - (out.furniture || 0);
+        for (const key of Object.keys(out)) if (key !== 'furniture') out[key] *= (rest - share) / rest;
         out.uniqueRelics = share;
       }
     }
@@ -166,16 +170,16 @@
     // T1, rarity.js rollRewardQuality) carries at least BOOK_T2_SHARE of
     // books, the rest of the row scaled to make room. Rows already past the
     // share (the school's 60) and the rare-finds lane above (uniqueRelics —
-    // exactly 5 where it exists) are left alone. A row with a books lane
+    // exactly 5 where it exists), plus furniture's 10%, are left alone. A row with a books lane
     // (culture, worship) has it topped up; a row without one gets the
     // plainBook group. Applied last: the net share.
     if ((opts.tier ?? tier) === 2) {
       const have = out.books || 0;
       if (have < BOOK_T2_SHARE) {
-        const keep = out.uniqueRelics || 0;
+        const keep = (out.uniqueRelics || 0) + (out.furniture || 0);
         const lane = have > 0 ? 'books' : 'plainBook';
         const rest = Object.values(out).reduce((a, b) => a + b, 0) - have - keep;
-        if (rest > 0) for (const key of Object.keys(out)) if (key !== lane && key !== 'uniqueRelics') out[key] *= (100 - BOOK_T2_SHARE - keep) / rest;
+        if (rest > 0) for (const key of Object.keys(out)) if (key !== lane && key !== 'uniqueRelics' && key !== 'furniture') out[key] *= (100 - BOOK_T2_SHARE - keep) / rest;
         out[lane] = BOOK_T2_SHARE;
       }
     }
@@ -257,7 +261,7 @@
   function cap(id) {
     if (id === 'wood' || id === 'rubble') return 12;
     const item = ITEM_BY_ID[id];
-    if (item.kind === 'unique_relic') return 1;
+    if (item.kind === 'unique_relic' || item.kind === 'furniture') return 1;
     if (['elixir', 'resurrection_potion', 'book', 'scarecrow', 'magic_trap'].includes(id)) return 1;
     if (item.kind === 'animal' || item.plants === 'fruittree'
       || ['sapphire', 'ruby', 'emerald', 'diamond'].includes(id)) return 1;

@@ -200,6 +200,10 @@ cuts its doorway there, so the painted bay, the panel, the doorway gap and
 `homeInside` agree; an adopted house without a saved doorway asks the
 streets like every other house. The sign seats over the drawn top, or
 `HOUSE.signLiftPx` above the footprint's centre when there is no model.
+While `homeInside()` is true, a separate white luxury number sits above that
+sign in the same label pool and fades over the player. Its retained text key
+includes the active Home, indoor state and `Furniture.luxuryOf` score; the
+number never shares Home's typing clock.
 
 A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim
 plus a central gambling hall, never a generated body. The overlay paints the
@@ -664,6 +668,15 @@ the reach rim within the existing player-light radius.
   barrel or pot (`o.barrel`, no `poiClass`) get neither. Use the existing
   derived luminance/contrast controls; remeasure the plateau ceiling before
   raising it.
+- Furniture light is selected by its metadata `light` through `sourceKind`:
+  `furniture_lamp` reaches 2 cells with steady warm light; `furniture_candle`
+  reaches 1.5 cells with slight warm flicker. Only saved-depth objects inside
+  the active Home's owned cells (`PlacedFloor.furnitureIndoors`) emit; outside
+  pieces still render. Both sprite and pre-cull scans offer furniture, so
+  off-screen fixtures can light the room edge. The metadata `lightFrameY`
+  emitter is seated with the frame's trimmed bounds and furniture scale,
+  then follows the existing `dyPx` / `liftPx` mechanism at every map heading.
+  Pickup removes the normal object and its light on the next object draw.
 - Waystones use the existing plain rounded low-rock frame (`rock_variants:0`)
   at the shared small-rock scale. At startup, a source-atop ivory material
   variant preserves the rock’s alpha and shading. The per-draw material hook

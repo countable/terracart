@@ -1511,6 +1511,9 @@ class SceneCreate {
     // Tests reach into the scene via window.__scene.
     if (typeof CompassHUD !== 'undefined') CompassHUD.install(this);
     window.__scene = this;
+    // Reconcile saved luxury even when this session starts underground;
+    // subsequent surface tile overlays validate the owned-cell associations.
+    Furniture.recompute(this);
     _endCreate?.();
     // Other players. No-op until the save carries a player name (the
     // welcome splash / ☰ menu set it); tick() picks it up once it does.

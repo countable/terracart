@@ -49,6 +49,13 @@ chest's position, id, tier, sprite or cave eligibility.
 - Groups, members, item weights and fallbacks: `ChestThemes.groups`.
   Surface and cave gem groups use the full `GEM_DEPOSITS` ladder, deduplicated
   by item so the crystal alias does not give Sapphire extra weight.
+  Furniture membership comes from catalog `kind: 'furniture'`, with one piece
+  per reward regardless of budget. Culture, Commerce and Roadside reserve 10%
+  for furniture in ordinary and T3+ tables; their other lanes shrink
+  proportionally. Cave, rare-relic and T2 Book overlays preserve that share.
+  Boss and vista pools exclude furniture. Buried `treasure:default` gives its
+  furniture class the same weight as supplies. Furnishings use the ordinary
+  item reward/card path and display their catalog tier.
   The supply group reaches Javelins and Renovation Permits at T4 and
   Evertorches at T6. Cooked foods inherit their raw ingredient's drop weight.
   Blank Scrolls are affordable T2 materials; a remembered spell can turn one
@@ -125,7 +132,8 @@ stalls and coin pots keep their own interactions.
 A cave chest keeps its surface identity for most rolls and mixes in an
 underground lane (magic, field supplies, gems, the cave-only trap); the mix
 and its per-tier rows live in `ChestThemes.weights` (`opts.depth`). The
-rebalanced identities hold below ground too: commerce stays coins and gems.
+rebalanced identities hold below ground too: commerce stays coins, gems and furniture. Its cave share adds gems while
+the furniture lane remains 10%.
 The cave tier cap is `chestTierMaxFor` (`src/loot.js`).
 
 ## Saves

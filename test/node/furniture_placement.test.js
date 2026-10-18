@@ -64,6 +64,7 @@
       handler('place-furniture').try(f.ctx);
       assert.eq(f.scene.save.furniture.length, 1);
       assert.eq(f.scene.save.furniture[0].houseKey, 'home');
+      assert.eq(Furniture.luxuryOf(f.scene.save), 1, 'placement updates luxury immediately');
       assert.eq(f.entry.objects.filter(o => o.id === 'home').length, 1);
     });
   });

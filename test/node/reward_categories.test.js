@@ -20,7 +20,7 @@ test('reward categories: ores rename preserves the materials and gems split', ()
   assert.falsy('sapphire' in materials); assert.truthy('sapphire' in gems);
   assert.eq(ITEM_BY_ID.rubble.kind, 'produce', 'rock retains crop and reward behavior');
   assert.eq(ITEM_BY_ID.sapphire.kind, 'ores');
-  assert.eq(ChestThemes.themes.roadside.weights.materials, 40);
+  assert.eq(ChestThemes.themes.roadside.weights.materials, 36);
   assert.falsy(ChestThemes.themes.roadside.weights.gems, 'names alone do not introduce gem drops');
 });
 

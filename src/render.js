@@ -3932,13 +3932,25 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
   return drawn;
 };
 
+// Score text has its own cache and never enters Home's session typing clock.
+Render.homeLuxuryLabel = function homeLuxuryLabel(scene) {
+  const home = scene.save?.starterShopId;
+  const inside = !!home && !!scene.homeInside?.();
+  const score = home ? Furniture.luxuryOf(scene.save, home) : 0;
+  const key = `${home}|${inside}|${score}`;
+  if (scene._homeLuxuryLabel?.key !== key) {
+    scene._homeLuxuryLabel = { key, text: inside ? String(score) : null };
+  }
+  return scene._homeLuxuryLabel.text;
+};
+
 // Can this object throw a light BEFORE drawObjects' sprite cull — one whose
 // glow reaches past its art (a restored building or Home, a torch, a grove
 // shrine, a viewpoint's scope)? The one predicate the sprite walk offers by
 // and the per-tile list below is derived by.
 function offersPreCullLight(o) {
   const k = o.kind;
-  return isBuilding(k) || k === 'temple' || k === 'torch' || k === 'waystone' || k === 'grove_shrine' || k === 'vista_scope'
+  return isBuilding(k) || k === 'furniture' || k === 'temple' || k === 'torch' || k === 'waystone' || k === 'grove_shrine' || k === 'vista_scope'
     || !!(typeof Macros !== 'undefined' && Macros.visitKindForObject(o));
 }
 // A tile's pre-cull lights (util.js derivedObjects — re-derived only when the
@@ -4305,7 +4317,7 @@ Render.drawObjects = function drawObjects(scene) {
     // before the sprite cull, with its own radius as the margin, so a
     // lantern a cell off-screen still lights the edge it stands past.
     const visit = typeof Macros !== 'undefined' && Macros.visitKindForObject(o);
-    if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'waystone' || o.kind === 'grove_shrine' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
+    if (isBuilding(o.kind) || o.kind === 'furniture' || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'waystone' || o.kind === 'grove_shrine' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
     // A grove shrine whose gift is still there today ALSO wears the POI
     // light — the one "something to take here" mark (poiLit).
     if ((o.kind === 'grove_shrine' || visit) && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
@@ -5116,6 +5128,11 @@ Render.drawObjects = function drawObjects(scene) {
     const glyph = Render.shopSignGlyph(theme, role);
     (badge || theme ? plates : plain).push(badge || theme ? { ...item, badge, glyph, theme } : item);
   }
+  const luxuryText = Render.homeLuxuryLabel(scene);
+  if (luxuryText !== null) {
+    const home = plain.find(item => item.o.id === scene.save.starterShopId);
+    if (home) plain.push({ ...home, luxuryText });
+  }
   Render.renderPool(scene, scene.shopLabelPool, scene.labelContainer, plain, (tx, item) => {
     const { o, dx, dy } = item;
     const { x: px, y: py } = project(dx, dy);
@@ -5123,10 +5140,11 @@ Render.drawObjects = function drawObjects(scene) {
     const sx = px + mid.x, sy = py + mid.y;
     // The label TOP hangs 12px below the art's middle (origin [0.5, 0], so
     // position y = label top): across the building's lower front, by its door.
-    const full = _houseSignText(o);
+    const luxury = item.luxuryText !== undefined;
+    const full = luxury ? item.luxuryText : _houseSignText(o);
     const home = _houseRole(o) === 'trailer';
-    const typed = home ? _homeSignTyped(full) : full;
-    setColorOnce(tx, _lighten30(_houseSignInk(o)));
+    const typed = home && !luxury ? _homeSignTyped(full) : full;
+    setColorOnce(tx, luxury ? '#ffffff' : _lighten30(_houseSignInk(o)));
     tx.setText(full);
     // Home's sign rides over the roof: the player starts in its doorway,
     // where a sign across the lower front would sit under them and fade out.
@@ -5135,7 +5153,7 @@ Render.drawObjects = function drawObjects(scene) {
     // the house is prisms, which have no art height.
     const nudge = home ? HomeArea.SIGN_NUDGE_PX : { x: 0, y: 0 };
     const homeLift = home ? (_houseArtH(o) ? _houseArtH(o) / 2 : HomeArea.HOUSE.signLiftPx) : 0;
-    const top = home ? Math.round(sy - homeLift - tx.height + nudge.y) : Math.round(sy) + 12;
+    const top = home ? Math.round(sy - homeLift - tx.height + nudge.y - (luxury ? tx.height + 4 : 0)) : Math.round(sy) + 12;
     if (typed === full) {
       tx.setPosition(Math.round(clampTextX(sx + nudge.x, tx.width, CANVAS_W)), top);
     } else {

@@ -1,22 +1,6 @@
-// HOME IS A CAMPFIRE YOU OWN.
-//
-// A placed campfire does three things on one ring: it lights (Lighting.KINDS
-// .fire), it rests you (FIRE_REST_R / FIRE_FULL_REST_S) and it repels the
-// surface slime plus the cave's own entry-level monsters (FIRE_WARD_MAX_DEPTH).
-// Home does the same three on ONE ring of its own, HOME_R — reaching every
-// registered enemy, not just the weak ones — and keeps the one thing a fire
-// hasn't, the trade panel, which is a TAP on the building and no part of the
-// ring at all.
-//
-// The three must be ONE number or they drift, which is the roadOverlayWidthM
-// discipline: the lit circle IS the safe circle IS the circle you recover in,
-// so a player reads the whole rule off the picture. lighting.test.js pins the
-// light against HOME_R; this file pins the other two.
-//
-// The rest half runs for real — run.js lifts homeWorldPos + isRestingAtHome
-// out of app.js onto a stub scene. The ward half lives inside wanderCreatures
-// (scene_creatures.js, which needs Phaser), so it is pinned as source text, plus the arithmetic
-// that says why the branch is shaped the way it is.
+// Home light and ward retain HOME_R. Phase 3 deliberately replaces the old
+// radius-healing assertions: rest requires an owned cell or an edge neighbour.
+// This keeps the broader ward/story/light contract independent of recovery.
 
 (function () {
 // Home's rest half and _damageEnemy are app.js's; the ward half is
@@ -29,7 +13,8 @@ const CELL_M = 5;
 function trailerScene(over) {
   return Object.assign({
     depth: 0,
-    cellM: CELL_M,
+    cellM: CELL_M, cellsPerTile: 32, tileEdgeM: 160,
+    mPerPx: 160 / WorldGen.TILE_PX, originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 },
     ensureStarterShopId() {},
     save: { starterShopId: 'starter_trailer',
             starterTrailer: { id: 'starter_trailer', x: 0, y: 0 } },
@@ -65,17 +50,25 @@ test('home: every crop raider asks the guard, none keeps its own test', () => {
   assert.falsy(/homeGuardsCrop/.test(app), 'no raider keeps a yard test of its own');
 });
 
-test('home: the rest is a RING, not a doormat', () => {
-  const s = trailerScene();
-  const r = HOME_R * CELL_M;
-  // The doorstep — where the player stands to work the starter plot, two
-  // cells out — rests them (the trailer counts from more than its own snapped cell).
-  assert.truthy(s.isRestingAtHome(2 * CELL_M, 0), 'two cells out is inside Home');
-  assert.truthy(s.isRestingAtHome(0, 0), 'and so is standing on it');
-  assert.truthy(s.isRestingAtHome(r * 0.99, 0), 'right out to the rim');
-  assert.falsy(s.isRestingAtHome(r * 1.01, 0), 'and not a step past it');
-  // Round, not square: the corner of the bounding box is outside.
-  assert.falsy(s.isRestingAtHome(r * 0.8, r * 0.8), 'the ring is a circle');
+test('home: rest uses owned cells and four edge neighbours across tile seams', () => {
+  const s = trailerScene(), old = WorldGen.tileCache;
+  WorldGen.tileCache = new Map();
+  // A 2×2 Home straddles both axes of the tile seam at (160,160).
+  for (const [ix, iy] of [[31,31],[32,31],[31,32],[32,32]]) {
+    const t = absCellToTile(s, ix, iy), key = WorldGen.tileKey(t.tx,t.ty);
+    let e = WorldGen.tileCache.get(key);
+    if (!e) { e = {grid:new Uint8Array(1024), owners:new Uint8Array(1024), ownerKeys:['starter_trailer']}; WorldGen.tileCache.set(key,e); }
+    e.grid[t.iy*32+t.ix] = WorldGen.T.BUILDING;
+  }
+  const at = (ix,iy) => s.isRestingAtHome((ix+.5)*CELL_M,(iy+.5)*CELL_M);
+  try {
+    for (const c of [[31,31],[32,32],[30,31],[33,32],[31,30],[32,33]]) assert.truthy(at(...c), String(c));
+    for (const c of [[30,30],[33,33],[29,31],[34,32]]) assert.falsy(at(...c), String(c));
+    const e = WorldGen.tileCache.get(WorldGen.tileKey(0,0));
+    e.ownerKeys[0] = 'neighbour';
+    assert.falsy(at(30,31), 'another building does not rest the player');
+    assert.truthy(s.inHomeRing(CELL_M * 3, 0), 'ward/light ring is unchanged');
+  } finally { WorldGen.tileCache = old; }
 });
 
 test('home: no Home, no ring — and none of it crosses a depth', () => {
@@ -89,7 +82,7 @@ test('home: no Home, no ring — and none of it crosses a depth', () => {
   assert.falsy(deep.isRestingAtHome(0, 0), 'so it rests nobody there');
 });
 
-test('home: an adopted house is Home by the same ring, resolved once', () => {
+test('home: an adopted house anchors light and ward, resolved once', () => {
   // The other branch: a real house adopted in the trailer's place. It is a
   // walk of every object in every cached tile, so it MUST memoise — all three
   // effects ask it every frame, and the un-memoised scan was already the one
@@ -110,10 +103,10 @@ test('home: an adopted house is Home by the same ring, resolved once', () => {
     for (let i = 0; i < 20; i++) s.homeWorldPos();
     assert.eq(scans, 1, 'and the tile walk ran once, not once per frame');
     // The ring is measured from the HOUSE now, not from the stale trailer.
-    assert.truthy(s.isRestingAtHome(3 * CELL_M, 0), 'resting at the adopted house');
+    assert.truthy(s.inHomeRing(3 * CELL_M, 0), 'resting at the adopted house');
     // Two cells the far side of the trailer: inside the ring the TRAILER
     // would have thrown, outside the one the adopted house does.
-    assert.falsy(s.isRestingAtHome(-2 * CELL_M, 0), 'not at the trailer it replaced');
+    assert.falsy(s.inHomeRing(-2 * CELL_M, 0), 'not at the trailer it replaced');
   } finally { WorldGen.tileCache = realCache; }
 });
 

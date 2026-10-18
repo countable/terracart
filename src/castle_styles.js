@@ -11,7 +11,7 @@
     { id: 'bastion', name: 'Intact Bastion', guards: false, questType: 'kill', floor: 0xc3b597,
       stone: { LITE: 0xd4cbb7, BODY: 0xb7aa91, FACE: 0xa2977f, SIDE: 0x968b77, SHADOW: 0x756d5d, DARK: 0x4f4a41 },
       rampart: { merlons: 4, toothHeight: 3, wallHeight: 10, topDepth: 3.6 } },
-    { id: 'archive', name: 'Old Archive Court', guards: false, questType: 'deliver', floor: 0xb3a88c,
+    { id: 'archive', name: 'Old Archive Court', guards: false, questType: 'deliver', questTypes: ['deliver', 'luxury'], floor: 0xb3a88c,
       stone: { LITE: 0xc6bca5, BODY: 0xa49c88, FACE: 0x928b7b, SIDE: 0x827e72, SHADOW: 0x656559, DARK: 0x444a43 },
       rampart: { merlons: 4, toothHeight: 2.5, wallHeight: 10, topDepth: 3.6, woodTop: true } },
   ];
@@ -23,6 +23,16 @@
     let h = 0x811c9dc5;
     for (const ch of String(key || 'castle')) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
     return ids[(h >>> 0) % ids.length];
+  }
+  // Quest selection uses a hash bit above the two style bits. Reusing the
+  // low parity bit would give every Archive the same job. The four styles
+  // and their hash assignment remain unchanged, including existing saves.
+  function questTypeFor(key, variant) {
+    const style = variants.find(v => v.id === variantFor(variant || key));
+    if (!style.questTypes || ids.includes(key)) return style.questType || null;
+    let h = 0x811c9dc5;
+    for (const ch of String(key)) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
+    return style.questTypes[(h >>> 2) % style.questTypes.length];
   }
   // A shared, pure condition treatment, already baked into every returned
   // colour. Callers must not apply the general building wash a second time.
@@ -173,5 +183,5 @@
     texture.refresh();
     return name;
   }
-  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 48, TURRET_STYLE: 'bastion', ids: Object.freeze(ids), variantFor, get, columnSites, columnTexture, damagePattern, damageCellIndex, damageCell, damageTexture });
+  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 48, TURRET_STYLE: 'bastion', ids: Object.freeze(ids), variantFor, questTypeFor, get, columnSites, columnTexture, damagePattern, damageCellIndex, damageCell, damageTexture });
 })(window);

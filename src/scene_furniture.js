@@ -1,3 +1,68 @@
+// Luxury is derived from durable placements, never the rendered object stream.
+const Furniture = (() => {
+  const ENERGY_PER_LUXURY_S = 0.1;
+  function luxuryOf(save, houseKey = save?.starterShopId) {
+    const score = save?.houseLuxury?.[houseKey]?.score;
+    return Number.isFinite(score) ? Math.max(0, score) : 0;
+  }
+  function restBonus(luxury, elapsedS, rng = Math.random) {
+    const mean = Math.max(0, luxury) * ENERGY_PER_LUXURY_S * Math.max(0, elapsedS);
+    if (!Number.isFinite(mean)) return 0;
+    const whole = Math.floor(mean), fraction = mean - whole;
+    return whole + (fraction > 0 && rng() < fraction ? 1 : 0);
+  }
+  // Synthetic Homes reuse an id when moved. Adopted buildings retain their
+  // world identity; their ownership grid remains authoritative when loaded.
+  function footprintKey(save) {
+    const st = save.starterTrailer;
+    return JSON.stringify([save.starterShopId || null,
+      st && st.id === save.starterShopId ? [st.x, st.y, !!st.adopted] : null,
+      HomeArea.HOUSE.minCell, HomeArea.HOUSE.maxCell]);
+  }
+  function recompute(scene, entry = null, tx = null, ty = null) {
+    const save = scene.save, houseKey = save.starterShopId, key = footprintKey(save);
+    const cache = (scene.depth || 0) === 0 ? WorldGen.tileCache : WorldGen.tileCacheFor(0);
+    const surface = (scene.depth || 0) === 0 ? scene : Object.assign(Object.create(scene), { depth: 0 });
+    let score = 0;
+    const counted = new Set();
+    for (const record of save.furniture || []) {
+      if (!PlacedFloor.onDepth(record, 0) || !furnitureSpec(record.itemId)) continue;
+      const cell = worldMetersToAbsCell(scene, record.x, record.y);
+      const tile = absCellToTile(scene, cell.cellIX, cell.cellIY);
+      const grid = entry && tile.tx === tx && tile.ty === ty ? entry
+        : cache.get(WorldGen.tileKey(tile.tx, tile.ty));
+      if (grid?.grid && grid.owners && grid.ownerKeys) {
+        PlacedFloor.furnitureIndoors(surface, record, grid);
+        record.houseFootprintKey = key;
+      } else if (record.houseFootprintKey !== key) {
+        // An unloaded tile is unknown, not outdoors. An association validated
+        // for this exact Home survives eviction; a moved Home cannot reuse it.
+        continue;
+      }
+      if (!houseKey || record.houseKey !== houseKey || counted.has(record.id)) continue;
+      // One saved furnishing contributes once, even when future footprints
+      // cover several cells. The catalog owns explicit luxury overrides.
+      counted.add(record.id);
+      const spec = furnitureSpec(record.itemId);
+      score += spec.luxury ?? itemTierOf(record.itemId) ** 2;
+    }
+    // The sole cache writer. Inactive Homes contribute nothing; furniture stays
+    // at its saved world position when Home moves or another house is adopted.
+    const next = {};
+    for (const id of Object.keys(save.houseLuxury || {})) {
+      next[id] = { score: 0, footprintKey: save.houseLuxury[id]?.footprintKey };
+    }
+    if (houseKey) next[houseKey] = { score, footprintKey: key };
+    const changed = JSON.stringify(save.houseLuxury) !== JSON.stringify(next);
+    save.houseLuxury = next;
+    Quests.onEvent(save, 'luxury');
+    MemoryStory.reconcileLuxury(scene);
+    if (changed) persistSave(save);
+    return score;
+  }
+  return { luxuryOf, recompute, footprintKey, restBonus, ENERGY_PER_LUXURY_S };
+})();
+
 // Placed furniture shows its world frame and uses one lossless pickup transaction.
 const FURNITURE_ABILITY_LABELS = {
   sleep: 'Sleep', wash: 'Wash', reflect: 'Reflect', craft: 'Craft', plant: 'Plant',
@@ -180,6 +245,7 @@ class SceneFurniture {
       if (entry.objects) entry.objects = entry.objects.filter(live =>
         live.kind !== 'furniture' || live.id !== record.id || !PlacedFloor.onDepth(live, this.depth));
     }
+    Furniture.recompute(this);
     this._finishInventoryChange();
     persistSave(this.save);
     this.drawObjects();

@@ -115,6 +115,7 @@ One line each; the linked purpose doc owns the detail.
 - A timed effect is a row of `Conditions.DEFINITIONS` or `Buffs.KINDS`, shown
   only as a chip in the status row; a timed consumable is a `CONSUMABLE_SPEC`
   row ([combat](docs/design/combat.md), [presentation](docs/design/presentation.md)).
+- Luxury is derived from saved furniture records through `Furniture.luxuryOf`, never summed from rendered sprites ([generation](docs/design/generation.md)).
 - `lighting.js` owns the sole lighting pass; add sources as `Lighting.KINDS`
   rows ([rendering](docs/design/rendering.md)).
 - Ordinary props resolve taps by data cell (`sameAbsCell`); buildings also
