@@ -122,4 +122,21 @@
     }
     assert.gt(checked,0,'checked interior wall breaks');
   }));
+  test('low-poly fade: translucent buildings omit filled outline passes that hide the player', () => withPhaser(() => {
+    const scene=stubScene();BuildingLowPoly.begin(scene);
+    const mesh=build(scene,'fade-render');
+    BuildingLowPoly.update(scene);
+    let vertices=0;
+    const pipeline={shouldFlush:()=>false,setTexture2D:()=>0,batchVert:()=>{vertices++;}};
+    const renderer={pipelines:{get:()=>pipeline,set:()=>pipeline,preBatch(){},postBatch(){}}};
+    const camera={alpha:1,zoom:1,addToRenderList(){}};
+    const visible=mesh.obj._lowpolyFaces.filter(f=>f.visible).length;
+    assert.gt(visible,0,'the fixture draws visible faces');
+    mesh.obj.alpha=.5;
+    mesh.obj.renderWebGL(renderer,mesh.obj,camera);
+    assert.eq(vertices,visible*3,'faded faces draw once without eight overlapping ink fills');
+    vertices=0;mesh.obj.alpha=1;
+    mesh.obj.renderWebGL(renderer,mesh.obj,camera);
+    assert.eq(vertices,visible*3*9,'opaque buildings retain their eight outline offsets');
+  }));
 })();

@@ -174,7 +174,8 @@ review is published as a Claude artifact.
 - Ink outline: `renderWebGL` re-emits each ink group's visible triangles in the
   solid trim texel, tinted `LOOK.ink`, at eight screen offsets of
   `LOOK.inkPx` (2) art pixels (× camera zoom), then draws the group. A building is
-  one contiguous sorted run; its ink groups (body, flat deck, chimney) draw in
+  one contiguous sorted run; faded buildings omit these repeated filled ink passes
+  so they remain see-through. Its ink groups (body, flat deck, chimney) draw in
   layer order so each gets a line where it meets the surface below it. Same
   retained vertices; nothing allocates on a heading change.
 - Flat roofs: no parapet lip. The deck is one colour (`solid` faces draw the

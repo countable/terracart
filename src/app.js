@@ -10620,9 +10620,8 @@ class MapScene extends Phaser.Scene {
       if (!owned) this.save.selGear = null;
     }
 
-    // Tabs holding inventory stacks keep one trailing empty-hand slot, even
-    // when they also contain equipped gear. Armor remains gear-only.
-    const cellCount = displayList.length + (cat.kinds ? 1 : 0);
+    // Only actual entries count toward paging; blank cells are inert.
+    const cellCount = displayList.length;
     const pageCount = Math.max(1, Math.ceil(Math.max(1, cellCount) / PAGE));
     if (this.save.invPage >= pageCount) this.save.invPage = pageCount - 1;
     if (this.save.invPage < 0) this.save.invPage = 0;
@@ -10856,21 +10855,9 @@ class MapScene extends Phaser.Scene {
           persistSave(this.save);
           this.refreshInventoryHighlight();
         });
-      } else if (cat.kinds && p === displayList.length) {
-        // The single trailing EMPTY slot — selecting it means "nothing held",
-        // which a shop reads as buy intent. dataset.slot = -1.
-        slot.dataset.slot = -1;
-        slot.title = 'empty';
-        slot.textContent = '';
-        slot.addEventListener('click', (e) => {
-          e.stopPropagation();
-          this.save.selSlot = -1;
-          this.save.selGear = null;
-          persistSave(this.save);
-          this.refreshInventoryHighlight();
-        });
       } else {
-        // Filler beyond the list — inert, and blank for the same reason.
+        // Empty cells cannot be selected or focused.
+        slot.disabled = true;
         slot.textContent = '';
         slot.style.cursor = 'default';
       }
