@@ -1601,8 +1601,8 @@ test('building overlay: inside Home the roof comes off and the walls show their 
   assert.eq(group.parts.filter(p => p.visible).length, group.blocks.length, 'a visible part per block');
   assert.truthy(group.parts.every(p => p._worldGeometry && p._huAnchor), 'world geometry with a sort anchor');
   const pieces = WallPerspective.worldPieces(scene);
-  assert.eq(pieces.length, group.blocks.length + 1, 'handed to the frame\'s world sort, the room\'s one ink part with them');
-  assert.truthy(group.inkPart?.visible && pieces[0].sprite === group.inkPart, 'the ink part first, under the walls');
+  assert.eq(pieces.length, group.blocks.length, 'handed to the frame\'s world sort');
+  assert.falsy(group.inkPart, 'no outline inside: the dark mask outside is the room\'s edge');
   scene.homeInside = () => false;
   BuildingOverlay.draw(scene);
   assert.falsy(scene._wallPerspective.home.perWall, 'outside, one roofed object again');

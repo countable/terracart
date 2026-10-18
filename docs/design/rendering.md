@@ -133,11 +133,9 @@ wall section draws into a part of its own in the world container, anchored
 at the same sort point and handed to the frame's world sort through
 `WallPerspective.worldPieces` — never the one wall-container graphics,
 which sits under the player's container and drew the player over every wall.
-Inside, on either path, no wall inks its own outline: one object more
-(`inkOnly` / `inkPart`), sorted with the ground decals under every wall and
-the player, draws the whole room's outline once, so no black seam lies
-between the walls (the castle's ramparts are outlined once per run the same
-way). The interior's wall thickness is `BuildingLowPoly.LOOK.wallThickness`
+Inside, on either path, no wall is inked at all (`noInk`): a wall inking
+its own outline over its neighbour's fill left black seams between the
+walls, and the dark mask outside the room is edge enough. The interior's wall thickness is `BuildingLowPoly.LOOK.wallThickness`
 (2.8 px) on the low-poly path and `HomeArea.HOUSE.thicknessPx` (2 px) on the
 prism path.
 A door faces the nearest street: `BuildingLowPoly.streetDoor` picks the
@@ -191,10 +189,17 @@ the real source so a missing texture cannot become a permanent cached palette.
   “of”), only the first word appears. Full names remain available in dialogs.
 - The circular map and compass rim sit 55 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
-- Zoom is camera-only. The initial resting view is the closest setting,
-  spanning seven cells (`MAP_DEFAULT_ZOOM`). Plain +/− buttons on the
+- Zoom is camera-only. The resting view a game opens on spans seven cells
+  (`DEFAULT_VIEW_CELLS`, `MAP_DEFAULT_ZOOM`); one level closer, five across
+  (`PINCH_VIEW_CELLS`), is the room-sized view. Plain +/− buttons on the
   right change the resting span by two cells, bounded by `PINCH_VIEW_CELLS`
-  and `VIEW_CELLS`; disabled buttons mark the limits. The choice lasts for the
+  and `VIEW_CELLS`; disabled buttons mark the limits. `_setRestZoom` is the
+  resting zoom's one writer, and the view eases to a new rest through the
+  peek's spring (`_tickMapZoom`: `ZOOM_STEP_MS` for a step, never a cut).
+  Stepping inside Home (`homeInside`) eases to the closest level on its own
+  and stepping out eases back to the player's choice (`_tickHomeZoom`,
+  `HOME_ZOOM_MS`; once per crossing, so a step taken inside holds until they
+  leave; never underground). The choice lasts for the
   session, including modals and depth changes. Pinch zoom remains temporary
   and springs back to that selected view on `PEEK_RETURN_MS`.
   `_applyMapZoom` clips the camera viewport and counter-scales map chrome;

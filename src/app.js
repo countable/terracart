@@ -324,9 +324,18 @@ const PEEK_RETURN_MS = 90;
 // which is also where the new game's opening shot settles. Buttons select the
 // resting view; a pinch temporarily magnifies it and springs back on release.
 // The widest view remains VIEW_CELLS, so loading and gameplay ranges stay fixed.
-const PINCH_VIEW_CELLS = 7;
+const PINCH_VIEW_CELLS = 5;
 const PINCH_MAX_ZOOM = VIEW_CELLS / PINCH_VIEW_CELLS;
-const MAP_DEFAULT_ZOOM = VIEW_CELLS / PINCH_VIEW_CELLS;
+// The resting view a game opens on: DEFAULT_VIEW_CELLS across — one level
+// out from the closest (owner, Oct 2026: the closest, five across, is the
+// room-sized view Home zooms to on its own, _tickHomeZoom).
+const DEFAULT_VIEW_CELLS = 7;
+const MAP_DEFAULT_ZOOM = VIEW_CELLS / DEFAULT_VIEW_CELLS;
+// How a change of resting zoom gets there: eased (the peek's spring,
+// _tickMapZoom) over ZOOM_STEP_MS for a +/− step and HOME_ZOOM_MS for Home's
+// own zoom in and out — never a cut.
+const ZOOM_STEP_MS = 320;
+const HOME_ZOOM_MS = 480;
 // Surface GPS gap (metres) past which a fix PLACES the body instead of being
 // walked off. The body chases the GPS target at up to DEBUG_SPEED_MUL × walk
 // pace (14 m/s), which comfortably keeps up with a real walk or a slow drive;
@@ -3356,6 +3365,7 @@ class MapScene extends Phaser.Scene {
     // every projection below — and every draw pass this frame — reads one
     // settled camera position rather than two.
     this._tickPeek(dt);
+    this._tickHomeZoom();
     this._tickMapZoom(dt);
     this._tickHomeIntro(dt);
     HeadingUp.tick(this, dt);
@@ -6035,12 +6045,36 @@ class MapScene extends Phaser.Scene {
     if (this._homeIntro) this.clearPeek();
     const span = VIEW_CELLS / (this._mapZoomRest || MAP_DEFAULT_ZOOM);
     const next = clamp(span - direction * 2, PINCH_VIEW_CELLS, VIEW_CELLS);
-    this._mapZoomRest = this.mapZoom = VIEW_CELLS / next;
-    this._mapZoomReturning = false;
     this._pinch = null;
     this._homeIntro = null;
-    if (this._zoomInButton) this._zoomInButton.disabled = next <= PINCH_VIEW_CELLS;
-    if (this._zoomOutButton) this._zoomOutButton.disabled = next >= VIEW_CELLS;
+    this._setRestZoom(VIEW_CELLS / next, ZOOM_STEP_MS);
+  }
+  // THE ONE WRITER of the resting zoom: the +/− step, Home's own zoom. The
+  // view EASES to it (the peek's spring, _tickMapZoom, over `tauMs`) instead
+  // of cutting; the buttons mark the end stops at once.
+  _setRestZoom(zoom, tauMs) {
+    this._mapZoomRest = zoom;
+    this._mapZoomTauMs = tauMs;
+    this._mapZoomReturning = Math.abs((this.mapZoom || 1) - zoom) > 1e-9;
+    const span = Math.round(VIEW_CELLS / zoom);
+    if (this._zoomInButton) this._zoomInButton.disabled = span <= PINCH_VIEW_CELLS;
+    if (this._zoomOutButton) this._zoomOutButton.disabled = span >= VIEW_CELLS;
+  }
+  // HOME ZOOMS IN ON ITS OWN (owner, Oct 2026): stepping inside the house
+  // (scene_venues.js homeInside) eases the view to the closest level — the
+  // room fills the frame — and stepping out eases it back to whatever the
+  // player had chosen. Once per crossing: a +/− step inside holds until
+  // they leave. Surface only; a cellar has no house.
+  _tickHomeZoom() {
+    const inside = (this.depth || 0) === 0 && typeof this.homeInside === 'function' && !!this.homeInside();
+    if (inside && !this._homeZoom) {
+      this._homeZoom = { restore: this._mapZoomRest || MAP_DEFAULT_ZOOM };
+      this._setRestZoom(PINCH_MAX_ZOOM, HOME_ZOOM_MS);
+    } else if (!inside && this._homeZoom) {
+      const { restore } = this._homeZoom;
+      this._homeZoom = null;
+      this._setRestZoom(restore, HOME_ZOOM_MS);
+    }
   }
 
   _buildZoomControl() {
@@ -6126,6 +6160,7 @@ class MapScene extends Phaser.Scene {
   // glass carries on dragging from where it is now, not from where it landed.
   _pinchEnd() {
     this._pinch = null;
+    this._mapZoomTauMs = PEEK_RETURN_MS;
     if (this.mapZoom !== (this._mapZoomRest || 1)) this._mapZoomReturning = true;
     const p = this._peekPointer;
     if (p?.isDown && p.id === this._peekPointerId) {
@@ -6141,7 +6176,7 @@ class MapScene extends Phaser.Scene {
   _tickMapZoom(dt) {
     if (!this._mapZoomReturning) return;
     const home = this._mapZoomRest || 1;
-    this.mapZoom = home + (this.mapZoom - home) * Math.exp(-dt / (PEEK_RETURN_MS / 1000));
+    this.mapZoom = home + (this.mapZoom - home) * Math.exp(-dt / ((this._mapZoomTauMs || PEEK_RETURN_MS) / 1000));
     if (Math.abs(this.mapZoom - home) * this.viewSize / 2 < 0.5) {
       this.mapZoom = this._mapZoomRest || 1;
       this._mapZoomReturning = false;

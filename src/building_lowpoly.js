@@ -946,7 +946,7 @@
         let group=[],support=null,groupId=0;
         // The outline repeats filled triangles eight times. During a fade those
         // layers would accumulate to opaque black and hide the player again.
-        const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0&&src.alpha===1&&!src._noInk)ink(group);if(!src._inkOnly)paint(group);group=[];};
+        const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0&&src.alpha===1&&!src._noInk)ink(group);paint(group);group=[];};
         for(const f of src._lowpolyFaces){
           if(!f.visible)continue;
           const g=f.inkGroup||0;
@@ -1107,13 +1107,11 @@
     const parts=cached.edges?cached.edges.map((edge)=>({...cached,faces:cached.faces.filter(f=>f.edge===edge.index),edge,noInk:true})).filter(p=>p.faces.length):[cached];
     let first=null;
     for(const part of parts){const mesh=place(part);first=first||mesh;}
-    // THE INK UNDER THE ROOM (owner, Oct 2026: no black seams between the
-    // walls): the walls, drawn as parts of their own, each inked their own
-    // outline over the neighbour's fill. Inside, no part inks (`noInk`); one
-    // object more draws the whole house's outline and nothing else
-    // (`inkOnly`), sorted with the ground decals under every wall and the
-    // player — like the castle's ramparts, outlined once per run.
-    if(parts.length>1)place({...cached,inkOnly:true});
+    // NO INK INSIDE (owner, Oct 2026): the walls, drawn as parts of their
+    // own, each inked their own outline over the neighbour's fill (black
+    // seams between the walls); inside, no part inks at all (`noInk`) — the
+    // dark mask outside the room (lighting.js paintIndoorMask) is the room's
+    // edge.
     return first;
     function place(cached){
     const mesh={...cached,faces:atlasFaces(cached,texture.roofPeriod)};
@@ -1132,7 +1130,7 @@
     const index=state.buildings.length-1;
     const obj=state.pool[index]||(state.pool[index]=renderObject(scene));
     mesh.obj=obj;mesh.support=support;obj._lowpolyFaces=mesh.faces;
-    mesh.inkOnly=!!cached.inkOnly;obj._inkOnly=mesh.inkOnly;obj._noInk=!!cached.noInk;
+    obj._noInk=!!cached.noInk;
     for(const face of mesh.faces){
       const roofTone=face.tileCap&&texture.roofTone!=null?mix(texture.roofTone,0x2a2229,.12):recipe.roof;
       if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
@@ -1211,7 +1209,7 @@
     const state=scene._lowpoly;if(!state||!state.enabled||!active(scene)||(scene.depth??0)!==0)return [];
     update(scene);
     const anchor=viewAnchorWorldM(scene);
-    return state.buildings.map(mesh=>({sprite:mesh.obj,rank:1,layer:typeof WorldLayers==='undefined'?undefined:mesh.role==='wreck'||mesh.inkOnly?WorldLayers.GROUND_DECAL:WorldLayers.STANDING_PROP,
+    return state.buildings.map(mesh=>({sprite:mesh.obj,rank:1,layer:typeof WorldLayers==='undefined'?undefined:mesh.role==='wreck'?WorldLayers.GROUND_DECAL:WorldLayers.STANDING_PROP,
       groundY:anchor.y+(mesh.obj._huAnchor.y-scene.viewCenterY)*scene.cellM/CELL_PX}));
   }
   function clear(scene){

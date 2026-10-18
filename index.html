@@ -98,7 +98,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=d4d4c330" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=4cd4bc9e" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -3126,9 +3126,9 @@
   <script src="src/multiplayer.js?v=9e2412e3"></script>
   <script src="src/road_overlay.js?v=c9474646"></script>
   <script src="src/temple_art.js?v=ef92c84b"></script>
-  <script src="src/wall_perspective.js?v=98e69146"></script>
+  <script src="src/wall_perspective.js?v=9369a715"></script>
   <script src="src/building_styles.js?v=b503f242"></script>
-  <script src="src/building_lowpoly.js?v=4731062b"></script>
+  <script src="src/building_lowpoly.js?v=7fe7adab"></script>
   <script src="src/building_overlay.js?v=120c7950"></script>
   <script src="src/assets.js?v=255139be"></script>
   <script src="src/sandbox_destinations.js?v=e6dc29cb"></script>
@@ -3224,7 +3224,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=d4d4c330';
+      const APP_SRC = 'src/app.js?v=4cd4bc9e';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
