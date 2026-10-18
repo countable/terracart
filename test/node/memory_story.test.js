@@ -151,7 +151,7 @@ test('memory chip: the explainer is a declared kind, and says both numbers', () 
 test('memory chip: built beside #energy, repainted by updateHUD, dimmed under a modal, tap swallowed', () => {
   const build = lift('_buildMemoriesChip() {', '_buildMemoriesChip');
   assert.truthy(/row\.insertBefore\(el, energy\)/.test(build), 'sits beside the energy gauge');
-  assert.truthy(/this\.renderItemIcon\('memory', 18, 'block'\)/.test(build), 'draws the gold star');
+  assert.truthy(build.includes("ico.src = 'assets/ui/compass/memory-star.svg'"), 'creates the compass gold star directly');
   assert.truthy(/onTap: \(\) => this\.showMemoriesHelp\(\),/.test(build), 'the tap explains');
   const chip = lift('_buildHudChip({ id, label, css, fill, seat, onTap }) {', '_buildHudChip');
   assert.truthy(/swallowTaps\(el\);/.test(chip) && /e\.stopPropagation\(\); onTap\(\);/.test(chip), 'and stops there');
