@@ -8354,11 +8354,16 @@ class MapScene extends Phaser.Scene {
     this._lastInteractionT = Date.now();
     this._storyRun = false;
   }
-  // Panels the hold keeps back, across every deferred lane.
+  // Panels the hold keeps back, across every deferred lane. Memory panels
+  // open only at Home (MemoryStory.drain, atHome): away from it they are not
+  // waiting on the hold, so the badge does not offer them — a badge that
+  // opened nothing, and a run flag left true for the rest of the trip, was the
+  // alternative.
   _pendingStoryCount() {
     const s = this.save || {};
+    const memoriesHere = typeof MemoryStory === 'undefined' || MemoryStory.atHome(this);
     return (this._ceremonies || []).filter((c) => c.waits).length
-      + (s.memoryStory?.pending?.length || 0)
+      + (memoriesHere ? (s.memoryStory?.pending?.length || 0) : 0)
       + (window.__sandboxSkipTutorial ? 0 : (s.compassModules?.pending?.length || 0))
       + (s.petStoriesPending?.length || 0)
       + (s.dragonStory?.pending ? 1 : 0);

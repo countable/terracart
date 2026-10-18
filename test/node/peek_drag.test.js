@@ -370,8 +370,15 @@ test('falloff: the player ramp ends a cell past the viewport half-diagonal, on z
 test('falloff: the light is drawn at the player every frame, never slid', () => {
   const src = LIGHTING_SRC;
   assert.truthy(/const ps0 = scene\.playerScreen \? scene\.playerScreen\(\)/.test(src)
-                && /const ps = ps0;/.test(src),
-                'centred on the exact feet-on-the-fix point without rounding');
+                && /const ps = \{ x: Math\.round\(ps0\.x\), y: Math\.round\(ps0\.y\) \};/.test(src),
+                'centred on the feet-on-the-fix point, on the whole pixel the body sprite lands on');
+  // The key reads ps: a sub-pixel easing step toward a GPS fix must not repaint.
+  const keyScene = () => Object.assign(lightScene(), { cellM: 5, startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 },
+    mPerPx: 10, feetOffsetM: 0, cellsPerTile: 512, isClaimedKey: () => false, _lights: [] });
+  const prof = Lighting.profile(keyScene());
+  const k = (x) => Lighting.frameKey(keyScene(), { x: Math.round(x), y: 100 }, 0, 0, prof, 60, 400, 12.5, 0, 0);
+  assert.eq(k(100.2), k(100.4), 'a third of a pixel of easing is the same frame');
+  assert.truthy(k(100.4) !== k(101.4), 'a whole pixel is a new one');
   assert.truthy(/ctx\.drawImage\(player\.canvas, ps\.x - ox - D \/ 2, ps\.y - oy - D \/ 2, D, D\)/.test(src), 'drawn there each frame');
   assert.falsy(/setPosition\(-pk\.x, -pk\.y\)/.test(RENDER_SRC),
                'no cached darkness image is slid by the peek any more');
