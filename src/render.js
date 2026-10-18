@@ -4653,7 +4653,10 @@ Render.drawObjects = function drawObjects(scene) {
     ...pressureState.traps.map(h => ({ h, plate: false }))].map(it => ({
       ...it, dx: it.h.x - pWorldX, dy: it.h.y - pWorldY,
     })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
+  // The buildings that sort with the world: the low-poly meshes, and the
+  // prism path's per-wall parts (Home's interior without low-poly).
   const zList = typeof BuildingLowPoly !== 'undefined' ? BuildingLowPoly.worldPieces(scene) : [];
+  if (typeof WallPerspective !== 'undefined' && WallPerspective.worldPieces) zList.push(...WallPerspective.worldPieces(scene));
   Render.cullCovered(scene, whirlwindList, 'h');
   Render.cullCovered(scene, environmentList, 'h', true);
   Render.cullCovered(scene, pressureList, 'h', true);
