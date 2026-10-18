@@ -186,7 +186,8 @@ review is published as a Claude artifact.
 - Chimneys: a cobbled stack (sides are `wall` faces with `rawUV` into the
   sheet's stone plinth rows), a wider cap and a dark mouth, as ink group 2.
   `ROLES[role].chimneys`/`chimneyScale` place a pair at 26%/74% of the ridge
-  (the smithy, 1×); the default is one at 28%.
+  (the smithy, 1×); the default is one at 28%. Smithy stacks use the same
+  stone-block palette and course sizes as their walls, with matching stone caps.
 - Wreck: mostly wall. Thick sections (the ring inset by 4 units, 2 where a
   notch forbids) run around the whole footprint, each with its own broken
   height and a flat `wallTop`; the step up to a taller neighbour shows as an
