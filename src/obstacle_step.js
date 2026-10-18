@@ -20,7 +20,7 @@ const ObstacleStep = (() => {
   function speedMul(support) { return (support?.liftPx || 0) > 0.5 ? BALANCE_SPEED_MUL : 1; }
   const PROFILES = Object.freeze({
     rock: Object.freeze({ liftPx: 4, radius: 0.25, top: 0.185, shape: 'round' }),
-    wall: Object.freeze({ liftPx: 5, radius: 0.29, top: 0.21, shape: 'band' }),
+    wall: Object.freeze({ liftPx: 5.5, radius: 0.29, top: 0.21, shape: 'band' }),
     bush: Object.freeze({ liftPx: 3, radius: 0.25, top: 0.19, shape: 'round' }),
     hedge: Object.freeze({ liftPx: 6, radius: 0.29, top: 0.21, shape: 'band' }),
   });

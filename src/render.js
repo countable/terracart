@@ -3095,8 +3095,9 @@ Render.drawCells = function drawCells(scene) {
           if (!wallEdge(col, row, dc, dr)) continue;
           if (type === 11) {
             // Separate pickets retain the palisade gaps on every compass axis.
-            for (let i = 0; i < 8; i++) {
-              const t = i / 8, end = t + WallMaterials.WOOD.width / CELL_PX;
+            const count = Math.max(1, Math.round(CELL_PX / WallMaterials.WOOD.pitch));
+            for (let i = 0; i < count; i++) {
+              const t = i / count, end = Math.min(1, t + WallMaterials.WOOD.width / CELL_PX);
               WallPerspective.palisade(scene, 'tiled', { ...style, nx, ny,
                 ax: ax + (bx - ax) * t, ay: ay + (by - ay) * t,
                 bx: ax + (bx - ax) * end, by: ay + (by - ay) * end });
