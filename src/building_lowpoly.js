@@ -37,18 +37,18 @@
     plain:{window:'casement',material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey'},
     // Home — the player's house (building_overlay.js drawHome): one storey of
     // plaster under a clay ridge, and the one role with an `interior` recipe.
-    home:{window:'shutters',material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey',variant:'ridge'},
-    blacksmith:{window:'barred',material:'stone',finish:'workshop',roofMaterial:'slate',stories:1,style:'brick',smoke:true,chimneyFlare:1.12},
-    trader:{window:'wide',material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
-    shop:{window:'wide',material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
-    seed:{window:'shutters',material:'plaster',finish:'plaster',roofMaterial:'thatch',stories:1,style:'adobe'},
-    supply:{window:'slatted',material:'timber',finish:'siding',roofMaterial:'flat',stories:2,style:'whitewash',variant:'flat'},
-    potion:{window:'arched',material:'plaster',finish:'plaster',roofMaterial:'clay',stories:2,style:'pyramid',variant:'inset'},
-    relic:{window:'arched',material:'timber',finish:'masonry',roofMaterial:'redtile',stories:1,style:'pyramid',variant:'inset'},
-    pet:{window:'shutters',material:'timber',finish:'siding',roofMaterial:'thatch',stories:1,style:'japanese'},
-    book:{window:'tallpanes',material:'brick',finish:'masonry',roofMaterial:'clay',stories:2,style:'japanese'},
+    home:{window:'casement',material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey',variant:'ridge'},
+    blacksmith:{window:'woodShutters',material:'stone',finish:'workshop',roofMaterial:'slate',stories:1,style:'brick',smoke:true,chimneyFlare:1.12},
+    trader:{window:'slateShutters',material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
+    shop:{window:'shop',material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
+    seed:{window:'shop',material:'plaster',finish:'plaster',roofMaterial:'thatch',stories:1,style:'adobe'},
+    supply:{window:'shop',material:'timber',finish:'siding',roofMaterial:'flat',stories:2,style:'whitewash',variant:'flat'},
+    potion:{window:'shop',material:'plaster',finish:'plaster',roofMaterial:'clay',stories:2,style:'pyramid',variant:'inset'},
+    relic:{window:'shop',material:'timber',finish:'masonry',roofMaterial:'redtile',stories:1,style:'pyramid',variant:'inset'},
+    pet:{window:'shop',material:'timber',finish:'siding',roofMaterial:'thatch',stories:1,style:'japanese'},
+    book:{window:'shop',material:'brick',finish:'masonry',roofMaterial:'clay',stories:2,style:'japanese'},
     wizard:{window:'arched',material:'stone',finish:'tower',roofMaterial:'slate',stories:3,style:'pyramid',shape:'wizard'},
-    turret:{window:'barred',material:'stone',finish:'tower',roofMaterial:'slate',stories:1,style:'fort',shape:'turret'},
+    turret:{window:'casement',material:'stone',finish:'tower',roofMaterial:'slate',stories:1,style:'fort',shape:'turret'},
     wreck:{window:'casement',material:'timber',finish:'cottage',roofMaterial:'slate',stories:1,style:'ruin',shape:'wreck'},
   };
   function recipeFor(role,palette={},stories){
@@ -663,28 +663,28 @@
     px(0,BOT,512,23,plinth.base);
     for(let y=BOT+1,row=0;y<128;y+=bh,row++)for(let x=-(row%2)*bw/2;x<512;x+=bw){px(x,y+bh-1,bw,1,plinth.shade);px(x+bw-1,y,1,bh,plinth.shade);px(x+1,y,bw-3,1,plinth.light);}
     // --- openings -------------------------------------------------------------
-    const casement=(x,y)=>{ // All sills sit above the old 13-texel casement.
-      const style=recipe.window||'casement',w=style==='wide'?15:style==='barred'?9:11,h=10;
+    // Window shapes follow the approved house, smithy, trader and market
+    // sprites. Specialty shops share the market sprite's broad four panes.
+    const casement=(x,y)=>{
+      const style=recipe.window||'casement',shop=style==='shop',twin=style==='slateShutters',w=shop?17:11,h=10;
       x-=Math.floor((w-11)/2);
       px(x-1,y-1,w+2,h+2,ink);px(x,y,w,h,trim.base);
       if(wreck){px(x+1,y+1,w-2,h-2,CEL.plum);px(x,y+2,w,2,CEL.wood.mid);px(x,y+6,w,2,CEL.wood.dark);px(x+1,y+2,1,1,ink);px(x+w-2,y+7,1,1,ink);return;}
-      px(x+1,y+1,w-2,h-2,CEL.glass.base);px(x+1,y+1,Math.floor(w/2)-1,3,CEL.glass.light);px(x+Math.ceil(w/2),y+5,Math.floor(w/2)-1,4,CEL.glass.dark);
-      if(style==='barred'||style==='tallpanes'){
-        for(let i=3;i<w-1;i+=3)px(x+i,y+1,1,h-2,trim.shade);
-        if(style==='barred')px(x+1,y+5,w-2,1,trim.shade);
-      }else if(style==='slatted'){
-        for(let i=2;i<h-1;i+=3){px(x+1,y+i,w-2,2,trim.base);px(x+1,y+i,w-2,1,trim.light);}
-      }else{
-        px(x+Math.floor(w/2),y+1,1,h-2,trim.shade);px(x+1,y+4,w-2,1,trim.shade);
-      }
+      px(x+1,y+1,w-2,h-2,CEL.glass.base);
+      px(x+1,y+1,Math.floor(w/2)-1,twin?h-2:3,CEL.glass.light);
+      px(x+Math.ceil(w/2),y+(twin?1:5),Math.floor(w/2)-1,twin?h-2:4,CEL.glass.dark);
+      px(x+Math.floor(w/2),y+1,1,h-2,trim.shade);
+      if(!twin)px(x+1,y+4,w-2,1,trim.shade);
       if(style==='arched'){
-        // Stepped arch in the frame, preserving the common lintel height.
         px(x,y,w,1,trim.shade);px(x,y+1,2,2,trim.base);px(x+w-2,y+1,2,2,trim.base);
         px(x+2,y+1,w-4,1,trim.light);
       }
-      if(style==='shutters')for(const sx of [x-4,x+w+1]){
-        px(sx,y,3,h,trim.base);px(sx,y,1,h,trim.light);
-        px(sx,y+3,3,1,trim.shade);px(sx,y+7,3,1,trim.shade);
+      if(style==='woodShutters'||twin){
+        const shutter=twin?{base:0x626c80,light:0x8792a3,shade:0x3d4256}:trim;
+        for(const sx of [x-5,x+w+1]){
+          px(sx-1,y-1,6,h+2,ink);px(sx,y,4,h,shutter.base);px(sx,y,1,h,shutter.light);
+          for(let j=2;j<h;j+=3)px(sx+1,y+j,3,1,shutter.shade);
+        }
       }
       px(x-2,y+h,w+4,2,trim.light);px(x-2,y+h+2,w+4,1,ink);
       px(x-2,y-3,w+4,2,trim.shade);px(x-2,y-3,w+4,1,trim.light);

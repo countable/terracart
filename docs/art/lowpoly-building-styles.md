@@ -41,7 +41,7 @@ Facade select and a "Show sheet" toggle to compare the two.
 The cel facade paints thick beams over the wall planks at the existing storey,
 post and diagonal-brace positions. Each has a broad wood face in the wall's
 palette, a one-texel upper/left highlight and a lower/right shadow. Posts and
-bands are five texels wide; diagonal braces span each full panel and match their apparent thickness. Casements keep their upper edge and raise their sill by three texels. `ROLES.window` selects casements for delivery houses, shutters for home/seed/pet, bars for smithies, wide shop/trader glazing, supply slats, arched potion/relic/wizard frames, and narrow bookshop panes. The cached sheet includes this style in its key.
+bands are five texels wide; diagonal braces span each full panel and match their apparent thickness. Casements keep their upper edge and raise their sill by three texels. `ROLES.window` follows the approved pixel-art sprites: four-pane house windows, wood-shuttered smithy windows, twin-pane trader windows with slate shutters, and wider four-pane market windows for every shop specialty. Wizard windows retain an arched frame. All keep the raised sill; shops gain width. The cached sheet includes this style in its key.
 The Canvas fallback retains the imported style renderer. Existing castle
 perimeters, signs, interaction objects and fort/castle ownership remain intact.
 
