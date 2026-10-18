@@ -537,7 +537,7 @@ class SceneShops {
   // starts far from START_LAT would get a trailer off-screen near the origin.
   //
   // Once a GPS fix is in and every tile the viewport overlaps is ready, Home
-  // waits for the first compass reading, then adopts a building within two
+  // waits for the first compass reading, then adopts a building within three
   // cells of the player or places a new 2×2 house on open ground (_placeHome).
   // Buildings and their footprints are preserved. A save whose
   // Home is an adopted house keeps it while that house is loaded, so Home is
@@ -615,7 +615,7 @@ class SceneShops {
     }
     // Search from the actual GPS position, independent of the loot anchor.
     if (!this._placeHome(ax, ay,
-      typeof HeadingUp !== 'undefined' && HeadingUp.enabled ? (heading || 0) : 0)) return;
+      typeof HeadingUp !== 'undefined' && HeadingUp.enabled ? (heading || 0) : 0, true)) return;
     this._starterShopOk = true;
     this._setStarterCratesAt(ax, ay);
   }

@@ -397,20 +397,44 @@
     });
   }
 
-  test('home footing: the two-cell adoption limit includes its boundary', () => {
+  test('home footing: the three-cell adoption limit includes its boundary', () => {
     const b = { key: 'h_limit', x0: 34, x1: 35, y0: 29, y1: 31 };
     const obj = { kind: 'house', id: b.key, ...at(35, 30), tier: 9 };
     for (const beyond of [false, true]) {
       withTile(tile([b], [obj]), () => {
-        const s = scene(), p = { x: 32 * CELL_M - (beyond ? 0.01 : 0), y: at(30, 30).y };
+        const s = scene(), p = { x: 31 * CELL_M - (beyond ? 0.01 : 0), y: at(30, 30).y };
         s._placeHome(p.x, p.y);
         assert.eq(s.save.starterShopId, beyond ? 'starter_trailer' : b.key,
-          beyond ? 'farther than two cells creates Home' : 'exactly two cells adopts');
+          beyond ? 'farther than three cells creates Home' : 'exactly three cells adopts');
         const e = WorldGen.tileCache.get(KEY);
         assert.eq(cellsOf(e, b.key), 6, 'existing footprint remains');
         if (beyond) assert.eq(cellsOf(e, 'starter_trailer'), 4, 'new Home covers exactly four cells');
       });
     }
+  });
+
+  test('initial Home: a road-covered start finds a clear 2x2 site beyond the local search', () => {
+    const e = tile([]);
+    for (let iy = 24; iy <= 36; iy++) for (let ix = 24; ix <= 36; ix++) {
+      e.grid[iy * N + ix] = WorldGen.T.ROAD;
+    }
+    const roads = e.grid.slice();
+    withTile(e, () => {
+      const s = scene();
+      s.gpsM = at(30, 30); s.playerM = { ...s.gpsM };
+      s._deviceCompass = { deg: 0 };
+      s._setStarterCratesAt = () => {};
+      s.ensureStarterShopId = lift('ensureStarterShopId');
+      s.ensureStarterShopId();
+      assert.eq(s.save.starterShopId, 'starter_trailer', 'a blocked start still receives Home');
+      assert.eq(cellsOf(e, 'starter_trailer'), 4, 'the entire 2x2 footing is stamped');
+      for (let i = 0; i < roads.length; i++) if (roads[i] === WorldGen.T.ROAD) {
+        assert.eq(e.grid[i], WorldGen.T.ROAD, 'roads survive placement');
+      }
+      const saved = JSON.stringify(s.save.starterTrailer);
+      s.ensureStarterShopId();
+      assert.eq(JSON.stringify(s.save.starterTrailer), saved, 'subsequent frames keep the same Home');
+    });
   });
 
   test('home footing: a house that turns up after a rebuild keeps its footprint', () => {

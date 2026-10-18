@@ -758,10 +758,12 @@ Higher-priority placements and their access space take precedence in this order:
 1. Saved player-owned objects, Home and story placements. Preserve saved ids and
    progress; a conflicting generated story placement finds a valid alternative
    rather than moving or deleting a player-owned object. Home adopts the nearest
-   existing house footprint within two cells of the player's initial position,
+   existing house footprint within three cells of the player's initial position,
    prioritizing a footprint containing the player. Distance is to the polygon
    edge, not the house's entrance. With no nearby house, it adds a 2×2-cell
-   house on open ground. `clearHomeFooting` removes incidental clutter only:
+   house on open ground, searching farther across loaded surface tiles if the
+   immediate area is blocked. All four cells must avoid roads, water and existing
+   buildings. `clearHomeFooting` removes incidental clutter only:
    existing building cells, objects and outlines are never erased for Home.
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and

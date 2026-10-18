@@ -1098,7 +1098,7 @@ class SceneVenues {
   // Prefer the nearest existing house footprint, including a building whose
   // entrance is far from the player. Distance is to the polygon, not its object.
   _nearbyHomeBuilding(x, y) {
-    let best = null, bestDistance = 2 * this.cellM;
+    let best = null, bestDistance = 3 * this.cellM;
     for (const [key, entry] of WorldGen.tileCache) {
       if (!entry?.buildingShapes || (entry.depth || 0) !== 0) continue;
       const [, tx, ty] = key.split('/').map(Number);
@@ -1160,7 +1160,7 @@ class SceneVenues {
   }
 
   // Shared nonmutating site search for placement and move confirmation.
-  _newHomeSite(x, y, heading = 0) {
+  _newHomeSite(x, y, heading = 0, searchLoaded = false) {
     const at = worldMetersToAbsCell(this, x, y);
     const offset = HomeArea.placementOffsets(heading).wagon;
     for (let r = 0; r <= 3; r++) {
@@ -1171,14 +1171,31 @@ class SceneVenues {
         if (this._homeSiteClear(m.x, m.y)) return m;
       }
     }
-    return null;
+    // Initial Home must not disappear because the immediate surroundings are
+    // paved or flooded. Search all ready surface tiles for the nearest legal
+    // footing; moves keep their local search so they cannot jump far away.
+    let best = null, bestDistance = Infinity;
+    if (searchLoaded) for (const [key, entry] of WorldGen.tileCache) {
+      if (!entry?.grid || (entry.depth || 0) !== 0
+          || (entry.status && entry.status !== 'ready')) continue;
+      const [, tx, ty] = key.split('/').map(Number);
+      const n = entry.cellsPerEdge || this.cellsPerTile;
+      for (let iy = 0; iy < n; iy++) for (let ix = 0; ix < n; ix++) {
+        const mx = tx * this.tileEdgeM + (ix + 0.5) * this.cellM;
+        const my = ty * this.tileEdgeM + (iy + 0.5) * this.cellM;
+        const distance = (mx - x) ** 2 + (my - y) ** 2;
+        if (distance >= bestDistance || !this._homeSiteClear(mx, my)) continue;
+        best = { x: mx, y: my }; bestDistance = distance;
+      }
+    }
+    return best;
   }
 
   // Adopt a nearby building as-is. Only open starts receive a new 2×2 Home.
   // Both initial placement and "Move Home here" use this path.
-  _placeHome(x, y, heading = 0) {
+  _placeHome(x, y, heading = 0, searchLoaded = false) {
     const existing = this._nearbyHomeBuilding(x, y);
-    const wagon = existing ? null : this._newHomeSite(x, y, heading);
+    const wagon = existing ? null : this._newHomeSite(x, y, heading, searchLoaded);
     if (!existing && !wagon) return false;
     this.save.homeFirepit = null;
     this.save.homeFirepitPending = true;
