@@ -7,22 +7,23 @@
       assert.includes(['flat', 'mid', 'basin'], spec.height, id);
     }
   });
-  test('furniture: basins are upright props without obstacle lift', () => {
+  test('furniture: basins draw below the player without obstacle lift', () => {
     const tub = { kind: 'furniture', itemId: 'washtub', x: 2.5, y: 2.5 };
     assert.eq(furnitureSpec(tub).height, 'basin');
     assert.eq(ObstacleStep.profile(tub), null);
     assert.eq(ObstacleStep.sample(tub.x, tub.y, [tub], 5).liftPx, 0);
     const { resolveAppearance } = Render.objectAppearance({ textures: { exists: () => true }, save: {} }, new Map());
     const appearance = resolveAppearance(tub);
-    assert.eq(appearance.layer, WorldLayers.STANDING_PROP);
+    assert.eq(appearance.layer, WorldLayers.GROUND_DECAL);
     const basin = { layer: appearance.layer, groundY: Render.objectGroundOffsetPx(appearance), rank: 1 };
     const player = { groundY: 0, rank: 3 };
     const pieces = [basin, player];
-    Render.sortWorldDepth(pieces);
-    assert.eq(pieces[1], basin, 'rim sorts in front of the player at the cell centre');
-    player.groundY = basin.groundY + 1;
-    Render.sortWorldDepth(pieces);
-    assert.eq(pieces[1], player, 'walking past the feet brings the player in front');
+    for (const groundY of [0, basin.groundY - 1, basin.groundY, basin.groundY + 1]) {
+      player.groundY = groundY;
+      Render.sortWorldDepth(pieces);
+      assert.eq(pieces[0], basin, 'basin remains below the player at the centre and either edge');
+      assert.eq(pieces[1], player, 'submersion cropping alone hides the lower body');
+    }
   });
   function fixture(depth = 0) {
     const scene = Object.assign(makeScene(), {

@@ -895,7 +895,7 @@ test('furniture art: every frame seats in its cell, including mirrored asymmetri
       assert.eq(p.texKey, 'furniture');
       assert.eq(p.frameVal, metadata.frame);
       const layers = { flat: WorldLayers.GROUND_DECAL, mid: WorldLayers.STEP_OVER_PROP,
-        basin: WorldLayers.STANDING_PROP };
+        basin: WorldLayers.GROUND_DECAL };
       assert.eq(p.layer, layers[metadata.height]);
       const b = SpriteLayout.ART_BOUNDS[`furniture:${p.frameVal}`];
       const mirrored = metadata.flip && flip;
@@ -903,10 +903,16 @@ test('furniture art: every frame seats in its cell, including mirrored asymmetri
       const maxX = mirrored ? b.fw - b.minX : b.maxX;
       assert.inRange(Math.abs(p.dxPx + ((minX + maxX) / 2 - b.fw / 2) * p.scl), 0, 1e-8);
       assert.inRange(p.dyPx + (b.maxY - b.fh / 2) * p.scl, 0, 16);
-      if (['lamp_floor', 'clock_grandfather', 'candelabra_floor'].includes(item.id)) {
+      if (item.id === 'clock_grandfather') {
         assert.eq(b.fh, 64, 'upright art keeps the tall world frame');
         assert.gt((b.maxY - b.minY) * p.scl, 32, 'upright rises above its single floor cell');
         assert.eq(p.dyPx + (b.maxY - b.fh / 2) * p.scl, 15, 'tall feet sit above the cell edge');
+      }
+      if (['lamp_floor', 'candelabra_floor'].includes(item.id)) {
+        assert.eq(Math.max(b.maxX - b.minX, b.maxY - b.minY), 30, 'lamp longest side is 30px');
+        assert.gte(b.minY, b.fh - 32, 'lamp fits the bottom 32×32 frame');
+        assert.eq(b.maxY, b.fh, 'lamp is bottom-seated');
+        assert.lte((b.maxY - b.minY) * p.scl, 26, 'lamp reads about player height');
       }
       let actualFlip;
       p.spec.after({setFlipX(value) { actualFlip=value; }}, o);

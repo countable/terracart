@@ -509,11 +509,11 @@ const FURNITURE = {
   planter_clay: { frame: 6, tierSheetFrame: null, flip: true, height: "mid", ability: "plant", light: null, luxury: null },
   rug_burgundy: { frame: 7, tierSheetFrame: null, flip: false, height: "flat", ability: null, light: null, luxury: null },
   bookshelf_frontier: { frame: 8, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: null, luxury: null },
-  lamp_floor: { frame: 9, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: "furniture_lamp", lightFrameY: 10, luxury: null },
+  lamp_floor: { frame: 9, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: "furniture_lamp", lightFrameY: 37, luxury: null },
   clock_grandfather: { frame: 10, tierSheetFrame: null, flip: false, height: "mid", ability: null, light: null, luxury: null },
   statue_pedestal: { frame: 11, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: null, luxury: null },
   planter_copper: { frame: 12, tierSheetFrame: null, flip: true, height: "mid", ability: "plant", light: null, luxury: null },
-  candelabra_floor: { frame: 13, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: "furniture_candle", lightFrameY: 7, luxury: null },
+  candelabra_floor: { frame: 13, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: "furniture_candle", lightFrameY: 36, luxury: null },
   globe_brass: { frame: 14, tierSheetFrame: null, flip: false, height: "mid", ability: null, light: null, luxury: null },
   telescope_brass: { frame: 15, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: null, luxury: null },
 };

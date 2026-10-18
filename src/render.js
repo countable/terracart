@@ -6262,7 +6262,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       // The 16px crop starts near the north edge and roots in the pot's soil.
       planterCrop: { scale: 1, originY: 0, dyPx: () => -CELL_PX * 0.5 + 3 },
       origin: [0.5, 0.5], scale: FURNITURE_SCALE, seat: true,
-      layer: o => furnitureSpec(o)?.height === 'flat' ? WorldLayers.GROUND_DECAL : null,
+      layer: o => ['flat', 'basin'].includes(furnitureSpec(o)?.height) ? WorldLayers.GROUND_DECAL : null,
       flipX: o => !!(furnitureSpec(o)?.flip && o.flip),
       after: (sprite, o) => sprite.setFlipX(!!(furnitureSpec(o)?.flip && o.flip)),
     },

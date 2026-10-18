@@ -1666,7 +1666,7 @@ const ICON_SHEETS = {
 // BEGIN GENERATED DOM ICON ATLAS
 // Regenerate with node tools/build-dom-icon-atlas.cjs; original sheets remain the art source.
 const DOM_ICON_ATLAS = {
-  "url": "assets/Icons/dom-atlas.png?v=0ac52ca3",
+  "url": "assets/Icons/dom-atlas.png?v=53a0cb22",
   "width": 1024,
   "height": 720,
   "rects": {

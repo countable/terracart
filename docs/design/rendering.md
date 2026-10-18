@@ -43,11 +43,11 @@ coordinates when the artwork counterrotates.
 Furniture uses the ordinary object list so the Home's near walls can occlude
 it. `FURNITURE` owns each item's frame, flat/mid/basin height and supported flip;
 flat rugs are ground decals and mid pieces use `ObstacleStep.PROFILES.furniture`
-for continuous support. Basins are walkable upright props with no step lift;
-their feet-based sorting lets the rim draw in front of the player standing inside.
-`RENDER_SPEC.furniture` seats each 32×64 world frame at
-`FURNITURE_SCALE` (0.85: about 27px wide, tall fixtures up to 54px high
-beside the 24px player); mirrored bounds
+for continuous support. Basins are walkable ground decals with no step lift;
+they draw under the player, whose submersion crop hides only the lower body.
+`RENDER_SPEC.furniture` seats each piece from its trimmed bounds at
+`FURNITURE_SCALE` (0.85: lamps are 25.5px high beside the 24px player;
+only the clock reaches 54px); mirrored bounds
 keep asymmetric pieces centred when flipped. Mutable furniture appearances
 are not cached. The complete piece is fitted proportionally into a 16×16 icon for item surfaces.
 `tierSheetFrame` may map catalog tiers to future redrawn frames; the shared
@@ -60,19 +60,20 @@ Home wall occlusion.
 
 `python3 tools/build_furniture_sheets.py` rebuilds both sheets from
 `assets/Objects/Furniture/manifest.json`: exact licensed 48px source crops
-use Lanczos scaling; checked-in transparent concepts are alpha-cropped, fit
-to 30×30px (30×62px for the floor candelabra), and bottom-seated in the
-shared 32×64 frame. Short pieces retain their 32px art scale; per-frame alpha
-bounds let `seatInCell` centre them without counting the empty upper half.
+use Lanczos scaling. Each manifest row declares its `frameSize`: 32×32,
+except the 32×64 Grandfather Clock. Transparent concepts and the F044 lamp
+crop are alpha-cropped, fitted proportionally to 30×30px and bottom-seated.
+The sheet retains uniform 32×64 slots with short frames in the bottom half;
+per-frame alpha bounds let `seatInCell` centre the art without the empty padding.
 The manifest records provenance
 without distributing the raw licensed sheets. The sprite audit covers every
-frame and every permitted flip. Furniture lights remain metadata only; phase 3 wires the light kinds.
+frame and every permitted flip. Indoor lamps emit through the shared lighting pass.
 
 The 16-piece roster is Tinker’s Workbench, Quilted Cot, Washing Tub (basin), Gear-Rim
 Looking Glass, Oak Side Table, Four-Drawer Dresser, Clay Planter, Burgundy Rug,
 Frontier Bookshelf, Brass Floor Lamp (T3), Grandfather Clock (T3), Pedestal Owl
 (T2), Riveted Copper Planter, Floor Candelabra (T1), Surveyor’s Globe and Brass
-Stargazer. The floor lamp and clock use F044/F085 at 32×64; the candelabra,
+Stargazer. The floor lamp uses F044 at 1×1 and the clock uses F085 at 32×64; the 1×1 candelabra,
 pedestal owl and tub use generated art pending approval. Both planters use
 the v2 concepts. Each piece still occupies one floor cell.
 

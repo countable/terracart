@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-03374c08';
+const SHELL_VERSION = 'shell-317f3b77';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -269,7 +269,7 @@ const ASSET_HASHES = {
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Staff.png": "b2484a06",
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Sword.png": "232136a0",
   "assets/Icons/coin.png": "4c9e7ebc",
-  "assets/Icons/dom-atlas.png": "0ac52ca3",
+  "assets/Icons/dom-atlas.png": "53a0cb22",
   "assets/NPC/Ayo_human_idle.png": "39297eca",
   "assets/NPC/Ayo_human_walk.png": "ba53a101",
   "assets/NPC/Citizen_woman01_idle.png": "8ab400ca",
@@ -466,8 +466,8 @@ const ASSET_HASHES = {
   "assets/Objects/Crops.png": "b151e77a",
   "assets/Objects/DailyVisits/potofgold.png": "68ee01c6",
   "assets/Objects/DailyVisits/wagon.png": "ab9c7c68",
-  "assets/Objects/Furniture/furniture-32.png": "2ed8f44c",
-  "assets/Objects/Furniture/furniture-icons-16.png": "806b8333",
+  "assets/Objects/Furniture/furniture-32.png": "f9a805fc",
+  "assets/Objects/Furniture/furniture-icons-16.png": "31a4acc4",
   "assets/Objects/Furniture/source/concept_mirror.png": "8df7f932",
   "assets/Objects/Furniture/source/concept_planter_clay_v2.png": "b5dd0e2e",
   "assets/Objects/Furniture/source/concept_planter_copper_v2.png": "bee4d05f",

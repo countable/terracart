@@ -9,7 +9,11 @@
       "source": "assets/Objects/Furniture/source/concept_workbench.png",
       "box": null,
       "mode": "concept",
-      "pick": null
+      "pick": null,
+      "frameSize": [
+        32,
+        32
+      ]
     },
     {
       "itemId": "bed_quilted",
@@ -22,7 +26,11 @@
         48
       ],
       "mode": "native48",
-      "pick": "F001"
+      "pick": "F001",
+      "frameSize": [
+        32,
+        32
+      ]
     },
     {
       "itemId": "washtub",
@@ -35,7 +43,11 @@
         30,
         30
       ],
-      "approval": "pending"
+      "approval": "pending",
+      "frameSize": [
+        32,
+        32
+      ]
     },
     {
       "itemId": "mirror_brass",
@@ -43,7 +55,11 @@
       "source": "assets/Objects/Furniture/source/concept_mirror.png",
       "box": null,
       "mode": "concept",
-      "pick": null
+      "pick": null,
+      "frameSize": [
+        32,
+        32
+      ]
     },
     {
       "itemId": "table_oak",
@@ -56,7 +72,11 @@
         48
       ],
       "mode": "native48",
-      "pick": "F023"
+      "pick": "F023",
+      "frameSize": [
+        32,
+        32
+      ]
     },
     {
       "itemId": "dresser_oak",
@@ -69,7 +89,11 @@
         48
       ],
       "mode": "native48",
-      "pick": "F062"
+      "pick": "F062",
+      "frameSize": [
+        32,
+        32
+      ]
     },
     {
       "itemId": "planter_clay",
@@ -81,6 +105,10 @@
       "fit": [
         30,
         30
+      ],
+      "frameSize": [
+        32,
+        32
       ]
     },
     {
@@ -94,7 +122,11 @@
         48
       ],
       "mode": "native48",
-      "pick": "F028"
+      "pick": "F028",
+      "frameSize": [
+        32,
+        32
+      ]
     },
     {
       "itemId": "bookshelf_frontier",
@@ -107,7 +139,11 @@
         46
       ],
       "mode": "native48",
-      "pick": "F034"
+      "pick": "F034",
+      "frameSize": [
+        32,
+        32
+      ]
     },
     {
       "itemId": "lamp_floor",
@@ -120,7 +156,15 @@
         96
       ],
       "mode": "native48",
-      "pick": "F044"
+      "pick": "F044",
+      "frameSize": [
+        32,
+        32
+      ],
+      "fit": [
+        30,
+        30
+      ]
     },
     {
       "itemId": "clock_grandfather",
@@ -133,7 +177,11 @@
         96
       ],
       "mode": "native48",
-      "pick": "F085"
+      "pick": "F085",
+      "frameSize": [
+        32,
+        64
+      ]
     },
     {
       "itemId": "statue_pedestal",
@@ -146,7 +194,11 @@
         30,
         30
       ],
-      "approval": "pending"
+      "approval": "pending",
+      "frameSize": [
+        32,
+        32
+      ]
     },
     {
       "itemId": "planter_copper",
@@ -158,6 +210,10 @@
       "fit": [
         30,
         30
+      ],
+      "frameSize": [
+        32,
+        32
       ]
     },
     {
@@ -169,9 +225,13 @@
       "pick": null,
       "fit": [
         30,
-        62
+        30
       ],
-      "approval": "pending"
+      "approval": "pending",
+      "frameSize": [
+        32,
+        32
+      ]
     },
     {
       "itemId": "globe_brass",
@@ -184,7 +244,11 @@
         48
       ],
       "mode": "native48",
-      "pick": "F123"
+      "pick": "F123",
+      "frameSize": [
+        32,
+        32
+      ]
     },
     {
       "itemId": "telescope_brass",
@@ -197,9 +261,12 @@
         48
       ],
       "mode": "native48",
-      "pick": "F124"
+      "pick": "F124",
+      "frameSize": [
+        32,
+        32
+      ]
     }
   ],
-  "tierArt": "TODO: add redrawn per-tier frames and select them through FURNITURE.tierSheetFrame; luxury remains tier squared.",
-  "worldFrameHeight": 64
+  "tierArt": "TODO: add redrawn per-tier frames and select them through FURNITURE.tierSheetFrame; luxury remains tier squared."
 }

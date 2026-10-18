@@ -291,9 +291,11 @@ const SHEETS = {
 //    anchor it measures from, so the ORIGIN CANCELS. SEAT_ANCHOR stands in for all.
 const t = (species, size) => treeScale({ species, size });
 const SEAT_ANCHOR = [0.5, 0.5];
+const furnitureManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/Objects/Furniture/manifest.json'), 'utf8'));
 const SCENARIOS = [
   ...Object.entries(itemsCtx.FURNITURE).flatMap(([id, row]) => [false, ...(row.flip ? [true] : [])].map(flipX => ({
     name: `${id}${flipX ? ' flipped' : ''}`, key: 'furniture', frameIdx: row.frame, scale: itemsCtx.FURNITURE_SCALE, flipX,
+    frameSize: furnitureManifest.items.find(entry => entry.itemId === id).frameSize,
   }))),
   ...['gas_mushroom_small', 'gas_mushroom_large'].map(key => ({
     name: key.replaceAll('_', ' '), key, frameIdx: 0, scale: itemsCtx.WILDPLANT_CONTEXT_ART[key].scale,
@@ -364,6 +366,13 @@ function evaluate(s) {
   const table = ART_BOUNDS[lookup];
 
   const violations = [];
+  // Furniture frames are bottom-seated in uniform sheet slots. The clock alone
+  // may use the upper half; lamps must stay inside their single-cell frame.
+  if (s.frameSize) {
+    const [width, height] = s.frameSize, left = (fresh.fw - width) / 2;
+    if (fresh.minX < left || fresh.maxX > left + width || fresh.minY < fresh.fh - height)
+      violations.push(`art exceeds its ${width}×${height} furniture frame`);
+  }
   // Drift guard: the seated table must match the real art.
   if (!table) {
     violations.push(`ART_BOUNDS missing "${lookup}" (run --emit-bounds)`);

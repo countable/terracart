@@ -546,8 +546,10 @@ Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`
 
 ## Furniture
 
-Placed furniture opens a dismissible `makeModalShell` panel with its 32×64 world
-frame shown at exactly 4× above its name, rarity badge and description. The
+Placed furniture opens a dismissible `makeModalShell` panel with its world
+sheet slot shown at exactly 4× above its name, rarity badge and description.
+Slots are 32×64 with bottom-seated 32×32 pieces, including both lamps; only
+the Grandfather Clock uses the full height. The
 portrait preserves the placed orientation; the category badge keeps the item icon.
 The main action uses the catalog ability label: Wash, Sleep, Reflect or Plant.
 Wash clears harmful conditions; Reflect opens a compact ten-swatch colour picker;
