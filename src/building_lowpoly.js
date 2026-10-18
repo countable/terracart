@@ -17,22 +17,22 @@
   // Cell order of assets/Objects/BuildingMaterials/reference-materials-v3.png.
   const MATERIAL_TILE=96,MATERIAL_CELLS=['clay','slate','thatch','shingle','glazed','plaster','boards','rubble','brick','clapboard','flagstone','moss'];
   const ROLES={
-    plain:{material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey'},
+    plain:{window:'casement',material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey'},
     // Home — the player's house (building_overlay.js drawHome): one storey of
     // plaster under a clay ridge, and the one role with an `interior` recipe.
-    home:{material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey',variant:'ridge'},
-    blacksmith:{material:'stone',finish:'workshop',roofMaterial:'slate',stories:1,style:'brick',chimneys:2,chimneyScale:1},
-    trader:{material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
-    shop:{material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
-    seed:{material:'plaster',finish:'plaster',roofMaterial:'thatch',stories:1,style:'adobe'},
-    supply:{material:'timber',finish:'siding',roofMaterial:'flat',stories:2,style:'whitewash',variant:'flat'},
-    potion:{material:'plaster',finish:'plaster',roofMaterial:'clay',stories:2,style:'pyramid',variant:'inset'},
-    relic:{material:'timber',finish:'masonry',roofMaterial:'redtile',stories:1,style:'pyramid',variant:'inset'},
-    pet:{material:'timber',finish:'siding',roofMaterial:'thatch',stories:1,style:'japanese'},
-    book:{material:'brick',finish:'masonry',roofMaterial:'clay',stories:2,style:'japanese'},
-    wizard:{material:'stone',finish:'tower',roofMaterial:'slate',stories:3,style:'pyramid',shape:'wizard'},
-    turret:{material:'stone',finish:'tower',roofMaterial:'slate',stories:1,style:'fort',shape:'turret'},
-    wreck:{material:'timber',finish:'cottage',roofMaterial:'slate',stories:1,style:'ruin',shape:'wreck'},
+    home:{window:'shutters',material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey',variant:'ridge'},
+    blacksmith:{window:'barred',material:'stone',finish:'workshop',roofMaterial:'slate',stories:1,style:'brick',chimneys:2,chimneyScale:1,chimneyFlare:1.12},
+    trader:{window:'wide',material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
+    shop:{window:'wide',material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
+    seed:{window:'shutters',material:'plaster',finish:'plaster',roofMaterial:'thatch',stories:1,style:'adobe'},
+    supply:{window:'slatted',material:'timber',finish:'siding',roofMaterial:'flat',stories:2,style:'whitewash',variant:'flat'},
+    potion:{window:'arched',material:'plaster',finish:'plaster',roofMaterial:'clay',stories:2,style:'pyramid',variant:'inset'},
+    relic:{window:'arched',material:'timber',finish:'masonry',roofMaterial:'redtile',stories:1,style:'pyramid',variant:'inset'},
+    pet:{window:'shutters',material:'timber',finish:'siding',roofMaterial:'thatch',stories:1,style:'japanese'},
+    book:{window:'tallpanes',material:'brick',finish:'masonry',roofMaterial:'clay',stories:2,style:'japanese'},
+    wizard:{window:'arched',material:'stone',finish:'tower',roofMaterial:'slate',stories:3,style:'pyramid',shape:'wizard'},
+    turret:{window:'barred',material:'stone',finish:'tower',roofMaterial:'slate',stories:1,style:'fort',shape:'turret'},
+    wreck:{window:'casement',material:'timber',finish:'cottage',roofMaterial:'slate',stories:1,style:'ruin',shape:'wreck'},
   };
   function recipeFor(role,palette={},stories){
     const spec=ROLES[role]||ROLES.plain,base=BuildingStyles.STYLES[spec.style];
@@ -224,12 +224,12 @@
       const count=chimneys?.count||1,scale=chimneys?.scale||1,C=LOOK.chimney;
       const stack=(c,column)=>{
         const corners=rr=>[[-1,-1],[1,-1],[1,1],[-1,1]].map(([sx,sy])=>({x:c.x+(ux*sx-uy*sy)*rr,y:c.y+(uy*sx+ux*sy)*rr}));
-        const top=c.z+C.above+C.rise*scale,capZ=top-C.capHeight*scale,body=corners(C.radius*scale),lo=Math.min(...body.map(roofZ))-1;
-        const box=(ring,z0,z1,kind,color,layer,textured)=>ring.forEach((a,k)=>{const b=ring[(k+1)%4];
+        const top=c.z+C.above+C.rise*scale,capZ=top-C.capHeight*scale,body=corners((chimneys?.flare?C.cap*chimneys.flare:C.radius)*scale),lo=Math.min(...body.map(roofZ))-1;
+        const box=(ring,z0,z1,kind,color,layer,textured,upper=ring)=>ring.forEach((a,k)=>{const b=ring[(k+1)%4];
           const uv=p=>textured?{u:4+column*40+k*10+Math.hypot(p.x-a.x,p.y-a.y)/DETAIL_SCALE,v:105+(z1-p.z)/DETAIL_SCALE}:{u:0,v:0};
-          for(const tri of [[{...a,z:z0},{...b,z:z0},{...b,z:z1}],[{...a,z:z0},{...b,z:z1},{...a,z:z1}]]){
+          for(const tri of [[{...a,z:z0},{...b,z:z0},{...upper[(k+1)%4],z:z1}],[{...a,z:z0},{...upper[(k+1)%4],z:z1},{...upper[k],z:z1}]]){
             add(tri.map(p=>({...p,...uv(p)})),kind,1);Object.assign(faces.at(-1),{color,wallDirection:{x:b.x-a.x,y:b.y-a.y},layer,chimney:true,inkGroup:2,rawUV:textured||undefined});}});
-        box(body,lo,capZ,'wall',C.sides,2.6,true);
+        box(body,lo,capZ,'wall',C.sides,2.6,true,chimneys?.flare?corners(C.cap*scale):body);
         const cap=corners(C.cap*scale);box(cap,capZ,top,'trim',C.capColor,2.62,false);
         for(const tri of [[0,1,2],[0,2,3]]){add(tri.map(k=>({...cap[k],z:top,u:0,v:0})),'trim',1);Object.assign(faces.at(-1),{color:C.capColor,layer:2.7,chimney:true,inkGroup:2});}
         const mouth=corners(C.mouth*scale);
@@ -241,7 +241,7 @@
   }
   const meshCache=new Map();
   function geometry(input,variant='ridge',height=29,overhang=0,chimneys=null){
-    const key=variant+':'+height+':'+overhang+':'+(chimneys?chimneys.count+'x'+chimneys.scale:'')+':'+input.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
+    const key=variant+':'+height+':'+overhang+':'+(chimneys?chimneys.count+'x'+chimneys.scale+'x'+(chimneys.flare||0):'')+':'+input.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
     if(meshCache.has(key))return meshCache.get(key);
     const mesh=buildGeometry(input,variant,height,overhang,chimneys);
     if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
@@ -577,7 +577,7 @@
     wood:{dark:0x4a2123,mid:0x7e210d,base:0x954a39,light:0xb45c3a,bright:0xc87139},
     glass:{dark:0x185969,base:0x1fc6af,light:0x9ff0e0},flame:0xf2c76a};
   function celSheet(scene,recipe){
-    const wreck=recipe.shape==='wreck',key='lowpoly:cel-v3:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.roofMaterial,recipe.finish,wreck,!!recipe.blank]);
+    const wreck=recipe.shape==='wreck',key='lowpoly:cel-v4:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.roofMaterial,recipe.finish,recipe.window,recipe.role==='blacksmith',wreck,!!recipe.blank]);
     if(scene.textures.exists(key))return scene.textures.get(key);
     const tex=scene.textures.createCanvas(key,512,512),ctx=tex.getContext();
     const css=c=>'#'+c.toString(16).padStart(6,'0');
@@ -610,10 +610,10 @@
     // Five-texel beams leave a three-texel face between their bevel lines.
     if(recipe.finish==='cottage'){
       for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);for(const bx of bays){
-        // Seven vertical texels give a 45-degree brace the same apparent
-        // thickness as a five-texel horizontal or vertical timber.
-        for(let i=0;i<7;i++)for(const x of [bx+3+i,bx+34-i]){
-          px(x,y+1+i,1,7,beam.base);px(x,y+1+i,1,1,beam.light);px(x,y+7+i,1,1,beam.shade);
+        // Full panel diagonals join opposite corners beneath the openings.
+        for(let i=0;i<39;i++)for(const x of [bx+i,bx+38-i]){
+          const by=y-2+Math.round(i*24/39);
+          px(x,by,1,6,beam.base);px(x,by,1,1,beam.light);px(x,by+5,1,1,beam.shade);
         }
         px(bx-2,y,5,24,beam.base);px(bx-2,y,1,24,beam.light);px(bx+2,y,1,24,beam.shade);
       }}
@@ -629,13 +629,31 @@
     px(0,BOT,512,23,plinth.base);
     for(let y=BOT+1,row=0;y<128;y+=bh,row++)for(let x=-(row%2)*bw/2;x<512;x+=bw){px(x,y+bh-1,bw,1,plinth.shade);px(x+bw-1,y,1,bh,plinth.shade);px(x+1,y,bw-3,1,plinth.light);}
     // --- openings -------------------------------------------------------------
-    const casement=(x,y,f)=>{ // 11x13 casement: ink outline, trim frame, two-tone glass, one bright pane, sill
-      px(x-1,y-1,13,15,ink);px(x,y,11,13,trim.base);
-      if(wreck){px(x+1,y+1,9,11,CEL.plum);px(x,y+3,11,3,CEL.wood.mid);px(x,y+8,11,3,CEL.wood.dark);px(x+1,y+3,1,1,ink);px(x+9,y+9,1,1,ink);return;}
-      px(x+1,y+1,9,11,CEL.glass.base);px(x+1,y+1,4,5,CEL.glass.light);px(x+6,y+7,4,5,CEL.glass.dark);
-      px(x+5,y+1,1,11,trim.shade);px(x+1,y+6,9,1,trim.shade);
-      px(x-2,y+13,15,2,trim.light);px(x-2,y+15,15,1,ink);
-      px(x-2,y-3,15,2,trim.shade);px(x-2,y-3,15,1,trim.light); // lintel plank
+    const casement=(x,y)=>{ // All sills sit above the old 13-texel casement.
+      const style=recipe.window||'casement',w=style==='wide'?15:style==='barred'?9:11,h=10;
+      x-=Math.floor((w-11)/2);
+      px(x-1,y-1,w+2,h+2,ink);px(x,y,w,h,trim.base);
+      if(wreck){px(x+1,y+1,w-2,h-2,CEL.plum);px(x,y+2,w,2,CEL.wood.mid);px(x,y+6,w,2,CEL.wood.dark);px(x+1,y+2,1,1,ink);px(x+w-2,y+7,1,1,ink);return;}
+      px(x+1,y+1,w-2,h-2,CEL.glass.base);px(x+1,y+1,Math.floor(w/2)-1,3,CEL.glass.light);px(x+Math.ceil(w/2),y+5,Math.floor(w/2)-1,4,CEL.glass.dark);
+      if(style==='barred'||style==='tallpanes'){
+        for(let i=3;i<w-1;i+=3)px(x+i,y+1,1,h-2,trim.shade);
+        if(style==='barred')px(x+1,y+5,w-2,1,trim.shade);
+      }else if(style==='slatted'){
+        for(let i=2;i<h-1;i+=3){px(x+1,y+i,w-2,2,trim.base);px(x+1,y+i,w-2,1,trim.light);}
+      }else{
+        px(x+Math.floor(w/2),y+1,1,h-2,trim.shade);px(x+1,y+4,w-2,1,trim.shade);
+      }
+      if(style==='arched'){
+        // Stepped arch in the frame, preserving the common lintel height.
+        px(x,y,w,1,trim.shade);px(x,y+1,2,2,trim.base);px(x+w-2,y+1,2,2,trim.base);
+        px(x+2,y+1,w-4,1,trim.light);
+      }
+      if(style==='shutters')for(const sx of [x-4,x+w+1]){
+        px(sx,y,3,h,trim.base);px(sx,y,1,h,trim.light);
+        px(sx,y+3,3,1,trim.shade);px(sx,y+7,3,1,trim.shade);
+      }
+      px(x-2,y+h,w+4,2,trim.light);px(x-2,y+h+2,w+4,1,ink);
+      px(x-2,y-3,w+4,2,trim.shade);px(x-2,y-3,w+4,1,trim.light);
     };
     const door=(x,y)=>{ // 15x21 plank door, arched ink outline, crate-style brace, step and lantern
       px(x-1,y-1,17,23,ink);px(x,y+2,15,20,CEL.wood.base);px(x+1,y,13,2,CEL.wood.base);px(x+2,y-1,11,1,ink);
@@ -680,7 +698,7 @@
     if(recipe.role!=='fort'&&LOOK.facade==='cel')return celSheet(scene,recipe);
     if(recipe.role!=='fort'&&tilesetReady(scene))return tilesetSheet(scene,recipe);
     const source=recipe.role!=='fort'&&scene.textures.exists('building_material_reference')?scene.textures.get('building_material_reference').getSourceImage():null;
-    const key=(source?'generated:':'fallback:')+'lowpoly:materials-v13:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.finish,recipe.roofMaterial,recipe.role==='fort',recipe.shape,recipe.terraced]);
+    const key=(source?'generated:':'fallback:')+'lowpoly:materials-v14:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.finish,recipe.roofMaterial,recipe.role==='fort',recipe.shape,recipe.terraced]);
     if(scene.textures.exists(key))return scene.textures.get(key);
     const tex=scene.textures.createCanvas(key,512,512),ctx=tex.getContext();
     const css=c=>'#'+c.toString(16).padStart(6,'0');
@@ -746,11 +764,11 @@
       rect(0,y,512,1,sill);
       for(let x=14;x<512;x+=39){
         if(floor===0&&x===248)continue; // Entrance owns this entire bay.
-        ctx.globalAlpha=.14;rect(x+1,y+7,9,13,'#292b2b');ctx.globalAlpha=1;
+        ctx.globalAlpha=.14;rect(x+1,y+7,9,10,'#292b2b');ctx.globalAlpha=1;
         // Four-pane casement: lit glass, one bright pane, timber cross.
-        rect(x-2,y+5,10,13,frame);rect(x-1,y+6,8,10,'#55719f');rect(x-1,y+6,3,4,'#93b0d6');
-        rect(x+2,y+6,1.2,10,css(recipe.trim));rect(x-1,y+10,8,1.2,css(recipe.trim));
-        rect(x-2,y+17,10,1.2,sill);ctx.globalAlpha=.2;rect(x-1,y+18,9,1,'#282c2c');ctx.globalAlpha=1;
+        rect(x-2,y+5,10,10,frame);rect(x-1,y+6,8,7,'#55719f');rect(x-1,y+6,3,4,'#93b0d6');
+        rect(x+2,y+6,1.2,7,css(recipe.trim));rect(x-1,y+10,8,1.2,css(recipe.trim));
+        rect(x-2,y+14,10,1.2,sill);ctx.globalAlpha=.2;rect(x-1,y+15,9,1,'#282c2c');ctx.globalAlpha=1;
       }
     }
     if(recipe.finish==='cottage'){
@@ -970,7 +988,7 @@
     const state=scene._lowpoly,left=Math.min(...pts.map(p=>p.x)),top=Math.min(...pts.map(p=>p.y));
     const local=pts.map(p=>({x:p.x-left,y:p.y-top}));
     let cached=recipe.shape?specialGeometry(local,recipe):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
-      ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,recipe.chimneys?{count:recipe.chimneys,scale:recipe.chimneyScale||1}:null);
+      ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,recipe.chimneys?{count:recipe.chimneys,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
     // Fallen masonry lies on the ground; retain its materials and scattered
     // fragments without any wall or roof elevation obscuring the player.

@@ -41,7 +41,7 @@ Facade select and a "Show sheet" toggle to compare the two.
 The cel facade paints thick beams over the wall planks at the existing storey,
 post and diagonal-brace positions. Each has a broad wood face in the wall's
 palette, a one-texel upper/left highlight and a lower/right shadow. Posts and
-bands are five texels wide; diagonal braces match their apparent thickness.
+bands are five texels wide; diagonal braces span each full panel and match their apparent thickness. Casements keep their upper edge and raise their sill by three texels. `ROLES.window` selects casements for delivery houses, shutters for home/seed/pet, bars for smithies, wide shop/trader glazing, supply slats, arched potion/relic/wizard frames, and narrow bookshop panes. The cached sheet includes this style in its key.
 The Canvas fallback retains the imported style renderer. Existing castle
 perimeters, signs, interaction objects and fort/castle ownership remain intact.
 
@@ -193,7 +193,7 @@ review is published as a Claude artifact.
   sheet's stone plinth rows), a wider cap and a dark mouth, as ink group 2.
   `ROLES[role].chimneys`/`chimneyScale` place a pair at 26%/74% of the ridge
   (the smithy, 1×); the default is one at 28%. Smithy stacks use the same
-  stone-block palette and course sizes as their walls, with matching stone caps.
+  stone-block palette and course sizes as their walls, with matching stone caps. Their shafts widen slightly toward the roof (`chimneyFlare`), meeting the cap without an overhanging lip.
 - Wreck: mostly wall. Thick sections (the ring inset by 4 units, 2 where a
   notch forbids) run around the whole footprint, each with its own broken
   height and a flat `wallTop`; the step up to a taller neighbour shows as an

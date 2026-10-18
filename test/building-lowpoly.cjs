@@ -144,3 +144,17 @@ for(const wall of terrace.faces.filter(f=>f.kind==='wall')){
  }
 }
 assert(deckWallPairs>0,'market draw-order regression exercises terrace/wall junctions');
+// Smithy stacks widen toward the roof without changing ordinary chimney caps.
+{
+ const pts=[{x:0,y:0},{x:120,y:0},{x:120,y:60},{x:0,y:60}];
+ const smith=api.ROLES.blacksmith,options={count:smith.chimneys,scale:smith.chimneyScale,flare:smith.chimneyFlare};
+ const mesh=api.geometry(pts,'ridge',18.1,5,options);
+ const ordinary=api.geometry(pts,'ridge',18.1,5,{count:2,scale:1});
+ assert.notEqual(mesh,ordinary,'chimney shape participates in mesh cache');
+ const sides=mesh.faces.filter(f=>f.chimney&&f.kind==='wall');
+ assert.equal(sides.length,16,'two complete chimney shafts');
+ for(let i=0;i<sides.length;i+=2){
+  const [a,b,c]=sides[i].points,d=sides[i+1].points[2];
+  assert(Math.hypot(a.x-b.x,a.y-b.y)>Math.hypot(c.x-d.x,c.y-d.y),'shaft widens downward');
+ }
+}
