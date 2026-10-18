@@ -28,8 +28,8 @@ when only compass heading changes.
 
 `?buildingArt=legacy` selects the original sprites for comparison.
 
-`BuildingLowPoly.LOOK.facade` picks the shared facade sheet: `tileset` (ships)
-cuts bays from the approved materials sheet; `cel` draws a minimal cel-shaded
+`BuildingLowPoly.LOOK.facade` picks the shared facade sheet: `cel` (ships) draws
+a minimal cel-shaded
 pixel sheet from scratch in the supply crate's palette (three-tone ramps round
 the role colour, one ink colour, a single highlight pixel per feature) with
 openings at the tileset's scale and bay placement and only a lintel, sill,
