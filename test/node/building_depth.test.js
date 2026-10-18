@@ -44,6 +44,41 @@
     for (const p of pieces) near(p.groundY, 812 + (p.sprite._huAnchor.y - 100) * 6 / CELL_PX);
   });
 
+  depthTest('building depth: inside Home each wall sorts on its own — the player between the wall behind and the wall in front', () => {
+    const s = scene(); BuildingLowPoly.begin(s);
+    // The home role draws the cel facade sheet; headless, a stub texture stands in for it.
+    s.textures = { exists: (k) => k.startsWith('fallback:lowpoly:') || k.startsWith('lowpoly:cel'), get: (k) => ({ key: k }) };
+    const room = BuildingLowPoly.add(s, [{ x: 60, y: 60 }, { x: 84, y: 60 }, { x: 84, y: 84 }, { x: 60, y: 84 }],
+      { role: 'home', stories: 1, material: 'stone', body: 0x999999, roof: 0x777777, trim: 0x444444, interior: true }, 'flat', 'home');
+    BuildingLowPoly.update(s);
+    const walls = s._lowpoly.buildings.filter((m) => m.key === 'home');
+    assert.eq(walls.length, 4, 'one render object per wall');
+    assert.truthy(walls.every((m) => m.edge && m.obj && m.faces.length), 'each with its edge and its faces');
+    assert.eq(new Set(walls.map((m) => m.obj)).size, 4, 'four distinct objects');
+    assert.truthy(room && room.height > 0, 'add still answers a mesh with the house height');
+    const byY = (y) => walls.filter((m) => m.edge.a.y === y && m.edge.b.y === y)[0];
+    const north = byY(60), south = byY(84), flanks = walls.filter((m) => m !== north && m !== south);
+    near(north.support.y, 60); near(south.support.y, 84);
+    for (const f of flanks) near(f.support.y, 84);   // a flank's top overlaps the player only south of their feet
+    // North-up: a player in the middle of the room draws over the north wall and under the south.
+    const player = billboard(72, 72);
+    const pieces = BuildingLowPoly.worldPieces(s);
+    Render.sortWorldDepth([...pieces, { sprite: player, groundY: 812 + (72 - 100) * 6 / CELL_PX, rank: 3 }]);
+    assert.lt(north.obj.depth, player.depth); assert.lt(player.depth, south.obj.depth);
+    for (const f of flanks) assert.lt(player.depth, f.obj.depth);
+    // Turned half round, the north wall is the one lowest on screen: it comes in front.
+    s.worldContainer.add(player);
+    s.mapRot = Math.PI; HeadingUp._preRender(s);
+    near(north.support.y, 60); near(south.support.y, 84);
+    const list = s.worldContainer.list;
+    assert.truthy(list.indexOf(north.obj) > list.indexOf(player), 'turned: the north wall in front');
+    assert.truthy(list.indexOf(south.obj) < list.indexOf(player), 'and the south wall behind');
+    HeadingUp._postRender(s);
+    // A standing house (no interior) is still one object at its centroid.
+    const whole = building(s, 120, 120, 'whole'); BuildingLowPoly.update(s);
+    assert.falsy(whole.edge); near(whole.support.x, 132); near(whole.support.y, 132);
+  });
+
   depthTest('building depth: compass sweep interleaves billboards without rotating building geometry', () => {
     const s = scene(); BuildingLowPoly.begin(s);
     const mesh = building(s, 88, 88, 'house'); BuildingLowPoly.update(s);

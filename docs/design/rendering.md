@@ -106,7 +106,12 @@ house floor on the canvas and then the house. On the low-poly path it is the
 (`scene.homeInside`, part of the overlay's claim epoch) its recipe is
 `interior` — the roof off, the walls level at the eaves, inner faces and a
 thick top band (`interiorGeometry`) — and the lightmap masks the outside (see
-Lighting). Without the low-poly path (Canvas, north-up) the same house is
+Lighting). An interior is one render object PER WALL (`interiorGeometry`
+tags each face with its ring `edge`; `BuildingLowPoly.add` places a mesh per
+edge), sorted in the shared world sort at the wall's low end on screen
+(`wallSupport`: its southern end north-up, re-picked per heading), so the
+player draws over the wall behind them and under the wall in front; a
+standing building stays one object at its footprint centroid. Without the low-poly path (Canvas, north-up) the same house is
 retained prisms in the `home` group (`WallPerspective`, `alwaysActive`) with
 the palisade's thickness and a taller wall, a doorway gap on the door side
 (`shape.door`), and a gabled two-tone roof with a ridge; inside, no roof and
