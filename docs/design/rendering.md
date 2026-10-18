@@ -459,7 +459,9 @@ the reach rim within the existing player-light radius.
   transient lights keep the individual stamp path. The full-frame key gates
   before every canvas call. Reach lighting uses a circle centred continuously on the exact player position with the interaction
   radius. `cellInReach` accepts a cell exactly when its square overlaps the
-  circle; tangency alone does not count. Each Inner Light upgrade crosses only
+  circle; tangency alone does not count. The base circle is reduced to match
+  the old centre-tested cell footprint when standing at a cell centre. Smooth
+  movement still changes which boundary cells overlap. Each Inner Light upgrade crosses only
   the next overlap threshold, unlocking tied cells together. Depth and blindness
   adjust the base radius before upgrades, so every upgrade adds reachable cells; light conveys reach and live POIs without outline rings. The radial player glow uses
   `PLAYER_OUTPUT_K = 0.44`; the added circular reach light is halved by

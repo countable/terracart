@@ -236,10 +236,10 @@ test('reachCells: each upgrade unlocks only the next group of overlapping cells'
 
 // ── reachRadiusM ─────────────────────────────────────────────────────────────
 
-test('reachRadiusM: normal surface preserves the base radius', () => {
+test('reachRadiusM: normal surface preserves the old reachable footprint', () => {
   const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 0 });
-  // reachCells = 2.5; cellM = 5; radius = 2.5*5+1 = 13.5
-  assert.eq(reachRadiusM(s), 13.5);
+  // Radius stops before touching the old out-of-reach diagonal (2,2).
+  assert.eq(reachRadiusM(s), (Math.hypot(1.5, 1.5) - 1e-6) * 5);
 });
 
 test('reachRadiusM: zero energy returns 0 (cannot reach at all)', () => {
@@ -264,7 +264,7 @@ test('reachRadiusM: low energy (>0) does NOT shrink reach (only 0 shrinks)', () 
   // f98eb04 introduced the 0-energy gate; tired state (> 0 but low) is handled
   // by the UI but does NOT affect the reach radius.
   const s = makeCoordScene({ save: { energy: 1, reachUpgrades: 0 }, depth: 0 });
-  assert.eq(reachRadiusM(s), 13.5, '1 energy → full radius, no tired shrink');
+  assert.eq(reachRadiusM(s), (Math.hypot(1.5, 1.5) - 1e-6) * 5, '1 energy → full radius, no tired shrink');
 });
 
 test('reachRadiusM: upgrades increase radius', () => {
@@ -276,14 +276,14 @@ test('reachRadiusM: upgrades increase radius', () => {
 });
 
 test('reachRadiusM: depth shrinks radius', () => {
-  // upgrades=0, base=2.5, depth=1 → cells=2.0, radius=2.0*5+1=11
+  // Depth 1 preserves the original 13-cell footprint.
   const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 1 });
-  assert.eq(reachRadiusM(s), 11);
+  assert.eq(reachRadiusM(s), (Math.hypot(1.5, .5) - 1e-6) * 5);
 });
 
-test('reachRadiusM: depth=3 floors reach at 1.5 cells → radius = 8.5', () => {
+test('reachRadiusM: depth=3 preserves the original nine-cell footprint', () => {
   const s = makeCoordScene({ save: { energy: 100, reachUpgrades: 0 }, depth: 3 });
-  assert.eq(reachRadiusM(s), 1.5 * 5 + 1);  // 8.5
+  assert.eq(reachRadiusM(s), (1.5 - 1e-6) * 5);
 });
 
 test('reachRadiusM: Potion of Reach (active) overrides everything → VIEW_CELLS * cellM', () => {
@@ -306,7 +306,7 @@ test('reachRadiusM: expired Potion of Reach (past) does NOT override — normal 
     save: { energy: 100, reachUpgrades: 0, reachPotionUntil: past },
     depth: 0,
   });
-  assert.eq(reachRadiusM(s), 13.5, 'expired potion → normal radius');
+  assert.eq(reachRadiusM(s), (Math.hypot(1.5, 1.5) - 1e-6) * 5, 'expired potion → normal radius');
 });
 
 // ── cellInReach — core correctness ───────────────────────────────────────────
@@ -334,7 +334,7 @@ test('cellInReach: zero energy → nothing reachable', () => {
 });
 
 test('cellInReach: cardinal cell 1 away is reachable (base reach 2.5 cells)', () => {
-  // reachRadiusM = 13.5; cell (1,0): dist²=25 ≤ 182.25
+  // The first cardinal neighbour remains inside the calibrated circle.
   const s = reachScene();
   assert.truthy(cellInReach(s, 1, 0), 'E neighbour reachable');
   assert.truthy(cellInReach(s, -1, 0), 'W neighbour reachable');
@@ -343,7 +343,7 @@ test('cellInReach: cardinal cell 1 away is reachable (base reach 2.5 cells)', ()
 });
 
 test('cellInReach: cardinal cell 2 away is reachable (base reach 2.5 cells)', () => {
-  // cell (2,0): dist²=100 ≤ 182.25
+  // The second cardinal neighbour remains partially covered.
   const s = reachScene();
   assert.truthy(cellInReach(s, 2, 0), '2 cells E reachable');
   assert.truthy(cellInReach(s, 0, 2), '2 cells S reachable');
@@ -351,14 +351,14 @@ test('cellInReach: cardinal cell 2 away is reachable (base reach 2.5 cells)', ()
 
 test('cellInReach: partially lit cells are reachable; unlit cells are not', () => {
   const s = reachScene();
-  for (const [x, y] of [[3, 0], [-3, 0], [0, 3], [2, 2]]) {
+  for (const [x, y] of [[2, 0], [-2, 0], [0, 2], [2, 1]]) {
     assert.truthy(cellInReach(s, x, y), 'edge or corner overlaps the circle');
   }
-  for (const [x, y] of [[4, 0], [3, 2], [3, 3]]) {
+  for (const [x, y] of [[3, 0], [2, 2], [3, 3]]) {
     assert.falsy(cellInReach(s, x, y), 'entire cell outside circle');
   }
   s.depth = 2;
-  assert.truthy(cellInReach(s, 2, 0), 'partially lit cell reachable underground');
+  assert.truthy(cellInReach(s, 1, 1), 'partially lit cell reachable underground');
   assert.falsy(cellInReach(s, 2, 2), 'unlit diagonal unreachable underground');
 });
 
@@ -491,11 +491,28 @@ test('two saves anchored at different latitudes agree on where a peer is', () =>
 test('cellInReach: moving within a cell moves the circle without waiting for a crossing', () => {
   const s = reachScene();
   s.playerM.x = 1;
-  assert.falsy(cellInReach(s, 3, 0), 'east cell starts outside');
-  assert.truthy(cellInReach(s, -3, 0), 'west cell starts inside');
+  assert.falsy(cellInReach(s, 2, 2), 'southeast cell starts outside');
+  assert.truthy(cellInReach(s, -2, 2), 'southwest cell starts inside');
   s.playerM.x = 4;
-  assert.truthy(cellInReach(s, 3, 0), 'east cell enters before the player crosses a cell');
-  assert.falsy(cellInReach(s, -3, 0), 'west cell leaves before the crossing');
+  assert.truthy(cellInReach(s, 2, 2), 'southeast cell enters before the player crosses a cell');
+  assert.falsy(cellInReach(s, -2, 2), 'southwest cell leaves before the crossing');
   s.peekM = { x: 500, y: -500 };
-  assert.truthy(cellInReach(s, 3, 0), 'camera peeks cannot move interaction reach');
+  assert.truthy(cellInReach(s, 2, 2), 'camera peeks cannot move interaction reach');
+});
+
+test('starting circle: matches the old reachable cells at every base depth', () => {
+  for (const cellM of [3, 5, 7, 8]) for (const depth of [0, 1, 2, 6]) for (const blinded of [false, true]) {
+    const s = reachScene({ cellM, depth, cellsPerTile: WorldGen.TILE_PX / cellM,
+      playerM: { x: cellM / 2, y: cellM / 2 } });
+    const base = Math.max(1.5, 2.5 - depth * .5);
+    if (blinded) Conditions.apply(s.save, 'blinded');
+    const oldRadius = (blinded ? Math.max(1, base * .5) : base) * cellM + 1;
+    let count = 0;
+    for (let x = -6; x <= 6; x++) for (let y = -6; y <= 6; y++) {
+      const expected = Math.hypot(x, y) * cellM <= oldRadius;
+      assert.eq(cellInReach(s, x, y), expected, `old footprint at ${x},${y}, depth ${depth}, cellM ${cellM}`);
+      if (expected) count++;
+    }
+    if (depth === 0 && cellM === 7 && !blinded) assert.eq(count, 21, 'original surface footprint');
+  }
 });

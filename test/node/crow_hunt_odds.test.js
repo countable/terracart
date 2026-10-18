@@ -91,11 +91,11 @@ test('crow hunt odds: bare hands never take a crow; a tier-3 net nearly always d
 });
 
 test('crow hunt odds: the retreat hop clears the base reach from wherever the crow sat', () => {
-  // Four cells clears the circle and the partially overlapping boundary
+  // The retreat clears the circle and the partially overlapping boundary
   // cells, so a retreat still ends the hunt across different bearings.
   const scene = makeScene();
   assert.gt(HOP.cells * CELL, reachRadiusM(scene), 'a retreat hop out-reaches the base reach');
-  assert.eq(HOP.cells, 4);
+  assert.eq(HOP.cells, 3.25);
   assert.eq(HOP.ms, 1500, 'the glide the odds above are tuned on');
 });
 })();
