@@ -79,7 +79,7 @@ allocates no new meshes or material sheets. The reference still has more curated
 gables and intersecting roof directions than this generator.
 
 Role rollout: `BuildingLowPoly.recipeFor` supplies cottage framing for plain
-houses, timber siding for trailers/supply/pet shops, brick for smiths/bookshops,
+houses, timber siding for trailers/supply/pet shops, stone for smiths, brick for bookshops,
 plaster for traders/seed/potion shops, and masonry for relic shops. Production
 palettes still come from `Render.buildingProfileFor`; existing signs are retained.
 Wall colors are darkened and compressed toward the base pigment, with additional
@@ -108,8 +108,9 @@ updates. Generated plaster stays quiet and diagonal cottage braces are omitted.
 The full generation prompt/provenance lives beside the PNG in README.md.
 
 The requested legacy rollback supersedes the role rollout above: wizard uses the
-original shrine frame 3, turret uses the original CastleStyles tower texture, and
-both bypass generated footprint shells. Existing castle geometry is unchanged.
+original shrine frame 3; turret uses the intact bastion tower texture inside
+matching castle ramparts around its footprint. Both bypass generated footprint
+shells. Existing castle geometry is unchanged.
 The special low-poly tower builders remain available for prototype comparisons
 but are not used by the normal game path. Browser checks verify the legacy keys,
 absence of tower meshes, generated atlas availability and retained heading buffers.
@@ -219,7 +220,7 @@ tileset: plaster, timber, brick and stone walls, slate roof; the user's
 painterly sheet: red tile roof) and the generated `reference-materials-v3.png`
 (fish-scale clay and thatch, tinted to the role colour by luminance like the
 generated sheets). Every role draws from it: walls are plaster (plain, market,
-seed, potion), timber (pet, supply, relic, wreck) and brick (blacksmith, book);
+seed, potion), timber (pet, supply, relic, wreck), brick (book) and stone (blacksmith);
 roofs are tinted clay (plain, potion, book), tinted thatch (seed, pet), slate
 (blacksmith, wreck), red tile (relic) or a flat deck (market, supply); all
 nearest-sampled.

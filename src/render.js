@@ -1826,13 +1826,13 @@ Render.buildingArtStyle = (() => {
 Render.proceduralBuildings = () => Render.buildingArtStyle === 'procedural' && typeof BuildingStyles !== 'undefined';
 Render.BUILDING_STYLE_ROLES = Object.freeze({
   // Role palettes follow the approved house sprites (assets/Objects/Approved/
-  // house*.png): cream siding under red tile, the smithy's grey stone under
-  // red-brown, the trader's grey walls under slate. Shop lines keep their
+  // house*.png): cream siding under red tile; the smithy uses grey stone
+  // under charcoal slate, the trader's grey walls under slate. Shop lines keep their
   // own roof colours below so a line reads from the street.
   plain: { style: 'multistorey', palette: { wall: 0xddb49b, roof: 0xb45c3a, trim: 0x954a39 } },
   // Home: the player's house (building_overlay.js drawHome) — the plain house's cream under its red tile.
   trailer: { style: 'multistorey', palette: { wall: 0xddb49b, roof: 0xb45c3a, trim: 0x954a39 } },
-  blacksmith: { style: 'multistorey', palette: { wall: 0x917465, roof: 0x954a39, trim: 0x786269 } },
+  blacksmith: { style: 'multistorey', palette: { wall: 0x92958f, roof: 0x555b60, trim: 0x626961 } },
   trader: { style: 'japanese', palette: { wall: 0xbababa, roof: 0x6f9093, trim: 0x954a39 } }, shop: { style: 'japanese' },
   wizard: { style: 'pyramid', palette: { wall: 0x8c8796, roof: 0x8b78a8, trim: 0xc6afcf } },
   turret: { style: 'fort' },
@@ -1860,7 +1860,7 @@ Render.proceduralHouse = (o, scene) => Render.proceduralBuildings()
 Render.houseTextureFrame = (role, o, scene, theme) => {
   if (role === 'plain') return 'front';
   if (role === 'wizard') return 3;
-  if (role === 'turret') return CastleStyles.get(o.id).towerFrame;
+  if (role === 'turret') return CastleStyles.get(CastleStyles.TURRET_STYLE).towerFrame;
   return undefined;
 };
 // Baked unclaimed art already contains its wear: never apply a second wash.

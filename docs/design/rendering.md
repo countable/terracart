@@ -659,7 +659,11 @@ Restoration choices, Home's icon and map sprite fallbacks use the original
 role textures through `Render.houseTextureKey` and `Render.houseTextureFrame`.
 Plain houses use the `house` front frame; shops and other roles use their
 original `house_<role>` images. Wizard towers and turrets retain their shrine
-and tower frames. Unclaimed forts use their baked weathered artwork.
+and tower frames. Turrets always use the intact bastion tower, with matching
+castle ramparts following their building footprint; this visual treatment does
+not change their house ownership or gameplay tier. Unclaimed forts use their
+baked weathered artwork. Blacksmiths use grey stone block walls and charcoal
+slate roofs, distinct from the standard house’s warm plaster and clay tiles.
 
 Procedural buildings remain the default on the map. `?buildingArt=legacy`
 selects the original sprites instead. Both modes use the original artwork

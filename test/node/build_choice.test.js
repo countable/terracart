@@ -140,7 +140,8 @@ test('build choice: the scarecrow shop is gone, and nothing pins a house by posi
 test('turret: a restored turret wears the castle tower and fires on the castle lane', () => {
   assert.eq(Render.houseTextureKey('turret', { id: 'h' }, {}), 'tower');
   assert.eq(BUILDING_ART.turret.def, 1, 'drawn one cell wide, the castle rim\'s own size');
-  assert.truthy(/if \(role === 'turret'\) return CastleStyles\.get\(o\.id\)\.towerFrame;/.test(RENDER_SRC), 'its material family is its own id');
+  assert.eq(Render.houseTextureFrame('turret', { id: 'ruin' }, {}),
+    CastleStyles.get('bastion').towerFrame, 'even a ruin identity uses the intact tower');
   assert.truthy(/origin: \[0\.5, 1\.0\],\s*dxPx: \(o\) => _houseFootPx\(o\)\.x,/.test(RENDER_SRC), 'foot-seated on its footprint like every building');
   const shadow = Render.buildingShadow({visible:true,texKey:'tower',frameVal:0,scl:1,scaleYMul:1,
     dxPx:0,dyPx:0,origin:[0.5,1],spec:{groundAtOrigin:true}},

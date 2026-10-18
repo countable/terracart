@@ -307,7 +307,7 @@
   // floor rhythm and trim stay authored. No per-frame randomness.
   const WALL_RECIPES = Object.freeze({
     plain: { material:'plaster', body:0xb9a78a, trim:0x735741, roof:0x985c49, stories:1 },
-    blacksmith: { material:'brick', body:0x807d77, trim:0x504b46, roof:0x555b60, stories:1 },
+    blacksmith: { material:'stone', body:0x92958f, trim:0x626961, roof:0x555b60, stories:1 },
     trader: { material:'sandstone', body:0xc1a77c, trim:0x73573b, roof:0x927349, stories:1 },
     seed: { material:'plaster', body:0xa4ac87, trim:0x64714a, roof:0x507957, stories:1 },
     supply: { material:'timber', body:0xa18a69, trim:0x62503c, roof:0x536c83, stories:2 },
@@ -959,7 +959,7 @@
   // Elevation is independent of map rotation; joins share ground vertices.
   function perspectiveEdges(scene, d, isMine) {
     const shade = shadeOf(isMine), tune = tuneOf(isMine);
-    const stone = d.tier === CASTLE && !d.templeZone ? castleStone(isMine, d.key) : null;
+    const stone = d.tier === CASTLE && !d.templeZone ? castleStone(isMine, d.castleStyle || d.key) : null;
     const temple = d.templeZone ? TempleArt.palette(isMine, d.templeKind === 'tar', true) : null;
     const rampart = stone?.style.rampart;
     const height = rampart ? rampart.wallHeight : d.tier === 11 ? 5 : facePx(d.tier);
@@ -986,7 +986,7 @@
         const missing = [];
         for (let tooth = 0; tooth < count; tooth++) {
           const t = tooth * pitch / length;
-          const damage = CastleStyles.damageCell(d.key,
+          const damage = CastleStyles.damageCell(d.castleStyle || d.key,
             Math.floor((a.x + dx * t + nx * 0.01 - d.damageOriginX) / CELL_PX),
             Math.floor((a.y + dy * t + ny * 0.01 - d.damageOriginY) / CELL_PX));
           if ((rampart.broken && tooth % 4 === 2) || damage?.missing === tooth % 4) missing.push(tooth);
@@ -1017,7 +1017,7 @@
 
   function uprightEdges(scene, d, isMine, projX, projY, seen) {
     const shade = shadeOf(isMine), tune = tuneOf(isMine);
-    const stone = d.tier === CASTLE && !d.templeZone ? castleStone(isMine, d.key) : null;
+    const stone = d.tier === CASTLE && !d.templeZone ? castleStone(isMine, d.castleStyle || d.key) : null;
     const temple = d.templeZone ? TempleArt.palette(isMine, d.templeKind === 'tar', true) : null;
     const depth = stone ? stone.style.rampart.wallHeight : facePx(d.tier);
     const face = temple ? temple.face : stone ? stone.style.stone.FACE : tune(shade(faceColor(d.tier, isMine)));
@@ -1149,7 +1149,7 @@
           line(lip(ny < 0 ? ip : op), lip(ny < 0 ? iq : oq), stone.lite);
           // Seat full teeth at both endpoints; distribute the gaps near the
           // 8px rhythm, with the same phase across every atlas section.
-          const damage = CastleStyles.damageCell(d.key,
+          const damage = CastleStyles.damageCell(d.castleStyle || d.key,
             Math.floor(((p.x + q.x) / 2 + nx * 0.01 - d.damageOriginX) / CELL_PX),
             Math.floor(((p.y + q.y) / 2 + ny * 0.01 - d.damageOriginY) / CELL_PX));
           if (damage && !crownPass) {
@@ -1540,10 +1540,16 @@
         }
         continue;
       }
-      // Wizard and turret keep their original sprite artwork, not generated
-      // shells (BuildingLowPoly.ROLES rows flagged `sprite`).
-      if(d.object&&['wizard','turret'].includes(Houses.displayRole(scene.save,d.object))){
+      // Wizard retains its shrine sprite above a plain footprint.
+      const role = d.object && Houses.displayRole(scene.save, d.object);
+      if(role === 'wizard'){
         g.fillPoly(d.pts,tuneOf(isMine)(shadeOf(isMine)(floorColor(d.tier,isMine))));continue;
+      }
+      // Turrets retain the intact tower sprite inside standard castle walls.
+      // Only this draw uses the castle tier; world ownership and gameplay stay house-based.
+      if (role === 'turret') {
+        d.tier = CASTLE;
+        d.castleStyle = CastleStyles.TURRET_STYLE;
       }
       if (procedural && !d.shared && (d.tier === 9 || d.tier === 11)) {
         const object = d.object || { kind: 'house', id: d.key, tier: d.tier };
@@ -1579,7 +1585,7 @@
       const shade = shadeOf(isMine), tune = tuneOf(isMine);
       // The shaded floor is what the slime derives from (three shades deep —
       // see slimeColor); the material lift goes over every colour after.
-      const style = d.tier === CASTLE ? buildingBackgroundMaterial(CastleStyles.get(d.key, isMine)) : null;
+      const style = d.tier === CASTLE ? buildingBackgroundMaterial(CastleStyles.get(d.castleStyle || d.key, isMine)) : null;
       const shaded = style ? style.floor : shade(floorColor(d.tier, isMine));
       const floor = style ? style.floor : tune(shaded);
       const depth = facePx(d.tier);
@@ -1629,7 +1635,7 @@
         // Rampart: the stone band inside the wall line, then the merlon teeth
         // dashed along it in the light stone — the polygon's answer to the
         // tiled battlements.
-        const stone = castleStone(isMine, d.key);
+        const stone = castleStone(isMine, d.castleStyle || d.key);
         g.insetStroke(d.pts, BAND_PX, stone.body);
         if (style.rampart.woodTop) g.insetStroke(d.pts, 3, stone.top);
         const tooth = style.rampart.toothWidth;

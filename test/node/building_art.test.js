@@ -14,6 +14,10 @@ test('building art: original textures in procedural and legacy modes', () => {
       assert.eq(Render.houseTextureKey('trailer', house, scene), null);
       assert.eq(Render.houseTextureKey('wizard', house, scene), 'shrine');
       assert.eq(Render.houseTextureKey('turret', house, scene), 'tower');
+      for (const id of CastleStyles.ids) {
+        assert.eq(Render.houseTextureFrame('turret', { ...house, id }, scene),
+          CastleStyles.get('bastion').towerFrame, 'turret always uses the intact tower');
+      }
     }
   } finally { Render.buildingArtStyle = previous; }
 });

@@ -282,6 +282,26 @@ test('building overlay: a castle gets a rampart band, a house gets an outline', 
   assert.eq(scene.buildingGeomGfx.only('stroke').length, 1, 'a house is outlined');
 });
 
+test('building overlay: restored turret keeps its footprint and gets intact castle ramparts', () => {
+  clearTiles();
+  const shape = { ring: Float32Array.from([0, 0, 20, 0, 20, 10, 10, 10, 10, 20, 0, 20]),
+    tier: T.BUILDING, key: 'ruin' };
+  const entry = putShapes(0, 0, [shape]);
+  entry.objects = [{ kind: 'house', id: 'ruin', tier: T.BUILDING, x: 5, y: 5 }];
+  const scene = makeScene({ save: { restoredHouses: { ruin: 'turret' } } });
+  BuildingOverlay.draw(scene);
+  const insets = scene.buildingGeomGfx.only('inset');
+  assert.eq(insets.length, 2, 'continuous castle wall and merlons');
+  assert.eq(insets[1].dash.length, 2, 'regular intact merlons, no broken gaps');
+  assert.eq(insets[0].pts.length, 6, 'walls follow the concave footprint');
+  const style = buildingBackgroundMaterial(CastleStyles.get('bastion'));
+  assert.eq(insets[0].color, style.stone.BODY);
+  assert.eq(insets[1].color, style.stone.LITE);
+  assert.eq(shape.tier, T.BUILDING, 'source geography retains its house tier');
+  assert.falsy(scene._proceduralBuildings.has('ruin'), 'the intact tower sprite remains visible');
+  clearTiles();
+});
+
 test('building overlay: castle floors and ramparts share the tower material in both conditions', () => {
   for (const id of CastleStyles.ids) for (const claimed of [true, false]) {
     clearTiles();
