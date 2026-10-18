@@ -3528,7 +3528,8 @@ class MapScene extends Phaser.Scene {
       const g = worldMetersToScreen(this,
         this.startWorldM.x + this.gpsM.x,
         this.startWorldM.y + this.gpsM.y);
-      this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y)).setVisible(true);
+      this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y)).setVisible(true)
+        .setFrame(Render.groundMarkFrame(this, 'gps_ring'));   // ticks turn with the map
     } else if (this.gpsGhost.visible) {
       this.gpsGhost.setVisible(false);
     }

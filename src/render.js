@@ -4110,22 +4110,41 @@ Render.buildingShadow = function (appearance, textures, point) {
 // 45° tilt, map-perspective.md). Drawn `px` wide the strokes land at the
 // weight they were designed at (a 2px line in the bake is under 1px on
 // screen) — the light touch both marks share.
+//
+// A mark is baked as a ROTATION STRIP, one frame per `stepDeg` of turn over
+// the period after which its shape repeats, and never rotated as a sprite: a
+// sprite rotated after it is squashed tilts the ellipse onto its end instead
+// of turning the circle on the ground. That holds for the compass too — when
+// heading-up turns the map, the mark is counter-rotated like a contact
+// shadow (heading_up.js) and the map's turn goes into the strip frame
+// (Render.groundMarkFrame), so the ellipse stays flat and its runes or
+// ticks still turn with the ground.
 const GROUND_MARK = {
   bakePx: 96,
   px: 42,
   tilt: 0.5,
+  stepDeg: 3,
   // [line width in the bake, colour, alpha]: under-stroke, halo, line.
   strokes: (ink) => [[6, '#000', 0.5], [5, ink, 0.18], [2, ink, 1]],
 };
 // The GPS ring's geometry in bake px: a ring around the feet with four short
 // ticks crossing it (an open ring, never a filled disc — a small gold disc is a
-// coin in this game). The walk-home lead stops on the ring (app.js).
-const GPS_RING = { r: 30, tick: 5 };
+// coin in this game), a strip over the 90° after which the ticks repeat. The
+// walk-home lead stops on the ring (app.js).
+const GPS_RING = { r: 30, tick: 5, periodDeg: 90 };
+// The frame of rotation strip `key` showing the mark turned `turnDeg`
+// clockwise on screen, with the map's own turn under heading-up folded in.
+Render.groundMarkFrame = function groundMarkFrame(scene, key, turnDeg = 0) {
+  const frames = Math.max(1, (scene.textures?.get?.(key)?.frameTotal ?? 2) - 1);
+  const mapDeg = typeof HeadingUp !== 'undefined' ? HeadingUp.angle(scene) * 180 / Math.PI : 0;
+  const f = Math.round((turnDeg + mapDeg) / GROUND_MARK.stepDeg);   // nearest step
+  return ((f % frames) + frames) % frames;
+};
 // The elite rune circle's width at a kind's ordinary size (px), and how fast
 // its two bands turn (degrees per second; the inner one against the outer).
 // The bakes (scene_create.js) step ELITE_RING_STEP_DEG per frame.
 const ELITE_RING_PX = GROUND_MARK.px;
-const ELITE_RING_STEP_DEG = 3;
+const ELITE_RING_STEP_DEG = GROUND_MARK.stepDeg;
 const ELITE_RING_SPIN = { outer: 360 / 14, inner: -1.6 * 360 / 14 };
 const CRITTER_SHADOW_W = {
   cow: 30, horse: 26, deer: 26, dog: 22, boar: 20, cat: 20, crow: 18, gull: 18, raven: 18, rabbit: 14, chicken: 14, crab: 14, sea_turtle: 16,
@@ -5835,9 +5854,10 @@ Render.drawObjects = function drawObjects(scene) {
   // THE ELITE'S RUNE CIRCLE: two baked bands of runes flat on the ground
   // under its feet (the cell, never the hop), turning against each other and
   // pulsing gently, under every renderer. Baked white and tinted the rank's
-  // colour (Combat.ELITE_RANKS ring). The bakes are rotation strips: a sprite
-  // rotated after it is squashed would tilt the ellipse instead of turning
-  // the circle on the ground.
+  // colour (Combat.ELITE_RANKS ring). The bakes are rotation strips
+  // (GROUND_MARK): the spin and the compass turn are both strip frames, and
+  // the sprite itself is never rotated — heading-up counter-rotates it like
+  // the contact shadows beside it, so the ellipse stays flat on the ground.
   Render.announceElites(scene, creatureList, project);
   if (scene.shadowContainer) {
     scene.eliteRingPool ||= [];
@@ -5845,14 +5865,12 @@ Render.drawObjects = function drawObjects(scene) {
     const pulseNow = performance.now();
     const bands = elites.flatMap(item => ['outer', 'inner'].map(band => ({ ...item, band })));
     Render.renderPool(scene, scene.eliteRingPool, scene.shadowContainer, bands, (s, item) => {
-      s._worldLayer = WorldLayers.GROUND_DECAL;
       const { x: sx, y: sy } = project(item.dx, item.dy);
       const size = ELITE_RING_PX * giantMul(item.c.kind) * creatureInstScale(item.c);
       const key = item.band === 'outer' ? 'elite_ring' : 'elite_ring_inner';
-      const frames = Math.max(1, (scene.textures?.get?.(key)?.frameTotal ?? 2) - 1);
-      const turn = ((pulseNow / 1000) * ELITE_RING_SPIN[item.band]) / ELITE_RING_STEP_DEG;
       const ring = Combat.eliteRank(item.c).ring;
-      s.setTexture(Render.canvasTint(scene, key, ring), ((Math.floor(turn) % frames) + frames) % frames);
+      s.setTexture(Render.canvasTint(scene, key, ring),
+        Render.groundMarkFrame(scene, key, (pulseNow / 1000) * ELITE_RING_SPIN[item.band]));
       // The baked circle is drawn top-down; GROUND_MARK.tilt lays it flat on
       // the ground in the map's tilted view.
       s.setOrigin(0.5, 0.5).setDisplaySize(size, size * GROUND_MARK.tilt)
