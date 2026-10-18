@@ -192,11 +192,38 @@ test('heading up: supporting props remain below player after rotated depth sort'
     HeadingUp._postRender(scene);
   }
 });
-test('heading up: flat rune decals retain compass rotation below upright shadows', () => {
-  const scene=huScene(Math.PI/2);
-  const rune=huSprite({_worldLayer:WorldLayers.GROUND_DECAL});
-  scene.shadowContainer={list:[rune]};
-  HeadingUp._preRender(scene);assert.eq(rune.rotation,0);HeadingUp._postRender(scene);
+// A flat ground mark (an elite's rune circle, the GPS ring) is a top-down
+// bake squashed to half height. Turning that SPRITE with the map stood the
+// ellipse on its end at east/west headings; so the shadow-container pass
+// counter-rotates it like the contact shadows beside it, and the map's turn
+// reaches the runes or ticks as a frame of the rotation strip instead.
+test('heading up: flat ground marks stay flat — counter-rotated like shadows, turned by strip frame', () => {
+  for (const angle of [Math.PI/2, Math.PI, -Math.PI/3]) {
+    const scene=huScene(angle);
+    const rune=huSprite({});
+    scene.shadowContainer={list:[rune]};
+    HeadingUp._preRender(scene);
+    huNear(rune.rotation+angle,0,'the ellipse does not turn with the map');
+    assert.eq(rune.x,130);assert.eq(rune.y,120);
+    HeadingUp._postRender(scene);
+    assert.eq(rune.rotation,0);
+  }
+  assert.falsy(/s\._worldLayer = WorldLayers\.GROUND_DECAL;\s*const \{ x: sx, y: sy \} = project\(item\.dx/.test(RENDER_SRC),
+    'the rune ring pass no longer tags its sprites as decals exempt from uprighting');
+  assert.falsy(/gpsGhost\._worldLayer/.test(SCENE_SRC), 'the GPS ring carries no decal tag either');
+  assert.truthy(/Render\.groundMarkFrame\(scene, key, \(pulseNow \/ 1000\) \* ELITE_RING_SPIN\[item\.band\]\)/.test(RENDER_SRC),
+    'the rune bands take their spin AND the map turn through groundMarkFrame');
+  assert.truthy(/\.setFrame\(Render\.groundMarkFrame\(this, 'gps_ring'\)\)/.test(SCENE_SRC),
+    'the GPS ring takes the map turn through groundMarkFrame');
+  // groundMarkFrame: the map's turn (degrees, clockwise on screen) picks the
+  // strip frame; a full period wraps.
+  const tex = { get: () => ({ frameTotal: 31 }) };   // a 90° strip of 30 frames + __BASE
+  const sc = (rad) => ({ _headingUp: true, mapRot: rad, textures: tex });
+  assert.eq(Render.groundMarkFrame(sc(0), 'gps_ring'), 0);
+  assert.eq(Render.groundMarkFrame(sc(Math.PI/6), 'gps_ring'), 10, '30° → frame 10 of 3° steps');
+  assert.eq(Render.groundMarkFrame(sc(-Math.PI/6), 'gps_ring'), 20, '-30° wraps within the period');
+  assert.eq(Render.groundMarkFrame(sc(Math.PI/2), 'gps_ring'), 0, 'a full period wraps to the first frame');
+  assert.eq(Render.groundMarkFrame(sc(0), 'gps_ring', 45), 15, 'a mark\'s own spin adds');
 });
 
 test('heading up: retired support slots cannot change player depth', () => {

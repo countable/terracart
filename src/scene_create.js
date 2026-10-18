@@ -773,11 +773,12 @@ class SceneCreate {
     // FLAT GROUND MARKS (GROUND_MARK, render.js): a path baked top-down in
     // its ink at GROUND_MARK.bakePx, each stroke over a dark under-stroke and
     // a soft halo so it reads on sand and snow as well as grass. `frames`
-    // rotation steps of ELITE_RING_STEP_DEG each make a rotation strip, so a
-    // mark can turn on the ground rather than tilting (a sprite rotated after
-    // it is squashed tilts the ellipse). The renderer lays a mark flat with
-    // GROUND_MARK.tilt. Baked in colour rather than white-and-tinted where the
-    // ink is fixed, because setTint() is a no-op under the Canvas fallback.
+    // rotation steps of GROUND_MARK.stepDeg each make a rotation strip, so a
+    // mark can turn on the ground — its own spin, or the compass turning the
+    // map — rather than tilting (a sprite rotated after it is squashed tilts
+    // the ellipse; see Render.groundMarkFrame). The renderer lays a mark flat
+    // with GROUND_MARK.tilt. Baked in colour rather than white-and-tinted
+    // where the ink is fixed, because setTint() is a no-op under Canvas.
     const bakeGroundMark = (key, frames, path, ink = '#fff') => {
       const S = GROUND_MARK.bakePx, cols = Math.min(frames, 8);
       bakeCanvas(this, key, cols * S, Math.ceil(frames / cols) * S, (ctx, tex) => {
@@ -802,8 +803,8 @@ class SceneCreate {
     // turns the other way. Each is a rotation strip over the turn after which
     // it repeats (the runes' four shapes come round every 120°, the eight
     // ticks every 45°).
-    const bakeRingBand = (key, periodDeg, path) =>
-      bakeGroundMark(key, Math.round(periodDeg / ELITE_RING_STEP_DEG), path);
+    const bakeRingBand = (key, periodDeg, path, ink) =>
+      bakeGroundMark(key, Math.round(periodDeg / ELITE_RING_STEP_DEG), path, ink);
     const ring = (ctx, r) => { ctx.moveTo(r, 0); ctx.arc(0, 0, r, 0, Math.PI * 2); };
     // The ticks across a ring of radius r: n of them, `len` each side of it.
     const ticks = (ctx, r, n, len) => {
@@ -838,8 +839,9 @@ class SceneCreate {
     // gold (UI_CONTROL — your position sits on the control side of the colour
     // law, spec §UI COLOUR LANGUAGE, same as the stick that walks you off it).
     // A ring around the feet with four ticks crossing it, and no centre pip:
-    // the feet stand on the fix, so the body covers it.
-    bakeGroundMark('gps_ring', 1, ctx => { ring(ctx, GPS_RING.r); ticks(ctx, GPS_RING.r, 4, GPS_RING.tick); }, '#ffe066');
+    // the feet stand on the fix, so the body covers it. A strip over the 90°
+    // after which the ticks repeat, so they turn with the map under heading-up.
+    bakeRingBand('gps_ring', GPS_RING.periodDeg, ctx => { ring(ctx, GPS_RING.r); ticks(ctx, GPS_RING.r, 4, GPS_RING.tick); }, '#ffe066');
     // Soft round halos — a glow that fades from the centre out, baked once and
     // reused for every pulsing aura: the player's warning auras (out of energy,
     // strayed far from the GPS) and the slow breath that marks a POI. Baked in
@@ -1149,7 +1151,10 @@ class SceneCreate {
     // Ground paint, so it lives with the shadows and the walk-home lead
     // (shadowContainer, under every standing sprite): the body stands ON the
     // ring, the way an elite stands on its rune circle — a root-level image
-    // at its own depth drew the far arc across the character's chest.
+    // at its own depth drew the far arc across the character's chest. In
+    // that container heading-up counter-rotates it like a contact shadow, so
+    // the ellipse never stands on its end when the map turns; the map's turn
+    // reaches the ticks through the strip frame instead (update()).
     this.gpsGhost = this.add.image(this.viewCenterX, this.viewCenterY, 'gps_ring')
       .setOrigin(0.5, 0.5)
       .setDisplaySize(GROUND_MARK.px, GROUND_MARK.px * GROUND_MARK.tilt)
@@ -1157,7 +1162,6 @@ class SceneCreate {
       .setVisible(false)
       .setMask(mask);
     this.gpsGhost.clearMask();
-    this.gpsGhost._worldLayer = WorldLayers.GROUND_DECAL;   // flat paint: never uprighted
     this.shadowContainer.add(this.gpsGhost);
     // Walk-home lead — the dashed line from the feet to the GPS dot while
     // the character is walking itself back (see _drawWalkHomeHint). Depth

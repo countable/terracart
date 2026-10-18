@@ -92,14 +92,15 @@ test('ground marks: no walk-target dot, and the GPS ring at every depth', () => 
 test('ground marks: the GPS ring is always shown and is a flat ground mark', () => {
   assert.falsy(/> this\.cellM \*\* 2\) \{\s*const g = worldMetersToScreen/.test(app),
     'no one-cell slack hides the ring near the body');
-  assert.truthy(/if \(this\.gpsM\) \{\s*const g = worldMetersToScreen\(this,[\s\S]{0,160}?this\.gpsGhost\.setPosition\(Math\.round\(g\.x\), Math\.round\(g\.y\)\)\.setVisible\(true\);/.test(app),
+  assert.truthy(/if \(this\.gpsM\) \{\s*const g = worldMetersToScreen\(this,[\s\S]{0,160}?this\.gpsGhost\.setPosition\(Math\.round\(g\.x\), Math\.round\(g\.y\)\)\.setVisible\(true\)\s*\.setFrame\(/.test(app),
     'with a fix, the ring is placed and shown unconditionally');
   assert.truthy(/this\.gpsGhost = this\.add\.image\(this\.viewCenterX, this\.viewCenterY, 'gps_ring'\)/.test(app),
     'the marker is the gps_ring bake');
   assert.truthy(/\.setDisplaySize\(GROUND_MARK\.px, GROUND_MARK\.px \* GROUND_MARK\.tilt\)/.test(app),
     'laid flat at the shared ground-mark width and tilt');
-  assert.truthy(/bakeGroundMark\('gps_ring', 1, ctx => \{ ring\(ctx, GPS_RING\.r\); ticks\(ctx, GPS_RING\.r, 4, GPS_RING\.tick\); \}, '#ffe066'\)/.test(app),
-    'baked by the shared ground-mark bake, in gold, as a ring with four ticks');
+  assert.truthy(/bakeRingBand\('gps_ring', GPS_RING\.periodDeg, ctx => \{ ring\(ctx, GPS_RING\.r\); ticks\(ctx, GPS_RING\.r, 4, GPS_RING\.tick\); \}, '#ffe066'\)/.test(app),
+    'baked by the shared ground-mark bake, in gold, as a ring with four ticks, a strip over the ticks\' period');
+  assert.eq(GPS_RING.periodDeg, 90, 'four ticks repeat every quarter turn');
   assert.falsy(/gps_crosshair/.test(app), 'the old 20px crosshair bake is gone');
   // The walk-home lead stops on the ring's ellipse at the line's bearing.
   assert.truthy(/const FAR_GAP = 1 \/ Math\.hypot\(ux \/ rx, uy \/ ry\);/.test(app),

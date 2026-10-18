@@ -12,7 +12,7 @@ Use these terms for object presentation and walking behavior, not pixel height:
 | Category | Code value | Examples | Compass and walking behavior |
 | --- | --- | --- | --- |
 | Groundcover | `WorldLayers.GROUNDCOVER` | Terrain, nexus/variant textures, floors | Follows the map; no support lift |
-| Ground decals | `WorldLayers.GROUND_DECAL` | X marks, tar puddles, holes, flat rune rings | Above groundcover, below props; follows the map; no lift |
+| Ground decals | `WorldLayers.GROUND_DECAL` | X marks, tar puddles, holes | Above groundcover, below props; follows the map; no lift |
 | Step-over props | `WorldLayers.STEP_OVER_PROP` | Cold/lit firepit, rocks, rubble, bushes, low walls | Upright; supports the player's feet while crossing |
 | Standing props | `WorldLayers.STANDING_PROP` | Saplings, trees, lamps, dropped-item icons, houses | Upright; ordinary feet-based depth ordering; no support lift |
 
@@ -33,8 +33,12 @@ The render camera anchor snaps once to the logical pixel grid before ground,
 sprites and inverse taps project their positions. Physical player/GPS positions
 remain continuous; player art projects against that same snapped anchor.
 
-Contact shadows are presentation attached to props, not ground decals; flat rune
-rings are decals and retain the map's rotation.
+Contact shadows are presentation attached to props, not ground decals. The
+flat ground marks beside them (the elite's rune circle, the GPS ring) are
+squashed top-down bakes: heading-up counter-rotates them like the shadows, and
+the map's turn reaches their runes or ticks as a frame of their rotation strip
+(`Render.groundMarkFrame`), never as a sprite rotation that would stand the
+ellipse on its end.
 
 The home firepit is centred two cells due south of the house's centre after the
 first device-compass reading (see [Home](combat.md)), without an inward artwork
@@ -353,11 +357,13 @@ the real source so a missing texture cannot become a permanent cached palette.
   (`elite_ring`, `elite_ring_inner`, baked at boot) turning against each
   other and tinted the rank's `ring` colour — `Render.canvasTint` bakes the
   tinted copy under Canvas, which ignores sprite tint. A sprite rotated after
-  being squashed tilts the ellipse, so a turning ground decal is a strip.
+  being squashed tilts the ellipse, so a turning ground mark is a strip, and
+  the compass turn is a strip frame too (`Render.groundMarkFrame`).
 - Flat ground marks share one table, `GROUND_MARK` (render.js): the bake size,
   the on-screen width at which the baked strokes land at their designed
-  weight, the tilt that lays a top-down bake flat for the south camera, and
-  the stroke passes (dark under-stroke, soft halo, line) in a mark's ink.
+  weight, the tilt that lays a top-down bake flat for the south camera, the
+  strip step, and the stroke passes (dark under-stroke, soft halo, line) in a
+  mark's ink.
   `bakeGroundMark` (scene_create.js) is the one bake; the elite's rune bands
   and the player's GPS ring (`gps_ring`, baked in gold, `GPS_RING` geometry)
   are its rows. The GPS ring (`gpsGhost`) is always drawn while there is a fix:
