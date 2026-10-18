@@ -1084,12 +1084,13 @@
     const mesh={...cached,faces:atlasFaces(cached,texture.roofPeriod)};
     mesh.roofTriangles=mesh.faces.filter(f=>f.kind==='roof').length;mesh.wallTriangles=mesh.faces.filter(f=>f.kind==='wall').length;mesh.trimTriangles=mesh.faces.filter(f=>f.kind==='trim').length;
     mesh.key=key;mesh.footprint=pts;mesh.role=recipe.role;mesh.x=left;mesh.y=top;mesh.smoke=recipe.smoke?cached.chimneyMouths||[]:[];state.buildings.push(mesh);if(key&&mesh.faces.length)state.keys.add(key);
-    // A wall's sort point is the end of its baseline that lies lowest on the
-    // screen (`wallSupport`: the southern end north-up, re-picked per heading
-    // in update). Every point of a wall taller than the player that overlaps
-    // the player on screen stands south of the player's feet, so the low end
-    // orders the whole wall correctly: the north wall behind, the south wall
-    // and the flanks' tops in front.
+    // A wall's sort point is its baseline's point in the player's screen
+    // column (`wallSupport` → WallPerspective.wallSortPoint; re-asked every
+    // frame in update as the player and the heading move), so a wall orders
+    // against the player exactly where the two overlap on screen: the wall
+    // behind the player stays behind along its whole length, the wall in
+    // front in front, at every heading. Placed here at its low end; update
+    // moves it at once.
     if(mesh.edge)mesh.edge={a:{x:left+mesh.edge.a.x,y:top+mesh.edge.a.y},b:{x:left+mesh.edge.b.x,y:top+mesh.edge.b.y}};
     const support=mesh.edge?{...wallSupport(mesh.edge,0),order:state.buildings.length}
       :{x:left+local.reduce((s,p)=>s+p.x,0)/local.length,y:top+local.reduce((s,p)=>s+p.y,0)/local.length,order:state.buildings.length};
@@ -1110,9 +1111,13 @@
     return mesh;
     }
   }
-  // The end of a wall's baseline that sits lowest on the screen turned by
-  // `angle` (heading_up.js keys the turned sort by s·x + c·y).
-  function wallSupport(edge,angle){
+  // A wall's sort point against the player: WallPerspective.wallSortPoint
+  // (the ONE rule both building paths share) — the baseline's point in the
+  // player's screen column at the heading `angle`, else its end lowest on
+  // screen. `at` is the player's feet in the overlay's px space.
+  function wallSupport(edge,angle,at){
+    const WP=typeof WallPerspective!=='undefined'?WallPerspective:global.WallPerspective;
+    if(WP&&WP.wallSortPoint)return WP.wallSortPoint(edge.a,edge.b,angle,at);
     const s=Math.sin(angle),c=Math.cos(angle),a=edge.a,b=edge.b;
     const p=s*a.x+c*a.y>=s*b.x+c*b.y?a:b;return {x:p.x,y:p.y};
   }
@@ -1123,10 +1128,14 @@
   function update(scene){const state=scene._lowpoly;if(!state)return;
     const visible=state.enabled&&active(scene)&&(scene.depth??0)===0;
     const angle=scene.mapRot||0;
+    // The player's feet in the overlay's px space: what every interior wall
+    // sorts against (wallSupport).
+    const feet=scene.playerScreen?scene.playerScreen():null;
+    const at=feet?{x:feet.x-state.offsetX,y:feet.y-state.offsetY}:null;
     // The retained geometry's pan changes even when its projected faces do not.
     for(const mesh of state.buildings){
       const obj=mesh.obj;obj.visible=visible;
-      if(mesh.edge){const w=wallSupport(mesh.edge,angle);mesh.support.x=w.x;mesh.support.y=w.y;}
+      if(mesh.edge){const w=wallSupport(mesh.edge,angle,at);mesh.support.x=w.x;mesh.support.y=w.y;}
       obj.setPosition(state.offsetX,state.offsetY);
       obj._huAnchor.x=mesh.support.x+state.offsetX;
       obj._huAnchor.y=mesh.support.y+state.offsetY;

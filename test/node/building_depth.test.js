@@ -153,4 +153,33 @@
     assert.truthy(band.every(f => f.points.every(p => Math.abs(p.z - base.height) < 1e-9)), 'the band lies on the wall tops');
     assert.eq(api.interiorGeometry(base, T), room, 'built once per house');
   });
+
+  depthTest('building depth: a wall sorts at its baseline point in the player\'s screen column, re-asked as they move', () => {
+    const s = scene(); BuildingLowPoly.begin(s);
+    s.textures = { exists: (k) => k.startsWith('fallback:lowpoly:') || k.startsWith('lowpoly:cel'), get: (k) => ({ key: k }) };
+    BuildingLowPoly.add(s, [{ x: 60, y: 60 }, { x: 84, y: 60 }, { x: 84, y: 84 }, { x: 60, y: 84 }],
+      { role: 'home', stories: 1, material: 'stone', body: 0x999999, roof: 0x777777, trim: 0x444444, interior: true }, 'flat', 'home');
+    let feet = { x: 80, y: 70 };
+    s.playerScreen = () => feet;
+    // Turned 45°: the across-screen coordinate is (x − y)/√2. The player at
+    // (80, 70) shares it with (70, 60) on the north wall and (84, 74) on the
+    // east flank; the south wall and the west flank clamp to their ends.
+    s.mapRot = Math.PI / 4; BuildingLowPoly.update(s);
+    const walls = s._lowpoly.buildings.filter((m) => m.key === 'home');
+    const wall = (ax, ay, bx, by) => walls.find((m) => m.edge.a.x === ax && m.edge.a.y === ay && m.edge.b.x === bx && m.edge.b.y === by);
+    const north = wall(60, 60, 84, 60), east = wall(84, 60, 84, 84), south = wall(84, 84, 60, 84), west = wall(60, 84, 60, 60);
+    near(north.support.x, 70); near(north.support.y, 60);
+    near(east.support.x, 84); near(east.support.y, 74);
+    near(south.support.x, 84); near(south.support.y, 84);
+    near(west.support.x, 60); near(west.support.y, 60);
+    // The player steps west: the north wall's point follows (clamped at its end).
+    feet = { x: 62, y: 70 }; BuildingLowPoly.update(s);
+    near(north.support.x, 60); near(north.support.y, 60);
+    near(east.support.x, 84); near(east.support.y, 84);
+    // The same rule, through the one shared helper.
+    const p = WallPerspective.wallSortPoint({ x: 0, y: 0 }, { x: 100, y: 0 }, Math.PI / 4, { x: 30, y: 0 });
+    near(p.x, 30); near(p.y, 0);
+    const q = WallPerspective.wallSortPoint({ x: 0, y: 0 }, { x: 0, y: 50 }, 0, { x: 10, y: 20 });
+    near(q.x, 0); near(q.y, 50);   // end-on: the end lowest on screen
+  });
 })();

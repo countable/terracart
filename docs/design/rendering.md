@@ -113,14 +113,22 @@ house floor on the canvas and then the house. On the low-poly path it is the
 thick top band (`interiorGeometry`) — and the lightmap masks the outside (see
 Lighting). An interior is one render object PER WALL (`interiorGeometry`
 tags each face with its ring `edge`; `BuildingLowPoly.add` places a mesh per
-edge), sorted in the shared world sort at the wall's low end on screen
-(`wallSupport`: its southern end north-up, re-picked per heading), so the
-player draws over the wall behind them and under the wall in front; a
-standing building stays one object at its footprint centroid. Without the low-poly path (Canvas, north-up) the same house is
+edge), each sorted in the shared world sort at its wall's sort point
+(`WallPerspective.wallSortPoint`, the one rule both building paths share:
+the baseline's point in the player's screen column at the current heading,
+clamped to the wall's ends and re-asked every frame; a wall seen end-on
+takes its end lowest on screen), so the player draws over the wall behind
+them and under the wall in front along the wall's whole length at every
+heading; a standing building stays one object at its footprint centroid.
+Without the low-poly path (Canvas) the same house is
 retained prisms in the `home` group (`WallPerspective`, `alwaysActive`) with
 the palisade's thickness and a taller wall, a doorway gap on the door side
 (`shape.door`), and a gabled two-tone roof with a ridge; inside, no roof and
-the wall tops in the wall's own colour. The sign seats over the drawn top, or
+the wall tops in the wall's own colour, and the group is `perWall`: every
+wall section draws into a part of its own in the world container, anchored
+at the same sort point and handed to the frame's world sort through
+`WallPerspective.worldPieces` — never the one wall-container graphics,
+which sits under the player's container and drew the player over every wall. The sign seats over the drawn top, or
 `HOUSE.signLiftPx` above the footprint's centre when there is no model.
 
 A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim
