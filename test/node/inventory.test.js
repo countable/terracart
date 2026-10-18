@@ -167,3 +167,35 @@ test('inventory categories: saved tabs migrate without changing carried items or
     assert.eq(save.invCat, 'seeds', 'missing or invalid tab opens Seeds');
   }
 });
+
+test('remove: spending another stack preserves the held stack through index shifts', () => {
+  const held = { id: 'potato_seed', count: 3 };
+  const save = { inv: [{ id: 'wood', count: 1 }, held, { id: 'egg', count: 1 }], selSlot: 1 };
+  Inventory.remove(save, 'wood');
+  assert.eq(save.inv[save.selSlot], held, 'ammunition/payment cannot swap the held seeds for an egg');
+  assert.eq(save.selSlot, 0);
+  Inventory.remove(save, 'potato_seed', 2);
+  assert.eq(save.inv[save.selSlot], held, 'partial consumption keeps the remaining stack selected');
+  Inventory.remove(save, 'potato_seed');
+  assert.eq(save.selSlot, -1, 'empty hand even with a surviving neighbour');
+});
+
+test('remove: legacy duplicates compact without changing another selected stack', () => {
+  const held = { id: 'potato_seed', count: 3 };
+  const save = { inv: [{ id: 'wood', count: 1 }, held, { id: 'wood', count: 1 }], selSlot: 1 };
+  assert.eq(Inventory.remove(save, 'wood', 2), 2);
+  assert.eq(save.inv[save.selSlot], held);
+  save.selSlot = -1;
+  Inventory.remove(save, 'potato_seed');
+  assert.eq(save.selSlot, -1, 'empty hands stay empty');
+});
+
+test('add: legacy stack folding preserves the selected item', () => {
+  for (const selected of [0, 1, 2]) {
+    const save = { inv: [{ id: 'wood', count: 1 }, { id: 'potato_seed', count: 2 }, { id: 'wood', count: 2 }], selSlot: selected };
+    const heldId = save.inv[selected].id;
+    Inventory.add(save, 'wood');
+    assert.eq(save.inv[save.selSlot].id, heldId, 'held item survives duplicate folding');
+    assert.eq(Inventory.count(save, 'wood'), 4);
+  }
+});

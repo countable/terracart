@@ -86,7 +86,7 @@ const FILES = [
   // read Difficulty.get() at call time and app.js pins it at boot.
   'enemy_roster.js', 'enemy_spawns.js', 'creature_spawns.js', 'enemy_habitats.js', 'difficulty.js',
   'sprite_layout.js',
-  'mvt.js', 'util.js', 'particles.js', 'trail.js',
+  'mvt.js', 'util.js', 'polygon_geometry.js', 'particles.js', 'trail.js',
   // Street restoration's arithmetic (pure); beside trail.js, whose ladder it feeds.
   'streets.js',
   // Street variants. Pure (reads WorldGen / Streets at CALL time), before worldgen.js like the page.
@@ -95,7 +95,7 @@ const FILES = [
   'scenic.js',
   // Influence zones. Pure (reads WorldGen at CALL time), before worldgen.js like the page.
   'zones.js', 'zone_variant_data.js', 'terrain.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
-  'multiplayer.js', 'placed_floor.js', 'campfires.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js',
+  'enemy_protocol.js', 'multiplayer.js', 'placed_floor.js', 'campfires.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js',
   // Traps — pure (reads WorldGen at CALL time); index.html puts it first, so do we.
   'traps.js', 'whirlwinds.js', 'hazard_falls.js', 'environment_hazards.js', 'waystones.js', 'pressure_traps.js', 'spider_webs.js',
   'gas.js', 'mushroom_gas.js',

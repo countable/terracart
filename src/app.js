@@ -4575,10 +4575,13 @@ class MapScene extends Phaser.Scene {
   // the monster's melee, the goblin arrow) — NOT from _flashPlayerHit, which a
   // trap's bite and bleed also go through: iron jaws are not a foe walking up.
   // Every shop dialog is kind 'shop' (makeModalShell stamps data-kind), and
-  // closing one is just removing it — the same thing its Cancel does.
+  // interruption closes through the offer lifecycle, releasing deferred reads.
   _closeShopOnHit() {
     if (typeof document === 'undefined') return;
-    for (const w of document.querySelectorAll('.game-modal[data-kind="shop"]')) w.remove();
+    for (const w of document.querySelectorAll('.game-modal[data-kind="shop"]')) {
+      if (w.closeModal) w.closeModal('hit');
+      else w.remove();
+    }
   }
 
   _flashPlayerHit(dmg) {
@@ -4659,7 +4662,7 @@ class MapScene extends Phaser.Scene {
   }
   // Food out of the bag: Inventory.remove is the one bag writer (never more
   // than the stack holds), the bar rebuilt so the missing piece shows, the
-  // selection re-clamped like any consume, and the "-N Name" in the danger
+  // selection preserved by Inventory.remove, and the "-N Name" in the danger
   // ink — the same tier the eat button's "+N" answers in gold.
   _losePlayerFood(id, n, thief) {
     const taken = Inventory.remove(this.save, id, Math.max(0, Math.floor(n || 0)));
@@ -8690,7 +8693,7 @@ class MapScene extends Phaser.Scene {
       { art: 'revive_found', title: 'Found',    body: 'Villagers find you by lantern light. They lift you gently and carry you home.' },
       // The carer is the villager revive_wake draws; they say nothing, which
       // is the point. What the revival GAVE is the energy pop's to say.
-      { art: 'revive_wake',  title: 'Home',     body: 'You wake under a rough blanket in your house. A farmhand nods goodbye.' },
+      { art: 'revive_wake',  title: 'Home',     body: 'You wake under a rough blanket at Home. A farmhand nods goodbye.' },
     ];
     MemoryStory.showPages(this, PANELS, { kind: 'story' });   // "Next" between them, "OK" on the last
   }
@@ -10559,10 +10562,9 @@ class MapScene extends Phaser.Scene {
   }
 
   // --- Two-bar inventory helpers ------------------------------------------
-  // After a spend spliced a stack out (Inventory.remove leaves the re-clamp
-  // to its caller): a selection that fell off the end of save.inv becomes
-  // "nothing in hand" (-1) — never a neighbouring stack the player didn't
-  // pick. A gear selection's -1 is below every length, so it is left alone.
+  // Bounds guard for inventory replacement paths. Inventory.remove itself
+  // preserves the selected stack across compaction and clears a consumed one.
+  // A gear selection's -1 is below every length, so it is left alone.
   _clampSelSlot() {
     if (this.save.selSlot >= this.save.inv.length) this.save.selSlot = -1;
   }

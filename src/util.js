@@ -67,22 +67,33 @@ function shuffleInPlace(arr, rng) {
   }
   return arr;
 }
+// Draw at a supplied unit position (or lazily call an RNG only for a nonempty
+// weighted pool). Adapters keep their established boundary and zero-pool rules
+// so extracting the arithmetic never changes seeded populations or loot draws.
+function weightedPickAt(items, weightOf, position, { inclusive = false, positiveOnly = false, empty = null } = {}) {
+  let total = 0, last = null;
+  for (const it of items) {
+    const w = weightOf(it);
+    if (positiveOnly && !(w > 0)) continue;
+    total += w;
+    last = it;
+  }
+  if (!(total > 0)) return empty;
+  let ticket = (typeof position === 'function' ? position() : position) * total;
+  for (const it of items) {
+    const w = weightOf(it);
+    if (positiveOnly && !(w > 0)) continue;
+    ticket -= w;
+    if (inclusive ? ticket <= 0 : ticket < 0) return it;
+  }
+  return last;
+}
 // One item drawn in proportion to weightOf(item): ONE rng() call, walked by
 // subtracting each weight until the remainder reaches zero (`<= 0`). Items
 // weighing <= 0 are never drawn; an empty or weightless list returns null.
 // Floating-point slack past the last positive weight lands on that weight.
 function weightedPickBy(items, weightOf, rng) {
-  let total = 0, last = null;
-  for (const it of items) { const w = weightOf(it); if (w > 0) { total += w; last = it; } }
-  if (!(total > 0)) return null;
-  let r = (rng ?? Math.random)() * total;
-  for (const it of items) {
-    const w = weightOf(it);
-    if (!(w > 0)) continue;
-    r -= w;
-    if (r <= 0) return it;
-  }
-  return last;
+  return weightedPickAt(items, weightOf, rng ?? Math.random, { inclusive: true, positiveOnly: true });
 }
 // Degrees ↔ radians. rad2deg DIVIDES by the same constant deg2rad multiplies
 // by rather than multiplying by 180/π: the two are not the same double (they

@@ -761,49 +761,15 @@ class SceneVenues {
   // direct recipe picker. `targetId` defaults to the first recipe the
   // bag can make, so the page opens on something usable.
   presentHomeCraft(sx, sy, targetId = null) {
-    const held = (id) => Inventory.count(this.save, id);
-    const capOf = (r) => Math.min(recipeCap(r.cost, held), Math.max(0, this.invRoomFor(r.id)));
-    const locked = (r) => homeRecipeLocked(this.save, r.id);
-    const recipes = HOME_RECIPES.filter(r => !locked(r));
-    const rec = recipes.find(r => r.id === targetId)
-      || recipes.find(r => capOf(r) >= 1) || recipes[0];
-    const outName = itemName(rec.id);
-    const learnVerb = ITEM_BY_ID[rec.id]?.scroll ? 'Use' : 'Find';
-    const idx = recipes.indexOf(rec);
-    const n = recipes.length;
-    const pageTo = (r) => () => this.presentHomeCraft(sx, sy, r.id);
-    // The one ingredient-recipe offer (scene_shops.js _presentRecipeOffer:
-    // the coloured cost line, the shortfall flash, the consume), pointed at
-    // Home; the bag-room and the recipe lock are this page's own refusals.
-    this._presentRecipeOffer(sx, sy, {
-      recipe: rec.cost,
+    this._presentRecipePicker(sx, sy, {
+      recipes: HOME_RECIPES, targetId,
+      present: id => this.presentHomeCraft(sx, sy, id),
       kind: 'craft', kindIcon: this._homeKindIcon(),
       tabs: this._homeTabs('craft', sx, sy),
-      cancelLabel: 'Leave',
-      get: `1× ${this.iconSpanHTML(rec.id)} ${outName}`,
-      blurb: ITEM_EFFECTS[rec.id] || undefined,
-      canAfford: this.invRoomFor(rec.id) >= 1,
-      acceptLabel: 'Craft',
-      costLabel: 'Ingredients',
-      disabledReason: this.invRoomFor(rec.id) < 1 ? bagFullFor(rec.id) : undefined,
-      repeat: () => this.presentHomeCraft(sx, sy, rec.id),
-      pager: {
-        index: idx, count: n, showIndex: false,
-        options: recipes.map(r => ({ label: itemName(r.id), onSelect: pageTo(r) })),
-        iconHTML: this.iconSpanHTML(rec.id, 32),
-        caption: `Makes 1 · In bag: ${held(rec.id)}`,
-        onPrev: pageTo(recipes[(idx - 1 + n) % n]),
-        onNext: pageTo(recipes[(idx + 1) % n]),
-      },
-      refuse: () => {
-        if (locked(rec)) { this.flash(`${learnVerb} a ${outName} first.`, sx, sy); return true; }
-        if (this.invRoomFor(rec.id) < 1) { this.flash(bagFullFor(rec.id), sx, sy); return true; }
-        return false;
-      },
-      produce: () => {
-        this.addToInv(rec.id, 1, false, { notWild: true, deferRefresh: true });
+      acceptLabel: 'Craft', costLabel: 'Ingredients',
+      onCraft: rec => {
         this._finishInventoryChange();
-        this.flashLoot(`✨ ${outName} ×1`, UI_GOLD, 1.25, rec.id);
+        this.flashLoot(`✨ ${itemName(rec.id)} ×1`, UI_GOLD, 1.25, rec.id);
       },
     });
   }
@@ -1571,7 +1537,7 @@ class SceneVenues {
     // the surface spot above the player. Refuse with an explanation instead.
     if ((this.depth || 0) !== 0) {
       this.showMessageModal({ title: 'Move Home',
-        body: 'Your house stands on the surface. Climb back up before moving Home.' });
+        body: 'Home stands on the surface. Climb back up before moving it.' });
       return;
     }
     const { x: px, y: py } = playerWorldM(this);
@@ -1588,7 +1554,7 @@ class SceneVenues {
       title: 'Move Home here?',
       body: footing?.house
         ? 'Make this building your Home, keeping its existing footprint.'
-        : 'Build your house here.',
+        : 'Build Home here.',
       acceptLabel: `Move (${this.moneyHTML(cost, 12)})`,
       onAccept: () => {
         if (!this.moveHomeTrailerHere(px, py)) {

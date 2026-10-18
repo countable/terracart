@@ -62,6 +62,9 @@ retained perimeter faces, descending below the floor instead of rising as a wall
 Only camera-facing sides draw; uncapped perimeters also support concave footprints
 without triangulating their textured floors. Floors remain cached ground textures;
 Procedural house roofs use triangulated caps and retained sloped roof faces.
+`PolygonGeometry` owns collinear pruning, ear clipping and the shared even–odd
+point-in-rings predicate. Renderers retain their own coordinate normalization,
+canonical vertex order and mesh caches.
 They share the same elevation projection in north-up and heading-up modes;
 legacy sprite modes retain the north-up wall atlas artwork.
 The WebGL low-poly path (`building_lowpoly.js`) draws houses to match the 2D

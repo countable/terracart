@@ -1069,3 +1069,28 @@ test('spike bushes: minimum T1 axe, the slow grind offered one tier short, ordin
     }
   } finally { globalThis.WorldGen=original; }
 });
+
+test('light-fire: surface farming does not block the mirrored cave cell', () => {
+  const entries = [...WorldGen.tileCache.entries()];
+  WorldGen.tileCache.clear();
+  try {
+    for (const blocker of ['surface-crop', 'surface-tilling', 'same-floor-crop']) {
+      const save = { inv: [{ id: 'flint_shard', count: 1 }], selSlot: 0,
+        planted: blocker === 'surface-tilling' ? [] : [{ x: 5, y: 5, depth: blocker === 'same-floor-crop' ? 1 : 0 }] };
+      const scene = makeScene({ depth: 1, cellM: 10,
+        tilledSet: new Set(blocker === 'surface-tilling' ? ['0_0'] : []),
+        placedRockSet: new Set(), buildInventoryDOM() {}, flash() {} });
+      const ctx = Object.assign(makeCtx(scene, save), {
+        cell: { type: TERRAIN.CAVE_FLOOR }, cellKey: '0_0', cwmx: 5, cwmy: 5,
+      });
+      const placed = TAP_HANDLERS.find(h => h.name === 'light-fire').try(ctx);
+      assert.eq(placed, blocker !== 'same-floor-crop', blocker);
+      assert.eq(save.fires.length, blocker === 'same-floor-crop' ? 0 : 1, blocker);
+      assert.eq(Inventory.count(save, 'flint_shard'), blocker === 'same-floor-crop' ? 1 : 0, blocker);
+      if (save.fires.length) assert.eq(save.fires[0].depth, 1);
+    }
+  } finally {
+    WorldGen.tileCache.clear();
+    for (const [key, entry] of entries) WorldGen.tileCache.set(key, entry);
+  }
+});

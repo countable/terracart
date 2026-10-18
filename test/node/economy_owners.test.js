@@ -176,7 +176,7 @@ test('economy: CONSUMABLE_SPEC names each timed buff\'s Buffs row, each tome\'s 
 });
 
 test('economy: the house-sign label rows live beside Shops.roleLabel', () => {
-  assert.eq(Shops.BUILDING_LABEL.trailer, 'Your house.');
+  assert.eq(Shops.BUILDING_LABEL.trailer, 'Home');
   assert.eq(Shops.BUILDING_LABEL[12], 'Castle'); assert.eq(Shops.BUILDING_LABEL[11], 'Fort'); assert.eq(Shops.BUILDING_LABEL[9], 'House');
   assert.eq(Object.keys(Shops.TOWER_LABEL).join(), 'locked,abandoned,empty,open');
   assert.eq(Shops.TOWER_LABEL.open, 'Wizard Tower');
