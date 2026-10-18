@@ -1,3 +1,10 @@
+/* Standalone dialogs live on body, outside the scaled game. Use the same
+   phone gutters as the HUD so their panels and backdrops stay in the device. */
+body > :is(#bootload, #story, #howto, #tooshort, #locating) {
+  left: var(--phone-left, 0px);
+  right: var(--phone-right, 0px);
+  width: auto;
+}
 /* Living silver: the stationary rail is ornate; touch controls stay simple.
    Shared by the existing scene shell and the pre-scene opening storyboard. */
 .compass-panel, #story.compass-story {
@@ -127,7 +134,7 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 #story.story-fullscreen .art { flex: 1; min-height: 0; aspect-ratio: auto; overflow: hidden; }
 #story.story-fullscreen .opening-copy { flex: 0 0 auto; }
 #story.compass-story {
-  --panel-rail-height: calc(100vw * 220 / 750);
+  --panel-rail-height: calc((100vw - var(--phone-left, 0px) - var(--phone-right, 0px)) * 220 / 750);
   align-items: end; padding: 0;
   background: #10191e;
 }

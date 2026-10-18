@@ -141,7 +141,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   distance uses the shared 200-metre threshold, and spirit walking remains opt-in.
   Reference atlas crops live alongside their provenance in `assets/ui/compass/`.
   Engravings retain their aspect ratio rather than stretching to viewport height.
-  The dragon header reserves its full 750:220 aspect ratio at the panel width;
+  Body-level loading, opening-story, help, and location dialogs use the shared
+  phone gutters, including their backdrops; they never span desktop margins.
+  The dragon header reserves its full 750:220 aspect ratio at the phone-panel width;
   its chrome stays above scene paintings and loading mosaics without cropping the head.
   Sheets have no duplicate metal side rails or border: the outer compass housing
   supplies that frame. Painted sheets mask the dragon rail along its lower silver silhouette so
