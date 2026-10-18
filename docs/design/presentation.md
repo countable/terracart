@@ -491,6 +491,19 @@ changing dialogue, story panels, books, toasts or status presentation.
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,
 `item_descriptions`, `books`, `story_neighbours`, `stranger`, `buffs`.
 
+## Schoolyard tile game
+
+Schoolyard field flags start a round when walked onto. The HUD shows score,
+seconds remaining, and an eastward shift countdown. Colored inset outlines
+preview the next pattern, which wraps east by one tile every three seconds.
+Blue gives one point per accumulated second on blue; red subtracts three per
+accumulated second on red. Purple gives five immediately, then becomes blue
+until the next shift. Pulsing brightness does not change a tile's scoring.
+Rounds stop at 30 seconds of active play; dialogs, background tabs and being
+downed pause the clock. Leaving the surface cancels the round. Final scores
+remain visible until another round starts; leave and re-enter the flag cell to
+replay. These scores are local minigame scores, not inventory currency.
+
 ### Home-bound memory events
 
 Memory discoveries still bank immediately, but their queued narrative panels wait

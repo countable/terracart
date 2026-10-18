@@ -1334,6 +1334,13 @@
     scene._sandboxMode = true;
     scene.depth = scene.save.depth = 0;
     WorldGen.setDepth(0);
+    if (typeof FloorSandbox !== 'undefined' && FloorSandbox.active()) {
+      FloorSandbox.install(scene);
+      stockSandboxInventory(scene);
+      grantSandboxGear(scene);
+      installControls(new URLSearchParams(location.search));
+      return;
+    }
     // Procedural architecture exercises authored source rings and synthesized
     // house footprints; sprite comparisons retain the original tile painter.
     if (typeof BuildingOverlay !== 'undefined') BuildingOverlay.setEnabled(scene, !!Render.proceduralBuildings?.());
@@ -1469,6 +1476,17 @@
     title.textContent = 'Sandbox test lab';
     panel.append(title);
     panel.style.cssText = 'padding:8px;display:block;border-top:1px solid #555';
+    if (typeof FloorSandbox !== 'undefined' && FloorSandbox.active()) {
+      const back = document.createElement('a');
+      back.href = 'tools/floor-viewer.html?seed=' + FloorSandbox.read().seed;
+      back.textContent = 'Return to floor viewer';
+      const reload = document.createElement('button');
+      reload.textContent = 'Restart this map';
+      reload.onclick = () => location.reload();
+      panel.append(back, reload);
+      menu.parentElement.prepend(panel);
+      return;
+    }
     const destination = document.createElement('select');
     destination.setAttribute('aria-label', 'Sandbox destination');
     destination.style.cssText = 'width:100%;margin:8px 0;min-height:44px;background:#201c17;color:#eee;border:1px solid #857344;border-radius:4px;font:inherit';

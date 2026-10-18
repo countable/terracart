@@ -206,12 +206,9 @@ const ASSETS = {
   // Selected tall pillar (#63), replacing the global mapped-pole sprite.
   // One 24px frame displayed in a 32px cell; purely decorative as before.
   pillar:         { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/tall_pillar.png', frameWidth: 24, frameHeight: 24 },
-  // STREET VARIANTS (src/street_variants.js): the generated 16px props (see
-  // assets/Objects/Generated/README.md — placeholders): the pilgrim's
-  // waystone, the barricade, and the burned row's tar pit and iron stakes
-  // (one look each). wagon: the intact compact wagon a bandit-road bus stop wears
+  // STREET VARIANTS (src/street_variants.js): barricades and tar pits.
+  // wagon: the intact compact wagon a bandit-road bus stop wears
   // (loot.js chestLook), one compact 32×32 frame.
-  waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone-24.png', frameWidth: 24, frameHeight: 24 },
   barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 24, frameHeight: 24 },
   tar:            { kind: 'spritesheet', path: 'assets/Objects/Approved/tar.png', frameWidth: 16, frameHeight: 16 },
   wagon:          { kind: 'spritesheet', path: 'assets/Objects/DailyVisits/wagon.png', frameWidth: 32, frameHeight: 32 },

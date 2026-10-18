@@ -74,7 +74,7 @@ const PLAY_TIPS = [
   "Found the wagon by the trade road. Reached it without going near the traffic. No bargain is worth a cartwheel across your ribs.",
   "The burned road clings to my boots. Each step is heavy. I remember when the Warmonger's passing was only a rumour.",
   "Fuel yard. Sticky tar. Slow going.",
-  "The waystone gave me a page of old lore. No names scratched out, no helpful corrections. I copied it exactly.",
+  "The rounded stones woke beneath my feet. When the whole Pilgrim’s Way shone at once, a chest appeared beside me.",
   "Another day, another creature between the gateposts. I am beginning to doubt the wisdom of gates without doors.",
   "A giant goblin guards the treasure near the coffee shop. I have marked the shop as temporarily inconvenient.",
   "Restore the lantern row. Close-set lights hold the dark back better than a lone lamp. Leave a little brightness for whoever follows.",

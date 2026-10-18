@@ -6,14 +6,20 @@
 <meta name="artifact-review" content="disabled">
 <title>Dragon Hood · Sandbox test directory</title>
 <style>
-:root{color-scheme:dark;background:#101919;color:#ecf3e9;font:16px/1.6 system-ui,sans-serif}*{box-sizing:border-box}body{margin:0}main{max-width:1100px;margin:auto;padding:32px 24px}h1{font-size:clamp(30px,5vw,46px);line-height:1.15}h2{margin:0}p{color:#afc1b7;max-width:850px}a{color:#c7e991}nav{display:flex;flex-wrap:wrap;gap:12px 22px;margin:20px 0}section{margin:28px 0;padding:24px;background:#192525;border:1px solid #344545;border-radius:12px;scroll-margin-top:20px}ul{list-style:none;padding:0;margin:16px 0 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}li{padding:12px 0;border-top:1px solid #344545}.row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}.options{display:flex;gap:16px;font-size:14px}.note{border-left:3px solid #efca79;padding:8px 16px;background:#252a20}input{width:100%;padding:12px;border:1px solid #52675f;border-radius:8px;background:#192525;color:inherit;font:inherit}a:focus-visible,input:focus-visible{outline:3px solid #efca79;outline-offset:4px}[hidden]{display:none!important}@media(max-width:650px){ul{grid-template-columns:1fr}section{padding:18px}}
+:root{color-scheme:dark;background:#101919;color:#ecf3e9;font:16px/1.6 system-ui,sans-serif}*{box-sizing:border-box}body{margin:0}main{max-width:1100px;margin:auto;padding:32px 24px}h1{font-size:clamp(30px,5vw,46px);line-height:1.15}h2{margin:0}p{color:#afc1b7;max-width:850px}a{color:#c7e991}nav{display:flex;flex-wrap:wrap;gap:12px 22px;margin:20px 0}section{margin:28px 0;padding:24px;background:#192525;border:1px solid #344545;border-radius:12px;scroll-margin-top:20px}ul{list-style:none;padding:0;margin:16px 0 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}li{padding:12px 0;border-top:1px solid #344545}.row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}.options{display:flex;gap:16px;font-size:14px}.note{border-left:3px solid #efca79;padding:8px 16px;background:#252a20}input[type="search"]{width:100%;padding:12px;border:1px solid #52675f;border-radius:8px;background:#192525;color:inherit;font:inherit}.launch-options{display:grid;gap:10px;margin:24px 0;padding:16px 20px;border:1px solid #52675f;border-radius:8px}.launch-options legend{padding:0 6px}.launch-options label{display:flex;align-items:center;gap:10px;cursor:pointer;min-height:32px}.launch-options input{width:20px;height:20px;flex-shrink:0;accent-color:#c7e991}a:focus-visible,input:focus-visible{outline:3px solid #efca79;outline-offset:4px}[hidden]{display:none!important}@media(max-width:650px){ul{grid-template-columns:1fr}section{padding:18px}}
 </style>
 <script src="../src/sandbox_destinations.js"></script>
 </head>
 <body><main>
 <a href="../design/">← Design dashboards</a>
 <h1>Sandbox test directory</h1>
-<p>Jump straight to an existing test setup. Each test link clears all local game saves and settings, skips the intro and location setup, and opens the sandbox in a new tab with its stocked test kit. Reloading resets it again.</p>
+<p>Jump straight to an existing test setup in a new tab with its stocked test kit. The switches below affect every sandbox link. Reset clears all local game saves and settings each time the linked sandbox loads, including on reload. Opening stories, location setup, tutorials and activation panes are skipped by default.</p>
+<fieldset class="launch-options">
+  <legend>Sandbox launch options</legend>
+  <label><input id="reset" type="checkbox" checked> Reset local game saves</label>
+  <label><input id="show-story" type="checkbox"> Show opening story and location setup</label>
+  <label><input id="show-tutorial" type="checkbox"> Show tutorials and activation panes</label>
+</fieldset>
 <label for="search">Find a mechanic or setup</label>
 <input id="search" type="search" placeholder="Castle, bank, forest, traps…">
 <nav id="categories" aria-label="Test categories"></nav>
@@ -56,7 +62,7 @@ for (const group of groups) {
     const li = document.createElement('li'); li.dataset.destination = entry.id;
     const label = entry.label + (entry.depth ? ` · L${entry.depth}` : '');
     li.dataset.search = [group.title, label, entry.id, ...(entry.aliases || [])].join(' ').toLowerCase();
-    const href = SandboxDestinations.href(entry.id) + '&reset=true&skipStory=true';
+    const href = SandboxDestinations.href(entry.id);
     li.className = 'row'; li.append(anchor(label + ' ↗', href));
     if (group.id === 'combat') {
       const options = document.createElement('span'); options.className = 'options';
@@ -79,5 +85,33 @@ function filter() {
   document.querySelector('#count').textContent = `${visible} of ${SandboxDestinations.entries.length} setups`;
   document.querySelector('#empty').hidden = visible > 0;
 }
+const launchOptions = [
+  {id:'reset', parameter:'reset', inverted:false},
+  {id:'show-story', parameter:'skipStory', inverted:true},
+  {id:'show-tutorial', parameter:'skipTutorial', inverted:true},
+];
+const directoryParams = new URLSearchParams(location.search);
+for (const option of launchOptions) {
+  option.control = document.getElementById(option.id);
+  const enabled = directoryParams.get(option.parameter) !== 'false';
+  option.control.checked = option.inverted ? !enabled : enabled;
+  option.control.addEventListener('change', updateLaunchLinks);
+}
+function updateLaunchLinks() {
+  const page = new URL(location.href);
+  for (const option of launchOptions) {
+    const enabled = option.inverted ? !option.control.checked : option.control.checked;
+    page.searchParams.set(option.parameter, String(enabled));
+  }
+  for (const link of directory.querySelectorAll('a')) {
+    const destination = new URL(link.href);
+    for (const option of launchOptions) {
+      destination.searchParams.set(option.parameter, page.searchParams.get(option.parameter));
+    }
+    link.href = destination.href;
+  }
+  history.replaceState(null, '', page.href);
+}
+updateLaunchLinks();
 document.querySelector('#search').addEventListener('input', filter); filter();
 </script></body></html>

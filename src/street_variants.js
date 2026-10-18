@@ -134,7 +134,7 @@
   // How far from the POI's cell a hoard may be seated (cells).
   const HOARD_SEAT_CELLS = 5;
 
-  // Relocate reach for an end piece (waystone / barricade) off its line end.
+  // Relocate reach for a barricade or dead-end crate off its line end.
   const END_SEAT_CELLS = 4;
 
   // ── Dressing density (generation metres along the way) ───────────────────
@@ -289,8 +289,8 @@
       words: /(church|chapel|abbey|kirch|kloster|pilgrim|cross|saint|\bst\b|priest|minster|\bdom\b|mission)/i,
       lampGlow: '#f2eee0', fauna: { crow: [2, 5] },
       story: 'street_pilgrim', title: "Pilgrim's Way",
-      body: 'A waystone stands beside the road. You rest your hand in its smooth, worn hollow.',
-      flash: 'A waystone, worn smooth.' },
+      body: 'Smooth, rounded stones lie beside the road. Each lights beneath your feet. Keep them all glowing together.',
+      flash: 'Stones await your footsteps.' },
     // Lantern Row and Barricade are path themes; vehicle arterials stay plain.
     { id: 'lantern', pathWeight: .10, terrain: 'COMMERCIAL', affinities: ['formal', 'destination'], size: 'path', share: 0.12, rung: 'common',
       stone: { weathered: '#91836a', restored: '#ae9a72' }, lampDensity: LANTERN_SPACING_DIV,
@@ -2160,8 +2160,7 @@
     };
     const streamFor = (rec, what) =>
       WG.makeRng(fnv1a(`dress|${what}|${rec.key}|${tx},${ty}|${rec.lineKey}`));
-    // Every piece end inside the tile square (where a waystone / barricade
-    // stands).
+    // Every barricade piece end inside the tile square.
     const ownedEnds = (rec) => {
       const L = rec.line, out = [];
       for (const p of [L[0], L[L.length - 1]]) {
@@ -2171,8 +2170,9 @@
     };
 
     const burnedSeen = new Set();
-    // Pilgrim's Way / barricade street key → every owned piece end in the
+    // Barricade street key → every owned piece end in the
     // square (tile-local MVT points), in line order.
+    const pilgrimSeats = new Map();
     const streetEnds = new Map(), habitatSeats = new Set(), snareSeats = new Set();
     // Snare street key → its pieces here and its cluster cells, for the strays.
     const snareStreets = new Map(), gangStreets = new Map();
@@ -2446,24 +2446,34 @@
             if (hash01(WG.cellId('bramble-stray',tx,ty,ix,iy)) < THORNY_SCATTER_DENSITY) bramble(ix,iy);
           });
         });
-      } else if (v === 'pilgrim' || v === 'barricade') {
-        if (v === 'barricade') {
-          let placed = 0;
-          const barricadeSeats = new Set();
-          sampleLine(rec.line, gM, BARRICADE_STEP_M, BARRICADE_STEP_M / 2, (s, x, y, nx, ny) => {
-            if (placed >= BARRICADE_MAX) return false;
-            if (!S.covers(spans, s)) return;
-            crossSection(rec,x,y,nx,ny,()=>BARRICADE_VERGE_MAX_CELLS,barricadeSeats,(ix,iy)=>{
-              claim(ix,iy);
-              const extra = { _street: v, _streetScenery: true };
-              if (hash01(WG.cellId('barr-kind',tx,ty,ix,iy)) < 1/3) res.objects.push(WG.makeObject('stakes',cx(ix),cy(iy),
-                WG.cellId('stakes_barr',tx,ty,ix,iy),extra));
-              else res.wildplants.push(WG.makeWildplant('barricade',cx(ix),cy(iy),
-                WG.cellId('barr_scenery',tx,ty,ix,iy),extra));
-              placed++;
-            });
+      } else if (v === 'pilgrim') {
+        // Collect safe verge cells before choosing one compact puzzle. All
+        // source fragments of this street share the same tile-local budget.
+        if (!pilgrimSeats.has(rec.key)) pilgrimSeats.set(rec.key, new Map());
+        const seats = pilgrimSeats.get(rec.key);
+        sampleLine(rec.line, gM, CELL_M / 2, 0, (s, x, y, nx, ny) => {
+          if (!S.covers(spans, s)) return;
+          for (const side of [1, -1]) {
+            const c = verge(rec, x, y, nx, ny, side);
+            if (c) seats.set(c.iy * N + c.ix, c);
+          }
+        });
+      } else if (v === 'barricade') {
+        let placed = 0;
+        const barricadeSeats = new Set();
+        sampleLine(rec.line, gM, BARRICADE_STEP_M, BARRICADE_STEP_M / 2, (s, x, y, nx, ny) => {
+          if (placed >= BARRICADE_MAX) return false;
+          if (!S.covers(spans, s)) return;
+          crossSection(rec,x,y,nx,ny,()=>BARRICADE_VERGE_MAX_CELLS,barricadeSeats,(ix,iy)=>{
+            claim(ix,iy);
+            const extra = { _street: v, _streetScenery: true };
+            if (hash01(WG.cellId('barr-kind',tx,ty,ix,iy)) < 1/3) res.objects.push(WG.makeObject('stakes',cx(ix),cy(iy),
+              WG.cellId('stakes_barr',tx,ty,ix,iy),extra));
+            else res.wildplants.push(WG.makeWildplant('barricade',cx(ix),cy(iy),
+              WG.cellId('barr_scenery',tx,ty,ix,iy),extra));
+            placed++;
           });
-        }
+        });
         // ONE PER STREET PER TILE: the ends are pooled by street key and
         // seated after this loop (see `streetEnds` below) — a road in the Major-and-Medium road group cut
         // into many short pieces stood a barricade at every cut.
@@ -2514,18 +2524,44 @@
       }
     }
 
-    // THE END PIECES — ONE per (street, tile). A waystone (Pilgrim's Way —
-    // tapped, it reads one page of the Book: interactables.js
-    // INTERACTABLES.waystone, spent in `opened`) or a barricade (a wild plant
-    // on the T4 timber rule, items.js WILDPLANT_RULES.barricade — broken up
-    // with the axe, `picked` once cleared — and the goblin who holds it,
-    // lairs.js 'barricade' tier) stands at the ONE owned end of the street's
-    // pieces here whose hash endPick(variant, key, global point) is lowest
-    // and that seats (the next lowest if not). Ends are tile-owned, so no two
-    // tiles seat the same street's piece at one end, and the choice is a pure
-    // function of the tile's bytes. (Until Sep 2026 every piece end stood one:
-    // a road in the Major-and-Medium road group cut into many short lines stood 220 goblins over Seattle's
-    // nine tiles.)
+    // A Pilgrim's Way owns one set of 3–6 stones in this tile. Hash order
+    // chooses the anchor; farthest-first seats spread the puzzle within ten
+    // cells of it, never across an arterial. Commit only complete sets so
+    // blocked ground cannot leave an impossible one- or two-stone puzzle.
+    for (const key of [...pilgrimSeats.keys()].sort()) {
+      yield 'pilgrim waystones';
+      const waystoneSet = `pilgrim:${tx},${ty}:${key}`;
+      const target = 3 + Math.floor(hash01(waystoneSet) * 4);
+      const candidates = [...pilgrimSeats.get(key).values()]
+        .filter(c => cellOk(c.ix, c.iy))
+        .sort((a, b) => hash01(`${waystoneSet}|${a.ix},${a.iy}`) - hash01(`${waystoneSet}|${b.ix},${b.iy}`));
+      let chosen = [];
+      for (const anchor of candidates) {
+        const nearby = candidates.filter(c => Math.hypot(c.ix - anchor.ix, c.iy - anchor.iy) <= 10
+          && !crossesMajorBand(rc, N, anchor.ix, anchor.iy, c.ix, c.iy));
+        chosen = [anchor];
+        while (chosen.length < target) {
+          let next = null, distance = 4;
+          for (const c of nearby) {
+            const d = Math.min(...chosen.map(p => (c.ix - p.ix) ** 2 + (c.iy - p.iy) ** 2));
+            if (d > distance) { next = c; distance = d; }
+          }
+          if (!next) break;
+          chosen.push(next);
+        }
+        if (chosen.length >= 3) break;
+      }
+      if (chosen.length < 3) continue;
+      for (const c of chosen) {
+        claim(c.ix, c.iy);
+        res.objects.push(WG.makeObject('waystone', cx(c.ix), cy(c.iy),
+          WG.cellId('waystone', tx, ty, c.ix, c.iy),
+          { _street: 'pilgrim', waystoneSet, waystoneCount: chosen.length }));
+      }
+    }
+
+    // Barricades retain one owned endpoint per street and tile, selected by
+    // the stable global endpoint hash, with one guard seated off the kerb.
     for (const grp of streetEnds.values()) {
       yield 'street end pieces';
       const seen = new Set();
@@ -2541,19 +2577,14 @@
         const c = seat(p.x, p.y);
         if (!c) continue;
         claim(c.ix, c.iy);
-        if (grp.v === 'pilgrim') {
-          res.objects.push(WG.makeObject('waystone', cx(c.ix), cy(c.iy),
-            WG.cellId('waystone', tx, ty, c.ix, c.iy), { _street: grp.v }));
-        } else {
-          res.wildplants.push(WG.makeWildplant('barricade', cx(c.ix), cy(c.iy),
-            WG.cellId('barricade', tx, ty, c.ix, c.iy), { _street: grp.v }));
-          // Its goblin stands BACK from the kerb (foeSeat), keyed on the
-          // barricade — or there is none.
-          const g = foeSeat(c.ix, c.iy);
-          if (g) {
-            res.lairs.push({ tier: 'barricade', _street: grp.v, sid: WG.cellId('barricade', tx, ty, c.ix, c.iy),
-              lx: (g.ix + 0.5) * frameCellM, ly: (g.iy + 0.5) * frameCellM });
-          }
+        res.wildplants.push(WG.makeWildplant('barricade', cx(c.ix), cy(c.iy),
+          WG.cellId('barricade', tx, ty, c.ix, c.iy), { _street: grp.v }));
+        // Its goblin stands BACK from the kerb (foeSeat), keyed on the
+        // barricade — or there is none.
+        const g = foeSeat(c.ix, c.iy);
+        if (g) {
+          res.lairs.push({ tier: 'barricade', _street: grp.v, sid: WG.cellId('barricade', tx, ty, c.ix, c.iy),
+            lx: (g.ix + 0.5) * frameCellM, ly: (g.iy + 0.5) * frameCellM });
         }
         break;
       }

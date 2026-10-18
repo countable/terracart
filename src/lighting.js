@@ -189,6 +189,8 @@
     // — lighting.test.js pins the order — so a lit cave reads as "a torch
     // there, some fungus here", never two of the same lamp.
     mushroom: { radiusCells: 1.25, colour: 0x9fdcff, peak: 0.50, flicker: 0, pulse: 0.35 },
+    // A stepped-on Pilgrim's Way stone: steady ivory, no availability pulse.
+    waystone: { radiusCells: 1.5, colour: 0xffedb8, peak: 0.95, flicker: 0 },
     // A GROVE SHRINE (src/zones.js — the one standing prop at a park's heart):
     // a pale green light breathing on the POI's slow beat, far wider than a
     // POI's. It is a COLLECTED light, so it burns ghosts through the same
@@ -725,6 +727,7 @@
     if (o.kind === '_fire') return 'fire';
     if (o.kind === '_magic_trap') return 'magic_trap';
     if (o.kind === 'torch') return 'torch';
+    if (o.kind === 'waystone') return window.Waystones?.isLit(o, scene.save) ? 'waystone' : null;
     const visit = window.Macros?.visitKindForObject(o);
     if (visit && VISIT_LIGHT_KINDS.has(visit)) return VISIT_LIGHT_KINDS.get(visit);
     // A grove's shrine (src/zones.js) — its own soft green row.

@@ -350,7 +350,7 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   importer records `resizeSheet` for compatibility frames in migrated sheets;
   selected frames are then replaced from original sources. Palms and shells
   use 24px cells at 4/3 display scale. Tall shrine frames use 24×36 cells;
-  their scale and the waystone scale compensate for the larger source grid,
+  their scale compensates for the larger source grid,
   preserving their established screen footprint. Legacy unrelated sheets and
   building or multi-cell canvas dimensions remain separate from this rule.
 
@@ -491,6 +491,13 @@ the reach rim within the existing player-light radius.
   barrel or pot (`o.barrel`, no `poiClass`) get neither. Use the existing
   derived luminance/contrast controls; remeasure the plateau ceiling before
   raising it.
+- Waystones use the existing plain rounded low-rock frame (`rock_variants:0`)
+  at the shared small-rock scale. At startup, a source-atop ivory material
+  variant preserves the rock’s alpha and shading. The per-draw material hook
+  selects it while lit so activation reads in daylight in Canvas and WebGL;
+  cached geometry remains valid. `Waystones.isLit` also gates the steady ivory `Lighting.KINDS.waystone` source, including permanent
+  completed sets. Unlit stones emit no light and no daily-availability pulse.
+  The same inset contact shadow as mineral rocks grounds the low silhouette.
 - Streets restore metre intervals along each transportation line, keyed by
   `Streets.lineKey(feature, lineIdx)`, clipped to tile spans. Keep reach tied
   to the player and visuals keyed by `Streets.epoch`; do not add per-cell road
