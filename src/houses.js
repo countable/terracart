@@ -76,7 +76,9 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   //              Any number may stand.
   //   wizard   — Tim's tower; `offered` reads the tower ledger and the
   //              memory ledger, never a count of its own. `pinned`, like
-  //              the House: canon never waits on the offer's rotation.
+  //              the House: canon never waits on the offer's rotation. Its
+  //              row sits above the smithy's so the pinned cards read House,
+  //              tower, smithy; pinned rows never move either window.
   // A RANKED role (`ranked`: a smithy, a shop, a trader) is laid out by
   // `variants(save, order)` as ONE CARD PER RANK the ladder has unlocked
   // (Shops.tierCap — by MEMORIES: T2 at five, a rank more every five), a
@@ -85,16 +87,28 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // `tier` (the badge on it and on the Restored! card, its price per rank in
   // buildCost, the rank restoreAs stamps) and, for a Shop, its `theme`. Any
   // number of a card may stand — the modal tells a NEW one from a duplicate
-  // (isNewPick, offerCards).
+  // (isNewPick, offerCards). The T1 Blacksmith card is `pinned` (owner, Oct
+  // 2026): once unlocked it ALWAYS stands on offer, like the House, so a
+  // second (third, …) wooden smithy never waits on the duplicate window.
   const BUILD_OPTIONS = Object.freeze([
     { key: 'plain', role: 'plain', pinned: true, from: STORY_RESTORES.house, name: 'House', art: 'restore_house',
       blurb: 'Children choose their beds under the repaired roof. Their parent offers to buy your harvest.' },
+    { key: 'wizard', role: 'wizard', pinned: true, from: STORY_RESTORES.firstTower, name: 'Wizard Tower', art: 'restore_wizard',
+      blurb: 'You step into the tower. An old wizard asks about your memories.',
+      offered: (save, order) => {
+        const towers = wizardTowerIds(save);
+        if (!towers.firstId) return true;
+        return !towers.secondId && order >= STORY_RESTORES.secondTower - 1
+          && MemoryStory.total(save) >= MemoryStory.LEAVE_MEMORIES;
+      } },
     { key: 'blacksmith', role: 'blacksmith', ranked: true, from: STORY_RESTORES.blacksmith, art: 'restore_blacksmith',
       blurb: 'A family returns to the forge. They offer to make the tools you need.',
       variants: (save) => ranks(save).map((tier) => ({
         key: 'blacksmith:' + tier, tier,
-        // The T1 card is SUGGESTED (outlined) while the lane has no smithy:
-        // the wooden tools come from nowhere else.
+        // The T1 card is PINNED — always on offer, like the House — and
+        // SUGGESTED (outlined) while the lane has no smithy: the wooden
+        // tools come from nowhere else, and any number may stand.
+        pinned: tier === 1,
         suggested: (s) => tier === 1 && !hasBlacksmith(s),
       })) },
     { key: 'shop', role: 'shop', ranked: true, from: STORY_RESTORES.shop, art: 'restore_market',
@@ -113,14 +127,6 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     { key: 'bookshop', role: 'shop', solo: 'book', from: STORY_RESTORES.bookshop, name: 'Book Shop', art: 'restore_market',
       blurb: 'A family opens the shop shutters again. Shelves of books line the walls.',
       offered: (save) => save.bookshopId == null },
-    { key: 'wizard', role: 'wizard', pinned: true, from: STORY_RESTORES.firstTower, name: 'Wizard Tower', art: 'restore_wizard',
-      blurb: 'You step into the tower. An old wizard asks about your memories.',
-      offered: (save, order) => {
-        const towers = wizardTowerIds(save);
-        if (!towers.firstId) return true;
-        return !towers.secondId && order >= STORY_RESTORES.secondTower - 1
-          && MemoryStory.total(save) >= MemoryStory.LEAVE_MEMORIES;
-      } },
   ]);
   // The ranks on offer: 1..Shops.tierCap(save) — the memory ladder.
   function ranks(save) {
@@ -198,7 +204,8 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   }
   // THE OFFER (owner, Oct 2026): N = order + 1 cards — one more with every
   // wreck that stands. The pinned cards first (the House always; the wizard's
-  // tower while its story offers it), then up to NEW_SLOTS cards the player
+  // tower while its story offers it; the T1 Blacksmith from the second
+  // wreck on), then up to NEW_SLOTS cards the player
   // has nothing like yet (isNewPick), then the rest of the slots over the
   // buildable DUPLICATES. Both pools are a WINDOW over the catalogue in its
   // table order, and the window slides ONE card along with every completed
@@ -216,8 +223,8 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     const n = order + 1;
     const out = all.filter((r) => r.pinned).slice(0, n);
     const rest = all.filter((r) => !r.pinned);
-    const fresh = rest.filter((r) => isNewPick(save, r));
-    const dups = rest.filter((r) => !isNewPick(save, r));
+    const fresh = [], dups = [];
+    for (const row of rest) (isNewPick(save, row) ? fresh : dups).push(row);
     out.push(...slide(fresh, Math.min(NEW_SLOTS, n - out.length), order));
     out.push(...slide(dups, n - out.length, order));
     return out;

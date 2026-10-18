@@ -75,7 +75,7 @@ test('render: each visible house carries one owner-resolved display role', () =>
 
 test('buildOptions: the catalogue unlocks by how many wrecks already stand', () => {
   const from = Object.fromEntries(Houses.BUILD_OPTIONS.map((r) => [r.key, r.from]));
-  assert.eq(JSON.stringify(from), JSON.stringify({ plain: 1, blacksmith: 2, shop: 3, trader: 5, turret: 8, petshop: 12, bookshop: 15, wizard: 30 }), 'the ladder');
+  assert.eq(JSON.stringify(from), JSON.stringify({ plain: 1, wizard: 30, blacksmith: 2, shop: 3, trader: 5, turret: 8, petshop: 12, bookshop: 15 }), 'the ladder');
   const mem = (n) => Object.fromEntries(Array.from({ length: n }, (_, i) => ['memory:' + i, 1]));
   const keys = (order, save = { restoredHouses: {}, discovered: {} }) => Houses.buildOptions(save, plainHouse, order).map((r) => r.key).join();
   assert.eq(keys(0), 'plain', 'the first restore is a House and nothing else');
@@ -90,7 +90,8 @@ test('buildOptions: the catalogue unlocks by how many wrecks already stand', () 
   assert.truthy(keys(4, { restoredHouses: {}, discovered: mem(5) }).includes('blacksmith:2'), 'even at the fifth restore');
   assert.truthy(keys(11).endsWith(',turret,petshop'), 'the twelfth: the Pet Shop');
   assert.truthy(keys(14, { restoredHouses: {}, discovered: mem(10) }).includes('shop:seed:3') && keys(14).endsWith(',turret,petshop,bookshop'), 'ten memories: T3; the fifteenth: the Book Shop');
-  assert.truthy(keys(29).endsWith(',petshop,bookshop,wizard'), 'the thirtieth: the tower');
+  assert.truthy(keys(29).startsWith('plain,wizard,blacksmith:1,') && keys(29).endsWith(',petshop,bookshop'), 'the thirtieth: the tower, pinned beside the House ahead of the smithy');
+  assert.falsy(keys(28).includes('wizard'), 'not before');
   // LINE_RULES: Seed and Supply stop at T3; Magic and Relic run on.
   const k20 = keys(19, { restoredHouses: {}, discovered: mem(15) }).split(',');
   assert.truthy(k20.includes('shop:seed:3') && !k20.includes('shop:seed:4'), 'no T4 Seed Shop');
@@ -205,11 +206,11 @@ test('buildOptions: a card is NEW when the player has no such building, or none 
   for (let i = 11; i < 15; i++) Houses.restoreAs(save, h('h' + i), 'plain');
   assert.truthy(isNew(save, 'petshop') && isNew(save, 'bookshop'), 'the one-offs are new while none stands');
   assert.falsy(Houses.isNewPick(save, null));
-  assert.truthy(/\$\{Houses\.isNewPick\(this\.save, row\) \? newBadgeHTML\(8\) : ''\}/.test(SCENE_SRC), 'the card wears the pill');
+  assert.truthy(/\$\{isNew \? newBadgeHTML\(8\) : ''\}/.test(SCENE_SRC), 'the card wears the pill');
   assert.truthy(/NEW<\/span>/.test(newBadgeHTML()), 'the pill says NEW');
 });
 
-test('offerCards: N = restored + 1 — the House, up to three NEW, the rest duplicates, each a window that slides with every wreck', () => {
+test('offerCards: N = restored + 1 — the House and the T1 smithy, up to three NEW, the rest duplicates, each a window that slides with every wreck', () => {
   const h = (id) => ({ kind: 'house', tier: 9, id });
   assert.eq(Houses.NEW_SLOTS, 3);
   const save = { restoredHouses: {}, discovered: {} };
@@ -220,36 +221,45 @@ test('offerCards: N = restored + 1 — the House, up to three NEW, the rest dupl
   Houses.restoreAs(save, h('h1'), 'plain');
   assert.eq(offer().length, 3, 'three for the third');
   assert.eq(offer()[0], 'plain', 'the House always leads');
-  // A window of NEW cards over the catalogue (table order), two of the four
+  assert.eq(offer()[1], 'blacksmith:1', 'the T1 smithy is pinned beside it');
+  // A window of NEW cards over the catalogue (table order), one of the three
   // ranked cards here; the window's offset is the restore order.
-  assert.eq(offer().join(), 'plain,shop:supply:1,shop:potion:1', 'order 2: the window starts two cards in');
+  assert.eq(offer().join(), 'plain,blacksmith:1,shop:potion:1', 'order 2: the window starts two cards in');
   Houses.restoreAs(save, h('h2'), 'plain');
-  assert.eq(offer().join(), 'plain,shop:potion:1,blacksmith:1,shop:seed:1', 'order 3: slid one card along, three NEW now');
+  assert.eq(offer().join(), 'plain,blacksmith:1,shop:seed:1,shop:supply:1', 'order 3: wraps round, two NEW now');
   Houses.restoreAs(save, h('h3'), 'plain');
-  assert.eq(offer().join(), 'plain,trader:1,blacksmith:1,shop:seed:1', 'order 4: wraps round; still three NEW');
+  assert.eq(offer().join(), 'plain,blacksmith:1,shop:seed:1,shop:supply:1,shop:potion:1', 'order 4: three NEW');
   for (let i = 4; i < 8; i++) Houses.restoreAs(save, h('h' + i), 'plain');
   let o = offer();
   // Nine slots for the ninth wreck, but nothing stands except Houses: no
   // duplicates to fill the slots past the three NEW, so they stay empty.
-  assert.eq(o.length, 4, 'the House and three NEW');
+  assert.eq(o.length, 5, 'the House, the smithy and three NEW');
   assert.eq(o.filter((k) => k === 'plain').length, 1, 'the House once');
-  assert.eq(Houses.buildOptions(save, plainHouse).filter((r) => !r.pinned).length, 6, 'out of six NEW on the table');
-  // Raise a smithy and a Seed Shop: they move from the NEW pool to the duplicates.
+  assert.eq(o.filter((k) => k === 'blacksmith:1').length, 1, 'the smithy once');
+  assert.eq(Houses.buildOptions(save, plainHouse).filter((r) => !r.pinned).length, 5, 'out of five NEW on the table');
+  // Raise a smithy and a Seed Shop: the shop moves from the NEW pool to the
+  // duplicates; the T1 smithy stays pinned (any number may stand — a second
+  // wooden smithy never waits on the duplicate window).
   Houses.restoreAs(save, h('s'), 'blacksmith:1');
   Houses.restoreAs(save, h('m'), 'shop:seed:1');
+  o = Houses.offerCards(save, plainHouse);
+  assert.eq(o[1].key, 'blacksmith:1', 'the T1 smithy still stands on offer');
+  assert.falsy(Houses.isNewPick(save, o[1]), 'as a duplicate, without the NEW pill');
+  assert.eq(Houses.restoreAs(save, h('s2'), 'blacksmith:1').role, 'blacksmith', 'and a second one may be raised');
   o = Houses.offerCards(save, plainHouse);
   const fresh = o.filter((r) => !r.pinned && Houses.isNewPick(save, r)).map((r) => r.key);
   const dups = o.filter((r) => !r.pinned && !Houses.isNewPick(save, r)).map((r) => r.key);
   assert.eq(fresh.length, 3, 'three NEW');
-  assert.eq(dups.join(), 'blacksmith:1,shop:seed:1', 'the two duplicates fill the slots after them');
-  assert.eq(o.length, 6, 'eleven slots, six cards');
-  assert.eq(o.map((r) => r.key).indexOf(fresh[0]), 1, 'NEW cards sit right after the House');
+  assert.eq(dups.join(), 'shop:seed:1', 'the duplicate fills the slot after them');
+  assert.eq(o.length, 6, 'twelve slots, six cards');
+  assert.eq(o.map((r) => r.key).indexOf(fresh[0]), 2, 'NEW cards sit right after the pinned ones');
   assert.truthy(o.map((r) => r.key).indexOf(dups[0]) > o.map((r) => r.key).indexOf(fresh[2]), 'duplicates after them');
   // The wizard's tower is pinned beside the House while its story offers it.
   const story = { restoredHouses: Object.fromEntries(Array.from({ length: 29 }, (_, i) => ['w' + i, 'plain'])), discovered: {} };
   const so = offer(story);
   assert.eq(so[0], 'plain'); assert.eq(so[1], 'wizard', 'canon never waits on the rotation');
-  assert.eq(so.length, 5, 'then three NEW; no duplicates stand');
+  assert.eq(so[2], 'blacksmith:1', 'then the pinned smithy');
+  assert.eq(so.length, 6, 'then three NEW; no duplicates stand');
   // The modal reads the offer, never the whole catalogue.
   const start = SCENE_SRC.indexOf('  presentWreckRestoreModal(sx, sy, house) {');
   const src = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start));

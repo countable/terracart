@@ -696,7 +696,9 @@ ECONOMY (buying & selling)
    wooden tools come from nowhere else. `Houses.restoreAs` freezes the pick
    and is the ledger's one writer (CLAUDE.md).
    THE OFFER (`Houses.offerCards`): restored + 1 slots — the House always
-   (and the wizard's tower while offered), then up to `NEW_SLOTS` (3) cards
+   (the wizard's tower while offered, and the T1 Blacksmith from the second
+   wreck on: `pinned`, so a second wooden smithy never waits on the
+   duplicate window), then up to `NEW_SLOTS` (3) cards
    the player has nothing like yet (`Houses.isNewPick`, a NEW pill), then
    buildable duplicates; each pool a window over the catalogue
    (`Houses.buildOptions`) that slides one card along per restore. ANY
@@ -719,8 +721,8 @@ ECONOMY (buying & selling)
    (`Houses.hammerTakes`).
    Smithies and traders read their RANK off the same stamp (`shops.js`
    `smithTier`, `traderTier`; older houses keep the derivations that raised
-   them): a smithy forges near its own rank; a trader's barter leans to
-   goods of its rank (`Shops.tierAffinity`). Every
+   them): a smithy forges near its own rank; a trader's barter draws from
+   goods at its rank (`Shops.traderStock`). Every
    ranked door wears its rarity badge (`Shops.shopTier`). A TURRET is a lone
    castle tower on a house lot that fights on the castle turret lane. PLAIN
    houses run deliveries. All of these BUY/trade — selling is home-only.
