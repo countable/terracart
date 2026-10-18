@@ -719,8 +719,8 @@ ECONOMY (buying & selling)
    (`Houses.hammerTakes`).
    Smithies and traders read their RANK off the same stamp (`shops.js`
    `smithTier`, `traderTier`; older houses keep the derivations that raised
-   them): a smithy forges near its own rank; a trader's barter leans to
-   goods of its rank (`Shops.tierAffinity`). Every
+   them): a smithy forges near its own rank; a trader's barter draws from
+   goods at its rank (`Shops.traderStock`). Every
    ranked door wears its rarity badge (`Shops.shopTier`). A TURRET is a lone
    castle tower on a house lot that fights on the castle turret lane. PLAIN
    houses run deliveries. All of these BUY/trade — selling is home-only.

@@ -143,13 +143,18 @@ changing dialogue, story panels, books, toasts or status presentation.
   It clips the header readouts at that edge too; story sheets rise above the
   coin indicator, using its measured position across phone and desktop scaling.
   Dismissible sheets expose a fixed close control using the same cancellation
-  callback and input arming as their backdrop. Required acknowledgments omit
+  callback and input arming as their backdrop. Offer dialogs close through
+  `closeModal(reason)`: leaving or an enemy hit releases deferred book reads
+  after removal, while acceptance and tab transitions retain pending work.
+  Required acknowledgments omit
   it. The menu actuator remains visible and depressed while its sheet is open.
   Gold zoom plungers sit just below the map window in a silver rack; the gold
   direction lock occupies the upper-left corner of the compass. These controls
   live outside Phaser’s scaled wrapper and yield to modal sheets. The lock
   depresses while engaged. Unselected inventory items have no individual border;
   the selected item retains its gold outline.
+  `Inventory.add` and `Inventory.remove` preserve the selected stack through
+  array compaction; consuming that stack clears the hand.
   The energy dial has one lightning-bolt needle for current energy, equal
   red/yellow/green thirds, and a maximum-energy numeral on the right.
   Dormant inscriptions use invented geometric glyphs at a shared size; their
@@ -274,7 +279,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   row. Ambient site light persists after a visit; the availability pulse does not.
   Successful visits show their story painting each time. `tools/idols.html`
   reads the same rows for the design sheet.
-- Home crafting uses a direct picker of learned recipes. Show each ingredient's
+- Home crafting and brewing share `_presentRecipePicker` for discovery,
+  selection, capacity and paging, above `_presentRecipeOffer` transactions.
+  Home crafting uses a direct picker of learned recipes. Show each ingredient's
   held and required quantities, its shortfall in text, and a visible reason
   when Craft is disabled. Keep the chosen recipe after crafting and refresh
   counts and the existing receipt. Recipe selection never spends ingredients;

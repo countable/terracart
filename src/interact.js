@@ -44,12 +44,7 @@ function finishTrapKit(ctx, action) {
 function consumeSelected(save, n = 1) {
   const sel = save.inv[save.selSlot];
   if (!sel) return;
-  sel.count -= n;
-  if (sel.count > 0) return;
-  save.inv.splice(save.selSlot, 1);
-  const egg = EGG_HATCH_SPEC[sel.id];
-  if (egg && Inventory.count(save, sel.id) === 0) save[egg.progress] = 0;
-  save.selSlot = -1;
+  Inventory.remove(save, sel.id, n);
 }
 
 // Food is consumed only after the individual animal accepts it.
@@ -73,12 +68,6 @@ function placeFoundAnimal(scene, itemId, sourceId, x, y) {
   return row;
 }
 
-// True when planted entry `p` sits in the cell at (cwmx, cwmy). eps is
-// PLACED_EPS_M for an exact snapped-center match, or half a cell to accept
-// anything overlapping.
-const inPlantedCell = (p, cwmx, cwmy, eps) =>
-  Math.abs(p.x - cwmx) < eps && Math.abs(p.y - cwmy) < eps;
-
 // ── What sits on the tapped cell ────────────────────────────────────────────
 // Resolved ONCE per tap at cell-resolve (ctx.at) for every handler after it:
 // the placed fire, scarecrow, magic trap and crop on this level in the WHOLE
@@ -99,10 +88,10 @@ function cellOccupants(scene, save, cwmx, cwmy) {
     magicTrapIdx: at(save.magicTraps, half),
     // A surface crop and the cave cell below it share world coords (the GPS
     // mirror), so only this level's crop is here.
-    plantedIdx: save.planted.findIndex(p => (p.depth ?? 0) === depth && inPlantedCell(p, cwmx, cwmy, half)),
+    plantedIdx: at(save.planted, half),
     fireHere: at(save.fires, PLACED_EPS_M) >= 0,
     scarecrowHere: at(save.scarecrows, PLACED_EPS_M) >= 0,
-    plantedHere: save.planted.some(p => inPlantedCell(p, cwmx, cwmy, PLACED_EPS_M)),
+    plantedHere: at(save.planted, PLACED_EPS_M) >= 0,
   };
 }
 
@@ -539,7 +528,7 @@ function placeOnEmptyCell(ctx, { itemId, energyKey, ground = isTillableCell, ext
   const sel = getSelectedSlot(save);
   const selItem = sel ? ITEM_BY_ID[sel.id] : null;
   if (!(selItem && selItem.id === itemId && (sel.count ?? 0) > 0 &&
-        ground(cell) && !scene.tilledSet.has(cellKey) &&
+        ground(cell) && !(PlacedFloor.isSurface(scene.depth) && scene.tilledSet.has(cellKey)) &&
         (!extraGuard || extraGuard(ctx)) && !occupantsOf(ctx).plantedHere)) {
     return false;
   }

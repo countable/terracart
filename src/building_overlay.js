@@ -358,35 +358,15 @@
     let ring = source.map(p => ({ x: p.x - left, y: p.y - top }));
     const cross = (a, b, c) => (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
     // Remove only duplicate/collinear vertices, never small genuine details.
-    let changed = true;
-    while (changed && ring.length > 3) {
-      changed = false;
-      for (let i = 0; i < ring.length; i++) {
-        if (Math.abs(cross(ring[(i+ring.length-1)%ring.length], ring[i], ring[(i+1)%ring.length])) < 1e-8) {
-          ring.splice(i,1); changed = true; break;
-        }
-      }
-    }
+    PolygonGeometry.removeCollinear(ring);
     if (ring.reduce((a,p,i) => a + p.x*ring[(i+1)%ring.length].y-p.y*ring[(i+1)%ring.length].x,0) < 0) ring.reverse();
     const first = ring.reduce((best,p,i) => p.x < ring[best].x || (p.x === ring[best].x && p.y < ring[best].y) ? i : best,0);
     ring = ring.slice(first).concat(ring.slice(0,first));
     const key = detail + ':' + variant + ':' + ring.map(p => `${p.x.toFixed(5)},${p.y.toFixed(5)}`).join(';');
     if (roofCache.has(key)) return roofCache.get(key);
-    const triangles = [], pending = ring.slice();
-    while (pending.length > 3) {
-      let found = false;
-      for (let i = 0; i < pending.length; i++) {
-        const a = pending[(i+pending.length-1)%pending.length], b = pending[i], c = pending[(i+1)%pending.length];
-        if (cross(a,b,c) <= 1e-8) continue;
-        if (pending.some(p => p !== a && p !== b && p !== c
-          && cross(a,b,p) >= -1e-8 && cross(b,c,p) >= -1e-8 && cross(c,a,p) >= -1e-8)) continue;
-        triangles.push([a,b,c]); pending.splice(i,1); found = true; break;
-      }
-      // Invalid/self-intersecting rings retain the old flat roof, never a fan
-      // stretched across missing space.
-      if (!found) return { triangles: [], ring, variant };
-    }
-    triangles.push(pending);
+    const triangles = PolygonGeometry.triangulate(ring);
+    // Invalid rings retain the old flat roof, never a fan across missing space.
+    if (!triangles.length) return { triangles: [], ring, variant };
     const pitch = variant === 'shallow' ? 0.32 : 0.68;
     const cap = variant === 'inset' ? 9 : variant === 'shallow' ? 5 : 32;
     const controlRing=detail==='clean' ? simplifyRoofRing(ring) : ring;

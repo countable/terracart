@@ -3566,13 +3566,7 @@ function fadeLabelOverPlayer(tx, box) {
 // Shared building visibility geometry. These tests use retained vertices and
 // boot-time sprite bounds; walking never reads texture pixels or rebuilds art.
 Render.pointInBuilding = function(point, ring) {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[j], b = ring[i];
-    if ((a.y > point.y) !== (b.y > point.y)
-        && point.x < a.x + (point.y - a.y) * (b.x - a.x) / (b.y - a.y)) inside = !inside;
-  }
-  return inside;
+  return PolygonGeometry.pointInRings([ring], point.x, point.y);
 };
 // Separating-axis test: unlike triangle bounds, this does not fade empty
 // corners beside a pitched roof or the empty middle of a concave footprint.

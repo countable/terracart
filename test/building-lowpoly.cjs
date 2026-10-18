@@ -1,5 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const ctx={window:{}};vm.createContext(ctx);vm.runInContext(fs.readFileSync('src/building_lowpoly.js','utf8'),ctx);
+const ctx={window:{}};vm.createContext(ctx);vm.runInContext(fs.readFileSync('src/polygon_geometry.js','utf8'),ctx);
+vm.runInContext(fs.readFileSync('src/building_lowpoly.js','utf8'),ctx);
 const api=ctx.window.BuildingLowPoly,fixtures=require('../tools/building-roof-fixtures.js');
 const area=p=>Math.abs(p.reduce((s,a,i)=>{const b=p[(i+1)%p.length];return s+a.x*b.y-a.y*b.x;},0))/2;
 const rows=[];

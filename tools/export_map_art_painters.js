@@ -90,6 +90,7 @@ ${read('src/castle_styles.js')}
   const CastleStyles = window.CastleStyles;
 ${read('tools/legacy_tower_texture.js')}
 ${road}
+${read('src/polygon_geometry.js')}
 ${building}
 ${read('tools/map_art_procedural.js')}
 })(globalThis);\n`;

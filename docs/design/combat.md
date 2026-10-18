@@ -421,7 +421,9 @@ Tests: `boss_encounters`, `castle_quest_flow`, `lairs`, `trail`, server `test.js
   those choices. Counters advance at the existing decision points and restart
   when a creature is recreated; different targets, terrain, simulation timing
   or frozen intervals can still diverge. Private creatures retain their RNG.
-  The wire protocol lives atop `server/index.js`.
+  The wire protocol lives atop `server/index.js`. Browser and relay share
+  snapshot fields, limits and validation in `src/enemy_protocol.js`; bat flight
+  includes the optional `jx`/`jy` bow vector as well as its endpoints.
 - Event-driven synchronization is negotiated with `enemySync: 1` in hello,
   welcome and peer presence. The lowest eligible capable relay ID in the
   enemy's simulation range publishes its state; castle candidates must share
@@ -452,7 +454,7 @@ Tests: `boss_encounters`, `castle_quest_flow`, `lairs`, `trail`, server `test.js
   upgraded clients and relay. Evidence, pending replies and snapshots are
   bounded; an oversized complete damage vector suppresses the snapshot rather
   than sending a partial vector that could double-count damage. See the client
-  constants and relay cleaners for wire limits.
+  shared `EnemyProtocol` constants and cleaner for wire limits.
 - A received hit is source `Combat.PEER_SOURCE`: it goes through
   `_damageEnemy` with `exact` damage (no armour or potion shield twice), shows
   its number, never splits a slime and is never sent on. A peer's kill goes
