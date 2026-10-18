@@ -117,7 +117,8 @@ One line each; the linked purpose doc owns the detail.
   row ([combat](docs/design/combat.md), [presentation](docs/design/presentation.md)).
 - `lighting.js` owns the sole lighting pass; add sources as `Lighting.KINDS`
   rows ([rendering](docs/design/rendering.md)).
-- Taps resolve the data cell (`sameAbsCell`), never pixel bounds; sprites seat
+- Ordinary props resolve taps by data cell (`sameAbsCell`); buildings also
+  accept their visible roofs and walls through `Render.buildingHit`. Sprites seat
   through `RENDER_SPEC` and its audit ([rendering](docs/design/rendering.md)).
 - A cell-crossing rebuild never reads pixels back — no `getImageData`, no
   per-piece `textures.createCanvas` ([rendering](docs/design/rendering.md)).

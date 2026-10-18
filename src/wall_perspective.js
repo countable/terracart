@@ -19,7 +19,7 @@
         scene.buildingWallContainer.add(gfx);
         group = scene._wallPerspective[source] = { gfx, blocks: [], x: 0, y: 0 };
       }
-      group.blocks.length = 0; group.runs = null;
+      group.blocks.length = 0; group.runs = null; group.buildings = null;
       group.alwaysActive = false;
       group.angle = NaN;
       return group;
@@ -97,7 +97,7 @@
     },
     clear(scene, source) {
       const group = scene._wallPerspective?.[source];
-      if (group) { group.blocks.length = 0; group.runs = null; group.alwaysActive = false; group.gfx.clear(); group.angle = NaN; }
+      if (group) { group.blocks.length = 0; group.runs = null; group.buildings = null; group.alwaysActive = false; group.gfx.clear(); group.angle = NaN; }
     },
     update(scene) {
       const angle = scene.mapRot || 0, c = Math.cos(angle), s = Math.sin(angle);
@@ -162,6 +162,7 @@
           if (!triangles) buildings.set(block.building, triangles = []);
           faces(block, (x1,y1,x2,y2,x3,y3) => triangles.push([{x:x1,y:y1},{x:x2,y:y2},{x:x3,y:y3}]));
         }
+        group.buildings = buildings;
         for (const [building, triangles] of buildings) building.alpha = typeof Render === 'undefined' || !Render.buildingFadeAlpha ? 1 : Render.buildingFadeAlpha(scene,
           building.key, building.footprint, triangles, building.anchor, {x:group.x,y:group.y});
         const alphaKey = [...buildings.keys()].map(b=>b.alpha).join(',');

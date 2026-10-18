@@ -222,6 +222,10 @@
     if (solo) return { theme: solo, tier: 1 };
     const stored = save?.shopLines?.[house?.id];
     if (house && (LINE_RULES[stored] || THEME_POOL[stored])) {
+      // Modern restores stamp both values. Only legacy ranks need the
+      // ordered ledger; rebuilding it per card makes the chooser quadratic.
+      const tier = storedTier(save, house.id);
+      if (tier != null && save?.restoredHouses?.[house.id] === 'shop') return { theme: stored, tier };
       const row = shopLineLedger(save).find((r) => r.id === String(house.id));
       if (row) return { theme: row.theme, tier: row.tier };
     }

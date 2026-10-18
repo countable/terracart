@@ -154,8 +154,8 @@ the real source so a missing texture cannot become a permanent cached palette.
   “of”), only the first word appears. Full names remain available in dialogs.
 - The circular map and compass rim sit 55 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
-- Zoom is camera-only. The initial view spans nine cells instead of eleven,
-  one cell closer on each edge (`MAP_DEFAULT_ZOOM`). Plain +/− buttons on the
+- Zoom is camera-only. The initial resting view is the closest setting,
+  spanning seven cells (`MAP_DEFAULT_ZOOM`). Plain +/− buttons on the
   right change the resting span by two cells, bounded by `PINCH_VIEW_CELLS`
   and `VIEW_CELLS`; disabled buttons mark the limits. The choice lasts for the
   session, including modals and depth changes. Pinch zoom remains temporary
@@ -163,7 +163,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   `_applyMapZoom` clips the camera viewport and counter-scales map chrome;
   the DOM controls never zoom or rotate. Gameplay ranges and loading stay
   based on `VIEW_CELLS`; taps convert back through `_unzoomPt`.
-  The opening shot uses the same camera and ends at the selected resting zoom.
+  The opening shot uses the same camera: after two seconds with the map
+  unobscured it begins easing back to the selected resting zoom. Pending Home
+  placement never holds the camera in the close-up.
 - Once Phaser selects its renderer, software Canvas uses a 1× backing store:
   the logical pixel-art grid. WebGL retains its 2× memory budget. This avoids
   CPU-bound high-DPR rasterization during map rotation without changing CSS
@@ -286,7 +288,15 @@ the real source so a missing texture cannot become a permanent cached palette.
   (`pad_shrine`, drawn with its masonry face south) turns back about its cell
   centre the same way, while flat POI pads turn with the ground. Ground decals retain their own
   opacity, and fruit overlays follow their tree.
-- Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
+- Ordinary props resolve taps by data cell (`sameAbsCell`). Buildings additionally
+  accept their visible roof and wall extent through `Render.buildingHit`: retained
+  visible triangles for low-poly meshes and wall prisms, trimmed art bounds for
+  legacy sprites. Hit tests use the same heading projection and pan offsets as
+  drawing; pointer input has already undone camera zoom and heading. Overlapping
+  buildings select the frontmost drawn owner, with no hits in empty corners of
+  pitched roofs. The owner routes through the ordinary interaction registry and
+  existing reach/visibility gates; ground-footprint taps remain supported.
+  Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
   Seated art, shadows and labels counterrotate about the cell centre so these

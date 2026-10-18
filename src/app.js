@@ -6123,9 +6123,9 @@ class MapScene extends Phaser.Scene {
   // --- The opening shot (HomeArea.INTRO) ---
   // A new game opens close on Home: zoomed until INTRO.viewCells span the
   // frame, the camera INTRO.focus off the player, so the wagon fills the
-  // top half and the player stands at its door. It waits there while Home is
-  // still being placed or a dialog (the opening story, the location prompt)
-  // covers the map, holds INTRO.holdMs once the map is clear, then widens
+  // top half and the player stands at its door. It waits while a dialog
+  // (the opening story, the location prompt) covers the map, holds
+  // INTRO.holdMs once the map is clear, then widens
   // back to the normal view over INTRO.outMs. Camera-only, through the same
   // mapZoom and peekM the pinch and the peek use, and it never rests: it ends
   // at the selected resting zoom and no offset. A finger on the map hands
@@ -6145,7 +6145,9 @@ class MapScene extends Phaser.Scene {
     }
     const I = HomeArea.INTRO;
     if (it.phase === 'wait') {
-      if (this.save.starterShopId && (this.depth || 0) === 0 && !this._dialogOpen()) it.phase = 'hold';
+      // Placement can wait on GPS, tiles, or a free site. It must not trap
+      // the camera in the opening close-up once the player can use the map.
+      if ((this.depth || 0) === 0 && !this._dialogOpen()) it.phase = 'hold';
     } else {
       it.t += dt * 1000;
       if (it.phase === 'hold' && it.t >= I.holdMs) { it.phase = 'out'; it.t = 0; }
@@ -9518,14 +9520,15 @@ class MapScene extends Phaser.Scene {
     // affordability, decides what is listed.
     const choices = options.map((row) => {
       const c = costFor(row);
+      const isNew = Houses.isNewPick(this.save, row);
       return {
         key: row.key,
         // Name, then the rank and NEW on one line, then the price: compact,
         // so six cards and the Restore row fit the dialog without a scroll.
         label: labelFor(row, null)
-          + ((row.tier || Houses.isNewPick(this.save, row))
+          + ((row.tier || isNew)
             ? `<div style="line-height:1.15;margin-top:2px">${row.tier ? tierBadgeHTML(row.tier, 9, 4) : ''}`
-              + `${Houses.isNewPick(this.save, row) ? newBadgeHTML(8) : ''}</div>` : '')
+              + `${isNew ? newBadgeHTML(8) : ''}</div>` : '')
           + `<div style="margin-top:3px;font-size:11px">${costLine(c)}</div>`,
         iconHTML: iconFor(row),
         cost: costLine(c),

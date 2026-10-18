@@ -306,7 +306,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   4:3, with a complete scene and no baked dark text area. Paintings fit the
   full width, anchored at the top without stretching. The image begins at the
   window top behind the fixed silver dragon rail. Approved 4:3 paintings keep
-  their full height; longer copy paginates below them. Legacy squares begin at
+  their full height; longer copy paginates below them. All story paintings use
+  a full-width 4:3 frame, cropping legacy art without stretching. Opening
+  panels three and four share this layout; the first two stay immersive.
+  Other dialogs with legacy squares begin at
   90% of panel width and can shorten to 70%; legacy portraits can shorten to
   the rail height plus eight pixels. `tools/art_thumbs.js` bakes `ART_ASPECTS`
   alongside aspect-preserving thumbnails, so this layout is ready before the
