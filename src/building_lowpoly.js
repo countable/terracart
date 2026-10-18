@@ -911,7 +911,9 @@
           }
         }};
         let group=[],support=null,groupId=0;
-        const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0)ink(group);paint(group);group=[];};
+        // The outline repeats filled triangles eight times. During a fade those
+        // layers would accumulate to opaque black and hide the player again.
+        const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0&&src.alpha===1)ink(group);paint(group);group=[];};
         for(const f of src._lowpolyFaces){
           if(!f.visible)continue;
           const g=f.inkGroup||0;

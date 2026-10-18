@@ -149,7 +149,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   direction lock occupies the upper-left corner of the compass. These controls
   live outside Phaser’s scaled wrapper and yield to modal sheets. The lock
   depresses while engaged. Unselected inventory items have no individual border;
-  the selected item retains its gold outline.
+  the selected item retains its gold outline. Empty inventory cells are disabled
+  and never highlighted or counted as another page. Tap a selected stack again
+  to put it away.
   The energy dial has one lightning-bolt needle for current energy, equal
   red/yellow/green thirds, and a maximum-energy numeral on the right.
   Dormant inscriptions use invented geometric glyphs at a shared size; their

@@ -84,7 +84,9 @@ or their visible projected faces cover the player's body from in front. The
 footprint test includes concave outlines; the overlap test uses visible triangles
 for low-poly meshes and ramparts, and trimmed art bounds for legacy sprites.
 These checks follow compass rotation and retained pan offsets, and restore full
-opacity immediately on leaving. They update opacity without rebuilding geometry
+opacity immediately on leaving. Faded low-poly buildings skip the filled ink
+outline passes so overlapping ink cannot obscure the player through the fade.
+They update opacity without rebuilding geometry
 or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
 Wrecks render below the player without fading. Broken wall sections vary in
 height; their interior step cuts run perpendicular to each wall, while corners
