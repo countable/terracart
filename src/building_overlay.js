@@ -1396,6 +1396,16 @@
     // the same one the road overlay strokes with — and its padded cull bounds.
     const { projX, projY, minX, maxX, minY, maxY } = overlayProjection(scene, fracX, fracY);
 
+    // Use the same source street lines and projection as the road painter.
+    const doorStreets = [];
+    if (lowpoly && typeof RoadOverlay !== 'undefined' && typeof RoadOverlay.transportLines === 'function') {
+      for (const { line, mvtToM, originMx, originMy } of RoadOverlay.transportLines(tiles.filter(t => t.entry.layers))) {
+        for (let i = 1; i < line.length; i++) doorStreets.push([line[i-1], line[i]].map(p => ({
+          x: projX(originMx + p.x * mvtToM), y: projY(originMy + p.y * mvtToM),
+        })));
+      }
+    }
+
     // Per-pass memo of ownerKey → claimed, the same one the tiled pass keeps:
     // a footprint asks the save once instead of once per shape.
     const claimMemo = new Map();
@@ -1591,7 +1601,7 @@
                 trim:paint(role==='turret'?palette.wall:0x614534)},scene.buildingStoreys);
           const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant
             || recipe.variant||'ridge';
-          model = BuildingLowPoly.add(scene,d.pts,recipe,variant,object.id);
+          model = BuildingLowPoly.add(scene,d.pts,recipe,variant,object.id,doorStreets);
         } else model = BuildingStyles.emit(scene, 'polygon', d.pts, styleId, { claimed: isMine, palette: profile.palette });
         if (model && (model.faces?.length || model.prisms?.length)) {
           // Signs and flags seat on the drawn top: the low-poly path foreshortens height.

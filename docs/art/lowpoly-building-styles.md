@@ -270,3 +270,11 @@ brick, otherwise rubble; the painterly dark stone and cobble fall back to
 rubble); roof cells follow `roofMaterial` (clay, slate, thatch, shingle,
 glazed; red tile falls back to clay; flat roofs use flagstone). The plinth is
 rubble, or moss on a wreck.
+
+Street-facing door decorations use the road overlay’s source transportation lines.
+A standing low-poly house receives one framed plank door on the nearest outward-facing
+wall within six cells, provided the wall has room for the door and four-pixel corner
+clearance on both sides. No nearby street or no suitable wall means no decoration.
+The retained door triangles rotate, sort and fade with the building; they do not
+alter its footprint, movement or tap target. Home retains its authored entrance,
+and wrecks and special tower silhouettes do not receive floating doors.

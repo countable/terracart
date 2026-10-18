@@ -139,4 +139,30 @@
     mesh.obj.renderWebGL(renderer,mesh.obj,camera);
     assert.eq(vertices,visible*3*9,'opaque buildings retain their eight outline offsets');
   }));
+  test('street doors: face the nearest street with corner clearance, independent of winding', () => {
+    const ring=[{x:0,y:0},{x:60,y:0},{x:60,y:40},{x:0,y:40}];
+    const streets=[[{x:80,y:-20},{x:80,y:60}]];
+    for(const points of [ring,[...ring].reverse()]){
+      const door=BuildingLowPoly.streetDoor(points,streets);
+      assert.eq(door.center.x,60);assert.eq(door.center.y,20);
+      assert.eq(door.normal.x,1);assert.eq(door.normal.y,0);
+    }
+    assert.eq(BuildingLowPoly.streetDoor(ring,[]),null,'no street means no invented frontage');
+    assert.eq(BuildingLowPoly.streetDoor(ring,[[{x:1000,y:0},{x:1000,y:100}]]),null,'distant roads do not choose a door');
+    const tiny=[{x:0,y:0},{x:10,y:0},{x:10,y:10},{x:0,y:10}];
+    assert.eq(BuildingLowPoly.streetDoor(tiny,streets),null,'narrow walls leave no space for a door and its frame');
+  });
+  test('street doors: retained decoration follows the building and leaves cached geometry unchanged', () => withPhaser(() => {
+    const scene=stubScene();BuildingLowPoly.begin(scene);
+    const recipe=BuildingLowPoly.recipeFor('plain');
+    const street=[[{x:220,y:80},{x:220,y:220}]];
+    const decorated=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','door',street);
+    const plain=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','no-street');
+    const faces=decorated.faces.filter(f=>f.door);
+    assert.eq(faces.length,12,'frame, planks, brace and handle are retained triangles');
+    assert.falsy(plain.faces.some(f=>f.door),'the shared roof/wall cache has no frontage decoration');
+    scene.mapRot=Math.PI;BuildingLowPoly.update(scene);
+    assert.truthy(faces.every(f=>f.projected.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))));
+    assert.truthy(faces.every(f=>f.support===decorated.support),'door shares the building depth and fade');
+  }));
 })();
