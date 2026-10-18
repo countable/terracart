@@ -66,3 +66,35 @@ test('footprint buildings: hide sprite only when retained geometry exists and pr
   } finally { Render.buildingArtStyle = prev; }
 });
 })();
+
+test('building storeys follow gameplay rank across roles and renovations', () => {
+  const house = {kind:'house',id:'ranked-house',tier:9};
+  const save = {restoredHouses:{},shopLines:{},shopTiers:{}};
+  const scene = {save};
+  for (const role of ['blacksmith','trader','shop']) {
+    save.restoredHouses[house.id] = role;
+    for (const theme of ['seed','supply','potion','relic','pet','book']) {
+      save.shopLines[house.id] = theme;
+      for (const tier of [1,2,3,7,1]) {
+        save.shopTiers[house.id] = tier;
+        assert.eq(Render.buildingStoreysFor(house,scene),tier === 1 ? 1 : 2, `${role}/${theme} T${tier}`);
+      }
+    }
+  }
+  scene.buildingStoreys = 3;
+  assert.eq(Render.buildingStoreysFor(house,scene),3,'preview override');
+  delete scene.buildingStoreys;
+  save.restoredHouses[house.id] = 'plain';
+  assert.eq(Render.buildingStoreysFor(house,scene),null,'unranked design');
+  assert.truthy(BUILDING_OVERLAY_SRC.includes('s.shopTiers'),'renovations invalidate overlay geometry');
+});
+
+test('building style fallback emits one window row per requested storey', () => {
+  const ring = [{x:0,y:0},{x:80,y:0},{x:80,y:60},{x:0,y:60}];
+  for (const style of ['multistorey','adobe','whitewash','pyramid','japanese']) {
+    const one = BuildingStyles.build(ring,style,{stories:1});
+    const two = BuildingStyles.build(ring,style,{stories:2});
+    assert.truthy(Math.abs(two.height-one.height-BuildingStyles.STYLES[style].height)<0.5,style+' adds one floor');
+    assert.truthy(two.prisms.length > one.prisms.length,style+' adds facade detail');
+  }
+});

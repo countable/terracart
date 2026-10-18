@@ -1334,7 +1334,7 @@
     const s = scene.save || {};
     const n = (o) => (o ? (Array.isArray(o) ? o.length : Object.keys(o).length) : 0);
     return [!!scene._headingUp,scene.game?.renderer?.type,Render.buildingArtStyle,scene.buildingRoofVariant,scene.buildingRoofDetail,scene.buildingStoreys].join(':') + ',' + n(s.restoredHouses) + ',' + n(s.unlockedForts) + ',' + n(s.claimedCastles)
-      + ',' + JSON.stringify([s.restoredHouses, s.shopLines, s.bookshopId, s.petshopId, s.starterBlacksmithId])
+      + ',' + JSON.stringify([s.restoredHouses, s.shopLines, s.shopTiers, s.bookshopId, s.petshopId, s.starterBlacksmithId])
       + ',' + (s.starterShopId || '') + ',' + Object.values(s.temples || {}).filter(r => r.active).length
       // Home's roof comes off while the player is inside (drawHome).
       + ',' + (scene.homeInside ? Number(!!scene.homeInside()) : '');
@@ -1578,13 +1578,13 @@
           const base = BuildingStyles.STYLES[styleId], palette = {...base,...profile.palette};
           const paint = c => tuneOf(isMine)(shadeOf(isMine)(c));
           const recipe = BuildingLowPoly.recipeFor(role,{wall:paint(palette.wall),roof:paint(palette.roof),
-                trim:paint(role==='turret'?palette.wall:0x614534)},scene.buildingStoreys);
+                trim:paint(role==='turret'?palette.wall:0x614534)},Render.buildingStoreysFor(object, scene));
           const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant
             || recipe.variant||'ridge';
           model = BuildingLowPoly.add(scene,d.pts,recipe,variant,object.id,doorStreets);
         } else model = BuildingStyles.emit(scene, 'polygon', d.pts, styleId, {
           claimed: isMine, palette: profile.palette,
-          stories: scene.buildingStoreys || BuildingLowPoly.ROLES[specialtyFor(scene.save, object)]?.stories,
+          stories: Render.buildingStoreysFor(object, scene) ?? BuildingLowPoly.ROLES[specialtyFor(scene.save, object)]?.stories,
         });
         if (model && (model.faces?.length || model.prisms?.length)) {
           // Signs and flags seat on the drawn top: the low-poly path foreshortens height.
@@ -1607,7 +1607,7 @@
       if (d.tier === 9 && g.housePoly && (!Render.proceduralBuildings || Render.proceduralBuildings())) {
         g.housePoly(d.pts, floor, tune(shade(faceColor(d.tier, isMine))),
           tune(dim(shaded, OUTLINE_MUL)), specialtyFor(scene.save, houses.get(d.key)
-            || { kind: 'house', id: d.key, tier: 9 }), scene.buildingRoofVariant, scene.buildingStoreys, d.seed, isMine);
+            || { kind: 'house', id: d.key, tier: 9 }), scene.buildingRoofVariant, Render.buildingStoreysFor(d.object || {kind:'house',id:d.key,tier:9}, scene), d.seed, isMine);
         continue;
       }
       // The wall, as the ring filled again one face-depth south and painted

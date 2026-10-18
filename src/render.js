@@ -1853,6 +1853,13 @@ Render.buildingProfileFor = (o, scene) => {
   const theme = role === 'shop' ? scene.shopLine?.(o)?.theme ?? scene.save?.shopLines?.[o.id] ?? Shops.lineFor(scene.save, o)?.theme : null;
   return Render.BUILDING_STYLE_SHOPS[theme] || Render.BUILDING_STYLE_ROLES[role] || Render.BUILDING_STYLE_ROLES.plain;
 };
+// Gameplay ranks, not the footprint's biome tier (9/11/12), set floor count.
+// Higher ranks can add ornament later; their baseline remains two storeys.
+Render.buildingStoreysFor = (o, scene) => {
+  if (scene.buildingStoreys != null) return scene.buildingStoreys;
+  const tier = Shops.shopTier(scene.save, o, Houses.displayRole(scene.save, o));
+  return tier == null ? null : tier >= 2 ? 2 : 1;
+};
 Render.buildingStyleFor = (o, scene) => Render.buildingProfileFor(o, scene).style;
 Render.proceduralHouse = (o, scene) => Render.proceduralBuildings()
   && typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled()
