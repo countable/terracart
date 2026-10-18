@@ -116,8 +116,10 @@ const HomeArea = {
     wall: { face: 0xa88a62, top: 0xe8dcc2, dark: 0x5e4730 },
     roof: { top: 0xa8463a, shade: 0x7f3329, lite: 0xcf6a53, dark: 0x5f2820 },
     // The world outside the house while the player is inside it: the
-    // lightmap's multiply colour and how much of the picture it takes.
-    maskColour: 0x0a0d12, maskAlpha: 0.86,
+    // lightmap's multiply colour, how much of the picture it takes, and how
+    // far its edge feathers into the room across the walls' outline
+    // (lighting.js paintIndoorMask), map px.
+    maskColour: 0x0a0d12, maskAlpha: 0.86, maskFeatherPx: 2,
   },
   // Is the cell (dx, dy) from the wagon cell one of the house's?
   inHouse(dx, dy) {

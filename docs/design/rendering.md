@@ -545,10 +545,15 @@ the reach rim within the existing player-light radius.
   caves ignore it.
 - Indoors (`scene.homeInterior`, non-null while the player stands on one of
   Home's cells) `paintIndoorMask` fills the lightmap outside the house with
-  `HomeArea.HOUSE.maskColour` at `maskAlpha`, the house cut out as the convex
-  hull of its ring and the ring lifted by the walls' height (`liftPx`, so the
-  lift is screen-up at every heading); the frame key carries the interior and
-  the GPU compositor stands down while it is up. Masks compose over the lights;
+  `HomeArea.HOUSE.maskColour` at `maskAlpha`, the house cut out as its exact
+  roofless silhouette: the ring swept by the walls' drawn height
+  (`indoorSilhouette`, filled nonzero, so an L-shaped adopted house keeps its
+  notch dark; `liftPx`, so the lift is screen-up at every heading, and the
+  drawn height alone, never plus the wall thickness). The cut's edge feathers
+  `maskFeatherPx` into the room across the walls' outline, built on the
+  mask's own layer (`indoorCuts`), so no seam of lit ground shows outside the
+  walls. The frame key carries the interior and its lift, and the GPU
+  compositor stands down while the mask is up. Masks compose over the lights;
   only sources add.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors
   cull by viewport plus light radius, not sprite bounds. The POI pad and the
