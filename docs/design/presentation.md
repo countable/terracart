@@ -67,10 +67,15 @@ changing dialogue, story panels, books, toasts or status presentation.
   names the actual find as “Item name × quantity”, with its tier badge on the
   next line. When the find has a description (`Rewards.desc`: the item's
   `ITEM_EFFECTS` line or the gear blurb) the card splits: the find on the left,
-  the description on the right. Barrels, clay pots and T1 crates show item
-  acknowledgments only when the item is not currently carried; already-carried
-  items use the small viewport loot toast. Check ownership before granting the
-  reward, not the discovery history. Bag-full take/leave choices still appear.
+  the description on the right. A small container (`isSmallContainer` in
+  `interactables.js`: barrels, clay pots and the crate-look box) shows the
+  card only when the item is not currently carried; an already-carried item
+  uses the small viewport loot toast. Check ownership before granting the
+  reward, not the discovery history. A chest with a line of its own (the
+  trail's end, the portal stone) keeps the card, since a toast carries no
+  line. A toast has nothing to dismiss, so `Rewards.present` fires the
+  caller's `onDismiss` at once in toast mode: a deferred Book read is released
+  by whichever presentation runs. Bag-full take/leave choices still appear.
   Empty pots and barrels retain their brief smash feedback; their coins use a toast.
 
 - The compass header aligns menu, a memories/books window and compact distance meter
@@ -143,7 +148,15 @@ changing dialogue, story panels, books, toasts or status presentation.
   a mechanical pager rocker with broad upper/lower touch faces around an ivory count
   window, and an integrated name/action plate. The upper face selects the previous
   page; the lower face selects the next page. The description plate
-  appears only for a selected item or piece of gear; empty categories show no plate. Contextual actions
+  appears only for a selected item or piece of gear; empty categories show no plate.
+  Its title and ✦ effect line are each one ellipsised line, so the whole plate,
+  title included, is one tap target that opens the full description in a message
+  dialog through `_openSelectedDescription` (the sole opener; `_effectLineEl`
+  records the dialog and opts the plate into pointer events). The plate is
+  inert when the selection has no description, so taps there still reach the
+  map, and a plate tap is swallowed like a HUD button's, never reaching the map
+  or the item action. Enter/Space open it from the keyboard (role button, tabIndex
+  0), as other HUD controls do. Contextual actions
   retain their existing semantics. The dormant inventory cover occupies the lower
   inventory window until the first item activates it; it has no close control.
   Inactive-module Spirit dialogs explain how to power up that specific module;

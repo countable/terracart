@@ -559,13 +559,19 @@ const INTERACTABLES = {
         ctx.dirty = true;
         const got = rollBarrel(o);
         if (got.kind === 'empty') { scene.flash(barrelFlash(got), sx, sy); return true; }
+        // A small container (isSmallContainer): a new item opens the card, an
+        // already-carried one toasts. A Book read deferred behind the card is
+        // released by whichever presentation runs — the card's onDismiss, or
+        // the toast at once (Rewards.present fires onDismiss in toast mode) —
+        // so a scene without the card never strands the read.
         const newItem = got.kind === 'item' && !carriesItem(save, got.id);
         Rewards.apply(save, got, scene, { deferBookRead: newItem });
+        const onDismiss = () => scene._revealPendingBookReads?.();
         const art = chestOpeningArt(o);
         if (!(newItem && Rewards.present(scene, got, { extra: { kind: 'treasure',
-          header: chestLook(o).texKey === 'clay_pot' ? 'Inside the pot' : 'Inside the barrel',
-          art: art || undefined, onDismiss: () => scene._revealPendingBookReads?.() } }))) {
-          Rewards.present(scene, got, { mode: 'toast', text: barrelFlash(got) });
+          header: `Inside the ${chestLook(o).barrelName}`,
+          art: art || undefined, onDismiss } }))) {
+          Rewards.present(scene, got, { mode: 'toast', text: barrelFlash(got), extra: { onDismiss } });
         }
         return true;
       }
@@ -727,9 +733,11 @@ const INTERACTABLES = {
       // ceremony now agrees with both. Everything else, the spawn relic chest
       // included, keeps the treasure header.
       const rewardKind = o.crate ? 'supplies' : 'treasure';
-      // Small containers acknowledge already-carried items with a viewport toast.
-      // Check before the grant; a spent stack counts as new again.
-      const toastOnly = !chapel && iconLook?.texKey === 'box' && carriesItem(save, lootId);
+      // A small container (isSmallContainer) acknowledges an already-carried
+      // item with a viewport toast. Check before the grant; a spent stack
+      // counts as new again. A chest with a line of its own (`dress.sub`: the
+      // trail's end, the portal stone) keeps the card — a toast shows no line.
+      const toastOnly = isSmallContainer(o) && !dress.sub && carriesItem(save, lootId);
       // If the loot won't fully fit, don't silently drop the overflow — let the
       // player TAKE what fits (chest emptied, rest lost) or LEAVE it for later
       // (chest kept, its exact contents remembered in save.chestHold). Modal
@@ -778,13 +786,13 @@ const INTERACTABLES = {
       // here, before showChestRewardModal below even mounts — two modals at
       // once. Queue it and reveal once the "you found a Book" ceremony is
       // dismissed instead (see addToInv / _revealPendingBookReads in app.js);
-      // a no-op for every other loot id.
+      // a no-op for every other loot id. A toast fires onDismiss at once.
       Rewards.apply(save, result, scene, { deferBookRead: true });
       markOpened();
       delete save.chestHold[o.id];
       ctx.dirty = true;
       Rewards.present(scene, result, { mode: toastOnly ? 'toast' : 'card', extra: { ...dress, kind: rewardKind, kindIcon,
-        onDismiss: () => scene._revealPendingBookReads() } });
+        onDismiss: () => scene._revealPendingBookReads?.() } });
       return true;
     },
   },
@@ -1044,6 +1052,21 @@ function takenToday(o, sets) {
 function chestNeverSpent(o) {
   return !!((typeof produceStandFor === 'function' && produceStandFor(o))
     || (typeof macroFor === 'function' && macroFor(o)));
+}
+// ── What is a SMALL CONTAINER ─────────────────────────────────────────────
+// A barrel or clay pot (loot.js isBarrel) and the crate-look box: a starter
+// or quarry crate, a tier-1 chest, a bus stop's crate (loot.js chestLook
+// `box`, the flag the renderer draws the box sprite from) — never a trunk, a
+// wagon, a stall, a bike rack or a macro venue. Its item find opens the loot
+// card only when the item is new to the bag; an already-carried item is
+// acknowledged with the viewport loot toast (INTERACTABLES.chest, both the
+// barrel lane and the chest lane; docs/design/presentation.md).
+function isSmallContainer(o) {
+  if (!o || o.kind !== 'chest') return false;
+  if (isBarrel(o)) return true;
+  if (typeof chestLook !== 'function') return false;
+  const L = chestLook(o);
+  return !!(L.box && !L.stand);
 }
 // ── What RESTOCKS ─────────────────────────────────────────────────────────
 // Most chests are offered ONCE (save.opened, the delta, forever — that is what

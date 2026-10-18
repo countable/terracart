@@ -3080,7 +3080,7 @@ Render.drawCells = function drawCells(scene) {
           const wood = n => buildingBackgroundColor(UNCLAIMED(col, row)
             && typeof unclaimedMaterialColor === 'function'
             ? unclaimedMaterialColor(unclaimedShade(n)) : n);
-          style = { height: 5, thickness: 3,
+          style = { height: WallMaterials.WOOD.height, thickness: WallMaterials.WOOD.thickness, tint: wood(0xffffff),
             face: wood(0xa67434), top: wood(0xa67434), dark: wood(0x6b4520) };
         } else {
           const face = buildingBackgroundColor(UNCLAIMED(col, row)
@@ -3095,9 +3095,10 @@ Render.drawCells = function drawCells(scene) {
           if (!wallEdge(col, row, dc, dr)) continue;
           if (type === 11) {
             // Separate pickets retain the palisade gaps on every compass axis.
-            for (let i = 0; i < 8; i++) {
-              const t = i / 8, end = t + 3 / CELL_PX;
-              WallPerspective.addSegment(scene, 'tiled', { ...style, nx, ny,
+            const count = Math.max(1, Math.round(CELL_PX / WallMaterials.WOOD.pitch));
+            for (let i = 0; i < count; i++) {
+              const t = i / count, end = Math.min(1, t + WallMaterials.WOOD.width / CELL_PX);
+              WallPerspective.palisade(scene, 'tiled', { ...style, nx, ny,
                 ax: ax + (bx - ax) * t, ay: ay + (by - ay) * t,
                 bx: ax + (bx - ax) * end, by: ay + (by - ay) * end });
             }
@@ -3884,6 +3885,37 @@ Render.connectedWallFootprints = function (mask, thickness) {
   if (mask & 8) rects.push([0, lo, lo, hi]);
   return rects;
 };
+// Trace the union of the core and its connected arms once per cell. Open
+// boundary edges join adjacent cells exactly; only exposed sides get a bevel.
+Render.connectedWallOutline = function (mask, thickness) {
+  const C = CELL_PX, lo = (C - thickness) / 2, hi = (C + thickness) / 2;
+  const axis = [0, lo, hi, C], occupied = new Set(['1,1']);
+  if (mask & 1) occupied.add('1,0');
+  if (mask & 2) occupied.add('2,1');
+  if (mask & 4) occupied.add('1,2');
+  if (mask & 8) occupied.add('0,1');
+  const edges = new Map(), add = (x, y, a, b) => edges.set(`${x},${y}`, [a, b]);
+  for (const key of occupied) {
+    const [x, y] = key.split(',').map(Number);
+    if (!occupied.has(`${x},${y - 1}`)) add(x, y, x + 1, y);
+    if (!occupied.has(`${x + 1},${y}`)) add(x + 1, y, x + 1, y + 1);
+    if (!occupied.has(`${x},${y + 1}`)) add(x + 1, y + 1, x, y + 1);
+    if (!occupied.has(`${x - 1},${y}`)) add(x, y + 1, x, y);
+  }
+  const start = edges.keys().next().value, ring = [];
+  let key = start;
+  do {
+    const [x, y] = key.split(',').map(Number);
+    ring.push({ x: axis[x], y: axis[y] }); key = edges.get(key).join(',');
+  } while (key !== start);
+  const points = PolygonGeometry.removeCollinear(ring);
+  const openEdges = points.map((a, i) => {
+    const b = points[(i + 1) % points.length];
+    return !!((a.y === 0 && b.y === 0 && (mask & 1)) || (a.x === C && b.x === C && (mask & 2))
+      || (a.y === C && b.y === C && (mask & 4)) || (a.x === 0 && b.x === 0 && (mask & 8)));
+  });
+  return { points, openEdges };
+};
 // Draw this frame's connected walls and hedges as retained prisms; returns the
 // frame items drawn there so the sprite pools skip them. Geometry sits on the
 // cells' terrain slots (absCellScreenCentre) in zero-pan space and scrolls
@@ -3921,12 +3953,13 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
     const centre = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
     const x0 = centre.x + fracX * CELL_PX - CELL_PX / 2, y0 = centre.y + fracY * CELL_PX - CELL_PX / 2;
     const height = ObstacleStep.PROFILES[piece.art.profile].liftPx;
-    const colors = { face: piece.art.face, top: piece.art.top, dark: piece.art.dark };
-    for (const [ax, ay, bx, by] of Render.connectedWallFootprints(piece.mask, piece.art.thickness)) {
-      WallPerspective.prism(scene, 'props', [
-        { x: x0 + ax, y: y0 + ay }, { x: x0 + bx, y: y0 + ay },
-        { x: x0 + bx, y: y0 + by }, { x: x0 + ax, y: y0 + by }], 0, height, colors);
-    }
+    const outline = Render.connectedWallOutline(piece.mask, piece.art.thickness);
+    WallPerspective.material(scene, 'props', piece.art.profile === 'hedge' ? 'hedge' : 'stone',
+      outline.points.map(p => ({ x: x0 + p.x, y: y0 + p.y })), height,
+      { openEdges: outline.openEdges,
+        capRegions: Render.connectedWallFootprints(piece.mask, piece.art.thickness).map(([ax, ay, bx, by], i) =>
+          ({ x0: x0 + ax, y0: y0 + ay, x1: x0 + bx, y1: y0 + by, horizontal: bx - ax > by - ay, joints: i !== 0 })),
+        textureOriginX: cell.cellIX * CELL_PX - x0, textureOriginY: cell.cellIY * CELL_PX - y0 });
   }
   WallPerspective.finish(scene, 'props');
   return drawn;

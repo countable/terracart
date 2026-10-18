@@ -17,30 +17,30 @@ test('step bands follow horizontal/vertical wall atlas connections, not full til
   const horizontal = { kind: 'stronghold_wall', variant: 0, x: 0, y: 0 };
   const vertical = { ...horizontal, variant: 1 };
   const at = (o, x, y) => ObstacleStep.sample(x, y, [o], 1).liftPx;
-  assert.eq(at(horizontal, 0.45, 0), 5);
+  assert.eq(at(horizontal, 0.45, 0), 5.5);
   assert.eq(at(horizontal, 0, 0.45), 0);
   assert.eq(at(vertical, 0.45, 0), 0);
-  assert.eq(at(vertical, 0, 0.45), 5);
+  assert.eq(at(vertical, 0, 0.45), 5.5);
   assert.gt(at(horizontal, 0, 0.25), 0);
-  assert.lt(at(horizontal, 0, 0.25), 5);
+  assert.lt(at(horizontal, 0, 0.25), 5.5);
 });
 
 test('connected walls keep a flat support across cell seams and list both supports', () => {
   const walls = [0, 1, 2].map(x => ({ kind: 'stronghold_wall', variant: 0, x, y: 0 }));
-  for (let x = 0; x <= 2; x += 0.025) assert.eq(ObstacleStep.sample(x, 0, walls, 1).liftPx, 5);
+  for (let x = 0; x <= 2; x += 0.025) assert.eq(ObstacleStep.sample(x, 0, walls, 1).liftPx, 5.5);
   assert.eq(ObstacleStep.sample(0.5, 0, walls, 1).supports.length, 2);
-  assert.eq(ObstacleStep.sample(0.5, 0, [...walls, ...walls], 1).liftPx, 5);
+  assert.eq(ObstacleStep.sample(0.5, 0, [...walls, ...walls], 1).liftPx, 5.5);
 });
 
 test('corner and junction support respects arms and leaves unused corners on ground', () => {
   const corner = { kind: 'stronghold_wall', variant: 2, x: 0, y: 0 }; // E+S
   const at = (o, x, y) => ObstacleStep.sample(x, y, [o], 1).liftPx;
-  assert.eq(at(corner, 0.5, 0), 5);
-  assert.eq(at(corner, 0, 0.5), 5);
+  assert.eq(at(corner, 0.5, 0), 5.5);
+  assert.eq(at(corner, 0, 0.5), 5.5);
   assert.eq(at(corner, -0.5, 0), 0);
   assert.eq(at(corner, 0.5, 0.5), 0);
   const cross = { ...corner, variant: 10 };
-  for (const [x, y] of [[0.5, 0], [-0.5, 0], [0, 0.5], [0, -0.5]]) assert.eq(at(cross, x, y), 5);
+  for (const [x, y] of [[0.5, 0], [-0.5, 0], [0, 0.5], [0, -0.5]]) assert.eq(at(cross, x, y), 5.5);
 });
 
 test('bushes are centred, joined hedges follow their rendered frame, standing plants do not lift the player', () => {

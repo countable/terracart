@@ -21,7 +21,7 @@ const ObstacleStep = (() => {
   const PROFILES = Object.freeze({
     furniture: Object.freeze({ liftPx: 5, radius: 0.32, top: 0.23, shape: 'round' }),
     rock: Object.freeze({ liftPx: 4, radius: 0.25, top: 0.185, shape: 'round' }),
-    wall: Object.freeze({ liftPx: 5, radius: 0.29, top: 0.21, shape: 'band' }),
+    wall: Object.freeze({ liftPx: 5.5, radius: 0.29, top: 0.21, shape: 'band' }),
     bush: Object.freeze({ liftPx: 3, radius: 0.25, top: 0.19, shape: 'round' }),
     hedge: Object.freeze({ liftPx: 6, radius: 0.29, top: 0.21, shape: 'band' }),
   });

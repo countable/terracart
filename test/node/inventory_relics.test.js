@@ -2,7 +2,8 @@
 (function () {
   function harness(save) {
     function el(tag) {
-      const out = { tag, style: {}, dataset: {}, children: [], className: '',
+      const out = { tag, style: {}, dataset: {}, attrs: {}, children: [], className: '',
+        setAttribute(k, v) { this.attrs[k] = v; }, removeAttribute(k) { delete this.attrs[k]; },
         appendChild(child) { child.parent = this; this.children.push(child); return child; },
         remove() { if (this.parent) this.parent.children = this.parent.children.filter(c => c !== this); },
         addEventListener(name, fn) { this[name] = fn; }, scrollIntoView() {},
@@ -24,7 +25,7 @@
       iconSpanHTML: () => '<item>', syncEatButton() { this.eatId = getSelectedSlot(this.save)?.id; },
       syncConsumableButton() { this.useMethod = CONSUMABLE_SPEC[getSelectedSlot(this.save)?.id]?.method; },
       syncEquipButton() { this.equipSlot = this.save.selGear?.slot; },
-      _effectLineEl(text) { const row = el('div'); row.textContent = text; return row; },
+      _effectLineEl(nameLbl, text) { const row = el('div'); row.textContent = text; return row; },
     };
     const decl = ['INV_RELIC_ORDER', 'INV_ARMOR_ORDER', 'WEAPON_SLOTS'].map(name =>
       SCENE_SRC.match(new RegExp('const ' + name + ' = [^;]+;'))[0]).join('\n');

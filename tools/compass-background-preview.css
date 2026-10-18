@@ -1,0 +1,36 @@
+/* Opt-in art study. The real controls and their geometry stay in the game. */
+body[data-silver-variant] #compass-body::before {
+  background-image: var(--silver-variant-art);
+  background-size: 100% auto;
+  background-position: center top;
+  background-repeat: repeat-y;
+}
+body[data-silver-variant] .compass-header,
+body[data-silver-variant] .compass-footer {
+  background: none;
+}
+body[data-silver-variant] .compass-upper-join::before,
+body[data-silver-variant] .compass-lower-join::before,
+body[data-silver-variant] .compass-shine-surface {
+  display: none;
+}
+body[data-silver-variant] #inv-tabs::before {
+  background-image: linear-gradient(#10121133, #080b0a88 75%);
+}
+
+/* E's bearing artwork rises 15 screen pixels; its live compass rises 5.
+   Move the aperture and shading masks together with the map and gold rim. */
+body[data-silver-variant="compass-bearing"] #compass-body::before {
+  background-position: center -15px;
+}
+body[data-silver-variant="compass-bearing"] #compass-body::before,
+body[data-silver-variant="compass-bearing"] #compass-body::after {
+  mask-image: radial-gradient(circle calc(var(--compass-map-size) / 2) at 50% calc(var(--compass-map-top) + var(--compass-map-size) / 2 - 5px), transparent calc(100% - 1px), #000 100%);
+}
+body[data-silver-variant="compass-bearing"] .compass-aperture,
+body[data-silver-variant="compass-bearing"] .compass-bearing {
+  top: calc(var(--compass-map-top) - 5px);
+}
+body[data-silver-variant="compass-bearing"] #game {
+  translate: 0 -5px;
+}

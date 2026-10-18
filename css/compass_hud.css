@@ -272,7 +272,9 @@ body.compass-hud #move-pad.compass-closed {background:var(--compass-dormant-meta
 body.compass-hud #move-pad.compass-closed .compass-stick-seal {background:var(--compass-dormant-metal);}
 body.compass-hud #move-pad.compass-closed .compass-stick-seal svg {display:block;opacity:.5;}
 
-/* Memories and books share one glass window; each half retains its own tap. */
+/* Memories and books share one glass window; each half retains its own tap.
+   The unspent pip is anchored by its RIGHT edge at the star's right edge, so
+   a second digit grows LEFT over the star and never covers the total. */
 body.compass-hud #compass-knowledge-display {position:absolute;left:18.5%;top:calc(82 * var(--compass-header-unit));width:47.5%;height:calc(50 * var(--compass-header-unit));min-height:42px;box-sizing:border-box;display:flex;align-items:stretch;overflow:hidden;border:3px ridge #d1cfc5;border-radius:12px;background:linear-gradient(145deg,#202825,#091110 60%,#17201d);box-shadow:inset 0 0 6px #080909,0 0 0 2px #262626,0 0 0 3px #8e8d89; border-color:var(--compass-metal-edge);}
 body.compass-hud #compass-knowledge-display > #memories,
 body.compass-hud #compass-knowledge-display > #bookchip {position:relative;inset:auto;flex:1 1 50%;width:50%;height:100%;min-width:0;padding:0 12px;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;display:flex;align-items:center;justify-content:flex-start;gap:6px;color:#f2eddf;font:600 max(12px,calc(16 * var(--compass-header-unit)))/1 var(--font-ui);}
@@ -280,7 +282,7 @@ body.compass-hud #compass-knowledge-display > #bookchip {border-left:1px solid #
 body.compass-hud #compass-knowledge-display .mem-ico,
 body.compass-hud #compass-knowledge-display .book-ico {width:18px;height:18px;transform:none;margin:0;flex-shrink:0;}
 body.compass-hud #compass-knowledge-display .compass-memory-star {width:calc(22 * var(--compass-header-unit));height:calc(22 * var(--compass-header-unit));}
-body.compass-hud #compass-knowledge-display .mem-unspent {top:3px;left:calc(12px + 14 * var(--compass-header-unit));right:auto;min-width:13px;height:13px;padding:0 3px;display:grid;place-items:center;border:1px solid #8c6a23;border-radius:7px;background:#e8c55d;color:#27291e;font:700 9px/1 var(--font-ui);text-shadow:none;box-shadow:0 1px 2px #000b;}
+body.compass-hud #compass-knowledge-display .mem-unspent {top:3px;left:auto;right:calc(100% - 14px - 22 * var(--compass-header-unit));min-width:13px;height:13px;padding:0 3px;display:grid;place-items:center;border:1px solid #8c6a23;border-radius:7px;background:#e8c55d;color:#27291e;font:700 9px/1 var(--font-ui);text-shadow:none;box-shadow:0 1px 2px #000b;}
 body.compass-hud #compass-knowledge-display .mem-unspent::before,
 body.compass-hud #compass-knowledge-display .mem-unspent::after {content:none;}
 body.compass-hud #compass-knowledge-display > .compass-closed {background:var(--compass-dormant-metal)!important;}
@@ -311,7 +313,7 @@ body.compass-hud #compass-knowledge-display > #memories,
 body.compass-hud #compass-knowledge-display > #bookchip {padding:0 4px;gap:3px;font-size:12px;}
 body.compass-hud #compass-knowledge-display .mem-ico,
 body.compass-hud #compass-knowledge-display .book-ico {width:14px;height:14px;}
-body.compass-hud #compass-knowledge-display .mem-unspent {top:0;left:10px;font-size:8px;height:10px;min-width:10px;}
+body.compass-hud #compass-knowledge-display .mem-unspent {top:0;left:auto;right:calc(100% - 20px);font-size:8px;height:10px;min-width:10px;}
 body.compass-hud #compass-knowledge-display > .compass-closed::after {font-size:9px;letter-spacing:0;}
 body.compass-hud #hud-row > #roadchip.compass-closed::after {font-size:10px;letter-spacing:0;}
 body.compass-hud #roadchip .road-num {font-size:16px;}

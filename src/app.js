@@ -9564,6 +9564,15 @@ class MapScene extends Phaser.Scene {
       return this.worldIconHTML(texKey, 30, frame);
     };
     const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
+    // THE HAMMER BUTTON, one shape on both screens: a secondary that acts on
+    // the selected card (`withChoice`), greyed where the hammer takes no
+    // effect (Houses.hammerTakes). `rowFor` resolves a card's key to the rank
+    // the hammer would shine — a type card's first rank, a rank card's own —
+    // and `onClick` is what the press does with the key.
+    const hammerSecondary = (rowFor, onClick) => hasHammer
+      ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} Hammer`, withChoice: true,
+          takes: (key) => Houses.hammerTakes(rowFor(key)), onClick }
+      : undefined;
     // STEP ONE — THE TYPE. Offer availability, not affordability, decides
     // what is listed; a card the player cannot pay for shows its price in
     // red. Accept restores a sole-rank type on the spot and opens the rank
@@ -9598,11 +9607,8 @@ class MapScene extends Phaser.Scene {
       canAfford: true,
       acceptLabel: 'Restore',
       cancelLabel: 'Later',
-      secondary: hasHammer
-        ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} Hammer`, withChoice: true,
-            takes: (key) => Houses.hammerTakes(typeByKey(key)?.ranks[0]),
-            onClick: (key) => { const r = soleRank(typeByKey(key)); if (r) restore(r.key, true); else showTiers(key); } }
-        : undefined,
+      secondary: hammerSecondary((key) => typeByKey(key)?.ranks[0],
+        (key) => { const r = soleRank(typeByKey(key)); if (r) restore(r.key, true); else showTiers(key); }),
       onAccept: (key) => { const r = soleRank(typeByKey(key)); if (r) restore(r.key, false); else showTiers(key); },
     });
     // STEP TWO — THE RANK, one card per rank the ladder has opened for this
@@ -9627,6 +9633,9 @@ class MapScene extends Phaser.Scene {
             iconHTML: iconFor(row),
             cost: costLine(c),
             canAfford: affords(c),
+            // The guidance outline rides the rank card too (the T1 smithy
+            // while the lane has none): the type card only summed it.
+            suggested: row.suggested?.(this.save),
           };
         }),
         pickHint: 'Pick a rank',
@@ -9637,11 +9646,7 @@ class MapScene extends Phaser.Scene {
         blurb: hasHammer
           ? `${this.iconSpanHTML(Houses.HAMMER_ID)} With the ${hammer?.name || 'Magic Hammer'} it gleams: folk deal kindly, archers strike hard.`
           : undefined,
-        secondary: hasHammer
-          ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} Hammer`, withChoice: true,
-              takes: (key) => Houses.hammerTakes(options.find((r) => r.key === key)),
-              onClick: (key) => restore(key, true) }
-          : undefined,
+        secondary: hammerSecondary((key) => options.find((r) => r.key === key), (key) => restore(key, true)),
         onAccept: (key) => restore(key, false),
       });
     };
@@ -11015,25 +11020,44 @@ class MapScene extends Phaser.Scene {
     nameLbl.id = 'inv-name';
     nameLbl.className = 'hud-name';
     nameLbl.style.cssText = 'position:fixed;bottom:calc(40px + env(safe-area-inset-bottom, 0px));left:calc(var(--phone-left, 0px) + 6px);right:calc(var(--phone-right, 0px) + 6px);height:26px;border-radius:6px;box-sizing:border-box;padding:0 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;text-align:center;font:12px/14px var(--font-ui);pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
+    // The WHOLE plate — title and ✦ line alike — is the tap target for the
+    // full description (_openSelectedDescription), wired once here; the
+    // press is swallowed like every HUD button's so the map under it never
+    // sees it. refreshInventoryHighlight opts the plate into pointer events
+    // only while it has a description to open.
+    nameLbl.addEventListener('pointerdown', (e) => e.stopPropagation());
+    nameLbl.addEventListener('click', (e) => { e.stopPropagation(); this._openSelectedDescription(); });
+    nameLbl.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault(); nameLbl.click();
+    });
     document.body.appendChild(nameLbl);
 
     this.refreshInventoryHighlight();
   }
-  // The ✦ effect line under the selected stack or relic. It is one nowrap
-  // line with an ellipsis, so a long description is cut off on a narrow
-  // phone — TAPPING it opens the whole sentence in a message dialog. The
-  // strip it sits in (#inv-name) is pointer-events:none so it never eats a
-  // tap meant for the map; only this line opts back in.
-  _effectLineEl(text, titleHTML) {
+  // The ✦ effect line under the selected stack or relic. Title and line are
+  // each one nowrap line with an ellipsis, so a long name or description is
+  // cut off on a narrow phone — TAPPING ANYWHERE ON THE PLATE (title or
+  // line) opens the whole sentence in a message dialog. The plate (#inv-name)
+  // is pointer-events:none while it has nothing to open, so it never eats a
+  // tap meant for the map; this is the one place it opts back in, by
+  // recording the dialog the plate's tap (buildInventoryDOM) will show.
+  _effectLineEl(nameLbl, text, titleHTML) {
     const fx = document.createElement('div');
     fx.textContent = `✦ ${text}`;
-    fx.style.cssText = 'font:10px/12px var(--font-ui);color:#9fe6ff;opacity:0.92;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:auto;cursor:pointer;';
-    fx.addEventListener('pointerdown', (e) => e.stopPropagation());
-    fx.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.showMessageModal({ title: titleHTML, body: `✦ ${text}` });   // catalog text, static — no markup in it
-    });
+    fx.style.cssText = 'font:10px/12px var(--font-ui);color:#9fe6ff;opacity:0.92;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    this._selectedDescription = { title: titleHTML, body: `✦ ${text}` };   // catalog text, static — no markup in it
+    nameLbl.style.pointerEvents = 'auto';
+    nameLbl.style.cursor = 'pointer';
+    nameLbl.tabIndex = 0;
+    nameLbl.setAttribute('role', 'button');
     return fx;
+  }
+  // The one opener for the selected item's full description: the dialog the
+  // last refreshInventoryHighlight recorded, or nothing when the selection
+  // carries no description (the plate is then not a tap target at all).
+  _openSelectedDescription() {
+    if (this._selectedDescription) this.showMessageModal(this._selectedDescription);
   }
   refreshInventoryHighlight() {
     const bar = document.getElementById('inv');
@@ -11052,6 +11076,12 @@ class MapScene extends Phaser.Scene {
     const nameLbl = document.getElementById('inv-name');
     if (nameLbl) {
       nameLbl.textContent = '';
+      // Back to inert until _effectLineEl records a description to open.
+      this._selectedDescription = null;
+      nameLbl.style.pointerEvents = 'none';
+      nameLbl.style.cursor = '';
+      nameLbl.removeAttribute('tabindex');
+      nameLbl.removeAttribute('role');
       if (isGear) {
         const g = this.save.selGear;
         if (g) {
@@ -11062,7 +11092,7 @@ class MapScene extends Phaser.Scene {
           const def = gearDef(g.kind, g.slot);
           if (def && def.blurb) {
             const tier = (g.kind === 'armor' ? this.save.armor : Gear.effectiveRelics(this.save))?.[g.slot]?.tier;
-            nameLbl.appendChild(this._effectLineEl(def.blurb,
+            nameLbl.appendChild(this._effectLineEl(nameLbl, def.blurb,
               `${this.gearIconHTML(g.kind, g.slot, tier)} ${nameSpan.textContent}`));
           }
         }
@@ -11085,7 +11115,7 @@ class MapScene extends Phaser.Scene {
           nameSpan.style.cssText = 'max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
           nameLbl.appendChild(nameSpan);
           if (effect) {
-            nameLbl.appendChild(this._effectLineEl(effect,
+            nameLbl.appendChild(this._effectLineEl(nameLbl, effect,
               `${this.iconSpanHTML(sel.id)} ${it.name}`));
           }
         }
