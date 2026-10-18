@@ -11,6 +11,8 @@ dark timber framing and braces, clay/slate/thatch roof treatments, recessed
 joinery and broad eave shading. These details live in shared material sheets;
 story count and footprint do not create a new texture. Material palettes stay
 role-driven. Reference pixels are not embedded in the generated textures.
+Ordinary delivery houses have one storey; specialised buildings retain their
+role-specific heights. The Canvas fallback reads the same storey count.
 
 `scene.buildingRoofVariant` selects ridge, inset, shallow or flat. Leaving it
 unset selects a low-poly roof appropriate to the role; `styles` explicitly
@@ -36,6 +38,10 @@ role colour, a single highlight pixel per feature) with openings at the tileset'
 placement and only a lintel, sill, step and lantern as decoration; `tileset`
 cuts bays from the approved materials sheet instead. Height ships at 1.0. `tools/building-billboard-preview.html` has a
 Facade select and a "Show sheet" toggle to compare the two.
+The cel facade paints thick beams over the wall planks at the existing storey,
+post and diagonal-brace positions. Each has a broad wood face in the wall's
+palette, a one-texel upper/left highlight and a lower/right shadow. Posts and
+bands are five texels wide; diagonal braces span each full panel and match their apparent thickness. Casements keep their upper edge and raise their sill by three texels. `ROLES.window` follows the approved pixel-art sprites: four-pane house windows, wood-shuttered smithy windows, twin-pane trader windows with slate shutters, and wider four-pane market windows for every shop specialty. Wizard windows retain an arched frame. All keep the raised sill; shops gain width. The cached sheet includes this style in its key.
 The Canvas fallback retains the imported style renderer. Existing castle
 perimeters, signs, interaction objects and fort/castle ownership remain intact.
 
@@ -198,7 +204,7 @@ review is published as a Claude artifact.
 - Chimneys: a cobbled stack (sides are `wall` faces with `rawUV` into the
   sheet's stone plinth rows), a wider cap and a dark mouth, as ink group 2.
   `ROLES[role].chimneys`/`chimneyScale` would place a pair at 26%/74% of the
-  ridge; every role, the smithy included, takes the default one at 28%. A role
+  ridge; every role, the smithy included, takes the default one at 28%. The smithy shaft widens slightly toward the roof (`chimneyFlare`), meeting its cap without an overhanging lip. A role
   with `smoke` puffs from its mouths (`smokeMouths`, projected like the faces)
   in render.js's firepit smoke pass, sharing `HomeArea.FIREPIT_SMOKE`.
 - Wreck: crumbling wall. Thick sections (the ring inset by 4 units, 2 where a
