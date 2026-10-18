@@ -19,13 +19,14 @@
 <main>
   <aside>
     <h1>Silver dragon studies</h1>
-    <p>Compare four new cast-silver backgrounds around the actual game mechanisms.</p>
+    <p>Compare five new cast-silver backgrounds around the actual game mechanisms.</p>
     <button data-variant="original" aria-pressed="false">Original · dense feather relief</button>
     <button data-variant="quicksilver" aria-pressed="false">A · Quiet quicksilver</button>
     <button data-variant="armour" aria-pressed="false">B · Dragon armour</button>
     <button data-variant="tendons" aria-pressed="false">C · Flowing dragon ribs</button>
-    <button data-variant="mechanical-silver" aria-pressed="true">D · Mechanical scalework · Matched silver</button>
-    <p id="description">Continuous scales behind both instrument areas, a raised joystick surround, and neutral silver matched to the gadgets.</p>
+    <button data-variant="mechanical-silver" aria-pressed="false">D · Mechanical scalework · Matched silver</button>
+    <button data-variant="compass-bearing" aria-pressed="true">E · Compass bearing</button>
+    <p id="description">Radial brackets, a geared bearing ring, and structural ribs support the main compass circle.</p>
     <p>The game remains interactive. Skip the intro if it appears. This selection only changes this preview.</p>
     <a href="../index.html">Open the regular game</a>
   </aside>
@@ -33,8 +34,9 @@
 </main>
 <script>
   const game = document.getElementById('game');
-  let selected = 'mechanical-silver';
+  let selected = 'compass-bearing';
   const descriptions = {
+    'compass-bearing': 'Radial brackets, a geared bearing ring, and structural ribs support the main compass circle.',
     'mechanical-silver': 'Continuous scales behind both instrument areas, a raised joystick surround, and neutral silver matched to the gadgets.',
     original: 'The current densely carved silver background.',
     quicksilver: 'Broad liquid ribbons and a calm lower field behind the inventory keys.',
