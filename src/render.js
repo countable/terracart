@@ -6201,7 +6201,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // That baked shadow IS its contact shadow: no `shadow` row, or the ellipse
     // would double it, centred under the bake rather than the feet.
     _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true },
-    furniture: { key: 'furniture', frame: o => furnitureSpec(o)?.frame ?? 0,
+    furniture: { key: 'furniture', frame: furnitureFrame,
       origin: [0.5, 0.5], scale: FURNITURE_SCALE, seat: true,
       layer: o => furnitureSpec(o)?.height === 'flat' ? WorldLayers.GROUND_DECAL : WorldLayers.STEP_OVER_PROP,
       flipX: o => !!(furnitureSpec(o)?.flip && o.flip),

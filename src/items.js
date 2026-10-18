@@ -496,32 +496,39 @@ const BAR_IDS = Object.freeze([1, 2, 3, 4, 5, 6, 7].map(barForTier));
 
 // One row owns each furnishing's placement art and future ability hooks.
 // Null luxury means catalog tier squared; phase 1 does not award luxury.
+// tierSheetFrame may map catalog tiers to redrawn frames on both sheets.
+// Null (or an absent tier) keeps the roster frame; no tier recolouring.
 const FURNITURE_SCALE = 0.85;
 const FURNITURE = {
-  workbench: { frame: 0, flip: true, height: "mid", ability: "craft", light: null, luxury: null },
-  bed_quilted: { frame: 1, flip: true, height: "mid", ability: "sleep", light: null, luxury: null },
-  washbasin: { frame: 2, flip: true, height: "mid", ability: "wash", light: null, luxury: null },
-  mirror_brass: { frame: 3, flip: false, height: "mid", ability: "reflect", light: null, luxury: null },
-  table_oak: { frame: 4, flip: true, height: "mid", ability: null, light: null, luxury: null },
-  dresser_oak: { frame: 5, flip: true, height: "mid", ability: null, light: null, luxury: null },
-  planter_clay: { frame: 6, flip: true, height: "mid", ability: "plant", light: null, luxury: null },
-  rug_burgundy: { frame: 7, flip: false, height: "flat", ability: null, light: null, luxury: null },
-  bookshelf_frontier: { frame: 8, flip: true, height: "mid", ability: null, light: null, luxury: null },
-  lantern_brass: { frame: 9, flip: true, height: "mid", ability: null, light: "furniture_hearthlamp", luxury: null },
-  clock_mantel: { frame: 10, flip: false, height: "mid", ability: null, light: null, luxury: null },
-  statue_owl: { frame: 11, flip: true, height: "mid", ability: null, light: null, luxury: null },
-  planter_copper: { frame: 12, flip: true, height: "mid", ability: "plant", light: null, luxury: null },
-  candlestick_brass: { frame: 13, flip: true, height: "mid", ability: null, light: "furniture_candlestick", luxury: null },
-  globe_brass: { frame: 14, flip: false, height: "mid", ability: null, light: null, luxury: null },
-  telescope_brass: { frame: 15, flip: true, height: "mid", ability: null, light: null, luxury: null },
+  workbench: { frame: 0, tierSheetFrame: null, flip: true, height: "mid", ability: "craft", light: null, luxury: null },
+  bed_quilted: { frame: 1, tierSheetFrame: null, flip: true, height: "mid", ability: "sleep", light: null, luxury: null },
+  washtub: { frame: 2, tierSheetFrame: null, flip: true, height: "mid", ability: "wash", light: null, luxury: null },
+  mirror_brass: { frame: 3, tierSheetFrame: null, flip: false, height: "mid", ability: "reflect", light: null, luxury: null },
+  table_oak: { frame: 4, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: null, luxury: null },
+  dresser_oak: { frame: 5, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: null, luxury: null },
+  planter_clay: { frame: 6, tierSheetFrame: null, flip: true, height: "mid", ability: "plant", light: null, luxury: null },
+  rug_burgundy: { frame: 7, tierSheetFrame: null, flip: false, height: "flat", ability: null, light: null, luxury: null },
+  bookshelf_frontier: { frame: 8, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: null, luxury: null },
+  lantern_brass: { frame: 9, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: "furniture_hearthlamp", luxury: null },
+  clock_mantel: { frame: 10, tierSheetFrame: null, flip: false, height: "mid", ability: null, light: null, luxury: null },
+  statue_owl: { frame: 11, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: null, luxury: null },
+  planter_copper: { frame: 12, tierSheetFrame: null, flip: true, height: "mid", ability: "plant", light: null, luxury: null },
+  candlestick_brass: { frame: 13, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: "furniture_candlestick", luxury: null },
+  globe_brass: { frame: 14, tierSheetFrame: null, flip: false, height: "mid", ability: null, light: null, luxury: null },
+  telescope_brass: { frame: 15, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: null, luxury: null },
 };
 function furnitureSpec(itemOrId) {
   const id = typeof itemOrId === 'string' ? itemOrId : itemOrId?.itemId || itemOrId?.id;
   return FURNITURE[id] || null;
 }
+function furnitureFrame(itemOrId) {
+  const id = typeof itemOrId === 'string' ? itemOrId : itemOrId?.itemId || itemOrId?.id;
+  const spec = furnitureSpec(id);
+  return spec?.tierSheetFrame?.[itemTierOf(id)] ?? spec?.frame ?? 0;
+}
 
 const MINERAL_ICON_SHEET = {
-  ...Object.fromEntries(Object.entries(FURNITURE).map(([id, row]) => [id, { sheet: 'furniture_icons', frame: row.frame }])),
+  ...Object.fromEntries(Object.keys(FURNITURE).map(id => [id, { sheet: 'furniture_icons', get frame() { return furnitureFrame(id); } }])),
   field_scope: { sheet: 'icon_field_scope', frame: 0 },
   compass: { sheet: 'icon_compass', frame: 0 },
   orb: { sheet: 'icon_orb', frame: 0 },
@@ -963,7 +970,7 @@ const CARRIED_ITEM_SPEC = {
 const ITEMS = [
   { id: "workbench", name: "Tinker's Workbench", kind: 'furniture', baseTier: 1 },
   { id: "bed_quilted", name: "Quilted Cot", kind: 'furniture', baseTier: 1 },
-  { id: "washbasin", name: "Washbasin", kind: 'furniture', baseTier: 1 },
+  { id: "washtub", name: "Washing Tub", kind: 'furniture', baseTier: 1 },
   { id: "mirror_brass", name: "Gear-Rim Looking Glass", kind: 'furniture', baseTier: 2 },
   { id: "table_oak", name: "Oak Side Table", kind: 'furniture', baseTier: 1 },
   { id: "dresser_oak", name: "Four-Drawer Dresser", kind: 'furniture', baseTier: 1 },
@@ -2091,7 +2098,7 @@ const EGG_HATCH_SPEC = Object.freeze({
 const ITEM_EFFECTS = {
   workbench: "A sturdy work surface with a brass vice and room for new ideas.",
   bed_quilted: "A soft quilt and a wooden cot promise a quiet night.",
-  washbasin: "A clean basin, a folded towel, and a moment to freshen up.",
+  washtub: "A round wooden washing tub offers a quiet place to freshen up.",
   mirror_brass: "A brass-framed looking glass waits on its own little stand.",
   table_oak: "A compact oak table makes a useful corner feel like home.",
   dresser_oak: "Four wooden drawers keep small comforts close at hand.",

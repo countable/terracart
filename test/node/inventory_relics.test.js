@@ -29,7 +29,7 @@
     const decl = ['INV_RELIC_ORDER', 'INV_ARMOR_ORDER', 'WEAPON_SLOTS'].map(name =>
       SCENE_SRC.match(new RegExp('const ' + name + ' = [^;]+;'))[0]).join('\n');
     for (const name of ['invEntriesForCat', 'invDisplayEntriesForCat', 'gearEntriesForCat', '_settleInvCatOnBoot',
-      'syncFurnitureFlipButton', '_hudActionButton', 'selectInvCat', 'buildInventoryDOM', 'refreshInventoryHighlight', 'addToInv', '_finishInventoryChange', '_clampSelSlot']) {
+      'syncFurnitureFlipButton', '_hudActionButton', 'selectInvCat', 'buildInventoryDOM', 'refreshInventoryHighlight', 'addToInv', '_finishInventoryChange', '_clampSelSlot', '_equipGear']) {
       const match = SCENE_SRC.match(new RegExp('^  ' + name + '\\([^\\n]*\\) \\{[\\s\\S]*?^  \\}', 'm'));
       assert.truthy(match, `${name} exists`);
       scene[name] = new Function('document', 'persistSave', decl + '\nreturn ({' + match[0] + '})')(document, () => {})[name];
@@ -96,6 +96,24 @@
     s.click(s.slots()[1]); assert.falsy(s.document.getElementById('furniture-flip-btn'));
     assert.eq(s._furnitureFlip, false);
     s.click(s.slots()[0]); assert.eq(s._furnitureFlip, false);
+  });
+
+  test('inventory categories: new armor from rewards and shops reveals page two, upgrades keep the browsed page', () => {
+    for (const acquire of [
+      (s, tier) => Rewards.apply(s.save, { kind: 'armor', slot: 'helmet', tier }, s),
+      (s, tier) => s._equipGear('armor', 'helmet', tier),
+    ]) {
+      const s = harness({ inv: [], relics: {}, armor: {}, invCat: 'seeds', invPage: 0, selSlot: -1 });
+      s.buildInventoryDOM();
+      acquire(s, 1);
+      assert.eq(s.save.invCat, 'armour'); assert.eq(s._invCatPage, 1);
+      assert.eq(s.save.selGear.slot, 'helmet');
+      assert.truthy(s.document.getElementById('inv-tabs').children.some(k => k.dataset.cat === 'armour'));
+      s.selectInvCat('seeds');
+      acquire(s, 2);
+      assert.eq(s.save.armor.helmet.tier, 2);
+      assert.eq(s.save.invCat, 'seeds'); assert.eq(s._invCatPage, 0);
+    }
   });
 
   test('inventory relics: gear and carried items render together, with correct selection, actions and tiers', () => {

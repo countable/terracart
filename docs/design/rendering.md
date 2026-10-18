@@ -31,6 +31,9 @@ for continuous support. `RENDER_SPEC.furniture` seats the 32px world frame at
 `FURNITURE_SCALE` (0.85, about 27px beside the 24px player); mirrored bounds
 keep asymmetric pieces centred when flipped. Mutable furniture appearances
 are not cached. The same frame is downsampled to 16px for all item surfaces.
+`tierSheetFrame` may map catalog tiers to future redrawn frames; the shared
+`furnitureFrame` resolver keeps world and inventory art together, falling back
+to the roster frame. Phase 1 adds no tier recolouring.
 
 `python3 tools/build_furniture_sheets.py` rebuilds both sheets from
 `assets/Objects/Furniture/manifest.json`: exact licensed 48px source crops

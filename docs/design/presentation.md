@@ -134,7 +134,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   inert spacers. Navigation uses ordinary silver keys; only the selected
   category and detent glow gold. Category paging is scene-local and leaves
   the selected category, held stack and five-item page unchanged. Selecting
-  a category, boot settlement and a new-stack pickup reveal its category page.
+  a category, boot settlement, a new-stack pickup and first acquisition of an
+  armour slot reveal its category page.
   Mirrorable furniture exposes a contextual Flip control; held orientation is
   transient and resets when the selected item changes. Small
   square item controls share one dark-glass window fitted to five slots and their

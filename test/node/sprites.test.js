@@ -906,10 +906,10 @@ test('furniture art: every frame seats in its cell, including mirrored asymmetri
       assert.eq(actualFlip, !!mirrored);
     }
   }
-  const o={kind:'furniture',itemId:'washbasin',flip:false};
+  const o={kind:'furniture',itemId:'washtub',flip:false};
   const before=Render.resolveObjectAppearance(scene,o);
   o.flip=true;
   const after=Render.resolveObjectAppearance(scene,o);
   assert.falsy(before===after, 'mutable orientation re-resolves');
-  assert.eq(before.dxPx, -after.dxPx, 'asymmetric washbasin keeps its centre after flipping');
+  assert.eq(before.dxPx, -after.dxPx, 'asymmetric washtub keeps its centre after flipping');
 });

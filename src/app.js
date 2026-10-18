@@ -1678,7 +1678,7 @@ const ICON_SHEETS = {
 // BEGIN GENERATED DOM ICON ATLAS
 // Regenerate with node tools/build-dom-icon-atlas.cjs; original sheets remain the art source.
 const DOM_ICON_ATLAS = {
-  "url": "assets/Icons/dom-atlas.png?v=e077cb1b",
+  "url": "assets/Icons/dom-atlas.png?v=6955f8d7",
   "width": 1024,
   "height": 720,
   "rects": {
@@ -1831,9 +1831,10 @@ const DOM_ICON_ATLAS = {
     "assets/Objects/Approved/crops.png": [376, 304, 144, 256],
     "assets/Objects/Approved/props.png": [520, 304, 352, 192],
     "assets/Objects/Approved/springcrops.png": [0, 560, 224, 128],
-    "assets/Objects/Pickup_Items.png": [224, 560, 224, 160],
-    "assets/Objects/Progression/icons.png": [448, 560, 32, 16],
-    "assets/Objects/Wilderness/wood.png": [480, 560, 48, 16]
+    "assets/Objects/Furniture/furniture-icons-16.png": [224, 560, 64, 64],
+    "assets/Objects/Pickup_Items.png": [288, 560, 224, 160],
+    "assets/Objects/Progression/icons.png": [512, 560, 32, 16],
+    "assets/Objects/Wilderness/wood.png": [544, 560, 48, 16]
   }
 };
 // END GENERATED DOM ICON ATLAS
@@ -8943,7 +8944,9 @@ class MapScene extends Phaser.Scene {
   // recomputes max energy and grants the freshly-unlocked headroom (captured
   // BEFORE mutating armor so the bump is the delta, not the whole new max).
   _equipGear(kind, slot, tier) {
+    const newArmor = kind === 'armor' && !this.save.armor?.[slot];
     Gear.equip(this.save, kind, slot, tier);
+    if (newArmor && this.save.armor?.[slot]) this.selectInvCat('armour');
   }
 
   // Convert a wall-time gap (since the previous lastSeenAt) into energy and
@@ -10745,7 +10748,8 @@ class MapScene extends Phaser.Scene {
     tabs.id = 'inv-tabs';
     // position:fixed + appended to <body> for the same containing-block reason
     // as the item bar below. Sits just above the item bar.
-    tabs.style.cssText = 'position:fixed;bottom:calc(118px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:flex-start;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;overflow:hidden;';
+    // Equal grid tracks keep inert spacers at the same pitch as bordered keys.
+    tabs.style.cssText = 'position:fixed;bottom:calc(118px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:grid;grid-template-columns:repeat(8,minmax(0,1fr));align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;overflow:hidden;';
     const pageCats = INV_CATS.filter(c => c.page === this._invCatPage);
     for (let keySlot = 0; keySlot < 8; keySlot++) {
       const c = pageCats.find(c => c.keySlot === keySlot);

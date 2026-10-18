@@ -6,7 +6,7 @@ body.compass-hud {
   --inventory-square:calc((var(--inventory-deck-width) - 128px) / 5);
   --inventory-slot-height:calc(var(--inventory-square) + 12px);
   --inventory-window-width:calc(var(--inventory-square) * 5 + 16px);
-  --inventory-key-size:calc((var(--inventory-deck-width) - 44px) / 8);
+  --inventory-key-size:calc((var(--inventory-deck-width) - 48px) / 8);
   --inventory-tab-height:calc(var(--inventory-key-size) + 19px);
 }
 body.compass-hud #inv-tabs {

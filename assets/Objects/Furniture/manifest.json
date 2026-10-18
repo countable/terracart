@@ -25,7 +25,7 @@
       "pick": "F001"
     },
     {
-      "itemId": "washbasin",
+      "itemId": "washtub",
       "frame": 2,
       "source": "extra_assets/themed-tilesets/west/B-11.png",
       "box": [
@@ -35,7 +35,8 @@
         48
       ],
       "mode": "native48",
-      "pick": "W001"
+      "pick": "W001",
+      "TODO": "Replace the temporary W001 basin frame with a round wooden Washing Tub sprite."
     },
     {
       "itemId": "mirror_brass",
@@ -191,5 +192,6 @@
       "mode": "native48",
       "pick": "F124"
     }
-  ]
+  ],
+  "tierArt": "TODO: add redrawn per-tier frames and select them through FURNITURE.tierSheetFrame; luxury remains tier squared."
 }

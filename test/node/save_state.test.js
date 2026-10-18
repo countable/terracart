@@ -53,6 +53,27 @@ test('save state: placedRocks is exempt from the HISTORY_CAP trim (live map cont
   assert.eq(save.brokenRocks.length, 5000, 'brokenRocks still capped, same as before');
 });
 
+test('save state: furniture initializes, repairs its collection and never trims live property', () => {
+  for (const value of [undefined, null, {}, 'invalid']) {
+    const save = { furniture: value };
+    SaveState.normalize(save);
+    assert.truthy(Array.isArray(save.furniture));
+    assert.eq(save.furniture.length, 0);
+  }
+  const furniture = Array.from({ length: 6000 }, (_, i) => ({
+    id: `furniture_${i}`, itemId: 'bed_quilted', x: i * 5 + 2.5, y: 2.5,
+    depth: i % 3, flip: i % 2 === 0, houseKey: i ? null : 'home',
+  }));
+  const save = { furniture };
+  SaveState.normalize(save);
+  assert.eq(save.furniture, furniture, 'normalization preserves live records');
+  const reloaded = JSON.parse(JSON.stringify(save));
+  SaveState.normalize(reloaded);
+  assert.eq(reloaded.furniture.length, 6000, 'all property survives serialization and normalization');
+  assert.eq(JSON.stringify(reloaded.furniture[0]), JSON.stringify(furniture[0]));
+  assert.eq(JSON.stringify(reloaded.furniture[5999]), JSON.stringify(furniture[5999]));
+});
+
 test('save state: GCs stale save.shopState entries via ShopsMath (guarded, runs when loaded)', () => {
   // ShopsMath IS loaded in this bundle (shops_math.js loads before
   // save_state.test.js runs), so the runtime guard in normalize() should fire

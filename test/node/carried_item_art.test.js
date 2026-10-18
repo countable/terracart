@@ -37,7 +37,28 @@ test('furniture icons: every roster item uses its world frame on the shared DOM 
     assert.eq(PRICES[item.id], Math.round(TIER_VALUE[item.baseTier] * 1.5));
     assert.truthy(ITEM_EFFECTS[item.id]);
     assert.eq(metadata.luxury, null, 'default future luxury uses tier squared');
+    assert.eq(metadata.tierSheetFrame, null, 'tier art awaits authored frames');
   }
+  assert.eq(ITEM_BY_ID.washtub.name, 'Washing Tub');
+  assert.eq(ITEM_BY_ID.washtub.baseTier, 1);
+  assert.eq(furnitureSpec('washtub').ability, 'wash');
   assert.eq(furnitureSpec('wood'), null);
   assert.eq(furnitureSpec({ kind: 'furniture', itemId: 'workbench', id: 'placed_1' }), furnitureSpec('workbench'));
+});
+
+test('furniture art: a tier frame override agrees across world and inventory surfaces', () => {
+  const metadata = furnitureSpec('bed_quilted');
+  const scene = { textures: { exists: () => true }, save: {} };
+  Render.objectAppearance(scene, new Map());
+  const placed = { kind: 'furniture', itemId: 'bed_quilted' };
+  try {
+    metadata.tierSheetFrame = { 1: 4 };
+    assert.eq(inventoryIconSource('bed_quilted').frame, 4);
+    assert.eq(Render.resolveObjectAppearance(scene, placed).frameVal, 4);
+    metadata.tierSheetFrame = { 2: 4 };
+    assert.eq(inventoryIconSource('bed_quilted').frame, metadata.frame, 'missing tier falls back');
+    assert.eq(Render.resolveObjectAppearance(scene, placed).frameVal, metadata.frame);
+  } finally {
+    metadata.tierSheetFrame = null;
+  }
 });

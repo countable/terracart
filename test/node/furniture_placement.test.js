@@ -4,7 +4,7 @@
   const buildings = new Set([WorldGen.T.BUILDING, WorldGen.T.BUILDING_MED, WorldGen.T.BUILDING_LARGE]);
   function fixture(depth = 0) {
     const scene = Object.assign(makeScene(), {
-      save: {}, depth, cellM: 5, cellsPerTile: 32, tileEdgeM: 160,
+      save: { energy: 100 }, depth, cellM: 5, cellsPerTile: 32, tileEdgeM: 160,
       mPerPx: 5 / (WorldGen.TILE_PX / 32), originPx: { x: 0, y: 0 },
       startWorldM: { x: 0, y: 0 }, playerM: { x: 2.5, y: 2.5 },
       tilledSet: new Set(), placedRockSet: new Set(), buildInventoryDOM() {},
@@ -131,7 +131,7 @@
   });
   test('furniture: tapping a placed item beats its host anchor with empty hands', () => {
     const f = fixture(); home(f); let opened = null;
-    f.scene.presentFurniture = o => { opened = o; };
+    f.scene.presentFurniture = o => { opened = o; return true; };
     world(f, () => {
       handler('place-furniture').try(f.ctx); f.scene.save.selSlot = -1;
       f.ctx.building = f.entry.objects.find(o => o.id === 'home');

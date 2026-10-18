@@ -29,7 +29,7 @@ class SceneFurniture {
     const record = this._placedFurniture(o);
     if (!record) return false;
     if (Inventory.roomFor(this.save, record.itemId) < 1) {
-      this.flashAtPlayer(BAG_FULL_MSG);
+      this.flashAtPlayer(bagFullFor(record.itemId));
       return false;
     }
     const accepted = this.addToInv(record.itemId, 1, false, { notWild: true, deferRefresh: true });
