@@ -19,12 +19,13 @@
 <main>
   <aside>
     <h1>Silver dragon studies</h1>
-    <p>Compare three new cast-silver backgrounds around the actual game mechanisms.</p>
+    <p>Compare four new cast-silver backgrounds around the actual game mechanisms.</p>
     <button data-variant="original" aria-pressed="false">Original · dense feather relief</button>
     <button data-variant="quicksilver" aria-pressed="false">A · Quiet quicksilver</button>
     <button data-variant="armour" aria-pressed="false">B · Dragon armour</button>
-    <button data-variant="tendons" aria-pressed="true">C · Flowing dragon ribs</button>
-    <p id="description">Curved ribs frame the map and form a cradle around the joystick.</p>
+    <button data-variant="tendons" aria-pressed="false">C · Flowing dragon ribs</button>
+    <button data-variant="mechanical" aria-pressed="true">D · Mechanical scalework</button>
+    <p id="description">Machined silver rails and articulated plates blend into engraved dragon scales.</p>
     <p>The game remains interactive. Skip the intro if it appears. This selection only changes this preview.</p>
     <a href="../index.html">Open the regular game</a>
   </aside>
@@ -32,8 +33,9 @@
 </main>
 <script>
   const game = document.getElementById('game');
-  let selected = 'tendons';
+  let selected = 'mechanical';
   const descriptions = {
+    mechanical: 'Machined silver rails and articulated plates blend into engraved dragon scales.',
     original: 'The current densely carved silver background.',
     quicksilver: 'Broad liquid ribbons and a calm lower field behind the inventory keys.',
     armour: 'Larger dragon scales, worn pewter, and a more pronounced dragon profile.',
