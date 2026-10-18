@@ -134,7 +134,15 @@ changing dialogue, story panels, books, toasts or status presentation.
   a mechanical pager rocker with broad upper/lower touch faces around an ivory count
   window, and an integrated name/action plate. The upper face selects the previous
   page; the lower face selects the next page. The description plate
-  appears only for a selected item or piece of gear; empty categories show no plate. Contextual actions
+  appears only for a selected item or piece of gear; empty categories show no plate.
+  Its title and ✦ effect line are each one ellipsised line, so the whole plate,
+  title included, is one tap target that opens the full description in a message
+  dialog through `_openSelectedDescription` (the sole opener; `_effectLineEl`
+  records the dialog and opts the plate into pointer events). The plate is
+  inert when the selection has no description, so taps there still reach the
+  map, and a plate tap is swallowed like a HUD button's, never reaching the map
+  or the item action. Enter/Space open it from the keyboard (role button, tabIndex
+  0), as other HUD controls do. Contextual actions
   retain their existing semantics. The dormant inventory cover occupies the lower
   inventory window until the first item activates it; it has no close control.
   Inactive-module Spirit dialogs explain how to power up that specific module;
