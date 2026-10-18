@@ -75,10 +75,9 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   //              fires through the castle turret lane (app.js _turretFire).
   //              Any number may stand.
   //   wizard   — Tim's tower; `offered` reads the tower ledger and the
-  //              memory ledger, never a count of its own. `pinned`, like
-  //              the House: canon never waits on the offer's rotation. Its
-  //              row sits above the smithy's so the pinned cards read House,
-  //              tower, smithy; pinned rows never move either window.
+  //              memory ledger, never a count of its own. Its row sits
+  //              right after the House so canon leads the type screen
+  //              whenever the story offers it.
   // A RANKED role (`ranked`: a smithy, a shop, a trader) is laid out by
   // `variants(save, order)` as ONE CARD PER RANK the ladder has unlocked
   // (Shops.tierCap — by MEMORIES: T2 at five, a rank more every five), a
@@ -87,13 +86,13 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // `tier` (the badge on it and on the Restored! card, its price per rank in
   // buildCost, the rank restoreAs stamps) and, for a Shop, its `theme`. Any
   // number of a card may stand — the modal tells a NEW one from a duplicate
-  // (isNewPick, offerCards). The T1 Blacksmith card is `pinned` (owner, Oct
-  // 2026): once unlocked it ALWAYS stands on offer, like the House, so a
-  // second (third, …) wooden smithy never waits on the duplicate window.
+  // (isNewPick). THE PICK IS TWO STEPS (owner, Oct 2026): the building TYPE
+  // first (buildTypes — the catalogue grouped by typeKey), then the RANK
+  // where more than one is open; nothing rotates and nothing is windowed.
   const BUILD_OPTIONS = Object.freeze([
-    { key: 'plain', role: 'plain', pinned: true, from: STORY_RESTORES.house, name: 'House', art: 'restore_house',
+    { key: 'plain', role: 'plain', from: STORY_RESTORES.house, name: 'House', art: 'restore_house',
       blurb: 'Children choose their beds under the repaired roof. Their parent offers to buy your harvest.' },
-    { key: 'wizard', role: 'wizard', pinned: true, from: STORY_RESTORES.firstTower, name: 'Wizard Tower', art: 'restore_wizard',
+    { key: 'wizard', role: 'wizard', from: STORY_RESTORES.firstTower, name: 'Wizard Tower', art: 'restore_wizard',
       blurb: 'You step into the tower. An old wizard asks about your memories.',
       offered: (save, order) => {
         const towers = wizardTowerIds(save);
@@ -105,10 +104,8 @@ const FORT_UNLOCK_WOOD_STEP = 6;
       blurb: 'A family returns to the forge. They offer to make the tools you need.',
       variants: (save) => ranks(save).map((tier) => ({
         key: 'blacksmith:' + tier, tier,
-        // The T1 card is PINNED — always on offer, like the House — and
-        // SUGGESTED (outlined) while the lane has no smithy: the wooden
-        // tools come from nowhere else, and any number may stand.
-        pinned: tier === 1,
+        // The T1 card is SUGGESTED (outlined) while the lane has no smithy:
+        // the wooden tools come from nowhere else. Any number may stand.
         suggested: (s) => tier === 1 && !hasBlacksmith(s),
       })) },
     { key: 'shop', role: 'shop', ranked: true, from: STORY_RESTORES.shop, art: 'restore_market',
@@ -191,7 +188,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   function restoredCount(save) { return Object.keys(save?.restoredHouses || {}).length; }
   // THE CATALOGUE: every card that may be raised at restore `order`. Pure:
   // reads the ledgers, never writes. restoreAs validates a pick against it;
-  // the modal shows the slice offerCards cuts from it.
+  // the modal lays it out by type (buildTypes).
   function buildOptions(save, house, order = restoredCount(save)) {
     save = save || {};
     const out = [];
@@ -202,32 +199,24 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     }
     return out;
   }
-  // THE OFFER (owner, Oct 2026): N = order + 1 cards — one more with every
-  // wreck that stands. The pinned cards first (the House always; the wizard's
-  // tower while its story offers it; the T1 Blacksmith from the second
-  // wreck on), then up to NEW_SLOTS cards the player
-  // has nothing like yet (isNewPick), then the rest of the slots over the
-  // buildable DUPLICATES. Both pools are a WINDOW over the catalogue in its
-  // table order, and the window slides ONE card along with every completed
-  // wreck (the order is the offset), so every card comes round; a pool
-  // smaller than its slots shows whole and the spare slots go unfilled.
-  const NEW_SLOTS = 3;
-  function slide(pool, count, offset) {
-    if (count <= 0 || !pool.length) return [];
-    if (count >= pool.length) return pool.slice();
-    const start = ((offset | 0) % pool.length + pool.length) % pool.length;
-    return Array.from({ length: count }, (_, i) => pool[(start + i) % pool.length]);
+  // THE TYPE SCREEN (owner, Oct 2026): the player picks WHAT the wreck
+  // becomes first, then — for a ranked type with more than one rank open —
+  // WHICH rank. typeKey names a type: a ranked role with its line
+  // ('blacksmith', 'shop:seed', 'trader'), any other card by its own key.
+  // buildTypes groups the catalogue by it, in table order, each type with
+  // its rank rows (one row for an unranked type). Every type the catalogue
+  // unlocks is listed every time — no slots, no window, no rotation.
+  function typeKey(row) {
+    return row.ranked ? [row.role, row.theme].filter(Boolean).join(':') : row.key;
   }
-  function offerCards(save, house, order = restoredCount(save)) {
-    const all = buildOptions(save, house, order);
-    const n = order + 1;
-    const out = all.filter((r) => r.pinned).slice(0, n);
-    const rest = all.filter((r) => !r.pinned);
-    const fresh = [], dups = [];
-    for (const row of rest) (isNewPick(save, row) ? fresh : dups).push(row);
-    out.push(...slide(fresh, Math.min(NEW_SLOTS, n - out.length), order));
-    out.push(...slide(dups, n - out.length, order));
-    return out;
+  function buildTypes(save, house, order = restoredCount(save)) {
+    const out = new Map();
+    for (const row of buildOptions(save, house, order)) {
+      const key = typeKey(row);
+      if (!out.has(key)) out.set(key, { key, role: row.role, ranked: !!row.ranked, ranks: [] });
+      out.get(key).ranks.push(row);
+    }
+    return [...out.values()];
   }
   // THE MAGIC HAMMER (owner, Oct 2026): a T4 magic item (items.js) spent on a
   // restore. The wreck raised under it is SHINY — it glints and glows like a
@@ -597,7 +586,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   root.Houses = {
     STORY_RESTORES, BUILD_OPTIONS, buildOption, buildOptions, restoredCount, restoreAs,
     BUILD_ROCKS_PER_TIER, TURRET_ROCKS, buildCost,
-    isNewPick, offerCards, NEW_SLOTS, ranks, PERMIT_ID, renovateTo, renovate,
+    isNewPick, typeKey, buildTypes, ranks, PERMIT_ID, renovateTo, renovate,
     HAMMER_ID, HAMMER_PRICE_MUL, hammerTakes, isShinyHouse, priceMul,
     isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith,
     wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerSoloShop,

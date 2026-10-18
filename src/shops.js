@@ -89,8 +89,8 @@
 
   // ── THEMED SHOPS ──────────────────────────────────────────────────────────
   // A shop (role key 'shop') sells ONE LINE at ONE TIER — the player's pick
-  // on the restore modal (houses.js offerCards: a card per line and rank
-  // the ladder has unlocked, LINE_RULES below). A shop from before lines
+  // on the restore modal (houses.js buildTypes: a type per line, then a
+  // card per rank the ladder has unlocked, LINE_RULES below). A shop from before lines
   // were stored takes its line from its place in the order the player
   // restored shops (themeAt: seed, supply, potion, relic, round again a
   // tier higher).

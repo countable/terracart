@@ -9484,20 +9484,28 @@ class MapScene extends Phaser.Scene {
   _wreckRestoreCost(house) { return Houses.wreckRestoreCost(this.save, house); }
 
   presentWreckRestoreModal(sx, sy, house) {
-    // WHAT THE WRECK BECOMES IS THE PLAYER'S PICK: the cards on offer are
-    // Houses.offerCards — one more card with every wreck that stands, cut
-    // from the catalogue (Houses.buildOptions, one owning table unlocked by
-    // how many wrecks already stand): the House always, up to three NEW
-    // cards, the rest duplicates, each pool a window that slides along with
-    // every restore. Each card is named the way its sign will be
-    // (Shops.roleLabel — a Shop card for its line) and wears its rank.
-    // The single-modal guard keeps the count stable while the modal is open;
-    // restoreAs re-checks the catalogue at accept anyway.
-    const options = Houses.offerCards(this.save, house);
+    // WHAT THE WRECK BECOMES IS THE PLAYER'S PICK, IN TWO STEPS (owner, Oct
+    // 2026): first the BUILDING TYPE, then — for a ranked type with more than
+    // one rank open — the RANK. The types are Houses.buildTypes: the whole
+    // catalogue (Houses.buildOptions, one owning table unlocked by how many
+    // wrecks already stand) grouped by type in table order — the House, the
+    // wizard's tower while its story offers it, the smithy, each shop line,
+    // the trader, the turret, the one-off shops. Nothing rotates: every type
+    // the catalogue unlocks is on the screen, and any number of a type may
+    // stand (a second wooden smithy is just another pick). A House, an
+    // unranked card or a type with a single rank open restores straight off
+    // the type screen. Each card is named the way its sign will be
+    // (Shops.roleLabel — a Shop card for its line); a rank card wears its
+    // badge. restoreAs re-checks the catalogue at accept.
+    const options = Houses.buildOptions(this.save, house);
+    const types = Houses.buildTypes(this.save, house);
+    const typeByKey = (key) => types.find((t) => t.key === key) || null;
+    const soleRank = (t) => (t && t.ranks.length === 1) ? t.ranks[0] : null;
     const order = Houses.restoredCount(this.save);
     // EACH CARD HAS ITS OWN PRICE (Houses.buildCost — the House ladder, a
-    // shop's stone / ore / gem per tier, the turret's flat five): the cost line shows
-    // the selected card's, and the charge at accept is that card's too.
+    // shop's stone / ore / gem per tier, the turret's flat five): a type card
+    // quotes its sole rank's price, or "from" its cheapest rank; a rank card
+    // its own. The charge at accept is the picked rank's.
     const costFor = (row) => Houses.buildCost(this.save, house, row, order);
     const costLine = (c) => {
       const it = ITEM_BY_ID[c.id];
@@ -9513,29 +9521,87 @@ class MapScene extends Phaser.Scene {
       return this.worldIconHTML(texKey, 30, frame);
     };
     const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
-    // ONE STEP: every offered card is a row of the same list - the House, a
-    // shop line at each of its offered ranks (the tier badge says which), the
-    // turret - each with its own price and its own Restore. No type screen
-    // first: tapping the card is the whole choice. Offer availability, not
-    // affordability, decides what is listed.
-    const choices = options.map((row) => {
-      const c = costFor(row);
-      const isNew = Houses.isNewPick(this.save, row);
-      return {
-        key: row.key,
-        // Name, then the rank and NEW on one line, then the price: compact,
-        // so six cards and the Restore row fit the dialog without a scroll.
-        label: labelFor(row, null)
-          + ((row.tier || isNew)
-            ? `<div style="line-height:1.15;margin-top:2px">${row.tier ? tierBadgeHTML(row.tier, 9, 4) : ''}`
-              + `${isNew ? newBadgeHTML(8) : ''}</div>` : '')
-          + `<div style="margin-top:3px;font-size:11px">${costLine(c)}</div>`,
-        iconHTML: iconFor(row),
-        cost: costLine(c),
-        canAfford: affords(c),
-        suggested: row.suggested?.(this.save),
-      };
+    // STEP ONE — THE TYPE. Offer availability, not affordability, decides
+    // what is listed; a card the player cannot pay for shows its price in
+    // red. Accept restores a sole-rank type on the spot and opens the rank
+    // screen for the rest (its button says which); the Hammer does the same,
+    // restoring shiny or carrying on to the rank screen. `choice` is the
+    // type the player came Back from, kept selected.
+    const showTypes = (choice = null) => this.showOfferModal({
+      kind: 'build',
+      title: 'Building type',
+      choices: types.map((t) => {
+        const row = t.ranks[0], sole = soleRank(t);
+        const costs = t.ranks.map(costFor);
+        const c = sole ? costs[0] : costs.reduce((min, x) => (x.qty < min.qty ? x : min));
+        const isNew = t.ranks.some((r) => Houses.isNewPick(this.save, r));
+        const line = (sole ? '' : 'from ') + costLine(c);
+        return {
+          key: t.key,
+          acceptLabel: sole ? 'Restore' : 'Choose rank',
+          // Name, NEW, then the price: compact, so the cards and the Restore
+          // row fit the dialog without a scroll.
+          label: labelFor(row, null)
+            + (isNew ? `<div style="line-height:1.15;margin-top:2px">${newBadgeHTML(8)}</div>` : '')
+            + `<div style="margin-top:3px;font-size:11px">${line}</div>`,
+          iconHTML: iconFor(row),
+          cost: line,
+          canAfford: costs.some(affords),
+          suggested: t.ranks.some((r) => r.suggested?.(this.save)),
+        };
+      }),
+      choice,
+      pickHint: 'Pick a building',
+      canAfford: true,
+      acceptLabel: 'Restore',
+      cancelLabel: 'Later',
+      secondary: hasHammer
+        ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} Hammer`, withChoice: true,
+            takes: (key) => Houses.hammerTakes(typeByKey(key)?.ranks[0]),
+            onClick: (key) => { const r = soleRank(typeByKey(key)); if (r) restore(r.key, true); else showTiers(key); } }
+        : undefined,
+      onAccept: (key) => { const r = soleRank(typeByKey(key)); if (r) restore(r.key, false); else showTiers(key); },
     });
+    // STEP TWO — THE RANK, one card per rank the ladder has opened for this
+    // type (Shops.tierCap by memories; a shop line's own ceiling), each with
+    // its badge and its own price. Back returns to the type screen with the
+    // type still selected.
+    const showTiers = (typeKey) => {
+      const t = typeByKey(typeKey);
+      if (!t) return;
+      const hammer = ITEM_BY_ID[Houses.HAMMER_ID];
+      this.showOfferModal({
+        kind: 'build',
+        title: 'Rank',
+        get: labelFor(t.ranks[0], null),
+        choices: t.ranks.map((row) => {
+          const c = costFor(row);
+          return {
+            key: row.key,
+            label: `<div style="line-height:1.15">${tierBadgeHTML(row.tier, 11, 5)}`
+              + `${Houses.isNewPick(this.save, row) ? newBadgeHTML(8) : ''}</div>`
+              + `<div style="margin-top:3px;font-size:11px">${costLine(c)}</div>`,
+            iconHTML: iconFor(row),
+            cost: costLine(c),
+            canAfford: affords(c),
+          };
+        }),
+        pickHint: 'Pick a rank',
+        canAfford: true,
+        acceptLabel: 'Restore',
+        cancelLabel: 'Back',
+        onCancel: () => showTypes(typeKey),
+        blurb: hasHammer
+          ? `${this.iconSpanHTML(Houses.HAMMER_ID)} With the ${hammer?.name || 'Magic Hammer'} it gleams: folk deal kindly, archers strike hard.`
+          : undefined,
+        secondary: hasHammer
+          ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} Hammer`, withChoice: true,
+              takes: (key) => Houses.hammerTakes(options.find((r) => r.key === key)),
+              onClick: (key) => restore(key, true) }
+          : undefined,
+        onAccept: (key) => restore(key, false),
+      });
+    };
     const restore = (key, hammer) => {
       const picked = options.find((r) => r.key === key);
       const cost = picked ? costFor(picked) : null;
@@ -9608,24 +9674,7 @@ class MapScene extends Phaser.Scene {
         }
       });
     };
-    // No title, no pitch and no per-card blurb: the Build painting says what
-    // this is, and the dialog's height goes to the cards — six of them and
-    // the Restore row above the fold on a phone. The Restored! card tells
-    // what the pick does.
-    this.showOfferModal({
-      kind: 'build',
-      choices,
-      pickHint: 'Pick one',
-      canAfford: true,
-      acceptLabel: 'Restore',
-      cancelLabel: 'Later',
-      secondary: hasHammer
-        ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} Hammer`, withChoice: true,
-            takes: (key) => Houses.hammerTakes(options.find((r) => r.key === key)),
-            onClick: (key) => restore(key, true) }
-        : undefined,
-      onAccept: (key) => restore(key, false),
-    });
+    showTypes();
   }
 
 
