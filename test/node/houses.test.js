@@ -117,7 +117,7 @@ test('buildOptions: the catalogue unlocks by how many wrecks already stand', () 
   assert.eq(Houses.buildOption('bookshop').role, 'shop', 'the Book Shop is stored as a market plus its stamp');
   assert.eq(Houses.buildOption('petshop').role, 'shop', 'the Pet Shop too');
   assert.eq(Houses.buildOption('petshop').solo, 'pet'); assert.eq(Houses.buildOption('bookshop').solo, 'book');
-  assert.truthy(Houses.buildOption('plain').pinned && Houses.buildOption('wizard').pinned, 'the House and the tower are pinned');
+  assert.eq(Houses.BUILD_OPTIONS[1].key, 'wizard', 'the tower\'s row sits right after the House so canon leads the type screen');
   assert.eq(Shops.roleLabel('turret'), 'Turret');
 });
 
@@ -206,64 +206,42 @@ test('buildOptions: a card is NEW when the player has no such building, or none 
   for (let i = 11; i < 15; i++) Houses.restoreAs(save, h('h' + i), 'plain');
   assert.truthy(isNew(save, 'petshop') && isNew(save, 'bookshop'), 'the one-offs are new while none stands');
   assert.falsy(Houses.isNewPick(save, null));
-  assert.truthy(/\$\{isNew \? newBadgeHTML\(8\) : ''\}/.test(SCENE_SRC), 'the card wears the pill');
+  assert.truthy(/const isNew = t\.ranks\.some\(\(r\) => Houses\.isNewPick\(this\.save, r\)\);/.test(SCENE_SRC), 'a type card wears the pill while any of its ranks is new');
+  assert.truthy(/Houses\.isNewPick\(this\.save, row\) \? newBadgeHTML\(8\)/.test(SCENE_SRC), 'a rank card wears its own');
   assert.truthy(/NEW<\/span>/.test(newBadgeHTML()), 'the pill says NEW');
 });
 
-test('offerCards: N = restored + 1 — the House and the T1 smithy, up to three NEW, the rest duplicates, each a window that slides with every wreck', () => {
+test('buildTypes: the catalogue grouped by type in table order — a row per open rank, every type listed every time', () => {
   const h = (id) => ({ kind: 'house', tier: 9, id });
-  assert.eq(Houses.NEW_SLOTS, 3);
   const save = { restoredHouses: {}, discovered: {} };
-  const offer = (s = save) => Houses.offerCards(s, plainHouse).map((r) => r.key);
-  assert.eq(offer().join(), 'plain', 'one card for the first wreck');
+  const types = (s = save) => Houses.buildTypes(s, plainHouse).map((t) => t.key);
+  assert.eq(types().join(), 'plain', 'the first wreck: a House and nothing else');
   Houses.restoreAs(save, h('h0'), 'plain');
-  assert.eq(offer().join(), 'plain,blacksmith:1', 'two for the second');
-  Houses.restoreAs(save, h('h1'), 'plain');
-  assert.eq(offer().length, 3, 'three for the third');
-  assert.eq(offer()[0], 'plain', 'the House always leads');
-  assert.eq(offer()[1], 'blacksmith:1', 'the T1 smithy is pinned beside it');
-  // A window of NEW cards over the catalogue (table order), one of the three
-  // ranked cards here; the window's offset is the restore order.
-  assert.eq(offer().join(), 'plain,blacksmith:1,shop:potion:1', 'order 2: the window starts two cards in');
-  Houses.restoreAs(save, h('h2'), 'plain');
-  assert.eq(offer().join(), 'plain,blacksmith:1,shop:seed:1,shop:supply:1', 'order 3: wraps round, two NEW now');
-  Houses.restoreAs(save, h('h3'), 'plain');
-  assert.eq(offer().join(), 'plain,blacksmith:1,shop:seed:1,shop:supply:1,shop:potion:1', 'order 4: three NEW');
-  for (let i = 4; i < 8; i++) Houses.restoreAs(save, h('h' + i), 'plain');
-  let o = offer();
-  // Nine slots for the ninth wreck, but nothing stands except Houses: no
-  // duplicates to fill the slots past the three NEW, so they stay empty.
-  assert.eq(o.length, 5, 'the House, the smithy and three NEW');
-  assert.eq(o.filter((k) => k === 'plain').length, 1, 'the House once');
-  assert.eq(o.filter((k) => k === 'blacksmith:1').length, 1, 'the smithy once');
-  assert.eq(Houses.buildOptions(save, plainHouse).filter((r) => !r.pinned).length, 5, 'out of five NEW on the table');
-  // Raise a smithy and a Seed Shop: the shop moves from the NEW pool to the
-  // duplicates; the T1 smithy stays pinned (any number may stand — a second
-  // wooden smithy never waits on the duplicate window).
-  Houses.restoreAs(save, h('s'), 'blacksmith:1');
-  Houses.restoreAs(save, h('m'), 'shop:seed:1');
-  o = Houses.offerCards(save, plainHouse);
-  assert.eq(o[1].key, 'blacksmith:1', 'the T1 smithy still stands on offer');
-  assert.falsy(Houses.isNewPick(save, o[1]), 'as a duplicate, without the NEW pill');
-  assert.eq(Houses.restoreAs(save, h('s2'), 'blacksmith:1').role, 'blacksmith', 'and a second one may be raised');
-  o = Houses.offerCards(save, plainHouse);
-  const fresh = o.filter((r) => !r.pinned && Houses.isNewPick(save, r)).map((r) => r.key);
-  const dups = o.filter((r) => !r.pinned && !Houses.isNewPick(save, r)).map((r) => r.key);
-  assert.eq(fresh.length, 3, 'three NEW');
-  assert.eq(dups.join(), 'shop:seed:1', 'the duplicate fills the slot after them');
-  assert.eq(o.length, 6, 'twelve slots, six cards');
-  assert.eq(o.map((r) => r.key).indexOf(fresh[0]), 2, 'NEW cards sit right after the pinned ones');
-  assert.truthy(o.map((r) => r.key).indexOf(dups[0]) > o.map((r) => r.key).indexOf(fresh[2]), 'duplicates after them');
-  // The wizard's tower is pinned beside the House while its story offers it.
+  assert.eq(types().join(), 'plain,blacksmith', 'the second adds the smithy');
+  Houses.restoreAs(save, h('h1'), 'blacksmith:1');
+  assert.eq(types().join(), 'plain,blacksmith,shop:seed,shop:supply,shop:potion', 'the third: each shop line is a type; the smithy stays listed though one stands');
+  assert.eq(Houses.restoreAs(save, h('h2'), 'blacksmith:1').role, 'blacksmith', 'a second T1 smithy is just another pick');
+  for (let i = 3; i < 8; i++) Houses.restoreAs(save, h('h' + i), 'plain');
+  assert.eq(types().join(), 'plain,blacksmith,shop:seed,shop:supply,shop:potion,trader,turret', 'the ninth: the trader and the turret; nothing rotates, nothing is windowed');
+  for (const t of Houses.buildTypes(save, plainHouse)) assert.eq(t.ranks.length, 1, `${t.key}: T1 only, a single rank row`);
+  // Five memories: a ranked type carries a row per open rank; an unranked type still one.
+  for (let i = 0; i < 5; i++) save.discovered['memory:' + i] = 1;
+  const by = Object.fromEntries(Houses.buildTypes(save, plainHouse).map((t) => [t.key, t]));
+  assert.eq(by.blacksmith.ranks.map((r) => r.key).join(), 'blacksmith:1,blacksmith:2');
+  assert.truthy(by.blacksmith.ranked && !by.turret.ranked);
+  assert.eq(by.turret.ranks.map((r) => r.key).join(), 'turret');
+  assert.eq(by['shop:relic'].ranks.map((r) => r.key).join(), 'shop:relic:2', 'a line that starts at T2 is a type with one open rank');
+  assert.eq(Houses.typeKey(by['shop:seed'].ranks[1]), 'shop:seed');
+  assert.eq(Houses.typeKey(Houses.buildOption('petshop')), 'petshop');
+  // The wizard's tower sits right after the House while its story offers it.
   const story = { restoredHouses: Object.fromEntries(Array.from({ length: 29 }, (_, i) => ['w' + i, 'plain'])), discovered: {} };
-  const so = offer(story);
-  assert.eq(so[0], 'plain'); assert.eq(so[1], 'wizard', 'canon never waits on the rotation');
-  assert.eq(so[2], 'blacksmith:1', 'then the pinned smithy');
-  assert.eq(so.length, 6, 'then three NEW; no duplicates stand');
-  // The modal reads the offer, never the whole catalogue.
+  const so = types(story);
+  assert.eq(so[0], 'plain'); assert.eq(so[1], 'wizard', 'canon leads the type screen');
+  assert.eq(Houses.offerCards, undefined, 'the slotted offer window is gone');
+  // The modal reads the types, never the raw catalogue.
   const start = SCENE_SRC.indexOf('  presentWreckRestoreModal(sx, sy, house) {');
   const src = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start));
-  assert.truthy(/const options = Houses\.offerCards\(this\.save, house\);/.test(src), 'the cards are the offer');
+  assert.truthy(/const types = Houses\.buildTypes\(this\.save, house\);/.test(src), 'the type screen is the catalogue by type');
 });
 
 test('buildOptions: the T1 Blacksmith card is suggested until the lane has a smithy', () => {

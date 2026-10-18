@@ -75,26 +75,34 @@ async def main(args):
             fixture=await page.evaluate("""() => {
               const s=week.s,h=week.objects().find(o=>o._sandboxWreck);
               if(!h) throw Error('Missing unrestored wreck fixture');week.house=h;
-              const options=Houses.offerCards(s.save,h);week.options=options;
-              const row=options.find(o=>Houses.hammerTakes(o)&&o.role==='blacksmith')||options.find(o=>Houses.hammerTakes(o));
-              if(!row)throw Error('No hammer-compatible restore card');week.row=row;week.cost=Houses.buildCost(s.save,h,row,Houses.restoredCount(s.save));
+              // The restore pick is two steps (app.js presentWreckRestoreModal): the TYPE card, then
+              // — when more than one rank is open — a RANK card. The probe takes the type's first rank.
+              const types=Houses.buildTypes(s.save,h);week.types=types;
+              const type=types.find(t=>Houses.hammerTakes(t.ranks[0])&&t.role==='blacksmith')||types.find(t=>Houses.hammerTakes(t.ranks[0]));
+              if(!type)throw Error('No hammer-compatible restore card');const row=type.ranks[0];week.row=row;week.cost=Houses.buildCost(s.save,h,row,Houses.restoredCount(s.save));
               week.stock=Inventory.count(s.save,week.cost.id);week.hammers=Inventory.count(s.save,Houses.HAMMER_ID);
-              s.shopInteract(s.viewCenterX,s.viewCenterY,h);return {id:h.id,key:row.key,index:options.indexOf(row)};
+              s.shopInteract(s.viewCenterX,s.viewCenterY,h);return {id:h.id,key:row.key,index:types.indexOf(type),ranks:type.ranks.length};
             }""")
+            async def pick_card():
+                await modal.locator('button').nth(fixture['index']).click()
+                if fixture['ranks']>1:
+                    await modal.get_by_role('button',name='Choose rank',exact=True).click()
+                    await modal.locator('button').nth(0).click()
             modal=page.locator('#offer-modal')
             await modal.get_by_role('button',name='Later',exact=True).click()
             await jscheck('Restoration cancel keeps resources and wreck', """
               return {ok:week.s._isHouseWreck(week.house)&&Inventory.count(week.s.save,week.cost.id)===week.stock};
             """)
             await page.evaluate('() => {week.materialSlot=week.s.save.inv.find(i=>i.id===week.cost.id);week.materialSlot.count=0;week.s.shopInteract(week.s.viewCenterX,week.s.viewCenterY,week.house);}')
-            await modal.locator('button').nth(fixture['index']).click()
+            await pick_card()
             disabled=await modal.get_by_role('button',name='Restore',exact=True).is_disabled()
             report['checks'].append({'name':'Unfunded restore cannot be accepted','ok':disabled})
-            await modal.get_by_role('button',name='Later',exact=True).click()
+            await modal.get_by_role('button',name=('Back' if fixture['ranks']>1 else 'Later'),exact=True).click()
+            if fixture['ranks']>1: await modal.get_by_role('button',name='Later',exact=True).click()
             await page.evaluate('() => {week.materialSlot.count=week.stock;week.s.shopInteract(week.s.viewCenterX,week.s.viewCenterY,week.house);}')
-            await modal.locator('button').nth(fixture['index']).click()
+            await pick_card()
             await page.screenshot(path=str(args.output/'restoration-choice.png'))
-            await modal.get_by_role('button',name='With Hammer').click()
+            await modal.get_by_role('button',name='Hammer').click()
             await jscheck('Hammer restoration stamps role/rank, charges one price and one hammer', """
               const s=week.s,h=week.house;
               return {ok:!s._isHouseWreck(h)&&Houses.isShinyHouse(s.save,h)&&s.houseShopRole(h)===week.row.role&&Inventory.count(s.save,week.cost.id)===week.stock-week.cost.qty&&Inventory.count(s.save,Houses.HAMMER_ID)===week.hammers-1,role:s.houseShopRole(h),tier:Shops.shopTier(s.save,h,week.row.role),cost:week.cost};
