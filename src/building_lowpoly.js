@@ -614,9 +614,10 @@
     }
     // Plinth: stone courses below the ground line, as the tileset keeps them;
     // walls never sample it (chimney sides and the door step do).
-    const plinth=ramp(mix(recipe.body,CEL.mauve,.6));
+    const matchWall=recipe.role==='blacksmith',plinth=matchWall?wall:ramp(mix(recipe.body,CEL.mauve,.6));
+    const bw=matchWall?24:18,bh=matchWall?12:6;
     px(0,BOT,512,23,plinth.base);
-    for(let y=BOT+1,row=0;y<128;y+=6,row++)for(let x=-(row%2)*9;x<512;x+=18){px(x,y+5,18,1,plinth.shade);px(x+17,y,1,6,plinth.shade);px(x+1,y,16,1,plinth.light);}
+    for(let y=BOT+1,row=0;y<128;y+=bh,row++)for(let x=-(row%2)*bw/2;x<512;x+=bw){px(x,y+bh-1,bw,1,plinth.shade);px(x+bw-1,y,1,bh,plinth.shade);px(x+1,y,bw-3,1,plinth.light);}
     // --- openings -------------------------------------------------------------
     const casement=(x,y,f)=>{ // 11x13 casement: ink outline, trim frame, two-tone glass, one bright pane, sill
       px(x-1,y-1,13,15,ink);px(x,y,11,13,trim.base);
@@ -979,8 +980,10 @@
       else if(face.wallTop)face.color=mix(recipe.body,0xf3e6c8,.35);
       else if(face.kind==='trim'&&face.color==null)face.color=recipe.trim;
       else if(recipe.shape==='wreck'&&(face.kind==='wall'||face.kind==='roof')&&!face.debris&&!face.chimney)face.color=LOOK.wreck.tint;
+      if(face.chimney && recipe.role==='blacksmith' && face.color!==LOOK.chimney.mouthColor)
+        face.color=face.kind==='wall'?0xffffff:recipe.body;
       // The untextured look (LOOK.textured=false) draws each face in its base colour.
-      face.flat=face.tileCap?mix(recipe.roof,0x2a2229,.12):face.kind==='roof'&&!face.solid?recipe.roof:face.kind==='wall'?(face.chimney?LOOK.chimney.sides:recipe.body):face.color??recipe.trim;
+      face.flat=face.tileCap?mix(recipe.roof,0x2a2229,.12):face.kind==='roof'&&!face.solid?recipe.roof:face.kind==='wall'?(face.chimney&&recipe.role!=='blacksmith'?LOOK.chimney.sides:recipe.body):face.color??recipe.trim;
       face.preserveWalls=recipe.role==='fort'||!!face.chimney;face.eaveHeight=mesh.eaveHeight??mesh.height;face.support=support;face.texture=texture;face.x=left;face.y=top;face.projected=face.points.map(()=>({}));state.faces.push(face);}
     return mesh;
   }

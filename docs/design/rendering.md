@@ -135,8 +135,8 @@ the real source so a missing texture cannot become a permanent cached palette.
   “of”), only the first word appears. Full names remain available in dialogs.
 - The circular map and compass rim sit 55 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
-- Zoom is camera-only. The initial view spans nine cells instead of eleven,
-  one cell closer on each edge (`MAP_DEFAULT_ZOOM`). Plain +/− buttons on the
+- Zoom is camera-only. The initial resting view is the closest setting,
+  spanning seven cells (`MAP_DEFAULT_ZOOM`). Plain +/− buttons on the
   right change the resting span by two cells, bounded by `PINCH_VIEW_CELLS`
   and `VIEW_CELLS`; disabled buttons mark the limits. The choice lasts for the
   session, including modals and depth changes. Pinch zoom remains temporary
@@ -144,7 +144,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   `_applyMapZoom` clips the camera viewport and counter-scales map chrome;
   the DOM controls never zoom or rotate. Gameplay ranges and loading stay
   based on `VIEW_CELLS`; taps convert back through `_unzoomPt`.
-  The opening shot uses the same camera and ends at the selected resting zoom.
+  The opening shot uses the same camera: after two seconds with the map
+  unobscured it begins easing back to the selected resting zoom. Pending Home
+  placement never holds the camera in the close-up.
 - Once Phaser selects its renderer, software Canvas uses a 1× backing store:
   the logical pixel-art grid. WebGL retains its 2× memory budget. This avoids
   CPU-bound high-DPR rasterization during map rotation without changing CSS
