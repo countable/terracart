@@ -51,8 +51,12 @@ Validation:
 Interactive review: `tools/building-lowpoly-preview.html`. The review deliberately
 includes deep notches and narrow annexes, beyond the compact cottage reference.
 
-The pixel-art pass uses 31.2-unit floors (30% taller), approximately 1.3x texture
-scale, a twelve-color generated palette and nearest-neighbor sampling. Flat
+The pixel-art pass uses 15.6-unit floors at 0.65 world units per facade texel
+(`FLOOR_HEIGHT`/`DETAIL_SCALE` stays 24 texels a storey; both halved together
+when buildings read twice too tall, so doors and windows halved with them), a
+twelve-color generated palette, nearest-neighbor sampling and a one-pixel ink
+outline. Chimneys, eave bands, fort and wizard shells and wrecks halved with the
+storeys. A wreck drops one wall section on its longest edge entirely (`mesh.gap`). Flat
 three-step face lighting replaces interpolated wall gradients. The shared sheet
 is now 512x512, with a 384-pixel-high roof region: the compact cross footprint
 previously clamped against the smaller region and smeared the texture along its

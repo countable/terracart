@@ -7,8 +7,8 @@ for(const fixture of fixtures)for(const variant of ['ridge','inset','shallow','f
  const pts=fixture.points.map(([x,y])=>({x,y})),m=api.geometry(pts,variant,77);
  assert(Math.abs(m.faces.filter(f=>f.kind==='roof').reduce((n,f)=>n+area(f.points),0)-area(pts))<1e-5,'exact footprint area');
  assert(m.roofTriangles<200,'bounded roof budget');
- // Only a ridge beam (1) or chimney stack (13 + LOOK.chimney.rise) may rise above the ridge.
- for(const f of m.faces)for(const p of f.points)assert(Number.isFinite(p.z)&&p.z>=0&&p.z<=105+(f.chimney?14+api.LOOK.chimney.rise+.05:f.beam?1:0));
+ // Only a ridge beam (1) or chimney stack (LOOK.chimney.above + rise) may rise above the ridge.
+ for(const f of m.faces)for(const p of f.points)assert(Number.isFinite(p.z)&&p.z>=0&&p.z<=105+(f.chimney?api.LOOK.chimney.above+1+api.LOOK.chimney.rise+.05:f.beam?1:0));
  for(let angle=0;angle<Math.PI*2;angle+=.13)for(const f of m.faces.filter(f=>f.kind==='roof')){
   const p=f.points.map(v=>({x:v.x-Math.sin(angle)*v.z,y:v.y-Math.cos(angle)*v.z}));assert((p[1].x-p[0].x)*(p[2].y-p[0].y)-(p[1].y-p[0].y)*(p[2].x-p[0].x)>1e-10,'no folded or degenerate rotated roof');
  }
@@ -45,7 +45,7 @@ for(const fixture of fixtures){
  assert(timber<=160,'bounded ridge beam and chimney budget');
  for(const f of mesh.faces.filter(f=>f.kind==='wall')){
   const [a,b]=f.points;
-  assert(Math.abs(Math.abs(b.u-a.u)*1.3-Math.hypot(b.x-a.x,b.y-a.y))<1e-7,'constant wall texel density');
+  assert(Math.abs(Math.abs(b.u-a.u)*.65-Math.hypot(b.x-a.x,b.y-a.y))<1e-7,'constant wall texel density');
  }
  assert(mesh.roofTriangles<=before.roofTriangles+12,'small overhang triangle budget');
  for(let angle=0;angle<Math.PI*2;angle+=.13)for(const f of mesh.faces.filter(f=>f.kind==='roof')){
@@ -59,7 +59,7 @@ for(const fixture of fixtures){
 console.table(overhangRows);
 for(const role of Object.keys(api.ROLES)){
  const recipe=api.recipeFor(role),points=fixtures[0].points.map(([x,y])=>({x,y}));
- const mesh=recipe.shape?api.specialGeometry(points,recipe):recipe.terraced?api.styleGeometry(points,recipe.style,recipe):api.geometry(points,recipe.variant||'ridge',recipe.stories*31.2+5,5);
+ const mesh=recipe.shape?api.specialGeometry(points,recipe):recipe.terraced?api.styleGeometry(points,recipe.style,recipe):api.geometry(points,recipe.variant||'ridge',recipe.stories*15.6+2.5,5);
  // Thick broken walls, roof patches, rafters and rubble carry more triangles.
  assert(mesh.faces.length>0&&mesh.faces.length<(role==='wreck'?600:300),role+' bounded geometry');
  assert(mesh.faces.every(f=>f.points.every(p=>[p.x,p.y,p.z,p.u,p.v].every(Number.isFinite))),role+' finite vertices');
@@ -100,10 +100,15 @@ assert(patchArea>0&&patchArea<area(wreckPoints)*.45,'most of the roof is gone');
 for(const f of wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.layer===2))for(const p of f.points)
  assert(wreck.roofPatches.some(b=>p.x>=b.x0-1e-6&&p.x<=b.x1+1e-6&&p.y>=b.y0-1e-6&&p.y<=b.y1+1e-6),'surviving tiles lie inside a patch');
 assert(wreck.faces.some(f=>f.wallTop),'walls have thickness: broken tops exist');
+// One section of the longest side has fallen entirely: no wall face touches its span.
+assert(wreck.gap&&wreck.gap.o0.y===0&&wreck.gap.o1.y===0,'the gap opens on the longest edge');
+const inGap=p=>p.x>=wreck.gap.o0.x-1e-6&&p.x<=wreck.gap.o1.x+1e-6&&p.y<4.5;
+assert(!wreck.faces.some(f=>f.kind==='wall'&&f.points.every(inGap)),'the fallen section has no wall');
+assert(wreck.faces.some(f=>f.kind==='wall'&&f.points.some(p=>p.y<1e-6&&!inGap(p))),'the rest of that side still stands');
 assert(wreck.faces.some(f=>f.interior),'inner wall faces are seen from inside');
 const market=api.recipeFor('trader'),terrace=api.styleGeometry(wreckPoints,market.style,market);
 assert(market.terraced&&market.stories===2,'market has a second storey');
-const top=terrace.faces.filter(f=>f.kind==='roof'&&f.points.every(p=>p.z>40)).flatMap(f=>f.points);
+const top=terrace.faces.filter(f=>f.kind==='roof'&&f.points.every(p=>p.z>1.5*15.6)).flatMap(f=>f.points);
 assert(top.length&&top.every(p=>p.x>0&&p.x<120&&p.y>0&&p.y<100),'upper storey is inset from the footprint');
 assert.equal(api.recipeFor('supply').variant,'flat');
 console.log('Roof holes and terraced market passed.');
@@ -120,8 +125,8 @@ for(const size of [150,800,1400]){
   assert(f.points.every(p=>p.tu>=-1e-8&&p.tu<=1&&p.tv>=-1e-8&&p.tv<=1),'wrapped UVs stay within the sheet');
   if(f.kind==='trim'||f.rawUV||f.solid)continue; // solid texel and chimney plinth UVs are not facade mappings
   for(let i=0;i<3;i++){const a=f.points[i],b=f.points[(i+1)%3];
-   assert(Math.abs((b.tu-a.tu)*512-(b.u-a.u)/(f.kind==='roof'?1.3:1))<1e-6,'no horizontal stretch');
-   assert(Math.abs((b.tv-a.tv)*512-(b.v-a.v)/1.3)<1e-6,'no vertical stretch');
+   assert(Math.abs((b.tu-a.tu)*512-(b.u-a.u)/(f.kind==='roof'?.65:1))<1e-6,'no horizontal stretch');
+   assert(Math.abs((b.tv-a.tv)*512-(b.v-a.v)/.65)<1e-6,'no vertical stretch');
   }
  }
  console.log('Atlas wrap',size+'px:',mesh.faces.length,'->',mapped.length,'triangles');

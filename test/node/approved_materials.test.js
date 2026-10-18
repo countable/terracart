@@ -29,12 +29,12 @@
   test('approved roof wrapping preserves every packed tile phase on both axes', () => {
     const api = new Function('window', src + '\nreturn window.BuildingLowPoly;')({});
     const points = [[600, 600], [620, 600], [600, 620]].map(([u, v]) =>
-      ({ x: u, y: v, z: 30, u: u * 1.3, v: v * 1.3 }));
+      ({ x: u, y: v, z: 30, u: u * .65, v: v * .65 }));
     const mesh = { height: 30, faces: [{ kind: 'roof', points }] };
     const wrapped = api.atlasFaces(mesh, 360);
     assert.truthy(wrapped.length);
     for (const face of wrapped) for (const p of face.points) {
-      const shifts = [p.u / 1.3 - p.tu * 512, p.v / 1.3 - (p.tv * 512 - 128)];
+      const shifts = [p.u / .65 - p.tu * 512, p.v / .65 - (p.tv * 512 - 128)];
       for (const [axis, shift] of shifts.entries()) {
         assert.truthy(shift > 0, 'fixture crosses the atlas boundary');
         for (const [name, roof] of Object.entries(SHEET_SRC.roofs)) {
@@ -45,6 +45,6 @@
     }
     // Generated fallback tiles retain their separate three-tile period.
     const fallback = api.atlasFaces(mesh);
-    assert.truthy(Math.abs(points[0].u / 1.3 - fallback[0].points[0].tu * 512 - 576) < 1e-8);
+    assert.truthy(Math.abs(points[0].u / .65 - fallback[0].points[0].tu * 512 - 576) < 1e-8);
   });
 })();
