@@ -1517,7 +1517,27 @@ function makeCastlePavingTexture(scene, size) {
   });
 }
 
+function drawInteriorFloorTexture(ctx, size, source, tier) {
+  // The sheet's top rows include wall-edge shading. Repeat a complete pair
+  // of unshaded staggered courses instead, keeping the source texel scale.
+  const [x, y] = { 9: [176, 0], 11: [48, 12], 12: [208, 12] }[tier];
+  ctx.imageSmoothingEnabled = false;
+  for (let row = 0; row < 2; row++) {
+    ctx.drawImage(source, x, y, 32, 16, 0, row * size / 2, size, size / 2);
+  }
+}
+
 function makeBiomeTextures(scene, size) {
+  // Repeating swatches from PP Interiors Pack/all floors.png.
+  // Keep these opaque materials separate from the biome modulation textures.
+  if (scene.textures.exists('interior_floors')) {
+    const source = scene.textures.get('interior_floors').getSourceImage();
+    for (const tier of [9, 11, 12]) {
+      bakeCanvas(scene, `interior_floor_${tier}`, size, size, ctx => {
+        drawInteriorFloorTexture(ctx, size, source, tier);
+      });
+    }
+  }
   makeCaveChasmTexture(scene, size);
   makeCaveWallEdges(scene, size);
   for (const [type, spec] of Object.entries(BIOME_TEX)) {

@@ -287,6 +287,16 @@ access or tile lifecycle mechanics.
   Orchard Park and outdoor Orchard Plaza use that tag. The rule is a geometry
   heuristic, not an entrance-access guarantee; missing tenant mapping and
   clipped footprints can leave an enclosed mall using frontage placement.
+  The same containment census exports `entry.retailInteriors` for buildings
+  containing at least two distinct public commercial POI positions (using
+  `commercialPoiKind`), including smaller strip centres with no area/depth
+  minimum. Private offices, coincident duplicates and courtyard pins do not
+  supply booths. This rendering metadata preserves all source polygon rings
+  and holes in absolute world-frame metres, with global-MVT geometry keys
+  stable across buffered copies and save scales. It does not change frontage
+  placement or the enclosed-mall classification. Entering a footprint uses
+  the shared Home interior floor and outside-darkening engine; courtyard
+  holes remain outside.
 - A POI chest's tier is its tile's QUOTA SEAT (`WorldGen.seedChestTiers`):
   each tile seeds ~1 T5, 5 T4, 11 T3, 36 T2 (x1..x2 over 100..1000
   budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),

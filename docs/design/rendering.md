@@ -70,7 +70,13 @@ there is no wall canvas bake or texture upload on heading changes. At a fixed
 heading the command buffers are reused. House footprint foundations use the same
 retained perimeter faces, descending below the floor instead of rising as a wall.
 Only camera-facing sides draw; uncapped perimeters also support concave footprints
-without triangulating their textured floors. Floors remain cached ground textures;
+without triangulating their textured floors. Floors remain cached ground textures.
+Building interiors use 32px swatches from the PP Interiors Pack's `all floors.png`
+(`assets/Objects/BuildingMaterials/all-floors.png`): square tiles for houses,
+wooden boards for Home and forts, and masonry for civic buildings. The patterns
+remain anchored to world coordinates and clipped to each footprint.
+`drawInteriorFloorTexture` repeats unshaded 16px-high courses; the wood and
+masonry swatches skip the sheet's top wall-shadow band to avoid cell seams.
 Procedural house roofs use triangulated caps and retained sloped roof faces.
 `PolygonGeometry` owns collinear pruning, ear clipping and the shared even–odd
 point-in-rings predicate. Renderers retain their own coordinate normalization,
@@ -112,6 +118,16 @@ table: height through `LOOK.heightScale`, and the ink outline is drawn once
 per connected run (blocks sharing a ground vertex at any level, or one wall's
 support) before that run's first fill, so a ring of sections and the merlons
 standing on it carry one outer outline with no seams. Legacy castle and Home prisms retain their flat colors; connected walls and fort pickets use the shared wall atlas.
+
+`scene.activeInterior()` shares Home's interior renderer and outside-darkness
+mask with detected malls and strip malls. Retail footprints come from the same
+POI census as indoor-mall placement (`entry.retailInteriors`); two contained
+public commercial booths qualify, including small strip centres. The player's
+exact ground position opens the room, and stepping out restores its normal
+building rendering. Retail uses the sheet's square tiles and Home keeps wood.
+The overlay replaces the host shell with Home's open-roof, per-wall geometry;
+courtyards are excluded from both the floor and the lit interior. This changes
+rendering only: shop rewards retain their existing interior/frontage positions.
 
 Home uses the original nearby building footprint, or a 2×2 footprint stamped
 by `scene_venues.js` when no building is within two cells. It draws no sprite: `Render.houseTextureKey` hands its role

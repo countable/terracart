@@ -243,6 +243,7 @@
     group.perWall = true; WallPerspective.update(s); WallPerspective.clear(s, 'home');
     assert.truthy(group.parts.every(p => !p.visible) && !group.perWall, 'clear hides the parts');
     assert.truthy(/zList\.push\(\.\.\.WallPerspective\.worldPieces\(scene\)\)/.test(RENDER_SRC), 'the frame\'s world sort takes them');
-    assert.truthy(/scene\._wallPerspective\.home\.perWall = inside;/.test(BUILDING_OVERLAY_SRC || ''), 'Home asks for it while the player is inside');
+    // Home and retail occupancy exercise this integration behaviorally in
+    // building_overlay.test.js; keep this test focused on the wall sorter.
   });
 })();

@@ -1790,10 +1790,11 @@
     const plateau = reachM > 0 && prof.lit > prof.edge;
     const B = (typeof window !== 'undefined') ? window.__boot : null;
     const cover = coverFrame(scene, ax, ay, tex.width, tex.height);
-    // INDOORS (scene_venues.js homeInterior): the house round the player.
+    // INDOORS (scene_venues.js activeInterior): the room round the player.
     // The mask is painted on the canvas path, so the GPU path stands down
     // while it is up.
-    const indoors = scene.homeInterior ? scene.homeInterior() : null;
+    const indoors = scene.activeInterior ? scene.activeInterior()
+      : scene.homeInterior ? scene.homeInterior() : null;
     const gpu = typeof LightingGPU !== 'undefined' && LightingGPU.active(scene) && !indoors;
     const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, now, pnow) + '|cover:' + (cover?.key || '') + '|gpu:' + gpu
       + '|in:' + (indoors ? indoorKey(scene, indoors) : '');
@@ -1914,8 +1915,8 @@
   }
 
   // ── Indoors ───────────────────────────────────────────────────────────────
-  // While the player stands inside their house (scene_venues.js homeInterior
-  // hands over its ring), everything OUTSIDE the walls goes dark: the lightmap
+  // While the player stands inside Home or retail (scene_venues.js
+  // activeInterior hands over its ring), everything OUTSIDE the walls goes dark: the lightmap
   // multiplies the world, so a near-black fill over the outside, with the
   // house cut out, is the room's four walls shutting the street out. The cut
   // is the house's exact silhouette with its roof off: the ring swept up by
@@ -1979,10 +1980,10 @@
     }
     return rings.map((ring, k) => ({ points: indoorSilhouette(ring, lift), alpha: 1 / (rings.length - k) }));
   }
-  // The walls' height: the low-poly model's when Home is drawn that way
-  // (building_overlay.js records it), else the prism house's.
-  function indoorLift(scene, HA) {
-    const drawn = scene._proceduralBuildings?.get(scene.save?.starterShopId)?.height;
+  // The walls' height: the active building's drawn model (building_overlay.js
+  // records it), else the shared prism house height.
+  function indoorLift(scene, HA, indoors) {
+    const drawn = scene._proceduralBuildings?.get(indoors.buildingKey || scene.save?.starterShopId)?.height;
     return liftPx(scene, { dyPx: -(drawn || HA.wallPx) });
   }
   // What the frame key carries for the room: the house and the lift the cut
@@ -1990,7 +1991,7 @@
   function indoorKey(scene, indoors) {
     const HA = (typeof HomeArea !== 'undefined') ? HomeArea.HOUSE : null;
     if (!HA) return indoors.key;
-    const lift = indoorLift(scene, HA);
+    const lift = indoorLift(scene, HA, indoors);
     return `${indoors.key}:${lift.x.toFixed(1)},${lift.y.toFixed(1)}`;
   }
   function indoorMaskLayer(scene, W, H) {
@@ -2004,7 +2005,7 @@
   function paintIndoorMask(ctx, scene, indoors, ax, ay, ox, oy, W, H) {
     const HA = (typeof HomeArea !== 'undefined') ? HomeArea.HOUSE : null;
     if (!HA || !indoors?.ring?.length) return;
-    const lift = indoorLift(scene, HA);
+    const lift = indoorLift(scene, HA, indoors);
     const pts = indoors.ring.map(p => {
       const sp = deltaMToScreen(scene, p.x - ax, p.y - ay);
       return { x: sp.x - ox, y: sp.y - oy };
@@ -2026,6 +2027,21 @@
       g.beginPath();
       g.moveTo(cut.points[0].x, cut.points[0].y);
       for (let i = 1; i < cut.points.length; i++) g.lineTo(cut.points[i].x, cut.points[i].y);
+      g.closePath();
+      g.fill('nonzero');
+    }
+    // Courtyards are outdoors: restore their darkness after cutting the room.
+    // Use their ground footprints so the outer wall sweep cannot light them.
+    g.globalCompositeOperation = 'source-over';
+    g.globalAlpha = HA.maskAlpha;
+    for (const hole of indoors.holes || []) {
+      if (hole.length < 3) continue;
+      g.beginPath();
+      hole.forEach((p, i) => {
+        const sp = deltaMToScreen(scene, p.x - ax, p.y - ay);
+        if (i === 0) g.moveTo(sp.x - ox, sp.y - oy);
+        else g.lineTo(sp.x - ox, sp.y - oy);
+      });
       g.closePath();
       g.fill('nonzero');
     }

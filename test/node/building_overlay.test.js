@@ -36,7 +36,7 @@ function makeGfx() {
     fillPoly(pts, color, alpha) { this.ops.push({ op: 'fill', pts: pts.map(p => ({ x: p.x, y: p.y })), color, alpha }); },
     strokePoly(pts, width, color) { this.ops.push({ op: 'stroke', pts, width, color }); },
     insetStroke(pts, width, color, dash) { this.ops.push({ op: 'inset', pts, width, color, dash }); },
-    texturePoly(pts, tier) { this.ops.push({ op: 'texture', pts, tier }); },
+    texturePoly(pts, tier, holes) { this.ops.push({ op: 'texture', pts, tier, holes }); },
     blobsPoly(pts, blobs, ox, oy, color, alpha) {
       this.ops.push({ op: 'slime', pts, blobs, ox, oy, color, alpha });
     },
@@ -871,7 +871,8 @@ test('building overlay: canvas adapter clears and fills the full padded backing 
   const points = [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 0, y: 20 }];
   const oldDamageTexture = CastleStyles.damageTexture;
   try {
-    scene.textures.exists = () => true;
+    // Exercise the larger procedural fallback when the interior sheet is absent.
+    scene.textures.exists = key => !key.startsWith('interior_floor_');
     scene.textures.get = key => ({ getSourceImage: () => ({
       width: key === 'castle_paving' ? 256 : 16, height: key === 'castle_paving' ? 256 : 16,
     }) });
@@ -1645,6 +1646,79 @@ test('building overlay: Home without a prism group falls back to a flat roof', (
   BuildingOverlay.draw(scene);
   const inside = scene.buildingGeomGfx.only('fill');
   assert.falsy(inside.some(f => f.color === HomeArea.HOUSE.roof.top), 'inside, no roof');
+  clearTiles();
+});
+
+test('building overlay: a retail interior reuses Home walls and restores its host on exit', () => {
+  clearTiles();
+  const shape = rectShape(0, 0, 20, 15, 9, 'mall-host');
+  putShapes(0, 0, [shape]);
+  const { scene } = makePerspectiveScene();
+  const room = { kind: 'retail', key: 'retail:test', ring: [
+    { x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 15 }, { x: 0, y: 15 },
+  ], holes: [[{x:8,y:5},{x:12,y:5},{x:12,y:9},{x:8,y:9}]] };
+  scene.activeInterior = () => room;
+  BuildingOverlay.draw(scene);
+  const textures = scene.buildingGeomGfx.only('texture');
+  assert.eq(textures.length, 1, 'the original host floor is replaced once');
+  assert.eq(textures[0].tier, 9, 'retail uses square tiles');
+  assert.eq(textures[0].holes.length, 1, 'courtyard passed to floor clipping');
+  const group = scene._wallPerspective.home;
+  assert.truthy(group.perWall, 'the same per-wall interior sorter as Home');
+  assert.gt(group.blocks.length, 0, 'interior walls are present');
+  assert.truthy(group.blocks.every(b => b.top <= HomeArea.HOUSE.wallPx), 'no roof or ridge');
+  scene.activeInterior = () => null;
+  BuildingOverlay.draw(scene);
+  assert.eq(scene._wallPerspective.home.blocks.length, 0, 'leaving removes retail interior walls');
+  assert.truthy(scene.buildingGeomGfx.ops.length > 0, 'the ordinary building is drawn again');
+  clearTiles();
+});
+
+test('building overlay: a concave mall does not hide a different building with matching bounds', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 20, 20, 11, 'different-footprint')]);
+  const scene = makeScene({ activeInterior: () => ({ kind: 'retail', key: 'retail:concave',
+    ring: [{x:0,y:0},{x:20,y:0},{x:20,y:10},{x:10,y:10},{x:10,y:20},{x:0,y:20}], holes: [] }) });
+  BuildingOverlay.draw(scene);
+  assert.truthy(scene.buildingGeomGfx.only('texture').some(t => t.tier === 11), 'different source shell is preserved');
+  assert.truthy(scene.buildingGeomGfx.only('texture').some(t => t.tier === 9), 'retail floor also draws');
+  clearTiles();
+});
+
+test('building overlay: retail low-poly walls share Home interior geometry and mask height', () => {
+  clearTiles();
+  const saved = { active: BuildingLowPoly.active, begin: BuildingLowPoly.begin, add: BuildingLowPoly.add,
+    update: BuildingLowPoly.update, clear: BuildingLowPoly.clear };
+  const added = [];
+  BuildingLowPoly.active = () => true;
+  BuildingLowPoly.begin = BuildingLowPoly.update = BuildingLowPoly.clear = () => {};
+  BuildingLowPoly.add = (scene, pts, recipe, variant, id) => {
+    added.push({ id, recipe }); return { faces: [1], height: 20 };
+  };
+  try {
+    putShapes(0, 0, [rectShape(0, 0, 20, 15, 9, 'host')]);
+    const { scene } = makePerspectiveScene();
+    scene.activeInterior = () => ({ kind: 'retail', key: 'retail:gpu',
+      ring: [{x:0,y:0},{x:20,y:0},{x:20,y:15},{x:0,y:15}],
+      holes: [[{x:8,y:5},{x:12,y:5},{x:12,y:9},{x:8,y:9}]] });
+    BuildingOverlay.draw(scene);
+    assert.eq(added.length, 2, 'outer walls and courtyard walls only');
+    assert.truthy(added.every(a => a.recipe.interior), 'every wall uses the open-roof recipe');
+    assert.truthy(added.every(a => Number.isFinite(a.recipe.body)), 'retail has a real wall palette');
+    assert.eq(scene._proceduralBuildings.get('retail:gpu').height, 20 * BuildingLowPoly.LOOK.heightScale,
+      'the lighting mask reads the actual wall height');
+  } finally { Object.assign(BuildingLowPoly, saved); clearTiles(); }
+});
+
+test('building overlay: retail floor survives dissolved building shapes', () => {
+  clearTiles();
+  const entry = putShapes(0, 0, []);
+  entry.retailInteriors = [];
+  const scene = makeScene({ activeInterior: () => ({ kind: 'retail', key: 'retail:dissolved',
+    ring: [{x:0,y:0},{x:20,y:0},{x:20,y:15},{x:0,y:15}], holes: [] }) });
+  BuildingOverlay.draw(scene);
+  assert.eq(scene.buildingGeomGfx.only('texture').length, 1, 'source retail ring draws without a house object');
+  assert.eq(scene.buildingGeomGfx.only('texture')[0].tier, 9);
   clearTiles();
 });
 

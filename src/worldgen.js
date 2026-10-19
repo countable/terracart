@@ -3350,9 +3350,9 @@
   // Enclosed shopping buildings retain their mapped interior POIs. A mall
   // name/tag alone is insufficient: outdoor strip centres use it too.
   const INDOOR_MALL_RULES = Object.freeze({ minAreaM2: 4000, minPois: 9,
-    interiorDepthM: 15, minDeepShare: 0.5 });
+    interiorDepthM: 15, minDeepShare: 0.5, minCommercialPois: 2 });
   function* indoorMallPoisSteps(buildingLayer, poiLayer, mvtToM) {
-    const poiKeys = new Set(), buildings = [], unique = new Map();
+    const poiKeys = new Set(), buildings = [], retailInteriors = [], unique = new Map();
     let work = 0;
     for (const f of poiLayer?.features || []) {
       if ((++work & 63) === 0) yield 'mall POI census';
@@ -3360,7 +3360,9 @@
       for (const part of f.geom || []) for (const p of part) {
         // Count a geographic position once, including buffered neighbours.
         // Stacked floor labels or duplicate tile points cannot inflate it.
-        unique.set(`${p.x},${p.y}`, p);
+        const key = `${p.x},${p.y}`;
+        unique.set(key, { ...p, commercial: unique.get(key)?.commercial
+          || commercialPoiKind(f.tags) === POI_PUBLIC });
       }
     }
     const points = [...unique.values()], rules = INDOOR_MALL_RULES;
@@ -3381,7 +3383,7 @@
       for (const rings of components) {
         const areaM2 = (Math.abs(ringSignedArea(rings[0]))
           - rings.slice(1).reduce((sum, ring) => sum + Math.abs(ringSignedArea(ring)), 0)) * mvtToM ** 2;
-        if (areaM2 < rules.minAreaM2) continue;
+        if (areaM2 <= 0) continue;
         const bounds = bboxOf(rings), contained = [];
         let deepCount = 0;
         for (const p of points) {
@@ -3389,21 +3391,38 @@
           if (p.x < bounds.minX || p.x > bounds.maxX || p.y < bounds.minY || p.y > bounds.maxY
             || !pointInRings(rings, p.x, p.y)) continue;
           contained.push(p);
-          let nearest2 = Infinity;
-          for (const ring of rings) for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-            if ((++work & 255) === 0) yield 'mall wall distance';
-            const a = ring[j], b = ring[i], dx = b.x - a.x, dy = b.y - a.y;
-            const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
-            nearest2 = Math.min(nearest2, (p.x - a.x - t * dx) ** 2 + (p.y - a.y - t * dy) ** 2);
-          }
-          if (nearest2 * mvtToM ** 2 >= rules.interiorDepthM ** 2) deepCount++;
         }
-        if (contained.length < rules.minPois || deepCount / contained.length < rules.minDeepShare) continue;
+        // Only enclosed-hall candidates need wall distances. Most source
+        // buildings are houses or small strip centres; their floor metadata
+        // needs containment alone, even when they have many boundary vertices.
+        if (areaM2 >= rules.minAreaM2 && contained.length >= rules.minPois) {
+          for (const p of contained) {
+            let nearest2 = Infinity;
+            for (const ring of rings) for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+              if ((++work & 255) === 0) yield 'mall wall distance';
+              const a = ring[j], b = ring[i], dx = b.x - a.x, dy = b.y - a.y;
+              const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+              nearest2 = Math.min(nearest2, (p.x - a.x - t * dx) ** 2 + (p.y - a.y - t * dy) ** 2);
+            }
+            if (nearest2 * mvtToM ** 2 >= rules.interiorDepthM ** 2) deepCount++;
+          }
+        }
+        const indoorMall = areaM2 >= rules.minAreaM2 && contained.length >= rules.minPois
+          && deepCount / contained.length >= rules.minDeepShare;
+        // Floor visibility needs contained public booths, not the enclosed-hall
+        // depth test that controls where their rewards stand. Small strip
+        // centres qualify without changing their ordinary frontage placement.
+        const commercialCount = contained.filter(p => p.commercial).length;
+        if (commercialCount >= rules.minCommercialPois) {
+          retailInteriors.push({ rings, areaM2, poiCount: contained.length,
+            commercialCount, deepCount, indoorMall });
+        }
+        if (!indoorMall) continue;
         for (const p of contained) poiKeys.add(`${p.x},${p.y}`);
         buildings.push({ areaM2, poiCount: contained.length, deepCount });
       }
     }
-    return { poiKeys, buildings };
+    return { poiKeys, buildings, retailInteriors };
   }
   // The same ray's crossings along the row at `y`, sorted — a scanline fill
   // walks them once per row instead of asking pointInRings per cell.
@@ -4900,6 +4919,17 @@
     yield 'lot lanes';
     layersByName['poi'] = parkPoiLayer(layersByName['poi'], layersByName['park']);
     const indoorMalls = yield* indoorMallPoisSteps(layersByName['building'], layersByName['poi'], mvtToM);
+    const retailInteriors = [];
+    for (const interior of indoorMalls.retailInteriors) {
+      // Global MVT coordinates give buffered copies the same key without
+      // depending on save latitude, feature order, winding or ring start.
+      const key = 'retail:' + interior.rings.map(ring => [...new Set(ring.map(p =>
+        `${tx * TILE_EXTENT + p.x},${ty * TILE_EXTENT + p.y}`))].sort().join(';')).sort().join('|');
+      retailInteriors.push({ ...interior, key, rings: interior.rings.map(ring => ring.map(p => ({
+        x: tileOriginMx + p.x * mvtToFrameM, y: tileOriginMy + p.y * mvtToFrameM,
+      }))) });
+      yield 'retail interior footprints';
+    }
 
     // PARK CHARACTERS (BiomeProfiles.PARK_CHARACTERS). A park polygon's
     // character is keyed on a GLOBAL point: the named-park POI inside it (the
@@ -6831,7 +6861,7 @@
     chestTopUp.ambient = yield* topUpAmbientCratesSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
       landcoverGrid: caveSource.grid, grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
     assignScholarFallback(deduped);
-    return { grid, owners, ownerKeys, syntheticBuildingCells, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
+    return { grid, owners, ownerKeys, syntheticBuildingCells, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -7039,7 +7069,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, syntheticBuildingCells, objects, wildplants, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, syntheticBuildingCells, objects, wildplants, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -7104,6 +7134,7 @@
       // Source building polygons (tile-local metres) for building_overlay.js —
       // the polygonal counterpart of entry.layers' road linework.
       entry.buildingShapes = buildingShapes || [];
+      entry.retailInteriors = retailInteriors || [];
       // Cave entrance: drop one "descend" staircase per surface tile beside a
       // cave-rock cluster (a mine mouth). Tiles with no cave rock get no
       // entrance — not every block has a way down, which reads naturally.
