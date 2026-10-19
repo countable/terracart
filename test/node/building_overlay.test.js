@@ -871,7 +871,8 @@ test('building overlay: canvas adapter clears and fills the full padded backing 
   const points = [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 0, y: 20 }];
   const oldDamageTexture = CastleStyles.damageTexture;
   try {
-    scene.textures.exists = () => true;
+    // Exercise the larger procedural fallback when the interior sheet is absent.
+    scene.textures.exists = key => !key.startsWith('interior_floor_');
     scene.textures.get = key => ({ getSourceImage: () => ({
       width: key === 'castle_paving' ? 256 : 16, height: key === 'castle_paving' ? 256 : 16,
     }) });

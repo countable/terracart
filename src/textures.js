@@ -1518,6 +1518,17 @@ function makeCastlePavingTexture(scene, size) {
 }
 
 function makeBiomeTextures(scene, size) {
+  // Seamless 32px swatches from PP Interiors Pack/all floors.png.
+  // Keep these opaque materials separate from the biome modulation textures.
+  if (scene.textures.exists('interior_floors')) {
+    const source = scene.textures.get('interior_floors').getSourceImage();
+    for (const [tier, x] of [[9, 176], [11, 48], [12, 208]]) {
+      bakeCanvas(scene, `interior_floor_${tier}`, size, size, ctx => {
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(source, x, 0, 32, 32, 0, 0, size, size);
+      });
+    }
+  }
   makeCaveChasmTexture(scene, size);
   makeCaveWallEdges(scene, size);
   for (const [type, spec] of Object.entries(BIOME_TEX)) {

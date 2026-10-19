@@ -70,7 +70,11 @@ there is no wall canvas bake or texture upload on heading changes. At a fixed
 heading the command buffers are reused. House footprint foundations use the same
 retained perimeter faces, descending below the floor instead of rising as a wall.
 Only camera-facing sides draw; uncapped perimeters also support concave footprints
-without triangulating their textured floors. Floors remain cached ground textures;
+without triangulating their textured floors. Floors remain cached ground textures.
+Building interiors use 32px swatches from the PP Interiors Pack's `all floors.png`
+(`assets/Objects/BuildingMaterials/all-floors.png`): square tiles for houses,
+wooden boards for Home and forts, and masonry for civic buildings. The patterns
+remain anchored to world coordinates and clipped to each footprint.
 Procedural house roofs use triangulated caps and retained sloped roof faces.
 `PolygonGeometry` owns collinear pruning, ear clipping and the shared even–odd
 point-in-rings predicate. Renderers retain their own coordinate normalization,

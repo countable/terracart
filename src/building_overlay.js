@@ -484,14 +484,14 @@
     ctx.lineJoin = 'round';
     const img = scene.add.image(originX, originY, TEX_KEY).setOrigin(0, 0);
     scene.buildingGeomContainer.add(img);
-    // Material patterns, one per tier, taken from the biome textures the tiled
-    // floors wear (pure black/white alpha modulation, so they sit correctly
-    // over a shaded unclaimed fill). Built lazily.
+    // Interior sheet materials, one per tier, with procedural biome patterns
+    // as a fallback when the sheet could not load. Built lazily.
     const patterns = new Map();
     const patternFor = (tier) => {
       if (patterns.has(tier)) return patterns.get(tier);
       let p = null;
-      const key = tier === CASTLE && scene.textures.exists('castle_paving') ? 'castle_paving' : `biome${tier}_0`;
+      const key = scene.textures.exists(`interior_floor_${tier}`) ? `interior_floor_${tier}`
+        : tier === CASTLE && scene.textures.exists('castle_paving') ? 'castle_paving' : `biome${tier}_0`;
       if (scene.textures.exists(key)) {
         const src = scene.textures.get(key).getSourceImage();
         // createPattern THROWS on a zero-sized source (a texture not baked yet)
@@ -1701,11 +1701,11 @@
   // roof inside, with the wall tops in the wall's own colour.
   function drawHomeFloor(g, d, GRID, walled) {
     const tune = tuneOf(true);
-    const floor = tune(floorColor(9, true));
+    const floor = tune(floorColor(11, true));
     // No walls at all (a bare fill target): the tiled south face under the floor.
     if (!walled) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + facePx(9) })), tune(faceColor(9, true)));
     g.fillPoly(d.pts, floor);
-    if (g.texturePoly) g.texturePoly(d.pts, 9);
+    if (g.texturePoly) g.texturePoly(d.pts, 11);
     if (g.gridPoly) g.gridPoly(d.pts, gridInkFor(GRID, floor));
     g.strokePoly(d.pts, OUTLINE_PX, tune(dim(floorColor(9, true), OUTLINE_MUL)));
   }
