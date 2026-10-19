@@ -120,10 +120,10 @@
     return [[0, 1, 2], [0, 2, 3]].map(indices => ({points: indices.map(i => verts[i]), normal, color: 0xffffff}));
   }
   // L1 keeps its entire profile within the original cell. A recessed face
-  // meets the pulled-back crown directly, then a three-segment quarter pipe
+  // meets the pulled-back crown directly, then a five-segment quarter pipe
   // returns to the original floor boundary. The same retained faces rotate with
   // the compass; visibility remains WallPerspective's responsibility.
-  const SEWER_RADIUS = 4, SEWER_STEPS = 3;
+  const SEWER_RADIUS = 5, SEWER_STEPS = 5;
   function geometry(points, mask, v, depth = 0, diagonalMask = 0) {
     const faces = [], curved = depth === 1;
     const normals = points.map((a, i) => {
