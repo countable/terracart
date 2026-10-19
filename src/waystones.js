@@ -23,7 +23,7 @@
         const occupied = o => SpawnOwnership.footprintCells(scene, o).some(p => p.cellIX === c.cellIX && p.cellIY === c.cellIY);
         if (['objects', 'wildplants', 'extraTreasures', 'parkingTreasures'].some(k => (entry[k] || []).some(occupied))
             || (entry.treasure && occupied(entry.treasure))) continue;
-        if (['planted', 'fruittrees', 'fires', 'scarecrows'].some(k => (scene.save[k] || []).some(o => PlacedFloor.onDepth(o, 0) && occupied(o)))) continue;
+        if (['planted', 'fruittrees', 'fires', 'scarecrows', 'furniture'].some(k => (scene.save[k] || []).some(o => PlacedFloor.onDepth(o, 0) && occupied(o)))) continue;
         if (['tilled', 'placedRocks'].some(k => (scene.save[k] || []).includes(`${c.cellIX}_${c.cellIY}`))) continue;
         return { entry, ...absCellCenterMeters(scene, c.cellIX, c.cellIY) };
       }

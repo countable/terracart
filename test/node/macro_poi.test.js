@@ -881,3 +881,32 @@
     assert.eq(r({ class: 'place_of_worship' }).length, 0, 'no faith given and no church name: nothing');
   });
 })();
+
+test('inn sleep: pays and restores once at black, retaining daily-use and failure checks', () => {
+  for (const changed of ['none', 'money', 'used', 'full', 'locked']) {
+    let black, receipts = 0;
+    const scene = Object.assign(Object.create(SceneFurniture.prototype), {
+      save: { energy: 30, money: 1000 }, getMaxEnergy: () => 100,
+      _zeroEnergyLocked() { return this.locked; },
+      moneyHTML: n => String(n), flash() {}, _popEnergy() {}, _finishInventoryChange() {},
+      showOfferModal(offer) { this.offer = offer; },
+      _macroTransaction() { receipts++; },
+      _presentInn: liftSceneMethod('_presentInn'),
+      cameras: { main: { once(event, fn) { black = fn; }, fadeOut() {}, fadeIn() {} } },
+    });
+    const inn = { id: 'sleep-inn' };
+    scene._presentInn(0, 0, inn, {}); scene.offer.onAccept();
+    assert.eq(scene.save.energy, 30); assert.eq(scene.save.money, 1000);
+    if (changed === 'money') scene.save.money = 0;
+    if (changed === 'used') Macros.markServiceToday(scene.save, inn.id);
+    if (changed === 'full') scene.save.energy = 100;
+    if (changed === 'locked') scene.locked = true;
+    black(); black();
+    assert.eq(receipts, changed === 'none' ? 1 : 0);
+    if (changed === 'none') {
+      assert.eq(scene.save.energy, 100);
+      assert.eq(scene.save.money, 1000 - Macros.innPrice(70));
+      assert.truthy(Macros.serviceUsedToday(scene.save, inn.id));
+    } else assert.eq(scene.save.money, changed === 'money' ? 0 : 1000);
+  }
+});

@@ -6,11 +6,12 @@
   }
   function fixture(fn) {
     const key = WorldGen.tileKey(997, 998), previous = WorldGen.tileCache.get(key);
-    const cell = { loaded: true, tx: 997, ty: 998, ix: 1, iy: 1, cellIX: 51, cellIY: 52, type: WorldGen.T.WATER };
+    const cell = { loaded: true, tx: 997, ty: 998, ix: 1, iy: 1, cellIX: 0, cellIY: 0, type: WorldGen.T.WATER };
     const entry = { cellsPerEdge: 4, slowCells: new Map() };
     const scene = { save: { energy: 100 }, startWorldM: { x: 40, y: 60 }, playerM: { x: 2, y: 3 },
+      cellM: 5, cellsPerTile: 32, tileEdgeM: 160, mPerPx: 160 / WorldGen.TILE_PX, originPx: { x: 0, y: 0 },
       _obstacleStep: { liftPx: 0 }, playerFeetNudgeY: -9,
-      cellAt(x, y) { assert.eq(x, 42); assert.eq(y, 63); return cell; },
+      cellAt(x, y) { assert.eq(x, 40 + this.playerM.x); assert.eq(y, 60 + this.playerM.y); return cell; },
       player: { frame: { realWidth: 16, realHeight: 16 },
         setCrop(...args) { this.isCropped = !!args.length; this.crop = args; } } };
     WorldGen.tileCache.set(key, entry);
@@ -42,9 +43,9 @@
   test('submerged player: puddles respect permanent burned-out tar, not unrelated stakes', () => fixture((s, c, e, update) => {
     c.type = WorldGen.T.GRASS; e.slowCells.set(5, 'tar'); update.call(s);
     assert.truthy(s._playerSubmerged);
-    s.save.groundFire = { [GroundFire.key(0, 51, 52)]: { litAt: Date.now() - 2000, until: Date.now() + 60000 } };
+    s.save.groundFire = { [GroundFire.key(0, 0, 0)]: { litAt: Date.now() - 2000, until: Date.now() + 60000 } };
     update.call(s); assert.truthy(s._playerSubmerged, 'active tar still exists');
-    s.save.groundFire[GroundFire.key(0, 51, 52)].extinguished = true;
+    s.save.groundFire[GroundFire.key(0, 0, 0)].extinguished = true;
     update.call(s); assert.falsy(s._playerSubmerged);
     delete s.save.groundFire; e.slowCells.set(5, 'stakes'); update.call(s);
     assert.falsy(s._playerSubmerged);
@@ -63,5 +64,52 @@
       disable();
     }
     c.loaded = false; update.call(s); assert.falsy(s._playerSubmerged);
+  }));
+  test('submerged player: a basin follows the feet cell and current depth indoors and outdoors', () => fixture((s, c, e, update) => {
+    for (const [depth, type] of [[0, WorldGen.T.GRASS], [0, WorldGen.T.BUILDING], [2, WorldGen.T.CAVE_FLOOR]]) {
+      s.depth = depth; c.type = type;
+      s.save.furniture = [{ id: 'tub', itemId: 'washtub', x: 42.5, y: 62.5, depth }];
+      update.call(s);
+      assert.truthy(s._playerSubmerged);
+      assert.eq(s.player.crop.join(','), '0,0,16,8');
+      assert.eq(method('playerBodyDy').call(s), 0);
+      update.call(s); assert.truthy(s._playerSubmerged, 'stationary updates retain the pose');
+      s.playerM.x = 7; c.cellIX = 1;
+      update.call(s); assert.falsy(s._playerSubmerged, 'stepping off clears it');
+      s.playerM.x = 0; c.cellIX = 0;
+      update.call(s); assert.truthy(s._playerSubmerged, 'the cell boundary uses the resolved feet cell');
+      s.playerM.x = 2;
+      s.depth = depth + 1;
+      update.call(s); assert.falsy(s._playerSubmerged, 'a basin on another floor cannot submerge');
+      s.depth = depth;
+      s.save.furniture[0].itemId = 'table_oak';
+      update.call(s); assert.falsy(s._playerSubmerged, 'ordinary furniture is dry');
+    }
+  }));
+  test('submerged player: basin yields to flight, dragon, collapse and support, and pickup clears the pose', () => fixture((s, c, e, update) => {
+    c.type = WorldGen.T.GRASS;
+    SaveState.defaults(s.save);
+    const tub = { id: 'tub', itemId: 'washtub', x: 42.5, y: 62.5, depth: 0 };
+    s.save.furniture = [tub];
+    for (const [enable, disable] of [
+      [() => s.save.flightPotionUntil = Date.now() + 60000, () => delete s.save.flightPotionUntil],
+      [() => s.isDragonActive = () => true, () => delete s.isDragonActive],
+      [() => s.save.energy = 0, () => s.save.energy = 100],
+      [() => s._obstacleStep.liftPx = 3, () => s._obstacleStep.liftPx = 0],
+    ]) {
+      update.call(s); assert.truthy(s._playerSubmerged);
+      enable(); update.call(s);
+      assert.falsy(s._playerSubmerged); assert.falsy(s.player.isCropped);
+      disable();
+    }
+    update.call(s); assert.truthy(s._playerSubmerged);
+    Object.assign(s, { _placedFurniture: SceneFurniture.prototype._placedFurniture,
+      addToInv: (id, n) => Inventory.add(s.save, id, n).accepted,
+      _finishInventoryChange() {}, drawObjects() {}, flashAtPlayer() {} });
+    assert.truthy(SceneFurniture.prototype.pickupFurniture.call(s, tub));
+    assert.eq(s.save.furniture.length, 0);
+    update.call(s);
+    assert.falsy(s._playerSubmerged); assert.falsy(s.player.isCropped);
+    assert.eq(method('playerBodyDy').call(s), -9);
   }));
 })();

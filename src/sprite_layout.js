@@ -5,6 +5,7 @@
 //   For every world sprite EXCEPT buildings (house / tower / produce stands
 //   / pot-of-gold) and moving/animated actors (creatures):
 //     1. The sprite's visible art must NEVER cross the cell's bottom edge.
+//     Authored furniture bases may sit at a specified fraction down the cell.
 //     2. If the art FITS in the cell (height <= one cell) it is centred
 //        vertically in the cell.
 //     3. If it does NOT fit, its bottom is seated exactly 1px above the
@@ -38,6 +39,113 @@
   // Trimmed opaque bounds per "<textureKey>:<frameIndex>" (max EXCLUSIVE).
   // GENERATED — see `node tools/sprite_audit.js --emit-bounds`.
   const ART_BOUNDS = {
+    'furniture:0': { fw: 32, fh: 64, minX: 1, minY: 36, maxX: 31, maxY: 64, baseX: 16 },
+    'furniture:1': { fw: 32, fh: 64, minX: 2, minY: 32, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:16': { fw: 32, fh: 64, minX: 2, minY: 32, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:17': { fw: 32, fh: 64, minX: 2, minY: 32, maxX: 30, maxY: 63, baseX: 16 },
+    'furniture:18': { fw: 32, fh: 64, minX: 3, minY: 32, maxX: 28, maxY: 63, baseX: 16 },
+    'furniture:19': { fw: 32, fh: 64, minX: 3, minY: 32, maxX: 29, maxY: 63, baseX: 16 },
+    'furniture:20': { fw: 32, fh: 64, minX: 3, minY: 32, maxX: 29, maxY: 63, baseX: 16 },
+    'furniture:21': { fw: 32, fh: 64, minX: 3, minY: 32, maxX: 29, maxY: 63, baseX: 16 },
+    'furniture:22': { fw: 32, fh: 64, minX: 4, minY: 32, maxX: 28, maxY: 63, baseX: 16 },
+    'furniture:2': { fw: 32, fh: 64, minX: 1, minY: 32, maxX: 31, maxY: 63, baseX: 16 },
+    'furniture:23': { fw: 32, fh: 64, minX: 1, minY: 32, maxX: 31, maxY: 63, baseX: 16 },
+    'furniture:24': { fw: 32, fh: 64, minX: 0, minY: 35, maxX: 31, maxY: 63, baseX: 16.5 },
+    'furniture:25': { fw: 32, fh: 64, minX: 0, minY: 32, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:26': { fw: 32, fh: 64, minX: 0, minY: 33, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:27': { fw: 32, fh: 64, minX: 0, minY: 36, maxX: 31, maxY: 63, baseX: 15 },
+    'furniture:28': { fw: 32, fh: 64, minX: 0, minY: 34, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:29': { fw: 32, fh: 64, minX: 0, minY: 34, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:3': { fw: 32, fh: 64, minX: 5, minY: 36, maxX: 26, maxY: 63, baseX: 15.5 },
+    'furniture:51': { fw: 32, fh: 64, minX: 5, minY: 36, maxX: 26, maxY: 63, baseX: 15.5 },
+    'furniture:52': { fw: 32, fh: 64, minX: 5, minY: 36, maxX: 26, maxY: 63, baseX: 15.5 },
+    'furniture:53': { fw: 32, fh: 64, minX: 5, minY: 36, maxX: 27, maxY: 63, baseX: 16 },
+    'furniture:54': { fw: 32, fh: 64, minX: 5, minY: 36, maxX: 26, maxY: 63, baseX: 15.5 },
+    'furniture:55': { fw: 32, fh: 64, minX: 5, minY: 36, maxX: 27, maxY: 63, baseX: 16 },
+    'furniture:56': { fw: 32, fh: 64, minX: 5, minY: 36, maxX: 26, maxY: 63, baseX: 15.5 },
+    'furniture:57': { fw: 32, fh: 64, minX: 4, minY: 36, maxX: 27, maxY: 63, baseX: 15.5 },
+    'furniture:4': { fw: 32, fh: 64, minX: 2, minY: 39, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:30': { fw: 32, fh: 64, minX: 2, minY: 39, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:31': { fw: 32, fh: 64, minX: 2, minY: 39, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:32': { fw: 32, fh: 64, minX: 2, minY: 37, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:33': { fw: 32, fh: 64, minX: 2, minY: 37, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:34': { fw: 32, fh: 64, minX: 2, minY: 39, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:35': { fw: 32, fh: 64, minX: 2, minY: 40, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:36': { fw: 32, fh: 64, minX: 2, minY: 40, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:5': { fw: 32, fh: 64, minX: 2, minY: 37, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:37': { fw: 32, fh: 64, minX: 2, minY: 37, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:38': { fw: 32, fh: 64, minX: 2, minY: 39, maxX: 29, maxY: 63, baseX: 15 },
+    'furniture:39': { fw: 32, fh: 64, minX: 2, minY: 37, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:40': { fw: 32, fh: 64, minX: 2, minY: 36, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:41': { fw: 32, fh: 64, minX: 2, minY: 36, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:42': { fw: 32, fh: 64, minX: 2, minY: 36, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:43': { fw: 32, fh: 64, minX: 3, minY: 36, maxX: 29, maxY: 63, baseX: 16 },
+    'furniture:6': { fw: 32, fh: 64, minX: 0, minY: 41, maxX: 31, maxY: 63, baseX: 16 },
+    'furniture:58': { fw: 32, fh: 64, minX: 0, minY: 41, maxX: 31, maxY: 63, baseX: 16 },
+    'furniture:59': { fw: 32, fh: 64, minX: 0, minY: 44, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:60': { fw: 32, fh: 64, minX: 0, minY: 42, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:61': { fw: 32, fh: 64, minX: 0, minY: 43, maxX: 31, maxY: 63, baseX: 16 },
+    'furniture:62': { fw: 32, fh: 64, minX: 0, minY: 44, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:63': { fw: 32, fh: 64, minX: 0, minY: 43, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:64': { fw: 32, fh: 64, minX: 0, minY: 44, maxX: 31, maxY: 63, baseX: 16 },
+    'furniture:7': { fw: 32, fh: 64, minX: 0, minY: 42, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:65': { fw: 32, fh: 64, minX: 0, minY: 44, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:66': { fw: 32, fh: 64, minX: 0, minY: 42, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:67': { fw: 32, fh: 64, minX: 0, minY: 43, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:68': { fw: 32, fh: 64, minX: 0, minY: 39, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:69': { fw: 32, fh: 64, minX: 0, minY: 43, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:70': { fw: 32, fh: 64, minX: 0, minY: 40, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:71': { fw: 32, fh: 64, minX: 0, minY: 42, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:8': { fw: 32, fh: 64, minX: 3, minY: 32, maxX: 29, maxY: 63, baseX: 16 },
+    'furniture:44': { fw: 32, fh: 64, minX: 4, minY: 32, maxX: 28, maxY: 63, baseX: 16 },
+    'furniture:45': { fw: 32, fh: 64, minX: 3, minY: 32, maxX: 29, maxY: 63, baseX: 16 },
+    'furniture:46': { fw: 32, fh: 64, minX: 5, minY: 32, maxX: 27, maxY: 63, baseX: 16 },
+    'furniture:47': { fw: 32, fh: 64, minX: 2, minY: 32, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:48': { fw: 32, fh: 64, minX: 4, minY: 32, maxX: 28, maxY: 63, baseX: 16 },
+    'furniture:49': { fw: 32, fh: 64, minX: 4, minY: 32, maxX: 28, maxY: 63, baseX: 16 },
+    'furniture:50': { fw: 32, fh: 64, minX: 3, minY: 32, maxX: 28, maxY: 63, baseX: 15.5 },
+    'furniture:9': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 24, maxY: 63, baseX: 13 },
+    'furniture:72': { fw: 32, fh: 64, minX: 8, minY: 32, maxX: 23, maxY: 63, baseX: 15.5 },
+    'furniture:73': { fw: 32, fh: 64, minX: 6, minY: 32, maxX: 25, maxY: 63, baseX: 11.5 },
+    'furniture:74': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 24, maxY: 63, baseX: 13 },
+    'furniture:75': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 24, maxY: 63, baseX: 15.5 },
+    'furniture:76': { fw: 32, fh: 64, minX: 6, minY: 32, maxX: 25, maxY: 63, baseX: 12 },
+    'furniture:77': { fw: 32, fh: 64, minX: 6, minY: 32, maxX: 25, maxY: 63, baseX: 15 },
+    'furniture:78': { fw: 32, fh: 64, minX: 9, minY: 32, maxX: 23, maxY: 63, baseX: 16 },
+    'furniture:10': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 25, maxY: 63, baseX: 16 },
+    'furniture:79': { fw: 32, fh: 64, minX: 8, minY: 32, maxX: 24, maxY: 63, baseX: 16 },
+    'furniture:80': { fw: 32, fh: 64, minX: 6, minY: 32, maxX: 25, maxY: 63, baseX: 15.5 },
+    'furniture:81': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 25, maxY: 63, baseX: 16 },
+    'furniture:82': { fw: 32, fh: 64, minX: 6, minY: 32, maxX: 25, maxY: 63, baseX: 15.5 },
+    'furniture:83': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 24, maxY: 63, baseX: 15.5 },
+    'furniture:84': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 25, maxY: 63, baseX: 16 },
+    'furniture:85': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 24, maxY: 63, baseX: 15.5 },
+    'furniture:11': { fw: 32, fh: 64, minX: 8, minY: 36, maxX: 24, maxY: 63, baseX: 16 },
+    'furniture:86': { fw: 32, fh: 64, minX: 8, minY: 36, maxX: 23, maxY: 63, baseX: 15.5 },
+    'furniture:87': { fw: 32, fh: 64, minX: 8, minY: 36, maxX: 24, maxY: 63, baseX: 16 },
+    'furniture:88': { fw: 32, fh: 64, minX: 8, minY: 36, maxX: 23, maxY: 63, baseX: 15.5 },
+    'furniture:89': { fw: 32, fh: 64, minX: 7, minY: 36, maxX: 24, maxY: 63, baseX: 15.5 },
+    'furniture:90': { fw: 32, fh: 64, minX: 8, minY: 36, maxX: 23, maxY: 63, baseX: 15.5 },
+    'furniture:91': { fw: 32, fh: 64, minX: 8, minY: 36, maxX: 23, maxY: 63, baseX: 15.5 },
+    'furniture:92': { fw: 32, fh: 64, minX: 8, minY: 36, maxX: 23, maxY: 63, baseX: 15.5 },
+    'furniture:12': { fw: 32, fh: 64, minX: 0, minY: 44, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:13': { fw: 32, fh: 64, minX: 12, minY: 34, maxX: 20, maxY: 64, baseX: 16 },
+    'furniture:14': { fw: 32, fh: 64, minX: 4, minY: 36, maxX: 27, maxY: 63, baseX: 16.5 },
+    'furniture:93': { fw: 32, fh: 64, minX: 5, minY: 36, maxX: 27, maxY: 63, baseX: 16.5 },
+    'furniture:94': { fw: 32, fh: 64, minX: 4, minY: 36, maxX: 27, maxY: 63, baseX: 15.5 },
+    'furniture:95': { fw: 32, fh: 64, minX: 4, minY: 36, maxX: 27, maxY: 63, baseX: 16.5 },
+    'furniture:96': { fw: 32, fh: 64, minX: 4, minY: 36, maxX: 27, maxY: 63, baseX: 16.5 },
+    'furniture:97': { fw: 32, fh: 64, minX: 4, minY: 36, maxX: 27, maxY: 63, baseX: 15.5 },
+    'furniture:98': { fw: 32, fh: 64, minX: 4, minY: 36, maxX: 27, maxY: 63, baseX: 15 },
+    'furniture:99': { fw: 32, fh: 64, minX: 5, minY: 36, maxX: 26, maxY: 63, baseX: 14 },
+    'furniture:15': { fw: 32, fh: 64, minX: 3, minY: 32, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:100': { fw: 32, fh: 64, minX: 4, minY: 32, maxX: 28, maxY: 63, baseX: 15.5 },
+    'furniture:101': { fw: 32, fh: 64, minX: 3, minY: 32, maxX: 29, maxY: 63, baseX: 14.5 },
+    'furniture:102': { fw: 32, fh: 64, minX: 3, minY: 32, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:103': { fw: 32, fh: 64, minX: 3, minY: 32, maxX: 29, maxY: 63, baseX: 15.5 },
+    'furniture:104': { fw: 32, fh: 64, minX: 2, minY: 32, maxX: 29, maxY: 63, baseX: 13 },
+    'furniture:105': { fw: 32, fh: 64, minX: 2, minY: 32, maxX: 30, maxY: 63, baseX: 16 },
+    'furniture:106': { fw: 32, fh: 64, minX: 3, minY: 32, maxX: 29, maxY: 63, baseX: 16 },
     'clay_pot_smashed:3': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 22, maxY: 23 },
     'clay_pot_smashed:2': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 23, maxY: 23 },
     'clay_pot_smashed:1': { fw: 24, fh: 24, minX: 1, minY: 2, maxX: 23, maxY: 23 },
@@ -361,17 +469,19 @@
   // fraction of the frame box) and its X/Y scale, return the { dxPx, dyPx }
   // offset from the projected cell CENTRE that places the art per the rule.
   // `fits` is returned for callers/tests that care which branch was taken.
-  function seatInCell(box, originX, originY, scaleX, scaleY, cellPx) {
+  function seatInCell(box, originX, originY, scaleX, scaleY, cellPx, seatFoot) {
     cellPx = cellPx || CELL_PX;
     const artBottomLocal = box.maxY - originY * box.fh;       // px below anchor
     const artMidLocal    = (box.minY + box.maxY) / 2 - originY * box.fh;
     const artHeight      = (box.maxY - box.minY) * scaleY;
     const fits = artHeight <= cellPx;
     // Vertical: centre when it fits, else seat the bottom 1px above the edge.
-    const dyPx = fits ? -artMidLocal * scaleY
+    const dyPx = Number.isFinite(seatFoot) ? (seatFoot - 0.5) * cellPx - artBottomLocal * scaleY
+                      : fits ? -artMidLocal * scaleY
                       : (cellPx / 2 - 1) - artBottomLocal * scaleY;
     // Horizontal: always centre the art on the cell.
-    const artMidX = (box.minX + box.maxX) / 2 - originX * box.fw;
+    const artMidX = (Number.isFinite(seatFoot) && Number.isFinite(box.baseX)
+      ? box.baseX : (box.minX + box.maxX) / 2) - originX * box.fw;
     const dxPx = -artMidX * scaleX;
     return { dxPx, dyPx, fits };
   }

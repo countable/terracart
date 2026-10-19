@@ -58,17 +58,21 @@ class SceneVenues {
       acceptLabel: 'Rest',
       cancelLabel: 'Later',
       onAccept: () => {
-        const cur = this.save.energy ?? 0;
-        const r = Macros.innRest(this.save, o, this.getMaxEnergy());
-        if (!r.ok) {
-          if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy);
-          return;
-        }
-        this._finishInventoryChange();
-        if (this.updateEnergyDOM) this.updateEnergyDOM();
-        // A gain to the BODY: it lands on the player's own cell.
-        this._popEnergy(Math.max(0, (this.save.energy ?? 0) - cur));
-        this._macroTransaction('inn', `You paid ${this.moneyHTML(r.price)} and restored ${r.gain} HP. You are fully rested.`);
+        this._presentSleep({ art: Macros.stallArt('inn', o), commit: () => {
+          if (this._zeroEnergyLocked()) { this.flash('Too far gone for a bed.', sx, sy); return; }
+          const cur = this.save.energy ?? 0;
+          const r = Macros.innRest(this.save, o, this.getMaxEnergy());
+          if (!r.ok) {
+            if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy);
+            return;
+          }
+          this._finishInventoryChange();
+          if (this.updateEnergyDOM) this.updateEnergyDOM();
+          // A gain to the BODY: it lands on the player's own cell.
+          this._popEnergy(Math.max(0, (this.save.energy ?? 0) - cur));
+          persistSave(this.save);
+          this._macroTransaction('inn', `You paid ${this.moneyHTML(r.price)} and restored ${r.gain} HP. You are fully rested.`);
+        } });
       },
     });
   }
@@ -757,12 +761,12 @@ class SceneVenues {
     });
   }
 
-  // CRAFT page: one recipe of HOME_RECIPES (items.js) at a time, with a
+  // CRAFT page: Home recipes bootstrap a placed workbench, with a
   // direct recipe picker. `targetId` defaults to the first recipe the
   // bag can make, so the page opens on something usable.
   presentHomeCraft(sx, sy, targetId = null) {
     this._presentRecipePicker(sx, sy, {
-      recipes: HOME_RECIPES, targetId,
+      recipes: HOME_RECIPES.filter(r => r.station === 'home'), targetId,
       present: id => this.presentHomeCraft(sx, sy, id),
       kind: 'craft', kindIcon: this._homeKindIcon(),
       tabs: this._homeTabs('craft', sx, sy),
@@ -1064,20 +1068,18 @@ class SceneVenues {
     return null;
   }
 
-  // Is the player resting AT their Home? Drives the faster HOME_FULL_REST_S
-  // energy-rest rate. It is a DISTANCE test — anywhere inside Home's ring
-  // (HOME_R), exactly like the campfire's _nearAny('fires', …, FIRE_REST_R) —
-  // because Home is a campfire you own: the same ring rests you, lights you
-  // and turns enemies away.
-  //   Both adopted houses and the trailer rest you on the DOORSTEP, which is
-  // where the player stands while farming the plot two cells away.
+  // Rest is the owned Home footprint plus edge-sharing neighbours, never
+  // diagonal corners. Offset absolute cells so ownership works across seams.
   isRestingAtHome(pWX, pWY) {
-    return this.inHomeRing(pWX, pWY);
+    if ((this.depth || 0) !== 0 || !this.save.starterShopId) return false;
+    const cell = worldMetersToAbsCell(this, pWX, pWY);
+    return [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]].some(([dx, dy]) => {
+      const c = absCellOffset(this, cell.cellIX, cell.cellIY, dx, dy);
+      const p = absCellCenterMeters(this, c.cellIX, c.cellIY);
+      return PlacedFloor.homeCell(this, p.x, p.y);
+    });
   }
-  // Is the world point (x, y) inside Home's ring (HOME_R)? THE one distance
-  // test behind every effect of the ring that is asked about a point — the
-  // rest above.
-  // Surface only, through homeWorldPos; no Home, no ring.
+  // The broader surface ring remains shared by light, ward and story delivery.
   inHomeRing(x, y) {
     const home = this.homeWorldPos();
     if (!home) return false;
@@ -1208,6 +1210,7 @@ class SceneVenues {
       this._starterTrailerObj = null;
       this.ensureStarterTrailerObject();
     } else this._makeStarterTrailer(wagon.x, wagon.y);
+    Furniture.recompute(this);
     return true;
   }
 
@@ -1443,15 +1446,14 @@ class SceneVenues {
   }
   // Is the player INSIDE Home's house — standing on one of its cells (the
   // doorway row included)? Surface only; the house has no cellar.
-  homeInside() {
-    if ((this.depth || 0) !== 0 || !this.save.starterShopId || !this.playerM || !this.startWorldM) return false;
-    const { x, y } = playerWorldM(this);
-    const c = worldMetersToAbsCell(this, x, y);
-    const t = absCellToTile(this, c.cellIX, c.cellIY);
-    const e = WorldGen.tileCache.get(WorldGen.tileKey(t.tx, t.ty));
-    if (!e?.grid || !e.owners || !e.ownerKeys) return false;
-    const i = t.iy * t.n + t.ix;
-    return BUILDING_TYPES.has(e.grid[i]) && e.ownerKeys[e.owners[i]] === this.save.starterShopId;
+  homeInside(x, y) {
+    if ((this.depth || 0) !== 0 || !this.save.starterShopId) return false;
+    // Placement asks about the target; the default remains the player’s feet.
+    if (x == null || y == null) {
+      if (!this.playerM || !this.startWorldM) return false;
+      ({ x, y } = playerWorldM(this));
+    }
+    return PlacedFloor.homeCell(this, x, y);
   }
   // The house round the player while they are inside it — its ring in world
   // metres and a key naming it — or null. lighting.js masks everything

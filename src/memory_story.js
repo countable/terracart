@@ -126,6 +126,20 @@ const MemoryStory = (() => {
     { art: 'trail_intro', title: 'The road you chose', body: 'You remember walking this road alone. Now you hear neighbours calling to each other.' },
     { art: 'home_sell', title: 'Small things remain', body: 'You remember the smell of warm bread and someone calling you in from the rain.' },
   ];
+  // Domestic memories share the discovery ledger, but never disclose the
+  // tower's gated story. Thresholds are lifetime achievements, not per house.
+  const LUXURY_MILESTONES = [
+    { luxury: 4, key: 'luxury:4', title: 'Living like a Neighbour',
+      line: 'You remember making room at the table for one more neighbour.' },
+    { luxury: 16, key: 'luxury:16', title: 'Living like a Craftsperson',
+      line: 'You remember the scent of fresh wood and a chair made by your own hands.' },
+    { luxury: 36, key: 'luxury:36', title: 'Living like a Merchant',
+      line: 'You remember coming home to a soft seat after a long day at the market.' },
+    { luxury: 64, key: 'luxury:64', title: 'Living like a Noble',
+      line: 'You remember a visitor pausing in the doorway to admire the room.' },
+    { luxury: 100, key: 'luxury:100', title: 'Living like a Monarch',
+      line: 'You remember a quiet evening in a beautiful room, with the busy lane beyond the window.' },
+  ];
   const INTRO = [
     { art: 'restore_wizard', title: 'Someone has been waiting', body: 'The tower door opens before you knock. The wizard welcomes you and asks about the houses you repaired.' },
     { art: 'kind_wizard', title: 'A promise of help', body: 'The wizard offers to help you grow stronger. You will need that strength to face the dangers beyond the roads.' },
@@ -258,12 +272,33 @@ const MemoryStory = (() => {
     };
     show(from);
   }
-  function enqueue(save, n, label) {
+  function reconcileLuxury(scene) {
+    if (!scene?.save?.starterShopId || typeof scene._bankDiscovery !== 'function') return false;
+    const score = Furniture.luxuryOf(scene.save, scene.save.starterShopId);
+    let changed = false;
+    for (const row of LUXURY_MILESTONES) {
+      if (score >= row.luxury && !scene.save.discovered?.[row.key]) {
+        if (scene._bankDiscovery(row.key, row.title)) changed = true;
+      }
+    }
+    return changed;
+  }
+  function enqueue(save, n, label, key) {
     const s = state(save), id = `memory:${n}`;
-    if (!s.pending.some(p => p.id === id)) s.pending.push({ id, memory: n, label: label || 'something new' });
+    if (!s.pending.some(p => p.id === id)) {
+      s.pending.push({ id, memory: n, label: label || 'something new', ...(key ? { key } : {}) });
+      // A luxury memory owns its domestic panel. If it also reaches a
+      // numbered scene, retain that scene as a second acknowledgement,
+      // without banking a second memory or moving the narrative gates.
+      if (LUXURY_MILESTONES.some(row => row.key === key) && n > 0 && n % 3 === 0) {
+        s.pending.push({ id: `${id}:scene`, memory: n, label: label || 'something new' });
+      }
+    }
     return s.pending;
   }
   function panel(record, save) {
+    const luxury = LUXURY_MILESTONES.find(row => row.key === record.key);
+    if (luxury) return { art: 'restore_house', kind: 'memory', title: luxury.title, body: luxury.line };
     const n = record.memory;
     if (n === 30 && save?.memoryStory?.act3Started) return { ...AFTER[0], kind: 'memory' };
     if (n > 0 && n % 3 === 0) {
@@ -651,7 +686,7 @@ const MemoryStory = (() => {
     });
   }
   return { START_MEMORIES, LEAVE_MEMORIES, REVEAL_MEMORIES, ABANDONED_NOTE, HALF_FORMED, LOCKED, ABANDONED, EMPTY,
-    HOME, FIRST_ROOF, RUMOUR, NEIGHBOURS, STRANGER, STRANGER_RUMOURS, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
-    state, total, enqueue, panel, drain, atHome, dialogOpen, storyHeld, drainPanel, showPages, npcDialogue, wandererLine, wandererHoused, believerLine, survivorLine, act, towerAccess, objective,
+    HOME, FIRST_ROOF, RUMOUR, NEIGHBOURS, STRANGER, STRANGER_RUMOURS, SCENES, AFTER, LUXURY_MILESTONES, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
+    state, total, reconcileLuxury, enqueue, panel, drain, atHome, dialogOpen, storyHeld, drainPanel, showPages, npcDialogue, wandererLine, wandererHoused, believerLine, survivorLine, act, towerAccess, objective,
     eligibleBeats, wizardSequence, pagesFor, visitWizard, archaeologistConversation, acknowledgeArchaeologist };
 })();

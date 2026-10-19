@@ -114,7 +114,17 @@ function trimFrame(img, fx, fy, fw, fh) {
       }
     }
   }
-  return any ? { minX, minY, maxX, maxY } : null;
+  if (!any) return null;
+  // Bottom three opaque rows describe the support/base, not the overhanging crown.
+  let baseMinX = fw, baseMaxX = 0;
+  for (let y = Math.max(minY, maxY - 3); y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      if (img.data[((fy + y) * img.w + fx + x) * 4 + 3] >= ALPHA_MIN) {
+        baseMinX = Math.min(baseMinX, x); baseMaxX = Math.max(baseMaxX, x + 1);
+      }
+    }
+  }
+  return { minX, minY, maxX, maxY, baseX: (baseMinX + baseMaxX) / 2 };
 }
 
 // Longest run of fully transparent rows BETWEEN opaque rows of one frame. A
@@ -214,7 +224,7 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'util.js'), 'utf8'),
   itemsCtx, { filename: 'util.js' });
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'items.js'), 'utf8'),
   itemsCtx, { filename: 'items.js' });
-vm.runInContext('globalThis.ROCK_VARIANT_ART = ROCK_VARIANT_ART; globalThis.GEM_DEPOSITS = GEM_DEPOSITS; globalThis.CROP_SPRITE = CROP_SPRITE; globalThis.WILDPLANT_CONTEXT_ART = WILDPLANT_CONTEXT_ART;', itemsCtx);
+vm.runInContext('globalThis.FURNITURE = FURNITURE; globalThis.FURNITURE_SCALE = FURNITURE_SCALE; globalThis.ROCK_VARIANT_ART = ROCK_VARIANT_ART; globalThis.GEM_DEPOSITS = GEM_DEPOSITS; globalThis.CROP_SPRITE = CROP_SPRITE; globalThis.WILDPLANT_CONTEXT_ART = WILDPLANT_CONTEXT_ART;', itemsCtx);
 const SHRUB_SCALE = itemsCtx.CROP_SPRITE.shrub.scale;
 const CROP_SPRITE = itemsCtx.CROP_SPRITE;
 
@@ -231,6 +241,7 @@ const ASSETS = assetsCtx.window.ASSETS;
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const GEM_ROCKS = Object.values(itemsCtx.GEM_DEPOSITS).filter(row => row.art.sheet === 'cave_props');
 const SHEETS = {
+  furniture: { file: ASSETS.furniture.path, fw: ASSETS.furniture.frameWidth, fh: ASSETS.furniture.frameHeight, frames: [...new Set(Object.values(itemsCtx.FURNITURE).flatMap(row => [row.frame, ...Object.values(row.tierSheetFrame || {})]))] },
   cave_props: { file: ASSETS.cave_props.path, fw: 24, fh: 24, frames: [1, 6, ...GEM_ROCKS.map(row => row.art.frame)] },
   poison_vent_inactive: { file: ASSETS.poison_vent_inactive.path, fw: 24, fh: 24, frames: [0] },
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
@@ -290,7 +301,14 @@ const SHEETS = {
 //    anchor it measures from, so the ORIGIN CANCELS. SEAT_ANCHOR stands in for all.
 const t = (species, size) => treeScale({ species, size });
 const SEAT_ANCHOR = [0.5, 0.5];
+const furnitureManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/Objects/Furniture/manifest.json'), 'utf8'));
 const SCENARIOS = [
+  ...Object.entries(itemsCtx.FURNITURE).flatMap(([id, row]) =>
+    [row.frame, ...Object.values(row.tierSheetFrame || {})].flatMap(frameIdx =>
+      [false, ...(row.flip ? [true] : [])].map(flipX => ({
+        name: `${id}:${frameIdx}${flipX ? ' flipped' : ''}`, key: 'furniture', frameIdx, scale: itemsCtx.FURNITURE_SCALE, flipX, seatFoot: row.seatFoot,
+        frameSize: furnitureManifest.items.find(entry => entry.itemId === id).frameSize,
+      })))),
   ...['gas_mushroom_small', 'gas_mushroom_large'].map(key => ({
     name: key.replaceAll('_', ' '), key, frameIdx: 0, scale: itemsCtx.WILDPLANT_CONTEXT_ART[key].scale,
   })),
@@ -360,12 +378,20 @@ function evaluate(s) {
   const table = ART_BOUNDS[lookup];
 
   const violations = [];
+  // Furniture frames are bottom-seated in uniform sheet slots. The clock alone
+  // may use the upper half; lamps must stay inside their single-cell frame.
+  if (s.frameSize) {
+    const [width, height] = s.frameSize, left = (fresh.fw - width) / 2;
+    if (fresh.minX < left || fresh.maxX > left + width || fresh.minY < fresh.fh - height)
+      violations.push(`art exceeds its ${width}×${height} furniture frame`);
+  }
   // Drift guard: the seated table must match the real art.
   if (!table) {
     violations.push(`ART_BOUNDS missing "${lookup}" (run --emit-bounds)`);
   } else if (table.minX !== fresh.minX || table.minY !== fresh.minY ||
              table.maxX !== fresh.maxX || table.maxY !== fresh.maxY ||
-             table.fw !== fresh.fw || table.fh !== fresh.fh) {
+             table.fw !== fresh.fw || table.fh !== fresh.fh ||
+             (s.key === 'furniture' && table.baseX !== fresh.baseX)) {
     violations.push(`ART_BOUNDS "${lookup}" stale (run --emit-bounds)`);
   }
   // One frame, one piece of art (see frameRowGap).
@@ -376,17 +402,21 @@ function evaluate(s) {
   }
 
   // Seat with the SAME maths the renderer uses, then measure the real art box.
-  const box = table || fresh;
+  const mirror = box => s.flipX ? { ...box, minX: box.fw - box.maxX, maxX: box.fw - box.minX, baseX: box.fw - box.baseX } : box;
+  const box = mirror(table || fresh);
+  const shown = mirror(fresh);
   const scaleX = s.scale, scaleY = s.scale * (s.scaleYMul || 1);
   const [ox, oy] = SEAT_ANCHOR;
-  const { dxPx, dyPx, fits } = seatInCell(box, ox, oy, scaleX, scaleY);
+  const { dxPx, dyPx, fits } = seatInCell(box, ox, oy, scaleX, scaleY, undefined, s.seatFoot);
   const tlx = dxPx - ox * fresh.fw * scaleX;
   const tly = dyPx - oy * fresh.fh * scaleY;
-  const left = tlx + fresh.minX * scaleX, right = tlx + fresh.maxX * scaleX;
+  const left = tlx + shown.minX * scaleX, right = tlx + shown.maxX * scaleX;
   const top = tly + fresh.minY * scaleY, bottom = tly + fresh.maxY * scaleY;
-  const artH = bottom - top, centerX = (left + right) / 2;
+  const artH = bottom - top, centerX = Number.isFinite(s.seatFoot)
+    ? tlx + shown.baseX * scaleX : (left + right) / 2;
   const overlap = bottom - CELL_BOTTOM;
-  const targetBottom = fits ? artH / 2 : CELL_BOTTOM - 1;
+  const targetBottom = Number.isFinite(s.seatFoot) ? (s.seatFoot - 0.5) * 32
+    : fits ? artH / 2 : CELL_BOTTOM - 1;
 
   if (overlap > TOL_OVERLAP) violations.push(`overlaps cell below by ${overlap.toFixed(1)}px`);
   if (Math.abs(centerX) > TOL_CENTER) violations.push(`off-centre X by ${centerX.toFixed(1)}px`);
@@ -467,7 +497,7 @@ function emitBounds() {
     for (const fi of sh.frames) {
       const b = trimSheetFrame(sh.file, sh.fw, sh.fh, sh.sourceFrame ?? fi);
       lines.push(`    '${key}:${fi}': { fw: ${b.fw}, fh: ${b.fh}, ` +
-        `minX: ${b.minX}, minY: ${b.minY}, maxX: ${b.maxX}, maxY: ${b.maxY} },`);
+        `minX: ${b.minX}, minY: ${b.minY}, maxX: ${b.maxX}, maxY: ${b.maxY}${key === 'furniture' ? `, baseX: ${b.baseX}` : ''} },`);
     }
   }
   console.log('  const ART_BOUNDS = {\n' + lines.join('\n') + '\n  };');

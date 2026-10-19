@@ -82,7 +82,7 @@ test('chest themes: gear belongs to cultural and protective groups', () => {
     assert.eq(gearShare, 0, `${theme}: no unrelated gear`);
   }
   assert.eq(ChestThemes.weights('civic', 4).uniqueRelics, 25);
-  assert.eq(ChestThemes.weights('culture', 4).culturalGear, 20 * 0.95);
+  assert.eq(ChestThemes.weights('culture', 4).culturalGear, 18 * 85 / 90);
   assert.eq(ChestThemes.weights('authority', 4).protectiveGear, 40 * 0.95);
 });
 
@@ -91,7 +91,7 @@ test('chest themes: roadside never awards gear, even at high quality', () => {
   for (let i = 0; i < 2000; i++) {
     const reward = pickReward('chest:lowtier', { relics: {}, armor: {} }, rng, { tier: 5 });
     assert.truthy(reward.kind === 'item' || reward.kind === 'gold');
-    assert.truthy(['supplies', 'materials', 'cash'].includes(reward.group));
+    assert.truthy(['supplies', 'materials', 'cash', 'furniture'].includes(reward.group));
   }
 });
 

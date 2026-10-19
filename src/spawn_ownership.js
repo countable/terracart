@@ -7,7 +7,7 @@
     const ids = new Set();
     if (!save) return ids;
     for (const rec of ((save.starterHome && save.starterHome.placed) || [])) if (rec.id) ids.add(rec.id);
-    for (const list of [save.fruittrees, save.barricades]) {
+    for (const list of [save.fruittrees, save.barricades, save.furniture]) {
       for (const rec of (list || [])) if (rec.id) ids.add(rec.id);
     }
     if (save.starterTrailer && save.starterTrailer.id) ids.add(save.starterTrailer.id);
@@ -93,7 +93,10 @@
       if (!owners.has(key)) owners.set(key, new Set());
       owners.get(key).add(claim.id);
     }
+    // A furnishing claims the floor, never the building that contains it.
+    const hosts = new Set(claims.map(o => o.houseKey).filter(Boolean));
     const keep = (o) => {
+      if (hosts.has(o.id) && isBuilding(o.kind)) return true;
       if (isProtected(o, scene.save, ids)) return true;
       return !footprintCells(scene, o).some(cell => {
         const claimed = owners.get(`${cell.cellIX},${cell.cellIY}`);

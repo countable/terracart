@@ -3985,13 +3985,25 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
   return drawn;
 };
 
+// Score text has its own cache and never enters Home's session typing clock.
+Render.homeLuxuryLabel = function homeLuxuryLabel(scene) {
+  const home = scene.save?.starterShopId;
+  const inside = !!home && !!scene.homeInside?.();
+  const score = home ? Furniture.luxuryOf(scene.save, home) : 0;
+  const key = `${home}|${inside}|${score}`;
+  if (scene._homeLuxuryLabel?.key !== key) {
+    scene._homeLuxuryLabel = { key, text: inside ? String(score) : null };
+  }
+  return scene._homeLuxuryLabel.text;
+};
+
 // Can this object throw a light BEFORE drawObjects' sprite cull — one whose
 // glow reaches past its art (a restored building or Home, a torch, a grove
 // shrine, a viewpoint's scope)? The one predicate the sprite walk offers by
 // and the per-tile list below is derived by.
 function offersPreCullLight(o) {
   const k = o.kind;
-  return isBuilding(k) || k === 'temple' || k === 'torch' || k === 'waystone' || k === 'grove_shrine' || k === 'vista_scope'
+  return isBuilding(k) || k === 'furniture' || k === 'temple' || k === 'torch' || k === 'waystone' || k === 'grove_shrine' || k === 'vista_scope'
     || !!(typeof Macros !== 'undefined' && Macros.visitKindForObject(o));
 }
 // A tile's pre-cull lights (util.js derivedObjects — re-derived only when the
@@ -4358,7 +4370,7 @@ Render.drawObjects = function drawObjects(scene) {
     // before the sprite cull, with its own radius as the margin, so a
     // lantern a cell off-screen still lights the edge it stands past.
     const visit = typeof Macros !== 'undefined' && Macros.visitKindForObject(o);
-    if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'waystone' || o.kind === 'grove_shrine' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
+    if (isBuilding(o.kind) || o.kind === 'furniture' || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'waystone' || o.kind === 'grove_shrine' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
     // A grove shrine whose gift is still there today ALSO wears the POI
     // light — the one "something to take here" mark (poiLit).
     if ((o.kind === 'grove_shrine' || visit) && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
@@ -4717,8 +4729,10 @@ Render.drawObjects = function drawObjects(scene) {
   for (const it of environmentList) zList.push({ it, rank: 1,
     layer: Render.itemLayer(it), groundY: groundY(it) });
   for (const it of whirlwindList) zList.push({ it, rank: 3, groundY: groundY(it) });
-  for (const it of plantedList) zList.push({ it, rank: 0,
-    groundY: groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
+  const planterGroundY = new Map(filteredObj.filter(it => furnitureSpec(it.o)?.ability === 'plant')
+    .map(it => [it.o.id, groundY(it, Render.objectGroundOffsetPx(it._appearance, scene.textures))]));
+  for (const it of plantedList) zList.push({ it, rank: it.p.planter ? 2 : 0,
+    groundY: planterGroundY.get(it.p.planter) ?? groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
   for (const it of filteredObj) zList.push({ it, rank: it.o.kind === 'tower' ? 2 : 1,
     layer: Render.itemLayer(it),
     groundY: groundY(it, Render.objectGroundOffsetPx(it._appearance, scene.textures)) });
@@ -5167,6 +5181,11 @@ Render.drawObjects = function drawObjects(scene) {
     const glyph = Render.shopSignGlyph(theme, role);
     (badge || theme ? plates : plain).push(badge || theme ? { ...item, badge, glyph, theme } : item);
   }
+  const luxuryText = Render.homeLuxuryLabel(scene);
+  if (luxuryText !== null) {
+    const home = plain.find(item => item.o.id === scene.save.starterShopId);
+    if (home) plain.push({ ...home, luxuryText });
+  }
   Render.renderPool(scene, scene.shopLabelPool, scene.labelContainer, plain, (tx, item) => {
     const { o, dx, dy } = item;
     const { x: px, y: py } = project(dx, dy);
@@ -5174,10 +5193,11 @@ Render.drawObjects = function drawObjects(scene) {
     const sx = px + mid.x, sy = py + mid.y;
     // The label TOP hangs 12px below the art's middle (origin [0.5, 0], so
     // position y = label top): across the building's lower front, by its door.
-    const full = _houseSignText(o);
+    const luxury = item.luxuryText !== undefined;
+    const full = luxury ? item.luxuryText : _houseSignText(o);
     const home = _houseRole(o) === 'trailer';
-    const typed = home ? _homeSignTyped(full) : full;
-    setColorOnce(tx, _lighten30(_houseSignInk(o)));
+    const typed = home && !luxury ? _homeSignTyped(full) : full;
+    setColorOnce(tx, luxury ? '#ffffff' : _lighten30(_houseSignInk(o)));
     tx.setText(full);
     // Home's sign rides over the roof: the player starts in its doorway,
     // where a sign across the lower front would sit under them and fade out.
@@ -5186,7 +5206,7 @@ Render.drawObjects = function drawObjects(scene) {
     // the house is prisms, which have no art height.
     const nudge = home ? HomeArea.SIGN_NUDGE_PX : { x: 0, y: 0 };
     const homeLift = home ? (_houseArtH(o) ? _houseArtH(o) / 2 : HomeArea.HOUSE.signLiftPx) : 0;
-    const top = home ? Math.round(sy - homeLift - tx.height + nudge.y) : Math.round(sy) + 12;
+    const top = home ? Math.round(sy - homeLift - tx.height + nudge.y - (luxury ? tx.height + 4 : 0)) : Math.round(sy) + 12;
     if (typed === full) {
       tx.setPosition(Math.round(clampTextX(sx + nudge.x, tx.width, CANVAS_W)), top);
     } else {
@@ -5577,7 +5597,7 @@ Render.drawObjects = function drawObjects(scene) {
     }
     // Scale, origin row and seat offsets are the one placement rule the
     // contact shadow reads too (Render.plantPlacement), so neither can drift.
-    const placement = Render.plantPlacement(p, ov, wildplantFrame(p), stage);
+    const placement = Render.plantPlacement(p, ov, wildplantFrame(p), stage, scene);
     s.setOrigin(0.5, placement.oy).setScale(placement.scl).setPosition(Math.round(sx) + placement.dxPx, Math.round(sy) + placement.dyPx);
     // A bush being logged sways about its foot, as a tree under the axe does
     // (the pool reset its rotation before this configure).
@@ -6092,7 +6112,25 @@ Render.wildplantShadow = function (plant, art = wildplantSprite(plant)) {
 // pool, and not placed rockfruit stones) sit 3px higher and 20% smaller
 // than the shared crop art. Tall authored plants (`seat: true`) follow the
 // same cell-foot rule as trees and props off their trimmed ART_BOUNDS.
-Render.plantPlacement = function (plant, art, frame, stage) {
+Render.plantPlacement = function (plant, art, frame, stage, scene) {
+  if (plant?.planter) {
+    const seat = RENDER_SPEC.furniture.planterCrop;
+    const planter = scene?.save?.furniture?.find(o => o.id === plant.planter);
+    const bounds = planter && SpriteLayout.ART_BOUNDS[`furniture:${furnitureFrame(planter)}`];
+    let lift = 0, shiftX = 0;
+    if (bounds) {
+      const normal = SpriteLayout.seatInCell(bounds, 0.5, 0.5, FURNITURE_SCALE, FURNITURE_SCALE);
+      const flipped = furnitureSpec(planter)?.flip && planter.flip;
+      const base = flipped ? { ...bounds, baseX: bounds.fw - bounds.baseX,
+        minX: bounds.fw - bounds.maxX, maxX: bounds.fw - bounds.minX } : bounds;
+      const placed = SpriteLayout.seatInCell(base, 0.5, 0.5, FURNITURE_SCALE, FURNITURE_SCALE,
+        CELL_PX, furnitureSpec(planter)?.seatFoot);
+      lift = placed.dyPx - normal.dyPx;
+      const centred = SpriteLayout.seatInCell(base, 0.5, 0.5, FURNITURE_SCALE, FURNITURE_SCALE);
+      shiftX = placed.dxPx - centred.dxPx;
+    }
+    return { scl: seat.scale, oy: seat.originY, dxPx: shiftX, dyPx: seat.dyPx() + lift };
+  }
   const isCropsSheet = !art || (!art.custom && art.sheet !== 'springcrops');
   const oy = (stage === 0 && isCropsSheet) ? 0.85 : 0.5;
   const isPlantedCrop = !!plant && plant.wildId == null && !plant._placedRock;
@@ -6254,6 +6292,15 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // That baked shadow IS its contact shadow: no `shadow` row, or the ellipse
     // would double it, centred under the bake rather than the feet.
     _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true },
+    furniture: { key: 'furniture', frame: furnitureFrame,
+      // The 16px crop starts near the north edge and roots in the pot's soil.
+      planterCrop: { scale: 1, originY: 0, dyPx: () => -CELL_PX * 0.5 + 3 },
+      origin: [0.5, 0.5], scale: FURNITURE_SCALE, seat: true,
+      seatFoot: o => furnitureSpec(o)?.seatFoot,
+      layer: o => ['flat', 'basin'].includes(furnitureSpec(o)?.height) ? WorldLayers.GROUND_DECAL : null,
+      flipX: o => !!(furnitureSpec(o)?.flip && o.flip),
+      after: (sprite, o) => sprite.setFlipX(!!(furnitureSpec(o)?.flip && o.flip)),
+    },
     // The down pit uses only the lower half of its sheet, centred in the
     // cell. The standalone up ladder keeps its full image.
     staircase: { key: (o) => o.elevator ? 'progression_tiles' : (o.dir === 'up' ? 'stair_up' : 'stair_down'),
@@ -6550,13 +6597,19 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     if (wantSeat && SL) {
       // Animated sheets use stable bounds so neither art nor shadow bobs.
       const bframe = spec.seatFrame !== undefined ? spec.seatFrame : (frameVal ?? 0);
-      const bb = SL.ART_BOUNDS[`${texKey}:${bframe}`];
+      const bounds = SL.ART_BOUNDS[`${texKey}:${bframe}`];
+      // Mirror the seating bounds with the art so asymmetric frames stay in
+      // their own cell after a placed object's orientation changes.
+      const flipped = typeof spec.flipX === 'function' ? spec.flipX(o) : spec.flipX;
+      const bb = bounds && flipped ? { ...bounds, minX: bounds.fw - bounds.maxX, maxX: bounds.fw - bounds.minX, baseX: bounds.fw - bounds.baseX } : bounds;
       if (bb) {
-        const seat = SL.seatInCell(bb, origin[0], origin[1], scl, scl * scaleYMul);
+        const seatFoot = typeof spec.seatFoot === 'function' ? spec.seatFoot(o) : spec.seatFoot;
+        const seat = SL.seatInCell(bb, origin[0], origin[1], scl, scl * scaleYMul, CELL_PX, seatFoot);
         dxPx = seat.dxPx; dyPx = seat.dyPx;
         const artH = (bb.maxY - bb.minY) * scl * scaleYMul;
         foot = { w: (bb.maxX - bb.minX) * scl,
-          footFromCentre: artH <= CELL_PX ? artH / 2 : CELL_PX / 2 - 1 };
+          footFromCentre: Number.isFinite(seatFoot) ? (seatFoot - 0.5) * CELL_PX
+            : artH <= CELL_PX ? artH / 2 : CELL_PX / 2 - 1 };
         // Low rocks rest over their contact ellipse. Centering the ellipse
         // on the bottom edge makes it protrude below the stone like a gap.
         // Keep the true art foot for depth sorting; inset only the shadow.

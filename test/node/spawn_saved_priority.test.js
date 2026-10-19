@@ -99,21 +99,76 @@
     const lift = (name) => liftSceneMethod(name, { BUILDING_TYPES: new Set([9, 11, 12]) });
     const st = { id: 'starter_trailer', ...at(30, 30) };
     const s = Object.assign(scene({ starterTrailer: st, starterShopId: st.id,
-      fruittrees: [{ id: 'saved_tree', ...at(31, 30) }] }), {
+      fruittrees: [{ id: 'saved_tree', ...at(31, 30) }],
+      furniture: [{ id: 'saved_furniture', itemId: 'bed_quilted', ...at(30, 31), depth: 0 }] }), {
       clearHomeFooting: lift('clearHomeFooting'), _homeFootingAnchor: lift('_homeFootingAnchor'),
       _eraseHomeBuildings: lift('_eraseHomeBuildings'),
     });
     const saved = { kind: 'tree', id: 'saved_tree', ...at(31, 30) };
     const planted = { kind: 'tree', id: 'planted_tree', planted: true, ...at(29, 30) };
     const loose = { kind: 'rock', id: 'generated', ...at(30, 31) };
-    const e = { objects: [saved, planted, loose] };
+    const furniture = { kind: 'furniture', id: 'saved_furniture', ...at(30, 31) };
+    const e = { objects: [saved, planted, furniture, loose] };
     const key = WorldGen.tileKey(0, 0);
     WorldGen.tileCache.set(key, e);
     try {
       s.clearHomeFooting();
       assert.truthy(e.objects.includes(saved) && e.objects.includes(planted), 'owned objects survive the sweep');
+      assert.truthy(e.objects.includes(furniture), 'saved furniture survives even before runtime ownership flags');
       assert.falsy(e.objects.includes(loose), 'generated clutter removed');
     } finally { WorldGen.tileCache.delete(key); }
+  });
+
+  test('saved spawn: restored furniture clears generated clutter and preserves its host and snapshot', () => {
+    const record = { id: 'bed', itemId: 'bed_quilted', ...at(30, 30), depth: 0, houseKey: 'home' };
+    const s = scene({ furniture: [record], starterShopId: 'home' });
+    const home = { id: 'home', kind: 'house', ...at(30, 30) };
+    const clutter = { id: 'clutter', kind: 'rock', ...at(30, 30) };
+    const plant = { id: 'plant', crop: 'nettle', ...at(30, 30) };
+    const outside = { id: 'outside', kind: 'rock', ...at(31, 30) };
+    const snapshot = [home, clutter, outside];
+    const entry = { cellsPerEdge: N, objects: snapshot.slice(), genObjects: snapshot,
+      grid: new Uint8Array(N * N), owners: new Uint16Array(N * N), ownerKeys: ['home'],
+      wildplants: [plant], genWildplants: [plant] };
+    entry.grid[30 * N + 30] = WorldGen.T.BUILDING;
+    PlacedFloor.restoreFurniture(s, entry, 0, 0);
+    assert.truthy(entry.objects.includes(home), 'containing house remains available for taps and rendering');
+    assert.truthy(entry.objects.includes(outside));
+    assert.falsy(entry.objects.includes(clutter)); assert.eq(entry.wildplants.length, 0);
+    assert.eq(entry.genObjects, snapshot); assert.truthy(snapshot.includes(clutter));
+    assert.eq(entry.genWildplants[0], plant);
+    assert.truthy(SpawnOwnership.savedIds(s.save).has(record.id));
+    assert.truthy(SpawnOwnership.isProtected({ id: record.id }, s.save));
+  });
+
+  test('saved spawn: surface and cave spawn passes restore furniture after generated scenery', () => {
+    for (const depth of [0, 2]) {
+      const record = { id: `furniture_${depth}`, itemId: 'bed_quilted', ...at(30, 30), depth };
+      const clutter = { kind: 'rock', id: 'generated', ...at(30, 30) };
+      const grid = new Uint8Array(N * N).fill(depth ? WorldGen.T.CAVE_FLOOR : WorldGen.T.GRASS);
+      const entry = { grid, baseGrid: grid.slice(), cellsPerEdge: N, tileEdgeM: EDGE,
+        depth, objects: [clutter], genObjects: [clutter], wildplants: [], genWildplants: [] };
+      const s = Object.assign(new SceneCreatures(), scene({ furniture: [record], caught: [] }), {
+        depth, cellM: CELL_M, _pestFreeZone: () => null, _starterTrailAnchor: () => null,
+        _provisionStarterHome() {}, _carveStarterPond() {},
+        ensureStarterTrailerObject() {
+          // The real load lifecycle stamps synthetic Home ownership before
+          // reconciliation, after the deterministic generated pass finishes.
+          this.save.starterShopId = 'home';
+          entry.owners = new Uint16Array(N * N); entry.ownerKeys = ['home'];
+          entry.grid[30 * N + 30] = WorldGen.T.BUILDING;
+        },
+      });
+      if (depth) s.spawnCaveCreatures(entry, 0, 0, depth);
+      else s.spawnInTile(entry, 0, 0);
+      assert.eq(entry.objects.filter(o => o.id === record.id).length, 1);
+      assert.eq(record.houseKey, depth ? null : 'home', 'surface Home ownership is stamped before furniture reconciliation');
+      assert.falsy(entry.objects.includes(clutter), 'saved property replaces generated clutter');
+      assert.eq(entry.genObjects[0], clutter, 'deterministic source stays intact');
+      assert.truthy(entry._spawned, 'the real spawn pass completes');
+      assert.falsy(WorldGen.isSpawnCell(entry.grid, N, N, 30, 30,
+        WorldGen.spawnOptsOf(entry), 'reward'), 'restored property reserves runtime reward seats');
+    }
   });
 
   test('saved spawn: generated starter ladder picks another seat around a saved sapling', () => {

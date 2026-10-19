@@ -3,7 +3,8 @@
 // or hunt; its counter begins here, and one kill advances every matching
 // active quest. Deliveries are a pool instead (creditDeliveries): each one
 // credits exactly one Archive, including deliveries made before that Archive
-// was first visited. Completion never creates a job.
+// was first visited. Luxury jobs read the current Home score, never event
+// totals. Completion never creates a job.
 function questEnemies() {
   return Combat.enemyKinds().filter(kind => Combat.onQuestBoard(kind))
     .sort((a, b) => (Combat.monster(a)?.tier ?? 1) - (Combat.monster(b)?.tier ?? 1));
@@ -25,6 +26,7 @@ function questOne(q) {
 function questBody(q) {
   if (q.verb === 'kill') return `Defeat ${questOne(q)}.`;
   if (q.verb === 'hunt') return `Hunt ${questOne(q)}.`;
+  if (q.verb === 'luxury') return `Furnish your active Home to ${q.need} luxury.`;
   return `Complete ${q.need} ${q.need === 1 ? 'delivery' : 'deliveries'}.`;
 }
 
@@ -48,7 +50,7 @@ const Quests = {
   assign(save, key, variant) {
     const existing = this.get(save, key);
     if (existing) return existing;
-    const verb = CastleStyles.get(variant).questType;
+    const verb = CastleStyles.questTypeFor(key, variant);
     if (!key || !verb) return null;
     if (!save.quests?.byCastle) save.quests = { byCastle: {}, assigned: {} };
     const state = save.quests;
@@ -64,6 +66,11 @@ const Quests = {
       q.target = animals[order % animals.length];
       q.title = 'The hunt';
       q.reward = 40;
+    } else if (verb === 'luxury') {
+      q.title = 'A respectable address';
+      q.need = 16;
+      q.reward = 60;
+      q.have = Furniture.luxuryOf(save, save.starterShopId);
     } else {
       q.title = 'Neighbourly';
       q.reward = q.need * 30;
@@ -83,6 +90,7 @@ const Quests = {
     if (!q) return null;
     settleSingleTarget(q);
     if (q.verb === 'deliver') this.creditDeliveries(save);
+    if (q.verb === 'luxury' && !q.claimed) q.have = Furniture.luxuryOf(save, save.starterShopId);
     return q;
   },
 
@@ -118,6 +126,7 @@ const Quests = {
   // when shown, not saved, so quests assigned before it read the same.
   flavour(q) {
     if (!q) return '';
+    if (q.verb === 'luxury') return "We don't admit rabble here!";
     if (q.verb === 'kill') return `${questPlural(q)} keep testing the bastion's walls, and the thin garrison would sleep easier with fewer of them about.`;
     if (q.verb === 'hunt') return `The ruin's cooks have promised the lane a proper supper, and the ${questPlural(q)} for it will not catch themselves.`;
     return "The archive keeps the town's letters moving, and this week it is a courier short.";
@@ -129,7 +138,9 @@ const Quests = {
 
   claim(save, key) {
     const q = this.get(save, key);
-    if (!q || q.claimed || q.have < q.need) return null;
+    if (!q || q.claimed) return null;
+    if (q.verb === 'luxury') q.have = Furniture.luxuryOf(save, save.starterShopId);
+    if (q.have < q.need) return null;
     q.claimed = true;
     return q;
   },
@@ -141,6 +152,14 @@ const Quests = {
     let changed = false;
     for (const q of Object.values(save.quests?.byCastle || {})) {
       settleSingleTarget(q);
+      if (q.verb === 'luxury') {
+        if (!q.claimed) {
+          const have = Furniture.luxuryOf(save, save.starterShopId);
+          changed = changed || q.have !== have;
+          q.have = have;
+        }
+        continue; // Placement events never accumulate luxury.
+      }
       if (q.claimed || q.event !== event || q.have >= q.need) continue;
       if (q.target && detail?.target !== q.target) continue;
       q.have = Math.min(q.need, q.have + 1);

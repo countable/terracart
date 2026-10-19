@@ -50,7 +50,7 @@
       renderItemIcon() { return element('img'); },
       iconSpanHTML() { return '<i></i>'; },
       gearIconHTML() { return '<i></i>'; },
-      syncEatButton() {}, syncConsumableButton() {}, syncEquipButton() {},
+      syncEatButton() {}, syncConsumableButton() {}, syncEquipButton() {}, syncFurnitureFlipButton() {},
     };
     for (const name of ['refreshInventoryHighlight', '_effectLineEl', '_openSelectedDescription']) s[name] = lift(name);
     wire.call(s, plate);

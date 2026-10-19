@@ -299,6 +299,7 @@ function pageStone(row) {
 }
 
 const INTERACTABLES = {
+  furniture: { custom: (ctx, o) => ctx.scene.presentFurniture(o) },
   temple: { custom: (ctx, o) => Temples.interact(ctx, o) },
   shrine_spirit: { custom: ({ scene, sx, sy }) => {
     scene.flash('The spirit guards the shrine.', sx, sy);

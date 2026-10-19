@@ -275,9 +275,17 @@
   // its thing by a thinner gate than everything else on the tile (no kerb
   // class, no quiet land, no POI-frontage lift, no shared occupancy).
   function spawnOptsOf(entry, extra) {
-    return Object.assign({}, entry._spawnOpts,
+    const opts = Object.assign({}, entry._spawnOpts,
       { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy, roadClass: entry.roadClass, quiet: entry.quietMask },
       extra);
+    // Saved overlays reserve live cells without mutating generated occupancy;
+    // pickup then releases only their claim, preserving the underlying gate.
+    for (const o of entry.objects || []) if (o.spawnCells?.length) {
+      if (opts.occupied === (extra?.occupied || entry._spawnOpts?.occupied)) opts.occupied = new Set(opts.occupied || []);
+      opts.occupied ||= new Set();
+      for (const i of o.spawnCells) opts.occupied.add(i);
+    }
+    return opts;
   }
   // THE DRESSING FRAME: what every dressSteps pass (zones, scenic, streets,
   // the Nexus layouts, the reef) derives from its ctx before laying a piece —

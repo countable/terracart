@@ -88,10 +88,10 @@
 
     // ── Floating treasure mark ──────────────────────────────────
     // Small fixed reward — no chain (always rolls T1) plus jackpot.
-    // `gear` (any equipment: a tool or weapon, armour, a unique relic) is a
-    // fifth of the draws above ground: 0.25 of a 1.25 total. A cave X adds its
-    // supply skew to the total, so the share is smaller down there.
-    'treasure:default': { classBias: { seed:0.45, ores:0.40, supply:0.15, gear:0.25 }, caveSkew: true,
+    // Equipment shares the pool with seeds, ores, supplies and furniture;
+    // furniture has the same class weight as supplies. A cave X adds its
+    // supply skew to the total, so equipment's share is smaller down there.
+    'treasure:default': { classBias: { seed:0.45, ores:0.40, supply:0.15, furniture:0.15, gear:0.25 }, caveSkew: true,
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0 },
     // ── The GREAT X (loot.js GREAT_X — the thick dark-red mark) ─
     // Gold, a tool or weapon, or any equipment: no seeds, no stone. Two chain
