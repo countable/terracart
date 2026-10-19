@@ -212,7 +212,7 @@ test('modal buttons: choice action labels update on selection and retain the mod
       record.flip = false;
       scene.presentFurniture(record);
       const clockArt = shell.box.children.find(child => child.className === 'furniture-art');
-      assert.includes(clockArt.innerHTML, 'assets/Objects/Furniture/furniture-32.png#frame=10',
+      assert.includes(clockArt.innerHTML, `assets/Objects/Furniture/furniture-32.png#frame=${furnitureFrame('clock_grandfather')}`,
         'tall clock uses its world frame instead of its fitted 16px icon');
       assert.includes(clockArt.innerHTML, 'width:128px;height:256px');
       assert.eq(clockArt.style.transform, '', 'unflipped clock stays upright');

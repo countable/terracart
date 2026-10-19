@@ -231,7 +231,7 @@ const ASSETS = assetsCtx.window.ASSETS;
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const GEM_ROCKS = Object.values(itemsCtx.GEM_DEPOSITS).filter(row => row.art.sheet === 'cave_props');
 const SHEETS = {
-  furniture: { file: ASSETS.furniture.path, fw: ASSETS.furniture.frameWidth, fh: ASSETS.furniture.frameHeight, frames: Object.values(itemsCtx.FURNITURE).map(row => row.frame) },
+  furniture: { file: ASSETS.furniture.path, fw: ASSETS.furniture.frameWidth, fh: ASSETS.furniture.frameHeight, frames: [...new Set(Object.values(itemsCtx.FURNITURE).flatMap(row => [row.frame, ...Object.values(row.tierSheetFrame || {})]))] },
   cave_props: { file: ASSETS.cave_props.path, fw: 24, fh: 24, frames: [1, 6, ...GEM_ROCKS.map(row => row.art.frame)] },
   poison_vent_inactive: { file: ASSETS.poison_vent_inactive.path, fw: 24, fh: 24, frames: [0] },
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
@@ -293,10 +293,12 @@ const t = (species, size) => treeScale({ species, size });
 const SEAT_ANCHOR = [0.5, 0.5];
 const furnitureManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/Objects/Furniture/manifest.json'), 'utf8'));
 const SCENARIOS = [
-  ...Object.entries(itemsCtx.FURNITURE).flatMap(([id, row]) => [false, ...(row.flip ? [true] : [])].map(flipX => ({
-    name: `${id}${flipX ? ' flipped' : ''}`, key: 'furniture', frameIdx: row.frame, scale: itemsCtx.FURNITURE_SCALE, flipX,
-    frameSize: furnitureManifest.items.find(entry => entry.itemId === id).frameSize,
-  }))),
+  ...Object.entries(itemsCtx.FURNITURE).flatMap(([id, row]) =>
+    [row.frame, ...Object.values(row.tierSheetFrame || {})].flatMap(frameIdx =>
+      [false, ...(row.flip ? [true] : [])].map(flipX => ({
+        name: `${id}:${frameIdx}${flipX ? ' flipped' : ''}`, key: 'furniture', frameIdx, scale: itemsCtx.FURNITURE_SCALE, flipX,
+        frameSize: furnitureManifest.items.find(entry => entry.itemId === id).frameSize,
+      })))),
   ...['gas_mushroom_small', 'gas_mushroom_large'].map(key => ({
     name: key.replaceAll('_', ' '), key, frameIdx: 0, scale: itemsCtx.WILDPLANT_CONTEXT_ART[key].scale,
   })),

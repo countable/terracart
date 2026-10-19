@@ -1503,18 +1503,19 @@ ctx.__tests.push({ name: 'furniture manifest: catalog frames and world geometry 
   ctx.assert.eq(new Set(manifest.items.map(row => row.itemId)).size, manifest.items.length);
   ctx.assert.eq(new Set(manifest.items.map(row => row.frame)).size, manifest.items.length);
   ctx.assert.eq(ASSETS.furniture.frameWidth, manifest.worldCell);
-  ctx.assert.eq(ASSETS.furniture.frameHeight, Math.max(...manifest.items.map(row => row.frameSize[1])));
+  ctx.assert.eq(ASSETS.furniture.frameHeight, manifest.worldFrameHeight);
   for (const row of manifest.items) {
-    ctx.assert.eq(ctx.furnitureFrame(row.itemId), row.frame, row.itemId);
+    ctx.assert.eq(furniture[row.itemId].frame, row.frame, row.itemId);
     ctx.assert.eq(row.frameSize[0], 32, row.itemId);
-    ctx.assert.eq(row.frameSize[1], row.itemId === 'clock_grandfather' ? 64 : 32, row.itemId);
-    if (['lamp_floor', 'candelabra_floor'].includes(row.itemId)) {
+    ctx.assert.eq(row.frameSize[1], 32, row.itemId);
+    if (row.itemId === 'candelabra_floor') {
       ctx.assert.eq(JSON.stringify(row.fit), '[30,30]', row.itemId);
     }
     if (row.mode === 'concept') ctx.assert.truthy(fs.existsSync(path.join(ROOT, row.source)));
   }
-  for (const id of ['washtub', 'statue_pedestal', 'candelabra_floor']) {
-    ctx.assert.eq(manifest.items.find(row => row.itemId === id).approval, 'pending');
+  for (const row of manifest.items.filter(row => row.mode === 'native32')) {
+    ctx.assert.eq(row.approval, 'approved');
+    ctx.assert.truthy(fs.existsSync(path.join(ROOT, row.source)));
   }
 } });
 

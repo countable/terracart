@@ -494,28 +494,28 @@ function mineralBarId(tier) { return MINERAL_TIERS[tier]?.barId || null; }
 function barForTier(tier) { return tier === 1 ? 'wood' : mineralBarId(tier); }
 const BAR_IDS = Object.freeze([1, 2, 3, 4, 5, 6, 7].map(barForTier));
 
-// One row owns each furnishing's placement art and future ability hooks.
-// Null luxury means catalog tier squared; phase 1 does not award luxury.
-// tierSheetFrame may map catalog tiers to redrawn frames on both sheets.
-// Null (or an absent tier) keeps the roster frame; no tier recolouring.
-const FURNITURE_SCALE = 0.85;
+// The first 16 frames retain roster fallbacks; seven-style rows follow them.
+function furnitureTierFrames(row) {
+  return Object.fromEntries(Array.from({ length: 7 }, (_, index) => [index + 1, 16 + row * 7 + index]));
+}
+const FURNITURE_SCALE = 1;
 const FURNITURE = {
   workbench: { frame: 0, tierSheetFrame: null, flip: true, height: "mid", ability: "craft", light: null, luxury: null },
-  bed_quilted: { frame: 1, tierSheetFrame: null, flip: true, height: "mid", ability: "sleep", light: null, luxury: null },
-  washtub: { frame: 2, tierSheetFrame: null, flip: true, height: "basin", ability: "wash", light: null, luxury: null },
-  mirror_brass: { frame: 3, tierSheetFrame: null, flip: false, height: "mid", ability: "reflect", light: null, luxury: null },
-  table_oak: { frame: 4, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: null, luxury: null },
-  dresser_oak: { frame: 5, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: null, luxury: null },
-  planter_clay: { frame: 6, tierSheetFrame: null, flip: true, height: "mid", ability: "plant", light: null, luxury: null },
-  rug_burgundy: { frame: 7, tierSheetFrame: null, flip: false, height: "flat", ability: null, light: null, luxury: null },
-  bookshelf_frontier: { frame: 8, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: null, luxury: null },
-  lamp_floor: { frame: 9, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: "furniture_lamp", lightFrameY: 37, luxury: null },
-  clock_grandfather: { frame: 10, tierSheetFrame: null, flip: false, height: "mid", ability: null, light: null, luxury: null },
-  statue_pedestal: { frame: 11, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: null, luxury: null },
-  planter_copper: { frame: 12, tierSheetFrame: null, flip: true, height: "mid", ability: "plant", light: null, luxury: null },
+  bed_quilted: { frame: 1, tierSheetFrame: furnitureTierFrames(0), flip: true, height: "mid", ability: "sleep", light: null, luxury: null },
+  washtub: { frame: 2, tierSheetFrame: furnitureTierFrames(1), flip: true, height: "basin", ability: "wash", light: null, luxury: null },
+  mirror_brass: { frame: 3, tierSheetFrame: furnitureTierFrames(5), flip: false, height: "mid", ability: "reflect", light: null, luxury: null },
+  table_oak: { frame: 4, tierSheetFrame: furnitureTierFrames(2), flip: true, height: "mid", ability: null, light: null, luxury: null },
+  dresser_oak: { frame: 5, tierSheetFrame: furnitureTierFrames(3), flip: true, height: "mid", ability: null, light: null, luxury: null },
+  planter_clay: { frame: 6, tierSheetFrame: furnitureTierFrames(6), flip: true, height: "mid", ability: "plant", light: null, luxury: null },
+  rug_burgundy: { frame: 7, tierSheetFrame: furnitureTierFrames(7), flip: false, height: "flat", ability: null, light: null, luxury: null },
+  bookshelf_frontier: { frame: 8, tierSheetFrame: furnitureTierFrames(4), flip: true, height: "mid", ability: null, light: null, luxury: null },
+  lamp_floor: { frame: 9, tierSheetFrame: furnitureTierFrames(8), flip: true, height: "mid", ability: null, light: "furniture_lamp", lightFrameY: 37, luxury: null },
+  clock_grandfather: { frame: 10, tierSheetFrame: furnitureTierFrames(9), flip: false, height: "mid", ability: null, light: null, luxury: null },
+  statue_pedestal: { frame: 11, tierSheetFrame: furnitureTierFrames(10), flip: true, height: "mid", ability: null, light: null, luxury: null },
+  planter_copper: { frame: 12, tierSheetFrame: furnitureTierFrames(6), flip: true, height: "mid", ability: "plant", light: null, luxury: null },
   candelabra_floor: { frame: 13, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: "furniture_candle", lightFrameY: 36, luxury: null },
-  globe_brass: { frame: 14, tierSheetFrame: null, flip: false, height: "mid", ability: null, light: null, luxury: null },
-  telescope_brass: { frame: 15, tierSheetFrame: null, flip: true, height: "mid", ability: null, light: null, luxury: null },
+  globe_brass: { frame: 14, tierSheetFrame: furnitureTierFrames(11), flip: false, height: "mid", ability: null, light: null, luxury: null },
+  telescope_brass: { frame: 15, tierSheetFrame: furnitureTierFrames(12), flip: true, height: "mid", ability: null, light: null, luxury: null },
 };
 function furnitureSpec(itemOrId) {
   const id = typeof itemOrId === 'string' ? itemOrId : itemOrId?.itemId || itemOrId?.id;

@@ -46,28 +46,30 @@ flat rugs are ground decals and mid pieces use `ObstacleStep.PROFILES.furniture`
 for continuous support. Basins are walkable ground decals with no step lift;
 they draw under the player, whose submersion crop hides only the lower body.
 `RENDER_SPEC.furniture` seats each piece from its trimmed bounds at
-`FURNITURE_SCALE` (0.85: lamps are 25.5px high beside the 24px player;
-only the clock reaches 54px); mirrored bounds
-keep asymmetric pieces centred when flipped. Mutable furniture appearances
-are not cached. The complete piece is fitted proportionally into a 16×16 icon for item surfaces.
-`tierSheetFrame` may map catalog tiers to future redrawn frames; the shared
-`furnitureFrame` resolver keeps world and inventory art together, falling back
-to the roster frame. Phase 1 adds no tier recolouring. Crops carrying a `planter` furniture id use
+`FURNITURE_SCALE` (1: large and tall pieces use up to 31px of a 32px cell).
+Mirrored bounds keep asymmetric pieces centred when flipped. Mutable furniture
+appearances are not cached. The complete piece is fitted proportionally into a
+16×16 icon for item surfaces. `tierSheetFrame` maps catalog tiers to the seven
+styles: Crude, Simple, Fine, Veblen, Masterwork, Royal and Ancient. The shared
+`furnitureFrame` resolver keeps world and inventory art together; workbenches
+and candelabras retain their roster art. Existing catalog tiers select the style;
+these images do not introduce per-instance tiers or alter item progression.
+Crops carrying a `planter` furniture id use
 `RENDER_SPEC.furniture.planterCrop`: a 16px frame starting 3px below
 the cell's top edge, with its roots on the soil. Their normal growth art is unchanged. The crop
 shares its planter's ground depth and sorts immediately above it, preserving
 Home wall occlusion.
 
 `python3 tools/build_furniture_sheets.py` rebuilds both sheets from
-`assets/Objects/Furniture/manifest.json`: exact licensed 48px source crops
-use Lanczos scaling. Each manifest row declares its `frameSize`: 32×32,
-except the 32×64 Grandfather Clock. Transparent concepts and the F044 lamp
-crop are alpha-cropped, fitted proportionally to 30×30px and bottom-seated.
-The sheet retains uniform 32×64 slots with short frames in the bottom half;
-per-frame alpha bounds let `seatInCell` centre the art without the empty padding.
-The manifest records provenance
-without distributing the raw licensed sheets. The sprite audit covers every
-frame and every permitted flip. Indoor lamps emit through the shared lighting pass.
+`assets/Objects/Furniture/manifest.json`. The approved seven-tier source atlas
+contains 32×32 frames and preserves its generated alpha. Its crops are copied
+without resizing into the bottom half of uniform 32×64 world slots; icons use
+nearest-neighbour reduction. Roster frames occupy 0–15 and the 91 tier frames
+follow them. The original workbench and candelabra source crops still use their
+existing fit rules. The sprite audit covers every frame and permitted flip.
+After rebuilding art, regenerate `ART_BOUNDS` and the DOM icon atlas so map,
+inventory, shop and pickup-toast surfaces agree. Indoor lamps emit through the
+shared lighting pass.
 
 The 16-piece roster is Tinker’s Workbench, Quilted Cot, Washing Tub (basin), Gear-Rim
 Looking Glass, Oak Side Table, Four-Drawer Dresser, Clay Planter, Burgundy Rug,

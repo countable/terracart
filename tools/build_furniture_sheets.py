@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rebuild furniture frames from licensed input crops and checked-in concepts.
+"""Rebuild furniture world and icon sheets from checked-in art and source crops.
 
 Run from any directory with Python 3 and Pillow. The themed sheets remain
 read-only art inputs under extra_assets; only the selected crops ship.
@@ -17,20 +17,29 @@ def build():
     manifest = json.loads((DEST / 'manifest.json').read_text())
     cols, cell, icon_cell = (manifest[key] for key in
                              ('columns', 'worldCell', 'iconCell'))
-    # Uniform slots keep Phaser frame indices and both sheets aligned. Only the
-    # clock needs a tall slot; all other logical frames sit in its bottom half.
-    height = max(entry['frameSize'][1] for entry in manifest['items'])
-    rows = (len(manifest['items']) + cols - 1) // cols
+    entries = list(manifest['items'])
+    tiers = manifest['tierSheet']
+    for row, kind in enumerate(tiers['rows']):
+        for col, tier in enumerate(tiers['tiers']):
+            entries.append({'itemId': f'{kind}:{tier}',
+                            'frame': tiers['firstFrame'] + row * tiers['columns'] + col,
+                            'source': tiers['source'], 'box': [col * cell, row * cell, cell, cell],
+                            'mode': 'native32', 'frameSize': [cell, cell]})
+    # Retain 64px world slots so light anchors and saved frame consumers stay aligned.
+    height = manifest['worldFrameHeight']
+    rows = (max(entry['frame'] for entry in entries) + cols) // cols
     world = Image.new('RGBA', (cols * cell, rows * height))
     icons = Image.new('RGBA', (cols * icon_cell, rows * icon_cell))
-    for entry in manifest['items']:
+    for entry in entries:
         source = Image.open(ROOT / entry['source']).convert('RGBA')
         frame_w, frame_h = entry['frameSize']
         art = source
         if entry['box']:
             x, y, w, h = entry['box']
             art = source.crop((x, y, x + w, y + h))
-        if entry['mode'] == 'concept' or 'fit' in entry:
+        if entry['mode'] == 'native32':
+            factor = 1
+        elif entry['mode'] == 'concept' or 'fit' in entry:
             bounds = art.getchannel('A').getbbox()
             if bounds is None:
                 raise ValueError(f"Empty furniture source: {entry['itemId']}")
@@ -40,7 +49,8 @@ def build():
         else:
             factor = cell / 48
         size = tuple(max(1, round(side * factor)) for side in art.size)
-        art = art.resize(size, Image.Resampling.LANCZOS)
+        resample = Image.Resampling.NEAREST if entry['mode'] == 'native32' else Image.Resampling.LANCZOS
+        art = art.resize(size, resample)
         if frame_w > cell or art.width > frame_w or art.height > frame_h:
             raise ValueError(f"Art exceeds world frame: {entry['itemId']}")
         frame = Image.new('RGBA', (frame_w, frame_h))
@@ -52,12 +62,12 @@ def build():
         # Uprights keep their proportions instead of losing their tops or feet.
         icon_factor = min(icon_cell / art.width, icon_cell / art.height)
         icon_size = tuple(max(1, round(side * icon_factor)) for side in art.size)
-        icon = art.resize(icon_size, Image.Resampling.LANCZOS)
+        icon = art.resize(icon_size, resample)
         icons.alpha_composite(icon, (col * icon_cell + (icon_cell - icon.width) // 2,
                                      row * icon_cell + (icon_cell - icon.height) // 2))
     world.save(DEST / 'furniture-32.png')
     icons.save(DEST / 'furniture-icons-16.png')
-    print(f"Built {len(manifest['items'])} furniture frames: {world.size}, icons {icons.size}")
+    print(f"Built {len(entries)} furniture frames: {world.size}, icons {icons.size}")
 
 
 if __name__ == '__main__':

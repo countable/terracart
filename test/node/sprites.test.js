@@ -884,7 +884,7 @@ test('bush variants stay stable through harvest and reload and cover every appro
 test('furniture art: every frame seats in its cell, including mirrored asymmetric pieces', () => {
   const world = pngDims('assets/Objects/Furniture/furniture-32.png');
   assert.eq(world.w, 128);
-  assert.eq(world.h, 256);
+  assert.eq(world.h, 1728);
   const scene = {textures:{exists:()=>true},save:{}};
   const art = Render.objectAppearance(scene, new Map());
   for (const item of ITEMS.filter(item => item.kind === 'furniture')) {
@@ -893,7 +893,7 @@ test('furniture art: every frame seats in its cell, including mirrored asymmetri
       const o = {kind:'furniture',itemId:item.id,flip};
       const p = art.resolveAppearance(o);
       assert.eq(p.texKey, 'furniture');
-      assert.eq(p.frameVal, metadata.frame);
+      assert.eq(p.frameVal, furnitureFrame(item.id));
       const layers = { flat: WorldLayers.GROUND_DECAL, mid: WorldLayers.STEP_OVER_PROP,
         basin: WorldLayers.GROUND_DECAL };
       assert.eq(p.layer, layers[metadata.height]);
@@ -905,14 +905,14 @@ test('furniture art: every frame seats in its cell, including mirrored asymmetri
       assert.inRange(p.dyPx + (b.maxY - b.fh / 2) * p.scl, 0, 16);
       if (item.id === 'clock_grandfather') {
         assert.eq(b.fh, 64, 'upright art keeps the tall world frame');
-        assert.gt((b.maxY - b.minY) * p.scl, 32, 'upright rises above its single floor cell');
+        assert.lte((b.maxY - b.minY) * p.scl, 32, 'approved upright fits one cell');
         assert.eq(p.dyPx + (b.maxY - b.fh / 2) * p.scl, 15, 'tall feet sit above the cell edge');
       }
       if (['lamp_floor', 'candelabra_floor'].includes(item.id)) {
-        assert.eq(Math.max(b.maxX - b.minX, b.maxY - b.minY), 30, 'lamp longest side is 30px');
+        assert.inRange(Math.max(b.maxX - b.minX, b.maxY - b.minY), 30, 32, 'lamp fills its cell');
         assert.gte(b.minY, b.fh - 32, 'lamp fits the bottom 32×32 frame');
-        assert.eq(b.maxY, b.fh, 'lamp is bottom-seated');
-        assert.lte((b.maxY - b.minY) * p.scl, 26, 'lamp reads about player height');
+        assert.inRange(b.maxY, b.fh - 1, b.fh, 'lamp is bottom-seated');
+        assert.lte((b.maxY - b.minY) * p.scl, 32, 'lamp stays within a cell');
       }
       let actualFlip;
       p.spec.after({setFlipX(value) { actualFlip=value; }}, o);

@@ -1567,7 +1567,7 @@ const ROAD_CHIP_SVG =
   + '</g></svg>';
 
 const ICON_SHEETS = {
-  furniture_icons: { url: 'assets/Objects/Furniture/furniture-icons-16.png', cols: 4, srcW: 64, srcH: 64 },
+  furniture_icons: { url: 'assets/Objects/Furniture/furniture-icons-16.png', cols: 4, srcW: 64, srcH: 432 },
   giant_mushroom: { url: 'assets/Icons/Items/GiantMushroom.png', cols: 1, srcW: 16, srcH: 16 },
   icon_field_scope: { url: 'assets/Icons/Items/field_scope.png', cols: 1, srcW: 16, srcH: 16 },
   icon_compass: { url: 'assets/Icons/Items/compass.png', cols: 1, srcW: 16, srcH: 16 },
@@ -1666,9 +1666,9 @@ const ICON_SHEETS = {
 // BEGIN GENERATED DOM ICON ATLAS
 // Regenerate with node tools/build-dom-icon-atlas.cjs; original sheets remain the art source.
 const DOM_ICON_ATLAS = {
-  "url": "assets/Icons/dom-atlas.png?v=53a0cb22",
+  "url": "assets/Icons/dom-atlas.png?v=124794ca",
   "width": 1024,
-  "height": 720,
+  "height": 992,
   "rects": {
     "assets/Icons/AltWeapons/1/Dagger.png": [0, 0, 32, 16],
     "assets/Icons/AltWeapons/1/Lance.png": [32, 0, 32, 16],
@@ -1819,7 +1819,7 @@ const DOM_ICON_ATLAS = {
     "assets/Objects/Approved/crops.png": [376, 304, 144, 256],
     "assets/Objects/Approved/props.png": [520, 304, 352, 192],
     "assets/Objects/Approved/springcrops.png": [0, 560, 224, 128],
-    "assets/Objects/Furniture/furniture-icons-16.png": [224, 560, 64, 64],
+    "assets/Objects/Furniture/furniture-icons-16.png": [224, 560, 64, 432],
     "assets/Objects/Pickup_Items.png": [288, 560, 224, 160],
     "assets/Objects/Progression/icons.png": [512, 560, 32, 16],
     "assets/Objects/Wilderness/wood.png": [544, 560, 48, 16]
