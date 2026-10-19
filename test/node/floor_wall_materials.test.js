@@ -10,6 +10,20 @@
     assert.eq(FloorWallMaterials.groundTexture(null, 0), null);
     assert.eq(entry.grid[0], T.CAVE_FLOOR, 'visual water never changes walkability');
   });
+  test('L1 actual water and pier water use sewer art independently of decorative channels', () => {
+    const T = WorldGen.T;
+    const grid = [T.WATER, T.PIER, T.WETLAND, T.CAVE_LAVA, T.CAVE_FLOOR];
+    const entry = {depth: 1, grid};
+    for (const i of [0, 1]) {
+      assert.eq(FloorWallMaterials.groundTexture(entry, i), 'floor-sewer-water');
+      for (const depth of [0, 2, 3, 4, 5, 6, 7, 8])
+        assert.eq(FloorWallMaterials.groundTexture({...entry, depth}, i), null);
+    }
+    for (const i of [2, 3, 4]) assert.eq(FloorWallMaterials.groundTexture(entry, i), null);
+    assert.eq(FloorWallMaterials.groundTexture(entry, 0, T.CAVE_WALL), null, 'render-time terrain override wins');
+    assert.eq(grid.join(','), [T.WATER, T.PIER, T.WETLAND, T.CAVE_LAVA, T.CAVE_FLOOR].join(','),
+      'water collision and pier walkability remain their original terrain types');
+  });
   test('floor wall materials: concealed sides are omitted without opening the full-cell crown', () => {
     const points = [{x: 32, y: 64}, {x: 64, y: 64}, {x: 64, y: 96}, {x: 32, y: 96}];
     for (let mask = 0; mask < 16; mask++) {

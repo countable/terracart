@@ -95,6 +95,24 @@ access or tile lifecycle mechanics.
   habitat-only residents without ordinary roster metadata. Evening suppression
   is reevaluated after dusk and dawn, including specialized Metal Slimes.
 
+## Authored preview sandboxes
+
+- `SandboxScenarios.build` converts a versioned semantic cell matrix and explicit
+  prop/creature placements into ordinary tile entries. `FloorSandbox.writeScenario`
+  uses the same session-storage transfer, installation and disabled-save path as
+  the floor viewer. Producers own layout generation; the adapter does not reroll
+  terrain or ambient populations. Creature IDs derive from scenario, mode, seed,
+  species and cell. Restarting reloads the same authored snapshot.
+- Scenario cells become real terrain (including actual water and lava), with a one-cell
+  rock boundary and square padding. Player starts on dry, unoccupied ground.
+  Creatures use the normal factory; preview props are decorative `sandboxprop`
+  objects with supplied art, without assigning speculative interactions.
+- Bounded PNG/WebP/JPEG data URIs travel with the snapshot; the art manifest and
+  semantic cells let the renderer reuse floor-specific preview art. Dimensions,
+  placements, payload and image sizes are checked before storage. The return URL
+  is HTTP(S) only. Scenario loads suppress automatic Home placement/clearing, Home variants,
+  normal spawns and unrelated depth generation; ordinary floor-viewer transfers preserve their existing behavior.
+
 ## Generation, saves and tiles
 
 - Fresh players start with zero coins in every mode, including sandbox. Mode

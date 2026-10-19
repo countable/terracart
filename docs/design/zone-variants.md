@@ -202,7 +202,13 @@ a composition shortfall.
   props are labeled material proxies. `tools/ambient_floor_art.py` owns those
   inspected crops. Separate `floor-L0.html` through
   `floor-L7.html` fragments load one floor at a time; these are planning
-  illustrations, not runtime layouts or measured spawn densities. The ambient
+  fixtures, not measured spawn densities. Each proposed card’s Load in sandbox
+  button exports its selected Tile / Generated cells, props, creatures and art
+  through `tools/sandbox-launcher.html`. `SandboxScenarios.build` adapts that
+  versioned payload to the existing `FloorSandbox` session snapshot; new review
+  tools can supply the same schema. `SandboxArt` registers proposed raster crops
+  through the normal asset catalog and renderer. Authored fixtures suppress
+  automatic Home placement, keep real water/lava terrain, and never alter saves. The ambient
   table links directly to each floor and habitat, with proposed changes in gold.
   L0 Nexus sections reuse the existing generated Nexus cards unchanged; they
   are retained behavior, not replacement proposals. Only the separate L0

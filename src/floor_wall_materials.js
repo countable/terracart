@@ -66,12 +66,15 @@
     for (let depth = 1; depth <= THEMES.length; depth++) prepare(scene, depth);
     prepareGround(scene);
   }
-  // Decorative sewer channels follow the existing route centre lanes. Their
-  // cells remain walkable CAVE_FLOOR; banks, walls and other floors stay dry.
+  // L1's actual water (including the water beneath pier decking) and decorative
+  // route channels share one material. This never changes terrain or walkability.
   const SEWER_WATER = 'floor-sewer-water';
   function groundTexture(entry, index, type = entry?.grid?.[index]) {
-    return entry?.depth === 1 && type === global.WorldGen.T.CAVE_FLOOR
-      && entry.underground?.lane?.has(index) ? SEWER_WATER : null;
+    if (entry?.depth !== 1) return null;
+    const T = global.WorldGen.T;
+    return type === T.WATER || type === T.PIER
+      || (type === T.CAVE_FLOOR && entry.underground?.lane?.has(index))
+      ? SEWER_WATER : null;
   }
   function prepareGround(scene) {
     if (scene.textures.exists(SEWER_WATER)) return scene.textures.get(SEWER_WATER);

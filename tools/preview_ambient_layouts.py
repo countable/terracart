@@ -4,6 +4,9 @@ These compare the shared motif sampler and terrain generator using proposed
 floor art; the previews do not change live spawn or terrain rules. Runtime definitions remain owned by their normal modules.
 """
 import collections
+import base64
+import io
+from PIL import Image
 import functools
 import html
 import hashlib
@@ -19,6 +22,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def ambient_layout_css():
     return '''.ambient-layout-toggle{display:flex;gap:6px;margin:8px 0}.ambient-layout-toggle button{padding:7px 12px;border:1px solid #687580;border-radius:5px;background:#263342;color:#e8edf1;cursor:pointer}.ambient-layout-toggle button[aria-pressed=true]{background:#a9d6cb;color:#10231e}.ambient-area{scroll-margin-top:90px;margin:28px 0}.ambient-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}.ambient-card{margin:0;background:#171d27;border:1px solid #394456;border-radius:8px;padding:12px}.ambient-card h4{margin:0 0 10px}.ambient-card svg{width:100%;height:auto;image-rendering:pixelated;background:#20232b}.ambient-card p,.ambient-area>p{font-size:13px;line-height:1.5}.ambient-change{color:#f4cb70;text-decoration:underline dotted;text-underline-offset:3px}.ambient-spawn-key{display:flex;flex-wrap:wrap;gap:9px;align-items:center;font-size:12px}.ambient-spawn-key img{width:26px;height:26px;object-fit:contain;image-rendering:pixelated;vertical-align:middle}.ambient-caption{color:#abb7c8}.ambient-card .ambient-spec{font-size:12px;color:#bfc9d5}'''
+
+
+def _swatch(color):
+    out = io.BytesIO()
+    Image.new('RGBA', (16, 16), color).save(out, format='PNG')
+    return 'data:image/png;base64,' + base64.b64encode(out.getvalue()).decode()
+
+
+def _blend_swatch(base, overlay):
+    def decode(uri):
+        return Image.open(io.BytesIO(base64.b64decode(uri.split(',', 1)[1]))).convert('RGBA')
+    out = io.BytesIO()
+    Image.blend(decode(base), decode(overlay), .65).save(out, format='PNG')
+    return 'data:image/png;base64,' + base64.b64encode(out.getvalue()).decode()
 
 
 def _creatures(text, depth, variant):
@@ -154,12 +171,14 @@ def _layout_panel(area, layer, name, number, helpers, mode):
                      if cells[point['cy']][point['cx']] not in ('water', 'wall')][:6]
     used = set()
     objects = []
+    scenario_props, scenario_creatures = [], []
     prop_art = art_for(depth, prop, helpers)
     definitions.append(f'<symbol id="{prefix}-prop" viewBox="0 0 1 1"><image href="{prop_art["uri"]}" width="1" height="1" preserveAspectRatio="xMidYMid meet"/></symbol>')
     for x, y in positions:
         if cells[y][x] not in ('water', 'wall'):
             objects.append((y, f'<use href="#{prefix}-prop" x="{x*24-2}" y="{y*24-7}" width="29" height="31"/>'))
             used.add((x,y))
+            scenario_props.append({'x': x, 'y': y, 'kind': prop, 'artKey': 'dressing'})
     creatures = _creatures(idea['spawn'], depth, name)
     seats = [(7,5),(3,4),(9,4),(5,7),(10,7),(6,3),(2,5),(8,7),(10,5)]
     seats += [(x, y) for y in range(1, 8) for x in range(1, 11) if (x, y) not in seats]
@@ -167,6 +186,7 @@ def _layout_panel(area, layer, name, number, helpers, mode):
         possible = [(x,y) for x,y in seats if (x,y) not in used and cells[y][x] not in ('water','wall')]
         if not possible: break
         x,y = possible[0]; used.add((x,y))
+        scenario_creatures.append({'x': x, 'y': y, 'kind': kind})
         art = helpers['material_art']({'kind':kind})
         uri = helpers['sprite_png'](art['sheet'], art['frames'][0], False, art.get('tint',0xffffff))
         size = 35 if kind == 'red_dragon' else 25
@@ -186,9 +206,19 @@ def _layout_panel(area, layer, name, number, helpers, mode):
     if depth: art_note = f'<a href="http://localhost:8000/{quote(source)}">{art_note}</a>'
     if prop_art['proxy']: art_note += f' · material proxy for {html.escape(prop.replace("_", " "))}'
     if theme and any('water' in row for row in cells): art_note += '<br>' + html.escape(theme['water_label'])
+    ground_uri = theme['ground'] if theme else _swatch(palette)
+    accent_uri = theme['road'] if theme and depth != 1 else _swatch(palette)
+    scenario = {'version': 1, 'id': prefix, 'title': f'{layer["id"]} · {name} · {mode}',
+                'depth': depth, 'seed': patterns['settings']['seed'], 'mode': mode,
+                'width': 12, 'height': 9, 'cells': [['lava' if depth == 6 and cell == 'water' else cell for cell in row] for row in cells], 'props': scenario_props,
+                'creatures': scenario_creatures, 'art': {'tiles': {
+                    'ground': ground_uri, 'accent': _blend_swatch(ground_uri, accent_uri),
+                    'water': theme['water'] if theme and theme['water'] else _swatch(water)},
+                    'props': {'dressing': {'uri': prop_art['uri']}}}}
+    payload = json.dumps(scenario, separators=(',', ':')).replace('<', '\\u003c')
     return (f'<div data-layout-panel="{mode}" id="{prefix}" {"hidden" if mode == "generated" else ""}>'
             f'<svg viewBox="0 0 288 216" role="img" aria-label="{html.escape(name)} {mode} layout"><defs>{"".join(definitions)}</defs>{"".join(tiles)}{"".join(s for _,s in sorted(objects,key=lambda row:row[0]))}</svg>'
-            f'<div class="ambient-spawn-key">{"".join(legend)}</div><p class="ambient-spec"><b>{html.escape(algorithm)}</b><br>{detail}</p><p class="ambient-spec">{art_note}</p></div>')
+            f'<div class="ambient-spawn-key">{"".join(legend)}</div><p class="ambient-spec"><b>{html.escape(algorithm)}</b><br>{detail}</p><p class="ambient-spec">{art_note}</p><script type="application/json" data-sandbox-scenario>{payload}</script></div>')
 
 
 def _card(area, layer, name, number, helpers):
@@ -198,7 +228,7 @@ def _card(area, layer, name, number, helpers):
     buttons = ''.join(f'<button type="button" data-layout-mode="{mode}" aria-controls="{prefix}-{mode}" aria-pressed="{str(mode == "tile").lower()}">{mode.title()}</button>' for mode in ('tile', 'generated'))
     return (f'<figure class="ambient-card"><h4{title_class}>{html.escape(name)}</h4>'
             f'<div class="ambient-layout-toggle" role="group" aria-label="Layout algorithm for {html.escape(name)}">{buttons}</div>'
-            + ''.join(_layout_panel(area, layer, name, number, helpers, mode) for mode in ('tile', 'generated')) + '</figure>')
+            + ''.join(_layout_panel(area, layer, name, number, helpers, mode) for mode in ('tile', 'generated')) + '<button type="button" data-load-sandbox>Load in sandbox</button></figure>')
 
 
 def ambient_floor_sections(helpers=None):

@@ -545,6 +545,7 @@ class SceneShops {
   // locks in via the _starterShopOk early-out; called lazily (isStarterShop)
   // and every frame from Render.drawObjects.
   ensureStarterShopId() {
+    if (globalThis.FloorSandbox?.isScenario()) return; // preserve the authored preview
     if (this._starterShopOk) return;
     // A fresh save is still waiting to anchor its home origin to the first GPS
     // fix (startGps reloads once it arrives) — don't place the trailer yet, it

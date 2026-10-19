@@ -3,6 +3,7 @@
   'use strict';
   const RADIUS_M = 50;
   function anchor(scene) {
+    if (root.FloorSandbox?.isScenario()) return null;
     if ((scene?.depth || 0) !== 0) return null;
     // The projection origin exists before Home is placed. Only the frozen
     // starter anchor authorizes this player's surface overlay.

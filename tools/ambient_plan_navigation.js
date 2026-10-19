@@ -64,6 +64,15 @@
     if (target && target !== panel) target.scrollIntoView({block: 'start'});
   }
   content.addEventListener('click', event => {
+    const launch = event.target.closest('[data-load-sandbox]');
+    if (launch) {
+      const card = launch.closest('.ambient-card');
+      const active = card.querySelector('[data-layout-panel]:not([hidden])');
+      const scenario = JSON.parse(active.querySelector('[data-sandbox-scenario]').textContent);
+      scenario.returnUrl = location.href.split('#')[0] + '#' + card.closest('.ambient-area').id;
+      location.href = 'http://localhost:8000/tools/sandbox-launcher.html#scenario=' + encodeURIComponent(JSON.stringify(scenario));
+      return;
+    }
     const button = event.target.closest('[data-layout-mode]');
     if (!button) return;
     const card = button.closest('.ambient-card');

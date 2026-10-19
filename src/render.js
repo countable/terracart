@@ -2888,6 +2888,11 @@ Render.drawCells = function drawCells(scene) {
           const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
           texKey = FloorWallMaterials.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type) || texKey;
         }
+        if (!isTilled && scene._sandboxMode && typeof SandboxArt !== 'undefined') {
+          const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
+          const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
+          texKey = SandboxArt.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type) || texKey;
+        }
         let damageFrame;
         if (texKey && !polygonBuilding(col, row) && !isTilled && type === 12) {
           const damaged = CastleStyles.damageTexture(scene, castleOwner(col, row), !UNCLAIMED(col, row));
@@ -6507,6 +6512,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
                   depth: s.depth + 0.5,
                 });
               } },
+    sandboxprop: { key: o => SandboxArt.propKey(o),
+      scale: (o, scene) => SandboxArt.propScale(o, scene),
+      origin: [0.5, 1], dyPx: 15, shadow: true },
     mineralrock: { key: mineralRockArtKey, frame: mineralRockArtFrame,
               origin: [0.5, 0.5],
               scale: mineralRockArtScale,
@@ -6600,7 +6608,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     }
     if (texKey == null || !scene.textures.exists(texKey)) return { spec, visible: false };
     const frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
-    const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
+    const scl = typeof spec.scale === 'function' ? spec.scale(o, scene) : spec.scale;
     const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
     const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
     let dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);

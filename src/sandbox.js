@@ -1478,8 +1478,10 @@
     panel.style.cssText = 'padding:8px;display:block;border-top:1px solid #555';
     if (typeof FloorSandbox !== 'undefined' && FloorSandbox.active()) {
       const back = document.createElement('a');
-      back.href = 'tools/floor-viewer.html?seed=' + FloorSandbox.read().seed;
-      back.textContent = 'Return to floor viewer';
+      const map = FloorSandbox.read();
+      back.href = map.returnUrl || 'tools/floor-viewer.html?seed=' + map.seed;
+      back.textContent = map.scenario ? 'Return to variant planner' : 'Return to floor viewer';
+      if (map.title) title.textContent = map.title;
       const reload = document.createElement('button');
       reload.textContent = 'Restart this map';
       reload.onclick = () => location.reload();

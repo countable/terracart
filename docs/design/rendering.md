@@ -132,10 +132,13 @@ heading the command buffers are reused. House footprint foundations use the same
 retained perimeter faces, descending below the floor instead of rising as a wall.
 Only camera-facing sides draw; uncapped perimeters also support concave footprints
 without triangulating their textured floors. Floors remain cached ground textures.
-L1 sewer water repeats the approved sewer tileset swatch on existing underground
-route centre lanes through `FloorWallMaterials.groundTexture`. The runtime ground
-pool and floor viewer share that selection and its prebuilt texture. These remain
-walkable cave-floor cells; banks and other levels keep their existing ground.
+L1 sewer water repeats the approved sewer tileset swatch on actual water, water
+beneath pier decking, and existing underground route centre lanes through
+`FloorWallMaterials.groundTexture`. The runtime ground pool and floor viewer share
+that selection and its prebuilt texture, replacing the ordinary animated water
+texture in the same ground slot. Terrain and collision stay unchanged: actual
+water remains water, piers retain their decking, and decorative channels remain
+walkable cave-floor cells. Banks and other levels keep their existing ground.
 Building interiors use 32px swatches from the PP Interiors Pack's `all floors.png`
 (`assets/Objects/BuildingMaterials/all-floors.png`): square tiles for houses,
 wooden boards for Home and forts, and masonry for civic buildings. The patterns

@@ -53,6 +53,8 @@ const ctx = {};
 ctx.window = ctx;            // modules do `(function(window){…})(window)` and `window.X = …`
 ctx.self = ctx;
 ctx.console = console;
+ctx.URL = URL;
+ctx.URLSearchParams = URLSearchParams;
 ctx.SRC_PARSE_ERRORS = SRC_PARSE_ERRORS;
 ctx.Math = Math; ctx.Date = Date; ctx.JSON = JSON;
 ctx.Object = Object; ctx.Array = Array; ctx.Number = Number; ctx.String = String;
@@ -126,6 +128,9 @@ const FILES = [
   'castle_styles.js', 'temple_art.js', 'wall_materials.js', 'wall_surface_renderer.js', 'wall_perspective.js', 'building_styles.js', 'building_lowpoly.js', 'building_overlay.js',
   // The sandbox's pure tile builder: the same authored scenes, roads and dressing install() uses.
   'sandbox_destinations.js',
+  'sandbox_scenarios.js',
+  'floor_sandbox.js',
+  'sandbox_art.js',
   'sandbox.js',
   // render.js reads no globals at load time (see the CANVAS_W comment in
   // drawObjects), so it loads safely and exposes pure helpers (edgeNeedsBorder).

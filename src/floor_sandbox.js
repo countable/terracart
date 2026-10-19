@@ -6,8 +6,9 @@
     Int8Array, Int16Array, Int32Array, Float32Array, Float64Array };
   let snapshot;
   function active() {
-    return new URLSearchParams(root.location.search).get('sandboxMap') === 'floor-viewer';
+    return ['floor-viewer', 'scenario'].includes(new URLSearchParams(root.location?.search || '').get('sandboxMap'));
   }
+  function isScenario() { return active() && read().scenario === true; }
   function encode(key, value) {
     if (value instanceof Promise) return undefined;
     if (ArrayBuffer.isView(value) && TYPES[value.constructor.name])
@@ -23,12 +24,19 @@
     if (Object.hasOwn(TYPES, value._floorType)) return new TYPES[value._floorType](value.values);
     return value;
   }
-  function write(entries, depth, seed, variant) {
+  function write(entries, depth, seed, variant, options = {}) {
     const R = root.FloorViewerRegion;
     const data = { version: 1, entries, depth, seed, variant,
-      home: R ? { ...R.HOME } : { x: 25.5, y: 12.5 }, lat: R?.lat ?? 47.62 };
+      home: options.home || (R ? { ...R.HOME } : { x: 25.5, y: 12.5 }),
+      lat: options.lat ?? R?.lat ?? 47.62, title: options.title,
+      returnUrl: options.returnUrl, scenario: !!options.scenario };
     root.sessionStorage.setItem(KEY, JSON.stringify(data, encode));
     snapshot = undefined;
+    return data;
+  }
+  function writeScenario(scenario) {
+    const data = root.SandboxScenarios.build(scenario);
+    return write(data.entries, data.depth, data.seed, data.variant, data.options);
   }
   function read() {
     if (snapshot) return snapshot;
@@ -85,7 +93,7 @@
         cache.set(key, data.entries[depth]);
         return data.entries[depth];
       }
-      if (tx === 0 && ty === 0 && depth > 0) return originalAtDepth(depth, tx, ty, lat);
+      if (!data.scenario && tx === 0 && ty === 0 && depth > 0) return originalAtDepth(depth, tx, ty, lat);
       const entry = blank(depth, tx, ty, surface);
       cache.set(key, entry);
       return entry;
@@ -96,9 +104,12 @@
     W.loadTile.atDepth = atDepth;
     W.setDepth(data.depth);
     const entry = data.entries[data.depth], N = entry.cellsPerEdge;
+    const occupied = new Set(data.scenario ? [...(entry.objects || []), ...(entry.creatures || [])]
+      .map(p => Math.floor(p.y / scene.cellM) * N + Math.floor(p.x / scene.cellM)) : []);
     let best = null, distance = Infinity;
     for (let i = 0; i < entry.grid.length; i++) {
-      if (!W.isWalkable(entry.grid[i]) || entry.grid[i] === W.T.CAVE_LAVA) continue;
+      if (!W.isWalkable(entry.grid[i]) || entry.grid[i] === W.T.CAVE_LAVA
+          || entry.grid[i] === W.T.WATER || occupied.has(i)) continue;
       const x = i % N + 0.5, y = Math.floor(i / N) + 0.5;
       const d = (x - data.home.x) ** 2 + (y - data.home.y) ** 2;
       if (d < distance) { best = { x, y }; distance = d; }
@@ -114,7 +125,7 @@
     }
     scene.cameras?.main.setBackgroundColor(data.depth > 0 ? '#0a0a12' : '#172a20');
   }
-  root.FloorSandbox = { active, write, read, configure, install };
+  root.FloorSandbox = { active, isScenario, write, writeScenario, read, configure, install };
   // This script loads after save.js and before the game's scene is created.
   // Keep the real save out of this session, including pagehide flushes.
   if (active()) {
