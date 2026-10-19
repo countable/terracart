@@ -87,8 +87,8 @@ test('ground marks: no walk-target dot, and the GPS ring at every depth', () => 
 // body stands on it, left on the ground once the stick walks the body off.
 // It used to hide within a cell of the body, so the player only ever met the
 // mark after leaving it. And it is the same flat paint as the elite's rune
-// circle (GROUND_MARK): baked top-down, laid flat by the shared tilt, drawn at
-// the width its strokes were designed for.
+// circle (GROUND_MARK): baked top-down and laid flat — at its own width, tilt
+// and stroke weight (GPS_RING), rounder and heavier than the shared marks.
 test('ground marks: the GPS ring is always shown and is a flat ground mark', () => {
   assert.falsy(/> this\.cellM \*\* 2\) \{\s*const g = worldMetersToScreen/.test(app),
     'no one-cell slack hides the ring near the body');
@@ -96,11 +96,15 @@ test('ground marks: the GPS ring is always shown and is a flat ground mark', () 
     'with a fix, the ring is placed and shown unconditionally');
   assert.truthy(/this\.gpsGhost = this\.add\.image\(this\.viewCenterX, this\.viewCenterY, 'gps_ring'\)/.test(app),
     'the marker is the gps_ring bake');
-  assert.truthy(/\.setDisplaySize\(GROUND_MARK\.px, GROUND_MARK\.px \* GROUND_MARK\.tilt\)/.test(app),
-    'laid flat at the shared ground-mark width and tilt');
-  assert.truthy(/bakeRingBand\('gps_ring', GPS_RING\.periodDeg, ctx => \{ ring\(ctx, GPS_RING\.r\); ticks\(ctx, GPS_RING\.r, 4, GPS_RING\.tick\); \}, '#ffe066'\)/.test(app),
+  assert.truthy(/\.setDisplaySize\(GPS_RING\.px, GPS_RING\.px \* GPS_RING\.tilt\)/.test(app),
+    'laid flat at the ring\'s own width and tilt');
+  assert.truthy(/bakeRingBand\('gps_ring', GPS_RING\.periodDeg, ctx => \{ ring\(ctx, GPS_RING\.r\); ticks\(ctx, GPS_RING\.r, 4, GPS_RING\.tick\); \}, '#ffe066', GPS_RING\.weight\)/.test(app),
     'baked by the shared ground-mark bake, in gold, as a ring with four ticks, a strip over the ticks\' period');
   assert.eq(GPS_RING.periodDeg, 90, 'four ticks repeat every quarter turn');
+  assert.gt(GPS_RING.tilt, GROUND_MARK.tilt, 'rounder than the shared marks — at 0.5 it read squashed');
+  // Its on-screen line relative to the shared marks': weight × its width over theirs.
+  const onScreen = GPS_RING.weight * GPS_RING.px / GROUND_MARK.px;
+  assert.gt(onScreen, 1.2, 'the ring line is heavier than the shared marks\' 2px bake');
   assert.falsy(/gps_crosshair/.test(app), 'the old 20px crosshair bake is gone');
   // The walk-home lead stops on the ring's ellipse at the line's bearing.
   assert.truthy(/const FAR_GAP = 1 \/ Math\.hypot\(ux \/ rx, uy \/ ry\);/.test(app),

@@ -346,3 +346,27 @@ test('heading up: seated props retain cell centering, shadows and visible-foot d
     }
   }
 });
+
+test('heading up: the direction caret is pushed clear of the body, never behind it', () => {
+  // Ground paint draws under the character, so a caret pointing up the screen
+  // (the usual heading once the compass is locked) sat behind the body.
+  const start = SCENE_SRC.indexOf('    this.facingChevronGfx.clear();');
+  const end = SCENE_SRC.indexOf('    // Footprint trail.', start);
+  const draw = new Function('pScreen', 'FACING_CHEVRON_TILT', 'FACING_CHEVRON', SCENE_SRC.slice(start, end));
+  const pts = [];
+  const gfx = { clear() { pts.length = 0; }, lineStyle() {}, beginPath() {}, moveTo(x, y) { pts.push({ x, y }); },
+    lineTo(x, y) { pts.push({ x, y }); }, strokePath() {}, fillStyle() {}, fillCircle() {} };
+  const scene = { _headingUp: false, facingChevronGfx: gfx,
+    player: { displayWidth: 24, displayHeight: 24 }, playerBodyDy: () => -9 };
+  const chevron = { tip: 16, arm: 10, halfW: 4.5, outlineW: 3.2, fillW: 1.6 };
+  const feet = { x: 100, y: 100 };
+  const headPx = 24 / 2 + 9;
+  const paint = (x, y) => { scene.facing = { x, y }; draw.call(scene, feet, 0.6, chevron); return pts.slice(0, 3); };
+  for (const p of paint(0, -1)) {
+    assert.lt(p.y, feet.y - headPx, 'pointing up the screen, the whole caret sits above the head');
+  }
+  const down = paint(0, 1);
+  assert.lt(Math.max(...down.map(p => p.y)), feet.y + 16, 'pointing down it stays at the feet, unpushed');
+  const side = paint(1, 0);
+  assert.lt(Math.max(...side.map(p => p.x)), feet.x + 17, 'pointing sideways it is not pushed out');
+});

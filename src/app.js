@@ -3694,13 +3694,30 @@ class MapScene extends Phaser.Scene {
     const fmag = Math.hypot(facing.x, facing.y);
     if (!(HeadingUp.active(this) && this._deviceCompass && !HeadingUp.directionLocked(this)) && fmag > 0.001) {
       const fx = facing.x / fmag, fy = facing.y / fmag;
+      // Ground paint sits under the body, so a caret pointing up the screen —
+      // the usual case once the compass is locked facing the way you walk —
+      // was hidden behind the character. Push it out along the heading, by
+      // the least that takes all three points off the body's box on the
+      // (turned) screen: nothing beside or below the feet, past the head
+      // straight up.
+      const { tip, arm, halfW } = FACING_CHEVRON;
+      let push = 0;
       // (along, across) on the ground → screen, y foreshortened.
       const ground = (u, v) => ({
-        x: pScreen.x + fx * u - fy * v,
-        y: pScreen.y + (fy * u + fx * v) * FACING_CHEVRON_TILT,
+        x: pScreen.x + fx * (u + push) - fy * v,
+        y: pScreen.y + (fy * (u + push) + fx * v) * FACING_CHEVRON_TILT,
       });
-      const { tip, arm, halfW } = FACING_CHEVRON;
-      const pts = [ground(arm, halfW), ground(tip, 0), ground(arm, -halfW)];
+      const caret = () => [ground(arm, halfW), ground(tip, 0), ground(arm, -halfW)];
+      let pts = caret();
+      if (this.player) {
+        const headPx = this.player.displayHeight / 2 - this.playerBodyDy() + 2;
+        const bodyHalfW = this.player.displayWidth * 0.3;
+        const behind = (p) => {
+          const s = HeadingUp.toScreenVec(this, p.x - pScreen.x, p.y - pScreen.y);
+          return s.y < 0 && s.y > -headPx && Math.abs(s.x) < bodyHalfW;
+        };
+        while (push < 64 && pts.some(behind)) { push += 1; pts = caret(); }
+      }
       const g = this.facingChevronGfx;
       // Graphics has no round caps or joins, so a dot of the stroke's width
       // at each vertex rounds the ends and closes the apex.
@@ -7040,13 +7057,13 @@ class MapScene extends Phaser.Scene {
     // Stop short of the character at the near end so the line never runs into
     // the sprite. At the far end it stops on the GPS RING itself rather than
     // short of it: the line is meant to reach the marker, so it touches it.
-    // The ring is the 'gps_ring' bake laid flat (GROUND_MARK.tilt), so its
+    // The ring is the 'gps_ring' bake laid flat (GPS_RING.tilt), so its
     // radius along the line is the ellipse's at that bearing.
     const NEAR_GAP = 11;
     if (len < 1e-6) return;
     const ux = dx / len, uy = dy / len;
     const rx = this.gpsGhost.displayWidth * GPS_RING.r / GROUND_MARK.bakePx;
-    const ry = rx * GROUND_MARK.tilt;
+    const ry = rx * GPS_RING.tilt;
     const FAR_GAP = 1 / Math.hypot(ux / rx, uy / ry);
     if (len < NEAR_GAP + FAR_GAP + 10) return;
     const from = NEAR_GAP, to = len - FAR_GAP;

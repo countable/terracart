@@ -267,7 +267,10 @@ the real source so a missing texture cannot become a permanent cached palette.
   lock subscribes to the shared GPS watch and unlocks on success; failure keeps
   it locked. Repeated taps share one pending request, released on shutdown.
   Detection alone does not relocate a sandbox or teleport world. Desktop without a heading sensor
-  and north-up mode retain the caret. The heading-up compass rim keeps its north marker.
+  and north-up mode retain the caret. The caret is ground paint under the body,
+  so it is pushed out along the heading by the least that takes it off the
+  body's on-screen box; pointing up-screen it clears the head instead of hiding
+  behind it. The heading-up compass rim keeps its north marker.
   Game state stays north-up; taps, peek drags and steering convert back
   through `HeadingUp.toWorldVec`, including the manual GPS stick.
 - Map annotations use `HeadingUp.toOverlayPt` for UI-camera graphics: rotate
@@ -419,8 +422,10 @@ the real source so a missing texture cannot become a permanent cached palette.
   strip step, and the stroke passes (dark under-stroke, soft halo, line) in a
   mark's ink.
   `bakeGroundMark` (scene_create.js) is the one bake; the elite's rune bands
-  and the player's GPS ring (`gps_ring`, baked in gold, `GPS_RING` geometry)
-  are its rows. The GPS ring (`gpsGhost`) is always drawn while there is a fix:
+  and the player's GPS ring (`gps_ring`, baked in gold) are its rows. The GPS
+  ring's `GPS_RING` row carries its own on-screen width, tilt and stroke
+  `weight`: at the shared tilt it read squashed and its line faint under the
+  feet. The GPS ring (`gpsGhost`) is always drawn while there is a fix:
   around the feet while the body stands on it, left on the ground once the
   stick walks the body off, and, once its centre is off the visible map, its
   bearing is a micro gold rim dot (`_drawGpsRimDot`, drawn with the MARKERS

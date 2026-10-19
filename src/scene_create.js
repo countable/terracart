@@ -779,7 +779,7 @@ class SceneCreate {
     // the ellipse; see Render.groundMarkFrame). The renderer lays a mark flat
     // with GROUND_MARK.tilt. Baked in colour rather than white-and-tinted
     // where the ink is fixed, because setTint() is a no-op under Canvas.
-    const bakeGroundMark = (key, frames, path, ink = '#fff') => {
+    const bakeGroundMark = (key, frames, path, ink = '#fff', weight = 1) => {
       const S = GROUND_MARK.bakePx, cols = Math.min(frames, 8);
       bakeCanvas(this, key, cols * S, Math.ceil(frames / cols) * S, (ctx, tex) => {
         ctx.lineCap = 'round';
@@ -788,7 +788,7 @@ class SceneCreate {
           ctx.save();
           ctx.translate(x + S / 2, y + S / 2);
           ctx.rotate(f * ELITE_RING_STEP_DEG * Math.PI / 180);
-          for (const [width, colour, alpha] of GROUND_MARK.strokes(ink)) {
+          for (const [width, colour, alpha] of GROUND_MARK.strokes(ink, weight)) {
             ctx.globalAlpha = alpha; ctx.strokeStyle = colour; ctx.lineWidth = width;
             ctx.beginPath(); path(ctx); ctx.stroke();
           }
@@ -803,8 +803,8 @@ class SceneCreate {
     // turns the other way. Each is a rotation strip over the turn after which
     // it repeats (the runes' four shapes come round every 120°, the eight
     // ticks every 45°).
-    const bakeRingBand = (key, periodDeg, path, ink) =>
-      bakeGroundMark(key, Math.round(periodDeg / ELITE_RING_STEP_DEG), path, ink);
+    const bakeRingBand = (key, periodDeg, path, ink, weight) =>
+      bakeGroundMark(key, Math.round(periodDeg / ELITE_RING_STEP_DEG), path, ink, weight);
     const ring = (ctx, r) => { ctx.moveTo(r, 0); ctx.arc(0, 0, r, 0, Math.PI * 2); };
     // The ticks across a ring of radius r: n of them, `len` each side of it.
     const ticks = (ctx, r, n, len) => {
@@ -841,7 +841,7 @@ class SceneCreate {
     // A ring around the feet with four ticks crossing it, and no centre pip:
     // the feet stand on the fix, so the body covers it. A strip over the 90°
     // after which the ticks repeat, so they turn with the map under heading-up.
-    bakeRingBand('gps_ring', GPS_RING.periodDeg, ctx => { ring(ctx, GPS_RING.r); ticks(ctx, GPS_RING.r, 4, GPS_RING.tick); }, '#ffe066');
+    bakeRingBand('gps_ring', GPS_RING.periodDeg, ctx => { ring(ctx, GPS_RING.r); ticks(ctx, GPS_RING.r, 4, GPS_RING.tick); }, '#ffe066', GPS_RING.weight);
     // Soft round halos — a glow that fades from the centre out, baked once and
     // reused for every pulsing aura: the player's warning auras (out of energy,
     // strayed far from the GPS) and the slow breath that marks a POI. Baked in
@@ -1146,8 +1146,8 @@ class SceneCreate {
     // to real bodies — and not a filled dot either: gold and round at this
     // size is a coin, which is the one thing on this map you are meant to walk
     // over and collect. The same flat ground paint as the elite's rune circle
-    // (the 'gps_ring' bake above), laid flat by GROUND_MARK.tilt and drawn at
-    // GROUND_MARK.px, where its linework lands at the weight it was baked at.
+    // (the 'gps_ring' bake above), laid flat by GPS_RING.tilt and drawn at
+    // GPS_RING.px — its own size, tilt and stroke weight (render.js).
     // Ground paint, so it lives with the shadows and the walk-home lead
     // (shadowContainer, under every standing sprite): the body stands ON the
     // ring, the way an elite stands on its rune circle — a root-level image
@@ -1157,7 +1157,7 @@ class SceneCreate {
     // reaches the ticks through the strip frame instead (update()).
     this.gpsGhost = this.add.image(this.viewCenterX, this.viewCenterY, 'gps_ring')
       .setOrigin(0.5, 0.5)
-      .setDisplaySize(GROUND_MARK.px, GROUND_MARK.px * GROUND_MARK.tilt)
+      .setDisplaySize(GPS_RING.px, GPS_RING.px * GPS_RING.tilt)
       .setDepth(9.8)
       .setVisible(false)
       .setMask(mask);

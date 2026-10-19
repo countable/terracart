@@ -4157,14 +4157,18 @@ const GROUND_MARK = {
   px: 42,
   tilt: 0.5,
   stepDeg: 3,
-  // [line width in the bake, colour, alpha]: under-stroke, halo, line.
-  strokes: (ink) => [[6, '#000', 0.5], [5, ink, 0.18], [2, ink, 1]],
+  // [line width in the bake, colour, alpha]: under-stroke, halo, line;
+  // `weight` scales all three for a mark drawn heavier than the default.
+  strokes: (ink, weight = 1) => [[6 * weight, '#000', 0.5], [5 * weight, ink, 0.18], [2 * weight, ink, 1]],
 };
 // The GPS ring's geometry in bake px: a ring around the feet with four short
 // ticks crossing it (an open ring, never a filled disc — a small gold disc is a
 // coin in this game), a strip over the 90° after which the ticks repeat. The
-// walk-home lead stops on the ring (app.js).
-const GPS_RING = { r: 30, tick: 5, periodDeg: 90 };
+// walk-home lead stops on the ring (app.js). Its own on-screen width, tilt and
+// stroke weight rather than GROUND_MARK's: at the shared 0.5 tilt the ring read
+// too squashed and its line too faint under the feet. `weight` is set so the
+// line lands about 1.3× the shared marks' on screen at this narrower width.
+const GPS_RING = { r: 30, tick: 5, periodDeg: 90, px: 38, tilt: 0.6, weight: 1.44 };
 // The frame of rotation strip `key` showing the mark turned `turnDeg`
 // clockwise on screen, with the map's own turn under heading-up folded in.
 Render.groundMarkFrame = function groundMarkFrame(scene, key, turnDeg = 0) {
