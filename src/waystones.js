@@ -57,7 +57,8 @@
       (save.waystoneUntil ||= {})[stone.id] = now + LIGHT_MS;
       changed = true;
     }
-    if (members.every(o => isLit(o, save, now))) {
+    const lit = members.filter(o => isLit(o, save, now)).length;
+    if (lit === members.length) {
       const seat = rewardSeat(scene, cell);
       const reward = { kind: 'chest', id: `waystone_reward:${group}`,
         tierSeed: 3, depth: 0, playerOwned: true };
@@ -69,6 +70,9 @@
       if (seat) seat.entry.objects.push({ ...reward });
       scene.flash?.(seat ? 'A T3 chest appears beside you.' : 'The way is alight.');
       changed = true;
+    } else if (changed) {
+      // Progress for a newly lit stone, in the centred viewport toast.
+      scene.flash?.(`${lit}/${members.length} waystones lit`);
     }
     if (changed) {
       persistSave(save);

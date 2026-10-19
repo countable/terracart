@@ -376,7 +376,8 @@ access or tile lifecycle mechanics.
   share the set; fewer than three legal, spaced seats produces no puzzle.
   Each stone carries `waystoneSet` and the actual `waystoneCount`; all seats
   are claimed together before later ambient dressing. Grounded feet light a stone
-  for `Waystones.LIGHT_MS`; tapping an unlit stone says “closer...” and grants
+  for `Waystones.LIGHT_MS` and toasts the set's progress (“2/5 waystones
+  lit”) in the centred viewport toast; tapping an unlit stone says “closer...” and grants
   no lore. All members must be lit simultaneously. Completion lives in
   `save.waystoneSets`, leaves every member permanently lit, and saves one T3
   chest beside the player. Unopened rewards are restored after tile reloads;

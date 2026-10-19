@@ -52,6 +52,16 @@
     Waystones.restoreRewards(s); assert.eq(e.objects.filter(o => o.kind === 'chest').length, 0);
     assert.truthy(stones.every(o => Waystones.isLit(o, s.save, 1e12)));
   }));
+  test('waystones: lighting a stone toasts the set\'s progress once', () => fixture((s, e, stones) => {
+    walk(s, stones[0], 1000);
+    assert.eq(s.flashes.at(-1), '1/3 waystones lit');
+    walk(s, stones[0], 1500);
+    assert.eq(s.flashes.length, 1, 'standing on a lit stone does not repeat it');
+    walk(s, stones[1], 2000);
+    assert.eq(s.flashes.at(-1), '2/3 waystones lit');
+    walk(s, stones[2], 3000);
+    assert.eq(s.flashes.at(-1), 'A T3 chest appears beside you.', 'completion keeps its own notice');
+  }));
   test('waystones: expired lights, incomplete sets and other ways cannot complete a puzzle', () => fixture((s, e, stones) => {
     walk(s, stones[0], 1000);
     walk(s, stones[1], 1000 + Waystones.LIGHT_MS);
