@@ -1244,12 +1244,31 @@ class SceneVenues {
     // nearest cell round the player that does (HomeArea.firepitCandidates) —
     // a heading that points it at a road or the water must not cost a new
     // game its pit.
+    // A street by the door puts it out front, between the door and the
+    // street; with none (or no room there) and the player outside, it goes
+    // on their side of the house (HomeArea.firepitCellsToward,
+    // playerSideFirepitCells). Never on the player's own cell. An adopted
+    // building has no saved door and keeps the heading layout.
+    const me = this.playerM && this.startWorldM ? worldMetersToAbsCell(this,
+      this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y) : null;
+    const firstOK = (cells) => {
+      for (const c of cells) {
+        const cell = absCellOffset(this, at.cellIX, at.cellIY, c.dx, c.dy);
+        if (me && cell.cellIX === me.cellIX && cell.cellIY === me.cellIY) continue;
+        const m = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
+        if (this._firepitGroundOK(m.x, m.y)) return m;
+      }
+      return null;
+    };
     let pit = null;
-    for (const c of HomeArea.firepitCandidates(offset, wagon)) {
-      const cell = absCellOffset(this, at.cellIX, at.cellIY, c.dx - wagon.dx, c.dy - wagon.dy);
-      const m = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
-      if (this._firepitGroundOK(m.x, m.y)) { pit = m; break; }
+    if (trailer.door) {
+      const street = this._homeNearestStreet(trailer.x, trailer.y);
+      if (street && street.side === trailer.door) pit = firstOK(HomeArea.firepitCellsToward(street.side, street));
+      if (!pit && me) {
+        pit = firstOK(HomeArea.playerSideFirepitCells({ dx: me.cellIX - at.cellIX, dy: me.cellIY - at.cellIY }, trailer.door));
+      }
     }
+    pit ||= firstOK(HomeArea.firepitCandidates(offset, wagon).map(c => ({ dx: c.dx - wagon.dx, dy: c.dy - wagon.dy })));
     // Do not relocate a saved lit fire into water or a road. An unsuitable
     // neighbourhood leaves an existing pit intact.
     if (pit) {
@@ -1283,6 +1302,12 @@ class SceneVenues {
   // near. The overlay's low-poly facade and the prism doorway both read the
   // answer back off the saved trailer (save.starterTrailer.door).
   _homeDoorSideToStreet(wmx, wmy) {
+    return this._homeNearestStreet(wmx, wmy)?.side || null;
+  }
+
+  // That nearest road or path cell as { dx, dy, side }, cells from the
+  // anchor cell, or null; the firepit sits between it and the door.
+  _homeNearestStreet(wmx, wmy) {
     const c = worldMetersToTileCell(this, wmx, wmy);
     const e = WorldGen.tileCache.get(WorldGen.tileKey(c.tx, c.ty));
     if (!e?.grid) return null;
@@ -1297,7 +1322,8 @@ class SceneVenues {
       if (!best || d < best.d) best = { d, dx, dy };
     }
     if (!best) return null;
-    return Math.abs(best.dy) >= Math.abs(best.dx) ? (best.dy > 0 ? 'S' : 'N') : (best.dx > 0 ? 'E' : 'W');
+    const side = Math.abs(best.dy) >= Math.abs(best.dx) ? (best.dy > 0 ? 'S' : 'N') : (best.dx > 0 ? 'E' : 'W');
+    return { dx: best.dx, dy: best.dy, side };
   }
 
   // Build a synthetic "trailer" house at (wmx, wmy), snapped to the cell-grid

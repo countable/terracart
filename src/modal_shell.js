@@ -401,7 +401,7 @@ class SceneModals {
       wrap.appendChild(box);
       (speech ? document.body : document.getElementById('game') || document.body).appendChild(wrap);
       if (speech) { this._syncModalGate?.(); this._placeSpeechBubble(wrap, box, source); }
-      // Build cards stay in one scrollable grid; price and actions remain visible.
+      // Build cards and recipes scroll; price and actions remain visible.
       if (scrollContent) {
         wrap.classList.add('modal-scroll-content');
         viewport.style.overflowY = 'auto';
@@ -414,7 +414,7 @@ class SceneModals {
         footer.className = 'modal-offer-footer';
         footer.style.cssText = 'flex:0 0 auto;padding:8px 16px max(12px, env(safe-area-inset-bottom));';
         for (const node of into.querySelectorAll('.offer-cost, .offer-actions')) footer.appendChild(node);
-        body.appendChild(footer);
+        if (footer.childElementCount) body.appendChild(footer);
         return;
       }
       // Refit live content and paginate overflow without shrinking type.
@@ -603,6 +603,83 @@ class SceneModals {
       window.visualViewport?.removeEventListener('resize', refresh);
     });
     removed.observe(document.body, { childList: true });
+  }
+
+  // Station controls above an offer or a pick grid: a top-right ghost action
+  // (a workbench's Pick up) and a tab row (Home's Sell / Craft). Each tab is
+  // { label, active, onSelect }; tapping an inactive tab leaves this dialog
+  // and onSelect re-presents the sibling — cheap tabs without a stateful panel.
+  _stationChrome(box, mkBtn, { topAction, tabs, isClosed, leave }) {
+    if (topAction) {
+      const topRow = document.createElement('div');
+      topRow.className = 'offer-top-actions';
+      topRow.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:6px;';
+      const button = mkBtn(topAction.label, { variant: 'ghost' });
+      button.addEventListener('click', e => {
+        e.stopPropagation();
+        if (isClosed()) return;
+        if (topAction.onClick() !== false) leave();
+      });
+      topRow.appendChild(button);
+      box.appendChild(topRow);
+    }
+    if (tabs && tabs.length) {
+      const tabRow = document.createElement('div');
+      tabRow.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-bottom:4px;';
+      for (const t of tabs) {
+        const tb = mkBtn(t.label, { variant: 'ghost', css:
+          'flex:1;padding:6px 4px;border-radius:6px 6px 0 0;font:700 12px var(--font-ui);border-bottom:none;'
+          + (t.active
+              ? 'background:#3a3322;color:#ffe066;border-color:#c8a64a;'
+              : 'color:#999;') });
+        if (!t.active) {
+          tb.addEventListener('click', (e) => { e.stopPropagation(); if (isClosed()) return; leave(); t.onSelect(); });
+        }
+        tabRow.appendChild(tb);
+      }
+      box.appendChild(tabRow);
+    }
+  }
+
+  // A station's PICK GRID: every option at once as icon cards (a workbench's
+  // recipes). A long grid scrolls — it is browsed, not a transaction — and a
+  // tap leaves for that option's own offer (`onSelect`), which comes back with
+  // ‹ Back. `ready` cards say so in green; the rest stay tappable so their
+  // ingredients can be read. Backdrop and × close.
+  //   items: [{ label, iconHTML, note, ready, onSelect }]
+  showPickGridModal({ title, items, kind, kindLabel, kindIcon, tabs, topAction, art }) {
+    let closed = false;
+    const close = () => {
+      if (closed) return false;
+      closed = true;
+      wrap.remove();
+      return true;
+    };
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
+      { onClose: () => { closed = true; }, kind, kindLabel, kindIcon, art, scrollContent: true });
+    wrap.classList.add('pick-grid-modal');
+    this._stationChrome(box, mkBtn, { topAction, tabs, isClosed: () => closed, leave: close });
+    if (title) {
+      const titleDiv = document.createElement('div');
+      titleDiv.style.cssText = 'opacity:.75;font-size:12px;margin:2px 0 8px';
+      titleDiv.textContent = title;
+      box.appendChild(titleDiv);
+    }
+    const grid = document.createElement('div');
+    grid.className = 'pick-grid';
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px;margin:0 0 6px;';
+    for (const item of items) {
+      const card = mkBtn(`<div style="font-size:0;margin-bottom:3px">${item.iconHTML || ''}</div>`
+        + `<div style="line-height:1.2">${item.label}</div>`
+        + (item.note ? `<div style="font:400 11px var(--font-ui);margin-top:2px;color:${item.ready ? '#a7ffb0' : '#bdb5a4'}">${item.note}</div>` : ''),
+        { variant: 'ghost', css: 'padding:8px 4px 6px;font:700 12px var(--font-ui);border-radius:7px;min-width:0;'
+          + (item.ready ? 'border-color:#6fae6f;' : 'opacity:.8;') });
+      card.classList.add('pick-card');
+      card.addEventListener('click', (e) => { e.stopPropagation(); if (close()) item.onSelect(); });
+      grid.appendChild(card);
+    }
+    box.appendChild(grid);
+    mount();
   }
 
   // Canonical accept/cancel modal for a simple decision. The caller supplies
@@ -827,6 +904,10 @@ class SceneModals {
   //   disabledReason: explain a non-money blocker without marking the cost unaffordable
   //   onAccept:     called after the modal closes
   //   repeat:       re-present a counter after each transaction with live state
+  //                 (the backdrop and × still leave it, as they leave any offer)
+  //   back:         OPTIONAL fn — the cancel button becomes ‹ Back and re-presents
+  //                 the list this offer was picked from (a station's recipe grid);
+  //                 the backdrop and × still leave entirely.
   //   onCancel:     optional work deferred until the player leaves
   //   acceptLabel:  primary button label ('Buy' default; 'Sell' / 'Trade'…)
   //   cancelLabel:  dismiss button label. Defaults to 'Cancel'; pass 'Later'
@@ -844,7 +925,7 @@ class SceneModals {
   //   topAction:    OPTIONAL { label, onClick } — top-right ghost station control.
   //                 Returning false keeps the offer open when the action is refused.
   //   pager:        OPTIONAL { index, count, onPrev, onNext } — the page is
-  //                 one of `count` options (a smelt bar, a crafting recipe), and
+  //                 one of `count` options (a smelt bar), and
   //                 small ‹ › arrows flank the `get` line with an "i / n"
   //                 under it (paging is not an action, so no extra button).
   //                 `showIndex: false` drops the "i / n" line and keeps the arrows.
@@ -862,7 +943,7 @@ class SceneModals {
   //                 the start (a single card is selected on its own, so the
   //                 dialog reads as the plain price tag it is). A `suggested`
   //                 card wears a soft outline until something is picked.
-  showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, topAction, pager, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, portrait, fullscreen = false, source, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
+  showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, back, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, topAction, pager, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, portrait, fullscreen = false, source, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     // What the last accept of a REPEAT offer said (its flashLoot / flash
     // toasts, captured by the accept below): those draw on the map behind
     // this dialog, so the dialog that reopens prints them as its receipt.
@@ -876,45 +957,14 @@ class SceneModals {
       return true;
     };
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { onClose: repeat ? undefined : () => close(), kind, kindLabel, kindIcon, art, portrait, fullscreen, source,
-        scrollContent: kind === 'build' && choices?.length > 0 });
+      { onClose: () => close(), kind, kindLabel, kindIcon, art, portrait, fullscreen, source,
+        // Build cards and crafting recipes scroll above a pinned cost and
+        // actions; turning pages split the ingredients from Craft.
+        scrollContent: (kind === 'build' && choices?.length > 0) || kind === 'craft' });
     // Transitions and acceptance retain pending work; leaving or interruption
     // releases it exactly once, after the wrapper is out of the document.
     wrap.closeModal = close;
-    // Station controls stay above the recipe and never enter the transaction.
-    if (topAction) {
-      const topRow = document.createElement('div');
-      topRow.className = 'offer-top-actions';
-      topRow.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:6px;';
-      const button = mkBtn(topAction.label, { variant: 'ghost' });
-      button.addEventListener('click', e => {
-        e.stopPropagation();
-        if (closed) return;
-        if (topAction.onClick() !== false) close('transition');
-      });
-      topRow.appendChild(button);
-      box.appendChild(topRow);
-    }
-    // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
-    // is { label, active, onSelect }. Tapping an inactive tab closes this modal
-    // and calls onSelect, which re-presents the sibling modal — cheap "tabs"
-    // without restructuring the single-offer modal into a stateful panel.
-    if (tabs && tabs.length) {
-      const tabRow = document.createElement('div');
-      tabRow.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-bottom:4px;';
-      for (const t of tabs) {
-        const tb = mkBtn(t.label, { variant: 'ghost', css:
-          'flex:1;padding:6px 4px;border-radius:6px 6px 0 0;font:700 12px var(--font-ui);border-bottom:none;'
-          + (t.active
-              ? 'background:#3a3322;color:#ffe066;border-color:#c8a64a;'
-              : 'color:#999;') });
-        if (!t.active) {
-          tb.addEventListener('click', (e) => { e.stopPropagation(); close('transition'); t.onSelect(); });
-        }
-        tabRow.appendChild(tb);
-      }
-      box.appendChild(tabRow);
-    }
+    this._stationChrome(box, mkBtn, { topAction, tabs, isClosed: () => closed, leave: () => close('transition') });
     // Built from individual nodes so choice controls can update the
     // get/cost lines without re-rendering the whole modal.
     if (title) {
@@ -943,38 +993,7 @@ class SceneModals {
         + 'border-top:1px solid rgba(200,166,74,.55);border-bottom:1px solid rgba(200,166,74,.55)'
       : 'font-size:16px;font-weight:700;margin:2px 0;color:#ffe066';
     getDiv.innerHTML = get ?? '';
-    if (pager?.options?.length) {
-      // Recipe counters can jump straight to any known recipe, including
-      // unavailable ones whose ingredient requirements the player wants to see.
-      const picker = document.createElement('div');
-      picker.className = 'recipe-picker';
-      picker.style.cssText = 'display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:10px;margin:4px 0;';
-      const icon = document.createElement('span');
-      icon.style.cssText = 'line-height:0;text-align:center;';
-      icon.innerHTML = pager.iconHTML || '';
-      const select = document.createElement('select');
-      select.setAttribute('aria-label', 'Recipe');
-      select.setAttribute('aria-describedby', 'offer-recipe-caption');
-      select.style.cssText = 'width:100%;min-width:0;min-height:44px;padding:8px;border:1px solid #8c7950;border-radius:6px;background:#211c15;color:#ffe066;font:700 15px var(--font-ui);';
-      pager.options.forEach((option, index) => {
-        const node = document.createElement('option');
-        node.value = String(index); node.textContent = option.label;
-        select.appendChild(node);
-      });
-      select.value = String(pager.index);
-      select.addEventListener('change', (e) => {
-        e.stopPropagation();
-        const selected = pager.options[Number(select.value)];
-        if (!selected || Number(select.value) === pager.index) return;
-        close('transition'); selected.onSelect();
-      });
-      picker.appendChild(icon); picker.appendChild(select); box.appendChild(picker);
-      const caption = document.createElement('div');
-      caption.id = 'offer-recipe-caption';
-      caption.style.cssText = 'font-size:12px;color:#c9c1af;margin:0 0 4px;';
-      caption.textContent = pager.caption || `${pager.index + 1} / ${pager.count}`;
-      box.appendChild(caption);
-    } else if (pager && pager.count > 1) {
+    if (pager && pager.count > 1) {
       const pageRow = document.createElement('div');
       pageRow.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:8px;';
       const mkArrow = (glyph, aria, fn) => {
@@ -1119,10 +1138,14 @@ class SceneModals {
         : `<span style="color:#ddd">${esc(t.text)}</span>`).join('<br>');
       box.appendChild(status);
     }
-    const cancel = mkBtn(cancelLabel, false, false);
+    const cancel = mkBtn(back ? '‹ Back' : cancelLabel, false, false);
     const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled || !!(secondary.withChoice && hasChoices && !selected)) : null;
     const accept = mkBtn(acceptLabel, true, !canAfford || !!disabledReason || (hasChoices && !selected));
-    cancel.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+    cancel.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!back) { close(); return; }
+      if (close('transition')) back();
+    });
     let accepted = false;
     accept.addEventListener('click', (e) => {
       e.stopPropagation();

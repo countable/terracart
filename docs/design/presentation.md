@@ -177,7 +177,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   It clips the header readouts at that edge too; story sheets rise above the
   coin indicator, using its measured position across phone and desktop scaling.
   Dismissible sheets expose a fixed close control using the same cancellation
-  callback and input arming as their backdrop. Offer dialogs close through
+  callback and input arming as their backdrop. Every offer dialog, a repeat
+  counter included, is dismissible: × or a tap outside the panel leaves it.
+  Offer dialogs close through
   `closeModal(reason)`: leaving or an enemy hit releases deferred book reads
   after removal, while acceptance and tab transitions retain pending work.
   Required acknowledgments omit
@@ -319,13 +321,18 @@ changing dialogue, story panels, books, toasts or status presentation.
   Successful visits show their story painting each time. `tools/idols.html`
   reads the same rows for the design sheet.
 - Home, workbenches and brewing share `_presentRecipePicker` for discovery,
-  selection, capacity and paging, above `_presentRecipeOffer` transactions.
+  selection and capacity, above `_presentRecipeOffer` transactions.
   `HOME_RECIPES.station` keeps Home's Craft tab limited to the starter-known
   workbench (three Wood and one Rubble). Every former Home recipe, including
-  the starter-known Spear, belongs at a placed workbench. Tapping a workbench
-  opens its recipe picker directly, indoors or outdoors, with a ghost Pick up
-  control at the top right and no Home Sell tab. Recheck the station before
-  spending and reopen the same workbench and selected recipe after crafting.
+  the starter-known Spear, belongs at a placed workbench. A station with
+  several known recipes opens on `showPickGridModal`: every recipe as an icon
+  card (green when it can be made now), scrolling when long, with the station
+  controls (a workbench's ghost Pick up, Home's or Brewing's tabs) above it. A
+  card opens that recipe's counter, whose ‹ Back (`back`) returns to the grid;
+  a station with one known recipe opens its counter directly. Lists may scroll;
+  a counter never pages or splits its ingredients from Craft — the ingredient
+  list and actions stay pinned. Recheck the station before spending and
+  reopen the same workbench and selected recipe after crafting.
   Show each ingredient's
   held and required quantities, its shortfall in text, and a visible reason
   when Craft is disabled. Keep the chosen recipe after crafting and refresh

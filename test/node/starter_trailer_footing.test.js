@@ -23,6 +23,7 @@
     _firepitGroundOK: lift('_firepitGroundOK'),
     _makeStarterTrailer: lift('_makeStarterTrailer'),
     _homeDoorSideToStreet: lift('_homeDoorSideToStreet'),
+    _homeNearestStreet: lift('_homeNearestStreet'),
     ensureStarterTrailerObject: lift('ensureStarterTrailerObject'),
     clearHomeFooting: lift('clearHomeFooting'),
     _homeFootingAnchor: lift('_homeFootingAnchor'),
@@ -172,6 +173,59 @@
       t._makeStarterTrailer(at(30, 29).x, at(30, 29).y);
       assert.eq(t.save.starterTrailer.door, HomeArea.doorSide(0), 'the heading decides');
     });
+  });
+
+  test('home footing: a street by the door puts the firepit between the door and the street', () => {
+    // A road column five cells east of the wagon cell (30, 29): the door is
+    // east, the doorstep is (31, 29), and the pit stands two cells past it.
+    const road = tile([]);
+    for (let iy = 20; iy <= 38; iy++) road.grid[iy * N + 35] = WorldGen.T.ROAD;
+    withTile(road, () => {
+      const s = scene({ homePlacementHeading: 0 });
+      const p = at(30, 30); s._placeHome(p.x, p.y);
+      assert.eq(s.save.starterTrailer.door, 'E');
+      assert.truthy(sameAbsCell(s, s.save.homeFirepit.x, s.save.homeFirepit.y, at(33, 29).x, at(33, 29).y),
+        'the pit is out the east door, short of the road');
+    });
+    // A closer street (three cells out) pulls it in; it never sits on the road.
+    const close = tile([]);
+    for (let iy = 20; iy <= 38; iy++) close.grid[iy * N + 33] = WorldGen.T.ROAD;
+    withTile(close, () => {
+      const s = scene({ homePlacementHeading: 0 });
+      const p = at(30, 30); s._placeHome(p.x, p.y);
+      assert.truthy(sameAbsCell(s, s.save.homeFirepit.x, s.save.homeFirepit.y, at(32, 29).x, at(32, 29).y),
+        'one cell past the doorstep, next to the road');
+    });
+    // North and west doors use the wall's outer row and the lane nearer the street.
+    assert.eq(JSON.stringify(HomeArea.firepitCellsToward('N', { dx: -3, dy: -6 })),
+      JSON.stringify([{ dx: -1, dy: -4 }, { dx: -1, dy: -3 }]));
+    assert.eq(JSON.stringify(HomeArea.firepitCellsToward('W', { dx: -4, dy: 0 })),
+      JSON.stringify([{ dx: -3, dy: 0 }]));
+    assert.eq(HomeArea.firepitCellsToward('S', { dx: 0, dy: 2 }).length, 0, 'no room before a street at the doorstep');
+  });
+
+  test('home footing: with no street, the firepit goes on the player\'s side of the house, never under them', () => {
+    // House cells (29..30, 28..29), door south.
+    const place = (player) => {
+      const s = scene({ homePlacementHeading: 0, homeCompassDetected: false });
+      withTile(tile([]), () => {
+        const p = at(30, 30); s._placeHome(p.x, p.y);
+        s.playerM = at(...player);
+        s._onFirstCompass();
+      });
+      const pit = s.save.homeFirepit;
+      return worldMetersToAbsCell(s, pit.x, pit.y);
+    };
+    const cell = (c) => [c.cellIX, c.cellIY].join(',');
+    assert.eq(cell(place([30, 30])), '30,32', 'at the door: two behind them, the open-ground layout');
+    assert.eq(cell(place([30, 34])), '30,32', 'farther out: between them and the house');
+    assert.eq(cell(place([30, 32])), '30,31', 'standing on the old spot: between, not under them');
+    assert.eq(cell(place([33, 28])), '32,28', 'east of the house: between them and the east wall');
+    assert.eq(cell(place([26, 29])), '27,29', 'west: between them and the west wall');
+    assert.eq(cell(place([30, 25])), '30,26', 'north, behind the house: still their side');
+    // Inside the house keeps the heading layout.
+    assert.eq(cell(place([29, 28])), '30,32', 'inside: the heading layout');
+    assert.eq(HomeArea.playerSideFirepitCells({ dx: 0, dy: 0 }, 'S').length, 0);
   });
 
   test('home footing: entrance-side offsets follow cardinal and diagonal compass headings', () => {
