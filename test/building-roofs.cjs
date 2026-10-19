@@ -53,8 +53,8 @@ for(const role of ['plain','blacksmith','trader','seed','supply','potion','relic
   for(const floors of [1,2,3])assert.equal(wallRecipe(role,floors).stories,floors);
   materials.add(wallRecipe(role).material);
 }
-assert.equal(materials.size,5,'five curated material families');
+assert.deepEqual([...materials].sort(),['plaster','sandstone','stone','timber'],'legacy wall material families');
 assert.equal(wallRecipe('wizard',99).stories,3,'story height is bounded');
 assert.equal(wallRecipe('wizard',-2).stories,1,'story height has a minimum');
 assert.equal(wallRecipe('unknown').material,'plaster','unknown roles retain a house material');
-console.log(`Roof triangles: ${dense} → ${clean} (${Math.round((1-clean/dense)*100)}% fewer). Wall recipes: 5 materials, 11 roles, 1–3 stories.`);
+console.log(`Roof triangles: ${dense} → ${clean} (${Math.round((1-clean/dense)*100)}% fewer). Wall recipes: ${materials.size} materials, 11 roles, 1–3 stories.`);

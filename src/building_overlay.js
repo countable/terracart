@@ -1623,7 +1623,11 @@
           const base = BuildingStyles.STYLES[styleId], palette = {...base,...profile.palette};
           const paint = c => tuneOf(isMine)(shadeOf(isMine)(c));
           const recipe = BuildingLowPoly.recipeFor(role,{wall:paint(palette.wall),roof:paint(palette.roof),
-                trim:paint(role==='turret'?palette.wall:0x614534)},Render.buildingStoreysFor(object, scene));
+                trim:role==='turret'?paint(palette.wall):undefined},Render.buildingStoreysFor(object, scene),isMine);
+          // Restored recipes own their brass/copper palette; apply the same
+          // background treatment after selection, including the recipe trim.
+          if(recipe.facadeTrim==='brass')for(const key of ['body','roof','trim'])recipe[key]=paint(recipe[key]);
+          else recipe.trim=paint(recipe.trim);
           const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant
             || recipe.variant||'ridge';
           model = BuildingLowPoly.add(scene,d.pts,recipe,variant,object.id,doorStreets);

@@ -744,7 +744,14 @@ role and shop-line style tables: plaster terraces for residences, brick for the
 blacksmith, Japanese roofs for traders and book/pet shops, stepped pyramid roofs
 for the wizard and potion/relic shops, and low broken walls for wrecks.
 Forts take no footprint style: see the fort paragraph under World layers.
-Restoring a building changes its material and geometry together.
+Restoring a building changes its material and geometry together. On the retained
+WebGL path, the overlay passes its claim result into `BuildingLowPoly.recipeFor`.
+`RESTORED_ROLES` holds every restored design; `LOOK.restoredRoles` lists the live
+ones, currently only the relic shop. It uses straight Pixel Plains walls, door
+and windows (`LOOK.facadeVariant='A'`) under a red roof, and its chimney samples
+the ground-wall texture. The shared cel atlas is built once per material recipe
+with no pixel readback. See the [low-poly styles](../art/lowpoly-building-styles.md)
+for cell and cache rules.
 
 `BuildingOverlay` emits retained prisms only when footprint inputs or restoration
 state change. Roof insets stop when narrow or concave wings cannot support another

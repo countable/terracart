@@ -6,10 +6,10 @@
   // halved together (31.2/1.3 -> 15.6/.65) when buildings read twice too tall:
   // doors and windows shrink with the storey, so the facade keeps its scale.
   const FLOOR_HEIGHT=15.6, DETAIL_SCALE=.65, EAVE_RISE=2.5, ROOF_OVERHANG=5;
-  // Facade bays are 39 texels wide: windows in the even bays, the door in bay
-  // 6. An entrance wall centres its door; every other wall centres on a plain
-  // bay. Either way a corner may still fall inside a window bay, and
-  // atlasFaces swaps that cut bay for its plain neighbour (cornerBays).
+  // Legacy facade bays are 39 texels wide: alternate windows, door in bay 6.
+  // Corner cuts sample a plain neighbour. Restored kits retain those splits
+  // but fit complete opening bays to side walls in add(), keeping vertices
+  // and roof UVs identical while replacing the blank corner samples.
   const BAY=39,DOOR_CENTRE=253.5,PLAIN_CENTRE=60.5;
   const wallStart=(span,entrance)=>entrance?DOOR_CENTRE-span/2:PLAIN_CENTRE+2*BAY*Math.ceil((span/2-PLAIN_CENTRE)/(2*BAY))-span/2;
   const bayAt=t=>Math.floor((t-2)/BAY),windowBay=k=>((k%2)+2)%2===0;
@@ -26,7 +26,8 @@
   // The billboard look (docs/art/lowpoly-building-styles.md): every number
   // the ink pass, projection and dressing share, so sprites and meshes keep
   // agreeing. tools/building-billboard-preview.html edits this table live.
-  const LOOK={heightScale:1,inkPx:1,wallThickness:2.8,ink:0x2a2229,textured:true,facade:'cel',eaveBand:4.5,eaveShade:.5,flatRim:1.75,flatShade:4.5,sheet:768,
+  // restoredRoles lists the RESTORED_ROLES whose look is live; null makes all of them live.
+  const LOOK={heightScale:1,inkPx:1,wallThickness:2.8,ink:0x2a2229,textured:true,facade:'cel',facadeVariant:'A',restoredRoles:['relic'],eaveBand:4.5,eaveShade:.5,flatRim:1.75,flatShade:4.5,sheet:768,
     chimney:{radius:4.4,cap:5.8,mouth:3.4,above:6.5,rise:3.5,capHeight:1.1,sides:0xd9c9b8,capColor:0x9c8f84,mouthColor:0x2a2229},
     wreck:{tint:0xb3a89e,debris:0x5e564f,beam:0x3b2a1f,top:0x6b6059}};
   const mix=(a,b,t)=>{const c=i=>Math.round(((a>>i)&255)*(1-t)+((b>>i)&255)*t);return (c(16)<<16)|(c(8)<<8)|c(0);};
@@ -47,15 +48,40 @@
     relic:{window:'shop',material:'timber',finish:'masonry',roofMaterial:'redtile',stories:1,style:'pyramid',variant:'inset'},
     pet:{window:'shop',material:'timber',finish:'siding',roofMaterial:'thatch',stories:1,style:'japanese'},
     book:{window:'shop',material:'brick',finish:'masonry',roofMaterial:'clay',stories:2,style:'japanese'},
-    wizard:{window:'arched',material:'stone',finish:'tower',roofMaterial:'slate',stories:3,style:'pyramid',shape:'wizard'},
+    wizard:{window:'arched',material:'stone',finish:'tower',roofMaterial:'copper',stories:4,style:'pyramid',shape:'wizard'},
     turret:{window:'casement',material:'stone',finish:'tower',roofMaterial:'slate',stories:1,style:'fort',shape:'turret'},
     wreck:{window:'casement',material:'timber',finish:'cottage',roofMaterial:'slate',stories:1,style:'ruin',shape:'wreck'},
   };
-  function recipeFor(role,palette={},stories){
+  // Player restoration is an opt-in from the overlay's existing claim predicate.
+  // Keep ROLES intact for unowned buildings, special silhouettes and old viewers.
+  // Shared commerce joinery repeats the roof colour in the wall canopy. The
+  // smithy takes the generated grey stone: the pack's straight masonry is lilac.
+  const RESTORED_HOUSE={material:'plaster',wallCell:'whitePlaster',finish:'cottage',
+    facadeKit:'house',braces:true,chimneyFinish:'wall',
+    window:'porthole',framing:'darkTimber',facadeTrim:'brass',body:0xeeeee4,
+    roof:0xb97542,trim:0xb98546,roofMaterial:'copper',variant:'ridge',terraced:false};
+  const RESTORED_SHOP={...RESTORED_HOUSE,wallCell:'orangeBrick',upperWallCell:'whitePlaster',shopWalls:'brickWhite',body:0xd8c5a0,
+    facadeKit:'shop',braces:false,window:'brassShop',shopfront:true,awning:true};
+  const RESTORED_ROLES={
+    plain:{...RESTORED_HOUSE},home:{...RESTORED_HOUSE},
+    blacksmith:{...RESTORED_HOUSE,material:'stone',wallCell:'smithStone',finish:'workshop',
+      facadeKit:'smith',facadeVariant:'B',braces:false,emblem:'cog',chimneyFinish:'wall',
+      body:0x85888a,roof:0x526b7b,roofMaterial:'blueSlate'},
+    shop:{...RESTORED_SHOP,emblem:'shop',roof:0x526b7b,roofMaterial:'blueSlate'},
+    trader:{...RESTORED_SHOP,emblem:'trader',roof:0x668f80,roofMaterial:'verdigris'},
+    supply:{...RESTORED_SHOP,emblem:'supply',roof:0x668f80,roofMaterial:'verdigris'},
+    seed:{...RESTORED_SHOP,emblem:'seed',roof:0x93966b,roofMaterial:'strawGreen'},
+    pet:{...RESTORED_SHOP,emblem:'pet',roof:0x93966b,roofMaterial:'strawGreen'},
+    potion:{...RESTORED_SHOP,emblem:'potion',roof:0x806288,roofMaterial:'violet'},
+    relic:{...RESTORED_SHOP,emblem:'relic',roof:0xa04f3f,roofMaterial:'red'},
+    book:{...RESTORED_SHOP,emblem:'book',roof:0x754958,roofMaterial:'plum'},
+  };
+  function recipeFor(role,palette={},stories,restored=false){
     const spec=ROLES[role]||ROLES.plain,base=BuildingStyles.STYLES[spec.style];
     const recipe={...spec,role,body:palette.wall??base.wall,roof:palette.roof??base.roof,
       trim:palette.trim??0x614534,stories:stories||spec.stories};
     if(role==='wreck'){const char=c=>((Math.round((c>>16)*.65)<<16)|(Math.round(((c>>8)&255)*.65)<<8)|Math.round((c&255)*.65));recipe.body=char(recipe.body);recipe.roof=char(recipe.roof);}
+    if(restored&&RESTORED_ROLES[role]&&(!LOOK.restoredRoles||LOOK.restoredRoles.includes(role)))Object.assign(recipe,RESTORED_ROLES[role]);
     return recipe;
   }
   const cross = (a,b,c) => (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
@@ -386,7 +412,64 @@
     if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(cacheKey,mesh);return mesh;
   }
   // Compact special silhouettes are independent of the source footprint outline.
-  function specialGeometry(points,recipe){
+  // Player-restored wizard: fixed octagon, footprint plinth, street-facing door.
+  function wizardGeometry(points,recipe,streets=[]){
+    const {ring:foot,triangles}=triangulate(points);
+    let area=0,cx=0,cy=0;
+    foot.forEach((a,i)=>{const b=foot[(i+1)%foot.length],v=a.x*b.y-b.x*a.y;area+=v;cx+=(a.x+b.x)*v;cy+=(a.y+b.y)*v;});
+    if(Math.abs(area)<1e-8)return {ring:foot,faces:[],height:0};
+    cx/=3*area;cy/=3*area;
+    const radius=21,base=3,stories=recipe.stories||4,h=base+stories*FLOOR_HEIGHT;
+    const ring=Array.from({length:8},(_,i)=>({x:cx+radius*Math.cos(i*Math.PI/4+Math.PI/8),y:cy+radius*Math.sin(i*Math.PI/4+Math.PI/8)}));
+    const door=streetDoor(ring,streets),entrance=door?door.edge:1;
+    const key='wizard-v2:'+stories+':'+entrance+':'+foot.map(p=>p.x+','+p.y).join(';');
+    if(meshCache.has(key))return meshCache.get(key);
+    const faces=[],v=(p,z,u=0,v=0)=>({...p,z,u,v});
+    const tri=(points,kind,layer,extra={})=>faces.push({points,kind,layer,light:1,...extra});
+    const quad=(q,kind,layer,extra)=>{tri([q[0],q[1],q[2]],kind,layer,extra);tri([q[0],q[2],q[3]],kind,layer,extra);};
+    // The low stone plinth keeps the source outline, including concave returns.
+    for(const t of triangles)tri(t.map(p=>v(p,base)),'trim',-2,{color:0x887d69});
+    foot.forEach((a,i)=>{const b=foot[(i+1)%foot.length];quad([v(a,0),v(b,0),v(b,base),v(a,base)],'trim',-3,{color:0x665e55,wallDirection:{x:b.x-a.x,y:b.y-a.y}});});
+    ring.forEach((a,i)=>{const b=ring[(i+1)%8],dir={x:b.x-a.x,y:b.y-a.y};
+      for(let f=0;f<stories;f++){
+        const bay=f===0&&i===entrance?2:f===stories-1&&i===entrance?3:i%2===1?1:0,x=bay*32;
+        const lo=base+f*FLOOR_HEIGHT,hi=lo+FLOOR_HEIGHT;
+        quad([v(a,lo,x,24),v(b,lo,x+31,24),v(b,hi,x+31,0),v(a,hi,x,0)],'wall',f,{rawUV:true,wallDirection:dir});
+      }
+      // Broad copper collars, no miniature gears or geometry for masonry.
+      for(let f=0;f<=stories;f++){
+        const z=base+f*FLOOR_HEIGHT,aa={x:cx+(a.x-cx)*1.025,y:cy+(a.y-cy)*1.025},bb={x:cx+(b.x-cx)*1.025,y:cy+(b.y-cy)*1.025};
+        quad([v(aa,z),v(bb,z),v(bb,z+2),v(aa,z+2)],'trim',stories+1,{color:0x9c5a35,wallDirection:dir});
+      }
+    });
+    const outer=ring.map(p=>({x:cx+(p.x-cx)*1.06,y:cy+(p.y-cy)*1.06})),apex=h+26;
+    outer.forEach((a,i)=>{const b=outer[(i+1)%8];tri([v(a,h+2,0,175),v(b,h+2,31,175),v({x:cx,y:cy},apex,15.5,128)],'roof',h+2,{rawUV:true,light:.82-.16*Math.cos((i+.5)*Math.PI/4)});});
+    const tip=ring.map(p=>({x:cx+(p.x-cx)*.05,y:cy+(p.y-cy)*.05}));
+    tip.forEach((a,i)=>{const b=tip[(i+1)%8],dir={x:b.x-a.x,y:b.y-a.y};quad([v(a,apex-1),v(b,apex-1),v(b,apex+2),v(a,apex+2)],'trim',apex,{color:0xc7a76c,wallDirection:dir});tri([v(a,apex+2),v(b,apex+2),v({x:cx,y:cy},apex+4)],'trim',apex+1,{color:0xc7a76c});});
+    const mesh={ring,faces,height:apex+4,eaveHeight:h,uvBaseline:true,entrance,center:{x:cx,y:cy},
+      roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length};
+    if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(key,mesh);return mesh;
+  }
+  // One shared pixel atlas: 32x24 face bays and a triangular standing-seam panel.
+  function wizardSheet(scene,recipe){
+    const key='lowpoly:wizard-v2:'+recipe.roof;
+    if(scene.textures.exists(key))return scene.textures.get(key);
+    const tex=scene.textures.createCanvas(key,512,512),c=tex.getContext();
+    const px=(x,y,w,h,color)=>{c.fillStyle='#'+color.toString(16).padStart(6,'0');c.fillRect(x,y,w,h);};
+    px(0,0,512,512,0xd2c09a);
+    for(let bay=0;bay<4;bay++){
+      const x=bay*32;px(x,0,32,24,0xd2c09a);
+      for(let y=5;y<24;y+=6){px(x,y,32,1,0xb3a185);for(let j=(y%12===5?8:0);j<32;j+=16)px(x+j,y-5,1,5,0xb3a185);}
+      px(x,0,32,2,0x9c5a35);px(x,2,32,1,0x6b3d2a);px(x,22,32,2,0x9c5a35);
+      if(bay===1||bay===2){const bottom=bay===2?23:20;px(x+7,8,18,bottom-8,0x6b3d2a);px(x+10,4,12,4,0x6b3d2a);px(x+8,8,16,bottom-9,0xc7a76c);px(x+11,5,10,3,0xc7a76c);px(x+10,9,12,bottom-10,bay===2?0x594535:0x5f8a88);px(x+12,6,8,3,bay===2?0x594535:0x5f8a88);if(bay===1){px(x+15,6,2,bottom-6,0xc7a76c);px(x+10,13,12,1,0xc7a76c);px(x+11,7,2,5,0xb9d4c6);}else{px(x+16,9,1,bottom-9,0x392f32);px(x+19,16,2,2,0xe1c184);}}
+      if(bay===3){px(x+12,7,8,12,0x79604a);px(x+10,9,12,8,0x79604a);px(x+12,8,8,10,0xc7a76c);px(x+11,10,10,6,0xc7a76c);px(x+13,10,6,6,0x526f70);px(x+13,10,2,3,0xc9c18f);}
+    }
+    px(0,128,32,48,recipe.roof);
+    for(let y=128;y<176;y++){const d=(y-128)*15.5/47;px(Math.round(15.5-d),y,1,1,0x9b9769);px(Math.round(15.5+d),y,1,1,0x344e4b);}
+    px(510,126,1,1,0xffffff);tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
+  }
+  function specialGeometry(points,recipe,streets=[]){
+    if(recipe.shape==='wizard')return wizardGeometry(points,recipe,streets);
     const xs=points.map(p=>p.x),ys=points.map(p=>p.y),cx=(Math.min(...xs)+Math.max(...xs))/2,cy=(Math.min(...ys)+Math.max(...ys))/2;
     const key='special:'+recipe.shape+':'+cx+':'+cy+(recipe.shape==='wreck'?':'+points.map(p=>p.x+','+p.y).join(';'):'');
     if(meshCache.has(key))return meshCache.get(key);
@@ -533,7 +616,41 @@
     // tileset's, red tile the painterly sheet's; all nearest-sampled. Tile
     // sizes are 512-basis texels and divide 360.
     roofs:{clay:{rect:[2,324,98,420],tile:[120,120],tint:.7},thatch:{rect:[100,324,196,420],tile:[90,90],tint:.7},
-      slate:{rect:[198,324,494,393],tile:[180,40]},redtile:{rect:[496,324,681,469],tile:[90,72]}}};
+      slate:{rect:[198,324,494,393],tile:[180,40]},redtile:{rect:[496,324,681,469],tile:[90,72]},
+      copper:{rect:[2,471,98,567],tile:[90,90]},verdigris:{rect:[100,471,196,567],tile:[90,90]},
+      blueSlate:{rect:[198,471,294,567],tile:[90,90]},violet:{rect:[296,471,392,567],tile:[90,90]},
+      red:{rect:[394,471,490,567],tile:[90,90]},plum:{rect:[492,471,588,567],tile:[90,90]},
+      strawGreen:{rect:[2,569,98,665],tile:[90,90]}},
+    // Cel surface cells tile 1:1; the roof uses 96px cells and a 288px wrap.
+    surfaces:{cream:[100,569,196,665],boards:[198,569,294,665],smithStone:[296,569,392,665],whitePlaster:[2,667,98,763],
+      AwhitePlaster:[2, 801, 98, 897],
+      AorangeBrick:[100, 801, 196, 897],
+      Aboards:[198, 801, 294, 897],
+      AsmithStone:[296, 801, 392, 897],
+      BwhitePlaster:[2, 925, 98, 1021],
+      BorangeBrick:[100, 925, 196, 1021],
+      Bboards:[198, 925, 294, 1021],
+      BsmithStone:[296, 925, 392, 1021]},
+    parts:{houseDoor:[2,765,21,789],porthole:[23,765,37,779],shopDoor:[39,765,59,789],
+      shopWindow:[61,765,135,780],smithDoor:[137,765,160,789],cog:[162,765,180,783],
+      shop:[182,765,202,783],trader:[204,765,224,783],supply:[226,765,246,783],
+      seed:[248,765,268,783],pet:[270,765,290,783],potion:[292,765,312,783],
+      relic:[314,765,334,783],book:[336,765,356,783],timberWindow:[358,765,372,779],
+      brassWindow:[374,765,390,781],awningblueSlate:[2,791,78,799],awningverdigris:[80,791,156,799],
+      awningstrawGreen:[158,791,234,799],awningviolet:[236,791,312,799],
+      awningred:[314,791,390,799],awningplum:[392,791,468,799],
+      AhouseDoor:[2, 899, 21, 923],
+      AshopDoor:[23, 899, 43, 923],
+      AsmithDoor:[45, 899, 68, 923],
+      AtimberWindow:[70, 899, 84, 913],
+      AbrassWindow:[86, 899, 102, 915],
+      AshopWindow:[104, 899, 178, 914],
+      BhouseDoor:[2, 1023, 21, 1047],
+      BshopDoor:[23, 1023, 43, 1047],
+      BsmithDoor:[45, 1023, 68, 1047],
+      BtimberWindow:[70, 1023, 84, 1037],
+      BbrassWindow:[86, 1023, 102, 1039],
+      BshopWindow:[104, 1023, 178, 1038]}};
   const SHEET_IMAGE='approved_materials_v1';
   // The pixel tileset leaves openings white (meant for transparency). Flood-fill
   // each white region: the ground-floor entrance bay becomes a plank door, the
@@ -601,8 +718,8 @@
       for(let i=0;i<d.length;i+=16){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}tex.roofTone=(Math.round(r/n)<<16)|(Math.round(g/n)<<8)|Math.round(b/n);}
     tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
   }
-  // The cel sheet: a minimal pixel-art facade drawn from scratch, no source
-  // art. LOOK.facade='cel' selects it. Every material is a three-tone ramp
+  // The cel sheet: pixel joinery over procedural or packed restoration cells.
+  // LOOK.facade='cel' selects it. Legacy materials use a three-tone ramp
   // (shade, base, light) around the role colour plus one shared ink colour,
   // the restraint of the supply crate (assets/Objects/Approved/box.png) in
   // the colours of the approved house sprites (assets/Objects/Approved/
@@ -612,12 +729,21 @@
   // with only a lintel, sill, step and lantern as decoration.
   // Layout is the shared 512-basis facade
   // (ground line 105, 24-texel floors, 39-texel bays, door bay centred at
-  // 255.5, roof rows from 128 with a 288 period), so UVs are unchanged.
+  // 253.5, roof rows from 128 with a 288 fallback period). Restored side-wall
+  // UVs fit whole opening bays; the entrance and roof retain their alignment.
   const CEL={ink:0x32131e,shadow:0x4a2123,plum:0x4a2123,mauve:0x7a4d54,cream:0xf8dfcb,
     wood:{dark:0x4a2123,mid:0x7e210d,base:0x954a39,light:0xb45c3a,bright:0xc87139},
     glass:{dark:0x185969,base:0x1fc6af,light:0x9ff0e0},flame:0xf2c76a};
+  // Only restored kits choose PP variants. The recipe override also lets proof
+  // fixtures compare A/B without changing global state or duplicating geometry.
+  function facadeMaterials(recipe){
+    const variant=recipe.facadeKit?((recipe.facadeVariant??LOOK.facadeVariant)==='B'?'B':'A'):'';
+    const plank=recipe.facadeKit==='shop'&&recipe.shopWalls==='plank';
+    return {variant,wall:plank?'boards':recipe.wallCell,upper:plank?'boards':recipe.upperWallCell};
+  }
   function celSheet(scene,recipe){
-    const wreck=recipe.shape==='wreck',key='lowpoly:cel-v4:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.roofMaterial,recipe.finish,recipe.window,recipe.role==='blacksmith',wreck,!!recipe.blank]);
+    const facade=facadeMaterials(recipe);
+    const wreck=recipe.shape==='wreck',packed=!!recipe.wallCell&&tilesetReady(scene),key='lowpoly:cel-v8:'+JSON.stringify([recipe.material,recipe.body,recipe.trim,recipe.roof,recipe.roofMaterial,recipe.finish,recipe.window,recipe.role==='blacksmith',wreck,!!recipe.blank,recipe.facadeTrim,recipe.framing,!!recipe.shopfront,recipe.wallCell,packed,recipe.facadeKit,!!recipe.braces,recipe.emblem,recipe.chimneyFinish,!!recipe.awning,facade.variant,facade.wall,facade.upper]);
     if(scene.textures.exists(key))return scene.textures.get(key);
     const tex=scene.textures.createCanvas(key,512,512),ctx=tex.getContext();
     const css=c=>'#'+c.toString(16).padStart(6,'0');
@@ -625,10 +751,21 @@
     // Three-tone cel ramp: shade leans to the crate's blue-violet, light to warm cream.
     const ramp=c=>({shade:mix(c,CEL.shadow,.26),base:c,light:mix(c,CEL.cream,.16)});
     const wall=ramp(recipe.body),roof=ramp(recipe.roof),ink=CEL.ink;
-    const trim={shade:CEL.wood.dark,base:CEL.wood.base,light:CEL.wood.light}; // the sprites' frame wood
+    const brass=recipe.facadeTrim==='brass';
+    const trim=brass?ramp(recipe.trim):{shade:CEL.wood.dark,base:CEL.wood.base,light:CEL.wood.light}; // the sprites' frame wood
     // Raised timbers cover the plank seams: a broad wood face with a light
     // upper/left edge and a dark lower/right edge, all in the wall's palette.
-    const beam={base:mix(wall.base,CEL.shadow,.12),light:mix(wall.base,CEL.cream,.32),shade:mix(wall.base,CEL.shadow,.45)};
+    const beam=recipe.framing==='darkTimber'?{base:0x493529,light:0x735039,shade:0x302731}:
+      {base:mix(wall.base,CEL.shadow,.12),light:mix(wall.base,CEL.cream,.32),shade:mix(wall.base,CEL.shadow,.45)};
+    // Source cells are painted offline; upload once per shared recipe, never read back.
+    const tileCell=(rect,y0,y1,size=96)=>{
+      if(!packed||!rect)return;
+      const img=scene.textures.get(SHEET_IMAGE).getSourceImage();
+      ctx.save();ctx.beginPath();ctx.rect(0,y0,512,y1-y0);ctx.clip();ctx.imageSmoothingEnabled=false;
+      for(let y=y0;y<y1;y+=size)for(let x=0;x<512;x+=size)
+        ctx.drawImage(img,rect[0],rect[1],rect[2]-rect[0],rect[3]-rect[1],x,y,size,size);
+      ctx.restore();
+    };
     const BOT=105,FLOORS=4,bays=[];for(let k=-1;k<=12;k++)bays.push(2+39*k);
     // --- wall surface -------------------------------------------------------
     px(0,0,512,128,wall.base);
@@ -646,21 +783,26 @@
       for(let y=5;y<128;y+=6)px(0,y,512,1,mix(wall.base,wall.shade,.5));
       for(let y=3;y<128;y+=11)for(let x=5;x<512;x+=17){if(hash(x,y)>.9)px(x,y,2,1,wall.light);}
     }
-    // Keep the existing storey bands, bay posts and diagonal brace paths.
-    // Five-texel beams leave a three-texel face between their bevel lines.
+    const wallRect=SHEET_SRC.surfaces?.[facade.variant+facade.wall];
+    tileCell(wallRect,0,128);
+    if(facade.upper)tileCell(SHEET_SRC.surfaces?.[facade.variant+facade.upper],0,BOT-24);
+    // Full-panel cottage braces return on white restored residences. Shops
+    // retain posts only, leaving room for the shared display and role sign.
     if(recipe.finish==='cottage'){
       for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);for(const bx of bays){
         // Full panel diagonals join opposite corners beneath the openings.
-        for(let i=0;i<39;i++)for(const x of [bx+i,bx+38-i]){
+        if(recipe.framing!=='darkTimber'||recipe.braces)for(let i=0;i<39;i++)for(const x of [bx+i,bx+38-i]){
           const by=y-2+Math.round(i*24/39);
           px(x,by,1,6,beam.base);px(x,by,1,1,beam.light);px(x,by+5,1,1,beam.shade);
         }
-        px(bx-2,y,5,24,beam.base);px(bx-2,y,1,24,beam.light);px(bx+2,y,1,24,beam.shade);
+        const half=recipe.framing==='darkTimber'?1:2;
+        px(bx-half,y,half*2+1,24,beam.base);px(bx-half,y,1,24,beam.light);px(bx+half,y,1,24,beam.shade);
       }}
     }
     // Horizontal timbers cap the joints after the posts and braces.
     for(let f=0;f<FLOORS;f++){const y=BOT-24*(f+1);
-      px(0,y-2,512,5,beam.base);px(0,y-2,512,1,beam.light);px(0,y+2,512,1,beam.shade);
+      const half=recipe.framing==='darkTimber'?1:2;
+      px(0,y-half,512,half*2+1,beam.base);px(0,y-half,512,1,beam.light);px(0,y+half,512,1,beam.shade);
     }
     // Plinth: stone courses below the ground line, as the tileset keeps them;
     // walls never sample it (chimney sides and the door step do).
@@ -668,19 +810,41 @@
     const bw=matchWall?24:18,bh=matchWall?12:6;
     px(0,BOT,512,23,plinth.base);
     for(let y=BOT+1,row=0;y<128;y+=bh,row++)for(let x=-(row%2)*bw/2;x<512;x+=bw){px(x,y+bh-1,bw,1,plinth.shade);px(x+bw-1,y,1,bh,plinth.shade);px(x+1,y,bw-3,1,plinth.light);}
+    // Existing stack UVs sample the building's ground-wall material, without
+    // framing or openings. Soot sits immediately under the retained cap.
+    if(recipe.chimneyFinish){
+      if(packed)tileCell(wallRect,BOT,128);
+      else px(0,BOT,508,23,wall.base);
+      px(0,BOT,508,2,ink);
+      for(let x=3;x<508;x+=10)px(x,BOT+2,3,2,ink);
+    }
     // --- openings -------------------------------------------------------------
     // Window shapes follow the approved house, smithy, trader and market
     // sprites. Specialty shops share the market sprite's broad four panes.
     const casement=(x,y)=>{
-      const style=recipe.window||'casement',shop=style==='shop',twin=style==='slateShutters',w=shop?17:11,h=10;
+      const style=recipe.window||'casement',shop=style==='shop'||style==='brassShop',twin=style==='slateShutters',w=style==='brassShop'?19:shop?17:11,h=10;
+      if(style==='porthole'){
+        // Stepped circular brass frame: no antialiased arcs or extra triangles.
+        px(x+2,y-1,7,1,ink);px(x,y+1,11,7,ink);px(x+2,y+9,7,1,ink);
+        px(x+2,y,7,9,trim.base);px(x+1,y+2,9,5,trim.base);
+        px(x+3,y+2,5,5,0x4c7378);px(x+2,y+3,7,3,0x4c7378);
+        px(x+3,y+2,4,2,0xb5c8b2);px(x+5,y+2,1,5,trim.shade);
+        px(x+2,y,6,1,trim.light);px(x+1,y+3,1,1,trim.light);
+        px(x+3,y+8,5,1,trim.shade);return;
+      }
       x-=Math.floor((w-11)/2);
       px(x-1,y-1,w+2,h+2,ink);px(x,y,w,h,trim.base);
       if(wreck){px(x+1,y+1,w-2,h-2,CEL.plum);px(x,y+2,w,2,CEL.wood.mid);px(x,y+6,w,2,CEL.wood.dark);px(x+1,y+2,1,1,ink);px(x+w-2,y+7,1,1,ink);return;}
-      px(x+1,y+1,w-2,h-2,CEL.glass.base);
-      px(x+1,y+1,Math.floor(w/2)-1,twin?h-2:3,CEL.glass.light);
-      px(x+Math.ceil(w/2),y+(twin?1:5),Math.floor(w/2)-1,twin?h-2:4,CEL.glass.dark);
+      px(x+1,y+1,w-2,h-2,brass?0x648b8b:CEL.glass.base);
+      px(x+1,y+1,Math.floor(w/2)-1,twin?h-2:3,brass?0xc7d4ba:CEL.glass.light);
+      px(x+Math.ceil(w/2),y+(twin?1:5),Math.floor(w/2)-1,twin?h-2:4,brass?0x375b67:CEL.glass.dark);
       px(x+Math.floor(w/2),y+1,1,h-2,trim.shade);
       if(!twin)px(x+1,y+4,w-2,1,trim.shade);
+      if(style==='brassShop'){
+        px(x-1,y-3,w+2,2,trim.base);px(x,y-3,w,1,trim.light);
+        px(x-1,y+h,w+2,3,beam.base);px(x,y+h,w,1,trim.light);
+        px(x-1,y-1,1,1,trim.light);px(x+w,y-1,1,1,trim.light);
+      }
       if(style==='arched'){
         px(x,y,w,1,trim.shade);px(x,y+1,2,2,trim.base);px(x+w-2,y+1,2,2,trim.base);
         px(x+2,y+1,w-4,1,trim.light);
@@ -700,15 +864,76 @@
       for(let i=3;i<15;i+=4)px(x+i,y+1,1,21,CEL.wood.dark);
       px(x+1,y+1,13,1,CEL.wood.bright);px(x,y+8,15,2,CEL.wood.mid);px(x,y+10,15,1,CEL.wood.dark);
       px(x+11,y+12,2,2,CEL.flame);px(x+12,y+13,1,1,ink);
+      if(brass){
+        px(x-1,y+1,2,20,trim.base);px(x+14,y+1,2,20,trim.base);px(x,y,15,2,trim.light);
+        px(x+4,y+3,7,7,trim.shade);px(x+5,y+4,5,5,recipe.shopfront?0xc7d4ba:0xf2c76a);
+        px(x+7,y+4,1,5,trim.base);
+        if(recipe.shopfront){px(x-2,y-2,19,2,trim.base);px(x-2,y-2,19,1,trim.light);}
+        // Small real footprints can lose both neighbouring window bays to
+        // corner suppression. Keep two narrow lights inside the entrance bay
+        // so restoration still reads without squeezing openings at corners.
+        for(const sx of [x-10,x+18]){
+          if(recipe.shopfront){
+            px(sx,y+4,8,10,trim.base);px(sx,y+4,8,1,trim.light);
+            px(sx+1,y+5,6,7,0x648b8b);px(sx+1,y+5,5,2,0xc7d4ba);
+            px(sx+4,y+5,1,7,trim.shade);
+          }else{
+            px(sx+2,y+4,4,10,trim.base);px(sx,y+6,8,6,trim.base);
+            px(sx+2,y+6,4,6,0x648b8b);px(sx+1,y+7,6,4,0x648b8b);
+            px(sx+2,y+6,4,2,0xc7d4ba);px(sx+2,y+4,4,1,trim.light);
+          }
+          px(sx,y+14,8,1,trim.light);
+        }
+      }
       if(wreck){px(x-2,y+6,19,3,CEL.plum);px(x-2,y+6,19,1,CEL.mauve);px(x-1,y+14,18,3,CEL.plum);px(x-1,y+14,18,1,CEL.mauve);}
       px(x-3,y+22,21,3,plinth.light);px(x-3,y+24,21,1,ink); // step
       px(x-7,y+3,1,8,trim.shade);px(x-9,y+1,5,6,ink);px(x-8,y+2,3,4,CEL.flame);px(x-7,y+3,1,1,0xfff1c2); // lantern
     };
+    // Processed Pixel Plains parts and matching procedural hardware are sampled directly, once per recipe. Keep
+    // doors aligned to the entrance; displays span two bays and the sign sits
+    // above the doorway. Restored UV fitting preserves these through corners.
+    const part=(name,x,y,w,h)=>{
+      const rect=SHEET_SRC.parts?.[facade.variant+name]||SHEET_SRC.parts?.[name];if(!packed||!rect)return false;
+      ctx.imageSmoothingEnabled=false;
+      ctx.drawImage(scene.textures.get(SHEET_IMAGE).getSourceImage(),...rect.slice(0,2),
+        rect[2]-rect[0],rect[3]-rect[1],Math.round(x),Math.round(y),w??rect[2]-rect[0],h??rect[3]-rect[1]);
+      return true;
+    };
+    const display=(x,w)=>{
+      part('shopWindow',x,BOT-16,w,15);
+      if(recipe.awning)part('awning'+recipe.roofMaterial,x-1,BOT-24,w+2,8);
+    };
+    const kitDoor=()=>{
+      const smith=recipe.facadeKit==='smith',house=recipe.facadeKit==='house',w=smith?23:house?19:20;
+      const x=Math.round(DOOR_CENTRE-w/2),y=BOT-24;
+      if(!part(smith?'smithDoor':house?'houseDoor':'shopDoor',x,y))return false;
+      if(smith)part('cog',x+w+2,y+3,18,18);
+      else if(house){
+        part('timberWindow',x-13,y+6,12,12);part('timberWindow',x+w+1,y+6,12,12);
+      }else{
+        // Two adjacent glass bays form a display under one continuous canopy.
+        display(2+4*BAY+2,74);
+        // The sign occupies the upper entrance bay, above the full-height door.
+        part(recipe.emblem,DOOR_CENTRE-10,y-20,20,18);
+      }
+      px(x-1,BOT,w+2,2,plinth.light);px(x-1,BOT+2,w+2,1,ink);
+      return true;
+    };
     if(!recipe.blank)for(let f=0;f<FLOORS;f++)for(let k=-1;k<=12;k++){
       const bx=2+39*k,y=BOT-24*(f+1)+5;
-      if(f===0&&k===6)door(bx+12,BOT-22);
+      if(recipe.facadeKit&&packed){
+        if(f===0&&k===6)continue;
+        const shop=recipe.facadeKit==='shop';
+        if(shop&&f===1&&k===6)continue; // entrance sign replaces this window
+        if(shop&&f===0)display(bx+2,35);
+        else {
+          const name=shop?'brassWindow':'timberWindow',w=shop?16:14;
+          part(name,bx+(BAY-w)/2,y-1,w,w);
+        }
+      }else if(f===0&&k===6)door(bx+12,BOT-22);
       else if(k%2===0)casement(bx+14,y,f);
     }
+    if(!recipe.blank&&recipe.facadeKit&&packed)kitDoor();
     // --- roof ---------------------------------------------------------------
     px(0,128,512,384,roof.base);
     const kind=recipe.roofMaterial;
@@ -724,6 +949,7 @@
         px(x,y+th-1,tw,1,roof.shade);px(x+tw-1,y,1,th-1,roof.shade);px(x+2,y+1,tw-5,1,roof.light);
         px(x,y+th-2,2,1,roof.shade);px(x+tw-3,y+th-2,2,1,roof.shade);} // stepped scallop corners
     }
+    tileCell(SHEET_SRC.roofs[kind]?.rect,128,512);
     if(wreck){for(let y=136;y<512;y+=31)for(let x=5;x<512;x+=47){const n=hash(x,y);if(n<.55)continue;px(x+n*20,y+n*9,8+n*5,5+n*3,CEL.plum);px(x+n*20,y+n*9,8+n*5,1,ink);}}
     px(508,124,4,4,0xffffff); // shared solid texel for the ink pass
     tex.roofTone=mix(recipe.roof,CEL.shadow,.1);
@@ -735,6 +961,7 @@
   // With the tilesets loaded the sheet is cut from them; the generated
   // marks below remain the fallback (forts, headless review, missing art).
   function material(scene,recipe){
+    if(recipe.shape==='wizard')return wizardSheet(scene,recipe);
     if(recipe.role!=='fort'&&LOOK.facade==='cel')return celSheet(scene,recipe);
     if(recipe.role!=='fort'&&tilesetReady(scene))return tilesetSheet(scene,recipe);
     const source=recipe.role!=='fort'&&scene.textures.exists('building_material_reference')?scene.textures.get('building_material_reference').getSourceImage():null;
@@ -1095,7 +1322,7 @@
     // bay stays on that wall and the panel is left off with the rest of the
     // outside.
     const door=recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
-    let cached=recipe.shape?specialGeometry(local,recipe):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
+    let cached=recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null,door?door.edge:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
     if(door&&!recipe.interior)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};
@@ -1126,7 +1353,7 @@
     // moves it at once.
     if(mesh.edge)mesh.edge={a:{x:left+mesh.edge.a.x,y:top+mesh.edge.a.y},b:{x:left+mesh.edge.b.x,y:top+mesh.edge.b.y}};
     const support=mesh.edge?{...wallSupport(mesh.edge,0),order:state.buildings.length}
-      :{x:left+local.reduce((s,p)=>s+p.x,0)/local.length,y:top+local.reduce((s,p)=>s+p.y,0)/local.length,order:state.buildings.length};
+      :{x:left+(cached.center?.x??local.reduce((s,p)=>s+p.x,0)/local.length),y:top+(cached.center?.y??local.reduce((s,p)=>s+p.y,0)/local.length),order:state.buildings.length};
     const index=state.buildings.length-1;
     const obj=state.pool[index]||(state.pool[index]=renderObject(scene));
     mesh.obj=obj;mesh.support=support;obj._lowpolyFaces=mesh.faces;
@@ -1137,7 +1364,38 @@
       else if(face.wallTop)face.color=mix(recipe.body,0xf3e6c8,.35);
       else if(face.kind==='trim'&&face.color==null)face.color=recipe.trim;
       else if(recipe.shape==='wreck'&&(face.kind==='wall'||face.kind==='roof')&&!face.debris&&!face.chimney)face.color=LOOK.wreck.tint;
-      if(face.chimney && recipe.role==='blacksmith' && face.color!==LOOK.chimney.mouthColor)
+      // Fit complete opening bays onto each restored side wall, using the
+      // existing split vertices. p.u retains the original pre-corner UV, so
+      // this removes blank corner substitutions without changing any geometry.
+      // Entrance walls keep their authored door alignment and broad display.
+      if(recipe.facadeKit&&face.kind==='wall'&&face.wallSpan&&!face.rawUV&&!face.solid){
+        const [lo,hi]=face.wallSpan,span=hi-lo,entrance=Math.abs((lo+hi)/2-DOOR_CENTRE)<1e-6;
+        if(!entrance){
+          const bays=Math.max(1,Math.min(5,Math.round(span/BAY)));
+          for(const p of face.points)p.tu=(2+(p.u-lo)/span*bays*BAY)/512;
+        }else{
+          // Undo only the corner-bay shift (±39), retaining any atlas wrap
+          // (468). Otherwise a cut end bay can repeat the entrance emblem.
+          for(const p of face.points){
+            const delta=p.u-p.tu*512;
+            p.tu+=(delta-Math.round(delta/468)*468)/512;
+          }
+        }
+      }
+      // The retained street-door panels used to hide the baked doorway.
+      // Reuse their vertices and layers, sampling the matching facade position.
+      if(face.door&&recipe.facadeKit){
+        face.facadeDoor=true;face.color=0xffffff;
+        for(const p of face.points){
+          p.tu=(DOOR_CENTRE+((p.x-door.center.x)*door.along.x+(p.y-door.center.y)*door.along.y)/DETAIL_SCALE)/512;
+          p.tv=(105-p.z/DETAIL_SCALE)/512;
+        }
+      }
+      if(face.chimney&&recipe.chimneyFinish){
+        face.color=face.kind==='wall'?0xffffff:face.color===LOOK.chimney.mouthColor?CEL.ink:
+          face.layer===2.7?recipe.trim:mix(recipe.trim,CEL.shadow,.26);
+      }
+      else if(face.chimney && recipe.role==='blacksmith' && face.color!==LOOK.chimney.mouthColor)
         face.color=face.kind==='wall'?0xffffff:recipe.body;
       // The untextured look (LOOK.textured=false) draws each face in its base colour.
       face.flat=face.tileCap?mix(recipe.roof,0x2a2229,.12):face.kind==='roof'&&!face.solid?recipe.roof:face.kind==='wall'?(face.chimney&&recipe.role!=='blacksmith'?LOOK.chimney.sides:recipe.body):face.color??recipe.trim;
@@ -1180,7 +1438,7 @@
     for(const face of state.faces){let depth=0;
       // Height projects screen-up, foreshortened like the billboard sprites.
       face.points.forEach((p,i)=>{const v=face.projected[i];v.x=face.x+p.x-s*p.z*LOOK.heightScale;v.y=face.y+p.y-c*p.z*LOOK.heightScale;v.u=p.tu;v.v=p.tv;depth+=s*(face.x+p.x)+c*(face.y+p.y);});
-      if(face.kind==='trim'||face.solid)for(const p of face.projected){p.u=510/512;p.v=126/512;}
+      if((face.kind==='trim'&&!face.facadeDoor)||face.solid)for(const p of face.projected){p.u=510/512;p.v=126/512;}
       face.support.depth=s*face.support.x+c*face.support.y;
       face.depth=depth/3;
       if((face.kind==='wall'&&!face.interior)||(face.kind==='trim'&&face.wallDirection)){const a=face.points[0],b=face.points[1],dx=face.wallDirection?.x??b.x-a.x,dy=face.wallDirection?.y??b.y-a.y,len=Math.hypot(dx,dy)||1;face.light=.76+.23*(c*dx-s*dy)/-len;}
@@ -1218,5 +1476,5 @@
     for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
   }
   const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);
-  global.BuildingLowPoly={LOOK,DOOR,streetDoor,edgeDoor,ringEdgeNearest,doorFaces,atlasFaces,ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
+  global.BuildingLowPoly={LOOK,DOOR,streetDoor,edgeDoor,ringEdgeNearest,doorFaces,atlasFaces,ROLES,RESTORED_ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
 })(window);
