@@ -182,7 +182,12 @@
         "x": 6,
         "y": 5
       },
-      "note": "Plain basalt faces; a stable random one-in-four wall-cell chance adds lava cracks. Cracked cells keep their pattern when the compass turns or the fixture reloads. Texture only, no new lighting or hazards.",
+      "groundAccent": {
+        "sheet": "magma",
+        "x": 13,
+        "y": 11
+      },
+      "note": "Plain basalt faces; a stable random one-in-four wall-cell chance adds lava cracks. Roughly one fifth of floor cells have ember cracks from the Magma Dungeon pack. Cracked cells keep their pattern when the compass turns or the fixture reloads. Texture only, no new lighting or hazards.",
       "faceAccent": {
         "sheet": "magma",
         "x": 26,

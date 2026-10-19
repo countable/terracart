@@ -28,6 +28,11 @@
         else tile(theme.ground,x*C,y*C);
       }
       if(room)for(let x=0;x<10;x++)tile(theme.road,x*C,6*C);
+      // Stable one-in-five floor accents, including the route through the room.
+      if(theme.groundAccent)for(let y=0;y<10;y++)for(let x=0;x<10;x++) {
+        if(avalanche32(fnv1a(`ember-floor:${theme.id}:${x},${y}`)) % 5 === 0)
+          tile(theme.groundAccent,x*C,y*C);
+      }
       if(room&&theme.id==='l1') {
         const source=s.textures.get('floor-source-sewer').getSourceImage();
         for(let x=0;x<10;x++) {
@@ -52,7 +57,7 @@
   }
   function showSources(theme) {
     const target=document.getElementById('sources');target.replaceChildren();
-    for(const [role,ref] of Object.entries({face:theme.face,cracks:theme.faceAccent,ground:theme.ground,road:theme.road})) {
+    for(const [role,ref] of Object.entries({face:theme.face,cracks:theme.faceAccent,ground:theme.ground,embers:theme.groundAccent,road:theme.road})) {
       if(!ref)continue;
       const a=document.createElement('a');
       a.href='../extra_assets/'+materials.sheets[ref.sheet].split('/').map(encodeURIComponent).join('/');
