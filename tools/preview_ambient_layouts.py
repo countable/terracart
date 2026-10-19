@@ -150,15 +150,18 @@ def _layout_panel(area, layer, name, number, helpers, mode):
     theme = floor_materials(depth)
     definitions = []
     if theme:
-        for role in ('ground', 'face', 'road', 'water'):
-            if not theme[role]: continue
-            definitions.append(f'<pattern id="{prefix}-{role}" width="16" height="16" patternUnits="userSpaceOnUse"><image href="{theme[role]}" width="16" height="16"/></pattern>')
+        for role in ('ground', 'face', 'road', 'water', 'groundBroken', 'groundGrate'):
+            if not theme.get(role): continue
+            size = 24 if depth == 1 and role.startswith('ground') else 16
+            definitions.append(f'<pattern id="{prefix}-{role}" width="{size}" height="{size}" patternUnits="userSpaceOnUse"><image href="{theme[role]}" width="{size}" height="{size}"/></pattern>')
     tiles = []
     for y, row in enumerate(cells):
         for x, kind in enumerate(row):
             fill = (f'url(#{prefix}-water)' if theme and theme['water'] else water) if kind == 'water' else '#%02x%02x%02x' % tuple(theme['cap']) if kind == 'wall' and theme else '#343d32' if kind == 'wall' else f'url(#{prefix}-ground)' if theme else palette
+            if depth == 1 and kind not in ('water', 'wall'):
+                fill = f"url(#{prefix}-{patterns['sewerGround'][y][x]})"
             tiles.append(f'<rect x="{x*24}" y="{y*24}" width="24" height="24" fill="{fill}" stroke="#141925" stroke-opacity=".14"/>')
-            if kind in ('accent', 'path'):
+            if depth != 1 and kind in ('accent', 'path'):
                 accent = f'url(#{prefix}-road)' if theme and depth != 1 else palette
                 tiles.append(f'<rect x="{x*24}" y="{y*24}" width="24" height="24" fill="{accent}" opacity=".65"/>')
             if kind == 'wall' and theme:
@@ -178,7 +181,17 @@ def _layout_panel(area, layer, name, number, helpers, mode):
         if cells[y][x] not in ('water', 'wall'):
             objects.append((y, f'<use href="#{prefix}-prop" x="{x*24-2}" y="{y*24-7}" width="29" height="31"/>'))
             used.add((x,y))
-            scenario_props.append({'x': x, 'y': y, 'kind': prop, 'artKey': 'dressing'})
+            scenario_props.append({'x': x, 'y': y, 'kind': prop, 'artKey': 'dressing', **({'pushable': True} if depth == 1 and prop == 'box' else {})})
+    block_art = art_for(1, 'box', helpers) if depth == 1 and prop != 'box' else None
+    if block_art:
+        block_seats = [(6,4), (7,6)] + [(x,y) for y in range(1,8) for x in range(1,11)]
+        placed = 0
+        for x,y in block_seats:
+            if (x,y) in used or cells[y][x] in ('water','wall'): continue
+            objects.append((y, f'<image href="{block_art["uri"]}" x="{x*24-2}" y="{y*24-7}" width="29" height="31"/>'))
+            scenario_props.append({'x': x, 'y': y, 'kind': 'box', 'artKey': 'block', 'pushable': True})
+            used.add((x,y)); placed += 1
+            if placed == 2: break
     creatures = _creatures(idea['spawn'], depth, name)
     seats = [(7,5),(3,4),(9,4),(5,7),(10,7),(6,3),(2,5),(8,7),(10,5)]
     seats += [(x, y) for y in range(1, 8) for x in range(1, 11) if (x, y) not in seats]
@@ -205,6 +218,7 @@ def _layout_panel(area, layer, name, number, helpers, mode):
     art_note = f'Art: {html.escape(prop_art["label"])} · {html.escape(source_label)}'
     if depth: art_note = f'<a href="http://localhost:8000/{quote(source)}">{art_note}</a>'
     if prop_art['proxy']: art_note += f' · material proxy for {html.escape(prop.replace("_", " "))}'
+    if depth == 1: art_note += '<br>Pushable crates: stand beside a crate and tap it to push one cell.'
     if theme and any('water' in row for row in cells): art_note += '<br>' + html.escape(theme['water_label'])
     ground_uri = theme['ground'] if theme else _swatch(palette)
     accent_uri = theme['road'] if theme and depth != 1 else _swatch(palette)
@@ -214,7 +228,7 @@ def _layout_panel(area, layer, name, number, helpers, mode):
                 'creatures': scenario_creatures, 'art': {'tiles': {
                     'ground': ground_uri, 'accent': _blend_swatch(ground_uri, accent_uri),
                     'water': theme['water'] if theme and theme['water'] else _swatch(water)},
-                    'props': {'dressing': {'uri': prop_art['uri']}}}}
+                    'props': {'dressing': {'uri': prop_art['uri']}, **({'block': {'uri': block_art['uri']}} if block_art else {})}}}
     payload = json.dumps(scenario, separators=(',', ':')).replace('<', '\\u003c')
     return (f'<div data-layout-panel="{mode}" id="{prefix}" {"hidden" if mode == "generated" else ""}>'
             f'<svg viewBox="0 0 288 216" role="img" aria-label="{html.escape(name)} {mode} layout"><defs>{"".join(definitions)}</defs>{"".join(tiles)}{"".join(s for _,s in sorted(objects,key=lambda row:row[0]))}</svg>'

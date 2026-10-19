@@ -1332,6 +1332,10 @@
   function install(scene) {
     // Flag the scene so other systems (GPS, etc.) know to behave differently.
     scene._sandboxMode = true;
+    if (new URLSearchParams(location.search).get('autoTorch') === 'true') {
+      const torch = CONSUMABLE_SPEC.torch;
+      Buffs.extend(scene.save, scene, torch.buff, torch.durationMs);
+    }
     scene.depth = scene.save.depth = 0;
     WorldGen.setDepth(0);
     if (typeof FloorSandbox !== 'undefined' && FloorSandbox.active()) {

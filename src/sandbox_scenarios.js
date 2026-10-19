@@ -64,9 +64,10 @@
           check((W.isWalkable(grid[i]) || grid[i] === W.T.WATER) && grid[i] !== W.T.CAVE_LAVA, 'creature inside a wall or lava');
           return W.makeCreature(p.kind, x, y, id, { depth });
         }
+        check(p.pushable === undefined || typeof p.pushable === 'boolean', 'pushable flag');
         check(KEY.test(p.artKey) && Object.hasOwn(art.props, p.artKey), 'missing prop art');
         return W.makeObject('sandboxprop', x, y, id,
-          { depth, sandboxDepth: depth, sandboxArtKey: p.artKey, previewKind: p.kind });
+          { depth, sandboxDepth: depth, sandboxArtKey: p.artKey, previewKind: p.kind, ...(p.pushable ? {pushable: true} : {}) });
       });
     }
     const objects = placements(input.props || [], 'prop');

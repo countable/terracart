@@ -106,7 +106,12 @@ access or tile lifecycle mechanics.
 - Scenario cells become real terrain (including actual water and lava), with a one-cell
   rock boundary and square padding. Player starts on dry, unoccupied ground.
   Creatures use the normal factory; preview props are decorative `sandboxprop`
-  objects with supplied art, without assigning speculative interactions.
+  objects with supplied art. Explicit `pushable: true` blocks use `PushBlocks`: tap
+  from a cardinally adjacent cell to push one cell into clear, loaded, dry ground.
+  They block walking, never chain-push, fill water or repaint terrain, and retain
+  their identity/art when moving across tile boundaries. Positions last for the
+  sandbox session and reset on reload. The cardinal destination rule is shared
+  with temple block trials. Other preview props remain decorative.
 - Bounded PNG/WebP/JPEG data URIs travel with the snapshot; the art manifest and
   semantic cells let the renderer reuse floor-specific preview art. Dimensions,
   placements, payload and image sizes are checked before storage. The return URL
@@ -266,6 +271,10 @@ access or tile lifecycle mechanics.
   overlays. Open terrain
   does not relax inherited spawn safety.
   `docs/design/floors.md` owns the per-floor catalog.
+
+- Player movement permits wading through actual water on every floor, including
+  sewer scenarios. This does not change `WorldGen.isWalkable` or spawn safety:
+  land creatures and ground drops still avoid water. Cave walls remain solid.
 
 - A per-floor rule - rope seals, fall seals, hazards, lighting levels - reads
   one owning table keyed by floor, never a depth literal at a call site.

@@ -3,7 +3,7 @@ function authoredScenario() {
     width: 4, height: 3, seed: 7, mode: 'tile',
     cells: [['wall', 'ground', 'water', 'wall'], ['ground', 'accent', 'path', 'ground'],
       ['ground', 'ground', 'ground', 'ground']],
-    props: [{ x: 0, y: 2, kind: 'pipe', artKey: 'pipe' }],
+    props: [{ x: 0, y: 2, kind: 'pipe', artKey: 'pipe', pushable: true }],
     creatures: [{ x: 3, y: 2, kind: 'slime' }],
     art: { tiles: { ground: 'data:image/png;base64,YQ==' },
       props: { pipe: { uri: 'data:image/png;base64,YQ==' } } },
@@ -18,6 +18,7 @@ test('scenario sandbox: terrain, art and authored inhabitants share a padded til
   assert.eq(e.sandboxCells[n + 3], 'water');
   assert.eq(e.objects[0].sandboxArtKey, 'pipe');
   assert.eq(e.objects[0].sandboxDepth, 1);
+  assert.truthy(e.objects[0].pushable);
   assert.eq(e.creatures[0].kind, 'slime');
   assert.truthy(e._spawned);
   const { home } = built.options, i = Math.floor(home.y) * n + Math.floor(home.x);
@@ -31,7 +32,7 @@ test('scenario sandbox: invalid maps and active image/link schemes fail before t
   for (const mutate of [s => s.cells[0].pop(), s => s.depth = 8,
     s => s.art.tiles.ground = 'https://external.example/image.png',
     s => s.art.tiles.ground = 'data:image/svg+xml;base64,YQ==',
-    s => s.returnUrl = 'javascript:alert(1)', s => s.props[0].artKey = 'missing',
+    s => s.returnUrl = 'javascript:alert(1)', s => s.props[0].artKey = 'missing', s => s.props[0].pushable = 'yes',
     s => s.creatures[0].x = 50, s => s.creatures[0].kind = 'imaginary_foo', s => s.cells = s.cells.map(row => row.map(() => 'water'))]) {
     const value = authoredScenario(); mutate(value);
     let rejected = false;

@@ -13,7 +13,7 @@
     if (scenario.returnUrl) document.getElementById('back').href = FloorSandbox.read().returnUrl;
     // Store on the game origin, just as the floor viewer does; the artifact
     // page can live on a different port without sharing browser storage.
-    location.replace('../index.html?sandbox=true&sandboxMap=scenario&skipStory=true&skipTutorial=true');
+    location.replace('../index.html?sandbox=true&sandboxMap=scenario&skipStory=true&skipTutorial=true&autoTorch=true');
   } catch (error) {
     status.textContent = 'Could not load scenario: ' + error.message;
   }

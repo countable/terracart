@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Pack the approved 16px floor swatches; retain their source attribution."""
 import json
+import base64
+import io
 from pathlib import Path
 from PIL import Image
+from ambient_floor_art import _crop
 
 ROOT = Path(__file__).resolve().parents[1]
 manifest = json.loads((ROOT / 'tools/rockwall-floor-materials.json').read_text())
 refs, themes = [], []
 for source in manifest['themes']:
     theme = {k: source[k] for k in ('id', 'label', 'cap')}
-    for role in ('face', 'faceAccent', 'ground', 'road'):
+    for role in ('face', 'faceAccent', 'ground', 'road', 'groundBroken', 'groundGrate'):
         if role not in source:
             continue
         ref = source[role]
@@ -19,14 +22,14 @@ for source in manifest['themes']:
     themes.append(theme)
 strip = Image.new('RGBA', (16 * len(refs), 16))
 for i, ref in enumerate(refs):
-    source = Image.open(ROOT / 'extra_assets' / manifest['sheets'][ref['sheet']]).convert('RGBA')
-    x, y = ref['x'] * 16, ref['y'] * 16
-    strip.paste(source.crop((x, y, x + 16, y + 16)), (i * 16, 0))
+    uri = _crop(ref['sheet'], ref['x'], ref['y'], tint=tuple(ref['tint']) if ref.get('tint') else None)
+    strip.paste(Image.open(io.BytesIO(base64.b64decode(uri.split(',', 1)[1]))), (i * 16, 0))
+
 out = ROOT / 'assets/Objects/Cave'
 strip.save(out / 'floor-wall-sources.png')
 (out / 'floor-wall-sources.json').write_text(json.dumps({
     'credit': manifest['credit'], 'sourceCellPx': 16,
-    'tiles': [{'source': manifest['sheets'][r['sheet']], 'x': r['x'], 'y': r['y']} for r in refs],
+    'tiles': [{'source': manifest['sheets'][r['sheet']], 'x': r['x'], 'y': r['y'], **({'tint': r['tint']} if 'tint' in r else {})} for r in refs],
 }, indent=2) + '\n')
 module = ROOT / 'src/floor_wall_materials.js'
 s = module.read_text()

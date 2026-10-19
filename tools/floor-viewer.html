@@ -85,7 +85,7 @@
   document.getElementById('playSandbox').onclick = () => {
     try {
       FloorSandbox.write(entries, displayDepth(), seed, variantIndex);
-      location.href = '../index.html?sandbox=true&sandboxMap=floor-viewer';
+      location.href = '../index.html?sandbox=true&sandboxMap=floor-viewer&skipStory=true&skipTutorial=true&autoTorch=true';
     } catch (error) {
       document.getElementById('status').textContent = 'Could not launch sandbox: ' + error.message;
     }

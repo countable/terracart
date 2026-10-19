@@ -2221,19 +2221,19 @@ Render.drawCaveWalls = function (scene, cells, offsetX = 0, offsetY = 0) {
   if (!cells.length || scene.depth <= 0 || typeof FloorWallMaterials === 'undefined') {
     WallPerspective.clear(scene, 'cave'); scene._caveWallKey = null; return;
   }
-  const key = scene.depth + ':' + cells.map(p => [p.ax, p.ay, p.x, p.y, p.mask].join(',')).join(';');
+  const key = scene.depth + ':' + cells.map(p => [p.ax, p.ay, p.x, p.y, p.mask, p.diagonalMask].join(',')).join(';');
   if (key !== scene._caveWallKey || !scene._wallPerspective?.cave) {
     const group = WallPerspective.begin(scene, 'cave');
     group.renderDepth = scene.depth; group.perWall = true;
     group.atlas = FloorWallMaterials.prepare(scene, scene.depth);
     for (const cell of cells) {
-      const { x, y, ax, ay, mask } = cell;
+      const { x, y, ax, ay, mask, diagonalMask } = cell;
       const points = [{ x, y }, { x: x + CELL_PX, y },
         { x: x + CELL_PX, y: y + CELL_PX }, { x, y: y + CELL_PX }];
       const variant = FloorWallMaterials.variant(scene.depth, ax, ay);
       WallPerspective.prism(scene, 'cave', points, 0, FloorWallMaterials.height,
         { face: 0x302a24, top: 0x625646, dark: 0x151310 }, null, true,
-        { materialFaces: FloorWallMaterials.geometry(points, mask, variant) });
+        { materialFaces: FloorWallMaterials.geometry(points, mask, variant, scene.depth, diagonalMask) });
     }
     scene._caveWallKey = key;
     WallPerspective.offset(scene, 'cave', offsetX, offsetY);
@@ -2983,7 +2983,9 @@ Render.drawCells = function drawCells(scene) {
       const mask = (open(col, row - 1) ? 1 : 0) | (open(col + 1, row) ? 2 : 0)
         | (open(col, row + 1) ? 4 : 0) | (open(col - 1, row) ? 8 : 0);
       const at = cellScreenXY(scene, col - half, row - half, 0, 0, PHASE(row));
-      caveCells.push({ x: at.x, y: at.y, ax: AX(col, row), ay: AY(col, row), mask });
+      const diagonalMask = (!open(col - 1, row - 1) ? 1 : 0) | (!open(col + 1, row - 1) ? 2 : 0)
+        | (!open(col + 1, row + 1) ? 4 : 0) | (!open(col - 1, row + 1) ? 8 : 0);
+      caveCells.push({ x: at.x, y: at.y, ax: AX(col, row), ay: AY(col, row), mask, diagonalMask });
     }
   }
   Render.drawCaveWalls(scene, caveCells, -fracX * CELL_PX, -fracY * CELL_PX);

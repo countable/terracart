@@ -9,13 +9,33 @@
     },
     {
       "source": "16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
-      "x": 5,
-      "y": 6
+      "x": 0,
+      "y": 6,
+      "tint": [
+        224,
+        240,
+        255
+      ]
     },
     {
       "source": "16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
       "x": 2,
       "y": 18
+    },
+    {
+      "source": "16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
+      "x": 3,
+      "y": 6,
+      "tint": [
+        224,
+        240,
+        255
+      ]
+    },
+    {
+      "source": "16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
+      "x": 6,
+      "y": 8
     },
     {
       "source": "16x16/Farm Game Abandoned Mines Tileset/Tilesets/FG_Abandoned_Mines.png",

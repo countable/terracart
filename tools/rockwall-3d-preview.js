@@ -23,7 +23,10 @@
       g.drawImage(source,ref.x*16,ref.y*16,16,16,x,y,C,C);
     };
     if(!theme.original) {
-      for(let y=0;y<10;y++)for(let x=0;x<10;x++)tile(theme.ground,x*C,y*C);
+      for(let y=0;y<10;y++)for(let x=0;x<10;x++) {
+        if(theme.id==='l1')g.drawImage(s.textures.get('floor-sewer-'+FloorWallMaterials.sewerGroundRole(x,y)).getSourceImage(),x*C,y*C,C,C);
+        else tile(theme.ground,x*C,y*C);
+      }
       if(room)for(let x=0;x<10;x++)tile(theme.road,x*C,6*C);
       if(room&&theme.id==='l1') {
         const source=s.textures.get('floor-source-sewer').getSourceImage();
@@ -93,7 +96,9 @@
       const ox=x*C-160,oy=y*C-160;
       left.add(scene.add.image(ox,oy-CAVE_WALL_TOP_LIFT,'cave_wall_edges',originalVariant*64+legacy).setOrigin(0));
       const points=[{x:ox,y:oy},{x:ox+C,y:oy},{x:ox+C,y:oy+C},{x:ox,y:oy+C}];
-      const faces=FloorWallMaterials.geometry(points,mask,v);
+      const diagonalMask=(solid(x-1,y-1)?1:0)|(solid(x+1,y-1)?2:0)
+        |(solid(x+1,y+1)?4:0)|(solid(x-1,y+1)?8:0);
+      const faces=FloorWallMaterials.geometry(points,mask,v,Number(theme.id.slice(1)),diagonalMask);
       WallPerspective.prism(adapter,'rockwall',points,0,HEIGHT,{face:0x302a24,top:0x625646,dark:0x151310},null,true,{materialFaces:faces});
     }
     WallPerspective.finish(adapter,'rockwall');
@@ -129,6 +134,7 @@
       },
       create(){
         scene=this;window.rockwallReviewScene=this;this.floorAtlases={};
+        FloorWallMaterials.prepareGround(this);
         for(const theme of THEMES) {
           this.floorAtlases[theme.id]=FloorWallMaterials.prepare(this,Number(theme.id.slice(1)));
           makeGround(this,theme,false,false);makeGround(this,theme,true,false);

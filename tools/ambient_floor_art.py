@@ -1,7 +1,7 @@
 """Inspected tileset crops for proposed ambient-layout studies, not runtime art.
 
 Coordinates are native 16px tiles. Missing standalone pack paths resolve to the
-same named sheet in the combined library; no scaling or recolouring is applied.
+same named sheet in the combined library; no scaling is applied. Optional manifest tints are shared with the runtime atlas.
 """
 import base64
 import functools
@@ -9,7 +9,7 @@ import io
 import json
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -32,7 +32,7 @@ def _source(key):
 
 
 @functools.lru_cache(maxsize=None)
-def _crop(sheet, x, y, w=1, h=1):
+def _crop(sheet, x, y, w=1, h=1, tint=None):
     with Image.open(_source(sheet)) as image:
         bounds = (x * 16, y * 16, (x+w) * 16, (y+h) * 16)
         if bounds[2] > image.width or bounds[3] > image.height:
@@ -40,6 +40,10 @@ def _crop(sheet, x, y, w=1, h=1):
         image = image.crop(bounds).convert('RGBA')
         if not image.getbbox():
             raise ValueError(f'Empty crop in {sheet}: {bounds}')
+        if tint:
+            alpha = image.getchannel('A')
+            image = ImageOps.colorize(ImageOps.grayscale(image), (0, 0, 0), tint).convert('RGBA')
+            image.putalpha(alpha)
         out = io.BytesIO()
         image.save(out, format='PNG')
     return 'data:image/png;base64,' + base64.b64encode(out.getvalue()).decode()
@@ -48,7 +52,8 @@ def _crop(sheet, x, y, w=1, h=1):
 # Each crop was checked against a numbered contact sheet. Keep the literal art
 # identity in the caption when it stands in for a proposed thematic object.
 _PROPS = {
-    1: {'default': ('sewer', 2, 10, 1, 1, 'sewer crate'),
+    1: {'box': ('sewer', 2, 10, 1, 1, 'sewer crate'),
+        'default': ('sewer', 2, 10, 1, 1, 'sewer crate'),
         'barrel': ('sewer', 3, 10, 1, 1, 'sewer barrel'),
         'driftwood': ('sewer', 7, 11, 2, 1, 'sewer planks'),
         'mineralrock': ('sewer', 3, 6, 1, 1, 'cracked sewer slab'),
@@ -123,9 +128,10 @@ def floor_materials(depth):
         return None
     theme = _manifest()['themes'][depth - 1]
     result = {'cap': theme['cap'], 'label': theme['label'], 'sources': {}}
-    for role in ('ground', 'road', 'face'):
+    for role in ('ground', 'road', 'face', 'groundBroken', 'groundGrate'):
+        if role not in theme: continue
         spec = theme[role]
-        result[role] = _crop(spec['sheet'], spec['x'], spec['y'])
+        result[role] = _crop(spec['sheet'], spec['x'], spec['y'], tint=tuple(spec['tint']) if spec.get('tint') else None)
         result['sources'][role] = str(_source(spec['sheet']).relative_to(ROOT))
     if depth == 6:
         result['water'] = _crop('magma', 2, 19)

@@ -30,6 +30,39 @@
     assert.falsy(s._playerSubmerged); assert.falsy(s.player.isCropped);
     assert.eq(method('playerBodyDy').call(s), -9);
   }));
+  test('sewer water: underground movement permits wading without relaxing spawn safety', () => {
+    const blocked = method('_cellBlocked');
+    for (const depth of [0, 1, 2, 7]) {
+      const s = { depth, cellAt: () => ({ loaded: true, type: WorldGen.T.WATER }) };
+      assert.falsy(blocked.call(s, 0, 0), 'water is traversable at depth ' + depth);
+      if (depth) {
+        s.cellAt = () => ({ loaded: true, type: WorldGen.T.CAVE_WALL });
+        assert.truthy(blocked.call(s, 0, 0), 'walls remain solid');
+        s.cellAt = () => ({ loaded: false });
+        assert.falsy(blocked.call(s, 0, 0), 'tile seams do not trap the player');
+      }
+    }
+    assert.falsy(WorldGen.isWalkable(WorldGen.T.WATER), 'water remains excluded from land spawn safety');
+  });
+  test('sewer water: route channels and actual water share the waist-up pose, decking and dry stone do not', () => fixture((s, c, e, update) => {
+    s.depth = e.depth = 1; e.underground = { lane: new Set([5]) };
+    for (const type of [WorldGen.T.WATER, WorldGen.T.CAVE_FLOOR]) {
+      c.type = type; update.call(s);
+      assert.truthy(s._playerSubmerged);
+      assert.eq(s.player.crop.join(','), '0,0,16,8');
+      s._obstacleStep.liftPx = 3; update.call(s);
+      assert.falsy(s.player.isCropped, 'standing on a raised prop clears the waterline');
+      s._obstacleStep.liftPx = 0;
+    }
+    c.type = WorldGen.T.PIER; update.call(s);
+    assert.falsy(s.player.isCropped, 'pier decking is dry');
+    c.type = WorldGen.T.CAVE_FLOOR; e.underground.lane.clear(); update.call(s);
+    assert.falsy(s.player.isCropped, 'ordinary sewer stone is dry');
+    e.underground.lane.add(5); s.depth = e.depth = 2; update.call(s);
+    assert.falsy(s.player.isCropped, 'routes on other floors are dry');
+    c.type = WorldGen.T.WATER; update.call(s);
+    assert.truthy(s.player.isCropped, 'actual water wades on other floors too');
+  }));
   test('submerged player: current animation and skin frame dimensions own the crop, independent of heading', () => fixture((s, c, e, update) => {
     for (const heading of [0, 90, 180, 270]) {
       s.compassDeg = heading;

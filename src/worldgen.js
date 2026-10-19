@@ -9720,8 +9720,9 @@
   // another — so the index is keyed on the array's identity, its length AND
   // its last element: a push or a splice moves the length, a filter moves
   // the identity, and a splice-then-push of the same length moves the tail.
-  // Objects never move in place (only creatures do, and they are not indexed:
-  // a tile holds a handful and they walk every tick).
+  // Static objects normally never move in place. PushBlocks explicitly clears
+  // these buckets when moving a block; creatures are not indexed (a tile holds
+  // a handful and they walk every tick).
   const CHUNK_M = 80;
   function chunkKey(x, y) { return Math.floor(x / CHUNK_M) + ',' + Math.floor(y / CHUNK_M); }
   function chunkIndex(entry, prop) {

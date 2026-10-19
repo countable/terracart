@@ -1249,6 +1249,7 @@ const TAP_HANDLERS = [
       if (!itemContainsTapCell(scene, o, tapCell)) continue;
       if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, true)) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
+      if (typeof PushBlocks !== 'undefined' && PushBlocks.isBlock(o)) return PushBlocks.interact(ctx, o);
       if (o.kind === 'furniture' && furnitureSpec(o.itemId)?.ability === 'plant') {
         const held = getSelectedSlot(save);
         const crop = PlacedFloor.indexAt(save.planted, o.x, o.y, scene.depth, scene.cellM / 2);

@@ -138,7 +138,11 @@ beneath pier decking, and existing underground route centre lanes through
 that selection and its prebuilt texture, replacing the ordinary animated water
 texture in the same ground slot. Terrain and collision stay unchanged: actual
 water remains water, piers retain their decking, and decorative channels remain
-walkable cave-floor cells. Banks and other levels keep their existing ground.
+walkable cave-floor cells. Both actual water and L1 route channels use the normal
+waist-up player crop; pier decking stays dry. Flight, dragon riding and raised prop
+support clear the crop as on surface water. Dry L1 cells use one cool-grey 16px stone slab enlarged to a 32px cell, with stable world-cell
+selection of 14/16 plain slabs, 1/16 cracked slabs and 1/16 grates. Planning
+previews call the same selector. Other levels keep their existing ground.
 Building interiors use 32px swatches from the PP Interiors Pack's `all floors.png`
 (`assets/Objects/BuildingMaterials/all-floors.png`): square tiles for houses,
 wooden boards for Home and forts, and masonry for civic buildings. The patterns
@@ -465,6 +469,13 @@ the real source so a missing texture cannot become a permanent cached palette.
   Atlases are baked once at startup. Live neighbour masks rebuild geometry after
   mining or tile arrival; compass and fractional camera movement reuse it.
   Internal faces are omitted, and individual blocks share the actor depth sort.
+  L1 recesses the upright face 3px, with a shallow upper shoulder and three
+  quarter-circle strips returning to the floor boundary. The entire profile
+  stays inside its cell and the crown remains full width. Exposed outer corners
+  use inward miters; closed diagonals pin inside-corner endpoints, tapering the
+  recess over 3px so L/T junctions close without holes. Straight cell seams
+  retain identical profiles. Continuous UVs span the subdivisions; camera-facing
+  selection uses the existing retained renderer, including compass rotation.
   Depth-specific parts hide on floor changes. L6 keeps near-black caps and a
   stable one-in-four cracked-wall variant keyed by absolute cell. Floor profiles
   own wall placement: the material renderer never creates walls on open L5 or

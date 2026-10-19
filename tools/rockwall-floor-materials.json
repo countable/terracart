@@ -29,15 +29,35 @@
       },
       "ground": {
         "sheet": "sewer",
-        "x": 5,
-        "y": 6
+        "x": 0,
+        "y": 6,
+        "tint": [
+          224,
+          240,
+          255
+        ]
       },
       "road": {
         "sheet": "sewer",
         "x": 2,
         "y": 18
       },
-      "note": "Warm grey rock tops, 3px brick lip, half-scale brick faces. Pipes are on the floor (z = 0), behind raised walls."
+      "note": "Warm grey rock tops with a 3px brick lip and half-scale brick faces. A subtle concave foot stays inside each wall cell. Cool-grey stone fills each ground cell, with rare cracked slabs and complete grates. Pipes sit on the floor behind raised walls.",
+      "groundBroken": {
+        "sheet": "sewer",
+        "x": 3,
+        "y": 6,
+        "tint": [
+          224,
+          240,
+          255
+        ]
+      },
+      "groundGrate": {
+        "sheet": "sewer",
+        "x": 6,
+        "y": 8
+      }
     },
     {
       "id": "l2",
