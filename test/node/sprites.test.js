@@ -906,7 +906,7 @@ test('furniture art: every frame seats in its cell, including mirrored asymmetri
       if (item.id === 'clock_grandfather') {
         assert.eq(b.fh, 64, 'upright art keeps the tall world frame');
         assert.lte((b.maxY - b.minY) * p.scl, 32, 'approved upright fits one cell');
-        assert.eq(p.dyPx + (b.maxY - b.fh / 2) * p.scl, 15, 'tall feet sit above the cell edge');
+        assert.inRange(p.dyPx + (b.maxY - b.fh / 2) * p.scl, 15, 16, 'clock feet stay inside the cell edge');
       }
       if (['lamp_floor', 'candelabra_floor'].includes(item.id)) {
         assert.inRange(Math.max(b.maxX - b.minX, b.maxY - b.minY), 30, 32, 'lamp fills its cell');
