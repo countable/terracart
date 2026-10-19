@@ -1141,7 +1141,7 @@ def ambient_planning_section(out):
     options = ''.join(f'<option value="{layer["id"]}">{layer["id"]} · {html.escape(layer["name"])}</option>' for layer in plan['layers'])
     script = pathlib.Path(__file__).with_name('ambient_plan_navigation.js').read_text()
     section = f'''<section id="ambient-layouts" data-view-panel hidden><h2>Floor habitat plans</h2>
-<p>Visual proposals from the <a href="../ambient-layer-plan/">ambient spawn table</a>. Select one floor; only that floor’s previews load. Each variant uses a static tiled fixture with representative creature sprites, not a live spawn roll. Gold text marks proposed changes.</p>
+<p>Visual proposals from the <a href="../ambient-layer-plan/">ambient spawn table</a>. Select one floor; only that floor’s previews load. L0 Nexuses retain their current generated layouts. Proposed underground and landcover variants use static tiled fixtures with representative creature sprites, not live spawn rolls. Gold text marks proposed changes.</p>
 <label class="art-switch">Floor <select id="ambient-floor">{options}</select></label>
 <p id="ambient-floor-status" role="status"></p><div id="ambient-floor-content"></div></section>
 <style>{ambient_layout_css()} #ambient-floor{{font:inherit;padding:6px;background:#263b2d;color:#e5ecdf}} .changed{{color:#ffcf70;text-decoration:underline dotted;text-underline-offset:4px}}</style>'''

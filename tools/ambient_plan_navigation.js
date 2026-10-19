@@ -6,6 +6,27 @@
   const status = document.getElementById('ambient-floor-status');
   let request = 0, loaded = null;
   const floors = new Set([...select.options].map(option => option.value));
+  function showCurrentNexuses() {
+    for (const slot of content.querySelectorAll('[data-current-variant]')) {
+      const source = document.getElementById(slot.dataset.currentVariant);
+      if (!source) continue; // Keep the direct link if a snapshot lacks this card.
+      const card = source.cloneNode(true);
+      const nodes = [card, ...card.querySelectorAll('*')];
+      const ids = new Map(nodes.filter(node => node.id).map(node => [node.id, `current-L0-${node.id}`]));
+      for (const node of nodes) {
+        if (node.id) node.id = ids.get(node.id);
+        for (const attr of [...node.attributes]) {
+          let value = attr.value;
+          for (const [id, replacement] of ids) {
+            if (value === `#${id}`) value = `#${replacement}`;
+            value = value.replaceAll(`url(#${id})`, `url(#${replacement})`);
+          }
+          if (value !== attr.value) node.setAttribute(attr.name, value);
+        }
+      }
+      slot.replaceChildren(card);
+    }
+  }
   async function showFloor() {
     if (panel.hidden) { request++; return; }
     const match = location.hash.match(/^#ambient-(L[0-7])(?:-|$)/);
@@ -23,6 +44,7 @@
         const markup = await response.text();
         if (ticket !== request) return;
         content.innerHTML = markup;
+        showCurrentNexuses();
         loaded = select.value;
         status.textContent = `${select.options[select.selectedIndex].text} · static planning samples`;
       } catch (error) {

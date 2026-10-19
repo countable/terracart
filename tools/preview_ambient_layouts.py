@@ -194,10 +194,14 @@ def ambient_floor_sections(helpers=None):
     result = {}
     for layer in data['layers']:
         parts = [f'<h2>{html.escape(layer["id"] + " · " + layer["name"])}</h2><p>{html.escape(layer["known"])}</p>',
-                 '<p class="ambient-caption">Static tiled planning fixtures using shipped sprite frames. Creature seats illustrate the proposed candidates below; counts are for readability, not live density. Existing surface variant names are retained, but these arrangements are illustrative. Gold dotted words change current behavior. Underground ground swatches are material studies; only L1 sewer channel water is integrated. L2 fixtures propose dressing only, preserving its existing terrain. L5 remains open.</p>']
+                 '<p class="ambient-caption">Static tiled planning fixtures using shipped sprite frames. Creature seats illustrate the proposed candidates below; counts are for readability, not live density. L0 Nexus cards reuse the current Nexus review layouts unchanged; only the separate landcover cards are proposals. Gold dotted words change current behavior. Underground ground swatches are material studies; only L1 sewer channel water is integrated. L2 fixtures propose dressing only, preserving its existing terrain. L5 remains open.</p>']
         for area in data['areas']:
             idea = area['ideas'][layer['id']]
-            names = [v['name'] for v in area.get('surfaceVariants', [])] if layer['id'] == 'L0' else []
+            if layer['id'] == 'L0' and area.get('surfaceVariants'):
+                current = ''.join(f'<div data-current-variant="{v["id"]}"><a href="#{v["id"]}">View current {html.escape(v["name"])} layout</a></div>' for v in area['surfaceVariants'])
+                parts.append(f'<section class="ambient-area" id="ambient-L0-{area["id"]}"><h3>{html.escape(area["name"])}</h3><p><b>Current Nexus layouts · retained.</b> These are the existing generated previews, not proposed replacements.</p><div class="cards">{current}</div></section>')
+                continue
+            names = []
             if not names:
                 names = [n.strip().removeprefix('Keep ').removesuffix(' identities') for n in idea['variants'].split(' / ')]
             spawn = _highlight(idea['spawn'], idea.get('changes',{}).get('spawn',[]))

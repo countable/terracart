@@ -199,6 +199,9 @@ a composition shortfall.
   `floor-L7.html` fragments load one floor at a time; these are planning
   illustrations, not runtime layouts or measured spawn densities. The ambient
   table links directly to each floor and habitat, with proposed changes in gold.
+  L0 Nexus sections reuse the existing generated Nexus cards unchanged; they
+  are retained behavior, not replacement proposals. Only the separate L0
+  landcover studies and underground cards use the planning fixtures.
 - The map review (`tools/map-review.html`, `tools/map-review-zones.js`) shows
   variant labels, each Nexus's coverage union, live placements and what occupancy or
   the gate removed; `?quarryClusters=1` (with `removedLanes=1`) colours quarry
