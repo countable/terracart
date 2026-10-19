@@ -311,33 +311,6 @@
       }
     },
     {
-      "id": "indexed-c072ad94260f8b7ebe57",
-      "pack": "Fantasy Dreamland",
-      "itemPack": "dreamland",
-      "name": "Shrub",
-      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Desert.png",
-      "sourceSHA256": "1701fa7824e7437f9280eb6d0893549b42e8f19e9c4404dbeddbe79e73f1ce71",
-      "crop": [
-        0,
-        96,
-        16,
-        16
-      ],
-      "image": "art-candidates/indexed/c072ad94260f8b7ebe57.png",
-      "targets": [
-        "plant:shrub",
-        "bushes"
-      ],
-      "itemIds": [],
-      "nativeTileSize": 16,
-      "status": "Candidate",
-      "note": "Complete compact leafy shrub. Complete compact green leafy bush.",
-      "targetEvidence": {
-        "world:plant:shrub": "Complete compact leafy shrub.",
-        "world:bushes": "Complete compact green leafy bush."
-      }
-    },
-    {
       "id": "indexed-84c719a6f85d8ab8b01a",
       "pack": "Fantasy Dreamland",
       "itemPack": "dreamland",
@@ -543,33 +516,6 @@
         "item:bookshelf_frontier": "Complete narrow wooden bookshelf containing multicolored books; frontier styling requires confirmation."
       },
       "sizeException": "Tall upright bookshelf"
-    },
-    {
-      "id": "indexed-b8ff9f91d337d51af2f6",
-      "pack": "Fantasy Dreamland",
-      "itemPack": "dreamland",
-      "name": "Shrub",
-      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands_Animations.png",
-      "sourceSHA256": "3eea9c36154c691ad53b9db5e47105c649b6ddd0e493bd85789f5cf45bb564cd",
-      "crop": [
-        0,
-        80,
-        16,
-        16
-      ],
-      "image": "art-candidates/indexed/b8ff9f91d337d51af2f6.png",
-      "targets": [
-        "plant:shrub",
-        "bushes"
-      ],
-      "itemIds": [],
-      "nativeTileSize": 16,
-      "status": "Candidate",
-      "note": "Complete compact leafy shrub. Complete compact green leafy bush.",
-      "targetEvidence": {
-        "world:plant:shrub": "Complete compact leafy shrub.",
-        "world:bushes": "Complete compact green leafy bush."
-      }
     },
     {
       "id": "indexed-3c86124b63cd5aaa9c5d",
@@ -1065,33 +1011,6 @@
       }
     },
     {
-      "id": "indexed-2ca0ac3a7381ba35ad80",
-      "pack": "Fantasy Dreamland",
-      "itemPack": "dreamland",
-      "name": "Shrub",
-      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Desert_Animations.png",
-      "sourceSHA256": "6b8792ba2804f1bfdd064fb0e46bf2840e9aafec5222d28e971f5332c4763f7d",
-      "crop": [
-        16,
-        112,
-        16,
-        16
-      ],
-      "image": "art-candidates/indexed/2ca0ac3a7381ba35ad80.png",
-      "targets": [
-        "plant:shrub",
-        "bushes"
-      ],
-      "itemIds": [],
-      "nativeTileSize": 16,
-      "status": "Candidate",
-      "note": "Complete compact leafy shrub. Complete compact green leafy bush.",
-      "targetEvidence": {
-        "world:plant:shrub": "Complete compact leafy shrub.",
-        "world:bushes": "Complete compact green leafy bush."
-      }
-    },
-    {
       "id": "indexed-6cf324f2bab018469539",
       "pack": "Fantasy Dreamland",
       "itemPack": "dreamland",
@@ -1490,33 +1409,6 @@
       }
     },
     {
-      "id": "indexed-5219669f298e4c371732",
-      "pack": "Fantasy Dreamland",
-      "itemPack": "dreamland",
-      "name": "Shrub",
-      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
-      "sourceSHA256": "95cb958cf3b83e4ee3fe2a5a7fd031e4e8692f82121f88c04f2686ae786a6de8",
-      "crop": [
-        240,
-        32,
-        16,
-        16
-      ],
-      "image": "art-candidates/indexed/5219669f298e4c371732.png",
-      "targets": [
-        "plant:shrub",
-        "bushes"
-      ],
-      "itemIds": [],
-      "nativeTileSize": 16,
-      "status": "Candidate",
-      "note": "Complete compact leafy shrub. Complete compact green leafy bush.",
-      "targetEvidence": {
-        "world:plant:shrub": "Complete compact leafy shrub.",
-        "world:bushes": "Complete compact green leafy bush."
-      }
-    },
-    {
       "id": "indexed-bc8a5eecebc96e86cfa6",
       "pack": "Fantasy Dreamland",
       "itemPack": "dreamland",
@@ -1620,33 +1512,6 @@
       "targetEvidence": {
         "world:plant:rubble": "Complete individual rock; no ore or fruit identity inferred.",
         "item:rubble": "Complete individual rock; no ore or fruit identity inferred."
-      }
-    },
-    {
-      "id": "indexed-cbc9bd1705b35e889500",
-      "pack": "Fantasy Dreamland",
-      "itemPack": "dreamland",
-      "name": "Shrub",
-      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
-      "sourceSHA256": "99b4df039e783e5292ebaf10a6e8a41096dae7fe3ed7a3dac28a99e716284567",
-      "crop": [
-        256,
-        32,
-        16,
-        16
-      ],
-      "image": "art-candidates/indexed/cbc9bd1705b35e889500.png",
-      "targets": [
-        "plant:shrub",
-        "bushes"
-      ],
-      "itemIds": [],
-      "nativeTileSize": 16,
-      "status": "Candidate",
-      "note": "Complete compact leafy shrub. Complete compact green leafy bush.",
-      "targetEvidence": {
-        "world:plant:shrub": "Complete compact leafy shrub.",
-        "world:bushes": "Complete compact green leafy bush."
       }
     },
     {
@@ -8234,34 +8099,6 @@
       "group": "smaller"
     },
     {
-      "id": "indexed-284e68c96630aa58c6d2",
-      "pack": "Sunnyside World",
-      "itemPack": "sunnyside",
-      "name": "Shrub",
-      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
-      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
-      "crop": [
-        432,
-        16,
-        16,
-        16
-      ],
-      "image": "art-candidates/indexed/284e68c96630aa58c6d2.png",
-      "targets": [
-        "plant:shrub",
-        "bushes"
-      ],
-      "itemIds": [],
-      "nativeTileSize": 16,
-      "status": "Candidate",
-      "note": "Complete small leafy shrub. Complete compact leafy bush.",
-      "targetEvidence": {
-        "world:plant:shrub": "Complete small leafy shrub.",
-        "world:bushes": "Complete compact leafy bush."
-      },
-      "group": "smaller"
-    },
-    {
       "id": "indexed-1f8a99db74dcd0ea0309",
       "pack": "Sunnyside World",
       "itemPack": "sunnyside",
@@ -13104,6 +12941,114 @@
         "item:bookshelf_frontier": "Complete narrow wooden bookcase with books; frontier styling unconfirmed."
       },
       "sizeException": "Tall upright bookshelf"
+    },
+    {
+      "id": "indexed-9f9e23955e0b0ed36e8a",
+      "pack": "Pixel Plains",
+      "itemPack": "plains",
+      "name": "Rounded leafy bush",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/HARVEST SUMMER COMPLETE TILESET.png",
+      "sourceSHA256": "c6507b759503ff9554e37e182ac97f72b030ffde2eebf7274f21fd57f7e46bc4",
+      "crop": [
+        640,
+        288,
+        16,
+        16
+      ],
+      "image": "art-candidates/indexed/9f9e23955e0b0ed36e8a.png",
+      "targets": [
+        "plant:shrub",
+        "bushes"
+      ],
+      "itemIds": [],
+      "nativeTileSize": 16,
+      "status": "Candidate",
+      "note": "Complete rounded leafy bush with shaded upright volume and a ground shadow; not a flat leaf rosette.",
+      "targetEvidence": {
+        "world:plant:shrub": "Complete rounded leafy bush with shaded upright volume and a ground shadow; not a flat leaf rosette.",
+        "world:bushes": "Complete rounded leafy bush with shaded upright volume and a ground shadow; not a flat leaf rosette."
+      },
+      "group": "smaller"
+    },
+    {
+      "id": "indexed-660046e4aea0074f44f8",
+      "pack": "Pixel Plains",
+      "itemPack": "plains",
+      "name": "Rounded berry bush",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/HARVEST SUMMER COMPLETE TILESET.png",
+      "sourceSHA256": "c6507b759503ff9554e37e182ac97f72b030ffde2eebf7274f21fd57f7e46bc4",
+      "crop": [
+        624,
+        288,
+        16,
+        16
+      ],
+      "image": "art-candidates/indexed/660046e4aea0074f44f8.png",
+      "targets": [
+        "zone_berry_bush"
+      ],
+      "itemIds": [],
+      "nativeTileSize": 16,
+      "status": "Candidate",
+      "note": "Complete rounded leafy berry bush with individually visible berries and a ground shadow.",
+      "targetEvidence": {
+        "world:zone_berry_bush": "Complete rounded leafy berry bush with individually visible berries and a ground shadow."
+      },
+      "group": "smaller"
+    },
+    {
+      "id": "indexed-32c1ddb4cce6e87f64b8",
+      "pack": "Pixel Plains",
+      "itemPack": "plains",
+      "name": "Rounded leafy bush",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees All.png",
+      "sourceSHA256": "dace7b7f63363ecfd0a8d7f58f40d5915ffb09eb303035ed7f7323ada33e6e50",
+      "crop": [
+        160,
+        368,
+        16,
+        16
+      ],
+      "image": "art-candidates/indexed/32c1ddb4cce6e87f64b8.png",
+      "targets": [
+        "plant:shrub",
+        "bushes"
+      ],
+      "itemIds": [],
+      "nativeTileSize": 16,
+      "status": "Candidate",
+      "note": "Complete rounded leafy bush with shaded upright volume and a ground shadow; not a flat leaf rosette.",
+      "targetEvidence": {
+        "world:plant:shrub": "Complete rounded leafy bush with shaded upright volume and a ground shadow; not a flat leaf rosette.",
+        "world:bushes": "Complete rounded leafy bush with shaded upright volume and a ground shadow; not a flat leaf rosette."
+      },
+      "group": "smaller"
+    },
+    {
+      "id": "indexed-52f4386c5c01226d83d1",
+      "pack": "Pixel Plains",
+      "itemPack": "plains",
+      "name": "Rounded berry bush",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees All.png",
+      "sourceSHA256": "dace7b7f63363ecfd0a8d7f58f40d5915ffb09eb303035ed7f7323ada33e6e50",
+      "crop": [
+        144,
+        368,
+        16,
+        16
+      ],
+      "image": "art-candidates/indexed/52f4386c5c01226d83d1.png",
+      "targets": [
+        "zone_berry_bush"
+      ],
+      "itemIds": [],
+      "nativeTileSize": 16,
+      "status": "Candidate",
+      "note": "Complete rounded leafy berry bush with individually visible berries and a ground shadow.",
+      "targetEvidence": {
+        "world:zone_berry_bush": "Complete rounded leafy berry bush with individually visible berries and a ground shadow."
+      },
+      "group": "smaller"
     }
   ]
 }

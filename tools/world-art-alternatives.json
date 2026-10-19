@@ -144,25 +144,6 @@
       "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
     },
     {
-      "id": "fd-shrub",
-      "pack": "Fantasy Dreamland",
-      "name": "Leafy shrub",
-      "targets": [
-        "plant:shrub"
-      ],
-      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
-      "sourceSHA256": "828731be252187814e697df8cd838f7282fe4076c1d655df883211daf8ecebda",
-      "crop": [
-        384,
-        96,
-        16,
-        16
-      ],
-      "image": "art-candidates/world/fd-shrub.png",
-      "note": "Compact 16px leafy mound. Bright lime favours restored gardens; no harvest or damaged states selected.",
-      "nativeTileSize": 16
-    },
-    {
       "id": "fd-red-tree",
       "pack": "Fantasy Dreamland",
       "name": "Red canopy tree study",

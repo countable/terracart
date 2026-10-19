@@ -7680,6 +7680,66 @@
         16,
         16
       ]
+    },
+    {
+      "id": "ALT-0769",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/HARVEST SUMMER COMPLETE TILESET.png",
+      "crop": [
+        640,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0770",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/HARVEST SUMMER COMPLETE TILESET.png",
+      "crop": [
+        624,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0771",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees All.png",
+      "crop": [
+        160,
+        368,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0772",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees All.png",
+      "crop": [
+        144,
+        368,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0773",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees & Fruits.png",
+      "crop": [
+        160,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0774",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees & Fruits.png",
+      "crop": [
+        144,
+        32,
+        16,
+        16
+      ]
     }
   ]
 }
