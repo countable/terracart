@@ -7270,7 +7270,15 @@ class MapScene extends Phaser.Scene {
     const body = this.playerM;
     const dx = this._targetM.x - body.x, dy = this._targetM.y - body.y;
     const dist = Math.hypot(dx, dy);
-    if (dist <= this.cellM * 0.15) {   // arrived — sit still, don't jitter
+    // The deadband only gates STARTING a walk, so GPS jitter under a standing
+    // body doesn't set it shuffling. Once walking, the body finishes on the
+    // exact target (`move` is clamped to `dist`): stopping at the deadband
+    // left it trailing a moving target — the walk home, a stream of fixes — by
+    // that much, and parked it short of the middle of the GPS ring.
+    const deadband = this.cellM * 0.15;
+    if (dist < 1e-3) this._followSettled = true;
+    else if (dist > deadband) this._followSettled = false;
+    if (this._followSettled) {   // arrived — sit still, don't jitter
       this._confusedRecover = false;
       if (steering) this._playDirected(this.player, 'walk', this._stickHeading.x, this._stickHeading.y);
       else this._playDirected(this.player, 'idle');
@@ -7318,7 +7326,11 @@ class MapScene extends Phaser.Scene {
     // direction this collapses toward zero even while sliding sideways, so
     // we're blocked when progress is under half the step we tried to take.
     const moved = dist - Math.hypot(this._targetM.x - body.x, this._targetM.y - body.y);
-    if (moved < move * 0.5) {
+    if (moved < move * 0.5 && dist <= deadband) {
+      // Blocked on the last few centimetres (a fix just inside a wall): close
+      // enough — settle rather than jog or dig for them.
+      this._followSettled = true;
+    } else if (moved < move * 0.5) {
       // Blocked. Don't dig if a single-cell jog gets us around the obstacle —
       // mining is reserved for walls the player can't trivially walk past.
       const detour = this._detourDir(ux, uy);

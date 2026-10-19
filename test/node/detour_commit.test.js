@@ -141,4 +141,27 @@ test('detour: a warp drops the hold with the target', () => {
   assert.truthy(/this\._detourHold = null;/.test(src),
     'syncMoveTarget clears _detourHold — a side of a wall back where the body was');
 });
+
+// ── Arrival ───────────────────────────────────────────────────────────────
+// The 0.15-cell deadband gates starting a walk, never where it ends. Stopping
+// at the deadband left the body trailing a moving target (the walk home, a
+// stream of fixes) and parked it short of the middle of the GPS ring.
+
+test('arrival: a body chasing a moving target ends exactly on it', () => {
+  const s = cave([], [0, 0], [0, 0]);
+  const speed = num('WALK_M_S') * 1.5;   // the walk home's pace
+  for (let i = 0; i < 90; i++) { s._targetM.x += speed / 30; s._followStep(1 / 30); }
+  run(s, 1);
+  assert.lt(Math.hypot(s._targetM.x - s.playerM.x, s._targetM.y - s.playerM.y), 1e-3,
+    'once the target stops, the body walks the last of the deadband too');
+});
+
+test('arrival: jitter inside the deadband does not move a settled body', () => {
+  const s = cave([], [0, 0], [0, 0]);
+  run(s, 0.1);
+  const x = s.playerM.x;
+  s._targetM.x += M * 0.1;
+  run(s, 1);
+  assert.eq(s.playerM.x, x, 'a tenth of a cell of GPS jitter is not a walk');
+});
 })();
