@@ -236,7 +236,7 @@
     const query=new URLSearchParams(location.search);
     $('search').value=query.get('search')||'';
     const requestedAlternatives=query.get('alternatives');
-    if(['any','Rogue Adventure World','Fantasy Dreamland','smaller','Dungeon Gathering','Pixel Plains','Farm Game','none'].includes(requestedAlternatives))$('alternatives').value=requestedAlternatives;
+    if(['any','Rogue Adventure World','Fantasy Dreamland','smaller','Dungeon Gathering','Pixel Plains','none'].includes(requestedAlternatives))$('alternatives').value=requestedAlternatives;
     const unnumbered=rows.filter(row=>row.reference==null);
     let selected=null,descending=false;
     const zoneVariantsText=row=>(row.approved?'Approved for placement: ':'')+([...row.zoneVariants].map(id=>names.get(id)||title(id)).sort().join(', ')||'Shared / other world use');

@@ -81,7 +81,8 @@ Serve the repository with `python3 -m http.server 8000`, then open a page under
 
 The item and world art dashboards compare current game art with curated Rogue
 Adventure World and Fantasy Dreamland alternatives, plus a third alternatives
-column for Dungeon Gathering, Pixel Plains and the 16×16 Farm Game packs.
+column for Dungeon Gathering and Pixel Plains, plus the native 16×16 RPG Pack
+item sheet in the item dashboard.
 Open either dashboard with `?alternatives=any` to show all reviewed matches or
 `?alternatives=smaller` for the smaller sets; pack filters narrow the review.
 Source coordinates and fit notes accompany each candidate. Item mappings live in
@@ -90,8 +91,8 @@ review images in `art-candidates/`. These files are dashboard-only proposals;
 they do not replace runtime art. Use native 16px art variants, never the upscaled
 32px/48px exports. Crops must fit 16×16 except trees and other tall objects
 spanning more than one vertical cell; retain their original pixels.
-Dreamland item glyphs need recolouring, while its coloured prop crops are labelled
-separately. Equipment samples cover silhouettes at T1 rather than a complete material ladder.
+Monochrome glyph and outline icons are excluded. Dreamland comparisons use its
+coloured prop crops. Equipment samples cover silhouettes at T1 rather than a complete material ladder.
 
 In `map-review.html`, clicking bare ground opens terrain, underlying landcover, zone influence,
 variant, zone nexus pattern, spawn restrictions and tile/cell coordinates.
