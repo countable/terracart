@@ -2,6 +2,12 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  selected_terrain: {'kind': 'image', 'path': 'assets/selected-terrain/selected-terrain.png'},
+  selected_shrub: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_shrub.png', 'frameWidth': 16, 'frameHeight': 16},
+  selected_rubble: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_rubble.png', 'frameWidth': 16, 'frameHeight': 16},
+  selected_mushroom: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_mushroom.png', 'frameWidth': 16, 'frameHeight': 16},
+  selected_longgrass: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_longgrass.png', 'frameWidth': 16, 'frameHeight': 16},
+  selected_grave_pillar: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/selected_grave_pillar.png', 'frameWidth': 16, 'frameHeight': 32},
   bone_cache: { kind: 'image', path: 'assets/Objects/Approved/bone_pile.png' },
   floor_wall_sources: { kind: 'image', path: 'assets/Objects/Cave/floor-wall-sources.png' },
   interior_floors: { kind: 'image', path: 'assets/Objects/BuildingMaterials/all-floors.png' },
@@ -26,7 +32,7 @@ const ASSETS = {
     } },
   // An inert poison vent: underground street scatter (render.js RENDER_SPEC).
   poison_vent_inactive: { kind: 'spritesheet', path: 'assets/Objects/Cave/poison_vent_inactive.png', frameWidth: 24, frameHeight: 24 },
-  cave_mechanisms: { kind: 'spritesheet', path: 'assets/Objects/Cave/mechanisms.png', frameWidth: 24, frameHeight: 24 },
+  cave_mechanisms: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/cave_mechanisms.png', 'frameWidth': 24, 'frameHeight': 24},
   beehive: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Beehive.png', frameWidth: 16, frameHeight: 16 },
   bramble: { kind: 'spritesheet', path: 'assets/Objects/Approved/bramble.png', frameWidth: 24, frameHeight: 24 },
   castle_tower_shapes: { kind: 'image', path: 'assets/Objects/Castle/tower_shapes.png' },
@@ -71,7 +77,7 @@ const ASSETS = {
   cavein: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/cavein.png', frameWidth: 24, frameHeight: 24 },
   sinkhole: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/sinkhole.png', frameWidth: 48, frameHeight: 48 },
   whirlwind: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/tornado.png', frameWidth: 48, frameHeight: 48 },
-  crystal_cluster: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/crystal_cluster.png', frameWidth: 16, frameHeight: 16 },
+  crystal_cluster: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/crystal_cluster.png', 'frameWidth': 16, 'frameHeight': 16},
   // Chicken Red.png is 64×32: a 4-col × 2-row grid of 16×16 frames (NOT
   // 2× 32×32 like its filename + the cow sheet might suggest). Loading at
   // 32×32 made every "frame" a 2×2 cluster of mini-chickens — so each
@@ -160,7 +166,7 @@ const ASSETS = {
   coin_pile_26_50: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_26_50.png' },
   coin_pile_51: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_51.png' },
   // Misc 16x16 prop — single boxed crate from the Singles tileset.
-  box:         { kind: 'image', path: 'assets/Objects/Approved/box.png' },
+  box: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/box.png', 'frameWidth': 16, 'frameHeight': 16},
   // Forest critters. Sheets are 16x16 frames; renderer picks frames as needed.
   // Deer + Crow sheets are 32×32 frames despite living in a "Wilderness"
   // folder that mostly holds 16×16 props. Loading them as 16×16 sliced each
@@ -213,7 +219,7 @@ const ASSETS = {
   // INFLUENCE ZONES (src/zones.js): churchyard headstone, grove votive,
   // and the flint nodule (items.js CROP_SPRITE.flint).
   grove_votive: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/seed_shrine.png', frameWidth: 24, frameHeight: 24 },
-  flint:          { kind: 'spritesheet', path: 'assets/Objects/Approved/flint.png', frameWidth: 16, frameHeight: 16 },
+  flint: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/flint.png', 'frameWidth': 16, 'frameHeight': 16},
   // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — eleven 24×36 generated
   // placeholders on one row, in the table's order.
   shrines:        { kind: 'spritesheet', path: 'assets/Objects/Generated/shrines-24.png', frameWidth: 24, frameHeight: 36 },
@@ -222,9 +228,9 @@ const ASSETS = {
   // vista_scope) and the tide line's driftwood and message bottle (wild
   // plants — items.js CROP_SPRITE).
   zone_objects: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/approved-24.png', frameWidth: 24, frameHeight: 24 },
-  gas_mushroom_small: { kind: 'spritesheet', path: 'assets/Objects/Approved/gas-mushroom-small.png', frameWidth: 16, frameHeight: 16 },
+  gas_mushroom_small: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/gas_mushroom_small.png', 'frameWidth': 16, 'frameHeight': 16},
   gas_mushroom_large: { kind: 'spritesheet', path: 'assets/Objects/Approved/gas-mushroom-large.png', frameWidth: 24, frameHeight: 24 },
-  zone_berry_bush: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/berry_bush.png', frameWidth: 24, frameHeight: 24 },
+  zone_berry_bush: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/zone_berry_bush.png', 'frameWidth': 16, 'frameHeight': 16},
   beach_palms: { kind: 'spritesheet', path: 'assets/Objects/CelProps/palms.png', frameWidth: 24, frameHeight: 24 },
   zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/CelProps/clipped.png', frameWidth: 24, frameHeight: 24 },
   zone_hedge: { kind: 'spritesheet', path: 'assets/Objects/Hedges/hedges-24.png', frameWidth: 24, frameHeight: 24 },
@@ -238,11 +244,11 @@ const ASSETS = {
   // BARREL or clay pot (standing, then smashed while restocking — isBarrel), a
   // bike rack the bicycle_parking POI (isBikeRack), a notice board the
   // information POI (render.js infoboard) and a gate's two posts (gatepost).
-  barrel: { kind: 'spritesheet', path: 'assets/Objects/CelProps/barrels.png', frameWidth: 24, frameHeight: 24 },
-  clay_pot: { kind: 'spritesheet', path: 'assets/Objects/CelProps/pots.png', frameWidth: 24, frameHeight: 24 },
+  barrel: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/barrel.png', 'frameWidth': 16, 'frameHeight': 16},
+  clay_pot: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/clay_pot.png', 'frameWidth': 16, 'frameHeight': 16},
   clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/CelProps/pots-smashed.png', frameWidth: 24, frameHeight: 24 },
   bike_rack:      { kind: 'spritesheet', path: 'assets/Objects/Approved/bike_rack.png', frameWidth: 16, frameHeight: 16 },
-  signpost:       { kind: 'spritesheet', path: 'assets/Objects/Approved/signpost.png', frameWidth: 16, frameHeight: 16 },
+  signpost: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/signpost.png', 'frameWidth': 16, 'frameHeight': 16},
   gatepost:       { kind: 'spritesheet', path: 'assets/Objects/Approved/gatepost.png', frameWidth: 16, frameHeight: 16 },
   // THE MACRO STALLS (loot.js MACRO_KIND_BY_CLASS / macroFor): the in-building
   // POIs that are places you come back to. One 80×80 frame each, the same
@@ -340,7 +346,7 @@ const ASSETS = {
   // that does NOT mirror underground, so the spot gets a light instead of a
   // box. Decorative: no interaction. The `torch` render spec cycles the 4
   // frames for a flicker and Lighting.KINDS.torch is its light.
-  torch:       { kind: 'spritesheet', path: 'assets/Objects/Wilderness/torch.png', frameWidth: 16, frameHeight: 32 },
+  torch: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/torch.png', 'frameWidth': 16, 'frameHeight': 16},
   // 7_Pickup_Items — 224×160 = 14 cols × 10 rows of 16×16 frames. Veggies,
   // fruits, fish, junk pulls (boot at row 6 col 4), sticks, logs, stars.
   // Used for the fishing-junk boot (88), rare-drop star (115), and memory (116).

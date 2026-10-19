@@ -1,0 +1,383 @@
+{
+  "barrel": [
+    {
+      "frame": 0,
+      "id": "ALT-0006",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "crop": [
+        32,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 1,
+      "id": "ALT-0112",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Desert.png",
+      "crop": [
+        208,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 2,
+      "id": "ALT-0124",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_desert_houses.png",
+      "crop": [
+        192,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 3,
+      "id": "ALT-0213",
+      "source": "extra_assets/16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
+      "crop": [
+        96,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 4,
+      "id": "ALT-0150",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Dungeon.png",
+      "crop": [
+        0,
+        336,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 5,
+      "id": "ALT-0138",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Winter_Village.png",
+      "crop": [
+        192,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 6,
+      "id": "ALT-0172",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Caves.png",
+      "crop": [
+        352,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 7,
+      "id": "ALT-0177",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Blacksmith.png",
+      "crop": [
+        464,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 8,
+      "id": "ALT-0132",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Blacksmith.png",
+      "crop": [
+        16,
+        112,
+        16,
+        16
+      ]
+    }
+  ],
+  "box": [
+    {
+      "frame": 0,
+      "id": "ALT-0134",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Laboratory.png",
+      "crop": [
+        112,
+        272,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 1,
+      "id": "ALT-0450",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ship.png",
+      "crop": [
+        80,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 2,
+      "id": "ALT-0527",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Lost_City.png",
+      "crop": [
+        384,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 3,
+      "id": "ALT-0151",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Dungeon.png",
+      "crop": [
+        0,
+        352,
+        16,
+        16
+      ]
+    }
+  ],
+  "clay_pot": [
+    {
+      "frame": 0,
+      "id": "ALT-0024",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Break Update/All Vase Shine 16x16.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 1,
+      "id": "ALT-0258",
+      "source": "extra_assets/Fantasy City ver1.3/Tiles/Above.png",
+      "crop": [
+        80,
+        288,
+        16,
+        16
+      ]
+    }
+  ],
+  "crystal_cluster": [
+    {
+      "frame": 0,
+      "id": "ALT-0064",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        880,
+        416,
+        16,
+        16
+      ]
+    }
+  ],
+  "gas_mushroom_small": [
+    {
+      "frame": 0,
+      "id": "ALT-0078",
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_blue_01_strip4.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 1,
+      "id": "ALT-0079",
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_blue_02_strip4.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    }
+  ],
+  "signpost": [
+    {
+      "frame": 0,
+      "id": "ALT-0175",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+      "crop": [
+        64,
+        128,
+        16,
+        16
+      ]
+    }
+  ],
+  "torch": [
+    {
+      "frame": 0,
+      "id": "ALT-0126",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Halloween.png",
+      "crop": [
+        16,
+        288,
+        16,
+        16
+      ]
+    }
+  ],
+  "selected_grave_pillar": [
+    {
+      "frame": 0,
+      "id": "ALT-0022",
+      "source": "extra_assets/Pixel Plains/Props.png",
+      "crop": [
+        128,
+        176,
+        16,
+        32
+      ]
+    }
+  ],
+  "cave_mechanisms": [
+    {
+      "frame": 0,
+      "id": "ALT-0029",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        352,
+        432,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 1,
+      "id": "ALT-0029",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        352,
+        432,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 2,
+      "id": "ALT-0030",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        304,
+        512,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 3,
+      "id": "ALT-0030",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        304,
+        512,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 5,
+      "id": "ALT-0030",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        304,
+        512,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 6,
+      "id": "ALT-0030",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        304,
+        512,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 14,
+      "id": "ALT-0031",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        352,
+        464,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 15,
+      "id": "ALT-0031",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        352,
+        464,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 16,
+      "id": "ALT-0032",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        352,
+        448,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 17,
+      "id": "ALT-0032",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        352,
+        448,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 18,
+      "id": "ALT-0398",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All tiles v2.png",
+      "crop": [
+        584,
+        648,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 19,
+      "id": "ALT-0398",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All tiles v2.png",
+      "crop": [
+        584,
+        648,
+        16,
+        16
+      ]
+    }
+  ]
+}

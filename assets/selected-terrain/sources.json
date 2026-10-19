@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "cellSize": 16,
+  "entries": [
+    {
+      "id": "ALT-0046",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Temple.png",
+      "crop": [
+        16,
+        0,
+        16,
+        16
+      ],
+      "frame": 0
+    },
+    {
+      "id": "ALT-0455",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern_Full.png",
+      "crop": [
+        144,
+        16,
+        16,
+        16
+      ],
+      "frame": 1
+    },
+    {
+      "id": "ALT-0440",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Overworld_Ground.png",
+      "crop": [
+        448,
+        64,
+        16,
+        16
+      ],
+      "frame": 2
+    },
+    {
+      "id": "ALT-0530",
+      "source": "extra_assets/16x16/Hell Tileset 16x16 Pixelart [Rogue Adventure]/Hell Tileset/RA_Hell_Animations.png",
+      "crop": [
+        48,
+        48,
+        16,
+        16
+      ],
+      "frame": 3
+    },
+    {
+      "id": "ALT-0054",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        32,
+        32,
+        16,
+        16
+      ],
+      "frame": 4
+    },
+    {
+      "id": "ALT-0055",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        64,
+        32,
+        16,
+        16
+      ],
+      "frame": 5
+    },
+    {
+      "id": "ALT-0004",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "crop": [
+        32,
+        80,
+        16,
+        16
+      ],
+      "frame": 6
+    }
+  ]
+}

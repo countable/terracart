@@ -1567,6 +1567,8 @@ const ROAD_CHIP_SVG =
   + '</g></svg>';
 
 const ICON_SHEETS = {
+  selected_mushroom: { url: 'assets/Objects/SelectedFlora/selected_mushroom.png', cols: 4, srcW: 64, srcH: 16 },
+  selected_longgrass: { url: 'assets/Objects/SelectedFlora/selected_longgrass.png', cols: 1, srcW: 16, srcH: 16 },
   furniture_icons: { url: 'assets/Objects/Furniture/furniture-icons-16.png', cols: 4, srcW: 64, srcH: 432 },
   giant_mushroom: { url: 'assets/Icons/Items/GiantMushroom.png', cols: 1, srcW: 16, srcH: 16 },
   icon_field_scope: { url: 'assets/Icons/Items/field_scope.png', cols: 1, srcW: 16, srcH: 16 },

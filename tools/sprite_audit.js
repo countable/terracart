@@ -225,7 +225,7 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'util.js'), 'utf8'),
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'items.js'), 'utf8'),
   itemsCtx, { filename: 'items.js' });
 vm.runInContext('globalThis.FURNITURE = FURNITURE; globalThis.FURNITURE_SCALE = FURNITURE_SCALE; globalThis.ROCK_VARIANT_ART = ROCK_VARIANT_ART; globalThis.GEM_DEPOSITS = GEM_DEPOSITS; globalThis.CROP_SPRITE = CROP_SPRITE; globalThis.WILDPLANT_CONTEXT_ART = WILDPLANT_CONTEXT_ART;', itemsCtx);
-const SHRUB_SCALE = itemsCtx.CROP_SPRITE.shrub.scale;
+const SHRUB_SCALE = 1; // Legacy bushes remain tree undergrowth; selected shrub has its own sheet.
 const CROP_SPRITE = itemsCtx.CROP_SPRITE;
 
 // ── …and the texture table from assets.js, so the wildplant-frame audit reads
@@ -248,7 +248,9 @@ const SHEETS = {
   // 32×48, not 32×64: at 64 the birch frame picked up the tip of the red tree below (see assets.js).
   pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [1, 2, 3] },
   beach_palms: { file: ASSETS.beach_palms.path, fw: ASSETS.beach_palms.frameWidth, fh: ASSETS.beach_palms.frameHeight, frames: [0, 1, 2, 3, 4, 5] },
-  bushes: { file: ASSETS.bushes.path, fw: 24, fh: 24, frames: itemsCtx.CROP_SPRITE.shrub.frames },
+  bushes: { file: ASSETS.bushes.path, fw: 24, fh: 24, frames: [0,1,2,3,4,5,6,7] },
+  selected_shrub: { file: ASSETS.selected_shrub.path, fw: 16, fh: 16, frames: [0] },
+  selected_grave_pillar: { file: ASSETS.selected_grave_pillar.path, fw: 16, fh: 32, frames: [0] },
   bramble: { file: ASSETS.bramble.path, fw: 24, fh: 24, frames: itemsCtx.CROP_SPRITE.shrub.looks.bramble.frames },
   approved_clipped_hedge: { file: ASSETS.approved_clipped_hedge.path, fw: 24, fh: 24, frames: itemsCtx.CROP_SPRITE.shrub.looks.clipped.frames },
   zone_hedge_single: { file: ASSETS.zone_hedge_single.path, fw: 24, fh: 24, frames: itemsCtx.WILDPLANT_CONTEXT_ART.zone_hedge_single.frames },
@@ -260,9 +262,9 @@ const SHEETS = {
   beehive:       { file: ASSETS.beehive.path, fw: 16, fh: 16, frames: [0] },
   // Authored tier frames each carry their own measured alpha bounds.
   chest:         { file: ASSETS.chest.path, fw: 16, fh: 16, frames: [0, 1, 2, 3, 4, 5, 6] },
-  box:           { file: 'assets/Objects/Approved/box.png',   fw: 16, fh: 16, frames: [0] },
+  box:           { file: ASSETS.box.path, fw: 16, fh: 16, frames: [0,1,2,3] },
   shrine_spirit: { file: ASSETS.shrine_spirit.path, fw: 16, fh: 16, frames: [0, 1, 2, 3] },
-  crystal_cluster: { file: 'assets/Objects/Wilderness/crystal_cluster.png', fw: 16, fh: 16, frames: [0] },
+  crystal_cluster: { file: ASSETS.crystal_cluster.path, fw: 16, fh: 16, frames: [0] },
   mineralrock:   { file: 'assets/Objects/Approved/mineralrock.png',fw: 16, fh: 16, frames: [168, 169, 170, 171, 0, 1, 2, 3, 5, 7] },
   mineralboulder: { file: 'assets/Objects/Approved/mineralrock.png', fw: 32, fh: 16, frames: [45, 60, 46, 47, 48, 49, 51, 53] },
   approved_charred_stakes: { file: 'assets/Objects/Approved/approved_charred_stakes.png', fw: 24, fh: 24, frames: [0] },
@@ -270,26 +272,26 @@ const SHEETS = {
   pillar:        { file: ASSETS.pillar.path, fw: 24, fh: 24, frames: [0] },
   scarecrow:     { file: 'assets/Objects/Approved/scarecrow.png',               fw: 48, fh: 48, frames: [0] },
   bonfire:       { file: 'assets/Objects/Wilderness/bonfire.png',            fw: 16, fh: 32, frames: [0] },
-  torch:         { file: 'assets/Objects/Wilderness/torch.png',              fw: 16, fh: 32, frames: [0] },
+  torch:         { file: ASSETS.torch.path, fw: 16, fh: 16, frames: [0] },
   tar:           { file: 'assets/Objects/Approved/tar.png',                 fw: 16, fh: 16, frames: [0] },
   ...Object.fromEntries(GROVE_SHRINE_ART.map(({ key, frame }) => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [frame],
   }])),
   ...Object.fromEntries(['gas_mushroom_small', 'gas_mushroom_large'].map(key => [key, {
-    file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [0],
+    file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: key === 'gas_mushroom_small' ? [0,1] : [0],
   }])),
   rock_variants: { file: ASSETS.rock_variants.path, fw: 24, fh: 24, frames: Array.from({ length: 65 }, (_, i) => i) },
   zone_objects: { file: ASSETS.zone_objects.path, fw: 24, fh: 24, frames: [1,4,5,6,7,34,37,38,39,40,54,58,59,61,64,65,66,67,68,69,70,71] },
-  zone_berry_bush: { file: ASSETS.zone_berry_bush.path, fw: 24, fh: 24, frames: [0] },
+  zone_berry_bush: { file: ASSETS.zone_berry_bush.path, fw: 16, fh: 16, frames: [0,1] },
   reef_coral:    { file: 'assets/Objects/Reef/coral.png', fw: 24, fh: 24, frames: [0,1,2,3,4,5,6,7] },
   vista_scope:   { file: 'assets/Objects/Approved/vista_scope.png',               fw: 16, fh: 24, frames: [0] },
   [SHRINE_KIND_ART.key]: { file: ASSETS[SHRINE_KIND_ART.key].path, fw: ASSETS[SHRINE_KIND_ART.key].frameWidth,
     fh: ASSETS[SHRINE_KIND_ART.key].frameHeight, frames: SHRINE_KIND_ART.frames },
-  barrel: { file: ASSETS.barrel.path, fw: 24, fh: 24, frames: [0, 1, 2, 3, 4, 5, 6, 7] },
-  clay_pot: { file: ASSETS.clay_pot.path, fw: 24, fh: 24, frames: [0, 1, 2, 3] },
+  barrel: { file: ASSETS.barrel.path, fw: 16, fh: 16, frames: [0,1,2,3,4,5,6,7,8] },
+  clay_pot: { file: ASSETS.clay_pot.path, fw: 16, fh: 16, frames: [0,1] },
   clay_pot_smashed: { file: ASSETS.clay_pot_smashed.path, fw: 24, fh: 24, frames: [0, 1, 2, 3] },
   bike_rack:      { file: 'assets/Objects/Approved/bike_rack.png',          fw: 16, fh: 16, frames: [0] },
-  signpost:       { file: 'assets/Objects/Approved/signpost.png',           fw: 16, fh: 16, frames: [0] },
+  signpost:       { file: ASSETS.signpost.path,           fw: 16, fh: 16, frames: [0] },
   gatepost:       { file: 'assets/Objects/Approved/gatepost.png',           fw: 16, fh: 16, frames: [0] },
 };
 
@@ -309,9 +311,9 @@ const SCENARIOS = [
         name: `${id}:${frameIdx}${flipX ? ' flipped' : ''}`, key: 'furniture', frameIdx, scale: itemsCtx.FURNITURE_SCALE, flipX, seatFoot: row.seatFoot,
         frameSize: furnitureManifest.items.find(entry => entry.itemId === id).frameSize,
       })))),
-  ...['gas_mushroom_small', 'gas_mushroom_large'].map(key => ({
-    name: key.replaceAll('_', ' '), key, frameIdx: 0, scale: itemsCtx.WILDPLANT_CONTEXT_ART[key].scale,
-  })),
+  ...['gas_mushroom_small', 'gas_mushroom_large'].flatMap(key => SHEETS[key].frames.map(frameIdx => ({
+    name: key.replaceAll('_', ' ') + ' ' + frameIdx, key, frameIdx, scale: itemsCtx.WILDPLANT_CONTEXT_ART[key].scale,
+  }))),
   { name: 'drill shrine', key: 'cave_props', frameIdx: 6, scale: 4 / 3 },
   { name: 'stalagmites', key: 'cave_props', frameIdx: 1, scale: 4 / 3 },
   { name: 'inactive poison vent', key: 'poison_vent_inactive', frameIdx: 0, scale: 4 / 3 },
@@ -325,6 +327,7 @@ const SCENARIOS = [
   { name: 'pine medium',     key: 'pine_tree',     frameIdx: 2, scale: t('pine', 'medium') },
   { name: 'pine large',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'large') },
   ...[0, 1, 2, 3, 4, 5].map(frameIdx => ({ name: `beach palm ${frameIdx}`, key: 'beach_palms', frameIdx, scale: itemsCtx.WILDPLANT_CONTEXT_ART.palm.scale })),
+  { name: 'selected shrub', key: 'selected_shrub', frameIdx: 0, scale: 1.5 },
   ...SHEETS.bushes.frames.map(frameIdx => ({ name: `bush ${frameIdx}`, key: 'bushes', frameIdx, scale: SHRUB_SCALE })),
   ...SHEETS.bramble.frames.map(frameIdx => ({ name: `bramble ${frameIdx}`, key: 'bramble', frameIdx, scale: itemsCtx.CROP_SPRITE.shrub.looks.bramble.scale })),
   ...SHEETS.approved_clipped_hedge.frames.map(frameIdx => ({ name: `clipped hedge ${frameIdx}`, key: 'approved_clipped_hedge', frameIdx, scale: itemsCtx.CROP_SPRITE.shrub.looks.clipped.scale })),
@@ -335,7 +338,7 @@ const SCENARIOS = [
   { name: 'peach blossom',   key: 'worldpeach_tree', frameIdx: 4, scale: 0.85, scaleYMul: 1.10 },
   { name: 'peach (wild)',    key: 'worldpeach_tree',    frameIdx: 3, scale: 0.85, scaleYMul: 1.10 },
   ...SHEETS.chest.frames.map(frameIdx => ({ name: `chest tier ${frameIdx + 1}`, key: 'chest', frameIdx, scale: CHEST_SCALE })),
-  { name: 'crate (box)',     key: 'box',           frameIdx: 0, scale: 0.8 * 1.1 },
+  ...SHEETS.box.frames.map(frameIdx => ({ name: 'crate (box) ' + frameIdx, key: 'box', frameIdx, scale: 0.8 * 1.1 })),
   ...[0, 1, 2, 3].map(frameIdx => ({ name: `shrine spirit idle ${frameIdx}`, key: 'shrine_spirit', frameIdx,
     scale: SHRINE_SPIRIT_ART.scale })),
   { name: 'mineralrock',     key: 'mineralboulder', frameIdx: 45, scale: 1.8 },
@@ -349,21 +352,21 @@ const SCENARIOS = [
   { name: 'waystone',        key: 'rock_variants', frameIdx: 0, scale: 16 / 15 },
   { name: 'charred stakes', key: 'approved_charred_stakes', frameIdx: 0, scale: 4 / 3 },
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
-  { name: 'headstone',       key: 'zone_objects',  frameIdx: 1, scale: 4 / 3 },
+  { name: 'headstone', key: 'selected_grave_pillar', frameIdx: 0, scale: 4 / 3 },
   ...GROVE_SHRINE_ART.map(({ name, key, frame, scale }) => ({ name, key, frameIdx: frame, scale })),
   ...[1,4,5,6,7,34,37,38,39,40,54,58,59,61,64,65,66,67,68,69,70,71].map(frameIdx => ({ name: `selected zone object ${frameIdx}`, key: 'zone_objects', frameIdx, scale: frameIdx >= 64 && frameIdx <= 71 ? 1 : 4 / 3 })),
   ...Array.from({ length: 13 }, (_, frameIdx) => [itemsCtx.ROCK_VARIANT_ART.themedScale].map(scale => ({ name: `zone themed rock ${frameIdx} scale ${scale}`, key: 'rock_variants', frameIdx: frameIdx + 52, scale }))).flat(),
   ...Array.from({ length: 16 }, (_, frameIdx) => ({ name: `zone plain rock ${frameIdx}`, key: 'rock_variants', frameIdx: frameIdx + 36, scale: frameIdx % 2 ? itemsCtx.ROCK_VARIANT_ART.largeScale : itemsCtx.ROCK_VARIANT_ART.smallScale })),
   ...Array.from({ length: 36 }, (_, frameIdx) => ({ name: `rock variant ${frameIdx}`, key: 'rock_variants', frameIdx, scale: frameIdx % 2 ? itemsCtx.ROCK_VARIANT_ART.largeScale : itemsCtx.ROCK_VARIANT_ART.smallScale })),
-  {name: 'berry bush', key: 'zone_berry_bush', frameIdx: 0, scale: 4 / 3},
+  ...SHEETS.zone_berry_bush.frames.map(frameIdx => ({name: 'berry bush ' + frameIdx, key: 'zone_berry_bush', frameIdx, scale: 2})),
   ...[0,1,2,3,4,5,6,7].map(frameIdx => ({ name: `reef coral ${frameIdx}`, key: 'reef_coral', frameIdx, scale: 4 / 3 })),
   { name: 'vista scope',     key: 'vista_scope',   frameIdx: 0, scale: 1.6 },
   ...SHRINE_KIND_ART.frames.map((f) => ({ name: `shrine kind ${f}`, key: SHRINE_KIND_ART.key, frameIdx: f, scale: SHRINE_KIND_ART.scale })),
   // The POI props (loot.js chestLook — barrel / bike_rack at render.js
   // SMALL_POI_SCALE; the notice board and the gate post at 1.6).
-  ...SHEETS.barrel.frames.map(frameIdx => ({ name: `barrel ${frameIdx}`, key: 'barrel', frameIdx, scale: 4 / 3 })),
-  ...SHEETS.clay_pot.frames.map(frameIdx => ({ name: `clay pot ${frameIdx}`, key: 'clay_pot', frameIdx, scale: 4 / 3 })),
-  ...SHEETS.clay_pot_smashed.frames.map(frameIdx => ({ name: `pot shards ${frameIdx}`, key: 'clay_pot_smashed', frameIdx, scale: 4 / 3 })),
+  ...SHEETS.barrel.frames.map(frameIdx => ({ name: `barrel ${frameIdx}`, key: 'barrel', frameIdx, scale: 1.1 * 1.1 })),
+  ...SHEETS.clay_pot.frames.map(frameIdx => ({ name: `clay pot ${frameIdx}`, key: 'clay_pot', frameIdx, scale: (4 / 3) * 0.8 * 0.9 * 0.92 * 1.5 })),
+  ...SHEETS.clay_pot_smashed.frames.map(frameIdx => ({ name: `pot shards ${frameIdx}`, key: 'clay_pot_smashed', frameIdx, scale: (4 / 3) * 0.8 * 0.9 * 0.92 })),
   { name: 'bike rack',       key: 'bike_rack',     frameIdx: 0, scale: 1.3 },
   { name: 'notice board',    key: 'signpost',      frameIdx: 0, scale: 1.6 },
   { name: 'gate post',       key: 'gatepost',      frameIdx: 0, scale: 1.6 },

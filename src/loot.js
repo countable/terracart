@@ -946,6 +946,13 @@ const CHEST_ALWAYS_CRATE_CLASSES = new Set(['bus']);
 function chestAlwaysCrate(o) {
   return !!o && CHEST_ALWAYS_CRATE_CLASSES.has(o.poiClass) && !(o.depth > 0) && !o.vista && !o.chestTopUp;
 }
+// Approved container alternatives vary by stable object id, shared by map and
+// popup art. The old context frame remains the broken-pot shard selector.
+const SELECTED_CONTAINER_FRAMES = Object.freeze({ barrel: 9, box: 4, clay_pot: 2 });
+function selectedContainerFrame(o, key) {
+  const count = SELECTED_CONTAINER_FRAMES[key];
+  return count ? (fnv1aFrom(0x617274, o.id || `${o.x}:${o.y}`) >>> 0) % count : 0;
+}
 function chestLook(o) {
   if (o._chestLook) return o._chestLook;
   const stand = (typeof produceStandFor === 'function') ? produceStandFor(o) : null;
@@ -962,7 +969,9 @@ function chestLook(o) {
     : (stand ? 'market_stand' : (wagon ? 'wagon' : (box ? 'box' : 'chest'))));
   return (o._chestLook = { stand, bike, barrel, macro, smashedKey: barrelArt?.smashedKey, barrelName: barrelArt?.name,
     box: box && !wagon && !macro && !special, wagon, texKey,
-    frame: barrel ? containerArtFrame(o, barrelArt) : (texKey === 'chest' ? chestTier(o) - 1 : (stand ? stand.frame : 0)) });
+    smashedFrame: barrel ? containerArtFrame(o, barrelArt) : 0,
+    frame: SELECTED_CONTAINER_FRAMES[texKey] ? selectedContainerFrame(o, texKey)
+      : (texKey === 'chest' ? chestTier(o) - 1 : (stand ? stand.frame : 0)) });
 }
 
 

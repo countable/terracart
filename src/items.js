@@ -67,33 +67,19 @@ const CROP_SPRITE = {
   goldenberry: { ...BUSH_SPRITE, texture: 'bushes_goldenberry' },
   cress:  { sheet: 'springcrops', row: 3 },   // spoon-leaf watercress
   onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
-  // Long grass — item id 'longgrass', display name 'Long grass'. Props.png
-  // is a 22-col grid; frame (col 11, row 1) 1-indexed = col 10 row 0
-  // 0-indexed = 0*22 + 10 = 10. Renders as leafy green fronds at the
-  // wildplant scale, reduced 10% to keep the tuft inside one-cell props.
-  longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 * 0.9 },
+  // Approved native 16px long grass; inventory shares the same source.
+  longgrass: { sheet: 'selected_longgrass', custom: true, frame: 0, scale: 1.16 * 0.9 },
   // Previously unused Props frames: green sprig and upright leafy nettle.
   // Inventory resolves these same frames through each item's crop key.
   petnip: { sheet: 'props', custom: true, frame: 32, scale: 1.16 },
   nettle: { sheet: 'props', custom: true, frame: 33, scale: 1.13 },
   // Shrub looks share harvesting; brambles mark thorny groves and roads.
-  shrub: { ...BUSH_SPRITE,
+  shrub: { sheet: 'selected_shrub', custom: true, frames: [0], scale: 1.5,
     looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frames: [0], scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frames: [0, 1, 2, 3, 4, 5, 6, 7], scale: 0.8 } } },
-  // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
-  // contains the approved red-spotted toadstool from original Props frame 13.
-  // Small mushrooms use 90% of their former 1.224 scale (80% read too
-  // small outdoors). Surface and
-  // cave mushrooms share this scale; inventory uses the surface frame. These
-  // two are the mushroom's ONLY looks: the red cap above ground, the blue
-  // caps below — the authored surface cluster was dropped in Oct 2026.
-  // `caveFrames`: the look of a mushroom spawned UNDERGROUND (worldgen.js
-  // spawnCaveMushrooms stamps `_cave` on the wildplant) — the two blue
-  // luminous caps on Props.png row 5, cols 17..18 (5*22+17, 5*22+18), picked
-  // per cell off the same stable hash the variant sheets use. Same crop,
-  // same Mushroom item when picked; only the art (and its glow, see
-  // Lighting.KINDS.mushroom) says it grew in the dark. The inventory icon
-  // stays `frame`.
-  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.1016, caveFrames: [127, 128] },
+  // Surface choices vary stably; the two existing blue cave caps remain distinct.
+  mushroom: { sheet: 'selected_mushroom', custom: true, frames: [0, 1], scale: 1.1016, caveFrames: [2, 3] },
+  // Keep planted-rock growth stages; mature and wild rocks use the selected art.
+  rubble: { mature: { sheet: 'selected_rubble', custom: true, frames: [0], scale: 1.5 } },
   // Approved shell is exported from the original art into a 24px cell.
   // Map and inventory share its frame; display scaling keeps the same footprint.
   shell: { sheet: 'shell_sheet', custom: true, frames: [0], scale: 4 / 3 },
@@ -184,7 +170,7 @@ const ROCK_VARIANT_ART = Object.freeze({
     'platinum', 'crimson', 'frost']),
 });
 const WILDPLANT_CONTEXT_ART = {
-  gas_mushroom_small: { crop: 'mushroom', sheet: 'gas_mushroom_small', custom: true, frame: 0, scale: CROP_SPRITE.mushroom.scale },
+  gas_mushroom_small: { crop: 'mushroom', sheet: 'gas_mushroom_small', custom: true, frames: [0, 1], scale: CROP_SPRITE.mushroom.scale },
   gas_mushroom_large: { ...CROP_SPRITE.giant_mushroom, crop: 'giant_mushroom', tint: 0xd5e58a },
   ...Object.fromEntries(Object.entries(ZONE_ROCK_THEMES).map(([zone, theme]) =>
     ['zone_rock_' + zone, { crop: 'rubble', sheet: 'rock_variants', custom: true, frame: theme.frame, scale: ROCK_VARIANT_ART.themedScale }])),
@@ -194,9 +180,13 @@ const WILDPLANT_CONTEXT_ART = {
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
 function wildplantSprite(p) {
-  if (p?.crop === 'rubble' && (p.kind === 'wildplant' || p.wildId))
+  // Authored mineral seams and cover-sized boulders keep their specific silhouettes.
+  if (p?.crop === 'rubble' && (p.kind === 'wildplant' || p.wildId)
+      && (mineralRockUsesZoneArt(p) || p.sightBlocking || mineralRockMaterial(p) !== 'plain'))
     return { crop: 'rubble', sheet: mineralRockArtKey(p), custom: true,
       frame: mineralRockArtFrame(p), scale: mineralRockArtScale(p) };
+  // Picking existing fruit bushes removes their fruit without changing their canopy.
+  if (p?._pickedRemnant && p.crop === 'shrub') return BUSH_SPRITE;
   if (p?.gasEmitter) {
     const gasArt = p.crop === 'giant_mushroom' || (p.crop === 'mushroom' && p._zoneObjectFrame === 40)
       ? WILDPLANT_CONTEXT_ART.gas_mushroom_large
@@ -763,7 +753,7 @@ function inventoryIconSource(itemId) {
     return { sheet: 'springcrops', frame: ov.row * 14 + col };
   }
   if (ov && ov.custom) {
-    // Custom sheets (longgrass→props, mushroom→props, shell→shell_sheet).
+    // Custom sheets share their first declared world frame with inventory.
     // ov.frame is honoured so sheets whose frame 0 is empty can point at the
     // right cell; a crop that varies per cell in the world (shell) has no
     // single `frame`, so the icon is the FIRST frame it declares — never a

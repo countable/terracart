@@ -15,6 +15,20 @@ to it. First movement takes over from device GPS for this session. Turning the
 stick off resumes device GPS in normal play; the next real fix walks or snaps the
 character back to it.
 
+## Tree and water art trials
+
+Open `http://localhost:8765/index.html?sandbox=true&artTrial=trees-water` to
+preview the selected tree and water alternatives on the shared local server. `artTrial=trees` and `artTrial=water` isolate either group;
+remove the parameter to return to approved art. The trial is URL-only and does
+not change saved objects, species, harvesting or growth stages.
+
+Mature pines preview ALT-0168. Mature broadleaf trees distribute ALT-0038,
+ALT-0176 and ALT-0245 by stable object identity. Add `artTree=ALT-0245` (or either
+other broadleaf ID) to compare one tree across the world. Saplings and young
+trees retain their existing growth art. Water previews ALT-0131. Exact native
+crops and provenance live in `assets/ArtTrials/manifest.json`; rebuild them with
+`python3 tools/build_art_trials.py`.
+
 ## Test controls and coverage
 
 ### Heading and GPS harness

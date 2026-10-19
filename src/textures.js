@@ -113,7 +113,7 @@ const WATER_ANIM_MS = 220;
 // as `biome${type}_${v}p${p}` (phase 0 keeps the plain key), and render.js
 // picks the phase from the wall clock when it builds the key.
 const BIOME_TEX = {
-  0:  { variants: 2, draw: drawGrassTex },        // grass: tufts
+  0:  { variants: 2, draw: drawGrassTex },        // selected native grass variants; procedural fallback
   1:  { variants: 2, patternOpacity: 0.75, draw: drawForestTex },       // forest: sparse leaf litter
   2:  { variants: 2, patternOpacity: 0.925, draw: drawSandTex },         // sand: horizontal ripple marks
   // Water animates: `animPhases` pre-baked frames per variant, stepped every
@@ -123,9 +123,9 @@ const BIOME_TEX = {
   5:  { variants: 1, draw: drawResidentialTex },  // residential: concrete
   6:  { variants: 2, draw: drawParkTex },         // park: grass + flowers
   8:  { variants: 2, draw: drawPathTex },         // path: pebble grain
-  9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
+  9:  { variants: 1, draw: drawBuildingTex },     // selected temple paving; procedural fallback
   11: { variants: 1, draw: drawWoodFloorTex },    // building_med: wooden plank floor
-  12: { variants: 16, draw: drawCastleFloorTex }, // castle: cell slabs, half split into quarters or a joined pair
+  12: { variants: 1, draw: drawCastleFloorTex }, // selected temple paving; procedural fallback
   10: { variants: 2, patternOpacity: 0.9, draw: drawRockTex },         // rock: cracks
   // Subtype splits — each biome gets its own low-res texture so it reads
   // qualitatively different from the others (see src/biome_profiles.js for the
@@ -135,7 +135,7 @@ const BIOME_TEX = {
   17: { variants: 1, patternOpacity: 0.9, draw: drawIndustrialTex },   // INDUSTRIAL — concrete + gravel
   27: { variants: 2, patternOpacity: 0.9, draw: drawWastelandTex },    // WASTELAND — dry grit + dead scrub tufts
   // The influence-zone halos (src/zones.js).
-  28: { variants: 2, draw: drawGroveTex },        // GROVE — lush clover sward
+  28: { variants: 1, draw: drawGroveTex },        // GROVE — selected native sward; procedural fallback
   29: { variants: 2, draw: drawChurchyardTex },   // CHURCHYARD — worn sward, stone chips
   31: { variants: 2, patternOpacity: 0.9, draw: drawTarYardTex },      // TAR_YARD — oily ground, black pools
   18: { variants: 2, patternOpacity: 0.9, draw: drawPlaygroundTex },   // PLAYGROUND — bark mulch
@@ -149,12 +149,11 @@ const BIOME_TEX = {
   // "one body of water" read.
   23: { variants: 2, draw: drawWaterTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
   // Underground cave biome
-  24: { variants: 3, patternOpacity: 0.9, draw: drawCaveFloorTex }, // CAVE_FLOOR — packed grit + pebbles
+  24: { variants: 1, patternOpacity: 0.9, draw: drawCaveFloorTex }, // CAVE_FLOOR — selected native cavern floor; procedural fallback
   25: { variants: 3, patternOpacity: 0.9, draw: drawCaveWallTex  }, // CAVE_WALL  — packed boulder faces
-  // CAVE_LAVA (26) — the WATER tile, ember palette (drawLavaTex): same bands,
-  // same animation clock, so it reads as the same kind of thing gone red.
-  // One periodic wave shape keeps neighbouring cells aligned at every phase.
-  26: { variants: 1, draw: drawLavaTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
+  // CAVE_LAVA (26) — the two selected native tiles, chosen by world cell.
+  // drawLavaTex remains the fallback when the source atlas is unavailable.
+  26: { variants: 2, draw: drawLavaTex },
   // UNMAPPED (30) — render-only pseudo-terrain for cells whose tile hasn't
   // loaded yet (never in a tile's grid): dark fog with drifting scan lines, so
   // a slow tile reads as "being charted" rather than fake grass that pops into streets.
@@ -1299,7 +1298,39 @@ function makeSprungTrapTexture(scene) {
 // Restore mark strength halfway toward the original for gameplay readability.
 // Apply it once when baking a biome. Raw painters
 // remain available to the audit's original/proposal comparison.
+// Exact native16 alternatives selected in the art dashboard. The atlas is
+// cropped without repainting; each cell is scaled with nearest-neighbour pixels.
+// Multiple choices are stable spatial variants, never a timer-driven slideshow.
+const SELECTED_TERRAIN = {
+  0: [4, 5], 9: [0], 12: [0], 24: [1], 26: [2, 3], 28: [6],
+};
+let selectedTerrainSource = null;
+let selectedWaterTrialSource = null;
+function setSelectedTerrainSource(source) {
+  selectedTerrainSource = source;
+}
+function drawSelectedTerrain(ctx, size, type, variant = 0) {
+  const frames = SELECTED_TERRAIN[type];
+  if (!selectedTerrainSource || !frames) return false;
+  const frame = frames[((variant % frames.length) + frames.length) % frames.length];
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(selectedTerrainSource, frame * 16, 0, 16, 16, 0, 0, size, size);
+  ctx.restore();
+  return true;
+}
+
 function drawBiomeTexture(ctx, size, type, variant = 0, phase = 0) {
+  // A URL-scoped trial changes only the rendered water/pier underlay. It does
+  // not replace the default painter or persist into a subsequent normal load.
+  if (selectedWaterTrialSource && (Number(type) === 3 || Number(type) === 23)) {
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(selectedWaterTrialSource, 0, 0, 16, 16, 0, 0, size, size);
+    ctx.restore();
+    return;
+  }
+  if (drawSelectedTerrain(ctx, size, type, variant)) return;
   const spec = BIOME_TEX[type];
   ctx.save();
   spec.draw(ctx, size, seededRand((Number(type) + 1) * 1000 + variant + 1), phase);
@@ -1519,6 +1550,7 @@ function makeCastlePavingTexture(scene, size) {
 }
 
 function drawInteriorFloorTexture(ctx, size, source, tier) {
+  if (drawSelectedTerrain(ctx, size, tier)) return;
   // The sheet's top rows include wall-edge shading. Repeat a complete pair
   // of unshaded staggered courses instead. Half-size motifs keep the boards
   // and tiles in proportion to furniture without changing the cached cell size.
@@ -1530,6 +1562,11 @@ function drawInteriorFloorTexture(ctx, size, source, tier) {
 }
 
 function makeBiomeTextures(scene, size) {
+  selectedWaterTrialSource = typeof ArtTrials !== 'undefined' && ArtTrials.water
+    && scene.textures.exists(ArtTrials.waterKey)
+    ? scene.textures.get(ArtTrials.waterKey).getSourceImage() : null;
+  setSelectedTerrainSource(scene.textures.exists('selected_terrain')
+    ? scene.textures.get('selected_terrain').getSourceImage() : null);
   // Repeating swatches from PP Interiors Pack/all floors.png.
   // Keep these opaque materials separate from the biome modulation textures.
   if (scene.textures.exists('interior_floors')) {

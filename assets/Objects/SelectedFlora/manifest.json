@@ -1,0 +1,114 @@
+{
+  "selections": [
+    {
+      "key": "flint",
+      "frame": 0,
+      "id": "ALT-0063",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        880,
+        384,
+        16,
+        16
+      ]
+    },
+    {
+      "key": "selected_longgrass",
+      "frame": 0,
+      "id": "ALT-0026",
+      "source": "extra_assets/Pixel Plains/Basic Tiles 1.png",
+      "crop": [
+        112,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "key": "selected_mushroom",
+      "frame": 0,
+      "id": "ALT-0077",
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_red_01_strip4.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "key": "selected_mushroom",
+      "frame": 1,
+      "id": "ALT-0217",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        80,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "key": "selected_rubble",
+      "frame": 0,
+      "id": "ALT-0209",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Tilesets/Set 1.2.png",
+      "crop": [
+        112,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "key": "selected_shrub",
+      "frame": 0,
+      "id": "ALT-0769",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/HARVEST SUMMER COMPLETE TILESET.png",
+      "crop": [
+        640,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "key": "zone_berry_bush",
+      "frame": 0,
+      "id": "ALT-0770",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/HARVEST SUMMER COMPLETE TILESET.png",
+      "crop": [
+        624,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "key": "zone_berry_bush",
+      "frame": 1,
+      "id": "ALT-0772",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees All.png",
+      "crop": [
+        144,
+        368,
+        16,
+        16
+      ]
+    }
+  ],
+  "preservedFrames": [
+    {
+      "key": "selected_mushroom",
+      "frame": 2,
+      "source": "assets/Objects/Approved/props.png",
+      "sourceFrame": 127
+    },
+    {
+      "key": "selected_mushroom",
+      "frame": 3,
+      "source": "assets/Objects/Approved/props.png",
+      "sourceFrame": 128
+    }
+  ]
+}

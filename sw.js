@@ -1,12 +1,17 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-0fa0fa9c';
+const SHELL_VERSION = 'shell-284bd870';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
 /* ASSET_HASHES_START */
 const ASSET_HASHES = {
+  "assets/ArtTrials/ALT-0038.png": "aac45b0d",
+  "assets/ArtTrials/ALT-0131.png": "4c93ea1a",
+  "assets/ArtTrials/ALT-0168.png": "73324a30",
+  "assets/ArtTrials/ALT-0176.png": "45ad5379",
+  "assets/ArtTrials/ALT-0245.png": "bf2eff7a",
   "assets/Character/AssasinCyan.png": "a1915f71",
   "assets/Character/BowmanCyan.png": "11ed3c42",
   "assets/Character/CyanKnight.png": "89dd17d0",
@@ -610,6 +615,21 @@ const ASSET_HASHES = {
   "assets/Objects/Rustic/pot_smashed.png": "4883d791",
   "assets/Objects/Rustic/trees.png": "fc4d3689",
   "assets/Objects/Scarecrow_16x16.png": "e0e3fa74",
+  "assets/Objects/SelectedFlora/flint.png": "5ed3e72b",
+  "assets/Objects/SelectedFlora/selected_longgrass.png": "8ba96852",
+  "assets/Objects/SelectedFlora/selected_mushroom.png": "d3c8b64c",
+  "assets/Objects/SelectedFlora/selected_rubble.png": "62e8db31",
+  "assets/Objects/SelectedFlora/selected_shrub.png": "bcf1470b",
+  "assets/Objects/SelectedFlora/zone_berry_bush.png": "a2a5c05f",
+  "assets/Objects/SelectedProps/barrel.png": "5d533e6f",
+  "assets/Objects/SelectedProps/box.png": "198b7851",
+  "assets/Objects/SelectedProps/cave_mechanisms.png": "80280c3f",
+  "assets/Objects/SelectedProps/clay_pot.png": "c14be12e",
+  "assets/Objects/SelectedProps/crystal_cluster.png": "1e713f1a",
+  "assets/Objects/SelectedProps/gas_mushroom_small.png": "16d5c088",
+  "assets/Objects/SelectedProps/selected_grave_pillar.png": "2a1f2e6f",
+  "assets/Objects/SelectedProps/signpost.png": "84aadac3",
+  "assets/Objects/SelectedProps/torch.png": "f2746f29",
   "assets/Objects/Signs.png": "894aada0",
   "assets/Objects/SpikeTraps/spike-wall-source.png": "03908a97",
   "assets/Objects/SpikeTraps/spike-wall.png": "d1726c2b",
@@ -954,6 +974,7 @@ const ASSET_HASHES = {
   "assets/portraits/wayfinder.png": "19802fcd",
   "assets/portraits/witness.png": "20421b46",
   "assets/portraits/wizard.png": "d58efb40",
+  "assets/selected-terrain/selected-terrain.png": "06b7ba63",
   "assets/ui/compass/body-carving.webp": "ba67176c",
   "assets/ui/compass/compass-bearing.webp": "b065263e",
   "assets/ui/compass/footer.webp": "cf76e3c7",

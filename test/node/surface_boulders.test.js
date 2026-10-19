@@ -67,8 +67,9 @@
       assert.eq(mineralRockArtFrame({ ...o, _biome: WorldGen.T.SAND, x: i * 99 }), frame);
       assert.eq(mineralRockArtFrame({ ...o, rockVariant: 3, caveVariant: 2 }), frame);
       const plant = { kind: 'wildplant', crop: 'rubble', id: o.id };
-      assert.eq(wildplantFrame(plant), frame, 'wild rubble shares the same shape family');
-      assert.eq(wildplantFrame({ crop: 'rubble', wildId: o.id }), frame, 'render view preserves shape');
+      assert.eq(wildplantSprite(plant).sheet, 'selected_rubble', 'ordinary wild rubble uses the selected art');
+      assert.eq(wildplantFrame(plant), 0);
+      assert.eq(wildplantFrame({ crop: 'rubble', wildId: o.id }), 0, 'render view preserves shape');
       assert.eq(JSON.stringify(o), before, 'appearance never mutates the mining record');
     }
     assert.eq(seen.size, 4);

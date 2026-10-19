@@ -525,22 +525,26 @@
     },
     "cave_mechanisms": {
       "columns": 4,
-      "rows": 4,
+      "rows": 5,
       "entries": [
         {
           "id": "switch",
           "name": "Lever switch",
           "frames": [
             0,
-            1
+            1,
+            18,
+            19
           ],
           "category": "Objects & props",
           "zones": [
             "Caves"
           ],
           "stateLabels": [
-            "Up",
-            "Down"
+            "Up \u00b7 ALT-0029",
+            "Down \u00b7 ALT-0029",
+            "Up \u00b7 ALT-0398",
+            "Down \u00b7 ALT-0398"
           ]
         },
         {
@@ -548,15 +552,19 @@
           "name": "Main pressure plate",
           "frames": [
             2,
-            3
+            3,
+            16,
+            17
           ],
           "category": "Objects & props",
           "zones": [
             "Caves"
           ],
           "stateLabels": [
-            "Up",
-            "Down"
+            "Up \u00b7 ALT-0030",
+            "Down \u00b7 ALT-0030",
+            "Up \u00b7 ALT-0032",
+            "Down \u00b7 ALT-0032"
           ]
         },
         {
@@ -672,26 +680,50 @@
         {
           "frame": 0,
           "id": "switch",
-          "source": "selected",
-          "sourceFrame": 2
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+          "crop": [
+            352,
+            432,
+            16,
+            16
+          ],
+          "alternativeId": "ALT-0029"
         },
         {
           "frame": 1,
           "id": "switch",
-          "source": "selected",
-          "sourceFrame": 3
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+          "crop": [
+            352,
+            432,
+            16,
+            16
+          ],
+          "alternativeId": "ALT-0029"
         },
         {
           "frame": 2,
           "id": "plate_main",
-          "source": "supplement",
-          "sourceFrame": 0
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+          "crop": [
+            304,
+            512,
+            16,
+            16
+          ],
+          "alternativeId": "ALT-0030"
         },
         {
           "frame": 3,
           "id": "plate_main",
-          "source": "supplement",
-          "sourceFrame": 1
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+          "crop": [
+            304,
+            512,
+            16,
+            16
+          ],
+          "alternativeId": "ALT-0030"
         },
         {
           "frame": 4,
@@ -702,14 +734,26 @@
         {
           "frame": 5,
           "id": "plate_cyan",
-          "source": "selected",
-          "sourceFrame": 25
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+          "crop": [
+            304,
+            512,
+            16,
+            16
+          ],
+          "alternativeId": "ALT-0030"
         },
         {
           "frame": 6,
           "id": "plate_cyan",
-          "source": "selected",
-          "sourceFrame": 26
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+          "crop": [
+            304,
+            512,
+            16,
+            16
+          ],
+          "alternativeId": "ALT-0030"
         },
         {
           "frame": 7,
@@ -756,14 +800,74 @@
         {
           "frame": 14,
           "id": "plate_green",
-          "source": "selected",
-          "sourceFrame": 34
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+          "crop": [
+            352,
+            464,
+            16,
+            16
+          ],
+          "alternativeId": "ALT-0031"
         },
         {
           "frame": 15,
           "id": "plate_green",
-          "source": "selected",
-          "sourceFrame": 35
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+          "crop": [
+            352,
+            464,
+            16,
+            16
+          ],
+          "alternativeId": "ALT-0031"
+        },
+        {
+          "frame": 16,
+          "id": "plate_main",
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+          "crop": [
+            352,
+            448,
+            16,
+            16
+          ],
+          "alternativeId": "ALT-0032"
+        },
+        {
+          "frame": 17,
+          "id": "plate_main",
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+          "crop": [
+            352,
+            448,
+            16,
+            16
+          ],
+          "alternativeId": "ALT-0032"
+        },
+        {
+          "frame": 18,
+          "id": "switch",
+          "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All tiles v2.png",
+          "crop": [
+            584,
+            648,
+            16,
+            16
+          ],
+          "alternativeId": "ALT-0398"
+        },
+        {
+          "frame": 19,
+          "id": "switch",
+          "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All tiles v2.png",
+          "crop": [
+            584,
+            648,
+            16,
+            16
+          ],
+          "alternativeId": "ALT-0398"
         }
       ]
     }

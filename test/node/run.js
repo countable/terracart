@@ -1325,6 +1325,7 @@ ctx.TRAP_TEX = (() => {
 })();
 // The texture catalog as text (assets.js is Phaser-loader data, not bundled).
 ctx.ASSETS_SRC = readSrc('assets.js');
+ctx.ART_TRIALS_SRC = readSrc('art-trials.js');
 // lighting.test.js pins the compositing model (ADD cookies, MULTIPLY map) as text.
 ctx.LIGHTING_SRC = readSrc('lighting.js');
 ctx.FOG_SRC = readSrc('fog.js');

@@ -142,7 +142,7 @@
       for (const berry of berries) {
         assert.eq(berry.kind, 'wildplant');
         assert.eq(wildplantOutput(berry.crop), 'berry');
-        assert.eq(wildplantSprite(berry).sheet, CROP_SPRITE.shrub.sheet);
+        assert.eq(wildplantSprite(berry).sheet, CROP_SPRITE.berry.mature.sheet);
         assert.eq(wildplantSprite(berry).texture, 'bushes_fruiting');
       }
     }
@@ -528,8 +528,8 @@
         assert.eq(rock.id, WorldGen.cellId(rock.zoneLayer === 'background' ? 'wpf' : 'wz', 0, 0, rock._ix, rock._iy), 'art preserves the saved harvest identity');
       }
     }
-    assert.eq(wildplantSprite({crop:'rubble',stage:MAX_GROWTH_STAGE}), CROP_SPRITE.rubble, 'planted rocks keep their ordinary crop art');
-    assert.eq(wildplantSprite({crop:'shrub',_plantArt:'zone_rock_stone_garden'}).sheet, 'bushes', 'rock context cannot replace another crop');
+    assert.eq(wildplantSprite({crop:'rubble',stage:MAX_GROWTH_STAGE}), CROP_SPRITE.rubble.mature, 'mature planted rocks use the selected art');
+    assert.eq(wildplantSprite({crop:'shrub',_plantArt:'zone_rock_stone_garden'}).sheet, 'selected_shrub', 'rock context cannot replace another crop');
     assert.eq(wildplantSprite({crop:'rubble',_plantArt:'masonry'})?.sheet, undefined, 'legacy masonry tags use ordinary loose stones');
     assert.eq(wildplantSprite({crop:'rubble'})?.sheet, undefined, 'ordinary stone keeps the crop sheet despite its placement-specific looks');
     assert.eq(inventoryIconSource('rubble').sheet, 'crops', 'harvest remains the same inventory item');
@@ -539,7 +539,7 @@
     assert.truthy(hedges.every(o => ['zone_hedge', 'zone_hedge_single'].includes(wildplantSprite(o).sheet)));
     assert.eq(wildplantSprite({crop:'shrub',_biome:5}).sheet, 'approved_clipped_hedge');
     assert.eq(wildplantSprite({crop:'shrub',_biome:16}).sheet, 'approved_clipped_hedge');
-    assert.eq(wildplantSprite({crop:'shrub',_biome:6}).sheet, 'bushes');
+    assert.eq(wildplantSprite({crop:'shrub',_biome:6}).sheet, 'selected_shrub');
     const stones = ZoneDressing.dress(context('stone_garden')).objects.filter(o => o.kind === 'mineralrock');
     assert.gt(stones.length, 0);
     assert.truthy(stones.every(o => !o._objectArt), 'stone gardens keep standard stone art');
@@ -866,9 +866,9 @@
    for (const id of ['meadow', 'ancient_grove']) {
      const row = ZoneVariantData.variants.find(v => v.id === id);
      assert.eq(row.materialLooks?.shrub, id === 'ancient_grove' ? 'bramble' : 'ordinary');
-     assert.eq(wildplantSprite({crop:'shrub', _plantArt:row.materialLooks?.shrub}).sheet, id === 'ancient_grove' ? 'bramble' : 'bushes');
+     assert.eq(wildplantSprite({crop:'shrub', _plantArt:row.materialLooks?.shrub}).sheet, id === 'ancient_grove' ? 'bramble' : 'selected_shrub');
    }
-   assert.eq(wildplantSprite({crop:'shrub'}).sheet, 'bushes');
+   assert.eq(wildplantSprite({crop:'shrub'}).sheet, 'selected_shrub');
    assert.eq(wildplantSprite({crop:'shrub', _plantArt:'clipped'}).sheet, 'approved_clipped_hedge');
    assert.eq(JSON.stringify(wildplantRewards('shrub')), JSON.stringify([{id:'wood',qty:1}]));
  });

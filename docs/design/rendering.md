@@ -21,6 +21,22 @@ Name and colour changes share multiplayer's persistence and fresh-hello path;
 offline colour edits never connect the player. Peers use the same cached farmer
 robe variants; calling choices remain local.
 
+## Selected world artwork
+
+Approved dashboard ALT IDs are recorded beside their native crop exports in
+`assets/Objects/SelectedProps`, `assets/Objects/SelectedFlora` and
+`assets/selected-terrain`. Containers and surface mushrooms choose among the
+approved alternatives by stable object identity; terrain uses existing spatial
+variant indices. Never vary these choices with time. Existing pot shards,
+underground mushroom art, crop growth stages, berry-bush remnants and loot
+behavior remain separate from the new standing artwork. Retired reference
+assets and planned cave mechanisms do not gain placement merely by changing art.
+
+Trees and water remain opt-in through `artTrial=trees-water` (or `trees` /
+`water`); `artTree=ALT-0038`, `ALT-0176`, or `ALT-0245` fixes the broadleaf
+comparison. The trial registers native textures only for that page load,
+preserves tree growth and saves, and never changes normal game defaults.
+
 ## World layers
 
 Use these terms for object presentation and walking behavior, not pixel height:

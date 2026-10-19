@@ -169,7 +169,8 @@ test('cave mushrooms: deterministic per tile+depth, and a different level grows 
 test('cave mushrooms: the cave look is the crop\'s caveFrames, the item is still the Mushroom', () => {
   const ov = CROP_SPRITE.mushroom;
   assert.truthy(Array.isArray(ov.caveFrames) && ov.caveFrames.length >= 1, 'the crop declares its cave frames');
-  for (const f of ov.caveFrames) assert.truthy(f !== ov.frame, 'a different cap from the surface toadstool');
+  assert.truthy(Array.isArray(ov.frames) && ov.frames.length === 2, 'both selected surface mushrooms are available');
+  for (const f of ov.caveFrames) assert.truthy(!ov.frames.includes(f), 'cave caps remain distinct from surface mushrooms');
   // The frame pick itself is items.js' wildplantFrame (one resolver for every
   // custom sheet — see shell_variants.test.js); drive it rather than pin its
   // shape, and pin only that the wildplant scan still carries `_cave` to it.
@@ -177,8 +178,8 @@ test('cave mushrooms: the cave look is the crop\'s caveFrames, the item is still
     const id = `wp_3_4_${i}_7`;
     assert.includes(ov.caveFrames, wildplantFrame({ crop: 'mushroom', id, _cave: true }),
       'a mushroom grown underground wears a cave cap');
-    assert.eq(wildplantFrame({ crop: 'mushroom', id }), ov.frame,
-      'the same mushroom on the surface is the toadstool');
+    assert.includes(ov.frames, wildplantFrame({ crop: 'mushroom', id }),
+      'the same mushroom on the surface uses a selected surface cap');
   }
   assert.truthy(/_cave: wp\._cave/.test(RENDER_SRC),
     'the wildplant scan carries _cave onto the draw item');
@@ -186,15 +187,15 @@ test('cave mushrooms: the cave look is the crop\'s caveFrames, the item is still
 
 // ── The torch on screen ────────────────────────────────────────────────────
 
-test('cave torches: the torch is a seated one-cell sprite with a flicker, and it has art', () => {
+test('cave torches: the torch is a seated one-cell sprite with the selected native16 art', () => {
   const r = RENDER_SRC;
   const spec = r.match(/    torch: \{ key: 'torch',[\s\S]*?\},\n/);
   assert.truthy(spec, 'RENDER_SPEC.torch exists');
-  assert.truthy(/seat: true, seatFrame: 0/.test(spec[0]), 'seated off frame 0 so the flickering flame never bobs the stake');
-  assert.truthy(/% 4/.test(spec[0]), 'cycles the four frames');
+  assert.truthy(/seat: true, seatFrame: 0/.test(spec[0]), 'seated from its selected frame');
+  assert.truthy(/frame: 0/.test(spec[0]), 'uses the selected static frame');
   assert.truthy(/shadow: true/.test(spec[0]), 'a torch casts a ground shadow like the campfire');
-  assert.truthy(/torch:\s*\{ kind: 'spritesheet', path: 'assets\/Objects\/Wilderness\/torch\.png', frameWidth: 16, frameHeight: 32 \}/.test(ASSETS_SRC),
-    'assets.js declares the 16×32 torch sheet');
+  assert.truthy(/torch:\s*\{\s*kind: 'spritesheet', path: 'assets\/Objects\/SelectedProps\/torch\.png', frameWidth: 16, frameHeight: 16\s*\}/.test(ASSETS_SRC.replace(/'(\w+)':/g, '$1:')),
+    'assets.js declares the selected 16×16 torch sheet');
   assert.truthy(SpriteLayout.ART_BOUNDS['torch:0'], 'and sprite_layout carries its trimmed bounds (tools/sprite_audit.js --emit-bounds)');
 });
 

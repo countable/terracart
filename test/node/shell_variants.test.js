@@ -114,7 +114,7 @@ test('wildplantFrame: a mushroom grown underground wears its cave cap', () => {
   const seen = new Set();
   for (let i = 0; i < 200; i++) {
     const surface = wildplantFrame({ crop: 'mushroom', id: `wp_1_2_${i}_0` });
-    assert.eq(surface, CROP_SPRITE.mushroom.frame, 'a surface mushroom is the toadstool');
+    assert.includes(CROP_SPRITE.mushroom.frames, surface, 'a surface mushroom uses a selected cap');
     const cave = wildplantFrame({ crop: 'mushroom', id: `wp_1_2_${i}_0`, _cave: true });
     assert.includes(caveFrames, cave, 'a cave mushroom is one of the blue caps');
     seen.add(cave);

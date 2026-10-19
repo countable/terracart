@@ -117,65 +117,39 @@ test('MINERAL_ICON_SHEET: shell inventory icon is frame 0 on shell_sheet', () =>
 // ── CROP_SPRITE: shrub (bug 1d5ac29) ──────────────────────────────────────
 // Approved canopy variants share harvesting; clipped hedges remain smaller.
 
-test('CROP_SPRITE: basic shrub uses the bushes sheet', () => {
-  assert.eq(CROP_SPRITE['shrub'].sheet, 'bushes');
+test('CROP_SPRITE: basic shrub uses the selected Pixel Plains sheet', () => {
+  assert.eq(CROP_SPRITE['shrub'].sheet, 'selected_shrub');
 });
 
 test('CROP_SPRITE: shrub is a custom sprite (custom: true)', () => {
   assert.eq(CROP_SPRITE['shrub'].custom, true);
 });
 
-test('CROP_SPRITE: ordinary shrub declares all eight approved canopies', () => {
-  assert.eq(JSON.stringify(CROP_SPRITE.shrub.frames), JSON.stringify([0, 1, 2, 3, 4, 5, 6, 7]));
+test('CROP_SPRITE: ordinary shrub uses the selected rounded canopy', () => {
+  assert.eq(JSON.stringify(CROP_SPRITE.shrub.frames), JSON.stringify([0]));
 });
 
-test('CROP_SPRITE: 24px canopies retain native shrub scale and smaller clipped hedges', () => {
-  assert.eq(CROP_SPRITE.shrub.scale * 24, 24);
-  assert.eq(CROP_SPRITE.shrub.looks.clipped.scale / CROP_SPRITE.shrub.scale, 0.8);
+test('CROP_SPRITE: native 16px shrub retains its display footprint and clipped hedges retain their size', () => {
+  assert.eq(CROP_SPRITE.shrub.scale * 16, 24);
+  assert.eq(CROP_SPRITE.shrub.looks.clipped.scale, 0.8);
 });
 
-// ── CROP_SPRITE: longgrass (bug 1d5ac29) ──────────────────────────────────
-// longgrass uses Props.png (22-col grid). Frame 10 = col 10, row 0 (0-indexed).
-// Derivation: row=0, col=10 → 0*22 + 10 = 10. Scale 1.36.
-
-test('CROP_SPRITE: longgrass uses props sheet', () => {
-  assert.eq(CROP_SPRITE['longgrass'].sheet, 'props');
-});
-
-test('CROP_SPRITE: longgrass is a custom sprite', () => {
-  assert.eq(CROP_SPRITE['longgrass'].custom, true);
-});
-
-test('CROP_SPRITE: longgrass frame is 10 (col 10 row 0 of 22-col Props.png grid)', () => {
-  assert.eq(CROP_SPRITE['longgrass'].frame, 10);
-  // Derivation: 0*22 + 10 = 10
-  assert.eq(0 * 22 + 10, 10, 'frame derivation');
-});
-
-test('CROP_SPRITE: longgrass scale is reduced by 10%', () => {
-  assert.eq(CROP_SPRITE['longgrass'].scale, 1.16 * 0.9);
-});
-
-// ── CROP_SPRITE: mushroom (bug 1d5ac29) ───────────────────────────────────
-// mushroom uses Props.png. Frame 35 = col 13, row 1 (0-indexed).
-// Derivation: 1*22 + 13 = 35. (Frame 36 was the original pick; discarded.)
-
-test('CROP_SPRITE: mushroom uses props sheet', () => {
-  assert.eq(CROP_SPRITE['mushroom'].sheet, 'props');
-});
-
-test('CROP_SPRITE: mushroom is a custom sprite', () => {
-  assert.eq(CROP_SPRITE['mushroom'].custom, true);
-});
-
-test('CROP_SPRITE: mushroom frame is 35 (col 13, row 1 of 22-col Props.png grid)', () => {
-  assert.eq(CROP_SPRITE['mushroom'].frame, 35);
-  // Derivation: 1*22 + 13 = 35
-  assert.eq(1 * 22 + 13, 35, 'frame derivation');
-});
-
-test('CROP_SPRITE: mushroom frame is NOT 36 (old mis-picked neighbouring prop)', () => {
-  assert.truthy(CROP_SPRITE['mushroom'].frame !== 36, 'must not be the wrong adjacent frame');
+test('selected plants expose valid surface frames and retain separate cave mushrooms', () => {
+  assert.eq(CROP_SPRITE.longgrass.sheet, 'selected_longgrass');
+  assert.eq(CROP_SPRITE.longgrass.frame, 0);
+  assert.eq(CROP_SPRITE.longgrass.scale, 1.16 * 0.9);
+  assert.eq(CROP_SPRITE.mushroom.sheet, 'selected_mushroom');
+  assert.eq(JSON.stringify(CROP_SPRITE.mushroom.frames), '[0,1]');
+  assert.eq(JSON.stringify(CROP_SPRITE.mushroom.caveFrames), '[2,3]');
+  const surface = new Set(), cave = new Set();
+  for (let i = 0; i < 100; i++) {
+    const p = {crop:'mushroom', id:'selected-mushroom-' + i};
+    const frame = wildplantFrame(p);
+    surface.add(frame); cave.add(wildplantFrame({...p, _cave:true}));
+    assert.eq(wildplantFrame(JSON.parse(JSON.stringify(p))), frame);
+  }
+  assert.eq([...surface].sort().join(','), '0,1');
+  assert.eq([...cave].sort().join(','), '2,3');
 });
 
 // ── CROP_SPRITE: spring crops ──────────────────────────────────────────────
@@ -361,18 +335,18 @@ test('inventoryIconSource: gemfruit produce frame = CROP_ROW.gemfruit * 9 + 7', 
   assert.eq(src.frame, row * 9 + PRODUCE_COL);
 });
 
-test('inventoryIconSource: longgrass resolves to props sheet frame 10', () => {
+test('inventoryIconSource: longgrass shares the selected world sprite', () => {
   const src = inventoryIconSource('longgrass');
   assert.truthy(src, 'longgrass has a source');
-  assert.eq(src.sheet, 'props');
-  assert.eq(src.frame, 10);
+  assert.eq(src.sheet, 'selected_longgrass');
+  assert.eq(src.frame, 0);
 });
 
-test('inventoryIconSource: mushroom resolves to props sheet frame 35', () => {
+test('inventoryIconSource: mushroom uses the first selected surface variant', () => {
   const src = inventoryIconSource('mushroom');
   assert.truthy(src, 'mushroom has a source');
-  assert.eq(src.sheet, 'props');
-  assert.eq(src.frame, 35);
+  assert.eq(src.sheet, 'selected_mushroom');
+  assert.eq(src.frame, 0);
 });
 
 test('inventoryIconSource: minerals bypass crop path and use MINERAL_ICON_SHEET directly', () => {
@@ -469,7 +443,8 @@ test('gas mushrooms retain distinct small and giant art through the normal wildp
     project(emitter, views, new Map(), MAX_GROWTH_STAGE, 3, 4);
     const p = views[0].p, art = wildplantSprite(p);
     assert.eq(p.gasEmitter, true); assert.eq(p._terrainScale, emitter._terrainScale);
-    const frame = crop === 'giant_mushroom' ? CROP_SPRITE.giant_mushroom.frame : 0;
+    const frame = crop === 'giant_mushroom' ? CROP_SPRITE.giant_mushroom.frame : wildplantFrame(p);
+    if (crop === 'mushroom') assert.includes([0,1], frame);
     assert.eq(art.sheet, sheet); assert.eq(wildplantFrame(p), frame);
     if (crop === 'giant_mushroom') assert.truthy(art.tint && art.tint !== 0xffffff, 'same silhouette with a distinct recolor');
     assert.eq(wildplantFrame({ ...p, _cave: true }), frame, 'gas art cannot select a base cave atlas frame');
@@ -514,7 +489,7 @@ test('Pirate Cove shipwreck fits the reserved extent and beach looks preserve pi
   assert.truthy(128 * art.scale <= 3 * SpriteLayout.CELL_PX);
   assert.truthy(SpriteLayout.groveShrineArt({id:'ordinary'}).key !== art.key);
   assert.eq(wildplantSprite({crop:'driftwood',_plantArt:'beach'}).sheet, 'driftwood', 'retired beach look falls back to standard driftwood');
-  assert.eq(wildplantSprite({crop:'rubble',_plantArt:'beach'})?.sheet, undefined, 'retired beach rock uses ordinary crop art');
+  assert.eq(wildplantSprite({crop:'rubble',_plantArt:'beach'})?.sheet, undefined, 'planted rock keeps its growing crop art');
   assert.eq(wildplantSprite({crop:'driftwood'}).sheet, 'driftwood');
   assert.eq(inventoryIconSource('rubble').sheet, 'crops');
   assert.eq(iconBadgeItem('rubble_seed'), 'rubble');
@@ -627,12 +602,12 @@ test('wooden barrels retain their size increases and have no broken art', () => 
   for (const smashed of [false, true]) {
     const look = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'barrel',_smashed:smashed});
     if (smashed) assert.falsy(look.visible, 'no broken barrel sprite');
-    else { assert.eq(look.texKey, 'barrel'); assert.eq(look.scl, (2 / 3) * 1.1 * 1.1, 'barrels enlarged another 10%'); }
+    else { assert.eq(look.texKey, 'barrel'); assert.eq(look.scl * 16, 24 * (2 / 3) * 1.1 * 1.1, 'native16 barrels retain the display size'); }
   }
   for (const smashed of [false, true]) {
     const pot = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot',_smashed:smashed});
     assert.eq(pot.texKey, smashed ? 'clay_pot_smashed' : 'clay_pot');
-    assert.eq(pot.scl, (4 / 3) * 0.8 * 0.9 * 0.92, 'clay pots, whole or smashed, a fifth smaller than their old 4/3, then 10% off, then 8% off');
+    assert.lt(Math.abs(pot.scl * (smashed ? 24 : 16) - 24 * (4 / 3) * 0.8 * 0.9 * 0.92), 1e-9, 'native pots and original shards retain their display size');
   }
 });
 
@@ -653,10 +628,10 @@ test('stronghold walls keep their tile frame alignment instead of centering corn
 test('berry bush: mature map art replaces wild and farmed berries while growth and inventory remain distinct', () => {
   for (const plant of [{kind:'wildplant',crop:'berry'}, {crop:'berry',wildId:'wz:berry'}, {crop:'berry',stage:MAX_GROWTH_STAGE}]) {
     const art = wildplantSprite(plant);
-    assert.eq(art.sheet, CROP_SPRITE.shrub.sheet);
-    assert.eq(art.scale, CROP_SPRITE.shrub.scale);
+    assert.eq(art.sheet, CROP_SPRITE.berry.mature.sheet);
+    assert.eq(art.scale, CROP_SPRITE.berry.mature.scale);
     assert.eq(art.texture, 'bushes_fruiting');
-    assert.truthy(CROP_SPRITE.shrub.frames.includes(wildplantFrame(plant)));
+    assert.truthy(CROP_SPRITE.berry.mature.frames.includes(wildplantFrame(plant)));
   }
   for (let stage=0; stage<MAX_GROWTH_STAGE; stage++) {
     assert.eq(wildplantSprite({crop:'berry',stage}).sheet, 'springcrops');
@@ -678,7 +653,7 @@ test('neutral mineral art overrides stale zone frames without changing interacti
   const pot = {kind:'chest',barrel:true,barrelStyle:'clay_pot',id:'selected-pot'};
   assert.eq(art.resolveAppearance(pot).texKey,'clay_pot');
   assert.eq(art.resolveAppearance({...pot,_smashed:true}).texKey,'clay_pot_smashed');
-  assert.lt(Math.abs(art.resolveAppearance(pot).scl*24-32*0.8*0.9*0.92),1e-9,'the pot draws a fifth under its old 32px, then 10% off, then 8% off');
+  assert.lt(Math.abs(art.resolveAppearance(pot).scl*16-32*0.8*0.9*0.92),1e-9,'the pot draws a fifth under its old 32px, then 10% off, then 8% off');
   assert.truthy(/_zoneObjectFrame: wp\._zoneObjectFrame/.test(RENDER_SRC),'wild mushroom appearance reaches the plant renderer');
 });
 
@@ -810,8 +785,8 @@ test('picked wild berries leave a plain bush across redraw and save reload witho
     const view = Render.wildplantView(plant, sets);
     assert.eq(view.crop, 'shrub');
     assert.eq(view._pickedRemnant, true, 'fruitless scenery cannot pose as a nest bush');
-    assert.eq(wildplantSprite({ ...view, _biome: 2 }).sheet, CROP_SPRITE.shrub.sheet, 'a berry bush does not become a palm');
-    assert.eq(wildplantSprite(view).sheet, CROP_SPRITE.shrub.sheet);
+    assert.eq(wildplantSprite({ ...view, _biome: 2 }).sheet, 'bushes', 'a berry bush does not become a palm');
+    assert.eq(wildplantSprite(view).sheet, 'bushes');
     const before = wildplantSprite(plant), after = wildplantSprite(view);
     for (const key of ['sheet', 'scale', 'seat']) assert.eq(after[key], before[key], key + ' remains identical');
     assert.eq(wildplantFrame(view), wildplantFrame(plant), 'picking preserves the selected canopy');

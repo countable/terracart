@@ -1,5 +1,5 @@
 // LAVA — dungeon level WorldGen.LAVA_DEPTH (6) turns the rock under the town's
-// BUILDINGS into lava (T.CAVE_LAVA): the water tile in red, walkable, and it
+// BUILDINGS into lava (T.CAVE_LAVA): selected native lava art, walkable, and it
 // burns Combat.LAVA_DMG_PER_S (2) a second off the player's energy and an
 // enemy's HP alike. Only that level: the levels above keep rock there, and so
 // does every level below (lava overhead reads as WALL to the derivation).
@@ -58,9 +58,10 @@ test('lava: level 6 turns BUILDING rock to lava — not road or water rock, and 
   }
 });
 
-test('lava: drawn as the water tile in red, shore and all', () => {
-  assert.truthy(/26: \{ variants: 1, draw: drawLavaTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS \}/.test(TEXTURES_SRC),
-    'one seamless periodic wave, on the water clock');
+test('lava: selected native variants retain the shoreline and fallback painter', () => {
+  const spec = new Function('lerp', TEXTURES_SRC + '\nreturn BIOME_TEX[26];')((a, b, t) => a + (b - a) * t);
+  assert.eq(spec.variants, 2, 'both selected lava alternatives are spatial variants');
+  assert.falsy(spec.animPhases, 'selected alternatives stay put rather than flashing between sources');
   assert.truthy(/function drawLavaTex\([^)]*\) \{\s*\n\s*drawWaterTex\(ctx, size, rng, phaseFrac, LAVA_INKS\);/.test(TEXTURES_SRC),
     'the water drawing, in lava inks');
   assert.truthy(/type === WATER \|\| type === LAVA/.test(RENDER_SRC), 'and water\'s shoreline');

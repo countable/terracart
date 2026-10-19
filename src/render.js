@@ -5902,9 +5902,12 @@ Render.drawObjects = function drawObjects(scene) {
     const key = it.plate ? 'cave_mechanisms' : it.h.kind === 'gas' ? 'pressure_gas_grate'
       : it.h.kind === 'ball' ? 'rolling_ball' : 'sliding_spike_wall';
     s.anims?.stop();
-    s.setTexture(key, it.h.kind === 'gas' ? 0 : it.h.frame).setOrigin(.5, .5).setDisplaySize(CELL_PX, CELL_PX)
+    const frame = it.plate ? ((fnv1aFrom(0x706c6174, it.h.id) >>> 0) % 2 ? 16 : 2) + (it.h.pressed ? 1 : 0)
+      : it.h.kind === 'gas' ? 0 : it.h.frame;
+    s.setTexture(key, frame).setOrigin(.5, .5).setDisplaySize(CELL_PX, CELL_PX)
       .setPosition(Math.round(sx), Math.round(sy))
-      .setAlpha(it.plate && it.h.effect !== 'ghost' ? PressureTraps.CONFIG.plateAlpha : 1).setTint(0xffffff);
+      .setAlpha(it.plate && it.h.effect !== 'ghost' ? PressureTraps.CONFIG.plateAlpha : 1)
+      .setTint(it.plate && it.h.pressed ? 0x999999 : 0xffffff);
     setWorldDepth(s, it._z);
   });
 
@@ -6176,11 +6179,10 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // Supply-crate / lowtier-chest sprite scale (the 16×16 `box` art).
   // Supply crates fill about 14px of the 32px cell.
   const CRATE_SCALE = 0.8 * 1.1;
-  // Bike racks use their original small-prop scale. Wooden barrels use a
-  // 24px frame, with two successive 10% size increases.
+  // Selected native16 barrel crops preserve the previous24 frame's display size.
   const SMALL_POI_SCALE = 1.3;
   // Keep barrel and pot tuning independent so the two silhouettes balance.
-  const BARREL_SCALE = (2 / 3) * 1.1 * 1.1;
+  const BARREL_SCALE = 1.1 * 1.1;
   // Clay pots (and their smashed frame, the same look) drew at 4/3 and read a
   // fifth too large beside the barrels; 20% off that, per the Oct 2026 pass.
   const CLAY_POT_SCALE = (4 / 3) * 0.8 * 0.9 * 0.92;
@@ -6275,7 +6277,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // Water scenery is drawn separately from tappable objects.
     // Connected wall tiles preserve frame alignment, including off-center corners.
     // Seating by trimmed art would move their endpoints away from adjacent cells.
-    zone_prop: { key: 'zone_objects', frame: o => o.variant, scale: 4 / 3, origin: [0.5, 0.5], seat: true },
+    zone_prop: { key: o => o.variant === 1 ? 'selected_grave_pillar' : 'zone_objects', frame: o => o.variant === 1 ? 0 : o.variant, scale: 4 / 3, origin: [0.5, 0.5], seat: true },
     stronghold_wall: { key: 'stronghold_wall', frame: o => o.variant, scale: 4 / 3, origin: [0.5, 0.5], seat: false },
     reef_coral: { key: 'reef_coral', frame: o => o.variant, scale: 4 / 3, origin: [0.5, 0.5], seat: true },
     // Houses pick their texture by role — the generic 'house' frame stays as the
@@ -6378,12 +6380,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
         s.setDisplaySize(px, px).setAlpha(1);
       },
     },
-    // Cave torch — 16×32 like the campfire, same scale, same flicker cadence
-    // (the 4 frames differ only in the flame, so seat off frame 0 and the
-    // stake never bobs). Its light is Lighting.KINDS.torch — offered to the
-    // lightmap in the object scan above the sprite cull.
+    // Selected native16 torch is static; the existing lighting emitter remains.
     torch: { key: 'torch',
-             frame: (o) => (Math.floor(performance.now() / 130) + ((o.x | 0) & 3)) % 4,
+             frame: 0,
              origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true,
              // The logs' contact sits 2px above the art's bottom row.
              shadowInsetPx: 2 },
@@ -6393,10 +6392,15 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // every species sheet. Origin is only the no-SpriteLayout fallback: the seat
     // pass places the art from its trimmed bounds.
     tree:   { key: (o) => {
+                const trial = typeof ArtTrials !== 'undefined' && ArtTrials.tree(o);
+                if (trial) return trial.key;
                 if (o.species === 'pine')     return 'pine_tree';
                 return 'trees'; // maple (default)
               },
-              frame: treeArtFrame,
+              frame: (o) => {
+                const trial = typeof ArtTrials !== 'undefined' && ArtTrials.tree(o);
+                return trial ? trial.frame : treeArtFrame(o);
+              },
               origin: (o) => {
                 return o.species === 'pine' ? [0.5, 0.92] : [0.5, 0.95];
               },
@@ -6419,8 +6423,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // by the filter). Wooden barrels disappear when collected.
     chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? L.smashedKey : L.texKey; },
               // The shared look selects chest tiers, stand awnings and contextual
-              // containers; intact pots and their shards share a frame index.
-              frame: (o) => chestLook(o).frame,
+              // containers; broken pots retain their existing contextual shard art.
+              frame: (o) => { const L = chestLook(o); return L.barrel && o._smashed ? L.smashedFrame : L.frame; },
               // THE WAGON (a bus stop on an old trade road): 32×32 art, drawn at
               // WAGON_SCALE (~1.5 cells wide) and foot-anchored like the stall —
               // a structure, not a chest, so it is not seated; its wheels sit
@@ -6442,7 +6446,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // The shared spec also sizes the map-review artwork.
               scale: (o) => { const L = chestLook(o);
                               return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54
-                                : (L.barrel ? (L.texKey === 'barrel' ? BARREL_SCALE : CLAY_POT_SCALE) : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE)))); },
+                                : (L.barrel ? (L.texKey === 'barrel' ? BARREL_SCALE : CLAY_POT_SCALE * (o._smashed ? 1 : 1.5)) : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE)))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5 centres the
               // FRAME box, but market_stand.png's opaque pixels are x:[12,80] in the 80px
               // frame. -3.24 (= 6px frame offset × 0.54 scale) centres the art; +3 on top per
@@ -6551,7 +6555,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // pay a one-off find. Plain grove shrines use the cell-seated votive,
     // giving the daily gift and light (Lighting.KINDS.shrine).
     hive: { key: 'beehive', frame: 0, origin: [0.5, 0.5], scale: 2, seat: true, shadow: true },
-    headstone:    { key: 'zone_objects', frame: 1, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
+    headstone:    { key: 'selected_grave_pillar', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     grove_shrine: {
       key: o => SpriteLayout.groveShrineArt(o).key,
       frame: o => SpriteLayout.groveShrineArt(o).frame,
@@ -6600,8 +6604,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     if (!spec) return null;
     const scene = _pass.scene;
     // Zone-local appearances retain the existing object behavior and hooks.
-    if (o.kind !== 'mineralrock' && Number.isInteger(o._zoneObjectFrame)) spec = { ...spec, key: 'zone_objects',
-      frame: o._zoneObjectFrame,
+    if (o.kind !== 'mineralrock' && Number.isInteger(o._zoneObjectFrame)) spec = { ...spec, key: o._zoneObjectFrame === 1 ? 'selected_grave_pillar' : 'zone_objects',
+      frame: o._zoneObjectFrame === 1 ? 0 : o._zoneObjectFrame,
       scale: 4 / 3, origin: [0.5, 0.5], seat: true };
     const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
     if (texKey == null && o.kind === 'house' && Render.proceduralHouse(o, scene)) {

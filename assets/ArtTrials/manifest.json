@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "note": "Opt-in runtime trials only; unchanged native-resolution registry crops.",
+  "entries": [
+    {
+      "id": "ALT-0168",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/fd_christmas.png",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "path": "assets/ArtTrials/ALT-0168.png",
+      "bounds": [
+        2,
+        0,
+        30,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0038",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands.png",
+      "crop": [
+        256,
+        256,
+        32,
+        48
+      ],
+      "path": "assets/ArtTrials/ALT-0038.png",
+      "bounds": [
+        5,
+        8,
+        27,
+        48
+      ]
+    },
+    {
+      "id": "ALT-0176",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Halloween.png",
+      "crop": [
+        160,
+        16,
+        48,
+        48
+      ],
+      "path": "assets/ArtTrials/ALT-0176.png",
+      "bounds": [
+        9,
+        2,
+        40,
+        46
+      ]
+    },
+    {
+      "id": "ALT-0245",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees 1.png",
+      "crop": [
+        112,
+        128,
+        32,
+        48
+      ],
+      "path": "assets/ArtTrials/ALT-0245.png",
+      "bounds": [
+        2,
+        0,
+        30,
+        48
+      ]
+    },
+    {
+      "id": "ALT-0131",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Water_Tiles.png",
+      "crop": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "path": "assets/ArtTrials/ALT-0131.png",
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ]
+    }
+  ]
+}

@@ -27,7 +27,7 @@ const render = RENDER_SRC;
 const lampListSrc = render.slice(render.indexOf('  const lampList ='),
                                  render.indexOf('  // Hide objects that are temporarily gone'));
 const lampSpecSrc = render.slice(render.indexOf('    _streetlamp: {'),
-                                 render.indexOf('    // Cave torch —'));
+                                 render.indexOf('    torch: {'));
 
 test('street lamps: the lit list is built from the CAMERA ANCHOR, never from the feet', () => {
   // The camera rule (CLAUDE.md): a world-DRAWN thing measures from the

@@ -67,14 +67,16 @@
     const crops = [...new Set([...Object.keys(CROP_ROW),...Object.keys(CROP_SPRITE)])];
     function plantArt(plant){const s=wildplantSprite(plant);return {key:s?.texture||s?.sheet||'crops',frame:s?.custom?wildplantFrame(plant):s?.sheet==='springcrops'?s.row*SPRING_CROPS_COLS+(plant.stage??MAX_GROWTH_STAGE):(CROP_ROW[plant.crop]??1)*CROPS_SHEET_COLS+(plant.stage??MAX_GROWTH_STAGE)};}
     const plantRows=[];
-    for(const crop of crops){const plant={crop,stage:MAX_GROWTH_STAGE,id:'world-art:'+crop},p=plantArt(plant);want(p.key,p.frame);
+    for(const crop of crops){const plant={crop,stage:MAX_GROWTH_STAGE,id:'world-art:'+crop},p=plantArt(plant);
+      const mature=wildplantSprite(plant),frames=mature?.custom&&mature.frames?.length?mature.frames:[p.frame];
+      for(const frame of frames)want(p.key,frame);
       const growthStages=[];
       for(let stage=0;stage<MAX_GROWTH_STAGE;stage++) {
         const sample=plantArt({...plant,stage});
         if(sample.key===p.key&&sample.frame===p.frame)continue;
         want(sample.key,sample.frame);growthStages.push({...sample,stage});
       }
-      plantRows.push({id:'plant:'+crop,name:CROP_NAMES[crop]||title(crop),key:p.key,frames:[p.frame],growthStages,category:'Plants & crops',zoneVariants:new Set(),source:'src/items.js'});}
+      plantRows.push({id:'plant:'+crop,name:CROP_NAMES[crop]||title(crop),key:p.key,frames:[...frames],growthStages,category:'Plants & crops',zoneVariants:new Set(),source:'src/items.js'});}
     const usage = new Map();
     function use(key,zoneVariant,frame){for(const identity of [key,`${key}:${frame}`]){if(!usage.has(identity))usage.set(identity,new Set());usage.get(identity).add(zoneVariant);}}
     // Include finite decorations and reef finds as well as the repeating layout.
@@ -102,7 +104,7 @@
       const connected=zoneVariant.quarryLayout==='stronghold'?'stronghold_wall':['formal_garden','hedge_garden'].includes(zoneVariant.id)?'zone_hedge':null;
       if(connected)for(const frame of manifests[connected].frames){want(connected,frame.frame);use(connected,zoneVariant.id,frame.frame);}
     }
-    want('castle_tower_shapes');
+    want('castle_tower_shapes');want('selected_terrain');
     want('stair_up','__BASE');want('progression_tiles',0);want('progression_tiles',1);
     for(const id of CastleStyles.ids){want('tower',CastleStyles.get(id).towerFrame);want('tower_unclaimed',CastleStyles.get(id).towerFrame);}
     const gemDeposits = Object.values(GEM_DEPOSITS);
@@ -136,7 +138,7 @@
     const plantFrames=new Set(plantRows.flatMap(r=>[...r.frames.map(f=>`${r.key}:${f}`),...(r.growthStages||[]).map(sample=>`${sample.key}:${sample.frame}`)]));
     function category(key){return /house|tower|macro_|market_stand|shrine|well/.test(key)?'Buildings & landmarks':/tree|bush|mushroom/.test(key)?'Trees & foliage':/rock|ore/.test(key)?'Stone & minerals':/trap|tar/.test(key)?'Hazards':'Objects & props';}
     for(const [key,wantedFrames] of wanted) {
-      if(key==='gems'||key==='furniture'||key==='mineralrock')continue; // Inventory icons accompany their world deposits below.
+      if(key==='gems'||key==='furniture'||key==='mineralrock'||key==='selected_grave_pillar'||key==='selected_terrain')continue; // Inventory icons accompany their world deposits below.
       if(approvedSheets[key]) {
         for(const entry of approvedSheets[key].entries)rows.push({
           ...entry,id:`${key}:${entry.id}`,key,approved:true,
@@ -151,8 +153,10 @@
       for(const group of groups) {
         const individual=groups.length>1||!!manifests[key], frame=group[0];
         const frameName=manifests[key]?.frames.find(f=>f.frame===frame)?.name;
-        rows.push({id:key==='rock_variants'?'mineralrock':individual?`${key}:${frame}`:key,name:(key==='stronghold_wall'?'Stronghold wall · ':key==='zone_hedge'?'Hedge · ':'')+title(frameName||(key==='rock_variants'?'mineral_rocks':key==='cobble'?'broken_lamp_post':key.replace(/^approved_/,'')))+(individual&&!frameName?' '+frame:''),key,frames:group,
-          images:group.map(frame=>image(key,frame)).filter(Boolean),category:category(key),zoneVariants:usage.get(individual?`${key}:${frame}`:key)||new Set(),source:ASSETS[key]?.path||'src/textures.js'});
+        const displayKey=key==='zone_objects'&&frame===1?'selected_grave_pillar':key;
+        const displayFrames=displayKey===key?group:[0];
+        rows.push({id:key==='rock_variants'?'mineralrock':individual?`${key}:${frame}`:key,name:(key==='stronghold_wall'?'Stronghold wall · ':key==='zone_hedge'?'Hedge · ':'')+title(frameName||(key==='rock_variants'?'mineral_rocks':key==='cobble'?'broken_lamp_post':key.replace(/^approved_/,'')))+(individual&&!frameName?' '+frame:''),key:displayKey,frames:displayFrames,
+          images:displayFrames.map(frame=>image(displayKey,frame)).filter(Boolean),category:category(key),zoneVariants:usage.get(individual?`${key}:${frame}`:key)||new Set(),source:ASSETS[displayKey]?.path||'src/textures.js'});
       }
     }
     for(const [id,spec] of Object.entries(FURNITURE)) {
@@ -188,6 +192,7 @@
         row.zoneVariants = new Set(ZoneVariantData.variants.filter(z => z.zone === 'quarry').map(z => z.id));
       }
     }
+    setSelectedTerrainSource(store.get('selected_terrain').getSourceImage());
     function painted(id,name,category,painter,zoneVariants=[]){const c=canvas(96);painter(c);rows.push({id,name,category,zoneVariants:new Set(zoneVariants),images:[ArtPreviewFit.trim(c).toDataURL()],source:'Current game painter',frames:[]});}
     const terrainNames=Object.fromEntries(Object.entries(WorldGen.T).map(([k,v])=>[v,title(k)]));
     for(const id of Object.keys(BIOME_TEX)) {
