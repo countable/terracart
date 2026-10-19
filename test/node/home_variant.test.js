@@ -115,3 +115,25 @@
     }
   });
 })();
+
+test('Home ownership: runtime Nexus hazards and harvest reactions yield without changing source coverage', () => {
+  const key = WorldGen.tileKey(0, 0), previous = WorldGen.tileCache.get(key);
+  const N = 20, homeVariant = new Uint8Array(N * N), index = 10 * N + 10;
+  homeVariant[index] = 1;
+  const entry = { depth: 0, tileEdgeM: 200, cellsPerEdge: N, homeVariant,
+    zone: { coverage: new Uint8Array(N * N).fill(1), anchors: [{ kind: 'tar', variant: 'seep', gx: 0, gy: 0 }] } };
+  WorldGen.tileCache.set(key, entry);
+  try {
+    assert.eq(EnvironmentHazards.caveInVariant(entry, 10, 10), null);
+    assert.eq(EnvironmentHazards.caveInVariant(entry, 0, 0), 'seep');
+    assert.eq(EnemyHabitats.zoneAnchorAt(200, 105, 105), null);
+    assert.truthy(EnemyHabitats.zoneAnchorAt(200, 5, 5));
+    const scene = { depth: 0, save: { starterCratesAt: { x: 100, y: 100 } } };
+    const source = { id: 'starter_mushroom', x: 105, y: 105, gasEmitter: true };
+    assert.falsy(MushroomGas.sourcePresent(scene, source), 'cached source tags cannot emit in Home');
+    assert.truthy(MushroomGas.sourcePresent({ ...scene, depth: 2 }, source), 'surface override never changes caves');
+    assert.eq(entry.zone.coverage[index], 1); assert.truthy(source.gasEmitter);
+  } finally {
+    if (previous) WorldGen.tileCache.set(key, previous); else WorldGen.tileCache.delete(key);
+  }
+});

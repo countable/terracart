@@ -744,8 +744,9 @@
     // and the light (Lighting.collectLamps) read.
     const lineRecs = new Map();
     const hasVariants = typeof StreetVariants !== 'undefined';
-    if (entry.streetIndex && hasVariants) {
-      for (const rec of entry.streetIndex.lines) lineRecs.set(`${rec.fi}:${rec.li}`, rec);
+    const streetIndex = hasVariants && StreetVariants.indexFor(entry);
+    if (streetIndex) {
+      for (const rec of streetIndex.lines) lineRecs.set(`${rec.fi}:${rec.li}`, rec);
     }
     for (const layer of entry.layers) {
       if (layer.name !== 'transportation') continue;

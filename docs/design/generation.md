@@ -789,6 +789,22 @@ Commercial default ground uses the shared hedge lattice for bushes and pot
 pillars. Connection tuning belongs to `HEDGE_WALL_PCT` in `worldgen.js`; it
 changes whole wall segments while preserving pillar spacing and open interiors.
 
+For generated area content, precedence is **exclusion → suppression → Home →
+Nexus → road variants → landcover**. Exclusion and suppression are eligibility
+constraints, not competing themes: no area owner bypasses them. Saved/player-owned
+placements, physical building footprints, and location-bound story/landmark
+placements retain the ownership rules below; ordinary area filling must not
+replace them. Home admits its curated starter placements rather than incidental
+landmarks from an underlying theme.
+
+The implementation keeps eligibility and ownership separate: `WorldGen.isSpawnCell`
+applies exclusion/suppression by spawn class; `WorldGen.variantOwnerAt` resolves
+Home, Nexus and road ownership (no owner means ordinary landcover). Per-player
+Home filtering is applied after deterministic generation. Runtime theme effects
+must query the winning owner, and road presentation uses
+`StreetVariants.indexFor`; raw generated coverage/index data is retained for
+shared generation and underground inheritance, not runtime priority decisions.
+
 Higher-priority placements and their access space take precedence in this order:
 
 1. Saved player-owned objects, Home and story placements. Preserve saved ids and
@@ -807,6 +823,9 @@ Higher-priority placements and their access space take precedence in this order:
    neighbours, the doorstep chicken, starter supplies and authored starter
    placements. Player possessions and mapped buildings remain. Physical roads
    keep their geometry and safety rules but lose their themes inside Home.
+   A live street-index copy uses the same boundary intervals as Nexus road
+   suppression, including paths; pavement, labels, stories and hot-road effects
+   read it through `StreetVariants.indexFor`. Shared generation reads the original.
    Apply this per-player overlay after shared generation, retaining the
    original grids, dressing and zone metadata for cave generation and stable
    spawn identities. The floor viewer uses the same overlay and starter placers.

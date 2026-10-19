@@ -71,6 +71,8 @@
         (ty * N + Math.floor(i / N) + .5) * unit) ? 1 : 0;
     }
     entry.homeVariant = mask;
+    entry.homeStreetIndex = intersects && entry.streetIndex
+      ? root.WorldGen.runSteps(root.StreetVariants.homeIndexSteps(entry.streetIndex, mask, N)) : null;
     // Keep original generated arrays intact: caves, shared spawn draws and
     // rebuilds all need the original world, regardless of whose Home this is.
     const source = entry._homeVariantSource || (entry._homeVariantSource = {
@@ -101,7 +103,13 @@
     if (phase !== 'prepare') lists.push('creatures');
     for (const key of lists) if (Array.isArray(entry[key])) entry[key] = entry[key].filter(keep);
     if (entry.treasure && !keep(entry.treasure)) entry.treasure = null;
-    if (phase !== 'prepare') entry._homeVariantApplied = `${home.x},${home.y}`;
+    if (phase !== 'prepare') {
+      if (entry._homeVariantApplied !== `${home.x},${home.y}`) {
+        root.RoadOverlay?.invalidate(scene);
+        scene._streetLampKey = null;
+      }
+      entry._homeVariantApplied = `${home.x},${home.y}`;
+    }
     return true;
   }
   function refresh(scene) {

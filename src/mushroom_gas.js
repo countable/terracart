@@ -33,6 +33,7 @@
       const ix = Math.floor((plant.x - tx * entry.tileEdgeM) / cellM);
       const iy = Math.floor((plant.y - ty * entry.tileEdgeM) / cellM);
       if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
+      if (W.variantOwnerAt(entry, iy * N + ix) !== 'zone') continue;
       const slot = entry.zone.coverage[iy * N + ix];
       if (entry.zone.anchors?.[slot - 1]?.variant !== 'mushroom_grove') continue;
       if (!W.isSpawnCell(entry.grid, N, N, ix, iy, opts, 'enemy')) continue;
@@ -58,7 +59,8 @@
   }
 
   function sourcePresent(scene, plant) {
-    return plant.gasEmitter && !plant.picked && !plant.burned
+    return !root.HomeVariant?.contains(scene, plant.x, plant.y)
+      && plant.gasEmitter && !plant.picked && !plant.burned
       && !setOf(scene.save.picked).has(plant.id) && !setOf(scene.save.burnedObjects).has(plant.id);
   }
 

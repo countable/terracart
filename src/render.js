@@ -3806,7 +3806,7 @@ Render.drawVariantLabels = function drawVariantLabels(scene, ax, ay, halfM) {
     // Shipping entries store coordinates in the cache key, not on the entry.
     const [, tx, ty] = key.split('/').map(Number);
     if (!tileBoxReach(edge, tx, ty, ax - halfM, ay - halfM, ax + halfM, ay + halfM)) continue;
-    entries.push({ tx, ty, zone: e.zone, objects: e.objects, streetIndex: e.streetIndex });
+    entries.push({ tx, ty, zone: e.zone, objects: e.objects, streetIndex: StreetVariants.indexFor(e) });
   }
   const records = Render.variantLabelRecords(entries, edge, ax, ay, halfM, scene);
   Render.renderPool(scene, pool, scene.labelContainer, records, (text, o) => {

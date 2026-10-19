@@ -134,6 +134,7 @@
     return (h.footprintCells || footprint(scene, h)).some(c => c.cellIX === p.cellIX && c.cellIY === p.cellIY);
   }
   function zoneAnchorAt(entry, ix, iy) {
+    if (!entry || root.WorldGen.variantOwnerAt(entry, iy * entry.cellsPerEdge + ix) !== 'zone') return null;
     const field = entry?.zone, coverage = field?.coverage || field?.idx;
     return field?.anchors?.[(coverage?.[iy * entry.cellsPerEdge + ix] || 0) - 1] || null;
   }

@@ -79,6 +79,7 @@
     const N = entry.cellsPerEdge, cellM = entry.tileEdgeM / N;
     const ix = Math.floor((x - tx * entry.tileEdgeM) / cellM), iy = Math.floor((y - ty * entry.tileEdgeM) / cellM);
     if (ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
+    if (WG.variantOwnerAt(entry, iy * N + ix) !== 'zone') return null;
     const a = entry.zone.anchors?.[entry.zone.coverage[iy * N + ix] - 1];
     return a ? { key: `${a.kind}|${a.gx}|${a.gy}`, variant: a.variant } : null;
   }

@@ -1442,6 +1442,7 @@
   function variantAt(rec, metres, mvtToM = 1) {
     if (!rec) return null;
     metres /= mvtToM;
+    if (rec.homeSuppressedRanges?.some(([a, b]) => metres >= a && metres < b)) return null;
     if (rec.nexusSuppressedRanges?.some(([a, b]) => metres >= a && metres < b)) return null;
     if (rec.variantSegments) return rec.variantSegments.find(p => metres >= p.a - 1e-6 && metres < p.b - 1e-6)?.variant || null;
     if (!rec.variant) return null;
@@ -1452,7 +1453,8 @@
   function lineParts(rec, mvtToM) {
     const length = root.Streets.lineLengthM(rec.line, mvtToM);
     const cuts = [0, length];
-    for (const span of rec.nexusSuppressedRanges || []) cuts.push(...span.map(end => end * mvtToM));
+    for (const ranges of [rec.nexusSuppressedRanges, rec.homeSuppressedRanges])
+      for (const span of ranges || []) cuts.push(...span.map(end => end * mvtToM));
     for (const part of rec.variantSegments || []) cuts.push(part.a * mvtToM, part.b * mvtToM);
     for (const span of rec.variantRanges || []) for (const end of span) {
       cuts.push(Math.max(0, Math.min(length, end * mvtToM)));
@@ -1524,6 +1526,22 @@
       }
     }
     index.dressingLines = dressing;
+  }
+
+  // Home uses the same coverage-boundary traversal as Nexuses, on a live
+  // copy. Shared generation and underground consumers retain their source index.
+  function* homeIndexSteps(index, coverage, N) {
+    if (!index) return null;
+    const lines = [];
+    for (const rec of index.lines || []) {
+      const homeSuppressedRanges = yield* nexusRangesSteps(rec.line, coverage, N, index.extent || 4096);
+      lines.push({ ...rec, homeSuppressedRanges });
+    }
+    return { ...index, lines, homeCoverage: coverage };
+  }
+  function indexFor(entry) {
+    return (entry?.depth || 0) === 0 && !entry?._homeVariantGenerating
+      ? entry?.homeStreetIndex || entry?.streetIndex : entry?.streetIndex;
   }
 
   // Same split geometry for the map-review overlay and in-game QC labels.
@@ -2971,9 +2989,10 @@
   // Use the same source intervals and round-ended band as the paving, not
   // dressing marks (which include the safe verge) or the coarser road mask.
   function hotRoadAt(entry, cx, cy) {
-    const N = entry?.cellsPerEdge, index = entry?.streetIndex;
+    const N = entry?.cellsPerEdge, index = indexFor(entry);
     if (!index || !(N > 0) || !(entry.tileEdgeM > 0)
         || cx < 0 || cy < 0 || cx >= N || cy >= N) return false;
+    if (index.homeCoverage?.[Math.floor(cy) * N + Math.floor(cx)]) return false;
     const t = entry.grid?.[Math.floor(cy) * N + Math.floor(cx)];
     if (t == null || t === root.WorldGen.T.WATER || root.WorldGen.isBuildingTerrain(t)) return false;
     const cellM = entry.tileEdgeM / N, scale = entry.tileEdgeM / (index.extent || 4096);
@@ -3001,7 +3020,7 @@
   function lineStyles(entry, feature, fi, li, mvtToM) {
     const S = root.Streets, line = feature.geom[li];
     const length = S.lineLengthM(line, mvtToM);
-    const rec = entry.streetIndex?.lines?.find((r) => r.fi === fi && r.li === li);
+    const rec = indexFor(entry)?.lines?.find((r) => r.fi === fi && r.li === li);
     if (rec) return lineParts(rec, mvtToM).map(part => ({ ...part, size: rec.size }));
     const ivs = entry.scenic?.lines?.get(S.lineKey(feature, li));
     const cuts = [0, length];
@@ -3073,7 +3092,7 @@
     THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     PATH_SECTION_MIN_M, PATH_SECTION_TARGET_M, PATH_SECTION_MAX_M, PATH_FRAGMENT_MIN_M, buildPathSectionsSteps, applyPathScenicSteps, syncPathVariants, selectionWeights, applyAffinitiesSteps, nexusExitAffinitySteps, NEXUS_EXIT_AFFINITY_M, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
-    nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area, suppressNexusRoadThemesSteps,
+    homeIndexSteps, indexFor, nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area, suppressNexusRoadThemesSteps,
     markBanditStops, streetShrineChosen, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, carpetEmblemFor, carpetStyleFor, lineStyles, hotRoadAt, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

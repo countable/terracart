@@ -574,8 +574,8 @@ class SceneStreets {
   _scenicWalkStory(kind, meta, newly) {
     let row = Scenic.rowFor(kind);
     const entry = meta && WorldGen.tileCache.get(meta.tileKey);
-    const rec = entry?.streetIndex?.lines?.find(r => r.lineKey === meta.lineKey);
-    if (rec?.variantSegments) {
+    const rec = StreetVariants.indexFor(entry)?.lines?.find(r => r.lineKey === meta.lineKey);
+    if (rec?.variantSegments || rec?.homeSuppressedRanges?.length) {
       row = null;
       let longest = 0;
       for (const part of StreetVariants.lineParts(rec, meta.mvtToM)) {
