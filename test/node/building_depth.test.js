@@ -138,15 +138,20 @@
     assert.truthy(room.faces.every(f => f.points.every(p => p.z <= base.height + 1e-6)), 'nothing stands above the eaves');
     assert.truthy(room.faces.every(f => f.kind !== 'trim' || f.wallTop), 'no beams, chimney or fascia');
     const inner = room.faces.filter(f => f.interior);
-    assert.eq(inner.length, 8, 'two triangles per inner face');
+    assert.eq(inner.length, room.faces.filter(f => f.kind === 'wall' && !f.interior).length, 'inner faces mirror the clipped exterior triangles');
     const T = api.LOOK.wallThickness;
     for (const f of inner) for (const p of f.points) {
-      assert.truthy(p.x >= T - 1e-6 && p.x <= 96 - T + 1e-6 && p.y >= T - 1e-6 && p.y <= 96 - T + 1e-6, 'inner faces stand a wall\'s thickness in');
+      assert.truthy(p.x >= -1e-6 && p.x <= 96 + 1e-6 && p.y >= -1e-6 && p.y <= 96 + 1e-6, 'inner faces preserve the full floor footprint');
       assert.truthy(p.z >= -1e-9 && p.z <= base.height + 1e-9, 'floor to eaves');
     }
     // Each inner face runs against its outer wall, so it faces into the room.
     const outer = room.faces.filter(f => f.kind === 'wall' && !f.interior);
     assert.gt(outer.length, 0, 'the outer faces stay');
+    assert.truthy(outer.every(f => f.points.every(p => p.x < 0 || p.x > 96 || p.y < 0 || p.y > 96)), 'wall thickness sits outside the floor');
+    for (const f of inner) {
+      const o = outer.find(w => w.edge === f.edge && w.points.every(p => f.points.some(q => q.u === p.u && q.v === p.v && q.z === p.z)));
+      assert.truthy(o, 'inside and outside retain the same opening UVs');
+    }
     for (const f of inner) {
       const o = outer.find(w => Math.abs(w.wallDirection.x * f.wallDirection.y - w.wallDirection.y * f.wallDirection.x) < 1e-6
         && w.wallDirection.x * f.wallDirection.x + w.wallDirection.y * f.wallDirection.y < 0);
@@ -156,6 +161,20 @@
     assert.eq(band.length, 8, 'two triangles of top band per wall');
     assert.truthy(band.every(f => f.points.every(p => Math.abs(p.z - base.height) < 1e-9)), 'the band lies on the wall tops');
     assert.eq(api.interiorGeometry(base, T), room, 'built once per house');
+  });
+
+  depthTest('low-poly: styled interior triangles stay on their own wall at corners', () => {
+    const ring = [{ x: 0, y: 0 }, { x: 170, y: 0 }, { x: 170, y: 160 }, { x: 0, y: 160 }];
+    const recipe = { ...api.recipeFor('trader'), stories: 1 };
+    const base = api.styleGeometry(ring, recipe.style, recipe);
+    const room = api.interiorGeometry(base, api.LOOK.wallThickness);
+    for (let edge = 0; edge < ring.length; edge++) {
+      const a = ring[edge], b = ring[(edge + 1) % ring.length], dx = b.x - a.x, dy = b.y - a.y;
+      const walls = room.faces.filter(f => f.interior && f.edge === edge);
+      assert.eq(walls.length, 2, 'both triangles survive on every wall');
+      assert.truthy(walls.every(f => f.points.every(p => Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) < 1e-6)),
+        'each triangle belongs to the edge that contains it');
+    }
   });
 
   depthTest('building depth: a wall sorts at its baseline point in the player\'s screen column, re-asked as they move', () => {

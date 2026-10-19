@@ -136,8 +136,10 @@ Building interiors use 32px swatches from the PP Interiors Pack's `all floors.pn
 (`assets/Objects/BuildingMaterials/all-floors.png`): square tiles for houses,
 wooden boards for Home and forts, and masonry for civic buildings. The patterns
 remain anchored to world coordinates and clipped to each footprint.
-`drawInteriorFloorTexture` repeats unshaded 16px-high courses; the wood and
-masonry swatches skip the sheet's top wall-shadow band to avoid cell seams.
+`drawInteriorFloorTexture` repeats unshaded 32×16 source courses at half size
+(16×8 at the 32px runtime cell), keeping floor motifs in proportion to furniture.
+Nearest sampling preserves crisp edges. The wood and masonry swatches skip the
+sheet's top wall-shadow band to avoid cell seams.
 Procedural house roofs use triangulated caps and retained sloped roof faces.
 `PolygonGeometry` owns collinear pruning, ear clipping and the shared even–odd
 point-in-rings predicate. Renderers retain their own coordinate normalization,
@@ -197,7 +199,7 @@ house floor on the canvas and then the house. On the low-poly path it is the
 `home` role (`BuildingLowPoly.ROLES`); while the player stands inside
 (`scene.homeInside`, part of the overlay's claim epoch) its recipe is
 `interior` — the roof off, the walls level at the eaves, inner faces and a
-thick top band (`interiorGeometry`) — and the lightmap masks the outside (see
+thick timber top band (`interiorGeometry`) — and the lightmap masks the outside (see
 Lighting). An interior is one render object PER WALL (`interiorGeometry`
 tags each face with its ring `edge`; `BuildingLowPoly.add` places a mesh per
 edge), each sorted in the shared world sort at its wall's sort point
@@ -219,7 +221,13 @@ which sits under the player's container and drew the player over every wall.
 Inside, on either path, no wall is inked at all (`noInk`): a wall inking
 its own outline over its neighbour's fill left black seams between the
 walls, and the dark mask outside the room is edge enough. The interior's wall thickness is `BuildingLowPoly.LOOK.wallThickness`
-(2.8 px) on the low-poly path and `HomeArea.HOUSE.thicknessPx` (2 px) on the
+(2.8 px) on the low-poly path, placed outside the footprint so the full floor
+remains available. Inner and outer faces retain identical opening UVs, including
+shutters, sills and the entrance. A shared interior atlas uses warm plaster and
+wood trim from [Pixel Plains Interiors Pack by Jose Javier (SnowHex)](https://snowhex.itch.io/pp-interior-and-houses-pack)
+(`all-walls.png`); its timber wraps over
+the cut tops. Both sides receive directional lighting and darker ground contact,
+including generated exterior materials. Thickness is `HomeArea.HOUSE.thicknessPx` (2 px) on the
 prism path.
 A door faces the nearest street: `BuildingLowPoly.streetDoor` picks the
 wall (its `edge`), which becomes the facade's entrance bay (`geometry`'s
