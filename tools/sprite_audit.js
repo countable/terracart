@@ -380,8 +380,8 @@ function evaluate(s) {
   const table = ART_BOUNDS[lookup];
 
   const violations = [];
-  // Furniture frames are bottom-seated in uniform sheet slots. The clock alone
-  // may use the upper half; lamps must stay inside their single-cell frame.
+  // Furniture uses uniform slots with per-item height limits. Tall approved
+  // beds/bookcases may extend upward; all bases must remain inside the cell.
   if (s.frameSize) {
     const [width, height] = s.frameSize, left = (fresh.fw - width) / 2;
     if (fresh.minX < left || fresh.maxX > left + width || fresh.minY < fresh.fh - height)
