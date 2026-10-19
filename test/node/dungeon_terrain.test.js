@@ -1,28 +1,45 @@
 (function () {
   const W = WorldGen, T = W.T;
-  test('L1 road geology: only small roads make walls; medium, large and paths stay open', () => {
+  test('L2 preserved natural road geology: only small roads make walls; medium, large and paths stay open', () => {
     const source = Uint8Array.from([T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH, T.BUILDING, T.WATER, T.GRASS]);
-    const result = W.undergroundTerrain({ baseGrid: source }, source, 1);
+    const result = W.undergroundTerrain({ baseGrid: source }, source, 2);
     assert.eq([...result.grid].join(), [T.CAVE_WALL, T.CAVE_FLOOR, T.CAVE_FLOOR, T.CAVE_FLOOR,
       T.CAVE_WALL, T.CAVE_WALL, T.CAVE_FLOOR].join());
+  });
+  test('wall ladder: natural caves preserve the original surface mask independently of the new sewer', () => {
+    const source = Uint8Array.from(Object.values(T).filter(t => typeof t === 'number'));
+    const surface = { baseGrid: source };
+    const oldMask = [...source].map(t => W.isRoadTerrain(t) || t === T.PATH
+      ? (t === T.ROAD ? T.CAVE_WALL : T.CAVE_FLOOR)
+      : W.isWalkable(t) && t !== T.CAVE_LAVA ? T.CAVE_FLOOR : T.CAVE_WALL);
+    const sewer = W.undergroundTerrain(surface, source, 1).grid;
+    const natural = W.undergroundTerrain(surface, sewer, 2).grid;
+    assert.eq([...natural].join(), oldMask.join(), 'surface classes retain their old natural wall assignments');
+    assert.eq([...W.undergroundTerrain(surface, new Uint8Array(source.length).fill(T.CAVE_FLOOR), 2).grid].join(), oldMask.join(),
+      'edits or open terrain above cannot change the preserved mask');
+  });
+  test('wall ladder: sewer roads stay open and only building footprints form walls', () => {
+    const source = Uint8Array.from([T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE, T.WATER, T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH]);
+    assert.eq([...W.undergroundTerrain({ baseGrid: source }, source, 1).grid].join(),
+      [T.CAVE_WALL,T.CAVE_WALL,T.CAVE_WALL,T.CAVE_FLOOR,T.CAVE_FLOOR,T.CAVE_FLOOR,T.CAVE_FLOOR,T.CAVE_FLOOR].join());
   });
   test('deep stone: only surface parks and commercial clearings open, roads remain stone', () => {
     const source = Uint8Array.from([T.GRASS, T.PARK, T.COMMERCIAL, T.GROVE, T.BUILDING, T.ROAD]);
     const surface = { grid: new Uint8Array(6).fill(T.PARK), baseGrid: source, roadMask: Uint8Array.from([0, 0, 1, 0, 0, 1]) };
-    const result = W.undergroundTerrain(surface, new Uint8Array(6).fill(T.CAVE_FLOOR), 3);
+    const result = W.undergroundTerrain(surface, new Uint8Array(6).fill(T.CAVE_FLOOR), 4);
     assert.eq([...result.grid].join(','), [T.CAVE_WALL,T.CAVE_FLOOR,T.CAVE_WALL,T.CAVE_FLOOR,T.CAVE_WALL,T.CAVE_WALL].join(','));
     assert.eq([...result.areas].join(','), '0,1,0,1,0,0');
     assert.eq(source[0], T.GRASS, 'immutable surface untouched');
   });
   test('goblin city: roads and water open; every building class remains stone', () => {
     const source = Uint8Array.from([T.ROAD, T.WATER, T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE, T.GRASS]);
-    const result = W.undergroundTerrain({ baseGrid: source }, new Uint8Array(6).fill(T.CAVE_WALL), 2);
+    const result = W.undergroundTerrain({ baseGrid: source }, new Uint8Array(6).fill(T.CAVE_WALL), 3);
     assert.eq([...result.grid].join(), [T.CAVE_FLOOR,T.CAVE_FLOOR,T.CAVE_WALL,T.CAVE_WALL,T.CAVE_WALL,T.CAVE_FLOOR].join());
     assert.falsy(result.areas.some(Boolean), 'city cells do not become deep-stone settlements');
   });
   test('underdark: surface structures and prior cave walls never make walls', () => {
     const surface = { grid: Uint8Array.from([T.WATER, T.BUILDING, T.ROAD, T.GRASS]) };
-    const result = W.undergroundTerrain(surface, new Uint8Array(4).fill(T.CAVE_WALL), 4);
+    const result = W.undergroundTerrain(surface, new Uint8Array(4).fill(T.CAVE_WALL), 5);
     assert.truthy([...result.grid].every(t => t === T.CAVE_FLOOR));
   });
   test('dungeon progression: first cave has exits only; deep stone and underdark have onward shafts', async () => {
@@ -36,23 +53,23 @@
       const shallow = await W.loadTile.atDepth(1, tx, ty, 49);
       assert.eq(shallow.objects.filter(o => o.kind === 'staircase' && o.dir === 'down').length, 0);
       assert.eq(shallow.objects.filter(o => o.kind === 'staircase' && o.dir === 'up').length, 1);
-      const deep = await W.loadTile.atDepth(3, tx, ty, 49);
+      const deep = await W.loadTile.atDepth(4, tx, ty, 49);
       assert.truthy(deep.grid.includes(T.CAVE_WALL));
       assert.eq(deep.undergroundClearings.length, 2);
       assert.truthy(deep.undergroundResidents.some(o => o.dwarf));
       assert.truthy(deep.objects.some(o => o.kind === 'grove_shrine'));
-      assert.truthy(deep.objects.filter(o => o.kind === 'grove_shrine' || o.name?.endsWith('cache')).every(o => o.depth === 3), 'settlement objects belong to their floor');
+      assert.truthy(deep.objects.filter(o => o.kind === 'grove_shrine' || o.name?.endsWith('cache')).every(o => o.depth === 4), 'settlement objects belong to their floor');
       assert.truthy(deep.objects.some(o => o.kind === 'chest' && o.name === 'Dwarven city cache'));
-      const dark = await W.loadTile.atDepth(4, tx, ty, 49);
+      const dark = await W.loadTile.atDepth(5, tx, ty, 49);
       assert.falsy(dark.grid.includes(T.CAVE_WALL));
       assert.truthy(dark.objects.some(o => o.kind === 'staircase' && o.dir === 'up'));
       assert.truthy(dark.objects.some(o => o.kind === 'staircase' && o.dir === 'down'));
       const before = JSON.stringify(deep.genObjects);
-      W.setDepth(3).delete(key);
-      const rebuilt = await W.loadTile.atDepth(3, tx, ty, 49);
+      W.setDepth(4).delete(key);
+      const rebuilt = await W.loadTile.atDepth(4, tx, ty, 49);
       assert.eq(JSON.stringify(rebuilt.genObjects), before, 'same surface yields identical terrain dressing');
     } finally {
-      for (const depth of [0, 1, 2, 3, 4]) W.setDepth(depth).delete(key);
+      for (const depth of [0, 1, 2, 3, 4, 5]) W.setDepth(depth).delete(key);
       W.setDepth(0);
     }
   });

@@ -156,7 +156,7 @@
     return scene;
   }
   test('dungeon progression: arrivals keep their stories and suppress them on ascent or falls', () => {
-    for (const [depth, key] of [[1, 'cave'], [2, 'dungeon_city'], [3, 'dungeon_stone'], [4, 'dungeon_underdark'], [5, 'dungeon_haunted'], [6, 'dungeon_lava'], [7, 'dungeon_dragon'], [8, 'dungeon_dragon']]) {
+    for (const [depth, key] of [[1, 'cave'], [2, 'cave'], [3, 'dungeon_city'], [4, 'dungeon_stone'], [5, 'dungeon_underdark'], [6, 'dungeon_lava'], [7, 'dungeon_dragon'], [8, 'dungeon_dragon']]) {
       const scene = ropeScene(depth - 1, { level4Key: true }), stories = [];
       scene._storySplashOnce = (id, story) => stories.push({ id, story });
       scene.changeDepth(1, { x: 0, y: 0, descentSource: depth === 2 ? 'rope' : 'stairs' });

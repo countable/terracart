@@ -1,0 +1,8 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sewer material and corner review</title>
+<style>body{background:#17150f;color:#eee8dc;font:16px/1.5 system-ui;margin:24px}h1{margin-bottom:8px}p{max-width:1000px}.grid{display:flex;flex-wrap:wrap;gap:24px}figure{margin:0}figcaption{margin:8px 0}canvas{image-rendering:pixelated;width:480px;max-width:100%;height:auto}button,a{color:#ffcf8a}button{background:#302c25;border:1px solid #665b48;padding:8px 14px}#checks canvas{width:384px}#status{color:#b9d6a4}</style>
+<h1>Sewer materials · rockwall geometry</h1><p>Dark rock tops with a 3px wrap of brick along exposed lips, brick faces at 50% of the previous texture scale, tiled walkways, pipes and a few static props from ElvGames’ Sewers Tileset. Both columns use the game’s original wall frames and exposure masks.</p>
+<button id="animate">Animate water</button> <span id="status">Loading…</span>
+<div class="grid"><figure><figcaption>Original rockwall · same fixture</figcaption><canvas id="original"></canvas></figure><figure><figcaption>Sewer · materials only</figcaption><canvas id="materials"></canvas></figure><figure><figcaption>Sewer · pipes, grating, crate and barrels</figcaption><canvas id="example"></canvas></figure></div>
+<h2>Corner and edge checks</h2><p>Original left, sewer right: isolated block, recessed staircase, thin walls and junctions. Props are hidden here so they cannot conceal seams.</p><div id="checks" class="grid"></div>
+<p>Art: ElvGames. Preview only; existing cave floor/L2 and runtime rendering are unchanged.</p>
+<script src="game-loader.js"></script><script src="sewer-wall-preview.js"></script></html>

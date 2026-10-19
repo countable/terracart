@@ -1,6 +1,6 @@
 (function () {
   const T = WorldGen.T;
-  function sample(depth = 2, cls = 'minor', id = 42, tx = 0, points = [{ x: 100, y: 2050 }, { x: 4000, y: 2050 }]) {
+  function sample(depth = 3, cls = 'minor', id = 42, tx = 0, points = [{ x: 100, y: 2050 }, { x: 4000, y: 2050 }]) {
     const N = 64, edge = N * 7, grid = new Uint8Array(N * N).fill(T.CAVE_FLOOR);
     const surface = { baseGrid: new Uint8Array(N * N).fill(T.GRASS), spawnWhy: new Uint16Array(N * N),
       layers: [{ name: 'transportation', extent: 4096, features: [{ id, type: 2, tags: { class: cls }, geom: [points] }] }] };
@@ -12,9 +12,9 @@
   }
   test('underground: street projection and dressing follow a relocated profile', () => {
     const original = WorldGen.floorProfile;
-    WorldGen.floorProfile = depth => depth === 4 ? original(2) : { ...original(depth), streetMirror: false };
+    WorldGen.floorProfile = depth => depth === 4 ? original(3) : { ...original(depth), streetMirror: false };
     try {
-      assert.eq(sample(2).plan.routes.length, 0, 'old floor loses projection');
+      assert.eq(sample(3).plan.routes.length, 0, 'old floor loses projection');
       const s = sample(4), objects = [];
       assert.truthy(s.plan.streetCells.size > 0, 'new floor projects streets');
       Underground.decorate(s.plan, s.grid, objects, [], new Set());
@@ -36,7 +36,7 @@
   test('underground: authored street holes respect floor seals without changing other hazards', () => {
     const original = DungeonProgression.ropeCanDescend;
     const objectsAt = () => {
-      const s = sample(2), objects = [];
+      const s = sample(3), objects = [];
       Underground.decorate(s.plan, s.grid, objects, [], new Set());
       return objects;
     };
@@ -56,11 +56,11 @@
     cells.forEach((t, n) => { s.surface.baseGrid[32 * s.N + 10 + n] = t; s.grid[32 * s.N + 10 + n] = T.CAVE_WALL; });
     const suppressed = 32 * s.N + 20; s.surface.spawnWhy[suppressed] |= WorldGen.SPAWN_WHY.RESTRICTED;
     s.grid[suppressed] = T.CAVE_WALL;
-    const plan = Underground.project(s.surface, s.grid, s.N, 0, 0, s.edge, 2);
+    const plan = Underground.project(s.surface, s.grid, s.N, 0, 0, s.edge, 3);
     for (let n = 0; n < cells.length; n++) assert.eq(s.grid[32 * s.N + 10 + n], T.CAVE_WALL);
     assert.eq(s.grid[suppressed], T.CAVE_WALL);
     assert.truthy(!plan.streetCells.has(suppressed));
-    const deep = sample(3); assert.eq(deep.plan.routes.length, 0); assert.eq(deep.grid[32 * deep.N + 20], T.CAVE_WALL);
+    const deep = sample(4); assert.eq(deep.plan.routes.length, 0); assert.eq(deep.grid[32 * deep.N + 20], T.CAVE_WALL);
   });
   test('underground: gem tiers stop at floor depth and ordinary D2 respects suppression and bonus land', () => {
     let quartz = 0;
@@ -75,7 +75,7 @@
       const N = 100, edge = 700, grid = new Uint8Array(N * N).fill(T.CAVE_FLOOR);
       const surface = { baseGrid: new Uint8Array(N * N).fill(terrain), spawnWhy: new Uint16Array(N * N).fill(suppressed ? WorldGen.SPAWN_WHY.SENSITIVE : 0) };
       const objects = Array.from({ length: N * N }, (_, i) => ({ kind: 'mineralrock', id: `r${i}`, x: (i % N + .5) * 7, y: (Math.floor(i / N) + .5) * 7, caveVariant: 0 }));
-      Underground.decorate(Underground.project(surface, grid, N, 0, 0, edge, 2), grid, objects, [], new Set(objects.map((_, i) => i)));
+      Underground.decorate(Underground.project(surface, grid, N, 0, 0, edge, 3), grid, objects, [], new Set(objects.map((_, i) => i)));
       return objects.filter(o => o.deposit).length;
     }
     const ordinary = count(T.GRASS, false), beach = count(T.SAND, false), commercial = count(T.COMMERCIAL, false);
@@ -88,14 +88,14 @@
   test('underground: routes own one shrine and duplicate MVT buffer endpoints do not own another', () => {
     let chosen;
     for (let id = 1; id < 30; id++) {
-      const s = sample(2, 'path', id), objects = [];
+      const s = sample(3, 'path', id), objects = [];
       Underground.decorate(s.plan, s.grid, objects, [], new Set());
       const shrines = objects.filter(o => o.kind === 'grove_shrine');
       assert.truthy(shrines.length <= 1);
       if (shrines.length) { chosen = id; break; }
     }
     assert.truthy(chosen);
-    const neighbor = sample(2, 'path', chosen, 1, [{ x: -3996, y: 2050 }, { x: 4000, y: 2050 }]);
+    const neighbor = sample(3, 'path', chosen, 1, [{ x: -3996, y: 2050 }, { x: 4000, y: 2050 }]);
     const objects = []; Underground.decorate(neighbor.plan, neighbor.grid, objects, [], new Set());
     assert.eq(objects.filter(o => o.kind === 'grove_shrine').length, 0, 'outside original endpoint cannot own shrine');
     const s = sample(), a = [], b = [];
@@ -115,8 +115,9 @@
       const second = await WorldGen.loadTile.atDepth(2, tx, ty, 49.85);
       const third = await WorldGen.loadTile.atDepth(3, tx, ty, 49.85);
       const fourth = await WorldGen.loadTile.atDepth(4, tx, ty, 49.85);
+      const fifth = await WorldGen.loadTile.atDepth(5, tx, ty, 49.85);
       const drills = entry => entry.genObjects.filter(o => o.shrineKind === 'drill');
-      for (const entry of [first, second, fourth]) {
+      for (const entry of [first, second, third, fifth]) {
         assert.eq(drills(entry).length, 10, 'open floors have room for ten drill shrines');
         const occupied = [...entry.genObjects, ...entry.wildplants];
         for (const drill of drills(entry)) {
@@ -131,10 +132,11 @@
       const drillArt = SpriteLayout.groveShrineArt(drills(first)[0]);
       assert.eq(drillArt.key, 'cave_props'); assert.eq(drillArt.frame, 6);
       const road = 32 * s.N + 20;
-      assert.eq(first.grid[road], T.CAVE_WALL, 'L1 small-road walls survive route projection'); assert.eq(second.grid[road], T.CAVE_FLOOR);
-      assert.eq(first.geologyGrid[road], T.CAVE_WALL);
-      assert.eq(third.grid[road], T.CAVE_WALL, 'shallow streets do not carve deep stone');
-      assert.eq(fourth.grid[road], T.CAVE_FLOOR, 'Underdark is the owning open stratum');
+      assert.eq(first.grid[road], T.CAVE_FLOOR, 'sewer routes remain open'); assert.eq(second.grid[road], T.CAVE_WALL, 'L2 retains natural small-road walls');
+      assert.eq(second.geologyGrid[road], T.CAVE_WALL);
+      assert.eq(third.grid[road], T.CAVE_FLOOR, 'warren streets remain open');
+      assert.eq(fourth.grid[road], T.CAVE_WALL, 'shallow streets do not carve deep stone');
+      assert.eq(fifth.grid[road], T.CAVE_FLOOR, 'Underdark is the owning open stratum');
       assert.falsy(first.genObjects.some(o => o.kind === 'staircase' && o.dir === 'down'),
         'the first cave retains main’s deliberate break in the generated stair chain');
       const down = second.genObjects.find(o => o.kind === 'staircase' && o.dir === 'down');
@@ -144,17 +146,17 @@
       first.grid[road] = T.WATER; surface.grid[road] = T.GRASS;
       WorldGen.setDepth(2).delete(key);
       const rebuilt = await WorldGen.loadTile.atDepth(2, tx, ty, 49.85);
-      assert.eq(rebuilt.grid[road], T.CAVE_FLOOR);
+      assert.eq(rebuilt.grid[road], T.CAVE_WALL);
       assert.eq(JSON.stringify(drills(rebuilt)), JSON.stringify(drills(second)), 'drill placement survives uncached rebuild');
     } finally {
-      for (const depth of [0, 1, 2, 3, 4]) WorldGen.setDepth(depth).delete(key);
+      for (const depth of [0, 1, 2, 3, 4, 5]) WorldGen.setDepth(depth).delete(key);
       WorldGen.setDepth(0);
     }
   });
   test('underground: each existing path theme gets the 50 percent shrine roll', () => {
     const counts = {};
     for (let id = 1; id <= 500; id++) {
-      const s = sample(2, 'path', id), objects = [];
+      const s = sample(3, 'path', id), objects = [];
       Underground.decorate(s.plan, s.grid, objects, [], new Set());
       const theme = s.plan.routes[0].theme, count = counts[theme] || (counts[theme] = [0, 0]);
       count[0]++; count[1] += objects.filter(o => o.kind === 'grove_shrine').length;

@@ -66,8 +66,9 @@ test('floor torches: a few dozen strewn per tile, on free floor, as the Torch it
   assert.eq(occ.size, before.size + wps.length, 'each claims its cell');
 });
 
-test('floor torches: level 1 only', () => {
-  for (const d of [2, 3, 5]) {
+test('floor torches: sewer and preserved natural cave only', () => {
+  assert.gt(lay(2, [upStair(10, 10)]).wps.length, 0, 'natural cave keeps its floor torches');
+  for (const d of [0, 3, 4, 5, 6, 7]) {
     assert.eq(lay(d, [upStair(10, 10)]).wps.length, 0, `none on level ${d}`);
   }
 });

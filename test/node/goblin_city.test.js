@@ -2,7 +2,7 @@
   const W = WorldGen, T = W.T, N = 64, edge = N * W.CELL_M;
   function fixture(tx = 945001, ty = 945101) {
     const grid = new Uint8Array(N * N).fill(T.PARK);
-    return { N, tx, ty, tileEdgeM: edge, depth: 2,
+    return { N, tx, ty, tileEdgeM: edge, depth: 3,
       surface: { status: 'ready', depth: 0, cellsPerEdge: N, tileEdgeM: edge,
         grid, baseGrid: grid.slice(), objects: [], genObjects: [], wildplants: [],
         spawnWhy: new Uint32Array(N * N),
@@ -16,9 +16,9 @@
     reserved: [...p.reserved], terrain: [...p.terrain], objects: p.objects,
     wildplants: p.wildplants, encounters: p.encounters });
 
-  test('goblin city: L2 is mostly warren even without surface zone anchors', () => {
+  test('goblin city: L3 is mostly warren even without surface zone anchors', () => {
     const f = fixture(), before = [...f.grid].join(), p = CaveAreas.planCity(f);
-    assert.truthy(W.floorProfile(2).warren);
+    assert.truthy(W.floorProfile(3).warren);
     assert.gt(p.reserved.size, N * N * .7, 'warren extends beyond isolated grove footprints');
     assert.gt(p.objects.filter(o => o.kind === 'mineralrock' && o.caveArea).length, N,
       'inhabited rooms have substantial authored walls');
@@ -26,7 +26,7 @@
     assert.truthy(p.encounters.some(o => o.kind === 'club_goblin' || o.kind === 'spear_goblin'));
     assert.eq([...f.grid].join(), before, 'planning does not mutate live terrain');
     assert.eq(f.objects.length, 0); assert.eq(f.occupied.size, 0);
-    for (const depth of [0, 1, 3, 10]) {
+    for (const depth of [0, 1, 2, 4, 10]) {
       const other = fixture(); other.depth = depth;
       assert.eq(CaveAreas.planCity(other).reserved.size, 0, 'other floors retain their own layouts');
     }
@@ -81,7 +81,7 @@
     for (const i of excluded) assert.eq(f.grid[i], before[i]);
   });
 
-  test('goblin city: encounters obey class-specific suppression on L2', () => {
+  test('goblin city: encounters obey class-specific suppression on L3', () => {
     const f = fixture();
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
       const reason = x < N / 2 ? W.SPAWN_WHY.KERB : W.SPAWN_WHY.SENSITIVE;
@@ -126,11 +126,11 @@
     assert.gt(p.reserved.size, N * N * .7);
   });
 
-  test('goblin city: L2 loader applies a continuous warren and preserves it on reload', async () => {
+  test('goblin city: L3 loader applies a continuous warren and preserves it on reload', async () => {
     const f = fixture(945011), key = W.tileKey(f.tx, f.ty);
     W.setDepth(0).set(key, f.surface);
     try {
-      const entry = await W.loadTile.atDepth(2, f.tx, f.ty, 49);
+      const entry = await W.loadTile.atDepth(3, f.tx, f.ty, 49);
       assert.gt(entry.caveAreas.reserved.size, N * N * .7);
       assert.truthy(entry.caveAreas.areas.some(a => a.kind === 'goblin_warrens' && a.city));
       const walls = entry.caveAreas.objects.filter(o => o.kind === 'mineralrock');
@@ -145,16 +145,16 @@
         assert.falsy(walls.some(wall => index(f, wall) === index(f, o)), 'ambient props do not overlap city walls');
       }
       const before = snapshot(entry.caveAreas);
-      W.setDepth(2).delete(key);
-      const reloaded = await W.loadTile.atDepth(2, f.tx, f.ty, 49);
+      W.setDepth(3).delete(key);
+      const reloaded = await W.loadTile.atDepth(3, f.tx, f.ty, 49);
       assert.eq(snapshot(reloaded.caveAreas), before);
     } finally {
-      for (const depth of [0, 1, 2]) W.setDepth(depth).delete(key);
+      for (const depth of [0, 1, 2, 3]) W.setDepth(depth).delete(key);
       W.setDepth(0);
     }
   });
 
-  test('goblin city: L2 keeps authored springs clear of its fixed drill budget', async () => {
+  test('goblin city: L3 keeps authored springs clear of its fixed drill budget', async () => {
     const EXT = 4096, row = W.CAVE_PASSES.find(r => r.id === 'drills');
     let f, anchor;
     for (let tx = 945031; tx < 946031; tx++) {
@@ -168,7 +168,7 @@
         const candidate = { kind: 'grove', owned: true,
           gx: f.tx * EXT + (cx + .5) * EXT / N, gy: f.ty * EXT + (cy + .5) * EXT / N,
           lx: (cx + .5) * EXT / N, ly: (cy + .5) * EXT / N, upm: edge / EXT };
-        if (CaveAreas.select(candidate, 2) === 'spring_cave') { anchor = candidate; break; }
+        if (CaveAreas.select(candidate, 3) === 'spring_cave') { anchor = candidate; break; }
       }
       if (anchor) break;
     }
@@ -178,14 +178,14 @@
     assert.truthy(CaveAreas.plan(f).areas.some(a => a.kind === 'spring_cave'));
     W.setDepth(0).set(key, f.surface);
     try {
-      const entry = await W.loadTile.atDepth(2, f.tx, f.ty, 49);
+      const entry = await W.loadTile.atDepth(3, f.tx, f.ty, 49);
       const spring = entry.caveAreas.areas.find(a => a.kind === 'spring_cave');
       assert.truthy(spring, 'drills cannot cause the existing authored pool to be rejected');
       const drills = entry.objects.filter(o => o.shrineKind === 'drill');
       assert.eq(drills.length, 10);
       for (const drill of drills) assert.falsy(spring.reserved.has(index(f, drill)));
     } finally {
-      for (const depth of [0, 1, 2]) W.setDepth(depth).delete(key);
+      for (const depth of [0, 1, 2, 3]) W.setDepth(depth).delete(key);
       W.setDepth(0);
     }
   });

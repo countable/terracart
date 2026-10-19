@@ -67,7 +67,7 @@
   });
 
   test('dungeon maze: irregular, narrow, small and lobed footprints keep connected floor and native rock walls', () => {
-    for (const depth of [1, 2]) for (const [name, shape] of Object.entries(shapes)) {
+    for (const depth of [2, 3]) for (const [name, shape] of Object.entries(shapes)) {
       const f = fixture(depth, shape), p = CaveAreas.plan(f);
       assert.eq(p.areas.length, 1, name + ' D' + depth + ' accepts its actual footprint');
       assert.eq(p.areas[0].kind, 'dungeon_maze');
@@ -86,7 +86,7 @@
   });
 
   test('dungeon maze: protected source islands, through routes and landmark approaches stay intact', () => {
-    for (const depth of [1, 2]) {
+    for (const depth of [2, 3]) {
       const f = fixture(depth), protectedCells = [];
       for (const [k, terrain, why] of [[0, T.BUILDING, 0], [1, T.WATER, 0],
         [2, T.ROAD, W.SPAWN_WHY.ROAD], [3, T.PARK, W.SPAWN_WHY.FARMLAND],
@@ -122,7 +122,7 @@
 
   test('dungeon maze: focus has one shrine or T3 treasure and enemies match the floor roster', () => {
     const rewardKinds = new Set();
-    for (const depth of [1, 2]) for (const start of [951001, 951101, 951201, 951301, 951401, 951501]) {
+    for (const depth of [2, 3]) for (const start of [951001, 951101, 951201, 951301, 951401, 951501]) {
       const f = fixture(depth, shapes.broad, start), p = CaveAreas.plan(f);
       const rewards = p.objects.filter(o => o.kind === 'grove_shrine' || (o.kind === 'chest' && !o.barrel));
       assert.eq(rewards.length, 1, 'one focus reward');
@@ -146,7 +146,7 @@
   });
 
   test('dungeon maze: clipped tile-edge coverage still places and remains connected', () => {
-    for (const depth of [1, 2]) {
+    for (const depth of [2, 3]) {
       const f = fixture(depth, shapes.broad, 951001, 5), p = CaveAreas.plan(f);
       assert.eq(p.areas.length, 1, 'edge does not force a circular-fit rejection');
       CaveAreas.apply(p, f.grid, f.objects, [], f.occupied);
@@ -157,7 +157,7 @@
   });
 
   test('dungeon maze: existing mirrored focus reward is replaced once while a blocked focus preserves its old approach', () => {
-    for (const depth of [1, 2]) for (const blocked of [false, true]) {
+    for (const depth of [2, 3]) for (const blocked of [false, true]) {
       const f = fixture(depth), anchor = f.surface.zone.anchors[0];
       const source = { id: 'surface-grove-reward', kind: 'chest', poiClass: 'park',
         _poiAt: `${anchor.lx},${anchor.ly}` };
@@ -219,7 +219,7 @@
         `return ({${SCENE_SRC.slice(start, end)}}).${name};`)(W, cellKeyFromAbsCell, absCellToTile);
     };
     const dig = lift('digCaveWall'), restore = lift('_applyDugWalls');
-    for (const depth of [1, 2]) {
+    for (const depth of [2, 3]) {
       const f = fixture(depth), p = CaveAreas.plan(f), key = W.tileKey(f.tx, f.ty);
       CaveAreas.apply(p, f.grid, f.objects, [], f.occupied);
       const i = [...p.reserved].find(i => f.grid[i] === T.CAVE_WALL);
@@ -249,7 +249,7 @@
   });
 
   test('dungeon maze: actual floor loading retains walls, reward and encounters through ambient generation', async () => {
-    for (const depth of [1, 2]) {
+    for (const depth of [2, 3]) {
       const f = fixture(depth, shapes.concave), key = W.tileKey(f.tx, f.ty);
       W.setDepth(0).set(key, f.surface);
       try {

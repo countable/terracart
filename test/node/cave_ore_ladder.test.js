@@ -39,7 +39,7 @@ test('cave ore: every fired vein boosts one ore tier the level offers', () => {
 })();
 
 
-test('cave flint: L1 has regular deterministic seams throughout ordinary rock clusters', () => {
+test('cave flint: L2 has regular deterministic seams throughout ordinary rock clusters', () => {
   const N = 120, edge = N * WorldGen.CELL_M;
   const generate = depth => {
     const rocks = [];
@@ -47,13 +47,13 @@ test('cave flint: L1 has regular deterministic seams throughout ordinary rock cl
       N, 3, 5, edge, depth, rocks, new Set());
     return rocks;
   };
-  const first = generate(1), plain = first.filter(o => o.caveVariant != null);
+  const first = generate(2), plain = first.filter(o => o.caveVariant != null);
   const seams = plain.filter(o => o.rockMaterial === 'flint');
   assert.gt(seams.length, 40, 'common enough to find without a special area');
   assert.inRange(seams.length / plain.length, .18, .32, 'about one quarter of ordinary rocks');
-  assert.eq(JSON.stringify(first), JSON.stringify(generate(1)), 'stable placement and materials');
+  assert.eq(JSON.stringify(first), JSON.stringify(generate(2)), 'stable placement and materials');
   const quadrants = new Set(seams.map(o => `${o.x < 3.5 * edge},${o.y < 5.5 * edge}`));
   assert.eq(quadrants.size, 4, 'distributed across the floor');
   assert.eq(first.filter(o => o.yieldTier > 1 && o.rockMaterial === 'flint').length, 0, 'ore is preserved');
-  assert.eq(generate(2).filter(o => o.rockMaterial === 'flint').length, 0, 'other floor populations unchanged');
+  assert.eq(generate(3).filter(o => o.rockMaterial === 'flint').length, 0, 'other floor populations unchanged');
 });

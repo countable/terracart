@@ -1,0 +1,348 @@
+{
+  "title": "Phase 1: floor environment art",
+  "status": "Approved wall schemes and per-floor wall rules applied to runtime and floor viewer; remaining environmental imports are proposed.",
+  "scope": "Roads, building surfaces and static landcover only. No new interactions, hazards, harvesting, lighting, collision or traversal rules.",
+  "order": "Approved wall materials apply on L1\u2013L7 (L8 shares dragon masonry). L2 preserves the prior natural cave terrain rules with the approved lighter Abandoned Mines wall scheme. Ground, road and dressing imports remain separate follow-up work.",
+  "levels": [
+    {
+      "level": "l1",
+      "title": "L1 sewer",
+      "order": 1,
+      "buildings": [
+        "sewer brick wall",
+        "corner cobweb",
+        "hanging vine",
+        "fallen brick scatter"
+      ],
+      "roads": [
+        "sewer channel bank",
+        "plank crossing",
+        "sewer pipe outlet"
+      ],
+      "landcover": [
+        "sewer weed tuft",
+        "moss clump",
+        "loose bricks",
+        "washed-up planks"
+      ],
+      "ground": [
+        "grey concrete walkway",
+        "wet blue-grey channel stone",
+        "brown silt bank"
+      ],
+      "placement": "Use concrete on dry routes, blue-grey stone at channel margins and silt on banks. Seat pipe stubs against walls; planks only decorate existing crossings. No new water flow or crossing logic.",
+      "material_source": {
+        "pack": "extra_assets/16x16/Sewers Tileset",
+        "sheet": "Tilesets/sewers_tiles.png",
+        "credit": "ElvGames",
+        "tile_size": 16,
+        "wall": [
+          6,
+          3
+        ],
+        "water_centres": [
+          [
+            2,
+            18
+          ],
+          [
+            7,
+            18
+          ],
+          [
+            12,
+            18
+          ],
+          [
+            2,
+            23
+          ],
+          [
+            7,
+            23
+          ],
+          [
+            12,
+            23
+          ],
+          [
+            2,
+            28
+          ],
+          [
+            7,
+            28
+          ]
+        ],
+        "pipe_outlet": [
+          13,
+          5
+        ],
+        "status": "Approved wall material integrated. Ground, water and connected pipe samples remain visual trials.",
+        "cap": "Theme-tinted original cap falloff with a 3px exposed brick lip",
+        "face_texture_scale": 0.5,
+        "geometry": "Full 32px cell footprint, 19px raised wall, compass-aware projection",
+        "example_props": [
+          "cracked slabs",
+          "drain grate",
+          "crate",
+          "barrels"
+        ]
+      },
+      "wall_rule": "Building footprints become brick walls; roads and channel surfaces remain open.",
+      "wall_scheme": {
+        "face": {
+          "sheet": "sewer",
+          "x": 6,
+          "y": 3
+        },
+        "cap": [
+          76,
+          68,
+          65
+        ],
+        "source": "16x16/Sewers Tileset/Tilesets/sewers_tiles.png"
+      }
+    },
+    {
+      "level": "l2",
+      "title": "L2 natural caves",
+      "order": null,
+      "buildings": [],
+      "roads": [],
+      "landcover": [],
+      "ground": [],
+      "placement": "Move the prior natural cave wall layout and authored-area rules to L2. Keep its ground and existing features; apply only the approved lighter FG_Abandoned_Mines wall material.",
+      "status": "Natural cave rules preserved at L2; approved wall-only material replacement applied.",
+      "source_depth": 1,
+      "wall_rule": "Preserved natural cave mask: surface buildings, water and Small roads form walls; Medium/Large roads and paths stay open. Authored natural areas retain their original selection seed.",
+      "wall_scheme": {
+        "face": {
+          "sheet": "mines",
+          "x": 11,
+          "y": 10
+        },
+        "cap": [
+          86,
+          70,
+          51
+        ],
+        "source": "16x16/Farm Game Abandoned Mines Tileset/Tilesets/FG_Abandoned_Mines.png"
+      }
+    },
+    {
+      "level": "l3",
+      "title": "L3 goblin warrens",
+      "order": 3,
+      "buildings": [
+        "clan shield post",
+        "leaning goblin spear"
+      ],
+      "roads": [
+        "timber kerb beam",
+        "timber kerb plank",
+        "crossing plank",
+        "shored timber post"
+      ],
+      "landcover": [
+        "lichen dots",
+        "cave grass",
+        "gnawed bone scraps"
+      ],
+      "ground": [
+        "packed dirt (goblin camps)",
+        "dark plank decking (warren halls)",
+        "smooth grey rock (door lanes)"
+      ],
+      "placement": "Packed dirt outside, dark decking in existing warren areas, grey rock at existing door lanes. Timber follows road edges; keep junctions open. Shields and spears are attached decoration, without pickup or combat behavior.",
+      "wall_rule": "Surface buildings form walls; connected goblin-warren rooms fill eligible ground with open doors and route approaches.",
+      "wall_scheme": {
+        "face": {
+          "sheet": "reborn",
+          "x": 17,
+          "y": 5
+        },
+        "cap": [
+          88,
+          68,
+          57
+        ],
+        "source": "16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Dungeon.png"
+      }
+    },
+    {
+      "level": "l4",
+      "title": "L4 deep stone + dwarves",
+      "order": 4,
+      "buildings": [
+        "blue clan standard",
+        "grey fluted pillar",
+        "copper banded pillar"
+      ],
+      "roads": [
+        "flagstone road slab",
+        "dressed kerb stone",
+        "broken setts"
+      ],
+      "landcover": [
+        "pebble scatter",
+        "toppled column stub"
+      ],
+      "ground": [
+        "grey dwarven slab",
+        "teal dwarven slab",
+        "tan dwarven slab",
+        "red dwarven slab"
+      ],
+      "placement": "Use the selected slab cap and three brick-band faces on existing building masses. Grey slabs dominate; teal and tan distinguish broad landcover patches. Hold red slabs as an alternate. Banners and pillars sit against walls; no new doors or rune interactions.",
+      "wall_rule": "Deep stone fills the floor except eligible park, grove, playground, pitch and commercial clearings.",
+      "wall_scheme": {
+        "face": {
+          "sheet": "dungeon",
+          "x": 4,
+          "y": 4
+        },
+        "cap": [
+          69,
+          74,
+          103
+        ],
+        "source": "16x16/Dungeon - Fantasy Dreamland/Tilesets/FD_Dungeon.png"
+      }
+    },
+    {
+      "level": "l5",
+      "title": "L5 fungal Underdark",
+      "order": 5,
+      "buildings": [
+        "blue mould face",
+        "violet mould face",
+        "fibrous fungal wall face",
+        "hanging glow vines"
+      ],
+      "roads": [
+        "slime bank splash",
+        "glow bank grass",
+        "teal bank tufts"
+      ],
+      "landcover": [
+        "blue glow cluster",
+        "violet glow mushroom",
+        "teal spotted stalk-cap"
+      ],
+      "ground": [
+        "violet spore crust",
+        "pink mycelium flesh floor",
+        "cracked spore crust"
+      ],
+      "placement": "Use violet spore crust as base, pink mycelium and cracked crust as patches; no dirt. Fungal faces dress existing masses. Slime-bank art follows route edges; no slowing, poison or new light sources. Mushroom picks are static decoration, pending readability against harvestable mushrooms.",
+      "wall_rule": "One open fungal cavern; no generated rockwalls.",
+      "wall_scheme": {
+        "face": {
+          "sheet": "fungal",
+          "x": 22,
+          "y": 2
+        },
+        "cap": [
+          82,
+          51,
+          72
+        ],
+        "source": "16x16/Enchanted Forest - Fantasy Dreamland Reborn/Tilesets/FDR_Enchanted_Forest_Blue.png"
+      }
+    },
+    {
+      "level": "l6",
+      "title": "L6 lava + demons",
+      "order": 6,
+      "buildings": [
+        "lava-veined basalt face",
+        "lava-crust pit rim",
+        "basalt half-column"
+      ],
+      "roads": [
+        "obsidian stepping stone",
+        "cinder pebbles",
+        "ember crack crossing"
+      ],
+      "landcover": [
+        "charred dead tree",
+        "cinder roots",
+        "cinder thorn bush"
+      ],
+      "ground": [
+        "black basalt floor",
+        "black basalt with lava cracks",
+        "ember floor (burned-road stone)",
+        "lava pit (building footprints)"
+      ],
+      "placement": "Black basalt is the base; lava-cracked basalt is sparse, ember ground follows roads. Apply pit art only to existing lava footprints. Crossing art cannot create a safe crossing. Hold vents, fumaroles and blisters for the mechanics phase.",
+      "wall_rule": "Surface-derived basalt walls; building footprints are ground-level lava pits, never raised walls.",
+      "wall_scheme": {
+        "face": {
+          "sheet": "magma",
+          "x": 26,
+          "y": 7
+        },
+        "faceAccent": {
+          "sheet": "magma",
+          "x": 26,
+          "y": 10
+        },
+        "cap": [
+          30,
+          27,
+          31
+        ],
+        "source": "16x16/Farm Game Magma Dungeon Tileset/Tilesets/FG_Magma_Dungeon.png"
+      }
+    },
+    {
+      "level": "l7",
+      "title": "L7 dragons",
+      "order": 7,
+      "buildings": [
+        "carved dragon temple column",
+        "dragon head wall plaque",
+        "red temple banner"
+      ],
+      "roads": [
+        "loose stone setts",
+        "cracked kerb sliver",
+        "worn paving slab",
+        "gold dragon kerb post"
+      ],
+      "landcover": [
+        "broken temple column",
+        "small stone dragon statuette",
+        "shed dragon horns",
+        "snapped dragon chain"
+      ],
+      "ground": [
+        "gold-studded temple flagstones",
+        "smooth basalt hall floor",
+        "ember-baked red clay"
+      ],
+      "placement": "Smooth basalt is the quiet base; gold-studded flagstones mark temple areas and red clay marks open landcover. Columns and plaques dress building edges; use gold posts sparingly. Hold crystals, rune stones and censers to avoid implying mining, puzzles or effects.",
+      "wall_rule": "Surface-derived temple walls under buildings, water and roads; dragon masonry also continues on L8.",
+      "wall_scheme": {
+        "face": {
+          "sheet": "dreams",
+          "x": 25,
+          "y": 6
+        },
+        "cap": [
+          75,
+          61,
+          111
+        ],
+        "source": "16x16/Dreams - Fantasy Dreamland/Tilesets/FD_Dreams.png"
+      }
+    }
+  ],
+  "preserved_floor": {
+    "source_depth": 1,
+    "target_depth": 2,
+    "instruction": "Move the natural cave terrain and authored-area rules from L1 to L2; preserve its source surface geometry and original authored-area selection seed. Approved FG_Abandoned_Mines walls replace the original wall material. Existing depth-qualified object identities, encounter/ore progression and travel gates remain physical-depth based; this update does not migrate save ledgers."
+  }
+}

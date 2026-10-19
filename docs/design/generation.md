@@ -184,15 +184,15 @@ access or tile lifecycle mechanics.
   derives them from immutable surface evidence. Preserve that mask through cave
   generation and runtime spawns; repainting or digging never grants spawn access.
 
-- L2 fills eligible ground between authored areas with connected goblin-warren
-  rooms (`CaveAreas.planCity`, configured by `floorProfile(2).warren`).
+- L3 fills eligible ground between authored areas with connected goblin-warren
+  rooms (`CaveAreas.planCity`, configured by `floorProfile(3).warren`).
   Shared walls have two-cell doors; clipped rooms retain open rims, and route
   clearings, landmarks and stair approaches stay clear. The city owns its empty
   ground so ordinary rock scatter cannot refill its passages. Room encounters
   use stable IDs and the class-specific safety gate; finite stores share the
   existing cave-container budget. The drill budget is placed before the city.
 
-- L2 pressure plates are subtle floor marks, visible only within one cell of
+- L3 pressure plates are subtle floor marks, visible only within one cell of
   the player's body. Stepping on one triggers its paired rolling ball, spike
   wall or gas grate once per encounter. Gas grates stay inert until pressed,
   then emit the existing poison/paralysis gas burst rather than a periodic
@@ -200,18 +200,18 @@ access or tile lifecycle mechanics.
   reservation; actual objects, landmark approaches and the hazard safety gate
   still exclude placement. Grove ghost plates retain their existing visibility.
 
-- No goblin walks L1 (owner, Oct 2026): L1's cave-area weights give the
-  goblin warrens nothing and seat no goblins (`floorProfile(1).caveAreas`),
-  the L1 habitat theme band is all natural (`EnemyHabitats.THEME_BANDS`), and
-  every goblin row's cave window opens on L2 or deeper (the club goblin at
-  2..3). L1 is slimes, bats and what a campfire wards off.
+- L2 carries the natural cave profile previously used on L1: its authored
+  areas have no goblin warrens, and `generationDepth: 1` preserves the original
+  anchor selection and deterministic slot ordering. L1 sewer has no authored
+  natural areas. Physical-depth encounter, ore and travel progression remain
+  unchanged by this wall update; saved object IDs still include actual depth.
 - Authored cave areas use `ZoneVariants.anchorFrame` and run before ordinary
   floor passes. Keep their empty-ground reservations separate from object
   occupancy (`CaveAreas`); ambient spawns must respect both. Derive deeper
   floors from `geologyGrid`, before authored terrain changes. Ordinary cleanup
   and gem conversion must leave `caveArea` pieces intact. Authored warren
   stores spend `WorldGen.caveContainerBudget` before ambient barrels.
-  Dungeon mazes on floors 1–2 repeat the reviewed 34 × 33 braided wall mask
+  Dungeon mazes on floors 2–3 repeat the reviewed 34 × 33 braided wall mask
   (spacing 3, loops 77%) in canonical anchor coordinates across eligible grove
   coverage. Fill is diggable `CAVE_WALL`, not rock objects. Clipped boundaries,
   tile seams, routes, landmark approaches and the focus stay open; shortest
@@ -233,8 +233,8 @@ access or tile lifecycle mechanics.
   per-depth regions (`THEME_BANDS`), while chest mirrors, torch sites, quarry
   provenance and spring caves inherit surface anchors. The street mirror and
   any per-floor road clearings are level-scoped projections of surface lines.
-  On L1, only Small roads become road-derived cave walls; Medium/Large roads
-  and paths remain open terrain. Route projection cannot carve the L1 Small-road
+  On L2, only Small roads become road-derived cave walls; Medium/Large roads
+  and paths remain open terrain. Route projection cannot carve the L2 Small-road
   walls. Buildings and water retain their existing wall mapping. Open terrain
   does not relax inherited spawn safety.
   `docs/design/floors.md` owns the per-floor catalog.
@@ -244,8 +244,11 @@ access or tile lifecycle mechanics.
   `WorldGen.floorProfile(depth)` owns cave terrain, street projection and gem
   probabilities, flint-bearing rock frequency, authored cave-area weights/carving/garrisons, pressure traps,
   the vent kinds a floor erupts,
-  arrival story IDs and entry keys. The terrain ladder is city 2, clearings 3,
-  open fungal 4, haunted surface mirror 5, lava 6, and dragon mirrors 7–8.
+  arrival story IDs and entry keys. The terrain ladder is sewer 1 (building walls), natural caves 2 (the old
+  L1 mask read directly from the surface), goblin city 3, deep-stone clearings
+  4, open fungal 5, lava 6, and dragon masonry 7–8. Lava and dragon strata
+  read surface geometry directly; an open fungal floor must not erase lava
+  footprints. Lava building cells are ground-level `CAVE_LAVA`, not rockwalls.
   Clearing rewards carry the receiving depth; biome tints follow the profile.
   Keep story copy in the presentation module;
   choose its story through the profile. Depths beyond the explicit rows inherit
@@ -256,7 +259,7 @@ access or tile lifecycle mechanics.
 
 - Flint Field's central disk contains mineable flint-bearing rocks instead of
   loose pickups. Visible flint seams yield stone and one guaranteed flint.
-  L1 marks a quarter of ordinary ambient rocks as flint-bearing using stable
+  L2 marks a quarter of ordinary ambient rocks as flint-bearing using stable
   rock IDs and `floorProfile(depth).flintRockP`; placement and ore rolls retain
   their existing seeded streams. Other floors and loose tar-zone flint keep
   their existing rules.
@@ -756,6 +759,14 @@ Tests: `world_frame`, `worldgen_dedup`, `traps`, `lairs`, `spawn_roads`,
 `road_junctions`, `spawn_rebuild`, `tile_url`, `tile_build_blocks`, `street_variants`, `zones`,
 `chest_tier`, `daily_crates`, `density_pois`, `spawn_class`, `guard_groups`
 (`test/node/*.test.js`).
+
+The approved wall material source and cap colors live in
+`src/floor_wall_materials.js`. Both the game and fabricated floor viewer use
+these profiles and the same terrain generator. L5 generates no walls; its
+fungal wall sample remains available only as an art stress test. L2 uses the
+approved lighter Abandoned Mines wall material while retaining natural-cave
+terrain and authored-area rules. This changes floor assignments, not saved
+ledger keys or progression gates.
 
 ## Spawn precedence
 

@@ -86,7 +86,7 @@ const FILES = [
   // read Difficulty.get() at call time and app.js pins it at boot.
   'enemy_roster.js', 'enemy_spawns.js', 'creature_spawns.js', 'enemy_habitats.js', 'difficulty.js',
   'sprite_layout.js',
-  'mvt.js', 'util.js', 'polygon_geometry.js', 'particles.js', 'trail.js',
+  'mvt.js', 'util.js', 'floor_wall_materials.js', 'polygon_geometry.js', 'particles.js', 'trail.js',
   // Street restoration's arithmetic (pure); beside trail.js, whose ladder it feeds.
   'streets.js',
   // Street variants. Pure (reads WorldGen / Streets at CALL time), before worldgen.js like the page.
@@ -196,6 +196,8 @@ try {
     { filename: 'floor-viewer-region.js' });
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'tools/floor-viewer-variants.js'), 'utf8'), ctx,
     { filename: 'floor-viewer-variants.js' });
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'tools/floor-viewer-walls.js'), 'utf8'), ctx,
+    { filename: 'floor-viewer-walls.js' });
   vm.runInContext(FILES.map(readSrc).join('\n;\n') + '\n' + BRIDGE, ctx,
     { filename: 'src-bundle.js' });
 } catch (e) {

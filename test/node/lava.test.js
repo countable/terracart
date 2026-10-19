@@ -33,17 +33,17 @@ test('lava: level 6 turns BUILDING rock to lava — not road or water rock, and 
     for (let d = 1; d <= 7; d++) lv[d] = await WorldGen.loadTile.atDepth(d, tx, ty, lat);
     for (const i of [HOUSE, SHOP, CIVIC]) {
       assert.eq(lv[6].grid[i], T.CAVE_LAVA, `building cell ${i} is lava on level 6`);
-      for (const d of [1, 2, 3, 5, 7]) assert.eq(lv[d].grid[i], T.CAVE_WALL, `and rock on level ${d}`);
+      for (const d of [1, 2, 3, 4, 7]) assert.eq(lv[d].grid[i], T.CAVE_WALL, `and rock on level ${d}`);
     }
     for (const i of [ROAD, POND]) {
-      for (const d of [1, 3, 5, 6, 7]) assert.eq(lv[d].grid[i], T.CAVE_WALL, `road/water cell ${i} is rock on level ${d}`);
+      for (const d of [2, 4, 6, 7]) assert.eq(lv[d].grid[i], T.CAVE_WALL, `road/water cell ${i} is rock on level ${d}`);
     }
-    assert.truthy([...lv[4].grid].every(t => t === T.CAVE_FLOOR), 'Underdark has no walls');
+    assert.truthy([...lv[5].grid].every(t => t === T.CAVE_FLOOR), 'Underdark has no walls');
     let lava = 0;
     for (let i = 0; i < n * n; i++) if (lv[6].grid[i] === T.CAVE_LAVA) lava++;
     assert.eq(lava, 3, 'exactly the three building cells');
-    // Level 7 is exactly what it would be under plain rock: same grid as level 5.
-    assert.eq(Array.from(lv[7].geologyGrid).join(), Array.from(lv[5].geologyGrid).join(), 'level 7 unchanged by the lava above');
+    // Level 7 is exactly what it would be under plain rock: same natural wall geology as level 2.
+    assert.eq(Array.from(lv[7].geologyGrid).join(), Array.from(lv[2].geologyGrid).join(), 'level 7 unchanged by the lava above');
     // Nothing generated sits in the lava.
     const N = n, mPerCell = tileEdgeM / n;
     const cellOf = (o) => Math.floor((o.y - ty * tileEdgeM) / mPerCell) * N + Math.floor((o.x - tx * tileEdgeM) / mPerCell);

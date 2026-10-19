@@ -1540,6 +1540,7 @@ function makeBiomeTextures(scene, size) {
   }
   makeCaveChasmTexture(scene, size);
   makeCaveWallEdges(scene, size);
+  if (typeof FloorWallMaterials !== 'undefined') FloorWallMaterials.prepareAll(scene);
   for (const [type, spec] of Object.entries(BIOME_TEX)) {
     const phases = spec.animPhases || 1;
     for (let v = 0; v < spec.variants; v++) {

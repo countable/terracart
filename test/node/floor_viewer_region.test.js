@@ -211,7 +211,7 @@
 
   test('floor viewer region: compact spring preview reports the actual placement decision on both authored floors', async () => {
     const W = WorldGen, V = FloorViewerVariants, R = FloorViewerRegion;
-    for (const depth of [1, 2]) {
+    for (const depth of [2, 3]) {
       W.setDepth(0);
       for (let d = 0; d <= depth; d++) W.tileCacheFor(d).clear();
       await V.withSelection(depth, 1, async () => {

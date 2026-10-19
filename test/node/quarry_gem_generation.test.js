@@ -30,35 +30,35 @@
     }
   });
 
-  test('quarry gems: first-floor seats respect walls, reservations and finite source cells', () => {
+  test('quarry gems: natural-floor seats respect walls, reservations and finite source cells', () => {
     const N=8,edge=N*7,grid=new Uint8Array(N*N).fill(W.T.CAVE_FLOOR),occupied=new Set([10]);
     const source=(ix,iy,extra={})=>({kind:'mineralrock',zoneKind:'quarry',quarryId:'100,200',deposit:'crystal',
       x:(ix+.5)*7,y:(iy+.5)*7,...extra});
     grid[11]=W.T.CAVE_WALL;
     const sources=[source(1,1),source(1,1),source(2,1),source(3,1),source(4,1,{zoneKind:'grove'}),source(5,1,{deposit:undefined}),source(-1,1)];
-    const out=W.caveQuarryGemsFrom(sources,grid,N,0,0,edge,1,occupied);
+    const out=W.caveQuarryGemsFrom(sources,grid,N,0,0,edge,2,occupied);
     assert.eq(out.length,1);assert.eq(out[0].deposit,quarryGemDeposit('100,200'));
-    assert.eq(out[0].quarryId,'100,200');assert.eq(out[0].depth,1);assert.truthy(occupied.has(9));
+    assert.eq(out[0].quarryId,'100,200');assert.eq(out[0].depth,2);assert.truthy(occupied.has(9));
     assert.eq(W.caveQuarryGemsFrom(sources,grid,N,0,0,edge,0,new Set()).length,0);
-    assert.eq(W.caveQuarryGemsFrom(sources,grid,N,0,0,edge,2,new Set()).length,0);
-    const reversed=W.caveQuarryGemsFrom([...sources].reverse(),grid,N,0,0,edge,1,new Set([10]));
+    assert.eq(W.caveQuarryGemsFrom(sources,grid,N,0,0,edge,3,new Set()).length,0);
+    const reversed=W.caveQuarryGemsFrom([...sources].reverse(),grid,N,0,0,edge,2,new Set([10]));
     assert.eq(JSON.stringify(reversed),JSON.stringify(out),'order does not change a seam or its saved identity');
   });
 
-  test('quarry gems: first-floor ordinary and ore rocks inherit only their surface quarry boundary', () => {
+  test('quarry gems: natural-floor ordinary and ore rocks inherit only their surface quarry boundary', () => {
     const N=4,edge=N*7,coverage=new Uint16Array(N*N);
     coverage[0]=1;coverage[1]=1;coverage[2]=2;
     const surface={cellsPerEdge:N,zone:{coverage,anchors:[{kind:'quarry',gx:100,gy:200},{kind:'grove',gx:300,gy:400}]}};
     const make=()=>[0,1,2,3].map((ix)=>({kind:'mineralrock',x:(ix+.5)*7,y:3.5,yieldTier:ix===1?2:1}));
     const rocks=make(),other={kind:'chest',x:3.5,y:3.5};
-    W.stampCaveQuarryRocks([...rocks,other],surface,N,0,0,edge,1);
+    W.stampCaveQuarryRocks([...rocks,other],surface,N,0,0,edge,2);
     for(const rock of rocks.slice(0,2)) {
-      assert.eq(rock.quarryId,'100,200');assert.eq(rock.depth,1);assert.eq(rock.zoneKind,'quarry');
+      assert.eq(rock.quarryId,'100,200');assert.eq(rock.depth,2);assert.eq(rock.zoneKind,'quarry');
       assert.eq(rock.deposit,undefined,'provenance does not turn ordinary rocks into guaranteed gems');
     }
     assert.eq(rocks[1].yieldTier,2,'ore tier is preserved');
     for(const rock of [rocks[2],rocks[3],other])assert.eq(rock.quarryId,undefined);
-    for(const depth of [0,2,3]) {
+    for(const depth of [0,1,3]) {
       const deeper=make();W.stampCaveQuarryRocks(deeper,surface,N,0,0,edge,depth);
       assert.truthy(deeper.every(o=>o.quarryId===undefined));
     }
@@ -72,19 +72,19 @@
       objects:[],genObjects:[source],wildplants:[],
       zone:{coverage:new Uint16Array(N*N).fill(1),anchors:[{kind:'quarry',gx:321,gy:654}]}});
     try {
-      const first=await W.loadTile.atDepth(1,tx,ty,49.85);
+      const first=await W.loadTile.atDepth(2,tx,ty,49.85);
       const gems=first.objects.filter(o=>mineralDeposit(o));
       const ordinary=first.objects.filter(o=>o.kind==='mineralrock'&&!mineralDeposit(o));
       assert.gt(ordinary.length,0);
-      assert.truthy(ordinary.every(o=>o.quarryId==='321,654'&&o.depth===1),'ambient rocks receive source quarry provenance');
+      assert.truthy(ordinary.every(o=>o.quarryId==='321,654'&&o.depth===2),'ambient rocks receive source quarry provenance');
       assert.eq(gems.length,1);assert.eq(gems[0].deposit,source.deposit);
       assert.eq(gems[0].x,source.x);assert.eq(gems[0].y,source.y);
       assert.truthy(gems[0].id!==source.id,'separate mining ledger from surface');
       assert.eq(first.objects.filter(o=>o.x===source.x&&o.y===source.y).length,1,'ambient objects cannot overwrite the seat');
-      const second=await W.loadTile.atDepth(2,tx,ty,49.85);
+      const second=await W.loadTile.atDepth(3,tx,ty,49.85);
       assert.eq(second.objects.filter(o=>o.quarryId).length,0,'the seam stops after the first cave floor');
     } finally {
-      for(const depth of [0,1,2])W.setDepth(depth).delete(key);
+      for(const depth of [0,1,2,3])W.setDepth(depth).delete(key);
       W.setDepth(0);
     }
   });

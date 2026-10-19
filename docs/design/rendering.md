@@ -374,9 +374,18 @@ the real source so a missing texture cannot become a permanent cached palette.
   Building contact shadows use 25% opacity.
   Use a stable `seatFrame` for animation. After art changes, run
   `node tools/sprite_audit.js --emit-bounds` and update `src/sprite_layout.js`.
-- Every underground floor uses the same connected cave-wall atlas: raised caps,
-  chipped rims and lighter front faces. Live neighbour masks update after mining
-  and tile arrival; pooled sprites hide when returning to the surface or sky.
+- Underground rock walls use full-cell 32×32 prisms, 19px high, through the
+  retained `WallPerspective` renderer in both north-up and compass views.
+  `FloorWallMaterials` supplies the approved per-level caps, native 16px face
+  textures and 3px exposed lips; runtime and floor viewer share its atlas.
+  The compact source strip and provenance live in `assets/Objects/Cave/`.
+  Atlases are baked once at startup. Live neighbour masks rebuild geometry after
+  mining or tile arrival; compass and fractional camera movement reuse it.
+  Internal faces are omitted, and individual blocks share the actor depth sort.
+  Depth-specific parts hide on floor changes. L6 keeps near-black caps and a
+  stable one-in-four cracked-wall variant keyed by absolute cell. Floor profiles
+  own wall placement: the material renderer never creates walls on open L5 or
+  raises L6 lava pits into rock masses.
 - Connected ground art that must abut its neighbours (chasm sections) seats on
   its terrain slot through `absCellScreenCentre` (coords.js), never on its own
   rounded `deltaMToScreen` point: neighbours' float centres sit `CELL_PX` ± epsilon

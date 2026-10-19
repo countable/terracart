@@ -4,27 +4,21 @@ The dungeon runs eight floors underground. Above ground, five tower floors
 carry the climbing challenges. Code owns the current numbers; this file lists
 what exists and what makes each floor its own.
 
-Rework status: in code now - the portal stone waits on floor 4 (a tier-4-or-better
-chest a kilometre out; this floor's depth bonus lifts every chest to effective
-T3, so T4 keeps the bar honest), the arena trials' key opens floor 5, the rope,
-sinkhole and fall seals on floors 2, 3, 4 and 6 read one owning table
-(`DungeonProgression.ROPE_SEALED_FLOORS`), and `WorldGen.FLOOR_PROFILES` owns
-every floor-scoped cave rule (terrain mode, biome label, lava, street mirror,
-fall landings, chest source, quarry provenance, pressure traps, authored cave
-areas, arrival stories and the infernal entry key). Authored warren, mushroom, gemstone and
-dungeon-maze areas already land on floors 1-2 around grove and quarry anchors
-(`WorldGen.floorProfile(depth).caveAreas`); L2 connects the space between these areas with a continuous goblin warren. The terrain ladder is implemented:
-city at 2 (building-only walls), deep stone at 3, fungal Underdark at 4,
-haunted city at 5, lava at 6, and mirrored dragon strata at 7-8, each with its
-own biome tint and arrival story. Deep-stone settlements carry depth 3;
-existing enemy windows, ore mines, chest ceilings and ghost bands follow the
-new ladder. The existing finite dragon-roost placement starts on floor 8.
+The approved wall ladder is implemented in `WorldGen.FLOOR_PROFILES`: sewer
+at 1, the prior natural cave terrain at 2, goblin warrens at 3, deep stone and
+dwarves at 4, an open fungal cavern at 5, lava at 6 and dragon masonry at 7–8.
+The game and floor viewer share these wall rules and approved material schemes.
+L2 reads the original surface geometry directly and keeps the natural authored
+area selection seed; its wall material is the approved lighter Abandoned Mines
+scheme. Existing depth-based encounter/ore progression, travel gates and saved
+IDs remain at their physical depths. The portal stone and arena key therefore
+retain their existing progression depths during this wall-only update.
 
 Still pending: the elevator rework (repair from floor 1, the descent module),
 the wizard-tower key for 6 -> 7, and stair minting - generated down-ladders
 still connect sealed floors, so only the rope, pit and arena-key gates of the
 matrix below are live. The target rows below also include unimplemented
-geometry: road-variant tunnels on 3, the dug descent
+geometry: road-variant tunnels on 4, the dug descent
 shaft, surface-shaped fungal beds, fungal vent skins and mushroom foes,
 haunted-city ruin/cache dressing, lava heat shelters, and the largest-opening
 roost/egg design. These remain proposals in
@@ -33,8 +27,8 @@ ordinary mushrooms, crypt haunting and finite roost encounters remain in use.
 Every input that defines a floor is catalogued in
 [floor-design-review.html](floor-design-review.html).
 
-Depth 0 is the surface. Each cave tile is the negative of the tile above it
-(`worldgen.js` `loadCaveTile`), so a floor's identity comes from three things:
+Depth 0 is the surface. Each cave tile derives from the immutable surface or
+its generated predecessor, as selected by `WorldGen.floorProfile`, so a floor's identity comes from three things:
 its terrain rule, its content windows, and its route in.
 
 ## Sky floor (depth -1)
@@ -57,14 +51,14 @@ trials still run in the paused overlay scene (`temple_scene.js`).
 
 | Floor | Theme | Terrain and look | Unique to this floor | Signature foes |
 | --- | --- | --- | --- | --- |
-| 1 | Natural caves with some engineered tunnels | Cave: surface buildings, water and Small roads become walls; Medium/Large roads and paths stay open, with inherited safety exclusions | Street and path mirror routes with themes, authored spring caves, barrels, floor torches, yellow confusion-gas vents (no contact hit; each eruption is a mushroom-sized burst of yellow confusion gas that briefly reaches the adjacent cells; gas vents rest 20 s so a burst disperses even from a one-cell passage before the next), quarry gem seams, double mushroom growth, a thin copper seam (5 % of rocks); pits, holes and sinkhole cave-ins drop into the goblin city below; the only floor where campfires ward monsters (`FIRE_WARD_MAX_DEPTH = 1`) | Slimes above all - green, cave, purple and splitting - with bats and a few goblins (one habitat region in eight is a warren; window 1-2) |
-| 2 | Goblin city | Only buildings turn to rock wall - all road classes stay open - and goblin-warren rooms laid out nexus-style cover the rest of the floor | The warrens are the floor: rooms claim everything except small clearings, which appear only on road variants and at non-goblin nexus places, the same anchors as floor 1; falls from floor 1's pits land in those clearings; a thin copper seam (the floor 1 share); hidden pressure plates (revealed within one cell) controlling rolling balls, spike walls and gas grates, plus poison, fire and paralysis vents, which start here: poison and paralysis vents burst green and blue gas like the floor-1 vent (paralysis gas re-arms after each dose, leaving a window to walk out), and each fire-vent eruption lights its cell and the four beside it as burning ground | The warren family: club, spear and archer goblins, goblin trappers (city window 2-3) |
-| 3 | Deep stone | Only surface park, grove, playground, pitch and commercial ground opens; the rest is stone the player must dig through to get anywhere | Digging is the way around: most places need it, and road variants keep about half the roads cleared as tunnels; the only way down to floor 4 is a shaft dug through the stone; clearings settle as Deep groves and Dwarven cities with residents, caches and shrines; copper is its mine; ambient crypt ghosts begin one floor below | Spider, zombie, spear goblin (3-4) |
-| 4 | Underdark: a fungal world, open like the surface | Every cell opens into one cavern - no corridor maze, open ground under the fungi | The portal stone waits here (the first tier-4-or-better chest a kilometre or more out - the floor's depth bonus lifts every chest to effective T3, so the bar is T4); first floor where chest tiers can reach T6; crypt ghosts appear; double mushroom growth returns with the fungi; the arrival story plays here ("The walls fall away into a barren cavern") | Purple slime, mushroom monsters, troll (4-5, troll 4-4) |
-| 5 | Haunted layer: a dead city | Mirrors the surface grid - the city above, repeated in ruin and silence | Arena-locked hatches from floor 4 - the five tower trials mint the key that opens them; the dead city keeps the shape of home, and its ghosts keep theirs | Ghosts, sword spirits, vampire bats (5-6) |
-| 6 | Lava stratum | Rock under surface buildings turns to lava | Infernal kinds enter the pools; fire elementals appear only here; no ladders or pits drop into the dragon layer - the second wizard tower holds the key | Fire elemental (6-6), fiend, brute (6-7) |
-| 7 | Dragon layer | Mirror of the floor above | Entered only through the wizard-tower hatches; first floor where chest tiers can reach T7; ghosts grow larger and double-strength from here (`GHOST_SCALING`); dragons arrive | Dragons and their kin (7-8) |
-| 8 | Dragon layer: the deep roosts | Mirror of the floor above | Ore reaches tier 7 (the mine is tiers 6-7); the roosts, one red dragon to a territory; top of the designed dungeon | Red dragons and their roost guards (8-9) |
+| 1 | Sewer | Brick walls under surface buildings; open route/channel surfaces | Sewer geometry does not create new water hazards; ordinary shallow-floor features retain their existing rules | Existing depth-1 roster |
+| 2 | Natural caves | Prior L1 wall mask: buildings, water and Small roads form rock; Medium/Large roads and paths stay open | Original natural authored areas and selection seed, quarry provenance, floor torches and barrels; lighter Abandoned Mines walls | Existing depth-2 roster |
+| 3 | Goblin warrens | Building-only base walls, connected warren rooms across eligible ground | Open doors and protected route/landmark approaches; existing authored stores and pressure traps move with the warren profile | Existing depth-3 roster |
+| 4 | Deep stone + dwarves | Solid stone except eligible park, grove, playground, pitch and commercial clearings | Clearings carry Deep groves and Dwarven cities; approved blue masonry | Existing depth-4 roster |
+| 5 | Fungal Underdark | One open cavern; no rockwalls | Fungal wall art is a comparison sample only; arena key gate remains at depth 5 | Existing depth-5 roster |
+| 6 | Lava + demons | Surface-derived walls; building footprints become ground-level lava pits | Near-black basalt caps; stable one-in-four cracked face variants on remaining rockwalls | Fire elementals and existing depth-6 roster |
+| 7 | Dragons | Surface-derived rock masses with Dreams violet masonry | Independent of open L5 and lava cells above | Existing dragon roster |
+| 8 | Deep roosts | Same dragon masonry and surface-derived wall rule | Existing finite dragon-roost placement | Red dragons and roost guards |
 
 Beyond 8 the dungeon stays open rather than ending: liches, minotaurs, hell
 brutes and armoured demons hold depth 9 and deeper, and ore and chest tiers
@@ -114,7 +108,7 @@ Five trials, one per floor, climbed in order. The trial rules live in
 
 Status: the five trials run today in the flat Transcendent Arena (depth 100),
 entered through a progression portal on safe surface ground; five wins mint
-the key that opens the hatches to dungeon floor 5, the haunted city
+the key that opens the hatches to dungeon floor 5, the fungal Underdark
 (`dungeon_progression.js`). The aboveground tower - five climbable floors,
 one trial each - is the intended presentation, not yet built. When it is
 built, the trials move there unchanged and the key follows the fifth floor's

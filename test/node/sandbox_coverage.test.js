@@ -308,8 +308,12 @@ test('sandbox coverage: hazard yard uses live web, vent, plate and fall records'
     assert.eq(EnvironmentHazards.lists(scene).caveins.length, 2);
     assert.falsy(cave.some(h => /^pressure-|^plate-/.test(h._sandboxProbe)), 'no ball or wall traps on L1');
     scene.depth = 2;
+    const natural = Sandbox.seedHazardState(scene, origin);
+    assert.eq(EnvironmentHazards.lists(scene).vents.map(h => h.kind).join(), 'confusion');
+    assert.falsy(natural.some(h => /^pressure-|^plate-/.test(h._sandboxProbe)));
+    scene.depth = 3;
     const deep = Sandbox.seedHazardState(scene, origin);
-    assert.eq(EnvironmentHazards.lists(scene).vents.map(h => h.kind).join(), 'poison,fire,paralysis', 'L2 vents the three gases');
+    assert.eq(EnvironmentHazards.lists(scene).vents.map(h => h.kind).join(), 'poison,fire,paralysis', 'L3 vents the three gases');
     for (const kind of ['ball', 'wall']) {
       const trap = deep.find(h => h._sandboxProbe === 'pressure-' + kind);
       const plate = deep.find(h => h._sandboxProbe === 'plate-' + kind);

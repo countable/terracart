@@ -7,7 +7,7 @@
       anchor = { kind: 'grove', key: `spring-test-${tx}`, owned: true,
         gx: tx * EXT + (cx + .5) * EXT / N, gy: ty * EXT + (cy + .5) * EXT / N,
         lx: (cx + .5) * EXT / N, ly: (cy + .5) * EXT / N, upm: edge / EXT };
-      if (CaveAreas.select(anchor, 1) === 'spring_cave') break;
+      if (CaveAreas.select(anchor, 2) === 'spring_cave') break;
     }
     assert.lt(tx, firstTx + 1000, 'fixture finds a selected grove without overriding selection');
     const surfaceGrid = new Uint8Array(N * N).fill(T.PARK);
@@ -15,7 +15,7 @@
       grid: surfaceGrid, baseGrid: surfaceGrid.slice(), objects: [], genObjects: [], wildplants: [],
       zone: { anchors: [anchor], coverage: new Uint16Array(N * N).fill(1) } };
     return { surface, grid: new Uint8Array(N * N).fill(T.CAVE_FLOOR), N, tx, ty,
-      tileEdgeM: edge, depth: 1, objects: [], occupied: new Set(), spawnWhy: new Uint16Array(N * N), cx, cy };
+      tileEdgeM: edge, depth: 2, objects: [], occupied: new Set(), spawnWhy: new Uint16Array(N * N), cx, cy };
   }
   const at = (f, x, y) => ({ x: f.tx * edge + (x + .5) * W.CELL_M,
     y: f.ty * edge + (y + .5) * W.CELL_M });
@@ -26,10 +26,10 @@
 
   test('cave areas: a relocated profile enables authored springs on another floor', () => {
     const f = fixture(), original = W.floorProfile;
-    const spring = { ...original(1).caveAreas, weights: [{ id: 'spring_cave', weight: 1 }] };
+    const spring = { ...original(2).caveAreas, weights: [{ id: 'spring_cave', weight: 1 }] };
     W.floorProfile = depth => ({ ...original(depth), caveAreas: depth === 4 ? spring : null });
     try {
-      assert.eq(CaveAreas.select(f.surface.zone.anchors[0], 1), null);
+      assert.eq(CaveAreas.select(f.surface.zone.anchors[0], 2), null);
       assert.eq(CaveAreas.plan(f).areas.length, 0);
       f.depth = 4;
       assert.eq(CaveAreas.select(f.surface.zone.anchors[0], 4), 'spring_cave');
@@ -119,7 +119,7 @@
   });
 
   test('cave areas: protected stairs and existing chests retain dry landings through the pool', () => {
-    for (const kind of ['staircase', 'chest']) for (const delta of [0, 1]) {
+    for (const kind of ['staircase', 'chest']) for (const delta of [0, 1, 2, 3]) {
       const f = fixture(), x = f.cx + delta, y = f.cy + delta;
       const protectedObject = { kind, dir: 'up', id: `spring-protected-${kind}`, ...at(f, x, y) };
       f.objects.push(protectedObject); f.occupied.add(y * N + x);
@@ -177,8 +177,8 @@
   test('cave areas: canonical grove mirror relocation is transactional and retains its reward identity', () => {
     for (const excluded of [false, true]) {
       const { f, source } = groveChestFixture();
-      const mirror = { kind: 'chest', poiClass: 'park', id: `${source.id}_d1`, caveOf: source.id,
-        depth: 1, rank: source.rank, tierSeed: 3, ...at(f, f.cx, f.cy) };
+      const mirror = { kind: 'chest', poiClass: 'park', id: `${source.id}_d2`, caveOf: source.id,
+        depth: 2, rank: source.rank, tierSeed: 3, ...at(f, f.cx, f.cy) };
       const original = JSON.stringify(mirror), originalCell = index(f, mirror);
       f.objects.push(mirror); f.occupied.add(originalCell);
       if (excluded) f.spawnWhy[(f.cy + 5) * N + f.cx + 5] = W.SPAWN_WHY.FARMLAND;
@@ -190,7 +190,7 @@
       CaveAreas.apply(p, f.grid, f.objects, [], f.occupied);
       assert.eq(f.objects.filter(o => o.kind === 'chest').length, 1, 'no new reward allocation');
       assert.includes(f.objects, mirror, 'existing object identity retained');
-      assert.eq(mirror.id, `${source.id}_d1`); assert.eq(mirror.caveOf, source.id);
+      assert.eq(mirror.id, `${source.id}_d2`); assert.eq(mirror.caveOf, source.id);
       assert.eq(mirror.rank, source.rank); assert.eq(mirror.tierSeed, 3);
       if (excluded) {
         assert.eq(JSON.stringify(mirror), original, 'declined area cannot move chest');
@@ -211,12 +211,12 @@
     const { f, source } = groveChestFixture(), key = W.tileKey(f.tx, f.ty);
     W.setDepth(0).set(key, f.surface);
     try {
-      const entry = await W.loadTile.atDepth(1, f.tx, f.ty, 49);
+      const entry = await W.loadTile.atDepth(2, f.tx, f.ty, 49);
       assert.eq(entry.caveAreas.areas.length, 1);
       const mirrors = entry.objects.filter(o => o.caveOf === source.id);
       assert.eq(mirrors.length, 1);
       const mirror = mirrors[0], i = index(f, mirror), x = i % N, y = Math.floor(i / N);
-      assert.eq(mirror.id, `${source.id}_d1`); assert.eq(mirror.rank, source.rank);
+      assert.eq(mirror.id, `${source.id}_d2`); assert.eq(mirror.rank, source.rank);
       assert.gt(mirror.tierSeed, 0, 'quota tier survives relocation');
       assert.truthy(i !== f.cy * N + f.cx);
       assert.truthy(entry.caveAreas.reserved.has(i));
@@ -228,14 +228,14 @@
       }
       assert.eq(index(f, source), f.cy * N + f.cx, 'surface chest stays at its own canonical origin');
     } finally {
-      for (const depth of [0, 1]) W.setDepth(depth).delete(key);
+      for (const depth of [0, 1, 2, 3]) W.setDepth(depth).delete(key);
       W.setDepth(0);
     }
   });
 
   test('cave areas: generation is stable on reload and limited to shallow levels', () => {
     assert.eq(snapshot(CaveAreas.plan(fixture())), snapshot(CaveAreas.plan(fixture())));
-    for (const depth of [0, 3, 10]) {
+    for (const depth of [0, 1, 4, 10]) {
       const f = fixture(); f.depth = depth;
       const p = CaveAreas.plan(f);
       assert.eq(p.areas.length, 0); assert.eq(p.reserved.size, 0); assert.eq(p.terrain.size, 0);
@@ -248,28 +248,28 @@
     const oldTest = window.__TEST_MODE;
     window.__TEST_MODE = false;
     try {
-      const entry = await W.loadTile.atDepth(1, f.tx, f.ty, 49);
+      const entry = await W.loadTile.atDepth(2, f.tx, f.ty, 49);
       assert.eq(entry.caveAreas.areas.length, 1);
       const ownedIds = new Set([...entry.caveAreas.objects, ...entry.caveAreas.wildplants].map(o => o.id));
       const spawn = new Function('entry', 'tx', 'ty', 'depth', SPAWN_CAVE_SRC.replace(/\n\s*\}\s*$/, ''));
-      spawn.call({ tileEdgeM: edge, save: { caught: [] } }, entry, f.tx, f.ty, 1);
+      spawn.call({ tileEdgeM: edge, save: { caught: [] } }, entry, f.tx, f.ty, 2);
       for (const list of [entry.objects, entry.wildplants, entry.extraTreasures, entry.caveCoinSeeds,
         entry.creatures, entry.coinDrops, entry.traps]) for (const o of list || []) {
         if (!ownedIds.has(o.id) && !o.caveArea) assert.falsy(entry.caveAreas.reserved.has(index(f, o)),
           `${o.kind || o.crop || 'reward'} respects empty reserved ground`);
       }
-      const deeper = await W.loadTile.atDepth(2, f.tx, f.ty, 49);
+      const deeper = await W.loadTile.atDepth(3, f.tx, f.ty, 49);
       for (const i of entry.caveAreas.terrain.keys()) {
         assert.eq(entry.geologyGrid[i], T.CAVE_FLOOR, 'original geology is retained');
         assert.eq(deeper.geologyGrid[i], T.CAVE_FLOOR, 'authored pool and source do not leak into the next stratum');
       }
       const first = snapshot(entry.caveAreas);
-      W.setDepth(1).delete(key);
-      const reloaded = await W.loadTile.atDepth(1, f.tx, f.ty, 49);
+      W.setDepth(2).delete(key);
+      const reloaded = await W.loadTile.atDepth(2, f.tx, f.ty, 49);
       assert.eq(snapshot(reloaded.caveAreas), first, 'loader rebuild retains exact authored layout');
     } finally {
       window.__TEST_MODE = oldTest;
-      for (const depth of [0, 1, 2]) W.setDepth(depth).delete(key);
+      for (const depth of [0, 1, 2, 3]) W.setDepth(depth).delete(key);
       W.setDepth(0);
     }
   });

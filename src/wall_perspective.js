@@ -44,7 +44,7 @@
         group = scene._wallPerspective[source] = { gfx, blocks: [], x: 0, y: 0, parts: [], perWall: false, mode: null };
       }
       group.blocks.length = 0; group.runs = null; group.buildings = null;
-      group.alwaysActive = false;
+      group.alwaysActive = false; group.renderDepth = null; group.atlas = null;
       // PER WALL (Home's interior without the low-poly path): every block
       // draws into a part of its own in the world container, sorted against
       // the player at its wallSortPoint — see update and worldPieces. The
@@ -178,8 +178,14 @@
     update(scene) {
       const angle = scene.mapRot || 0, c = Math.cos(angle), s = Math.sin(angle);
       for (const group of Object.values(scene._wallPerspective || {})) {
-        group.gfx.visible = this.active(scene) || (group.alwaysActive && (scene.depth ?? 0) === 0);
-        if (!group.gfx.visible) continue;
+        group.gfx.visible = group.renderDepth != null
+          ? (scene.depth ?? 0) === group.renderDepth
+          : this.active(scene) || (group.alwaysActive && (scene.depth ?? 0) === 0);
+        if (!group.gfx.visible) {
+          for (const part of group.parts) part.visible = false;
+          group.visibilityKey = null;
+          continue;
+        }
         const player = scene.player, feet = scene.playerScreen?.();
         const visibilityKey = [angle, group.x, group.y, feet?.x, feet?.y, group.perWall,
           player?.visible, player?.x, player?.y, player?.displayWidth, player?.displayHeight, scene.save?.starterShopId].join(',');
@@ -187,7 +193,7 @@
         const geometryChanged = group.angle !== angle;
         group.angle = angle; group.visibilityKey = visibilityKey;
         const g = group.gfx;
-        if (group.blocks.some(b => b.materialFaces)) WallSurfaceRenderer.install(scene, g);
+        if (group.blocks.some(b => b.materialFaces)) WallSurfaceRenderer.install(scene, g, group.atlas);
         for (const block of group.blocks) {
           block.depth = s * block.x + c * block.y;
           block.support.depth = s * block.support.x + c * block.support.y;
@@ -285,7 +291,7 @@
             const p = seg ? this.wallSortPoint({ x: seg.ax, y: seg.ay }, { x: seg.bx, y: seg.by }, angle, local) : { x: block.x, y: block.y };
             part._huAnchor.x = p.x + group.x; part._huAnchor.y = p.y + group.y;
             part.visible = true; part.setPosition(group.x, group.y);
-            if (block.materialFaces) WallSurfaceRenderer.install(scene, part);
+            if (block.materialFaces) WallSurfaceRenderer.install(scene, part, group.atlas);
           });
           for (let i = group.blocks.length; i < group.parts.length; i++) { const part = group.parts[i]; if (part.visible) { part.visible = false; part.clear(); } }
           if (!geometryChanged && !modeChanged && group.alphaKey === alphaKey) continue;
@@ -321,7 +327,7 @@
     // ground depth in world metres, off its anchor.
     worldPieces(scene) {
       const out = [], groups = scene._wallPerspective;
-      if (!groups || (scene.depth ?? 0) !== 0) return out;
+      if (!groups) return out;
       this.update(scene);
       const anchor = typeof viewAnchorWorldM === 'function' ? viewAnchorWorldM(scene) : null;
       for (const group of Object.values(groups)) {

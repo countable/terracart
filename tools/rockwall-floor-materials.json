@@ -1,0 +1,198 @@
+{
+  "credit": "ElvGames",
+  "sourceCellPx": 16,
+  "sheets": {
+    "sewer": "16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
+    "temple": "16x16/Temple Tileset 16x16 Pixelart [Rogue Adventure]/Temple Tileset/RA_Temple.png",
+    "hell": "16x16/Hell Tileset 16x16 Pixelart [Rogue Adventure]/Hell Tileset/RA_Hell.png",
+    "dungeon": "16x16/Dungeon - Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+    "fungal": "16x16/Enchanted Forest - Fantasy Dreamland Reborn/Tilesets/FDR_Enchanted_Forest_Blue.png",
+    "mycelium": "16x16/Enchanted Forest - Fantasy Dreamland Reborn/Tilesets/FDR_Enchanted_Grounds_Blue.png",
+    "magma": "16x16/Farm Game Magma Dungeon Tileset/Tilesets/FG_Magma_Dungeon.png",
+    "mines": "16x16/Farm Game Abandoned Mines Tileset/Tilesets/FG_Abandoned_Mines.png",
+    "reborn": "16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Dungeon.png",
+    "dreams": "16x16/Dreams - Fantasy Dreamland/Tilesets/FD_Dreams.png"
+  },
+  "themes": [
+    {
+      "id": "l1",
+      "label": "L1 \u00b7 Sewer",
+      "cap": [
+        76,
+        68,
+        65
+      ],
+      "face": {
+        "sheet": "sewer",
+        "x": 6,
+        "y": 3
+      },
+      "ground": {
+        "sheet": "sewer",
+        "x": 5,
+        "y": 6
+      },
+      "road": {
+        "sheet": "sewer",
+        "x": 2,
+        "y": 18
+      },
+      "note": "Warm grey rock tops, 3px brick lip, half-scale brick faces. Pipes are on the floor (z = 0), behind raised walls."
+    },
+    {
+      "id": "l2",
+      "label": "L2 \u00b7 Natural caves",
+      "note": "Abandoned Mines rock faces and cave stone floor. The game retains the established natural cave layout with these shared wall materials. Original cave art stays in the left reference; ground tiles are a trial arrangement.",
+      "cap": [
+        86,
+        70,
+        51
+      ],
+      "face": {
+        "sheet": "mines",
+        "x": 11,
+        "y": 10
+      },
+      "ground": {
+        "sheet": "mines",
+        "x": 13,
+        "y": 13
+      },
+      "road": {
+        "sheet": "mines",
+        "x": 13,
+        "y": 13
+      }
+    },
+    {
+      "id": "l3",
+      "label": "L3 \u00b7 Goblin warrens",
+      "cap": [
+        88,
+        68,
+        57
+      ],
+      "face": {
+        "sheet": "reborn",
+        "x": 17,
+        "y": 5
+      },
+      "ground": {
+        "sheet": "reborn",
+        "x": 22,
+        "y": 0
+      },
+      "road": {
+        "sheet": "reborn",
+        "x": 23,
+        "y": 0
+      },
+      "note": "Fantasy Dreamland Reborn Dungeon: dark brown masonry, worn slab ground and a neighbouring slab variant on the route."
+    },
+    {
+      "id": "l4",
+      "label": "L4 \u00b7 Dwarven stone",
+      "cap": [
+        69,
+        74,
+        103
+      ],
+      "face": {
+        "sheet": "dungeon",
+        "x": 4,
+        "y": 4
+      },
+      "ground": {
+        "sheet": "dungeon",
+        "x": 4,
+        "y": 22
+      },
+      "road": {
+        "sheet": "dungeon",
+        "x": 4,
+        "y": 22
+      },
+      "note": "Blue dressed masonry and continuous blue slab paving from the Dungeon pack."
+    },
+    {
+      "id": "l5",
+      "label": "L5 \u00b7 Fungal Underdark",
+      "cap": [
+        82,
+        51,
+        72
+      ],
+      "face": {
+        "sheet": "fungal",
+        "x": 22,
+        "y": 2
+      },
+      "ground": {
+        "sheet": "mycelium",
+        "x": 13,
+        "y": 1
+      },
+      "road": {
+        "sheet": "mycelium",
+        "x": 13,
+        "y": 1
+      },
+      "note": "Violet mushroom-cap material and teal mycelium. Wall geometry is a stress test only: target L5 remains an open cavern."
+    },
+    {
+      "id": "l6",
+      "label": "L6 \u00b7 Lava and demons",
+      "cap": [
+        30,
+        27,
+        31
+      ],
+      "face": {
+        "sheet": "magma",
+        "x": 26,
+        "y": 7
+      },
+      "ground": {
+        "sheet": "magma",
+        "x": 13,
+        "y": 15
+      },
+      "road": {
+        "sheet": "hell",
+        "x": 6,
+        "y": 5
+      },
+      "note": "Plain basalt faces; a stable random one-in-four wall-cell chance adds lava cracks. Cracked cells keep their pattern when the compass turns or the fixture reloads. Texture only, no new lighting or hazards.",
+      "faceAccent": {
+        "sheet": "magma",
+        "x": 26,
+        "y": 10
+      }
+    },
+    {
+      "id": "l7",
+      "label": "L7 \u00b7 Dragon temple",
+      "cap": [
+        75,
+        61,
+        111
+      ],
+      "face": {
+        "sheet": "dreams",
+        "x": 25,
+        "y": 6
+      },
+      "ground": {
+        "sheet": "dreams",
+        "x": 2,
+        "y": 0
+      },
+      "road": {
+        "sheet": "dreams",
+        "x": 6,
+        "y": 0
+      },
+      "note": "Dreams violet masonry and purple slab floors, with gold-flecked paving along the route. Muted violet tops retain the 3px masonry lip."
+    }
+  ]
+}

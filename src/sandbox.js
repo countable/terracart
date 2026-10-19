@@ -1454,7 +1454,7 @@
       gridOriginIX + yard.lx, gridOriginIY + yard.ly);
     installHazardFloors(scene, centreTX, centreTY);
     const labDepth = SandboxDestinations.find(params.get('sandboxZone'))?.depth;
-    if (labDepth === 1 || labDepth === 2) {
+    if (labDepth >= 1 && labDepth <= 3) {
       scene.depth = scene.save.depth = labDepth;
       WorldGen.setDepth(labDepth);
       scene.cameras.main.setBackgroundColor('#0a0a12');
@@ -1462,7 +1462,7 @@
     installControls(params);
     scene._sandboxHazardOrigin = origin;
     scene._sandboxHazardFixtures = null;
-    if (scene.depth === 1 || scene.depth === 2 || SandboxDestinations.find(params.get('sandboxZone'))?.id === 'hazards'
+    if ((scene.depth >= 1 && scene.depth <= 3) || SandboxDestinations.find(params.get('sandboxZone'))?.id === 'hazards'
         || params.get('sandboxScene')?.toUpperCase() === 'HAZARDS') seedHazardState(scene, origin);
   }
 
@@ -1809,10 +1809,10 @@
     if (typeof scene.persistSave === 'function') scene.persistSave();
   }
 
-  // The hazard lab has real depth-one/two cache entries so falls exercise the
+  // The hazard lab has real sewer/cave/warren cache entries so falls exercise the
   // ordinary landing/depth transition, without fetching an unrelated map.
   function installHazardFloors(scene, tx, ty) {
-    for (const depth of [1, 2]) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    for (const depth of [1, 2, 3]) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       const x = tx + dx, y = ty + dy, n = rowCells(scene, y), edge = scene.tileEdgeM;
       const surface = WorldGen.tileCacheFor(0).get(WorldGen.tileKey(x, y));
       const entry = makeTileEntry({ tx: x, ty: y, cellsPerEdge: n, tileEdgeM: edge, cellM: edge / n,
@@ -1824,10 +1824,10 @@
         .filter(o => o._sandboxProbe === 'cave-entrance')
         .map(o => ({ ...o, id: `${o.id}:depth-${depth}`, dir: 'up', depth,
           _sandboxProbe: 'cave-return' })));
-      if (depth === 1 && dx === 0 && dy === 0) {
+      if (depth === 2 && dx === 0 && dy === 0) {
         entry.objects.push(...(surface?.objects || [])
           .filter(o => o.kind === 'mineralrock' && o.id.includes('_ROCK_'))
-          .map(o => ({ ...o, id: `sandbox-L1-${o.id}`, depth: 1 })));
+          .map(o => ({ ...o, id: `sandbox-L2-${o.id}`, depth: 2 })));
       }
       // Retain inherited exclusions even though this is authored empty floor.
       entry.spawnWhy = surface?.spawnWhy?.slice() || new Uint32Array(n * n);
@@ -1859,17 +1859,17 @@
       env[type === 'vent' ? 'vents' : type === 'cavein' ? 'caveins' : 'sinkholes'].push(h);
       fixtures.push(h);
     };
-    if (scene.depth === 1 || scene.depth === 2) {
+    if (scene.depth >= 1 && scene.depth <= 3) {
       const torch = CONSUMABLE_SPEC.torch;
       Buffs.extend(scene.save, scene, torch.buff, torch.durationMs);
       // Each floor's own vents (EnvironmentHazards.ventKinds): L1 confusion,
-      // L2 poison, fire and paralysis.
+      // L2 confusion, L3 poison, fire and paralysis.
       EnvironmentHazards.ventKinds(scene.depth).forEach((kind, i) => add('vent', 3 + i * 4, 4, kind, 'vent-' + kind));
     }
     if (scene.depth === 1) {
       add('cavein', 20, 5, 'poison', 'cavein');
       add('cavein', 21, 5, 'poison', 'cavein-neighbor');
-    } else if (scene.depth === 2) {
+    } else if (WorldGen.floorProfile(scene.depth).pressureTraps) {
       ['ball', 'wall'].forEach((kind, i) => {
         const pair = PressureTraps.create(scene, at(6 + i * 10, 7), at(3 + i * 10, 7), kind, prefix + 'pressure-' + kind);
         pair.plate._sandboxProbe = 'plate-' + kind;
@@ -1878,7 +1878,7 @@
         PressureTraps.lists(scene).traps.push(pair.trap);
         fixtures.push(pair.plate, pair.trap);
       });
-    } else {
+    } else if (scene.depth === 0) {
       add('sinkhole', 16, 6);
       const cell = at(5, 6), point = absCellCenterMeters(scene, cell.cellIX, cell.cellIY);
       SpiderWebs.land(scene, { depth: scene.depth, ...cell, targetX: point.x, targetY: point.y });

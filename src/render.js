@@ -2214,6 +2214,36 @@ Render.drawSpiderWebs = function drawSpiderWebs(scene) {
   }
 };
 
+// Full-cell rock masses share the retained wall renderer and actor depth sort.
+// A depth-specific group keeps underground art separate from surface architecture.
+Render.drawCaveWalls = function (scene, cells, offsetX = 0, offsetY = 0) {
+  if (typeof WallPerspective === 'undefined') return;
+  if (!cells.length || scene.depth <= 0 || typeof FloorWallMaterials === 'undefined') {
+    WallPerspective.clear(scene, 'cave'); scene._caveWallKey = null; return;
+  }
+  const key = scene.depth + ':' + cells.map(p => [p.ax, p.ay, p.x, p.y, p.mask].join(',')).join(';');
+  if (key !== scene._caveWallKey || !scene._wallPerspective?.cave) {
+    const group = WallPerspective.begin(scene, 'cave');
+    group.renderDepth = scene.depth; group.perWall = true;
+    group.atlas = FloorWallMaterials.prepare(scene, scene.depth);
+    for (const cell of cells) {
+      const { x, y, ax, ay, mask } = cell;
+      const points = [{ x, y }, { x: x + CELL_PX, y },
+        { x: x + CELL_PX, y: y + CELL_PX }, { x, y: y + CELL_PX }];
+      const variant = FloorWallMaterials.variant(scene.depth, ax, ay);
+      WallPerspective.prism(scene, 'cave', points, 0, FloorWallMaterials.height,
+        { face: 0x302a24, top: 0x625646, dark: 0x151310 }, null, true,
+        { materialFaces: FloorWallMaterials.geometry(points, mask, variant) });
+    }
+    scene._caveWallKey = key;
+    WallPerspective.offset(scene, 'cave', offsetX, offsetY);
+    WallPerspective.finish(scene, 'cave');
+  } else {
+    WallPerspective.offset(scene, 'cave', offsetX, offsetY);
+    WallPerspective.update(scene);
+  }
+};
+
 Render.drawCells = function drawCells(scene) {
   Render.drawChestTrails(scene);
   Render.drawSpiderWebs(scene);
@@ -2509,8 +2539,6 @@ Render.drawCells = function drawCells(scene) {
   // (Border wave constants are module-level: BORDER_W, WAVE_AMP, WAVE_LEN,
   //  BORDER_DIM, BORDER_TRANS_SKIP, _WAVE_TABLE — computed once at load time.)
   const TRANS_SKIP = BORDER_TRANS_SKIP;
-  const caveEdges = scene._caveEdgePool || (scene._caveEdgePool = []);
-  let caveEdgesUsed = 0;
   // Render a 1-cell halo beyond the visible VIEW_CELLS×VIEW_CELLS so the player
   // never sees a black bar at the viewport edge while sliding between cells.
   // The mask clips the halo to the visible viewport.
@@ -2935,35 +2963,22 @@ Render.drawCells = function drawCells(scene) {
     }
   }
   scene.terrainCache?.flush();
-  // All underground floors share this wall style. Re-evaluate the live neighbour ring:
-  // mining and arriving tiles immediately update faces, including tile seams.
-  // Atlas sprites share the ground-decoration layer, beneath actors and lights.
-  if (scene.depth > 0 && scene.cobbleContainer) {
+  // Mining and arriving tiles change the exposed-face mask, including seams.
+  // Geometry stays retained while the compass or fractional camera position moves.
+  const caveCells = [];
+  if (scene.depth > 0 && typeof FloorWallMaterials !== 'undefined') {
     const open = (c, r) => T(c, r) !== WorldGen.T.CAVE_WALL && T(c, r) !== UNMAPPED_T;
     for (let row = -1; row <= VIEW_CELLS; row++) for (let col = -1; col <= VIEW_CELLS; col++) {
       if (T(col, row) !== WorldGen.T.CAVE_WALL) continue;
-      let mask = (open(col, row - 1) ? 1 : 0) | (open(col + 1, row) ? 2 : 0)
+      const mask = (open(col, row - 1) ? 1 : 0) | (open(col + 1, row) ? 2 : 0)
         | (open(col, row + 1) ? 4 : 0) | (open(col - 1, row) ? 8 : 0);
-      // A neighbouring south face also exposes the lower half of this cap's
-      // side, even though both data cells are solid rock.
-      if (!(mask & 4)) {
-        if (T(col - 1, row) === WorldGen.T.CAVE_WALL && open(col - 1, row + 1)) mask |= 16;
-        if (T(col + 1, row) === WorldGen.T.CAVE_WALL && open(col + 1, row + 1)) mask |= 32;
-      }
-      // Fully enclosed cells use the dark cap frame as well.
-      let sprite = caveEdges[caveEdgesUsed++];
-      if (!sprite) {
-        sprite = scene.add.image(0, 0, 'cave_wall_edges', 0).setOrigin(0, 0);
-        scene.cobbleContainer.add(sprite); caveEdges.push(sprite);
-      }
-      const variant = (Math.imul(AX(col, row), 31) ^ AY(col, row)) & 3;
-      const at = cellScreenXY(scene, col - half, row - half, fracX, fracY, PHASE(row));
-      setTextureIfDifferent(sprite, 'cave_wall_edges', variant * CAVE_WALL_EDGE_FRAMES + mask);
-      sprite.setPosition(Math.round(at.x), Math.round(at.y) - CAVE_WALL_TOP_LIFT)
-        .setDisplaySize(CELL_PX, CELL_PX + CAVE_WALL_TOP_LIFT).setVisible(true);
+      const at = cellScreenXY(scene, col - half, row - half, 0, 0, PHASE(row));
+      caveCells.push({ x: at.x, y: at.y, ax: AX(col, row), ay: AY(col, row), mask });
     }
   }
-  for (let i = caveEdgesUsed; i < caveEdges.length; i++) caveEdges[i].setVisible(false);
+  Render.drawCaveWalls(scene, caveCells, -fracX * CELL_PX, -fracY * CELL_PX);
+  // Hide sprites retained by a scene that previously used the flat wall atlas.
+  for (const sprite of scene._caveEdgePool || []) sprite.setVisible(false);
 
   // Short broken columns are floor decoration: no object, collision or tap target.
   // Polygon mode draws these same source-ring sites into its floor canvas.
@@ -6442,6 +6457,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // UNDERGROUND STREET SCATTER (src/underground.js decorate): the triple
     // stalagmites prop and an inert poison vent, 24px art at one cell like
     // the stakes. A vent lies flat; the stalagmites stand and cast a shadow.
+    bone_cache: { key: 'bone_cache', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, layer: WorldLayers.GROUND_DECAL },
     stalagmites: { key: 'cave_props', frame: 1, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     inactive_poison_vent: { key: 'poison_vent_inactive', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, layer: WorldLayers.GROUND_DECAL },
     tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, layer: WorldLayers.GROUND_DECAL },

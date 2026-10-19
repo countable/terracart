@@ -17,9 +17,10 @@
     texture._wallTintSources.set(color, canvas);
     return canvas;
   }
-  function install(scene, target) {
+  function install(scene, target, atlas) {
+    if (atlas) target._wallAtlas = atlas;
     if (target._wallTriangles || typeof target.renderWebGL !== 'function') return;
-    const texture = WallMaterials.prepare(scene);
+    const texture = atlas || WallMaterials.prepare(scene);
     if (!texture) return;
     target._wallTriangles = [];
     target._wallAtlas = texture;

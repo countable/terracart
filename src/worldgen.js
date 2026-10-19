@@ -8946,10 +8946,10 @@
   const FLOOR_TORCH_MIN = 24, FLOOR_TORCH_SPAN = 13, FLOOR_TORCH_TRIES = 8;
   const CAVE_BARREL_DEPTH = 1;
   const CAVE_BARREL_MIN = 12, CAVE_BARREL_SPAN = 8, CAVE_BARREL_TRIES = 8;
-  // Shallow floors share one finite container allocation. L1 fills the
-  // remainder ordinarily; L2 spends it only on authored warren stores.
+  // Shallow floors share one finite container allocation. Sewer and natural
+  // caves fill the remainder ordinarily; the warren spends it on authored stores.
   function caveContainerBudget(tx, ty, depth) {
-    if (depth < 1 || depth > 2) return 0;
+    if (depth < 1 || (!floorProfile(depth).caveAreas && depth !== CAVE_BARREL_DEPTH)) return 0;
     const rng = makeRng(tileStreamSeed(tx, ty, 0x7FEB352D, depth));
     return CAVE_BARREL_MIN + Math.floor(rng() * CAVE_BARREL_SPAN);
   }
@@ -9050,7 +9050,7 @@
       when: () => !(typeof window !== 'undefined' && window.__TEST_MODE),
       count: (rng) => Math.round((CAVE_X_MIN + Math.floor(rng() * CAVE_X_SPAN)) * X_MARK_FREQUENCY), tries: CAVE_X_TRIES, pick: anyCell,
       emit: (L, c, p) => L.treasures.push({ x: p.x, y: p.y, id: cellId(`treasure_c${L.depth}`, L.tx, L.ty, c.lix, c.liy) }) },
-    { id: 'floorTorches', salt: 0x5BD1E995, when: (L) => L.depth === FLOOR_TORCH_DEPTH,
+    { id: 'floorTorches', salt: 0x5BD1E995, when: (L) => L.depth === FLOOR_TORCH_DEPTH || floorProfile(L.depth).floorTorches,
       // One at the foot of every up-ladder first, seated on the nearest free
       // floor cell (seekFloorSeat), keyed on the stair's own id. No draws.
       pre: (L) => {
@@ -9068,7 +9068,7 @@
       count: (rng) => FLOOR_TORCH_MIN + Math.floor(rng() * FLOOR_TORCH_SPAN), tries: FLOOR_TORCH_TRIES, pick: anyCell,
       emit: (L, c, p) => L.wildplants.push(makeWildplant('torch', p.x, p.y,
         cellId(`ctorch_${L.depth}`, L.tx, L.ty, c.lix, c.liy), { _ix: c.lix, _iy: c.liy })) },
-    { id: 'barrels', spawnClass: 'reward', salt: 0x7FEB352D, when: (L) => L.depth === CAVE_BARREL_DEPTH,
+    { id: 'barrels', spawnClass: 'reward', salt: 0x7FEB352D, when: (L) => L.depth === CAVE_BARREL_DEPTH || floorProfile(L.depth).ambientBarrels,
       count: (rng, L) => Math.max(0, CAVE_BARREL_MIN + Math.floor(rng() * CAVE_BARREL_SPAN)
         - L.objects.filter(o => o.caveArea && o.barrel).length), tries: CAVE_BARREL_TRIES, pick: anyCell,
       emit: (L, c, p) => L.objects.push(makeObject('chest', p.x, p.y,
@@ -9205,7 +9205,7 @@
   }
 
   // Ordinary rocks under a quarry share its gem identity as well. The
-  // surface field owns the boundary; this provenance ends on cave level 1.
+  // surface field owns the boundary; the natural-cave profile owns provenance.
   function stampCaveQuarryRocks(objects, surface, N, tx, ty, tileEdgeM, depth) {
     if (!floorProfile(depth).quarryProvenance || surface.cellsPerEdge !== N) return;
     const field = surface.zone, coverage = field?.coverage || field?.idx;
@@ -9241,7 +9241,9 @@
   //   streetMirror Underground projects surface paths/streets as an overlay
   //   fallLandings 3x3 pockets under the floor above's ground holes
   //   chestSource  whose POI chests mirror down: 'above' | 'surface'
-  //   quarryProvenance quarry gem seams and rock stamps descend one level
+  //   quarryProvenance surface quarry gem seams and rock stamps on this floor
+  //   generationDepth source seed for relocated authored-area selection/ordering
+  //   floorTorches / ambientBarrels retain natural-cave dressing after relocation
   //   arrivalStory story ID for the one-time floor arrival splash
   //   entryKey     save key required to enter (null for ungated floors)
   //   pressureTraps runtime pressure-plate encounters
@@ -9255,38 +9257,37 @@
     carveWalls, goblins, spearGoblins
   });
   const FLOOR_PROFILES = Object.freeze([
-    Object.freeze({ depth: 1, flintRockP: .25, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
-      // No goblin warrens and no goblins on L1 (owner, Oct 2026; enemy_roster.js
-      // moved the club goblin to L2 the same day): slime springs, mushroom
-      // caverns, gem caverns and mazes share the L1 groves.
+    // Sewer channels are a visual treatment of open routes, not new hazards.
+    Object.freeze({ depth: 1, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'sewer', terrain: 'city', streetMirror: true,
+      fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
+    // The original natural cave geology reads the surface directly, so adding
+    // the sewer above cannot change its Small-road/building/water wall mask.
+    Object.freeze({ depth: 2, generationDepth: 1, floorTorches: true, ambientBarrels: true, flintRockP: .25, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
       pressureTraps: false, caveAreas: caveAreaProfile([50, 0, 30, 5, 15], false, 0, false),
-      streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'above', roadWalls: 'small', streetMirror: true,
-      fallLandings: false, chestSource: 'above', quarryProvenance: true, lava: false }),
-    Object.freeze({ depth: 2, arrivalStory: 'dungeon_city', entryKey: null,
+      streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'surfacePaint', roadWalls: 'small', streetMirror: true,
+      fallLandings: false, chestSource: 'surface', quarryProvenance: true, lava: false }),
+    Object.freeze({ depth: 3, arrivalStory: 'dungeon_city', entryKey: null,
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
       warren: Object.freeze({ roomCells: 10, enemyChance: .45, enemies: Object.freeze(['club_goblin', 'spear_goblin', 'archer_goblin', 'goblin_trapper']) }),
       pressureTraps: true, caveAreas: caveAreaProfile([20, 45, 25, 10, 15], true, 16, true),
       streetGems: Object.freeze({ region: .10, ordinary: .08 }), biome: 'goblin_city', terrain: 'city', streetMirror: true,
       fallLandings: true, chestSource: 'above', quarryProvenance: false, lava: false }),
-    Object.freeze({ depth: 3, arrivalStory: 'dungeon_stone', entryKey: null,
+    Object.freeze({ depth: 4, arrivalStory: 'dungeon_stone', entryKey: null,
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'deep_stone', terrain: 'clearings', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
-    Object.freeze({ depth: 4, arrivalStory: 'dungeon_underdark', entryKey: null,
+    Object.freeze({ depth: 5, arrivalStory: 'dungeon_underdark', entryKey: 'level4Key',
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'underdark', terrain: 'open', streetMirror: false,
       fallLandings: false, chestSource: 'surface', quarryProvenance: false, lava: false }),
-    Object.freeze({ depth: 5, arrivalStory: 'dungeon_haunted', entryKey: 'level4Key',
-      vents: Object.freeze(['poison', 'fire', 'paralysis']),
-      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'haunted_city', terrain: 'surfacePaint', streetMirror: false,
-      fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 6, arrivalStory: 'dungeon_lava', entryKey: 'level4Key',
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
-      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'lava', terrain: 'above', streetMirror: false,
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'lava', terrain: 'surfacePaint', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: true }),
     ...[7, 8].map(depth => Object.freeze({ depth, arrivalStory: 'dungeon_dragon', entryKey: 'level4Key',
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
-      pressureTraps: false, caveAreas: null, streetGems: null, biome: depth === 7 ? 'dragon' : 'dragon_roost', terrain: 'above', streetMirror: false,
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: depth === 7 ? 'dragon' : 'dragon_roost', terrain: 'surfacePaint', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false })),
   ]);
   const DEFAULT_FLOOR_PROFILE = Object.freeze({ arrivalStory: 'cave', entryKey: 'level4Key',
@@ -9538,7 +9539,7 @@
     capCaveChests(objects, N, x, y, tileEdgeM, occupied);
     // Torches where the lowtier POIs overhead would have been (a random
     // subset per level), seated before the rocks so they keep their spot.
-    const torchSites = caveTorchSites(above);
+    const torchSites = caveTorchSites(profile.chestSource === 'surface' ? surface : above);
     for (const t of caveTorchesFrom(torchSites, grid, N, x, y, tileEdgeM, depth, occupied)) {
       objects.push(t);
     }
@@ -9564,12 +9565,12 @@
     // Area ownership includes its empty banks and approaches. Own placements
     // use real occupancy; ordinary floor passes also respect the whole area.
     const ambientOccupied = new Set([...occupied, ...caveAreas.reserved]);
-    objects.push(...caveQuarryGemsFrom(aboveObjects, grid, N, x, y, tileEdgeM, depth, ambientOccupied));
+    objects.push(...caveQuarryGemsFrom(profile.quarryProvenance ? (surface.genObjects || surface.objects || []) : aboveObjects, grid, N, x, y, tileEdgeM, depth, ambientOccupied));
     const level = cavePassLevel(grid, N, x, y, tileEdgeM, depth, ambientOccupied, { objects, wildplants, spawnWhy });
     level.underground = underground;
     level.cityDrillsPlaced = !!profile.warren;
     for (const row of CAVE_PASSES) runCavePass(row, level);
-    stampCaveQuarryRocks(objects, above, N, x, y, tileEdgeM, depth);
+    stampCaveQuarryRocks(objects, profile.quarryProvenance ? surface : above, N, x, y, tileEdgeM, depth);
     const extraTreasures = level.treasures, caveCoinSeeds = level.coins;
     const entry = {
       status: 'ready', grid, spawnWhy, roadClass: surface.roadClass?.slice(), geologyGrid, caveAreas, underground, cellsPerEdge: N, tileEdgeM, depth,

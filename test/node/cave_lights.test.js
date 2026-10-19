@@ -54,7 +54,7 @@ test('cave torches: a cave level hands the FULL site list down, so depth N does 
   const src = WORLDGEN_SRC;
   const start = src.indexOf('async function loadCaveTile(');
   const body = src.slice(start, src.indexOf('\n  }\n', start));
-  assert.truthy(/const torchSites = caveTorchSites\(above\);/.test(body), 'the sites are read off the level above');
+  assert.truthy(/const torchSites = caveTorchSites\(profile.chestSource === 'surface' \? surface : above\);/.test(body), 'sites follow the profile source');
   assert.truthy(/caveTorchesFrom\(torchSites, grid, N, x, y, tileEdgeM, depth, occupied\)/.test(body), 'and rolled for this level');
   assert.truthy(/roadLabels: \{\}, pathUnder: \{\}, torchSites,/.test(body), 'and stored on the entry for the level below');
   const order = WorldGen.CAVE_PASSES.map(r => r.id);

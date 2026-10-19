@@ -58,15 +58,12 @@
 <canvas id="cv"></canvas>
 <div id="regionLabels" aria-label="Map region and POI labels"></div>
 <script src="game-loader.js"></script>
+<script src="floor-viewer-walls.js"></script>
 <script src="floor-viewer-region.js?v=e7ef48f0"></script>
 <script src="floor-viewer-variants.js?v=ae9a8f2d"></script>
 <script>
 (() => {
   'use strict';
-  const FLOOR_NAMES = { 0: 'Surface - the town', 1: 'Floor 1 - natural caves', 2: 'Floor 2 - goblin city',
-    3: 'Floor 3 - deep stone', 4: 'Floor 4 - fungal Underdark',
-    5: 'Floor 5 - the haunted dead city', 6: 'Floor 6 - the lava stratum',
-    7: 'Floor 7 - dragon hunting grounds', 8: 'Floor 8 - the deep roosts' };
   let floor = 0, variantIndex = 0, showCreatures = true, showLabels = true;
   const seedInput = document.getElementById('seed');
   let seed = Number(new URLSearchParams(location.search).get('seed')) >>> 0;
@@ -405,9 +402,25 @@
         }
       }
     }
+    // Walls and props share ground-depth ordering; elevated tops can cover
+    // the cells behind them without moving any footprint or collision cell.
+    const walls = depth > 0 ? FloorViewerWalls.cells(entry, R.WIDTH, R.HEIGHT, depth) : [];
+    const wallAtlas = walls.length ? FloorWallMaterials.prepare(assets, depth).getSourceImage() : null;
+    cv.dataset.wallCount = walls.length;
+    cv.dataset.wallTheme = depth > 0 ? FloorWallMaterials.theme(depth).id : '';
+    const ordered = [
+      ...list.map(sprite => ({ sprite, y: sprite.o.y / W.CELL_M, x: sprite.o.x / W.CELL_M })),
+      ...walls.map(wall => ({ wall, y: wall.y + .5, x: wall.x + .5 })),
+    ].sort((a, b) => a.y - b.y || a.x - b.x);
     // Sprites: the game's appearances, the game's scale rule (cell px / 32).
     const scale = s / 32;
-    for (const { o, appearance: p, cat } of list) {
+    for (const item of ordered) {
+      if (item.wall) {
+        FloorViewerWalls.draw(ctx, wallAtlas, item.wall,
+          offX + item.wall.x * s, offY + item.wall.y * s, s);
+        continue;
+      }
+      const { o, appearance: p, cat } = item.sprite;
       if (!showCreatures && cat === 'creature') continue;
       if (cat === 'creature' && hiddenByHome(o)) continue;
       const at = { x: offX + o.x / R.EDGE * R.N * s, y: offY + o.y / R.EDGE * R.N * s };
@@ -502,7 +515,7 @@
       const reasons = [...new Set(records.filter(record => record.status === 'declined').map(record => record.reason.replace(/_/g, ' ')))];
       return `${row.label}: ${placed}${reasons.length ? ` (${reasons.join(', ')})` : ''}`;
     }).join(' · ') : '';
-    tag('<b>' + FLOOR_NAMES[floor] + '</b>'
+    tag('<b>' + (depth === 0 ? 'Surface - the town' : depth === 8 ? 'L8 · Dragon roosts' : FloorWallMaterials.theme(depth).label) + '</b>'
       + (depth === 0 ? `<br>Home safety: <b>${safetyRadius ? safetyRadius + ' m' : 'off'}</b> · ${hiddenEnemies} enemies hidden (preview)` : '')
       + '<br>Nexuses: <b>' + (nexusNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'
       + '<br>Roads: <b>' + (roadNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'

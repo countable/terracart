@@ -1,9 +1,9 @@
 (function () {
   const W = WorldGen, T = W.T, N = 64, edge = N * W.CELL_M;
   const kinds = ['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern', 'mine_tunnels'];
-  // No goblin walks L1 (owner, Oct 2026): the warrens never select on D1, so
-  // a D1 fixture of them does not exist; they are exercised on D2.
-  const kindsAt = depth => kinds.filter(kind => depth !== 1 || kind !== 'goblin_warrens');
+  // Natural caves on L2 retain their no-warren profile; authored goblin
+  // warrens are exercised on the relocated L3 city.
+  const kindsAt = depth => kinds.filter(kind => depth !== 2 || kind !== 'goblin_warrens');
   function fixture(kind, depth, start = 950201) {
     const ty = 950101, cx = 32, cy = 32;
     let tx, anchor;
@@ -28,8 +28,8 @@
     objects: p.objects, plants: p.wildplants, encounters: p.encounters });
 
   test('cave nexuses: all five definitions select and place on both shallow floors', () => {
-    assert.falsy(kindsAt(1).includes('goblin_warrens'), 'no warren fixture on D1');
-    for (const depth of [1, 2]) for (const kind of kindsAt(depth)) {
+    assert.falsy(kindsAt(2).includes('goblin_warrens'), 'no warren fixture on natural L2');
+    for (const depth of [2, 3]) for (const kind of kindsAt(depth)) {
       const f = fixture(kind, depth), p = CaveAreas.plan(f);
       assert.eq(p.areas.length, 1, kind + ' D' + depth);
       assert.eq(p.areas[0].kind, kind); assert.gt(p.reserved.size, 0);
@@ -39,13 +39,13 @@
       assert.falsy(props.some(o => o.kind === 'chest' && !o.barrel), 'no added cache reward');
       for (const o of props) assert.truthy(p.reserved.has(idx(f, o)), 'props stay inside own region');
     }
-    for (const depth of [0, 3, 4, 10]) for (const kind of ['grove', 'quarry', 'seep'])
+    for (const depth of [0, 1, 4, 10]) for (const kind of ['grove', 'quarry', 'seep'])
       assert.eq(CaveAreas.select({ kind, gx: 5, gy: 5 }, depth), null);
-    for (const depth of [1, 2]) assert.eq(CaveAreas.select({ kind: 'seep', gx: 5, gy: 5 }, depth), null);
+    for (const depth of [2, 3]) assert.eq(CaveAreas.select({ kind: 'seep', gx: 5, gy: 5 }, depth), null);
   });
 
   test('cave nexuses: immutable protected ground survives even if the visible surface was repainted', () => {
-    for (const depth of [1, 2]) for (const kind of kindsAt(depth)) for (const [terrain, why] of [
+    for (const depth of [2, 3]) for (const kind of kindsAt(depth)) for (const [terrain, why] of [
       [T.BUILDING, 0], [T.WATER, 0], [T.ROAD, W.SPAWN_WHY.ROAD],
       [T.PARK, W.SPAWN_WHY.FARMLAND], [T.PARK, W.SPAWN_WHY.GOLF]
     ]) {
@@ -63,7 +63,7 @@
 
   test('cave nexuses: deep grove chamber carving uses source eligibility; quarry never invents tunnels', () => {
     for (const kind of kinds) {
-      const f = fixture(kind, 2); f.grid.fill(T.CAVE_WALL);
+      const f = fixture(kind, 3); f.grid.fill(T.CAVE_WALL);
       // An actual pre-existing passage connects the chamber to its floor.
       for (let x = 0; x <= f.cx; x++) f.grid[f.cy * N + x] = T.CAVE_FLOOR;
       if (kind === 'mine_tunnels') {
@@ -82,7 +82,7 @@
   });
 
   test('cave nexuses: gemstone seats use depth-qualified shared deposits and finite mining identity', () => {
-    for (const depth of [1, 2]) {
+    for (const depth of [2, 3]) {
       const f = fixture('gemstone_cavern', depth), p = CaveAreas.plan(f);
       const gems = p.objects.filter(o => mineralDeposit(o));
       assert.gt(gems.length, 0);
@@ -99,8 +99,8 @@
   });
 
   test('cave nexuses: anchor reordering and neighbouring observers cannot duplicate owned slots', () => {
-    for (const kind of kindsAt(1)) {
-      const f = fixture(kind, 1), expected = CaveAreas.plan(f);
+    for (const kind of kindsAt(2)) {
+      const f = fixture(kind, 2), expected = CaveAreas.plan(f);
       const foreign = { ...f.surface.zone.anchors[0], kind: 'seep', gx: 1, gy: 1 };
       f.surface.zone.anchors.unshift(foreign); f.surface.zone.coverage.fill(2);
       assert.eq(payload(CaveAreas.plan(f)), payload(expected), 'array position is not generation identity');
@@ -113,7 +113,7 @@
   });
 
   test('cave nexuses: every fitted warren room has a clear route to the central court', () => {
-    for (const depth of [2]) for (const start of [950201, 950501, 950801]) {
+    for (const depth of [3]) for (const start of [950201, 950501, 950801]) {
       const f = fixture('goblin_warrens', depth, start), p = CaveAreas.plan(f);
       CaveAreas.apply(p, f.grid, f.objects, [], f.occupied);
       const solid = new Set(p.objects.map(o => idx(f, o)));
@@ -139,13 +139,13 @@
 
   test('cave nexuses: route decoration cannot erase or transform authored deposits and walls', () => {
     for (const kind of ['spring_cave', 'goblin_warrens', 'gemstone_cavern', 'mine_tunnels']) {
-      const f = fixture(kind, 2), p = CaveAreas.plan(f), plants = [];
+      const f = fixture(kind, 3), p = CaveAreas.plan(f), plants = [];
       CaveAreas.apply(p, f.grid, f.objects, plants, f.occupied);
       const rocks = f.objects.filter(o => o.kind === 'mineralrock');
       assert.gt(rocks.length, 0);
       const before = JSON.stringify(rocks), occupied = new Set([...f.occupied, ...p.reserved]);
       const route = { theme: 'gemstone_path' };
-      const plan = { N, tx: f.tx, ty: f.ty, tileEdgeM: edge, depth: 2,
+      const plan = { N, tx: f.tx, ty: f.ty, tileEdgeM: edge, depth: 3,
         data: Underground.surfaceData(f.surface), routes: [], streetCells: new Set(),
         routeAt: new Map([...p.reserved].map(i => [i, route])), lane: new Set(rocks.map(o => idx(f, o))) };
       Underground.decorate(plan, f.grid, f.objects, plants, occupied);
@@ -159,8 +159,8 @@
     }
   });
 
-  test('cave nexuses: level-two quarry uses projected small-street routes over open city substrate', async () => {
-    const f = fixture('mine_tunnels', 2), key = W.tileKey(f.tx, f.ty);
+  test('cave nexuses: level-three quarry uses projected small-street routes over open city substrate', async () => {
+    const f = fixture('mine_tunnels', 3), key = W.tileKey(f.tx, f.ty);
     for (const grid of [f.surface.grid, f.surface.baseGrid, f.surface.zone.caveSource.grid]) {
       grid.fill(T.ROCK);
       for (let y = f.cy - 2; y <= f.cy + 2; y++) for (let x = 0; x < N; x++) grid[y * N + x] = T.ROAD;
@@ -169,7 +169,7 @@
       tags: { class: 'minor' }, geom: [[{ x: 0, y: (f.cy + .5) * 64 }, { x: 4096, y: (f.cy + .5) * 64 }]] }] }];
     W.setDepth(0).set(key, f.surface);
     try {
-      const entry = await W.loadTile.atDepth(2, f.tx, f.ty, 49);
+      const entry = await W.loadTile.atDepth(3, f.tx, f.ty, 49);
       const areas = entry.caveAreas.areas.filter(a => !a.city);
       assert.eq(areas.length, 1, 'eligible source route enables an actual mine');
       const ore = entry.caveAreas.objects.filter(o => o.kind === 'mineralrock' && o.caveArea === areas[0].id);
@@ -182,13 +182,13 @@
         assert.falsy(entry.underground.lane.has(i), 'ore preserves through route');
       }
     } finally {
-      for (const depth of [0, 1, 2]) W.setDepth(depth).delete(key);
+      for (const depth of [0, 1, 2, 3]) W.setDepth(depth).delete(key);
       W.setDepth(0);
     }
   });
 
   test('cave nexuses: actual loader preserves area ownership through ordinary cave generation', async () => {
-    for (const depth of [1, 2]) for (const kind of kindsAt(depth)) {
+    for (const depth of [2, 3]) for (const kind of kindsAt(depth)) {
       // Park evidence opens natural D2 clearings, which must defer to authored
       // nexuses; this exercises the real order of carving, settlements and fill.
       const f = fixture(kind, depth), key = W.tileKey(f.tx, f.ty);
@@ -210,7 +210,7 @@
         W.setDepth(depth).delete(key);
         assert.eq(payload((await W.loadTile.atDepth(depth, f.tx, f.ty, 49)).caveAreas), old);
       } finally {
-        for (const d of [0, 1, 2]) W.setDepth(d).delete(key);
+        for (const d of [0, 1, 2, 3]) W.setDepth(d).delete(key);
         W.setDepth(0);
       }
     }
