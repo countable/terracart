@@ -288,8 +288,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   and stepping out eases back to the player's choice (`_tickHomeZoom`,
   `HOME_ZOOM_MS`; once per crossing, so a step taken inside holds until they
   leave; never underground). The choice lasts for the
-  session, including modals and depth changes. Pinch zoom remains temporary
-  and springs back to that selected view on `PEEK_RETURN_MS`.
+  session, including modals and depth changes. A pinch sets the resting zoom
+  too: on release its zoom stays (`_pinchEnd` → `_setRestZoom`), anywhere
+  between the full view and `PINCH_VIEW_CELLS`, and a later +/− steps from it.
   `_applyMapZoom` clips the camera viewport and counter-scales map chrome;
   the DOM controls never zoom or rotate. Gameplay ranges and loading stay
   based on `VIEW_CELLS`; taps convert back through `_unzoomPt`.
@@ -492,9 +493,10 @@ the real source so a missing texture cannot become a permanent cached palette.
   mark's ink.
   `bakeGroundMark` (scene_create.js) is the one bake; the elite's rune bands
   and the player's GPS ring (`gps_ring`, baked in gold) are its rows. The GPS
-  ring's `GPS_RING` row carries its own on-screen width, tilt and stroke
-  `weight`: at the shared tilt it read squashed and its line faint under the
-  feet. The GPS ring (`gpsGhost`) is always drawn while there is a fix:
+  ring's `GPS_RING` row carries its own on-screen width and tilt (at the
+  shared tilt it read squashed) and the facing caret's paint instead of the
+  halo: a gold line on a dark outline over a drop shadow down the screen
+  (`GPS_RING.passes`). The caret is pushed off the ring as well as the body. The GPS ring (`gpsGhost`) is always drawn while there is a fix:
   around the feet while the body stands on it, left on the ground once the
   stick walks the body off, and, once its centre is off the visible map, its
   bearing is a micro gold rim dot (`_drawGpsRimDot`, drawn with the MARKERS
@@ -720,13 +722,13 @@ the reach rim within the existing player-light radius.
   emitter is seated with the frame's trimmed bounds and furniture scale,
   then follows the existing `dyPx` / `liftPx` mechanism at every map heading.
   Pickup removes the normal object and its light on the next object draw.
-- Waystones use the existing plain rounded low-rock frame (`rock_variants:0`)
-  at the shared small-rock scale. At startup, a source-atop ivory material
-  variant preserves the rock’s alpha and shading. The per-draw material hook
-  selects it while lit so activation reads in daylight in Canvas and WebGL;
+- Waystones draw their own 16px standing-stone sheet (`waystone`) at the
+  shared small-rock scale: frame 0 dormant, frame 1 with the carved spiral
+  glowing. The per-draw material hook selects the frame from
+  `Waystones.isLit`, so activation reads in daylight in Canvas and WebGL;
   cached geometry remains valid. `Waystones.isLit` also gates the steady ivory `Lighting.KINDS.waystone` source, including permanent
   completed sets. Unlit stones emit no light and no daily-availability pulse.
-  The same inset contact shadow as mineral rocks grounds the low silhouette.
+  The same inset contact shadow as mineral rocks grounds the stone's footing.
 - Streets restore metre intervals along each transportation line, keyed by
   `Streets.lineKey(feature, lineIdx)`, clipped to tile spans. Keep reach tied
   to the player and visuals keyed by `Streets.epoch`; do not add per-cell road

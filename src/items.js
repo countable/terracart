@@ -72,9 +72,10 @@ const CROP_SPRITE = {
   // 0-indexed = 0*22 + 10 = 10. Renders as leafy green fronds at the
   // wildplant scale, reduced 10% to keep the tuft inside one-cell props.
   longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 * 0.9 },
-  // Previously unused Props frames: green sprig and upright leafy nettle.
-  // Inventory resolves these same frames through each item's crop key.
-  petnip: { sheet: 'props', custom: true, frame: 32, scale: 1.16 },
+  // Petnip is hand-drawn (tools/art/export_petnip_waystone.py); the nettle
+  // keeps a previously unused Props frame. Inventory resolves these same
+  // frames through each item's crop key.
+  petnip: { sheet: 'petnip', custom: true, frame: 0, scale: 1.16 },
   nettle: { sheet: 'props', custom: true, frame: 33, scale: 1.13 },
   // Shrub looks share harvesting; brambles mark thorny groves and roads.
   shrub: { ...BUSH_SPRITE,

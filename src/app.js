@@ -321,8 +321,8 @@ const PEEK_DRAG_SLOP_PX = 8;
 // about 3× this.
 const PEEK_RETURN_MS = 90;
 // Camera-only zoom: start at the closest rack level (PINCH_VIEW_CELLS across),
-// which is also where the new game's opening shot settles. Buttons select the
-// resting view; a pinch temporarily magnifies it and springs back on release.
+// which is also where the new game's opening shot settles. Buttons and a
+// pinch both select the resting view; a pinch keeps its zoom on release.
 // The widest view remains VIEW_CELLS, so loading and gameplay ranges stay fixed.
 const PINCH_VIEW_CELLS = 5;
 const PINCH_MAX_ZOOM = VIEW_CELLS / PINCH_VIEW_CELLS;
@@ -1652,6 +1652,7 @@ const ICON_SHEETS = {
   // Same rustic prop sheet as the map: grass frame 10, mushroom frame 35.
   // Other frames retain their existing art.
   props:         { url: 'assets/Objects/Approved/props.png',               cols: 22, srcW: 352, srcH: 192 },
+  petnip:        { url: 'assets/Objects/Handmade/petnip.png',              cols: 1,  srcW: 16,  srcH: 16 },
   // 7_Pickup_Items — 224×160, 14×10 of 16×16. Frame 88 (row 6 col 4)
   // is the brown leather boot used as the fishing-junk inventory icon.
   pickup:        { url: 'assets/Objects/Pickup_Items.png',                   cols: 14, srcW: 224, srcH: 160 },
@@ -3687,8 +3688,8 @@ class MapScene extends Phaser.Scene {
       // the usual case once the compass is locked facing the way you walk —
       // was hidden behind the character. Push it out along the heading, by
       // the least that takes all three points off the body's box on the
-      // (turned) screen: nothing beside or below the feet, past the head
-      // straight up.
+      // (turned) screen and off the GPS ring: just past the ring beside or
+      // below the feet, past the head straight up.
       const { tip, arm, halfW } = FACING_CHEVRON;
       let push = 0;
       // (along, across) on the ground → screen, y foreshortened.
@@ -3701,24 +3702,38 @@ class MapScene extends Phaser.Scene {
       if (this.player) {
         const headPx = this.player.displayHeight / 2 - this.playerBodyDy() + 2;
         const bodyHalfW = this.player.displayWidth * 0.3;
+        // The GPS ring under the feet is screen-flat (counter-rotated), so its
+        // ellipse is tested on the turned screen too, padded by both outlines.
+        const ring = this.gpsGhost?.visible ? this.gpsGhost : null;
+        const pad = (GPS_RING.outline + FACING_CHEVRON.outlineW) / 2;
+        const rx = ring ? ring.displayWidth * GPS_RING.r / GROUND_MARK.bakePx + pad : 0;
+        const ry = ring ? ring.displayWidth * GPS_RING.r / GROUND_MARK.bakePx * GPS_RING.tilt + pad : 0;
         const behind = (p) => {
           const s = HeadingUp.toScreenVec(this, p.x - pScreen.x, p.y - pScreen.y);
-          return s.y < 0 && s.y > -headPx && Math.abs(s.x) < bodyHalfW;
+          if (s.y < 0 && s.y > -headPx && Math.abs(s.x) < bodyHalfW) return true;
+          if (!ring) return false;
+          const r = HeadingUp.toScreenVec(this, p.x - ring.x, p.y - ring.y);
+          return (r.x / rx) ** 2 + (r.y / ry) ** 2 < 1;
         };
         while (push < 64 && pts.some(behind)) { push += 1; pts = caret(); }
       }
       const g = this.facingChevronGfx;
       // Graphics has no round caps or joins, so a dot of the stroke's width
       // at each vertex rounds the ends and closes the apex.
-      const stroke = (w, color, alpha, dy) => {
+      // The drop shadow falls toward the bottom of the SCREEN: this graphic
+      // turns with the map under heading-up, so a fixed +y offset swung the
+      // shadow round to the side or above the caret.
+      const down = HeadingUp.toWorldVec(this, 0, 1);
+      const stroke = (w, color, alpha, d) => {
+        const ox = down.x * d, oy = down.y * d;
         g.lineStyle(w, color, alpha);
         g.beginPath();
-        g.moveTo(pts[0].x, pts[0].y + dy);
-        g.lineTo(pts[1].x, pts[1].y + dy);
-        g.lineTo(pts[2].x, pts[2].y + dy);
+        g.moveTo(pts[0].x + ox, pts[0].y + oy);
+        g.lineTo(pts[1].x + ox, pts[1].y + oy);
+        g.lineTo(pts[2].x + ox, pts[2].y + oy);
         g.strokePath();
         g.fillStyle(color, alpha);
-        for (const p of pts) g.fillCircle(p.x, p.y + dy, w / 2);
+        for (const p of pts) g.fillCircle(p.x + ox, p.y + oy, w / 2);
       };
       stroke(FACING_CHEVRON.outlineW, 0x000000, 0.45, 1);   // drop shadow
       stroke(FACING_CHEVRON.outlineW, 0x1a1208, 1, 0);      // dark outline
@@ -6065,9 +6080,10 @@ class MapScene extends Phaser.Scene {
     this._mapZoomRest = zoom;
     this._mapZoomTauMs = tauMs;
     this._mapZoomReturning = Math.abs((this.mapZoom || 1) - zoom) > 1e-9;
-    const span = Math.round(VIEW_CELLS / zoom);
-    if (this._zoomInButton) this._zoomInButton.disabled = span <= PINCH_VIEW_CELLS;
-    if (this._zoomOutButton) this._zoomOutButton.disabled = span >= VIEW_CELLS;
+    // A tolerance, not a round: a pinch can rest between the button steps.
+    const span = VIEW_CELLS / zoom;
+    if (this._zoomInButton) this._zoomInButton.disabled = span <= PINCH_VIEW_CELLS + 1e-6;
+    if (this._zoomOutButton) this._zoomOutButton.disabled = span >= VIEW_CELLS - 1e-6;
   }
   // HOME ZOOMS IN ON ITS OWN (owner, Oct 2026): stepping inside the house
   // (scene_venues.js homeInside) eases the view to the closest level — the
@@ -6165,12 +6181,14 @@ class MapScene extends Phaser.Scene {
     this.mapZoom = clamp(this._pinch.from * dist / this._pinch.dist, 1, PINCH_MAX_ZOOM);
   }
 
-  // A pinching finger lifted: the zoom springs home. A drag owner still on the
-  // glass carries on dragging from where it is now, not from where it landed.
+  // A pinching finger lifted: the zoom stays where the fingers left it — it
+  // becomes the resting zoom, as a +/− step would (it used to spring back,
+  // which made a pinch useless for anything but a glance). A drag owner still
+  // on the glass carries on dragging from where it is now, not from where it
+  // landed.
   _pinchEnd() {
     this._pinch = null;
-    this._mapZoomTauMs = PEEK_RETURN_MS;
-    if (this.mapZoom !== (this._mapZoomRest || 1)) this._mapZoomReturning = true;
+    this._setRestZoom(this.mapZoom || 1, PEEK_RETURN_MS);
     const p = this._peekPointer;
     if (p?.isDown && p.id === this._peekPointerId) {
       const at = this._gamePt(p);

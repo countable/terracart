@@ -320,6 +320,10 @@ const ASSETS = {
   // pebbles, logs. Wildplants pick a frame via CROP_SPRITE { sheet: 'props',
   // custom: true, frame: N }. Longgrass uses frame 10 (a grass tuft).
   props:       { kind: 'spritesheet', path: 'assets/Objects/Approved/props.png', frameWidth: 16, frameHeight: 16 },
+  // Hand-drawn 16px sprites (tools/art/export_petnip_waystone.py). The
+  // waystone's frame 1 is its lit look (Render.setWaystoneMaterial).
+  petnip:      { kind: 'spritesheet', path: 'assets/Objects/Handmade/petnip.png', frameWidth: 16, frameHeight: 16 },
+  waystone:    { kind: 'spritesheet', path: 'assets/Objects/Handmade/waystone.png', frameWidth: 16, frameHeight: 16 },
   // Rounded woodland bush: shared by shrub wildplants and bush-sized trees.
   bushes:      { kind: 'spritesheet', path: 'assets/Objects/CelProps/bushes.png', frameWidth: 24, frameHeight: 24 },
   // Animated campfire — 96×32 = 6 cols × 1 row of 16×32 frames. Lit by burning

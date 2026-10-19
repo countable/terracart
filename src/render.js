@@ -880,11 +880,10 @@ Render.neutralPetPixels = function neutralPetPixels(data) {
   }
   return data;
 };
-// The hook runs every draw even when the rock's geometry is cached. Selecting
-// a baked material keeps the on/off state legible in daylight in both renderers.
+// The hook runs every draw even when the stone's geometry is cached. The lit
+// frame's glowing rune keeps the on/off state legible in daylight.
 Render.setWaystoneMaterial = function setWaystoneMaterial(sprite, object, scene) {
-  if (window.Waystones?.isLit(object, scene.save) && scene.textures.exists('waystone_lit'))
-    setTextureIfDifferent(sprite, 'waystone_lit');
+  setTextureIfDifferent(sprite, 'waystone', window.Waystones?.isLit(object, scene.save) ? 1 : 0);
 };
 Render.petTexture = function petTexture(scene, kind, sheet, tint = 0xffffff) {
   const key = 'pet-neutral-' + sheet;
@@ -2592,14 +2591,22 @@ Render.drawCells = function drawCells(scene) {
         }
         if (GroundFire.active(fire, fireNow)) {
           // Three tongues stay within their cell and flicker out of phase.
+          // Flames rise up the SCREEN, not toward map north: this graphic
+          // turns with the map under heading-up, so the tongues are laid out
+          // along the turned screen's right (rx, ry) and up (ux, uy) about
+          // the cell centre.
+          const up = typeof HeadingUp !== 'undefined' ? HeadingUp.toWorldVec(scene, 0, -1) : { x: 0, y: -1 };
+          const ux = up.x, uy = up.y, rx = -uy, ry = ux;
+          const cx = sx + CELL_PX / 2, cy = sy + CELL_PX / 2;
+          const at = (r, u) => [cx + rx * r + ux * u, cy + ry * r + uy * u];
           for (let n = 0; n < 3; n++) {
-            const fx = sx + 7 + n * 9;
-            const fy = sy + 24 - (n % 2) * 4;
+            const br = (n - 1) * 9, bu = -8 + (n % 2) * 4;   // the tongue's base
             const height = 12 + 4 * Math.sin(texNow / 120 + n * 2 + _absIX + _absIY);
             fg.fillStyle(0xed591a, 0.95);
-            fg.fillTriangle(fx - 5, fy, fx + 5, fy, fx + Math.sin(texNow / 170 + n) * 3, fy - height);
+            fg.fillTriangle(...at(br - 5, bu), ...at(br + 5, bu),
+              ...at(br + Math.sin(texNow / 170 + n) * 3, bu + height));
             fg.fillStyle(0xffd45b, 1);
-            fg.fillTriangle(fx - 2, fy, fx + 2, fy, fx, fy - height * 0.55);
+            fg.fillTriangle(...at(br - 2, bu), ...at(br + 2, bu), ...at(br, bu + height * 0.55));
           }
         }
       }
@@ -4169,18 +4176,28 @@ const GROUND_MARK = {
   px: 42,
   tilt: 0.5,
   stepDeg: 3,
-  // [line width in the bake, colour, alpha]: under-stroke, halo, line;
-  // `weight` scales all three for a mark drawn heavier than the default.
-  strokes: (ink, weight = 1) => [[6 * weight, '#000', 0.5], [5 * weight, ink, 0.18], [2 * weight, ink, 1]],
+  // [line width in the bake, colour, alpha]: under-stroke, halo, line.
+  strokes: (ink) => [[6, '#000', 0.5], [5, ink, 0.18], [2, ink, 1]],
 };
 // The GPS ring's geometry in bake px: a ring around the feet with four short
 // ticks crossing it (an open ring, never a filled disc — a small gold disc is a
 // coin in this game), a strip over the 90° after which the ticks repeat. The
-// walk-home lead stops on the ring (app.js). Its own on-screen width, tilt and
-// stroke weight rather than GROUND_MARK's: at the shared 0.5 tilt the ring read
-// too squashed and its line too faint under the feet. `weight` is set so the
-// line lands about 1.3× the shared marks' on screen at this narrower width.
-const GPS_RING = { r: 30, tick: 5, periodDeg: 90, px: 38, tilt: 0.6, weight: 1.44 };
+// walk-home lead stops on the ring (app.js). Its own on-screen width and tilt
+// rather than GROUND_MARK's (at the shared 0.5 tilt it read squashed), and
+// the facing caret's paint rather than the rune circle's halo: a gold line on
+// a dark outline, with a soft drop shadow `shadowPx` down the screen. `line`
+// and `outline` are on-screen px, as the caret's are (FACING_CHEVRON).
+const GPS_RING = { r: 30, tick: 5, periodDeg: 90, px: 34, tilt: 0.6,
+  line: 1.2, outline: 2.8, shadowPx: 1, ink: '#ffe066' };
+// The ring's stroke passes in bake px, [width, colour, alpha, dy]: dy shifts
+// a pass down the bake before it turns, which the tilt lays flat as screen-down
+// (the ring is counter-rotated to stay screen-flat under heading-up).
+GPS_RING.passes = (() => {
+  const k = GROUND_MARK.bakePx / GPS_RING.px;
+  return [[GPS_RING.outline * k, '#000', 0.45, GPS_RING.shadowPx * k / GPS_RING.tilt],
+    [GPS_RING.outline * k, '#1a1208', 1, 0],
+    [GPS_RING.line * k, GPS_RING.ink, 1, 0]];
+})();
 // The frame of rotation strip `key` showing the mark turned `turnDeg`
 // clockwise on screen, with the map's own turn under heading-up folded in.
 Render.groundMarkFrame = function groundMarkFrame(scene, key, turnDeg = 0) {
@@ -6491,11 +6508,12 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               seat: true, shadow: true },
     // STREET VARIANT PROPS (src/street_variants.js). Ordinary 16px props draw
     // at 1.6; approved 24px ground spikes draw at 4/3. All seat in one cell.
-    // Waystones use the plain, low rounded rock. Their per-draw material hook
-    // changes the surface while the cached geometry remains immutable. The tar pit
+    // Waystones are carved standing stones at the plain rock's pixel scale.
+    // Their per-draw material hook swaps in the lit frame while the cached
+    // geometry remains immutable. The tar pit
     // and the iron stakes are the Burned Row's hazards (they SLOW the body —
     // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
-    waystone: { key: 'rock_variants', frame: 0, origin: [0.5, 0.5], scale: ROCK_VARIANT_ART.smallScale, seat: true, shadow: true, after: Render.setWaystoneMaterial },
+    waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: ROCK_VARIANT_ART.smallScale, seat: true, shadow: true, after: Render.setWaystoneMaterial },
     stakes:   { key: 'approved_charred_stakes', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     ground_hole: { key: 'cave_chasm', frame: o => o._chasmMask ?? 15, origin: [0.5, 0.5], scale: 1, seat: false, layer: WorldLayers.GROUND_DECAL },
     // UNDERGROUND STREET SCATTER (src/underground.js decorate): the triple
