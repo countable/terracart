@@ -78,7 +78,7 @@ const CROP_SPRITE = {
   nettle: { sheet: 'props', custom: true, frame: 33, scale: 1.13 },
   // Shrub looks share harvesting; brambles mark thorny groves and roads.
   shrub: { ...BUSH_SPRITE,
-    looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frames: [0, 1, 2, 3], scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frames: [0, 1, 2, 3, 4, 5, 6, 7], scale: 0.8 } } },
+    looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frames: [0], scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frames: [0, 1, 2, 3, 4, 5, 6, 7], scale: 0.8 } } },
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
   // Small mushrooms use 90% of their former 1.224 scale (80% read too

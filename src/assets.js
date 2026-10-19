@@ -28,7 +28,7 @@ const ASSETS = {
   poison_vent_inactive: { kind: 'spritesheet', path: 'assets/Objects/Cave/poison_vent_inactive.png', frameWidth: 24, frameHeight: 24 },
   cave_mechanisms: { kind: 'spritesheet', path: 'assets/Objects/Cave/mechanisms.png', frameWidth: 24, frameHeight: 24 },
   beehive: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Beehive.png', frameWidth: 16, frameHeight: 16 },
-  bramble: { kind: 'spritesheet', path: 'assets/Objects/CelProps/bramble.png', frameWidth: 24, frameHeight: 24 },
+  bramble: { kind: 'spritesheet', path: 'assets/Objects/Approved/bramble.png', frameWidth: 24, frameHeight: 24 },
   castle_tower_shapes: { kind: 'image', path: 'assets/Objects/Castle/tower_shapes.png' },
   // Potion projectiles use the same frames as inventory and shop icons.
   icon_potions: { kind: 'spritesheet', path: 'assets/Icons/Items/Potions.png', frameWidth: 16, frameHeight: 16 },
