@@ -103,7 +103,7 @@
     Underground.decorate(s.plan, s.grid.slice(), b, [], new Set());
     assert.eq(JSON.stringify(a), JSON.stringify(b), 'same source produces same objects');
   });
-  test('underground: real loader keeps carved streets shallow and preserves staircase inheritance', async () => {
+  test('underground: real loader applies each floor road rule and preserves staircase inheritance', async () => {
     const s = sample(), tx = 920021, ty = 920022, key = WorldGen.tileKey(tx, ty);
     const stair = { kind: 'staircase', dir: 'down', id: 'underground-test-stair', depth: 0,
       x: tx * s.edge + 10.5 * 7, y: ty * s.edge + 10.5 * 7 };
@@ -135,7 +135,9 @@
       assert.eq(first.grid[road], T.CAVE_FLOOR, 'sewer routes remain open'); assert.eq(second.grid[road], T.CAVE_WALL, 'L2 retains natural small-road walls');
       assert.eq(second.geologyGrid[road], T.CAVE_WALL);
       assert.eq(third.grid[road], T.CAVE_FLOOR, 'warren streets remain open');
-      assert.eq(fourth.grid[road], T.CAVE_WALL, 'shallow streets do not carve deep stone');
+      assert.eq(fourth.grid[road], T.CAVE_FLOOR, 'deep stone roads become buffered tunnels');
+      assert.eq(fourth.geologyGrid[road - s.N], T.CAVE_FLOOR, 'tunnel receives one-cell clearance');
+      assert.eq(fourth.geologyGrid[road - 2 * s.N], T.CAVE_WALL, 'stone surrounds the tunnel');
       assert.eq(fifth.grid[road], T.CAVE_FLOOR, 'Underdark is the owning open stratum');
       assert.falsy(first.genObjects.some(o => o.kind === 'staircase' && o.dir === 'down'),
         'the first cave retains main’s deliberate break in the generated stair chain');

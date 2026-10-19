@@ -149,12 +149,14 @@ test('enemy habitats: live repaint removes stranded jellyfish and preserves wate
 test('enemy habitats: every selected cave theme has an eligible family through deep levels', () => {
   for (let depth = 1; depth <= 20; depth++) {
     const band = EnemyHabitats.THEME_BANDS.find(b => depth <= b.max);
-    for (const theme of new Set(band.themes)) {
+    for (const theme of new Set(WorldGen.floorProfile(depth).enemyHabitat
+      ? [WorldGen.floorProfile(depth).enemyHabitat] : band.themes)) {
       const context = { kinds: EnemyHabitats.FAMILIES[theme] };
       const pool = EnemySpawns.caveRows(depth, context);
       assert.gt(pool.length, 0, `${theme} has residents at depth ${depth}`);
       for (const row of pool) {
-        assert.falsy(row.retired); assert.falsy(row.id === 'red_dragon', 'dragons have finite roost seats');
+        assert.falsy(row.retired);
+        if (depth !== 7) assert.falsy(row.id === 'red_dragon', 'deeper dragons have finite roost seats');
         if (theme === 'infernal') assert.gte(depth, WorldGen.LAVA_DEPTH);
       }
     }
@@ -344,4 +346,28 @@ test('new monsters: requested tiers and attack behavior come from the roster', (
   assert.gt(EnemyRoster.get('sword_spirit').dmg, 0);
   assert.falsy(EnemyRoster.get('sword_spirit').steals);
   assert.truthy(EnemySpawns.caveRows(4, { kinds: EnemyHabitats.FAMILIES.natural }).some(r => r.id === 'gelatinous_cube'));
+});
+
+
+test('enemy habitats: L7 generated population is primarily dragons with stable defeated seats', () => {
+  const generate = new Function('entry', 'tx', 'ty', 'depth', SPAWN_CAVE_SRC.replace(/\n\s*\}\s*$/, ''));
+  const run = (tx, ty, caught = []) => {
+    const entry = { cellsPerEdge: 80, tileEdgeM: 800,
+      grid: new Array(80 * 80).fill(WorldGen.T.CAVE_FLOOR), objects: [] };
+    generate.call({ tileEdgeM: 800, save: { caught } }, entry, tx, ty, 7);
+    return entry.creatures.filter(c => Combat.isEnemyKind(c.kind));
+  };
+  for (const [tx, ty] of [[0, 0], [-1, 2], [3, -2]]) {
+    const creatures = run(tx, ty);
+    assert.gt(creatures.length, 50, 'actual ambient budget is populated');
+    const dragons = creatures.filter(c => c.kind === 'red_dragon');
+    assert.gt(dragons.length / creatures.length, .65, 'dragons dominate each fixture');
+    assert.truthy(creatures.some(c => c.kind === 'red_demon'), 'minority residents remain');
+    const signature = cs => cs.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
+    assert.eq(signature(run(tx, ty)), signature(creatures));
+    assert.eq(signature(run(tx, ty, [dragons[0].id])), signature(creatures.filter(c => c.id !== dragons[0].id)));
+  }
+  for (const depth of [6, 8, 9]) {
+    assert.falsy(EnemySpawns.caveRows(depth).some(row => row.id === 'red_dragon'), 'other floors keep their ambient pools');
+  }
 });

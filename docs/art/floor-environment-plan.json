@@ -78,7 +78,7 @@
           13,
           5
         ],
-        "status": "Approved wall material integrated. Ground, water and connected pipe samples remain visual trials.",
+        "status": "Approved wall material and sewer water integrated. Water follows existing route centre lanes as walkable decorative ground. Dry ground and connected pipe samples remain visual trials.",
         "cap": "Theme-tinted original cap falloff with a 3px exposed brick lip",
         "face_texture_scale": 0.5,
         "geometry": "Full 32px cell footprint, 19px raised wall, compass-aware projection",
@@ -195,7 +195,7 @@
         "red dwarven slab"
       ],
       "placement": "Use the selected slab cap and three brick-band faces on existing building masses. Grey slabs dominate; teal and tan distinguish broad landcover patches. Hold red slabs as an alternate. Banners and pillars sit against walls; no new doors or rune interactions.",
-      "wall_rule": "Deep stone fills the floor except eligible park, grove, playground, pitch and commercial clearings.",
+      "wall_rule": "Deep stone surrounds connected tunnels carved from surface road/path footprints plus a one-cell buffer, alongside eligible park, grove, playground, pitch and commercial clearings.",
       "wall_scheme": {
         "face": {
           "sheet": "dungeon",

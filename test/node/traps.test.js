@@ -355,6 +355,20 @@ test('traps: countMul scales cave density the same way', () => {
   assert.gt(mul100.length, base.length, 'DUNGEON_DENSITY_MUL lays far more cave traps');
 });
 
+test('traps: sewer profile scatters a handful while deeper floors retain their rate', () => {
+  const g = caveGrid(CAVE_N);
+  const mul = depth => WorldGen.floorProfile(depth).trapDensityMul ?? Traps.DUNGEON_DENSITY_MUL;
+  assert.eq(mul(1), 1);
+  for (const depth of [2, 3, 4, 5, 6, 7]) assert.eq(mul(depth), Traps.DUNGEON_DENSITY_MUL);
+  for (let tx = 0; tx < 12; tx++) {
+    const sparse = Traps.spawnCave(g, CAVE_N, tx, 0, TILE_EDGE_M, 1, ANCHORS, new Set(), mul(1));
+    const old = Traps.spawnCave(g, CAVE_N, tx, 0, TILE_EDGE_M, 1, ANCHORS, new Set(), Traps.DUNGEON_DENSITY_MUL);
+    assert.lte(sparse.length, 10, 'L1 has at most ten ambient snares per tile');
+    assert.gt(old.length, sparse.length * 10, 'large reduction from the old minefield');
+    assert.eq(JSON.stringify(sparse), JSON.stringify(old.slice(0, sparse.length)), 'retained traps keep their positions and IDs');
+  }
+});
+
 // ─── Seed-generated, never stored ────────────────────────────────────────────
 
 test('traps: the same tile lays the same traps every time it is built', () => {

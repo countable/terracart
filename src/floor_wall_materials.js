@@ -64,6 +64,26 @@
   }
   function prepareAll(scene) {
     for (let depth = 1; depth <= THEMES.length; depth++) prepare(scene, depth);
+    prepareGround(scene);
+  }
+  // Decorative sewer channels follow the existing route centre lanes. Their
+  // cells remain walkable CAVE_FLOOR; banks, walls and other floors stay dry.
+  const SEWER_WATER = 'floor-sewer-water';
+  function groundTexture(entry, index, type = entry?.grid?.[index]) {
+    return entry?.depth === 1 && type === global.WorldGen.T.CAVE_FLOOR
+      && entry.underground?.lane?.has(index) ? SEWER_WATER : null;
+  }
+  function prepareGround(scene) {
+    if (scene.textures.exists(SEWER_WATER)) return scene.textures.get(SEWER_WATER);
+    if (!scene.textures.exists('floor_wall_sources')) return null;
+    const source = scene.textures.get('floor_wall_sources').getSourceImage();
+    const texture = scene.textures.createCanvas(SEWER_WATER, CELL, CELL);
+    const g = texture.getContext(); g.imageSmoothingEnabled = false;
+    for (let y = 0; y < CELL; y += 16) for (let x = 0; x < CELL; x += 16)
+      g.drawImage(source, theme(1).road * 16, 0, 16, 16, x, y, 16, 16);
+    texture.refresh();
+    texture.setFilter?.(global.Phaser?.Textures?.FilterMode?.NEAREST ?? 1);
+    return texture;
   }
   function quad(points, normal, rect) {
     const [x, y, w, h] = rect;
@@ -84,5 +104,6 @@
     faces.push(...quad(points.map(p => ({...p, z: HEIGHT})), null, [(mask & 15) * CELL, v * CELL, CELL, CELL]));
     return faces;
   }
-  global.FloorWallMaterials = {theme, variant, prepare, prepareAll, drawAtlas, geometry, height: HEIGHT};
+  global.FloorWallMaterials = {theme, variant, prepare, prepareAll, drawAtlas, geometry,
+    groundTexture, prepareGround, height: HEIGHT};
 })(typeof window !== 'undefined' ? window : globalThis);

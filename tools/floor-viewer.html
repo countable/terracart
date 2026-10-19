@@ -218,6 +218,7 @@
           drawBiomeTexture(t.getContext(), 32, +type, v, 0);
         }
       } catch (e) { console.warn(e); }
+      FloorWallMaterials.prepareGround(scene);
       return { textures: store, failures };
     })();
     return assetsPromise;
@@ -368,6 +369,9 @@
       if (spec && s >= 8 && !(type === T.CAVE_FLOOR || type === T.CAVE_WALL || type === T.CAVE_LAVA))
         ctx.drawImage(assets.textures.get('biome' + type + '_' + (Math.abs(h) % spec.variants)).getSourceImage(),
           offX + x * s, offY + y * s, s + .5, s + .5);
+      const channel = FloorWallMaterials.groundTexture(entry, i, type);
+      if (channel) ctx.drawImage(assets.textures.get(channel).getSourceImage(),
+        offX + x * s, offY + y * s, s + .5, s + .5);
     }
     const roadLabels = [];
     // Source geometry at real widths, using the game's themed pavement tiles.
@@ -515,7 +519,7 @@
       const reasons = [...new Set(records.filter(record => record.status === 'declined').map(record => record.reason.replace(/_/g, ' ')))];
       return `${row.label}: ${placed}${reasons.length ? ` (${reasons.join(', ')})` : ''}`;
     }).join(' · ') : '';
-    tag('<b>' + (depth === 0 ? 'Surface - the town' : depth === 8 ? 'L8 · Dragon roosts' : FloorWallMaterials.theme(depth).label) + '</b>'
+    tag('<b>' + (depth === 0 ? 'Surface - the town' : FloorWallMaterials.theme(depth).label) + '</b>'
       + (depth === 0 ? `<br>Home safety: <b>${safetyRadius ? safetyRadius + ' m' : 'off'}</b> · ${hiddenEnemies} enemies hidden (preview)` : '')
       + '<br>Nexuses: <b>' + (nexusNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'
       + '<br>Roads: <b>' + (roadNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'
@@ -550,7 +554,7 @@
   };
   document.getElementById('resetSeed').onclick = () => changeSeed(0);
   const floorSeg = document.getElementById('floorSeg');
-  for (const f of [0, 1, 2, 3, 4, 5, 6, 7, 8]) {
+  for (const f of [0, 1, 2, 3, 4, 5, 6, 7]) {
     const b = document.createElement('button'); b.textContent = f === 0 ? 'S' : String(f);
     b.onclick = () => { floor = f; [...floorSeg.children].forEach(x => x.classList.remove('on')); b.classList.add('on'); changeFloor(); };
     if (f === 0) b.classList.add('on');

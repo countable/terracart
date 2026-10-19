@@ -36,8 +36,10 @@ test('lava: level 6 turns BUILDING rock to lava — not road or water rock, and 
       for (const d of [1, 2, 3, 4, 7]) assert.eq(lv[d].grid[i], T.CAVE_WALL, `and rock on level ${d}`);
     }
     for (const i of [ROAD, POND]) {
-      for (const d of [2, 4, 6, 7]) assert.eq(lv[d].grid[i], T.CAVE_WALL, `road/water cell ${i} is rock on level ${d}`);
+      for (const d of [2, 6, 7]) assert.eq(lv[d].grid[i], T.CAVE_WALL, `road/water cell ${i} is rock on level ${d}`);
     }
+    assert.eq(lv[4].grid[ROAD], T.CAVE_FLOOR, 'L4 roads become tunnels without changing deeper lava geology');
+    assert.eq(lv[4].grid[POND], T.CAVE_WALL, 'L4 water away from road buffers remains stone');
     assert.truthy([...lv[5].grid].every(t => t === T.CAVE_FLOOR), 'Underdark has no walls');
     let lava = 0;
     for (let i = 0; i < n * n; i++) if (lv[6].grid[i] === T.CAVE_LAVA) lava++;

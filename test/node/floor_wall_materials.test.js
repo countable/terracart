@@ -1,4 +1,15 @@
 (() => {
+  test('sewer water follows existing L1 centre lanes without repainting walls, banks or L2', () => {
+    const T = WorldGen.T;
+    const entry = { depth: 1, grid: [T.CAVE_FLOOR, T.CAVE_FLOOR, T.CAVE_WALL, T.CAVE_LAVA],
+      underground: { lane: new Set([0, 2, 3]) } };
+    assert.eq(FloorWallMaterials.groundTexture(entry, 0), 'floor-sewer-water');
+    for (const i of [1, 2, 3]) assert.eq(FloorWallMaterials.groundTexture(entry, i), null);
+    assert.eq(FloorWallMaterials.groundTexture({...entry, depth: 2}, 0), null);
+    assert.eq(FloorWallMaterials.groundTexture({...entry, underground: null}, 0), null);
+    assert.eq(FloorWallMaterials.groundTexture(null, 0), null);
+    assert.eq(entry.grid[0], T.CAVE_FLOOR, 'visual water never changes walkability');
+  });
   test('floor wall materials: concealed sides are omitted without opening the full-cell crown', () => {
     const points = [{x: 32, y: 64}, {x: 64, y: 64}, {x: 64, y: 96}, {x: 32, y: 96}];
     for (let mask = 0; mask < 16; mask++) {

@@ -2883,6 +2883,11 @@ Render.drawCells = function drawCells(scene) {
             }
           }
         }
+        if (!isTilled && scene.depth === 1 && typeof FloorWallMaterials !== 'undefined') {
+          const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
+          const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
+          texKey = FloorWallMaterials.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type) || texKey;
+        }
         let damageFrame;
         if (texKey && !polygonBuilding(col, row) && !isTilled && type === 12) {
           const damaged = CastleStyles.damageTexture(scene, castleOwner(col, row), !UNCLAIMED(col, row));

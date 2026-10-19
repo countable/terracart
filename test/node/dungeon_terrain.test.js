@@ -23,13 +23,46 @@
     assert.eq([...W.undergroundTerrain({ baseGrid: source }, source, 1).grid].join(),
       [T.CAVE_WALL,T.CAVE_WALL,T.CAVE_WALL,T.CAVE_FLOOR,T.CAVE_FLOOR,T.CAVE_FLOOR,T.CAVE_FLOOR,T.CAVE_FLOOR].join());
   });
-  test('deep stone: only surface parks and commercial clearings open, roads remain stone', () => {
+  test('deep stone: buffered road tunnels connect eligible clearings through surrounding stone', () => {
     const source = Uint8Array.from([T.GRASS, T.PARK, T.COMMERCIAL, T.GROVE, T.BUILDING, T.ROAD]);
     const surface = { grid: new Uint8Array(6).fill(T.PARK), baseGrid: source, roadMask: Uint8Array.from([0, 0, 1, 0, 0, 1]) };
     const result = W.undergroundTerrain(surface, new Uint8Array(6).fill(T.CAVE_FLOOR), 4);
-    assert.eq([...result.grid].join(','), [T.CAVE_WALL,T.CAVE_FLOOR,T.CAVE_WALL,T.CAVE_FLOOR,T.CAVE_WALL,T.CAVE_WALL].join(','));
+    assert.eq([...result.grid].join(','), [T.CAVE_WALL,T.CAVE_FLOOR,T.CAVE_FLOOR,T.CAVE_FLOOR,T.CAVE_FLOOR,T.CAVE_FLOOR].join(','));
     assert.eq([...result.areas].join(','), '0,1,0,1,0,0');
     assert.eq(source[0], T.GRASS, 'immutable surface untouched');
+  });
+  test('deep stone: physical road widths gain one cell of clearance, clipped at tile edges', () => {
+    const N = 11, source = new Uint8Array(N * N).fill(T.GRASS), roadMask = new Uint8Array(source.length);
+    // A two-cell-wide physical carriageway, wider than its terrain centreline.
+    for (let y = 0; y < N; y++) {
+      source[y * N + 4] = T.ROAD_MD;
+      roadMask[y * N + 4] = roadMask[y * N + 5] = 1;
+    }
+    source[8 * N + 8] = T.COMMERCIAL;
+    const original = source.slice(), maskBefore = roadMask.slice();
+    const surface = { baseGrid: source, cellsPerEdge: N, roadMask };
+    const result = W.undergroundTerrain(surface, new Uint8Array(source.length).fill(T.CAVE_FLOOR), 4);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const clearing = x === 8 && y === 8;
+      assert.eq(result.grid[y * N + x], (x >= 3 && x <= 6) || clearing ? T.CAVE_FLOOR : T.CAVE_WALL,
+        'carriageway plus one cell, no wraparound or growing flood');
+      assert.eq(result.areas[y * N + x], clearing ? 2 : 0, 'only the original commercial clearing is a settlement');
+    }
+    assert.eq([...source].join(), [...original].join(), 'surface geometry is read-only');
+    assert.eq([...roadMask].join(), [...maskBefore].join(), 'road mask is read-only');
+    const rebuilt = W.undergroundTerrain(surface, new Uint8Array(source.length).fill(T.CAVE_WALL), 4);
+    assert.eq([...result.grid].join(), [...rebuilt.grid].join(), 'upper-floor edits cannot change tunnels');
+  });
+  test('deep stone: diagonal path tunnels connect without opening distant stone', () => {
+    const N = 9, source = new Uint8Array(N * N).fill(T.GRASS);
+    for (let i = 0; i < N; i++) source[i * N + i] = T.PATH;
+    const result = W.undergroundTerrain({ baseGrid: source, cellsPerEdge: N }, source, 4);
+    for (let i = 0; i < N - 1; i++) {
+      assert.eq(result.grid[i * N + i + 1], T.CAVE_FLOOR, 'diagonal step has a cardinal connection');
+      assert.eq(result.grid[(i + 1) * N + i], T.CAVE_FLOOR);
+    }
+    assert.eq(result.grid[N - 1], T.CAVE_WALL);
+    assert.eq(result.grid[(N - 1) * N], T.CAVE_WALL);
   });
   test('goblin city: roads and water open; every building class remains stone', () => {
     const source = Uint8Array.from([T.ROAD, T.WATER, T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE, T.GRASS]);

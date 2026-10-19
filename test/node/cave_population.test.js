@@ -4,13 +4,13 @@
   const body = SPAWN_CAVE_SRC.replace(/\n\s*\}\s*$/, '');
   const generate = new Function('entry', 'tx', 'ty', 'depth', body);
   const N = 80, edge = N * 7;
-  const run = (blocked, caught = []) => {
+  const run = (blocked, caught = [], depth = 1) => {
     const grid = new Uint8Array(N * N).fill(WorldGen.T.CAVE_FLOOR);
     const spawnWhy = new Uint16Array(N * N);
     if (blocked) for (let i = 0; i < N * N; i++)
       if (i % N < 59 || i % N >= 65) spawnWhy[i] = WorldGen.SPAWN_WHY.RESTRICTED;
     const entry = { cellsPerEdge: N, tileEdgeM: edge, grid, spawnWhy, objects: [] };
-    generate.call({ tileEdgeM: edge, save: { caught } }, entry, 0, 0, 1);
+    generate.call({ tileEdgeM: edge, save: { caught } }, entry, 0, 0, depth);
     return entry.creatures;
   };
   const inOnePocket = fn => {
@@ -18,7 +18,7 @@
     EnemySpawns.caveContextAt = () => ({ id: 'fixture_pocket', theme: 'natural', kinds: EnemyHabitats.FAMILIES.natural });
     try { fn(); } finally { EnemySpawns.caveContextAt = original; }
   };
-  test('cave population: excluded seats preserve the pocket enemy and Rabbit budgets', () => inOnePocket(() => {
+  test('cave population: excluded seats preserve the pocket enemy budget', () => inOnePocket(() => {
     const before = run(false), after = run(true);
     assert.gt(before.length, 60);
     assert.eq(after.filter(c => c.kind === 'rabbit').length, before.filter(c => c.kind === 'rabbit').length);
@@ -52,6 +52,15 @@
     const everyAlias = after.flatMap(c => c._legacyDefeatIds || []);
     assert.eq(new Set(everyAlias).size, everyAlias.length, 'current-cell compatibility cannot reuse a canonical alias');
   }));
+
+  test('cave population: every underground floor has enemies but no rabbits', () => {
+    for (let depth = 1; depth <= 8; depth++) {
+      const creatures = run(false, [], depth);
+      assert.eq(creatures.filter(c => c.kind === 'rabbit').length, 0, `no rabbits on L${depth}`);
+      assert.gt(creatures.length, 0, `L${depth} retains its enemies`);
+      assert.eq(JSON.stringify(creatures), JSON.stringify(run(false, [], depth)), 'population remains deterministic');
+    }
+  });
 
   test('cave population: fully excluded floor scans legal ground once per spawn class', () => inOnePocket(() => {
     const gate = WorldGen.isSpawnCell;

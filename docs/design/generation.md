@@ -53,6 +53,10 @@ access or tile lifecycle mechanics.
   shortfall counts; matching authored Nexus fauna satisfies matching slots.
 - Crows are the open country's corvid: Grass landcover, Grove Nexus and
   declared Road Variant populations; Ravens are the houses' (Residential).
+  Underground floors do not generate ambient rabbits.
+  L7 ambient encounters use the dragon floor habitat: four parts red dragon
+  to one red demon, within the existing deterministic population budget.
+  Deeper roost habitats retain one fixed dragon seat per region.
   Rabbits have ordinary surface populations. Cat exclusion from Wasteland, Deer restriction
   to Forest/Residential, and Butterfly exclusion from Forest/Orchard remain
   species placement limits.
@@ -86,7 +90,7 @@ access or tile lifecycle mechanics.
   identities and species remain fixed when safety relocates their seats. A
   raw-floor compatibility pass assigns historical cell aliases before safety;
   each alias belongs to one request, so old defeats neither resurrect relocated
-  foes nor suppress multiple enemies. Rabbit identities remain ordinal-based.
+  foes nor suppress multiple enemies.
 - Rendering and simulation use `EnemySpawns.isSurfaceResident`, including
   habitat-only residents without ordinary roster metadata. Evening suppression
   is reevaluated after dusk and dawn, including specialized Metal Slimes.
@@ -235,7 +239,13 @@ access or tile lifecycle mechanics.
   any per-floor road clearings are level-scoped projections of surface lines.
   On L2, only Small roads become road-derived cave walls; Medium/Large roads
   and paths remain open terrain. Route projection cannot carve the L2 Small-road
-  walls. Buildings and water retain their existing wall mapping. Open terrain
+  walls. Buildings and water retain their existing wall mapping. L4 carves
+  surface road footprints (including paths) plus a one-cell buffer into
+  connected tunnels, preserving surrounding deep stone and eligible public
+  clearings. `floorProfile(4).roadTunnelBufferCells` owns the clearance;
+  physical road masks retain wider carriageways, with terrain routes as a
+  fallback. Tunnels do not become settlement clearings or surface street
+  overlays. Open terrain
   does not relax inherited spawn safety.
   `docs/design/floors.md` owns the per-floor catalog.
 
@@ -245,7 +255,7 @@ access or tile lifecycle mechanics.
   probabilities, flint-bearing rock frequency, authored cave-area weights/carving/garrisons, pressure traps,
   the vent kinds a floor erupts,
   arrival story IDs and entry keys. The terrain ladder is sewer 1 (building walls), natural caves 2 (the old
-  L1 mask read directly from the surface), goblin city 3, deep-stone clearings
+  L1 mask read directly from the surface), goblin city 3, deep-stone clearings and road tunnels
   4, open fungal 5, lava 6, and dragon masonry 7–8. Lava and dragon strata
   read surface geometry directly; an open fungal floor must not erase lava
   footprints. Lava building cells are ground-level `CAVE_LAVA`, not rockwalls.
@@ -493,6 +503,9 @@ access or tile lifecycle mechanics.
   or in yards, and every timed reward (coin bursts, bounty packs,
   `findWalkableDestination`) stays on the player's SIDE of any MD/LG road
   (`sameSideField`, creature_ai.js) — nothing urgent across a Major or Medium road.
+  L1 sewer uses the base ambient snare count (6–10 attempts per tile), rather
+  than the deeper floors’ 100× multiplier. The game and floor viewer share this
+  floor-profile setting; retained traps keep their seeded positions and IDs.
   Cave traps use their occupied-cell set; surface traps sit beside footpaths
   or on park edges, never near a road (`Traps.isTrapGround`).
 - Path variant assignment joins connected mapped fragments and balances natural

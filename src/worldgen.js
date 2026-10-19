@@ -9238,6 +9238,7 @@
   //   biome        the label render and lighting read (entry.undergroundBiome)
   //   lava         this floor's walls under surface BUILDINGS turn to lava
   //   roadWalls    'small' limits road-derived walls to Small roads
+  //   roadTunnelBufferCells clearance around surface road footprints carved as tunnels
   //   streetMirror Underground projects surface paths/streets as an overlay
   //   fallLandings 3x3 pockets under the floor above's ground holes
   //   chestSource  whose POI chests mirror down: 'above' | 'surface'
@@ -9258,7 +9259,7 @@
   });
   const FLOOR_PROFILES = Object.freeze([
     // Sewer channels are a visual treatment of open routes, not new hazards.
-    Object.freeze({ depth: 1, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
+    Object.freeze({ depth: 1, trapDensityMul: 1, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'sewer', terrain: 'city', streetMirror: true,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
     // The original natural cave geology reads the surface directly, so adding
@@ -9275,7 +9276,7 @@
       fallLandings: true, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 4, arrivalStory: 'dungeon_stone', entryKey: null,
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
-      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'deep_stone', terrain: 'clearings', streetMirror: false,
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'deep_stone', terrain: 'clearings', roadTunnelBufferCells: 1, streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 5, arrivalStory: 'dungeon_underdark', entryKey: 'level4Key',
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
@@ -9286,6 +9287,7 @@
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'lava', terrain: 'surfacePaint', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: true }),
     ...[7, 8].map(depth => Object.freeze({ depth, arrivalStory: 'dungeon_dragon', entryKey: 'level4Key',
+      enemyHabitat: depth === 7 ? 'dragon' : null,
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: depth === 7 ? 'dragon' : 'dragon_roost', terrain: 'surfacePaint', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false })),
@@ -9335,6 +9337,25 @@
         }
         grid[i] = isWalkable(terrain) && !isRoadTerrain(terrain) && terrain !== T.CAVE_LAVA
           ? T.CAVE_FLOOR : T.CAVE_WALL;
+      }
+    }
+    // Read the immutable physical road footprint, not the cave above or a
+    // growing carved mask. Square clearance joins diagonal route cells and
+    // gives narrow streets a three-cell passage while wider roads keep their
+    // width. Clearings keep their settlement tags; tunnels do not gain them.
+    const buffer = profile.roadTunnelBufferCells;
+    if (buffer != null) {
+      const width = surface.cellsPerEdge || source.length;
+      const height = Math.ceil(grid.length / width);
+      for (let i = 0; i < source.length; i++) {
+        if (!surface.roadMask?.[i] && !isRoadTerrain(source[i]) && source[i] !== T.PATH) continue;
+        const x = i % width, y = Math.floor(i / width);
+        for (let dy = -buffer; dy <= buffer; dy++) {
+          for (let dx = -buffer; dx <= buffer; dx++) {
+            const nx = x + dx, ny = y + dy, j = ny * width + nx;
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height && j < grid.length) grid[j] = T.CAVE_FLOOR;
+          }
+        }
       }
     }
     return { grid, areas };
