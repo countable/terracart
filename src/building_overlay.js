@@ -509,11 +509,13 @@
     // pixels only — a fractional translate resamples the tile and mushes it.
     let phaseX = 0, phaseY = 0;
     const wrap = (v, period) => ((v % period) + period) % period;
-    const trace = (pts) => {
+    const trace = (pts, holes = []) => {
       ctx.beginPath();
-      ctx.moveTo(pts[0].x - originX, pts[0].y - originY);
-      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x - originX, pts[i].y - originY);
-      ctx.closePath();
+      for (const ring of [pts, ...holes]) {
+        ctx.moveTo(ring[0].x - originX, ring[0].y - originY);
+        for (let i = 1; i < ring.length; i++) ctx.lineTo(ring[i].x - originX, ring[i].y - originY);
+        ctx.closePath();
+      }
     };
     // Bake once per geometry/palette. Camera crossings then copy one small
     // bitmap instead of replaying thousands of mesh triangles.
@@ -700,11 +702,11 @@
           }
         }
       },
-      fillPoly(pts, color, alpha) {
+      fillPoly(pts, color, alpha, holes = []) {
         if (!pts || pts.length < 3) return;
-        trace(pts);
+        trace(pts, holes);
         ctx.fillStyle = alpha == null ? cssOf(color) : rgbaOf(color, alpha);
-        ctx.fill();
+        ctx.fill('evenodd');
       },
       strokePoly(pts, width, color) {
         if (!pts || pts.length < 3) return;
@@ -797,12 +799,12 @@
       // The tier's material, laid inside the ring. One clip + one pattern fill
       // per building; rebuilds are rare (a cell crossing or a tile load), so
       // this is nothing per frame.
-      texturePoly(pts, tier) {
+      texturePoly(pts, tier, holes = []) {
         const p = patternFor(tier);
         if (!p || !pts || pts.length < 3) return;
         ctx.save();
-        trace(pts);
-        ctx.clip();
+        trace(pts, holes);
+        ctx.clip('evenodd');
         ctx.fillStyle = p.fill;
         const x = wrap(phaseX, p.width), y = wrap(phaseY, p.height);
         ctx.translate(x, y);
@@ -1280,7 +1282,7 @@
     // Keep padded paint across crossings. New tile inputs and the claim epoch
     // still repaint immediately: restoring a wreck or taking a castle must
     // lift the shade off that footprint on the next frame.
-    const frame = overlayFrame(scene, (entry) => !!entry.buildingShapes || (Render.proceduralBuildings?.() && !!entry.objects));
+    const frame = overlayFrame(scene, (entry) => !!entry.buildingShapes || !!entry.retailInteriors || (Render.proceduralBuildings?.() && !!entry.objects));
     const { tiles } = frame;
     const previous = scene._buildingGeomKey ? scene._buildingGeomFrame : null;
     const paint = overlayPaintFrame(scene, frame, previous, claimEpoch(scene));
@@ -1337,7 +1339,8 @@
       + ',' + JSON.stringify([s.restoredHouses, s.shopLines, s.shopTiers, s.bookshopId, s.petshopId, s.starterBlacksmithId])
       + ',' + (s.starterShopId || '') + ',' + Object.values(s.temples || {}).filter(r => r.active).length
       // Home's roof comes off while the player is inside (drawHome).
-      + ',' + (scene.homeInside ? Number(!!scene.homeInside()) : '');
+      + ',' + (scene.homeInside ? Number(!!scene.homeInside()) : '')
+      + ',' + (scene.activeInterior?.()?.key || '');
   }
 
   function rebuild(scene, tiles, fracX, fracY) {
@@ -1474,6 +1477,31 @@
       }
     }
 
+    // A retail room uses the same open-roof house renderer and floor canvas.
+    // Its source footprint survives POI frontage placement and civic dissolves.
+    const room = scene.activeInterior?.();
+    if (room?.kind === 'retail') {
+      const project = ring => ring.map(p => ({ x: projX(p.x), y: projY(p.y) }));
+      const pts = project(room.ring), holes = (room.holes || []).map(project);
+      const left = Math.min(...pts.map(p => p.x)), right = Math.max(...pts.map(p => p.x));
+      const north = Math.min(...pts.map(p => p.y)), south = Math.max(...pts.map(p => p.y));
+      for (let i = draws.length - 1; i >= 0; i--) {
+        const d = draws[i], epsilon = 0.1;
+        const sameBounds = Math.abs(d.left - left) < epsilon && Math.abs(d.right - right) < epsilon
+          && Math.abs(d.north - north) < epsilon && Math.abs(d.south - south) < epsilon;
+        // Match the source ring, not its bounding box: another building can
+        // cross an L-shaped mall's exterior notch or stand in its courtyard.
+        // Ring start, winding and a duplicated closing point do not matter.
+        const verticesMatch = (a, b) => a.every(p => b.some(q => Math.hypot(p.x - q.x, p.y - q.y) < epsilon));
+        if (!d.templeZone && sameBounds && verticesMatch(d.pts, pts) && verticesMatch(pts, d.pts)) {
+          if (d.object?.id) scene._proceduralBuildings.set(d.object.id, { height: 0 });
+          draws.splice(i, 1);
+        }
+      }
+      draws.push({ pts, holes, left, right, north, south, key: room.key,
+        tier: 9, retail: true, columns: [], seed: 0 });
+    }
+
     // Painter rule: the LOWER building draws in front. Ties break on the
     // leftmost x so the order is fully determined by the geometry rather than
     // by which tile happened to load first.
@@ -1505,13 +1533,13 @@
       // HOME — the player's house (HomeArea.HOUSE; its footprint is stamped by
       // scene_venues.js): the low-poly `home` role, open-roofed while the
       // player stands inside; without WebGL, its own prism walls (drawHome).
-      if (d.key && scene.save && d.key === scene.save.starterShopId) {
-        const inside = !!(scene.homeInside && scene.homeInside());
+      if (d.retail || (d.key && scene.save && d.key === scene.save.starterShopId)) {
+        const inside = d.retail || !!(scene.homeInside && scene.homeInside());
         drawHomeFloor(g, d, GRID, homePrisms || lowpoly);
         let model = null;
         if (lowpoly) {
           const object = d.object || { kind: 'house', id: d.key, tier: 9 };
-          const profile = Render.buildingProfileFor(object, scene);
+          const profile = d.retail ? { style: 'whitewash', palette: {} } : Render.buildingProfileFor(object, scene);
           const palette = { ...BuildingStyles.STYLES[profile.style], ...profile.palette };
           const recipe = BuildingLowPoly.recipeFor('home',
             { wall: palette.wall, roof: palette.roof, trim: palette.trim ?? 0x614534 }, scene.buildingStoreys);
@@ -1524,6 +1552,9 @@
           // the streets like every other house.
           const entrance = d.door ? BuildingLowPoly.ringEdgeNearest(d.pts, d.door) : null;
           model = BuildingLowPoly.add(scene, d.pts, recipe, variant, object.id, doorStreets, entrance);
+          if (d.retail) for (const [i, hole] of (d.holes || []).entries()) {
+            BuildingLowPoly.add(scene, hole, recipe, variant, `${object.id}:court:${i}`, []);
+          }
           if (model?.faces?.length) scene._proceduralBuildings.set(object.id, { height: model.height * BuildingLowPoly.LOOK.heightScale });
         }
         if (!model?.faces?.length) {
@@ -1541,8 +1572,11 @@
             // (WallPerspective perWall / worldPieces) — one graphics object
             // under the player's container would draw the player over the
             // walls in front of them.
-            scene._wallPerspective.home.perWall = inside;
+            scene._wallPerspective.home.perWall = inside || room?.kind === 'retail';
             homeWalls(scene, d, HomeArea.HOUSE, inside);
+            if (d.retail) for (const hole of d.holes || []) {
+              homeWalls(scene, { ...d, pts: hole, door: null }, HomeArea.HOUSE, true);
+            }
           } else if (!inside && typeof HomeArea !== 'undefined') {
             g.fillPoly(d.pts, HomeArea.HOUSE.roof.top);   // a bare fill target: a flat roof
           }
@@ -1701,12 +1735,13 @@
   // roof inside, with the wall tops in the wall's own colour.
   function drawHomeFloor(g, d, GRID, walled) {
     const tune = tuneOf(true);
-    const floor = tune(floorColor(11, true));
+    const tier = d.retail ? 9 : 11;
+    const floor = tune(floorColor(tier, true));
     // No walls at all (a bare fill target): the tiled south face under the floor.
-    if (!walled) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + facePx(9) })), tune(faceColor(9, true)));
-    g.fillPoly(d.pts, floor);
-    if (g.texturePoly) g.texturePoly(d.pts, 11);
-    if (g.gridPoly) g.gridPoly(d.pts, gridInkFor(GRID, floor));
+    if (!walled && !d.retail) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + facePx(9) })), tune(faceColor(9, true)));
+    g.fillPoly(d.pts, floor, undefined, d.holes);
+    if (g.texturePoly) g.texturePoly(d.pts, tier, d.holes);
+    if (g.gridPoly && !d.retail) g.gridPoly(d.pts, gridInkFor(GRID, floor));
     g.strokePoly(d.pts, OUTLINE_PX, tune(dim(floorColor(9, true), OUTLINE_MUL)));
   }
   // The door edge: the ring edge nearest the doorway point, and where along

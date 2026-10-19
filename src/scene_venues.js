@@ -1469,6 +1469,54 @@ class SceneVenues {
     return { ring, key: `${this.save.starterShopId}@${Math.round(home.x)},${Math.round(home.y)}` };
   }
 
+  // Shared interior state for the floor renderer and lighting. Use the body,
+  // not the peek camera, and keep Home's existing occupancy rules first.
+  activeInterior() {
+    if ((this.depth || 0) !== 0 || !this.playerM || !this.startWorldM) return null;
+    const home = this.homeInterior();
+    if (home) return { ...home, kind: 'home', buildingKey: this.save.starterShopId };
+    const { x, y } = playerWorldM(this);
+    const { tx, ty } = worldMetersToTile(this, x, y);
+    const bounds = this._retailInteriorBounds || (this._retailInteriorBounds = new WeakMap());
+    const inspect = entry => {
+      for (const interior of entry?.retailInteriors || []) {
+        const rings = interior.rings;
+        if (!rings?.[0]?.length) continue;
+        let box = bounds.get(rings);
+        if (!box) {
+          box = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+          for (const p of rings[0]) {
+            box.minX = Math.min(box.minX, p.x); box.maxX = Math.max(box.maxX, p.x);
+            box.minY = Math.min(box.minY, p.y); box.maxY = Math.max(box.maxY, p.y);
+          }
+          bounds.set(rings, box);
+        }
+        if (x < box.minX || x > box.maxX || y < box.minY || y > box.maxY) continue;
+        if (PolygonGeometry.pointInRings(rings, x, y)) {
+          return { kind: 'retail', key: interior.key, buildingKey: interior.key,
+            ring: rings[0], holes: rings.slice(1) };
+        }
+      }
+      return null;
+    };
+    const nearby = new Set();
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx + dx, ty + dy));
+      if (!entry) continue;
+      nearby.add(entry);
+      const interior = inspect(entry);
+      if (interior) return interior;
+    }
+    // A large footprint may be owned by a distant loaded tile. Bounds reject
+    // it cheaply; inspecting fresh entries also handles tiles loaded at rest.
+    for (const entry of WorldGen.tileCache.values()) {
+      if (nearby.has(entry)) continue;
+      const interior = inspect(entry);
+      if (interior) return interior;
+    }
+    return null;
+  }
+
   // Clear incidental clutter from Home's doorstep and firepit. Buildings,
   // their source footprints, and saved player objects always remain intact.
   clearHomeFooting() {

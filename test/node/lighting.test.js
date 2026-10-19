@@ -1091,9 +1091,10 @@ test('lighting: the reach area is as bright as noon leaves room for', () => {
 
 })();
 test('lighting: indoors, the world outside the house is masked on the canvas path', () => {
+  const near = (a, b, eps, message) => assert.truthy(Math.abs(a - b) <= eps, message);
   const L = LIGHTING_SRC;
   const d = L.slice(L.indexOf('  function draw(scene, ax, ay, halfM) {'));
-  assert.truthy(/const indoors = scene\.homeInterior \? scene\.homeInterior\(\) : null;/.test(d),
+  assert.truthy(/const indoors = scene\.activeInterior \? scene\.activeInterior\(\)\s*: scene\.homeInterior \? scene\.homeInterior\(\) : null;/.test(d),
     'the scene hands over the house round the player');
   assert.truthy(/LightingGPU\.active\(scene\) && !indoors/.test(d), 'the GPU path stands down while the mask is up');
   assert.truthy(/\+ '\|in:' \+ \(indoors \? indoorKey\(scene, indoors\) : ''\)/.test(d),
@@ -1205,4 +1206,22 @@ test('lighting: indoors, the world outside the house is masked on the canvas pat
   assert.eq(laid.length, 2, 'laid over the lightmap once a frame');
   assert.truthy(laid.every(o => o[1] === layer && o[2] === 0 && o[3] === 0 && o[4] === 1 && o[5] === 'source-over'),
     'the layer itself, source-over at full alpha: the mask composes over the lights, it never adds to them');
+});
+
+test('lighting: retail mask uses its own wall height and keeps courtyard ground dark', () => {
+  const ops = [];
+  const ctx = { save() {}, restore() {}, clearRect() {}, fillRect() {}, beginPath() {},
+    moveTo(x, y) { ops.push(['point', x, y]); }, lineTo(x, y) { ops.push(['point', x, y]); },
+    closePath() {}, fill() { ops.push(['fill', this.globalCompositeOperation, this.globalAlpha]); }, drawImage() {} };
+  const scene = { viewCenterX: 176, viewCenterY: 176, cellM: 7, save: { starterShopId: 'home' },
+    _proceduralBuildings: new Map([['home', { height: 10 }], ['mall', { height: 70 }]]),
+    _indoorMaskLayer: { width: 352, height: 352, getContext: () => ctx } };
+  const ring = [{ x: -7, y: -7 }, { x: 7, y: -7 }, { x: 7, y: 7 }, { x: -7, y: 7 }];
+  const hole = [{ x: -1, y: -1 }, { x: 1, y: -1 }, { x: 1, y: 1 }, { x: -1, y: 1 }];
+  Lighting.paintIndoorMask(ctx, scene, { key: 'mall', buildingKey: 'mall', ring, holes: [hole] }, 0, 0, 0, 0, 352, 352);
+  const firstCut = ops.slice(0, ops.findIndex(o => o[0] === 'fill'));
+  assert.eq(Math.min(...firstCut.map(o => o[2])), 176 - 32 - 70, 'retail walls set the silhouette lift');
+  const fills = ops.filter(o => o[0] === 'fill');
+  assert.eq(fills[fills.length - 1][1], 'source-over', 'courtyard darkness restored after room cuts');
+  assert.eq(fills[fills.length - 1][2], HomeArea.HOUSE.maskAlpha, 'same outdoor darkness as Home');
 });

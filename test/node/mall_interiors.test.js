@@ -30,6 +30,47 @@
     assert.eq(infer([building([rect(0,0,200,30)])],pois).poiKeys.size,0,
       '6000 square metres and twelve shops do not establish indoor access');
   });
+  test('retail interiors: small strip centres expose floors without moving booths indoors', () => {
+    const result=infer([building([rect(0,0,40,15)])],[poi(10,5),poi(30,5)]);
+    assert.eq(result.poiKeys.size,0,'frontage placement preserved');
+    assert.eq(result.retailInteriors.length,1,'two booths suffice regardless of area or depth');
+    assert.eq(result.retailInteriors[0].indoorMall,false,'strip centre is not an enclosed mall');
+    assert.eq(result.retailInteriors[0].commercialCount,2,'distinct public booths counted');
+  });
+  test('retail interiors: small or sparse buildings skip wall-distance work', () => {
+    for (const [radius,count] of [[10,9],[50,2]]) {
+      const ring=Array.from({length:300},(_,i)=>({x:radius*Math.cos(i*Math.PI/150),y:radius*Math.sin(i*Math.PI/150)}));
+      const it=WorldGen.indoorMallPoisSteps({features:[building([ring])]},
+        {features:Array.from({length:count},(_,i)=>poi(i/10,0))},1);
+      let step, wallSlices=0;
+      do { step=it.next(); if(step.value==='mall wall distance') wallSlices++; } while(!step.done);
+      assert.eq(step.value.retailInteriors.length,1,'public booths still expose a floor');
+      assert.eq(wallSlices,0,'area and density gates precede wall work');
+    }
+  });
+  test('retail interiors: private offices, duplicate booths and courtyard pins do not qualify', () => {
+    const outline=building([rect(0,0,100,80),rect(20,20,80,60).reverse()]);
+    assert.eq(infer([hall()],inside().map(f=>({...f,tags:{class:'office'}}))).retailInteriors.length,0,'offices excluded');
+    assert.eq(infer([hall()],[poi(10,10),poi(10,10)]).retailInteriors.length,0,'duplicate booth counted once');
+    assert.eq(infer([outline],[poi(10,10),poi(30,30)]).retailInteriors.length,0,'courtyard pin excluded');
+    const result=infer([outline],[poi(10,10),poi(90,10)]);
+    assert.eq(result.retailInteriors[0].rings.length,2,'courtyard hole retained in footprint');
+    assert.eq(infer([hall()],[poi(10,10,'unknown',{subclass:'shop'}),poi(90,10)]).retailInteriors.length,1,'existing public subclass lookup reused');
+  });
+  test('retail interiors: tile output uses world metres and stable buffered keys', () => {
+    const raster=(tx,shift,edge=448) => WorldGen.rasterizeTile([
+      {name:'building',extent:4096,features:[building([rect(shift+3800,100,shift+4300,700),rect(shift+3900,400,shift+4200,600).reverse()])]},
+      {name:'poi',extent:4096,features:[poi(shift+3900,200),poi(shift+4200,200)]},
+    ],64,tx,5,edge);
+    const first=raster(10,0).retailInteriors[0], buffered=raster(11,-4096).retailInteriors[0];
+    assert.truthy(first,'retail metadata exported');
+    assert.eq(first.key,buffered.key,'same source geometry across buffer has same key');
+    assert.eq(first.key,raster(10,0,896).retailInteriors[0].key,'save scale cannot alter key');
+    assert.eq(first.rings[0][0].x,10*448+3800*448/4096,'absolute world x');
+    assert.eq(first.rings[0][0].y,5*448+100*448/4096,'absolute world y');
+    assert.eq(first.rings.length,2,'world rings preserve holes');
+    assert.eq(first.rings[0][0].x,buffered.rings[0][0].x,'buffer copies occupy same world position');
+  });
   test('mall interiors: majority depth boundary is inclusive', () => {
     const deep=inside().slice(0,5), shallow=Array.from({length:5},(_,i)=>poi(10+i*15,5));
     assert.eq(infer([hall()],deep.concat(shallow)).poiKeys.size,10,'exactly half are deep');
