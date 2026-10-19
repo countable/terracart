@@ -9,7 +9,8 @@ were recoloured, redrawn, rescaled or alpha-keyed. The local source did not
 include author or licence metadata; this note records its source without
 claiming additional provenance.
 
-The runtime uses texture `chest`, frame 0, for the map and treasure-dialog
-icon. Its shared 1.6× scale preserves the previous visible map width (~22px).
-Opened one-time chests disappear through the existing game logic; this asset
-does not add an open state or change chest contents.
+This original single-frame asset is retained for provenance. The runtime now
+loads `Approved/chest-tiers.png`: seven authored 16×16 frames under texture
+`chest`, indexed by tier minus one. See `docs/art/ART_SOURCES.md` for that sheet's
+source and extraction method. Opened one-time chests still disappear through
+existing game logic; the new sheet adds no open state or loot changes.

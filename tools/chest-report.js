@@ -18,9 +18,9 @@ async function crArt() {
     const asset = ASSETS[key]; if (!asset?.path) continue;
     const img = new Image(); img.src = '../' + asset.path;
     await img.decode();
-    const source = key === 'chest' ? makeChestTierSheet(img) : asset.desaturated ? makeMutedSprite(img) : img;
+    const source = asset.desaturated ? makeMutedSprite(img) : img;
     const w = asset.frameWidth || img.width, h = asset.frameHeight || img.height;
-    const frames = key === 'chest' ? Array.from({length:CHEST_TIER_MAX},(_,i)=>i) : [0];
+    const frames = key === 'chest' ? Array.from({length:chestTierMaxFor(9)},(_,i)=>i) : [0];
     for (const frame of frames) {
       const label = key === 'chest' ? `Chest T${frame+1}` : key;
       const figure = document.createElement('figure');

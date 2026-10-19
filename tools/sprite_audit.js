@@ -247,8 +247,8 @@ const SHEETS = {
   apple_tree:    { file: 'assets/Objects/Approved/apple_tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 8], crownFrame: 4 },
   worldpeach_tree:    { file: 'assets/Objects/Approved/peach_tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4], crownFrame: 3 },
   beehive:       { file: ASSETS.beehive.path, fw: 16, fh: 16, frames: [0] },
-  // Runtime tier frames recolor this source without changing its alpha silhouette.
-  chest:         { file: 'assets/Objects/Approved/chest.png',                    fw: 16, fh: 16, frames: [0, 1, 2, 3, 4, 5, 6], sourceFrame: 0 },
+  // Authored tier frames each carry their own measured alpha bounds.
+  chest:         { file: ASSETS.chest.path, fw: 16, fh: 16, frames: [0, 1, 2, 3, 4, 5, 6] },
   box:           { file: 'assets/Objects/Approved/box.png',   fw: 16, fh: 16, frames: [0] },
   shrine_spirit: { file: ASSETS.shrine_spirit.path, fw: 16, fh: 16, frames: [0, 1, 2, 3] },
   crystal_cluster: { file: 'assets/Objects/Wilderness/crystal_cluster.png', fw: 16, fh: 16, frames: [0] },
