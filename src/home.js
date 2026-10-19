@@ -89,6 +89,28 @@ const HomeArea = {
     // Never one of the house's cells (inHouse): the pit stands in the yard.
     return out.filter(c => !this.inHouse(c.dx - wagon.dx, c.dy - wagon.dy));
   },
+  // With a street near the door (scene_venues.js _homeNearestStreet), the
+  // pit goes out front instead: in the doorway column nearer the street,
+  // FIREPIT_OFFSET.dy cells past the doorstep (the open-ground spacing),
+  // closer if the street comes sooner — always short of the street and never
+  // on the doorstep. Cells from the house's anchor (wagon) cell, best first;
+  // none when the street runs right past the doorstep.
+  streetFirepitCells(side, road) {
+    const { minCell, maxCell } = this.HOUSE;
+    const n = { N: { dx: 0, dy: -1 }, S: { dx: 0, dy: 1 }, E: { dx: 1, dy: 0 }, W: { dx: -1, dy: 0 } }[side];
+    if (!n || !road) return [];
+    const ns = n.dx + n.dy, alongY = n.dx === 0;
+    const step = ns > 0 ? maxCell + 1 : 1 - minCell;   // doorstep, cells out along n
+    const across = alongY ? road.dx : road.dy;
+    const lane = across <= minCell ? minCell : maxCell;
+    const roadOut = (alongY ? road.dy : road.dx) * ns;
+    const out = [];
+    for (let m = Math.min(this.FIREPIT_OFFSET.dy, roadOut - step - 1); m >= 1; m--) {
+      const o = (step + m) * ns;
+      out.push(alongY ? { dx: lane, dy: o } : { dx: o, dy: lane });
+    }
+    return out;
+  },
   // The firepit waits for the first compass reading — but only this long
   // (ms, from Home standing on the surface this session). A device that
   // never reports a heading (desktop, a phone without motion permission)

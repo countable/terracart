@@ -1244,8 +1244,19 @@ class SceneVenues {
     // nearest cell round the player that does (HomeArea.firepitCandidates) —
     // a heading that points it at a road or the water must not cost a new
     // game its pit.
+    // A street by the door puts it out front, between the door and the
+    // street (HomeArea.streetFirepitCells); an adopted building has no
+    // saved door and keeps the heading layout.
     let pit = null;
-    for (const c of HomeArea.firepitCandidates(offset, wagon)) {
+    const street = trailer.door ? this._homeNearestStreet(trailer.x, trailer.y) : null;
+    if (street && street.side === trailer.door) {
+      for (const c of HomeArea.streetFirepitCells(street.side, street)) {
+        const cell = absCellOffset(this, at.cellIX, at.cellIY, c.dx, c.dy);
+        const m = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
+        if (this._firepitGroundOK(m.x, m.y)) { pit = m; break; }
+      }
+    }
+    if (!pit) for (const c of HomeArea.firepitCandidates(offset, wagon)) {
       const cell = absCellOffset(this, at.cellIX, at.cellIY, c.dx - wagon.dx, c.dy - wagon.dy);
       const m = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
       if (this._firepitGroundOK(m.x, m.y)) { pit = m; break; }
@@ -1283,6 +1294,12 @@ class SceneVenues {
   // near. The overlay's low-poly facade and the prism doorway both read the
   // answer back off the saved trailer (save.starterTrailer.door).
   _homeDoorSideToStreet(wmx, wmy) {
+    return this._homeNearestStreet(wmx, wmy)?.side || null;
+  }
+
+  // That nearest road or path cell as { dx, dy, side }, cells from the
+  // anchor cell, or null; the firepit sits between it and the door.
+  _homeNearestStreet(wmx, wmy) {
     const c = worldMetersToTileCell(this, wmx, wmy);
     const e = WorldGen.tileCache.get(WorldGen.tileKey(c.tx, c.ty));
     if (!e?.grid) return null;
@@ -1297,7 +1314,8 @@ class SceneVenues {
       if (!best || d < best.d) best = { d, dx, dy };
     }
     if (!best) return null;
-    return Math.abs(best.dy) >= Math.abs(best.dx) ? (best.dy > 0 ? 'S' : 'N') : (best.dx > 0 ? 'E' : 'W');
+    const side = Math.abs(best.dy) >= Math.abs(best.dx) ? (best.dy > 0 ? 'S' : 'N') : (best.dx > 0 ? 'E' : 'W');
+    return { dx: best.dx, dy: best.dy, side };
   }
 
   // Build a synthetic "trailer" house at (wmx, wmy), snapped to the cell-grid
