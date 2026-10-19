@@ -102,35 +102,93 @@
       "ideas": {
         "L0": {
           "spawn": "Butterflies, rabbits; mushroom monsters in mushroom groves",
-          "variants": "Keep meadow / orchard / sacred-grove identities"
+          "variants": "Keep meadow / orchard / sacred-grove identities",
+          "changes": {
+            "spawn": [],
+            "variants": []
+          }
         },
         "L1": {
           "spawn": "Slimes; sparse spiders",
-          "variants": "Root intrusion / damp mushroom pocket"
+          "variants": "Root intrusion / damp mushroom pocket",
+          "changes": {
+            "spawn": [
+              "Slimes; sparse spiders"
+            ],
+            "variants": [
+              "Root intrusion / damp mushroom pocket"
+            ]
+          }
         },
         "L2": {
           "spawn": "Bats, cave slimes; sparse spiders",
-          "variants": "Spring grove / mushroom cavern"
+          "variants": "Spring grove / mushroom cavern",
+          "changes": {
+            "spawn": [
+              "Bats, cave slimes; sparse spiders"
+            ],
+            "variants": [
+              "Spring grove / mushroom cavern"
+            ]
+          }
         },
         "L3": {
           "spawn": "Goblins; sparse spiders",
-          "variants": "Mushroom garden / raided orchard analogue"
+          "variants": "Mushroom garden / raided orchard analogue",
+          "changes": {
+            "spawn": [
+              "Goblins; sparse spiders"
+            ],
+            "variants": [
+              "Mushroom garden / raided orchard analogue"
+            ]
+          }
         },
         "L4": {
           "spawn": "Bats; sparse slimes",
-          "variants": "Cistern garden / abandoned root chamber"
+          "variants": "Cistern garden / abandoned root chamber",
+          "changes": {
+            "spawn": [
+              "Bats; sparse slimes"
+            ],
+            "variants": [
+              "Cistern garden / abandoned root chamber"
+            ]
+          }
         },
         "L5": {
           "spawn": "Mushroom monsters; spiders",
-          "variants": "Tall mushroom grove / low fungal carpet"
+          "variants": "Tall mushroom grove / low fungal carpet",
+          "changes": {
+            "spawn": [
+              "Mushroom monsters; spiders"
+            ],
+            "variants": [
+              "Tall mushroom grove / low fungal carpet"
+            ]
+          }
         },
         "L6": {
           "spawn": "Rare fire elementals",
-          "variants": "Charred grove / mineral spires"
+          "variants": "Charred grove / mineral spires",
+          "changes": {
+            "spawn": [
+              "Rare fire elementals"
+            ],
+            "variants": [
+              "Charred grove / mineral spires"
+            ]
+          }
         },
         "L7": {
           "spawn": "Red dragons dominate; rare red demon",
-          "variants": "Dream garden / crystal roost"
+          "variants": "Dream garden / crystal roost",
+          "changes": {
+            "spawn": [],
+            "variants": [
+              "Dream garden / crystal roost"
+            ]
+          }
         }
       }
     },
@@ -162,35 +220,93 @@
       "ideas": {
         "L0": {
           "spawn": "Zombies, skeletons; variant-specific fauna",
-          "variants": "Keep five existing ruin / grave variants"
+          "variants": "Keep five existing ruin / grave variants",
+          "changes": {
+            "spawn": [],
+            "variants": []
+          }
         },
         "L1": {
           "spawn": "Skeletons only in rare crypt pocket",
-          "variants": "Flooded crypt / broken brick shrine"
+          "variants": "Flooded crypt / broken brick shrine",
+          "changes": {
+            "spawn": [
+              "Skeletons only in rare crypt pocket"
+            ],
+            "variants": [
+              "Flooded crypt / broken brick shrine"
+            ]
+          }
         },
         "L2": {
           "spawn": "Bats; sparse cave slimes",
-          "variants": "Fossil ring / buried shrine"
+          "variants": "Fossil ring / buried shrine",
+          "changes": {
+            "spawn": [
+              "Bats; sparse cave slimes"
+            ],
+            "variants": [
+              "Fossil ring / buried shrine"
+            ]
+          }
         },
         "L3": {
           "spawn": "Skeletons; goblin guards",
-          "variants": "Plundered crypt / barricaded shrine"
+          "variants": "Plundered crypt / barricaded shrine",
+          "changes": {
+            "spawn": [
+              "Skeletons; goblin guards"
+            ],
+            "variants": [
+              "Plundered crypt / barricaded shrine"
+            ]
+          }
         },
         "L4": {
           "spawn": "Skeleton soldiers; sparse bats",
-          "variants": "Ancestor hall / collapsed memorial"
+          "variants": "Ancestor hall / collapsed memorial",
+          "changes": {
+            "spawn": [
+              "Skeleton soldiers; sparse bats"
+            ],
+            "variants": [
+              "Ancestor hall / collapsed memorial"
+            ]
+          }
         },
         "L5": {
           "spawn": "Skeletons; vampire bats",
-          "variants": "Fungal tomb / silent stone circle"
+          "variants": "Fungal tomb / silent stone circle",
+          "changes": {
+            "spawn": [
+              "Skeletons; vampire bats"
+            ],
+            "variants": [
+              "Fungal tomb / silent stone circle"
+            ]
+          }
         },
         "L6": {
           "spawn": "Sparse infernal foes",
-          "variants": "Ash crypt / vitrified shrine"
+          "variants": "Ash crypt / vitrified shrine",
+          "changes": {
+            "spawn": [
+              "Sparse infernal foes"
+            ],
+            "variants": [
+              "Ash crypt / vitrified shrine"
+            ]
+          }
         },
         "L7": {
           "spawn": "Red dragons; sparse red demons",
-          "variants": "Royal tomb / dream shrine"
+          "variants": "Royal tomb / dream shrine",
+          "changes": {
+            "spawn": [],
+            "variants": [
+              "Royal tomb / dream shrine"
+            ]
+          }
         }
       }
     },
@@ -222,35 +338,95 @@
       "ideas": {
         "L0": {
           "spawn": "Dogs; variant-specific foes",
-          "variants": "Keep flint field / depot / seep / yard / ring"
+          "variants": "Keep flint field / depot / seep / yard / ring",
+          "changes": {
+            "spawn": [],
+            "variants": []
+          }
         },
         "L1": {
           "spawn": "Slimes; sparse spiders",
-          "variants": "Silt sump / maintenance yard"
+          "variants": "Silt sump / maintenance yard",
+          "changes": {
+            "spawn": [
+              "Slimes; sparse spiders"
+            ],
+            "variants": [
+              "Silt sump / maintenance yard"
+            ]
+          }
         },
         "L2": {
           "spawn": "Cave slimes; spiders",
-          "variants": "Mineral seep / abandoned work camp"
+          "variants": "Mineral seep / abandoned work camp",
+          "changes": {
+            "spawn": [
+              "Cave slimes; spiders"
+            ],
+            "variants": [
+              "Mineral seep / abandoned work camp"
+            ]
+          }
         },
         "L3": {
           "spawn": "Goblins; bomb goblins only at encounters",
-          "variants": "Scrap yard / workshop"
+          "variants": "Scrap yard / workshop",
+          "changes": {
+            "spawn": [
+              "Goblins; bomb goblins only at encounters"
+            ],
+            "variants": [
+              "Scrap yard / workshop"
+            ]
+          }
         },
         "L4": {
           "spawn": "Sparse bats; stronghold foes at encounters",
-          "variants": "Forge yard / ore depot"
+          "variants": "Forge yard / ore depot",
+          "changes": {
+            "spawn": [
+              "Sparse bats; stronghold foes at encounters"
+            ],
+            "variants": [
+              "Forge yard / ore depot"
+            ]
+          }
         },
         "L5": {
           "spawn": "Slimes; spiders",
-          "variants": "Fungal seep / abandoned supply yard"
+          "variants": "Fungal seep / abandoned supply yard",
+          "changes": {
+            "spawn": [
+              "Slimes; spiders"
+            ],
+            "variants": [
+              "Fungal seep / abandoned supply yard"
+            ]
+          }
         },
         "L6": {
           "spawn": "Fire elementals; infernal foes",
-          "variants": "Obsidian yard / cooled slag field"
+          "variants": "Obsidian yard / cooled slag field",
+          "changes": {
+            "spawn": [
+              "Fire elementals; infernal foes"
+            ],
+            "variants": [
+              "Obsidian yard / cooled slag field"
+            ]
+          }
         },
         "L7": {
           "spawn": "Red dragons; rare demon attendants",
-          "variants": "Hoard sorting yard / scorched workshop"
+          "variants": "Hoard sorting yard / scorched workshop",
+          "changes": {
+            "spawn": [
+              "attendants"
+            ],
+            "variants": [
+              "Hoard sorting yard / scorched workshop"
+            ]
+          }
         }
       }
     },
@@ -274,35 +450,95 @@
       "ideas": {
         "L0": {
           "spawn": "Crabs, sea turtles; jellyfish / giant crabs as foes",
-          "variants": "Mystic reef / pirate cove / shellwater strand"
+          "variants": "Mystic reef / pirate cove / shellwater strand",
+          "changes": {
+            "spawn": [],
+            "variants": []
+          }
         },
         "L1": {
           "spawn": "Slimes on dry edges; water stays readable",
-          "variants": "Drain bank / silt bar / culvert mouth"
+          "variants": "Drain bank / silt bar / culvert mouth",
+          "changes": {
+            "spawn": [
+              "Slimes on dry edges; water stays readable"
+            ],
+            "variants": [
+              "Drain bank / silt bar / culvert mouth"
+            ]
+          }
         },
         "L2": {
           "spawn": "Cave slimes; bats above dry banks",
-          "variants": "Underground lake shore / spring gravel"
+          "variants": "Underground lake shore / spring gravel",
+          "changes": {
+            "spawn": [
+              "Cave slimes; bats above dry banks"
+            ],
+            "variants": [
+              "Underground lake shore / spring gravel"
+            ]
+          }
         },
         "L3": {
           "spawn": "Goblins on banks; sparse slimes",
-          "variants": "Dock / refuse bank / hidden landing"
+          "variants": "Dock / refuse bank / hidden landing",
+          "changes": {
+            "spawn": [
+              "Goblins on banks; sparse slimes"
+            ],
+            "variants": [
+              "Dock / refuse bank / hidden landing"
+            ]
+          }
         },
         "L4": {
           "spawn": "Sparse bats; slimes near water",
-          "variants": "Reservoir bank / stone quay"
+          "variants": "Reservoir bank / stone quay",
+          "changes": {
+            "spawn": [
+              "Sparse bats; slimes near water"
+            ],
+            "variants": [
+              "Reservoir bank / stone quay"
+            ]
+          }
         },
         "L5": {
           "spawn": "Slimes; sparse spiders",
-          "variants": "Fungal shore / dark sand bank"
+          "variants": "Fungal shore / dark sand bank",
+          "changes": {
+            "spawn": [
+              "Slimes; sparse spiders"
+            ],
+            "variants": [
+              "Fungal shore / dark sand bank"
+            ]
+          }
         },
         "L6": {
           "spawn": "Rare fire elementals on dry ground",
-          "variants": "Lava shore / cooled basalt bank"
+          "variants": "Lava shore / cooled basalt bank",
+          "changes": {
+            "spawn": [
+              "Rare fire elementals on dry ground"
+            ],
+            "variants": [
+              "Lava shore / cooled basalt bank"
+            ]
+          }
         },
         "L7": {
           "spawn": "Red dragons near broad dry banks",
-          "variants": "Dream-water shore / hoard landing"
+          "variants": "Dream-water shore / hoard landing",
+          "changes": {
+            "spawn": [
+              "near broad dry banks"
+            ],
+            "variants": [
+              "Dream-water shore / hoard landing"
+            ]
+          }
         }
       }
     },
@@ -330,35 +566,93 @@
       "ideas": {
         "L0": {
           "spawn": "Variant-specific dogs / rabbits; encounter guards",
-          "variants": "Crater / abandoned / strip mine / stronghold"
+          "variants": "Crater / abandoned / strip mine / stronghold",
+          "changes": {
+            "spawn": [],
+            "variants": []
+          }
         },
         "L1": {
           "spawn": "Sparse bats; slimes in pools",
-          "variants": "Collapsed shaft / brick extraction pit"
+          "variants": "Collapsed shaft / brick extraction pit",
+          "changes": {
+            "spawn": [
+              "Sparse bats; slimes in pools"
+            ],
+            "variants": [
+              "Collapsed shaft / brick extraction pit"
+            ]
+          }
         },
         "L2": {
           "spawn": "Bats, cave slimes; sparse trolls",
-          "variants": "Gem cavern / abandoned mine"
+          "variants": "Gem cavern / abandoned mine",
+          "changes": {
+            "spawn": [
+              "Bats, cave slimes; sparse trolls"
+            ],
+            "variants": [
+              "Gem cavern / abandoned mine"
+            ]
+          }
         },
         "L3": {
           "spawn": "Goblin miners represented by existing goblin kinds",
-          "variants": "Ore pit / fortified mine camp"
+          "variants": "Ore pit / fortified mine camp",
+          "changes": {
+            "spawn": [
+              "Goblin miners represented by existing goblin kinds"
+            ],
+            "variants": [
+              "Ore pit / fortified mine camp"
+            ]
+          }
         },
         "L4": {
           "spawn": "Sparse bats; stronghold foes at encounters",
-          "variants": "Cut-stone hall / ore gallery"
+          "variants": "Cut-stone hall / ore gallery",
+          "changes": {
+            "spawn": [
+              "Sparse bats; stronghold foes at encounters"
+            ],
+            "variants": [
+              "Cut-stone hall / ore gallery"
+            ]
+          }
         },
         "L5": {
           "spawn": "Spiders; sparse trolls",
-          "variants": "Crystal sinkhole / fungal mine"
+          "variants": "Crystal sinkhole / fungal mine",
+          "changes": {
+            "spawn": [
+              "Spiders; sparse trolls"
+            ],
+            "variants": [
+              "Crystal sinkhole / fungal mine"
+            ]
+          }
         },
         "L6": {
           "spawn": "Infernal foes; sparse fire elementals",
-          "variants": "Obsidian pit / magma fissure"
+          "variants": "Obsidian pit / magma fissure",
+          "changes": {
+            "spawn": [
+              "Infernal foes; sparse fire elementals"
+            ],
+            "variants": [
+              "Obsidian pit / magma fissure"
+            ]
+          }
         },
         "L7": {
           "spawn": "Red dragons dominate; rare demons",
-          "variants": "Crystal hoard / excavated roost"
+          "variants": "Crystal hoard / excavated roost",
+          "changes": {
+            "spawn": [],
+            "variants": [
+              "Crystal hoard / excavated roost"
+            ]
+          }
         }
       }
     },
@@ -369,35 +663,95 @@
       "ideas": {
         "L0": {
           "spawn": "Chickens, cows, butterflies, rabbits, crows; rare horse",
-          "variants": "Meadow / scrub / flower patches"
+          "variants": "Meadow / scrub / flower patches",
+          "changes": {
+            "spawn": [],
+            "variants": [
+              "Meadow / scrub / flower patches"
+            ]
+          }
         },
         "L1": {
           "spawn": "Low slime density; sparse spiders",
-          "variants": "Damp silt / moss patches / dry maintenance floor"
+          "variants": "Damp silt / moss patches / dry maintenance floor",
+          "changes": {
+            "spawn": [
+              "Low slime density; sparse spiders"
+            ],
+            "variants": [
+              "Damp silt / moss patches / dry maintenance floor"
+            ]
+          }
         },
         "L2": {
           "spawn": "Bats, cave slimes; sparse spiders",
-          "variants": "Bare rock / moss / mushroom patches"
+          "variants": "Bare rock / moss / mushroom patches",
+          "changes": {
+            "spawn": [
+              "Bats, cave slimes; sparse spiders"
+            ],
+            "variants": [
+              "Bare rock / moss / mushroom patches"
+            ]
+          }
         },
         "L3": {
           "spawn": "Goblins; sparse cave slimes",
-          "variants": "Packed earth / rubble / fungus patches"
+          "variants": "Packed earth / rubble / fungus patches",
+          "changes": {
+            "spawn": [
+              "Goblins; sparse cave slimes"
+            ],
+            "variants": [
+              "Packed earth / rubble / fungus patches"
+            ]
+          }
         },
         "L4": {
           "spawn": "Sparse bats; occasional cave slime",
-          "variants": "Dusty stone / gravel clearing"
+          "variants": "Dusty stone / gravel clearing",
+          "changes": {
+            "spawn": [
+              "Sparse bats; occasional cave slime"
+            ],
+            "variants": [
+              "Dusty stone / gravel clearing"
+            ]
+          }
         },
         "L5": {
           "spawn": "Mushroom monsters; spiders",
-          "variants": "Fungal carpet / bare cavern floor"
+          "variants": "Fungal carpet / bare cavern floor",
+          "changes": {
+            "spawn": [
+              "Mushroom monsters; spiders"
+            ],
+            "variants": [
+              "Fungal carpet / bare cavern floor"
+            ]
+          }
         },
         "L6": {
           "spawn": "Sparse infernal foes",
-          "variants": "Ash / cooled basalt / sparse crack patches"
+          "variants": "Ash / cooled basalt / sparse crack patches",
+          "changes": {
+            "spawn": [
+              "Sparse infernal foes"
+            ],
+            "variants": [
+              "Ash / cooled basalt / sparse crack patches"
+            ]
+          }
         },
         "L7": {
           "spawn": "Red dragons dominate; rare demons",
-          "variants": "Violet stone / dream crystal / gold flecks"
+          "variants": "Violet stone / dream crystal / gold flecks",
+          "changes": {
+            "spawn": [],
+            "variants": [
+              "Violet stone / dream crystal / gold flecks"
+            ]
+          }
         }
       }
     },
@@ -408,35 +762,97 @@
       "ideas": {
         "L0": {
           "spawn": "Cats, dogs, chickens, deer; rare cow / raven",
-          "variants": "Front garden / scrub yard / abandoned lot"
+          "variants": "Front garden / scrub yard / abandoned lot",
+          "changes": {
+            "spawn": [],
+            "variants": [
+              "Front garden / scrub yard / abandoned lot"
+            ]
+          }
         },
         "L1": {
           "spawn": "Sparse spiders; slimes at wet edges",
-          "variants": "Maintenance alcove / buried basement"
+          "variants": "Maintenance alcove / buried basement",
+          "changes": {
+            "spawn": [
+              "Sparse spiders; slimes at wet edges"
+            ],
+            "variants": [
+              "Maintenance alcove / buried basement"
+            ]
+          }
         },
         "L2": {
           "spawn": "Bats; sparse slimes",
-          "variants": "Collapsed cellar / shelter niche"
+          "variants": "Collapsed cellar / shelter niche",
+          "changes": {
+            "spawn": [
+              "Bats; sparse slimes"
+            ],
+            "variants": [
+              "Collapsed cellar / shelter niche"
+            ]
+          }
         },
         "L3": {
           "spawn": "Goblin residents using existing goblin kinds",
-          "variants": "Barracks / cramped dwelling / empty room"
+          "variants": "Barracks / cramped dwelling / empty room",
+          "changes": {
+            "spawn": [
+              "Goblin residents using existing goblin kinds"
+            ],
+            "variants": [
+              "Barracks / cramped dwelling / empty room"
+            ]
+          }
         },
         "L4": {
           "spawn": "Sparse bats; rare skeletons in abandoned rooms",
-          "variants": "Dormitory / carved dwelling / abandoned hall"
+          "variants": "Dormitory / carved dwelling / abandoned hall",
+          "changes": {
+            "spawn": [
+              "Sparse bats; rare skeletons in abandoned rooms"
+            ],
+            "variants": [
+              "Dormitory / carved dwelling / abandoned hall"
+            ]
+          }
         },
         "L5": {
           "spawn": "Spiders; sparse undead",
-          "variants": "Fungal shelter / abandoned chamber"
+          "variants": "Fungal shelter / abandoned chamber",
+          "changes": {
+            "spawn": [
+              "Spiders; sparse undead"
+            ],
+            "variants": [
+              "Fungal shelter / abandoned chamber"
+            ]
+          }
         },
         "L6": {
           "spawn": "Sparse infernal foes",
-          "variants": "Ruined dwelling / ash-filled chamber"
+          "variants": "Ruined dwelling / ash-filled chamber",
+          "changes": {
+            "spawn": [
+              "Sparse infernal foes"
+            ],
+            "variants": [
+              "Ruined dwelling / ash-filled chamber"
+            ]
+          }
         },
         "L7": {
           "spawn": "Red dragons at broad roosts",
-          "variants": "Sleeping den / hatchery appearance; no new hatchling mechanic"
+          "variants": "Sleeping den / hatchery appearance; no new hatchling mechanic",
+          "changes": {
+            "spawn": [
+              "at broad roosts"
+            ],
+            "variants": [
+              "Sleeping den / hatchery appearance; no new hatchling mechanic"
+            ]
+          }
         }
       }
     },
@@ -447,35 +863,97 @@
       "ideas": {
         "L0": {
           "spawn": "Cats and dogs",
-          "variants": "Shop frontage / loading yard / market court"
+          "variants": "Shop frontage / loading yard / market court",
+          "changes": {
+            "spawn": [],
+            "variants": [
+              "Shop frontage / loading yard / market court"
+            ]
+          }
         },
         "L1": {
           "spawn": "Sparse slimes and spiders",
-          "variants": "Pump hall / storage depot"
+          "variants": "Pump hall / storage depot",
+          "changes": {
+            "spawn": [
+              "Sparse slimes and spiders"
+            ],
+            "variants": [
+              "Pump hall / storage depot"
+            ]
+          }
         },
         "L2": {
           "spawn": "Bats; sparse spiders",
-          "variants": "Store cavern / abandoned supply cache"
+          "variants": "Store cavern / abandoned supply cache",
+          "changes": {
+            "spawn": [
+              "Bats; sparse spiders"
+            ],
+            "variants": [
+              "Store cavern / abandoned supply cache"
+            ]
+          }
         },
         "L3": {
           "spawn": "Goblins; encounter guards",
-          "variants": "Market / workshop / supply depot"
+          "variants": "Market / workshop / supply depot",
+          "changes": {
+            "spawn": [
+              "Goblins; encounter guards"
+            ],
+            "variants": [
+              "Market / workshop / supply depot"
+            ]
+          }
         },
         "L4": {
           "spawn": "Sparse bats; encounter guards",
-          "variants": "Forge / trading hall / warehouse"
+          "variants": "Forge / trading hall / warehouse",
+          "changes": {
+            "spawn": [
+              "Sparse bats; encounter guards"
+            ],
+            "variants": [
+              "Forge / trading hall / warehouse"
+            ]
+          }
         },
         "L5": {
           "spawn": "Mushroom monsters; sparse spiders",
-          "variants": "Fungal market analogue / abandoned depot"
+          "variants": "Fungal market analogue / abandoned depot",
+          "changes": {
+            "spawn": [
+              "Mushroom monsters; sparse spiders"
+            ],
+            "variants": [
+              "Fungal market analogue / abandoned depot"
+            ]
+          }
         },
         "L6": {
           "spawn": "Infernal foes; sparse ambient density",
-          "variants": "Slag depot / ruined forge"
+          "variants": "Slag depot / ruined forge",
+          "changes": {
+            "spawn": [
+              "Infernal foes; sparse ambient density"
+            ],
+            "variants": [
+              "Slag depot / ruined forge"
+            ]
+          }
         },
         "L7": {
           "spawn": "Red dragons dominate; rare demon attendants",
-          "variants": "Treasure gallery / hoard chamber"
+          "variants": "Treasure gallery / hoard chamber",
+          "changes": {
+            "spawn": [
+              "attendants"
+            ],
+            "variants": [
+              "Treasure gallery / hoard chamber"
+            ]
+          }
         }
       }
     }
