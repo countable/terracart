@@ -1527,7 +1527,7 @@
       if((face.kind==='trim'&&!face.facadeDoor&&!face.rawUV)||face.solid)for(const p of face.projected){p.u=510/512;p.v=126/512;}
       face.support.depth=s*face.support.x+c*face.support.y;
       face.depth=depth/3;
-      if(face.kind==='wall'||(face.kind==='trim'&&face.wallDirection)){const a=face.points[0],b=face.points[1],dx=face.wallDirection?.x??b.x-a.x,dy=face.wallDirection?.y??b.y-a.y,len=Math.hypot(dx,dy)||1;face.light=.76+.23*(c*dx-s*dy)/-len;}
+      if((face.kind==='wall'&&(!face.interior||face.edge!=null))||(face.kind==='trim'&&face.wallDirection)){const a=face.points[0],b=face.points[1],dx=face.wallDirection?.x??b.x-a.x,dy=face.wallDirection?.y??b.y-a.y,len=Math.hypot(dx,dy)||1;face.light=.76+.23*(c*dx-s*dy)/-len;}
       const p=face.projected;face.visible=cross(p[0],p[1],p[2])>1e-8;
     }
     for(const mesh of state.buildings){
