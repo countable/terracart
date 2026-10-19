@@ -192,8 +192,8 @@ const ASSETS = {
   // Pine uses the upper 32×48 growth strip; the lower band is separate
   // ground decoration and must not enter the standing tree frame.
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
-  // Approved cel-shaded rocks — 192×216 atlas of 24px frames; 65 runtime identities.
-  rock_variants: { kind: 'spritesheet', path: 'assets/Objects/Rocks/rocks-24.png', frameWidth: 24, frameHeight: 24 },
+  // Approved DG-style rocks — 128×144 atlas of 16px frames; 65 runtime identities.
+  rock_variants: { kind: 'spritesheet', path: 'assets/Objects/Rocks/rocks-16.png', frameWidth: 16, frameHeight: 16 },
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
   // Five complete 32px columns; the trailing 16px mask column is unused.
   // Keep the original 16px key for mineral/item previews that still need it.

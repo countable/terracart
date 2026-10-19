@@ -1,6 +1,6 @@
 {
-  "frameWidth": 24,
-  "frameHeight": 24,
+  "frameWidth": 16,
+  "frameHeight": 16,
   "columns": 8,
   "rows": 9,
   "sections": [
@@ -21,9 +21,9 @@
     }
   ],
   "sources": {
-    "celShaded": {
-      "file": "cel-shaded-study-24.png",
-      "generation": "Approved rock-game-materials-24 study: cool stone, circular ground footprints, geometric tops, discrete cel shading, softened outlines, sparkling game-matched gems and metallic seams.",
+    "dgPixel": {
+      "file": "dg-study-16.png",
+      "generation": "DG gray-rock reference, 4x nearest-neighbor generation, background-connected mask and directional edge repair. Dark upper contours; local rock colors on side and bottom boundaries. Approved dg-rock-set-edges/rocks-repaired.png.",
       "export": "export.cjs",
       "frameMapping": "export.json"
     }
