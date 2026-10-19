@@ -153,7 +153,7 @@ class SceneCreate {
     // so it exists before anything can draw; the drag that moves it and the
     // rules it obeys are in the PEEK DRAG block further down.
     this.peekM = { x: 0, y: 0 };
-    // Buttons select the resting zoom; pinches return to it on release.
+    // Buttons and pinches both select the resting zoom.
     this._mapZoomRest = this.mapZoom = MAP_DEFAULT_ZOOM;
 
     const origin = WorldGen.lonLatToWorldPx(START_LON, START_LAT, WorldGen.Z);
@@ -276,7 +276,6 @@ class SceneCreate {
     // Traps: the barely-there scuff of a hidden one and the sprung iron jaw of
     // a discovered one. Temporary procedural stand-ins — see textures.js.
     makeTrapTextures(this);
-    makeWaystoneTexture(this);
     // Cache data URLs for items whose map sprite isn't on Crops.png / Spring Crops.png,
     // so the inventory bar and shop modal (which are DOM, not Phaser) can render the
     // exact same image. Run after sheet loads so all source images are ready.
@@ -778,7 +777,9 @@ class SceneCreate {
     // the ellipse; see Render.groundMarkFrame). The renderer lays a mark flat
     // with GROUND_MARK.tilt. Baked in colour rather than white-and-tinted
     // where the ink is fixed, because setTint() is a no-op under Canvas.
-    const bakeGroundMark = (key, frames, path, ink = '#fff') => {
+    // `passes` are [width, colour, alpha, dy] in bake px — GROUND_MARK's
+    // strokes by default; dy shifts a pass down before the frame turns.
+    const bakeGroundMark = (key, frames, path, passes = GROUND_MARK.strokes('#fff')) => {
       const S = GROUND_MARK.bakePx, cols = Math.min(frames, 8);
       bakeCanvas(this, key, cols * S, Math.ceil(frames / cols) * S, (ctx, tex) => {
         ctx.lineCap = 'round';
@@ -786,10 +787,13 @@ class SceneCreate {
           const x = (f % cols) * S, y = Math.floor(f / cols) * S;
           ctx.save();
           ctx.translate(x + S / 2, y + S / 2);
-          ctx.rotate(f * ELITE_RING_STEP_DEG * Math.PI / 180);
-          for (const [width, colour, alpha] of GROUND_MARK.strokes(ink)) {
+          for (const [width, colour, alpha, dy = 0] of passes) {
+            ctx.save();
+            ctx.translate(0, dy);
+            ctx.rotate(f * ELITE_RING_STEP_DEG * Math.PI / 180);
             ctx.globalAlpha = alpha; ctx.strokeStyle = colour; ctx.lineWidth = width;
             ctx.beginPath(); path(ctx); ctx.stroke();
+            ctx.restore();
           }
           ctx.restore();
           tex.add(f, 0, x, y, S, S);
@@ -802,8 +806,8 @@ class SceneCreate {
     // turns the other way. Each is a rotation strip over the turn after which
     // it repeats (the runes' four shapes come round every 120°, the eight
     // ticks every 45°).
-    const bakeRingBand = (key, periodDeg, path, ink) =>
-      bakeGroundMark(key, Math.round(periodDeg / ELITE_RING_STEP_DEG), path, ink);
+    const bakeRingBand = (key, periodDeg, path, passes) =>
+      bakeGroundMark(key, Math.round(periodDeg / ELITE_RING_STEP_DEG), path, passes);
     const ring = (ctx, r) => { ctx.moveTo(r, 0); ctx.arc(0, 0, r, 0, Math.PI * 2); };
     // The ticks across a ring of radius r: n of them, `len` each side of it.
     const ticks = (ctx, r, n, len) => {
@@ -834,13 +838,13 @@ class SceneCreate {
     });
     bakeRingBand('elite_ring_inner', 45, ctx => { ring(ctx, 22); ticks(ctx, 22, 8, 4); });
     // THE GPS RING — the marker at your REAL (GPS) position (see gpsGhost
-    // below): the same flat paint as the elite's circle, in the player's own
-    // gold (UI_CONTROL — your position sits on the control side of the colour
+    // below): the same flat bake as the elite's circle, in the caret's paint
+    // and the player's own gold (UI_CONTROL — your position sits on the control side of the colour
     // law, spec §UI COLOUR LANGUAGE, same as the stick that walks you off it).
     // A ring around the feet with four ticks crossing it, and no centre pip:
     // the feet stand on the fix, so the body covers it. A strip over the 90°
     // after which the ticks repeat, so they turn with the map under heading-up.
-    bakeRingBand('gps_ring', GPS_RING.periodDeg, ctx => { ring(ctx, GPS_RING.r); ticks(ctx, GPS_RING.r, 4, GPS_RING.tick); }, '#ffe066');
+    bakeRingBand('gps_ring', GPS_RING.periodDeg, ctx => { ring(ctx, GPS_RING.r); ticks(ctx, GPS_RING.r, 4, GPS_RING.tick); }, GPS_RING.passes);
     // Soft round halos — a glow that fades from the centre out, baked once and
     // reused for every pulsing aura: the player's warning auras (out of energy,
     // strayed far from the GPS) and the slow breath that marks a POI. Baked in
@@ -1145,8 +1149,8 @@ class SceneCreate {
     // to real bodies — and not a filled dot either: gold and round at this
     // size is a coin, which is the one thing on this map you are meant to walk
     // over and collect. The same flat ground paint as the elite's rune circle
-    // (the 'gps_ring' bake above), laid flat by GROUND_MARK.tilt and drawn at
-    // GROUND_MARK.px, where its linework lands at the weight it was baked at.
+    // (the 'gps_ring' bake above), laid flat by GPS_RING.tilt and drawn at
+    // GPS_RING.px — its own size and tilt, in the caret's paint (render.js).
     // Ground paint, so it lives with the shadows and the walk-home lead
     // (shadowContainer, under every standing sprite): the body stands ON the
     // ring, the way an elite stands on its rune circle — a root-level image
@@ -1156,7 +1160,7 @@ class SceneCreate {
     // reaches the ticks through the strip frame instead (update()).
     this.gpsGhost = this.add.image(this.viewCenterX, this.viewCenterY, 'gps_ring')
       .setOrigin(0.5, 0.5)
-      .setDisplaySize(GROUND_MARK.px, GROUND_MARK.px * GROUND_MARK.tilt)
+      .setDisplaySize(GPS_RING.px, GPS_RING.px * GPS_RING.tilt)
       .setDepth(9.8)
       .setVisible(false)
       .setMask(mask);

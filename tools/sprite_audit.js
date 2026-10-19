@@ -268,6 +268,7 @@ const SHEETS = {
   apple_tree:    { file: 'assets/Objects/Approved/apple_tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 8], crownFrame: 4 },
   worldpeach_tree:    { file: 'assets/Objects/Approved/peach_tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4], crownFrame: 3 },
   beehive:       { file: ASSETS.beehive.path, fw: 16, fh: 16, frames: [0] },
+  waystone:      { file: ASSETS.waystone.path, fw: 16, fh: 16, frames: [0, 1] },
   // Authored tier frames each carry their own measured alpha bounds.
   chest:         { file: ASSETS.chest.path, fw: 16, fh: 16, frames: [0, 1, 2, 3, 4, 5, 6] },
   box:           { file: ASSETS.box.path, fw: 16, fh: 16, frames: [0,1,2,3] },
@@ -288,7 +289,7 @@ const SHEETS = {
   ...Object.fromEntries(['gas_mushroom_small', 'gas_mushroom_large'].map(key => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: key === 'gas_mushroom_small' ? [0,1] : [0],
   }])),
-  rock_variants: { file: ASSETS.rock_variants.path, fw: 24, fh: 24, frames: Array.from({ length: 65 }, (_, i) => i) },
+  rock_variants: { file: ASSETS.rock_variants.path, fw: 16, fh: 16, frames: Array.from({ length: 65 }, (_, i) => i) },
   zone_objects: { file: ASSETS.zone_objects.path, fw: 24, fh: 24, frames: [1,4,5,6,7,34,37,38,39,40,54,58,59,61,64,65,66,67,68,69,70,71] },
   zone_berry_bush: { file: ASSETS.zone_berry_bush.path, fw: 16, fh: 16, frames: [0,1] },
   reef_coral:    { file: 'assets/Objects/Reef/coral.png', fw: 24, fh: 24, frames: [0,1,2,3,4,5,6,7] },
@@ -356,8 +357,9 @@ const SCENARIOS = [
   { name: 'pole (pillar)',   key: 'pillar',        frameIdx: 0, scale: 4 / 3 },
   { name: 'scarecrow',       key: 'scarecrow',     frameIdx: 0, scale: 0.6 },
   { name: 'bonfire',         key: 'bonfire',       frameIdx: 0, scale: 1.1 },
-  { name: 'torch', key: 'torch', frameIdx: 0, scale: 1.1 },
-  { name: 'waystone',        key: 'rock_variants', frameIdx: 0, scale: 16 / 15 },
+  { name: 'torch',           key: 'torch',         frameIdx: 0, scale: 1.1 },
+  { name: 'waystone',        key: 'waystone',      frameIdx: 0, scale: 16 / 15 },
+  { name: 'waystone (lit)',  key: 'waystone',      frameIdx: 1, scale: 16 / 15 },
   { name: 'charred stakes', key: 'approved_charred_stakes', frameIdx: 0, scale: 4 / 3 },
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
   { name: 'headstone', key: 'selected_grave_pillar', frameIdx: 0, scale: 4 / 3 },
@@ -389,8 +391,8 @@ function evaluate(s) {
   const table = ART_BOUNDS[lookup];
 
   const violations = [];
-  // Furniture frames are bottom-seated in uniform sheet slots. The clock alone
-  // may use the upper half; lamps must stay inside their single-cell frame.
+  // Furniture uses uniform slots with per-item height limits. Tall approved
+  // beds/bookcases may extend upward; all bases must remain inside the cell.
   if (s.frameSize) {
     const [width, height] = s.frameSize, left = (fresh.fw - width) / 2;
     if (fresh.minX < left || fresh.maxX > left + width || fresh.minY < fresh.fh - height)

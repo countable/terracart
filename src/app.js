@@ -321,8 +321,8 @@ const PEEK_DRAG_SLOP_PX = 8;
 // about 3× this.
 const PEEK_RETURN_MS = 90;
 // Camera-only zoom: start at the closest rack level (PINCH_VIEW_CELLS across),
-// which is also where the new game's opening shot settles. Buttons select the
-// resting view; a pinch temporarily magnifies it and springs back on release.
+// which is also where the new game's opening shot settles. Buttons and a
+// pinch both select the resting view; a pinch keeps its zoom on release.
 // The widest view remains VIEW_CELLS, so loading and gameplay ranges stay fixed.
 const PINCH_VIEW_CELLS = 5;
 const PINCH_MAX_ZOOM = VIEW_CELLS / PINCH_VIEW_CELLS;
@@ -1656,6 +1656,7 @@ const ICON_SHEETS = {
   // Same rustic prop sheet as the map: grass frame 10, mushroom frame 35.
   // Other frames retain their existing art.
   props:         { url: 'assets/Objects/Approved/props.png',               cols: 22, srcW: 352, srcH: 192 },
+  petnip:        { url: 'assets/Objects/Handmade/petnip.png',              cols: 1,  srcW: 16,  srcH: 16 },
   // 7_Pickup_Items — 224×160, 14×10 of 16×16. Frame 88 (row 6 col 4)
   // is the brown leather boot used as the fishing-junk inventory icon.
   pickup:        { url: 'assets/Objects/Pickup_Items.png',                   cols: 14, srcW: 224, srcH: 160 },
@@ -1670,7 +1671,7 @@ const ICON_SHEETS = {
 // BEGIN GENERATED DOM ICON ATLAS
 // Regenerate with node tools/build-dom-icon-atlas.cjs; original sheets remain the art source.
 const DOM_ICON_ATLAS = {
-  "url": "assets/Icons/dom-atlas.png?v=124794ca",
+  "url": "assets/Icons/dom-atlas.png?v=7ffe2319",
   "width": 1024,
   "height": 992,
   "rects": {
@@ -1824,9 +1825,10 @@ const DOM_ICON_ATLAS = {
     "assets/Objects/Approved/props.png": [520, 304, 352, 192],
     "assets/Objects/Approved/springcrops.png": [0, 560, 224, 128],
     "assets/Objects/Furniture/furniture-icons-16.png": [224, 560, 64, 432],
-    "assets/Objects/Pickup_Items.png": [288, 560, 224, 160],
-    "assets/Objects/Progression/icons.png": [512, 560, 32, 16],
-    "assets/Objects/Wilderness/wood.png": [544, 560, 48, 16]
+    "assets/Objects/Handmade/petnip.png": [288, 560, 16, 16],
+    "assets/Objects/Pickup_Items.png": [304, 560, 224, 160],
+    "assets/Objects/Progression/icons.png": [528, 560, 32, 16],
+    "assets/Objects/Wilderness/wood.png": [560, 560, 48, 16]
   }
 };
 // END GENERATED DOM ICON ATLAS
@@ -3687,25 +3689,63 @@ class MapScene extends Phaser.Scene {
     const fmag = Math.hypot(facing.x, facing.y);
     if (!(HeadingUp.active(this) && this._deviceCompass && !HeadingUp.directionLocked(this)) && fmag > 0.001) {
       const fx = facing.x / fmag, fy = facing.y / fmag;
-      // (along, across) on the ground → screen, y foreshortened.
-      const ground = (u, v) => ({
-        x: pScreen.x + fx * u - fy * v,
-        y: pScreen.y + (fy * u + fx * v) * FACING_CHEVRON_TILT,
-      });
+      // Ground paint sits under the body, so a caret pointing up the screen —
+      // the usual case once the compass is locked facing the way you walk —
+      // was hidden behind the character. Push it out along the heading, by
+      // the least that takes all three points off the body's box on the
+      // (turned) screen and off the GPS ring: just past the ring beside or
+      // below the feet, past the head straight up.
       const { tip, arm, halfW } = FACING_CHEVRON;
-      const pts = [ground(arm, halfW), ground(tip, 0), ground(arm, -halfW)];
+      let push = 0;
+      // (along, across) on the ground → the TURNED screen, its y foreshortened,
+      // then back into this graphic's map frame. Foreshortening the map's y
+      // instead tipped the caret up on its end once heading-up turned the map
+      // — it stopped lying flat on the ground the way the GPS ring does.
+      const sv = HeadingUp.toScreenVec(this, fx, fy);
+      const ground = (u, v) => {
+        const w = HeadingUp.toWorldVec(this, sv.x * (u + push) - sv.y * v,
+          (sv.y * (u + push) + sv.x * v) * FACING_CHEVRON_TILT);
+        return { x: pScreen.x + w.x, y: pScreen.y + w.y };
+      };
+      const caret = () => [ground(arm, halfW), ground(tip, 0), ground(arm, -halfW)];
+      let pts = caret();
+      if (this.player) {
+        const headPx = this.player.displayHeight / 2 - this.playerBodyDy() + 2;
+        const bodyHalfW = this.player.displayWidth * 0.3;
+        // The GPS ring under the feet is screen-flat (counter-rotated), so its
+        // ellipse is tested on the turned screen too. Padded by a pixel only:
+        // the caret sits against the ring, on the ground beside the feet,
+        // rather than floating off it.
+        const ring = this.gpsGhost?.visible ? this.gpsGhost : null;
+        const pad = 1;
+        const rx = ring ? ring.displayWidth * GPS_RING.r / GROUND_MARK.bakePx + pad : 0;
+        const ry = ring ? ring.displayWidth * GPS_RING.r / GROUND_MARK.bakePx * GPS_RING.tilt + pad : 0;
+        const behind = (p) => {
+          const s = HeadingUp.toScreenVec(this, p.x - pScreen.x, p.y - pScreen.y);
+          if (s.y < 0 && s.y > -headPx && Math.abs(s.x) < bodyHalfW) return true;
+          if (!ring) return false;
+          const r = HeadingUp.toScreenVec(this, p.x - ring.x, p.y - ring.y);
+          return (r.x / rx) ** 2 + (r.y / ry) ** 2 < 1;
+        };
+        while (push < 64 && pts.some(behind)) { push += 1; pts = caret(); }
+      }
       const g = this.facingChevronGfx;
       // Graphics has no round caps or joins, so a dot of the stroke's width
       // at each vertex rounds the ends and closes the apex.
-      const stroke = (w, color, alpha, dy) => {
+      // The drop shadow falls toward the bottom of the SCREEN: this graphic
+      // turns with the map under heading-up, so a fixed +y offset swung the
+      // shadow round to the side or above the caret.
+      const down = HeadingUp.toWorldVec(this, 0, 1);
+      const stroke = (w, color, alpha, d) => {
+        const ox = down.x * d, oy = down.y * d;
         g.lineStyle(w, color, alpha);
         g.beginPath();
-        g.moveTo(pts[0].x, pts[0].y + dy);
-        g.lineTo(pts[1].x, pts[1].y + dy);
-        g.lineTo(pts[2].x, pts[2].y + dy);
+        g.moveTo(pts[0].x + ox, pts[0].y + oy);
+        g.lineTo(pts[1].x + ox, pts[1].y + oy);
+        g.lineTo(pts[2].x + ox, pts[2].y + oy);
         g.strokePath();
         g.fillStyle(color, alpha);
-        for (const p of pts) g.fillCircle(p.x, p.y + dy, w / 2);
+        for (const p of pts) g.fillCircle(p.x + ox, p.y + oy, w / 2);
       };
       stroke(FACING_CHEVRON.outlineW, 0x000000, 0.45, 1);   // drop shadow
       stroke(FACING_CHEVRON.outlineW, 0x1a1208, 1, 0);      // dark outline
@@ -6059,9 +6099,10 @@ class MapScene extends Phaser.Scene {
     this._mapZoomRest = zoom;
     this._mapZoomTauMs = tauMs;
     this._mapZoomReturning = Math.abs((this.mapZoom || 1) - zoom) > 1e-9;
-    const span = Math.round(VIEW_CELLS / zoom);
-    if (this._zoomInButton) this._zoomInButton.disabled = span <= PINCH_VIEW_CELLS;
-    if (this._zoomOutButton) this._zoomOutButton.disabled = span >= VIEW_CELLS;
+    // A tolerance, not a round: a pinch can rest between the button steps.
+    const span = VIEW_CELLS / zoom;
+    if (this._zoomInButton) this._zoomInButton.disabled = span <= PINCH_VIEW_CELLS + 1e-6;
+    if (this._zoomOutButton) this._zoomOutButton.disabled = span >= VIEW_CELLS - 1e-6;
   }
   // HOME ZOOMS IN ON ITS OWN (owner, Oct 2026): stepping inside the house
   // (scene_venues.js homeInside) eases the view to the closest level — the
@@ -6159,12 +6200,14 @@ class MapScene extends Phaser.Scene {
     this.mapZoom = clamp(this._pinch.from * dist / this._pinch.dist, 1, PINCH_MAX_ZOOM);
   }
 
-  // A pinching finger lifted: the zoom springs home. A drag owner still on the
-  // glass carries on dragging from where it is now, not from where it landed.
+  // A pinching finger lifted: the zoom stays where the fingers left it — it
+  // becomes the resting zoom, as a +/− step would (it used to spring back,
+  // which made a pinch useless for anything but a glance). A drag owner still
+  // on the glass carries on dragging from where it is now, not from where it
+  // landed.
   _pinchEnd() {
     this._pinch = null;
-    this._mapZoomTauMs = PEEK_RETURN_MS;
-    if (this.mapZoom !== (this._mapZoomRest || 1)) this._mapZoomReturning = true;
+    this._setRestZoom(this.mapZoom || 1, PEEK_RETURN_MS);
     const p = this._peekPointer;
     if (p?.isDown && p.id === this._peekPointerId) {
       const at = this._gamePt(p);
@@ -7043,13 +7086,13 @@ class MapScene extends Phaser.Scene {
     // Stop short of the character at the near end so the line never runs into
     // the sprite. At the far end it stops on the GPS RING itself rather than
     // short of it: the line is meant to reach the marker, so it touches it.
-    // The ring is the 'gps_ring' bake laid flat (GROUND_MARK.tilt), so its
+    // The ring is the 'gps_ring' bake laid flat (GPS_RING.tilt), so its
     // radius along the line is the ellipse's at that bearing.
     const NEAR_GAP = 11;
     if (len < 1e-6) return;
     const ux = dx / len, uy = dy / len;
     const rx = this.gpsGhost.displayWidth * GPS_RING.r / GROUND_MARK.bakePx;
-    const ry = rx * GROUND_MARK.tilt;
+    const ry = rx * GPS_RING.tilt;
     const FAR_GAP = 1 / Math.hypot(ux / rx, uy / ry);
     if (len < NEAR_GAP + FAR_GAP + 10) return;
     const from = NEAR_GAP, to = len - FAR_GAP;
@@ -7273,7 +7316,15 @@ class MapScene extends Phaser.Scene {
     const body = this.playerM;
     const dx = this._targetM.x - body.x, dy = this._targetM.y - body.y;
     const dist = Math.hypot(dx, dy);
-    if (dist <= this.cellM * 0.15) {   // arrived — sit still, don't jitter
+    // The deadband only gates STARTING a walk, so GPS jitter under a standing
+    // body doesn't set it shuffling. Once walking, the body finishes on the
+    // exact target (`move` is clamped to `dist`): stopping at the deadband
+    // left it trailing a moving target — the walk home, a stream of fixes — by
+    // that much, and parked it short of the middle of the GPS ring.
+    const deadband = this.cellM * 0.15;
+    if (dist < 1e-3) this._followSettled = true;
+    else if (dist > deadband) this._followSettled = false;
+    if (this._followSettled) {   // arrived — sit still, don't jitter
       this._confusedRecover = false;
       if (steering) this._playDirected(this.player, 'walk', this._stickHeading.x, this._stickHeading.y);
       else this._playDirected(this.player, 'idle');
@@ -7321,7 +7372,11 @@ class MapScene extends Phaser.Scene {
     // direction this collapses toward zero even while sliding sideways, so
     // we're blocked when progress is under half the step we tried to take.
     const moved = dist - Math.hypot(this._targetM.x - body.x, this._targetM.y - body.y);
-    if (moved < move * 0.5) {
+    if (moved < move * 0.5 && dist <= deadband) {
+      // Blocked on the last few centimetres (a fix just inside a wall): close
+      // enough — settle rather than jog or dig for them.
+      this._followSettled = true;
+    } else if (moved < move * 0.5) {
       // Blocked. Don't dig if a single-cell jog gets us around the obstacle —
       // mining is reserved for walls the player can't trivially walk past.
       const detour = this._detourDir(ux, uy);

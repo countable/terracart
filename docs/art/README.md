@@ -87,10 +87,14 @@ frames. Baked unclaimed buildings bypass the old runtime wash to keep their slud
 and weathering visible. Chapel, macro POI booths, actors and other retained art
 remain unchanged.
 
-Pilgrim's Way waystones use the existing neutral rounded low-rock frame
-(`rock_variants:0`) instead of the old compass marker. Their lit state uses a bright ivory material of the same rock, baked once
-at startup, plus steady ivory light from the shared lightmap. The silhouette
-and shading stay intact, with no painted rune or pedestal.
+Petnip and Pilgrim's Way waystones have their own hand-drawn 16px sprites in
+`assets/Objects/Handmade/`, exported by `tools/art/export_petnip_waystone.py`
+(the pixel grids live in that script). Petnip is a lilac-spiked catnip sprig
+in the Props.png wildplant palette, replacing its recoloured long-grass tuft.
+The waystone is a leaning standing stone in the plain rock's tones with a
+carved spiral and mossy footing, replacing the borrowed rock frame; its lit
+frame fills the spiral with the ivory of `Lighting.KINDS.waystone`, alongside
+the steady light from the shared lightmap.
 
 The sprite contexts are wetland-edge reeds and Burned Row stakes. Loose rocks in Stone Garden, Broken Masonry, Flint Field, Broken Depot, Seep, Work Yard, Black Ring and Pirate Cove use their approved contextual frames in the existing zone-object atlas. Ordinary loose rocks, planted rock crops and inventory icons keep their standard art. `assets/Objects/ZoneVariants/approved-additions.json` records these appended frames and their approved sources; `tools/pack_selected_zone_art.py` preserves them during regeneration. Shrubs use the basic bush or the smaller cut hedge, with the same mechanics. Ancient Grove and Silent Circle also use their
 approved ground accents. Context selection preserves placement IDs, quantities,
@@ -380,3 +384,12 @@ retaining coarse geometry at close range. Alpha-cutout crowns could reduce
 farther walls, with view-angle and thin-edge checks before replacing the prisms.
 This change leaves both established perimeter renderers intact; it measures
 their costs rather than silently flattening their silhouettes.
+
+## Third-party building art credit
+
+Restored low-poly facade textures include processed crops from **Pixel Plains
+Interiors Pack**, by **Jose Javier (SnowHex)**:
+<https://snowhex.itch.io/pp-interior-and-houses-pack>. Used and modified under
+the acquired pack licence. Raw assets are not included. Exact crops, processing
+and licence terms are recorded in
+[BuildingMaterials/README.md](../../assets/Objects/BuildingMaterials/README.md).

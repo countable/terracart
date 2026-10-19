@@ -77,10 +77,11 @@ flat rugs are ground decals and mid pieces use `ObstacleStep.PROFILES.furniture`
 for continuous support. Basins are walkable ground decals with no step lift;
 they draw under the player, whose submersion crop hides only the lower body.
 `RENDER_SPEC.furniture` seats each piece from its trimmed bounds at
-`FURNITURE_SCALE` (1: large and tall pieces use up to 31px of a 32px cell).
+`FURNITURE_SCALE` (1: approved 24px art cells map to 32px runtime cells;
+24×32 beds/bookcases can extend above the cell).
 New furniture bases sit horizontally centred, one-third of a cell up from its
-bottom (`seatFoot: 2 / 3`), letting tall art overlap the wall behind. Beds, rugs
-and bookshelves retain centred art. Mirrored bounds keep asymmetric pieces
+bottom (`seatFoot: 2 / 3`), letting tall art overlap the wall behind. Rugs retain centred art. Tall beds and bookshelves use the shared tall-art
+seat, with their bottom one pixel above the cell edge. Mirrored bounds keep asymmetric pieces
 centred when flipped. The base center comes from the bottom three opaque
 rows, so an overhanging lamp shade does not displace its stand. Depth and lamp
 emitters follow the same base. Mutable furniture
@@ -98,10 +99,13 @@ shares its planter's ground depth and sorts immediately above it, preserving
 Home wall occlusion.
 
 `python3 tools/build_furniture_sheets.py` rebuilds both sheets from
-`assets/Objects/Furniture/manifest.json`. The approved seven-tier source atlas
-contains 32×32 frames and preserves its generated alpha. Its crops are copied
-without resizing into the bottom half of uniform 32×64 world slots; icons use
-nearest-neighbour reduction. Roster frames occupy 0–15 and the 91 tier frames
+`assets/Objects/Furniture/manifest.json`. Approved overrides use a 24px native cell: small pieces are 16×16,
+and beds/bookcases are 24×32. The builder scales these by 32/24 with nearest
+neighbour sampling into the existing 32×64 slots. The manifest selects only
+approved kind/tier pairs; all other art remains in the legacy 32×32 atlas.
+`source/approved/approvals.json` records provenance, source/export hashes and
+backdrop removal. Both roster and tier frames use the same approved source.
+Icons fit the complete piece proportionally. Roster frames occupy 0–15 and the 91 tier frames
 follow them. The original workbench and candelabra source crops still use their
 existing fit rules. The sprite audit covers every frame and permitted flip.
 After rebuilding art, regenerate `ART_BOUNDS` and the DOM icon atlas so map,
@@ -338,8 +342,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   and stepping out eases back to the player's choice (`_tickHomeZoom`,
   `HOME_ZOOM_MS`; once per crossing, so a step taken inside holds until they
   leave; never underground). The choice lasts for the
-  session, including modals and depth changes. Pinch zoom remains temporary
-  and springs back to that selected view on `PEEK_RETURN_MS`.
+  session, including modals and depth changes. A pinch sets the resting zoom
+  too: on release its zoom stays (`_pinchEnd` → `_setRestZoom`), anywhere
+  between the full view and `PINCH_VIEW_CELLS`, and a later +/− steps from it.
   `_applyMapZoom` clips the camera viewport and counter-scales map chrome;
   the DOM controls never zoom or rotate. Gameplay ranges and loading stay
   based on `VIEW_CELLS`; taps convert back through `_unzoomPt`.
@@ -382,7 +387,12 @@ the real source so a missing texture cannot become a permanent cached palette.
   lock subscribes to the shared GPS watch and unlocks on success; failure keeps
   it locked. Repeated taps share one pending request, released on shutdown.
   Detection alone does not relocate a sandbox or teleport world. Desktop without a heading sensor
-  and north-up mode retain the caret. The heading-up compass rim keeps its north marker.
+  and north-up mode retain the caret. The caret is foreshortened down the
+  turned screen (like the GPS ring), not the map's y, so it lies flat at any
+  map turn. It is ground paint under the body,
+  so it is pushed out along the heading by the least that takes it off the
+  body's on-screen box; pointing up-screen it clears the head instead of hiding
+  behind it. The heading-up compass rim keeps its north marker.
   Game state stays north-up; taps, peek drags and steering convert back
   through `HeadingUp.toWorldVec`, including the manual GPS stick.
 - Map annotations use `HeadingUp.toOverlayPt` for UI-camera graphics: rotate
@@ -458,8 +468,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   bodies omit mid-wall shadow stripes; the bottom silhouette and a quiet rear highlight define the edge.
 - Standing objects fade to half their normal opacity only when their art overlaps
   the player's inset body box and their world depth draws them in front. The
-  overlap uses cached trimmed `ART_BOUNDS`, with frame bounds for procedural
-  art, and updates even on reused sprite slots. Moving clear restores the
+  overlap uses cached trimmed `ART_BOUNDS`, or a `RENDER_SPEC` row's
+  `artBounds` for procedural art that declares one (the street lamp's
+  ironwork, `RoadOverlay.LAMP_BODY_FRAC`), else the frame bounds, and updates even on reused sprite slots. Moving clear restores the
   original opacity; tool access never changes it. On a turned heading-up map
   both boxes stand at their turned feet and lower turned feet count as in
   front (`Render.headingFadeView`), matching the heading-up draw order.
@@ -553,8 +564,11 @@ the real source so a missing texture cannot become a permanent cached palette.
   strip step, and the stroke passes (dark under-stroke, soft halo, line) in a
   mark's ink.
   `bakeGroundMark` (scene_create.js) is the one bake; the elite's rune bands
-  and the player's GPS ring (`gps_ring`, baked in gold, `GPS_RING` geometry)
-  are its rows. The GPS ring (`gpsGhost`) is always drawn while there is a fix:
+  and the player's GPS ring (`gps_ring`, baked in gold) are its rows. The GPS
+  ring's `GPS_RING` row carries its own on-screen width and tilt (at the
+  shared tilt it read squashed) and the facing caret's paint instead of the
+  halo: a gold line on a dark outline over a drop shadow down the screen
+  (`GPS_RING.passes`). The caret is pushed off the ring as well as the body. The GPS ring (`gpsGhost`) is always drawn while there is a fix:
   around the feet while the body stands on it, left on the ground once the
   stick walks the body off, and, once its centre is off the visible map, its
   bearing is a micro gold rim dot (`_drawGpsRimDot`, drawn with the MARKERS
@@ -628,9 +642,9 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   and flint when marked `rockMaterial: 'flint'`, including flint-bearing L1
   cave rubble. The flint mark takes precedence over the generic cave variant. Partial
   cover (`sightBlocking: true`) selects the taller boulder silhouette.
-  Regular rocks and boulders both use 24px frames at 80.96% of scale 16/15 (`ROCK_WORLD_SCALE`; placed
+  Regular rocks and boulders both use native 16px frames at 80.96% of scale 1.6 (`ROCK_WORLD_SCALE`; placed
   stones 1.408, the produce icon); their height
-  difference is authored into the graphic-storybook atlas (8 columns, 9 rows).
+  difference is authored into the DG-style atlas (8 columns, 9 rows).
   Outside authored rock zones, wild rubble shares
   the four generic plain small shapes and skips biome tint; planted crop stages
   and inventory icons retain their existing art. A stable id hash selects plain
@@ -642,7 +656,7 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   Crater Quarry, Abandoned Quarry and Mystic Reef. Color, moss and weathering carry
   the place; Work Yard uses a cut stone slab and Crater Quarry has a glowing lava
   seam painted into the sprite. These contain no collectible mineral inclusions.
-  The same 24px
+  The same 16px
   frame uses the same `ROCK_WORLD_SCALE` for small stones and sight-blocking boulders.
   `ROCK_VARIANT_ART` owns these scales; placed rocks draw their 16px produce
   frame at 1.408×, comfortably inside a cell.
@@ -780,13 +794,13 @@ the reach rim within the existing player-light radius.
   emitter is seated with the frame's trimmed bounds and furniture scale,
   then follows the existing `dyPx` / `liftPx` mechanism at every map heading.
   Pickup removes the normal object and its light on the next object draw.
-- Waystones use the existing plain rounded low-rock frame (`rock_variants:0`)
-  at the shared small-rock scale. At startup, a source-atop ivory material
-  variant preserves the rock’s alpha and shading. The per-draw material hook
-  selects it while lit so activation reads in daylight in Canvas and WebGL;
+- Waystones draw their own 16px standing-stone sheet (`waystone`) at the
+  shared small-rock scale: frame 0 dormant, frame 1 with the carved spiral
+  glowing. The per-draw material hook selects the frame from
+  `Waystones.isLit`, so activation reads in daylight in Canvas and WebGL;
   cached geometry remains valid. `Waystones.isLit` also gates the steady ivory `Lighting.KINDS.waystone` source, including permanent
   completed sets. Unlit stones emit no light and no daily-availability pulse.
-  The same inset contact shadow as mineral rocks grounds the low silhouette.
+  The same inset contact shadow as mineral rocks grounds the stone's footing.
 - Streets restore metre intervals along each transportation line, keyed by
   `Streets.lineKey(feature, lineIdx)`, clipped to tile spans. Keep reach tied
   to the player and visuals keyed by `Streets.epoch`; do not add per-cell road
@@ -887,7 +901,14 @@ role and shop-line style tables: plaster terraces for residences, brick for the
 blacksmith, Japanese roofs for traders and book/pet shops, stepped pyramid roofs
 for the wizard and potion/relic shops, and low broken walls for wrecks.
 Forts take no footprint style: see the fort paragraph under World layers.
-Restoring a building changes its material and geometry together.
+Restoring a building changes its material and geometry together. On the retained
+WebGL path, the overlay passes its claim result into `BuildingLowPoly.recipeFor`.
+`RESTORED_ROLES` holds every restored design; `LOOK.restoredRoles` lists the live
+ones, currently only the relic shop. It uses straight Pixel Plains walls, door
+and windows (`LOOK.facadeVariant='A'`) under a red roof, and its chimney samples
+the ground-wall texture. The shared cel atlas is built once per material recipe
+with no pixel readback. See the [low-poly styles](../art/lowpoly-building-styles.md)
+for cell and cache rules.
 
 `BuildingOverlay` emits retained prisms only when footprint inputs or restoration
 state change. Roof insets stop when narrow or concave wings cannot support another

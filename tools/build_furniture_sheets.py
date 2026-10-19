@@ -25,6 +25,17 @@ def build():
                             'frame': tiers['firstFrame'] + row * tiers['columns'] + col,
                             'source': tiers['source'], 'box': [col * cell, row * cell, cell, cell],
                             'mode': 'native32', 'frameSize': [cell, cell]})
+    # The roster's legacy source boxes identify the same tier cells as the
+    # expanded catalog. Apply approved art to both without changing frame ids.
+    for entry in entries:
+        key = entry['itemId']
+        if entry['source'] == tiers['source']:
+            x, y, _, _ = entry['box']
+            key = f"{tiers['rows'][y // cell]}:{tiers['tiers'][x // cell]}"
+        source = manifest.get('approvedOverrides', {}).get(key)
+        if source:
+            entry.update(source=source, box=None, mode='native24',
+                         frameSize=[cell, manifest['worldFrameHeight']])
     # Retain 64px world slots so light anchors and saved frame consumers stay aligned.
     height = manifest['worldFrameHeight']
     rows = (max(entry['frame'] for entry in entries) + cols) // cols
@@ -39,6 +50,8 @@ def build():
             art = source.crop((x, y, x + w, y + h))
         if entry['mode'] == 'native32':
             factor = 1
+        elif entry['mode'] == 'native24':
+            factor = cell / manifest['nativeCell']
         elif entry['mode'] == 'concept' or 'fit' in entry:
             bounds = art.getchannel('A').getbbox()
             if bounds is None:
@@ -49,7 +62,7 @@ def build():
         else:
             factor = cell / 48
         size = tuple(max(1, round(side * factor)) for side in art.size)
-        resample = Image.Resampling.NEAREST if entry['mode'] == 'native32' else Image.Resampling.LANCZOS
+        resample = Image.Resampling.NEAREST if entry['mode'].startswith('native') else Image.Resampling.LANCZOS
         art = art.resize(size, resample)
         if frame_w > cell or art.width > frame_w or art.height > frame_h:
             raise ValueError(f"Art exceeds world frame: {entry['itemId']}")

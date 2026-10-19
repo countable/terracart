@@ -84,6 +84,13 @@ access or tile lifecycle mechanics.
   ghosts, starter/story creatures, crop pests, saved pets and summons remain
   feature/progression/player-driven exceptions; all placement still uses the
   shared gate. Hazards such as vents and whirlwinds retain their own system.
+  Whirlwinds form and wander only on plain GRASS, PITCH and SCHOOL cells
+  (never park, playground or a Nexus zone's terrain) that a landcover, landuse
+  or park polygon mapped (`entry.mappedLand`: unmapped ground defaults to
+  GRASS and is mostly the gaps between houses), and never within
+  `HomeArea.isNear` of the start; a Scroll of Wind gust is not bound by these.
+  In the local gusty hours (`Whirlwinds.CONFIG.gust`) one likelier roll raises
+  a spaced group of several.
 
 - Cave ambient enemies use stable request IDs: packs end in `pack_<ordinal>`
   and roamers in `roam_<blockX>_<blockY>`, after the depth/tile prefix. Their
@@ -416,7 +423,8 @@ access or tile lifecycle mechanics.
   share the set; fewer than three legal, spaced seats produces no puzzle.
   Each stone carries `waystoneSet` and the actual `waystoneCount`; all seats
   are claimed together before later ambient dressing. Grounded feet light a stone
-  for `Waystones.LIGHT_MS`; tapping an unlit stone says “closer...” and grants
+  for `Waystones.LIGHT_MS` and toasts the set's progress (“2/5 waystones
+  lit”) in the centred viewport toast; tapping an unlit stone says “closer...” and grants
   no lore. All members must be lit simultaneously. Completion lives in
   `save.waystoneSets`, leaves every member permanently lit, and saves one T3
   chest beside the player. Unopened rewards are restored after tile reloads;

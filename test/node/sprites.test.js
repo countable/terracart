@@ -865,7 +865,11 @@ test('furniture art: every frame seats in its cell, including mirrored asymmetri
       if (Number.isFinite(metadata.seatFoot)) {
         assert.inRange(Math.abs(p.foot.footFromCentre - 32 / 6), 0, 1e-8,
           item.id + ': base and depth sit one third up the cell');
-      } else if (['bed_quilted', 'bookshelf_frontier', 'rug_burgundy'].includes(item.id)) {
+      } else if (['bed_quilted', 'bookshelf_frontier'].includes(item.id)) {
+        assert.gt((b.maxY - b.minY) * p.scl, 32, item.id + ': approved tall silhouette');
+        assert.inRange(Math.abs(p.dyPx + (b.maxY - b.fh / 2) * p.scl - 15), 0, 1e-8,
+          item.id + ': tall art seats one pixel above the cell bottom');
+      } else if (item.id === 'rug_burgundy') {
         assert.inRange(Math.abs(p.dyPx + ((b.minY + b.maxY) / 2 - b.fh / 2) * p.scl), 0, 1e-8,
           item.id + ': art stays vertically centred');
       }

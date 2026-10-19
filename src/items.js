@@ -67,11 +67,9 @@ const CROP_SPRITE = {
   goldenberry: { ...BUSH_SPRITE, texture: 'bushes_goldenberry' },
   cress:  { sheet: 'springcrops', row: 3 },   // spoon-leaf watercress
   onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
-  // Approved native 16px long grass; inventory shares the same source.
+  // Approved long grass shares its inventory sprite. Petnip retains its authored art.
   longgrass: { sheet: 'selected_longgrass', custom: true, frame: 0, scale: 1.16 * 0.9 },
-  // Previously unused Props frames: green sprig and upright leafy nettle.
-  // Inventory resolves these same frames through each item's crop key.
-  petnip: { sheet: 'props', custom: true, frame: 32, scale: 1.16 },
+  petnip: { sheet: 'petnip', custom: true, frame: 0, scale: 1.16 },
   nettle: { sheet: 'props', custom: true, frame: 33, scale: 1.13 },
   // Shrub looks share harvesting; brambles mark thorny groves and roads.
   shrub: { sheet: 'selected_shrub', custom: true, frames: [0], scale: 1.5,
@@ -159,8 +157,8 @@ const ZONE_ROCK_THEMES = Object.freeze({
 });
 // One neutral stone palette everywhere; material pairs are adjacent small/large frames.
 // Legacy yield variants still own mining quantities, independently of appearance.
-// World rocks use the source-cell scale with the shared size corrections.
-const ROCK_WORLD_SCALE = (16 / 15) * 0.92 * 0.88;
+// World rocks retain their display-cell size when moving from 24px to native 16px art.
+const ROCK_WORLD_SCALE = (24 / 16) * (16 / 15) * 0.92 * 0.88;
 const ROCK_VARIANT_ART = Object.freeze({
   columns: 8, rows: 9, smallScale: ROCK_WORLD_SCALE, largeScale: ROCK_WORLD_SCALE,
   themedScale: ROCK_WORLD_SCALE, placedScale: 1.6 * 0.88,

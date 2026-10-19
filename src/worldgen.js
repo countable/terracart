@@ -4533,6 +4533,10 @@
     // contiguous block of building tiles (otherwise they read as one blob).
     const owners = new Uint16Array(w * h);
     const syntheticBuildingCells = new Uint8Array(w * h);
+    // 1 where a landcover / landuse / park polygon gave the cell its ground.
+    // Unmapped ground keeps the grid's default GRASS, so this is what tells a
+    // mapped lawn or field from the gaps between houses (whirlwinds.js).
+    const mappedLand = new Uint8Array(w * h);
     let nextBuildingOwnerId = 0;
     // ownerId → that footprint's stable key (see the mint below). Sparse array,
     // indexed by the same 1-based id `owners` stamps, so a cell resolves to the
@@ -5119,6 +5123,7 @@
               yield* paintPolygonSteps(grid, w, h, f.geom, T.WATER, mvtToCell);
             } else if (t != null) {
               yield* paintPolygonSteps(grid, w, h, f.geom, t, mvtToCell);
+              if (name !== 'water') yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell, (x, y) => { mappedLand[y * w + x] = 1; });
             }
 
             // A designation overlay supplies no ground or procedural flora.
@@ -6914,7 +6919,7 @@
     chestTopUp.ambient = yield* topUpAmbientCratesSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
       landcoverGrid: caveSource.grid, grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
     assignScholarFallback(deduped);
-    return { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
+    return { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -7122,7 +7127,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, objects, wildplants, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects, wildplants, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -7140,6 +7145,7 @@
       entry.grid = grid;
       entry.owners = owners;
       entry.syntheticBuildingCells = syntheticBuildingCells;
+      entry.mappedLand = mappedLand;
       entry.ownerKeys = ownerKeys;
       entry.objects = filteredObjects;
       entry.depth = 0;

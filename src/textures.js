@@ -278,24 +278,6 @@ function makeBerryBushTexture(scene) {
   }
 }
 
-// A material variant of the plain rounded rock, baked only at startup.
-// source-atop keeps its exact silhouette and shading in Canvas and WebGL;
-// the shared lightmap remains responsible for light cast on its surroundings.
-function makeWaystoneTexture(scene) {
-  const source = scene.textures.get('rock_variants');
-  const frame = source.get(0);
-  bakeCanvas(scene, 'waystone_lit', frame.cutWidth, frame.cutHeight, ctx => {
-    ctx.drawImage(source.getSourceImage(), frame.cutX, frame.cutY,
-      frame.cutWidth, frame.cutHeight, 0, 0, frame.cutWidth, frame.cutHeight);
-    ctx.globalCompositeOperation = 'source-atop';
-    ctx.globalAlpha = 0.72;
-    ctx.fillStyle = '#' + Lighting.KINDS.waystone.colour.toString(16).padStart(6, '0');
-    ctx.fillRect(0, 0, frame.cutWidth, frame.cutHeight);
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over';
-  });
-}
-
 function drawGrassTex(ctx, size, rng) {
   // Short, dense lawn: specks only, no tall blades (tufts are reserved for the
   // harvestable "longgrass" wildplant so they read as pickable).

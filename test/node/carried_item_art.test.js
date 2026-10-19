@@ -106,7 +106,9 @@ test('furniture art: approved atlas tiers map to complete world and inventory fr
       assert.truthy(bounds, `${id} T${tier}: world seating bounds exist`);
       assert.eq(bounds.fw, 32);
       assert.eq(bounds.fh, 64);
-      assert.gte(bounds.minY, 32, `${id} T${tier}: art occupies lower half`);
+      const tall = id === 'bed_quilted' || id === 'bookshelf_frontier';
+      assert.gte(bounds.minY, tall ? 21 : 32, `${id} T${tier}: art fits its native height`);
+      if (tall) assert.lt(bounds.minY, 32, `${id} T${tier}: tall art retains its height`);
       assert.gt(bounds.maxX, bounds.minX, `${id} T${tier}: non-empty width`);
       assert.gt(bounds.maxY, bounds.minY, `${id} T${tier}: non-empty height`);
       assert.lte(bounds.maxX, 32);

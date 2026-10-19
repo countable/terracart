@@ -202,8 +202,8 @@ const ASSETS = {
   // Pine uses the upper 32×48 growth strip; the lower band is separate
   // ground decoration and must not enter the standing tree frame.
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
-  // Approved cel-shaded rocks — 192×216 atlas of 24px frames; 65 runtime identities.
-  rock_variants: { kind: 'spritesheet', path: 'assets/Objects/Rocks/rocks-24.png', frameWidth: 24, frameHeight: 24 },
+  // Approved DG-style rocks — 128×144 atlas of 16px frames; 65 runtime identities.
+  rock_variants: { kind: 'spritesheet', path: 'assets/Objects/Rocks/rocks-16.png', frameWidth: 16, frameHeight: 16 },
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
   // Five complete 32px columns; the trailing 16px mask column is unused.
   // Keep the original 16px key for mineral/item previews that still need it.
@@ -330,6 +330,10 @@ const ASSETS = {
   // pebbles, logs. Wildplants pick a frame via CROP_SPRITE { sheet: 'props',
   // custom: true, frame: N }. Longgrass uses frame 10 (a grass tuft).
   props:       { kind: 'spritesheet', path: 'assets/Objects/Approved/props.png', frameWidth: 16, frameHeight: 16 },
+  // Hand-drawn 16px sprites (tools/art/export_petnip_waystone.py). The
+  // waystone's frame 1 is its lit look (Render.setWaystoneMaterial).
+  petnip:      { kind: 'spritesheet', path: 'assets/Objects/Handmade/petnip.png', frameWidth: 16, frameHeight: 16 },
+  waystone:    { kind: 'spritesheet', path: 'assets/Objects/Handmade/waystone.png', frameWidth: 16, frameHeight: 16 },
   // Rounded woodland bush: shared by shrub wildplants and bush-sized trees.
   bushes:      { kind: 'spritesheet', path: 'assets/Objects/CelProps/bushes.png', frameWidth: 24, frameHeight: 24 },
   // Animated campfire — 96×32 = 6 cols × 1 row of 16×32 frames. Lit by burning

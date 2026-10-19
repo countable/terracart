@@ -92,4 +92,20 @@ test('player occlusion: tool tiers no longer set tree or rock opacity', () => {
   assert.truthy(RENDER_FRUIT_PASS_SRC.includes('s.setAlpha(item.treeSprite.alpha)'),
     'fruit sitting on a faded canopy follows its tree');
 });
+test('player occlusion: a street lamp fades by its ironwork, not its glow square', () => {
+  const spec = Render.objectAppearance({ textures: { exists: () => true }, save: {} }, new Map(), false)
+    .RENDER_SPEC._streetlamp;
+  const px = 32 * RoadOverlay.LAMP_DRAW_CELLS;
+  const lamp = { ...sprite(), originY: RoadOverlay.LAMP_GROUND_FRAC, frame: { width: 128, height: 128 },
+    scaleX: px / 128, scaleY: px / 128 };
+  const art = { texKey: 'streetlamp_fixture', frameVal: '__BASE', spec, ground: false };
+  // The body box sits a cell above the lamp's feet, as the player stands just north.
+  const body = { x0: -6, x1: 6, y0: lamp.y - 40, y1: lamp.y - 24 };
+  Render.fadeObjectOverPlayer(lamp, art, { ...body, x0: body.x0 + 100, x1: body.x1 + 100 }, 4, 1);
+  assert.eq(lamp.alpha, 0.5, 'standing behind the post fades it');
+  Render.fadeObjectOverPlayer(lamp, art, { ...body, x0: body.x0 + 132, x1: body.x1 + 132 }, 4, 1);
+  assert.eq(lamp.alpha, 1, 'a cell to the side of the post leaves it opaque');
+  Render.fadeObjectOverPlayer(lamp, art, { ...body, x0: body.x0 + 68, x1: body.x1 + 68 }, 4, 1);
+  assert.eq(lamp.alpha, 1, 'a cell to the other side leaves it opaque');
+});
 })();

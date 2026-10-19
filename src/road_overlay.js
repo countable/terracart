@@ -890,6 +890,19 @@
   const LAMP_FINIAL = { cy: lampTilt(0.107), r: 0.016 };
   const LAMP_ARM = { y0: lampTilt(0.363), y1: lampTilt(0.375), w: 0.066, ball: 0.014 };
   const LAMP_BAND_ROW = 5, LAMP_COLUMN_ROW = 4, LAMP_SKIRT_ROW = 2;
+  // THE BODY: the ironwork's box in the square (fractions, max exclusive), the
+  // finial down to the plinth's near rim, the widest section or the arm with
+  // its balls, plus the outline. The bake is mostly glow padding, so this is
+  // what the player-over fade tests (RENDER_SPEC _streetlamp.artBounds); the
+  // rift and broken posts stand inside it.
+  const LAMP_BODY_HALF_W = Math.max(LAMP_FOOT_FRAC, LAMP_ARM.w + LAMP_ARM.ball,
+    ...LAMP_PROFILE.map((s) => Math.max(s.w0, s.w1) * (1 + Math.max(0, s.curve || 0) / 2))) + 0.012;
+  const LAMP_PLINTH = LAMP_PROFILE[LAMP_PROFILE.length - 1];
+  const LAMP_BODY_FRAC = {
+    minX: 0.5 - LAMP_BODY_HALF_W, maxX: 0.5 + LAMP_BODY_HALF_W,
+    minY: LAMP_FINIAL.cy - LAMP_FINIAL.r - 0.012,
+    maxY: LAMP_PLINTH.y1 + LAMP_PLINTH.w1 * LAMP_UNDER + 0.012,
+  };
   // WHERE THE LIGHT COMES OUT: the lit glass's midline, and how far that is
   // ABOVE the lamp's point, in CELLS. Derived from the profile above, so a
   // re-mapped table takes the light with it: one number, two readers
@@ -2122,7 +2135,7 @@
 
   global.RoadOverlay = { homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
                          offsetLine, emitCarpetStrip, emitCarpetEmblems, CARPET_EMBLEMS, CARPET_EMBLEM_STEP_PX, paintLamp, paintBrokenLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
-                         LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K,
+                         LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K, LAMP_BODY_FRAC,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans,
                          ROAD_REBUILD_SLICE_MS, runRoadSlice };

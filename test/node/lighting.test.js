@@ -91,11 +91,10 @@ test('lighting: waystones emit only their stepped-on light, including outside th
     return lit;
   } };
   try {
-    const sprite = { texture: { key: 'rock_variants' },
-      setTexture(key) { this.texture.key = key; } };
-    s.textures = { exists: key => key === 'waystone_lit' };
+    const sprite = { texture: { key: 'waystone' }, frame: { name: 0 },
+      setTexture(key, frame) { this.texture.key = key; this.frame.name = frame; } };
     Render.setWaystoneMaterial(sprite, object, s);
-    assert.eq(sprite.texture.key, 'rock_variants', 'off stone keeps plain rock material');
+    assert.eq(sprite.frame.name, 0, 'off stone keeps its dormant frame');
     const start = RENDER_SRC.indexOf('  const offerPreCullLights = (o, dx, dy) => {');
     const end = RENDER_SRC.indexOf('\n  };', start);
     const offer = new Function('scene', 'LIGHTS', 'Macros', 'isBuilding', 'poiLit', 'spentIds', 'halfM',
@@ -105,16 +104,15 @@ test('lighting: waystones emit only their stepped-on light, including outside th
     assert.eq(s._lights.length, 0, 'unstepped stone stays dark');
     lit = true;
     Render.setWaystoneMaterial(sprite, object, s);
-    assert.eq(sprite.texture.key, 'waystone_lit', 'lit rock gets a bright daylight material');
+    assert.eq(sprite.texture.key, 'waystone');
+    assert.eq(sprite.frame.name, 1, 'lit stone shows its glowing-rune frame');
     offer(object, HALF_M + 1, 0);
     assert.eq(s._lights.length, 1, 'activated stone spills light beyond its sprite bounds');
     assert.eq(s._lights[0].kind, 'waystone', 'no daily reward pulse');
     assert.eq(Lighting.KINDS.waystone.flicker, 0, 'steady light');
     lit = false;
-    // The pool restores the cached base texture before running the material hook.
-    sprite.texture.key = 'rock_variants';
     Render.setWaystoneMaterial(sprite, object, s);
-    assert.eq(sprite.texture.key, 'rock_variants', 'expired stone returns to plain material');
+    assert.eq(sprite.frame.name, 0, 'expired stone returns to its dormant frame');
     s._lights.length = 0;
     offer(object, 0, 0);
     assert.eq(s._lights.length, 0, 'expired stone immediately stops lighting');
