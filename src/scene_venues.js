@@ -1245,22 +1245,30 @@ class SceneVenues {
     // a heading that points it at a road or the water must not cost a new
     // game its pit.
     // A street by the door puts it out front, between the door and the
-    // street (HomeArea.streetFirepitCells); an adopted building has no
-    // saved door and keeps the heading layout.
-    let pit = null;
-    const street = trailer.door ? this._homeNearestStreet(trailer.x, trailer.y) : null;
-    if (street && street.side === trailer.door) {
-      for (const c of HomeArea.streetFirepitCells(street.side, street)) {
+    // street; with none (or no room there) and the player outside, it goes
+    // on their side of the house (HomeArea.firepitCellsToward,
+    // playerSideFirepitCells). Never on the player's own cell. An adopted
+    // building has no saved door and keeps the heading layout.
+    const me = this.playerM && this.startWorldM ? worldMetersToAbsCell(this,
+      this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y) : null;
+    const firstOK = (cells) => {
+      for (const c of cells) {
         const cell = absCellOffset(this, at.cellIX, at.cellIY, c.dx, c.dy);
+        if (me && cell.cellIX === me.cellIX && cell.cellIY === me.cellIY) continue;
         const m = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
-        if (this._firepitGroundOK(m.x, m.y)) { pit = m; break; }
+        if (this._firepitGroundOK(m.x, m.y)) return m;
+      }
+      return null;
+    };
+    let pit = null;
+    if (trailer.door) {
+      const street = this._homeNearestStreet(trailer.x, trailer.y);
+      if (street && street.side === trailer.door) pit = firstOK(HomeArea.firepitCellsToward(street.side, street));
+      if (!pit && me) {
+        pit = firstOK(HomeArea.playerSideFirepitCells({ dx: me.cellIX - at.cellIX, dy: me.cellIY - at.cellIY }, trailer.door));
       }
     }
-    if (!pit) for (const c of HomeArea.firepitCandidates(offset, wagon)) {
-      const cell = absCellOffset(this, at.cellIX, at.cellIY, c.dx - wagon.dx, c.dy - wagon.dy);
-      const m = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
-      if (this._firepitGroundOK(m.x, m.y)) { pit = m; break; }
-    }
+    pit ||= firstOK(HomeArea.firepitCandidates(offset, wagon).map(c => ({ dx: c.dx - wagon.dx, dy: c.dy - wagon.dy })));
     // Do not relocate a saved lit fire into water or a road. An unsuitable
     // neighbourhood leaves an existing pit intact.
     if (pit) {

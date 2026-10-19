@@ -89,27 +89,71 @@ const HomeArea = {
     // Never one of the house's cells (inHouse): the pit stands in the yard.
     return out.filter(c => !this.inHouse(c.dx - wagon.dx, c.dy - wagon.dy));
   },
-  // With a street near the door (scene_venues.js _homeNearestStreet), the
-  // pit goes out front instead: in the doorway column nearer the street,
-  // FIREPIT_OFFSET.dy cells past the doorstep (the open-ground spacing),
-  // closer if the street comes sooner — always short of the street and never
-  // on the doorstep. Cells from the house's anchor (wagon) cell, best first;
-  // none when the street runs right past the doorstep.
-  streetFirepitCells(side, road) {
+  // The pit's cells between one wall of the house and a target cell beyond
+  // it (cells from the house's anchor/wagon cell, best first): in the
+  // doorway lane nearer the target, FIREPIT_OFFSET.dy cells past the
+  // doorstep (the open-ground spacing), closer if the target comes sooner —
+  // always short of it and never on the doorstep. None when the target is
+  // right at the doorstep. The target is the street by the door
+  // (scene_venues.js _homeNearestStreet), else the player.
+  firepitCellsToward(side, target) {
     const { minCell, maxCell } = this.HOUSE;
-    const n = { N: { dx: 0, dy: -1 }, S: { dx: 0, dy: 1 }, E: { dx: 1, dy: 0 }, W: { dx: -1, dy: 0 } }[side];
-    if (!n || !road) return [];
+    const n = this.SIDE_NORMAL[side];
+    if (!n || !target) return [];
     const ns = n.dx + n.dy, alongY = n.dx === 0;
     const step = ns > 0 ? maxCell + 1 : 1 - minCell;   // doorstep, cells out along n
-    const across = alongY ? road.dx : road.dy;
+    const across = alongY ? target.dx : target.dy;
     const lane = across <= minCell ? minCell : maxCell;
-    const roadOut = (alongY ? road.dy : road.dx) * ns;
+    const targetOut = (alongY ? target.dy : target.dx) * ns;
     const out = [];
-    for (let m = Math.min(this.FIREPIT_OFFSET.dy, roadOut - step - 1); m >= 1; m--) {
+    for (let m = Math.min(this.FIREPIT_OFFSET.dy, targetOut - step - 1); m >= 1; m--) {
       const o = (step + m) * ns;
       out.push(alongY ? { dx: lane, dy: o } : { dx: o, dy: lane });
     }
     return out;
+  },
+  SIDE_NORMAL: { N: { dx: 0, dy: -1 }, S: { dx: 0, dy: 1 }, E: { dx: 1, dy: 0 }, W: { dx: -1, dy: 0 } },
+  // Which side of the house a cell (from the anchor cell) lies on, by the
+  // wider of its two gaps from the footprint ('N'/'S'/'E'/'W'); a diagonal
+  // tie takes north/south. Null for a cell of the house itself.
+  sideOfHouse(dx, dy) {
+    const { minCell, maxCell } = this.HOUSE;
+    const gap = (v) => (v > maxCell ? v - maxCell : v < minCell ? v - minCell : 0);
+    const gx = gap(dx), gy = gap(dy);
+    if (!gx && !gy) return null;
+    if (Math.abs(gy) >= Math.abs(gx)) return gy > 0 ? 'S' : 'N';
+    return gx > 0 ? 'E' : 'W';
+  },
+  // With no street by the door and the player outside the house, the pit's
+  // cells on the player's side of the house, best first: between them and
+  // the house (firepitCellsToward); with no room there, straight behind
+  // them (FIREPIT_OFFSET.dy cells, then one — the open-ground layout when
+  // they stand at the door); then round them, nearest first and nearer the
+  // house on a tie. Never the player's own cell, so they are never
+  // standing in it, nor the two cells outside the `door` wall's doorway.
+  // Cells from the anchor; none from inside.
+  playerSideFirepitCells(player, door) {
+    const side = this.sideOfHouse(player.dx, player.dy);
+    if (!side) return [];
+    const n = this.SIDE_NORMAL[side], { minCell, maxCell } = this.HOUSE;
+    const ns = n.dx + n.dy, alongY = n.dx === 0;
+    const wallOut = ns > 0 ? maxCell : -minCell;      // the house's last row, out along n
+    const out = this.firepitCellsToward(side, player);
+    for (let m = this.FIREPIT_OFFSET.dy; m >= 1; m--) out.push({ dx: player.dx + n.dx * m, dy: player.dy + n.dy * m });
+    const ring = [];
+    for (const r of [1, 2]) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      const c = { dx: player.dx + dx, dy: player.dy + dy };
+      if ((alongY ? c.dy : c.dx) * ns <= wallOut) continue;   // not on the player's side
+      ring.push({ c, d: dx * dx + dy * dy, o: (alongY ? c.dy : c.dx) * ns });
+    }
+    ring.sort((a, b) => a.d - b.d || a.o - b.o);
+    const seen = new Set(out.map(c => c.dx + ',' + c.dy));
+    for (const { c } of ring) if (!seen.has(c.dx + ',' + c.dy)) { seen.add(c.dx + ',' + c.dy); out.push(c); }
+    const step = ns > 0 ? maxCell + 1 : 1 - minCell;
+    const doorstep = (c) => side === door && (alongY ? c.dy : c.dx) * ns === step
+      && (alongY ? c.dx : c.dy) >= minCell && (alongY ? c.dx : c.dy) <= maxCell;
+    return out.filter(c => (c.dx !== player.dx || c.dy !== player.dy) && !doorstep(c));
   },
   // The firepit waits for the first compass reading — but only this long
   // (ms, from Home standing on the surface this session). A device that

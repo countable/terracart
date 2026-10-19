@@ -197,11 +197,35 @@
         'one cell past the doorstep, next to the road');
     });
     // North and west doors use the wall's outer row and the lane nearer the street.
-    assert.eq(JSON.stringify(HomeArea.streetFirepitCells('N', { dx: -3, dy: -6 })),
+    assert.eq(JSON.stringify(HomeArea.firepitCellsToward('N', { dx: -3, dy: -6 })),
       JSON.stringify([{ dx: -1, dy: -4 }, { dx: -1, dy: -3 }]));
-    assert.eq(JSON.stringify(HomeArea.streetFirepitCells('W', { dx: -4, dy: 0 })),
+    assert.eq(JSON.stringify(HomeArea.firepitCellsToward('W', { dx: -4, dy: 0 })),
       JSON.stringify([{ dx: -3, dy: 0 }]));
-    assert.eq(HomeArea.streetFirepitCells('S', { dx: 0, dy: 2 }).length, 0, 'no room before a street at the doorstep');
+    assert.eq(HomeArea.firepitCellsToward('S', { dx: 0, dy: 2 }).length, 0, 'no room before a street at the doorstep');
+  });
+
+  test('home footing: with no street, the firepit goes on the player\'s side of the house, never under them', () => {
+    // House cells (29..30, 28..29), door south.
+    const place = (player) => {
+      const s = scene({ homePlacementHeading: 0, homeCompassDetected: false });
+      withTile(tile([]), () => {
+        const p = at(30, 30); s._placeHome(p.x, p.y);
+        s.playerM = at(...player);
+        s._onFirstCompass();
+      });
+      const pit = s.save.homeFirepit;
+      return worldMetersToAbsCell(s, pit.x, pit.y);
+    };
+    const cell = (c) => [c.cellIX, c.cellIY].join(',');
+    assert.eq(cell(place([30, 30])), '30,32', 'at the door: two behind them, the open-ground layout');
+    assert.eq(cell(place([30, 34])), '30,32', 'farther out: between them and the house');
+    assert.eq(cell(place([30, 32])), '30,31', 'standing on the old spot: between, not under them');
+    assert.eq(cell(place([33, 28])), '32,28', 'east of the house: between them and the east wall');
+    assert.eq(cell(place([26, 29])), '27,29', 'west: between them and the west wall');
+    assert.eq(cell(place([30, 25])), '30,26', 'north, behind the house: still their side');
+    // Inside the house keeps the heading layout.
+    assert.eq(cell(place([29, 28])), '30,32', 'inside: the heading layout');
+    assert.eq(HomeArea.playerSideFirepitCells({ dx: 0, dy: 0 }, 'S').length, 0);
   });
 
   test('home footing: entrance-side offsets follow cardinal and diagonal compass headings', () => {
