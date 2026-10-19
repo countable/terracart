@@ -97,6 +97,8 @@ def material_art(material):
         return {'sheet': 'zone_objects', 'frames': [material['variant']]}
     if kind == 'headstone':
         return {'sheet': 'zone_objects', 'frames': [1]}
+    if kind == 'waystone':
+        return {'sheet': 'rock_variants', 'frames': [0]}
     if kind == 'stronghold_wall':
         return {'sheet': 'stronghold_wall', 'frames': [material.get('variant', 0)], 'preserveFrame': True}
     if kind in r['creatures']:
@@ -689,6 +691,7 @@ def street_svg(v, cell_m, detail=False):
 def street_section(streets):
     cards = []
     for v in streets['rows']:
+        placement_details = '<dt>Placement</dt><dd>' + html.escape(v['placement']) + '</dd>' if v.get('placement') else ''
         props = len(v['objects'])
         mix = collections.Counter(o.get('crop', o['kind']) for o in v['objects'])
         inventory = ', '.join(f'{n} {kind}' for kind, n in mix.items()) or 'No extra verge props'
@@ -715,7 +718,7 @@ def street_section(streets):
             minutes = shrine.get('durationMs', 0) / 60000
             shrine_details = f'<dt>Daily shrine</dt><dd>{html.escape(shrine["name"])} · {html.escape(boon)} for {minutes:g} minutes. One per section where safe ground permits; once per UTC day.</dd>'
         scenic_details = (f'<dt>Geography</dt><dd>{html.escape(v["selection"])}</dd><dt>Rewards</dt><dd>{html.escape(v["rewards"])}</dd>' if v.get('scenicKind') else '')
-        cards.append(f'''<article id="street-{v['id']}"><p data-sandbox="road:{v['id']}"></p><header><small>{selection} · {v['rung']}</small><h2>{html.escape(v['title'])}</h2></header><p class="mix"><b>{props} props over {v['lengthM']:g} m · {props/v['lengthM']*100:.1f} per 100 m in this sample</b><br>{inventory}</p><figure>{street_svg(v, streets['cellM'])}<figcaption>Generated straight-road sample · {v['roadWidthM']:g} m carriageway · ⊕ road reference point, not a POI</figcaption></figure><details class="street-closeup"><summary>Pavement and lamp close-up</summary>{street_svg(v, streets['cellM'], True)}</details><p>{html.escape(v['body'])}</p><dl>{affinity_details}{terrain_details}{scenic_details}{shrine_details}<dt>Placement</dt><dd>{html.escape(v['placement'])}</dd><dt>Lamps</dt><dd>{len(v['lamps'])} shown · {v['lampSpacingM']:g} m target spacing · <span class="swatch" style="background:{v['lampGlow']}"></span>{v['lampGlow']}</dd><dt>Monsters</dt><dd>{monsters}</dd><dt>Guard sites</dt><dd>{len(v['lairs'])} generated candidate sites · outlined diamonds</dd><dt>Slows</dt><dd>{', '.join(v['slowKinds']) or 'None'}</dd><dt>Fauna</dt><dd>{fauna}</dd><dt>Sample key</dt><dd>{v['sampleName']} · tile ({streets['fixture']['tx']}, {streets['fixture']['ty']})</dd></dl></article>''')
+        cards.append(f'''<article id="street-{v['id']}"><p data-sandbox="road:{v['id']}"></p><header><small>{selection} · {v['rung']}</small><h2>{html.escape(v['title'])}</h2></header><p class="mix"><b>{props} props over {v['lengthM']:g} m · {props/v['lengthM']*100:.1f} per 100 m in this sample</b><br>{inventory}</p><figure>{street_svg(v, streets['cellM'])}<figcaption>Generated straight-road sample · {v['roadWidthM']:g} m carriageway · ⊕ road reference point, not a POI</figcaption></figure><details class="street-closeup"><summary>Pavement and lamp close-up</summary>{street_svg(v, streets['cellM'], True)}</details><p>{html.escape(v['body'])}</p><dl>{affinity_details}{terrain_details}{scenic_details}{shrine_details}{placement_details}<dt>Lamps</dt><dd>{len(v['lamps'])} shown · {v['lampSpacingM']:g} m target spacing · <span class="swatch" style="background:{v['lampGlow']}"></span>{v['lampGlow']}</dd><dt>Monsters</dt><dd>{monsters}</dd><dt>Guard sites</dt><dd>{len(v['lairs'])} generated candidate sites · outlined diamonds</dd><dt>Slows</dt><dd>{', '.join(v['slowKinds']) or 'None'}</dd><dt>Fauna</dt><dd>{fauna}</dd><dt>Sample key</dt><dd>{v['sampleName']} · tile ({streets['fixture']['tx']}, {streets['fixture']['ty']})</dd></dl></article>''')
     legend = ''
     contexts = html.escape(json.dumps(streets['affinityContexts']), quote=True)
     affinity_controls = f'<div class="affinity-controls" data-affinity-contexts="{contexts}"><label>Surroundings <select id="affinity-context">' + ''.join(f'<option value="{key}">{key.title()}</option>' for key in streets['affinityContexts']) + '</select></label><p>Selection probabilities below are conditional on a road already being special, within its road size, with no street-name match. Change surroundings to compare soft preferences; the art fixtures stay the same. Scenic paths retain their geographic selection.</p></div>'
@@ -1115,7 +1118,7 @@ def viewer_navigation_script():
   function selectView() {
     const id = decodeURIComponent(location.hash.slice(1));
     const target = document.getElementById(id);
-    const active = target?.closest('[data-view-panel]') || panels.find(p => p.id === 'basic-zones');
+    const active = (/^ambient-L[0-7](?:-|$)/.test(id) ? document.getElementById('ambient-layouts') : target?.closest('[data-view-panel]')) || panels.find(p => p.id === 'basic-zones');
     for (const panel of panels) panel.hidden = panel !== active;
     for (const tab of tabs) {
       if (tab.dataset.view === active.id) tab.setAttribute('aria-current', 'page');
@@ -1128,6 +1131,21 @@ def viewer_navigation_script():
   selectView();
 })();
 </script>"""
+
+
+def ambient_planning_section(out):
+    from preview_ambient_layouts import ambient_floor_sections, ambient_layout_css
+    plan = json.loads((pathlib.Path(__file__).resolve().parents[1] / 'docs/art/ambient-layer-plan.json').read_text())
+    for floor, section in ambient_floor_sections(globals()).items():
+        (out / f'floor-{floor}.html').write_text(section)
+    options = ''.join(f'<option value="{layer["id"]}">{layer["id"]} · {html.escape(layer["name"])}</option>' for layer in plan['layers'])
+    script = pathlib.Path(__file__).with_name('ambient_plan_navigation.js').read_text()
+    section = f'''<section id="ambient-layouts" data-view-panel hidden><h2>Floor habitat plans</h2>
+<p>Visual proposals from the <a href="../ambient-layer-plan/">ambient spawn table</a>. Select one floor; only that floor’s previews load. Each variant uses a static tiled fixture with representative creature sprites, not a live spawn roll. Gold text marks proposed changes.</p>
+<label class="art-switch">Floor <select id="ambient-floor">{options}</select></label>
+<p id="ambient-floor-status" role="status"></p><div id="ambient-floor-content"></div></section>
+<style>{ambient_layout_css()} #ambient-floor{{font:inherit;padding:6px;background:#263b2d;color:#e5ecdf}} .changed{{color:#ffcf70;text-decoration:underline dotted;text-underline-offset:4px}}</style>'''
+    return section, '<script>' + script + '</script>'
 
 
 def render(d, out):
@@ -1190,6 +1208,7 @@ def render(d, out):
             reef = v['reef']
             reef_note = f'<p>Up to {reef["landOre"]["count"]} scattered pick-gated ore rocks on land; coral extends into nearby water with up to {len(reef["chestTiers"])} one-time T2–T3 chests within dry-shore reach.</p><svg viewBox="0 0 192 48">' + ''.join(f'<g transform="translate({i*48},0)">'+art_image({'sheet':'reef_coral','frames':[i]}, 'width="48" height="48"')+'</g>' for i in range(4)) + '</svg><p><a href="/zone-object-sheets/#live-mystic_reef">See the water treatment at a real site</a></p>'
         cards.append(f'''<article id="{v['id']}"><p data-sandbox="{v['zone']}"></p><header><small>{v['zone']} · {mode}</small><h2>{v['name']}</h2></header><p class="mix"><b>{b['nominalDensity']*100:.2f}% {coverage_label} coverage</b><br>{mix}</p><div class="visual"><figure>{svg_for(v,d)}<figcaption>Background + POI arrangement</figcaption></figure><figure class="detail">{svg_for(v,d,True)}<figcaption>Outdoor POI close-up<br>1 cell = 7 m</figcaption></figure></div><p>{v['atmosphere']}</p>{reef_note}<dl><dt>Traits</dt><dd>{html.escape(", ".join(art_registry()["zoneTraits"].get(v["id"], []))) or "Neutral"}</dd><dt>Alignment</dt><dd>{b["poiOrigin"]["role"].replace("_"," ")}</dd><dt>POI</dt><dd>{v['poi']['id'].replace('_',' ')}</dd><dt>Shrine</dt><dd>{html.escape(shrine_text)}</dd><dt>Finds</dt><dd>{html.escape(find_text)} · {v['finds']['rarity']}</dd><dt>Connection</dt><dd>{v['connection']['shape'].replace('_',' ')}</dd><dt>Monsters</dt><dd>{guard_text}</dd><dt>Lighting</dt><dd><span class="swatch" style="background:{light_color}"></span>{light_text}</dd><dt>Fauna</dt><dd>{fauna}</dd></dl></article>''')
+    ambient_section, ambient_script = ambient_planning_section(out)
     page = '''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Zone and street variants · pattern review</title><style>
 *{box-sizing:border-box}html{scroll-behavior:smooth}section,article{scroll-margin-top:110px}section>h2{margin-top:32px}[hidden]{display:none!important}.view-tabs a[aria-current="page"]{background:#95d7d1;color:#101a15;font-weight:700}.page-nav a{padding:8px 12px;background:#23372b;border-radius:6px}.tile-grid{display:grid;align-items:start;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px}.tile-grid canvas{width:100%;image-rendering:pixelated}.tile-grid article{padding:16px}.tile-grid h3{margin-top:0}.density-block{margin:18px 0;padding-top:12px;border-top:1px solid #405745}.density-block h4{margin:0 0 12px}.density-table{width:100%;border-collapse:collapse;font-size:12px;margin:12px 0}.density-table th,.density-table td{padding:6px 3px;border-bottom:1px solid #354b3d;text-align:right}.density-table th:first-child{text-align:left;font-weight:400}.density-table td:last-child{color:#e6c779}.density-total{font-weight:700}.density-bar-row{display:flex;gap:8px;align-items:center;font-size:11px;margin:5px 0}.density-bar-row>span:first-child{width:58px}.density-bar{flex:1;height:8px;background:#101a15;border-radius:3px;overflow:hidden}.density-bar i{display:block;height:100%;background:#95d7d1}.density-bar-row.density-target i{background:#e6c779}.density-intent{font-size:13px}.park-density{margin:12px 0;font-size:13px}.park-density summary{cursor:pointer}#streets{margin-top:56px}.swatch{display:inline-block;width:12px;height:12px;margin-right:5px}.page-nav{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:24px}body{background:#101a15;color:#e5ecdf;font:16px system-ui;margin:32px auto;max-width:1420px;padding:0 24px}h1{font-size:34px}p{line-height:1.6}small,figcaption{font-size:12px;color:#b4c6b4}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,540px),1fr));gap:24px}article,.coverage{background:#1b2a21;padding:24px;border:1px solid #334a3a;border-radius:14px}article h2{margin:8px 0 0}article .mix{min-height:60px}.visual{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:center}figure{margin:0}svg{width:100%;display:block}figcaption{margin-top:8px}.legend{display:flex;flex-wrap:wrap;gap:14px;margin:24px 0}.legend i{display:inline-block;width:12px;height:12px;margin-right:6px}a{color:#95d7d1}h2{font-size:23px}dl{display:grid;grid-template-columns:95px 1fr;gap:7px;font-size:14px}dt{color:#a8bbaa}dd{margin:0}.controls{display:flex;flex-wrap:wrap;gap:16px;position:sticky;top:0;background:#101a15ed;padding:16px 0;z-index:1}.coverage{display:grid;grid-template-columns:1fr 1fr;gap:24px}.coverage svg{max-height:250px}body:has(#show-poi:not(:checked)) figure:not(.detail) .poi-layer{display:none}body:has(#show-bg:not(:checked)) .background{display:none}@media(max-width:640px){.coverage{grid-template-columns:1fr}.visual{grid-template-columns:2fr 1fr}body{padding:0 12px}}</style></head><body>'''
     page = page.replace('</style>', art_styles() + '</style>')
@@ -1200,7 +1219,7 @@ def render(d, out):
     if 'quarry' in categories:
         quick_links += '<a href="#quarry-drafts">Parking-lot stories (4)</a>'
     quick_links += '<a href="#beach-parks">Beach parks</a>'
-    page += f'<h1>Zones and roads</h1><p>{len(d["variants"])} special zones · {len(streets["rows"])} road and path variants · basic terrain previews · <a href="/nexus-review/">See layouts at real sites</a></p><nav class="page-nav view-tabs" aria-label="Viewer sections"><a href="#basic-zones" data-view="basic-zones">Basic zones</a><a href="#streets" data-view="streets">Roads</a><a href="#zones" data-view="zones">Nexus</a><a href="#underground" data-view="underground">Underground</a></nav>'
+    page += f'<h1>Zones and roads</h1><p>{len(d["variants"])} special zones · {len(streets["rows"])} road and path variants · basic terrain previews · <a href="/nexus-review/">See layouts at real sites</a></p><nav class="page-nav view-tabs" aria-label="Viewer sections"><a href="#basic-zones" data-view="basic-zones">Basic zones</a><a href="#streets" data-view="streets">Roads</a><a href="#zones" data-view="zones">Nexus</a><a href="#ambient-layouts" data-view="ambient-layouts">Floor plans</a><a href="#underground" data-view="underground">Cave studies</a></nav>'
     page += '<div class="controls"><label><input id="show-art" type="checkbox" checked> Game art</label><label><input id="show-monsters" type="checkbox" checked> Monsters</label><label><input id="show-lights" type="checkbox" checked> Light guides</label><label><input id="show-poi" type="checkbox" checked> POIs</label><label><input id="show-bg" type="checkbox" checked> Background</label></div>'
     generated_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
     page += f'<p>Static snapshot generated {generated_at} from the checked-out game definitions and shipped art. This page does not fetch live game data; regenerate it after changes.</p>'
@@ -1212,7 +1231,7 @@ def render(d, out):
         page += '<div class="cards">'
         page += ''.join(card for variant, card in zip(d['variants'], cards) if variant['zone'] == key)
         page += '</div></section>'
-    page += beach_park_section(d) + '</section>' + street_section(streets).replace('<section id="streets">', '<section id="streets" data-view-panel hidden>') + basic_tile_section().replace('<section id="basic-zones">', '<section id="basic-zones" data-view-panel>') + underground_section(globals(), out) + viewer_navigation_script() + art_script() + basic_tile_script() + '</body></html>'
+    page += beach_park_section(d) + '</section>' + street_section(streets).replace('<section id="streets">', '<section id="streets" data-view-panel hidden>') + basic_tile_section().replace('<section id="basic-zones">', '<section id="basic-zones" data-view-panel>') + underground_section(globals(), out) + ambient_section + viewer_navigation_script() + ambient_script + art_script() + basic_tile_script() + '</body></html>'
     (out/'index.html').write_text(page)
     def art_licenses(value):
         if isinstance(value, dict):

@@ -193,6 +193,12 @@ a composition shortfall.
   its coverage diagram is schematic. Main Nexus previews show two thirds of
   the original cell width around the POI (or quarry center), keeping the
   seven-metre cell scale and the POI close-ups unchanged.
+- The same preview's Floor plans tab reads `docs/art/ambient-layer-plan.json`.
+  `tools/preview_ambient_layouts.py` builds static tiled proposal samples with
+  representative creature sprites. Separate `floor-L0.html` through
+  `floor-L7.html` fragments load one floor at a time; these are planning
+  illustrations, not runtime layouts or measured spawn densities. The ambient
+  table links directly to each floor and habitat, with proposed changes in gold.
 - The map review (`tools/map-review.html`, `tools/map-review-zones.js`) shows
   variant labels, each Nexus's coverage union, live placements and what occupancy or
   the gate removed; `?quarryClusters=1` (with `removedLanes=1`) colours quarry
